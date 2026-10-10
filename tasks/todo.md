@@ -640,9 +640,13 @@ validación, registro y un test de conformidad reutilizable.
 - [ ] Test: directorio con un plugin bueno, uno roto y uno inválido da 1 activo y 2 rechazos
       con motivo.
 - [ ] Test: el directorio se inyecta; no se lee `$XDG_CONFIG_HOME` real.
+- [ ] **Añadido al revisar el spec:** el paso 8 del arranque de `SPEC-cli-launcher.md` pide que el
+      CLI imprima «la URL de arranque **y la lista de proveedores activos**». Ninguna tarea lo
+      reclamaba. La imprime el CLI tras cargar los plugins, nombrando los activos y, si los hay,
+      los rechazados con su motivo.
 
 **Verificación:** `bun test packages/provider-sdk` · manual copiando un plugin a
-`~/.config/nn-anime/providers/` y viendo `/api/providers`.
+`~/.config/nn-anime/providers/` y viendo `/api/providers` y la línea del CLI.
 
 **Depende de:** T9.
 
@@ -1624,8 +1628,14 @@ hallazgo que no se convierte en criterio de aceptación es un hallazgo perdido.
 - [ ] Aviso de seguridad de plugins en texto claro, en el README y en `/settings`.
 - [ ] Nota explícita de que el repo no incluye scrapers y que las fuentes son responsabilidad
       del usuario.
-- [ ] `packages/cli/package.json` con `bin`, `files` y `publishConfig`; `bun pm pack` produce un
-      tarball instalable.
+- [ ] `packages/cli/package.json` con `bin` (hecho), `files` y `publishConfig`; `bun pm pack`
+      produce un tarball instalable. **Hallazgo al verificar el empaquetado:** hoy el tarball
+      incluye los tests, porque no hay `files` que los excluya, y las dependencias son
+      `workspace:*`, que npm no resuelve al publicar —`bun publish` sí las reescribe—. Las dos
+      cosas hay que resolverlas aquí.
+- [ ] Decidir y dejar escrito qué produce `bun run build`. Las Commands de `SPEC-nn-anime.md` dicen
+      «build de web + bundle de server y cli», y hoy sólo construye la web: el server y el CLI se
+      ejecutan desde el código fuente con Bun. O se compila un artefacto, o se corrige el spec.
 - [ ] `docs/PLAN-B-HLS.md` registra la decisión del Checkpoint F.
 
 **Verificación:** `bun pm pack` · revisar el tarball generado.
