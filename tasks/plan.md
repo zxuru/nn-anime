@@ -86,7 +86,7 @@ Si algo de esto no se cumple, el task no está hecho: se corta o se divide, no s
       typecheck 0, lint 0, tests pasan, 0 fallan. La fundación es reproducible desde el repo.
 - [x] Revisión adversarial de la fundación: cuatro defectos reales encontrados y corregidos con
       test que falla primero. Ver "Correcciones tras la revisión" abajo. 121 tests pasan.
-- [ ] Revisión humana antes de seguir
+- [x] Revisión humana antes de seguir (aprobado el Checkpoint A)
 
 #### Correcciones tras la revisión adversarial del Checkpoint A
 
@@ -258,6 +258,14 @@ reescribirlos en dos tareas sería ruido. `WatchEventInput` no exige `positionS 
 falta decidir si `durationS: 0` significa «desconocida», y esa decisión es de T32, con el proxy
 delante.
 
+**Y un hallazgo de T9 que se resuelve cuando toque:** los mensajes propios de Zod salen en inglés
+(«Invalid input: expected boolean, received undefined»). Los que escribe el proyecto —el nombre del
+header, el campo que falta en un método— sí están en español, así que el mensaje compuesto queda
+mezclado. Zod 4 trae catálogos de idioma (`z.locales.es()`), medido: con `z.config(z.locales.es())`
+el mismo problema sale «Entrada inválida: se esperaba booleano, recibido indefinido». Aplicarlo es
+una línea, pero cambia los mensajes de todos los paquetes y merece decidirse cuando esos textos
+lleguen a la interfaz, que es T10, no aquí.
+
 ### Revisión adversarial de la fase 1
 
 Un revisor con contexto nuevo clonó el repo y **revirtió cada arreglo para medir si alguna prueba
@@ -286,10 +294,10 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] Cada respuesta trae CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options`
 - [x] Verificado también en desarrollo (`bun run dev`): Vite sirve la SPA y su proxy
       reenvía el canje, con los mismos guards sin relajar
-- [ ] Revisión humana antes de seguir
+- [x] Revisión humana antes de seguir (aprobado el Checkpoint B)
 
 ### Fase 2 — Proveedores
-- [ ] T9 `provider-sdk`: tipos, schema, registro, errores y test de conformidad
+- [x] T9 `provider-sdk`: tipos, schema, registro, errores y test de conformidad
 - [ ] T10 `provider-sdk`: loader de plugins con aislamiento de fallos
 - [ ] T11 `providers-fixture` con contrato completo y modos de fallo
 - [ ] T12 Búsqueda agregada con timeout por proveedor y resultados parciales

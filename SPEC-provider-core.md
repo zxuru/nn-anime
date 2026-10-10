@@ -143,8 +143,17 @@ También se acepta `export const providers: readonly Provider[]` para agrupar va
 
 Validación de headers: `validateProvider` rechaza nombres que no cumplan `^[A-Za-z0-9-]+$` y
 valores que contengan caracteres de control (`\r`, `\n`, `\0`). Un plugin que los declare se
-rechaza nombrando el header ofensor. La validación vive en el schema, no en el consumidor, para
+rechaza **nombrando el header ofensor**. La validación vive en el schema, no en el consumidor, para
 que ningún header sin validar pueda llegar a `media-proxy` ni a `mpv`.
+
+El objeto del plugin se valida **sin descartar las claves propias**. Un plugin puede llevar su
+propio estado —una caché, un cliente HTTP— y sus métodos pueden llegar a él con `this`; un schema
+estricto lo borraría en silencio y el plugin fallaría en su primera llamada, con un error que no
+habla del plugin. El contrato exige que estén sus campos; lo demás es del plugin y se respeta.
+
+El orden de la validación es: primero `apiVersion`, después la forma. Un plugin escrito para otra
+versión tiene métodos que existen y una forma que se parece, así que validarlo campo a campo
+produce errores que hablan de un header cuando el problema es la versión.
 
 Reglas del loader:
 
@@ -166,13 +175,21 @@ Reglas de la búsqueda agregada:
 
 ```
 packages/provider-sdk/
+├─ src/index.ts               fachada: lo que importa un autor de plugins
 ├─ src/types.ts               contrato Provider y tipos asociados
-├─ src/schema.ts              validación Zod del contrato
+├─ src/schema.ts              validación Zod del contrato y de las respuestas
 ├─ src/registry.ts            alta, baja, consulta e índice por id
+├─ src/call.ts                llamadas que nunca lanzan: Result, capacidad y validación
+├─ src/conformance.ts         test de conformidad reutilizable
 ├─ src/loader.ts              escaneo y carga de plugins
 ├─ src/errors.ts              ProviderError y clasificación de fallos
 └─ src/*.test.ts
 ```
+
+`call.ts` y `conformance.ts` no estaban en esta lista. El primero existe porque el contrato exige
+que ninguna excepción de un plugin salga del módulo, y eso no es una forma ni una clasificación:
+es una llamada envuelta. El segundo, porque el spec pide un test de conformidad que el autor del
+plugin pueda correr, y eso es código del paquete, no de su suite.
 
 ## Success Criteria
 

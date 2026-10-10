@@ -610,21 +610,25 @@ válida que lo fija.
 validación, registro y un test de conformidad reutilizable.
 
 **Aceptación:**
-- [ ] `Provider`, `ProviderCapabilities`, `CallOptions`, `StreamRequest` y `ProviderError` según
+- [x] `Provider`, `ProviderCapabilities`, `CallOptions`, `StreamRequest` y `ProviderError` según
       `SPEC-provider-core.md`.
-- [ ] `validateProvider(unknown)` devuelve `Result` con el motivo exacto del rechazo.
-- [ ] Un `StreamSource` con nombre de header fuera de `^[A-Za-z0-9-]+$`, o con valor que contenga
+- [x] `validateProvider(unknown)` devuelve `Result` con el motivo exacto del rechazo.
+- [x] Un `StreamSource` con nombre de header fuera de `^[A-Za-z0-9-]+$`, o con valor que contenga
       `\r`, `\n` o `\0`, se rechaza nombrando el header ofensor.
-- [ ] Registro con alta, consulta por id y detección de `id` duplicado (gana el primero).
-- [ ] `assertConforms(provider)` recorre los métodos y reporta qué método incumple el contrato.
-- [ ] `apiVersion` distinto de `'1'` produce un error que nombra la versión esperada.
-- [ ] `search()` del SDK envuelve excepciones del plugin en `Result` y nunca lanza.
+- [x] Registro con alta, consulta por id y detección de `id` duplicado (gana el primero).
+- [x] `assertConforms(provider)` recorre los métodos y reporta qué método incumple el contrato.
+- [x] `apiVersion` distinto de `'1'` produce un error que nombra la versión esperada.
+- [x] `search()` del SDK envuelve excepciones del plugin en `Result` y nunca lanza.
 
-**Verificación:** `bun test packages/provider-sdk`.
+**Verificación:** `bun test packages/provider-sdk` · 75 tests, 0 fallos.
 
 **Depende de:** T4.
 
 **Archivos:** `packages/provider-sdk/src/{types,schema,registry,errors,conformance}.ts` y tests.
+**Ampliación declarada:** `src/call.ts`, porque el criterio «`search()` envuelve excepciones en
+`Result`» no cabía en ninguno de los cinco archivos previstos: los cinco describen formas y
+clasificación, no llamadas. Y `src/index.ts`, que ya existía como marcador y pasa a ser el barrel
+público. Seis archivos de implementación en vez de cinco, con este motivo escrito.
 
 **Tamaño:** M.
 
