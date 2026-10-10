@@ -1750,18 +1750,38 @@ lanzar, seguir y matar.
 entiende.
 
 **Aceptación:**
-- [ ] `GET /api/subtitles/:ticket` proxyfica la pista y fuerza `Content-Type: text/vtt`.
-- [ ] `srt` se convierte a `vtt` en memoria: numeración, comas a puntos y cabecera `WEBVTT`.
-- [ ] `ass` se devuelve tal cual para mpv y se omite en el reproductor web.
-- [ ] Codificación distinta de UTF-8 se detecta y se convierte a UTF-8.
-- [ ] Límite de 5 MB por pista; por encima, error explícito.
-- [ ] Test de conversión con un `srt` de fixture que incluye BOM y saltos CRLF.
+- [x] `GET /api/subtitles/:ticket` proxyfica la pista y fuerza `Content-Type: text/vtt`.
+- [x] `srt` se convierte a `vtt` en memoria: numeración, comas a puntos y cabecera `WEBVTT`.
+- [x] `ass` se devuelve tal cual para mpv y se omite en el reproductor web.
+- [x] Codificación distinta de UTF-8 se detecta y se convierte a UTF-8.
+- [x] Límite de 5 MB por pista; por encima, error explícito.
+- [x] Test de conversión con un `srt` de fixture que incluye BOM y saltos CRLF.
 
-**Verificación:** `bun test packages/media-proxy`.
+**Verificación:** `bun test packages/media-proxy packages/server` · 17 pruebas de conversión y 7 de la
+ruta, con `fixtures/sample.srt` (BOM y CRLF) y su salida esperada versionada. Medido mutando la
+implementación: sin quitar la numeración fallan 2, sin cambiar las comas 3, sin detectar UTF-16 1 y
+con el decodificador quedándose el BOM 2. Control: 0 fallos.
 
 **Depende de:** T25, T11.
 
 **Archivos:** `packages/media-proxy/src/{subtitles.ts,subtitles.test.ts}`, `packages/server/src/routes/subtitles.ts`, `packages/media-proxy/fixtures/sample.srt`.
+**Ampliación declarada:** `packages/server/src/routes/subtitles.test.ts`, el fixture
+`sample.expected.vtt`, el barril de `media-proxy` y `app.ts` para montar la ruta.
+
+**Tres decisiones que conviene recordar:**
+
+1. **La codificación se detecta, no se supone.** Primero los BOM, que son una declaración explícita;
+   después UTF-8 estricto, que falla si no lo es; y sólo entonces una codificación de un byte, que
+   nunca falla y por eso no puede ser la primera opción.
+2. **La numeración sólo se descarta si lo que viene detrás son tiempos.** Una línea que es sólo un
+   número puede ser el diálogo de un subtítulo que dice «1», y borrarla es comerse el texto. Lo
+   encontró la prueba, y era un fallo de verdad.
+3. **`ass` no se toca.** Es un formato con estilos que mpv entiende y el navegador no; convertirlo mal
+   es peor que no ofrecerlo, y quien decide no ofrecerlo es el reproductor web (T31).
+
+**Una línea que se quitó tras medirla:** el BOM de UTF-8 se quitaba a mano y ninguna mutación podía
+distinguirlo, porque el decodificador se lo come él solo. Se eliminó, y el fixture con BOM sigue
+cubriendo el caso: con `ignoreBOM: true` la prueba falla.
 
 **Tamaño:** M.
 

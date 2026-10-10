@@ -79,6 +79,15 @@ export {
   sanitizeHeaders,
 } from './response-headers'
 export {
+  type DecodedSubtitle,
+  decodeSubtitle,
+  MAX_SUBTITLE_BYTES,
+  type SubtitleKind,
+  srtToVtt,
+  subtitleKind,
+  subtitleTooLarge,
+} from './subtitles'
+export {
   createTicketStore,
   DEFAULT_CAPACITY,
   DEFAULT_TTL_S,
