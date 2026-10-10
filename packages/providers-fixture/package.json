@@ -4,9 +4,15 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./data": "./src/data.ts"
   },
   "scripts": {
     "test": "bun test"
+  },
+  "dependencies": {
+    "@nn-anime/core": "workspace:*",
+    "@nn-anime/provider-sdk": "workspace:*",
+    "zod": "^4"
   }
 }

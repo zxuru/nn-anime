@@ -199,7 +199,10 @@ plugin pueda correr, y eso es código del paquete, no de su suite.
 - [ ] Un plugin cuyo `search` lanza excepción no impide ver los resultados de los demás.
 - [ ] Un plugin que nunca resuelve se aborta a los 8 s y su ausencia no bloquea la respuesta.
 - [ ] Dos plugins con el mismo `id` producen un conflicto reportado, no una caída.
-- [ ] `providers-fixture` implementa el contrato completo y pasa los tests de conformidad.
+- [x] `providers-fixture` implementa el contrato completo y pasa los tests de conformidad.
+      Doce títulos inventados, streams `file` y `hls`, subtítulos `vtt` y `srt`, y modos de fallo
+      (latencia, timeout, 500, 404, excepción y `Referer` obligatorio) elegibles por opciones, por
+      variables de entorno o por referencia especial.
 - [ ] El test de conformidad es reutilizable: correrlo contra un plugin indica qué método
       incumple el contrato.
 - [ ] Ningún header de `StreamSource.headers` aparece en una respuesta al cliente web.

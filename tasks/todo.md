@@ -677,20 +677,29 @@ datos de prueba y sumarlos a la lista de «ningún test carga» la volvía inút
 defectos. Es la base de todos los tests y del e2e.
 
 **Aceptación:**
-- [ ] Implementa `search`, `getAnime`, `getEpisodes`, `resolveStream` y `getTrending`.
-- [ ] Sirve al menos 12 títulos con géneros, estudio, año, sinopsis y cobertura; episodios por
+- [x] Implementa `search`, `getAnime`, `getEpisodes`, `resolveStream` y `getTrending`.
+- [x] Sirve al menos 12 títulos con géneros, estudio, año, sinopsis y cobertura; episodios por
       título; streams `file` y `hls`; subtítulos `srt` y `vtt`.
-- [ ] Modos de fallo seleccionables por variable o por `ref` especial: latencia configurable,
+- [x] Modos de fallo seleccionables por variable o por `ref` especial: latencia configurable,
       timeout, 500, 404, método que lanza, stream que exige header `Referer`.
-- [ ] Test de conformidad de T9 pasa contra este proveedor.
-- [ ] Ningún acceso a red: verificado con un test que corre con `fetch` sustituido por algo que
+- [x] Test de conformidad de T9 pasa contra este proveedor.
+- [x] Ningún acceso a red: verificado con un test que corre con `fetch` sustituido por algo que
       lanza.
 
-**Verificación:** `bun test packages/providers-fixture`.
+**Verificación:** `bun test packages/providers-fixture` · 41 tests. Medido mutando la
+implementación: sin filtrar por la consulta fallan 2, sin contar las llamadas 2, con el 404
+reportado como 500 1, con el timeout resolviendo en vez de colgarse 2 y sin el `Referer` del stream
+1. Control: 0 fallos.
 
 **Depende de:** T9.
 
-**Archivos:** `packages/providers-fixture/src/{index,data}.ts`, `packages/providers-fixture/src/{fixture.test.ts,conformance.test.ts}`, `packages/providers-fixture/fixtures/*.json`, `packages/providers-fixture/media/*.m3u8`.
+**Archivos:** `packages/providers-fixture/src/{index,data}.ts`, `packages/providers-fixture/src/{fixture.test.ts,conformance.test.ts}`, `packages/providers-fixture/fixtures/catalogo.json`, `packages/providers-fixture/media/*.m3u8`.
+
+**Detalle que conviene saber:** el catálogo es inventado y valida con Zod al cargarse (doce títulos
+escritos a mano son justo donde un campo que falta se descubre tres tareas después). Todas las
+direcciones son de `fixture.invalid`, un dominio reservado que no resuelve: un test que salga a la
+red falla por conexión y no por suerte. Y `calls` cuenta por método, que es lo que permitirá afirmar
+«la segunda vuelta no llamó al proveedor».
 
 **Tamaño:** M.
 
