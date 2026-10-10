@@ -34,6 +34,12 @@ export {
   searchQuerySchema,
   streamResolveResponseSchema,
   streamSourceResponseSchema,
+  type WatchStartRequest,
+  type WatchStartResponse,
+  type WatchUpdateRequest,
+  watchStartRequestSchema,
+  watchStartResponseSchema,
+  watchUpdateRequestSchema,
 } from './api'
 export {
   APP_DIR_NAME,

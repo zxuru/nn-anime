@@ -33,6 +33,10 @@ export const messages: Messages = {
   'search.alsoIn': 'También en {count} proveedores',
 
   'player.label': 'Reproductor de video',
+  'player.tracks': 'Subtítulos disponibles: {count}.',
+  'player.mode': 'Modo',
+  'player.mode.sub': 'Subtitulado',
+  'player.mode.dub': 'Doblado',
   'player.play': 'Reproducir',
   'player.pause': 'Pausa',
   'player.back': 'Atrás 10 s',

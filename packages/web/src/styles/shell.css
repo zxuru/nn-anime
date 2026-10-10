@@ -336,3 +336,15 @@
   font-variant-numeric: tabular-nums;
   color: var(--color-text-dim);
 }
+
+.watch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.watch__modes {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}

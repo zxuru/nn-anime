@@ -34,6 +34,7 @@ import { type PluginReport, registerProvidersRoute, summarizePlugins } from './r
 import { registerSearchRoute } from './routes/search'
 import { registerStreamRoutes } from './routes/stream'
 import { registerSubtitlesRoute } from './routes/subtitles'
+import { registerWatchRoutes } from './routes/watch'
 import type { Session } from './session'
 
 /** Puerto conocido en el momento de montar la aplicación, o función que lo lee. */
@@ -148,6 +149,7 @@ export function createApp(options: AppOptions): Hono {
     registerCoverRoute(app, { container: options.container, ...proxyOptions })
     registerStreamRoutes(app, { ...routeOptions, ...proxyOptions })
     registerSubtitlesRoute(app, { container: options.container, ...proxyOptions })
+    registerWatchRoutes(app, { container: options.container })
     registerPlayRoutes(app, routeOptions)
   }
 

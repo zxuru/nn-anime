@@ -69,3 +69,53 @@ describe('el reproductor', () => {
     expect(fuente).not.toContain("from 'hls.js'")
   })
 })
+
+describe('pistas y reanudación', () => {
+  test('pinta una pista por subtítulo, con su idioma y su etiqueta', () => {
+    const html = render(
+      <Player
+        url="/stream/abc"
+        kind="hls"
+        tracks={[{ url: '/api/subtitles/xyz', lang: 'es', label: 'Español' }]}
+      />,
+    )
+
+    expect(html).toContain('<track')
+    expect(html).toContain('src="/api/subtitles/xyz"')
+    // React escribe el atributo con el nombre de la propiedad, igual que con
+    // `playsInline`: el navegador lo entiende igual.
+    expect(html.toLowerCase()).toContain('srclang="es"')
+    expect(html).toContain('label="Español"')
+  })
+
+  test('la primera pista es la que viene marcada por defecto', () => {
+    const html = render(
+      <Player
+        url="/stream/abc"
+        kind="hls"
+        tracks={[
+          { url: '/api/subtitles/a', lang: 'es', label: 'Español' },
+          { url: '/api/subtitles/b', lang: 'en', label: 'Inglés' },
+        ]}
+      />,
+    )
+
+    expect(html.match(/default=""/g)?.length).toBe(1)
+  })
+
+  test('una pista con una dirección de fuera no se convierte en atributo', () => {
+    const html = render(
+      <Player
+        url="/stream/abc"
+        kind="hls"
+        tracks={[{ url: 'https://otro.example/es.vtt', lang: 'es', label: 'Español' }]}
+      />,
+    )
+
+    expect(html).not.toContain('otro.example')
+  })
+
+  test('sin pistas no hay ningún `<track>`', () => {
+    expect(render(<Player url="/stream/abc" kind="file" />)).not.toContain('<track')
+  })
+})

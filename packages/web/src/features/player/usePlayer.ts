@@ -14,6 +14,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { needsHls, type PlayerAction, SEEK_STEP_S, seekBy, volumeBy } from './controls'
 
+/** Una pista que el reproductor puede pintar. */
+export interface SafeTrack {
+  readonly url: string
+  readonly lang: string
+  readonly label: string
+}
+
 export interface PlayerState {
   readonly playing: boolean
   readonly positionS: number
@@ -62,7 +69,18 @@ export async function attachHls(
   }
 }
 
-export function usePlayer(source: { readonly url: string; readonly kind: string }): PlayerHandle {
+export interface UsePlayerOptions {
+  readonly url: string
+  readonly kind: string
+  /** Se llama al empezar a reproducir de verdad. */
+  readonly onPlay?: (() => void) | undefined
+  readonly onPause?: (() => void) | undefined
+  readonly onProgress?: ((positionS: number, durationS: number) => void) | undefined
+  /** Segundo en el que empezar. Sirve para reanudar y para cambiar de modo. */
+  readonly startAtS?: number | undefined
+}
+
+export function usePlayer(source: UsePlayerOptions): PlayerHandle {
   const [state, setState] = useState<PlayerState>({
     playing: false,
     positionS: 0,
@@ -108,10 +126,27 @@ export function usePlayer(source: { readonly url: string; readonly kind: string 
       setState((previo) => ({ ...previo, loading: false }))
     }
 
-    const alTiempo = (): void => setState((previo) => ({ ...previo, positionS: video.currentTime }))
-    const alDuracion = (): void => setState((previo) => ({ ...previo, durationS: video.duration }))
-    const alReproducir = (): void => setState((previo) => ({ ...previo, playing: true }))
-    const alPausar = (): void => setState((previo) => ({ ...previo, playing: false }))
+    const alTiempo = (): void => {
+      setState((previo) => ({ ...previo, positionS: video.currentTime }))
+      source.onProgress?.(video.currentTime, video.duration)
+    }
+    const alDuracion = (): void => {
+      setState((previo) => ({ ...previo, durationS: video.duration }))
+
+      // Reanudar: al saber la duración, se salta a donde se dejó. Se hace aquí y
+      // no al montar porque el elemento todavía no admite un `currentTime` que no
+      // conoce.
+      const destino = source.startAtS ?? 0
+      if (destino > 0 && video.currentTime < destino) video.currentTime = destino
+    }
+    const alReproducir = (): void => {
+      setState((previo) => ({ ...previo, playing: true }))
+      source.onPlay?.()
+    }
+    const alPausar = (): void => {
+      setState((previo) => ({ ...previo, playing: false }))
+      source.onPause?.()
+    }
     const alError = (): void =>
       setState((previo) => ({ ...previo, error: 'no se pudo cargar el video', loading: false }))
 
@@ -134,7 +169,7 @@ export function usePlayer(source: { readonly url: string; readonly kind: string 
       hls.current?.destroy()
       hls.current = undefined
     }
-  }, [source.kind, source.url])
+  }, [source.kind, source.url, source.startAtS, source.onPlay, source.onPause, source.onProgress])
 
   const act = useCallback((action: PlayerAction) => {
     const video = elemento.current

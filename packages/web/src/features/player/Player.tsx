@@ -17,17 +17,36 @@ import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { t } from '../../i18n'
 import { announcement, formatTime, keyAction, needsHls } from './controls'
-import { usePlayer } from './usePlayer'
+import { isProxyPath } from './subtitle-tracks'
+import { type SafeTrack, usePlayer } from './usePlayer'
 
 export interface PlayerProps {
   /** URL del proxy: el ticket, nunca la del upstream. */
   readonly url: string
   readonly kind: string
   readonly title?: string | undefined
+  /** Pistas que el navegador puede pintar, ya filtradas. */
+  readonly tracks?: readonly SafeTrack[] | undefined
+  /** Se llama al empezar a reproducir de verdad, no al cargar la página. */
+  readonly onPlay?: (() => void) | undefined
+  readonly onPause?: (() => void) | undefined
+  readonly onProgress?: ((positionS: number, durationS: number) => void) | undefined
+  /** Segundo en el que empezar, al reanudar o al cambiar de modo. */
+  readonly startAtS?: number | undefined
 }
 
 export function Player(props: PlayerProps): ReactNode {
-  const { state, videoRef, act } = usePlayer({ url: props.url, kind: props.kind })
+  // Los avisos de reproducción, pausa y avance salen de los eventos del propio
+  // elemento, no del render: llamarlos al pintar los dispararía en cada vuelta.
+  const { state, videoRef, act } = usePlayer({
+    url: props.url,
+    kind: props.kind,
+    ...(props.onPlay === undefined ? {} : { onPlay: props.onPlay }),
+    ...(props.onPause === undefined ? {} : { onPause: props.onPause }),
+    ...(props.onProgress === undefined ? {} : { onProgress: props.onProgress }),
+    ...(props.startAtS === undefined ? {} : { startAtS: props.startAtS }),
+  })
+  const pistas = props.tracks ?? []
 
   // El teclado se escucha en la ventana: el foco puede estar en el propio video
   // o en la página, y obligar a enfocar el reproductor para usar las flechas es
@@ -63,7 +82,25 @@ export function Player(props: PlayerProps): ReactNode {
         playsInline
         preload="metadata"
         aria-label={props.title ?? t(DEFAULT_LOCALE, 'player.label')}
-      />
+      >
+        {/* Una pista por subtítulo disponible. El navegador pinta la que esté
+            marcada como `default`; el `<track>` no admite `default` dinámico, así
+            que la primera —la que el proveedor prefiere— se marca desde el
+            estado inicial del elemento. */}
+        {pistas.map((pista, indice) => (
+          <track
+            key={pista.url}
+            kind="subtitles"
+            // La comprobación va **en el atributo**, no sólo al construir la
+            // lista: si mañana alguien pasa pistas sin filtrar, aquí no entra una
+            // dirección de fuera igualmente.
+            src={isProxyPath(pista.url) ? pista.url : ''}
+            srcLang={pista.lang}
+            label={pista.label}
+            default={indice === 0}
+          />
+        ))}
+      </video>
 
       <div className="player__controls">
         <button type="button" className="button" onClick={() => act('toggle')}>
@@ -100,6 +137,10 @@ export function Player(props: PlayerProps): ReactNode {
       <p className="search__status" aria-live="polite">
         {announcement(state)}
       </p>
+
+      {pistas.length === 0 ? null : (
+        <p className="card__meta">{t(DEFAULT_LOCALE, 'player.tracks', { count: pistas.length })}</p>
+      )}
 
       <p className="card__meta">{t(DEFAULT_LOCALE, 'player.shortcuts')}</p>
 

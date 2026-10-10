@@ -88,7 +88,12 @@ describe('ningún atributo toma una URL de proveedor sin pasar por la lista blan
     )
 
     for (const { archivo, expresion } of sospechosas) {
-      expect(expresion, `${archivo}: ${expresion}`).toContain('safeUrl')
+      // Hay dos listas blancas y las dos valen: `safeUrl` para direcciones
+      // absolutas http(s), e `isProxyPath` para rutas internas del proxy. Lo que
+      // no vale es que el dato entre en el atributo sin pasar por ninguna.
+      const pasaPorLista = expresion.includes('safeUrl') || expresion.includes('isProxyPath')
+
+      expect(pasaPorLista, `${archivo}: ${expresion}`).toBe(true)
     }
   })
 

@@ -17,6 +17,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { apiPostJson } from '../../api/client'
 import { t } from '../../i18n'
 import { Player } from './Player'
+import { type SubtitleCandidate, toSafeTracks, tracksFromSource } from './subtitle-tracks'
+import { useWatchEvents } from './useWatchEvents'
 
 export interface WatchPageProps {
   readonly providerId: string
@@ -26,7 +28,23 @@ export interface WatchPageProps {
 type Estado = 'loading' | 'ready' | 'error'
 
 export function WatchPage(props: WatchPageProps): ReactNode {
-  const [fuente, setFuente] = useState<{ url: string; kind: string } | undefined>(undefined)
+  const [fuente, setFuente] = useState<
+    { url: string; kind: string; subtitles?: readonly SubtitleCandidate[] } | undefined
+  >(undefined)
+  // El modo se elige aquí y volver a resolver el stream con el nuevo modo
+  // reanuda en la misma posición: cambiar de subtitulado a doblado no debería
+  // devolver a nadie al principio del episodio.
+  const [modo, setModo] = useState<'sub' | 'dub'>('sub')
+  const [posicion, setPosicion] = useState(0)
+
+  // El registro del visionado: alta al reproducir de verdad, avance cada 15 s y
+  // al pausar, y la posición final al desmontar o cerrar la pestaña.
+  const visionado = useWatchEvents({
+    animeRef: { providerId: props.providerId, value: props.ref },
+    episodeRef: { providerId: props.providerId, value: props.ref },
+    mode: modo,
+    startAtS: posicion,
+  })
   const [estado, setEstado] = useState<Estado>('loading')
   const [error, setError] = useState<string | undefined>(undefined)
   const [intento, setIntento] = useState(0)
@@ -42,7 +60,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
 
     void apiPostJson(
       '/api/stream/resolve',
-      { episodeRef: { providerId: props.providerId, value: props.ref }, mode: 'sub' },
+      { episodeRef: { providerId: props.providerId, value: props.ref }, mode: modo },
       streamResolveResponseSchema,
     ).then(
       (salida) => {
@@ -56,7 +74,13 @@ export function WatchPage(props: WatchPageProps): ReactNode {
           return
         }
 
-        setFuente({ url: primera.url, kind: primera.kind })
+        setFuente({
+          url: primera.url,
+          kind: primera.kind,
+          ...(primera.subtitles === undefined
+            ? {}
+            : { subtitles: primera.subtitles as readonly SubtitleCandidate[] }),
+        })
         setEstado('ready')
       },
       (cause: unknown) => {
@@ -70,7 +94,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     return () => {
       vivo = false
     }
-  }, [props.providerId, props.ref, intento])
+  }, [props.providerId, props.ref, intento, modo])
 
   if (estado === 'loading') {
     return <p className="empty">{t(DEFAULT_LOCALE, 'player.loading')}</p>
@@ -89,5 +113,38 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     )
   }
 
-  return <Player url={fuente.url} kind={fuente.kind} title={props.ref} />
+  const pistas = toSafeTracks(tracksFromSource(fuente))
+
+  return (
+    <section className="watch">
+      <div className="watch__modes">
+        <span className="card__meta">{t(DEFAULT_LOCALE, 'player.mode')}</span>
+        {(['sub', 'dub'] as const).map((candidato) => (
+          <button
+            key={candidato}
+            type="button"
+            className="button"
+            aria-pressed={modo === candidato}
+            onClick={() => setModo(candidato)}
+          >
+            {t(DEFAULT_LOCALE, candidato === 'sub' ? 'player.mode.sub' : 'player.mode.dub')}
+          </button>
+        ))}
+      </div>
+
+      <Player
+        url={fuente.url}
+        kind={fuente.kind}
+        title={props.ref}
+        tracks={pistas}
+        startAtS={posicion}
+        onPlay={visionado.onPlay}
+        onPause={visionado.onPause}
+        onProgress={(positionS) => {
+          setPosicion(positionS)
+          visionado.onProgress(positionS, 0)
+        }}
+      />
+    </section>
+  )
 }

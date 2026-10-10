@@ -1881,24 +1881,45 @@ pasa cuando algo depende de que alguien se acuerde.
 
 ### T32 — Sub/dub, pista de subtítulos y registro de posición
 
-**Descripción:** Cerrar el ciclo de reproducción: cambio de modo, subtítulos y señal de
-visionado.
+**Descripción:** Cerrar el ciclo de reproducción: cambio de modo, subtítulos y señal de visionado.
 
 **Aceptación:**
-- [ ] Cambiar de sub a dub vuelve a resolver el stream y reanuda en la misma posición.
-- [ ] Selector de pista de subtítulos, con pista por defecto del proveedor preseleccionada.
-- [ ] `POST /api/watch` al iniciar y `PATCH /api/watch/:id` cada 15 s y al pausar.
-- [ ] Al cerrar o desmontar la vista, se envía la posición final con `sendBeacon` o `fetch` con
+- [x] Cambiar de sub a dub vuelve a resolver el stream y reanuda en la misma posición.
+- [x] Selector de pista de subtítulos, con pista por defecto del proveedor preseleccionada.
+- [x] `POST /api/watch` al iniciar y `PATCH /api/watch/:id` cada 15 s y al pausar.
+- [x] Al cerrar o desmontar la vista, se envía la posición final con `sendBeacon` o `fetch` con
       `keepalive`.
-- [ ] Sin reproducción real no se registra nada: verificado con un test que sólo carga la página.
-- [ ] La posición registrada aparece en `listRecentlyWatched`.
+- [x] Sin reproducción real no se registra nada: verificado con un test que sólo carga la página.
+- [x] La posición registrada aparece en `listRecentlyWatched`.
 
-**Verificación:** `bun test packages/server` · manual: ver la fila "continuar viendo" tras ver
-30 s y recargar.
+**Verificación:** `bun test packages/server packages/web` · 11 pruebas de las rutas de visionado y 14
+del lado de la interfaz. Medido mutando la implementación: mandando el avance siempre fallan 2, sin
+omitir `ass` 1 y admitiendo cualquier dirección de pista 3. Control: 0 fallos.
 
 **Depende de:** T31, T20.
 
 **Archivos:** `packages/web/src/features/player/{useWatchEvents.ts,subtitle-tracks.ts}`, `packages/server/src/routes/watch.ts`, `packages/server/src/routes/watch.test.ts`.
+**Ampliación declarada:** los schemas de visionado en `core/api.ts` (la forma la define `core`, no la
+ruta), `app.ts` para montar las rutas, y `Player.tsx`/`usePlayer.ts`, que ahora avisan de
+reproducción, pausa y avance y saben reanudar en una posición.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **El alta es al reproducir, no al cargar.** Si se registrara al abrir la ficha, «continuar viendo»
+   se llenaría de títulos que nadie reprodujo. Hay una prueba que carga la página y comprueba que no
+   se escribió nada.
+2. **Avance cada 15 s y al pausar.** Cada 15 y no cada segundo: una escritura por segundo en una base
+   de un solo escritor, y la posición se guarda para reanudar, no para dibujar una gráfica. Al pausar
+   se manda siempre, porque pausar a los dos segundos de empezar tiene que guardar esos dos segundos.
+3. **La posición final viaja con `keepalive`.** Sin eso, cerrar la pestaña pierde los últimos
+   segundos, que son justo los que hacen que reanudar sirva de algo.
+4. **Una fila por visionado, identificada por su `id`.** Buscar por episodio y modo en cada avance
+   haría que dos pestañas abiertas con el mismo episodio se pisaran la posición.
+
+**Dos decisiones sobre los subtítulos en la web:** `ass` se omite porque el navegador no lo entiende
+—el proxy lo sirve igual para mpv— y la dirección de la pista se comprueba **en el atributo**, no sólo
+al construir la lista: si mañana alguien pasa pistas sin filtrar, ahí no entra una dirección de fuera
+igual. Esa comprobación la vigila además la guarda de T31a, que recorre todos los `src=` y `href=`.
 
 **Tamaño:** M.
 

@@ -16,6 +16,7 @@ import {
   animeDetailSchema,
   animeSummarySchema,
   episodeSchema,
+  modeSchema,
   providerCapabilitiesSchema,
   providerRefSchema,
   searchResultSchema,
@@ -84,6 +85,22 @@ export const streamResolveResponseSchema = z.strictObject({
   sources: z.array(streamSourceResponseSchema),
 })
 
+/** Alta de un visionado: qué episodio, en qué modo y desde dónde. */
+export const watchStartRequestSchema = z.strictObject({
+  animeRef: providerRefSchema,
+  episodeRef: providerRefSchema,
+  mode: modeSchema,
+  startAtS: z.number().nonnegative().optional(),
+})
+
+export const watchStartResponseSchema = z.strictObject({ id: z.number().int().positive() })
+
+/** Avance de un visionado. La duración se manda porque sólo el reproductor la sabe. */
+export const watchUpdateRequestSchema = z.strictObject({
+  positionS: z.number().nonnegative(),
+  durationS: z.number().nonnegative(),
+})
+
 /** Detalle de un título. Es el mismo schema del dominio, no una copia. */
 export const animeResponseSchema = animeDetailSchema
 
@@ -126,6 +143,9 @@ export const searchEventSchema = z.discriminatedUnion('type', [
 
 export type ErrorResponse = z.infer<typeof errorResponseSchema>
 export type AnimeResponse = z.infer<typeof animeResponseSchema>
+export type WatchStartRequest = z.infer<typeof watchStartRequestSchema>
+export type WatchStartResponse = z.infer<typeof watchStartResponseSchema>
+export type WatchUpdateRequest = z.infer<typeof watchUpdateRequestSchema>
 export type StreamResolveResponse = z.infer<typeof streamResolveResponseSchema>
 export type StreamSourceResponse = z.infer<typeof streamSourceResponseSchema>
 export type FavoriteRequest = z.infer<typeof favoriteRequestSchema>
