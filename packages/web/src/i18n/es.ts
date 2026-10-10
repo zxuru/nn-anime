@@ -15,7 +15,6 @@ export const messages: Messages = {
   'nav.settings': 'Ajustes',
 
   'home.title': 'Inicio',
-  'home.pending': 'Aquí irán las recomendaciones, lo que estabas viendo y las tendencias.',
 
   'search.title': 'Buscar',
   'search.field': 'Buscar por título',
@@ -32,6 +31,15 @@ export const messages: Messages = {
   'search.failed': 'No se pudo buscar: {message}',
   'search.alsoIn': 'También en {count} proveedores',
 
+  'reco.title': 'Recomendado para ti',
+  'reco.loading': 'Buscando qué recomendarte…',
+  'reco.error': 'No se pudieron cargar las recomendaciones: {message}',
+  'reco.empty': 'Todavía no hay nada que recomendar. Busca algo y vuelve.',
+  'reco.coldStart': 'Sin historial todavía: esto es lo más popular del catálogo.',
+  'reco.personalized': 'Ordenado por lo que has visto y buscado.',
+  'reco.showScore': 'Ver el detalle',
+  'reco.hideScore': 'Ocultar el detalle',
+  'reco.score': 'Puntuación: {score}',
   'player.label': 'Reproductor de video',
   'player.tracks': 'Subtítulos disponibles: {count}.',
   'player.mode': 'Modo',

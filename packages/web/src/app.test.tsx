@@ -19,10 +19,14 @@ function render(path: string): string {
 }
 
 describe('App: pantallas', () => {
-  test('la raíz es la pantalla de inicio', () => {
+  test('la raíz es la pantalla de inicio, con su panel', () => {
+    // La home arranca con el panel cargando: el primer render no depende de una
+    // petición, que en servidor no hay.
     const html = render('/')
 
-    expect(html).toContain('Aquí irán las recomendaciones')
+    expect(html).toContain('Inicio')
+    expect(html).toContain('Recomendado para ti')
+    expect(html).not.toContain('Aquí irán')
   })
 
   test('la búsqueda tiene su propia pantalla, con su campo y su estado vacío', () => {

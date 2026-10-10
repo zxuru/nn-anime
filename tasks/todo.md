@@ -2235,18 +2235,40 @@ comparte género con lo visto, así que la prueba registra un visionado **con av
 **Descripción:** Mostrar el ranking con sus razones y reaccionar a lo que el usuario busca.
 
 **Aceptación:**
-- [ ] Panel en la home con al menos una razón visible por tarjeta; las demás en el `title`.
-- [ ] Botón para ver el detalle del score (`components`).
-- [ ] Al cambiar la consulta de búsqueda, el panel se refresca con debounce de 400 ms y cancela
-      la petición anterior.
-- [ ] El panel es distinto del de arranque en frío cuando hay historial.
-- [ ] Estados de carga y de vacío claros; textos de `t()`.
+- [x] Panel en la home con al menos una razón visible por tarjeta; las demás en el `title`.
+- [x] Botón para ver el detalle del score (`components`).
+- [x] Al cambiar la consulta de búsqueda, el panel se refresca con debounce de 400 ms y cancela la
+      petición anterior.
+- [x] El panel es distinto del de arranque en frío cuando hay historial.
+- [x] Estados de carga y de vacío claros; textos de `t()`.
 
-**Verificación:** `bun run dev` · ver el panel antes y después de registrar historial.
+**Verificación:** `bun test packages/web` · 15 pruebas. Medido mutando la implementación: sin abortar
+la petición anterior falla 1, sin cancelar lo pendiente 2, sin el retardo 1, sin las razones
+secundarias en el `title` 1 y sin escapar la consulta 3. Control: 0 fallos. `bun run build` verde.
 
 **Depende de:** T38, T14.
 
 **Archivos:** `packages/web/src/features/recommendations/{Panel,ReasonBadge,ScoreDetail}.tsx`, `packages/web/src/features/recommendations/useRecommendations.ts`.
+**Ampliación declarada:** `scheduler.ts` y su prueba, `packages/web/src/features/home/HomePage.tsx` y
+`app.tsx` para montarla, el catálogo y la hoja de estructura.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **El retardo y la cancelación viven en un módulo propio** (`scheduler.ts`) y no dentro del hook.
+   Dentro no se podían probar sin navegador ni relojes de mentira, y las dos primeras mutaciones que
+   probé **sobrevivieron** a una comprobación por texto de que «hay un setTimeout».
+2. **La petición anterior se aborta al llegar una clave nueva, no al dispararse el temporizador.** Si
+   se esperara, seguiría viva durante el retardo y su respuesta podría llegar la última y pintar datos
+   viejos: es el fallo clásico de un buscador con retardo.
+3. **El texto de la razón viene del motor, ya escrito.** La interfaz no lo compone: si lo compusiera,
+   habría dos sitios decidiendo cómo se explica una recomendación y acabarían diciendo cosas distintas.
+4. **El detalle del score se abre con un botón y no se pide al servidor.** La forma pública no trae
+   `components` a propósito, así que el detalle enseña lo que sí llega —la puntuación y las razones—
+   en vez de inventarse desgloses.
+
+**El panel dice en qué estado está**: sin historial, «esto es lo más popular del catálogo»; con
+historial, «ordenado por lo que has visto y buscado». Es lo único honesto que se puede decir cuando no
+se sabe nada de quien mira, y el spec pide que el arranque en frío se distinga.
 
 **Tamaño:** M.
 
