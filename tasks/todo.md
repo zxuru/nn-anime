@@ -1741,10 +1741,13 @@ implementado y, si no, qué tarea lo cubre por su aceptación.
 
 **Aceptación:**
 - [ ] **La cobertura objetivo del spec —80 % en `core`, `catalog-store`, `recsys` y
-      `provider-sdk`— medida con `bun run test:coverage` y cumplida.** Al auditar no la medía nadie.
-      Medición de hoy: 98.28 % de líneas, **de los 36 archivos que algún test carga; hay 47**.
-      La comprobación final incluye listar los que no se cargan y decir por qué, para que el número
-      no se lea como si cubriera todo el proyecto.
+      `provider-sdk`— cumplida y hecha cumplir.** Al auditar no la medía nadie. Ahora hay
+      `bun run test:coverage` para mirarla y `bun run coverage:gate` para **fallar** si algún
+      paquete baja del objetivo: `bun test --coverage` informa pero no falla, así que el 80 % era
+      una aspiración. El gate imprime además los archivos que ningún test carga, para que el
+      porcentaje no se lea como si cubriera todo el proyecto —hoy son 12 de 48, casi todos
+      marcadores vacíos o puntos de entrada—. Verificado que discrimina: con objetivo 99 % sale
+      con 1, y con un objetivo inválido, con 2.
 - [ ] **Auditoría de trazabilidad spec↔plan hecha primero**, con su tabla de huecos y cada hueco
       asignado a una tarea o convertido en una tarea nueva.
 - [ ] Los ocho criterios de `SPEC-nn-anime.md` verificados y marcados en el propio spec.

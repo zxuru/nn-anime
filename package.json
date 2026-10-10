@@ -18,6 +18,7 @@
     "lint:fix": "biome check --write .",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
+    "coverage:gate": "bun run scripts/coverage-gate.ts",
     "e2e": "playwright test",
     "db:migrate": "bun run packages/cli/src/db-migrate.ts"
   },
