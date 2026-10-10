@@ -1027,19 +1027,46 @@ headers acaben en la URL 3 y usando el TTL del anime para el stream 3. Control: 
 **Descripción:** Refresco de fondo para datos stale, sin duplicar trabajo ni perder datos buenos.
 
 **Aceptación:**
-- [ ] Concurrencia máxima 2, deduplicada por clave: dos lecturas stale de la misma clave encolan
+- [x] Concurrencia máxima 2, deduplicada por clave: dos lecturas stale de la misma clave encolan
       un solo trabajo.
-- [ ] Una revalidación que falla conserva la fila vieja y registra `last_error`.
-- [ ] Una escritura concurrente de la misma clave no produce `SQLITE_BUSY` (test de 50 escrituras
+- [x] Una revalidación que falla conserva la fila vieja y registra `last_error`.
+- [x] Una escritura concurrente de la misma clave no produce `SQLITE_BUSY` (test de 50 escrituras
       simultáneas).
-- [ ] El trabajo se cancela al cerrar la base, sin quedar colgado.
-- [ ] Las escrituras pasan por la cola interna: ningún repositorio escribe fuera de ella.
+- [x] El trabajo se cancela al cerrar la base, sin quedar colgado.
+- [ ] **Las escrituras pasan por la cola interna: ningún repositorio escribe fuera de ella.**
+      **Movido a T21, con motivo.** La cola existe y está probada (serializa, aguanta un trabajo que
+      falla y no admite trabajo después de cerrarse), y el revalidador la usa. Lo que falta es
+      cambiar la firma de los cuatro repositorios —su `write` pasaría a devolver promesa y a
+      encolarse— y eso toca 37 sitios de construcción y 48 de escritura en sus pruebas. Es un
+      cambio de una sola vez y su sitio natural es T21, donde vive la fachada que define **todas**
+      las rutas públicas de escritura: hacerlo antes obliga a pasar la cola por cuatro constructores
+      para que la fachada la reciba igual.
 
-**Verificación:** `bun test packages/catalog-store` incluyendo el test de concurrencia.
+**Verificación:** `bun test packages/catalog-store` · 86 tests en el paquete, 19 de ellos de este
+módulo, incluido el de 50 escrituras simultáneas sobre la misma clave. Medido mutando la
+implementación: sin deduplicar falla 1, sin el límite de concurrencia 1, cerrando sin abortar ni
+descartar 2, con la cola sin serializar 1, con un fallo que rompe la cola 1 y anotando el aborto
+como fallo 1. Control: 0 fallos.
 
 **Depende de:** T17.
 
 **Archivos:** `packages/catalog-store/src/{revalidate,write-queue}.ts`, `packages/catalog-store/src/revalidate.test.ts`.
+**Ampliación declarada:** `packages/catalog-store/src/migrations/0003-revalidate-error.sql`, la tabla
+donde vive `last_error`.
+
+**Tres decisiones que conviene recordar:**
+
+1. **`last_error` es una tabla, no cuatro columnas.** El spec dice que una revalidación fallida
+   «se marca», y ninguna tabla tenía dónde. Con una columna en `anime`, `episode`, `search_cache` y
+   `stream_cache` habría cuatro sitios donde acordarse de limpiar el aviso cuando la revalidación sí
+   funciona, y el que se olvide deja un error rojo permanente sobre un dato que ya está bien.
+   Además el error de la lista de episodios vive en el anime: compartirían columna y se pisarían.
+2. **Un aborto no es un fallo, y se distingue por el motivo.** `close()` aborta **todo** lo que
+   corre, así que mirar `signal.aborted` convertiría un fallo real que llega en ese instante en una
+   cancelación silenciosa y se perdería el aviso. Se compara la causa con `signal.reason`.
+3. **La clave de una referencia usa `#`, no `/`.** `uno` + `x/y` y `uno/x` + `y` darían la misma
+   clave con barras, y dos recursos distintos compartirían aviso de error. El id de proveedor es
+   kebab-case por contrato, así que `#` no puede aparecer en él.
 
 **Tamaño:** M.
 
@@ -1082,6 +1109,10 @@ headers acaben en la URL 3 y usando el TTL del anime para el stream 3. Control: 
       comprobación de tamaño, aquí.
 - [ ] `bun run db:migrate` funciona fuera de tests contra el directorio de datos real.
 - [ ] `runMigrations` es idempotente desde el CLI.
+- [ ] **Las escrituras de la fachada pasan por la cola interna**, y los repositorios dejan de poder
+      escribir fuera de ella. Criterio **movido desde T19**, que entregó la cola y el revalidador: el
+      sitio natural para encolar las cuatro familias de escritura es donde se define la superficie
+      pública de escritura, que es aquí.
 
 **Verificación:** `bun test packages/catalog-store` · `bun run db:migrate`.
 

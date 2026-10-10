@@ -29,3 +29,16 @@ export {
   createStreamRepository,
   type StreamStore,
 } from './repositories/stream'
+export {
+  clearRevalidateError,
+  createRevalidator,
+  listRevalidateErrors,
+  markRevalidateError,
+  type RevalidateError,
+  type RevalidateResource,
+  type RevalidateTask,
+  type Revalidator,
+  type RevalidatorOptions,
+  refKey,
+} from './revalidate'
+export { createWriteQueue, type WriteQueue } from './write-queue'

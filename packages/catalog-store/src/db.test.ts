@@ -32,8 +32,12 @@ const TABLAS_DEL_INICIAL = [
   'watch_event',
 ]
 
-/** Las que añaden las migraciones posteriores. */
-const TABLAS_POSTERIORES = ['search_cache']
+/** Las que añaden las migraciones posteriores a la inicial. */
+const TABLAS_POSTERIORES = ['revalidate_error', 'search_cache']
+
+/** Las versiones que hay hoy, para no fijar números que crecen con cada migración. */
+const VERSIONES = listMigrations().map((migration) => migration.version)
+const ULTIMA = Math.max(...VERSIONES)
 
 async function withDb<T>(body: (db: Database, path: string) => Promise<T> | T): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-store-'))
@@ -232,8 +236,8 @@ describe('migración inicial', () => {
         applied_at: number
       }
 
-      expect(informe.applied).toEqual([1, 2])
-      expect(informe.version).toBe(2)
+      expect(informe.applied).toEqual(VERSIONES)
+      expect(informe.version).toBe(ULTIMA)
       expect(fila.version).toBe(1)
       expect(fila.applied_at).toBeGreaterThan(0)
     })
@@ -258,9 +262,9 @@ describe('segunda ejecución', () => {
       const primera = runMigrations(db)
       const segunda = runMigrations(db)
 
-      expect(primera.applied).toEqual([1, 2])
+      expect(primera.applied).toEqual(VERSIONES)
       expect(segunda.applied).toEqual([])
-      expect(segunda.version).toBe(2)
+      expect(segunda.version).toBe(ULTIMA)
     })
   })
 
@@ -288,7 +292,7 @@ describe('segunda ejecución', () => {
       segunda.close()
 
       expect(informe.applied).toEqual([])
-      expect(informe.version).toBe(2)
+      expect(informe.version).toBe(ULTIMA)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
@@ -313,7 +317,7 @@ describe('migración que falla', () => {
       expect(() => runMigrations(db, ROTA)).toThrow()
 
       expect(tableNames(db)).toEqual(antes)
-      expect(schemaVersion(db)).toBe(2)
+      expect(schemaVersion(db)).toBe(ULTIMA)
     })
   })
 
