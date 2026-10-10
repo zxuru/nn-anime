@@ -172,6 +172,17 @@ describe('tarjeta', () => {
     expect(html).not.toContain('fixture.invalid')
   })
 
+  test('una portada con `javascript:` no genera ningún atributo con ese valor', () => {
+    const html = render(
+      <ResultCard result={resultado('mio', 't1', 'Uno', { coverUrl: 'javascript:alert(1)' })} />,
+    )
+
+    expect(html).not.toContain('javascript:')
+    expect(html).not.toContain('<img')
+    // El hueco se ve igual: la tarjeta no se rompe por una dirección prohibida.
+    expect(html).toContain('card__cover--vacia')
+  })
+
   test('sin portada no pide nada: un hueco, no una imagen rota', () => {
     const html = render(<ResultCard result={resultado('mio', 't1', 'Uno')} />)
 

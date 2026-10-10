@@ -15,6 +15,7 @@ import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { SearchResult } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
+import { isSafeUrl } from '../../lib/safe-url'
 import { Link } from '../../router'
 
 export interface ResultCardProps {
@@ -51,7 +52,10 @@ function meta(result: SearchResult): string {
 export function ResultCard(props: ResultCardProps): ReactNode {
   const { result } = props
   const provider = props.providerLabel ?? result.ref.providerId
-  const tienePortada = props.coverRequested ?? result.coverUrl !== undefined
+  // Una portada con un esquema que no se admite cuenta como «sin portada»: no se
+  // pide al proxy algo que no puede existir, y el hueco se ve igual. La dirección
+  // del proveedor no entra en ningún atributo; la imagen sale de `/api/cover`.
+  const tienePortada = props.coverRequested ?? isSafeUrl(result.coverUrl)
 
   return (
     <Link

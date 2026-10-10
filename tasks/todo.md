@@ -1838,20 +1838,42 @@ devuelve el cuerpo validado.
 **Descripción:** Que ninguna URL que venga de un proveedor pueda ejecutar nada en la página.
 
 **Aceptación:**
-- [ ] `safeUrl(value)` acepta sólo `http` y `https`; devuelve `null` para todo lo demás.
-- [ ] Un `coverUrl` con `javascript:`, `data:` o `vbscript:` se renderiza como texto plano y no
+- [x] `safeUrl(value)` acepta sólo `http` y `https`; devuelve `null` para todo lo demás.
+- [x] Un `coverUrl` con `javascript:`, `data:` o `vbscript:` se renderiza como texto plano y no
       produce ningún `href` ni `src`.
-- [ ] La función se aplica en todos los puntos donde una URL de proveedor entra a un atributo,
+- [x] La función se aplica en todos los puntos donde una URL de proveedor entra a un atributo,
       verificado con `grep` sobre `src` y `href` en el paquete y con un test por componente que
       muestra portada.
-- [ ] Las URLs de subtítulos y de stream pasan por la misma función.
-- [ ] Test: un título con `javascript:` no genera ningún atributo con ese valor en el DOM.
+- [x] Las URLs de subtítulos y de stream pasan por la misma función. **Las de stream ya no son URLs
+      del proveedor**: el cliente recibe rutas del proxy con su ticket (T26), y las de subtítulos
+      también (T30). La función es la puerta para lo que llegue.
+- [x] Test: un título con `javascript:` no genera ningún atributo con ese valor en el DOM.
 
-**Verificación:** `bun test packages/web` · `bun run e2e`.
+**Verificación:** `bun test packages/web` · 10 pruebas de la función y la guarda, más una por
+componente que muestra portada. Medido mutando la implementación: con una lista negra en vez de
+blanca falla 1, admitiendo cualquier esquema 4 y sin comprobar la portada en la tarjeta 1. Control: 0
+fallos. `bun run e2e` es de T43, que todavía no existe.
 
 **Depende de:** T24.
 
-**Archivos:** `packages/web/src/lib/{safe-url.ts,safe-url.test.ts}`, `packages/web/src/components/ResultCard.tsx`, `packages/web/src/features/detail/DetailPage.tsx`.
+**Archivos:** `packages/web/src/lib/{safe-url.ts,safe-url.test.ts}`, `packages/web/src/features/search/ResultCard.tsx`, `packages/web/src/features/detail/DetailPage.tsx`.
+
+**Un hallazgo que conviene decir:** **hoy ninguna URL de proveedor entra en un atributo**. Las
+portadas salen de `/api/cover/:providerId/:ref` (T26) y las fuentes de reproducción son rutas del
+proxy con ticket, así que la lista blanca no tiene por dónde colarse. Lo que sí se hizo es usarla
+donde el dato decide algo: una portada con un esquema prohibido cuenta como «sin portada», así que la
+tarjeta no pide al proxy algo que no puede existir y el detalle pinta el hueco en vez de una imagen
+rota. Y se añadió una **guarda por texto** que recorre todos los `src=` y `href=` del paquete y falla
+si alguna expresión que nombre una URL de proveedor no pasa por `safeUrl`: la alternativa es confiar
+en que quien escriba el próximo componente se acuerde, y este proyecto ya ha visto tres veces lo que
+pasa cuando algo depende de que alguien se acuerde.
+
+**Dos decisiones que conviene recordar:**
+
+1. **Lista blanca, no negra.** Una lista de prohibiciones se queda corta en cuanto aparece un esquema
+   nuevo, y aquí el precio de quedarse corta es ejecutar código ajeno en el origen de la aplicación.
+2. **La dirección se resuelve con `URL` antes de comparar.** `JaVaScRiPt:` y un salto de línea dentro
+   del esquema son el mismo esquema, y una comparación de cadenas los dejaría pasar.
 
 **Tamaño:** S.
 

@@ -349,7 +349,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] T29a Validación de headers hacia mpv y tope de un proceso concurrente
 - [x] T30 Subtítulos: proxy y conversión `srt` a `vtt` en memoria
 - [x] T31 Reproductor web con hls.js: reproducción, seek, atajos, a11y
-- [ ] T31a Lista blanca de esquemas para datos de proveedor en la interfaz
+- [x] T31a Lista blanca de esquemas para datos de proveedor en la interfaz
 - [ ] T32 Sub/dub, pista de subtítulos y registro de posición
 
 ### Checkpoint F — Reproducción

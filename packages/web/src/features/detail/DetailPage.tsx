@@ -17,6 +17,7 @@ import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { AnimeDetail } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
+import { isSafeUrl } from '../../lib/safe-url'
 import { coverPath } from '../search/ResultCard'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
@@ -92,13 +93,19 @@ export function DetailPage(props: DetailPageProps): ReactNode {
 
   return (
     <article className="detail">
-      <img
-        className="detail__cover"
-        src={coverPath(props.providerId, props.ref)}
-        alt=""
-        width={220}
-        height={330}
-      />
+      {/* La portada sale del proxy, y sólo si el proveedor declaró una dirección
+          que se puede usar: un `javascript:` ahí no se convierte en atributo. */}
+      {detail.coverUrl !== undefined && !isSafeUrl(detail.coverUrl) ? (
+        <span className="detail__cover card__cover--vacia" aria-hidden="true" />
+      ) : (
+        <img
+          className="detail__cover"
+          src={coverPath(props.providerId, props.ref)}
+          alt=""
+          width={220}
+          height={330}
+        />
+      )}
 
       <div className="detail__body">
         <h1>{detail.title}</h1>
