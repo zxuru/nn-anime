@@ -1999,18 +1999,40 @@ mal y no hay ningún error. Lo encontró una prueba que medía el bonus por estu
 **Descripción:** Señal colaborativa puramente local: qué se ve junto en la misma sesión.
 
 **Aceptación:**
-- [ ] Sesión definida como eventos separados por menos de 6 h.
-- [ ] Cuenta pares (candidato, título visto) dentro de la sesión, normalizado por el par más
+- [x] Sesión definida como eventos separados por menos de 6 h.
+- [x] Cuenta pares (candidato, título visto) dentro de la sesión, normalizado por el par más
       frecuente.
-- [ ] Sin historial: componente en 0, sin división por cero.
-- [ ] Un par visto una sola vez no domina sobre uno visto diez veces.
-- [ ] Test con historial que cruza el borde de sesión.
+- [x] Sin historial: componente en 0, sin división por cero.
+- [x] Un par visto una sola vez no domina sobre uno visto diez veces.
+- [x] Test con historial que cruza el borde de sesión.
 
-**Verificación:** `bun test packages/recsys`.
+**Verificación:** `bun test packages/recsys` · 22 pruebas. Medido mutando la implementación: sin el
+corte de sesión fallan 5, sin el umbral de soporte 1, sin normalizar por el par más frecuente 2 y sin
+ordenar el historial 1. Control: 0 fallos. Cobertura del paquete: 100 %.
 
 **Depende de:** T33.
 
 **Archivos:** `packages/recsys/src/{covisit.ts,covisit.test.ts}`.
+**Ampliación declarada:** el barril y los `exports` del paquete.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **Dentro de una sesión cuentan todos los cruces, no sólo los vecinos.** Si en una sesión se ven
+   `a`, `b` y `c`, los pares son los seis. Contar sólo lo inmediatamente anterior perdería la señal de
+   «estos tres se ven juntos», que es justo la que interesa.
+2. **Los pares van en los dos sentidos.** Si A y B se ven juntos, «después de A, B» y «después de B,
+   A» son las dos direcciones útiles: la lista se construye desde lo último visto, y puede ser
+   cualquiera de los dos.
+3. **El umbral de soporte es 2.** Una coincidencia suelta es ruido: con miles de pares posibles,
+   cualquiera aparece una vez por azar.
+4. **El peso se queda entre 0 y 1.** El par más frecuente vale 1 y el resto se reparte por debajo, que
+   es lo que permite sumar esta señal con la afinidad, que también está normalizada.
+
+**Lo que costó dos intentos:** mis primeras pruebas daban por hecho que el par más frecuente valdría
+exactamente 1, y con decaimiento temporal no es así —el par más viejo pesa menos—. Se separaron en dos:
+una con todos los eventos en el mismo instante, que mide la normalización sola, y otra con decaimiento,
+que comprueba el orden. Y otra prueba contaba pares vecinos cuando el módulo cuenta cruces: la
+expectativa era mía, no del código.
 
 **Tamaño:** M.
 
