@@ -19,19 +19,23 @@
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "coverage:gate": "bun run scripts/coverage-gate.ts",
-    "e2e": "playwright test",
+    "e2e": "playwright test --grep-invert 'proveedor que falla'",
     "db:migrate": "bun run packages/cli/src/db-migrate.ts",
-    "db:prune": "bun run packages/cli/src/db-prune.ts"
+    "db:prune": "bun run packages/cli/src/db-prune.ts",
+    "e2e:install": "playwright install chromium",
+    "e2e:fallo": "NN_ANIME_E2E_FALLO=search NN_ANIME_E2E_PORT=7802 playwright test failure.spec.ts",
+    "e2e:todo": "bun run e2e && bun run e2e:fallo"
   },
   "devDependencies": {
     "@biomejs/biome": "^2",
-    "@types/bun": "latest",
-    "typescript": "^5.9",
     "@nn-anime/catalog-store": "workspace:*",
     "@nn-anime/core": "workspace:*",
     "@nn-anime/media-proxy": "workspace:*",
     "@nn-anime/provider-sdk": "workspace:*",
     "@nn-anime/providers-fixture": "workspace:*",
-    "@nn-anime/server": "workspace:*"
+    "@nn-anime/server": "workspace:*",
+    "@playwright/test": "^1.64.0",
+    "@types/bun": "latest",
+    "typescript": "^5.9"
   }
 }

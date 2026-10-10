@@ -2435,19 +2435,41 @@ comprobación por texto que no medía lo que decía medir.
 **Descripción:** Montar el e2e con el fixture y cubrir las dos primeras rutas.
 
 **Aceptación:**
-- [ ] `bun run e2e` levanta el server con `providers-fixture`, base temporal y `--no-open`.
-- [ ] Ningún test toca red externa ni `$XDG_*` real.
-- [ ] Caso: la home carga y muestra contenido.
-- [ ] Caso: buscar muestra resultados incrementales y el estado vacío con una consulta sin
+- [x] `bun run e2e` levanta el server con `providers-fixture`, base temporal y `--no-open`.
+- [x] Ningún test toca red externa ni `$XDG_*` real.
+- [x] Caso: la home carga y muestra contenido.
+- [x] Caso: buscar muestra resultados incrementales y el estado vacío con una consulta sin
       coincidencias.
-- [ ] Un proveedor en modo fallo aparece como error en la UI y el test lo verifica.
-- [ ] Los tests son estables en tres ejecuciones seguidas.
+- [x] Un proveedor en modo fallo aparece como error en la UI y el test lo verifica.
+- [x] Los tests son estables en tres ejecuciones seguidas. **Medido**: tres pasadas de
+      `bun run e2e` y `bun run e2e:fallo`, 7 + 2 pruebas verdes cada vez.
 
-**Verificación:** `bun run e2e` tres veces.
+**Verificación:** `bun run e2e` y `bun run e2e:fallo` (o `bun run e2e:todo`), tres veces. El navegador
+vive en `.tmp/pw` porque el directorio de caché del sistema no siempre se puede escribir.
 
 **Depende de:** T41.
 
 **Archivos:** `playwright.config.ts`, `packages/web/e2e/{fixtures.ts,home.spec.ts,search.spec.ts}`.
+**Ampliación declarada:** `scripts/e2e-server.ts`, `packages/web/e2e/{setup.ts,failure.spec.ts}`,
+`@playwright/test` como dependencia de desarrollo y los scripts `e2e`, `e2e:fallo`, `e2e:todo` y
+`e2e:install`.
+
+**Cuatro cosas que costaron un intento cada una, y las cuatro eran del arnés, no de la aplicación:**
+
+1. **El plugin no se podía importar desde `/tmp`.** `@nn-anime/providers-fixture` no se resuelve desde
+   fuera del repositorio, así que el plugin se copia a `.tmp/e2e-config/`, dentro del espacio de
+   trabajo. Los datos siguen en un temporal y el `$XDG_*` del usuario no se toca.
+2. **El paquete de la interfaz estaba viejo** y el e2e probaba una versión anterior: las filas de la
+   home no aparecían porque el `dist` era de antes de escribirlas. El arnés ahora compara fechas y
+   construye si hace falta; el fallo parecía de la aplicación y era del andamiaje.
+3. **El token de arranque es de un solo uso**, así que sólo la primera prueba podía canjearlo y las
+   demás recibían 401. Se canjea una vez en un `setup` que guarda la sesión, y las demás pruebas la
+   reutilizan. El flujo del token se prueba donde corresponde: en las pruebas del servidor.
+4. **El modo de fallo se elige al arrancar el servidor**, así que ese caso necesita su propia pasada
+   con `NN_ANIME_E2E_FALLO` y otro puerto. Es `bun run e2e:fallo`.
+
+**La excepción de loopback que acordaste en el Checkpoint F no hace falta aquí**: estos casos no
+reproducen nada. Llega con T44, que es donde se prueba el reproductor con un archivo local.
 
 **Tamaño:** M.
 
