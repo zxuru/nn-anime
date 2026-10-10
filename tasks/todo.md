@@ -144,21 +144,47 @@ usan `mkdtemp` y comprueban el modo `0700` real con `stat`.
 `media-proxy`, `recsys` y el server. Es el contrato que se congela antes de paralelizar.
 
 **Aceptación:**
-- [ ] Tipos exportados: `ProviderRef`, `SearchResult`, `AnimeDetail`, `Episode`, `StreamRequest`,
+- [x] Tipos exportados: `ProviderRef`, `SearchResult`, `AnimeDetail`, `Episode`, `StreamRequest`,
       `StreamSource`, `SubtitleTrack`, `WatchEventInput`, `Candidate`, `CacheHit<T>`, `Mode`.
-- [ ] Un schema Zod espejo por tipo, con `readonly` en los tipos derivados.
-- [ ] `toPublicStreamSource(source)` devuelve una forma sin `headers` y el tipo público no tiene
+- [x] Un schema Zod espejo por tipo, con `readonly` en los tipos derivados.
+- [x] `toPublicStreamSource(source)` devuelve una forma sin `headers` y el tipo público no tiene
       ese campo: el compilador impide filtrarlo por accidente.
-- [ ] Test paramétrico por tipo: un objeto válido pasa, un objeto con un campo mal tipado falla
+- [x] Test paramétrico por tipo: un objeto válido pasa, un objeto con un campo mal tipado falla
       con mensaje que nombra el campo.
-- [ ] Test: `PublicStreamSource` no admite `headers` (verificado con `@ts-expect-error`).
+- [x] Test: `PublicStreamSource` no admite `headers` (verificado con `@ts-expect-error`).
 
-**Verificación:** `bun test packages/core` · `bun run typecheck`.
+**Verificación:** `bun test packages/core` 107 pasan, 0 fallan · `bun test` 115 pasan, 0 fallan ·
+`tsc --noEmit` 0 · `biome check .` 0 sin infos.
+
+**Estado:** hecho.
+
+**Decisiones tomadas al implementar:**
+
+- **Los tipos se derivan de los schemas, no se escriben dos veces.** `models.ts` usa
+  `z.infer<typeof schema>` más un `DeepReadonly` propio. Es lo que hace imposible que el tipo y su
+  validación se desincronicen. La inmutabilidad la aporta `DeepReadonly`, no un `readonly` escrito
+  a mano en cada campo.
+- **Todos los objetos son estrictos.** Una clave desconocida se rechaza. En una respuesta de
+  proveedor, una clave de más es un error del plugin o un cambio de contrato, y en ambos casos
+  conviene enterarse en lugar de ignorarla. Hay un test que comprueba que un schema extendido con
+  `.extend()` conserva la estrictez.
+- **La validación de headers vive en el schema.** Nombres contra `^[A-Za-z0-9-]+$` y valores sin
+  `\r`, `\n` ni `\0`. Al estar en la frontera, ningún header sin validar puede llegar al proxy ni
+  a mpv. Es el criterio de seguridad M10 cerrado antes de que exista el proxy.
+- **`PublicStreamSource` es `Omit<StreamSource, 'headers'>`.** La garantía no es una convención ni
+  un comentario: es el compilador. El test usa `@ts-expect-error` para fijar que la fuga no
+  compila, así que si alguien añade `headers` al tipo público, el build falla.
+- `toPublicStreamSource` omite las claves ausentes en lugar de dejarlas en `undefined`, para que
+  `Object.keys` de la forma pública no delate campos que no existen.
+- `CacheHit<T>` se queda como interfaz escrita a mano y no deriva de un schema, porque nunca se
+  deserializa: `catalog-store` lo construye desde SQLite. `cacheHitSchema` existe para cuando haga
+  falta validar la forma, parametrizado por el schema del valor.
+- Zod es la única dependencia nueva, y está en la tabla de Tech Stack del spec.
 
 **Depende de:** T2.
 
-**Archivos:** `packages/core/src/{models,schema}.ts`, `packages/core/src/models.test.ts`,
-`packages/core/src/schema.test.ts`.
+**Archivos:** `packages/core/src/{models,schema}.ts`, `packages/core/src/schema.test.ts`,
+`packages/core/package.json` y `index.ts`.
 
 **Tamaño:** M.
 
@@ -166,7 +192,7 @@ usan `mkdtemp` y comprueban el modo `0700` real con `stat`.
 
 ## Checkpoint A — Fundación
 
-- [ ] `bun install && bun run typecheck && bun run lint && bun test` limpio.
+- [x] `bun install && bun run typecheck && bun run lint && bun test` limpio.
 - [ ] Revisión humana antes de seguir.
 
 ---

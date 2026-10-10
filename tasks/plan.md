@@ -77,10 +77,10 @@ Si algo de esto no se cumple, el task no está hecho: se corta o se divide, no s
 - [x] T1 Esqueleto del monorepo y tooling
 - [x] T2 `core`: `Result`, errores y logger
 - [x] T3 `core`: configuración, rutas XDG e i18n
-- [ ] T4 `core`: modelo de dominio y schemas Zod
+- [x] T4 `core`: modelo de dominio y schemas Zod
 
 ### Checkpoint A — Fundación
-- [ ] `bun install && bun run typecheck && bun run lint && bun test` limpio
+- [x] `bun install && bun run typecheck && bun run lint && bun test` limpio
 - [ ] Revisión humana antes de seguir
 
 ### Fase 1 — Arranque (cli-launcher + server shell)
