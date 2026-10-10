@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./api": "./src/api.ts",
     "./config": "./src/config.ts",
     "./errors": "./src/errors.ts",
     "./i18n": "./src/i18n.ts",

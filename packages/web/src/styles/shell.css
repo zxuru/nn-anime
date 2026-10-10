@@ -79,3 +79,97 @@
 .shell__main a {
   color: var(--color-accent);
 }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--grid-min), 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.grid__item {
+  display: block;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+  transition: border-color var(--transition-fast);
+}
+
+.card:hover {
+  border-color: var(--color-accent);
+}
+
+.card__cover {
+  width: 100%;
+  aspect-ratio: var(--cover-ratio);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  object-fit: cover;
+}
+
+.card__cover--vacia {
+  border: var(--border-width) dashed var(--color-border);
+}
+
+.card__title {
+  font-size: var(--text-md);
+  line-height: var(--leading-tight);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--title-clamp);
+  overflow: hidden;
+}
+
+.card__meta {
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+}
+
+.badge {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  color: var(--color-text-dim);
+  font-size: var(--text-xs);
+}
+
+.search__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: var(--measure);
+  margin-bottom: var(--space-5);
+}
+
+.search__input {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.search__label {
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+}
+
+.empty {
+  max-width: var(--measure);
+  color: var(--color-text-dim);
+}

@@ -64,6 +64,9 @@
 
   /* Trazos y medidas de composición */
   --border-width: 1px;
+  --grid-min: 11rem;
+  --cover-ratio: 2 / 3;
+  --title-clamp: 2;
   --letter-tight: -0.01em;
   --content-max: 1200px;
   --header-height: 3.5rem;

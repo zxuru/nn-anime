@@ -192,6 +192,30 @@ export function usePath(): string {
   )
 }
 
+export interface Navigate {
+  push(to: string): void
+  replace(to: string): void
+}
+
+/**
+ * Navegación programática.
+ *
+ * Una página que cambia la dirección sin cambiar de pantalla —la búsqueda, que
+ * escribe `?q=` mientras el usuario teclea— no puede usar un `Link`: necesita
+ * `replace`, para no llenar el historial con una entrada por pulsación.
+ */
+export function useNavigate(): Navigate {
+  const history = useHistory()
+
+  return useMemo(
+    () => ({
+      push: (to: string) => history.push(to),
+      replace: (to: string) => history.replace(to),
+    }),
+    [history],
+  )
+}
+
 export function useRoute(): RouteMatch {
   const path = usePath()
 

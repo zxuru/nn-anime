@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test'
+import { readdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
@@ -47,20 +49,42 @@ async function classesUsedIn(relative: string): Promise<readonly string[]> {
   return [...found]
 }
 
+/** Todos los componentes, no sólo la raíz: una clase nueva vive en su archivo. */
+async function componentFiles(): Promise<readonly string[]> {
+  const found: string[] = []
+
+  const walk = async (relative: string): Promise<void> => {
+    for (const entry of await readdir(join(ROOT, relative), { withFileTypes: true })) {
+      const path = `${relative}${entry.name}`
+      if (entry.isDirectory()) {
+        if (entry.name !== 'node_modules') await walk(`${path}/`)
+        continue
+      }
+      if (entry.name.endsWith('.tsx')) found.push(path)
+    }
+  }
+
+  await walk('./')
+
+  return found.sort()
+}
+
 describe('referencias entre marcado y estilos', () => {
   test('el directorio del paquete se resuelve aunque la ruta tenga espacios', () => {
     expect(ROOT).not.toContain('%20')
     expect(ROOT.endsWith('src/')).toBe(true)
   })
 
-  test('toda clase usada en la aplicación está definida en algún CSS', async () => {
+  test('toda clase usada en un componente está definida en algún CSS', async () => {
     const css = await stylesheets()
-    const used = await classesUsedIn('./app.tsx')
+    const files = await componentFiles()
 
-    expect(used.length).toBeGreaterThan(0)
+    expect(files.length).toBeGreaterThan(1)
 
-    for (const name of used) {
-      expect(css, `la clase .${name} se usa pero no está definida`).toContain(`.${name}`)
+    for (const file of files) {
+      for (const name of await classesUsedIn(file)) {
+        expect(css, `la clase .${name} se usa en ${file} y no está definida`).toContain(`.${name}`)
+      }
     }
   })
 })

@@ -25,8 +25,12 @@ describe('App: pantallas', () => {
     expect(html).toContain('Aquí irán las recomendaciones')
   })
 
-  test('la búsqueda tiene su propia pantalla', () => {
-    expect(render('/search')).toContain('búsqueda incremental')
+  test('la búsqueda tiene su propia pantalla, con su campo y su estado vacío', () => {
+    const html = render('/search')
+
+    expect(html).toContain('Buscar por título')
+    expect(html).toContain('type="search"')
+    expect(html).toContain('Escribe un título')
   })
 
   test('los ajustes tienen su propia pantalla', () => {

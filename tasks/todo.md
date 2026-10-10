@@ -788,17 +788,35 @@ búsqueda no consulta.
 **Descripción:** Vista de búsqueda con grilla, etiqueta de origen y navegación por teclado.
 
 **Aceptación:**
-- [ ] Campo de búsqueda con debounce de 400 ms; el término se refleja en `?q=`.
-- [ ] Grilla con etiqueta del proveedor de origen en cada tarjeta.
-- [ ] Tarjetas son enlaces reales, alcanzables por `Tab`, con anillo de foco visible.
-- [ ] Estado vacío con texto claro cuando no hay resultados.
-- [ ] Todo texto sale de `t()`.
+- [x] Campo de búsqueda con debounce de 400 ms; el término se refleja en `?q=`.
+- [x] Grilla con etiqueta del proveedor de origen en cada tarjeta.
+- [x] Tarjetas son enlaces reales, alcanzables por `Tab`, con anillo de foco visible.
+- [x] Estado vacío con texto claro cuando no hay resultados.
+- [x] Todo texto sale de `t()`.
 
-**Verificación:** `bun run dev` · navegar y buscar con el fixture activo.
+**Verificación:** `bun test packages/web` · 106 tests, y **build de producción** servido por el
+CLI: `/search` y `/search?q=naruto` responden 200 con `text/html`, el CSS se sirve y la API
+responde con la cookie. La comprobación en un navegador real es la del e2e (T43): hoy no hay
+navegador automatizado en el proyecto.
 
 **Depende de:** T8, T13.
 
 **Archivos:** `packages/web/src/features/search/{SearchPage,ResultGrid,ResultCard}.tsx`, `packages/web/src/components/Grid.tsx`.
+**Ampliación declarada:** `router.tsx` (un `useNavigate` para escribir `?q=` con `replace`, que es
+lo que evita una entrada de historial por pulsación), los tokens y la hoja de estructura, el
+catálogo de textos, `app.tsx` para montar la pantalla, la subruta `./api` de `core` y
+`styles.test.ts`, que ahora comprueba **todos** los componentes y no sólo `app.tsx`.
+
+**Dos hallazgos de esta tarea, convertidos en prueba:**
+
+1. **El estado vacío dice por qué está vacío.** No es lo mismo una consulta sin coincidencias que
+   una pantalla donde todavía no se ha buscado nada: un «no hay resultados» genérico obliga al
+   usuario a adivinar cuál de las dos está mirando.
+2. **El barril de `core` no se puede importar desde la interfaz.** Reexporta `config.ts`, que lee
+   el sistema de archivos: en los tests no falla —Bun tiene `node:fs`— y el build del navegador se
+   rompe con un error que habla de `isAbsolute`, no de la línea culpable. Apareció al escribir
+   esta pantalla y ahora `boundary.test.ts` lo convierte en un fallo con el archivo delante, además
+   de comprobar que toda subruta usada exista en el manifiesto de `core`.
 
 **Tamaño:** M.
 

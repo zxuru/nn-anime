@@ -8,6 +8,7 @@
 
 import { DEFAULT_LOCALE, type Locale } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
+import { SearchPage } from './features/search/SearchPage'
 import { t } from './i18n'
 import { Link, type RouteMatch, usePath, useRoute } from './router'
 
@@ -45,7 +46,7 @@ function screenFor(route: RouteMatch, path: string): ReactNode {
     case 'home':
       return <Pending title={t(LOCALE, 'home.title')} body={t(LOCALE, 'home.pending')} />
     case 'search':
-      return <Pending title={t(LOCALE, 'search.title')} body={t(LOCALE, 'search.pending')} />
+      return <SearchPage />
     case 'detail':
       return <Pending title={route.params.ref ?? ''} body={t(LOCALE, 'detail.pending')} />
     case 'watch':
