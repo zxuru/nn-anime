@@ -14,8 +14,10 @@
 import { z } from 'zod'
 import {
   animeDetailSchema,
+  animeSummarySchema,
   episodeSchema,
   providerCapabilitiesSchema,
+  providerRefSchema,
   searchResultSchema,
 } from './schema'
 
@@ -52,6 +54,16 @@ export const healthResponseSchema = z.strictObject({
 
 export const providersResponseSchema = z.strictObject({
   providers: z.array(providerSummarySchema),
+})
+
+export const favoritesResponseSchema = z.strictObject({
+  favorites: z.array(animeSummarySchema),
+})
+
+/** Alta o baja de un favorito. `value` dice en qué estado queda. */
+export const favoriteRequestSchema = z.strictObject({
+  ref: providerRefSchema,
+  value: z.boolean(),
 })
 
 /** Detalle de un título. Es el mismo schema del dominio, no una copia. */
@@ -96,6 +108,8 @@ export const searchEventSchema = z.discriminatedUnion('type', [
 
 export type ErrorResponse = z.infer<typeof errorResponseSchema>
 export type AnimeResponse = z.infer<typeof animeResponseSchema>
+export type FavoriteRequest = z.infer<typeof favoriteRequestSchema>
+export type FavoritesResponse = z.infer<typeof favoritesResponseSchema>
 export type EpisodesResponse = z.infer<typeof episodesResponseSchema>
 export type ProviderStatus = z.infer<typeof providerStatusSchema>
 export type ProviderSummary = z.infer<typeof providerSummarySchema>

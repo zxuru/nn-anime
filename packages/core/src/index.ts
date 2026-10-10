@@ -14,6 +14,10 @@ export {
   type ErrorResponse,
   episodesResponseSchema,
   errorResponseSchema,
+  type FavoriteRequest,
+  type FavoritesResponse,
+  favoriteRequestSchema,
+  favoritesResponseSchema,
   type HealthResponse,
   healthResponseSchema,
   type ProviderStatus,
@@ -99,6 +103,7 @@ export { type Err, err, map, mapErr, type Ok, ok, type Result, unwrapOr } from '
 export {
   airingStatusSchema,
   animeDetailSchema,
+  animeSummarySchema,
   cacheHitSchema,
   candidateSchema,
   episodeSchema,

@@ -1,0 +1,146 @@
+import { describe, expect, test } from 'bun:test'
+import { readFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
+import type { Episode, ProviderCapabilities } from '@nn-anime/core/models'
+import type { ReactNode } from 'react'
+import { renderToString } from 'react-dom/server'
+import { createMemoryHistory, HistoryProvider } from '../../router'
+import { DetailPage } from './DetailPage'
+import { EpisodeList } from './EpisodeList'
+import { FavoriteButton } from './FavoriteButton'
+import { formatDuration, modesFor } from './useDetail'
+
+const ROOT = fileURLToPath(new URL('.', import.meta.url))
+
+function render(node: ReactNode): string {
+  return renderToString(
+    <HistoryProvider history={createMemoryHistory('/anime/fixture/aurora-nocturna')}>
+      {node}
+    </HistoryProvider>,
+  )
+}
+
+function capacidades(overrides: Partial<ProviderCapabilities> = {}): ProviderCapabilities {
+  return { search: true, sub: true, dub: false, trending: false, ...overrides }
+}
+
+function episodio(numero: number, overrides: Partial<Episode> = {}): Episode {
+  return {
+    ref: { providerId: 'fixture', value: `aurora-nocturna#${numero}` },
+    animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+    number: numero,
+    title: `Episodio ${numero}`,
+    durationS: 1440,
+    mode: 'sub',
+    ...overrides,
+  }
+}
+
+describe('modos disponibles', () => {
+  test('sin capacidades no se ofrece ninguno', () => {
+    expect(modesFor(undefined)).toEqual([])
+  })
+
+  test('se ofrecen los que el proveedor declara', () => {
+    expect(modesFor(capacidades())).toEqual(['sub'])
+    expect(modesFor(capacidades({ dub: true }))).toEqual(['sub', 'dub'])
+    expect(modesFor(capacidades({ sub: false, dub: true }))).toEqual(['dub'])
+  })
+})
+
+describe('duración legible', () => {
+  test('minutos y horas', () => {
+    expect(formatDuration(1440)).toBe('24 min')
+    expect(formatDuration(5400)).toBe('1 h 30 min')
+  })
+
+  test('sin duración o con cero, no se inventa nada', () => {
+    expect(formatDuration(undefined)).toBeUndefined()
+    expect(formatDuration(0)).toBeUndefined()
+    expect(formatDuration(-5)).toBeUndefined()
+  })
+})
+
+describe('lista de episodios', () => {
+  test('numera, titula, dura y dice el modo', () => {
+    const html = render(<EpisodeList episodes={[episodio(1), episodio(2, { mode: 'dub' })]} />)
+
+    expect(html).toContain('<ol class="episodes"')
+    expect(html).toContain('Episodio 1')
+    expect(html).toContain('24 min')
+    expect(html).toContain('subtitulado')
+    expect(html).toContain('doblado')
+  })
+
+  test('sin episodios lo dice, en lugar de dejar la lista vacía', () => {
+    const html = render(<EpisodeList episodes={[]} />)
+
+    expect(html).toContain('no tiene episodios')
+    expect(html).not.toContain('<ol')
+  })
+
+  test('un episodio sin título ni duración no rompe la fila', () => {
+    const html = render(
+      <EpisodeList
+        episodes={[
+          {
+            ref: { providerId: 'fixture', value: 'x#1' },
+            animeRef: { providerId: 'fixture', value: 'x' },
+            number: 1,
+            mode: 'sub',
+          },
+        ]}
+      />,
+    )
+
+    expect(html).toContain('Episodio 1')
+    expect(html).not.toContain('episode__title')
+  })
+})
+
+describe('botón de favorito', () => {
+  test('dice su estado con aria-pressed', () => {
+    expect(render(<FavoriteButton value={false} onToggle={() => {}} />)).toContain(
+      'aria-pressed="false"',
+    )
+    expect(render(<FavoriteButton value onToggle={() => {}} />)).toContain('aria-pressed="true"')
+  })
+
+  test('el texto cambia con el estado', () => {
+    expect(render(<FavoriteButton value={false} onToggle={() => {}} />)).toContain(
+      'Añadir a favoritos',
+    )
+    expect(render(<FavoriteButton value onToggle={() => {}} />)).toContain('Quitar de favoritos')
+  })
+
+  test('mientras guarda, se deshabilita', () => {
+    expect(render(<FavoriteButton value={false} busy onToggle={() => {}} />)).toContain('disabled')
+  })
+})
+
+describe('pantalla de detalle', () => {
+  test('el primer render es el esqueleto, sin depender de la red', () => {
+    const html = render(<DetailPage providerId="fixture" ref="aurora-nocturna" />)
+
+    expect(html).toContain('Cargando la ficha')
+    expect(html).toContain('aria-busy="true"')
+  })
+
+  test('ningún dato de proveedor se inserta como HTML', async () => {
+    const fuentes = await Promise.all(
+      ['DetailPage.tsx', 'EpisodeList.tsx', 'FavoriteButton.tsx', 'useDetail.ts'].map((archivo) =>
+        readFile(`${ROOT}${archivo}`, 'utf8'),
+      ),
+    )
+
+    // Se quitan los comentarios antes de mirar: nombrar la función para decir
+    // que no se usa es lo correcto, y una comprobación textual que lo confunda
+    // con usarla obliga a escribir peor los comentarios.
+    for (const fuente of fuentes) {
+      const codigo = fuente.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+
+      expect(codigo).not.toContain('dangerouslySetInnerHTML')
+      expect(codigo).not.toContain('innerHTML')
+    }
+  })
+})

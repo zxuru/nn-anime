@@ -68,6 +68,7 @@
   --skeleton-height: 14rem;
   --skeleton-dim: 0.45;
   --cover-ratio: 2 / 3;
+  --cover-width: 14rem;
   --title-clamp: 2;
   --letter-tight: -0.01em;
   --content-max: 1200px;

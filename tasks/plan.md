@@ -330,7 +330,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 
 ### Fase 4 — Detalle (rebanada vertical)
 - [x] T23 Detalle y episodios de extremo a extremo: proveedor → store → ruta
-- [ ] T24 Página de detalle: metadatos, episodios, sub/dub, favorito
+- [x] T24 Página de detalle: metadatos, episodios, sub/dub, favorito
 
 ### Checkpoint E — Detalle
 - [ ] Buscar → detalle → lista de episodios, con datos cacheados

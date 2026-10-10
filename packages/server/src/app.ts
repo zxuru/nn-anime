@@ -26,6 +26,7 @@ import { sessionGuard } from './middleware/session-guard'
 import { PROTECTED_PREFIXES } from './paths'
 import { registerAnimeRoutes } from './routes/anime'
 import { registerEpisodesRoute } from './routes/episodes'
+import { registerFavoritesRoutes } from './routes/favorites'
 import { type PluginReport, registerProvidersRoute, summarizePlugins } from './routes/providers'
 import { registerSearchRoute } from './routes/search'
 import type { Session } from './session'
@@ -119,6 +120,7 @@ export function createApp(options: AppOptions): Hono {
 
     registerAnimeRoutes(app, routeOptions)
     registerEpisodesRoute(app, routeOptions)
+    registerFavoritesRoutes(app, { container: options.container })
   }
 
   registerSearchRoute(app, {

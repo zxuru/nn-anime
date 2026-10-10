@@ -37,8 +37,14 @@ describe('App: pantallas', () => {
     expect(render('/settings')).toContain('los proveedores, las rutas de datos')
   })
 
-  test('el detalle usa la referencia del título', () => {
-    expect(render('/anime/fuente/titulo-1')).toContain('titulo-1')
+  test('el detalle arranca con su esqueleto, sin esperar a la red', () => {
+    // El primer render no puede depender de una petición: en servidor no hay
+    // `useEffect`, y en el navegador la ficha llega después. Que la referencia
+    // llegue a la petición se comprueba en las pruebas de la pantalla.
+    const html = render('/anime/fuente/titulo-1')
+
+    expect(html).toContain('Cargando la ficha')
+    expect(html).toContain('aria-busy="true"')
   })
 
   test('el reproductor tiene su propia pantalla', () => {

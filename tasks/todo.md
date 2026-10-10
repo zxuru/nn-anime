@@ -1290,18 +1290,38 @@ repositorio de episodios, y la prueba de conformidad del fixture.
 **Descripción:** Vista de detalle con metadatos, lista de episodios, selector sub/dub y favorito.
 
 **Aceptación:**
-- [ ] Muestra portada, sinopsis, año, estado, géneros, estudios y lista de episodios.
-- [ ] Selector sub/dub deshabilitado según capabilities del proveedor.
-- [ ] Botón de favorito con estado reflejado de forma inmediata y persistido.
-- [ ] Estados de carga con esqueleto y de error con reintento.
-- [ ] Ningún dato de proveedor se inserta con `dangerouslySetInnerHTML`.
-- [ ] Navegable con teclado y con textos de `t()`.
+- [x] Muestra portada, sinopsis, año, estado, géneros, estudios y lista de episodios.
+- [x] Selector sub/dub deshabilitado según capabilities del proveedor.
+- [x] Botón de favorito con estado reflejado de forma inmediata y persistido.
+- [x] Estados de carga con esqueleto y de error con reintento.
+- [x] Ningún dato de proveedor se inserta con `dangerouslySetInnerHTML`.
+- [x] Navegable con teclado y con textos de `t()`.
 
-**Verificación:** `bun run dev` · abrir un título del fixture.
+**Verificación:** `bun test packages/web packages/server` · 12 pruebas nuevas de la pantalla y 7 de
+las rutas de favoritos. Medido mutando la implementación: ofreciendo siempre los dos modos falla 1,
+sin `aria-pressed` 1, con una duración de cero convertida en «0 min» 1 y con la baja de un favorito
+ignorada 1. Control: 0 fallos. La comprobación en navegador real es del e2e (T43).
 
 **Depende de:** T23.
 
 **Archivos:** `packages/web/src/features/detail/{DetailPage,EpisodeList,FavoriteButton}.tsx`, `packages/web/src/features/detail/useDetail.ts`.
+**Ampliación declarada:** las rutas `GET`/`POST /api/favorites` con su prueba
+(`packages/server/src/routes/favorites.ts`), que **ninguna tarea reclamaba** y sin las cuales el
+favorito no se puede persistir; los schemas compartidos `animeSummarySchema`, `favoritesResponseSchema`
+y `favoriteRequestSchema` en `core`; el catálogo y la hoja de estructura; y `app.tsx` para montar la
+pantalla.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **El alta y la baja de un favorito son el mismo `POST`** con `value`, no un `POST` y un `DELETE`.
+   El botón no sabe qué había antes: sabe en qué estado quiere dejarlo, y el cuerpo lo dice.
+2. **El favorito se pinta antes de que el servidor conteste** y se revierte si falla. Un botón que
+   espera a la red para cambiar de color se siente roto; mentir más de lo que tarda la petición, no.
+3. **El reintento es la misma función que la primera carga**, no un contador de intentos. Con el
+   contador, el efecto tenía una dependencia que no usaba y el linter lo señalaba con razón.
+4. **Las claves de traducción se escriben una a una**, aunque una plantilla con el modo funcionara
+   igual: una clave compuesta esconde los textos al buscador de claves sin usar, y acabarían
+   borradas del catálogo por parecer huérfanas.
 
 **Tamaño:** M.
 

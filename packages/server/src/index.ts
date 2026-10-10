@@ -93,6 +93,7 @@ export {
 export { isProtectedPath, PROTECTED_PREFIXES } from './paths'
 export { registerAnimeRoutes, statusFor } from './routes/anime'
 export { registerEpisodesRoute, statusForEpisodes } from './routes/episodes'
+export { registerFavoritesRoutes } from './routes/favorites'
 export { type PluginReport, summarizePlugins } from './routes/providers'
 export {
   createBootToken,

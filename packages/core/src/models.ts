@@ -10,6 +10,7 @@ import type { z } from 'zod'
 import type {
   airingStatusSchema,
   animeDetailSchema,
+  animeSummarySchema,
   candidateSchema,
   episodeSchema,
   modeSchema,
@@ -74,14 +75,11 @@ export interface CacheHit<T> {
  * Es lo que cabe en una tarjeta —ref, título, portada, año y tipo— y no el
  * detalle entero. Guardar el detalle completo para pintar una fila de la home
  * obligaría a leer y descartar sinopsis y episodios que nadie va a mostrar.
+ *
+ * Se deriva del schema porque la interfaz lo recibe por HTTP y lo valida: un
+ * tipo escrito a mano al lado de un schema es la deriva esperando su turno.
  */
-export interface AnimeSummary {
-  readonly ref: ProviderRef
-  readonly title: string
-  readonly coverUrl?: string
-  readonly year?: number
-  readonly kind?: TitleKind
-}
+export type AnimeSummary = DeepReadonly<z.infer<typeof animeSummarySchema>>
 
 /** Una búsqueda registrada, para la lista de recientes. */
 export interface SearchRecord {

@@ -165,6 +165,22 @@ export const animeDetailSchema = searchResultSchema.extend({
   studios: z.array(z.string().min(1)),
 })
 
+/**
+ * Resumen de un título para listas.
+ *
+ * Tiene schema propio, y no es un `SearchResult` recortado, porque es lo que
+ * viaja en las listas de favoritos y de «continuar viendo»: la interfaz lo
+ * valida al recibirlo, así que tiene que existir en la frontera y no sólo como
+ * tipo escrito a mano.
+ */
+export const animeSummarySchema = z.strictObject({
+  ref: providerRefSchema,
+  title: z.string().min(1),
+  coverUrl: httpUrlSchema.optional(),
+  year: z.number().int().optional(),
+  kind: titleKindSchema.optional(),
+})
+
 export const episodeSchema = z.strictObject({
   ref: providerRefSchema,
   animeRef: providerRefSchema,
