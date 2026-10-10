@@ -2449,7 +2449,10 @@ vive en `.tmp/pw` porque el directorio de caché del sistema no siempre se puede
 
 **Depende de:** T41.
 
-**Archivos:** `playwright.config.ts`, `packages/web/e2e/{fixtures.ts,home.spec.ts,search.spec.ts}`.
+**Archivos:** `playwright.config.ts`, `packages/web/e2e/{fixtures.ts,home.e2e.ts,search.e2e.ts}`.
+**Un cambio de nombre con motivo:** los casos se llaman `.e2e.ts` y no `.spec.ts`. `bun test` recoge
+los `.spec.ts` de todo el repositorio, y los recogía también aquí, donde no hay `bun:test` y todo
+fallaba. **Dos ejecutores distintos necesitan dos nombres distintos.**
 **Ampliación declarada:** `scripts/e2e-server.ts`, `packages/web/e2e/{setup.ts,failure.spec.ts}`,
 `@playwright/test` como dependencia de desarrollo y los scripts `e2e`, `e2e:fallo`, `e2e:todo` y
 `e2e:install`.

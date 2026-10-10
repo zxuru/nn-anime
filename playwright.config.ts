@@ -17,6 +17,10 @@ const PUERTO = Number(process.env.NN_ANIME_E2E_PORT ?? '7801')
 
 export default defineConfig({
   testDir: 'packages/web/e2e',
+  // `.e2e.ts` y no `.spec.ts`: `bun test` recoge los `.spec.ts` de todo el
+  // repositorio, y los recogía también aquí, donde no hay `bun:test` y todo
+  // fallaba. Dos ejecutores distintos necesitan dos nombres distintos.
+  testMatch: '**/*.e2e.ts',
   // Tres intentos por defecto: el criterio del spec es que los tests sean
   // estables en tres ejecuciones seguidas, y un `retries` alto escondería la
   // inestabilidad en vez de arreglarla.
