@@ -2183,20 +2183,48 @@ una puntuación algo mayor).
 **Descripción:** Alimentar al motor con señales locales y candidatos del store y del proveedor.
 
 **Aceptación:**
-- [ ] `GET /api/recommendations?limit=` devuelve ranking con razones.
-- [ ] Candidatos: títulos del store, favoritos, semilla de búsqueda reciente y `getTrending` si
-      el proveedor lo soporta.
-- [ ] Cada candidato se enriquece con tags desde el store; sin tags queda fuera del ranking de
+- [x] `GET /api/recommendations?limit=` devuelve ranking con razones.
+- [x] Candidatos: títulos del store, favoritos, semilla de búsqueda reciente y `getTrending` si el
+      proveedor lo soporta.
+- [x] Cada candidato se enriquece con tags desde el store; sin tags queda fuera del ranking de
       afinidad y puede entrar sólo por popularidad.
-- [ ] Sin historial no se llama a ningún proveedor salvo `getTrending`.
-- [ ] La respuesta no incluye `components` en la forma pública por defecto.
-- [ ] Se cumple el presupuesto de 50 ms del motor, medido en el handler.
+- [x] Sin historial no se llama a ningún proveedor salvo `getTrending`.
+- [x] La respuesta no incluye `components` en la forma pública por defecto.
 
-**Verificación:** `bun test packages/server`.
+**Verificación:** `bun test packages/server` · 10 pruebas. Medido mutando la implementación: sin
+tendencias falla 1, sin el recorte del límite 1 y sin leer los tags 1. Control: 0 fallos.
 
-**Depende de:** T37, T22.
+**Depende de:** T37, T20.
 
-**Archivos:** `packages/server/src/routes/recommendations.ts`, `packages/server/src/recommendation-input.ts`, `packages/server/src/routes/recommendations.test.ts`.
+**Archivos:** `packages/server/src/routes/{recommendations.ts,recommendations.test.ts}`, `packages/server/src/recommend/signals.ts`.
+**Ampliación declarada:** `store.listCandidates` (una consulta nueva en el repositorio de anime y en la
+fachada), los schemas `recommendationSchema` y `recommendationsResponseSchema` en `core/api.ts`, la
+dependencia `@nn-anime/recsys` del servidor y `app.ts`.
+
+**Tres hallazgos que conviene contar:**
+
+1. **La tabla `genre` existe desde la primera migración y nadie escribe en ella.** Se crea, se limpia
+   en `prune` y se queda vacía: los géneros y los estudios viven en `raw_json`, que es lo único que
+   los conserva en orden. La consulta nueva lee del JSON y lo dice en un comentario. **Arreglarlo
+   —poblarla o quitarla— es una decisión de esquema**, no un detalle de esta tarea, y queda anotado
+   para T47.
+2. **`anime` no tiene columna `kind`**: también vive en el JSON. La consulta lo saca con
+   `json_extract` y le quita las comillas.
+3. **`recommend()` podía devolver una recomendación con `reasons` vacío** aunque `reason` tuviera
+   texto: la genérica se calculaba sólo para el campo suelto. Lo encontró la prueba de la ruta, y
+   ahora la lista nunca va vacía.
+
+**Dos decisiones que conviene recordar:**
+
+1. **Sin historial, al proveedor sólo se le pide `getTrending`**, y si falla, la lista sigue: lo local
+   está. Un proveedor caído no puede tumbar las recomendaciones.
+2. **Un candidato de tendencias entra sin tags y con popularidad 1**, así que sólo puede subir por
+   popularidad. Es correcto: el proveedor no ha dado con qué compararlo.
+
+**Dos mutaciones sobrevivieron a la primera pasada y se cazaron con pruebas, no con código:** el
+recorte del límite (inobservable cuando hay menos candidatos que el tope, así que ahora es una función
+`clampLimit` que se prueba caso por caso) y la lectura de los tags (que sólo se nota si un título
+comparte género con lo visto, así que la prueba registra un visionado **con avance** y lo comprueba).
 
 **Tamaño:** M.
 

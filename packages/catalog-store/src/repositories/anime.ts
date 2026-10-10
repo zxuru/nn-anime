@@ -25,6 +25,49 @@ import {
 import { cacheHit, TTL_SECONDS } from '../cache-policy'
 import { animeIdOf, markEpisodesFetched, replaceEpisodes } from './episodes'
 
+/**
+ * Una lista guardada como JSON, leída sin lanzar.
+ *
+ * `json_extract` devuelve `null` si la clave no está y el texto tal cual si lo
+ * está. Un JSON roto no puede tumbar una lista de recomendaciones: se trata como
+ * lista vacía.
+ */
+function listaDeJson(valor: string | null): readonly string[] {
+  if (valor === null) return []
+
+  try {
+    const lista: unknown = JSON.parse(valor)
+
+    return Array.isArray(lista)
+      ? lista.filter((item): item is string => typeof item === 'string')
+      : []
+  } catch {
+    return []
+  }
+}
+
+/** Una fila del listado: lo justo para puntuar un candidato. */
+export interface CandidateRow {
+  readonly ref: ProviderRef
+  readonly title: string
+  readonly coverUrl?: string
+  readonly year?: number
+  readonly kind?: string
+  readonly tags: readonly string[]
+  readonly studios: readonly string[]
+}
+
+interface AnimeListRow {
+  readonly provider_id: string
+  readonly provider_ref: string
+  readonly title: string
+  readonly cover_url: string | null
+  readonly year: number | null
+  readonly kind: string | null
+  readonly generos: string | null
+  readonly estudios: string | null
+}
+
 interface AnimeRow {
   readonly id: number
   readonly fetched_at: number
@@ -75,6 +118,46 @@ export function createAnimeRepository(db: Database, ttlS: number = TTL_SECONDS.a
   )
 
   return {
+    /**
+     * Los títulos cacheados, con sus tags, para el motor de recomendación.
+     *
+     * Devuelve resúmenes y no detalles: el motor necesita el vector de
+     * características de cada candidato, no su sinopsis ni sus episodios. Leer los
+     * detalles para puntuar traería de la base diez veces más de lo que se usa.
+     */
+    list(limit: number): readonly CandidateRow[] {
+      const filas = db
+        .query<AnimeListRow, [number]>(
+          // Los géneros y los estudios salen de `raw_json`, que es la única
+          // fuente que los conserva **en orden** y que es lo que lee el detalle.
+          //
+          // La tabla `genre` existe desde la primera migración y **nadie escribe
+          // en ella**: se crea, se limpia en `prune` y se queda vacía. Se anota
+          // aquí porque quien lea esta consulta va a preguntarse por qué no se
+          // usa; el hallazgo es de T38 y su arreglo —poblarla o quitarla— es una
+          // decisión de esquema, no un detalle de esta consulta.
+          `SELECT a.provider_id, a.provider_ref, a.title, a.cover_url, a.year,
+                  json_extract(a.raw_json, '$.kind') AS kind,
+                  json_extract(a.raw_json, '$.genres') AS generos,
+                  json_extract(a.raw_json, '$.studios') AS estudios
+             FROM anime a
+            ORDER BY a.fetched_at DESC
+            LIMIT ?`,
+        )
+        .all(limit)
+
+      return filas.map((fila) => ({
+        ref: { providerId: fila.provider_id, value: fila.provider_ref },
+        title: fila.title,
+        ...(fila.cover_url === null ? {} : { coverUrl: fila.cover_url }),
+        ...(fila.year === null ? {} : { year: fila.year }),
+        // `kind` tampoco es columna: vive en el JSON como los géneros.
+        ...(fila.kind === null ? {} : { kind: fila.kind.replace(/^"|"$/g, '') }),
+        tags: listaDeJson(fila.generos),
+        studios: listaDeJson(fila.estudios),
+      }))
+    },
+
     read(ref: ProviderRef, now: number = Date.now()): CacheHit<AnimeDetail> | null {
       const row = select.get(ref.providerId, ref.value)
       if (row === null) return null

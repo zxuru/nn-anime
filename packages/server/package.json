@@ -12,7 +12,8 @@
     "@nn-anime/provider-sdk": "workspace:*",
     "@nn-anime/catalog-store": "workspace:*",
     "@nn-anime/media-proxy": "workspace:*",
-    "zod": "^4"
+    "zod": "^4",
+    "@nn-anime/recsys": "workspace:*"
   },
   "scripts": {
     "test": "bun test"

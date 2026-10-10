@@ -22,7 +22,7 @@ export const SEARCH_HALF_LIFE_DAYS = 3
 /** Peso máximo que puede aportar la señal de búsqueda a un candidato. */
 export const MAX_SEARCH_WEIGHT = 1
 
-export interface SearchRecord {
+export interface SearchSignalRecord {
   readonly query: string
   readonly at: Date | number
   /** Cuántas veces se repitió. Una búsqueda repetida dice más. */
@@ -74,7 +74,7 @@ export function matchScore(candidate: Candidate, terminos: readonly string[]): n
  * ahora o de hace un año, y suponer que es de ahora sería inventarse la señal.
  */
 export function searchWeight(
-  record: SearchRecord,
+  record: SearchSignalRecord,
   now: Date | number,
   halfLifeDays: number = SEARCH_HALF_LIFE_DAYS,
 ): number {
@@ -92,7 +92,7 @@ export function searchWeight(
  */
 export function searchScore(
   candidate: Candidate,
-  historial: readonly SearchRecord[],
+  historial: readonly SearchSignalRecord[],
   options: SearchSignalOptions = {},
 ): number {
   const ahora = options.now ?? Date.now()
@@ -119,7 +119,7 @@ export function searchScore(
  */
 export function searchReason(
   candidate: Candidate,
-  historial: readonly SearchRecord[],
+  historial: readonly SearchSignalRecord[],
   options: SearchSignalOptions = {},
 ): { readonly kind: 'matches-search'; readonly detail: string } | undefined {
   const ahora = options.now ?? Date.now()

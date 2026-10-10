@@ -31,6 +31,7 @@ import { registerEpisodesRoute } from './routes/episodes'
 import { registerFavoritesRoutes } from './routes/favorites'
 import { registerPlayRoutes } from './routes/play'
 import { type PluginReport, registerProvidersRoute, summarizePlugins } from './routes/providers'
+import { registerRecommendationsRoute } from './routes/recommendations'
 import { registerSearchRoute } from './routes/search'
 import { registerStreamRoutes } from './routes/stream'
 import { registerSubtitlesRoute } from './routes/subtitles'
@@ -150,6 +151,7 @@ export function createApp(options: AppOptions): Hono {
     registerStreamRoutes(app, { ...routeOptions, ...proxyOptions })
     registerSubtitlesRoute(app, { container: options.container, ...proxyOptions })
     registerWatchRoutes(app, { container: options.container })
+    registerRecommendationsRoute(app, routeOptions)
     registerPlayRoutes(app, routeOptions)
   }
 

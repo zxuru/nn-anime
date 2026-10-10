@@ -36,7 +36,7 @@ import { type CoVisit, coVisitScore, indexBySeen } from './covisit'
 import { filterCandidates, type WatchState } from './filters'
 import { mmr, type RankedCandidate } from './mmr'
 import { buildReasons, mainReason, type Reason, type ReasonCandidate } from './reasons'
-import { type SearchRecord, searchReason, searchScore } from './search-signal'
+import { type SearchSignalRecord, searchReason, searchScore } from './search-signal'
 
 /** Pesos de cada señal en la puntuación final. */
 export interface SignalWeights {
@@ -58,7 +58,7 @@ export const SIGNAL_WEIGHTS: SignalWeights = {
 export interface RecommendSignals {
   readonly events: readonly AffinityEvent[]
   readonly coVisits: readonly CoVisit[]
-  readonly searches: readonly SearchRecord[]
+  readonly searches: readonly SearchSignalRecord[]
   readonly watchState: readonly WatchState[]
   /** La última cosa que se vio, para la señal de co-visita. */
   readonly lastSeen?: string | undefined
@@ -213,7 +213,19 @@ export function recommend(
       coldStart,
     })
 
-    return { candidate, score, components, reasons: razones, reason: mainReason(razones) }
+    // La lista nunca va vacía: si ninguna señal aportó nada, queda la razón
+    // genérica. Una recomendación sin explicación es lo que el spec prohíbe, y una
+    // lista vacía con `reason` llena sería una contradicción. Lo encontró la
+    // prueba de la ruta.
+    const conGenerica = razones.length === 0 ? [mainReason([])] : razones
+
+    return {
+      candidate,
+      score,
+      components,
+      reasons: conGenerica,
+      reason: mainReason(conGenerica),
+    }
   })
 
   // Sin historial: sólo `cold-start`, ordenado por popularidad. La puntuación ya

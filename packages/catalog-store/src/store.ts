@@ -36,7 +36,7 @@ import type {
 import type { z } from 'zod'
 import { runMigrations } from './migrations/runner'
 import { pruneOrphans } from './prune'
-import { createAnimeRepository } from './repositories/anime'
+import { type CandidateRow, createAnimeRepository } from './repositories/anime'
 import { createEpisodesRepository } from './repositories/episodes'
 import { createFavoritesRepository } from './repositories/favorites'
 import { createSearchRepository } from './repositories/search'
@@ -70,6 +70,8 @@ export interface CatalogStoreOptions {
 export interface CatalogStore {
   readAnime(ref: ProviderRef): Promise<CacheHit<AnimeDetail> | null>
   writeAnime(ref: ProviderRef, detail: AnimeDetail): Promise<void>
+  /** Los títulos cacheados, con sus tags, para el motor de recomendación. */
+  listCandidates(limit: number): Promise<readonly CandidateRow[]>
   readEpisodes(ref: ProviderRef): Promise<CacheHit<readonly Episode[]> | null>
   writeEpisodes(ref: ProviderRef, episodes: readonly Episode[]): Promise<void>
   /** Detalle y episodios en una sola transacción. */
@@ -146,6 +148,10 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       // podría probar. Lo encontró la prueba de integración del ciclo.
       await queue.run(() => of().anime.write(ref, detail, ahora()))
     },
+    async listCandidates(limit) {
+      return of().anime.list(limit)
+    },
+
     async readEpisodes(ref) {
       return of().episodes.read(ref, ahora())
     },

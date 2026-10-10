@@ -83,6 +83,7 @@
         "@nn-anime/core": "workspace:*",
         "@nn-anime/media-proxy": "workspace:*",
         "@nn-anime/provider-sdk": "workspace:*",
+        "@nn-anime/recsys": "workspace:*",
         "hono": "^4",
         "zod": "^4",
       },

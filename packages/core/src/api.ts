@@ -16,10 +16,12 @@ import {
   animeDetailSchema,
   animeSummarySchema,
   episodeSchema,
+  httpUrlSchema,
   modeSchema,
   providerCapabilitiesSchema,
   providerRefSchema,
   searchResultSchema,
+  titleKindSchema,
 } from './schema'
 
 /** Estado de carga de un plugin. */
@@ -101,6 +103,37 @@ export const watchUpdateRequestSchema = z.strictObject({
   durationS: z.number().nonnegative(),
 })
 
+/**
+ * Una recomendación, tal y como la ve el cliente.
+ *
+ * `components` **no está aquí**: es información de depuración y el spec prohíbe
+ * exponerla por defecto. Si alguien la necesita, hay una opción explícita.
+ */
+export const recommendationSchema = z.strictObject({
+  ref: providerRefSchema,
+  title: z.string().min(1),
+  coverUrl: httpUrlSchema.optional(),
+  year: z.number().int().optional(),
+  kind: titleKindSchema.optional(),
+  score: z.number(),
+  reason: z.strictObject({
+    kind: z.string().min(1),
+    text: z.string().min(1),
+  }),
+  reasons: z.array(
+    z.strictObject({
+      kind: z.string().min(1),
+      text: z.string().min(1),
+    }),
+  ),
+})
+
+export const recommendationsResponseSchema = z.strictObject({
+  items: z.array(recommendationSchema),
+  /** Sin historial: la interfaz lo usa para explicarse. */
+  coldStart: z.boolean(),
+})
+
 /** Detalle de un título. Es el mismo schema del dominio, no una copia. */
 export const animeResponseSchema = animeDetailSchema
 
@@ -143,6 +176,8 @@ export const searchEventSchema = z.discriminatedUnion('type', [
 
 export type ErrorResponse = z.infer<typeof errorResponseSchema>
 export type AnimeResponse = z.infer<typeof animeResponseSchema>
+export type RecommendationResponse = z.infer<typeof recommendationSchema>
+export type RecommendationsResponse = z.infer<typeof recommendationsResponseSchema>
 export type WatchStartRequest = z.infer<typeof watchStartRequestSchema>
 export type WatchStartResponse = z.infer<typeof watchStartResponseSchema>
 export type WatchUpdateRequest = z.infer<typeof watchUpdateRequestSchema>
