@@ -5,8 +5,9 @@
  * valor suelto en un componente es un error de revisión: si falta un token, se
  * añade aquí, no en el componente.
  *
- * Contrastes comprobados sobre el fondo correspondiente: el texto principal
- * supera 12:1 y el atenuado 7:1 en ambos temas, por encima del 4.5:1 exigido.
+ * El contraste no se afirma aquí: se mide en `src/a11y.test.ts`, que calcula el
+ * cociente de cada par y falla si baja del 4.5:1 que exige el spec. Los valores
+ * actuales van de 5.7:1 a 17:1 según el par y el tema.
  */
 
 :root {
