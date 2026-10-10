@@ -134,6 +134,34 @@ export const recommendationsResponseSchema = z.strictObject({
   coldStart: z.boolean(),
 })
 
+/** Ajustes que la interfaz puede leer y, en parte, cambiar. */
+export const settingsResponseSchema = z.strictObject({
+  theme: z.enum(['dark', 'light', 'system']),
+  paths: z.strictObject({
+    data: z.string().min(1),
+    config: z.string().min(1),
+    cache: z.string().min(1),
+  }),
+  mpv: z.strictObject({
+    available: z.boolean(),
+    version: z.string().optional(),
+  }),
+  providers: z.array(
+    z.strictObject({
+      id: z.string().min(1),
+      name: z.string().min(1),
+      capabilities: providerCapabilitiesSchema,
+      status: z.enum(['active', 'rejected']),
+      /** Por qué se rechazó, si se rechazó. */
+      reason: z.string().optional(),
+    }),
+  ),
+})
+
+export const settingsPatchSchema = z.strictObject({
+  theme: z.enum(['dark', 'light', 'system']),
+})
+
 /** Detalle de un título. Es el mismo schema del dominio, no una copia. */
 export const animeResponseSchema = animeDetailSchema
 
@@ -176,6 +204,8 @@ export const searchEventSchema = z.discriminatedUnion('type', [
 
 export type ErrorResponse = z.infer<typeof errorResponseSchema>
 export type AnimeResponse = z.infer<typeof animeResponseSchema>
+export type SettingsPatch = z.infer<typeof settingsPatchSchema>
+export type SettingsResponse = z.infer<typeof settingsResponseSchema>
 export type RecommendationResponse = z.infer<typeof recommendationSchema>
 export type RecommendationsResponse = z.infer<typeof recommendationsResponseSchema>
 export type WatchStartRequest = z.infer<typeof watchStartRequestSchema>

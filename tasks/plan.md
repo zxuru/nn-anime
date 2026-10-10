@@ -374,7 +374,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [ ] El panel cambia al buscar y es distinto del de arranque en frío
 
 ### Fase 7 — Pulido, seguridad y cierre
-- [ ] T40 Página de ajustes: proveedores, rutas de datos, mpv, tema, enlace a `SECURITY.md`
+- [x] T40 Página de ajustes: proveedores, rutas de datos, mpv, tema, enlace a `SECURITY.md`
 - [ ] T41 Filas de la home: continuar, favoritos, tendencias, recomendaciones
 - [ ] T42 Pasada de accesibilidad: foco, contraste, movimiento reducido, `aria-live`
 - [ ] T43 Arneses Playwright y casos de home y búsqueda

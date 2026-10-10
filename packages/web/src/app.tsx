@@ -12,6 +12,7 @@ import { DetailPage } from './features/detail/DetailPage'
 import { HomePage } from './features/home/HomePage'
 import { WatchPage } from './features/player/WatchPage'
 import { SearchPage } from './features/search/SearchPage'
+import { SettingsPage } from './features/settings/SettingsPage'
 import { t } from './i18n'
 import { Link, type RouteMatch, usePath, useRoute } from './router'
 
@@ -55,7 +56,7 @@ function screenFor(route: RouteMatch, path: string): ReactNode {
     case 'watch':
       return <WatchPage providerId={route.params.providerId ?? ''} ref={route.params.ref ?? ''} />
     case 'settings':
-      return <Pending title={t(LOCALE, 'nav.settings')} body={t(LOCALE, 'settings.pending')} />
+      return <SettingsPage />
     case 'not-found':
       return (
         <section>

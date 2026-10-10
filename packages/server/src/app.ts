@@ -15,6 +15,7 @@
  * inalcanzable.
  */
 
+import type { ConfigPaths } from '@nn-anime/core'
 import { healthResponseSchema, type Logger } from '@nn-anime/core'
 import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
 import { Hono } from 'hono'
@@ -33,6 +34,7 @@ import { registerPlayRoutes } from './routes/play'
 import { type PluginReport, registerProvidersRoute, summarizePlugins } from './routes/providers'
 import { registerRecommendationsRoute } from './routes/recommendations'
 import { registerSearchRoute } from './routes/search'
+import { registerSettingsRoute } from './routes/settings'
 import { registerStreamRoutes } from './routes/stream'
 import { registerSubtitlesRoute } from './routes/subtitles'
 import { registerWatchRoutes } from './routes/watch'
@@ -77,6 +79,10 @@ export interface AppOptions {
    * para no resolver nombres de verdad; en producción se usa el del sistema.
    */
   readonly streamResolver?: Resolver
+  /** Rutas en uso, para la página de ajustes. Las calcula el arranque. */
+  readonly paths?: ConfigPaths
+  /** Versión de mpv detectada al arrancar, si la hay. */
+  readonly mpvVersion?: string
   readonly mpvAvailable?: boolean
   readonly logger?: Logger
   /** Reloj del canje de arranque, inyectable para testear la caducidad. */
@@ -152,6 +158,12 @@ export function createApp(options: AppOptions): Hono {
     registerSubtitlesRoute(app, { container: options.container, ...proxyOptions })
     registerWatchRoutes(app, { container: options.container })
     registerRecommendationsRoute(app, routeOptions)
+    registerSettingsRoute(app, {
+      container: options.container,
+      plugins: { active: plugins.active, rejected: plugins.rejected },
+      ...(options.paths === undefined ? {} : { paths: options.paths }),
+      ...(options.mpvVersion === undefined ? {} : { mpvVersion: options.mpvVersion }),
+    })
     registerPlayRoutes(app, routeOptions)
   }
 

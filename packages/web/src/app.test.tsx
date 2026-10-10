@@ -37,8 +37,12 @@ describe('App: pantallas', () => {
     expect(html).toContain('Escribe un título')
   })
 
-  test('los ajustes tienen su propia pantalla', () => {
-    expect(render('/settings')).toContain('los proveedores, las rutas de datos')
+  test('los ajustes tienen su propia pantalla, y arranca cargando', () => {
+    const html = render('/settings')
+
+    expect(html).toContain('Ajustes')
+    expect(html).toContain('Cargando los ajustes')
+    expect(html).not.toContain('los proveedores, las rutas de datos')
   })
 
   test('el detalle arranca con su esqueleto, sin esperar a la red', () => {

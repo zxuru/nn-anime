@@ -73,6 +73,10 @@ export type LoadPlugins = (directory: string) => Promise<LoadReport>
 export type OpenContainer = (config: ConfigPaths) => ServerContainer | undefined
 
 export interface ListenOptions {
+  /** Rutas en uso, para la página de ajustes. */
+  readonly paths?: ConfigPaths | undefined
+  /** Versión de mpv detectada al arrancar, si la hay. */
+  readonly mpvVersion?: string | undefined
   readonly session: Session
   readonly bootToken: string
   readonly version: string
@@ -215,6 +219,8 @@ export interface BootDeps {
   readonly createBootToken: () => string
   readonly loadProviders: LoadPlugins
   readonly openContainer: OpenContainer
+  /** Versión de mpv detectada al arrancar, si la hay. */
+  readonly mpvVersion?: string
 }
 
 /**
@@ -319,6 +325,9 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     redirectTo: redirectTarget(options.query, options.providers),
     allowPortFallback: deps.allowPortFallback,
     plugins: { active: plugins.active, rejected: plugins.rejected },
+    // Las rutas las tiene `boot`, que es quien llamó a `loadConfig`.
+    paths: config,
+    ...(deps.mpvVersion === undefined ? {} : { mpvVersion: deps.mpvVersion }),
     ...(container === undefined ? {} : { container }),
   })
 

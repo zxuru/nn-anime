@@ -88,6 +88,28 @@ function webBuildRoot(): string | undefined {
  */
 const mpvDisponible = await hasMpv(async (binario) => Bun.which(binario) ?? undefined)
 
+/**
+ * La versión de mpv, para poder enseñarla en los ajustes.
+ *
+ * Se mira al arrancar, igual que la disponibilidad: `mpv --version` es un proceso
+ * que no se lanza en cada carga de la página de ajustes.
+ */
+async function versionDeMpv(): Promise<string | undefined> {
+  if (!mpvDisponible) return undefined
+
+  try {
+    const proceso = Bun.spawn(['mpv', '--version'], { stdout: 'pipe', stderr: 'ignore' })
+    const salida = await new Response(proceso.stdout).text()
+    await proceso.exited
+
+    return /mpv\s+([\d.]+)/.exec(salida)?.[1]
+  } catch {
+    return undefined
+  }
+}
+
+const mpvVersion = await versionDeMpv()
+
 const code = await run(Bun.argv.slice(2), {
   io,
   version,
@@ -112,6 +134,7 @@ const code = await run(Bun.argv.slice(2), {
      */
     openContainer: (config) =>
       createContainer({ db: openDb(config.dbPath), mpvAvailable: mpvDisponible }),
+    mpvVersion,
     createSession,
     createBootToken,
     openUrl: (url) =>

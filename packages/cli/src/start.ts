@@ -7,6 +7,7 @@
  * espera de señal se registra **antes** de arrancar el servidor.
  */
 
+import type { ConfigPaths } from '@nn-anime/core'
 import { type ConfigEnvironment, type Locale, type Logger, resolveLocale } from '@nn-anime/core'
 import type { Session } from '@nn-anime/server'
 import type { CliOptions } from './args'
@@ -36,6 +37,8 @@ export interface StartDeps {
   readonly readSettings: ReadSettings
   readonly loadProviders: LoadPlugins
   readonly openContainer: OpenContainer
+  /** Versión de mpv detectada al arrancar, si la hay. */
+  readonly mpvVersion?: string
   readonly openUrl: (url: string) => Promise<boolean>
   readonly createSession: () => Session
   readonly createBootToken: () => string
@@ -68,6 +71,7 @@ export function createStarter(deps: StartDeps): (options: CliOptions) => Promise
       readSettings: deps.readSettings,
       loadProviders: deps.loadProviders,
       openContainer: deps.openContainer,
+      ...(deps.mpvVersion === undefined ? {} : { mpvVersion: deps.mpvVersion }),
       listen: deps.listen,
       createSession: deps.createSession,
       createBootToken: deps.createBootToken,

@@ -2289,18 +2289,42 @@ se sabe nada de quien mira, y el spec pide que el arranque en frío se distinga.
 **Descripción:** Ajustes visibles: proveedores, rutas de datos, disponibilidad de mpv y tema.
 
 **Aceptación:**
-- [ ] Lista de proveedores con capabilities y estado, incluidos los rechazados con su motivo.
-- [ ] Muestra las rutas de datos, configuración y caché en uso.
-- [ ] Indica si `mpv` está disponible, con la versión detectada.
-- [ ] Aviso en texto claro de que un plugin se ejecuta sin sandbox con los permisos del usuario.
-- [ ] Enlace a `SECURITY.md` desde la propia página, además del aviso en línea.
-- [ ] Selector de tema oscuro y claro, persistido en ajustes.
+- [x] Lista de proveedores con capabilities y estado, incluidos los rechazados con su motivo.
+- [x] Muestra las rutas de datos, configuración y caché en uso.
+- [x] Indica si `mpv` está disponible, con la versión detectada.
+- [x] Aviso en texto claro de que un plugin se ejecuta sin sandbox con los permisos del usuario.
+- [x] Enlace a `SECURITY.md` desde la propia página, además del aviso en línea.
+- [x] Selector de tema oscuro y claro, persistido en ajustes.
 
-**Verificación:** `bun run dev` · revisar `/settings` con un plugin roto presente.
+**Verificación:** `bun test packages/server packages/web` · 10 pruebas de la ruta y 10 de la página.
+Medido mutando la implementación: sin listar los rechazados fallan 2, sin su motivo 1, sin guardar el
+tema 2 y sin resolver `system` 1. Control: 0 fallos.
 
 **Depende de:** T13, T7.
 
 **Archivos:** `packages/web/src/features/settings/{SettingsPage,ProviderList,ThemeToggle}.tsx`, `packages/server/src/routes/settings.ts`.
+**Ampliación declarada:** `useSettings.ts`, sus pruebas, los schemas `settingsResponseSchema` y
+`settingsPatchSchema` en `core/api.ts`, `app.ts`, el arranque del CLI (que pasa las rutas y detecta la
+versión de mpv **una vez**) y **`SECURITY.md`**, que no existía.
+
+**Tres decisiones que conviene recordar:**
+
+1. **Los proveedores rechazados se listan con su motivo.** Esconderlos sería lo cómodo y lo peor: el
+   usuario copió un archivo, no pasa nada, y sin el motivo no tiene por dónde empezar. Un rechazado
+   declara todas las capacidades en falso: no se leyó su manifiesto, así que inventarlas sería mentir.
+2. **El tema se guarda en la base, no en el navegador.** Un ajuste en `localStorage` se pierde al
+   cambiar de navegador y no se puede leer desde el servidor; el spec dice «persistido en ajustes», y
+   los ajustes son del store.
+3. **El aviso de seguridad va en la página, no sólo en el documento enlazado.** Un plugin se ejecuta
+   sin sandbox con los permisos del usuario, y eso hay que decirlo donde se instalan plugins.
+
+**`SECURITY.md` no existía y el criterio pedía enlazarlo.** Se escribió ahora —modelo de amenaza con
+las mitigaciones ya implementadas y los tres riesgos residuales— porque un enlace a un archivo que no
+está es peor que no ponerlo. La fase 7 lo ampliará; lo que hay ya es cierto y verificable.
+
+**El cambio de rutas fue más grande de lo que parecía:** las calcula `boot` (que llama a `loadConfig`)
+y las necesita una ruta del servidor, así que viajan por `ListenOptions` en vez de que el servidor las
+adivine. Dos intentos: pasar una función desde el CLI era una indirección que no hacía falta.
 
 **Tamaño:** M.
 
