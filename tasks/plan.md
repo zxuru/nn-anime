@@ -136,6 +136,20 @@ argumento de `xdg-open` y es visible en `ps` durante un instante. La mitigación
 y de logs, no de la lista de procesos. En una máquina de un solo usuario el impacto es nulo, y el
 token es de un solo uso y caduca.
 
+**Reverificación completa tras las correcciones**, con el servidor real y no sólo con tests:
+
+| Comprobación | Producción | Desarrollo |
+|---|---|---|
+| Home y rutas del enrutador | 200 con el `index.html` | 200 por Vite |
+| Recurso estático | 200 con su tipo de contenido | — |
+| API sin cookie | 401 | 401 |
+| Canje del token | 302 con cookie `HttpOnly`; destino `/` sin consulta y `/search?q=...` con ella | 302 con la misma cookie, a través del proxy |
+| API con la cookie del canje | 200 JSON | 200 JSON |
+| `Host` ajeno con cookie válida | 403 | 403 |
+| `/%61pi/health` con sesión | Llega a la API, ya no devuelve HTML: la asimetría entre las dos normalizaciones está cerrada | — |
+| Puerto 7717 ocupado | Cae a uno libre y lo informa | **Falla con el mensaje que lo explica**, en vez de mudarse en silencio y dejar la API inalcanzable |
+| `kill -INT` | 130 | — |
+
 **Anotado sin actuar, a propósito:** `logger.child`, `result.map`/`mapErr` y varios alias de tipo
 no tienen consumidor todavía. Los consumen T10, T12 y T12 respectivamente; borrarlos ahora para
 reescribirlos en dos tareas sería ruido. `WatchEventInput` no exige `positionS <= durationS`:
