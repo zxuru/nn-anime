@@ -253,3 +253,59 @@ describe('GET /api/recommendations', () => {
     })
   })
 })
+
+describe('la consulta en curso', () => {
+  test('la consulta cambia el panel: es una búsqueda de ahora', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const sinConsulta = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations')).json(),
+        )
+        // La consulta tiene que **coincidir con algo**: «mecha» no está en este
+        // catálogo, así que no cambiaría nada y la prueba no mediría nada.
+        const conConsulta = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations?q=cazador')).json(),
+        )
+
+        const primeroSin = sinConsulta.items[0]?.ref.value
+        const primeroCon = conConsulta.items[0]?.ref.value
+
+        // Con la consulta, el primero tiene que ser distinto: si no, la consulta
+        // viajaba y el servidor la ignoraba.
+        expect(primeroCon).not.toBe(primeroSin)
+      },
+      { cachear: [REF, 'cazador-de-sombras'] },
+    )
+  })
+
+  test('la razón de la consulta dice con qué coincide', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const salida = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations?q=cazador')).json(),
+        )
+
+        expect(salida.items[0]?.reason.text).toContain('cazador')
+      },
+      { cachear: [REF, 'cazador-de-sombras'] },
+    )
+  })
+
+  test('una consulta en blanco no cambia nada', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const sinConsulta = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations')).json(),
+        )
+        const enBlanco = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations?q=%20%20')).json(),
+        )
+
+        expect(enBlanco.items.map((item) => item.ref.value)).toEqual(
+          sinConsulta.items.map((item) => item.ref.value),
+        )
+      },
+      { cachear: [REF, 'cazador-de-sombras'] },
+    )
+  })
+})

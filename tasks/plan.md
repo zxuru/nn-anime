@@ -370,8 +370,10 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] T39 Panel de recomendaciones en la home, con razones y refresco por búsqueda
 
 ### Checkpoint G — Recomendaciones
-- [ ] Cada recomendación del top 20 muestra al menos una razón legible
-- [ ] El panel cambia al buscar y es distinto del de arranque en frío
+- [x] Cada recomendación del top 20 muestra al menos una razón legible: el motor garantiza que la lista
+      nunca va vacía y la prueba de la ruta lo comprueba para cada elemento
+- [x] El panel cambia al buscar y es distinto del de arranque en frío: **la consulta se ignoraba en el
+      servidor** y ahora entra como búsqueda de ahora; lo encontró la comprobación del criterio
 
 ### Fase 7 — Pulido, seguridad y cierre
 - [x] T40 Página de ajustes: proveedores, rutas de datos, mpv, tema, enlace a `SECURITY.md`

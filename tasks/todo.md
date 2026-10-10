@@ -2276,11 +2276,21 @@ se sabe nada de quien mira, y el spec pide que el arranque en frío se distinga.
 
 ## Checkpoint G — Recomendaciones
 
-- [ ] Cada recomendación del top 20 muestra al menos una razón legible.
-- [ ] El panel cambia al buscar y difiere del arranque en frío.
+- [x] Cada recomendación del top 20 muestra al menos una razón legible. **Medido**: el motor garantiza
+      que la lista de razones nunca va vacía (si ninguna señal aportó nada, queda la genérica con
+      texto) y la prueba de la ruta lo comprueba **para cada elemento** de la respuesta, no sólo para
+      el primero.
+- [x] El panel cambia al buscar y es distinto del de arranque en frío. **Encontró un fallo de
+      verdad**: la interfaz mandaba `q` y el servidor **la ignoraba**. La prueba de T39 comprobaba que
+      la consulta viajaba, no que sirviera de algo, así que el criterio parecía cumplido y no lo
+      estaba. Ahora la consulta entra como búsqueda de ahora y hay tres pruebas: que cambia el orden,
+      que la razón cita el término y que una consulta en blanco no cambia nada. Medido mutando:
+      ignorando la consulta fallan 2.
 - [ ] Revisión humana.
 
----
+**Lo que queda abierto del Checkpoint G** es la revisión humana. No es parada dura —las que fijaste
+son A, B, F y H— así que el trabajo sigue, pero el fallo de la consulta es exactamente lo que esa
+revisión tenía que cazar, y lo cazó la comprobación de los criterios, no una prueba.
 
 ## Fase 7 — Pulido, seguridad y cierre
 

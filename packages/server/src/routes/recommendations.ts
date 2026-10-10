@@ -114,7 +114,20 @@ export function registerRecommendationsRoute(
     const limite = clampLimit(c.req.query('limit'))
     const ahora = Date.now()
 
+    // La consulta que se está escribiendo entra como búsqueda **de ahora**: el
+    // panel tiene que cambiar con lo que el usuario busca, y sin esto la petición
+    // viajaba con `q` y el servidor la ignoraba. Lo encontró la revisión del
+    // Checkpoint G, no una prueba: la prueba comprobaba que la consulta viajaba,
+    // no que sirviera de algo.
+    const consulta = c.req.query('q')?.trim() ?? ''
     const señales = await gatherSignals(options.container.store)
+    const conConsulta =
+      consulta === ''
+        ? señales
+        : {
+            ...señales,
+            searches: [{ query: consulta, at: new Date(ahora), hits: 1 }, ...señales.searches],
+          }
     const candidatos: Candidate[] = [...señales.candidates]
 
     // Tendencias: lo único que se pide al proveedor, y sólo si dice saber hacerlo.
@@ -162,7 +175,7 @@ export function registerRecommendationsRoute(
       }
     }
 
-    const salida = recommend(señales, candidatos, { limit: limite, now: ahora })
+    const salida = recommend(conConsulta, candidatos, { limit: limite, now: ahora })
 
     return c.json(
       recommendationsResponseSchema.parse({
