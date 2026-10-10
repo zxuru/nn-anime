@@ -228,6 +228,15 @@ export interface LinkProps {
   readonly className?: string
   readonly title?: string
   readonly onNavigate?: () => void
+  /**
+   * Sucesos del puntero.
+   *
+   * Existen para la precarga del detalle: al pasar por encima de una tarjeta se
+   * pide su ficha, y al salir se cancela. La navegación por teclado no los
+   * necesita, y por eso no se usa el foco para lo mismo.
+   */
+  readonly onMouseEnter?: () => void
+  readonly onMouseLeave?: () => void
 }
 
 /**
@@ -244,6 +253,8 @@ export function Link(props: LinkProps): ReactNode {
       href={props.to}
       className={props.className}
       title={props.title}
+      onMouseEnter={props.onMouseEnter}
+      onMouseLeave={props.onMouseLeave}
       onClick={(event) => {
         if (event.defaultPrevented) return
         if (event.button !== 0) return

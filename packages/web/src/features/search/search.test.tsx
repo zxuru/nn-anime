@@ -7,13 +7,15 @@ import { createMemoryHistory, HistoryProvider } from '../../router'
 import { ResultCard } from './ResultCard'
 import { ResultGrid } from './ResultGrid'
 import {
+  announce,
   createScheduler,
-  parseSearchStream,
+  providersFromPath,
   queryFromPath,
   SEARCH_DEBOUNCE_MS,
   SearchPage,
   searchPath,
 } from './SearchPage'
+import { createPrefetcher, initialState } from './useSearchStream'
 
 function resultado(
   providerId: string,
@@ -49,8 +51,52 @@ describe('la consulta vive en la dirección', () => {
     expect(searchPath('   ')).toBe('/search')
   })
 
+  test('conserva el filtro de proveedor al reescribir la consulta', () => {
+    expect(searchPath('naruto', ['mio'])).toBe('/search?q=naruto&provider=mio')
+    expect(searchPath('', ['mio', 'otro'])).toBe('/search?provider=mio&provider=otro')
+  })
+
+  test('lee el filtro de proveedor de la ruta', () => {
+    expect(providersFromPath('/search?q=a&provider=uno&provider=dos')).toEqual(['uno', 'dos'])
+    expect(providersFromPath('/search?q=a')).toEqual([])
+  })
+
   test('el retardo es el del spec', () => {
     expect(SEARCH_DEBOUNCE_MS).toBe(400)
+  })
+})
+
+describe('anuncio para lectores de pantalla', () => {
+  test('mientras busca, lo dice', () => {
+    expect(announce(initialState(['uno']), ['uno'])).toContain('Buscando')
+  })
+
+  test('sin proveedores todavía cargados no afirma que no haya ninguno', () => {
+    expect(announce(initialState([]), [], false)).toContain('Buscando')
+  })
+
+  test('sin proveedores activos, lo dice', () => {
+    expect(announce(initialState([]), [])).toContain('No hay ningún proveedor activo')
+  })
+
+  test('al cerrar anuncia el recuento y cuántos proveedores respondieron', () => {
+    const estado = {
+      results: [resultado('uno', 'a', 'A'), resultado('dos', 'b', 'B'), resultado('dos', 'c', 'C')],
+      pending: [],
+      errors: [],
+      done: true,
+    }
+
+    const texto = announce(estado, ['uno', 'dos'])
+
+    expect(texto).toContain('3 resultados')
+    expect(texto).toContain('2 proveedores')
+  })
+
+  test('un fallo de transporte se anuncia como fallo', () => {
+    const estado = { ...initialState([]), done: true, failed: 'sin conexión' }
+
+    expect(announce(estado, [])).toContain('sin conexión')
   })
 })
 
@@ -89,56 +135,6 @@ describe('retardo', () => {
 
     expect(cancelados).toEqual([1, 2])
     expect(programados).toBe(3)
-  })
-})
-
-describe('eventos del stream', () => {
-  test('recoge los resultados de los eventos y valida cada uno', () => {
-    const texto = [
-      'event: results',
-      'data: {"type":"results","providerId":"mio","results":[{"ref":{"providerId":"mio","value":"t1"},"title":"Uno"}]}',
-      '',
-      'event: done',
-      'data: {"type":"done","providers":1}',
-      '',
-    ].join('\n')
-
-    expect(parseSearchStream(texto)).toEqual([resultado('mio', 't1', 'Uno')])
-  })
-
-  test('un evento ilegible no tumba la lista entera', () => {
-    const texto = [
-      'event: results',
-      'data: {"type":"results","providerId":"mio","results":[{"ref":{"providerId":"mio","value":"t1"},"title":"Uno"}]}',
-      '',
-      'event: results',
-      'data: esto no es json',
-      '',
-      'event: results',
-      'data: {"type":"results","providerId":"otro","results":[{"title":"Sin ref"}]}',
-      '',
-      'event: results',
-      'data: {"type":"results","providerId":"mas","results":[{"ref":{"providerId":"mas","value":"x"},"title":"Dos"}]}',
-      '',
-    ].join('\n')
-
-    expect(parseSearchStream(texto)).toEqual([
-      resultado('mio', 't1', 'Uno'),
-      resultado('mas', 'x', 'Dos'),
-    ])
-  })
-
-  test('los eventos de error y de cierre no aportan resultados', () => {
-    const texto = [
-      'event: error',
-      'data: {"type":"error","providerId":"roto","kind":"threw","message":"se cayó"}',
-      '',
-      'event: done',
-      'data: {"type":"done","providers":1}',
-      '',
-    ].join('\n')
-
-    expect(parseSearchStream(texto)).toEqual([])
   })
 })
 
@@ -235,28 +231,32 @@ describe('rejilla y estado vacío', () => {
 })
 
 describe('página', () => {
-  test('el campo toma el término que ya venía en la dirección', () => {
-    const html = renderToString(
-      <HistoryProvider history={createMemoryHistory('/search?q=naruto')}>
-        <SearchPage search={async () => []} />
+  function pagina(path: string): string {
+    return renderToString(
+      <HistoryProvider history={createMemoryHistory(path)}>
+        <SearchPage prefetcher={createPrefetcher({ fetchDetail: async () => {} })} />
       </HistoryProvider>,
     )
+  }
+
+  test('el campo toma el término que ya venía en la dirección', () => {
+    const html = pagina('/search?q=naruto')
 
     expect(html).toContain('value="naruto"')
     expect(html).toContain('placeholder="Escribe un título…"')
   })
 
   test('el primer render no depende de ninguna petición', () => {
-    const html = renderToString(
-      <HistoryProvider history={createMemoryHistory('/search')}>
-        <SearchPage
-          search={() => {
-            throw new Error('no se debe llamar durante el render')
-          }}
-        />
-      </HistoryProvider>,
-    )
+    const html = pagina('/search')
 
+    // Sin proveedores cargados todavía, la región viva dice que está buscando y
+    // el cuerpo invita a escribir: nada de esto necesita red.
+    expect(html).toContain('Buscando')
     expect(html).toContain('Escribe un título')
+    expect(html).toContain('aria-live="polite"')
+  })
+
+  test('sin resultados, el estado vacío explica la consulta', () => {
+    expect(pagina('/search?q=xyz')).toContain('Escribe un título')
   })
 })

@@ -1,0 +1,341 @@
+import { describe, expect, test } from 'bun:test'
+import type { ProviderSummary, SearchEventPayload } from '@nn-anime/core/api'
+import type { SearchResult } from '@nn-anime/core/models'
+import {
+  activeProviderIds,
+  alsoInByRef,
+  createPrefetcher,
+  createSearchHub,
+  groupResults,
+  initialState,
+  normalizeTitle,
+  reduce,
+} from './useSearchStream'
+
+function resultado(providerId: string, ref: string, title: string, year?: number): SearchResult {
+  return { ref: { providerId, value: ref }, title, ...(year === undefined ? {} : { year }) }
+}
+
+function resumen(id: string, status: 'active' | 'rejected'): ProviderSummary {
+  return {
+    id,
+    name: id,
+    capabilities: { search: true, sub: true, dub: false, trending: false },
+    status,
+    ...(status === 'rejected' ? { reason: 'no cargó' } : {}),
+  }
+}
+
+describe('estado', () => {
+  test('al empezar, todos los proveedores están pendientes', () => {
+    const estado = initialState(['uno', 'dos'])
+
+    expect(estado.pending).toEqual(['uno', 'dos'])
+    expect(estado.results).toEqual([])
+    expect(estado.done).toBe(false)
+  })
+
+  test('los resultados llegan y su proveedor deja de estar pendiente', () => {
+    const estado = reduce(initialState(['uno', 'dos']), {
+      type: 'results',
+      providerId: 'uno',
+      results: [resultado('uno', 'a', 'A')],
+    })
+
+    expect(estado.results).toHaveLength(1)
+    expect(estado.pending).toEqual(['dos'])
+  })
+
+  test('un error quita el esqueleto y se cuenta aparte', () => {
+    const estado = reduce(initialState(['uno', 'dos']), {
+      type: 'error',
+      providerId: 'uno',
+      kind: 'threw',
+      message: 'se cayó',
+    })
+
+    expect(estado.pending).toEqual(['dos'])
+    expect(estado.errors).toEqual([{ providerId: 'uno', message: 'se cayó' }])
+    expect(estado.results).toEqual([])
+  })
+
+  test('el cierre limpia lo que quedara pendiente', () => {
+    const estado = reduce(initialState(['uno', 'dos']), { type: 'done', providers: 2 })
+
+    expect(estado.pending).toEqual([])
+    expect(estado.done).toBe(true)
+  })
+})
+
+describe('agrupación de duplicados', () => {
+  test('el mismo título y año en dos proveedores van al mismo grupo', () => {
+    const grupos = groupResults([
+      resultado('uno', 'a', 'Aurora Nocturna', 2019),
+      resultado('dos', 'b', 'aurora nocturna', 2019),
+    ])
+
+    expect(grupos).toHaveLength(1)
+    expect(grupos[0]?.providers).toEqual(['uno', 'dos'])
+  })
+
+  test('el mismo título en años distintos no se agrupa', () => {
+    const grupos = groupResults([
+      resultado('uno', 'a', 'Aurora', 2019),
+      resultado('dos', 'b', 'Aurora', 2021),
+    ])
+
+    expect(grupos).toHaveLength(2)
+  })
+
+  test('sin año, dos proveedores con el mismo título se agrupan igual', () => {
+    const grupos = groupResults([resultado('uno', 'a', 'Aurora'), resultado('dos', 'b', 'Aurora')])
+
+    expect(grupos).toHaveLength(1)
+    expect(grupos[0]?.results).toHaveLength(2)
+  })
+
+  test('las referencias no se fusionan: cada resultado conserva su proveedor', () => {
+    const resultados = [resultado('uno', 'a', 'Aurora'), resultado('dos', 'b', 'Aurora')]
+    const grupos = groupResults(resultados)
+
+    expect(grupos[0]?.results.map((item) => item.ref.providerId)).toEqual(['uno', 'dos'])
+    expect(grupos[0]?.results.map((item) => item.ref.value)).toEqual(['a', 'b'])
+  })
+
+  test('la normalización agrupa lo que el usuario ve igual', () => {
+    expect(normalizeTitle('  Aurora   NOCTURNA ')).toBe('aurora nocturna')
+    // La misma palabra escrita de las dos formas posibles en Unicode.
+    expect(normalizeTitle('e\u0301xito')).toBe(normalizeTitle('éxito'))
+
+    expect(
+      groupResults([resultado('uno', 'a', 'Éxito'), resultado('dos', 'b', 'e\u0301xito')]),
+    ).toHaveLength(1)
+  })
+
+  test('el recuento por referencia sale del grupo', () => {
+    const cuenta = alsoInByRef([
+      resultado('uno', 'a', 'Aurora'),
+      resultado('dos', 'b', 'Aurora'),
+      resultado('uno', 'c', 'Otra'),
+    ])
+
+    expect(cuenta.get('uno:a')).toBe(2)
+    expect(cuenta.get('dos:b')).toBe(2)
+    expect(cuenta.get('uno:c')).toBe(1)
+  })
+})
+
+describe('proveedores activos', () => {
+  test('sólo los activos entran en la búsqueda', () => {
+    expect(activeProviderIds([resumen('uno', 'active'), resumen('roto', 'rejected')])).toEqual([
+      'uno',
+    ])
+  })
+})
+
+describe('distribuidor de búsquedas', () => {
+  test('dos suscripciones a la misma ruta abren una sola petición', async () => {
+    let abiertas = 0
+    const hub = createSearchHub({
+      open: () => {
+        abiertas += 1
+        return (async function* () {
+          yield {
+            type: 'results',
+            providerId: 'uno',
+            results: [resultado('uno', 'a', 'A')],
+          } as SearchEventPayload
+          yield { type: 'done', providers: 1 } as SearchEventPayload
+        })()
+      },
+    })
+
+    const avisos: number[] = []
+    const uno = hub.subscribe('/api/search?q=a', ['uno'], () => avisos.push(1))
+    const dos = hub.subscribe('/api/search?q=a', ['uno'], () => avisos.push(2))
+
+    await Bun.sleep(10)
+
+    expect(abiertas).toBe(1)
+    expect(avisos.length).toBeGreaterThanOrEqual(2)
+    expect(hub.read('/api/search?q=a').results).toHaveLength(1)
+    expect(hub.read('/api/search?q=a').done).toBe(true)
+
+    uno()
+    dos()
+  })
+
+  test('rutas distintas abren peticiones distintas', async () => {
+    let abiertas = 0
+    const hub = createSearchHub({
+      open: () => {
+        abiertas += 1
+        return (async function* () {
+          yield { type: 'done', providers: 0 } as SearchEventPayload
+        })()
+      },
+    })
+
+    const uno = hub.subscribe('/api/search?q=a', [], () => {})
+    const dos = hub.subscribe('/api/search?q=b', [], () => {})
+
+    await Bun.sleep(5)
+
+    expect(abiertas).toBe(2)
+
+    uno()
+    dos()
+  })
+
+  test('al irse el último suscriptor se cancela el stream abierto', async () => {
+    let cancelado = false
+    const hub = createSearchHub({
+      open: (_path, signal) => {
+        signal.addEventListener('abort', () => {
+          cancelado = true
+        })
+        return (async function* () {
+          await Bun.sleep(50)
+          yield { type: 'done', providers: 0 } as SearchEventPayload
+        })()
+      },
+    })
+
+    const unsubscribe = hub.subscribe('/api/search?q=a', [], () => {})
+    await Bun.sleep(1)
+    unsubscribe()
+
+    await Bun.sleep(5)
+
+    expect(cancelado).toBe(true)
+  })
+
+  test('si se va antes de arrancar, ni se abre la conexión', async () => {
+    let abiertas = 0
+    const hub = createSearchHub({
+      open: () => {
+        abiertas += 1
+        return (async function* () {
+          yield { type: 'done', providers: 0 } as SearchEventPayload
+        })()
+      },
+    })
+
+    hub.subscribe('/api/search?q=a', [], () => {})()
+    await Bun.sleep(5)
+
+    expect(abiertas).toBe(0)
+  })
+
+  test('un fallo de transporte se cuenta y cierra, en lugar de dejar esqueletos', async () => {
+    const hub = createSearchHub({
+      open: () => {
+        throw new Error('sin conexión')
+      },
+    })
+
+    hub.subscribe('/api/search?q=a', ['uno'], () => {})
+    await Bun.sleep(10)
+    const estado = hub.read('/api/search?q=a')
+
+    expect(estado.done).toBe(true)
+    expect(estado.pending).toEqual([])
+    expect(estado.failed).toContain('sin conexión')
+  })
+
+  test('cancelar no se reporta como fallo: el usuario cambió de consulta', async () => {
+    const hub = createSearchHub({
+      open: (_path, signal) => {
+        return (async function* () {
+          await new Promise<void>((_resolve, reject) =>
+            signal.addEventListener('abort', () => reject(signal.reason), { once: true }),
+          )
+          yield { type: 'done', providers: 0 } as SearchEventPayload
+        })()
+      },
+    })
+
+    const unsubscribe = hub.subscribe('/api/search?q=a', ['uno'], () => {})
+    unsubscribe()
+    await Bun.sleep(5)
+
+    expect(hub.read('/api/search?q=a').failed).toBeUndefined()
+  })
+})
+
+describe('precarga', () => {
+  test('precarga la tarjeta señalada, una sola vez', async () => {
+    const pedidas: string[] = []
+    const prefetch = createPrefetcher({
+      fetchDetail: async (providerId, ref) => {
+        pedidas.push(`${providerId}:${ref}`)
+      },
+    })
+
+    prefetch.hover('uno', 'a')
+    prefetch.hover('uno', 'a')
+    await Bun.sleep(5)
+
+    expect(pedidas).toEqual(['uno:a'])
+  })
+
+  test('al salir el puntero se cancela lo que estaba en vuelo', async () => {
+    let cancelado = false
+    const prefetch = createPrefetcher({
+      fetchDetail: (_providerId, _ref, signal) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => {
+              cancelado = true
+              reject(signal.reason)
+            },
+            { once: true },
+          )
+        }),
+    })
+
+    prefetch.hover('uno', 'a')
+    prefetch.leave()
+
+    expect(cancelado).toBe(true)
+  })
+
+  test('pasar por encima de otra tarjeta cancela la anterior', async () => {
+    const canceladas: string[] = []
+    const prefetch = createPrefetcher({
+      fetchDetail: (providerId, _ref, signal) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => {
+              canceladas.push(providerId)
+              reject(signal.reason)
+            },
+            { once: true },
+          )
+        }),
+    })
+
+    prefetch.hover('uno', 'a')
+    prefetch.hover('dos', 'b')
+
+    expect(canceladas).toEqual(['uno'])
+  })
+
+  test('el tope corta el catálogo: nunca se precarga todo', () => {
+    const prefetch = createPrefetcher({ fetchDetail: async () => {}, max: 3 })
+
+    for (let i = 0; i < 20; i++) prefetch.hover('uno', `e${i}`)
+
+    expect(prefetch.started()).toBe(3)
+  })
+
+  test('el tope por defecto es pequeño, no el catálogo', () => {
+    const prefetch = createPrefetcher({ fetchDetail: async () => {} })
+
+    for (let i = 0; i < 50; i++) prefetch.hover('uno', `e${i}`)
+
+    expect(prefetch.started()).toBe(6)
+  })
+})

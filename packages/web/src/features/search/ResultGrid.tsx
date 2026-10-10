@@ -19,6 +19,10 @@ export interface ResultGridProps {
   /** La consulta que produjo estos resultados, para el texto del estado vacío. */
   readonly query: string
   readonly providerLabels?: ReadonlyMap<string, string>
+  /** Cuántos proveedores ofrecen cada referencia, para la pista de duplicados. */
+  readonly alsoIn?: ReadonlyMap<string, number>
+  readonly onPreview?: (result: SearchResult) => void
+  readonly onPreviewEnd?: () => void
 }
 
 export function ResultGrid(props: ResultGridProps): ReactNode {
@@ -41,6 +45,13 @@ export function ResultGrid(props: ResultGridProps): ReactNode {
             {...(props.providerLabels?.get(result.ref.providerId) === undefined
               ? {}
               : { providerLabel: props.providerLabels.get(result.ref.providerId) })}
+            {...(props.alsoIn?.get(`${result.ref.providerId}:${result.ref.value}`) === undefined
+              ? {}
+              : { alsoIn: props.alsoIn.get(`${result.ref.providerId}:${result.ref.value}`) })}
+            {...(props.onPreview === undefined
+              ? {}
+              : { onPreview: () => props.onPreview?.(result) })}
+            {...(props.onPreviewEnd === undefined ? {} : { onPreviewEnd: props.onPreviewEnd })}
           />
         </GridItem>
       ))}

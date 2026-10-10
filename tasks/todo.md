@@ -828,25 +828,44 @@ catálogo de textos, `app.tsx` para montar la pantalla, la subruta `./api` de `c
 anuncios accesibles.
 
 **Aceptación:**
-- [ ] Valida los eventos del stream con el schema compartido de `packages/core/src/api.ts`, no con
+- [x] Valida los eventos del stream con el schema compartido de `packages/core/src/api.ts`, no con
       uno local.
-- [ ] **Lee `q` y `provider` de la cadena de consulta** y los usa en la petición. Sin esto, el
+- [x] **Lee `q` y `provider` de la cadena de consulta** y los usa en la petición. Sin esto, el
       filtro que `--provider` pone en la dirección de arranque no tiene por dónde llegar.
-- [ ] **Agrupa los duplicados entre proveedores** por título normalizado más año, como pista
+- [x] **Agrupa los duplicados entre proveedores** por título normalizado más año, como pista
       visual y **sin fusionar referencias**: el spec lo pide y ninguna tarea lo cubría.
-- [ ] **Prefetch acotado**: sólo el detalle de las tarjetas visibles, al pasar el mouse, con
+- [x] **Prefetch acotado**: sólo el detalle de las tarjetas visibles, al pasar el mouse, con
       `AbortController` al salir. Nunca el catálogo.
-- [ ] Los resultados se pintan a medida que llegan, con esqueleto por proveedor pendiente.
-- [ ] Un proveedor que falla muestra su error y no deja el esqueleto para siempre.
-- [ ] Cambiar la consulta cancela la petición anterior y descarta sus eventos.
-- [ ] La región de resultados es `aria-live="polite"` y anuncia el conteo al cerrar.
-- [ ] Deduplicación de `fetch` por clave: dos montajes de la misma consulta hacen una petición.
+- [x] Los resultados se pintan a medida que llegan, con esqueleto por proveedor pendiente.
+- [x] Un proveedor que falla muestra su error y no deja el esqueleto para siempre.
+- [x] Cambiar la consulta cancela la petición anterior y descarta sus eventos.
+- [x] La región de resultados es `aria-live="polite"` y anuncia el conteo al cerrar.
+- [x] Deduplicación de `fetch` por clave: dos montajes de la misma consulta hacen una petición.
 
-**Verificación:** `bun run dev` · buscar con el fixture en modo latencia y en modo timeout.
+**Verificación:** `bun test packages/web` · 153 tests, y el build de producción compila. Medido
+mutando la implementación: sin acumular los trozos del stream fallan 2, sin quitar el esqueleto al
+fallar un proveedor 1, sin el año en la clave de agrupación 1, sin compartir la petición entre dos
+montajes 1 y sin el tope de precarga 2. Control: 0 fallos. La comprobación en un navegador real es
+del e2e (T43).
 
 **Depende de:** T14.
 
 **Archivos:** `packages/web/src/api/{stream-events.ts,dedupe.ts}`, `packages/web/src/features/search/useSearchStream.ts`, `packages/web/src/features/search/SearchPage.tsx`.
+**Ampliación declarada:** `ResultCard`/`ResultGrid` (la pista de duplicados y los sucesos del
+puntero), `router.tsx` —el enlace admite `onMouseEnter`/`onMouseLeave`, que es por donde entra la
+precarga—, el catálogo de textos, los tokens y la hoja de estructura.
+
+**Tres decisiones que conviene recordar:**
+
+1. **El analizador acumula.** Un trozo de SSE puede cortar en mitad de un `data:`, así que se
+   guarda el resto y sólo se entregan eventos completos. Analizar cada trozo por su cuenta pierde
+   el primer evento de cada búsqueda y nadie sabe por qué.
+2. **El distribuidor comparte el recorrido, no la respuesta.** Un cuerpo de SSE sólo se puede leer
+   una vez, así que dos montajes de la misma consulta se suscriben al mismo stream. Y el trabajo
+   arranca en el siguiente ciclo: si se fuera el suscriptor antes, se abriría una conexión que
+   nadie va a leer.
+3. **La dirección usa `%20`, no `+`.** `URLSearchParams` escribe `+` y la dirección de arranque del
+   CLI escribe `%20`; dos convenciones para la misma consulta son dos claves de caché distintas.
 
 **Tamaño:** M.
 

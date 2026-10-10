@@ -1,34 +1,40 @@
 /**
  * Página de búsqueda.
  *
- * Tres decisiones que se ven en el código:
+ * Cuatro decisiones que se ven en el código:
  *
- * 1. **La consulta vive en la dirección** (`?q=`), no sólo en el estado del
- *    componente. Así se puede recargar, compartir o volver atrás, y el filtro
- *    que `--provider` pone en la dirección de arranque tiene por dónde llegar.
- * 2. **Se escribe con `replace`, no con `push`**: una entrada de historial por
+ * 1. **La consulta y el filtro viven en la dirección** (`?q=` y `?provider=`).
+ *    Así se puede recargar, compartir o volver atrás, y el filtro que
+ *    `--provider` pone en la dirección de arranque tiene por dónde llegar.
+ * 2. **Se escribe con `replace`**, no con `push`: una entrada de historial por
  *    pulsación convertiría el botón «atrás» en un borrado letra a letra.
  * 3. **El retardo es de 400 ms** del spec: sin él, cada tecla sería una petición
  *    a cada proveedor, que son sitios de terceros.
+ * 4. **Los resultados se pintan según llegan**, con un esqueleto por proveedor
+ *    pendiente. Esperar a que respondan todos para pintar el primero es lo que
+ *    el spec prohíbe, y es lo que hace sentir lenta una búsqueda.
  *
- * Los eventos del stream se validan con el schema compartido de `core`, no con
- * uno local: si el server cambia una forma, esto falla aquí y no tres pantallas
- * más adelante.
+ * La región de resultados es `aria-live="polite"`: quien no ve la pantalla se
+ * entera del recuento cuando el flujo cierra, en lugar de quedarse sin saber si
+ * la búsqueda terminó.
  */
 
-import { searchEventSchema } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { SearchResult } from '@nn-anime/core/models'
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { Grid, GridItem } from '../../components/Grid'
 import { t } from '../../i18n'
 import { useNavigate, usePath } from '../../router'
 import { ResultGrid } from './ResultGrid'
+import {
+  alsoInByRef,
+  createDefaultPrefetcher,
+  type Prefetcher,
+  type SearchState,
+  useSearchStream,
+} from './useSearchStream'
 
 /** Retardo del spec entre la última tecla y la petición. */
 export const SEARCH_DEBOUNCE_MS = 400
-
-/** Firma de una búsqueda: se inyecta en los tests para no salir a la red. */
-export type SearchFn = (query: string, signal: AbortSignal) => Promise<readonly SearchResult[]>
 
 /** Programa algo y devuelve cómo cancelarlo, sustituyendo lo programado antes. */
 export type Schedule = (run: () => void, ms: number) => () => void
@@ -64,75 +70,74 @@ export function queryFromPath(path: string): string {
   return new URLSearchParams(consulta).get('q') ?? ''
 }
 
-/** La ruta de búsqueda de un término. Sin término, la pantalla a secas. */
-export function searchPath(term: string): string {
-  const limpio = term.trim()
+/** El filtro de proveedores de la ruta: `?provider=a&provider=b`. */
+export function providersFromPath(path: string): readonly string[] {
+  const consulta = path.split('?')[1] ?? ''
 
-  return limpio === '' ? '/search' : `/search?q=${encodeURIComponent(limpio)}`
+  return new URLSearchParams(consulta).getAll('provider')
+}
+
+/** La ruta de búsqueda de un término, conservando el filtro de proveedor. */
+export function searchPath(term: string, providers: readonly string[] = []): string {
+  const partes: string[] = []
+  const limpio = term.trim()
+  if (limpio !== '') partes.push(`q=${encodeURIComponent(limpio)}`)
+  for (const provider of providers) partes.push(`provider=${encodeURIComponent(provider)}`)
+
+  // Se compone a mano y no con `URLSearchParams` porque ése escribe los espacios
+  // como `+`, y la dirección de arranque del CLI los escribe como `%20`. Dos
+  // convenciones para lo mismo dan dos claves de caché para la misma búsqueda.
+  return partes.length === 0 ? '/search' : `/search?${partes.join('&')}`
 }
 
 /**
- * Eventos de un cuerpo SSE.
+ * Anuncio para la región `aria-live`.
  *
- * Se parte por doble salto de línea, como manda el formato, y se descarta lo que
- * no cumpla el schema: un evento ilegible no puede tumbar la lista entera.
+ * Sólo habla cuando el flujo cierra: anunciar cada proveedor según llega
+ * convertiría la búsqueda en una locución interminable. Y si no hay ninguno
+ * activo lo dice, porque el silencio no distingue «todavía no» de «no hay nada».
  */
-export function parseSearchStream(text: string): readonly SearchResult[] {
-  const resultados: SearchResult[] = []
-
-  for (const bloque of text.split('\n\n')) {
-    const data = bloque
-      .split('\n')
-      .filter((linea) => linea.startsWith('data:'))
-      .map((linea) => linea.slice(5).trim())
-      .join('\n')
-
-    if (data === '') continue
-
-    let crudo: unknown
-    try {
-      crudo = JSON.parse(data)
-    } catch {
-      continue
-    }
-
-    const evento = searchEventSchema.safeParse(crudo)
-    if (evento.success && evento.data.type === 'results') resultados.push(...evento.data.results)
+export function announce(
+  state: SearchState,
+  active: readonly string[],
+  providersLoaded = true,
+): string {
+  if (state.failed !== undefined) {
+    return t(DEFAULT_LOCALE, 'search.failed', { message: state.failed })
   }
 
-  return resultados
-}
+  if (!state.done) {
+    // Sin saber todavía qué proveedores hay, decir «no hay ninguno» sería
+    // afirmar algo que aún no se sabe.
+    if (!providersLoaded) return t(DEFAULT_LOCALE, 'search.loading')
 
-/** Búsqueda real: pide el stream y se queda con los resultados. */
-export async function fetchSearch(
-  query: string,
-  signal: AbortSignal,
-): Promise<readonly SearchResult[]> {
-  const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
-    credentials: 'same-origin',
-    headers: { accept: 'text/event-stream' },
-    signal,
+    return active.length === 0
+      ? t(DEFAULT_LOCALE, 'search.noProviders')
+      : t(DEFAULT_LOCALE, 'search.loading')
+  }
+
+  return t(DEFAULT_LOCALE, 'search.resultsCount', {
+    count: state.results.length,
+    providers: new Set(state.results.map((result) => result.ref.providerId)).size,
   })
-
-  if (!response.ok) throw new Error(`la búsqueda respondió ${response.status}`)
-
-  return parseSearchStream(await response.text())
 }
 
 export interface SearchPageProps {
-  readonly search?: SearchFn
-  readonly providerLabels?: ReadonlyMap<string, string>
+  /** Se inyecta en los tests; en producción, la precarga real. */
+  readonly prefetcher?: Prefetcher
 }
 
 export function SearchPage(props: SearchPageProps): ReactNode {
   const path = usePath()
   const navigate = useNavigate()
-  const busqueda = props.search ?? fetchSearch
+  const filtro = providersFromPath(path).join(',')
 
   const [term, setTerm] = useState(() => queryFromPath(path))
   const [aplicado, setAplicado] = useState(term)
-  const [resultados, setResultados] = useState<readonly SearchResult[]>([])
-  const [buscando, setBuscando] = useState(false)
+
+  const proveedores = useMemo(() => (filtro === '' ? [] : filtro.split(',')), [filtro])
+  const { state, active, labels, providersLoaded } = useSearchStream(aplicado, proveedores)
+  const prefetch = useMemo(() => props.prefetcher ?? createDefaultPrefetcher(), [props.prefetcher])
 
   // El retardo: `aplicado` sólo cambia cuando el usuario deja de teclear.
   useEffect(() => {
@@ -141,33 +146,14 @@ export function SearchPage(props: SearchPageProps): ReactNode {
     return cancelar
   }, [term])
 
-  // La consulta se refleja en la dirección, sin apilar historial.
+  // La consulta se refleja en la dirección, sin apilar historial ni perder el filtro.
   useEffect(() => {
-    if (queryFromPath(path) === aplicado) return
+    if (queryFromPath(path) === aplicado && providersFromPath(path).join(',') === filtro) return
 
-    navigate.replace(searchPath(aplicado))
-  }, [aplicado, path, navigate])
+    navigate.replace(searchPath(aplicado, proveedores))
+  }, [aplicado, filtro, path, navigate, proveedores])
 
-  useEffect(() => {
-    const controlador = new AbortController()
-    setBuscando(true)
-
-    busqueda(aplicado, controlador.signal).then(
-      (encontrados) => {
-        if (controlador.signal.aborted) return
-        setResultados(encontrados)
-        setBuscando(false)
-      },
-      () => {
-        if (controlador.signal.aborted) return
-        setResultados([])
-        setBuscando(false)
-      },
-    )
-
-    // Cambiar la consulta cancela la petición anterior: sus eventos ya no valen.
-    return () => controlador.abort()
-  }, [aplicado, busqueda])
+  const tambien = useMemo(() => alsoInByRef(state.results), [state.results])
 
   return (
     <section>
@@ -187,12 +173,38 @@ export function SearchPage(props: SearchPageProps): ReactNode {
         />
       </div>
 
-      {buscando ? <p className="empty">{t(DEFAULT_LOCALE, 'search.loading')}</p> : null}
+      <p className="search__status" aria-live="polite">
+        {announce(state, active, providersLoaded)}
+      </p>
+
+      {state.errors.map((issue) => (
+        <p className="search__error" key={issue.providerId}>
+          {t(DEFAULT_LOCALE, 'search.providerFailed', {
+            provider: labels.get(issue.providerId) ?? issue.providerId,
+            message: issue.message,
+          })}
+        </p>
+      ))}
+
+      {state.pending.length > 0 ? (
+        <Grid label={t(DEFAULT_LOCALE, 'search.results')}>
+          {state.pending.map((providerId) => (
+            <GridItem key={providerId}>
+              {/* Un esqueleto por proveedor pendiente: lo que falta se ve, en
+                  lugar de aparecer de golpe cuando responda el último. */}
+              <span className="skeleton" aria-hidden="true" />
+            </GridItem>
+          ))}
+        </Grid>
+      ) : null}
 
       <ResultGrid
-        results={resultados}
+        results={state.results}
         query={aplicado}
-        {...(props.providerLabels === undefined ? {} : { providerLabels: props.providerLabels })}
+        providerLabels={labels}
+        alsoIn={tambien}
+        onPreview={(result) => prefetch.hover(result.ref.providerId, result.ref.value)}
+        onPreviewEnd={() => prefetch.leave()}
       />
     </section>
   )

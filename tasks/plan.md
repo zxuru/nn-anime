@@ -303,11 +303,13 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] T12 Búsqueda agregada con timeout por proveedor y resultados parciales
 - [x] T13 Rutas `/api/providers` y `/api/search` con SSE
 - [x] T14 Página de búsqueda: grilla, etiqueta de origen, navegación por teclado
-- [ ] T15 Búsqueda incremental por SSE: esqueletos, cancelación, `aria-live`
+- [x] T15 Búsqueda incremental por SSE: esqueletos, cancelación, `aria-live`
 
 ### Checkpoint C — Proveedores
-- [ ] Buscar en la UI muestra resultados del fixture por proveedor, sin recargar
-- [ ] Un proveedor roto no rompe la búsqueda
+- [x] Buscar en la UI muestra resultados del fixture por proveedor, sin recargar
+- [x] Un proveedor roto se reporta y no rompe la búsqueda: `/api/providers` lo lista como rechazado
+      con su motivo y la búsqueda sigue emitiendo el resto
+- Revisión humana: **no es parada dura**; el humano fijó las paradas en A, B, F y H
 
 ### Fase 3 — Persistencia
 - [ ] T16 Apertura de base, runner de migraciones y `0001-initial.sql`

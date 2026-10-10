@@ -173,3 +173,42 @@
   max-width: var(--measure);
   color: var(--color-text-dim);
 }
+
+.skeleton {
+  min-height: var(--skeleton-height);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  animation: latido var(--transition-normal) infinite alternate;
+}
+
+@keyframes latido {
+  from {
+    opacity: var(--skeleton-dim);
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+.search__status {
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+  min-height: var(--text-lg);
+}
+
+.search__error {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+.card__extra {
+  color: var(--color-text-dim);
+  font-size: var(--text-xs);
+}

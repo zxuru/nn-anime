@@ -22,6 +22,16 @@ export interface ResultCardProps {
   /** Nombre del proveedor, si se conoce. Si no, se muestra su id. */
   readonly providerLabel?: string
   readonly coverRequested?: boolean
+  /**
+   * Cuántos proveedores ofrecen este mismo título.
+   *
+   * Es una pista visual, no una fusión: la tarjeta sigue siendo de un proveedor
+   * concreto y su enlace lleva a ese proveedor. El spec lo pide así porque dos
+   * fichas con el mismo título no tienen por qué ser la misma obra.
+   */
+  readonly alsoIn?: number
+  readonly onPreview?: () => void
+  readonly onPreviewEnd?: () => void
 }
 
 /** Ruta de la portada en el proxy. La referencia va codificada: puede tener barras. */
@@ -48,6 +58,8 @@ export function ResultCard(props: ResultCardProps): ReactNode {
       to={`/anime/${encodeURIComponent(result.ref.providerId)}/${encodeURIComponent(result.ref.value)}`}
       className="card"
       title={result.title}
+      {...(props.onPreview === undefined ? {} : { onMouseEnter: props.onPreview })}
+      {...(props.onPreviewEnd === undefined ? {} : { onMouseLeave: props.onPreviewEnd })}
     >
       {tienePortada ? (
         <img
@@ -61,6 +73,11 @@ export function ResultCard(props: ResultCardProps): ReactNode {
       )}
       <span className="card__title">{result.title}</span>
       {meta(result) === '' ? null : <span className="card__meta">{meta(result)}</span>}
+      {props.alsoIn !== undefined && props.alsoIn > 1 ? (
+        <span className="card__extra">
+          {t(DEFAULT_LOCALE, 'search.alsoIn', { count: props.alsoIn })}
+        </span>
+      ) : null}
       <span className="badge">{t(DEFAULT_LOCALE, 'search.provider', { provider })}</span>
     </Link>
   )

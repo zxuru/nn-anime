@@ -26,6 +26,11 @@ export const messages: Messages = {
   'search.provider': 'Origen: {provider}',
   'search.year': '{year}',
   'search.loading': 'Buscando…',
+  'search.resultsCount': '{count} resultados de {providers} proveedores.',
+  'search.noProviders': 'No hay ningún proveedor activo para esta búsqueda.',
+  'search.providerFailed': '{provider}: {message}',
+  'search.failed': 'No se pudo buscar: {message}',
+  'search.alsoIn': 'También en {count} proveedores',
 
   'detail.pending': 'Aquí irá el detalle del título y su lista de episodios.',
   'watch.pending': 'Aquí irá el reproductor.',
