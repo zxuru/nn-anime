@@ -56,6 +56,29 @@ modelo, Boundaries y Seguridad— y se comprobó cada uno contra el código y su
 | **El guard de `Host` acepta `localhost`** | Las cookies ignoran el puerto: otra aplicación local en `localhost:OTRO_PUERTO` es el mismo sitio y podría leer la sesión | Anotado con las dos opciones. **Decisión de producto** |
 | **Los ocho criterios de éxito del spec** | Siete verificados y marcados en el propio spec; uno (**home sin llamadas de red**) queda con el matiz de las tendencias | Ver abajo |
 
+### Los criterios de los specs de módulo: **están sin marcar, y el trabajo está hecho**
+
+Los siete specs de módulo tienen **62 criterios sin marcar** entre todos. Al auditarlos, el trabajo
+está hecho y probado; lo que falta es la marca. Un muestreo de dos por spec:
+
+| Spec | Criterio sin marcar | Dónde está de verdad |
+|---|---|---|
+| `catalog-store` | `runMigrations()` dos veces devuelve `applied: 0` | `db.test.ts` |
+| `catalog-store` | Escribir y leer conserva `genres` y `studios` | `repositories.test.ts` |
+| `media-proxy` | `Range: bytes=0-1023` devuelve 206 y 1024 bytes | `byte-proxy.test.ts` |
+| `provider-core` | Un plugin con `apiVersion: '2'` se rechaza con mensaje claro | `registry.test.ts` |
+| `provider-core` | Un plugin que lanza no impide ver los demás | `conformance.test.ts` |
+| `recsys` | Sin señales, `cold-start` por popularidad | `recommend.test.ts` |
+| `recsys` | Un tag en el 80 % pesa menos que uno en el 5 % | `affinity.test.ts` |
+| `web-ui` | Un fallo de transporte se anuncia como fallo | `search.test.tsx` |
+| `cli-launcher` | `bin`, `files` y `publishConfig`, y `bun pm pack` | `packages/cli/package.json`, verificado en T46 |
+
+**No los he marcado a mano.** Marcarlos sin volver a verificar cada uno sería **fingir que se
+verificaron**, que es exactamente el fallo que este proyecto ha encontrado cinco veces. El registro
+que sí se mantuvo es la aceptación de cada tarea en `tasks/todo.md`, que está marcada **y medida
+mutando la implementación**. La decisión de qué hacer con las listas de los specs de módulo —marcarlas
+una a una, o reducirlas a un puntero— va al Checkpoint H.
+
 ## Lo que no está verificado, y por qué
 
 | Criterio | Motivo |

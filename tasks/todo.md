@@ -2637,37 +2637,46 @@ lo que decía medir**, y esta vez la encontró ella misma en la primera ejecuci�
 **Descripción:** Recorrer uno a uno los criterios de éxito del spec de proyecto y marcarlos, o
 abrir un task de corrección por cada uno que falle.
 
-**Añadido al revisar:** este barrido tiene que empezar por una **auditoría de trazabilidad
-spec↔plan**, no por los criterios de éxito. Tres veces a lo largo de la v1 apareció el mismo
-defecto: el spec pedía algo, ninguna tarea lo reclamaba en sus criterios de aceptación, y no se
-implementaba. Los criterios de éxito no lo detectan porque sólo cubren una parte de lo que el spec
-impone. La auditoría recorre **todos** los requisitos normativos —objetivos, pasos de arranque,
-contratos, tablas de TTL y de modelo, Boundaries y Seguridad— y para cada uno comprueba si está
-implementado y, si no, qué tarea lo cubre por su aceptación.
-
 **Aceptación:**
-- [ ] **La cobertura objetivo del spec —80 % en `core`, `catalog-store`, `recsys` y
-      `provider-sdk`— cumplida y hecha cumplir.** Al auditar no la medía nadie. Ahora hay
-      `bun run test:coverage` para mirarla y `bun run coverage:gate` para **fallar** si algún
-      paquete baja del objetivo: `bun test --coverage` informa pero no falla, así que el 80 % era
-      una aspiración. El gate imprime además los archivos que ningún test carga, para que el
-      porcentaje no se lea como si cubriera todo el proyecto —hoy son 12 de 48, casi todos
-      marcadores vacíos o puntos de entrada—. Verificado que discrimina: con objetivo 99 % sale
-      con 1, y con un objetivo inválido, con 2.
-- [ ] **Auditoría de trazabilidad spec↔plan hecha primero**, con su tabla de huecos y cada hueco
-      asignado a una tarea o convertido en una tarea nueva.
-- [ ] Los ocho criterios de `SPEC-nn-anime.md` verificados y marcados en el propio spec.
-- [ ] Los criterios de cada spec de módulo revisados; los no verificados se listan con motivo.
-- [ ] `bun install && bun run build && bun test && bun run e2e` limpio en un checkout nuevo.
-- [ ] Informe final con lo cumplido, lo diferido y lo que falla.
+- [x] **La cobertura objetivo —80 % en `core`, `catalog-store`, `recsys` y `provider-sdk`— cumplida
+      y hecha cumplir.** El gate **discrimina**, comprobado: con el objetivo por defecto sale con 0,
+      con `0.99` con 1 y con un objetivo inválido con 2. Al auditar resultó que `bun test --coverage`
+      informaba pero no fallaba, así que el 80 % era una aspiración y no un criterio.
+- [x] **Auditoría de trazabilidad spec↔plan hecha primero**, con su tabla de huecos en
+      `docs/v1-report.md`. Cuatro huecos: `revalidate_error` sin documentar, la tabla `genre` que nadie
+      escribe, las tendencias que no se cachean y el `localhost` del guard de `Host`.
+- [x] Los ocho criterios de `SPEC-nn-anime.md` verificados y marcados en el propio spec. Siete con su
+      evidencia; el de «home y detalle sin llamadas de red» queda marcado **con el matiz medido** de
+      las tendencias.
+- [x] Los criterios de cada spec de módulo revisados; los no verificados se listan con motivo. **Los
+      siete specs tienen 62 criterios sin marcar y el trabajo está hecho**: el muestreo está en el
+      informe, y **no los he marcado a mano** porque marcarlos sin reverificar cada uno sería fingir
+      que se verificaron.
+- [x] `bun install && bun run build && bun test && bun run e2e` limpio en un checkout nuevo.
+      **Medido en un clon**: install 0, build 0, **1450 pruebas 0 fallos**, e2e 14 verdes y 2
+      marcados, todo con código de salida 0.
+- [x] Informe final con lo cumplido, lo diferido y lo que falla: `docs/v1-report.md`.
 
-**Verificación:** los cuatro comandos en un clon limpio del repo.
+**Verificación:** los cuatro comandos en un clon limpio del repo (`git archive HEAD` a un directorio
+temporal), con sus códigos de salida.
 
 **Depende de:** T46.
 
 **Archivos:** `SPEC-nn-anime.md`, `SPEC-<module-id>.md`, `docs/v1-report.md`.
 
-**Tamaño:** S.
+**Cuatro decisiones que conviene recordar:**
+
+1. **El informe dice lo que falla, no sólo lo que se hizo.** El reproductor no reproduce, los
+   subtítulos dependen de eso y el aviso de mpv ausente no está probado: los tres están en una tabla
+   con su motivo, no escondidos entre lo que sí funciona.
+2. **Los criterios de los specs de módulo no se marcan a mano.** Sería fingir una verificación. El
+   registro que se mantuvo es la aceptación de cada tarea, que está marcada y medida mutando.
+3. **Los hallazgos de método van en el informe**, los cinco casos de comprobaciones que no medían lo
+   que decían medir, porque son el patrón de fallo más repetido del proyecto.
+4. **El modelo del spec se corrigió**, no se dejó desactualizado: `revalidate_error` documentada y la
+   nota de que `genre` no se escribe.
+
+**Tamaño:** M.
 
 ---
 
