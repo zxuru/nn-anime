@@ -38,4 +38,5 @@ Banderas:
   'cli.port.busyBlocked':
     'El puerto {port} está ocupado y el proxy de desarrollo apunta a él. Libéralo o cambia el origen del proxy. Detalle: {detail}',
   'cli.migration.failed': 'No se pudo preparar la base de datos: {message}',
+  'cli.settings.invalid': 'No se pudieron leer los ajustes: {message}',
 }

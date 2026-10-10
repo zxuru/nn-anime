@@ -46,7 +46,10 @@ Códigos de salida: `0` normal, `1` error de arranque, `2` uso incorrecto de fla
 Comportamiento de arranque, en orden estricto:
 
 1. Resolver rutas XDG y crear directorios con modo `0700`.
-2. Cargar `config.json` si existe. Flags de CLI ganan sobre config.
+2. Cargar `config.json` si existe. Flags de CLI ganan sobre config. Un archivo
+   ilegible o que no cumpla el esquema es un error ruidoso con el campo que
+   falla: arrancar con los valores por defecto dejaría al usuario preguntándose
+   por qué no se aplicó su configuración.
 3. Abrir la base y correr migraciones pendientes de `catalog-store`.
 4. Cargar plugins de proveedor de `providers/`. Un plugin roto se reporta y se omite.
 5. Generar un token de arranque de un solo uso, de 32 bytes con CSPRNG.
@@ -75,7 +78,7 @@ packages/cli/
 
 ## Success Criteria
 
-Estado a `13320b7`: **once verificados, tres pendientes por diseño.**
+Estado a `447 tests`: **doce verificados, tres pendientes por diseño.**
 
 - [x] `bun run start` imprime la URL y el navegador abre la home. **Verificado** en modo producción
       con `curl`, y con un navegador real: `xdg-open` lanzó Firefox y el navegador consumió el token.
@@ -89,6 +92,9 @@ Estado a `13320b7`: **once verificados, tres pendientes por diseño.**
 - [x] `nn-anime --port 7717` con 7717 ocupado arranca en otro puerto y lo informa. **Verificado** en
       vivo: «El puerto 7717 estaba ocupado; se usa el 38109». En desarrollo falla en su lugar, a
       propósito: el proxy apunta a un puerto fijo.
+- [x] `config.json` se carga si existe y las banderas ganan sobre él. **Verificado** en vivo: con
+      `{"port": 8123, "open": false}` el servidor escucha en 8123 y no abre el navegador;
+      `--port 8321` gana; y con `{"puerto": 8080}` sale con 1 nombrando el campo que sobra.
 - [x] `nn-anime "naruto"` abre `/search?q=naruto`. **Verificado** en vivo con
       `nn-anime naruto shippuden` → `Location: /search?q=naruto%20shippuden`.
 - [x] `nn-anime --help` sale con código 0 y no arranca el server. **Verificado** por test, con el
@@ -139,6 +145,19 @@ Estado a `13320b7`: **once verificados, tres pendientes por diseño.**
 - Escribir la cookie de sesión desde JavaScript.
 - Bloquear el arranque esperando a un proveedor de red.
 - Matar procesos por nombre; sólo los hijos registrados.
+
+## Frontera entre los dos almacenes de ajustes
+
+Hay dos sitios donde se guardan preferencias y conviene no confundirlos:
+
+- **`config.json`**, en el directorio de configuración, decide **cómo arranca el proceso**: puerto,
+  si se abre el navegador, proveedores y idioma. Se lee una vez, al arrancar, y las banderas de la
+  línea de comandos ganan sobre él. Lo escribe el usuario a mano.
+- **La tabla `setting`** de SQLite, propiedad de `catalog-store`, guarda **estado de la
+  aplicación**: lo que la interfaz necesita recordar entre sesiones. Lo escribe la aplicación.
+
+`config.json` no puede decidir dónde está el directorio de configuración: sería circular. Las
+rutas llegan de las banderas y del entorno.
 
 ## Open Questions
 

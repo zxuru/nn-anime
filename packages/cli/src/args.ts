@@ -28,6 +28,14 @@ export interface CliOptions {
   readonly port: number | undefined
   /** Falso con `--no-open`. Por defecto se abre el navegador. */
   readonly open: boolean
+  /**
+   * Si `--no-open` se indicó.
+   *
+   * Hace falta para poder aplicar `config.json`: la ausencia de la bandera y su
+   * valor por defecto son indistinguibles, y sin esto un ajuste `"open": false`
+   * no se podría respetar.
+   */
+  readonly openSpecified: boolean
   readonly dataDir: string | undefined
   readonly configDir: string | undefined
   /** Identificadores de proveedor, en el orden en que se escribieron. */
@@ -68,6 +76,7 @@ interface MutableState {
   query: string[]
   port: number | undefined
   open: boolean
+  openSpecified: boolean
   dataDir: string | undefined
   configDir: string | undefined
   providers: string[]
@@ -80,6 +89,7 @@ function blank(overrides: Partial<CliOptions> = {}): CliOptions {
     query: undefined,
     port: undefined,
     open: true,
+    openSpecified: false,
     dataDir: undefined,
     configDir: undefined,
     providers: [],
@@ -149,6 +159,7 @@ export function parseArgs(argv: readonly string[]): ParseResult {
     query: [],
     port: undefined,
     open: true,
+    openSpecified: false,
     dataDir: undefined,
     configDir: undefined,
     providers: [],
@@ -176,6 +187,7 @@ export function parseArgs(argv: readonly string[]): ParseResult {
 
     if (arg === '--no-open') {
       state.open = false
+      state.openSpecified = true
       continue
     }
 
@@ -217,6 +229,7 @@ export function parseArgs(argv: readonly string[]): ParseResult {
       query: query === '' ? undefined : query,
       port: state.port,
       open: state.open,
+      openSpecified: state.openSpecified,
       dataDir: state.dataDir,
       configDir: state.configDir,
       providers: state.providers,

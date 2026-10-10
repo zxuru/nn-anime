@@ -2,9 +2,18 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { AppError } from '@nn-anime/core'
 import type { RunningServer } from '@nn-anime/server'
 import { type CliOptions, parseArgs } from './args'
-import { boot, DEFAULT_PORT, isPortBusy, type Listen, listenOnFreePort, type Migrate } from './boot'
+import {
+  boot,
+  DEFAULT_PORT,
+  isPortBusy,
+  type Listen,
+  listenOnFreePort,
+  type Migrate,
+  type ReadSettings,
+} from './boot'
 import { createLifecycle } from './lifecycle'
 import type { CliIO } from './run'
 
@@ -109,6 +118,7 @@ function depsFor(
     lifecycle: createLifecycle(),
     env: { HOME: home },
     migrate: HEALTHY_MIGRATE,
+    readSettings: async () => ({ ok: true, value: undefined }),
     listen: target.listen,
     openUrl: target.openUrl,
     createSession: () => ({
@@ -241,6 +251,121 @@ describe('puerto bloqueado', () => {
       await boot(options(), depsFor(target, home))
 
       expect(target.opened).toEqual([])
+    })
+  })
+})
+
+describe('ajustes de config.json', () => {
+  test('el puerto del archivo se usa cuando no hay bandera', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({ port: 9999 })
+      const readSettings: ReadSettings = async () => ({ ok: true, value: { port: 9999 } })
+      await boot(options(), depsFor(target, home, { readSettings }))
+
+      expect(target.requestedPorts).toEqual([9999])
+    })
+  })
+
+  test('la bandera gana sobre el archivo', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({ port: 8080 })
+      const readSettings: ReadSettings = async () => ({ ok: true, value: { port: 9999 } })
+      await boot(options(['--port', '8080']), depsFor(target, home, { readSettings }))
+
+      expect(target.requestedPorts).toEqual([8080])
+    })
+  })
+
+  test('un open falso del archivo no abre el navegador', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      const readSettings: ReadSettings = async () => ({ ok: true, value: { open: false } })
+      await boot(options(), depsFor(target, home, { readSettings }))
+
+      expect(target.opened).toEqual([])
+      expect(target.out.join('\n')).toContain('?boot=')
+    })
+  })
+
+  test('--no-open gana sobre un open verdadero del archivo', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      const readSettings: ReadSettings = async () => ({ ok: true, value: { open: true } })
+      await boot(options(['--no-open']), depsFor(target, home, { readSettings }))
+
+      expect(target.opened).toEqual([])
+    })
+  })
+
+  test('los proveedores del archivo llegan a las opciones', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      const readSettings: ReadSettings = async () => ({ ok: true, value: { providers: ['uno'] } })
+      await boot(options(), depsFor(target, home, { readSettings }))
+
+      expect(target.seenOptions[0]?.redirectTo).toBeUndefined()
+    })
+  })
+
+  test('se lee el archivo del directorio de configuración resuelto', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      let path = ''
+      const readSettings: ReadSettings = async (received) => {
+        path = received
+        return { ok: true, value: undefined }
+      }
+      await boot(options(), depsFor(target, home, { readSettings }))
+
+      expect(path).toBe(join(home, '.config', 'nn-anime', 'config.json'))
+    })
+  })
+
+  test('el archivo se lee después de crear los directorios y antes de migrar', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      const order: string[] = []
+      const readSettings: ReadSettings = async () => {
+        order.push('ajustes')
+        return { ok: true, value: undefined }
+      }
+      const migrate: Migrate = async () => {
+        order.push('migrar')
+        return { ok: true }
+      }
+      await boot(options(), depsFor(target, home, { readSettings, migrate }))
+
+      expect(order).toEqual(['ajustes', 'migrar'])
+    })
+  })
+})
+
+describe('ajustes ilegibles', () => {
+  test('sale con 1 antes de migrar y sin arrancar el servidor', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      const readSettings: ReadSettings = async () => ({
+        ok: false,
+        error: new AppError({ code: 'config', message: '{"puerto": 8080} no cumple el esquema' }),
+      })
+      const result = await boot(options(), depsFor(target, home, { readSettings }))
+
+      expect(result.code).toBe(1)
+      expect(target.requestedPorts).toEqual([])
+      expect(target.opened).toEqual([])
+    })
+  })
+
+  test('informa del motivo', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      const readSettings: ReadSettings = async () => ({
+        ok: false,
+        error: new AppError({ code: 'config', message: 'la clave puerto sobra' }),
+      })
+      await boot(options(), depsFor(target, home, { readSettings }))
+
+      expect(target.err[0]).toContain('puerto sobra')
     })
   })
 })

@@ -17,12 +17,15 @@ import {
   ensureDirs,
   type Locale,
   loadConfig,
+  type Result,
+  type Settings,
 } from '@nn-anime/core'
 import { BOOT_PARAM, type RunningServer, type Session, startServer } from '@nn-anime/server'
 import type { CliOptions } from './args'
 import { t } from './i18n'
 import type { Lifecycle } from './lifecycle'
 import type { CliIO } from './run'
+import { applySettings } from './settings'
 
 /** Puerto por defecto del spec. */
 export const DEFAULT_PORT = 7717
@@ -35,6 +38,9 @@ export type MigrationOutcome =
   | { readonly ok: false; readonly message: string }
 
 export type Migrate = (config: ConfigPaths) => Promise<MigrationOutcome>
+
+/** Lee los ajustes de proceso. Se inyecta para poder probar la precedencia. */
+export type ReadSettings = (path: string) => Promise<Result<Settings | undefined, AppError>>
 
 export interface ListenOptions {
   readonly session: Session
@@ -133,6 +139,7 @@ export interface BootDeps {
   readonly lifecycle: Lifecycle
   readonly env: ConfigEnvironment
   readonly migrate: Migrate
+  readonly readSettings: ReadSettings
   readonly listen: Listen
   readonly openUrl: (url: string) => Promise<boolean>
   /**
@@ -170,14 +177,14 @@ export interface BootResult {
   readonly port: number | undefined
 }
 
-export async function boot(options: CliOptions, deps: BootDeps): Promise<BootResult> {
+export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<BootResult> {
   const { io, locale } = deps
 
   let config: ConfigPaths
   try {
     config = loadConfig({
       env: deps.env,
-      overrides: { dataDir: options.dataDir, configDir: options.configDir },
+      overrides: { dataDir: rawOptions.dataDir, configDir: rawOptions.configDir },
     })
   } catch (error) {
     // `loadConfig` ya devuelve el mensaje traducido en el AppError.
@@ -186,6 +193,18 @@ export async function boot(options: CliOptions, deps: BootDeps): Promise<BootRes
   }
 
   await ensureDirs(config)
+
+  // Paso 2 del arranque del spec: cargar `config.json` si existe, con las
+  // banderas ganando sobre el archivo. Un archivo ilegible o inválido es un
+  // error ruidoso: arrancar con los valores por defecto dejaría al usuario
+  // preguntándose por qué no se aplicó su configuración.
+  const settings = await deps.readSettings(config.configFile)
+  if (!settings.ok) {
+    io.err(t(locale, 'cli.settings.invalid', { message: settings.error.message }))
+    return { code: 1, url: undefined, port: undefined }
+  }
+
+  const options = applySettings(rawOptions, settings.value)
 
   const migration = await deps.migrate(config)
   if (!migration.ok) {

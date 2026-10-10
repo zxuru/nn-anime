@@ -157,6 +157,23 @@ sitios de los tests nuevos, el mismo defecto que había corregido en `scripts/wo
 directorio con un espacio, la lectura de archivos fallaba y el test de claves huérfanas acusaba al
 catálogo. Verificado en un directorio con espacio real: antes 388 pasan y 7 fallan, después 397 y 0.
 
+#### Tercera revisión: comportamiento especificado y no implementado
+
+En vez de revisar código otra vez, se buscó **comportamiento que el spec pide y el código no
+hace**. Es la clase de fallo que ya había aparecido dos veces —la consulta posicional y el token de
+arranque en el log— y volvió a aparecer:
+
+| # | Defecto | Impacto | Corrección |
+|---|---|---|---|
+| 11 | `configFile` se calculaba y **no se leía nunca**. El paso 2 del arranque del spec —cargar `config.json` si existe, con las banderas ganando— no existía | Alto. Un archivo de configuración que se ignora en silencio: el usuario cree haber configurado algo que no se aplica | Implementado, con esquema estricto en `core`, precedencia probada y error ruidoso que nombra el campo que falla |
+
+Verificado en vivo: `{"port": 8123, "open": false}` hace que el servidor escuche en 8123 y no abra
+el navegador; `--port 8321` gana; `{"puerto": 8080}` sale con 1 nombrando `puerto`. Los tests de
+precedencia discriminan: invertirla da **2 fallos**.
+
+También se cerró una asimetría que este trabajo destapó: `open` no se podía desactivar desde el
+archivo porque la ausencia de la bandera y su valor por defecto eran indistinguibles.
+
 **Riesgo residual aceptado y documentado, no corregido:** el token de arranque viaja como
 argumento de `xdg-open` y es visible en `ps` durante un instante. La mitigación 12 habla de disco
 y de logs, no de la lista de procesos. En una máquina de un solo usuario el impacto es nulo, y el

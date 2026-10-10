@@ -12,7 +12,7 @@
 
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { type ConfigEnvironment, createLogger } from '@nn-anime/core'
+import { type ConfigEnvironment, createLogger, readSettings } from '@nn-anime/core'
 import { createBootToken, createSession } from '@nn-anime/server'
 import { version } from '../package.json'
 import { boot, listenOnFreePort, type Migrate } from './boot'
@@ -80,6 +80,7 @@ const code = await run(Bun.argv.slice(2), {
     webRoot: webBuildRoot(),
     listen: listenOnFreePort,
     migrate,
+    readSettings,
     createSession,
     createBootToken,
     openUrl: (url) =>
