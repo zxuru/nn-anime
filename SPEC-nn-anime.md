@@ -48,8 +48,8 @@ Sin dependencias fuera de esta tabla sin pasar por el límite "Ask first".
 ```bash
 bun install                     # instalar dependencias del workspace
 bun run dev                     # server (watch) + Vite dev server, todo en un comando
-bun run build                   # build de web + bundle de server y cli
-bun run start                   # arrancar el binario construido
+bun run build                   # construye la interfaz (el server y el CLI corren con Bun)
+bun run start                   # arrancar el servidor en 127.0.0.1
 bun run typecheck               # tsc --noEmit sobre todos los paquetes
 bun run lint                    # biome check .
 bun run lint:fix                # biome check --write .

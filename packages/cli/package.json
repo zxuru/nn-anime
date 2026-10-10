@@ -17,5 +17,20 @@
   },
   "scripts": {
     "test": "bun test"
+  },
+  "files": [
+    "src/**/*.ts",
+    "!src/**/*.test.ts",
+    "bin",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "description": "Lanzador de nn-anime: sirve la interfaz y la API en 127.0.0.1",
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.4.0"
   }
 }

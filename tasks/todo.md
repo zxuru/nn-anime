@@ -2592,27 +2592,41 @@ con una comprobación por texto. Es débil, y está aquí porque la alternativa 
 **Descripción:** Dejar el proyecto usable por otro y listo para npm sin publicarlo.
 
 **Aceptación:**
-- [ ] `README.md` con arranque, comandos, rutas de datos y captura de pantalla.
-- [ ] `docs/providers.md` con la guía de autoría: contrato, ejemplo comentado sin lógica de
-      scraping real, y cómo correr el test de conformidad.
-- [ ] Aviso de seguridad de plugins en texto claro, en el README y en `/settings`.
-- [ ] Nota explícita de que el repo no incluye scrapers y que las fuentes son responsabilidad
-      del usuario.
-- [ ] `packages/cli/package.json` con `bin` (hecho), `files` y `publishConfig`; `bun pm pack`
-      produce un tarball instalable. **Hallazgo al verificar el empaquetado:** hoy el tarball
-      incluye los tests, porque no hay `files` que los excluya, y las dependencias son
-      `workspace:*`, que npm no resuelve al publicar —`bun publish` sí las reescribe—. Las dos
-      cosas hay que resolverlas aquí.
-- [ ] Decidir y dejar escrito qué produce `bun run build`. Las Commands de `SPEC-nn-anime.md` dicen
-      «build de web + bundle de server y cli», y hoy sólo construye la web: el server y el CLI se
-      ejecutan desde el código fuente con Bun. O se compila un artefacto, o se corrige el spec.
-- [ ] `docs/PLAN-B-HLS.md` registra la decisión del Checkpoint F.
+- [x] `README.md` con arranque, comandos, rutas de datos y captura de pantalla. **La captura se hace
+      con un comando** (`bun run captura`), con el arnés del e2e: una captura hecha a mano envejece sin
+      que nadie se entere.
+- [x] `docs/providers.md` con la guía de autoría: contrato, ejemplo comentado sin lógica de scraping
+      real, y cómo correr el test de conformidad.
+- [x] Aviso de seguridad de plugins en texto claro, en el README y en `/settings`.
+- [x] Nota explícita de que el repo no incluye scrapers y que las fuentes son responsabilidad del
+      usuario.
+- [x] `packages/cli/package.json` con `bin`, `files` y `publishConfig`; `bun pm pack` produce un
+      tarball instalable. **Los dos hallazgos, resueltos**: el tarball ya no lleva los tests (`files`
+      con `!src/**/*.test.ts`: de 25 archivos a 16, y cero `.test.ts`) y **`bun pm pack` reescribe
+      `workspace:*` a la versión** (`0.1.0`), así que el problema de las dependencias era de `npm
+      publish`, no de este empaquetado: hay que publicar con `bun publish`.
+- [x] Decidir y dejar escrito qué produce `bun run build`. **Decidido: construye la interfaz.** El
+      servidor y el CLI se ejecutan desde el código fuente con Bun, y el spec se corrigió en las dos
+      líneas que decían otra cosa. El motivo: el servidor sirve `packages/web/dist` desde el disco, así
+      que un binario de un solo archivo tendría que incrustar la interfaz dentro, y eso es trabajo de
+      empaquetado que v1 no necesita.
+- [x] `docs/PLAN-B-HLS.md` registra la decisión del Checkpoint F.
 
-**Verificación:** `bun pm pack` · revisar el tarball generado.
+**Verificación:** `bun pm pack` desde `packages/cli` y revisión del tarball: 16 archivos, 15,9 KB,
+**sin un solo `.test.ts`**, con `README.md` del paquete, y las dependencias reescritas a `0.1.0`. Las
+pruebas de documentación (`packages/web/src/docs.test.ts`) comprueban que **todos los comandos que el
+README y la guía citan existen** en `package.json` y que los documentos enlazados están.
 
 **Depende de:** T44, T40.
 
 **Archivos:** `README.md`, `docs/{providers.md,a11y.md,PLAN-B-HLS.md}`, `packages/cli/package.json`.
+**Ampliación declarada:** `packages/cli/README.md` (el del paquete, que es el que se ve en npm),
+`docs/captura.png`, `scripts/captura.ts`, `packages/web/src/docs.test.ts` y el script `captura`.
+
+**Un detalle que se cazó solo:** la prueba que comprueba los comandos del README usaba
+`[a-z:_-]+` y leía `bun run e2e` como `bun run e` —los dígitos no estaban en la clase—, así que fallaba
+por su propia expresión regular. **Es el quinto caso en este proyecto de una comprobación que no medía
+lo que decía medir**, y esta vez la encontró ella misma en la primera ejecución.
 
 **Tamaño:** M.
 
