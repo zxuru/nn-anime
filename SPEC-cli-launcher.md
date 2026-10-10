@@ -75,24 +75,47 @@ packages/cli/
 
 ## Success Criteria
 
-- [ ] `bun run start` imprime la URL y el navegador abre la home.
-- [ ] Tras el canje, la barra de direcciones muestra `/` sin parámetro `boot`, y
-      `document.cookie` no expone la cookie de sesión.
-- [ ] Un segundo uso del mismo token de arranque devuelve 401.
-- [ ] Ninguna respuesta del server carece de las cabeceras de seguridad del spec de proyecto.
-- [ ] `nn-anime --port 7717` con 7717 ocupado arranca en otro puerto y lo informa.
-- [ ] `nn-anime "naruto"` abre `/search?q=naruto`.
-- [ ] `nn-anime --help` sale con código 0 y no arranca el server.
-- [ ] `nn-anime --port abc` sale con código 2.
+Estado a `13320b7`: **once verificados, tres pendientes por diseño.**
+
+- [x] `bun run start` imprime la URL y el navegador abre la home. **Verificado** en modo producción
+      con `curl`, y con un navegador real: `xdg-open` lanzó Firefox y el navegador consumió el token.
+- [x] Tras el canje, la barra de direcciones muestra `/` sin parámetro `boot`, y `document.cookie`
+      no expone la cookie de sesión. **Verificado** por la cabecera `Location: /` y por el atributo
+      `HttpOnly`, que es lo que impide leerla desde JavaScript. No se comprobó en un navegador.
+- [x] Un segundo uso del mismo token de arranque devuelve 401. **Verificado** en vivo, y el token
+      además caduca a los cinco minutos.
+- [x] Ninguna respuesta del server carece de las cabeceras de seguridad del spec de proyecto.
+      **Verificado** en siete familias de respuesta y en la tabla completa de rutas.
+- [x] `nn-anime --port 7717` con 7717 ocupado arranca en otro puerto y lo informa. **Verificado** en
+      vivo: «El puerto 7717 estaba ocupado; se usa el 38109». En desarrollo falla en su lugar, a
+      propósito: el proxy apunta a un puerto fijo.
+- [x] `nn-anime "naruto"` abre `/search?q=naruto`. **Verificado** en vivo con
+      `nn-anime naruto shippuden` → `Location: /search?q=naruto%20shippuden`.
+- [x] `nn-anime --help` sale con código 0 y no arranca el server. **Verificado** por test, con el
+      arranque inyectado para poder afirmar que no se llama.
+- [x] `nn-anime --port abc` sale con código 2. **Verificado**.
 - [ ] Ctrl+C durante la reproducción en mpv deja el proceso mpv muerto: se verifica con `pgrep`.
-- [ ] Con una migración rota a propósito, sale con código 3 y no arranca el server.
-- [ ] Con `mpv` ausente del `PATH`, la app arranca y `/api/health` informa `mpv: false`.
-- [ ] Ningún archivo fuera de las rutas XDG se crea o modifica.
+      → **T29**, cuando exista el reproductor. El cierre ordenado ya está y mata a los hijos
+      registrados, pero todavía no hay ningún hijo que matar.
+- [x] Con una migración rota a propósito, sale con código 3 y no arranca el server. **Verificado**
+      con la migración inyectada. T16 sustituye el marcador por el runner real.
+- [x] Con `mpv` ausente del `PATH`, la app arranca y `/api/health` informa `mpv: false`.
+      **Verificado** en vivo, y es el estado real de esta máquina.
+- [ ] Ningún archivo fuera de las rutas XDG se crea o modifica. **Parcialmente verificado**: con
+      los tres directorios indicados, el arranque no toca las rutas reales —de hecho falla si no se
+      le indica la de caché en un entorno donde no puede escribir en ellas—, y hay tests de
+      `ensureDirs` con directorios temporales. Falta una comprobación explícita de que no se abre
+      nada fuera de las rutas dadas, que es de **T46**.
 - [ ] `package.json` del CLI declara `bin`, `files` y `publishConfig`; `bun pm pack` produce un
-      tarball instalable, sin publicarlo. Los mensajes del CLI salen del catálogo i18n.
-- [ ] Añadir un idioma al CLI es un archivo de catálogo más una entrada en `LOCALES` de `core`;
-      ningún componente ni ningún mensaje de error cambia. Hoy sólo existe `es`, y `--lang en`
-      cae a `es` sin fallar: el mecanismo está probado, el idioma inglés no está traducido.
+      tarball instalable, sin publicarlo. **Parcial**: `bin` está declarado y el shim funciona
+      (`nn-anime 0.1.0`), y `bun pm pack` sale con 0. Falta `files` y `publishConfig` en **T46**, y
+      hay dos cosas que hay que resolver antes de publicar de verdad, descubiertas al ejecutarlo:
+      el paquete **incluye los tests** (no hay `files` que los excluya) y las dependencias son
+      `workspace:*`, que npm no sabe resolver —`bun publish` sí las reescribe—.
+- [x] Añadir un idioma al CLI es un archivo de catálogo más una entrada en `LOCALES` de `core`.
+      **Verificado** en el sentido que importa: el mecanismo está probado, los mensajes salen del
+      catálogo —hay un test que falla si aparece una clave sin usar— y hoy `--lang en` cae a `es`
+      sin fallar. El inglés no está traducido.
 
 ## Boundaries
 
