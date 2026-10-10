@@ -25,6 +25,7 @@ import {
   BOOT_PARAM,
   type PluginReport,
   type RunningServer,
+  type ServerContainer,
   type Session,
   startServer,
 } from '@nn-anime/server'
@@ -63,6 +64,14 @@ export type ReadSettings = (path: string) => Promise<Result<Settings | undefined
  */
 export type LoadPlugins = (directory: string) => Promise<LoadReport>
 
+/**
+ * Abre el store del server.
+ *
+ * Se inyecta porque abrir la base es del cableado real: `boot` no sabe de rutas
+ * del sistema, y una prueba del arranque no tiene por qué crear una.
+ */
+export type OpenContainer = (config: ConfigPaths) => ServerContainer | undefined
+
 export interface ListenOptions {
   readonly session: Session
   readonly bootToken: string
@@ -85,6 +94,14 @@ export interface ListenOptions {
    * existirían para no devolver nada.
    */
   readonly plugins?: PluginReport | undefined
+  /**
+   * El store del server, si hay uno.
+   *
+   * Sin él, las rutas de metadatos no se registran: una petición a `/api/anime`
+   * sería un 404 explicable en vez de un 500 por dentro. El arranque real siempre
+   * lo trae; las pruebas que no quieren una base, no.
+   */
+  readonly container?: ServerContainer | undefined
 }
 
 export type ListenOutcome =
@@ -197,6 +214,7 @@ export interface BootDeps {
   readonly createSession: () => Session
   readonly createBootToken: () => string
   readonly loadProviders: LoadPlugins
+  readonly openContainer: OpenContainer
 }
 
 /**
@@ -282,6 +300,13 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
   // salidas.
   if (migration.note !== undefined) io.out(migration.note)
 
+  const container = deps.openContainer(config)
+  if (container !== undefined) {
+    // El cierre de la base va con el del servidor: cerrarla antes deja en el aire
+    // las escrituras que el server tuviera a medias.
+    deps.lifecycle.onShutdown(() => container.close())
+  }
+
   const session = deps.createSession()
   const bootToken = deps.createBootToken()
 
@@ -294,6 +319,7 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     redirectTo: redirectTarget(options.query, options.providers),
     allowPortFallback: deps.allowPortFallback,
     plugins: { active: plugins.active, rejected: plugins.rejected },
+    ...(container === undefined ? {} : { container }),
   })
 
   if (!outcome.ok) {

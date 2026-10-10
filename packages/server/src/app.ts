@@ -24,6 +24,8 @@ import { originGuard } from './middleware/origin-guard'
 import { securityHeaders } from './middleware/security-headers'
 import { sessionGuard } from './middleware/session-guard'
 import { PROTECTED_PREFIXES } from './paths'
+import { registerAnimeRoutes } from './routes/anime'
+import { registerEpisodesRoute } from './routes/episodes'
 import { type PluginReport, registerProvidersRoute, summarizePlugins } from './routes/providers'
 import { registerSearchRoute } from './routes/search'
 import type { Session } from './session'
@@ -106,6 +108,19 @@ export function createApp(options: AppOptions): Hono {
   )
 
   registerProvidersRoute(app, { plugins })
+  // Las rutas de metadatos necesitan el store: sin contenedor no se registran,
+  // y una petición a ellas es un 404 explicable en vez de un 500 por dentro.
+  if (options.container !== undefined) {
+    const routeOptions = {
+      providers: plugins.active.map((entry) => entry.provider),
+      container: options.container,
+      ...(options.searchTimeoutMs === undefined ? {} : { timeoutMs: options.searchTimeoutMs }),
+    }
+
+    registerAnimeRoutes(app, routeOptions)
+    registerEpisodesRoute(app, routeOptions)
+  }
+
   registerSearchRoute(app, {
     providers: plugins.active.map((entry) => entry.provider),
     ...(options.searchTimeoutMs === undefined ? {} : { timeoutMs: options.searchTimeoutMs }),

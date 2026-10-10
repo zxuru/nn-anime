@@ -91,6 +91,8 @@ export {
   searchKey,
 } from './container'
 export { isProtectedPath, PROTECTED_PREFIXES } from './paths'
+export { registerAnimeRoutes, statusFor } from './routes/anime'
+export { registerEpisodesRoute, statusForEpisodes } from './routes/episodes'
 export { type PluginReport, summarizePlugins } from './routes/providers'
 export {
   createBootToken,

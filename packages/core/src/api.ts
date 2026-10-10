@@ -12,7 +12,12 @@
  */
 
 import { z } from 'zod'
-import { providerCapabilitiesSchema, searchResultSchema } from './schema'
+import {
+  animeDetailSchema,
+  episodeSchema,
+  providerCapabilitiesSchema,
+  searchResultSchema,
+} from './schema'
 
 /** Estado de carga de un plugin. */
 export const providerStatusSchema = z.enum(['active', 'rejected'])
@@ -49,6 +54,14 @@ export const providersResponseSchema = z.strictObject({
   providers: z.array(providerSummarySchema),
 })
 
+/** Detalle de un título. Es el mismo schema del dominio, no una copia. */
+export const animeResponseSchema = animeDetailSchema
+
+/** Lista de episodios de un título. */
+export const episodesResponseSchema = z.strictObject({
+  episodes: z.array(episodeSchema),
+})
+
 /**
  * Consulta de búsqueda.
  *
@@ -82,6 +95,8 @@ export const searchEventSchema = z.discriminatedUnion('type', [
 ])
 
 export type ErrorResponse = z.infer<typeof errorResponseSchema>
+export type AnimeResponse = z.infer<typeof animeResponseSchema>
+export type EpisodesResponse = z.infer<typeof episodesResponseSchema>
 export type ProviderStatus = z.infer<typeof providerStatusSchema>
 export type ProviderSummary = z.infer<typeof providerSummarySchema>
 export type HealthResponse = z.infer<typeof healthResponseSchema>

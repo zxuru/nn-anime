@@ -23,7 +23,7 @@ import {
   StoreError,
 } from '@nn-anime/core'
 import { cacheHit, TTL_SECONDS } from '../cache-policy'
-import { animeIdOf, replaceEpisodes } from './episodes'
+import { animeIdOf, markEpisodesFetched, replaceEpisodes } from './episodes'
 
 interface AnimeRow {
   readonly id: number
@@ -107,6 +107,7 @@ export function createAnimeRepository(db: Database, ttlS: number = TTL_SECONDS.a
         }
 
         replaceEpisodes(db, id, episodes, now, TTL_SECONDS.episodes)
+        markEpisodesFetched(db, id, now, TTL_SECONDS.episodes)
       })()
     },
 

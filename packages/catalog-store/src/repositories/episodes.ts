@@ -27,6 +27,8 @@ interface AnimeClockRow {
   readonly provider_ref: string
   readonly fetched_at: number
   readonly ttl_s: number
+  readonly episodes_fetched_at: number | null
+  readonly episodes_ttl_s: number | null
 }
 
 interface EpisodeRow {
@@ -114,6 +116,26 @@ export function episodeIdOf(db: Database, ref: ProviderRef): number | undefined 
     .get(ref.providerId, ref.value)?.id
 }
 
+/**
+ * Anota que la lista de episodios se pidió, con su reloj y su TTL.
+ *
+ * Va aparte de `replaceEpisodes` porque la lista vacía es un caso legítimo: sin
+ * la marca, cero filas es indistinguible de «nunca se pidió», y un título
+ * anunciado se pediría en cada visita o —peor— se serviría vacío para siempre.
+ */
+export function markEpisodesFetched(
+  db: Database,
+  animeId: number,
+  now: number,
+  ttlS: number,
+): void {
+  db.query('UPDATE anime SET episodes_fetched_at = ?, episodes_ttl_s = ? WHERE id = ?').run(
+    now,
+    ttlS,
+    animeId,
+  )
+}
+
 /** Identificador interno de un anime, o `undefined` si no está. */
 export function animeIdOf(db: Database, ref: ProviderRef): number | undefined {
   return db
@@ -125,7 +147,8 @@ export function animeIdOf(db: Database, ref: ProviderRef): number | undefined {
 
 export function createEpisodesRepository(db: Database, ttlS: number = TTL_SECONDS.episodes) {
   const animeSelect = db.query<AnimeClockRow, [string, string]>(
-    'SELECT id, provider_id, provider_ref, fetched_at, ttl_s FROM anime WHERE provider_id = ? AND provider_ref = ?',
+    `SELECT id, provider_id, provider_ref, fetched_at, ttl_s, episodes_fetched_at, episodes_ttl_s
+       FROM anime WHERE provider_id = ? AND provider_ref = ?`,
   )
 
   const episodesSelect = db.query<EpisodeRow, [number]>(
@@ -137,18 +160,15 @@ export function createEpisodesRepository(db: Database, ttlS: number = TTL_SECOND
       const anime = animeSelect.get(ref.providerId, ref.value)
       if (anime === null) return null
 
+      // La marca es lo que distingue «la lista se pidió y estaba vacía» de
+      // «nunca se pidió». Sin ella, un título con cero episodios parecería
+      // cacheado en cuanto existiera su fila de detalle.
+      if (anime.episodes_fetched_at === null) return null
+
       const animeRef: ProviderRef = { providerId: anime.provider_id, value: anime.provider_ref }
-      const rows = episodesSelect.all(anime.id)
-      const episodes = rows.map((row) => parseEpisode(row, animeRef))
+      const episodes = episodesSelect.all(anime.id).map((row) => parseEpisode(row, animeRef))
 
-      // El reloj sale de las filas de episodios, que es donde vive el TTL de la
-      // lista (21600), no del anime (86400): usar el del anime serviría como
-      // fresca una lista de episodios de hace un día. Sin filas —un título
-      // anunciado, con cero episodios— se usa el del anime, porque se pidieron
-      // juntos y no hay otra fecha que mirar.
-      const first = rows[0]
-
-      return cacheHit(episodes, first?.fetched_at ?? anime.fetched_at, first?.ttl_s ?? ttlS, now)
+      return cacheHit(episodes, anime.episodes_fetched_at, anime.episodes_ttl_s ?? ttlS, now)
     },
 
     write(ref: ProviderRef, episodes: readonly Episode[], now: number = Date.now()): void {
@@ -163,6 +183,11 @@ export function createEpisodesRepository(db: Database, ttlS: number = TTL_SECOND
 
       db.transaction(() => {
         replaceEpisodes(db, anime.id, episodes, now, ttlS)
+
+        // La marca de «pedida» se escribe en la misma transacción que la lista:
+        // si se escribieran por separado, una lista vacía sin marca se volvería
+        // a pedir para siempre y una marca sin lista serviría una vacía falsa.
+        markEpisodesFetched(db, anime.id, now, ttlS)
       })()
     },
   }

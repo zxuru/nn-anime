@@ -99,8 +99,12 @@ describe('defectos simulados, vistos desde el SDK', () => {
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.error.message).toContain('500')
-      expect(result.error.context.kind).toBe('threw')
       expect(result.error.op).toBe('search')
+      // El estado del upstream llega intacto: el SDK no vuelve a envolver un
+      // error que ya es del proveedor, porque al hacerlo perdía este dato y un
+      // 404 del sitio acababa siendo un fallo genérico. Antes esta prueba
+      // esperaba `kind: 'threw'`, que era justo la señal de esa pérdida.
+      expect(result.error.context.estado).toBe(500)
     }
   })
 

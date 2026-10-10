@@ -121,6 +121,7 @@ function depsFor(
     migrate: HEALTHY_MIGRATE,
     readSettings: async () => ({ ok: true, value: undefined }),
     loadProviders: async () => ({ active: [], rejected: [] }),
+    openContainer: () => undefined,
     listen: target.listen,
     openUrl: target.openUrl,
     createSession: () => ({

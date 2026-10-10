@@ -8,7 +8,11 @@
  */
 
 export {
+  type AnimeResponse,
+  animeResponseSchema,
+  type EpisodesResponse,
   type ErrorResponse,
+  episodesResponseSchema,
   errorResponseSchema,
   type HealthResponse,
   healthResponseSchema,

@@ -17,17 +17,18 @@
  * petición de doblaje.
  */
 
-import type {
-  AnimeDetail,
-  Episode,
+import {
+  type AnimeDetail,
+  type Episode,
+  err,
+  ok,
   ProviderError,
-  ProviderRef,
-  Result,
-  SearchResult,
-  StreamRequest,
-  StreamSource,
+  type ProviderRef,
+  type Result,
+  type SearchResult,
+  type StreamRequest,
+  type StreamSource,
 } from '@nn-anime/core'
-import { err, ok } from '@nn-anime/core'
 import type { z } from 'zod'
 import { classifyThrow, describeProblems, providerFailure } from './errors'
 import {
@@ -58,6 +59,12 @@ async function execute(
   try {
     return ok(await invoke())
   } catch (cause) {
+    // Un `ProviderError` ya viene clasificado por el plugin, y puede traer datos
+    // que aquí no se pueden reconstruir —el estado HTTP del upstream, por
+    // ejemplo—. Envolverlo otra vez los perdería y convertiría un 404 del sitio
+    // en un fallo genérico.
+    if (cause instanceof ProviderError) return err(cause)
+
     return err(
       providerFailure({
         providerId: provider.id,

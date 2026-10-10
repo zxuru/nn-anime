@@ -329,7 +329,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
       después «No hay migraciones pendientes», con 11 tablas y versión 3 las dos veces
 
 ### Fase 4 — Detalle (rebanada vertical)
-- [ ] T23 Detalle y episodios de extremo a extremo: proveedor → store → ruta
+- [x] T23 Detalle y episodios de extremo a extremo: proveedor → store → ruta
 - [ ] T24 Página de detalle: metadatos, episodios, sub/dub, favorito
 
 ### Checkpoint E — Detalle

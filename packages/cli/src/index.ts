@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { openDb, pruneOrphans, runMigrations, shouldPrune } from '@nn-anime/catalog-store'
 import { createLogger, DEFAULT_LOCALE, readSettings, t } from '@nn-anime/core'
 import { loadProviders } from '@nn-anime/provider-sdk'
-import { createBootToken, createSession } from '@nn-anime/server'
+import { createBootToken, createContainer, createSession } from '@nn-anime/server'
 import { version } from '../package.json'
 import { boot, listenOnFreePort, type Migrate } from './boot'
 import { configEnvironment } from './env'
@@ -94,6 +94,14 @@ const code = await run(Bun.argv.slice(2), {
     migrate,
     readSettings,
     loadProviders: (directory) => loadProviders({ directory }),
+    /**
+     * El store del server: una conexión que vive lo que vive el proceso.
+     *
+     * La migración abre y cierra la suya, y ésta se abre después. Compartir una
+     * sola conexión obligaría a que la migración no la cerrara, y a que el
+     * cierre del server supiera si le toca cerrarla o no.
+     */
+    openContainer: (config) => createContainer({ db: openDb(config.dbPath) }),
     createSession,
     createBootToken,
     openUrl: (url) =>

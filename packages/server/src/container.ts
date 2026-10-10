@@ -25,14 +25,23 @@ import {
   type WriteQueue,
 } from '@nn-anime/catalog-store'
 import {
+  type AnimeDetail,
+  type Episode,
   err,
   normalizeQuery,
   ok,
   ProviderError,
+  type ProviderRef,
   type Result,
   type SearchResult,
 } from '@nn-anime/core'
-import { type CallOptions, type Provider, search as searchProvider } from '@nn-anime/provider-sdk'
+import {
+  type CallOptions,
+  getAnime as fetchAnime,
+  getEpisodes as fetchEpisodes,
+  type Provider,
+  search as searchProvider,
+} from '@nn-anime/provider-sdk'
 import { type CacheOutcome, readThrough } from './cache-read'
 
 /** Clave de caché de una búsqueda: el proveedor y la consulta normalizada. */
@@ -44,6 +53,18 @@ export interface ServerContainer {
   readonly store: CatalogStore
   readonly revalidator: Revalidator
   readonly queue: WriteQueue
+  /** Detalle de un título, con caché y refresco por detrás si toca. */
+  getAnime(
+    provider: Provider,
+    ref: ProviderRef,
+    callOptions: CallOptions,
+  ): Promise<Result<CacheOutcome<AnimeDetail>, ProviderError>>
+  /** Lista de episodios, con caché. Deja el detalle escrito si hacía falta. */
+  getEpisodes(
+    provider: Provider,
+    ref: ProviderRef,
+    callOptions: CallOptions,
+  ): Promise<Result<CacheOutcome<readonly Episode[]>, ProviderError>>
   /** Resultados de un proveedor, con caché y refresco por detrás si toca. */
   searchProvider(
     provider: Provider,
@@ -69,10 +90,89 @@ export function createContainer(options: ContainerOptions): ServerContainer {
   // solaparse con las de la ruta.
   const store = createCatalogStore(options.db, { queue, revalidator })
 
+  const loadAnime = async (
+    provider: Provider,
+    ref: ProviderRef,
+    callOptions: CallOptions,
+  ): Promise<Result<CacheOutcome<AnimeDetail>, ProviderError>> => {
+    const clave = `${provider.id}#${ref.value}`
+
+    try {
+      const outcome = await readThrough<AnimeDetail>({
+        key: clave,
+        resource: 'anime',
+        revalidator,
+        read: () => store.readAnime(ref),
+        fetch: async () => {
+          const resultado = await fetchAnime(provider, ref, callOptions)
+          if (!resultado.ok) throw resultado.error
+
+          return resultado.value
+        },
+        write: (detalle) => store.writeAnime(ref, detalle),
+        onError: (key, message) => {
+          markRevalidateError(options.db, 'anime', key, message)
+        },
+        onSuccess: (key) => {
+          clearRevalidateError(options.db, 'anime', key)
+        },
+      })
+
+      return ok(outcome)
+    } catch (cause) {
+      return err(asProviderError(cause, provider.id, 'getAnime'))
+    }
+  }
+
+  const loadEpisodes = async (
+    provider: Provider,
+    ref: ProviderRef,
+    callOptions: CallOptions,
+  ): Promise<Result<CacheOutcome<readonly Episode[]>, ProviderError>> => {
+    const clave = `${provider.id}#${ref.value}`
+
+    // La lista de episodios pertenece a un anime, y la clave foránea lo exige:
+    // sin la fila del título, guardar episodios falla. Si no está, se pide el
+    // detalle primero —una llamada más en el peor caso— en lugar de escribir
+    // episodios huérfanos que no se podrían leer.
+    if ((await store.readAnime(ref)) === null) {
+      const detalle = await loadAnime(provider, ref, callOptions)
+      if (!detalle.ok) return detalle
+    }
+
+    try {
+      const outcome = await readThrough<readonly Episode[]>({
+        key: clave,
+        resource: 'episodes',
+        revalidator,
+        read: () => store.readEpisodes(ref),
+        fetch: async () => {
+          const resultado = await fetchEpisodes(provider, ref, callOptions)
+          if (!resultado.ok) throw resultado.error
+
+          return resultado.value
+        },
+        write: (lista) => store.writeEpisodes(ref, lista),
+        onError: (key, message) => {
+          markRevalidateError(options.db, 'episodes', key, message)
+        },
+        onSuccess: (key) => {
+          clearRevalidateError(options.db, 'episodes', key)
+        },
+      })
+
+      return ok(outcome)
+    } catch (cause) {
+      return err(asProviderError(cause, provider.id, 'getEpisodes'))
+    }
+  }
+
   return {
     store,
     revalidator,
     queue,
+    getAnime: loadAnime,
+    getEpisodes: loadEpisodes,
 
     async searchProvider(provider, query, callOptions) {
       const key = searchKey(provider.id, query)
@@ -104,16 +204,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
       } catch (cause) {
         // La ruta no tiene que saber si falló el proveedor o la escritura: aquí
         // se convierte en un `Result` y el agregado decide qué evento emitir.
-        return err(
-          cause instanceof ProviderError
-            ? cause
-            : new ProviderError({
-                message: cause instanceof Error ? cause.message : String(cause),
-                scope: provider.id,
-                op: 'search',
-                cause,
-              }),
-        )
+        return err(asProviderError(cause, provider.id, 'search'))
       }
     },
 
@@ -121,4 +212,16 @@ export function createContainer(options: ContainerOptions): ServerContainer {
       await store.close()
     },
   }
+}
+
+/** Cualquier fallo se convierte en el error del proveedor que lo causó. */
+function asProviderError(cause: unknown, providerId: string, op: string): ProviderError {
+  return cause instanceof ProviderError
+    ? cause
+    : new ProviderError({
+        message: cause instanceof Error ? cause.message : String(cause),
+        scope: providerId,
+        op,
+        cause,
+      })
 }

@@ -1244,18 +1244,42 @@ server.
 store.
 
 **Aceptación:**
-- [ ] `GET /api/anime/:providerId/:ref` devuelve detalle con géneros y estudios.
-- [ ] `GET /api/anime/:providerId/:ref/episodes` devuelve episodios con número, título, duración
+- [x] `GET /api/anime/:providerId/:ref` devuelve detalle con géneros y estudios.
+- [x] `GET /api/anime/:providerId/:ref/episodes` devuelve episodios con número, título, duración
       y modo disponible.
-- [ ] Ambas cachean con `X-Cache` y revalidan como T22.
-- [ ] Ref inválida o proveedor desconocido: 404 con mensaje claro, sin 500.
-- [ ] El detalle alimenta `search_history` cuando viene de una búsqueda.
+- [x] Ambas cachean con `X-Cache` y revalidan como T22 (criterio movido desde T22: aquí es donde
+      existen rutas de metadatos JSON donde la cabecera tiene sentido).
+- [x] Ref inválida o proveedor desconocido: 404 con mensaje claro, sin 500.
+- [x] El detalle alimenta `search_history` cuando viene de una búsqueda.
 
-**Verificación:** `bun test packages/server` · manual con `curl`.
+**Verificación:** `bun test packages/server` · 21 pruebas nuevas. **En vivo**, con un plugin de
+prueba: el detalle sale `X-Cache: miss` y después `hit`; los episodios salen `miss`; `?q=accion`
+deja su fila en `search_history`; un proveedor desconocido da 404 y sin cookie, 401. En la base
+quedaron 1 anime, 1 episodio, 1 género y la marca de la lista. Medido mutando la implementación: con
+`X-Cache` siempre `hit` fallan 2, con el proveedor desconocido como 500 1, sin anotar el historial 1
+y con un 404 del upstream convertido en 502 2. Control: 0 fallos.
 
 **Depende de:** T22.
 
 **Archivos:** `packages/server/src/routes/{anime,episodes}.ts`, `packages/server/src/routes/anime.test.ts`.
+**Ampliación declarada:** los schemas compartidos de respuesta en `packages/core/src/api.ts`
+(`animeResponseSchema`, `episodesResponseSchema`), `app.ts` (las rutas se registran sólo con
+contenedor), `packages/cli/src/{boot,start,index}.ts` (el arranque abre el store y lo cierra con el
+servidor), `packages/provider-sdk/src/call.ts`, la migración `0004-episodes-fetched.sql` con el
+repositorio de episodios, y la prueba de conformidad del fixture.
+
+**Tres decisiones que conviene recordar:**
+
+1. **El SDK no vuelve a envolver un error que ya es del proveedor.** Lo hacía, y al hacerlo perdía
+   el contexto: el 404 del sitio se convertía en un fallo genérico y la ruta no podía distinguir
+   «este título no existe» de «el proveedor se cayó». Ahora un `ProviderError` del plugin pasa tal
+   cual, con su estado. La prueba del fixture esperaba `kind: 'threw'`, que era justo la señal de
+   esa pérdida; se actualizó.
+2. **La lista de episodios necesita una marca de «pedida».** Cero filas no distingue «no hay
+   episodios» de «no se ha pedido»: al escribir el detalle primero, la lista parecía cacheada y se
+   servía vacía. Dos columnas en el anime y una migración nueva. Lo encontró la prueba de la ruta.
+3. **Un 404 del upstream es 404 y lo demás es 502.** No es un fallo del servidor que un título no
+   exista, y decir «error interno» obligaría a mirar los registros para saber algo que ya se sabe.
 
 **Tamaño:** M.
 

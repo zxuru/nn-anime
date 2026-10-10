@@ -163,7 +163,8 @@ dominio de `core`.
 
 ```
 anime            id, provider_id, provider_ref, title, title_alt, synopsis, cover_url,
-                 year, status, episode_count, fetched_at, ttl_s, raw_json
+                 year, status, episode_count, fetched_at, ttl_s, raw_json,
+                 episodes_fetched_at, episodes_ttl_s
 genre            anime_id, name
 episode          id, anime_id, provider_ref, number, title, duration_s, mode, fetched_at, ttl_s
 watch_event      id, anime_id, episode_id, provider_id, mode, position_s, duration_s,
@@ -189,6 +190,14 @@ TTL por tipo de recurso, en segundos:
 
 Regla dura del modelo: la base guarda metadatos y señales, nunca bytes de video. El proxy
 transmite y descarta.
+
+**`anime` lleva `episodes_fetched_at` y `episodes_ttl_s`, que esta lista no nombraba.** La tabla
+`episode` no puede representar «se pidió la lista y no había ninguno»: cero filas es indistinguible
+de «nunca se pidió». Al escribir el detalle primero —lo que hace la ruta de episodios para poder
+guardar la lista, porque la clave foránea exige el título— aparecía la fila del anime y la lista
+parecía ya pedida: se servía vacía sin preguntar al proveedor. Se vio en una prueba de la ruta, con
+una lista que llegaba a cero. Las dos columnas son la marca, y se añadieron en T23 con la migración
+`0004-episodes-fetched.sql`.
 
 **`search_cache` es la décima tabla y esta lista no la tenía.** El contrato de `catalog-store`
 promete `readSearch`/`writeSearch` con la entrada de «búsqueda» de la tabla de TTL (900 s), y

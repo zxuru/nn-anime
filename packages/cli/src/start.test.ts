@@ -49,6 +49,7 @@ function harness(
       migrate: async () => ({ ok: true }),
       readSettings: async () => ({ ok: true, value: undefined }),
       loadProviders: async () => ({ active: [], rejected: [] }),
+      openContainer: () => undefined,
       openUrl: async () => true,
       createSession,
       createBootToken: () => 'token-de-arranque',
