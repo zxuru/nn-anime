@@ -6,7 +6,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./affinity": "./src/affinity.ts",
-    "./covisit": "./src/covisit.ts"
+    "./covisit": "./src/covisit.ts",
+    "./filters": "./src/filters.ts",
+    "./search-signal": "./src/search-signal.ts"
   },
   "scripts": {
     "test": "bun test"

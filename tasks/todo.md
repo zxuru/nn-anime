@@ -2043,18 +2043,40 @@ expectativa era mía, no del código.
 **Descripción:** Incorporar lo que el usuario busca ahora y decidir qué no recomendar.
 
 **Aceptación:**
-- [ ] Los términos buscados se cruzan con título y tags; un candidato abierto desde una búsqueda
+- [x] Los términos buscados se cruzan con título y tags; un candidato abierto desde una búsqueda
       reciente y no visto sube con razón `matches-search`.
-- [ ] Semivida de 3 días para la señal de búsqueda.
-- [ ] Un título visto al 100 % no aparece en el top 10.
-- [ ] Un título visto al 10 % hace más de 30 días sí puede reaparecer.
-- [ ] Todo candidato ya visto queda fuera salvo la excepción anterior, verificada por test.
+- [x] Semivida de 3 días para la señal de búsqueda.
+- [x] Un título visto al 100 % no aparece en el top 10.
+- [x] Un título visto al 10 % hace más de 30 días sí puede reaparecer.
+- [x] Todo candidato ya visto queda fuera salvo la excepción anterior, verificada por test.
 
-**Verificación:** `bun test packages/recsys`.
+**Verificación:** `bun test packages/recsys` · 33 pruebas. Medido mutando la implementación: sin
+decaimiento de la búsqueda fallan 2, sumando todas las búsquedas en vez de tomar la que más encaja 1,
+dejando volver lo terminado 1 y sin la excepción de reencuentro 3. Control: 0 fallos. Cobertura del
+paquete: 100 %.
 
 **Depende de:** T34.
 
 **Archivos:** `packages/recsys/src/{search-signal.ts,filters.ts,search-signal.test.ts}`.
+**Ampliación declarada:** el barril y los `exports` del paquete.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **Semivida de 3 días, no de 30.** Es la señal más volátil del motor: si alguien busca «mecha» hoy,
+   lo que le interesa hoy tiene que ver con eso, y una búsqueda de la semana pasada ya no dice qué se
+   quiere ver esta noche.
+2. **Se toma la búsqueda que más encaja, no la suma.** Sumando, veinte búsquedas vagas del mismo día
+   superarían a una búsqueda concreta: el volumen mandaría sobre la coincidencia.
+3. **El término del título vale el doble que el de un tag.** Quien busca «mecha» y ve un título con
+   «mecha» ha encontrado lo que buscaba.
+4. **El reencuentro tiene excepción y umbrales con nombre.** Terminado al 90 % o más: fuera, sin
+   excepción. Empezado por debajo del 50 % y hace más de 30 días: vuelve, con un peso que crece con el
+   tiempo y no pasa de 1. Lo visto casi entero no vuelve ni con el tiempo: ya se vio.
+
+**Dos fallos que encontraron las pruebas:** el índice de visionados se quedaba con el **más viejo** de
+cada título —comparaba «días desde 1970», que daba siempre cero—, y la mutación que **sumaba** las
+búsquedas sobrevivía porque el resultado se recorta a 1 y las sumas se saturaban. La segunda se cazó
+midiendo dos búsquedas que encajan al máximo, donde la mejor da 0,5 y la suma daría 1.
 
 **Tamaño:** M.
 
