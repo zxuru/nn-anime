@@ -141,6 +141,11 @@ export default provider
 
 También se acepta `export const providers: readonly Provider[]` para agrupar varios en un archivo.
 
+Validación de headers: `validateProvider` rechaza nombres que no cumplan `^[A-Za-z0-9-]+$` y
+valores que contengan caracteres de control (`\r`, `\n`, `\0`). Un plugin que los declare se
+rechaza nombrando el header ofensor. La validación vive en el schema, no en el consumidor, para
+que ningún header sin validar pueda llegar a `media-proxy` ni a `mpv`.
+
 Reglas del loader:
 
 - Escanea `providers/` por `*.ts`, `*.js`, `*.mjs`, en orden alfabético.
@@ -186,6 +191,8 @@ packages/provider-sdk/
 **Always**
 
 - Validar toda respuesta de proveedor con Zod antes de que salga del módulo.
+- Validar nombres y valores de header en el schema, no en quien los consume.
+- Tratar toda URL de proveedor como no confiable: el esquema se valida en la frontera.
 - Tratar a los plugins como código no confiable en cuanto a forma: nunca en cuanto a permisos
   (ver el aviso de seguridad abajo).
 - Convertir excepciones de plugin en `Result` con proveedor, método y causa.

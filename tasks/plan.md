@@ -1,7 +1,9 @@
 # Implementation Plan: nn-anime v1
 
-Estado: **para revisión humana** · 2026-10-10 · Specs aprobados en `6937fbe`
-Tasks tracked in `tasks/todo.md` (47 tareas, T1–T47).
+Estado: **para revisión humana** · 2026-10-10 · Specs aprobados en `6937fbe`, endurecidos tras
+revisión de seguridad.
+Tasks tracked in `tasks/todo.md` (53 tareas: T1–T47 más las insertadas T6a, T6b, T26a, T26b,
+T29a y T31a).
 
 ## Overview
 
@@ -59,6 +61,15 @@ Si algo de esto no se cumple, el task no está hecho: se corta o se divide, no s
 9. **HLS se implementa contra playlists grabadas.** No se hace red en tests. Se versionan tres
    playlists de fixture: maestra con variantes, con `#EXT-X-KEY` y con `#EXT-X-DISCONTINUITY`.
    Si la reescritura de HLS se descontrola, el plan B está explícito en la tabla de riesgos.
+10. **La seguridad es middleware, y el middleware no es la garantía.** Aplicar los guards en un
+    solo lugar garantiza que ninguna ruta escape, y eso sí es verificable. La suficiencia no
+    viene de ahí: viene de tres listas blancas (destinos del proxy, cabeceras de respuesta,
+    cabeceras de petición) y de la CSP. Se añadieron seis tasks fundacionales —T6a, T6b, T26a,
+    T26b, T29a y T31a— porque cinco de esos controles tienen que existir **antes** de T26 y T29,
+    no después. Un hallazgo que no se convierte en criterio de aceptación es un hallazgo perdido.
+11. **`SECURITY.md` declara el riesgo residual, no lo esconde.** Tres escenarios no se mitigan y
+    se documentan como tales: un plugin instalado por el usuario, una extensión de navegador y
+    cualquier programa que corra con los permisos del usuario. Decirlo es parte del diseño.
 
 ## Task List
 
@@ -75,12 +86,16 @@ Si algo de esto no se cumple, el task no está hecho: se corta o se divide, no s
 ### Fase 1 — Arranque (cli-launcher + server shell)
 - [ ] T5 Parser de flags del CLI
 - [ ] T6 Server Hono con guards de seguridad y `/api/health`
+- [ ] T6a Bootstrap de sesión por cookie `HttpOnly` y comparación en tiempo constante
+- [ ] T6b Cabeceras de seguridad y CSP
 - [ ] T7 Cableado CLI → server: puerto, token, navegador, señales
 - [ ] T8 Esqueleto de la SPA: Vite, router, cliente API, tokens de estilo
 
 ### Checkpoint B — Arranque
 - [ ] `bun run start` imprime URL y abre la home
-- [ ] Petición sin token o con `Host` ajeno: 401
+- [ ] Petición sin cookie de sesión o con `Host` ajeno: 401 o 403
+- [ ] El token de arranque sirve una sola vez y la URL queda limpia
+- [ ] Toda respuesta trae CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options`
 
 ### Fase 2 — Proveedores
 - [ ] T9 `provider-sdk`: tipos, schema, registro, errores y test de conformidad
@@ -118,11 +133,15 @@ Si algo de esto no se cumple, el task no está hecho: se corta o se divide, no s
 ### Fase 5 — Reproducción
 - [ ] T25 Almacén de tickets opacos en memoria
 - [ ] T26 Proxy de bytes con `Range`, streaming y abort
+- [ ] T26a Lista blanca de destinos del proxy y revalidación de redirecciones
+- [ ] T26b Saneamiento de respuestas: lista blanca de cabeceras y `Set-Cookie` fuera
 - [ ] T27 Reescritura HLS: variantes y segmentos
 - [ ] T28 Reescritura HLS: claves, discontinuidad y límites
 - [ ] T29 Handoff a mpv: spawn, SSE de estado, fallback sin mpv, cierre
+- [ ] T29a Validación de headers hacia mpv y tope de un proceso concurrente
 - [ ] T30 Subtítulos: proxy y conversión `srt` a `vtt` en memoria
 - [ ] T31 Reproductor web con hls.js: reproducción, seek, atajos, a11y
+- [ ] T31a Lista blanca de esquemas para datos de proveedor en la interfaz
 - [ ] T32 Sub/dub, pista de subtítulos y registro de posición
 
 ### Checkpoint F — Reproducción
@@ -143,12 +162,13 @@ Si algo de esto no se cumple, el task no está hecho: se corta o se divide, no s
 - [ ] El panel cambia al buscar y es distinto del de arranque en frío
 
 ### Fase 7 — Pulido, seguridad y cierre
-- [ ] T40 Página de ajustes: proveedores, rutas de datos, mpv, tema
+- [ ] T40 Página de ajustes: proveedores, rutas de datos, mpv, tema, enlace a `SECURITY.md`
 - [ ] T41 Filas de la home: continuar, favoritos, tendencias, recomendaciones
 - [ ] T42 Pasada de accesibilidad: foco, contraste, movimiento reducido, `aria-live`
 - [ ] T43 Arneses Playwright y casos de home y búsqueda
 - [ ] T44 Casos e2e de detalle, reproductor y recomendaciones
-- [ ] T45 Tests de seguridad: token, `Host`, `Origin`, fuga de headers
+- [ ] T45 Tests de seguridad: sesión, `Host`, `Origin`, `Set-Cookie`, destinos internos, CSP,
+      fuga de headers y de token en logs
 - [ ] T46 Documentación: README, guía de autoría de plugins, aviso de seguridad, empaquetado npm
 - [ ] T47 Barrido final de criterios de éxito de `SPEC-nn-anime.md`
 
@@ -169,6 +189,10 @@ Si algo de esto no se cumple, el task no está hecho: se corta o se divide, no s
 | Playwright sobre Bun da problemas de integración | Bajo | T43 monta el arnés primero, contra el server ya arrancado. Si Bun falla, el runner de e2e puede correr con Node sin cambiar la app |
 | La caché se convierte en precarga especulativa por la puerta de atrás | Medio | Sólo se cachea lo que una petición ya pidió. T22 verifica el contador de llamadas a proveedores y lo deja en 0 en la segunda ejecución |
 | El alcance crece hacia v1.5 antes de cerrar v1 | Medio | `downloads` y `metadata-enrichment` no aparecen en ninguna tarea de este plan. Se abordan después del Checkpoint H |
+| Una cookie de upstream contamina todo `127.0.0.1` y alcanza otros servicios locales | Alto | T26b elimina `Set-Cookie` siempre. T45 lo verifica con un upstream de fixture que la devuelve |
+| Un XSS en la SPA compromete el server local, porque SPA y API comparten origen | Alto | T6b aplica CSP estricta y `nosniff`; T31a valida esquemas de URL de proveedor. T45 comprueba las cabeceras en toda respuesta |
+| El proxy se convierte en pivote hacia la red interna o a metadata de nube | Alto | T26a implementa lista blanca de destinos con revalidación en cada salto. T45 prueba loopback, RFC1918 y link-local |
+| La cookie `HttpOnly` obliga a defender CSRF, que antes cubría el token en JS | Medio | `SameSite=Strict` más `Origin` obligatorio en métodos mutantes, ambos en T6 y T6a |
 
 ## Paralelización
 

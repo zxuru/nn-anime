@@ -30,18 +30,36 @@ POST /api/play/mpv/:pid/stop          mata el mpv lanzado
 GET  /api/play/mpv/events             SSE: estado del reproductor externo
 ```
 
-El `:ticket` es un identificador opaco, aleatorio y de vida corta (10 minutos, renovable). Nunca
+El `:ticket` es un identificador opaco, aleatorio con CSPRNG y de vida corta (600 s). Nunca
 contiene la URL de upstream, para que el cliente web no pueda leerla ni compartirla. La
 resolución ticket → URL y headers vive en una tabla en memoria con tope de 500 entradas y
-expiración por LRU.
+desalojo LRU.
+
+El ticket **no es de un solo uso**: una reproducción HLS exige decenas de peticiones de segmento.
+Lo que lo acota es la vida corta, el tope de entradas y el alcance por índice: el índice de
+segmento se resuelve contra la playlist ya parseada y cacheada, y un índice fuera de rango
+devuelve 404 sin tocar el upstream.
 
 Comportamiento del proxy de bytes:
 
-- Copia los headers de upstream tal cual, más `Range` del cliente.
+- Reenvía al upstream sólo los headers que el proveedor declaró, más `Range` del cliente.
+- Reenvía al cliente sólo una **lista blanca** de cabeceras de respuesta: `content-type`,
+  `content-length`, `content-range`, `accept-ranges`, `cache-control`, `etag`, `last-modified`.
+  Todo lo demás se descarta.
+- **Elimina `Set-Cookie` siempre, sin excepción.** Las cookies ignoran el puerto: un upstream
+  hostil podría escribir cookies para todo `127.0.0.1` y contaminar otros servicios locales del
+  usuario.
+- Fuerza el `Content-Type` desde lo que se pidió (playlist, segmento o subtítulo) y añade
+  `X-Content-Type-Options: nosniff`. Nunca copia el `Content-Type` del upstream.
 - Devuelve `206` con `Content-Range` cuando el upstream lo devuelve; si no, degrada a `200`.
 - Fuerza `Accept-Encoding: identity` para no romper `Range`.
 - Timeout de conexión 10 s; sin timeout de cuerpo, porque el cuerpo es el video.
 - Emite el cuerpo en streaming con `ReadableStream` y `pipeTo`. Nunca hace `arrayBuffer()`.
+
+Lista blanca de destinos: sólo `http` y `https`. Se rechazan loopback (`127.0.0.0/8`, `::1`),
+RFC1918 (`10/8`, `172.16/12`, `192.168/16`), link-local (`169.254/16`, `fe80::/10`) y metadata de
+nube. La comprobación se aplica al destino inicial y a **cada salto de redirección**, con tope de
+5 saltos. Cualquier otro esquema, incluido `file:`, se rechaza antes de abrir la conexión.
 
 Comportamiento del proxy HLS:
 
@@ -94,6 +112,17 @@ packages/media-proxy/
 - [ ] Con `mpv` ausente, `/api/play/mpv` devuelve 503 y la UI muestra el fallback.
 - [ ] Reproducir 10 minutos no supera 64 MB de RSS en el proceso del server.
 - [ ] Un test verifica que ningún header de upstream se serializa en una respuesta al cliente.
+- [ ] Un upstream de fixture que devuelve `Set-Cookie` no produce ninguna cabecera `Set-Cookie`
+      en la respuesta al cliente.
+- [ ] Sólo aparecen cabeceras de respuesta de la lista blanca: un test compara el conjunto
+      completo de cabeceras devueltas contra la lista permitida.
+- [ ] El `Content-Type` de una playlist es el que decidió el proxy, aunque el upstream mienta.
+- [ ] El proxy rechaza `http://127.0.0.1:22`, `http://169.254.169.254/`, `http://10.0.0.1/`,
+      `file:///etc/passwd` y `data:text/plain,x`, con error explícito.
+- [ ] Una redirección de un destino permitido hacia `http://127.0.0.1:22` se rechaza en el salto,
+      no se sigue.
+- [ ] Un header con `\n` o `\r` en nombre o valor se rechaza antes de llegar a `mpv`.
+- [ ] Con un mpv ya corriendo, un segundo `POST /api/play/mpv` devuelve 409.
 
 ## Boundaries
 
@@ -117,13 +146,40 @@ packages/media-proxy/
 - Aceptar una URL de proxy arbitraria: el cliente sólo maneja tickets.
 - Añadir CORS abierto a `/stream/*`.
 - Servir `file://` ni rutas locales fuera del directorio de caché.
+- Copiar `Set-Cookie` ni ninguna cabecera de respuesta fuera de la lista blanca.
+- Seguir una redirección sin revalidar el destino contra la lista blanca.
+- Pasar a `mpv` un nombre o valor de header sin validar.
+- Confiar en el `Content-Type` que declara el upstream.
 
 ## Seguridad
 
-El ticket es la única capacidad que tiene el cliente web. Debe ser aleatorio con CSPRNG, de un
-solo uso por resolución y con expiración corta, para que un token filtrado no permita descargar
-el video de otro usuario ni enumerar el catálogo del proveedor. La validación de `Range` debe
-rechazar valores negativos, múltiplos rangos y tamaños absurdos antes de reenviar.
+Este módulo es la frontera de red del sistema: es el único lugar que hace peticiones salientes a
+partir de datos que no controla. Toda su superficie de ataque se reduce a tres listas blancas, y
+las tres son obligatorias:
+
+1. **Destinos.** Sólo `http` y `https`; loopback, RFC1918, link-local y metadata de nube
+   bloqueados por defecto. Revalidación en cada salto de redirección, tope de 5 saltos.
+2. **Cabeceras de respuesta hacia el cliente.** Lista blanca explícita. `Set-Cookie` siempre
+   fuera.
+3. **Cabeceras de petición hacia el upstream.** Sólo lo que el proveedor declaró. Nombres y
+   valores validados con una expresión estricta que rechaza caracteres de control, para que un
+   valor con salto de línea no pueda inyectar una cabecera extra.
+
+El ticket es la única capacidad que tiene el cliente web: aleatorio con CSPRNG, de vida corta,
+tope de entradas y alcance limitado a lo que la playlist cacheada declaró. La validación de
+`Range` rechaza valores negativos, múltiplos rangos y tamaños absurdos antes de reenviar.
+
+Riesgo residual: un plugin de proveedor puede pedir al proxy que consulte cualquier destino que
+pase la lista blanca. La lista blanca evita el pivote hacia la red interna, no evita que un
+plugin exfiltre datos hacia internet. Eso ya es posible con un `fetch` dentro del plugin, así que
+la mitigación no vive aquí: vive en el aviso al usuario de `SPEC-provider-core.md`.
+
+## Seguridad de mpv
+
+Los headers que se pasan a `mpv` se validan antes de construir el argumento: nombre y valor
+contra una expresión estricta, sin `\r`, `\n` ni caracteres de control. El argumento se pasa como
+un solo elemento de array a `Bun.spawn`; nunca por shell ni por concatenación de cadenas. Tope de
+un proceso mpv concurrente: un segundo pedido devuelve 409.
 
 ## Open Questions
 

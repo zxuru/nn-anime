@@ -219,6 +219,10 @@ tests no leen ni escriben en `$XDG_*` real: se inyecta un directorio temporal.
 - Enviar el historial del usuario a ningún lado.
 - Desactivar la verificación de tipos, el linter o un test para que pase el build.
 - Registrar headers de upstream o tokens en los logs.
+- Guardar el token de sesión en `localStorage`, en `sessionStorage` o en una cookie accesible por
+  JavaScript.
+- Copiar cabeceras de respuesta de un upstream, incluida `Set-Cookie`.
+- Añadir una ruta que no pase por los guards de `Host`, sesión y `Origin`.
 - Escribir en `$XDG_*` del usuario desde un test.
 
 ## Seguridad
@@ -226,27 +230,79 @@ tests no leen ni escriben en `$XDG_*` real: se inyecta un directorio temporal.
 El modelo de amenaza de esta aplicación no es un servidor expuesto, es el navegador local.
 Un server HTTP en `127.0.0.1` es alcanzable por cualquier página web que el usuario visite.
 
-Mitigaciones obligatorias, verificables:
+Criterio de aceptación de seguridad, en una frase: **una página web arbitraria que el usuario
+visite no debe poder leer datos, cambiar estado ni hacer que el proceso actúe en su nombre.**
 
-1. Bind a `127.0.0.1` y validación del header `Host` contra `127.0.0.1:<puerto>` y `localhost:<puerto>`
-   en cada request, para bloquear DNS rebinding.
-2. Token de sesión aleatorio de 32 bytes generado en cada arranque. Viaja en la URL que se abre
-   el navegador y se exige en toda ruta `/api/*` y `/stream/*`. Sin token, 401.
-3. `Origin` comprobado en métodos mutantes. Sin CORS abierto: no se emite
-   `Access-Control-Allow-Origin` salvo para el propio origen.
-4. Los headers de upstream (referer, cookies, tokens del sitio del proveedor) nunca llegan al
-   cliente web: viven sólo dentro del proceso, en `media-proxy`.
-5. Al cerrar el proceso, el token se descarta. No se persiste en disco.
+Mitigaciones obligatorias. Todas son verificables por un test.
+
+1. **Bind y `Host`.** Escuchar sólo en `127.0.0.1`. Validar el header `Host` contra
+   `127.0.0.1:<puerto>` y `localhost:<puerto>` en cada request. Bloquea DNS rebinding.
+2. **Sesión por cookie `HttpOnly`.** El CLI abre el navegador con un token de arranque de un solo
+   uso. El server lo canjea por una cookie `HttpOnly; SameSite=Strict; Path=/`, redirige a `/`
+   con URL limpia y quema el token de arranque. El token de sesión nunca vuelve a tocar
+   JavaScript, así que un XSS en la propia interfaz no puede exfiltrarlo. Sin cookie válida, 401.
+3. **Comparación en tiempo constante.** La cookie se compara con `crypto.timingSafeEqual` sobre
+   buffers de igual longitud. Nada de `===`.
+4. **`Origin` en métodos mutantes.** `Origin` ausente, `null` o ajeno: 403. Sin CORS abierto: no
+   se emite `Access-Control-Allow-Origin` en ninguna respuesta.
+5. **Cabeceras de seguridad en toda respuesta de la SPA.** `Content-Security-Policy` estricta
+   (`default-src 'self'; img-src 'self'; media-src 'self' blob:; connect-src 'self';
+   frame-ancestors 'none'; base-uri 'none'; object-src 'none'`), `X-Content-Type-Options:
+   nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`. Sin CSP, un XSS en la
+   interfaz es compromiso total del server local, porque la SPA y la API comparten origen.
+6. **Cabeceras de upstream confinadas.** Los headers del sitio del proveedor nunca llegan al
+   cliente web: viven sólo en memoria del proceso, en `media-proxy`. Un test barre todas las
+   rutas y falla si alguno aparece en una respuesta.
+7. **Respuestas de upstream saneadas.** `media-proxy` reenvía sólo una lista blanca de cabeceras
+   de respuesta y **elimina `Set-Cookie` siempre**. Las cookies ignoran el puerto: un upstream
+   hostil podría escribir cookies para todo `127.0.0.1` y contaminar cualquier otro servicio
+   local del usuario. El `Content-Type` se fuerza desde lo que se pidió, no se copia.
+8. **Lista blanca de destinos.** El proxy sólo acepta `http` y `https`. Por defecto rechaza
+   loopback, RFC1918, link-local y metadata de nube. Cada salto de redirección se revalida con la
+   misma lista y hay tope de saltos. Cierra SSRF.
+9. **Confinamiento de rutas.** El server estático y las rutas de caché normalizan y confinan a su
+   raíz, y rechazan symlinks que apunten afuera.
+10. **Sin inyección hacia mpv.** Los nombres y valores de header se validan con una expresión
+    estricta que rechaza caracteres de control antes de construir cualquier argumento. Los
+    argumentos van en array, nunca por shell. Tope de un mpv concurrente.
+11. **Datos de proveedor tratados como hostiles en la interfaz.** Toda URL que venga de un
+    proveedor pasa por una lista blanca de esquemas `http`/`https` o se renderiza como texto
+    plano. `dangerouslySetInnerHTML` está prohibido sobre datos de proveedor.
+12. **Sin persistencia de secretos.** Al cerrar el proceso se descartan cookie y token. El token
+    no se escribe en disco ni en logs, en ningún nivel.
 
 Los plugins de proveedor se ejecutan en el mismo proceso, con los mismos permisos que la
-aplicación. No hay sandbox. Esto se documenta en la UI al instalar y en `SPEC-provider-core.md`.
+aplicación. **No hay sandbox.** Esto se documenta en la UI al instalar, en `SECURITY.md` y en
+`SPEC-provider-core.md`.
+
+### Riesgo residual, explícito
+
+Ninguna de las mitigaciones de arriba cubre estos casos, y no se van a cubrir:
+
+| Escenario | Estado | Motivo |
+|---|---|---|
+| Una página web que el usuario visita | Mitigado | Es el criterio de aceptación de esta sección |
+| Otro usuario local de la máquina | Mitigado | Puede conectar a `127.0.0.1`, no tiene la cookie |
+| Un plugin que el usuario instala | **No mitigado, por diseño** | Un plugin es código arbitrario con los permisos del usuario. Lee la base, el historial y el disco |
+| Una extensión de navegador con permisos amplios | **No mitigado** | Puede leer la cookie, el DOM y el historial |
+| Un programa que corra como el usuario | **No mitigado** | Puede leer la base y la memoria del proceso |
+
+`SECURITY.md` debe decir esto en texto claro, y `/settings` debe enlazarlo.
 
 ## Success Criteria
 
 - [ ] `bun install && bun run build && bun test` pasa en un checkout limpio sin red, salvo la
       instalación de dependencias.
 - [ ] `bun run start` arranca, imprime una URL con token y abre el navegador.
-- [ ] Una petición sin token o con `Host` ajeno recibe 401 y no filtra datos.
+- [ ] Una petición sin cookie de sesión válida o con `Host` ajeno recibe 401 o 403 y no filtra
+      datos. Ninguna ruta de `/api/*` ni `/stream/*` escapa a los guards.
+- [ ] El token de arranque sirve una sola vez: un segundo uso devuelve 401.
+- [ ] Ninguna respuesta contiene `Set-Cookie` de origen upstream ni cabeceras de upstream.
+- [ ] La SPA se sirve con CSP, `nosniff`, `Referrer-Policy: no-referrer` y `X-Frame-Options`.
+- [ ] El proxy rechaza `http://127.0.0.1:22`, `http://169.254.169.254/` y `file:///etc/passwd`,
+      y revalida la lista blanca en cada salto de redirección.
+- [ ] `SECURITY.md` existe, describe el modelo de amenaza y el riesgo residual, y `/settings` lo
+      enlaza.
 - [ ] Segunda ejecución: home y detalle se sirven desde la base sin llamadas de red, medido con
       el contador de peticiones a proveedores.
 - [ ] El historial de visionado sobrevive a reiniciar el proceso.

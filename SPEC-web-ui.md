@@ -117,12 +117,21 @@ packages/web/
 - [ ] Un recorrido completo por teclado permite llegar a buscar, elegir un título y reproducir,
       sin usar el mouse.
 - [ ] Con `prefers-reduced-motion: reduce` no hay animaciones de esqueleto ni transiciones.
+- [ ] Toda respuesta de la SPA trae `Content-Security-Policy`, `X-Content-Type-Options: nosniff`,
+      `Referrer-Policy: no-referrer` y `X-Frame-Options: DENY`.
+- [ ] Un título de proveedor con `javascript:` como URL de portada se renderiza como texto plano
+      y no produce ningún `href` ni `src` ejecutable.
+- [ ] Ninguna petición de la SPA sale hacia un origen externo: el e2e falla si detecta una.
 
 ## Boundaries
 
 **Always**
 
-- Enviar el token de sesión en toda llamada a `/api/*` y `/stream/*`.
+- Confiar en la cookie `HttpOnly` para la sesión: el cliente nunca lee, escribe ni guarda el
+  token. Toda llamada usa `credentials: 'same-origin'`.
+- Validar toda URL que venga de un proveedor con una lista blanca de esquemas `http` y `https`
+  antes de usarla en `href` o `src`. Si no pasa, se renderiza como texto plano.
+- Tratar todo dato de proveedor como hostil: título, sinopsis, géneros y URLs.
 - Cancelar la petición anterior cuando cambia la consulta o se desmonta la vista.
 - Mostrar el precio real de cada acción: spinner para revalidar, aviso cuando un proveedor falla.
 - Centralizar el color, el espaciado y el radio en `tokens.css`. Sin valores sueltos.
@@ -139,7 +148,10 @@ packages/web/
 **Never**
 
 - Usar `dangerouslySetInnerHTML` con datos de un proveedor: las sinopsis vienen de fuera.
-- Guardar el token de sesión en `localStorage` ni en una cookie persistente.
+- Escribir, leer o borrar cookies desde JavaScript.
+- Incrustar un recurso remoto directamente: portadas, subtítulos y video pasan por el proxy.
+- Construir un `href` o un `src` con una URL de proveedor sin pasar por la lista blanca de
+  esquemas.
 - Cargar un iframe o script de un dominio externo.
 - Bloquear el hilo principal con trabajo de decenas de milisegundos por render.
 - Recargar la página como forma de refrescar datos.

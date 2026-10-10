@@ -49,12 +49,17 @@ Comportamiento de arranque, en orden estricto:
 2. Cargar `config.json` si existe. Flags de CLI ganan sobre config.
 3. Abrir la base y correr migraciones pendientes de `catalog-store`.
 4. Cargar plugins de proveedor de `providers/`. Un plugin roto se reporta y se omite.
-5. Generar token de sesión de 32 bytes.
-6. `Bun.serve` en `127.0.0.1:<puerto>`.
-7. Si `--no-open` no está, abrir el navegador con `xdg-open`, `open` o `start` según SO.
-8. Imprimir URL completa con token y la lista de proveedores activos.
-9. Esperar señales. En `SIGINT` o `SIGTERM`: cerrar server, matar mpv hijo, cerrar SQLite,
-   salir con el código correspondiente.
+5. Generar un token de arranque de un solo uso, de 32 bytes con CSPRNG.
+6. `Bun.serve` en `127.0.0.1:<puerto>`, con las cabeceras de seguridad del spec de proyecto en
+   todas las respuestas.
+7. Si `--no-open` no está, abrir el navegador en `/?boot=<token>` con `xdg-open`, `open` o `start`
+   según SO.
+8. Imprimir la URL de arranque y la lista de proveedores activos.
+9. El server canjea `boot` por una cookie `HttpOnly; SameSite=Strict; Path=/`, redirige a `/` con
+   la URL limpia y quema el token. A partir de ahí el token de sesión no vuelve a aparecer en
+   ninguna URL ni es accesible desde JavaScript.
+10. Esperar señales. En `SIGINT` o `SIGTERM`: cerrar server, matar mpv hijo, cerrar SQLite,
+    salir con el código correspondiente.
 
 ## Estructura del módulo
 
@@ -71,6 +76,10 @@ packages/cli/
 ## Success Criteria
 
 - [ ] `bun run start` imprime la URL y el navegador abre la home.
+- [ ] Tras el canje, la barra de direcciones muestra `/` sin parámetro `boot`, y
+      `document.cookie` no expone la cookie de sesión.
+- [ ] Un segundo uso del mismo token de arranque devuelve 401.
+- [ ] Ninguna respuesta del server carece de las cabeceras de seguridad del spec de proyecto.
 - [ ] `nn-anime --port 7717` con 7717 ocupado arranca en otro puerto y lo informa.
 - [ ] `nn-anime "naruto"` abre `/search?q=naruto`.
 - [ ] `nn-anime --help` sale con código 0 y no arranca el server.
@@ -100,7 +109,9 @@ packages/cli/
 **Never**
 
 - Escuchar en `0.0.0.0`.
-- Persistir el token de sesión.
+- Persistir el token de sesión o el de arranque.
+- Imprimir en consola el token de arranque más allá de la URL que se abre.
+- Escribir la cookie de sesión desde JavaScript.
 - Bloquear el arranque esperando a un proveedor de red.
 - Matar procesos por nombre; sólo los hijos registrados.
 

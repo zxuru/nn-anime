@@ -4,6 +4,10 @@ Plan: `tasks/plan.md` · Specs: `CAPABILITY-MAP.md`, `SPEC-nn-anime.md`, `SPEC-<
 Regla: todo task cierra el Definition of Done de `tasks/plan.md`. Tope de 5 archivos de
 implementación por task; el andamiaje de T1 y T16 lo declara explícitamente.
 
+53 tareas: T1–T47 más las seis insertadas tras la revisión de seguridad (T6a, T6b, T26a, T26b,
+T29a, T31a). Los ids con sufijo no se renumeran: el orden de ejecución lo da la tabla de
+dependencias del final.
+
 Fuera de este plan: `downloads` (v1.5) y `metadata-enrichment` (sin aprobar).
 
 ---
@@ -143,14 +147,14 @@ catálogo español.
 **Descripción:** App Hono mínima con la seguridad del spec aplicada como middleware global.
 
 **Aceptación:**
-- [ ] `createServer({ token, port, ... })` monta `host-guard` y `token-guard` sobre `/api/*` y
-      `/stream/*`.
+- [ ] `createServer({ session, port, ... })` monta `host-guard` y `session-guard` sobre `/api/*`
+      y `/stream/*`.
 - [ ] `host-guard` rechaza con 403 todo `Host` que no sea `127.0.0.1:<puerto>` o
       `localhost:<puerto>`.
-- [ ] `token-guard` acepta el token por `Authorization: Bearer` o por query `?t=`, y responde 401
-      sin cuerpo útil en cualquier otro caso.
-- [ ] `origin-guard` en métodos mutantes: `Origin` ausente o ajeno devuelve 403.
-- [ ] `GET /api/health` devuelve `{ version, port, mpv, providers }` y exige token.
+- [ ] `session-guard` exige la cookie de sesión de T6a y responde 401 sin cuerpo útil en
+      cualquier otro caso. No existe ninguna vía de autenticación por query string.
+- [ ] `origin-guard` en métodos mutantes: `Origin` ausente, `null` o ajeno devuelve 403.
+- [ ] `GET /api/health` devuelve `{ version, port, mpv, providers }` y exige sesión.
 - [ ] Test de tabla de rutas: toda ruta registrada está cubierta por ambos guards, o el test falla.
 
 **Verificación:** `bun test packages/server` · manual con `curl` sin token: 401.
@@ -160,6 +164,57 @@ catálogo español.
 **Archivos:** `packages/server/src/{index,app}.ts`, `packages/server/src/middleware/{host-guard,token-guard,origin-guard}.ts`, `packages/server/src/app.test.ts`.
 
 **Tamaño:** M.
+
+---
+
+### T6a — Bootstrap de sesión por cookie `HttpOnly`
+
+**Descripción:** Canjear el token de arranque de un solo uso por una cookie de sesión que
+JavaScript nunca puede leer, para que un XSS en la propia SPA no pueda exfiltrar la sesión.
+
+**Aceptación:**
+- [ ] `GET /?boot=<token>` valida el token con `crypto.timingSafeEqual` sobre buffers de igual
+      longitud.
+- [ ] Token válido: 302 a `/`, con `Set-Cookie: nn_session=<32 bytes CSPRNG>; HttpOnly;
+      SameSite=Strict; Path=/`.
+- [ ] El token de arranque se quema al usarlo: un segundo intento devuelve 401.
+- [ ] Un token de longitud distinta devuelve 401 sin llegar a `timingSafeEqual` y sin lanzar.
+- [ ] La cookie de sesión también se compara en tiempo constante.
+- [ ] Dos arranques seguidos producen tokens y cookies distintos.
+- [ ] Ninguna vía de autenticación por query string sobrevive después del canje.
+
+**Verificación:** `bun test packages/server` · manual: abrir la URL, ver `/` limpio en la barra de
+direcciones y `document.cookie` vacío en la consola.
+
+**Depende de:** T6.
+
+**Archivos:** `packages/server/src/{bootstrap,session}.ts`, `packages/server/src/{bootstrap,session}.test.ts`, `packages/cli/src/index.ts`.
+
+**Tamaño:** M.
+
+---
+
+### T6b — Cabeceras de seguridad y CSP
+
+**Descripción:** Aplicar en toda respuesta las cabeceras que convierten un XSS en un incidente
+contenido en lugar de un compromiso total del server local.
+
+**Aceptación:**
+- [ ] `Content-Security-Policy: default-src 'self'; img-src 'self'; media-src 'self' blob:;
+      connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'`.
+- [ ] `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` y `X-Frame-Options: DENY`.
+- [ ] Las cuatro se aplican a la SPA, a `/api/*` y a `/stream/*` por igual: test sobre todas las
+      familias de rutas.
+- [ ] Ninguna respuesta lleva `Access-Control-Allow-Origin`.
+- [ ] Un test recorre la tabla de rutas y falla si a alguna le falta una de las cuatro cabeceras.
+
+**Verificación:** `bun test packages/server` · manual: `curl -I` contra la home y contra la API.
+
+**Depende de:** T6.
+
+**Archivos:** `packages/server/src/middleware/security-headers.ts`, `packages/server/src/security-headers.test.ts`.
+
+**Tamaño:** S.
 
 ---
 
@@ -193,8 +248,10 @@ estilo. Sin funcionalidad de producto todavía.
 
 **Aceptación:**
 - [ ] `bun run dev` levanta Vite con proxy de `/api` y `/stream` a `127.0.0.1:7717`.
-- [ ] El cliente API lee el token de la URL, lo guarda en memoria y lo envía en cada llamada.
-- [ ] El token no aparece en `localStorage` ni en ninguna cookie.
+- [ ] El cliente API no maneja ningún token: se apoya en la cookie `HttpOnly` con
+      `credentials: 'same-origin'`.
+- [ ] El cliente no lee, escribe ni borra cookies, y no guarda nada sensible en `localStorage`
+      ni en `sessionStorage`.
 - [ ] El router sirve `/`, `/search`, `/anime/:providerId/:ref`, `/watch/:providerId/:ref`,
       `/settings` sin recargar la página.
 - [ ] `tokens.css` define color, espaciado, radios y tipografía; ningún componente usa valores
@@ -214,7 +271,9 @@ estilo. Sin funcionalidad de producto todavía.
 ## Checkpoint B — Arranque
 
 - [ ] `bun run start` imprime la URL, abre el navegador y muestra la home.
-- [ ] Petición sin token o con `Host` ajeno: 401 y 403 respectivamente.
+- [ ] Petición sin cookie de sesión o con `Host` ajeno: 401 y 403 respectivamente.
+- [ ] El token de arranque sirve una sola vez y la barra de direcciones queda en `/`.
+- [ ] Toda respuesta trae CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options`.
 
 ---
 
@@ -229,6 +288,8 @@ validación, registro y un test de conformidad reutilizable.
 - [ ] `Provider`, `ProviderCapabilities`, `CallOptions`, `StreamRequest` y `ProviderError` según
       `SPEC-provider-core.md`.
 - [ ] `validateProvider(unknown)` devuelve `Result` con el motivo exacto del rechazo.
+- [ ] Un `StreamSource` con nombre de header fuera de `^[A-Za-z0-9-]+$`, o con valor que contenga
+      `\r`, `\n` o `\0`, se rechaza nombrando el header ofensor.
 - [ ] Registro con alta, consulta por id y detección de `id` duplicado (gana el primero).
 - [ ] `assertConforms(provider)` recorre los métodos y reporta qué método incumple el contrato.
 - [ ] `apiVersion` distinto de `'1'` produce un error que nombra la versión esperada.
@@ -655,6 +716,59 @@ store.
 
 ---
 
+### T26a — Lista blanca de destinos y redirecciones
+
+**Descripción:** Cerrar SSRF. El proxy sale sólo a donde debe y lo reverifica en cada salto de
+redirección.
+
+**Aceptación:**
+- [ ] Sólo `http` y `https`. `file:`, `data:`, `ftp:` y cualquier otro esquema se rechazan antes
+      de abrir conexión.
+- [ ] Se rechazan loopback (`127.0.0.0/8`, `::1`), RFC1918 (`10/8`, `172.16/12`, `192.168/16`),
+      link-local (`169.254/16`, `fe80::/10`) y direcciones de metadata de nube.
+- [ ] La comprobación se aplica después de resolver DNS: un nombre que resuelve a `127.0.0.1` se
+      rechaza igual que la IP literal.
+- [ ] `redirect: 'manual'`: cada salto se revalida y el tope es 5; el sexto devuelve error.
+- [ ] El error nombra la regla que rechazó el destino, sin volcar la URL completa en producción.
+- [ ] Test con los cinco destinos prohibidos del spec y con una cadena permitido → prohibido que
+      se corta en el salto.
+
+**Verificación:** `bun test packages/media-proxy`.
+
+**Depende de:** T26.
+
+**Archivos:** `packages/media-proxy/src/{destination-guard.ts,destination-guard.test.ts}`, `packages/media-proxy/src/byte-proxy.ts`.
+
+**Tamaño:** M.
+
+---
+
+### T26b — Saneamiento de respuestas: lista blanca de cabeceras
+
+**Descripción:** Dejar de copiar cabeceras de upstream. Pasar sólo lo necesario y eliminar el
+resto, `Set-Cookie` incluida.
+
+**Aceptación:**
+- [ ] Lista blanca de respuesta: `content-type`, `content-length`, `content-range`,
+      `accept-ranges`, `cache-control`, `etag`, `last-modified`. Nada más.
+- [ ] `Set-Cookie` se elimina siempre: test con un upstream de fixture que la devuelve.
+- [ ] El `Content-Type` se fuerza desde lo que se pidió (playlist, segmento, subtítulo) y no se
+      copia del upstream.
+- [ ] Se añade `X-Content-Type-Options: nosniff`.
+- [ ] Un test compara el conjunto completo de cabeceras de respuesta contra la lista permitida y
+      falla si aparece una extra.
+- [ ] Un upstream que declara `text/html` no cambia el `Content-Type` servido.
+
+**Verificación:** `bun test packages/media-proxy`.
+
+**Depende de:** T26.
+
+**Archivos:** `packages/media-proxy/src/{response-headers.ts,response-headers.test.ts}`, `packages/media-proxy/src/byte-proxy.ts`.
+
+**Tamaño:** S.
+
+---
+
 ### T27 — Reescritura HLS: variantes y segmentos
 
 **Descripción:** Detectar playlists, reescribir URIs y encadenar por el proxy sin romper la
@@ -729,6 +843,31 @@ límites de seguridad.
 
 ---
 
+### T29a — Validación de headers hacia mpv
+
+**Descripción:** Impedir que un valor de header inyecte argumentos o cabeceras en el proceso de
+mpv.
+
+**Aceptación:**
+- [ ] Nombre de header validado con `^[A-Za-z0-9-]+$`; valor sin `\r`, `\n` ni caracteres de
+      control.
+- [ ] Un header inválido produce error con el nombre ofensor y no se lanza ningún proceso.
+- [ ] Los argumentos se pasan en array a `Bun.spawn`; ninguna ruta construye la línea de comandos
+      por concatenación.
+- [ ] Tope de un mpv concurrente: un segundo `POST /api/play/mpv` devuelve 409.
+- [ ] Test con `spawn` sustituido por un espía: se verifica el array exacto de argumentos.
+- [ ] Test: un valor con `\n` no añade ningún argumento nuevo en el espía.
+
+**Verificación:** `bun test packages/media-proxy`.
+
+**Depende de:** T29.
+
+**Archivos:** `packages/media-proxy/src/{mpv-args.ts,mpv-args.test.ts}`, `packages/media-proxy/src/mpv.ts`.
+
+**Tamaño:** S.
+
+---
+
 ### T30 — Subtítulos: proxy y conversión `srt` a `vtt`
 
 **Descripción:** Servir subtítulos por el proxy y convertir en memoria lo que el navegador no
@@ -771,6 +910,30 @@ entiende.
 **Archivos:** `packages/web/src/features/player/{Player,usePlayer,controls}.tsx`, `packages/web/src/features/player/Player.test.tsx`.
 
 **Tamaño:** M.
+
+---
+
+### T31a — Lista blanca de esquemas para datos de proveedor
+
+**Descripción:** Que ninguna URL que venga de un proveedor pueda ejecutar nada en la página.
+
+**Aceptación:**
+- [ ] `safeUrl(value)` acepta sólo `http` y `https`; devuelve `null` para todo lo demás.
+- [ ] Un `coverUrl` con `javascript:`, `data:` o `vbscript:` se renderiza como texto plano y no
+      produce ningún `href` ni `src`.
+- [ ] La función se aplica en todos los puntos donde una URL de proveedor entra a un atributo,
+      verificado con `grep` sobre `src` y `href` en el paquete y con un test por componente que
+      muestra portada.
+- [ ] Las URLs de subtítulos y de stream pasan por la misma función.
+- [ ] Test: un título con `javascript:` no genera ningún atributo con ese valor en el DOM.
+
+**Verificación:** `bun test packages/web` · `bun run e2e`.
+
+**Depende de:** T24.
+
+**Archivos:** `packages/web/src/lib/{safe-url.ts,safe-url.test.ts}`, `packages/web/src/components/ResultCard.tsx`, `packages/web/src/features/detail/DetailPage.tsx`.
+
+**Tamaño:** S.
 
 ---
 
@@ -984,6 +1147,7 @@ visionado.
 - [ ] Muestra las rutas de datos, configuración y caché en uso.
 - [ ] Indica si `mpv` está disponible, con la versión detectada.
 - [ ] Aviso en texto claro de que un plugin se ejecuta sin sandbox con los permisos del usuario.
+- [ ] Enlace a `SECURITY.md` desde la propia página, además del aviso en línea.
 - [ ] Selector de tema oscuro y claro, persistido en ajustes.
 
 **Verificación:** `bun run dev` · revisar `/settings` con un plugin roto presente.
@@ -1089,22 +1253,38 @@ activada.
 
 ### T45 — Tests de seguridad
 
-**Descripción:** Convertir en tests los criterios de seguridad del spec de proyecto.
+**Descripción:** Convertir en tests, una por una, las doce mitigaciones del spec de proyecto. Un
+hallazgo que no se convierte en criterio de aceptación es un hallazgo perdido.
 
 **Aceptación:**
-- [ ] Sin token: 401 en toda ruta de `/api/*` y `/stream/*`, verificado por tabla de rutas.
-- [ ] `Host` ajeno: 403, incluido el caso de DNS rebinding con `Host: evil.example`.
-- [ ] `Origin` ajeno en método mutante: 403.
-- [ ] Ninguna respuesta al cliente contiene un header de upstream: barrido sobre todas las rutas.
-- [ ] Ningún log, en ningún nivel, contiene `authorization`, `cookie`, `referer` ni el token.
-- [ ] El token no se escribe en disco: verificado con el directorio de datos temporal.
+- [ ] M1 `Host`: 403 con `Host: evil.example`, incluido el caso de DNS rebinding, en toda ruta.
+- [ ] M2 Sesión: sin cookie válida, 401 en toda ruta de `/api/*` y `/stream/*`, verificado por
+      tabla de rutas. El token de arranque sirve una sola vez.
+- [ ] M3 Tiempo constante: la comparación usa `timingSafeEqual`; test con longitudes distintas no
+      lanza y devuelve 401.
+- [ ] M4 `Origin` ausente, `null` y ajeno en método mutante: 403.
+- [ ] M5 CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options` presentes en toda respuesta, y
+      ninguna respuesta con `Access-Control-Allow-Origin`.
+- [ ] M6 Ninguna respuesta al cliente contiene un header de upstream: barrido sobre todas las
+      rutas.
+- [ ] M7 `Set-Cookie` de upstream no aparece nunca en la respuesta; el conjunto de cabeceras de
+      respuesta está contenido en la lista blanca.
+- [ ] M8 El proxy rechaza `http://127.0.0.1:22`, `http://169.254.169.254/`, `http://10.0.0.1/`,
+      `file:///etc/passwd` y `data:text/plain,x`, y no sigue una redirección hacia un destino
+      prohibido.
+- [ ] M9 Confinamiento: `../../etc/passwd` y symlinks fuera de la raíz no se sirven.
+- [ ] M10 Un header con `\n` hacia mpv se rechaza; el espía de `spawn` no recibe argumentos
+      extra.
+- [ ] M11 `safeUrl` rechaza `javascript:` y el DOM no contiene atributos con ese valor.
+- [ ] M12 Ningún log, en ningún nivel, contiene `authorization`, `cookie`, `referer`, `Set-Cookie`
+      ni la cookie de sesión. El token no se escribe en disco: verificado con directorio temporal.
 - [ ] Un `Range` malformado no llega al upstream.
 
-**Verificación:** `bun test packages/server packages/media-proxy`.
+**Verificación:** `bun test packages/server packages/media-proxy packages/web`.
 
-**Depende de:** T26, T29, T22.
+**Depende de:** T26a, T26b, T29a, T31a, T6a, T6b, T22.
 
-**Archivos:** `packages/server/src/security.test.ts`, `packages/media-proxy/src/leak.test.ts`, `packages/server/src/routes-table.test.ts`.
+**Archivos:** `packages/server/src/{security.test.ts,routes-table.test.ts,bootstrap.test.ts}`, `packages/media-proxy/src/{leak.test.ts,destination-guard.test.ts,response-headers.test.ts}`, `packages/web/src/lib/safe-url.test.ts`.
 
 **Tamaño:** M.
 
@@ -1184,9 +1364,15 @@ Dependencias sueltas, en orden de ejecución:
 | Task | Depende de |
 |---|---|
 | T5 | T3 |
+| T6a | T6 |
+| T6b | T6 |
 | T7 | T5, T6 |
 | T8 | T7 |
+| T26a | T26 |
+| T26b | T26 |
+| T29a | T29 |
 | T31 | T26, T24 |
+| T31a | T24 |
 | T32 | T31, T20 |
 | T38 | T37, T22 |
 | T39 | T38, T14 |
@@ -1195,9 +1381,10 @@ Dependencias sueltas, en orden de ejecución:
 | T42 | T41 |
 | T43 | T41 |
 | T44 | T43, T32, T39 |
-| T45 | T26, T29, T22 |
+| T45 | T26a, T26b, T29a, T31a, T6a, T6b, T22 |
 | T46 | T44, T40 |
 | T47 | T46 |
 
 Camino crítico más largo: T1 → T2 → T3 → T4 → T16 → T17 → T20 → T32 → T41 → T42 → T43 → T44 →
-T46 → T47 (14 tasks).
+T46 → T47 (14 tasks). Las seis insertadas no alargan el camino crítico: T6a y T6b cuelgan de T6,
+y T26a, T26b, T29a y T31a cuelgan de tasks que ya están en el camino o fuera de él.
