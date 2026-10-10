@@ -353,8 +353,12 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] T32 Sub/dub, pista de subtítulos y registro de posición
 
 ### Checkpoint F — Reproducción
-- [ ] El fixture se reproduce en la página y el seek funciona
-- [ ] mpv abre, se controla por SSE y muere al cerrar la app
+- [ ] El fixture se reproduce en la página y el seek funciona: **no se puede comprobar sin navegador
+      y sin un upstream alcanzable**. Se acordó una excepción de loopback sólo en modo test para el
+      e2e de T43, con la lista blanca intacta en producción
+- [x] mpv abre, se controla por SSE y muere al cerrar la app: medido en vivo, con `--idle=yes` para
+      que el proceso sobreviva a la falta de red y poder comprobar que `close()` lo mata
+- [x] Decisión sobre HLS: se mantiene en v1, registrada en `docs/PLAN-B-HLS.md`
 
 ### Fase 6 — Recomendaciones
 - [ ] T33 Afinidad: vector, IDF y decaimiento temporal

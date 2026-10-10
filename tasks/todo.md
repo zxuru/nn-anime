@@ -1937,9 +1937,11 @@ igual. Esa comprobación la vigila además la guarda de T31a, que recorre todos 
       `--idle=yes` para que el proceso sobreviva a la falta de red: se lanza (pid vivo), los eventos
       salen por SSE (`starting`, `playing`, `failed`) y **tras `close()` el pid ya no existe** y
       `pgrep` no encuentra ningún `mpv`.
-- [ ] Decisión explícita sobre HLS: se mantiene o se aplica el plan B del riesgo 1. **Es tuya y es de
-      este checkpoint**: el plan dice que se toma aquí y no a mitad de camino.
-- [ ] Revisión humana.
+- [x] Decisión explícita sobre HLS: **se mantiene en v1**, no se aplica el plan B. Registrada en
+      `docs/PLAN-B-HLS.md` con lo que se decidió, con qué y qué queda fuera.
+- [x] Revisión humana. El humano decidió además cómo se monta la verificación en navegador:
+      **excepción de loopback sólo en modo test** para el e2e de T43, con la lista blanca intacta en
+      producción y una prueba de que sin la variable el loopback se sigue rechazando.
 
 **Lo que sí está medido hasta aquí:** 1199 pruebas, 0 fallos; `tsc` 0, `biome` 0, `bun run build`
 verde con `hls.js` en su propio trozo; cobertura por paquete en `core 97.90 %`,
