@@ -252,21 +252,48 @@ como pide el spec.
 **Descripción:** App Hono mínima con la seguridad del spec aplicada como middleware global.
 
 **Aceptación:**
-- [ ] `createServer({ session, port, ... })` monta `host-guard` y `session-guard` sobre `/api/*`
+- [x] `createApp({ session, port, ... })` monta `host-guard` y `session-guard` sobre `/api/*`
       y `/stream/*`.
-- [ ] `host-guard` rechaza con 403 todo `Host` que no sea `127.0.0.1:<puerto>` o
+- [x] `host-guard` rechaza con 403 todo `Host` que no sea `127.0.0.1:<puerto>` o
       `localhost:<puerto>`.
-- [ ] `session-guard` exige la cookie de sesión de T6a y responde 401 sin cuerpo útil en
+- [x] `session-guard` exige la cookie de sesión de T6a y responde 401 sin cuerpo útil en
       cualquier otro caso. No existe ninguna vía de autenticación por query string.
-- [ ] `origin-guard` en métodos mutantes: `Origin` ausente, `null` o ajeno devuelve 403.
-- [ ] `GET /api/health` devuelve `{ version, port, mpv, providers }` y exige sesión.
-- [ ] Test de tabla de rutas: toda ruta registrada está cubierta por ambos guards, o el test falla.
+- [x] `origin-guard` en métodos mutantes: `Origin` ausente, `null` o ajeno devuelve 403.
+- [x] `GET /api/health` devuelve `{ version, port, mpv, providers }` y exige sesión.
+- [x] Test de tabla de rutas: toda ruta registrada está cubierta por ambos guards, o el test falla.
 
-**Verificación:** `bun test packages/server` · manual con `curl` sin token: 401.
+**Verificación:** `bun test packages/server` 28 pasan, 0 fallan · `tsc --noEmit` 0 ·
+`biome check .` 0 sin infos.
+
+**Estado:** hecho.
+
+**Decisiones tomadas al implementar:**
+
+- **El spec decía `createServer`; hay dos funciones.** `createApp` devuelve la aplicación Hono y
+  `startServer` la escucha con `Bun.serve`. Separarlas es lo que permite testear los guards con
+  `app.request(...)`, sin abrir un socket.
+- **El puerto se lee de forma diferida** (`number | (() => number)`). Con `port: 0` el sistema
+  elige el puerto y los guards lo necesitan para validar `Host`: resolverlo antes de arrancar
+  tendría una carrera real. `startServer` arranca con un marcador y lo rellena cuando Bun informa
+  el puerto.
+- **El guard de `Host` comprueba dos fuentes, la cabecera y la URL.** En una petición real
+  coinciden. Si discrepan, algo raro pasa y se rechaza, en lugar de elegir una y confiar.
+- **Bun no materializa la cabecera `Host` en un `Request` construido a mano**, sólo en uno real.
+  Lo descubrí con los tests en rojo: leer sólo `c.req.header('host')` devolvía 403 en todo. Mirar
+  también `new URL(c.req.url).host` arregla el test y no debilita nada en producción.
+- **`Origin` sólo se exige en métodos mutantes.** En una lectura, `Host` más la cookie
+  `SameSite=Strict` ya cubren; exigirlo rompería la navegación normal.
+- El rechazo no lleva cuerpo: no le dice a quien prueba por qué falló.
+- `PROTECTED_PREFIXES` se exporta y el test de tabla de rutas recorre `app.routes`, filtra las
+  rutas protegidas y exige que **haya al menos una**. Así una ruta nueva sin protección rompe el
+  build, y el test no puede pasar por vacío.
 
 **Depende de:** T4.
 
-**Archivos:** `packages/server/src/{index,app}.ts`, `packages/server/src/middleware/{host-guard,token-guard,origin-guard}.ts`, `packages/server/src/app.test.ts`.
+**Archivos:** `packages/server/src/{index,app,session,cookies}.ts`,
+`packages/server/src/middleware/{host-guard,origin-guard,session-guard}.ts`,
+`packages/server/src/app.test.ts`. El plan decía `token-guard`; se llama `session-guard` porque
+lo que exige es la cookie de sesión, no un token en la URL.
 
 **Tamaño:** M.
 
@@ -278,18 +305,38 @@ como pide el spec.
 JavaScript nunca puede leer, para que un XSS en la propia SPA no pueda exfiltrar la sesión.
 
 **Aceptación:**
-- [ ] `GET /?boot=<token>` valida el token con `crypto.timingSafeEqual` sobre buffers de igual
+- [x] `GET /?boot=<token>` valida el token con `crypto.timingSafeEqual` sobre buffers de igual
       longitud.
-- [ ] Token válido: 302 a `/`, con `Set-Cookie: nn_session=<32 bytes CSPRNG>; HttpOnly;
+- [x] Token válido: 302 a `/`, con `Set-Cookie: nn_session=<32 bytes CSPRNG>; HttpOnly;
       SameSite=Strict; Path=/`.
-- [ ] El token de arranque se quema al usarlo: un segundo intento devuelve 401.
-- [ ] Un token de longitud distinta devuelve 401 sin llegar a `timingSafeEqual` y sin lanzar.
-- [ ] La cookie de sesión también se compara en tiempo constante.
-- [ ] Dos arranques seguidos producen tokens y cookies distintos.
-- [ ] Ninguna vía de autenticación por query string sobrevive después del canje.
+- [x] El token de arranque se quema al usarlo: un segundo intento devuelve 401.
+- [x] Un token de longitud distinta devuelve 401 sin llegar a `timingSafeEqual` y sin lanzar.
+- [x] La cookie de sesión también se compara en tiempo constante.
+- [x] Dos arranques seguidos producen tokens y cookies distintos.
+- [x] Ninguna vía de autenticación por query string sobrevive después del canje.
 
-**Verificación:** `bun test packages/server` · manual: abrir la URL, ver `/` limpio en la barra de
-direcciones y `document.cookie` vacío en la consola.
+**Verificación:** `bun test packages/server` 52 pasan, 0 fallan · `bun test` 221 pasan, 0 fallan ·
+`tsc --noEmit` 0 · `biome check .` 0 sin infos. El canje se prueba con `app.request` sobre Hono, sin
+abrir socket. La comprobación manual de que `document.cookie` queda vacío en el navegador se hace
+en el Checkpoint B, cuando exista la SPA.
+
+**Estado:** hecho.
+
+**Decisiones tomadas al implementar:**
+
+- **El canje escucha en `/` pero sólo actúa si viene `boot`.** Sin el parámetro deja pasar: `/` es
+  también la ruta de la interfaz, y devolver 401 ahí dejaría la aplicación inaccesible.
+- **`redeemed` es un cierre en memoria, no estado persistido.** Muere con el proceso, igual que la
+  sesión. No hay nada que limpiar en disco ni que pueda quedar a medias.
+- `safeEqual` comprueba la longitud antes de llamar a `timingSafeEqual`, que lanzaría con buffers
+  de distinto tamaño. Un token de longitud equivocada devuelve 401 sin excepción.
+- **Sin `Secure` en la cookie, y está comentado en el código.** La aplicación se sirve por http en
+  loopback; marcarla `Secure` haría que el navegador la descartara y no habría sesión. Es una
+  excepción consciente, no un olvido.
+- La cookie no lleva `Max-Age`: es de sesión, así que el navegador la tira al cerrarse. Encaja con
+  "al cerrar el proceso se descarta".
+- `Session` extiende `SessionStore` con `value`, y sólo el canje lo lee. El resto del server usa
+  `matches` y no puede ver el secreto por accidente.
 
 **Depende de:** T6.
 
