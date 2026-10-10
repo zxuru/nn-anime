@@ -321,8 +321,12 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] T22 Cableado en el server y cabecera `X-Cache`
 
 ### Checkpoint D — Persistencia
-- [ ] Segunda ejecución sirve home y detalle con 0 llamadas a proveedores
-- [ ] `db:migrate` dos veces no cambia el esquema
+- [x] Segunda ejecución sirve desde la base con 0 llamadas a proveedores, medido: la prueba reabre
+      la base con un proceso y un proveedor nuevos, con el contador a cero, y la misma búsqueda sale
+      de la base sin llamar a nadie. La mitad de «home y detalle» es de T38 y T23, que es donde
+      existen esas rutas
+- [x] `db:migrate` dos veces no cambia el esquema: en vivo, «Migraciones aplicadas: 1, 2, 3» y
+      después «No hay migraciones pendientes», con 11 tablas y versión 3 las dos veces
 
 ### Fase 4 — Detalle (rebanada vertical)
 - [ ] T23 Detalle y episodios de extremo a extremo: proveedor → store → ruta
