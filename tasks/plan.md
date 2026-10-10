@@ -387,9 +387,16 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] T47 Auditoría de trazabilidad spec↔plan, y después el barrido de criterios de éxito
 
 ### Checkpoint H — Cierre v1
-- [ ] Verificados y marcados todos los criterios de éxito del spec de proyecto
-- [ ] `bun install && bun run build && bun test && bun run e2e` limpio en checkout nuevo
-- [ ] Revisión humana y decisión sobre v1.5 (`downloads`)
+- [x] Verificados y marcados todos los criterios de éxito del spec de proyecto: **siete de ocho con su
+      evidencia en el propio spec**, y el octavo —«home y detalle sin llamadas de red»— marcado **con
+      el matiz medido** de que las tendencias no se cachean. La auditoría de trazabilidad encontró
+      cuatro huecos, todos en `docs/v1-report.md`
+- [x] `bun install && bun run build && bun test && bun run e2e` limpio en checkout nuevo: **medido en
+      un clon** (`git archive HEAD`), install 0, build 0, 1450 pruebas 0 fallos, e2e 14 verdes y 2
+      marcados, los cuatro con código de salida 0
+- [ ] Revisión humana y decisión sobre v1.5 (`downloads`), más las cuatro decisiones abiertas del
+      informe: el `localhost` del guard de `Host`, la tabla `genre`, la caché de tendencias y las
+      listas de criterios de los specs de módulo
 
 ## Riesgos y mitigaciones
 
