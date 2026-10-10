@@ -646,6 +646,26 @@ describe('isPortBusy', () => {
   })
 })
 
+describe('lo que cuenta la migración', () => {
+  test('una nota se imprime; sin nota no se imprime nada de más', async () => {
+    await withTempHome(async (home) => {
+      const conNota = harness({})
+      await boot(
+        options(),
+        depsFor(conNota, home, {
+          migrate: async () => ({ ok: true, note: 'se limpiaron 3 filas de datos viejos' }),
+        }),
+      )
+
+      expect(conNota.out.join('\n')).toContain('se limpiaron 3 filas')
+
+      const sinNota = harness({})
+      await boot(options(), depsFor(sinNota, home))
+      expect(sinNota.out.join('\n')).not.toContain('se limpiaron')
+    })
+  })
+})
+
 const PROVIDER: Provider = {
   id: 'uno',
   name: 'Uno',

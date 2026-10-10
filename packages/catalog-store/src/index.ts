@@ -14,7 +14,7 @@
  */
 
 export { type CacheResource, cacheHit, isStale, TTL_SECONDS } from './cache-policy'
-export { BUSY_TIMEOUT_MS, openDb } from './db'
+export { BUSY_TIMEOUT_MS, openDb, type StoreConnection } from './db'
 export {
   listMigrations,
   type MigrationFile,

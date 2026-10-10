@@ -67,6 +67,7 @@
       "name": "@nn-anime/server",
       "version": "0.1.0",
       "dependencies": {
+        "@nn-anime/catalog-store": "workspace:*",
         "@nn-anime/core": "workspace:*",
         "@nn-anime/provider-sdk": "workspace:*",
         "hono": "^4",

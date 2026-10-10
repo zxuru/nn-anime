@@ -11,8 +11,10 @@
  */
 
 import { existsSync } from 'node:fs'
+import { stat } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { createLogger, readSettings } from '@nn-anime/core'
+import { openDb, pruneOrphans, runMigrations, shouldPrune } from '@nn-anime/catalog-store'
+import { createLogger, DEFAULT_LOCALE, readSettings, t } from '@nn-anime/core'
 import { loadProviders } from '@nn-anime/provider-sdk'
 import { createBootToken, createSession } from '@nn-anime/server'
 import { version } from '../package.json'
@@ -32,8 +34,35 @@ const io: CliIO = {
   },
 }
 
-/** Marcador hasta T16: todavía no hay base de datos que migrar. */
-const migrate: Migrate = async () => ({ ok: true })
+/**
+ * Migrar al arrancar, y limpiar si la base se ha hecho grande.
+ *
+ * El runner es el mismo que el de `bun run db:migrate`: uno distinto sería una
+ * forma silenciosa de tener dos esquemas. Y la comprobación de tamaño es la del
+ * store (`shouldPrune`), no un número escrito aquí.
+ */
+const migrate: Migrate = async (config) => {
+  let db: ReturnType<typeof openDb> | undefined
+
+  try {
+    db = openDb(config.dbPath)
+    runMigrations(db)
+
+    const info = await stat(config.dbPath).catch(() => undefined)
+    if (info !== undefined && shouldPrune(info.size)) {
+      const informe = pruneOrphans(db)
+      const filas = Object.values(informe.deleted).reduce((suma, total) => suma + total, 0)
+
+      return { ok: true, note: t(DEFAULT_LOCALE, 'cli.prune.atStartup', { rows: filas }) }
+    }
+
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : String(error) }
+  } finally {
+    db?.close()
+  }
+}
 
 const envLang = process.env.NN_ANIME_LANG
 

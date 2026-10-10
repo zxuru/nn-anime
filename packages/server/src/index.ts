@@ -83,6 +83,13 @@ export function startServer(options: StartOptions): RunningServer {
 
 export { type AppOptions, createApp, type ProviderSummary } from './app'
 export { BOOT_PARAM } from './bootstrap'
+export { type CacheOutcome, type CacheSource, readThrough, summarizeSources } from './cache-read'
+export {
+  type ContainerOptions,
+  createContainer,
+  type ServerContainer,
+  searchKey,
+} from './container'
 export { isProtectedPath, PROTECTED_PREFIXES } from './paths'
 export { type PluginReport, summarizePlugins } from './routes/providers'
 export {

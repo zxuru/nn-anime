@@ -23,6 +23,15 @@ import { Database } from 'bun:sqlite'
 export const BUSY_TIMEOUT_MS = 5000
 
 /**
+ * El tipo de conexión, con nombre propio.
+ *
+ * Los demás paquetes lo importan de aquí en lugar de importar el módulo de
+ * SQLite de Bun: este paquete es su único dueño, y hay un test que recorre todos
+ * los paquetes para comprobar que nadie más lo nombra.
+ */
+export type StoreConnection = Database
+
+/**
  * Abre la base en la ruta indicada, creándola si no existe.
  *
  * Funciona con `:memory:` además de con un archivo, porque los tests de

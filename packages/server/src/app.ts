@@ -18,6 +18,7 @@
 import { healthResponseSchema, type Logger } from '@nn-anime/core'
 import { Hono } from 'hono'
 import { bootstrapHandler } from './bootstrap'
+import type { ServerContainer } from './container'
 import { hostGuard } from './middleware/host-guard'
 import { originGuard } from './middleware/origin-guard'
 import { securityHeaders } from './middleware/security-headers'
@@ -51,6 +52,11 @@ export interface AppOptions {
   readonly plugins?: PluginReport
   /** Tiempo límite por proveedor en la búsqueda. Se acorta en los tests. */
   readonly searchTimeoutMs?: number
+  /**
+   * Contenedor con la caché. Sin él, cada búsqueda consulta a los proveedores:
+   * es lo que usan las pruebas que no quieren montar una base.
+   */
+  readonly container?: ServerContainer
   readonly mpvAvailable?: boolean
   readonly logger?: Logger
   /** Reloj del canje de arranque, inyectable para testear la caducidad. */
@@ -103,6 +109,7 @@ export function createApp(options: AppOptions): Hono {
   registerSearchRoute(app, {
     providers: plugins.active.map((entry) => entry.provider),
     ...(options.searchTimeoutMs === undefined ? {} : { timeoutMs: options.searchTimeoutMs }),
+    ...(options.container === undefined ? {} : { container: options.container }),
   })
 
   return app

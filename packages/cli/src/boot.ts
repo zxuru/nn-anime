@@ -41,7 +41,11 @@ export const DEFAULT_PORT = 7717
 export const MIGRATION_FAILED = 3
 
 export type MigrationOutcome =
-  | { readonly ok: true }
+  | {
+      readonly ok: true
+      /** Algo que contar tras migrar, como una limpieza que se hizo al pasar. */
+      readonly note?: string
+    }
   | { readonly ok: false; readonly message: string }
 
 export type Migrate = (config: ConfigPaths) => Promise<MigrationOutcome>
@@ -272,6 +276,11 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     io.err(t(locale, 'cli.migration.failed', { message: migration.message }))
     return { code: MIGRATION_FAILED, url: undefined, port: undefined }
   }
+
+  // Lo que la migración quiera contar —una limpieza que se hizo al pasar— se
+  // imprime aquí y no dentro de ella: quien migra no sabe de idiomas ni de
+  // salidas.
+  if (migration.note !== undefined) io.out(migration.note)
 
   const session = deps.createSession()
   const bootToken = deps.createBootToken()

@@ -16,17 +16,17 @@
  * de lo que se quiere medir.
  */
 
-import { normalizeQuery, type SearchResult } from '@nn-anime/core'
-
-export { normalizeQuery }
-
+import { normalizeQuery, type ProviderError, type Result, type SearchResult } from '@nn-anime/core'
 import {
+  type CallOptions,
   classifyThrow,
   failureKindOf,
   type Provider,
   type ProviderFailureKind,
   search as searchProvider,
 } from '@nn-anime/provider-sdk'
+
+export { normalizeQuery }
 
 /** Tiempo límite por proveedor, del spec. */
 export const SEARCH_TIMEOUT_MS = 8000
@@ -51,6 +51,17 @@ export type SearchEvent =
 export interface AggregateOptions {
   /** Tiempo límite por proveedor. Se acorta en los tests. */
   readonly timeoutMs?: number
+  /**
+   * Cómo se consulta a un proveedor. Por defecto, el SDK sin caché.
+   *
+   * Existe para que la ruta pueda meter la caché en medio sin que el agregado
+   * sepa de tablas: quien llama decide de dónde salen los resultados.
+   */
+  readonly call?: (
+    provider: Provider,
+    query: string,
+    callOptions: CallOptions,
+  ) => Promise<Result<readonly SearchResult[], ProviderError>>
   /**
    * Cancelación del consumidor.
    *
@@ -109,29 +120,37 @@ function createQueue<T>() {
  * Nunca lanza: el SDK ya convierte la excepción en `Result`, y aquí se traduce a
  * evento. Es lo que hace que un plugin roto no pueda tumbar la búsqueda entera.
  */
+/** La consulta por defecto: el SDK del proveedor, sin caché. */
+async function callProvider(
+  provider: Provider,
+  query: string,
+  callOptions: CallOptions,
+): Promise<Result<readonly SearchResult[], ProviderError>> {
+  return searchProvider(provider, query, callOptions)
+}
+
 async function searchOne(
   provider: Provider,
   query: string,
   timeoutMs: number,
   external?: AbortSignal,
+  call: AggregateOptions['call'] = callProvider,
 ): Promise<SearchEvent> {
   const plazo = AbortSignal.timeout(timeoutMs)
   const signal = external === undefined ? plazo : AbortSignal.any([plazo, external])
 
-  const consulta = searchProvider(provider, query, { signal, timeoutMs }).then(
-    (result): SearchEvent => {
-      if (result.ok) {
-        return { type: 'results', providerId: provider.id, results: result.value }
-      }
+  const consulta = call(provider, query, { signal, timeoutMs }).then((result): SearchEvent => {
+    if (result.ok) {
+      return { type: 'results', providerId: provider.id, results: result.value }
+    }
 
-      return {
-        type: 'error',
-        providerId: provider.id,
-        kind: failureKindOf(result.error) ?? 'threw',
-        message: result.error.message,
-      }
-    },
-  )
+    return {
+      type: 'error',
+      providerId: provider.id,
+      kind: failureKindOf(result.error) ?? 'threw',
+      message: result.error.message,
+    }
+  })
 
   // Si gana el tiempo límite, esta promesa se queda sin nadie que la escuche:
   // sin este `catch`, un rechazo tardío saldría por consola como rechazo no
@@ -197,7 +216,7 @@ export async function* searchAll(
     // El `catch` no es por si acaso: convierte en dato cualquier cosa que se
     // escape de la cadena, y así «esto nunca lanza» deja de ser una promesa del
     // comentario y pasa a ser una propiedad del código.
-    void searchOne(provider, normalized, timeoutMs, external)
+    void searchOne(provider, normalized, timeoutMs, external, options.call)
       .catch(
         (cause: unknown): SearchEvent => ({
           type: 'error',

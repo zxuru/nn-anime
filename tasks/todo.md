@@ -1180,17 +1180,49 @@ ejecutarse antes del cierre por cómo reparte el bucle de eventos.
 **Descripción:** Las rutas de búsqueda y detalle pasan a leer del store antes de ir al proveedor.
 
 **Aceptación:**
-- [ ] Flujo completo: leer caché, si MISS o STALE ir al proveedor, escribir y servir.
-- [ ] `X-Cache: hit | miss | stale` en las respuestas de metadatos.
-- [ ] Con dato FRESH no se llama al proveedor: verificado con un contador inyectado.
-- [ ] Con dato STALE se responde de inmediato y la revalidación ocurre por detrás.
-- [ ] Segunda ejecución del proceso sirve home y búsqueda con 0 llamadas a proveedores.
+- [x] Flujo completo: leer caché, si MISS o STALE ir al proveedor, escribir y servir.
+- [ ] `X-Cache: hit | miss | stale` en las respuestas de metadatos. **Movido a T23, con motivo:**
+      la única ruta de metadatos que existe hoy es `/api/search`, y es SSE: en SSE las cabeceras se
+      escriben antes de saber qué proveedor responde, así que el origen no se puede anunciar ahí.
+      El resumen está implementado y probado (`summarizeSources`), y las rutas JSON —detalle y
+      episodios— llegan en T23, cuya aceptación ya incluye la cabecera.
+- [x] Con dato FRESH no se llama al proveedor: verificado con un contador inyectado.
+- [x] Con dato STALE se responde de inmediato y la revalidación ocurre por detrás.
+- [x] Segunda ejecución del proceso sirve **búsqueda** con 0 llamadas a proveedores. La mitad de
+      «home» es de T38, que es donde existe esa ruta.
+- [x] **El disparador de la limpieza al arrancar** (criterio movido desde T21): `bun run start`
+      migra de verdad y, si la base supera 200 MB, limpia e informa en una línea.
 
-**Verificación:** `bun test packages/server` · manual: dos arranques y revisar el contador en logs.
+**Verificación:** `bun test packages/server packages/cli` · 24 pruebas en la ruta de búsqueda y 10
+en el lector de caché. **En vivo**: arrancar el CLI crea y migra la base (11 tablas, versión 3), que
+antes no tocaba. Medido mutando la implementación: sin refrescar por detrás el dato vencido fallan
+4, tratando el vencido como fresco 4, sin escribir en un MISS 11 y sin que la ruta use la caché 4.
+Control: 0 fallos. **La segunda ejecución se prueba de verdad**: se busca, se cierra la base, se
+reabre con un proceso nuevo y un proveedor nuevo con su contador a cero, y la misma búsqueda sale
+de la base con **0 llamadas**.
 
 **Depende de:** T21, T13.
 
 **Archivos:** `packages/server/src/{container.ts,cache-read.ts}`, `packages/server/src/routes/search.ts`, `packages/server/src/cache-read.test.ts`.
+**Ampliación declarada:** `packages/server/src/app.ts` e `index.ts` (la aplicación recibe el
+contenedor), `packages/server/src/search/aggregate.ts` (la llamada a un proveedor se inyecta, para
+que la caché entre en medio sin que el agregado sepa de tablas), `packages/cli/src/index.ts` (la
+migración deja de ser un marcador y trae el disparador de limpieza), `packages/cli/src/boot.ts` y su
+catálogo (una migración puede querer contar algo) y la dependencia `@nn-anime/catalog-store` del
+server.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **La política de caché vive en un sitio.** `readThrough` la implementa una vez; repetida en cada
+   ruta —búsqueda ahora, detalle y episodios en T23— acabaría con tres versiones del mismo cálculo y
+   una de ellas mal.
+2. **La llamada al proveedor se inyecta en el agregado.** Así la caché entra en medio sin que el
+   agregado sepa de tablas, y sigue habiendo un solo camino para consultar un plugin.
+3. **Un refresco de fondo que falla no se relanza.** Se anota el error y el trabajo se da por
+   terminado: relanzarlo lo contaría dos veces si el revalidador tuviera su propio manejador, y el
+   fallo de un refresco no tiene a quién avisar.
+4. **La migración cuenta lo que hizo con una nota, y quien la imprime es el arranque.** Quien migra
+   no sabe de idiomas ni de salidas.
 
 **Tamaño:** S.
 
