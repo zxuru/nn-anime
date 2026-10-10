@@ -81,6 +81,8 @@ Si algo de esto no se cumple, el task no está hecho: se corta o se divide, no s
 
 ### Checkpoint A — Fundación
 - [x] `bun install && bun run typecheck && bun run lint && bun test` limpio
+- [x] Verificado además en un checkout limpio (`git clone` a un directorio temporal): install 0,
+      typecheck 0, lint 0, 115 tests pasan, 0 fallan. La fundación es reproducible desde el repo.
 - [ ] Revisión humana antes de seguir
 
 ### Fase 1 — Arranque (cli-launcher + server shell)
