@@ -173,13 +173,22 @@ function useHistory(): History {
   return history
 }
 
-/** Ruta actual, reactiva a los cambios del historial. */
+/**
+ * Ruta actual, reactiva a los cambios del historial.
+ *
+ * El tercer argumento de `useSyncExternalStore` es el que permite renderizar en
+ * servidor, y es lo que hace que los componentes se puedan comprobar con
+ * `renderToString` sin necesidad de un DOM. Para el historial en memoria, la
+ * ruta es la misma en servidor y en cliente.
+ */
 export function usePath(): string {
   const history = useHistory()
+  const readPath = useCallback(() => history.path, [history])
 
   return useSyncExternalStore(
     useCallback((listener: () => void) => history.subscribe(listener), [history]),
-    useCallback(() => history.path, [history]),
+    readPath,
+    readPath,
   )
 }
 

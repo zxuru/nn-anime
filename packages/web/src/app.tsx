@@ -9,7 +9,7 @@
 import { DEFAULT_LOCALE, type Locale } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
 import { t } from './i18n'
-import { Link, type RouteMatch, useRoute } from './router'
+import { Link, type RouteMatch, usePath, useRoute } from './router'
 
 const LOCALE: Locale = DEFAULT_LOCALE
 
@@ -65,7 +65,7 @@ function screenFor(route: RouteMatch, path: string): ReactNode {
 
 export function App(): ReactNode {
   const route = useRoute()
-  const path = typeof window === 'undefined' ? '' : window.location.pathname
+  const path = usePath()
 
   return <Shell>{screenFor(route, path)}</Shell>
 }
