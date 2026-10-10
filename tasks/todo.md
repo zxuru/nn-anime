@@ -1440,22 +1440,38 @@ resolución de stream), `app.ts` (las rutas y un `fetch` inyectable para el prox
 redirección.
 
 **Aceptación:**
-- [ ] Sólo `http` y `https`. `file:`, `data:`, `ftp:` y cualquier otro esquema se rechazan antes
+- [x] Sólo `http` y `https`. `file:`, `data:`, `ftp:` y cualquier otro esquema se rechazan antes
       de abrir conexión.
-- [ ] Se rechazan loopback (`127.0.0.0/8`, `::1`), RFC1918 (`10/8`, `172.16/12`, `192.168/16`),
+- [x] Se rechazan loopback (`127.0.0.0/8`, `::1`), RFC1918 (`10/8`, `172.16/12`, `192.168/16`),
       link-local (`169.254/16`, `fe80::/10`) y direcciones de metadata de nube.
-- [ ] La comprobación se aplica después de resolver DNS: un nombre que resuelve a `127.0.0.1` se
+- [x] La comprobación se aplica después de resolver DNS: un nombre que resuelve a `127.0.0.1` se
       rechaza igual que la IP literal.
-- [ ] `redirect: 'manual'`: cada salto se revalida y el tope es 5; el sexto devuelve error.
-- [ ] El error nombra la regla que rechazó el destino, sin volcar la URL completa en producción.
-- [ ] Test con los cinco destinos prohibidos del spec y con una cadena permitido → prohibido que
+- [x] `redirect: 'manual'`: cada salto se revalida y el tope es 5; el sexto devuelve error.
+- [x] El error nombra la regla que rechazó el destino, sin volcar la URL completa en producción.
+- [x] Test con los cinco destinos prohibidos del spec y con una cadena permitido → prohibido que
       se corta en el salto.
 
-**Verificación:** `bun test packages/media-proxy`.
+**Verificación:** `bun test packages/media-proxy` · 27 pruebas nuevas. Medido mutando la
+implementación: sin comprobar el esquema fallan 2, sin comprobar la dirección resuelta 2, sin
+revalidar cada salto 2, sin el tope de saltos 1 y con el error volcando la URL 1. Control: 0 fallos.
 
 **Depende de:** T26.
 
-**Archivos:** `packages/media-proxy/src/{destination-guard.ts,destination-guard.test.ts}`, `packages/media-proxy/src/byte-proxy.ts`.
+**Archivos:** `packages/media-proxy/src/{destination-guard,destination-guard.test}.ts`, `packages/media-proxy/src/byte-proxy.ts`.
+**Ampliación declarada:** el barril de `media-proxy`, `packages/server/src/app.ts` y las rutas de
+stream y portadas, que reciben un resolutor inyectable para poder probarse sin DNS.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **Se revisan todas las respuestas del DNS, no la primera.** Un nombre que devuelve `127.0.0.1` y
+   una dirección pública a la vez no es un destino permitido: es un intento de colarse.
+2. **Una IPv4 escrita dentro de una IPv6 se comprueba como IPv4.** `::ffff:127.0.0.1` es loopback
+   para el sistema y sería transparente para una comprobación que sólo mirara el texto de la IPv6.
+3. **`localhost` se rechaza sin resolver nada**, y la comprobación se repite tras resolver: son dos
+   puertas para el mismo caso.
+4. **Riesgo residual anotado, no escondido:** entre la comprobación y la conexión, un DNS hostil
+   puede cambiar la respuesta (*rebinding*). Cerrarlo exige conectar a la IP ya validada, y eso rompe
+   SNI y la validación del certificado. Queda como riesgo aceptado en el informe de v1.
 
 **Tamaño:** M.
 

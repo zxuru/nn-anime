@@ -13,7 +13,7 @@
  */
 
 import { errorResponseSchema, streamRequestSchema, toPublicStreamSource } from '@nn-anime/core'
-import { proxyBytes } from '@nn-anime/media-proxy'
+import { type FetchLike, proxyBytes, type Resolver } from '@nn-anime/media-proxy'
 import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
 import { z } from 'zod'
@@ -36,7 +36,9 @@ export interface StreamRouteOptions {
   readonly container: ServerContainer
   readonly timeoutMs?: number
   /** Se inyecta en los tests para no salir a la red al proxear. */
-  readonly fetchImpl?: (input: string, init: RequestInit) => Promise<Response>
+  readonly fetchImpl?: FetchLike
+  /** Resolutor del DNS, inyectable para probar sin red. */
+  readonly resolver?: Resolver
 }
 
 const DEFAULT_TIMEOUT_MS = 8000
@@ -123,6 +125,7 @@ export function registerStreamRoutes(app: Hono, options: StreamRouteOptions): vo
       range: c.req.header('range'),
       signal: c.req.raw.signal,
       ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
+      ...(options.resolver === undefined ? {} : { resolver: options.resolver }),
     })
 
     return respuesta

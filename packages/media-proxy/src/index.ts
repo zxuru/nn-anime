@@ -19,6 +19,19 @@ export {
   upstreamFailure,
 } from './byte-proxy'
 export {
+  type AllowedFetchOptions,
+  addressRule,
+  checkDestination,
+  checkResolvedDestination,
+  type DestinationOutcome,
+  type DestinationRule,
+  destinationError,
+  fetchAllowed,
+  MAX_REDIRECTS,
+  type Resolver,
+  systemResolver,
+} from './destination-guard'
+export {
   createTicketStore,
   DEFAULT_CAPACITY,
   DEFAULT_TTL_S,

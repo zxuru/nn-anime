@@ -78,6 +78,7 @@ async function conApp<T>(
       plugins: { active: [{ provider: proveedor, file: '/plugins/fixture.ts' }], rejected: [] },
       container,
       streamFetchImpl: fetchImpl,
+      streamResolver: async () => ['93.184.216.34'],
     })
 
     return await body({

@@ -52,6 +52,16 @@ function upstream(
   }
 }
 
+/**
+ * El proxy, con un resolutor de mentira.
+ *
+ * La lista blanca de destinos resuelve el nombre antes de dejar salir, así que
+ * sin esto cada prueba intentaría un DNS de verdad contra `fixture.invalid`.
+ */
+function proxy(options: Parameters<typeof proxyBytes>[0]): Promise<Response> {
+  return proxyBytes({ resolver: async () => ['93.184.216.34'], ...options })
+}
+
 describe('validación del rango', () => {
   test('sin cabecera no hay rango', () => {
     expect(parseRange(undefined)).toEqual({ ok: true, range: undefined })
@@ -103,7 +113,7 @@ describe('reenvío de bytes', () => {
       headers: { 'content-type': 'video/mp4', 'content-range': 'bytes 0-15/1024' },
     })
 
-    const respuesta = await proxyBytes({
+    const respuesta = await proxy({
       url: ARCHIVO,
       headers: {},
       range: 'bytes=0-15',
@@ -121,7 +131,7 @@ describe('reenvío de bytes', () => {
 
   test('si el upstream no da rango, se degrada a 200 sin inventarlo', async () => {
     const fake = upstream({ status: 200 })
-    const respuesta = await proxyBytes({ url: ARCHIVO, headers: {}, fetchImpl: fake.fetchImpl })
+    const respuesta = await proxy({ url: ARCHIVO, headers: {}, fetchImpl: fake.fetchImpl })
 
     expect(respuesta.status).toBe(200)
     expect(respuesta.headers.get('content-range')).toBeNull()
@@ -131,7 +141,7 @@ describe('reenvío de bytes', () => {
     const vistos: (string | null)[] = []
     const fake = upstream()
 
-    await proxyBytes({
+    await proxy({
       url: ARCHIVO,
       headers: { 'Accept-Encoding': 'gzip, br', Referer: 'https://sitio.example' },
       fetchImpl: async (input: string, init: RequestInit) => {
@@ -147,7 +157,7 @@ describe('reenvío de bytes', () => {
     const enviadas: Record<string, string> = {}
     const fake = upstream()
 
-    await proxyBytes({
+    await proxy({
       url: ARCHIVO,
       headers: { Referer: 'https://sitio.example', 'User-Agent': 'nn-anime' },
       fetchImpl: async (input: string, init: RequestInit) => {
@@ -175,7 +185,7 @@ describe('reenvío de bytes', () => {
       },
     })
 
-    const respuesta = await proxyBytes({ url: ARCHIVO, headers: {}, fetchImpl: fake.fetchImpl })
+    const respuesta = await proxy({ url: ARCHIVO, headers: {}, fetchImpl: fake.fetchImpl })
     const nombres = [...respuesta.headers.keys()].sort()
 
     // Todas las que llegan están en la lista blanca; las de fuera no aparecen.
@@ -193,7 +203,7 @@ describe('reenvío de bytes', () => {
   })
 
   test('un cuerpo que no se puede leer no rompe la respuesta', async () => {
-    const respuesta = await proxyBytes({
+    const respuesta = await proxy({
       url: ARCHIVO,
       headers: {},
       fetchImpl: async () => new Response(null, { status: 204 }),
@@ -204,7 +214,7 @@ describe('reenvío de bytes', () => {
 
   test('el cuerpo llega entero, por trozos', async () => {
     const fake = upstream({ chunks: 5, size: 10 })
-    const respuesta = await proxyBytes({ url: ARCHIVO, headers: {}, fetchImpl: fake.fetchImpl })
+    const respuesta = await proxy({ url: ARCHIVO, headers: {}, fetchImpl: fake.fetchImpl })
     const bytes = new Uint8Array(await respuesta.arrayBuffer())
 
     expect(bytes.length).toBe(50)
@@ -215,7 +225,7 @@ describe('rango inválido', () => {
   test('un rango imposible da 416 sin llegar al upstream', async () => {
     let llamadas = 0
 
-    const respuesta = await proxyBytes({
+    const respuesta = await proxy({
       url: ARCHIVO,
       headers: {},
       range: 'bytes=0-1,5-6',
@@ -240,7 +250,7 @@ describe('cancelación y memoria', () => {
         cancelado = true
       },
     })
-    const respuesta = await proxyBytes({ url: ARCHIVO, headers: {}, fetchImpl: fake.fetchImpl })
+    const respuesta = await proxy({ url: ARCHIVO, headers: {}, fetchImpl: fake.fetchImpl })
 
     const lector = respuesta.body?.getReader()
     expect(lector).toBeDefined()
@@ -258,7 +268,7 @@ describe('cancelación y memoria', () => {
     const fake = upstream({ chunks: 200, size: 1024 * 1024 })
     const antes = process.memoryUsage().rss
 
-    const respuesta = await proxyBytes({ url: ARCHIVO, headers: {}, fetchImpl: fake.fetchImpl })
+    const respuesta = await proxy({ url: ARCHIVO, headers: {}, fetchImpl: fake.fetchImpl })
     const lector = respuesta.body?.getReader()
     let total = 0
 

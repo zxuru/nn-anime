@@ -16,7 +16,7 @@
  */
 
 import { healthResponseSchema, type Logger } from '@nn-anime/core'
-import type { FetchLike } from '@nn-anime/media-proxy'
+import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
 import { Hono } from 'hono'
 import { bootstrapHandler } from './bootstrap'
 import type { ServerContainer } from './container'
@@ -68,6 +68,11 @@ export interface AppOptions {
    * en producción se usa el global.
    */
   readonly streamFetchImpl?: FetchLike
+  /**
+   * Resolutor del DNS para la lista blanca de destinos. Se inyecta en los tests
+   * para no resolver nombres de verdad; en producción se usa el del sistema.
+   */
+  readonly streamResolver?: Resolver
   readonly mpvAvailable?: boolean
   readonly logger?: Logger
   /** Reloj del canje de arranque, inyectable para testear la caducidad. */
@@ -129,14 +134,13 @@ export function createApp(options: AppOptions): Hono {
     registerAnimeRoutes(app, routeOptions)
     registerEpisodesRoute(app, routeOptions)
     registerFavoritesRoutes(app, { container: options.container })
-    registerCoverRoute(app, {
-      container: options.container,
+    const proxyOptions = {
       ...(options.streamFetchImpl === undefined ? {} : { fetchImpl: options.streamFetchImpl }),
-    })
-    registerStreamRoutes(app, {
-      ...routeOptions,
-      ...(options.streamFetchImpl === undefined ? {} : { fetchImpl: options.streamFetchImpl }),
-    })
+      ...(options.streamResolver === undefined ? {} : { resolver: options.streamResolver }),
+    }
+
+    registerCoverRoute(app, { container: options.container, ...proxyOptions })
+    registerStreamRoutes(app, { ...routeOptions, ...proxyOptions })
   }
 
   registerSearchRoute(app, {

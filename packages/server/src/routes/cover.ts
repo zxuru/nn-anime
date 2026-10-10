@@ -23,7 +23,13 @@
  */
 
 import { errorResponseSchema } from '@nn-anime/core'
-import { type FetchLike, MAX_COVER_BYTES, proxyBytes, RASTER_TYPES } from '@nn-anime/media-proxy'
+import {
+  type FetchLike,
+  MAX_COVER_BYTES,
+  proxyBytes,
+  RASTER_TYPES,
+  type Resolver,
+} from '@nn-anime/media-proxy'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
 
@@ -34,6 +40,8 @@ export interface CoverRouteOptions {
   readonly container: ServerContainer
   /** Se inyecta en los tests para no salir a la red. */
   readonly fetchImpl?: FetchLike
+  /** Resolutor del DNS, inyectable para probar sin red. */
+  readonly resolver?: Resolver
 }
 
 /**
@@ -79,6 +87,7 @@ export function registerCoverRoute(app: Hono, options: CoverRouteOptions): void 
       acceptedTypes: RASTER_TYPES,
       maxBytes: MAX_COVER_BYTES,
       ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
+      ...(options.resolver === undefined ? {} : { resolver: options.resolver }),
     })
 
     if (!respuesta.ok) return respuesta

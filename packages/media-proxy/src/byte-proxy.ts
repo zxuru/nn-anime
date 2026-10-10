@@ -24,6 +24,7 @@
  */
 
 import { AppError } from '@nn-anime/core'
+import { fetchAllowed, type Resolver } from './destination-guard'
 
 /** Cabeceras del upstream que sí llegan al cliente. */
 export const ALLOWED_RESPONSE_HEADERS: readonly string[] = [
@@ -131,6 +132,8 @@ export interface ByteProxyRequest {
   readonly acceptedTypes?: readonly string[] | undefined
   /** Tope de bytes. Por encima, 413 y no se envía nada. */
   readonly maxBytes?: number | undefined
+  /** Resolutor del DNS, inyectable para probar sin red. */
+  readonly resolver?: Resolver | undefined
 }
 
 function passthroughHeaders(upstream: Headers): Headers {
@@ -178,12 +181,15 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
   cabeceras.set('accept-encoding', 'identity')
   if (range.range !== undefined) cabeceras.set('range', range.range)
 
-  const upstream = await doFetch(request.url, {
-    headers: cabeceras,
-    // Los saltos de redirección se revalidan en T26a; aquí se sigue al upstream
-    // para poder probar el reenvío de rangos sin montar un servidor.
-    redirect: 'follow',
+  // La salida pasa por la lista blanca de destinos, salto a salto: una
+  // redirección es la forma más fácil de saltarse una comprobación que sólo mira
+  // la primera URL.
+  const upstream = await fetchAllowed({
+    url: request.url,
+    headers: Object.fromEntries(cabeceras.entries()),
+    fetchImpl: doFetch,
     ...(request.signal === undefined ? {} : { signal: request.signal }),
+    ...(request.resolver === undefined ? {} : { resolver: request.resolver }),
   })
 
   const tipo = (upstream.headers.get('content-type') ?? '').split(';')[0]?.trim() ?? ''
