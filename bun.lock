@@ -41,6 +41,9 @@
     "packages/media-proxy": {
       "name": "@nn-anime/media-proxy",
       "version": "0.1.0",
+      "dependencies": {
+        "@nn-anime/core": "workspace:*",
+      },
     },
     "packages/provider-sdk": {
       "name": "@nn-anime/provider-sdk",

@@ -1341,18 +1341,35 @@ pantalla.
 **Descripción:** Indirección entre el cliente y las URLs de upstream, con expiración y tope.
 
 **Aceptación:**
-- [ ] `issue(url, headers, ttlS)` devuelve un ticket aleatorio con CSPRNG.
-- [ ] Tope de 500 entradas con desalojo LRU y expiración a los 600 s.
-- [ ] `resolve(ticket)` devuelve URL y headers; ticket vencido da 410, inexistente da 404.
-- [ ] El ticket no contiene la URL ni permite deducirla.
-- [ ] Test: 600 tickets dejan exactamente 500 vivos y los 100 más viejos vencidos.
-- [ ] Test: ningún ticket aparece en la salida del logger, ni en `debug`.
+- [x] `issue(url, headers, ttlS)` devuelve un ticket aleatorio con CSPRNG.
+- [x] Tope de 500 entradas con desalojo LRU y expiración a los 600 s.
+- [x] `resolve(ticket)` devuelve URL y headers; ticket vencido da 410, inexistente da 404.
+- [x] El ticket no contiene la URL ni permite deducirla.
+- [x] Test: 600 tickets dejan exactamente 500 vivos y los 100 más viejos vencidos.
+- [x] Test: ningún ticket aparece en la salida del logger, ni en `debug`.
 
-**Verificación:** `bun test packages/media-proxy`.
+**Verificación:** `bun test packages/media-proxy` · 15 tests. Medido mutando la implementación: sin
+desalojo LRU fallan 3, sin caducidad 4, sin rejuvenecer al resolver 1, con el ticket llevando la URL
+dentro 1 y sin redactar el campo `ticket` en el logger 1. Control: 0 fallos.
 
 **Depende de:** T4.
 
 **Archivos:** `packages/media-proxy/src/{ticket-store,ticket-store.test}.ts`.
+**Ampliación declarada:** `packages/media-proxy/src/index.ts` (el barril), el `package.json` del
+paquete (exporta el almacén y depende de `core`) y **`SENSITIVE_KEYS` de `core/src/logger.ts`**, que
+ahora incluye `ticket`: un ticket es la llave de una URL de video, y en un log equivale a registrar
+la dirección del upstream.
+
+**Tres decisiones que conviene recordar:**
+
+1. **El LRU no necesita estructura extra.** El `Map` conserva el orden de inserción y resolver
+   reinserta la entrada al final, así que el primero de la tabla es siempre el que hace más tiempo
+   que no se usa. El desalojo es borrar por delante.
+2. **El almacén no expone la lista de tickets, a propósito.** Sólo `size()`. Una lista de tickets es
+   una lista de URLs de video esperando a que alguien la registre en un log; la prueba comprueba que
+   ni `JSON.stringify` ni `Bun.inspect` del almacén contienen un ticket.
+3. **El error distingue vencido de desconocido y no lleva el ticket dentro.** El mensaje se registra;
+   el ticket no puede.
 
 **Tamaño:** S.
 

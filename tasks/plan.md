@@ -338,7 +338,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
       metadatos y el favorito se persiste. La comprobación en navegador real es del e2e (T43)
 
 ### Fase 5 — Reproducción
-- [ ] T25 Almacén de tickets opacos en memoria
+- [x] T25 Almacén de tickets opacos en memoria
 - [ ] T26 Proxy de bytes con `Range`, streaming y abort
 - [ ] T26a Lista blanca de destinos del proxy y revalidación de redirecciones
 - [ ] T26b Saneamiento de respuestas: lista blanca de cabeceras y `Set-Cookie` fuera

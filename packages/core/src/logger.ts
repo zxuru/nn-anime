@@ -29,6 +29,9 @@ export const SENSITIVE_KEYS: readonly string[] = [
   'referer',
   'token',
   'headers',
+  // Un ticket es la llave de una URL de video: en un log equivale a registrar la
+  // dirección del upstream, que es justo lo que el proxy existe para no revelar.
+  'ticket',
 ]
 
 /** Fragmentos que, presentes en el nombre de una clave, la vuelven sensible. */
