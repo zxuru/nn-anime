@@ -1653,7 +1653,17 @@ hallazgo que no se convierte en criterio de aceptación es un hallazgo perdido.
 **Descripción:** Recorrer uno a uno los criterios de éxito del spec de proyecto y marcarlos, o
 abrir un task de corrección por cada uno que falle.
 
+**Añadido al revisar:** este barrido tiene que empezar por una **auditoría de trazabilidad
+spec↔plan**, no por los criterios de éxito. Tres veces a lo largo de la v1 apareció el mismo
+defecto: el spec pedía algo, ninguna tarea lo reclamaba en sus criterios de aceptación, y no se
+implementaba. Los criterios de éxito no lo detectan porque sólo cubren una parte de lo que el spec
+impone. La auditoría recorre **todos** los requisitos normativos —objetivos, pasos de arranque,
+contratos, tablas de TTL y de modelo, Boundaries y Seguridad— y para cada uno comprueba si está
+implementado y, si no, qué tarea lo cubre por su aceptación.
+
 **Aceptación:**
+- [ ] **Auditoría de trazabilidad spec↔plan hecha primero**, con su tabla de huecos y cada hueco
+      asignado a una tarea o convertido en una tarea nueva.
 - [ ] Los ocho criterios de `SPEC-nn-anime.md` verificados y marcados en el propio spec.
 - [ ] Los criterios de cada spec de módulo revisados; los no verificados se listan con motivo.
 - [ ] `bun install && bun run build && bun test && bun run e2e` limpio en un checkout nuevo.

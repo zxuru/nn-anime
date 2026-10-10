@@ -280,7 +280,7 @@ delante.
 - [ ] T45 Tests de seguridad: sesión, `Host`, `Origin`, `Set-Cookie`, destinos internos, CSP,
       fuga de headers y de token en logs
 - [ ] T46 Documentación: README, guía de autoría de plugins, aviso de seguridad, empaquetado npm
-- [ ] T47 Barrido final de criterios de éxito de `SPEC-nn-anime.md`
+- [ ] T47 Auditoría de trazabilidad spec↔plan, y después el barrido de criterios de éxito
 
 ### Checkpoint H — Cierre v1
 - [ ] Todos los criterios de éxito del spec de proyecto verificados y marcados
