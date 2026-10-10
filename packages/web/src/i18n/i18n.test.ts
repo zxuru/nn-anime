@@ -1,6 +1,17 @@
 import { describe, expect, test } from 'bun:test'
+import { fileURLToPath } from 'node:url'
 import { messages as es } from './es'
-import { t } from './index'
+import { CATALOGS, t } from './index'
+
+/**
+ * Rutas con `fileURLToPath`, nunca `URL.pathname`: `pathname` deja `%20` en una
+ * ruta con espacios y la lectura de archivos falla. Ver el gemelo en
+ * `packages/cli/src/i18n/i18n.test.ts`.
+ */
+
+const ROOT = fileURLToPath(new URL('..', import.meta.url))
+const CATALOG = fileURLToPath(new URL('./es.ts', import.meta.url))
+const INDEX = fileURLToPath(new URL('./index.ts', import.meta.url))
 
 describe('catálogo de la interfaz', () => {
   test('todas las claves tienen un valor no vacío', () => {
@@ -18,7 +29,7 @@ describe('catálogo de la interfaz', () => {
   })
 
   test('las claves propias ganan sobre las de core', () => {
-    expect(t('es', 'app.name')).toBe('nn-anime')
+    expect(CATALOGS.es['app.name']).toBe('nn-anime')
   })
 
   test('interpola los parámetros', () => {
@@ -31,22 +42,24 @@ describe('catálogo de la interfaz', () => {
 })
 
 describe('claves huérfanas', () => {
-  /** Ver `packages/cli/src/i18n/i18n.test.ts` para el porqué de esta comprobación. */
   async function productionSource(): Promise<string> {
-    const root = new URL('..', import.meta.url).pathname
     const glob = new Bun.Glob('**/*.{ts,tsx}')
-    const catalog = new URL('es.ts', import.meta.url).pathname
-    const index = new URL('index.ts', import.meta.url).pathname
     const parts: string[] = []
 
-    for await (const relative of glob.scan({ cwd: root })) {
-      const path = root + relative
-      if (path === catalog || path === index) continue
+    for await (const relative of glob.scan({ cwd: ROOT })) {
+      if (relative.includes('.test.')) continue
+
+      const path = `${ROOT}${relative}`
+      if (path === CATALOG || path === INDEX) continue
       parts.push(await Bun.file(path).text())
     }
 
     return parts.join('\n')
   }
+
+  test('lee el código de producción: encuentra un componente', async () => {
+    expect(await productionSource()).toContain('useRoute')
+  })
 
   test('ninguna clave del catálogo está sin usar', async () => {
     const source = await productionSource()

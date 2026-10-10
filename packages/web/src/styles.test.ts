@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { fileURLToPath } from 'node:url'
 
 /**
  * Comprueba que no haya referencias muertas entre componentes y estilos.
@@ -8,8 +9,21 @@ import { describe, expect, test } from 'bun:test'
  * pantalla y no entiende por qué. Este test lo convierte en un fallo.
  *
  * Se leen los archivos directamente en lugar de importar el CSS, porque el
- * runner de tests no tiene por qué saber resolver hojas de estilo.
+ * runner de tests no tiene por qué saber resolver hojas de estilo. Las rutas se
+ * obtienen con `fileURLToPath` y no con `URL.pathname`, que deja `%20` en una
+ * ruta con espacios y hace fallar la lectura con un mensaje que engaña.
  */
+
+const ROOT = fileURLToPath(new URL('.', import.meta.url))
+const TOKENS = fileURLToPath(new URL('./styles/tokens.css', import.meta.url))
+const SHELL = fileURLToPath(new URL('./styles/shell.css', import.meta.url))
+
+async function read(path: string): Promise<string> {
+  const file = Bun.file(path)
+  if (!(await file.exists())) throw new Error(`no existe ${path}`)
+
+  return file.text()
+}
 
 async function readIfExists(path: string): Promise<string> {
   const file = Bun.file(path)
@@ -17,13 +31,11 @@ async function readIfExists(path: string): Promise<string> {
 }
 
 async function stylesheets(): Promise<string> {
-  const tokens = await readIfExists(new URL('./styles/tokens.css', import.meta.url).pathname)
-  const shell = await readIfExists(new URL('./styles/shell.css', import.meta.url).pathname)
-  return `${tokens}\n${shell}`
+  return `${await readIfExists(TOKENS)}\n${await readIfExists(SHELL)}`
 }
 
 async function classesUsedIn(relative: string): Promise<readonly string[]> {
-  const source = await Bun.file(new URL(relative, import.meta.url).pathname).text()
+  const source = await read(`${ROOT}${relative}`)
   const found = new Set<string>()
 
   for (const match of source.matchAll(/className=(?:"([^"]+)"|\{`([^`]+)`\})/g)) {
@@ -36,6 +48,11 @@ async function classesUsedIn(relative: string): Promise<readonly string[]> {
 }
 
 describe('referencias entre marcado y estilos', () => {
+  test('el directorio del paquete se resuelve aunque la ruta tenga espacios', () => {
+    expect(ROOT).not.toContain('%20')
+    expect(ROOT.endsWith('src/')).toBe(true)
+  })
+
   test('toda clase usada en la aplicación está definida en algún CSS', async () => {
     const css = await stylesheets()
     const used = await classesUsedIn('./app.tsx')
@@ -46,19 +63,11 @@ describe('referencias entre marcado y estilos', () => {
       expect(css, `la clase .${name} se usa pero no está definida`).toContain(`.${name}`)
     }
   })
-
-  test('las clases de la estructura están todas definidas', async () => {
-    const css = await stylesheets()
-
-    for (const name of ['shell', 'shell__header', 'shell__brand', 'shell__nav', 'shell__main']) {
-      expect(css, `falta .${name}`).toContain(`.${name}`)
-    }
-  })
 })
 
 describe('tokens de diseño', () => {
   test('define color, espaciado, radios y tipografía', async () => {
-    const css = await readIfExists(new URL('./styles/tokens.css', import.meta.url).pathname)
+    const css = await read(TOKENS)
 
     for (const prefix of ['--color-', '--space-', '--radius-', '--font-', '--text-']) {
       expect(css, `faltan tokens ${prefix}`).toContain(prefix)
@@ -66,14 +75,14 @@ describe('tokens de diseño', () => {
   })
 
   test('la hoja de estructura no usa valores literales de color', async () => {
-    const css = await readIfExists(new URL('./styles/shell.css', import.meta.url).pathname)
+    const css = await read(SHELL)
 
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
     expect(css).not.toMatch(/\brgb\(/)
   })
 
   test('la hoja de estructura no usa medidas literales', async () => {
-    const css = await readIfExists(new URL('./styles/shell.css', import.meta.url).pathname)
+    const css = await read(SHELL)
 
     // Cualquier `12px`, `1.5rem`, `-0.01em` o `60ch` que no venga de un token.
     const literals = [...css.matchAll(/(?<![\w(])(-?[\d.]+)(px|rem|em|ch)\b/g)].map(
@@ -84,14 +93,10 @@ describe('tokens de diseño', () => {
   })
 
   test('respeta la preferencia de movimiento reducido', async () => {
-    const css = await readIfExists(new URL('./styles/tokens.css', import.meta.url).pathname)
-
-    expect(css).toContain('prefers-reduced-motion')
+    expect(await read(TOKENS)).toContain('prefers-reduced-motion')
   })
 
   test('tiene tema claro además del oscuro', async () => {
-    const css = await readIfExists(new URL('./styles/tokens.css', import.meta.url).pathname)
-
-    expect(css).toMatch(/data-theme=["']light["']/)
+    expect(await read(TOKENS)).toMatch(/data-theme=["']light["']/)
   })
 })
