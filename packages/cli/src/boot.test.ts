@@ -2,7 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { AppError } from '@nn-anime/core'
+import { AppError, type ProviderError } from '@nn-anime/core'
+import { type Provider, providerFailure } from '@nn-anime/provider-sdk'
 import type { RunningServer } from '@nn-anime/server'
 import { type CliOptions, parseArgs } from './args'
 import {
@@ -119,6 +120,7 @@ function depsFor(
     env: { HOME: home },
     migrate: HEALTHY_MIGRATE,
     readSettings: async () => ({ ok: true, value: undefined }),
+    loadProviders: async () => ({ active: [], rejected: [] }),
     listen: target.listen,
     openUrl: target.openUrl,
     createSession: () => ({
@@ -641,5 +643,112 @@ describe('isPortBusy', () => {
     expect(isPortBusy('texto')).toBe(false)
     expect(isPortBusy(undefined)).toBe(false)
     expect(isPortBusy(new Error('sin código'))).toBe(false)
+  })
+})
+
+const PROVIDER: Provider = {
+  id: 'uno',
+  name: 'Uno',
+  apiVersion: '1',
+  capabilities: { search: true, sub: true, dub: false, trending: false },
+  search: async () => [],
+  getAnime: async () => ({
+    ref: { providerId: 'uno', value: 'a' },
+    title: 'A',
+    genres: [],
+    studios: [],
+  }),
+  getEpisodes: async () => [],
+  resolveStream: async () => [],
+}
+
+function pluginError(message: string): ProviderError {
+  return providerFailure({ providerId: 'roto', kind: 'invalid-shape', detail: message })
+}
+
+describe('proveedores activos', () => {
+  test('el directorio que se lee es el de la configuración', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      const seen: string[] = []
+
+      await boot(
+        options(),
+        depsFor(target, home, {
+          loadProviders: async (directory) => {
+            seen.push(directory)
+            return { active: [], rejected: [] }
+          },
+        }),
+      )
+
+      expect(seen).toHaveLength(1)
+      expect(seen[0]?.endsWith(join('nn-anime', 'providers'))).toBe(true)
+    })
+  })
+
+  test('imprime los activos por su id, después de la URL', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      await boot(
+        options(),
+        depsFor(target, home, {
+          loadProviders: async () => ({
+            active: [{ provider: PROVIDER, file: '/plugins/uno.ts' }],
+            rejected: [],
+          }),
+        }),
+      )
+
+      expect(target.out[0]).toContain('?boot=')
+      expect(target.out[1]).toContain('uno')
+    })
+  })
+
+  test('sin plugins lo dice, en vez de callarse', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      await boot(options(), depsFor(target, home))
+
+      expect(target.out.join('\n')).toContain('Sin proveedores')
+    })
+  })
+
+  test('un plugin rechazado se imprime con su motivo y no impide arrancar', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      const result = await boot(
+        options(),
+        depsFor(target, home, {
+          loadProviders: async () => ({
+            active: [{ provider: PROVIDER, file: '/plugins/uno.ts' }],
+            rejected: [{ file: '/plugins/roto.ts', reason: pluginError('no es un proveedor') }],
+          }),
+        }),
+      )
+
+      expect(result.code).toBe(0)
+      expect(target.err.join('\n')).toContain('no es un proveedor')
+      expect(target.out.join('\n')).toContain('uno')
+    })
+  })
+
+  test('un directorio ilegible se reporta y el arranque sigue', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      const result = await boot(
+        options(),
+        depsFor(target, home, {
+          loadProviders: async () => ({
+            active: [],
+            rejected: [],
+            directoryError: pluginError('no se puede leer /plugins'),
+          }),
+        }),
+      )
+
+      expect(result.code).toBe(0)
+      expect(target.err.join('\n')).toContain('no se puede leer /plugins')
+    })
   })
 })

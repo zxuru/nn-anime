@@ -78,7 +78,7 @@ packages/cli/
 
 ## Success Criteria
 
-Estado a `447 tests`: **doce verificados, tres pendientes por diseño.**
+Estado a `579 tests`: **trece verificados, tres pendientes por diseño.**
 
 - [x] `bun run start` imprime la URL y el navegador abre la home. **Verificado** en modo producción
       con `curl`, y con un navegador real: `xdg-open` lanzó Firefox y el navegador consumió el token.
@@ -95,6 +95,11 @@ Estado a `447 tests`: **doce verificados, tres pendientes por diseño.**
 - [x] `config.json` se carga si existe y las banderas ganan sobre él. **Verificado** en vivo: con
       `{"port": 8123, "open": false}` el servidor escucha en 8123 y no abre el navegador;
       `--port 8321` gana; y con `{"puerto": 8080}` sale con 1 nombrando el campo que sobra.
+- [x] El arranque imprime la lista de proveedores activos, y los rechazados con su motivo.
+      **Verificado** por test y en vivo con un directorio de plugins de verdad: un plugin bueno y
+      uno que lanza al importarse dan `Proveedores activos: mio` y el rechazo con el archivo y la
+      causa; sin plugins lo dice con la ruta donde copiarlos; dos con el mismo `id` dejan el primero
+      y reportan el segundo.
 - [x] `nn-anime "naruto"` abre `/search?q=naruto`. **Verificado** en vivo con
       `nn-anime naruto shippuden` → `Location: /search?q=naruto%20shippuden`.
 - [x] `nn-anime --help` sale con código 0 y no arranca el server. **Verificado** por test, con el

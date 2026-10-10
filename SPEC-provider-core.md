@@ -183,6 +183,7 @@ packages/provider-sdk/
 ├─ src/conformance.ts         test de conformidad reutilizable
 ├─ src/loader.ts              escaneo y carga de plugins
 ├─ src/errors.ts              ProviderError y clasificación de fallos
+├─ src/__fixtures__/*         plugins de prueba: uno bueno, uno que lanza, uno duplicado
 └─ src/*.test.ts
 ```
 

@@ -58,7 +58,16 @@ function sourceFiles(): readonly string[] {
       for (const entry of readdirSync(join(ROOT, relative), { withFileTypes: true })) {
         const path = `${relative}/${entry.name}`
         if (entry.isDirectory()) {
-          if (entry.name !== 'node_modules' && entry.name !== 'dist') walk(path)
+          // `__fixtures__` son datos de prueba, no código: los carga un test a
+          // propósito y contarlos como no medidos infla la lista hasta hacerla
+          // inútil, que es lo contrario de para lo que existe.
+          if (
+            entry.name !== 'node_modules' &&
+            entry.name !== 'dist' &&
+            entry.name !== '__fixtures__'
+          ) {
+            walk(path)
+          }
         } else if (/\.tsx?$/.test(entry.name) && !entry.name.includes('.test.')) {
           found.push(path)
         }

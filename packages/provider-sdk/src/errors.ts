@@ -137,6 +137,23 @@ export function invalidShape(
   })
 }
 
+/**
+ * El mismo fallo, con el archivo delante.
+ *
+ * En un directorio con veinte plugins, «ya hay un proveedor con el id `bueno`»
+ * no dice qué borrar. El archivo es parte del motivo, y el motivo es lo que se
+ * imprime: quien lee tiene que poder actuar sin buscar.
+ */
+export function namedByFile(reason: ProviderError, file: string): ProviderError {
+  return new ProviderError({
+    message: `${file}: ${reason.message}`,
+    scope: reason.scope,
+    op: reason.op,
+    cause: reason,
+    context: { ...reason.context },
+  })
+}
+
 /** Una línea por problema, nombrando el campo. Compartido con la respuesta. */
 export function describeProblems(
   problems: readonly { readonly path: readonly PropertyKey[]; readonly message: string }[],

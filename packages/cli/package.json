@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@nn-anime/core": "workspace:*",
-    "@nn-anime/server": "workspace:*"
+    "@nn-anime/server": "workspace:*",
+    "@nn-anime/provider-sdk": "workspace:*"
   },
   "scripts": {
     "test": "bun test"

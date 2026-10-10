@@ -17,8 +17,12 @@
     "packages/cli": {
       "name": "@nn-anime/cli",
       "version": "0.1.0",
+      "bin": {
+        "nn-anime": "./bin/nn-anime",
+      },
       "dependencies": {
         "@nn-anime/core": "workspace:*",
+        "@nn-anime/provider-sdk": "workspace:*",
         "@nn-anime/server": "workspace:*",
       },
     },

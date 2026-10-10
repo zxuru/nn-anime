@@ -48,6 +48,7 @@ function harness(
       listen: (() => ({ ok: false, kind: 'other', detail: 'no usado' })) as Listen,
       migrate: async () => ({ ok: true }),
       readSettings: async () => ({ ok: true, value: undefined }),
+      loadProviders: async () => ({ active: [], rejected: [] }),
       openUrl: async () => true,
       createSession,
       createBootToken: () => 'token-de-arranque',

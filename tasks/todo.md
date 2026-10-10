@@ -639,27 +639,33 @@ público. Seis archivos de implementación en vez de cinco, con este motivo escr
 **Descripción:** Escanear y cargar plugins desde el directorio del usuario, aislando cada fallo.
 
 **Aceptación:**
-- [ ] Escanea `*.ts`, `*.js` y `*.mjs` en orden alfabético y carga con `import()`.
-- [ ] Un plugin cuyo import lanza se reporta y se omite; los demás cargan igual.
-- [ ] Un plugin inválido o con `apiVersion` incorrecta no impide el arranque.
-- [ ] Un plugin **no puede exportar `default` y `providers` a la vez**: se rechaza nombrándolo.
+- [x] Escanea `*.ts`, `*.js` y `*.mjs` en orden alfabético y carga con `import()`.
+- [x] Un plugin cuyo import lanza se reporta y se omite; los demás cargan igual.
+- [x] Un plugin inválido o con `apiVersion` incorrecta no impide el arranque.
+- [x] Un plugin **no puede exportar `default` y `providers` a la vez**: se rechaza nombrándolo.
       Esta aceptación decía «producen un solo conjunto sin duplicados», que contradice a
       `SPEC-provider-core.md`. Manda el spec: dos exports son ambiguos y rechazarlos es más claro
       que adivinar cuál es el bueno.
-- [ ] Test: directorio con un plugin bueno, uno roto y uno inválido da 1 activo y 2 rechazos
+- [x] Test: directorio con un plugin bueno, uno roto y uno inválido da 1 activo y 2 rechazos
       con motivo.
-- [ ] Test: el directorio se inyecta; no se lee `$XDG_CONFIG_HOME` real.
-- [ ] **Añadido al revisar el spec:** el paso 8 del arranque de `SPEC-cli-launcher.md` pide que el
-      CLI imprima «la URL de arranque **y la lista de proveedores activos**». Ninguna tarea lo
-      reclamaba. La imprime el CLI tras cargar los plugins, nombrando los activos y, si los hay,
-      los rechazados con su motivo.
+- [x] Test: el directorio se inyecta; no se lee `$XDG_CONFIG_HOME` real.
+- [x] **Añadido al revisar el spec:** el paso 8 del arranque de `SPEC-cli-launcher.md` pide que el
+      CLI imprima «la URL de arranque **y la lista de proveedores activos**». La imprime tras la
+      URL, con los activos por id y, si los hay, los rechazados con su motivo.
 
-**Verificación:** `bun test packages/provider-sdk` · manual copiando un plugin a
-`~/.config/nn-anime/providers/` y viendo `/api/providers` y la línea del CLI.
+**Verificación:** `bun test packages/provider-sdk` · 93 tests. **En vivo** con el CLI y un
+directorio de plugins de verdad (vía `XDG_CONFIG_HOME`), tres casos: un plugin bueno y uno que
+lanza al importarse → `Proveedores activos: mio` y `Proveedor rechazado: roto.ts: no se pudo
+importar: ...`; sin plugins → la línea que dice dónde copiarlos; dos plugins con el mismo `id` →
+gana el primero y el segundo se reporta con el motivo.
 
 **Depende de:** T9.
 
 **Archivos:** `packages/provider-sdk/src/{loader,loader.test}.ts`, `packages/provider-sdk/src/__fixtures__/*`.
+**Ampliación declarada:** el criterio del paso 8 no cabe en el paquete: toca
+`packages/cli/src/{boot,start,index}.ts`, el catálogo `i18n/es.ts`, `boot.test.ts` y `start.test.ts`
+para inyectar el loader. Y `scripts/coverage-gate.ts` deja de contar `__fixtures__` como código: son
+datos de prueba y sumarlos a la lista de «ningún test carga» la volvía inútil.
 
 **Tamaño:** M.
 

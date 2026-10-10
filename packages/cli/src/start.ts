@@ -10,7 +10,7 @@
 import { type ConfigEnvironment, type Locale, type Logger, resolveLocale } from '@nn-anime/core'
 import type { Session } from '@nn-anime/server'
 import type { CliOptions } from './args'
-import type { BootDeps, BootResult, Listen, Migrate, ReadSettings } from './boot'
+import type { BootDeps, BootResult, Listen, LoadPlugins, Migrate, ReadSettings } from './boot'
 import { type Lifecycle, signalExitCode, type TerminatingSignal } from './lifecycle'
 import type { CliIO } from './run'
 
@@ -26,6 +26,7 @@ export interface StartDeps {
   readonly listen: Listen
   readonly migrate: Migrate
   readonly readSettings: ReadSettings
+  readonly loadProviders: LoadPlugins
   readonly openUrl: (url: string) => Promise<boolean>
   readonly createSession: () => Session
   readonly createBootToken: () => string
@@ -56,6 +57,7 @@ export function createStarter(deps: StartDeps): (options: CliOptions) => Promise
       env: deps.env,
       migrate: deps.migrate,
       readSettings: deps.readSettings,
+      loadProviders: deps.loadProviders,
       listen: deps.listen,
       createSession: deps.createSession,
       createBootToken: deps.createBootToken,

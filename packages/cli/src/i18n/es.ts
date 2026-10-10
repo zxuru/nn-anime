@@ -39,4 +39,10 @@ Banderas:
     'El puerto {port} está ocupado y el proxy de desarrollo apunta a él. Libéralo o cambia el origen del proxy. Detalle: {detail}',
   'cli.migration.failed': 'No se pudo preparar la base de datos: {message}',
   'cli.settings.invalid': 'No se pudieron leer los ajustes: {message}',
+
+  'cli.providers.active': 'Proveedores activos: {list}',
+  'cli.providers.none':
+    'Sin proveedores. Copia un plugin a ~/.config/nn-anime/providers/ y vuelve a arrancar.',
+  'cli.providers.rejected': 'Proveedor rechazado: {message}',
+  'cli.providers.directory': 'No se pudieron leer los plugins: {message}',
 }

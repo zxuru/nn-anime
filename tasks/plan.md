@@ -298,7 +298,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 
 ### Fase 2 — Proveedores
 - [x] T9 `provider-sdk`: tipos, schema, registro, errores y test de conformidad
-- [ ] T10 `provider-sdk`: loader de plugins con aislamiento de fallos
+- [x] T10 `provider-sdk`: loader de plugins con aislamiento de fallos
 - [ ] T11 `providers-fixture` con contrato completo y modos de fallo
 - [ ] T12 Búsqueda agregada con timeout por proveedor y resultados parciales
 - [ ] T13 Rutas `/api/providers` y `/api/search` con SSE

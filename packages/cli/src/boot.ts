@@ -20,6 +20,7 @@ import {
   type Result,
   type Settings,
 } from '@nn-anime/core'
+import type { LoadReport } from '@nn-anime/provider-sdk'
 import { BOOT_PARAM, type RunningServer, type Session, startServer } from '@nn-anime/server'
 import type { CliOptions } from './args'
 import { t } from './i18n'
@@ -41,6 +42,16 @@ export type Migrate = (config: ConfigPaths) => Promise<MigrationOutcome>
 
 /** Lee los ajustes de proceso. Se inyecta para poder probar la precedencia. */
 export type ReadSettings = (path: string) => Promise<Result<Settings | undefined, AppError>>
+
+/**
+ * Carga los plugins del directorio del usuario.
+ *
+ * Se inyecta por el mismo motivo que el resto: sin esto habría que escribir
+ * plugins de verdad en el disco del usuario para probar el arranque, y el
+ * informe de rechazos —que es lo que el usuario necesita leer— no se podría
+ * provocar desde una prueba.
+ */
+export type LoadPlugins = (directory: string) => Promise<LoadReport>
 
 export interface ListenOptions {
   readonly session: Session
@@ -169,6 +180,31 @@ export interface BootDeps {
   readonly allowPortFallback?: boolean | undefined
   readonly createSession: () => Session
   readonly createBootToken: () => string
+  readonly loadProviders: LoadPlugins
+}
+
+/**
+ * La línea que dice qué proveedores entraron y cuáles no.
+ *
+ * El rechazo se imprime con su motivo y con el archivo: un plugin que no carga
+ * es un problema del usuario, y lo único que puede hacer al respecto es saber
+ * cuál es y por qué.
+ */
+function reportPlugins(io: CliIO, locale: Locale, report: LoadReport): void {
+  if (report.directoryError !== undefined) {
+    io.err(t(locale, 'cli.providers.directory', { message: report.directoryError.message }))
+  }
+
+  const ids = report.active.map((entry) => entry.provider.id)
+  io.out(
+    ids.length === 0
+      ? t(locale, 'cli.providers.none')
+      : t(locale, 'cli.providers.active', { list: ids.join(', ') }),
+  )
+
+  for (const rejected of report.rejected) {
+    io.err(t(locale, 'cli.providers.rejected', { message: rejected.reason.message }))
+  }
 }
 
 export interface BootResult {
@@ -214,6 +250,11 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
 
   const options = applySettings(rawOptions, settings.value)
 
+  // Paso 4 del arranque del spec: cargar los plugins. Un plugin roto se
+  // reporta y se omite, pero no impide arrancar: el usuario puede seguir usando
+  // la interfaz con los que sí funcionan.
+  const plugins = await deps.loadProviders(config.providersDir)
+
   const migration = await deps.migrate(config)
   if (!migration.ok) {
     io.err(t(locale, 'cli.migration.failed', { message: migration.message }))
@@ -248,7 +289,10 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
 
   const origin = deps.publicOrigin ?? outcome.server.url
   const url = `${origin}/?${BOOT_PARAM}=${bootToken}`
+
+  // Paso 8 del arranque del spec: la URL y la lista de proveedores activos.
   io.out(t(locale, 'cli.url', { url }))
+  reportPlugins(io, locale, plugins)
 
   // Se registra antes de abrir el navegador: si abrir falla, el servidor ya
   // tiene que cerrarse igual.

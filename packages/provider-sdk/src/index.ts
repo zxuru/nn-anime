@@ -34,6 +34,15 @@ export {
   providerFailure,
 } from './errors'
 export {
+  type LoadedProvider,
+  type LoadOptions,
+  type LoadReport,
+  loadProviders,
+  PLUGIN_EXTENSIONS,
+  pluginNames,
+  type RejectedPlugin,
+} from './loader'
+export {
   createRegistry,
   type ProviderRegistry,
   readApiVersion,
