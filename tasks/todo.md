@@ -55,21 +55,39 @@ con su `package.json` y su `src/index.ts` de marcador.
 redacción de datos sensibles.
 
 **Aceptación:**
-- [ ] `Result<T, E>` con constructores `ok` y `err`, y helpers `map`, `mapErr`, `unwrapOr`.
-- [ ] `AppError` con `code`, `message`, `cause` y `context`; subtipos `ProviderError`,
+- [x] `Result<T, E>` con constructores `ok` y `err`, y helpers `map`, `mapErr`, `unwrapOr`.
+- [x] `AppError` con `code`, `message`, `cause` y `context`; subtipos `ProviderError`,
       `UpstreamError`, `StoreError` con fábrica `from(scope, op, cause)`.
-- [ ] `logger` con niveles `debug|info|warn|error`, salida JSON y umbral configurable.
-- [ ] Test: claves `authorization`, `cookie`, `referer`, `token` y `headers` se sustituyen por
+- [x] `logger` con niveles `debug|info|warn|error`, salida JSON y umbral configurable.
+- [x] Test: claves `authorization`, `cookie`, `referer`, `token` y `headers` se sustituyen por
       `[redacted]` en cualquier nivel, incluido `debug`.
-- [ ] `grep -rn "console\." packages --include=*.ts` no devuelve nada fuera de `logger.ts`.
+- [x] `grep -rn "console\." packages --include=*.ts` no devuelve nada fuera de `logger.ts`.
 
-**Verificación:** `bun test packages/core` · `bun run typecheck` · grep de `console.`.
+**Verificación:** `bun test packages/core` 45 pasan, 0 fallan · `bun test` 53 pasan, 0 fallan ·
+`tsc --noEmit` 0 · `biome check .` 0, sin infos · grep de `console.` sin coincidencias.
+
+**Estado:** hecho.
+
+**Decisiones tomadas al implementar:**
+
+- `unwrapOr` sólo cae al sustituto cuando el resultado es un fallo. Un éxito cuyo valor es
+  `undefined` sigue siendo un éxito, y hay un test que lo fija.
+- El logger recibe un `sink` inyectable en lugar de escribir una cadena. Los tests reciben
+  entradas tipadas y no necesitan ningún `as` para inspeccionarlas. La serialización JSON vive en
+  `toJsonLine`, que es pura y se testea aparte.
+- La redacción es por nombre de clave y a cualquier profundidad, sobre objetos y arrays, con
+  detección de ciclos y truncado a seis niveles. Además de las cinco claves exactas, se redacta
+  toda clave que contenga `token`, `cookie`, `secret` o `password`.
+- La redacción no puede detectar un secreto embebido dentro de una cadena. Eso queda como
+  responsabilidad de quien llama, y así está escrito en el encabezado del módulo.
+- `packages/core/src/index.ts` enumera a mano la superficie pública. No es un barrel que
+  reexporte el árbol del paquete.
 
 **Depende de:** T1.
 
-**Archivos:** `packages/core/src/{result,errors,logger}.ts` y sus `*.test.ts`.
+**Archivos:** `packages/core/src/{result,errors,logger}.ts`, sus `*.test.ts` y `index.ts`.
 
-**Tamaño:** M.
+**Tamaño:** M. Tres archivos de implementación, tres de test y el punto de entrada.
 
 ---
 
