@@ -2087,17 +2087,36 @@ midiendo dos búsquedas que encajan al máximo, donde la mejor da 0,5 y la suma 
 **Descripción:** Diversidad final y explicación legible de cada recomendación.
 
 **Aceptación:**
-- [ ] Reranking MMR sobre tags con `lambda` 0,7 por defecto.
-- [ ] Dos títulos del mismo tag no copan el top 5, verificado por test.
-- [ ] `Reason` con `kind`, `text` y `evidence`; al menos una por recomendación del top 20.
-- [ ] Los textos están en el catálogo i18n, no incrustados en el código.
-- [ ] Ninguna razón con `text` vacío, verificado para el top 20 completo.
+- [x] Reranking MMR sobre tags con `lambda` 0,7 por defecto.
+- [x] Dos títulos del mismo tag no copan el top 5, verificado por test.
+- [x] `Reason` con `kind`, `text` y `evidence`; al menos una por recomendación del top 20.
+- [x] Los textos están en el catálogo i18n, no incrustados en el código.
+- [x] Ninguna razón con `text` vacío, verificado para el top 20 completo.
 
-**Verificación:** `bun test packages/recsys`.
+**Verificación:** `bun test packages/recsys` · 22 pruebas nuevas. Medido mutando la implementación: con
+`lambda` 1 —sin diversidad— falla 1, con el parecido siempre cero 3, sin ordenar las razones 2 y con
+una razón de texto vacío 3. Control: 0 fallos. Cobertura del paquete: 100 %.
 
 **Depende de:** T35.
 
 **Archivos:** `packages/recsys/src/{mmr.ts,reasons.ts,reasons.test.ts}`, `packages/recsys/src/i18n/es.ts`.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **MMR decide el orden, no cambia las puntuaciones.** Cambiarlas rompería la promesa de que la razón
+   que se enseña sale del mismo cálculo que la puntuación.
+2. **El parecido es Jaccard sobre las características.** Compartir un tag de tres se parece menos que
+   compartir el único: contar sólo los comunes haría que un título con veinte tags fuera «parecido» a
+   casi todo.
+3. **La razón que se enseña es la de más peso, no la primera que aparezca.** Si alguien ve «está de
+   moda» cuando lo que mandó fue su búsqueda de ayer, la explicación miente aunque los números estén
+   bien.
+4. **Una señal con peso cero no explica nada y no aparece.** Y si no queda ninguna, la genérica tiene
+   texto: una razón con `text` vacío es peor que no tener ninguna, porque parece que la hay.
+
+**Los textos viven en `src/i18n/es.ts`** con sus huecos `{...}`, y ninguna frase se construye
+concatenando: concatenar es la forma de que una traducción acabe con el orden de palabras de otro
+idioma. Hay una prueba que comprueba que ningún hueco queda sin rellenar.
 
 **Tamaño:** M.
 

@@ -8,6 +8,8 @@
     "./affinity": "./src/affinity.ts",
     "./covisit": "./src/covisit.ts",
     "./filters": "./src/filters.ts",
+    "./mmr": "./src/mmr.ts",
+    "./reasons": "./src/reasons.ts",
     "./search-signal": "./src/search-signal.ts"
   },
   "scripts": {
