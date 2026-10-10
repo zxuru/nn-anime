@@ -18,6 +18,36 @@ const CONTROL_CHARACTERS = /[\r\n\0]/
 /** Esquemas de URL admitidos en cualquier dato que venga de un proveedor. */
 const ALLOWED_URL_SCHEMES: readonly string[] = ['http:', 'https:']
 
+const SPACE_CODE = 0x20
+const DELETE_CODE = 0x7f
+
+/**
+ * Si la dirección lleva un espacio o un carácter de control.
+ *
+ * Un espacio o un carácter de control no se escribe en una URL: se codifica.
+ * `new URL` los descarta o los normaliza, así que una cadena que los lleve **no
+ * es la dirección que se va a pedir**. Validar una cosa y pedir otra es el
+ * hueco que este esquema cierra. Se recorre la cadena en vez de usar una
+ * expresión regular porque el linter del proyecto prohíbe los caracteres de
+ * control literales dentro de un patrón.
+ */
+function hasBlankOrControl(value: string): boolean {
+  for (const character of value) {
+    const code = character.codePointAt(0) ?? 0
+    if (code <= SPACE_CODE || code === DELETE_CODE) return true
+  }
+
+  return false
+}
+
+/**
+ * Autoridad explícita: al esquema le sigue `//`.
+ *
+ * Sin esto, `http:/x` pasa la validación y `new URL` lo convierte en
+ * `http://x/`: la cadena guardada y la pedida nombran sitios distintos.
+ */
+const EXPLICIT_AUTHORITY = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//
+
 /**
  * Dirección web, validada en el esquema.
  *
@@ -26,14 +56,37 @@ const ALLOWED_URL_SCHEMES: readonly string[] = ['http:', 'https:']
  * este archivo: si la comprobación viviera sólo en la interfaz, cualquier
  * consumidor nuevo de estos tipos —el reproductor, un exportador, un test—
  * volvería a abrir el agujero. Aquí se cierra para todos.
+ *
+ * Las credenciales se rechazan: `stream_cache` persiste la dirección, y unas
+ * credenciales del upstream acabarían en disco en claro, que es lo que el
+ * `Never` del catálogo prohíbe para los headers.
  */
-export const httpUrlSchema = z.string().min(1).refine(isWebUrl, {
-  message: 'la dirección tiene que ser http o https',
-})
+export const httpUrlSchema = z
+  .string()
+  .min(1)
+  .refine((value) => !hasBlankOrControl(value), {
+    message: 'la dirección no admite espacios ni caracteres de control',
+  })
+  .refine((value) => EXPLICIT_AUTHORITY.test(value) && isWebUrl(value), {
+    message: 'la dirección tiene que ser http o https, con host',
+  })
+  .refine((value) => !hasCredentials(value), {
+    message: 'la dirección no admite usuario ni contraseña',
+  })
 
 function isWebUrl(value: string): boolean {
   try {
-    return ALLOWED_URL_SCHEMES.includes(new URL(value).protocol)
+    const url = new URL(value)
+    return ALLOWED_URL_SCHEMES.includes(url.protocol) && url.host !== ''
+  } catch {
+    return false
+  }
+}
+
+function hasCredentials(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.username !== '' || url.password !== ''
   } catch {
     return false
   }

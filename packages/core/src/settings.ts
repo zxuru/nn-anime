@@ -21,8 +21,12 @@ export const MAX_PORT = 65535
 export const settingsSchema = z.strictObject({
   port: z.number().int().min(MIN_PORT).max(MAX_PORT).optional(),
   open: z.boolean().optional(),
-  providers: z.array(z.string().min(1)).optional(),
-  lang: z.string().min(1).optional(),
+  // `trim()` antes de `min(1)`: un identificador en blanco tiene longitud y
+  // pasaría la comprobación, y luego filtraría por un proveedor que no existe
+  // sin decir por qué. La interfaz recibe la lista tal cual, así que la frontera
+  // es aquí.
+  providers: z.array(z.string().trim().min(1)).optional(),
+  lang: z.string().trim().min(1).optional(),
   verbose: z.boolean().optional(),
 })
 

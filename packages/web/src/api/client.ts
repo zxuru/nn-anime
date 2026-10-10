@@ -109,18 +109,40 @@ async function dispatch(
 }
 
 /**
- * Lecturas en vuelo, por clave de URL.
+ * Lecturas en vuelo, por clave.
  *
  * Dos componentes que piden lo mismo a la vez comparten una sola petición. La
  * clave incluye el método porque sólo se deduplican las lecturas: una mutación
  * repetida sí tiene que llegar dos veces.
  *
+ * La clave incluye **la ruta y el tiempo límite**. La petición compartida usa
+ * las opciones de quien la creó, así que dos llamadores con límites distintos
+ * no pueden compartir la carrera: el que pidió un límite corto esperaría al
+ * largo del otro sin saberlo.
+ *
+ * Una lectura con señal propia **no se deduplica**. Quien pasa una señal quiere
+ * decidir cuándo muere su petición, y una compartida muere con el primero que
+ * cancela: el segundo llamador quedaría arrastrado por una cancelación ajena, o
+ * creería haber cancelado algo que sigue vivo.
+ *
  * Se guarda el cuerpo ya analizado y no la respuesta: un `Response` sólo se
  * puede leer una vez, así que compartirlo entre dos llamadores haría fallar al
  * segundo. Y se guarda como `unknown` a propósito, para que cada llamador lo
  * valide con su schema sin ninguna conversión de tipo por el medio.
+ *
+ * Las dependencias no entran en la clave. En producción hay un solo `fetch`,
+ * así que no distinguen nada; en un test, dos dependencias distintas sobre la
+ * misma ruta no deberían pedirse a la vez, porque la segunda recibiría el
+ * cuerpo de la primera. La entrada se borra al terminar, así que no se hereda
+ * entre pruebas secuenciales.
  */
 const inFlight = new Map<string, Promise<unknown>>()
+
+function dedupeKey(path: string, options: RequestOptions): string | undefined {
+  if (options.signal !== undefined) return undefined
+
+  return `${path}\u0000${options.timeoutMs ?? DEFAULT_TIMEOUT_MS}`
+}
 
 async function jsonPayload(
   path: string,
@@ -140,19 +162,30 @@ async function jsonPayload(
   }
 }
 
-function shared(path: string, work: () => Promise<unknown>): Promise<unknown> {
-  const existing = inFlight.get(path)
+function shared(key: string, work: () => Promise<unknown>): Promise<unknown> {
+  const existing = inFlight.get(key)
   if (existing !== undefined) return existing
 
-  const pending = work()
-  inFlight.set(path, pending)
-  // El `catch` evita que un fallo quede como rechazo no gestionado al borrar la
-  // entrada, y el `finally` garantiza que la clave no se quede pegada.
-  pending
-    .catch(() => {})
-    .finally(() => {
-      inFlight.delete(path)
-    })
+  // La entrada se borra **antes** de que ningún llamador continúe. Con un
+  // `finally` suelto, una lectura ya terminada sigue contando como en vuelo
+  // durante un par de ciclos del bucle de eventos, y la siguiente petición de
+  // la misma ruta —otro componente, otra prueba— puede recibir el cuerpo de la
+  // anterior. Es una dependencia de orden: se midió esa contaminación entre dos
+  // pruebas de este archivo, así que no se deja abierta.
+  const pending = work().then(
+    (value) => {
+      inFlight.delete(key)
+      return value
+    },
+    (error: unknown) => {
+      inFlight.delete(key)
+      throw error
+    },
+  )
+
+  inFlight.set(key, pending)
+  // Un fallo que nadie escuche no debe convertirse en un rechazo no gestionado.
+  pending.catch(() => {})
 
   return pending
 }
@@ -165,9 +198,11 @@ export async function request<T>(
   deps: RequestDeps = realDeps(),
 ): Promise<T> {
   const isRead = (options.method ?? 'GET') === 'GET'
-  const payload = isRead
-    ? await shared(path, () => jsonPayload(path, options, deps))
-    : await jsonPayload(path, options, deps)
+  const key = isRead ? dedupeKey(path, options) : undefined
+  const payload =
+    key === undefined
+      ? await jsonPayload(path, options, deps)
+      : await shared(key, () => jsonPayload(path, options, deps))
 
   const parsed = schema.safeParse(payload)
   if (!parsed.success) throw new ApiShapeError(path, parsed.error.message)

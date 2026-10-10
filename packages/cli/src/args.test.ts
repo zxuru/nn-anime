@@ -121,6 +121,15 @@ describe('proveedores', () => {
   test('sin proveedores, la lista queda vacía y no indefinida', () => {
     expect(ok([]).providers).toEqual([])
   })
+
+  test('recorta los espacios de un identificador', () => {
+    expect(ok(['--provider', '  a  ']).providers).toEqual(['a'])
+  })
+
+  test('un proveedor en blanco es un error de uso, no un filtro vacío', () => {
+    expect(params(['--provider', ' ']).flag).toBe('--provider')
+    expect(params(['--provider', '   ']).flag).toBe('--provider')
+  })
 })
 
 describe('rutas e idioma', () => {
@@ -134,6 +143,10 @@ describe('rutas e idioma', () => {
 
   test('acepta el idioma', () => {
     expect(ok(['--lang', 'en']).lang).toBe('en')
+  })
+
+  test('un idioma en blanco es un error de uso', () => {
+    expect(params(['--lang', ' ']).flag).toBe('--lang')
   })
 
   test('rechaza el directorio de datos sin valor', () => {

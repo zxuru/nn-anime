@@ -64,6 +64,30 @@ describe('readSettings', () => {
     })
   })
 
+  test('recorta los espacios de un identificador y del idioma', async () => {
+    await withFile('{"providers": ["  uno  "], "lang": " es "}', async (path) => {
+      const result = await readSettings(path)
+
+      expect(result.ok).toBe(true)
+      if (result.ok) expect(result.value).toEqual({ providers: ['uno'], lang: 'es' })
+    })
+  })
+
+  test('rechaza un proveedor en blanco: filtrar por nada no es un ajuste válido', async () => {
+    await withFile('{"providers": ["   "]}', async (path) => {
+      const result = await readSettings(path)
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error.code).toBe('config')
+    })
+  })
+
+  test('rechaza un idioma en blanco', async () => {
+    await withFile('{"lang": " "}', async (path) => {
+      expect((await readSettings(path)).ok).toBe(false)
+    })
+  })
+
   test('rechaza un puerto fuera de rango', async () => {
     await withFile(`{"port": ${MAX_PORT + 1}}`, async (path) => {
       const result = await readSettings(path)

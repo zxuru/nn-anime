@@ -135,12 +135,22 @@ function assign(state: MutableState, field: ValueField, value: string): UsageErr
     case 'configDir':
       state.configDir = value
       return undefined
-    case 'provider':
-      state.providers.push(value)
+    case 'provider': {
+      const provider = value.trim()
+      if (provider === '') {
+        return { key: 'cli.usage.missingValue', params: { flag: '--provider' }, exitCode: 2 }
+      }
+      state.providers.push(provider)
       return undefined
-    case 'lang':
-      state.lang = value
+    }
+    case 'lang': {
+      const lang = value.trim()
+      if (lang === '') {
+        return { key: 'cli.usage.missingValue', params: { flag: '--lang' }, exitCode: 2 }
+      }
+      state.lang = lang
       return undefined
+    }
   }
 }
 

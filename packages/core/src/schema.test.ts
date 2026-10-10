@@ -165,6 +165,42 @@ describe('esquema de URL: la frontera rechaza esquemas peligrosos', () => {
     }
   })
 
+  test('rechaza un espacio o un carácter de control dentro de la dirección', () => {
+    // `new URL` los descarta o los normaliza, así que la cadena validada no es
+    // la que se pediría: se rechazan en la frontera.
+    const urls = [
+      ' http://ejemplo/a.mp4',
+      'http://ejemplo/a.mp4 ',
+      'http://ejemplo/a\n.mp4',
+      'http://ejemplo/a\t.mp4',
+      'http://ejemplo/a\u0000.mp4',
+    ]
+
+    for (const url of urls) {
+      expect(outcome(streamSourceSchema, { url, kind: 'file' }).success, JSON.stringify(url)).toBe(
+        false,
+      )
+    }
+  })
+
+  test('rechaza una dirección sin autoridad explícita', () => {
+    // `new URL('http:/x')` es `http://x/`: lo validado no es lo pedido.
+    expect(outcome(streamSourceSchema, { url: 'http:/x', kind: 'file' }).success).toBe(false)
+  })
+
+  test('rechaza credenciales, que se persistirían en claro con la dirección', () => {
+    expect(
+      outcome(streamSourceSchema, { url: 'http://usuario:clave@ejemplo/a.mp4', kind: 'file' })
+        .success,
+    ).toBe(false)
+  })
+
+  test('el esquema en mayúsculas sigue valiendo', () => {
+    expect(outcome(streamSourceSchema, { url: 'HTTP://ejemplo/a.mp4', kind: 'file' }).success).toBe(
+      true,
+    )
+  })
+
   test('rechaza javascript:', () => {
     const result = outcome(streamSourceSchema, {
       url: 'javascript:alert(1)',

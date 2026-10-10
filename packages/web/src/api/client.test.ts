@@ -204,6 +204,60 @@ describe('deduplicación de lecturas', () => {
     expect(target.calls).toHaveLength(2)
   })
 
+  test('quien pasa una señal no comparte la petición, así que no arrastra a nadie', async () => {
+    let calls = 0
+    const controller = new AbortController()
+    const deps: RequestDeps = {
+      fetch: (_input, init) => {
+        calls += 1
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(
+            () => resolve(new Response('{"version":"0.1.0","port":7717}')),
+            20,
+          )
+          init.signal?.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(timer)
+              reject(new Error('cancelada'))
+            },
+            { once: true },
+          )
+        })
+      },
+    }
+
+    // La expectativa se engancha ya: si se esperara a la otra lectura, el
+    // rechazo llegaría sin nadie escuchando y el propio motor lo señalaría.
+    const conSenal = apiGet('/api/health', HEALTH, { signal: controller.signal }, deps).then(
+      () => 'resolvió',
+      (error: Error) => error.message,
+    )
+    const sinSenal = apiGet('/api/health', HEALTH, {}, deps)
+    controller.abort()
+
+    expect(await sinSenal).toEqual({ version: '0.1.0', port: 7717 })
+    expect(await conSenal).toBe('cancelada')
+    expect(calls).toBe(2)
+  })
+
+  test('dos tiempos límite distintos no comparten la carrera', async () => {
+    let calls = 0
+    const deps: RequestDeps = {
+      fetch: async () => {
+        calls += 1
+        return new Response('{"version":"0.1.0","port":7717}')
+      },
+    }
+
+    await Promise.all([
+      apiGet('/api/health', HEALTH, { timeoutMs: 1000 }, deps),
+      apiGet('/api/health', HEALTH, { timeoutMs: 60_000 }, deps),
+    ])
+
+    expect(calls).toBe(2)
+  })
+
   test('las mutaciones no se deduplican nunca', async () => {
     const target = fake(204, '')
 
