@@ -1123,25 +1123,53 @@ por fila en lugar del `JOIN` 1. Control: 0 fallos.
 **Descripción:** Cierre de la fachada del store: ajustes clave-valor, limpieza y comando manual.
 
 **Aceptación:**
-- [ ] `getSetting`/`setSetting` con JSON y valor por defecto.
-- [ ] `pruneOrphans` borra `stream_cache` vencido hace más de 1 día y detalles sin actividad en
+- [x] `getSetting`/`setSetting` con JSON y valor por defecto.
+- [x] `pruneOrphans` borra `stream_cache` vencido hace más de 1 día y detalles sin actividad en
       90 días; no toca un anime visto hace 5 días.
-- [ ] `pruneOrphans` informa cuántas filas borró por tabla.
+- [x] `pruneOrphans` informa cuántas filas borró por tabla.
 - [ ] `pruneOrphans` se ofrece como comando manual **y como tarea al arrancar si la base supera
-      200 MB**, que es lo que pide el spec del store. El disparador vive en el arranque; la
-      comprobación de tamaño, aquí.
-- [ ] `bun run db:migrate` funciona fuera de tests contra el directorio de datos real.
-- [ ] `runMigrations` es idempotente desde el CLI.
-- [ ] **Las escrituras de la fachada pasan por la cola interna**, y los repositorios dejan de poder
-      escribir fuera de ella. Criterio **movido desde T19**, que entregó la cola y el revalidador: el
-      sitio natural para encolar las cuatro familias de escritura es donde se define la superficie
-      pública de escritura, que es aquí.
+      200 MB**. El comando manual está (`bun run db:prune`) y la comprobación de tamaño también
+      (`shouldPrune`). **El disparador al arrancar se mueve a T22, con motivo:** el arranque del CLI
+      todavía no abre la base —`deps.migrate` es un marcador y el store entra en el server en T22—,
+      así que no hay ningún punto donde colgarlo sin inventar uno que T22 va a reescribir.
+- [x] `bun run db:migrate` funciona fuera de tests contra el directorio de datos real.
+- [x] `runMigrations` es idempotente desde el CLI.
+- [x] **Las escrituras de la fachada pasan por la cola interna** (criterio movido desde T19): la
+      fachada envuelve las cuatro familias de escritura en `queue.run`, y hay una prueba que
+      envuelve la cola y cuenta lo que pasa por ella.
 
-**Verificación:** `bun test packages/catalog-store` · `bun run db:migrate`.
+**Verificación:** `bun test packages/catalog-store` · 142 tests en el paquete. **En vivo**:
+`bun run db:migrate` aplica `1, 2, 3` y `bun run db:prune` informa por tabla y sale con 0.
+Medido mutando la implementación: sin el plazo de 90 días fallan 11, sin proteger los favoritos 1,
+sin el margen de un día para los streams 1, sin proteger lo visto 11, con la fachada escribiendo
+fuera de la cola 2, cerrando la base antes de vaciar la cola 1 y sin validar el ajuste al leerlo 1.
+Control: 0 fallos. **Dos de esas mutaciones sobrevivieron a la primera versión de las pruebas** —el
+margen del stream y el orden del cierre— y las dos pruebas hubo que reescribirlas: la primera
+sembraba un stream que aún no había vencido, y la segunda medía una sola escritura, que alcanzaba a
+ejecutarse antes del cierre por cómo reparte el bucle de eventos.
 
 **Depende de:** T20.
 
 **Archivos:** `packages/catalog-store/src/repositories/settings.ts`, `packages/catalog-store/src/{prune,index}.ts`, `packages/catalog-store/src/prune.test.ts`, `packages/cli/src/db-migrate.ts`.
+**Ampliación declarada:** `packages/catalog-store/src/store.ts` (la fachada `CatalogStore`; en
+`index.ts` vive el barril, y el spec decía que la fachada estaba ahí),
+`packages/catalog-store/src/store.test.ts`, `packages/cli/src/db-prune.ts` y su prueba, y el script
+`db:prune` del `package.json`.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **`getSetting` pide un schema.** El contrato lo escribía como `getSetting<T>(key, fallback): T`,
+   y eso no se puede cumplir sin una conversión de tipo: el JSON de la fila es `unknown`. Con el
+   schema, un ajuste con otra forma devuelve el valor por defecto en lugar de colarse disfrazado.
+2. **`pruneOrphans` informa de todas las tablas, con cero las que no tocó.** `undefined` y `0` se
+   confunden con facilidad al pintar el resultado, y «no borré nada de aquí» es un dato.
+3. **Un favorito no se limpia nunca**, aunque el spec no lo diga. Borrarlo sería hacer desaparecer
+   de la lista algo que el usuario marcó a mano, y el plazo de 90 días habla de lo visto y lo
+   buscado, no de lo guardado.
+4. **La fachada crea sus repositorios la primera vez que hacen falta.** Los repositorios preparan
+   sus sentencias al construirse, así que crearlos en el constructor exigiría que el esquema ya
+   existiera antes de llamar a `runMigrations`, y la fachada no podría migrar una base recién
+   creada. Lo encontró la primera prueba de la fachada, con un «no such table: anime».
 
 **Tamaño:** M.
 

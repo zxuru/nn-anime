@@ -55,7 +55,8 @@ export interface CatalogStore {
   invalidateStream(episodeRef: ProviderRef, mode: Mode): Promise<void>
 
   // Señales del usuario
-  recordWatch(event: WatchEventInput): Promise<void>
+  /** Devuelve el identificador de la fila: el reproductor lo necesita para actualizar la posición. */
+  recordWatch(event: WatchEventInput): Promise<number>
   updateWatchPosition(eventId: number, positionS: number, durationS: number): Promise<void>
   listRecentlyWatched(limit: number): Promise<readonly WatchRecord[]>
   setFavorite(ref: ProviderRef, value: boolean): Promise<void>
@@ -64,7 +65,14 @@ export interface CatalogStore {
   listRecentSearches(limit: number): Promise<readonly SearchRecord[]>
 
   // Ajustes y mantenimiento
-  getSetting<T>(key: string, fallback: T): Promise<T>
+  /**
+   * Pide un schema además del valor por defecto.
+   *
+   * El JSON de la fila es `unknown`; devolverlo como `T` exigiría una conversión
+   * de tipo o mentir al compilador. Con el schema, un ajuste con otra forma
+   * devuelve el valor por defecto en lugar de colarse disfrazado.
+   */
+  getSetting<T>(key: string, schema: z.ZodType<T>, fallback: T): Promise<T>
   setSetting(key: string, value: unknown): Promise<void>
   runMigrations(): Promise<MigrationReport>
   pruneOrphans(now: Date): Promise<PruneReport>
@@ -105,7 +113,8 @@ Esquema, migraciones y TTL: ver Data Model en `SPEC-nn-anime.md`. Las migracione
 
 ```
 packages/catalog-store/
-├─ src/index.ts               fachada CatalogStore
+├─ src/index.ts               barril: la superficie pública del paquete
+├─ src/store.ts               fachada CatalogStore: el único punto de escritura
 ├─ src/db.ts                  apertura, WAL, foreign_keys, busy_timeout
 ├─ src/migrations/
 │  ├─ 0001-initial.sql

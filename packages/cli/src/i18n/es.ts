@@ -49,4 +49,8 @@ Banderas:
   'cli.migrate.applied': 'Migraciones aplicadas: {versions}. Versión del esquema: {version}.',
   'cli.migrate.none': 'No hay migraciones pendientes. Versión del esquema: {version}.',
   'cli.migrate.failed': 'No se pudo preparar la base de datos: {message}',
+
+  'cli.prune.total': 'Limpieza terminada: {total} filas.',
+  'cli.prune.table': '  {table}: {rows}',
+  'cli.prune.failed': 'No se pudo limpiar la base de datos: {message}',
 }

@@ -317,7 +317,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] T18 Repositorio de streams con TTL corto e invalidación
 - [x] T19 Cola de revalidación con deduplicación y concurrencia 2
 - [x] T20 Historial, progreso, favoritos y búsquedas recientes
-- [ ] T21 Ajustes, `pruneOrphans` y script `db:migrate`
+- [x] T21 Ajustes, `pruneOrphans` y script `db:migrate`
 - [ ] T22 Cableado en el server y cabecera `X-Cache`
 
 ### Checkpoint D — Persistencia
