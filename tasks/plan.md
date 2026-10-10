@@ -2,8 +2,9 @@
 
 Estado: **para revisión humana** · 2026-10-10 · Specs aprobados en `6937fbe`, endurecidos tras
 revisión de seguridad.
-Tasks tracked in `tasks/todo.md` (53 tareas: T1–T47 más las insertadas T6a, T6b, T26a, T26b,
-T29a y T31a).
+Tasks tracked in `tasks/todo.md` (54 tareas: T1–T47 más las insertadas T6a, T6b, T26a, T26b, T29a,
+T31a y T8a). El índice completo de dependencias, generado desde los bloques de tarea, está al final
+de `tasks/todo.md`.
 
 ## Overview
 
@@ -202,7 +203,7 @@ delante.
 - [x] `bun run start` imprime la URL y sirve la home construida
 - [x] Petición sin cookie de sesión: 401. Con `Host` ajeno y cookie válida: 403
 - [x] El token de arranque sirve una sola vez y la URL queda limpia
-- [x] Toda respuesta trae CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options`
+- [x] Cada respuesta trae CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options`
 - [x] Verificado también en desarrollo (`bun run dev`): Vite sirve la SPA y su proxy
       reenvía el canje, con los mismos guards sin relajar
 - [ ] Revisión humana antes de seguir
@@ -283,7 +284,7 @@ delante.
 - [ ] T47 Auditoría de trazabilidad spec↔plan, y después el barrido de criterios de éxito
 
 ### Checkpoint H — Cierre v1
-- [ ] Todos los criterios de éxito del spec de proyecto verificados y marcados
+- [ ] Verificados y marcados todos los criterios de éxito del spec de proyecto
 - [ ] `bun install && bun run build && bun test && bun run e2e` limpio en checkout nuevo
 - [ ] Revisión humana y decisión sobre v1.5 (`downloads`)
 

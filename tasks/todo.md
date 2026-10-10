@@ -4,9 +4,10 @@ Plan: `tasks/plan.md` · Specs: `CAPABILITY-MAP.md`, `SPEC-nn-anime.md`, `SPEC-<
 Regla: todo task cierra el Definition of Done de `tasks/plan.md`. Tope de 5 archivos de
 implementación por task; el andamiaje de T1 y T16 lo declara explícitamente.
 
-53 tareas: T1–T47 más las seis insertadas tras la revisión de seguridad (T6a, T6b, T26a, T26b,
-T29a, T31a). Los ids con sufijo no se renumeran: el orden de ejecución lo da la tabla de
-dependencias del final.
+54 tareas: T1–T47 más las seis insertadas tras la revisión de seguridad (T6a, T6b, T26a, T26b,
+T29a, T31a) y T8a, añadida al cerrar el Checkpoint B porque el spec exigía servir la interfaz
+construida y ninguna tarea lo cubría. Los ids con sufijo no se renumeran: el orden de ejecución lo
+da la tabla de dependencias del final.
 
 Fuera de este plan: `downloads` (v1.5) y `metadata-enrichment` (sin aprobar).
 
@@ -1700,42 +1701,85 @@ implementado y, si no, qué tarea lo cubre por su aceptación.
 Raíz común: `T1 → T2 → T3 → T4`.
 
 ```
-T4 ├─ T6 → T7 → T8
+T4 ├─ T6 → T7 → T8 → T8a          y T6a, T6b cuelgan de T6
    ├─ T9 → T10 ─┐
    │      T11 ──┴─ T12 → T13 → T14 → T15
    ├─ T16 → T17 → T18, T19, T20 → T21 → T22 → T23 → T24
-   ├─ T25 → T26 → T27 → T28
-   │          ├─ T29
+   ├─ T25 → T26 → T27 → T28        y T26a, T26b cuelgan de T26
+   │          ├─ T29 → T29a
    │          └─ T30
+   ├─ T31 → T31a
    └─ T33 → T34 → T35 → T36 → T37
 ```
 
-Dependencias sueltas, en orden de ejecución:
+Dependencias de cada tarea, generadas desde los `Depende de:` de sus bloques. Éste es el
+índice completo; el árbol de arriba es un resumen para leer de un vistazo, no la fuente de verdad.
 
 | Task | Depende de |
 |---|---|
+| T1 | — |
+| T2 | T1 |
+| T3 | T2 |
+| T4 | T2 |
 | T5 | T3 |
+| T6 | T4 |
 | T6a | T6 |
 | T6b | T6 |
 | T7 | T5, T6 |
 | T8 | T7 |
+| T8a | T8 |
+| T9 | T4 |
+| T10 | T9 |
+| T11 | T9 |
+| T12 | T10, T11 |
+| T13 | T12 |
+| T14 | T8, T13 |
+| T15 | T14 |
+| T16 | T4 |
+| T17 | T16 |
+| T18 | T17 |
+| T19 | T17 |
+| T20 | T17 |
+| T21 | T20 |
+| T22 | T13, T21 |
+| T23 | T22 |
+| T24 | T23 |
+| T25 | T4 |
+| T26 | T11, T25 |
 | T26a | T26 |
 | T26b | T26 |
+| T27 | T26 |
+| T28 | T27 |
+| T29 | T26 |
 | T29a | T29 |
-| T31 | T26, T24 |
+| T30 | T11, T25 |
+| T31 | T24, T26 |
 | T31a | T24 |
-| T32 | T31, T20 |
-| T38 | T37, T22 |
-| T39 | T38, T14 |
-| T40 | T13, T7 |
-| T41 | T39, T32 |
+| T32 | T20, T31 |
+| T33 | T4 |
+| T34 | T33 |
+| T35 | T34 |
+| T36 | T35 |
+| T37 | T36 |
+| T38 | T22, T37 |
+| T39 | T14, T38 |
+| T40 | T7, T13 |
+| T41 | T32, T39 |
 | T42 | T41 |
 | T43 | T41 |
-| T44 | T43, T32, T39 |
-| T45 | T26a, T26b, T29a, T31a, T6a, T6b, T22 |
-| T46 | T44, T40 |
+| T44 | T32, T39, T43 |
+| T45 | T6a, T6b, T22, T26a, T26b, T29a, T31a |
+| T46 | T40, T44 |
 | T47 | T46 |
 
 Camino crítico más largo: T1 → T2 → T3 → T4 → T16 → T17 → T20 → T32 → T41 → T42 → T43 → T44 →
-T46 → T47 (14 tasks). Las seis insertadas no alargan el camino crítico: T6a y T6b cuelgan de T6,
-y T26a, T26b, T29a y T31a cuelgan de tasks que ya están en el camino o fuera de él.
+T46 → T47 (14 tareas).
+
+Las siete tareas insertadas después de escribir el plan no alargan ese camino. T6a y T6b cuelgan
+de T6; T26a, T26b, T29a y T31a cuelgan de tareas que ya estaban en el camino o fuera de él; y T8a
+cuelga de T8 y sólo entra en el camino a través de T43, que es quien verifica el modo producción
+de punta a punta.
+
+**T8a no estaba en la tabla.** Se añadió al auditarla: la tabla original era parcial —sólo listaba
+las dependencias que cruzaban de fase— y no lo decía, así que un lector podía creer que eran
+todas. Ahora está generada desde los bloques y es completa.
