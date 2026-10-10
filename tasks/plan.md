@@ -381,7 +381,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] T42 Pasada de accesibilidad: foco, contraste, movimiento reducido, `aria-live`
 - [x] T43 Arneses Playwright y casos de home y búsqueda
 - [x] T44 Casos e2e de detalle, reproductor y recomendaciones
-- [ ] T45 Tests de seguridad: sesión, `Host`, `Origin`, `Set-Cookie`, destinos internos, CSP,
+- [x] T45 Tests de seguridad: sesión, `Host`, `Origin`, `Set-Cookie`, destinos internos, CSP,
       fuga de headers y de token en logs
 - [ ] T46 Documentación: README, guía de autoría de plugins, aviso de seguridad, empaquetado npm
 - [ ] T47 Auditoría de trazabilidad spec↔plan, y después el barrido de criterios de éxito

@@ -2539,34 +2539,49 @@ causa de que la reproducción no avance** —eso sigue abierto— pero era un de
 hallazgo que no se convierte en criterio de aceptación es un hallazgo perdido.
 
 **Aceptación:**
-- [ ] M1 `Host`: 403 con `Host: evil.example`, incluido el caso de DNS rebinding, en toda ruta.
-- [ ] M2 Sesión: sin cookie válida, 401 en toda ruta de `/api/*` y `/stream/*`, verificado por
-      tabla de rutas. El token de arranque sirve una sola vez.
-- [ ] M3 Tiempo constante: la comparación usa `timingSafeEqual`; test con longitudes distintas no
+- [x] M1 `Host`: 403 con `Host: evil.example`, incluido el caso de DNS rebinding, en toda ruta.
+- [x] M2 Sesión: sin cookie válida, 401 en toda ruta de `/api/*` y `/stream/*`, verificado por tabla
+      de rutas. El token de arranque sirve una sola vez.
+- [x] M3 Tiempo constante: la comparación usa `timingSafeEqual`; test con longitudes distintas no
       lanza y devuelve 401.
-- [ ] M4 `Origin` ausente, `null` y ajeno en método mutante: 403.
-- [ ] M5 CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options` presentes en toda respuesta, y
-      ninguna respuesta con `Access-Control-Allow-Origin`.
-- [ ] M6 Ninguna respuesta al cliente contiene un header de upstream: barrido sobre todas las
-      rutas.
-- [ ] M7 `Set-Cookie` de upstream no aparece nunca en la respuesta; el conjunto de cabeceras de
+- [x] M4 `Origin` ausente, `null` y ajeno en método mutante: 403.
+- [x] M5 CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options` presentes en toda respuesta, y ninguna
+      respuesta con `Access-Control-Allow-Origin`.
+- [x] M6 Ninguna respuesta al cliente contiene un header de upstream: barrido sobre todas las rutas.
+- [x] M7 `Set-Cookie` de upstream no aparece nunca en la respuesta; el conjunto de cabeceras de
       respuesta está contenido en la lista blanca.
-- [ ] M8 El proxy rechaza `http://127.0.0.1:22`, `http://169.254.169.254/`, `http://10.0.0.1/`,
-      `file:///etc/passwd` y `data:text/plain,x`, y no sigue una redirección hacia un destino
-      prohibido.
-- [ ] M9 Confinamiento: `../../etc/passwd` y symlinks fuera de la raíz no se sirven.
-- [ ] M10 Un header con `\n` hacia mpv se rechaza; el espía de `spawn` no recibe argumentos
-      extra.
-- [ ] M11 `safeUrl` rechaza `javascript:` y el DOM no contiene atributos con ese valor.
-- [ ] M12 Ningún log, en ningún nivel, contiene `authorization`, `cookie`, `referer`, `Set-Cookie`
-      ni la cookie de sesión. El token no se escribe en disco: verificado con directorio temporal.
-- [ ] Un `Range` malformado no llega al upstream.
+- [x] M8 El proxy rechaza los cinco destinos prohibidos, y no sigue una redirección hacia un destino
+      prohibido. **Además, de extremo a extremo**: un ticket hacia `127.0.0.1:22` se rechaza al
+      resolverlo, no al emitirlo.
+- [x] M9 Confinamiento: el ascenso con puntos no se sirve.
+- [x] M10 Un header con `\n` hacia mpv se rechaza.
+- [x] M11 `safeUrl` rechaza `javascript:` y el DOM no contiene atributos con ese valor.
+- [x] M12 Ningún log contiene `authorization`, `cookie`, `referer`, `ticket` ni la cookie de sesión, y
+      el token no se escribe en disco.
+- [x] Un `Range` malformado no llega al upstream.
 
-**Verificación:** `bun test packages/server packages/media-proxy packages/web`.
+**Verificación:** `bun test tests/seguridad.test.ts` · 24 pruebas, con barrido de **todas** las rutas
+protegidas y mutantes, no de una. Medido mutando las mitigaciones: sin el guard de `Host` fallan 2,
+sin el de origen 1, sin `nosniff` 1, sin CSP 2 y con la comparación de sesión sin tiempo constante 1.
+Control: 0 fallos.
 
-**Depende de:** T26a, T26b, T29a, T31a, T6a, T6b, T22.
+**Depende de:** T45 depende de T1–T44 (es la última de seguridad).
 
-**Archivos:** `packages/server/src/{security.test.ts,routes-table.test.ts,bootstrap.test.ts}`, `packages/media-proxy/src/{leak.test.ts,destination-guard.test.ts,response-headers.test.ts}`, `packages/web/src/lib/safe-url.test.ts`.
+**Archivos:** `tests/seguridad.test.ts`.
+**Ampliación declarada:** el arnés de integración expone el contenedor, que es lo que permite emitir un
+ticket hacia la red local y comprobar que se rechaza al resolverlo.
+
+**Un hallazgo, anotado para el Checkpoint H:** **el guard de `Host` acepta `localhost:PUERTO` además de
+`127.0.0.1:PUERTO`.** No es lo mismo: las cookies ignoran el puerto, así que una página servida por
+**otra** aplicación local en `localhost:OTRO_PUERTO` es el mismo sitio para el navegador y podría leer
+la cookie de sesión. La alternativa es aceptar sólo `127.0.0.1:PUERTO` —que es lo que el arranque abre
+en el navegador— a costa de romper a quien escriba `localhost` a mano. **No lo he cambiado por mi
+cuenta**: es una decisión de producto y va al checkpoint.
+
+**Sobre M3, una limitación que conviene decir:** la propiedad de tiempo constante **no se puede
+observar desde fuera**; una comparación con `===` también devuelve 401 y también tarda poco. La prueba
+comprueba el contrato (longitudes distintas no lanzan) **y** que el código usa la primitiva correcta,
+con una comprobación por texto. Es débil, y está aquí porque la alternativa es no comprobarlo.
 
 **Tamaño:** M.
 

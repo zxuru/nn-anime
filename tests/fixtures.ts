@@ -19,7 +19,7 @@ import { join } from 'node:path'
 import { openDb, runMigrations, type StoreConnection } from '@nn-anime/catalog-store'
 import type { FixtureOptions } from '@nn-anime/providers-fixture'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
-import { createApp, createContainer } from '@nn-anime/server'
+import { createApp, createContainer, type ServerContainer } from '@nn-anime/server'
 
 export const PORT = 7717
 export const SESSION_COOKIE = 'nn_session'
@@ -47,6 +47,8 @@ export function reloj(inicio: number = 1_000_000_000_000): Reloj {
 
 export interface Ciclo {
   readonly db: StoreConnection
+  /** El contenedor montado: las pruebas de seguridad emiten tickets con él. */
+  readonly container: ServerContainer
   readonly reloj: Reloj
   readonly proveedor: ReturnType<typeof createFixtureProvider>
   readonly upstream: { llamadas: number }
@@ -113,6 +115,7 @@ export async function conCiclo<T>(
 
     return await body({
       db,
+      container,
       reloj: relojDePrueba,
       proveedor,
       upstream,
