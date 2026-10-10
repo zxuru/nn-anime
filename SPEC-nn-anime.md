@@ -293,54 +293,37 @@ Ninguna de las mitigaciones de arriba cubre estos casos, y no se van a cubrir:
 
 ## Success Criteria
 
-- [ ] `bun install && bun run build && bun test` pasa en un checkout limpio sin red, salvo la
-      instalación de dependencias.
-- [ ] `bun run start` arranca, imprime una URL con token y abre el navegador.
-- [ ] Una petición sin cookie de sesión válida o con `Host` ajeno recibe 401 o 403 y no filtra
-      datos. Ninguna ruta de `/api/*` ni `/stream/*` escapa a los guards.
-- [ ] El token de arranque sirve una sola vez: un segundo uso devuelve 401.
+Estado a `cc53d31`: **seis verificados, siete pendientes por diseño.** Cada pendiente nombra la
+tarea que lo cierra. T47 hace el barrido final y comprueba que ninguno se quedó por el camino.
+
+- [x] `bun install && bun run build && bun test` pasa en un checkout limpio sin red, salvo la
+      instalación de dependencias. **Verificado** con `git clone` a un directorio temporal:
+      install 0, build 0, 395 tests pasan, typecheck 0, lint 0 sin infos.
+- [x] `bun run start` arranca, imprime una URL con token y abre el navegador. **Verificado**: en la
+      comprobación de T8 el navegador abrió Firefox de verdad y consumió el token, que es la prueba
+      de que el flujo funciona con un navegador y no sólo con `curl`.
+- [x] Una petición sin cookie de sesión válida o con `Host` ajeno recibe 401 o 403 y no filtra
+      datos. Ninguna ruta de `/api/*` ni `/stream/*` escapa a los guards. **Verificado** con el test
+      de tabla de rutas y con `curl` contra el servidor en los dos modos.
+- [x] El token de arranque sirve una sola vez: un segundo uso devuelve 401. **Verificado** en vivo,
+      y además caduca a los cinco minutos.
 - [ ] Ninguna respuesta contiene `Set-Cookie` de origen upstream ni cabeceras de upstream.
-- [ ] La SPA se sirve con CSP, `nosniff`, `Referrer-Policy: no-referrer` y `X-Frame-Options`.
-- [ ] El proxy rechaza `http://127.0.0.1:22`, `http://169.254.169.254/` y `file:///etc/passwd`,
-      y revalida la lista blanca en cada salto de redirección.
+      → **T26b**, cuando exista el proxy.
+- [x] La SPA se sirve con CSP, `nosniff`, `Referrer-Policy: no-referrer` y `X-Frame-Options`.
+      **Verificado** en toda respuesta, incluidas las que cortan los guards y las que no existen.
+- [ ] El proxy rechaza `http://127.0.0.1:22`, `http://169.254.169.254/` y `file:///etc/passwd`, y
+      revalida la lista blanca en cada salto de redirección. → **T26a**.
 - [ ] `SECURITY.md` existe, describe el modelo de amenaza y el riesgo residual, y `/settings` lo
-      enlaza.
-- [ ] Segunda ejecución: home y detalle se sirven desde la base sin llamadas de red, medido con
-      el contador de peticiones a proveedores.
-- [ ] El historial de visionado sobrevive a reiniciar el proceso.
-- [ ] Cada recomendación incluye al menos una razón legible.
-- [ ] `bun run db:migrate` es idempotente: correrlo dos veces no cambia el esquema.
-- [ ] Los seis specs de módulo están aprobados.
-
-## Decisiones cerradas
-
-Cerradas por el humano el 2026-10-10. No se reabren sin aprobación explícita.
-
-1. **Progreso de reproducción.** `catalog-store` registra siempre la posición, porque es señal
-   de entrada para `recsys`. La reanudación automática y el autoplay del episodio siguiente
-   quedan para v2. La home puede mostrar la fila "continuar viendo" sin reanudar sola.
-2. **Internacionalización.** Interfaz en español en v1, con i18n real desde el primer commit.
-   Ninguna cadena visible se incrusta en el código. El contrato vive en
-   `packages/core/src/i18n.ts`: tipo `Locale`, tipo `Messages`, `t(locale, key, params)`,
-   resolución de locale por `NN_ANIME_LANG` y fallback a `es`. Los paquetes con texto de cara al
-   usuario (`web`, `cli`) exponen su propio `i18n/<locale>.ts`. Añadir un idioma debe ser copiar
-   el archivo y traducirlo, sin tocar componentes.
-3. **Distribución.** v1 se construye y se usa en local con `bun run build` y `bun run start`.
-   La publicación en npm queda preparada y no ejecutada: desde el inicio, `package.json` del CLI
-   declara `bin`, `files` y `publishConfig`, y el build genera un artefacto instalable.
-   Publicar es un evento "Ask first". Objetivo de v1.5: `npm publish` y uso vía `bunx nn-anime`.
-
-## Diferido a v1.5
-
-- **Descarga offline.** Guardar episodios en disco con `ffmpeg`. No es un ajuste del
-  `media-proxy` actual: implica persistencia de bytes de video, gestión de espacio, cola de
-  trabajos y borrado. Es una capacidad nueva y necesita su propio spec y su propio gate.
-
-## Enmiendas pendientes al mapa
-
-`downloads` (v1.5) y `metadata-enrichment` (opcional) están propuestos y **no aprobados** en
-`CAPABILITY-MAP.md`. Ninguno se especifica ni se implementa hasta que el humano apruebe la
-enmienda.
+      enlaza. → **T46** el documento, **T40** el enlace.
+- [ ] Segunda ejecución: home y detalle se sirven desde la base sin llamadas de red, medido con el
+      contador de peticiones a proveedores. → **T22**. Necesita `catalog-store`.
+- [ ] El historial de visionado sobrevive a reiniciar el proceso. → **T20**.
+- [ ] Cada recomendación incluye al menos una razón legible. → **T36** el motor, **T39** el panel.
+- [ ] `bun run db:migrate` es idempotente: correrlo dos veces no cambia el esquema. → **T16** el
+      runner, **T21** el comando. Hoy el comando existe, resuelve y **se niega a salir con 0**
+      diciendo que todavía no hay base de datos que migrar: un comando de base de datos que dice
+      «todo bien» sin haber hecho nada es peor que uno que falla.
+- [x] Los seis specs de módulo están aprobados. **Verificado**: aprobados por el humano.
 
 ## Open Questions
 

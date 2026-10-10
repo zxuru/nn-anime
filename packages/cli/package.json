@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "nn-anime": "./bin/nn-anime"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
