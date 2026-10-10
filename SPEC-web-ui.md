@@ -36,6 +36,7 @@ GET  /api/history?limit=             vistos recientemente
 POST /api/watch                      registrar inicio de reproducción
 PATCH /api/watch/:id                 actualizar posición
 GET  /api/favorites   POST /api/favorites
+GET  /api/settings    PATCH /api/settings
 ```
 
 Rutas de la SPA, todas del lado del cliente salvo la primera:

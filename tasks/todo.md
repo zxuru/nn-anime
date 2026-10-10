@@ -1027,6 +1027,10 @@ store.
 **Descripción:** Reenvío en streaming con soporte de rangos y aborto.
 
 **Aceptación:**
+- [ ] `POST /api/stream/resolve` con `{ episodeRef, mode }` devuelve la lista de `StreamSource`
+      **pasada por `toPublicStreamSource`**, para que el cliente web reciba los tickets y nunca las
+      cabeceras. **Añadido al auditar:** la superficie HTTP de `SPEC-web-ui.md` declara esta ruta y
+      ninguna tarea la reclamaba; sin ella la interfaz no tiene forma de resolver un stream.
 - [ ] `GET /stream/:ticket` reenvía `Range` y devuelve 206 con `Content-Range` cuando el upstream
       lo da; si no, degrada a 200.
 - [ ] Fuerza `Accept-Encoding: identity`.
