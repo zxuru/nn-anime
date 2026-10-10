@@ -212,6 +212,12 @@ Tres niveles, con `bun test` por defecto.
 Cobertura objetivo: 80 % en `core`, `catalog-store`, `recsys` y `provider-sdk`. Sin umbral
 numérico para `web` y `media-proxy`: se exige el caso feliz y un caso de fallo por ruta.
 
+**La cifra canónica es la de `bun run coverage:gate`**, que pondera por líneas (`LF`/`LH`) por
+paquete e informa del alcance —cuántos archivos mide y cuáles no—. La tabla de `bun test
+--coverage` agrega de otra forma y da un número distinto para lo mismo; sirve para mirar, no para
+afirmar. Dos cifras sin dueño para «la cobertura de `core`» es la deriva que este proyecto ya ha
+pagado varias veces.
+
 Ningún test puede tocar la red. Si un test necesita red, se sustituye por un fixture. Los
 tests no leen ni escriben en `$XDG_*` real: se inyecta un directorio temporal.
 

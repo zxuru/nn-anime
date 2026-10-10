@@ -79,6 +79,28 @@ Comportamiento del proxy HLS:
 - Caché en memoria de playlists por 10 s como máximo, porque cambian entre recargas.
 - No reescribe ni inspecciona el contenido de los segmentos `.ts` o `.m4s`.
 
+Comportamiento de la ruta de portadas (`GET /api/cover/:providerId/:ref`):
+
+- La `:ref` es la referencia del proveedor y **puede contener barras**. El cliente la manda
+  codificada con `encodeURIComponent`. Medido con Hono: `/:ref` captura el valor entero si las
+  barras van escapadas (`a%2Fb` → `a/b`) y da 404 si no (`a/b`). Es parte del contrato, no un
+  detalle del cliente.
+- Una `:ref` con forma de ascenso (`..%2F..%2Fetc%2Fpasswd`) llega entera como parámetro. Hoy es
+  sólo una clave de consulta en la base y ahí no hay recorrido posible, pero **el nombre de archivo
+  de la caché en disco no se deriva nunca de la referencia**, sino de un hash. La comprobación de
+  confinamiento, si se cachea en disco, es la de `packages/server/src/static-assets.ts`.
+- El `Content-Type` servido sale de una **lista blanca de tipos ráster** (`image/png`, `image/jpeg`,
+  `image/webp`, `image/gif`, `image/avif`) y lo decide el proxy, nunca el upstream — igual que T26b.
+  Un tipo fuera de la lista, `image/svg+xml` incluido, se rechaza con 415: un SVG es un documento
+  capaz de ejecutar guiones y se serviría desde nuestro propio origen. La CSP lo detendría
+  (`default-src 'self'` sin `'unsafe-inline'`), pero esa defensa es indirecta y no debe ser la única.
+- Tope de 5 MB por portada: por encima, 413 y no se cachea.
+- Si la referencia no está en la caché de metadatos, 404: la ruta **no** le pregunta al proveedor por
+  una portada que no conoce, así que la única petición saliente posible es la de los bytes de una
+  portada ya cacheada, y esa pasa por la lista blanca de destinos como cualquier otra.
+- Caché HTTP normal con la TTL de miniatura de la tabla del spec (604800 s): `Cache-Control` con
+  `max-age` y `ETag` por referencia, para que el navegador no repita la petición.
+
 Handoff a mpv:
 
 ```
@@ -127,6 +149,11 @@ packages/media-proxy/
 - [ ] Sólo aparecen cabeceras de respuesta de la lista blanca: un test compara el conjunto
       completo de cabeceras devueltas contra la lista permitida.
 - [ ] El `Content-Type` de una playlist es el que decidió el proxy, aunque el upstream mienta.
+- [ ] `GET /api/cover/:providerId/:ref` con una referencia que lleva barras devuelve la imagen si el
+      cliente la escapa, y 404 si no la escapa.
+- [ ] Una portada que el upstream sirve como `image/svg+xml` se rechaza con 415; una mayor de 5 MB,
+      con 413 y sin cachear.
+- [ ] Una referencia cacheada no vuelve a llamar al proveedor; una desconocida devuelve 404.
 - [ ] El proxy rechaza `http://127.0.0.1:22`, `http://169.254.169.254/`, `http://10.0.0.1/`,
       `file:///etc/passwd` y `data:text/plain,x`, con error explícito.
 - [ ] Una redirección de un destino permitido hacia `http://127.0.0.1:22` se rechaza en el salto,

@@ -258,6 +258,28 @@ reescribirlos en dos tareas sería ruido. `WatchEventInput` no exige `positionS 
 falta decidir si `durationS: 0` significa «desconocida», y esa decisión es de T32, con el proxy
 delante.
 
+### Revisión adversarial de la fase 1
+
+Un revisor con contexto nuevo clonó el repo y **revirtió cada arreglo para medir si alguna prueba
+fallaba**, en vez de leer el diff. Cuatro hallazgos eran reales y están corregidos; cada uno se
+verificó aquí revirtiéndolo en una copia y midiendo el resultado.
+
+| Hallazgo | Medición al revertirlo |
+|---|---|
+| `--provider " "` y `" x "` llegaban al filtro de la interfaz | 3 pruebas fallan |
+| `httpUrlSchema` bendecía una cadena que `new URL` convierte en otra | 3 pruebas fallan |
+| La deduplicación compartía la señal entre llamadores | 2 pruebas fallan |
+| La entrada de deduplicación sobrevivía al final de la lectura | 0 pruebas fallan; es dependencia de orden, no un fallo reproducible a voluntad |
+
+Los tres primeros son defectos: el cuarto se arregló igualmente porque la contaminación **se
+observó** (dos pruebas de ese archivo fallaron por ella en una ejecución) y un `finally` suelto deja
+una carrera abierta. Se dice tal cual: no hay prueba que lo discrimine por sí solo.
+
+Además, cuatro cosas que el spec no fijaba de la ruta de portadas —el escapado de la referencia, de
+dónde sale el nombre de archivo de la caché, el tipo de contenido y el tope de tamaño, y qué pasa si
+la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el ciclo (rutas HTTP contra
+`createApp`, no llamadas entre módulos) y que faltaba T23 en sus dependencias.
+
 - [x] `bun run start` imprime la URL y sirve la home construida
 - [x] Petición sin cookie de sesión: 401. Con `Host` ajeno y cookie válida: 403
 - [x] El token de arranque sirve una sola vez y la URL queda limpia

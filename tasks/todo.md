@@ -1072,7 +1072,12 @@ store.
       portadas**, así que la interfaz no podía mostrar una sin incumplir su propio contrato. El
       cliente nunca manda una URL, sólo la referencia que el servidor ya conoce: así no hay
       superficie de SSRF desde el navegador y la lista blanca de destinos sigue siendo la única
-      puerta. Se sirve con caché larga, el TTL de miniatura de la tabla del spec.
+      puerta. Se sirve con caché larga, el TTL de miniatura de la tabla del spec. La referencia se
+      captura escapada (`encodeURIComponent` en el cliente, medido con Hono: sin escapar, la ruta da
+      404) y el nombre de archivo de la caché, si la hay, sale de un hash y nunca de la referencia.
+      El `Content-Type` sale de una lista blanca de tipos ráster —`image/svg+xml` se rechaza con
+      415— y el tope es de 5 MB, con 413 por encima. Una referencia desconocida devuelve 404 sin
+      pedirla al proveedor.
 - [ ] `GET /stream/:ticket` reenvía `Range` y devuelve 206 con `Content-Range` cuando el upstream
       lo da; si no, degrada a 200.
 - [ ] Fuerza `Accept-Encoding: identity`.
@@ -1156,17 +1161,27 @@ completo no lo probaba nadie, que es justo donde aparecen los fallos de integrac
 **Aceptación:**
 - [ ] Existe el directorio `tests/` y `bun test` lo recoge.
 - [ ] Base SQLite en directorio temporal y proveedor fixture inyectado: **sin red externa**.
-- [ ] Un test recorre el ciclo entero: buscar → detalle → episodios → resolver stream → comprobar
-      que quedó cacheado.
+- [ ] El ciclo se ejerce **por las rutas HTTP** contra `createApp`, no llamando a los módulos de cada
+      paquete: los guards, la validación de entrada y el orden de los middlewares son parte de lo que
+      se prueba, y ahí es donde han vivido los tres fallos de integración de este proyecto.
+- [ ] Un test recorre el ciclo entero por HTTP: buscar → detalle → episodios → resolver stream →
+      comprobar que quedó cacheado. Que quedó cacheado se observa **en la tabla** (`stream_cache` o la
+      que corresponda), no por el contador de peticiones.
 - [ ] Un test comprueba que la segunda vuelta del ciclo **no llama al proveedor**: el contador de
-      peticiones del fixture se queda igual.
+      peticiones del fixture se queda igual. Es el criterio que mide el contador; el anterior mide la
+      tabla.
 - [ ] Un test comprueba que un proveedor que falla no rompe el ciclo: se sirve lo cacheado.
+- [ ] Con reloj inyectado, un test comprueba la caducidad: pasada la TTL, la siguiente vuelta vuelve a
+      llamar al proveedor, y dentro de la TTL no.
+- [ ] Con reloj inyectado, un test comprueba `stale-while-revalidate`: con el valor caducado y dentro
+      de la ventana, la respuesta sale del valor viejo **y** el proveedor se llama una vez para
+      refrescar.
 - [ ] Ningún test toca `$XDG_*` real.
 
 **Verificación:** `bun test tests` · `bun test` sigue verde.
 
-**Depende de:** T22, T26b. Necesita la búsqueda cacheada, el detalle, la resolución de stream y el
-proxy; por eso va después y no antes.
+**Depende de:** T22, T23, T26b. Necesita la búsqueda cacheada, el detalle y sus rutas, la resolución de
+stream y el proxy; por eso va después y no antes.
 
 **Archivos:** `tests/ciclo-completo.test.ts`, `tests/fixtures.ts`.
 
@@ -1825,7 +1840,7 @@ Dependencias de cada tarea, generadas desde los `Depende de:` de sus bloques. É
 | T26 | T11, T25 |
 | T26a | T26 |
 | T26b | T26 |
-| T26c | T22, T26b |
+| T26c | T22, T23, T26b |
 | T27 | T26 |
 | T28 | T27 |
 | T29 | T26 |

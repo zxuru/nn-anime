@@ -157,7 +157,9 @@ packages/web/
 - Escribir, leer o borrar cookies desde JavaScript.
 - Incrustar un recurso remoto directamente: portadas, subtítulos y video pasan por el proxy. Las
   portadas van por `GET /api/cover/:providerId/:ref`: el cliente manda una referencia, nunca una
-  dirección, así que el navegador no puede convertirse en un proxy hacia donde quiera.
+  dirección, así que el navegador no puede convertirse en un proxy hacia donde quiera. La referencia
+  se codifica con `encodeURIComponent` antes de componer la ruta: puede contener barras, y sin
+  escapar la ruta daría 404.
 - Construir un `href` o un `src` con una URL de proveedor sin pasar por la lista blanca de
   esquemas.
 - Cargar un iframe o script de un dominio externo.
