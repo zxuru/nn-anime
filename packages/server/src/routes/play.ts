@@ -99,15 +99,23 @@ export function registerPlayRoutes(app: Hono, options: PlayRouteOptions): void {
     })
 
     if (!salida.ok) {
-      return c.json(
-        errorResponseSchema.parse({
-          error:
-            salida.reason === 'busy'
-              ? 'ya hay un mpv en marcha'
-              : 'no se encontró mpv en el PATH; se puede reproducir en el navegador',
-        }),
-        salida.reason === 'busy' ? 409 : 503,
-      )
+      // Tres motivos distintos y tres respuestas distintas: decir «error» a los
+      // tres obliga a mirar los registros para saber qué pasó.
+      const motivos = {
+        busy: { texto: 'ya hay un mpv en marcha', estado: 409 },
+        'invalid-header': {
+          texto: `el proveedor declaró una cabecera que no se puede usar: ${salida.header ?? ''}`,
+          estado: 400,
+        },
+        unavailable: {
+          texto: 'no se encontró mpv en el PATH; se puede reproducir en el navegador',
+          estado: 503,
+        },
+      } as const
+
+      const motivo = motivos[salida.reason]
+
+      return c.json(errorResponseSchema.parse({ error: motivo.texto }), motivo.estado)
     }
 
     return c.json(mpvPlayResponseSchema.parse({ pid: salida.pid }), 202)

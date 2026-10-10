@@ -45,61 +45,6 @@ async function recoger(flujo: AsyncIterable<MpvEvent>, cuantos: number): Promise
   return eventos
 }
 
-describe('argumentos de mpv', () => {
-  test('lleva `--no-config` y la URL al final, como un argumento', () => {
-    const args = mpvArgs({ url: 'http://127.0.0.1:7717/stream/abc' })
-
-    expect(args[0]).toBe('--no-config')
-    expect(args.at(-1)).toBe('http://127.0.0.1:7717/stream/abc')
-  })
-
-  test('las cabeceras van en un solo argumento, con el formato del spec', () => {
-    const args = mpvArgs({
-      url: 'http://127.0.0.1:7717/stream/abc',
-      headers: { Referer: 'https://sitio.example', 'User-Agent': 'nn-anime' },
-    })
-    const cabeceras = args.find((arg) => arg.startsWith(HEADER_FIELD_FLAG))
-
-    expect(cabeceras).toBe(
-      '--http-header-fields=Referer: https://sitio.example,User-Agent: nn-anime',
-    )
-  })
-
-  test('sin cabeceras no se añade el argumento', () => {
-    expect(mpvArgs({ url: 'x' }).some((arg) => arg.startsWith(HEADER_FIELD_FLAG))).toBe(false)
-    expect(
-      mpvArgs({ url: 'x', headers: {} }).some((arg) => arg.startsWith(HEADER_FIELD_FLAG)),
-    ).toBe(false)
-  })
-
-  test('`startAtS` sólo se pasa si es positivo', () => {
-    expect(mpvArgs({ url: 'x', startAtS: 42 })).toContain('--start=42')
-    expect(mpvArgs({ url: 'x', startAtS: 0 }).some((arg) => arg.startsWith('--start='))).toBe(false)
-    expect(mpvArgs({ url: 'x' }).some((arg) => arg.startsWith('--start='))).toBe(false)
-  })
-
-  test('una cabecera con espacios o punto y coma no parte la línea de comandos', () => {
-    const args = mpvArgs({
-      url: 'http://127.0.0.1/stream/abc',
-      headers: { Referer: 'https://sitio.example/a b; rm -rf /' },
-    })
-
-    // El valor entero vive dentro de un solo argumento: no hay shell que lo
-    // interprete, y el array lo hace imposible por construcción.
-    const cabeceras = args.find((arg) => arg.startsWith(HEADER_FIELD_FLAG))
-
-    expect(cabeceras).toContain('rm -rf /')
-    expect(args).toHaveLength(5)
-    expect(args.at(-1)).toBe('http://127.0.0.1/stream/abc')
-  })
-
-  test('los argumentos extra van antes de la URL', () => {
-    const args = mpvArgs({ url: 'x', extraArgs: ['--volume=50'] })
-
-    expect(args.indexOf('--volume=50')).toBeLessThan(args.indexOf('x'))
-  })
-})
-
 describe('recorte del stderr', () => {
   test('el tope es el del spec', () => {
     expect(MAX_STDERR_BYTES).toBe(2048)

@@ -346,7 +346,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] T27 Reescritura HLS: variantes y segmentos
 - [x] T28 Reescritura HLS: claves, discontinuidad y límites
 - [x] T29 Handoff a mpv: spawn, SSE de estado, fallback sin mpv, cierre
-- [ ] T29a Validación de headers hacia mpv y tope de un proceso concurrente
+- [x] T29a Validación de headers hacia mpv y tope de un proceso concurrente
 - [ ] T30 Subtítulos: proxy y conversión `srt` a `vtt` en memoria
 - [ ] T31 Reproductor web con hls.js: reproducción, seek, atajos, a11y
 - [ ] T31a Lista blanca de esquemas para datos de proveedor en la interfaz

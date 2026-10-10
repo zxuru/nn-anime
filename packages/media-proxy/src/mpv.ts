@@ -20,51 +20,24 @@
  */
 
 import { AppError } from '@nn-anime/core'
+import { invalidHeaderError, type MpvArgsOptions, mpvArgs } from './mpv-args'
+
+export {
+  HEADER_FIELD_FLAG,
+  HEADER_NAME_RE,
+  invalidHeaderError,
+  type MpvArgsOptions,
+  type MpvArgsOutcome,
+  mpvArgs,
+  validHeaderName,
+  validHeaderValue,
+} from './mpv-args'
 
 /** Tope del `stderr` que se devuelve en un fallo, del spec. */
 export const MAX_STDERR_BYTES = 2048
 
-/** Argumentos de cabecera: `--http-header-fields=A: 1,B: 2`. */
-export const HEADER_FIELD_FLAG = '--http-header-fields='
-
-export interface PlayOptions {
-  /** URL absoluta del proxy. mpv no sabe de rutas relativas. */
-  readonly url: string
-  /** Cabeceras que el upstream exige. */
-  readonly headers?: Readonly<Record<string, string>> | undefined
-  /** Segundo en el que empezar, si se reanuda una posición. */
-  readonly startAtS?: number | undefined
-  /** Argumentos extra, para pruebas o para el usuario. */
-  readonly extraArgs?: readonly string[] | undefined
-}
-
-/**
- * La línea de comandos de mpv.
- *
- * Es una función pura y se prueba como tal: los argumentos son lo que más fácil
- * se rompe y lo que más caro sale si se rompe.
- */
-export function mpvArgs(options: PlayOptions): readonly string[] {
-  const args: string[] = ['--no-config', '--force-window=yes', '--keep-open=no']
-
-  const cabeceras = Object.entries(options.headers ?? {})
-  if (cabeceras.length > 0) {
-    args.push(
-      `${HEADER_FIELD_FLAG}${cabeceras.map(([nombre, valor]) => `${nombre}: ${valor}`).join(',')}`,
-    )
-  }
-
-  if (options.startAtS !== undefined && options.startAtS > 0) {
-    args.push(`--start=${options.startAtS}`)
-  }
-
-  args.push(...(options.extraArgs ?? []))
-
-  // La URL va la última y como un argumento entero.
-  args.push(options.url)
-
-  return args
-}
+/** Los argumentos que mpv recibiría. Se reexporta para quien sólo mire la lista. */
+export type PlayOptions = MpvArgsOptions
 
 export type MpvEvent =
   | { readonly type: 'starting'; readonly pid: number }
@@ -99,7 +72,12 @@ export interface MpvPlayerOptions {
 
 export type PlayOutcome =
   | { readonly ok: true; readonly pid: number }
-  | { readonly ok: false; readonly reason: 'unavailable' | 'busy' }
+  | {
+      readonly ok: false
+      readonly reason: 'unavailable' | 'busy' | 'invalid-header'
+      /** El nombre de la cabecera que no se pudo usar, si es ese el motivo. */
+      readonly header?: string
+    }
 
 export interface MpvPlayer {
   readonly available: boolean
@@ -178,7 +156,13 @@ export function createMpvPlayer(options: MpvPlayerOptions): MpvPlayer {
       if (!this.available) return { ok: false, reason: 'unavailable' }
       if (vivos.size >= maxConcurrent) return { ok: false, reason: 'busy' }
 
-      const proceso = options.spawn(mpvArgs(entrada))
+      // La validación va **antes** de lanzar nada: un header inválido no abre
+      // una ventana que luego haya que matar.
+      const construidos = mpvArgs(entrada)
+      if (!construidos.ok)
+        return { ok: false, reason: 'invalid-header', header: construidos.header }
+
+      const proceso = options.spawn(construidos.args)
       vivos.set(proceso.pid, proceso)
       seguir(proceso)
 

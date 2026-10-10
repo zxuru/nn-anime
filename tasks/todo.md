@@ -1701,24 +1701,44 @@ mpv y la salud decía que no. Ahora hay una sola fuente de verdad.
 
 ### T29a — Validación de headers hacia mpv
 
-**Descripción:** Impedir que un valor de header inyecte argumentos o cabeceras en el proceso de
-mpv.
+**Descripción:** Impedir que un valor de header inyecte argumentos o cabeceras en el proceso de mpv.
 
 **Aceptación:**
-- [ ] Nombre de header validado con `^[A-Za-z0-9-]+$`; valor sin `\r`, `\n` ni caracteres de
+- [x] Nombre de header validado con `^[A-Za-z0-9-]+$`; valor sin `\r`, `\n` ni caracteres de
       control.
-- [ ] Un header inválido produce error con el nombre ofensor y no se lanza ningún proceso.
-- [ ] Los argumentos se pasan en array a `Bun.spawn`; ninguna ruta construye la línea de comandos
+- [x] Un header inválido produce error con el nombre ofensor y no se lanza ningún proceso.
+- [x] Los argumentos se pasan en array a `Bun.spawn`; ninguna ruta construye la línea de comandos
       por concatenación.
-- [ ] Tope de un mpv concurrente: un segundo `POST /api/play/mpv` devuelve 409.
-- [ ] Test con `spawn` sustituido por un espía: se verifica el array exacto de argumentos.
-- [ ] Test: un valor con `\n` no añade ningún argumento nuevo en el espía.
+- [x] Tope de un mpv concurrente: un segundo `POST /api/play/mpv` devuelve 409.
+- [x] Test con `spawn` sustituido por un espía: se verifica el array exacto de argumentos.
+- [x] Test: un valor con `\n` no añade ningún argumento nuevo en el espía.
 
-**Verificación:** `bun test packages/media-proxy`.
+**Verificación:** `bun test packages/media-proxy packages/server` · 13 pruebas del constructor de
+argumentos y 14 de las rutas. Medido mutando la implementación: sin validar el nombre falla 1, sin
+validar el valor 2, dejando pasar los saltos de línea 3 y con el error llevando el valor de la
+cabecera 1. Control: 0 fallos.
 
 **Depende de:** T29.
 
 **Archivos:** `packages/media-proxy/src/{mpv-args.ts,mpv-args.test.ts}`, `packages/media-proxy/src/mpv.ts`.
+**Ampliación declarada:** el barril de `media-proxy` y `packages/server/src/routes/play.ts`, que ahora
+distingue los tres motivos de rechazo (409 ocupado, 400 cabecera inválida, 503 sin mpv).
+
+**Tres decisiones que conviene recordar:**
+
+1. **La defensa es doble: el array y la validación.** El array impide que un espacio o un `;` cree un
+   argumento nuevo; la validación impide que un `\n` cree una cabecera nueva. Ninguna de las dos basta
+   sola: `--http-header-fields` separa por comas y las entiende mpv, así que un salto de línea ahí
+   dentro es una cabecera que este programa no pidió.
+2. **Un header inválido no se descarta en silencio: se rechaza la reproducción con su nombre.** Un
+   descarte silencioso esconde que un plugin manda basura, y el usuario vería un video que no arranca
+   sin saber por qué.
+3. **El error nombra la cabecera y nunca su valor.** El nombre es lo que hace falta para arreglarlo; el
+   valor puede llevar un token de referencia, y un error se registra.
+
+**La construcción de argumentos vive ahora en su propio módulo** (`mpv-args.ts`), separada de
+`mpv.ts`: es una función pura y es donde está la defensa, así que se prueba sola. En `mpv.ts` queda
+lanzar, seguir y matar.
 
 **Tamaño:** S.
 

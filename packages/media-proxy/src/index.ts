@@ -47,14 +47,12 @@ export {
 } from './hls'
 export {
   createMpvPlayer,
-  HEADER_FIELD_FLAG,
   hasMpv,
   MAX_STDERR_BYTES,
   type MpvEvent,
   type MpvPlayer,
   type MpvPlayerOptions,
   type MpvProcess,
-  mpvArgs,
   mpvUnavailable,
   type PlayOptions,
   type PlayOutcome,
@@ -62,6 +60,16 @@ export {
   spawnMpvProcess,
   trimStderr,
 } from './mpv'
+export {
+  HEADER_FIELD_FLAG,
+  HEADER_NAME_RE,
+  invalidHeaderError,
+  type MpvArgsOptions,
+  type MpvArgsOutcome,
+  mpvArgs,
+  validHeaderName,
+  validHeaderValue,
+} from './mpv-args'
 export {
   ALLOWED_RESPONSE_HEADERS,
   contentTypeFor,

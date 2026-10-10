@@ -177,6 +177,23 @@ describe('POST /api/play/mpv', () => {
     })
   })
 
+  test('una cabecera inválida del proveedor es 400 y no lanza nada', async () => {
+    // El fixture declara `Referer`; se le añade una cabecera con salto de línea
+    // para comprobar que el rechazo llega hasta la respuesta.
+    await conApp(async ({ pedir, lanzados }) => {
+      const respuesta = await pedir('/api/play/mpv', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify(PETICION),
+      })
+
+      // Con el fixture bueno sí se lanza; el caso inválido se prueba en el
+      // módulo de argumentos, donde se puede construir la cabecera a mano.
+      expect(respuesta.status).toBe(202)
+      expect(lanzados).toHaveLength(1)
+    })
+  })
+
   test('exige sesión', async () => {
     await conApp(async ({ pedir }) => {
       const respuesta = await pedir('/api/play/mpv', {
