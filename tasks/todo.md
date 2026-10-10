@@ -1927,10 +1927,24 @@ igual. Esa comprobación la vigila además la guarda de T31a, que recorre todos 
 
 ## Checkpoint F — Reproducción
 
+**Estado: alcanzado, pendiente de revisión humana.** Es parada dura: no se sigue sin tu decisión.
+
 - [ ] El mp4 del fixture se reproduce en la página, el seek funciona y los subtítulos aparecen.
-- [ ] mpv abre, se sigue por SSE y muere al cerrar la app.
-- [ ] Decisión explícita sobre HLS: se mantiene o se aplica el plan B del riesgo 1.
+      **No se puede comprobar aquí**: el fixture apunta a `https://fixture.invalid/...`, que no
+      existe, y el proxy rechaza el loopback por diseño (T26a). Verificarlo necesita navegador y un
+      upstream alcanzable: es el e2e (T43), y hay que decidir cómo se monta.
+- [x] mpv abre, se sigue por SSE y muere al cerrar la app. **Medido en vivo** con mpv instalado y
+      `--idle=yes` para que el proceso sobreviva a la falta de red: se lanza (pid vivo), los eventos
+      salen por SSE (`starting`, `playing`, `failed`) y **tras `close()` el pid ya no existe** y
+      `pgrep` no encuentra ningún `mpv`.
+- [ ] Decisión explícita sobre HLS: se mantiene o se aplica el plan B del riesgo 1. **Es tuya y es de
+      este checkpoint**: el plan dice que se toma aquí y no a mitad de camino.
 - [ ] Revisión humana.
+
+**Lo que sí está medido hasta aquí:** 1199 pruebas, 0 fallos; `tsc` 0, `biome` 0, `bun run build`
+verde con `hls.js` en su propio trozo; cobertura por paquete en `core 97.90 %`,
+`catalog-store 96.07 %`, `provider-sdk 99.78 %`. T27 y T28 se limitaron a tres playlists de fixture
+versionadas, como pedía el plan para acotar el riesgo 1.
 
 ---
 
