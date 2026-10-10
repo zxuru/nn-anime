@@ -8,6 +8,15 @@
  */
 
 export {
+  APP_DIR_NAME,
+  type ConfigEnvironment,
+  type ConfigOverrides,
+  type ConfigPaths,
+  ensureDirs,
+  type LoadConfigOptions,
+  loadConfig,
+} from './config'
+export {
   AppError,
   type AppErrorOptions,
   type ErrorCode,
@@ -16,6 +25,17 @@ export {
   StoreError,
   UpstreamError,
 } from './errors'
+export {
+  CATALOGS,
+  DEFAULT_LOCALE,
+  LOCALES,
+  type Locale,
+  type MessageParams,
+  type Messages,
+  resolveLocale,
+  t,
+  translate,
+} from './i18n'
 export {
   createLogger,
   isSensitiveKey,

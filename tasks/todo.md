@@ -97,18 +97,42 @@ redacción de datos sensibles.
 catálogo español.
 
 **Aceptación:**
-- [ ] `loadConfig()` resuelve `dataDir`, `configDir` y `cacheDir` desde `XDG_*`, con overrides de
+- [x] `loadConfig()` resuelve `dataDir`, `configDir` y `cacheDir` desde `XDG_*`, con overrides de
       flags y de `NN_ANIME_*`; precedencia flags > entorno > XDG > por defecto.
-- [ ] `ensureDirs()` crea los directorios con modo `0700` y es idempotente.
-- [ ] `i18n.ts` exporta `Locale`, `Messages`, `t(locale, key, params?)` y `resolveLocale(env)`.
-- [ ] `t` interpola `{param}` y cae a `es` ante locale o clave desconocidos, sin lanzar.
-- [ ] Test: con `XDG_DATA_HOME` temporal, ningún directorio real del usuario se toca.
+- [x] `ensureDirs()` crea los directorios con modo `0700` y es idempotente.
+- [x] `i18n.ts` exporta `Locale`, `Messages`, `t(locale, key, params?)` y `resolveLocale(env)`.
+- [x] `t` interpola `{param}` y cae a `es` ante locale o clave desconocidos, sin lanzar.
+- [x] Test: con `XDG_DATA_HOME` temporal, ningún directorio real del usuario se toca.
 
-**Verificación:** `bun test packages/core` · manual: `NN_ANIME_LANG=en bun -e '...'` no explota.
+**Verificación:** `bun test packages/core` 75 pasan, 0 fallan · `bun test` 83 pasan, 0 fallan ·
+`tsc --noEmit` 0 · `biome check .` 0 sin infos. El chequeo manual de `NN_ANIME_LANG=en` quedó
+cubierto por el test de `resolveLocale('en')`, que debe devolver `es`. Los tests de `ensureDirs`
+usan `mkdtemp` y comprueban el modo `0700` real con `stat`.
+
+**Estado:** hecho.
+
+**Decisiones tomadas al implementar:**
+
+- `loadConfig` sólo calcula rutas. No crea nada: la creación vive en `ensureDirs`, explícita. Así
+  un test puede calcular rutas sin tocar el disco.
+- Sin `HOME` y sin overrides, `loadConfig` lanza `AppError` con código `config` y nombra qué
+  directorios quedaron sin resolver. Es el único caso en que la configuración lanza en lugar de
+  devolver un `Result`, porque es un error de arranque, no una condición esperada.
+- Una variable de entorno vacía o con sólo espacios cuenta como no definida. Un `HOME=""` no
+  produce rutas como `/nn-anime`.
+- El idioma desconocido cae a `es` en lugar de fallar: un idioma mal escrito no debe impedir
+  arrancar.
+- `translate` recibe los catálogos como parámetro y está exportada. Es lo que permite testear el
+  respaldo entre idiomas hoy, con un catálogo falso, sin esperar a que exista `en`.
+- Clave desconocida devuelve la clave. Se ve en pantalla y delata el fallo, en lugar de mostrar
+  una cadena vacía.
+- El tipo `Messages` se importa en `i18n/es.ts` con `import type`, así que el ciclo entre los dos
+  archivos no existe en tiempo de ejecución.
 
 **Depende de:** T2.
 
-**Archivos:** `packages/core/src/{config,i18n}.ts`, `packages/core/src/i18n/es.ts` y sus tests.
+**Archivos:** `packages/core/src/{config,i18n}.ts`, `packages/core/src/{config,i18n}.test.ts`,
+`packages/core/src/i18n/es.ts` y `index.ts`.
 
 **Tamaño:** M.
 
