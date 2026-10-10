@@ -74,7 +74,7 @@ Si algo de esto no se cumple, el task no está hecho: se corta o se divide, no s
 ## Task List
 
 ### Fase 0 — Fundación
-- [ ] T1 Esqueleto del monorepo y tooling
+- [x] T1 Esqueleto del monorepo y tooling
 - [ ] T2 `core`: `Result`, errores y logger
 - [ ] T3 `core`: configuración, rutas XDG e i18n
 - [ ] T4 `core`: modelo de dominio y schemas Zod

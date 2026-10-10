@@ -1,0 +1,20 @@
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Salidas de herramientas
+playwright-report/
+test-results/
+*.log
+
+# Datos locales de desarrollo: nunca dentro del repo
+*.db
+*.db-wal
+*.db-shm
+.data/
+
+# Temporales locales del sandbox
+.tmp/

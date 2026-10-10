@@ -20,20 +20,30 @@ Fuera de este plan: `downloads` (v1.5) y `metadata-enrichment` (sin aprobar).
 compartida de TypeScript, Biome y los scripts del proyecto.
 
 **Aceptación:**
-- [ ] `bun install` termina sin errores y `bun pm ls` lista los nueve workspaces.
-- [ ] `bun run typecheck`, `bun run lint` y `bun test` salen con código 0.
-- [ ] Los scripts `dev`, `build`, `start`, `typecheck`, `lint`, `lint:fix`, `test`, `e2e` y
+- [x] `bun install` termina sin errores y `bun run --filter '*'` reconoce los nueve workspaces.
+- [x] `bun run typecheck`, `bun run lint` y `bun test` salen con código 0.
+- [x] Los scripts `dev`, `build`, `start`, `typecheck`, `lint`, `lint:fix`, `test`, `e2e` y
       `db:migrate` existen en el `package.json` raíz.
-- [ ] `tsconfig.base.json` tiene `strict: true`, `noUncheckedIndexedAccess: true` y
+- [x] `tsconfig.base.json` tiene `strict: true`, `noUncheckedIndexedAccess: true` y
       `verbatimModuleSyntax: true`.
+- [x] `scripts/workspaces.test.ts` cubre `isRecord`, `scriptOf` y `listWorkspaces`.
 
-**Verificación:** correr los cuatro comandos de arriba y confirmar código 0.
+**Verificación:** `tsc --noEmit` 0 · `biome check .` 0 · `bun test` 8 pasan, 0 fallan ·
+`bun run dev` y `bun run build` informan que ningún workspace declara el script todavía y salen
+con 0.
+
+**Estado:** hecho.
+
+**Nota de entorno:** en un sandbox sin escritura en `/tmp`, `bun install` necesita
+`BUN_TMPDIR` y `BUN_INSTALL_CACHE_DIR` apuntando dentro del workspace. No es un requisito del
+proyecto, es una particularidad del entorno de desarrollo.
 
 **Depende de:** ninguno.
 
-**Archivos:** `package.json`, `tsconfig.base.json`, `biome.json`, `.gitignore`,
+**Archivos:** `package.json`, `tsconfig.base.json`, `tsconfig.json`, `biome.json`, `.gitignore`,
+`scripts/{workspaces,dev,build}.ts`, `scripts/workspaces.test.ts`,
 `packages/{core,provider-sdk,catalog-store,media-proxy,recsys,server,web,cli,providers-fixture}/`
-y sus `package.json` y `src/index.ts` vacíos.
+con su `package.json` y su `src/index.ts` de marcador.
 
 **Tamaño:** M. Andamiaje: crea más de cinco archivos, pero no contiene lógica de dominio.
 
