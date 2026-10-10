@@ -27,12 +27,95 @@ const providers = join(config, 'nn-anime', 'providers')
 await mkdir(providers, { recursive: true })
 
 /** El plugin: el fixture del repositorio, con su modo de fallo por variable. */
+/**
+ * Un archivo de audio local, para que el reproductor tenga qué reproducir.
+ *
+ * Es un WAV generado aquí y no un mp4 del repositorio: no hay codificador de
+ * vídeo disponible sin red, y un mp4 inventado no se decodifica. Lo que se prueba
+ * con esto es el **mecanismo** del reproductor —que la fuente llega, que el tiempo
+ * avanza, que el salto funciona—, no el códec, que es del navegador. Se dice en el
+ * informe para que nadie crea que se probó un mp4.
+ */
+function wavDeDiezSegundos(): Uint8Array {
+  // Diez segundos y no uno: con un segundo, el archivo termina antes de que la
+  // prueba pueda leer el tiempo y el salto no se puede medir. Lo encontró la
+  // propia prueba del reproductor.
+  const muestras = 80_000
+  const datos = new Uint8Array(muestras * 2)
+
+  for (let indice = 0; indice < muestras; indice++) {
+    const valor = Math.round(Math.sin((indice / 8000) * 2 * Math.PI * 440) * 8000)
+    datos[indice * 2] = valor & 0xff
+    datos[indice * 2 + 1] = (valor >> 8) & 0xff
+  }
+
+  const cabecera = new Uint8Array(44)
+  const vista = new DataView(cabecera.buffer)
+  const escribir = (posicion: number, texto: string): void => {
+    for (const [desplazamiento, caracter] of [...texto].entries()) {
+      cabecera[posicion + desplazamiento] = caracter.charCodeAt(0)
+    }
+  }
+
+  escribir(0, 'RIFF')
+  vista.setUint32(4, 36 + datos.byteLength, true)
+  escribir(8, 'WAVEfmt ')
+  vista.setUint32(16, 16, true)
+  vista.setUint16(20, 1, true)
+  vista.setUint16(22, 1, true)
+  vista.setUint32(24, 8000, true)
+  vista.setUint32(28, 16000, true)
+  vista.setUint16(32, 2, true)
+  vista.setUint16(34, 16, true)
+  escribir(36, 'data')
+  vista.setUint32(40, datos.byteLength, true)
+
+  const salida = new Uint8Array(cabecera.byteLength + datos.byteLength)
+  salida.set(cabecera)
+  salida.set(datos, cabecera.byteLength)
+
+  return salida
+}
+
+const puertoMedios = Number(process.env.NN_ANIME_E2E_MEDIA_PORT ?? '7902')
+const medios = Bun.serve({
+  port: puertoMedios,
+  fetch(request) {
+    const url = new URL(request.url)
+
+    if (url.pathname === '/tono.wav') {
+      // `Uint8Array` como cuerpo necesita su buffer explícito: el tipo de
+      // `BodyInit` no lo admite tal cual.
+      return new Response(wavDeDiezSegundos().buffer as ArrayBuffer, {
+        headers: { 'content-type': 'audio/wav', 'accept-ranges': 'bytes' },
+      })
+    }
+
+    return new Response('no está', { status: 404 })
+  },
+})
+
 const plugin = `import { createFixtureProvider } from '@nn-anime/providers-fixture'
 
 const fallo = process.env.NN_ANIME_E2E_FALLO
-const proveedor = createFixtureProvider(
+const base = createFixtureProvider(
   fallo === undefined || fallo === '' ? {} : { failures: { [fallo]: 'http500' } },
 )
+
+// El stream apunta al archivo local del arnés: es lo que permite probar el
+// reproductor sin red. El proxy lo acepta porque el e2e abre la excepción de
+// loopback.
+const medios = process.env.NN_ANIME_E2E_MEDIA
+
+const proveedor =
+  medios === undefined || medios === ''
+    ? base
+    : {
+        ...base,
+        async resolveStream() {
+          return [{ url: medios, kind: 'file' }]
+        },
+      }
 
 export default proveedor
 `
@@ -90,6 +173,10 @@ const servidor = Bun.spawn(
       XDG_CONFIG_HOME: config,
       XDG_DATA_HOME: join(dir, 'data'),
       XDG_CACHE_HOME: join(dir, 'cache'),
+      // La excepción de loopback: sin ella el proxy rechaza el archivo local, que
+      // es exactamente lo que hace en producción.
+      NN_ANIME_ALLOW_LOOPBACK: '1',
+      NN_ANIME_E2E_MEDIA: `http://127.0.0.1:${puertoMedios}/tono.wav`,
     },
     stdout: 'pipe',
     stderr: 'inherit',
@@ -132,6 +219,7 @@ void (async () => {
 
 const cerrar = async (): Promise<void> => {
   servidor.kill()
+  medios.stop(true)
   await rm(rutaToken, { force: true }).catch(() => {})
   await rm(dir, { recursive: true, force: true }).catch(() => {})
   process.exit(0)

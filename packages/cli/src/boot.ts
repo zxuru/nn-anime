@@ -76,7 +76,9 @@ export interface ListenOptions {
   /** Rutas en uso, para la página de ajustes. */
   readonly paths?: ConfigPaths | undefined
   /** Versión de mpv detectada al arrancar, si la hay. */
-  readonly mpvVersion?: string | undefined
+  readonly mpvVersion?: string
+  /** Excepción de loopback del proxy, sólo para el e2e. */
+  readonly allowLoopback?: boolean | undefined
   readonly session: Session
   readonly bootToken: string
   readonly version: string
@@ -221,6 +223,8 @@ export interface BootDeps {
   readonly openContainer: OpenContainer
   /** Versión de mpv detectada al arrancar, si la hay. */
   readonly mpvVersion?: string
+  /** Excepción de loopback del proxy, sólo para el e2e. */
+  readonly allowLoopback?: boolean
 }
 
 /**
@@ -328,6 +332,7 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     // Las rutas las tiene `boot`, que es quien llamó a `loadConfig`.
     paths: config,
     ...(deps.mpvVersion === undefined ? {} : { mpvVersion: deps.mpvVersion }),
+    ...(deps.allowLoopback === undefined ? {} : { allowLoopback: deps.allowLoopback }),
     ...(container === undefined ? {} : { container }),
   })
 

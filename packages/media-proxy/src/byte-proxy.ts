@@ -124,6 +124,8 @@ export interface ByteProxyRequest {
   readonly maxBytes?: number | undefined
   /** Resolutor del DNS, inyectable para probar sin red. */
   readonly resolver?: Resolver | undefined
+  /** Excepción de loopback. Sólo para el e2e: ver `ALLOW_LOOPBACK_ENV`. */
+  readonly allowLoopback?: boolean | undefined
   /**
    * Tipo que se impone en la respuesta, decidido por lo que se pidió. Un
    * upstream que declara `text/html` donde se pidió una playlist no cambia el
@@ -177,6 +179,7 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
     fetchImpl: doFetch,
     ...(request.signal === undefined ? {} : { signal: request.signal }),
     ...(request.resolver === undefined ? {} : { resolver: request.resolver }),
+    ...(request.allowLoopback === undefined ? {} : { allowLoopback: request.allowLoopback }),
   })
 
   const tipo = (upstream.headers.get('content-type') ?? '').split(';')[0]?.trim() ?? ''

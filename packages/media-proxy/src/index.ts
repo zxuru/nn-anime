@@ -18,8 +18,10 @@ export {
   upstreamFailure,
 } from './byte-proxy'
 export {
+  ALLOW_LOOPBACK_ENV,
   type AllowedFetchOptions,
   addressRule,
+  allowLoopbackFromEnv,
   checkDestination,
   checkResolvedDestination,
   type DestinationOutcome,

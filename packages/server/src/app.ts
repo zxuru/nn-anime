@@ -83,6 +83,11 @@ export interface AppOptions {
   readonly paths?: ConfigPaths
   /** Versión de mpv detectada al arrancar, si la hay. */
   readonly mpvVersion?: string
+  /**
+   * Excepción de loopback para el proxy. La pone el arranque leyendo el entorno,
+   * y **sólo** el e2e la pone. Ver `ALLOW_LOOPBACK_ENV`.
+   */
+  readonly allowLoopback?: boolean
   readonly mpvAvailable?: boolean
   readonly logger?: Logger
   /** Reloj del canje de arranque, inyectable para testear la caducidad. */
@@ -151,6 +156,7 @@ export function createApp(options: AppOptions): Hono {
     const proxyOptions = {
       ...(options.streamFetchImpl === undefined ? {} : { fetchImpl: options.streamFetchImpl }),
       ...(options.streamResolver === undefined ? {} : { resolver: options.streamResolver }),
+      ...(options.allowLoopback === undefined ? {} : { allowLoopback: options.allowLoopback }),
     }
 
     registerCoverRoute(app, { container: options.container, ...proxyOptions })

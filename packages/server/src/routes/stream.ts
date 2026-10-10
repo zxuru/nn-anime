@@ -38,6 +38,8 @@ export interface StreamRouteOptions {
   readonly fetchImpl?: FetchLike
   /** Resolutor del DNS, inyectable para probar sin red. */
   readonly resolver?: Resolver
+  /** Excepción de loopback, sólo para el e2e. */
+  readonly allowLoopback?: boolean
 }
 
 const DEFAULT_TIMEOUT_MS = 8000
@@ -132,6 +134,7 @@ export function registerStreamRoutes(app: Hono, options: StreamRouteOptions): vo
       ...(tipo === undefined ? {} : { forceType: tipo }),
       ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
       ...(options.resolver === undefined ? {} : { resolver: options.resolver }),
+      ...(options.allowLoopback === undefined ? {} : { allowLoopback: options.allowLoopback }),
     })
 
     return respuesta

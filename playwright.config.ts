@@ -31,6 +31,13 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${PUERTO}`,
     trace: 'retain-on-failure',
     ...devices['Desktop Chrome'],
+    launchOptions: {
+      // Sin salida de audio y sin exigir un gesto del usuario: el navegador sin
+      // pantalla no tiene tarjeta de sonido, y la política de reproducción
+      // automática dejaría el tiempo en cero. Es configuración del arnés, no de
+      // la aplicación.
+      args: ['--mute-audio', '--autoplay-policy=no-user-gesture-required'],
+    },
   },
   projects: [
     // El token de arranque es de un solo uso: se canjea una vez y las demás

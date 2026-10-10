@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  ALLOW_LOOPBACK_ENV,
   addressRule,
+  allowLoopbackFromEnv,
   checkDestination,
   checkResolvedDestination,
   destinationError,
@@ -317,5 +319,55 @@ describe('el error dice la regla y no la URL entera', () => {
     ] as const) {
       expect(destinationError(regla, 'https://ejemplo/a').message.length).toBeGreaterThan(10)
     }
+  })
+})
+
+describe('la excepción de loopback', () => {
+  test('por defecto está cerrada', () => {
+    expect(allowLoopbackFromEnv({})).toBe(false)
+    expect(allowLoopbackFromEnv({ [ALLOW_LOOPBACK_ENV]: '0' })).toBe(false)
+    expect(allowLoopbackFromEnv({ [ALLOW_LOOPBACK_ENV]: 'sí' })).toBe(false)
+  })
+
+  test('se abre con `1` o `true`, y sólo así', () => {
+    expect(allowLoopbackFromEnv({ [ALLOW_LOOPBACK_ENV]: '1' })).toBe(true)
+    expect(allowLoopbackFromEnv({ [ALLOW_LOOPBACK_ENV]: 'true' })).toBe(true)
+  })
+
+  test('abierta, el loopback y las redes privadas pasan', () => {
+    expect(checkDestination('http://127.0.0.1:8080/a', { allowLoopback: true }).ok).toBe(true)
+    expect(checkDestination('http://10.0.0.5/a', { allowLoopback: true }).ok).toBe(true)
+    expect(checkDestination('http://localhost:8080/a', { allowLoopback: true }).ok).toBe(true)
+  })
+
+  test('cerrada, se rechazan igual que siempre', () => {
+    expect(checkDestination('http://127.0.0.1:8080/a', { allowLoopback: false }).ok).toBe(false)
+    expect(checkDestination('http://127.0.0.1:8080/a').ok).toBe(false)
+  })
+
+  test('**la metadata de nube se sigue rechazando** aunque esté abierta', () => {
+    const salida = checkDestination('http://169.254.169.254/latest/meta-data/', {
+      allowLoopback: true,
+    })
+
+    expect(salida.ok).toBe(false)
+    if (!salida.ok) expect(salida.rule).toBe('metadata')
+  })
+
+  test('el esquema se sigue comprobando: abrir el loopback no abre todo', () => {
+    expect(checkDestination('file:///etc/passwd', { allowLoopback: true }).ok).toBe(false)
+    expect(checkDestination('http://[::1]/', { allowLoopback: true }).ok).toBe(true)
+  })
+
+  test('la comprobación tras resolver también la respeta', async () => {
+    const { resolver } = resolverCon({ 'mi-casa.example': ['127.0.0.1'] })
+
+    const cerrada = await checkResolvedDestination('http://mi-casa.example/a', resolver)
+    const abierta = await checkResolvedDestination('http://mi-casa.example/a', resolver, {
+      allowLoopback: true,
+    })
+
+    expect(cerrada.ok).toBe(false)
+    expect(abierta.ok).toBe(true)
   })
 })

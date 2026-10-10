@@ -93,6 +93,26 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
 
   const elemento = useRef<HTMLVideoElement | null>(null)
   const hls = useRef<{ destroy: () => void } | undefined>(undefined)
+  /**
+   * Los avisos, en referencias y no en las dependencias del efecto.
+   *
+   * Quien llama pasa funciones nuevas en cada render —`onProgress={(p) => ...}`
+   * es lo natural—, y con ellas en las dependencias el efecto se volvía a
+   * ejecutar en **cada** actualización de estado: volvía a asignar `video.src`,
+   * el navegador recargaba el medio y la reproducción se quedaba en el segundo
+   * cero. Lo encontró el e2e del reproductor, que veía `paused: true` y
+   * `played.length: 0` después de darle a reproducir.
+   */
+  const avisos = useRef({
+    onPlay: source.onPlay,
+    onPause: source.onPause,
+    onProgress: source.onProgress,
+  })
+  avisos.current = {
+    onPlay: source.onPlay,
+    onPause: source.onPause,
+    onProgress: source.onProgress,
+  }
 
   const videoRef = useCallback((nuevo: HTMLVideoElement | null) => {
     elemento.current = nuevo
@@ -128,7 +148,7 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
 
     const alTiempo = (): void => {
       setState((previo) => ({ ...previo, positionS: video.currentTime }))
-      source.onProgress?.(video.currentTime, video.duration)
+      avisos.current.onProgress?.(video.currentTime, video.duration)
     }
     const alDuracion = (): void => {
       setState((previo) => ({ ...previo, durationS: video.duration }))
@@ -141,11 +161,11 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     }
     const alReproducir = (): void => {
       setState((previo) => ({ ...previo, playing: true }))
-      source.onPlay?.()
+      avisos.current.onPlay?.()
     }
     const alPausar = (): void => {
       setState((previo) => ({ ...previo, playing: false }))
-      source.onPause?.()
+      avisos.current.onPause?.()
     }
     const alError = (): void =>
       setState((previo) => ({ ...previo, error: 'no se pudo cargar el video', loading: false }))
@@ -169,7 +189,9 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
       hls.current?.destroy()
       hls.current = undefined
     }
-  }, [source.kind, source.url, source.startAtS, source.onPlay, source.onPause, source.onProgress])
+    // Sólo la fuente: los avisos van en una referencia y no vuelven a montar el
+    // medio. Ver la nota de `avisos`.
+  }, [source.kind, source.url, source.startAtS])
 
   const act = useCallback((action: PlayerAction) => {
     const video = elemento.current

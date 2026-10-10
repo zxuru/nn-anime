@@ -39,6 +39,8 @@ export interface StartDeps {
   readonly openContainer: OpenContainer
   /** Versión de mpv detectada al arrancar, si la hay. */
   readonly mpvVersion?: string
+  /** Excepción de loopback del proxy, sólo para el e2e. */
+  readonly allowLoopback?: boolean
   readonly openUrl: (url: string) => Promise<boolean>
   readonly createSession: () => Session
   readonly createBootToken: () => string
@@ -72,6 +74,7 @@ export function createStarter(deps: StartDeps): (options: CliOptions) => Promise
       loadProviders: deps.loadProviders,
       openContainer: deps.openContainer,
       ...(deps.mpvVersion === undefined ? {} : { mpvVersion: deps.mpvVersion }),
+      ...(deps.allowLoopback === undefined ? {} : { allowLoopback: deps.allowLoopback }),
       listen: deps.listen,
       createSession: deps.createSession,
       createBootToken: deps.createBootToken,

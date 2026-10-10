@@ -42,6 +42,37 @@ export type DestinationOutcome =
   | { readonly ok: true; readonly url: URL }
   | { readonly ok: false; readonly rule: DestinationRule }
 
+/**
+ * La variable que abre el loopback, y **sólo** el loopback.
+ *
+ * El e2e necesita servir un archivo local para probar el reproductor, y el proxy
+ * lo rechaza por diseño. La alternativa —abrir la lista blanca de verdad— dejaría
+ * la aplicación sin la mitigación de SSRF en producción, así que la excepción es
+ * una variable de entorno que nadie pone sin querer y que se anuncia en el
+ * registro al arrancar.
+ *
+ * Sólo afecta a loopback y a redes privadas: la metadata de nube se sigue
+ * rechazando aunque esté puesta.
+ */
+export const ALLOW_LOOPBACK_ENV = 'NN_ANIME_ALLOW_LOOPBACK'
+
+export interface GuardOptions {
+  /**
+   * Acepta loopback y redes privadas. Es para el e2e y para desarrollo; en
+   * producción no se pone.
+   */
+  readonly allowLoopback?: boolean | undefined
+}
+
+/** ¿Está pedida la excepción por entorno? */
+export function allowLoopbackFromEnv(
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  const valor = env[ALLOW_LOOPBACK_ENV]
+
+  return valor === '1' || valor === 'true'
+}
+
 const ALLOWED_SCHEMES: readonly string[] = ['http:', 'https:']
 
 /** Direcciones de metadata de nube que se conocen por su nombre. */
@@ -101,7 +132,7 @@ export function addressRule(address: string): DestinationRule | undefined {
 }
 
 /** Comprueba la URL sin salir a la red: esquema y dirección literal. */
-export function checkDestination(rawUrl: string): DestinationOutcome {
+export function checkDestination(rawUrl: string, options: GuardOptions = {}): DestinationOutcome {
   let url: URL
   try {
     url = new URL(rawUrl)
@@ -115,10 +146,12 @@ export function checkDestination(rawUrl: string): DestinationOutcome {
   // Un nombre no se puede juzgar sin resolverlo; una dirección literal, sí.
   if (/^[\d.]+$/.test(host) || host.includes(':')) {
     const rule = addressRule(host)
-    if (rule !== undefined) return { ok: false, rule }
+    if (rule !== undefined && !eximido(rule, options)) return { ok: false, rule }
   }
 
-  if (host === 'localhost' || host.endsWith('.localhost')) return { ok: false, rule: 'loopback' }
+  if (host === 'localhost' || host.endsWith('.localhost')) {
+    if (!options.allowLoopback) return { ok: false, rule: 'loopback' }
+  }
 
   return { ok: true, url }
 }
@@ -142,8 +175,9 @@ export const systemResolver: Resolver = async (host) => {
 export async function checkResolvedDestination(
   rawUrl: string,
   resolver: Resolver = systemResolver,
+  options: GuardOptions = {},
 ): Promise<DestinationOutcome> {
-  const literal = checkDestination(rawUrl)
+  const literal = checkDestination(rawUrl, options)
   if (!literal.ok) return literal
 
   const host = literal.url.hostname.replace(/^\[|\]$/g, '')
@@ -160,7 +194,7 @@ export async function checkResolvedDestination(
 
   for (const direccion of direcciones) {
     const rule = addressRule(direccion)
-    if (rule !== undefined) return { ok: false, rule }
+    if (rule !== undefined && !eximido(rule, options)) return { ok: false, rule }
   }
 
   return literal
@@ -175,6 +209,18 @@ export const MAX_REDIRECTS = 5
  * Nombra la regla y el host, y **no** la URL completa: un error se registra, y
  * una URL de un proveedor puede llevar tokens de referencia dentro.
  */
+/**
+ * ¿La excepción cubre esta regla?
+ *
+ * Sólo loopback y redes privadas. La metadata de nube es un destino que no tiene
+ * ningún caso de uso legítimo, ni siquiera en pruebas.
+ */
+function eximido(rule: DestinationRule, options: GuardOptions): boolean {
+  if (options.allowLoopback !== true) return false
+
+  return rule === 'loopback' || rule === 'private'
+}
+
 export function destinationError(rule: DestinationRule, rawUrl: string): AppError {
   const host = ((): string => {
     try {
@@ -213,6 +259,8 @@ export interface AllowedFetchOptions {
   readonly fetchImpl: FetchLike
   readonly resolver?: Resolver
   readonly maxRedirects?: number
+  /** Excepción de loopback, para el e2e. Ver `ALLOW_LOOPBACK_ENV`. */
+  readonly allowLoopback?: boolean | undefined
 }
 
 /**
@@ -227,7 +275,9 @@ export async function fetchAllowed(options: AllowedFetchOptions): Promise<Respon
   let actual = options.url
 
   for (let salto = 0; salto <= maximo; salto++) {
-    const destino = await checkResolvedDestination(actual, options.resolver)
+    const destino = await checkResolvedDestination(actual, options.resolver, {
+      ...(options.allowLoopback === undefined ? {} : { allowLoopback: options.allowLoopback }),
+    })
     if (!destino.ok) throw destinationError(destino.rule, actual)
 
     const respuesta = await options.fetchImpl(actual, {

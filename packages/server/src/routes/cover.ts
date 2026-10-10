@@ -42,6 +42,8 @@ export interface CoverRouteOptions {
   readonly fetchImpl?: FetchLike
   /** Resolutor del DNS, inyectable para probar sin red. */
   readonly resolver?: Resolver
+  /** Excepción de loopback, sólo para el e2e. */
+  readonly allowLoopback?: boolean
 }
 
 /**
@@ -88,6 +90,7 @@ export function registerCoverRoute(app: Hono, options: CoverRouteOptions): void 
       maxBytes: MAX_COVER_BYTES,
       ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
       ...(options.resolver === undefined ? {} : { resolver: options.resolver }),
+      ...(options.allowLoopback === undefined ? {} : { allowLoopback: options.allowLoopback }),
     })
 
     if (!respuesta.ok) return respuesta

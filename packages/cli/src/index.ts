@@ -15,7 +15,7 @@ import { stat } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { openDb, pruneOrphans, runMigrations, shouldPrune } from '@nn-anime/catalog-store'
 import { createLogger, DEFAULT_LOCALE, readSettings, t } from '@nn-anime/core'
-import { hasMpv } from '@nn-anime/media-proxy'
+import { ALLOW_LOOPBACK_ENV, allowLoopbackFromEnv, hasMpv } from '@nn-anime/media-proxy'
 import { loadProviders } from '@nn-anime/provider-sdk'
 import { createBootToken, createContainer, createSession } from '@nn-anime/server'
 import { version } from '../package.json'
@@ -110,6 +110,22 @@ async function versionDeMpv(): Promise<string | undefined> {
 
 const mpvVersion = await versionDeMpv()
 
+/**
+ * La excepción de loopback, si el entorno la pide.
+ *
+ * Se dice **en voz alta** al arrancar: una excepción silenciosa es una excepción
+ * que alguien deja puesta sin saberlo, y esta abre la puerta a la red local.
+ */
+const allowLoopback = allowLoopbackFromEnv()
+if (allowLoopback) {
+  // Se dice por la salida de error y no por un registro estructurado: esto pasa
+  // antes de que exista el registro, y una excepción silenciosa es una excepción
+  // que alguien deja puesta sin saberlo.
+  process.stderr.write(
+    `aviso: ${ALLOW_LOOPBACK_ENV} activa; el proxy aceptará direcciones locales\n`,
+  )
+}
+
 const code = await run(Bun.argv.slice(2), {
   io,
   version,
@@ -135,6 +151,7 @@ const code = await run(Bun.argv.slice(2), {
     openContainer: (config) =>
       createContainer({ db: openDb(config.dbPath), mpvAvailable: mpvDisponible }),
     mpvVersion,
+    allowLoopback,
     createSession,
     createBootToken,
     openUrl: (url) =>

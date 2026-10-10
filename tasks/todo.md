@@ -2483,18 +2483,51 @@ reproducen nada. Llega con T44, que es donde se prueba el reproductor con un arc
 **Descripción:** Cerrar la cobertura e2e del camino crítico.
 
 **Aceptación:**
-- [ ] Caso: búsqueda → detalle → lista de episodios.
-- [ ] Caso: reproducir el mp4 del fixture, adelantar 30 s y verificar el tiempo actual.
-- [ ] Caso: activar subtítulos y verificar que el texto aparece.
-- [ ] Caso: cada recomendación visible tiene una razón no vacía.
+- [x] Caso: búsqueda → detalle → lista de episodios. **Medido en el navegador**: el clic navega sin
+      recargar, la ficha sale con sus géneros y la lista trae sus 12 episodios.
+- [ ] Caso: reproducir el mp4 del fixture, adelantar 30 s y verificar el tiempo actual. **Pendiente y
+      marcado como tal** (`test.fixme`) con lo medido: el elemento recibe el medio por el proxy, lo
+      almacena y queda listo (`readyState: 4`, `buffered: 1`, `duration: 10`), los controles cambian el
+      estado y el anuncio se actualiza, **pero `play()` deja el elemento en pausa y en el segundo
+      cero**. Un `<video>` creado a mano en la misma página, con la misma URL, **sí reproduce**
+      (`currentTime: 1.07`, `played: 1`). Es decir: el entorno puede y nuestro componente no, y no lo
+      he resuelto. Preferí dejarlo marcado con su motivo antes que borrar la prueba o dejar la suite en
+      rojo.
+- [ ] Caso: activar subtítulos y verificar que el texto aparece. **Pendiente**: depende del caso
+      anterior, que es el que monta el reproductor en marcha.
+- [x] Caso: cada recomendación visible tiene una razón no vacía. **Medido sobre lo que se ve**, no
+      sobre lo que devuelve la API.
 - [ ] Caso: con mpv simulado como ausente, se muestra el aviso y el reproductor web sigue.
-- [ ] Los casos que dependen de mpv real están marcados y se saltan si no hay `mpv`.
+      **Pendiente**: hace falta arrancar el servidor del e2e con mpv simulado como ausente, y eso es
+      otra variable de entorno que no he añadido.
+- [x] Los casos que dependen de mpv real están marcados y se saltan si no hay `mpv`.
 
-**Verificación:** `bun run e2e`.
+**Verificación:** `bun run e2e` (14 verdes, 2 marcados como pendientes) y `bun run e2e:fallo` (2
+verdes), tres veces seguidas. La excepción de loopback tiene 7 pruebas propias, incluida la de que
+**sin** la variable el loopback se sigue rechazando y la de que la metadata de nube se rechaza aunque
+esté puesta.
 
 **Depende de:** T43, T32, T39.
 
-**Archivos:** `packages/web/e2e/{detail.spec.ts,player.spec.ts,recommendations.spec.ts}`.
+**Archivos:** `packages/web/e2e/{detail.e2e.ts,player.e2e.ts,recommendations.e2e.ts}`.
+**Ampliación declarada:** la excepción de loopback en `destination-guard.ts`, `byte-proxy.ts`, las
+rutas del proxy, el servidor y el arranque (que la anuncia por la salida de error), el servidor de
+medios del arnés y `ALLOW_LOOPBACK_ENV`.
+
+**La excepción de loopback, como se acordó en el Checkpoint F.** Está cerrada por defecto, se abre con
+`NN_ANIME_ALLOW_LOOPBACK=1` y **sólo cubre loopback y redes privadas**: la metadata de nube se sigue
+rechazando aunque esté puesta, y el esquema se sigue comprobando. El arranque la anuncia por la salida
+de error, porque una excepción silenciosa es una excepción que alguien deja puesta sin saberlo.
+
+**El medio es un WAV generado, no un mp4, y se dice.** No hay codificador de vídeo disponible sin red
+y un mp4 inventado no se decodifica. Lo que se prueba con él es el **mecanismo** del reproductor —que
+la fuente llega por el proxy, que los controles responden—, no el códec, que es del navegador.
+
+**Un defecto real que encontró el e2e y arreglé:** los avisos del reproductor (`onPlay`, `onPause`,
+`onProgress`) estaban en las dependencias del efecto que asigna la fuente, y como quien llama pasa
+funciones nuevas en cada render, el efecto se volvía a ejecutar en **cada** actualización de estado y
+volvía a asignar `video.src`: el navegador recargaba el medio. Ahora van en una referencia. **No era la
+causa de que la reproducción no avance** —eso sigue abierto— pero era un defecto y está corregido.
 
 **Tamaño:** M.
 
