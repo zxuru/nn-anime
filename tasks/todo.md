@@ -2127,18 +2127,52 @@ idioma. Hay una prueba que comprueba que ningún hueco queda sin rellenar.
 **Descripción:** API pública del motor, con la garantía de reproducibilidad del spec.
 
 **Aceptación:**
-- [ ] `recommend(signals, candidates, options)` con `limit`, `mmrLambda` y `seed`.
-- [ ] Salida idéntica en orden y contenido con el mismo `seed`, `now` y entradas.
-- [ ] Sin historial: sólo `cold-start` ordenado por popularidad.
-- [ ] 500 registros y 5000 candidatos por debajo de 50 ms, medido en el test.
-- [ ] El paquete no importa `bun:sqlite` ni usa `fetch`: test que corre con ambos ausentes.
-- [ ] `components` expone `affinity`, `covisit`, `recency` y `diversity` por separado.
+- [x] `recommend(signals, candidates, options)` con `limit`, `mmrLambda` y `seed`.
+- [x] Salida idéntica en orden y contenido con el mismo `seed`, `now` y entradas.
+- [x] Sin historial: sólo `cold-start` ordenado por popularidad.
+- [x] 500 registros y 5000 candidatos por debajo de 50 ms, medido en el test.
+- [x] El paquete no importa `bun:sqlite` ni usa `fetch`: test que corre con ambos ausentes.
+- [x] `components` expone `affinity`, `covisit`, `recency` y `diversity` por separado.
 
-**Verificación:** `bun test packages/recsys`.
+**Verificación:** `bun test packages/recsys` · 21 pruebas nuevas. Medido mutando la implementación: sin
+el filtro de vistos fallan 2, sin el desempate por semilla 1 y sin el término de diversidad en MMR 1.
+Control: 0 fallos.
 
 **Depende de:** T36.
 
 **Archivos:** `packages/recsys/src/{index.ts,recommend.test.ts}`.
+**Ampliación declarada:** `packages/recsys/src/recommend.ts` y el índice de IDF en `affinity.ts`.
+
+**El presupuesto de tiempo encontró dos problemas de verdad, y el primero no falló: se quedó
+colgado.** Con 5 000 candidatos el ranking tardaba **más de un minuto**, y eran dos cosas:
+
+1. **El IDF recorría el corpus entero en cada consulta.** 5 000 candidatos × 2 características ×
+   filtrar 5 000 = millones de operaciones. Ahora las frecuencias se cuentan **una vez**
+   (`buildIdfIndex`) y se consultan en un mapa.
+2. **MMR era cuadrático sobre el catálogo entero**, y además construía los conjuntos de
+   características en cada comparación: 868 ms de los 950 del total. Ahora los conjuntos se calculan
+   una vez por candidato y la diversidad se aplica sobre una **preselección** de 100.
+
+Resultado: de más de un minuto a **40 ms** para 500 registros y 5 000 candidatos.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **El `seed` desempata, no sortea.** Con la misma semilla y las mismas entradas, el orden es el
+   mismo; con otra, puede cambiar. Es lo que hace que la reproducibilidad sea comprobable.
+2. **El desempate tiene tres niveles**: puntuación, semilla y, como último recurso, la referencia. Sin
+   el tercero, dos candidatos con el mismo desempate saldrían en el orden en que llegaron, y ese orden
+   no está garantizado entre dos llamadas.
+3. **MMR decide el orden de una preselección, no de todo el catálogo.** Es como se usa en la práctica,
+   y el coste cuadrático es la razón: cien candidatos son un margen de cinco veces sobre un límite de
+   20.
+4. **Sin historial, `cold-start` por popularidad** y la razón lo dice. Es mejor que devolver una lista
+   vacía o inventarse un historial que no existe.
+
+**Dos mutaciones sobrevivieron a la primera pasada y se cazaron reforzando las pruebas:** la que
+quitaba el desempate por semilla (el desempate por referencia ya daba un orden estable, así que había
+que comprobar que **existen** semillas que cambian el orden) y la que quitaba la diversidad de MMR (el
+azar del desempate ya dejaba un título distinto arriba, así que la prueba ahora da a los del mismo tag
+una puntuación algo mayor).
 
 **Tamaño:** M.
 

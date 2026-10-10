@@ -10,6 +10,7 @@
     "./filters": "./src/filters.ts",
     "./mmr": "./src/mmr.ts",
     "./reasons": "./src/reasons.ts",
+    "./recommend": "./src/recommend.ts",
     "./search-signal": "./src/search-signal.ts"
   },
   "scripts": {

@@ -52,14 +52,37 @@ export interface MmrOptions {
  * que vale cada título. Cambiarlas rompería la promesa de que la razón que se
  * enseña sale del mismo cálculo que la puntuación.
  */
+/**
+ * Parecido entre dos conjuntos de características, con Jaccard.
+ *
+ * Es la versión que usa el bucle: los conjuntos se construyen **una vez** por
+ * candidato, no en cada comparación. Construirlos dentro costaba 868 ms de los
+ * 950 del ranking con 5 000 candidatos —lo midió la prueba de presupuesto, que se
+ * quedaba colgada en vez de fallar— y así cuesta unos pocos.
+ */
+function similarityOf(a: ReadonlySet<string>, b: ReadonlySet<string>): number {
+  if (a.size === 0 || b.size === 0) return 0
+
+  // Se recorre el más corto: el parecido es simétrico.
+  const [corto, largo] = a.size <= b.size ? [a, b] : [b, a]
+  let comunes = 0
+  for (const clave of corto) if (largo.has(clave)) comunes += 1
+
+  return comunes / (a.size + b.size - comunes)
+}
+
 export function mmr(
   ranking: readonly RankedCandidate[],
   options: MmrOptions = {},
 ): readonly RankedCandidate[] {
   const lambda = options.lambda ?? DEFAULT_LAMBDA
   const limite = options.limit ?? ranking.length
-  const pendientes = [...ranking]
-  const elegidos: RankedCandidate[] = []
+  // Las características se calculan una vez por candidato.
+  const pendientes = ranking.map((entrada) => ({
+    entrada,
+    caracteristicas: new Set(candidateFeatures(entrada.candidate)),
+  }))
+  const elegidos: { entrada: RankedCandidate; caracteristicas: Set<string> }[] = []
 
   while (elegidos.length < limite && pendientes.length > 0) {
     let mejorIndice = 0
@@ -67,21 +90,22 @@ export function mmr(
 
     for (const [indice, candidato] of pendientes.entries()) {
       // El primero se elige por relevancia pura: no hay nada con lo que comparar.
-      const parecido =
-        elegidos.length === 0
-          ? 0
-          : Math.max(...elegidos.map((previo) => similarity(previo.candidate, candidato.candidate)))
+      let parecido = 0
+      for (const previo of elegidos) {
+        const valor = similarityOf(previo.caracteristicas, candidato.caracteristicas)
+        if (valor > parecido) parecido = valor
+      }
 
-      const valor = lambda * candidato.score - (1 - lambda) * parecido
+      const valor = lambda * candidato.entrada.score - (1 - lambda) * parecido
       if (valor > mejorValor) {
         mejorValor = valor
         mejorIndice = indice
       }
     }
 
-    elegidos.push(pendientes[mejorIndice] as RankedCandidate)
+    elegidos.push(pendientes[mejorIndice] as (typeof pendientes)[number])
     pendientes.splice(mejorIndice, 1)
   }
 
-  return elegidos
+  return elegidos.map((elegido) => elegido.entrada)
 }

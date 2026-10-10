@@ -110,20 +110,48 @@ export function eventWeight(
 }
 
 /**
- * Cuánto distingue una característica dentro del corpus.
+ * Las frecuencias de documento del corpus, contadas **una vez**.
+ *
+ * Sin esto, cada consulta de IDF recorre el corpus entero: con 5 000 candidatos y
+ * dos características cada uno son 10 000 recorridos por candidato puntuado, y el
+ * ranking pasa de 50 ms a minutos. Lo encontró la prueba de presupuesto, que se
+ * quedó colgada en vez de fallar.
+ */
+export interface IdfIndex {
+  readonly size: number
+  readonly frequencies: ReadonlyMap<string, number>
+}
+
+export function buildIdfIndex(corpus: readonly Candidate[]): IdfIndex {
+  const frequencies = new Map<string, number>()
+
+  for (const candidato of corpus) {
+    for (const clave of candidateFeatures(candidato)) {
+      frequencies.set(clave, (frequencies.get(clave) ?? 0) + 1)
+    }
+  }
+
+  return { size: corpus.length, frequencies }
+}
+
+/**
+ * El IDF de una característica, con las frecuencias ya contadas.
  *
  * IDF suavizado: `ln((N + 1) / (df + 1)) + 1`. Nunca es cero —una característica
  * que está en todos los candidatos sigue contando algo— y no se dispara con las
  * que aparecen una sola vez, que es lo que pasaría sin el `+1`.
  */
+export function idfOf(index: IdfIndex, feature: string): number {
+  if (index.size === 0) return 1
+
+  const conLaCaracteristica = index.frequencies.get(feature) ?? 0
+
+  return Math.log((index.size + 1) / (conLaCaracteristica + 1)) + 1
+}
+
+/** El IDF de una característica dentro de un corpus. Atajo de `buildIdfIndex`. */
 export function idf(corpus: readonly Candidate[], feature: string): number {
-  if (corpus.length === 0) return 1
-
-  const conLaCaracteristica = corpus.filter((candidato) =>
-    candidateFeatures(candidato).includes(feature),
-  ).length
-
-  return Math.log((corpus.length + 1) / (conLaCaracteristica + 1)) + 1
+  return idfOf(buildIdfIndex(corpus), feature)
 }
 
 /** Normaliza un mapa de pesos a norma 1, sin dividir por cero. */
@@ -144,6 +172,8 @@ export interface AffinityOptions {
   readonly halfLifeDays?: number
   /** Corpus con el que calcular el IDF. Sin él, todos los pesos valen igual. */
   readonly corpus?: readonly Candidate[] | undefined
+  /** Frecuencias ya contadas. Si se pasa, no se recorre el corpus otra vez. */
+  readonly idfIndex?: IdfIndex | undefined
   readonly idf?: boolean | undefined
 }
 
@@ -168,7 +198,8 @@ export function buildAffinity(
 ): AffinityVector {
   const semivida = options.halfLifeDays ?? HALF_LIFE_DAYS
   const corpus = options.corpus ?? []
-  const usarIdf = options.idf ?? corpus.length > 0
+  const indice = options.idfIndex ?? (corpus.length > 0 ? buildIdfIndex(corpus) : undefined)
+  const usarIdf = options.idf ?? indice !== undefined
   const suma = new Map<string, number>()
 
   for (const evento of events) {
@@ -186,8 +217,8 @@ export function buildAffinity(
     }
   }
 
-  if (usarIdf && corpus.length > 0) {
-    for (const [clave, peso] of suma) suma.set(clave, peso * idf(corpus, clave))
+  if (usarIdf && indice !== undefined) {
+    for (const [clave, peso] of suma) suma.set(clave, peso * idfOf(indice, clave))
   }
 
   return normalize(suma)
@@ -197,13 +228,14 @@ export function buildAffinity(
 export function candidateVector(
   candidate: Candidate,
   corpus: readonly Candidate[],
-  options: { readonly idf?: boolean | undefined } = {},
+  options: { readonly idf?: boolean | undefined; readonly idfIndex?: IdfIndex | undefined } = {},
 ): AffinityVector {
-  const usarIdf = options.idf ?? corpus.length > 0
+  const indice = options.idfIndex ?? (corpus.length > 0 ? buildIdfIndex(corpus) : undefined)
+  const usarIdf = options.idf ?? indice !== undefined
   const pesos = new Map<string, number>()
 
   for (const clave of candidateFeatures(candidate)) {
-    pesos.set(clave, usarIdf && corpus.length > 0 ? idf(corpus, clave) : 1)
+    pesos.set(clave, usarIdf && indice !== undefined ? idfOf(indice, clave) : 1)
   }
 
   return normalize(pesos)
