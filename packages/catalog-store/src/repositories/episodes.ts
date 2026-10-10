@@ -96,6 +96,24 @@ export function replaceEpisodes(
   }
 }
 
+/**
+ * Identificador interno de un episodio, a partir de su referencia.
+ *
+ * Hace falta un `JOIN` con el anime porque la tabla de episodios no guarda el
+ * proveedor: lo hereda del anime al que pertenece, y una referencia de episodio
+ * sólo es única dentro de su proveedor.
+ */
+export function episodeIdOf(db: Database, ref: ProviderRef): number | undefined {
+  return db
+    .query<{ id: number }, [string, string]>(
+      `SELECT episode.id AS id
+         FROM episode
+         JOIN anime ON anime.id = episode.anime_id
+        WHERE anime.provider_id = ? AND episode.provider_ref = ?`,
+    )
+    .get(ref.providerId, ref.value)?.id
+}
+
 /** Identificador interno de un anime, o `undefined` si no está. */
 export function animeIdOf(db: Database, ref: ProviderRef): number | undefined {
   return db

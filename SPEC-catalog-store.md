@@ -37,9 +37,20 @@ export interface CatalogStore {
   writeSearch(providerId: string, query: string, results: readonly SearchResult[]): Promise<void>
 
   // Streams: TTL corto, revalidación forzada antes de reproducir
-  /** Devuelve la fila cacheada. `headers` siempre viene sin definir: no se persisten. */
+  /**
+   * Devuelve la fila cacheada. `headers` siempre viene sin definir: no se
+   * persisten. Y devuelve `null` **también cuando el TTL venció**, no un
+   * `CacheHit` con `stale`: un enlace de video caducado no es un dato un poco
+   * viejo, es un 403 del upstream en mitad de la reproducción.
+   */
   readStream(episodeRef: ProviderRef, mode: Mode): Promise<StreamSource | null>
-  /** Guarda URL, tipo, calidad y subtítulos. Los `headers` de la fuente se descartan. */
+  /**
+   * Guarda URL, tipo, calidad y subtítulos. Los `headers` de la fuente se
+   * descartan. La clave es (episodio, modo), así que se guarda **una** fuente:
+   * la de la calidad pedida, o la primera que devolvió el proveedor, que es su
+   * orden de preferencia. Elegir `hls` sobre `file` aquí sería una decisión de
+   * reproducción tomada en la capa de persistencia.
+   */
   writeStream(request: StreamRequest, sources: readonly StreamSource[]): Promise<void>
   invalidateStream(episodeRef: ProviderRef, mode: Mode): Promise<void>
 

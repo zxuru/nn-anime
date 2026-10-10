@@ -984,21 +984,39 @@ clave de caché, y dos normalizaciones distintas darían dos entradas para la mi
 **Descripción:** Caché de URLs de stream con TTL corto y revalidación forzada.
 
 **Aceptación:**
-- [ ] `readStream`, `writeStream`, `invalidateStream`.
-- [ ] TTL de 600 s, y `readStream` devuelve `null` cuando el TTL venció aunque la fila exista.
-- [ ] **Los headers de upstream no se guardan.** La fila lleva URL, tipo, calidad y subtítulos.
+- [x] `readStream`, `writeStream`, `invalidateStream`.
+- [x] TTL de 600 s, y `readStream` devuelve `null` cuando el TTL venció aunque la fila exista.
+- [x] **Los headers de upstream no se guardan.** La fila lleva URL, tipo, calidad y subtítulos.
       Esta aceptación decía «los headers se guardan serializados», que contradecía a la vez la
       mitigación 6 del spec de proyecto y el `Never` de `SPEC-catalog-store.md`. Corregido al
       auditar: quien los necesite los pide al almacén en memoria de `media-proxy`, y si ya no
       están, el proxy revalida.
-- [ ] `invalidateStream` borra sólo la clave de episodio y modo indicados.
-- [ ] Test: los headers no aparecen en ninguna fila de la base ni en la forma pública.
+- [x] `invalidateStream` borra sólo la clave de episodio y modo indicados.
+- [x] Test: los headers no aparecen en ninguna fila de la base ni en la forma pública.
 
-**Verificación:** `bun test packages/catalog-store`.
+**Verificación:** `bun test packages/catalog-store` · 67 tests en el paquete, 19 de ellos de este
+repositorio. La ausencia de headers se comprueba de tres formas: la forma pública no tiene la
+clave, el secreto no aparece en ninguna columna de ninguna tabla, y tampoco aparece en **los bytes
+del archivo** de la base —con `wal_checkpoint(TRUNCATE)` antes de leerlo, porque si no se estaría
+mirando un archivo al que todavía no se ha volcado nada—. Medido mutando la implementación: sin
+comprobar el TTL fallan 2, invalidando sin el modo 1, sin mirar la calidad pedida 1, dejando que los
+headers acaben en la URL 3 y usando el TTL del anime para el stream 3. Control: 0 fallos.
 
 **Depende de:** T17.
 
 **Archivos:** `packages/catalog-store/src/repositories/{stream.ts,stream.test.ts}`.
+
+**Tres decisiones que conviene recordar:**
+
+1. **Un enlace caducado no es un dato stale.** Los metadatos viejos se sirven y se revalidan por
+   detrás; una URL de video vencida no sirve para nada, así que `readStream` devuelve `null` en
+   cuanto pasa el TTL, con la fila intacta para que quien revalide pueda sobrescribirla.
+2. **Se cachea una fuente, no la lista.** La clave del esquema es (episodio, modo) y el contrato
+   devuelve un `StreamSource`. Gana la calidad pedida; si no hay coincidencia, la primera que
+   devolvió el proveedor. Preferir `hls` sobre `file` aquí sería decidir la reproducción desde la
+   capa de persistencia.
+3. **`episodeIdOf` hace un `JOIN` con el anime**, porque la tabla de episodios no guarda el
+   proveedor: lo hereda, y una referencia de episodio sólo es única dentro de su proveedor.
 
 **Tamaño:** S.
 

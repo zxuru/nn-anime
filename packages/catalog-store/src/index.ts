@@ -24,3 +24,8 @@ export {
   createSearchRepository,
   type SearchStore,
 } from './repositories/search'
+export {
+  chooseSource,
+  createStreamRepository,
+  type StreamStore,
+} from './repositories/stream'

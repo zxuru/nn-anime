@@ -314,7 +314,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 ### Fase 3 — Persistencia
 - [x] T16 Apertura de base, runner de migraciones y `0001-initial.sql`
 - [x] T17 Repositorios de anime, episodios y búsqueda con cache-aside
-- [ ] T18 Repositorio de streams con TTL corto e invalidación
+- [x] T18 Repositorio de streams con TTL corto e invalidación
 - [ ] T19 Cola de revalidación con deduplicación y concurrencia 2
 - [ ] T20 Historial, progreso, favoritos y búsquedas recientes
 - [ ] T21 Ajustes, `pruneOrphans` y script `db:migrate`
