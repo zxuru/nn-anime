@@ -1383,10 +1383,8 @@ la dirección del upstream.
 - [x] `POST /api/stream/resolve` con `{ episodeRef, mode }` devuelve la lista de `StreamSource`
       **pasada por `toPublicStreamSource`**, para que el cliente web reciba los tickets y nunca las
       cabeceras.
-- [ ] `GET /api/cover/:providerId/:ref` sirve la portada del título cacheado. **Pendiente: la
-      siguiente ronda.** El proxy de bytes y sus rutas están hechos y probados; la ruta de portadas
-      necesita leer la URL de la portada del store y reutilizar el proxy con la lista blanca de
-      tipos ráster, y no cabe en esta ronda sin dejarla a medias.
+- [x] `GET /api/cover/:providerId/:ref` sirve la portada del título cacheado, con la lista blanca
+      de tipos ráster, el tope de 5 MB y `Cache-Control` más `ETag` por referencia.
 - [x] `GET /stream/:ticket` reenvía `Range` y devuelve 206 con `Content-Range` cuando el upstream
       lo da; si no, degrada a 200.
 - [x] Fuerza `Accept-Encoding: identity`.
@@ -1397,8 +1395,11 @@ la dirección del upstream.
 - [x] Reproducir 10 minutos no supera 64 MB de RSS.
 - [x] Ningún header de upstream se serializa al cliente: test explícito.
 
-**Verificación:** `bun test packages/media-proxy packages/server` · 34 pruebas del proxy y 11 de las
-rutas. La memoria se mide de verdad: se pasan 200 MB por el proxy y se comprueba que el RSS crece
+**Verificación:** `bun test packages/media-proxy packages/server` · 34 pruebas del proxy, 11 de las
+rutas de reproducción y 10 de la de portadas. Medido mutando la implementación: sin la lista blanca
+de tipos falla 1, sin el tope de tamaño 1, con el ETag derivado de la referencia 1 y sin comprobar el
+415 1. Control: 0 fallos. La portada se prueba con un upstream de mentira inyectado; con un
+proveedor real es del e2e (T43). La memoria se mide de verdad: se pasan 200 MB por el proxy y se comprueba que el RSS crece
 menos de 64 MB. La cancelación se mide con un cuerpo de mentira que avisa cuando lo cancelan. El
 código se comprueba además leyéndolo: no contiene `arrayBuffer` ni `Buffer.concat`, y sí `pipeTo`.
 
@@ -1419,7 +1420,13 @@ resolución de stream), `app.ts` (las rutas y un `fetch` inyectable para el prox
    prueba.
 3. **Un rango imposible se rechaza antes de salir a la red.** Un 416 sin preguntar al upstream evita
    usar el proxy como generador de tráfico.
-4. **No poder cachear un stream no es un fallo.** El episodio puede no estar en la base porque nadie
+4. **Devolver la respuesta del proxy tal cual saltaba el mapa de cabeceras del contexto**: el
+   `Cache-Control` y el `ETag` se perdían sin decir nada. Se envuelve la respuesta para añadirlos, y
+   lo encontró la prueba.
+5. **El ETag de una portada es un hash de la referencia, no la referencia.** Un nombre de archivo de
+   caché o el valor de una cabecera no se derivan nunca de un dato del proveedor: `..%2F..%2F` no
+   tiene recorrido posible sólo mientras nadie lo use como ruta.
+6. **No poder cachear un stream no es un fallo.** El episodio puede no estar en la base porque nadie
    abrió su ficha; devolver un error dejaría al usuario sin reproducir por un problema de caché.
    También lo encontró una prueba, con un 502 que no correspondía.
 

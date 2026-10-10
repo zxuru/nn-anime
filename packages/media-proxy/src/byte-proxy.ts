@@ -104,6 +104,18 @@ export function parseRange(header: string | undefined): RangeOutcome {
  */
 export type FetchLike = (input: string, init: RequestInit) => Promise<Response>
 
+/** Tipos de imagen que se sirven. Un SVG es un documento con guiones dentro. */
+export const RASTER_TYPES: readonly string[] = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'image/avif',
+]
+
+/** Tope de una portada. */
+export const MAX_COVER_BYTES = 5 * 1024 * 1024
+
 export interface ByteProxyRequest {
   readonly url: string
   /** Cabeceras que el proveedor declaró necesarias. Nunca salen del proceso. */
@@ -111,6 +123,14 @@ export interface ByteProxyRequest {
   readonly range?: string | undefined
   readonly signal?: AbortSignal | undefined
   readonly fetchImpl?: FetchLike
+  /**
+   * Si se indica, sólo se sirven estos tipos. Lo que no esté en la lista se
+   * rechaza con 415 **antes** de enviar un solo byte: un `image/svg+xml` servido
+   * desde nuestro origen es un documento capaz de ejecutar guiones.
+   */
+  readonly acceptedTypes?: readonly string[] | undefined
+  /** Tope de bytes. Por encima, 413 y no se envía nada. */
+  readonly maxBytes?: number | undefined
 }
 
 function passthroughHeaders(upstream: Headers): Headers {
@@ -145,6 +165,9 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
     })
   }
 
+  const maxBytes = request.maxBytes ?? Number.POSITIVE_INFINITY
+  let visto = 0
+
   const doFetch: FetchLike =
     request.fetchImpl ?? ((input: string, init: RequestInit) => fetch(input, init))
   // Los headers se copian uno a uno y luego se **sobrescribe** el de codificación:
@@ -163,6 +186,20 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
     ...(request.signal === undefined ? {} : { signal: request.signal }),
   })
 
+  const tipo = (upstream.headers.get('content-type') ?? '').split(';')[0]?.trim() ?? ''
+  if (request.acceptedTypes !== undefined && !request.acceptedTypes.includes(tipo)) {
+    return new Response(null, { status: 415, headers: { 'x-content-type-options': 'nosniff' } })
+  }
+
+  const declarado = Number(upstream.headers.get('content-length') ?? '0')
+  if (
+    request.maxBytes !== undefined &&
+    Number.isFinite(declarado) &&
+    declarado > request.maxBytes
+  ) {
+    return new Response(null, { status: 413, headers: { 'x-content-type-options': 'nosniff' } })
+  }
+
   const cuerpo = upstream.body
   if (cuerpo === null) {
     return new Response(null, {
@@ -171,8 +208,28 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
     })
   }
 
+  // El tope se comprueba también mientras se transmite: un upstream puede no
+  // declarar `content-length`, y entonces la única defensa es contar.
+  const limitado =
+    request.maxBytes === undefined
+      ? cuerpo
+      : cuerpo.pipeThrough(
+          new TransformStream<Uint8Array, Uint8Array>({
+            transform(chunk, controller) {
+              visto += chunk.byteLength
+              if (visto > maxBytes) {
+                controller.error(new Error('el cuerpo supera el tope'))
+
+                return
+              }
+
+              controller.enqueue(chunk)
+            },
+          }),
+        )
+
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>()
-  void cuerpo.pipeTo(writable).catch(() => {
+  void limitado.pipeTo(writable).catch(() => {
     // El cliente se fue o el upstream cortó: no hay nada que contar aquí. El
     // `catch` existe para que el rechazo no salga como error no gestionado.
   })

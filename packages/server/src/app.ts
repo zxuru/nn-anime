@@ -26,6 +26,7 @@ import { securityHeaders } from './middleware/security-headers'
 import { sessionGuard } from './middleware/session-guard'
 import { PROTECTED_PREFIXES } from './paths'
 import { registerAnimeRoutes } from './routes/anime'
+import { registerCoverRoute } from './routes/cover'
 import { registerEpisodesRoute } from './routes/episodes'
 import { registerFavoritesRoutes } from './routes/favorites'
 import { type PluginReport, registerProvidersRoute, summarizePlugins } from './routes/providers'
@@ -128,6 +129,10 @@ export function createApp(options: AppOptions): Hono {
     registerAnimeRoutes(app, routeOptions)
     registerEpisodesRoute(app, routeOptions)
     registerFavoritesRoutes(app, { container: options.container })
+    registerCoverRoute(app, {
+      container: options.container,
+      ...(options.streamFetchImpl === undefined ? {} : { fetchImpl: options.streamFetchImpl }),
+    })
     registerStreamRoutes(app, {
       ...routeOptions,
       ...(options.streamFetchImpl === undefined ? {} : { fetchImpl: options.streamFetchImpl }),

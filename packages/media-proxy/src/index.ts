@@ -11,8 +11,10 @@ export {
   ALLOWED_RESPONSE_HEADERS,
   type ByteProxyRequest,
   type FetchLike,
+  MAX_COVER_BYTES,
   parseRange,
   proxyBytes,
+  RASTER_TYPES,
   type RangeOutcome,
   upstreamFailure,
 } from './byte-proxy'
