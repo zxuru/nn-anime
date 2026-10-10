@@ -312,7 +312,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - Revisión humana: **no es parada dura**; el humano fijó las paradas en A, B, F y H
 
 ### Fase 3 — Persistencia
-- [ ] T16 Apertura de base, runner de migraciones y `0001-initial.sql`
+- [x] T16 Apertura de base, runner de migraciones y `0001-initial.sql`
 - [ ] T17 Repositorios de anime, episodios y búsqueda con cache-aside
 - [ ] T18 Repositorio de streams con TTL corto e invalidación
 - [ ] T19 Cola de revalidación con deduplicación y concurrencia 2

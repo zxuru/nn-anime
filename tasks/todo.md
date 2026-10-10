@@ -891,20 +891,42 @@ precarga—, el catálogo de textos, los tokens y la hoja de estructura.
 las tablas creadas contra esa lista evita que vuelva a desviarse.
 
 **Aceptación:**
-- [ ] `openDb(path)` aplica `journal_mode=WAL`, `foreign_keys=ON`, `busy_timeout=5000`.
-- [ ] `0001-initial.sql` crea **las nueve** tablas del Data Model con sus índices, y un test las cuenta contra la lista del spec.
-- [ ] El runner aplica pendientes en transacción y registra en `schema_version`.
-- [ ] Correr dos veces seguidas devuelve `applied: 0` la segunda vez.
-- [ ] Una migración que falla deja el esquema sin cambios y el error nombra el archivo.
-- [ ] Ningún otro paquete importa `bun:sqlite`.
+- [x] `openDb(path)` aplica `journal_mode=WAL`, `foreign_keys=ON`, `busy_timeout=5000`.
+- [x] `0001-initial.sql` crea **las nueve** tablas del Data Model con sus índices, y un test las
+      cuenta contra la lista del spec.
+- [x] El runner aplica pendientes en transacción y registra en `schema_version`.
+- [x] Correr dos veces seguidas devuelve `applied: 0` la segunda vez.
+- [x] Una migración que falla deja el esquema sin cambios y el error nombra el archivo.
+- [x] Ningún otro paquete importa `bun:sqlite`.
 
-**Verificación:** `bun test packages/catalog-store` · `bun run db:migrate` dos veces.
+**Verificación:** `bun test packages/catalog-store` · 20 tests. **En vivo**, `bun run db:migrate` dos
+veces contra un directorio XDG temporal: la primera dice «Migraciones aplicadas: 1. Versión del
+esquema: 1.» y sale con 0; la segunda, «No hay migraciones pendientes. Versión del esquema: 1.» y
+sale con 0; la base queda dentro del directorio de datos, que se crea con modo `0700`. Medido mutando la
+implementación: sin `foreign_keys` fallan 2, sin WAL 1, sin transacción 2, sin la comprobación de
+versión 4 y sin una de las tablas 2. Control: 0 fallos.
 
 **Depende de:** T4.
 
 **Archivos:** `packages/catalog-store/src/{db,index}.ts`, `packages/catalog-store/src/migrations/{runner.ts,0001-initial.sql}`, `packages/catalog-store/src/db.test.ts`.
+**Andamiaje de esquema: declara explícitamente que supera cinco archivos.** Añadidos:
+`packages/cli/src/{db-migrate,env}.ts` y `packages/cli/src/db-migrate.test.ts`, porque el comando
+`bun run db:migrate` era un marcador que se negaba a salir con 0 y el propio archivo decía que T16 lo
+sustituía por el runner real. `env.ts` sale de `index.ts` porque ahora hay dos procesos que leen el
+entorno y `index.ts` hace trabajo al importarse.
 
-**Tamaño:** M. Andamiaje de esquema: declara explícitamente que supera cinco archivos.
+**Dos decisiones que conviene recordar:**
+
+1. **Una transacción por migración, no una para el lote.** Así un fallo en la tercera no borra el
+   efecto de las dos primeras, que además quedan registradas. Con una sola transacción para todo el
+   lote, un fallo en la tercera desharía también las dos primeras: el esquema quedaría sin nada
+   aunque esas migraciones sí se ejecutaron y existían.
+2. **`schema_version` lleva `IF NOT EXISTS` y el runner también la asegura.** El runner necesita
+   anotar la versión antes de ejecutar nada, y una lista de migraciones inyectada en un test puede
+   no traerla. Sin eso, la primera migración falla con «table schema_version already exists» —que es
+   exactamente lo que pasó al escribirlo.
+
+**Tamaño:** M.
 
 ---
 

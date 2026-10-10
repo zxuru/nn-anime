@@ -12,11 +12,12 @@
 
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { type ConfigEnvironment, createLogger, readSettings } from '@nn-anime/core'
+import { createLogger, readSettings } from '@nn-anime/core'
 import { loadProviders } from '@nn-anime/provider-sdk'
 import { createBootToken, createSession } from '@nn-anime/server'
 import { version } from '../package.json'
 import { boot, listenOnFreePort, type Migrate } from './boot'
+import { configEnvironment } from './env'
 import { createLifecycle, waitForSignal } from './lifecycle'
 import { openInBrowser } from './open-browser'
 import { type CliIO, run } from './run'
@@ -33,25 +34,6 @@ const io: CliIO = {
 
 /** Marcador hasta T16: todavía no hay base de datos que migrar. */
 const migrate: Migrate = async () => ({ ok: true })
-
-/**
- * Enumera las variables que lee la aplicación.
- *
- * Se copian a mano en lugar de pasar `process.env` entero: así el contrato del
- * entorno es explícito y no se cuela una variable nueva por accidente.
- */
-function configEnvironment(env: NodeJS.ProcessEnv): ConfigEnvironment {
-  return {
-    HOME: env.HOME,
-    XDG_DATA_HOME: env.XDG_DATA_HOME,
-    XDG_CONFIG_HOME: env.XDG_CONFIG_HOME,
-    XDG_CACHE_HOME: env.XDG_CACHE_HOME,
-    NN_ANIME_DATA_DIR: env.NN_ANIME_DATA_DIR,
-    NN_ANIME_CONFIG_DIR: env.NN_ANIME_CONFIG_DIR,
-    NN_ANIME_CACHE_DIR: env.NN_ANIME_CACHE_DIR,
-    NN_ANIME_LANG: env.NN_ANIME_LANG,
-  }
-}
 
 const envLang = process.env.NN_ANIME_LANG
 

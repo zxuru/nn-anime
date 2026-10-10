@@ -13,6 +13,9 @@
     "packages/catalog-store": {
       "name": "@nn-anime/catalog-store",
       "version": "0.1.0",
+      "dependencies": {
+        "@nn-anime/core": "workspace:*",
+      },
     },
     "packages/cli": {
       "name": "@nn-anime/cli",
@@ -21,6 +24,7 @@
         "nn-anime": "./bin/nn-anime",
       },
       "dependencies": {
+        "@nn-anime/catalog-store": "workspace:*",
         "@nn-anime/core": "workspace:*",
         "@nn-anime/provider-sdk": "workspace:*",
         "@nn-anime/server": "workspace:*",

@@ -165,7 +165,7 @@ dominio de `core`.
 anime            id, provider_id, provider_ref, title, title_alt, synopsis, cover_url,
                  year, status, episode_count, fetched_at, ttl_s, raw_json
 genre            anime_id, name
-episode          id, anime_id, number, title, duration_s, mode, fetched_at, ttl_s
+episode          id, anime_id, provider_ref, number, title, duration_s, mode, fetched_at, ttl_s
 watch_event      id, anime_id, episode_id, provider_id, mode, position_s, duration_s,
                  started_at, finished
 favorite         anime_id, created_at
@@ -188,6 +188,12 @@ TTL por tipo de recurso, en segundos:
 
 Regla dura del modelo: la base guarda metadatos y señales, nunca bytes de video. El proxy
 transmite y descarta.
+
+**`episode` lleva `provider_ref`, que esta lista no nombraba.** Sin esa columna el contrato no se
+puede cumplir: `readEpisodes` promete `readonly Episode[]`, y `Episode` lleva `ref` y `animeRef`. La
+alternativa —deducir la referencia del número de episodio— inventa una convención que ningún
+proveedor garantiza, y deja el detalle sin poder abrir un episodio real. Se añadió al implementar
+T16, con la columna creada en `0001-initial.sql`.
 
 **Los headers de upstream no se persisten, y `stream_cache` no tiene columna para ellos.** La
 mitigación 6 dice que viven sólo en memoria del proceso; una columna `headers_json` la

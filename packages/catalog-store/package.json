@@ -4,9 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./db": "./src/db.ts",
+    "./migrations": "./src/migrations/runner.ts"
   },
   "scripts": {
     "test": "bun test"
+  },
+  "dependencies": {
+    "@nn-anime/core": "workspace:*"
   }
 }

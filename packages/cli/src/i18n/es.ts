@@ -45,4 +45,8 @@ Banderas:
     'Sin proveedores. Copia un plugin a ~/.config/nn-anime/providers/ y vuelve a arrancar.',
   'cli.providers.rejected': 'Proveedor rechazado: {message}',
   'cli.providers.directory': 'No se pudieron leer los plugins: {message}',
+
+  'cli.migrate.applied': 'Migraciones aplicadas: {versions}. Versión del esquema: {version}.',
+  'cli.migrate.none': 'No hay migraciones pendientes. Versión del esquema: {version}.',
+  'cli.migrate.failed': 'No se pudo preparar la base de datos: {message}',
 }
