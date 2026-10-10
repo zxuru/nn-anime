@@ -239,7 +239,9 @@ Mitigaciones obligatorias. Todas son verificables por un test.
    `127.0.0.1:<puerto>` y `localhost:<puerto>` en cada request. Bloquea DNS rebinding.
 2. **Sesión por cookie `HttpOnly`.** El CLI abre el navegador con un token de arranque de un solo
    uso. El server lo canjea por una cookie `HttpOnly; SameSite=Strict; Path=/`, redirige a `/`
-   con URL limpia y quema el token de arranque. El token de sesión nunca vuelve a tocar
+   con URL limpia y quema el token de arranque, que además caduca a los cinco minutos: la URL
+   queda en el scrollback de la terminal y no debe seguir valiendo horas después. El token de
+   sesión nunca vuelve a tocar
    JavaScript, así que un XSS en la propia interfaz no puede exfiltrarlo. Sin cookie válida, 401.
 3. **Comparación en tiempo constante.** La cookie se compara con `crypto.timingSafeEqual` sobre
    buffers de igual longitud. Nada de `===`.

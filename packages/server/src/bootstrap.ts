@@ -12,20 +12,36 @@ import { type Session, safeEqual } from './session'
 export const BOOT_PARAM = 'boot'
 const DEFAULT_REDIRECT = '/'
 
+/**
+ * Vida del token de arranque.
+ *
+ * La URL con el token queda en el scrollback de la terminal, y quien pueda
+ * leerla obtendría una sesión completa. Es de un solo uso, pero eso no basta:
+ * si el navegador no llega a abrirse, el token quedaría válido durante horas.
+ * Cinco minutos sobran para que el navegador haga su petición.
+ */
+export const BOOT_TTL_MS = 5 * 60 * 1000
+
 export interface BootstrapOptions {
   readonly bootToken: string
   readonly session: Session
   readonly redirectTo?: string
+  /** Vida del token. Por defecto, `BOOT_TTL_MS`. */
+  readonly ttlMs?: number
+  /** Reloj inyectable, para poder testear la caducidad. */
+  readonly now?: () => number
 }
 
 export function bootstrapHandler(options: BootstrapOptions): MiddlewareHandler {
+  const now = options.now ?? (() => Date.now())
+  const expiresAt = now() + (options.ttlMs ?? BOOT_TTL_MS)
   let redeemed = false
 
   return async (c, next) => {
     const presented = c.req.query(BOOT_PARAM)
     if (presented === undefined) return next()
 
-    if (redeemed || !safeEqual(presented, options.bootToken)) {
+    if (redeemed || now() > expiresAt || !safeEqual(presented, options.bootToken)) {
       return c.text('', 401)
     }
 

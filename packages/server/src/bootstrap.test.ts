@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { type AppOptions, createApp } from './app'
+import { BOOT_TTL_MS } from './bootstrap'
 import { createBootToken, createSession, SESSION_COOKIE, type Session, safeEqual } from './session'
 
 const PORT = 7717
@@ -172,6 +173,76 @@ describe('canje del token de arranque', () => {
     expect(firstResponse.headers.get('set-cookie')).not.toBe(
       secondResponse.headers.get('set-cookie'),
     )
+  })
+})
+
+describe('caducidad del token de arranque', () => {
+  test('dentro del plazo se puede canjear', async () => {
+    const bootToken = createBootToken()
+    let clock = 1_000_000
+    const target = createApp({
+      port: PORT,
+      session: makeSession(),
+      bootToken,
+      version: '0.1.0',
+      bootstrapClock: () => clock,
+    })
+
+    clock += 60_000
+    const response = await target.request(`${BASE}/?boot=${bootToken}`)
+
+    expect(response.status).toBe(302)
+  })
+
+  test('pasado el plazo devuelve 401 y no emite cookie', async () => {
+    const bootToken = createBootToken()
+    let clock = 1_000_000
+    const target = createApp({
+      port: PORT,
+      session: makeSession(),
+      bootToken,
+      version: '0.1.0',
+      bootstrapClock: () => clock,
+    })
+
+    clock += 10 * 60 * 1000
+    const response = await target.request(`${BASE}/?boot=${bootToken}`)
+
+    expect(response.status).toBe(401)
+    expect(response.headers.get('set-cookie')).toBeNull()
+  })
+
+  test('justo en el límite todavía vale', async () => {
+    const bootToken = createBootToken()
+    let clock = 1_000_000
+    const target = createApp({
+      port: PORT,
+      session: makeSession(),
+      bootToken,
+      version: '0.1.0',
+      bootstrapClock: () => clock,
+    })
+
+    clock += BOOT_TTL_MS
+    const response = await target.request(`${BASE}/?boot=${bootToken}`)
+
+    expect(response.status).toBe(302)
+  })
+
+  test('un token caducado no se puede canjear ni aunque nadie lo haya usado', async () => {
+    const bootToken = createBootToken()
+    let clock = 5_000_000
+    const target = createApp({
+      port: PORT,
+      session: makeSession(),
+      bootToken,
+      version: '0.1.0',
+      bootstrapClock: () => clock,
+    })
+
+    clock += BOOT_TTL_MS + 1
+    expect((await target.request(`${BASE}/?boot=${bootToken}`)).status).toBe(401)
+    expect((await target.request(`${BASE}/?boot=${bootToken}`)).status).toBe(401)
   })
 })
 

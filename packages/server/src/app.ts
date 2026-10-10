@@ -40,6 +40,8 @@ export interface AppOptions {
   readonly providers?: readonly ProviderSummary[]
   readonly mpvAvailable?: boolean
   readonly logger?: Logger
+  /** Reloj del canje de arranque, inyectable para testear la caducidad. */
+  readonly bootstrapClock?: () => number
   /**
    * Directorio del build de la interfaz.
    *
@@ -69,7 +71,14 @@ export function createApp(options: AppOptions): Hono {
     app.use(`${prefix}*`, ...guards)
   }
 
-  app.use('/', bootstrapHandler({ bootToken: options.bootToken, session: options.session }))
+  app.use(
+    '/',
+    bootstrapHandler({
+      bootToken: options.bootToken,
+      session: options.session,
+      ...(options.bootstrapClock === undefined ? {} : { now: options.bootstrapClock }),
+    }),
+  )
 
   if (options.webRoot !== undefined) {
     app.use('*', staticAssets({ root: options.webRoot }))
