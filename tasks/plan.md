@@ -104,13 +104,17 @@ Ninguna cruza la puerta: son defectos *dentro* del artefacto que se está revisa
 - [x] T6a Bootstrap de sesión por cookie `HttpOnly` y comparación en tiempo constante
 - [x] T6b Cabeceras de seguridad y CSP
 - [x] T7 Cableado CLI → server: puerto, token, navegador, señales
-- [ ] T8 Esqueleto de la SPA: Vite, router, cliente API, tokens de estilo
+- [x] T8 Esqueleto de la SPA: Vite, router, cliente API, tokens de estilo
+- [x] T8a Servir la interfaz construida desde el server
 
 ### Checkpoint B — Arranque
-- [ ] `bun run start` imprime URL y abre la home
-- [ ] Petición sin cookie de sesión o con `Host` ajeno: 401 o 403
-- [ ] El token de arranque sirve una sola vez y la URL queda limpia
-- [ ] Toda respuesta trae CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options`
+- [x] `bun run start` imprime la URL y sirve la home construida
+- [x] Petición sin cookie de sesión: 401. Con `Host` ajeno y cookie válida: 403
+- [x] El token de arranque sirve una sola vez y la URL queda limpia
+- [x] Toda respuesta trae CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options`
+- [x] Verificado también en desarrollo (`bun run dev`): Vite sirve la SPA y su proxy
+      reenvía el canje, con los mismos guards sin relajar
+- [ ] Revisión humana antes de seguir
 
 ### Fase 2 — Proveedores
 - [ ] T9 `provider-sdk`: tipos, schema, registro, errores y test de conformidad

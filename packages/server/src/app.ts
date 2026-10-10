@@ -14,7 +14,9 @@ import { hostGuard } from './middleware/host-guard'
 import { originGuard } from './middleware/origin-guard'
 import { securityHeaders } from './middleware/security-headers'
 import { sessionGuard } from './middleware/session-guard'
+import { PROTECTED_PREFIXES } from './paths'
 import type { Session } from './session'
+import { staticAssets } from './static-assets'
 
 /** Puerto conocido en el momento de montar la aplicación, o función que lo lee. */
 export type PortSource = number | (() => number)
@@ -38,10 +40,17 @@ export interface AppOptions {
   readonly providers?: readonly ProviderSummary[]
   readonly mpvAvailable?: boolean
   readonly logger?: Logger
+  /**
+   * Directorio del build de la interfaz.
+   *
+   * Cuando se indica, el server sirve la interfaz y la API en el mismo origen.
+   * Sin él —en desarrollo, donde la sirve Vite— el server sólo expone la API.
+   */
+  readonly webRoot?: string
 }
 
 /** Rutas que exigen sesión. Todo lo que cuelga de aquí pasa por los tres guards. */
-export const PROTECTED_PREFIXES: readonly string[] = ['/api/', '/stream/']
+export { PROTECTED_PREFIXES }
 
 function resolvePort(source: PortSource): number {
   return typeof source === 'number' ? source : source()
@@ -61,6 +70,10 @@ export function createApp(options: AppOptions): Hono {
   }
 
   app.use('/', bootstrapHandler({ bootToken: options.bootToken, session: options.session }))
+
+  if (options.webRoot !== undefined) {
+    app.use('*', staticAssets({ root: options.webRoot }))
+  }
 
   app.get('/api/health', (c) =>
     c.json({

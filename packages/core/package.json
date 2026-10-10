@@ -4,7 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./config": "./src/config.ts",
+    "./errors": "./src/errors.ts",
+    "./i18n": "./src/i18n.ts",
+    "./logger": "./src/logger.ts",
+    "./models": "./src/models.ts",
+    "./result": "./src/result.ts",
+    "./schema": "./src/schema.ts"
   },
   "dependencies": {
     "zod": "^4"

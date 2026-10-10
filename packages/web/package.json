@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@nn-anime/core": "workspace:*",
     "react": "^19",
     "react-dom": "^19"
   },

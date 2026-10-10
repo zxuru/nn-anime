@@ -40,6 +40,8 @@ export interface ListenOptions {
   readonly session: Session
   readonly bootToken: string
   readonly version: string
+  /** Build de la interfaz, si existe. Sin él el server sólo expone la API. */
+  readonly webRoot?: string | undefined
 }
 
 export interface StartOutcome {
@@ -86,6 +88,16 @@ export interface BootDeps {
   readonly migrate: Migrate
   readonly listen: Listen
   readonly openUrl: (url: string) => Promise<boolean>
+  /**
+   * Origen donde vive la interfaz, cuando no es el del server.
+   *
+   * En desarrollo la SPA la sirve Vite en otro puerto y su proxy reenvía el
+   * canje al server. El navegador debe abrir Vite, no el server, para que la
+   * cookie quede en el origen que hace las peticiones.
+   */
+  readonly publicOrigin?: string | undefined
+  /** Directorio del build de la interfaz que sirve el server. */
+  readonly webRoot?: string | undefined
   readonly createSession: () => Session
   readonly createBootToken: () => string
 }
@@ -134,6 +146,7 @@ export async function boot(options: CliOptions, deps: BootDeps): Promise<BootRes
     session,
     bootToken,
     version: deps.version,
+    webRoot: deps.webRoot,
   })
 
   if (outcome === undefined) {
@@ -145,7 +158,8 @@ export async function boot(options: CliOptions, deps: BootDeps): Promise<BootRes
     io.out(t(locale, 'cli.port.busy', { port: outcome.fellBackFrom, chosen: outcome.server.port }))
   }
 
-  const url = `${outcome.server.url}/?${BOOT_PARAM}=${bootToken}`
+  const origin = deps.publicOrigin ?? outcome.server.url
+  const url = `${origin}/?${BOOT_PARAM}=${bootToken}`
   io.out(t(locale, 'cli.url', { url }))
 
   // Se registra antes de abrir el navegador: si abrir falla, el servidor ya

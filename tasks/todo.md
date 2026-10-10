@@ -462,16 +462,16 @@ las dependencias del arranque fueran inyectables.
 estilo. Sin funcionalidad de producto todavía.
 
 **Aceptación:**
-- [ ] `bun run dev` levanta Vite con proxy de `/api` y `/stream` a `127.0.0.1:7717`.
-- [ ] El cliente API no maneja ningún token: se apoya en la cookie `HttpOnly` con
+- [x] `bun run dev` levanta Vite con proxy de `/api` y `/stream` a `127.0.0.1:7717`.
+- [x] El cliente API no maneja ningún token: se apoya en la cookie `HttpOnly` con
       `credentials: 'same-origin'`.
-- [ ] El cliente no lee, escribe ni borra cookies, y no guarda nada sensible en `localStorage`
+- [x] El cliente no lee, escribe ni borra cookies, y no guarda nada sensible en `localStorage`
       ni en `sessionStorage`.
-- [ ] El router sirve `/`, `/search`, `/anime/:providerId/:ref`, `/watch/:providerId/:ref`,
+- [x] El router sirve `/`, `/search`, `/anime/:providerId/:ref`, `/watch/:providerId/:ref`,
       `/settings` sin recargar la página.
-- [ ] `tokens.css` define color, espaciado, radios y tipografía; ningún componente usa valores
+- [x] `tokens.css` define color, espaciado, radios y tipografía; ningún componente usa valores
       sueltos.
-- [ ] `i18n/` de la web expone `es.ts` y todo texto sale de `t()`.
+- [x] `i18n/` de la web expone `es.ts` y todo texto sale de `t()`.
 
 **Verificación:** `bun run dev` · navegar entre rutas y ver que no hay recarga completa.
 
@@ -483,12 +483,114 @@ estilo. Sin funcionalidad de producto todavía.
 
 ---
 
+**Verificación:** `bun test packages/web` 45 pasan, 0 fallan · `bun test` 344 pasan, 0 fallan ·
+`tsc --noEmit` 0 · `biome check .` 0 sin infos. Con el servidor y Vite en marcha de verdad:
+
+- Vite sirve la SPA y `/?boot=<token>` llega al server por el proxy: 302 con la cookie
+  `HttpOnly` para el origen 5173. `api/health` con esa cookie: 200. Sin ella: 401.
+- El log del server no contiene la URL de arranque: sólo el puerto.
+- `xdg-open` lanzó Firefox de verdad y **el navegador consumió el token**; el segundo intento
+  devolvió 401. Es la prueba de que el flujo funciona con un navegador real, y por eso la
+  verificación por `curl` necesita `--no-open`.
+
+**Estado:** hecho.
+
+**Decisiones tomadas al implementar:**
+
+- **El enrutador es propio, sin dependencias.** `react-router` no está en la tabla de Tech Stack
+  y añadirlo pide aprobación. Son 40 líneas con un historial inyectable, y el historial
+  inyectable es lo que permite testear las rutas sin un DOM.
+- **`Link` es un `<a href>` de verdad.** Funciona con el botón central, con «abrir en otra
+  pestaña» y sin JavaScript; la navegación sin recarga se añade encima. Además, sólo intercepta
+  el clic primario sin modificadores.
+- **El orden de las reglas del proxy importa y es una trampa.** Vite recorre las claves en orden
+  de inserción y `/` es prefijo de todo: con `/` primero, `/api/health` devolvía el HTML de la
+  SPA. Se descubrió ejecutándolo, no razonando. Las reglas van de más específica a menos.
+- **El proxy reescribe `Host` y `Origin`, no los guards.** `changeOrigin` pone el `Host` del
+  destino y un `configure` pone el `Origin` del server. La alternativa —relajar los guards en
+  desarrollo— dejaría el camino de producción sin probar hasta el final.
+- **Vite se ata a `127.0.0.1` a propósito.** Su valor por defecto escucha en `localhost`, que en
+  esta máquina resuelve a `[::1]`, y entonces la dirección que abre el CLI no respondería. Con
+  `strictPort`, si el puerto está ocupado falla en lugar de cambiar de origen en silencio.
+- **Se añadieron subrutas de exportación a `core`.** Importar el barrel arrastraba `node:fs` y
+  `node:path` al paquete del navegador y rompía el build de Vite. La web importa
+  `@nn-anime/core/i18n`, no el paquete entero. Es la factura de un barrel, y queda pagada.
+- Los marcadores de pantalla dicen qué irá en cada una, en lugar de fingir una interfaz.
+
+**Depende de:** T7.
+
+**Archivos:** `packages/web/{index.html,vite.config.ts}`, `packages/web/src/{main,app,router}.tsx`,
+`packages/web/src/api/{client,client.test}.ts`, `packages/web/src/router.test.ts`,
+`packages/web/src/styles/tokens.css`, `packages/web/src/i18n/{index,es,i18n.test}.ts`,
+`scripts/dev.ts`, `packages/core/package.json`.
+
+**Tamaño:** M, con más archivos de los cinco previstos: es andamiaje, como T1.
+
+---
+
+### T8a — Servir la interfaz construida desde el server
+
+**Descripción:** Tarea que **no estaba en el plan**. El Checkpoint B exige que `bun run start`
+muestre la home, y la decisión 7 del plan dice que en producción un solo proceso sirve interfaz
+y API. Ninguna tarea lo cubría, así que se añade en lugar de dar el checkpoint por bueno con la
+API solamente.
+
+**Aceptación:**
+- [x] `bun run start` sirve la home construida en `/`
+- [x] Una ruta del enrutador del cliente devuelve el `index.html`, porque el enrutado es del
+      cliente y esa ruta no existe en disco
+- [x] Los recursos se sirven con su tipo de contenido y caché inmutable; el HTML no se cachea
+- [x] El servido de estáticos **no** intercepta `/api/*` ni `/stream/*`
+- [x] Una ruta con `..` no sirve nada de fuera de la raíz; el ascenso escapado tampoco
+- [x] Un enlace simbólico que apunta fuera de la raíz no se sirve
+- [x] Sin build en disco, el server sólo expone la API y el desarrollo va por Vite
+
+**Verificación:** `bun test packages/server` 84 pasan, 0 fallan · `tsc --noEmit` 0 ·
+`biome check .` 0 sin infos. Con `bun run build` y el server en marcha: home 200, `/settings`
+200 con el `index.html`, recurso con `text/javascript` y `immutable`, API sin cookie 401, canje
+302 con cookie, API con cookie 200 JSON, `Host` ajeno 403, y `/stream` con sesión 404 en lugar de
+HTML.
+
+**Estado:** hecho.
+
+**Defecto encontrado al ejecutarlo, no al testearlo:** con la sesión válida, el middleware de
+estáticos se tragaba `/api/health`. El archivo no existe, así que caía al `index.html` y el
+cliente recibía HTML donde espera JSON. El test que tenía no lo detectaba porque pedía la ruta
+**sin** sesión: el guard cortaba antes y el middleware nunca llegaba a ejecutarse. Ahora
+`staticAssets` se abstiene explícitamente de las rutas protegidas y hay un test con sesión
+válida que lo fija.
+
+**Decisiones tomadas al implementar:**
+
+- **El confinamiento rechaza los `..` en lugar de normalizarlos.** Pedir `../../etc/passwd` no es
+  un descuido, y una respuesta 404 es más honesta que servir algo parecido.
+- **Sólo se sirven archivos regulares, comprobados con `lstat`.** Un enlace simbólico no es un
+  archivo del build: si apunta fuera de la raíz, servirlo sería una lectura arbitraria. Es el
+  criterio M9 del endurecimiento.
+- Una secuencia de escape inválida (`%zz`) devuelve 404, no un 500: es una petición que no
+  existe, no un fallo del servidor.
+- El HTML va con `no-store` y los recursos con caché inmutable de un año, porque Vite les pone
+  hash en el nombre.
+- Sin build en disco, el middleware deja pasar y el server queda sólo con la API. Es lo que hace
+  que el mismo binario sirva para desarrollo y para producción.
+
+**Depende de:** T8.
+
+**Archivos:** `packages/server/src/{static-assets,static-assets.test,paths,app}.ts`,
+`packages/cli/src/{boot,index}.ts`, `packages/web/vite.config.ts`.
+
+**Tamaño:** M.
+
+---
+
 ## Checkpoint B — Arranque
 
-- [ ] `bun run start` imprime la URL, abre el navegador y muestra la home.
-- [ ] Petición sin cookie de sesión o con `Host` ajeno: 401 y 403 respectivamente.
-- [ ] El token de arranque sirve una sola vez y la barra de direcciones queda en `/`.
-- [ ] Toda respuesta trae CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options`.
+- [x] `bun run start` imprime la URL y sirve la home construida.
+- [x] Petición sin cookie de sesión: 401. Con `Host` ajeno y cookie válida: 403.
+- [x] El token de arranque sirve una sola vez y la barra de direcciones queda en `/`.
+- [x] Toda respuesta trae CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options`.
+- [x] Verificado también en desarrollo (`bun run dev`), con los guards sin relajar.
+- [ ] Revisión humana antes de seguir.
 
 ---
 

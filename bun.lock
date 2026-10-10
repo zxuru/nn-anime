@@ -57,6 +57,7 @@
       "name": "@nn-anime/web",
       "version": "0.1.0",
       "dependencies": {
+        "@nn-anime/core": "workspace:*",
         "react": "^19",
         "react-dom": "^19",
       },

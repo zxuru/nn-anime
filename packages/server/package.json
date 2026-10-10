@@ -11,7 +11,6 @@
     "hono": "^4"
   },
   "scripts": {
-    "dev": "bun --watch src/index.ts",
     "test": "bun test"
   }
 }

@@ -10,6 +10,8 @@
  * salida 3 esté verificado desde ahora.
  */
 
+import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { type ConfigEnvironment, createLogger, resolveLocale } from '@nn-anime/core'
 import { createBootToken, createSession } from '@nn-anime/server'
 import { version } from '../package.json'
@@ -51,6 +53,19 @@ function configEnvironment(env: NodeJS.ProcessEnv): ConfigEnvironment {
 
 const envLang = process.env.NN_ANIME_LANG
 
+/**
+ * Directorio del build de la interfaz, si está construido.
+ *
+ * Sin build, el server sólo expone la API y el desarrollo va por Vite. Con él,
+ * un solo proceso sirve la interfaz y la API en el mismo origen, que es lo que
+ * hace válida la cookie de sesión y evita el CORS.
+ */
+function webBuildRoot(): string | undefined {
+  const dist = fileURLToPath(new URL('../../web/dist/', import.meta.url))
+
+  return existsSync(dist) ? dist : undefined
+}
+
 const code = await run(Bun.argv.slice(2), {
   io,
   version,
@@ -70,6 +85,8 @@ const code = await run(Bun.argv.slice(2), {
       env: configEnvironment(process.env),
       migrate,
       listen: listenOnFreePort,
+      publicOrigin: process.env.NN_ANIME_DEV_ORIGIN,
+      webRoot: webBuildRoot(),
       createSession,
       createBootToken,
       openUrl: (url) =>
