@@ -3,11 +3,14 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import {
   createPlaylistCache,
+  defaultKeyPath,
   defaultSegPath,
   isPlaylist,
   MAX_PLAYLIST_BYTES,
+  MAX_PLAYLIST_LINES,
   PLAYLIST_TTL_MS,
   playlistTooLarge,
+  playlistTooManyLines,
   rewritePlaylist,
 } from './hls'
 
@@ -152,11 +155,115 @@ describe('tope de tamaño', () => {
   })
 })
 
+describe('claves, inicializadores y discontinuidad', () => {
+  test('la playlist cifrada coincide con la salida esperada', async () => {
+    const salida = reescribir(await fixture('cifrado.m3u8'))
+
+    expect(salida.text).toBe(await fixture('cifrado.expected.m3u8'))
+  })
+
+  test('cada clave apunta a su propia ruta y las dos se resuelven', async () => {
+    const salida = reescribir(await fixture('cifrado.m3u8'))
+
+    expect(salida.keys).toEqual([
+      'https://fixture.invalid/aurora/1/sub/init.mp4',
+      'https://fixture.invalid/aurora/1/sub/clave-1.bin',
+      'https://otro.example/clave-2.bin',
+    ])
+    expect(salida.text).toContain('URI="/stream/TICKET/key/0"')
+    expect(salida.text).toContain('URI="/stream/TICKET/key/1"')
+    expect(salida.text).toContain('URI="/stream/TICKET/key/2"')
+  })
+
+  test('`#EXT-X-DISCONTINUITY` se conserva, y en su sitio', async () => {
+    const salida = reescribir(await fixture('cifrado.m3u8'))
+    const lineas = salida.text.split('\n')
+
+    expect(lineas.filter((linea) => linea === '#EXT-X-DISCONTINUITY')).toHaveLength(1)
+    // Va después del primer segmento y antes de la segunda clave.
+    expect(lineas.indexOf('#EXT-X-DISCONTINUITY')).toBeGreaterThan(
+      lineas.indexOf('/stream/TICKET/seg/0'),
+    )
+    expect(lineas.indexOf('#EXT-X-DISCONTINUITY')).toBeLessThan(
+      lineas.indexOf('#EXT-X-KEY:METHOD=AES-128,URI="/stream/TICKET/key/2",IV=0x9c7d'),
+    )
+  })
+
+  test('los demás atributos de la etiqueta no se tocan', async () => {
+    const salida = reescribir(await fixture('cifrado.m3u8'))
+
+    expect(salida.text).toContain('#EXT-X-KEY:METHOD=AES-128,URI="/stream/TICKET/key/1",IV=0x1234')
+    expect(salida.text).toContain('#EXT-X-KEY:METHOD=AES-128,URI="/stream/TICKET/key/2",IV=0x9c7d')
+  })
+
+  test('una etiqueta desconocida con URI no se toca: no es una clave', () => {
+    const salida = rewritePlaylist('#EXTM3U\n#EXT-X-INVENTADA:URI="x.bin"\n', {
+      ticket: 'T',
+      baseUrl: 'https://ejemplo/a.m3u8',
+    })
+
+    expect(salida.keys).toEqual([])
+    expect(salida.text).toContain('#EXT-X-INVENTADA:URI="x.bin"')
+  })
+
+  test('una clave con comillas simples también se reescribe', () => {
+    const salida = rewritePlaylist("#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI='k.bin'\n", {
+      ticket: 'T',
+      baseUrl: 'https://ejemplo/a.m3u8',
+    })
+
+    expect(salida.keys).toEqual(['https://ejemplo/k.bin'])
+    expect(salida.text).toContain('URI="/stream/T/key/0"')
+  })
+
+  test('la ruta de una clave es la del spec', () => {
+    expect(defaultKeyPath('abc', 2)).toBe('/stream/abc/key/2')
+  })
+
+  test('sin `URI` no hay nada que reescribir', () => {
+    const salida = rewritePlaylist('#EXTM3U\n#EXT-X-KEY:METHOD=NONE\n', {
+      ticket: 'T',
+      baseUrl: 'https://ejemplo/a.m3u8',
+    })
+
+    expect(salida.keys).toEqual([])
+    expect(salida.text).toContain('#EXT-X-KEY:METHOD=NONE')
+  })
+})
+
+describe('tope de líneas', () => {
+  test('el tope es el del spec', () => {
+    expect(MAX_PLAYLIST_LINES).toBe(5000)
+  })
+
+  test('una playlist con más líneas se rechaza antes de reescribir', () => {
+    const enorme = `#EXTM3U\n${'#EXTINF:4.0,\nseg.ts\n'.repeat(MAX_PLAYLIST_LINES)}`
+
+    expect(() =>
+      rewritePlaylist(enorme, { ticket: 'T', baseUrl: 'https://ejemplo/a.m3u8' }),
+    ).toThrow(/líneas/)
+  })
+
+  test('justo en el tope, se reescribe', () => {
+    const justa = `#EXTM3U\n${'#EXTINF:4.0,\nseg.ts\n'.repeat(2000)}`
+    const salida = rewritePlaylist(justa, { ticket: 'T', baseUrl: 'https://ejemplo/a.m3u8' })
+
+    expect(salida.uris.length).toBe(2000)
+  })
+
+  test('el error dice cuántas líneas llegaron y cuál es el tope', () => {
+    const error = playlistTooManyLines(MAX_PLAYLIST_LINES + 1)
+
+    expect(error.message).toContain(String(MAX_PLAYLIST_LINES))
+    expect(error.context.lines).toBe(MAX_PLAYLIST_LINES + 1)
+  })
+})
+
 describe('caché de playlists', () => {
   test('guarda y devuelve', () => {
     const cache = createPlaylistCache()
 
-    cache.set('t1', { text: 'texto', uris: ['u'] })
+    cache.set('t1', { text: 'texto', uris: ['u'], keys: [] })
 
     expect(cache.get('t1')?.text).toBe('texto')
     expect(cache.size()).toBe(1)
@@ -165,7 +272,7 @@ describe('caché de playlists', () => {
   test('a los diez segundos ya no está', () => {
     let ahora = 1_000_000
     const cache = createPlaylistCache({ now: () => ahora })
-    cache.set('t1', { text: 'texto', uris: [] })
+    cache.set('t1', { text: 'texto', uris: [], keys: [] })
 
     ahora += PLAYLIST_TTL_MS - 1
     expect(cache.get('t1')).toBeDefined()
@@ -178,10 +285,10 @@ describe('caché de playlists', () => {
   test('prune quita las vencidas y deja las vivas', () => {
     let ahora = 1_000_000
     const cache = createPlaylistCache({ now: () => ahora })
-    cache.set('vieja', { text: 'a', uris: [] })
+    cache.set('vieja', { text: 'a', uris: [], keys: [] })
 
     ahora += PLAYLIST_TTL_MS
-    cache.set('nueva', { text: 'b', uris: [] })
+    cache.set('nueva', { text: 'b', uris: [], keys: [] })
 
     expect(cache.prune()).toBe(1)
     expect(cache.get('nueva')?.text).toBe('b')

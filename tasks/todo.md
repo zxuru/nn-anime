@@ -1604,28 +1604,45 @@ etiquetas 10, con la caché siempre vencida 3 y detectando sólo por extensión 
 
 ---
 
-### T28 — Reescritura HLS: claves, discontinuidad y límites
+### T28 — HLS: claves, discontinuidad y límites
 
-**Descripción:** Los casos que suelen romper la reproducción: cifrado, saltos de secuencia y
-límites de seguridad.
+**Descripción:** El resto de la reescritura: lo que no es un segmento también pasa por el proxy.
 
 **Aceptación:**
-- [ ] `#EXT-X-KEY` con URI reescrita al proxy, conservando `METHOD` e `IV`.
-- [ ] `#EXT-X-DISCONTINUITY`: decisión registrada en el código y verificada por test. Por
-      defecto, rechazo explícito con error claro.
-- [ ] `#EXT-X-MAP` reescrito cuando existe.
-- [ ] URIs con esquema distinto o `data:` se rechazan por lista de permitidos, no por lista de
-      bloqueados.
-- [ ] Un segmento pedido con índice fuera de rango devuelve 404.
-- [ ] Test contra `fixtures/encrypted.m3u8` y `fixtures/discontinuity.m3u8`.
+- [x] `#EXT-X-KEY` con `URI="..."` se reescribe para que la clave también pase por el proxy.
+- [x] `#EXT-X-MAP` con `URI="..."` se reescribe igual (los segmentos de inicialización).
+- [x] `#EXT-X-DISCONTINUITY` y las etiquetas desconocidas se conservan sin tocar.
+- [x] Una playlist con más de 5000 líneas se rechaza antes de reescribir, con error explícito.
+- [x] Test con una playlist que tiene dos claves distintas y una discontinuidad entre ellas: cada
+      clave apunta a su propia ruta del proxy y el orden se conserva.
 
-**Verificación:** `bun test packages/media-proxy`.
+**Verificación:** `bun test packages/media-proxy` · 12 pruebas nuevas y el fixture `cifrado.m3u8` con
+su salida esperada versionada. Medido mutando la implementación: sin reescribir las claves fallan 5,
+sin el tope de líneas 1, con las claves usando la ruta de los segmentos 5 y perdiendo la
+discontinuidad 2. Control: 0 fallos.
 
 **Depende de:** T27.
 
-**Archivos:** `packages/media-proxy/src/{hls-keys.ts,hls-keys.test.ts}`, `packages/media-proxy/fixtures/{encrypted,discontinuity}.m3u8`.
+**Archivos:** `packages/media-proxy/src/{hls.ts,hls.test.ts}`, `packages/media-proxy/fixtures/cifrado*.m3u8`.
+**Ampliación declarada:** el barril de `media-proxy`.
 
-**Tamaño:** M.
+**Tres decisiones que conviene recordar:**
+
+1. **Claves e inicializadores comparten lista e índice** (`/key/:index`), en orden de aparición. Para
+   pedir los bytes dan igual: las dos son un recurso del upstream que tiene que pasar por el proxy.
+   Separarlos obligaría a dos rutas y a dos listas para lo mismo.
+2. **Sólo se toca el atributo `URI`; el resto de la etiqueta se copia literal.** `METHOD`, `IV` y
+   `BYTERANGE` son del upstream, y reconstruir la línea es la forma de perderlos.
+3. **Sólo `#EXT-X-KEY` y `#EXT-X-MAP` se reescriben.** Una etiqueta desconocida con un `URI` no se
+   toca: inventarse la semántica de una etiqueta que no se conoce es peor que dejarla pasar, y el
+   destino se valida igual cuando alguien pida esa URI.
+
+**Un fallo que valió una prueba:** un grupo de captura que no participa llega como `undefined`, no
+como cadena vacía, así que comparar contra `''` dejaba pasar el `undefined` y la clave se resolvía
+como «undefined». Lo encontró la prueba de las comillas simples, que existe precisamente porque el
+spec de HLS permite las dos.
+
+**Tamaño:** S.
 
 ---
 

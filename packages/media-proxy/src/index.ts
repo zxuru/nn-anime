@@ -32,6 +32,7 @@ export {
 } from './destination-guard'
 export {
   createPlaylistCache,
+  defaultKeyPath,
   defaultSegPath,
   isPlaylist,
   MAX_PLAYLIST_BYTES,
@@ -39,6 +40,7 @@ export {
   type PlaylistCache,
   type PlaylistEntry,
   playlistTooLarge,
+  playlistTooManyLines,
   type RewriteOptions,
   type RewrittenPlaylist,
   rewritePlaylist,

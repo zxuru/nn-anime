@@ -32,6 +32,15 @@ export const MAX_PLAYLIST_BYTES = 4 * 1024 * 1024
 /** Vida de una playlist en la caché de memoria. */
 export const PLAYLIST_TTL_MS = 10_000
 
+/**
+ * Tope de líneas.
+ *
+ * Una playlist de verdad tiene decenas o cientos de líneas; cinco mil ya es un
+ * archivo que nadie escribió a mano. El tope se comprueba **antes** de reescribir
+ * porque el coste está en recorrer las líneas, no en leerlas.
+ */
+export const MAX_PLAYLIST_LINES = 5000
+
 /** Detección por extensión o por tipo declarado. */
 export function isPlaylist(url: string, contentType?: string | undefined): boolean {
   if (contentType !== undefined) {
@@ -62,20 +71,44 @@ export interface RewriteOptions {
   readonly ticket: string
   /** URL desde la que se cargó la playlist: la base de sus URIs relativas. */
   readonly baseUrl: string
-  /** Plantilla de la ruta del proxy. Por defecto, `/stream/:ticket/seg/:index`. */
+  /** Plantilla de la ruta del proxy para segmentos. Por defecto, `/stream/:ticket/seg/:index`. */
   readonly segPath?: (ticket: string, index: number) => string
+  /**
+   * Plantilla para claves e inicializadores (`#EXT-X-KEY`, `#EXT-X-MAP`).
+   * Por defecto, `/stream/:ticket/key/:index`.
+   */
+  readonly keyPath?: (ticket: string, index: number) => string
 }
 
 export interface RewrittenPlaylist {
   readonly text: string
   /** Las URIs originales, en orden: es el índice que resuelve `/seg/:index`. */
   readonly uris: readonly string[]
+  /**
+   * Las URIs de claves e inicializadores, en orden de aparición.
+   *
+   * Van en una lista propia porque su índice es otro: `/key/:index`. Y van
+   * juntas —clave y mapa— porque para pedir los bytes dan igual: las dos son un
+   * recurso más del upstream que tiene que pasar por el proxy.
+   */
+  readonly keys: readonly string[]
 }
 
 /** La ruta del proxy para un segmento o sub-playlist. */
 export function defaultSegPath(ticket: string, index: number): string {
   return `/stream/${ticket}/seg/${index}`
 }
+
+/** La ruta del proxy para una clave o un inicializador. */
+export function defaultKeyPath(ticket: string, index: number): string {
+  return `/stream/${ticket}/key/${index}`
+}
+
+/** Etiquetas cuyos atributos `URI` apuntan a un recurso que hay que proxear. */
+const URI_TAGS: readonly string[] = ['#EXT-X-KEY:', '#EXT-X-MAP:']
+
+/** El atributo `URI`, con comillas dobles o simples. */
+const URI_ATTRIBUTE = /URI=("([^"]*)"|'([^']*)')/g
 
 function resolveUri(uri: string, baseUrl: string): string {
   try {
@@ -94,15 +127,38 @@ function resolveUri(uri: string, baseUrl: string): string {
  */
 export function rewritePlaylist(text: string, options: RewriteOptions): RewrittenPlaylist {
   const segPath = options.segPath ?? defaultSegPath
+  const keyPath = options.keyPath ?? defaultKeyPath
   const lineas = text.split('\n')
+
+  if (lineas.length > MAX_PLAYLIST_LINES) throw playlistTooManyLines(lineas.length)
+
   const salida: string[] = []
   const uris: string[] = []
+  const keys: string[] = []
 
   for (const linea of lineas) {
     const limpia = linea.trim()
 
-    // Las etiquetas y las líneas vacías se copian tal cual: sus atributos son
-    // del upstream y no se tocan.
+    // Una etiqueta con atributos `URI` —clave o inicializador— se reescribe sólo
+    // en esos atributos: el resto de la línea (`METHOD`, `IV`, `BYTERANGE`) es
+    // del upstream y se copia sin tocar.
+    if (URI_TAGS.some((etiqueta) => limpia.startsWith(etiqueta))) {
+      salida.push(
+        linea.replace(URI_ATTRIBUTE, (_todo, _comillas, dobles: string, simples: string) => {
+          // El grupo que no participa llega como `undefined`, no como cadena
+          // vacía: comparar contra `''` dejaba pasar el `undefined` y la clave
+          // acababa resolviéndose como «undefined». Lo encontró la prueba de las
+          // comillas simples.
+          const original = dobles !== undefined && dobles !== '' ? dobles : (simples ?? '')
+          keys.push(resolveUri(original, options.baseUrl))
+
+          return `URI="${keyPath(options.ticket, keys.length - 1)}"`
+        }),
+      )
+      continue
+    }
+
+    // Las demás etiquetas y las líneas vacías se copian tal cual.
     if (limpia === '' || limpia.startsWith('#')) {
       salida.push(linea)
       continue
@@ -115,7 +171,18 @@ export function rewritePlaylist(text: string, options: RewriteOptions): Rewritte
     salida.push(linea.replace(limpia, segPath(options.ticket, uris.length - 1)))
   }
 
-  return { text: salida.join('\n'), uris }
+  return { text: salida.join('\n'), uris, keys }
+}
+
+/** Error de una playlist con demasiadas líneas, antes de reescribirla. */
+export function playlistTooManyLines(lines: number): AppError {
+  return new AppError({
+    code: 'upstream',
+    message: `la playlist tiene más de ${MAX_PLAYLIST_LINES} líneas`,
+    context: { lines, max: MAX_PLAYLIST_LINES },
+    scope: 'media-proxy',
+    op: 'rewritePlaylist',
+  })
 }
 
 /** Error de una playlist demasiado grande, antes de parsearla. */
@@ -132,12 +199,16 @@ export function playlistTooLarge(bytes: number): AppError {
 export interface PlaylistEntry {
   readonly text: string
   readonly uris: readonly string[]
+  readonly keys: readonly string[]
   readonly at: number
 }
 
 export interface PlaylistCache {
   get(ticket: string): PlaylistEntry | undefined
-  set(ticket: string, entry: { text: string; uris: readonly string[] }): void
+  set(
+    ticket: string,
+    entry: { text: string; uris: readonly string[]; keys: readonly string[] },
+  ): void
   /** Cuántas playlists vivas hay. */
   size(): number
   /** Quita las vencidas y devuelve cuántas quitó. */
