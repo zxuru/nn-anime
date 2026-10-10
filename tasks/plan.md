@@ -131,6 +131,32 @@ También se corrigieron, en la misma revisión, dos defectos que el revisor conf
 habían arreglado en esta ronda antes de recibir su informe: la ruta leída de `window.location` y
 los dos `as` del cliente HTTP.
 
+#### Segunda revisión: ¿los tests de las correcciones prueban algo?
+
+Una segunda revisión delegada, sobre las correcciones y no sobre el código original, midió cada
+veredicto **revirtiendo el arreglo en un clon y corriendo los tests**. Resultado: de 11 correcciones
+con código, 8 tenían test que fallaba sin el arreglo, y 3 no tenían ninguno o el que tenían era
+vacuamente cierto.
+
+| Corrección | Veredicto de la revisión | Estado tras corregirlo |
+|---|---|---|
+| La consulta abre la búsqueda | Arregla, con test | — |
+| `isPortBusy` y el `catch` desnudo | Arregla, con test | — |
+| Sin reserva de puerto en desarrollo | Arregla, con test | — |
+| Señales antes de arrancar | Arregla, **sin test** | Extraído `start.ts`; revertirlo ahora da **2 fallos** |
+| Una sola descodificación | Arregla, **test vacuamente cierto** | El test pide `/%61pi/no-existe`; revertirlo da **1 fallo** |
+| Estáticos al final | **Sólo tapaba** | Montaje movido a `withStaticAssets`; revertirlo da **1 fallo** |
+| `redeemed` después de la cookie | Arregla, **sin test** | Servidor de sesión que falla al leerse; revertirlo da **1 fallo** |
+| Ruta del enrutador y validación Zod | Arreglan, con test | — |
+
+Los cuatro experimentos se corrieron con el mismo método que usó la revisión: clon, revertir,
+medir, restaurar. El control sin revertir da 11 pass, 0 fail.
+
+**Hallazgo propio de esa revisión, y el más incómodo:** había reintroducido `URL.pathname` en 14
+sitios de los tests nuevos, el mismo defecto que había corregido en `scripts/workspaces.ts`. En un
+directorio con un espacio, la lectura de archivos fallaba y el test de claves huérfanas acusaba al
+catálogo. Verificado en un directorio con espacio real: antes 388 pasan y 7 fallan, después 397 y 0.
+
 **Riesgo residual aceptado y documentado, no corregido:** el token de arranque viaja como
 argumento de `xdg-open` y es visible en `ps` durante un instante. La mitigación 12 habla de disco
 y de logs, no de la lista de procesos. En una máquina de un solo usuario el impacto es nulo, y el
