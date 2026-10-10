@@ -8,6 +8,10 @@
  *    cualquier profundidad. La redacción es por nombre de clave: si un token
  *    viaja dentro de una cadena, este módulo no puede detectarlo y la
  *    responsabilidad es de quien llama.
+ *
+ * `ts`, `level` y `msg` son nombres reservados. Un campo del llamador con esos
+ * nombres no puede pisarlos en la línea serializada, y por eso conviene no
+ * usarlos.
  */
 
 export const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const
@@ -71,7 +75,9 @@ export interface Logger {
 
 /** Serializa una entrada a una sola línea JSON, sin salto final. */
 export function toJsonLine(entry: LogEntry): string {
-  return JSON.stringify({ ts: entry.ts, level: entry.level, msg: entry.msg, ...entry.fields })
+  // Los campos del llamador van primero: `ts`, `level` y `msg` son nombres
+  // reservados y no se pueden pisar desde un campo.
+  return JSON.stringify({ ...entry.fields, ts: entry.ts, level: entry.level, msg: entry.msg })
 }
 
 function sanitizeValue(value: unknown, depth: number, seen: WeakSet<object>): unknown {
@@ -88,16 +94,30 @@ function sanitizeValue(value: unknown, depth: number, seen: WeakSet<object>): un
   if (depth >= MAX_DEPTH) return '[truncated]'
   if (seen.has(value)) return '[circular]'
 
+  // El objeto se marca sólo mientras se recorren sus descendientes, y se
+  // desmarca al terminar. Así un ciclo real se detecta, y dos referencias al
+  // mismo objeto sin ciclo no se confunden con uno.
   seen.add(value)
 
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeValue(item, depth + 1, seen))
-  }
+  const result: unknown = Array.isArray(value)
+    ? value.map((item) => sanitizeValue(item, depth + 1, seen))
+    : sanitizeProperties(value, depth, seen)
 
+  seen.delete(value)
+  return result
+}
+
+function sanitizeProperties(
+  value: object,
+  depth: number,
+  seen: WeakSet<object>,
+): Record<string, unknown> {
   const out: Record<string, unknown> = {}
+
   for (const [key, item] of Object.entries(value)) {
     out[key] = isSensitiveKey(key) ? REDACTED : sanitizeValue(item, depth + 1, seen)
   }
+
   return out
 }
 

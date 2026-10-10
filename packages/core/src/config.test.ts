@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, rm, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { ensureDirs, loadConfig } from './config'
@@ -157,6 +157,22 @@ describe('ensureDirs', () => {
       await ensureDirs(config)
 
       expect((await stat(config.dataDir)).isDirectory()).toBe(true)
+    } finally {
+      await rm(base, { recursive: true, force: true })
+    }
+  })
+
+  test('endurece a 0700 un directorio que ya existía con permisos más laxos', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'nn-anime-config-'))
+
+    try {
+      const config = loadConfig({ env: { HOME: base } })
+      await mkdir(config.dataDir, { recursive: true, mode: 0o755 })
+      expect((await stat(config.dataDir)).mode & 0o777).toBe(0o755)
+
+      await ensureDirs(config)
+
+      expect((await stat(config.dataDir)).mode & 0o777).toBe(0o700)
     } finally {
       await rm(base, { recursive: true, force: true })
     }

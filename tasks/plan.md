@@ -82,8 +82,21 @@ Si algo de esto no se cumple, el task no está hecho: se corta o se divide, no s
 ### Checkpoint A — Fundación
 - [x] `bun install && bun run typecheck && bun run lint && bun test` limpio
 - [x] Verificado además en un checkout limpio (`git clone` a un directorio temporal): install 0,
-      typecheck 0, lint 0, 115 tests pasan, 0 fallan. La fundación es reproducible desde el repo.
+      typecheck 0, lint 0, tests pasan, 0 fallan. La fundación es reproducible desde el repo.
+- [x] Revisión adversarial de la fundación: cuatro defectos reales encontrados y corregidos con
+      test que falla primero. Ver "Correcciones tras la revisión" abajo. 121 tests pasan.
 - [ ] Revisión humana antes de seguir
+
+#### Correcciones tras la revisión adversarial del Checkpoint A
+
+Ninguna cruza la puerta: son defectos *dentro* del artefacto que se está revisando.
+
+| # | Defecto | Impacto | Corrección |
+|---|---|---|---|
+| 1 | `toJsonLine` extendía los campos del llamador sobre `ts`, `level` y `msg`: un campo llamado `level` cambiaba el nivel de la entrada en la línea serializada | Medio. Un log podía mentir sobre su propio nivel, y el filtrado por nivel en `jq` deja de ser fiable | Los campos van primero y los reservados ganan. Documentado en el encabezado del módulo |
+| 2 | `sanitizeValue` marcaba como `[circular]` cualquier segunda referencia al mismo objeto, aunque no hubiera ciclo | Bajo pero corrosivo: `[circular]` es una etiqueta falsa, y quien depura un log deja de creerla | El objeto se marca sólo mientras se recorren sus descendientes y se desmarca al terminar |
+| 3 | `scripts/workspaces.ts` calculaba `ROOT` con `new URL(...).pathname`, que percent-codifica | Alto para quien tenga un espacio en la ruta: `ROOT` apuntaba a `%20` y toda la herramienta de workspaces dejaba de encontrar los paquetes | `fileURLToPath` en una función `dirOfModule` testeable. Verificado ejecutando los scripts desde un directorio con espacio real |
+| 4 | `ensureDirs` no tocaba el modo de un directorio que ya existía: si estaba en `0755`, se quedaba así | Medio, de seguridad: los datos quedaban legibles por otros usuarios, contra lo que dice el spec | `chmod 0700` tras el `mkdir`. Falla en lugar de seguir si no puede cerrarlo |
 
 ### Fase 1 — Arranque (cli-launcher + server shell)
 - [ ] T5 Parser de flags del CLI

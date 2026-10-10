@@ -219,6 +219,18 @@ describe('robustez al serializar', () => {
     expect(containsValue(first(target).fields, '[circular]')).toBe(true)
   })
 
+  test('no marca como circular dos referencias al mismo objeto sin ciclo', () => {
+    const target = capture()
+    const compartido = { nombre: 'compartido' }
+
+    target.logger.info('grafo', { rama: { primero: compartido, segundo: compartido } })
+
+    expect(first(target).fields.rama).toEqual({
+      primero: { nombre: 'compartido' },
+      segundo: { nombre: 'compartido' },
+    })
+  })
+
   test('serializa Error como nombre y mensaje, sin la pila', () => {
     const target = capture()
 
@@ -311,5 +323,19 @@ describe('toJsonLine', () => {
     })
 
     expect(line).toContain('"puerto":7717')
+  })
+
+  test('un campo del llamador no puede pisar ts, level ni msg', () => {
+    const line = toJsonLine({
+      ts: CLOCK.toISOString(),
+      level: 'info',
+      msg: 'mensaje real',
+      fields: { ts: '1970-01-01T00:00:00.000Z', level: 'error', msg: 'falso' },
+    })
+
+    expect(line).toContain('"level":"info"')
+    expect(line).toContain('"msg":"mensaje real"')
+    expect(line).toContain(CLOCK.toISOString())
+    expect(line).not.toContain('"level":"error"')
   })
 })

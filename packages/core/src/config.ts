@@ -9,7 +9,7 @@
  * tocar el sistema de archivos.
  */
 
-import { mkdir } from 'node:fs/promises'
+import { chmod, mkdir } from 'node:fs/promises'
 import { isAbsolute, join, resolve } from 'node:path'
 import { AppError } from './errors'
 import { DEFAULT_LOCALE, t } from './i18n'
@@ -145,12 +145,18 @@ export function loadConfig(options: LoadConfigOptions = {}): ConfigPaths {
 /**
  * Crea los directorios que la aplicación necesita, con modo `0700` y de forma
  * idempotente. Devuelve la lista de rutas aseguradas, en orden.
+ *
+ * `mkdir` no toca el modo de un directorio que ya existe, así que el modo se
+ * aplica con `chmod` después. Si no se puede cerrar un directorio que estaba
+ * más abierto, esto falla en lugar de seguir: la aplicación no arranca con los
+ * datos a la vista de otros usuarios.
  */
 export async function ensureDirs(config: ConfigPaths): Promise<readonly string[]> {
   const dirs = [config.dataDir, config.configDir, config.cacheDir, config.providersDir]
 
   for (const dir of dirs) {
     await mkdir(dir, { recursive: true, mode: 0o700 })
+    await chmod(dir, 0o700)
   }
 
   return dirs

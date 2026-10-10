@@ -1,5 +1,23 @@
 import { describe, expect, test } from 'bun:test'
-import { isRecord, listWorkspaces, scriptOf } from './workspaces'
+import { dirOfModule, isRecord, listWorkspaces, scriptOf } from './workspaces'
+
+describe('dirOfModule', () => {
+  test('devuelve una ruta del sistema de archivos, sin codificar', () => {
+    expect(dirOfModule('file:///home/prueba/nn-anime/scripts/dev.ts')).toBe(
+      '/home/prueba/nn-anime/',
+    )
+  })
+
+  test('descodifica los espacios en lugar de dejar %20', () => {
+    expect(dirOfModule('file:///home/ana/mis%20proyectos/nn-anime/scripts/dev.ts')).toBe(
+      '/home/ana/mis proyectos/nn-anime/',
+    )
+  })
+
+  test('descodifica otros caracteres escapados', () => {
+    expect(dirOfModule('file:///tmp/a%2Bb%20%26%20c/scripts/x.ts')).toBe('/tmp/a+b & c/')
+  })
+})
 
 describe('isRecord', () => {
   test('acepta objetos planos', () => {

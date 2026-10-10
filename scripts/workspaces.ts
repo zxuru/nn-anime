@@ -1,11 +1,21 @@
 /**
  * Utilidades compartidas por los scripts de desarrollo.
- *
- * Sólo usa APIs de Bun para no depender de tipos de Node: el proyecto
- * declara `types: ["bun"]` y no instala `@types/node`.
  */
 
-export const ROOT = new URL('..', import.meta.url).pathname
+import { fileURLToPath } from 'node:url'
+
+/**
+ * Convierte la URL de un módulo en el directorio que lo contiene.
+ *
+ * No se puede usar `new URL(...).pathname` a secas: devuelve la ruta
+ * percent-encoded, así que un directorio con un espacio se convierte en `%20` y
+ * la ruta deja de existir. `fileURLToPath` es lo que descodifica.
+ */
+export function dirOfModule(moduleUrl: string): string {
+  return fileURLToPath(new URL('..', moduleUrl))
+}
+
+export const ROOT = dirOfModule(import.meta.url)
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
