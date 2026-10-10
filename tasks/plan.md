@@ -339,8 +339,8 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 
 ### Fase 5 — Reproducción
 - [x] T25 Almacén de tickets opacos en memoria
-- [ ] T26 Proxy de bytes con `Range`, streaming y abort
-- [ ] T26a Lista blanca de destinos del proxy y revalidación de redirecciones
+- [x] T26 Proxy de bytes con `Range`, streaming y abort
+- [x] T26a Lista blanca de destinos del proxy y revalidación de redirecciones
 - [ ] T26b Saneamiento de respuestas: lista blanca de cabeceras y `Set-Cookie` fuera
 - [ ] T26c Pruebas de integración del ciclo completo
 - [ ] T27 Reescritura HLS: variantes y segmentos
