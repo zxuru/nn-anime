@@ -20,15 +20,21 @@ export {
   createEpisodesRepository,
   type EpisodesStore,
 } from './repositories/episodes'
+export { createFavoritesRepository, type FavoritesStore } from './repositories/favorites'
 export {
   createSearchRepository,
   type SearchStore,
 } from './repositories/search'
 export {
+  createSearchHistoryRepository,
+  type SearchHistoryStore,
+} from './repositories/search-history'
+export {
   chooseSource,
   createStreamRepository,
   type StreamStore,
 } from './repositories/stream'
+export { createWatchRepository, type WatchStore } from './repositories/watch'
 export {
   clearRevalidateError,
   createRevalidator,

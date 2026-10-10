@@ -1077,19 +1077,42 @@ donde vive `last_error`.
 **Descripción:** Señales del usuario, que son también la entrada de `recsys`.
 
 **Aceptación:**
-- [ ] `recordWatch`, `updateWatchPosition`, `listRecentlyWatched`, `setFavorite`,
+- [x] `recordWatch`, `updateWatchPosition`, `listRecentlyWatched`, `setFavorite`,
       `listFavorites`, `recordSearch`, `listRecentSearches`.
-- [ ] `updateWatchPosition` actualiza la misma fila; no crea una nueva por cada 15 s.
-- [ ] `listRecentlyWatched` ordena por más reciente y devuelve metadatos del anime en la misma
+- [x] `updateWatchPosition` actualiza la misma fila; no crea una nueva por cada 15 s.
+- [x] `listRecentlyWatched` ordena por más reciente y devuelve metadatos del anime en la misma
       consulta, sin N+1.
-- [ ] `setFavorite(ref, true)` dos veces no duplica.
-- [ ] Todo sobrevive a cerrar y reabrir la base.
+- [x] `setFavorite(ref, true)` dos veces no duplica.
+- [x] Todo sobrevive a cerrar y reabrir la base.
 
-**Verificación:** `bun test packages/catalog-store`.
+**Verificación:** `bun test packages/catalog-store` · 109 tests en el paquete, 23 de ellos de este
+módulo. Medido mutando la implementación: con `updateWatchPosition` insertando en vez de actualizar
+fallan 2, con el historial ordenado al revés 1, con el favorito a base de `INSERT` a secas 1, con las
+búsquedas ordenadas por identificador 1, con el visionado naciendo terminado 1 y con una consulta
+por fila en lugar del `JOIN` 1. Control: 0 fallos.
 
 **Depende de:** T17.
 
 **Archivos:** `packages/catalog-store/src/repositories/{watch,favorites,search-history}.ts` y tests.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **`recordWatch` devuelve el identificador**, aunque el contrato diga `Promise<void>`. La ruta que
+   registra el inicio de la reproducción tiene que devolvérselo al reproductor para que pueda
+   actualizar la posición después; sin él, la única alternativa sería buscar la última fila, que es
+   una carrera. Devolverlo es aditivo: quien no lo mire, no lo ve.
+2. **El N+1 se comprueba contando consultas, no mirando el SQL.** El envoltorio cuenta las consultas
+   preparadas sobre la base y la prueba exige que cinco filas sean **una**. Borrar una tabla y ver
+   que sigue funcionando no prueba cuántas veces se preguntó: lo encontré escribiendo la prueba
+   floja primero.
+3. **El historial de búsquedas es un registro, no una caché.** Cada búsqueda añade una fila, y la
+   caché de resultados vive en `search_cache` con su clave normalizada. La consulta se guarda
+   **tal como se escribió**: la clave de caché se normaliza porque tiene que coincidir, pero el
+   historial se lee, y ahí «Naruto» y «naruto» son lo que la persona escribió.
+4. **El orden por fecha se prueba con un reloj que va hacia atrás.** Con inserciones seguidas en el
+   mismo milisegundo, ordenar por fecha y ordenar por identificador dan el mismo resultado, así que
+   la prueba no distinguiría una de otra —y la mutación que ordenaba por identificador pasaba—. El
+   reloj inyectado hace que las dos formas discrepen.
 
 **Tamaño:** M.
 

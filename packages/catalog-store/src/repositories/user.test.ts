@@ -1,0 +1,415 @@
+import type { Database } from 'bun:sqlite'
+import { describe, expect, test } from 'bun:test'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import type { AnimeDetail, Episode, ProviderRef, WatchEventInput } from '@nn-anime/core'
+import { openDb } from '../db'
+import { runMigrations } from '../migrations/runner'
+import { createAnimeRepository } from './anime'
+import { createEpisodesRepository } from './episodes'
+import { createFavoritesRepository } from './favorites'
+import { createSearchHistoryRepository } from './search-history'
+import { createWatchRepository } from './watch'
+
+const AURORA: ProviderRef = { providerId: 'fixture', value: 'aurora-nocturna' }
+const MAR: ProviderRef = { providerId: 'fixture', value: 'mar-de-cristal' }
+
+function anime(ref: ProviderRef, title: string, year: number): AnimeDetail {
+  return {
+    ref,
+    title,
+    year,
+    kind: 'tv',
+    coverUrl: `https://fixture.invalid/portada/${ref.value}.webp`,
+    genres: ['Acción'],
+    studios: ['Estudio Cobre'],
+  }
+}
+
+function episodio(animeRef: ProviderRef, numero: number): Episode {
+  return {
+    ref: { providerId: animeRef.providerId, value: `${animeRef.value}#${numero}` },
+    animeRef,
+    number: numero,
+    title: `Episodio ${numero}`,
+    mode: 'sub',
+  }
+}
+
+function visionado(animeRef: ProviderRef, numero: number, startedAt: Date): WatchEventInput {
+  return {
+    animeRef,
+    episodeRef: { providerId: animeRef.providerId, value: `${animeRef.value}#${numero}` },
+    mode: 'sub',
+    positionS: 0,
+    durationS: 1440,
+    startedAt,
+  }
+}
+
+/**
+ * Envoltorio que cuenta las consultas preparadas.
+ *
+ * Se envuelve la base y no se mira el SQL: lo que el spec prohíbe es el patrón
+ * «una consulta por fila», y eso se mide contando, no leyendo la sentencia. Los
+ * métodos se atan al objeto original porque los de `bun:sqlite` esperan su
+ * propio `this`.
+ */
+function contarConsultas(db: Database): { readonly db: Database; readonly llamadas: () => number } {
+  let llamadas = 0
+
+  const envuelta = new Proxy(db, {
+    get(target, prop, receptor) {
+      if (prop === 'query') llamadas += 1
+      const valor: unknown = Reflect.get(target, prop, receptor)
+
+      return typeof valor === 'function' ? valor.bind(target) : valor
+    },
+  })
+
+  return { db: envuelta, llamadas: () => llamadas }
+}
+
+interface Store {
+  readonly db: Database
+  readonly anime: ReturnType<typeof createAnimeRepository>
+  readonly episodios: ReturnType<typeof createEpisodesRepository>
+  readonly watch: ReturnType<typeof createWatchRepository>
+  readonly favoritos: ReturnType<typeof createFavoritesRepository>
+  readonly historial: ReturnType<typeof createSearchHistoryRepository>
+}
+
+/** Base temporal con dos títulos y sus episodios ya dentro. */
+async function withStore<T>(body: (store: Store) => Promise<T> | T): Promise<T> {
+  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-usuario-'))
+  const path = join(dir, 'nn-anime.db')
+  const db = openDb(path)
+
+  try {
+    runMigrations(db)
+    const animeRepo = createAnimeRepository(db)
+    const episodios = createEpisodesRepository(db)
+
+    for (const [ref, title, year] of [
+      [AURORA, 'Aurora Nocturna', 2019],
+      [MAR, 'Mar de Cristal', 2023],
+    ] as const) {
+      animeRepo.write(ref, anime(ref, title, year))
+      episodios.write(ref, [episodio(ref, 1), episodio(ref, 2)])
+    }
+
+    return await body({
+      db,
+      anime: animeRepo,
+      episodios,
+      watch: createWatchRepository(db),
+      favoritos: createFavoritesRepository(db),
+      historial: createSearchHistoryRepository(db),
+    })
+  } finally {
+    db.close()
+    await rm(dir, { recursive: true, force: true })
+  }
+}
+
+describe('historial de visionado', () => {
+  test('registra un visionado y lo devuelve con los datos del anime', async () => {
+    await withStore((store) => {
+      const id = store.watch.recordWatch(visionado(AURORA, 1, new Date(1_000_000)))
+      const lista = store.watch.listRecentlyWatched(10)
+
+      expect(id).toBeGreaterThan(0)
+      expect(lista).toHaveLength(1)
+      expect(lista[0]?.id).toBe(id)
+      expect(lista[0]?.anime.title).toBe('Aurora Nocturna')
+      expect(lista[0]?.anime.year).toBe(2019)
+      expect(lista[0]?.anime.kind).toBe('tv')
+      expect(lista[0]?.anime.coverUrl).toContain('aurora-nocturna.webp')
+      expect(lista[0]?.episodeNumber).toBe(1)
+      expect(lista[0]?.mode).toBe('sub')
+      expect(lista[0]?.finished).toBe(false)
+      expect(lista[0]?.startedAt).toEqual(new Date(1_000_000))
+    })
+  })
+
+  test('actualiza la posición en la misma fila, no crea otra', async () => {
+    await withStore((store) => {
+      const id = store.watch.recordWatch(visionado(AURORA, 1, new Date(1_000_000)))
+
+      // Lo que hace el reproductor cada quince segundos.
+      for (const posicion of [15, 30, 45, 60]) store.watch.updateWatchPosition(id, posicion, 1440)
+
+      const lista = store.watch.listRecentlyWatched(10)
+
+      expect(lista).toHaveLength(1)
+      expect(lista[0]?.positionS).toBe(60)
+    })
+  })
+
+  test('actualizar un visionado que no existe se denuncia', async () => {
+    await withStore((store) => {
+      expect(() => store.watch.updateWatchPosition(999, 10, 100)).toThrow(/999/)
+    })
+  })
+
+  test('ordena por más reciente', async () => {
+    await withStore((store) => {
+      store.watch.recordWatch(visionado(AURORA, 1, new Date(1_000_000)))
+      store.watch.recordWatch(visionado(MAR, 1, new Date(2_000_000)))
+      store.watch.recordWatch(visionado(AURORA, 2, new Date(3_000_000)))
+
+      const lista = store.watch.listRecentlyWatched(10)
+
+      expect(lista.map((item) => item.anime.title)).toEqual([
+        'Aurora Nocturna',
+        'Mar de Cristal',
+        'Aurora Nocturna',
+      ])
+      expect(lista[0]?.episodeNumber).toBe(2)
+    })
+  })
+
+  test('el límite se respeta', async () => {
+    await withStore((store) => {
+      for (let indice = 0; indice < 5; indice++) {
+        store.watch.recordWatch(visionado(AURORA, 1, new Date(1_000_000 + indice)))
+      }
+
+      const lista = store.watch.listRecentlyWatched(3)
+
+      expect(lista).toHaveLength(3)
+    })
+  })
+
+  test('los metadatos salen de la misma consulta, no una por fila', async () => {
+    await withStore((store) => {
+      for (let indice = 0; indice < 5; indice++) {
+        store.watch.recordWatch(visionado(AURORA, 1, new Date(1_000_000 + indice)))
+      }
+
+      // Se cuentan las consultas de verdad, con un envoltorio sobre la base:
+      // borrar una tabla y ver que sigue funcionando no prueba cuántas veces se
+      // preguntó. El `JOIN` trae el anime en la misma consulta, así que cinco
+      // filas son **una** consulta.
+      const contador = contarConsultas(store.db)
+      const lista = createWatchRepository(contador.db).listRecentlyWatched(5)
+
+      expect(lista).toHaveLength(5)
+      expect(lista[0]?.anime.title).toBe('Aurora Nocturna')
+      expect(contador.llamadas()).toBe(1)
+    })
+  })
+
+  test('los favoritos también traen los metadatos de una vez', async () => {
+    await withStore((store) => {
+      store.favoritos.setFavorite(AURORA, true)
+      store.favoritos.setFavorite(MAR, true)
+
+      const contador = contarConsultas(store.db)
+      const favoritos = createFavoritesRepository(contador.db).listFavorites()
+
+      expect(favoritos).toHaveLength(2)
+      expect(contador.llamadas()).toBe(1)
+    })
+  })
+
+  test('un anime que no está no se puede registrar', async () => {
+    await withStore((store) => {
+      const otro: ProviderRef = { providerId: 'fixture', value: 'no-existe' }
+
+      expect(() => store.watch.recordWatch(visionado(otro, 1, new Date()))).toThrow(/no está/)
+    })
+  })
+
+  test('un episodio que no está no se puede registrar', async () => {
+    await withStore((store) => {
+      expect(() => store.watch.recordWatch(visionado(AURORA, 9, new Date()))).toThrow(/no está/)
+    })
+  })
+})
+
+describe('favoritos', () => {
+  test('marcar y leer', async () => {
+    await withStore((store) => {
+      store.favoritos.setFavorite(AURORA, true)
+
+      expect(store.favoritos.listFavorites().map((item) => item.title)).toEqual(['Aurora Nocturna'])
+    })
+  })
+
+  test('marcar dos veces no duplica', async () => {
+    await withStore((store) => {
+      store.favoritos.setFavorite(AURORA, true)
+      store.favoritos.setFavorite(AURORA, true)
+
+      expect(store.favoritos.listFavorites()).toHaveLength(1)
+      expect(store.db.query('SELECT COUNT(*) AS total FROM favorite').get()).toEqual({ total: 1 })
+    })
+  })
+
+  test('desmarcar lo saca', async () => {
+    await withStore((store) => {
+      store.favoritos.setFavorite(AURORA, true)
+      store.favoritos.setFavorite(AURORA, false)
+
+      expect(store.favoritos.listFavorites()).toEqual([])
+    })
+  })
+
+  test('desmarcar algo que no estaba no falla', async () => {
+    await withStore((store) => {
+      store.favoritos.setFavorite(AURORA, false)
+
+      expect(store.favoritos.listFavorites()).toEqual([])
+    })
+  })
+
+  test('marcar un anime que no está se denuncia', async () => {
+    await withStore((store) => {
+      expect(() =>
+        store.favoritos.setFavorite({ providerId: 'fixture', value: 'no-existe' }, true),
+      ).toThrow(/no está/)
+    })
+  })
+
+  test('la lista sale del más reciente al más antiguo', async () => {
+    await withStore((store) => {
+      store.favoritos.setFavorite(AURORA, true)
+      store.db.query('UPDATE favorite SET created_at = 1').run()
+      store.favoritos.setFavorite(MAR, true)
+      store.db
+        .query(
+          'UPDATE favorite SET created_at = 2 WHERE anime_id = (SELECT id FROM anime WHERE provider_ref = ?)',
+        )
+        .run(MAR.value)
+
+      expect(store.favoritos.listFavorites().map((item) => item.title)).toEqual([
+        'Mar de Cristal',
+        'Aurora Nocturna',
+      ])
+    })
+  })
+})
+
+describe('búsquedas recientes', () => {
+  test('registra y lee, con su número de aciertos', async () => {
+    await withStore((store) => {
+      store.historial.recordSearch('aurora', 'fixture', 2)
+
+      const lista = store.historial.listRecentSearches(10)
+
+      expect(lista).toHaveLength(1)
+      expect(lista[0]?.query).toBe('aurora')
+      expect(lista[0]?.providerId).toBe('fixture')
+      expect(lista[0]?.hits).toBe(2)
+      expect(lista[0]?.searchedAt).toBeInstanceOf(Date)
+    })
+  })
+
+  test('la misma búsqueda dos veces son dos filas: es historial, no caché', async () => {
+    await withStore((store) => {
+      store.historial.recordSearch('aurora', 'fixture', 2)
+      store.historial.recordSearch('aurora', 'fixture', 2)
+
+      expect(store.historial.listRecentSearches(10)).toHaveLength(2)
+    })
+  })
+
+  test('la consulta se guarda tal como se escribió, sin normalizar', async () => {
+    await withStore((store) => {
+      store.historial.recordSearch('  Aurora NOCTURNA ', 'fixture', 1)
+
+      expect(store.historial.listRecentSearches(1)[0]?.query).toBe('  Aurora NOCTURNA ')
+    })
+  })
+
+  test('el límite se respeta y el orden es del más reciente', async () => {
+    await withStore((store) => {
+      // Reloj inyectado que **va hacia atrás**: así la fecha y el identificador
+      // dicen cosas distintas y la prueba distingue ordenar por una o por otro.
+      // Con inserciones seguidas en el mismo milisegundo, las dos formas dan el
+      // mismo resultado y no se probaría nada.
+      let reloj = 10_000
+      const historial = createSearchHistoryRepository(store.db, () => {
+        reloj -= 1_000
+        return reloj
+      })
+
+      for (const consulta of ['uno', 'dos', 'tres', 'cuatro']) {
+        historial.recordSearch(consulta, 'fixture', 1)
+      }
+
+      const lista = historial.listRecentSearches(2)
+
+      expect(lista.map((item) => item.query)).toEqual(['uno', 'dos'])
+    })
+  })
+
+  test('con la misma fecha, el desempate es el más reciente por id', async () => {
+    await withStore((store) => {
+      const historial = createSearchHistoryRepository(store.db, () => 5_000)
+      historial.recordSearch('uno', 'fixture', 1)
+      historial.recordSearch('dos', 'fixture', 1)
+
+      expect(historial.listRecentSearches(2).map((item) => item.query)).toEqual(['dos', 'uno'])
+    })
+  })
+
+  test('unos aciertos imposibles se denuncian', async () => {
+    await withStore((store) => {
+      expect(() => store.historial.recordSearch('aurora', 'fixture', -1)).toThrow(/aciertos/)
+      expect(() => store.historial.recordSearch('aurora', 'fixture', 1.5)).toThrow(/aciertos/)
+    })
+  })
+})
+
+describe('todo sobrevive a cerrar y reabrir', () => {
+  test('historial, favoritos y búsquedas siguen ahí después', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-usuario-'))
+    const path = join(dir, 'nn-anime.db')
+
+    try {
+      const primera = openDb(path)
+      runMigrations(primera)
+      createAnimeRepository(primera).write(AURORA, anime(AURORA, 'Aurora Nocturna', 2019))
+      createEpisodesRepository(primera).write(AURORA, [episodio(AURORA, 1)])
+      const id = createWatchRepository(primera).recordWatch(
+        visionado(AURORA, 1, new Date(1_000_000)),
+      )
+      createWatchRepository(primera).updateWatchPosition(id, 300, 1440)
+      createFavoritesRepository(primera).setFavorite(AURORA, true)
+      createSearchHistoryRepository(primera).recordSearch('aurora', 'fixture', 2)
+      primera.close()
+
+      const segunda = openDb(path)
+      runMigrations(segunda)
+      const visto = createWatchRepository(segunda).listRecentlyWatched(10)
+      const favoritos = createFavoritesRepository(segunda).listFavorites()
+      const busquedas = createSearchHistoryRepository(segunda).listRecentSearches(10)
+      segunda.close()
+
+      expect(visto).toHaveLength(1)
+      expect(visto[0]?.positionS).toBe(300)
+      expect(visto[0]?.anime.title).toBe('Aurora Nocturna')
+      expect(favoritos).toHaveLength(1)
+      expect(busquedas[0]?.query).toBe('aurora')
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  test('borrar el anime se lleva su historial y sus favoritos', async () => {
+    await withStore((store) => {
+      store.watch.recordWatch(visionado(AURORA, 1, new Date()))
+      store.favoritos.setFavorite(AURORA, true)
+
+      store.db
+        .query('DELETE FROM anime WHERE provider_id = ? AND provider_ref = ?')
+        .run(AURORA.providerId, AURORA.value)
+
+      expect(store.watch.listRecentlyWatched(10)).toEqual([])
+      expect(store.favoritos.listFavorites()).toEqual([])
+    })
+  })
+})
