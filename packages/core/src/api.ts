@@ -134,6 +134,30 @@ export const recommendationsResponseSchema = z.strictObject({
   coldStart: z.boolean(),
 })
 
+/** Un visionado a medias, tal y como lo ve la fila «continuar viendo». */
+export const continueWatchingItemSchema = z.strictObject({
+  animeRef: providerRefSchema,
+  title: z.string().min(1),
+  coverUrl: httpUrlSchema.optional(),
+  episodeRef: providerRefSchema,
+  episodeNumber: z.number().int().nonnegative(),
+  mode: modeSchema,
+  positionS: z.number().nonnegative(),
+  durationS: z.number().nonnegative(),
+  /** Cuánto se vio, de 0 a 1. Lo calcula el servidor para no repetirlo. */
+  ratio: z.number().min(0).max(1),
+  watchedAt: z.string().min(1),
+})
+
+export const continueWatchingResponseSchema = z.strictObject({
+  items: z.array(continueWatchingItemSchema),
+})
+
+/** Una fila de tendencias. */
+export const trendingResponseSchema = z.strictObject({
+  items: z.array(animeSummarySchema),
+})
+
 /** Ajustes que la interfaz puede leer y, en parte, cambiar. */
 export const settingsResponseSchema = z.strictObject({
   theme: z.enum(['dark', 'light', 'system']),
@@ -204,7 +228,10 @@ export const searchEventSchema = z.discriminatedUnion('type', [
 
 export type ErrorResponse = z.infer<typeof errorResponseSchema>
 export type AnimeResponse = z.infer<typeof animeResponseSchema>
+export type ContinueWatchingItem = z.infer<typeof continueWatchingItemSchema>
+export type ContinueWatchingResponse = z.infer<typeof continueWatchingResponseSchema>
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>
+export type TrendingResponse = z.infer<typeof trendingResponseSchema>
 export type SettingsResponse = z.infer<typeof settingsResponseSchema>
 export type RecommendationResponse = z.infer<typeof recommendationSchema>
 export type RecommendationsResponse = z.infer<typeof recommendationsResponseSchema>

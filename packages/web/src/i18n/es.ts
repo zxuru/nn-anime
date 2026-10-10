@@ -31,6 +31,16 @@ export const messages: Messages = {
   'search.failed': 'No se pudo buscar: {message}',
   'search.alsoIn': 'También en {count} proveedores',
 
+  'home.loading': 'Cargando tu inicio…',
+  'home.continue': 'Continuar viendo',
+  'home.continue.empty': 'Nada a medias. Lo que empieces aparecerá aquí.',
+  'home.favorites': 'Tus favoritos',
+  'home.favorites.empty':
+    'Todavía no has marcado ninguno. La estrella está en la ficha de cada título.',
+  'home.trending': 'De moda',
+  'home.trending.empty': 'Ningún proveedor activo ofrece tendencias.',
+  'home.more': 'y {count} más',
+  'home.resume': 'Seguir en {time}',
   'settings.title': 'Ajustes',
   'settings.loading': 'Cargando los ajustes…',
   'settings.error': 'No se pudieron cargar los ajustes: {message}',

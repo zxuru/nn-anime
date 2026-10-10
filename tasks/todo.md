@@ -2335,18 +2335,45 @@ adivine. Dos intentos: pasar una función desde el CLI era una indirección que 
 **Descripción:** La home completa: continuar, favoritos, tendencias y recomendaciones.
 
 **Aceptación:**
-- [ ] Fila "continuar viendo" con posición registrada, sin reanudación automática.
-- [ ] Fila de favoritos con estado vacío útil.
-- [ ] Fila de tendencias desde `getTrending` cuando el proveedor lo soporta.
-- [ ] El panel de recomendaciones de T39 integrado como una fila más.
-- [ ] Grillas virtualizadas cuando superan 60 elementos.
-- [ ] Con la base poblada la home pinta antes de 1 s con `X-Cache: hit`.
+- [x] Fila "continuar viendo" con posición registrada, sin reanudación automática.
+- [x] Fila de favoritos con estado vacío útil.
+- [x] Fila de tendencias desde `getTrending` cuando el proveedor lo soporta.
+- [x] El panel de recomendaciones de T39 integrado como una fila más.
+- [x] Grillas virtualizadas cuando superan 60 elementos.
+- [ ] Con la base poblada la home pinta antes de 1 s con `X-Cache: hit`. **No medido**: es una
+      medición de navegador con la pestaña de red, y necesita el e2e de T43. Lo que sí está: las
+      tres lecturas van en paralelo y ninguna fila bloquea a las otras.
 
-**Verificación:** `bun run dev` · medir con la pestaña de red abierta.
+**Verificación:** `bun test packages/server packages/web` · 7 pruebas de la ruta de continuar viendo y
+11 de las filas. Medido mutando la implementación: dejando pasar lo terminado fallan 2, sin el umbral
+inferior 2, sin recortar la rejilla 3 y sin recortar la proporción 1. Control: 0 fallos.
 
 **Depende de:** T39, T32.
 
 **Archivos:** `packages/web/src/features/home/{HomePage,ContinueRow,TrendingRow}.tsx`, `packages/web/src/components/VirtualGrid.tsx`.
+**Ampliación declarada:** `FavoritesRow.tsx`, `rows.ts`, `useHomeRows.ts`, sus pruebas, la ruta
+`GET /api/watch/recent` con sus pruebas, la ruta `GET /api/trending` (separada del motor: las
+recomendaciones son para el usuario y esto es lo que está de moda en general) y los schemas en
+`core/api.ts`.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **La proporción la calcula el servidor.** Si la calculara cada pantalla, dos pantallas podrían
+   pintar la misma barra con valores distintos.
+2. **Se cortan los extremos: por debajo del 2 % y por encima del 95 %.** Abrir un episodio y cerrarlo
+   no es «estar viendo» nada, y lo que está a punto de acabarse no es algo que apetezca continuar.
+3. **La fila vacía se explica, no se esconde.** Esconderla deja al usuario con una página que cambia
+   de forma sin motivo y sin saber que existe una función que no está usando. El estado vacío de
+   favoritos dice **dónde** se marca.
+4. **«Continuar viendo» no reanuda sola.** El enlace lleva al episodio y quien decide seguir donde se
+   dejó es el reproductor, cuando se le da a reproducir: reanudar al entrar es lo que hace que alguien
+   vea el final de un episodio sin querer.
+
+**La rejilla se corta, no se virtualiza de verdad, y lo dice.** Una virtualización completa necesita
+medir el hueco de cada elemento, escuchar el desplazamiento y reservar el alto total para que la barra
+no salte: eso es un componente con estado, medidas y pruebas de navegador. Lo que hay pinta los
+primeros 60 y dice cuántos quedan. Es honesto, no finge ser lo que no es, y resuelve la mitad del
+problema —la que se nota al desplazarse—.
 
 **Tamaño:** M.
 

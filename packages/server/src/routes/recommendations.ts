@@ -19,7 +19,11 @@
  */
 
 import type { Candidate } from '@nn-anime/core'
-import { errorResponseSchema, recommendationsResponseSchema } from '@nn-anime/core'
+import {
+  errorResponseSchema,
+  recommendationsResponseSchema,
+  trendingResponseSchema,
+} from '@nn-anime/core'
 import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import { recommend } from '@nn-anime/recsys'
 import type { Hono } from 'hono'
@@ -50,6 +54,56 @@ export function clampLimit(raw: string | undefined): number {
   if (!Number.isFinite(pedido)) return 10
 
   return Math.min(Math.max(Math.trunc(pedido), 1), MAX_LIMIT)
+}
+
+/**
+ * Tendencias del proveedor, como fila propia.
+ *
+ * Va aparte del motor porque es otra cosa: las recomendaciones son para el
+ * usuario y esto es lo que está de moda en general. Y sólo se pide a quien dice
+ * saber hacerlo: un proveedor sin `getTrending` no se consulta.
+ */
+export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOptions): void {
+  app.get('/api/trending', async (c) => {
+    const conTendencias = options.providers.filter(
+      (provider) => provider.capabilities.trending && provider.getTrending !== undefined,
+    )
+
+    const resultados = await Promise.all(
+      conTendencias.map(async (provider) => {
+        const tendencias = provider.getTrending
+        if (tendencias === undefined) return []
+
+        try {
+          return await tendencias.call(provider, {
+            signal: c.req.raw.signal,
+            timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+          })
+        } catch {
+          return []
+        }
+      }),
+    )
+
+    const vistos = new Set<string>()
+    const items = []
+
+    for (const resultado of resultados.flat()) {
+      const clave = refKey(resultado.ref)
+      if (vistos.has(clave)) continue
+
+      vistos.add(clave)
+      items.push({
+        ref: resultado.ref,
+        title: resultado.title,
+        ...(resultado.coverUrl === undefined ? {} : { coverUrl: resultado.coverUrl }),
+        ...(resultado.year === undefined ? {} : { year: resultado.year }),
+        ...(resultado.kind === undefined ? {} : { kind: resultado.kind }),
+      })
+    }
+
+    return c.json(trendingResponseSchema.parse({ items }))
+  })
 }
 
 export function registerRecommendationsRoute(

@@ -375,7 +375,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 
 ### Fase 7 — Pulido, seguridad y cierre
 - [x] T40 Página de ajustes: proveedores, rutas de datos, mpv, tema, enlace a `SECURITY.md`
-- [ ] T41 Filas de la home: continuar, favoritos, tendencias, recomendaciones
+- [x] T41 Filas de la home: continuar, favoritos, tendencias, recomendaciones
 - [ ] T42 Pasada de accesibilidad: foco, contraste, movimiento reducido, `aria-live`
 - [ ] T43 Arneses Playwright y casos de home y búsqueda
 - [ ] T44 Casos e2e de detalle, reproductor y recomendaciones

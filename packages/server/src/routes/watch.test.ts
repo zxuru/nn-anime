@@ -214,3 +214,96 @@ describe('los dos modos son dos visionados', () => {
     })
   })
 })
+
+describe('GET /api/watch/recent', () => {
+  test('sin nada visto, la lista está vacía', async () => {
+    await conApp(async ({ pedir }) => {
+      const respuesta = await pedir('/api/watch/recent')
+
+      expect(respuesta.status).toBe(200)
+      expect(await respuesta.json()).toEqual({ items: [] })
+    })
+  })
+
+  test('un visionado a medias aparece con su posición y su proporción', async () => {
+    await conApp(async ({ pedir }) => {
+      const { id } = (await (await alta(pedir)).json()) as { id: number }
+      await pedir(`/api/watch/${id}`, {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ positionS: 720, durationS: 1440 }),
+      })
+
+      const cuerpo = (await (await pedir('/api/watch/recent')).json()) as {
+        items: { positionS: number; ratio: number; episodeNumber: number; mode: string }[]
+      }
+
+      expect(cuerpo.items).toHaveLength(1)
+      expect(cuerpo.items[0]?.positionS).toBe(720)
+      expect(cuerpo.items[0]?.ratio).toBeCloseTo(0.5, 6)
+      expect(cuerpo.items[0]?.mode).toBe('sub')
+    })
+  })
+
+  test('lo terminado no aparece: ya se vio', async () => {
+    await conApp(async ({ pedir }) => {
+      const { id } = (await (await alta(pedir)).json()) as { id: number }
+      await pedir(`/api/watch/${id}`, {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ positionS: 1440, durationS: 1440 }),
+      })
+
+      const cuerpo = (await (await pedir('/api/watch/recent')).json()) as { items: unknown[] }
+
+      expect(cuerpo.items).toEqual([])
+    })
+  })
+
+  test('abrir y cerrar no es «estar viendo»: por debajo del 2 % no aparece', async () => {
+    await conApp(async ({ pedir }) => {
+      const { id } = (await (await alta(pedir)).json()) as { id: number }
+      await pedir(`/api/watch/${id}`, {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ positionS: 5, durationS: 1440 }),
+      })
+
+      const cuerpo = (await (await pedir('/api/watch/recent')).json()) as { items: unknown[] }
+
+      expect(cuerpo.items).toEqual([])
+    })
+  })
+
+  test('lo que está a punto de acabarse tampoco', async () => {
+    await conApp(async ({ pedir }) => {
+      const { id } = (await (await alta(pedir)).json()) as { id: number }
+      await pedir(`/api/watch/${id}`, {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ positionS: 1430, durationS: 1440 }),
+      })
+
+      const cuerpo = (await (await pedir('/api/watch/recent')).json()) as { items: unknown[] }
+
+      expect(cuerpo.items).toEqual([])
+    })
+  })
+
+  test('sin duración conocida no se inventa una proporción', async () => {
+    await conApp(async ({ pedir }) => {
+      await alta(pedir)
+
+      const cuerpo = (await (await pedir('/api/watch/recent')).json()) as { items: unknown[] }
+
+      // Duración cero y sin terminar: proporción cero, así que no es «continuar».
+      expect(cuerpo.items).toEqual([])
+    })
+  })
+
+  test('exige sesión', async () => {
+    await conApp(async ({ pedir }) => {
+      expect((await pedir('/api/watch/recent', { headers: {} })).status).toBe(401)
+    })
+  })
+})
