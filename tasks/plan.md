@@ -2,8 +2,8 @@
 
 Estado: **para revisión humana** · 2026-10-10 · Specs aprobados en `6937fbe`, endurecidos tras
 revisión de seguridad.
-Tasks tracked in `tasks/todo.md` (54 tareas: T1–T47 más las insertadas T6a, T6b, T26a, T26b, T29a,
-T31a y T8a). El índice completo de dependencias, generado desde los bloques de tarea, está al final
+Tasks tracked in `tasks/todo.md` (55 tareas: T1–T47 más las insertadas T6a, T6b, T8a, T26a, T26b,
+T26c, T29a y T31a). El índice completo de dependencias, generado desde los bloques de tarea, está al final
 de `tasks/todo.md`.
 
 ## Overview
@@ -175,6 +175,53 @@ precedencia discriminan: invertirla da **2 fallos**.
 También se cerró una asimetría que este trabajo destapó: `open` no se podía desactivar desde el
 archivo porque la ausencia de la bandera y su valor por defecto eran indistinguibles.
 
+#### Cuarta revisión: trazabilidad spec↔plan
+
+Delegada a contexto fresco y con un encargo distinto de las anteriores: no revisar código, sino
+comprobar **cada requisito normativo de los ocho documentos de spec contra los criterios de
+aceptación de las 54 tareas**. Es la comprobación que convierte en método lo que hasta ahora
+encontraba por casualidad.
+
+Resultado: **11 huecos, 5 coberturas parciales y 3 contradicciones.** Las contradicciones no las
+había visto nadie porque cada documento, leído solo, es coherente.
+
+**Contradicciones, resueltas (manda el spec):**
+
+| Contradicción | Resolución |
+|---|---|
+| `SPEC-provider-core` dice que un plugin no puede exportar `default` y `providers` a la vez; T10 decía que se fusionan | Se rechaza, nombrando el plugin |
+| T16 decía «las once tablas»; el Data Model lista nueve | Nueve, y un test las cuenta contra la lista |
+| `media-proxy` usaba `{Available: false}`; el resto del sistema usa `mpv: false` | Unificado en `mpv: false` |
+
+**Huecos corregidos como código, no como promesa:**
+
+- **`--provider` no lo usaba nadie.** Se analizaba, se fusionaba desde `config.json` y se tiraba:
+  exactamente el defecto de la consulta posicional. Ahora viaja en la dirección del canje.
+- **`url` y `coverUrl` del esquema de `core` eran `z.string().min(1)`**, así que `javascript:` y
+  `data:` pasaban la frontera. El spec dice que el esquema se valida en la frontera y la frontera
+  es `core`: si la comprobación viviera sólo en la interfaz, cualquier consumidor nuevo reabriría
+  el agujero. Lista blanca de esquemas en los cuatro campos de URL.
+- **El cliente HTTP no deduplicaba.** El spec pide un `Map` de promesas por clave de URL; sólo lo
+  cubría la búsqueda. Implementado compartiendo lecturas en vuelo.
+- **La cobertura objetivo del 80 % no la medía nadie.** Añadido `bun run test:coverage`. Medición:
+  **98.28 % de líneas**.
+
+**Huecos resueltos asignándolos a una tarea:** la validación de entrada HTTP (T13), la agrupación
+de duplicados y el prefetch acotado (T14), los tipos que el contrato del store nombraba sin
+definirlos (T16-T21), el `pruneOrphans` al arrancar por encima de 200 MB (T21) y la lectura de `q`
+y `provider` en la ruta de la SPA (T14).
+
+**Dos huecos necesitaron decisión, no asignación:**
+
+- **No existía ninguna ruta para portadas**, y `SPEC-web-ui.md` prohíbe en su sección Never
+  incrustar recursos remotos. El contrato exigía algo sin dar el mecanismo. Se añade
+  `GET /api/cover/:providerId/:ref`: el cliente manda una referencia, nunca una dirección, así que
+  el navegador no puede convertirse en un proxy hacia donde quiera y la lista blanca de destinos
+  sigue siendo la única puerta. Resuelve además el TTL de miniatura, que se declaraba sin ruta.
+- **El nivel de pruebas de integración en `tests/` no lo creaba nadie.** El spec pide que cubra el
+  ciclo buscar → detalle → episodios → resolver stream → cachear, y cada tarea sólo probaba su
+  paquete. **Tarea nueva: T26c.** Total: 55 tareas.
+
 **Riesgo residual aceptado y documentado, no corregido:** el token de arranque viaja como
 argumento de `xdg-open` y es visible en `ps` durante un instante. La mitigación 12 habla de disco
 y de logs, no de la lista de procesos. En una máquina de un solo usuario el impacto es nulo, y el
@@ -246,6 +293,7 @@ delante.
 - [ ] T26 Proxy de bytes con `Range`, streaming y abort
 - [ ] T26a Lista blanca de destinos del proxy y revalidación de redirecciones
 - [ ] T26b Saneamiento de respuestas: lista blanca de cabeceras y `Set-Cookie` fuera
+- [ ] T26c Pruebas de integración del ciclo completo
 - [ ] T27 Reescritura HLS: variantes y segmentos
 - [ ] T28 Reescritura HLS: claves, discontinuidad y límites
 - [ ] T29 Handoff a mpv: spawn, SSE de estado, fallback sin mpv, cierre

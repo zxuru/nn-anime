@@ -26,13 +26,17 @@ Rutas HTTP. Todas exigen el token de sesión y el `Host` validado del server.
 GET  /stream/:ticket                 proxy de bytes o de playlist
 GET  /stream/:ticket/seg/:index       segmento resuelto de una playlist HLS
 GET  /api/subtitles/:ticket           proxy de una pista de subtítulos, con conversión a vtt
+GET  /api/cover/:providerId/:ref      portada del título cacheado, con caché larga
 POST /api/play/mpv                    lanza mpv con el stream resuelto
 POST /api/play/mpv/:pid/stop          mata el mpv lanzado
 GET  /api/play/mpv/events             SSE: estado del reproductor externo
 ```
 
-La ruta de subtítulos faltaba en esta lista y T30 la implementaba igual. Se añade al auditarla:
-un contrato que no lista una de sus rutas es un contrato incompleto.
+La ruta de subtítulos faltaba en esta lista y T30 la implementaba igual. Y la de portadas no
+existía en ningún sitio, aunque la interfaz prohíbe en su sección Never incrustar recursos remotos:
+sin ella no había forma de mostrar una portada sin incumplir el contrato. Las dos se añaden al
+auditar. Un contrato que no lista una de sus rutas es un contrato incompleto, y un contrato que
+exige algo sin dar el mecanismo es peor.
 
 El `:ticket` es un identificador opaco, aleatorio con CSPRNG y de vida corta (600 s). Nunca
 contiene la URL de upstream, para que el cliente web no pueda leerla ni compartirla. La

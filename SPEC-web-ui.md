@@ -41,6 +41,7 @@ POST /api/watch                      registrar inicio de reproducción
 PATCH /api/watch/:id                 actualizar posición
 GET  /api/favorites   POST /api/favorites
 GET  /api/settings    PATCH /api/settings
+GET  /api/cover/:providerId/:ref     portada, servida por el proxy
 ```
 
 Rutas de la SPA, todas del lado del cliente salvo la primera:
@@ -154,7 +155,9 @@ packages/web/
 
 - Usar `dangerouslySetInnerHTML` con datos de un proveedor: las sinopsis vienen de fuera.
 - Escribir, leer o borrar cookies desde JavaScript.
-- Incrustar un recurso remoto directamente: portadas, subtítulos y video pasan por el proxy.
+- Incrustar un recurso remoto directamente: portadas, subtítulos y video pasan por el proxy. Las
+  portadas van por `GET /api/cover/:providerId/:ref`: el cliente manda una referencia, nunca una
+  dirección, así que el navegador no puede convertirse en un proxy hacia donde quiera.
 - Construir un `href` o un `src` con una URL de proveedor sin pasar por la lista blanca de
   esquemas.
 - Cargar un iframe o script de un dominio externo.

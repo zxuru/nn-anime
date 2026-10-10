@@ -4,9 +4,10 @@ Plan: `tasks/plan.md` · Specs: `CAPABILITY-MAP.md`, `SPEC-nn-anime.md`, `SPEC-<
 Regla: todo task cierra el Definition of Done de `tasks/plan.md`. Tope de 5 archivos de
 implementación por task; el andamiaje de T1 y T16 lo declara explícitamente.
 
-54 tareas: T1–T47 más las seis insertadas tras la revisión de seguridad (T6a, T6b, T26a, T26b,
-T29a, T31a) y T8a, añadida al cerrar el Checkpoint B porque el spec exigía servir la interfaz
-construida y ninguna tarea lo cubría. Los ids con sufijo no se renumeran: el orden de ejecución lo
+55 tareas: T1–T47 más las seis insertadas tras la revisión de seguridad (T6a, T6b, T26a, T26b,
+T29a, T31a), T8a —añadida al cerrar el Checkpoint B porque el spec exigía servir la interfaz
+construida y ninguna tarea lo cubría— y T26c, añadida al auditar la trazabilidad porque el nivel de
+pruebas de integración del spec no lo creaba nadie. Los ids con sufijo no se renumeran: el orden de ejecución lo
 da la tabla de dependencias del final.
 
 Fuera de este plan: `downloads` (v1.5) y `metadata-enrichment` (sin aprobar).
@@ -712,6 +713,9 @@ parciales sin que un proveedor lento o roto bloquee al resto.
 **Descripción:** Exponer el registro y la búsqueda incremental por HTTP.
 
 **Aceptación:**
+- [ ] **Los schemas de entrada también viven ahí**, y toda ruta que reciba cuerpo valida con ellos
+      antes de tocar nada. El spec lo pone en Boundaries como *Always* —«validar con Zod toda
+      entrada HTTP»— y no lo reclamaba ninguna tarea.
 - [ ] **Los schemas de respuesta viven en `packages/core/src/api.ts`.** Añadido al auditar: la
       interfaz valida con Zod desde T8 y el server construye JSON a mano, pero ninguna tarea era
       dueña de las formas compartidas. Con dos definiciones paralelas la deriva no da error de
@@ -764,6 +768,12 @@ anuncios accesibles.
 **Aceptación:**
 - [ ] Valida los eventos del stream con el schema compartido de `packages/core/src/api.ts`, no con
       uno local.
+- [ ] **Lee `q` y `provider` de la cadena de consulta** y los usa en la petición. Sin esto, el
+      filtro que `--provider` pone en la dirección de arranque no tiene por dónde llegar.
+- [ ] **Agrupa los duplicados entre proveedores** por título normalizado más año, como pista
+      visual y **sin fusionar referencias**: el spec lo pide y ninguna tarea lo cubría.
+- [ ] **Prefetch acotado**: sólo el detalle de las tarjetas visibles, al pasar el mouse, con
+      `AbortController` al salir. Nunca el catálogo.
 - [ ] Los resultados se pintan a medida que llegan, con esqueleto por proveedor pendiente.
 - [ ] Un proveedor que falla muestra su error y no deja el esqueleto para siempre.
 - [ ] Cambiar la consulta cancela la petición anterior y descarta sus eventos.
@@ -823,6 +833,11 @@ las tablas creadas contra esa lista evita que vuelva a desviarse.
 
 **Aceptación:**
 - [ ] `readAnime`/`writeAnime`, `readEpisodes`/`writeEpisodes`, `readSearch`/`writeSearch`.
+- [ ] **Los tipos que nombra el contrato del store se definen en `packages/core/src/models.ts`**,
+      no en el paquete que los usa. `SPEC-catalog-store.md` devuelve `WatchRecord`, `AnimeSummary`,
+      `SearchRecord`, `MigrationReport` y `PruneReport`, y no existían en ningún sitio: un contrato
+      que nombra tipos indefinidos se implementa inventándoselos, uno por consumidor.
+- [ ] Los tests corren contra un directorio temporal inyectado y no tocan `$XDG_DATA_HOME`.
 - [ ] `CacheHit<T>` con `value`, `fetchedAt`, `stale` y `ttlS` según la tabla de TTL.
 - [ ] Un MISS devuelve `null` y no lanza.
 - [ ] Escritura de un anime con géneros y episodios en una sola transacción.
@@ -919,6 +934,9 @@ las tablas creadas contra esa lista evita que vuelva a desviarse.
 - [ ] `pruneOrphans` borra `stream_cache` vencido hace más de 1 día y detalles sin actividad en
       90 días; no toca un anime visto hace 5 días.
 - [ ] `pruneOrphans` informa cuántas filas borró por tabla.
+- [ ] `pruneOrphans` se ofrece como comando manual **y como tarea al arrancar si la base supera
+      200 MB**, que es lo que pide el spec del store. El disparador vive en el arranque; la
+      comprobación de tamaño, aquí.
 - [ ] `bun run db:migrate` funciona fuera de tests contra el directorio de datos real.
 - [ ] `runMigrations` es idempotente desde el CLI.
 
@@ -1048,6 +1066,13 @@ store.
       **pasada por `toPublicStreamSource`**, para que el cliente web reciba los tickets y nunca las
       cabeceras. **Añadido al auditar:** la superficie HTTP de `SPEC-web-ui.md` declara esta ruta y
       ninguna tarea la reclamaba; sin ella la interfaz no tiene forma de resolver un stream.
+- [ ] `GET /api/cover/:providerId/:ref` sirve la portada del título cacheado. **Añadido al
+      auditar:** `SPEC-web-ui.md` prohíbe en su sección Never incrustar recursos remotos —
+      «portadas, subtítulos y video pasan por el proxy»— y **no existía ninguna ruta para
+      portadas**, así que la interfaz no podía mostrar una sin incumplir su propio contrato. El
+      cliente nunca manda una URL, sólo la referencia que el servidor ya conoce: así no hay
+      superficie de SSRF desde el navegador y la lista blanca de destinos sigue siendo la única
+      puerta. Se sirve con caché larga, el TTL de miniatura de la tabla del spec.
 - [ ] `GET /stream/:ticket` reenvía `Range` y devuelve 206 con `Content-Range` cuando el upstream
       lo da; si no, degrada a 200.
 - [ ] Fuerza `Accept-Encoding: identity`.
@@ -1118,6 +1143,34 @@ resto, `Set-Cookie` incluida.
 **Archivos:** `packages/media-proxy/src/{response-headers.ts,response-headers.test.ts}`, `packages/media-proxy/src/byte-proxy.ts`.
 
 **Tamaño:** S.
+
+---
+
+### T26c — Pruebas de integración del ciclo completo
+
+**Descripción:** Tarea **nueva**, añadida al auditar la trazabilidad. `SPEC-nn-anime.md` declara un
+nivel de pruebas de integración en `tests/` que «cubre el ciclo buscar → detalle → episodios →
+resolver stream → cachear», y **ninguna tarea lo creaba**. Cada tarea prueba su paquete; el ciclo
+completo no lo probaba nadie, que es justo donde aparecen los fallos de integración.
+
+**Aceptación:**
+- [ ] Existe el directorio `tests/` y `bun test` lo recoge.
+- [ ] Base SQLite en directorio temporal y proveedor fixture inyectado: **sin red externa**.
+- [ ] Un test recorre el ciclo entero: buscar → detalle → episodios → resolver stream → comprobar
+      que quedó cacheado.
+- [ ] Un test comprueba que la segunda vuelta del ciclo **no llama al proveedor**: el contador de
+      peticiones del fixture se queda igual.
+- [ ] Un test comprueba que un proveedor que falla no rompe el ciclo: se sirve lo cacheado.
+- [ ] Ningún test toca `$XDG_*` real.
+
+**Verificación:** `bun test tests` · `bun test` sigue verde.
+
+**Depende de:** T22, T26b. Necesita la búsqueda cacheada, el detalle, la resolución de stream y el
+proxy; por eso va después y no antes.
+
+**Archivos:** `tests/ciclo-completo.test.ts`, `tests/fixtures.ts`.
+
+**Tamaño:** M.
 
 ---
 
@@ -1687,6 +1740,10 @@ contratos, tablas de TTL y de modelo, Boundaries y Seguridad— y para cada uno 
 implementado y, si no, qué tarea lo cubre por su aceptación.
 
 **Aceptación:**
+- [ ] **La cobertura objetivo del spec —80 % en `core`, `catalog-store`, `recsys` y
+      `provider-sdk`— medida con `bun run test:coverage` y cumplida.** Al auditar no la medía nadie.
+      Medición de hoy, con `catalog-store`, `recsys` y `provider-sdk` todavía vacíos: 98.28 % de
+      líneas en el conjunto.
 - [ ] **Auditoría de trazabilidad spec↔plan hecha primero**, con su tabla de huecos y cada hueco
       asignado a una tarea o convertido en una tarea nueva.
 - [ ] Los ocho criterios de `SPEC-nn-anime.md` verificados y marcados en el propio spec.
@@ -1764,6 +1821,7 @@ Dependencias de cada tarea, generadas desde los `Depende de:` de sus bloques. É
 | T26 | T11, T25 |
 | T26a | T26 |
 | T26b | T26 |
+| T26c | T22, T26b |
 | T27 | T26 |
 | T28 | T27 |
 | T29 | T26 |
