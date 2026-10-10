@@ -365,7 +365,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] T34 Co-visita: sesiones y pares
 - [x] T35 Señal de búsqueda, exclusión y reglas de reencuentro
 - [x] T36 MMR y generación de razones en español
-- [ ] T37 Fachada `recommend()`, determinismo y test de rendimiento
+- [x] T37 Fachada `recommend()`, determinismo y test de rendimiento
 - [ ] T38 Ruta `/api/recommendations` con candidatos del store y tendencias
 - [ ] T39 Panel de recomendaciones en la home, con razones y refresco por búsqueda
 
