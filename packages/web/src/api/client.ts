@@ -5,8 +5,17 @@
  * JavaScript no puede leer, así que aquí no hay nada que adjuntar a mano y nada
  * que un XSS pueda robar. `credentials: 'same-origin'` lo dice de forma
  * explícita, aunque sea el valor por defecto.
+ *
+ * **No hay conversiones de tipo.** La respuesta se valida con un schema Zod
+ * antes de devolverla. Un `as T` sobre `response.json()` haría que un campo
+ * renombrado en el servidor apareciera como `undefined` en mitad de un
+ * componente; con el schema falla en la frontera, que es donde se puede
+ * entender. El bundle de la interfaz paga unos kilobytes por ello y los vale.
  */
 
+import type { z } from 'zod'
+
+/** La sesión no vale o la petición no está permitida. */
 export class ApiError extends Error {
   readonly status: number
 
@@ -16,9 +25,22 @@ export class ApiError extends Error {
     this.status = status
   }
 
-  /** La sesión no vale: hay que volver a entrar por la dirección de arranque. */
+  /** Hay que volver a entrar por la dirección de arranque. */
   get isSessionLost(): boolean {
     return this.status === 401
+  }
+}
+
+/** La respuesta llegó, pero no tiene la forma prometida. */
+export class ApiShapeError extends Error {
+  readonly path: string
+  readonly issues: string
+
+  constructor(path: string, issues: string) {
+    super(`la respuesta de ${path} no cumple el schema: ${issues}`)
+    this.name = 'ApiShapeError'
+    this.path = path
+    this.issues = issues
   }
 }
 
@@ -39,11 +61,11 @@ function realDeps(): RequestDeps {
   return { fetch: (input, init) => globalThis.fetch(input, init) }
 }
 
-export async function request<T>(
+async function dispatch(
   path: string,
-  options: RequestOptions = {},
-  deps: RequestDeps = realDeps(),
-): Promise<T> {
+  options: RequestOptions,
+  deps: RequestDeps,
+): Promise<Response> {
   const method = options.method ?? 'GET'
   const headers: Record<string, string> = { accept: 'application/json' }
 
@@ -61,33 +83,67 @@ export async function request<T>(
     throw new ApiError(response.status, `${method} ${path} respondió ${response.status}`)
   }
 
-  if (response.status === 204) return undefined as T
+  return response
+}
 
-  return (await response.json()) as T
+/** Petición cuya respuesta es JSON y tiene que cumplir un schema. */
+export async function request<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  options: RequestOptions = {},
+  deps: RequestDeps = realDeps(),
+): Promise<T> {
+  const response = await dispatch(path, options, deps)
+
+  if (response.status === 204) {
+    throw new ApiShapeError(path, 'el servidor respondió 204 donde se esperaba un cuerpo')
+  }
+
+  let payload: unknown
+  try {
+    payload = await response.json()
+  } catch {
+    throw new ApiShapeError(path, 'el cuerpo no es JSON válido')
+  }
+
+  const parsed = schema.safeParse(payload)
+  if (!parsed.success) throw new ApiShapeError(path, parsed.error.message)
+
+  return parsed.data
+}
+
+/** Petición cuyo cuerpo de respuesta se ignora. Para mutaciones. */
+export async function send(
+  path: string,
+  options: RequestOptions = {},
+  deps: RequestDeps = realDeps(),
+): Promise<void> {
+  await dispatch(path, options, deps)
 }
 
 export function apiGet<T>(
   path: string,
+  schema: z.ZodType<T>,
   options: Omit<RequestOptions, 'method' | 'body'> = {},
   deps?: RequestDeps,
 ): Promise<T> {
-  return request<T>(path, { ...options, method: 'GET' }, deps)
+  return request(path, schema, { ...options, method: 'GET' }, deps)
 }
 
-export function apiPost<T>(
+export function apiPost(
   path: string,
   body?: unknown,
   options: Omit<RequestOptions, 'method' | 'body'> = {},
   deps?: RequestDeps,
-): Promise<T> {
-  return request<T>(path, { ...options, method: 'POST', body }, deps)
+): Promise<void> {
+  return send(path, { ...options, method: 'POST', body }, deps)
 }
 
-export function apiPatch<T>(
+export function apiPatch(
   path: string,
   body?: unknown,
   options: Omit<RequestOptions, 'method' | 'body'> = {},
   deps?: RequestDeps,
-): Promise<T> {
-  return request<T>(path, { ...options, method: 'PATCH', body }, deps)
+): Promise<void> {
+  return send(path, { ...options, method: 'PATCH', body }, deps)
 }

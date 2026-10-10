@@ -60,6 +60,7 @@
         "@nn-anime/core": "workspace:*",
         "react": "^19",
         "react-dom": "^19",
+        "zod": "^4",
       },
       "devDependencies": {
         "@types/react": "^19",

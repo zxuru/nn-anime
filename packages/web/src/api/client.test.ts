@@ -1,5 +1,17 @@
 import { describe, expect, test } from 'bun:test'
-import { ApiError, apiGet, apiPatch, apiPost, type RequestDeps } from './client'
+import { z } from 'zod'
+import {
+  ApiError,
+  ApiShapeError,
+  apiGet,
+  apiPatch,
+  apiPost,
+  type RequestDeps,
+  request,
+  send,
+} from './client'
+
+const HEALTH = z.strictObject({ version: z.string(), port: z.number() })
 
 interface Call {
   readonly input: string
@@ -11,7 +23,7 @@ interface Fake {
   readonly deps: RequestDeps
 }
 
-function fake(status = 200, body = '{}', headers: Record<string, string> = {}): Fake {
+function fake(status = 200, body = '{"version":"0.1.0","port":7717}'): Fake {
   const calls: Call[] = []
 
   return {
@@ -19,23 +31,25 @@ function fake(status = 200, body = '{}', headers: Record<string, string> = {}): 
     deps: {
       fetch: (input, init) => {
         calls.push({ input, init })
-        return Promise.resolve(new Response(body, { status, headers }))
+        return Promise.resolve(new Response(body, { status }))
       },
     },
   }
 }
 
 function failing(error: Error): RequestDeps {
-  return {
-    fetch: () => Promise.reject(error),
-  }
+  return { fetch: () => Promise.reject(error) }
 }
 
-describe('request: forma de la petición', () => {
+function headersOf(call: Call | undefined): Record<string, string> {
+  return (call?.init.headers ?? {}) as Record<string, string>
+}
+
+describe('forma de la petición', () => {
   test('usa la ruta relativa tal cual', async () => {
     const target = fake()
 
-    await apiGet('/api/health', {}, target.deps)
+    await request('/api/health', HEALTH, {}, target.deps)
 
     expect(target.calls[0]?.input).toBe('/api/health')
   })
@@ -43,7 +57,7 @@ describe('request: forma de la petición', () => {
   test('manda las credenciales del mismo origen, que es lo que lleva la cookie', async () => {
     const target = fake()
 
-    await apiGet('/api/health', {}, target.deps)
+    await request('/api/health', HEALTH, {}, target.deps)
 
     expect(target.calls[0]?.init.credentials).toBe('same-origin')
   })
@@ -51,44 +65,34 @@ describe('request: forma de la petición', () => {
   test('no adjunta ninguna cabecera de autorización', async () => {
     const target = fake()
 
-    await apiGet('/api/health', {}, target.deps)
+    await request('/api/health', HEALTH, {}, target.deps)
 
-    const headers = target.calls[0]?.init.headers as Record<string, string>
-    expect(Object.keys(headers).map((name) => name.toLowerCase())).not.toContain('authorization')
-  })
-
-  test('acepta JSON', async () => {
-    const target = fake()
-
-    await apiGet('/api/health', {}, target.deps)
-
-    const headers = target.calls[0]?.init.headers as Record<string, string>
-    expect(headers.accept).toBe('application/json')
+    expect(Object.keys(headersOf(target.calls[0])).map((name) => name.toLowerCase())).not.toContain(
+      'authorization',
+    )
   })
 
   test('no manda cuerpo ni tipo de contenido en una lectura', async () => {
     const target = fake()
 
-    await apiGet('/api/health', {}, target.deps)
+    await request('/api/health', HEALTH, {}, target.deps)
 
     expect(target.calls[0]?.init.body).toBeUndefined()
-    const headers = target.calls[0]?.init.headers as Record<string, string>
-    expect(headers['content-type']).toBeUndefined()
+    expect(headersOf(target.calls[0])['content-type']).toBeUndefined()
   })
 
   test('en una escritura manda JSON y el tipo de contenido', async () => {
-    const target = fake()
+    const target = fake(204, '')
 
     await apiPost('/api/watch', { positionS: 12 }, {}, target.deps)
 
     expect(target.calls[0]?.init.method).toBe('POST')
     expect(target.calls[0]?.init.body).toBe('{"positionS":12}')
-    const headers = target.calls[0]?.init.headers as Record<string, string>
-    expect(headers['content-type']).toBe('application/json')
+    expect(headersOf(target.calls[0])['content-type']).toBe('application/json')
   })
 
   test('apiPatch usa el método PATCH', async () => {
-    const target = fake()
+    const target = fake(204, '')
 
     await apiPatch('/api/watch/1', { positionS: 30 }, {}, target.deps)
 
@@ -99,7 +103,7 @@ describe('request: forma de la petición', () => {
     const target = fake()
     const controller = new AbortController()
 
-    await apiGet('/api/search', { signal: controller.signal }, target.deps)
+    await apiGet('/api/health', HEALTH, { signal: controller.signal }, target.deps)
 
     expect(target.calls[0]?.init.signal).toBe(controller.signal)
   })
@@ -107,38 +111,84 @@ describe('request: forma de la petición', () => {
   test('sin señal explícita, pone un tiempo límite', async () => {
     const target = fake()
 
-    await apiGet('/api/health', {}, target.deps)
+    await apiGet('/api/health', HEALTH, {}, target.deps)
 
     expect(target.calls[0]?.init.signal).toBeInstanceOf(AbortSignal)
   })
 })
 
-describe('request: respuestas', () => {
-  test('devuelve el JSON ya analizado', async () => {
-    const target = fake(200, '{"version":"0.1.0"}', { 'content-type': 'application/json' })
+describe('validación de la respuesta', () => {
+  test('devuelve el objeto ya validado', async () => {
+    const target = fake()
 
-    expect(await apiGet<{ version: string }>('/api/health', {}, target.deps)).toEqual({
+    expect(await apiGet('/api/health', HEALTH, {}, target.deps)).toEqual({
       version: '0.1.0',
+      port: 7717,
     })
   })
 
-  test('devuelve undefined en un 204', async () => {
-    const target = fake(204)
+  test('un campo que falta es un ApiShapeError, no un undefined silencioso', async () => {
+    const target = fake(200, '{"version":"0.1.0"}')
 
-    expect(await apiGet('/api/watch/1', {}, target.deps)).toBeUndefined()
+    await expect(apiGet('/api/health', HEALTH, {}, target.deps)).rejects.toBeInstanceOf(
+      ApiShapeError,
+    )
   })
 
-  test('lanza ApiError con el código en un 401', async () => {
-    const target = fake(401)
+  test('un campo con el tipo cambiado también falla en la frontera', async () => {
+    const target = fake(200, '{"version":"0.1.0","port":"7717"}')
 
-    await expect(apiGet('/api/health', {}, target.deps)).rejects.toBeInstanceOf(ApiError)
+    await expect(apiGet('/api/health', HEALTH, {}, target.deps)).rejects.toBeInstanceOf(
+      ApiShapeError,
+    )
   })
 
-  test('el ApiError de un 401 se reconoce como sesión perdida', async () => {
-    const target = fake(401)
+  test('un campo de más se rechaza, porque los schemas son estrictos', async () => {
+    const target = fake(200, '{"version":"0.1.0","port":7717,"sobra":true}')
+
+    await expect(apiGet('/api/health', HEALTH, {}, target.deps)).rejects.toBeInstanceOf(
+      ApiShapeError,
+    )
+  })
+
+  test('el error nombra la ruta y el problema', async () => {
+    const target = fake(200, '{"version":1,"port":7717}')
 
     try {
-      await apiGet('/api/health', {}, target.deps)
+      await apiGet('/api/health', HEALTH, {}, target.deps)
+      throw new Error('debería haber lanzado')
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiShapeError)
+      if (error instanceof ApiShapeError) {
+        expect(error.path).toBe('/api/health')
+        expect(error.issues).toContain('version')
+      }
+    }
+  })
+
+  test('un cuerpo que no es JSON es un ApiShapeError', async () => {
+    const target = fake(200, 'esto no es json')
+
+    await expect(apiGet('/api/health', HEALTH, {}, target.deps)).rejects.toBeInstanceOf(
+      ApiShapeError,
+    )
+  })
+
+  test('un 204 donde se espera cuerpo es un ApiShapeError', async () => {
+    const target = fake(204, '')
+
+    await expect(apiGet('/api/health', HEALTH, {}, target.deps)).rejects.toBeInstanceOf(
+      ApiShapeError,
+    )
+  })
+})
+
+describe('códigos de error', () => {
+  test('un 401 lanza ApiError y se reconoce como sesión perdida', async () => {
+    const target = fake(401, '')
+
+    try {
+      await apiGet('/api/health', HEALTH, {}, target.deps)
       throw new Error('debería haber lanzado')
     } catch (error) {
       expect(error).toBeInstanceOf(ApiError)
@@ -149,11 +199,11 @@ describe('request: respuestas', () => {
     }
   })
 
-  test('un 500 también es un ApiError, y no una sesión perdida', async () => {
-    const target = fake(500)
+  test('un 500 es ApiError y no una sesión perdida', async () => {
+    const target = fake(500, '')
 
     try {
-      await apiGet('/api/health', {}, target.deps)
+      await apiGet('/api/health', HEALTH, {}, target.deps)
       throw new Error('debería haber lanzado')
     } catch (error) {
       expect(error).toBeInstanceOf(ApiError)
@@ -161,11 +211,11 @@ describe('request: respuestas', () => {
     }
   })
 
-  test('el mensaje del error nombra método, ruta y código', async () => {
-    const target = fake(403)
+  test('el error nombra método, ruta y código', async () => {
+    const target = fake(403, '')
 
     try {
-      await apiGet('/api/health', {}, target.deps)
+      await apiGet('/api/health', HEALTH, {}, target.deps)
       throw new Error('debería haber lanzado')
     } catch (error) {
       if (error instanceof ApiError) {
@@ -179,6 +229,22 @@ describe('request: respuestas', () => {
   test('un fallo de red se propaga tal cual, sin disfrazarse de ApiError', async () => {
     const boom = new Error('sin conexión')
 
-    await expect(apiGet('/api/health', {}, failing(boom))).rejects.toBe(boom)
+    await expect(apiGet('/api/health', HEALTH, {}, failing(boom))).rejects.toBe(boom)
+  })
+})
+
+describe('send: mutaciones sin cuerpo de respuesta', () => {
+  test('no analiza el cuerpo y resuelve sin valor', async () => {
+    const target = fake(204, '')
+
+    expect(await send('/api/watch', { method: 'POST', body: {} }, target.deps)).toBeUndefined()
+  })
+
+  test('un 401 sigue siendo un ApiError', async () => {
+    const target = fake(401, '')
+
+    await expect(send('/api/watch', { method: 'POST' }, target.deps)).rejects.toBeInstanceOf(
+      ApiError,
+    )
   })
 })
