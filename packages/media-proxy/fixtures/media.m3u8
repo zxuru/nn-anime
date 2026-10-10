@@ -1,0 +1,11 @@
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:4
+#EXT-X-MEDIA-SEQUENCE:0
+#EXTINF:4.0,
+segmento-0.ts
+#EXTINF:4.0,
+sub/segmento-1.ts
+#EXTINF:4.0,
+https://otro.example/absoluto-2.ts
+#EXT-X-ENDLIST

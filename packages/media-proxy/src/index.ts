@@ -31,6 +31,19 @@ export {
   systemResolver,
 } from './destination-guard'
 export {
+  createPlaylistCache,
+  defaultSegPath,
+  isPlaylist,
+  MAX_PLAYLIST_BYTES,
+  PLAYLIST_TTL_MS,
+  type PlaylistCache,
+  type PlaylistEntry,
+  playlistTooLarge,
+  type RewriteOptions,
+  type RewrittenPlaylist,
+  rewritePlaylist,
+} from './hls'
+export {
   ALLOWED_RESPONSE_HEADERS,
   contentTypeFor,
   type ResourceKind,

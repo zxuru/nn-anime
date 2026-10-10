@@ -1567,23 +1567,38 @@ que es exactamente para lo que existe.
 
 ### T27 — Reescritura HLS: variantes y segmentos
 
-**Descripción:** Detectar playlists, reescribir URIs y encadenar por el proxy sin romper la
-resolución relativa.
+**Descripción:** Reescribir las playlists para que todo pase por el proxy.
 
 **Aceptación:**
-- [ ] Detección por `Content-Type` o extensión `.m3u8`.
-- [ ] Reescribe URIs de segmentos y de sub-playlists a `/stream/:ticket/seg/:index`.
-- [ ] Resuelve URLs relativas contra la URL base de cada playlist, incluidas las anidadas.
-- [ ] Conserva el orden y los atributos de `#EXT-X-STREAM-INF`.
-- [ ] Caché en memoria de playlists por 10 s como máximo.
-- [ ] Rechaza playlists mayores de 4 MB antes de parsear, con error explícito.
-- [ ] Test contra `fixtures/master.m3u8` y `fixtures/media.m3u8`: salida esperada versionada.
+- [x] Detección por `Content-Type` o extensión `.m3u8`.
+- [x] Reescribe URIs de segmentos y de sub-playlists a `/stream/:ticket/seg/:index`.
+- [x] Resuelve URLs relativas contra la URL base de cada playlist, incluidas las anidadas.
+- [x] Conserva el orden y los atributos de `#EXT-X-STREAM-INF`.
+- [x] Caché en memoria de playlists por 10 s como máximo.
+- [x] Rechaza playlists mayores de 4 MB antes de parsear, con error explícito.
+- [x] Test contra `fixtures/master.m3u8` y `fixtures/media.m3u8`: salida esperada versionada.
 
-**Verificación:** `bun test packages/media-proxy`.
+**Verificación:** `bun test packages/media-proxy` · 20 pruebas nuevas, dos de ellas comparando contra
+`master.expected.m3u8` y `media.expected.m3u8`, que están versionados en el repositorio. Medido
+mutando la implementación: resolviendo contra el nivel de arriba fallan 2, reescribiendo también las
+etiquetas 10, con la caché siempre vencida 3 y detectando sólo por extensión 1. Control: 0 fallos.
 
-**Depende de:** T26.
+**Depende de:** T26, T26b.
 
-**Archivos:** `packages/media-proxy/src/{hls.ts,hls.test.ts}`, `packages/media-proxy/fixtures/{master,media}.m3u8`.
+**Archivos:** `packages/media-proxy/src/{hls.ts,hls.test.ts}`, `packages/media-proxy/fixtures/*.m3u8`.
+**Ampliación declarada:** el barril de `media-proxy`.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **La resolución es contra la URL base de la playlist, no contra la del ticket.** Una sub-playlist
+   vive en otra carpeta y sus segmentos son relativos a ella; resolverlos contra el nivel de arriba da
+   404 en todos. Es el fallo clásico de un reescritor de HLS, y tiene su prueba.
+2. **Las líneas que no son URIs se copian literales.** `#EXT-X-STREAM-INF` lleva el ancho de banda y
+   el códec; reconstruirla es la forma de perderlos.
+3. **La reescritura devuelve también las URIs originales, en orden.** El proxy necesita las dos
+   cosas: el texto para el reproductor y el índice para resolver `seg/:index` sin volver a parsear.
+4. **El tope de 4 MB se comprueba antes de parsear.** Parsear primero y comprobar después es gastar
+   memoria en algo que se va a descartar.
 
 **Tamaño:** M.
 
