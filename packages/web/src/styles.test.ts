@@ -72,6 +72,17 @@ describe('tokens de diseño', () => {
     expect(css).not.toMatch(/\brgb\(/)
   })
 
+  test('la hoja de estructura no usa medidas literales', async () => {
+    const css = await readIfExists(new URL('./styles/shell.css', import.meta.url).pathname)
+
+    // Cualquier `12px`, `1.5rem`, `-0.01em` o `60ch` que no venga de un token.
+    const literals = [...css.matchAll(/(?<![\w(])(-?[\d.]+)(px|rem|em|ch)\b/g)].map(
+      (match) => match[0],
+    )
+
+    expect(literals, `medidas sueltas: ${literals.join(', ')}`).toEqual([])
+  })
+
   test('respeta la preferencia de movimiento reducido', async () => {
     const css = await readIfExists(new URL('./styles/tokens.css', import.meta.url).pathname)
 
