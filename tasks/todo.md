@@ -1742,8 +1742,9 @@ implementado y, si no, qué tarea lo cubre por su aceptación.
 **Aceptación:**
 - [ ] **La cobertura objetivo del spec —80 % en `core`, `catalog-store`, `recsys` y
       `provider-sdk`— medida con `bun run test:coverage` y cumplida.** Al auditar no la medía nadie.
-      Medición de hoy, con `catalog-store`, `recsys` y `provider-sdk` todavía vacíos: 98.28 % de
-      líneas en el conjunto.
+      Medición de hoy: 98.28 % de líneas, **de los 36 archivos que algún test carga; hay 47**.
+      La comprobación final incluye listar los que no se cargan y decir por qué, para que el número
+      no se lea como si cubriera todo el proyecto.
 - [ ] **Auditoría de trazabilidad spec↔plan hecha primero**, con su tabla de huecos y cada hueco
       asignado a una tarea o convertido en una tarea nueva.
 - [ ] Los ocho criterios de `SPEC-nn-anime.md` verificados y marcados en el propio spec.

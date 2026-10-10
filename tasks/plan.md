@@ -203,8 +203,19 @@ había visto nadie porque cada documento, leído solo, es coherente.
   el agujero. Lista blanca de esquemas en los cuatro campos de URL.
 - **El cliente HTTP no deduplicaba.** El spec pide un `Map` de promesas por clave de URL; sólo lo
   cubría la búsqueda. Implementado compartiendo lecturas en vuelo.
-- **La cobertura objetivo del 80 % no la medía nadie.** Añadido `bun run test:coverage`. Medición:
-  **98.28 % de líneas**.
+- **La cobertura objetivo del 80 % no la medía nadie.** Añadido `bun run test:coverage`.
+
+  **Y el número hay que leerlo con su alcance.** `bun test --coverage` sólo mide los archivos que
+  algún test carga: de 47 archivos de código, mide 36. El 98.28 % de líneas es de esos 36, no de
+  todo el proyecto. Los once que no se cargan son cinco marcadores vacíos (`catalog-store`,
+  `media-proxy`, `provider-sdk`, `providers-fixture` y `recsys`, que sólo tienen `export {}`), dos
+  archivos de configuración o andamiaje (`vite.config.ts`, `db-migrate.ts`) y cuatro puntos de
+  entrada o scripts que se ejecutan al importarse: `packages/cli/src/index.ts`,
+  `packages/web/src/main.tsx`, `scripts/dev.ts` y `scripts/build.ts`.
+
+  El que importa de esos cuatro es `cli/index.ts`: es el cableado de todo, y por eso la lógica se
+  extrajo a `start.ts`, que sí está medido al 100 %. `main.tsx` monta React y necesita un DOM, que
+  no está en la tabla de Tech Stack. Los otros dos son herramientas de desarrollo.
 
 **Huecos resueltos asignándolos a una tarea:** la validación de entrada HTTP (T13), la agrupación
 de duplicados y el prefetch acotado (T14), los tipos que el contrato del store nombraba sin
