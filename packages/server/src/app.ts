@@ -5,6 +5,14 @@
  * test de tabla de rutas recorre lo que quede registrado y falla si alguna ruta
  * protegida no pasa por ellos, así que añadir una ruta nueva sin protección
  * rompe el build en lugar de pasar desapercibido.
+ *
+ * **Aquí no se monta el servido de estáticos.** Es a propósito: ese middleware
+ * devuelve el `index.html` a cualquier ruta que no encuentre archivo, así que
+ * montarlo dentro deja inalcanzable toda ruta registrada después. Se monta en
+ * `withStaticAssets`, en la composición final, cuando ya están todas las rutas.
+ * La versión anterior lo montaba al final de esta función y sólo movía la
+ * frontera del problema: una ruta añadida después de `createApp` seguía siendo
+ * inalcanzable.
  */
 
 import type { Logger } from '@nn-anime/core'
@@ -44,13 +52,6 @@ export interface AppOptions {
   readonly logger?: Logger
   /** Reloj del canje de arranque, inyectable para testear la caducidad. */
   readonly bootstrapClock?: () => number
-  /**
-   * Directorio del build de la interfaz.
-   *
-   * Cuando se indica, el server sirve la interfaz y la API en el mismo origen.
-   * Sin él —en desarrollo, donde la sirve Vite— el server sólo expone la API.
-   */
-  readonly webRoot?: string
 }
 
 /** Rutas que exigen sesión. Todo lo que cuelga de aquí pasa por los tres guards. */
@@ -90,15 +91,6 @@ export function createApp(options: AppOptions): Hono {
       providers: options.providers ?? [],
     }),
   )
-
-  // Los estáticos van los últimos. `app.use('*')` devuelve el `index.html` a
-  // cualquier ruta que no encuentre archivo, así que montarlo antes deja
-  // inalcanzable toda ruta registrada después y fuera de los prefijos
-  // protegidos. Esta es la tercera vez que esa clase de fallo aparece en el
-  // proyecto, y aquí se cierra por orden de registro, no por lista de excepciones.
-  if (options.webRoot !== undefined) {
-    app.use('*', staticAssets({ root: options.webRoot }))
-  }
 
   return app
 }

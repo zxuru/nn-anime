@@ -246,6 +246,36 @@ describe('caducidad del token de arranque', () => {
   })
 })
 
+describe('orden entre la cookie y el token', () => {
+  test('si emitir la cookie falla, el token no se quema', async () => {
+    const bootToken = createBootToken()
+    let reads = 0
+
+    // El valor de la sesión falla la primera vez que se lee, que es justo
+    // cuando el canje lo necesita para emitir la cookie. Es la única forma de
+    // provocar un fallo ahí sin tocar Hono.
+    const session: Session = {
+      cookieName: SESSION_COOKIE,
+      get value(): string {
+        reads += 1
+        if (reads === 1) throw new Error('no se pudo emitir la cookie')
+        return 'valor-de-sesion'
+      },
+      matches: () => true,
+    }
+
+    const target = createApp({ port: PORT, session, bootToken, version: '0.1.0' })
+
+    const first = await target.request(`${BASE}/?boot=${bootToken}`)
+    const second = await target.request(`${BASE}/?boot=${bootToken}`)
+
+    expect(first.status).toBe(500)
+    // Si el token se hubiera quemado antes de emitir la cookie, esto sería 401
+    // y el usuario tendría que reiniciar la aplicación sin haber hecho nada mal.
+    expect(second.status).toBe(302)
+  })
+})
+
 describe('destino tras el canje', () => {
   test('sin destino configurado va a la raíz', async () => {
     const bootToken = createBootToken()
@@ -279,6 +309,17 @@ describe('destino tras el canje', () => {
     }).request(`${BASE}/?boot=${bootToken}`)
 
     expect(response.headers.get('location')).toBe('/')
+  })
+
+  test('rechaza un destino con caracteres de control', async () => {
+    for (const target of ['/x\r\nX-Inyectada: sí', '/x\ny', '/x\0y']) {
+      const bootToken = createBootToken()
+      const response = await app(makeSession(), bootToken, { redirectTo: target }).request(
+        `${BASE}/?boot=${bootToken}`,
+      )
+
+      expect(response.headers.get('location'), JSON.stringify(target)).toBe('/')
+    }
   })
 
   test('rechaza una URL absoluta disfrazada de ruta', async () => {

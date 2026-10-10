@@ -124,6 +124,22 @@ describe('forma de la petición', () => {
     expect(target.calls[0]?.init.signal).toBeUndefined()
   })
 
+  test('un tiempo límite negativo se rechaza con un mensaje propio', async () => {
+    const target = fake()
+
+    await expect(apiGet('/api/health', HEALTH, { timeoutMs: -1 }, target.deps)).rejects.toThrow(
+      /timeoutMs/,
+    )
+  })
+
+  test('un tiempo límite infinito también se rechaza', async () => {
+    const target = fake()
+
+    await expect(
+      apiGet('/api/health', HEALTH, { timeoutMs: Number.POSITIVE_INFINITY }, target.deps),
+    ).rejects.toThrow(/timeoutMs/)
+  })
+
   test('una señal propia gana sobre el tiempo límite', async () => {
     const target = fake()
     const controller = new AbortController()

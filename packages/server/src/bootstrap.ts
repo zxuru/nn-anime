@@ -34,6 +34,10 @@ function safeRedirect(target: string | undefined): string {
   if (!target.startsWith('/')) return DEFAULT_REDIRECT
   if (target.startsWith('//')) return DEFAULT_REDIRECT
   if (target.includes('\\')) return DEFAULT_REDIRECT
+  // Un salto de línea en el destino acabaría dentro de la cabecera `Location`,
+  // que es inyección de cabeceras. Hoy no es alcanzable porque el único
+  // llamador codifica la consulta, pero esta función existe para validar.
+  if (/[\r\n\0]/.test(target)) return DEFAULT_REDIRECT
 
   return target
 }

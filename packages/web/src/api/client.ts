@@ -67,7 +67,14 @@ const DEFAULT_TIMEOUT_MS = 8000
 
 function signalFor(options: RequestOptions): AbortSignal | undefined {
   if (options.signal !== undefined) return options.signal
+
   const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
+
+  // Se valida aquí y no se deja a `AbortSignal.timeout`, que lanza un
+  // `TypeError` de la plataforma sin decir qué opción lo causó.
+  if (!Number.isFinite(timeout) || timeout < 0) {
+    throw new RangeError(`timeoutMs no puede ser negativo ni infinito: ${timeout}`)
+  }
 
   return timeout === 0 ? undefined : AbortSignal.timeout(timeout)
 }

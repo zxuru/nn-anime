@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Hono } from 'hono'
 import { type AppOptions, createApp } from './app'
+import { withStaticAssets } from './index'
 import { SESSION_COOKIE, type Session } from './session'
 import { confine } from './static-assets'
 
@@ -19,15 +20,19 @@ function fakeSession(): Session {
   }
 }
 
-function appWithAssets(webRoot: string): Hono {
+function appWithAssets(webRoot: string, extraRoutes?: (app: Hono) => void): Hono {
   const options: AppOptions = {
     port: PORT,
     session: fakeSession(),
     bootToken: BOOT_TOKEN,
     version: '0.1.0',
-    webRoot,
   }
-  return createApp(options)
+  const app = createApp(options)
+
+  // Igual que en producción: primero todas las rutas, después los estáticos.
+  extraRoutes?.(app)
+
+  return withStaticAssets(app, webRoot)
 }
 
 async function withAssets<T>(body: (root: string) => Promise<T>): Promise<T> {
@@ -174,6 +179,22 @@ describe('servido de la interfaz', () => {
     }
   })
 
+  test('una ruta registrada después de createApp sigue siendo alcanzable', async () => {
+    await withAssets(async (root) => {
+      // Es el defecto que este montaje en dos fases cierra. Con el servido de
+      // estáticos dentro de `createApp`, esta ruta devolvía el `index.html`
+      // porque el middleware la interceptaba antes de llegar al manejador.
+      const app = appWithAssets(root, (target) => {
+        target.get('/latido', (c) => c.json({ ok: true }))
+      })
+
+      const response = await app.request(`${BASE}/latido`)
+
+      expect(response.status).toBe(200)
+      expect(await response.text()).toContain('"ok":true')
+    })
+  })
+
   test('no intercepta la API cuando no hay sesión', async () => {
     await withAssets(async (root) => {
       const response = await appWithAssets(root).request(`${BASE}/api/health`)
@@ -211,13 +232,17 @@ describe('servido de la interfaz', () => {
 
   test('una ruta de la API con el prefijo escapado no sirve la interfaz', async () => {
     await withAssets(async (root) => {
-      // `/%61pi/health` descodifica a `/api/health`. Si la comprobación de
-      // prefijo usara la ruta sin descodificar y el confinamiento la
-      // descodificada, se colaría entre las dos y devolvería el `index.html`.
-      const response = await appWithAssets(root).request(`${BASE}/%61pi/health`, {
+      // `/%61pi/no-existe` descodifica a `/api/no-existe`, que no tiene ruta.
+      // La primera versión de este test pedía `/%61pi/health`, y era vacuamente
+      // cierto: Hono descodifica al enrutar, así que esa petición llegaba al
+      // endpoint de salud y el servido de estáticos no se ejecutaba nunca.
+      // Ésta sí discrimina: con las dos normalizaciones distintas, la petición
+      // se cuela y devuelve el `index.html` con un 200.
+      const response = await appWithAssets(root).request(`${BASE}/%61pi/no-existe`, {
         headers: { cookie: `${SESSION_COOKIE}=sesion` },
       })
 
+      expect(response.status).toBe(404)
       expect(await response.text()).not.toContain('id="root"')
     })
   })
