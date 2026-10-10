@@ -46,6 +46,23 @@ export {
   rewritePlaylist,
 } from './hls'
 export {
+  createMpvPlayer,
+  HEADER_FIELD_FLAG,
+  hasMpv,
+  MAX_STDERR_BYTES,
+  type MpvEvent,
+  type MpvPlayer,
+  type MpvPlayerOptions,
+  type MpvProcess,
+  mpvArgs,
+  mpvUnavailable,
+  type PlayOptions,
+  type PlayOutcome,
+  type SpawnMpv,
+  spawnMpvProcess,
+  trimStderr,
+} from './mpv'
+export {
   ALLOWED_RESPONSE_HEADERS,
   contentTypeFor,
   type ResourceKind,

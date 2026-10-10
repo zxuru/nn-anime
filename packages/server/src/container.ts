@@ -36,7 +36,14 @@ import {
   type Result,
   type SearchResult,
 } from '@nn-anime/core'
-import { createTicketStore, type TicketStore } from '@nn-anime/media-proxy'
+import {
+  createMpvPlayer,
+  createTicketStore,
+  type MpvPlayer,
+  type SpawnMpv,
+  spawnMpvProcess,
+  type TicketStore,
+} from '@nn-anime/media-proxy'
 import {
   type CallOptions,
   getAnime as fetchAnime,
@@ -58,6 +65,8 @@ export interface ServerContainer {
   readonly queue: WriteQueue
   /** Tickets opacos: el cliente nunca ve una URL del upstream. */
   readonly tickets: TicketStore
+  /** Reproductor externo. Si no hay mpv, `play` dice que no está. */
+  readonly mpv: MpvPlayer
   /** Resuelve el stream de un episodio, con la caché de URL corta. */
   resolveStream(
     provider: Provider,
@@ -91,6 +100,10 @@ export interface ContainerOptions {
   readonly revalidator?: Revalidator
   /** Almacén de tickets. Se inyecta para poder fijar la capacidad en un test. */
   readonly tickets?: TicketStore
+  /** Si hay mpv en el `PATH`. Lo decide el arranque, que puede esperar. */
+  readonly mpvAvailable?: boolean
+  /** Lanzador de mpv, inyectable: una prueba no abre ventanas. */
+  readonly spawnMpv?: SpawnMpv
   /**
    * Reloj inyectable.
    *
@@ -114,6 +127,10 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     ...(options.now === undefined ? {} : { now: options.now }),
   })
   const tickets = options.tickets ?? createTicketStore()
+  const mpv = createMpvPlayer({
+    spawn: options.spawnMpv ?? spawnMpvProcess,
+    available: options.mpvAvailable ?? false,
+  })
 
   /**
    * El stream de un episodio, con su caché de URL corta.
@@ -232,6 +249,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     revalidator,
     queue,
     tickets,
+    mpv,
     getAnime: loadAnime,
     getEpisodes: loadEpisodes,
     resolveStream: loadStream,

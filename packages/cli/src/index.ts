@@ -15,6 +15,7 @@ import { stat } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { openDb, pruneOrphans, runMigrations, shouldPrune } from '@nn-anime/catalog-store'
 import { createLogger, DEFAULT_LOCALE, readSettings, t } from '@nn-anime/core'
+import { hasMpv } from '@nn-anime/media-proxy'
 import { loadProviders } from '@nn-anime/provider-sdk'
 import { createBootToken, createContainer, createSession } from '@nn-anime/server'
 import { version } from '../package.json'
@@ -79,6 +80,14 @@ function webBuildRoot(): string | undefined {
   return existsSync(dist) ? dist : undefined
 }
 
+/**
+ * Si hay mpv, se mira **una vez** al arrancar.
+ *
+ * Mirarlo en cada petición es un `stat` por reproducción, y el resultado no
+ * cambia mientras el proceso vive. El arranque puede esperar; una petición, no.
+ */
+const mpvDisponible = await hasMpv(async (binario) => Bun.which(binario) ?? undefined)
+
 const code = await run(Bun.argv.slice(2), {
   io,
   version,
@@ -101,7 +110,8 @@ const code = await run(Bun.argv.slice(2), {
      * sola conexión obligaría a que la migración no la cerrara, y a que el
      * cierre del server supiera si le toca cerrarla o no.
      */
-    openContainer: (config) => createContainer({ db: openDb(config.dbPath) }),
+    openContainer: (config) =>
+      createContainer({ db: openDb(config.dbPath), mpvAvailable: mpvDisponible }),
     createSession,
     createBootToken,
     openUrl: (url) =>

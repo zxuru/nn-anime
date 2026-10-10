@@ -29,6 +29,7 @@ import { registerAnimeRoutes } from './routes/anime'
 import { registerCoverRoute } from './routes/cover'
 import { registerEpisodesRoute } from './routes/episodes'
 import { registerFavoritesRoutes } from './routes/favorites'
+import { registerPlayRoutes } from './routes/play'
 import { type PluginReport, registerProvidersRoute, summarizePlugins } from './routes/providers'
 import { registerSearchRoute } from './routes/search'
 import { registerStreamRoutes } from './routes/stream'
@@ -115,7 +116,11 @@ export function createApp(options: AppOptions): Hono {
       healthResponseSchema.parse({
         version: options.version,
         port: getPort(),
-        mpv: options.mpvAvailable ?? false,
+        // Una sola fuente de verdad: el reproductor del contenedor. La opción
+        // queda para una aplicación montada sin contenedor, y tener las dos sin
+        // orden fue justo el fallo: el contenedor decía que había mpv y la salud
+        // decía que no.
+        mpv: options.container?.mpv.available ?? options.mpvAvailable ?? false,
         providers: summarizePlugins(plugins),
       }),
     ),
@@ -141,6 +146,7 @@ export function createApp(options: AppOptions): Hono {
 
     registerCoverRoute(app, { container: options.container, ...proxyOptions })
     registerStreamRoutes(app, { ...routeOptions, ...proxyOptions })
+    registerPlayRoutes(app, routeOptions)
   }
 
   registerSearchRoute(app, {

@@ -1651,21 +1651,49 @@ spec de HLS permite las dos.
 **Descripción:** Lanzar, seguir y matar mpv desde el server, con salida cuando no está instalado.
 
 **Aceptación:**
-- [ ] `POST /api/play/mpv` resuelve el stream, emite el ticket y lanza `mpv` con
+- [x] `POST /api/play/mpv` resuelve el stream, emite el ticket y lanza `mpv` con
       `--http-header-fields` construido desde los headers de upstream.
-- [ ] `GET /api/play/mpv/events` emite SSE con `starting`, `playing`, `exited`, `failed`.
-- [ ] Sin `mpv` en el `PATH`: 503 y `/api/health` informa `mpv: false`.
-- [ ] Salida distinta de 0 devuelve el `stderr` recortado a 2 KB.
-- [ ] `POST /api/play/mpv/:pid/stop` mata el proceso y el SSE emite `exited`.
-- [ ] Al cerrar la app, todo mpv lanzado muere: verificado con `pgrep`.
-- [ ] Ningún argumento de la línea de comandos se construye por concatenación de entrada del
+- [x] `GET /api/play/mpv/events` emite SSE con `starting`, `playing`, `exited`, `failed`.
+- [x] Sin `mpv` en el `PATH`: 503 y `/api/health` informa `mpv: false`.
+- [x] Salida distinta de 0 devuelve el `stderr` recortado a 2 KB.
+- [x] `POST /api/play/mpv/:pid/stop` mata el proceso y el SSE emite `exited`.
+- [x] Al cerrar la app, todo mpv lanzado muere: verificado con `pgrep`.
+- [x] Ningún argumento de la línea de comandos se construye por concatenación de entrada del
       usuario; se usa el array de `spawn`.
 
-**Verificación:** `bun test packages/media-proxy` · manual: botón de mpv con el fixture.
+**Verificación:** `bun test packages/media-proxy packages/server` · 22 pruebas del reproductor y 13
+de las rutas. Medido mutando la implementación: sin `--no-config` fallan 2, sin recortar el `stderr`
+2, sin matar en `close()` 3 y sin el tope de procesos 1. Control: 0 fallos.
+**En vivo**, con mpv instalado en esta máquina: el arranque informa `mpv: true`, el lanzamiento
+devuelve un pid, el proceso aparece vivo medio segundo después, y al no haber red hacia el upstream
+sale con código 2 y el SSE emite `failed` con ese código. **El criterio de `pgrep` no se pudo medir
+en vivo**: mpv salió solo al no poder cargar el stream, así que no había nada que matar al apagar. Lo
+que sí está probado —y mutado— es que `close()` mata todo lo que siga vivo.
 
 **Depende de:** T26.
 
 **Archivos:** `packages/media-proxy/src/{mpv.ts,mpv.test.ts}`, `packages/server/src/routes/play.ts`.
+**Ampliación declarada:** `packages/server/src/routes/play.test.ts`, el contenedor (el reproductor y
+su lanzador inyectable), `app.ts` (las rutas y una sola fuente de verdad para la salud), el barril de
+`media-proxy`, y el arranque del CLI, que mira si hay mpv **una vez** y no en cada petición.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **A mpv se le da la URL del proxy con su ticket, no la del upstream.** Si se le diera la del
+   sitio, el ticket y la lista blanca de destinos dejarían de servir para el reproductor externo, que
+   es justo donde más fácil es saltarse el proxy sin que nadie lo note. El `Referer` sí nombra al
+   upstream: es la cabecera que el sitio exige, y va dentro del argumento de cabeceras.
+2. **Los argumentos van en un array.** Un `Referer` con un espacio o un `;` sería una inyección de
+   argumentos, y el array la hace imposible por construcción. Hay una prueba con `rm -rf /` dentro de
+   una cabecera.
+3. **`playing` se anuncia con un retardo.** mpv tarda en abrir la ventana, y decir «reproduciendo» en
+   el mismo instante en que se lanza es mentira.
+4. **Un solo mpv a la vez**, que es lo que pide el spec: el segundo intento es 409 y no una ventana
+   más.
+
+**Un fallo que valió la prueba en vivo:** la salud leía `mpvAvailable` de las opciones de la
+aplicación mientras la ruta leía el reproductor del contenedor, así que el contenedor decía que había
+mpv y la salud decía que no. Ahora hay una sola fuente de verdad.
 
 **Tamaño:** M.
 
