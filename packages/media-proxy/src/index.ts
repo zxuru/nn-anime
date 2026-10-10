@@ -8,7 +8,6 @@
  */
 
 export {
-  ALLOWED_RESPONSE_HEADERS,
   type ByteProxyRequest,
   type FetchLike,
   MAX_COVER_BYTES,
@@ -31,6 +30,14 @@ export {
   type Resolver,
   systemResolver,
 } from './destination-guard'
+export {
+  ALLOWED_RESPONSE_HEADERS,
+  contentTypeFor,
+  type ResourceKind,
+  resourceKind,
+  type SanitizeOptions,
+  sanitizeHeaders,
+} from './response-headers'
 export {
   createTicketStore,
   DEFAULT_CAPACITY,

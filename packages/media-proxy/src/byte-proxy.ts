@@ -25,17 +25,7 @@
 
 import { AppError } from '@nn-anime/core'
 import { fetchAllowed, type Resolver } from './destination-guard'
-
-/** Cabeceras del upstream que sí llegan al cliente. */
-export const ALLOWED_RESPONSE_HEADERS: readonly string[] = [
-  'content-type',
-  'content-length',
-  'content-range',
-  'accept-ranges',
-  'cache-control',
-  'etag',
-  'last-modified',
-]
+import { sanitizeHeaders } from './response-headers'
 
 export type RangeOutcome =
   | { readonly ok: true; readonly range: string | undefined }
@@ -134,19 +124,16 @@ export interface ByteProxyRequest {
   readonly maxBytes?: number | undefined
   /** Resolutor del DNS, inyectable para probar sin red. */
   readonly resolver?: Resolver | undefined
+  /**
+   * Tipo que se impone en la respuesta, decidido por lo que se pidió. Un
+   * upstream que declara `text/html` donde se pidió una playlist no cambia el
+   * tipo servido.
+   */
+  readonly forceType?: string | undefined
 }
 
-function passthroughHeaders(upstream: Headers): Headers {
-  const salida = new Headers()
-
-  for (const nombre of ALLOWED_RESPONSE_HEADERS) {
-    const valor = upstream.get(nombre)
-    if (valor !== null) salida.set(nombre, valor)
-  }
-
-  salida.set('x-content-type-options', 'nosniff')
-
-  return salida
+function passthroughHeaders(upstream: Headers, forceType?: string): Headers {
+  return sanitizeHeaders(upstream, forceType === undefined ? {} : { forceType })
 }
 
 /**
@@ -210,7 +197,7 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
   if (cuerpo === null) {
     return new Response(null, {
       status: upstream.status,
-      headers: passthroughHeaders(upstream.headers),
+      headers: passthroughHeaders(upstream.headers, request.forceType),
     })
   }
 
@@ -242,7 +229,7 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
 
   return new Response(readable, {
     status: upstream.status,
-    headers: passthroughHeaders(upstream.headers),
+    headers: passthroughHeaders(upstream.headers, request.forceType),
   })
 }
 

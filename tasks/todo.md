@@ -1483,21 +1483,36 @@ stream y portadas, que reciben un resolutor inyectable para poder probarse sin D
 resto, `Set-Cookie` incluida.
 
 **Aceptación:**
-- [ ] Lista blanca de respuesta: `content-type`, `content-length`, `content-range`,
+- [x] Lista blanca de respuesta: `content-type`, `content-length`, `content-range`,
       `accept-ranges`, `cache-control`, `etag`, `last-modified`. Nada más.
-- [ ] `Set-Cookie` se elimina siempre: test con un upstream de fixture que la devuelve.
-- [ ] El `Content-Type` se fuerza desde lo que se pidió (playlist, segmento, subtítulo) y no se
+- [x] `Set-Cookie` se elimina siempre: test con un upstream de fixture que la devuelve.
+- [x] El `Content-Type` se fuerza desde lo que se pidió (playlist, segmento, subtítulo) y no se
       copia del upstream.
-- [ ] Se añade `X-Content-Type-Options: nosniff`.
-- [ ] Un test compara el conjunto completo de cabeceras de respuesta contra la lista permitida y
+- [x] Se añade `X-Content-Type-Options: nosniff`.
+- [x] Un test compara el conjunto completo de cabeceras de respuesta contra la lista permitida y
       falla si aparece una extra.
-- [ ] Un upstream que declara `text/html` no cambia el `Content-Type` servido.
+- [x] Un upstream que declara `text/html` no cambia el `Content-Type` servido.
 
-**Verificación:** `bun test packages/media-proxy`.
+**Verificación:** `bun test packages/media-proxy packages/server` · 13 pruebas del saneador y 12 de
+la ruta de stream. Medido mutando la implementación: copiando todas las cabeceras en lugar de la
+lista blanca fallan 3, sin forzar el tipo 2, sin `nosniff` 3 y con la playlist servida como
+`text/html` 2. Control: 0 fallos.
 
 **Depende de:** T26.
 
 **Archivos:** `packages/media-proxy/src/{response-headers.ts,response-headers.test.ts}`, `packages/media-proxy/src/byte-proxy.ts`.
+**Ampliación declarada:** el barril de `media-proxy`, `packages/server/src/routes/stream.ts` (deduce
+el tipo de lo que se pidió y lo impone) y su prueba.
+
+**Tres decisiones que conviene recordar:**
+
+1. **Se construye una cabecera nueva con la lista blanca; no se borran las que sobran.** Una lista
+   de prohibiciones se queda corta en cuanto el upstream inventa una cabecera nueva.
+2. **El tipo se impone a playlist, segmento y subtítulo, y no a lo demás.** El contenedor real de un
+   archivo progresivo —mp4, webm, mkv— sólo lo sabe el upstream, y la extensión no es autoridad. La
+   imagen tiene su propia lista blanca de tipos ráster (T26).
+3. **La deducción del tipo va por la dirección, no por lo que diga el cliente.** El `Accept` del
+   navegador no decide qué se está sirviendo; la URL del ticket, sí.
 
 **Tamaño:** S.
 

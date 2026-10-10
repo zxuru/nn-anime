@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { ALLOWED_RESPONSE_HEADERS, parseRange, proxyBytes, upstreamFailure } from './byte-proxy'
+import { parseRange, proxyBytes, upstreamFailure } from './byte-proxy'
+import { ALLOWED_RESPONSE_HEADERS } from './response-headers'
 
 // No se llama `URL`: eso taparía el constructor global y `new URL` deja de
 // compilar. Lo cazó el compilador.

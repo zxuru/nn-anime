@@ -201,6 +201,26 @@ describe('GET /stream/:ticket', () => {
     })
   })
 
+  test('un tipo mentiroso del upstream no cambia el de una playlist', async () => {
+    await conApp(async ({ pedir }) => {
+      // `selva-de-hormigon` sólo ofrece `hls`, así que lo que se cachea y se
+      // sirve es una playlist. Con un título que ofrezca `file` primero, el tipo
+      // lo decide el upstream a propósito: el contenedor de un archivo
+      // progresivo sólo lo sabe él.
+      const { cuerpo } = await resolver(pedir, {
+        episodeRef: { providerId: 'fixture', value: 'selva-de-hormigon#1' },
+        mode: 'sub',
+      })
+      const ticket = resolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
+
+      const respuesta = await pedir(ticket, { headers: GOOD })
+
+      expect(respuesta.headers.get('content-type')).toBe('application/vnd.apple.mpegurl')
+      expect(respuesta.headers.get('x-content-type-options')).toBe('nosniff')
+      expect(respuesta.headers.get('set-cookie')).toBeNull()
+    })
+  })
+
   test('un ticket inexistente es 404 y uno vencido es 410', async () => {
     await conApp(async ({ pedir }) => {
       const inexistente = await pedir('/stream/no-existe')

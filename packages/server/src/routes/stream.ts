@@ -13,7 +13,13 @@
  */
 
 import { errorResponseSchema, streamRequestSchema, toPublicStreamSource } from '@nn-anime/core'
-import { type FetchLike, proxyBytes, type Resolver } from '@nn-anime/media-proxy'
+import {
+  contentTypeFor,
+  type FetchLike,
+  proxyBytes,
+  type Resolver,
+  resourceKind,
+} from '@nn-anime/media-proxy'
 import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
 import { z } from 'zod'
@@ -119,11 +125,18 @@ export function registerStreamRoutes(app: Hono, options: StreamRouteOptions): vo
       )
     }
 
+    // El tipo se decide por lo que se pidió, no por lo que diga el upstream: una
+    // playlist servida como `text/html` es la forma más simple de convertir un
+    // proxy en un XSS. Un archivo progresivo es la excepción, porque su
+    // contenedor real sólo lo sabe el upstream.
+    const tipo = contentTypeFor(resourceKind(salida.contents.url))
+
     const respuesta = await proxyBytes({
       url: salida.contents.url,
       headers: salida.contents.headers,
       range: c.req.header('range'),
       signal: c.req.raw.signal,
+      ...(tipo === undefined ? {} : { forceType: tipo }),
       ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
       ...(options.resolver === undefined ? {} : { resolver: options.resolver }),
     })
