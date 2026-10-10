@@ -86,8 +86,10 @@ mpv --no-terminal --force-window=yes --really-quiet
 
 - El proceso se lanza con `Bun.spawn`, se registra el `pid` y se escucha su salida.
 - El estado (`starting`, `playing`, `exited`, `failed`) se publica por SSE.
-- Si `mpv` no existe en el `PATH`, `POST /api/play/mpv` responde 503 con `{Available: false}` y
-  la UI ofrece el reproductor web.
+- Si `mpv` no existe en el `PATH`, `POST /api/play/mpv` responde 503 con `{ "mpv": false }` y la
+  UI ofrece el reproductor web. **Unificado al auditar:** aquí decía `{Available: false}`, y el
+  resto del sistema usa `mpv`, incluido `/api/health`. Dos nombres para el mismo dato en el mismo
+  flujo es una errata esperando a convertirse en un fallo.
 - Al salir mpv con código distinto de 0, se devuelve el `stderr` recortado a 2 KB.
 
 ## Estructura del módulo

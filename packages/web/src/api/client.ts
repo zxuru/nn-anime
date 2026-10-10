@@ -108,6 +108,55 @@ async function dispatch(
   return response
 }
 
+/**
+ * Lecturas en vuelo, por clave de URL.
+ *
+ * Dos componentes que piden lo mismo a la vez comparten una sola petición. La
+ * clave incluye el método porque sólo se deduplican las lecturas: una mutación
+ * repetida sí tiene que llegar dos veces.
+ *
+ * Se guarda el cuerpo ya analizado y no la respuesta: un `Response` sólo se
+ * puede leer una vez, así que compartirlo entre dos llamadores haría fallar al
+ * segundo. Y se guarda como `unknown` a propósito, para que cada llamador lo
+ * valide con su schema sin ninguna conversión de tipo por el medio.
+ */
+const inFlight = new Map<string, Promise<unknown>>()
+
+async function jsonPayload(
+  path: string,
+  options: RequestOptions,
+  deps: RequestDeps,
+): Promise<unknown> {
+  const response = await dispatch(path, options, deps)
+
+  if (response.status === 204) {
+    throw new ApiShapeError(path, 'el servidor respondió 204 donde se esperaba un cuerpo')
+  }
+
+  try {
+    return await response.json()
+  } catch {
+    throw new ApiShapeError(path, 'el cuerpo no es JSON válido')
+  }
+}
+
+function shared(path: string, work: () => Promise<unknown>): Promise<unknown> {
+  const existing = inFlight.get(path)
+  if (existing !== undefined) return existing
+
+  const pending = work()
+  inFlight.set(path, pending)
+  // El `catch` evita que un fallo quede como rechazo no gestionado al borrar la
+  // entrada, y el `finally` garantiza que la clave no se quede pegada.
+  pending
+    .catch(() => {})
+    .finally(() => {
+      inFlight.delete(path)
+    })
+
+  return pending
+}
+
 /** Petición cuya respuesta es JSON y tiene que cumplir un schema. */
 export async function request<T>(
   path: string,
@@ -115,18 +164,10 @@ export async function request<T>(
   options: RequestOptions = {},
   deps: RequestDeps = realDeps(),
 ): Promise<T> {
-  const response = await dispatch(path, options, deps)
-
-  if (response.status === 204) {
-    throw new ApiShapeError(path, 'el servidor respondió 204 donde se esperaba un cuerpo')
-  }
-
-  let payload: unknown
-  try {
-    payload = await response.json()
-  } catch {
-    throw new ApiShapeError(path, 'el cuerpo no es JSON válido')
-  }
+  const isRead = (options.method ?? 'GET') === 'GET'
+  const payload = isRead
+    ? await shared(path, () => jsonPayload(path, options, deps))
+    : await jsonPayload(path, options, deps)
 
   const parsed = schema.safeParse(payload)
   if (!parsed.success) throw new ApiShapeError(path, parsed.error.message)

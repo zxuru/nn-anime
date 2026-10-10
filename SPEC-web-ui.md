@@ -22,6 +22,10 @@ continuar y recibir recomendaciones. Sin recargar la página y sin recargar el c
 
 Superficie HTTP que la UI consume. La implementa `server` componiendo los otros módulos.
 
+**Las formas de estas respuestas no se declaran aquí ni se escriben dos veces.** Viven en
+`packages/core/src/api.ts`, que es también lo que el server usa para construirlas. Este documento
+nombra las rutas y para qué sirven; la forma exacta de cada cuerpo es un schema compartido.
+
 ```
 GET  /api/health                     estado, versión, mpv disponible, proveedores activos
 GET  /api/providers                  proveedores cargados y sus capabilities

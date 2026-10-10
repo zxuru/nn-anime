@@ -75,6 +75,7 @@ export {
   cacheHitSchema,
   candidateSchema,
   episodeSchema,
+  httpUrlSchema,
   modeSchema,
   providerRefSchema,
   searchResultSchema,

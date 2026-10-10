@@ -637,7 +637,10 @@ validación, registro y un test de conformidad reutilizable.
 - [ ] Escanea `*.ts`, `*.js` y `*.mjs` en orden alfabético y carga con `import()`.
 - [ ] Un plugin cuyo import lanza se reporta y se omite; los demás cargan igual.
 - [ ] Un plugin inválido o con `apiVersion` incorrecta no impide el arranque.
-- [ ] Un export `default` y un export `providers` producen un solo conjunto sin duplicados.
+- [ ] Un plugin **no puede exportar `default` y `providers` a la vez**: se rechaza nombrándolo.
+      Esta aceptación decía «producen un solo conjunto sin duplicados», que contradice a
+      `SPEC-provider-core.md`. Manda el spec: dos exports son ambiguos y rechazarlos es más claro
+      que adivinar cuál es el bueno.
 - [ ] Test: directorio con un plugin bueno, uno roto y uno inválido da 1 activo y 2 rechazos
       con motivo.
 - [ ] Test: el directorio se inyecta; no se lee `$XDG_CONFIG_HOME` real.
@@ -709,7 +712,13 @@ parciales sin que un proveedor lento o roto bloquee al resto.
 **Descripción:** Exponer el registro y la búsqueda incremental por HTTP.
 
 **Aceptación:**
-- [ ] `GET /api/providers` lista id, nombre, capabilities y estado de carga.
+- [ ] **Los schemas de respuesta viven en `packages/core/src/api.ts`.** Añadido al auditar: la
+      interfaz valida con Zod desde T8 y el server construye JSON a mano, pero ninguna tarea era
+      dueña de las formas compartidas. Con dos definiciones paralelas la deriva no da error de
+      compilación, da un `ApiShapeError` en el navegador. Aquí se crean, y el server las usa para
+      construir y la interfaz para validar.
+- [ ] `GET /api/providers` lista id, nombre, capabilities y estado de carga, con el schema
+      compartido.
 - [ ] `GET /api/search?q=&provider=` responde `text/event-stream` con un evento por proveedor y
       un evento final.
 - [ ] El cliente que corta la conexión cancela los `AbortSignal` de los proveedores.
@@ -753,6 +762,8 @@ parciales sin que un proveedor lento o roto bloquee al resto.
 anuncios accesibles.
 
 **Aceptación:**
+- [ ] Valida los eventos del stream con el schema compartido de `packages/core/src/api.ts`, no con
+      uno local.
 - [ ] Los resultados se pintan a medida que llegan, con esqueleto por proveedor pendiente.
 - [ ] Un proveedor que falla muestra su error y no deja el esqueleto para siempre.
 - [ ] Cambiar la consulta cancela la petición anterior y descarta sus eventos.
@@ -783,9 +794,14 @@ anuncios accesibles.
 
 **Descripción:** Base SQLite con WAL y runner de migraciones versionadas.
 
+**Corregido al auditar:** esta tarea decía «crea las once tablas del Data Model». El Data Model de
+`SPEC-nn-anime.md` lista **nueve**: `anime`, `genre`, `episode`, `watch_event`, `favorite`,
+`search_history`, `stream_cache`, `setting` y `schema_version`. Manda el spec. Un test que cuente
+las tablas creadas contra esa lista evita que vuelva a desviarse.
+
 **Aceptación:**
 - [ ] `openDb(path)` aplica `journal_mode=WAL`, `foreign_keys=ON`, `busy_timeout=5000`.
-- [ ] `0001-initial.sql` crea las once tablas del Data Model con sus índices.
+- [ ] `0001-initial.sql` crea **las nueve** tablas del Data Model con sus índices, y un test las cuenta contra la lista del spec.
 - [ ] El runner aplica pendientes en transacción y registra en `schema_version`.
 - [ ] Correr dos veces seguidas devuelve `applied: 0` la segunda vez.
 - [ ] Una migración que falla deja el esquema sin cambios y el error nombra el archivo.

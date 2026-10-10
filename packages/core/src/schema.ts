@@ -15,6 +15,30 @@ import { z } from 'zod'
 const HEADER_NAME = /^[A-Za-z0-9-]+$/
 const CONTROL_CHARACTERS = /[\r\n\0]/
 
+/** Esquemas de URL admitidos en cualquier dato que venga de un proveedor. */
+const ALLOWED_URL_SCHEMES: readonly string[] = ['http:', 'https:']
+
+/**
+ * Dirección web, validada en el esquema.
+ *
+ * `z.string().min(1)` dejaba pasar `javascript:` o `data:`. La regla del
+ * proyecto es que el esquema se valida **en la frontera**, y la frontera es
+ * este archivo: si la comprobación viviera sólo en la interfaz, cualquier
+ * consumidor nuevo de estos tipos —el reproductor, un exportador, un test—
+ * volvería a abrir el agujero. Aquí se cierra para todos.
+ */
+export const httpUrlSchema = z.string().min(1).refine(isWebUrl, {
+  message: 'la dirección tiene que ser http o https',
+})
+
+function isWebUrl(value: string): boolean {
+  try {
+    return ALLOWED_URL_SCHEMES.includes(new URL(value).protocol)
+  } catch {
+    return false
+  }
+}
+
 export const modeSchema = z.enum(['sub', 'dub', 'raw'])
 export const streamModeSchema = z.enum(['sub', 'dub'])
 export const titleKindSchema = z.enum(['tv', 'movie', 'ova', 'ona', 'special'])
@@ -31,7 +55,7 @@ export const providerRefSchema = z.strictObject({
 export const subtitleTrackSchema = z.strictObject({
   lang: z.string().min(1),
   label: z.string().min(1),
-  url: z.string().min(1),
+  url: httpUrlSchema,
   format: subtitleFormatSchema,
   default: z.boolean().optional(),
 })
@@ -49,7 +73,7 @@ export const streamHeadersSchema = z.record(
 )
 
 export const streamSourceSchema = z.strictObject({
-  url: z.string().min(1),
+  url: httpUrlSchema,
   kind: streamKindSchema,
   quality: z.string().min(1).optional(),
   headers: streamHeadersSchema.optional(),
@@ -60,7 +84,7 @@ export const searchResultSchema = z.strictObject({
   ref: providerRefSchema,
   title: z.string().min(1),
   titleAlt: z.string().min(1).optional(),
-  coverUrl: z.string().min(1).optional(),
+  coverUrl: httpUrlSchema.optional(),
   year: z.number().int().optional(),
   kind: titleKindSchema.optional(),
 })
@@ -105,7 +129,7 @@ export const candidateSchema = z.strictObject({
   studios: z.array(z.string().min(1)),
   /** Popularidad normalizada dentro del proveedor, de 0 a 1. */
   popularity: z.number().min(0).max(1).optional(),
-  coverUrl: z.string().min(1).optional(),
+  coverUrl: httpUrlSchema.optional(),
 })
 
 /** Schema de un acierto de caché, parametrizado por el schema del valor. */

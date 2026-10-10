@@ -158,6 +158,69 @@ describe('schemas: son estrictos con las claves desconocidas', () => {
   })
 })
 
+describe('esquema de URL: la frontera rechaza esquemas peligrosos', () => {
+  test('acepta http y https', () => {
+    for (const url of ['http://ejemplo/a.mp4', 'https://ejemplo/a.m3u8']) {
+      expect(outcome(streamSourceSchema, { url, kind: 'file' }).success, url).toBe(true)
+    }
+  })
+
+  test('rechaza javascript:', () => {
+    const result = outcome(streamSourceSchema, {
+      url: 'javascript:alert(1)',
+      kind: 'file',
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.message).toContain('http')
+  })
+
+  test('rechaza data:', () => {
+    expect(
+      outcome(streamSourceSchema, { url: 'data:text/html,<script>1</script>', kind: 'file' })
+        .success,
+    ).toBe(false)
+  })
+
+  test('rechaza file:', () => {
+    expect(outcome(streamSourceSchema, { url: 'file:///etc/passwd', kind: 'file' }).success).toBe(
+      false,
+    )
+  })
+
+  test('rechaza una portada con javascript:', () => {
+    expect(
+      outcome(searchResultSchema, { ref: REF, title: 'T', coverUrl: 'javascript:alert(1)' })
+        .success,
+    ).toBe(false)
+  })
+
+  test('acepta una portada https', () => {
+    expect(
+      outcome(searchResultSchema, {
+        ref: REF,
+        title: 'T',
+        coverUrl: 'https://ejemplo/portada.webp',
+      }).success,
+    ).toBe(true)
+  })
+
+  test('rechaza una pista de subtítulos con data:', () => {
+    expect(
+      outcome(subtitleTrackSchema, {
+        lang: 'es',
+        label: 'Español',
+        url: 'data:text/vtt,WEBVTT',
+        format: 'vtt',
+      }).success,
+    ).toBe(false)
+  })
+
+  test('rechaza una cadena que no es una URL', () => {
+    expect(outcome(streamSourceSchema, { url: 'no soy una url', kind: 'file' }).success).toBe(false)
+  })
+})
+
 describe('streamSourceSchema: validación de headers', () => {
   test('acepta nombres y valores válidos', () => {
     const result = outcome(streamSourceSchema, {

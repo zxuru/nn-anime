@@ -158,6 +158,79 @@ describe('forma de la petición', () => {
   })
 })
 
+describe('deduplicación de lecturas', () => {
+  test('dos lecturas simultáneas de lo mismo hacen una sola petición', async () => {
+    let calls = 0
+    const deps: RequestDeps = {
+      fetch: async () => {
+        calls += 1
+        await Bun.sleep(5)
+        return new Response('{"version":"0.1.0","port":7717}')
+      },
+    }
+
+    const [first, second] = await Promise.all([
+      apiGet('/api/health', HEALTH, {}, deps),
+      apiGet('/api/health', HEALTH, {}, deps),
+    ])
+
+    expect(calls).toBe(1)
+    expect(first).toEqual(second)
+  })
+
+  test('rutas distintas no se deduplican entre sí', async () => {
+    let calls = 0
+    const deps: RequestDeps = {
+      fetch: async () => {
+        calls += 1
+        return new Response('{"version":"0.1.0","port":7717}')
+      },
+    }
+
+    await Promise.all([
+      apiGet('/api/health', HEALTH, {}, deps),
+      apiGet('/api/health?x=1', HEALTH, {}, deps),
+    ])
+
+    expect(calls).toBe(2)
+  })
+
+  test('pasada la primera, la siguiente vuelve a pedir', async () => {
+    const target = fake()
+
+    await apiGet('/api/health', HEALTH, {}, target.deps)
+    await apiGet('/api/health', HEALTH, {}, target.deps)
+
+    expect(target.calls).toHaveLength(2)
+  })
+
+  test('las mutaciones no se deduplican nunca', async () => {
+    const target = fake(204, '')
+
+    await Promise.all([
+      apiPost('/api/watch', { positionS: 1 }, {}, target.deps),
+      apiPost('/api/watch', { positionS: 1 }, {}, target.deps),
+    ])
+
+    expect(target.calls).toHaveLength(2)
+  })
+
+  test('una lectura que falla se puede reintentar', async () => {
+    let calls = 0
+    const deps: RequestDeps = {
+      fetch: async () => {
+        calls += 1
+        return new Response('', { status: calls === 1 ? 401 : 200 })
+      },
+    }
+
+    await expect(apiGet('/api/health', HEALTH, {}, deps)).rejects.toBeInstanceOf(ApiError)
+    await expect(apiGet('/api/health', HEALTH, {}, deps)).rejects.toBeInstanceOf(ApiShapeError)
+
+    expect(calls).toBe(2)
+  })
+})
+
 describe('validación de la respuesta', () => {
   test('devuelve el objeto ya validado', async () => {
     const target = fake()

@@ -126,10 +126,18 @@ export function listenOnFreePort(requestedPort: number, options: ListenOptions):
  * búsqueda: es el caso de uso de `ani-cli` y un criterio de éxito del spec.
  * `encodeURIComponent` evita que la consulta se coma el resto de la URL.
  */
-export function redirectTarget(query: string | undefined): string | undefined {
-  if (query === undefined || query === '') return undefined
+export function redirectTarget(
+  query: string | undefined,
+  providers: readonly string[] = [],
+): string | undefined {
+  const parts: string[] = []
+  if (query !== undefined && query !== '') parts.push(`q=${encodeURIComponent(query)}`)
+  // El filtro de proveedor viaja en la misma dirección. Sin esto, `--provider`
+  // se analiza, se fusiona desde config.json y no lo usa nadie: el mismo defecto
+  // que tenía la consulta posicional.
+  for (const provider of providers) parts.push(`provider=${encodeURIComponent(provider)}`)
 
-  return `/search?q=${encodeURIComponent(query)}`
+  return parts.length === 0 ? undefined : `/search?${parts.join('&')}`
 }
 
 export interface BootDeps {
@@ -221,7 +229,7 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     bootToken,
     version: deps.version,
     webRoot: deps.webRoot,
-    redirectTo: redirectTarget(options.query),
+    redirectTo: redirectTarget(options.query, options.providers),
     allowPortFallback: deps.allowPortFallback,
   })
 

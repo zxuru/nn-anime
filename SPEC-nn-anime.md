@@ -72,7 +72,7 @@ nn-anime/
 ├─ tsconfig.base.json
 ├─ packages/
 │  ├─ core/                       result, errors, logger, config, settings, i18n,
-│  │                              models y schema del dominio
+│  │                              models, schema del dominio y api (contrato HTTP)
 │  ├─ provider-sdk/               interfaz Provider, registro, loader de plugins
 │  ├─ catalog-store/              SQLite, migraciones, repositorios, política de caché
 │  ├─ media-proxy/                proxy de bytes y HLS, control de mpv
@@ -146,6 +146,20 @@ Convenciones:
 ## Data Model
 
 Contrato compartido entre `catalog-store`, `recsys` y `server`. Vive en `packages/core/src/models.ts`.
+
+### Contrato HTTP
+
+Las formas de las respuestas de la API viven en `packages/core/src/api.ts`, y **son las mismas
+para los dos lados**: el server las usa para construir y tipar sus respuestas, y la interfaz para
+validarlas al recibirlas.
+
+Una sola definición, y no dos que se parezcan. Con dos, la deriva no da error de compilación: da
+un `ApiShapeError` en el navegador del usuario, que es justo el fallo que la validación en la
+frontera existe para convertir en algo diagnosticable. Si el schema cambia, cambia para los dos
+por construcción.
+
+El contrato de proveedor (`Provider`) no vive aquí: es de `provider-sdk`, que importa los tipos de
+dominio de `core`.
 
 ```
 anime            id, provider_id, provider_ref, title, title_alt, synopsis, cover_url,

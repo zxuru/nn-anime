@@ -224,6 +224,42 @@ describe('la consulta abre la búsqueda', () => {
     })
   })
 
+  test('un proveedor sin consulta también abre la búsqueda', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      await boot(options(['--provider', 'uno']), depsFor(target, home))
+
+      expect(target.seenOptions[0]?.redirectTo).toBe('/search?provider=uno')
+    })
+  })
+
+  test('varios proveedores viajan en orden, repetidos en la dirección', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      await boot(options(['--provider', 'uno', '--provider', 'dos']), depsFor(target, home))
+
+      expect(target.seenOptions[0]?.redirectTo).toBe('/search?provider=uno&provider=dos')
+    })
+  })
+
+  test('consulta y proveedor juntos', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      await boot(options(['naruto', '--provider', 'uno']), depsFor(target, home))
+
+      expect(target.seenOptions[0]?.redirectTo).toBe('/search?q=naruto&provider=uno')
+    })
+  })
+
+  test('el proveedor se codifica para no comerse la dirección', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      await boot(options(['--provider', 'a b&c']), depsFor(target, home))
+
+      expect(target.seenOptions[0]?.redirectTo).toBe('/search?provider=a%20b%26c')
+    })
+  })
+
   test('una consulta vacía no produce destino', async () => {
     await withTempHome(async (home) => {
       const target = harness({})
@@ -297,13 +333,15 @@ describe('ajustes de config.json', () => {
     })
   })
 
-  test('los proveedores del archivo llegan a las opciones', async () => {
+  test('un proveedor del archivo llega a la búsqueda', async () => {
     await withTempHome(async (home) => {
       const target = harness({})
       const readSettings: ReadSettings = async () => ({ ok: true, value: { providers: ['uno'] } })
       await boot(options(), depsFor(target, home, { readSettings }))
 
-      expect(target.seenOptions[0]?.redirectTo).toBeUndefined()
+      // Este test afirmaba `redirectTo === undefined`, que era cierto cuando los
+      // proveedores no se usaban para nada. Ahora comprueba lo que importa.
+      expect(target.seenOptions[0]?.redirectTo).toBe('/search?provider=uno')
     })
   })
 
