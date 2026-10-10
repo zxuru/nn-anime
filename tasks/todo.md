@@ -352,19 +352,40 @@ en el Checkpoint B, cuando exista la SPA.
 contenido en lugar de un compromiso total del server local.
 
 **Aceptación:**
-- [ ] `Content-Security-Policy: default-src 'self'; img-src 'self'; media-src 'self' blob:;
+- [x] `Content-Security-Policy: default-src 'self'; img-src 'self'; media-src 'self' blob:;
       connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'`.
-- [ ] `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` y `X-Frame-Options: DENY`.
-- [ ] Las cuatro se aplican a la SPA, a `/api/*` y a `/stream/*` por igual: test sobre todas las
+- [x] `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` y `X-Frame-Options: DENY`.
+- [x] Las cuatro se aplican a la SPA, a `/api/*` y a `/stream/*` por igual: test sobre todas las
       familias de rutas.
-- [ ] Ninguna respuesta lleva `Access-Control-Allow-Origin`.
-- [ ] Un test recorre la tabla de rutas y falla si a alguna le falta una de las cuatro cabeceras.
+- [x] Ninguna respuesta lleva `Access-Control-Allow-Origin`.
+- [x] Un test recorre la tabla de rutas y falla si a alguna le falta una de las cuatro cabeceras.
 
-**Verificación:** `bun test packages/server` · manual: `curl -I` contra la home y contra la API.
+**Verificación:** `bun test packages/server` 64 pasan, 0 fallan · `tsc --noEmit` 0 ·
+`biome check .` 0 sin infos. Se comprueban las cuatro cabeceras en siete respuestas distintas: API
+con sesión, canje de arranque, 401 por falta de sesión, 403 por Host, 403 por Origin, 404 y la
+tabla completa de rutas.
+
+**Estado:** hecho.
+
+**Decisiones tomadas al implementar:**
+
+- **Las cabeceras se escriben después de `next()`.** Si se escribieran antes, las respuestas que
+  cortan los guards —el 401 y el 403— nacerían sin ellas, que es justo cuando más importa que la
+  política esté puesta.
+- La política se copia literal del spec, sin relajaciones preventivas. **No se añadió
+  `'unsafe-inline'` para estilos.** React aplica la propiedad `style` por CSSOM y la CSP no la
+  bloquea, así que los estilos dinámicos siguen funcionando sin abrir la puerta a los scripts en
+  línea. Si más adelante aparece una violación real, se documenta y se decide con la evidencia
+  delante, no por adelantado.
+- `securityHeaders` acepta una política alternativa inyectable, para poder relajarla en
+  desarrollo sin tocar la de producción.
+- El test de CORS comprueba que la cabecera no se emite **ni siquiera cuando el origen es el
+  propio**: no hay CORS en juego, todo es mismo origen.
 
 **Depende de:** T6.
 
-**Archivos:** `packages/server/src/middleware/security-headers.ts`, `packages/server/src/security-headers.test.ts`.
+**Archivos:** `packages/server/src/middleware/security-headers.ts`,
+`packages/server/src/security-headers.test.ts`, `packages/server/src/app.ts`.
 
 **Tamaño:** S.
 

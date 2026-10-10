@@ -13,6 +13,7 @@ import { bootstrapHandler } from './bootstrap'
 import { hostGuard } from './middleware/host-guard'
 import { originGuard } from './middleware/origin-guard'
 import { sessionGuard } from './middleware/session-guard'
+import { securityHeaders } from './middleware/security-headers'
 import type { Session } from './session'
 
 /** Puerto conocido en el momento de montar la aplicación, o función que lo lee. */
@@ -49,6 +50,10 @@ function resolvePort(source: PortSource): number {
 export function createApp(options: AppOptions): Hono {
   const app = new Hono()
   const getPort = (): number => resolvePort(options.port)
+
+  // Primero las cabeceras: se escriben después de `next()`, así que llegan
+  // también a las respuestas que cortan los guards.
+  app.use('*', securityHeaders())
 
   const guards = [hostGuard(getPort), originGuard(getPort), sessionGuard(options.session)]
   for (const prefix of PROTECTED_PREFIXES) {
