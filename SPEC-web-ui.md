@@ -97,7 +97,7 @@ packages/web/
 │  ├─ features/settings/
 │  ├─ components/                tarjeta, grilla virtualizada, esqueleto, diálogo
 │  ├─ styles/tokens.css          color, espaciado, tipografía, radios
-│  └─ i18n/es.ts
+│  └─ i18n/                      es.ts ahora; en.ts y otros idiomas después
 └─ e2e/                          Playwright contra providers-fixture
 ```
 
@@ -126,7 +126,8 @@ packages/web/
 - Cancelar la petición anterior cuando cambia la consulta o se desmonta la vista.
 - Mostrar el precio real de cada acción: spinner para revalidar, aviso cuando un proveedor falla.
 - Centralizar el color, el espaciado y el radio en `tokens.css`. Sin valores sueltos.
-- Escribir las cadenas de la interfaz en `i18n/es.ts`, no incrustadas en el JSX.
+- Escribir las cadenas de la interfaz en `i18n/<locale>.ts` mediante `t()` de `core`, nunca
+  incrustadas en el JSX. Añadir un idioma no debe tocar ningún componente.
 
 **Ask first**
 
@@ -147,8 +148,8 @@ packages/web/
 
 1. ¿Tema oscuro por defecto con opción clara, o sólo oscuro en v1? Se propone oscuro por defecto
    y claro disponible.
-2. ¿La home muestra "continuar viendo" con reanudación automática? Depende de la pregunta abierta
-   1 del spec de proyecto. Se propone mostrar la fila, sin reanudar automáticamente.
+2. ¿La fila "continuar viendo" muestra la posición exacta o sólo el porcentaje? Decisión cerrada
+   en el spec de proyecto: se registra la posición, sin reanudación automática en v1.
 3. ¿Se muestran los resultados de proveedores distintos como listas separadas o fusionados en
    una sola grilla con etiqueta de origen? Se propone grilla única con etiqueta, para no
    duplicar interfaz.

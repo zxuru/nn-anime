@@ -57,6 +57,19 @@ El contrato entre módulos vive en el spec del módulo proveedor:
 - Contrato de respuesta de `recsys` → `SPEC-recsys.md`
 - Superficie HTTP usada por `web-ui` → `SPEC-web-ui.md`, derivada de los anteriores
 
+## Enmiendas pendientes de aprobación
+
+**Ninguna fila de esta sección está aprobada.** No se escribe su spec ni su código hasta que el
+humano apruebe la enmienda, y aprobarla cambia el build order de la sección anterior.
+
+| Module id | Responsabilidad | Depende de | Cuándo |
+|---|---|---|---|
+| `downloads` | Cola de descargas con ffmpeg, almacenamiento en disco, gestión de espacio y borrado | `core`, `provider-core`, `catalog-store`, `media-proxy` | v1.5 |
+| `metadata-enrichment` | Enriquecimiento de metadatos desde una fuente de metadatos con API pública, para alimentar `recsys` | `core`, `catalog-store` | opcional, sin fecha |
+
+`downloads` es la única capacidad nueva ya comprometida para v1.5. `metadata-enrichment` espera
+la verificación de términos comentada en `SPEC-provider-core.md`.
+
 ## Fuera de alcance de toda la iniciativa
 
 - Scrapers de sitios sin licencia dentro del repo. La capa de proveedores es una interfaz

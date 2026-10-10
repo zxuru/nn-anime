@@ -212,11 +212,34 @@ código: se mitiga informando. La UI y `README` deben decir, en texto claro, que
 plugin equivale a ejecutar código arbitrario en la máquina. Cualquier intento de "sandbox" con
 `node:vm` da falsa seguridad y queda prohibido como sustituto.
 
+## Política de proveedores y referentes nombrados
+
+El humano nombró cuatro referentes usados por ani-cli-mx: AnimeAV1, JKAnime, AniDB y AnimeX.
+No hubo verificación en línea en esta sesión, así que esto es posición de proyecto, no un
+informe.
+
+- **AnimeAV1, JKAnime y AnimeX son sitios de streaming sin licencia.** No escribo, no reviso y
+  no incluyo scrapers para ellos en este repo. La capacidad de usarlos existe igual: son plugins
+  que el usuario instala por su cuenta. El repo entrega el contrato, el loader, el test de
+  conformidad, el proveedor fixture y una plantilla comentada. Esa es toda la contribución del
+  proyecto a esas fuentes.
+- **AniDB no es un sitio de video, es una base de datos de metadatos.** Encaja como fuente de
+  metadatos para enriquecer `recsys`, no como fuente de streams. Por eso aparece propuesto como
+  `metadata-enrichment` y no como proveedor de video. Antes de implementarlo hay que verificar
+  sus términos: su API exige registrar un cliente y respeta límites de peticiones, y el abuso
+  conlleva bloqueo. Verificación pendiente.
+- **Ningún proveedor de video con licencia está elegido.** Si aparece uno, entra como plugin y no
+  cambia nada del contrato.
+
+Consecuencia práctica: en v1 el usuario que quiera ver contenido real escribe o instala sus
+propios plugins. El proyecto se verifica de punta a punta con `providers-fixture`.
+
 ## Open Questions
 
 1. ¿Se publica `nn-anime/provider-sdk` como paquete npm para que los autores de plugins tengan
-   tipos, o basta una ruta de importación resuelta por el loader?
+   tipos, o basta una ruta de importación resuelta por el loader? La decisión de distribución del
+   proyecto es publicar en npm en v1.5, así que se propone publicarlo.
 2. ¿Hace falta un caché de resolución de streams en disco, o el TTL de 600 s en `catalog-store`
    es suficiente?
-3. ¿Quieres un proveedor real desde el día uno? Si sí, hay que nombrarlo y verificar su
-   situación legal; hasta entonces sólo existe `providers-fixture`.
+3. ¿La plantilla de plugin comentada se entrega en el repo, o se documenta sólo en el `README`?
+   Se propone entregarla, sin ninguna lógica de scraping real.

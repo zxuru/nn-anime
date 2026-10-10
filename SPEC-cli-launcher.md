@@ -34,6 +34,7 @@ Flags:
       --data-dir <p>    sobrescribe $XDG_DATA_HOME/nn-anime
       --config-dir <p>  sobrescribe $XDG_CONFIG_HOME/nn-anime
       --provider <id>   restringe la búsqueda a un proveedor. Repetible
+      --lang <code>     idioma de los mensajes del CLI. Por defecto `es`, o `NN_ANIME_LANG`
   -v, --verbose         nivel de log debug
   -h, --help
       --version
@@ -78,6 +79,9 @@ packages/cli/
 - [ ] Con una migración rota a propósito, sale con código 3 y no arranca el server.
 - [ ] Con `mpv` ausente del `PATH`, la app arranca y `/api/health` informa `mpv: false`.
 - [ ] Ningún archivo fuera de las rutas XDG se crea o modifica.
+- [ ] `package.json` del CLI declara `bin`, `files` y `publishConfig`; `bun pm pack` produce un
+      tarball instalable, sin publicarlo. Los mensajes del CLI salen del catálogo i18n.
+- [ ] `nn-anime --lang en` cambia los mensajes del CLI sin tocar código de componentes.
 
 ## Boundaries
 
@@ -91,6 +95,7 @@ packages/cli/
 
 - Añadir un modo distinto de arranque (bandeja del sistema, demonio, servicio de usuario).
 - Abrir el server a la red local.
+- Publicar el paquete en npm. El repo queda listo para hacerlo desde v1; ejecutarlo es aparte.
 
 **Never**
 

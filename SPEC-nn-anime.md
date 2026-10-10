@@ -71,7 +71,7 @@ nn-anime/
 ├─ biome.json
 ├─ tsconfig.base.json
 ├─ packages/
-│  ├─ core/                       tipos, errores, config, logger, Result
+│  ├─ core/                       tipos, errores, config, logger, Result, i18n
 │  ├─ provider-sdk/               interfaz Provider, registro, loader de plugins
 │  ├─ catalog-store/              SQLite, migraciones, repositorios, política de caché
 │  ├─ media-proxy/                proxy de bytes y HLS, control de mpv
@@ -207,7 +207,8 @@ tests no leen ni escriben en `$XDG_*` real: se inyecta un directorio temporal.
 - Añadir una dependencia fuera de la tabla de Tech Stack.
 - Cambiar el esquema de la base o el TTL de un recurso.
 - Cambiar el contrato de `Provider` o el formato de datos del plugin.
-- Publicar o distribuir el binario.
+- Publicar o distribuir el binario, y publicar el paquete en npm.
+- Cambiar el contrato de i18n o el conjunto de locales soportados.
 - Añadir cualquier llamada saliente a un servicio de terceros que no sea un proveedor
   configurado por el usuario.
 
@@ -253,16 +254,41 @@ aplicación. No hay sandbox. Esto se documenta en la UI al instalar y en `SPEC-p
 - [ ] `bun run db:migrate` es idempotente: correrlo dos veces no cambia el esquema.
 - [ ] Los seis specs de módulo están aprobados.
 
+## Decisiones cerradas
+
+Cerradas por el humano el 2026-10-10. No se reabren sin aprobación explícita.
+
+1. **Progreso de reproducción.** `catalog-store` registra siempre la posición, porque es señal
+   de entrada para `recsys`. La reanudación automática y el autoplay del episodio siguiente
+   quedan para v2. La home puede mostrar la fila "continuar viendo" sin reanudar sola.
+2. **Internacionalización.** Interfaz en español en v1, con i18n real desde el primer commit.
+   Ninguna cadena visible se incrusta en el código. El contrato vive en
+   `packages/core/src/i18n.ts`: tipo `Locale`, tipo `Messages`, `t(locale, key, params)`,
+   resolución de locale por `NN_ANIME_LANG` y fallback a `es`. Los paquetes con texto de cara al
+   usuario (`web`, `cli`) exponen su propio `i18n/<locale>.ts`. Añadir un idioma debe ser copiar
+   el archivo y traducirlo, sin tocar componentes.
+3. **Distribución.** v1 se construye y se usa en local con `bun run build` y `bun run start`.
+   La publicación en npm queda preparada y no ejecutada: desde el inicio, `package.json` del CLI
+   declara `bin`, `files` y `publishConfig`, y el build genera un artefacto instalable.
+   Publicar es un evento "Ask first". Objetivo de v1.5: `npm publish` y uso vía `bunx nn-anime`.
+
+## Diferido a v1.5
+
+- **Descarga offline.** Guardar episodios en disco con `ffmpeg`. No es un ajuste del
+  `media-proxy` actual: implica persistencia de bytes de video, gestión de espacio, cola de
+  trabajos y borrado. Es una capacidad nueva y necesita su propio spec y su propio gate.
+
+## Enmiendas pendientes al mapa
+
+`downloads` (v1.5) y `metadata-enrichment` (opcional) están propuestos y **no aprobados** en
+`CAPABILITY-MAP.md`. Ninguno se especifica ni se implementa hasta que el humano apruebe la
+enmienda.
+
 ## Open Questions
 
-1. **Reanudar y siguiente automático.** El mapa incluye registrar progreso en `catalog-store`,
-   pero la opción "reanudar episodio y siguiente automático" no se marcó en alcance v1. Se
-   propone: registrar posición siempre (es señal para `recsys`), y dejar la reanudación
-   automática en la UI y el autoplay del siguiente para v2. ¿Confirmas?
-2. **Descarga offline.** Fuera de v1 por decisión de alcance. Confirmar que no vuelve a entrar.
-3. **Internacionalización.** Se asume interfaz en español, cadenas centralizadas en un solo
-   archivo por paquete para permitir `en` después. ¿Correcto?
-4. **Distribución.** Se asume `bun build --compile` a un binario único más el repo para
-   desarrollo. ¿O prefieres publicación en npm con `bunx`?
-5. **Sitios con licencia.** No hay ninguno elegido para el proveedor de ejemplo más allá del
-   fixture propio. Si quieres un proveedor real desde el día uno, hay que nombrarlo aquí.
+1. **Proveedor de metadatos.** AniDB aparece como candidato para `metadata-enrichment`. Falta
+   verificar sus términos de uso y el registro de cliente de su API antes de comprometerse.
+   No hay verificación de red hecha en esta sesión.
+2. **Alcance de v1.5.** ¿Entra sólo `downloads`, o también `metadata-enrichment`? Se propone
+   sólo `downloads`, porque `metadata-enrichment` depende de la verificación del punto 1.
+3. **Idiomas objetivo después de `es`.** Se asume `en` primero. ¿Alguno más desde el principio?
