@@ -1526,31 +1526,40 @@ resolver stream → cachear», y **ninguna tarea lo creaba**. Cada tarea prueba 
 completo no lo probaba nadie, que es justo donde aparecen los fallos de integración.
 
 **Aceptación:**
-- [ ] Existe el directorio `tests/` y `bun test` lo recoge.
-- [ ] Base SQLite en directorio temporal y proveedor fixture inyectado: **sin red externa**.
-- [ ] El ciclo se ejerce **por las rutas HTTP** contra `createApp`, no llamando a los módulos de cada
+- [x] Existe el directorio `tests/` y `bun test` lo recoge.
+- [x] Base SQLite en directorio temporal y proveedor fixture inyectado: **sin red externa**.
+- [x] El ciclo se ejerce **por las rutas HTTP** contra `createApp`, no llamando a los módulos de cada
       paquete: los guards, la validación de entrada y el orden de los middlewares son parte de lo que
       se prueba, y ahí es donde han vivido los tres fallos de integración de este proyecto.
-- [ ] Un test recorre el ciclo entero por HTTP: buscar → detalle → episodios → resolver stream →
-      comprobar que quedó cacheado. Que quedó cacheado se observa **en la tabla** (`stream_cache` o la
-      que corresponda), no por el contador de peticiones.
-- [ ] Un test comprueba que la segunda vuelta del ciclo **no llama al proveedor**: el contador de
+- [x] Un test recorre el ciclo entero por HTTP: buscar → detalle → episodios → resolver stream →
+      comprobar que quedó cacheado. Que quedó cacheado se observa **en la tabla**, no por el contador.
+- [x] Un test comprueba que la segunda vuelta del ciclo **no llama al proveedor**: el contador de
       peticiones del fixture se queda igual. Es el criterio que mide el contador; el anterior mide la
       tabla.
-- [ ] Un test comprueba que un proveedor que falla no rompe el ciclo: se sirve lo cacheado.
-- [ ] Con reloj inyectado, un test comprueba la caducidad: pasada la TTL, la siguiente vuelta vuelve a
+- [x] Un test comprueba que un proveedor que falla no rompe el ciclo: se sirve lo cacheado.
+- [x] Con reloj inyectado, un test comprueba la caducidad: pasada la TTL, la siguiente vuelta vuelve a
       llamar al proveedor, y dentro de la TTL no.
-- [ ] Con reloj inyectado, un test comprueba `stale-while-revalidate`: con el valor caducado y dentro
+- [x] Con reloj inyectado, un test comprueba `stale-while-revalidate`: con el valor caducado y dentro
       de la ventana, la respuesta sale del valor viejo **y** el proveedor se llama una vez para
       refrescar.
-- [ ] Ningún test toca `$XDG_*` real.
+- [x] Ningún test toca `$XDG_*` real.
 
-**Verificación:** `bun test tests` · `bun test` sigue verde.
+**Verificación:** `bun test tests` · 12 pruebas. `bun test` completo: 1035. Medido mutando la
+implementación: sin pasar el reloj a las escrituras falla 1 y sin cachear el detalle 5. Control: 0
+fallos.
 
-**Depende de:** T22, T23, T26b. Necesita la búsqueda cacheada, el detalle y sus rutas, la resolución de
-stream y el proxy; por eso va después y no antes.
+**Depende de:** T22, T23, T26b.
 
 **Archivos:** `tests/ciclo-completo.test.ts`, `tests/fixtures.ts`.
+**Ampliación declarada:** el `package.json` de la raíz, que declara los paquetes como dependencias de
+desarrollo para que el nivel de integración pueda importarlos por su nombre y no por una ruta
+relativa; y `ContainerOptions.now` más el reloj de la fachada, sin los cuales la caducidad no se
+puede probar sin esperar un día.
+
+**Hallazgo que valió la tarea:** la fachada del store pasaba el reloj inyectado a las **lecturas**
+pero no a las **escrituras**, así que una fila quedaba con la fecha real y la caducidad inyectada no
+se podía probar: el `stale` nunca llegaba. Lo encontró la primera prueba de caducidad de este nivel,
+que es exactamente para lo que existe.
 
 **Tamaño:** M.
 

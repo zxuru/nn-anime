@@ -91,6 +91,13 @@ export interface ContainerOptions {
   readonly revalidator?: Revalidator
   /** Almacén de tickets. Se inyecta para poder fijar la capacidad en un test. */
   readonly tickets?: TicketStore
+  /**
+   * Reloj inyectable.
+   *
+   * Sin él no se puede probar la caducidad ni el `stale-while-revalidate` sin
+   * esperar quince minutos de reloj real.
+   */
+  readonly now?: () => number
 }
 
 export function createContainer(options: ContainerOptions): ServerContainer {
@@ -101,7 +108,11 @@ export function createContainer(options: ContainerOptions): ServerContainer {
   // El store comparte la cola y el revalidador: con uno distinto en cada sitio,
   // el cierre tendría que acordarse de todos y las escrituras de fondo podrían
   // solaparse con las de la ruta.
-  const store = createCatalogStore(options.db, { queue, revalidator })
+  const store = createCatalogStore(options.db, {
+    queue,
+    revalidator,
+    ...(options.now === undefined ? {} : { now: options.now }),
+  })
   const tickets = options.tickets ?? createTicketStore()
 
   /**

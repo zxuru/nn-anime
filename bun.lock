@@ -6,6 +6,12 @@
       "name": "nn-anime",
       "devDependencies": {
         "@biomejs/biome": "^2",
+        "@nn-anime/catalog-store": "workspace:*",
+        "@nn-anime/core": "workspace:*",
+        "@nn-anime/media-proxy": "workspace:*",
+        "@nn-anime/provider-sdk": "workspace:*",
+        "@nn-anime/providers-fixture": "workspace:*",
+        "@nn-anime/server": "workspace:*",
         "@types/bun": "latest",
         "typescript": "^5.9",
       },

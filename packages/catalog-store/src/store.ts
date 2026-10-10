@@ -141,29 +141,32 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       return of().anime.read(ref, ahora())
     },
     async writeAnime(ref, detail) {
-      await queue.run(() => of().anime.write(ref, detail))
+      // El reloj se pasa también al escribir: si sólo lo usaran las lecturas,
+      // una fila quedaría con la fecha real y la caducidad inyectada no se
+      // podría probar. Lo encontró la prueba de integración del ciclo.
+      await queue.run(() => of().anime.write(ref, detail, ahora()))
     },
     async readEpisodes(ref) {
       return of().episodes.read(ref, ahora())
     },
     async writeEpisodes(ref, list) {
-      await queue.run(() => of().episodes.write(ref, list))
+      await queue.run(() => of().episodes.write(ref, list, ahora()))
     },
     async writeAnimeWithEpisodes(ref, detail, list) {
-      await queue.run(() => of().anime.writeWith(ref, detail, list))
+      await queue.run(() => of().anime.writeWith(ref, detail, list, ahora()))
     },
     async readSearch(providerId, query) {
       return of().search.read(providerId, query, ahora())
     },
     async writeSearch(providerId, query, results) {
-      await queue.run(() => of().search.write(providerId, query, results))
+      await queue.run(() => of().search.write(providerId, query, results, ahora()))
     },
 
     async readStream(episodeRef, mode) {
       return of().streams.read(episodeRef, mode, ahora())
     },
     async writeStream(request, sources) {
-      await queue.run(() => of().streams.write(request, sources))
+      await queue.run(() => of().streams.write(request, sources, ahora()))
     },
     async invalidateStream(episodeRef, mode) {
       return queue.run(() => of().streams.invalidateStream(episodeRef, mode))

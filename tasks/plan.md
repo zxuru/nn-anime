@@ -342,7 +342,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] T26 Proxy de bytes con `Range`, streaming y abort
 - [x] T26a Lista blanca de destinos del proxy y revalidación de redirecciones
 - [x] T26b Saneamiento de respuestas: lista blanca de cabeceras y `Set-Cookie` fuera
-- [ ] T26c Pruebas de integración del ciclo completo
+- [x] T26c Pruebas de integración del ciclo completo
 - [ ] T27 Reescritura HLS: variantes y segmentos
 - [ ] T28 Reescritura HLS: claves, discontinuidad y límites
 - [ ] T29 Handoff a mpv: spawn, SSE de estado, fallback sin mpv, cierre
