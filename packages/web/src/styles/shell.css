@@ -447,3 +447,18 @@
 .row__progress {
   width: 100%;
 }
+
+/*
+ * El foco, visible.
+ *
+ * No había ninguna regla de foco, así que el navegador dibujaba la suya —o
+ * ninguna, según el caso—. Quien navega con teclado necesita saber dónde está, y
+ * eso no es opcional: es la diferencia entre poder usar la aplicación y no poder.
+ *
+ * `:focus-visible` y no `:focus` para no dibujar el anillo al hacer clic con el
+ * ratón: el anillo es para quien lo necesita, no para todo el mundo.
+ */
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-accent);
+  outline-offset: var(--focus-ring-offset);
+}

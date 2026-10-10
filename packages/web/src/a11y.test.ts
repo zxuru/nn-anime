@@ -14,6 +14,9 @@ import { fileURLToPath } from 'node:url'
 
 const TOKENS = fileURLToPath(new URL('./styles/tokens.css', import.meta.url))
 
+/** La raíz del paquete, para recorrer los componentes. */
+const ROOT_DIR = fileURLToPath(new URL('.', import.meta.url))
+
 function luminance(hex: string): number {
   const digits = hex.replace('#', '')
   const full =
@@ -108,5 +111,144 @@ describe('contraste de la paleta', () => {
 
     // `surface-raised`, `border` y `accent-contrast` también cuentan.
     expect(faltan).toEqual([])
+  })
+})
+
+/**
+ * Lo que se puede comprobar sin navegador.
+ *
+ * Un recorrido de teclado de verdad necesita un navegador y es del e2e (T43).
+ * Lo que sí se puede comprobar aquí es que las piezas están: que hay un anillo de
+ * foco declarado, que el movimiento reducido se respeta y que ningún elemento
+ * interactivo se queda sin nombre accesible.
+ */
+
+const SHELL = fileURLToPath(new URL('./styles/shell.css', import.meta.url))
+
+describe('foco visible', () => {
+  test('hay una regla de `:focus-visible` con un anillo del tema', async () => {
+    const css = await Bun.file(SHELL).text()
+
+    expect(css).toContain(':focus-visible')
+    expect(css).toContain('outline: var(--focus-ring-width) solid var(--color-accent)')
+    expect(css).toContain('outline-offset: var(--focus-ring-offset)')
+  })
+
+  test('el anillo usa tokens y no números sueltos', async () => {
+    const tokens = await Bun.file(TOKENS).text()
+
+    expect(tokens).toContain('--focus-ring-width:')
+    expect(tokens).toContain('--focus-ring-offset:')
+  })
+
+  test('se dibuja con `:focus-visible`, no con `:focus`', async () => {
+    const css = await Bun.file(SHELL).text()
+
+    // `:focus` a secas dibujaría el anillo también al hacer clic con el ratón.
+    expect(css).not.toMatch(/(^|[^-\w]):focus\s*\{/)
+  })
+})
+
+describe('movimiento reducido', () => {
+  test('las transiciones se apagan', async () => {
+    const tokens = await Bun.file(TOKENS).text()
+
+    expect(tokens).toContain('@media (prefers-reduced-motion: reduce)')
+    expect(tokens).toContain('--transition-fast: 0ms')
+    expect(tokens).toContain('--transition-normal: 0ms')
+  })
+
+  test('el esqueleto deja de latir', async () => {
+    const css = await Bun.file(SHELL).text()
+    const bloque = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'))
+
+    expect(bloque).toContain('.skeleton')
+    expect(bloque).toContain('animation: none')
+  })
+})
+
+describe('nombres accesibles', () => {
+  /**
+   * Recorre los componentes buscando elementos interactivos sin nombre.
+   *
+   * Es una comprobación por texto y tiene los límites de una comprobación por
+   * texto: mira que un botón tenga contenido o `aria-label`, no que ese contenido
+   * signifique algo. Lo que sí caza es el caso real —un botón con un icono y nada
+   * más— y ése es el que se cuela.
+   */
+  /**
+   * Las etiquetas de apertura, hasta su `>` de verdad.
+   *
+   * Una expresión regular no sirve: `onClick={() => act('x')}` lleva un `>` dentro
+   * de las llaves, y la coincidencia se corta ahí. La primera versión de esta
+   * comprobación lo hacía así y **dejaba pasar un botón sin nombre**; por eso ahora
+   * se recorren los caracteres contando llaves.
+   */
+  function etiquetasDe(texto: string, etiqueta: string): string[] {
+    const salida: string[] = []
+    let indice = texto.indexOf(`<${etiqueta}`)
+
+    while (indice !== -1) {
+      let profundidad = 0
+      let fin = indice
+
+      for (let cursor = indice; cursor < texto.length; cursor++) {
+        const caracter = texto[cursor]
+
+        if (caracter === '{') profundidad += 1
+        else if (caracter === '}') profundidad -= 1
+        else if (caracter === '>' && profundidad === 0) {
+          fin = cursor
+          break
+        }
+      }
+
+      salida.push(texto.slice(indice, fin + 1))
+      indice = texto.indexOf(`<${etiqueta}`, fin + 1)
+    }
+
+    return salida
+  }
+
+  async function interactivos(): Promise<
+    { readonly archivo: string; readonly etiqueta: string; readonly cuerpo: string }[]
+  > {
+    const glob = new Bun.Glob('**/*.tsx')
+    const encontrados: { archivo: string; etiqueta: string; cuerpo: string }[] = []
+
+    for await (const relativo of glob.scan({ cwd: ROOT_DIR })) {
+      if (relativo.includes('.test.')) continue
+
+      const texto = await Bun.file(`${ROOT_DIR}${relativo}`).text()
+
+      for (const etiqueta of ['button', 'Link']) {
+        for (const cuerpo of etiquetasDe(texto, etiqueta)) {
+          encontrados.push({ archivo: relativo, etiqueta, cuerpo })
+        }
+      }
+    }
+
+    return encontrados
+  }
+
+  test('todo botón o enlace tiene texto, `aria-label` o `title`', async () => {
+    const elementos = await interactivos()
+
+    expect(elementos.length).toBeGreaterThan(10)
+
+    for (const { archivo, etiqueta, cuerpo } of elementos) {
+      const tieneNombre =
+        /aria-label=|aria-labelledby=|title=/.test(cuerpo) || !cuerpo.trimEnd().endsWith('/>')
+
+      expect(tieneNombre, `${archivo}: ${etiqueta} sin nombre accesible`).toBe(true)
+    }
+  })
+
+  test('hay regiones `aria-live` en la búsqueda y en el reproductor', async () => {
+    const buscador = await Bun.file(`${ROOT_DIR}features/search/SearchPage.tsx`).text()
+    const reproductor = await Bun.file(`${ROOT_DIR}features/player/Player.tsx`).text()
+
+    expect(buscador).toContain('aria-live="polite"')
+    expect(reproductor).toContain('aria-live="polite"')
   })
 })

@@ -2384,20 +2384,37 @@ problema —la que se nota al desplazarse—.
 **Descripción:** Verificar y corregir los mínimos de accesibilidad del spec sobre toda la SPA.
 
 **Aceptación:**
-- [ ] Recorrido completo por teclado: buscar, elegir título, elegir episodio y reproducir, sin
-      mouse.
-- [ ] Contraste verificado: 4.5:1 en texto normal y 3:1 en texto grande, en ambos temas.
-- [ ] Con `prefers-reduced-motion: reduce` no hay animaciones de esqueleto ni transiciones.
-- [ ] `aria-live` presente en resultados de búsqueda y estado del reproductor.
-- [ ] Sin atajos globales activos cuando el foco está en un campo de texto.
-- [ ] Informe breve de hallazgos y correcciones anotado en el commit.
+- [ ] Recorrido completo por teclado: buscar, elegir título, elegir episodio y reproducir, sin mouse.
+      **No se puede hacer aquí**: necesita un navegador. Es del e2e (T43), y está anotado.
+- [x] Contraste verificado: 4.5:1 en texto normal y 3:1 en texto grande, en ambos temas.
+- [x] Con `prefers-reduced-motion: reduce` no hay animaciones de esqueleto ni transiciones.
+- [x] `aria-live` presente en resultados de búsqueda y estado del reproductor.
+- [x] Sin atajos globales activos cuando el foco está en un campo de texto.
+- [x] Informe breve de hallazgos y correcciones anotado en el commit.
 
-**Verificación:** recorrido manual con teclado y con la preferencia de movimiento reducido
-activada.
+**Verificación:** `bun test packages/web` · 12 pruebas de accesibilidad y el informe en
+`docs/a11y.md`. Medido mutando: sin el anillo de foco falla 1, con `:focus` en vez de `:focus-visible`
+1, sin el bloque de movimiento reducido 1 y quitándole el nombre a un botón 1. Control: 0 fallos.
 
 **Depende de:** T41.
 
 **Archivos:** `packages/web/src/**/*.tsx` (correcciones puntuales), `packages/web/src/styles/tokens.css`, `docs/a11y.md`.
+**Ampliación declarada:** `packages/web/src/styles/shell.css` (la regla de foco) y `a11y.test.ts`.
+
+**El hallazgo que importa: no había ninguna regla de foco.** El navegador dibujaba la suya, o ninguna,
+según el caso. Quien navega con teclado no sabía dónde estaba: es el hueco más serio de una pasada de
+accesibilidad y estaba abierto. Se añadió `:focus-visible` —no `:focus`, que dibujaría el anillo
+también al hacer clic— con tokens y no con números sueltos.
+
+**Lo demás ya estaba, y ahora está probado:** el contraste se mide con las fórmulas de WCAG desde T12,
+el movimiento reducido estaba respetado en dos sitios y las regiones `aria-live` existían. Lo que
+faltaba era que alguien lo comprobara en cada `bun test` en vez de confiar en el comentario.
+
+**Una comprobación que estaba mal y se arregló midiéndola:** la de nombres accesibles usaba una
+expresión regular, y `onClick={() => act('x')}` lleva un `>` dentro de las llaves, así que la
+coincidencia se cortaba ahí y **un botón sin nombre pasaba la prueba**. Ahora se recorren los
+caracteres contando llaves, y la mutación se caza. Es el tercer caso en este proyecto de una
+comprobación por texto que no medía lo que decía medir.
 
 **Tamaño:** M.
 

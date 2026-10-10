@@ -59,6 +59,8 @@
   /* Foco y movimiento */
   --focus-ring: 2px solid var(--color-accent);
   --focus-offset: 2px;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
   --transition-fast: 120ms;
   --transition-normal: 200ms;
 
