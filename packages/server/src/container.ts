@@ -24,6 +24,7 @@ import {
   type StoreConnection,
   type WriteQueue,
 } from '@nn-anime/catalog-store'
+import type { StreamRequest, StreamSource } from '@nn-anime/core'
 import {
   type AnimeDetail,
   type Episode,
@@ -35,10 +36,12 @@ import {
   type Result,
   type SearchResult,
 } from '@nn-anime/core'
+import { createTicketStore, type TicketStore } from '@nn-anime/media-proxy'
 import {
   type CallOptions,
   getAnime as fetchAnime,
   getEpisodes as fetchEpisodes,
+  resolveStream as fetchStream,
   type Provider,
   search as searchProvider,
 } from '@nn-anime/provider-sdk'
@@ -53,6 +56,14 @@ export interface ServerContainer {
   readonly store: CatalogStore
   readonly revalidator: Revalidator
   readonly queue: WriteQueue
+  /** Tickets opacos: el cliente nunca ve una URL del upstream. */
+  readonly tickets: TicketStore
+  /** Resuelve el stream de un episodio, con la caché de URL corta. */
+  resolveStream(
+    provider: Provider,
+    request: StreamRequest,
+    callOptions: CallOptions,
+  ): Promise<Result<CacheOutcome<readonly StreamSource[]>, ProviderError>>
   /** Detalle de un título, con caché y refresco por detrás si toca. */
   getAnime(
     provider: Provider,
@@ -78,6 +89,8 @@ export interface ContainerOptions {
   readonly db: StoreConnection
   readonly queue?: WriteQueue
   readonly revalidator?: Revalidator
+  /** Almacén de tickets. Se inyecta para poder fijar la capacidad en un test. */
+  readonly tickets?: TicketStore
 }
 
 export function createContainer(options: ContainerOptions): ServerContainer {
@@ -89,6 +102,42 @@ export function createContainer(options: ContainerOptions): ServerContainer {
   // el cierre tendría que acordarse de todos y las escrituras de fondo podrían
   // solaparse con las de la ruta.
   const store = createCatalogStore(options.db, { queue, revalidator })
+  const tickets = options.tickets ?? createTicketStore()
+
+  /**
+   * El stream de un episodio, con su caché de URL corta.
+   *
+   * No pasa por `readThrough` porque aquí **no hay rama stale**: un enlace
+   * vencido no se sirve «un poco viejo», se resuelve otra vez. La caché de
+   * streams devuelve `null` en cuanto pasa el TTL, así que sólo hay acierto o
+   * fallo, y refrescar por detrás no tiene sentido: nadie espera un enlace que
+   * ya no vale.
+   */
+  const loadStream = async (
+    provider: Provider,
+    request: StreamRequest,
+    callOptions: CallOptions,
+  ): Promise<Result<CacheOutcome<readonly StreamSource[]>, ProviderError>> => {
+    try {
+      const cached = await store.readStream(request.episodeRef, request.mode)
+      if (cached !== null) return ok({ value: [cached], source: 'hit' })
+
+      const resultado = await fetchStream(provider, request, callOptions)
+      if (!resultado.ok) return err(resultado.error)
+
+      try {
+        await store.writeStream(request, resultado.value)
+      } catch {
+        // No poder cachear es peor rendimiento, no un fallo: el episodio puede
+        // no estar en la base porque nadie abrió su ficha. Devolver un error
+        // aquí dejaría al usuario sin reproducir por un problema de caché.
+      }
+
+      return ok({ value: resultado.value, source: 'miss' })
+    } catch (cause) {
+      return err(asProviderError(cause, provider.id, 'resolveStream'))
+    }
+  }
 
   const loadAnime = async (
     provider: Provider,
@@ -171,8 +220,10 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     store,
     revalidator,
     queue,
+    tickets,
     getAnime: loadAnime,
     getEpisodes: loadEpisodes,
+    resolveStream: loadStream,
 
     async searchProvider(provider, query, callOptions) {
       const key = searchKey(provider.id, query)

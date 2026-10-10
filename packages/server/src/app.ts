@@ -16,6 +16,7 @@
  */
 
 import { healthResponseSchema, type Logger } from '@nn-anime/core'
+import type { FetchLike } from '@nn-anime/media-proxy'
 import { Hono } from 'hono'
 import { bootstrapHandler } from './bootstrap'
 import type { ServerContainer } from './container'
@@ -29,6 +30,7 @@ import { registerEpisodesRoute } from './routes/episodes'
 import { registerFavoritesRoutes } from './routes/favorites'
 import { type PluginReport, registerProvidersRoute, summarizePlugins } from './routes/providers'
 import { registerSearchRoute } from './routes/search'
+import { registerStreamRoutes } from './routes/stream'
 import type { Session } from './session'
 
 /** Puerto conocido en el momento de montar la aplicación, o función que lo lee. */
@@ -60,6 +62,11 @@ export interface AppOptions {
    * es lo que usan las pruebas que no quieren montar una base.
    */
   readonly container?: ServerContainer
+  /**
+   * `fetch` del proxy de bytes. Se inyecta en los tests para no salir a la red;
+   * en producción se usa el global.
+   */
+  readonly streamFetchImpl?: FetchLike
   readonly mpvAvailable?: boolean
   readonly logger?: Logger
   /** Reloj del canje de arranque, inyectable para testear la caducidad. */
@@ -121,6 +128,10 @@ export function createApp(options: AppOptions): Hono {
     registerAnimeRoutes(app, routeOptions)
     registerEpisodesRoute(app, routeOptions)
     registerFavoritesRoutes(app, { container: options.container })
+    registerStreamRoutes(app, {
+      ...routeOptions,
+      ...(options.streamFetchImpl === undefined ? {} : { fetchImpl: options.streamFetchImpl }),
+    })
   }
 
   registerSearchRoute(app, {

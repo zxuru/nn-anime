@@ -8,6 +8,15 @@
  */
 
 export {
+  ALLOWED_RESPONSE_HEADERS,
+  type ByteProxyRequest,
+  type FetchLike,
+  parseRange,
+  proxyBytes,
+  type RangeOutcome,
+  upstreamFailure,
+} from './byte-proxy'
+export {
   createTicketStore,
   DEFAULT_CAPACITY,
   DEFAULT_TTL_S,

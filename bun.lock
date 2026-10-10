@@ -72,8 +72,10 @@
       "dependencies": {
         "@nn-anime/catalog-store": "workspace:*",
         "@nn-anime/core": "workspace:*",
+        "@nn-anime/media-proxy": "workspace:*",
         "@nn-anime/provider-sdk": "workspace:*",
         "hono": "^4",
+        "zod": "^4",
       },
       "devDependencies": {
         "@nn-anime/providers-fixture": "workspace:*",

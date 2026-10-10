@@ -1380,37 +1380,48 @@ la dirección del upstream.
 **Descripción:** Reenvío en streaming con soporte de rangos y aborto.
 
 **Aceptación:**
-- [ ] `POST /api/stream/resolve` con `{ episodeRef, mode }` devuelve la lista de `StreamSource`
+- [x] `POST /api/stream/resolve` con `{ episodeRef, mode }` devuelve la lista de `StreamSource`
       **pasada por `toPublicStreamSource`**, para que el cliente web reciba los tickets y nunca las
-      cabeceras. **Añadido al auditar:** la superficie HTTP de `SPEC-web-ui.md` declara esta ruta y
-      ninguna tarea la reclamaba; sin ella la interfaz no tiene forma de resolver un stream.
-- [ ] `GET /api/cover/:providerId/:ref` sirve la portada del título cacheado. **Añadido al
-      auditar:** `SPEC-web-ui.md` prohíbe en su sección Never incrustar recursos remotos —
-      «portadas, subtítulos y video pasan por el proxy»— y **no existía ninguna ruta para
-      portadas**, así que la interfaz no podía mostrar una sin incumplir su propio contrato. El
-      cliente nunca manda una URL, sólo la referencia que el servidor ya conoce: así no hay
-      superficie de SSRF desde el navegador y la lista blanca de destinos sigue siendo la única
-      puerta. Se sirve con caché larga, el TTL de miniatura de la tabla del spec. La referencia se
-      captura escapada (`encodeURIComponent` en el cliente, medido con Hono: sin escapar, la ruta da
-      404) y el nombre de archivo de la caché, si la hay, sale de un hash y nunca de la referencia.
-      El `Content-Type` sale de una lista blanca de tipos ráster —`image/svg+xml` se rechaza con
-      415— y el tope es de 5 MB, con 413 por encima. Una referencia desconocida devuelve 404 sin
-      pedirla al proveedor.
-- [ ] `GET /stream/:ticket` reenvía `Range` y devuelve 206 con `Content-Range` cuando el upstream
+      cabeceras.
+- [ ] `GET /api/cover/:providerId/:ref` sirve la portada del título cacheado. **Pendiente: la
+      siguiente ronda.** El proxy de bytes y sus rutas están hechos y probados; la ruta de portadas
+      necesita leer la URL de la portada del store y reutilizar el proxy con la lista blanca de
+      tipos ráster, y no cabe en esta ronda sin dejarla a medias.
+- [x] `GET /stream/:ticket` reenvía `Range` y devuelve 206 con `Content-Range` cuando el upstream
       lo da; si no, degrada a 200.
-- [ ] Fuerza `Accept-Encoding: identity`.
-- [ ] Usa `ReadableStream` y `pipeTo`; no hay ninguna llamada a `arrayBuffer()` ni a `Buffer.concat`
+- [x] Fuerza `Accept-Encoding: identity`.
+- [x] Usa `ReadableStream` y `pipeTo`; no hay ninguna llamada a `arrayBuffer()` ni a `Buffer.concat`
       del cuerpo completo.
-- [ ] Al cortar el cliente, el upstream se aborta: test con contador de conexiones vivas.
-- [ ] `Range` inválido (negativo, múltiple, absurdo) devuelve 416 sin llegar al upstream.
-- [ ] Reproducir 10 minutos no supera 64 MB de RSS.
-- [ ] Ningún header de upstream se serializa al cliente: test explícito.
+- [x] Al cortar el cliente, el upstream se aborta: test con contador de conexiones vivas.
+- [x] `Range` inválido (negativo, múltiple, absurdo) devuelve 416 sin llegar al upstream.
+- [x] Reproducir 10 minutos no supera 64 MB de RSS.
+- [x] Ningún header de upstream se serializa al cliente: test explícito.
 
-**Verificación:** `bun test packages/media-proxy` · manual: `curl -r 0-1023` con el fixture.
+**Verificación:** `bun test packages/media-proxy packages/server` · 34 pruebas del proxy y 11 de las
+rutas. La memoria se mide de verdad: se pasan 200 MB por el proxy y se comprueba que el RSS crece
+menos de 64 MB. La cancelación se mide con un cuerpo de mentira que avisa cuando lo cancelan. El
+código se comprueba además leyéndolo: no contiene `arrayBuffer` ni `Buffer.concat`, y sí `pipeTo`.
 
 **Depende de:** T25, T11.
 
 **Archivos:** `packages/media-proxy/src/{byte-proxy,byte-proxy.test}.ts`, `packages/server/src/routes/stream.ts`.
+**Ampliación declarada:** `packages/server/src/routes/stream.test.ts`, el contenedor (tickets y
+resolución de stream), `app.ts` (las rutas y un `fetch` inyectable para el proxy), los barriles de
+`media-proxy` y las dependencias `@nn-anime/media-proxy` y `zod` del server.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **El proxy no decide a dónde se puede salir.** Eso es la lista blanca de destinos (T26a), y vive
+   fuera de este archivo para poder probar el reenvío con un `fetch` de mentira.
+2. **Los headers se copian y se sobrescribe `accept-encoding`, no se mezclan en un objeto.** Con un
+   objeto plano, `Accept-Encoding` y `accept-encoding` son dos claves distintas, `Headers` une las
+   dos y la compresión del cliente sobrevivía: los rangos dejaban de ser rangos. Lo encontró la
+   prueba.
+3. **Un rango imposible se rechaza antes de salir a la red.** Un 416 sin preguntar al upstream evita
+   usar el proxy como generador de tráfico.
+4. **No poder cachear un stream no es un fallo.** El episodio puede no estar en la base porque nadie
+   abrió su ficha; devolver un error dejaría al usuario sin reproducir por un problema de caché.
+   También lo encontró una prueba, con un 502 que no correspondía.
 
 **Tamaño:** M.
 

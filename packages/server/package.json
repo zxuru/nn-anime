@@ -10,7 +10,9 @@
     "@nn-anime/core": "workspace:*",
     "hono": "^4",
     "@nn-anime/provider-sdk": "workspace:*",
-    "@nn-anime/catalog-store": "workspace:*"
+    "@nn-anime/catalog-store": "workspace:*",
+    "@nn-anime/media-proxy": "workspace:*",
+    "zod": "^4"
   },
   "scripts": {
     "test": "bun test"
