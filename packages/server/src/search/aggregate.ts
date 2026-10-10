@@ -16,7 +16,10 @@
  * de lo que se quiere medir.
  */
 
-import type { SearchResult } from '@nn-anime/core'
+import { normalizeQuery, type SearchResult } from '@nn-anime/core'
+
+export { normalizeQuery }
+
 import {
   classifyThrow,
   failureKindOf,
@@ -44,18 +47,6 @@ export type SearchEvent =
     }
   /** Se acabó: han respondido todos, o se han agotado. */
   | { readonly type: 'done'; readonly providers: number }
-
-/**
- * Clave de una consulta: sin espacios de sobra, en minúsculas y en NFC.
- *
- * Las tres cosas juntas porque las tres cambian el resultado de comparar textos
- * que el usuario ve iguales: `" Naruto "` y `"naruto"` son la misma búsqueda, y
- * una `é` compuesta y una descompuesta también. Sin NFC, la misma consulta
- * escrita en un teclado u otro llenaría dos entradas de caché distintas.
- */
-export function normalizeQuery(query: string): string {
-  return query.trim().toLowerCase().normalize('NFC')
-}
 
 export interface AggregateOptions {
   /** Tiempo límite por proveedor. Se acorta en los tests. */

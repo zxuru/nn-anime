@@ -174,6 +174,7 @@ stream_cache     episode_id, mode, url, kind, quality, subtitles_json,
                  fetched_at, ttl_s
 setting          key, value_json
 schema_version   version, applied_at
+search_cache     provider_id, query, results_json, fetched_at, ttl_s
 ```
 
 TTL por tipo de recurso, en segundos:
@@ -188,6 +189,13 @@ TTL por tipo de recurso, en segundos:
 
 Regla dura del modelo: la base guarda metadatos y señales, nunca bytes de video. El proxy
 transmite y descarta.
+
+**`search_cache` es la décima tabla y esta lista no la tenía.** El contrato de `catalog-store`
+promete `readSearch`/`writeSearch` con la entrada de «búsqueda» de la tabla de TTL (900 s), y
+ninguna de las nueve tablas guardaba resultados: `search_history` es el historial —una fila por
+búsqueda, con su número de aciertos—, no una caché que se relee. Se añadió al implementar T17, en
+una migración **nueva** (`0002-search-cache.sql`) y no editando la `0001`, porque una migración ya
+aplicada no se toca: editarla daría dos esquemas distintos con el mismo número de versión.
 
 **`episode` lleva `provider_ref`, que esta lista no nombraba.** Sin esa columna el contrato no se
 puede cumplir: `readEpisodes` promete `readonly Episode[]`, y `Episode` lleva `ref` y `animeRef`. La

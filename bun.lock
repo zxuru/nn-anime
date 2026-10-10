@@ -15,6 +15,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
+        "zod": "^4",
       },
     },
     "packages/cli": {

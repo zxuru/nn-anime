@@ -20,7 +20,7 @@ import {
  * que creó `0001-initial.sql` decía «las once tablas», y esta lista es lo que
  * impide que vuelva a desviarse.
  */
-const TABLAS_DEL_SPEC = [
+const TABLAS_DEL_INICIAL = [
   'anime',
   'episode',
   'favorite',
@@ -31,6 +31,9 @@ const TABLAS_DEL_SPEC = [
   'stream_cache',
   'watch_event',
 ]
+
+/** Las que añaden las migraciones posteriores. */
+const TABLAS_POSTERIORES = ['search_cache']
 
 async function withDb<T>(body: (db: Database, path: string) => Promise<T> | T): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-store-'))
@@ -116,17 +119,36 @@ describe('apertura de la base', () => {
 })
 
 describe('migración inicial', () => {
-  test('crea exactamente las nueve tablas del spec', async () => {
+  test('crea exactamente las nueve tablas del Data Model', async () => {
+    await withDb((db) => {
+      // Sólo la 0001: es lo que este test comprueba. Las migraciones
+      // posteriores añaden tablas suyas y no deben cambiar esta lista.
+      runMigrations(
+        db,
+        listMigrations().filter((migration) => migration.version === 1),
+      )
+
+      expect(tableNames(db)).toEqual(TABLAS_DEL_INICIAL)
+    })
+  })
+
+  test('las migraciones posteriores añaden lo suyo sin tocar lo anterior', async () => {
     await withDb((db) => {
       runMigrations(db)
 
-      expect(tableNames(db)).toEqual(TABLAS_DEL_SPEC)
+      const tablas = tableNames(db)
+      for (const tabla of TABLAS_DEL_INICIAL) expect(tablas, tabla).toContain(tabla)
+      for (const tabla of TABLAS_POSTERIORES) expect(tablas, tabla).toContain(tabla)
+      expect(tablas).toHaveLength(TABLAS_DEL_INICIAL.length + TABLAS_POSTERIORES.length)
     })
   })
 
   test('cada tabla tiene las columnas que el Data Model nombra', async () => {
     await withDb((db) => {
-      runMigrations(db)
+      runMigrations(
+        db,
+        listMigrations().filter((migration) => migration.version === 1),
+      )
 
       const esperadas: Readonly<Record<string, readonly string[]>> = {
         anime: [
@@ -191,7 +213,10 @@ describe('migración inicial', () => {
 
   test('los headers del upstream no tienen columna: no se persisten', async () => {
     await withDb((db) => {
-      runMigrations(db)
+      runMigrations(
+        db,
+        listMigrations().filter((migration) => migration.version === 1),
+      )
 
       expect(columnNames(db, 'stream_cache')).not.toContain('headers_json')
     })
@@ -200,13 +225,15 @@ describe('migración inicial', () => {
   test('registra la versión aplicada con su fecha', async () => {
     await withDb((db) => {
       const informe = runMigrations(db)
-      const fila = db.query('SELECT version, applied_at FROM schema_version').get() as {
+      const fila = db
+        .query('SELECT version, applied_at FROM schema_version ORDER BY version')
+        .get() as {
         version: number
         applied_at: number
       }
 
-      expect(informe.applied).toEqual([1])
-      expect(informe.version).toBe(1)
+      expect(informe.applied).toEqual([1, 2])
+      expect(informe.version).toBe(2)
       expect(fila.version).toBe(1)
       expect(fila.applied_at).toBeGreaterThan(0)
     })
@@ -231,9 +258,9 @@ describe('segunda ejecución', () => {
       const primera = runMigrations(db)
       const segunda = runMigrations(db)
 
-      expect(primera.applied).toEqual([1])
+      expect(primera.applied).toEqual([1, 2])
       expect(segunda.applied).toEqual([])
-      expect(segunda.version).toBe(1)
+      expect(segunda.version).toBe(2)
     })
   })
 
@@ -261,7 +288,7 @@ describe('segunda ejecución', () => {
       segunda.close()
 
       expect(informe.applied).toEqual([])
-      expect(informe.version).toBe(1)
+      expect(informe.version).toBe(2)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
@@ -271,9 +298,9 @@ describe('segunda ejecución', () => {
 describe('migración que falla', () => {
   const ROTA: readonly MigrationFile[] = [
     {
-      version: 2,
+      version: 99,
       name: 'rota',
-      file: '/migraciones/0002-rota.sql',
+      file: '/migraciones/0099-rota.sql',
       sql: 'CREATE TABLE a_medias (a INTEGER); ESTO NO ES SQL;',
     },
   ]
@@ -286,7 +313,7 @@ describe('migración que falla', () => {
       expect(() => runMigrations(db, ROTA)).toThrow()
 
       expect(tableNames(db)).toEqual(antes)
-      expect(schemaVersion(db)).toBe(1)
+      expect(schemaVersion(db)).toBe(2)
     })
   })
 
@@ -300,7 +327,7 @@ describe('migración que falla', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(Error)
         if (error instanceof Error) {
-          expect(error.message).toContain('0002-rota.sql')
+          expect(error.message).toContain('0099-rota.sql')
           expect(error.name).toBe('StoreError')
         }
       }

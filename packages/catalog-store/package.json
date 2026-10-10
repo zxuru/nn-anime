@@ -12,6 +12,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@nn-anime/core": "workspace:*"
+    "@nn-anime/core": "workspace:*",
+    "zod": "^4"
   }
 }

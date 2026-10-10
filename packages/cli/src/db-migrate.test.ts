@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
+import { listMigrations, openDb, runMigrations } from '@nn-anime/catalog-store'
 import { type MigrationTarget, migrate } from './db-migrate'
 import type { CliIO } from './run'
 
@@ -29,6 +29,10 @@ async function withHome<T>(body: (home: string) => Promise<T> | T): Promise<T> {
   }
 }
 
+/** Las versiones que hay hoy, para no fijar un número que crece con cada migración. */
+const VERSIONES = listMigrations().map((migration) => migration.version)
+const ULTIMA = Math.max(...VERSIONES)
+
 function deps(home: string, target: Salida) {
   return {
     io: target.io,
@@ -48,8 +52,8 @@ describe('db:migrate', () => {
 
       expect(code).toBe(0)
       expect(target.err).toEqual([])
-      expect(target.out.join('\n')).toContain('Migraciones aplicadas: 1')
-      expect(target.out.join('\n')).toContain('Versión del esquema: 1')
+      expect(target.out.join('\n')).toContain(`Migraciones aplicadas: ${VERSIONES.join(', ')}`)
+      expect(target.out.join('\n')).toContain(`Versión del esquema: ${ULTIMA}`)
     })
   })
 
@@ -72,7 +76,7 @@ describe('db:migrate', () => {
 
       expect(code).toBe(0)
       expect(segunda.out.join('\n')).toContain('No hay migraciones pendientes')
-      expect(segunda.out.join('\n')).toContain('Versión del esquema: 1')
+      expect(segunda.out.join('\n')).toContain(`Versión del esquema: ${ULTIMA}`)
     })
   })
 

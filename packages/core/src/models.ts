@@ -68,6 +68,81 @@ export interface CacheHit<T> {
   readonly ttlS: number
 }
 
+/**
+ * Resumen de un título para listas: favoritos, continuar viendo, tendencias.
+ *
+ * Es lo que cabe en una tarjeta —ref, título, portada, año y tipo— y no el
+ * detalle entero. Guardar el detalle completo para pintar una fila de la home
+ * obligaría a leer y descartar sinopsis y episodios que nadie va a mostrar.
+ */
+export interface AnimeSummary {
+  readonly ref: ProviderRef
+  readonly title: string
+  readonly coverUrl?: string
+  readonly year?: number
+  readonly kind?: TitleKind
+}
+
+/** Una búsqueda registrada, para la lista de recientes. */
+export interface SearchRecord {
+  readonly query: string
+  readonly providerId: string
+  readonly hits: number
+  readonly searchedAt: Date
+}
+
+/**
+ * Un visionado, tal como lo devuelve el historial.
+ *
+ * Lleva el resumen del anime dentro y no sólo su id: la fila «continuar viendo»
+ * necesita título y portada, y resolverlo con una consulta por elemento es el
+ * N+1 que el spec prohíbe. Se lee en la misma consulta.
+ */
+export interface WatchRecord {
+  readonly id: number
+  readonly anime: AnimeSummary
+  readonly providerId: string
+  readonly episodeNumber: number
+  readonly mode: Mode
+  readonly positionS: number
+  readonly durationS: number
+  readonly startedAt: Date
+  readonly finished: boolean
+}
+
+/** Qué hizo el runner de migraciones, y en qué versión quedó el esquema. */
+export interface MigrationReport {
+  readonly applied: readonly number[]
+  readonly version: number
+}
+
+/**
+ * Qué borró la limpieza, contado por tabla.
+ *
+ * Por tabla y no un total: «borré 120 filas» no dice si tocó el historial del
+ * usuario o sólo la caché, y esa diferencia es la que importa antes de ejecutar
+ * una limpieza sobre datos ajenos.
+ */
+export interface PruneReport {
+  readonly deleted: Readonly<Record<string, number>>
+}
+
+/**
+ * Clave de una consulta de búsqueda.
+ *
+ * Vive en `core` porque la usan dos consumidores distintos y la clave tiene que
+ * ser **la misma** en los dos: el server la usa para no repetir la consulta a un
+ * proveedor, y el store para la caché de resultados. Si cada uno normalizara a
+ * su manera, la misma búsqueda ocuparía dos entradas y ninguna acertaría.
+ *
+ * Las tres cosas juntas porque las tres cambian el resultado de comparar textos
+ * que el usuario ve iguales: `" Naruto "` y `"naruto"` son la misma búsqueda, y
+ * una `é` compuesta y una descompuesta también.
+ */
+export function normalizeQuery(query: string): string {
+  return query.trim().toLowerCase().normalize('NFC')
+}
+
 /** Quita los headers de un stream. Las claves ausentes no se incluyen. */
 export function toPublicStreamSource(source: StreamSource): PublicStreamSource {
   return {

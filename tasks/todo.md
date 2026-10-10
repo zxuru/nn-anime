@@ -900,9 +900,10 @@ las tablas creadas contra esa lista evita que vuelva a desviarse.
 - [x] Ningún otro paquete importa `bun:sqlite`.
 
 **Verificación:** `bun test packages/catalog-store` · 20 tests. **En vivo**, `bun run db:migrate` dos
-veces contra un directorio XDG temporal: la primera dice «Migraciones aplicadas: 1. Versión del
-esquema: 1.» y sale con 0; la segunda, «No hay migraciones pendientes. Versión del esquema: 1.» y
-sale con 0; la base queda dentro del directorio de datos, que se crea con modo `0700`. Medido mutando la
+veces contra un directorio XDG temporal: la primera dice qué versiones aplicó y sale con 0 (entonces
+«Migraciones aplicadas: 1. Versión del esquema: 1.»; hoy son dos migraciones), la segunda dice «No
+hay migraciones pendientes» y sale con 0, y la base queda dentro del directorio de datos, que se
+crea con modo `0700`. Medido mutando la
 implementación: sin `foreign_keys` fallan 2, sin WAL 1, sin transacción 2, sin la comprobación de
 versión 4 y sin una de las tablas 2. Control: 0 fallos.
 
@@ -935,23 +936,44 @@ entorno y `index.ts` hace trabajo al importarse.
 **Descripción:** Cache-aside con TTL y cálculo de `stale` para los tres recursos de metadatos.
 
 **Aceptación:**
-- [ ] `readAnime`/`writeAnime`, `readEpisodes`/`writeEpisodes`, `readSearch`/`writeSearch`.
-- [ ] **Los tipos que nombra el contrato del store se definen en `packages/core/src/models.ts`**,
+- [x] `readAnime`/`writeAnime`, `readEpisodes`/`writeEpisodes`, `readSearch`/`writeSearch`.
+- [x] **Los tipos que nombra el contrato del store se definen en `packages/core/src/models.ts`**,
       no en el paquete que los usa. `SPEC-catalog-store.md` devuelve `WatchRecord`, `AnimeSummary`,
       `SearchRecord`, `MigrationReport` y `PruneReport`, y no existían en ningún sitio: un contrato
       que nombra tipos indefinidos se implementa inventándoselos, uno por consumidor.
-- [ ] Los tests corren contra un directorio temporal inyectado y no tocan `$XDG_DATA_HOME`.
-- [ ] `CacheHit<T>` con `value`, `fetchedAt`, `stale` y `ttlS` según la tabla de TTL.
-- [ ] Un MISS devuelve `null` y no lanza.
-- [ ] Escritura de un anime con géneros y episodios en una sola transacción.
-- [ ] Escritura repetida de la misma ref actualiza, no duplica.
-- [ ] `genres` y `studios` sobreviven el viaje de ida y vuelta en orden.
+- [x] Los tests corren contra un directorio temporal inyectado y no tocan `$XDG_DATA_HOME`.
+- [x] `CacheHit<T>` con `value`, `fetchedAt`, `stale` y `ttlS` según la tabla de TTL.
+- [x] Un MISS devuelve `null` y no lanza.
+- [x] Escritura de un anime con géneros y episodios en una sola transacción.
+- [x] Escritura repetida de la misma ref actualiza, no duplica.
+- [x] `genres` y `studios` sobreviven el viaje de ida y vuelta en orden.
 
-**Verificación:** `bun test packages/catalog-store`.
+**Verificación:** `bun test packages/catalog-store` · 48 tests. Medido mutando la implementación:
+sin normalizar la clave de búsqueda falla 1, sin borrar los géneros viejos 2, tomando el TTL de la
+lista de episodios del anime 1, sin validar los resultados cacheados 7, sin la transacción de la
+escritura conjunta 1 y con `stale` siempre falso 2. Control: 0 fallos.
 
 **Depende de:** T16.
 
 **Archivos:** `packages/catalog-store/src/repositories/{anime,episodes,search}.ts` y tests.
+**Ampliación declarada:** `packages/catalog-store/src/cache-policy.ts` (los TTL y el cálculo de
+`stale`, que el spec nombra en la estructura del módulo y ninguna tarea reclamaba),
+`packages/catalog-store/src/migrations/0002-search-cache.sql` (la tabla que el contrato exigía y el
+Data Model no tenía), los tipos nuevos en `packages/core/src/models.ts` y `normalizeQuery`, que se
+mudó a `core` porque la usan el server y el store y **tiene que ser la misma** en los dos: es la
+clave de caché, y dos normalizaciones distintas darían dos entradas para la misma búsqueda.
+
+**Tres decisiones que conviene recordar:**
+
+1. **Se lee del `raw_json`, no de las columnas.** `genres` y `studios` son listas ordenadas y una
+   tabla de géneros las devolvería por nombre; además `kind` y `studios` no tienen columna. Las
+   columnas siguen ahí para lo que se consulta y ordena, y para `pruneOrphans`.
+2. **El reloj de la lista de episodios sale de las filas de episodios**, no del anime: el TTL de la
+   lista es 21600 y el del detalle 86400, y usar el del anime serviría como fresca una lista de
+   hace un día. Lo encontró la prueba del TTL, que esperaba 21600 y recibió 86400.
+3. **Un anime sin episodios es una lista vacía, no un MISS.** Una obra anunciada tiene cero
+   episodios y eso es un dato: si fuera `null`, cada visita volvería a pedirle la lista al
+   proveedor para recibir otra vez la lista vacía. El MISS es que no haya anime.
 
 **Tamaño:** M.
 

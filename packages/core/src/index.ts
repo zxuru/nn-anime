@@ -67,14 +67,19 @@ export {
 export {
   type AiringStatus,
   type AnimeDetail,
+  type AnimeSummary,
   type CacheHit,
   type Candidate,
   type DeepReadonly,
   type Episode,
+  type MigrationReport,
   type Mode,
+  normalizeQuery,
   type ProviderCapabilities,
   type ProviderRef,
+  type PruneReport,
   type PublicStreamSource,
+  type SearchRecord,
   type SearchResult,
   type StreamMode,
   type StreamRequest,
@@ -84,6 +89,7 @@ export {
   type TitleKind,
   toPublicStreamSource,
   type WatchEventInput,
+  type WatchRecord,
 } from './models'
 export { type Err, err, map, mapErr, type Ok, ok, type Result, unwrapOr } from './result'
 export {

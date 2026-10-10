@@ -6,6 +6,7 @@
  * se añaden en las tareas siguientes y la fachada `CatalogStore` los agrupa.
  */
 
+export { type CacheResource, cacheHit, isStale, TTL_SECONDS } from './cache-policy'
 export { BUSY_TIMEOUT_MS, openDb } from './db'
 export {
   listMigrations,
@@ -14,3 +15,12 @@ export {
   runMigrations,
   schemaVersion,
 } from './migrations/runner'
+export { type AnimeRepository, type AnimeStore, createAnimeRepository } from './repositories/anime'
+export {
+  createEpisodesRepository,
+  type EpisodesStore,
+} from './repositories/episodes'
+export {
+  createSearchRepository,
+  type SearchStore,
+} from './repositories/search'
