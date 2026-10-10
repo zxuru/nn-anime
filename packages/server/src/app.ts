@@ -12,8 +12,8 @@ import { Hono } from 'hono'
 import { bootstrapHandler } from './bootstrap'
 import { hostGuard } from './middleware/host-guard'
 import { originGuard } from './middleware/origin-guard'
-import { sessionGuard } from './middleware/session-guard'
 import { securityHeaders } from './middleware/security-headers'
+import { sessionGuard } from './middleware/session-guard'
 import type { Session } from './session'
 
 /** Puerto conocido en el momento de montar la aplicación, o función que lo lee. */

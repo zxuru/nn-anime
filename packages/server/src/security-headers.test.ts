@@ -155,7 +155,10 @@ describe('tabla de rutas', () => {
 
     for (const route of routes) {
       const concrete = `${BASE}${route.path.replace(/:[A-Za-z0-9_]+/g, 'x')}`
-      const response = await target.request(concrete, { method: route.method, headers: GOOD_COOKIE })
+      const response = await target.request(concrete, {
+        method: route.method,
+        headers: GOOD_COOKIE,
+      })
 
       expect(missingHeaders(response), `${route.method} ${route.path}`).toEqual([])
     }

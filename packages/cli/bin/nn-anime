@@ -1,0 +1,4 @@
+#!/usr/bin/env bun
+// Shim ejecutable. Toda la lógica vive en `src/index.ts`, que termina con
+// `process.exit`, así que este archivo nunca recupera el control.
+await import('../src/index.ts')

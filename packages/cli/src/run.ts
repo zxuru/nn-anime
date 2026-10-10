@@ -19,6 +19,8 @@ export interface RunDeps {
   /** Arranca el servidor y devuelve el código de salida final. */
   readonly start: (options: CliOptions) => Promise<number>
   readonly version: string
+  /** Idioma del entorno, `NN_ANIME_LANG`. La bandera `--lang` gana sobre esto. */
+  readonly envLang?: string | undefined
 }
 
 /**
@@ -39,7 +41,8 @@ function requestedLocale(argv: readonly string[]): string | undefined {
 }
 
 export async function run(argv: readonly string[], deps: RunDeps): Promise<number> {
-  const locale = resolveLocale(requestedLocale(argv))
+  const requested = requestedLocale(argv) ?? deps.envLang
+  const locale = resolveLocale(requested)
   const parsed = parseArgs(argv)
 
   if (!parsed.ok) {
@@ -48,7 +51,7 @@ export async function run(argv: readonly string[], deps: RunDeps): Promise<numbe
   }
 
   const options = parsed.value
-  const chosen = resolveLocale(options.lang)
+  const chosen = resolveLocale(options.lang ?? deps.envLang)
 
   if (options.help) {
     deps.io.out(t(chosen, 'cli.help.body'))

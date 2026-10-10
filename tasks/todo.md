@@ -397,20 +397,62 @@ tabla completa de rutas.
 navegador y cierre ordenado.
 
 **Aceptación:**
-- [ ] Puerto fijo ocupado: elige uno libre del SO e informa el elegido.
-- [ ] Token de 32 bytes con CSPRNG, nunca persistido en disco.
-- [ ] Abre el navegador con `xdg-open`, `open` o `start`; si falla, igual imprime la URL.
-- [ ] `SIGINT` y `SIGTERM`: cierra el server, mata los hijos registrados y sale con 130.
-- [ ] Migración fallida sale con código 3 sin arrancar el server.
-- [ ] `--no-open` imprime la URL y no abre nada.
+- [x] Puerto fijo ocupado: elige uno libre del SO e informa el elegido.
+- [x] Token de 32 bytes con CSPRNG, nunca persistido en disco.
+- [x] Abre el navegador con `xdg-open`, `open` o `start`; si falla, igual imprime la URL.
+- [x] `SIGINT` y `SIGTERM`: cierra el server, mata los hijos registrados y sale con 130.
+- [x] Migración fallida sale con código 3 sin arrancar el server.
+- [x] `--no-open` imprime la URL y no abre nada.
 
-**Verificación:** `bun run start` · `nn-anime --port <ocupado>` · `pgrep mpv` tras Ctrl+C.
+**Verificación:** `bun test packages/cli` 93 pasan, 0 fallan · `bun test` 279 pasan, 0 fallan ·
+`tsc --noEmit` 0 · `biome check .` 0 sin infos. Además, con el servidor real:
+
+- `curl` sin cookie: 401. Con `Host: evil.example:7717` y cookie válida: **403** (el `Host` se
+  comprueba aparte de la sesión). Con la cookie del canje: 200 y el JSON de salud.
+- Segundo uso del token de arranque: 401. `?t=<token>` en la API: 401.
+- `kill -INT` al proceso: **código de salida 130** y la secuencia de cierre registrada.
+- `listenOnFreePort` con un puerto ya ocupado por otro proceso real: cae a uno libre y lo informa.
+
+**Código de salida 3:** se verifica con la migración inyectada, que es un marcador que devuelve
+éxito. T16 sustituye el marcador por `catalog-store` y el contrato no cambia.
+
+**Estado:** hecho.
+
+**Fuga encontrada al ejecutarlo, no al testearlo:** el log estructurado escribía la URL de
+arranque, que lleva el token. Un log se copia, se guarda y se comparte; no es destino para un
+secreto. Ahora `boot` devuelve el puerto además de la URL y sólo se registra el puerto. La URL
+sigue apareciendo en la línea que ve el usuario y en el navegador que se abre, que son los dos
+destinos legítimos. El test de T45 debe comprobar que la salida JSON del CLI no contiene el token.
+
+**Decisiones tomadas al implementar:**
+
+- **Todo inyectado en `boot`.** Escuchar, migrar y abrir el navegador son dependencias. Es lo que
+  permite verificar el código 3 y `--no-open` sin sockets ni navegadores. El único puerto que se
+  prueba con socket de verdad es el de la caída a puerto libre, porque ahí el socket es el objeto
+  de la prueba.
+- **`listenOnFreePort` no pregunta si el puerto está libre, lo intenta.** Preguntar y luego usar
+  tiene una carrera; intentar y reaccionar al fallo no.
+- **El ciclo de vida cierra en orden de registro**, que es el inverso al de arranque de los
+  recursos. Un cierre que falla no impide los siguientes y se reporta por `onError`.
+- **Abrir el navegador es una comodidad, no un requisito.** Si falla, el arranque sale con 0 y
+  avisa con la dirección para abrirla a mano.
+- `signalExitCode` usa la convención de shell: 128 más el número de señal, 130 y 143.
+- **`configEnvironment` copia las ocho variables a mano** en lugar de pasar `process.env`. El
+  contrato del entorno queda explícito y no se cuela una variable por accidente.
+- `NN_ANIME_LANG` se respeta como idioma por defecto, con `--lang` ganando sobre él, que es lo que
+  decía el spec y no estaba cableado.
+- **El CLI no tiene `--cache-dir`.** `loadConfig` soporta los tres directorios y hay
+  `NN_ANIME_CACHE_DIR`, pero la tabla de banderas del spec sólo lista `--data-dir` y
+  `--config-dir`. No se inventó una bandera nueva; queda anotado como posible añadido.
 
 **Depende de:** T5, T6.
 
-**Archivos:** `packages/cli/src/{index,open-browser,lifecycle}.ts`, `packages/cli/src/lifecycle.test.ts`, `packages/cli/bin/nn-anime`.
+**Archivos:** `packages/cli/src/{index,boot,lifecycle,open-browser}.ts`,
+`packages/cli/src/{boot,lifecycle,open-browser}.test.ts`, `packages/cli/bin/nn-anime`,
+`packages/cli/src/i18n/es.ts`, `packages/cli/src/run.ts`.
 
-**Tamaño:** M.
+**Tamaño:** M. Se añadieron `boot.ts` y sus tests, que no estaban en la lista del plan, para que
+las dependencias del arranque fueran inyectables.
 
 ---
 

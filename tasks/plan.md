@@ -103,7 +103,7 @@ Ninguna cruza la puerta: son defectos *dentro* del artefacto que se está revisa
 - [x] T6 Server Hono con guards de seguridad y `/api/health`
 - [x] T6a Bootstrap de sesión por cookie `HttpOnly` y comparación en tiempo constante
 - [x] T6b Cabeceras de seguridad y CSP
-- [ ] T7 Cableado CLI → server: puerto, token, navegador, señales
+- [x] T7 Cableado CLI → server: puerto, token, navegador, señales
 - [ ] T8 Esqueleto de la SPA: Vite, router, cliente API, tokens de estilo
 
 ### Checkpoint B — Arranque

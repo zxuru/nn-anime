@@ -33,4 +33,10 @@ Banderas:
 
   'cli.notImplemented':
     'El arranque del servidor todavía no está implementado en esta tarea del plan.',
+
+  'cli.url': 'Servidor en {url}',
+  'cli.port.busy': 'El puerto {port} estaba ocupado; se usa el {chosen}.',
+  'cli.open.failed': 'No se pudo abrir el navegador. Abre esta dirección a mano: {url}',
+  'cli.server.failed': 'No se pudo arrancar el servidor en ningún puerto.',
+  'cli.migration.failed': 'No se pudo preparar la base de datos: {message}',
 }

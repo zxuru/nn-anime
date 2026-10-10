@@ -57,6 +57,7 @@ export function startServer(options: StartOptions): RunningServer {
   }
 }
 
+export { BOOT_PARAM } from './bootstrap'
 export {
   createBootToken,
   createSession,
