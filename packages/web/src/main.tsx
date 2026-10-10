@@ -11,6 +11,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './app'
 import { createBrowserHistory, HistoryProvider } from './router'
 import './styles/tokens.css'
+import './styles/shell.css'
 
 const container = document.getElementById('root')
 if (container === null) throw new Error('falta el elemento #root')

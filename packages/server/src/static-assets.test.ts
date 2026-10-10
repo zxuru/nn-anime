@@ -209,6 +209,19 @@ describe('servido de la interfaz', () => {
     })
   })
 
+  test('una ruta de la API con el prefijo escapado no sirve la interfaz', async () => {
+    await withAssets(async (root) => {
+      // `/%61pi/health` descodifica a `/api/health`. Si la comprobación de
+      // prefijo usara la ruta sin descodificar y el confinamiento la
+      // descodificada, se colaría entre las dos y devolvería el `index.html`.
+      const response = await appWithAssets(root).request(`${BASE}/%61pi/health`, {
+        headers: { cookie: `${SESSION_COOKIE}=sesion` },
+      })
+
+      expect(await response.text()).not.toContain('id="root"')
+    })
+  })
+
   test('la interfaz servida lleva las cabeceras de seguridad', async () => {
     await withAssets(async (root) => {
       const response = await appWithAssets(root).request(`${BASE}/`)

@@ -246,6 +246,53 @@ describe('caducidad del token de arranque', () => {
   })
 })
 
+describe('destino tras el canje', () => {
+  test('sin destino configurado va a la raíz', async () => {
+    const bootToken = createBootToken()
+    const response = await app(makeSession(), bootToken).request(`${BASE}/?boot=${bootToken}`)
+
+    expect(response.headers.get('location')).toBe('/')
+  })
+
+  test('con destino configurado respeta la ruta local', async () => {
+    const bootToken = createBootToken()
+    const response = await app(makeSession(), bootToken, { redirectTo: '/ajustes' }).request(
+      `${BASE}/?boot=${bootToken}`,
+    )
+
+    expect(response.headers.get('location')).toBe('/ajustes')
+  })
+
+  test('el destino puede llevar consulta, que es como arranca una búsqueda', async () => {
+    const bootToken = createBootToken()
+    const response = await app(makeSession(), bootToken, {
+      redirectTo: '/search?q=naruto',
+    }).request(`${BASE}/?boot=${bootToken}`)
+
+    expect(response.headers.get('location')).toBe('/search?q=naruto')
+  })
+
+  test('rechaza un destino absoluto', async () => {
+    const bootToken = createBootToken()
+    const response = await app(makeSession(), bootToken, {
+      redirectTo: 'https://evil.example/robo',
+    }).request(`${BASE}/?boot=${bootToken}`)
+
+    expect(response.headers.get('location')).toBe('/')
+  })
+
+  test('rechaza una URL absoluta disfrazada de ruta', async () => {
+    for (const target of ['//evil.example', '///evil.example', '/\\evil.example']) {
+      const bootToken = createBootToken()
+      const response = await app(makeSession(), bootToken, { redirectTo: target }).request(
+        `${BASE}/?boot=${bootToken}`,
+      )
+
+      expect(response.headers.get('location'), target).toBe('/')
+    }
+  })
+})
+
 describe('sesión emitida por el canje', () => {
   test('la cookie emitida sirve para entrar en la API', async () => {
     const bootToken = createBootToken()

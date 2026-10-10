@@ -108,6 +108,31 @@ describe('forma de la petición', () => {
     expect(target.calls[0]?.init.signal).toBe(controller.signal)
   })
 
+  test('el tiempo límite se puede subir para una respuesta lenta', async () => {
+    const target = fake()
+
+    await apiGet('/api/health', HEALTH, { timeoutMs: 60_000 }, target.deps)
+
+    expect(target.calls[0]?.init.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  test('con tiempo límite cero, no hay límite', async () => {
+    const target = fake()
+
+    await apiGet('/api/health', HEALTH, { timeoutMs: 0 }, target.deps)
+
+    expect(target.calls[0]?.init.signal).toBeUndefined()
+  })
+
+  test('una señal propia gana sobre el tiempo límite', async () => {
+    const target = fake()
+    const controller = new AbortController()
+
+    await apiGet('/api/health', HEALTH, { signal: controller.signal, timeoutMs: 0 }, target.deps)
+
+    expect(target.calls[0]?.init.signal).toBe(controller.signal)
+  })
+
   test('sin señal explícita, pone un tiempo límite', async () => {
     const target = fake()
 

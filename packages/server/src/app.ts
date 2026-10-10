@@ -36,6 +36,8 @@ export interface AppOptions {
   readonly session: Session
   /** Token de un solo uso que el CLI pone en la URL de arranque. */
   readonly bootToken: string
+  /** Ruta local a la que ir tras canjear el token. Por defecto, `/`. */
+  readonly redirectTo?: string
   readonly version: string
   readonly providers?: readonly ProviderSummary[]
   readonly mpvAvailable?: boolean
@@ -52,7 +54,6 @@ export interface AppOptions {
 }
 
 /** Rutas que exigen sesión. Todo lo que cuelga de aquí pasa por los tres guards. */
-export { PROTECTED_PREFIXES }
 
 function resolvePort(source: PortSource): number {
   return typeof source === 'number' ? source : source()
@@ -76,13 +77,10 @@ export function createApp(options: AppOptions): Hono {
     bootstrapHandler({
       bootToken: options.bootToken,
       session: options.session,
+      ...(options.redirectTo === undefined ? {} : { redirectTo: options.redirectTo }),
       ...(options.bootstrapClock === undefined ? {} : { now: options.bootstrapClock }),
     }),
   )
-
-  if (options.webRoot !== undefined) {
-    app.use('*', staticAssets({ root: options.webRoot }))
-  }
 
   app.get('/api/health', (c) =>
     c.json({
@@ -92,6 +90,15 @@ export function createApp(options: AppOptions): Hono {
       providers: options.providers ?? [],
     }),
   )
+
+  // Los estáticos van los últimos. `app.use('*')` devuelve el `index.html` a
+  // cualquier ruta que no encuentre archivo, así que montarlo antes deja
+  // inalcanzable toda ruta registrada después y fuera de los prefijos
+  // protegidos. Esta es la tercera vez que esa clase de fallo aparece en el
+  // proyecto, y aquí se cierra por orden de registro, no por lista de excepciones.
+  if (options.webRoot !== undefined) {
+    app.use('*', staticAssets({ root: options.webRoot }))
+  }
 
   return app
 }

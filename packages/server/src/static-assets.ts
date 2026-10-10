@@ -84,21 +84,23 @@ export function staticAssets(options: StaticAssetsOptions): MiddlewareHandler {
   return async (c, next) => {
     if (c.req.method !== 'GET' && c.req.method !== 'HEAD') return next()
 
-    // La interfaz no responde por la API. Sin esta salida, una ruta de la API
-    // con sesión válida no encontraría archivo, caería al `index.html` y el
-    // cliente recibiría HTML donde espera JSON.
-    if (isProtectedPath(new URL(c.req.url).pathname)) return next()
-
     const raw = new URL(c.req.url).pathname
     let requested: string
     try {
       // El ataque real llega escapado: `%2e%2e` sobrevive al análisis de la URL,
-      // así que hay que descodificar antes de confinar. Una secuencia inválida
-      // no es un error del servidor, es una petición que no existe.
+      // así que hay que descodificar antes de decidir nada. Una secuencia
+      // inválida no es un error del servidor, es una petición que no existe.
       requested = decodeURIComponent(raw)
     } catch {
       return c.text('', 404)
     }
+
+    // La interfaz no responde por la API. Sin esta salida, una ruta de la API
+    // con sesión válida no encontraría archivo, caería al `index.html` y el
+    // cliente recibiría HTML donde espera JSON. La comprobación usa la misma
+    // ruta descodificada que el confinamiento: con dos normalizaciones
+    // distintas, `/%61pi/health` se colaba entre las dos.
+    if (isProtectedPath(requested)) return next()
 
     const confined = confine(base, requested)
     if (confined === undefined) return c.text('', 404)

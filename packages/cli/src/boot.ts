@@ -42,15 +42,43 @@ export interface ListenOptions {
   readonly version: string
   /** Build de la interfaz, si existe. Sin él el server sólo expone la API. */
   readonly webRoot?: string | undefined
+  /** Ruta local a la que ir tras canjear el token. */
+  readonly redirectTo?: string | undefined
+  /**
+   * Si el puerto pedido está ocupado, ¿se puede usar otro?
+   *
+   * En desarrollo no: el proxy de Vite apunta a un puerto fijo, así que mudarse
+   * de puerto en silencio dejaría la interfaz cargando y todas las llamadas a la
+   * API fallando por conexión. Ahí es mejor fallar de forma ruidosa.
+   */
+  readonly allowPortFallback?: boolean | undefined
 }
 
-export interface StartOutcome {
-  readonly server: RunningServer
-  /** Puerto pedido, cuando hubo que cambiar de puerto por estar ocupado. */
-  readonly fellBackFrom: number | undefined
+export type ListenOutcome =
+  | {
+      readonly ok: true
+      readonly server: RunningServer
+      /** Puerto pedido, cuando hubo que cambiar de puerto por estar ocupado. */
+      readonly fellBackFrom: number | undefined
+    }
+  | {
+      readonly ok: false
+      readonly kind: 'port-busy' | 'other'
+      readonly detail: string
+    }
+
+export type Listen = (requestedPort: number, options: ListenOptions) => ListenOutcome
+
+/** `EADDRINUSE` es lo único que justifica reintentar en otro puerto. */
+export function isPortBusy(cause: unknown): boolean {
+  if (typeof cause !== 'object' || cause === null || !('code' in cause)) return false
+
+  return cause.code === 'EADDRINUSE'
 }
 
-export type Listen = (requestedPort: number, options: ListenOptions) => StartOutcome | undefined
+function describeCause(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
+}
 
 /**
  * Escucha en el puerto pedido y, si está ocupado, deja que el sistema elija uno.
@@ -58,25 +86,44 @@ export type Listen = (requestedPort: number, options: ListenOptions) => StartOut
  * No se puede saber si un puerto está libre antes de intentarlo: preguntarlo y
  * luego usarlo tiene una carrera. Aquí se intenta y se reacciona al fallo.
  */
-export function listenOnFreePort(
-  requestedPort: number,
-  options: ListenOptions,
-): StartOutcome | undefined {
-  const attempt = (port: number): RunningServer | undefined => {
+export function listenOnFreePort(requestedPort: number, options: ListenOptions): ListenOutcome {
+  const attempt = (port: number): ListenOutcome => {
     try {
-      return startServer({ ...options, port })
-    } catch {
-      return undefined
+      return { ok: true, server: startServer({ ...options, port }), fellBackFrom: undefined }
+    } catch (cause) {
+      // No se reintenta a ciegas: un puerto fuera de rango o un fallo al montar
+      // la aplicación no se arreglan cambiando de puerto, y decirlo sería mentir
+      // sobre la causa. Sólo un puerto ocupado justifica probar otro.
+      return {
+        ok: false,
+        kind: isPortBusy(cause) ? 'port-busy' : 'other',
+        detail: describeCause(cause),
+      }
     }
   }
 
   const direct = attempt(requestedPort)
-  if (direct !== undefined) return { server: direct, fellBackFrom: undefined }
+  if (direct.ok) return direct
+  if (direct.kind === 'other') return direct
+  if (options.allowPortFallback === false) return direct
 
   const fallback = attempt(0)
-  if (fallback === undefined) return undefined
+  if (fallback.ok) return { ok: true, server: fallback.server, fellBackFrom: requestedPort }
 
-  return { server: fallback, fellBackFrom: requestedPort }
+  return fallback
+}
+
+/**
+ * Destino tras el canje.
+ *
+ * Si el usuario arrancó con una consulta, la aplicación abre directamente su
+ * búsqueda: es el caso de uso de `ani-cli` y un criterio de éxito del spec.
+ * `encodeURIComponent` evita que la consulta se coma el resto de la URL.
+ */
+export function redirectTarget(query: string | undefined): string | undefined {
+  if (query === undefined || query === '') return undefined
+
+  return `/search?q=${encodeURIComponent(query)}`
 }
 
 export interface BootDeps {
@@ -98,6 +145,13 @@ export interface BootDeps {
   readonly publicOrigin?: string | undefined
   /** Directorio del build de la interfaz que sirve el server. */
   readonly webRoot?: string | undefined
+  /**
+   * Si el puerto pedido está ocupado, ¿se puede usar otro? Por defecto sí.
+   *
+   * Quien fija `publicOrigin` tiene un proxy apuntando a un puerto concreto y
+   * debe pasar `false`: mudarse de puerto rompería el proxy en silencio.
+   */
+  readonly allowPortFallback?: boolean | undefined
   readonly createSession: () => Session
   readonly createBootToken: () => string
 }
@@ -142,15 +196,22 @@ export async function boot(options: CliOptions, deps: BootDeps): Promise<BootRes
   const session = deps.createSession()
   const bootToken = deps.createBootToken()
 
-  const outcome = deps.listen(options.port ?? DEFAULT_PORT, {
+  const requestedPort = options.port ?? DEFAULT_PORT
+  const outcome = deps.listen(requestedPort, {
     session,
     bootToken,
     version: deps.version,
     webRoot: deps.webRoot,
+    redirectTo: redirectTarget(options.query),
+    allowPortFallback: deps.allowPortFallback,
   })
 
-  if (outcome === undefined) {
-    io.err(t(locale, 'cli.server.failed'))
+  if (!outcome.ok) {
+    io.err(
+      outcome.kind === 'port-busy'
+        ? t(locale, 'cli.port.busyBlocked', { port: requestedPort, detail: outcome.detail })
+        : t(locale, 'cli.server.failed', { detail: outcome.detail }),
+    )
     return { code: 1, url: undefined, port: undefined }
   }
 

@@ -31,12 +31,11 @@ Banderas:
   'cli.usage.missingValue': 'La bandera {flag} necesita un valor.',
   'cli.usage.invalidPort': 'Puerto inválido: {value}. Se espera un entero entre {min} y {max}.',
 
-  'cli.notImplemented':
-    'El arranque del servidor todavía no está implementado en esta tarea del plan.',
-
   'cli.url': 'Servidor en {url}',
   'cli.port.busy': 'El puerto {port} estaba ocupado; se usa el {chosen}.',
   'cli.open.failed': 'No se pudo abrir el navegador. Abre esta dirección a mano: {url}',
-  'cli.server.failed': 'No se pudo arrancar el servidor en ningún puerto.',
+  'cli.server.failed': 'No se pudo arrancar el servidor: {detail}',
+  'cli.port.busyBlocked':
+    'El puerto {port} está ocupado y el proxy de desarrollo apunta a él. Libéralo o cambia el origen del proxy. Detalle: {detail}',
   'cli.migration.failed': 'No se pudo preparar la base de datos: {message}',
 }

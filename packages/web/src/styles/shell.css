@@ -1,0 +1,81 @@
+/**
+ * Estructura de la aplicación.
+ *
+ * Sólo tokens: ni un color, un espaciado o un radio literal. Si hace falta un
+ * valor nuevo, se añade a `tokens.css`, no aquí.
+ *
+ * Este archivo existe porque los nombres de clase del componente tienen que
+ * estar definidos en algún sitio. Una clase usada y no definida es una
+ * referencia muerta, y hay un test que lo impide.
+ */
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.shell__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  height: var(--header-height);
+  padding: 0 var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.shell__brand {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.shell__nav {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.shell__nav a {
+  color: var(--color-text-dim);
+  text-decoration: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.shell__nav a:hover {
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+}
+
+.shell__main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5);
+}
+
+.shell__main h1 {
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  margin: 0 0 var(--space-3);
+}
+
+.shell__main p {
+  color: var(--color-text-dim);
+  max-width: 60ch;
+  margin: 0 0 var(--space-4);
+}
+
+.shell__main a {
+  color: var(--color-accent);
+}

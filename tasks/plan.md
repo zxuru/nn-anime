@@ -108,6 +108,40 @@ Ninguna cruza la puerta: son defectos *dentro* del artefacto que se está revisa
 - [x] T8a Servir la interfaz construida desde el server
 
 ### Checkpoint B — Arranque
+
+#### Correcciones tras la revisión adversarial del Checkpoint B
+
+Revisión delegada a contexto fresco sobre `795b04b`. Ninguna corrección cruza la puerta: son
+defectos dentro del artefacto que se está revisando. Todas con test que falla primero.
+
+| # | Defecto | Impacto | Corrección |
+|---|---|---|---|
+| 1 | `boot` analizaba la consulta posicional y la tiraba: `nn-anime naruto` abría la home | Alto. Es el caso de uso de arranque de `ani-cli` y un criterio de éxito del spec | El canje redirige a `/search?q=<consulta>`. El destino lo decide el servidor, no el cliente, y se valida como ruta local |
+| 2 | `listenOnFreePort` capturaba cualquier error y lo leía como «puerto ocupado» | Medio. Un puerto fuera de rango o un fallo al montar la aplicación se reportaban como puerto ocupado y el error real desaparecía | Sólo `EADDRINUSE` justifica reintentar; el resto se reporta con su causa |
+| 3 | En desarrollo, el proxy apunta a un puerto fijo pero el CLI podía mudarse de puerto en silencio | Medio. La interfaz cargaba y todas las llamadas a la API fallaban por conexión | Con `NN_ANIME_DEV_ORIGIN` puesto, no se permite reserva de puerto: falla de forma ruidosa |
+| 4 | Los manejadores de señal se registraban después de arrancar el servidor | Medio a futuro. Un Ctrl+C en esa ventana se salta el cierre ordenado; en T29 dejaría un mpv vivo | La espera de señal se registra antes de arrancar |
+| 5 | El cliente HTTP fijaba 8 s sin forma de subirlo | Medio a futuro. Trampa para la primera petición legítimamente lenta | `timeoutMs` por petición, con `0` para desactivarlo |
+| 6 | `staticAssets` se montaba antes que las rutas: cualquier ruta nueva fuera de los prefijos protegidos quedaba inalcanzable | Bajo hoy, tercero de la misma clase | Se monta el último, y queda escrito que toda ruta nueva va antes |
+| 7 | La comprobación de prefijo protegido usaba la ruta sin descodificar y el confinamiento la descodificada | Bajo. `/%61pi/health` se colaba entre las dos | Se descodifica una sola vez y las dos comprobaciones usan el mismo valor |
+| 8 | Tres claves huérfanas en el catálogo de la interfaz y dos en el de `core` | Bajo, pero es deuda que crece | Eliminadas, y hay un test que falla si aparece una clave sin usar |
+| 9 | `redeemed = true` antes de emitir la cookie | Bajo. Un fallo al emitirla dejaba el token gastado y al usuario sin sesión | La cookie se emite primero |
+| 10 | T6 y T6a se commitearon juntos y superaron el tope de cinco archivos sin dejarlo escrito | Proceso. El registro del proyecto no contaba la verdad | Anotado en las dos tareas |
+
+También se corrigieron, en la misma revisión, dos defectos que el revisor confirmó y que ya se
+habían arreglado en esta ronda antes de recibir su informe: la ruta leída de `window.location` y
+los dos `as` del cliente HTTP.
+
+**Riesgo residual aceptado y documentado, no corregido:** el token de arranque viaja como
+argumento de `xdg-open` y es visible en `ps` durante un instante. La mitigación 12 habla de disco
+y de logs, no de la lista de procesos. En una máquina de un solo usuario el impacto es nulo, y el
+token es de un solo uso y caduca.
+
+**Anotado sin actuar, a propósito:** `logger.child`, `result.map`/`mapErr` y varios alias de tipo
+no tienen consumidor todavía. Los consumen T10, T12 y T12 respectivamente; borrarlos ahora para
+reescribirlos en dos tareas sería ruido. `WatchEventInput` no exige `positionS <= durationS`:
+falta decidir si `durationS: 0` significa «desconocida», y esa decisión es de T32, con el proxy
+delante.
+
 - [x] `bun run start` imprime la URL y sirve la home construida
 - [x] Petición sin cookie de sesión: 401. Con `Host` ajeno y cookie válida: 403
 - [x] El token de arranque sirve una sola vez y la URL queda limpia

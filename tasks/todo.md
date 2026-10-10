@@ -344,6 +344,12 @@ en el Checkpoint B, cuando exista la SPA.
 
 **Tamaño:** M.
 
+**Corrección al registro (revisión del Checkpoint B):** T6 y T6a se commitearon juntas, en
+`0f1bba6`, contra la regla de un solo cambio lógico por commit, y entre las dos superaron el tope
+de cinco archivos de implementación sin dejarlo escrito —a diferencia de T1 y T8, que sí lo
+declararon—. No se reescribe la historia; se anota aquí. El commit lleva siete archivos de T6 y
+uno de T6a.
+
 ---
 
 ### T6b — Cabeceras de seguridad y CSP

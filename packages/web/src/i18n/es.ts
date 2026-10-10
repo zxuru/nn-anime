@@ -18,9 +18,7 @@ export const messages: Messages = {
   'home.pending': 'Aquí irán las recomendaciones, lo que estabas viendo y las tendencias.',
 
   'search.title': 'Buscar',
-  'search.placeholder': 'Título, género o estudio',
   'search.pending': 'Aquí irá la búsqueda incremental por proveedor.',
-  'search.empty': 'Sin resultados para «{query}».',
 
   'detail.pending': 'Aquí irá el detalle del título y su lista de episodios.',
   'watch.pending': 'Aquí irá el reproductor.',
@@ -29,6 +27,4 @@ export const messages: Messages = {
   'notFound.title': 'Esa ruta no existe',
   'notFound.body': 'La dirección {path} no corresponde a ninguna pantalla.',
   'notFound.back': 'Volver al inicio',
-
-  'error.session': 'La sesión caducó. Vuelve a abrir la aplicación desde la terminal.',
 }

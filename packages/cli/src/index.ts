@@ -77,6 +77,12 @@ const code = await run(Bun.argv.slice(2), {
       onError: (error) => logger.warn('falló una tarea de cierre', { cause: error }),
     })
 
+    // Las señales se registran antes de arrancar nada. Registrarlas después
+    // deja una ventana en la que un Ctrl+C usa la acción por defecto y se salta
+    // el cierre ordenado: hoy no habría daño, pero en T29 dejaría un mpv vivo.
+    const signal = waitForSignal(process)
+
+    const publicOrigin = process.env.NN_ANIME_DEV_ORIGIN
     const result = await boot(options, {
       io,
       version,
@@ -85,7 +91,10 @@ const code = await run(Bun.argv.slice(2), {
       env: configEnvironment(process.env),
       migrate,
       listen: listenOnFreePort,
-      publicOrigin: process.env.NN_ANIME_DEV_ORIGIN,
+      publicOrigin,
+      // En desarrollo el proxy apunta a un puerto fijo: mudarse de puerto en
+      // silencio dejaría la interfaz cargando y la API inalcanzable.
+      allowPortFallback: publicOrigin === undefined,
       webRoot: webBuildRoot(),
       createSession,
       createBootToken,
@@ -101,11 +110,11 @@ const code = await run(Bun.argv.slice(2), {
     // Se registra el puerto, nunca la URL: lleva el token de arranque.
     logger.info('servidor en marcha', { port: result.port })
 
-    const signal = await waitForSignal(process)
-    logger.info('cerrando', { signal })
+    const received = await signal
+    logger.info('cerrando', { signal: received })
     await lifecycle.shutdown()
 
-    return signalExitCode(signal)
+    return signalExitCode(received)
   },
 }).catch((error: unknown) => {
   io.err(error instanceof Error ? error.message : String(error))

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RunningServer } from '@nn-anime/server'
 import { type CliOptions, parseArgs } from './args'
-import { boot, DEFAULT_PORT, type Listen, listenOnFreePort, type Migrate } from './boot'
+import { boot, DEFAULT_PORT, isPortBusy, type Listen, listenOnFreePort, type Migrate } from './boot'
 import { createLifecycle } from './lifecycle'
 import type { CliIO } from './run'
 
@@ -21,6 +21,7 @@ interface Harness {
   readonly err: string[]
   readonly opened: string[]
   readonly requestedPorts: number[]
+  readonly seenOptions: Parameters<Listen>[1][]
   readonly stopped: number
   readonly io: CliIO
 }
@@ -29,6 +30,7 @@ function harness(outcome: {
   port?: number
   fellBackFrom?: number
   listenFails?: boolean
+  listenBusy?: boolean
   openFails?: boolean
 }): Harness & {
   readonly io: CliIO
@@ -39,11 +41,19 @@ function harness(outcome: {
   const err: string[] = []
   const opened: string[] = []
   const requestedPorts: number[] = []
+  const seenOptions: Parameters<Listen>[1][] = []
   let stopped = 0
 
-  const listen: Listen = (requestedPort) => {
+  const listen: Listen = (requestedPort, listenOptions) => {
     requestedPorts.push(requestedPort)
-    if (outcome.listenFails === true) return undefined
+    seenOptions.push(listenOptions)
+
+    if (outcome.listenFails === true) {
+      return { ok: false, kind: 'other', detail: 'no se pudo montar la aplicación' }
+    }
+    if (outcome.listenBusy === true) {
+      return { ok: false, kind: 'port-busy', detail: 'Failed to start server' }
+    }
 
     const port = outcome.port ?? DEFAULT_PORT
     const server: RunningServer = {
@@ -54,7 +64,7 @@ function harness(outcome: {
       },
     }
 
-    return { server, fellBackFrom: outcome.fellBackFrom }
+    return { ok: true, server, fellBackFrom: outcome.fellBackFrom }
   }
 
   return {
@@ -62,6 +72,7 @@ function harness(outcome: {
     err,
     opened,
     requestedPorts,
+    seenOptions,
     get stopped(): number {
       return stopped
     },
@@ -162,6 +173,74 @@ describe('arranque correcto', () => {
       await boot(options(), depsFor(target, home))
 
       expect(target.requestedPorts).toEqual([DEFAULT_PORT])
+    })
+  })
+})
+
+describe('la consulta abre la búsqueda', () => {
+  test('con consulta, el destino del canje es la búsqueda', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      await boot(options(['naruto']), depsFor(target, home))
+
+      expect(target.seenOptions[0]?.redirectTo).toBe('/search?q=naruto')
+    })
+  })
+
+  test('sin consulta, no hay destino especial', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      await boot(options(), depsFor(target, home))
+
+      expect(target.seenOptions[0]?.redirectTo).toBeUndefined()
+    })
+  })
+
+  test('la consulta se codifica para no comerse el resto de la dirección', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      await boot(options(['a b&c=d']), depsFor(target, home))
+
+      expect(target.seenOptions[0]?.redirectTo).toBe('/search?q=a%20b%26c%3Dd')
+    })
+  })
+
+  test('una consulta con varias palabras se une y se codifica', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      await boot(options(['attack', 'on', 'titan']), depsFor(target, home))
+
+      expect(target.seenOptions[0]?.redirectTo).toBe('/search?q=attack%20on%20titan')
+    })
+  })
+
+  test('una consulta vacía no produce destino', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      await boot(options(['--', '']), depsFor(target, home))
+
+      expect(target.seenOptions[0]?.redirectTo).toBeUndefined()
+    })
+  })
+})
+
+describe('puerto bloqueado', () => {
+  test('sale con 1 y explica que el proxy espera ese puerto', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({ listenBusy: true })
+      const result = await boot(options(), depsFor(target, home))
+
+      expect(result.code).toBe(1)
+      expect(target.err[0]).toContain(String(DEFAULT_PORT))
+    })
+  })
+
+  test('no abre el navegador', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({ listenBusy: true })
+      await boot(options(), depsFor(target, home))
+
+      expect(target.opened).toEqual([])
     })
   })
 })
@@ -327,28 +406,77 @@ describe('listenOnFreePort', () => {
     version: '0.1.0',
   }
 
-  test('usa el puerto pedido cuando está libre', () => {
+  test('usa el puerto pedido cuando está libre', async () => {
     const outcome = listenOnFreePort(0, listenOptions)
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
 
-    expect(outcome).toBeDefined()
-    expect(outcome?.fellBackFrom).toBeUndefined()
-    expect(outcome?.server.port).toBeGreaterThan(0)
+    expect(outcome.fellBackFrom).toBeUndefined()
+    expect(outcome.server.port).toBeGreaterThan(0)
 
-    void outcome?.server.stop()
+    await outcome.server.stop()
   })
 
   test('cae a un puerto libre cuando el pedido está ocupado', async () => {
     const busy = listenOnFreePort(0, listenOptions)
-    expect(busy).toBeDefined()
-    const busyPort = busy?.server.port ?? 0
+    expect(busy.ok).toBe(true)
+    if (!busy.ok) return
+    const busyPort = busy.server.port
 
     const outcome = listenOnFreePort(busyPort, listenOptions)
 
-    expect(outcome).toBeDefined()
-    expect(outcome?.fellBackFrom).toBe(busyPort)
-    expect(outcome?.server.port).not.toBe(busyPort)
+    expect(outcome.ok).toBe(true)
+    if (outcome.ok) {
+      expect(outcome.fellBackFrom).toBe(busyPort)
+      expect(outcome.server.port).not.toBe(busyPort)
+      await outcome.server.stop()
+    }
 
-    await outcome?.server.stop()
-    await busy?.server.stop()
+    await busy.server.stop()
+  })
+
+  test('no reintenta en otro puerto si el fallo no era el puerto', () => {
+    const outcome = listenOnFreePort(-1, listenOptions)
+
+    expect(outcome.ok).toBe(false)
+    if (outcome.ok) return
+    expect(outcome.kind).toBe('other')
+    expect(outcome.detail).toContain('port')
+  })
+
+  test('sin permiso de reserva, un puerto ocupado es un fallo y no una mudanza', async () => {
+    const busy = listenOnFreePort(0, listenOptions)
+    expect(busy.ok).toBe(true)
+    if (!busy.ok) return
+
+    const outcome = listenOnFreePort(busy.server.port, {
+      ...listenOptions,
+      allowPortFallback: false,
+    })
+
+    expect(outcome.ok).toBe(false)
+    if (!outcome.ok) expect(outcome.kind).toBe('port-busy')
+
+    await busy.server.stop()
+  })
+})
+
+describe('isPortBusy', () => {
+  test('reconoce el error de puerto ocupado de Bun', () => {
+    const error = Object.assign(new Error('Failed to start server'), { code: 'EADDRINUSE' })
+
+    expect(isPortBusy(error)).toBe(true)
+  })
+
+  test('no confunde un puerto fuera de rango con un puerto ocupado', () => {
+    const error = Object.assign(new RangeError('out of range'), { code: 'ERR_OUT_OF_RANGE' })
+
+    expect(isPortBusy(error)).toBe(false)
+  })
+
+  test('no se rompe con causas que no son objetos', () => {
+    expect(isPortBusy('texto')).toBe(false)
+    expect(isPortBusy(undefined)).toBe(false)
+    expect(isPortBusy(new Error('sin código'))).toBe(false)
   })
 })

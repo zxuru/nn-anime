@@ -12,6 +12,4 @@ export const messages: Messages = {
   'app.name': 'nn-anime',
   'error.config.missingHome':
     'No se pudo determinar el directorio personal: falta HOME y no se indicó ruta para {dirs}.',
-  'error.config.invalidDir': 'La ruta indicada para {dir} no es utilizable.',
-  'error.unknown': 'Ocurrió un error inesperado.',
 }

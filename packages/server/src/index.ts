@@ -3,7 +3,7 @@
  */
 
 import { AppError } from '@nn-anime/core'
-import { type AppOptions, createApp, PROTECTED_PREFIXES, type ProviderSummary } from './app'
+import { type AppOptions, createApp, type ProviderSummary } from './app'
 
 /** Dirección de escucha. Nunca `0.0.0.0`: el server es local por diseño. */
 export const LOOPBACK = '127.0.0.1'
@@ -58,6 +58,7 @@ export function startServer(options: StartOptions): RunningServer {
 }
 
 export { BOOT_PARAM } from './bootstrap'
+export { isProtectedPath, PROTECTED_PREFIXES } from './paths'
 export {
   createBootToken,
   createSession,
@@ -66,4 +67,4 @@ export {
   type SessionStore,
   safeEqual,
 } from './session'
-export { type AppOptions, createApp, PROTECTED_PREFIXES, type ProviderSummary }
+export { type AppOptions, createApp, type ProviderSummary }

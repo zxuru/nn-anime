@@ -22,9 +22,26 @@ const DEFAULT_REDIRECT = '/'
  */
 export const BOOT_TTL_MS = 5 * 60 * 1000
 
+/**
+ * Sólo se admiten rutas locales.
+ *
+ * El destino lo decide el servidor a partir de la consulta del usuario, no el
+ * cliente. Aun así se valida: una redirección a `//evil.example` es una URL
+ * absoluta disfrazada de ruta, y un open redirect no tiene excusa.
+ */
+function safeRedirect(target: string | undefined): string {
+  if (target === undefined || target === '') return DEFAULT_REDIRECT
+  if (!target.startsWith('/')) return DEFAULT_REDIRECT
+  if (target.startsWith('//')) return DEFAULT_REDIRECT
+  if (target.includes('\\')) return DEFAULT_REDIRECT
+
+  return target
+}
+
 export interface BootstrapOptions {
   readonly bootToken: string
   readonly session: Session
+  /** Ruta local a la que ir tras el canje. Por defecto, `/`. */
   readonly redirectTo?: string
   /** Vida del token. Por defecto, `BOOT_TTL_MS`. */
   readonly ttlMs?: number
@@ -45,8 +62,6 @@ export function bootstrapHandler(options: BootstrapOptions): MiddlewareHandler {
       return c.text('', 401)
     }
 
-    redeemed = true
-
     setCookie(c, options.session.cookieName, options.session.value, {
       httpOnly: true,
       sameSite: 'Strict',
@@ -56,6 +71,10 @@ export function bootstrapHandler(options: BootstrapOptions): MiddlewareHandler {
       secure: false,
     })
 
-    return c.redirect(options.redirectTo ?? DEFAULT_REDIRECT, 302)
+    // El token se quema sólo cuando la cookie ya está puesta. Al revés, un
+    // fallo al emitirla dejaría el token gastado y al usuario sin sesión.
+    redeemed = true
+
+    return c.redirect(safeRedirect(options.redirectTo), 302)
   }
 }

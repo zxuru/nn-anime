@@ -53,9 +53,24 @@ export interface RequestOptions {
   readonly method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   readonly body?: unknown
   readonly signal?: AbortSignal
+  /**
+   * Tiempo límite en milisegundos. Por defecto, 8 segundos; `0` lo desactiva.
+   *
+   * Existe la salida porque hay peticiones legítimamente lentas. Un límite que
+   * no se puede levantar es una trampa para la tarea siguiente que necesite una
+   * respuesta larga.
+   */
+  readonly timeoutMs?: number
 }
 
-const TIMEOUT_MS = 8000
+const DEFAULT_TIMEOUT_MS = 8000
+
+function signalFor(options: RequestOptions): AbortSignal | undefined {
+  if (options.signal !== undefined) return options.signal
+  const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
+
+  return timeout === 0 ? undefined : AbortSignal.timeout(timeout)
+}
 
 function realDeps(): RequestDeps {
   return { fetch: (input, init) => globalThis.fetch(input, init) }
@@ -76,7 +91,7 @@ async function dispatch(
     headers,
     credentials: 'same-origin',
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    signal: options.signal ?? AbortSignal.timeout(TIMEOUT_MS),
+    signal: signalFor(options),
   })
 
   if (!response.ok) {
