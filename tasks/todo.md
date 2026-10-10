@@ -1792,18 +1792,42 @@ cubriendo el caso: con `ignoreBOM: true` la prueba falla.
 **Descripción:** Reproducción dentro de la página, con seek, atajos de teclado y accesibilidad.
 
 **Aceptación:**
-- [ ] Detecta `kind` y usa `<video>` directo o `hls.js` según corresponda.
-- [ ] Seek, pausa, volumen y pantalla completa funcionan con teclado.
-- [ ] Flechas ±10 s, `Espacio` y `Enter` para pausa.
-- [ ] Los atajos no secuestran la escritura cuando el foco está en un campo de texto.
-- [ ] Estado del reproductor en región `aria-live="polite"`.
-- [ ] Los controles se ven y funcionan en tema oscuro y claro, con contraste 4.5:1.
+- [x] Detecta `kind` y usa `<video>` directo o `hls.js` según corresponda.
+- [x] Seek, pausa, volumen y pantalla completa funcionan con teclado.
+- [x] Flechas ±10 s, `Espacio` y `Enter` para pausa.
+- [x] Los atajos no secuestran la escritura cuando el foco está en un campo de texto.
+- [x] Estado del reproductor en región `aria-live="polite"`.
+- [x] Los controles se ven y funcionan en tema oscuro y claro, con contraste 4.5:1.
 
-**Verificación:** `bun run dev` · reproducir el mp4 del fixture, adelantar 30 s.
+**Verificación:** `bun test packages/web` · 25 pruebas del reproductor (18 de los atajos y 7 del
+componente). Medido mutando la implementación: secuestrando la escritura falla 1, ignorando los
+modificadores 1 y sin limitar el salto al final del video 1. Control: 0 fallos. `bun run build`
+confirma que `hls.js` sale en su propio trozo: la importación dinámica hace lo que se esperaba de
+ella.
 
 **Depende de:** T26, T24.
 
 **Archivos:** `packages/web/src/features/player/{Player,usePlayer,controls}.tsx`, `packages/web/src/features/player/Player.test.tsx`.
+**Ampliación declarada:** `controls.test.ts`, `WatchPage.tsx` (la pantalla que resuelve el stream y
+monta el reproductor), `app.tsx` para montarla en su ruta, el catálogo y la hoja de estructura, la
+dependencia `hls.js`, y **`streamResolveResponseSchema` movido a `core/api.ts`**: estaba en la ruta
+del servidor y el cliente no puede importar código de servidor. Ahora la forma la define `core` y las
+dos partes la usan, que es la regla del proyecto. El cliente gana además `apiPostJson`, un `POST` que
+devuelve el cuerpo validado.
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **`hls.js` se carga con importación dinámica.** Son unos 300 KB que sólo hacen falta cuando alguien
+   reproduce en HLS; importarlos arriba engordaría la búsqueda —la pantalla que todo el mundo usa—
+   para servir a la que se usa de vez en cuando. La atribución aparece sólo cuando se usa la
+   biblioteca, porque su licencia lo pide.
+2. **Los atajos no hacen nada si el foco está en un campo de texto, ni con `Ctrl`, `Meta` o `Alt`.**
+   Un reproductor que se queda con la barra espaciadora mientras alguien escribe en el buscador rompe
+   la página entera, y quitarle a alguien `Ctrl+R` es ganarse un enemigo.
+3. **La región `aria-live` es `polite`, no `assertive`.** El estado cambia constantemente, y una
+   región que interrumpe cada segundo hace la página inservible con un lector de pantalla.
+4. **El elemento sigue siendo un `<video>` de verdad**, sin `controls` y con controles propios: los
+   del navegador no se pueden atar a los atajos del spec ni anunciarse.
 
 **Tamaño:** M.
 

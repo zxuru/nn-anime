@@ -28,8 +28,12 @@ export {
   providersResponseSchema,
   type SearchEventPayload,
   type SearchQuery,
+  type StreamResolveResponse,
+  type StreamSourceResponse,
   searchEventSchema,
   searchQuerySchema,
+  streamResolveResponseSchema,
+  streamSourceResponseSchema,
 } from './api'
 export {
   APP_DIR_NAME,

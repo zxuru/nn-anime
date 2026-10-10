@@ -47,8 +47,14 @@ describe('App: pantallas', () => {
     expect(html).toContain('aria-busy="true"')
   })
 
-  test('el reproductor tiene su propia pantalla', () => {
-    expect(render('/watch/fuente/titulo-1')).toContain('el reproductor')
+  test('el reproductor tiene su propia pantalla, y arranca cargando', () => {
+    // La pantalla resuelve el stream en un efecto, así que en servidor se ve su
+    // estado de carga. Que el `<video>` aparece con una fuente se prueba en las
+    // pruebas del reproductor.
+    const html = render('/watch/fuente/titulo-1')
+
+    expect(html).toContain('Cargando el video')
+    expect(html).not.toContain('Aquí irá')
   })
 })
 

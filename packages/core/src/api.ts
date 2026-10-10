@@ -66,6 +66,24 @@ export const favoriteRequestSchema = z.strictObject({
   value: z.boolean(),
 })
 
+/**
+ * Una fuente de reproducción tal y como la ve el cliente.
+ *
+ * `url` es la ruta del proxy con su ticket, no la del upstream: el tipo no
+ * admite cabeceras, así que no hay forma de que se cuelen. Es la forma que
+ * devuelve `toPublicStreamSource`.
+ */
+export const streamSourceResponseSchema = z.strictObject({
+  url: z.string().min(1),
+  kind: z.enum(['hls', 'file']),
+  quality: z.string().min(1).optional(),
+  subtitles: z.array(z.unknown()).optional(),
+})
+
+export const streamResolveResponseSchema = z.strictObject({
+  sources: z.array(streamSourceResponseSchema),
+})
+
 /** Detalle de un título. Es el mismo schema del dominio, no una copia. */
 export const animeResponseSchema = animeDetailSchema
 
@@ -108,6 +126,8 @@ export const searchEventSchema = z.discriminatedUnion('type', [
 
 export type ErrorResponse = z.infer<typeof errorResponseSchema>
 export type AnimeResponse = z.infer<typeof animeResponseSchema>
+export type StreamResolveResponse = z.infer<typeof streamResolveResponseSchema>
+export type StreamSourceResponse = z.infer<typeof streamSourceResponseSchema>
 export type FavoriteRequest = z.infer<typeof favoriteRequestSchema>
 export type FavoritesResponse = z.infer<typeof favoritesResponseSchema>
 export type EpisodesResponse = z.infer<typeof episodesResponseSchema>

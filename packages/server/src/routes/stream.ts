@@ -12,7 +12,12 @@
  * depurar, y son dos cosas distintas.
  */
 
-import { errorResponseSchema, streamRequestSchema, toPublicStreamSource } from '@nn-anime/core'
+import {
+  errorResponseSchema,
+  streamRequestSchema,
+  streamResolveResponseSchema,
+  toPublicStreamSource,
+} from '@nn-anime/core'
 import {
   contentTypeFor,
   type FetchLike,
@@ -22,20 +27,8 @@ import {
 } from '@nn-anime/media-proxy'
 import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
-import { z } from 'zod'
 import type { ServerContainer } from '../container'
 import { findProvider } from './anime'
-
-export const resolveResponseSchema = z.strictObject({
-  sources: z.array(
-    z.strictObject({
-      url: z.string().min(1),
-      kind: z.enum(['hls', 'file']),
-      quality: z.string().min(1).optional(),
-      subtitles: z.array(z.unknown()).optional(),
-    }),
-  ),
-})
 
 export interface StreamRouteOptions {
   readonly providers: readonly Provider[]
@@ -106,7 +99,7 @@ export function registerStreamRoutes(app: Hono, options: StreamRouteOptions): vo
 
     c.header('X-Cache', resultado.value.source)
 
-    return c.json(resolveResponseSchema.parse({ sources }))
+    return c.json(streamResolveResponseSchema.parse({ sources }))
   })
 
   app.get('/stream/:ticket', async (c) => {

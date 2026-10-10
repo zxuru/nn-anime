@@ -32,6 +32,19 @@ export const messages: Messages = {
   'search.failed': 'No se pudo buscar: {message}',
   'search.alsoIn': 'También en {count} proveedores',
 
+  'player.label': 'Reproductor de video',
+  'player.play': 'Reproducir',
+  'player.pause': 'Pausa',
+  'player.back': 'Atrás 10 s',
+  'player.forward': 'Adelante 10 s',
+  'player.mute': 'Silenciar',
+  'player.unmute': 'Quitar silencio',
+  'player.fullscreen': 'Pantalla completa',
+  'player.loading': 'Cargando el video…',
+  'player.error': 'No se pudo reproducir: {message}',
+  'player.shortcuts':
+    'Espacio o Enter: pausa. Flechas: 10 s y volumen. M: silencio. F: pantalla completa.',
+  'player.attribution': 'Reproducción HLS con hls.js (licencia Apache 2.0).',
   'detail.synopsis': 'Sinopsis',
   'detail.meta': 'Año {year} · {status}',
   'detail.status.airing': 'en emisión',
@@ -54,7 +67,6 @@ export const messages: Messages = {
   'detail.error': 'No se pudo cargar la ficha: {message}',
   'detail.retry': 'Reintentar',
   'detail.notFound': 'Ese título no está en el proveedor.',
-  'watch.pending': 'Aquí irá el reproductor.',
   'settings.pending': 'Aquí irán los proveedores, las rutas de datos y el tema.',
 
   'notFound.title': 'Esa ruta no existe',

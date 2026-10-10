@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
+import { streamResolveResponseSchema } from '@nn-anime/core'
 import {
   animeResponseSchema,
   episodesResponseSchema,
   providersResponseSchema,
 } from '@nn-anime/core/api'
-import { resolveResponseSchema } from '../packages/server/src/routes/stream'
 import { conCiclo, filas, JSON_HEADERS } from './fixtures'
 
 const REF = 'aurora-nocturna'
@@ -41,7 +41,7 @@ describe('el ciclo completo, por las rutas HTTP', () => {
       const lista = episodesResponseSchema.parse(await respuestas.episodios.json())
       expect(lista.episodes.length).toBeGreaterThan(0)
 
-      const stream = resolveResponseSchema.parse(await respuestas.stream.json())
+      const stream = streamResolveResponseSchema.parse(await respuestas.stream.json())
       expect(stream.sources[0]?.url).toStartWith('/stream/')
 
       // Que quedó cacheado se observa **en la tabla**, no en el contador.

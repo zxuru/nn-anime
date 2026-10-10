@@ -3,9 +3,10 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations } from '@nn-anime/catalog-store'
+import { streamResolveResponseSchema } from '@nn-anime/core'
 import { createFixtureProvider, type FixtureFailure } from '@nn-anime/providers-fixture'
 import { createApp, createContainer } from '../index'
-import { resolveResponseSchema, ticketPath } from './stream'
+import { ticketPath } from './stream'
 
 const PORT = 7717
 const SESSION_COOKIE = 'nn_session'
@@ -108,7 +109,7 @@ describe('POST /api/stream/resolve', () => {
   test('devuelve tickets, no URLs del upstream', async () => {
     await conApp(async ({ pedir }) => {
       const { respuesta, cuerpo } = await resolver(pedir)
-      const salida = resolveResponseSchema.parse(cuerpo)
+      const salida = streamResolveResponseSchema.parse(cuerpo)
 
       expect(respuesta.status).toBe(200)
       expect(salida.sources.length).toBeGreaterThan(0)
@@ -188,7 +189,7 @@ describe('GET /stream/:ticket', () => {
   test('reenvía los bytes con su rango y su 206', async () => {
     await conApp(async ({ pedir, upstream }) => {
       const { cuerpo } = await resolver(pedir)
-      const ticket = resolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
+      const ticket = streamResolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
 
       const respuesta = await pedir(ticket, { headers: { ...GOOD, range: 'bytes=0-1023' } })
 
@@ -211,7 +212,7 @@ describe('GET /stream/:ticket', () => {
         episodeRef: { providerId: 'fixture', value: 'selva-de-hormigon#1' },
         mode: 'sub',
       })
-      const ticket = resolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
+      const ticket = streamResolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
 
       const respuesta = await pedir(ticket, { headers: GOOD })
 
@@ -225,7 +226,7 @@ describe('GET /stream/:ticket', () => {
     await conApp(async ({ pedir }) => {
       const inexistente = await pedir('/stream/no-existe')
       const { cuerpo } = await resolver(pedir)
-      const ticket = resolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
+      const ticket = streamResolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
 
       // Se vacía el almacén resolviendo con el reloj del proceso no se puede;
       // se usa la vía del ticket que ya no está: se emite uno y se espera a que
@@ -239,7 +240,7 @@ describe('GET /stream/:ticket', () => {
   test('un rango imposible es 416 y no llega al upstream', async () => {
     await conApp(async ({ pedir, upstream }) => {
       const { cuerpo } = await resolver(pedir)
-      const ticket = resolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
+      const ticket = streamResolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
       const antes = upstream.llamadas
 
       const respuesta = await pedir(ticket, { headers: { ...GOOD, range: 'bytes=0-1,5-6' } })

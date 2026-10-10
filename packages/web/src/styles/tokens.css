@@ -69,10 +69,12 @@
   --skeleton-dim: 0.45;
   --cover-ratio: 2 / 3;
   --cover-width: 14rem;
+  --video-ratio: 16 / 9;
   --title-clamp: 2;
   --letter-tight: -0.01em;
   --content-max: 1200px;
   --header-height: 3.5rem;
+  --measure-wide: 60rem;
   --measure: 60ch;
   --layer-header: 1;
 }

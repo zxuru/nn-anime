@@ -310,3 +310,29 @@
   color: var(--color-text-dim);
   font-size: var(--text-sm);
 }
+
+.player {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: var(--measure-wide);
+}
+
+.player__video {
+  width: 100%;
+  aspect-ratio: var(--video-ratio);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+}
+
+.player__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.player__time {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-dim);
+}

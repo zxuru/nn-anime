@@ -237,6 +237,17 @@ export function apiPost(
   return send(path, { ...options, method: 'POST', body }, deps)
 }
 
+/** Un `POST` que devuelve el cuerpo, validado con su schema. */
+export function apiPostJson<T>(
+  path: string,
+  body: unknown,
+  schema: z.ZodType<T>,
+  options: Omit<RequestOptions, 'method' | 'body'> = {},
+  deps?: RequestDeps,
+): Promise<T> {
+  return request(path, schema, { ...options, method: 'POST', body }, deps)
+}
+
 export function apiPatch(
   path: string,
   body?: unknown,
