@@ -1957,18 +1957,38 @@ versionadas, como pedía el plan para acotar el riesgo 1.
 **Descripción:** Base del motor: qué le gusta al usuario, ponderado por recencia y completitud.
 
 **Aceptación:**
-- [ ] Vector de afinidad sobre tags, estudio y año.
-- [ ] Peso = recencia × completitud, con semivida de 30 días y `now` inyectado.
-- [ ] IDF sobre el corpus de candidatos: un tag en el 80 % pesa menos que uno en el 5 %.
-- [ ] Similitud coseno con manejo de vector vacío sin `NaN`.
-- [ ] Bonus de 0,1 por estudio compartido.
-- [ ] Tests con corpus sintético determinista; sin red y sin base.
+- [x] Vector de afinidad sobre tags, estudio y año.
+- [x] Peso = recencia × completitud, con semivida de 30 días y `now` inyectado.
+- [x] IDF sobre el corpus de candidatos: un tag en el 80 % pesa menos que uno en el 5 %.
+- [x] Similitud coseno con manejo de vector vacío sin `NaN`.
+- [x] Bonus de 0,1 por estudio compartido.
+- [x] Tests con corpus sintético determinista; sin red y sin base.
 
-**Verificación:** `bun test packages/recsys`.
+**Verificación:** `bun test packages/recsys` · 33 pruebas. Medido mutando la implementación: sin
+decaimiento fallan 3, sin IDF 3, sin proteger el coseno del vector vacío 2, sin el bonus de estudio 2,
+ignorando la completitud 3 y sin normalizar 7. Control: 0 fallos. Cobertura del paquete: 100 %.
 
 **Depende de:** T4.
 
 **Archivos:** `packages/recsys/src/{affinity.ts,affinity.test.ts}`.
+**Ampliación declarada:** el barril y el `package.json` del paquete (exporta el módulo y depende de
+`core`).
+
+**Cuatro decisiones que conviene recordar:**
+
+1. **El IDF se aplica sobre la suma por característica, no evento a evento.** Lo que se pondera es
+   «cuánto le gusta este tag», no cada visionado por separado.
+2. **El decaimiento no premia un evento futuro.** Un reloj movido hacia atrás daría un peso mayor que
+   1, y eso es un error de quien llama, no una señal.
+3. **El coseno recorre el vector más corto.** Es simétrico, así que se hacen menos comparaciones sin
+   cambiar el resultado.
+4. **El bonus por estudio es pequeño a propósito.** Sirve para desempatar entre dos candidatos
+   parecidos, no para imponer un estudio: hacen falta diez coincidencias para igualar un coseno de 1.
+
+**Una trampa que costó dos intentos y quedó documentada:** el corpus con el que se construye la
+afinidad tiene que ser **el mismo** con el que se puntúa. Con IDF distinto, la afinidad y el candidato
+viven en espacios de pesos distintos y el coseno sale bajo sin que nada avise: el ranking se ordena
+mal y no hay ningún error. Lo encontró una prueba que medía el bonus por estudio con dos estudios.
 
 **Tamaño:** M.
 

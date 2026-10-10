@@ -4,9 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./affinity": "./src/affinity.ts"
   },
   "scripts": {
     "test": "bun test"
+  },
+  "dependencies": {
+    "@nn-anime/core": "workspace:*"
   }
 }

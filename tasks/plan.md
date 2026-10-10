@@ -361,7 +361,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] Decisión sobre HLS: se mantiene en v1, registrada en `docs/PLAN-B-HLS.md`
 
 ### Fase 6 — Recomendaciones
-- [ ] T33 Afinidad: vector, IDF y decaimiento temporal
+- [x] T33 Afinidad: vector, IDF y decaimiento temporal
 - [ ] T34 Co-visita: sesiones y pares
 - [ ] T35 Señal de búsqueda, exclusión y reglas de reencuentro
 - [ ] T36 MMR y generación de razones en español

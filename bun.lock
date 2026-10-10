@@ -71,6 +71,9 @@
     "packages/recsys": {
       "name": "@nn-anime/recsys",
       "version": "0.1.0",
+      "dependencies": {
+        "@nn-anime/core": "workspace:*",
+      },
     },
     "packages/server": {
       "name": "@nn-anime/server",
