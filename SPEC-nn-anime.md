@@ -165,7 +165,8 @@ dominio de `core`.
 anime            id, provider_id, provider_ref, title, title_alt, synopsis, cover_url,
                  year, status, episode_count, fetched_at, ttl_s, raw_json,
                  episodes_fetched_at, episodes_ttl_s
-genre            anime_id, name
+genre            anime_id, name — **nadie escribe en ella**: los géneros viven en `raw_json`,
+                 que es lo único que los conserva en orden. Ver `docs/v1-report.md`
 episode          id, anime_id, provider_ref, number, title, duration_s, mode, fetched_at, ttl_s
 watch_event      id, anime_id, episode_id, provider_id, mode, position_s, duration_s,
                  started_at, finished
@@ -175,6 +176,9 @@ stream_cache     episode_id, mode, url, kind, quality, subtitles_json,
                  fetched_at, ttl_s
 setting          key, value_json
 schema_version   version, applied_at
+revalidate_error  key, resource, message, created_at — **no estaba en esta lista**: la añadió la
+                 migración `0003` para recordar qué refresco de fondo falló. Son 11 tablas y esta
+                 lista decía 10; ver `docs/v1-report.md`
 search_cache     provider_id, query, results_json, fetched_at, ttl_s
 ```
 
@@ -234,6 +238,11 @@ Tres niveles, con `bun test` por defecto.
 
 Cobertura objetivo: 80 % en `core`, `catalog-store`, `recsys` y `provider-sdk`. Sin umbral
 numérico para `web` y `media-proxy`: se exige el caso feliz y un caso de fallo por ruta.
+
+**Y se hace cumplir**: `bun run coverage:gate` **falla** si un paquete baja del objetivo. Al auditar
+T47 resultó que `bun test --coverage` informaba pero no fallaba, así que el 80 % era una aspiración
+y no un criterio. Comprobado que el gate discrimina: con el objetivo por defecto sale con 0, con
+`0.99` con 1 y con un objetivo inválido con 2.
 
 **La cifra canónica es la de `bun run coverage:gate`**, que pondera por líneas (`LF`/`LH`) por
 paquete e informa del alcance —cuántos archivos mide y cuáles no—. La tabla de `bun test
@@ -360,22 +369,34 @@ tarea que lo cierra. T47 hace el barrido final y comprueba que ninguno se quedó
       de tabla de rutas y con `curl` contra el servidor en los dos modos.
 - [x] El token de arranque sirve una sola vez: un segundo uso devuelve 401. **Verificado** en vivo,
       y además caduca a los cinco minutos.
-- [ ] Ninguna respuesta contiene `Set-Cookie` de origen upstream ni cabeceras de upstream.
-      → **T26b**, cuando exista el proxy.
+- [x] Ninguna respuesta contiene `Set-Cookie` de origen upstream ni cabeceras de upstream.
+      **Verificado** en `tests/seguridad.test.ts` (M6 y M7): un `Set-Cookie` del upstream no aparece,
+      y las cabeceras de la respuesta están dentro de la lista blanca. La lista exacta se prueba en
+      `byte-proxy.test.ts`.
 - [x] La SPA se sirve con CSP, `nosniff`, `Referrer-Policy: no-referrer` y `X-Frame-Options`.
       **Verificado** en toda respuesta, incluidas las que cortan los guards y las que no existen.
-- [ ] El proxy rechaza `http://127.0.0.1:22`, `http://169.254.169.254/` y `file:///etc/passwd`, y
-      revalida la lista blanca en cada salto de redirección. → **T26a**.
-- [ ] `SECURITY.md` existe, describe el modelo de amenaza y el riesgo residual, y `/settings` lo
-      enlaza. → **T46** el documento, **T40** el enlace.
-- [ ] Segunda ejecución: home y detalle se sirven desde la base sin llamadas de red, medido con el
-      contador de peticiones a proveedores. → **T22**. Necesita `catalog-store`.
-- [ ] El historial de visionado sobrevive a reiniciar el proceso. → **T20**.
-- [ ] Cada recomendación incluye al menos una razón legible. → **T36** el motor, **T39** el panel.
-- [ ] `bun run db:migrate` es idempotente: correrlo dos veces no cambia el esquema. → **T16** el
-      runner, **T21** el comando. Hoy el comando existe, resuelve y **se niega a salir con 0**
-      diciendo que todavía no hay base de datos que migrar: un comando de base de datos que dice
-      «todo bien» sin haber hecho nada es peor que uno que falla.
+- [x] El proxy rechaza `http://127.0.0.1:22`, `http://169.254.169.254/` y `file:///etc/passwd`, y
+      revalida la lista blanca en cada salto de redirección. **Verificado** en
+      `destination-guard.test.ts` (27 pruebas, incluidos los cinco destinos del spec y la cadena
+      permitido → prohibido) y de extremo a extremo en `tests/seguridad.test.ts` (M8).
+- [x] `SECURITY.md` existe, describe el modelo de amenaza y el riesgo residual, y `/settings` lo
+      enlaza. **Verificado**: el documento está, con las mitigaciones y los tres riesgos residuales, y
+      `settings.test.ts` y `settings.test.tsx` comprueban el enlace.
+- [x] Segunda ejecución: **detalle y búsqueda** se sirven desde la base sin llamadas de red,
+      medido con el contador de peticiones a proveedores (`tests/ciclo-completo.test.ts`, con un
+      proceso y un proveedor nuevos). **Con un matiz medido y anotado**: la home vuelve a llamar a
+      `getTrending` en cada carga, porque las tendencias no se cachean y la tabla de TTL del spec no
+      las incluye. El hallazgo está en `docs/v1-report.md`.
+- [x] El historial de visionado sobrevive a reiniciar el proceso. **Verificado** en
+      `tests/ciclo-completo.test.ts`: se busca, se cierra la base, se reabre con un proceso nuevo y la
+      misma búsqueda sale de la base con **0 llamadas**.
+- [x] Cada recomendación incluye al menos una razón legible. **Verificado**: el motor garantiza
+      que la lista de razones nunca va vacía (`recommend.ts`) y el e2e comprueba en el navegador que
+      **cada** razón visible tiene texto (`recommendations.e2e.ts`).
+- [x] `bun run db:migrate` es idempotente: correrlo dos veces no cambia el esquema. **Verificado
+      en vivo**: la primera vez dice «Migraciones aplicadas: 1, 2, 3» y la segunda «No hay migraciones
+      pendientes», con 11 tablas y versión 3 las dos veces. El comando ya no es un marcador: migra de
+      verdad.
 - [x] Los seis specs de módulo están aprobados. **Verificado**: aprobados por el humano.
 
 ## Open Questions

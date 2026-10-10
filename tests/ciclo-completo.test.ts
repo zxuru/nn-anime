@@ -243,3 +243,42 @@ describe('la puerta de entrada', () => {
     })
   })
 })
+
+describe('la segunda vuelta de la home', () => {
+  test('las recomendaciones no vuelven a pedir tendencias si no hay caché de eso', async () => {
+    await conCiclo(async ({ pedir, proveedor }) => {
+      await (await pedir('/api/recommendations')).json()
+      const trasLaPrimera = proveedor.calls.count('getTrending')
+
+      await (await pedir('/api/recommendations')).json()
+
+      // **Hallazgo de la auditoría de T47**: las tendencias no se cachean, así que
+      // la segunda vuelta vuelve a pedirlas. El criterio de éxito dice «sin
+      // llamadas de red» y esto es una llamada de red: se deja medido y anotado en
+      // el informe, con su motivo —no hay TTL de tendencias en la tabla del spec—.
+      expect(proveedor.calls.count('getTrending')).toBeGreaterThan(trasLaPrimera)
+    })
+  })
+
+  test('el detalle y la búsqueda sí salen de la base sin llamar a nadie', async () => {
+    await conCiclo(async ({ pedir, proveedor }) => {
+      await pedir(`/api/anime/fixture/aurora-nocturna`)
+      await pedir('/api/anime/fixture/aurora-nocturna/episodes')
+      await (await pedir('/api/search?q=aurora')).text()
+
+      const antes = {
+        getAnime: proveedor.calls.count('getAnime'),
+        getEpisodes: proveedor.calls.count('getEpisodes'),
+        search: proveedor.calls.count('search'),
+      }
+
+      await pedir(`/api/anime/fixture/aurora-nocturna`)
+      await pedir('/api/anime/fixture/aurora-nocturna/episodes')
+      await (await pedir('/api/search?q=aurora')).text()
+
+      expect(proveedor.calls.count('getAnime')).toBe(antes.getAnime)
+      expect(proveedor.calls.count('getEpisodes')).toBe(antes.getEpisodes)
+      expect(proveedor.calls.count('search')).toBe(antes.search)
+    })
+  })
+})
