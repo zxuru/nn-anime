@@ -3,7 +3,8 @@
  *
  * Dos reglas que no se negocian:
  *
- * 1. Es el único lugar del proyecto que escribe en la salida estándar.
+ * 1. Es el único lugar del proyecto que escribe *diagnóstico* en la salida
+ *    estándar. La salida de cara al usuario es otra cosa y vive en el CLI.
  * 2. Redacta los datos sensibles antes de que salgan, en cualquier nivel y a
  *    cualquier profundidad. La redacción es por nombre de clave: si un token
  *    viaja dentro de una cadena, este módulo no puede detectarlo y la

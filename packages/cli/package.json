@@ -6,6 +6,10 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "dependencies": {
+    "@nn-anime/core": "workspace:*",
+    "@nn-anime/server": "workspace:*"
+  },
   "scripts": {
     "test": "bun test"
   }

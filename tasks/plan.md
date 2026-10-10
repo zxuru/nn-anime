@@ -99,7 +99,7 @@ Ninguna cruza la puerta: son defectos *dentro* del artefacto que se está revisa
 | 4 | `ensureDirs` no tocaba el modo de un directorio que ya existía: si estaba en `0755`, se quedaba así | Medio, de seguridad: los datos quedaban legibles por otros usuarios, contra lo que dice el spec | `chmod 0700` tras el `mkdir`. Falla en lugar de seguir si no puede cerrarlo |
 
 ### Fase 1 — Arranque (cli-launcher + server shell)
-- [ ] T5 Parser de flags del CLI
+- [x] T5 Parser de flags del CLI
 - [ ] T6 Server Hono con guards de seguridad y `/api/health`
 - [ ] T6a Bootstrap de sesión por cookie `HttpOnly` y comparación en tiempo constante
 - [ ] T6b Cabeceras de seguridad y CSP

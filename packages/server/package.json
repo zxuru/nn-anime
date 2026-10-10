@@ -6,7 +6,12 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "dependencies": {
+    "@nn-anime/core": "workspace:*",
+    "hono": "^4"
+  },
   "scripts": {
+    "dev": "bun --watch src/index.ts",
     "test": "bun test"
   }
 }

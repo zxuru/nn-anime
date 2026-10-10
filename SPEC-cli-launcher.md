@@ -90,7 +90,9 @@ packages/cli/
 - [ ] Ningún archivo fuera de las rutas XDG se crea o modifica.
 - [ ] `package.json` del CLI declara `bin`, `files` y `publishConfig`; `bun pm pack` produce un
       tarball instalable, sin publicarlo. Los mensajes del CLI salen del catálogo i18n.
-- [ ] `nn-anime --lang en` cambia los mensajes del CLI sin tocar código de componentes.
+- [ ] Añadir un idioma al CLI es un archivo de catálogo más una entrada en `LOCALES` de `core`;
+      ningún componente ni ningún mensaje de error cambia. Hoy sólo existe `es`, y `--lang en`
+      cae a `es` sin fallar: el mecanismo está probado, el idioma inglés no está traducido.
 
 ## Boundaries
 

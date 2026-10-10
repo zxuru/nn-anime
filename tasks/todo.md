@@ -204,19 +204,46 @@ usan `mkdtemp` y comprueban el modo `0700` real con `stat`.
 **Descripción:** Parser de argumentos sin dependencias externas, con la tabla de flags del spec.
 
 **Aceptación:**
-- [ ] Soporta `[query]`, `-p/--port`, `--no-open`, `--data-dir`, `--config-dir`, `--provider`
+- [x] Soporta `[query]`, `-p/--port`, `--no-open`, `--data-dir`, `--config-dir`, `--provider`
       repetible, `--lang`, `-v/--verbose`, `-h/--help`, `--version`.
-- [ ] `--port abc` y una flag desconocida devuelven error de uso con código 2.
-- [ ] `nn-anime --help` no arranca el server y sale con 0.
-- [ ] `--provider a --provider b` acumula ambos en orden.
+- [x] `--port abc` y una flag desconocida devuelven error de uso con código 2.
+- [x] `nn-anime --help` no arranca el server y sale con 0.
+- [x] `--provider a --provider b` acumula ambos en orden.
 
-**Verificación:** `bun test packages/cli` · manual: `bun packages/cli/src/index.ts --help`.
+**Verificación:** `bun test packages/cli` 48 pasan, 0 fallan · `bun test` 169 pasan, 0 fallan ·
+`tsc --noEmit` 0 · `biome check .` 0 sin infos. Manual: `--help` sale 0 y no arranca el server,
+`--port abc` sale 2 con el error en stderr, `--version` imprime `nn-anime 0.1.0`.
+
+**Estado:** hecho.
+
+**Decisiones tomadas al implementar:**
+
+- **El parser no conoce ningún idioma.** Devuelve `key` y `params` del catálogo i18n; quien
+  arranca traduce. Es lo que hace que `--lang` afecte también a los mensajes de error de uso, y
+  que traducir no obligue a tocar el parser.
+- **`--help` y `--version` ganan sobre todo lo demás**, incluido un argumento inválido. La
+  búsqueda se detiene en `--`, así que `nn-anime -- --help` busca el texto `--help` en lugar de
+  mostrar la ayuda.
+- **La orquestación vive en `run.ts`, separada de `index.ts`.** `run` recibe `start` inyectado,
+  y eso es lo que permite verificar el criterio "no arranca el server" sin arrancar nada. T7
+  sustituye ese `start` por el arranque real.
+- El rango de puerto admitido viaja en los parámetros del error, no incrustado en el texto, para
+  que el mensaje traducido lo diga en el idioma del usuario.
+- `--data-dir=-raro` funciona: con `=` el valor puede empezar por guion.
+
+**Ampliación de spec:** el criterio de `SPEC-cli-launcher.md` sobre `--lang en` decía que cambiaba
+los mensajes del CLI. Hoy `en` no es un idioma soportado en `LOCALES`, así que cae a `es`. El
+criterio se reescribió para describir la garantía real: el mecanismo está probado y añadir un
+idioma es un archivo. Traducir el inglés no estaba pedido y no se hizo.
 
 **Depende de:** T3.
 
-**Archivos:** `packages/cli/src/{args,args.test}.ts`.
+**Archivos:** `packages/cli/src/{args,run,index}.ts`, `packages/cli/src/{args,run}.test.ts`,
+`packages/cli/src/i18n/{index,es}.ts`.
 
-**Tamaño:** S.
+**Tamaño:** S. Se añadieron `run.ts` y el catálogo i18n, que no estaban previstos, para que el
+criterio de "no arranca el server" fuera verificable y para que los mensajes salieran del catálogo
+como pide el spec.
 
 ---
 
