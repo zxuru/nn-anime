@@ -829,9 +829,13 @@ anuncios accesibles.
 **Aceptación:**
 - [ ] `readStream`, `writeStream`, `invalidateStream`.
 - [ ] TTL de 600 s, y `readStream` devuelve `null` cuando el TTL venció aunque la fila exista.
-- [ ] Los headers se guardan serializados y vuelven a `StreamSource` completos.
+- [ ] **Los headers de upstream no se guardan.** La fila lleva URL, tipo, calidad y subtítulos.
+      Esta aceptación decía «los headers se guardan serializados», que contradecía a la vez la
+      mitigación 6 del spec de proyecto y el `Never` de `SPEC-catalog-store.md`. Corregido al
+      auditar: quien los necesite los pide al almacén en memoria de `media-proxy`, y si ya no
+      están, el proxy revalida.
 - [ ] `invalidateStream` borra sólo la clave de episodio y modo indicados.
-- [ ] Test: los headers nunca se incluyen en la forma pública del resultado.
+- [ ] Test: los headers no aparecen en ninguna fila de la base ni en la forma pública.
 
 **Verificación:** `bun test packages/catalog-store`.
 

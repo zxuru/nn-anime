@@ -71,7 +71,8 @@ nn-anime/
 ├─ biome.json
 ├─ tsconfig.base.json
 ├─ packages/
-│  ├─ core/                       tipos, errores, config, logger, Result, i18n
+│  ├─ core/                       result, errors, logger, config, settings, i18n,
+│  │                              models y schema del dominio
 │  ├─ provider-sdk/               interfaz Provider, registro, loader de plugins
 │  ├─ catalog-store/              SQLite, migraciones, repositorios, política de caché
 │  ├─ media-proxy/                proxy de bytes y HLS, control de mpv
@@ -135,7 +136,9 @@ Convenciones:
 
 - Archivos y directorios en `kebab-case`. Tipos y componentes en `PascalCase`.
 - Funciones y variables en `camelCase`. Constantes de módulo en `SCREAMING_SNAKE_CASE`.
-- Un export por concepto. Sin barrels `index.ts` que reexporten todo el paquete.
+- Un export por concepto. El `index.ts` de un paquete es su **superficie pública curada**: enumera
+  a mano lo que es contrato y no reexporta el árbol del paquete. Un `export *` no se usa nunca, ni
+  siquiera entre módulos del mismo paquete.
 - Preferir `readonly` y tipos de unión sobre flags booleanos.
 - Comentarios en español, identificadores en inglés. Los comentarios explican el porqué, no el qué.
 - Sin `console.log` fuera de `packages/core/src/logger.ts`.
@@ -153,8 +156,8 @@ watch_event      id, anime_id, episode_id, provider_id, mode, position_s, durati
                  started_at, finished
 favorite         anime_id, created_at
 search_history   id, query, provider_id, hits, created_at
-stream_cache     episode_id, mode, url, kind, headers_json, subtitles_json,
-                 quality, fetched_at, ttl_s
+stream_cache     episode_id, mode, url, kind, quality, subtitles_json,
+                 fetched_at, ttl_s
 setting          key, value_json
 schema_version   version, applied_at
 ```
@@ -171,6 +174,13 @@ TTL por tipo de recurso, en segundos:
 
 Regla dura del modelo: la base guarda metadatos y señales, nunca bytes de video. El proxy
 transmite y descarta.
+
+**Los headers de upstream no se persisten, y `stream_cache` no tiene columna para ellos.** La
+mitigación 6 dice que viven sólo en memoria del proceso; una columna `headers_json` la
+contradecía, y una caché en disco con cookies o tokens de referencia de un tercero es superficie
+de ataque a cambio de muy poco: la URL caduca en diez minutos igual que sus headers. Quien los
+necesite los pide al almacén en memoria de `media-proxy`; si ya no están, el proxy revalida contra
+el proveedor. La miniatura de subtítulos sí se persiste: son etiquetas y direcciones, no secretos.
 
 ## Testing Strategy
 
@@ -333,3 +343,8 @@ tarea que lo cierra. T47 hace el barrido final y comprueba que ninguno se quedó
 2. **Alcance de v1.5.** ¿Entra sólo `downloads`, o también `metadata-enrichment`? Se propone
    sólo `downloads`, porque `metadata-enrichment` depende de la verificación del punto 1.
 3. **Idiomas objetivo después de `es`.** Se asume `en` primero. ¿Alguno más desde el principio?
+4. **¿Sobra `stream_cache`?** `media-proxy` ya guarda URL y headers en memoria, con tope de 500
+   entradas y vida de 600 s. Persistir además la URL en SQLite sólo sirve para sobrevivir a un
+   reinicio dentro de esos diez minutos, y a cambio deja en disco una dirección que puede llevar
+   token. La alternativa es quitar la tabla y la tarea T18, y dejar la caché de streams
+   enteramente en memoria. Es una decisión de alcance y la tiene que tomar el humano.

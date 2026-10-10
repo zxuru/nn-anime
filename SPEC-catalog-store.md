@@ -37,7 +37,9 @@ export interface CatalogStore {
   writeSearch(providerId: string, query: string, results: readonly SearchResult[]): Promise<void>
 
   // Streams: TTL corto, revalidación forzada antes de reproducir
+  /** Devuelve la fila cacheada. `headers` siempre viene sin definir: no se persisten. */
   readStream(episodeRef: ProviderRef, mode: Mode): Promise<StreamSource | null>
+  /** Guarda URL, tipo, calidad y subtítulos. Los `headers` de la fuente se descartan. */
   writeStream(request: StreamRequest, sources: readonly StreamSource[]): Promise<void>
   invalidateStream(episodeRef: ProviderRef, mode: Mode): Promise<void>
 
@@ -136,7 +138,9 @@ packages/catalog-store/
 **Never**
 
 - Guardar bytes de video, miniaturas en la base ni rutas a archivos de video.
-- Guardar headers de upstream en claro si contienen cookies o tokens de sesión del usuario.
+- Guardar headers de upstream, en claro o cifrados. Viven sólo en memoria del proceso, en
+  `media-proxy`: una caché en disco con credenciales de un tercero es superficie de ataque, y la
+  URL caduca en diez minutos igual que sus headers.
 - Borrar datos del usuario por un fallo de red.
 - Precargar por adelantado el catálogo de un proveedor.
 - Emitir SQL concatenado con entrada del usuario: siempre sentencias preparadas.
