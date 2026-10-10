@@ -63,7 +63,11 @@
       "version": "0.1.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
+        "@nn-anime/provider-sdk": "workspace:*",
         "hono": "^4",
+      },
+      "devDependencies": {
+        "@nn-anime/providers-fixture": "workspace:*",
       },
     },
     "packages/web": {

@@ -28,6 +28,7 @@ export {
   classifyThrow,
   describeProblems,
   duplicateId,
+  failureKindOf,
   invalidShape,
   type ProviderFailureKind,
   type ProviderFailureOptions,

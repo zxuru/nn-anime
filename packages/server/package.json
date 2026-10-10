@@ -8,9 +8,13 @@
   },
   "dependencies": {
     "@nn-anime/core": "workspace:*",
-    "hono": "^4"
+    "hono": "^4",
+    "@nn-anime/provider-sdk": "workspace:*"
   },
   "scripts": {
     "test": "bun test"
+  },
+  "devDependencies": {
+    "@nn-anime/providers-fixture": "workspace:*"
   }
 }

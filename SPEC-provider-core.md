@@ -166,6 +166,9 @@ Reglas del loader:
 Reglas de la búsqueda agregada:
 
 - Todos los proveedores activos, en paralelo, con `AbortSignal.timeout(8000)` propio.
+- El cierre del plazo lo garantiza el módulo, no la buena voluntad del plugin: uno que ignore la
+  señal no puede mantener la búsqueda abierta. Pasar la señal no basta, porque no hay forma de
+  obligar a un plugin a mirarla.
 - Se devuelven resultados parciales en cuanto llegan, vía el stream de eventos del server.
 - El resultado se cachea por proveedor y por consulta normalizada (`trim`, minúsculas, NFC).
 - Agrupación de duplicados entre proveedores por título normalizado más año, como pista visual,

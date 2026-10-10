@@ -711,17 +711,25 @@ red falla por conexión y no por suerte. Y `calls` cuenta por método, que es lo
 parciales sin que un proveedor lento o roto bloquee al resto.
 
 **Aceptación:**
-- [ ] Búsqueda en paralelo con `AbortSignal.timeout(8000)` por proveedor.
-- [ ] Se emiten resultados por proveedor a medida que llegan, con evento de cierre y de error.
-- [ ] Un proveedor que lanza produce un evento de error con su id, no una excepción.
-- [ ] Un proveedor que nunca responde se aborta a los 8 s y el flujo cierra igual.
-- [ ] La consulta se normaliza (`trim`, minúsculas, NFC) antes de usarse como clave.
+- [x] Búsqueda en paralelo con `AbortSignal.timeout(8000)` por proveedor.
+- [x] Se emiten resultados por proveedor a medida que llegan, con evento de cierre y de error.
+- [x] Un proveedor que lanza produce un evento de error con su id, no una excepción.
+- [x] Un proveedor que nunca responde se aborta a los 8 s y el flujo cierra igual.
+- [x] La consulta se normaliza (`trim`, minúsculas, NFC) antes de usarse como clave.
 
-**Verificación:** `bun test packages/server`.
+**Verificación:** `bun test packages/server/src/search` · 14 tests. Medido mutando la
+implementación: sin la carrera que cierra el plazo falla 1, sin el caso de cero proveedores 1 (por
+cuelgue: el test salta por tiempo límite), sin normalizar la consulta 2. Control: 0 fallos.
 
 **Depende de:** T10, T11.
 
 **Archivos:** `packages/server/src/search/{aggregate,aggregate.test}.ts`.
+
+**Decisión que no es obvia y conviene recordar:** el plazo lo cierra **el módulo**, no el
+proveedor. Pasar la señal no basta: un plugin que la ignore —o que haga una llamada de red sin
+mirarla— mantendría la búsqueda abierta para siempre, y el criterio dice que su ausencia no puede
+bloquear la respuesta. Por eso hay una carrera entre la consulta y el plazo, y hay una prueba con un
+proveedor que duerme 200 ms ignorando la señal: la búsqueda cierra a los 50 ms igual.
 
 **Tamaño:** M.
 

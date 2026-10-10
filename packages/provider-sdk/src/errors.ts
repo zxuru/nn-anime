@@ -138,6 +138,31 @@ export function invalidShape(
 }
 
 /**
+ * El tipo de fallo guardado en el contexto, si lo hay.
+ *
+ * El contexto de un `ProviderError` es un registro de datos sueltos, así que
+ * quien lo lea tiene que comprobar que el valor es uno de los conocidos. Esta
+ * función hace esa comprobación una vez, sin conversiones de tipo, para que el
+ * resto del sistema pueda clasificar sin repetir la lista.
+ */
+export function failureKindOf(reason: ProviderError): ProviderFailureKind | undefined {
+  const kind = reason.context.kind
+
+  switch (kind) {
+    case 'threw':
+    case 'aborted':
+    case 'timeout':
+    case 'invalid-shape':
+    case 'api-version':
+    case 'duplicate-id':
+    case 'unsupported':
+      return kind
+    default:
+      return undefined
+  }
+}
+
+/**
  * El mismo fallo, con el archivo delante.
  *
  * En un directorio con veinte plugins, «ya hay un proveedor con el id `bueno`»
