@@ -12,13 +12,14 @@
 
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { type ConfigEnvironment, createLogger, resolveLocale } from '@nn-anime/core'
+import { type ConfigEnvironment, createLogger } from '@nn-anime/core'
 import { createBootToken, createSession } from '@nn-anime/server'
 import { version } from '../package.json'
 import { boot, listenOnFreePort, type Migrate } from './boot'
-import { createLifecycle, signalExitCode, waitForSignal } from './lifecycle'
+import { createLifecycle, waitForSignal } from './lifecycle'
 import { openInBrowser } from './open-browser'
 import { type CliIO, run } from './run'
+import { createStarter } from './start'
 
 const io: CliIO = {
   out: (line) => {
@@ -70,52 +71,27 @@ const code = await run(Bun.argv.slice(2), {
   io,
   version,
   envLang,
-  start: async (options) => {
-    const locale = resolveLocale(options.lang ?? envLang)
-    const logger = createLogger({ level: options.verbose ? 'debug' : 'info' })
-    const lifecycle = createLifecycle({
-      onError: (error) => logger.warn('falló una tarea de cierre', { cause: error }),
-    })
-
-    // Las señales se registran antes de arrancar nada. Registrarlas después
-    // deja una ventana en la que un Ctrl+C usa la acción por defecto y se salta
-    // el cierre ordenado: hoy no habría daño, pero en T29 dejaría un mpv vivo.
-    const signal = waitForSignal(process)
-
-    const publicOrigin = process.env.NN_ANIME_DEV_ORIGIN
-    const result = await boot(options, {
-      io,
-      version,
-      locale,
-      lifecycle,
-      env: configEnvironment(process.env),
-      migrate,
-      listen: listenOnFreePort,
-      publicOrigin,
-      // En desarrollo el proxy apunta a un puerto fijo: mudarse de puerto en
-      // silencio dejaría la interfaz cargando y la API inalcanzable.
-      allowPortFallback: publicOrigin === undefined,
-      webRoot: webBuildRoot(),
-      createSession,
-      createBootToken,
-      openUrl: (url) =>
-        openInBrowser(url, {
-          spawn: (argv) =>
-            Bun.spawn([...argv], { stdin: 'ignore', stdout: 'ignore', stderr: 'ignore' }),
-        }),
-    })
-
-    if (result.code !== 0) return result.code
-
-    // Se registra el puerto, nunca la URL: lleva el token de arranque.
-    logger.info('servidor en marcha', { port: result.port })
-
-    const received = await signal
-    logger.info('cerrando', { signal: received })
-    await lifecycle.shutdown()
-
-    return signalExitCode(received)
-  },
+  start: createStarter({
+    io,
+    version,
+    envLang,
+    env: configEnvironment(process.env),
+    publicOrigin: process.env.NN_ANIME_DEV_ORIGIN,
+    webRoot: webBuildRoot(),
+    listen: listenOnFreePort,
+    migrate,
+    createSession,
+    createBootToken,
+    openUrl: (url) =>
+      openInBrowser(url, {
+        spawn: (argv) =>
+          Bun.spawn([...argv], { stdin: 'ignore', stdout: 'ignore', stderr: 'ignore' }),
+      }),
+    createLogger: (verbose) => createLogger({ level: verbose ? 'debug' : 'info' }),
+    createLifecycle: (onError) => createLifecycle({ onError }),
+    boot,
+    waitForSignal: () => waitForSignal(process),
+  }),
 }).catch((error: unknown) => {
   io.err(error instanceof Error ? error.message : String(error))
   return 1

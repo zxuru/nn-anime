@@ -24,7 +24,6 @@ import { securityHeaders } from './middleware/security-headers'
 import { sessionGuard } from './middleware/session-guard'
 import { PROTECTED_PREFIXES } from './paths'
 import type { Session } from './session'
-import { staticAssets } from './static-assets'
 
 /** Puerto conocido en el momento de montar la aplicación, o función que lo lee. */
 export type PortSource = number | (() => number)
