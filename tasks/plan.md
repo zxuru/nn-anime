@@ -333,7 +333,9 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] T24 Página de detalle: metadatos, episodios, sub/dub, favorito
 
 ### Checkpoint E — Detalle
-- [ ] Buscar → detalle → lista de episodios, con datos cacheados
+- [x] Buscar → detalle → lista de episodios, con datos cacheados: las tres rutas pasan por
+      `readThrough` y anuncian su origen en `X-Cache`; la pantalla de detalle consume las dos de
+      metadatos y el favorito se persiste. La comprobación en navegador real es del e2e (T43)
 
 ### Fase 5 — Reproducción
 - [ ] T25 Almacén de tickets opacos en memoria
