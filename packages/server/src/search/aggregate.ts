@@ -60,6 +60,14 @@ export function normalizeQuery(query: string): string {
 export interface AggregateOptions {
   /** Tiempo límite por proveedor. Se acorta en los tests. */
   readonly timeoutMs?: number
+  /**
+   * Cancelación del consumidor.
+   *
+   * Cuando el cliente corta la conexión hay que abortar también las peticiones a
+   * los proveedores: sin esto, cada búsqueda abandonada seguiría trabajando
+   * contra sitios de terceros.
+   */
+  readonly signal?: AbortSignal
 }
 
 /**
@@ -114,8 +122,10 @@ async function searchOne(
   provider: Provider,
   query: string,
   timeoutMs: number,
+  external?: AbortSignal,
 ): Promise<SearchEvent> {
-  const signal = AbortSignal.timeout(timeoutMs)
+  const plazo = AbortSignal.timeout(timeoutMs)
+  const signal = external === undefined ? plazo : AbortSignal.any([plazo, external])
 
   const consulta = searchProvider(provider, query, { signal, timeoutMs }).then(
     (result): SearchEvent => {
@@ -146,7 +156,10 @@ async function searchOne(
    * garantiza el cierre aunque el plugin no colabore.
    */
   const limite = new Promise<SearchEvent>((resolve) => {
-    signal.addEventListener(
+    // El plazo se mide con su propia señal: una cancelación del cliente no es un
+    // tiempo agotado, y decir «no respondió en 8000 ms» cuando el usuario cerró
+    // la pestaña sería mentir en el único sitio donde se puede saber la verdad.
+    plazo.addEventListener(
       'abort',
       () =>
         resolve({
@@ -176,6 +189,12 @@ export async function* searchAll(
   const normalized = normalizeQuery(query)
   const timeoutMs = options.timeoutMs ?? SEARCH_TIMEOUT_MS
   const queue = createQueue<SearchEvent>()
+  const external = options.signal
+
+  if (external?.aborted === true) return
+
+  // El cierre por cancelación no emite evento: no queda nadie a quien contarlo.
+  external?.addEventListener('abort', () => queue.close(), { once: true })
 
   // Sin proveedores no hay nada que esperar, y esperar sería colgarse.
   if (providers.length === 0) {
@@ -187,7 +206,7 @@ export async function* searchAll(
     // El `catch` no es por si acaso: convierte en dato cualquier cosa que se
     // escape de la cadena, y así «esto nunca lanza» deja de ser una promesa del
     // comentario y pasa a ser una propiedad del código.
-    void searchOne(provider, normalized, timeoutMs)
+    void searchOne(provider, normalized, timeoutMs, external)
       .catch(
         (cause: unknown): SearchEvent => ({
           type: 'error',

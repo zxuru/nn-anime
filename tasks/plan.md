@@ -301,7 +301,7 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] T10 `provider-sdk`: loader de plugins con aislamiento de fallos
 - [x] T11 `providers-fixture` con contrato completo y modos de fallo
 - [x] T12 Búsqueda agregada con timeout por proveedor y resultados parciales
-- [ ] T13 Rutas `/api/providers` y `/api/search` con SSE
+- [x] T13 Rutas `/api/providers` y `/api/search` con SSE
 - [ ] T14 Página de búsqueda: grilla, etiqueta de origen, navegación por teclado
 - [ ] T15 Búsqueda incremental por SSE: esqueletos, cancelación, `aria-live`
 

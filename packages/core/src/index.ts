@@ -8,6 +8,22 @@
  */
 
 export {
+  type ErrorResponse,
+  errorResponseSchema,
+  type HealthResponse,
+  healthResponseSchema,
+  type ProviderStatus,
+  type ProviderSummary,
+  type ProvidersResponse,
+  providerStatusSchema,
+  providerSummarySchema,
+  providersResponseSchema,
+  type SearchEventPayload,
+  type SearchQuery,
+  searchEventSchema,
+  searchQuerySchema,
+} from './api'
+export {
   APP_DIR_NAME,
   type ConfigEnvironment,
   type ConfigOverrides,
@@ -56,6 +72,7 @@ export {
   type DeepReadonly,
   type Episode,
   type Mode,
+  type ProviderCapabilities,
   type ProviderRef,
   type PublicStreamSource,
   type SearchResult,
@@ -77,6 +94,7 @@ export {
   episodeSchema,
   httpUrlSchema,
   modeSchema,
+  providerCapabilitiesSchema,
   providerRefSchema,
   searchResultSchema,
   streamHeadersSchema,

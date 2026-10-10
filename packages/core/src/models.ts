@@ -13,6 +13,7 @@ import type {
   candidateSchema,
   episodeSchema,
   modeSchema,
+  providerCapabilitiesSchema,
   providerRefSchema,
   searchResultSchema,
   streamModeSchema,
@@ -39,6 +40,7 @@ export type TitleKind = z.infer<typeof titleKindSchema>
 export type AiringStatus = z.infer<typeof airingStatusSchema>
 export type SubtitleFormat = z.infer<typeof subtitleFormatSchema>
 
+export type ProviderCapabilities = DeepReadonly<z.infer<typeof providerCapabilitiesSchema>>
 export type ProviderRef = DeepReadonly<z.infer<typeof providerRefSchema>>
 export type SubtitleTrack = DeepReadonly<z.infer<typeof subtitleTrackSchema>>
 export type StreamSource = DeepReadonly<z.infer<typeof streamSourceSchema>>

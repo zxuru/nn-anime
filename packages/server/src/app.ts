@@ -15,7 +15,7 @@
  * inalcanzable.
  */
 
-import type { Logger } from '@nn-anime/core'
+import { healthResponseSchema, type Logger } from '@nn-anime/core'
 import { Hono } from 'hono'
 import { bootstrapHandler } from './bootstrap'
 import { hostGuard } from './middleware/host-guard'
@@ -23,20 +23,15 @@ import { originGuard } from './middleware/origin-guard'
 import { securityHeaders } from './middleware/security-headers'
 import { sessionGuard } from './middleware/session-guard'
 import { PROTECTED_PREFIXES } from './paths'
+import { type PluginReport, registerProvidersRoute, summarizePlugins } from './routes/providers'
+import { registerSearchRoute } from './routes/search'
 import type { Session } from './session'
 
 /** Puerto conocido en el momento de montar la aplicación, o función que lo lee. */
 export type PortSource = number | (() => number)
 
-export interface ProviderSummary {
-  readonly id: string
-  readonly name: string
-  readonly sub: boolean
-  readonly dub: boolean
-  readonly status: 'active' | 'rejected'
-  /** Motivo del rechazo, cuando el plugin no cargó. */
-  readonly reason?: string
-}
+/** Reexportado para no obligar a nadie a saber de qué archivo sale. */
+export type { ProviderSummary } from '@nn-anime/core'
 
 export interface AppOptions {
   readonly port: PortSource
@@ -46,7 +41,16 @@ export interface AppOptions {
   /** Ruta local a la que ir tras canjear el token. Por defecto, `/`. */
   readonly redirectTo?: string
   readonly version: string
-  readonly providers?: readonly ProviderSummary[]
+  /**
+   * Lo que el loader encontró: los plugins activos y los rechazados con motivo.
+   *
+   * Es una sola cosa porque es una sola pregunta. Con dos campos —uno de activos
+   * para buscar y otro de resúmenes para mostrar— la interfaz podría enseñar un
+   * proveedor que la búsqueda no consulta.
+   */
+  readonly plugins?: PluginReport
+  /** Tiempo límite por proveedor en la búsqueda. Se acorta en los tests. */
+  readonly searchTimeoutMs?: number
   readonly mpvAvailable?: boolean
   readonly logger?: Logger
   /** Reloj del canje de arranque, inyectable para testear la caducidad. */
@@ -82,14 +86,24 @@ export function createApp(options: AppOptions): Hono {
     }),
   )
 
+  const plugins: PluginReport = options.plugins ?? { active: [], rejected: [] }
+
   app.get('/api/health', (c) =>
-    c.json({
-      version: options.version,
-      port: getPort(),
-      mpv: options.mpvAvailable ?? false,
-      providers: options.providers ?? [],
-    }),
+    c.json(
+      healthResponseSchema.parse({
+        version: options.version,
+        port: getPort(),
+        mpv: options.mpvAvailable ?? false,
+        providers: summarizePlugins(plugins),
+      }),
+    ),
   )
+
+  registerProvidersRoute(app, { plugins })
+  registerSearchRoute(app, {
+    providers: plugins.active.map((entry) => entry.provider),
+    ...(options.searchTimeoutMs === undefined ? {} : { timeoutMs: options.searchTimeoutMs }),
+  })
 
   return app
 }

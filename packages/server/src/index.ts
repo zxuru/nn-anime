@@ -4,7 +4,7 @@
 
 import { AppError } from '@nn-anime/core'
 import type { Hono } from 'hono'
-import { type AppOptions, createApp, type ProviderSummary } from './app'
+import { type AppOptions, createApp } from './app'
 import { staticAssets } from './static-assets'
 
 /** Dirección de escucha. Nunca `0.0.0.0`: el server es local por diseño. */
@@ -81,8 +81,10 @@ export function startServer(options: StartOptions): RunningServer {
   }
 }
 
+export { type AppOptions, createApp, type ProviderSummary } from './app'
 export { BOOT_PARAM } from './bootstrap'
 export { isProtectedPath, PROTECTED_PREFIXES } from './paths'
+export { type PluginReport, summarizePlugins } from './routes/providers'
 export {
   createBootToken,
   createSession,
@@ -91,4 +93,3 @@ export {
   type SessionStore,
   safeEqual,
 } from './session'
-export { type AppOptions, createApp, type ProviderSummary }

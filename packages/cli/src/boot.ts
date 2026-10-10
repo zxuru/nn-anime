@@ -21,7 +21,13 @@ import {
   type Settings,
 } from '@nn-anime/core'
 import type { LoadReport } from '@nn-anime/provider-sdk'
-import { BOOT_PARAM, type RunningServer, type Session, startServer } from '@nn-anime/server'
+import {
+  BOOT_PARAM,
+  type PluginReport,
+  type RunningServer,
+  type Session,
+  startServer,
+} from '@nn-anime/server'
 import type { CliOptions } from './args'
 import { t } from './i18n'
 import type { Lifecycle } from './lifecycle'
@@ -69,6 +75,12 @@ export interface ListenOptions {
    * API fallando por conexión. Ahí es mejor fallar de forma ruidosa.
    */
   readonly allowPortFallback?: boolean | undefined
+  /**
+   * Los plugins cargados, para que `/api/providers` y la búsqueda tengan qué
+   * servir. Sin esto el server arrancaría con la lista vacía y las dos rutas
+   * existirían para no devolver nada.
+   */
+  readonly plugins?: PluginReport | undefined
 }
 
 export type ListenOutcome =
@@ -272,6 +284,7 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     webRoot: deps.webRoot,
     redirectTo: redirectTarget(options.query, options.providers),
     allowPortFallback: deps.allowPortFallback,
+    plugins: { active: plugins.active, rejected: plugins.rejected },
   })
 
   if (!outcome.ok) {

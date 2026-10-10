@@ -15,6 +15,7 @@
 import {
   animeDetailSchema,
   episodeSchema,
+  providerCapabilitiesSchema,
   searchResultSchema,
   streamSourceSchema,
 } from '@nn-anime/core'
@@ -43,12 +44,8 @@ function methodSchema<M extends ProviderMethod>(name: M) {
   })
 }
 
-export const providerCapabilitiesSchema = z.strictObject({
-  search: z.boolean(),
-  sub: z.boolean(),
-  dub: z.boolean(),
-  trending: z.boolean(),
-})
+/** Se reexporta la de `core`: la misma forma la recibe el navegador en `/api/providers`. */
+export { providerCapabilitiesSchema }
 
 /**
  * Forma del objeto que exporta el archivo de un plugin.

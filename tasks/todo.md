@@ -740,27 +740,44 @@ proveedor que duerme 200 ms ignorando la señal: la búsqueda cierra a los 50 ms
 **Descripción:** Exponer el registro y la búsqueda incremental por HTTP.
 
 **Aceptación:**
-- [ ] **Los schemas de entrada también viven ahí**, y toda ruta que reciba cuerpo valida con ellos
+- [x] **Los schemas de entrada también viven ahí**, y toda ruta que reciba cuerpo valida con ellos
       antes de tocar nada. El spec lo pone en Boundaries como *Always* —«validar con Zod toda
-      entrada HTTP»— y no lo reclamaba ninguna tarea.
-- [ ] **Los schemas de respuesta viven en `packages/core/src/api.ts`.** Añadido al auditar: la
+      entrada HTTP»— y no lo reclamaba ninguna tarea. **Hoy la única entrada es la consulta**
+      (`q` y `provider` repetido, con tope de 200 caracteres y forma de id kebab-case); el schema de
+      cuerpo llegará con las rutas que lo reciban (T26, T32) usando el mismo mecanismo.
+- [x] **Los schemas de respuesta viven en `packages/core/src/api.ts`.** Añadido al auditar: la
       interfaz valida con Zod desde T8 y el server construye JSON a mano, pero ninguna tarea era
       dueña de las formas compartidas. Con dos definiciones paralelas la deriva no da error de
       compilación, da un `ApiShapeError` en el navegador. Aquí se crean, y el server las usa para
       construir y la interfaz para validar.
-- [ ] `GET /api/providers` lista id, nombre, capabilities y estado de carga, con el schema
+- [x] `GET /api/providers` lista id, nombre, capabilities y estado de carga, con el schema
       compartido.
-- [ ] `GET /api/search?q=&provider=` responde `text/event-stream` con un evento por proveedor y
+- [x] `GET /api/search?q=&provider=` responde `text/event-stream` con un evento por proveedor y
       un evento final.
-- [ ] El cliente que corta la conexión cancela los `AbortSignal` de los proveedores.
-- [ ] Un plugin roto aparece como proveedor rechazado con motivo, sin 500.
-- [ ] Ambas rutas pasan por los guards de T6.
+- [x] El cliente que corta la conexión cancela los `AbortSignal` de los proveedores.
+- [x] Un plugin roto aparece como proveedor rechazado con motivo, sin 500.
+- [x] Ambas rutas pasan por los guards de T6.
 
-**Verificación:** `bun test packages/server` · manual: `curl -N` contra `/api/search`.
+**Verificación:** `bun test packages/server/src/routes` · 18 tests. **En vivo** con `curl -N` y el
+CLI: el canje da la cookie, `/api/providers` devuelve el activo con sus capacidades reales y el
+rechazado con su motivo, `/api/search?q=aurora` emite `event: results` y `event: done`, el filtro
+`?provider=` limita, una consulta de 201 caracteres da 400 y sin cookie las dos rutas dan 401.
+Medido mutando la implementación: sin pasar la señal del cliente falla 1, sin el filtro de proveedor
+2, sin validar la consulta 2 y sin el motivo del rechazo 1. Control: 0 fallos.
 
 **Depende de:** T12.
 
 **Archivos:** `packages/server/src/routes/{providers,search}.ts`, `packages/server/src/routes/search.test.ts`.
+**Ampliación declarada:** `packages/core/src/api.ts` (el contrato compartido que pide la aceptación),
+`packages/server/src/{app,index}.ts` para montar las rutas, `packages/cli/src/boot.ts` para que el
+informe del loader llegue al server —sin eso las dos rutas existirían para devolver una lista
+vacía— y `provider-sdk` para reutilizar las capacidades de `core` en vez de tener dos definiciones
+de la misma forma. El archivo de pruebas cubre las dos rutas.
+
+**Decisión que conviene recordar:** el server recibe **una sola cosa**, el informe del loader
+(activos y rechazados), y deriva de él tanto la búsqueda como los resúmenes. Con dos campos —uno de
+activos para buscar y otro de resúmenes para mostrar— la interfaz podría enseñar un proveedor que la
+búsqueda no consulta.
 
 **Tamaño:** M.
 

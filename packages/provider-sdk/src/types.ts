@@ -13,6 +13,7 @@
 
 import type {
   AnimeDetail,
+  ProviderCapabilities as CoreProviderCapabilities,
   Episode,
   ProviderRef,
   SearchResult,
@@ -50,12 +51,13 @@ export const PROVIDER_METHODS: readonly ProviderMethod[] = [
   ...OPTIONAL_PROVIDER_METHODS,
 ]
 
-export interface ProviderCapabilities {
-  readonly search: boolean
-  readonly sub: boolean
-  readonly dub: boolean
-  readonly trending: boolean
-}
+/**
+ * Las capacidades son las de `core`, no una copia.
+ *
+ * La interfaz recibe las mismas en `/api/providers`, así que una segunda
+ * definición aquí sólo serviría para divergir de la otra.
+ */
+export type ProviderCapabilities = CoreProviderCapabilities
 
 export interface CallOptions {
   readonly signal: AbortSignal

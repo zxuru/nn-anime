@@ -92,6 +92,21 @@ function hasCredentials(value: string): boolean {
   }
 }
 
+/**
+ * Lo que un proveedor dice saber hacer.
+ *
+ * Vive aquí y no en `provider-sdk` porque también cruza el HTTP: la interfaz
+ * recibe las capacidades en `/api/providers`. Dos definiciones de la misma forma,
+ * una para el plugin y otra para la respuesta, es exactamente el tipo de deriva
+ * que no da error de compilación.
+ */
+export const providerCapabilitiesSchema = z.strictObject({
+  search: z.boolean(),
+  sub: z.boolean(),
+  dub: z.boolean(),
+  trending: z.boolean(),
+})
+
 export const modeSchema = z.enum(['sub', 'dub', 'raw'])
 export const streamModeSchema = z.enum(['sub', 'dub'])
 export const titleKindSchema = z.enum(['tv', 'movie', 'ova', 'ona', 'special'])
