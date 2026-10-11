@@ -40,6 +40,14 @@ bun run scripts/agente.ts abandonar T60 --si   # destructivo: tira la rama sin i
 - Cada worktree necesita su `bun install`, su base de datos (`NN_ANIME_DATA_DIR=<worktree>/.data/`)
   y su puerto (`--port`, 9000 más el número del task). Sin eso, dos agentes comparten el SQLite y
   aparece un `SQLITE_BUSY` que no es un fallo del código.
+- **La caché de bun, dentro del workspace y bajo un directorio ignorado.** En un worktree,
+  `bun install` falla con `EROFS accessing temporary directory` si el temporal está fuera del
+  workspace: se le da con `TMPDIR`, `BUN_TMPDIR` y `BUN_INSTALL_CACHE_DIR` apuntando a `.tmp/`. Y la
+  caché **no** puede quedar en un directorio sin ignorar: los archivos de `node_modules` son enlaces
+  duros a ella, así que `bun run lint:fix` la reescribe y rompe `node_modules` —dejó
+  `typescript/lib/lib.es5.d.ts` sin puntos y coma y `tsc` empezó a fallar con «Global type
+  'ThisType' must have 1 type parameter(s)»—. Con la caché en `.tmp/`, `biome check --write` sólo
+  mira los archivos del repositorio.
 - El reclamo es un ref: `update-ref` lo crea sólo si no existe, así que el segundo agente recibe
   error en vez de empezar un task ajeno. Lo libera `cerrar`, no el agente por su cuenta.
 - **Un solo escritor por archivo compartido.** `tasks/todo.md` y `tasks/plan.md` los toca el

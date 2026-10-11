@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import type { SearchResult } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
+import { describirFallo } from '../../api/fallo'
 import { Grid, GridItem } from '../../components/Grid'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { ResultCard } from './ResultCard'
@@ -94,7 +95,11 @@ describe('anuncio para lectores de pantalla', () => {
   })
 
   test('un fallo de transporte se anuncia como fallo', () => {
-    const estado = { ...initialState([]), done: true, failed: 'sin conexión' }
+    const estado = {
+      ...initialState([]),
+      done: true,
+      failed: describirFallo(new TypeError('Failed to fetch')),
+    }
 
     expect(announce(estado, [])).toContain('sin conexión')
   })

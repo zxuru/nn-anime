@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { fileURLToPath } from 'node:url'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
+import { ApiError } from '../../api/client'
+import { describirFallo } from '../../api/fallo'
 import { SecurityNotice, SecurityNoticeDialog } from './SecurityNotice'
 
 /**
@@ -86,9 +88,18 @@ describe('el diálogo', () => {
   })
 
   test('si el documento no llega, lo dice con el motivo', async () => {
-    const html = render(<SecurityNoticeDialog open onClose={() => {}} error="404 Not Found" />)
+    const html = render(
+      <SecurityNoticeDialog
+        open
+        onClose={() => {}}
+        error={describirFallo(new ApiError(404, 'GET /SECURITY.md respondió 404'))}
+      />,
+    )
 
-    expect(html).toContain('404 Not Found')
-    expect(html).toContain('search__error')
+    // Lo que se enseña es la clase del fallo —no está— y el mensaje crudo queda
+    // plegado, para quien tenga que buscar el fallo en los registros.
+    expect(html).toContain('Ese título no está')
+    expect(html).toContain('GET /SECURITY.md respondió 404')
+    expect(html).toContain('fallo')
   })
 })

@@ -18,6 +18,58 @@ export const messages: Messages = {
   'title.loading': 'Cargando…',
   'title.error': 'No se pudo cargar',
 
+  /*
+   * Cómo se cuenta un fallo de red.
+   *
+   * La clase la decide `api/fallo.ts` —sin conexión, el proveedor no responde, la
+   * sesión no vale— y el texto vive aquí, con el resto de la interfaz. Antes esto
+   * era una sola línea con el mensaje del cliente —«GET /api/anime/… respondió
+   * 502»—, que nombra el método, la ruta y el código, y ninguna de las tres cosas
+   * explica qué pasó ni qué hacer.
+   *
+   * Cada clase tiene **título** —qué pasó— y **cuerpo** —qué hacer—. El resumen es
+   * la frase corta para los sitios donde no cabe un aviso entero, como la línea
+   * del anuncio de la búsqueda.
+   */
+  'error.retry': 'Reintentar',
+  'error.technical': 'Detalles técnicos',
+  'error.title.sinConexion': 'Sin conexión con nn-anime',
+  'error.body.sinConexion':
+    'El navegador no pudo hablar con el servidor. Comprueba que nn-anime siga abierto y vuelve a intentarlo.',
+  'error.summary.sinConexion': 'sin conexión con el servidor',
+  'error.title.lento': 'El servidor tardó demasiado',
+  'error.body.lento':
+    'La petición pasó del tiempo límite. Puede ser la red o el proveedor, que va lento. Reintentar suele bastar.',
+  'error.summary.lento': 'el servidor tardó demasiado',
+  'error.title.sesion': 'La sesión de este navegador no vale',
+  'error.body.sesion':
+    'Entra por la dirección de arranque que imprime el CLI. La sesión viaja en una cookie que no se hereda entre navegadores.',
+  'error.summary.sesion': 'la sesión de este navegador no vale',
+  'error.title.noExiste': 'Ese título no está',
+  'error.body.noExiste':
+    'El proveedor no conoce esta referencia. Puede que la haya retirado o que le haya cambiado el nombre.',
+  'error.summary.noExiste': 'el proveedor no conoce esa referencia',
+  'error.title.proveedor': 'El proveedor no responde',
+  'error.body.proveedor':
+    'nn-anime está bien: es el sitio de origen el que falló o no contestó. Reintenta en un momento.',
+  'error.summary.proveedor': 'el proveedor no respondió',
+  'error.title.servidor': 'Fallo del servidor',
+  'error.body.servidor':
+    'nn-anime no pudo completar la operación. Reintenta; si sigue igual, los detalles técnicos dicen dónde mirar.',
+  'error.summary.servidor': 'el servidor falló',
+  'error.title.peticion': 'La petición no valía',
+  'error.body.peticion':
+    'El servidor la rechazó. Si el mensaje de abajo no lo explica, es un fallo de la aplicación.',
+  'error.summary.peticion': 'la petición no valía',
+  'error.title.forma': 'Respuesta inesperada',
+  'error.body.forma':
+    'El servidor contestó algo que la interfaz no entiende. Suele pasar cuando un proveedor cambia su web.',
+  'error.summary.forma': 'la respuesta no tenía la forma esperada',
+  'error.title.desconocido': 'Algo falló',
+  'error.body.desconocido':
+    'No se pudo completar la operación. Reintenta; si vuelve a pasar, los detalles técnicos ayudan a mirarlo.',
+  'error.summary.desconocido': 'algo falló',
+
   'home.title': 'Inicio',
 
   'search.title': 'Buscar',
@@ -72,7 +124,6 @@ export const messages: Messages = {
   'home.resume': 'Seguir en {time}',
   'settings.title': 'Ajustes',
   'settings.loading': 'Cargando los ajustes…',
-  'settings.error': 'No se pudieron cargar los ajustes: {message}',
   'settings.security.title': 'Antes de copiar un plugin, lee esto',
   'settings.security.body':
     'Los plugins se ejecutan sin sandbox, con tus permisos. Un plugin puede leer y escribir lo mismo que tú. Cópialos sólo si sabes de dónde vienen.',
@@ -80,7 +131,6 @@ export const messages: Messages = {
   'settings.security.close': 'Cerrar',
   'settings.security.raw': 'Ver SECURITY.md entero',
   'settings.security.loading': 'Cargando el aviso de seguridad…',
-  'settings.security.error': 'No se pudo cargar el aviso: {message}',
   'settings.providers': 'Proveedores',
   'settings.providers.empty': 'No hay ningún proveedor instalado.',
   'settings.provider.active': 'activo',
@@ -140,7 +190,6 @@ export const messages: Messages = {
   'settings.theme.light': 'Claro',
   'reco.title': 'Recomendado para ti',
   'reco.loading': 'Buscando qué recomendarte…',
-  'reco.error': 'No se pudieron cargar las recomendaciones: {message}',
   'reco.empty': 'Todavía no hay nada que recomendar. Busca algo y vuelve.',
   'reco.coldStart': 'Sin historial todavía: esto es lo más popular del catálogo.',
   'reco.personalized': 'Ordenado por lo que has visto y buscado.',
@@ -194,6 +243,9 @@ export const messages: Messages = {
   // perdió lo visto.
   'player.buffering': 'Almacenando en búfer…',
   'player.error': 'No se pudo reproducir: {message}',
+  // El proveedor contestó, pero sin ninguna fuente para ese episodio. No es un
+  // fallo de red y no se cuenta como tal: es que ese sitio no tiene el episodio.
+  'player.noSource': 'el proveedor no dio ninguna fuente para este episodio',
   // Los atajos, en dos piezas: la tecla —que se pinta como una tecla— y lo que
   // hace. Antes eran una sola frase en la parte de abajo y no se leía como lo
   // que es: teclas que se pueden pulsar.
@@ -242,8 +294,6 @@ export const messages: Messages = {
   'detail.favorite.add': 'Añadir a favoritos',
   'detail.favorite.remove': 'Quitar de favoritos',
   'detail.loading': 'Cargando la ficha…',
-  'detail.error': 'No se pudo cargar la ficha: {message}',
-  'detail.retry': 'Reintentar',
   'detail.notFound': 'Ese título no está en el proveedor.',
   'detail.related.year': 'Año {year}',
   'detail.related.none': 'No hay más títulos de esta saga en el catálogo local.',

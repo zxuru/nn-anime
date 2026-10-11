@@ -18,6 +18,8 @@
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import { Fragment, type ReactNode, useEffect, useRef } from 'react'
+import type { Fallo } from '../../api/fallo'
+import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import { type Block, type Inline, parseNotice } from './notice-markdown'
 
@@ -115,8 +117,8 @@ export interface SecurityNoticeDialogProps {
   readonly onClose: () => void
   /** El documento ya descargado, o `undefined` mientras se pide. */
   readonly markdown?: string | undefined
-  /** El motivo por el que no llegó, si no llegó. */
-  readonly error?: string | undefined
+  /** El fallo por el que no llegó, si no llegó. */
+  readonly error?: Fallo | undefined
 }
 
 export function SecurityNoticeDialog({
@@ -166,9 +168,7 @@ export function SecurityNoticeDialog({
 
       <div className="notice__body">
         {error !== undefined ? (
-          <p className="search__error">
-            {t(DEFAULT_LOCALE, 'settings.security.error', { message: error })}
-          </p>
+          <ErrorNotice fallo={error} />
         ) : markdown === undefined ? (
           <p className="empty" aria-live="polite">
             {t(DEFAULT_LOCALE, 'settings.security.loading')}

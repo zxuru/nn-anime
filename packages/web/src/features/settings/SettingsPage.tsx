@@ -15,6 +15,8 @@
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import { type ReactNode, useState } from 'react'
+import { FALLO_SIN_CAUSA } from '../../api/fallo'
+import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import { ProviderList } from './ProviderList'
 import { RegisterProvider } from './RegisterProvider'
@@ -50,9 +52,7 @@ export function SettingsPage(): ReactNode {
     return (
       <section className="settings">
         <h1>{t(DEFAULT_LOCALE, 'settings.title')}</h1>
-        <p className="search__error">
-          {t(DEFAULT_LOCALE, 'settings.error', { message: error ?? '' })}
-        </p>
+        <ErrorNotice fallo={error ?? FALLO_SIN_CAUSA} />
       </section>
     )
   }

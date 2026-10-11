@@ -43,6 +43,7 @@ import type {
 } from '@nn-anime/core/models'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet, apiPost } from '../../api/client'
+import { describirFallo, type Fallo } from '../../api/fallo'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
 
 export type DetailState = 'loading' | 'ready' | 'error'
@@ -103,7 +104,13 @@ export interface DetailData {
   /** El nombre declarado por cada proveedor cargado, por su id. */
   readonly providerNames: ReadonlyMap<string, string>
   readonly state: DetailState
-  readonly error: string | undefined
+  /**
+   * El fallo, ya clasificado.
+   *
+   * Se guarda la clase y no el mensaje: la pantalla tiene que decir qué pasó —el
+   * proveedor no responde, la sesión no vale— y el mensaje del cliente no lo dice.
+   */
+  readonly error: Fallo | undefined
   readonly reload: () => void
 }
 
@@ -162,7 +169,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
   const [capabilities, setCapabilities] = useState<ProviderCapabilities | undefined>(undefined)
   const [providerNames, setProviderNames] = useState<ReadonlyMap<string, string>>(new Map())
   const [state, setState] = useState<DetailState>('loading')
-  const [error, setError] = useState<string | undefined>(undefined)
+  const [error, setError] = useState<Fallo | undefined>(undefined)
   const controllerRef = useRef<AbortController | undefined>(undefined)
 
   /**
@@ -222,7 +229,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
       (cause: unknown) => {
         if (controller.signal.aborted) return
 
-        setError(cause instanceof Error ? cause.message : String(cause))
+        setError(describirFallo(cause))
         setState('error')
       },
     )

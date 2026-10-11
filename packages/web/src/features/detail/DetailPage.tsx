@@ -22,7 +22,9 @@ import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { AnimeDetail } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
+import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { Cover } from '../../components/Cover'
+import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import { detailTitleParts, useDocumentTitle } from '../../lib/document-title'
 import { isSafeUrl } from '../../lib/safe-url'
@@ -102,16 +104,7 @@ export function DetailPage(props: DetailPageProps): ReactNode {
   if (state === 'loading') return <Skeletons />
 
   if (state === 'error') {
-    return (
-      <section>
-        <p className="search__error">
-          {t(DEFAULT_LOCALE, 'detail.error', { message: error ?? '' })}
-        </p>
-        <button type="button" className="button" onClick={reload}>
-          {t(DEFAULT_LOCALE, 'detail.retry')}
-        </button>
-      </section>
-    )
+    return <ErrorNotice fallo={error ?? FALLO_SIN_CAUSA} onRetry={reload} />
   }
 
   if (detail === undefined) {
