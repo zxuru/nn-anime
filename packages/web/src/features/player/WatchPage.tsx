@@ -326,9 +326,12 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         startAtS={posicion}
         onPlay={visionado.onPlay}
         onPause={visionado.onPause}
-        onProgress={(positionS) => {
+        // La duración viaja al registro además de la posición: el servidor
+        // calcula con ella la proporción vista, y sin duración todo visionado
+        // valía cero y la fila de «continuar viendo» los descartaba a todos.
+        onProgress={(positionS, durationS) => {
           setPosicion(positionS)
-          visionado.onProgress(positionS, 0)
+          visionado.onProgress(positionS, durationS)
         }}
       />
     </section>

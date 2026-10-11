@@ -163,4 +163,68 @@ test.describe('el reproductor', () => {
 
     await expect(page).toHaveURL(/aurora-nocturna%233\?mode=dub/)
   })
+
+  /**
+   * El visionado queda registrado con su **duración**.
+   *
+   * El servidor calcula con la posición y la duración la proporción vista, y
+   * descarta lo que no llega al 2 %. Sin duración, todo valía cero y la fila de
+   * «continuar viendo» se quedaba vacía por mucho que se hubiera visto: la
+   * pantalla mandaba la posición y un cero en lugar de la duración del elemento.
+   *
+   * La comprobación va contra lo que devuelve la ruta y contra la fila pintada,
+   * porque el fallo estuvo justo en el puente entre las dos.
+   *
+   * Se entra por la ficha y no por una dirección escrita a mano: el visionado se
+   * registra contra el **episodio**, y sólo la lista de la ficha da una
+   * referencia de episodio con su número. Con la del título a secas, el alta
+   * responde 404 y no queda nada que continuar.
+   */
+  test('lo que se ve a medias aparece en «continuar viendo»', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    const lista = page.locator('.episodes li')
+    await expect(lista).toHaveCount(12, { timeout: 15_000 })
+    await lista.first().getByRole('link').click()
+
+    const video = page.locator('video')
+    await expect(video).toBeVisible({ timeout: 10_000 })
+    await expect(video).toHaveAttribute('src', /\/stream\//, { timeout: 10_000 })
+
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await page.waitForTimeout(2000)
+    await page.getByRole('button', { name: 'Pausa' }).click()
+
+    await expect
+      .poll(
+        async () => {
+          const respuesta = await page.request.get('/api/watch/recent')
+          const cuerpo = (await respuesta.json()) as { items: { durationS: number }[] }
+
+          return cuerpo.items.length
+        },
+        { timeout: 10_000 },
+      )
+      .toBeGreaterThan(0)
+
+    const cuerpo = (await (await page.request.get('/api/watch/recent')).json()) as {
+      items: { durationS: number; positionS: number }[]
+    }
+    const item = cuerpo.items[0]
+
+    // La duración es lo que faltaba: con cero, la fila descarta el visionado.
+    expect(item?.durationS).toBeGreaterThan(0)
+    expect(item?.positionS).toBeGreaterThan(0)
+
+    // Y en la home, la tarjeta con su barra: la fila entera se llenaba antes.
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: 'Continuar viendo' })).toBeVisible()
+    await expect(page.getByText('Nada a medias')).toHaveCount(0)
+
+    const fila = page.locator('.section').filter({ hasText: 'Continuar viendo' })
+    await expect(fila.locator('progress')).toBeVisible()
+    await expect(fila.locator('.poster__title').first()).toHaveText('Aurora Nocturna')
+  })
 })
