@@ -106,10 +106,16 @@ Comportamiento de la ruta de portadas (`GET /api/cover/:providerId/:ref`):
   (`default-src 'self'` sin `'unsafe-inline'`), pero esa defensa es indirecta y no debe ser la única.
 - Tope de 5 MB por portada: por encima, 413 y no se cachea.
 - La portada sale de la fila de `anime` si existe y, si no, de un **listado ya cacheado** —de
-  búsqueda o de tendencias— que contenga la referencia. Un `SearchResult` trae su `coverUrl` sin que
-  nadie haya abierto la ficha, y sin esta segunda vía las tarjetas de la búsqueda pedían una imagen
-  que la ruta contestaba 404 hasta que alguien abría el título.
-- Si la referencia no está en ninguna de las dos cachés, 404: la ruta **no** le pregunta al proveedor
+  búsqueda, de tendencias o del feed de novedades— que contenga la referencia. Un `SearchResult` trae
+  su `coverUrl` sin que nadie haya abierto la ficha, y sin esta segunda vía las tarjetas de la
+  búsqueda pedían una imagen que la ruta contestaba 404 hasta que alguien abría el título. El feed es
+  el caso extremo: la fila «Novedades» sale **entera** de un listado y no tiene detalle detrás, así
+  que sin la unión con `feed_cache` se pintaba de huecos. Medido el 2026-10-11 sobre la caché real de
+  `jkanime`: **2 de 10** portadas antes, **10 de 10** después.
+- Las tres cachés de listados se leen con el schema de `FeedEntry`, que es el más ancho: una
+  `FeedEntry` es un `SearchResult` con `publishedAt` opcional, y los schemas son estrictos, así que
+  leer una novedad con el de búsqueda la descartaría por traer la fecha. Al revés encaja siempre.
+- Si la referencia no está en ninguna de las tres cachés, 404: la ruta **no** le pregunta al proveedor
   por una portada que no conoce, así que la única petición saliente posible es la de los bytes de una
   portada ya cacheada, y esa pasa por la lista blanca de destinos como cualquier otra.
 - Caché HTTP normal con la TTL de miniatura de la tabla del spec (604800 s): `Cache-Control` con

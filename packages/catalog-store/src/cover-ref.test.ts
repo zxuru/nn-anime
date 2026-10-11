@@ -7,6 +7,7 @@ import type { ProviderRef, SearchResult } from '@nn-anime/core'
 import { findCoverUrl } from './cover-ref'
 import { openDb } from './db'
 import { runMigrations } from './migrations/runner'
+import { createFeedRepository } from './repositories/feed'
 import { createSearchRepository } from './repositories/search'
 import { createTrendingRepository } from './repositories/trending'
 
@@ -58,6 +59,35 @@ describe('findCoverUrl', () => {
       createTrendingRepository(db).write('fixture', [resultado('Aurora Nocturna')])
 
       expect(findCoverUrl(db, REF)).toBe('https://fixture.invalid/portada/aurora-nocturna.webp')
+    })
+  })
+
+  /**
+   * La fila de novedades es la que más lo necesita: es la única de la home que
+   * sale entera de un listado, así que sin esta vía cada tarjeta pedía una
+   * portada que la ruta contestaba 404 y la fila se pintaba de huecos.
+   *
+   * La entrada lleva `publishedAt`, y esa fecha es justo lo que la distingue: el
+   * schema de `SearchResult` es estricto y la rechazaría, así que la prueba
+   * también fija con qué forma se lee la fila del feed.
+   */
+  test('la saca del feed de novedades, que trae fecha', async () => {
+    await withDb((db) => {
+      createFeedRepository(db).write('fixture', [
+        { ...resultado('Aurora Nocturna'), publishedAt: '2026-10-01T12:00:00.000Z' },
+      ])
+
+      expect(findCoverUrl(db, REF)).toBe('https://fixture.invalid/portada/aurora-nocturna.webp')
+    })
+  })
+
+  test('una novedad de otro proveedor no cuenta', async () => {
+    await withDb((db) => {
+      createFeedRepository(db).write('otro', [
+        { ...resultado('Aurora Nocturna'), publishedAt: '2026-10-01T12:00:00.000Z' },
+      ])
+
+      expect(findCoverUrl(db, REF)).toBeUndefined()
     })
   })
 

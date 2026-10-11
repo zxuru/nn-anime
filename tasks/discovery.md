@@ -230,6 +230,15 @@ reserva del feed en el destacado falla 1, sin la de la caché 1, declarando el e
 lectura fallida 1, borrando las demás filas 1, sin el estado vacío de novedades 1 y sin la capacidad
 `feed` en Ajustes 1. Control: 0 fallos.
 
+**Defecto posterior (11-10):** la fila se pintaba de huecos. `findCoverUrl` miraba `search_cache` y
+`trending_cache`, y la fila de novedades es la única de la home que sale **entera** de un listado, sin
+detalle detrás: sus referencias de `jkanime` no estaban en ninguna de las dos. Corregido en
+`packages/catalog-store/src/cover-ref.ts` —la unión incluye `feed_cache`, y las tres filas se leen con
+`feedEntrySchema`, porque el schema de búsqueda es estricto y descarta la fecha—, con prueba de ruta en
+`packages/server/src/routes/cover.test.ts`. **Medido** sobre una copia de la caché real de `jkanime`,
+con las diez referencias de la captura: **2 de 10** portadas antes, **10 de 10** después. La prueba
+nueva falla en las dos mutaciones: quitar `feed_cache` de la unión y leerla con `searchResultSchema`.
+
 **Depende de:** T50.
 
 **Archivos:** `packages/web/src/features/home/useHomeRows.ts`,

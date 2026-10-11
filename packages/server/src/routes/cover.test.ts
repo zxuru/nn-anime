@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import type { SearchResult } from '@nn-anime/core'
+import type { FeedEntry, SearchResult } from '@nn-anime/core'
 import { MAX_COVER_BYTES, RASTER_TYPES } from '@nn-anime/media-proxy'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
 import { createApp, createContainer } from '../index'
@@ -30,6 +30,8 @@ async function conApp<T>(
     readonly sinPortada?: boolean
     /** Un listado cacheado, sin detalle: es el caso de la búsqueda. */
     readonly busqueda?: readonly SearchResult[]
+    /** El feed de novedades, sin detalle: es el caso de la fila «Novedades». */
+    readonly feed?: readonly FeedEntry[]
   } = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-portada-'))
@@ -88,6 +90,12 @@ async function conApp<T>(
       await container.store.writeSearch('fixture', 'aurora', opciones.busqueda)
     }
 
+    // El feed ya escrito: la fila de novedades es la única de la home que sale
+    // entera de un listado, y nadie abrió ninguna de sus fichas.
+    if (opciones.feed !== undefined) {
+      await container.store.writeFeed('fixture', opciones.feed)
+    }
+
     return await body({
       pedir: async (ruta, init) =>
         await Promise.resolve(servidor.request(`${BASE}${ruta}`, init ?? { headers: GOOD })),
@@ -133,6 +141,29 @@ describe('GET /api/cover/:providerId/:ref', () => {
         expect(upstream.llamadas).toBe(1)
       },
       { sinPortada: true, busqueda },
+    )
+  })
+
+  test('sirve la portada de un título que sólo está en el feed de novedades', async () => {
+    // La fila «Novedades» sale entera del feed y nadie abrió ninguna ficha: si el
+    // feed no cuenta como listado, todas sus tarjetas se pintan de huecos.
+    const feed: readonly FeedEntry[] = [
+      {
+        ref: { providerId: 'fixture', value: REF },
+        title: 'Aurora Nocturna',
+        coverUrl: 'https://fixture.invalid/portada/aurora-nocturna.webp',
+        publishedAt: '2026-10-01T12:00:00.000Z',
+      },
+    ]
+
+    await conApp(
+      async ({ pedir, upstream }) => {
+        const respuesta = await pedir(`/api/cover/fixture/${REF}`)
+
+        expect(respuesta.status).toBe(200)
+        expect(upstream.llamadas).toBe(1)
+      },
+      { sinPortada: true, feed },
     )
   })
 

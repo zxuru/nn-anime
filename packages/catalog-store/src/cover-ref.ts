@@ -9,9 +9,16 @@
  * práctica: ninguna imagen en los resultados de búsqueda ni en las tendencias.
  *
  * Esto **no** descubre portadas: lee la URL de la lista que el proveedor ya
- * devolvió, que es la misma condición que exige el spec. Las dos cachés de
- * listados comparten forma —`provider_id` y `results_json` con `SearchResult[]`—,
- * así que una sola consulta con `UNION ALL` sirve para las dos.
+ * devolvió, que es la misma condición que exige el spec. Los listados cacheados
+ * —búsquedas, tendencias y novedades— comparten forma, así que una sola consulta
+ * con `UNION ALL` sirve para los tres.
+ *
+ * La forma con la que se leen es la **del feed**, que es la más ancha: una
+ * `FeedEntry` es un `SearchResult` con `publishedAt` opcional, y los schemas son
+ * estrictos, así que leer una novedad con el de búsqueda la descartaría por traer
+ * la fecha. Al revés encaja siempre. La fila de novedades es la que más depende
+ * de esto: es la única de la home que sale entera de un listado, sin detalle
+ * cacheado detrás, y sin esta vía se pintaba de huecos.
  *
  * Las filas ilegibles se saltan en lugar de lanzar: una caché de búsqueda rota no
  * puede tumbar la portada de otra consulta, que es lo que haría leerla con
@@ -19,13 +26,15 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import { type ProviderRef, searchResultSchema } from '@nn-anime/core'
+import { feedEntrySchema, type ProviderRef } from '@nn-anime/core'
 
-/** Los listados cacheados de un proveedor: búsquedas y tendencias. */
+/** Los listados cacheados de un proveedor: búsquedas, tendencias y novedades. */
 const LISTADOS = `
   SELECT results_json FROM search_cache WHERE provider_id = ?
   UNION ALL
   SELECT results_json FROM trending_cache WHERE provider_id = ?
+  UNION ALL
+  SELECT results_json FROM feed_cache WHERE provider_id = ?
 `
 
 interface FilaListado {
@@ -35,7 +44,7 @@ interface FilaListado {
 /** La portada de una referencia dentro de un listado, o nada si no está. */
 function portadaEn(resultsJson: string, ref: string): string | undefined {
   try {
-    const parsed = searchResultSchema.array().safeParse(JSON.parse(resultsJson))
+    const parsed = feedEntrySchema.array().safeParse(JSON.parse(resultsJson))
     if (!parsed.success) return undefined
 
     for (const item of parsed.data) {
@@ -52,8 +61,8 @@ function portadaEn(resultsJson: string, ref: string): string | undefined {
 
 export function findCoverUrl(db: Database, ref: ProviderRef): string | undefined {
   const filas = db
-    .query<FilaListado, [string, string]>(LISTADOS)
-    .all(ref.providerId, ref.providerId)
+    .query<FilaListado, [string, string, string]>(LISTADOS)
+    .all(ref.providerId, ref.providerId, ref.providerId)
 
   for (const fila of filas) {
     const portada = portadaEn(fila.results_json, ref.value)
