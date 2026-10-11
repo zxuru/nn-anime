@@ -52,6 +52,16 @@ bun run scripts/agente.ts abandonar T60 --si   # destructivo: tira la rama sin i
 - En un worktree el índice es propio, así que commitear con `-- <rutas>` deja de ser una defensa y
   sigue siendo la regla: el árbol de integración sí es compartido.
 
+### Los dos mecanismos que no dependen de que alguien lea esto
+
+1. **La skill de proyecto, `.agents/skills/agente-worktree/SKILL.md`.** DSH la descubre sola en cada
+   sesión de este repositorio y aparece en el catálogo de skills, así que el agente la ve antes de
+   empezar. Cualquier herramienta que soporte skills lee la misma ruta.
+2. **El gancho `pre-commit`, en `.githooks/pre-commit`.** No se lee: se ejecuta. Frena el commit
+   directo en `main` y nombra el archivo compartido o el spec que se está tocando. El merge de
+   `cerrar` pasa, porque lleva `MERGE_HEAD`. El integrador pasa con `NN_ANIME_INTEGRADOR=1`.
+   Se instala una vez por clon con `bun run hooks:instalar`; sin eso el gancho existe y no corre.
+
 ## Fuentes de verdad
 
 | Qué | Dónde | Cuándo se toca |

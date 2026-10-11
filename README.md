@@ -57,6 +57,7 @@ No hay ningún proveedor instalado de fábrica. Hasta que copies uno —ver
 | `bun run e2e:fallo` | El mismo arnés con el proveedor en modo fallo |
 | `bun run typecheck` | `tsc --noEmit` sobre todos los paquetes |
 | `bun run lint` | Biome |
+| `bun run hooks:instalar` | Instala el gancho de git que frena el commit directo en `main` |
 | `bun run db:migrate` | Crea o actualiza la base |
 | `bun run db:prune` | Limpia lo viejo |
 | `bun run coverage:gate` | Cobertura por paquete, con su umbral |

@@ -1,0 +1,5 @@
+#!/usr/bin/env bun
+// El mensaje vive en scripts/git-hooks.ts, que sí se prueba.
+import { main } from '../scripts/git-hooks'
+
+process.exitCode = main()
