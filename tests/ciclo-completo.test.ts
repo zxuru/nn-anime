@@ -245,18 +245,18 @@ describe('la puerta de entrada', () => {
 })
 
 describe('la segunda vuelta de la home', () => {
-  test('las recomendaciones no vuelven a pedir tendencias si no hay caché de eso', async () => {
+  test('las recomendaciones no vuelven a pedir tendencias: están cacheadas', async () => {
     await conCiclo(async ({ pedir, proveedor }) => {
       await (await pedir('/api/recommendations')).json()
       const trasLaPrimera = proveedor.calls.count('getTrending')
 
       await (await pedir('/api/recommendations')).json()
 
-      // **Hallazgo de la auditoría de T47**: las tendencias no se cachean, así que
-      // la segunda vuelta vuelve a pedirlas. El criterio de éxito dice «sin
-      // llamadas de red» y esto es una llamada de red: se deja medido y anotado en
-      // el informe, con su motivo —no hay TTL de tendencias en la tabla del spec—.
-      expect(proveedor.calls.count('getTrending')).toBeGreaterThan(trasLaPrimera)
+      // **Era un hallazgo de la auditoría de T47 y ya está arreglado**: las
+      // tendencias no se cacheaban, así que la segunda vuelta volvía a pedirlas.
+      // Ahora hay `trending_cache` con TTL de 900 s y la segunda carga no llama a
+      // nadie.
+      expect(proveedor.calls.count('getTrending')).toBe(trasLaPrimera)
     })
   })
 

@@ -43,6 +43,7 @@ import { createSearchRepository } from './repositories/search'
 import { createSearchHistoryRepository } from './repositories/search-history'
 import { createSettingsRepository } from './repositories/settings'
 import { createStreamRepository } from './repositories/stream'
+import { createTrendingRepository } from './repositories/trending'
 import { createWatchRepository } from './repositories/watch'
 import type { Revalidator } from './revalidate'
 import { createWriteQueue, type WriteQueue } from './write-queue'
@@ -72,6 +73,9 @@ export interface CatalogStore {
   writeAnime(ref: ProviderRef, detail: AnimeDetail): Promise<void>
   /** Los títulos cacheados, con sus tags, para el motor de recomendación. */
   listCandidates(limit: number): Promise<readonly CandidateRow[]>
+  /** Tendencias cacheadas de un proveedor. */
+  readTrending(providerId: string): Promise<CacheHit<readonly SearchResult[]> | null>
+  writeTrending(providerId: string, results: readonly SearchResult[]): Promise<void>
   readEpisodes(ref: ProviderRef): Promise<CacheHit<readonly Episode[]> | null>
   writeEpisodes(ref: ProviderRef, episodes: readonly Episode[]): Promise<void>
   /** Detalle y episodios en una sola transacción. */
@@ -123,6 +127,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     readonly favorites: ReturnType<typeof createFavoritesRepository>
     readonly history: ReturnType<typeof createSearchHistoryRepository>
     readonly settings: ReturnType<typeof createSettingsRepository>
+    readonly trending: ReturnType<typeof createTrendingRepository>
   }
 
   let repos: Repos | undefined
@@ -136,6 +141,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       favorites: createFavoritesRepository(db),
       history: createSearchHistoryRepository(db),
       settings: createSettingsRepository(db),
+      trending: createTrendingRepository(db),
     })
 
   return {
@@ -150,6 +156,14 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async listCandidates(limit) {
       return of().anime.list(limit)
+    },
+
+    async readTrending(providerId) {
+      return of().trending.read(providerId, ahora())
+    },
+
+    async writeTrending(providerId, results) {
+      await queue.run(() => of().trending.write(providerId, results, ahora()))
     },
 
     async readEpisodes(ref) {

@@ -52,11 +52,15 @@ modelo, Boundaries y Seguridad— y se comprobó cada uno contra el código y su
 |---|---|---|
 | **`revalidate_error` no está en el spec** | La migración `0003` añadió una tabla que el Data Model del spec no lista: son **11** tablas y el spec dice 10 | Anotado aquí. **Decisión pendiente** para el Checkpoint H: o se documenta la tabla o se quita |
 | ~~La tabla `genre` no se escribe nunca~~ | **FALSO, y lo escribí yo.** La tabla **sí se escribe**: `writeAnimeRow` inserta los géneros en la misma transacción que el título. Lo comprobé al ir a arreglarlo: dos géneros, dos filas. El error salió de un `grep` mal hecho durante la auditoría | **Corregido en el spec.** Es el sexto caso de comprobación que no medía lo que decía medir, y esta vez el fallo fue mío y en la propia auditoría |
-| **Las tendencias no se cachean** | La segunda carga de la home **vuelve a llamar a `getTrending`**: el criterio de éxito dice «sin llamadas de red» y esto es una llamada | **Medido** en `tests/ciclo-completo.test.ts`. No hay TTL de tendencias en la tabla del spec; añadirlo es una decisión de producto |
-| **El guard de `Host` acepta `localhost`** | Las cookies ignoran el puerto: otra aplicación local en `localhost:OTRO_PUERTO` es el mismo sitio y podría leer la sesión | Anotado con las dos opciones. **Decisión de producto** |
+| ~~Las tendencias no se cachean~~ | La segunda carga de la home volvía a llamar a `getTrending` | **Arreglado en el Checkpoint H**: `trending_cache` con TTL de 900 s, en las dos rutas que piden tendencias. La prueba que medía el fallo ahora mide que **no** vuelve a llamar |
+| ~~El guard de `Host` acepta `localhost`~~ | Las cookies ignoran el puerto: otra aplicación local en `localhost:OTRO_PUERTO` es el mismo sitio y podría leer la sesión | **Arreglado en el Checkpoint H**: sólo se admite `127.0.0.1:PUERTO`. Quien escriba `localhost` a mano recibe 403 |
 | **Los ocho criterios de éxito del spec** | Siete verificados y marcados en el propio spec; uno (**home sin llamadas de red**) queda con el matiz de las tendencias | Ver abajo |
 
 ### Los criterios de los specs de módulo: **están sin marcar, y el trabajo está hecho**
+
+**Resuelto en el Checkpoint H:** cada spec de módulo lleva ahora un puntero que dice que el registro
+que se mantiene es la aceptación de cada tarea en `tasks/todo.md`. Mantener dos listas de lo mismo
+acaba con una de las dos mintiendo, y la que mintió durante la v1 fue ésta.
 
 Los siete specs de módulo tienen **62 criterios sin marcar** entre todos. Al auditarlos, el trabajo
 está hecho y probado; lo que falta es la marca. Un muestreo de dos por spec:

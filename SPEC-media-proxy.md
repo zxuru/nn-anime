@@ -1,4 +1,9 @@
 # Spec: media-proxy
+> **Los criterios de esta lista no son el registro que se mantiene.** El trabajo se cierra contra la
+> aceptación de cada tarea en `tasks/todo.md`, que está marcada **y medida mutando la implementación**;
+> esta lista es el contrato —el *qué*— y duplica aquélla. Se decidió en el Checkpoint H: mantener dos
+> listas de lo mismo acaba con una de las dos mintiendo, y la que mintió durante la v1 fue ésta.
+
 
 Module id: `media-proxy` · Depende de: `core`, `provider-core` · Paquete: `packages/media-proxy`
 Convenciones heredadas de `SPEC-nn-anime.md`.

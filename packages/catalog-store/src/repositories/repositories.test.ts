@@ -68,6 +68,9 @@ describe('política de caché', () => {
       episodes: 21600,
       stream: 600,
       cover: 604800,
+      // Las tendencias no estaban en la tabla del spec: las añadió la auditoría de
+      // T47, que encontró que la segunda carga de la home volvía a pedirlas.
+      trending: 900,
     })
   })
 

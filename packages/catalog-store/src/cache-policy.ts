@@ -20,6 +20,9 @@ export const TTL_SECONDS = {
   episodes: 21600,
   stream: 600,
   cover: 604800,
+  // Las tendencias cambian más que un detalle y menos que una búsqueda: quince
+  // minutos. No estaban en la tabla del spec; las añadió la auditoría de T47.
+  trending: 900,
 } as const
 
 export type CacheResource = keyof typeof TTL_SECONDS

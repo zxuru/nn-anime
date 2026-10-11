@@ -69,17 +69,26 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
       (provider) => provider.capabilities.trending && provider.getTrending !== undefined,
     )
 
+    // Primero la caché: la segunda carga de la home no puede volver a pedir las
+    // tendencias. Lo encontró la auditoría de T47 midiendo las llamadas.
     const resultados = await Promise.all(
       conTendencias.map(async (provider) => {
+        const cacheado = await options.container.store.readTrending(provider.id)
+        if (cacheado !== null) return cacheado.value
+
         const tendencias = provider.getTrending
         if (tendencias === undefined) return []
 
         try {
-          return await tendencias.call(provider, {
+          const lista = await tendencias.call(provider, {
             signal: c.req.raw.signal,
             timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
           })
+          await options.container.store.writeTrending(provider.id, lista)
+
+          return lista
         } catch {
+          // Un proveedor que no responde a tendencias no puede tumbar la lista.
           return []
         }
       }),
@@ -140,13 +149,22 @@ export function registerRecommendationsRoute(
         timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
       }
 
+      // La caché va también aquí: esta ruta es la que alimenta el panel de la home,
+      // y sin ella la segunda carga volvía a pedir las tendencias. Lo encontró la
+      // auditoría de T47 midiendo las llamadas.
       const resultados = await Promise.all(
         conTendencias.map(async (provider) => {
+          const cacheado = await options.container.store.readTrending(provider.id)
+          if (cacheado !== null) return cacheado.value
+
           try {
             const tendencias = provider.getTrending
             if (tendencias === undefined) return []
 
-            return await tendencias.call(provider, callOptions)
+            const lista = await tendencias.call(provider, callOptions)
+            await options.container.store.writeTrending(provider.id, lista)
+
+            return lista
           } catch {
             // Un proveedor que no responde a tendencias no puede tumbar la lista:
             // lo local sigue estando.
