@@ -10,6 +10,9 @@ pierde o que se mezcla.
 
 - Un commit por tarea, atómico, con el asunto en imperativo y el id del task: `feat(server): la
   ruta del feed (T50)`.
+- Se commitea **con la lista de rutas**: `git commit -m "…" -- <rutas>`. El índice lo comparte todo
+  el que trabaje en el repositorio a la vez, y un `git commit` sin rutas se lleva lo que otra sesión
+  tuviera preparado. Pasó una vez y el mensaje lo tuvo que declarar.
 - El commit incluye **sólo** los archivos de esa tarea. Si el árbol ya venía sucio, se commitea
   primero lo pendiente como su propio commit, y lo dice el mensaje.
 - Antes de commitear: `bun run typecheck`, `bun run lint` y `bun test` en verde en los paquetes
