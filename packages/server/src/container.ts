@@ -24,7 +24,7 @@ import {
   type StoreConnection,
   type WriteQueue,
 } from '@nn-anime/catalog-store'
-import type { StreamRequest, StreamSource } from '@nn-anime/core'
+import type { FeedEntry, StreamRequest, StreamSource } from '@nn-anime/core'
 import {
   type AnimeDetail,
   type Episode,
@@ -51,11 +51,23 @@ import {
   type CallOptions,
   getAnime as fetchAnime,
   getEpisodes as fetchEpisodes,
+  getFeed as fetchFeed,
   resolveStream as fetchStream,
+  getTrending as fetchTrending,
   type Provider,
   search as searchProvider,
 } from '@nn-anime/provider-sdk'
 import { type CacheOutcome, readThrough } from './cache-read'
+
+/**
+ * Cuántas entradas de un feed se guardan y se sirven, como mucho.
+ *
+ * El tope lo pone quien lee, no el plugin, y se aplica **antes** de escribir: una
+ * fuente no puede llenar el disco ni hacer que la home pinte mil tarjetas. Vive
+ * aquí desde T54 porque quien lee y cachea es el contenedor; la ruta sólo agrega
+ * lo que recibe.
+ */
+export const MAX_FEED_ENTRIES = 200
 
 /** Clave de caché de una búsqueda: el proveedor y la consulta normalizada. */
 export function searchKey(providerId: string, query: string): string {
@@ -100,6 +112,22 @@ export interface ServerContainer {
   searchProvider(
     provider: Provider,
     query: string,
+    callOptions: CallOptions,
+  ): Promise<Result<CacheOutcome<readonly SearchResult[]>, ProviderError>>
+  /**
+   * Novedades de la fuente, con caché y refresco por detrás si toca.
+   *
+   * Va aquí y no en la ruta por el mismo motivo que el detalle: el TTL se mira en
+   * un solo sitio. Hasta T54 la ruta servía la caché aunque estuviera caducada, y
+   * una entrada publicada después de la primera carga no aparecía jamás.
+   */
+  getFeed(
+    provider: Provider,
+    callOptions: CallOptions,
+  ): Promise<Result<CacheOutcome<readonly FeedEntry[]>, ProviderError>>
+  /** Tendencias de la fuente, con caché y refresco por detrás si toca. */
+  getTrending(
+    provider: Provider,
     callOptions: CallOptions,
   ): Promise<Result<CacheOutcome<readonly SearchResult[]>, ProviderError>>
   close(): Promise<void>
@@ -262,6 +290,77 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     }
   }
 
+  /**
+   * Las novedades de la fuente.
+   *
+   * La clave lleva el recurso delante porque el revalidador deduplica por clave
+   * sola: sin el prefijo, el feed de `fixture` y sus tendencias compartirían
+   * entrada y una de las dos revalidaciones se descartaría por duplicada.
+   */
+  const loadFeed = async (
+    provider: Provider,
+    callOptions: CallOptions,
+  ): Promise<Result<CacheOutcome<readonly FeedEntry[]>, ProviderError>> => {
+    try {
+      const outcome = await readThrough<readonly FeedEntry[]>({
+        key: `feed#${provider.id}`,
+        resource: 'feed',
+        revalidator,
+        read: () => store.readFeed(provider.id),
+        fetch: async () => {
+          const resultado = await fetchFeed(provider, callOptions)
+          if (!resultado.ok) throw resultado.error
+
+          // El recorte va antes de escribir: lo que no se cachea no se sirve.
+          return resultado.value.slice(0, MAX_FEED_ENTRIES)
+        },
+        write: (entradas) => store.writeFeed(provider.id, entradas),
+        onError: (key, message) => {
+          markRevalidateError(options.db, 'feed', key, message)
+        },
+        onSuccess: (key) => {
+          clearRevalidateError(options.db, 'feed', key)
+        },
+      })
+
+      return ok(outcome)
+    } catch (cause) {
+      return err(asProviderError(cause, provider.id, 'getFeed'))
+    }
+  }
+
+  /** Las tendencias de la fuente, con el mismo camino que el feed. */
+  const loadTrending = async (
+    provider: Provider,
+    callOptions: CallOptions,
+  ): Promise<Result<CacheOutcome<readonly SearchResult[]>, ProviderError>> => {
+    try {
+      const outcome = await readThrough<readonly SearchResult[]>({
+        key: `trending#${provider.id}`,
+        resource: 'trending',
+        revalidator,
+        read: () => store.readTrending(provider.id),
+        fetch: async () => {
+          const resultado = await fetchTrending(provider, callOptions)
+          if (!resultado.ok) throw resultado.error
+
+          return resultado.value
+        },
+        write: (resultados) => store.writeTrending(provider.id, resultados),
+        onError: (key, message) => {
+          markRevalidateError(options.db, 'trending', key, message)
+        },
+        onSuccess: (key) => {
+          clearRevalidateError(options.db, 'trending', key)
+        },
+      })
+
+      return ok(outcome)
+    } catch (cause) {
+      return err(asProviderError(cause, provider.id, 'getTrending'))
+    }
+  }
+
   return {
     store,
     revalidator,
@@ -271,6 +370,8 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     mpv,
     getAnime: loadAnime,
     getEpisodes: loadEpisodes,
+    getFeed: loadFeed,
+    getTrending: loadTrending,
     resolveStream: loadStream,
 
     async searchProvider(provider, query, callOptions) {

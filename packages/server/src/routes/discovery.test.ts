@@ -12,11 +12,11 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import { feedResponseSchema, recentResponseSchema } from '@nn-anime/core'
+import { openDb, runMigrations, TTL_SECONDS } from '@nn-anime/catalog-store'
+import { type FeedEntry, feedResponseSchema, recentResponseSchema } from '@nn-anime/core'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import { MAX_FEED_ENTRIES } from '../container'
 import { createApp, createContainer } from '../index'
-import { MAX_FEED_ENTRIES } from './discovery'
 
 const PORT = 7717
 const SESSION_COOKIE = 'nn_session'
@@ -24,10 +24,24 @@ const SESSION_VALUE = 'sesion-de-prueba'
 const BASE = `http://127.0.0.1:${PORT}`
 const GOOD = { cookie: `${SESSION_COOKIE}=${SESSION_VALUE}`, origin: BASE }
 
+/** Una entrada de feed mínima, para las pruebas que controlan el contenido. */
+function entrada(value: string, title: string): FeedEntry {
+  return { ref: { providerId: 'fixture', value }, title }
+}
+
 interface Contexto {
   readonly pedir: (ruta: string, init?: RequestInit) => Promise<Response>
   readonly db: ReturnType<typeof openDb>
   readonly proveedor: ReturnType<typeof createFixtureProvider>
+  readonly container: ReturnType<typeof createContainer>
+}
+
+/** Espera a que la cola de revalidación se vacíe, sin dormir de más. */
+async function hastaTerminar(revalidator: {
+  running(): number
+  queued(): readonly string[]
+}): Promise<void> {
+  while (revalidator.running() > 0 || revalidator.queued().length > 0) await Bun.sleep(1)
 }
 
 async function conApp<T>(
@@ -35,12 +49,17 @@ async function conApp<T>(
   opciones: {
     readonly proveedor?: ReturnType<typeof createFixtureProvider>
     readonly buscar?: string
+    /** Reloj inyectable: sin él, la caducidad son treinta minutos de espera. */
+    readonly now?: () => number
   } = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-discovery-'))
   const db = openDb(join(dir, 'nn-anime.db'))
   runMigrations(db)
-  const container = createContainer({ db })
+  const container = createContainer({
+    db,
+    ...(opciones.now === undefined ? {} : { now: opciones.now }),
+  })
   const proveedor = opciones.proveedor ?? createFixtureProvider()
 
   try {
@@ -72,6 +91,7 @@ async function conApp<T>(
         await Promise.resolve(servidor.request(`${BASE}${ruta}`, init ?? { headers: GOOD })),
       db,
       proveedor,
+      container,
     })
   } finally {
     await container.close().catch(() => {})
@@ -133,6 +153,100 @@ describe('GET /api/feed', () => {
       expect(primera).toBe(1)
       expect(proveedor.calls.count('getFeed')).toBe(1)
     })
+  })
+
+  test('una caché caducada se sirve ya y se revalida por detrás', async () => {
+    // El reloj se mueve a mano: lo contrario es esperar media hora de TTL.
+    let reloj = Date.now()
+    let entradas = [entrada('vieja', 'Vieja')]
+    let liberar: (() => void) | undefined
+    let llamadas = 0
+
+    const base = createFixtureProvider()
+    const cambiante = {
+      ...base,
+      capabilities: { ...base.capabilities, feed: true },
+      getFeed: async () => {
+        llamadas += 1
+        // El refresco de fondo se queda esperando a que la prueba lo suelte: así
+        // se mide que la respuesta **no** espera por él.
+        if (llamadas === 2) {
+          await new Promise<void>((resolver) => {
+            liberar = resolver
+          })
+        }
+
+        return entradas
+      },
+    }
+
+    await conApp(
+      async ({ pedir, container }) => {
+        const primera = feedResponseSchema.parse(await (await pedir('/api/feed')).json())
+        expect(primera.items.map((item) => item.title)).toEqual(['Vieja'])
+
+        entradas = [entrada('nueva', 'Nueva')]
+        reloj += (TTL_SECONDS.feed + 1) * 1000
+
+        // Caducada: sale lo viejo, ya, y el refresco empieza por detrás.
+        const segunda = feedResponseSchema.parse(await (await pedir('/api/feed')).json())
+        expect(segunda.items.map((item) => item.title)).toEqual(['Vieja'])
+        expect(container.revalidator.running()).toBe(1)
+
+        liberar?.()
+        await hastaTerminar(container.revalidator)
+
+        const tercera = feedResponseSchema.parse(await (await pedir('/api/feed')).json())
+        expect(tercera.items.map((item) => item.title)).toEqual(['Nueva'])
+      },
+      { proveedor: cambiante, now: () => reloj },
+    )
+  })
+
+  test('un refresco que falla conserva lo viejo y lo anota', async () => {
+    let reloj = Date.now()
+    let falla = false
+
+    const base = createFixtureProvider()
+    const quebradizo = {
+      ...base,
+      capabilities: { ...base.capabilities, feed: true },
+      getFeed: async () => {
+        if (falla) throw new Error('el feed se cayó')
+
+        return [entrada('vieja', 'Vieja')]
+      },
+    }
+
+    await conApp(
+      async ({ pedir, db, container }) => {
+        await pedir('/api/feed')
+
+        falla = true
+        reloj += (TTL_SECONDS.feed + 1) * 1000
+
+        const caducada = feedResponseSchema.parse(await (await pedir('/api/feed')).json())
+        expect(caducada.items.map((item) => item.title)).toEqual(['Vieja'])
+
+        await hastaTerminar(container.revalidator)
+
+        // El refresco falló y la fila vieja sigue ahí: cambiar un dato viejo por
+        // ninguno es empeorar.
+        const despues = feedResponseSchema.parse(await (await pedir('/api/feed')).json())
+        expect(despues.items.map((item) => item.title)).toEqual(['Vieja'])
+
+        const fila = db
+          .query<{ resource: string; key: string; message: string }, []>(
+            'SELECT resource, key, message FROM revalidate_error',
+          )
+          .get()
+
+        expect(fila?.resource).toBe('feed')
+        expect(fila?.key).toBe('feed#fixture')
+        expect(fila?.message).toContain('el feed se cayó')
+      },
+      { proveedor: quebradizo, now: () => reloj },
+    )
   })
 
   test('un proveedor que falla devuelve lista vacía y no un 500', async () => {

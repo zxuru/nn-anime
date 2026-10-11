@@ -123,28 +123,20 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
       (provider) => provider.capabilities.trending && provider.getTrending !== undefined,
     )
 
-    // Primero la caché: la segunda carga de la home no puede volver a pedir las
-    // tendencias. Lo encontró la auditoría de T47 midiendo las llamadas.
+    // Primero la caché, y con su TTL: la segunda carga de la home no puede volver
+    // a pedir las tendencias —lo encontró la auditoría de T47 midiendo las
+    // llamadas—, pero servirlas caducadas para siempre es lo que T54 corrigió.
+    const callOptions: CallOptions = {
+      signal: c.req.raw.signal,
+      timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    }
+
     const resultados = await Promise.all(
       conTendencias.map(async (provider) => {
-        const cacheado = await options.container.store.readTrending(provider.id)
-        if (cacheado !== null) return cacheado.value
+        const lectura = await options.container.getTrending(provider, callOptions)
 
-        const tendencias = provider.getTrending
-        if (tendencias === undefined) return []
-
-        try {
-          const lista = await tendencias.call(provider, {
-            signal: c.req.raw.signal,
-            timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-          })
-          await options.container.store.writeTrending(provider.id, lista)
-
-          return lista
-        } catch {
-          // Un proveedor que no responde a tendencias no puede tumbar la lista.
-          return []
-        }
+        // Un proveedor que no responde a tendencias no puede tumbar la lista.
+        return lectura.ok ? lectura.value.value : []
       }),
     )
 

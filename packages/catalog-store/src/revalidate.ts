@@ -22,8 +22,15 @@
 import type { Database } from 'bun:sqlite'
 import { type ProviderRef, StoreError } from '@nn-anime/core'
 
-/** Recursos que se revalidan en segundo plano. */
-export type RevalidateResource = 'anime' | 'episodes' | 'search'
+/**
+ * Recursos que se revalidan en segundo plano.
+ *
+ * `feed` y `trending` entraron con T54: las dos filas que la home refresca tienen
+ * su TTL desde T49 y T47, y hasta entonces nadie lo miraba. No hace falta
+ * migración —la tabla no tiene `CHECK` sobre `resource`, y su clave primaria es
+ * `(resource, key)`—, así que el error de un feed no pisa el de un anime.
+ */
+export type RevalidateResource = 'anime' | 'episodes' | 'search' | 'feed' | 'trending'
 
 export interface RevalidateError {
   readonly resource: RevalidateResource

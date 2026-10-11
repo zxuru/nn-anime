@@ -1,8 +1,7 @@
 # Spec: live-home (la home que se refresca y se mueve)
 
-Estado: **propuesta · pendiente de aprobación humana** · 2026-10-11 · decisiones del humano ya
-tomadas: **relectura al volver a la pestaña y cada dos minutos** (sin SSE y sin ruta nueva) y
-**movimiento sutil** (esqueletos y entrada escalonada, sin librería de animación).
+Estado: **aprobado** · 2026-10-11 · aprobado por el humano, que además fijó la cadencia en **120 s**
+y eligió **movimiento sutil**. T54 cerrado y medido; T55 y T56 pendientes.
 
 Esta entrega **no crea un módulo**: extiende contratos y paquetes ya aprobados. No toca
 `docs/specs/CAPABILITY-MAP.md` ni su build order.
@@ -271,19 +270,30 @@ local.
 siempre, con el `readThrough` que ya usan el detalle y los episodios.
 
 **Aceptación:**
-- [ ] `RevalidateResource` incluye `feed` y `trending`, y hay una prueba que falla si un recurso se
-      anota con la clave de otro.
-- [ ] `getFeed` y `getTrending` en el contenedor: acierto dentro del TTL, `miss` sin fila, y
+- [x] `RevalidateResource` incluye `feed` y `trending`, y hay una prueba que falla si un recurso se
+      anota con la clave de otro. **Medido**: el aviso del feed y el de las tendencias conviven en
+      `revalidate_error` con la misma forma de clave; el test espera las dos filas.
+- [x] `getFeed` y `getTrending` en el contenedor: acierto dentro del TTL, `miss` sin fila, y
       `stale` cuando toca, con reloj inyectable.
-- [ ] Una lectura caducada **devuelve el valor viejo y programa el refresco**; la siguiente
-      devuelve lo nuevo.
-- [ ] Un refresco que falla conserva la fila vieja y anota el error en `revalidate_error`.
-- [ ] Las rutas no cambian su comportamiento ante un proveedor que falla: lista vacía y el resto de
+- [x] Una lectura caducada **devuelve el valor viejo y programa el refresco**; la siguiente
+      devuelve lo nuevo. **Medido mutando**: volver a «si hay caché, devuélvela» en las dos lecturas
+      del contenedor da **4 fallos** (dos por ruta).
+- [x] Un refresco que falla conserva la fila vieja y anota el error en `revalidate_error`.
+      **Medido mutando**: vaciar el `onError` da **1 fallo**; quitar el prefijo `feed#` de la clave
+      da **1 fallo**.
+- [x] Las rutas no cambian su comportamiento ante un proveedor que falla: lista vacía y el resto de
       la fila se pinta.
-- [ ] El tope `MAX_FEED_ENTRIES` se sigue aplicando antes de escribir en la caché.
+- [x] El tope `MAX_FEED_ENTRIES` se sigue aplicando antes de escribir en la caché.
 
-**Verificación:** pruebas de la ruta con reloj fijo y proveedor de fixture; mutación de la rama
-`stale` y de la fusión, con el recuento de fallos.
+**Verificación:** `bun test packages/server packages/catalog-store`: **533 pasan, 0 fallan**.
+`tsc --noEmit` sin errores. `biome check` limpio en los archivos de la tarea. Las tres mutaciones,
+medidas y restauradas, con su recuento arriba.
+
+**Nota de sesión:** `routes/recommendations.ts` es un archivo **compartido**. Otra sesión estaba
+escribiendo en él a la vez —la deduplicación de tendencias por título, `sinRepetir` y
+`claveDeTitulo`— y su trabajo viaja en este mismo commit porque comparte bloque con el de T54. Sus
+pruebas de `recommendations.test.ts` quedan fuera y las commiteará ella; en el momento de cerrar
+T54 pasaban las 533 de los dos paquetes.
 
 **Depende de:** T50 (la ruta del feed), T41 (las tendencias).
 

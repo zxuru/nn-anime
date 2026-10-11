@@ -378,12 +378,21 @@ describe('el dato viejo sobrevive al fallo', () => {
     await withDb((db) => {
       markRevalidateError(db, 'anime', 'fixture/aurora', 'falló el detalle', 1_000)
       markRevalidateError(db, 'episodes', 'fixture/aurora', 'falló la lista', 2_000)
+      // Los dos recursos de T54: mismo proveedor, misma forma de clave, y aun así
+      // dos filas. Si el recurso no discriminara, el aviso del feed borraría el de
+      // las tendencias y la pantalla de ajustes diría que falla lo que no falla.
+      markRevalidateError(db, 'feed', 'feed#fixture', 'falló el feed', 3_000)
+      markRevalidateError(db, 'trending', 'trending#fixture', 'fallaron las tendencias', 4_000)
 
-      expect(listRevalidateErrors(db)).toHaveLength(2)
+      expect(listRevalidateErrors(db)).toHaveLength(4)
 
       clearRevalidateError(db, 'anime', 'fixture/aurora')
 
-      expect(listRevalidateErrors(db).map((error) => error.resource)).toEqual(['episodes'])
+      expect(listRevalidateErrors(db).map((error) => error.resource)).toEqual([
+        'trending',
+        'feed',
+        'episodes',
+      ])
     })
   })
 

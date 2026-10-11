@@ -16,6 +16,11 @@
  * 3. **El tope de entradas lo pone quien lee, no el plugin.** Un feed con miles de
  *    entradas se recorta **antes** de escribir en la caché: una fuente no puede
  *    llenar el disco ni hacer que la home pinte mil tarjetas.
+ *
+ * Desde T54 el TTL y el refresco de fondo los lleva el contenedor: la ruta pide
+ * «el feed de este proveedor» y recibe lo que hay, caducado o no. Servir la caché
+ * sin mirar si estaba vencida era el defecto que dejaba la fila congelada para
+ * siempre.
  */
 
 import type { FeedResponse } from '@nn-anime/core'
@@ -24,9 +29,6 @@ import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
 import { clampLimit } from './recommendations'
-
-/** Cuántas entradas de un feed se guardan y se sirven, como mucho. */
-export const MAX_FEED_ENTRIES = 200
 
 const DEFAULT_TIMEOUT_MS = 8000
 
@@ -89,22 +91,10 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
 
     const resultados = await Promise.all(
       fuentes.map(async (provider) => {
-        const cacheado = await options.container.store.readFeed(provider.id)
-        if (cacheado !== null) return cacheado.value
+        const lectura = await options.container.getFeed(provider, callOptions)
 
-        const feed = provider.getFeed
-        if (feed === undefined) return []
-
-        try {
-          const lista = await feed.call(provider, callOptions)
-          const recortada = lista.slice(0, MAX_FEED_ENTRIES)
-          await options.container.store.writeFeed(provider.id, recortada)
-
-          return recortada
-        } catch {
-          // Un feed que no responde no puede tumbar la fila: lo local sigue ahí.
-          return []
-        }
+        // Un feed que no responde no puede tumbar la fila: lo local sigue ahí.
+        return lectura.ok ? lectura.value.value : []
       }),
     )
 
