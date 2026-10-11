@@ -33,7 +33,7 @@ const TABLAS_DEL_INICIAL = [
 ]
 
 /** Las que añaden las migraciones posteriores a la inicial. */
-const TABLAS_POSTERIORES = ['revalidate_error', 'search_cache', 'trending_cache']
+const TABLAS_POSTERIORES = ['revalidate_error', 'search_cache', 'trending_cache', 'feed_cache']
 
 /** Las versiones que hay hoy, para no fijar números que crecen con cada migración. */
 const VERSIONES = listMigrations().map((migration) => migration.version)

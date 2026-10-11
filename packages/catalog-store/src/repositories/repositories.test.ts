@@ -3,12 +3,14 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AnimeDetail, Episode, ProviderRef, SearchResult } from '@nn-anime/core'
+import type { AnimeDetail, Episode, FeedEntry, ProviderRef, SearchResult } from '@nn-anime/core'
+import { StoreError } from '@nn-anime/core'
 import { cacheHit, isStale, TTL_SECONDS } from '../cache-policy'
 import { openDb } from '../db'
 import { runMigrations } from '../migrations/runner'
 import { createAnimeRepository } from './anime'
 import { createEpisodesRepository } from './episodes'
+import { createFeedRepository } from './feed'
 import { createSearchRepository } from './search'
 
 const REF: ProviderRef = { providerId: 'fixture', value: 'aurora-nocturna' }
@@ -71,6 +73,9 @@ describe('política de caché', () => {
       // Las tendencias no estaban en la tabla del spec: las añadió la auditoría de
       // T47, que encontró que la segunda carga de la home volvía a pedirlas.
       trending: 900,
+      // El feed lo añade T49: media hora, porque un feed cambia como mucho a
+      // diario y cada consulta es una petición al sitio de otro.
+      feed: 1800,
     })
   })
 
@@ -474,6 +479,107 @@ describe('las tres tablas conviven', () => {
       expect(createAnimeRepository(db).read(REF)?.value.episodeCount).toBe(12)
       expect(createEpisodesRepository(db).read(REF)?.value).toHaveLength(1)
       expect(createSearchRepository(db).read('fixture', 'aurora')?.value).toHaveLength(1)
+    })
+  })
+})
+
+describe('el feed', () => {
+  function entrada(title: string, publishedAt: string): FeedEntry {
+    return { ref: { providerId: 'fixture', value: title }, title, publishedAt }
+  }
+
+  test('un MISS devuelve null', async () => {
+    await withStore((db) => {
+      expect(createFeedRepository(db).read('fixture')).toBeNull()
+    })
+  })
+
+  test('escribe y lee las entradas con sus fechas y su TTL', async () => {
+    await withStore((db) => {
+      const feed = createFeedRepository(db)
+      feed.write('fixture', [
+        entrada('Nueva', '2026-10-01T12:00:00.000Z'),
+        entrada('Vieja', '2026-09-20T12:00:00.000Z'),
+      ])
+
+      const hit = feed.read('fixture')
+
+      expect(hit?.value.map((item) => item.title)).toEqual(['Nueva', 'Vieja'])
+      expect(hit?.value[0]?.publishedAt).toBe('2026-10-01T12:00:00.000Z')
+      expect(hit?.ttlS).toBe(TTL_SECONDS.feed)
+      expect(hit?.stale).toBe(false)
+    })
+  })
+
+  test('la segunda escritura reemplaza la del proveedor, no acumula', async () => {
+    await withStore((db) => {
+      const feed = createFeedRepository(db)
+      feed.write('fixture', [entrada('Primera', '2026-09-01T12:00:00.000Z')])
+      feed.write('fixture', [entrada('Segunda', '2026-10-01T12:00:00.000Z')])
+
+      expect(feed.read('fixture')?.value.map((item) => item.title)).toEqual(['Segunda'])
+
+      const filas = db.query('SELECT COUNT(*) AS total FROM feed_cache').get() as { total: number }
+      expect(filas.total).toBe(1)
+    })
+  })
+
+  test('la caducidad se calcula con el reloj que se le pasa', async () => {
+    await withStore((db) => {
+      const feed = createFeedRepository(db)
+      const escrito = Date.parse('2026-10-01T12:00:00.000Z')
+      feed.write('fixture', [entrada('Nueva', '2026-10-01T12:00:00.000Z')], escrito)
+
+      // Justo antes del TTL y justo después: la frontera se mide, no se supone.
+      expect(feed.read('fixture', escrito + TTL_SECONDS.feed * 1000 - 1)?.stale).toBe(false)
+      expect(feed.read('fixture', escrito + TTL_SECONDS.feed * 1000)?.stale).toBe(true)
+    })
+  })
+
+  test('cada proveedor tiene su propio feed', async () => {
+    await withStore((db) => {
+      const feed = createFeedRepository(db)
+      feed.write('uno', [entrada('De uno', '2026-10-01T12:00:00.000Z')])
+      feed.write('dos', [entrada('De dos', '2026-10-01T12:00:00.000Z')])
+
+      expect(feed.read('uno')?.value[0]?.title).toBe('De uno')
+      expect(feed.read('dos')?.value[0]?.title).toBe('De dos')
+    })
+  })
+
+  test('un JSON cacheado que no cumple el schema es un StoreError con contexto', async () => {
+    await withStore((db) => {
+      db.query(
+        'INSERT INTO feed_cache (provider_id, results_json, fetched_at, ttl_s) VALUES (?, ?, ?, ?)',
+      ).run('fixture', JSON.stringify([{ title: 'sin ref' }]), Date.now(), TTL_SECONDS.feed)
+
+      let capturado: unknown
+      try {
+        createFeedRepository(db).read('fixture')
+      } catch (cause) {
+        capturado = cause
+      }
+
+      expect(capturado).toBeInstanceOf(StoreError)
+      expect(capturado instanceof StoreError ? capturado.op : '').toBe('readFeed')
+      expect(capturado instanceof StoreError ? capturado.message : '').toContain('feed')
+    })
+  })
+
+  test('una fecha que no es ISO no llega a entrar', async () => {
+    await withStore((db) => {
+      // El repositorio no valida al escribir —lo hace el SDK antes—, así que lo
+      // que se comprueba aquí es que la lectura no se cree cualquier cosa.
+      db.query(
+        'INSERT INTO feed_cache (provider_id, results_json, fetched_at, ttl_s) VALUES (?, ?, ?, ?)',
+      ).run(
+        'fixture',
+        JSON.stringify([{ ref: REF, title: 'Un título', publishedAt: 'ayer' }]),
+        Date.now(),
+        TTL_SECONDS.feed,
+      )
+
+      expect(() => createFeedRepository(db).read('fixture')).toThrow(StoreError)
     })
   })
 })

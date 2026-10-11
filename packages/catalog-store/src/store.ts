@@ -22,6 +22,7 @@ import type {
   AnimeSummary,
   CacheHit,
   Episode,
+  FeedEntry,
   MigrationReport,
   ProviderRef,
   PruneReport,
@@ -40,6 +41,7 @@ import { pruneOrphans } from './prune'
 import { type CandidateRow, createAnimeRepository } from './repositories/anime'
 import { createEpisodesRepository } from './repositories/episodes'
 import { createFavoritesRepository } from './repositories/favorites'
+import { createFeedRepository } from './repositories/feed'
 import { createSearchRepository } from './repositories/search'
 import { createSearchHistoryRepository } from './repositories/search-history'
 import { createSettingsRepository } from './repositories/settings'
@@ -93,6 +95,9 @@ export interface CatalogStore {
   /** Tendencias cacheadas de un proveedor. */
   readTrending(providerId: string): Promise<CacheHit<readonly SearchResult[]> | null>
   writeTrending(providerId: string, results: readonly SearchResult[]): Promise<void>
+  /** Feed de novedades cacheado de un proveedor, con sus fechas. */
+  readFeed(providerId: string): Promise<CacheHit<readonly FeedEntry[]> | null>
+  writeFeed(providerId: string, entries: readonly FeedEntry[]): Promise<void>
   readEpisodes(ref: ProviderRef): Promise<CacheHit<readonly Episode[]> | null>
   writeEpisodes(ref: ProviderRef, episodes: readonly Episode[]): Promise<void>
   /** Detalle y episodios en una sola transacción. */
@@ -145,6 +150,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     readonly history: ReturnType<typeof createSearchHistoryRepository>
     readonly settings: ReturnType<typeof createSettingsRepository>
     readonly trending: ReturnType<typeof createTrendingRepository>
+    readonly feed: ReturnType<typeof createFeedRepository>
   }
 
   let repos: Repos | undefined
@@ -159,6 +165,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       history: createSearchHistoryRepository(db),
       settings: createSettingsRepository(db),
       trending: createTrendingRepository(db),
+      feed: createFeedRepository(db),
     })
 
   return {
@@ -187,6 +194,14 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
 
     async writeTrending(providerId, results) {
       await queue.run(() => of().trending.write(providerId, results, ahora()))
+    },
+
+    async readFeed(providerId) {
+      return of().feed.read(providerId, ahora())
+    },
+
+    async writeFeed(providerId, entries) {
+      await queue.run(() => of().feed.write(providerId, entries, ahora()))
     },
 
     async readEpisodes(ref) {

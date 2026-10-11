@@ -23,6 +23,10 @@ export const TTL_SECONDS = {
   // Las tendencias cambian más que un detalle y menos que una búsqueda: quince
   // minutos. No estaban en la tabla del spec; las añadió la auditoría de T47.
   trending: 900,
+  // El feed cambia como mucho a diario —lo publica el sitio, no el usuario— y
+  // cada consulta es una petición a un tercero: media hora. Lo añade T49, con su
+  // fila en la tabla del spec.
+  feed: 1800,
 } as const
 
 export type CacheResource = keyof typeof TTL_SECONDS

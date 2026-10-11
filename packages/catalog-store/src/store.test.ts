@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { AnimeDetail, Episode, ProviderRef, WatchEventInput } from '@nn-anime/core'
 import { z } from 'zod'
+import { TTL_SECONDS } from './cache-policy'
 import { openDb } from './db'
 import { createRevalidator, markRevalidateError } from './revalidate'
 import { createCatalogStore } from './store'
@@ -88,6 +89,7 @@ describe('lecturas y escrituras', () => {
       expect(await store.readAnime(AURORA)).toBeNull()
       expect(await store.readEpisodes(AURORA)).toBeNull()
       expect(await store.readSearch('fixture', 'aurora')).toBeNull()
+      expect(await store.readFeed('fixture')).toBeNull()
       expect(await store.readStream({ providerId: 'fixture', value: 'x#1' }, 'sub')).toBeNull()
     })
   })
@@ -98,6 +100,19 @@ describe('lecturas y escrituras', () => {
 
       expect(await store.readAnime(AURORA)).not.toBeNull()
       expect((await store.readEpisodes(AURORA))?.value).toHaveLength(2)
+    })
+  })
+
+  test('el feed va y vuelve por la fachada, con sus fechas', async () => {
+    await withStore(async ({ store }) => {
+      await store.writeFeed('fixture', [
+        { ref: AURORA, title: 'Aurora Nocturna', publishedAt: '2026-10-01T12:00:00.000Z' },
+      ])
+
+      const hit = await store.readFeed('fixture')
+
+      expect(hit?.value[0]?.publishedAt).toBe('2026-10-01T12:00:00.000Z')
+      expect(hit?.ttlS).toBe(TTL_SECONDS.feed)
     })
   })
 
