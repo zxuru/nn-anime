@@ -13,7 +13,7 @@ import {
 } from './migrations/runner'
 
 /**
- * Las nueve tablas del Data Model de `SPEC-nn-anime.md`.
+ * Las nueve tablas del Data Model de `docs/specs/SPEC-nn-anime.md`.
  *
  * Están escritas aquí a mano y no leídas del SQL a propósito: si el test las
  * sacara del esquema, comprobaría que el esquema es igual a sí mismo. La tarea

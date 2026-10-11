@@ -34,15 +34,19 @@ export interface PosterCardProps {
 export function PosterCard(props: PosterCardProps): ReactNode {
   return (
     <article className="poster">
-      {props.number === undefined ? null : (
-        <span className="poster__number" aria-hidden="true">
-          {props.number}
-        </span>
-      )}
-
       <Link to={props.to} className="poster__link" title={props.title}>
         <span className="poster__frame">
           <Cover providerId={props.providerId} ref={props.ref} className="poster__cover" />
+          {/*
+            El número va **dentro del marco y antes del título**: en el diseño
+            ocupa la esquina de la portada, enorme y sin relleno, y el pie se lee
+            por debajo. Estaba fuera y sobre el pie, y tapaba el título.
+          */}
+          {props.number === undefined ? null : (
+            <span className="poster__number" aria-hidden="true">
+              {props.number}
+            </span>
+          )}
           {props.badge === undefined ? null : <span className="tag">{props.badge}</span>}
           {props.progress === undefined ? null : (
             <progress

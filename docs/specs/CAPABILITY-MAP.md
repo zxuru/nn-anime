@@ -3,7 +3,7 @@
 Estado: **aprobado** por el humano el 2026-10-10 · Gate Fase 0 superado.
 
 Índice de specs: este mapa es la única fuente de verdad sobre qué módulos existen.
-Cada módulo tiene su `SPEC-<module-id>.md` en la raíz del repo.
+Cada módulo tiene su `SPEC-<module-id>.md` en `docs/specs/`, junto a este mapa.
 
 ## Módulos
 

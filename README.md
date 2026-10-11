@@ -100,8 +100,8 @@ uno que respete las condiciones del sitio del que salen los datos.
 | [SECURITY.md](SECURITY.md) | Modelo de amenaza, mitigaciones y riesgos residuales |
 | [docs/a11y.md](docs/a11y.md) | Qué se comprueba de accesibilidad y qué no |
 | [docs/PLAN-B-HLS.md](docs/PLAN-B-HLS.md) | Por qué HLS se queda en v1 |
-| [SPEC-nn-anime.md](SPEC-nn-anime.md) | El spec del proyecto, con las decisiones |
-| [CAPABILITY-MAP.md](CAPABILITY-MAP.md) | Qué módulo hace qué |
+| [docs/specs/SPEC-nn-anime.md](docs/specs/SPEC-nn-anime.md) | El spec del proyecto, con las decisiones |
+| [docs/specs/CAPABILITY-MAP.md](docs/specs/CAPABILITY-MAP.md) | Qué módulo hace qué |
 
 ## Cómo está hecho
 

@@ -224,7 +224,7 @@ y `provider` en la ruta de la SPA (T14).
 
 **Dos huecos necesitaron decisión, no asignación:**
 
-- **No existía ninguna ruta para portadas**, y `SPEC-web-ui.md` prohíbe en su sección Never
+- **No existía ninguna ruta para portadas**, y `docs/specs/SPEC-web-ui.md` prohíbe en su sección Never
   incrustar recursos remotos. El contrato exigía algo sin dar el mecanismo. Se añade
   `GET /api/cover/:providerId/:ref`: el cliente manda una referencia, nunca una dirección, así que
   el navegador no puede convertirse en un proxy hacia donde quiera y la lista blanca de destinos

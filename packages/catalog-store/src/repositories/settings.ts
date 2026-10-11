@@ -5,7 +5,7 @@
  * un objeto sin cambiar el esquema.
  *
  * **`get` pide un schema, no sólo el valor por defecto.** El contrato de
- * `SPEC-catalog-store.md` lo escribía como `getSetting<T>(key, fallback): T`, y
+ * `docs/specs/SPEC-catalog-store.md` lo escribía como `getSetting<T>(key, fallback): T`, y
  * eso no se puede cumplir de verdad: el JSON de la fila es `unknown`, y
  * devolverlo como `T` exige una conversión de tipo —justo lo que el proyecto
  * prohíbe— o mentir al compilador. Con el schema, un ajuste con otra forma

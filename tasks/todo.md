@@ -1,6 +1,7 @@
 # Task List: nn-anime v1
 
-Plan: `tasks/plan.md` · Specs: `CAPABILITY-MAP.md`, `SPEC-nn-anime.md`, `SPEC-<module-id>.md`
+Plan: `tasks/plan.md` · Specs: `docs/specs/CAPABILITY-MAP.md`, `docs/specs/SPEC-nn-anime.md`,
+`docs/specs/SPEC-<module-id>.md`
 Regla: todo task cierra el Definition of Done de `tasks/plan.md`. Tope de 5 archivos de
 implementación por task; el andamiaje de T1 y T16 lo declara explícitamente.
 
@@ -233,7 +234,7 @@ usan `mkdtemp` y comprueban el modo `0700` real con `stat`.
   que el mensaje traducido lo diga en el idioma del usuario.
 - `--data-dir=-raro` funciona: con `=` el valor puede empezar por guion.
 
-**Ampliación de spec:** el criterio de `SPEC-cli-launcher.md` sobre `--lang en` decía que cambiaba
+**Ampliación de spec:** el criterio de `docs/specs/SPEC-cli-launcher.md` sobre `--lang en` decía que cambiaba
 los mensajes del CLI. Hoy `en` no es un idioma soportado en `LOCALES`, así que cae a `es`. El
 criterio se reescribió para describir la garantía real: el mecanismo está probado y añadir un
 idioma es un archivo. Traducir el inglés no estaba pedido y no se hizo.
@@ -611,7 +612,7 @@ validación, registro y un test de conformidad reutilizable.
 
 **Aceptación:**
 - [x] `Provider`, `ProviderCapabilities`, `CallOptions`, `StreamRequest` y `ProviderError` según
-      `SPEC-provider-core.md`.
+      `docs/specs/SPEC-provider-core.md`.
 - [x] `validateProvider(unknown)` devuelve `Result` con el motivo exacto del rechazo.
 - [x] Un `StreamSource` con nombre de header fuera de `^[A-Za-z0-9-]+$`, o con valor que contenga
       `\r`, `\n` o `\0`, se rechaza nombrando el header ofensor.
@@ -644,12 +645,12 @@ público. Seis archivos de implementación en vez de cinco, con este motivo escr
 - [x] Un plugin inválido o con `apiVersion` incorrecta no impide el arranque.
 - [x] Un plugin **no puede exportar `default` y `providers` a la vez**: se rechaza nombrándolo.
       Esta aceptación decía «producen un solo conjunto sin duplicados», que contradice a
-      `SPEC-provider-core.md`. Manda el spec: dos exports son ambiguos y rechazarlos es más claro
+      `docs/specs/SPEC-provider-core.md`. Manda el spec: dos exports son ambiguos y rechazarlos es más claro
       que adivinar cuál es el bueno.
 - [x] Test: directorio con un plugin bueno, uno roto y uno inválido da 1 activo y 2 rechazos
       con motivo.
 - [x] Test: el directorio se inyecta; no se lee `$XDG_CONFIG_HOME` real.
-- [x] **Añadido al revisar el spec:** el paso 8 del arranque de `SPEC-cli-launcher.md` pide que el
+- [x] **Añadido al revisar el spec:** el paso 8 del arranque de `docs/specs/SPEC-cli-launcher.md` pide que el
       CLI imprima «la URL de arranque **y la lista de proveedores activos**». La imprime tras la
       URL, con los activos por id y, si los hay, los rechazados con su motivo.
 
@@ -886,7 +887,7 @@ precarga—, el catálogo de textos, los tokens y la hoja de estructura.
 **Descripción:** Base SQLite con WAL y runner de migraciones versionadas.
 
 **Corregido al auditar:** esta tarea decía «crea las once tablas del Data Model». El Data Model de
-`SPEC-nn-anime.md` lista **nueve**: `anime`, `genre`, `episode`, `watch_event`, `favorite`,
+`docs/specs/SPEC-nn-anime.md` lista **nueve**: `anime`, `genre`, `episode`, `watch_event`, `favorite`,
 `search_history`, `stream_cache`, `setting` y `schema_version`. Manda el spec. Un test que cuente
 las tablas creadas contra esa lista evita que vuelva a desviarse.
 
@@ -938,7 +939,7 @@ entorno y `index.ts` hace trabajo al importarse.
 **Aceptación:**
 - [x] `readAnime`/`writeAnime`, `readEpisodes`/`writeEpisodes`, `readSearch`/`writeSearch`.
 - [x] **Los tipos que nombra el contrato del store se definen en `packages/core/src/models.ts`**,
-      no en el paquete que los usa. `SPEC-catalog-store.md` devuelve `WatchRecord`, `AnimeSummary`,
+      no en el paquete que los usa. `docs/specs/SPEC-catalog-store.md` devuelve `WatchRecord`, `AnimeSummary`,
       `SearchRecord`, `MigrationReport` y `PruneReport`, y no existían en ningún sitio: un contrato
       que nombra tipos indefinidos se implementa inventándoselos, uno por consumidor.
 - [x] Los tests corren contra un directorio temporal inyectado y no tocan `$XDG_DATA_HOME`.
@@ -988,7 +989,7 @@ clave de caché, y dos normalizaciones distintas darían dos entradas para la mi
 - [x] TTL de 600 s, y `readStream` devuelve `null` cuando el TTL venció aunque la fila exista.
 - [x] **Los headers de upstream no se guardan.** La fila lleva URL, tipo, calidad y subtítulos.
       Esta aceptación decía «los headers se guardan serializados», que contradecía a la vez la
-      mitigación 6 del spec de proyecto y el `Never` de `SPEC-catalog-store.md`. Corregido al
+      mitigación 6 del spec de proyecto y el `Never` de `docs/specs/SPEC-catalog-store.md`. Corregido al
       auditar: quien los necesite los pide al almacén en memoria de `media-proxy`, y si ya no
       están, el proxy revalida.
 - [x] `invalidateStream` borra sólo la clave de episodio y modo indicados.
@@ -1520,7 +1521,7 @@ el tipo de lo que se pidió y lo impone) y su prueba.
 
 ### T26c — Pruebas de integración del ciclo completo
 
-**Descripción:** Tarea **nueva**, añadida al auditar la trazabilidad. `SPEC-nn-anime.md` declara un
+**Descripción:** Tarea **nueva**, añadida al auditar la trazabilidad. `docs/specs/SPEC-nn-anime.md` declara un
 nivel de pruebas de integración en `tests/` que «cubre el ciclo buscar → detalle → episodios →
 resolver stream → cachear», y **ninguna tarea lo creaba**. Cada tarea prueba su paquete; el ciclo
 completo no lo probaba nadie, que es justo donde aparecen los fallos de integración.
@@ -2645,7 +2646,7 @@ abrir un task de corrección por cada uno que falle.
 - [x] **Auditoría de trazabilidad spec↔plan hecha primero**, con su tabla de huecos en
       `docs/v1-report.md`. Cuatro huecos: `revalidate_error` sin documentar, la tabla `genre` que nadie
       escribe, las tendencias que no se cachean y el `localhost` del guard de `Host`.
-- [x] Los ocho criterios de `SPEC-nn-anime.md` verificados y marcados en el propio spec. Siete con su
+- [x] Los ocho criterios de `docs/specs/SPEC-nn-anime.md` verificados y marcados en el propio spec. Siete con su
       evidencia; el de «home y detalle sin llamadas de red» queda marcado **con el matiz medido** de
       las tendencias.
 - [x] Los criterios de cada spec de módulo revisados; los no verificados se listan con motivo. **Los
@@ -2662,7 +2663,7 @@ temporal), con sus códigos de salida.
 
 **Depende de:** T46.
 
-**Archivos:** `SPEC-nn-anime.md`, `SPEC-<module-id>.md`, `docs/v1-report.md`.
+**Archivos:** `docs/specs/SPEC-nn-anime.md`, `docs/specs/SPEC-<module-id>.md`, `docs/v1-report.md`.
 
 **Cuatro decisiones que conviene recordar:**
 

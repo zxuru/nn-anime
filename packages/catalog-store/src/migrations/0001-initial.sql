@@ -1,6 +1,6 @@
 -- Esquema inicial del catálogo.
 --
--- Nueve tablas, las del Data Model de `SPEC-nn-anime.md`. Un test las cuenta
+-- Nueve tablas, las del Data Model de `docs/specs/SPEC-nn-anime.md`. Un test las cuenta
 -- contra esa lista para que no vuelvan a desviarse: la tarea que creó este
 -- archivo decía «las once tablas» y el spec lista nueve.
 --

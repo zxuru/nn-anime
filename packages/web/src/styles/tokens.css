@@ -80,6 +80,9 @@
   --text-xl: 1.5rem;
   --text-2xl: 2.25rem;
   --text-3xl: 3.5rem;
+  /** El número del top: enorme y sin relleno, como en el diseño. */
+  --text-number: 7rem;
+  --number-stroke: 3px;
   --leading-tight: 1.05;
   --leading-normal: 1.45;
   /** Interletrado de las etiquetas: mono, mayúsculas y separadas. */

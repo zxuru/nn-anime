@@ -7,10 +7,10 @@ qué se mitiga, qué no, y por qué.
 
 | Amenaza | Mitigación | Dónde |
 |---|---|---|
-| Un sitio cualquiera abre la aplicación | Sesión en cookie `HttpOnly; SameSite=Strict` y token de arranque de un solo uso | `SPEC-nn-anime.md`, mitigación 1 |
+| Un sitio cualquiera abre la aplicación | Sesión en cookie `HttpOnly; SameSite=Strict` y token de arranque de un solo uso | `docs/specs/SPEC-nn-anime.md`, mitigación 1 |
 | Otro sitio del navegador llama a la API local | Guard de `Origin` en métodos mutantes | mitigación 2 |
 | Un plugin hace peticiones a la red local | Lista blanca de destinos: sólo `http`/`https`, sin loopback, sin redes privadas, sin metadata de nube, revalidada en cada salto de redirección | T26a |
-| Un plugin lee o escribe fuera de su sitio | El plugin sólo devuelve datos; nunca recibe rutas ni la base | `SPEC-provider-core.md` |
+| Un plugin lee o escribe fuera de su sitio | El plugin sólo devuelve datos; nunca recibe rutas ni la base | `docs/specs/SPEC-provider-core.md` |
 | Una cookie del upstream contamina `127.0.0.1` | `Set-Cookie` se elimina siempre; sólo pasa una lista blanca de cabeceras | T26b |
 | Un dato de proveedor ejecuta guiones en la página | Lista blanca de esquemas (`http`/`https`) y portadas servidas desde `/api/cover` | T31a |
 | Un valor de cabecera inyecta argumentos en `mpv` | Nombre validado con `^[A-Za-z0-9-]+$`, valor sin caracteres de control, argumentos en array y `--no-config` | T29, T29a |

@@ -1,6 +1,6 @@
 # Spec: nn-anime (proyecto)
 
-Estado: borrador para aprobación · 2026-10-10 · Gate: `CAPABILITY-MAP.md` aprobado.
+Estado: borrador para aprobación · 2026-10-10 · Gate: `docs/specs/CAPABILITY-MAP.md` aprobado.
 
 Las convenciones compartidas de este documento aplican a los seis specs de módulo.
 Cada spec de módulo define sólo su objetivo, contrato, criterios y límites propios.
@@ -63,10 +63,20 @@ bun run db:migrate              # aplicar migraciones pendientes (idempotente)
 
 ```
 nn-anime/
-├─ CAPABILITY-MAP.md              mapa aprobado de módulos
-├─ SPEC-nn-anime.md               este documento
-├─ SPEC-<module-id>.md            un spec por módulo
+├─ README.md                      arranque, comandos y mapa de documentación
+├─ SECURITY.md                    modelo de amenaza y riesgos residuales
+├─ docs/
+│  ├─ specs/                      specs del proyecto y de módulo
+│  │  ├─ CAPABILITY-MAP.md        mapa aprobado de módulos
+│  │  ├─ SPEC-nn-anime.md         este documento
+│  │  └─ SPEC-<module-id>.md      un spec por módulo
+│  ├─ providers.md                guía para escribir un plugin
+│  ├─ a11y.md                     qué se comprueba de accesibilidad
+│  ├─ PLAN-B-HLS.md               por qué HLS se queda en v1
+│  └─ v1-report.md                informe de v1 y trazabilidad
 ├─ tasks/                         plan.md y todo.md (Fase 2 y 3)
+├─ scripts/                       dev, build, captura, e2e-server, coverage-gate
+├─ playwright.config.ts
 ├─ package.json                   workspaces y scripts raíz
 ├─ biome.json
 ├─ tsconfig.base.json

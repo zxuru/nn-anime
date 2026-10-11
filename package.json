@@ -25,7 +25,8 @@
     "e2e:install": "playwright install chromium",
     "e2e:fallo": "NN_ANIME_E2E_FALLO=search NN_ANIME_E2E_PORT=7802 playwright test failure.e2e.ts",
     "e2e:todo": "bun run e2e && bun run e2e:fallo",
-    "captura": "bun run scripts/captura.ts"
+    "captura": "bun run scripts/captura.ts",
+    "recorte": "bun run scripts/recorte.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2",

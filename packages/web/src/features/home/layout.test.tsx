@@ -62,11 +62,14 @@ describe('la tarjeta de una fila', () => {
     expect(html).toContain('Quedan 12 min')
   })
 
-  test('el número del top va detrás del enlace, no dentro', () => {
+  test('el número del top va dentro del marco, antes que el pie', () => {
     const html = render(<PosterCard providerId="f" ref="x" title="X" to="/anime/f/x" number={3} />)
 
+    // En el diseño el número ocupa la esquina de la portada y el pie se lee por
+    // debajo: fuera del marco, o después del pie, tapaba el título.
     expect(html).toContain('poster__number')
-    expect(html.indexOf('poster__number')).toBeLessThan(html.indexOf('poster__link'))
+    expect(html.indexOf('poster__frame')).toBeLessThan(html.indexOf('poster__number'))
+    expect(html.indexOf('poster__number')).toBeLessThan(html.indexOf('poster__caption'))
   })
 
   test('sin pie ni número no inventa nada', () => {
