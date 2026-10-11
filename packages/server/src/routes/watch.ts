@@ -14,6 +14,7 @@
 import {
   continueWatchingResponseSchema,
   errorResponseSchema,
+  type WatchRecord,
   watchedRatio,
   watchStartRequestSchema,
   watchStartResponseSchema,
@@ -41,13 +42,59 @@ export interface WatchRouteOptions {
  */
 export const MIN_CONTINUE_RATIO = 0.02
 
+/** Cuántas tarjetas enseña la fila. */
+export const CONTINUE_LIMIT = 20
+
+/**
+ * Cuántas filas se leen para llenarla.
+ *
+ * Más que la cuota porque un episodio tiene **varias filas** —cada reproducción
+ * abre la suya— y hay que agruparlas antes de recortar. Leyendo sólo veinte, una
+ * tarde de reproducciones del mismo episodio dejaría la fila con una tarjeta.
+ */
+export const CONTINUE_SCAN = 60
+
+/** Una fila con su proporción vista, ya calculada. */
+export interface ContinueCandidate {
+  readonly fila: WatchRecord
+  readonly ratio: number
+}
+
+/**
+ * Un episodio, una tarjeta.
+ *
+ * Cada reproducción abre su propia fila de visionado, así que el mismo episodio
+ * aparece tantas veces como se haya abierto: la fila enseñaba la misma tarjeta
+ * repetida. Se agrupa por episodio y se queda la que **más avanzó**, que es la
+ * que dice dónde se dejó de verdad. Así un episodio terminado desaparece en vez
+ * de resucitar por una fila vieja que se quedó a medias.
+ *
+ * El orden se conserva: el del episodio más reciente, que es el que traía la
+ * lista de la consulta.
+ */
+export function unaPorEpisodio(filas: readonly WatchRecord[]): readonly ContinueCandidate[] {
+  const porEpisodio = new Map<string, ContinueCandidate>()
+
+  for (const fila of filas) {
+    const ratio = watchedRatio(fila.positionS, fila.durationS)
+    // El modo no entra en la clave: el episodio es el mismo se vea como se vea,
+    // y la tarjeta se abre en el modo de la fila que gane.
+    const clave = `${fila.providerId}\u0000${fila.anime.ref.value}\u0000${fila.episodeNumber}`
+    const previo = porEpisodio.get(clave)
+
+    if (previo === undefined || ratio > previo.ratio) porEpisodio.set(clave, { fila, ratio })
+  }
+
+  return [...porEpisodio.values()]
+}
+
 export function registerWatchRoutes(app: Hono, options: WatchRouteOptions): void {
   app.get('/api/watch/recent', async (c) => {
-    const filas = await options.container.store.listRecentlyWatched(20)
+    const filas = await options.container.store.listRecentlyWatched(CONTINUE_SCAN)
 
-    const items = filas
-      .map((fila) => ({ fila, ratio: watchedRatio(fila.positionS, fila.durationS) }))
+    const items = unaPorEpisodio(filas)
       .filter(({ fila, ratio }) => !fila.finished && ratio >= MIN_CONTINUE_RATIO)
+      .slice(0, CONTINUE_LIMIT)
       .map(({ fila, ratio }) => ({
         animeRef: fila.anime.ref,
         title: fila.anime.title,

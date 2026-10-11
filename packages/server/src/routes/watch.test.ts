@@ -301,6 +301,57 @@ describe('GET /api/watch/recent', () => {
     })
   })
 
+  test('el mismo episodio deja una sola tarjeta, la que más avanzó', async () => {
+    await conApp(async ({ pedir }) => {
+      // Cada reproducción abre su fila: abrir el episodio otra vez no puede
+      // pintar la misma tarjeta dos veces.
+      const primera = (await (await alta(pedir)).json()) as { id: number }
+      await pedir(`/api/watch/${primera.id}`, {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ positionS: 300, durationS: 1440 }),
+      })
+
+      const segunda = (await (await alta(pedir)).json()) as { id: number }
+      await pedir(`/api/watch/${segunda.id}`, {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ positionS: 30, durationS: 1440 }),
+      })
+
+      const cuerpo = (await (await pedir('/api/watch/recent')).json()) as {
+        items: { positionS: number }[]
+      }
+
+      expect(cuerpo.items).toHaveLength(1)
+      // La que más avanzó y no la última que se tocó: reabrir el episodio y
+      // dejarlo a los treinta segundos no borra los cinco minutos de antes.
+      expect(cuerpo.items[0]?.positionS).toBe(300)
+    })
+  })
+
+  test('un episodio terminado no resucita por una fila vieja a medias', async () => {
+    await conApp(async ({ pedir }) => {
+      const vieja = (await (await alta(pedir)).json()) as { id: number }
+      await pedir(`/api/watch/${vieja.id}`, {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ positionS: 300, durationS: 1440 }),
+      })
+
+      const nueva = (await (await alta(pedir)).json()) as { id: number }
+      await pedir(`/api/watch/${nueva.id}`, {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ positionS: 1400, durationS: 1440 }),
+      })
+
+      const cuerpo = (await (await pedir('/api/watch/recent')).json()) as { items: unknown[] }
+
+      expect(cuerpo.items).toEqual([])
+    })
+  })
+
   test('exige sesión', async () => {
     await conApp(async ({ pedir }) => {
       expect((await pedir('/api/watch/recent', { headers: {} })).status).toBe(401)
