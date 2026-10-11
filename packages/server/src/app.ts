@@ -30,6 +30,7 @@ import { PROTECTED_PREFIXES } from './paths'
 import { createProviderHub } from './provider-hub'
 import { registerAnimeRoutes } from './routes/anime'
 import { registerCoverRoute } from './routes/cover'
+import { registerFeedRoute, registerRecentRoute } from './routes/discovery'
 import { registerEpisodesRoute } from './routes/episodes'
 import { registerFavoritesRoutes } from './routes/favorites'
 import { registerPlayRoutes } from './routes/play'
@@ -190,6 +191,8 @@ export function createApp(options: AppOptions): Hono {
     registerWatchRoutes(app, { container: options.container })
     registerRecommendationsRoute(app, routeOptions)
     registerTrendingRoute(app, routeOptions)
+    registerFeedRoute(app, routeOptions)
+    registerRecentRoute(app, routeOptions)
     registerSettingsRoute(app, {
       container: options.container,
       plugins,

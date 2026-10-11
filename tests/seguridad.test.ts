@@ -27,6 +27,8 @@ const RUTAS_PROTEGIDAS: readonly (readonly [string, string])[] = [
   ['GET', '/api/watch/recent'],
   ['GET', '/api/recommendations'],
   ['GET', '/api/trending'],
+  ['GET', '/api/feed'],
+  ['GET', '/api/catalog/recent'],
   ['GET', '/api/settings'],
   ['GET', '/stream/inventado'],
   ['GET', '/api/subtitles/inventado'],

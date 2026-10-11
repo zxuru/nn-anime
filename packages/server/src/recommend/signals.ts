@@ -7,9 +7,11 @@
  *
  * Dos reglas del spec que se ven aquí:
  *
- * 1. **Sin historial no se llama a ningún proveedor salvo `getTrending`.** Ni
- *    detalle, ni búsqueda, ni episodios: si no hay nada que recomendar, pedirle
- *    cosas a un sitio de terceros es gastar su ancho de banda para nada.
+ * 1. **Sin historial no se llama a ningún proveedor salvo `getTrending` y
+ *    `getFeed`.** Son las dos listas que una fuente publica para quien no ha
+ *    buscado nada; ni detalle, ni búsqueda, ni episodios. Lo demás se pide sólo
+ *    cuando hay algo que recomendar, porque gastar el ancho de banda de un tercero
+ *    para nada no es gratis para nadie.
  * 2. **Un candidato sin tags no entra en el ranking de afinidad.** Puede entrar
  *    por popularidad, y eso es lo que hace que un título recién cacheado, sin
  *    géneros todavía, no desaparezca de la lista.
@@ -25,6 +27,9 @@ export const CORPUS_LIMIT = 500
 
 /** Cuántos registros de historial se usan. */
 export const HISTORY_LIMIT = 500
+
+/** Cuántos títulos encontrados por una búsqueda entran como candidatos. */
+export const RECENT_LIMIT = 100
 
 export interface Signals {
   readonly events: readonly AffinityEvent[]
@@ -126,18 +131,25 @@ export interface GatherOptions {
 /**
  * Junta las señales locales. **No llama a ningún proveedor.**
  *
- * Los candidatos son los títulos cacheados más los favoritos. El proveedor entra
- * después y sólo para tendencias, y quien decide es la ruta.
+ * Los candidatos son los títulos cacheados, los favoritos y **lo que apareció en
+ * una búsqueda**, aunque nadie abriera su ficha. Eso último es lo que hace que
+ * quien busca y no entra en nada tenga igualmente destacado y top 5: antes, la
+ * tabla `anime` sólo se escribía al pedir el detalle, así que una búsqueda no
+ * dejaba candidatos y la home se quedaba vacía.
+ *
+ * El proveedor entra después y sólo para `getTrending` y `getFeed`; quien decide
+ * es la ruta.
  */
 export async function gatherSignals(
   store: CatalogStore,
   options: GatherOptions = {},
 ): Promise<Signals> {
-  const [candidatos, watch, historial, favoritos] = await Promise.all([
+  const [candidatos, watch, historial, favoritos, recientes] = await Promise.all([
     store.listCandidates(options.corpusLimit ?? CORPUS_LIMIT),
     store.listRecentlyWatched(options.historyLimit ?? HISTORY_LIMIT),
     store.listRecentSearches(50),
     store.listFavorites(),
+    store.listRecentSummaries(RECENT_LIMIT),
   ])
 
   const corpus = new Map<string, Candidate>(
@@ -167,6 +179,24 @@ export async function gatherSignals(
         ...(favorito.coverUrl === undefined ? {} : { coverUrl: favorito.coverUrl }),
       })
     }
+  }
+
+  // Y lo encontrado por una búsqueda. Si el título ya está en el corpus —porque
+  // alguien abrió su ficha— no se toca: ese ya tiene sus tags, y son los que
+  // puntúan. Lo que entra por aquí no tiene vector y sólo puede entrar por
+  // popularidad, que es justo lo que se quiere de un resultado que nadie abrió.
+  for (const reciente of recientes) {
+    const clave = refKey(reciente.ref)
+    if (corpus.has(clave)) continue
+
+    corpus.set(clave, {
+      ref: reciente.ref,
+      title: reciente.title,
+      tags: [],
+      studios: [],
+      ...(reciente.year === undefined ? {} : { year: reciente.year }),
+      ...(reciente.coverUrl === undefined ? {} : { coverUrl: reciente.coverUrl }),
+    })
   }
 
   const eventos = eventsFromWatch(watch, corpus)
