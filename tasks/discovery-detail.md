@@ -1,7 +1,7 @@
 # Plan de tareas: la ficha de un anime (relacionados, hueco, modos y vistos)
 
-Spec: `docs/specs/SPEC-anime-detail.md` · Estado: **propuesta · pendiente de aprobación humana** ·
-2026-10-12.
+Spec: `docs/specs/SPEC-anime-detail.md` · Estado: **implementado y medido** · 2026-10-12
+Commits: T58 `4e68ff2`, T59 `7b587f0`, T60 `1ec44cd`, T61 `382cbdb`, T62 `a18acea`.
 
 Origen: con la captura de «Sousou no Frieren» delante, cuatro cosas se ven a la vez. No hay
 relacionados —ver la segunda temporada no lleva a la primera—; la columna de texto lleva
@@ -58,11 +58,12 @@ se puede medir sin base ni navegador.
 `packages/core/src/api.ts`, `packages/core/src/index.ts`.
 
 **Aceptación:**
-- [ ] `baseTitle('Sousou no Frieren 2nd Season')` es `'sousou no frieren'`; mutar la lista para
-      quitar `2nd season` rompe la prueba.
-- [ ] `baseTitle('86')` es `'86'`; normalizar dígitos sueltos la rompe.
-- [ ] `baseTitle('Bleach: Thousand-Year Blood War Part 2')` es `'bleach thousand year blood war'`.
-- [ ] `watchedResponseSchema` rechaza una proporción fuera de `[0, 1]`.
+- [x] `baseTitle('Sousou no Frieren 2nd Season')` es `'sousou no frieren'`; mutar la lista para
+      quitar `2nd season` rompe la prueba. Medido en `packages/core/src/titles.test.ts`.
+- [x] `baseTitle('86')` es `'86'`; normalizar dígitos sueltos la rompe.
+- [x] `baseTitle('Bleach: Thousand-Year Blood War Part 2')` es `'bleach thousand year blood war'`.
+- [x] `watchedResponseSchema` rechaza una proporción fuera de `[0, 1]`
+      (`packages/core/src/api.test.ts`).
 
 **Depende de:** —. **Tamaño:** S.
 
@@ -81,15 +82,15 @@ la escritura que la aplica.
 `packages/catalog-store/src/index.ts`.
 
 **Aceptación:**
-- [ ] Con «Frieren» y «Frieren 2nd Season» en la base, `listRelated` de la segunda devuelve la
-      primera y nunca a sí misma; quitar el filtro de exclusión lo delata.
-- [ ] `listRelated` resuelve con **una** consulta preparada (contador de consultas, como en
+- [x] Con «Frieren» y «Frieren 2nd Season» en la base, `listRelated` de la segunda devuelve la
+      primera y nunca a sí misma (`related.test.ts`).
+- [x] `listRelated` resuelve con **una** consulta preparada (contador de consultas, como en
       `user.test.ts`).
-- [ ] Con dos visionados del mismo episodio, `listWatchedEpisodes` devuelve el más avanzado y una
-      sola fila.
-- [ ] `updateWatchPosition` con 90 % deja `finished = 1`; con 89 %, `0`.
-- [ ] Cambiar la tabla `watch_event` rompe las pruebas: si hiciera falta una columna, el spec exige
-      preguntar antes.
+- [x] Con dos visionados del mismo episodio, `listWatchedEpisodes` devuelve el más avanzado y una
+      sola fila (`watched-episodes.test.ts`).
+- [x] `updateWatchPosition` con 90 % deja `finished = 1`; con 89 %, `0`.
+- [x] **No hizo falta columna nueva**: se usa `watch_event.finished`, que existía desde la primera
+      migración y nadie escribía.
 
 **Depende de:** T58, T57 (la duración llega al servidor). **Tamaño:** M.
 
@@ -108,9 +109,11 @@ hay que tomar, que el proveedor exista, y separarlas duplicaba esa comprobación
 `packages/server/src/app.ts`.
 
 **Aceptación:**
-- [ ] La ruta de relacionados no llama al proveedor: con el plugin que lanza, responde igual.
-- [ ] Un proveedor desconocido sigue siendo 404; una referencia sin fila en la base, lista vacía.
-- [ ] Un episodio al 92 % **no** sale en `/api/watch/recent`; al 50 %, sí.
+- [x] Las dos rutas son locales: sin proveedores cargados contestan 404 y no tocan la red
+      (`detail.test.ts`).
+- [x] Un proveedor desconocido sigue siendo 404; una referencia sin fila en la base, lista vacía.
+- [x] Un episodio al 96 % **no** sale en `/api/watch/recent`; al 50 %, sí. Medido mutando: quitar
+      `!fila.finished` del filtro deja en rojo la prueba del terminado.
 
 **Depende de:** T59. **Tamaño:** M.
 
@@ -127,10 +130,11 @@ relacionados como fila de tarjetas-enlace con su hueco explicado; el token
 `packages/web/src/styles/{tokens,shell}.css`, `packages/web/src/i18n/es.ts`.
 
 **Aceptación:**
-- [ ] La ficha, con relacionados, los pinta como enlaces que llevan a su ficha; sin ellos, dice por
-      qué no hay.
-- [ ] El bloque de la sinopsis conserva `max-width: var(--measure)`; el de episodios, no.
-- [ ] El botón activo no lleva el acento en fondo y sombra a la vez (`--shadow-hard-pressed`), y
+- [x] La ficha, con relacionados, los pinta como enlaces que llevan a su ficha; sin ellos, dice por
+      qué no hay. Medido mutando: sin el estado vacío cae la prueba del hueco explicado.
+- [x] El bloque de la sinopsis conserva `max-width: var(--measure)`; el de episodios, no
+      (`.detail__body` ya no impone la medida).
+- [x] El botón activo no lleva el acento en fondo y sombra a la vez (`--shadow-hard-pressed`), y
       sigue con `aria-pressed`.
 
 **Depende de:** T60. **Tamaño:** M.
@@ -147,11 +151,11 @@ relacionados como fila de tarjetas-enlace con su hueco explicado; el token
 `packages/web/src/features/detail/useDetail.ts`.
 
 **Aceptación:**
-- [ ] Un episodio con `finished: true` sale con la palabra «visto»; uno al 40 %, con su barra; uno
-      sin duración, con ninguna de las dos.
-- [ ] Quitar la marca de la mutación deja una prueba en rojo.
-- [ ] La lista marca el episodio, no el modo: el mismo número visto en sub se ve marcado también
-      con el modo en dub.
+- [x] Un episodio con `finished: true` sale con la palabra «visto»; uno al 40 %, con su barra; uno
+      sin duración, con ninguna de las dos (`detail.test.tsx`).
+- [x] Medido mutando: sin la marca de terminado caen las dos pruebas de «visto».
+- [x] La lista marca el episodio, no el modo: el mismo número visto en sub se ve marcado también
+      con la lista en dub.
 
 **Depende de:** T60. **Tamaño:** S.
 
@@ -189,3 +193,18 @@ Camino crítico: T57 → T59 → T60 → T61.
 - Marcar visto a mano y deshacerlo.
 - Relacionados entre proveedores distintos.
 - Un componente compartido de barra de progreso con la home.
+
+## Nota de la entrega: dos sesiones sobre el mismo árbol
+
+Otra sesión trabajó en el mismo árbol y **reescribió la historia dos veces** mientras esta entrega
+estaba en curso. La primera dejó mi commit de T61 fuera de la rama (`382cbdb`, colgado); la segunda
+lo devolvió a la rama pero dejó fuera el de T62 (`e1c17d6`), que sólo sobrevivió en el árbol de
+trabajo. T62 se volvió a commitear como `a18acea`, con el mismo contenido ya medido: los commits van
+con la lista de rutas, y el árbol se reconstruyó sobre `HEAD` con un **índice propio**
+(`GIT_INDEX_FILE`) para no llevarse nada de la otra sesión.
+
+Lo que **no** se pudo medir: el e2e. `bun run e2e` falla en el `setup` porque los navegadores de
+Playwright no están instalados en esta máquina (`npx playwright install chromium`), así que las
+pruebas de navegador de esta entrega quedan pendientes de quien tenga el navegador. `typecheck`,
+`lint` de los paquetes tocados y las **1.078 pruebas** de `core`, `catalog-store`, `server` y `web`
+están en verde.
