@@ -22,7 +22,7 @@ function providerFrom(raw: Record<string, unknown>): Provider {
       id,
       name: id,
       apiVersion: '1',
-      capabilities: { search: true, sub: true, dub: false, trending: false },
+      capabilities: { search: true, sub: true, dub: false, trending: false, feed: false },
       search: async () => [],
       getAnime: async () => ({
         ref: { providerId: id, value: 'a' },
@@ -101,6 +101,7 @@ describe('GET /api/providers', () => {
       sub: true,
       dub: true,
       trending: true,
+      feed: false,
     })
     expect(body.providers[0]?.status).toBe('active')
   })
@@ -139,6 +140,7 @@ describe('GET /api/providers', () => {
       sub: false,
       dub: false,
       trending: false,
+      feed: false,
     })
   })
 

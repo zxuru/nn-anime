@@ -9,7 +9,7 @@ function provider(overrides: Partial<Provider> = {}): Provider {
     id: 'fixture',
     name: 'Fixture',
     apiVersion: '1',
-    capabilities: { search: true, sub: true, dub: false, trending: false },
+    capabilities: { search: true, sub: true, dub: false, trending: false, feed: false },
     search: async () => [],
     getAnime: async () => ({ ref: REF, title: 'Un título', genres: [], studios: [] }),
     getEpisodes: async () => [],
@@ -24,7 +24,7 @@ function raw(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     id: 'fixture',
     name: 'Fixture',
     apiVersion: '1',
-    capabilities: { search: true, sub: true, dub: false, trending: false },
+    capabilities: { search: true, sub: true, dub: false, trending: false, feed: false },
     search: async () => [],
     getAnime: async () => ({ ref: REF, title: 'Un título', genres: [], studios: [] }),
     getEpisodes: async () => [],
@@ -84,7 +84,7 @@ describe('assertConforms', () => {
 
   test('declarar trending sin implementarlo se reporta: es una promesa rota', () => {
     const result = assertConforms(
-      raw({ capabilities: { search: true, sub: true, dub: false, trending: true } }),
+      raw({ capabilities: { search: true, sub: true, dub: false, trending: true, feed: false } }),
     )
 
     expect(result.ok).toBe(false)
@@ -94,10 +94,38 @@ describe('assertConforms', () => {
   test('declarar trending e implementarlo es conforme', () => {
     const result = assertConforms(
       raw({
-        capabilities: { search: true, sub: true, dub: false, trending: true },
+        capabilities: { search: true, sub: true, dub: false, trending: true, feed: false },
         getTrending: async () => [],
       }),
     )
+
+    expect(result.ok).toBe(true)
+  })
+
+  test('declarar feed sin implementarlo se reporta: es una promesa rota', () => {
+    const result = assertConforms(
+      raw({ capabilities: { search: true, sub: true, dub: false, trending: false, feed: true } }),
+    )
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.message).toContain('getFeed')
+  })
+
+  test('declarar feed e implementarlo es conforme', () => {
+    const result = assertConforms(
+      raw({
+        capabilities: { search: true, sub: true, dub: false, trending: false, feed: true },
+        getFeed: async () => [],
+      }),
+    )
+
+    expect(result.ok).toBe(true)
+  })
+
+  test('sin declarar feed, el método que sobre no molesta', () => {
+    // Un plugin puede traer `getFeed` y declarar la capacidad en falso: la
+    // capacidad es la que manda, y el método que nadie llama no es un problema.
+    const result = assertConforms(raw({ getFeed: async () => [] }))
 
     expect(result.ok).toBe(true)
   })
@@ -111,7 +139,7 @@ describe('assertConforms', () => {
 })
 
 describe('inspectConformance', () => {
-  test('recorre los cinco métodos del contrato y marca cuáles son obligatorios', () => {
+  test('recorre los seis métodos del contrato y marca cuáles son obligatorios', () => {
     const report = inspectConformance(provider())
 
     expect(report.methods.map((item) => item.method)).toEqual([
@@ -120,6 +148,7 @@ describe('inspectConformance', () => {
       'getEpisodes',
       'resolveStream',
       'getTrending',
+      'getFeed',
     ])
     expect(report.methods.filter((item) => item.required).map((item) => item.method)).toEqual([
       'search',
@@ -135,6 +164,7 @@ describe('inspectConformance', () => {
     const report = inspectConformance(provider())
 
     expect(report.methods.find((item) => item.method === 'getTrending')?.present).toBe(false)
+    expect(report.methods.find((item) => item.method === 'getFeed')?.present).toBe(false)
     expect(report.ok).toBe(true)
   })
 

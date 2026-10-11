@@ -15,13 +15,22 @@ import type {
   AnimeDetail,
   ProviderCapabilities as CoreProviderCapabilities,
   Episode,
+  FeedEntry,
   ProviderRef,
   SearchResult,
   StreamRequest,
   StreamSource,
 } from '@nn-anime/core'
 
-export type { AnimeDetail, Episode, ProviderRef, SearchResult, StreamRequest, StreamSource }
+export type {
+  AnimeDetail,
+  Episode,
+  FeedEntry,
+  ProviderRef,
+  SearchResult,
+  StreamRequest,
+  StreamSource,
+}
 
 /**
  * Versión del contrato que este SDK implementa.
@@ -40,7 +49,7 @@ export const REQUIRED_PROVIDER_METHODS = [
 ] as const
 
 /** Métodos que un plugin puede no implementar. */
-export const OPTIONAL_PROVIDER_METHODS = ['getTrending'] as const
+export const OPTIONAL_PROVIDER_METHODS = ['getTrending', 'getFeed'] as const
 
 export type RequiredProviderMethod = (typeof REQUIRED_PROVIDER_METHODS)[number]
 export type OptionalProviderMethod = (typeof OPTIONAL_PROVIDER_METHODS)[number]
@@ -86,6 +95,14 @@ export interface Provider {
   resolveStream(request: StreamRequest, options: CallOptions): Promise<readonly StreamSource[]>
   /** Opcional. Listas curadas para arranque en frío de `recsys`. */
   getTrending?(options: CallOptions): Promise<readonly SearchResult[]>
+  /**
+   * Opcional. Novedades de la fuente, para la home sin búsquedas previas.
+   *
+   * Es la única lista del contrato que puede traer contenido **y** una fecha sin
+   * que nadie haya buscado nada. El formato del feed —RSS, Atom o una lista
+   * propia— lo decide el plugin: aquí sólo llegan referencias ya convertidas.
+   */
+  getFeed?(options: CallOptions): Promise<readonly FeedEntry[]>
 }
 
 /**

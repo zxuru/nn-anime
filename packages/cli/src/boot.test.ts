@@ -671,7 +671,7 @@ const PROVIDER: Provider = {
   id: 'uno',
   name: 'Uno',
   apiVersion: '1',
-  capabilities: { search: true, sub: true, dub: false, trending: false },
+  capabilities: { search: true, sub: true, dub: false, trending: false, feed: false },
   search: async () => [],
   getAnime: async () => ({
     ref: { providerId: 'uno', value: 'a' },

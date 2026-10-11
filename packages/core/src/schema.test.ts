@@ -6,6 +6,8 @@ import {
   cacheHitSchema,
   candidateSchema,
   episodeSchema,
+  feedEntrySchema,
+  providerCapabilitiesSchema,
   providerRefSchema,
   searchResultSchema,
   streamRequestSchema,
@@ -385,5 +387,58 @@ describe('modos', () => {
   test('streamRequestSchema sólo acepta sub y dub', () => {
     expect(streamRequestSchema.safeParse({ episodeRef: REF, mode: 'sub' }).success).toBe(true)
     expect(streamRequestSchema.safeParse({ episodeRef: REF, mode: 'raw' }).success).toBe(false)
+  })
+})
+
+describe('feed: la lista de novedades de una fuente', () => {
+  test('sin declarar la capacidad queda en false', () => {
+    const result = providerCapabilitiesSchema.safeParse({
+      search: true,
+      sub: true,
+      dub: false,
+      trending: false,
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.feed).toBe(false)
+  })
+
+  test('declarada, se respeta', () => {
+    const result = providerCapabilitiesSchema.safeParse({
+      search: true,
+      sub: true,
+      dub: false,
+      trending: false,
+      feed: true,
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.feed).toBe(true)
+  })
+
+  test('una entrada con fecha ISO se acepta', () => {
+    const result = feedEntrySchema.safeParse({
+      ref: REF,
+      title: 'Un título',
+      publishedAt: '2026-10-11T02:00:00.000Z',
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.publishedAt).toBe('2026-10-11T02:00:00.000Z')
+  })
+
+  test('la fecha es opcional: un feed sin fechas vale', () => {
+    expect(feedEntrySchema.safeParse({ ref: REF, title: 'Un título' }).success).toBe(true)
+  })
+
+  test('una fecha que no es ISO se rechaza nombrando el campo', () => {
+    const result = feedEntrySchema.safeParse({ ref: REF, title: 'Un título', publishedAt: 'ayer' })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join('.')).join(' | ')).toContain(
+        'publishedAt',
+      )
+    }
   })
 })

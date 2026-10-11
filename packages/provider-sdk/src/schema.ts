@@ -15,6 +15,7 @@
 import {
   animeDetailSchema,
   episodeSchema,
+  feedEntrySchema,
   providerCapabilitiesSchema,
   searchResultSchema,
   streamSourceSchema,
@@ -69,6 +70,7 @@ export const providerSchema = z.looseObject({
   getEpisodes: methodSchema('getEpisodes'),
   resolveStream: methodSchema('resolveStream'),
   getTrending: methodSchema('getTrending').optional(),
+  getFeed: methodSchema('getFeed').optional(),
 })
 
 /** Lo que devuelve `providerSchema`. El literal de versión lo hace asignable a `Provider`. */
@@ -115,6 +117,7 @@ export const providerSearchResultsSchema = z.array(searchResultSchema)
 export const providerAnimeDetailSchema = animeDetailSchema
 export const providerEpisodesSchema = z.array(episodeSchema)
 export const providerStreamSourcesSchema = z.array(providerStreamSourceSchema)
+export const providerFeedSchema = z.array(feedEntrySchema)
 
 /**
  * Schema de respuesta por método, en una tabla.
@@ -128,6 +131,7 @@ export const RESPONSE_SCHEMAS = {
   getEpisodes: providerEpisodesSchema,
   resolveStream: providerStreamSourcesSchema,
   getTrending: providerSearchResultsSchema,
+  getFeed: providerFeedSchema,
 } as const
 
 /** Lo que devuelve un método, derivado de su schema: no se escribe a mano. */

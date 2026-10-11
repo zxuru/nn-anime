@@ -109,6 +109,9 @@ export function toProviderDraft(form: ProviderForm): ProviderDraftRequest {
       sub: form.capabilities.sub,
       dub: form.capabilities.dub,
       trending: trending !== '',
+      // El asistente no ofrece un feed: un RSS necesita parseo XML y esto genera
+      // rutas JSON. La capacidad existe para plugins escritos a mano.
+      feed: false,
     },
     endpoints: {
       search: form.endpoints.search.trim(),

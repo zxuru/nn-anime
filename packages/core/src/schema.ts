@@ -105,6 +105,14 @@ export const providerCapabilitiesSchema = z.strictObject({
   sub: z.boolean(),
   dub: z.boolean(),
   trending: z.boolean(),
+  /**
+   * El proveedor publica novedades que no dependen de una búsqueda.
+   *
+   * Con valor por defecto y no obligatorio: este schema es estricto y lo leen los
+   * manifiestos de plugins **ya instalados**. Un campo requerido nuevo los
+   * rechazaría a todos al cargar, por una función que su autor no pidió.
+   */
+  feed: z.boolean().default(false),
 })
 
 export const modeSchema = z.enum(['sub', 'dub', 'raw'])
@@ -155,6 +163,19 @@ export const searchResultSchema = z.strictObject({
   coverUrl: httpUrlSchema.optional(),
   year: z.number().int().optional(),
   kind: titleKindSchema.optional(),
+})
+
+/**
+ * Una entrada de la lista de novedades de una fuente.
+ *
+ * Es un `SearchResult` con fecha, y la fecha es la razón de que exista: un feed
+ * sabe **cuándo** publicó algo y una búsqueda no. Va en ISO-8601 y como cadena, no
+ * como `Date`, porque el dato cruza JSON tres veces —el manifiesto del plugin, la
+ * caché en disco y la respuesta HTTP— y un `Date` se convierte en cadena por el
+ * camino y volvería como cadena igual: el tipo estaría mintiendo.
+ */
+export const feedEntrySchema = searchResultSchema.extend({
+  publishedAt: z.iso.datetime().optional(),
 })
 
 export const animeDetailSchema = searchResultSchema.extend({

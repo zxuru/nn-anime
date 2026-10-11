@@ -21,6 +21,7 @@ import {
   type AnimeDetail,
   type Episode,
   err,
+  type FeedEntry,
   ok,
   ProviderError,
   type ProviderRef,
@@ -34,6 +35,7 @@ import { classifyThrow, describeProblems, providerFailure } from './errors'
 import {
   providerAnimeDetailSchema,
   providerEpisodesSchema,
+  providerFeedSchema,
   providerSearchResultsSchema,
   providerStreamSourcesSchema,
 } from './schema'
@@ -162,4 +164,25 @@ export async function getTrending(
   const raw = await execute(provider, 'getTrending', true, () => invoke(options))
 
   return parse(provider, 'getTrending', providerSearchResultsSchema, raw)
+}
+
+/**
+ * Las novedades de la fuente.
+ *
+ * Igual que `getTrending`: la capacidad declarada manda, y la respuesta se valida
+ * antes de salir. Un feed que devuelve una fecha que no es ISO-8601 se rechaza
+ * nombrando el campo, en vez de llegar a la caché y envenenarla.
+ */
+export async function getFeed(
+  provider: Provider,
+  options: CallOptions,
+): Promise<Result<readonly FeedEntry[], ProviderError>> {
+  const invoke = provider.getFeed
+  if (!provider.capabilities.feed || invoke === undefined) {
+    return err(providerFailure({ providerId: provider.id, method: 'getFeed', kind: 'unsupported' }))
+  }
+
+  const raw = await execute(provider, 'getFeed', true, () => invoke(options))
+
+  return parse(provider, 'getFeed', providerFeedSchema, raw)
 }

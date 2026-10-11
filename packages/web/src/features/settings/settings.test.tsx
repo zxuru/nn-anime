@@ -17,7 +17,7 @@ function render(node: ReactNode): string {
   )
 }
 
-const CAPACIDADES = { search: true, sub: true, dub: false, trending: false }
+const CAPACIDADES = { search: true, sub: true, dub: false, trending: false, feed: false }
 
 describe('tema', () => {
   test('`system` se resuelve con lo que prefiere el sistema', () => {
@@ -66,7 +66,7 @@ describe('lista de proveedores', () => {
           {
             id: 'roto.ts',
             name: 'roto.ts',
-            capabilities: { search: false, sub: false, dub: false, trending: false },
+            capabilities: { search: false, sub: false, dub: false, trending: false, feed: false },
             status: 'rejected',
             reason: 'no exporta un proveedor válido',
           },

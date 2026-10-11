@@ -21,7 +21,16 @@ function render(node: ReactNode): string {
 }
 
 function capacidades(overrides: Partial<ProviderCapabilities> = {}): ProviderCapabilities {
-  return { search: true, sub: true, dub: false, trending: false, ...overrides }
+  // `feed` va después del spread y con su valor por defecto: si quedara dentro
+  // del objeto base, el spread lo volvería opcional y el tipo dejaría de cumplir.
+  return {
+    search: true,
+    sub: true,
+    dub: false,
+    trending: false,
+    ...overrides,
+    feed: overrides.feed ?? false,
+  }
 }
 
 function episodio(numero: number, overrides: Partial<Episode> = {}): Episode {

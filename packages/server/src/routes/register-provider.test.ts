@@ -96,7 +96,7 @@ describe('alta de un proveedor', () => {
         provider: {
           id: 'mio',
           name: 'Mío',
-          capabilities: { search: true, sub: true, dub: false, trending: false },
+          capabilities: { search: true, sub: true, dub: false, trending: false, feed: false },
           status: 'active',
         },
       })

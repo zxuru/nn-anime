@@ -9,7 +9,7 @@ function provider(overrides: Partial<Provider> = {}): Provider {
     id: 'fixture',
     name: 'Fixture',
     apiVersion: '1',
-    capabilities: { search: true, sub: true, dub: false, trending: false },
+    capabilities: { search: true, sub: true, dub: false, trending: false, feed: false },
     search: async () => [],
     getAnime: async () => ({ ref: REF, title: 'Un título', genres: [], studios: [] }),
     getEpisodes: async () => [],

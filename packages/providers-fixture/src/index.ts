@@ -163,7 +163,7 @@ export function createFixtureProvider(options: FixtureOptions = {}): FixtureProv
     id,
     name: options.name ?? 'Proveedor de prueba',
     apiVersion: '1',
-    capabilities: { search: true, sub: true, dub: true, trending: true },
+    capabilities: { search: true, sub: true, dub: true, trending: true, feed: false },
     calls,
 
     async search(query, callOptions) {

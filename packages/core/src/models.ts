@@ -13,6 +13,7 @@ import type {
   animeSummarySchema,
   candidateSchema,
   episodeSchema,
+  feedEntrySchema,
   modeSchema,
   providerCapabilitiesSchema,
   providerRefSchema,
@@ -46,6 +47,8 @@ export type ProviderRef = DeepReadonly<z.infer<typeof providerRefSchema>>
 export type SubtitleTrack = DeepReadonly<z.infer<typeof subtitleTrackSchema>>
 export type StreamSource = DeepReadonly<z.infer<typeof streamSourceSchema>>
 export type SearchResult = DeepReadonly<z.infer<typeof searchResultSchema>>
+/** Una entrada de la lista de novedades de una fuente, con su fecha. */
+export type FeedEntry = DeepReadonly<z.infer<typeof feedEntrySchema>>
 export type AnimeDetail = DeepReadonly<z.infer<typeof animeDetailSchema>>
 export type Episode = DeepReadonly<z.infer<typeof episodeSchema>>
 export type StreamRequest = DeepReadonly<z.infer<typeof streamRequestSchema>>

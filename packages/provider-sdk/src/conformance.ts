@@ -79,14 +79,19 @@ export function inspectConformance(candidate: unknown): ConformanceReport {
  * Lo que la forma no puede ver: declarar una capacidad que no se implementa.
  *
  * `capabilities.trending` es una promesa al resto del sistema de que existe
- * `getTrending`. Un plugin que la declara y no lo implementa haría fallar el
- * arranque en frío de `recsys` en el peor momento, que es al principio.
+ * `getTrending`, y `capabilities.feed` de que existe `getFeed`. Un plugin que la
+ * declara y no lo implementa haría fallar el arranque en frío de `recsys` —o la
+ * fila de novedades de la home— en el peor momento, que es al principio.
  */
 function coherenceProblems(provider: Provider): readonly string[] {
   const problems: string[] = []
 
   if (provider.capabilities.trending && typeof provider.getTrending !== 'function') {
     problems.push('declara capabilities.trending y no implementa getTrending')
+  }
+
+  if (provider.capabilities.feed && typeof provider.getFeed !== 'function') {
+    problems.push('declara capabilities.feed y no implementa getFeed')
   }
 
   return problems

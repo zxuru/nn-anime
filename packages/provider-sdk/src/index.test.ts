@@ -20,7 +20,9 @@ describe('superficie pública', () => {
       'assertConforms',
       'classifyThrow',
       'createRegistry',
+      'getFeed',
       'inspectConformance',
+      'providerFeedSchema',
       'providerSchema',
       'providerStreamHeadersSchema',
       'search',
@@ -28,6 +30,12 @@ describe('superficie pública', () => {
     ]
 
     for (const name of names) expect(Object.hasOwn(sdk, name), name).toBe(true)
+  })
+
+  test('la versión del contrato sigue siendo la 1', () => {
+    // `feed` es un método opcional y una capacidad con valor por defecto: subir la
+    // versión obligaría a reescribir cada plugin a mano a cambio de nada.
+    expect(sdk.PROVIDER_API_VERSION).toBe('1')
   })
 
   test('un plugin que declara la versión publicada pasa el schema', () => {

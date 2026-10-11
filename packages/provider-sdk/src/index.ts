@@ -13,6 +13,7 @@
 export {
   getAnime,
   getEpisodes,
+  getFeed,
   getTrending,
   resolveStream,
   search,
@@ -56,6 +57,7 @@ export {
   providerAnimeDetailSchema,
   providerCapabilitiesSchema,
   providerEpisodesSchema,
+  providerFeedSchema,
   providerIdSchema,
   providerSchema,
   providerSearchResultsSchema,

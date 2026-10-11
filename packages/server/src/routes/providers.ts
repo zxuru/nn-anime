@@ -55,7 +55,7 @@ export function summarizePlugins(report: PluginReport): readonly ProviderSummary
   const rechazados: ProviderSummary[] = report.rejected.map((entry) => ({
     id: fileStem(entry.file),
     name: fileStem(entry.file),
-    capabilities: { search: false, sub: false, dub: false, trending: false },
+    capabilities: { search: false, sub: false, dub: false, trending: false, feed: false },
     status: 'rejected',
     reason: entry.reason.message,
   }))

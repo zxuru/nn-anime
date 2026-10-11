@@ -20,7 +20,7 @@ function resumen(id: string, status: 'active' | 'rejected'): ProviderSummary {
   return {
     id,
     name: id,
-    capabilities: { search: true, sub: true, dub: false, trending: false },
+    capabilities: { search: true, sub: true, dub: false, trending: false, feed: false },
     status,
     ...(status === 'rejected' ? { reason: 'no cargó' } : {}),
   }

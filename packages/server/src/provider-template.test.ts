@@ -22,7 +22,7 @@ function draft(overrides: Partial<ProviderDraft> = {}): ProviderDraft {
     id: 'mio',
     name: 'Mío',
     baseUrl: 'https://e.example',
-    capabilities: { search: true, sub: true, dub: false, trending: false },
+    capabilities: { search: true, sub: true, dub: false, trending: false, feed: false },
     endpoints: {
       search: '/buscar?q={query}',
       anime: '/anime/{ref}',
@@ -332,7 +332,7 @@ describe('lo que el plugin generado hace', () => {
       await withProvider(
         renderProviderModule(
           draft({
-            capabilities: { search: true, sub: true, dub: false, trending: true },
+            capabilities: { search: true, sub: true, dub: false, trending: true, feed: false },
             endpoints: {
               search: '/buscar?q={query}',
               anime: '/anime/{ref}',

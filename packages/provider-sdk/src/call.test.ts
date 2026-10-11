@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { getAnime, getEpisodes, getTrending, resolveStream, search } from './call'
+import { getAnime, getEpisodes, getFeed, getTrending, resolveStream, search } from './call'
 import { createRegistry } from './registry'
 import type { CallOptions, Provider } from './types'
 
@@ -12,7 +12,7 @@ function provider(overrides: Partial<Provider> = {}): Provider {
     id: 'fixture',
     name: 'Fixture',
     apiVersion: '1',
-    capabilities: { search: true, sub: true, dub: false, trending: false },
+    capabilities: { search: true, sub: true, dub: false, trending: false, feed: false },
     search: async () => [],
     getAnime: async () => ({ ref: REF, title: 'Un título', genres: [], studios: [] }),
     getEpisodes: async () => [],
@@ -38,7 +38,7 @@ function rawProvider(overrides: Record<string, unknown> = {}): Provider {
       id: 'fixture',
       name: 'Fixture',
       apiVersion: '1',
-      capabilities: { search: true, sub: true, dub: false, trending: false },
+      capabilities: { search: true, sub: true, dub: false, trending: false, feed: false },
       search: async () => [],
       getAnime: async () => ({ ref: REF, title: 'Un título', genres: [], studios: [] }),
       getEpisodes: async () => [],
@@ -142,7 +142,7 @@ describe('call: la capacidad declarada manda', () => {
   test('sin capabilities.search no se llama al plugin', async () => {
     let calls = 0
     const quiet = provider({
-      capabilities: { search: false, sub: true, dub: false, trending: false },
+      capabilities: { search: false, sub: true, dub: false, trending: false, feed: false },
       search: async () => {
         calls += 1
         return []
@@ -174,7 +174,7 @@ describe('call: la capacidad declarada manda', () => {
 
   test('con capabilities.trending pero sin método, se responde sin lanzar', async () => {
     const lying = provider({
-      capabilities: { search: true, sub: true, dub: false, trending: true },
+      capabilities: { search: true, sub: true, dub: false, trending: true, feed: false },
     })
 
     const result = await getTrending(lying, OPTIONS)
@@ -185,7 +185,7 @@ describe('call: la capacidad declarada manda', () => {
 
   test('con capabilities.trending y método, se devuelve lo validado', async () => {
     const trending = provider({
-      capabilities: { search: true, sub: true, dub: false, trending: true },
+      capabilities: { search: true, sub: true, dub: false, trending: true, feed: false },
       getTrending: async () => [RESULT],
     })
 
@@ -193,6 +193,80 @@ describe('call: la capacidad declarada manda', () => {
 
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.value).toEqual([RESULT])
+  })
+})
+
+describe('call: el feed, con la capacidad como puerta', () => {
+  test('sin capabilities.feed no se llama al plugin', async () => {
+    let calls = 0
+    const quiet = provider({
+      getFeed: async () => {
+        calls += 1
+        return []
+      },
+    })
+
+    const result = await getFeed(quiet, OPTIONS)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.context.kind).toBe('unsupported')
+    expect(calls).toBe(0)
+  })
+
+  test('con capabilities.feed pero sin método, se responde sin lanzar', async () => {
+    const lying = provider({
+      capabilities: { search: true, sub: true, dub: false, trending: false, feed: true },
+    })
+
+    const result = await getFeed(lying, OPTIONS)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.context.kind).toBe('unsupported')
+  })
+
+  test('con capacidad y método, se devuelve lo validado, con su fecha', async () => {
+    const conFecha = { ...RESULT, publishedAt: '2026-10-11T02:00:00.000Z' }
+    const fuente = provider({
+      capabilities: { search: true, sub: true, dub: false, trending: false, feed: true },
+      getFeed: async () => [conFecha],
+    })
+
+    const result = await getFeed(fuente, OPTIONS)
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value).toEqual([conFecha])
+  })
+
+  test('una fecha que no es ISO se rechaza antes de salir', async () => {
+    const fuente = rawProvider({
+      capabilities: { search: true, sub: true, dub: false, trending: false, feed: true },
+      getFeed: async () => [{ ...RESULT, publishedAt: 'el martes' }],
+    })
+
+    const result = await getFeed(fuente, OPTIONS)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error.context.kind).toBe('invalid-shape')
+      expect(result.error.message).toContain('publishedAt')
+    }
+  })
+
+  test('un feed que lanza se convierte en Result, no en excepción', async () => {
+    const roto = provider({
+      capabilities: { search: true, sub: true, dub: false, trending: false, feed: true },
+      getFeed: async () => {
+        throw new Error('el XML del feed cambió de forma')
+      },
+    })
+
+    const result = await getFeed(roto, OPTIONS)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error.message).toContain('el XML del feed cambió de forma')
+      expect(result.error.context.kind).toBe('threw')
+    }
   })
 })
 

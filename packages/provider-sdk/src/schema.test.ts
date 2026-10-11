@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   providerCapabilitiesSchema,
+  providerFeedSchema,
   providerIdSchema,
   providerSchema,
   providerStreamSourceSchema,
@@ -15,7 +16,7 @@ function provider(overrides: Partial<Provider> = {}): Provider {
     id: 'fixture',
     name: 'Fixture',
     apiVersion: '1',
-    capabilities: { search: true, sub: true, dub: false, trending: false },
+    capabilities: { search: true, sub: true, dub: false, trending: false, feed: false },
     search: async () => [],
     getAnime: async () => ({ ref: REF, title: 'Un título', genres: [], studios: [] }),
     getEpisodes: async () => [],
@@ -34,6 +35,31 @@ function joined(
 describe('forma del plugin', () => {
   test('acepta un proveedor completo', () => {
     expect(providerSchema.safeParse(provider()).success).toBe(true)
+  })
+
+  test('un manifiesto escrito antes del feed carga igual y lo deja en false', () => {
+    // Es el caso que importa: el schema de capacidades es estricto y lo leen los
+    // plugins **ya instalados**. Si `feed` fuera obligatorio, actualizar la
+    // aplicación rechazaría todos los que hubiera, por una función que su autor
+    // no pidió.
+    const viejo = provider()
+    const sinFeed = {
+      ...viejo,
+      capabilities: { search: true, sub: true, dub: false, trending: false },
+    }
+    const result = providerSchema.safeParse(sinFeed)
+
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.capabilities.feed).toBe(false)
+  })
+
+  test('un feed con una fecha que no es ISO se rechaza nombrando el campo', () => {
+    const result = providerFeedSchema.safeParse([
+      { ref: REF, title: 'Un título', publishedAt: 'el martes' },
+    ])
+
+    expect(result.success).toBe(false)
+    if (!result.success) expect(joined(result.error.issues)).toContain('publishedAt')
   })
 
   test('las claves propias del plugin sobreviven a la validación', () => {
