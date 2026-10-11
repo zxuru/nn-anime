@@ -4,6 +4,12 @@ Estado: **propuesta · pendiente de aprobación humana** · 2026-10-12 · decisi
 tomadas: **heurística local del catálogo** para los relacionados, **visto automático al 90 % o al
 llegar al final**, y **dos columnas con barra lateral** para la ficha.
 
+Ampliación aprobada el 2026-10-13 (T64-T66): los relacionados emparejan por **título de saga**,
+**cruzan proveedores** y leen también los listados cacheados; y la búsqueda pinta **una tarjeta por
+obra** con selector de proveedor. Motivo: sobre la base de desarrollo, «kimetsu no yaiba» devolvía
+13 tarjetas para 7 obras antes, y la ficha de `jkanime/kimetsu-no-yaiba` no relacionaba nada aunque
+la saga estuviera en la caché.
+
 Esta entrega **no crea un módulo**: extiende contratos y paquetes ya aprobados. No toca
 `docs/specs/CAPABILITY-MAP.md` ni su build order.
 
@@ -47,20 +53,27 @@ leer una sinopsis.
    iba. La lista es la misma para sub y dub: lo que se marca es el episodio, no el modo.
 5. Cuando no hay relacionados, la sección **se explica** en vez de desaparecer o mentir con una
    fila vacía (la regla de `rows.ts`, aplicada aquí).
-6. Nada de esto abre una consulta por fila: los relacionados salen de **una** lectura y los vistos
-   de **una**.
+6. Nada de esto abre una consulta por fila: los relacionados salen de **una lectura acotada** —dos
+   sentencias preparadas, ninguna por candidato— y los vistos de **una**.
 
 ## Supuestos declarados
 
-- **La heurística es una heurística, y se dice.** Empareja títulos cuyo *título base* coincide
-  —quitando el marcador de temporada— dentro del **mismo proveedor**. «Sousou no Frieren» y
-  «Sousou no Frieren 2nd Season» coinciden; «Frieren: Beyond Journey's End» y «Sousou no Frieren»
-  **no**, porque la fuente los nombra distinto. Esa limitación es la que hace que la propuesta del
-  plugin —`related` como capacidad, con las relaciones que declare la fuente— siga teniendo sentido
-  para otra entrega; hoy no hay ni un plugin que pudiera declararlas.
-- **Sólo se relacionan títulos que la base ya conoce.** No se busca en el proveedor para rellenar la
-  sección: eso sería una petición de red por ficha abierta, y el spec prohíbe la precarga
-  especulativa. Ficha de una saga de la que sólo se abrió un título: sin relacionados, y lo dice.
+- **La heurística es una heurística, y se dice.** Empareja títulos cuyo *título de saga* coincide
+  (`sagaTitle`, que quita el subtítulo de la entrega y el marcador de temporada) y **cruza
+  proveedores**: la misma saga suele estar en dos fuentes a la vez. «Sousou no Frieren» y «Sousou
+  no Frieren 2nd Season» coinciden, y «Kimetsu no Yaiba» con «Kimetsu no Yaiba: Yuukaku-hen»
+  también; «Frieren: Beyond Journey's End» y «Sousou no Frieren» **no**, porque la fuente los
+  nombra distinto. Esa limitación es la que hace que la propuesta del plugin —`related` como
+  capacidad, con las relaciones que declare la fuente— siga teniendo sentido para otra entrega;
+  hoy no hay ni un plugin que pudiera declararlas.
+- **Una obra, una fila.** La misma entrega en dos proveedores sale una vez, con el proveedor de la
+  ficha delante —pulsarla no cambia de sitio—; la propia ficha no se lista a sí misma aunque otra
+  fuente la tenga.
+- **Sólo se relacionan títulos que la base ya conoce**, y «la base» son las **fichas abiertas y los
+  listados cacheados** —búsquedas, tendencias y novedades—. No se busca en el proveedor para
+  rellenar la sección: eso sería una petición de red por ficha abierta, y el spec prohíbe la
+  precarga especulativa. Ficha de una saga que no está en ninguno de los dos sitios: sin
+  relacionados, y lo dice.
 - **Visto es un umbral, no una certeza.** Al 90 % de la duración el episodio se da por terminado.
   Un episodio que se dejó a falta de los créditos cuenta como visto, y quien quiera precisión
   tendrá que pedir el botón manual —fuera de esta entrega—.
@@ -124,9 +137,11 @@ listRelated(ref: ProviderRef, limit: number): Promise<readonly AnimeSummary[]>
 listWatchedEpisodes(animeRef: ProviderRef): Promise<readonly WatchedEpisode[]>
 ```
 
-`listRelated` lee los títulos del proveedor en **una** consulta, normaliza en memoria y ordena por
-cercanía de año (mismo año primero, luego el más próximo, luego el más reciente). Excluye la
-referencia pedida. Sin coincidencias devuelve lista vacía, no `null`: «no hay» no es «no se pudo».
+`listRelated` lee el título de la referencia pedida en una consulta y los candidatos —lo que la
+base conoce y empieza por la misma palabra, en `anime` y en los tres listados cacheados— en otra,
+normaliza en memoria y ordena por cercanía de año (mismo año primero, luego el más próximo, luego
+el más reciente). Excluye la referencia pedida y la propia obra en otra fuente. Sin coincidencias
+devuelve lista vacía, no `null`: «no hay» no es «no se pudo».
 
 `updateWatchPosition` pasa a escribir `finished` con `positionS / durationS >= FINISHED_RATIO`.
 La proporción se calcula **en el servidor** y contra el mismo umbral que lee la interfaz: con dos
@@ -181,10 +196,16 @@ packages/web/src/features/detail/RelatedList.tsx
       `sagaTitle('Kimetsu no Yaiba Movie 1: Mugenjou-hen - Akaza Sairai') === 'kimetsu no yaiba'`.
       Medido mutando: sin el corte por `:` fallan 6 pruebas; sin el marcador de película, 2;
       aceptando el guion suelto como separador, 1.
-- [ ] Con dos títulos de la misma saga en la base, `listRelated` devuelve el hermano y **no** la
+- [x] Con dos títulos de la misma saga en la base, `listRelated` devuelve el hermano y **no** la
       referencia pedida; la mutación que quite la exclusión lo delata.
-- [ ] `listRelated` resuelve con **una** consulta preparada (contador de consultas, como en
-      `user.test.ts`).
+- [x] `listRelated` cruza proveedores, lee también los listados cacheados y saca **una fila por
+      obra**, con el proveedor de la ficha delante. Medido mutando: emparejar por `baseTitle` en
+      lugar de `sagaTitle` deja 4 pruebas en rojo; quitar la mitad de la caché de búsqueda, 1;
+      devolver el filtro de proveedor, 5; quitar el mapa por obra, 1. Verificado además contra la
+      base real de desarrollo: la ficha de `jkanime/kimetsu-no-yaiba` pasa de 0 relacionados a 6,
+      todas distintas.
+- [x] `listRelated` no prepara ninguna consulta por candidato (contador de consultas, como en
+      `user.test.ts`): dos sentencias preparadas en el alta y ninguna durante la lectura.
 - [ ] `updateWatchPosition` con 90 % marca `finished`; con 89 % no. Mutar el umbral a `>` lo delata.
 - [ ] `GET /api/anime/:p/:ref/watched` devuelve una fila por episodio con el visionado más
       avanzado, no una por visionado.
