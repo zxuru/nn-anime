@@ -102,9 +102,10 @@ ambas locales y sin `X-Cache`. `GET /api/watch/recent` cambia su ventana de prop
 **Por qué:** las proporciones las calcula el servidor para que dos pantallas no pinten la misma
 barra con valores distintos; con dos umbrales, una de las dos miente.
 
-**Archivos:** `packages/server/src/routes/related.ts`, `packages/server/src/routes/watched.ts`,
-`packages/server/src/routes/watch.ts`, `packages/server/src/app.ts`,
-`packages/server/src/routes/related.test.ts`.
+**Archivos:** `packages/server/src/routes/detail.ts` —las dos rutas comparten la única decisión que
+hay que tomar, que el proveedor exista, y separarlas duplicaba esa comprobación—,
+`packages/server/src/routes/detail.test.ts`, `packages/server/src/routes/watch.ts`,
+`packages/server/src/app.ts`.
 
 **Aceptación:**
 - [ ] La ruta de relacionados no llama al proveedor: con el plugin que lanza, responde igual.

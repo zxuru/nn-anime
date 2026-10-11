@@ -14,6 +14,7 @@
 import {
   continueWatchingResponseSchema,
   errorResponseSchema,
+  watchedRatio,
   watchStartRequestSchema,
   watchStartResponseSchema,
   watchUpdateRequestSchema,
@@ -30,27 +31,23 @@ export interface WatchRouteOptions {
  *
  * Se cortan los visionados terminados y los que no llegaron al 2 %: lo primero
  * porque ya se vio, y lo segundo porque abrir un episodio y cerrarlo no es «estar
- * viendo» nada. Y se cortan por arriba al 95 %: lo que está a punto de acabarse no
- * es algo que apetezca continuar.
+ * viendo» nada. **El corte de arriba es la bandera `finished`** —y no una
+ * proporción propia— desde que el almacén la escribe con el mismo umbral que lee
+ * la ficha: con dos umbrales, un episodio podía salir «visto» en la ficha y
+ * seguir en «continuar viendo» en la home.
  *
  * La proporción la calcula el servidor y no el cliente: si la calculara cada
  * pantalla, dos pantallas podrían pintar la misma barra con valores distintos.
  */
 export const MIN_CONTINUE_RATIO = 0.02
-export const MAX_CONTINUE_RATIO = 0.95
 
 export function registerWatchRoutes(app: Hono, options: WatchRouteOptions): void {
   app.get('/api/watch/recent', async (c) => {
     const filas = await options.container.store.listRecentlyWatched(20)
 
     const items = filas
-      .map((fila) => {
-        const ratio =
-          fila.durationS > 0 ? Math.min(fila.positionS / fila.durationS, 1) : fila.finished ? 1 : 0
-
-        return { fila, ratio }
-      })
-      .filter(({ ratio }) => ratio >= MIN_CONTINUE_RATIO && ratio <= MAX_CONTINUE_RATIO)
+      .map((fila) => ({ fila, ratio: watchedRatio(fila.positionS, fila.durationS) }))
+      .filter(({ fila, ratio }) => !fila.finished && ratio >= MIN_CONTINUE_RATIO)
       .map(({ fila, ratio }) => ({
         animeRef: fila.anime.ref,
         title: fila.anime.title,
