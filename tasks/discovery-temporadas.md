@@ -50,40 +50,47 @@ la página del episodio. La ficha de esa fila basura es lo que aparece en «Últ
 **Archivos:** `packages/core/src/titles.ts`, `packages/core/src/titles.test.ts`.
 
 **Aceptación:**
-- [ ] `seasonNumberOf('Sousou no Frieren 2nd Season')` es 2, el de «Shingeki no Kyojin Season 3
+- [x] `seasonNumberOf('Sousou no Frieren 2nd Season')` es 2, el de «Shingeki no Kyojin Season 3
       Part 2» es 3 y el de «Overlord IV» es 4.
-- [ ] `seasonNumberOf('One Piece')` es `undefined`: no se inventa un 1. Mutar `undefined` por 1 deja
+- [x] `seasonNumberOf('One Piece')` es `undefined`: no se inventa un 1. Mutar `undefined` por 1 deja
       la prueba en rojo.
-- [ ] `franchiseTitle('Naruto Shippuden')` es `'naruto'` y el de «Dragon Ball Z» es `'dragon'`.
-- [ ] `sagaTitle('One Piece Film: Red')` es `'one piece'`; sin `film` en la lista, la prueba cae.
-- [ ] Los falsos positivos declarados siguen en pie: `86`, `5-toubun no Hanayome`, `Final Fantasy
+- [x] `franchiseTitle('Naruto Shippuden')` es `'naruto'` y el de «Dragon Ball Z» es `'dragon ball'`.
+- [x] `sagaTitle('One Piece Film: Red')` es `'one piece'`; sin `film` en la lista, la prueba cae.
+- [x] Los falsos positivos declarados siguen en pie: `86`, `5-toubun no Hanayome`, `Final Fantasy
       VII`.
+
+**Estado:** hecho, pero **bajo el id T70**: el reclamo de T69 lo tenía otra sesión —trabajando en
+`packages/web/src/features/player`, justo los archivos de T68— cuando esta entrega llegó a él. Los
+ids no se reescriben; el trabajo va donde hay sitio y se declara.
 
 **Depende de:** —. **Tamaño:** S.
 
-## T70 — `catalog-store` + `server`: el alcance de la lectura
+## T70 — `core` + `catalog-store` + `server`: las claves y el alcance
 
-**Qué:** `list(ref, limit, scope)` con `'saga'` por defecto y `'franchise'` como alternativa, el
-orden `bySagaOrder` (número de temporada, después año, después estable) y el parámetro `?scope=` en
-la ruta.
+**Qué:** lo de T69 —que no se pudo reclamar— más `list(ref, limit, scope)` con `'saga'` por defecto y
+`'franchise'` como alternativa, y el parámetro `?scope=` en la ruta.
 
 **Por qué:** la franquicia no es otra consulta: es la misma con otra comparación en memoria, y el
-prefiltro por la primera palabra ya era el suyo.
+prefiltro por la primera palabra de la saga ya cubre la franquicia.
 
-**Archivos:** `packages/catalog-store/src/repositories/related.ts`,
-`packages/catalog-store/src/repositories/related.test.ts`,
-`packages/server/src/routes/detail.ts`, `packages/server/src/routes/detail.test.ts`,
-`packages/catalog-store/src/store.ts`.
+**Decisión corregida al implementar:** el orden **no** cambia. Sigue siendo `byYearProximity`, el de
+hoy; ordenar por número de temporada es presentación y vive en el rail (T71), que es quien tiene el
+título, el año y el tipo de cada entrega. Moverlo a la lectura habría cambiado el orden de la
+sección de relacionados ya aprobada para ganar nada.
+
+**Archivos:** `packages/core/src/titles.ts`, `packages/core/src/index.ts`,
+`packages/catalog-store/src/repositories/related.ts`, `packages/catalog-store/src/store.ts`,
+`packages/server/src/routes/detail.ts`.
 
 **Aceptación:**
-- [ ] Sin `scope`, la lectura devuelve exactamente lo de hoy: ninguna llamada existente cambia.
-- [ ] Con `'franchise'`, «Naruto Shippuden» sale para la ficha de «Naruto»; sin él, no.
-- [ ] El orden es por número de temporada y, sin él, por año; dos llamadas seguidas dan el mismo
-      orden.
-- [ ] `?scope=basura` cae a `'saga'` y no devuelve 400.
-- [ ] Sigue siendo **una** consulta preparada (contador de consultas).
+- [x] Sin `scope`, la lectura devuelve exactamente lo de hoy: ninguna llamada existente cambia.
+- [x] Con `'franchise'`, «Naruto Shippuden» sale para la ficha de «Naruto»; sin él, no.
+- [x] La franquicia contiene a la saga: la segunda temporada sale en los dos alcances, y quitarla de
+      la sección de franquicia es trabajo del rail.
+- [x] `?scope=basura` cae a `'saga'` y no devuelve 400.
+- [x] Sigue siendo **una** consulta preparada (contador de consultas).
 
-**Depende de:** T69. **Tamaño:** M.
+**Depende de:** —. **Tamaño:** M.
 
 ## T71 — `web`: el rail de temporadas y la franquicia
 
@@ -126,10 +133,10 @@ de vistos de la ventana visible; con 100 o menos, sin controles.
 
 ```
 T68 ─────────────────────────── (independiente)
-T69 ── T70 ── T71 ── T72
+T70 ── T71 ── T72
 ```
 
-Camino crítico: T69 → T70 → T71 → T72.
+Camino crítico: T70 → T71 → T72.
 
 ## Fuera de este plan
 

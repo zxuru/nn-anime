@@ -30,6 +30,8 @@ function detalle(ref: ProviderRef, title: string, year: number): AnimeDetail {
 
 interface Contexto {
   readonly pedir: (ruta: string, init?: RequestInit) => Promise<Response>
+  /** El almacén, para las fichas que una prueba necesite escribir de más. */
+  readonly store: ReturnType<typeof createContainer>['store']
 }
 
 async function conApp<T>(body: (contexto: Contexto) => Promise<T>): Promise<T> {
@@ -62,6 +64,7 @@ async function conApp<T>(body: (contexto: Contexto) => Promise<T>): Promise<T> {
     await container.store.writeAnime(SAGA, detalle(SAGA, 'Aurora Nocturna 2nd Season', 2021))
 
     return await body({
+      store: container.store,
       pedir: async (ruta, init) =>
         await Promise.resolve(servidor.request(`${BASE}${ruta}`, init ?? { headers: GOOD })),
     })
@@ -85,6 +88,40 @@ describe('GET /api/anime/:providerId/:ref/related', () => {
   test('un proveedor desconocido es 404', async () => {
     await conApp(async ({ pedir }) => {
       expect((await pedir(`/api/anime/no-existe/${REF}/related`)).status).toBe(404)
+    })
+  })
+
+  /**
+   * El alcance de la lectura, por la ruta.
+   *
+   * «Aurora Nocturna Shippuden» es otra saga —la fuente la nombra como una obra
+   * distinta— y la misma franquicia. Sin `?scope=` la sección de siempre no la
+   * lista; con `?scope=franchise`, sí. Y un valor que nadie pidió no es un error:
+   * cae al alcance de siempre, que es lo que la interfaz vieja espera.
+   */
+  test('el alcance de franquicia junta la secuela con otro nombre', async () => {
+    await conApp(async ({ pedir, store }) => {
+      const secuela: ProviderRef = { providerId: 'fixture', value: 'aurora-nocturna-shippuden' }
+      await store.writeAnime(secuela, detalle(secuela, 'Aurora Nocturna Shippuden', 2023))
+
+      const leer = async (ruta: string) =>
+        (
+          (await (await pedir(ruta)).json()) as { items: readonly { ref: ProviderRef }[] }
+        ).items.map((item) => item.ref.value)
+
+      // Sin alcance, la saga de «Aurora Nocturna» es ella y su segunda temporada.
+      expect(await leer(`/api/anime/fixture/${REF}/related`)).toEqual(['aurora-nocturna-2'])
+      // Con alcance de franquicia, la segunda temporada sigue estando —la
+      // franquicia contiene a la saga— y se suma la secuela con otro nombre, en
+      // el orden de cercanía de año que ya tenía la lectura.
+      expect(await leer(`/api/anime/fixture/${REF}/related?scope=franchise`)).toEqual([
+        'aurora-nocturna-2',
+        'aurora-nocturna-shippuden',
+      ])
+      // Un alcance que no existe no rompe la petición: manda el de siempre.
+      expect(await leer(`/api/anime/fixture/${REF}/related?scope=basura`)).toEqual([
+        'aurora-nocturna-2',
+      ])
     })
   })
 

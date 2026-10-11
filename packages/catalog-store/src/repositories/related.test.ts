@@ -91,8 +91,57 @@ const FRIEREN: ProviderRef = { providerId: 'fixture', value: 'frieren' }
 const FRIEREN_2: ProviderRef = { providerId: 'fixture', value: 'frieren-2' }
 const MAR: ProviderRef = { providerId: 'fixture', value: 'mar-de-cristal' }
 const KIMETSU: ProviderRef = { providerId: 'jkanime', value: 'kimetsu-no-yaiba' }
+const NARUTO: ProviderRef = { providerId: 'jkanime', value: 'naruto' }
+const SHIPPUDEN: ProviderRef = { providerId: 'jkanime', value: 'naruto-shippuden' }
+const DRAGON_BALL: ProviderRef = { providerId: 'jkanime', value: 'dragon-ball' }
+const DRAGON_BALL_Z: ProviderRef = { providerId: 'jkanime', value: 'dragon-ball-z' }
 
 describe('listRelated', () => {
+  /**
+   * El alcance elige la clave, y nada más.
+   *
+   * Sin alcance —el de siempre— «Naruto» y «Naruto Shippuden» son dos sagas
+   * distintas y no se relacionan. Con `'franchise'` sí, que es lo que la fuente
+   * no puede decir porque las nombra como dos obras.
+   */
+  test('el alcance de franquicia junta la secuela que la saga separa', async () => {
+    await withStore(
+      [
+        [NARUTO, 'Naruto', 2002],
+        [SHIPPUDEN, 'Naruto Shippuden', 2007],
+        [DRAGON_BALL, 'Dragon Ball', 1986],
+        [DRAGON_BALL_Z, 'Dragon Ball Z', 1989],
+      ],
+      (store) => {
+        expect(store.related.list(NARUTO, 10).map((item) => item.ref.value)).toEqual([])
+
+        // La mutación que ignore el alcance deja en rojo esta línea.
+        expect(store.related.list(NARUTO, 10, 'franchise').map((item) => item.ref.value)).toEqual([
+          'naruto-shippuden',
+        ])
+        // Y no se lleva por delante la otra franquicia: el prefiltro por la
+        // primera palabra ya las separa.
+        expect(
+          store.related.list(DRAGON_BALL, 10, 'franchise').map((item) => item.ref.value),
+        ).toEqual(['dragon-ball-z'])
+      },
+    )
+  })
+
+  test('la franquicia sigue siendo una sola consulta preparada', async () => {
+    await withStore(
+      [
+        [NARUTO, 'Naruto', 2002],
+        [SHIPPUDEN, 'Naruto Shippuden', 2007],
+      ],
+      (store) => {
+        store.related.list(NARUTO, 10, 'franchise')
+
+        expect(store.llamadas()).toBe(2)
+      },
+    )
+  })
+
   test('empareja la saga y no se devuelve a sí misma', async () => {
     await withStore(
       [

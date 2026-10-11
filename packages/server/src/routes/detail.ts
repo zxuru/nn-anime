@@ -15,6 +15,7 @@
  * convertirse en una lectura de la tabla entera pintada en una fila.
  */
 
+import type { RelatedScope } from '@nn-anime/catalog-store'
 import { errorResponseSchema, relatedResponseSchema, watchedResponseSchema } from '@nn-anime/core'
 import type { Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
@@ -42,6 +43,17 @@ export function relatedLimit(raw: string | undefined): number {
   return Math.min(numero, MAX_RELATED_LIMIT)
 }
 
+/**
+ * El alcance pedido, saneado.
+ *
+ * Un valor desconocido cae a `'saga'`, igual que un límite sin sentido cae al de
+ * por defecto: una petición sin preferencia no es una petición mal formada, y un
+ * 400 aquí sólo conseguiría que una interfaz vieja dejara de pintar la sección.
+ */
+export function relatedScope(raw: string | undefined): RelatedScope {
+  return raw === 'franchise' ? 'franchise' : 'saga'
+}
+
 export interface DetailRoutesOptions {
   readonly providers: readonly Provider[]
   readonly container: ServerContainer
@@ -62,6 +74,7 @@ export function registerDetailRoutes(app: Hono, options: DetailRoutesOptions): v
     const items = await options.container.store.listRelated(
       { providerId, value: ref },
       relatedLimit(c.req.query('limit')),
+      relatedScope(c.req.query('scope')),
     )
 
     return c.json(relatedResponseSchema.parse({ items }))

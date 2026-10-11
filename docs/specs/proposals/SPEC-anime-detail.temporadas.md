@@ -48,12 +48,15 @@ episodios se pueda recorrer sin un `<ol>` de mil filas.
 
 ## Supuestos declarados
 
-- **La franquicia es una heurística más, y se dice.** La clave es la **primera palabra del título de
-  saga** (`franchiseTitle`): `naruto` junta «Naruto», «Naruto Shippuden» y «Boruto: Naruto Next
-  Generations» —este último por la primera palabra de su saga, `boruto`, no—; `dragon` junta Dragon
-  Ball entero. El daño conocido es un spin-off que comparte primera palabra: entra en la sección, y
-  la sección se llama «Más de esta franquicia», no «Temporadas». El daño de no hacerlo es que media
-  biblioteca de estos catálogos no se pueda encadenar.
+- **La franquicia es una heurística más, y se dice.** La clave es el título de saga **sin el sufijo
+  de la secuela**, con una lista cerrada —`shippuden`, `super`, `daima`, `gt`, `kai`, `z`,
+  `brotherhood`, `heroes`—: `Naruto Shippuden` vuelve a `naruto` y `Dragon Ball Z` a `dragon ball`.
+  No es «la primera palabra», y la diferencia importa: con la primera palabra, «One Piece» y «One
+  Punch Man» acabarían en la misma franquicia. Los falsos negativos declarados son los sufijos que
+  no están en la lista —«Naruto SD: Rock Lee no Seishun Full-Power Ninden» queda en `naruto sd`, y
+  eso es lo que se quiere— y el falso positivo es un spin-off cuyo nombre sea exactamente
+  «<serie> Shippuden». El daño de no hacerlo es que media biblioteca de estos catálogos no se pueda
+  encadenar.
 - **El rail de temporadas no pide nada a la red.** Los candidatos son los que ya están en `anime` y
   en los listados cacheados, la misma regla que los relacionados de hoy.
 - **Sin año, el orden se declara aproximado.** Con `year` en la búsqueda (decisión 3) el orden es
@@ -81,21 +84,25 @@ episodios se pueda recorrer sin un `<ol>` de mil filas.
 export function seasonNumberOf(title: string): number | undefined
 
 /**
- * La franquicia: la primera palabra del título de saga.
+ * La franquicia: el título de saga sin el sufijo de la secuela.
  *
  * «Naruto Shippuden» -> «naruto»
- * «Dragon Ball Z» -> «dragon»
- * «Kimetsu no Yaiba: Mugen Ressha-hen» -> «kimetsu»
+ * «Dragon Ball Z» -> «dragon ball»
+ * «Kimetsu no Yaiba: Mugen Ressha-hen» -> «kimetsu no yaiba»
  */
 export function franchiseTitle(title: string): string
 
-// `MARCADORES` gana un marcador de película que hoy falta: «film».
+// Los marcadores de película ganan la palabra que hoy falta: «film».
 // «One Piece Film: Red» hoy queda en «one piece film» y no entra en su propia saga.
 ```
 
 `seasonNumberOf` lee los mismos marcadores que `baseTitle` ya quita, más los romanos finales
 (`Overlord IV` -> 4). Los marcadores de parte (`Part 2`, `Cour 2`) **no** cambian el número de
-temporada: son la segunda mitad de la misma, y hay una prueba que fija ese falso positivo.
+temporada: son la segunda mitad de la misma, y hay una prueba que fija ese falso positivo. Tampoco
+hay número para «The Final Season»: ningún entero significa «la última», y quien ordene tiene el año.
+
+`franchiseTitle` quita el paréntesis calificador —«Dragon Ball Z (Original)», «Ranma ½ (2024) 3rd
+Season»— antes de calcular la saga: es un calificador de la fuente, no parte del nombre.
 
 ### `catalog-store` — una lectura con dos alcances
 
@@ -111,13 +118,17 @@ list(ref: ProviderRef, limit: number, scope?: RelatedScope): readonly AnimeSumma
 `scope` por defecto `'saga'`, que es el comportamiento de hoy: ninguna llamada existente cambia.
 Con `'franchise'` la comparación en memoria usa `franchiseTitle` en vez de `sagaTitle`; la consulta
 preparada sigue siendo **la misma** y sigue siendo **una**, porque el prefiltro por la primera
-palabra ya era el de la franquicia.
+palabra de la saga ya cubre la franquicia.
 
-El orden por año (`byYearProximity`) pasa a `bySagaOrder`, que ordena así:
+La franquicia **contiene** a la saga: «Dandadan 2nd Season» sale en los dos alcances. Por eso el
+orden de las secciones y el quitar de la franquicia lo que ya está en Temporadas es trabajo de la
+interfaz, no de la lectura.
 
-1. número de temporada, cuando los dos lo tienen;
-2. año, cuando los dos lo tienen;
-3. el orden en que la lectura los devolvió —estable—, para que dos cargas pinten la misma fila.
+El orden no cambia: sigue siendo `byYearProximity`, el mismo que ya tenía la lectura de
+relacionados. **La decisión, corregida al implementar:** el orden por número de temporada es
+presentación y vive en la interfaz (T71), que es quien tiene el título, el año y el tipo de cada
+entrega en la mano. Moverlo a la lectura habría cambiado el orden de la sección de relacionados de
+hoy —la que ya está aprobada— para ganar nada: el rail reordena igual.
 
 La exclusión de la propia referencia y el mapa «una obra, una fila» no cambian.
 
@@ -176,7 +187,7 @@ que al pedir el detalle del episodio el cliente escribió la fila basura `jkanim
 
 ```
 packages/core/src/titles.ts                        seasonNumberOf, franchiseTitle, \bfilm\b
-packages/catalog-store/src/repositories/related.ts RelatedScope, bySagaOrder
+packages/catalog-store/src/repositories/related.ts RelatedScope y la clave del alcance
 packages/server/src/routes/detail.ts               ?scope=
 packages/web/src/features/detail/SagaRail.tsx      temporadas, películas y franquicia
 packages/web/src/features/detail/EpisodeList.tsx   ventanas, salto y resumen
@@ -194,7 +205,7 @@ packages/web/src/styles/shell.css                  .rail, .episodes__windows
 - [ ] `seasonNumberOf('One Piece')` es `undefined`: no se inventa un 1. Mutar el `undefined` a `1`
       deja en rojo la prueba.
 - [ ] `franchiseTitle('Naruto Shippuden') === 'naruto'` y `franchiseTitle('Dragon Ball Z') ===
-      'dragon'`; `franchiseTitle('86') === '86'`.
+      'dragon ball'`; `franchiseTitle('One Punch Man') !== franchiseTitle('One Piece')`.
 - [ ] `sagaTitle('One Piece Film: Red') === 'one piece'`. Medido mutando: sin `film` en los
       marcadores, la prueba cae.
 - [ ] `list(ref, 12, 'franchise')` devuelve «Naruto Shippuden» para la ficha de «Naruto» y

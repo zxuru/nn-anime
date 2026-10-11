@@ -41,6 +41,7 @@ export {
   byYearProximity,
   createRelatedRepository,
   RELATED_SCAN_LIMIT,
+  type RelatedScope,
   type RelatedStore,
 } from './repositories/related'
 export {

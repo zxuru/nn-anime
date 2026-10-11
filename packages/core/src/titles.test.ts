@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { baseTitle, sagaTitle } from './titles'
+import { baseTitle, franchiseTitle, sagaTitle, seasonNumberOf } from './titles'
 
 describe('baseTitle', () => {
   test('quita el marcador de temporada y deja el título comparable', () => {
@@ -93,5 +93,84 @@ describe('sagaTitle', () => {
 
     expect(saga).toBe('kimetsu no yaiba')
     expect(sagaTitle(saga)).toBe(saga)
+  })
+
+  test('la palabra `film` también marca película: «One Piece Film: Red»', () => {
+    // Sin `film` en la lista, el título queda en «one piece film» y la película
+    // se queda fuera de la saga a la que pertenece.
+    expect(sagaTitle('One Piece Film: Red')).toBe('one piece')
+    expect(sagaTitle('One Piece Movie 14: Stampede')).toBe('one piece')
+  })
+})
+
+describe('seasonNumberOf', () => {
+  test('lee el número de los marcadores escritos', () => {
+    expect(seasonNumberOf('Sousou no Frieren 2nd Season')).toBe(2)
+    expect(seasonNumberOf('Kimetsu no Yaiba Season 3')).toBe(3)
+    expect(seasonNumberOf('Kimetsu no Yaiba Temporada 3')).toBe(3)
+    expect(seasonNumberOf('Ranma ½ (2024) 3rd Season')).toBe(3)
+  })
+
+  test('con dos marcadores manda la temporada, no la parte', () => {
+    expect(seasonNumberOf('Shingeki no Kyojin Season 3 Part 2')).toBe(3)
+    expect(seasonNumberOf('Sousou no Frieren 2nd Season Part 2')).toBe(2)
+  })
+
+  test('la parte sola no es una temporada', () => {
+    // «The Final Season Part 2» no es la temporada 2 de nada: es la segunda mitad
+    // de la última. Devolver 2 la colocaría entre las primeras de su saga.
+    expect(seasonNumberOf('Shingeki no Kyojin: The Final Season Part 2')).toBeUndefined()
+  })
+
+  test('el romano final vale por su número', () => {
+    expect(seasonNumberOf('Overlord IV')).toBe(4)
+    expect(seasonNumberOf('Overlord')).toBeUndefined()
+  })
+
+  test('sin marcador no hay número: no se inventa el uno', () => {
+    // Mutar el `undefined` por 1 deja esta prueba en rojo, y con ella la
+    // etiqueta «Temporada 1» que la interfaz pondría sobre una obra que la
+    // fuente nunca numeró.
+    expect(seasonNumberOf('One Piece')).toBeUndefined()
+    expect(seasonNumberOf('Bleach: Sennen Kessen-hen')).toBeUndefined()
+    expect(seasonNumberOf('86')).toBeUndefined()
+    expect(seasonNumberOf('Frieren: Beyond Journey’s End')).toBeUndefined()
+  })
+})
+
+describe('franchiseTitle', () => {
+  test('la secuela con sufijo vuelve a la franquicia de su serie', () => {
+    expect(franchiseTitle('Naruto Shippuden')).toBe('naruto')
+    expect(franchiseTitle('Naruto')).toBe('naruto')
+    expect(franchiseTitle('Dragon Ball Z')).toBe('dragon ball')
+    expect(franchiseTitle('Dragon Ball GT')).toBe('dragon ball')
+    expect(franchiseTitle('Dragon Ball Kai')).toBe('dragon ball')
+    expect(franchiseTitle('Dragon Ball Super')).toBe('dragon ball')
+    expect(franchiseTitle('Dragon Ball Daima')).toBe('dragon ball')
+    expect(franchiseTitle('Fullmetal Alchemist: Brotherhood')).toBe('fullmetal alchemist')
+  })
+
+  test('el calificador entre paréntesis no es parte del nombre', () => {
+    expect(franchiseTitle('Dragon Ball Z (Original)')).toBe('dragon ball')
+    expect(franchiseTitle('Ranma ½ (2024) 3rd Season')).toBe('ranma')
+  })
+
+  test('el subtítulo de la entrega tampoco separa la franquicia', () => {
+    expect(franchiseTitle('Dragon Ball Super: Beerus')).toBe('dragon ball')
+    expect(franchiseTitle('Kimetsu no Yaiba: Mugen Ressha-hen')).toBe('kimetsu no yaiba')
+  })
+
+  test('un sufijo que no está en la lista no junta nada: falso negativo declarado', () => {
+    // El spin-off tiene saga propia —«naruto sd»— y no entra en la franquicia de
+    // «Naruto». Es el precio de una lista cerrada, y está escrito en el módulo.
+    expect(franchiseTitle('Naruto SD: Rock Lee no Seishun Full-Power Ninden')).toBe('naruto sd')
+  })
+
+  test('la primera palabra por sí sola no une dos obras distintas', () => {
+    // La mutación que devuelva la primera palabra de la saga junta «One Piece»
+    // con «One Punch Man», que no son la misma franquicia.
+    expect(franchiseTitle('One Piece')).toBe('one piece')
+    expect(franchiseTitle('One Punch Man')).toBe('one punch man')
+    expect(franchiseTitle('86')).toBe('86')
   })
 })
