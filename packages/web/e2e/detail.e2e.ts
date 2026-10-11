@@ -125,4 +125,50 @@ test.describe('de la búsqueda al detalle', () => {
 
     await otra.close()
   })
+
+  /**
+   * Una serie de mil episodios, en el navegador.
+   *
+   * El fixture tiene doce episodios y con doce no hay ventanas: el caso se mide
+   * interceptando la ruta de episodios y sirviendo mil ciento ochenta, que es lo
+   * que devuelve una fuente real para One Piece. Aquí se comprueba lo que el
+   * renderizado de servidor no puede: que la lista no monte las mil filas, que el
+   * salto cambie de ventana y que deje el foco en la fila pedida.
+   */
+  test('una lista de mil episodios se recorre por ventanas y salta al número', async ({ page }) => {
+    await entrar(page)
+
+    const episodios = Array.from({ length: 1180 }, (_, indice) => {
+      const numero = indice + 1
+
+      return {
+        ref: { providerId: 'fixture', value: `aurora-nocturna#${numero}` },
+        animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+        number: numero,
+        title: `Episodio ${numero}`,
+        durationS: 1440,
+        mode: 'sub',
+      }
+    })
+
+    await page.route('**/api/anime/fixture/aurora-nocturna/episodes', async (ruta) => {
+      await ruta.fulfill({ json: { episodes: episodios } })
+    })
+
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    // Cien filas y no mil: el tope es de pintado.
+    await expect(page.locator('.episodes li')).toHaveCount(100, { timeout: 15_000 })
+    await expect(page.locator('.episodes__range')).toHaveText('Episodios 1–100')
+
+    await page.getByRole('button', { name: 'Siguientes' }).click()
+    await expect(page.locator('.episodes__range')).toHaveText('Episodios 101–200')
+    await expect(page.locator('.episodes li')).toHaveCount(100)
+
+    await page.getByLabel('Ir al episodio').fill('1180')
+    await page.getByRole('button', { name: 'Ir', exact: true }).click()
+
+    await expect(page.locator('.episodes__range')).toHaveText('Episodios 1101–1180')
+    await expect(page.locator('#episodio-1180 a')).toBeFocused()
+  })
 })
