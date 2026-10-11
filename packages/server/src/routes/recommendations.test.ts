@@ -3,7 +3,12 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import { recommendationsResponseSchema } from '@nn-anime/core'
+import {
+  recommendationsResponseSchema,
+  type SearchResult,
+  trendingResponseSchema,
+} from '@nn-anime/core'
+import { createRegistry, type Provider } from '@nn-anime/provider-sdk'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
 import { createApp, createContainer } from '../index'
 import { clampLimit, MAX_LIMIT } from './recommendations'
@@ -22,15 +27,55 @@ interface Contexto {
   readonly proveedor: ReturnType<typeof createFixtureProvider>
 }
 
+/**
+ * Un proveedor que sólo publica su top.
+ *
+ * Se construye por el registro y no a mano porque el registro es la única puerta
+ * por la que entra un plugin: un objeto suelto probaría una forma que la
+ * aplicación nunca ve.
+ */
+function proveedorConTop(id: string, resultados: readonly SearchResult[]): Provider {
+  const registro = createRegistry([
+    {
+      id,
+      name: id,
+      apiVersion: '1',
+      capabilities: { search: true, sub: false, dub: false, trending: true, feed: false },
+      search: async () => [],
+      getAnime: async () => ({
+        ref: { providerId: id, value: 'a' },
+        title: 'A',
+        genres: [],
+        studios: [],
+      }),
+      getEpisodes: async () => [],
+      resolveStream: async () => [],
+      getTrending: async () => resultados,
+    },
+  ])
+  const registrado = registro.get(id)
+  if (registrado === undefined) throw new Error('el proveedor de prueba no se registró')
+
+  return registrado
+}
+
+function resultado(providerId: string, value: string, title: string): SearchResult {
+  return { ref: { providerId, value }, title }
+}
+
 async function conApp<T>(
   body: (contexto: Contexto) => Promise<T>,
-  opciones: { readonly cachear?: readonly string[] } = {},
+  opciones: {
+    readonly cachear?: readonly string[]
+    readonly proveedores?: readonly Provider[]
+  } = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-recs-'))
   const db = openDb(join(dir, 'nn-anime.db'))
   runMigrations(db)
   const container = createContainer({ db })
   const proveedor = createFixtureProvider()
+  const activos = opciones.proveedores ?? [proveedor]
 
   try {
     const servidor = createApp({
@@ -42,7 +87,10 @@ async function conApp<T>(
       },
       bootToken: 'token',
       version: '0.1.0',
-      plugins: { active: [{ provider: proveedor, file: '/plugins/fixture.ts' }], rejected: [] },
+      plugins: {
+        active: activos.map((uno) => ({ provider: uno, file: `/plugins/${uno.id}.ts` })),
+        rejected: [],
+      },
       container,
     })
 
@@ -62,6 +110,73 @@ async function conApp<T>(
     await rm(dir, { recursive: true, force: true })
   }
 }
+
+describe('GET /api/trending', () => {
+  /** El top de cada fuente, tal cual lo publica. */
+  const consultar = async (proveedores: readonly Provider[]) =>
+    await conApp(
+      async ({ pedir }) =>
+        trendingResponseSchema.parse(await (await pedir('/api/trending')).json()),
+      { proveedores },
+    )
+
+  test('dos fuentes con el mismo anime dejan una tarjeta, la de la primera', async () => {
+    const salida = await consultar([
+      proveedorConTop('uno', [resultado('uno', 'one-piece', 'One Piece')]),
+      proveedorConTop('dos', [resultado('dos', 'one-piece-tv', 'One Piece')]),
+    ])
+
+    // La referencia es distinta en cada fuente, así que sin mirar el título
+    // salían dos tarjetas del mismo anime: es lo que se vio en la home.
+    expect(salida.items).toHaveLength(1)
+    expect(salida.items[0]?.ref.providerId).toBe('uno')
+  })
+
+  test('el título empareja sin mayúsculas, sin acentos y sin signos', async () => {
+    const salida = await consultar([
+      proveedorConTop('uno', [resultado('uno', 'a', 'Sousou no Frieren')]),
+      proveedorConTop('dos', [resultado('dos', 'b', 'sousou  no frieren!')]),
+    ])
+
+    expect(salida.items).toHaveLength(1)
+  })
+
+  test('los títulos distintos de dos fuentes se quedan los dos', async () => {
+    const salida = await consultar([
+      proveedorConTop('uno', [resultado('uno', 'a', 'One Piece')]),
+      proveedorConTop('dos', [resultado('dos', 'b', 'Dandadan')]),
+    ])
+
+    expect(salida.items.map((item) => item.title)).toEqual(['One Piece', 'Dandadan'])
+  })
+
+  test('la misma referencia repetida en una fuente deja una tarjeta', async () => {
+    const salida = await consultar([
+      proveedorConTop('uno', [
+        resultado('uno', 'a', 'One Piece'),
+        resultado('uno', 'a', 'One Piece'),
+      ]),
+    ])
+
+    expect(salida.items).toHaveLength(1)
+  })
+
+  test('un título y su temporada son dos puestos, no uno', async () => {
+    // `baseTitle` los juntaría: quita el marcador de temporada, y «Kimetsu no
+    // Yaiba» y «Kimetsu no Yaiba 2nd Season» acabarían en la misma clave. La
+    // fuente publica los tres —con la saga como subtítulo— y la fila tiene que
+    // respetarlos: son tres puestos de su ranking.
+    const salida = await consultar([
+      proveedorConTop('uno', [
+        resultado('uno', 'a', 'Kimetsu no Yaiba'),
+        resultado('uno', 'b', 'Kimetsu no Yaiba 2nd Season'),
+        resultado('uno', 'c', 'Kimetsu no Yaiba: Hashira Geiko-hen'),
+      ]),
+    ])
+
+    expect(salida.items).toHaveLength(3)
+  })
+})
 
 describe('GET /api/recommendations', () => {
   test('sin nada cacheado devuelve una lista vacía y lo dice', async () => {

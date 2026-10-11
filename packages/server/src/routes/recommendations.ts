@@ -18,7 +18,7 @@
  *    motor sin motivo.
  */
 
-import type { Candidate } from '@nn-anime/core'
+import type { Candidate, SearchResult } from '@nn-anime/core'
 import {
   errorResponseSchema,
   recommendationsResponseSchema,
@@ -54,6 +54,60 @@ export function clampLimit(raw: string | undefined): number {
   if (!Number.isFinite(pedido)) return 10
 
   return Math.min(Math.max(Math.trunc(pedido), 1), MAX_LIMIT)
+}
+
+/**
+ * El título reducido a lo comparable.
+ *
+ * Dos fuentes escriben el mismo anime de otra manera —mayúsculas, un signo de
+ * más, acentos—, y la referencia no lo delata: cada una numera a su aire. Lo que
+ * queda es letras y números, que es lo que hace que «One Piece» de una fuente y
+ * «one  piece!» de la otra sean el mismo puesto de la fila y no dos.
+ *
+ * No usa `baseTitle`: quitar el marcador de temporada convertiría «Kimetsu no
+ * Yaiba» y su «Hashira Geiko-hen» en el mismo título, y son dos puestos que la
+ * fuente publica por separado.
+ */
+export function claveDeTitulo(title: string): string {
+  return title
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+/**
+ * Una tarjeta por anime, en el orden en que llegaron.
+ *
+ * Se repite por dos caminos distintos y los dos se vieron en la home: la
+ * **referencia** —una fuente publica el mismo puesto dos veces— y el **título**
+ * —dos fuentes publican el mismo anime con referencias propias—. Por referencia
+ * no se reconocen, así que hay que mirar el título.
+ *
+ * Gana el primero. El orden de las fuentes es la única preferencia que hay, y
+ * preferir la portada de una sobre la de otra no está escrito en ningún sitio.
+ */
+export function sinRepetir(resultados: readonly SearchResult[]): readonly SearchResult[] {
+  const refs = new Set<string>()
+  const titulos = new Set<string>()
+  const unicos: SearchResult[] = []
+
+  for (const resultado of resultados) {
+    const ref = refKey(resultado.ref)
+    if (refs.has(ref)) continue
+
+    const titulo = claveDeTitulo(resultado.title)
+    // Un título vacío no empareja con nada: sin esto, dos entradas sin título se
+    // comerían la una a la otra.
+    if (titulo !== '' && titulos.has(titulo)) continue
+
+    refs.add(ref)
+    titulos.add(titulo)
+    unicos.push(resultado)
+  }
+
+  return unicos
 }
 
 /**
@@ -94,22 +148,13 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
       }),
     )
 
-    const vistos = new Set<string>()
-    const items = []
-
-    for (const resultado of resultados.flat()) {
-      const clave = refKey(resultado.ref)
-      if (vistos.has(clave)) continue
-
-      vistos.add(clave)
-      items.push({
-        ref: resultado.ref,
-        title: resultado.title,
-        ...(resultado.coverUrl === undefined ? {} : { coverUrl: resultado.coverUrl }),
-        ...(resultado.year === undefined ? {} : { year: resultado.year }),
-        ...(resultado.kind === undefined ? {} : { kind: resultado.kind }),
-      })
-    }
+    const items = sinRepetir(resultados.flat()).map((resultado) => ({
+      ref: resultado.ref,
+      title: resultado.title,
+      ...(resultado.coverUrl === undefined ? {} : { coverUrl: resultado.coverUrl }),
+      ...(resultado.year === undefined ? {} : { year: resultado.year }),
+      ...(resultado.kind === undefined ? {} : { kind: resultado.kind }),
+    }))
 
     return c.json(trendingResponseSchema.parse({ items }))
   })
