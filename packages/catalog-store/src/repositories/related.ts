@@ -1,10 +1,15 @@
 /**
- * Los hermanos de saga de un título, leídos de la base.
+ * Los hermanos de saga de un título y las otras fuentes de la misma obra.
  *
  * La fuente no declara relaciones, así que el emparejamiento es por **título de
  * saga** (`sagaTitle`, en `core`) y **cruza proveedores**: la misma saga suele
  * estar en dos fuentes a la vez, y la ficha no tiene por qué esconder la mitad.
  * Una obra sale **una vez**, con el proveedor de la ficha delante.
+ *
+ * Las dos lecturas viven aquí porque comparten la mitad del trabajo: la consulta
+ * de candidatos, el prefiltro por la primera palabra, el tope de filas y la forma
+ * del resumen. `list` devuelve los hermanos —la misma saga sin la misma obra— y
+ * `listSources` la misma obra en otras fuentes, que es la clave de título exacta.
  *
  * Se leen **dos** sitios y no uno. La tabla `anime` sólo tiene las fichas
  * abiertas; los listados cacheados —búsquedas, tendencias y novedades— ya traen
@@ -31,6 +36,7 @@ import {
   normalizeQuery,
   type ProviderRef,
   sagaTitle,
+  titleKey,
   titleKindSchema,
 } from '@nn-anime/core'
 
@@ -234,6 +240,49 @@ export function createRelatedRepository(db: Database) {
         .map(resumen)
         .sort(byYearProximity(propia.year ?? undefined))
         .slice(0, limit)
+    },
+
+    /**
+     * Las otras fuentes que tienen **esta misma obra**, sin ella misma.
+     *
+     * No son hermanos de saga: es la misma ficha en otro sitio, y es lo que la
+     * ficha necesita para ofrecer elegir fuente. La clave es el título normalizado
+     * **y el año** —la misma que usan la búsqueda y las filas de la home—, y la
+     * comparación es en memoria porque la normalización no se escribe en SQL.
+     *
+     * Reutiliza la consulta de candidatos de los relacionados: las cuatro tablas
+     * —la ficha, las búsquedas, las tendencias y las novedades— ya están ahí, y una
+     * segunda lectura sería la mitad de las reglas escrita dos veces.
+     */
+    listSources(ref: ProviderRef, limit: number): readonly AnimeSummary[] {
+      const propia = selectPropia.get(ref.providerId, ref.value)
+      if (propia === null) return []
+
+      const obra = titleKey(propia.title)
+      const palabra = primeraPalabra(obra)
+      if (palabra === '') return []
+
+      const patron = `${palabra}%`
+      const filas = selectCandidatos.all(patron, patron, patron, patron, RELATED_SCAN_LIMIT)
+
+      const porProveedor = new Map<string, RelatedRow>()
+      for (const fila of filas) {
+        // La fuente que se está viendo no es una alternativa a sí misma.
+        if (fila.provider_id === ref.providerId) continue
+        if (titleKey(fila.title) !== obra) continue
+        if (fila.year !== propia.year) continue
+
+        // Una entrada por fuente: dos referencias de la misma fuente para la misma
+        // obra no son dos sitios donde elegir. Gana la menor alfabéticamente, para
+        // que el resultado no dependa del orden en que SQLite devolvió las filas.
+        const actual = porProveedor.get(fila.provider_id)
+        if (actual === undefined || fila.ref < actual.ref) porProveedor.set(fila.provider_id, fila)
+      }
+
+      return [...porProveedor.entries()]
+        .sort(([uno], [otro]) => (uno < otro ? -1 : uno > otro ? 1 : 0))
+        .slice(0, limit)
+        .map(([, fila]) => resumen(fila))
     },
   }
 }

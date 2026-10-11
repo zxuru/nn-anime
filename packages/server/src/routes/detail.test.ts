@@ -180,6 +180,59 @@ describe('GET /api/anime/:providerId/:ref/related', () => {
   })
 })
 
+describe('GET /api/anime/:providerId/:ref/sources', () => {
+  const OTRA: ProviderRef = { providerId: 'animeav1', value: 'aurora-nocturna' }
+
+  test('devuelve la otra fuente de la misma obra, y no la pedida', async () => {
+    await conApp(async ({ pedir, store }) => {
+      // El mismo título y el mismo año en otra fuente, escrito de otra manera: sin
+      // el plegado de la clave no emparejaría.
+      await store.writeAnime(OTRA, detalle(OTRA, 'aurora  nocturna!', 2019))
+
+      const respuesta = await pedir(`/api/anime/fixture/${REF}/sources`)
+      const cuerpo = (await respuesta.json()) as {
+        items: readonly { ref: ProviderRef; title: string }[]
+      }
+
+      expect(respuesta.status).toBe(200)
+      expect(cuerpo.items.map((item) => `${item.ref.providerId}:${item.ref.value}`)).toEqual([
+        'animeav1:aurora-nocturna',
+      ])
+    })
+  })
+
+  test('la temporada de la misma saga no es la misma obra', async () => {
+    await conApp(async ({ pedir }) => {
+      // `SAGA` es «Aurora Nocturna 2nd Season», de la misma saga y de la misma
+      // fuente: ni la clave de título lo empareja ni la fuente propia se lista.
+      const respuesta = await pedir(`/api/anime/fixture/${REF}/sources`)
+      const cuerpo = (await respuesta.json()) as { items: readonly unknown[] }
+
+      expect(cuerpo.items).toEqual([])
+    })
+  })
+
+  test('un proveedor desconocido es 404 y una referencia sin abrir, lista vacía', async () => {
+    await conApp(async ({ pedir }) => {
+      const desconocido = await pedir(`/api/anime/no-existe/${REF}/sources`)
+      const vacio = await pedir('/api/anime/fixture/no-abierto/sources')
+
+      expect([desconocido.status, vacio.status]).toEqual([404, 200])
+      expect(((await vacio.json()) as { items: readonly unknown[] }).items).toEqual([])
+    })
+  })
+
+  test('exige sesión', async () => {
+    await conApp(async ({ pedir }) => {
+      const respuesta = await pedir(`/api/anime/fixture/${REF}/sources`, {
+        headers: { origin: BASE },
+      })
+
+      expect(respuesta.status).toBe(401)
+    })
+  })
+})
+
 describe('GET /api/anime/:providerId/:ref/watched', () => {
   test('el episodio terminado sale marcado y deja de estar en «continuar viendo»', async () => {
     await conApp(async ({ pedir }) => {

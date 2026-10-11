@@ -93,7 +93,9 @@ ficha abierta, que es justo la precarga especulativa que el spec prohíbe.
       referencia pedida, no del que se va a buscar.
 - [ ] Una referencia que no está en la base devuelve lista vacía —nadie abrió esa ficha—, no un
       error; un proveedor desconocido sigue siendo 404, como en las otras dos rutas de la ficha.
-- [ ] Cero peticiones al proveedor: la prueba del contador del fixture no se mueve.
+- [ ] La lectura es **local**: el número de consultas preparadas no crece con los candidatos, y
+      con la lista de plugins vacía la ruta contesta 404 por proveedor desconocido —la misma
+      respuesta que da la de relacionados— sin tocar la red.
 
 **Verificación:** `bun test packages/catalog-store packages/server` · medido mutando: quitar el
 filtro del proveedor propio hace fallar la prueba de «la ficha no se lista a sí misma»; dejar la

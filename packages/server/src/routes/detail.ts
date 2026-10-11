@@ -1,7 +1,7 @@
 /**
- * Las dos lecturas locales de la ficha: relacionados y episodios vistos.
+ * Las tres lecturas locales de la ficha: relacionados, fuentes y episodios vistos.
  *
- * Las dos son **locales**: leen la base y no llaman al proveedor. Por eso no
+ * Las tres son **locales**: leen la base y no llaman al proveedor. Por eso no
  * llevan `X-Cache` —ese encabezado dice de dónde salió un dato cacheado del
  * proveedor, y aquí no hay ninguno— y por eso no pueden tardar lo que tarda una
  * red.
@@ -16,7 +16,12 @@
  */
 
 import type { RelatedScope } from '@nn-anime/catalog-store'
-import { errorResponseSchema, relatedResponseSchema, watchedResponseSchema } from '@nn-anime/core'
+import {
+  errorResponseSchema,
+  relatedResponseSchema,
+  sourcesResponseSchema,
+  watchedResponseSchema,
+} from '@nn-anime/core'
 import type { Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
@@ -78,6 +83,29 @@ export function registerDetailRoutes(app: Hono, options: DetailRoutesOptions): v
     )
 
     return c.json(relatedResponseSchema.parse({ items }))
+  })
+
+  /**
+   * Las otras fuentes que tienen esta misma obra.
+   *
+   * Sin red: lee la base, como los relacionados. No lleva `limit` en la consulta
+   * porque el tope lo pone el servidor —la fila de la ficha es corta— y una
+   * interfaz no tiene por qué poder pedir la tabla entera.
+   */
+  app.get('/api/anime/:providerId/:ref/sources', async (c) => {
+    const providerId = c.req.param('providerId')
+    const ref = c.req.param('ref')
+
+    if (findProvider(options.providers, providerId) === undefined) {
+      return c.json(desconocido(providerId), 404)
+    }
+
+    const items = await options.container.store.listSources(
+      { providerId, value: ref },
+      MAX_RELATED_LIMIT,
+    )
+
+    return c.json(sourcesResponseSchema.parse({ items: [...items] }))
   })
 
   app.get('/api/anime/:providerId/:ref/watched', async (c) => {
