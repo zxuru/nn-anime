@@ -46,6 +46,37 @@ describe('el reproductor', () => {
     expect(html).toContain('En pausa')
   })
 
+  /**
+   * El botón no cambia de tamaño al cambiar de estado.
+   *
+   * «Reproducir» y «Pausa» no ocupan lo mismo, y el botón medía lo que decía su
+   * rótulo: al pausar encogía, los mandos de al lado se corrían y el modo
+   * compatible saltaba de fila. Los dos rótulos van dentro del botón, en la misma
+   * caja, y sólo el visible es el nombre del botón.
+   */
+  test('los mandos que cambian de rótulo llevan los dos estados dentro', () => {
+    const html = render(<Player url="/stream/abc" kind="file" />)
+
+    for (const [atajo, rotulos] of [
+      ['Space Enter K', ['Reproducir', 'Pausa']],
+      ['M', ['Silenciar', 'Quitar silencio']],
+    ] as const) {
+      const boton = new RegExp(`<button[^>]*aria-keyshortcuts="${atajo}"[\\s\\S]*?</button>`).exec(
+        html,
+      )?.[0]
+
+      expect(boton, atajo).toBeDefined()
+
+      for (const rotulo of rotulos) {
+        expect(boton, `${atajo}: falta «${rotulo}»`).toContain(rotulo)
+      }
+
+      // Uno de los dos rótulos está oculto, y ese no se anuncia: con los dos en
+      // el nombre accesible, el lector de pantalla leería los dos estados.
+      expect(boton?.match(/aria-hidden="true"/g)?.length, atajo).toBe(1)
+    }
+  })
+
   test('la atribución de hls.js aparece sólo cuando se usa HLS', () => {
     expect(render(<Player url="/stream/abc" kind="hls" />)).toContain('hls.js')
     expect(render(<Player url="/stream/abc" kind="file" />)).not.toContain('hls.js')

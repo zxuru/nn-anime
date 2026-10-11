@@ -94,6 +94,59 @@ test.describe('el reproductor', () => {
   })
 
   /**
+   * El botón de reproducir mide lo mismo en los dos estados.
+   *
+   * «Pausa» es más corto que «Reproducir», y el botón medía lo que medía su
+   * rótulo: al pausar encogía, los mandos de al lado se corrían y el modo
+   * compatible saltaba a la fila de abajo. Se mide la caja de verdad —el único
+   * sitio donde un ancho existe— y la posición del mando que tiene al lado.
+   */
+  test('el botón de reproducir no cambia de tamaño al pausar', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    await expect(page.locator('video')).toHaveAttribute('src', /\/stream\//, { timeout: 10_000 })
+
+    /** El ancho de la caja de un mando, por su nombre. */
+    const anchoDe = async (nombre: string): Promise<number> => {
+      const caja = await page.getByRole('button', { name: nombre }).boundingBox()
+
+      expect(caja, nombre).not.toBeNull()
+
+      return caja?.width ?? 0
+    }
+
+    const vecino = page.getByRole('button', { name: 'Atrás 10 s' })
+    const antes = await vecino.boundingBox()
+
+    const enPausa = await anchoDe('Reproducir')
+
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    const reproduciendo = await anchoDe('Pausa')
+
+    expect(enPausa).toBeGreaterThan(0)
+    // Un píxel de holgura, y no más: la caja la devuelve el navegador con la
+    // transformación del ratón encima, y ahí cabe un decimal de pintado. El salto
+    // que esto mide eran decenas de píxeles.
+    expect(Math.abs(reproduciendo - enPausa)).toBeLessThan(1)
+
+    // Y el mando de al lado no se ha movido: es el salto que se veía.
+    const despues = await vecino.boundingBox()
+    expect(Math.abs((despues?.x ?? 0) - (antes?.x ?? 0))).toBeLessThan(1)
+
+    // Se vuelve a pausar: el rótulo alterno no puede quedarse como el visible y
+    // devolver el salto en el otro sentido.
+    await page.getByRole('button', { name: 'Pausa' }).click()
+    expect(Math.abs((await anchoDe('Reproducir')) - enPausa)).toBeLessThan(1)
+
+    // El silencio lleva el mismo arreglo, y su rótulo alterno es más largo que el
+    // visible: sin los dos dentro, el botón crecería al silenciar.
+    const silencio = await anchoDe('Silenciar')
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    expect(Math.abs((await anchoDe('Quitar silencio')) - silencio)).toBeLessThan(1)
+  })
+
+  /**
    * El clic sobre la imagen.
    *
    * Un `<video>` sin `controls` no trae gesto ninguno: hasta ahora la imagen era
