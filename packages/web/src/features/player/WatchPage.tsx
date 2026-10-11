@@ -43,6 +43,31 @@ export interface WatchPageProps {
 
 type Estado = 'loading' | 'ready' | 'error'
 
+/**
+ * La flecha de episodio.
+ *
+ * Es un dibujo y no el glifo `←` de la tipografía. El glifo se apoya en la línea
+ * de base, así que dentro de una caja de 56 px queda descentrado —y se ve
+ * distinto en cada máquina, porque cada una resuelve la flecha con la fuente que
+ * tenga—. Un bloque con contorno, como el resto de la interfaz, se centra solo y
+ * se ve igual en todas partes.
+ *
+ * La de la izquierda es la misma, espejada: un solo dibujo, dos direcciones.
+ */
+function EpisodeArrow(props: { readonly towards: 'previous' | 'next' }): ReactNode {
+  return (
+    <svg
+      className="watch__nav-arrow"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+      data-towards={props.towards}
+    >
+      <path d="M2 9H13V4.5L21.5 12 13 19.5V15H2Z" />
+    </svg>
+  )
+}
+
 export function WatchPage(props: WatchPageProps): ReactNode {
   const [fuente, setFuente] = useState<
     { url: string; kind: string; subtitles?: readonly SubtitleCandidate[] } | undefined
@@ -200,9 +225,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     <nav className="watch__nav" aria-label={t(DEFAULT_LOCALE, 'player.episodes')}>
       {vecinos.previous === undefined ? (
         <span className="watch__nav-off" title={t(DEFAULT_LOCALE, 'player.firstEpisode')}>
-          <span className="watch__nav-arrow" aria-hidden="true">
-            ←
-          </span>
+          <EpisodeArrow towards="previous" />
           {t(DEFAULT_LOCALE, 'player.previousEpisode')}
         </span>
       ) : (
@@ -211,9 +234,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
           title={t(DEFAULT_LOCALE, 'player.previousEpisode')}
           to={watchPath(props.providerId, vecinos.previous.value, modo)}
         >
-          <span className="watch__nav-arrow" aria-hidden="true">
-            ←
-          </span>
+          <EpisodeArrow towards="previous" />
           {t(DEFAULT_LOCALE, 'player.previousEpisode')}
         </Link>
       )}
@@ -230,9 +251,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       {vecinos.next === undefined ? (
         <span className="watch__nav-off" title={t(DEFAULT_LOCALE, 'player.lastEpisode')}>
           {t(DEFAULT_LOCALE, 'player.nextEpisode')}
-          <span className="watch__nav-arrow" aria-hidden="true">
-            →
-          </span>
+          <EpisodeArrow towards="next" />
         </span>
       ) : (
         <Link
@@ -241,9 +260,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
           to={watchPath(props.providerId, vecinos.next.value, modo)}
         >
           {t(DEFAULT_LOCALE, 'player.nextEpisode')}
-          <span className="watch__nav-arrow" aria-hidden="true">
-            →
-          </span>
+          <EpisodeArrow towards="next" />
         </Link>
       )}
     </nav>

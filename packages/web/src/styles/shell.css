@@ -624,17 +624,44 @@
     transform var(--transition-fast);
 }
 
-/* La flecha, más grande que el rótulo que la acompaña: es lo que se busca con la
-   vista cuando se quiere saltar de episodio, y en el tamaño del texto menudo se
-   perdía entre las letras. En acento cuando lleva a algún sitio, apagada cuando
-   no, para que se distingan sin leer. */
+/* La flecha.
+ *
+ * Es un bloque con contorno y sombra dura, como los botones de la interfaz, y no
+ * el glifo de la tipografía: el glifo se apoya en la línea de base —queda
+ * descentrado en la caja— y cambia de forma según la fuente de cada máquina.
+ *
+ * `display: block` es lo que la centra: dentro de un `inline-flex` con
+ * `align-items: center`, el hueco de línea de un dibujo en línea añade un par de
+ * píxeles por debajo y la flecha se va hacia arriba. */
 .watch__nav-arrow {
-  font-size: var(--text-xl);
-  line-height: 1;
+  display: block;
+  width: var(--space-5);
+  height: var(--space-5);
+  fill: var(--color-accent);
+  stroke: var(--color-bg);
+  stroke-width: var(--border-width-strong);
+  filter: drop-shadow(var(--border-width-strong) var(--border-width-strong) 0 var(--color-accent));
 }
 
-.watch__nav-link .watch__nav-arrow {
-  color: var(--color-accent);
+/* La misma flecha, espejada. Al espejar, la sombra se va con ella: queda hacia
+   dentro de la fila, que es hacia donde apunta. */
+.watch__nav-arrow[data-towards="previous"] {
+  transform: scaleX(-1);
+}
+
+/* La que no lleva a ninguna parte se queda hueca: rellena se leería como
+   pulsable, y ahí no se puede pulsar. */
+.watch__nav-off .watch__nav-arrow {
+  fill: none;
+  stroke: var(--color-text-dim);
+  filter: none;
+}
+
+/* Cuando el botón se levanta, la sombra sobra: es el mismo gesto que hacen los
+   botones de la interfaz al pasar por encima. */
+.watch__nav-link:hover .watch__nav-arrow,
+.watch__nav-link:focus-visible .watch__nav-arrow {
+  filter: none;
 }
 
 .watch__nav-link:hover,
