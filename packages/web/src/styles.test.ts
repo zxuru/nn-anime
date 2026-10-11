@@ -117,6 +117,26 @@ describe('tokens de diseño', () => {
   })
 
   /**
+   * El rótulo que no toca se oculta **sin salir del flujo**.
+   *
+   * Es lo que sostiene que el botón de reproducir no cambie de ancho: con
+   * `display: none` —o sin el segundo rótulo en el documento— el botón vuelve a
+   * medir lo que mide el rótulo visible, que es el salto que se midió a mano
+   * («Reproducir» mide más que «Pausa»). Y los dos van en la misma celda: en dos
+   * filas el botón crecería a lo alto en vez de a lo ancho.
+   */
+  test('el rótulo alterno ocupa su hueco aunque no se vea', async () => {
+    const css = await read(SHELL)
+
+    const alterno = /\.player__label--alterno\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(alterno).toContain('visibility: hidden')
+    expect(alterno).not.toContain('display')
+
+    const celda = /\.player__label\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(celda).toContain('grid-area: 1 / 1')
+  })
+
+  /**
    * El encabezado se apila por encima del contenido.
    *
    * No es un detalle de pintura: con la misma capa que una insignia o que el

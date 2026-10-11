@@ -63,6 +63,30 @@ const ATAJOS: readonly { readonly teclas: readonly string[]; readonly hace: stri
   { teclas: ['player.key.f'], hace: 'player.key.fullscreen' },
 ]
 
+/**
+ * Un rótulo que cambia de texto, en una caja que no cambia de ancho.
+ *
+ * «Reproducir» y «Pausa» no ocupan lo mismo, y el botón medía justo lo que decía
+ * su rótulo: al pausar encogía, los mandos de al lado se corrían y el modo
+ * compatible saltaba de fila. Los dos rótulos van dentro, superpuestos en la
+ * misma celda, y el que no toca sigue ocupando su hueco —oculto con
+ * `visibility`, no con `display`—, así que el ancho lo fija el rótulo más largo y
+ * no el estado.
+ *
+ * El que no toca va con `aria-hidden`: sin eso, el nombre del botón sería los dos
+ * estados a la vez.
+ */
+function RotuloDoble(props: { readonly actual: string; readonly alterno: string }): ReactNode {
+  return (
+    <span className="player__labels">
+      <span className="player__label">{props.actual}</span>
+      <span className="player__label player__label--alterno" aria-hidden="true">
+        {props.alterno}
+      </span>
+    </span>
+  )
+}
+
 export function Player(props: PlayerProps): ReactNode {
   // Los avisos de reproducción, pausa y avance salen de los eventos del propio
   // elemento, no del render: llamarlos al pintar los dispararía en cada vuelta.
@@ -292,7 +316,14 @@ export function Player(props: PlayerProps): ReactNode {
           aria-keyshortcuts="Space Enter K"
           onClick={() => act('toggle')}
         >
-          {state.playing ? t(DEFAULT_LOCALE, 'player.pause') : t(DEFAULT_LOCALE, 'player.play')}
+          <RotuloDoble
+            actual={
+              state.playing ? t(DEFAULT_LOCALE, 'player.pause') : t(DEFAULT_LOCALE, 'player.play')
+            }
+            alterno={
+              state.playing ? t(DEFAULT_LOCALE, 'player.play') : t(DEFAULT_LOCALE, 'player.pause')
+            }
+          />
         </button>
         <button
           type="button"
@@ -311,7 +342,14 @@ export function Player(props: PlayerProps): ReactNode {
           {t(DEFAULT_LOCALE, 'player.forward')}
         </button>
         <button type="button" className="button" aria-keyshortcuts="M" onClick={() => act('mute')}>
-          {state.muted ? t(DEFAULT_LOCALE, 'player.unmute') : t(DEFAULT_LOCALE, 'player.mute')}
+          <RotuloDoble
+            actual={
+              state.muted ? t(DEFAULT_LOCALE, 'player.unmute') : t(DEFAULT_LOCALE, 'player.mute')
+            }
+            alterno={
+              state.muted ? t(DEFAULT_LOCALE, 'player.mute') : t(DEFAULT_LOCALE, 'player.unmute')
+            }
+          />
         </button>
         {/* La barra de volumen, al lado del silencio: son el mismo mando en dos
             pasos —uno dice si suena, la otra cuánto— y separarlos obligaba a

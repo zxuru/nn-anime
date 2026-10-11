@@ -971,6 +971,29 @@
   gap: var(--space-3);
 }
 
+/*
+ * Los mandos que cambian de rótulo —reproducir y silenciar— llevan los dos
+ * dentro, en la misma celda.
+ *
+ * El botón medía lo que medía su rótulo: «Pausa» es más corto que «Reproducir»,
+ * así que al pausar el botón encogía, los mandos de al lado se corrían y el modo
+ * compatible saltaba de fila. Con los dos superpuestos el ancho lo fija el más
+ * largo, y el que no toca sigue ocupando su hueco: `visibility: hidden` y no
+ * `display: none`, que es justo lo que mide el ancho.
+ */
+.player__labels {
+  display: grid;
+  place-items: center;
+}
+
+.player__label {
+  grid-area: 1 / 1;
+}
+
+.player__label--alterno {
+  visibility: hidden;
+}
+
 .player__time {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
