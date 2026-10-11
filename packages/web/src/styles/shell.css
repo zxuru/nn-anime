@@ -277,6 +277,38 @@
   animation: latido var(--transition-normal) infinite alternate;
 }
 
+/*
+ * Lo que sólo existe para un lector de pantalla.
+ *
+ * El esqueleto es decoración —`aria-hidden`—, así que la frase que dice qué está
+ * pasando tiene que seguir en el documento para quien no lo ve. `clip-path` y no
+ * `display: none`: un texto oculto de verdad no se anuncia.
+ */
+.solo-lectores {
+  position: absolute;
+  width: var(--oculto-medida);
+  height: var(--oculto-medida);
+  padding: 0;
+  margin: calc(var(--oculto-medida) * -1);
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  clip-path: inset(50%);
+}
+
+/*
+ * El esqueleto de la home.
+ *
+ * Una banda por fila y la misma rejilla que las filas de verdad, para que la
+ * página no dé un salto cuando llegue el contenido: el hueco que ocupa el
+ * esqueleto es el que va a ocupar lo que sustituye.
+ */
+.home__esqueletos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--grid-min), 1fr));
+  gap: var(--space-5);
+}
+
 @keyframes latido {
   from {
     opacity: var(--skeleton-dim);
@@ -286,8 +318,78 @@
   }
 }
 
+/*
+ * La entrada de la home.
+ *
+ * Fundido y un dedo de desplazamiento. El `fill` es `backwards` y no `both`: con
+ * `both`, el `translateY(0)` final se queda puesto y un `transform` —aunque sea
+ * cero— convierte al elemento en bloque contenedor de cualquier `position: fixed`
+ * que cuelgue de él. Aquí no hay ninguno hoy, pero es la clase de trampa que
+ * aparece seis meses después y en otra pantalla.
+ */
+@keyframes entrada {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/*
+ * Las filas de la home entran escalonadas, y las tarjetas de cada fila también.
+ *
+ * Van aquí arriba, junto a su `@media` de movimiento reducido, y no en el bloque
+ * de `.home`: la supresión de la animación tiene la **misma especificidad** que
+ * estas reglas, así que solo la apaga si va después. Es el mismo orden que ya
+ * tiene `.skeleton`, y el motivo de que esté todo junto.
+ */
+.home > * {
+  animation: entrada var(--entrada-duracion) var(--entrada-curva) backwards;
+}
+
+.home > *:nth-child(2) {
+  animation-delay: var(--entrada-paso);
+}
+
+.home > *:nth-child(3) {
+  animation-delay: calc(var(--entrada-paso) * 2);
+}
+
+.home > *:nth-child(4) {
+  animation-delay: calc(var(--entrada-paso) * 3);
+}
+
+.home > *:nth-child(5) {
+  animation-delay: calc(var(--entrada-paso) * 4);
+}
+
+.home > *:nth-child(n + 6) {
+  animation-delay: calc(var(--entrada-paso) * 5);
+}
+
+.row__list > li {
+  animation: entrada var(--entrada-duracion) var(--entrada-curva) backwards;
+}
+
+.row__list > li:nth-child(2) {
+  animation-delay: var(--entrada-paso);
+}
+
+.row__list > li:nth-child(3) {
+  animation-delay: calc(var(--entrada-paso) * 2);
+}
+
+.row__list > li:nth-child(4) {
+  animation-delay: calc(var(--entrada-paso) * 3);
+}
+
+.row__list > li:nth-child(n + 5) {
+  animation-delay: calc(var(--entrada-paso) * 4);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .skeleton {
+  .skeleton,
+  .home > *,
+  .row__list > li {
     animation: none;
   }
 }

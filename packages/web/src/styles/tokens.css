@@ -113,6 +113,14 @@
   --focus-ring-offset: 2px;
   --transition-fast: 120ms;
   --transition-normal: 200ms;
+  /* La entrada de la home: un fundido corto y un escalón por fila. El paso es
+     pequeño a propósito —seis filas entran en menos de medio segundo— porque un
+     escalón largo convierte la carga en una cola. */
+  --entrada-duracion: 220ms;
+  --entrada-paso: 60ms;
+  --entrada-curva: ease-out;
+  /* El cuadrado de un texto que sólo existe para un lector de pantalla. */
+  --oculto-medida: 1px;
 
   /* Trazos y medidas de composición */
   --border-width: 1px;
@@ -171,6 +179,9 @@
   :root {
     --transition-fast: 0ms;
     --transition-normal: 0ms;
+    /* A cero y no «sin animación»: quien la use sigue entrando, pero de golpe. */
+    --entrada-duracion: 0ms;
+    --entrada-paso: 0ms;
   }
 }
 

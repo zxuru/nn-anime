@@ -37,7 +37,6 @@ import {
   recentResponseSchema,
   trendingResponseSchema,
 } from '@nn-anime/core/api'
-import type { ProviderRef } from '@nn-anime/core/models'
 import { useEffect, useRef, useState } from 'react'
 import { ApiError, apiGet } from '../../api/client'
 
@@ -53,13 +52,6 @@ export interface HomeRows {
   readonly refreshedAt: Date | undefined
   /** Relecturas completadas después de la primera. */
   readonly relecturas: number
-  /**
-   * Claves que no estaban en la lectura anterior.
-   *
-   * Vacío en la primera lectura: al abrir, todo es nuevo y marcar todo como nuevo
-   * no dice nada.
-   */
-  readonly nuevas: ReadonlySet<string>
   readonly continueWatching: ContinueWatchingResponse['items']
   readonly favorites: FavoritesResponse['favorites']
   readonly trending: TrendingResponse['items']
@@ -75,7 +67,6 @@ const VACIO: HomeRows = {
   refrescando: false,
   refreshedAt: undefined,
   relecturas: 0,
-  nuevas: new Set(),
   continueWatching: [],
   favorites: [],
   trending: [],
@@ -109,11 +100,6 @@ export function debeReleer(
   if (ultimoIntento === undefined) return true
 
   return ahora - ultimoIntento >= REFRESCO_MS
-}
-
-/** La clave de una fila, para saber qué llegó y qué ya estaba. */
-function claveDe(ref: ProviderRef): string {
-  return `${ref.providerId}#${ref.value}`
 }
 
 /**
@@ -193,50 +179,12 @@ export function mergeRows(
     refrescando: false,
     refreshedAt: llegoAlgo ? ahora : previas.refreshedAt,
     relecturas: primera ? 0 : previas.relecturas + 1,
-    nuevas: primera
-      ? new Set()
-      : nuevasDe(previas, { continueWatching, favorites, trending, feed, recent }),
     continueWatching,
     favorites,
     trending,
     feed,
     recent,
   }
-}
-
-/** Las claves que no estaban antes, en cualquiera de las cinco filas. */
-function nuevasDe(
-  previas: HomeRows,
-  filas: {
-    readonly continueWatching: ContinueWatchingResponse['items']
-    readonly favorites: FavoritesResponse['favorites']
-    readonly trending: TrendingResponse['items']
-    readonly feed: FeedResponse['items']
-    readonly recent: RecentResponse['items']
-  },
-): ReadonlySet<string> {
-  const antes = new Set<string>([
-    ...previas.continueWatching.map((item) => claveDe(item.animeRef)),
-    ...previas.favorites.map((item) => claveDe(item.ref)),
-    ...previas.trending.map((item) => claveDe(item.ref)),
-    ...previas.feed.map((item) => claveDe(item.ref)),
-    ...previas.recent.map((item) => claveDe(item.ref)),
-  ])
-
-  const nuevas = new Set<string>()
-  const candidatas: readonly string[] = [
-    ...filas.continueWatching.map((item) => claveDe(item.animeRef)),
-    ...filas.favorites.map((item) => claveDe(item.ref)),
-    ...filas.trending.map((item) => claveDe(item.ref)),
-    ...filas.feed.map((item) => claveDe(item.ref)),
-    ...filas.recent.map((item) => claveDe(item.ref)),
-  ]
-
-  for (const clave of candidatas) {
-    if (!antes.has(clave)) nuevas.add(clave)
-  }
-
-  return nuevas
 }
 
 /**

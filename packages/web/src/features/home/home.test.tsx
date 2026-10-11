@@ -238,11 +238,16 @@ describe('las filas, cuando una lectura falla', () => {
 })
 
 describe('la home', () => {
-  test('arranca cargando y con las filas anunciadas', () => {
+  test('arranca cargando, con esqueletos y con las filas anunciadas', () => {
     const html = render(<HomePage />)
 
+    // La frase no desaparece: se va al texto que sólo lee un lector de pantalla,
+    // porque el esqueleto es decoración y no dice qué está pasando.
     expect(html).toContain('Cargando tu inicio')
     expect(html).toContain('aria-busy="true"')
+    expect(html).toContain('home__esqueletos')
+    expect(html).toContain('solo-lectores')
+    expect(html).toContain('class="skeleton"')
   })
 
   test('el panel de recomendaciones es una fila más', () => {
@@ -358,20 +363,9 @@ describe('la relectura de la home', () => {
     expect(segunda.feed).toHaveLength(1)
   })
 
-  test('lo que no estaba se marca como nuevo, y lo que estaba no', () => {
-    const primera = combineRows(lectura({ feed: ok({ items: [resumen('Vieja')] }) }))
-    const segunda = mergeRows(
-      primera,
-      lectura({ feed: ok({ items: [resumen('Vieja'), resumen('Nueva')] }) }),
-    )
-
-    expect([...segunda.nuevas]).toEqual(['fixture#Nueva'])
-  })
-
-  test('al abrir no hay nada nuevo ni relecturas: todo es nuevo y no se dice', () => {
+  test('al abrir no hay relecturas: la marca no tiene nada que decir', () => {
     const primera = combineRows(lectura({ feed: ok({ items: [resumen('Del feed')] }) }))
 
-    expect([...primera.nuevas]).toEqual([])
     expect(primera.relecturas).toBe(0)
   })
 
