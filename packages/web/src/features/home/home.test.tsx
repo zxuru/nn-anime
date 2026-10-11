@@ -1,14 +1,17 @@
 import { describe, expect, test } from 'bun:test'
-import type { ContinueWatchingItem } from '@nn-anime/core/api'
+import type { ContinueWatchingItem, RecommendationResponse } from '@nn-anime/core/api'
 import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { ContinueRow } from './ContinueRow'
 import { FavoritesRow } from './FavoritesRow'
-import { HomePage } from './HomePage'
+import { FeedRow } from './FeedRow'
+import { featuredOf, HomePage } from './HomePage'
+import { RecentRow } from './RecentRow'
 import { continuePath, progressPercent, resumeLabel } from './rows'
 import { TrendingRow } from './TrendingRow'
+import { combineRows } from './useHomeRows'
 
 function render(node: ReactNode): string {
   return renderToString(
@@ -33,6 +36,17 @@ function item(overrides: Partial<ContinueWatchingItem> = {}): ContinueWatchingIt
 
 function resumen(titulo: string): AnimeSummary {
   return { ref: { providerId: 'fixture', value: titulo }, title: titulo }
+}
+
+function recomendacion(titulo: string): RecommendationResponse {
+  return {
+    ref: { providerId: 'fixture', value: titulo },
+    title: titulo,
+    score: 0.5,
+    tags: ['Acción'],
+    reason: { kind: 'popular', text: 'Es de lo más visto.' },
+    reasons: [{ kind: 'popular', text: 'Es de lo más visto.' }],
+  }
 }
 
 describe('la fila de continuar viendo', () => {
@@ -95,6 +109,105 @@ describe('la fila de tendencias', () => {
     expect(html).toContain('Mar de Cristal')
     expect(html).toContain('href="/anime/fixture/Mar%20de%20Cristal"')
     expect(html).toContain('src="/api/cover/fixture/Mar%20de%20Cristal"')
+  })
+})
+
+describe('la fila de novedades', () => {
+  test('sin proveedor que las publique lo dice', () => {
+    expect(render(<FeedRow items={[]} />)).toContain('Ningún proveedor activo publica novedades')
+  })
+
+  test('con novedades, cada una enlaza a su ficha y no reordena', () => {
+    const html = render(
+      <FeedRow
+        items={[
+          { ...resumen('Mar de Cristal'), publishedAt: '2026-09-01T12:00:00.000Z' },
+          { ...resumen('Aurora Nocturna'), publishedAt: '2026-10-01T12:00:00.000Z' },
+        ]}
+      />,
+    )
+
+    // El orden lo decide el servidor: la fila pinta lo que le dan, tal cual.
+    expect(html.indexOf('Mar de Cristal')).toBeLessThan(html.indexOf('Aurora Nocturna'))
+    expect(html).toContain('href="/anime/fixture/Aurora%20Nocturna"')
+  })
+})
+
+describe('la fila de lo último añadido', () => {
+  test('el estado vacío dice de dónde sale el contenido', () => {
+    const html = render(<RecentRow items={[]} />)
+
+    expect(html).toContain('aparece lo que busques')
+  })
+
+  test('con títulos, cada uno enlaza a su ficha', () => {
+    const html = render(<RecentRow items={[resumen('Aurora Nocturna')]} />)
+
+    expect(html).toContain('href="/anime/fixture/Aurora%20Nocturna"')
+  })
+})
+
+describe('el destacado con reservas', () => {
+  test('manda el motor cuando tiene algo', () => {
+    const destacado = featuredOf([recomendacion('Del motor')], [], [])
+
+    expect(destacado?.title).toBe('Del motor')
+    expect(destacado?.reason?.text).toBe('Es de lo más visto.')
+  })
+
+  test('sin recomendaciones, sale del feed', () => {
+    const destacado = featuredOf([], [{ ...resumen('Del feed'), publishedAt: undefined }], [])
+
+    expect(destacado?.title).toBe('Del feed')
+    // Una reserva no inventa un motivo: no viene del motor.
+    expect(destacado?.reason).toBeUndefined()
+  })
+
+  test('sin feed, sale de lo último que la aplicación conoce', () => {
+    expect(featuredOf([], [], [resumen('De la caché')])?.title).toBe('De la caché')
+  })
+
+  test('sin nada de nada no hay destacado: el titular vuelve a ser el de la página', () => {
+    expect(featuredOf([], [], [])).toBeUndefined()
+  })
+})
+
+describe('las filas, cuando una lectura falla', () => {
+  // Declaración y no flecha con genérico: en un `.tsx` un `<T>` se lee como JSX.
+  function ok<T>(value: T): PromiseFulfilledResult<T> {
+    return { status: 'fulfilled', value }
+  }
+  const mal: PromiseRejectedResult = { status: 'rejected', reason: new Error('sin red') }
+
+  test('una que falla deja su fila vacía y las demás se pintan', () => {
+    const filas = combineRows({
+      continueWatching: mal,
+      favorites: ok({ favorites: [resumen('Aurora Nocturna')] }),
+      trending: ok({ items: [resumen('Mar de Cristal')] }),
+      feed: ok({ items: [resumen('Del feed')] }),
+      recent: ok({ items: [resumen('De la caché')] }),
+    })
+
+    expect(filas.loading).toBe(false)
+    expect(filas.error).toBeUndefined()
+    expect(filas.continueWatching).toEqual([])
+    expect(filas.favorites).toHaveLength(1)
+    expect(filas.trending).toHaveLength(1)
+    expect(filas.feed).toHaveLength(1)
+    expect(filas.recent).toHaveLength(1)
+  })
+
+  test('sólo se declara el error cuando fallan todas', () => {
+    const filas = combineRows({
+      continueWatching: mal,
+      favorites: mal,
+      trending: mal,
+      feed: mal,
+      recent: mal,
+    })
+
+    expect(filas.error).toBeDefined()
+    expect(filas.feed).toEqual([])
   })
 })
 

@@ -57,6 +57,26 @@ describe('lista de proveedores', () => {
     expect(html).toContain('activo')
     expect(html).toContain('búsqueda')
     expect(html).not.toContain('doblado')
+    // El feed se enseña como cualquier otra capacidad: quien lo declara lo ve, y
+    // quien no, no lo ve.
+    expect(html).not.toContain('novedades')
+  })
+
+  test('un proveedor con feed lo declara en la lista', () => {
+    const html = render(
+      <ProviderList
+        providers={[
+          {
+            id: 'mio',
+            name: 'Mi fuente',
+            capabilities: { ...CAPACIDADES, feed: true },
+            status: 'active',
+          },
+        ]}
+      />,
+    )
+
+    expect(html).toContain('novedades')
   })
 
   test('un rechazado enseña su motivo', () => {

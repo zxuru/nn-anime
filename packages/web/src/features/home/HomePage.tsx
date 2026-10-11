@@ -13,15 +13,19 @@
  * desaparece sin más deja al usuario sin saber si la función existe.
  */
 
+import type { FeedItem, RecommendationResponse } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 import { Panel } from '../recommendations/Panel'
 import { useRecommendations } from '../recommendations/useRecommendations'
 import { ContinueRow } from './ContinueRow'
 import { FavoritesRow } from './FavoritesRow'
-import { FeaturedHero } from './FeaturedHero'
+import { FeaturedHero, type FeaturedItem } from './FeaturedHero'
+import { FeedRow } from './FeedRow'
 import { GenreRow, topGenres } from './GenreRow'
+import { RecentRow } from './RecentRow'
 import { Ticker } from './Ticker'
 import { TopFive } from './TopFive'
 import { TrendingRow } from './TrendingRow'
@@ -34,6 +38,39 @@ export interface HomePageProps {
 /** Cuántos géneros se enseñan en la lista grande. */
 export const GENRE_LIMIT = 10
 
+/**
+ * Un resumen como destacado de reserva.
+ *
+ * Ni el feed ni la caché traen tags —el vector lo tiene la ficha, no el listado—,
+ * así que el cartel se queda con lo que sí sabe: referencia, título y año. El
+ * resto lo pone el detalle cuando llega.
+ */
+export function comoDestacado(item: AnimeSummary | undefined): FeaturedItem | undefined {
+  if (item === undefined) return undefined
+
+  return {
+    ref: item.ref,
+    title: item.title,
+    tags: [],
+    ...(item.year === undefined ? {} : { year: item.year }),
+  }
+}
+
+/**
+ * El destacado, con sus reservas en orden: el motor, lo que publica la fuente y
+ * lo último que la aplicación conoce.
+ *
+ * Es una función y no dos `??` dentro del componente para poder probar las tres
+ * ramas: un `renderToString` de la home no ejecuta efectos, así que ahí no se ve.
+ */
+export function featuredOf(
+  recomendaciones: readonly RecommendationResponse[],
+  feed: readonly FeedItem[],
+  recientes: readonly AnimeSummary[],
+): FeaturedItem | undefined {
+  return recomendaciones[0] ?? comoDestacado(feed[0]) ?? comoDestacado(recientes[0])
+}
+
 export function HomePage(props: HomePageProps): ReactNode {
   const filas = useHomeRows()
   const recomendaciones = useRecommendations({
@@ -41,7 +78,10 @@ export function HomePage(props: HomePageProps): ReactNode {
   })
 
   const items = recomendaciones.data?.items ?? []
-  const destacado = items[0]
+  // El destacado tiene tres reservas, en este orden: el motor, lo que publica la
+  // fuente y lo último que la aplicación conoce. Sin ellas, una instalación nueva
+  // con un proveedor sin tendencias se quedaba con un titular y nada más.
+  const destacado = featuredOf(items, filas.feed, filas.recent)
   const generos = topGenres(
     items.map((item) => item.tags),
     GENRE_LIMIT,
@@ -69,6 +109,9 @@ export function HomePage(props: HomePageProps): ReactNode {
       ) : null}
 
       <TopFive items={items} coldStart={recomendaciones.data?.coldStart ?? true} />
+
+      <FeedRow items={filas.feed} />
+      <RecentRow items={filas.recent} />
 
       <ContinueRow items={filas.continueWatching} />
       <FavoritesRow items={filas.favorites} />

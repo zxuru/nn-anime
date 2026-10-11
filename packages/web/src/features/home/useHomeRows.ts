@@ -1,22 +1,28 @@
 /**
  * Los datos de las filas de la home.
  *
- * Tres lecturas en paralelo: continuar viendo, favoritos y tendencias. En serie
- * tardarían la suma de las tres latencias sin ninguna razón, porque ninguna
- * necesita a las otras.
+ * Cinco lecturas en paralelo: continuar viendo, favoritos, tendencias, novedades
+ * del feed y lo último que la aplicación conoce. En serie tardarían la suma de las
+ * cinco latencias sin ninguna razón, porque ninguna necesita a las otras.
  *
- * Si una falla, **las otras dos se pintan igual**: la home no puede quedarse en
- * blanco porque un proveedor no conteste a tendencias.
+ * Si una falla, **las demás se pintan igual**: la home no puede quedarse en blanco
+ * porque un proveedor no conteste a tendencias o porque su feed esté roto. Sólo se
+ * declara el error cuando fallan **todas**, que es cuando de verdad no hay nada que
+ * enseñar.
  */
 
 import type {
   ContinueWatchingResponse,
   FavoritesResponse,
+  FeedResponse,
+  RecentResponse,
   TrendingResponse,
 } from '@nn-anime/core/api'
 import {
   continueWatchingResponseSchema,
   favoritesResponseSchema,
+  feedResponseSchema,
+  recentResponseSchema,
   trendingResponseSchema,
 } from '@nn-anime/core/api'
 import { useEffect, useState } from 'react'
@@ -28,6 +34,10 @@ export interface HomeRows {
   readonly continueWatching: ContinueWatchingResponse['items']
   readonly favorites: FavoritesResponse['favorites']
   readonly trending: TrendingResponse['items']
+  /** Lo que publica la fuente, sin que nadie haya buscado. */
+  readonly feed: FeedResponse['items']
+  /** Lo último que la aplicación ya conoce, sin red. */
+  readonly recent: RecentResponse['items']
 }
 
 const VACIO: HomeRows = {
@@ -36,6 +46,55 @@ const VACIO: HomeRows = {
   continueWatching: [],
   favorites: [],
   trending: [],
+  feed: [],
+  recent: [],
+}
+
+/** Lo que devolvió cada lectura, tal cual sale de `Promise.allSettled`. */
+export interface RowResults {
+  readonly continueWatching: PromiseSettledResult<ContinueWatchingResponse>
+  readonly favorites: PromiseSettledResult<FavoritesResponse>
+  readonly trending: PromiseSettledResult<TrendingResponse>
+  readonly feed: PromiseSettledResult<FeedResponse>
+  readonly recent: PromiseSettledResult<RecentResponse>
+}
+
+/**
+ * Junta los resultados en las filas de la home.
+ *
+ * Es una función pura y no el cuerpo del `then` porque aquí está la decisión que
+ * importa y no se puede probar dentro de un hook: **una lectura que falla deja su
+ * fila vacía, y las demás se pintan igual**. El error sólo se declara cuando
+ * fallan todas, que es cuando de verdad no hay nada que enseñar. Antes de esto,
+ * la condición era «fallan las tres», escrita a mano, y añadir dos lecturas
+ * habría dejado el número desactualizado sin que nada avisara.
+ */
+export function combineRows(resultados: RowResults): HomeRows {
+  const lecturas = [
+    resultados.continueWatching,
+    resultados.favorites,
+    resultados.trending,
+    resultados.feed,
+    resultados.recent,
+  ]
+  const fallos = lecturas.filter((lectura) => lectura.status === 'rejected')
+
+  return {
+    loading: false,
+    error:
+      fallos.length === lecturas.length
+        ? 'no se pudo cargar nada de la página de inicio'
+        : undefined,
+    continueWatching:
+      resultados.continueWatching.status === 'fulfilled'
+        ? resultados.continueWatching.value.items
+        : [],
+    favorites:
+      resultados.favorites.status === 'fulfilled' ? resultados.favorites.value.favorites : [],
+    trending: resultados.trending.status === 'fulfilled' ? resultados.trending.value.items : [],
+    feed: resultados.feed.status === 'fulfilled' ? resultados.feed.value.items : [],
+    recent: resultados.recent.status === 'fulfilled' ? resultados.recent.value.items : [],
+  }
 }
 
 export function useHomeRows(): HomeRows {
@@ -50,20 +109,20 @@ export function useHomeRows(): HomeRows {
       apiGet('/api/watch/recent', continueWatchingResponseSchema, opciones),
       apiGet('/api/favorites', favoritesResponseSchema, opciones),
       apiGet('/api/trending', trendingResponseSchema, opciones),
-    ]).then(([continuar, favoritos, tendencias]) => {
+      apiGet('/api/feed', feedResponseSchema, opciones),
+      apiGet('/api/catalog/recent', recentResponseSchema, opciones),
+    ]).then(([continuar, favoritos, tendencias, novedades, recientes]) => {
       if (!vivo) return
 
-      const fallos = [continuar, favoritos, tendencias].filter(
-        (resultado) => resultado.status === 'rejected',
+      setFilas(
+        combineRows({
+          continueWatching: continuar,
+          favorites: favoritos,
+          trending: tendencias,
+          feed: novedades,
+          recent: recientes,
+        }),
       )
-
-      setFilas({
-        loading: false,
-        error: fallos.length === 3 ? 'no se pudo cargar nada de la página de inicio' : undefined,
-        continueWatching: continuar.status === 'fulfilled' ? continuar.value.items : [],
-        favorites: favoritos.status === 'fulfilled' ? favoritos.value.favorites : [],
-        trending: tendencias.status === 'fulfilled' ? tendencias.value.items : [],
-      })
     })
 
     return () => {

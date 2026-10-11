@@ -22,6 +22,7 @@ function capabilitiesOf(provider: SettingsResponse['providers'][number]): string
   if (provider.capabilities.sub) activas.push(t(DEFAULT_LOCALE, 'settings.cap.sub'))
   if (provider.capabilities.dub) activas.push(t(DEFAULT_LOCALE, 'settings.cap.dub'))
   if (provider.capabilities.trending) activas.push(t(DEFAULT_LOCALE, 'settings.cap.trending'))
+  if (provider.capabilities.feed) activas.push(t(DEFAULT_LOCALE, 'settings.cap.feed'))
 
   return activas.length === 0 ? t(DEFAULT_LOCALE, 'settings.cap.none') : activas.join(' · ')
 }

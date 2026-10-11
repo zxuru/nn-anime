@@ -54,6 +54,13 @@ export const messages: Messages = {
     'Todavía no has marcado ninguno. La estrella está en la ficha de cada título.',
   'home.trending': 'De moda',
   'home.trending.empty': 'Ningún proveedor activo ofrece tendencias.',
+  'home.feed': 'Novedades',
+  'home.feed.meta': 'Lo último que publica la fuente',
+  'home.feed.empty': 'Ningún proveedor activo publica novedades.',
+  'home.recent': 'Último añadido',
+  'home.recent.meta': 'Lo último que conoce esta aplicación',
+  'home.recent.empty':
+    'Todavía no hay nada: aparece lo que busques y lo que abras. Un proveedor con novedades llena esta fila solo.',
   'home.more': 'y {count} más',
   'home.resume': 'Seguir en {time}',
   'settings.title': 'Ajustes',
@@ -75,6 +82,7 @@ export const messages: Messages = {
   'settings.cap.sub': 'subtitulado',
   'settings.cap.dub': 'doblado',
   'settings.cap.trending': 'tendencias',
+  'settings.cap.feed': 'novedades',
   'settings.cap.none': 'sin capacidades',
   'settings.register.title': 'Registrar un proveedor',
   'settings.register.body':
