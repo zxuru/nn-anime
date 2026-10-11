@@ -174,6 +174,13 @@ export const messages: Messages = {
   'player.mpv.error': 'No se pudo abrir mpv: {message}',
   'player.sinImagen':
     'El audio suena y la imagen no llega: el navegador no está decodificando el video. Prueba con «Ver en mpv».',
+  // El modo compatible: cuando el navegador decodifica pero su GPU no pinta el
+  // cuadro de video —Wayland con NVIDIA, con el VA-API descartado por el propio
+  // Chromium—, el reproductor pinta los fotogramas él mismo. El texto dice qué
+  // se está haciendo, porque el precio es CPU.
+  'player.compat': 'Modo compatible',
+  'player.compat.on':
+    'Modo compatible: los fotogramas los pinta la CPU, porque tu navegador no los pinta con la GPU.',
   'player.loading': 'Cargando el video…',
   // El aviso de que el elemento ya reprodujo y se ha quedado sin datos. Va
   // aparte de `player.loading` porque son dos esperas distintas: una al

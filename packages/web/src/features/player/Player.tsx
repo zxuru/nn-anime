@@ -14,10 +14,11 @@
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { announcement, formatTime, keyAction, needsHls } from './controls'
 import { isProxyPath } from './subtitle-tracks'
+import { useCompatPaint } from './useCompatPaint'
 import { type SafeTrack, usePlayer } from './usePlayer'
 
 export interface PlayerProps {
@@ -66,6 +67,24 @@ export function Player(props: PlayerProps): ReactNode {
     ...(props.startAtS === undefined ? {} : { startAtS: props.startAtS }),
   })
   const pistas = props.tracks ?? []
+
+  /**
+   * El mismo elemento, para el modo compatible.
+   *
+   * `usePlayer` lo guarda en una referencia porque sólo tiene que tocarlo; el
+   * modo compatible necesita además **mirarlo** —el fotograma— y pintarlo, así
+   * que aquí vive en estado: el pintado arranca cuando el `<canvas>` ya está
+   * montado, y eso pasa por un render.
+   */
+  const [elemento, setElemento] = useState<HTMLVideoElement | null>(null)
+  const { pintando, alternar, canvasRef } = useCompatPaint({ video: elemento, url: props.url })
+  const refVideo = useCallback(
+    (nodo: HTMLVideoElement | null) => {
+      videoRef(nodo)
+      setElemento(nodo)
+    },
+    [videoRef],
+  )
 
   /**
    * La posición mientras se arrastra la barra, si se está arrastrando.
@@ -136,7 +155,7 @@ export function Player(props: PlayerProps): ReactNode {
           nadie, y lo que hay que decir es justo que la imagen todavía no está. */}
       <div className="player__stage">
         <video
-          ref={videoRef}
+          ref={refVideo}
           className="player__video"
           controls={false}
           playsInline
@@ -161,6 +180,15 @@ export function Player(props: PlayerProps): ReactNode {
             />
           ))}
         </video>
+
+        {/* El modo compatible: encima del video y en su misma caja. El elemento
+            sigue ahí —es quien reproduce, quien lleva los subtítulos y quien
+            habla con hls.js—, pero lo que se ve es este canvas, que el
+            compositor pinta como una textura corriente. Va sin nombre accesible
+            y sin `aria-hidden` a propósito: un canvas sin contenido de reserva
+            no tiene rol ni nombre, así que no se anuncia, y lo que sí se anuncia
+            es el `<video>` de debajo. */}
+        {pintando ? <canvas className="player__canvas" ref={canvasRef} /> : null}
 
         {espera === undefined ? null : (
           <div className="player__wait">
@@ -243,9 +271,18 @@ export function Player(props: PlayerProps): ReactNode {
         >
           {t(DEFAULT_LOCALE, 'player.fullscreen')}
         </button>
+        {/* El modo compatible a mano. La sonda lo enciende sola cuando ve el
+            fallo, pero una sonda que mira un fotograma puede no verlo: quien
+            está mirando la pantalla en negro lo enciende aquí, sin tocar nada
+            del navegador. `aria-pressed` dice si está encendido. */}
+        <button type="button" className="button" aria-pressed={pintando} onClick={alternar}>
+          {t(DEFAULT_LOCALE, 'player.compat')}
+        </button>
       </div>
 
       {sinImagen ? <p className="search__error">{t(DEFAULT_LOCALE, 'player.sinImagen')}</p> : null}
+
+      {pintando ? <p className="card__meta">{t(DEFAULT_LOCALE, 'player.compat.on')}</p> : null}
 
       {state.error === undefined ? null : (
         <p className="search__error">
