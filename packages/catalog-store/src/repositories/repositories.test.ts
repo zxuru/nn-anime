@@ -11,6 +11,7 @@ import { runMigrations } from '../migrations/runner'
 import { createAnimeRepository } from './anime'
 import { createEpisodesRepository } from './episodes'
 import { createFeedRepository } from './feed'
+import { createRecentRepository } from './recent'
 import { createSearchRepository } from './search'
 
 const REF: ProviderRef = { providerId: 'fixture', value: 'aurora-nocturna' }
@@ -580,6 +581,144 @@ describe('el feed', () => {
       )
 
       expect(() => createFeedRepository(db).read('fixture')).toThrow(StoreError)
+    })
+  })
+})
+
+describe('lo último que la aplicación conoce', () => {
+  const MAR: ProviderRef = { providerId: 'fixture', value: 'mar-de-cristal' }
+
+  test('une lo abierto y lo encontrado por una búsqueda', async () => {
+    await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      const busquedas = createSearchRepository(db)
+
+      anime.write(REF, detalle(), 1_000)
+      busquedas.write('fixture', 'mar', [resultado('Mar de Cristal')], 2_000)
+
+      const lista = createRecentRepository(db).list(10)
+
+      expect(lista.map((item) => item.title)).toEqual(['Mar de Cristal', 'Aurora Nocturna'])
+    })
+  })
+
+  test('una referencia en las dos tablas es una entrada, con la marca más nueva', async () => {
+    await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      const busquedas = createSearchRepository(db)
+
+      anime.write(REF, detalle({ title: 'Título viejo' }), 1_000)
+      // La búsqueda es posterior: manda su título y su marca, y sigue habiendo una
+      // sola fila. Sin el `GROUP BY`, el mismo título aparecería dos veces.
+      busquedas.write('fixture', 'aurora', [{ ref: REF, title: 'Título nuevo' }], 5_000)
+
+      const lista = createRecentRepository(db).list(10)
+
+      expect(lista).toHaveLength(1)
+      expect(lista[0]?.title).toBe('Título nuevo')
+    })
+  })
+
+  test('una búsqueda caducada cuenta igual: esto no es «lo fresco»', async () => {
+    await withStore((db) => {
+      createSearchRepository(db).write('fixture', 'aurora', [resultado('Aurora Nocturna')], 1_000)
+
+      // Muy por detrás del TTL de búsqueda: la fila dice «lo que la aplicación
+      // conoce», y esconder lo que ya está en disco sería lo contrario.
+      expect(createRecentRepository(db).list(10)).toHaveLength(1)
+    })
+  })
+
+  test('respeta el límite y el orden: primero lo más nuevo', async () => {
+    await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      anime.write(REF, detalle(), 1_000)
+      anime.write(MAR, detalle({ ref: MAR, title: 'Mar de Cristal' }), 9_000)
+
+      const lista = createRecentRepository(db).list(1)
+
+      expect(lista).toHaveLength(1)
+      expect(lista[0]?.ref).toEqual(MAR)
+    })
+  })
+
+  test('un límite de cero no devuelve nada', async () => {
+    await withStore((db) => {
+      createAnimeRepository(db).write(REF, detalle(), 1_000)
+
+      expect(createRecentRepository(db).list(0)).toEqual([])
+    })
+  })
+
+  test('un título sin portada ni año no inventa los campos', async () => {
+    await withStore((db) => {
+      createSearchRepository(db).write('fixture', 'aurora', [resultado('Aurora Nocturna')], 1_000)
+
+      const [primero] = createRecentRepository(db).list(10)
+
+      expect(primero?.title).toBe('Aurora Nocturna')
+      expect(primero?.coverUrl).toBeUndefined()
+      expect(primero?.year).toBeUndefined()
+      expect(primero?.kind).toBeUndefined()
+    })
+  })
+
+  test('el `kind` sale validado: uno que no es del contrato se descarta', async () => {
+    await withStore((db) => {
+      createAnimeRepository(db).write(REF, detalle({ kind: 'ova' }), 1_000)
+      createSearchRepository(db).write(
+        'fixture',
+        'rara',
+        [
+          {
+            ref: { providerId: 'fixture', value: 'otro' },
+            title: 'Con tipo raro',
+            kind: 'pelicula',
+          },
+        ] as unknown as readonly SearchResult[],
+        2_000,
+      )
+
+      const lista = createRecentRepository(db).list(10)
+
+      expect(lista.find((item) => item.title === 'Aurora Nocturna')?.kind).toBe('ova')
+      expect(lista.find((item) => item.title === 'Con tipo raro')?.kind).toBeUndefined()
+    })
+  })
+
+  test('un `results_json` que no es JSON no rompe la lectura', async () => {
+    await withStore((db) => {
+      createAnimeRepository(db).write(REF, detalle(), 1_000)
+      db.query(
+        `INSERT INTO search_cache (provider_id, query, results_json, fetched_at, ttl_s)
+         VALUES (?, ?, ?, ?, ?)`,
+      ).run('fixture', 'rota', '{esto no es json', 9_000, TTL_SECONDS.search)
+
+      // `json_each` sobre eso lanzaría: la fila se salta y lo demás se sirve.
+      expect(
+        createRecentRepository(db)
+          .list(10)
+          .map((item) => item.title),
+      ).toEqual(['Aurora Nocturna'])
+    })
+  })
+
+  test('un resultado con otra forma se descarta sin llevarse la lista', async () => {
+    await withStore((db) => {
+      createAnimeRepository(db).write(REF, detalle(), 1_000)
+      createSearchRepository(db).write(
+        'fixture',
+        'rara',
+        // Sin `ref`: el contrato lo exige, pero la base guarda lo que le den.
+        [{ title: 'Sin referencia' }] as unknown as readonly SearchResult[],
+        9_000,
+      )
+
+      expect(
+        createRecentRepository(db)
+          .list(10)
+          .map((item) => item.title),
+      ).toEqual(['Aurora Nocturna'])
     })
   })
 })

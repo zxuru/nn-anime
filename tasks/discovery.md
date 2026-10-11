@@ -131,23 +131,28 @@ y el barril del paquete.
 más viejo.
 
 **Aceptación:**
-- [ ] `listRecentSummaries(limit)` une `anime` y `search_cache` y deduplica por referencia,
+- [x] `listRecentSummaries(limit)` une `anime` y `search_cache` y deduplica por referencia,
       quedándose con la marca `fetched_at` **más nueva** de las dos.
-- [ ] El orden es descendente por esa marca y el `limit` se respeta.
-- [ ] Una entrada de `search_cache` **caducada cuenta igual**: la fila dice «lo que la aplicación
+- [x] El orden es descendente por esa marca y el `limit` se respeta.
+- [x] Una entrada de `search_cache` **caducada cuenta igual**: la fila dice «lo que la aplicación
       conoce», no «lo fresco», y esconder lo que ya está en disco sería justo lo contrario.
-- [ ] Un resultado de búsqueda sin `coverUrl` no inventa el campo, y una fila de `anime` sin año
+- [x] Un resultado de búsqueda sin `coverUrl` no inventa el campo, y una fila de `anime` sin año
       tampoco.
-- [ ] `search_cache` con un JSON que no cumple el schema no rompe la lectura entera: se salta esa
+- [x] `search_cache` con un JSON que no cumple el schema no rompe la lectura entera: se salta esa
       fila.
 
-**Verificación:** `bun test packages/catalog-store`. Medido mutando: sin el dedup por referencia
-fallan 2, quedándose con la marca más vieja 1, sin el orden descendente 1 y sin saltar la fila
-corrupta 1. Control: 0 fallos.
+**Verificación:** `bun test packages/catalog-store` · 174 pruebas. Medido mutando: sin el `GROUP BY`
+falla 1, sin el `MAX` 1, con el orden ascendente 2, sin `json_valid` 1 —`json_each` lanzaría—, sin
+descartar las filas sin forma 1 y sin validar el `kind` 2. Control: 0 fallos.
 
 **Depende de:** T49.
 
-**Archivos:** `packages/catalog-store/src/repositories/anime.ts`, `packages/catalog-store/src/store.ts`.
+**Archivos:** `packages/catalog-store/src/repositories/recent.ts`, `packages/catalog-store/src/store.ts`.
+**Desvío declarado:** la lectura vive en **`recent.ts`** y no en `anime.ts` como decía este plan: no
+es una lectura de una tabla, cruza `anime` y `search_cache`, y meterla en el repositorio del anime
+obligaría a ese módulo a saber cómo está guardada una búsqueda. Además se **quitó una línea** al
+medirla: el `replace` que quitaba comillas del `kind` no hacía nada, porque `json_extract` devuelve
+los escalares sin comillas.
 **Ampliación declarada:** `packages/catalog-store/src/store.test.ts` y
 `packages/catalog-store/src/repositories/repositories.test.ts`.
 

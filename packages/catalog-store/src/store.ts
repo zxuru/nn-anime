@@ -42,6 +42,7 @@ import { type CandidateRow, createAnimeRepository } from './repositories/anime'
 import { createEpisodesRepository } from './repositories/episodes'
 import { createFavoritesRepository } from './repositories/favorites'
 import { createFeedRepository } from './repositories/feed'
+import { createRecentRepository } from './repositories/recent'
 import { createSearchRepository } from './repositories/search'
 import { createSearchHistoryRepository } from './repositories/search-history'
 import { createSettingsRepository } from './repositories/settings'
@@ -85,6 +86,14 @@ export interface CatalogStore {
   readCover(ref: ProviderRef): Promise<string | undefined>
   /** Los títulos cacheados, con sus tags, para el motor de recomendación. */
   listCandidates(limit: number): Promise<readonly CandidateRow[]>
+  /**
+   * Lo último que la aplicación conoce, del más nuevo al más viejo.
+   *
+   * Une lo abierto y lo encontrado por una búsqueda. Es la fila «Último añadido»
+   * de la home: existe para que la primera pantalla no dependa de que el usuario
+   * haya buscado o de que su proveedor ofrezca tendencias.
+   */
+  listRecentSummaries(limit: number): Promise<readonly AnimeSummary[]>
   /**
    * Los títulos cacheados cuyo género encaja con el término.
    *
@@ -151,6 +160,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     readonly settings: ReturnType<typeof createSettingsRepository>
     readonly trending: ReturnType<typeof createTrendingRepository>
     readonly feed: ReturnType<typeof createFeedRepository>
+    readonly recent: ReturnType<typeof createRecentRepository>
   }
 
   let repos: Repos | undefined
@@ -166,6 +176,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       settings: createSettingsRepository(db),
       trending: createTrendingRepository(db),
       feed: createFeedRepository(db),
+      recent: createRecentRepository(db),
     })
 
   return {
@@ -183,6 +194,9 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async listCandidates(limit) {
       return of().anime.list(limit)
+    },
+    async listRecentSummaries(limit) {
+      return of().recent.list(limit)
     },
     async searchByGenre(term, limit) {
       return of().anime.searchByGenre(term, limit)
