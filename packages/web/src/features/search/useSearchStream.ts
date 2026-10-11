@@ -16,7 +16,7 @@ import {
   providersResponseSchema,
   type SearchEventPayload,
 } from '@nn-anime/core/api'
-import { namesOf, sameWork, type WorkNames } from '@nn-anime/core/identity'
+import { groupByWork } from '@nn-anime/core/identity'
 import type { SearchResult } from '@nn-anime/core/models'
 import { useEffect, useMemo, useState } from 'react'
 import { createDedupe } from '../../api/dedupe'
@@ -109,38 +109,6 @@ export interface ResultGroup {
 }
 
 /**
- * La misma obra, aunque cada fuente la nombre a su manera.
- *
- * Es lo que junta «Danmachi» con «Dungeon ni Deai wo Motomeru no wa
- * Machigatteiru Darou ka»: la identidad la resuelve `sameWork` en `core`, con el
- * título, su alternativa y la referencia escrita como título. Dos fuentes que
- * devuelven el mismo título siguen agrupando, y ahora también agrupan las que lo
- * escriben distinto.
- */
-function mismaObra(uno: SearchResult, otro: SearchResult): boolean {
-  if (uno.year !== otro.year) return false
-
-  return sameWork(nombresDe(uno), nombresDe(otro))
-}
-
-function nombresDe(result: SearchResult): WorkNames {
-  return namesOf({
-    title: result.title,
-    ...(result.titleAlt === undefined ? {} : { titleAlt: result.titleAlt }),
-    ref: result.ref.value,
-  })
-}
-
-/** El grupo al que pertenece el resultado, o ninguno. */
-function grupoDe(grupos: readonly Grupo[], result: SearchResult): number {
-  const nombres = nombresDe(result)
-
-  return grupos.findIndex(
-    (grupo) => grupo.año === result.year && grupo.nombres.some((uno) => sameWork(uno, nombres)),
-  )
-}
-
-/**
  * El nombre que la tarjeta muestra: el más largo de la obra.
  *
  * Cuando dos fuentes nombran la misma obra, la corta suele ser el alias con el
@@ -154,49 +122,28 @@ function porNombre(a: SearchResult, b: SearchResult): number {
   return b.title.length - a.title.length
 }
 
-/** Un grupo mientras se arma: los nombres de todos sus resultados y su año. */
-interface Grupo {
-  readonly año: number | undefined
-  nombres: readonly WorkNames[]
-  readonly results: SearchResult[]
-}
-
 /**
  * Una tarjeta por obra.
  *
- * Pintar dos tarjetas de lo mismo es el «contenido repetido» que se reportó.
+ * Pintar dos tarjetas de lo mismo es el «contenido repetido» que se reportó. La
+ * identidad la resuelve `groupByWork` en `core` —título, alternativa y
+ * referencia, para que «Danmachi» y «Dungeon ni Deai wo Motomeru no wa
+ * Machigatteiru Darou ka» sean la misma obra— y aquí sólo queda lo que es
+ * presentación: qué nombre da la tarjeta y en qué orden se pintan sus fuentes.
+ *
  * **No se fusionan las referencias**: quien elige la fuente es el usuario, con
  * un enlace por proveedor, porque abrir la tarjeta lleva a una ficha concreta y
  * no a una media.
  */
 export function groupResults(results: readonly SearchResult[]): readonly ResultGroup[] {
-  const grupos: Grupo[] = []
-
-  for (const result of results) {
-    const indice = grupoDe(grupos, result)
-    const nombres = nombresDe(result)
-
-    if (indice === -1) {
-      grupos.push({ año: result.year, nombres: [nombres], results: [result] })
-      continue
-    }
-
-    const grupo = grupos[indice]
-    if (grupo === undefined) continue
-
-    // El grupo guarda los nombres de **todos** sus resultados: la tercera fuente
-    // que sólo comparte la alternativa con la segunda entra contra ella y no
-    // contra la primera, que es la que dio nombre a la tarjeta.
-    grupo.nombres = [...grupo.nombres, nombres]
-    grupo.results.push(result)
-  }
+  const grupos = groupByWork(results, (uno, otro) => uno.year === otro.year)
 
   return grupos.map((grupo) => {
-    const ordenados = [...grupo.results].sort(porNombre)
+    const ordenados = [...grupo].sort(porNombre)
     const primero = ordenados[0]
 
     return {
-      key: `${normalizeTitle(primero?.title ?? '')}|${grupo.año ?? ''}`,
+      key: `${normalizeTitle(primero?.title ?? '')}|${primero?.year ?? ''}`,
       results: ordenados,
     }
   })

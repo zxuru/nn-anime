@@ -415,6 +415,53 @@ describe('GET /api/feed', () => {
     )
   })
 
+  test('la misma obra con otro nombre en cada fuente deja una entrada', async () => {
+    // Las dos fichas reales de la base: la misma obra, un nombre en cada fuente,
+    // y la referencia de cada una apuntando al nombre de la otra. Con la clave de
+    // título normalizado esta fila pintaba dos tarjetas.
+    const base = createFixtureProvider()
+    const primera = {
+      ...base,
+      capabilities: { ...base.capabilities, feed: true },
+      getFeed: async () => [
+        {
+          ref: { providerId: 'fixture', value: 'danmachi' },
+          title: 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka',
+          year: 2015,
+          publishedAt: '2026-10-01T12:00:00.000Z',
+        },
+      ],
+    }
+    const segunda = {
+      ...base,
+      id: 'otra',
+      capabilities: { ...base.capabilities, feed: true },
+      getFeed: async () => [
+        {
+          ref: {
+            providerId: 'otra',
+            value: 'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka',
+          },
+          title: 'Danmachi',
+          year: 2015,
+          publishedAt: '2026-09-01T12:00:00.000Z',
+        },
+      ],
+    }
+
+    await conApp(
+      async ({ pedir }) => {
+        const salida = feedResponseSchema.parse(await (await pedir('/api/feed')).json())
+
+        expect(salida.items).toHaveLength(1)
+        expect(salida.items[0]?.title).toBe(
+          'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka',
+        )
+      },
+      { proveedores: [primera, segunda] },
+    )
+  })
+
   test('el mismo título en años distintos son dos entradas', async () => {
     const base = createFixtureProvider()
     const anio = (value: string, providerId: string, year: number, titulo: string) => ({

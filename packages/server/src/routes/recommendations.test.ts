@@ -150,6 +150,23 @@ describe('GET /api/trending', () => {
     expect(salida.items.map((item) => item.title)).toEqual(['One Piece', 'Dandadan'])
   })
 
+  test('la misma obra con otro nombre en cada fuente deja una tarjeta', async () => {
+    // Las dos fichas reales de la base: la misma obra, un nombre en cada fuente,
+    // y la referencia de cada una apuntando al nombre de la otra. Con la clave de
+    // título normalizado salían dos puestos del mismo anime.
+    const salida = await consultar([
+      proveedorConTop('uno', [
+        resultado('uno', 'danmachi', 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka'),
+      ]),
+      proveedorConTop('dos', [
+        resultado('dos', 'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka', 'Danmachi'),
+      ]),
+    ])
+
+    expect(salida.items).toHaveLength(1)
+    expect(salida.items[0]?.title).toBe('Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka')
+  })
+
   test('la misma referencia repetida en una fuente deja una tarjeta', async () => {
     const salida = await consultar([
       proveedorConTop('uno', [

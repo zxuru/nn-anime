@@ -108,7 +108,16 @@ export {
   t,
   translate,
 } from './i18n'
-export { namesOf, sameWork, type TitleInput, type WorkNames, workKeys } from './identity'
+export {
+  groupByWork,
+  namesOf,
+  sameWork,
+  type TitleInput,
+  uniqueByWork,
+  type WorkItem,
+  type WorkNames,
+  workKeys,
+} from './identity'
 export {
   createLogger,
   isSensitiveKey,
@@ -181,5 +190,5 @@ export {
   type Settings,
   settingsSchema,
 } from './settings'
-export { baseTitle, franchiseTitle, sagaTitle, seasonNumberOf, titleKey } from './titles'
+export { baseTitle, franchiseTitle, sagaTitle, seasonNumberOf } from './titles'
 export { FINISHED_RATIO, isFinished, watchedRatio } from './watch-progress'
