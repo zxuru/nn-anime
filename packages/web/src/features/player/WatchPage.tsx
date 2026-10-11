@@ -32,7 +32,7 @@ import {
   useDocumentTitle,
   watchTitleParts,
 } from '../../lib/document-title'
-import { Link, usePath } from '../../router'
+import { buildPath, Link, usePath } from '../../router'
 import { Player } from './Player'
 import { type SubtitleCandidate, toSafeTracks, tracksFromSource } from './subtitle-tracks'
 import { useMpvHandoff } from './useMpvHandoff'
@@ -269,9 +269,23 @@ export function WatchPage(props: WatchPageProps): ReactNode {
    * episodios abiertos no veía en ninguna parte qué estaba viendo. Va también en
    * los estados de carga y de error, que son justo en los que más falta hace
    * saber qué es lo que no se pudo abrir.
+   *
+   * El regreso a la ficha va aquí, con el encabezado, por la misma razón: es la
+   * salida de la pantalla y tiene que estar en los tres estados. La cabecera de la
+   * aplicación lleva a la home, no al título, así que sin este enlace la única
+   * vuelta era el botón de atrás del navegador —que no se ve en una pantalla
+   * pensada para verse a pantalla completa—. El título de la ficha es la
+   * referencia que la dirección trae o la que se deduce del episodio: es la misma
+   * que usa el registro del visionado, no una segunda conjetura.
    */
   const encabezado = (
     <header>
+      <Link
+        className="watch__back"
+        to={buildPath('detail', { providerId: props.providerId, ref: animeRef.value })}
+      >
+        {t(DEFAULT_LOCALE, 'player.backToDetail')}
+      </Link>
       <h1>{tituloAnime ?? t(DEFAULT_LOCALE, 'title.loading')}</h1>
       {etiquetaEpisodio === undefined ? null : <p className="card__meta">{etiquetaEpisodio}</p>}
     </header>

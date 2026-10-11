@@ -151,6 +151,9 @@ export const messages: Messages = {
   'player.tracks': 'Subtítulos disponibles: {count}.',
   'player.mode': 'Modo',
   'player.episodes': 'Episodios',
+  // El regreso a la ficha: la pantalla de reproducción es un callejón sin salida
+  // sin este enlace, porque la cabecera lleva a la home y no al título.
+  'player.backToDetail': 'Volver a la ficha',
   'player.previousEpisode': 'Episodio anterior',
   'player.nextEpisode': 'Episodio siguiente',
   'player.firstEpisode': 'Este es el primer episodio: no hay anterior.',

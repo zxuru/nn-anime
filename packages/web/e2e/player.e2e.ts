@@ -293,6 +293,28 @@ test.describe('el reproductor', () => {
   })
 
   /**
+   * La vuelta a la ficha.
+   *
+   * La cabecera de la aplicación lleva a la home, no al título, así que la
+   * pantalla de reproducción era un callejón sin salida: la única vuelta era el
+   * botón de atrás del navegador, que a pantalla completa no se ve. Aquí se mide
+   * lo que no mide la prueba del componente: que el enlace navega sin recargar y
+   * que aterriza en la ficha del título que se estaba viendo.
+   */
+  test('vuelve a la ficha del título sin recargar la página', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    await page.getByRole('link', { name: 'Volver a la ficha' }).click()
+
+    await expect(page).toHaveURL('/anime/fixture/aurora-nocturna')
+    await expect(page.getByRole('heading', { level: 1, name: 'Aurora Nocturna' })).toBeVisible({
+      timeout: 15_000,
+    })
+    await expect(page.locator('.episodes li')).toHaveCount(12, { timeout: 15_000 })
+  })
+
+  /**
    * La espera, encima del video.
    *
    * El estado de «cargando» se cubre en la prueba del componente, que lo pilla en
