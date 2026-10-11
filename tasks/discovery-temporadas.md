@@ -103,11 +103,11 @@ franquicia»; la entrega actual marcada y sin enlace; el hueco explicado.
 `packages/web/src/i18n/es.ts`.
 
 **Aceptación:**
-- [ ] Con dos temporadas, la sección las pinta ordenadas y marca la actual; medido mutando: sin la
+- [x] Con dos temporadas, la sección las pinta ordenadas y marca la actual; medido mutando: sin la
       marca, la prueba cae.
-- [ ] Las películas y los especiales van en su bloque y no intercalados con las temporadas.
-- [ ] Una franquicia que no aporta ninguna entrega nueva no pinta su sección.
-- [ ] Con una sola entrega conocida, el hueco se explica.
+- [x] Las películas y los especiales van en su bloque y no intercalados con las temporadas.
+- [x] Una franquicia que no aporta ninguna entrega nueva no pinta su sección.
+- [x] Con una sola entrega conocida, el hueco se explica.
 
 **Depende de:** T70. **Tamaño:** M.
 

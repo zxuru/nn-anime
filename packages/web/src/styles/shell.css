@@ -597,6 +597,17 @@
   background: var(--color-surface-raised);
 }
 
+/* La entrega que se está viendo.
+ *
+ * Está en la lista —saber en qué temporada se está es la mitad de la función— y
+ * no lleva a ninguna parte: es la ficha que ya se está leyendo. El borde
+ * discontinuo y el acento lo dicen sin que la fila parezca pulsable, y el realce
+ * del puntero no se le aplica porque no es un enlace. */
+.related__item--actual {
+  border-style: dashed;
+  border-color: var(--color-accent);
+}
+
 .related__cover {
   width: var(--thumb-width);
   aspect-ratio: var(--cover-ratio);

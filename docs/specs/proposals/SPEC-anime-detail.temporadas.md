@@ -153,8 +153,12 @@ La ruta sigue siendo local, sin `X-Cache`, y sigue detrás de los guards.
 
 - **La sección no desaparece cuando está vacía**: explica el hueco, la regla de `rows.ts`.
 - **La entrega actual sale marcada**, con la palabra, no sólo con color, y sin ser enlace.
-- **La etiqueta es el número cuando se conoce** («Temporada 2») y el subtítulo limpio cuando no
-  («Sennen Kessen-hen»). Nunca una etiqueta inventada a partir de un año.
+- **La insignia «Temporada N» acompaña al título, no lo sustituye.** Decía este documento que la
+  etiqueta fuera el número cuando se conoce; **corregido al implementar**: «Season 3» y «Season 3
+  Part 2» darían las dos «Temporada 3» y la lista quedaría ambigua justo donde hay que elegir.
+  Nunca una etiqueta inventada a partir de un año.
+- **El orden es por año y, a igualdad de año, por número de temporada.** Sin año la fila va al final,
+  en el orden estable de la lectura, y no se le inventa uno.
 - **Una fila por obra**: la misma entrega en dos proveedores sale una vez, con el proveedor de la
   ficha delante.
 - **La franquicia no repite lo que ya está en Temporadas**: si la sección de franquicia no aporta

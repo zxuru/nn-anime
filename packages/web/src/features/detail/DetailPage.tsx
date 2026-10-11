@@ -29,7 +29,7 @@ import { isSafeUrl } from '../../lib/safe-url'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
-import { RelatedList } from './RelatedList'
+import { SagaRail } from './SagaRail'
 import { chosenMode, modesFor, useDetail, useFavorite } from './useDetail'
 
 /** La clave de traducción del estado, escrita una a una. */
@@ -69,10 +69,8 @@ function Skeletons(): ReactNode {
 }
 
 export function DetailPage(props: DetailPageProps): ReactNode {
-  const { detail, episodes, related, watched, capabilities, state, error, reload } = useDetail(
-    props.providerId,
-    props.ref,
-  )
+  const { detail, episodes, related, franchise, watched, capabilities, state, error, reload } =
+    useDetail(props.providerId, props.ref)
   const favorite = useFavorite({ providerId: props.providerId, value: props.ref })
   /**
    * El modo elegido a mano.
@@ -182,8 +180,23 @@ export function DetailPage(props: DetailPageProps): ReactNode {
         </section>
 
         <section>
-          <h2>{t(DEFAULT_LOCALE, 'detail.related')}</h2>
-          <RelatedList items={related} />
+          {/*
+            La entrega actual entra en la lista del rail, y por eso se construye
+            aquí con lo que la ficha ya sabe: el servidor no la devuelve entre sus
+            hermanos —excluirla es lo que evita el contenido repetido—, y sin ella
+            no se sabría en qué temporada se está.
+          */}
+          <SagaRail
+            current={{
+              ref: { providerId: props.providerId, value: props.ref },
+              title: detail.title,
+              ...(detail.coverUrl === undefined ? {} : { coverUrl: detail.coverUrl }),
+              ...(detail.year === undefined ? {} : { year: detail.year }),
+              ...(detail.kind === undefined ? {} : { kind: detail.kind }),
+            }}
+            siblings={related}
+            franchise={franchise}
+          />
         </section>
       </aside>
 

@@ -10,7 +10,15 @@ import { DetailPage } from './DetailPage'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
 import { RelatedList } from './RelatedList'
-import { chosenMode, formatDuration, isFavorite, modesFor, watchedPercent } from './useDetail'
+import { SagaRail, sagaGroups } from './SagaRail'
+import {
+  chosenMode,
+  formatDuration,
+  isFavorite,
+  modesFor,
+  relatedPath,
+  watchedPercent,
+} from './useDetail'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
 
@@ -303,6 +311,21 @@ describe('si el título ya está en favoritos', () => {
   })
 })
 
+describe('la ruta de los hermanos', () => {
+  test('el alcance de la saga no se escribe; el de franquicia, sí', () => {
+    // Sin el parámetro, la dirección es la de siempre: escribirla daría dos
+    // claves de caché para la misma lectura.
+    expect(relatedPath('jkanime', 'dandadan')).toBe('/api/anime/jkanime/dandadan/related')
+    expect(relatedPath('jkanime', 'dandadan', 'franchise')).toBe(
+      '/api/anime/jkanime/dandadan/related?scope=franchise',
+    )
+  })
+
+  test('la referencia se escapa: puede llevar barra', () => {
+    expect(relatedPath('jkanime', 'dandadan/12')).toContain('dandadan%2F12')
+  })
+})
+
 describe('relacionados', () => {
   function resumen(value: string, title: string, year?: number): AnimeSummary {
     return { ref: { providerId: 'fixture', value }, title, ...(year === undefined ? {} : { year }) }
@@ -339,6 +362,147 @@ describe('relacionados', () => {
 
     expect(html).not.toContain('<img')
     expect(html).toContain('related__cover')
+  })
+
+  test('la entrega que se está viendo sale marcada y sin enlace', () => {
+    const actual = resumen('dandadan', 'Dandadan', 2024)
+    const html = render(
+      <RelatedList
+        items={[actual, resumen('dandadan-2', 'Dandadan 2nd Season', 2025)]}
+        current={actual.ref}
+      />,
+    )
+
+    // Sin enlace: la fila lleva a la ficha que ya se está leyendo.
+    expect(html).not.toContain('href="/anime/fixture/dandadan"')
+    expect(html).toContain('aria-current="page"')
+    // Y lo dice con la palabra, no sólo con el color.
+    expect(html).toContain('viendo')
+    // La otra sigue siendo un enlace.
+    expect(html).toContain('href="/anime/fixture/dandadan-2"')
+  })
+
+  test('la insignia la pone quien conoce el grupo', () => {
+    const html = render(
+      <RelatedList
+        items={[resumen('frieren-2', 'Sousou no Frieren 2nd Season', 2026)]}
+        badge={(item) => (item.year === 2026 ? 'Temporada 2' : undefined)}
+      />,
+    )
+
+    expect(html).toContain('Temporada 2')
+  })
+})
+
+describe('el rail de temporadas', () => {
+  function entrega(
+    value: string,
+    title: string,
+    year: number | undefined,
+    kind: AnimeSummary['kind'],
+  ): AnimeSummary {
+    return {
+      ref: { providerId: 'jkanime', value },
+      title,
+      ...(year === undefined ? {} : { year }),
+      ...(kind === undefined ? {} : { kind }),
+    }
+  }
+
+  const DANDADAN = entrega('dandadan', 'Dandadan', 2024, 'tv')
+  const DANDADAN_2 = entrega('dandadan-2', 'Dandadan 2nd Season', 2025, 'tv')
+
+  test('las temporadas van en orden y la actual está entre ellas', () => {
+    const grupos = sagaGroups({ current: DANDADAN, siblings: [DANDADAN_2], franchise: [] })
+
+    // La mutación que deje fuera la entrega actual devuelve una sola fila y deja
+    // esta prueba en rojo: sin ella no se sabe en qué temporada se está.
+    expect(grupos.seasons.map((item) => item.ref.value)).toEqual(['dandadan', 'dandadan-2'])
+    expect(grupos.movies).toEqual([])
+  })
+
+  test('el orden es por año, y sin año la fila va al final', () => {
+    const sinAño = entrega('bleach-ttbw', 'Bleach: Sennen Kessen-hen', undefined, 'tv')
+    const grupos = sagaGroups({
+      current: entrega('bleach', 'Bleach', 2004, 'tv'),
+      siblings: [sinAño, entrega('bleach-ketsubetsu', 'Bleach: Ketsubetsu-tan', 2023, 'tv')],
+      franchise: [],
+    })
+
+    expect(grupos.seasons.map((item) => item.ref.value)).toEqual([
+      'bleach',
+      'bleach-ketsubetsu',
+      'bleach-ttbw',
+    ])
+  })
+
+  test('las películas y los especiales van en su grupo, no intercalados', () => {
+    const pelicula = entrega('bleach-movie', 'Bleach Movie 3: Fade to Black', 2008, 'movie')
+    const especial = entrega('bleach-special', 'Bleach: Memories in the Rain', 2004, 'special')
+    const grupos = sagaGroups({
+      current: entrega('bleach', 'Bleach', 2004, 'tv'),
+      siblings: [
+        pelicula,
+        especial,
+        entrega('bleach-ttbw', 'Bleach: Sennen Kessen-hen', 2022, 'tv'),
+      ],
+      franchise: [],
+    })
+
+    // La mutación que clasifique todo como serie mete las tres en Temporadas.
+    expect(grupos.seasons.map((item) => item.ref.value)).toEqual(['bleach', 'bleach-ttbw'])
+    expect(grupos.movies.map((item) => item.ref.value)).toEqual(['bleach-special', 'bleach-movie'])
+  })
+
+  test('la franquicia no repite lo que ya está en las temporadas', () => {
+    const naruto = entrega('naruto', 'Naruto', 2002, 'tv')
+    const shippuden = entrega('naruto-shippuden', 'Naruto Shippuden', 2007, 'tv')
+    const grupos = sagaGroups({
+      current: naruto,
+      // La franquicia contiene a la saga: la misma entrega llega en las dos listas.
+      siblings: [shippuden],
+      franchise: [naruto, shippuden, entrega('boruto', 'Boruto', 2017, 'tv')],
+    })
+
+    // La mutación que no filtre deja «Naruto» y «Naruto Shippuden» repetidos.
+    expect(grupos.franchise.map((item) => item.ref.value)).toEqual(['boruto'])
+  })
+
+  test('sin ninguna entrega más, el hueco se explica', () => {
+    const html = render(<SagaRail current={DANDADAN} siblings={[]} franchise={[DANDADAN]} />)
+
+    expect(html).toContain('No hay más títulos de esta saga')
+    expect(html).not.toContain('<ul')
+  })
+
+  test('con dos temporadas, cada grupo tiene su titular', () => {
+    const html = render(
+      <SagaRail
+        current={DANDADAN}
+        siblings={[DANDADAN_2, entrega('dandadan-movie', 'Dandadan Movie', 2025, 'movie')]}
+        franchise={[]}
+      />,
+    )
+
+    expect(html).toContain('Temporadas')
+    expect(html).toContain('Películas y especiales')
+    expect(html).toContain('Temporada 2')
+    expect(html).toContain('viendo')
+    // La franquicia no aporta nada nuevo: su sección no se pinta.
+    expect(html).not.toContain('Más de esta franquicia')
+  })
+
+  test('la franquicia se pinta cuando aporta una entrega nueva', () => {
+    const html = render(
+      <SagaRail
+        current={entrega('naruto', 'Naruto', 2002, 'tv')}
+        siblings={[]}
+        franchise={[entrega('naruto-shippuden', 'Naruto Shippuden', 2007, 'tv')]}
+      />,
+    )
+
+    expect(html).toContain('Más de esta franquicia')
+    expect(html).toContain('Naruto Shippuden')
   })
 })
 

@@ -12,7 +12,8 @@
     "./logger": "./src/logger.ts",
     "./models": "./src/models.ts",
     "./result": "./src/result.ts",
-    "./schema": "./src/schema.ts"
+    "./schema": "./src/schema.ts",
+    "./titles": "./src/titles.ts"
   },
   "dependencies": {
     "zod": "^4"
