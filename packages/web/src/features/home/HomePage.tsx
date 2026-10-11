@@ -26,6 +26,7 @@ import { FavoritesRow } from './FavoritesRow'
 import { FeaturedHero, type FeaturedItem } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
 import { GenreRow, topGenres } from './GenreRow'
+import { HomeSkeletons } from './HomeSkeletons'
 import { RecentRow } from './RecentRow'
 import { Ticker } from './Ticker'
 import { TopRow } from './TopRow'
@@ -156,9 +157,7 @@ export function HomePage(props: HomePageProps): ReactNode {
       )}
 
       {recomendaciones.state === 'loading' ? (
-        <p className="empty" aria-busy="true">
-          {t(DEFAULT_LOCALE, 'home.loading')}
-        </p>
+        <HomeSkeletons label={t(DEFAULT_LOCALE, 'home.loading')} />
       ) : null}
 
       {/*

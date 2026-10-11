@@ -165,6 +165,36 @@ describe('movimiento reducido', () => {
     expect(bloque).toContain('.skeleton')
     expect(bloque).toContain('animation: none')
   })
+
+  /**
+   * La entrada de la home, apagada.
+   *
+   * Se mira el bloque entero y no sólo el esqueleto porque las tres animaciones
+   * nuevas viven en el mismo `@media`, y una que se quede fuera no rompe ninguna
+   * otra prueba: sólo mueve la página de quien pidió que no se moviera. La
+   * supresión tiene la **misma especificidad** que la regla que apaga, así que
+   * también importa que vaya después; por eso el bloque se busca desde la última
+   * aparición del `@media`.
+   */
+  test('las filas y las tarjetas dejan de entrar animadas', async () => {
+    const css = await Bun.file(SHELL).text()
+    const bloque = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce)'))
+
+    expect(bloque).toContain('.home > *')
+    expect(bloque).toContain('.row__list > li')
+    expect(bloque).toContain('animation: none')
+  })
+
+  test('el desplazamiento de la entrada sale de un token, no de un número suelto', async () => {
+    const tokens = await Bun.file(TOKENS).text()
+
+    expect(tokens).toContain('--entrada-duracion:')
+    expect(tokens).toContain('--entrada-paso:')
+    // A cero con movimiento reducido: quien la use entra de golpe, no se queda
+    // invisible esperando una animación que no corre.
+    expect(tokens).toContain('--entrada-duracion: 0ms')
+    expect(tokens).toContain('--entrada-paso: 0ms')
+  })
 })
 
 describe('nombres accesibles', () => {

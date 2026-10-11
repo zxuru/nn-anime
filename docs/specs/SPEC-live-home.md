@@ -1,7 +1,7 @@
 # Spec: live-home (la home que se refresca y se mueve)
 
 Estado: **aprobado** · 2026-10-11 · aprobado por el humano, que además fijó la cadencia en **120 s**
-y eligió **movimiento sutil**. T54 y T55 cerrados y medidos; T56 pendiente.
+y eligió **movimiento sutil**. T54, T55 y T56 cerrados y medidos.
 
 Esta entrega **no crea un módulo**: extiende contratos y paquetes ya aprobados. No toca
 `docs/specs/CAPABILITY-MAP.md` ni su build order.
@@ -321,10 +321,12 @@ sustituir, y dice cuándo se refrescó.
 - [x] `loading` es cierto sólo la primera vez; una relectura marca `refrescando` y no vacía nada.
 - [x] La marca de refresco se enseña con su texto en i18n y no con una cadena suelta. **Medido
       mutando**: quitando el «sin relecturas no hay marca» da **1 fallo**.
-- [x] Todas las pruebas nuevas fallan al mutar, con su recuento arriba.
+- [x] Todas las pruebas nuevas fallan al mutar, con su recuento arriba. **La de `nuevas` ya no
+      existe**: el dato se retiró en T56, que es donde se vio que el fundido no lo necesitaba.
 
 **Verificación:** `bun test packages/web`: verde, 36 pruebas sólo en `home.test.tsx` (11 nuevas de
-la relectura). `tsc --noEmit` sin errores. `biome check` limpio en los archivos de la tarea.
+la relectura). Hoy ese archivo tiene 35: T56 retiró dos de `nuevas` y dejó las demás.
+`tsc --noEmit` sin errores. `biome check` limpio en los archivos de la tarea.
 
 **Lo que no mide esta tarea:** que la marca llegue a pintarse en el navegador. El hook necesita un
 DOM y `renderToString` no ejecuta efectos; lo que se mide es la decisión —`textoDeRefresco`— y no su
@@ -345,18 +347,37 @@ montaje. El e2e de la home es de T43 y no espera dos minutos de reloj real.
 movimiento corto, sin librería y sin molestar a quien pidió movimiento reducido.
 
 **Aceptación:**
-- [ ] La primera carga pinta esqueletos por fila, con el `.skeleton` que ya existe, y mantiene el
-      texto para lectores de pantalla.
-- [ ] Las filas entran escalonadas al montar, y una relectura no reinicia la animación.
-- [ ] Una tarjeta que no estaba entra con el fundido; volver a pintar lo que ya estaba no anima.
-- [ ] Con `prefers-reduced-motion: reduce` no hay ninguna animación de entrada, medido en la prueba
-      de accesibilidad que ya lee el `@media`.
-- [ ] Las duraciones salen de `tokens.css`; ninguna regla nueva escribe un tiempo suelto.
+- [x] La primera carga pinta esqueletos por fila, con el `.skeleton` que ya existe, y mantiene el
+      texto para lectores de pantalla. **Medido mutando**: volver a la frase suelta en vez de los
+      esqueletos da **1 fallo**.
+- [x] Las filas entran escalonadas al montar, y una relectura no reinicia la animación. **Lo segundo
+      no lo mide una prueba**: la animación corre al crearse el nodo, y una relectura con las mismas
+      claves reusa los nodos que ya están. Se sostiene en el `key` de cada fila, que no cambia, y así
+      queda dicho en vez de fingir una medición.
+- [x] Una tarjeta que no estaba entra con el fundido; volver a pintar lo que ya estaba no anima. Por
+      el mismo motivo: el fundido es del nodo nuevo, no de los datos. **`nuevas` sobraba**: T55 dejó
+      en el hook el juego de claves que no estaban, y el CSS no lo necesita. Se retiró en T56 con sus
+      dos pruebas, en vez de dejar un dato sin consumidor.
+- [x] Con `prefers-reduced-motion: reduce` no hay ninguna animación de entrada, medido en la prueba
+      de accesibilidad que ya lee el `@media`. **Medido mutando**: sacar `.home > *` y `.row__list >
+      li` del `@media` da **1 fallo**; no apagar los tokens de entrada da **1 fallo**.
+- [x] Las duraciones salen de `tokens.css`; ninguna regla nueva escribe un tiempo suelto. La prueba
+      de medidas literales de `styles.test.ts` lo comprueba para toda la hoja, y en esta tarea cazó
+      tres: los `1px` del texto oculto, que ahora son `--oculto-medida`.
+
+**Verificación:** `bun test packages/web`: **410 pasan, 0 fallan** (3 nuevas de accesibilidad y una
+de la home ampliada). `tsc --noEmit` sin errores. `biome check` limpio en los archivos de la tarea.
+Las tres mutaciones, medidas y restauradas.
+
+**Lo que no mide esta tarea:** que el movimiento se vea bien. Que una animación exista y que se apague
+con movimiento reducido se mide leyendo la hoja; que el escalón se sienta corto y no nervioso es
+cuestión de mirarlo, y eso es lo que queda para la revisión humana.
 
 **Depende de:** T55.
 
-**Archivos:** `packages/web/src/features/home/HomePage.tsx`, `packages/web/src/styles/{tokens,shell}.css`,
-`packages/web/src/a11y.test.ts` y, si el componente crece, un `HomeSkeletons.tsx` nuevo.
+**Archivos:** `packages/web/src/features/home/HomePage.tsx`, `HomeSkeletons.tsx` (nuevo),
+`packages/web/src/styles/{tokens,shell}.css`, `packages/web/src/a11y.test.ts` y
+`packages/web/src/features/home/home.test.tsx`.
 
 **Tamaño:** M.
 
