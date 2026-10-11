@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import {
   announcement,
+  CLICK_DELAY_MS,
+  clampVolume,
   formatTime,
   isTypingTarget,
   keyAction,
@@ -8,6 +10,8 @@ import {
   SEEK_STEP_S,
   seekBy,
   volumeBy,
+  volumeFromPercent,
+  volumePercent,
 } from './controls'
 
 describe('qué tecla hace qué', () => {
@@ -76,6 +80,40 @@ describe('posición y volumen', () => {
     expect(volumeBy(0.5, 0.1)).toBeCloseTo(0.6)
     expect(volumeBy(0.95, 0.1)).toBe(1)
     expect(volumeBy(0.05, -0.1)).toBe(0)
+  })
+
+  /**
+   * La barra va de 0 a 100 y el elemento de 0 a 1, así que el viaje de ida y
+   * vuelta es la parte que se puede romper en silencio: un 50 que llegue como
+   * «0,5» al `value` del `<input>` deja el mando en el cero.
+   */
+  test('la barra y el elemento hablan el mismo volumen', () => {
+    expect(volumePercent(1)).toBe(100)
+    expect(volumePercent(0.5)).toBe(50)
+    expect(volumePercent(0)).toBe(0)
+    expect(volumeFromPercent(50)).toBeCloseTo(0.5)
+  })
+
+  test('un volumen imposible no sale de cero y uno', () => {
+    expect(volumeFromPercent(140)).toBe(1)
+    expect(volumeFromPercent(-10)).toBe(0)
+    // `video.volume = NaN` lanza: el no-número no puede llegar al elemento, y el
+    // `<input>` tampoco puede quedarse con un `value` que no es un número.
+    expect(clampVolume(Number.NaN)).toBe(1)
+    expect(volumePercent(Number.NaN)).toBe(100)
+    expect(volumeBy(Number.NaN, 0)).toBe(1)
+  })
+
+  /**
+   * La espera que separa el clic del doble clic tiene que ser más corta que la
+   * ventana del navegador —unos 500 ms—. Si se pasa, el clic sencillo salta antes
+   * de que llegue el `dblclick` y un doble clic pausa el video además de poner la
+   * pantalla completa. Y tiene que existir: sin espera no hay forma de saber qué
+   * gesto fue.
+   */
+  test('la espera del clic sencillo cabe dentro del doble clic del navegador', () => {
+    expect(CLICK_DELAY_MS).toBeGreaterThan(0)
+    expect(CLICK_DELAY_MS).toBeLessThan(500)
   })
 })
 

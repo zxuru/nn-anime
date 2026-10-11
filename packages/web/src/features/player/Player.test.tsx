@@ -84,6 +84,36 @@ describe('el reproductor', () => {
     expect(html).toContain('aria-keyshortcuts="ArrowRight"')
   })
 
+  /**
+   * El volumen se puede cambiar con el ratón, no sólo con las flechas.
+   *
+   * Hasta ahora el volumen sólo se movía con `↑` y `↓`: un mando que existe y no
+   * se ve. La barra va de 0 a 100 —el número que se anuncia— y arranca en el
+   * máximo, que es el volumen con el que el elemento empieza.
+   */
+  test('el volumen tiene su barra, con su nombre y de cero a cien', () => {
+    const html = render(<Player url="/stream/abc" kind="file" />)
+
+    expect(html).toContain('aria-label="Volumen"')
+    expect(html).toContain('max="100"')
+    expect(html).toContain('value="100"')
+  })
+
+  /**
+   * El clic sobre la imagen y el doble clic.
+   *
+   * Un `<video>` sin `controls` no hace nada al pulsarlo, así que el gesto hay que
+   * escribirlo. Se mira el marcado porque los manejadores no viajan en el HTML que
+   * devuelve el render; lo que ocurre al pulsar de verdad lo mide el e2e del
+   * reproductor.
+   */
+  test('el clic pausa y el doble clic pone pantalla completa', async () => {
+    const fuente = await readFile(`${ROOT}Player.tsx`, 'utf8')
+
+    expect(fuente).toContain('onClick={alClic}')
+    expect(fuente).toContain('onDoubleClick={alDobleClic}')
+  })
+
   test('mientras carga lo dice encima del video', () => {
     const html = render(<Player url="/stream/abc" kind="file" />)
 

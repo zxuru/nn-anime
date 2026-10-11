@@ -922,6 +922,18 @@
   opacity: 0.5;
 }
 
+/*
+ * La barra de volumen.
+ *
+ * La barra del tiempo se lleva el ancho que sobra —`flex: 1`—, y ésta no: es un
+ * mando corto y pegado a su botón, y con el mismo `flex` se comería la fila
+ * entera. Comparte con aquélla el carril y el pulgar, que son los mismos.
+ */
+.player__volume {
+  flex: 0 0 auto;
+  width: var(--volume-width);
+}
+
 /* El carril y el pulgar, con el mismo borde duro que el resto de la interfaz: el
    navegador no los deja vestir con `background` y `border` a secas, cada motor
    los expone con su propio pseudo-elemento. */

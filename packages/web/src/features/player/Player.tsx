@@ -14,9 +14,17 @@
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
-import { announcement, formatTime, keyAction, needsHls } from './controls'
+import {
+  announcement,
+  CLICK_DELAY_MS,
+  formatTime,
+  keyAction,
+  needsHls,
+  volumeFromPercent,
+  volumePercent,
+} from './controls'
 import { isProxyPath } from './subtitle-tracks'
 import { useCompatPaint } from './useCompatPaint'
 import { type SafeTrack, usePlayer } from './usePlayer'
@@ -58,7 +66,7 @@ const ATAJOS: readonly { readonly teclas: readonly string[]; readonly hace: stri
 export function Player(props: PlayerProps): ReactNode {
   // Los avisos de reproducción, pausa y avance salen de los eventos del propio
   // elemento, no del render: llamarlos al pintar los dispararía en cada vuelta.
-  const { state, videoRef, act, seekTo } = usePlayer({
+  const { state, videoRef, act, seekTo, setVolume } = usePlayer({
     url: props.url,
     kind: props.kind,
     ...(props.onPlay === undefined ? {} : { onPlay: props.onPlay }),
@@ -123,6 +131,37 @@ export function Player(props: PlayerProps): ReactNode {
       ? t(DEFAULT_LOCALE, 'player.buffering')
       : undefined
 
+  /**
+   * El clic sencillo, que espera a ver si es el principio de un doble clic.
+   *
+   * El navegador no dice «esto era un clic» hasta que pasa la ventana del doble
+   * clic: manda `click`, `click` y luego `dblclick`. Sin la espera, el clic
+   * sencillo y el doble son el mismo gesto para nosotros, y el que lleva las de
+   * perder es el que más se usa —pausar—, que se sentiría tarde.
+   */
+  const clicPendiente = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const cancelarClic = useCallback(() => {
+    if (clicPendiente.current === undefined) return
+
+    clearTimeout(clicPendiente.current)
+    clicPendiente.current = undefined
+  }, [])
+  // Un temporizador vivo después del desmontaje pausaría un video que ya no está.
+  useEffect(() => cancelarClic, [cancelarClic])
+
+  const alClic = useCallback(() => {
+    cancelarClic()
+    clicPendiente.current = setTimeout(() => {
+      clicPendiente.current = undefined
+      act('toggle')
+    }, CLICK_DELAY_MS)
+  }, [act, cancelarClic])
+
+  const alDobleClic = useCallback(() => {
+    cancelarClic()
+    act('fullscreen')
+  }, [act, cancelarClic])
+
   // El teclado se escucha en la ventana: el foco puede estar en el propio video
   // o en la página, y obligar a enfocar el reproductor para usar las flechas es
   // una molestia que no hace falta. `keyAction` decide cuándo no hacer nada.
@@ -161,6 +200,17 @@ export function Player(props: PlayerProps): ReactNode {
           playsInline
           preload="metadata"
           aria-label={props.title ?? t(DEFAULT_LOCALE, 'player.label')}
+          // El clic sobre la imagen pausa y el doble clic pone pantalla completa:
+          // la superficie que se mira es la que se toca, y quien mira el video no
+          // tiene por qué bajar la vista a los mandos.
+          //
+          // Los dos gestos se separan con una espera corta —ver `CLICK_DELAY_MS`—
+          // y no dejando correr los dos `click` que el navegador manda antes del
+          // `dblclick`: se anulaban entre sí y parecía funcionar, pero al salir de
+          // la pantalla completa el navegador entrega uno solo de los dos, así que
+          // el doble clic pausaba el video.
+          onClick={alClic}
+          onDoubleClick={alDobleClic}
         >
           {/* Una pista por subtítulo disponible. El navegador pinta la que esté
               marcada como `default`; el `<track>` no admite `default` dinámico, así
@@ -263,6 +313,20 @@ export function Player(props: PlayerProps): ReactNode {
         <button type="button" className="button" aria-keyshortcuts="M" onClick={() => act('mute')}>
           {state.muted ? t(DEFAULT_LOCALE, 'player.unmute') : t(DEFAULT_LOCALE, 'player.mute')}
         </button>
+        {/* La barra de volumen, al lado del silencio: son el mismo mando en dos
+            pasos —uno dice si suena, la otra cuánto— y separarlos obligaba a
+            buscar el volumen en otra fila. Va de 0 a 100 porque es lo que
+            entiende quien oye el valor: «50», no «0,5». */}
+        <input
+          className="player__range player__volume"
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={volumePercent(state.volume)}
+          aria-label={t(DEFAULT_LOCALE, 'player.volume')}
+          onChange={(evento) => setVolume(volumeFromPercent(Number(evento.target.value)))}
+        />
         <button
           type="button"
           className="button"

@@ -94,6 +94,135 @@ test.describe('el reproductor', () => {
   })
 
   /**
+   * El clic sobre la imagen.
+   *
+   * Un `<video>` sin `controls` no trae gesto ninguno: hasta ahora la imagen era
+   * un cuadro que no respondía al ratón y había que bajar a los botones. Aquí se
+   * mide contra el elemento de verdad, que es lo único que dice si el clic
+   * pausó.
+   */
+  test('el clic en la imagen pausa y reanuda', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    const video = page.locator('video')
+    await expect(video).toHaveAttribute('src', /\/stream\//, { timeout: 10_000 })
+
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await expect
+      .poll(async () => await video.evaluate((e: HTMLVideoElement) => e.paused))
+      .toBe(false)
+
+    await video.click()
+
+    // El clic no pausa en el acto: espera a ver si el segundo clic lo convierte
+    // en un doble. Esta comprobación es la que mide la espera; sin ella, el gesto
+    // se ejecutaría al momento y un doble clic pausaría además de cambiar de
+    // pantalla.
+    await page.waitForTimeout(100)
+    expect(await video.evaluate((e: HTMLVideoElement) => e.paused)).toBe(false)
+
+    await expect
+      .poll(async () => await video.evaluate((e: HTMLVideoElement) => e.paused))
+      .toBe(true)
+
+    await video.click()
+    await expect
+      .poll(async () => await video.evaluate((e: HTMLVideoElement) => e.paused))
+      .toBe(false)
+  })
+
+  /**
+   * El doble clic, la pantalla completa y la vuelta.
+   *
+   * El navegador manda dos clics antes del `dblclick`, así que se mide además que
+   * la reproducción quede donde estaba: dos `toggle` seguidos se anulan, y sin
+   * esta comprobación un temporizador mal puesto pasaría inadvertido.
+   */
+  test('el doble clic pone la pantalla completa sin cambiar la reproducción', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    const video = page.locator('video')
+    await expect(video).toHaveAttribute('src', /\/stream\//, { timeout: 10_000 })
+
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await expect
+      .poll(async () => await video.evaluate((e: HTMLVideoElement) => e.paused))
+      .toBe(false)
+
+    await video.dblclick()
+
+    await expect
+      .poll(async () => await page.evaluate(() => document.fullscreenElement !== null))
+      .toBe(true)
+    expect(await video.evaluate((e: HTMLVideoElement) => e.paused)).toBe(false)
+
+    // El mismo gesto la quita: dentro de la pantalla completa no hay más mandos
+    // que la propia imagen, y sin la vuelta el doble clic no salía de ahí.
+    //
+    // La salida se cuenta, no sólo se mira: al recibir un segundo
+    // `requestFullscreen` el Chromium sin pantalla sale de la pantalla completa
+    // por su cuenta, así que el resultado se ve igual con la rama de salida y sin
+    // ella. Lo que sí distingue una implementación de la otra es que se **pida**
+    // salir, y eso es lo que se cuenta aquí.
+    await page.evaluate(() => {
+      const original = document.exitFullscreen.bind(document)
+
+      document.documentElement.dataset.salidas = '0'
+      document.exitFullscreen = () => {
+        const salidas = Number(document.documentElement.dataset.salidas ?? '0') + 1
+
+        document.documentElement.dataset.salidas = String(salidas)
+
+        return original()
+      }
+    })
+
+    await video.dblclick()
+    await expect
+      .poll(async () => await page.evaluate(() => document.fullscreenElement !== null))
+      .toBe(false)
+    await expect
+      .poll(async () => await page.evaluate(() => document.documentElement.dataset.salidas))
+      .not.toBe('0')
+  })
+
+  /**
+   * La barra de volumen.
+   *
+   * Se mide el volumen del elemento y no el del estado: es el elemento quien
+   * suena. Y se mide que subirlo con el silencio puesto devuelve el sonido,
+   * porque una barra que se arrastra sin que pase nada se lee como rota.
+   */
+  test('la barra de volumen cambia el volumen del elemento', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    const video = page.locator('video')
+    await expect(video).toHaveAttribute('src', /\/stream\//, { timeout: 10_000 })
+
+    const barra = page.getByRole('slider', { name: 'Volumen' })
+    await barra.fill('40')
+    await expect
+      .poll(async () => await video.evaluate((e: HTMLVideoElement) => e.volume))
+      .toBeCloseTo(0.4, 2)
+
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await expect.poll(async () => await video.evaluate((e: HTMLVideoElement) => e.muted)).toBe(true)
+
+    await barra.fill('70')
+    await expect
+      .poll(async () => await video.evaluate((e: HTMLVideoElement) => e.volume))
+      .toBeCloseTo(0.7, 2)
+    await expect
+      .poll(async () => await video.evaluate((e: HTMLVideoElement) => e.muted))
+      .toBe(false)
+  })
+
+  /**
    * La pestaña y el encabezado dicen qué se está viendo.
    *
    * La dirección del reproductor sólo lleva la referencia del episodio, así que
@@ -127,8 +256,10 @@ test.describe('el reproductor', () => {
     await expect(video).toHaveAttribute('src', /\/stream\//, { timeout: 10_000 })
 
     // La barra se habilita con la duración, que es la señal de que el elemento ya
-    // trajo los metadatos: hasta ahí el cartel es el de «cargando».
-    await expect(page.locator('.player__range')).toBeEnabled({ timeout: 10_000 })
+    // trajo los metadatos: hasta ahí el cartel es el de «cargando». Se nombra la
+    // barra del tiempo y no `.player__range` a secas: el volumen comparte esa
+    // clase desde que tiene su mando, y el localizador quedaría ambiguo.
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
 
     const espera = page.locator('.player__wait')
     await expect(espera).toHaveCount(0)
