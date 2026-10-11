@@ -242,14 +242,15 @@ local.
    la siguiente carga de la home.
 4. **120 s de cadencia.** Elegido por el humano: más tranquilo que 60 s, y el coste de esperar de más
    lo paga el TTL, no la interfaz.
+5. **La marca de refresco sale sólo tras la primera relectura.** Aprobado por el humano. Al abrir,
+   «actualizado ahora mismo» es el estado normal de la página y decirlo no informa de nada.
+6. **Lo nuevo se nota con el fundido y con nada más.** Aprobado por el humano. Sin punto permanente:
+   un aviso que nadie limpia deja de significar «nuevo» a la segunda visita.
 
 ## Open Questions
 
-1. ¿La marca de «actualizado hace X» se enseña siempre o sólo cuando el dato viene de una relectura
-   y no de la primera carga? Se propone enseñarla sólo tras la primera relectura: al abrir, «hace 0
-   s» no dice nada.
-2. ¿Las tarjetas nuevas se marcan de algún modo permanente (un punto) o sólo con el fundido de
-   entrada? Se propone sólo el fundido: un punto permanente es un aviso que nadie limpia.
+Ninguna abierta. Las dos que quedaban —la marca de refresco y el aviso de lo nuevo— se cerraron el
+2026-10-11 con la decisión 5 y la decisión 6.
 
 ## Enmiendas propuestas a specs aprobados
 
