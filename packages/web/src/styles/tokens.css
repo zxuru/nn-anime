@@ -6,23 +6,51 @@
  * añade aquí, no en el componente.
  *
  * El contraste no se afirma aquí: se mide en `src/a11y.test.ts`, que calcula el
- * cociente de cada par y falla si baja del 4.5:1 que exige el spec. Los valores
- * actuales van de 5.7:1 a 17:1 según el par y el tema.
+ * cociente de cada par y falla si baja del 4.5:1 que exige el spec.
+ *
+ * ## La lengua visual
+ *
+ * Tema oscuro casi negro con **bordes gruesos color crema** y **sombras duras
+ * desplazadas** —sin desenfoque— en vez de sombras difusas. Los radios son cero:
+ * la rejilla es recta y los marcos hacen el trabajo que en otros diseños hace la
+ * elevación. El acento es un naranja encendido que se usa para lo activo y para
+ * el borde de las tarjetas, no para decorar.
+ *
+ * ## Las fuentes
+ *
+ * El diseño de referencia usa tres familias —una de titulares, una de texto y una
+ * monoespaciada para las etiquetas— que **no se cargan de fuera**: la CSP de la
+ * aplicación es `default-src 'self'` y un e2e no puede depender de una red. Las
+ * pilas empiezan por esas familias y caen a las del sistema, así que quien las
+ * tenga instaladas las verá y quien no, verá el mismo diseño con otras letras:
+ * los pesos, el interletrado y los tamaños son los del diseño y son los que
+ * sostienen el parecido.
  */
 
 :root {
   /* Color, tema oscuro por defecto */
-  --color-bg: #0f1115;
-  --color-surface: #171a21;
-  --color-surface-raised: #1f232c;
-  --color-border: #2a2f3a;
-  --color-text: #e8eaed;
-  --color-text-dim: #9aa3b2;
-  --color-accent: #6aa9ff;
-  --color-accent-strong: #3d86e8;
-  --color-accent-contrast: #0b1220;
-  --color-danger: #ff8a8a;
+  --color-bg: #0c0c10;
+  --color-surface: #16161d;
+  --color-surface-raised: #1f1f28;
+  --color-border: #f2e9d8;
+  --color-text: #f2e9d8;
+  --color-text-dim: #a9a293;
+  --color-accent: #ff4a2e;
+  --color-accent-strong: #e63b2e;
+  --color-accent-contrast: #0c0c10;
+  --color-danger: #ff8a80;
   --color-success: #7fe0a8;
+  /** El fondo de las etiquetas activas y del cartel de un día con estreno. */
+  --color-highlight: #ff4a2e;
+
+  /* Portadas de relleno: dos colores en diagonal, como el diseño de referencia.
+     Se usan cuando el título no tiene portada o cuando la suya no carga. */
+  --cover-a: linear-gradient(135deg, #e63b2e 50%, #1b1b3a 50%);
+  --cover-b: linear-gradient(160deg, #f2b632 55%, #2a1d5c 55%);
+  --cover-c: linear-gradient(120deg, #2f6bd6 45%, #e8587c 45%);
+  --cover-d: linear-gradient(150deg, #1f8a6b 50%, #0f2a3d 50%);
+  --cover-e: linear-gradient(135deg, #8a2fd6 50%, #f28a32 50%);
+  --cover-f: linear-gradient(170deg, #d62f5a 40%, #1a1a2e 40%);
 
   /* Espaciado, escala de 4 puntos */
   --space-1: 0.25rem;
@@ -34,27 +62,38 @@
   --space-7: 3rem;
   --space-8: 4rem;
 
-  /* Radios */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-full: 999px;
+  /* Radios: cero. Los marcos rectos son la lengua visual. */
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-full: 0;
 
   /* Tipografía */
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-md: 1rem;
-  --text-lg: 1.25rem;
+  --font-display: "Bricolage Grotesque", "Arial Black", "Helvetica Neue", system-ui, sans-serif;
+  --font-sans:
+    "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.125rem;
   --text-xl: 1.5rem;
-  --text-2xl: 2rem;
-  --leading-tight: 1.2;
-  --leading-normal: 1.5;
+  --text-2xl: 2.25rem;
+  --text-3xl: 3.5rem;
+  --leading-tight: 1.05;
+  --leading-normal: 1.45;
+  /** Interletrado de las etiquetas: mono, mayúsculas y separadas. */
+  --tracking-label: 0.08em;
+  /** Interletrado de los titulares: apretado, como el diseño de referencia. */
+  --tracking-display: -0.03em;
 
-  /* Elevación */
+  /* Elevación: dura y desplazada, sin desenfoque */
   --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
   --shadow-2: 0 8px 24px rgb(0 0 0 / 45%);
+  --shadow-hard: 6px 6px 0 var(--color-border);
+  --shadow-hard-accent: 6px 6px 0 var(--color-accent);
+  --shadow-hard-sm: 4px 4px 0 var(--color-accent);
+  --shadow-offset-hover: 2px;
 
   /* Foco y movimiento */
   --focus-ring: 2px solid var(--color-accent);
@@ -66,6 +105,7 @@
 
   /* Trazos y medidas de composición */
   --border-width: 1px;
+  --border-width-strong: 2px;
   --grid-min: 11rem;
   --skeleton-height: 14rem;
   --skeleton-dim: 0.45;
@@ -82,19 +122,24 @@
 }
 
 [data-theme="light"] {
-  --color-bg: #f7f8fa;
+  --color-bg: #faf9f5;
   --color-surface: #ffffff;
-  --color-surface-raised: #eef1f6;
-  --color-border: #d3d9e3;
-  --color-text: #12161c;
-  --color-text-dim: #4c5566;
-  --color-accent: #1f5fbf;
-  --color-accent-strong: #17498f;
-  --color-accent-contrast: #ffffff;
+  --color-surface-raised: #f2e9d8;
+  --color-border: #0c0c10;
+  --color-text: #0c0c10;
+  --color-text-dim: #5c5548;
+  --color-accent: #c62f16;
+  --color-accent-strong: #a32512;
+  --color-accent-contrast: #faf9f5;
   --color-danger: #a32222;
   --color-success: #1d6b3f;
-  --shadow-1: 0 1px 2px rgb(18 22 28 / 12%);
-  --shadow-2: 0 8px 24px rgb(18 22 28 / 18%);
+  --color-highlight: #c62f16;
+  --shadow-1: 0 1px 2px rgb(12 12 16 / 12%);
+  --shadow-2: 0 8px 24px rgb(12 12 16 / 18%);
+  /* En claro la sombra dura va en negro: el acento sobre crema no se distingue. */
+  --shadow-hard: 6px 6px 0 var(--color-border);
+  --shadow-hard-accent: 6px 6px 0 var(--color-border);
+  --shadow-hard-sm: 4px 4px 0 var(--color-border);
 }
 
 @media (prefers-reduced-motion: reduce) {

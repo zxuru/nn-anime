@@ -29,6 +29,18 @@ test.describe('la home', () => {
     await expect(page.getByText('Todavía no has marcado ninguno')).toBeVisible()
   })
 
+  test('el tema se aplica al documento', async ({ page }) => {
+    await entrar(page)
+
+    // `data-theme` es lo que la hoja de estilos mira para cambiar de paleta.
+    // Estaba declarado en los tokens y **nadie lo escribía**: el tema claro era
+    // inalcanzable. Lo encontró la captura del rediseño, y esta prueba existe
+    // para que no vuelva a pasar desapercibido.
+    const tema = await page.evaluate(() => document.documentElement.dataset.theme)
+
+    expect(['dark', 'light']).toContain(tema)
+  })
+
   test('el panel dice que no hay historial todavía', async ({ page }) => {
     await entrar(page)
 

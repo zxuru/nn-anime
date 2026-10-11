@@ -16,6 +16,7 @@
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { AnimeDetail } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
+import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'
 import { isSafeUrl } from '../../lib/safe-url'
 import { coverPath } from '../search/ResultCard'
@@ -98,13 +99,7 @@ export function DetailPage(props: DetailPageProps): ReactNode {
       {detail.coverUrl !== undefined && !isSafeUrl(detail.coverUrl) ? (
         <span className="detail__cover card__cover--vacia" aria-hidden="true" />
       ) : (
-        <img
-          className="detail__cover"
-          src={coverPath(props.providerId, props.ref)}
-          alt=""
-          width={220}
-          height={330}
-        />
+        <Cover providerId={props.providerId} ref={props.ref} className="detail__cover" />
       )}
 
       <div className="detail__body">

@@ -10,6 +10,7 @@
 import type { ContinueWatchingItem } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
+import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { coverPath } from '../search/ResultCard'
@@ -31,12 +32,7 @@ export function ContinueRow(props: ContinueRowProps): ReactNode {
           {props.items.map((item) => (
             <li className="card" key={`${item.animeRef.providerId}:${item.episodeRef.value}`}>
               <Link to={continuePath(item)} className="card" title={item.title}>
-                <img
-                  className="card__cover"
-                  src={coverPath(item.animeRef.providerId, item.animeRef.value)}
-                  alt=""
-                  loading="lazy"
-                />
+                <Cover providerId={item.animeRef.providerId} ref={item.animeRef.value} />
                 <span className="card__title">{item.title}</span>
                 <span className="card__meta">
                   {t(DEFAULT_LOCALE, 'home.resume', { time: resumeLabel(item) })}

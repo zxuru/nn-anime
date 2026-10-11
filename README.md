@@ -4,11 +4,16 @@ Ver anime desde el navegador, con una interfaz que se lanza desde la terminal �
 aprende de lo que ves para recomendarte. Todo local: **no hay servidor central, ni cuentas, ni
 telemetría.**
 
-![La pantalla de inicio, con las filas de continuar viendo, favoritos, tendencias y recomendaciones](docs/captura.png)
+![La pantalla de inicio en tema oscuro, con las filas de continuar viendo, favoritos, tendencias y recomendaciones](docs/captura.png)
 
-> La captura es del arnés de pruebas, con el plugin de ejemplo y sus datos inventados. Por eso las
-> portadas salen rotas: el fixture apunta a `fixture.invalid`, que no existe. Se puede volver a hacer
-> con `bun run captura` y el servidor del e2e levantado.
+![La misma pantalla en tema claro](docs/captura-claro.png)
+
+> Las capturas son del arnés de pruebas, con el plugin de ejemplo y sus datos inventados. Las portadas
+> son los degradados del diseño porque el fixture apunta a `fixture.invalid`, que no existe. Se pueden
+> volver a hacer con `bun run captura` y el servidor del e2e levantado: el comando saca las dos, en
+> tema oscuro y claro.
+
+El tema por defecto es el del sistema; se cambia en **Ajustes** y queda guardado.
 
 ## Arrancar
 

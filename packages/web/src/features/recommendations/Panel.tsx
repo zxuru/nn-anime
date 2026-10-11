@@ -13,6 +13,7 @@
 import type { RecommendationResponse } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
+import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { coverPath } from '../search/ResultCard'
@@ -41,12 +42,7 @@ function Card(props: {
         className="card"
         title={item.title}
       >
-        <img
-          className="card__cover"
-          src={coverPath(item.ref.providerId, item.ref.value)}
-          alt=""
-          loading="lazy"
-        />
+        <Cover providerId={item.ref.providerId} ref={item.ref.value} className="card__cover" />
         <span className="card__title">{item.title}</span>
       </Link>
       <ReasonBadge text={item.reason.text} others={demas} />

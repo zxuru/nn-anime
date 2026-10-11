@@ -103,7 +103,7 @@ export function Player(props: PlayerProps): ReactNode {
       </video>
 
       <div className="player__controls">
-        <button type="button" className="button" onClick={() => act('toggle')}>
+        <button type="button" className="button button--primary" onClick={() => act('toggle')}>
           {state.playing ? t(DEFAULT_LOCALE, 'player.pause') : t(DEFAULT_LOCALE, 'player.play')}
         </button>
         <button type="button" className="button" onClick={() => act('back')}>

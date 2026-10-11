@@ -10,6 +10,7 @@ import type { SettingsResponse } from '@nn-anime/core/api'
 import { settingsResponseSchema } from '@nn-anime/core/api'
 import { useCallback, useEffect, useState } from 'react'
 import { apiGet, apiPatch } from '../../api/client'
+import { themeAttribute } from './ThemeToggle'
 
 export type SettingsState = 'loading' | 'ready' | 'error'
 
@@ -18,6 +19,28 @@ export interface Settings {
   readonly data: SettingsResponse | undefined
   readonly error: string | undefined
   readonly setTheme: (theme: 'dark' | 'light' | 'system') => void
+}
+
+/**
+ * El tema, aplicado al documento.
+ *
+ * El atributo `data-theme` es lo que la hoja de estilos mira para cambiar de
+ * paleta. Estaba declarado en los tokens y **nadie lo escribía**: el selector de
+ * ajustes guardaba el tema y no cambiaba nada, así que el tema claro era
+ * inalcanzable. Lo encontró la captura del rediseño, no una prueba.
+ *
+ * Se aplica desde la raíz y no desde la pantalla de ajustes: el tema es de la
+ * aplicación entera, y quien entra directo a la búsqueda tiene que verlo igual.
+ */
+export function useAppTheme(): void {
+  const { data } = useSettings()
+
+  useEffect(() => {
+    const prefiereClaro =
+      typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: light)').matches
+
+    document.documentElement.dataset.theme = themeAttribute(data?.theme ?? 'system', prefiereClaro)
+  }, [data?.theme])
 }
 
 export function useSettings(): Settings {

@@ -13,6 +13,7 @@ import { HomePage } from './features/home/HomePage'
 import { WatchPage } from './features/player/WatchPage'
 import { SearchPage } from './features/search/SearchPage'
 import { SettingsPage } from './features/settings/SettingsPage'
+import { useAppTheme } from './features/settings/useSettings'
 import { t } from './i18n'
 import { Link, type RouteMatch, usePath, useRoute } from './router'
 
@@ -69,6 +70,9 @@ function screenFor(route: RouteMatch, path: string): ReactNode {
 }
 
 export function App(): ReactNode {
+  // El tema se aplica aquí: es de la aplicación entera, no de una pantalla.
+  useAppTheme()
+
   const route = useRoute()
   const path = usePath()
 

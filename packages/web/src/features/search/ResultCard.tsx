@@ -14,6 +14,7 @@
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { SearchResult } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
+import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'
 import { isSafeUrl } from '../../lib/safe-url'
 import { Link } from '../../router'
@@ -66,12 +67,7 @@ export function ResultCard(props: ResultCardProps): ReactNode {
       {...(props.onPreviewEnd === undefined ? {} : { onMouseLeave: props.onPreviewEnd })}
     >
       {tienePortada ? (
-        <img
-          className="card__cover"
-          src={coverPath(result.ref.providerId, result.ref.value)}
-          alt=""
-          loading="lazy"
-        />
+        <Cover providerId={result.ref.providerId} ref={result.ref.value} className="card__cover" />
       ) : (
         <span className="card__cover card__cover--vacia" aria-hidden="true" />
       )}
