@@ -45,11 +45,15 @@ test.describe('de la búsqueda al detalle', () => {
     await page.goto('/anime/fixture/aurora-nocturna')
     await expect(page.locator('.episodes li')).toHaveCount(12, { timeout: 15_000 })
 
-    // El enlace lleva el episodio en la dirección y el modo elegido en la
-    // consulta: el reproductor abre en subtitulado, que es el que ofrece el
-    // proveedor y el que sale marcado.
+    // El enlace lleva el episodio en la dirección, el modo elegido y la
+    // referencia del título en la consulta: el reproductor abre en subtitulado,
+    // que es el que ofrece el proveedor y el que sale marcado, y el visionado se
+    // registra contra el título, no contra la referencia del episodio.
     const tercero = page.locator('.episodes li').nth(2).getByRole('link')
-    await expect(tercero).toHaveAttribute('href', '/watch/fixture/aurora-nocturna%233?mode=sub')
+    await expect(tercero).toHaveAttribute(
+      'href',
+      '/watch/fixture/aurora-nocturna%233?mode=sub&anime=aurora-nocturna',
+    )
 
     await tercero.click()
 

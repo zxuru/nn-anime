@@ -17,8 +17,8 @@
  * lleva ni barra ni marca: inventar el dato sería peor que no decirlo.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { WatchedEpisodePayload } from '@nn-anime/core/api'
+import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { Episode } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
@@ -81,7 +81,13 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
           <li key={`${episode.ref.providerId}:${episode.ref.value}`}>
             <Link
               className={marca?.tipo === 'visto' ? 'episode episode--visto' : 'episode'}
-              to={watchPath(episode.ref.providerId, episode.ref.value, props.mode)}
+              to={watchPath(episode.ref.providerId, episode.ref.value, {
+                ...(props.mode === undefined ? {} : { mode: props.mode }),
+                // El título viaja con el enlace: la lista lo trae en cada
+                // episodio, y sin él el reproductor tenía que adivinarlo de la
+                // referencia y con jkanime adivinaba mal.
+                anime: episode.animeRef.value,
+              })}
             >
               <span className="episode__number">
                 {t(DEFAULT_LOCALE, 'detail.episode', { number: episode.number })}

@@ -120,14 +120,39 @@ describe('lista de episodios', () => {
   test('cada episodio enlaza con el reproductor', () => {
     const html = render(<EpisodeList episodes={[episodio(1), episodio(2)]} />)
 
-    expect(html).toContain('href="/watch/fixture/aurora-nocturna%231"')
-    expect(html).toContain('href="/watch/fixture/aurora-nocturna%232"')
+    expect(html).toContain('href="/watch/fixture/aurora-nocturna%231?anime=aurora-nocturna"')
+    expect(html).toContain('href="/watch/fixture/aurora-nocturna%232?anime=aurora-nocturna"')
+  })
+
+  /**
+   * El título viaja con el enlace, no se adivina.
+   *
+   * La referencia de jkanime numera con barra —`dandadan/12`— y `animeRefOf`
+   * cortaba sólo por la almohadilla: el enlace pedía la ficha de `dandadan/12` y
+   * el proveedor devolvía la página del episodio, que quedaba escrita en la base
+   * como si fuera un título.
+   */
+  test('el título viaja aunque la referencia del episodio no lo delate', () => {
+    const html = render(
+      <EpisodeList
+        episodes={[
+          episodio(12, {
+            ref: { providerId: 'jkanime', value: 'dandadan/12' },
+            animeRef: { providerId: 'jkanime', value: 'dandadan' },
+          }),
+        ]}
+      />,
+    )
+
+    expect(html).toContain('href="/watch/jkanime/dandadan%2F12?anime=dandadan"')
   })
 
   test('el modo elegido viaja en el enlace', () => {
     const html = render(<EpisodeList episodes={[episodio(1)]} mode="dub" />)
 
-    expect(html).toContain('href="/watch/fixture/aurora-nocturna%231?mode=dub"')
+    expect(html).toContain(
+      'href="/watch/fixture/aurora-nocturna%231?mode=dub&amp;anime=aurora-nocturna"',
+    )
   })
 
   test('un episodio sin título ni duración no rompe la fila', () => {
@@ -160,7 +185,10 @@ describe('porcentaje visto', () => {
 })
 
 describe('episodios vistos', () => {
-  function visto(numero: number, overrides: Partial<WatchedEpisodePayload> = {}): WatchedEpisodePayload {
+  function visto(
+    numero: number,
+    overrides: Partial<WatchedEpisodePayload> = {},
+  ): WatchedEpisodePayload {
     return {
       number: numero,
       mode: 'sub',

@@ -36,12 +36,13 @@ export function resumeLabel(item: ContinueWatchingItem): string {
 export function continuePath(item: ContinueWatchingItem): string {
   const modo = isPlayMode(item.mode) ? item.mode : undefined
 
-  return watchPath(
-    item.animeRef.providerId,
-    item.episodeRef.value,
-    modo,
-    Math.floor(item.positionS),
-  )
+  return watchPath(item.animeRef.providerId, item.episodeRef.value, {
+    ...(modo === undefined ? {} : { mode: modo }),
+    at: Math.floor(item.positionS),
+    // El título va escrito y no deducido: la fila lo trae en `animeRef`, y con
+    // jkanime —que numera `slug/12`— deducirlo pedía la ficha del episodio.
+    anime: item.animeRef.value,
+  })
 }
 
 /** La proporción, como porcentaje entero para la barra. */
