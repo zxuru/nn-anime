@@ -94,6 +94,28 @@ function coherenceProblems(provider: Provider): readonly string[] {
     problems.push('declara capabilities.feed y no implementa getFeed')
   }
 
+  // La paginación son tres métodos de una sola capacidad: una promesa a medias
+  // ofrece un botón de «último episodio» que no lleva a ninguna parte, y un
+  // método de paginación sin la capacidad declarada deja al servidor sin saber
+  // que puede pedir páginas.
+  const paginacion = [
+    provider.getEpisodesPage,
+    provider.getEpisode,
+    provider.getLatestEpisode,
+  ].filter((metodo) => typeof metodo === 'function').length
+
+  if (provider.capabilities.episodePages === true && paginacion < 3) {
+    problems.push(
+      'declara capabilities.episodePages y no implementa getEpisodesPage, getEpisode y getLatestEpisode',
+    )
+  }
+
+  if (provider.capabilities.episodePages !== true && paginacion > 0) {
+    problems.push(
+      'implementa métodos de episodios por página sin declarar capabilities.episodePages',
+    )
+  }
+
   return problems
 }
 

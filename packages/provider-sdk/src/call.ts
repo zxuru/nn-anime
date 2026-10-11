@@ -20,6 +20,7 @@
 import {
   type AnimeDetail,
   type Episode,
+  episodeSchema,
   err,
   type FeedEntry,
   ok,
@@ -34,12 +35,13 @@ import type { z } from 'zod'
 import { classifyThrow, describeProblems, providerFailure } from './errors'
 import {
   providerAnimeDetailSchema,
+  providerEpisodePageSchema,
   providerEpisodesSchema,
   providerFeedSchema,
   providerSearchResultsSchema,
   providerStreamSourcesSchema,
 } from './schema'
-import type { CallOptions, Provider, ProviderMethod } from './types'
+import type { CallOptions, EpisodePage, Provider, ProviderMethod } from './types'
 
 /**
  * Ejecuta y convierte la excepción en `Result`.
@@ -136,6 +138,74 @@ export async function getEpisodes(
   const raw = await execute(provider, 'getEpisodes', true, () => provider.getEpisodes(ref, options))
 
   return parse(provider, 'getEpisodes', providerEpisodesSchema, raw)
+}
+
+/**
+ * Una página de episodios.
+ *
+ * Igual que `getFeed`: la capacidad declarada manda y la respuesta se valida
+ * antes de salir. Un plugin que devuelve la página 0, o un episodio que no
+ * cumple el schema, se rechaza nombrando el campo en vez de llegar a la caché.
+ */
+export async function getEpisodesPage(
+  provider: Provider,
+  ref: ProviderRef,
+  page: number,
+  options: CallOptions,
+): Promise<Result<EpisodePage, ProviderError>> {
+  const invoke = provider.getEpisodesPage
+  if (provider.capabilities.episodePages !== true || invoke === undefined) {
+    return err(
+      providerFailure({ providerId: provider.id, method: 'getEpisodesPage', kind: 'unsupported' }),
+    )
+  }
+
+  const raw = await execute(provider, 'getEpisodesPage', true, () => invoke(ref, page, options))
+
+  return parse(provider, 'getEpisodesPage', providerEpisodePageSchema, raw)
+}
+
+/**
+ * Un episodio concreto.
+ *
+ * La misma capacidad que la página: un plugin que sabe numerar sus episodios
+ * sabe devolver uno, y declarar una mitad ofrecería un salto que no lleva a
+ * ninguna parte.
+ */
+export async function getEpisode(
+  provider: Provider,
+  ref: ProviderRef,
+  number: number,
+  options: CallOptions,
+): Promise<Result<Episode, ProviderError>> {
+  const invoke = provider.getEpisode
+  if (provider.capabilities.episodePages !== true || invoke === undefined) {
+    return err(
+      providerFailure({ providerId: provider.id, method: 'getEpisode', kind: 'unsupported' }),
+    )
+  }
+
+  const raw = await execute(provider, 'getEpisode', true, () => invoke(ref, number, options))
+
+  return parse(provider, 'getEpisode', episodeSchema, raw)
+}
+
+/** El último episodio del título, sin pedir la lista entera para averiguarlo. */
+export async function getLatestEpisode(
+  provider: Provider,
+  ref: ProviderRef,
+  options: CallOptions,
+): Promise<Result<Episode, ProviderError>> {
+  const invoke = provider.getLatestEpisode
+  if (provider.capabilities.episodePages !== true || invoke === undefined) {
+    return err(
+      providerFailure({ providerId: provider.id, method: 'getLatestEpisode', kind: 'unsupported' }),
+    )
+  }
+
+  const raw = await execute(provider, 'getLatestEpisode', true, () => invoke(ref, options))
+
+  return parse(provider, 'getLatestEpisode', episodeSchema, raw)
 }
 
 export async function resolveStream(

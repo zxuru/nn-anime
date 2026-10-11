@@ -71,6 +71,9 @@ export const providerSchema = z.looseObject({
   resolveStream: methodSchema('resolveStream'),
   getTrending: methodSchema('getTrending').optional(),
   getFeed: methodSchema('getFeed').optional(),
+  getEpisodesPage: methodSchema('getEpisodesPage').optional(),
+  getEpisode: methodSchema('getEpisode').optional(),
+  getLatestEpisode: methodSchema('getLatestEpisode').optional(),
 })
 
 /** Lo que devuelve `providerSchema`. El literal de versión lo hace asignable a `Provider`. */
@@ -120,6 +123,22 @@ export const providerStreamSourcesSchema = z.array(providerStreamSourceSchema)
 export const providerFeedSchema = z.array(feedEntrySchema)
 
 /**
+ * Una página de episodios, validada antes de salir del proceso.
+ *
+ * El episodio lo valida el mismo schema del dominio que valida la lista
+ * completa: una página no es una forma nueva de episodio, es un trozo de la
+ * misma. `page` empieza en 1 porque es la numeración del sitio, y una página 0
+ * sería un error del plugin que conviene decir en el borde y no tres capas más
+ * arriba.
+ */
+export const providerEpisodePageSchema = z.strictObject({
+  episodes: z.array(episodeSchema),
+  page: z.number().int().positive(),
+  hasMore: z.boolean(),
+  total: z.number().int().nonnegative().optional(),
+})
+
+/**
  * Schema de respuesta por método, en una tabla.
  *
  * Una tabla y no cinco ramas: quien llama a un método busca su schema por
@@ -132,6 +151,9 @@ export const RESPONSE_SCHEMAS = {
   resolveStream: providerStreamSourcesSchema,
   getTrending: providerSearchResultsSchema,
   getFeed: providerFeedSchema,
+  getEpisodesPage: providerEpisodePageSchema,
+  getEpisode: episodeSchema,
+  getLatestEpisode: episodeSchema,
 } as const
 
 /** Lo que devuelve un método, derivado de su schema: no se escribe a mano. */

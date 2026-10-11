@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'bun:test'
-import { getAnime, getEpisodes, getFeed, getTrending, resolveStream, search } from './call'
+import {
+  getAnime,
+  getEpisode,
+  getEpisodes,
+  getEpisodesPage,
+  getFeed,
+  getLatestEpisode,
+  getTrending,
+  resolveStream,
+  search,
+} from './call'
 import { createRegistry } from './registry'
 import type { CallOptions, Provider } from './types'
 
@@ -371,5 +381,92 @@ describe('call: los otros métodos se comportan igual', () => {
 
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error.message).toContain('genres')
+  })
+})
+
+describe('call: los episodios por página', () => {
+  const EPISODIO = { ref: REF, animeRef: REF, number: 12.5, mode: 'sub' as const }
+
+  /** Un plugin que declara la capacidad y cumple los tres métodos. */
+  function paginado(overrides: Partial<Provider> = {}): Provider {
+    return provider({
+      capabilities: {
+        search: true,
+        sub: true,
+        dub: false,
+        trending: false,
+        feed: false,
+        episodePages: true,
+      },
+      getEpisodesPage: async () => ({ episodes: [EPISODIO], page: 1, hasMore: true }),
+      getEpisode: async () => EPISODIO,
+      getLatestEpisode: async () => EPISODIO,
+      ...overrides,
+    })
+  }
+
+  test('sin la capacidad declarada, la página se responde sin lanzar', async () => {
+    const result = await getEpisodesPage(provider(), REF, 1, OPTIONS)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.context.kind).toBe('unsupported')
+  })
+
+  test('con la capacidad, la página se valida antes de salir', async () => {
+    const result = await getEpisodesPage(paginado(), REF, 1, OPTIONS)
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.page).toBe(1)
+      expect(result.value.hasMore).toBe(true)
+      expect(result.value.episodes[0]?.number).toBe(12.5)
+    }
+  })
+
+  test('una página 0 se rechaza nombrando el campo', async () => {
+    const result = await getEpisodesPage(
+      paginado({ getEpisodesPage: async () => ({ episodes: [], page: 0, hasMore: false }) }),
+      REF,
+      1,
+      OPTIONS,
+    )
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.message).toContain('page')
+  })
+
+  test('getEpisode devuelve el episodio decimal', async () => {
+    const result = await getEpisode(paginado(), REF, 12.5, OPTIONS)
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.number).toBe(12.5)
+  })
+
+  test('getLatestEpisode no llama al plugin si no declaró la capacidad', async () => {
+    let llamadas = 0
+    const mentiroso = provider({
+      getLatestEpisode: async () => {
+        llamadas += 1
+
+        return EPISODIO
+      },
+    })
+
+    const result = await getLatestEpisode(mentiroso, REF, OPTIONS)
+
+    expect(result.ok).toBe(false)
+    expect(llamadas).toBe(0)
+  })
+
+  test('un episodio que no cumple el schema se rechaza nombrando el campo', async () => {
+    const result = await getEpisode(
+      paginado({ getEpisode: async () => ({ ref: REF, animeRef: REF, number: -1, mode: 'sub' }) }),
+      REF,
+      1,
+      OPTIONS,
+    )
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.message).toContain('number')
   })
 })

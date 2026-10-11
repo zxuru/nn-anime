@@ -113,6 +113,16 @@ export const providerCapabilitiesSchema = z.strictObject({
    * rechazaría a todos al cargar, por una función que su autor no pidió.
    */
   feed: z.boolean().default(false),
+  /**
+   * El proveedor sabe servir los episodios por páginas y de uno en uno.
+   *
+   * **Opcional y sin valor por defecto**, al revés que `feed`: con un valor por
+   * defecto el campo pasaría a ser obligatorio en el tipo inferido y obligaría a
+   * tocar cada literal de capacidades del repositorio —incluidos los de paquetes
+   * que no tienen nada que ver— por una capacidad que sólo lee el selector de
+   * episodios. Quien la necesita la comprueba con `=== true`. Añadido en T86.
+   */
+  episodePages: z.boolean().optional(),
 })
 
 export const modeSchema = z.enum(['sub', 'dub', 'raw'])

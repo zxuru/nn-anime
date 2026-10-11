@@ -12,8 +12,11 @@
 
 export {
   getAnime,
+  getEpisode,
   getEpisodes,
+  getEpisodesPage,
   getFeed,
+  getLatestEpisode,
   getTrending,
   resolveStream,
   search,
@@ -56,6 +59,7 @@ export {
   type ProviderShape,
   providerAnimeDetailSchema,
   providerCapabilitiesSchema,
+  providerEpisodePageSchema,
   providerEpisodesSchema,
   providerFeedSchema,
   providerIdSchema,
@@ -68,6 +72,7 @@ export {
 } from './schema'
 export {
   type CallOptions,
+  type EpisodePage,
   OPTIONAL_PROVIDER_METHODS,
   PROVIDER_API_VERSION,
   PROVIDER_METHODS,
