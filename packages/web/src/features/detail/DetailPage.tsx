@@ -24,6 +24,7 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'
+import { detailTitleParts, useDocumentTitle } from '../../lib/document-title'
 import { isSafeUrl } from '../../lib/safe-url'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
 import { EpisodeList } from './EpisodeList'
@@ -82,6 +83,11 @@ export function DetailPage(props: DetailPageProps): ReactNode {
    * visita— se ignora en vez de abrir el reproductor en un modo que va a fallar.
    */
   const [preferido, setPreferido] = useState<PlayMode | undefined>(undefined)
+
+  // Cuatro fichas abiertas a la vez eran cuatro pestañas con el mismo nombre. El
+  // título de la pestaña se pone antes de los estados tempranos, que si no la
+  // pantalla cargando y la que falló compartirían el nombre de la aplicación.
+  useDocumentTitle(detailTitleParts(state, detail))
 
   if (state === 'loading') return <Skeletons />
 

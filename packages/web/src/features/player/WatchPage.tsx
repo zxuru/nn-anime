@@ -15,13 +15,23 @@
  * salto al de al lado.
  */
 
-import { episodesResponseSchema, streamResolveResponseSchema } from '@nn-anime/core/api'
+import {
+  animeResponseSchema,
+  episodesResponseSchema,
+  streamResolveResponseSchema,
+} from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { Episode } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import { apiGet, apiPostJson } from '../../api/client'
 import { t } from '../../i18n'
+import {
+  composeTitle,
+  episodeLabel,
+  useDocumentTitle,
+  watchTitleParts,
+} from '../../lib/document-title'
 import { Link, usePath } from '../../router'
 import { Player } from './Player'
 import { type SubtitleCandidate, toSafeTracks, tracksFromSource } from './subtitle-tracks'
@@ -114,6 +124,10 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   const [estado, setEstado] = useState<Estado>('loading')
   const [error, setError] = useState<string | undefined>(undefined)
   const [episodios, setEpisodios] = useState<readonly Episode[]>([])
+  // El nombre del título. La dirección del reproductor sólo lleva la referencia
+  // del episodio, así que sin esta petición la pantalla no sabe cómo se llama lo
+  // que está reproduciendo y la pestaña sólo puede decir «Ep. 3».
+  const [tituloAnime, setTituloAnime] = useState<string | undefined>(undefined)
 
   // Los episodios del título, para las flechas de al lado. La petición se
   // cancela al desmontar y su fallo no se pinta: una flecha que no aparece es
@@ -131,6 +145,27 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       () => {
         if (vivo) setEpisodios([])
       },
+    )
+
+    return () => {
+      vivo = false
+    }
+  }, [props.providerId, animeRef.value])
+
+  // El nombre del título, que es lo que la pestaña necesita para distinguirse de
+  // las demás. Si falla, la reproducción no se entera: se pierde el nombre, no el
+  // episodio.
+  useEffect(() => {
+    let vivo = true
+
+    void apiGet(
+      `/api/anime/${encodeURIComponent(props.providerId)}/${encodeURIComponent(animeRef.value)}`,
+      animeResponseSchema,
+    ).then(
+      (detalle) => {
+        if (vivo) setTituloAnime(detalle.title)
+      },
+      () => undefined,
     )
 
     return () => {
@@ -206,6 +241,42 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   const posicionEpisodio = episodePosition(episodios, props.providerId, props.ref)
 
   /**
+   * Cómo se llama el episodio que se está viendo.
+   *
+   * El número sale de la lista de episodios, que es la misma petición que dibuja
+   * las flechas. Si esa petición falla, la pantalla sigue reproduciendo y la
+   * etiqueta se queda con el nombre que el proveedor le haya dado: el episodio
+   * es un adorno del título, no al revés.
+   */
+  const episodioActual = episodios.find((episodio) => episodio.ref.value === props.ref)
+  const etiquetaEpisodio = episodeLabel(
+    posicionEpisodio?.number ?? episodioActual?.number,
+    episodioActual?.title,
+  )
+
+  // La pestaña y el encabezado dicen lo mismo: el nombre del título y por qué
+  // episodio va. Es lo que distingue dos pestañas de la misma aplicación.
+  useDocumentTitle(watchTitleParts(tituloAnime, etiquetaEpisodio))
+
+  /**
+   * El encabezado de la pantalla.
+   *
+   * Antes la pantalla de reproducción era el video y nada más: quien tenía dos
+   * episodios abiertos no veía en ninguna parte qué estaba viendo. Va también en
+   * los estados de carga y de error, que son justo en los que más falta hace
+   * saber qué es lo que no se pudo abrir.
+   */
+  const encabezado = (
+    <header>
+      <h1>{tituloAnime ?? t(DEFAULT_LOCALE, 'title.loading')}</h1>
+      {etiquetaEpisodio === undefined ? null : <p className="card__meta">{etiquetaEpisodio}</p>}
+    </header>
+  )
+
+  /** El nombre del título y el episodio, para lo que no es texto de interfaz. */
+  const nombreCompleto = composeTitle([tituloAnime, etiquetaEpisodio])
+
+  /**
    * Las flechas de episodio.
    *
    * Van **encima del video** para que se vean sin bajar, y cada una sólo es un
@@ -271,12 +342,18 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   )
 
   if (estado === 'loading') {
-    return <p className="empty">{t(DEFAULT_LOCALE, 'player.loading')}</p>
+    return (
+      <section className="watch">
+        {encabezado}
+        <p className="empty">{t(DEFAULT_LOCALE, 'player.loading')}</p>
+      </section>
+    )
   }
 
   if (estado === 'error' || fuente === undefined) {
     return (
-      <section>
+      <section className="watch">
+        {encabezado}
         {navegacion}
         <p className="search__error">
           {t(DEFAULT_LOCALE, 'player.error', { message: error ?? '' })}
@@ -292,6 +369,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
 
   return (
     <section className="watch">
+      {encabezado}
       {navegacion}
 
       <div className="watch__modes">
@@ -325,7 +403,10 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       <Player
         url={fuente.url}
         kind={fuente.kind}
-        title={props.ref}
+        // El nombre del título, y no la referencia del episodio: `title` es la
+        // etiqueta que lee un lector de pantalla y `aurora-nocturna#3` no es
+        // cómo se llama nada. Sin nombre, `Player` pone la suya.
+        title={nombreCompleto === '' ? undefined : nombreCompleto}
         tracks={pistas}
         startAtS={posicion}
         onPlay={visionado.onPlay}

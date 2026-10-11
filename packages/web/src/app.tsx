@@ -15,6 +15,7 @@ import { SearchPage } from './features/search/SearchPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { useAppTheme } from './features/settings/useSettings'
 import { t } from './i18n'
+import { routeTitleParts, useDocumentTitle } from './lib/document-title'
 import { Link, type RouteMatch, usePath, useRoute } from './router'
 
 const LOCALE: Locale = DEFAULT_LOCALE
@@ -85,6 +86,12 @@ export function App(): ReactNode {
 
   const route = useRoute()
   const path = usePath()
+
+  // El título de la pestaña de las pantallas que no traen datos propios. La ficha
+  // y el reproductor lo ponen ellos, con el nombre del título: si lo escribiera
+  // este efecto, correría después del suyo —los efectos van de dentro hacia
+  // fuera— y lo borraría.
+  useDocumentTitle(routeTitleParts(route.name, path))
 
   return <Shell>{screenFor(route, path)}</Shell>
 }
