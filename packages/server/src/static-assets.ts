@@ -46,6 +46,7 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
   '.ico': 'image/x-icon',
   '.map': 'application/json; charset=utf-8',
   '.txt': 'text/plain; charset=utf-8',
+  '.md': 'text/markdown; charset=utf-8',
 }
 
 function contentTypeFor(path: string): string {
@@ -106,12 +107,14 @@ export function staticAssets(options: StaticAssetsOptions): MiddlewareHandler {
     if (confined === undefined) return c.text('', 404)
 
     if (confined !== base && (await regularFile(confined))) {
-      const immutable = !confined.endsWith('.html')
+      // Los recursos llevan hash en el nombre y no cambian nunca. El HTML y el
+      // markdown sí: el aviso de seguridad se sirve por su nombre, sin hash, y
+      // cachearlo un año dejaría a la vista la versión vieja del documento.
+      const immutable = !confined.endsWith('.html') && !confined.endsWith('.md')
 
       return new Response(Bun.file(confined), {
         headers: {
           'content-type': contentTypeFor(confined),
-          // Los recursos llevan hash en el nombre; el HTML no se cachea.
           'cache-control': immutable ? 'public, max-age=31536000, immutable' : 'no-store',
         },
       })

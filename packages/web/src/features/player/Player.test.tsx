@@ -68,6 +68,18 @@ describe('el reproductor', () => {
     expect(fuente).toContain("await import('hls.js')")
     expect(fuente).not.toContain("from 'hls.js'")
   })
+
+  test('el medio se vuelve a montar por la fuente, y por nada más', async () => {
+    const fuente = await readFile(`${ROOT}usePlayer.ts`, 'utf8')
+    // Las dependencias del efecto que monta el medio. Se ancla en `source.`
+    // para no confundirlo con los `useCallback` del final del archivo.
+    const dependencias = /}, \[source\.[^\]]*\]\)/.exec(fuente)?.[0] ?? ''
+
+    // Con la posición de reanudación aquí, cada avance del video volvía a montar
+    // el medio y la reproducción se quedaba en el segundo cero: cargaba, decía
+    // la duración y no reproducía. Lo cubre además el e2e del reproductor.
+    expect(dependencias).toBe('}, [source.kind, source.url])')
+  })
 })
 
 describe('pistas y reanudación', () => {

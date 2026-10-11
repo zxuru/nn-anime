@@ -8,7 +8,7 @@ import { createMemoryHistory, HistoryProvider } from '../../router'
 import { DetailPage } from './DetailPage'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
-import { formatDuration, modesFor } from './useDetail'
+import { chosenMode, formatDuration, modesFor } from './useDetail'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
 
@@ -48,6 +48,26 @@ describe('modos disponibles', () => {
   })
 })
 
+describe('el modo con el que se reproduce', () => {
+  test('manda el elegido, si está disponible', () => {
+    expect(chosenMode(['sub', 'dub'], 'dub')).toBe('dub')
+    expect(chosenMode(['sub'], 'sub')).toBe('sub')
+  })
+
+  test('sin elección, el primero que ofrece el proveedor', () => {
+    expect(chosenMode(['dub', 'sub'], undefined)).toBe('dub')
+    expect(chosenMode(['sub'], undefined)).toBe('sub')
+  })
+
+  test('una elección que el proveedor no ofrece se ignora', () => {
+    expect(chosenMode(['sub'], 'dub')).toBe('sub')
+  })
+
+  test('sin ningún modo disponible no hay modo', () => {
+    expect(chosenMode([], 'dub')).toBeUndefined()
+  })
+})
+
 describe('duración legible', () => {
   test('minutos y horas', () => {
     expect(formatDuration(1440)).toBe('24 min')
@@ -77,6 +97,26 @@ describe('lista de episodios', () => {
 
     expect(html).toContain('no tiene episodios')
     expect(html).not.toContain('<ol')
+  })
+
+  /**
+   * La ficha es la puerta del reproductor.
+   *
+   * Sin esto, la pantalla enseñaba cuántos episodios hay y no dejaba abrir
+   * ninguno: el reproductor existía y no había forma de llegar a él salvo
+   * escribiendo la dirección a mano.
+   */
+  test('cada episodio enlaza con el reproductor', () => {
+    const html = render(<EpisodeList episodes={[episodio(1), episodio(2)]} />)
+
+    expect(html).toContain('href="/watch/fixture/aurora-nocturna%231"')
+    expect(html).toContain('href="/watch/fixture/aurora-nocturna%232"')
+  })
+
+  test('el modo elegido viaja en el enlace', () => {
+    const html = render(<EpisodeList episodes={[episodio(1)]} mode="dub" />)
+
+    expect(html).toContain('href="/watch/fixture/aurora-nocturna%231?mode=dub"')
   })
 
   test('un episodio sin título ni duración no rompe la fila', () => {

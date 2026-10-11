@@ -1,0 +1,119 @@
+/**
+ * La dirección de reproducción, en un solo sitio.
+ *
+ * Aquí también viven los vecinos de un episodio —el de antes y el de después—
+ * porque son de la misma materia: referencias de episodio y los límites del
+ * título. La pantalla los pinta y la lista de episodios los decide.
+ *
+ * La ficha construye el enlace al reproductor y el reproductor lee el modo de esa
+ * misma dirección. Con las dos mitades escritas por separado, el día que una
+ * cambie la otra sigue escribiendo el parámetro viejo y nadie se entera hasta que
+ * un episodio se reproduce en el modo equivocado.
+ *
+ * El modo viaja en la consulta y no en la ruta porque el enrutador empareja por
+ * segmentos: `?mode=dub` no cambia la ruta, y un parámetro que no está no rompe
+ * nada.
+ */
+
+/** Los modos que la interfaz sabe pedir. */
+export const PLAY_MODES = ['sub', 'dub'] as const
+
+export type PlayMode = (typeof PLAY_MODES)[number]
+
+function isPlayMode(value: string | null): value is PlayMode {
+  return value !== null && (PLAY_MODES as readonly string[]).includes(value)
+}
+
+/**
+ * La ruta del reproductor para un episodio.
+ *
+ * La referencia se codifica: puede llevar barras y almohadillas —el fixture usa
+ * `aurora-nocturna#3`— y sin escapar, la ruta se parte en trozos.
+ */
+export function watchPath(providerId: string, ref: string, mode?: PlayMode): string {
+  const base = `/watch/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}`
+
+  return mode === undefined ? base : `${base}?mode=${mode}`
+}
+
+/** El modo pedido en una dirección, o nada si no pide ninguno de los conocidos. */
+export function modeFromPath(path: string): PlayMode | undefined {
+  const consulta = path.split('?')[1] ?? ''
+  const modo = new URLSearchParams(consulta).get('mode')
+
+  return isPlayMode(modo) ? modo : undefined
+}
+
+/**
+ * La referencia del título a partir de la del episodio.
+ *
+ * La dirección del reproductor lleva **una** referencia, y es la del episodio
+ * —`aurora-nocturna#3`—, porque es la que el proveedor necesita para resolver el
+ * stream. El visionado, en cambio, se registra contra el título y contra el
+ * episodio, y el título no está en ningún sitio de la dirección: se deduce del
+ * prefijo. Sin esto, la fila de visionado se pide para un anime llamado
+ * `aurora-nocturna#3`, que no existe, y el servidor contesta 404.
+ *
+ * Una referencia sin almohadilla es su propio título: los proveedores que no
+ * numeran episodios usan la misma referencia para los dos.
+ */
+export function animeRefOf(episodeRef: string): string {
+  const corte = episodeRef.indexOf('#')
+
+  return corte === -1 ? episodeRef : episodeRef.slice(0, corte)
+}
+
+/** Una referencia de episodio, que es lo que basta para pedirle el stream. */
+export interface EpisodeRef {
+  readonly providerId: string
+  readonly value: string
+}
+
+export interface EpisodeNeighbours {
+  /** El episodio anterior, o nada si éste es el primero. */
+  readonly previous: EpisodeRef | undefined
+  /** El siguiente, o nada si éste es el último. */
+  readonly next: EpisodeRef | undefined
+}
+
+/** El número que una referencia lleva detrás de la almohadilla, si lo lleva. */
+function episodeNumberOf(ref: string): number | undefined {
+  const corte = ref.indexOf('#')
+  if (corte === -1) return undefined
+
+  const numero = Number(ref.slice(corte + 1))
+
+  return Number.isInteger(numero) && numero > 0 ? numero : undefined
+}
+
+/**
+ * Los vecinos del episodio que se está viendo.
+ *
+ * Los límites los pone la propia lista: el primero no tiene anterior y el último
+ * no tiene siguiente, y eso se dice devolviendo nada en lugar de mandar a la
+ * pantalla a inventarse un «episodio 0». Es la regla que el usuario pidió: no se
+ * pasa del mínimo ni del máximo.
+ *
+ * Se busca por la referencia y, si no está, por el número. Un proveedor puede
+ * numerar sus episodios con una referencia distinta de la que sirvió la lista, y
+ * quedarse sin flechas por eso sería perder la función por un detalle de forma.
+ */
+export function neighbourEpisodes(
+  episodes: readonly { readonly ref: EpisodeRef; readonly number: number }[],
+  providerId: string,
+  currentRef: string,
+): EpisodeNeighbours {
+  const propios = episodes.filter((episode) => episode.ref.providerId === providerId)
+  const numero = episodeNumberOf(currentRef)
+  const indice = propios.findIndex(
+    (episode) =>
+      episode.ref.value === currentRef || (numero !== undefined && episode.number === numero),
+  )
+
+  if (indice === -1) return { previous: undefined, next: undefined }
+
+  return {
+    previous: propios[indice - 1]?.ref,
+    next: propios[indice + 1]?.ref,
+  }
+}

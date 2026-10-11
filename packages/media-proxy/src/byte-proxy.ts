@@ -168,19 +168,46 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
   // cliente sobrevivía y los rangos dejaban de ser rangos.
   const cabeceras = new Headers(request.headers)
   cabeceras.set('accept-encoding', 'identity')
+  // Los CDN de video protegen los segmentos contra el hotlinking y contestan 403
+  // a quien no venga de su propio reproductor. Lo único que miran es esta
+  // cabecera: con `same-origin` el segmento llega, y sin ella —o con `cross-site`,
+  // que es lo que manda un navegador en otro origen— no. No la declara el
+  // proveedor porque no depende del sitio, sino de que la petición sale del proxy
+  // y no de una pestaña.
+  cabeceras.set('sec-fetch-site', 'same-origin')
   if (range.range !== undefined) cabeceras.set('range', range.range)
 
   // La salida pasa por la lista blanca de destinos, salto a salto: una
   // redirección es la forma más fácil de saltarse una comprobación que sólo mira
   // la primera URL.
-  const upstream = await fetchAllowed({
-    url: request.url,
-    headers: Object.fromEntries(cabeceras.entries()),
-    fetchImpl: doFetch,
-    ...(request.signal === undefined ? {} : { signal: request.signal }),
-    ...(request.resolver === undefined ? {} : { resolver: request.resolver }),
-    ...(request.allowLoopback === undefined ? {} : { allowLoopback: request.allowLoopback }),
-  })
+  let upstream: Response
+  try {
+    upstream = await fetchAllowed({
+      url: request.url,
+      headers: Object.fromEntries(cabeceras.entries()),
+      fetchImpl: doFetch,
+      ...(request.signal === undefined ? {} : { signal: request.signal }),
+      ...(request.resolver === undefined ? {} : { resolver: request.resolver }),
+      ...(request.allowLoopback === undefined ? {} : { allowLoopback: request.allowLoopback }),
+    })
+  } catch (cause) {
+    // El cliente cerró la conexión antes de que el upstream contestara, y con él
+    // se fue la petición. No es un fallo de nadie: el reproductor cambia de
+    // nivel, salta de posición o descarta el búfer, y cancela lo que tenía en
+    // vuelo. Sin esta rama, un cierre normal del cliente salía como un error del
+    // servidor con su registro y su pila, que es lo que hacía ruido en cada
+    // cambio de calidad.
+    if (request.signal?.aborted === true) {
+      return new Response(null, { status: 499, headers: { 'x-content-type-options': 'nosniff' } })
+    }
+
+    const error = upstreamFailure(request.url, cause)
+
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 502,
+      headers: { 'content-type': 'application/json', 'x-content-type-options': 'nosniff' },
+    })
+  }
 
   const tipo = (upstream.headers.get('content-type') ?? '').split(';')[0]?.trim() ?? ''
   if (request.acceptedTypes !== undefined && !request.acceptedTypes.includes(tipo)) {

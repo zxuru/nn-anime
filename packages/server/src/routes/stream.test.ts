@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations } from '@nn-anime/catalog-store'
 import { streamResolveResponseSchema } from '@nn-anime/core'
+import { createPlaylistCache, type PlaylistCache } from '@nn-anime/media-proxy'
 import { createFixtureProvider, type FixtureFailure } from '@nn-anime/providers-fixture'
 import { createApp, createContainer } from '../index'
 import { ticketPath } from './stream'
@@ -27,9 +28,26 @@ interface Contexto {
   readonly upstream: { llamadas: number; ranges: (string | null)[]; cancelado: boolean }
 }
 
+interface OpcionesDeApp {
+  readonly fallo?: FixtureFailure
+  /** Cuerpo que devuelve el upstream de mentira. Por defecto, bytes de video. */
+  readonly cuerpo?: string
+  /** Tipo que declara el upstream de mentira. */
+  readonly tipo?: string
+  /**
+   * Se llama al servir la playlist, para cortar la conexión a mitad de lectura.
+   *
+   * El cuerpo del upstream falla justo después, que es lo que pasa de verdad
+   * cuando el reproductor cancela mientras la lista se está sirviendo.
+   */
+  readonly alServirPlaylist?: (() => void) | undefined
+  /** Caché de playlists propia, con su reloj, para probar la caducidad. */
+  readonly playlists?: PlaylistCache | undefined
+}
+
 async function conApp<T>(
   body: (contexto: Contexto) => Promise<T>,
-  opciones: { readonly fallo?: FixtureFailure } = {},
+  opciones: OpcionesDeApp = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-stream-'))
   const db = openDb(join(dir, 'nn-anime.db'))
@@ -37,9 +55,36 @@ async function conApp<T>(
   const upstream = { llamadas: 0, ranges: [] as (string | null)[], cancelado: false }
 
   // Upstream de mentira: no hay red en ninguna prueba.
-  const fetchImpl = async (_url: string, init: RequestInit): Promise<Response> => {
+  const fetchImpl = async (url: string, init: RequestInit): Promise<Response> => {
     upstream.llamadas += 1
     upstream.ranges.push(new Headers(init.headers).get('range'))
+
+    // Una playlist de mentira sólo se sirve donde se pide una playlist: si el
+    // mismo texto saliera para un segmento, la prueba del índice no probaría que
+    // los bytes vienen del recurso resuelto.
+    const esPlaylist =
+      opciones.cuerpo !== undefined && new URL(url).pathname.toLowerCase().endsWith('.m3u8')
+
+    if (esPlaylist) {
+      if (opciones.alServirPlaylist !== undefined) {
+        const cortar = opciones.alServirPlaylist
+
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              cortar()
+              controller.error(new Error('la conexión se cerró'))
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/vnd.apple.mpegurl' } },
+        )
+      }
+
+      return new Response(opciones.cuerpo, {
+        status: 200,
+        headers: { 'content-type': opciones.tipo ?? 'application/vnd.apple.mpegurl' },
+      })
+    }
 
     const cuerpo = new ReadableStream<Uint8Array>({
       start(controller) {
@@ -61,7 +106,10 @@ async function conApp<T>(
     })
   }
 
-  const container = createContainer({ db })
+  const container = createContainer({
+    db,
+    ...(opciones.playlists === undefined ? {} : { playlists: opciones.playlists }),
+  })
   const proveedor = createFixtureProvider(
     opciones.fallo === undefined ? {} : { failures: { resolveStream: opciones.fallo } },
   )
@@ -262,5 +310,213 @@ describe('GET /stream/:ticket', () => {
 describe('la dirección del ticket', () => {
   test('es una ruta del proxy, no una URL', () => {
     expect(ticketPath('abc123')).toBe('/stream/abc123')
+  })
+})
+
+/**
+ * Una playlist con las tres cosas que hay que reescribir: una sub-playlist no
+ * (esta es la de segmentos), un inicializador, una clave y un segmento con URL
+ * absoluta del upstream.
+ */
+const PLAYLIST = [
+  '#EXTM3U',
+  '#EXT-X-VERSION:7',
+  '#EXT-X-MAP:URI="init.mp4"',
+  '#EXT-X-KEY:METHOD=AES-128,URI="clave-1.bin",IV=0x1234',
+  '#EXTINF:4.0,',
+  'https://fixture.invalid/video/segmento-0.ts',
+  '#EXTINF:4.0,',
+  'segmento-1.ts',
+  '#EXT-X-ENDLIST',
+  '',
+].join('\n')
+
+/** Resuelve el título que sólo ofrece HLS y devuelve el ticket de su playlist. */
+async function ticketDePlaylist(pedir: Contexto['pedir']): Promise<string> {
+  const { cuerpo } = await resolver(pedir, {
+    episodeRef: { providerId: 'fixture', value: 'selva-de-hormigon#1' },
+    mode: 'sub',
+  })
+
+  return streamResolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
+}
+
+describe('la reescritura de la playlist', () => {
+  test('ni un segmento ni una clave salen del proxy', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const ticket = await ticketDePlaylist(pedir)
+        const respuesta = await pedir(ticket, { headers: GOOD })
+        const texto = await respuesta.text()
+
+        expect(respuesta.status).toBe(200)
+        expect(respuesta.headers.get('content-type')).toBe('application/vnd.apple.mpegurl')
+        expect(respuesta.headers.get('x-content-type-options')).toBe('nosniff')
+        expect(texto).toContain(`${ticket}/seg/0`)
+        expect(texto).toContain(`${ticket}/seg/1`)
+        expect(texto).toContain(`${ticket}/key/0`)
+        expect(texto).toContain(`${ticket}/key/1`)
+        expect(texto).toContain('#EXTINF:4.0,')
+        expect(texto).not.toContain('fixture.invalid')
+        expect(texto).not.toContain('init.mp4')
+        expect(texto).not.toContain('clave-1.bin')
+      },
+      { cuerpo: PLAYLIST },
+    )
+  })
+
+  test('el segmento sale del índice ya resuelto, no de la URL del upstream', async () => {
+    await conApp(
+      async ({ pedir, upstream }) => {
+        const ticket = await ticketDePlaylist(pedir)
+        await pedir(ticket, { headers: GOOD })
+        const antes = upstream.llamadas
+
+        const respuesta = await pedir(`${ticket}/seg/1`, { headers: GOOD })
+
+        expect(respuesta.status).toBe(206)
+        // El tipo lo decide lo que se pidió: un `.ts` es un segmento aunque el
+        // upstream diga `video/mp4`.
+        expect(respuesta.headers.get('content-type')).toBe('video/mp2t')
+        expect((await respuesta.arrayBuffer()).byteLength).toBe(1024)
+        expect(upstream.llamadas).toBe(antes + 1)
+      },
+      { cuerpo: PLAYLIST },
+    )
+  })
+
+  test('la clave y el inicializador pasan por el proxy con el mismo ticket', async () => {
+    await conApp(
+      async ({ pedir, upstream }) => {
+        const ticket = await ticketDePlaylist(pedir)
+        await pedir(ticket, { headers: GOOD })
+        const antes = upstream.llamadas
+
+        const mapa = await pedir(`${ticket}/key/0`, { headers: GOOD })
+        const clave = await pedir(`${ticket}/key/1`, { headers: GOOD })
+
+        expect([mapa.status, clave.status]).toEqual([206, 206])
+        expect(upstream.llamadas).toBe(antes + 2)
+      },
+      { cuerpo: PLAYLIST },
+    )
+  })
+
+  test('un índice fuera de rango es 404 y no llega al upstream', async () => {
+    await conApp(
+      async ({ pedir, upstream }) => {
+        const ticket = await ticketDePlaylist(pedir)
+        await pedir(ticket, { headers: GOOD })
+        const antes = upstream.llamadas
+
+        const respuesta = await pedir(`${ticket}/seg/9`, { headers: GOOD })
+
+        expect(respuesta.status).toBe(404)
+        expect(upstream.llamadas).toBe(antes)
+      },
+      { cuerpo: PLAYLIST },
+    )
+  })
+
+  test('sin la playlist en memoria, el índice es 404 sin salir a la red', async () => {
+    await conApp(
+      async ({ pedir, upstream }) => {
+        const ticket = await ticketDePlaylist(pedir)
+        const antes = upstream.llamadas
+
+        const respuesta = await pedir(`${ticket}/seg/0`, { headers: GOOD })
+
+        expect(respuesta.status).toBe(404)
+        expect(upstream.llamadas).toBe(antes)
+      },
+      { cuerpo: PLAYLIST },
+    )
+  })
+
+  test('un ticket inexistente en el índice es 404', async () => {
+    await conApp(async ({ pedir }) => {
+      const respuesta = await pedir('/stream/no-existe/seg/0', { headers: GOOD })
+
+      expect(respuesta.status).toBe(404)
+    })
+  })
+
+  test('una sub-playlist anidada recibe un ticket propio', async () => {
+    const anidada = [
+      '#EXTM3U',
+      '#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=1280x720',
+      '720/index.m3u8',
+      '',
+    ].join('\n')
+
+    await conApp(
+      async ({ pedir }) => {
+        const ticket = await ticketDePlaylist(pedir)
+        const maestra = await (await pedir(ticket, { headers: GOOD })).text()
+
+        expect(maestra).toContain(`${ticket}/seg/0`)
+
+        const hija = await (await pedir(`${ticket}/seg/0`, { headers: GOOD })).text()
+        const propio = /\/stream\/([^/]+)\/seg\/0/.exec(hija)?.[1]
+
+        // El índice de la hija es otro: si compartiera el ticket del padre,
+        // `seg/0` significaría dos cosas distintas según quién preguntara.
+        expect(propio).toBeDefined()
+        expect(propio).not.toBe(ticket.split('/')[2])
+        expect(hija).toContain('#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=1280x720')
+      },
+      { cuerpo: anidada },
+    )
+  })
+
+  test('una playlist que se corta a mitad con el cliente fuera es 499', async () => {
+    const control = new AbortController()
+
+    await conApp(
+      async ({ pedir }) => {
+        const ticket = await ticketDePlaylist(pedir)
+        const respuesta = await pedir(ticket, { headers: GOOD, signal: control.signal })
+
+        expect(respuesta.status).toBe(499)
+      },
+      { cuerpo: PLAYLIST, alServirPlaylist: () => control.abort() },
+    )
+  })
+
+  test('el índice dura lo que dura la reproducción, no diez segundos', async () => {
+    let ahora = 1_000_000
+    const playlists = createPlaylistCache({ ttlMs: 600_000, now: () => ahora })
+
+    await conApp(
+      async ({ pedir }) => {
+        const ticket = await ticketDePlaylist(pedir)
+        await pedir(ticket, { headers: GOOD })
+
+        // Cinco minutos de reproducción: peticiones de segmento y ninguna de la
+        // lista. Antes, la primera que llegara después del décimo segundo era un
+        // 404 y la reproducción se paraba con lo que ya estaba en el búfer.
+        for (let vuelta = 0; vuelta < 30; vuelta++) {
+          ahora += 10_000
+          const respuesta = await pedir(`${ticket}/seg/0`, { headers: GOOD })
+
+          expect(respuesta.status, `vuelta ${vuelta}`).toBe(206)
+          await respuesta.arrayBuffer()
+        }
+      },
+      { cuerpo: PLAYLIST, playlists },
+    )
+  })
+
+  test('una playlist que pasa del tope es 502 y no se sirve', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const ticket = await ticketDePlaylist(pedir)
+        const respuesta = await pedir(ticket, { headers: GOOD })
+
+        expect(respuesta.status).toBe(502)
+        expect(await respuesta.json()).toMatchObject({ error: expect.stringContaining('4') })
+      },
+      { cuerpo: `#EXTM3U\n${'x'.repeat(4 * 1024 * 1024 + 1)}\n` },
+    )
   })
 })

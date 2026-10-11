@@ -38,8 +38,11 @@ import {
 } from '@nn-anime/core'
 import {
   createMpvPlayer,
+  createPlaylistCache,
   createTicketStore,
+  DEFAULT_TTL_S,
   type MpvPlayer,
+  type PlaylistCache,
   type SpawnMpv,
   spawnMpvProcess,
   type TicketStore,
@@ -65,6 +68,14 @@ export interface ServerContainer {
   readonly queue: WriteQueue
   /** Tickets opacos: el cliente nunca ve una URL del upstream. */
   readonly tickets: TicketStore
+  /**
+   * Playlists HLS ya reescritas, por ticket.
+   *
+   * Vive aquí y no en la ruta porque las dos mitades de una reproducción HLS la
+   * necesitan: la ruta del ticket la escribe al reescribir, y la del segmento la
+   * lee para resolver `seg/:index` sin volver a bajar la playlist.
+   */
+  readonly playlists: PlaylistCache
   /** Reproductor externo. Si no hay mpv, `play` dice que no está. */
   readonly mpv: MpvPlayer
   /** Resuelve el stream de un episodio, con la caché de URL corta. */
@@ -100,6 +111,8 @@ export interface ContainerOptions {
   readonly revalidator?: Revalidator
   /** Almacén de tickets. Se inyecta para poder fijar la capacidad en un test. */
   readonly tickets?: TicketStore
+  /** Caché de playlists. Se inyecta para poder fijar su TTL en un test. */
+  readonly playlists?: PlaylistCache
   /** Si hay mpv en el `PATH`. Lo decide el arranque, que puede esperar. */
   readonly mpvAvailable?: boolean
   /** Lanzador de mpv, inyectable: una prueba no abre ventanas. */
@@ -127,6 +140,11 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     ...(options.now === undefined ? {} : { now: options.now }),
   })
   const tickets = options.tickets ?? createTicketStore()
+  // La vida del índice de una playlist es la del ticket que la nombra, no la
+  // frescura de su texto: una reproducción entera pide segmentos contra él. Con
+  // los diez segundos por defecto, todos los segmentos pasaban a ser 404 a los
+  // pocos segundos de cargar la lista y la reproducción se paraba.
+  const playlists = options.playlists ?? createPlaylistCache({ ttlMs: DEFAULT_TTL_S * 1000 })
   const mpv = createMpvPlayer({
     spawn: options.spawnMpv ?? spawnMpvProcess,
     available: options.mpvAvailable ?? false,
@@ -249,6 +267,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     revalidator,
     queue,
     tickets,
+    playlists,
     mpv,
     getAnime: loadAnime,
     getEpisodes: loadEpisodes,

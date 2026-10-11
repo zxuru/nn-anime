@@ -43,6 +43,7 @@ async function withAssets<T>(body: (root: string) => Promise<T>): Promise<T> {
     await mkdir(join(root, 'assets'), { recursive: true })
     await writeFile(join(root, 'assets', 'app.js'), 'console.log(1)')
     await writeFile(join(root, 'assets', 'app.css'), 'body{}')
+    await writeFile(join(root, 'SECURITY.md'), '# Seguridad\n')
     return await body(root)
   } finally {
     await rm(root, { recursive: true, force: true })
@@ -115,6 +116,27 @@ describe('servido de la interfaz', () => {
   test('no cachea el HTML, que es el que cambia entre versiones', async () => {
     await withAssets(async (root) => {
       const response = await appWithAssets(root).request(`${BASE}/`)
+
+      expect(response.headers.get('cache-control')).toBe('no-store')
+    })
+  })
+
+  test('sirve el aviso de seguridad como markdown, no como descarga', async () => {
+    await withAssets(async (root) => {
+      // Es el documento que enlaza `/settings`. Sin su tipo, el navegador lo
+      // descarga en vez de mostrarlo, y sin salir del `index.html` el enlace
+      // parecía recargar la página.
+      const response = await appWithAssets(root).request(`${BASE}/SECURITY.md`)
+
+      expect(response.status).toBe(200)
+      expect(response.headers.get('content-type')).toContain('text/markdown')
+      expect(await response.text()).toContain('# Seguridad')
+    })
+  })
+
+  test('no cachea el aviso de seguridad, que cambia sin cambiar de nombre', async () => {
+    await withAssets(async (root) => {
+      const response = await appWithAssets(root).request(`${BASE}/SECURITY.md`)
 
       expect(response.headers.get('cache-control')).toBe('no-store')
     })

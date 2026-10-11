@@ -45,14 +45,37 @@ function sin(lista: readonly string[], valor: string): readonly string[] {
   return lista.filter((item) => item !== valor)
 }
 
+/** La clave de un resultado: su proveedor y su referencia. Es lo que lo identifica. */
+function claveDeResultado(result: SearchResult): string {
+  return `${result.ref.providerId}:${result.ref.value}`
+}
+
 export function reduce(state: SearchState, event: SearchEventPayload): SearchState {
   switch (event.type) {
-    case 'results':
+    case 'results': {
+      /**
+       * Se descarta lo que ya está.
+       *
+       * El catálogo cacheado emite antes que los proveedores, así que la misma
+       * referencia puede llegar dos veces: una del evento del catálogo y otra de
+       * su proveedor. Sin esto, la rejilla pintaría dos tarjetas idénticas y el
+       * recuento del anuncio contaría doble.
+       */
+      const vistos = new Set(state.results.map(claveDeResultado))
+      const nuevos = event.results.filter((result) => {
+        const clave = claveDeResultado(result)
+        if (vistos.has(clave)) return false
+
+        vistos.add(clave)
+        return true
+      })
+
       return {
         ...state,
-        results: [...state.results, ...event.results],
+        results: [...state.results, ...nuevos],
         pending: sin(state.pending, event.providerId),
       }
+    }
     case 'error':
       return {
         ...state,

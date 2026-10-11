@@ -362,7 +362,8 @@ Ninguna de las mitigaciones de arriba cubre estos casos, y no se van a cubrir:
 | Una extensión de navegador con permisos amplios | **No mitigado** | Puede leer la cookie, el DOM y el historial |
 | Un programa que corra como el usuario | **No mitigado** | Puede leer la base y la memoria del proceso |
 
-`SECURITY.md` debe decir esto en texto claro, y `/settings` debe enlazarlo.
+`SECURITY.md` debe decir esto en texto claro, y `/settings` debe enseñarlo **en la propia
+aplicación** —el documento entero, en un diálogo— además de enlazar el archivo.
 
 ## Success Criteria
 
@@ -392,7 +393,12 @@ tarea que lo cierra. T47 hace el barrido final y comprueba que ninguno se quedó
       permitido → prohibido) y de extremo a extremo en `tests/seguridad.test.ts` (M8).
 - [x] `SECURITY.md` existe, describe el modelo de amenaza y el riesgo residual, y `/settings` lo
       enlaza. **Verificado**: el documento está, con las mitigaciones y los tres riesgos residuales, y
-      `settings.test.ts` y `settings.test.tsx` comprueban el enlace.
+      `/settings` lo enseña entero en un diálogo —`<dialog>` nativo, con `Esc` y foco del navegador—
+      sin salir de la aplicación; al pie queda el enlace al archivo. El documento vive en la raíz del
+      repo, fuera del build: el build lo emite en `dist` y el servidor lo sirve como `text/markdown`
+      sin caché, y el diálogo lo pide a esa ruta, así que repo y pantalla leen el mismo archivo.
+      `security-notice.test.tsx` monta el documento de verdad, `notice-markdown.test.ts` comprueba el
+      intérprete y `settings.e2e.ts` abre el diálogo en un navegador y mira el texto dentro.
 - [x] Segunda ejecución: **detalle y búsqueda** se sirven desde la base sin llamadas de red,
       medido con el contador de peticiones a proveedores (`tests/ciclo-completo.test.ts`, con un
       proceso y un proveedor nuevos). **Con un matiz medido y anotado**: la home vuelve a llamar a

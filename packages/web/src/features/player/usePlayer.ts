@@ -39,10 +39,18 @@ export interface PlayerHandle {
   readonly toggle: () => void
 }
 
-/** Carga `hls.js` y conecta el elemento. Devuelve cómo destruirlo. */
+/**
+ * Carga `hls.js` y conecta el elemento. Devuelve cómo destruirlo.
+ *
+ * `alFallar` recibe el detalle de un error **fatal** de la biblioteca. Hace
+ * falta un oído: hls.js no lanza, avisa, y el elemento no dispara `error` cuando
+ * lo que falla es el Media Source. Sin esto, un corte de red o un códec que el
+ * navegador no decodifica se quedan en una pantalla negra sin decir nada.
+ */
 export async function attachHls(
   video: HTMLVideoElement,
   url: string,
+  alFallar?: (detalle: string) => void,
 ): Promise<{ destroy: () => void } | { error: string }> {
   try {
     const { default: Hls } = await import('hls.js')
@@ -59,6 +67,12 @@ export async function attachHls(
     }
 
     const hls = new Hls({ enableWorker: true })
+
+    hls.on(Hls.Events.ERROR, (_evento, datos) => {
+      // Los no fatales se reintentan por dentro: avisar de ellos sería llenar la
+      // pantalla de avisos que se arreglan solos.
+      if (datos.fatal) alFallar?.(datos.details)
+    })
 
     hls.loadSource(url)
     hls.attachMedia(video)
@@ -114,6 +128,19 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     onProgress: source.onProgress,
   }
 
+  /**
+   * El segundo en el que reanudar, en una referencia por el mismo motivo.
+   *
+   * Es la **posición viva** en el momento en que cambia la fuente —cambiar de
+   * subtitulado a doblado tiene que seguir donde iba—, así que quien la pasa la
+   * mueve en cada avance. Con ella en las dependencias, cada `timeupdate` volvía
+   * a montar el medio y el navegador recargaba el video: se quedaba en el
+   * segundo cero, en pausa y con la duración ya conocida. Es exactamente el
+   * síntoma de «carga, dice cuánto dura y no reproduce».
+   */
+  const reanudarEn = useRef(source.startAtS)
+  reanudarEn.current = source.startAtS
+
   const videoRef = useCallback((nuevo: HTMLVideoElement | null) => {
     elemento.current = nuevo
   }, [])
@@ -125,7 +152,15 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     let vivo = true
 
     if (needsHls(source.kind)) {
-      void attachHls(video, source.url).then((resultado) => {
+      void attachHls(video, source.url, (detalle) => {
+        if (!vivo) return
+
+        setState((previo) => ({
+          ...previo,
+          error: `hls.js se detuvo: ${detalle}`,
+          loading: false,
+        }))
+      }).then((resultado) => {
         if (!vivo) {
           if ('destroy' in resultado) resultado.destroy()
 
@@ -146,6 +181,13 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
       setState((previo) => ({ ...previo, loading: false }))
     }
 
+    // La reanudación se decide **una vez por fuente**, cuando el efecto arranca:
+    // si se leyera en cada `durationchange`, un cambio de duración a mitad de
+    // reproducción volvería a saltar a la posición de reanudación y daría un
+    // tirón hacia adelante.
+    const destino = reanudarEn.current ?? 0
+    let reanudado = false
+
     const alTiempo = (): void => {
       setState((previo) => ({ ...previo, positionS: video.currentTime }))
       avisos.current.onProgress?.(video.currentTime, video.duration)
@@ -156,8 +198,10 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
       // Reanudar: al saber la duración, se salta a donde se dejó. Se hace aquí y
       // no al montar porque el elemento todavía no admite un `currentTime` que no
       // conoce.
-      const destino = source.startAtS ?? 0
-      if (destino > 0 && video.currentTime < destino) video.currentTime = destino
+      if (!reanudado && destino > 0 && video.currentTime < destino) {
+        video.currentTime = destino
+        reanudado = true
+      }
     }
     const alReproducir = (): void => {
       setState((previo) => ({ ...previo, playing: true }))
@@ -189,9 +233,10 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
       hls.current?.destroy()
       hls.current = undefined
     }
-    // Sólo la fuente: los avisos van en una referencia y no vuelven a montar el
-    // medio. Ver la nota de `avisos`.
-  }, [source.kind, source.url, source.startAtS])
+    // Sólo la fuente: los avisos y la posición de reanudación van en referencias
+    // y no vuelven a montar el medio. Ver la nota de `avisos` y la de
+    // `reanudarEn`.
+  }, [source.kind, source.url])
 
   const act = useCallback((action: PlayerAction) => {
     const video = elemento.current

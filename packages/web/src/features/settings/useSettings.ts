@@ -6,10 +6,10 @@
  * red para cambiar de color se siente roto, y el cambio es reversible.
  */
 
-import type { SettingsResponse } from '@nn-anime/core/api'
-import { settingsResponseSchema } from '@nn-anime/core/api'
+import type { ProviderSummary, SettingsResponse } from '@nn-anime/core/api'
+import { providerRegisterResponseSchema, settingsResponseSchema } from '@nn-anime/core/api'
 import { useCallback, useEffect, useState } from 'react'
-import { apiGet, apiPatch } from '../../api/client'
+import { apiGet, apiPatch, apiPostJson } from '../../api/client'
 import { themeAttribute } from './ThemeToggle'
 
 export type SettingsState = 'loading' | 'ready' | 'error'
@@ -19,6 +19,8 @@ export interface Settings {
   readonly data: SettingsResponse | undefined
   readonly error: string | undefined
   readonly setTheme: (theme: 'dark' | 'light' | 'system') => void
+  /** Registra un proveedor y refresca la lista. Lanza si no se pudo. */
+  readonly register: (draft: unknown) => Promise<ProviderSummary>
 }
 
 /**
@@ -87,5 +89,31 @@ export function useSettings(): Settings {
     [data?.theme],
   )
 
-  return { state, data, error, setTheme }
+  const register = useCallback(async (draft: unknown): Promise<ProviderSummary> => {
+    // Aquí no hay escritura optimista, y es a propósito: esto no pinta una lista,
+    // escribe un archivo. Enseñar «guardado» antes de que el servidor conteste
+    // sería enseñarlo justo cuando más importa saber si el plugin cargó.
+    const salida = await apiPostJson('/api/providers', draft, providerRegisterResponseSchema)
+
+    // La lista se actualiza con lo que el servidor devolvió, sin volver a pedirla:
+    // la respuesta es el proveedor que quedó activo, y el servidor acaba de
+    // recargar su registro, así que no hay nada más que preguntar. Se sustituye
+    // por identificador en vez de añadir a ciegas, para que un alta repetida no
+    // deje dos filas del mismo.
+    setData((actual) =>
+      actual === undefined
+        ? actual
+        : {
+            ...actual,
+            providers: [
+              ...actual.providers.filter((provider) => provider.id !== salida.provider.id),
+              salida.provider,
+            ],
+          },
+    )
+
+    return salida.provider
+  }, [])
+
+  return { state, data, error, setTheme, register }
 }

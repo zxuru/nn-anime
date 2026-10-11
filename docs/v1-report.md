@@ -10,7 +10,7 @@ hallazgos quedan abiertos. Los números están medidos, no estimados.
 | Pruebas | **1450, 0 fallos** | `bun test` |
 | Archivos de prueba | 74 unitarios + 5 de e2e | — |
 | Cobertura | `core 98,16 %`, `catalog-store 95,84 %`, `recsys 99,65 %`, `provider-sdk 99,78 %` | `bun run coverage:gate` |
-| e2e | 14 verdes, 2 marcados como pendientes, 2 del modo fallo | `bun run e2e` y `bun run e2e:fallo` |
+| e2e | 21 verdes, ninguno marcado como pendiente, 2 del modo fallo | `bun run e2e` y `bun run e2e:fallo` |
 | Tipos | 0 errores | `bun run typecheck` |
 | Estilo | 0 hallazgos | `bun run lint` |
 | Tareas | **55 de 55** | `tasks/plan.md` |
@@ -87,12 +87,17 @@ una a una, o reducirlas a un puntero— va al Checkpoint H.
 
 | Criterio | Motivo |
 |---|---|
-| El reproductor reproduce y el salto funciona | **`play()` deja el elemento en pausa y en el segundo cero.** Medido: el elemento recibe el medio, lo almacena y queda listo, y un `<video>` creado a mano con la misma URL **sí reproduce**. El entorno puede y nuestro componente no. Dos casos marcados con `test.fixme` |
-| Los subtítulos aparecen en el reproductor | Depende del caso anterior: sin reproducción no hay subtítulo que enseñar |
+| Los subtítulos aparecen en el reproductor | La prueba no está escrita. El reproductor ya reproduce, así que lo que falta es el caso, no el mecanismo |
 | El aviso de mpv ausente | Hace falta arrancar el servidor del e2e con mpv simulado como ausente, y esa variable no existe |
 | La home pinta antes de 1 s con `X-Cache: hit` | Es una medición de navegador con la pestaña de red; las tres lecturas van en paralelo y ninguna bloquea a las otras, pero el número no está medido |
 | El recorrido completo con teclado | Necesita un navegador; lo que sí está probado es que los atajos no secuestran la escritura y que el anillo de foco existe |
 | Con `mpv` real, control por SSE y cierre | **Sí medido**: mpv abre, sus eventos salen por SSE y tras `close()` el pid ya no existe |
+
+El reproductor **salió de esta tabla**. Estaba aquí con el diagnóstico «el entorno puede y nuestro
+componente no»; era nuestro: la posición de reanudación viajaba en las dependencias del efecto de
+`usePlayer` y cada `timeupdate` volvía a montar el medio. Con ella en una referencia, los dos casos
+—reproducir y saltar diez segundos— se miden en el navegador y la suite e2e no tiene ningún
+`test.fixme`.
 
 ## Diferido, con motivo
 

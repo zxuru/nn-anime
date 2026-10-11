@@ -18,6 +18,7 @@
 import type { ConfigPaths } from '@nn-anime/core'
 import { healthResponseSchema, type Logger } from '@nn-anime/core'
 import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
+import type { LoadReport } from '@nn-anime/provider-sdk'
 import { Hono } from 'hono'
 import { bootstrapHandler } from './bootstrap'
 import type { ServerContainer } from './container'
@@ -26,6 +27,7 @@ import { originGuard } from './middleware/origin-guard'
 import { securityHeaders } from './middleware/security-headers'
 import { sessionGuard } from './middleware/session-guard'
 import { PROTECTED_PREFIXES } from './paths'
+import { createProviderHub } from './provider-hub'
 import { registerAnimeRoutes } from './routes/anime'
 import { registerCoverRoute } from './routes/cover'
 import { registerEpisodesRoute } from './routes/episodes'
@@ -33,6 +35,7 @@ import { registerFavoritesRoutes } from './routes/favorites'
 import { registerPlayRoutes } from './routes/play'
 import { type PluginReport, registerProvidersRoute, summarizePlugins } from './routes/providers'
 import { registerRecommendationsRoute, registerTrendingRoute } from './routes/recommendations'
+import { registerProviderRoute } from './routes/register-provider'
 import { registerSearchRoute } from './routes/search'
 import { registerSettingsRoute } from './routes/settings'
 import { registerStreamRoutes } from './routes/stream'
@@ -62,6 +65,17 @@ export interface AppOptions {
    * proveedor que la búsqueda no consulta.
    */
   readonly plugins?: PluginReport
+  /**
+   * Directorio de plugins del usuario.
+   *
+   * Es lo que habilita `POST /api/providers`: sin directorio no hay dónde
+   * escribir y la ruta no se registra. Las pruebas que no escriben plugins no lo
+   * pasan, y eso hace que el alta no exista para ellas en lugar de existir a
+   * medias.
+   */
+  readonly providersDir?: string
+  /** Cargador de plugins. Inyectable: las pruebas no escriben en el disco real. */
+  readonly loadPlugins?: (directory: string) => Promise<LoadReport>
   /** Tiempo límite por proveedor en la búsqueda. Se acorta en los tests. */
   readonly searchTimeoutMs?: number
   /**
@@ -123,7 +137,15 @@ export function createApp(options: AppOptions): Hono {
     }),
   )
 
-  const plugins: PluginReport = options.plugins ?? { active: [], rejected: [] }
+  // El registro es vivo: las rutas que vienen debajo reciben estas referencias y
+  // las leen al atender, así que un alta desde Ajustes se ve sin reiniciar. Ver
+  // `provider-hub.ts`.
+  const hub = createProviderHub({
+    ...(options.providersDir === undefined ? {} : { directory: options.providersDir }),
+    ...(options.plugins === undefined ? {} : { initial: options.plugins }),
+    ...(options.loadPlugins === undefined ? {} : { load: options.loadPlugins }),
+  })
+  const plugins: PluginReport = hub.report
 
   app.get('/api/health', (c) =>
     c.json(
@@ -141,11 +163,14 @@ export function createApp(options: AppOptions): Hono {
   )
 
   registerProvidersRoute(app, { plugins })
+  if (options.providersDir !== undefined) {
+    registerProviderRoute(app, { hub, directory: options.providersDir })
+  }
   // Las rutas de metadatos necesitan el store: sin contenedor no se registran,
   // y una petición a ellas es un 404 explicable en vez de un 500 por dentro.
   if (options.container !== undefined) {
     const routeOptions = {
-      providers: plugins.active.map((entry) => entry.provider),
+      providers: hub.providers,
       container: options.container,
       ...(options.searchTimeoutMs === undefined ? {} : { timeoutMs: options.searchTimeoutMs }),
     }
@@ -167,7 +192,7 @@ export function createApp(options: AppOptions): Hono {
     registerTrendingRoute(app, routeOptions)
     registerSettingsRoute(app, {
       container: options.container,
-      plugins: { active: plugins.active, rejected: plugins.rejected },
+      plugins,
       ...(options.paths === undefined ? {} : { paths: options.paths }),
       ...(options.mpvVersion === undefined ? {} : { mpvVersion: options.mpvVersion }),
     })
@@ -175,7 +200,7 @@ export function createApp(options: AppOptions): Hono {
   }
 
   registerSearchRoute(app, {
-    providers: plugins.active.map((entry) => entry.provider),
+    providers: hub.providers,
     ...(options.searchTimeoutMs === undefined ? {} : { timeoutMs: options.searchTimeoutMs }),
     ...(options.container === undefined ? {} : { container: options.container }),
   })

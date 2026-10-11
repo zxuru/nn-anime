@@ -154,6 +154,25 @@ describe('reenvío de bytes', () => {
     expect(vistos).toEqual(['identity'])
   })
 
+  test('se declara del mismo origen, que es lo que abre los segmentos', async () => {
+    const vistos: (string | null)[] = []
+    const fake = upstream()
+
+    // Un CDN con protección de hotlinking contesta 403 a `cross-site` y a la
+    // ausencia de la cabecera: lo comprobado contra el de verdad es que sólo
+    // `same-origin` devuelve el segmento.
+    await proxy({
+      url: ARCHIVO,
+      headers: { 'Sec-Fetch-Site': 'cross-site', Referer: 'https://sitio.example' },
+      fetchImpl: async (input: string, init: RequestInit) => {
+        vistos.push(new Headers(init.headers).get('sec-fetch-site'))
+        return fake.fetchImpl(input, init)
+      },
+    })
+
+    expect(vistos).toEqual(['same-origin'])
+  })
+
   test('los headers del proveedor viajan al upstream', async () => {
     const enviadas: Record<string, string> = {}
     const fake = upstream()
@@ -238,6 +257,44 @@ describe('rango inválido', () => {
 
     expect(respuesta.status).toBe(416)
     expect(llamadas).toBe(0)
+  })
+})
+
+describe('cuando el upstream no contesta', () => {
+  test('si el cliente se va primero, 499 y ninguna excepción', async () => {
+    const control = new AbortController()
+
+    // Es lo que hace Bun: la petición al upstream se rechaza con el motivo del
+    // `signal`, que cuando cierra el cliente es un `AbortError`. Sin la rama,
+    // esto salía del proxy como un error del servidor con su pila.
+    const respuesta = await proxy({
+      url: ARCHIVO,
+      headers: {},
+      signal: control.signal,
+      fetchImpl: async () => {
+        control.abort()
+
+        throw control.signal.reason
+      },
+    })
+
+    expect(respuesta.status).toBe(499)
+  })
+
+  test('un fallo de verdad es 502 con el motivo y sin la URL', async () => {
+    const respuesta = await proxy({
+      url: ARCHIVO,
+      headers: {},
+      fetchImpl: async () => {
+        throw new Error('ENOTFOUND')
+      },
+    })
+
+    expect(respuesta.status).toBe(502)
+
+    const cuerpo = (await respuesta.json()) as { error: string }
+    expect(cuerpo.error).toContain('ENOTFOUND')
+    expect(cuerpo.error).not.toContain('/aurora/1/sub.mp4')
   })
 })
 

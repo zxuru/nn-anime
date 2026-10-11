@@ -31,6 +31,56 @@ test.describe('de la búsqueda al detalle', () => {
     await expect(page.getByText('Episodio 1').first()).toBeVisible()
   })
 
+  /**
+   * La ficha es la puerta del reproductor.
+   *
+   * Este caso faltaba y por eso el fallo llegó hasta aquí: el reproductor se
+   * probaba entrando a su dirección a mano, y nadie comprobaba que se pudiera
+   * llegar a él desde la aplicación. La pantalla enseñaba los episodios y no
+   * abría ninguno.
+   */
+  test('de la ficha al reproductor con un clic en el episodio', async ({ page }) => {
+    await entrar(page)
+
+    await page.goto('/anime/fixture/aurora-nocturna')
+    await expect(page.locator('.episodes li')).toHaveCount(12, { timeout: 15_000 })
+
+    // El enlace lleva el episodio en la dirección y el modo elegido en la
+    // consulta: el reproductor abre en subtitulado, que es el que ofrece el
+    // proveedor y el que sale marcado.
+    const tercero = page.locator('.episodes li').nth(2).getByRole('link')
+    await expect(tercero).toHaveAttribute('href', '/watch/fixture/aurora-nocturna%233?mode=sub')
+
+    await tercero.click()
+
+    await expect(page).toHaveURL(/\/watch\/fixture\/aurora-nocturna%233\?mode=sub/)
+    // El reproductor, montado y con su fuente: no basta con que la dirección
+    // cambie.
+    await expect(page.locator('video')).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('el modo elegido en la ficha viaja al reproductor', async ({ page }) => {
+    await entrar(page)
+
+    await page.goto('/anime/fixture/aurora-nocturna')
+    await expect(page.locator('.episodes li')).toHaveCount(12, { timeout: 15_000 })
+
+    await page.getByRole('button', { name: 'Doblado' }).click()
+    await expect(page.getByRole('button', { name: 'Doblado' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    await page.locator('.episodes li').first().getByRole('link').click()
+
+    await expect(page).toHaveURL(/\/watch\/fixture\/aurora-nocturna%231\?mode=dub/)
+    await expect(page.locator('video')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('button', { name: 'Doblado' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
   test('el detalle anuncia de dónde salió con `X-Cache`', async ({ page }) => {
     await entrar(page)
 

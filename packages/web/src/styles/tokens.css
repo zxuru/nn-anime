@@ -43,6 +43,11 @@
   /** El fondo de las etiquetas activas y del cartel de un día con estreno. */
   --color-highlight: #ff4a2e;
 
+  /* El velo del diálogo y su ancho. Ninguno de los dos es un color de texto, así
+     que no entran en los pares de contraste que se miden. */
+  --overlay: rgb(0 0 0 / 60%);
+  --notice-width: min(48rem, 92vw);
+
   /* Portadas de relleno: dos colores en diagonal, como el diseño de referencia.
      Se usan cuando el título no tiene portada o cuando la suya no carga. */
   --cover-a: linear-gradient(135deg, #e63b2e 50%, #1b1b3a 50%);
@@ -123,7 +128,13 @@
   --header-height: 3.5rem;
   --measure-wide: 60rem;
   --measure: 60ch;
-  --layer-header: 1;
+  /** La capa del encabezado pegajoso. El contenido va debajo y no puede
+      empatarle: una insignia de tarjeta es un elemento flex, y un `z-index`
+      distinto de `auto` en un elemento flex crea contexto de apilado aunque su
+      `position` sea `static`, así que la insignia y los números del top se
+      dibujaban **encima** de la barra al desplazarse. Con el mismo valor gana el
+      que va después en el documento, y ése es el contenido. */
+  --layer-header: 10;
 }
 
 [data-theme="light"] {

@@ -29,7 +29,14 @@ import { AppError } from '@nn-anime/core'
 /** Tope de una playlist, del spec. */
 export const MAX_PLAYLIST_BYTES = 4 * 1024 * 1024
 
-/** Vida de una playlist en la caché de memoria. */
+/**
+ * Vida de una playlist en la caché de memoria.
+ *
+ * Es la **frescura del texto**: una lista en vivo cambia, y volver a servir la
+ * misma diez segundos después ya no es servir lo que hay. El índice de segmentos
+ * que sale de ella es otra cosa y vive más, porque una reproducción entera se
+ * sirve contra él: ver `createPlaylistCache`.
+ */
 export const PLAYLIST_TTL_MS = 10_000
 
 /**
@@ -220,6 +227,18 @@ export interface PlaylistCache {
  *
  * El tope de entradas no está en el spec porque el de tickets (500) ya acota
  * cuántas playlists pueden existir: una por ticket vivo como mucho.
+ *
+ * **Resolver rejuvenece la entrada.** Lo que se guarda no es sólo el texto: es el
+ * índice con el que se contestan `seg/:index` y `key/:index`, y una reproducción
+ * entera se sirve contra él. Con una vida fija desde que se guardó, un episodio
+ * de veinte minutos se quedaba sin índice a los pocos segundos de la última
+ * petición de la lista y **todos** los segmentos pasaban a ser 404: se oía lo ya
+ * cargado y la reproducción se paraba. Mientras la lista se use, vive; cuando
+ * nadie la pide, vence, que es lo que hace el ticket que la acompaña.
+ *
+ * Por eso el proxy la crea con la vida del ticket y no con `PLAYLIST_TTL_MS`:
+ * diez segundos son la frescura del texto de una lista en vivo, no la vida del
+ * índice de una reproducción.
  */
 export function createPlaylistCache(
   options: { readonly ttlMs?: number; readonly now?: () => number } = {},
@@ -235,11 +254,14 @@ export function createPlaylistCache(
       const entrada = entradas.get(ticket)
       if (entrada === undefined) return undefined
 
-      if (vencida(entrada, now())) {
+      const at = now()
+      if (vencida(entrada, at)) {
         entradas.delete(ticket)
 
         return undefined
       }
+
+      entradas.set(ticket, { ...entrada, at })
 
       return entrada
     },

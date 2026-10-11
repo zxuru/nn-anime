@@ -174,6 +174,92 @@ describe('anime', () => {
   })
 })
 
+describe('la búsqueda por género', () => {
+  const OTRO: ProviderRef = { providerId: 'fixture', value: 'mar-de-cristal' }
+
+  /** Dos títulos con géneros distintos, que es lo mínimo para notar un filtro. */
+  async function conDosTitulos<T>(
+    body: (anime: ReturnType<typeof createAnimeRepository>) => T,
+  ): Promise<T> {
+    return await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      anime.write(REF, detalle())
+      anime.write(OTRO, detalle({ ref: OTRO, title: 'Mar de Cristal', genres: ['Drama'] }))
+
+      return body(anime)
+    })
+  }
+
+  test('el nombre del género se compara sin mayúsculas y sin tildes', async () => {
+    await conDosTitulos((anime) => {
+      for (const termino of ['Acción', 'accion', '  ACCIÓN  ', 'acci']) {
+        expect(anime.searchByGenre(termino, 10).map((hit) => hit.title)).toEqual([
+          'Aurora Nocturna',
+        ])
+      }
+    })
+  })
+
+  test('lo que sale es un resultado de búsqueda completo, no una fila a medias', async () => {
+    await conDosTitulos((anime) => {
+      expect(anime.searchByGenre('acción', 10)).toEqual([
+        {
+          ref: REF,
+          title: 'Aurora Nocturna',
+          titleAlt: 'Night Aurora',
+          coverUrl: 'https://fixture.invalid/portada/aurora.webp',
+          year: 2019,
+          kind: 'tv',
+        },
+      ])
+    })
+  })
+
+  test('un título con dos géneros que encajan sale una sola vez', async () => {
+    await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      anime.write(REF, detalle({ genres: ['Ciencia ficción', 'Ficción'] }))
+
+      expect(anime.searchByGenre('ficcion', 10)).toHaveLength(1)
+    })
+  })
+
+  test('un género de dos palabras se encuentra por la segunda', async () => {
+    await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      anime.write(REF, detalle({ genres: ['Ciencia ficción'] }))
+
+      expect(anime.searchByGenre('ficcion', 10).map((hit) => hit.title)).toEqual([
+        'Aurora Nocturna',
+      ])
+    })
+  })
+
+  test('sin coincidencias devuelve vacío, no el catálogo entero', async () => {
+    await conDosTitulos((anime) => {
+      expect(anime.searchByGenre('mecha', 10)).toEqual([])
+      expect(anime.searchByGenre('   ', 10)).toEqual([])
+    })
+  })
+
+  test('un trozo a mitad de palabra no cuenta: se busca por principio de palabra', async () => {
+    await conDosTitulos((anime) => {
+      expect(anime.searchByGenre('ccion', 10)).toEqual([])
+    })
+  })
+
+  test('el límite se respeta', async () => {
+    await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      anime.write(REF, detalle())
+      anime.write(OTRO, detalle({ ref: OTRO, title: 'Mar de Cristal', genres: ['Acción'] }))
+
+      expect(anime.searchByGenre('acción', 1)).toHaveLength(1)
+      expect(anime.searchByGenre('acción', 10)).toHaveLength(2)
+    })
+  })
+})
+
 describe('episodios', () => {
   test('sin el anime, un MISS devuelve null', async () => {
     await withStore((db) => {

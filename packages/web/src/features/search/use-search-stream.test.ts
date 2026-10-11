@@ -65,6 +65,37 @@ describe('estado', () => {
     expect(estado.pending).toEqual([])
     expect(estado.done).toBe(true)
   })
+
+  /**
+   * El catálogo cacheado emite antes que los proveedores, así que un título
+   * cacheado puede volver a llegar después desde su proveedor. Dos tarjetas con
+   * la misma clave rompen la rejilla de React y cuentan doble en el anuncio.
+   */
+  test('la misma referencia no se pinta dos veces, aunque llegue del catálogo y del proveedor', () => {
+    const conCatalogo = reduce(initialState(['uno']), {
+      type: 'results',
+      providerId: 'catalog',
+      results: [resultado('uno', 'a', 'A')],
+    })
+    const conProveedor = reduce(conCatalogo, {
+      type: 'results',
+      providerId: 'uno',
+      results: [resultado('uno', 'a', 'A')],
+    })
+
+    expect(conProveedor.results).toHaveLength(1)
+    expect(conProveedor.pending).toEqual([])
+  })
+
+  test('dos referencias distintas del mismo proveedor se conservan', () => {
+    const estado = reduce(initialState(['uno']), {
+      type: 'results',
+      providerId: 'uno',
+      results: [resultado('uno', 'a', 'A'), resultado('uno', 'b', 'B'), resultado('uno', 'a', 'A')],
+    })
+
+    expect(estado.results.map((hit) => hit.ref.value)).toEqual(['a', 'b'])
+  })
 })
 
 describe('agrupación de duplicados', () => {

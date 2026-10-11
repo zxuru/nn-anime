@@ -20,7 +20,9 @@ import {
   type CacheHit,
   type Episode,
   type ProviderRef,
+  type SearchResult,
   StoreError,
+  titleKindSchema,
 } from '@nn-anime/core'
 import { cacheHit, TTL_SECONDS } from '../cache-policy'
 import { animeIdOf, markEpisodesFetched, replaceEpisodes } from './episodes'
@@ -75,6 +77,47 @@ interface AnimeRow {
   readonly raw_json: string | null
 }
 
+interface GenreRow {
+  readonly provider_id: string
+  readonly provider_ref: string
+  readonly title: string
+  readonly title_alt: string | null
+  readonly cover_url: string | null
+  readonly year: number | null
+  readonly kind: string | null
+}
+
+/**
+ * Clave de comparación de un nombre de género.
+ *
+ * SQLite compara texto byte a byte y su `lower()` sólo entiende ASCII, así que
+ * allí «accion» no encuentra «Acción». Se pliega aquí: minúsculas, sin
+ * diacríticos y en NFC, para que la búsqueda por género no dependa de que el
+ * usuario escriba la tilde.
+ */
+function claveDeGenero(texto: string): string {
+  return texto
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .normalize('NFC')
+}
+
+/**
+ * Si el término encaja con el género.
+ *
+ * Encaja por **principio de palabra** y no por cualquier trozo: «acción» y
+ * «accion» sí, pero «ccion» no. Con coincidencia libre, media consulta de un
+ * título arrastraría el catálogo entero por llevar una «a» dentro.
+ */
+function encajaElGenero(nombre: string, buscado: string): boolean {
+  const clave = claveDeGenero(nombre)
+  if (clave.startsWith(buscado)) return true
+
+  return clave.split(/[^\p{L}\p{N}]+/u).some((palabra) => palabra.startsWith(buscado))
+}
+
 export interface AnimeRepository {
   /** `null` cuando no hay fila. `stale` se calcula, no se guarda. */
   read(ref: ProviderRef, now?: number): CacheHit<AnimeDetail> | null
@@ -87,6 +130,15 @@ export interface AnimeRepository {
    * lectura diría que tiene cero. Media escritura es peor que ninguna.
    */
   writeWith(ref: ProviderRef, detail: AnimeDetail, episodes: readonly Episode[], now?: number): void
+  /**
+   * Los títulos cacheados cuyo género encaja con el término buscado.
+   *
+   * Es lo que hace que la fila de géneros de la home sirva para algo: los
+   * proveedores buscan por título y ninguno responde a «acción», así que una
+   * consulta por género sólo puede salir de lo que ya está en la base. La tabla
+   * `genre` existe justo para estas consultas.
+   */
+  searchByGenre(term: string, limit: number): readonly SearchResult[]
   /** Identificador interno, para las tablas que apuntan al anime. */
   idOf(ref: ProviderRef): number | undefined
 }
@@ -131,11 +183,9 @@ export function createAnimeRepository(db: Database, ttlS: number = TTL_SECONDS.a
           // Los géneros y los estudios salen de `raw_json`, que es la única
           // fuente que los conserva **en orden** y que es lo que lee el detalle.
           //
-          // La tabla `genre` existe desde la primera migración y **nadie escribe
-          // en ella**: se crea, se limpia en `prune` y se queda vacía. Se anota
-          // aquí porque quien lea esta consulta va a preguntarse por qué no se
-          // usa; el hallazgo es de T38 y su arreglo —poblarla o quitarla— es una
-          // decisión de esquema, no un detalle de esta consulta.
+          // La tabla `genre` se escribe en la misma transacción que el título y
+          // se lee en `searchByGenre`: sirve para consultar por género, no para
+          // reconstruir la lista, que perdería el orden.
           `SELECT a.provider_id, a.provider_ref, a.title, a.cover_url, a.year,
                   json_extract(a.raw_json, '$.kind') AS kind,
                   json_extract(a.raw_json, '$.genres') AS generos,
@@ -156,6 +206,56 @@ export function createAnimeRepository(db: Database, ttlS: number = TTL_SECONDS.a
         tags: listaDeJson(fila.generos),
         studios: listaDeJson(fila.estudios),
       }))
+    },
+
+    /**
+     * La comparación se hace en JS y no en SQL, y no es un capricho: los
+     * nombres distintos son un puñado, y SQLite no sabe ignorar los acentos.
+     * Comparar allí obligaría a escribir «Acción» con tilde exacta.
+     */
+    searchByGenre(term: string, limit: number): readonly SearchResult[] {
+      const buscado = claveDeGenero(term)
+      if (buscado === '' || limit <= 0) return []
+
+      const nombres = db
+        .query<{ name: string }, []>('SELECT DISTINCT name FROM genre')
+        .all()
+        .map((fila) => fila.name)
+        .filter((nombre) => encajaElGenero(nombre, buscado))
+
+      if (nombres.length === 0) return []
+
+      const huecos = nombres.map(() => '?').join(', ')
+      const filas = db
+        .query<GenreRow, (string | number)[]>(
+          // El `IN` contra una subconsulta y no un `JOIN`: un título con dos
+          // géneros que encajen —«Ciencia ficción» y «Ficción»— saldría dos
+          // veces con la unión.
+          `SELECT a.provider_id, a.provider_ref, a.title, a.title_alt, a.cover_url, a.year,
+                  json_extract(a.raw_json, '$.kind') AS kind
+             FROM anime a
+            WHERE a.id IN (SELECT g.anime_id FROM genre g WHERE g.name IN (${huecos}))
+            ORDER BY a.title COLLATE NOCASE
+            LIMIT ?`,
+        )
+        .all(...nombres, limit)
+
+      return filas.map((fila) => {
+        // `kind` vive en el JSON como una cadena entrecomillada, y sólo vale si
+        // es uno de los tipos del contrato: un valor inventado por un proveedor
+        // no puede colarse en un `SearchResult` y romper la validación de la
+        // frontera, que es donde se descubriría.
+        const kind = titleKindSchema.safeParse(fila.kind?.replace(/^"|"$/g, ''))
+
+        return {
+          ref: { providerId: fila.provider_id, value: fila.provider_ref },
+          title: fila.title,
+          ...(fila.title_alt === null ? {} : { titleAlt: fila.title_alt }),
+          ...(fila.cover_url === null ? {} : { coverUrl: fila.cover_url }),
+          ...(fila.year === null ? {} : { year: fila.year }),
+          ...(kind.success ? { kind: kind.data } : {}),
+        }
+      })
     },
 
     read(ref: ProviderRef, now: number = Date.now()): CacheHit<AnimeDetail> | null {

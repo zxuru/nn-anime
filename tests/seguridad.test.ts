@@ -283,6 +283,36 @@ describe('M8 · el proxy no sale a donde no debe', () => {
     }
   })
 
+  test('una IPv4 dentro de una IPv6 tampoco pasa la lista blanca', () => {
+    // La forma hexadecimal es la que produce `new URL` a partir de la forma con
+    // puntos, y la que la lista blanca no reconocía: era loopback para el
+    // sistema y transparente para el guard.
+    for (const url of [
+      'http://[::ffff:127.0.0.1]:8080/',
+      'http://[::ffff:7f00:1]/',
+      'http://[::ffff:10.0.0.1]/',
+      'http://[::ffff:169.254.169.254]/latest/meta-data/',
+      'http://[64:ff9b::7f00:1]/',
+    ]) {
+      expect(checkDestination(url).ok, url).toBe(false)
+    }
+
+    // Y el unicast global de verdad sigue entrando.
+    expect(checkDestination('http://[2606:4700::1111]/').ok).toBe(true)
+  })
+
+  test('un ticket hacia loopback disfrazado de IPv6 se rechaza al pedirlo', async () => {
+    await conCiclo(async ({ pedir, container }) => {
+      const ticket = container.tickets.issue({
+        url: 'http://[::ffff:169.254.169.254]/latest/meta-data/',
+        headers: {},
+      })
+      const respuesta = await pedir(`/stream/${ticket}`, { headers: GOOD })
+
+      expect(respuesta.status).not.toBe(200)
+    })
+  })
+
   test('un ticket hacia la red local se rechaza al pedirlo, no al emitirlo', async () => {
     await conCiclo(async ({ pedir, container }) => {
       // El ticket se emite —es sólo un identificador— y **se rechaza al

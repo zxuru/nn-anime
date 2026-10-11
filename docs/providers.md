@@ -6,6 +6,28 @@ Un plugin es **un archivo `.ts`** que exporta por defecto un objeto que cumple e
 > **Un plugin se ejecuta con tus permisos y sin sandbox.** Puede leer y escribir lo mismo que tú.
 > Cópialo sólo si sabes de dónde viene. El detalle está en [SECURITY.md](../SECURITY.md).
 
+## El camino fácil: registrarlo desde Ajustes
+
+Si el sitio es una API JSON —una dirección, unas rutas y unos nombres de campo— no hace falta
+escribir el archivo. En **Ajustes** hay un formulario: se rellena, se guarda, y el plugin queda escrito
+en `~/.config/nn-anime/providers/<id>.ts` y **activo al instante, sin reiniciar**.
+
+| Campo | Qué es |
+|---|---|
+| Identificador | `id` en minúsculas y con guiones. Es el nombre del archivo y el de las rutas |
+| Nombre visible | Lo que se ve en la interfaz |
+| Dirección base | El origen del sitio, con `https://` |
+| Rutas | Relativas a la dirección base. `{query}` es lo que se busca y `{ref}` el título o el episodio |
+| Campos de la respuesta | Dónde está cada dato dentro del JSON, con puntos (`data.items`). Plegado: los valores por defecto valen para casi todo |
+
+Lo que se guarda es un plugin normal, generado a partir de esa descripción. Se puede abrir y editar a
+mano después; la aplicación no lo vuelve a generar sola. Si el sitio necesita algo que esas rutas no
+saben expresar —una firma, un `POST`, dos peticiones por título— esto no llega: es el momento de
+escribir el plugin, que es el resto de este documento.
+
+Dos cosas que el formulario **no** hace, a propósito: no acepta código y no sobrescribe. Un
+identificador ya ocupado es un error, no una sustitución silenciosa.
+
 ## El contrato
 
 Un proveedor es un objeto con:

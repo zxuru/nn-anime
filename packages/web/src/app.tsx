@@ -55,7 +55,17 @@ function screenFor(route: RouteMatch, path: string): ReactNode {
     case 'detail':
       return <DetailPage providerId={route.params.providerId ?? ''} ref={route.params.ref ?? ''} />
     case 'watch':
-      return <WatchPage providerId={route.params.providerId ?? ''} ref={route.params.ref ?? ''} />
+      return (
+        // La clave remonta la pantalla al cambiar de episodio. Sin ella, React
+        // reutiliza el componente y se queda con la posición del anterior: al
+        // pasar al episodio de al lado, el video arrancaba donde iba el de
+        // antes, y el visionado se seguía registrando contra el episodio viejo.
+        <WatchPage
+          key={`${route.params.providerId ?? ''}:${route.params.ref ?? ''}`}
+          providerId={route.params.providerId ?? ''}
+          ref={route.params.ref ?? ''}
+        />
+      )
     case 'settings':
       return <SettingsPage />
     case 'not-found':

@@ -14,7 +14,7 @@
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { announcement, formatTime, keyAction, needsHls } from './controls'
 import { isProxyPath } from './subtitle-tracks'
@@ -38,7 +38,7 @@ export interface PlayerProps {
 export function Player(props: PlayerProps): ReactNode {
   // Los avisos de reproducción, pausa y avance salen de los eventos del propio
   // elemento, no del render: llamarlos al pintar los dispararía en cada vuelta.
-  const { state, videoRef, act } = usePlayer({
+  const { state, videoRef, act, seekTo } = usePlayer({
     url: props.url,
     kind: props.kind,
     ...(props.onPlay === undefined ? {} : { onPlay: props.onPlay }),
@@ -47,6 +47,19 @@ export function Player(props: PlayerProps): ReactNode {
     ...(props.startAtS === undefined ? {} : { startAtS: props.startAtS }),
   })
   const pistas = props.tracks ?? []
+
+  /**
+   * La posición mientras se arrastra la barra, si se está arrastrando.
+   *
+   * Sin esto, la barra es un campo controlado por el estado del reproductor y el
+   * pulgar vuelve a su sitio entre dos avisos del elemento —el `timeupdate` llega
+   * cuatro veces por segundo—: se ve temblar y cuesta soltarlo donde se quiere.
+   * Mientras dura el arrastre manda el dedo; al soltar, manda el video.
+   */
+  const [arrastre, setArrastre] = useState<number | undefined>(undefined)
+
+  const duracion = Number.isFinite(state.durationS) && state.durationS > 0 ? state.durationS : 0
+  const posicion = Math.min(arrastre ?? state.positionS, duracion)
 
   // El teclado se escucha en la ventana: el foco puede estar en el propio video
   // o en la página, y obligar a enfocar el reproductor para usar las flechas es
@@ -102,6 +115,37 @@ export function Player(props: PlayerProps): ReactNode {
         ))}
       </video>
 
+      <div className="player__seek">
+        {/* Una barra de progreso de verdad, y un `<input type="range">`: se
+            arrastra, se toca y se recorre con el teclado sin escribir nada. El
+            `aria-valuetext` dice el tiempo, porque un número de segundos no es
+            lo que nadie quiere oír. */}
+        <input
+          className="player__range"
+          type="range"
+          min={0}
+          max={duracion}
+          step={0.1}
+          value={posicion}
+          disabled={duracion === 0}
+          aria-label={t(DEFAULT_LOCALE, 'player.seek')}
+          aria-valuetext={`${formatTime(posicion)} / ${formatTime(duracion)}`}
+          onChange={(evento) => {
+            const segundo = Number(evento.target.value)
+            setArrastre(segundo)
+            seekTo(segundo)
+          }}
+          onPointerUp={() => setArrastre(undefined)}
+          onPointerCancel={() => setArrastre(undefined)}
+          onBlur={() => setArrastre(undefined)}
+          onKeyUp={() => setArrastre(undefined)}
+        />
+
+        <span className="player__time">
+          {formatTime(posicion)} / {formatTime(state.durationS)}
+        </span>
+      </div>
+
       <div className="player__controls">
         <button type="button" className="button button--primary" onClick={() => act('toggle')}>
           {state.playing ? t(DEFAULT_LOCALE, 'player.pause') : t(DEFAULT_LOCALE, 'player.play')}
@@ -118,10 +162,6 @@ export function Player(props: PlayerProps): ReactNode {
         <button type="button" className="button" onClick={() => act('fullscreen')}>
           {t(DEFAULT_LOCALE, 'player.fullscreen')}
         </button>
-
-        <span className="player__time">
-          {formatTime(state.positionS)} / {formatTime(state.durationS)}
-        </span>
       </div>
 
       {state.loading ? <p className="empty">{t(DEFAULT_LOCALE, 'player.loading')}</p> : null}

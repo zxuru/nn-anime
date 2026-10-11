@@ -338,6 +338,7 @@ describe('con caché de resultados', () => {
     body: (context: {
       proveedor: ReturnType<typeof createFixtureProvider>
       db: ReturnType<typeof openDb>
+      servidor: ReturnType<typeof createApp>
       pedir: (query: string) => Promise<readonly string[]>
     }) => Promise<T>,
   ): Promise<T> {
@@ -373,7 +374,7 @@ describe('con caché de resultados', () => {
           .map((evento) => (JSON.parse(evento.data) as { providerId: string }).providerId)
       }
 
-      return await body({ proveedor, db, pedir })
+      return await body({ proveedor, db, servidor, pedir })
     } finally {
       await container.close().catch(() => {})
       await rm(dir, { recursive: true, force: true })
@@ -511,6 +512,90 @@ describe('con caché de resultados', () => {
         total: number
       }
       expect(filas.total).toBe(0)
+    })
+  })
+
+  /**
+   * Lo que trae el catálogo cacheado, si trae algo.
+   *
+   * Se busca por `providerId` y no por posición: los eventos de los proveedores
+   * llegan en el orden en que responden, así que `eventos[0]` no es una promesa
+   * que esta prueba pueda hacer.
+   */
+  function delCatalogo(
+    eventos: readonly { event: string; data: string }[],
+  ): readonly { title: string }[] {
+    const evento = eventos
+      .filter((crudo) => crudo.event === 'results')
+      .map(
+        (crudo) => JSON.parse(crudo.data) as { providerId: string; results: { title: string }[] },
+      )
+      .find((payload) => payload.providerId === 'catalog')
+
+    return evento?.results ?? []
+  }
+
+  /** Abre el detalle del fixture, que es lo que deja los géneros en la base. */
+  async function cachearDetalle(servidor: ReturnType<typeof createApp>): Promise<void> {
+    const respuesta = await servidor.request(`${BASE}/api/anime/fixture/aurora-nocturna`, {
+      headers: GOOD,
+    })
+
+    expect(respuesta.status).toBe(200)
+    await respuesta.json()
+  }
+
+  test('un género devuelve los títulos que ya están en la base', async () => {
+    await conCache(async ({ servidor }) => {
+      await cachearDetalle(servidor)
+
+      const respuesta = await servidor.request(
+        `${BASE}/api/search?q=${encodeURIComponent('acción')}`,
+        { headers: GOOD },
+      )
+
+      expect(delCatalogo(await readSse(respuesta)).map((hit) => hit.title)).toEqual([
+        'Aurora Nocturna',
+      ])
+    })
+  })
+
+  test('el género se encuentra aunque se escriba sin tilde', async () => {
+    await conCache(async ({ servidor }) => {
+      await cachearDetalle(servidor)
+
+      const respuesta = await servidor.request(`${BASE}/api/search?q=accion`, { headers: GOOD })
+
+      expect(delCatalogo(await readSse(respuesta))).toHaveLength(1)
+    })
+  })
+
+  test('sin nada cacheado no hay evento de catálogo: lo dice el proveedor', async () => {
+    await conCache(async ({ pedir }) => {
+      expect(await pedir('acción')).toEqual(['fixture'])
+    })
+  })
+
+  test('el filtro de proveedor también deja fuera lo cacheado', async () => {
+    await conCache(async ({ servidor }) => {
+      await cachearDetalle(servidor)
+
+      const respuesta = await servidor.request(
+        `${BASE}/api/search?q=${encodeURIComponent('acción')}&provider=otro`,
+        { headers: GOOD },
+      )
+
+      expect(delCatalogo(await readSse(respuesta))).toEqual([])
+    })
+  })
+
+  test('sin consulta no se busca por género: el catálogo no se vuelca en la pantalla', async () => {
+    await conCache(async ({ servidor }) => {
+      await cachearDetalle(servidor)
+
+      const respuesta = await servidor.request(`${BASE}/api/search`, { headers: GOOD })
+
+      expect(delCatalogo(await readSse(respuesta))).toEqual([])
     })
   })
 })

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { ProviderList } from './ProviderList'
+import { RegisterProvider } from './RegisterProvider'
 import { SettingsPage } from './SettingsPage'
 import { resolvedTheme, ThemeToggle, themeAttribute } from './ThemeToggle'
 
@@ -83,6 +84,44 @@ describe('lista de proveedores', () => {
   })
 })
 
+describe('el alta de un proveedor', () => {
+  const sinGuardar = async (): Promise<never> => {
+    throw new Error('en este test nadie guarda')
+  }
+
+  test('enseña los tres datos que hacen falta y las rutas por defecto', () => {
+    const html = render(<RegisterProvider register={sinGuardar} />)
+
+    expect(html).toContain('Identificador')
+    expect(html).toContain('Dirección base')
+    expect(html).toContain('/search?q={query}')
+    expect(html).toContain('/anime/{ref}')
+  })
+
+  test('cada campo tiene su etiqueta, y el identificador es obligatorio', () => {
+    const html = render(<RegisterProvider register={sinGuardar} />)
+
+    // Sin `htmlFor`/`id` la etiqueta no nombra nada, aunque se vea al lado.
+    expect(html).toContain('for="provider-id"')
+    expect(html).toContain('id="provider-id"')
+    expect(html).toContain('required')
+  })
+
+  test('el botón dice qué hace y el resultado se anuncia', () => {
+    const html = render(<RegisterProvider register={sinGuardar} />)
+
+    expect(html).toContain('Guardar proveedor')
+    expect(html).toContain('aria-live="polite"')
+  })
+
+  test('los campos avanzados empiezan plegados', () => {
+    const html = render(<RegisterProvider register={sinGuardar} />)
+
+    expect(html).toContain('<details')
+    expect(html).not.toContain('open=""')
+  })
+})
+
 describe('la página', () => {
   test('arranca cargando y no depende de la red en el primer render', () => {
     const html = render(<SettingsPage />)
@@ -91,11 +130,17 @@ describe('la página', () => {
     expect(html).toContain('aria-busy="true"')
   })
 
-  test('el aviso de seguridad está en la página y enlaza al documento', async () => {
+  test('el aviso de seguridad está en la página y abre el documento', async () => {
     const fuente = await readFile(`${ROOT}SettingsPage.tsx`, 'utf8')
 
     expect(fuente).toContain('settings.security.body')
-    expect(fuente).toContain('href="/SECURITY.md"')
+    expect(fuente).toContain('settings.security.open')
+    // Un botón con `aria-haspopup`: no navega a ningún archivo, abre el diálogo.
+    expect(fuente).toContain('aria-haspopup="dialog"')
+    expect(fuente).toContain('<SecurityNoticeDialog')
+    // El documento no se copia al bundle: se pide a la aplicación, que sirve el
+    // mismo `SECURITY.md` del repo.
+    expect(fuente).toContain('useSecurityNotice')
   })
 
   test('el aviso dice que no hay sandbox, con esas palabras', async () => {

@@ -10,6 +10,15 @@ import { staticAssets } from './static-assets'
 /** Dirección de escucha. Nunca `0.0.0.0`: el server es local por diseño. */
 export const LOOPBACK = '127.0.0.1'
 
+/**
+ * Tope de cuerpo de una petición: 256 KiB.
+ *
+ * El cuerpo válido más grande del proyecto es una descripción de proveedor, que
+ * ronda los dos kilobytes. Todo lo que pase de aquí no es una petición que este
+ * servidor sepa atender, así que se corta antes de leerlo.
+ */
+export const MAX_REQUEST_BODY_BYTES = 256 * 1024
+
 export interface RunningServer {
   /** Puerto real. Con `port: 0` es el que asignó el sistema. */
   readonly port: number
@@ -58,6 +67,11 @@ export function startServer(options: StartOptions): RunningServer {
   const server = Bun.serve({
     port: options.port,
     hostname: LOOPBACK,
+    // El cuerpo más grande que este servidor acepta es la descripción de un
+    // proveedor, y eso son dos kilobytes. Sin este tope, Bun admite 128 MiB y
+    // `c.req.json()` los acumula en memoria antes de validar nada: cada ruta que
+    // lee cuerpo es una vía para pedir cientos de megabytes.
+    maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
     fetch: served.fetch,
   })
 

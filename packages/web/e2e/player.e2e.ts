@@ -16,18 +16,14 @@ import { entrar } from './fixtures'
 
 test.describe('el reproductor', () => {
   /**
-   * **Dos casos marcados como pendientes, con lo medido.**
-   *
-   * El elemento recibe el medio por el proxy, lo almacena y queda listo
-   * (`readyState: 4`, `buffered: 1`, `duration: 10`), los controles cambian el
-   * estado y el anuncio se actualiza. Pero `play()` deja el elemento en pausa y en
-   * el segundo cero, **y un `<video>` creado a mano en la misma página, con la
-   * misma URL, sí reproduce** (`currentTime: 1.07`, `played: 1`). Es decir: el
-   * entorno puede y nuestro componente no, y no lo he resuelto dentro de esta
-   * tarea. Marcarlo como pendiente es lo honesto: una prueba que se salta con su
-   * motivo no engaña a nadie; una que se borra, sí.
+   * Los dos casos de reproducción estuvieron marcados como pendientes: el
+   * elemento cargaba y decía la duración, pero `play()` lo dejaba en pausa y en
+   * el segundo cero. La causa no era el entorno. La posición de reanudación
+   * viajaba en las dependencias del efecto del reproductor, así que cada
+   * `timeupdate` volvía a montar el medio; con ella en una referencia, la
+   * reproducción avanza y los dos casos se prueban de verdad.
    */
-  test.fixme('reproduce y el tiempo avanza', async ({ page }) => {
+  test('reproduce y el tiempo avanza', async ({ page }) => {
     await entrar(page)
     await page.goto('/watch/fixture/aurora-nocturna')
 
@@ -52,7 +48,7 @@ test.describe('el reproductor', () => {
     expect(tiempo).toBeGreaterThan(0)
   })
 
-  test.fixme('el salto de 10 s adelanta el tiempo', async ({ page }) => {
+  test('el salto de 10 s adelanta el tiempo', async ({ page }) => {
     await entrar(page)
     await page.goto('/watch/fixture/aurora-nocturna')
 
@@ -95,5 +91,57 @@ test.describe('el reproductor', () => {
     // En esta máquina mpv está instalado, así que se comprueba la sección, no el
     // aviso: el caso de «sin mpv» necesita el servidor arrancado sin él.
     await expect(page.getByRole('heading', { name: 'Reproductor externo' })).toBeVisible()
+  })
+
+  /**
+   * Las flechas de episodio.
+   *
+   * Se entra por la ficha y no por una dirección escrita a mano: el camino que
+   * hace cualquiera es elegir el episodio en la lista, y ahí es donde importa que
+   * la flecha apunte al de al lado y no a otro sitio.
+   */
+  test('las flechas pasan al episodio siguiente y al anterior', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    const lista = page.locator('.episodes li')
+    await expect(lista).toHaveCount(12, { timeout: 15_000 })
+
+    // El segundo episodio: así hay flecha en los dos sentidos.
+    await lista.nth(1).getByRole('link').click()
+    await expect(page).toHaveURL(/aurora-nocturna%232/)
+
+    await page.getByRole('link', { name: 'Episodio siguiente' }).click()
+    await expect(page).toHaveURL(/aurora-nocturna%233/)
+
+    await page.getByRole('link', { name: 'Episodio anterior' }).click()
+    await expect(page).toHaveURL(/aurora-nocturna%232/)
+  })
+
+  test('en el primer y el último episodio no hay flecha hacia fuera', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%231')
+
+    // El primero: hay siguiente y no hay anterior. El hueco queda con la flecha
+    // apagada para que la fila no baile.
+    await expect(page.getByRole('link', { name: 'Episodio siguiente' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Episodio anterior' })).toHaveCount(0)
+    await expect(page.locator('.watch__nav-off')).toHaveCount(1)
+
+    await page.goto('/watch/fixture/aurora-nocturna%2312')
+
+    // El último: al revés.
+    await expect(page.getByRole('link', { name: 'Episodio anterior' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Episodio siguiente' })).toHaveCount(0)
+    await expect(page.locator('.watch__nav-off')).toHaveCount(1)
+  })
+
+  test('el modo con el que se está viendo viaja al episodio de al lado', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%232?mode=dub')
+
+    await page.getByRole('link', { name: 'Episodio siguiente' }).click()
+
+    await expect(page).toHaveURL(/aurora-nocturna%233\?mode=dub/)
   })
 })

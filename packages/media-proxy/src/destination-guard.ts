@@ -99,29 +99,79 @@ function ipv4Rule(parts: readonly number[]): DestinationRule | undefined {
   return undefined
 }
 
-/** Clasificación de una IPv6. */
+/**
+ * Los 16 bytes de una IPv6, o `undefined` si el texto no es una dirección.
+ *
+ * Se lee por bytes y no por forma del texto porque el texto engaña:
+ * `new URL('http://[::ffff:127.0.0.1]/').hostname` devuelve `[::ffff:7f00:1]`,
+ * ya en hexadecimal. Una lista negra de formas escritas se queda corta en cuanto
+ * el navegador, o el DNS, elige otra.
+ */
+function ipv6Bytes(direccion: string): Uint8Array | undefined {
+  const limpia = direccion.toLowerCase().split('%')[0] ?? ''
+  if (limpia === '') return undefined
+
+  const abierto = limpia.includes('::')
+  const [cabeza = '', cola] = limpia.split('::')
+  const grupo = /^[0-9a-f]{1,4}$/
+  const izquierda = cabeza === '' ? [] : cabeza.split(':')
+  const derecha = cola === undefined || cola === '' ? [] : cola.split(':')
+
+  if (izquierda.some((parte) => !grupo.test(parte))) return undefined
+  if (derecha.some((parte) => !grupo.test(parte))) return undefined
+
+  const faltan = 8 - izquierda.length - derecha.length
+  if (abierto ? faltan < 1 : faltan !== 0) return undefined
+
+  const grupos = [...izquierda, ...new Array<string>(faltan).fill('0'), ...derecha]
+  const bytes = new Uint8Array(16)
+
+  for (let i = 0; i < 8; i++) {
+    const valor = Number.parseInt(grupos[i] ?? '0', 16)
+    bytes[i * 2] = valor >> 8
+    bytes[i * 2 + 1] = valor & 0xff
+  }
+
+  return bytes
+}
+
+/**
+ * Clasificación de una IPv6, por sus bytes.
+ *
+ * La regla final es una **lista blanca**: sólo unicast global (`2000::/3`). Todo
+ * lo demás —loopback, link-local, única local, multicast, NAT64, 6to4, Teredo y
+ * lo reservado— se rechaza, y una IPv4 escrita dentro de una IPv6 se juzga como
+ * la IPv4 que es. Con una lista negra de formas, `::ffff:7f00:1` entraba: es la
+ * misma dirección que `127.0.0.1` y ninguna de las formas escritas la delataba.
+ */
 function ipv6Rule(direccion: string): DestinationRule | undefined {
   const limpia = direccion.toLowerCase().split('%')[0] ?? ''
 
-  // Una dirección IPv4 escrita dentro de una IPv6 se comprueba como IPv4: si no,
-  // `::ffff:127.0.0.1` sería loopback para el sistema y transparente para aquí.
+  // La forma con puntos sigue siendo válida aunque `URL` la normalice a
+  // hexadecimal: `addressRule` también se llama con lo que devuelve el DNS.
   const mapeada = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(limpia)
-  if (mapeada !== null) {
-    const partes = (mapeada[1] ?? '').split('.').map(Number)
+  if (mapeada !== null) return ipv4Rule((mapeada[1] ?? '').split('.').map(Number))
 
-    return ipv4Rule(partes)
-  }
+  const bytes = ipv6Bytes(limpia)
+  if (bytes === undefined) return 'malformed'
 
-  if (limpia === '::1' || limpia === '::') return 'loopback'
-  if (
-    limpia.startsWith('fe8') ||
-    limpia.startsWith('fe9') ||
-    limpia.startsWith('fea') ||
-    limpia.startsWith('feb')
-  ) {
-    return 'link-local'
-  }
-  if (limpia.startsWith('fc') || limpia.startsWith('fd')) return 'private'
+  const b = (i: number): number => bytes[i] ?? 0
+  const ceros = (desde: number, hasta: number): boolean =>
+    bytes.slice(desde, hasta).every((x) => x === 0)
+  const embebida = (): DestinationRule | undefined => ipv4Rule([b(12), b(13), b(14), b(15)])
+
+  // Una IPv4 dentro de una IPv6, mapeada (`::ffff:a.b.c.d`) o compatible
+  // (`::a.b.c.d`). Las dos formas se conectan como la IPv4 que llevan dentro.
+  if (ceros(0, 10) && b(10) === 0xff && b(11) === 0xff) return embebida()
+  if (ceros(0, 12)) return embebida()
+
+  if (b(0) === 0xfe && b(1) >= 0x80 && b(1) <= 0xbf) return 'link-local'
+  if (b(0) === 0xfc || b(0) === 0xfd) return 'private'
+  if (b(0) === 0xff) return 'malformed'
+
+  // Sólo unicast global (`2000::/3`). Admitir el resto es superficie gratis: no
+  // hay ningún caso de uso de este proxy detrás de esas direcciones.
+  if (b(0) < 0x20 || b(0) > 0x3f) return 'malformed'
 
   return undefined
 }

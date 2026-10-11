@@ -81,7 +81,12 @@ Comportamiento del proxy HLS:
   preservando el orden de resolución de URLs relativas contra la URL base de la playlist.
 - Conserva las líneas `#EXT-X-KEY` apuntando también al proxy, para que la clave viaje con los
   mismos headers.
-- Caché en memoria de playlists por 10 s como máximo, porque cambian entre recargas.
+- Caché en memoria de playlists por 10 s como máximo, porque cambian entre recargas. **Esa vida es la
+  del texto de la lista, no la del índice que resuelve `seg/:index`:** una reproducción entera pide
+  segmentos contra el índice, así que el proxy lo crea con la vida del ticket y lo rejuvenece al
+  resolverlo. Con la vida corta en el índice, el episodio se quedaba sin él a los pocos segundos de
+  cargar la lista y todos los segmentos pasaban a ser 404: se oía lo que ya estaba en el búfer y la
+  reproducción se paraba.
 - No reescribe ni inspecciona el contenido de los segmentos `.ts` o `.m4s`.
 
 Comportamiento de la ruta de portadas (`GET /api/cover/:providerId/:ref`):
@@ -100,8 +105,12 @@ Comportamiento de la ruta de portadas (`GET /api/cover/:providerId/:ref`):
   capaz de ejecutar guiones y se serviría desde nuestro propio origen. La CSP lo detendría
   (`default-src 'self'` sin `'unsafe-inline'`), pero esa defensa es indirecta y no debe ser la única.
 - Tope de 5 MB por portada: por encima, 413 y no se cachea.
-- Si la referencia no está en la caché de metadatos, 404: la ruta **no** le pregunta al proveedor por
-  una portada que no conoce, así que la única petición saliente posible es la de los bytes de una
+- La portada sale de la fila de `anime` si existe y, si no, de un **listado ya cacheado** —de
+  búsqueda o de tendencias— que contenga la referencia. Un `SearchResult` trae su `coverUrl` sin que
+  nadie haya abierto la ficha, y sin esta segunda vía las tarjetas de la búsqueda pedían una imagen
+  que la ruta contestaba 404 hasta que alguien abría el título.
+- Si la referencia no está en ninguna de las dos cachés, 404: la ruta **no** le pregunta al proveedor
+  por una portada que no conoce, así que la única petición saliente posible es la de los bytes de una
   portada ya cacheada, y esa pasa por la lista blanca de destinos como cualquier otra.
 - Caché HTTP normal con la TTL de miniatura de la tabla del spec (604800 s): `Cache-Control` con
   `max-age` y `ETag` por referencia, para que el navegador no repita la petición.

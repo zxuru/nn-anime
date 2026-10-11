@@ -18,11 +18,21 @@ import type { z } from 'zod'
 /** La sesión no vale o la petición no está permitida. */
 export class ApiError extends Error {
   readonly status: number
+  /**
+   * Lo que el servidor contó del fallo, si lo contó.
+   *
+   * El mensaje de arriba es el mínimo —«POST /api/providers respondió 409»— y
+   * sirve para el registro. Esto es lo que se le puede enseñar a una persona:
+   * «ya hay un proveedor con ese identificador». Cuando el cuerpo no trae nada
+   * legible, se queda sin definir y quien lo muestre usa el mensaje.
+   */
+  readonly detail: string | undefined
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, detail?: string | undefined) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.detail = detail
   }
 
   /** Hay que volver a entrar por la dirección de arranque. */
@@ -83,6 +93,27 @@ function realDeps(): RequestDeps {
   return { fetch: (input, init) => globalThis.fetch(input, init) }
 }
 
+/**
+ * El `error` del cuerpo de una respuesta que falló, si lo trae.
+ *
+ * Se lee con cuidado porque aquí no se puede exigir nada: la respuesta puede no
+ * ser JSON, ser un 502 de un proxy, o no tener cuerpo. Cualquiera de las tres
+ * cosas es un no, y en las tres el mensaje genérico es lo único honesto. El
+ * cuerpo se consume, pero esta rama ya no lo va a usar: lanza.
+ */
+async function errorDetail(response: Response): Promise<string | undefined> {
+  try {
+    const payload: unknown = await response.json()
+    if (typeof payload !== 'object' || payload === null) return undefined
+
+    const error = Reflect.get(payload, 'error')
+
+    return typeof error === 'string' && error !== '' ? error : undefined
+  } catch {
+    return undefined
+  }
+}
+
 async function dispatch(
   path: string,
   options: RequestOptions,
@@ -102,7 +133,11 @@ async function dispatch(
   })
 
   if (!response.ok) {
-    throw new ApiError(response.status, `${method} ${path} respondió ${response.status}`)
+    throw new ApiError(
+      response.status,
+      `${method} ${path} respondió ${response.status}`,
+      await errorDetail(response),
+    )
   }
 
   return response

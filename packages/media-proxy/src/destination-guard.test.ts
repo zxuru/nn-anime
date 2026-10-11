@@ -119,6 +119,30 @@ describe('direcciones literales', () => {
     expect(addressRule('::ffff:93.184.216.34')).toBeUndefined()
   })
 
+  test('una IPv4 dentro de una IPv6, escrita en hexadecimal', () => {
+    // `URL` normaliza la forma con puntos a hexadecimal antes de que nadie la
+    // mire: `new URL('http://[::ffff:127.0.0.1]/').hostname` es `[::ffff:7f00:1]`.
+    // Reconocer sólo la forma con puntos dejaba pasar loopback por el proxy.
+    expect(addressRule('::ffff:7f00:1')).toBe('loopback')
+    expect(addressRule('::ffff:a00:1')).toBe('private')
+    expect(addressRule('::ffff:a9fe:a9fe')).toBe('metadata')
+    expect(addressRule('::7f00:1')).toBe('loopback')
+    expect(addressRule('::ffff:5db8:d822')).toBeUndefined()
+  })
+
+  test('NAT64, multicast y lo reservado no son destinos', () => {
+    expect(addressRule('64:ff9b::7f00:1')).toBe('malformed')
+    expect(addressRule('ff02::1')).toBe('malformed')
+    expect(addressRule('::')).toBe('loopback')
+    expect(addressRule('no-es-una-direccion')).toBe('malformed')
+  })
+
+  test('el unicast global sigue admitiéndose', () => {
+    expect(addressRule('2001:4860:4860::8888')).toBeUndefined()
+    expect(addressRule('2606:4700::1111')).toBeUndefined()
+    expect(addressRule('2a00:1450:4001:80e::200e')).toBeUndefined()
+  })
+
   test('multicast y broadcast no son destinos', () => {
     expect(addressRule('224.0.0.1')).toBe('malformed')
     expect(addressRule('255.255.255.255')).toBe('malformed')

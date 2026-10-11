@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations } from '@nn-anime/catalog-store'
+import type { SearchResult } from '@nn-anime/core'
 import { MAX_COVER_BYTES, RASTER_TYPES } from '@nn-anime/media-proxy'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
 import { createApp, createContainer } from '../index'
@@ -27,6 +28,8 @@ async function conApp<T>(
     readonly tipo?: string
     readonly tamano?: number
     readonly sinPortada?: boolean
+    /** Un listado cacheado, sin detalle: es el caso de la búsqueda. */
+    readonly busqueda?: readonly SearchResult[]
   } = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-portada-'))
@@ -79,6 +82,12 @@ async function conApp<T>(
       await servidor.request(`${BASE}/api/anime/fixture/${REF}`, { headers: GOOD })
     }
 
+    // Un listado cacheado sin detalle: la búsqueda conoce el título y su
+    // portada, pero nadie abrió todavía la ficha.
+    if (opciones.busqueda !== undefined) {
+      await container.store.writeSearch('fixture', 'aurora', opciones.busqueda)
+    }
+
     return await body({
       pedir: async (ruta, init) =>
         await Promise.resolve(servidor.request(`${BASE}${ruta}`, init ?? { headers: GOOD })),
@@ -102,6 +111,29 @@ describe('GET /api/cover/:providerId/:ref', () => {
       expect(respuesta.headers.get('etag')).toBe(coverEtag('fixture', REF))
       expect(upstream.llamadas).toBe(1)
     })
+  })
+
+  test('sirve la portada de un título que sólo está en un listado cacheado', async () => {
+    // Es el caso de la búsqueda: el resultado trae su portada, pero nadie abrió
+    // la ficha todavía. Sin esto, la tarjeta pedía una imagen y recibía 404.
+    const busqueda: readonly SearchResult[] = [
+      {
+        ref: { providerId: 'fixture', value: REF },
+        title: 'Aurora Nocturna',
+        coverUrl: 'https://fixture.invalid/portada/aurora-nocturna.webp',
+      },
+    ]
+
+    await conApp(
+      async ({ pedir, upstream }) => {
+        const respuesta = await pedir(`/api/cover/fixture/${REF}`)
+
+        expect(respuesta.status).toBe(200)
+        expect(respuesta.headers.get('content-type')).toBe('image/webp')
+        expect(upstream.llamadas).toBe(1)
+      },
+      { sinPortada: true, busqueda },
+    )
   })
 
   test('con el ETag que ya tiene, responde 304 sin volver al upstream', async () => {

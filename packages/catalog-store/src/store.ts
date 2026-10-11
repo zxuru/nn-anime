@@ -34,6 +34,7 @@ import type {
   WatchRecord,
 } from '@nn-anime/core'
 import type { z } from 'zod'
+import { findCoverUrl } from './cover-ref'
 import { runMigrations } from './migrations/runner'
 import { pruneOrphans } from './prune'
 import { type CandidateRow, createAnimeRepository } from './repositories/anime'
@@ -71,8 +72,24 @@ export interface CatalogStoreOptions {
 export interface CatalogStore {
   readAnime(ref: ProviderRef): Promise<CacheHit<AnimeDetail> | null>
   writeAnime(ref: ProviderRef, detail: AnimeDetail): Promise<void>
+  /**
+   * La URL de portada de una referencia que ya apareció en un listado cacheado.
+   *
+   * `readAnime` sólo la tiene si alguien abrió la ficha. Esto cubre el hueco de
+   * los resultados de búsqueda y de las tendencias, que traen su portada sin
+   * detalle: sin esto, sus tarjetas piden una imagen que la ruta contesta 404
+   * hasta que alguien abre el título.
+   */
+  readCover(ref: ProviderRef): Promise<string | undefined>
   /** Los títulos cacheados, con sus tags, para el motor de recomendación. */
   listCandidates(limit: number): Promise<readonly CandidateRow[]>
+  /**
+   * Los títulos cacheados cuyo género encaja con el término.
+   *
+   * Los proveedores buscan por título: ninguno entiende «acción». Esta consulta
+   * —la que da sentido a la fila de géneros de la home— sale de la base.
+   */
+  searchByGenre(term: string, limit: number): Promise<readonly SearchResult[]>
   /** Tendencias cacheadas de un proveedor. */
   readTrending(providerId: string): Promise<CacheHit<readonly SearchResult[]> | null>
   writeTrending(providerId: string, results: readonly SearchResult[]): Promise<void>
@@ -154,8 +171,14 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       // podría probar. Lo encontró la prueba de integración del ciclo.
       await queue.run(() => of().anime.write(ref, detail, ahora()))
     },
+    async readCover(ref) {
+      return findCoverUrl(db, ref)
+    },
     async listCandidates(limit) {
       return of().anime.list(limit)
+    },
+    async searchByGenre(term, limit) {
+      return of().anime.searchByGenre(term, limit)
     },
 
     async readTrending(providerId) {

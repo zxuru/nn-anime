@@ -399,6 +399,36 @@ describe('códigos de error', () => {
 
     await expect(apiGet('/api/health', HEALTH, {}, failing(boom))).rejects.toBe(boom)
   })
+
+  test('el motivo que cuenta el servidor se guarda como detalle', async () => {
+    const target = fake(409, JSON.stringify({ error: 'ya hay un proveedor con ese identificador' }))
+
+    try {
+      await apiGet('/api/health', HEALTH, {}, target.deps)
+      throw new Error('debería haber lanzado')
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiError)
+      if (error instanceof ApiError) {
+        expect(error.detail).toBe('ya hay un proveedor con ese identificador')
+        // El mensaje sigue siendo el de siempre: esto se añade, no sustituye.
+        expect(error.message).toContain('409')
+      }
+    }
+  })
+
+  test('sin cuerpo legible no hay detalle, y no falla por ello', async () => {
+    for (const body of ['', 'no es json', '{"otra":"cosa"}', '[]']) {
+      const target = fake(400, body)
+
+      try {
+        await apiGet('/api/health', HEALTH, {}, target.deps)
+        throw new Error('debería haber lanzado')
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApiError)
+        if (error instanceof ApiError) expect(error.detail).toBeUndefined()
+      }
+    }
+  })
 })
 
 describe('send: mutaciones sin cuerpo de respuesta', () => {

@@ -269,15 +269,20 @@ describe('caché de playlists', () => {
     expect(cache.size()).toBe(1)
   })
 
-  test('a los diez segundos ya no está', () => {
+  test('mientras se pida, vive; sin que nadie la pida, vence', () => {
     let ahora = 1_000_000
     const cache = createPlaylistCache({ now: () => ahora })
-    cache.set('t1', { text: 'texto', uris: [], keys: [] })
+    cache.set('t1', { text: 'texto', uris: ['u'], keys: [] })
 
-    ahora += PLAYLIST_TTL_MS - 1
-    expect(cache.get('t1')).toBeDefined()
+    // Diez peticiones de segmento, una cada nueve segundos: el índice se sigue
+    // usando, así que la lista sigue viva. Sin esto, un episodio se quedaba sin
+    // índice a los diez segundos y todos los segmentos pasaban a ser 404.
+    for (let vuelta = 0; vuelta < 10; vuelta++) {
+      ahora += PLAYLIST_TTL_MS - 1_000
+      expect(cache.get('t1')?.text, `vuelta ${vuelta}`).toBe('texto')
+    }
 
-    ahora += 1
+    ahora += PLAYLIST_TTL_MS
     expect(cache.get('t1')).toBeUndefined()
     expect(cache.size()).toBe(0)
   })

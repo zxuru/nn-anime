@@ -101,6 +101,14 @@ export interface ListenOptions {
    */
   readonly plugins?: PluginReport | undefined
   /**
+   * Directorio de plugins del usuario.
+   *
+   * Es lo que habilita el alta desde Ajustes: el server escribe ahí el plugin
+   * generado y vuelve a leer el directorio para que quede activo sin reiniciar.
+   * Sin esta ruta, la ruta de alta no se registra.
+   */
+  readonly providersDir?: string | undefined
+  /**
    * El store del server, si hay uno.
    *
    * Sin él, las rutas de metadatos no se registran: una petición a `/api/anime`
@@ -331,6 +339,7 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     plugins: { active: plugins.active, rejected: plugins.rejected },
     // Las rutas las tiene `boot`, que es quien llamó a `loadConfig`.
     paths: config,
+    providersDir: config.providersDir,
     ...(deps.mpvVersion === undefined ? {} : { mpvVersion: deps.mpvVersion }),
     ...(deps.allowLoopback === undefined ? {} : { allowLoopback: deps.allowLoopback }),
     ...(container === undefined ? {} : { container }),

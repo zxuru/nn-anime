@@ -23,6 +23,7 @@ import {
 import type { AnimeDetail, Episode, ProviderCapabilities, ProviderRef } from '@nn-anime/core/models'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet, apiPost } from '../../api/client'
+import { PLAY_MODES, type PlayMode } from '../player/watch-route'
 
 export type DetailState = 'loading' | 'ready' | 'error'
 
@@ -35,15 +36,28 @@ export interface DetailData {
   readonly reload: () => void
 }
 
-/** Los modos que el proveedor dice poder servir. */
-export function modesFor(capabilities: ProviderCapabilities | undefined): readonly string[] {
+/** Los modos que el proveedor dice poder servir, en el orden en que se ofrecen. */
+export function modesFor(capabilities: ProviderCapabilities | undefined): readonly PlayMode[] {
   if (capabilities === undefined) return []
 
-  const modos: string[] = []
-  if (capabilities.sub) modos.push('sub')
-  if (capabilities.dub) modos.push('dub')
+  return PLAY_MODES.filter((modo) => capabilities[modo])
+}
 
-  return modos
+/**
+ * El modo con el que se abre el reproductor.
+ *
+ * Manda el elegido a mano, siempre que el proveedor lo ofrezca; si no —o si aún
+ * no se ha elegido— el primero disponible. Sin la comprobación, una preferencia
+ * guardada de un proveedor que dejó de doblar abriría el reproductor en un modo
+ * que va a fallar.
+ */
+export function chosenMode(
+  available: readonly PlayMode[],
+  preferred: PlayMode | undefined,
+): PlayMode | undefined {
+  if (preferred !== undefined && available.includes(preferred)) return preferred
+
+  return available[0]
 }
 
 /** Duración legible, o nada si el proveedor no la dice. */

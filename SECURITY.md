@@ -9,7 +9,8 @@ qué se mitiga, qué no, y por qué.
 |---|---|---|
 | Un sitio cualquiera abre la aplicación | Sesión en cookie `HttpOnly; SameSite=Strict` y token de arranque de un solo uso | `docs/specs/SPEC-nn-anime.md`, mitigación 1 |
 | Otro sitio del navegador llama a la API local | Guard de `Origin` en métodos mutantes | mitigación 2 |
-| Un plugin hace peticiones a la red local | Lista blanca de destinos: sólo `http`/`https`, sin loopback, sin redes privadas, sin metadata de nube, revalidada en cada salto de redirección | T26a |
+| Un plugin hace peticiones a la red local | Lista blanca de destinos: sólo `http`/`https`, sin loopback, sin redes privadas, sin metadata de nube, sin IPv4 embebida en IPv6 y sólo unicast global; revalidada en cada salto de redirección | T26a |
+| Un cuerpo de petición agota la memoria | Tope de 256 KiB por petición, aplicado por el servidor antes de que ningún manejador lo lea | `packages/server/src/index.ts` |
 | Un plugin lee o escribe fuera de su sitio | El plugin sólo devuelve datos; nunca recibe rutas ni la base | `docs/specs/SPEC-provider-core.md` |
 | Una cookie del upstream contamina `127.0.0.1` | `Set-Cookie` se elimina siempre; sólo pasa una lista blanca de cabeceras | T26b |
 | Un dato de proveedor ejecuta guiones en la página | Lista blanca de esquemas (`http`/`https`) y portadas servidas desde `/api/cover` | T31a |

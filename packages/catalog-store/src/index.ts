@@ -14,6 +14,7 @@
  */
 
 export { type CacheResource, cacheHit, isStale, TTL_SECONDS } from './cache-policy'
+export { findCoverUrl } from './cover-ref'
 export { BUSY_TIMEOUT_MS, openDb, type StoreConnection } from './db'
 export {
   listMigrations,

@@ -2486,16 +2486,15 @@ reproducen nada. Llega con T44, que es donde se prueba el reproductor con un arc
 **Aceptación:**
 - [x] Caso: búsqueda → detalle → lista de episodios. **Medido en el navegador**: el clic navega sin
       recargar, la ficha sale con sus géneros y la lista trae sus 12 episodios.
-- [ ] Caso: reproducir el mp4 del fixture, adelantar 30 s y verificar el tiempo actual. **Pendiente y
-      marcado como tal** (`test.fixme`) con lo medido: el elemento recibe el medio por el proxy, lo
-      almacena y queda listo (`readyState: 4`, `buffered: 1`, `duration: 10`), los controles cambian el
-      estado y el anuncio se actualiza, **pero `play()` deja el elemento en pausa y en el segundo
-      cero**. Un `<video>` creado a mano en la misma página, con la misma URL, **sí reproduce**
-      (`currentTime: 1.07`, `played: 1`). Es decir: el entorno puede y nuestro componente no, y no lo
-      he resuelto. Preferí dejarlo marcado con su motivo antes que borrar la prueba o dejar la suite en
-      rojo.
-- [ ] Caso: activar subtítulos y verificar que el texto aparece. **Pendiente**: depende del caso
-      anterior, que es el que monta el reproductor en marcha.
+- [x] Caso: reproducir el mp4 del fixture, adelantar 30 s y verificar el tiempo actual. **Medido en el
+      navegador**: el tiempo avanza (0,19 s → 0,90 s → 2,11 s) y el salto de diez segundos deja el
+      elemento al final del archivo. Estuvo marcado como pendiente con el diagnóstico equivocado —«el
+      entorno puede y nuestro componente no»—; la causa era nuestra: la posición de reanudación viajaba
+      en las dependencias del efecto de `usePlayer`, así que cada `timeupdate` volvía a montar el medio
+      y el navegador recargaba el video. El elemento se quedaba en pausa, en el segundo cero y con la
+      duración ya conocida. Con la posición en una referencia, los dos casos se prueban de verdad.
+- [ ] Caso: activar subtítulos y verificar que el texto aparece. **Pendiente**: la prueba no está
+      escrita. El reproductor ya reproduce, así que lo que falta es el caso, no el mecanismo.
 - [x] Caso: cada recomendación visible tiene una razón no vacía. **Medido sobre lo que se ve**, no
       sobre lo que devuelve la API.
 - [ ] Caso: con mpv simulado como ausente, se muestra el aviso y el reproductor web sigue.
@@ -2503,10 +2502,9 @@ reproducen nada. Llega con T44, que es donde se prueba el reproductor con un arc
       otra variable de entorno que no he añadido.
 - [x] Los casos que dependen de mpv real están marcados y se saltan si no hay `mpv`.
 
-**Verificación:** `bun run e2e` (14 verdes, 2 marcados como pendientes) y `bun run e2e:fallo` (2
-verdes), tres veces seguidas. La excepción de loopback tiene 7 pruebas propias, incluida la de que
-**sin** la variable el loopback se sigue rechazando y la de que la metadata de nube se rechaza aunque
-esté puesta.
+**Verificación:** `bun run e2e` (21 verdes, ninguno marcado como pendiente) y `bun run e2e:fallo` (2
+verdes). La excepción de loopback tiene 7 pruebas propias, incluida la de que **sin** la variable el
+loopback se sigue rechazando y la de que la metadata de nube se rechaza aunque esté puesta.
 
 **Depende de:** T43, T32, T39.
 

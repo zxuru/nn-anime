@@ -40,6 +40,14 @@ export interface CatalogStore {
   writeEpisodes(ref: ProviderRef, episodes: readonly Episode[]): Promise<void>
   readSearch(providerId: string, query: string): Promise<CacheHit<readonly SearchResult[]> | null>
   writeSearch(providerId: string, query: string, results: readonly SearchResult[]): Promise<void>
+  /**
+   * URL de portada de una referencia que ya apareció en un listado cacheado.
+   *
+   * `readAnime` sólo la tiene si alguien abrió la ficha; los resultados de
+   * búsqueda y las tendencias traen su portada sin detalle, y la ruta de
+   * portadas la necesita para no contestar 404 con la tarjeta delante.
+   */
+  readCover(ref: ProviderRef): Promise<string | undefined>
 
   // Streams: TTL corto, revalidación forzada antes de reproducir
   /**

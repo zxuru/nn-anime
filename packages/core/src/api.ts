@@ -59,6 +59,106 @@ export const providersResponseSchema = z.strictObject({
   providers: z.array(providerSummarySchema),
 })
 
+/**
+ * Ruta de un endpoint, dentro de un proveedor declarativo.
+ *
+ * Se exige que sea **relativa**: una ruta absoluta dentro de la plantilla
+ * apuntaría a un sitio distinto del de la dirección base, y el formulario
+ * dejaría de describir un proveedor para describir dos. Los caracteres de
+ * control se rechazan aquí porque esta cadena acaba dentro de una URL y de un
+ * archivo.
+ */
+const endpointTemplateSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(500)
+  .refine((value) => !value.includes('://'), {
+    message: 'la ruta tiene que ser relativa a la dirección base',
+  })
+  .refine((value) => !/[\r\n\0]/.test(value), {
+    message: 'la ruta no admite caracteres de control',
+  })
+
+const queryTemplateSchema = endpointTemplateSchema.refine((value) => value.includes('{query}'), {
+  message: 'falta el marcador {query}',
+})
+
+const refTemplateSchema = endpointTemplateSchema.refine((value) => value.includes('{ref}'), {
+  message: 'falta el marcador {ref}',
+})
+
+/**
+ * Dónde vive cada dato dentro del JSON del sitio.
+ *
+ * Es una ruta con puntos (`data.items`) y la cadena vacía significa «el valor
+ * mismo»: la raíz, para una respuesta que ya es la lista. Se admiten estos
+ * nombres y no un JSON Pointer porque lo que se escribe aquí lo teclea una
+ * persona en un formulario.
+ */
+const fieldPathSchema = z.string().trim().max(200)
+
+export const providerFieldMapSchema = z.strictObject({
+  searchItems: fieldPathSchema.default(''),
+  searchId: fieldPathSchema.default('id'),
+  searchTitle: fieldPathSchema.default('title'),
+  animeTitle: fieldPathSchema.default('title'),
+  animeGenres: fieldPathSchema.default('genres'),
+  animeStudios: fieldPathSchema.default('studios'),
+  episodeItems: fieldPathSchema.default(''),
+  episodeId: fieldPathSchema.default('id'),
+  episodeNumber: fieldPathSchema.default('number'),
+  episodeTitle: fieldPathSchema.default('title'),
+  streamUrl: fieldPathSchema.default('url'),
+  streamKind: fieldPathSchema.default('kind'),
+})
+
+/**
+ * La descripción de un proveedor, tal como la manda el formulario.
+ *
+ * Esto **no** es un proveedor: es lo que basta para generar uno. La diferencia
+ * importa: aquí no entra código, así que la interfaz puede aceptar esta forma
+ * sin convertirse en un ejecutor de lo que le manden. El código lo escribe el
+ * servidor, a partir de esta descripción, y por eso el archivo resultante es
+ * siempre el mismo para la misma entrada.
+ *
+ * `id` es kebab-case porque es a la vez el nombre del archivo —tiene que ser un
+ * nombre de archivo seguro, y validarlo aquí es lo que evita que lo sea por
+ * accidente— y el identificador que viaja en las rutas.
+ */
+export const providerDraftSchema = z.strictObject({
+  id: z
+    .string()
+    .trim()
+    .max(64)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'minúsculas, dígitos y guiones'),
+  name: z.string().trim().min(1).max(80),
+  baseUrl: httpUrlSchema,
+  capabilities: providerCapabilitiesSchema,
+  endpoints: z.strictObject({
+    search: queryTemplateSchema,
+    anime: refTemplateSchema,
+    episodes: refTemplateSchema,
+    stream: refTemplateSchema,
+    trending: endpointTemplateSchema.optional(),
+  }),
+  /**
+   * Se puede omitir entero: cada campo tiene su valor por defecto, y quien no
+   * los conozca no tiene por qué mandarlos. El formulario los manda porque los
+   * enseña, que no es lo mismo que hacerlos obligatorios.
+   *
+   * Es `prefault` y no `default` porque el valor que falta es del **entrante**:
+   * `{}` todavía no es un mapa de campos, es lo que hay que pasar por el schema
+   * para que los doce nombres aparezcan.
+   */
+  fields: providerFieldMapSchema.prefault({}),
+})
+
+/** Lo que devuelve registrar un proveedor: el que quedó cargado. */
+export const providerRegisterResponseSchema = z.strictObject({
+  provider: providerSummarySchema,
+})
+
 export const favoritesResponseSchema = z.strictObject({
   favorites: z.array(animeSummarySchema),
 })
@@ -255,5 +355,8 @@ export type ProviderStatus = z.infer<typeof providerStatusSchema>
 export type ProviderSummary = z.infer<typeof providerSummarySchema>
 export type HealthResponse = z.infer<typeof healthResponseSchema>
 export type ProvidersResponse = z.infer<typeof providersResponseSchema>
+export type ProviderDraft = z.infer<typeof providerDraftSchema>
+export type ProviderFieldMap = z.infer<typeof providerFieldMapSchema>
+export type ProviderRegisterResponse = z.infer<typeof providerRegisterResponseSchema>
 export type SearchQuery = z.infer<typeof searchQuerySchema>
 export type SearchEventPayload = z.infer<typeof searchEventSchema>

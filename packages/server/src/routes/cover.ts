@@ -9,9 +9,9 @@
  *
  * Tres cosas que la ruta decide y no delega:
  *
- * - **Si la referencia no está en la caché de metadatos, es 404 sin preguntar al
- *   proveedor.** La ruta no descubre portadas: sirve la de un título que ya se
- *   conoce.
+ * - **Si la referencia no está en la caché —ni el detalle ni un listado de
+ *   búsqueda o tendencias—, es 404 sin preguntar al proveedor.** La ruta no
+ *   descubre portadas: sirve la de un título que ya se conoce.
  * - **El tipo de contenido sale de una lista blanca de tipos ráster.** Un
  *   `image/svg+xml` es un documento capaz de ejecutar guiones y se serviría desde
  *   nuestro origen; se rechaza con 415. La CSP lo detendría, pero esa defensa es
@@ -66,7 +66,13 @@ export function registerCoverRoute(app: Hono, options: CoverRouteOptions): void 
     const ref = c.req.param('ref')
 
     const detalle = await options.container.store.readAnime({ providerId, value: ref })
-    const portada = detalle?.value.coverUrl
+    // El detalle manda; si nadie abrió la ficha todavía, la portada puede salir
+    // de un listado cacheado —búsqueda o tendencias—, que ya trae su URL. Sin
+    // esta segunda vía, las tarjetas de la búsqueda pedían una imagen que esta
+    // ruta contestaba 404 hasta que alguien abría el título.
+    const portada =
+      detalle?.value.coverUrl ??
+      (await options.container.store.readCover({ providerId, value: ref }))
 
     if (portada === undefined) {
       return c.json(

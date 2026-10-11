@@ -116,6 +116,31 @@ describe('tokens de diseño', () => {
     expect(literals, `medidas sueltas: ${literals.join(', ')}`).toEqual([])
   })
 
+  /**
+   * El encabezado se apila por encima del contenido.
+   *
+   * No es un detalle de pintura: con la misma capa que una insignia o que el
+   * número del top, gana el que va después en el documento —el contenido— y la
+   * barra pegajosa se ve atravesada por lo que debería tapar. Pasó con la
+   * insignia «Destacado» y con los números del top, y se mide aquí porque el
+   * fallo no rompe ninguna prueba de componente: sólo se ve al desplazarse.
+   */
+  test('el encabezado se apila por encima del contenido', async () => {
+    const capa = /--layer-header:\s*(\d+)/.exec(await read(TOKENS))?.[1]
+
+    expect(capa, 'falta --layer-header en tokens.css').toBeDefined()
+
+    const capasDelContenido = [...(await read(SHELL)).matchAll(/z-index:\s*(\d+)/g)].map((match) =>
+      Number(match[1]),
+    )
+
+    expect(capasDelContenido.length).toBeGreaterThan(0)
+
+    for (const capaDelContenido of capasDelContenido) {
+      expect(Number(capa)).toBeGreaterThan(capaDelContenido)
+    }
+  })
+
   test('respeta la preferencia de movimiento reducido', async () => {
     expect(await read(TOKENS)).toContain('prefers-reduced-motion')
   })
