@@ -15,6 +15,7 @@
 import type { Database } from 'bun:sqlite'
 import {
   type AnimeSummary,
+  isFinished,
   modeSchema,
   type ProviderRef,
   StoreError,
@@ -145,11 +146,18 @@ export function createWatchRepository(db: Database) {
       return row?.id ?? 0
     },
 
-    /** Mueve la fila indicada. No crea ninguna. */
+    /**
+     * Mueve la fila indicada. No crea ninguna.
+     *
+     * `finished` se escribe aquí y no en una ruta aparte: la proporción vista
+     * sólo se conoce en el momento de guardar la posición, y calcularla después
+     * obligaría a releer todas las filas para marcarlas. El umbral vive en
+     * `core` porque lo lee también la interfaz que pinta el episodio.
+     */
     updateWatchPosition(eventId: number, positionS: number, durationS: number): void {
       const resultado = db
-        .query('UPDATE watch_event SET position_s = ?, duration_s = ? WHERE id = ?')
-        .run(positionS, durationS, eventId)
+        .query('UPDATE watch_event SET position_s = ?, duration_s = ?, finished = ? WHERE id = ?')
+        .run(positionS, durationS, isFinished(positionS, durationS) ? 1 : 0, eventId)
 
       if (resultado.changes === 0) {
         throw new StoreError({

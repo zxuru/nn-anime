@@ -32,6 +32,7 @@ import type {
   StreamRequest,
   StreamSource,
   WatchEventInput,
+  WatchedEpisode,
   WatchRecord,
 } from '@nn-anime/core'
 import type { z } from 'zod'
@@ -43,12 +44,14 @@ import { createEpisodesRepository } from './repositories/episodes'
 import { createFavoritesRepository } from './repositories/favorites'
 import { createFeedRepository } from './repositories/feed'
 import { createRecentRepository } from './repositories/recent'
+import { createRelatedRepository } from './repositories/related'
 import { createSearchRepository } from './repositories/search'
 import { createSearchHistoryRepository } from './repositories/search-history'
 import { createSettingsRepository } from './repositories/settings'
 import { createStreamRepository } from './repositories/stream'
 import { createTrendingRepository } from './repositories/trending'
 import { createWatchRepository } from './repositories/watch'
+import { createWatchedEpisodesRepository } from './repositories/watched-episodes'
 import type { Revalidator } from './revalidate'
 import { createWriteQueue, type WriteQueue } from './write-queue'
 
@@ -125,6 +128,20 @@ export interface CatalogStore {
   recordWatch(event: WatchEventInput): Promise<number>
   updateWatchPosition(eventId: number, positionS: number, durationS: number): Promise<void>
   listRecentlyWatched(limit: number): Promise<readonly WatchRecord[]>
+  /**
+   * Los hermanos de saga de un título, de lo que la base ya conoce.
+   *
+   * Lista vacía cuando no hay ninguno: quien pinta la sección necesita
+   * distinguir «no hay» de «no se pudo» para explicarse.
+   */
+  listRelated(ref: ProviderRef, limit: number): Promise<readonly AnimeSummary[]>
+  /**
+   * El estado de visionado de cada episodio, por número.
+   *
+   * Una fila por episodio —la del visionado más avanzado—, no una por visionado:
+   * el reproductor abre una fila por reproducción y la lista quiere el resultado.
+   */
+  listWatchedEpisodes(animeRef: ProviderRef): Promise<readonly WatchedEpisode[]>
   setFavorite(ref: ProviderRef, value: boolean): Promise<void>
   listFavorites(): Promise<readonly AnimeSummary[]>
   recordSearch(query: string, providerId: string, hits: number): Promise<void>
@@ -161,6 +178,8 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     readonly trending: ReturnType<typeof createTrendingRepository>
     readonly feed: ReturnType<typeof createFeedRepository>
     readonly recent: ReturnType<typeof createRecentRepository>
+    readonly related: ReturnType<typeof createRelatedRepository>
+    readonly watched: ReturnType<typeof createWatchedEpisodesRepository>
   }
 
   let repos: Repos | undefined
@@ -177,6 +196,8 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       trending: createTrendingRepository(db),
       feed: createFeedRepository(db),
       recent: createRecentRepository(db),
+      related: createRelatedRepository(db),
+      watched: createWatchedEpisodesRepository(db),
     })
 
   return {
@@ -252,6 +273,12 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async listRecentlyWatched(limit) {
       return of().watch.listRecentlyWatched(limit)
+    },
+    async listRelated(ref, limit) {
+      return of().related.list(ref, limit)
+    },
+    async listWatchedEpisodes(animeRef) {
+      return of().watched.list(animeRef)
     },
     async setFavorite(ref, value) {
       await queue.run(() => of().favorites.setFavorite(ref, value))

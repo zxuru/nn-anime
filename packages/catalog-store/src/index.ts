@@ -38,6 +38,12 @@ export {
 } from './repositories/episodes'
 export { createFavoritesRepository, type FavoritesStore } from './repositories/favorites'
 export {
+  byYearProximity,
+  createRelatedRepository,
+  RELATED_SCAN_LIMIT,
+  type RelatedStore,
+} from './repositories/related'
+export {
   createSearchRepository,
   type SearchStore,
 } from './repositories/search'
@@ -52,6 +58,10 @@ export {
   type StreamStore,
 } from './repositories/stream'
 export { createWatchRepository, type WatchStore } from './repositories/watch'
+export {
+  createWatchedEpisodesRepository,
+  type WatchedEpisodesStore,
+} from './repositories/watched-episodes'
 export {
   clearRevalidateError,
   createRevalidator,
