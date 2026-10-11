@@ -119,6 +119,16 @@ describe('el título que se deduce del episodio', () => {
     expect(animeRefOf('temporada/1#2')).toBe('temporada/1')
     expect(animeRefOf('titulo#con#dos')).toBe('titulo')
   })
+
+  test('el corte por barra mira la forma del número, no su tamaño', () => {
+    // T68 ya cubre las dos convenciones y la guarda de la barra que no precede a
+    // un número. Esto añade lo que queda: los ceros delante y un número largo.
+    // En esta ruta la referencia es **siempre** la de un episodio, así que un
+    // `temporada/2024` es el episodio 2024 y no un título llamado así.
+    expect(animeRefOf('dandadan/007')).toBe('dandadan')
+    expect(animeRefOf('temporada/2024')).toBe('temporada')
+    expect(animeRefOf('dandadan/')).toBe('dandadan/')
+  })
 })
 
 /** Tres episodios de un título, como los devuelve la lista. */
@@ -180,6 +190,27 @@ describe('los vecinos de un episodio', () => {
       previous: undefined,
       next: undefined,
     })
+  })
+
+  /**
+   * El caso que se veía en la pantalla: doce episodios servidos como
+   * `dandadan/N`, el último abierto y la flecha de atrás apagada.
+   *
+   * No era la lista —tenía los doce— sino que se pedía con la referencia del
+   * episodio, `dandadan/12`, y el proveedor no conocía ese título. Aquí se
+   * mide lo que la pantalla hace con la lista buena.
+   */
+  test('con la lista servida como `titulo/N`, el último tiene anterior', () => {
+    const doce = Array.from({ length: 12 }, (_, indice) => ({
+      ref: { providerId: 'jkanime', value: `dandadan/${indice + 1}` },
+      number: indice + 1,
+    }))
+
+    expect(neighbourEpisodes(doce, 'jkanime', 'dandadan/12')).toEqual({
+      previous: { providerId: 'jkanime', value: 'dandadan/11' },
+      next: undefined,
+    })
+    expect(episodePosition(doce, 'jkanime', 'dandadan/12')).toEqual({ number: 12, total: 12 })
   })
 })
 

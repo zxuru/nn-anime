@@ -175,9 +175,30 @@ export const messages: Messages = {
   'player.sinImagen':
     'El audio suena y la imagen no llega: el navegador no está decodificando el video. Prueba con «Ver en mpv».',
   'player.loading': 'Cargando el video…',
+  // El aviso de que el elemento ya reprodujo y se ha quedado sin datos. Va
+  // aparte de `player.loading` porque son dos esperas distintas: una al
+  // principio y otra a mitad, y decir «cargando» en la segunda parece que se
+  // perdió lo visto.
+  'player.buffering': 'Almacenando en búfer…',
   'player.error': 'No se pudo reproducir: {message}',
-  'player.shortcuts':
-    'Espacio o Enter: pausa. Flechas: 10 s y volumen. M: silencio. F: pantalla completa.',
+  // Los atajos, en dos piezas: la tecla —que se pinta como una tecla— y lo que
+  // hace. Antes eran una sola frase en la parte de abajo y no se leía como lo
+  // que es: teclas que se pueden pulsar.
+  'player.keys': 'Teclado',
+  'player.key.toggle': 'Pausa y reanudar',
+  'player.key.seek': 'Retroceder o avanzar 10 s',
+  'player.key.volume': 'Bajar o subir el volumen',
+  'player.key.mute': 'Silenciar',
+  'player.key.fullscreen': 'Pantalla completa',
+  'player.key.space': 'Espacio',
+  'player.key.enter': 'Enter',
+  'player.key.k': 'K',
+  'player.key.left': '←',
+  'player.key.right': '→',
+  'player.key.up': '↑',
+  'player.key.down': '↓',
+  'player.key.m': 'M',
+  'player.key.f': 'F',
   'player.attribution': 'Reproducción HLS con hls.js (licencia Apache 2.0).',
   'detail.synopsis': 'Sinopsis',
   'detail.meta': 'Año {year} · {status}',

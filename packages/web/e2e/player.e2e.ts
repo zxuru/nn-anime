@@ -111,6 +111,56 @@ test.describe('el reproductor', () => {
   })
 
   /**
+   * La espera, encima del video.
+   *
+   * El estado de «cargando» se cubre en la prueba del componente, que lo pilla en
+   * el primer render. Lo que sólo se puede medir aquí es la **otra** espera: la
+   * que empieza a mitad de reproducción, cuando el elemento se queda sin datos.
+   * Se provoca desde la página porque es un evento del elemento y no algo que se
+   * pueda pedir por la interfaz; lo que se mide es nuestro oído, no el evento.
+   */
+  test('la espera a mitad se dice encima del video, y se va al volver', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    const video = page.locator('video')
+    await expect(video).toHaveAttribute('src', /\/stream\//, { timeout: 10_000 })
+
+    // La barra se habilita con la duración, que es la señal de que el elemento ya
+    // trajo los metadatos: hasta ahí el cartel es el de «cargando».
+    await expect(page.locator('.player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const espera = page.locator('.player__wait')
+    await expect(espera).toHaveCount(0)
+
+    await video.evaluate((elemento) => elemento.dispatchEvent(new Event('waiting')))
+    await expect(espera).toBeVisible()
+    await expect(espera).toContainText(/búfer/i)
+
+    await video.evaluate((elemento) => elemento.dispatchEvent(new Event('playing')))
+    await expect(espera).toHaveCount(0)
+  })
+
+  /**
+   * La pantalla de reproducción no es texto que se copia.
+   *
+   * Se mide el valor **calculado** en un rótulo y no la regla escrita: lo que
+   * importa es que la herencia llegue al hijo, que es donde estaba el texto que
+   * se seleccionaba al arrastrar por encima.
+   */
+  test('la pantalla de reproducción no se selecciona', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%232')
+
+    const posicion = page.locator('.watch__nav-pos')
+    await expect(posicion).toHaveText('Episodio 2 de 12')
+
+    expect(await posicion.evaluate((elemento) => getComputedStyle(elemento).userSelect)).toBe(
+      'none',
+    )
+  })
+
+  /**
    * Las flechas de episodio.
    *
    * Se entra por la ficha y no por una dirección escrita a mano: el camino que
