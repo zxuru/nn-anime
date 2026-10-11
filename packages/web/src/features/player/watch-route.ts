@@ -20,7 +20,14 @@ export const PLAY_MODES = ['sub', 'dub'] as const
 
 export type PlayMode = (typeof PLAY_MODES)[number]
 
-function isPlayMode(value: string | null): value is PlayMode {
+/**
+ * ¿Es uno de los modos que esta pantalla sabe pedir?
+ *
+ * El modelo conoce más modos que los que el selector ofrece, así que quien traiga
+ * un modo de fuera —la fila de «continuar viendo», por ejemplo— tiene que
+ * comprobarlo antes de escribir una dirección con él.
+ */
+export function isPlayMode(value: string | null): value is PlayMode {
   return value !== null && (PLAY_MODES as readonly string[]).includes(value)
 }
 
@@ -29,11 +36,21 @@ function isPlayMode(value: string | null): value is PlayMode {
  *
  * La referencia se codifica: puede llevar barras y almohadillas —el fixture usa
  * `aurora-nocturna#3`— y sin escapar, la ruta se parte en trozos.
+ *
+ * La consulta se compone aquí y no en quien llama: el modo y el segundo donde se
+ * dejó son la misma dirección, y con cada mitad escrita por su lado el día que una
+ * cambie la otra sigue escribiendo la vieja.
  */
-export function watchPath(providerId: string, ref: string, mode?: PlayMode): string {
+export function watchPath(providerId: string, ref: string, mode?: PlayMode, at?: number): string {
   const base = `/watch/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}`
+  const consulta = new URLSearchParams()
 
-  return mode === undefined ? base : `${base}?mode=${mode}`
+  if (mode !== undefined) consulta.set('mode', mode)
+  if (at !== undefined && Number.isInteger(at) && at > 0) consulta.set('at', String(at))
+
+  const query = consulta.toString()
+
+  return query === '' ? base : `${base}?${query}`
 }
 
 /** El modo pedido en una dirección, o nada si no pide ninguno de los conocidos. */
@@ -42,6 +59,28 @@ export function modeFromPath(path: string): PlayMode | undefined {
   const modo = new URLSearchParams(consulta).get('mode')
 
   return isPlayMode(modo) ? modo : undefined
+}
+
+/**
+ * El segundo desde el que seguir, si la dirección lo trae.
+ *
+ * La fila de «continuar viendo» sabe dónde se dejó y lo pone en el enlace, así
+ * que la pantalla de reproducción no tiene que volver a preguntárselo a nadie:
+ * el dato viaja con el enlace y sigue ahí si se comparte. Sin esto, darle a
+ * reproducir empezaba en el segundo cero y la posición registrada no servía para
+ * nada, que es justo lo que hace inútil la fila.
+ *
+ * Un valor que no sea un entero positivo no se interpreta: una dirección escrita
+ * a mano no puede dejar el reproductor en un segundo imposible.
+ */
+export function startAtFromPath(path: string): number | undefined {
+  const consulta = path.split('?')[1] ?? ''
+  const crudo = new URLSearchParams(consulta).get('at')
+  if (crudo === null) return undefined
+
+  const segundos = Number(crudo)
+
+  return Number.isInteger(segundos) && segundos > 0 ? segundos : undefined
 }
 
 /**

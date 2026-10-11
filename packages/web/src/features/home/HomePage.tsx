@@ -108,6 +108,14 @@ export function HomePage(props: HomePageProps): ReactNode {
         </p>
       ) : null}
 
+      {/*
+        «Continuar viendo» va la primera, antes que el top y que las novedades.
+        Es la única fila que pide una acción concreta —retomar lo que se dejó a
+        medias— y lo demás es descubrir: quien entra a seguir un episodio no
+        debería bajarlo a buscar entre las recomendaciones.
+      */}
+      <ContinueRow items={filas.continueWatching} />
+
       {/* El top es el de la fuente —su orden y su puesto— y no el ranking del
           motor: el motor ya tiene su sitio, el destacado y el panel de abajo. */}
       <TopRow items={filas.trending} />
@@ -115,7 +123,6 @@ export function HomePage(props: HomePageProps): ReactNode {
       <FeedRow items={filas.feed} />
       <RecentRow items={filas.recent} />
 
-      <ContinueRow items={filas.continueWatching} />
       <FavoritesRow items={filas.favorites} />
 
       <GenreRow genres={generos} />

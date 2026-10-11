@@ -6,13 +6,14 @@
  * deja al usuario con una página que cambia de forma sin motivo, y sin saber que
  * existe una función que no está usando.
  *
- * La fila de continuar viendo lleva la posición y **no reanuda sola**: el enlace
- * lleva a la ficha del episodio, y quien decide seguir donde lo dejó es el
- * reproductor cuando se le da a reproducir. Reanudar al entrar es lo que hace que
- * alguien vea el final de un episodio sin querer.
+ * La fila de continuar viendo lleva la posición **en el enlace**: la tarjeta sabe
+ * dónde se dejó y se lo dice al reproductor, que arranca ahí. Con la posición
+ * sólo en el registro del servidor, darle a reproducir empezaba en el segundo
+ * cero y la fila no servía para continuar nada.
  */
 
 import type { ContinueWatchingItem } from '@nn-anime/core/api'
+import { isPlayMode, watchPath } from '../player/watch-route'
 
 /** La posición, en texto corto. */
 export function resumeLabel(item: ContinueWatchingItem): string {
@@ -24,9 +25,23 @@ export function resumeLabel(item: ContinueWatchingItem): string {
     : `${minutos}:${String(segundos).padStart(2, '0')}`
 }
 
-/** La ruta a la que lleva una fila de continuar viendo. */
+/**
+ * La ruta a la que lleva una fila de continuar viendo.
+ *
+ * Con el modo en el que se estaba viendo y el segundo donde se dejó: los dos
+ * datos que hacen que la tarjeta continúe el episodio y no lo empiece. Un modo
+ * que el reproductor no sepa pedir no viaja: la dirección se escribe con los
+ * modos que existen, no con lo que traiga la fila.
+ */
 export function continuePath(item: ContinueWatchingItem): string {
-  return `/watch/${encodeURIComponent(item.animeRef.providerId)}/${encodeURIComponent(item.episodeRef.value)}`
+  const modo = isPlayMode(item.mode) ? item.mode : undefined
+
+  return watchPath(
+    item.animeRef.providerId,
+    item.episodeRef.value,
+    modo,
+    Math.floor(item.positionS),
+  )
 }
 
 /** La proporción, como porcentaje entero para la barra. */

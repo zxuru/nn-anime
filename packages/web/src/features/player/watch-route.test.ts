@@ -5,6 +5,7 @@ import {
   modeFromPath,
   neighbourEpisodes,
   PLAY_MODES,
+  startAtFromPath,
   watchPath,
 } from './watch-route'
 
@@ -42,6 +43,27 @@ describe('el modo que pide una dirección', () => {
   test('un modo inventado no se acepta', () => {
     expect(modeFromPath('/watch/fixture/x?mode=raw')).toBeUndefined()
     expect(modeFromPath('/watch/fixture/x?mode=')).toBeUndefined()
+  })
+})
+
+describe('el segundo desde el que seguir', () => {
+  test('lo lee de la consulta, junto al modo', () => {
+    expect(startAtFromPath('/watch/fixture/x?mode=dub&at=709')).toBe(709)
+    expect(startAtFromPath('/watch/fixture/x?at=30')).toBe(30)
+  })
+
+  test('sin él, se empieza por el principio', () => {
+    expect(startAtFromPath('/watch/fixture/x?mode=sub')).toBeUndefined()
+    expect(startAtFromPath('/watch/fixture/x')).toBeUndefined()
+  })
+
+  test('un valor que no es un segundo real no se interpreta', () => {
+    // Una dirección escrita a mano no puede dejar el reproductor en un segundo
+    // que no existe, ni en medio de un segundo.
+    expect(startAtFromPath('/watch/fixture/x?at=0')).toBeUndefined()
+    expect(startAtFromPath('/watch/fixture/x?at=-5')).toBeUndefined()
+    expect(startAtFromPath('/watch/fixture/x?at=12.5')).toBeUndefined()
+    expect(startAtFromPath('/watch/fixture/x?at=abc')).toBeUndefined()
   })
 })
 

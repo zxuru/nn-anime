@@ -62,8 +62,16 @@ describe('la fila de continuar viendo', () => {
     expect(progressPercent(item({ ratio: -1 }))).toBe(0)
   })
 
-  test('el enlace va al episodio, escapado', () => {
-    expect(continuePath(item())).toBe('/watch/fixture/aurora-nocturna%233')
+  test('el enlace va al episodio, escapado, con el modo y el segundo donde se dejó', () => {
+    expect(continuePath(item())).toBe('/watch/fixture/aurora-nocturna%233?mode=sub&at=720')
+  })
+
+  test('el modo con el que se veía viaja al reproductor', () => {
+    expect(continuePath(item({ mode: 'dub' }))).toContain('mode=dub')
+  })
+
+  test('sin posición no se inventa un segundo: se empieza por el principio', () => {
+    expect(continuePath(item({ positionS: 0 }))).toBe('/watch/fixture/aurora-nocturna%233?mode=sub')
   })
 
   test('la tarjeta lleva su barra de progreso', () => {
@@ -241,5 +249,23 @@ describe('la home', () => {
     const html = render(<HomePage />)
 
     expect(html).toContain('Recomendado para ti')
+  })
+
+  /**
+   * El orden de las filas.
+   *
+   * «Continuar viendo» va la primera: es lo único de la página que pide una
+   * acción concreta, y quien entra a seguir un episodio no debería buscarlo
+   * entre las recomendaciones. Se mide sobre el marcado, que es donde vive el
+   * orden, y no sobre una captura.
+   */
+  test('«continuar viendo» es la primera fila, antes que el top y las novedades', () => {
+    const html = render(<HomePage />)
+    const seguir = html.indexOf('Continuar viendo')
+
+    expect(seguir).toBeGreaterThan(-1)
+    for (const despues of ['Top de la fuente', 'Novedades', 'Último añadido', 'Tus favoritos']) {
+      expect(seguir, despues).toBeLessThan(html.indexOf(despues))
+    }
   })
 })

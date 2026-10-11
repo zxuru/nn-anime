@@ -165,22 +165,27 @@ test.describe('el reproductor', () => {
   })
 
   /**
-   * El visionado queda registrado con su **duración**.
+   * El visionado queda registrado con su **duración**, una sola vez por episodio
+   * y con el segundo donde se dejó.
    *
-   * El servidor calcula con la posición y la duración la proporción vista, y
-   * descarta lo que no llega al 2 %. Sin duración, todo valía cero y la fila de
-   * «continuar viendo» se quedaba vacía por mucho que se hubiera visto: la
-   * pantalla mandaba la posición y un cero en lugar de la duración del elemento.
+   * Tres cosas que se miden aquí porque sólo se ven con el navegador de por medio:
    *
-   * La comprobación va contra lo que devuelve la ruta y contra la fila pintada,
-   * porque el fallo estuvo justo en el puente entre las dos.
+   * - La duración: el servidor calcula con la posición y la duración la proporción
+   *   vista, y descarta lo que no llega al 2 %. Sin duración, todo valía cero y la
+   *   fila se quedaba vacía. La pantalla mandaba la posición y un cero.
+   * - Una tarjeta por episodio: cada reproducción abre su propia fila, así que
+   *   volver a abrir el episodio pintaba la misma tarjeta repetida.
+   * - Y la tarjeta **continúa**: el enlace lleva el segundo, y el video arranca
+   *   ahí en vez de en el principio.
    *
    * Se entra por la ficha y no por una dirección escrita a mano: el visionado se
    * registra contra el **episodio**, y sólo la lista de la ficha da una
    * referencia de episodio con su número. Con la del título a secas, el alta
    * responde 404 y no queda nada que continuar.
    */
-  test('lo que se ve a medias aparece en «continuar viendo»', async ({ page }) => {
+  test('lo visto a medias aparece en «continuar viendo», sin duplicarse y por donde se dejó', async ({
+    page,
+  }) => {
     await entrar(page)
     await page.goto('/anime/fixture/aurora-nocturna')
 
@@ -197,34 +202,54 @@ test.describe('el reproductor', () => {
     await page.waitForTimeout(2000)
     await page.getByRole('button', { name: 'Pausa' }).click()
 
-    await expect
-      .poll(
-        async () => {
-          const respuesta = await page.request.get('/api/watch/recent')
-          const cuerpo = (await respuesta.json()) as { items: { durationS: number }[] }
+    // Otra vuelta al mismo episodio: es lo que abría una segunda fila y pintaba
+    // la misma tarjeta dos veces en la home.
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await page.waitForTimeout(1500)
+    await page.getByRole('button', { name: 'Pausa' }).click()
 
-          return cuerpo.items.length
-        },
-        { timeout: 10_000 },
-      )
+    const recientes = async (): Promise<{ items: { durationS: number; positionS: number }[] }> =>
+      (await (await page.request.get('/api/watch/recent')).json()) as {
+        items: { durationS: number; positionS: number }[]
+      }
+
+    await expect
+      .poll(async () => (await recientes()).items.length, { timeout: 10_000 })
       .toBeGreaterThan(0)
 
-    const cuerpo = (await (await page.request.get('/api/watch/recent')).json()) as {
-      items: { durationS: number; positionS: number }[]
-    }
-    const item = cuerpo.items[0]
+    const items = (await recientes()).items
+    const item = items[0]
 
+    expect(items).toHaveLength(1)
     // La duración es lo que faltaba: con cero, la fila descarta el visionado.
     expect(item?.durationS).toBeGreaterThan(0)
     expect(item?.positionS).toBeGreaterThan(0)
 
-    // Y en la home, la tarjeta con su barra: la fila entera se llenaba antes.
+    // En la home, la tarjeta con su barra, y la fila **la primera**: es lo único
+    // de la página que retoma algo a medias.
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Continuar viendo' })).toBeVisible()
     await expect(page.getByText('Nada a medias')).toHaveCount(0)
+    expect((await page.locator('.section__title').allTextContents())[0]).toBe('Continuar viendo')
 
     const fila = page.locator('.section').filter({ hasText: 'Continuar viendo' })
     await expect(fila.locator('progress')).toBeVisible()
     await expect(fila.locator('.poster__title').first()).toHaveText('Aurora Nocturna')
+
+    // Y la tarjeta continúa el episodio: el enlace lleva el segundo y el video
+    // arranca ahí, no en el cero.
+    await fila.locator('.poster__link').first().click()
+    await expect(page).toHaveURL(/at=/)
+
+    const reanudado = page.locator('video')
+    await expect(reanudado).toHaveAttribute('src', /\/stream\//, { timeout: 10_000 })
+    await expect
+      .poll(
+        async () => await reanudado.evaluate((elemento: HTMLVideoElement) => elemento.currentTime),
+        {
+          timeout: 10_000,
+        },
+      )
+      .toBeGreaterThan((item?.positionS ?? 0) - 1)
   })
 })

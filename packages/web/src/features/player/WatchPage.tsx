@@ -33,6 +33,7 @@ import {
   modeFromPath,
   neighbourEpisodes,
   PLAY_MODES,
+  startAtFromPath,
   watchPath,
 } from './watch-route'
 
@@ -81,7 +82,10 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   // una elección que acaba de hacer. Dentro de la pantalla manda este selector.
   const path = usePath()
   const [modo, setModo] = useState<'sub' | 'dub'>(() => modeFromPath(path) ?? 'sub')
-  const [posicion, setPosicion] = useState(0)
+  // El segundo donde se dejó, si la dirección lo trae: la tarjeta de «continuar
+  // viendo» lo pone en su enlace. Arrancar aquí y no en el cero es lo que hace
+  // que la fila sirva para seguir viendo y no para volver a empezar.
+  const [posicion, setPosicion] = useState(() => startAtFromPath(path) ?? 0)
 
   // El registro del visionado: alta al reproducir de verdad, avance cada 15 s y
   // al pausar, y la posición final al desmontar o cerrar la pestaña.
