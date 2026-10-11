@@ -26,8 +26,8 @@ import { t } from '../../i18n'
 import { useNavigate, usePath } from '../../router'
 import { ResultGrid } from './ResultGrid'
 import {
-  alsoInByRef,
   createDefaultPrefetcher,
+  groupResults,
   type Prefetcher,
   type SearchState,
   useSearchStream,
@@ -96,6 +96,10 @@ export function searchPath(term: string, providers: readonly string[] = []): str
  * Sólo habla cuando el flujo cierra: anunciar cada proveedor según llega
  * convertiría la búsqueda en una locución interminable. Y si no hay ninguno
  * activo lo dice, porque el silencio no distingue «todavía no» de «no hay nada».
+ *
+ * El recuento es de **obras**, no de respuestas: con cuatro tarjetas en pantalla,
+ * decir «trece resultados» porque dos proveedores devolvieron lo mismo es
+ * contar lo que no se ve.
  */
 export function announce(
   state: SearchState,
@@ -116,8 +120,11 @@ export function announce(
       : t(DEFAULT_LOCALE, 'search.loading')
   }
 
-  return t(DEFAULT_LOCALE, 'search.resultsCount', {
-    count: state.results.length,
+  const obras = groupResults(state.results).length
+  const clave = obras === 1 ? 'search.resultsCountOne' : 'search.resultsCount'
+
+  return t(DEFAULT_LOCALE, clave, {
+    count: obras,
     providers: new Set(state.results.map((result) => result.ref.providerId)).size,
   })
 }
@@ -152,8 +159,6 @@ export function SearchPage(props: SearchPageProps): ReactNode {
 
     navigate.replace(searchPath(aplicado, proveedores))
   }, [aplicado, filtro, path, navigate, proveedores])
-
-  const tambien = useMemo(() => alsoInByRef(state.results), [state.results])
 
   return (
     <section>
@@ -202,7 +207,6 @@ export function SearchPage(props: SearchPageProps): ReactNode {
         results={state.results}
         query={aplicado}
         providerLabels={labels}
-        alsoIn={tambien}
         onPreview={(result) => prefetch.hover(result.ref.providerId, result.ref.value)}
         onPreviewEnd={() => prefetch.leave()}
       />

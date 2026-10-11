@@ -102,50 +102,38 @@ export interface ResultGroup {
   readonly key: string
   /** Todos los resultados del grupo. **No se fusionan**: cada ref es la suya. */
   readonly results: readonly SearchResult[]
-  /** Proveedores distintos que ofrecen ese título. */
-  readonly providers: readonly string[]
 }
 
 /**
  * Agrupa por título normalizado más año.
  *
- * Es una **pista visual**, no una fusión: el spec lo pide así porque dos
- * proveedores con el mismo título no tienen por qué ser la misma ficha, y
- * mezclar sus referencias haría que abrir una tarjeta llevara al sitio
- * equivocado. Cada resultado conserva su proveedor y su referencia.
+ * Una tarjeta por obra: dos proveedores que devuelven el mismo título en el
+ * mismo año son la misma obra, y pintar dos tarjetas idénticas es el «contenido
+ * repetido» que se reportó. **No se fusionan las referencias**: quien elige la
+ * fuente es el usuario, con un enlace por proveedor, porque abrir la tarjeta
+ * lleva a una ficha concreta y no a una media.
  */
 export function groupResults(results: readonly SearchResult[]): readonly ResultGroup[] {
-  const grupos = new Map<
-    string,
-    { readonly results: SearchResult[]; readonly providers: Set<string> }
-  >()
+  const grupos = new Map<string, SearchResult[]>()
 
   for (const result of results) {
     const key = `${normalizeTitle(result.title)}|${result.year ?? ''}`
-    const grupo = grupos.get(key) ?? { results: [], providers: new Set<string>() }
-    grupo.results.push(result)
-    grupo.providers.add(result.ref.providerId)
+    const grupo = grupos.get(key) ?? []
+    grupo.push(result)
     grupos.set(key, grupo)
   }
 
-  return [...grupos.entries()].map(([key, grupo]) => ({
-    key,
-    results: grupo.results,
-    providers: [...grupo.providers],
-  }))
+  return [...grupos.entries()].map(([key, results]) => ({ key, results }))
 }
 
-/** Cuántos proveedores ofrecen cada referencia, para la pista de la tarjeta. */
-export function alsoInByRef(results: readonly SearchResult[]): ReadonlyMap<string, number> {
-  const cuenta = new Map<string, number>()
-
-  for (const grupo of groupResults(results)) {
-    for (const result of grupo.results) {
-      cuenta.set(`${result.ref.providerId}:${result.ref.value}`, grupo.providers.length)
-    }
-  }
-
-  return cuenta
+/**
+ * Los demás proveedores que ofrecen la misma obra, sin el de la tarjeta.
+ *
+ * Es el «selector de proveedor»: cada uno es un enlace a la ficha de esa fuente,
+ * así que la obra sale una vez y las fuentes siguen siendo elegibles.
+ */
+export function alternativas(grupo: ResultGroup, providerId: string): readonly SearchResult[] {
+  return grupo.results.filter((result) => result.ref.providerId !== providerId)
 }
 
 /** Los ids de los proveedores activos: los que la búsqueda va a consultar. */

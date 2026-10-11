@@ -26,10 +26,12 @@ export const messages: Messages = {
   'search.year': '{year}',
   'search.loading': 'Buscando…',
   'search.resultsCount': '{count} resultados de {providers} proveedores.',
+  'search.resultsCountOne': '1 resultado de {providers} proveedores.',
   'search.noProviders': 'No hay ningún proveedor activo para esta búsqueda.',
   'search.providerFailed': '{provider}: {message}',
   'search.failed': 'No se pudo buscar: {message}',
-  'search.alsoIn': 'También en {count} proveedores',
+  'search.alsoIn': 'También en',
+  'search.alsoInItem': '{title} en {provider}',
 
   'home.loading': 'Cargando tu inicio…',
   'home.refreshing': 'Actualizando…',

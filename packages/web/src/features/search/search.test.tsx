@@ -98,6 +98,19 @@ describe('anuncio para lectores de pantalla', () => {
 
     expect(announce(estado, [])).toContain('sin conexión')
   })
+
+  test('la misma obra en dos proveedores cuenta como un resultado, no como dos', () => {
+    const estado = {
+      results: [resultado('uno', 'a', 'Aurora'), resultado('dos', 'b', 'Aurora')],
+      pending: [],
+      errors: [],
+      done: true,
+    }
+
+    // Contar respuestas en lugar de obras diría «2 resultados» con una sola
+    // tarjeta en pantalla.
+    expect(announce(estado, ['uno', 'dos'])).toContain('1 resultado de 2 proveedores')
+  })
 })
 
 describe('retardo', () => {
@@ -213,6 +226,40 @@ describe('rejilla y estado vacío', () => {
     expect(html).toContain('<ul class="grid" aria-label="Resultados"')
     expect(html.match(/<li class="grid__item"/g)).toHaveLength(2)
     expect(html).toContain('href="/anime/otro/t2"')
+  })
+
+  test('dos proveedores con la misma obra pintan una tarjeta, con la otra fuente enlazada', () => {
+    const html = render(
+      <ResultGrid
+        query="kimetsu"
+        results={[
+          resultado('jkanime', 'kimetsu', 'Kimetsu no Yaiba'),
+          resultado('animeav1', 'kimetsu-no-yaiba', 'Kimetsu no Yaiba'),
+        ]}
+        providerLabels={
+          new Map([
+            ['jkanime', 'JKANIME'],
+            ['animeav1', 'ANIMEAV1'],
+          ])
+        }
+      />,
+    )
+
+    // Un `<li>` por obra: dos tarjetas idénticas son el contenido repetido que
+    // se reportó. La mutación que quite la agrupación de `ResultGrid` deja esto
+    // en rojo con dos.
+    expect(html.match(/<li class="grid__item"/g)).toHaveLength(1)
+    expect(html).toContain('href="/anime/jkanime/kimetsu"')
+    expect(html).toContain('href="/anime/animeav1/kimetsu-no-yaiba"')
+    expect(html).toContain('También en')
+    expect(html).toContain('>ANIMEAV1</a>')
+  })
+
+  test('sin duplicados no aparece el «también en»', () => {
+    const html = render(<ResultGrid query="uno" results={[resultado('mio', 't1', 'Uno')]} />)
+
+    expect(html).not.toContain('También en')
+    expect(html).not.toContain('card__extra')
   })
 
   test('sin resultados dice qué consulta no encontró nada', () => {
