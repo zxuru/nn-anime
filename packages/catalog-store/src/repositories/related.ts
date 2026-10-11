@@ -33,11 +33,13 @@ import type { Database } from 'bun:sqlite'
 import {
   type AnimeSummary,
   franchiseTitle,
+  namesOf,
   normalizeQuery,
   type ProviderRef,
   sagaTitle,
-  titleKey,
+  sameWork,
   titleKindSchema,
+  type WorkNames,
 } from '@nn-anime/core'
 
 /**
@@ -59,48 +61,68 @@ export type RelatedScope = 'saga' | 'franchise'
 export const RELATED_SCAN_LIMIT = 1000
 
 /**
- * Los candidatos: lo que la base conoce y empieza por la misma palabra.
+ * Los candidatos: lo que la base conoce y empieza por alguna de las palabras de
+ * la obra.
  *
- * La palabra la pone el título de la ficha, así que el patrón llega como
- * parámetro. Los tres listados comparten forma —una `FeedEntry` es un
- * `SearchResult` con fecha opcional—, y por eso la misma expresión sirve para los
- * tres. `json_each` expande el array guardado en cada fila.
+ * Las palabras las pone el título de la ficha, y son **hasta tres** —los nombres
+ * con los que la obra se reconoce—, porque la misma obra puede estar en la base
+ * con el nombre corto en una fuente y el título original en la otra: con una
+ * sola palabra, la temporada que la otra fuente publica con el nombre largo
+ * queda fuera de la lectura. Los patrones que sobran repiten el primero: es la
+ * misma comparación y una sola sentencia preparada, que es lo que el spec mide.
+ *
+ * Los tres listados comparten forma —una `FeedEntry` es un `SearchResult` con
+ * fecha opcional—, y por eso la misma expresión sirve para los tres. `json_each`
+ * expande el array guardado en cada fila.
  */
 const CANDIDATOS = `
   WITH conocidos AS (
-    SELECT provider_id, provider_ref AS ref, title, cover_url, year,
+    SELECT provider_id, provider_ref AS ref, title, title_alt, cover_url, year,
            json_extract(raw_json, '$.kind') AS kind
       FROM anime
-     WHERE title LIKE ?
+     WHERE title LIKE ? OR title LIKE ? OR title LIKE ?
     UNION ALL
     SELECT c.provider_id, json_extract(j.value, '$.ref.value'), json_extract(j.value, '$.title'),
-           json_extract(j.value, '$.coverUrl'), json_extract(j.value, '$.year'),
-           json_extract(j.value, '$.kind')
+           json_extract(j.value, '$.titleAlt'), json_extract(j.value, '$.coverUrl'),
+           json_extract(j.value, '$.year'), json_extract(j.value, '$.kind')
       FROM search_cache c, json_each(c.results_json) AS j
      WHERE json_extract(j.value, '$.title') LIKE ?
+        OR json_extract(j.value, '$.title') LIKE ?
+        OR json_extract(j.value, '$.title') LIKE ?
     UNION ALL
     SELECT c.provider_id, json_extract(j.value, '$.ref.value'), json_extract(j.value, '$.title'),
-           json_extract(j.value, '$.coverUrl'), json_extract(j.value, '$.year'),
-           json_extract(j.value, '$.kind')
+           json_extract(j.value, '$.titleAlt'), json_extract(j.value, '$.coverUrl'),
+           json_extract(j.value, '$.year'), json_extract(j.value, '$.kind')
       FROM trending_cache c, json_each(c.results_json) AS j
      WHERE json_extract(j.value, '$.title') LIKE ?
+        OR json_extract(j.value, '$.title') LIKE ?
+        OR json_extract(j.value, '$.title') LIKE ?
     UNION ALL
     SELECT c.provider_id, json_extract(j.value, '$.ref.value'), json_extract(j.value, '$.title'),
-           json_extract(j.value, '$.coverUrl'), json_extract(j.value, '$.year'),
-           json_extract(j.value, '$.kind')
+           json_extract(j.value, '$.titleAlt'), json_extract(j.value, '$.coverUrl'),
+           json_extract(j.value, '$.year'), json_extract(j.value, '$.kind')
       FROM feed_cache c, json_each(c.results_json) AS j
      WHERE json_extract(j.value, '$.title') LIKE ?
+        OR json_extract(j.value, '$.title') LIKE ?
+        OR json_extract(j.value, '$.title') LIKE ?
   )
-  SELECT provider_id, ref, title, cover_url, year, kind
+  SELECT provider_id, ref, title, title_alt, cover_url, year, kind
     FROM conocidos
    WHERE ref IS NOT NULL AND title IS NOT NULL
    ORDER BY year DESC, title
    LIMIT ?`
 
+/** Los prefiltros de una rama: huecos fijos, sin `undefined` que comprobar. */
+type Rama = readonly [string, string, string]
+
+/** Los de las cuatro ramas del `UNION ALL`, en el orden en que la consulta los pide. */
+type Prefiltros = readonly [...Rama, ...Rama, ...Rama, ...Rama]
+
 interface RelatedRow {
   readonly provider_id: string
   readonly ref: string
   readonly title: string
+  readonly title_alt: string | null
   readonly cover_url: string | null
   readonly year: number | null
   readonly kind: string | null
@@ -108,6 +130,7 @@ interface RelatedRow {
 
 interface OwnRow {
   readonly title: string
+  readonly title_alt: string | null
   readonly year: number | null
 }
 
@@ -129,6 +152,47 @@ function kindOf(raw: string | null): AnimeSummary['kind'] {
 /** La primera palabra de la saga. Es el único prefiltro que SQLite puede hacer. */
 function primeraPalabra(saga: string): string {
   return saga.split(' ')[0] ?? ''
+}
+
+/** Los nombres comparables de una fila: el título, su alternativa y su referencia. */
+function nombresDe(fila: {
+  readonly title: string
+  readonly title_alt: string | null
+  readonly ref: string
+}): WorkNames {
+  return namesOf({
+    title: fila.title,
+    ...(fila.title_alt === null ? {} : { titleAlt: fila.title_alt }),
+    ref: fila.ref,
+  })
+}
+
+/** Las sagas con las que se reconoce una obra: una por cada nombre suyo. */
+function sagasDe(names: WorkNames, clave: (title: string) => string): ReadonlySet<string> {
+  return new Set(names.variants.map(clave).filter((saga) => saga !== ''))
+}
+
+/**
+ * Los prefiltros de la consulta, o `undefined` si no hay ninguno.
+ *
+ * Cada rama del `UNION ALL` repite los mismos tres, y los huecos que sobran
+ * repiten el primer patrón: el `LIKE` da lo mismo repetido y así la sentencia
+ * preparada es una sola, con el número de parámetros fijo.
+ */
+function patronesDe(sagas: ReadonlySet<string>): Prefiltros | undefined {
+  const palabras = [
+    ...new Set([...sagas].map((saga) => primeraPalabra(saga)).filter((palabra) => palabra !== '')),
+  ].slice(0, 3)
+  const primera = palabras[0]
+  if (primera === undefined) return undefined
+
+  const rama: Rama = [
+    `${palabras[0] ?? primera}%`,
+    `${palabras[1] ?? primera}%`,
+    `${palabras[2] ?? primera}%`,
+  ]
+
+  return [...rama, ...rama, ...rama, ...rama]
 }
 
 /**
@@ -180,11 +244,26 @@ export function byYearProximity(year: number | undefined) {
 
 export function createRelatedRepository(db: Database) {
   const selectPropia = db.query<OwnRow, [string, string]>(
-    'SELECT title, year FROM anime WHERE provider_id = ? AND provider_ref = ?',
+    'SELECT title, title_alt, year FROM anime WHERE provider_id = ? AND provider_ref = ?',
   )
-  const selectCandidatos = db.query<RelatedRow, [string, string, string, string, number]>(
-    CANDIDATOS,
-  )
+  const selectCandidatos = db.query<
+    RelatedRow,
+    [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      number,
+    ]
+  >(CANDIDATOS)
 
   return {
     /**
@@ -194,6 +273,11 @@ export function createRelatedRepository(db: Database) {
      * «Dandadan» con «Dandadan 2nd Season». `'franchise'` empareja por franquicia
      * y junta lo que la fuente nombra como secuela con otro nombre: «Naruto» con
      * «Naruto Shippuden», «Dragon Ball» con «Dragon Ball Z».
+     *
+     * La comparación es contra **todas** las sagas de la obra —una por cada
+     * nombre con el que se la reconoce— y no sólo contra la del título que la
+     * ficha enseña. Es lo que junta la temporada que la otra fuente publica con
+     * el título original con la ficha que la llama por el nombre corto.
      *
      * Lista vacía cuando no hay ninguno: «no hay» no es «no se pudo», y quien
      * pinta la sección necesita distinguirlo para explicarse.
@@ -209,17 +293,12 @@ export function createRelatedRepository(db: Database) {
       // obra y el orden son los mismos. Con dos lecturas paralelas, la mitad de
       // las reglas se quedaría sin aplicar en una de las dos.
       const clave = scope === 'franchise' ? franchiseTitle : sagaTitle
-      const saga = clave(propia.title)
-      const palabra = primeraPalabra(saga)
-      if (palabra === '') return []
+      const nombres = nombresDe({ ...propia, ref: ref.value })
+      const sagas = sagasDe(nombres, clave)
+      const patrones = patronesDe(sagas)
+      if (patrones === undefined) return []
 
-      const patron = `${palabra}%`
-      const filas = selectCandidatos.all(patron, patron, patron, patron, RELATED_SCAN_LIMIT)
-
-      // La misma obra en otro proveedor no es un hermano de saga: es la misma
-      // ficha, y repetirla en la sección sería el «contenido repetido» que se
-      // reportó. La comparación es por título normalizado, no por referencia.
-      const obraPropia = normalizeQuery(propia.title)
+      const filas = selectCandidatos.all(...patrones, RELATED_SCAN_LIMIT)
 
       // Una obra, una fila: la misma entrega en dos proveedores no puede salir
       // dos veces en la sección. La clave es el título tal cual —no la saga—,
@@ -227,11 +306,19 @@ export function createRelatedRepository(db: Database) {
       const porObra = new Map<string, RelatedRow>()
       for (const fila of filas) {
         if (fila.provider_id === ref.providerId && fila.ref === ref.value) continue
-        if (clave(fila.title) !== saga) continue
+
+        const nombresFila = nombresDe(fila)
+
+        // La misma obra en otro proveedor no es un hermano de saga: es la misma
+        // ficha, y repetirla en la sección sería el «contenido repetido» que se
+        // reportó. La identidad la resuelve `sameWork`, que junta las dos fichas
+        // aunque cada fuente las nombre distinto.
+        if (sameWork(nombres, nombresFila)) continue
+
+        const suyas = sagasDe(nombresFila, clave)
+        if (![...suyas].some((saga) => sagas.has(saga))) continue
 
         const obra = normalizeQuery(fila.title)
-        if (obra === obraPropia) continue
-
         const actual = porObra.get(obra)
         if (actual === undefined || preferida(fila, actual, ref.providerId)) porObra.set(obra, fila)
       }
@@ -246,9 +333,10 @@ export function createRelatedRepository(db: Database) {
      * Las otras fuentes que tienen **esta misma obra**, sin ella misma.
      *
      * No son hermanos de saga: es la misma ficha en otro sitio, y es lo que la
-     * ficha necesita para ofrecer elegir fuente. La clave es el título normalizado
-     * **y el año** —la misma que usan la búsqueda y las filas de la home—, y la
-     * comparación es en memoria porque la normalización no se escribe en SQL.
+     * ficha necesita para ofrecer elegir fuente. La identidad es la de la
+     * búsqueda y la de los hermanos —`sameWork`, que junta las dos fichas aunque
+     * cada fuente las nombre distinto—, y el año sigue siendo parte de la
+     * comparación: dos obras homónimas de años distintos son dos obras.
      *
      * Reutiliza la consulta de candidatos de los relacionados: las cuatro tablas
      * —la ficha, las búsquedas, las tendencias y las novedades— ya están ahí, y una
@@ -258,19 +346,18 @@ export function createRelatedRepository(db: Database) {
       const propia = selectPropia.get(ref.providerId, ref.value)
       if (propia === null) return []
 
-      const obra = titleKey(propia.title)
-      const palabra = primeraPalabra(obra)
-      if (palabra === '') return []
+      const nombres = nombresDe({ ...propia, ref: ref.value })
+      const patrones = patronesDe(sagasDe(nombres, sagaTitle))
+      if (patrones === undefined) return []
 
-      const patron = `${palabra}%`
-      const filas = selectCandidatos.all(patron, patron, patron, patron, RELATED_SCAN_LIMIT)
+      const filas = selectCandidatos.all(...patrones, RELATED_SCAN_LIMIT)
 
       const porProveedor = new Map<string, RelatedRow>()
       for (const fila of filas) {
         // La fuente que se está viendo no es una alternativa a sí misma.
         if (fila.provider_id === ref.providerId) continue
-        if (titleKey(fila.title) !== obra) continue
         if (fila.year !== propia.year) continue
+        if (!sameWork(nombres, nombresDe(fila))) continue
 
         // Una entrada por fuente: dos referencias de la misma fuente para la misma
         // obra no son dos sitios donde elegir. Gana la menor alfabéticamente, para

@@ -125,6 +125,59 @@ describe('agrupación de duplicados', () => {
     expect(grupos[0]?.results).toHaveLength(2)
   })
 
+  /**
+   * El caso de la captura: la misma obra con el nombre corto en una fuente y el
+   * título original en la otra, sin año en ninguna de las dos —los proveedores no
+   * lo devuelven en los resultados— y con la referencia de cada una apuntando al
+   * nombre de la otra.
+   */
+  test('la misma obra con dos nombres distintos va al mismo grupo', () => {
+    const grupos = groupResults([
+      resultado('jkanime', 'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka', 'Danmachi'),
+      resultado('animeav1', 'danmachi', 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka'),
+    ])
+
+    expect(grupos).toHaveLength(1)
+    expect(grupos[0]?.results.map((item) => item.ref.providerId)).toEqual(['animeav1', 'jkanime'])
+  })
+
+  test('la tarjeta se queda con el nombre más largo de la obra', () => {
+    // El orden del grupo es el de la tarjeta: el primero da el nombre y el
+    // enlace. Mutar `porNombre` deja el nombre corto delante y esta prueba cae.
+    const grupos = groupResults([
+      resultado('jkanime', 'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka', 'Danmachi'),
+      resultado('animeav1', 'danmachi', 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka'),
+    ])
+
+    expect(grupos[0]?.results[0]?.title).toBe(
+      'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka',
+    )
+  })
+
+  test('el spin-off no se junta con la serie: le sobra un nombre', () => {
+    // «Danmachi: Sword Oratoria» comparte saga con «Danmachi», y sin embargo es
+    // otra obra. Es el falso positivo que la identidad tiene que dejar fuera.
+    const grupos = groupResults([
+      resultado('animeav1', 'danmachi', 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka'),
+      resultado(
+        'jkanime',
+        'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka-gaiden-sword-oratoria',
+        'Danmachi: Sword Oratoria',
+      ),
+    ])
+
+    expect(grupos).toHaveLength(2)
+  })
+
+  test('la película no se junta con la serie del mismo nombre', () => {
+    const grupos = groupResults([
+      resultado('uno', 'a', 'Kimetsu no Yaiba', 2019),
+      resultado('dos', 'b', 'Kimetsu no Yaiba Movie 1: Mugenjou-hen', 2019),
+    ])
+
+    expect(grupos).toHaveLength(2)
+  })
+
   test('las referencias no se fusionan: cada resultado conserva su proveedor', () => {
     const resultados = [resultado('uno', 'a', 'Aurora'), resultado('dos', 'b', 'Aurora')]
     const grupos = groupResults(resultados)

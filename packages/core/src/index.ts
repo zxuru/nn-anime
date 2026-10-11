@@ -108,6 +108,7 @@ export {
   t,
   translate,
 } from './i18n'
+export { namesOf, sameWork, type TitleInput, type WorkNames, workKeys } from './identity'
 export {
   createLogger,
   isSensitiveKey,

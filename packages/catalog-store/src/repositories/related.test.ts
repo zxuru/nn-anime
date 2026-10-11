@@ -267,6 +267,73 @@ describe('listRelated', () => {
     )
   })
 
+  /**
+   * Las dos fichas reales de la base de desarrollo: la misma obra, un nombre en
+   * cada fuente, y la referencia de cada una apuntando al nombre de la otra.
+   */
+  const DANMACHI_JK: ProviderRef = {
+    providerId: 'jkanime',
+    value: 'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka',
+  }
+  const DANMACHI_AV1: ProviderRef = { providerId: 'animeav1', value: 'danmachi' }
+  const DANMACHI_III: ProviderRef = { providerId: 'animeav1', value: 'danmachi-iii' }
+
+  test('la temporada que la otra fuente nombra con el título original entra', async () => {
+    await withStore(
+      [
+        [DANMACHI_JK, 'Danmachi', 2015],
+        [DANMACHI_AV1, 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka', 2015],
+        [DANMACHI_III, 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka III', 2020],
+      ],
+      (store) => {
+        // Las dos fichas ven lo mismo: la tercera temporada, que la otra fuente
+        // publica con el título original. La mutación que compare sólo contra la
+        // saga del título de la ficha deja las dos listas vacías.
+        expect(store.related.list(DANMACHI_JK, 10).map((item) => item.ref.value)).toEqual([
+          'danmachi-iii',
+        ])
+        expect(store.related.list(DANMACHI_AV1, 10).map((item) => item.ref.value)).toEqual([
+          'danmachi-iii',
+        ])
+      },
+    )
+  })
+
+  test('la misma obra con otro nombre no se lista como hermana', async () => {
+    await withStore(
+      [
+        [DANMACHI_JK, 'Danmachi', 2015],
+        [DANMACHI_AV1, 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka', 2015],
+      ],
+      (store) => {
+        // Es la misma ficha en otra fuente: sale una vez, y no sale aquí.
+        expect(store.related.list(DANMACHI_JK, 10)).toEqual([])
+        expect(store.related.list(DANMACHI_AV1, 10)).toEqual([])
+      },
+    )
+  })
+
+  test('el spin-off de la misma saga sigue siendo un hermano, no la misma obra', async () => {
+    await withStore(
+      [
+        [DANMACHI_JK, 'Danmachi', 2015],
+        [
+          {
+            providerId: 'jkanime',
+            value: 'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka-gaiden-sword-oratoria',
+          },
+          'Danmachi: Sword Oratoria',
+          2017,
+        ],
+      ],
+      (store) => {
+        expect(store.related.list(DANMACHI_JK, 10).map((item) => item.title)).toEqual([
+          'Danmachi: Sword Oratoria',
+        ])
+      },
+    )
+  })
+
   test('la saga vecina que sólo comparte la primera palabra no entra', async () => {
     await withStore(
       [
@@ -367,6 +434,42 @@ describe('listSources', () => {
         ])
         expect(lista[0]?.title).toBe('yani  neko!')
         expect(lista[0]?.year).toBe(2026)
+      },
+    )
+  })
+
+  test('la misma obra con otro nombre en la otra fuente también sale', async () => {
+    // Las dos fichas reales de la base: la misma obra, un nombre en cada fuente,
+    // y la referencia de cada una apuntando al nombre de la otra. La mutación que
+    // vuelva a comparar por título normalizado deja la ficha sin «también en».
+    await withStore(
+      [
+        [
+          {
+            providerId: 'jkanime',
+            value: 'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka',
+          },
+          'Danmachi',
+          2015,
+        ],
+        [
+          { providerId: 'animeav1', value: 'danmachi' },
+          'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka',
+          2015,
+        ],
+      ],
+      (store) => {
+        expect(
+          store.related
+            .listSources(
+              {
+                providerId: 'jkanime',
+                value: 'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka',
+              },
+              10,
+            )
+            .map((item) => `${item.ref.providerId}:${item.ref.value}`),
+        ).toEqual(['animeav1:danmachi'])
       },
     )
   })
