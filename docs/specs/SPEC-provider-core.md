@@ -197,8 +197,9 @@ Reglas de la búsqueda agregada:
   obligar a un plugin a mirarla.
 - Se devuelven resultados parciales en cuanto llegan, vía el stream de eventos del server.
 - El resultado se cachea por proveedor y por consulta normalizada (`trim`, minúsculas, NFC).
-- Agrupación de duplicados entre proveedores por título normalizado más año, como pista visual,
-  sin fusión automática de refs.
+- Agrupación de duplicados entre proveedores por título normalizado más año: **una tarjeta por
+  obra**, con las demás fuentes enlazadas bajo «También en». Sin fusión automática de refs: cada
+  enlace lleva a la ficha de **su** proveedor.
 
 ## Estructura del módulo
 

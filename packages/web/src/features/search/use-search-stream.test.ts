@@ -3,7 +3,7 @@ import type { ProviderSummary, SearchEventPayload } from '@nn-anime/core/api'
 import type { SearchResult } from '@nn-anime/core/models'
 import {
   activeProviderIds,
-  alsoInByRef,
+  alternativas,
   createPrefetcher,
   createSearchHub,
   groupResults,
@@ -106,7 +106,7 @@ describe('agrupación de duplicados', () => {
     ])
 
     expect(grupos).toHaveLength(1)
-    expect(grupos[0]?.providers).toEqual(['uno', 'dos'])
+    expect(grupos[0]?.results.map((item) => item.ref.providerId)).toEqual(['uno', 'dos'])
   })
 
   test('el mismo título en años distintos no se agrupa', () => {
@@ -143,16 +143,17 @@ describe('agrupación de duplicados', () => {
     ).toHaveLength(1)
   })
 
-  test('el recuento por referencia sale del grupo', () => {
-    const cuenta = alsoInByRef([
+  test('las alternativas de una obra son los demás proveedores, no ella misma', () => {
+    const [grupo] = groupResults([
       resultado('uno', 'a', 'Aurora'),
       resultado('dos', 'b', 'Aurora'),
-      resultado('uno', 'c', 'Otra'),
+      resultado('tres', 'c', 'Aurora'),
     ])
+    // Sin el grupo no hay nada que comprobar; el `if` evita un `as` que
+    // silenciaría el tipo.
+    if (grupo === undefined) throw new Error('la agrupación no devolvió ningún grupo')
 
-    expect(cuenta.get('uno:a')).toBe(2)
-    expect(cuenta.get('dos:b')).toBe(2)
-    expect(cuenta.get('uno:c')).toBe(1)
+    expect(alternativas(grupo, 'dos').map((item) => item.ref.providerId)).toEqual(['uno', 'tres'])
   })
 })
 

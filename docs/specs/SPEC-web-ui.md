@@ -71,6 +71,10 @@ Reglas de la interfaz:
   sólo evita repetir la llamada dentro del mismo render.
 - **Carga incremental.** La búsqueda pinta resultados por proveedor en cuanto llegan, con
   esqueletos por proveedor. La grilla nunca espera al proveedor más lento.
+- **Una tarjeta por obra.** Dos proveedores que devuelven el mismo título en el mismo año son la
+  misma ficha: sale una tarjeta y, debajo, «También en» con un enlace por cada otra fuente —la
+  referencia no se fusiona, porque abrir una tarjeta lleva a un sitio concreto—. El anuncio
+  `aria-live` cuenta obras, no respuestas.
 - **Prefetch acotado.** Sólo el detalle de las tarjetas visibles, al pasar el mouse, con
   `AbortController` al salir. Nunca el catálogo.
 - **Grillas virtualizadas** cuando superan 60 elementos.
