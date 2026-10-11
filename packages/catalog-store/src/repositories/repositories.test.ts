@@ -388,3 +388,20 @@ describe('las tres tablas conviven', () => {
     })
   })
 })
+
+describe('la tabla `genre`', () => {
+  test('se escribe en la misma transacción que el título', async () => {
+    // La auditoría de T47 dio por hecho que **nadie escribía** en esta tabla, con
+    // un `grep` mal hecho, y lo dejó escrito en el spec. Esta prueba existe para
+    // que ese hallazgo falso no pueda volver: si alguien deja de escribirla, se
+    // entera aquí.
+    await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      anime.write(REF, detalle({ genres: ['Acción', 'Fantasía'] }))
+
+      const filas = db.query('SELECT name FROM genre ORDER BY name').all() as { name: string }[]
+
+      expect(filas.map((fila) => fila.name)).toEqual(['Acción', 'Fantasía'])
+    })
+  })
+})

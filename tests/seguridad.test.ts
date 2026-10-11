@@ -75,19 +75,17 @@ describe('M1 · el `Host` tiene que ser el nuestro', () => {
     })
   })
 
-  test('**hallazgo**: `localhost` se acepta además de `127.0.0.1`', async () => {
-    // El guard permite los dos nombres, y no es lo mismo: las cookies ignoran el
-    // puerto, así que una página servida por **otra** aplicación local en
-    // `localhost:PUERTO` es el mismo sitio para el navegador y podría leer la
-    // cookie de sesión. Está anotado para el Checkpoint H: la alternativa es
-    // aceptar sólo `127.0.0.1:PUERTO`, que es lo que el arranque abre en el
-    // navegador, a costa de romper a quien escriba `localhost` a mano.
+  test('`localhost` también se rechaza: la decisión del Checkpoint H', async () => {
+    // Las cookies ignoran el puerto, así que otra aplicación local en
+    // `localhost:OTRO_PUERTO` es el mismo sitio para el navegador y podría leer la
+    // cookie de sesión. Sólo se admite `127.0.0.1:PUERTO`, que es lo que el
+    // arranque abre en el navegador.
     await conCiclo(async ({ pedir }) => {
       const respuesta = await pedir('/api/health', {
         headers: { ...GOOD, host: `localhost:${7717}` },
       })
 
-      expect(respuesta.status).toBe(200)
+      expect(respuesta.status).toBe(403)
     })
   })
 })

@@ -15,8 +15,21 @@
 
 import type { MiddlewareHandler } from 'hono'
 
+/**
+ * Los nombres admitidos: **sólo `127.0.0.1`**.
+ *
+ * `localhost` se aceptaba y ya no. No es lo mismo, porque **las cookies ignoran
+ * el puerto**: una página servida por otra aplicación local en
+ * `localhost:OTRO_PUERTO` es el mismo sitio para el navegador y podría leer la
+ * cookie de sesión. Aceptar sólo la dirección que el arranque abre —que es
+ * `127.0.0.1`— cierra ese caso.
+ *
+ * Lo que cuesta: quien escriba `localhost:PUERTO` a mano recibe 403 y tiene que
+ * usar la dirección que la aplicación imprime. Es deliberado, y la decisión está
+ * en el Checkpoint H.
+ */
 function allowedHosts(port: number): ReadonlySet<string> {
-  return new Set([`127.0.0.1:${port}`, `localhost:${port}`])
+  return new Set([`127.0.0.1:${port}`])
 }
 
 export function hostGuard(getPort: () => number): MiddlewareHandler {

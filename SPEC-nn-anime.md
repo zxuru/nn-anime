@@ -165,8 +165,9 @@ dominio de `core`.
 anime            id, provider_id, provider_ref, title, title_alt, synopsis, cover_url,
                  year, status, episode_count, fetched_at, ttl_s, raw_json,
                  episodes_fetched_at, episodes_ttl_s
-genre            anime_id, name — **nadie escribe en ella**: los géneros viven en `raw_json`,
-                 que es lo único que los conserva en orden. Ver `docs/v1-report.md`
+genre            anime_id, name — la escribe `writeAnimeRow` en la misma transacción que el
+                 título, y `prune` la limpia. El detalle se lee de `raw_json` porque es lo único
+                 que conserva los géneros **en orden**; la tabla existe para las consultas
 episode          id, anime_id, provider_ref, number, title, duration_s, mode, fetched_at, ttl_s
 watch_event      id, anime_id, episode_id, provider_id, mode, position_s, duration_s,
                  started_at, finished

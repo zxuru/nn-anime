@@ -51,7 +51,7 @@ modelo, Boundaries y Seguridad— y se comprobó cada uno contra el código y su
 | Hueco | Qué es | Estado |
 |---|---|---|
 | **`revalidate_error` no está en el spec** | La migración `0003` añadió una tabla que el Data Model del spec no lista: son **11** tablas y el spec dice 10 | Anotado aquí. **Decisión pendiente** para el Checkpoint H: o se documenta la tabla o se quita |
-| **La tabla `genre` no se escribe nunca** | Se crea en `0001`, `prune` la limpia y **nadie inserta en ella**: los géneros viven en `raw_json`, que es lo único que los conserva en orden | Anotado. Arreglarlo —poblarla o quitarla— es una decisión de esquema |
+| ~~La tabla `genre` no se escribe nunca~~ | **FALSO, y lo escribí yo.** La tabla **sí se escribe**: `writeAnimeRow` inserta los géneros en la misma transacción que el título. Lo comprobé al ir a arreglarlo: dos géneros, dos filas. El error salió de un `grep` mal hecho durante la auditoría | **Corregido en el spec.** Es el sexto caso de comprobación que no medía lo que decía medir, y esta vez el fallo fue mío y en la propia auditoría |
 | **Las tendencias no se cachean** | La segunda carga de la home **vuelve a llamar a `getTrending`**: el criterio de éxito dice «sin llamadas de red» y esto es una llamada | **Medido** en `tests/ciclo-completo.test.ts`. No hay TTL de tendencias en la tabla del spec; añadirlo es una decisión de producto |
 | **El guard de `Host` acepta `localhost`** | Las cookies ignoran el puerto: otra aplicación local en `localhost:OTRO_PUERTO` es el mismo sitio y podría leer la sesión | Anotado con las dos opciones. **Decisión de producto** |
 | **Los ocho criterios de éxito del spec** | Siete verificados y marcados en el propio spec; uno (**home sin llamadas de red**) queda con el matiz de las tendencias | Ver abajo |
@@ -104,7 +104,7 @@ una a una, o reducirlas a un puntero— va al Checkpoint H.
 
 ## Hallazgos de método: comprobaciones que no medían lo que decían
 
-**Cinco casos**, y los cinco se encontraron comprobando criterios, no escribiendo pruebas nuevas. Se
+**Seis casos**, y los seis se encontraron comprobando criterios, no escribiendo pruebas nuevas. Se
 anotan porque son el patrón de fallo más repetido del proyecto:
 
 1. **T29** — la comprobación de los argumentos de `mpv` pasaba con el `stderr` sin recortar.
@@ -115,6 +115,9 @@ anotan porque son el patrón de fallo más repetido del proyecto:
 4. **T44** — «la consulta viaja» en la petición: el servidor la ignoraba. Se comprobaba que viajara, no
    que sirviera de algo.
 5. **T46** — la comprobación de comandos del README leía `bun run e2e` como `bun run e`.
+6. **T47** — la auditoría dio por hecho que la tabla `genre` no se escribía, con un `grep` mal hecho,
+   y lo escribió en el spec. Al ir a arreglarlo resultó que sí se escribe. **El fallo fue mío y en la
+   propia auditoría**, que es donde más caro sale.
 
 **Y dos mutaciones que sobrevivieron a la primera pasada** y se cazaron reforzando pruebas: el bonus
 por estudio de T33 (medido con un coseno que no era cero) y el término de diversidad de T36 (el azar

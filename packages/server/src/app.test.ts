@@ -36,12 +36,15 @@ describe('host-guard', () => {
     expect(response.status).toBe(200)
   })
 
-  test('acepta localhost con el puerto correcto', async () => {
+  test('**rechaza `localhost`**, aunque sea la misma máquina', async () => {
+    // Antes se aceptaba, y no es lo mismo: las cookies ignoran el puerto, así que
+    // otra aplicación local en `localhost:OTRO_PUERTO` es el mismo sitio para el
+    // navegador. Sólo se admite la dirección que el arranque abre.
     const response = await app().request(`http://localhost:${PORT}/api/health`, {
       headers: GOOD_COOKIE,
     })
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(403)
   })
 
   test('rechaza un Host ajeno, que es el caso de DNS rebinding', async () => {
