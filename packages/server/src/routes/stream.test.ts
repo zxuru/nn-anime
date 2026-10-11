@@ -305,6 +305,51 @@ describe('GET /stream/:ticket', () => {
       expect(respuesta.status).toBe(401)
     })
   })
+
+  /**
+   * La excepción de la cookie, que es lo que hace posible el handoff a mpv.
+   *
+   * mpv es un proceso aparte: no tiene la cookie y no puede tenerla. Su
+   * credencial es la URL con el ticket, así que el proxy tiene que aceptarla.
+   * Antes respondía 401 —mpv abría la ventana y no reproducía nada, mientras la
+   * interfaz decía «se abrió en el reproductor externo»—.
+   */
+  test('el ticket vale sin la cookie de sesión, que es lo que tiene mpv', async () => {
+    await conApp(async ({ pedir }) => {
+      const { cuerpo } = await resolver(pedir)
+      const ticket = streamResolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
+
+      const respuesta = await pedir(ticket, { headers: {} })
+
+      expect(respuesta.status).toBe(206)
+    })
+  })
+
+  test('el ticket abre sus segmentos y no otra ruta', async () => {
+    await conApp(async ({ pedir }) => {
+      const { cuerpo } = await resolver(pedir)
+      const ticket = streamResolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
+
+      // El índice se resuelve contra la playlist que el ticket ya autorizó: sin
+      // la lista en memoria es 404, pero nunca 401.
+      const segmento = await pedir(`${ticket}/seg/0`, { headers: {} })
+
+      expect(segmento.status).not.toBe(401)
+
+      // Y no es una llave maestra: fuera del proxy no vale nada.
+      const salud = await pedir('/api/health', { headers: {} })
+
+      expect(salud.status).toBe(401)
+    })
+  })
+
+  test('un ticket inventado no sustituye a la cookie', async () => {
+    await conApp(async ({ pedir }) => {
+      const respuesta = await pedir('/stream/inventado', { headers: {} })
+
+      expect(respuesta.status).toBe(401)
+    })
+  })
 })
 
 describe('la dirección del ticket', () => {
