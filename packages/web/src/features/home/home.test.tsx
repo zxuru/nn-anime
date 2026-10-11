@@ -8,11 +8,11 @@ import { createMemoryHistory, HistoryProvider } from '../../router'
 import { ContinueRow } from './ContinueRow'
 import { FavoritesRow } from './FavoritesRow'
 import { FeedRow } from './FeedRow'
-import { featuredOf, HomePage } from './HomePage'
+import { featuredOf, HomePage, marcaDeRefresco, minutosDesde, textoDeRefresco } from './HomePage'
 import { RecentRow } from './RecentRow'
 import { continuePath, progressPercent, resumeLabel } from './rows'
 import { TopRow } from './TopRow'
-import { combineRows } from './useHomeRows'
+import { combineRows, debeReleer, mergeRows, REFRESCO_MS, type RowResults } from './useHomeRows'
 
 function render(node: ReactNode): string {
   return renderToString(
@@ -267,5 +267,138 @@ describe('la home', () => {
     for (const despues of ['Top de la fuente', 'Novedades', 'Último añadido', 'Tus favoritos']) {
       expect(seguir, despues).toBeLessThan(html.indexOf(despues))
     }
+  })
+})
+
+describe('la relectura de la home', () => {
+  // Declaración y no flecha con genérico: en un `.tsx` un `<T>` se lee como JSX.
+  function ok<T>(value: T): PromiseFulfilledResult<T> {
+    return { status: 'fulfilled', value }
+  }
+  const mal: PromiseRejectedResult = { status: 'rejected', reason: new Error('sin red') }
+
+  function lectura(overrides: Partial<RowResults> = {}): RowResults {
+    return {
+      continueWatching: ok({ items: [] }),
+      favorites: ok({ favorites: [] }),
+      trending: ok({ items: [] }),
+      feed: ok({ items: [] }),
+      recent: ok({ items: [] }),
+      ...overrides,
+    }
+  }
+
+  const todasMalas: RowResults = {
+    continueWatching: mal,
+    favorites: mal,
+    trending: mal,
+    feed: mal,
+    recent: mal,
+  }
+
+  test('la pestaña oculta no relee, por mucho tiempo que pase', () => {
+    expect(debeReleer('hidden', undefined, 1_000)).toBe(false)
+    expect(debeReleer('hidden', 0, 100 * REFRESCO_MS)).toBe(false)
+  })
+
+  test('con la pestaña visible, la cadencia son dos minutos', () => {
+    expect(debeReleer('visible', 0, REFRESCO_MS - 1)).toBe(false)
+    expect(debeReleer('visible', 0, REFRESCO_MS)).toBe(true)
+  })
+
+  test('sin intento previo, la primera vuelta a la pestaña relee', () => {
+    // Es el caso de una pestaña que se abre después de cargar la home: no hay
+    // reloj que mirar y esperar dos minutos sería no refrescar nunca.
+    expect(debeReleer('visible', undefined, 1_000)).toBe(true)
+  })
+
+  test('una lectura que falla conserva su fila y las demás se actualizan', () => {
+    const primera = combineRows(lectura({ feed: ok({ items: [resumen('Del feed')] }) }))
+    const segunda = mergeRows(
+      primera,
+      lectura({ feed: mal, trending: ok({ items: [resumen('Mar de Cristal')] }) }),
+    )
+
+    expect(segunda.feed.map((item) => item.title)).toEqual(['Del feed'])
+    expect(segunda.trending.map((item) => item.title)).toEqual(['Mar de Cristal'])
+    expect(segunda.error).toBeUndefined()
+    expect(segunda.relecturas).toBe(1)
+    expect(segunda.loading).toBe(false)
+  })
+
+  test('si fallan todas pero había datos, no se declara error ni se vacía nada', () => {
+    const primera = combineRows(lectura({ feed: ok({ items: [resumen('Del feed')] }) }))
+    const segunda = mergeRows(primera, todasMalas)
+
+    expect(segunda.error).toBeUndefined()
+    expect(segunda.feed.map((item) => item.title)).toEqual(['Del feed'])
+    // No llegó nada: el reloj de lo que se ve no se mueve, y la marca no diría
+    // «actualizado ahora mismo» sobre un dato que no se ha refrescado.
+    expect(segunda.refreshedAt).toEqual(primera.refreshedAt)
+  })
+
+  test('sin nada que enseñar, el error sí se declara', () => {
+    const segunda = mergeRows(combineRows(lectura()), todasMalas)
+
+    expect(segunda.error).toBeDefined()
+  })
+
+  test('la sesión perdida se avisa aunque haya datos', () => {
+    // Un 401 no es un dato viejo: es que este navegador no puede pedir nada, y el
+    // aviso dice qué hacer. Esconderlo tras las filas pintadas dejaría al usuario
+    // con una página que no responde y sin saber por qué.
+    const sinSesion: PromiseRejectedResult = {
+      status: 'rejected',
+      reason: new ApiError(401, 'GET /api/feed respondió 401'),
+    }
+    const primera = combineRows(lectura({ feed: ok({ items: [resumen('Del feed')] }) }))
+    const segunda = mergeRows(primera, lectura({ feed: sinSesion }))
+
+    expect(segunda.error).toContain('sesión')
+    expect(segunda.feed).toHaveLength(1)
+  })
+
+  test('lo que no estaba se marca como nuevo, y lo que estaba no', () => {
+    const primera = combineRows(lectura({ feed: ok({ items: [resumen('Vieja')] }) }))
+    const segunda = mergeRows(
+      primera,
+      lectura({ feed: ok({ items: [resumen('Vieja'), resumen('Nueva')] }) }),
+    )
+
+    expect([...segunda.nuevas]).toEqual(['fixture#Nueva'])
+  })
+
+  test('al abrir no hay nada nuevo ni relecturas: todo es nuevo y no se dice', () => {
+    const primera = combineRows(lectura({ feed: ok({ items: [resumen('Del feed')] }) }))
+
+    expect([...primera.nuevas]).toEqual([])
+    expect(primera.relecturas).toBe(0)
+  })
+
+  test('los minutos van hacia abajo y nunca son negativos', () => {
+    const ahora = new Date('2026-10-11T12:00:00.000Z')
+
+    expect(minutosDesde(undefined, ahora)).toBe(0)
+    expect(minutosDesde(new Date('2026-10-11T11:58:30.000Z'), ahora)).toBe(1)
+    expect(minutosDesde(new Date('2026-10-11T12:05:00.000Z'), ahora)).toBe(0)
+  })
+
+  test('la marca no sale al abrir, sale en la relectura y dice sus minutos', () => {
+    const ahora = new Date('2026-10-11T12:00:00.000Z')
+    const base = { refrescando: false, refreshedAt: ahora, relecturas: 0 }
+
+    expect(textoDeRefresco(base, ahora)).toBeUndefined()
+    expect(textoDeRefresco({ ...base, relecturas: 1 }, ahora)).toBe('Actualizado ahora mismo')
+    expect(
+      textoDeRefresco(
+        { ...base, relecturas: 1, refreshedAt: new Date('2026-10-11T11:57:00.000Z') },
+        ahora,
+      ),
+    ).toBe('Actualizado hace 3 min')
+    expect(textoDeRefresco({ ...base, relecturas: 1, refrescando: true }, ahora)).toBe(
+      'Actualizando…',
+    )
+    expect(marcaDeRefresco(0)).toBe('home.refreshedNow')
+    expect(marcaDeRefresco(1)).toBe('home.refreshed')
   })
 })

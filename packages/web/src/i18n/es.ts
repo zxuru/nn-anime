@@ -32,6 +32,9 @@ export const messages: Messages = {
   'search.alsoIn': 'También en {count} proveedores',
 
   'home.loading': 'Cargando tu inicio…',
+  'home.refreshing': 'Actualizando…',
+  'home.refreshedNow': 'Actualizado ahora mismo',
+  'home.refreshed': 'Actualizado hace {minutes} min',
   'home.ticker': 'Lo más visto ahora',
   'home.featured.tag': 'Destacado',
   'home.featured.play': 'Reproducir el episodio {number}',

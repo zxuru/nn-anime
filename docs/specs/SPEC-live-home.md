@@ -1,7 +1,7 @@
 # Spec: live-home (la home que se refresca y se mueve)
 
 Estado: **aprobado** · 2026-10-11 · aprobado por el humano, que además fijó la cadencia en **120 s**
-y eligió **movimiento sutil**. T54 cerrado y medido; T55 y T56 pendientes.
+y eligió **movimiento sutil**. T54 y T55 cerrados y medidos; T56 pendiente.
 
 Esta entrega **no crea un módulo**: extiende contratos y paquetes ya aprobados. No toca
 `docs/specs/CAPABILITY-MAP.md` ni su build order.
@@ -310,14 +310,25 @@ T54 pasaban las 533 de los dos paquetes.
 sustituir, y dice cuándo se refrescó.
 
 **Aceptación:**
-- [ ] Una vuelta a la pestaña antes de 120 s no lanza ninguna petición; a partir de 120 s, sí.
-- [ ] El intervalo no corre con la pestaña oculta.
-- [ ] Una lectura rechazada conserva el valor anterior de esa fila; el error sólo se declara cuando
-      no hay nada, de esta lectura ni de la anterior.
-- [ ] `loading` es cierto sólo la primera vez; una relectura marca `refrescando` y no vacía nada.
-- [ ] La marca de refresco se enseña con su texto en i18n y no con una cadena suelta.
-- [ ] Todas las pruebas nuevas fallan al mutar: quitar la comprobación de los 120 s, sustituir el
-      valor anterior por `[]` y hacer que el intervalo ignore la visibilidad.
+- [x] Una vuelta a la pestaña antes de 120 s no lanza ninguna petición; a partir de 120 s, sí.
+      **Medido mutando**: `debeReleer` devolviendo siempre `true` da **2 fallos**.
+- [x] Una pestaña oculta no produce ninguna petición. El temporizador sigue vivo —pararlo y
+      arrancarlo en cada cambio de visibilidad es más código y más sitios donde olvidarse—, pero el
+      disparo no pasa de `debeReleer`. **Medido** con la misma mutación de arriba.
+- [x] Una lectura rechazada conserva el valor anterior de esa fila; el error sólo se declara cuando
+      no hay nada, de esta lectura ni de la anterior. **Medido mutando**: dejar la fila vacía al
+      fallar da **3 fallos**; quitar el «y no hay nada que enseñar» da **1 fallo**.
+- [x] `loading` es cierto sólo la primera vez; una relectura marca `refrescando` y no vacía nada.
+- [x] La marca de refresco se enseña con su texto en i18n y no con una cadena suelta. **Medido
+      mutando**: quitando el «sin relecturas no hay marca» da **1 fallo**.
+- [x] Todas las pruebas nuevas fallan al mutar, con su recuento arriba.
+
+**Verificación:** `bun test packages/web`: verde, 36 pruebas sólo en `home.test.tsx` (11 nuevas de
+la relectura). `tsc --noEmit` sin errores. `biome check` limpio en los archivos de la tarea.
+
+**Lo que no mide esta tarea:** que la marca llegue a pintarse en el navegador. El hook necesita un
+DOM y `renderToString` no ejecuta efectos; lo que se mide es la decisión —`textoDeRefresco`— y no su
+montaje. El e2e de la home es de T43 y no espera dos minutos de reloj real.
 
 **Depende de:** T54.
 

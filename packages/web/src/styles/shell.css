@@ -857,6 +857,20 @@
   gap: var(--space-7);
 }
 
+/*
+ * La marca del refresco.
+ *
+ * Diminuta y a la derecha: dice que la página se ha releído sin competir con el
+ * contenido, que es lo que el usuario ha venido a ver. No lleva animación propia
+ * porque el cambio de texto ya avisa, y un latido cada dos minutos cansa.
+ */
+.home__refresco {
+  align-self: flex-end;
+  margin: 0;
+  color: var(--color-text-dim);
+  font-size: var(--text-xs);
+}
+
 .settings {
   display: flex;
   flex-direction: column;

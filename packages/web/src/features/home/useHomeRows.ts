@@ -2,13 +2,25 @@
  * Los datos de las filas de la home.
  *
  * Cinco lecturas en paralelo: continuar viendo, favoritos, tendencias, novedades
- * del feed y lo último que la aplicación conoce. En serie tardarían la suma de las
- * cinco latencias sin ninguna razón, porque ninguna necesita a las otras.
+ * del feed y lo último que la aplicación ya conoce. En serie tardarían la suma de
+ * las cinco latencias sin ninguna razón, porque ninguna necesita a las otras.
  *
  * Si una falla, **las demás se pintan igual**: la home no puede quedarse en blanco
  * porque un proveedor no conteste a tendencias o porque su feed esté roto. Sólo se
  * declara el error cuando fallan **todas**, que es cuando de verdad no hay nada que
  * enseñar.
+ *
+ * Desde T55 la home **relee**: al volver a la pestaña y cada dos minutos mientras
+ * está visible. Tres reglas, y las tres importan:
+ *
+ * 1. **La relectura no sustituye, fusiona.** Una lectura que falla conserva lo que
+ *    ya estaba pintado: cambiar un dato viejo por ninguno es empeorar.
+ * 2. **`loading` es sólo la primera vez.** Una relectura marca `refrescando` y deja
+ *    el contenido en su sitio; volver a poner la página en esqueleto cada dos
+ *    minutos sería peor que no refrescar.
+ * 3. **La cadencia se mide desde el último intento**, no desde el último acierto.
+ *    Si se midiera desde el acierto, un servidor que falla se llevaría una petición
+ *    cada vez que la pestaña vuelve a primer plano.
  */
 
 import type {
@@ -25,12 +37,29 @@ import {
   recentResponseSchema,
   trendingResponseSchema,
 } from '@nn-anime/core/api'
-import { useEffect, useState } from 'react'
+import type { ProviderRef } from '@nn-anime/core/models'
+import { useEffect, useRef, useState } from 'react'
 import { ApiError, apiGet } from '../../api/client'
+
+/** Cada cuánto se relee la home con la pestaña visible. */
+export const REFRESCO_MS = 120_000
 
 export interface HomeRows {
   readonly loading: boolean
   readonly error: string | undefined
+  /** Hay una relectura en curso: lo que se ve es de la lectura anterior. */
+  readonly refrescando: boolean
+  /** Cuándo llegó lo último que se ve. `undefined` si no llegó nada todavía. */
+  readonly refreshedAt: Date | undefined
+  /** Relecturas completadas después de la primera. */
+  readonly relecturas: number
+  /**
+   * Claves que no estaban en la lectura anterior.
+   *
+   * Vacío en la primera lectura: al abrir, todo es nuevo y marcar todo como nuevo
+   * no dice nada.
+   */
+  readonly nuevas: ReadonlySet<string>
   readonly continueWatching: ContinueWatchingResponse['items']
   readonly favorites: FavoritesResponse['favorites']
   readonly trending: TrendingResponse['items']
@@ -43,6 +72,10 @@ export interface HomeRows {
 const VACIO: HomeRows = {
   loading: true,
   error: undefined,
+  refrescando: false,
+  refreshedAt: undefined,
+  relecturas: 0,
+  nuevas: new Set(),
   continueWatching: [],
   favorites: [],
   trending: [],
@@ -60,15 +93,29 @@ export interface RowResults {
 }
 
 /**
- * Junta los resultados en las filas de la home.
+ * Si toca releer.
  *
- * Es una función pura y no el cuerpo del `then` porque aquí está la decisión que
- * importa y no se puede probar dentro de un hook: **una lectura que falla deja su
- * fila vacía, y las demás se pintan igual**. El error sólo se declara cuando
- * fallan todas, que es cuando de verdad no hay nada que enseñar. Antes de esto,
- * la condición era «fallan las tres», escrita a mano, y añadir dos lecturas
- * habría dejado el número desactualizado sin que nada avisara.
+ * Es una función pura y no dos líneas dentro del efecto por el mismo motivo que
+ * `combineRows`: aquí está la decisión que importa —la visibilidad y la cadencia—
+ * y un efecto no se puede probar sin un DOM. Con la decisión fuera, se prueba con
+ * tres números y sin temporizadores.
  */
+export function debeReleer(
+  estado: DocumentVisibilityState,
+  ultimoIntento: number | undefined,
+  ahora: number,
+): boolean {
+  if (estado !== 'visible') return false
+  if (ultimoIntento === undefined) return true
+
+  return ahora - ultimoIntento >= REFRESCO_MS
+}
+
+/** La clave de una fila, para saber qué llegó y qué ya estaba. */
+function claveDe(ref: ProviderRef): string {
+  return `${ref.providerId}#${ref.value}`
+}
+
 /**
  * Si lo que falló fue la sesión.
  *
@@ -82,7 +129,43 @@ function sesionPerdida(fallos: readonly PromiseRejectedResult[]): boolean {
   return fallos.some((fallo) => fallo.reason instanceof ApiError && fallo.reason.isSessionLost)
 }
 
-export function combineRows(resultados: RowResults): HomeRows {
+/** El valor de una lectura: el nuevo si llegó, el anterior si falló. */
+function valorDe<T, V>(
+  resultado: PromiseSettledResult<T>,
+  anterior: V,
+  elegir: (value: T) => V,
+): V {
+  return resultado.status === 'fulfilled' ? elegir(resultado.value) : anterior
+}
+
+/**
+ * Junta una lectura con lo que ya se veía.
+ *
+ * Es una función pura y no el cuerpo del `then` porque aquí están las dos
+ * decisiones que importan y no se pueden probar dentro de un hook: **una lectura
+ * que falla conserva su fila** y el error sólo se declara cuando no hay nada que
+ * enseñar —ni de esta lectura ni de la anterior—. Antes de T55 la condición era
+ * «fallan las cinco», escrita a mano, y la primera relectura fallida habría
+ * borrado la home entera.
+ *
+ * La excepción es la sesión perdida: ahí sí se avisa aunque haya datos, porque no
+ * es un dato viejo, es que este navegador no puede pedir nada.
+ */
+export function mergeRows(
+  previas: HomeRows,
+  resultados: RowResults,
+  ahora: Date = new Date(),
+): HomeRows {
+  const continueWatching = valorDe(
+    resultados.continueWatching,
+    previas.continueWatching,
+    (value) => value.items,
+  )
+  const favorites = valorDe(resultados.favorites, previas.favorites, (value) => value.favorites)
+  const trending = valorDe(resultados.trending, previas.trending, (value) => value.items)
+  const feed = valorDe(resultados.feed, previas.feed, (value) => value.items)
+  const recent = valorDe(resultados.recent, previas.recent, (value) => value.items)
+
   const lecturas = [
     resultados.continueWatching,
     resultados.favorites,
@@ -91,58 +174,135 @@ export function combineRows(resultados: RowResults): HomeRows {
     resultados.recent,
   ]
   const fallos = lecturas.filter((lectura) => lectura.status === 'rejected')
+  const algoQueEnsenar = [continueWatching, favorites, trending, feed, recent].some(
+    (fila) => fila.length > 0,
+  )
+
+  // `loading` dice «es la primera lectura»: después de la primera ya no vuelve a
+  // ser cierto, y es lo que distingue una relectura de un arranque.
+  const primera = previas.loading
+  const llegoAlgo = lecturas.some((lectura) => lectura.status === 'fulfilled')
 
   return {
     loading: false,
-    error:
-      fallos.length === lecturas.length
-        ? sesionPerdida(fallos)
-          ? 'la sesión de este navegador no vale: entra por la dirección de arranque que imprime el CLI'
-          : 'no se pudo cargar nada de la página de inicio'
+    error: sesionPerdida(fallos)
+      ? 'la sesión de este navegador no vale: entra por la dirección de arranque que imprime el CLI'
+      : fallos.length === lecturas.length && !algoQueEnsenar
+        ? 'no se pudo cargar nada de la página de inicio'
         : undefined,
-    continueWatching:
-      resultados.continueWatching.status === 'fulfilled'
-        ? resultados.continueWatching.value.items
-        : [],
-    favorites:
-      resultados.favorites.status === 'fulfilled' ? resultados.favorites.value.favorites : [],
-    trending: resultados.trending.status === 'fulfilled' ? resultados.trending.value.items : [],
-    feed: resultados.feed.status === 'fulfilled' ? resultados.feed.value.items : [],
-    recent: resultados.recent.status === 'fulfilled' ? resultados.recent.value.items : [],
+    refrescando: false,
+    refreshedAt: llegoAlgo ? ahora : previas.refreshedAt,
+    relecturas: primera ? 0 : previas.relecturas + 1,
+    nuevas: primera
+      ? new Set()
+      : nuevasDe(previas, { continueWatching, favorites, trending, feed, recent }),
+    continueWatching,
+    favorites,
+    trending,
+    feed,
+    recent,
   }
+}
+
+/** Las claves que no estaban antes, en cualquiera de las cinco filas. */
+function nuevasDe(
+  previas: HomeRows,
+  filas: {
+    readonly continueWatching: ContinueWatchingResponse['items']
+    readonly favorites: FavoritesResponse['favorites']
+    readonly trending: TrendingResponse['items']
+    readonly feed: FeedResponse['items']
+    readonly recent: RecentResponse['items']
+  },
+): ReadonlySet<string> {
+  const antes = new Set<string>([
+    ...previas.continueWatching.map((item) => claveDe(item.animeRef)),
+    ...previas.favorites.map((item) => claveDe(item.ref)),
+    ...previas.trending.map((item) => claveDe(item.ref)),
+    ...previas.feed.map((item) => claveDe(item.ref)),
+    ...previas.recent.map((item) => claveDe(item.ref)),
+  ])
+
+  const nuevas = new Set<string>()
+  const candidatas: readonly string[] = [
+    ...filas.continueWatching.map((item) => claveDe(item.animeRef)),
+    ...filas.favorites.map((item) => claveDe(item.ref)),
+    ...filas.trending.map((item) => claveDe(item.ref)),
+    ...filas.feed.map((item) => claveDe(item.ref)),
+    ...filas.recent.map((item) => claveDe(item.ref)),
+  ]
+
+  for (const clave of candidatas) {
+    if (!antes.has(clave)) nuevas.add(clave)
+  }
+
+  return nuevas
+}
+
+/**
+ * La primera lectura, junta.
+ *
+ * Es `mergeRows` sobre el estado vacío: no hay una segunda versión de la misma
+ * decisión, que es lo que había antes y lo que se habría desincronizado al añadir
+ * la relectura.
+ */
+export function combineRows(resultados: RowResults, ahora: Date = new Date()): HomeRows {
+  return mergeRows(VACIO, resultados, ahora)
+}
+
+/** Las cinco lecturas, en paralelo y con la misma señal. */
+async function leerLasCinco(signal: AbortSignal): Promise<RowResults> {
+  const opciones = { signal }
+  const [continueWatching, favorites, trending, feed, recent] = await Promise.allSettled([
+    apiGet('/api/watch/recent', continueWatchingResponseSchema, opciones),
+    apiGet('/api/favorites', favoritesResponseSchema, opciones),
+    apiGet('/api/trending', trendingResponseSchema, opciones),
+    apiGet('/api/feed', feedResponseSchema, opciones),
+    apiGet('/api/catalog/recent', recentResponseSchema, opciones),
+  ])
+
+  return { continueWatching, favorites, trending, feed, recent }
 }
 
 export function useHomeRows(): HomeRows {
   const [filas, setFilas] = useState<HomeRows>(VACIO)
+  // El reloj de los intentos vive en un `ref`: no se pinta, y meterlo en el
+  // estado volvería a montar el efecto en cada relectura.
+  const ultimoIntento = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     let vivo = true
+    let enVuelo = false
     const controller = new AbortController()
-    const opciones = { signal: controller.signal }
 
-    void Promise.allSettled([
-      apiGet('/api/watch/recent', continueWatchingResponseSchema, opciones),
-      apiGet('/api/favorites', favoritesResponseSchema, opciones),
-      apiGet('/api/trending', trendingResponseSchema, opciones),
-      apiGet('/api/feed', feedResponseSchema, opciones),
-      apiGet('/api/catalog/recent', recentResponseSchema, opciones),
-    ]).then(([continuar, favoritos, tendencias, novedades, recientes]) => {
+    const leer = async (): Promise<void> => {
+      // Dos disparos a la vez —la pestaña y el temporizador— no son dos lecturas.
+      if (enVuelo) return
+
+      enVuelo = true
+      ultimoIntento.current = Date.now()
+      setFilas((previas) => ({ ...previas, refrescando: !previas.loading }))
+
+      const resultados = await leerLasCinco(controller.signal)
+      enVuelo = false
       if (!vivo) return
 
-      setFilas(
-        combineRows({
-          continueWatching: continuar,
-          favorites: favoritos,
-          trending: tendencias,
-          feed: novedades,
-          recent: recientes,
-        }),
-      )
-    })
+      setFilas((previas) => mergeRows(previas, resultados, new Date()))
+    }
+
+    const siToca = (): void => {
+      if (debeReleer(document.visibilityState, ultimoIntento.current, Date.now())) void leer()
+    }
+
+    void leer()
+    const temporizador = setInterval(siToca, REFRESCO_MS)
+    document.addEventListener('visibilitychange', siToca)
 
     return () => {
       vivo = false
       controller.abort()
+      clearInterval(temporizador)
+      document.removeEventListener('visibilitychange', siToca)
     }
   }, [])
 

@@ -29,7 +29,7 @@ import { GenreRow, topGenres } from './GenreRow'
 import { RecentRow } from './RecentRow'
 import { Ticker } from './Ticker'
 import { TopRow } from './TopRow'
-import { useHomeRows } from './useHomeRows'
+import { type HomeRows, useHomeRows } from './useHomeRows'
 
 export interface HomePageProps {
   readonly query?: string | undefined
@@ -71,6 +71,47 @@ export function featuredOf(
   return recomendaciones[0] ?? comoDestacado(feed[0]) ?? comoDestacado(recientes[0])
 }
 
+/**
+ * Cuántos minutos hace de una fecha.
+ *
+ * Hacia abajo y sin negativos: un reloj que va un poco por detrás —o una fecha que
+ * llegó del futuro— no puede pintar «hace -1 min».
+ */
+export function minutosDesde(desde: Date | undefined, ahora: Date): number {
+  if (desde === undefined) return 0
+
+  return Math.max(0, Math.floor((ahora.getTime() - desde.getTime()) / 60_000))
+}
+
+/**
+ * Qué clave de i18n toca.
+ *
+ * Los primeros segundos son «ahora mismo» y no «hace 0 min»: el cero no se dice.
+ */
+export function marcaDeRefresco(minutos: number): 'home.refreshedNow' | 'home.refreshed' {
+  return minutos === 0 ? 'home.refreshedNow' : 'home.refreshed'
+}
+
+/**
+ * El texto de la marca de refresco, o nada.
+ *
+ * Es una función y no un ternario dentro del JSX porque la decisión tiene tres
+ * ramas —no hay relectura todavía, hay una en curso, hay minutos— y un
+ * `renderToString` de la home no ejecuta efectos: dentro del componente no se
+ * podría medir ninguna.
+ */
+export function textoDeRefresco(
+  filas: Pick<HomeRows, 'refrescando' | 'refreshedAt' | 'relecturas'>,
+  ahora: Date,
+): string | undefined {
+  if (filas.relecturas === 0) return undefined
+  if (filas.refrescando) return t(DEFAULT_LOCALE, 'home.refreshing')
+
+  const minutos = minutosDesde(filas.refreshedAt, ahora)
+
+  return t(DEFAULT_LOCALE, marcaDeRefresco(minutos), { minutes: minutos })
+}
+
 export function HomePage(props: HomePageProps): ReactNode {
   const filas = useHomeRows()
   const recomendaciones = useRecommendations({
@@ -86,12 +127,24 @@ export function HomePage(props: HomePageProps): ReactNode {
     items.map((item) => item.tags),
     GENRE_LIMIT,
   )
+  const refresco = textoDeRefresco(filas, new Date())
 
   return (
     <section className="home">
       <Ticker items={filas.trending} />
 
       {filas.error === undefined ? null : <p className="search__error">{filas.error}</p>}
+
+      {/*
+        La marca del refresco. Sólo sale después de la primera relectura: al abrir,
+        «actualizado ahora mismo» es el estado normal de la página y decirlo no
+        informa de nada. Es `role="status"` para que se anuncie sin robar el foco.
+      */}
+      {refresco === undefined ? null : (
+        <p className="home__refresco" role="status">
+          {refresco}
+        </p>
+      )}
 
       {/* Sin destacado —todavía no hay nada que recomendar— el titular de la
           página es el suyo: una pantalla sin `h1` deja al lector de pantalla sin
