@@ -1,6 +1,10 @@
 # Descubrimiento: el top de la fuente
 
-Commits: T57 (este documento se escribe antes del commit; el id se anota al cerrarlo).
+Commits: T57 `b864077`.
+
+Verificación medida sobre ese commit, con el árbol que comparte otra sesión: `bun run typecheck` 0 ·
+`bun run lint` 0 en los archivos de esta tarea · `bun test` 1741 pasan, 0 fallan · e2e de las dos
+rutas tocadas **10 pasan, 0 fallan**.
 
 Una entrega: T57. Toca sólo `packages/web`, no cambia ninguna ruta HTTP ni el contrato de ningún
 módulo.
