@@ -124,7 +124,14 @@ export function createApp(options: AppOptions): Hono {
   // también a las respuestas que cortan los guards.
   app.use('*', securityHeaders())
 
-  const guards = [hostGuard(getPort), originGuard(getPort), sessionGuard(options.session)]
+  // El guard de sesión recibe el almacén de tickets: la URL del proxy es la
+  // credencial que mpv sí puede presentar, porque no tiene cookie. Ver
+  // `session-guard.ts`.
+  const guards = [
+    hostGuard(getPort),
+    originGuard(getPort),
+    sessionGuard(options.session, { tickets: options.container?.tickets }),
+  ]
   for (const prefix of PROTECTED_PREFIXES) {
     app.use(`${prefix}*`, ...guards)
   }

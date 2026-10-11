@@ -124,6 +124,30 @@ describe('POST /api/play/mpv', () => {
     })
   })
 
+  /**
+   * La URL que se le da a mpv tiene que poder pedirse **sin cookie**.
+   *
+   * Es el fallo entero del handoff: el servidor lanzaba mpv con la dirección del
+   * proxy y contestaba 202, la interfaz decía que se había abierto, y mpv abría
+   * una ventana que no reproducía nada porque el proxy le respondía 401. Se mide
+   * aquí, con la URL que de verdad se le pasó al proceso, y no en la guardia: lo
+   * que importa es el camino entero.
+   */
+  test('la URL que recibe mpv se puede pedir sin la cookie de sesión', async () => {
+    await conApp(async ({ pedir, lanzados }) => {
+      expect((await lanzar(pedir)).status).toBe(202)
+
+      const url = (lanzados[0] ?? []).at(-1) ?? ''
+
+      const respuesta = await pedir(url.replace(BASE, ''), { headers: {} })
+
+      // 200 y no 401: el proxy contesta. Los bytes ya los mide la prueba de
+      // `/stream/:ticket` con su arnés; lo que se mide aquí es la autorización
+      // del camino entero, con la URL que de verdad recibió el proceso.
+      expect(respuesta.status).toBe(200)
+    })
+  })
+
   test('las cabeceras del upstream van a mpv en un solo argumento', async () => {
     await conApp(async ({ pedir, lanzados }) => {
       await lanzar(pedir)
