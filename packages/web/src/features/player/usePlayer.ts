@@ -28,7 +28,22 @@ export interface PlayerState {
   readonly volume: number
   readonly muted: boolean
   readonly error: string | undefined
+  /**
+   * Todavía no hay ni un fotograma: ni metadatos ni imagen.
+   *
+   * Se apaga con `loadedmetadata`, no cuando se suelta la fuente: entre asignar
+   * la dirección y tener imagen pasa lo que tarda el proxy en traer el primer
+   * trozo, y dar la carga por terminada antes de eso deja al reproductor en
+   * negro sin decir nada.
+   */
   readonly loading: boolean
+  /**
+   * Ya reprodujo y se ha quedado sin datos: espera al siguiente segmento.
+   *
+   * Es otra espera, no la misma de `loading`. Se enciende con `waiting` y
+   * `stalled` y se apaga cuando vuelve a haber imagen.
+   */
+  readonly buffering: boolean
   /**
    * Ancho de la pista de video, en píxeles; cero si no hay ninguna.
    *
@@ -125,6 +140,7 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     muted: false,
     error: undefined,
     loading: true,
+    buffering: false,
     videoWidth: 0,
   })
 
@@ -174,6 +190,12 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
 
     let vivo = true
 
+    // Cada fuente empieza de cero. Sin esto, cambiar de subtitulado a doblado
+    // —o reintentar— dejaba el estado de la fuente anterior y la espera de la
+    // nueva no se pintaba: la pantalla se quedaba con el último fotograma del
+    // modo viejo y parecía que el botón no había hecho nada.
+    setState((previo) => ({ ...previo, loading: true, buffering: false, error: undefined }))
+
     if (needsHls(source.kind)) {
       void attachHls(
         video,
@@ -185,6 +207,7 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
             ...previo,
             error: `hls.js se detuvo: ${detalle}`,
             loading: false,
+            buffering: false,
           }))
         },
         () => vivo,
@@ -201,12 +224,13 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
           return
         }
 
+        // Aquí **no** se apaga `loading`: la lista ya cargó, pero la imagen
+        // todavía no. Lo apaga `loadedmetadata`, que es cuando el elemento sabe
+        // algo del medio.
         hls.current = resultado
-        setState((previo) => ({ ...previo, loading: false }))
       })
     } else {
       video.src = source.url
-      setState((previo) => ({ ...previo, loading: false }))
     }
 
     // La reanudación se decide **una vez por fuente**, cuando el efecto arranca:
@@ -229,6 +253,10 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
         ...previo,
         durationS: video.duration,
         videoWidth: video.videoWidth,
+        // Aquí sí: el elemento ya trajo los metadatos. Es la primera señal de
+        // que hay algo al otro lado, y la que apaga la espera inicial.
+        loading: false,
+        buffering: false,
       }))
 
       // Reanudar: al saber la duración, se salta a donde se dejó. Se hace aquí y
@@ -240,15 +268,31 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
       }
     }
     const alReproducir = (): void => {
-      setState((previo) => ({ ...previo, playing: true }))
+      setState((previo) => ({ ...previo, playing: true, buffering: false }))
       avisos.current.onPlay?.()
     }
     const alPausar = (): void => {
-      setState((previo) => ({ ...previo, playing: false }))
+      // La espera se apaga al pausar: quien pausa a mitad de un tirón quiere ver
+      // el fotograma, no un cartel encima.
+      setState((previo) => ({ ...previo, playing: false, buffering: false }))
       avisos.current.onPause?.()
     }
     const alError = (): void =>
-      setState((previo) => ({ ...previo, error: 'no se pudo cargar el video', loading: false }))
+      setState((previo) => ({
+        ...previo,
+        error: 'no se pudo cargar el video',
+        loading: false,
+        buffering: false,
+      }))
+    /**
+     * La espera que no es la del principio.
+     *
+     * `waiting` y `stalled` son el elemento diciendo que se quedó sin datos;
+     * `canplay` y `playing`, que ya los tiene. Sin esto, la única señal de que
+     * el video se había parado a mitad era que el reloj no avanzaba.
+     */
+    const alEsperar = (): void => setState((previo) => ({ ...previo, buffering: true }))
+    const alVolver = (): void => setState((previo) => ({ ...previo, buffering: false }))
 
     video.addEventListener('timeupdate', alTiempo)
     video.addEventListener('loadedmetadata', alDuracion)
@@ -256,6 +300,11 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     video.addEventListener('play', alReproducir)
     video.addEventListener('pause', alPausar)
     video.addEventListener('error', alError)
+    video.addEventListener('waiting', alEsperar)
+    video.addEventListener('stalled', alEsperar)
+    video.addEventListener('canplay', alVolver)
+    video.addEventListener('playing', alVolver)
+    video.addEventListener('seeked', alVolver)
 
     return () => {
       vivo = false
@@ -265,6 +314,11 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
       video.removeEventListener('play', alReproducir)
       video.removeEventListener('pause', alPausar)
       video.removeEventListener('error', alError)
+      video.removeEventListener('waiting', alEsperar)
+      video.removeEventListener('stalled', alEsperar)
+      video.removeEventListener('canplay', alVolver)
+      video.removeEventListener('playing', alVolver)
+      video.removeEventListener('seeked', alVolver)
 
       hls.current?.destroy()
       hls.current = undefined

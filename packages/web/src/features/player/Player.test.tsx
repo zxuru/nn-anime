@@ -51,8 +51,47 @@ describe('el reproductor', () => {
     expect(render(<Player url="/stream/abc" kind="file" />)).not.toContain('hls.js')
   })
 
-  test('los atajos se anuncian, para que se puedan descubrir', () => {
-    expect(render(<Player url="/stream/abc" kind="file" />)).toContain('Espacio o Enter')
+  test('los atajos se pintan como teclas, no como una frase', () => {
+    const html = render(<Player url="/stream/abc" kind="file" />)
+
+    // Cada tecla va en su `kbd`: es lo que dice que se puede pulsar. Antes eran
+    // una línea de texto corrido y no se leían como teclas.
+    expect(html).toContain('<kbd')
+
+    for (const tecla of ['Espacio', 'Enter', 'K', '←', '→', '↑', '↓', 'M', 'F']) {
+      expect(html, tecla).toContain(`>${tecla}</kbd>`)
+    }
+
+    // Y cada tecla dice qué hace, que es lo que la hace aprendible.
+    for (const hace of [
+      'Pausa y reanudar',
+      'Retroceder o avanzar 10 s',
+      'Bajar o subir el volumen',
+      'Silenciar',
+      'Pantalla completa',
+    ]) {
+      expect(html, hace).toContain(hace)
+    }
+  })
+
+  test('cada botón declara el atajo que lo dispara', () => {
+    const html = render(<Player url="/stream/abc" kind="file" />)
+
+    // El atajo existe para quien no ve la ayuda de abajo: sin esto, un lector de
+    // pantalla no tiene forma de saber que la barra espaciadora pausa.
+    expect(html).toContain('aria-keyshortcuts="Space Enter K"')
+    expect(html).toContain('aria-keyshortcuts="ArrowLeft"')
+    expect(html).toContain('aria-keyshortcuts="ArrowRight"')
+  })
+
+  test('mientras carga lo dice encima del video', () => {
+    const html = render(<Player url="/stream/abc" kind="file" />)
+
+    // El reproductor arranca cargando, y ese estado tiene que verse: antes era
+    // un párrafo debajo de los controles y la pantalla se quedaba en negro.
+    expect(html).toContain('player__wait')
+    expect(html).toContain('role="status"')
+    expect(html).toContain('Cargando el video')
   })
 
   test('la URL que recibe es la del proxy, no una del upstream', () => {
