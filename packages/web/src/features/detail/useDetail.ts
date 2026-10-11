@@ -18,9 +18,16 @@
 import {
   animeResponseSchema,
   episodesResponseSchema,
+  favoritesResponseSchema,
   providersResponseSchema,
 } from '@nn-anime/core/api'
-import type { AnimeDetail, Episode, ProviderCapabilities, ProviderRef } from '@nn-anime/core/models'
+import type {
+  AnimeDetail,
+  AnimeSummary,
+  Episode,
+  ProviderCapabilities,
+  ProviderRef,
+} from '@nn-anime/core/models'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet, apiPost } from '../../api/client'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
@@ -141,29 +148,81 @@ export interface FavoriteState {
 }
 
 /**
+ * Si el título está entre los favoritos.
+ *
+ * Se compara la referencia entera —proveedor y valor— y no sólo el valor: dos
+ * proveedores pueden usar el mismo identificador para títulos distintos, y
+ * mirar sólo uno de los dos marcaría como guardado algo que no lo está.
+ */
+export function isFavorite(favorites: readonly AnimeSummary[], ref: ProviderRef): boolean {
+  return favorites.some(
+    (item) => item.ref.providerId === ref.providerId && item.ref.value === ref.value,
+  )
+}
+
+/**
  * Favorito con estado inmediato.
  *
  * Se pinta el cambio antes de que el servidor conteste y se revierte si falla:
  * un botón que espera a la red para cambiar de color se siente roto. Si la
  * petición falla, el estado vuelve a lo que había, que es la verdad.
+ *
+ * **El estado inicial se lee del servidor.** Antes empezaba siempre en «no
+ * está»: en el cartel de destacado y en la ficha, un título ya guardado salía
+ * sin marcar y el botón mentía hasta que se pulsaba dos veces. La lista se pide
+ * **sin señal** a propósito: el cliente deduplica las lecturas por ruta, y con
+ * una señal propia cada botón montado pediría la suya.
  */
-export function useFavorite(ref: ProviderRef, initial = false): FavoriteState {
-  const [value, setValue] = useState(initial)
+export function useFavorite(ref: ProviderRef): FavoriteState {
+  const [value, setValue] = useState(false)
   const [busy, setBusy] = useState(false)
+  /**
+   * Si la persona ya pulsó.
+   *
+   * Una lista que llegue después no puede pisar lo que se acaba de decidir, y la
+   * que se leyó antes del alta es vieja por definición.
+   */
+  const tocado = useRef(false)
+  const providerId = ref.providerId
+  const referencia = ref.value
+
+  useEffect(() => {
+    let vivo = true
+
+    void apiGet('/api/favorites', favoritesResponseSchema).then(
+      (lista) => {
+        if (!vivo || tocado.current) return
+
+        setValue(isFavorite(lista.favorites, { providerId, value: referencia }))
+      },
+      // Sin la lista no se afirma nada: el botón se queda en «no está» y quien lo
+      // pulse sigue pudiendo guardar el título. Un favorito que no se pudo leer no
+      // es motivo para dejar la pantalla sin botón.
+      () => undefined,
+    )
+
+    return () => {
+      vivo = false
+    }
+  }, [providerId, referencia])
 
   const toggle = useCallback(() => {
+    tocado.current = true
     const siguiente = !value
     setValue(siguiente)
     setBusy(true)
 
-    void apiPost('/api/favorites', { ref, value: siguiente }).then(
+    void apiPost('/api/favorites', {
+      ref: { providerId, value: referencia },
+      value: siguiente,
+    }).then(
       () => setBusy(false),
       () => {
         setValue(!siguiente)
         setBusy(false)
       },
     )
-  }, [ref, value])
+  }, [providerId, referencia, value])
 
   return { value, busy, toggle }
 }

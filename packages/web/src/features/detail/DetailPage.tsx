@@ -71,7 +71,7 @@ export function DetailPage(props: DetailPageProps): ReactNode {
     props.providerId,
     props.ref,
   )
-  const favorite = useFavorite({ providerId: props.providerId, value: props.ref }, false)
+  const favorite = useFavorite({ providerId: props.providerId, value: props.ref })
   /**
    * El modo elegido a mano.
    *

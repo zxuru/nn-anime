@@ -1,14 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import type { Episode, ProviderCapabilities } from '@nn-anime/core/models'
+import type { AnimeSummary, Episode, ProviderCapabilities } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { DetailPage } from './DetailPage'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
-import { chosenMode, formatDuration, modesFor } from './useDetail'
+import { chosenMode, formatDuration, isFavorite, modesFor } from './useDetail'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
 
@@ -164,6 +164,34 @@ describe('botón de favorito', () => {
 
   test('mientras guarda, se deshabilita', () => {
     expect(render(<FavoriteButton value={false} busy onToggle={() => {}} />)).toContain('disabled')
+  })
+})
+
+/**
+ * El botón nace marcado si el título ya estaba guardado.
+ *
+ * La comparación decide eso, y es lo que estaba mal: el estado inicial era
+ * siempre «no está», así que el cartel de destacado negaba un favorito que la
+ * fila de favoritos sí enseñaba. Se mide en la función pura porque el hook
+ * necesita un navegador, y el caso de navegador es del e2e.
+ */
+describe('si el título ya está en favoritos', () => {
+  function resumen(providerId: string, value: string): AnimeSummary {
+    return { ref: { providerId, value }, title: value }
+  }
+
+  test('se compara la referencia entera, no sólo el valor', () => {
+    const lista = [resumen('fixture', 'aurora-nocturna')]
+
+    expect(isFavorite(lista, { providerId: 'fixture', value: 'aurora-nocturna' })).toBe(true)
+    // Mismo valor en otro proveedor: son títulos distintos y no está guardado.
+    expect(isFavorite(lista, { providerId: 'otro', value: 'aurora-nocturna' })).toBe(false)
+    // Mismo proveedor y otro título.
+    expect(isFavorite(lista, { providerId: 'fixture', value: 'otro-titulo' })).toBe(false)
+  })
+
+  test('sin lista no hay nada guardado', () => {
+    expect(isFavorite([], { providerId: 'fixture', value: 'aurora-nocturna' })).toBe(false)
   })
 })
 

@@ -54,7 +54,7 @@ export function featuredMeta(item: FeaturedItem, episodeCount: number | undefine
 
 export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
   const { detail, firstEpisode } = useFeatured(props.item.ref)
-  const favorite = useFavorite(props.item.ref, false)
+  const favorite = useFavorite(props.item.ref)
   // Los géneros del detalle son el respaldo de un destacado sin tags: una entrada
   // del feed no trae vector, pero su ficha sí trae géneros, y la línea de datos no
   // tiene por qué quedarse vacía por eso.
