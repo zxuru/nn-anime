@@ -394,9 +394,12 @@ la referencia no está cacheada— y dos de T26c: por qué frontera se ejerce el
 - [x] `bun install && bun run build && bun test && bun run e2e` limpio en checkout nuevo: **medido en
       un clon** (`git archive HEAD`), install 0, build 0, 1450 pruebas 0 fallos, e2e 14 verdes y 2
       marcados, los cuatro con código de salida 0
-- [ ] Revisión humana y decisión sobre v1.5 (`downloads`), más las cuatro decisiones abiertas del
-      informe: el `localhost` del guard de `Host`, la tabla `genre`, la caché de tendencias y las
-      listas de criterios de los specs de módulo
+- [x] Revisión humana y decisión sobre v1.5 (`downloads`), más las cuatro decisiones abiertas del
+      informe. **Decidido en el Checkpoint H**: la v1 se cierra y `downloads` queda para v1.5; el
+      guard de `Host` se endurece a sólo `127.0.0.1`; las tendencias pasan a tener caché con TTL de
+      900 s (`trending_cache`); los specs de módulo llevan un puntero a `tasks/todo.md` en vez de 62
+      casillas sin marcar; y la tabla `genre` **sí se escribe** —mi hallazgo era falso, con un `grep`
+      mal hecho, y está corregido con una prueba que lo comprueba—
 
 ## Riesgos y mitigaciones
 
