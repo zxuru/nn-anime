@@ -12,12 +12,14 @@ import { watchedInWindow, windowAt, windowCount, windowForNumber } from './episo
 import { FavoriteButton } from './FavoriteButton'
 import { RelatedList } from './RelatedList'
 import { SagaRail, sagaGroups } from './SagaRail'
+import { SourcePicker } from './SourcePicker'
 import {
   chosenMode,
   formatDuration,
   isFavorite,
   modesFor,
   relatedPath,
+  sourcesPath,
   watchedPercent,
 } from './useDetail'
 
@@ -589,6 +591,68 @@ describe('el rail de temporadas', () => {
 
     expect(html).toContain('Más de esta franquicia')
     expect(html).toContain('Naruto Shippuden')
+  })
+})
+
+describe('las otras fuentes de la misma obra', () => {
+  const OTRA: AnimeSummary = {
+    ref: { providerId: 'animeav1', value: 'aurora-nocturna' },
+    title: 'Aurora Nocturna',
+    year: 2019,
+  }
+
+  test('nombra la otra fuente y enlaza su ficha', () => {
+    const html = render(
+      <SourcePicker
+        items={[OTRA]}
+        current="fixture"
+        providerLabels={new Map([['animeav1', 'AnimeAV1']])}
+      />,
+    )
+
+    expect(html).toContain('También en')
+    expect(html).toContain('>AnimeAV1</a>')
+    // El enlace lleva a la ficha de **esa** fuente, con su referencia: la obra no
+    // se fusiona y el reproductor de destino es el suyo.
+    expect(html).toContain('href="/anime/animeav1/aurora-nocturna"')
+    // El nombre visible es lo que se lee; el título del enlace dice de qué obra es.
+    expect(html).toContain('Aurora Nocturna en AnimeAV1')
+  })
+
+  test('sin nombre declarado se usa el id, no un hueco', () => {
+    const html = render(
+      <SourcePicker items={[OTRA]} current="fixture" providerLabels={new Map()} />,
+    )
+
+    expect(html).toContain('>animeav1</a>')
+  })
+
+  test('sin otras fuentes la sección no se pinta', () => {
+    const html = render(<SourcePicker items={[]} current="fixture" providerLabels={new Map()} />)
+
+    // Ni un titular vacío: una ficha sin nada que elegir no tiene una sección.
+    expect(html).toBe('')
+  })
+
+  test('la fuente que se está viendo no se lista, aunque llegue en la respuesta', () => {
+    const propia: AnimeSummary = {
+      ref: { providerId: 'fixture', value: 'aurora-nocturna' },
+      title: 'Aurora Nocturna',
+      year: 2019,
+    }
+
+    // El servidor ya la excluye; si algún día dejara de hacerlo, un enlace a la
+    // misma ficha que se está leyendo no puede aparecer.
+    const html = render(
+      <SourcePicker items={[propia]} current="fixture" providerLabels={new Map()} />,
+    )
+
+    expect(html).toBe('')
+  })
+
+  test('la referencia de la otra fuente viaja codificada en la ruta', () => {
+    // jkanime numera con barra y sin escapar la ruta se parte en trozos.
+    expect(sourcesPath('jkanime', 'dandadan/12')).toBe('/api/anime/jkanime/dandadan%2F12/sources')
   })
 })
 

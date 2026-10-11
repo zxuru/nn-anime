@@ -297,6 +297,17 @@ export const relatedResponseSchema = z.strictObject({
 })
 
 /**
+ * Las otras fuentes que tienen esta misma obra.
+ *
+ * Misma forma que `relatedResponseSchema` y, a propósito, **schema propio**:
+ * significan cosas distintas —los hermanos de la saga contra la misma obra en otro
+ * sitio— y compartir el tipo dejaría que un cambio en uno viajara al otro.
+ */
+export const sourcesResponseSchema = z.strictObject({
+  items: z.array(animeSummarySchema),
+})
+
+/**
  * El estado de visionado de cada episodio de un título.
  *
  * `watchedAt` viaja como fecha ISO y no como epoch: es la misma forma que
@@ -426,6 +437,7 @@ export type FavoriteRequest = z.infer<typeof favoriteRequestSchema>
 export type FavoritesResponse = z.infer<typeof favoritesResponseSchema>
 export type EpisodesResponse = z.infer<typeof episodesResponseSchema>
 export type RelatedResponse = z.infer<typeof relatedResponseSchema>
+export type SourcesResponse = z.infer<typeof sourcesResponseSchema>
 export type WatchedEpisodePayload = z.infer<typeof watchedEpisodeSchema>
 export type WatchedResponse = z.infer<typeof watchedResponseSchema>
 export type ProviderStatus = z.infer<typeof providerStatusSchema>

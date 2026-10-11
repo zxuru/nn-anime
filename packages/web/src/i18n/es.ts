@@ -223,6 +223,8 @@ export const messages: Messages = {
   'detail.mode.raw': 'original',
   'detail.modes': 'Modos disponibles',
   'detail.modeUnavailable': 'Este proveedor no ofrece {mode}.',
+  'detail.sources': 'También en',
+  'detail.sourcesItem': '{title} en {provider}',
   'detail.noEpisodes': 'Este título no tiene episodios todavía.',
   'detail.favorite.add': 'Añadir a favoritos',
   'detail.favorite.remove': 'Quitar de favoritos',

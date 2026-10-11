@@ -30,6 +30,7 @@ import { PLAY_MODES, type PlayMode } from '../player/watch-route'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
 import { SagaRail } from './SagaRail'
+import { SourcePicker } from './SourcePicker'
 import { chosenMode, modesFor, useDetail, useFavorite } from './useDetail'
 
 /** La clave de traducción del estado, escrita una a una. */
@@ -69,8 +70,19 @@ function Skeletons(): ReactNode {
 }
 
 export function DetailPage(props: DetailPageProps): ReactNode {
-  const { detail, episodes, related, franchise, watched, capabilities, state, error, reload } =
-    useDetail(props.providerId, props.ref)
+  const {
+    detail,
+    episodes,
+    related,
+    franchise,
+    sources,
+    watched,
+    capabilities,
+    providerNames,
+    state,
+    error,
+    reload,
+  } = useDetail(props.providerId, props.ref)
   const favorite = useFavorite({ providerId: props.providerId, value: props.ref })
   /**
    * El modo elegido a mano.
@@ -168,6 +180,10 @@ export function DetailPage(props: DetailPageProps): ReactNode {
             })}
           </ul>
         </section>
+
+        {/* Dónde verlo, al lado de cómo: son las dos preguntas que se contestan
+            antes de darle a reproducir. Sin otras fuentes no pinta nada. */}
+        <SourcePicker items={sources} current={props.providerId} providerLabels={providerNames} />
 
         <section>
           <h2>{t(DEFAULT_LOCALE, 'detail.genres')}</h2>

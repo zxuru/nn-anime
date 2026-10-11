@@ -347,3 +347,141 @@ describe('listRelated', () => {
     )
   })
 })
+
+describe('listSources', () => {
+  const YANI_JKANIME: ProviderRef = { providerId: 'jkanime', value: 'yani-neko' }
+
+  test('la misma obra en otra fuente sale, y la de la ficha no', async () => {
+    await withStore(
+      [
+        [YANI_JKANIME, 'Yani Neko', 2026],
+        [{ providerId: 'animeav1', value: 'yani-neko' }, 'yani  neko!', 2026],
+      ],
+      (store) => {
+        const lista = store.related.listSources(YANI_JKANIME, 10)
+
+        // Sin el plegado de acentos, mayúsculas y signos, la lista sale vacía; sin
+        // la exclusión de la fuente propia, sale también la que se está viendo.
+        expect(lista.map((item) => `${item.ref.providerId}:${item.ref.value}`)).toEqual([
+          'animeav1:yani-neko',
+        ])
+        expect(lista[0]?.title).toBe('yani  neko!')
+        expect(lista[0]?.year).toBe(2026)
+      },
+    )
+  })
+
+  test('el mismo título en años distintos no es la misma obra', async () => {
+    await withStore(
+      [
+        [YANI_JKANIME, 'One Piece', 1999],
+        [{ providerId: 'animeav1', value: 'one-piece' }, 'One Piece', 2026],
+      ],
+      (store) => {
+        // Juntar dos obras homónimas de años distintos escondería una de las dos
+        // de la ficha; la mutación que quite el año de la clave la deja en rojo.
+        expect(store.related.listSources(YANI_JKANIME, 10)).toEqual([])
+      },
+    )
+  })
+
+  test('la temporada de la misma saga no es la misma obra', async () => {
+    await withStore(
+      [
+        [FRIEREN, 'Sousou no Frieren', 2023],
+        // El mismo año a propósito: así la única regla que puede dejar la lista
+        // vacía es la clave de título. Con `sagaTitle` en su lugar, las dos
+        // entregas serían la misma obra y la ficha ofrecería cambiar de fuente a
+        // otra temporada.
+        [{ providerId: 'animeav1', value: 'frieren-2' }, 'Sousou no Frieren 2nd Season', 2023],
+      ],
+      (store) => {
+        expect(store.related.listSources(FRIEREN, 10)).toEqual([])
+      },
+    )
+  })
+
+  test('una entrada por fuente, la de referencia alfabéticamente menor', async () => {
+    await withStore(
+      [
+        // La menor primero y la mayor después: sin la comparación de referencias,
+        // la lectura se quedaría con la última fila y esta prueba lo vería.
+        [YANI_JKANIME, 'Yani Neko', 2026],
+        [{ providerId: 'jkanime', value: 'yani-neko-tv' }, 'Yani Neko', 2026],
+        [{ providerId: 'animeav1', value: 'yani' }, 'Yani Neko', 2026],
+      ],
+      (store) => {
+        const lista = store.related.listSources({ providerId: 'animeav1', value: 'yani' }, 10)
+
+        // Dos referencias de la misma fuente para la misma obra no son dos sitios
+        // donde elegir; la mutación que quite el mapa por proveedor deja dos filas.
+        expect(lista.map((item) => `${item.ref.providerId}:${item.ref.value}`)).toEqual([
+          'jkanime:yani-neko',
+        ])
+      },
+    )
+  })
+
+  test('lee la obra de un listado cacheado, no sólo de las fichas abiertas', async () => {
+    await withStore(
+      [[YANI_JKANIME, 'Yani Neko', 2026]],
+      (store) => {
+        // La misma fuente de candidatos que los relacionados: sin ella, una ficha
+        // cuya otra fuente sólo salió en una búsqueda no ofrecería el cambio.
+        expect(store.related.listSources(YANI_JKANIME, 10).map((item) => item.ref.value)).toEqual([
+          'yani-neko',
+        ])
+      },
+      [
+        {
+          providerId: 'animeav1',
+          query: 'yani neko',
+          results: [resultado('animeav1', 'yani-neko', 'Yani Neko', 2026)],
+        },
+      ],
+    )
+  })
+
+  test('sin otra fuente devuelve lista vacía, no un error', async () => {
+    await withStore([[YANI_JKANIME, 'Yani Neko', 2026]], (store) => {
+      expect(store.related.listSources(YANI_JKANIME, 10)).toEqual([])
+    })
+  })
+
+  test('una referencia que no está en la base tampoco es un error', async () => {
+    await withStore([[YANI_JKANIME, 'Yani Neko', 2026]], (store) => {
+      expect(store.related.listSources({ providerId: 'jkanime', value: 'no-existe' }, 10)).toEqual(
+        [],
+      )
+    })
+  })
+
+  test('el límite se respeta', async () => {
+    await withStore(
+      [
+        [YANI_JKANIME, 'Yani Neko', 2026],
+        [{ providerId: 'animeav1', value: 'yani-neko' }, 'Yani Neko', 2026],
+        [{ providerId: 'otra', value: 'yani-neko' }, 'Yani Neko', 2026],
+      ],
+      (store) => {
+        expect(store.related.listSources(YANI_JKANIME, 1)).toHaveLength(1)
+      },
+    )
+  })
+
+  test('la consulta no crece con los candidatos', async () => {
+    await withStore(
+      [
+        [YANI_JKANIME, 'Yani Neko', 2026],
+        [{ providerId: 'animeav1', value: 'yani-neko' }, 'Yani Neko', 2026],
+        [{ providerId: 'otra', value: 'yani-neko' }, 'Yani Neko', 2026],
+      ],
+      (store) => {
+        const antes = store.llamadas()
+        store.related.listSources(YANI_JKANIME, 10)
+
+        expect(store.llamadas()).toBe(antes)
+      },
+    )
+  })
+})

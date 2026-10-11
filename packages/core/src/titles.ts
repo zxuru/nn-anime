@@ -32,8 +32,20 @@ const MARCADORES: readonly RegExp[] = [
 /** El romano final. Sólo al final: «Fate/stay night» no lleva marcador. */
 const ROMANO_FINAL = /\s+(?:ii|iii|iv|v|vi|vii|viii|ix|x)$/
 
-/** Minúsculas, sin diacríticos, sin signos: lo que queda es comparable. */
-function normalizar(title: string): string {
+/**
+ * El título reducido a lo comparable.
+ *
+ * Dos fuentes escriben el mismo anime de otra manera —mayúsculas, un signo de
+ * más, acentos— y la referencia no lo delata: cada una numera a su aire. Lo que
+ * queda es minúsculas sin diacríticos y sin signos, que es lo que hace que «One
+ * Piece» de una fuente y «one  piece!» de la otra sean la misma obra.
+ *
+ * Es la misma normalización que `baseTitle` usa por dentro, y por eso vive aquí y
+ * no duplicada: la búsqueda, el top y las filas del arranque en frío comparan
+ * títulos, y con dos copias de esta regla la misma obra se agruparía en una
+ * pantalla y no en la de al lado.
+ */
+export function titleKey(title: string): string {
   return title
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
@@ -43,7 +55,7 @@ function normalizar(title: string): string {
 }
 
 export function baseTitle(title: string): string {
-  let base = normalizar(title).replace(/\s+/g, ' ')
+  let base = titleKey(title).replace(/\s+/g, ' ')
 
   // Hasta que no cambie: «Sousou no Frieren 2nd Season Part 2» lleva dos.
   for (;;) {
@@ -155,7 +167,7 @@ const ROMANOS: Readonly<Record<string, number>> = {
  * última», y quien ordene tiene el año para colocarla.
  */
 export function seasonNumberOf(title: string): number | undefined {
-  const base = normalizar(title).replace(/\s+/g, ' ')
+  const base = titleKey(title).replace(/\s+/g, ' ')
 
   for (const patron of NUMERO_DE_TEMPORADA) {
     const numero = patron.exec(base)?.[1]

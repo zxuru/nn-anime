@@ -142,6 +142,14 @@ export interface CatalogStore {
     scope?: RelatedScope,
   ): Promise<readonly AnimeSummary[]>
   /**
+   * Las otras fuentes que tienen **esta misma obra**, de lo que la base ya conoce.
+   *
+   * No son hermanos de saga: es la misma ficha en otro sitio, que es lo que la
+   * ficha necesita para ofrecer elegir fuente. Una entrada por proveedor y nunca
+   * la del `ref` pedido; lista vacía cuando no hay ninguna, que no es un error.
+   */
+  listSources(ref: ProviderRef, limit: number): Promise<readonly AnimeSummary[]>
+  /**
    * El estado de visionado de cada episodio, por número.
    *
    * Una fila por episodio —la del visionado más avanzado—, no una por visionado:
@@ -282,6 +290,9 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async listRelated(ref, limit, scope) {
       return of().related.list(ref, limit, scope)
+    },
+    async listSources(ref, limit) {
+      return of().related.listSources(ref, limit)
     },
     async listWatchedEpisodes(animeRef) {
       return of().watched.list(animeRef)
