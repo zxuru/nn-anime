@@ -22,12 +22,41 @@ pierde o que se mezcla.
 El detalle del listón, con sus ocho puntos, está en el **Definition of Done** de
 `tasks/plan.md`; esta sección es la parte que se olvida cuando nadie la repite.
 
+## Varios agentes a la vez
+
+Un solo directorio es un solo índice y un solo `tasks/todo.md`. Dos agentes trabajando ahí se
+llevan el *stage* del otro y se borran las líneas mutuamente. Cada agente trabaja en su worktree:
+
+```
+bun run scripts/agente.ts abrir T60            # worktree, rama tarea/T60 y reclamo
+bun run scripts/agente.ts estado               # quién tiene qué
+bun run scripts/agente.ts cerrar T60           # rebasa sobre main, integra y limpia
+bun run scripts/agente.ts abandonar T60 --si   # destructivo: tira la rama sin integrarla
+```
+
+- El worktree vive fuera del repo, en `../nn-anime-T60`, con su `node_modules`, su base de datos
+  (`NN_ANIME_DATA_DIR=<worktree>/.data/`) y su puerto (`--port`, 9000 más el número del task). Sin
+  eso, dos agentes comparten el SQLite y aparece un `SQLITE_BUSY` que no es un fallo del código.
+- El reclamo es un ref: `update-ref` lo crea sólo si no existe, así que el segundo agente recibe
+  error en vez de empezar un task ajeno. Lo libera `cerrar`, no el agente por su cuenta.
+- **Un solo escritor por archivo compartido.** `tasks/todo.md` y `tasks/plan.md` los toca el
+  integrador. El agente deja `tasks/done/T60.md` —el formato está en `tasks/done/README.md`— y el
+  integrador lo pega.
+- **Un solo editor por spec.** Mientras un task toca un `docs/specs/SPEC-*.md`, ese spec queda
+  congelado. Las demás propuestas van a `docs/specs/proposals/` y las integra su dueño.
+- Partición por paquete, no por task: dos agentes sobre `packages/server/src/routes/` chocan
+  aunque estén aislados, y el merge lo revela tarde.
+- En un worktree el índice es propio, así que commitear con `-- <rutas>` deja de ser una defensa y
+  sigue siendo la regla: el árbol de integración sí es compartido.
+
 ## Fuentes de verdad
 
 | Qué | Dónde | Cuándo se toca |
 |---|---|---|
 | Decisiones y DoD | `tasks/plan.md` | Al abrir una fase o cambiar el listón |
 | Tareas en curso | `tasks/todo.md`, `tasks/discovery.md` | Al cerrar un task (marcar y anotar la verificación) |
+| Cierre desde un worktree | `tasks/done/T<id>.md` | Al terminar el task; lo integra el integrador |
+| Propuesta de contrato | `docs/specs/proposals/SPEC-<módulo>.<task>.md` | Al proponer un cambio de spec sin ser su dueño |
 | Contrato de cada módulo | `docs/specs/SPEC-*.md` | Al cambiar una interfaz pública: es evento de versión mayor y requiere aprobación |
 | Comandos y arranque | `README.md` | Al añadir o renombrar un script de `package.json` |
 | Riesgo residual | `SECURITY.md` | Al añadir una superficie que no se mitiga |
