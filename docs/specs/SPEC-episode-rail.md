@@ -1,6 +1,7 @@
 # Spec: episode-rail (carrusel de últimos episodios)
 
-Estado: **propuesta · pendiente de aprobación humana** · 2026-10-12.
+Estado: **propuesta · pendiente de aprobación humana** · 2026-10-12 · decisiones del humano ya
+tomadas: **A** (la fila la publica el plugin) y **sin contador de comentarios**.
 Esta entrega **no crea un módulo**: extiende contratos y paquetes ya aprobados. No toca
 `docs/specs/CAPABILITY-MAP.md` ni su build order.
 
@@ -42,8 +43,9 @@ es nuevo, nunca *qué episodio*.
    siendo el plugin quien lee su fuente. No hay URL que añadir a la lista blanca del proxy.
 2. «hace 3 horas» es presentación: se calcula en el cliente desde un ISO-8601 que ya viene en el
    contrato. No se persiste texto relativo.
-3. La captura muestra también un contador de comentarios. **No entra en esta entrega** (ver
-   Open Questions 2).
+3. La captura muestra un contador de comentarios. **No entra, y no se deja en el contrato.** Un
+   campo que nadie pinta es un campo que nadie valida, y la fuente de referencia no lo publica
+   (ver «Lo que una fuente real publica»): no hay nada que rescatar.
 4. No se añade ninguna dependencia de UI. El carrusel es CSS (`overflow-x`) más dos botones.
 5. La tira es **un componente nuevo**, no un modo de `FeedRow`: una fila de pósters verticales y una
    tira de miniaturas con número de episodio tienen estructura, datos y accesibilidad distintos.
@@ -69,12 +71,6 @@ export interface FeedEpisode {
   readonly number: number
   /** Título del episodio, si la fuente lo da. Texto no confiable. */
   readonly title?: string
-  /**
-   * Cuántos comentarios lleva en la fuente, si los publica.
-   * Campo opcional y **no usado por la interfaz en esta entrega**; viaja en el
-   * contrato para no volver a migrar el schema si se decide pintarlo.
-   */
-  readonly comments?: number
 }
 
 export interface FeedEntry extends SearchResult {
@@ -97,9 +93,48 @@ Tres decisiones, y las tres son de compatibilidad:
    valida y se descarta como una unidad.
 
 `feedEntrySchema` en `packages/core/src/schema.ts` crece con `episode: feedEpisodeSchema.optional()`
-(`strictObject` con `number` entero ≥ 0, `title` opcional de longitud ≥ 1 y `comments` entero ≥ 0).
+(`strictObject` con `number` entero ≥ 0 y `title` opcional de longitud ≥ 1).
 `RESPONSE_SCHEMAS` y el test de conformidad de `getFeed` **no cambian**: la forma sigue siendo la
 misma, con un campo opcional más.
+
+### De dónde sale la fecha, con una fuente real delante
+
+Una fuente de las que el usuario ya integra (jkanime.net, mirada el 2026-10-12) publica la lista de
+últimos episodios con esto por tarjeta:
+
+| En la fuente | En el contrato |
+|---|---|
+| Portada `cdn.jkdesa.com/…/jkvideo_<hash>.jpg` | `coverUrl` |
+| «Ep 1216» | `episode.number` |
+| Título del anime, con su temporada: «Black Clover 2nd Season» | `title` |
+| Enlace `/slug/1216/` | `ref.value` |
+| «Ayer», «Viernes 09», «Jueves 08» | `publishedAt` |
+| «Serie», «ONA», «OVA», «Pelicula», «Especial» | `kind` |
+| «En emision», «Concluido» | `status` en `AnimeDetail`, no aquí |
+
+Dos cosas que esto cambia y una que confirma:
+
+1. **La fuente da una etiqueta relativa gruesa, no un instante.** «Ayer» o «Viernes 09» no son un
+   ISO-8601. La regla es del plugin y es la misma que ya vale para `publishedAt`: convierte a ISO
+   con el mejor instante que sostenga el dato —«ayer» es el comienzo de ese día en su zona horaria,
+   «Viernes 09» es esa fecha— y **si no puede, omite `publishedAt`**. La consecuencia está en el
+   paso 3 de la ruta: sin fecha la entrada sigue en `Novedades` y **no** entra en la tira. El
+   formateador no necesita saber el origen: un instante a comienzo de día ya da «ayer» o «hace 1
+   día» por sí solo, y nunca baja a minutos.
+2. **El título del episodio casi nunca está.** La lista no lo publica: sólo «Ep N» y el anime. Por
+   eso `episode.title` es opcional y la tarjeta no lo espera. Si algún proveedor lo trae, se pinta.
+3. **No hay comentarios en esa lista**, lo que confirma que quitarlos no pierde nada real.
+
+El resto del contenido de una fuente así —estado, tipo, fecha de estreno del título, y la parrilla
+por día de la semana que la propia fuente publica como «Programación»— **no entra aquí**: `status`,
+`kind` y `year` ya viajan en `AnimeDetail` / `SearchResult`, y la parrilla semanal es otra entrega
+(necesita un campo de día de emisión, no la fecha de publicación del episodio).
+
+**Alcance del repositorio:** nada de esto se escribe como scraper. El repo publica el contrato y un
+plugin de ejemplo con datos inventados; quien integra jkanime escribe su plugin fuera
+(`~/.config/nn-anime/providers/`), como dice `README.md` y el apartado «Fuera de alcance» de
+`CAPABILITY-MAP.md`. Lo que sí entra al repo es la **forma** que ese plugin necesita poder rellenar,
+y los datos del fixture para probarla.
 
 ### Rutas HTTP
 
@@ -123,9 +158,8 @@ export const episodeFeedResponseSchema = z.strictObject({
 })
 ```
 
-Nótese que la respuesta **no repite** `comments`: el schema de la frontera declara sólo lo que la
-interfaz usa, y un campo que nadie pinta es un campo que nadie valida. `comments` sigue en el
-contrato del plugin, y entra a la respuesta el día que se pinte.
+La respuesta declara **sólo lo que la interfaz usa**. `comments` no existe en ningún nivel del
+contrato: se retiró por decisión explícita, y la lista de la fuente de referencia tampoco lo publica.
 
 `/api/feed/episodes`, paso a paso:
 
@@ -264,9 +298,11 @@ poder mutarlas en la prueba.
   decimal, `number` como cadena); `formatRelativeTime` con minutos, horas, días, un ISO inválido y
   con `nowMs` fijo —nunca `Date.now()` dentro de la prueba, o el test se vuelve horario.
 - `bun test` en `packages/server`: `filterEpisodeEntries` con y sin `episode`, con y sin
-  `publishedAt`, y con duplicados; la ruta devuelve 200 con lista vacía si ningún proveedor publica
-  episodios; la ruta **no** llama a `getFeed` si la caché está fresca (contador del fixture, como
-  T50); un proveedor que falla no rompe la respuesta.
+  `publishedAt`, con el mismo título y el mismo número de episodio repetidos, y con números altos
+  (1216); la ruta
+  devuelve 200 con lista vacía si ningún proveedor publica episodios; la ruta **no** llama a
+  `getFeed` si la caché está fresca (contador del fixture, como T50); un proveedor que falla no
+  rompe la respuesta.
 - `bun test` en `packages/web`: `EpisodeRail` pinta la tira, el badge y el tiempo relativo; con
   lista vacía pinta el texto de `home.episodes.empty`; los botones se deshabilitan en los extremos.
 - `bun run e2e`: la home muestra la tira con datos del fixture, se desplaza al pulsar «siguiente» y
@@ -289,6 +325,10 @@ el código roto no mide nada.
 - [ ] Una entrada sin `publishedAt` **no** aparece en la tira y sí sigue en `Novedades`.
 - [ ] La segunda carga de la home no vuelve a llamar a `getFeed` (contador del fixture).
 - [ ] Un manifiesto escrito antes de esta entrega **sigue cargando** sin `episode`.
+- [ ] Dos entradas del mismo título con el mismo número de episodio —el caso real de una fuente que
+      repite la lista de programación— se pintan **una vez**.
+- [ ] Una entrada con `episode.number: 1216` (el caso de una serie larga) no rompe el schema ni la
+      tarjeta.
 - [ ] Ninguna petición de la tira sale a un origen externo: el e2e lo comprueba igual que hoy.
 
 ## Boundaries
@@ -304,7 +344,6 @@ el código roto no mide nada.
 
 **Ask first**
 
-- Añadir `comments` a la respuesta HTTP o pintarlo en la tarjeta.
 - Añadir una librería de carrusel, de animación o de fechas.
 - Cambiar la tira por una fila de pósters verticales dentro de la misma entrega.
 - Enlazar la tarjeta al reproductor en vez de a la ficha.
@@ -317,6 +356,7 @@ el código roto no mide nada.
 - Añadir una tabla, una migración o una llamada de red nueva al plugin por esta fila.
 - Meter el contenedor de scroll en el orden de tabulación.
 - Pintar la tira como cuadrícula que empuja el resto de la home fuera de la primera pantalla.
+- Volver a colar un contador de comentarios, ni en el contrato, ni en la caché, ni en la tarjeta.
 
 ## Seguridad
 
@@ -329,26 +369,29 @@ el código roto no mide nada.
   dirección de tercero, así que la tira no abre superficie SSRF.
 - `media-proxy` **no se toca**.
 
+## Decisiones tomadas (eran las preguntas abiertas)
+
+1. **De dónde sale la fila: opción A, la publica el plugin.** Decidido por el humano el 2026-10-12.
+   La opción B —leer `episode.fetched_at` de la base local— queda **descartada** y no se implementa:
+   una tira vacía en una instalación nueva no resuelve el problema que la motiva.
+2. **Sin contador de comentarios, en ningún nivel.** Decidido por el humano el 2026-10-12: no tiene
+   relevancia y la fuente de referencia no lo publica. No queda en el contrato «por si acaso».
+3. **La tira va arriba**, justo bajo el destacado y antes de `Novedades`: es lo más fresco y lo que
+   más rápido envejece. Bajo «continuar viendo» sería una disposición de segunda.
+4. **Se traen 20 tarjetas** (el `limit` por defecto de la ruta). Más tarjetas en una tira que se
+   recorre a mano no se ven, y engordan la respuesta.
+5. **La tira no se reutiliza en la ficha del título** en esta entrega: la ficha ya tiene su lista de
+   episodios, y duplicarla es trabajo de otra tarea.
+
 ## Open Questions
 
-1. **¿De dónde sale la fila?** Se propone **A**, leída de la fuente por el plugin: es lo único que
-   puede decir «hace 12 horas» antes de que el usuario busque nada, y es la regla que
-   `SPEC-discovery.md` ya fijó. La alternativa **B** —leer `episode.fetched_at` de la base local,
-   sin tocar el contrato— sale mucho más barata (una ruta y un componente, cero cambios de plugin)
-   pero enseña vacío en una instalación nueva, y una tira vacía en la home no resuelve el problema
-   que la motiva. Si se elige B, este spec se recorta a la mitad y hay que decir explícitamente que
-   la tira sólo refleja lo ya abierto. **¿A o B?**
-2. **¿Entra el contador de comentarios?** La captura lo muestra. Se propone **no** pintarlo: es un
-   dato de terceros que la mayoría de feeds no trae, y un hueco al lado del badge que sólo se
-   rellena en un proveedor es una interfaz que miente por omisión. El campo queda en el contrato.
-   ¿Se pinta o no?
-3. **¿La tira va arriba o abajo?** Se propone **arriba**, justo bajo el destacado y antes de
-   `Novedades`: es lo más fresco y lo que más rápido envejece. Bajo «continuar viendo» sería una
-   disposición de segunda.
-4. **¿Cuántas tarjetas se traen?** Se propone 20 (el `limit` por defecto de la ruta). Más tarjetas
-   en una tira que se recorre a mano no se ven, y engordan la respuesta.
-5. **¿La tira se reutiliza en la ficha del título**, con los episodios de ese título? No se propone
-   en esta entrega: la ficha ya tiene su lista de episodios, y duplicarla es trabajo de otra tarea.
+1. **¿Se abre la parrilla semanal** con el día de emisión que una fuente real publica
+   («Programación», ver la tabla de arriba)? Se propone **no** en esta entrega: necesita un campo
+   de día de la semana en el contrato, y `publishedAt` —fecha de publicación— no lo sustituye.
+2. **¿La tira se pinta también en `/watch`,** con los episodios del título que se está viendo? Se
+   propone no: el reproductor ya lista los episodios, y ahí estorba.
+3. **¿Se rellena `episode.title` en el fixture** aunque la fuente real no lo dé, para probar que el
+   contrato lo admite? Se propone sí, con una entrada de cada tipo: la que lo trae y la que no.
 
 ## Enmiendas propuestas a specs aprobados
 
