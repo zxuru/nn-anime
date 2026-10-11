@@ -1,6 +1,6 @@
 # Descubrimiento: el top de la fuente
 
-Commits: T57 `b864077`.
+Commits: T57 `b864077` · T63 `370c98e`.
 
 Verificación medida sobre ese commit, con el árbol que comparte otra sesión: `bun run typecheck` 0 ·
 `bun run lint` 0 en los archivos de esta tarea · `bun test` 1741 pasan, 0 fallan · e2e de las dos
@@ -65,6 +65,59 @@ sustituciones —una fila nueva ocupa el sitio de dos viejas—, no trabajo aña
 
 ---
 
+## T63 — `server`: el top no repite el mismo anime
+
+**Motivo:** con dos proveedores activos, la fila del top pintaba **dos veces el mismo anime**. La
+causa medida sobre la caché real (`trending_cache` de la base de desarrollo, 52 entradas de `jkanime`
+y `animeav1`): `/api/trending` deduplicaba por referencia —`providerId#value`— y cada fuente numera a
+su aire, así que `animeav1#one-piece` y `jkanime#one-piece` eran dos entradas distintas. El puesto 1 y
+el 3 eran el mismo «One Piece».
+
+**Descripción:** la ruta deduplica por **referencia y por título**. La clave del título quita
+mayúsculas, acentos y signos, y no usa `baseTitle`: quitar el marcador de temporada juntaría «Sousou
+no Frieren» con «Sousou no Frieren 2nd Season», que son dos puestos que las fuentes publican por
+separado. Gana el primero: el orden de las fuentes es la única preferencia escrita.
+
+**Aceptación:**
+- [x] Dos fuentes con el mismo anime y referencias propias dejan **una** tarjeta, la de la primera
+      fuente. Unit: dos proveedores con top propio → `items` de longitud 1 y `providerId` `uno`.
+- [x] El título empareja sin mayúsculas, sin acentos y sin signos: «Sousou no Frieren» y
+      «sousou  no frieren!» son la misma tarjeta.
+- [x] Títulos distintos de dos fuentes se quedan los dos: la deduplicación no se come la fila.
+- [x] La misma referencia repetida en una fuente sigue dejando una tarjeta.
+- [x] «Kimetsu no Yaiba», «Kimetsu no Yaiba 2nd Season» y «Kimetsu no Yaiba: Hashira Geiko-hen» son
+      tres puestos, no uno.
+
+**Verificación:** `bun run typecheck` 0 · `bun run lint` 0 en los dos archivos de T63 (los cuatro
+archivos que quedan en rojo son ajenos: tres ya lo estaban en `HEAD` —`EpisodeList.tsx`,
+`detail.test.tsx`, `useDetail.ts`— y `cover-ref.ts` es de la otra sesión) · `bun test` **1754 pasan, 0
+fallan**, medido con el trabajo de T54 en el árbol, y las 18 pruebas de la ruta medidas también sobre
+el archivo compuesto de `HEAD` + T63, sin T54. Sobre la caché real de la base de desarrollo —52
+entradas de `jkanime` y `animeav1`—, `sinRepetir` deja **51**: el puesto 3 pasa de ser el segundo «One
+Piece» a «Kimetsu no Yaiba: Hashira Geiko-hen».
+
+**Medición por mutación** (el listón del repo):
+- Quitar la comparación por título (`if (false && …)`): fallan 2 pruebas —«dos fuentes con el mismo
+  anime dejan una tarjeta» y «el título empareja sin mayúsculas, sin acentos y sin signos»—.
+- Cambiar la clave por `baseTitle`: falla «un título y su temporada son dos puestos, no uno», que es
+  la que declara el falso positivo.
+
+**Archivos:** `packages/server/src/routes/recommendations.ts` (la clave y el filtro),
+`packages/server/src/routes/recommendations.test.ts` (el `describe` de `/api/trending`, que hasta
+ahora no tenía pruebas propias en este archivo).
+
+**Nota de coordinación:** el árbol venía sucio con el trabajo de T54 de otra sesión sobre
+`packages/server/src/routes/{discovery,recommendations}.ts` y `packages/server/src/container.ts`. El
+commit de T63 lleva **sólo** sus propios hunks: la ruta se compuso contra `HEAD` aparte —import, las
+dos funciones y el filtro—, se puso en el árbol sólo para commitear y se restauró la copia de la otra
+sesión con la suma de comprobación delante. El trabajo de T54 sigue sin commitear en el árbol.
+
+**Depende de:** T57.
+
+**Tamaño:** S.
+
+---
+
 ## Fuera de esta entrega
 
 - **Votos y temporadas.** La página de la fuente trae votos, filtros de temporada y de año, y
@@ -72,3 +125,5 @@ sustituciones —una fila nueva ocupa el sitio de dos viejas—, no trabajo aña
   Meterlos es un cambio de contrato —`core`, `provider-sdk` y su spec— y por eso no entra aquí.
 - **Los puestos de la fuente en el motor.** `/api/recommendations` da `popularity: 1` a todo lo que
   viene de tendencias, así que el orden del top no puntúa. Tocar eso es `recsys`, no `web`.
+
+---
