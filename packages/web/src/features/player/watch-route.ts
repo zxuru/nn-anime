@@ -86,6 +86,36 @@ function episodeNumberOf(ref: string): number | undefined {
   return Number.isInteger(numero) && numero > 0 ? numero : undefined
 }
 
+/** Un episodio, con lo justo para reconocerlo y enseñarlo. */
+interface ListedEpisode {
+  readonly ref: EpisodeRef
+  readonly number: number
+}
+
+/** Los episodios de ese proveedor, en el orden en que los sirvió la lista. */
+function episodesOfProvider(
+  episodes: readonly ListedEpisode[],
+  providerId: string,
+): readonly ListedEpisode[] {
+  return episodes.filter((episode) => episode.ref.providerId === providerId)
+}
+
+/**
+ * En qué lugar de la lista está el episodio que se ve.
+ *
+ * Se busca por la referencia y, si no está, por el número. Un proveedor puede
+ * numerar sus episodios con una referencia distinta de la que sirvió la lista, y
+ * perder las flechas por eso sería perder la función por un detalle de forma.
+ */
+function indexOfCurrent(episodes: readonly ListedEpisode[], currentRef: string): number {
+  const numero = episodeNumberOf(currentRef)
+
+  return episodes.findIndex(
+    (episode) =>
+      episode.ref.value === currentRef || (numero !== undefined && episode.number === numero),
+  )
+}
+
 /**
  * Los vecinos del episodio que se está viendo.
  *
@@ -93,22 +123,14 @@ function episodeNumberOf(ref: string): number | undefined {
  * no tiene siguiente, y eso se dice devolviendo nada en lugar de mandar a la
  * pantalla a inventarse un «episodio 0». Es la regla que el usuario pidió: no se
  * pasa del mínimo ni del máximo.
- *
- * Se busca por la referencia y, si no está, por el número. Un proveedor puede
- * numerar sus episodios con una referencia distinta de la que sirvió la lista, y
- * quedarse sin flechas por eso sería perder la función por un detalle de forma.
  */
 export function neighbourEpisodes(
-  episodes: readonly { readonly ref: EpisodeRef; readonly number: number }[],
+  episodes: readonly ListedEpisode[],
   providerId: string,
   currentRef: string,
 ): EpisodeNeighbours {
-  const propios = episodes.filter((episode) => episode.ref.providerId === providerId)
-  const numero = episodeNumberOf(currentRef)
-  const indice = propios.findIndex(
-    (episode) =>
-      episode.ref.value === currentRef || (numero !== undefined && episode.number === numero),
-  )
+  const propios = episodesOfProvider(episodes, providerId)
+  const indice = indexOfCurrent(propios, currentRef)
 
   if (indice === -1) return { previous: undefined, next: undefined }
 
@@ -116,4 +138,30 @@ export function neighbourEpisodes(
     previous: propios[indice - 1]?.ref,
     next: propios[indice + 1]?.ref,
   }
+}
+
+export interface EpisodePosition {
+  /** El número del episodio que se está viendo. */
+  readonly number: number
+  /** Cuántos tiene el título. */
+  readonly total: number
+}
+
+/**
+ * Qué episodio se está viendo, de cuántos.
+ *
+ * Es lo que se enseña en medio de las dos flechas: sin ello, dos botones en los
+ * extremos de una fila vacía no dicen ni dónde se está ni cuánto queda, y la
+ * flecha apagada del primer episodio parece un fallo en vez de un límite.
+ */
+export function episodePosition(
+  episodes: readonly ListedEpisode[],
+  providerId: string,
+  currentRef: string,
+): EpisodePosition | undefined {
+  const propios = episodesOfProvider(episodes, providerId)
+  const indice = indexOfCurrent(propios, currentRef)
+  const actual = indice === -1 ? undefined : propios[indice]
+
+  return actual === undefined ? undefined : { number: actual.number, total: propios.length }
 }

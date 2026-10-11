@@ -111,29 +111,48 @@ test.describe('el reproductor', () => {
     await lista.nth(1).getByRole('link').click()
     await expect(page).toHaveURL(/aurora-nocturna%232/)
 
+    // Y en medio, dónde se está: sin esto, dos botones en los extremos de una
+    // fila vacía no dicen ni el episodio ni cuántos quedan.
+    await expect(page.locator('.watch__nav-pos')).toHaveText('Episodio 2 de 12')
+
     await page.getByRole('link', { name: 'Episodio siguiente' }).click()
     await expect(page).toHaveURL(/aurora-nocturna%233/)
+    await expect(page.locator('.watch__nav-pos')).toHaveText('Episodio 3 de 12')
 
     await page.getByRole('link', { name: 'Episodio anterior' }).click()
     await expect(page).toHaveURL(/aurora-nocturna%232/)
   })
 
-  test('en el primer y el último episodio no hay flecha hacia fuera', async ({ page }) => {
+  test('en el primer y el último episodio la flecha está, apagada y explicada', async ({
+    page,
+  }) => {
     await entrar(page)
     await page.goto('/watch/fixture/aurora-nocturna%231')
 
-    // El primero: hay siguiente y no hay anterior. El hueco queda con la flecha
-    // apagada para que la fila no baile.
-    await expect(page.getByRole('link', { name: 'Episodio siguiente' })).toBeVisible()
+    // El primero: hay un solo enlace de episodio, el del siguiente.
+    const enlaces = page.locator('a.watch__nav-link')
+    await expect(enlaces).toHaveCount(1)
+    await expect(enlaces).toHaveAttribute('href', /aurora-nocturna%232/)
+    await expect(page.locator('.watch__nav-pos')).toHaveText('Episodio 1 de 12')
+
+    // El anterior existe como hueco apagado, y dice por qué no lleva a ninguna
+    // parte: sin eso, una flecha muerta se lee como un fallo de la aplicación.
+    // No es un enlace y no se anuncia como tal: ahí no se puede pulsar.
+    const anterior = page.locator('.watch__nav-off', { hasText: 'Episodio anterior' })
+    await expect(anterior).toHaveAttribute('title', /primer episodio/)
+    await expect(anterior).toHaveCSS('border-style', 'dashed')
     await expect(page.getByRole('link', { name: 'Episodio anterior' })).toHaveCount(0)
-    await expect(page.locator('.watch__nav-off')).toHaveCount(1)
 
     await page.goto('/watch/fixture/aurora-nocturna%2312')
 
     // El último: al revés.
-    await expect(page.getByRole('link', { name: 'Episodio anterior' })).toBeVisible()
+    const enlacesFinal = page.locator('a.watch__nav-link')
+    await expect(enlacesFinal).toHaveCount(1)
+    await expect(enlacesFinal).toHaveAttribute('href', /aurora-nocturna%2311/)
+
+    const siguiente = page.locator('.watch__nav-off', { hasText: 'Episodio siguiente' })
+    await expect(siguiente).toHaveAttribute('title', /último episodio/)
     await expect(page.getByRole('link', { name: 'Episodio siguiente' })).toHaveCount(0)
-    await expect(page.locator('.watch__nav-off')).toHaveCount(1)
   })
 
   test('el modo con el que se está viendo viaja al episodio de al lado', async ({ page }) => {

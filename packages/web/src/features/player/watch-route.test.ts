@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import { animeRefOf, modeFromPath, neighbourEpisodes, PLAY_MODES, watchPath } from './watch-route'
+import {
+  animeRefOf,
+  episodePosition,
+  modeFromPath,
+  neighbourEpisodes,
+  PLAY_MODES,
+  watchPath,
+} from './watch-route'
 
 describe('la ruta del reproductor', () => {
   test('sin modo, la dirección limpia', () => {
@@ -111,6 +118,36 @@ describe('los vecinos de un episodio', () => {
     expect(neighbourEpisodes([], 'fixture', 'aurora-nocturna#1')).toEqual({
       previous: undefined,
       next: undefined,
+    })
+  })
+})
+
+describe('el episodio que se está viendo, de cuántos', () => {
+  test('el número y el total de la lista', () => {
+    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#2')).toEqual({ number: 2, total: 3 })
+  })
+
+  test('el primero y el último también se sitúan', () => {
+    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#1')).toEqual({ number: 1, total: 3 })
+    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#3')).toEqual({ number: 3, total: 3 })
+  })
+
+  test('un episodio que no está en la lista no se sitúa', () => {
+    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#9')).toBeUndefined()
+    expect(episodePosition(LISTA, 'otro', 'aurora-nocturna#2')).toBeUndefined()
+    expect(episodePosition([], 'fixture', 'aurora-nocturna#1')).toBeUndefined()
+  })
+
+  test('el total es el del título, no el de la lista entera', () => {
+    const mezcla = [
+      ...LISTA,
+      { ref: { providerId: 'otro', value: 'otra-cosa#1' }, number: 1 },
+      { ref: { providerId: 'otro', value: 'otra-cosa#2' }, number: 2 },
+    ]
+
+    expect(episodePosition(mezcla, 'fixture', 'aurora-nocturna#2')).toEqual({
+      number: 2,
+      total: 3,
     })
   })
 })

@@ -26,7 +26,14 @@ import { Link, usePath } from '../../router'
 import { Player } from './Player'
 import { type SubtitleCandidate, toSafeTracks, tracksFromSource } from './subtitle-tracks'
 import { useWatchEvents } from './useWatchEvents'
-import { animeRefOf, modeFromPath, neighbourEpisodes, PLAY_MODES, watchPath } from './watch-route'
+import {
+  animeRefOf,
+  episodePosition,
+  modeFromPath,
+  neighbourEpisodes,
+  PLAY_MODES,
+  watchPath,
+} from './watch-route'
 
 export interface WatchPageProps {
   readonly providerId: string
@@ -157,14 +164,24 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   }, [resolver])
 
   const vecinos = neighbourEpisodes(episodios, props.providerId, props.ref)
+  const posicionEpisodio = episodePosition(episodios, props.providerId, props.ref)
 
   /**
    * Las flechas de episodio.
    *
    * Van **encima del video** para que se vean sin bajar, y cada una sólo es un
    * enlace cuando existe ese episodio: en el primero no hay flecha a la
-   * izquierda y en el último no la hay a la derecha. El hueco se deja con una
-   * flecha apagada, para que la fila no baile al saltar de un episodio a otro.
+   * izquierda y en el último no la hay a la derecha.
+   *
+   * Cuando no existe, el sitio no se queda con una flecha suelta: se pinta el
+   * mismo rótulo, apagado y con el borde discontinuo, y el `title` dice por qué
+   * no lleva a ninguna parte. Una flecha diminuta sin texto no explica nada, y
+   * quien la ve por primera vez cree que la aplicación está rota.
+   *
+   * En medio va el episodio que se está viendo, de cuántos: es lo que convierte
+   * dos botones en los extremos de una fila vacía en algo que se entiende de un
+   * vistazo, y lo que hace evidente que la flecha apagada es un límite y no un
+   * fallo.
    *
    * El modo con el que se está viendo viaja en la dirección: si alguien cambió a
    * doblado, el episodio siguiente se abre doblado y no vuelve a preguntarlo.
@@ -172,8 +189,11 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   const navegacion = (
     <nav className="watch__nav" aria-label={t(DEFAULT_LOCALE, 'player.episodes')}>
       {vecinos.previous === undefined ? (
-        <span className="watch__nav-off" aria-hidden="true">
-          ←
+        <span className="watch__nav-off" title={t(DEFAULT_LOCALE, 'player.firstEpisode')}>
+          <span className="watch__nav-arrow" aria-hidden="true">
+            ←
+          </span>
+          {t(DEFAULT_LOCALE, 'player.previousEpisode')}
         </span>
       ) : (
         <Link
@@ -181,13 +201,28 @@ export function WatchPage(props: WatchPageProps): ReactNode {
           title={t(DEFAULT_LOCALE, 'player.previousEpisode')}
           to={watchPath(props.providerId, vecinos.previous.value, modo)}
         >
-          <span aria-hidden="true">←</span>
+          <span className="watch__nav-arrow" aria-hidden="true">
+            ←
+          </span>
           {t(DEFAULT_LOCALE, 'player.previousEpisode')}
         </Link>
       )}
+
+      {posicionEpisodio === undefined ? null : (
+        <span className="watch__nav-pos">
+          {t(DEFAULT_LOCALE, 'player.episodeOf', {
+            number: posicionEpisodio.number,
+            total: posicionEpisodio.total,
+          })}
+        </span>
+      )}
+
       {vecinos.next === undefined ? (
-        <span className="watch__nav-off" aria-hidden="true">
-          →
+        <span className="watch__nav-off" title={t(DEFAULT_LOCALE, 'player.lastEpisode')}>
+          {t(DEFAULT_LOCALE, 'player.nextEpisode')}
+          <span className="watch__nav-arrow" aria-hidden="true">
+            →
+          </span>
         </span>
       ) : (
         <Link
@@ -196,7 +231,9 @@ export function WatchPage(props: WatchPageProps): ReactNode {
           to={watchPath(props.providerId, vecinos.next.value, modo)}
         >
           {t(DEFAULT_LOCALE, 'player.nextEpisode')}
-          <span aria-hidden="true">→</span>
+          <span className="watch__nav-arrow" aria-hidden="true">
+            →
+          </span>
         </Link>
       )}
     </nav>
