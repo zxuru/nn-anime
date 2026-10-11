@@ -307,11 +307,26 @@
   font-size: var(--text-sm);
 }
 
+/*
+ * La ficha, en dos columnas.
+ *
+ * La barra lateral lleva lo que se consulta de un vistazo —portada, acciones,
+ * modos, datos y saga— y la principal lo que se lee. Antes todo iba en una
+ * columna con `max-width: var(--measure)` dentro de media pantalla: a la
+ * derecha quedaban cientos de píxeles muertos y los episodios se apilaban en
+ * una tira estrecha.
+ */
 .detail {
   display: grid;
-  grid-template-columns: minmax(var(--grid-min), var(--cover-width)) 1fr;
+  grid-template-columns: minmax(var(--grid-min), var(--aside-width)) 1fr;
   gap: var(--space-6);
   align-items: start;
+}
+
+.detail__aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .detail__cover {
@@ -323,10 +338,19 @@
   object-fit: cover;
 }
 
+/*
+ * La columna de lectura ocupa su mitad; la sinopsis, además, se limita a una
+ * medida legible. El tope va en el párrafo y no en el bloque: puesto en el
+ * bloque recortaba también las filas de episodios, que sí quieren el ancho.
+ */
 .detail__body {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  min-width: 0;
+}
+
+.detail__synopsis {
   max-width: var(--measure);
 }
 
@@ -401,7 +425,9 @@
   background: var(--color-accent);
   border-color: var(--color-accent);
   color: var(--color-accent-contrast);
-  box-shadow: var(--shadow-hard-sm);
+  /* La sombra del activo no es del color del relleno: el acento sobre el
+     acento no se lee como una sombra, se lee como un botón duplicado. */
+  box-shadow: var(--shadow-hard-pressed);
 }
 
 .button[aria-pressed="true"]:hover,
@@ -430,6 +456,63 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+
+/*
+ * Los relacionados: enlaces compactos y verticales.
+ *
+ * Van en la barra lateral, que es estrecha: una rejilla de portadas ahí sería
+ * una columna de dos centímetros. La miniatura, el título y el año bastan para
+ * reconocer al hermano de la saga, y la fila entera es el enlace.
+ */
+.related {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.related__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.related__item:hover,
+.related__item:focus-visible {
+  border-color: var(--color-accent);
+  background: var(--color-surface-raised);
+}
+
+.related__cover {
+  width: var(--thumb-width);
+  aspect-ratio: var(--cover-ratio);
+  flex: none;
+  object-fit: cover;
+  background: var(--cover-a);
+}
+
+.related__title {
+  font-weight: 700;
+  font-size: var(--text-sm);
+}
+
+.related__meta {
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
 }
 
 .episodes {

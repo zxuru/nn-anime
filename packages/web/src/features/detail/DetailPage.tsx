@@ -28,6 +28,7 @@ import { isSafeUrl } from '../../lib/safe-url'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
+import { RelatedList } from './RelatedList'
 import { chosenMode, modesFor, useDetail, useFavorite } from './useDetail'
 
 /** La clave de traducción del estado, escrita una a una. */
@@ -67,7 +68,7 @@ function Skeletons(): ReactNode {
 }
 
 export function DetailPage(props: DetailPageProps): ReactNode {
-  const { detail, episodes, capabilities, state, error, reload } = useDetail(
+  const { detail, episodes, related, capabilities, state, error, reload } = useDetail(
     props.providerId,
     props.ref,
   )
@@ -110,18 +111,21 @@ export function DetailPage(props: DetailPageProps): ReactNode {
 
   return (
     <article className="detail">
-      {/* La portada sale del proxy, y sólo si el proveedor declaró una dirección
-          que se puede usar: un `javascript:` ahí no se convierte en atributo. */}
-      {detail.coverUrl !== undefined && !isSafeUrl(detail.coverUrl) ? (
-        <span className="detail__cover card__cover--vacia" aria-hidden="true" />
-      ) : (
-        <Cover providerId={props.providerId} ref={props.ref} className="detail__cover" />
-      )}
-
-      <div className="detail__body">
-        <h1>{detail.title}</h1>
-        {detail.titleAlt === undefined ? null : <p className="card__meta">{detail.titleAlt}</p>}
-        <Meta detail={detail} />
+      {/*
+        Dos columnas: lo que se consulta de un vistazo a la izquierda —portada,
+        acciones, modos, datos y saga— y lo que se lee a la derecha. Antes todo
+        iba en una columna con `max-width: var(--measure)` dentro de media
+        pantalla, y la mitad derecha quedaba muerta.
+      */}
+      <aside className="detail__aside">
+        {/* La portada sale del proxy, y sólo si el proveedor declaró una
+            dirección que se puede usar: un `javascript:` ahí no se convierte en
+            atributo. */}
+        {detail.coverUrl !== undefined && !isSafeUrl(detail.coverUrl) ? (
+          <span className="detail__cover card__cover--vacia" aria-hidden="true" />
+        ) : (
+          <Cover providerId={props.providerId} ref={props.ref} className="detail__cover" />
+        )}
 
         <div className="detail__actions">
           <FavoriteButton value={favorite.value} busy={favorite.busy} onToggle={favorite.toggle} />
@@ -161,14 +165,6 @@ export function DetailPage(props: DetailPageProps): ReactNode {
           </ul>
         </section>
 
-        {detail.synopsis === undefined ? null : (
-          <section>
-            <h2>{t(DEFAULT_LOCALE, 'detail.synopsis')}</h2>
-            {/* Texto, nunca HTML: la sinopsis viene de fuera. */}
-            <p>{detail.synopsis}</p>
-          </section>
-        )}
-
         <section>
           <h2>{t(DEFAULT_LOCALE, 'detail.genres')}</h2>
           <p>{detail.genres.join(' · ')}</p>
@@ -178,6 +174,26 @@ export function DetailPage(props: DetailPageProps): ReactNode {
           <h2>{t(DEFAULT_LOCALE, 'detail.studios')}</h2>
           <p>{detail.studios.join(' · ')}</p>
         </section>
+
+        <section>
+          <h2>{t(DEFAULT_LOCALE, 'detail.related')}</h2>
+          <RelatedList items={related} />
+        </section>
+      </aside>
+
+      <div className="detail__body">
+        <h1>{detail.title}</h1>
+        {detail.titleAlt === undefined ? null : <p className="card__meta">{detail.titleAlt}</p>}
+        <Meta detail={detail} />
+
+        {detail.synopsis === undefined ? null : (
+          <section>
+            <h2>{t(DEFAULT_LOCALE, 'detail.synopsis')}</h2>
+            {/* Texto, nunca HTML: la sinopsis viene de fuera. Y con su medida de
+                lectura, que es lo único de la ficha que quiere ser estrecho. */}
+            <p className="detail__synopsis">{detail.synopsis}</p>
+          </section>
+        )}
 
         <section>
           <h2>{t(DEFAULT_LOCALE, 'detail.episodes')}</h2>

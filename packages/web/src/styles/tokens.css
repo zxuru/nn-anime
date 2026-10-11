@@ -101,6 +101,9 @@
   --shadow-hard: 6px 6px 0 var(--color-border);
   --shadow-hard-accent: 6px 6px 0 var(--color-accent);
   --shadow-hard-sm: 4px 4px 0 var(--color-accent);
+  /** La sombra del botón activo. No repite el relleno: si lo repitiera, el
+      botón se leería como dos botones, uno detrás de otro. */
+  --shadow-hard-pressed: 4px 4px 0 var(--color-border);
   --shadow-offset-hover: 2px;
 
   /* Foco y movimiento */
@@ -119,6 +122,9 @@
   --skeleton-dim: 0.45;
   --cover-ratio: 2 / 3;
   --cover-width: 11rem;
+  /** Ancho de la barra lateral de la ficha y de la miniatura de un relacionado. */
+  --aside-width: 17rem;
+  --thumb-width: 3rem;
   /** Ancho máximo de la portada del cartel de destacado. */
   --hero-poster-width: 22rem;
   --video-ratio: 16 / 9;
@@ -156,6 +162,7 @@
   --shadow-hard: 6px 6px 0 var(--color-border);
   --shadow-hard-accent: 6px 6px 0 var(--color-border);
   --shadow-hard-sm: 4px 4px 0 var(--color-border);
+  --shadow-hard-pressed: 4px 4px 0 var(--color-border);
 }
 
 @media (prefers-reduced-motion: reduce) {

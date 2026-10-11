@@ -191,6 +191,9 @@ export const messages: Messages = {
   'detail.error': 'No se pudo cargar la ficha: {message}',
   'detail.retry': 'Reintentar',
   'detail.notFound': 'Ese título no está en el proveedor.',
+  'detail.related': 'Relacionados',
+  'detail.related.year': 'Año {year}',
+  'detail.related.none': 'No hay más títulos de esta saga en el catálogo local.',
 
   'notFound.title': 'Esa ruta no existe',
   'notFound.body': 'La dirección {path} no corresponde a ninguna pantalla.',

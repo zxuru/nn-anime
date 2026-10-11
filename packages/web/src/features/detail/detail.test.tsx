@@ -8,6 +8,7 @@ import { createMemoryHistory, HistoryProvider } from '../../router'
 import { DetailPage } from './DetailPage'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
+import { RelatedList } from './RelatedList'
 import { chosenMode, formatDuration, isFavorite, modesFor } from './useDetail'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
@@ -195,6 +196,45 @@ describe('si el título ya está en favoritos', () => {
   })
 })
 
+describe('relacionados', () => {
+  function resumen(value: string, title: string, year?: number): AnimeSummary {
+    return { ref: { providerId: 'fixture', value }, title, ...(year === undefined ? {} : { year }) }
+  }
+
+  test('cada hermano es un enlace a su ficha, con su año', () => {
+    const html = render(<RelatedList items={[resumen('frieren', 'Sousou no Frieren', 2023)]} />)
+
+    expect(html).toContain('href="/anime/fixture/frieren"')
+    expect(html).toContain('Sousou no Frieren')
+    expect(html).toContain('Año 2023')
+  })
+
+  test('un relacionado sin año no se inventa uno', () => {
+    const html = render(<RelatedList items={[resumen('x', 'Sin Año')]} />)
+
+    expect(html).toContain('related__title')
+    expect(html).not.toContain('related__meta')
+  })
+
+  test('sin hermanos lo dice en lugar de dejar el hueco', () => {
+    const html = render(<RelatedList items={[]} />)
+
+    expect(html).toContain('No hay más títulos de esta saga')
+    expect(html).not.toContain('<ul')
+  })
+
+  test('una portada con esquema raro no se pide: el hueco se ve como hueco', () => {
+    const html = render(
+      <RelatedList
+        items={[{ ...resumen('x', 'Raro'), coverUrl: 'javascript:alert(1)' } as AnimeSummary]}
+      />,
+    )
+
+    expect(html).not.toContain('<img')
+    expect(html).toContain('related__cover')
+  })
+})
+
 describe('pantalla de detalle', () => {
   test('el primer render es el esqueleto, sin depender de la red', () => {
     const html = render(<DetailPage providerId="fixture" ref="aurora-nocturna" />)
@@ -205,9 +245,13 @@ describe('pantalla de detalle', () => {
 
   test('ningún dato de proveedor se inserta como HTML', async () => {
     const fuentes = await Promise.all(
-      ['DetailPage.tsx', 'EpisodeList.tsx', 'FavoriteButton.tsx', 'useDetail.ts'].map((archivo) =>
-        readFile(`${ROOT}${archivo}`, 'utf8'),
-      ),
+      [
+        'DetailPage.tsx',
+        'EpisodeList.tsx',
+        'FavoriteButton.tsx',
+        'RelatedList.tsx',
+        'useDetail.ts',
+      ].map((archivo) => readFile(`${ROOT}${archivo}`, 'utf8')),
     )
 
     // Se quitan los comentarios antes de mirar: nombrar la función para decir

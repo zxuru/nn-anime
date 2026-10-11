@@ -1,9 +1,9 @@
 /**
  * Datos de la pantalla de detalle.
  *
- * Tres peticiones en paralelo —detalle, episodios y capacidades del proveedor—
- * porque ninguna necesita a las otras: en serie, la pantalla tardaría la suma de
- * las tres latencias sin ninguna razón.
+ * Cuatro peticiones en paralelo —detalle, episodios, relacionados y capacidades
+ * del proveedor— porque ninguna necesita a las otras: en serie, la pantalla
+ * tardaría la suma de las cuatro latencias sin ninguna razón.
  *
  * Las capacidades vienen de `/api/providers` y no del detalle: son del proveedor,
  * no del título, y el selector sub/dub se deshabilita según lo que ese proveedor
@@ -20,6 +20,7 @@ import {
   episodesResponseSchema,
   favoritesResponseSchema,
   providersResponseSchema,
+  relatedResponseSchema,
 } from '@nn-anime/core/api'
 import type {
   AnimeDetail,
@@ -37,6 +38,14 @@ export type DetailState = 'loading' | 'ready' | 'error'
 export interface DetailData {
   readonly detail: AnimeDetail | undefined
   readonly episodes: readonly Episode[]
+  /**
+   * Los hermanos de saga, de lo que la base ya conoce.
+   *
+   * Es una lista y no un resultado: la petición sólo puede fallar si falla el
+   * servidor entero, y en ese caso la ficha ya está en estado de error. Sin
+   * relacionados la lista viene vacía y la sección se explica.
+   */
+  readonly related: readonly AnimeSummary[]
   readonly capabilities: ProviderCapabilities | undefined
   readonly state: DetailState
   readonly error: string | undefined
@@ -79,6 +88,7 @@ export function formatDuration(seconds: number | undefined): string | undefined 
 export function useDetail(providerId: string, ref: string): DetailData {
   const [detail, setDetail] = useState<AnimeDetail | undefined>(undefined)
   const [episodes, setEpisodes] = useState<readonly Episode[]>([])
+  const [related, setRelated] = useState<readonly AnimeSummary[]>([])
   const [capabilities, setCapabilities] = useState<ProviderCapabilities | undefined>(undefined)
   const [state, setState] = useState<DetailState>('loading')
   const [error, setError] = useState<string | undefined>(undefined)
@@ -111,13 +121,19 @@ export function useDetail(providerId: string, ref: string): DetailData {
         episodesResponseSchema,
         opciones,
       ),
+      apiGet(
+        `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/related`,
+        relatedResponseSchema,
+        opciones,
+      ),
       apiGet('/api/providers', providersResponseSchema, opciones),
     ]).then(
-      ([detalle, lista, proveedores]) => {
+      ([detalle, lista, hermanos, proveedores]) => {
         if (controller.signal.aborted) return
 
         setDetail(detalle)
         setEpisodes(lista.episodes)
+        setRelated(hermanos.items)
         setCapabilities(
           proveedores.providers.find((provider) => provider.id === providerId)?.capabilities,
         )
@@ -138,7 +154,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
     return () => controllerRef.current?.abort()
   }, [load])
 
-  return { detail, episodes, capabilities, state, error, reload: load }
+  return { detail, episodes, related, capabilities, state, error, reload: load }
 }
 
 export interface FavoriteState {
