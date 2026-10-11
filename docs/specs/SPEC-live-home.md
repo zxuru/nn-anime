@@ -1,7 +1,7 @@
 # Spec: live-home (la home que se refresca y se mueve)
 
 Estado: **propuesta · pendiente de aprobación humana** · 2026-10-11 · decisiones del humano ya
-tomadas: **relectura al volver a la pestaña y cada minuto** (sin SSE y sin ruta nueva) y
+tomadas: **relectura al volver a la pestaña y cada dos minutos** (sin SSE y sin ruta nueva) y
 **movimiento sutil** (esqueletos y entrada escalonada, sin librería de animación).
 
 Esta entrega **no crea un módulo**: extiende contratos y paquetes ya aprobados. No toca
@@ -24,7 +24,7 @@ if (cacheado !== null) return cacheado.value   // `cacheado.stale` no se mira
 El TTL existe y se calcula (`TTL_SECONDS.feed` = 1800, `TTL_SECONDS.trending` = 900), pero ahí nadie
 lo lee: una entrada publicada después de la primera carga **no aparece jamás** en esa instalación.
 Refrescar el cliente sin arreglar esto sería mover el problema de sitio: la home releería cada
-minuto, con toda la razón, y recibiría exactamente lo mismo.
+dos minutos, con toda la razón, y recibiría exactamente lo mismo.
 
 ## Objective
 
@@ -35,7 +35,7 @@ que **se vea que está trabajando** mientras carga y cuando llega contenido.
 
 1. Con la fuente publicando una entrada nueva, la home la enseña **sin recargar y sin que el usuario
    haga nada**, en cuanto el TTL del recurso vence y la relectura siguiente lo trae.
-2. Volver a la pestaña después de un rato **relee**, y volver antes de un minuto **no** vuelve a
+2. Volver a la pestaña después de un rato **relee**, y volver antes de dos minutos **no** vuelve a
    pedir: el usuario no puede provocar una tormenta de peticiones cambiando de pestaña.
 3. Una relectura que falla **no borra lo que ya estaba pintado**: la fila se queda como estaba y lo
    único que se dice es que el refresco no llegó.
@@ -53,9 +53,9 @@ que **se vea que está trabajando** mientras carga y cuando llega contenido.
    el estado de mpv, donde hay muchos mensajes por segundo y el servidor sabe cuándo cambian. Aquí
    no los hay. La aparta se declara en vez de dejarla escrita en contra.
 2. **La relectura del cliente no salta el TTL del servidor.** El feed se pide a un tercero, y
-   pedírselo cada minuto sería convertir una función de la interfaz en tráfico contra un sitio
+   pedírselo cada dos minutos sería convertir una función de la interfaz en tráfico contra un sitio
    ajeno. El cliente relee contra la caché local; quién sale a la red lo decide el TTL, y por eso
-   una entrada nueva puede tardar hasta ~31 min en el feed y ~16 min en tendencias (TTL + una
+   una entrada nueva puede tardar hasta ~32 min en el feed y ~17 min en tendencias (TTL + una
    relectura). Se dice en el spec y no se disimula en la interfaz.
 3. **La revalidación de fondo es la que ya existe.** Se reusa `readThrough` y el `Revalidator` del
    contenedor: deduplicación por clave, concurrencia 2 y errores anotados en `revalidate_error`. No
@@ -133,8 +133,8 @@ interface HomeRows {
 Reglas:
 
 - **Primera carga**: las cinco lecturas en paralelo, como ahora.
-- **Relectura**: cuando `document.visibilityState` pasa a `visible`, si han pasado **60 s** o más
-  desde la última lectura completa. Y un intervalo de **60 s** que sólo corre con la pestaña
+- **Relectura**: cuando `document.visibilityState` pasa a `visible`, si han pasado **120 s** o más
+  desde la última lectura completa. Y un intervalo de **120 s** que sólo corre con la pestaña
   visible: se para al ocultarla.
 - **Fusión, no sustitución.** Una lectura que falla conserva **el valor anterior de esa fila**; lo
   que falla no se pinta como vacío. El error se declara sólo si no hay nada que enseñar —ni de esta
@@ -183,7 +183,8 @@ fallar la prueba.
 - **Un refresco que falla conserva la fila vieja**: proveedor que lanza en la revalidación. Mutación:
   borrar la fila al fallar tiene que dar fallo.
 - **La relectura no se dispara antes de tiempo**: temporizadores falsos. Una vuelta a la pestaña a
-  los 10 s no produce petición; a los 70 s sí. Mutación: quitar la comprobación de los 60 s da fallo.
+  los 30 s no produce petición; a los 130 s sí. Mutación: quitar la comprobación de los 120 s da
+  fallo.
 - **La fusión conserva lo bueno**: una lectura rechazada entre cuatro buenas. Mutación: sustituir el
   valor anterior por `[]` da fallo.
 - **Movimiento reducido**: la prueba de accesibilidad ya comprueba que el `@media` apaga el
@@ -193,7 +194,7 @@ fallar la prueba.
 ## Success Criteria
 
 - [ ] Con una entrada nueva en la fuente, la home la enseña sin recargar dentro del plazo del TTL.
-- [ ] Volver a la pestaña antes de 60 s no produce ninguna petición nueva.
+- [ ] Volver a la pestaña antes de 120 s no produce ninguna petición nueva.
 - [ ] Un fallo de relectura no vacía ninguna fila que ya tuviera contenido.
 - [ ] La primera carga de la home muestra esqueletos, no una frase.
 - [ ] Con `prefers-reduced-motion: reduce` no hay animaciones de entrada.
@@ -212,7 +213,7 @@ fallar la prueba.
 
 **Ask first**
 
-- Cambiar la cadencia de relectura (60 s) o el TTL de feed y tendencias.
+- Cambiar la cadencia de relectura (120 s) o el TTL de feed y tendencias.
 - Añadir cualquier librería de animación o de estado.
 - Tocar el orden o la composición de las filas de la home.
 
@@ -228,7 +229,7 @@ fallar la prueba.
 
 No se añade superficie: no hay ruta nueva, ni destino nuevo para la lista blanca del proxy, ni
 petición del cliente hacia fuera. La relectura usa las mismas rutas con la misma cookie `HttpOnly`.
-El único efecto medible es de carga: una relectura por minuto y pestaña visible, contra SQLite
+El único efecto medible es de carga: una relectura cada dos minutos y pestaña visible, contra SQLite
 local.
 
 ## Decisiones tomadas (eran las preguntas abiertas)
@@ -240,22 +241,22 @@ local.
 3. **Los dos arreglos van juntos.** Refrescar el cliente sin arreglar el TTL no habría cambiado nada
    de lo que el usuario ve, y el arreglo del TTL sin relectura tampoco: el primero no se nota hasta
    la siguiente carga de la home.
+4. **120 s de cadencia.** Elegido por el humano: más tranquilo que 60 s, y el coste de esperar de más
+   lo paga el TTL, no la interfaz.
 
 ## Open Questions
 
-1. ¿60 s es la cadencia correcta, o prefieres 30 s (más vivo, el doble de lecturas locales) o 120 s
-   (más tranquilo)? Se propone 60 s.
-2. ¿La marca de «actualizado hace X» se enseña siempre o sólo cuando el dato viene de una relectura
+1. ¿La marca de «actualizado hace X» se enseña siempre o sólo cuando el dato viene de una relectura
    y no de la primera carga? Se propone enseñarla sólo tras la primera relectura: al abrir, «hace 0
    s» no dice nada.
-3. ¿Las tarjetas nuevas se marcan de algún modo permanente (un punto) o sólo con el fundido de
+2. ¿Las tarjetas nuevas se marcan de algún modo permanente (un punto) o sólo con el fundido de
    entrada? Se propone sólo el fundido: un punto permanente es un aviso que nadie limpia.
 
 ## Enmiendas propuestas a specs aprobados
 
 | Spec | Qué se enmienda |
 |---|---|
-| `SPEC-web-ui.md` (reglas de la interfaz) | Se añade la relectura de la home: al volver a la pestaña y cada 60 s con la pestaña visible, con fusión sobre lo ya pintado. Se añade la regla de movimiento: esqueletos de la home y entrada escalonada, ambas suprimidas con `prefers-reduced-motion` |
+| `SPEC-web-ui.md` (reglas de la interfaz) | Se añade la relectura de la home: al volver a la pestaña y cada 120 s con la pestaña visible, con fusión sobre lo ya pintado. Se añade la regla de movimiento: esqueletos de la home y entrada escalonada, ambas suprimidas con `prefers-reduced-motion` |
 | `SPEC-web-ui.md` (Contrato) | Sin cambios: no hay ruta ni forma nueva |
 | `SPEC-catalog-store.md` | `RevalidateResource` pasa de tres recursos a cinco: `feed` y `trending`. Sin migración |
 | `SPEC-discovery.md` | `GET /api/feed` respeta el TTL y revalida por detrás, como el resto de lecturas con caché |
@@ -295,17 +296,17 @@ siempre, con el `readThrough` que ya usan el detalle y los episodios.
 
 ### T55 — `web`: la home relee y no pierde lo que ya tenía
 
-**Descripción:** El hook de las filas relee al volver a la pestaña y cada minuto, fusiona en vez de
+**Descripción:** El hook de las filas relee al volver a la pestaña y cada dos minutos, fusiona en vez de
 sustituir, y dice cuándo se refrescó.
 
 **Aceptación:**
-- [ ] Una vuelta a la pestaña antes de 60 s no lanza ninguna petición; a partir de 60 s, sí.
+- [ ] Una vuelta a la pestaña antes de 120 s no lanza ninguna petición; a partir de 120 s, sí.
 - [ ] El intervalo no corre con la pestaña oculta.
 - [ ] Una lectura rechazada conserva el valor anterior de esa fila; el error sólo se declara cuando
       no hay nada, de esta lectura ni de la anterior.
 - [ ] `loading` es cierto sólo la primera vez; una relectura marca `refrescando` y no vacía nada.
 - [ ] La marca de refresco se enseña con su texto en i18n y no con una cadena suelta.
-- [ ] Todas las pruebas nuevas fallan al mutar: quitar la comprobación de los 60 s, sustituir el
+- [ ] Todas las pruebas nuevas fallan al mutar: quitar la comprobación de los 120 s, sustituir el
       valor anterior por `[]` y hacer que el intervalo ignore la visibilidad.
 
 **Depende de:** T54.
