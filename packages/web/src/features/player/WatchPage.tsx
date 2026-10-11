@@ -25,6 +25,7 @@ import { t } from '../../i18n'
 import { Link, usePath } from '../../router'
 import { Player } from './Player'
 import { type SubtitleCandidate, toSafeTracks, tracksFromSource } from './subtitle-tracks'
+import { useMpvHandoff } from './useMpvHandoff'
 import { useWatchEvents } from './useWatchEvents'
 import {
   animeRefOf,
@@ -69,6 +70,15 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   const visionado = useWatchEvents({
     animeRef,
     episodeRef,
+    mode: modo,
+    startAtS: posicion,
+  })
+  // El reproductor externo: el botón y lo que contestó el servidor. Va aquí y no
+  // dentro de `Player` porque es una forma de ver el episodio, no un control del
+  // elemento de video.
+  const mpv = useMpvHandoff({
+    providerId: props.providerId,
+    ref: props.ref,
     mode: modo,
     startAtS: posicion,
   })
@@ -264,6 +274,9 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       {navegacion}
 
       <div className="watch__modes">
+        <button type="button" className="button" onClick={mpv.abrir}>
+          {t(DEFAULT_LOCALE, 'player.mpv')}
+        </button>
         <span className="card__meta">{t(DEFAULT_LOCALE, 'player.mode')}</span>
         {PLAY_MODES.map((candidato) => (
           <button
@@ -277,6 +290,16 @@ export function WatchPage(props: WatchPageProps): ReactNode {
           </button>
         ))}
       </div>
+
+      {mpv.estado.kind === 'abierto' ? (
+        <p className="card__meta">{t(DEFAULT_LOCALE, 'player.mpv.opened')}</p>
+      ) : null}
+
+      {mpv.estado.kind === 'error' ? (
+        <p className="search__error">
+          {t(DEFAULT_LOCALE, 'player.mpv.error', { message: mpv.estado.mensaje })}
+        </p>
+      ) : null}
 
       <Player
         url={fuente.url}

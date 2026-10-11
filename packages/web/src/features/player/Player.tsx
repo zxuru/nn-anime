@@ -61,6 +61,16 @@ export function Player(props: PlayerProps): ReactNode {
   const duracion = Number.isFinite(state.durationS) && state.durationS > 0 ? state.durationS : 0
   const posicion = Math.min(arrastre ?? state.positionS, duracion)
 
+  /**
+   * Suena y no se ve.
+   *
+   * El audio puede reproducirse con la imagen en negro —un decodificador que no
+   * arranca, una GPU que falla— y ni el elemento ni hls.js lo dicen. Se espera a
+   * llevar dos segundos reproduciendo para no avisar durante la carga, que es
+   * cuando `videoWidth` todavía es cero en cualquier reproducción.
+   */
+  const sinImagen = state.playing && state.videoWidth === 0 && state.positionS > 2
+
   // El teclado se escucha en la ventana: el foco puede estar en el propio video
   // o en la página, y obligar a enfocar el reproductor para usar las flechas es
   // una molestia que no hace falta. `keyAction` decide cuándo no hacer nada.
@@ -165,6 +175,8 @@ export function Player(props: PlayerProps): ReactNode {
       </div>
 
       {state.loading ? <p className="empty">{t(DEFAULT_LOCALE, 'player.loading')}</p> : null}
+
+      {sinImagen ? <p className="search__error">{t(DEFAULT_LOCALE, 'player.sinImagen')}</p> : null}
 
       {state.error === undefined ? null : (
         <p className="search__error">

@@ -21,6 +21,7 @@ import {
   providerCapabilitiesSchema,
   providerRefSchema,
   searchResultSchema,
+  streamRequestSchema,
   titleKindSchema,
 } from './schema'
 
@@ -187,6 +188,24 @@ export const streamResolveResponseSchema = z.strictObject({
   sources: z.array(streamSourceResponseSchema),
 })
 
+/**
+ * Handoff al reproductor externo: `POST /api/play/mpv`.
+ *
+ * El cuerpo es el de resolver un stream más el segundo por el que empezar, y la
+ * respuesta es el `pid` del proceso. Viven aquí y no en la ruta del server
+ * porque la interfaz manda el cuerpo y lee la respuesta: dos definiciones
+ * paralelas se separan en el primer campo que alguien renombre.
+ */
+export const mpvPlayRequestSchema = streamRequestSchema.extend({
+  /** Segundo en el que empezar, para reanudar donde se dejó. */
+  startAtS: z.number().min(0).optional(),
+})
+
+export const mpvPlayResponseSchema = z.strictObject({ pid: z.number().int().positive() })
+
+export type MpvPlayRequest = z.infer<typeof mpvPlayRequestSchema>
+export type MpvPlayResponse = z.infer<typeof mpvPlayResponseSchema>
+
 /** Alta de un visionado: qué episodio, en qué modo y desde dónde. */
 export const watchStartRequestSchema = z.strictObject({
   animeRef: providerRefSchema,
@@ -266,6 +285,26 @@ export const trendingResponseSchema = z.strictObject({
   items: z.array(animeSummarySchema),
 })
 
+/**
+ * Una novedad del feed, con su fecha.
+ *
+ * La fecha es opcional porque un feed puede no traerla —y entonces sólo ordena el
+ * orden de la fuente—, pero cuando está es lo que permite decir qué es nuevo.
+ */
+export const feedItemSchema = animeSummarySchema.extend({
+  publishedAt: z.iso.datetime().optional(),
+})
+
+/** La fila de novedades: lo que publica la fuente, sin que nadie busque. */
+export const feedResponseSchema = z.strictObject({
+  items: z.array(feedItemSchema),
+})
+
+/** La fila «último añadido»: lo que la aplicación ya conoce, sin red. */
+export const recentResponseSchema = z.strictObject({
+  items: z.array(animeSummarySchema),
+})
+
 /** Ajustes que la interfaz puede leer y, en parte, cambiar. */
 export const settingsResponseSchema = z.strictObject({
   theme: z.enum(['dark', 'light', 'system']),
@@ -340,6 +379,9 @@ export type ContinueWatchingItem = z.infer<typeof continueWatchingItemSchema>
 export type ContinueWatchingResponse = z.infer<typeof continueWatchingResponseSchema>
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>
 export type TrendingResponse = z.infer<typeof trendingResponseSchema>
+export type FeedItem = z.infer<typeof feedItemSchema>
+export type FeedResponse = z.infer<typeof feedResponseSchema>
+export type RecentResponse = z.infer<typeof recentResponseSchema>
 export type SettingsResponse = z.infer<typeof settingsResponseSchema>
 export type RecommendationResponse = z.infer<typeof recommendationSchema>
 export type RecommendationsResponse = z.infer<typeof recommendationsResponseSchema>

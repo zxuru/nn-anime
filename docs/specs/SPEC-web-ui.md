@@ -120,8 +120,12 @@ packages/web/
 - [ ] Un mp4 de fixture se reproduce en la página y adelantar 30 s funciona.
 - [ ] Elegir subtítulo en español muestra el texto sobre el video.
 - [ ] Cambiar de sub a dub vuelve a resolver el stream y reinicia en la misma posición.
-- [ ] Un clic en "ver en mpv" abre la ventana de mpv; con mpv ausente se muestra el aviso y se
-      ofrece el reproductor web.
+- [x] Un clic en "ver en mpv" abre la ventana de mpv; con mpv ausente se muestra el aviso y se
+      ofrece el reproductor web. **Medido en el navegador**: el clic manda el cuerpo del handoff y el
+      servidor contesta 202 con el `pid`, y la pantalla lo dice. El 503 por mpv ausente se pinta con
+      el mensaje del servidor, que es el que dice qué pasa y qué hacer; esa parte tiene prueba propia,
+      medida mutando la implementación. **Lo que no mide esta pantalla** es que la ventana de mpv
+      llegue a abrirse: eso es del handoff y lo mide T29 con mpv real.
 - [ ] Cada recomendación de la home muestra su razón en texto legible.
 - [ ] `bun run e2e` cubre home, búsqueda, detalle, recomendaciones y arranque del reproductor, y
       pasa sin red externa.

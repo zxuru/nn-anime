@@ -151,6 +151,11 @@ export const messages: Messages = {
   'player.unmute': 'Quitar silencio',
   'player.fullscreen': 'Pantalla completa',
   'player.seek': 'Posición del video',
+  'player.mpv': 'Ver en mpv',
+  'player.mpv.opened': 'Se abrió en el reproductor externo.',
+  'player.mpv.error': 'No se pudo abrir mpv: {message}',
+  'player.sinImagen':
+    'El audio suena y la imagen no llega: el navegador no está decodificando el video. Prueba con «Ver en mpv».',
   'player.loading': 'Cargando el video…',
   'player.error': 'No se pudo reproducir: {message}',
   'player.shortcuts':

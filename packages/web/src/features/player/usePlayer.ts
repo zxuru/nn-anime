@@ -29,6 +29,15 @@ export interface PlayerState {
   readonly muted: boolean
   readonly error: string | undefined
   readonly loading: boolean
+  /**
+   * Ancho de la pista de video, en píxeles; cero si no hay ninguna.
+   *
+   * Es la única señal de que el navegador **está decodificando la imagen**: el
+   * audio puede sonar con el video en negro —un decodificador que no arranca, una
+   * GPU que falla— y ni el elemento ni hls.js lo dicen. Con esto, el reproductor
+   * puede contarlo en vez de dejar una pantalla negra sin explicación.
+   */
+  readonly videoWidth: number
 }
 
 export interface PlayerHandle {
@@ -116,6 +125,7 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     muted: false,
     error: undefined,
     loading: true,
+    videoWidth: 0,
   })
 
   const elemento = useRef<HTMLVideoElement | null>(null)
@@ -207,11 +217,19 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     let reanudado = false
 
     const alTiempo = (): void => {
-      setState((previo) => ({ ...previo, positionS: video.currentTime }))
+      setState((previo) => ({
+        ...previo,
+        positionS: video.currentTime,
+        videoWidth: video.videoWidth,
+      }))
       avisos.current.onProgress?.(video.currentTime, video.duration)
     }
     const alDuracion = (): void => {
-      setState((previo) => ({ ...previo, durationS: video.duration }))
+      setState((previo) => ({
+        ...previo,
+        durationS: video.duration,
+        videoWidth: video.videoWidth,
+      }))
 
       // Reanudar: al saber la duración, se salta a donde se dejó. Se hace aquí y
       // no al montar porque el elemento todavía no admite un `currentTime` que no

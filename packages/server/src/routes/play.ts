@@ -14,20 +14,12 @@
  *   navegador. El mensaje lo dice.
  */
 
-import { errorResponseSchema, streamRequestSchema } from '@nn-anime/core'
+import { errorResponseSchema, mpvPlayRequestSchema, mpvPlayResponseSchema } from '@nn-anime/core'
 import type { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import { z } from 'zod'
 import type { ServerContainer } from '../container'
 import { findProvider } from './anime'
 import { ticketPath } from './stream'
-
-export const mpvPlayRequestSchema = streamRequestSchema.extend({
-  /** Segundo en el que empezar, para reanudar donde se dejó. */
-  startAtS: z.number().min(0).optional(),
-})
-
-export const mpvPlayResponseSchema = z.strictObject({ pid: z.number().int().positive() })
 
 export interface PlayRouteOptions {
   readonly providers: readonly import('@nn-anime/provider-sdk').Provider[]
