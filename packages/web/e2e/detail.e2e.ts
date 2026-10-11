@@ -97,4 +97,28 @@ test.describe('de la búsqueda al detalle', () => {
 
     expect((await respuesta).headers()['x-cache']).toMatch(/hit|miss|stale/)
   })
+
+  /**
+   * Cuatro fichas abiertas eran cuatro pestañas con el mismo nombre.
+   *
+   * El título de la pestaña es lo único que ve quien tiene varias abiertas, así
+   * que se abre una segunda pestaña de verdad y se comprueba que las dos se
+   * distinguen. Es la parte del cambio que no se puede medir sin un navegador:
+   * el renderizado de servidor no ejecuta el efecto que escribe el título.
+   */
+  test('cada ficha abierta se distingue en el nombre de su pestaña', async ({ page, context }) => {
+    await entrar(page)
+
+    await page.goto('/anime/fixture/aurora-nocturna')
+    await expect(page).toHaveTitle('Aurora Nocturna · nn-anime', { timeout: 15_000 })
+
+    const otra = await context.newPage()
+    await otra.goto('/anime/fixture/mar-de-cristal')
+    await expect(otra).toHaveTitle('Mar de Cristal · nn-anime', { timeout: 15_000 })
+
+    // La primera sigue con el suyo: la segunda no lo pisó.
+    await expect(page).toHaveTitle('Aurora Nocturna · nn-anime')
+
+    await otra.close()
+  })
 })

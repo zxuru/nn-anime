@@ -94,6 +94,23 @@ test.describe('el reproductor', () => {
   })
 
   /**
+   * La pestaña y el encabezado dicen qué se está viendo.
+   *
+   * La dirección del reproductor sólo lleva la referencia del episodio, así que
+   * el nombre del título se pide aparte. Sin él, la pestaña de un episodio se
+   * llamaba igual que la aplicación entera y no había forma de distinguirla de
+   * las otras tres fichas abiertas.
+   */
+  test('la pestaña y el encabezado nombran el título y el episodio', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    await expect(page).toHaveTitle('Aurora Nocturna · Episodio 3 · nn-anime', { timeout: 15_000 })
+    await expect(page.getByRole('heading', { level: 1, name: 'Aurora Nocturna' })).toBeVisible()
+    await expect(page.locator('.watch header .card__meta')).toHaveText('Episodio 3')
+  })
+
+  /**
    * Las flechas de episodio.
    *
    * Se entra por la ficha y no por una dirección escrita a mano: el camino que

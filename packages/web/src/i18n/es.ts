@@ -14,6 +14,10 @@ export const messages: Messages = {
   'nav.search': 'Buscar',
   'nav.settings': 'Ajustes',
 
+  // Lo que va en el título de la pestaña mientras no hay dato que poner.
+  'title.loading': 'Cargando…',
+  'title.error': 'No se pudo cargar',
+
   'home.title': 'Inicio',
 
   'search.title': 'Buscar',
@@ -152,6 +156,9 @@ export const messages: Messages = {
   'player.firstEpisode': 'Este es el primer episodio: no hay anterior.',
   'player.lastEpisode': 'Este es el último episodio: no hay siguiente.',
   'player.episodeOf': 'Episodio {number} de {total}',
+  // El episodio, para el título de la pestaña y para el encabezado de la pantalla.
+  'player.episode': 'Episodio {number}',
+  'player.episodeNamed': 'Episodio {number} · {title}',
   'player.mode.sub': 'Subtitulado',
   'player.mode.dub': 'Doblado',
   'player.play': 'Reproducir',
