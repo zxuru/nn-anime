@@ -18,3 +18,7 @@ test-results/
 
 # Temporales locales del sandbox
 .tmp/
+
+# Un worktree por agente: anidado porque el sandbox de escritura se limita al
+# workspace, y en .gitignore para que bun test y biome no recorran la copia
+.worktrees/

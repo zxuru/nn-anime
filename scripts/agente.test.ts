@@ -80,9 +80,19 @@ describe('los nombres derivados del id', () => {
     expect(nombreRama('t26b')).toBe('tarea/T26b')
   })
 
-  test('el worktree vive fuera del árbol, junto a él', () => {
-    expect(rutaWorktree('/home/ana/code/nn-anime', 'T60')).toBe('/home/ana/code/nn-anime-T60')
-    expect(rutaWorktree('/home/ana/code/nn-anime/', 'T60')).toBe('/home/ana/code/nn-anime-T60')
+  test('el worktree vive dentro del repo, en .worktrees', () => {
+    expect(rutaWorktree('/home/ana/code/nn-anime', 'T60')).toBe(
+      '/home/ana/code/nn-anime/.worktrees/T60',
+    )
+    expect(rutaWorktree('/home/ana/code/nn-anime/', 'T60')).toBe(
+      '/home/ana/code/nn-anime/.worktrees/T60',
+    )
+  })
+
+  test('el repositorio ignora .worktrees, así que la copia no entra en git', () => {
+    expect(
+      Bun.spawnSync(['git', 'check-ignore', '-q', '.worktrees/T60'], { cwd: RAIZ }).exitCode,
+    ).toBe(0)
   })
 
   test('el reclamo es un ref, no un archivo del árbol', () => {
@@ -142,6 +152,23 @@ describe('el ciclo de un agente', () => {
 
     expect(() => cerrar('T97', repo)).toThrow(/sin commitear/)
     expect(correr(['rev-parse', 'main'], repo)).toBe(antes)
+  })
+
+  test('un alta fallida no deja la rama ni el reclamo, y el reintento entra', () => {
+    const repo = repoDePrueba('reintento')
+    const ruta = rutaWorktree(repo, 'T95')
+
+    // Un directorio que ya existe hace fallar `worktree add` después de crear la rama.
+    mkdirSync(ruta, { recursive: true })
+    writeFileSync(`${ruta}/estorbo.txt`, 'algo\n')
+
+    expect(() => abrir('T95', repo)).toThrow(/no se pudo crear el worktree/)
+    expect(existeRef(repo, nombreClaim('T95'))).toBe(false)
+    expect(correr(['branch', '--list', nombreRama('T95')], repo)).toBe('')
+
+    rmSync(ruta, { recursive: true, force: true })
+
+    expect(existsSync(abrir('T95', repo))).toBe(true)
   })
 
   test('abandonar exige confirmación y con ella deja el reclamo libre', () => {

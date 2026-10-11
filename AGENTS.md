@@ -34,9 +34,12 @@ bun run scripts/agente.ts cerrar T60           # rebasa sobre main, integra y li
 bun run scripts/agente.ts abandonar T60 --si   # destructivo: tira la rama sin integrarla
 ```
 
-- El worktree vive fuera del repo, en `../nn-anime-T60`, con su `node_modules`, su base de datos
-  (`NN_ANIME_DATA_DIR=<worktree>/.data/`) y su puerto (`--port`, 9000 más el número del task). Sin
-  eso, dos agentes comparten el SQLite y aparece un `SQLITE_BUSY` que no es un fallo del código.
+- El worktree vive en `.worktrees/T60`, dentro del repo y en `.gitignore`: el sandbox de escritura
+  de un agente se limita al workspace, así que un directorio hermano no se puede crear. Anidado no
+  estorba: `bun test` y biome respetan lo ignorado (medido con una sonda que no se ejecutó).
+- Cada worktree necesita su `bun install`, su base de datos (`NN_ANIME_DATA_DIR=<worktree>/.data/`)
+  y su puerto (`--port`, 9000 más el número del task). Sin eso, dos agentes comparten el SQLite y
+  aparece un `SQLITE_BUSY` que no es un fallo del código.
 - El reclamo es un ref: `update-ref` lo crea sólo si no existe, así que el segundo agente recibe
   error en vez de empezar un task ajeno. Lo libera `cerrar`, no el agente por su cuenta.
 - **Un solo escritor por archivo compartido.** `tasks/todo.md` y `tasks/plan.md` los toca el

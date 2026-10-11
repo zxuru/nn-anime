@@ -43,11 +43,13 @@ export function nombreRama(id: string): string {
   return `tarea/${idDeTask(id)}`
 }
 
-/** Fuera del árbol: un worktree dentro del repo aparecería en `git status` del vecino. */
+/**
+ * Dentro del repo y en `.gitignore`: el sandbox de escritura de un agente se limita al
+ * workspace, así que un directorio hermano no se puede crear. Anidado no estorba porque
+ * `bun test` y biome respetan `.gitignore` (medido: la sonda de `.worktrees/` no se ejecuta).
+ */
 export function rutaWorktree(raiz: string, id: string): string {
-  const padre = dirname(raiz.replace(/\/+$/, ''))
-
-  return `${padre}/nn-anime-${idDeTask(id)}`
+  return `${raiz.replace(/\/+$/, '')}/.worktrees/${idDeTask(id)}`
 }
 
 export function nombreClaim(id: string): string {
@@ -104,6 +106,9 @@ export function abrir(id: string, raiz: string = RAIZ): string {
 
   const alta = git(['worktree', 'add', ruta, '-b', rama, RAMA_BASE], raiz)
   if (alta.code !== 0) {
+    // Un alta fallida deja la rama creada a medias: sin borrarla, el reintento muere
+    // con «una rama llamada tarea/T60 ya existe» y el reclamo queda en un limbo.
+    git(['branch', '-D', rama], raiz)
     git(['update-ref', '-d', claim], raiz)
     throw new Error(`no se pudo crear el worktree: ${alta.err || alta.out}`)
   }
