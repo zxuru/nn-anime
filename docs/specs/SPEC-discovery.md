@@ -1,8 +1,8 @@
 # Spec: discovery (arranque en frío)
 
-Estado: **propuesta para revisión humana** · 2026-10-11 · posterior a v1 (Checkpoint H cerrado).
-Tasks: `tasks/discovery.md` (T48–T52). Enmiendas a specs aprobados: §"Enmiendas propuestas", al
-final, **requieren aprobación** antes de tocarlos.
+Estado: **aprobada e implementada** · 2026-10-11 · posterior a v1 (Checkpoint H cerrado).
+Tasks: `tasks/discovery.md` (T48–T52, con su verificación medida). Las enmiendas a specs aprobados
+que este documento proponía **se aplicaron** el 2026-10-11 y están marcadas al final.
 
 Módulos que toca: `provider-sdk` (contrato), `catalog-store` (caché del feed y de lo reciente),
 `server` (rutas y candidatos), `web` (dos filas y el destacado). `recsys` **no se toca**.
@@ -184,32 +184,41 @@ y la fila de novedades ya salen del feed.
 - Un feed que devuelve XML no parseado o HTML es un error del plugin y se convierte en fila vacía
   con el motivo en el registro, no en una excepción que tumbe la home.
 
-## Enmiendas propuestas a specs aprobados (requieren aprobación)
+## Enmiendas aplicadas a specs aprobados (aprobadas el 2026-10-11)
 
-1. `docs/specs/SPEC-nn-anime.md` §Contrato HTTP: añadir `GET /api/feed?limit=` y
-   `GET /api/catalog/recent?limit=`.
-2. `docs/specs/SPEC-nn-anime.md` §Data Model: `feed_cache` como decimosegunda tabla y fila
-   `feed | 1800 | caché normal` en la tabla de TTL.
+1. **Las dos rutas viven en `docs/specs/SPEC-web-ui.md`**, que es donde estaba la lista de rutas, y
+   no en `SPEC-nn-anime.md` como decía esta propuesta: su sección «Contrato HTTP» describe las
+   formas compartidas, no el catálogo de rutas. Aplicado allí.
+2. `docs/specs/SPEC-nn-anime.md` §Data Model: `feed_cache` como tabla posterior y fila
+   `feed de novedades | 1800 | caché normal` en la tabla de TTL. Aplicado.
 3. `docs/specs/SPEC-provider-core.md` §Contrato: capacidad `feed` (con valor por defecto `false`),
-   `getFeed` opcional y `FeedEntry`.
+   `getFeed` opcional y `FeedEntry`. Aplicado.
 4. La regla «sin historial no se llama a ningún proveedor salvo `getTrending`» pasa a ser «…salvo
-   `getTrending` y `getFeed`: son las dos listas que una fuente publica para quien no ha buscado
-   nada». Está escrita en `docs/specs/SPEC-nn-anime.md`, en `docs/specs/SPEC-recsys.md` y en el
-   encabezado de `packages/server/src/recommend/signals.ts`.
-5. `docs/specs/SPEC-web-ui.md` §Contrato: la home pasa a ser «recomendaciones, novedades, último
-   añadido, continuar viendo, favoritos, tendencias y géneros», y `/` deja de describirse como
-   «recomendaciones» para ser «lo que hay ahora».
-6. `README.md`: la home gana dos filas, y la nota de la parrilla semanal se matiza — el feed da
-   fecha de publicación, no de emisión.
+   `getTrending` y `getFeed`». Estaba escrita en el encabezado de
+   `packages/server/src/recommend/signals.ts` —donde se aplicó— y en `docs/specs/SPEC-recsys.md`,
+   cuyo punto 7 sobre el arranque en frío se amplió con los candidatos de `search_cache`. No estaba
+   en `SPEC-nn-anime.md`.
+5. `docs/specs/SPEC-web-ui.md` §Contrato: rutas nuevas y la home descrita como «recomendaciones,
+   novedades, último añadido, continuar, favoritos, tendencias y géneros». Aplicado.
+6. `README.md`: la home gana las dos filas y la nota de la parrilla semanal se matiza — el feed da
+   fecha de publicación, no de emisión. Aplicado, junto con la guía de plugins.
 
-## Open Questions
+## Decisiones tomadas (eran las preguntas abiertas)
 
-1. **¿«Último añadido» excluye lo ya visto y los favoritos?** Propuesta: no excluir. Ya hay filas
-   para esas dos cosas, y duplicar una tarjeta entre filas es menos malo que esconder contenido.
-2. **¿30 minutos de TTL para el feed, o una hora?** Propuesta: 30 minutos. Un feed cambia como mucho
-   a diario y la home se abre muchas veces al día; una hora también valdría y es más barato para la
-   fuente.
-3. **¿`publishedAt` se enseña en la tarjeta («hace 2 días»)?** Propuesta: en esta entrega sólo
-   ordena. Enseñarlo pide formato relativo e i18n de fechas, y no cambia lo que la fila resuelve.
-4. **¿Un `reason.kind = 'feed'` en `recsys`?** Queda para otra entrega, con su spec. Hasta entonces
-   el feed no puntúa: sólo se enseña.
+1. **«Último añadido» no excluye lo visto ni los favoritos.** Duplicar una tarjeta entre filas es
+   menos malo que esconder contenido, y ya hay filas para esas dos cosas.
+2. **TTL del feed: 30 minutos**, aplicado en `TTL_SECONDS.feed`. Un feed cambia como mucho a diario
+   y la home se abre muchas veces al día.
+3. **`publishedAt` sólo ordena** en esta entrega; la tarjeta enseña el año, como el resto de filas.
+   Un «hace dos días» pide formato relativo e i18n de fechas y no cambia lo que la fila resuelve.
+4. **`reason.kind = 'feed'` queda para otra entrega.** El feed no puntúa en el motor: se enseña. Los
+   candidatos que sí entran son los títulos de `search_cache`, y entran sin vector.
+
+## Lo que quedó fuera, y por qué
+
+- **El asistente de Ajustes no ofrece `feed`.** Genera un plugin a partir de rutas JSON; un RSS
+  necesita parseo XML. La capacidad es para plugins escritos a mano, y la guía lo dice.
+- **La parrilla semanal y los episodios nuevos por episodio** siguen fuera: el feed da fecha de
+  publicación del título, no de emisión.
+- **La aplicación no descarga el feed.** Lo descarga el plugin, así que no hay URL de RSS en Ajustes
+  ni destino nuevo para la lista blanca del proxy: `media-proxy` no se tocó.

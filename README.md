@@ -16,10 +16,17 @@ telemetría.**
 El tema por defecto es el del sistema; se cambia en **Ajustes** y queda guardado.
 
 La home sigue el orden del diseño: cinta de lo más visto, cartel de destacado —con el botón que
-reproduce el primer episodio y el de favoritos—, top de la semana con sus motivos, continuar viendo,
-favoritos, tendencias y los géneros del catálogo. **La parrilla semanal de estrenos y la fila de
-episodios nuevos no están**: las dos necesitan una fecha de emisión por episodio y los proveedores no
-la dan, así que se enseña lo que sí se sabe en vez de inventar fechas.
+reproduce el primer episodio y el de favoritos—, top de la semana con sus motivos, **novedades** de la
+fuente, **último añadido**, continuar viendo, favoritos, tendencias y los géneros del catálogo.
+
+Las dos filas del medio existen para que la primera pantalla no dependa de que hayas buscado antes:
+«último añadido» enseña lo que la aplicación ya conoce —lo que buscaste y lo que abriste— y
+«novedades» se llena con lo que publica tu proveedor si declara `feed`. El destacado también las usa
+como reserva: sin nada que recomendar, sale de ahí en vez de dejar la página con un titular.
+
+**La parrilla semanal de estrenos y la fila de episodios nuevos siguen sin estar**: las dos necesitan
+una fecha de emisión por episodio, y un feed da la fecha de **publicación del título**, que no es lo
+mismo. Se enseña lo que sí se sabe en vez de inventar fechas.
 
 ## Arrancar
 

@@ -122,7 +122,10 @@ Algoritmo v1, en este orden:
    devolver seis temporadas de lo mismo.
 7. **Arranque en frío.** Sin historial, se usan favoritos y búsquedas; sin nada de eso, se
    devuelven los candidatos por popularidad con razón `cold-start` y el texto explica que es
-   popularidad porque todavía no hay historial.
+   popularidad porque todavía no hay historial. Desde T50 los candidatos incluyen además los
+   títulos que dejó una búsqueda en `search_cache`, aunque nadie abriera su ficha: entran sin
+   vector y sólo pueden puntuar por popularidad. El motor **no** cambia: quien arma la lista de
+   candidatos es la ruta.
 
 Determinismo: con el mismo `Signals`, los mismos `candidates`, el mismo `seed` y el mismo
 `now`, la salida es idéntica y en el mismo orden. Ningún desempate depende del orden de

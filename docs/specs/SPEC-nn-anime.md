@@ -191,6 +191,10 @@ revalidate_error  key, resource, message, created_at — **no estaba en esta lis
                  migración `0003` para recordar qué refresco de fondo falló. Son 11 tablas y esta
                  lista decía 10; ver `docs/v1-report.md`
 search_cache     provider_id, query, results_json, fetched_at, ttl_s
+feed_cache       provider_id, results_json, fetched_at, ttl_s — **no estaba en esta lista**: la
+                 añadió T49 para que la segunda carga de la home no vuelva a pedirle el feed a un
+                 sitio de terceros. Es propia y no una entrada de `trending_cache` porque un feed
+                 trae fechas y una lista de tendencias no
 ```
 
 TTL por tipo de recurso, en segundos:
@@ -202,6 +206,7 @@ TTL por tipo de recurso, en segundos:
 | lista de episodios | 21600 | stale-while-revalidate |
 | URL de stream | 600 | revalidación forzada antes de reproducir |
 | miniatura | 604800 | caché HTTP normal |
+| feed de novedades | 1800 | caché normal |
 
 Regla dura del modelo: la base guarda metadatos y señales, nunca bytes de video. El proxy
 transmite y descarta.

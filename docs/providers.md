@@ -37,12 +37,13 @@ Un proveedor es un objeto con:
 | `id` | Identificador corto, en minúsculas y con guiones. Es el que aparece en las rutas |
 | `name` | Nombre visible |
 | `apiVersion` | Versión del contrato. Hoy `1` |
-| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending` |
+| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending`, `feed` |
 | `search(query, options)` | Busca títulos |
 | `getAnime(ref, options)` | Detalle de un título |
 | `getEpisodes(ref, options)` | Lista de episodios |
 | `resolveStream(request, options)` | Enlaces de reproducción de un episodio |
 | `getTrending(options)` | **Opcional.** Lo que está de moda |
+| `getFeed(options)` | **Opcional.** Novedades de la fuente, con su fecha de publicación |
 
 Todos los métodos devuelven `Promise<Result<T, ProviderError>>` o lanzan: el SDK convierte lo que se
 lance en un `Result` fallido, así que **no hace falta envolver nada a mano**.
@@ -122,6 +123,43 @@ const proveedor: Provider = {
 
 export default proveedor
 ```
+
+### Si tu fuente publica un feed
+
+Un feed —RSS, Atom o tu propia lista de novedades— es la única forma de que la home tenga contenido
+**sin que nadie haya buscado nada**, y la única que trae una fecha. Se declara con
+`capabilities.feed: true` y se implementa `getFeed`:
+
+```ts
+const proveedor = {
+  // …lo de arriba…
+  capabilities: { search: true, sub: true, dub: false, trending: false, feed: true },
+
+  async getFeed(options) {
+    void options
+    // El formato lo decides tú: el contrato pide referencias ya convertidas, no
+    // XML. Parsear el RSS es de este método, y por eso la aplicación nunca sale a
+    // buscar la dirección del feed: la conoce el plugin, que ya se ejecuta con tus
+    // permisos.
+    return [
+      {
+        ref: { providerId: 'mi-proveedor', value: 'titulo-1' },
+        title: 'Un título',
+        publishedAt: new Date().toISOString(), // ISO-8601; si no lo tienes, se omite
+      },
+    ]
+  },
+}
+```
+
+Tres cosas que conviene saber antes de escribirlo:
+
+- **`publishedAt` es opcional, pero es lo que hace útil un feed.** Con fecha, la fila de novedades se
+  ordena por lo último; sin ella, se respeta el orden de tu lista y las entradas van al final.
+- **Hay un tope de 200 entradas por proveedor**, recortado antes de guardarse: una lista enorme no
+  llena el disco ni pinta mil tarjetas.
+- **La respuesta se valida antes de salir.** Una fecha que no es ISO-8601 se rechaza nombrando el
+  campo, así que no llega a la caché.
 
 ## Comprobar que conforma
 

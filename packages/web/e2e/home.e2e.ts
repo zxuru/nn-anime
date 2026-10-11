@@ -32,6 +32,26 @@ test.describe('la home', () => {
     await expect(page.getByText('Todavía no has marcado ninguno')).toBeVisible()
   })
 
+  test('la fuente llena la home sin que nadie haya buscado nada', async ({ page }) => {
+    await entrar(page)
+    await esperarApp(page)
+
+    // El fixture declara `capabilities.feed`, así que la fila de novedades tiene
+    // tarjetas propias: es lo que hace que una instalación nueva no se quede con
+    // un titular y nada más. Se mira **lo que se ve**, no lo que devuelve la API.
+    const novedades = page.locator('.section', {
+      has: page.getByRole('heading', { name: 'Novedades' }),
+    })
+
+    await expect(novedades).toBeVisible()
+    await expect(novedades.locator('.poster__title').first()).toBeVisible()
+
+    // Y la fila de lo que la aplicación conoce está siempre, con contenido o con
+    // su explicación: una fila que desaparece deja al usuario sin saber si la
+    // función existe.
+    await expect(page.getByRole('heading', { name: 'Último añadido' })).toBeVisible()
+  })
+
   test('el tema se aplica al documento', async ({ page }) => {
     await entrar(page)
 

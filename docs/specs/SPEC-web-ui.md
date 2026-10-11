@@ -41,6 +41,8 @@ POST /api/stream/resolve             body: { episodeRef, mode } -> StreamSource 
 GET  /stream/:ticket                 proxy de bytes (media-proxy)
 POST /api/play/mpv                   lanzar mpv
 GET  /api/recommendations?limit=     ranking con razones
+GET  /api/feed?limit=                novedades de la fuente, con su fecha
+GET  /api/catalog/recent?limit=      lo último que la aplicación ya conoce
 GET  /api/history?limit=             vistos recientemente
 POST /api/watch                      registrar inicio de reproducción
 PATCH /api/watch/:id                 actualizar posición
@@ -52,7 +54,8 @@ GET  /api/cover/:providerId/:ref     portada, servida por el proxy
 Rutas de la SPA, todas del lado del cliente salvo la primera:
 
 ```
-/                      home: recomendaciones, continuar, favoritos, tendencias
+/                      home: recomendaciones, novedades, último añadido, continuar,
+                       favoritos, tendencias y géneros
 /search?q=             búsqueda incremental
 /anime/:providerId/:ref
 /watch/:providerId/:ref

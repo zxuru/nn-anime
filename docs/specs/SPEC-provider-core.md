@@ -49,6 +49,20 @@ export interface Provider {
   resolveStream(request: StreamRequest, options: CallOptions): Promise<readonly StreamSource[]>
   /** Opcional. Listas curadas para arranque en frío de recsys. */
   getTrending?(options: CallOptions): Promise<readonly SearchResult[]>
+  /**
+   * Opcional. Novedades de la fuente, para la home sin búsquedas previas.
+   * Es la única lista del contrato que trae contenido **y** fecha sin que nadie
+   * haya buscado nada. El formato —RSS, Atom o una lista propia— es del plugin.
+   */
+  getFeed?(options: CallOptions): Promise<readonly FeedEntry[]>
+}
+
+/**
+ * Una entrada del feed. `publishedAt` cruza JSON tres veces —manifiesto, caché y
+ * respuesta HTTP— y por eso es una cadena ISO y no un `Date`.
+ */
+export interface FeedEntry extends SearchResult {
+  readonly publishedAt?: string
 }
 
 export interface ProviderCapabilities {
@@ -56,6 +70,13 @@ export interface ProviderCapabilities {
   readonly sub: boolean
   readonly dub: boolean
   readonly trending: boolean
+  /**
+   * El proveedor publica novedades que no dependen de una búsqueda.
+   * Un manifiesto que no lo declare queda en `false`: el schema de capacidades es
+   * estricto y lo leen los plugins **ya instalados**, así que un campo obligatorio
+   * nuevo los rechazaría a todos al cargar. Añadido en T48.
+   */
+  readonly feed: boolean
 }
 
 export interface CallOptions {
