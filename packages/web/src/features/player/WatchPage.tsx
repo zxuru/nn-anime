@@ -38,6 +38,7 @@ import { type SubtitleCandidate, toSafeTracks, tracksFromSource } from './subtit
 import { useMpvHandoff } from './useMpvHandoff'
 import { useWatchEvents } from './useWatchEvents'
 import {
+  animeRefFromPath,
   animeRefOf,
   episodePosition,
   modeFromPath,
@@ -100,11 +101,14 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   // El registro del visionado: alta al reproducir de verdad, avance cada 15 s y
   // al pausar, y la posición final al desmontar o cerrar la pestaña.
   //
-  // El título y el episodio son dos referencias distintas: la de la dirección es
-  // la del episodio y la del título se deduce de ella. Mandar la del episodio en
-  // los dos campos hacía que el alta de visionado no encontrara el título y
-  // respondiera 404, así que «continuar viendo» nunca se llenaba.
-  const animeRef = { providerId: props.providerId, value: animeRefOf(props.ref) }
+  // El título y el episodio son dos referencias distintas. La del episodio es la
+  // de la dirección; la del título viene escrita en la consulta, puesta ahí por
+  // quien construyó el enlace —la ficha, que la tiene en `Episode.animeRef`—.
+  // Deducirla del episodio queda como último recurso para un enlace viejo o una
+  // dirección escrita a mano, y con la convención equivocada escribía en la base
+  // la ficha del episodio como si fuera un título.
+  const animeValue = animeRefFromPath(path) ?? animeRefOf(props.ref)
+  const animeRef = { providerId: props.providerId, value: animeValue }
   const episodeRef = { providerId: props.providerId, value: props.ref }
   const visionado = useWatchEvents({
     animeRef,
@@ -307,7 +311,10 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         <Link
           className="watch__nav-link"
           title={t(DEFAULT_LOCALE, 'player.previousEpisode')}
-          to={watchPath(props.providerId, vecinos.previous.value, modo)}
+          to={watchPath(props.providerId, vecinos.previous.value, {
+            mode: modo,
+            anime: animeValue,
+          })}
         >
           <EpisodeArrow towards="previous" />
           {t(DEFAULT_LOCALE, 'player.previousEpisode')}
@@ -332,7 +339,10 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         <Link
           className="watch__nav-link"
           title={t(DEFAULT_LOCALE, 'player.nextEpisode')}
-          to={watchPath(props.providerId, vecinos.next.value, modo)}
+          to={watchPath(props.providerId, vecinos.next.value, {
+            mode: modo,
+            anime: animeValue,
+          })}
         >
           {t(DEFAULT_LOCALE, 'player.nextEpisode')}
           <EpisodeArrow towards="next" />

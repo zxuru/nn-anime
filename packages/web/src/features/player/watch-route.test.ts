@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  animeRefFromPath,
   animeRefOf,
   episodePosition,
   modeFromPath,
@@ -15,7 +16,7 @@ describe('la ruta del reproductor', () => {
   })
 
   test('con modo, el modo viaja en la consulta', () => {
-    expect(watchPath('fixture', 'aurora-nocturna#3', 'dub')).toBe(
+    expect(watchPath('fixture', 'aurora-nocturna#3', { mode: 'dub' })).toBe(
       '/watch/fixture/aurora-nocturna%233?mode=dub',
     )
   })
@@ -24,8 +25,34 @@ describe('la ruta del reproductor', () => {
     expect(watchPath('fixture', 'temporada/1#2')).toBe('/watch/fixture/temporada%2F1%232')
   })
 
+  test('el título viaja en la consulta cuando quien escribe lo conoce', () => {
+    expect(watchPath('jkanime', 'dandadan/12', { anime: 'dandadan' })).toBe(
+      '/watch/jkanime/dandadan%2F12?anime=dandadan',
+    )
+  })
+
+  test('sin título, la consulta no lleva el parámetro', () => {
+    expect(watchPath('fixture', 'aurora-nocturna#3', { anime: '' })).toBe(
+      '/watch/fixture/aurora-nocturna%233',
+    )
+  })
+
   test('los modos son los dos que existen', () => {
     expect(PLAY_MODES).toEqual(['sub', 'dub'])
+  })
+})
+
+describe('el título que la dirección trae escrito', () => {
+  test('lo lee de la consulta, con las otras dos cosas', () => {
+    expect(animeRefFromPath('/watch/jkanime/dandadan%2F12?mode=sub&at=30&anime=dandadan')).toBe(
+      'dandadan',
+    )
+  })
+
+  test('sin él, no hay título escrito y toca deducirlo', () => {
+    expect(animeRefFromPath('/watch/jkanime/dandadan%2F12?mode=sub')).toBeUndefined()
+    expect(animeRefFromPath('/watch/jkanime/dandadan%2F12?anime=')).toBeUndefined()
+    expect(animeRefFromPath('/watch/jkanime/dandadan%2F12')).toBeUndefined()
   })
 })
 
@@ -70,6 +97,18 @@ describe('el segundo desde el que seguir', () => {
 describe('el título que se deduce del episodio', () => {
   test('la referencia del episodio lleva el número detrás de la almohadilla', () => {
     expect(animeRefOf('aurora-nocturna#3')).toBe('aurora-nocturna')
+  })
+
+  test('la otra convención numera con barra', () => {
+    expect(animeRefOf('dandadan/12')).toBe('dandadan')
+    expect(animeRefOf('kimetsu-no-yaiba/1')).toBe('kimetsu-no-yaiba')
+  })
+
+  test('una barra que no precede a un número es parte de la referencia', () => {
+    // Sin esta guarda, `temporada/extra` se leería como el título `temporada`, y
+    // el visionado se registraría contra un título que no existe.
+    expect(animeRefOf('temporada/extra')).toBe('temporada/extra')
+    expect(animeRefOf('12/abc')).toBe('12/abc')
   })
 
   test('sin número, la referencia es su propio título', () => {

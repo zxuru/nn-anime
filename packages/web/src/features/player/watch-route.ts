@@ -5,10 +5,11 @@
  * porque son de la misma materia: referencias de episodio y los límites del
  * título. La pantalla los pinta y la lista de episodios los decide.
  *
- * La ficha construye el enlace al reproductor y el reproductor lee el modo de esa
- * misma dirección. Con las dos mitades escritas por separado, el día que una
- * cambie la otra sigue escribiendo el parámetro viejo y nadie se entera hasta que
- * un episodio se reproduce en el modo equivocado.
+ * La ficha construye el enlace al reproductor y el reproductor lee de esa misma
+ * dirección el modo, el segundo donde se dejó y la referencia del título. Con las
+ * dos mitades escritas por separado, el día que una cambie la otra sigue
+ * escribiendo el parámetro viejo y nadie se entera hasta que un episodio se
+ * reproduce en el modo equivocado.
  *
  * El modo viaja en la consulta y no en la ruta porque el enrutador empareja por
  * segmentos: `?mode=dub` no cambia la ruta, y un parámetro que no está no rompe
@@ -31,26 +32,60 @@ export function isPlayMode(value: string | null): value is PlayMode {
   return value !== null && (PLAY_MODES as readonly string[]).includes(value)
 }
 
+/** Lo que una dirección de reproducción lleva además de la referencia. */
+export interface WatchPathOptions {
+  readonly mode?: PlayMode
+  /** El segundo donde se dejó, si se reanuda. */
+  readonly at?: number
+  /**
+   * La referencia del **título**, cuando quien escribe la dirección la conoce.
+   *
+   * Va en la consulta porque el título no ocupa ningún segmento de la ruta —el
+   * único que hay es el del episodio, que es lo que el proveedor necesita para
+   * resolver el stream— y porque deducirlo por convención es lo que escribió en la
+   * base la ficha del episodio `dandadan/12` como si fuera un título.
+   */
+  readonly anime?: string
+}
+
 /**
  * La ruta del reproductor para un episodio.
  *
  * La referencia se codifica: puede llevar barras y almohadillas —el fixture usa
- * `aurora-nocturna#3`— y sin escapar, la ruta se parte en trozos.
+ * `aurora-nocturna#3`, jkanime `dandadan/12`— y sin escapar, la ruta se parte en
+ * trozos.
  *
- * La consulta se compone aquí y no en quien llama: el modo y el segundo donde se
- * dejó son la misma dirección, y con cada mitad escrita por su lado el día que una
- * cambie la otra sigue escribiendo la vieja.
+ * La consulta se compone aquí y no en quien llama: el modo, el segundo donde se
+ * dejó y el título son la misma dirección, y con cada mitad escrita por su lado el
+ * día que una cambie la otra sigue escribiendo la vieja.
  */
-export function watchPath(providerId: string, ref: string, mode?: PlayMode, at?: number): string {
+export function watchPath(providerId: string, ref: string, options: WatchPathOptions = {}): string {
   const base = `/watch/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}`
   const consulta = new URLSearchParams()
 
-  if (mode !== undefined) consulta.set('mode', mode)
-  if (at !== undefined && Number.isInteger(at) && at > 0) consulta.set('at', String(at))
+  if (options.mode !== undefined) consulta.set('mode', options.mode)
+  if (options.at !== undefined && Number.isInteger(options.at) && options.at > 0) {
+    consulta.set('at', String(options.at))
+  }
+  if (options.anime !== undefined && options.anime !== '') consulta.set('anime', options.anime)
 
   const query = consulta.toString()
 
   return query === '' ? base : `${base}?${query}`
+}
+
+/**
+ * La referencia del título que la dirección trae escrita.
+ *
+ * Es la vía preferente: la escribió la ficha, que tiene el `animeRef` del episodio
+ * en la mano. Sin ella —una dirección escrita a mano o un enlace viejo— queda
+ * `animeRefOf`, que adivina.
+ */
+export function animeRefFromPath(path: string): string | undefined {
+  const consulta = path.split('?')[1] ?? ''
+  const crudo = new URLSearchParams(consulta).get('anime')
+
+  return crudo === null || crudo === '' ? undefined : crudo
 }
 
 /** El modo pedido en una dirección, o nada si no pide ninguno de los conocidos. */
@@ -86,20 +121,27 @@ export function startAtFromPath(path: string): number | undefined {
 /**
  * La referencia del título a partir de la del episodio.
  *
- * La dirección del reproductor lleva **una** referencia, y es la del episodio
- * —`aurora-nocturna#3`—, porque es la que el proveedor necesita para resolver el
- * stream. El visionado, en cambio, se registra contra el título y contra el
- * episodio, y el título no está en ningún sitio de la dirección: se deduce del
- * prefijo. Sin esto, la fila de visionado se pide para un anime llamado
- * `aurora-nocturna#3`, que no existe, y el servidor contesta 404.
+ * **Último recurso**: la dirección debería traer el título en `?anime=`, que es un
+ * dato que la ficha ya tiene. Esto adivina por convención, y las convenciones son
+ * dos: la almohadilla del fixture y de animeav1 (`aurora-nocturna#3`) y la barra de
+ * jkanime (`dandadan/12`).
  *
- * Una referencia sin almohadilla es su propio título: los proveedores que no
- * numeran episodios usan la misma referencia para los dos.
+ * Adivinar de menos es lo caro: con sólo la almohadilla, el reproductor pedía el
+ * detalle de `dandadan/12`, el proveedor devolvía la página del episodio con su
+ * `<title>`, y esa ficha —«Dandadan 12 Sub Español Online gratis — JkAnime»—
+ * quedaba escrita en la base y en la fila de «Último añadido».
+ *
+ * Una referencia sin ninguno de los dos cortes es su propio título: los
+ * proveedores que no numeran episodios usan la misma referencia para los dos.
  */
 export function animeRefOf(episodeRef: string): string {
-  const corte = episodeRef.indexOf('#')
+  const almohadilla = episodeRef.indexOf('#')
+  if (almohadilla !== -1) return episodeRef.slice(0, almohadilla)
 
-  return corte === -1 ? episodeRef : episodeRef.slice(0, corte)
+  const barra = episodeRef.lastIndexOf('/')
+  if (barra > 0 && /^\d+$/.test(episodeRef.slice(barra + 1))) return episodeRef.slice(0, barra)
+
+  return episodeRef
 }
 
 /** Una referencia de episodio, que es lo que basta para pedirle el stream. */

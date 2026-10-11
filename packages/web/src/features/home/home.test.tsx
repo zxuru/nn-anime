@@ -63,7 +63,9 @@ describe('la fila de continuar viendo', () => {
   })
 
   test('el enlace va al episodio, escapado, con el modo y el segundo donde se dejó', () => {
-    expect(continuePath(item())).toBe('/watch/fixture/aurora-nocturna%233?mode=sub&at=720')
+    expect(continuePath(item())).toBe(
+      '/watch/fixture/aurora-nocturna%233?mode=sub&at=720&anime=aurora-nocturna',
+    )
   })
 
   test('el modo con el que se veía viaja al reproductor', () => {
@@ -71,7 +73,9 @@ describe('la fila de continuar viendo', () => {
   })
 
   test('sin posición no se inventa un segundo: se empieza por el principio', () => {
-    expect(continuePath(item({ positionS: 0 }))).toBe('/watch/fixture/aurora-nocturna%233?mode=sub')
+    expect(continuePath(item({ positionS: 0 }))).toBe(
+      '/watch/fixture/aurora-nocturna%233?mode=sub&anime=aurora-nocturna',
+    )
   })
 
   test('la tarjeta lleva su barra de progreso', () => {
