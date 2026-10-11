@@ -95,14 +95,58 @@ navegador.
 
 **Depende de:** nada. **Tamaño:** M.
 
+## T79 — `core` + `server` + `web`: una sola clave para las filas de la home
+
+**Qué:** `groupByWork` y `uniqueByWork` en `core/identity.ts` —el agrupador por obra, con índice de
+claves y el año como decisión de quien llama—; el arranque en frío (`GET /api/feed` y
+`GET /api/catalog/recent`) y el top de la fuente (`GET /api/trending`) pasan a usarlo; y la
+búsqueda se queda con el mismo agrupador en vez de con su copia.
+
+**Por qué:** era el resto declarado de T78. La home pintaba la misma obra dos veces cuando cada
+fuente la nombraba distinto, y la agrupación estaba escrita **tres** veces —la búsqueda, el feed y
+el top— con la misma regla y distinta clave: tres copias divergen, y la que se olvida de
+actualizar es la que nadie ejecuta.
+
+**Archivos:** `packages/core/src/identity.ts`, `packages/core/src/index.ts`,
+`packages/server/src/routes/discovery.ts`, `packages/server/src/routes/recommendations.ts`,
+`packages/web/src/features/search/useSearchStream.ts`.
+
+**Aceptación:**
+
+- [x] La misma obra con dos nombres en dos fuentes deja **una** entrada en `/api/feed`, y la que se
+      queda es la más nueva. Medido mutando: sin el índice de claves, cada entrada abre su grupo.
+- [x] Lo mismo en `/api/trending`, con la referencia de cada fuente. Medido mutando igual.
+- [x] El año sigue separando donde se tenía: «One Piece» de 1999 y de 2026 son dos entradas.
+      Medido mutando: ignorar el predicado del año deja en rojo las dos pruebas.
+- [x] El spin-off y la película siguen siendo obras distintas de su serie.
+- [x] Un título sin letras ni números no se come a otro.
+- [x] `titleKey` deja de exportarse desde `core`: era la clave que agrupaba por título normalizado y
+      ya no la usa nadie de fuera. Sigue dentro de `titles.ts`, que es la normalización que usan
+      `baseTitle` y `seasonNumberOf`.
+- [x] Sin `any`, sin `@ts-ignore`, sin `as` para silenciar, sin pruebas saltadas.
+
+**Verificación:** `bun test packages/core packages/catalog-store packages/web packages/server` 1263
+pasan, 0 fallan · `tsc --noEmit` 0 · `biome check` 0 errores. Medido mutando, control 0 fallos:
+
+| Mutación | Pruebas en rojo |
+|---|---|
+| Ignorar el predicado del año | 2 |
+| No registrar las claves en el índice | 19 |
+
+**Medición sobre la base real** (57 fichas, «Último añadido»): 54 tarjetas con la clave de título
+normalizado más año, **52** con la identidad. Las dos que se juntan son la obra de la captura y
+«Ijiranaide, Nagatoro-san 2nd Season» con su «2nd Attack».
+
+**Depende de:** T78. **Tamaño:** M.
+
 ## Lo que queda, y se declara
 
-1. **El arranque en frío sigue con la clave de T74** (título normalizado más año), que no ve este
-   caso: la misma obra puede salir dos veces en «Último añadido» y en «Novedades», con dos nombres.
-   El arreglo es cambiar la clave de `routes/discovery.ts` y `routes/recommendations.ts` por
-   `sameWork`, y va en su propio task: son dos archivos de implementación más, y esta entrega ya
-   está en el tope de cinco.
-2. **«Continuar viendo» y favoritos no se agrupan**, por la misma razón que declaró T74: son
+1. **«Continuar viendo» y favoritos no se agrupan**, por la misma razón que declaró T74: son
    historial de lo que se vio y dónde.
-3. **El nombre largo gana por longitud**, no por ser el original: una fuente con un subtítulo de más
+2. **El nombre largo gana por longitud**, no por ser el original: una fuente con un subtítulo de más
    le gana el nombre a la que acierta. Se declara aquí en vez de descubrirlo en la interfaz.
+3. **El top de la fuente no compara el año**, y es a propósito: esos resultados salen de los
+   proveedores y casi ninguno lo devuelve, así que exigir que coincida no separaría nada y dejaría
+   fuera la misma obra cuando sólo una fuente lo trae. En el feed sí se compara, porque la caché lo
+   tiene.
+

@@ -22,8 +22,8 @@ import type { Candidate, SearchResult } from '@nn-anime/core'
 import {
   errorResponseSchema,
   recommendationsResponseSchema,
-  titleKey,
   trendingResponseSchema,
+  uniqueByWork,
 } from '@nn-anime/core'
 import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import { recommend } from '@nn-anime/recsys'
@@ -61,37 +61,31 @@ export function clampLimit(raw: string | undefined): number {
  * Una tarjeta por anime, en el orden en que llegaron.
  *
  * Se repite por dos caminos distintos y los dos se vieron en la home: la
- * **referencia** —una fuente publica el mismo puesto dos veces— y el **título**
+ * **referencia** —una fuente publica el mismo puesto dos veces— y la **obra**
  * —dos fuentes publican el mismo anime con referencias propias—. Por referencia
- * no se reconocen, así que hay que mirar el título.
+ * no se reconocen, así que hay que mirar el título: lo hace `uniqueByWork`, con
+ * el título, su alternativa y la referencia de cada fuente.
+ *
+ * El año no entra aquí: estos resultados salen de los proveedores y casi ninguno
+ * lo devuelve, así que exigir que coincida no separaría nada y dejaría fuera la
+ * misma obra cuando sólo una fuente lo trae.
  *
  * Gana el primero. El orden de las fuentes es la única preferencia que hay, y
  * preferir la portada de una sobre la de otra no está escrito en ningún sitio.
- *
- * El título se compara con `titleKey` y **no** con `baseTitle`: quitar el marcador
- * de temporada convertiría «Kimetsu no Yaiba» y su «Hashira Geiko-hen» en el mismo
- * puesto, y son dos que la fuente publica por separado.
  */
 export function sinRepetir(resultados: readonly SearchResult[]): readonly SearchResult[] {
   const refs = new Set<string>()
-  const titulos = new Set<string>()
   const unicos: SearchResult[] = []
 
   for (const resultado of resultados) {
     const ref = refKey(resultado.ref)
     if (refs.has(ref)) continue
 
-    const titulo = titleKey(resultado.title)
-    // Un título vacío no empareja con nada: sin esto, dos entradas sin título se
-    // comerían la una a la otra.
-    if (titulo !== '' && titulos.has(titulo)) continue
-
     refs.add(ref)
-    titulos.add(titulo)
     unicos.push(resultado)
   }
 
-  return unicos
+  return uniqueByWork(unicos, () => true)
 }
 
 /**

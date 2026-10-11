@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { namesOf, sameWork, workKeys } from './identity'
+import { groupByWork, namesOf, sameWork, uniqueByWork, type WorkItem, workKeys } from './identity'
 
 /** La fuente que muestra un nombre y guarda la referencia. */
 function fuente(title: string, ref?: string, titleAlt?: string) {
@@ -119,5 +119,116 @@ describe('sameWork', () => {
 
   test('un título vacío no empareja con nada', () => {
     expect(sameWork(fuente(''), fuente(''))).toBe(false)
+  })
+})
+
+/** Una entrada de lista, con lo que la fuente publicó. */
+function entrada(providerId: string, ref: string, title: string, year?: number): WorkItem {
+  return { ref: { providerId, value: ref }, title, ...(year === undefined ? {} : { year }) }
+}
+
+const MISMO_AÑO = (uno: WorkItem, otro: WorkItem) => (uno.year ?? null) === (otro.year ?? null)
+
+describe('groupByWork', () => {
+  test('la misma obra con dos nombres distintos va al mismo grupo', () => {
+    // Es el caso de la captura, y la mutación que vuelva a comparar el título
+    // normalizado deja esta prueba en rojo con dos grupos.
+    const grupos = groupByWork(
+      [
+        entrada(
+          'jkanime',
+          'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka',
+          'Danmachi',
+          2015,
+        ),
+        entrada(
+          'animeav1',
+          'danmachi',
+          'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka',
+          2015,
+        ),
+      ],
+      MISMO_AÑO,
+    )
+
+    expect(grupos).toHaveLength(1)
+    expect(grupos[0]?.map((item) => item.ref.providerId)).toEqual(['jkanime', 'animeav1'])
+  })
+
+  test('el orden de llegada manda: la primera entrada abre su grupo', () => {
+    const grupos = groupByWork(
+      [entrada('uno', 'a', 'Aurora'), entrada('dos', 'b', 'Aurora'), entrada('tres', 'c', 'Otra')],
+      MISMO_AÑO,
+    )
+
+    expect(grupos.map((grupo) => grupo[0]?.ref.providerId)).toEqual(['uno', 'tres'])
+  })
+
+  test('el año decide si separa: con la guarda, dos grupos; sin ella, uno', () => {
+    const items = [entrada('uno', 'a', 'One Piece', 1999), entrada('dos', 'b', 'One Piece', 2026)]
+
+    expect(groupByWork(items, MISMO_AÑO)).toHaveLength(2)
+    expect(groupByWork(items, () => true)).toHaveLength(1)
+  })
+
+  test('el spin-off y la película no entran en el grupo de la serie', () => {
+    // Las cuatro filas reales: la obra (dos nombres), su spin-off y la película
+    // de otra serie. El spin-off le sobra un nombre y la película también.
+    const grupos = groupByWork(
+      [
+        entrada(
+          'jkanime',
+          'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka',
+          'Danmachi',
+          2015,
+        ),
+        entrada(
+          'animeav1',
+          'danmachi',
+          'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka',
+          2015,
+        ),
+        entrada(
+          'jkanime',
+          'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka-gaiden-sword-oratoria',
+          'Danmachi: Sword Oratoria',
+          2017,
+        ),
+        entrada('animeav1', 'kimetsu-no-yaiba', 'Kimetsu no Yaiba', 2019),
+        entrada(
+          'animeav1',
+          'kimetsu-no-yaiba-movie-1-mugenjou-hen',
+          'Kimetsu no Yaiba Movie 1: Mugenjou-hen',
+          2019,
+        ),
+      ],
+      MISMO_AÑO,
+    )
+
+    expect(grupos.map((grupo) => grupo.map((item) => item.title))).toEqual([
+      ['Danmachi', 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka'],
+      ['Danmachi: Sword Oratoria'],
+      ['Kimetsu no Yaiba'],
+      ['Kimetsu no Yaiba Movie 1: Mugenjou-hen'],
+    ])
+  })
+
+  test('un título sin letras ni números no se come a otro', () => {
+    // Sin la clave vacía fuera de los conjuntos, las dos entradas basura
+    // emparejarían entre sí y la fila perdería una.
+    const grupos = groupByWork([entrada('uno', 'a', '···'), entrada('dos', 'b', '---')], MISMO_AÑO)
+
+    expect(grupos).toHaveLength(2)
+  })
+})
+
+describe('uniqueByWork', () => {
+  test('deja la primera entrada de cada obra, en orden', () => {
+    const unicas = uniqueByWork(
+      [entrada('uno', 'a', 'Aurora'), entrada('dos', 'b', 'Aurora'), entrada('tres', 'c', 'Otra')],
+      MISMO_AÑO,
+    )
+
+    expect(unicas.map((item) => item.ref.providerId)).toEqual(['uno', 'tres'])
   })
 })

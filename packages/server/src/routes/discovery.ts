@@ -28,7 +28,12 @@
  */
 
 import type { FeedResponse } from '@nn-anime/core'
-import { feedResponseSchema, recentResponseSchema, titleKey } from '@nn-anime/core'
+import {
+  feedResponseSchema,
+  recentResponseSchema,
+  uniqueByWork,
+  type WorkItem,
+} from '@nn-anime/core'
 import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
@@ -89,40 +94,20 @@ export function orderFeed(entradas: FeedResponse['items']): FeedResponse['items'
  *
  * «Último añadido» y «Novedades» pintaban el mismo título una vez por proveedor
  * —la referencia no lo delata, cada fuente tiene la suya— y la fila se leía como
- * dos obras distintas. La clave es el título normalizado **y el año**, la misma
- * que usa la búsqueda: dos fuentes que escriben el mismo título el mismo año son
- * la misma obra, y un año ausente en las dos es tan comparable como un número.
+ * dos obras distintas. La identidad la resuelve `uniqueByWork` con el título, su
+ * alternativa y la referencia de cada fuente, así que dos fuentes que nombran la
+ * misma obra de otra forma —«Danmachi» y «Dungeon ni Deai wo Motomeru no wa
+ * Machigatteiru Darou ka»— también dejan una.
  *
- * No se usa `baseTitle`: juntaría una entrega con su secuela, que las fuentes
- * publican por separado y como dos tarjetas.
+ * El año entra en la comparación porque aquí se tiene: dos fuentes que escriben
+ * el mismo título el mismo año son la misma obra, y un año ausente en las dos es
+ * tan comparable como un número.
  *
  * Gana la primera, y el orden lo pone quien llama: en las dos filas viene de más
  * nueva a más vieja, así que la que se queda es lo último que se supo de la obra.
  */
-export function sinRepetirPorObra<
-  T extends { readonly title: string; readonly year?: number | undefined },
->(items: readonly T[]): readonly T[] {
-  const vistas = new Set<string>()
-  const unicas: T[] = []
-
-  for (const item of items) {
-    const titulo = titleKey(item.title)
-
-    // Un título sin letras ni números no empareja con nada: sin esto, dos entradas
-    // sin título se comerían la una a la otra.
-    if (titulo === '') {
-      unicas.push(item)
-      continue
-    }
-
-    const clave = `${titulo}|${item.year ?? ''}`
-    if (vistas.has(clave)) continue
-
-    vistas.add(clave)
-    unicas.push(item)
-  }
-
-  return unicas
+export function sinRepetirPorObra<T extends WorkItem>(items: readonly T[]): readonly T[] {
+  return uniqueByWork(items, (uno, otro) => (uno.year ?? null) === (otro.year ?? null))
 }
 
 export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): void {
