@@ -13,7 +13,9 @@
 import type { RecommendationResponse } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
+import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { Cover } from '../../components/Cover'
+import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { ReasonBadge } from './ReasonBadge'
@@ -70,10 +72,7 @@ export function Panel(props: PanelProps): ReactNode {
     return (
       <section className="panel">
         <h2>{t(DEFAULT_LOCALE, 'reco.title')}</h2>
-        <p className="search__error">{t(DEFAULT_LOCALE, 'reco.error', { message: error ?? '' })}</p>
-        <button type="button" className="button" onClick={reload}>
-          {t(DEFAULT_LOCALE, 'detail.retry')}
-        </button>
+        <ErrorNotice fallo={error ?? FALLO_SIN_CAUSA} onRetry={reload} />
       </section>
     )
   }

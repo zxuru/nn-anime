@@ -25,6 +25,8 @@ import type { Episode } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import { apiGet, apiPostJson } from '../../api/client'
+import { describirFallo, FALLO_SIN_CAUSA, type Fallo, falloSinFuente } from '../../api/fallo'
+import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import {
   composeTitle,
@@ -126,7 +128,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     startAtS: posicion,
   })
   const [estado, setEstado] = useState<Estado>('loading')
-  const [error, setError] = useState<string | undefined>(undefined)
+  const [error, setError] = useState<Fallo | undefined>(undefined)
   const [episodios, setEpisodios] = useState<readonly Episode[]>([])
   // El nombre del título. La dirección del reproductor sólo lleva la referencia
   // del episodio, así que sin esta petición la pantalla no sabe cómo se llama lo
@@ -203,7 +205,9 @@ export function WatchPage(props: WatchPageProps): ReactNode {
 
         const primera = salida.sources[0]
         if (primera === undefined) {
-          setError('el proveedor no dio ninguna fuente')
+          // Un proveedor que contesta sin fuentes no es un fallo de red: es que
+          // ese sitio no tiene el episodio, y se cuenta como tal.
+          setError(falloSinFuente(t(DEFAULT_LOCALE, 'player.noSource')))
           setEstado('error')
 
           return
@@ -221,7 +225,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       (cause: unknown) => {
         if (controlador.signal.aborted) return
 
-        setError(cause instanceof Error ? cause.message : String(cause))
+        setError(describirFallo(cause))
         setEstado('error')
       },
     )
@@ -379,12 +383,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       <section className="watch">
         {encabezado}
         {navegacion}
-        <p className="search__error">
-          {t(DEFAULT_LOCALE, 'player.error', { message: error ?? '' })}
-        </p>
-        <button type="button" className="button" onClick={recargar}>
-          {t(DEFAULT_LOCALE, 'detail.retry')}
-        </button>
+        <ErrorNotice fallo={error ?? FALLO_SIN_CAUSA} onRetry={recargar} />
       </section>
     )
   }

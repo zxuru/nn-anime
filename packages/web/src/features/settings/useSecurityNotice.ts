@@ -14,6 +14,8 @@
  */
 
 import { useEffect, useState } from 'react'
+import { ApiError } from '../../api/client'
+import { describirFallo, type Fallo } from '../../api/fallo'
 
 /** La ruta servida. Relativa a propósito: nunca una URL absoluta. */
 const RUTA = '/SECURITY.md'
@@ -24,8 +26,8 @@ export interface ContentFetcher {
 
 export interface NoticeContent {
   readonly markdown: string | undefined
-  /** Lo que se le puede enseñar a una persona si el documento no llegó. */
-  readonly error: string | undefined
+  /** El fallo, ya clasificado, si el documento no llegó. */
+  readonly error: Fallo | undefined
 }
 
 /** Pide el documento y devuelve su texto. Lanza si la respuesta no es 200. */
@@ -34,7 +36,10 @@ export async function loadNotice(deps: ContentFetcher, signal?: AbortSignal): Pr
     credentials: 'same-origin',
     ...(signal ? { signal } : {}),
   })
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim())
+  // Se lanza un `ApiError` y no un `Error` suelto: así el fallo del documento se
+  // clasifica por su estado —un 404 es que no está, un 500 es del servidor— con
+  // el mismo camino que el resto de las peticiones.
+  if (!response.ok) throw new ApiError(response.status, `GET ${RUTA} respondió ${response.status}`)
 
   return await response.text()
 }
@@ -61,10 +66,7 @@ export function useSecurityNotice(open: boolean): NoticeContent {
       (markdown) => setContent({ markdown, error: undefined }),
       (error: unknown) => {
         if (controller.signal.aborted) return
-        setContent({
-          markdown: undefined,
-          error: error instanceof Error ? error.message : String(error),
-        })
+        setContent({ markdown: undefined, error: describirFallo(error) })
       },
     )
 

@@ -39,13 +39,14 @@ import {
 } from '@nn-anime/core/api'
 import { useEffect, useRef, useState } from 'react'
 import { ApiError, apiGet } from '../../api/client'
+import { describirFallo, type Fallo } from '../../api/fallo'
 
 /** Cada cuánto se relee la home con la pestaña visible. */
 export const REFRESCO_MS = 120_000
 
 export interface HomeRows {
   readonly loading: boolean
-  readonly error: string | undefined
+  readonly error: Fallo | undefined
   /** Hay una relectura en curso: lo que se ve es de la lectura anterior. */
   readonly refrescando: boolean
   /** Cuándo llegó lo último que se ve. `undefined` si no llegó nada todavía. */
@@ -103,16 +104,36 @@ export function debeReleer(
 }
 
 /**
- * Si lo que falló fue la sesión.
+ * El fallo de la home, cuando hay que declararlo.
  *
- * Un 401 no es «no hay nada que enseñar»: es que este navegador no tiene la
- * cookie de sesión, y entonces **todo** falla a la vez. El mensaje genérico
- * mandaba a mirar el servidor —«es el mismo servidor»— cuando lo que faltaba era
- * entrar por la dirección de arranque. La cookie es de cada navegador: abrir la
- * misma dirección en otro no hereda la sesión del primero.
+ * Dos casos, y el orden importa:
+ *
+ * 1. **La sesión perdida se avisa siempre**, aunque las filas estén pintadas. Un
+ *    401 no es «no hay nada que enseñar»: es que este navegador no tiene la
+ *    cookie de sesión, y entonces **todo** falla a la vez. El mensaje genérico
+ *    mandaba a mirar el servidor —«es el mismo servidor»— cuando lo que faltaba
+ *    era entrar por la dirección de arranque. La cookie es de cada navegador:
+ *    abrir la misma dirección en otro no hereda la sesión del primero.
+ * 2. **Lo demás sólo cuando no hay nada que enseñar**, y se cuenta el primero de
+ *    los fallos. Si las cinco lecturas fallaron con un 502, lo que hay que decir
+ *    es que el proveedor no responde; un «algo falló» genérico tiraría el único
+ *    dato que se tiene sobre la causa.
  */
-function sesionPerdida(fallos: readonly PromiseRejectedResult[]): boolean {
-  return fallos.some((fallo) => fallo.reason instanceof ApiError && fallo.reason.isSessionLost)
+export function falloDeLecturas(
+  lecturas: readonly PromiseSettledResult<unknown>[],
+  algoQueEnsenar: boolean,
+): Fallo | undefined {
+  const fallos = lecturas.filter((lectura) => lectura.status === 'rejected')
+  const sinSesion = fallos.find(
+    (fallo) => fallo.reason instanceof ApiError && fallo.reason.isSessionLost,
+  )
+
+  if (sinSesion !== undefined) return describirFallo(sinSesion.reason)
+  if (algoQueEnsenar || fallos.length < lecturas.length) return undefined
+
+  const primero = fallos[0]
+
+  return primero === undefined ? undefined : describirFallo(primero.reason)
 }
 
 /** El valor de una lectura: el nuevo si llegó, el anterior si falló. */
@@ -135,7 +156,8 @@ function valorDe<T, V>(
  * borrado la home entera.
  *
  * La excepción es la sesión perdida: ahí sí se avisa aunque haya datos, porque no
- * es un dato viejo, es que este navegador no puede pedir nada.
+ * es un dato viejo, es que este navegador no puede pedir nada. Quién decide las
+ * dos cosas —y con qué clase de fallo se cuentan— es `falloDeLecturas`.
  */
 export function mergeRows(
   previas: HomeRows,
@@ -159,7 +181,6 @@ export function mergeRows(
     resultados.feed,
     resultados.recent,
   ]
-  const fallos = lecturas.filter((lectura) => lectura.status === 'rejected')
   const algoQueEnsenar = [continueWatching, favorites, trending, feed, recent].some(
     (fila) => fila.length > 0,
   )
@@ -171,11 +192,7 @@ export function mergeRows(
 
   return {
     loading: false,
-    error: sesionPerdida(fallos)
-      ? 'la sesión de este navegador no vale: entra por la dirección de arranque que imprime el CLI'
-      : fallos.length === lecturas.length && !algoQueEnsenar
-        ? 'no se pudo cargar nada de la página de inicio'
-        : undefined,
+    error: falloDeLecturas(lecturas, algoQueEnsenar),
     refrescando: false,
     refreshedAt: llegoAlgo ? ahora : previas.refreshedAt,
     relecturas: primera ? 0 : previas.relecturas + 1,

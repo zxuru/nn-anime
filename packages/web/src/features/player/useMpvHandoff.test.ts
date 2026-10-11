@@ -15,13 +15,16 @@ describe('lo que se le cuenta a quien pulsó «ver en mpv»', () => {
     )
   })
 
-  test('sin mensaje del servidor, se usa el del cliente', () => {
+  test('sin mensaje del servidor, se cuenta la clase del fallo', () => {
+    // «La petición no valía» y no «POST /api/play/mpv respondió 409»: el código
+    // no le dice nada a quien pulsó el botón.
     expect(mensajeDeFallo(new ApiError(409, 'POST /api/play/mpv respondió 409'))).toBe(
-      'POST /api/play/mpv respondió 409',
+      'la petición no valía',
     )
+    expect(mensajeDeFallo(new TypeError('Failed to fetch'))).toBe('sin conexión con el servidor')
   })
 
-  test('una causa que no es un error se cuenta tal cual', () => {
-    expect(mensajeDeFallo('vaya')).toBe('vaya')
+  test('una causa que no se reconoce no se disfraza de nada', () => {
+    expect(mensajeDeFallo('vaya')).toBe('algo falló')
   })
 })

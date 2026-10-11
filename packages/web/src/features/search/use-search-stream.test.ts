@@ -315,7 +315,8 @@ describe('distribuidor de búsquedas', () => {
   test('un fallo de transporte se cuenta y cierra, en lugar de dejar esqueletos', async () => {
     const hub = createSearchHub({
       open: () => {
-        throw new Error('sin conexión')
+        // Lo que lanza `fetch` sin red, con el mensaje medido en este repositorio.
+        throw new TypeError('Unable to connect. Is the computer able to access the url?')
       },
     })
 
@@ -325,7 +326,10 @@ describe('distribuidor de búsquedas', () => {
 
     expect(estado.done).toBe(true)
     expect(estado.pending).toEqual([])
-    expect(estado.failed).toContain('sin conexión')
+    // El fallo viaja clasificado, no como el texto del motor: es lo que permite
+    // que el anuncio diga «sin conexión con el servidor» y no el mensaje crudo.
+    expect(estado.failed?.clase).toBe('sinConexion')
+    expect(estado.failed?.tecnico).toContain('Unable to connect')
   })
 
   test('cancelar no se reporta como fallo: el usuario cambió de consulta', async () => {

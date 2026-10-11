@@ -237,7 +237,7 @@ describe('las filas, cuando una lectura falla', () => {
       recent: sinSesion,
     })
 
-    expect(filas.error).toContain('sesión')
+    expect(filas.error?.clase).toBe('sesion')
   })
 })
 
@@ -363,7 +363,7 @@ describe('la relectura de la home', () => {
     const primera = combineRows(lectura({ feed: ok({ items: [resumen('Del feed')] }) }))
     const segunda = mergeRows(primera, lectura({ feed: sinSesion }))
 
-    expect(segunda.error).toContain('sesión')
+    expect(segunda.error?.clase).toBe('sesion')
     expect(segunda.feed).toHaveLength(1)
   })
 

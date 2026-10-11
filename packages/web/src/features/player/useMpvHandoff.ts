@@ -13,7 +13,9 @@
 
 import { mpvPlayResponseSchema } from '@nn-anime/core/api'
 import { useCallback, useState } from 'react'
-import { ApiError, apiPostJson } from '../../api/client'
+import { apiPostJson } from '../../api/client'
+import { describirFallo } from '../../api/fallo'
+import { resumenDeFallo } from '../../components/ErrorNotice'
 
 export interface MpvHandoffOptions {
   readonly providerId: string
@@ -39,13 +41,14 @@ export interface MpvHandoff {
  *
  * El `detail` del error es el mensaje del servidor —«no se encontró mpv en el
  * PATH; se puede reproducir en el navegador»— y es mejor que el genérico: dice
- * qué pasa y qué hacer. Cuando no lo hay, se usa el del cliente.
+ * qué pasa y qué hacer. Cuando no lo hay, se usa el resumen de la clase del fallo
+ * y no el mensaje del cliente: aquí no cabe un aviso entero, pero «sin conexión
+ * con el servidor» sí cabe y dice más que el «Failed to fetch» del navegador.
  */
 export function mensajeDeFallo(causa: unknown): string {
-  if (causa instanceof ApiError) return causa.detail ?? causa.message
-  if (causa instanceof Error) return causa.message
+  const fallo = describirFallo(causa)
 
-  return String(causa)
+  return fallo.detalle ?? resumenDeFallo(fallo)
 }
 
 export function useMpvHandoff(options: MpvHandoffOptions): MpvHandoff {

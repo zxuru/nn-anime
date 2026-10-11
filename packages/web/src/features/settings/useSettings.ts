@@ -10,6 +10,7 @@ import type { ProviderSummary, SettingsResponse } from '@nn-anime/core/api'
 import { providerRegisterResponseSchema, settingsResponseSchema } from '@nn-anime/core/api'
 import { useCallback, useEffect, useState } from 'react'
 import { apiGet, apiPatch, apiPostJson } from '../../api/client'
+import { describirFallo, type Fallo } from '../../api/fallo'
 import { themeAttribute } from './ThemeToggle'
 
 export type SettingsState = 'loading' | 'ready' | 'error'
@@ -17,7 +18,7 @@ export type SettingsState = 'loading' | 'ready' | 'error'
 export interface Settings {
   readonly state: SettingsState
   readonly data: SettingsResponse | undefined
-  readonly error: string | undefined
+  readonly error: Fallo | undefined
   readonly setTheme: (theme: 'dark' | 'light' | 'system') => void
   /** Registra un proveedor y refresca la lista. Lanza si no se pudo. */
   readonly register: (draft: unknown) => Promise<ProviderSummary>
@@ -48,7 +49,7 @@ export function useAppTheme(): void {
 export function useSettings(): Settings {
   const [data, setData] = useState<SettingsResponse | undefined>(undefined)
   const [state, setState] = useState<SettingsState>('loading')
-  const [error, setError] = useState<string | undefined>(undefined)
+  const [error, setError] = useState<Fallo | undefined>(undefined)
 
   useEffect(() => {
     let vivo = true
@@ -63,7 +64,7 @@ export function useSettings(): Settings {
       (cause: unknown) => {
         if (!vivo) return
 
-        setError(cause instanceof Error ? cause.message : String(cause))
+        setError(describirFallo(cause))
         setState('error')
       },
     )

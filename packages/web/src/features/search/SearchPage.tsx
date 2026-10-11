@@ -21,6 +21,7 @@
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { resumenDeFallo } from '../../components/ErrorNotice'
 import { Grid, GridItem } from '../../components/Grid'
 import { t } from '../../i18n'
 import { useNavigate, usePath } from '../../router'
@@ -107,7 +108,9 @@ export function announce(
   providersLoaded = true,
 ): string {
   if (state.failed !== undefined) {
-    return t(DEFAULT_LOCALE, 'search.failed', { message: state.failed })
+    // El resumen y no el mensaje crudo: esto lo lee un lector de pantalla, y
+    // «GET /api/search?q=a respondió 500» no informa de nada.
+    return t(DEFAULT_LOCALE, 'search.failed', { message: resumenDeFallo(state.failed) })
   }
 
   if (!state.done) {

@@ -17,6 +17,7 @@ import type { RecommendationsResponse } from '@nn-anime/core/api'
 import { recommendationsResponseSchema } from '@nn-anime/core/api'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet } from '../../api/client'
+import { describirFallo, type Fallo } from '../../api/fallo'
 import { createScheduler } from './scheduler'
 
 /** Retardo antes de pedir, del spec. */
@@ -27,7 +28,7 @@ export type PanelState = 'loading' | 'ready' | 'error'
 export interface Recommendations {
   readonly state: PanelState
   readonly data: RecommendationsResponse | undefined
-  readonly error: string | undefined
+  readonly error: Fallo | undefined
   readonly reload: () => void
   readonly showComponents: boolean
   readonly toggleComponents: () => void
@@ -51,7 +52,7 @@ export function recommendationsPath(query: string | undefined, limit: number): s
 export function useRecommendations(options: UseRecommendationsOptions = {}): Recommendations {
   const [data, setData] = useState<RecommendationsResponse | undefined>(undefined)
   const [state, setState] = useState<PanelState>('loading')
-  const [error, setError] = useState<string | undefined>(undefined)
+  const [error, setError] = useState<Fallo | undefined>(undefined)
   const [showComponents, setShowComponents] = useState(false)
   // El planificador se crea una vez y se reutiliza: si se creara en cada
   // efecto, no habría nada que cancelar entre una clave y la siguiente.
@@ -86,7 +87,7 @@ export function useRecommendations(options: UseRecommendationsOptions = {}): Rec
         } catch (cause) {
           if (signal.aborted) return
 
-          setError(cause instanceof Error ? cause.message : String(cause))
+          setError(describirFallo(cause))
           setState('error')
         }
       },

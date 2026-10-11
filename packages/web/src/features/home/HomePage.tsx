@@ -18,6 +18,7 @@ import type { FeedItem, RecommendationResponse } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
+import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import { Panel } from '../recommendations/Panel'
 import { useRecommendations } from '../recommendations/useRecommendations'
@@ -134,7 +135,12 @@ export function HomePage(props: HomePageProps): ReactNode {
     <section className="home">
       <Ticker items={filas.trending} />
 
-      {filas.error === undefined ? null : <p className="search__error">{filas.error}</p>}
+      {/*
+        El fallo va con el aviso entero y sin botón de reintentar: la home se
+        relee sola al volver a la pestaña y cada dos minutos, así que un botón
+        sería una segunda forma de pedir lo que ya está pedido.
+      */}
+      {filas.error === undefined ? null : <ErrorNotice fallo={filas.error} />}
 
       {/*
         La marca del refresco. Sólo sale después de la primera relectura: al abrir,

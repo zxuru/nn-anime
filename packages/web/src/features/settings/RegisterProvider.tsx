@@ -15,7 +15,8 @@
 import type { ProviderSummary } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import { type ReactNode, useState } from 'react'
-import { ApiError } from '../../api/client'
+import { describirFallo } from '../../api/fallo'
+import { resumenDeFallo } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import {
   type CapabilityKey,
@@ -67,12 +68,19 @@ const CAPABILITY_FIELDS = [
   { key: 'dub', label: 'settings.register.cap.dub' },
 ] as const
 
-/** Lo que se enseña cuando el intento no salió: lo del servidor si lo trajo. */
+/**
+ * Lo que se enseña cuando el intento no salió.
+ *
+ * Manda lo que contó el servidor —«ya hay un proveedor con ese identificador»—,
+ * que es lo único que dice qué corregir del formulario. Cuando no lo hay, se usa
+ * el resumen de la clase del fallo y no el mensaje crudo: aquí no cabe un aviso
+ * entero, pero «sin conexión con el servidor» sí cabe y dice más que el
+ * «Failed to fetch» del navegador.
+ */
 function messageOf(cause: unknown): string {
-  if (cause instanceof ApiError) return cause.detail ?? cause.message
-  if (cause instanceof Error) return cause.message
+  const fallo = describirFallo(cause)
 
-  return String(cause)
+  return fallo.detalle ?? resumenDeFallo(fallo)
 }
 
 interface TextFieldProps {

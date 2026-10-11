@@ -19,7 +19,9 @@ import {
 import { groupByWork } from '@nn-anime/core/identity'
 import type { SearchResult } from '@nn-anime/core/models'
 import { useEffect, useMemo, useState } from 'react'
+import { ApiError } from '../../api/client'
 import { createDedupe } from '../../api/dedupe'
+import { describirFallo, type Fallo } from '../../api/fallo'
 import { readEventStream, searchRequestPath } from '../../api/stream-events'
 
 export interface ProviderIssue {
@@ -35,7 +37,7 @@ export interface SearchState {
   readonly errors: readonly ProviderIssue[]
   readonly done: boolean
   /** Fallo de transporte: ni siquiera llegó a haber stream. */
-  readonly failed?: string
+  readonly failed?: Fallo
 }
 
 export function initialState(active: readonly string[]): SearchState {
@@ -237,7 +239,7 @@ export function createSearchHub(deps: SearchHubDeps): SearchHub {
               ...entry.state,
               pending: [],
               done: true,
-              failed: cause instanceof Error ? cause.message : String(cause),
+              failed: describirFallo(cause),
             }
             notify(entry)
           }
@@ -279,7 +281,7 @@ async function openSearch(
     signal,
   })
 
-  if (!response.ok) throw new Error(`la búsqueda respondió ${response.status}`)
+  if (!response.ok) throw new ApiError(response.status, `GET ${path} respondió ${response.status}`)
 
   return readEventStream(response)
 }
@@ -303,7 +305,9 @@ export async function fetchProviders(signal: AbortSignal): Promise<readonly Prov
     signal,
   })
 
-  if (!response.ok) throw new Error(`/api/providers respondió ${response.status}`)
+  if (!response.ok) {
+    throw new ApiError(response.status, `GET /api/providers respondió ${response.status}`)
+  }
 
   return providersResponseSchema.parse(await response.json()).providers
 }

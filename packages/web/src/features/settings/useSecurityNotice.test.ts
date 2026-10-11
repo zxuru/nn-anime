@@ -43,7 +43,7 @@ describe('la descarga del aviso', () => {
   test('una respuesta de error no se toma por un documento', async () => {
     const deps = responder(new Response('no está', { status: 404, statusText: 'Not Found' }))
 
-    expect(loadNotice(deps)).rejects.toThrow('404 Not Found')
+    expect(loadNotice(deps)).rejects.toThrow('GET /SECURITY.md respondió 404')
   })
 
   test('un error de red se propaga tal cual', async () => {
