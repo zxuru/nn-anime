@@ -390,6 +390,26 @@ describe('modos', () => {
   })
 })
 
+describe('episodeSchema: el número', () => {
+  test('acepta un decimal, que es como una fuente numera un recopilatorio', () => {
+    expect(
+      episodeSchema.safeParse({ ref: REF, animeRef: REF, number: 12.5, mode: 'sub' }).success,
+    ).toBe(true)
+  })
+
+  test('sigue aceptando el entero de siempre', () => {
+    expect(
+      episodeSchema.safeParse({ ref: REF, animeRef: REF, number: 7, mode: 'sub' }).success,
+    ).toBe(true)
+  })
+
+  test('rechaza un número negativo', () => {
+    expect(
+      episodeSchema.safeParse({ ref: REF, animeRef: REF, number: -1, mode: 'sub' }).success,
+    ).toBe(false)
+  })
+})
+
 describe('feed: la lista de novedades de una fuente', () => {
   test('sin declarar la capacidad queda en false', () => {
     const result = providerCapabilitiesSchema.safeParse({

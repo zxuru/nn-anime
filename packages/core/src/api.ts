@@ -315,7 +315,7 @@ export const sourcesResponseSchema = z.strictObject({
  * en una conversión olvidada.
  */
 export const watchedEpisodeSchema = z.strictObject({
-  number: z.number().int().nonnegative(),
+  number: z.number().nonnegative(),
   mode: modeSchema,
   positionS: z.number().nonnegative(),
   durationS: z.number().nonnegative(),
@@ -379,9 +379,30 @@ export const settingsPatchSchema = z.strictObject({
 /** Detalle de un título. Es el mismo schema del dominio, no una copia. */
 export const animeResponseSchema = animeDetailSchema
 
-/** Lista de episodios de un título. */
+/**
+ * Lista de episodios de un título, por páginas.
+ *
+ * `page` y `hasMore` van **con valor por defecto** y no obligatorios, por el
+ * mismo motivo que `capabilities.feed`: el servidor aprendió a paginar después
+ * que el cliente aprendiera a leer `episodes`, y un campo requerido nuevo
+ * rompería a quien ya leía la respuesta. `total` es opcional porque hay fuentes
+ * que no lo dicen: sin él, el selector numera el episodio y no promete un total.
+ */
 export const episodesResponseSchema = z.strictObject({
   episodes: z.array(episodeSchema),
+  page: z.number().int().positive().default(1),
+  hasMore: z.boolean().default(false),
+  total: z.number().int().nonnegative().optional(),
+})
+
+/**
+ * Un episodio suelto: el que se pidió por número, o el último del título.
+ *
+ * La misma forma para las dos rutas porque el cliente hace lo mismo con las dos
+ * —abrir ese episodio—, y dos formas iguales acaban divergiendo.
+ */
+export const episodeResponseSchema = z.strictObject({
+  episode: episodeSchema,
 })
 
 /**
@@ -436,6 +457,7 @@ export type StreamSourceResponse = z.infer<typeof streamSourceResponseSchema>
 export type FavoriteRequest = z.infer<typeof favoriteRequestSchema>
 export type FavoritesResponse = z.infer<typeof favoritesResponseSchema>
 export type EpisodesResponse = z.infer<typeof episodesResponseSchema>
+export type EpisodeResponse = z.infer<typeof episodeResponseSchema>
 export type RelatedResponse = z.infer<typeof relatedResponseSchema>
 export type SourcesResponse = z.infer<typeof sourcesResponseSchema>
 export type WatchedEpisodePayload = z.infer<typeof watchedEpisodeSchema>

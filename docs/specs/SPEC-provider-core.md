@@ -55,6 +55,27 @@ export interface Provider {
    * haya buscado nada. El formato —RSS, Atom o una lista propia— es del plugin.
    */
   getFeed?(options: CallOptions): Promise<readonly FeedEntry[]>
+  /**
+   * Opcionales, con la capacidad `episodePages` por delante: un plugin que sabe
+   * servir los episodios de uno en uno y por páginas no tiene que traer el
+   * catálogo entero para pintar una ventana del selector. Añadidos en T86.
+   *
+   * `page` se numera desde 1. `hasMore` es del contrato y no se deduce del
+   * tamaño: una fuente puede servir una página incompleta en el borde del
+   * catálogo y eso no significa que no haya más.
+   */
+  getEpisodesPage?(ref: ProviderRef, page: number, options: CallOptions): Promise<EpisodePage>
+  getEpisode?(ref: ProviderRef, number: number, options: CallOptions): Promise<Episode>
+  getLatestEpisode?(ref: ProviderRef, options: CallOptions): Promise<Episode>
+}
+
+export interface EpisodePage {
+  readonly episodes: readonly Episode[]
+  /** La página pedida, tal como la numeró el proveedor: base 1. */
+  readonly page: number
+  readonly hasMore: boolean
+  /** Opcional: hay fuentes que no lo saben, y el selector vive sin él. */
+  readonly total?: number
 }
 
 /**
@@ -77,6 +98,14 @@ export interface ProviderCapabilities {
    * nuevo los rechazaría a todos al cargar. Añadido en T48.
    */
   readonly feed: boolean
+  /**
+   * El proveedor sabe servir los episodios por páginas y de uno en uno.
+   *
+   * Con valor por defecto, como `feed`: el schema es estricto y lo leen los
+   * manifiestos ya instalados. Sin esta capacidad, la aplicación pide la lista
+   * completa y la trocea ella. Añadido en T86.
+   */
+  readonly episodePages: boolean
 }
 
 export interface CallOptions {
@@ -111,6 +140,12 @@ export interface AnimeDetail extends SearchResult {
 export interface Episode {
   readonly ref: ProviderRef
   readonly animeRef: ProviderRef
+  /**
+   * Número dentro del título, sin exigir entero: las fuentes numeran
+   * recopilatorios y especiales con decimales. No es un índice, así que un hueco
+   * en la numeración no se rellena. Ensanchado en T85; la versión del contrato
+   * **no** sube, porque un plugin que sólo emite enteros sigue cumpliéndolo.
+   */
   readonly number: number
   readonly title?: string
   readonly durationS?: number
@@ -188,6 +223,10 @@ Reglas del loader:
 - Detecta `id` duplicado: gana el primero, el segundo se reporta como conflicto.
 - Un plugin puede exportar `default` o `providers`, no ambos.
 - `apiVersion` distinto de `'1'` se rechaza con un mensaje que indica la versión esperada.
+- `capabilities.episodePages` y los tres métodos de paginación van juntos: declarar la capacidad sin
+  los métodos, o tener los métodos sin declararla, se rechaza nombrando lo que falta. La capacidad
+  es una promesa de contenido, como `feed`, y una promesa a medias ofrece un botón que no lleva a
+  ninguna parte. (T86)
 
 Reglas de la búsqueda agregada:
 
