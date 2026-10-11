@@ -34,7 +34,7 @@ import {
 } from './affinity'
 import { type CoVisit, coVisitScore, indexBySeen } from './covisit'
 import { filterCandidates, type WatchState } from './filters'
-import { mmr, type RankedCandidate } from './mmr'
+import { mmr } from './mmr'
 import { buildReasons, mainReason, type Reason, type ReasonCandidate } from './reasons'
 import { type SearchSignalRecord, searchReason, searchScore } from './search-signal'
 

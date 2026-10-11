@@ -754,6 +754,11 @@
 }
 
 .settings__theme {
+  /* Es un `fieldset` porque agrupa controles, y el navegador le pone borde,
+     relleno y margen: el grupo es invisible en el diseño, así que se quitan. */
+  border: 0;
+  margin: 0;
+  padding: 0;
   display: flex;
   gap: var(--space-2);
 }

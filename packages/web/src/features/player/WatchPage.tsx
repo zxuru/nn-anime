@@ -67,7 +67,6 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   })
   const [estado, setEstado] = useState<Estado>('loading')
   const [error, setError] = useState<string | undefined>(undefined)
-  const [intento, setIntento] = useState(0)
   const [episodios, setEpisodios] = useState<readonly Episode[]>([])
 
   // Los episodios del título, para las flechas de al lado. La petición se
@@ -93,22 +92,29 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     }
   }, [props.providerId, animeRef.value])
 
-  const recargar = useCallback(() => {
-    setEstado('loading')
-    setError(undefined)
-    setIntento((valor) => valor + 1)
-  }, [])
-
-  useEffect(() => {
-    let vivo = true
+  /**
+   * Resolver el stream del episodio y el modo actuales.
+   *
+   * Es una función y no el cuerpo del efecto porque «reintentar» tiene que hacer
+   * exactamente lo mismo: pedirlo otra vez. Con un contador en las dependencias el
+   * efecto se volvía a montar, pero el contador no se leía en ninguna parte, así
+   * que el motivo de la repetición vivía fuera del código que la ejecuta.
+   *
+   * La petición anterior se aborta: reintentar dos veces seguidas dejaba viva la
+   * primera, y su respuesta podía llegar después y pintar una fuente que ya no
+   * corresponde al modo elegido.
+   */
+  const resolver = useCallback(() => {
+    const controlador = new AbortController()
 
     void apiPostJson(
       '/api/stream/resolve',
       { episodeRef: { providerId: props.providerId, value: props.ref }, mode: modo },
       streamResolveResponseSchema,
+      { signal: controlador.signal },
     ).then(
       (salida) => {
-        if (!vivo) return
+        if (controlador.signal.aborted) return
 
         const primera = salida.sources[0]
         if (primera === undefined) {
@@ -128,17 +134,27 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         setEstado('ready')
       },
       (cause: unknown) => {
-        if (!vivo) return
+        if (controlador.signal.aborted) return
 
         setError(cause instanceof Error ? cause.message : String(cause))
         setEstado('error')
       },
     )
 
-    return () => {
-      vivo = false
-    }
-  }, [props.providerId, props.ref, intento, modo])
+    return controlador
+  }, [props.providerId, props.ref, modo])
+
+  useEffect(() => {
+    const controlador = resolver()
+
+    return () => controlador.abort()
+  }, [resolver])
+
+  const recargar = useCallback(() => {
+    setEstado('loading')
+    setError(undefined)
+    resolver()
+  }, [resolver])
 
   const vecinos = neighbourEpisodes(episodios, props.providerId, props.ref)
 

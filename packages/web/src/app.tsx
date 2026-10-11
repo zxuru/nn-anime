@@ -37,7 +37,7 @@ function Shell(props: { readonly children: ReactNode }): ReactNode {
   )
 }
 
-function Pending(props: { readonly title: string; readonly body: string }): ReactNode {
+function _Pending(props: { readonly title: string; readonly body: string }): ReactNode {
   return (
     <section>
       <h1>{props.title}</h1>

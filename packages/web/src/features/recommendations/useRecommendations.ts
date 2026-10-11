@@ -53,17 +53,25 @@ export function useRecommendations(options: UseRecommendationsOptions = {}): Rec
   const [state, setState] = useState<PanelState>('loading')
   const [error, setError] = useState<string | undefined>(undefined)
   const [showComponents, setShowComponents] = useState(false)
-  const [intento, setIntento] = useState(0)
   // El planificador se crea una vez y se reutiliza: si se creara en cada
   // efecto, no habría nada que cancelar entre una clave y la siguiente.
   const planificador = useRef<ReturnType<typeof createScheduler> | undefined>(undefined)
   const retardo = options.debounceMs ?? DEBOUNCE_MS
+  const ruta = recommendationsPath(options.query, options.limit ?? 10)
 
+  /**
+   * Volver a pedir lo mismo.
+   *
+   * Vuelve a programar sobre el planificador que ya existe en vez de forzar un
+   * efecto nuevo: el planificador cancela lo pendiente y lo que esté en vuelo, así
+   * que reintentar no duplica la petición, y el efecto no necesita una dependencia
+   * que no lee.
+   */
   const reload = useCallback(() => {
     setState('loading')
     setError(undefined)
-    setIntento((valor) => valor + 1)
-  }, [])
+    planificador.current?.schedule(ruta)
+  }, [ruta])
 
   useEffect(() => {
     const plan = createScheduler({
@@ -84,13 +92,13 @@ export function useRecommendations(options: UseRecommendationsOptions = {}): Rec
       },
     })
     planificador.current = plan
-    plan.schedule(recommendationsPath(options.query, options.limit ?? 10))
+    plan.schedule(ruta)
 
     return () => {
       plan.cancel()
       planificador.current = undefined
     }
-  }, [options.query, options.limit, retardo, intento])
+  }, [ruta, retardo])
 
   return {
     state,

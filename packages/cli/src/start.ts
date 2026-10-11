@@ -7,7 +7,6 @@
  * espera de señal se registra **antes** de arrancar el servidor.
  */
 
-import type { ConfigPaths } from '@nn-anime/core'
 import { type ConfigEnvironment, type Locale, type Logger, resolveLocale } from '@nn-anime/core'
 import type { Session } from '@nn-anime/server'
 import type { CliOptions } from './args'

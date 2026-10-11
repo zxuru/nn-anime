@@ -1,12 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import {
   createMpvPlayer,
-  HEADER_FIELD_FLAG,
   hasMpv,
   MAX_STDERR_BYTES,
   type MpvEvent,
   type MpvProcess,
-  mpvArgs,
   mpvUnavailable,
   trimStderr,
 } from './mpv'

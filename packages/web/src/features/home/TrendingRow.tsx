@@ -13,7 +13,6 @@ import type { ReactNode } from 'react'
 import { PosterCard } from '../../components/PosterCard'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
-import { Link } from '../../router'
 
 export interface TrendingRowProps {
   readonly items: readonly AnimeSummary[]

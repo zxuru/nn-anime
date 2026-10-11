@@ -42,7 +42,7 @@ const RUTAS_MUTANTES: readonly (readonly [string, string])[] = [
   ['PATCH', '/api/settings'],
 ]
 
-function peticion(ruta: string, metodo: string, headers: Record<string, string>): RequestInit {
+function peticion(_ruta: string, metodo: string, headers: Record<string, string>): RequestInit {
   return {
     method: metodo,
     headers,

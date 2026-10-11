@@ -20,7 +20,7 @@
  */
 
 import { AppError } from '@nn-anime/core'
-import { invalidHeaderError, type MpvArgsOptions, mpvArgs } from './mpv-args'
+import { type MpvArgsOptions, mpvArgs } from './mpv-args'
 
 export {
   HEADER_FIELD_FLAG,

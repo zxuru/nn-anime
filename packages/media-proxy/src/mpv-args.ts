@@ -30,8 +30,22 @@ export const HEADER_NAME_RE = /^[A-Za-z0-9-]+$/
 /** Argumento de cabeceras de mpv: `--http-header-fields=A: 1,B: 2`. */
 export const HEADER_FIELD_FLAG = '--http-header-fields='
 
-/** Caracteres de control, incluidos `\r` y `\n`. */
-const CONTROL_CHARS = /[\u0000-\u001f\u007f]/
+/**
+ * ¿Hay algún carácter de control, incluidos `\r` y `\n`?
+ *
+ * Se comparan puntos de código y no una expresión regular: una clase con
+ * `\u0000-\u001f` dentro es exactamente esto, pero escrita de forma que el
+ * analizador la lee como caracteres de control sueltos en el código fuente y la
+ * marca. Aquí el rango se ve en los números, que es donde se puede revisar.
+ */
+function hasControlChars(value: string): boolean {
+  for (const caracter of value) {
+    const punto = caracter.codePointAt(0) ?? 0
+    if (punto <= 0x1f || punto === 0x7f) return true
+  }
+
+  return false
+}
 
 export interface MpvArgsOptions {
   /** URL absoluta del proxy. mpv no sabe de rutas relativas. */
@@ -55,7 +69,7 @@ export function validHeaderName(name: string): boolean {
 
 /** ¿Sirve como valor? Sin caracteres de control, que es lo que importa. */
 export function validHeaderValue(value: string): boolean {
-  return !CONTROL_CHARS.test(value)
+  return !hasControlChars(value)
 }
 
 /**

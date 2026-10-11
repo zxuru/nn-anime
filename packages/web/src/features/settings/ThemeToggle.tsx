@@ -47,7 +47,7 @@ export function ThemeToggle(props: ThemeToggleProps): ReactNode {
   const opciones: readonly Theme[] = ['system', 'dark', 'light']
 
   return (
-    <div className="settings__theme" role="group" aria-label={t(DEFAULT_LOCALE, 'settings.theme')}>
+    <fieldset className="settings__theme" aria-label={t(DEFAULT_LOCALE, 'settings.theme')}>
       {opciones.map((opcion) => (
         <button
           key={opcion}
@@ -59,6 +59,6 @@ export function ThemeToggle(props: ThemeToggleProps): ReactNode {
           {t(DEFAULT_LOCALE, THEME_KEYS[opcion])}
         </button>
       ))}
-    </div>
+    </fieldset>
   )
 }

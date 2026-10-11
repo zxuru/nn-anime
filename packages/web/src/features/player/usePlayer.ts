@@ -46,14 +46,27 @@ export interface PlayerHandle {
  * falta un oído: hls.js no lanza, avisa, y el elemento no dispara `error` cuando
  * lo que falla es el Media Source. Sin esto, un corte de red o un códec que el
  * navegador no decodifica se quedan en una pantalla negra sin decir nada.
+ *
+ * `sigueVivo` se comprueba **después** de la importación y antes de tocar el
+ * elemento. La importación es asíncrona y el efecto puede haberse desmontado
+ * mientras llegaba: React en modo estricto monta, desmonta y vuelve a montar, así
+ * que la primera vuelta llega tarde y su `destroy()` —el que la segunda vuelta
+ * pide para lo que ya no sirve— arrancaría el medio que la segunda acababa de
+ * montar. Se veía como una lista cargada —200— y **ni una sola petición de
+ * segmento**: el video se quedaba sin fuente y en negro, con el audio a veces
+ * sonando de milagro según el orden de los microtasks. Sólo pasa en desarrollo,
+ * que es donde React duplica los efectos.
  */
 export async function attachHls(
   video: HTMLVideoElement,
   url: string,
   alFallar?: (detalle: string) => void,
+  sigueVivo: () => boolean = () => true,
 ): Promise<{ destroy: () => void } | { error: string }> {
   try {
     const { default: Hls } = await import('hls.js')
+
+    if (!sigueVivo()) return { destroy: () => {} }
 
     if (!Hls.isSupported()) {
       // Safari reproduce HLS sin ayuda; si tampoco puede, se dice.
@@ -152,15 +165,20 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     let vivo = true
 
     if (needsHls(source.kind)) {
-      void attachHls(video, source.url, (detalle) => {
-        if (!vivo) return
+      void attachHls(
+        video,
+        source.url,
+        (detalle) => {
+          if (!vivo) return
 
-        setState((previo) => ({
-          ...previo,
-          error: `hls.js se detuvo: ${detalle}`,
-          loading: false,
-        }))
-      }).then((resultado) => {
+          setState((previo) => ({
+            ...previo,
+            error: `hls.js se detuvo: ${detalle}`,
+            loading: false,
+          }))
+        },
+        () => vivo,
+      ).then((resultado) => {
         if (!vivo) {
           if ('destroy' in resultado) resultado.destroy()
 
