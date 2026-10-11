@@ -27,6 +27,10 @@ export const TTL_SECONDS = {
   // cada consulta es una petición a un tercero: media hora. Lo añade T49, con su
   // fila en la tabla del spec.
   feed: 1800,
+  // Una página del selector se mira ahora mismo, no es el catálogo del título:
+  // cinco minutos. La ventana corta es la que hace que una página pedida durante
+  // una ráfaga no se sirva durante horas. La añade T87.
+  episodePage: 300,
 } as const
 
 export type CacheResource = keyof typeof TTL_SECONDS
