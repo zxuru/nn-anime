@@ -139,7 +139,7 @@ describe('assertConforms', () => {
 })
 
 describe('inspectConformance', () => {
-  test('recorre los seis métodos del contrato y marca cuáles son obligatorios', () => {
+  test('recorre los nueve métodos del contrato y marca cuáles son obligatorios', () => {
     const report = inspectConformance(provider())
 
     expect(report.methods.map((item) => item.method)).toEqual([
@@ -149,6 +149,9 @@ describe('inspectConformance', () => {
       'resolveStream',
       'getTrending',
       'getFeed',
+      'getEpisodesPage',
+      'getEpisode',
+      'getLatestEpisode',
     ])
     expect(report.methods.filter((item) => item.required).map((item) => item.method)).toEqual([
       'search',
@@ -181,5 +184,56 @@ describe('inspectConformance', () => {
     for (const candidate of [undefined, null, 42, 'texto']) {
       expect(inspectConformance(candidate).ok).toBe(false)
     }
+  })
+})
+
+describe('conformance: la paginación de episodios', () => {
+  const EPISODIO = { ref: REF, animeRef: REF, number: 1, mode: 'sub' as const }
+  const PAGINADO = {
+    getEpisodesPage: async () => ({ episodes: [EPISODIO], page: 1, hasMore: false }),
+    getEpisode: async () => EPISODIO,
+    getLatestEpisode: async () => EPISODIO,
+  }
+  const CON_CAPACIDAD = {
+    search: true,
+    sub: true,
+    dub: false,
+    trending: false,
+    feed: false,
+    episodePages: true,
+  }
+
+  test('la capacidad con sus tres métodos pasa', () => {
+    const result = assertConforms(provider({ capabilities: CON_CAPACIDAD, ...PAGINADO }))
+
+    expect(result.ok).toBe(true)
+  })
+
+  test('declarar la capacidad sin los métodos se rechaza nombrando lo que falta', () => {
+    const result = assertConforms(provider({ capabilities: CON_CAPACIDAD }))
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error.message).toContain('episodePages')
+      expect(result.error.message).toContain('getLatestEpisode')
+    }
+  })
+
+  test('los métodos sin la capacidad declarada también se rechazan', () => {
+    // Un método de paginación sin la capacidad deja al servidor sin saber que
+    // puede pedir páginas, así que el plugin paginaría para nadie.
+    const result = assertConforms(provider({ ...PAGINADO }))
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.message).toContain('episodePages')
+  })
+
+  test('sin declarar nada, los tres métodos salen como ausentes y no es un problema', () => {
+    const report = inspectConformance(provider())
+
+    for (const metodo of ['getEpisodesPage', 'getEpisode', 'getLatestEpisode']) {
+      expect(report.methods.find((item) => item.method === metodo)?.present).toBe(false)
+    }
+    expect(report.ok).toBe(true)
   })
 })

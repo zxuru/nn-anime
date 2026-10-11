@@ -49,7 +49,13 @@ export const REQUIRED_PROVIDER_METHODS = [
 ] as const
 
 /** Métodos que un plugin puede no implementar. */
-export const OPTIONAL_PROVIDER_METHODS = ['getTrending', 'getFeed'] as const
+export const OPTIONAL_PROVIDER_METHODS = [
+  'getTrending',
+  'getFeed',
+  'getEpisodesPage',
+  'getEpisode',
+  'getLatestEpisode',
+] as const
 
 export type RequiredProviderMethod = (typeof REQUIRED_PROVIDER_METHODS)[number]
 export type OptionalProviderMethod = (typeof OPTIONAL_PROVIDER_METHODS)[number]
@@ -103,6 +109,35 @@ export interface Provider {
    * propia— lo decide el plugin: aquí sólo llegan referencias ya convertidas.
    */
   getFeed?(options: CallOptions): Promise<readonly FeedEntry[]>
+  /**
+   * Opcionales, con `capabilities.episodePages` por delante: un plugin que sabe
+   * servir los episodios por páginas no tiene que traer el catálogo entero
+   * —Black Clover son 1216 episodios y 76 peticiones— para pintar una ventana
+   * del selector. Añadidos en T86.
+   *
+   * `page` se numera desde 1. El tamaño de la página lo decide el sitio: el
+   * contrato no lo fija, y la interfaz no lo supone.
+   */
+  getEpisodesPage?(ref: ProviderRef, page: number, options: CallOptions): Promise<EpisodePage>
+  getEpisode?(ref: ProviderRef, number: number, options: CallOptions): Promise<Episode>
+  getLatestEpisode?(ref: ProviderRef, options: CallOptions): Promise<Episode>
+}
+
+/**
+ * Una página de episodios.
+ *
+ * `hasMore` es del contrato y no se deduce del tamaño de la lista: una fuente
+ * puede servir una página incompleta en el borde de su catálogo y eso no
+ * significa que no haya más. `total` es opcional porque hay fuentes que no lo
+ * saben, y el selector vive sin él: sin total numera el episodio y no promete un
+ * total que no puede cumplir.
+ */
+export interface EpisodePage {
+  readonly episodes: readonly Episode[]
+  /** La página pedida, tal como la numeró el proveedor: base 1. */
+  readonly page: number
+  readonly hasMore: boolean
+  readonly total?: number
 }
 
 /**

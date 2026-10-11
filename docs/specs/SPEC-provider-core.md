@@ -101,11 +101,14 @@ export interface ProviderCapabilities {
   /**
    * El proveedor sabe servir los episodios por páginas y de uno en uno.
    *
-   * Con valor por defecto, como `feed`: el schema es estricto y lo leen los
-   * manifiestos ya instalados. Sin esta capacidad, la aplicación pide la lista
-   * completa y la trocea ella. Añadido en T86.
+   * **Opcional y sin valor por defecto**, al revés que `feed`: con un valor por
+   * defecto el campo pasaría a ser obligatorio en el tipo inferido y obligaría a
+   * tocar cada literal de capacidades del repositorio por una capacidad que sólo
+   * lee el selector de episodios. Quien la necesita la comprueba con `=== true`.
+   * Sin ella, la aplicación pide la lista completa y la trocea ella. Añadido en
+   * T86.
    */
-  readonly episodePages: boolean
+  readonly episodePages?: boolean
 }
 
 export interface CallOptions {
