@@ -1,9 +1,13 @@
 /**
  * Datos de la pantalla de detalle.
  *
- * Seis peticiones en paralelo —detalle, episodios, relacionados, franquicia,
- * vistos y capacidades del proveedor— porque ninguna necesita a las otras: en
- * serie, la pantalla tardaría la suma de las seis latencias sin ninguna razón.
+ * Siete peticiones en paralelo —detalle, episodios, relacionados, franquicia,
+ * fuentes, vistos y capacidades del proveedor— porque ninguna necesita a las
+ * otras: en serie, la pantalla tardaría la suma de las siete latencias sin ninguna
+ * razón.
+ *
+ * Las fuentes son las otras que tienen **esta misma obra**, de la base local: es
+ * lo que el «También en» de la ficha necesita para ofrecer elegir dónde verla.
  *
  * La franquicia es la misma lectura de relacionados con otro alcance. Van las dos
  * en la misma tanda porque el rail las pinta juntas y en el mismo orden; y son dos
@@ -27,6 +31,7 @@ import {
   favoritesResponseSchema,
   providersResponseSchema,
   relatedResponseSchema,
+  sourcesResponseSchema,
   watchedResponseSchema,
 } from '@nn-anime/core/api'
 import type {
@@ -58,6 +63,11 @@ export function relatedPath(
   return scope === 'saga' ? base : `${base}?scope=${scope}`
 }
 
+/** La ruta de las otras fuentes de la misma obra. */
+export function sourcesPath(providerId: string, ref: string): string {
+  return `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/sources`
+}
+
 export interface DetailData {
   readonly detail: AnimeDetail | undefined
   readonly episodes: readonly Episode[]
@@ -76,6 +86,13 @@ export interface DetailData {
    */
   readonly franchise: readonly AnimeSummary[]
   /**
+   * Las otras fuentes que tienen esta misma obra.
+   *
+   * Lista vacía cuando no hay ninguna: la sección no se pinta, que es distinto de
+   * pintarla diciendo que no hay nada que elegir.
+   */
+  readonly sources: readonly AnimeSummary[]
+  /**
    * Qué episodios ya se vieron y por dónde iba cada uno.
    *
    * Es por número de episodio, no por par episodio y modo: verlo en subtitulado
@@ -83,6 +100,8 @@ export interface DetailData {
    */
   readonly watched: readonly WatchedEpisodePayload[]
   readonly capabilities: ProviderCapabilities | undefined
+  /** El nombre declarado por cada proveedor cargado, por su id. */
+  readonly providerNames: ReadonlyMap<string, string>
   readonly state: DetailState
   readonly error: string | undefined
   readonly reload: () => void
@@ -138,8 +157,10 @@ export function useDetail(providerId: string, ref: string): DetailData {
   const [episodes, setEpisodes] = useState<readonly Episode[]>([])
   const [related, setRelated] = useState<readonly AnimeSummary[]>([])
   const [franchise, setFranchise] = useState<readonly AnimeSummary[]>([])
+  const [sources, setSources] = useState<readonly AnimeSummary[]>([])
   const [watched, setWatched] = useState<readonly WatchedEpisodePayload[]>([])
   const [capabilities, setCapabilities] = useState<ProviderCapabilities | undefined>(undefined)
+  const [providerNames, setProviderNames] = useState<ReadonlyMap<string, string>>(new Map())
   const [state, setState] = useState<DetailState>('loading')
   const [error, setError] = useState<string | undefined>(undefined)
   const controllerRef = useRef<AbortController | undefined>(undefined)
@@ -173,6 +194,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
       ),
       apiGet(relatedPath(providerId, ref), relatedResponseSchema, opciones),
       apiGet(relatedPath(providerId, ref, 'franchise'), relatedResponseSchema, opciones),
+      apiGet(sourcesPath(providerId, ref), sourcesResponseSchema, opciones),
       apiGet(
         `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/watched`,
         watchedResponseSchema,
@@ -180,16 +202,20 @@ export function useDetail(providerId: string, ref: string): DetailData {
       ),
       apiGet('/api/providers', providersResponseSchema, opciones),
     ]).then(
-      ([detalle, lista, hermanos, franquicia, vistos, proveedores]) => {
+      ([detalle, lista, hermanos, franquicia, fuentes, vistos, proveedores]) => {
         if (controller.signal.aborted) return
 
         setDetail(detalle)
         setEpisodes(lista.episodes)
         setRelated(hermanos.items)
         setFranchise(franquicia.items)
+        setSources(fuentes.items)
         setWatched(vistos.episodes)
         setCapabilities(
           proveedores.providers.find((provider) => provider.id === providerId)?.capabilities,
+        )
+        setProviderNames(
+          new Map(proveedores.providers.map((provider) => [provider.id, provider.name])),
         )
         setState('ready')
       },
@@ -213,8 +239,10 @@ export function useDetail(providerId: string, ref: string): DetailData {
     episodes,
     related,
     franchise,
+    sources,
     watched,
     capabilities,
+    providerNames,
     state,
     error,
     reload: load,

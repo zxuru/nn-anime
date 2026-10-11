@@ -171,4 +171,54 @@ test.describe('de la búsqueda al detalle', () => {
     await expect(page.locator('.episodes__range')).toHaveText('Episodios 1101–1180')
     await expect(page.locator('#episodio-1180 a')).toBeFocused()
   })
+
+  /**
+   * Elegir fuente: la ficha de un título que está en otro sitio ofrece el otro.
+   *
+   * La fuente de prueba es una sola, así que la otra llega interceptada. Lo que se
+   * mide es lo que el renderizado de servidor no puede: que la sección se monte
+   * cuando la respuesta trae algo —va dentro de un efecto— y que el enlace lleve a
+   * la ficha de **esa** fuente.
+   */
+  test('la ficha ofrece la otra fuente y el enlace lleva a su ficha', async ({ page }) => {
+    await entrar(page)
+
+    await page.route('**/api/anime/fixture/aurora-nocturna/sources', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          items: [
+            {
+              ref: { providerId: 'animeav1', value: 'aurora-nocturna' },
+              title: 'Aurora Nocturna',
+              year: 2019,
+            },
+          ],
+        },
+      })
+    })
+
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    const seccion = page.locator('section', {
+      has: page.getByRole('heading', { name: 'También en' }),
+    })
+    // Sin nombre declarado para esa fuente en `/api/providers`, se lee su id.
+    const enlace = seccion.getByRole('link', { name: 'animeav1' })
+
+    await expect(enlace).toHaveAttribute('href', '/anime/animeav1/aurora-nocturna')
+
+    await enlace.click()
+    await expect(page).toHaveURL(/\/anime\/animeav1\/aurora-nocturna/)
+  })
+
+  test('sin otra fuente, la ficha no pinta la sección', async ({ page }) => {
+    await entrar(page)
+
+    await page.goto('/anime/fixture/aurora-nocturna')
+    await expect(page.locator('.episodes li').first()).toBeVisible({ timeout: 15_000 })
+
+    // El caso contrario, con la base del e2e vacía: una ficha sin nada que elegir
+    // no tiene una sección vacía.
+    await expect(page.getByRole('heading', { name: 'También en' })).toHaveCount(0)
+  })
 })
