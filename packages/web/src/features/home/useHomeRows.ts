@@ -26,7 +26,7 @@ import {
   trendingResponseSchema,
 } from '@nn-anime/core/api'
 import { useEffect, useState } from 'react'
-import { apiGet } from '../../api/client'
+import { ApiError, apiGet } from '../../api/client'
 
 export interface HomeRows {
   readonly loading: boolean
@@ -69,6 +69,19 @@ export interface RowResults {
  * la condición era «fallan las tres», escrita a mano, y añadir dos lecturas
  * habría dejado el número desactualizado sin que nada avisara.
  */
+/**
+ * Si lo que falló fue la sesión.
+ *
+ * Un 401 no es «no hay nada que enseñar»: es que este navegador no tiene la
+ * cookie de sesión, y entonces **todo** falla a la vez. El mensaje genérico
+ * mandaba a mirar el servidor —«es el mismo servidor»— cuando lo que faltaba era
+ * entrar por la dirección de arranque. La cookie es de cada navegador: abrir la
+ * misma dirección en otro no hereda la sesión del primero.
+ */
+function sesionPerdida(fallos: readonly PromiseRejectedResult[]): boolean {
+  return fallos.some((fallo) => fallo.reason instanceof ApiError && fallo.reason.isSessionLost)
+}
+
 export function combineRows(resultados: RowResults): HomeRows {
   const lecturas = [
     resultados.continueWatching,
@@ -83,7 +96,9 @@ export function combineRows(resultados: RowResults): HomeRows {
     loading: false,
     error:
       fallos.length === lecturas.length
-        ? 'no se pudo cargar nada de la página de inicio'
+        ? sesionPerdida(fallos)
+          ? 'la sesión de este navegador no vale: entra por la dirección de arranque que imprime el CLI'
+          : 'no se pudo cargar nada de la página de inicio'
         : undefined,
     continueWatching:
       resultados.continueWatching.status === 'fulfilled'

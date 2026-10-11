@@ -3,6 +3,7 @@ import type { ContinueWatchingItem, RecommendationResponse } from '@nn-anime/cor
 import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
+import { ApiError } from '../../api/client'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { ContinueRow } from './ContinueRow'
 import { FavoritesRow } from './FavoritesRow'
@@ -208,6 +209,25 @@ describe('las filas, cuando una lectura falla', () => {
 
     expect(filas.error).toBeDefined()
     expect(filas.feed).toEqual([])
+  })
+
+  test('sin sesión lo dice, en vez de mandar a mirar el servidor', () => {
+    // La cookie es de cada navegador: abrir la misma dirección en otro no hereda
+    // la sesión, y las cinco lecturas fallan con 401 a la vez.
+    const sinSesion: PromiseRejectedResult = {
+      status: 'rejected',
+      reason: new ApiError(401, 'GET /api/favorites respondió 401'),
+    }
+
+    const filas = combineRows({
+      continueWatching: sinSesion,
+      favorites: sinSesion,
+      trending: sinSesion,
+      feed: sinSesion,
+      recent: sinSesion,
+    })
+
+    expect(filas.error).toContain('sesión')
   })
 })
 
