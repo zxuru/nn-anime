@@ -22,6 +22,7 @@ import type { Candidate, SearchResult } from '@nn-anime/core'
 import {
   errorResponseSchema,
   recommendationsResponseSchema,
+  titleKey,
   trendingResponseSchema,
 } from '@nn-anime/core'
 import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
@@ -57,27 +58,6 @@ export function clampLimit(raw: string | undefined): number {
 }
 
 /**
- * El título reducido a lo comparable.
- *
- * Dos fuentes escriben el mismo anime de otra manera —mayúsculas, un signo de
- * más, acentos—, y la referencia no lo delata: cada una numera a su aire. Lo que
- * queda es letras y números, que es lo que hace que «One Piece» de una fuente y
- * «one  piece!» de la otra sean el mismo puesto de la fila y no dos.
- *
- * No usa `baseTitle`: quitar el marcador de temporada convertiría «Kimetsu no
- * Yaiba» y su «Hashira Geiko-hen» en el mismo título, y son dos puestos que la
- * fuente publica por separado.
- */
-export function claveDeTitulo(title: string): string {
-  return title
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-}
-
-/**
  * Una tarjeta por anime, en el orden en que llegaron.
  *
  * Se repite por dos caminos distintos y los dos se vieron en la home: la
@@ -87,6 +67,10 @@ export function claveDeTitulo(title: string): string {
  *
  * Gana el primero. El orden de las fuentes es la única preferencia que hay, y
  * preferir la portada de una sobre la de otra no está escrito en ningún sitio.
+ *
+ * El título se compara con `titleKey` y **no** con `baseTitle`: quitar el marcador
+ * de temporada convertiría «Kimetsu no Yaiba» y su «Hashira Geiko-hen» en el mismo
+ * puesto, y son dos que la fuente publica por separado.
  */
 export function sinRepetir(resultados: readonly SearchResult[]): readonly SearchResult[] {
   const refs = new Set<string>()
@@ -97,7 +81,7 @@ export function sinRepetir(resultados: readonly SearchResult[]): readonly Search
     const ref = refKey(resultado.ref)
     if (refs.has(ref)) continue
 
-    const titulo = claveDeTitulo(resultado.title)
+    const titulo = titleKey(resultado.title)
     // Un título vacío no empareja con nada: sin esto, dos entradas sin título se
     // comerían la una a la otra.
     if (titulo !== '' && titulos.has(titulo)) continue

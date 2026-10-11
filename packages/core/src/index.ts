@@ -178,5 +178,5 @@ export {
   type Settings,
   settingsSchema,
 } from './settings'
-export { baseTitle, franchiseTitle, sagaTitle, seasonNumberOf } from './titles'
+export { baseTitle, franchiseTitle, sagaTitle, seasonNumberOf, titleKey } from './titles'
 export { FINISHED_RATIO, isFinished, watchedRatio } from './watch-progress'

@@ -1,5 +1,34 @@
 import { describe, expect, test } from 'bun:test'
-import { baseTitle, franchiseTitle, sagaTitle, seasonNumberOf } from './titles'
+import { baseTitle, franchiseTitle, sagaTitle, seasonNumberOf, titleKey } from './titles'
+
+describe('titleKey', () => {
+  test('sin mayúsculas, sin acentos y sin signos: dos formas de escribir lo mismo coinciden', () => {
+    // La mutación que quite el plegado de diacríticos deja esta prueba en rojo con
+    // «shojo shumatsu» contra «shōjo shūmatsu», y la misma obra saldría dos veces
+    // en la fila y no se encontraría a sí misma en «también en».
+    expect(titleKey('  One  Piece! ')).toBe('one piece')
+    expect(titleKey('Shōjo Shūmatsu')).toBe(titleKey('shojo  shumatsu'))
+    expect(titleKey('Bleach: Sennen Kessen-hen')).toBe(titleKey('bleach sennen kessen hen'))
+  })
+
+  test('conserva los números: una entrega numerada no pierde su número', () => {
+    expect(titleKey('Dandadan 2nd Season')).toBe('dandadan 2nd season')
+    expect(titleKey('86')).toBe('86')
+  })
+
+  test('un título sin letras ni números da cadena vacía', () => {
+    // Quien compara con esta clave tiene que descartar el vacío: si no, dos
+    // entradas sin título se comerían la una a la otra.
+    expect(titleKey('!!!')).toBe('')
+    expect(titleKey('   ')).toBe('')
+  })
+
+  test('es la misma normalización que `baseTitle` usa por dentro', () => {
+    // No es una prueba de la implementación, es del contrato: `baseTitle` empieza
+    // por esta clave, y si una de las dos cambia sin la otra, esto lo dice.
+    expect(baseTitle('Sousou no Frieren 2nd Season')).toBe(titleKey('Sousou no Frieren'))
+  })
+})
 
 describe('baseTitle', () => {
   test('quita el marcador de temporada y deja el título comparable', () => {

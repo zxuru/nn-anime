@@ -6,7 +6,7 @@
  * —lo abierto y lo encontrado por una búsqueda— y `feed` pregunta **a la fuente**,
  * sólo a quien declara que publica novedades.
  *
- * Tres reglas que se ven aquí:
+ * Cuatro reglas que se ven aquí:
  *
  * 1. **La caché va primero.** La segunda carga de la home no puede volver a
  *    pedirle el feed a un sitio de terceros: es la lección que la auditoría de T47
@@ -16,6 +16,10 @@
  * 3. **El tope de entradas lo pone quien lee, no el plugin.** Un feed con miles de
  *    entradas se recorta **antes** de escribir en la caché: una fuente no puede
  *    llenar el disco ni hacer que la home pinte mil tarjetas.
+ * 4. **Una tarjeta por obra.** La misma obra publicada por dos fuentes es una
+ *    entrada y no dos: la referencia no lo delata —cada una tiene la suya— y la
+ *    fila se leía como títulos distintos. La clave es el título normalizado y el
+ *    año, la misma que usa la búsqueda.
  *
  * Desde T54 el TTL y el refresco de fondo los lleva el contenedor: la ruta pide
  * «el feed de este proveedor» y recibe lo que hay, caducado o no. Servir la caché
@@ -24,7 +28,7 @@
  */
 
 import type { FeedResponse } from '@nn-anime/core'
-import { feedResponseSchema, recentResponseSchema } from '@nn-anime/core'
+import { feedResponseSchema, recentResponseSchema, titleKey } from '@nn-anime/core'
 import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
@@ -80,6 +84,47 @@ export function orderFeed(entradas: FeedResponse['items']): FeedResponse['items'
   return [...conFecha, ...sinFecha]
 }
 
+/**
+ * La misma obra publicada por dos fuentes deja una entrada.
+ *
+ * «Último añadido» y «Novedades» pintaban el mismo título una vez por proveedor
+ * —la referencia no lo delata, cada fuente tiene la suya— y la fila se leía como
+ * dos obras distintas. La clave es el título normalizado **y el año**, la misma
+ * que usa la búsqueda: dos fuentes que escriben el mismo título el mismo año son
+ * la misma obra, y un año ausente en las dos es tan comparable como un número.
+ *
+ * No se usa `baseTitle`: juntaría una entrega con su secuela, que las fuentes
+ * publican por separado y como dos tarjetas.
+ *
+ * Gana la primera, y el orden lo pone quien llama: en las dos filas viene de más
+ * nueva a más vieja, así que la que se queda es lo último que se supo de la obra.
+ */
+export function sinRepetirPorObra<
+  T extends { readonly title: string; readonly year?: number | undefined },
+>(items: readonly T[]): readonly T[] {
+  const vistas = new Set<string>()
+  const unicas: T[] = []
+
+  for (const item of items) {
+    const titulo = titleKey(item.title)
+
+    // Un título sin letras ni números no empareja con nada: sin esto, dos entradas
+    // sin título se comerían la una a la otra.
+    if (titulo === '') {
+      unicas.push(item)
+      continue
+    }
+
+    const clave = `${titulo}|${item.year ?? ''}`
+    if (vistas.has(clave)) continue
+
+    vistas.add(clave)
+    unicas.push(item)
+  }
+
+  return unicas
+}
+
 export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): void {
   app.get('/api/feed', async (c) => {
     const limite = clampLimit(c.req.query('limit'))
@@ -98,15 +143,17 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
       }),
     )
 
-    const items = orderFeed(
-      resultados.flat().map((entrada) => ({
-        ref: entrada.ref,
-        title: entrada.title,
-        ...(entrada.coverUrl === undefined ? {} : { coverUrl: entrada.coverUrl }),
-        ...(entrada.year === undefined ? {} : { year: entrada.year }),
-        ...(entrada.kind === undefined ? {} : { kind: entrada.kind }),
-        ...(entrada.publishedAt === undefined ? {} : { publishedAt: entrada.publishedAt }),
-      })),
+    const items = sinRepetirPorObra(
+      orderFeed(
+        resultados.flat().map((entrada) => ({
+          ref: entrada.ref,
+          title: entrada.title,
+          ...(entrada.coverUrl === undefined ? {} : { coverUrl: entrada.coverUrl }),
+          ...(entrada.year === undefined ? {} : { year: entrada.year }),
+          ...(entrada.kind === undefined ? {} : { kind: entrada.kind }),
+          ...(entrada.publishedAt === undefined ? {} : { publishedAt: entrada.publishedAt }),
+        })),
+      ),
     ).slice(0, limite)
 
     return c.json(feedResponseSchema.parse({ items }))
@@ -122,7 +169,18 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
 export function registerRecentRoute(app: Hono, options: DiscoveryRouteOptions): void {
   app.get('/api/catalog/recent', async (c) => {
     const limite = clampLimit(c.req.query('limit'))
-    const items = await options.container.store.listRecentSummaries(limite)
+    /**
+     * Se lee más de lo que se va a pintar.
+     *
+     * La lectura de la base agrupa por referencia, y la misma obra puede estar en
+     * varias fuentes: agrupar por título después recorta filas, y sin margen la
+     * fila devolvería menos entradas de las pedidas. El margen es el número de
+     * fuentes —cada una aporta como mucho una entrada por obra— y el recorte de
+     * después deja el tope donde estaba.
+     */
+    const margen = Math.max(1, options.providers.length)
+    const leidas = await options.container.store.listRecentSummaries(limite * margen)
+    const items = sinRepetirPorObra(leidas).slice(0, limite)
 
     return c.json(recentResponseSchema.parse({ items: [...items] }))
   })

@@ -48,6 +48,8 @@ async function conApp<T>(
   body: (contexto: Contexto) => Promise<T>,
   opciones: {
     readonly proveedor?: ReturnType<typeof createFixtureProvider>
+    /** Varias fuentes a la vez, cuando lo que se mide es la misma obra en dos. */
+    readonly proveedores?: readonly ReturnType<typeof createFixtureProvider>[]
     readonly buscar?: string
     /** Reloj inyectable: sin él, la caducidad son treinta minutos de espera. */
     readonly now?: () => number
@@ -61,6 +63,10 @@ async function conApp<T>(
     ...(opciones.now === undefined ? {} : { now: opciones.now }),
   })
   const proveedor = opciones.proveedor ?? createFixtureProvider()
+  const activos = (opciones.proveedores ?? [proveedor]).map((provider, indice) => ({
+    provider,
+    file: `/plugins/${provider.id}-${indice}.ts`,
+  }))
 
   try {
     const servidor = createApp({
@@ -72,7 +78,7 @@ async function conApp<T>(
       },
       bootToken: 'token',
       version: '0.1.0',
-      plugins: { active: [{ provider: proveedor, file: '/plugins/fixture.ts' }], rejected: [] },
+      plugins: { active: activos, rejected: [] },
       container,
     })
 
@@ -366,6 +372,80 @@ describe('GET /api/feed', () => {
       { proveedor: repetido },
     )
   })
+
+  test('la misma obra en dos fuentes deja una entrada, la más nueva', async () => {
+    const base = createFixtureProvider()
+    const primera = {
+      ...base,
+      capabilities: { ...base.capabilities, feed: true },
+      getFeed: async () => [
+        {
+          ref: { providerId: 'fixture', value: 'yani-neko' },
+          title: 'Yani Neko',
+          year: 2026,
+          publishedAt: '2026-10-01T12:00:00.000Z',
+        },
+      ],
+    }
+    const segunda = {
+      ...base,
+      id: 'otra',
+      capabilities: { ...base.capabilities, feed: true },
+      getFeed: async () => [
+        {
+          ref: { providerId: 'otra', value: 'yani-neko' },
+          // El mismo título escrito de otra manera: sin el plegado de acentos y
+          // signos, esta prueba vería dos entradas.
+          title: 'yani  neko!',
+          year: 2026,
+          publishedAt: '2026-09-01T12:00:00.000Z',
+        },
+      ],
+    }
+
+    await conApp(
+      async ({ pedir }) => {
+        const salida = feedResponseSchema.parse(await (await pedir('/api/feed')).json())
+
+        expect(salida.items).toHaveLength(1)
+        // Se queda la más nueva: agrupar no cambia el orden de la fila.
+        expect(salida.items[0]?.ref.providerId).toBe('fixture')
+      },
+      { proveedores: [primera, segunda] },
+    )
+  })
+
+  test('el mismo título en años distintos son dos entradas', async () => {
+    const base = createFixtureProvider()
+    const anio = (value: string, providerId: string, year: number, titulo: string) => ({
+      ref: { providerId, value },
+      title: titulo,
+      year,
+      publishedAt: '2026-10-01T12:00:00.000Z',
+    })
+    const primera = {
+      ...base,
+      capabilities: { ...base.capabilities, feed: true },
+      getFeed: async () => [anio('one-piece', 'fixture', 1999, 'One Piece')],
+    }
+    const segunda = {
+      ...base,
+      id: 'otra',
+      capabilities: { ...base.capabilities, feed: true },
+      getFeed: async () => [anio('one-piece', 'otra', 2026, 'One Piece')],
+    }
+
+    await conApp(
+      async ({ pedir }) => {
+        const salida = feedResponseSchema.parse(await (await pedir('/api/feed')).json())
+
+        // Dos obras homónimas de años distintos no son la misma, y juntarlas
+        // escondería una de las dos de la fila.
+        expect(salida.items).toHaveLength(2)
+      },
+      { proveedores: [primera, segunda] },
+    )
+  })
 })
 
 describe('GET /api/catalog/recent', () => {
@@ -399,6 +479,77 @@ describe('GET /api/catalog/recent', () => {
         expect(salida.items).toHaveLength(1)
       },
       { buscar: 'a' },
+    )
+  })
+
+  /**
+   * Las filas de la base, escritas a mano.
+   *
+   * Es lo que mide esta familia de pruebas: qué se pinta cuando la misma obra está
+   * en dos fuentes. Pasar por el detalle de un proveedor ataría la prueba al
+   * fixture —que tiene una sola fuente— y a la red.
+   */
+  function insertar(
+    db: ReturnType<typeof openDb>,
+    providerId: string,
+    ref: string,
+    title: string,
+    year: number,
+    fetchedAt: number,
+  ): void {
+    db.query(
+      `INSERT INTO anime (provider_id, provider_ref, title, year, fetched_at, ttl_s)
+       VALUES (?, ?, ?, ?, ?, 60)`,
+    ).run(providerId, ref, title, year, fetchedAt)
+  }
+
+  test('la misma obra en dos fuentes deja una tarjeta, la de la marca más nueva', async () => {
+    await conApp(
+      async ({ pedir, db }) => {
+        insertar(db, 'jkanime', 'yani-neko', 'Yani Neko', 2026, 2000)
+        insertar(db, 'animeav1', 'yani-neko', 'yani  neko!', 2026, 1000)
+
+        const salida = recentResponseSchema.parse(await (await pedir('/api/catalog/recent')).json())
+
+        expect(salida.items).toHaveLength(1)
+        expect(salida.items[0]?.ref.providerId).toBe('jkanime')
+      },
+      { proveedores: [createFixtureProvider(), { ...createFixtureProvider(), id: 'otra' }] },
+    )
+  })
+
+  test('un título y su temporada son dos tarjetas, no una', async () => {
+    await conApp(async ({ pedir, db }) => {
+      insertar(db, 'jkanime', 'dandadan', 'Dandadan', 2024, 2000)
+      insertar(db, 'jkanime', 'dandadan-2', 'Dandadan 2nd Season', 2025, 1000)
+
+      const salida = recentResponseSchema.parse(await (await pedir('/api/catalog/recent')).json())
+
+      // La clave de la agrupación no es `baseTitle`: juntarlas escondería una
+      // entrega de la fila.
+      expect(salida.items).toHaveLength(2)
+    })
+  })
+
+  test('el tope del límite se aplica después de agrupar, no antes', async () => {
+    await conApp(
+      async ({ pedir, db }) => {
+        // Dos obras, cada una en las dos fuentes, y las cuatro filas entrelazadas:
+        // sin el margen de la lectura, pedir dos traería las dos filas de la misma
+        // obra y la fila devolvería una sola tarjeta.
+        insertar(db, 'jkanime', 'uno', 'Uno', 2026, 4000)
+        insertar(db, 'animeav1', 'uno', 'Uno', 2026, 3999)
+        insertar(db, 'jkanime', 'dos', 'Dos', 2026, 3998)
+        insertar(db, 'animeav1', 'dos', 'Dos', 2026, 3997)
+
+        const salida = recentResponseSchema.parse(
+          await (await pedir('/api/catalog/recent?limit=2')).json(),
+        )
+
+        expect(salida.items).toHaveLength(2)
+        expect(salida.items.map((item) => item.title)).toEqual(['Uno', 'Dos'])
+      },
+      { proveedores: [createFixtureProvider(), { ...createFixtureProvider(), id: 'otra' }] },
     )
   })
 })
