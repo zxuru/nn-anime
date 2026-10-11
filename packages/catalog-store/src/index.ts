@@ -33,6 +33,11 @@ export {
 } from './prune'
 export { type AnimeRepository, type AnimeStore, createAnimeRepository } from './repositories/anime'
 export {
+  createEpisodePageRepository,
+  type EpisodePageRepository,
+  type StoredEpisodePage,
+} from './repositories/episode-page'
+export {
   createEpisodesRepository,
   type EpisodesStore,
 } from './repositories/episodes'

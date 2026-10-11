@@ -77,6 +77,9 @@ describe('política de caché', () => {
       // El feed lo añade T49: media hora, porque un feed cambia como mucho a
       // diario y cada consulta es una petición al sitio de otro.
       feed: 1800,
+      // La página del selector la añade T87: cinco minutos, porque una página es
+      // lo que se está mirando ahora y no el catálogo del título.
+      episodePage: 300,
     })
   })
 

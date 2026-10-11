@@ -195,6 +195,9 @@ feed_cache       provider_id, results_json, fetched_at, ttl_s — **no estaba en
                  añadió T49 para que la segunda carga de la home no vuelva a pedirle el feed a un
                  sitio de terceros. Es propia y no una entrada de `trending_cache` porque un feed
                  trae fechas y una lista de tendencias no
+episode_page     anime_id, page, episodes_json, has_more, total, fetched_at, ttl_s — la añadió T87
+                 para el selector por páginas: la lista completa se cachea seis horas y una página
+                 cinco minutos, porque no son la misma pregunta
 ```
 
 TTL por tipo de recurso, en segundos:
@@ -207,6 +210,7 @@ TTL por tipo de recurso, en segundos:
 | URL de stream | 600 | revalidación forzada antes de reproducir |
 | miniatura | 604800 | caché HTTP normal |
 | feed de novedades | 1800 | caché normal |
+| página de episodios | 300 | caché normal, sin rama vieja: una página vencida se pide otra vez |
 
 Regla dura del modelo: la base guarda metadatos y señales, nunca bytes de video. El proxy
 transmite y descarta.

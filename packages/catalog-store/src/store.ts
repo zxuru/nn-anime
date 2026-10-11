@@ -40,6 +40,7 @@ import { findCoverUrl } from './cover-ref'
 import { runMigrations } from './migrations/runner'
 import { pruneOrphans } from './prune'
 import { type CandidateRow, createAnimeRepository } from './repositories/anime'
+import { createEpisodePageRepository, type StoredEpisodePage } from './repositories/episode-page'
 import { createEpisodesRepository } from './repositories/episodes'
 import { createFavoritesRepository } from './repositories/favorites'
 import { createFeedRepository } from './repositories/feed'
@@ -112,6 +113,16 @@ export interface CatalogStore {
   writeFeed(providerId: string, entries: readonly FeedEntry[]): Promise<void>
   readEpisodes(ref: ProviderRef): Promise<CacheHit<readonly Episode[]> | null>
   writeEpisodes(ref: ProviderRef, episodes: readonly Episode[]): Promise<void>
+  /**
+   * Una página del selector, con su ventana de cinco minutos.
+   *
+   * Va aparte de `readEpisodes` porque son dos preguntas distintas: «qué
+   * episodios tiene esta serie» —seis horas— y «qué hay en esta ventana» —cinco
+   * minutos—. Un plugin que sabe paginar no pide la lista entera, y una página
+   * caducada no se sirve vieja: se pide otra vez.
+   */
+  readEpisodePage(ref: ProviderRef, page: number): Promise<CacheHit<StoredEpisodePage> | null>
+  writeEpisodePage(ref: ProviderRef, page: number, value: StoredEpisodePage): Promise<void>
   /** Detalle y episodios en una sola transacción. */
   writeAnimeWithEpisodes(
     ref: ProviderRef,
@@ -183,6 +194,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
   interface Repos {
     readonly anime: ReturnType<typeof createAnimeRepository>
     readonly episodes: ReturnType<typeof createEpisodesRepository>
+    readonly episodePages: ReturnType<typeof createEpisodePageRepository>
     readonly search: ReturnType<typeof createSearchRepository>
     readonly streams: ReturnType<typeof createStreamRepository>
     readonly watch: ReturnType<typeof createWatchRepository>
@@ -201,6 +213,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     (repos ??= {
       anime: createAnimeRepository(db),
       episodes: createEpisodesRepository(db),
+      episodePages: createEpisodePageRepository(db),
       search: createSearchRepository(db),
       streams: createStreamRepository(db),
       watch: createWatchRepository(db),
@@ -258,6 +271,12 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async writeEpisodes(ref, list) {
       await queue.run(() => of().episodes.write(ref, list, ahora()))
+    },
+    async readEpisodePage(ref, page) {
+      return of().episodePages.read(ref, page, ahora())
+    },
+    async writeEpisodePage(ref, page, value) {
+      await queue.run(() => of().episodePages.write(ref, page, value, ahora()))
     },
     async writeAnimeWithEpisodes(ref, detail, list) {
       await queue.run(() => of().anime.writeWith(ref, detail, list, ahora()))
