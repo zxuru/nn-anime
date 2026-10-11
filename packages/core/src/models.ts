@@ -111,6 +111,25 @@ export interface WatchRecord {
   readonly finished: boolean
 }
 
+/**
+ * El estado de visionado de un episodio, tal y como lo ve la ficha.
+ *
+ * Es por **episodio**, no por episodio y modo: un episodio visto en subtitulado
+ * está visto, y marcarlo dos veces haría que la lista de la ficha dijera dos
+ * cosas distintas del mismo número. El modo se conserva porque es lo que
+ * permite reanudar en el que se estaba viendo.
+ */
+export interface WatchedEpisode {
+  readonly number: number
+  readonly mode: Mode
+  readonly positionS: number
+  readonly durationS: number
+  /** Cuánto se vio, de 0 a 1. Lo calcula el servidor, como en «continuar viendo». */
+  readonly ratio: number
+  readonly finished: boolean
+  readonly watchedAt: Date
+}
+
 /** Qué hizo el runner de migraciones, y en qué versión quedó el esquema. */
 export interface MigrationReport {
   readonly applied: readonly number[]

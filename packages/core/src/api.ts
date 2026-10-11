@@ -286,6 +286,38 @@ export const trendingResponseSchema = z.strictObject({
 })
 
 /**
+ * Los hermanos de saga que la base ya conoce.
+ *
+ * Misma forma que la fila de tendencias —son tarjetas— y por eso reusa
+ * `animeSummarySchema`: la ficha no necesita el detalle de un relacionado para
+ * pintar su tarjeta, y pedirlo sería una petición de red por cada uno.
+ */
+export const relatedResponseSchema = z.strictObject({
+  items: z.array(animeSummarySchema),
+})
+
+/**
+ * El estado de visionado de cada episodio de un título.
+ *
+ * `watchedAt` viaja como fecha ISO y no como epoch: es la misma forma que
+ * `continueWatchingItemSchema`, y dos formas de fecha en la misma interfaz acaban
+ * en una conversión olvidada.
+ */
+export const watchedEpisodeSchema = z.strictObject({
+  number: z.number().int().nonnegative(),
+  mode: modeSchema,
+  positionS: z.number().nonnegative(),
+  durationS: z.number().nonnegative(),
+  ratio: z.number().min(0).max(1),
+  finished: z.boolean(),
+  watchedAt: z.iso.datetime(),
+})
+
+export const watchedResponseSchema = z.strictObject({
+  episodes: z.array(watchedEpisodeSchema),
+})
+
+/**
  * Una novedad del feed, con su fecha.
  *
  * La fecha es opcional porque un feed puede no traerla —y entonces sólo ordena el
@@ -393,6 +425,9 @@ export type StreamSourceResponse = z.infer<typeof streamSourceResponseSchema>
 export type FavoriteRequest = z.infer<typeof favoriteRequestSchema>
 export type FavoritesResponse = z.infer<typeof favoritesResponseSchema>
 export type EpisodesResponse = z.infer<typeof episodesResponseSchema>
+export type RelatedResponse = z.infer<typeof relatedResponseSchema>
+export type WatchedEpisodePayload = z.infer<typeof watchedEpisodeSchema>
+export type WatchedResponse = z.infer<typeof watchedResponseSchema>
 export type ProviderStatus = z.infer<typeof providerStatusSchema>
 export type ProviderSummary = z.infer<typeof providerSummarySchema>
 export type HealthResponse = z.infer<typeof healthResponseSchema>

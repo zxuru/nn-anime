@@ -47,9 +47,11 @@ export {
   type RecentResponse,
   type RecommendationResponse,
   type RecommendationsResponse,
+  type RelatedResponse,
   recentResponseSchema,
   recommendationSchema,
   recommendationsResponseSchema,
+  relatedResponseSchema,
   type SearchEventPayload,
   type SearchQuery,
   type SettingsPatch,
@@ -64,9 +66,13 @@ export {
   streamSourceResponseSchema,
   type TrendingResponse,
   trendingResponseSchema,
+  type WatchedEpisodePayload,
+  type WatchedResponse,
   type WatchStartRequest,
   type WatchStartResponse,
   type WatchUpdateRequest,
+  watchedEpisodeSchema,
+  watchedResponseSchema,
   watchStartRequestSchema,
   watchStartResponseSchema,
   watchUpdateRequestSchema,
@@ -138,6 +144,7 @@ export {
   type TitleKind,
   toPublicStreamSource,
   type WatchEventInput,
+  type WatchedEpisode,
   type WatchRecord,
 } from './models'
 export { type Err, err, map, mapErr, type Ok, ok, type Result, unwrapOr } from './result'
@@ -171,3 +178,5 @@ export {
   type Settings,
   settingsSchema,
 } from './settings'
+export { baseTitle } from './titles'
+export { FINISHED_RATIO, isFinished, watchedRatio } from './watch-progress'

@@ -81,14 +81,19 @@ leer una sinopsis.
  */
 export function baseTitle(title: string): string
 
+// packages/core/src/watch-progress.ts
 /** Proporción vista a partir de la cual el episodio se da por terminado. */
 export const FINISHED_RATIO = 0.9
+export function watchedRatio(positionS: number, durationS: number): number
+export function isFinished(positionS: number, durationS: number): boolean
 ```
 
 La lista de marcadores es **cerrada y escrita**: `season N`, `Nst/2nd/3rd/4th season`, `part N`,
 `parte N`, `cour N`, `temporada N`, `Nª temporada`, y los romanos finales (`II`, `III`, `IV`).
 Nada de «quitar todo lo que parezca un número»: «86» y «5-toubun no Hanayome» son títulos, no
-temporadas. Una prueba por cada marcador y una por cada falso positivo conocido.
+temporadas. Una prueba por cada marcador y una por cada falso positivo conocido —`Final Fantasy
+VII` queda en `final fantasy`, y está escrito en el módulo para que nadie lo descubra en la
+interfaz—.
 
 ### `catalog-store` — dos lecturas
 
