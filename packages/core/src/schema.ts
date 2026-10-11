@@ -205,7 +205,15 @@ export const animeSummarySchema = z.strictObject({
 export const episodeSchema = z.strictObject({
   ref: providerRefSchema,
   animeRef: providerRefSchema,
-  number: z.number().int().nonnegative(),
+  /**
+   * Número dentro del título, **sin exigir entero**.
+   *
+   * Las fuentes numeran recopilatorios y especiales con decimales —«12.5»—, y
+   * exigir entero los descartaba en el plugin, que es donde el episodio se
+   * perdía sin que nadie lo notara. No es un índice: es la etiqueta de la
+   * fuente, y un hueco en la numeración no se rellena.
+   */
+  number: z.number().nonnegative(),
   title: z.string().min(1).optional(),
   durationS: z.number().nonnegative().optional(),
   mode: modeSchema,

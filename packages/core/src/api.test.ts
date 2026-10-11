@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { relatedResponseSchema, watchedResponseSchema } from './api'
+import {
+  episodeResponseSchema,
+  episodesResponseSchema,
+  relatedResponseSchema,
+  watchedResponseSchema,
+} from './api'
 
 const fila = {
   number: 3,
@@ -16,6 +21,12 @@ describe('watchedResponseSchema', () => {
     const parsed = watchedResponseSchema.safeParse({ episodes: [fila] })
 
     expect(parsed.success).toBe(true)
+  })
+
+  test('acepta el episodio decimal: el visionado de un 12.5 también se guarda', () => {
+    expect(watchedResponseSchema.safeParse({ episodes: [{ ...fila, number: 12.5 }] }).success).toBe(
+      true,
+    )
   })
 
   test('rechaza una proporción fuera de [0, 1]', () => {
@@ -47,5 +58,55 @@ describe('relatedResponseSchema', () => {
         items: [{ ref: { providerId: 'fixture', value: 'x' }, title: 'X', score: 1 }],
       }).success,
     ).toBe(false)
+  })
+})
+
+const EPISODIO = {
+  ref: { providerId: 'fixture', value: 'aurora-nocturna/12.5' },
+  animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+  number: 12.5,
+  mode: 'sub',
+}
+
+describe('episodesResponseSchema: la página', () => {
+  test('una respuesta sin página sigue valiendo, y la página por defecto es la primera', () => {
+    // El servidor aprendió a paginar después que el cliente a leer `episodes`:
+    // un campo requerido nuevo habría roto a quien ya lo leía.
+    const parsed = episodesResponseSchema.safeParse({ episodes: [EPISODIO] })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.page).toBe(1)
+      expect(parsed.data.hasMore).toBe(false)
+    }
+  })
+
+  test('acepta la página con su total y el episodio decimal', () => {
+    const parsed = episodesResponseSchema.safeParse({
+      episodes: [EPISODIO],
+      page: 2,
+      hasMore: true,
+      total: 26,
+    })
+
+    expect(parsed.success).toBe(true)
+  })
+
+  test('rechaza la página 0: las páginas se numeran desde la uno', () => {
+    expect(episodesResponseSchema.safeParse({ episodes: [], page: 0 }).success).toBe(false)
+  })
+
+  test('rechaza un hasMore que no es booleano', () => {
+    expect(episodesResponseSchema.safeParse({ episodes: [], hasMore: 'sí' }).success).toBe(false)
+  })
+})
+
+describe('episodeResponseSchema: el episodio suelto', () => {
+  test('acepta el episodio que se pidió por número', () => {
+    expect(episodeResponseSchema.safeParse({ episode: EPISODIO }).success).toBe(true)
+  })
+
+  test('rechaza un cuerpo sin episodio', () => {
+    expect(episodeResponseSchema.safeParse({}).success).toBe(false)
   })
 })
