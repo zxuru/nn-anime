@@ -25,6 +25,20 @@ export const SEEK_STEP_S = 10
 /** Cuánto sube o baja el volumen con cada pulsación. */
 export const VOLUME_STEP = 0.1
 
+/**
+ * Lo que se espera para saber si un clic sobre la imagen es un clic solo.
+ *
+ * El navegador manda `click`, `click` y sólo entonces `dblclick`, así que el
+ * primer clic no se puede distinguir del segundo cuando llega. Con esta espera,
+ * el clic sencillo se ejecuta si no viene otro detrás y el doble hace lo suyo.
+ *
+ * Tiene que caber dentro de la ventana del doble clic del navegador —unos 500 ms,
+ * según el sistema—: una espera más larga haría que el clic sencillo saltara
+ * antes de que llegara el `dblclick`, y un doble clic pausaría **además** de
+ * poner la pantalla completa.
+ */
+export const CLICK_DELAY_MS = 250
+
 export interface KeyLike {
   readonly key: string
   /** `tagName` del elemento con el foco, en mayúsculas. */
@@ -95,9 +109,38 @@ export function seekBy(current: number, delta: number, duration: number): number
   return Math.max(destino, 0)
 }
 
+/**
+ * Deja un volumen dentro de lo que el elemento admite: de cero a uno.
+ *
+ * El guardián del no-número no es adorno: `video.volume = NaN` lanza, y lo que
+ * llega aquí viene de un `<input type="range">`, que no promete un número. Un
+ * valor que no es número cae al máximo, que es el que el elemento trae de
+ * fábrica.
+ */
+export function clampVolume(volume: number): number {
+  if (!Number.isFinite(volume)) return 1
+
+  return Math.min(Math.max(volume, 0), 1)
+}
+
 /** El volumen, entre 0 y 1. */
 export function volumeBy(current: number, delta: number): number {
-  return Math.min(Math.max(current + delta, 0), 1)
+  return clampVolume(current + delta)
+}
+
+/**
+ * El porcentaje que enseña la barra de volumen.
+ *
+ * La barra va de 0 a 100 y no de 0 a 1: el elemento lee un número, pero quien no
+ * ve la pantalla oye lo que anuncia el mando, y «0,5» no es un volumen. «50» sí.
+ */
+export function volumePercent(volume: number): number {
+  return Math.round(clampVolume(volume) * 100)
+}
+
+/** El volumen que corresponde a la posición de la barra. */
+export function volumeFromPercent(percent: number): number {
+  return clampVolume(percent / 100)
 }
 
 /** Segundos en `m:ss` o `h:mm:ss`. */

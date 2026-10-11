@@ -135,6 +135,8 @@
   --thumb-width: 3rem;
   /** Ancho de la barra de progreso de un episodio en la ficha. */
   --progress-width: 6rem;
+  /** Ancho de la barra de volumen del reproductor: un mando, no una pista. */
+  --volume-width: 8rem;
   /** Ancho máximo de la portada del cartel de destacado. */
   --hero-poster-width: 22rem;
   --video-ratio: 16 / 9;

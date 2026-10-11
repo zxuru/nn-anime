@@ -12,7 +12,15 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { needsHls, type PlayerAction, SEEK_STEP_S, seekBy, volumeBy } from './controls'
+import {
+  clampVolume,
+  needsHls,
+  type PlayerAction,
+  SEEK_STEP_S,
+  seekBy,
+  VOLUME_STEP,
+  volumeBy,
+} from './controls'
 
 /** Una pista que el reproductor puede pintar. */
 export interface SafeTrack {
@@ -60,7 +68,22 @@ export interface PlayerHandle {
   readonly videoRef: (elemento: HTMLVideoElement | null) => void
   readonly act: (action: PlayerAction) => void
   readonly seekTo: (seconds: number) => void
+  /** Volumen entre 0 y 1, que es lo que el elemento entiende. */
+  readonly setVolume: (volume: number) => void
   readonly toggle: () => void
+}
+
+/**
+ * Deja el volumen en el elemento, y quita el silencio si el gesto pide oír.
+ *
+ * Subir el volumen con el silencio puesto deja un mando que parece roto: se
+ * arrastra la barra y no suena. Bajarlo a cero **no** vuelve a silenciar: para
+ * eso está su botón, y el silencio tiene su propio estado que se anuncia.
+ */
+function aplicarVolumen(video: HTMLVideoElement, volume: number): void {
+  video.volume = clampVolume(volume)
+
+  if (video.volume > 0) video.muted = false
 }
 
 /**
@@ -347,13 +370,13 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
 
         return
       case 'volume-up':
-        video.volume = volumeBy(video.volume, 0.1)
-        setState((previo) => ({ ...previo, volume: video.volume }))
+        aplicarVolumen(video, volumeBy(video.volume, VOLUME_STEP))
+        setState((previo) => ({ ...previo, volume: video.volume, muted: video.muted }))
 
         return
       case 'volume-down':
-        video.volume = volumeBy(video.volume, -0.1)
-        setState((previo) => ({ ...previo, volume: video.volume }))
+        aplicarVolumen(video, volumeBy(video.volume, -VOLUME_STEP))
+        setState((previo) => ({ ...previo, volume: video.volume, muted: video.muted }))
 
         return
       case 'mute':
@@ -362,10 +385,23 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
 
         return
       case 'fullscreen':
-        void video.requestFullscreen?.()
+        // El mismo gesto entra y sale: sin la vuelta, el doble clic dentro de la
+        // pantalla completa no la quitaría, y el botón tampoco. `requestFullscreen`
+        // sobre un elemento que ya está a pantalla completa no hace nada, así que
+        // sin esto el mando se quedaba muerto justo donde más se usa.
+        if (document.fullscreenElement === null) void video.requestFullscreen?.()
+        else void document.exitFullscreen?.()
 
         return
     }
+  }, [])
+
+  const setVolume = useCallback((volume: number) => {
+    const video = elemento.current
+    if (video === null) return
+
+    aplicarVolumen(video, volume)
+    setState((previo) => ({ ...previo, volume: video.volume, muted: video.muted }))
   }, [])
 
   const seekTo = useCallback((seconds: number) => {
@@ -377,5 +413,5 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
 
   const toggle = useCallback(() => act('toggle'), [act])
 
-  return { state, videoRef, act, seekTo, toggle }
+  return { state, videoRef, act, seekTo, setVolume, toggle }
 }

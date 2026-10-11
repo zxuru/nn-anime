@@ -166,6 +166,9 @@ export const messages: Messages = {
   'player.back': 'Atrás 10 s',
   'player.forward': 'Adelante 10 s',
   'player.mute': 'Silenciar',
+  // El mando de volumen. La barra no lleva rótulo a la vista, así que este es su
+  // nombre accesible: sin él, un lector de pantalla lee un «deslizador» y nada más.
+  'player.volume': 'Volumen',
   'player.unmute': 'Quitar silencio',
   'player.fullscreen': 'Pantalla completa',
   'player.seek': 'Posición del video',
