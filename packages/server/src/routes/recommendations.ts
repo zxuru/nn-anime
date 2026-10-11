@@ -174,18 +174,24 @@ export function registerRecommendationsRoute(
       )
 
       const yaEstan = new Set(candidatos.map((candidato) => refKey(candidato.ref)))
+      // Los títulos que ya están en la base traen sus géneros: un candidato de
+      // tendencias que además está cacheado **no** pierde sus características por
+      // venir de otra fuente. Sin esto, el cartel de destacado y la lista de
+      // géneros se quedaban vacíos cuando el top venía de tendencias.
+      const enLaBase = new Map(candidatos.map((candidato) => [refKey(candidato.ref), candidato]))
+
       for (const resultado of resultados.flat()) {
         const clave = refKey(resultado.ref)
         if (yaEstan.has(clave)) continue
 
         yaEstan.add(clave)
+        const cacheado = enLaBase.get(clave)
+
         candidatos.push({
           ref: resultado.ref,
           title: resultado.title,
-          // Sin tags: este candidato sólo puede entrar por popularidad, y eso es
-          // correcto: el proveedor no ha dado con qué compararlo.
-          tags: [],
-          studios: [],
+          tags: cacheado === undefined ? [] : [...cacheado.tags],
+          studios: cacheado === undefined ? [] : [...cacheado.studios],
           ...(resultado.coverUrl === undefined ? {} : { coverUrl: resultado.coverUrl }),
           ...(resultado.year === undefined ? {} : { year: resultado.year }),
           popularity: 1,
@@ -206,6 +212,7 @@ export function registerRecommendationsRoute(
             : { coverUrl: entrada.candidate.coverUrl }),
           ...(entrada.candidate.year === undefined ? {} : { year: entrada.candidate.year }),
           score: entrada.score,
+          tags: [...entrada.candidate.tags],
           reason: { kind: entrada.reason.kind, text: entrada.reason.text },
           reasons: entrada.reasons.map((razon) => ({ kind: razon.kind, text: razon.text })),
         })),

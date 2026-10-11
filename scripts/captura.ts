@@ -29,7 +29,17 @@ const pagina = await contexto.newPage()
 
 await pagina.goto(`http://127.0.0.1:${PORT}/?boot=${token}`)
 await pagina.waitForLoadState('networkidle')
-await pagina.waitForTimeout(1200)
+
+// Se abre una ficha antes de la captura: sin títulos en la base, la home no
+// tiene géneros ni continuar viendo, y la captura saldría a medio poblar. Es lo
+// que hace cualquiera al estrenar la aplicación.
+await pagina.goto(`http://127.0.0.1:${PORT}/anime/fixture/aurora-nocturna`)
+await pagina.waitForTimeout(1500)
+await pagina.goto(`http://127.0.0.1:${PORT}/`)
+// La home carga sus filas por detrás: sin esta espera, la cinta y las tarjetas
+// salen vacías en la captura. Lo encontró la primera captura del rediseño.
+await pagina.waitForSelector('.poster__link', { timeout: 15_000 }).catch(() => {})
+await pagina.waitForTimeout(1500)
 
 for (const [tema, destino] of [
   ['dark', DESTINO],
@@ -40,7 +50,9 @@ for (const [tema, destino] of [
   }, tema)
 
   await mkdir(dirname(destino), { recursive: true })
-  await pagina.screenshot({ path: destino, fullPage: false })
+  // Página entera: la captura del rediseño recortada a la ventana no enseñaba
+  // ni el top ni las filas, que es lo que había que revisar.
+  await pagina.screenshot({ path: destino, fullPage: true })
   console.log(`captura ${tema} en ${destino}`)
 }
 

@@ -15,11 +15,14 @@ test.describe('la home', () => {
     await entrar(page)
     await esperarApp(page)
 
-    // Las cuatro filas de la home, cada una con su encabezado.
+    // La home del diseño: cinta, cartel de destacado, top y las filas.
+    await expect(page.locator('.ticker')).toBeVisible()
+    await expect(page.locator('.hero__title')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Top 5 de la semana' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Continuar viendo' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Tus favoritos' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'De moda' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Recomendado para ti' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Explorar por género' })).toBeVisible()
   })
 
   test('sin historial lo dice en vez de quedarse en blanco', async ({ page }) => {
@@ -43,6 +46,11 @@ test.describe('la home', () => {
 
   test('el panel dice que no hay historial todavía', async ({ page }) => {
     await entrar(page)
+
+    // El panel del motor vive dentro de un desplegable: en la home del diseño lo
+    // que manda es el top con sus motivos, y el detalle del score es una
+    // herramienta para quien quiera mirarlo.
+    await page.getByText('¿Por qué estas recomendaciones?').click()
 
     await expect(page.getByText('Sin historial todavía')).toBeVisible()
   })

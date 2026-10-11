@@ -4,7 +4,7 @@ Ver anime desde el navegador, con una interfaz que se lanza desde la terminal �
 aprende de lo que ves para recomendarte. Todo local: **no hay servidor central, ni cuentas, ni
 telemetría.**
 
-![La pantalla de inicio en tema oscuro, con las filas de continuar viendo, favoritos, tendencias y recomendaciones](docs/captura.png)
+![La pantalla de inicio en tema oscuro: la cinta de lo más visto, el cartel de destacado, el top de la semana y las filas](docs/captura.png)
 
 ![La misma pantalla en tema claro](docs/captura-claro.png)
 
@@ -14,6 +14,12 @@ telemetría.**
 > tema oscuro y claro.
 
 El tema por defecto es el del sistema; se cambia en **Ajustes** y queda guardado.
+
+La home sigue el orden del diseño: cinta de lo más visto, cartel de destacado —con el botón que
+reproduce el primer episodio y el de favoritos—, top de la semana con sus motivos, continuar viendo,
+favoritos, tendencias y los géneros del catálogo. **La parrilla semanal de estrenos y la fila de
+episodios nuevos no están**: las dos necesitan una fecha de emisión por episodio y los proveedores no
+la dan, así que se enseña lo que sí se sabe en vez de inventar fechas.
 
 ## Arrancar
 

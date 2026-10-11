@@ -33,3 +33,18 @@ export function continuePath(item: ContinueWatchingItem): string {
 export function progressPercent(item: ContinueWatchingItem): number {
   return Math.round(Math.min(Math.max(item.ratio, 0), 1) * 100)
 }
+
+/**
+ * Lo que queda del episodio, en texto corto.
+ *
+ * `undefined` cuando no se sabe la duración: un «0 min restantes» sería mentira,
+ * y el pie se queda con la posición, que sí se sabe.
+ */
+export function remainingLabel(item: ContinueWatchingItem): string | undefined {
+  if (item.durationS <= 0) return undefined
+
+  const restante = Math.max(0, item.durationS - item.positionS)
+  const minutos = Math.ceil(restante / 60)
+
+  return minutos >= 60 ? `${Math.floor(minutos / 60)} h ${minutos % 60} min` : `${minutos} min`
+}

@@ -116,6 +116,14 @@ export const recommendationSchema = z.strictObject({
   year: z.number().int().optional(),
   kind: titleKindSchema.optional(),
   score: z.number(),
+  /**
+   * Los géneros del título.
+   *
+   * Los lleva el motor —son sus características— y salen aquí porque la home los
+   * necesita para el cartel de destacado y para la lista de géneros. Sin ellos
+   * habría que pedir el detalle de cada título para pintar una fila.
+   */
+  tags: z.array(z.string().min(1)),
   reason: z.strictObject({
     kind: z.string().min(1),
     text: z.string().min(1),

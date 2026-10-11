@@ -10,10 +10,10 @@
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
-import { Cover } from '../../components/Cover'
+import { PosterCard } from '../../components/PosterCard'
+import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 import { Link } from '../../router'
-import { coverPath } from '../search/ResultCard'
 
 export interface TrendingRowProps {
   readonly items: readonly AnimeSummary[]
@@ -21,23 +21,25 @@ export interface TrendingRowProps {
 
 export function TrendingRow(props: TrendingRowProps): ReactNode {
   return (
-    <section className="row">
-      <h2>{t(DEFAULT_LOCALE, 'home.trending')}</h2>
+    <section className="section">
+      <SectionHeader
+        title={t(DEFAULT_LOCALE, 'home.trending')}
+        meta={t(DEFAULT_LOCALE, 'home.trending.meta')}
+      />
 
       {props.items.length === 0 ? (
         <p className="empty">{t(DEFAULT_LOCALE, 'home.trending.empty')}</p>
       ) : (
         <ul className="row__list">
           {props.items.map((item) => (
-            <li className="card" key={`${item.ref.providerId}:${item.ref.value}`}>
-              <Link
-                to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
-                className="card"
+            <li key={`${item.ref.providerId}:${item.ref.value}`}>
+              <PosterCard
+                providerId={item.ref.providerId}
+                ref={item.ref.value}
                 title={item.title}
-              >
-                <Cover providerId={item.ref.providerId} ref={item.ref.value} />
-                <span className="card__title">{item.title}</span>
-              </Link>
+                to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
+                caption={item.year === undefined ? undefined : String(item.year)}
+              />
             </li>
           ))}
         </ul>
