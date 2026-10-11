@@ -11,7 +11,7 @@ import { FeedRow } from './FeedRow'
 import { featuredOf, HomePage } from './HomePage'
 import { RecentRow } from './RecentRow'
 import { continuePath, progressPercent, resumeLabel } from './rows'
-import { TrendingRow } from './TrendingRow'
+import { TopRow } from './TopRow'
 import { combineRows } from './useHomeRows'
 
 function render(node: ReactNode): string {
@@ -97,15 +97,13 @@ describe('la fila de favoritos', () => {
   })
 })
 
-describe('la fila de tendencias', () => {
-  test('sin proveedor que las ofrezca lo dice', () => {
-    expect(render(<TrendingRow items={[]} />)).toContain(
-      'Ningún proveedor activo ofrece tendencias',
-    )
+describe('la fila del top', () => {
+  test('sin proveedor que lo publique lo dice', () => {
+    expect(render(<TopRow items={[]} />)).toContain('Ningún proveedor activo publica un top')
   })
 
-  test('con tendencias, enlaza a cada ficha', () => {
-    const html = render(<TrendingRow items={[resumen('Mar de Cristal')]} />)
+  test('cada puesto enlaza a su ficha', () => {
+    const html = render(<TopRow items={[resumen('Mar de Cristal')]} />)
 
     expect(html).toContain('Mar de Cristal')
     expect(html).toContain('href="/anime/fixture/Mar%20de%20Cristal"')

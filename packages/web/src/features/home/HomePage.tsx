@@ -2,7 +2,8 @@
  * Pantalla de inicio.
  *
  * Sigue el orden del diseño de referencia: cinta de lo que hay ahora, cartel de
- * destacado, top de la semana, continuar viendo, favoritos, tendencias y géneros.
+ * destacado, **el top de la fuente**, continuar viendo, favoritos, novedades,
+ * último añadido y géneros.
  *
  * Lo que el diseño trae y aquí no está, porque no hay datos para ello: la
  * **parrilla semanal** de estrenos y la fila de **episodios nuevos**. Las dos
@@ -27,8 +28,7 @@ import { FeedRow } from './FeedRow'
 import { GenreRow, topGenres } from './GenreRow'
 import { RecentRow } from './RecentRow'
 import { Ticker } from './Ticker'
-import { TopFive } from './TopFive'
-import { TrendingRow } from './TrendingRow'
+import { TopRow } from './TopRow'
 import { useHomeRows } from './useHomeRows'
 
 export interface HomePageProps {
@@ -108,21 +108,24 @@ export function HomePage(props: HomePageProps): ReactNode {
         </p>
       ) : null}
 
-      <TopFive items={items} coldStart={recomendaciones.data?.coldStart ?? true} />
+      {/* El top es el de la fuente —su orden y su puesto— y no el ranking del
+          motor: el motor ya tiene su sitio, el destacado y el panel de abajo. */}
+      <TopRow items={filas.trending} />
 
       <FeedRow items={filas.feed} />
       <RecentRow items={filas.recent} />
 
       <ContinueRow items={filas.continueWatching} />
       <FavoritesRow items={filas.favorites} />
-      <TrendingRow items={filas.trending} />
 
       <GenreRow genres={generos} />
 
       {/*
         El panel con el detalle del score sigue existiendo, pero como lo que es:
-        una herramienta para entender el motor, no la fila principal. El top de
-        arriba ya enseña las razones.
+        una herramienta para entender el motor, no la fila principal. Desde que el
+        top es el de la fuente, **aquí** es donde se leen las razones de cada
+        recomendación: quitar la fila de motivos sin dejarlos en otro sitio habría
+        dejado al motor recomendando sin explicarse.
       */}
       <details className="panel__details">
         <summary className="section__meta">{t(DEFAULT_LOCALE, 'home.explain')}</summary>

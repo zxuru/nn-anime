@@ -13,12 +13,12 @@ test.describe('las recomendaciones', () => {
   test('cada recomendación visible tiene una razón no vacía', async ({ page }) => {
     await entrar(page)
 
-    // Las razones del top, que es donde se ven: cada tarjeta lleva la suya en el
-    // pie. El panel del score está en un desplegable y se prueba más abajo.
-    // Sólo las del top: las otras filas llevan el año en el pie, y un año no es
-    // una razón. La primera versión de esta prueba las contaba todas y fallaba
-    // por un «2023».
-    const razones = page.locator('.section--top .poster__meta')
+    // Las razones se leen en el panel, que es donde vive el motor: el top de la
+    // home es el de la fuente y no lleva motivos. El panel está dentro de un
+    // desplegable, así que hay que abrirlo para que sus tarjetas se vean.
+    await page.getByText('¿Por qué estas recomendaciones?').click()
+
+    const razones = page.locator('.panel .reason')
 
     await expect(razones.first()).toBeVisible({ timeout: 10_000 })
 

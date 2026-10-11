@@ -27,7 +27,7 @@ La home se queda vacía en una instalación nueva y el motivo está en el códig
   los convierte en candidatos. Quien busca y no abre nada no ve nada en la home.
 - La única fuente que no depende del usuario es `getTrending`, que es opcional. Un proveedor sin
   `capabilities.trending` deja la página sin una sola tarjeta: `items: []`, sin destacado, sin top
-  5 y sin géneros. `TrendingRow` lo explica, pero explicar el hueco no es tener contenido.
+  5 y sin géneros. La fila del top lo explica, pero explicar el hueco no es tener contenido.
 - La **fecha de emisión** no existe en el contrato, y por eso la parrilla semanal y la fila de
   episodios nuevos no se pudieron hacer (README). Un feed sí trae fecha: es la pieza que faltaba
   para dejar de adivinar.

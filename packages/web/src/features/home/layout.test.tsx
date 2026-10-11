@@ -9,7 +9,7 @@ import { createMemoryHistory, HistoryProvider } from '../../router'
 import { featuredMeta } from './FeaturedHero'
 import { GenreRow, topGenres } from './GenreRow'
 import { Ticker } from './Ticker'
-import { TopFive } from './TopFive'
+import { puestosVisibles, quedanPuestos, TOP_VISIBLES, TopRow } from './TopRow'
 
 function render(node: ReactNode): string {
   return renderToString(
@@ -97,29 +97,37 @@ describe('la tarjeta de una fila', () => {
   })
 })
 
-describe('el top de la semana', () => {
-  test('numera del uno al cinco', () => {
-    const items = ['uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis'].map((t) => recomendacion(t))
-    const html = render(<TopFive items={items} coldStart={false} />)
+describe('el top de la fuente', () => {
+  /** Doce puestos: dos más que los que se ven de golpe. */
+  function puestos(cuantos: number): readonly AnimeSummary[] {
+    return Array.from({ length: cuantos }, (_, indice) => resumen(`puesto-${indice + 1}`))
+  }
 
-    expect(html.match(/poster__number/g)?.length).toBe(5)
-    expect(html).not.toContain('seis')
+  test('numera los puestos y corta en los visibles', () => {
+    const html = render(<TopRow items={puestos(12)} />)
+
+    expect(html.match(/poster__number/g)?.length).toBe(TOP_VISIBLES)
+    expect(html).toContain('puesto-1')
+    expect(html).not.toContain('puesto-11')
   })
 
-  test('cada uno lleva su motivo en el pie', () => {
-    const html = render(<TopFive items={[recomendacion('uno')]} coldStart={false} />)
+  test('el corte es de lo que se pinta, no de la lista', () => {
+    const items = puestos(12)
 
-    expect(html).toContain('Es de lo más visto.')
+    // Desplegado no se recorta nada: el top real es la lista entera de la fuente.
+    expect(puestosVisibles(items, true)).toHaveLength(12)
+    expect(puestosVisibles(items, false)).toHaveLength(TOP_VISIBLES)
   })
 
-  test('sin historial lo dice en la etiqueta', () => {
-    const html = render(<TopFive items={[recomendacion('uno')]} coldStart />)
-
-    expect(html).toContain('Lo más visto del catálogo')
+  test('ofrece «Mostrar más» sólo cuando queda un puesto', () => {
+    expect(render(<TopRow items={puestos(TOP_VISIBLES)} />)).not.toContain('Mostrar más')
+    expect(render(<TopRow items={puestos(TOP_VISIBLES + 1)} />)).toContain('Mostrar más')
+    expect(quedanPuestos(TOP_VISIBLES, false)).toBe(false)
+    expect(quedanPuestos(TOP_VISIBLES + 1, false)).toBe(true)
   })
 
-  test('sin nada que recomendar lo explica', () => {
-    expect(render(<TopFive items={[]} coldStart />)).toContain('Todavía no hay nada que recomendar')
+  test('sin nada que enseñar lo explica', () => {
+    expect(render(<TopRow items={[]} />)).toContain('Ningún proveedor activo publica un top')
   })
 })
 

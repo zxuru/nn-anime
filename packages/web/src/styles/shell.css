@@ -1430,13 +1430,23 @@
 }
 
 /*
- * El top de la semana.
+ * El top de la fuente.
  *
  * Los números van fuera de la tarjeta, así que la fila necesita aire a la
  * izquierda para que el «1» no se salga del contenedor.
  */
 .section--top .row__list {
   padding-left: var(--space-4);
+}
+
+/*
+ * «Mostrar más» del top.
+ *
+ * Va debajo de la rejilla y con el aire de un pie: pegado a las portadas se lee
+ * como parte de la última tarjeta y no como lo que es, el resto de la lista.
+ */
+.top__more {
+  margin-top: var(--space-5);
 }
 
 /*

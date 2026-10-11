@@ -18,11 +18,45 @@ test.describe('la home', () => {
     // La home del diseño: cinta, cartel de destacado, top y las filas.
     await expect(page.locator('.ticker')).toBeVisible()
     await expect(page.locator('.hero__title')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Top 5 de la semana' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Top de la fuente' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Continuar viendo' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Tus favoritos' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'De moda' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Explorar por género' })).toBeVisible()
+  })
+
+  /**
+   * «Mostrar más», con un top largo.
+   *
+   * El fixture publica cinco puestos —menos que los que se ven de golpe—, así que
+   * con él el botón no aparecería nunca y la prueba no mediría nada: se le da de
+   * comer una lista de quince por la ruta de la API. Es la única forma de pulsar
+   * de verdad el desplegable, que es estado de React y no se puede ver en un
+   * `renderToString`.
+   */
+  test('el top se despliega con «Mostrar más»', async ({ page }) => {
+    const items = Array.from({ length: 15 }, (_, indice) => ({
+      ref: { providerId: 'fixture', value: `puesto-${indice + 1}` },
+      title: `Puesto ${indice + 1}`,
+    }))
+
+    await page.route('**/api/trending', async (ruta) => {
+      await ruta.fulfill({ json: { items } })
+    })
+
+    await entrar(page)
+    await esperarApp(page)
+
+    const top = page.locator('.section--top')
+    const tarjetas = top.locator('.poster')
+
+    await expect(tarjetas).toHaveCount(10)
+    await expect(top.locator('.poster__number').last()).toHaveText('10')
+
+    await top.getByRole('button', { name: 'Mostrar más' }).click()
+
+    await expect(tarjetas).toHaveCount(15)
+    await expect(top.locator('.poster__number').last()).toHaveText('15')
+    await expect(top.getByRole('button', { name: 'Mostrar más' })).toHaveCount(0)
   })
 
   test('sin historial lo dice en vez de quedarse en blanco', async ({ page }) => {
@@ -67,9 +101,8 @@ test.describe('la home', () => {
   test('el panel dice que no hay historial todavía', async ({ page }) => {
     await entrar(page)
 
-    // El panel del motor vive dentro de un desplegable: en la home del diseño lo
-    // que manda es el top con sus motivos, y el detalle del score es una
-    // herramienta para quien quiera mirarlo.
+    // El panel del motor vive dentro de un desplegable: el top es el de la fuente
+    // y no lleva motivos, así que el sitio donde el motor se explica es éste.
     await page.getByText('¿Por qué estas recomendaciones?').click()
 
     await expect(page.getByText('Sin historial todavía')).toBeVisible()

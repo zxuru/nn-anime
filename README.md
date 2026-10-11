@@ -4,7 +4,7 @@ Ver anime desde el navegador, con una interfaz que se lanza desde la terminal �
 aprende de lo que ves para recomendarte. Todo local: **no hay servidor central, ni cuentas, ni
 telemetría.**
 
-![La pantalla de inicio en tema oscuro: la cinta de lo más visto, el cartel de destacado, el top de la semana y las filas](docs/captura.png)
+![La pantalla de inicio en tema oscuro: la cinta de lo más visto, el cartel de destacado, el top de la fuente y las filas](docs/captura.png)
 
 ![La misma pantalla en tema claro](docs/captura-claro.png)
 
@@ -16,8 +16,10 @@ telemetría.**
 El tema por defecto es el del sistema; se cambia en **Ajustes** y queda guardado.
 
 La home sigue el orden del diseño: cinta de lo más visto, cartel de destacado —con el botón que
-reproduce el primer episodio y el de favoritos—, top de la semana con sus motivos, **novedades** de la
-fuente, **último añadido**, continuar viendo, favoritos, tendencias y los géneros del catálogo.
+reproduce el primer episodio y el de favoritos—, el **top de la fuente** —su ranking, numerado del uno
+al N y con «Mostrar más»—, **novedades** de la fuente, **último añadido**, continuar viendo, favoritos y
+los géneros del catálogo. Los motivos del motor se leen en el desplegable «¿Por qué estas
+recomendaciones?».
 
 Las dos filas del medio existen para que la primera pantalla no dependa de que hayas buscado antes:
 «último añadido» enseña lo que la aplicación ya conoce —lo que buscaste y lo que abriste— y

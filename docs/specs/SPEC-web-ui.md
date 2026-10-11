@@ -54,8 +54,8 @@ GET  /api/cover/:providerId/:ref     portada, servida por el proxy
 Rutas de la SPA, todas del lado del cliente salvo la primera:
 
 ```
-/                      home: recomendaciones, novedades, último añadido, continuar,
-                       favoritos, tendencias y géneros
+/                      home: recomendaciones, el top de la fuente, novedades,
+                       último añadido, continuar, favoritos y géneros
 /search?q=             búsqueda incremental
 /anime/:providerId/:ref
 /watch/:providerId/:ref
