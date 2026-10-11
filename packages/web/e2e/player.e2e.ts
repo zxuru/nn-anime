@@ -320,3 +320,43 @@ test.describe('el reproductor', () => {
       .toBeGreaterThan((item?.positionS ?? 0) - 1)
   })
 })
+
+/**
+ * El modo compatible, en un navegador de verdad.
+ *
+ * Aquí se mide que encenderlo **no rompa** la reproducción y que el lienzo esté
+ * donde tiene que estar. El fallo que lo motiva no se puede medir aquí: este
+ * Chromium corre sin GPU, así que su camino de pintado nunca falla. Eso es del
+ * equipo con Wayland y NVIDIA que lo reportó.
+ */
+test.describe('el modo compatible', () => {
+  test('encenderlo pone el lienzo encima y no corta la reproducción', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    const video = page.locator('video')
+    await expect(video).toHaveAttribute('src', /\/stream\//, { timeout: 10_000 })
+
+    const boton = page.getByRole('button', { name: 'Modo compatible' })
+    await expect(boton).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.locator('.player__canvas')).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await boton.click()
+
+    await expect(boton).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.player__canvas')).toBeVisible()
+
+    // El `<video>` sigue ahí: el lienzo se pinta encima, no lo sustituye.
+    await expect(video).toBeVisible()
+    await expect
+      .poll(
+        async () => await video.evaluate((elemento: HTMLVideoElement) => elemento.currentTime),
+        {
+          timeout: 10_000,
+        },
+      )
+      .toBeGreaterThan(0)
+  })
+})

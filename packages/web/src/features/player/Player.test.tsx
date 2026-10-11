@@ -170,3 +170,26 @@ describe('pistas y reanudación', () => {
     expect(render(<Player url="/stream/abc" kind="file" />)).not.toContain('<track')
   })
 })
+
+describe('el modo compatible', () => {
+  test('empieza apagado y el botón lo dice', () => {
+    const html = render(<Player url="/stream/abc" kind="file" />)
+
+    // El camino normal es el del navegador; el lienzo sólo aparece cuando la
+    // sonda —o quien está mirando la pantalla— lo enciende.
+    expect(html).not.toContain('<canvas')
+    expect(html).toContain('aria-pressed="false"')
+    expect(html).toContain('Modo compatible')
+  })
+
+  test('el lienzo del modo compatible se pide por CPU', async () => {
+    const fuente = await readFile(`${ROOT}useCompatPaint.ts`, 'utf8')
+
+    // Es el arreglo entero: un canvas por GPU pasa por la misma conversión YUV
+    // que deja el cuadro negro, así que pedirlo por CPU no es un detalle.
+    expect(fuente).toContain('willReadFrequently: true')
+    // Y el `<video>` no se sustituye: sigue siendo quien reproduce, quien lleva
+    // los subtítulos y quien habla con hls.js.
+    expect(fuente).not.toContain('video.src')
+  })
+})
