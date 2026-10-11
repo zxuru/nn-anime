@@ -573,6 +573,44 @@
   letter-spacing: var(--tracking-label);
 }
 
+/*
+ * El episodio visto y el que está a medias.
+ *
+ * El visto lleva el borde del acento **y la palabra**: sólo con el color, el
+ * estado no existe para quien no distingue colores. La barra es un `<progress>`
+ * de verdad, como la de «continuar viendo», y ocupa un ancho fijo en la fila:
+ * el título ya se lleva el espacio flexible.
+ */
+.episode--visto {
+  border-color: var(--color-accent);
+}
+
+.episode__progress {
+  width: var(--progress-width);
+  flex: none;
+  height: var(--space-2);
+  appearance: none;
+  border: none;
+  background: var(--color-bg);
+}
+
+.episode__progress::-webkit-progress-bar {
+  background: var(--color-bg);
+}
+
+.episode__progress::-webkit-progress-value {
+  background: var(--color-accent);
+}
+
+.episode__progress::-moz-progress-bar {
+  background: var(--color-accent);
+}
+
+.badge--visto {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
 .player {
   display: flex;
   flex-direction: column;

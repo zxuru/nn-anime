@@ -68,7 +68,7 @@ function Skeletons(): ReactNode {
 }
 
 export function DetailPage(props: DetailPageProps): ReactNode {
-  const { detail, episodes, related, capabilities, state, error, reload } = useDetail(
+  const { detail, episodes, related, watched, capabilities, state, error, reload } = useDetail(
     props.providerId,
     props.ref,
   )
@@ -197,7 +197,7 @@ export function DetailPage(props: DetailPageProps): ReactNode {
 
         <section>
           <h2>{t(DEFAULT_LOCALE, 'detail.episodes')}</h2>
-          <EpisodeList episodes={episodes} mode={modo} />
+          <EpisodeList episodes={episodes} mode={modo} watched={watched} />
         </section>
       </div>
     </article>

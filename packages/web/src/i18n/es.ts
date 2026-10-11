@@ -177,6 +177,8 @@ export const messages: Messages = {
   'detail.studios': 'Estudios',
   'detail.episodes': 'Episodios',
   'detail.episode': 'Episodio {number}',
+  'detail.episode.watched': 'visto',
+  'detail.episode.progress': 'Visto al {percent} %',
   'detail.mode.sub': 'subtitulado',
   'detail.mode.dub': 'doblado',
   'detail.mode.raw': 'original',

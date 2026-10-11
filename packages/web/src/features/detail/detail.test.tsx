@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import type { WatchedEpisodePayload } from '@nn-anime/core/api'
 import type { AnimeSummary, Episode, ProviderCapabilities } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
@@ -9,7 +10,7 @@ import { DetailPage } from './DetailPage'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
 import { RelatedList } from './RelatedList'
-import { chosenMode, formatDuration, isFavorite, modesFor } from './useDetail'
+import { chosenMode, formatDuration, isFavorite, modesFor, watchedPercent } from './useDetail'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
 
@@ -145,6 +146,84 @@ describe('lista de episodios', () => {
 
     expect(html).toContain('Episodio 1')
     expect(html).not.toContain('episode__title')
+  })
+})
+
+describe('porcentaje visto', () => {
+  test('redondea en vez de truncar: al 99,6 % la barra se ve llena', () => {
+    expect(watchedPercent(0.5)).toBe(50)
+    expect(watchedPercent(0.996)).toBe(100)
+    expect(watchedPercent(1.5)).toBe(100)
+    expect(watchedPercent(-1)).toBe(0)
+    expect(watchedPercent(Number.NaN)).toBe(0)
+  })
+})
+
+describe('episodios vistos', () => {
+  function visto(numero: number, overrides: Partial<WatchedEpisodePayload> = {}): WatchedEpisodePayload {
+    return {
+      number: numero,
+      mode: 'sub',
+      positionS: 576,
+      durationS: 1440,
+      ratio: 0.4,
+      finished: false,
+      watchedAt: '2026-10-12T10:00:00.000Z',
+      ...overrides,
+    }
+  }
+
+  test('el terminado lleva la palabra «visto», no sólo el color', () => {
+    const html = render(
+      <EpisodeList episodes={[episodio(1)]} watched={[visto(1, { finished: true, ratio: 1 })]} />,
+    )
+
+    expect(html).toContain('episode--visto')
+    expect(html).toContain('visto')
+    expect(html).not.toContain('<progress')
+  })
+
+  test('el que está a medias lleva su barra con el porcentaje', () => {
+    const html = render(<EpisodeList episodes={[episodio(2)]} watched={[visto(2)]} />)
+
+    expect(html).toContain('<progress')
+    expect(html).toContain('Visto al 40 %')
+    expect(html).not.toContain('episode--visto')
+  })
+
+  test('sin duración no hay barra ni marca: no se inventa la proporción', () => {
+    const html = render(
+      <EpisodeList
+        episodes={[episodio(3)]}
+        watched={[visto(3, { durationS: 0, ratio: 0, positionS: 900 })]}
+      />,
+    )
+
+    expect(html).not.toContain('<progress')
+    expect(html).not.toContain('episode--visto')
+  })
+
+  test('sin visionados, la lista es la de siempre', () => {
+    const html = render(<EpisodeList episodes={[episodio(1)]} />)
+
+    expect(html).not.toContain('<progress')
+    expect(html).not.toContain('episode--visto')
+  })
+
+  /**
+   * La marca es del episodio, no del par episodio y modo: verlo en subtitulado es
+   * haberlo visto, y marcarlo por modo partiría en dos la misma fila.
+   */
+  test('el mismo número visto en sub se marca también con la lista en dub', () => {
+    const html = render(
+      <EpisodeList
+        episodes={[episodio(5, { mode: 'dub' })]}
+        mode="dub"
+        watched={[visto(5, { mode: 'sub', finished: true })]}
+      />,
+    )
+
+    expect(html).toContain('episode--visto')
   })
 })
 

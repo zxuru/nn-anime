@@ -1,9 +1,9 @@
 /**
  * Datos de la pantalla de detalle.
  *
- * Cuatro peticiones en paralelo —detalle, episodios, relacionados y capacidades
- * del proveedor— porque ninguna necesita a las otras: en serie, la pantalla
- * tardaría la suma de las cuatro latencias sin ninguna razón.
+ * Cinco peticiones en paralelo —detalle, episodios, relacionados, vistos y
+ * capacidades del proveedor— porque ninguna necesita a las otras: en serie, la
+ * pantalla tardaría la suma de las cinco latencias sin ninguna razón.
  *
  * Las capacidades vienen de `/api/providers` y no del detalle: son del proveedor,
  * no del título, y el selector sub/dub se deshabilita según lo que ese proveedor
@@ -21,6 +21,7 @@ import {
   favoritesResponseSchema,
   providersResponseSchema,
   relatedResponseSchema,
+  watchedResponseSchema,
 } from '@nn-anime/core/api'
 import type {
   AnimeDetail,
@@ -29,6 +30,7 @@ import type {
   ProviderCapabilities,
   ProviderRef,
 } from '@nn-anime/core/models'
+import type { WatchedEpisodePayload } from '@nn-anime/core/api'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet, apiPost } from '../../api/client'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
@@ -46,6 +48,13 @@ export interface DetailData {
    * relacionados la lista viene vacía y la sección se explica.
    */
   readonly related: readonly AnimeSummary[]
+  /**
+   * Qué episodios ya se vieron y por dónde iba cada uno.
+   *
+   * Es por número de episodio, no por par episodio y modo: verlo en subtitulado
+   * es haberlo visto, y marcarlo dos veces partiría en dos la misma fila.
+   */
+  readonly watched: readonly WatchedEpisodePayload[]
   readonly capabilities: ProviderCapabilities | undefined
   readonly state: DetailState
   readonly error: string | undefined
@@ -85,10 +94,23 @@ export function formatDuration(seconds: number | undefined): string | undefined 
   return minutos >= 60 ? `${Math.floor(minutos / 60)} h ${minutos % 60} min` : `${minutos} min`
 }
 
+/**
+ * La proporción vista, en tanto por ciento entero.
+ *
+ * Redondea y no trunca: al 99,6 % la barra debe verse llena, y truncar dejaría
+ * un hueco de un píxel que parece un fallo de pintado.
+ */
+export function watchedPercent(ratio: number): number {
+  if (!Number.isFinite(ratio) || ratio <= 0) return 0
+
+  return Math.min(Math.round(ratio * 100), 100)
+}
+
 export function useDetail(providerId: string, ref: string): DetailData {
   const [detail, setDetail] = useState<AnimeDetail | undefined>(undefined)
   const [episodes, setEpisodes] = useState<readonly Episode[]>([])
   const [related, setRelated] = useState<readonly AnimeSummary[]>([])
+  const [watched, setWatched] = useState<readonly WatchedEpisodePayload[]>([])
   const [capabilities, setCapabilities] = useState<ProviderCapabilities | undefined>(undefined)
   const [state, setState] = useState<DetailState>('loading')
   const [error, setError] = useState<string | undefined>(undefined)
@@ -126,14 +148,20 @@ export function useDetail(providerId: string, ref: string): DetailData {
         relatedResponseSchema,
         opciones,
       ),
+      apiGet(
+        `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/watched`,
+        watchedResponseSchema,
+        opciones,
+      ),
       apiGet('/api/providers', providersResponseSchema, opciones),
     ]).then(
-      ([detalle, lista, hermanos, proveedores]) => {
+      ([detalle, lista, hermanos, vistos, proveedores]) => {
         if (controller.signal.aborted) return
 
         setDetail(detalle)
         setEpisodes(lista.episodes)
         setRelated(hermanos.items)
+        setWatched(vistos.episodes)
         setCapabilities(
           proveedores.providers.find((provider) => provider.id === providerId)?.capabilities,
         )
@@ -154,7 +182,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
     return () => controllerRef.current?.abort()
   }, [load])
 
-  return { detail, episodes, related, capabilities, state, error, reload: load }
+  return { detail, episodes, related, watched, capabilities, state, error, reload: load }
 }
 
 export interface FavoriteState {
