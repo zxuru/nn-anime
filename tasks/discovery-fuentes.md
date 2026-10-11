@@ -7,11 +7,14 @@ hay varios proveedores del mismo contenido podría colocarse en la ficha o en el
 mismo anime elegir si se quiere de una fuente o de otra».
 
 Medido sobre la base de desarrollo (`~/.local/share/nn-anime/nn-anime.db`, 51 fichas y dos
-proveedores activos): la lectura de «Último añadido» devuelve **216 entradas** y agrupar por título
-normalizado más año las deja en **201**. Son 15 obras repetidas, todas entre `jkanime` y `animeav1`
+proveedores activos): la lectura de «Último añadido» devuelve **224 entradas** y agrupar por título
+normalizado más año las deja en **212**. Son 12 obras repetidas, todas entre `jkanime` y `animeav1`
 —«One Piece», «Dandadan», «Dandadan 2nd Season», el bloque entero de «Kimetsu no Yaiba»—, y la
 mayoría sin año en las dos fuentes, así que el año no estorba: cuando falta en las dos, `null` es
-tan comparable como un número.
+tan comparable como un número. Con la ruta ya cambiada,
+`GET /api/catalog/recent?limit=20` devuelve 20 entradas y 20 obras distintas sobre esa misma base;
+las repetidas de esta base caen por debajo de la vigésima fila, así que lo que se ve en la fila es el
+tope y el efecto se mide en la lectura entera: 224 → 212.
 
 Decisiones tomadas con quien pidió el cambio:
 
