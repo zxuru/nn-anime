@@ -81,6 +81,13 @@ leer una sinopsis.
  */
 export function baseTitle(title: string): string
 
+/**
+ * El título de la saga: el título base sin el subtítulo de la entrega.
+ *
+ * «Kimetsu no Yaiba: Mugen Ressha-hen» y «Kimetsu no Yaiba» son la misma saga.
+ */
+export function sagaTitle(title: string): string
+
 // packages/core/src/watch-progress.ts
 /** Proporción vista a partir de la cual el episodio se da por terminado. */
 export const FINISHED_RATIO = 0.9
@@ -94,6 +101,14 @@ Nada de «quitar todo lo que parezca un número»: «86» y «5-toubun no Hanayo
 temporadas. Una prueba por cada marcador y una por cada falso positivo conocido —`Final Fantasy
 VII` queda en `final fantasy`, y está escrito en el módulo para que nadie lo descubra en la
 interfaz—.
+
+`sagaTitle` corta por el **primer** separador de subtítulo (`:` o guion rodeado de espacios) y
+quita el marcador de película delante o detrás (`Movie`, `Movie 1`, `Gekijouban`, `Película`). El
+guion suelto no corta: «5-toubun no Hanayome» es un título. Dos falsos positivos declarados en el
+módulo y probados: un spin-off con subtítulo propio entra en su saga (`Boku no Hero Academia:
+Vigilantes`) y un título que empieza por `Re:` queda en `re`. El daño es una fila de más en una
+sección de conveniencia; el de no cortar es que media saga de estos catálogos —la que sólo se
+distingue por el subtítulo— no se relacione nunca.
 
 ### `catalog-store` — dos lecturas
 
@@ -150,7 +165,7 @@ reglas pasan a ser una.
 ## Estructura de los archivos nuevos
 
 ```
-packages/core/src/titles.ts                       baseTitle + FINISHED_RATIO
+packages/core/src/titles.ts                       baseTitle + sagaTitle + FINISHED_RATIO
 packages/core/src/titles.test.ts
 packages/catalog-store/src/repositories/related.ts
 packages/catalog-store/src/repositories/watched-episodes.ts
@@ -162,6 +177,10 @@ packages/web/src/features/detail/RelatedList.tsx
 - [ ] `baseTitle('Sousou no Frieren 2nd Season') === 'sousou no frieren'` y
       `baseTitle('86') === '86'`. Medido mutando: quitar el marcador `season` de la lista rompe la
       primera; normalizar los números rompe la segunda.
+- [ ] `sagaTitle('Kimetsu no Yaiba: Mugen Ressha-hen') === 'kimetsu no yaiba'` y
+      `sagaTitle('Kimetsu no Yaiba Movie 1: Mugenjou-hen - Akaza Sairai') === 'kimetsu no yaiba'`.
+      Medido mutando: sin el corte por `:` fallan 6 pruebas; sin el marcador de película, 2;
+      aceptando el guion suelto como separador, 1.
 - [ ] Con dos títulos de la misma saga en la base, `listRelated` devuelve el hermano y **no** la
       referencia pedida; la mutación que quite la exclusión lo delata.
 - [ ] `listRelated` resuelve con **una** consulta preparada (contador de consultas, como en
