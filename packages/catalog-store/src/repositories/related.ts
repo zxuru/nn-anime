@@ -27,11 +27,21 @@
 import type { Database } from 'bun:sqlite'
 import {
   type AnimeSummary,
+  franchiseTitle,
   normalizeQuery,
   type ProviderRef,
   sagaTitle,
   titleKindSchema,
 } from '@nn-anime/core'
+
+/**
+ * Con qué se emparejan los candidatos.
+ *
+ * `'saga'` es el comportamiento de siempre y el valor por defecto: ninguna
+ * llamada que ya existía cambia. `'franchise'` es la sección de al lado, la que
+ * junta una serie con su secuela cuando la fuente las nombra distinto.
+ */
+export type RelatedScope = 'saga' | 'franchise'
 
 /**
  * Tope de filas que se traen para comparar.
@@ -172,19 +182,28 @@ export function createRelatedRepository(db: Database) {
 
   return {
     /**
-     * Los hermanos de saga de `ref`, sin él mismo.
+     * Los hermanos de `ref`, sin él mismo, con el alcance pedido.
+     *
+     * `'saga'` —el de por defecto, y el de siempre— empareja por título de saga:
+     * «Dandadan» con «Dandadan 2nd Season». `'franchise'` empareja por franquicia
+     * y junta lo que la fuente nombra como secuela con otro nombre: «Naruto» con
+     * «Naruto Shippuden», «Dragon Ball» con «Dragon Ball Z».
      *
      * Lista vacía cuando no hay ninguno: «no hay» no es «no se pudo», y quien
      * pinta la sección necesita distinguirlo para explicarse.
      */
-    list(ref: ProviderRef, limit: number): readonly AnimeSummary[] {
+    list(ref: ProviderRef, limit: number, scope: RelatedScope = 'saga'): readonly AnimeSummary[] {
       // Sin la fila propia no hay título que normalizar. Pasa cuando la
       // referencia no está en la base: nadie abrió esa ficha todavía, y eso no
       // es un error.
       const propia = selectPropia.get(ref.providerId, ref.value)
       if (propia === null) return []
 
-      const saga = sagaTitle(propia.title)
+      // El alcance elige la clave y nada más: la consulta preparada, el mapa por
+      // obra y el orden son los mismos. Con dos lecturas paralelas, la mitad de
+      // las reglas se quedaría sin aplicar en una de las dos.
+      const clave = scope === 'franchise' ? franchiseTitle : sagaTitle
+      const saga = clave(propia.title)
       const palabra = primeraPalabra(saga)
       if (palabra === '') return []
 
@@ -202,7 +221,7 @@ export function createRelatedRepository(db: Database) {
       const porObra = new Map<string, RelatedRow>()
       for (const fila of filas) {
         if (fila.provider_id === ref.providerId && fila.ref === ref.value) continue
-        if (sagaTitle(fila.title) !== saga) continue
+        if (clave(fila.title) !== saga) continue
 
         const obra = normalizeQuery(fila.title)
         if (obra === obraPropia) continue

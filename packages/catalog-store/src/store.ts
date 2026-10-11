@@ -44,7 +44,7 @@ import { createEpisodesRepository } from './repositories/episodes'
 import { createFavoritesRepository } from './repositories/favorites'
 import { createFeedRepository } from './repositories/feed'
 import { createRecentRepository } from './repositories/recent'
-import { createRelatedRepository } from './repositories/related'
+import { createRelatedRepository, type RelatedScope } from './repositories/related'
 import { createSearchRepository } from './repositories/search'
 import { createSearchHistoryRepository } from './repositories/search-history'
 import { createSettingsRepository } from './repositories/settings'
@@ -129,12 +129,18 @@ export interface CatalogStore {
   updateWatchPosition(eventId: number, positionS: number, durationS: number): Promise<void>
   listRecentlyWatched(limit: number): Promise<readonly WatchRecord[]>
   /**
-   * Los hermanos de saga de un título, de lo que la base ya conoce.
+   * Los hermanos de `ref`, de lo que la base ya conoce.
    *
-   * Lista vacía cuando no hay ninguno: quien pinta la sección necesita
+   * El alcance elige la clave del emparejamiento: la saga —el de por defecto— o
+   * la franquicia, que junta una serie con su secuela cuando la fuente las nombra
+   * distinto. Lista vacía cuando no hay ninguno: quien pinta la sección necesita
    * distinguir «no hay» de «no se pudo» para explicarse.
    */
-  listRelated(ref: ProviderRef, limit: number): Promise<readonly AnimeSummary[]>
+  listRelated(
+    ref: ProviderRef,
+    limit: number,
+    scope?: RelatedScope,
+  ): Promise<readonly AnimeSummary[]>
   /**
    * El estado de visionado de cada episodio, por número.
    *
@@ -274,8 +280,8 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     async listRecentlyWatched(limit) {
       return of().watch.listRecentlyWatched(limit)
     },
-    async listRelated(ref, limit) {
-      return of().related.list(ref, limit)
+    async listRelated(ref, limit, scope) {
+      return of().related.list(ref, limit, scope)
     },
     async listWatchedEpisodes(animeRef) {
       return of().watched.list(animeRef)
