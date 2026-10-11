@@ -8,6 +8,7 @@ import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { DetailPage } from './DetailPage'
 import { EpisodeList } from './EpisodeList'
+import { watchedInWindow, windowAt, windowCount, windowForNumber } from './episode-window'
 import { FavoriteButton } from './FavoriteButton'
 import { RelatedList } from './RelatedList'
 import { SagaRail, sagaGroups } from './SagaRail'
@@ -179,6 +180,91 @@ describe('lista de episodios', () => {
 
     expect(html).toContain('Episodio 1')
     expect(html).not.toContain('episode__title')
+  })
+})
+
+describe('las ventanas de la lista larga', () => {
+  /** Mil ciento ochenta episodios, que es One Piece, y los que hagan falta. */
+  function saga(cuantos: number): readonly Episode[] {
+    return Array.from({ length: cuantos }, (_, indice) => episodio(indice + 1))
+  }
+
+  function visto(numero: number, finished: boolean): WatchedEpisodePayload {
+    return {
+      number: numero,
+      mode: 'sub',
+      positionS: finished ? 1440 : 576,
+      durationS: 1440,
+      ratio: finished ? 1 : 0.4,
+      finished,
+      watchedAt: '2026-10-12T10:00:00.000Z',
+    }
+  }
+
+  test('cien por ventana, y la última se corta donde acaba la lista', () => {
+    expect(windowAt(0, 1180)).toEqual({ start: 0, end: 100 })
+    expect(windowAt(11, 1180)).toEqual({ start: 1100, end: 1180 })
+    expect(windowCount(1180)).toBe(12)
+  })
+
+  test('un índice fuera de rango cae al extremo, no deja la lista en blanco', () => {
+    // La mutación que devuelva el trozo tal cual pide un índice negativo deja
+    // `slice(-100, 0)` y la lista vacía.
+    expect(windowAt(-3, 250)).toEqual({ start: 0, end: 100 })
+    expect(windowAt(99, 250)).toEqual({ start: 200, end: 250 })
+  })
+
+  test('el salto va a la ventana del número pedido', () => {
+    const numeros = saga(1180).map((episode) => episode.number)
+
+    expect(windowForNumber(1, numeros)).toBe(0)
+    expect(windowForNumber(100, numeros)).toBe(0)
+    expect(windowForNumber(101, numeros)).toBe(1)
+    expect(windowForNumber(1180, numeros)).toBe(11)
+  })
+
+  test('un número que no existe lleva a la última ventana, no a la primera', () => {
+    const numeros = saga(1180).map((episode) => episode.number)
+
+    // 1200 no está en una lista de 1180: la última ventana es lo más cerca que
+    // se puede dejar a quien lo pidió.
+    expect(windowForNumber(1200, numeros)).toBe(11)
+    expect(windowForNumber(0, numeros)).toBe(0)
+  })
+
+  test('el resumen de vistos cuenta la ventana, no el título entero', () => {
+    const window = windowAt(0, 1180)
+    const numeros = saga(1180).map((episode) => episode.number)
+
+    // El 900 está visto, pero no en la primera ventana: no cuenta.
+    expect(
+      watchedInWindow(window, numeros, [visto(5, true), visto(900, true), visto(7, false)]),
+    ).toBe(1)
+  })
+
+  test('con mil ciento ochenta episodios se pintan cien filas y sus controles', () => {
+    const html = render(<EpisodeList episodes={saga(1180)} />)
+
+    expect((html.match(/<li/g) ?? []).length).toBe(100)
+    expect(html).toContain('Episodios 1–100')
+    expect(html).toContain('Ir al episodio')
+    // La numeración del documento sigue contando desde donde va la ventana.
+    expect(html).toContain('start="1"')
+  })
+
+  test('con cien episodios o menos no hay controles', () => {
+    const html = render(<EpisodeList episodes={saga(100)} />)
+
+    // La mutación que quite la condición pinta una barra de paginación para una
+    // lista que cabe entera.
+    expect(html).not.toContain('episodes__windows')
+    expect((html.match(/<li/g) ?? []).length).toBe(100)
+  })
+
+  test('el resumen de la ventana sale en la banda', () => {
+    const html = render(<EpisodeList episodes={saga(1180)} watched={[visto(5, true)]} />)
+
+    expect(html).toContain('1 de 100 vistos')
   })
 })
 

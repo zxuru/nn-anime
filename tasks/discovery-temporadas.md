@@ -117,15 +117,15 @@ franquicia»; la entrega actual marcada y sin enlace; el hueco explicado.
 de vistos de la ventana visible; con 100 o menos, sin controles.
 
 **Archivos:** `packages/web/src/features/detail/EpisodeList.tsx`,
-`packages/web/src/features/detail/WindowPicker.tsx`,
+`packages/web/src/features/detail/episode-window.ts`,
 `packages/web/src/features/detail/detail.test.tsx`, `packages/web/src/i18n/es.ts`,
 `packages/web/src/styles/shell.css`.
 
 **Aceptación:**
-- [ ] Con 1180 episodios el DOM tiene 100 filas; medido mutando: sin el recorte, 1180.
-- [ ] Con 100 episodios o menos no se pinta ningún control.
-- [ ] El salto deja el foco en la fila del episodio pedido y no cambia el modo elegido.
-- [ ] El resumen de vistos cuenta la ventana visible, no el título entero.
+- [x] Con 1180 episodios el DOM tiene 100 filas; medido mutando: sin el recorte, 1180.
+- [x] Con 100 episodios o menos no se pinta ningún control.
+- [x] El salto deja el foco en la fila del episodio pedido (medido en el e2e) y no cambia el modo elegido.
+- [x] El resumen de vistos cuenta la ventana visible, no el título entero.
 
 **Depende de:** T71. **Tamaño:** M.
 
