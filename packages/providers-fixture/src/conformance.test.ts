@@ -32,7 +32,7 @@ describe('conformidad', () => {
       sub: true,
       dub: true,
       trending: true,
-      feed: false,
+      feed: true,
     })
   })
 

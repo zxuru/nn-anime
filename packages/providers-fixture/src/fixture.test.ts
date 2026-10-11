@@ -154,6 +154,28 @@ describe('métodos del proveedor', () => {
     expect(lista?.[0]?.ref.value).toBe('mar-de-cristal')
   })
 
+  test('getFeed devuelve las novedades, de la más nueva a la más vieja', async () => {
+    const proveedor = createFixtureProvider()
+    const lista = (await proveedor.getFeed?.(opciones())) ?? []
+
+    expect(lista.length).toBeGreaterThan(1)
+    for (const entrada of lista) {
+      expect(entrada.publishedAt, entrada.title).toBeDefined()
+      expect(Number.isNaN(Date.parse(entrada.publishedAt ?? '')), entrada.title).toBe(false)
+    }
+
+    const fechas = lista.map((entrada) => Date.parse(entrada.publishedAt ?? ''))
+    expect([...fechas].sort((a, b) => b - a)).toEqual(fechas)
+  })
+
+  test('el feed no repite referencias', async () => {
+    const proveedor = createFixtureProvider()
+    const lista = (await proveedor.getFeed?.(opciones())) ?? []
+    const claves = lista.map((entrada) => entrada.ref.value)
+
+    expect(new Set(claves).size).toBe(claves.length)
+  })
+
   test('toda dirección es del dominio reservado: no hay red que tocar', async () => {
     const proveedor = createFixtureProvider()
     const fuentes = await proveedor.resolveStream(
@@ -268,11 +290,23 @@ describe('contador de llamadas', () => {
     await proveedor.search('aurora', opciones())
     await proveedor.search('aurora', opciones())
     await proveedor.getAnime(REF_AURORA, opciones())
+    await proveedor.getFeed?.(opciones())
 
     expect(proveedor.calls.count('search')).toBe(2)
     expect(proveedor.calls.count('getAnime')).toBe(1)
     expect(proveedor.calls.count('getEpisodes')).toBe(0)
-    expect(proveedor.calls.total()).toBe(3)
+    // Es el contador que sostiene «la segunda carga de la home no volvió a pedir
+    // el feed»: sin él, esa afirmación no se puede medir.
+    expect(proveedor.calls.count('getFeed')).toBe(1)
+    expect(proveedor.calls.total()).toBe(4)
+  })
+
+  test('un feed que falla también se cuenta', async () => {
+    const proveedor = createFixtureProvider({ failures: { getFeed: 'throws' } })
+
+    await expect(proveedor.getFeed?.(opciones())).rejects.toThrow()
+
+    expect(proveedor.calls.count('getFeed')).toBe(1)
   })
 
   test('una llamada que falla también se cuenta', async () => {
@@ -307,6 +341,15 @@ describe('opciones desde el entorno', () => {
     ).toEqual({
       latencyMs: 25,
       failures: { search: 'http500', resolveStream: 'timeout' },
+    })
+  })
+
+  test('el feed también se puede forzar desde el entorno', () => {
+    // Sin esto, `NN_ANIME_FIXTURE_FAIL=getFeed=throws` se ignoraba en silencio: la
+    // lista de métodos del entorno es una segunda lista de métodos del contrato, y
+    // es justo donde se olvida el que se añade.
+    expect(fixtureOptionsFromEnv({ NN_ANIME_FIXTURE_FAIL: 'getFeed=throws' })).toEqual({
+      failures: { getFeed: 'throws' },
     })
   })
 

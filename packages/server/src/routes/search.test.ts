@@ -101,7 +101,7 @@ describe('GET /api/providers', () => {
       sub: true,
       dub: true,
       trending: true,
-      feed: false,
+      feed: true,
     })
     expect(body.providers[0]?.status).toBe('active')
   })

@@ -18,6 +18,7 @@
 import {
   type AnimeDetail,
   type Episode,
+  type FeedEntry,
   type ProviderError,
   ProviderError as ProviderErrorClass,
   type ProviderRef,
@@ -27,7 +28,16 @@ import {
   type StreamSource,
 } from '@nn-anime/core'
 import type { CallOptions, Provider, ProviderMethod } from '@nn-anime/provider-sdk'
-import { buscar, destacados, detalle, episodios, numeroDeEpisodio, porRef, streams } from './data'
+import {
+  buscar,
+  destacados,
+  detalle,
+  episodios,
+  novedades,
+  numeroDeEpisodio,
+  porRef,
+  streams,
+} from './data'
 
 export const FIXTURE_PROVIDER_ID = 'fixture'
 
@@ -163,7 +173,7 @@ export function createFixtureProvider(options: FixtureOptions = {}): FixtureProv
     id,
     name: options.name ?? 'Proveedor de prueba',
     apiVersion: '1',
-    capabilities: { search: true, sub: true, dub: true, trending: true, feed: false },
+    capabilities: { search: true, sub: true, dub: true, trending: true, feed: true },
     calls,
 
     async search(query, callOptions) {
@@ -222,6 +232,11 @@ export function createFixtureProvider(options: FixtureOptions = {}): FixtureProv
       await antesDeResponder('getTrending', callOptions, '')
       return destacados(5)
     },
+
+    async getFeed(callOptions) {
+      await antesDeResponder('getFeed', callOptions, '')
+      return novedades()
+    },
   }
 }
 
@@ -231,6 +246,7 @@ const METODOS: readonly string[] = [
   'getEpisodes',
   'resolveStream',
   'getTrending',
+  'getFeed',
 ]
 const FALLOS: readonly string[] = ['http500', 'http404', 'throws', 'timeout']
 
@@ -271,4 +287,4 @@ export const fixtureProvider: FixtureProvider = createFixtureProvider(
   fixtureOptionsFromEnv(process.env),
 )
 
-export type { AnimeDetail, Episode, SearchResult, StreamSource }
+export type { AnimeDetail, Episode, FeedEntry, SearchResult, StreamSource }

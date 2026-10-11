@@ -16,6 +16,7 @@ import { join } from 'node:path'
 import type {
   AnimeDetail,
   Episode,
+  FeedEntry,
   SearchResult,
   StreamMode,
   StreamSource,
@@ -201,4 +202,23 @@ export function streams(
 /** Los más populares, para el arranque en frío de `recsys`. */
 export function destacados(cantidad: number): readonly SearchResult[] {
   return buscar('').slice(0, cantidad)
+}
+
+/**
+ * Las novedades de la fuente, con su fecha de publicación.
+ *
+ * Las fechas son **inventadas y fijas**: una que dependiera de `Date.now()` haría
+ * que el mismo feed diera resultados distintos en cada ejecución, y la prueba que
+ * comprueba el orden pasaría o fallaría según el día. Van de más nueva a más
+ * vieja, un día entre una y la siguiente, que es lo que hace verificable el orden
+ * de la fila.
+ */
+const FECHA_MAS_NUEVA = Date.parse('2026-10-01T12:00:00.000Z')
+const UN_DIA_MS = 86_400_000
+
+export function novedades(cantidad = 8): readonly FeedEntry[] {
+  return CATALOGO.slice(0, cantidad).map((titulo, indice) => ({
+    ...aResultado(titulo),
+    publishedAt: new Date(FECHA_MAS_NUEVA - indice * UN_DIA_MS).toISOString(),
+  }))
 }
