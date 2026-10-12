@@ -5,15 +5,42 @@ coverage/
 .vite/
 *.tsbuildinfo
 
+# Secretos: nunca dentro del repo. `.env.example` sí, con marcadores.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+.netrc
+.npmrc
+.pypirc
+.git-credentials
+serviceAccount*.json
+
+# Credenciales de servicios
+.aws/
+.docker/config.json
+.ssh/
+
 # Salidas de herramientas
 playwright-report/
 test-results/
 *.log
+*.trace
 
 # Datos locales de desarrollo: nunca dentro del repo
 *.db
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite3
+*.dump
 .data/
 
 # Temporales locales del sandbox
@@ -22,3 +49,10 @@ test-results/
 # Un worktree por agente: anidado porque el sandbox de escritura se limita al
 # workspace, y en .gitignore para que bun test y biome no recorran la copia
 .worktrees/
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
