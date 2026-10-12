@@ -91,4 +91,57 @@ describe('registro vivo de proveedores', () => {
     expect(hub.providers).toEqual([])
     expect(hub.report.active).toEqual([])
   })
+
+  test('los archivos habilitados se piden en cada recarga, no una vez', async () => {
+    const vistos: (readonly string[])[] = []
+    let habilitados: readonly string[] = []
+
+    const hub = createProviderHub({
+      directory: '/p',
+      extraFiles: async () => habilitados,
+      load: async (_directory, files) => {
+        vistos.push(files)
+
+        return report(['uno'])
+      },
+    })
+
+    await hub.reload()
+    habilitados = ['/datos/repos/o__r/marca/jkanime.ts']
+    await hub.reload()
+
+    expect(vistos).toEqual([[], ['/datos/repos/o__r/marca/jkanime.ts']])
+  })
+
+  test('sin archivos habilitados el cargador recibe la lista vacía, no `undefined`', async () => {
+    let recibidos: readonly string[] | undefined
+
+    const hub = createProviderHub({
+      directory: '/p',
+      load: async (_directory, files) => {
+        recibidos = files
+
+        return report(['uno'])
+      },
+    })
+
+    await hub.reload()
+
+    expect(recibidos).toEqual([])
+  })
+
+  test('si los habilitados fallan, el informe que había se queda como está', async () => {
+    const hub = createProviderHub({
+      directory: '/p',
+      initial: { active: [{ provider: proveedor, file: '/p/fixture.ts' }], rejected: [] },
+      extraFiles: async () => {
+        throw new Error('la tabla de ajustes no responde')
+      },
+      load: async () => report(['otro']),
+    })
+
+    await expect(hub.reload()).rejects.toThrow('la tabla de ajustes no responde')
+    // No se vació nada: el registro sigue sirviendo lo que ya tenía.
+    expect(hub.providers.map((p) => p.id)).toEqual(['fixture'])
+  })
 })

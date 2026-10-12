@@ -28,6 +28,7 @@ import { securityHeaders } from './middleware/security-headers'
 import { sessionGuard } from './middleware/session-guard'
 import { PROTECTED_PREFIXES } from './paths'
 import { createProviderHub } from './provider-hub'
+import { enabledProviderFiles } from './repo-store'
 import { registerAnimeRoutes } from './routes/anime'
 import { registerCoverRoute } from './routes/cover'
 import { registerDetailRoutes } from './routes/detail'
@@ -35,6 +36,7 @@ import { registerFeedRoute, registerRecentRoute } from './routes/discovery'
 import { registerEpisodesRoute } from './routes/episodes'
 import { registerFavoritesRoutes } from './routes/favorites'
 import { registerPlayRoutes } from './routes/play'
+import { registerProviderReposRoutes } from './routes/provider-repos'
 import { type PluginReport, registerProvidersRoute, summarizePlugins } from './routes/providers'
 import { registerRecommendationsRoute, registerTrendingRoute } from './routes/recommendations'
 import { registerProviderRoute } from './routes/register-provider'
@@ -77,7 +79,7 @@ export interface AppOptions {
    */
   readonly providersDir?: string
   /** Cargador de plugins. Inyectable: las pruebas no escriben en el disco real. */
-  readonly loadPlugins?: (directory: string) => Promise<LoadReport>
+  readonly loadPlugins?: (directory: string, files: readonly string[]) => Promise<LoadReport>
   /** Tiempo límite por proveedor en la búsqueda. Se acorta en los tests. */
   readonly searchTimeoutMs?: number
   /**
@@ -99,6 +101,21 @@ export interface AppOptions {
   readonly paths?: ConfigPaths
   /** Versión de mpv detectada al arrancar, si la hay. */
   readonly mpvVersion?: string
+  /**
+   * `fetch` de la descarga de repositorios. Se inyecta en los tests para no
+   * salir a la red; en producción se usa el global.
+   */
+  readonly githubFetchImpl?: FetchLike
+  /** Resolutor del DNS para la lista blanca de la descarga. Igual que el del proxy. */
+  readonly githubResolver?: Resolver
+  /**
+   * Reloj de la descarga de repositorios.
+   *
+   * Se inyecta porque `fetchedAt` no es sólo un dato que se enseña: es la marca
+   * que distingue una descarga de la siguiente, y dos descargas en el mismo
+   * milisegundo compartirían carpeta y el módulo no se volvería a importar.
+   */
+  readonly githubClock?: () => number
   /**
    * Excepción de loopback para el proxy. La pone el arranque leyendo el entorno,
    * y **sólo** el e2e la pone. Ver `ALLOW_LOOPBACK_ENV`.
@@ -154,10 +171,19 @@ export function createApp(options: AppOptions): Hono {
   // El registro es vivo: las rutas que vienen debajo reciben estas referencias y
   // las leen al atender, así que un alta desde Ajustes se ve sin reiniciar. Ver
   // `provider-hub.ts`.
+  //
+  // Los archivos de los repositorios instalados se piden en cada recarga, y de
+  // ahí que el hub reciba una función: quién está habilitado lo sabe el store, y
+  // el hub no tiene por qué saber de ajustes.
+  const store = options.container?.store
+  const dataDir = options.paths?.dataDir
   const hub = createProviderHub({
     ...(options.providersDir === undefined ? {} : { directory: options.providersDir }),
     ...(options.plugins === undefined ? {} : { initial: options.plugins }),
     ...(options.loadPlugins === undefined ? {} : { load: options.loadPlugins }),
+    ...(store === undefined || dataDir === undefined
+      ? {}
+      : { extraFiles: () => enabledProviderFiles(store, dataDir) }),
   })
   const plugins: PluginReport = hub.report
 
@@ -214,6 +240,21 @@ export function createApp(options: AppOptions): Hono {
       ...(options.mpvVersion === undefined ? {} : { mpvVersion: options.mpvVersion }),
     })
     registerPlayRoutes(app, routeOptions)
+  }
+
+  // Los repositorios necesitan las tres cosas: el store donde vive la ficha —
+  // «qué está habilitado»—, la carpeta de datos donde vive el contenido y el hub
+  // que recarga. Sin las tres, las rutas no se registran y una petición a ellas
+  // es un 404 explicable en vez de un 500 por dentro.
+  if (options.container !== undefined && options.paths !== undefined) {
+    registerProviderReposRoutes(app, {
+      container: options.container,
+      hub,
+      dataDir: options.paths.dataDir,
+      ...(options.githubFetchImpl === undefined ? {} : { fetchImpl: options.githubFetchImpl }),
+      ...(options.githubResolver === undefined ? {} : { resolver: options.githubResolver }),
+      ...(options.githubClock === undefined ? {} : { now: options.githubClock }),
+    })
   }
 
   registerSearchRoute(app, {

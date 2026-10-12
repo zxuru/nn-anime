@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { openDb, runMigrations } from '@nn-anime/catalog-store'
 import type { Hono } from 'hono'
 import { type AppOptions, createApp } from './app'
+import { createContainer } from './container'
 import { SESSION_COOKIE, type Session } from './session'
 
 const PORT = 7717
@@ -254,6 +259,41 @@ describe('GET /api/health', () => {
 })
 
 describe('tabla de rutas', () => {
+  /**
+   * La aplicación **con todo montado**.
+   *
+   * La tabla tiene que recorrer las rutas de verdad, no las que quedan cuando no
+   * hay base ni carpeta de datos: con la aplicación a medias, las rutas que
+   * dependen del contenedor —las de metadatos y las de repositorios— no existirían
+   * y la tabla diría que todo está cubierto sin haberlas mirado.
+   */
+  async function conRutas<T>(body: (target: Hono) => Promise<T>): Promise<T> {
+    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-rutas-'))
+    const db = openDb(join(dir, 'nn-anime.db'))
+    runMigrations(db)
+    const container = createContainer({ db })
+
+    try {
+      return await body(
+        app({
+          container,
+          providersDir: join(dir, 'providers'),
+          paths: {
+            dataDir: dir,
+            configDir: dir,
+            cacheDir: join(dir, 'cache'),
+            providersDir: join(dir, 'providers'),
+            dbPath: join(dir, 'nn-anime.db'),
+            configFile: join(dir, 'nn-anime.json'),
+          },
+        }),
+      )
+    } finally {
+      await container.close().catch(() => {})
+      await rm(dir, { recursive: true, force: true })
+    }
+  }
+
   /** Convierte una ruta de Hono en una URL concreta. */
   function concrete(path: string): string {
     return `${BASE}${path.replace(/:[A-Za-z0-9_]+/g, 'x')}`
@@ -267,31 +307,49 @@ describe('tabla de rutas', () => {
       .map((route) => ({ path: route.path, method: route.method }))
   }
 
-  test('hay al menos una ruta protegida que comprobar', () => {
-    expect(protectedRoutes(app()).length).toBeGreaterThan(0)
+  test('hay al menos una ruta protegida que comprobar', async () => {
+    await conRutas(async (target) => {
+      expect(protectedRoutes(target).length).toBeGreaterThan(0)
+    })
+  })
+
+  test('las rutas de repositorios están en la tabla', async () => {
+    await conRutas(async (target) => {
+      const rutas = protectedRoutes(target).filter((route) => route.path === '/api/provider-repos')
+
+      // Las cuatro, y por prefijo protegido: si alguna se registrara fuera de
+      // `/api/`, esta prueba es la que lo dice.
+      expect(rutas.map((route) => route.method).sort()).toEqual(['DELETE', 'GET', 'PATCH', 'POST'])
+    })
   })
 
   test('toda ruta protegida exige sesión', async () => {
-    const target = app()
+    await conRutas(async (target) => {
+      for (const route of protectedRoutes(target)) {
+        // El `Origin` va puesto aunque no haya cookie: sin él, un método mutante
+        // lo corta antes el guard de Origin con un 403, y esta prueba estaría
+        // midiendo el otro guard.
+        const response = await target.request(concrete(route.path), {
+          method: route.method,
+          headers: { origin: BASE },
+        })
 
-    for (const route of protectedRoutes(target)) {
-      const response = await target.request(concrete(route.path), { method: route.method })
-
-      expect(response.status, `${route.method} ${route.path} sin cookie`).toBe(401)
-    }
+        expect(response.status, `${route.method} ${route.path} sin cookie`).toBe(401)
+      }
+    })
   })
 
   test('toda ruta protegida rechaza un Host ajeno', async () => {
-    const target = app()
+    await conRutas(async (target) => {
+      for (const route of protectedRoutes(target)) {
+        const ajeno = concrete(route.path).replace('127.0.0.1', 'evil.example')
+        const response = await target.request(ajeno, {
+          method: route.method,
+          headers: GOOD_COOKIE,
+        })
 
-    for (const route of protectedRoutes(target)) {
-      const ajeno = concrete(route.path).replace('127.0.0.1', 'evil.example')
-      const response = await target.request(ajeno, {
-        method: route.method,
-        headers: GOOD_COOKIE,
-      })
-
-      expect(response.status, `${route.method} ${route.path} con Host ajeno`).toBe(403)
-    }
+        expect(response.status, `${route.method} ${route.path} con Host ajeno`).toBe(403)
+      }
+    })
   })
 })

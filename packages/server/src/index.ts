@@ -105,6 +105,17 @@ export {
   searchKey,
 } from './container'
 export { isProtectedPath, PROTECTED_PREFIXES } from './paths'
+export {
+  candidatesOf,
+  enabledProviderFiles,
+  listRepoRecords,
+  MAX_PROVIDER_REPOS,
+  PROVIDER_REPOS_KEY,
+  repoDirOf,
+  reposRoot,
+  saveRepoRecords,
+  stampOf,
+} from './repo-store'
 export { registerAnimeRoutes, statusFor } from './routes/anime'
 export { registerEpisodesRoute, statusForEpisodes } from './routes/episodes'
 export { registerFavoritesRoutes } from './routes/favorites'
