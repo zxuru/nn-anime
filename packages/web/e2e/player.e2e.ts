@@ -289,7 +289,8 @@ test.describe('el reproductor', () => {
 
     await expect(page).toHaveTitle('Aurora Nocturna · Episodio 3 · nn-anime', { timeout: 15_000 })
     await expect(page.getByRole('heading', { level: 1, name: 'Aurora Nocturna' })).toBeVisible()
-    await expect(page.locator('.watch header .card__meta')).toHaveText('Episodio 3')
+    // El episodio, en una sola línea: el número, el lugar que ocupa de cuántos.
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 3 · 3 de 12')
   })
 
   /**
@@ -312,6 +313,40 @@ test.describe('el reproductor', () => {
       timeout: 15_000,
     })
     await expect(page.locator('.episodes li')).toHaveCount(12, { timeout: 15_000 })
+  })
+
+  /**
+   * El mismo borde para todo.
+   *
+   * El título llegaba hasta el ancho de la página y el video se quedaba en los
+   * 960 px de su propio máximo: dos sangrías para la misma pantalla y un hueco
+   * vacío a la derecha del video. Aquí se mide lo que se ve: que el encabezado,
+   * el reproductor y la fila de mandos empiezan en la misma vertical.
+   */
+  test('el encabezado, el reproductor y los mandos comparten el borde izquierdo', async ({
+    page,
+  }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    await expect(page.locator('video')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.watch__nav')).toBeVisible()
+
+    const izquierdas = await Promise.all(
+      ['.watch__head h1', '.player', '.watch__nav'].map(async (selector) => {
+        const caja = await page.locator(selector).boundingBox()
+
+        return caja?.x
+      }),
+    )
+
+    const referencia = izquierdas[0]
+    expect(referencia).toBeDefined()
+
+    for (const izquierda of izquierdas) {
+      expect(izquierda).toBeDefined()
+      expect(Math.abs((izquierda ?? 0) - (referencia ?? 0))).toBeLessThanOrEqual(1)
+    }
   })
 
   /**
@@ -358,8 +393,8 @@ test.describe('el reproductor', () => {
     await entrar(page)
     await page.goto('/watch/fixture/aurora-nocturna%232')
 
-    const posicion = page.locator('.watch__nav-pos')
-    await expect(posicion).toHaveText('Episodio 2 de 12')
+    const posicion = page.locator('.watch__episode')
+    await expect(posicion).toHaveText('Episodio 2 · 2 de 12')
 
     expect(await posicion.evaluate((elemento) => getComputedStyle(elemento).userSelect)).toBe(
       'none',
@@ -384,13 +419,13 @@ test.describe('el reproductor', () => {
     await lista.nth(1).getByRole('link').click()
     await expect(page).toHaveURL(/aurora-nocturna%232/)
 
-    // Y en medio, dónde se está: sin esto, dos botones en los extremos de una
-    // fila vacía no dicen ni el episodio ni cuántos quedan.
-    await expect(page.locator('.watch__nav-pos')).toHaveText('Episodio 2 de 12')
+    // Y debajo del video, dónde se está: sin esto, dos botones en los extremos de
+    // una fila vacía no dicen ni el episodio ni cuántos quedan.
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 2 · 2 de 12')
 
     await page.getByRole('link', { name: 'Episodio siguiente' }).click()
     await expect(page).toHaveURL(/aurora-nocturna%233/)
-    await expect(page.locator('.watch__nav-pos')).toHaveText('Episodio 3 de 12')
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 3 · 3 de 12')
 
     await page.getByRole('link', { name: 'Episodio anterior' }).click()
     await expect(page).toHaveURL(/aurora-nocturna%232/)
@@ -406,14 +441,19 @@ test.describe('el reproductor', () => {
     const enlaces = page.locator('a.watch__nav-link')
     await expect(enlaces).toHaveCount(1)
     await expect(enlaces).toHaveAttribute('href', /aurora-nocturna%232/)
-    await expect(page.locator('.watch__nav-pos')).toHaveText('Episodio 1 de 12')
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 1 · 1 de 12')
 
     // El anterior existe como hueco apagado, y dice por qué no lleva a ninguna
     // parte: sin eso, una flecha muerta se lee como un fallo de la aplicación.
-    // No es un enlace y no se anuncia como tal: ahí no se puede pulsar.
-    const anterior = page.locator('.watch__nav-off', { hasText: 'Episodio anterior' })
+    // No es un enlace y no se anuncia como tal: ahí no se puede pulsar. Lo que lo
+    // dice es el `aria-disabled` y la opacidad, no un borde discontinuo: el
+    // punteado se leía como un mando a medio dibujar.
+    const anterior = page.locator('.watch__nav-off', { hasText: 'Anterior' })
     await expect(anterior).toHaveAttribute('title', /primer episodio/)
-    await expect(anterior).toHaveCSS('border-style', 'dashed')
+    await expect(anterior).toHaveAttribute('aria-disabled', 'true')
+    await expect(anterior).toHaveCSS('border-style', 'solid')
+    const opacidad = await anterior.evaluate((elemento) => getComputedStyle(elemento).opacity)
+    expect(Number(opacidad)).toBeLessThan(1)
     await expect(page.getByRole('link', { name: 'Episodio anterior' })).toHaveCount(0)
 
     await page.goto('/watch/fixture/aurora-nocturna%2312')
@@ -423,8 +463,9 @@ test.describe('el reproductor', () => {
     await expect(enlacesFinal).toHaveCount(1)
     await expect(enlacesFinal).toHaveAttribute('href', /aurora-nocturna%2311/)
 
-    const siguiente = page.locator('.watch__nav-off', { hasText: 'Episodio siguiente' })
+    const siguiente = page.locator('.watch__nav-off', { hasText: 'Siguiente' })
     await expect(siguiente).toHaveAttribute('title', /último episodio/)
+    await expect(siguiente).toHaveAttribute('aria-disabled', 'true')
     await expect(page.getByRole('link', { name: 'Episodio siguiente' })).toHaveCount(0)
   })
 

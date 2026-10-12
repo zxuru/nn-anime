@@ -210,18 +210,55 @@ describe('los vecinos de un episodio', () => {
       previous: { providerId: 'jkanime', value: 'dandadan/11' },
       next: undefined,
     })
-    expect(episodePosition(doce, 'jkanime', 'dandadan/12')).toEqual({ number: 12, total: 12 })
+    expect(episodePosition(doce, 'jkanime', 'dandadan/12')).toEqual({
+      number: 12,
+      position: 12,
+      total: 12,
+    })
   })
 })
 
 describe('el episodio que se está viendo, de cuántos', () => {
-  test('el número y el total de la lista', () => {
-    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#2')).toEqual({ number: 2, total: 3 })
+  test('el número, el lugar y el total de la lista', () => {
+    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#2')).toEqual({
+      number: 2,
+      position: 2,
+      total: 3,
+    })
   })
 
   test('el primero y el último también se sitúan', () => {
-    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#1')).toEqual({ number: 1, total: 3 })
-    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#3')).toEqual({ number: 3, total: 3 })
+    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#1')).toEqual({
+      number: 1,
+      position: 1,
+      total: 3,
+    })
+    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#3')).toEqual({
+      number: 3,
+      position: 3,
+      total: 3,
+    })
+  })
+
+  /**
+   * El lugar en la lista no es el número que el proveedor escribió.
+   *
+   * Es lo que hace que «3 de 12» diga el tercero y no lo que diga el rótulo:
+   * hay listas que empiezan en cero, que numeran por temporada o que repiten
+   * número, y el rótulo del episodio es del proveedor.
+   */
+  test('el lugar es el de la lista, aunque el número sea otro', () => {
+    const desordenada = [
+      { ref: { providerId: 'fixture', value: 'aurora-nocturna#0' }, number: 0 },
+      { ref: { providerId: 'fixture', value: 'aurora-nocturna#7' }, number: 7 },
+      { ref: { providerId: 'fixture', value: 'aurora-nocturna#7b' }, number: 7 },
+    ]
+
+    expect(episodePosition(desordenada, 'fixture', 'aurora-nocturna#7')).toEqual({
+      number: 7,
+      position: 2,
+      total: 3,
+    })
   })
 
   test('un episodio que no está en la lista no se sitúa', () => {
@@ -239,6 +276,7 @@ describe('el episodio que se está viendo, de cuántos', () => {
 
     expect(episodePosition(mezcla, 'fixture', 'aurora-nocturna#2')).toEqual({
       number: 2,
+      position: 2,
       total: 3,
     })
   })

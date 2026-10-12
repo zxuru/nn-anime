@@ -224,6 +224,14 @@ export function neighbourEpisodes(
 export interface EpisodePosition {
   /** El número del episodio que se está viendo. */
   readonly number: number
+  /**
+   * El lugar que ocupa en la lista, contando desde uno.
+   *
+   * No es lo mismo que el número: hay proveedores que numeran con saltos o que
+   * repiten el número de temporada, y «3 de 12» tiene que decir el tercero de la
+   * lista, no lo que el proveedor escribió en el rótulo.
+   */
+  readonly position: number
   /** Cuántos tiene el título. */
   readonly total: number
 }
@@ -244,5 +252,7 @@ export function episodePosition(
   const indice = indexOfCurrent(propios, currentRef)
   const actual = indice === -1 ? undefined : propios[indice]
 
-  return actual === undefined ? undefined : { number: actual.number, total: propios.length }
+  return actual === undefined
+    ? undefined
+    : { number: actual.number, position: indice + 1, total: propios.length }
 }

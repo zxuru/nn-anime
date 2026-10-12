@@ -141,6 +141,22 @@
   --hero-poster-width: 22rem;
   --video-ratio: 16 / 9;
   --title-clamp: 2;
+  /**
+   * La pantalla de reproducción.
+   *
+   * Las dos columnas se resuelven con `flex-wrap` y no con una consulta de
+   * medios: la hoja de estructura no admite medidas literales —hay una prueba
+   * que lo impide— y una consulta de medios no puede leer un token con `var()`.
+   * La columna principal pide su mínimo y la lateral el suyo; si no caben las
+   * dos, la lista de episodios cae debajo del reproductor.
+   */
+  --watch-title-size: clamp(1.5rem, 2.5vw, 2rem);
+  --watch-main-min: 38rem;
+  --watch-episodes-width: 20rem;
+  --watch-episodes-max: 22rem;
+  --watch-episode-height: 2.75rem;
+  /** El lado mínimo de un mando: 44 px, el objetivo táctil que pide el spec. */
+  --control-size: 2.75rem;
   --letter-tight: -0.01em;
   --content-max: 1200px;
   --header-height: 3.5rem;

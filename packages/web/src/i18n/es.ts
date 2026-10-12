@@ -205,16 +205,25 @@ export const messages: Messages = {
   'reco.score': 'Puntuación: {score}',
   'player.label': 'Reproductor de video',
   'player.tracks': 'Subtítulos disponibles: {count}.',
-  'player.mode': 'Modo',
+  // El nombre del grupo de los dos modos de audio. Antes era «Modo», que no decía
+  // de qué se estaba hablando: el modo compatible también es un modo.
+  'player.audio': 'Audio',
   'player.episodes': 'Episodios',
   // El regreso a la ficha: la pantalla de reproducción es un callejón sin salida
   // sin este enlace, porque la cabecera lleva a la home y no al título.
   'player.backToDetail': 'Volver a la ficha',
   'player.previousEpisode': 'Episodio anterior',
   'player.nextEpisode': 'Episodio siguiente',
+  // El rótulo corto de las flechas, que ahora van en una fila compacta bajo el
+  // video. El nombre largo sigue existiendo como `title` y como nombre accesible:
+  // «Anterior» a secas depende de un contexto que el ojo tiene delante.
+  'player.previous': 'Anterior',
+  'player.next': 'Siguiente',
   'player.firstEpisode': 'Este es el primer episodio: no hay anterior.',
   'player.lastEpisode': 'Este es el último episodio: no hay siguiente.',
-  'player.episodeOf': 'Episodio {number} de {total}',
+  // El episodio en una sola línea: el número, el lugar que ocupa de cuántos —que
+  // antes se decía en medio de las flechas— y, si el proveedor lo dio, su título.
+  'player.episodeAt': 'Episodio {number} · {position} de {total}',
   // El episodio, para el título de la pestaña y para el encabezado de la pantalla.
   'player.episode': 'Episodio {number}',
   'player.episodeNamed': 'Episodio {number} · {title}',
