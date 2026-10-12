@@ -29,9 +29,16 @@ export interface PluginReport {
   }[]
 }
 
-/** El nombre del archivo sin ruta ni extensión, para poder nombrar un rechazo. */
+/**
+ * El nombre del archivo sin ruta ni extensión, para poder nombrar un rechazo.
+ *
+ * Parte por **los dos separadores**, no sólo por `/`: en Windows una ruta llega
+ * con `\`, y partir sólo por `/` devolvía la ruta entera como nombre. Se vio en
+ * vivo: un proveedor habilitado de un repositorio que no conformaba salía en la
+ * lista con `C:\datos\repos\…\index.js` de identificador.
+ */
 export function fileStem(file: string): string {
-  const base = file.split('/').at(-1) ?? file
+  const base = file.split(/[\\/]/).at(-1) ?? file
 
   return base.replace(/\.(ts|js|mjs)$/, '')
 }
