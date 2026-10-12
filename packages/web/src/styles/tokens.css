@@ -174,6 +174,31 @@
   /** El lado mínimo de un mando: 44 px, el objetivo táctil que pide el spec. */
   --control-size: 2.75rem;
   /**
+   * Los dos puntos de corte de la interfaz.
+   *
+   * `var()` no existe dentro de un `@media`, así que el número se repite en la
+   * consulta; aquí queda el valor con nombre y la prueba de la hoja comprueba que
+   * los dos coincidan. `--bp-mobile` es donde el reproductor deja de superponer
+   * los mandos al video; `--bp-compact`, donde no caben los saltos de diez
+   * segundos.
+   */
+  --bp-mobile: 600px;
+  --bp-compact: 480px;
+  /** El mando estrecho y su hueco: 40 px y 6 px, para que quepan en una fila. */
+  --control-size-compact: 2.5rem;
+  --gap-compact: 6px;
+  /**
+   * El interruptor de las preferencias.
+   *
+   * Carril, tirador y lo que viaja el tirador: el ancho menos el tirador menos los
+   * dos bordes del carril. Con los tres en tokens, mover el carril no descoloca el
+   * tirador.
+   */
+  --switch-width: 2.75rem;
+  --switch-height: 1.5rem;
+  --switch-knob: 1.25rem;
+  --switch-travel: calc(var(--switch-width) - var(--switch-knob) - 2 * var(--border-width-strong));
+  /**
    * El reproductor.
    *
    * La barra de progreso tiene tres alturas distintas a propósito: el carril
@@ -193,16 +218,29 @@
    * porque es un color, y la hoja de estructura no admite colores literales.
    */
   --player-gradient: linear-gradient(to top, rgb(0 0 0 / 85%), rgb(0 0 0 / 0%));
-  --seek-track: rgb(242 233 216 / 25%);
-  --seek-buffer: rgb(242 233 216 / 45%);
+  /**
+   * Las tres capas de la barra de progreso.
+   *
+   * Medidas contra el negro del degradado —que es lo que hay detrás en los dos
+   * temas— y no contra el fondo de la página: el carril queda en 3.9:1, el búfer
+   * en 5.6:1 y el tramo reproducido, que es el acento, en 4.6:1. Los tres pasan el
+   * 3:1 que el spec pide para las partes de un componente, y la prueba de contraste
+   * los mide.
+   *
+   * Estaban al 25 % y al 45 %: sobre un video oscuro el carril se perdía y no se
+   * veía dónde se puede arrastrar.
+   */
+  --seek-track: rgb(242 233 216 / 45%);
+  --seek-buffer: rgb(242 233 216 / 68%);
   /**
    * El menú de ajustes del reproductor.
    *
-   * Un ancho de mando, no de panel, y un alto máximo para que una lista de
-   * subtítulos larga no empuje el menú fuera de la ventana: a partir de ahí se
-   * desplaza por dentro.
+   * 240 px: lo que mide el mando que lo abre más un dedo. Se ancla **encima** del
+   * botón y con ancho fijo, para que no cambie de tamaño con lo que lleve dentro
+   * ni se salga de la ventana en un teléfono. El alto es tope: una lista de
+   * subtítulos larga se desplaza por dentro en vez de empujar el menú.
    */
-  --menu-width: 18rem;
+  --menu-width: 15rem;
   --menu-height: 24rem;
   --letter-tight: -0.01em;
   --content-max: 1200px;

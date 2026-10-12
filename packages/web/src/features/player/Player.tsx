@@ -57,6 +57,51 @@ import type { PlayMode } from './watch-route'
  */
 const INACTIVIDAD_MS = 3000
 
+/**
+ * Los dos anchos a partir de los cuales la barra cambia de forma.
+ *
+ * En una ventana estrecha los mandos dejan de superponerse al video y se van
+ * debajo, dentro del reproductor: con un video de 167 px de alto, una barra
+ * encima se come la imagen. Y por debajo del segundo —un teléfono en vertical— no
+ * caben los saltos de diez segundos, que en el táctil los hace el doble toque en
+ * los bordes.
+ *
+ * Los mismos números viven en `tokens.css` como puntos de corte, porque el CSS no
+ * puede leer un token dentro de un `@media`: la prueba de la hoja comprueba que
+ * coincidan. Aquí deciden **qué mandos hay** —y dónde va el volumen, que en móvil
+ * se muda al menú—; allí, cómo se colocan.
+ */
+const ANCHO_ESTRECHO = 600
+const ANCHO_COMPACTO = 480
+
+/** Zona de los bordes del video, en tanto por uno, donde el doble toque salta. */
+const ZONA_SALTO = 0.3
+
+/**
+ * ¿La ventana cumple esta consulta de ancho?
+ *
+ * Se pregunta al montar y se escucha el cambio: girar el teléfono o encoger la
+ * ventana tiene que mover el volumen al menú sin recargar la página. La primera
+ * respuesta llega en un efecto y no en el render, así que en el servidor —donde no
+ * hay `window`— vale «no»: la barra se pinta como la de escritorio y se corrige en
+ * el primer efecto, que es antes de que el video tenga imagen.
+ */
+function useAnchoHasta(ancho: number): boolean {
+  const [cumple, setCumple] = useState(false)
+
+  useEffect(() => {
+    const consulta = window.matchMedia(`(max-width: ${ancho}px)`)
+    const alCambiar = (): void => setCumple(consulta.matches)
+
+    alCambiar()
+    consulta.addEventListener('change', alCambiar)
+
+    return () => consulta.removeEventListener('change', alCambiar)
+  }, [ancho])
+
+  return cumple
+}
+
 export interface PlayerProps {
   /** URL del proxy: el ticket, nunca la del upstream. */
   readonly url: string
@@ -337,6 +382,10 @@ export function Player(props: PlayerProps): ReactNode {
   const duracion = Number.isFinite(state.durationS) && state.durationS > 0 ? state.durationS : 0
   const posicion = Math.min(arrastre ?? state.positionS, duracion)
 
+  // La forma de la barra, según la ventana. Ver `useAnchoHasta`.
+  const estrecho = useAnchoHasta(ANCHO_ESTRECHO)
+  const compacto = useAnchoHasta(ANCHO_COMPACTO)
+
   /**
    * Suena y no se ve.
    *
@@ -387,12 +436,39 @@ export function Player(props: PlayerProps): ReactNode {
     }, CLICK_DELAY_MS)
   }, [act, cancelarClic])
 
-  const alDobleClic = useCallback(() => {
-    cancelarClic()
-    if (!punteroFino()) return
+  /**
+   * El doble gesto: saltar en los bordes, pantalla completa en el centro.
+   *
+   * Es la convención de todos los reproductores y aquí es además lo que deja
+   * quitar los botones de ±10 s en un teléfono: el borde izquierdo retrocede, el
+   * derecho adelanta. La pantalla completa se queda en el centro y sólo con ratón:
+   * en táctil, el doble toque en medio es hacer zum y lo resuelve el navegador.
+   */
+  const alDobleClic = useCallback(
+    (evento: ReactPointerEvent<HTMLVideoElement>) => {
+      cancelarClic()
 
-    act('fullscreen')
-  }, [act, cancelarClic])
+      const caja = evento.currentTarget.getBoundingClientRect()
+      const relativo = caja.width <= 0 ? 0.5 : (evento.clientX - caja.left) / caja.width
+
+      if (relativo <= ZONA_SALTO) {
+        act('back')
+
+        return
+      }
+
+      if (relativo >= 1 - ZONA_SALTO) {
+        act('forward')
+
+        return
+      }
+
+      if (!punteroFino()) return
+
+      act('fullscreen')
+    },
+    [act, cancelarClic],
+  )
 
   // El teclado se escucha en la ventana: el foco puede estar en el propio video
   // o en la página, y obligar a enfocar el reproductor para usar las flechas es
@@ -469,95 +545,105 @@ export function Player(props: PlayerProps): ReactNode {
 
   return (
     <section className="player">
-      {/* El marco y el video, con la espera encima del segundo. El cartel va
-          dentro del marco y no en el flujo: debajo de los controles no lo veía
-          nadie, y lo que hay que decir es justo que la imagen todavía no está. */}
+      {/* El escenario: el video con sus capas dentro del marco, y los mandos.
+          El marco es lo que mide el video, y por eso el botón grande, la espera y
+          el lienzo del modo compatible se centran en **la imagen** y no en la caja
+          entera: en una ventana estrecha los mandos van debajo, dentro del
+          escenario, y centrar sobre el escenario dejaría el botón fuera del
+          video. */}
       <div
         className="player__stage"
         onPointerMove={reiniciarMandos}
         onPointerDown={reiniciarMandos}
       >
-        <video
-          ref={refVideo}
-          className="player__video"
-          controls={false}
-          playsInline
-          preload="metadata"
-          poster={props.poster}
-          aria-label={props.title ?? t(DEFAULT_LOCALE, 'player.label')}
-          // El clic sobre la imagen pausa y el doble clic pone pantalla completa:
-          // la superficie que se mira es la que se toca, y quien mira el video no
-          // tiene por qué bajar la vista a los mandos.
-          //
-          // El botón grande de encima es un dibujo sin eventos —`pointer-events:
-          // none`—: el gesto es del video entero, y un cartel que se comiera el
-          // clic obligaría a apuntarle a un cuadrado del centro.
-          //
-          // Los dos gestos se separan con una espera corta —ver `CLICK_DELAY_MS`—
-          // y no dejando correr los dos `click` que el navegador manda antes del
-          // `dblclick`: se anulaban entre sí y parecía funcionar, pero al salir de
-          // la pantalla completa el navegador entrega uno solo de los dos, así que
-          // el doble clic pausaba el video.
-          onClick={alClic}
-          onDoubleClick={alDobleClic}
-        >
-          {/* Una pista por subtítulo disponible. El navegador pinta la que esté
+        <div className="player__frame">
+          <video
+            ref={refVideo}
+            className="player__video"
+            controls={false}
+            playsInline
+            preload="metadata"
+            poster={props.poster}
+            aria-label={props.title ?? t(DEFAULT_LOCALE, 'player.label')}
+            // El clic sobre la imagen pausa y el doble clic salta en los bordes o
+            // pone pantalla completa en el centro: la superficie que se mira es la
+            // que se toca, y quien mira el video no tiene por qué bajar la vista a
+            // los mandos. Ver `alDobleClic`.
+            //
+            // El botón grande de encima es un dibujo sin eventos —`pointer-events:
+            // none`—: el gesto es del video entero, y un cartel que se comiera el
+            // clic obligaría a apuntarle a un cuadrado del centro.
+            //
+            // Los dos gestos se separan con una espera corta —ver `CLICK_DELAY_MS`—
+            // y no dejando correr los dos `click` que el navegador manda antes del
+            // `dblclick`: se anulaban entre sí y parecía funcionar, pero al salir de
+            // la pantalla completa el navegador entrega uno solo de los dos, así que
+            // el doble clic pausaba el video.
+            onClick={alClic}
+            onDoubleClick={alDobleClic}
+          >
+            {/* Una pista por subtítulo disponible. El navegador pinta la que esté
               marcada como `default`; el `<track>` no admite `default` dinámico, así
               que la primera —la que el proveedor prefiere— se marca desde el
               estado inicial del elemento. */}
-          {pistas.map((pista, indice) => (
-            <track
-              key={pista.url}
-              kind="subtitles"
-              // La comprobación va **en el atributo**, no sólo al construir la
-              // lista: si mañana alguien pasa pistas sin filtrar, aquí no entra una
-              // dirección de fuera igualmente.
-              src={isProxyPath(pista.url) ? pista.url : ''}
-              srcLang={pista.lang}
-              label={pista.label}
-              default={indice === 0}
-            />
-          ))}
-        </video>
+            {pistas.map((pista, indice) => (
+              <track
+                key={pista.url}
+                kind="subtitles"
+                // La comprobación va **en el atributo**, no sólo al construir la
+                // lista: si mañana alguien pasa pistas sin filtrar, aquí no entra una
+                // dirección de fuera igualmente.
+                src={isProxyPath(pista.url) ? pista.url : ''}
+                srcLang={pista.lang}
+                label={pista.label}
+                default={indice === 0}
+              />
+            ))}
+          </video>
 
-        {/* El modo compatible: encima del video y en su misma caja. El elemento
+          {/* El modo compatible: encima del video y en su misma caja. El elemento
             sigue ahí —es quien reproduce, quien lleva los subtítulos y quien
             habla con hls.js—, pero lo que se ve es este canvas, que el
             compositor pinta como una textura corriente. Va sin nombre accesible
             y sin `aria-hidden` a propósito: un canvas sin contenido de reserva
             no tiene rol ni nombre, así que no se anuncia, y lo que sí se anuncia
             es el `<video>` de debajo. */}
-        {pintando ? <canvas className="player__canvas" ref={canvasRef} /> : null}
+          {pintando ? <canvas className="player__canvas" ref={canvasRef} /> : null}
 
-        {/* El botón de reproducir, grande y en el centro. Es decoración para el
+          {/* El botón de reproducir, grande y en el centro. Es decoración para el
             ojo —quien no ve la pantalla tiene el mando de la barra, que sí se
             anuncia— y por eso va `aria-hidden` y sin recibir el puntero: el clic
             es del video, que es toda la superficie. */}
-        {enPausa ? (
-          <div className="player__overlay" aria-hidden="true">
-            <span className="player__play-icon">
-              <IconoReproducir className="player__play-glyph" />
-            </span>
-          </div>
-        ) : null}
+          {enPausa ? (
+            <div className="player__overlay" aria-hidden="true">
+              <span className="player__play-icon">
+                <IconoReproducir className="player__play-glyph" />
+              </span>
+            </div>
+          ) : null}
 
-        {espera === undefined ? null : (
-          <div className="player__wait">
-            {/* El cartel va en su caja y no suelto sobre el velo: el velo oscurece
+          {espera === undefined ? null : (
+            <div className="player__wait">
+              {/* El cartel va en su caja y no suelto sobre el velo: el velo oscurece
                 el video, y texto oscuro sobre un velo sobre fondo claro se queda
                 por debajo del contraste que exige el spec. La caja trae su propio
                 fondo, que es el par que la prueba de contraste mide. */}
-            <p className="player__wait-box" role="status">
-              <span className="player__bar" aria-hidden="true" />
-              {espera}
-            </p>
-          </div>
-        )}
+              <p className="player__wait-box" role="status">
+                <span className="player__bar" aria-hidden="true" />
+                {espera}
+              </p>
+            </div>
+          )}
+        </div>
 
-        {/* Los mandos, sobre el borde inferior del video y con un degradado que
-            los separa de la imagen sin taparla. `data-oculto` los esconde sin
-            sacarlos del documento —`display: none` devolvería el foco al `body`
-            en mitad de una reproducción— y sin recibir el puntero. */}
+        {/* Los mandos: la barra de progreso y su fila de botones.
+            En escritorio se superponen al borde inferior del video, con un
+            degradado que los separa de la imagen sin taparla; en una ventana
+            estrecha van **debajo** del video y dentro del escenario, porque una
+            barra superpuesta sobre un video de 167 px de alto se come la imagen.
+            `data-oculto` los esconde sin sacarlos del documento —`display: none`
+            devolvería el foco al `body` en mitad de una reproducción— y sin recibir
+            el puntero; en móvil no se esconden, porque no tapan nada. */}
         <div className="player__controls" data-oculto={state.playing && !mandos}>
           <div
             className="player__seek"
@@ -630,59 +716,73 @@ export function Player(props: PlayerProps): ReactNode {
               {state.playing ? <IconoPausar /> : <IconoReproducir />}
             </button>
 
-            <button
-              type="button"
-              className="button player__control"
-              aria-label={t(DEFAULT_LOCALE, 'player.back')}
-              title={t(DEFAULT_LOCALE, 'player.back')}
-              aria-keyshortcuts="ArrowLeft"
-              onClick={() => act('back')}
-            >
-              <IconoAtras />
-              <span className="player__control-step">{t(DEFAULT_LOCALE, 'player.seek.step')}</span>
-            </button>
+            {/* Los saltos de diez segundos no caben en un teléfono en vertical, y
+                ahí no hacen falta: el doble toque en los bordes del video los
+                hace. Ver `alDobleClic`. */}
+            {compacto ? null : (
+              <button
+                type="button"
+                className="button player__control"
+                aria-label={t(DEFAULT_LOCALE, 'player.back')}
+                title={t(DEFAULT_LOCALE, 'player.back')}
+                aria-keyshortcuts="ArrowLeft"
+                onClick={() => act('back')}
+              >
+                <IconoAtras />
+                <span className="player__control-step">
+                  {t(DEFAULT_LOCALE, 'player.seek.step')}
+                </span>
+              </button>
+            )}
 
-            <button
-              type="button"
-              className="button player__control"
-              aria-label={t(DEFAULT_LOCALE, 'player.forward')}
-              title={t(DEFAULT_LOCALE, 'player.forward')}
-              aria-keyshortcuts="ArrowRight"
-              onClick={() => act('forward')}
-            >
-              <IconoAdelante />
-              <span className="player__control-step">{t(DEFAULT_LOCALE, 'player.seek.step')}</span>
-            </button>
+            {compacto ? null : (
+              <button
+                type="button"
+                className="button player__control"
+                aria-label={t(DEFAULT_LOCALE, 'player.forward')}
+                title={t(DEFAULT_LOCALE, 'player.forward')}
+                aria-keyshortcuts="ArrowRight"
+                onClick={() => act('forward')}
+              >
+                <IconoAdelante />
+                <span className="player__control-step">
+                  {t(DEFAULT_LOCALE, 'player.seek.step')}
+                </span>
+              </button>
+            )}
 
             {/* El silencio y su barra van juntos y en un solo grupo: son el mismo
                 mando en dos pasos —uno dice si suena, la otra cuánto— y la barra
                 aparece al pasar por encima o al enfocar, que es cuando se va a
                 usar. En una pantalla táctil no hay «encima» y se queda a la
-                vista. */}
-            <div className="player__volume">
-              <button
-                type="button"
-                className="button player__control"
-                aria-label={rotuloSilencio}
-                title={rotuloSilencio}
-                aria-keyshortcuts="M"
-                onClick={() => act('mute')}
-              >
-                {state.muted ? <IconoSilencio /> : <IconoVolumen />}
-              </button>
-              {/* Va de 0 a 100 porque es lo que entiende quien oye el valor:
-                  «50», no «0,5». */}
-              <input
-                className="player__range player__slider"
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                value={volumePercent(state.volume)}
-                aria-label={t(DEFAULT_LOCALE, 'player.volume')}
-                onChange={(evento) => setVolume(volumeFromPercent(Number(evento.target.value)))}
-              />
-            </div>
+                vista. En una ventana estrecha el grupo entero se muda al menú de
+                ajustes: ocupa el ancho de tres botones y ahí no cabe. */}
+            {estrecho ? null : (
+              <div className="player__volume">
+                <button
+                  type="button"
+                  className="button player__control"
+                  aria-label={rotuloSilencio}
+                  title={rotuloSilencio}
+                  aria-keyshortcuts="M"
+                  onClick={() => act('mute')}
+                >
+                  {state.muted ? <IconoSilencio /> : <IconoVolumen />}
+                </button>
+                {/* Va de 0 a 100 porque es lo que entiende quien oye el valor:
+                    «50», no «0,5». */}
+                <input
+                  className="player__range player__slider"
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={volumePercent(state.volume)}
+                  aria-label={t(DEFAULT_LOCALE, 'player.volume')}
+                  onChange={(evento) => setVolume(volumeFromPercent(Number(evento.target.value)))}
+                />
+              </div>
+            )}
 
             {/* El hueco que separa lo que se toca a menudo de lo que se toca una
                 vez: el reloj y los mandos de la derecha. */}
@@ -739,6 +839,42 @@ export function Player(props: PlayerProps): ReactNode {
                     </button>
                   )}
 
+                  {/* El volumen, cuando en la fila no cabe.
+                      Es el mismo grupo de la barra —botón y barra juntos, el
+                      mismo estado—, pero aquí dentro no hace falta esconder la
+                      barra tras el puntero: el menú ya es «donde se toca una vez».
+                      Sólo hay uno de los dos grupos en el documento: dos mandos con
+                      el mismo nombre accesible son un nombre ambiguo. */}
+                  {estrecho ? (
+                    <div className="player__menu-block">
+                      <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.volume')}</p>
+                      <div className="player__menu-volume">
+                        <button
+                          type="button"
+                          className="button player__control"
+                          aria-label={rotuloSilencio}
+                          title={rotuloSilencio}
+                          aria-keyshortcuts="M"
+                          onClick={() => act('mute')}
+                        >
+                          {state.muted ? <IconoSilencio /> : <IconoVolumen />}
+                        </button>
+                        <input
+                          className="player__range player__slider"
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={volumePercent(state.volume)}
+                          aria-label={t(DEFAULT_LOCALE, 'player.volume')}
+                          onChange={(evento) =>
+                            setVolume(volumeFromPercent(Number(evento.target.value)))
+                          }
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
                   {/* El modo compatible, como interruptor. La sonda lo enciende
                       sola cuando ve el fallo, pero una sonda que mira un
                       fotograma puede no verlo: quien está mirando la pantalla en
@@ -788,11 +924,19 @@ export function Player(props: PlayerProps): ReactNode {
 
                   {props.onAutoplay === undefined ? null : (
                     <label className="player__menu-switch">
-                      <input
-                        type="checkbox"
-                        checked={props.autoplay ?? true}
-                        onChange={(evento) => props.onAutoplay?.(evento.target.checked)}
-                      />
+                      {/* La casilla nativa sigue siendo la que guarda el estado y
+                          la que se anuncia; el dibujo de interruptor lo pone el
+                          tirador de al lado, que va `aria-hidden` para que el
+                          nombre del mando siga siendo sólo el texto. */}
+                      <span className="player__switch-box">
+                        <input
+                          type="checkbox"
+                          className="player__switch"
+                          checked={props.autoplay ?? true}
+                          onChange={(evento) => props.onAutoplay?.(evento.target.checked)}
+                        />
+                        <span className="player__switch-knob" aria-hidden="true" />
+                      </span>
                       {t(DEFAULT_LOCALE, 'player.autoplay')}
                     </label>
                   )}
