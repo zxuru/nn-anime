@@ -626,6 +626,108 @@ test.describe('el reproductor', () => {
   })
 
   /**
+   * El menú de ajustes.
+   *
+   * Lo que se mide es el ciclo entero del popover, que es donde se rompe: se
+   * abre con su mando —y el mando lo dice con `aria-expanded`—, se cierra con
+   * `Esc` **devolviendo el foco a donde estaba** y también con un clic fuera, que
+   * es lo que hace la mano cuando se cansa de él.
+   */
+  test('el menú de ajustes se abre, se cierra con Esc y con un clic fuera', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const abrir = page.getByRole('button', { name: 'Ajustes' })
+    const menu = page.locator('.player__menu')
+
+    await expect(abrir).toHaveAttribute('aria-expanded', 'false')
+    await expect(menu).toHaveCount(0)
+
+    await abrir.click()
+    await expect(menu).toBeVisible()
+    await expect(abrir).toHaveAttribute('aria-expanded', 'true')
+
+    await page.keyboard.press('Escape')
+    await expect(menu).toHaveCount(0)
+    // El foco vuelve al mando que lo abrió: sin eso, quien navega con el teclado
+    // se queda en el `body` y tiene que empezar la página desde arriba.
+    await expect(abrir).toBeFocused()
+
+    await abrir.click()
+    await expect(menu).toBeVisible()
+    await page.locator('video').click({ position: { x: 40, y: 40 }, force: true })
+    await expect(menu).toHaveCount(0)
+  })
+
+  /**
+   * El audio se cambia desde el menú y desde la fila, y es el mismo estado.
+   *
+   * El control está en los dos sitios a propósito —en la fila porque se cambia a
+   * menudo, en el menú porque es donde se busca—, así que lo que hay que medir es
+   * que las dos copias escriban en el mismo sitio: al pulsar la del menú, la de
+   * la fila queda marcada y se pide **otro stream** al servidor.
+   */
+  test('cambiar el audio pide el otro stream, desde el menú o desde la fila', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const fila = page.locator('.watch__nav')
+    const menu = page.locator('.player__menu')
+
+    await expect(fila.getByRole('button', { name: 'Subtitulado' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    const peticion = page.waitForRequest(
+      (solicitud) =>
+        solicitud.url().includes('/api/stream/resolve') &&
+        (solicitud.postData() ?? '').includes('"mode":"dub"'),
+    )
+
+    await page.getByRole('button', { name: 'Ajustes' }).click()
+    await menu.getByRole('button', { name: 'Doblado' }).click()
+    await peticion
+
+    await expect(menu.getByRole('button', { name: 'Doblado' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect(fila.getByRole('button', { name: 'Doblado' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  /**
+   * La ayuda del teclado, en un diálogo.
+   *
+   * Estaba siempre a la vista, en tres filas debajo del video, para algo que se
+   * mira una vez. Se abre con `?` —el atajo que todo el mundo prueba— y se cierra
+   * con `Esc`, que lo pone el navegador por ser un `<dialog>` nativo.
+   */
+  test('la ayuda del teclado se abre con «?» y se cierra con Esc', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const ayuda = page.locator('.player__dialog')
+    await expect(ayuda).not.toBeVisible()
+
+    await page.keyboard.press('?')
+    await expect(ayuda).toBeVisible()
+    await expect(ayuda).toContainText('Pausa y reanudar')
+
+    await page.keyboard.press('Escape')
+    await expect(ayuda).not.toBeVisible()
+  })
+
+  /**
    * El visionado queda registrado con su **duración**, una sola vez por episodio
    * y con el segundo donde se dejó.
    *
@@ -731,12 +833,17 @@ test.describe('el modo compatible', () => {
     const video = page.locator('video')
     await expect(video).toHaveAttribute('src', /\/stream\//, { timeout: 10_000 })
 
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+
+    // El interruptor vive en el menú de ajustes: se abre, se enciende y se
+    // cierra, que es el camino que hace cualquiera. Se abre **después** de darle
+    // a reproducir porque un clic fuera del menú lo cierra.
+    await page.getByRole('button', { name: 'Ajustes' }).click()
     const boton = page.getByRole('button', { name: 'Modo compatible' })
     await expect(boton).toHaveAttribute('aria-pressed', 'false')
     await expect(page.locator('.player__canvas')).toHaveCount(0)
 
-    await page.getByRole('button', { name: 'Silenciar' }).click()
-    await page.getByRole('button', { name: 'Reproducir' }).click()
     await boton.click()
 
     await expect(boton).toHaveAttribute('aria-pressed', 'true')

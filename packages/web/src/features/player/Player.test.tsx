@@ -290,14 +290,28 @@ describe('pistas y reanudación', () => {
 })
 
 describe('el modo compatible', () => {
-  test('empieza apagado y el botón lo dice', () => {
+  /**
+   * El interruptor vive en el menú de ajustes.
+   *
+   * Estaba en la fila de mandos, con el mismo peso que reproducir: una opción
+   * técnica que se toca una vez al lado de lo que se toca cada minuto. Como el
+   * menú empieza cerrado, en el primer render sólo está su mando; el interruptor
+   * se comprueba en el código, y encenderlo de verdad lo mide el e2e.
+   */
+  test('empieza apagado y vive en el menú de ajustes', async () => {
     const html = render(<Player url="/stream/abc" kind="file" />)
 
     // El camino normal es el del navegador; el lienzo sólo aparece cuando la
     // sonda —o quien está mirando la pantalla— lo enciende.
     expect(html).not.toContain('<canvas')
-    expect(html).toContain('aria-pressed="false"')
-    expect(html).toContain('Modo compatible')
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).toContain('aria-label="Ajustes"')
+
+    const fuente = await readFile(`${ROOT}Player.tsx`, 'utf8')
+    const menu = /\{menu \? \(([\s\S]*?)\) : null\}/.exec(fuente)?.[1] ?? ''
+
+    expect(menu).toContain("t(DEFAULT_LOCALE, 'player.compat')")
+    expect(menu).toContain('aria-pressed={pintando}')
   })
 
   test('el lienzo del modo compatible se pide por CPU', async () => {

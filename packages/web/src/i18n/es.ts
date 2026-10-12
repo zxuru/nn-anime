@@ -270,8 +270,17 @@ export const messages: Messages = {
   'player.noSource': 'el proveedor no dio ninguna fuente para este episodio',
   // Los atajos, en dos piezas: la tecla —que se pinta como una tecla— y lo que
   // hace. Antes eran una sola frase en la parte de abajo y no se leía como lo
-  // que es: teclas que se pueden pulsar.
+  // que es: teclas que se pueden pulsar. Ahora viven en un diálogo, y se abre
+  // desde los ajustes o con la tecla `?`.
   'player.keys': 'Teclado',
+  'player.keys.open': 'Atajos de teclado',
+  'player.keys.close': 'Cerrar la ayuda',
+  // El menú de ajustes: el mando y lo que hay dentro.
+  'player.settings': 'Ajustes',
+  // La elección de subtítulos del propio reproductor. Va aparte de los modos de
+  // audio: son dos cosas distintas y se eligen por separado.
+  'player.tracks.pick': 'Subtítulos',
+  'player.tracks.none': 'Ninguno',
   'player.key.toggle': 'Pausa y reanudar',
   'player.key.seek': 'Retroceder o avanzar 10 s',
   'player.key.volume': 'Bajar o subir el volumen',

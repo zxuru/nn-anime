@@ -1299,14 +1299,106 @@
   font-size: var(--text-sm);
 }
 
-/* El modo compatible, mientras vive fuera del menú: sin estirarse a lo ancho.
-   Es un mando, no una banda. */
-.player__compat {
-  align-self: flex-start;
+/*
+ * El menú de ajustes.
+ *
+ * Es un popover y no un diálogo: se abre **hacia arriba** desde su botón —el
+ * mando está pegado al borde inferior del video y debajo no hay sitio— y deja
+ * ver lo que se está reproduciendo, que es lo que se ajusta mientras se mira.
+ * Se cierra con `Esc`, con un clic fuera o volviendo a pulsar el botón, que es
+ * donde vuelve el foco.
+ */
+.player__settings {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.player__menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-2));
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: var(--menu-width);
+  max-height: var(--menu-height);
+  overflow-y: auto;
+  padding: var(--space-4);
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-hard);
+}
+
+.player__menu-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Los títulos del menú, con el mismo tratamiento que las etiquetas cortas del
+   resto de la interfaz: monoespaciada y en mayúsculas. */
+.player__menu-title {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/* Lo que se pulsa dentro del menú: una acción por fila y a lo ancho, para que el
+   objetivo táctil sea el de siempre y no un texto al que hay que apuntar. */
+.player__menu-action {
+  justify-content: flex-start;
+  width: 100%;
+  text-align: left;
+}
+
+.player__menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.player__menu-choice {
+  justify-content: flex-start;
+  width: 100%;
+  font-size: var(--text-sm);
+  text-align: left;
 }
 
 /*
- * La pantalla de reproducción no se selecciona.
+ * La ayuda del teclado.
+ *
+ * Es un `<dialog>` nativo: el navegador trae el `Esc`, el encierro del foco y el
+ * fondo inerte, que es justo lo que hay que escribir a mano en un diálogo de
+ * mentira. Se viste con los tokens de siempre.
+ */
+.player__dialog {
+  width: min(var(--notice-width), 90vw);
+  padding: var(--space-5);
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-hard);
+}
+
+.player__dialog::backdrop {
+  background: var(--overlay);
+}
+
+.player__dialog-close {
+  margin-top: var(--space-4);
+}
+
+/* La pantalla de reproducción no se selecciona.
  *
  * No es una manía: el reproductor entero es una superficie de mandos —flechas,
  * modos, teclas— y arrastrar por encima seleccionaba los rótulos y dejaba el

@@ -187,6 +187,15 @@
   --player-gradient: linear-gradient(to top, rgb(0 0 0 / 85%), rgb(0 0 0 / 0%));
   --seek-track: rgb(242 233 216 / 25%);
   --seek-buffer: rgb(242 233 216 / 45%);
+  /**
+   * El menú de ajustes del reproductor.
+   *
+   * Un ancho de mando, no de panel, y un alto máximo para que una lista de
+   * subtítulos larga no empuje el menú fuera de la ventana: a partir de ahí se
+   * desplaza por dentro.
+   */
+  --menu-width: 18rem;
+  --menu-height: 24rem;
   --letter-tight: -0.01em;
   --content-max: 1200px;
   --header-height: 3.5rem;

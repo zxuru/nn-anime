@@ -21,10 +21,12 @@ import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
+import { AudioModeSwitch } from './AudioModeSwitch'
 import {
   announcement,
   CLICK_DELAY_MS,
   formatTime,
+  isTypingTarget,
   keyAction,
   needsHls,
   spokenTime,
@@ -33,6 +35,7 @@ import {
 } from './controls'
 import {
   IconoAdelante,
+  IconoAjustes,
   IconoAtras,
   IconoPantallaCompleta,
   IconoPausar,
@@ -44,6 +47,7 @@ import {
 import { isProxyPath } from './subtitle-tracks'
 import { useCompatPaint } from './useCompatPaint'
 import { type SafeTrack, usePlayer } from './usePlayer'
+import type { PlayMode } from './watch-route'
 
 /**
  * Lo que tarda la barra en esconderse sola mientras el video reproduce.
@@ -70,6 +74,20 @@ export interface PlayerProps {
    * pedirle una imagen a un sitio que no dijo tenerla.
    */
   readonly poster?: string | undefined
+  /**
+   * El modo de audio con el que se está viendo, si quien monta el reproductor lo
+   * sabe.
+   *
+   * Va aquí y no dentro del reproductor porque el estado es de la pantalla: el
+   * mismo valor decide qué stream se pide al servidor («doblado», «subtitulado»)
+   * y la fila de mandos de debajo del video lo pinta. El menú de ajustes lo
+   * repite porque es donde se busca cuando no se ve, y las dos copias escriben en
+   * el mismo sitio.
+   */
+  readonly mode?: PlayMode | undefined
+  readonly onMode?: ((mode: PlayMode) => void) | undefined
+  /** Abrir el episodio en el reproductor externo. Sin esto no se ofrece. */
+  readonly onMpv?: (() => void) | undefined
   /** Se llama al empezar a reproducir de verdad, no al cargar la página. */
   readonly onPlay?: (() => void) | undefined
   readonly onPause?: (() => void) | undefined
@@ -156,6 +174,88 @@ export function Player(props: PlayerProps): ReactNode {
    * Mientras dura el arrastre manda el dedo; al soltar, manda el video.
    */
   const [arrastre, setArrastre] = useState<number | undefined>(undefined)
+
+  /**
+   * El menú de ajustes y el diálogo de atajos.
+   *
+   * El menú es un popover y no un diálogo: se abre sobre el video sin taparlo
+   * —lo que se ajusta se ajusta mientras se ve— y se cierra con `Esc`, con un
+   * clic fuera o volviendo a pulsar su botón, que es donde queda el foco. Los
+   * atajos sí son un `<dialog>`: ahí no hay nada que mirar detrás y el navegador
+   * trae el `Esc` y el encierro del foco hechos.
+   */
+  const [menu, setMenu] = useState(false)
+  const [atajos, setAtajos] = useState(false)
+  const botonAjustes = useRef<HTMLButtonElement | null>(null)
+  const cajaAjustes = useRef<HTMLDivElement | null>(null)
+  const dialogoAtajos = useRef<HTMLDialogElement | null>(null)
+
+  /**
+   * La pista de subtítulos que se está pintando, o ninguna.
+   *
+   * El elemento trae una pista por subtítulo y las pinta él: lo único que hay que
+   * hacer es decirle cuál. La primera —la que el proveedor prefiere— viene
+   * marcada por defecto, y aquí se puede cambiar o apagar sin salir de la
+   * pantalla, que es lo que faltaba: un episodio con subtítulos forzados en otro
+   * idioma no tenía arreglo.
+   */
+  const [pista, setPista] = useState<number | 'ninguna'>(pistas.length === 0 ? 'ninguna' : 0)
+
+  useEffect(() => {
+    const video = elemento
+    if (video === null) return
+
+    const lista = video.textTracks
+
+    // Se recorre el número de pistas del componente y no el del elemento: al
+    // cambiar de fuente —de subtitulado a doblado— el `<video>` es el mismo y sus
+    // `textTracks` se rehacen, así que el efecto tiene que volver a correr cuando
+    // la lista cambia aunque el elemento no.
+    for (let indice = 0; indice < pistas.length; indice++) {
+      const actual = lista[indice]
+      if (actual === undefined) continue
+
+      actual.mode = pista === indice ? 'showing' : 'disabled'
+    }
+  }, [elemento, pista, pistas.length])
+
+  // El diálogo se abre con la API del elemento y no con un atributo: `showModal`
+  // es lo que trae el `Esc`, el encierro del foco y el fondo inerte.
+  useEffect(() => {
+    const dialogo = dialogoAtajos.current
+    if (dialogo === null) return
+
+    if (atajos && !dialogo.open) dialogo.showModal()
+    if (!atajos && dialogo.open) dialogo.close()
+  }, [atajos])
+
+  // Fuera del menú, y con `Esc`, se cierra. El manejador sólo existe mientras
+  // está abierto: uno permanente escucharía clics de toda la aplicación.
+  useEffect(() => {
+    if (!menu) return
+
+    const alPulsar = (evento: KeyboardEvent): void => {
+      if (evento.key !== 'Escape') return
+
+      setMenu(false)
+      botonAjustes.current?.focus()
+    }
+    const alPulsarFuera = (evento: PointerEvent): void => {
+      if (!(evento.target instanceof Node)) return
+      if (cajaAjustes.current?.contains(evento.target) === true) return
+      if (botonAjustes.current?.contains(evento.target) === true) return
+
+      setMenu(false)
+    }
+
+    document.addEventListener('keydown', alPulsar)
+    document.addEventListener('pointerdown', alPulsarFuera)
+
+    return () => {
+      document.removeEventListener('keydown', alPulsar)
+      document.removeEventListener('pointerdown', alPulsarFuera)
+    }
+  }, [menu])
 
   /**
    * El segundo sobre el que está el puntero, si está sobre la barra.
@@ -283,14 +383,30 @@ export function Player(props: PlayerProps): ReactNode {
   // una molestia que no hace falta. `keyAction` decide cuándo no hacer nada.
   useEffect(() => {
     const alPulsar = (evento: KeyboardEvent): void => {
-      const accion = keyAction({
+      const objetivo = {
         key: evento.key,
         tagName: (evento.target as HTMLElement | null)?.tagName,
         isContentEditable: (evento.target as HTMLElement | null)?.isContentEditable,
         ctrlKey: evento.ctrlKey,
         metaKey: evento.metaKey,
         altKey: evento.altKey,
-      })
+      }
+
+      // `?` abre la ayuda de los atajos. Va antes que los mandos y no dentro de
+      // `keyAction` porque no es una acción del reproductor: es una pregunta, y
+      // el que la contesta es la pantalla.
+      if (evento.key === '?' && !isTypingTarget(objetivo)) {
+        evento.preventDefault()
+        setAtajos(true)
+
+        return
+      }
+
+      // Con la ayuda abierta, las teclas son del diálogo: la barra espaciadora
+      // no puede pausar el video que hay detrás del velo.
+      if (dialogoAtajos.current?.open === true) return
+
+      const accion = keyAction(objetivo)
 
       if (accion === undefined) return
 
@@ -562,6 +678,112 @@ export function Player(props: PlayerProps): ReactNode {
               {formatTime(posicion)} / {formatTime(state.durationS)}
             </span>
 
+            {/* Los ajustes: lo que se toca una vez y no tiene por qué ocupar un
+                sitio en la fila —el audio, el reproductor externo, el modo
+                compatible y la ayuda del teclado—. El popover se abre hacia
+                arriba, que es donde hay sitio: el mando está pegado al borde
+                inferior del video. */}
+            <div className="player__settings">
+              <button
+                type="button"
+                ref={botonAjustes}
+                className="button player__control"
+                aria-label={t(DEFAULT_LOCALE, 'player.settings')}
+                title={t(DEFAULT_LOCALE, 'player.settings')}
+                aria-expanded={menu}
+                aria-haspopup="true"
+                onClick={() => setMenu((abierto) => !abierto)}
+              >
+                <IconoAjustes />
+              </button>
+
+              {menu ? (
+                <div
+                  className="player__menu"
+                  ref={cajaAjustes}
+                  // Un diálogo no modal: se abre encima del video sin dejar de
+                  // verlo, y por eso no lleva `aria-modal` ni encierra el foco.
+                  role="dialog"
+                  aria-label={t(DEFAULT_LOCALE, 'player.settings')}
+                >
+                  {props.mode === undefined || props.onMode === undefined ? null : (
+                    <div className="player__menu-block">
+                      <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.audio')}</p>
+                      <AudioModeSwitch mode={props.mode} onMode={props.onMode} />
+                    </div>
+                  )}
+
+                  {props.onMpv === undefined ? null : (
+                    <button
+                      type="button"
+                      className="button player__menu-action"
+                      onClick={props.onMpv}
+                    >
+                      {t(DEFAULT_LOCALE, 'player.mpv')}
+                    </button>
+                  )}
+
+                  {/* El modo compatible, como interruptor. La sonda lo enciende
+                      sola cuando ve el fallo, pero una sonda que mira un
+                      fotograma puede no verlo: quien está mirando la pantalla en
+                      negro lo enciende aquí. `aria-pressed` dice si está
+                      encendido, y el texto no cambia con el estado para que se
+                      lea como un interruptor y no como una acción. */}
+                  <button
+                    type="button"
+                    className="button player__menu-action"
+                    aria-pressed={pintando}
+                    onClick={alternar}
+                  >
+                    {t(DEFAULT_LOCALE, 'player.compat')}
+                  </button>
+
+                  {pistas.length === 0 ? null : (
+                    <div className="player__menu-block">
+                      <p className="player__menu-title">
+                        {t(DEFAULT_LOCALE, 'player.tracks.pick')}
+                      </p>
+                      <ul className="player__menu-list">
+                        <li>
+                          <button
+                            type="button"
+                            className="button player__menu-choice"
+                            aria-pressed={pista === 'ninguna'}
+                            onClick={() => setPista('ninguna')}
+                          >
+                            {t(DEFAULT_LOCALE, 'player.tracks.none')}
+                          </button>
+                        </li>
+                        {pistas.map((entrada, indice) => (
+                          <li key={entrada.url}>
+                            <button
+                              type="button"
+                              className="button player__menu-choice"
+                              aria-pressed={pista === indice}
+                              onClick={() => setPista(indice)}
+                            >
+                              {entrada.label}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    className="button player__menu-action"
+                    onClick={() => {
+                      setMenu(false)
+                      setAtajos(true)
+                    }}
+                  >
+                    {t(DEFAULT_LOCALE, 'player.keys.open')}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
             <button
               type="button"
               className="button player__control"
@@ -580,19 +802,6 @@ export function Player(props: PlayerProps): ReactNode {
 
       {pintando ? <p className="card__meta">{t(DEFAULT_LOCALE, 'player.compat.on')}</p> : null}
 
-      {/* El modo compatible a mano. La sonda lo enciende sola cuando ve el fallo,
-          pero una sonda que mira un fotograma puede no verlo: quien está mirando
-          la pantalla en negro lo enciende aquí, sin tocar nada del navegador.
-          `aria-pressed` dice si está encendido. */}
-      <button
-        type="button"
-        className="button player__compat"
-        aria-pressed={pintando}
-        onClick={alternar}
-      >
-        {t(DEFAULT_LOCALE, 'player.compat')}
-      </button>
-
       {state.error === undefined ? null : (
         <p className="search__error">
           {t(DEFAULT_LOCALE, 'player.error', { message: state.error })}
@@ -609,31 +818,49 @@ export function Player(props: PlayerProps): ReactNode {
         <p className="card__meta">{t(DEFAULT_LOCALE, 'player.tracks', { count: pistas.length })}</p>
       )}
 
-      {/* Las teclas, como teclas. Un `kbd` por tecla y la frase al lado: la
-          ayuda se lee de un vistazo y no hace falta descifrar una línea. */}
-      <div className="player__keys">
-        <p className="player__keys-title">{t(DEFAULT_LOCALE, 'player.keys')}</p>
-        <ul className="player__keys-list">
-          {ATAJOS.map((atajo) => (
-            <li className="player__key" key={atajo.hace}>
-              <span className="player__key-caps">
-                {atajo.teclas.map((tecla) => (
-                  <kbd className="player__key-cap" key={tecla}>
-                    {t(DEFAULT_LOCALE, tecla)}
-                  </kbd>
-                ))}
-              </span>
-              <span className="player__key-does">{t(DEFAULT_LOCALE, atajo.hace)}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
       {/* La atribución sólo aparece cuando se usa la biblioteca: hls.js es
           Apache 2.0 y su licencia pide conservar el aviso. */}
       {needsHls(props.kind) ? (
         <p className="card__meta">{t(DEFAULT_LOCALE, 'player.attribution')}</p>
       ) : null}
+
+      {/* La ayuda del teclado, en un diálogo y no siempre a la vista.
+          Eran tres filas de teclas debajo del reproductor para algo que se mira
+          una vez: ahora se abre desde los ajustes o con `?`, el navegador se
+          encarga del `Esc` y del encierro del foco, y el contenido sigue siendo
+          el mismo —cada tecla dibujada como una tecla y su frase al lado—. */}
+      <dialog
+        className="player__dialog"
+        ref={dialogoAtajos}
+        aria-label={t(DEFAULT_LOCALE, 'player.keys')}
+        onClose={() => setAtajos(false)}
+      >
+        <div className="player__keys">
+          <p className="player__keys-title">{t(DEFAULT_LOCALE, 'player.keys')}</p>
+          <ul className="player__keys-list">
+            {ATAJOS.map((atajo) => (
+              <li className="player__key" key={atajo.hace}>
+                <span className="player__key-caps">
+                  {atajo.teclas.map((tecla) => (
+                    <kbd className="player__key-cap" key={tecla}>
+                      {t(DEFAULT_LOCALE, tecla)}
+                    </kbd>
+                  ))}
+                </span>
+                <span className="player__key-does">{t(DEFAULT_LOCALE, atajo.hace)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <button
+          type="button"
+          className="button player__dialog-close"
+          onClick={() => setAtajos(false)}
+        >
+          {t(DEFAULT_LOCALE, 'player.keys.close')}
+        </button>
+      </dialog>
     </section>
   )
 }
