@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { Candidate } from '@nn-anime/core'
 import { type RecommendSignals, recommend, SIGNAL_WEIGHTS, tieBreak } from './recommend'
 
@@ -334,10 +336,14 @@ describe('el motor no toca la red ni la base', () => {
   test('el paquete no toca la base de datos ni la red', async () => {
     const glob = new Bun.Glob('**/*.ts')
     const fuentes: string[] = []
+    // `fileURLToPath` y no `URL.pathname`: en Windows `pathname` devuelve
+    // `/C:/…`, que no es una ruta que exista. Y las rutas se unen con `join`
+    // porque el glob devuelve el separador de la plataforma.
+    const raiz = fileURLToPath(new URL('.', import.meta.url))
 
-    for await (const relativo of glob.scan({ cwd: new URL('.', import.meta.url).pathname })) {
+    for await (const relativo of glob.scan({ cwd: raiz })) {
       if (relativo.includes('.test.')) continue
-      fuentes.push(await Bun.file(new URL(relativo, import.meta.url)).text())
+      fuentes.push(await Bun.file(join(raiz, relativo)).text())
     }
 
     const codigo = fuentes

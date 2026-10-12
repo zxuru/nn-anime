@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { readdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
@@ -72,7 +72,8 @@ async function componentFiles(): Promise<readonly string[]> {
 describe('referencias entre marcado y estilos', () => {
   test('el directorio del paquete se resuelve aunque la ruta tenga espacios', () => {
     expect(ROOT).not.toContain('%20')
-    expect(ROOT.endsWith('src/')).toBe(true)
+    // `sep` y no `/`: en Windows `fileURLToPath` devuelve `…\src\`.
+    expect(ROOT.endsWith(`src${sep}`)).toBe(true)
   })
 
   test('toda clase usada en un componente está definida en algún CSS', async () => {

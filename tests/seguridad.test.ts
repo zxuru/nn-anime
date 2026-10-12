@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { readdir } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 import { checkDestination } from '@nn-anime/media-proxy'
 import { conCiclo, GOOD, HOST, JSON_HEADERS } from './fixtures'
 
@@ -134,8 +135,10 @@ describe('M3 · la comparación de la sesión', () => {
     // puede comprobar es que el código usa la primitiva correcta, y eso es una
     // comprobación por texto con todo lo que eso significa. Está aquí porque la
     // alternativa es no comprobarlo en absoluto.
+    // `fileURLToPath` y no `URL.pathname`: en Windows `pathname` devuelve
+    // `/C:/…`, que no es una ruta que exista.
     const fuente = await Bun.file(
-      new URL('../packages/server/src/session.ts', import.meta.url).pathname,
+      fileURLToPath(new URL('../packages/server/src/session.ts', import.meta.url)),
     ).text()
 
     expect(fuente).toContain('timingSafeEqual')
@@ -344,7 +347,7 @@ describe('M9 · confinamiento de los archivos servidos', () => {
     // La comprobación vive en `static-assets.test.ts`, que es donde está el
     // código; aquí se comprueba que sigue habiendo pruebas que la miran.
     const fuente = await Bun.file(
-      new URL('../packages/server/src/static-assets.test.ts', import.meta.url).pathname,
+      fileURLToPath(new URL('../packages/server/src/static-assets.test.ts', import.meta.url)),
     ).text()
 
     expect(fuente).toContain('bloquea el ascenso con puntos suspensivos')
@@ -385,7 +388,7 @@ describe('M12 · nada sensible en los registros ni en el disco', () => {
       await pedir('/?boot=token-de-integracion', { headers: { host: GOOD.origin } })
 
       // El directorio de trabajo del arnés no puede acabar con el token dentro.
-      const entradas = await readdir(new URL('..', import.meta.url).pathname)
+      const entradas = await readdir(fileURLToPath(new URL('..', import.meta.url)))
       for (const entrada of entradas) {
         expect(entrada).not.toContain('token-de-integracion')
       }
