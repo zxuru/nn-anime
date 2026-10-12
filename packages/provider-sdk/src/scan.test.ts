@@ -135,6 +135,21 @@ describe('scanProviderSources: el árbol', () => {
     )
   })
 
+  test('una declaración de tipos no es un proveedor: se lee, pero no se ejecuta', async () => {
+    await withTree(
+      {
+        'index.ts': 'export default p',
+        'index.d.ts': 'declare const p: unknown\nexport default p',
+      },
+      async (root) => {
+        // `index.d.ts` termina en `.ts` y contiene `export default`: sin este
+        // filtro se ofrece como candidato, y marcarlo sólo puede acabar en un
+        // rechazo que quien lo marcó no puede entender.
+        expect(paths(await scanProviderSources(root))).toEqual(['index.ts'])
+      },
+    )
+  })
+
   test('los directorios de trabajo no son la oferta', async () => {
     await withTree(
       {
