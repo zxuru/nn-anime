@@ -938,6 +938,255 @@ test.describe('el reproductor', () => {
 })
 
 /**
+ * La lista de episodios, el progreso y el paso al siguiente.
+ *
+ * Las tres cosas son de la pantalla y no del elemento de video, así que se miden
+ * con el navegador de por medio: la lista se desplaza, el progreso vive en el
+ * almacén del navegador y la tarjeta del siguiente depende de que el episodio
+ * termine de verdad.
+ */
+test.describe('la lista, el progreso y el siguiente', () => {
+  /** La clave con la que la pantalla apunta por dónde va el episodio 3. */
+  const CLAVE = 'nn-anime:progreso:fixture:aurora-nocturna#3'
+
+  test('la lista marca el episodio actual y cambia de episodio', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    const lista = page.locator('.watch__list')
+    await expect(lista.locator('li')).toHaveCount(12, { timeout: 15_000 })
+
+    // El actual, marcado con `aria-current` —no sólo con color— y una sola vez.
+    const actual = lista.locator('[aria-current="page"]')
+    await expect(actual).toHaveCount(1)
+    await expect(actual).toContainText('3')
+
+    await lista.getByRole('link', { name: 'Episodio 5' }).click()
+
+    await expect(page).toHaveURL(/aurora-nocturna%235/)
+    await expect(lista.locator('[aria-current="page"]')).toContainText('5')
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 5 · 5 de 12')
+  })
+
+  /**
+   * El progreso se apunta y se recupera.
+   *
+   * Se salta al segundo 20 con el mando de la barra —el camino de verdad, no una
+   * asignación a mano— y se reproduce un momento: lo que se apunta tiene que ser
+   * la posición de ahora, y al volver a abrir el episodio el video tiene que
+   * arrancar ahí y no en el segundo cero.
+   */
+  test('apunta por dónde va y vuelve ahí al abrir otra vez', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    const video = page.locator('video')
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    await page.getByRole('slider', { name: 'Posición del video' }).fill('20')
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await page.waitForTimeout(1500)
+    await page.getByRole('button', { name: 'Pausar' }).click()
+
+    /**
+     * Lo apuntado, leído del almacén del navegador.
+     *
+     * El apunte ocurre en el evento de pausa del elemento, así que la primera
+     * lectura puede llegar antes que la escritura: se pregunta hasta que esté, que
+     * es lo que hace una lectura de verdad y no un `waitForTimeout` a ojo.
+     */
+    const apuntado = async (): Promise<{ positionS: number; durationS: number }> =>
+      await page.evaluate((clave) => {
+        const crudo = localStorage.getItem(clave)
+
+        return crudo === null ? { positionS: 0, durationS: 0 } : JSON.parse(crudo)
+      }, CLAVE)
+
+    await expect.poll(async () => (await apuntado()).positionS).toBeGreaterThan(20)
+
+    const progreso = await apuntado()
+    expect(progreso.durationS).toBeGreaterThan(30)
+
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    await expect
+      .poll(async () => await video.evaluate((elemento: HTMLVideoElement) => elemento.currentTime))
+      .toBeGreaterThan(19)
+  })
+
+  /**
+   * Los dos extremos no se reanudan.
+   *
+   * Un progreso de tres segundos es alguien que abrió el episodio y lo cerró: no
+   * lo estaba viendo. Uno del final es un episodio terminado, y lo que toca es el
+   * siguiente. En los dos casos se empieza por el principio.
+   */
+  test('no reanuda lo que se acaba de abrir ni lo que ya está terminado', async ({ page }) => {
+    await entrar(page)
+
+    for (const [episodio, positionS] of [
+      ['aurora-nocturna#1', 3],
+      ['aurora-nocturna#2', 58],
+    ] as const) {
+      await page.goto(`/watch/fixture/${encodeURIComponent(episodio)}`)
+      await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+      await page.evaluate(
+        ([clave, segundos]) => {
+          localStorage.setItem(clave ?? '', JSON.stringify({ positionS: segundos, durationS: 60 }))
+        },
+        [`nn-anime:progreso:fixture:${episodio}`, positionS] as const,
+      )
+
+      await page.reload()
+      await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+      expect(
+        await page.locator('video').evaluate((elemento: HTMLVideoElement) => elemento.currentTime),
+        episodio,
+      ).toBeLessThan(1)
+    }
+  })
+
+  /**
+   * Al terminar, el siguiente con cuenta atrás.
+   *
+   * Se salta al final en vez de esperar el minuto entero: lo que se mide es lo que
+   * pasa **cuando el episodio termina**, y llegar ahí es cosa de la prueba. La
+   * tarjeta se puede parar, y pararla deja donde estaba.
+   */
+  test('al terminar ofrece el siguiente y se puede parar', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+
+    await page.locator('video').evaluate((elemento: HTMLVideoElement) => {
+      elemento.currentTime = elemento.duration - 0.3
+    })
+
+    const tarjeta = page.locator('.watch__next')
+    await expect(tarjeta).toBeVisible({ timeout: 15_000 })
+    await expect(tarjeta).toContainText('Siguiente episodio en')
+
+    await tarjeta.getByRole('button', { name: 'Cancelar' }).click()
+
+    await expect(tarjeta).toHaveCount(0)
+    await expect(page).toHaveURL(/aurora-nocturna%233/)
+  })
+
+  /**
+   * Y se puede apagar del todo.
+   *
+   * El interruptor vive en los ajustes del reproductor y lo que guarda es una
+   * preferencia del navegador: apagado, el episodio termina y no pasa nada.
+   */
+  test('la reproducción automática se apaga desde los ajustes', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    await page.getByRole('button', { name: 'Ajustes' }).click()
+    const casilla = page.getByRole('checkbox', { name: 'Reproducción automática' })
+    await expect(casilla).toBeChecked()
+    await casilla.uncheck()
+
+    expect(await page.evaluate(() => localStorage.getItem('nn-anime:autoplay'))).toBe('no')
+
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await page.locator('video').evaluate((elemento: HTMLVideoElement) => {
+      elemento.currentTime = elemento.duration - 0.3
+    })
+
+    // Se espera a que el video termine de verdad, y no a que aparezca la tarjeta.
+    await expect
+      .poll(
+        async () =>
+          await page.locator('video').evaluate((elemento: HTMLVideoElement) => elemento.ended),
+        { timeout: 15_000 },
+      )
+      .toBe(true)
+
+    await expect(page.locator('.watch__next')).toHaveCount(0)
+  })
+})
+
+/**
+ * La disposición de la pantalla.
+ *
+ * Es lo que no se puede medir en una prueba de marcado: dónde cae cada caja en
+ * una ventana de verdad. Los tres casos son los del encargo —el reproductor sin
+ * desplazarse en 1366×768, las dos columnas en escritorio y una sola en el móvil,
+ * y nada que se salga a lo ancho en 360 px—.
+ */
+test.describe('la disposición', () => {
+  test('el reproductor entero cabe en una ventana de 1366×768', async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 })
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const caja = await page.locator('.player').boundingBox()
+
+    expect(caja).not.toBeNull()
+    // El marco del reproductor y su barra de mandos —que va dentro—, enteros en
+    // la ventana: antes había que desplazarse para ver el video.
+    expect(caja?.y ?? 0).toBeGreaterThanOrEqual(0)
+    expect((caja?.y ?? 0) + (caja?.height ?? 0)).toBeLessThanOrEqual(768)
+  })
+
+  test('la lista va al lado del reproductor en escritorio', async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 })
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    await expect(page.locator('.watch__list li')).toHaveCount(12, { timeout: 15_000 })
+
+    const principal = await page.locator('.watch__main').boundingBox()
+    const lateral = await page.locator('.watch__aside').boundingBox()
+
+    expect(lateral?.x ?? 0).toBeGreaterThanOrEqual(
+      (principal?.x ?? 0) + (principal?.width ?? 0) - 1,
+    )
+    // Y las dos empiezan a la misma altura: el encabezado no se descuelga.
+    expect(Math.abs((lateral?.y ?? 0) - (principal?.y ?? 0))).toBeLessThanOrEqual(1)
+  })
+
+  test('en 360 px no hay desplazamiento horizontal y la lista cae debajo', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 640 })
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    await expect(page.locator('.watch__list li')).toHaveCount(12, { timeout: 15_000 })
+
+    const desborde = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+
+    expect(desborde).toBeLessThanOrEqual(0)
+
+    const principal = await page.locator('.watch__main').boundingBox()
+    const lateral = await page.locator('.watch__aside').boundingBox()
+
+    expect(lateral?.y ?? 0).toBeGreaterThanOrEqual(
+      (principal?.y ?? 0) + (principal?.height ?? 0) - 1,
+    )
+  })
+})
+
+/**
  * El modo compatible, en un navegador de verdad.
  *
  * Aquí se mide que encenderlo **no rompa** la reproducción y que el lienzo esté

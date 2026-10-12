@@ -36,11 +36,13 @@ await mkdir(providers, { recursive: true })
  * avanza, que el salto funciona—, no el códec, que es del navegador. Se dice en el
  * informe para que nadie crea que se probó un mp4.
  */
-function wavDeDiezSegundos(): Uint8Array {
-  // Diez segundos y no uno: con un segundo, el archivo termina antes de que la
-  // prueba pueda leer el tiempo y el salto no se puede medir. Lo encontró la
-  // propia prueba del reproductor.
-  const muestras = 80_000
+function wavDeUnMinuto(): Uint8Array {
+  // Un minuto y no diez segundos: el reproductor no reanuda antes del segundo
+  // diez —quien abrió el episodio y lo cerró ahí no lo estaba viendo— y con un
+  // archivo de diez segundos esa regla no se puede medir de verdad, sólo fingir.
+  // El precio es un archivo de un megabyte que se sirve desde casa; el sonido es
+  // un tono, así que el coste de tenerlo es el del disco.
+  const muestras = 480_000
   const datos = new Uint8Array(muestras * 2)
 
   for (let indice = 0; indice < muestras; indice++) {
@@ -117,7 +119,7 @@ const medios = Bun.serve({
     const url = new URL(request.url)
 
     if (url.pathname === '/tono.wav') {
-      const tono = wavDeDiezSegundos()
+      const tono = wavDeUnMinuto()
       const rango = rangoPedido(request.headers.get('range'), tono.byteLength)
 
       // El `Range` se atiende de verdad y no se ignora: el arnés declaraba

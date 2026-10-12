@@ -163,6 +163,14 @@
   --watch-episodes-width: 20rem;
   --watch-episodes-max: 22rem;
   --watch-episode-height: 2.75rem;
+  /**
+   * El alto máximo de la lista de episodios de la pantalla de reproducción.
+   *
+   * La columna se desplaza por dentro: una serie de mil capítulos no puede
+   * empujar hacia abajo lo que hay debajo, y el video tiene que seguir a la vista
+   * mientras se busca el episodio.
+   */
+  --watch-list-height: 30rem;
   /** El lado mínimo de un mando: 44 px, el objetivo táctil que pide el spec. */
   --control-size: 2.75rem;
   /**

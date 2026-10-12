@@ -281,6 +281,11 @@ export const messages: Messages = {
   // audio: son dos cosas distintas y se eligen por separado.
   'player.tracks.pick': 'Subtítulos',
   'player.tracks.none': 'Ninguno',
+  // El episodio siguiente, que empieza solo si nadie lo para.
+  'player.autoplay': 'Reproducción automática',
+  'player.next.in': 'Siguiente episodio en {seconds} s',
+  'player.next.now': 'Reproducir ahora',
+  'player.next.cancel': 'Cancelar',
   'player.key.toggle': 'Pausa y reanudar',
   'player.key.seek': 'Retroceder o avanzar 10 s',
   'player.key.volume': 'Bajar o subir el volumen',

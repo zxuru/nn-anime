@@ -87,10 +87,26 @@ export interface PlayerProps {
   readonly onMode?: ((mode: PlayMode) => void) | undefined
   /** Abrir el episodio en el reproductor externo. Sin esto no se ofrece. */
   readonly onMpv?: (() => void) | undefined
+  /**
+   * Si el episodio siguiente empieza solo, y cómo cambiarlo.
+   *
+   * La preferencia la guarda la pantalla —es suya, porque es ella la que sabe
+   * cuál es el episodio siguiente— y aquí sólo se pinta el interruptor, que vive
+   * con los demás ajustes.
+   */
+  readonly autoplay?: boolean | undefined
+  readonly onAutoplay?: ((valor: boolean) => void) | undefined
   /** Se llama al empezar a reproducir de verdad, no al cargar la página. */
   readonly onPlay?: (() => void) | undefined
   readonly onPause?: (() => void) | undefined
   readonly onProgress?: ((positionS: number, durationS: number) => void) | undefined
+  /**
+   * El episodio llegó al final.
+   *
+   * Sale del evento del elemento y no de la posición: una pausa en el último
+   * segundo y el final se parecen, y de aquí sale la tarjeta del siguiente.
+   */
+  readonly onEnded?: (() => void) | undefined
   /** Segundo en el que empezar, al reanudar o al cambiar de modo. */
   readonly startAtS?: number | undefined
 }
@@ -142,6 +158,7 @@ export function Player(props: PlayerProps): ReactNode {
     ...(props.onPlay === undefined ? {} : { onPlay: props.onPlay }),
     ...(props.onPause === undefined ? {} : { onPause: props.onPause }),
     ...(props.onProgress === undefined ? {} : { onProgress: props.onProgress }),
+    ...(props.onEnded === undefined ? {} : { onEnded: props.onEnded }),
     ...(props.startAtS === undefined ? {} : { startAtS: props.startAtS }),
   })
   const pistas = props.tracks ?? []
@@ -767,6 +784,17 @@ export function Player(props: PlayerProps): ReactNode {
                         ))}
                       </ul>
                     </div>
+                  )}
+
+                  {props.onAutoplay === undefined ? null : (
+                    <label className="player__menu-switch">
+                      <input
+                        type="checkbox"
+                        checked={props.autoplay ?? true}
+                        onChange={(evento) => props.onAutoplay?.(evento.target.checked)}
+                      />
+                      {t(DEFAULT_LOCALE, 'player.autoplay')}
+                    </label>
                   )}
 
                   <button

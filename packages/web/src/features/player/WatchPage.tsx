@@ -29,7 +29,7 @@ import {
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { Episode } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet, apiPostJson } from '../../api/client'
 import { describirFallo, FALLO_SIN_CAUSA, type Fallo, falloSinFuente } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
@@ -40,13 +40,24 @@ import {
   useDocumentTitle,
   watchTitleParts,
 } from '../../lib/document-title'
-import { buildPath, Link, usePath } from '../../router'
+import { buildPath, Link, useNavigate, usePath } from '../../router'
 import { coverPath } from '../search/ResultCard'
 import { AudioModeSwitch } from './AudioModeSwitch'
 import { Player } from './Player'
+import {
+  almacenLocal,
+  claveDeProgreso,
+  guardarAutoplay,
+  guardarProgreso,
+  leerAutoplay,
+  leerProgreso,
+  olvidarProgreso,
+  reanudarEn,
+} from './storage'
 import { type SubtitleCandidate, toSafeTracks, tracksFromSource } from './subtitle-tracks'
 import { useMpvHandoff } from './useMpvHandoff'
 import { useWatchEvents } from './useWatchEvents'
+import { WatchEpisodes } from './WatchEpisodes'
 import {
   animeRefFromPath,
   animeRefOf,
@@ -57,6 +68,12 @@ import {
   type WatchPathOptions,
   watchPath,
 } from './watch-route'
+
+/** Cada cuánto se apunta por dónde va, como mucho. */
+const GUARDADO_MS = 5000
+
+/** Los segundos que se espera antes de pasar solo al episodio siguiente. */
+const SEGUNDOS_DEL_SIGUIENTE = 5
 
 export interface WatchPageProps {
   readonly providerId: string
@@ -103,10 +120,45 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   // una elección que acaba de hacer. Dentro de la pantalla manda este selector.
   const path = usePath()
   const [modo, setModo] = useState<'sub' | 'dub'>(() => modeFromPath(path) ?? 'sub')
-  // El segundo donde se dejó, si la dirección lo trae: la tarjeta de «continuar
-  // viendo» lo pone en su enlace. Arrancar aquí y no en el cero es lo que hace
-  // que la fila sirva para seguir viendo y no para volver a empezar.
-  const [posicion, setPosicion] = useState(() => startAtFromPath(path) ?? 0)
+  /**
+   * El segundo por el que se empieza.
+   *
+   * Tres fuentes, por orden: lo que la dirección pide —la tarjeta de «continuar
+   * viendo» lo escribe en el enlace—, lo que la pantalla apuntó la última vez que
+   * se vio este episodio y, si no hay nada, el principio.
+   *
+   * Se lee en el arranque y no en un efecto: el reproductor monta con la fuente ya
+   * resuelta y su posición de reanudación se decide una sola vez por fuente, así
+   * que llegar tarde es llegar al segundo cero.
+   */
+  const [posicion, setPosicion] = useState(() => {
+    const deLaDireccion = startAtFromPath(path)
+    if (deLaDireccion !== undefined) return deLaDireccion
+
+    return (
+      reanudarEn(leerProgreso(almacenLocal(), claveDeProgreso(props.providerId, props.ref))) ?? 0
+    )
+  })
+  /**
+   * Lo último que se supo de la reproducción, en una referencia.
+   *
+   * El guardado final ocurre al desmontar, y ahí el cierre del efecto ve el estado
+   * del primer render: la posición que hay que apuntar es la de ahora, no la del
+   * principio.
+   */
+  const viva = useRef({ positionS: 0, durationS: 0, ultimoGuardado: 0 })
+
+  /**
+   * Si el siguiente episodio empieza solo.
+   *
+   * Lo guardado manda y el valor de fábrica es que sí: quien ve una serie espera
+   * que siga. Se puede apagar desde los ajustes del reproductor.
+   */
+  const [autoplay, setAutoplay] = useState(() => leerAutoplay(almacenLocal()))
+  const cambiarAutoplay = useCallback((valor: boolean) => {
+    setAutoplay(valor)
+    guardarAutoplay(almacenLocal(), valor)
+  }, [])
 
   // El registro del visionado: alta al reproducir de verdad, avance cada 15 s y
   // al pausar, y la posición final al desmontar o cerrar la pestaña.
@@ -267,6 +319,80 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   const posicionEpisodio = episodePosition(episodios, props.providerId, props.ref)
   const episodioActual = episodios.find((episodio) => episodio.ref.value === props.ref)
   const numeroEpisodio = posicionEpisodio?.number ?? episodioActual?.number
+
+  const claveProgreso = claveDeProgreso(props.providerId, props.ref)
+  const navegar = useNavigate()
+
+  /**
+   * Apuntar por dónde va, sin apuntarlo en cada aviso.
+   *
+   * El elemento avisa cuatro veces por segundo: escribir el progreso con cada uno
+   * serían cuatro escrituras por segundo en el almacén del navegador para un dato
+   * que sólo hace falta cuando se vuelve. Se escribe cada cinco segundos y al
+   * desmontar, que es cuando de verdad importa.
+   */
+  const anotarProgreso = useCallback(
+    (positionS: number, durationS: number, forzar: boolean) => {
+      viva.current = { ...viva.current, positionS, durationS }
+
+      const ahora = Date.now()
+      if (!forzar && ahora - viva.current.ultimoGuardado < GUARDADO_MS) return
+
+      viva.current = { ...viva.current, ultimoGuardado: ahora }
+      guardarProgreso(almacenLocal(), claveProgreso, { positionS, durationS })
+    },
+    [claveProgreso],
+  )
+
+  // Al salir de la pantalla —o al cambiar de episodio— se apunta dónde se quedó:
+  // es el momento en el que el dato sirve, y el último aviso puede ser de hace
+  // cinco segundos.
+  useEffect(() => {
+    const referencia = viva
+
+    return () => {
+      const { positionS, durationS } = referencia.current
+      if (durationS > 0) guardarProgreso(almacenLocal(), claveProgreso, { positionS, durationS })
+    }
+  }, [claveProgreso])
+
+  /**
+   * El episodio siguiente, cuando el actual termina.
+   *
+   * La tarjeta se ofrece con cuenta atrás y se puede parar: pasar solo al
+   * siguiente es lo que se espera de una serie, pero sin preguntar sería quitarle
+   * a alguien el mando. Y se puede apagar del todo desde los ajustes.
+   */
+  const [cuenta, setCuenta] = useState<number | undefined>(undefined)
+
+  const siguiente = vecinos.next
+  const rutaSiguiente =
+    siguiente === undefined
+      ? undefined
+      : watchPath(props.providerId, siguiente.value, { mode: modo, anime: animeValue })
+
+  const alTerminar = useCallback(() => {
+    // El episodio está visto: lo apuntado a medias ya no sirve para reanudar.
+    olvidarProgreso(almacenLocal(), claveProgreso)
+
+    if (siguiente === undefined || !autoplay) return
+
+    setCuenta(SEGUNDOS_DEL_SIGUIENTE)
+  }, [autoplay, claveProgreso, siguiente])
+
+  useEffect(() => {
+    if (cuenta === undefined) return
+
+    if (cuenta <= 0) {
+      if (rutaSiguiente !== undefined) navegar.push(rutaSiguiente)
+
+      return
+    }
+
+    const reloj = setTimeout(() => setCuenta((valor) => (valor ?? 1) - 1), 1000)
+
+    return () => clearTimeout(reloj)
+  }, [cuenta, rutaSiguiente, navegar])
 
   /**
    * El título propio del episodio, si lo trae.
@@ -431,6 +557,25 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     </nav>
   )
 
+  /**
+   * La lista de episodios, en su columna.
+   *
+   * Va en los tres estados menos en la carga: en el error es justo cuando más
+   * falta hace —el episodio que no abre tiene al lado los que sí— y en la
+   * reproducción es la forma de cambiar sin volver a la ficha.
+   */
+  const listaDeEpisodios = (
+    <aside className="watch__aside">
+      <WatchEpisodes
+        episodes={episodios}
+        providerId={props.providerId}
+        currentRef={props.ref}
+        mode={modo}
+        animeRef={animeValue}
+      />
+    </aside>
+  )
+
   if (estado === 'loading') {
     return (
       <section className="watch">
@@ -453,6 +598,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
             <ErrorNotice fallo={error ?? FALLO_SIN_CAUSA} onRetry={recargar} />
             {filaDeMandos(false)}
           </div>
+          {listaDeEpisodios}
         </div>
       </section>
     )
@@ -491,20 +637,46 @@ export function WatchPage(props: WatchPageProps): ReactNode {
             mode={modo}
             onMode={setModo}
             onMpv={mpv.abrir}
+            autoplay={autoplay}
+            onAutoplay={cambiarAutoplay}
             startAtS={posicion}
             onPlay={visionado.onPlay}
-            onPause={visionado.onPause}
+            // Pausar es el otro momento en el que el dato importa —quien pausa
+            // suele estar a punto de irse—, así que aquí se apunta sin esperar al
+            // turno del guardado periódico.
+            onPause={() => {
+              anotarProgreso(viva.current.positionS, viva.current.durationS, true)
+              visionado.onPause()
+            }}
+            onEnded={alTerminar}
             // La duración viaja al registro además de la posición: el servidor
             // calcula con ella la proporción vista, y sin duración todo visionado
             // valía cero y la fila de «continuar viendo» los descartaba a todos.
             onProgress={(positionS, durationS) => {
               setPosicion(positionS)
               visionado.onProgress(positionS, durationS)
+              anotarProgreso(positionS, durationS, false)
             }}
           />
 
           {filaDeMandos(true)}
+
+          {cuenta === undefined || rutaSiguiente === undefined ? null : (
+            <div className="watch__next">
+              <p className="watch__next-text">
+                {t(DEFAULT_LOCALE, 'player.next.in', { seconds: cuenta })}
+              </p>
+              <Link className="button button--primary" to={rutaSiguiente}>
+                {t(DEFAULT_LOCALE, 'player.next.now')}
+              </Link>
+              <button type="button" className="button" onClick={() => setCuenta(undefined)}>
+                {t(DEFAULT_LOCALE, 'player.next.cancel')}
+              </button>
+            </div>
+          )}
         </div>
+
+        {listaDeEpisodios}
       </div>
     </section>
   )

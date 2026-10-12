@@ -235,6 +235,14 @@ export interface LinkProps {
    * del contexto que el ojo tiene delante y un lector de pantalla no da.
    */
   readonly ariaLabel?: string
+  /**
+   * Qué elemento es el actual de un conjunto, cuando lo es.
+   *
+   * Es lo que marca el episodio que se está viendo en la lista: un enlace al que
+   * ya estás no se distingue de los demás por el texto, y para quien no ve la
+   * pantalla el color no existe.
+   */
+  readonly ariaCurrent?: 'page' | undefined
   readonly onNavigate?: () => void
   /**
    * Sucesos del puntero.
@@ -262,6 +270,7 @@ export function Link(props: LinkProps): ReactNode {
       className={props.className}
       title={props.title}
       aria-label={props.ariaLabel}
+      aria-current={props.ariaCurrent}
       onMouseEnter={props.onMouseEnter}
       onMouseLeave={props.onMouseLeave}
       onClick={(event) => {

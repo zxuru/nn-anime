@@ -1388,6 +1388,23 @@
   text-align: left;
 }
 
+/* El interruptor del menú: la casilla nativa, con el acento de la interfaz, y su
+   texto al lado. La etiqueta entera es el objetivo, no el cuadradito. */
+.player__menu-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-size);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.player__menu-switch input {
+  width: var(--space-4);
+  height: var(--space-4);
+  accent-color: var(--color-accent);
+}
+
 /*
  * La ayuda del teclado.
  *
@@ -1452,6 +1469,121 @@
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
+}
+
+/*
+ * La lista de episodios, en su columna.
+ *
+ * El ancho lo pide con `flex` y no lo impone: cuando no cabe al lado del
+ * reproductor, cae debajo —y crece a lo ancho— sin una consulta de medios, que no
+ * puede leer un token. La lista se desplaza **dentro**: el video se queda donde
+ * está mientras se busca el episodio.
+ */
+.watch__aside {
+  display: flex;
+  flex: 1 1 var(--watch-episodes-width);
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: var(--watch-episodes-max);
+}
+
+.watch__aside-title {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.watch__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: var(--watch-list-height);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.watch__list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-size);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width-strong) solid transparent;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.watch__list-item:hover,
+.watch__list-item:focus-visible {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* El episodio que se está viendo.
+ *
+ * Lo dice el `aria-current` —y por eso lo lleva el marcado—, un marco y el número
+ * en el color de acción: tres señales y no sólo el color, que es lo que pide el
+ * spec para no dejar el estado a quien no distingue colores. */
+.watch__list-item[aria-current="page"] {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.watch__list-number {
+  min-width: var(--space-6);
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+}
+
+.watch__list-item[aria-current="page"] .watch__list-number {
+  color: var(--color-accent);
+}
+
+.watch__list-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/*
+ * La tarjeta del episodio siguiente.
+ *
+ * Aparece cuando el episodio termina, con cuenta atrás y dos salidas: seguir
+ * ahora o pararla. El marco lleva la sombra del acento porque es lo único que se
+ * puede pulsar en ese momento.
+ */
+.watch__next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-hard-accent);
+}
+
+.watch__next-text {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
 }
 
 /*

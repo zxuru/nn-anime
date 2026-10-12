@@ -199,6 +199,14 @@ export interface UsePlayerOptions {
   readonly onProgress?: ((positionS: number, durationS: number) => void) | undefined
   /** Segundo en el que empezar. Sirve para reanudar y para cambiar de modo. */
   readonly startAtS?: number | undefined
+  /**
+   * El episodio llegó al final.
+   *
+   * Es del elemento y no de la pantalla: `ended` no se puede deducir de la
+   * posición —una pausa en el último segundo y el final se parecen—, y de aquí
+   * sale la tarjeta del episodio siguiente.
+   */
+  readonly onEnded?: (() => void) | undefined
 }
 
 export function usePlayer(source: UsePlayerOptions): PlayerHandle {
@@ -234,11 +242,13 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     onPlay: source.onPlay,
     onPause: source.onPause,
     onProgress: source.onProgress,
+    onEnded: source.onEnded,
   })
   avisos.current = {
     onPlay: source.onPlay,
     onPause: source.onPause,
     onProgress: source.onProgress,
+    onEnded: source.onEnded,
   }
 
   /**
@@ -399,9 +409,11 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
      */
     const alBuscar = (): void =>
       setState((previo) => anunciar(previo, { buffering: false, positionS: video.currentTime }))
-    /** El final del episodio: deja de sonar y se cuenta. */
-    const alTerminar = (): void =>
+    /** El final del episodio: deja de sonar, se cuenta y se avisa a la pantalla. */
+    const alTerminar = (): void => {
       setState((previo) => anunciar(previo, { playing: false, buffering: false }))
+      avisos.current.onEnded?.()
+    }
 
     video.addEventListener('timeupdate', alTiempo)
     video.addEventListener('progress', alBuffer)
