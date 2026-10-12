@@ -3,6 +3,7 @@ import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { listMigrations, openDb, runMigrations } from '@nn-anime/catalog-store'
+import { loadConfig } from '@nn-anime/core'
 import { type MigrationTarget, migrate } from './db-migrate'
 import type { CliIO } from './run'
 
@@ -61,7 +62,12 @@ describe('db:migrate', () => {
     await withHome(async (home) => {
       await migrate(deps(home, salida()))
 
-      const stats = await stat(join(home, '.local', 'share', 'nn-anime', 'nn-anime.db'))
+      // La ruta la dice `loadConfig` y no un literal: el layout por defecto
+      // depende de la plataforma —en Windows es `%LOCALAPPDATA%`—, y lo que mide
+      // la prueba es que la base cae en el directorio de datos y no en el de
+      // trabajo.
+      const { dataDir } = loadConfig({ env: { HOME: home } })
+      const stats = await stat(join(dataDir, 'nn-anime.db'))
 
       expect(stats.isFile()).toBe(true)
     })

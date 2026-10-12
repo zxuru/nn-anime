@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { AppError, type ProviderError } from '@nn-anime/core'
+import { AppError, loadConfig, type ProviderError } from '@nn-anime/core'
 import { type Provider, providerFailure } from '@nn-anime/provider-sdk'
 import type { RunningServer } from '@nn-anime/server'
 import { type CliOptions, parseArgs } from './args'
@@ -358,7 +358,7 @@ describe('ajustes de config.json', () => {
       }
       await boot(options(), depsFor(target, home, { readSettings }))
 
-      expect(path).toBe(join(home, '.config', 'nn-anime', 'config.json'))
+      expect(path).toBe(loadConfig({ env: { HOME: home } }).configFile)
     })
   })
 
@@ -559,7 +559,7 @@ describe('configuración', () => {
       }
       await boot(options(), depsFor(target, home, { migrate }))
 
-      expect(dataDir).toBe(join(home, '.local', 'share', 'nn-anime'))
+      expect(dataDir).toBe(loadConfig({ env: { HOME: home } }).dataDir)
       expect((await stat(dataDir)).isDirectory()).toBe(true)
     })
   })
@@ -732,6 +732,9 @@ describe('proveedores activos', () => {
       await boot(options(), depsFor(target, home))
 
       expect(target.out.join('\n')).toContain('Sin proveedores')
+      // Y dice la ruta de verdad, no una escrita a mano: en Windows los plugins
+      // viven bajo `%APPDATA%`, y `~/.config/...` no existe.
+      expect(target.out.join('\n')).toContain(loadConfig({ env: { HOME: home } }).providersDir)
     })
   })
 

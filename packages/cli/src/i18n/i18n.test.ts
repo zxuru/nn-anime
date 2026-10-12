@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { messages as es } from './es'
 
@@ -44,7 +45,8 @@ async function productionSource(): Promise<string> {
 describe('catálogo del CLI', () => {
   test('el directorio del paquete se resuelve aunque la ruta tenga espacios', () => {
     expect(HERE).not.toContain('%20')
-    expect(HERE).toBe(`${ROOT}i18n/`)
+    // `join` y `sep` y no `…/i18n/`: en Windows el separador es `\`.
+    expect(HERE).toBe(join(ROOT, 'i18n') + sep)
   })
 
   test('todas las claves tienen valor no vacío', () => {

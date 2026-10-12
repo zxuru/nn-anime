@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, pruneOrphans, runMigrations } from '@nn-anime/catalog-store'
+import { loadConfig } from '@nn-anime/core'
 import { prune } from './db-prune'
 import type { CliIO } from './run'
 
@@ -47,8 +48,9 @@ function deps(home: string, target: Salida) {
  */
 async function baseMigrada(home: string): Promise<void> {
   // La carpeta la crea el comando con `ensureDirs`; aquí se crea a mano porque
-  // se migra antes de invocarlo.
-  const carpeta = join(home, '.local', 'share', 'nn-anime')
+  // se migra antes de invocarlo. La ruta la dice `loadConfig` y no un literal:
+  // el layout por defecto depende de la plataforma.
+  const carpeta = loadConfig({ env: { HOME: home } }).dataDir
   await mkdir(carpeta, { recursive: true })
   const db = openDb(join(carpeta, 'nn-anime.db'))
   runMigrations(db)

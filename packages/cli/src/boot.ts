@@ -242,7 +242,7 @@ export interface BootDeps {
  * es un problema del usuario, y lo único que puede hacer al respecto es saber
  * cuál es y por qué.
  */
-function reportPlugins(io: CliIO, locale: Locale, report: LoadReport): void {
+function reportPlugins(io: CliIO, locale: Locale, report: LoadReport, providersDir: string): void {
   if (report.directoryError !== undefined) {
     io.err(t(locale, 'cli.providers.directory', { message: report.directoryError.message }))
   }
@@ -250,7 +250,7 @@ function reportPlugins(io: CliIO, locale: Locale, report: LoadReport): void {
   const ids = report.active.map((entry) => entry.provider.id)
   io.out(
     ids.length === 0
-      ? t(locale, 'cli.providers.none')
+      ? t(locale, 'cli.providers.none', { dir: providersDir })
       : t(locale, 'cli.providers.active', { list: ids.join(', ') }),
   )
 
@@ -363,7 +363,7 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
 
   // Paso 8 del arranque del spec: la URL y la lista de proveedores activos.
   io.out(t(locale, 'cli.url', { url }))
-  reportPlugins(io, locale, plugins)
+  reportPlugins(io, locale, plugins, config.providersDir)
 
   // Se registra antes de abrir el navegador: si abrir falla, el servidor ya
   // tiene que cerrarse igual.
