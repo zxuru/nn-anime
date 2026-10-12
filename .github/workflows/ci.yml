@@ -1,0 +1,69 @@
+name: CI
+
+# El listón, en cada push. Sin esto, las mitigaciones de `tests/seguridad.test.ts` y la auditoría
+# limpia de dependencias son una promesa del último que las miró, no una condición de entrada.
+#
+# La versión de Bun está fijada a propósito: `bun.lock` es la fuente de verdad de las dependencias,
+# y una versión distinta del gestor puede resolverlas de otra forma. Si se sube aquí, que se suba
+# también `engines.bun` en `package.json`, en el mismo commit.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  calidad:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+
+      # `--frozen-lockfile` falla si `bun.lock` no cuadra con los `package.json`: es lo que impide
+      # que una dependencia entre sin pasar por revisión.
+      - name: Instalar
+        run: bun install --frozen-lockfile
+
+      - name: Auditoría de dependencias
+        run: bun audit
+
+      - name: Tipos
+        run: bun run typecheck
+
+      - name: Estilo
+        run: bun run lint
+
+      - name: Pruebas
+        run: bun test
+
+  # El e2e vive aparte: necesita Chromium y un servidor, y tarda lo que tarda. Que falle aquí no
+  # debe tapar que los tipos o las pruebas unitarias están rojos, y al revés.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+
+      - name: Instalar
+        run: bun install --frozen-lockfile
+
+      - name: Instalar Chromium
+        run: bun run e2e:install
+
+      - name: Extremo a extremo
+        run: bun run e2e:todo
