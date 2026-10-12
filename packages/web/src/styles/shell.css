@@ -1039,6 +1039,27 @@
   gap: var(--space-2);
   padding: var(--space-6) var(--space-3) var(--space-3);
   background: var(--player-gradient);
+  transition: opacity var(--transition-normal);
+}
+
+/*
+ * Los mandos escondidos.
+ *
+ * Transparentes y sin recibir el puntero, pero **en el documento**: con
+ * `display: none` el foco del teclado se iría al `body` en mitad de una
+ * reproducción, y quien navega con el tabulador perdería el sitio donde estaba.
+ * Vuelven al pasar el puntero por el marco —lo hace el componente— y mientras
+ * algo de dentro tenga el foco: esconderle el mando enfocado a quien usa el
+ * teclado es dejarle pulsando a ciegas.
+ */
+.player__controls[data-oculto="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.player__stage:focus-within .player__controls {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .player__buttons {
@@ -1046,6 +1067,35 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+}
+
+/*
+ * Un mando cuadrado.
+ *
+ * 44 px de lado, que es el objetivo táctil que pide el spec: con el texto dentro
+ * el botón medía lo que medía su rótulo y unos eran el doble de anchos que
+ * otros. Aquí el ancho lo fija el dibujo y el `padding` lo que respira, así que
+ * la fila es regular y el pie de cada mando no se mueve de un estado al otro.
+ */
+.player__control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: var(--control-size);
+  min-height: var(--control-size);
+  padding: 0 var(--space-2);
+}
+
+/* El «10» de los saltos, al lado de la flecha: lo que dice cuántos segundos. */
+.player__control-step {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* El hueco entre lo que se toca a menudo y el reloj. */
+.player__spacer {
+  flex: 1 1 auto;
 }
 
 /* La barra del tiempo: el carril por capas y el `input` encima.
@@ -1125,15 +1175,36 @@
 }
 
 /*
- * La barra de volumen.
+ * El volumen: el botón del silencio y su barra, en un solo grupo.
  *
- * La barra del tiempo se lleva el ancho que sobra —`flex: 1`—, y ésta no: es un
- * mando corto y pegado a su botón, y con el mismo `flex` se comería la fila
- * entera. Comparte con aquélla el carril y el pulgar, que son los mismos.
+ * La barra aparece al pasar el puntero por encima —o al enfocar cualquiera de los
+ * dos, que es como se llega sin ratón—: es un mando que se toca de vez en cuando
+ * y ocupaba el ancho de tres botones todo el rato. Se esconde con `opacity` y no
+ * con `display` ni con ancho cero: sigue en su sitio, la fila no se mueve cuando
+ * aparece, y el tabulador la encuentra.
  */
 .player__volume {
+  display: flex;
+  align-items: center;
+}
+
+.player__slider {
   flex: 0 0 auto;
   width: var(--volume-width);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.player__volume:hover .player__slider,
+.player__volume:focus-within .player__slider {
+  opacity: 1;
+}
+
+/* En una pantalla táctil no hay «encima»: el mando se queda a la vista. */
+@media (pointer: coarse) {
+  .player__slider {
+    opacity: 1;
+  }
 }
 
 /* El carril y el pulgar, con el mismo borde duro que el resto de la interfaz: el
@@ -1218,34 +1289,20 @@
   }
 }
 
-/*
- * Los mandos que cambian de rótulo —reproducir y silenciar— llevan los dos
- * dentro, en la misma celda.
- *
- * El botón medía lo que medía su rótulo: «Pausa» es más corto que «Reproducir»,
- * así que al pausar el botón encogía, los mandos de al lado se corrían y el modo
- * compatible saltaba de fila. Con los dos superpuestos el ancho lo fija el más
- * largo, y el que no toca sigue ocupando su hueco: `visibility: hidden` y no
- * `display: none`, que es justo lo que mide el ancho.
- */
-.player__labels {
-  display: grid;
-  place-items: center;
-}
-
-.player__label {
-  grid-area: 1 / 1;
-}
-
-.player__label--alterno {
-  visibility: hidden;
-}
-
+/* El reloj va sobre el degradado, y el degradado es negro en los dos temas: con
+   el gris del tema —que está pensado para el fondo de la página— se quedaba por
+   debajo del contraste que exige el spec. */
 .player__time {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  color: var(--color-text-dim);
+  color: var(--color-on-overlay);
   font-size: var(--text-sm);
+}
+
+/* El modo compatible, mientras vive fuera del menú: sin estirarse a lo ancho.
+   Es un mando, no una banda. */
+.player__compat {
+  align-self: flex-start;
 }
 
 /*

@@ -96,10 +96,11 @@ test.describe('el reproductor', () => {
   /**
    * El botón de reproducir mide lo mismo en los dos estados.
    *
-   * «Pausa» es más corto que «Reproducir», y el botón medía lo que medía su
-   * rótulo: al pausar encogía, los mandos de al lado se corrían y el modo
-   * compatible saltaba a la fila de abajo. Se mide la caja de verdad —el único
-   * sitio donde un ancho existe— y la posición del mando que tiene al lado.
+   * El botón medía lo que medía su rótulo —y «Pausa» no ocupa lo que
+   * «Reproducir»—: al pausar encogía y los mandos de al lado se corrían. Ahora el
+   * mando lleva un dibujo y mide lo que fija el token; lo que se mide aquí es que
+   * eso sea verdad en la caja de verdad —el único sitio donde un ancho existe— y
+   * que el mando de al lado no se mueva.
    */
   test('el botón de reproducir no cambia de tamaño al pausar', async ({ page }) => {
     await entrar(page)
@@ -116,13 +117,13 @@ test.describe('el reproductor', () => {
       return caja?.width ?? 0
     }
 
-    const vecino = page.getByRole('button', { name: 'Atrás 10 s' })
+    const vecino = page.getByRole('button', { name: 'Retroceder 10 segundos' })
     const antes = await vecino.boundingBox()
 
     const enPausa = await anchoDe('Reproducir')
 
     await page.getByRole('button', { name: 'Reproducir' }).click()
-    const reproduciendo = await anchoDe('Pausa')
+    const reproduciendo = await anchoDe('Pausar')
 
     expect(enPausa).toBeGreaterThan(0)
     // Un píxel de holgura, y no más: la caja la devuelve el navegador con la
@@ -134,16 +135,15 @@ test.describe('el reproductor', () => {
     const despues = await vecino.boundingBox()
     expect(Math.abs((despues?.x ?? 0) - (antes?.x ?? 0))).toBeLessThan(1)
 
-    // Se vuelve a pausar: el rótulo alterno no puede quedarse como el visible y
-    // devolver el salto en el otro sentido.
-    await page.getByRole('button', { name: 'Pausa' }).click()
+    // Se vuelve a pausar: el ancho no puede recuperarse sólo en un sentido.
+    await page.getByRole('button', { name: 'Pausar' }).click()
     expect(Math.abs((await anchoDe('Reproducir')) - enPausa)).toBeLessThan(1)
 
-    // El silencio lleva el mismo arreglo, y su rótulo alterno es más largo que el
-    // visible: sin los dos dentro, el botón crecería al silenciar.
+    // El silencio lleva el mismo arreglo, y el nombre del otro estado es más
+    // largo: el ancho no puede depender de cuál de los dos se anuncie.
     const silencio = await anchoDe('Silenciar')
     await page.getByRole('button', { name: 'Silenciar' }).click()
-    expect(Math.abs((await anchoDe('Quitar silencio')) - silencio)).toBeLessThan(1)
+    expect(Math.abs((await anchoDe('Activar sonido')) - silencio)).toBeLessThan(1)
   })
 
   /**
@@ -241,6 +241,73 @@ test.describe('el reproductor', () => {
     await expect
       .poll(async () => await page.evaluate(() => document.documentElement.dataset.salidas))
       .not.toBe('0')
+  })
+
+  /**
+   * Los mandos se esconden solos mientras reproduce.
+   *
+   * Tres segundos sin tocar nada y la banda desaparece: encima del video es
+   * ruido. En pausa no se esconden nunca —el fotograma quieto no se tapa y los
+   * mandos son lo único que se puede hacer— y con el puntero encima vuelven. Se
+   * mide la opacidad calculada, que es lo que distingue «escondido» de «fuera del
+   * documento»: con `display: none` el foco del teclado se perdería.
+   */
+  test('los mandos se esconden mientras reproduce y vuelven con el puntero', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const mandos = page.locator('.player__controls')
+
+    // En pausa, quietos: más de lo que dura el temporizador y siguen ahí.
+    await page.waitForTimeout(3500)
+    await expect(mandos).toHaveCSS('opacity', '1')
+
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+
+    // El clic deja el foco en el mando, y un mando con el foco no se esconde
+    // nunca: es la mitad de abajo de esta prueba, y aquí estorba.
+    await page.evaluate(() => {
+      const activo = document.activeElement
+      if (activo instanceof HTMLElement) activo.blur()
+    })
+
+    await expect(mandos).toHaveCSS('opacity', '0', { timeout: 15_000 })
+
+    // Y vuelven con el puntero sobre el marco, sin tocar nada más.
+    await page.locator('.player__stage').hover()
+    await expect(mandos).toHaveCSS('opacity', '1')
+
+    // Con el foco del teclado dentro no se esconden ni aunque pase el tiempo:
+    // esconderle el mando enfocado a quien navega con el teclado es dejarlo
+    // pulsando a ciegas.
+    await page.getByRole('button', { name: 'Pausar' }).focus()
+    await page.waitForTimeout(3500)
+    await expect(mandos).toHaveCSS('opacity', '1')
+  })
+
+  /**
+   * La barra de volumen sólo aparece cuando se va a usar.
+   *
+   * Es un mando que se toca de vez en cuando y ocupaba el ancho de tres botones
+   * todo el rato. Se mide con el puntero **fuera** y **dentro**: si el CSS la
+   * dejara siempre visible, la primera comprobación fallaría.
+   */
+  test('la barra de volumen aparece al pasar el puntero por su grupo', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const barra = page.locator('.player__slider')
+
+    await page.mouse.move(0, 0)
+    await expect(barra).toHaveCSS('opacity', '0')
+
+    await page.getByRole('button', { name: 'Silenciar' }).hover()
+    await expect(barra).toHaveCSS('opacity', '1')
   })
 
   /**
@@ -594,13 +661,13 @@ test.describe('el reproductor', () => {
     await page.getByRole('button', { name: 'Silenciar' }).click()
     await page.getByRole('button', { name: 'Reproducir' }).click()
     await page.waitForTimeout(2000)
-    await page.getByRole('button', { name: 'Pausa' }).click()
+    await page.getByRole('button', { name: 'Pausar' }).click()
 
     // Otra vuelta al mismo episodio: es lo que abría una segunda fila y pintaba
     // la misma tarjeta dos veces en la home.
     await page.getByRole('button', { name: 'Reproducir' }).click()
     await page.waitForTimeout(1500)
-    await page.getByRole('button', { name: 'Pausa' }).click()
+    await page.getByRole('button', { name: 'Pausar' }).click()
 
     const recientes = async (): Promise<{ items: { durationS: number; positionS: number }[] }> =>
       (await (await page.request.get('/api/watch/recent')).json()) as {

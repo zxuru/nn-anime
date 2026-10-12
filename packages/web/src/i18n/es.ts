@@ -229,16 +229,22 @@ export const messages: Messages = {
   'player.episodeNamed': 'Episodio {number} · {title}',
   'player.mode.sub': 'Subtitulado',
   'player.mode.dub': 'Doblado',
+  // Los mandos de la barra. Con iconos, estos textos son el **nombre accesible**
+  // y el `title`: lo que se ve es el dibujo, así que el nombre tiene que decir el
+  // estado entero —«Pausar», no «Pausa»— y no depender del contexto.
   'player.play': 'Reproducir',
-  'player.pause': 'Pausa',
-  'player.back': 'Atrás 10 s',
-  'player.forward': 'Adelante 10 s',
+  'player.pause': 'Pausar',
+  'player.back': 'Retroceder 10 segundos',
+  'player.forward': 'Adelantar 10 segundos',
+  // Lo que se ve dentro de los dos botones de salto, al lado de la flecha.
+  'player.seek.step': '10',
   'player.mute': 'Silenciar',
   // El mando de volumen. La barra no lleva rótulo a la vista, así que este es su
   // nombre accesible: sin él, un lector de pantalla lee un «deslizador» y nada más.
   'player.volume': 'Volumen',
-  'player.unmute': 'Quitar silencio',
+  'player.unmute': 'Activar sonido',
   'player.fullscreen': 'Pantalla completa',
+  'player.fullscreen.exit': 'Salir de pantalla completa',
   'player.seek': 'Posición del video',
   'player.mpv': 'Ver en mpv',
   'player.mpv.opened': 'Se abrió en el reproductor externo.',

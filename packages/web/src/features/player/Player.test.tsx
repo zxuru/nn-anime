@@ -24,19 +24,30 @@ describe('el reproductor', () => {
     expect(html.toLowerCase()).toContain('playsinline')
   })
 
-  test('los controles son botones con su texto', () => {
+  /**
+   * Los mandos son botones con nombre.
+   *
+   * Con iconos no queda texto a la vista, así que el nombre accesible es lo único
+   * que dice qué hace cada uno: sin él, un lector de pantalla lee «botón» seis
+   * veces seguidas. Y con un dibujo dentro, el dibujo va `aria-hidden` para que el
+   * nombre no se lea dos veces.
+   */
+  test('los controles son botones con su nombre accesible', () => {
     const html = render(<Player url="/stream/abc" kind="file" />)
 
     for (const texto of [
       'Reproducir',
-      'Atrás 10 s',
-      'Adelante 10 s',
+      'Retroceder 10 segundos',
+      'Adelantar 10 segundos',
       'Silenciar',
       'Pantalla completa',
     ]) {
-      expect(html, texto).toContain(texto)
+      expect(html, texto).toContain(`aria-label="${texto}"`)
+      expect(html, texto).toContain(`title="${texto}"`)
     }
     expect(html).toContain('type="button"')
+    // El dibujo no se anuncia: el nombre ya lo dice el botón.
+    expect(html.match(/aria-hidden="true"/g)?.length).toBeGreaterThan(3)
   })
 
   test('el estado vive en una región `aria-live` educada', () => {
@@ -47,34 +58,28 @@ describe('el reproductor', () => {
   })
 
   /**
-   * El botón no cambia de tamaño al cambiar de estado.
+   * El mando anuncia un solo estado, y el mismo mando sirve para los dos.
    *
-   * «Reproducir» y «Pausa» no ocupan lo mismo, y el botón medía lo que decía su
-   * rótulo: al pausar encogía, los mandos de al lado se corrían y el modo
-   * compatible saltaba de fila. Los dos rótulos van dentro del botón, en la misma
-   * caja, y sólo el visible es el nombre del botón.
+   * Antes esto se resolvía con dos rótulos superpuestos dentro del botón —el que
+   * no tocaba, `visibility: hidden`— porque el botón medía lo que medía su texto.
+   * Con el dibujo y el nombre accesible, lo que hay que medir es lo otro: que el
+   * nombre sea **uno**, el del estado actual, y que el botón siga midiendo lo
+   * mismo en los dos estados —eso lo mide el e2e—.
    */
-  test('los mandos que cambian de rótulo llevan los dos estados dentro', () => {
+  test('cada mando dice un solo estado, y el que toca', () => {
     const html = render(<Player url="/stream/abc" kind="file" />)
 
-    for (const [atajo, rotulos] of [
-      ['Space Enter K', ['Reproducir', 'Pausa']],
-      ['M', ['Silenciar', 'Quitar silencio']],
-    ] as const) {
-      const boton = new RegExp(`<button[^>]*aria-keyshortcuts="${atajo}"[\\s\\S]*?</button>`).exec(
-        html,
-      )?.[0]
+    const boton = (atajo: string): string =>
+      new RegExp(`<button[^>]*aria-keyshortcuts="${atajo}"[\\s\\S]*?</button>`).exec(html)?.[0] ??
+      ''
 
-      expect(boton, atajo).toBeDefined()
+    const reproduccion = boton('Space Enter K')
+    expect(reproduccion).toContain('aria-label="Reproducir"')
+    expect(reproduccion).not.toContain('aria-label="Pausar"')
 
-      for (const rotulo of rotulos) {
-        expect(boton, `${atajo}: falta «${rotulo}»`).toContain(rotulo)
-      }
-
-      // Uno de los dos rótulos está oculto, y ese no se anuncia: con los dos en
-      // el nombre accesible, el lector de pantalla leería los dos estados.
-      expect(boton?.match(/aria-hidden="true"/g)?.length, atajo).toBe(1)
-    }
+    const silencio = boton('M')
+    expect(silencio).toContain('aria-label="Silenciar"')
+    expect(silencio).not.toContain('aria-label="Activar sonido"')
   })
 
   test('la atribución de hls.js aparece sólo cuando se usa HLS', () => {

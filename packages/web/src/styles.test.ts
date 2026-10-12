@@ -117,23 +117,25 @@ describe('tokens de diseño', () => {
   })
 
   /**
-   * El rótulo que no toca se oculta **sin salir del flujo**.
+   * El botón de reproducir no cambia de ancho al cambiar de estado.
    *
-   * Es lo que sostiene que el botón de reproducir no cambie de ancho: con
-   * `display: none` —o sin el segundo rótulo en el documento— el botón vuelve a
-   * medir lo que mide el rótulo visible, que es el salto que se midió a mano
-   * («Reproducir» mide más que «Pausa»). Y los dos van en la misma celda: en dos
-   * filas el botón crecería a lo alto en vez de a lo ancho.
+   * Es lo que se mide: «Reproducir» y «Pausa» no ocupan lo mismo, y el botón
+   * medía lo que medía su rótulo, así que al pausar encogía y los mandos de al
+   * lado se corrían. Antes se resolvía con los dos rótulos superpuestos dentro
+   * del botón; ahora el mando lleva un dibujo y mide lo que fija el token, no lo
+   * que diga su nombre. El caso se conserva porque el fallo —una fila de mandos
+   * que se mueve al cambiar de estado— sigue siendo el mismo.
    */
-  test('el rótulo alterno ocupa su hueco aunque no se vea', async () => {
+  test('el mando mide lo que el token, no lo que dice su nombre', async () => {
     const css = await read(SHELL)
 
-    const alterno = /\.player__label--alterno\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
-    expect(alterno).toContain('visibility: hidden')
-    expect(alterno).not.toContain('display')
+    const mando = /\.player__control\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(mando).toContain('min-width: var(--control-size)')
+    expect(mando).toContain('min-height: var(--control-size)')
 
-    const celda = /\.player__label\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
-    expect(celda).toContain('grid-area: 1 / 1')
+    // Y el truco viejo no vuelve por su cuenta: dos rótulos superpuestos en el
+    // mismo botón son dos nombres accesibles a la vez.
+    expect(css).not.toContain('.player__label--alterno')
   })
 
   /**

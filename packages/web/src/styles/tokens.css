@@ -42,6 +42,14 @@
   --color-success: #7fe0a8;
   /** El fondo de las etiquetas activas y del cartel de un día con estreno. */
   --color-highlight: #ff4a2e;
+  /**
+   * El texto que va encima del velo y del degradado de los mandos.
+   *
+   * No es `--color-text`: el degradado es negro en los dos temas —lo que hay
+   * debajo es el video, no el fondo de la aplicación— así que en tema claro el
+   * texto oscuro del tema se quedaba en 3:1 sobre él. Es crema en los dos.
+   */
+  --color-on-overlay: #f2e9d8;
 
   /* El velo del diálogo y su ancho. Ninguno de los dos es un color de texto, así
      que no entran en los pares de contraste que se miden. */
@@ -206,6 +214,9 @@
   --color-danger: #a32222;
   --color-success: #1d6b3f;
   --color-highlight: #c62f16;
+  /* El degradado de los mandos es negro también en tema claro: el texto que va
+     encima sigue siendo crema. */
+  --color-on-overlay: #f2e9d8;
   --shadow-1: 0 1px 2px rgb(12 12 16 / 12%);
   --shadow-2: 0 8px 24px rgb(12 12 16 / 18%);
   /* En claro la sombra dura va en negro: el acento sobre crema no se distingue. */
