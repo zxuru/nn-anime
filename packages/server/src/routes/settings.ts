@@ -13,6 +13,11 @@
  * 2. **El tema se guarda en la base, no en el navegador.** Un ajuste que vive en
  *    `localStorage` se pierde al cambiar de navegador y no se puede leer desde el
  *    servidor; el spec dice «persistido en ajustes», y los ajustes son del store.
+ * 3. **La prioridad de proveedor es un orden, no una marca.** Dos proveedores
+ *    pueden ofrecer la misma obra, y «el preferido» sólo tiene sentido frente a
+ *    los demás: se guarda la lista entera, del primero al último. Un booleano por
+ *    proveedor no diría qué hacer cuando hay tres, ni qué pasa si el primero no
+ *    tiene el título.
  */
 
 import type { ConfigPaths } from '@nn-anime/core'
@@ -25,8 +30,20 @@ import type { PluginReport } from './providers'
 /** Clave del tema en la tabla de ajustes. */
 export const THEME_KEY = 'theme'
 
+/**
+ * Clave del orden de preferencia de proveedores.
+ *
+ * No se filtra contra los activos al guardarlo: un plugin que hoy no carga —un
+ * archivo a medias, una carpeta de red caída— recupera su sitio cuando vuelve,
+ * y olvidarlo obligaría a reordenar cada vez que un proveedor falla al arrancar.
+ * Un id que no iguala a ninguno no hace nada: nadie lo consulta.
+ */
+export const PROVIDER_PRIORITY_KEY = 'providerPriority'
+
 const themeSchema = z.enum(['dark', 'light', 'system'])
 const DEFAULT_THEME = 'system' as const
+const prioritySchema = z.array(z.string().min(1)).max(64)
+const NO_PRIORITY: readonly string[] = []
 
 export interface SettingsRouteOptions {
   readonly container: ServerContainer
@@ -49,6 +66,11 @@ function pathsOf(paths: ConfigPaths | undefined) {
 export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions): void {
   app.get('/api/settings', async (c) => {
     const theme = await options.container.store.getSetting(THEME_KEY, themeSchema, DEFAULT_THEME)
+    const providerPriority = await options.container.store.getSetting(
+      PROVIDER_PRIORITY_KEY,
+      prioritySchema,
+      NO_PRIORITY,
+    )
 
     const activos = options.plugins.active.map((entrada) => ({
       id: entrada.provider.id,
@@ -71,6 +93,7 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
     return c.json(
       settingsResponseSchema.parse({
         theme,
+        providerPriority,
         paths: pathsOf(options.paths),
         mpv: {
           available: options.container.mpv.available,
@@ -97,7 +120,18 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
       )
     }
 
-    await options.container.store.setSetting(THEME_KEY, parsed.data.theme)
+    // Cada campo se escribe sólo si vino: un parche parcial no borra lo que no
+    // nombra. El orden pierde los ids repetidos —dos veces el mismo proveedor no
+    // significa nada y dejaría la lista creciendo sin motivo—.
+    if (parsed.data.theme !== undefined) {
+      await options.container.store.setSetting(THEME_KEY, parsed.data.theme)
+    }
+
+    if (parsed.data.providerPriority !== undefined) {
+      await options.container.store.setSetting(PROVIDER_PRIORITY_KEY, [
+        ...new Set(parsed.data.providerPriority),
+      ])
+    }
 
     return c.body(null, 204)
   })

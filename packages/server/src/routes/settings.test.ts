@@ -123,6 +123,18 @@ describe('GET /api/settings', () => {
       expect((await pedir('/api/settings', { headers: {} })).status).toBe(401)
     })
   })
+
+  /**
+   * Sin nada guardado la lista sale vacía, no ausente: la interfaz lee siempre el
+   * mismo campo y «no hay preferencia» es una lista sin elementos.
+   */
+  test('sin prioridad guardada devuelve una lista vacía', async () => {
+    await conApp(async ({ pedir }) => {
+      const salida = settingsResponseSchema.parse(await (await pedir('/api/settings')).json())
+
+      expect(salida.providerPriority).toEqual([])
+    })
+  })
 })
 
 describe('PATCH /api/settings', () => {
@@ -160,6 +172,82 @@ describe('PATCH /api/settings', () => {
         method: 'PATCH',
         headers: JSON_HEADERS,
         body: JSON.stringify({ theme: 'arcoiris' }),
+      })
+
+      expect(respuesta.status).toBe(400)
+    })
+  })
+
+  /**
+   * El orden es el dato: se guarda tal cual se pidió y se lee en el mismo orden.
+   * Mutar el guardado —invertirlo, ordenarlo alfabéticamente— deja esta prueba en
+   * rojo, que es lo que la hace servir de algo.
+   */
+  test('guarda el orden de prioridad y lo devuelve igual', async () => {
+    await conApp(async ({ pedir }) => {
+      const guardar = await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ providerPriority: ['jkanime', 'animeav1'] }),
+      })
+      const salida = settingsResponseSchema.parse(await (await pedir('/api/settings')).json())
+
+      expect(guardar.status).toBe(204)
+      expect(salida.providerPriority).toEqual(['jkanime', 'animeav1'])
+    })
+  })
+
+  test('los ids repetidos se guardan una sola vez', async () => {
+    await conApp(async ({ pedir }) => {
+      await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ providerPriority: ['uno', 'dos', 'uno'] }),
+      })
+      const salida = settingsResponseSchema.parse(await (await pedir('/api/settings')).json())
+
+      expect(salida.providerPriority).toEqual(['uno', 'dos'])
+    })
+  })
+
+  /** Reordenar no es cambiar el tema: lo que el parche no nombra se queda. */
+  test('reordenar proveedores no toca el tema guardado', async () => {
+    await conApp(async ({ pedir }) => {
+      await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ theme: 'light' }),
+      })
+      await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ providerPriority: ['uno'] }),
+      })
+      const salida = settingsResponseSchema.parse(await (await pedir('/api/settings')).json())
+
+      expect(salida.theme).toBe('light')
+      expect(salida.providerPriority).toEqual(['uno'])
+    })
+  })
+
+  test('un parche que no cambia nada es 400', async () => {
+    await conApp(async ({ pedir }) => {
+      const respuesta = await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({}),
+      })
+
+      expect(respuesta.status).toBe(400)
+    })
+  })
+
+  test('un id de proveedor vacío es 400', async () => {
+    await conApp(async ({ pedir }) => {
+      const respuesta = await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ providerPriority: [''] }),
       })
 
       expect(respuesta.status).toBe(400)

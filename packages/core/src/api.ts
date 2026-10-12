@@ -348,9 +348,23 @@ export const recentResponseSchema = z.strictObject({
   items: z.array(animeSummarySchema),
 })
 
+/**
+ * El orden de preferencia de proveedores, del más prioritario al menos.
+ *
+ * Es una lista de ids y no un campo por proveedor porque el orden es el dato: la
+ * misma obra puede estar en varias fuentes, y cuál se elige es la primera de la
+ * lista que la tenga. Un id que ya no exista no estorba —nada lo iguala— y
+ * volver a instalar el plugin recupera su sitio si se reordena.
+ *
+ * El tope de 64 es una defensa de la tabla de ajustes, que es texto libre: una
+ * lista sin límite es una fila que crece con cada petición.
+ */
+const providerPrioritySchema = z.array(z.string().min(1)).max(64)
+
 /** Ajustes que la interfaz puede leer y, en parte, cambiar. */
 export const settingsResponseSchema = z.strictObject({
   theme: z.enum(['dark', 'light', 'system']),
+  providerPriority: providerPrioritySchema,
   paths: z.strictObject({
     data: z.string().min(1),
     config: z.string().min(1),
@@ -372,9 +386,23 @@ export const settingsResponseSchema = z.strictObject({
   ),
 })
 
-export const settingsPatchSchema = z.strictObject({
-  theme: z.enum(['dark', 'light', 'system']),
-})
+/**
+ * Lo que un `PATCH /api/settings` puede cambiar.
+ *
+ * Los dos campos son opcionales y hace falta que venga uno: el parche cambia lo
+ * que trae y deja lo demás como está. Exigir los dos obligaría a la interfaz a
+ * mandar el tema cuando sólo quiere reordenar proveedores, y un `PATCH` vacío no
+ * describe ningún cambio: es una petición mal escrita, no una escritura inútil.
+ */
+export const settingsPatchSchema = z
+  .strictObject({
+    theme: z.enum(['dark', 'light', 'system']).optional(),
+    providerPriority: providerPrioritySchema.optional(),
+  })
+  .refine(
+    (parche) => parche.theme !== undefined || parche.providerPriority !== undefined,
+    'el parche no cambia ningún ajuste',
+  )
 
 /** Detalle de un título. Es el mismo schema del dominio, no una copia. */
 export const animeResponseSchema = animeDetailSchema
