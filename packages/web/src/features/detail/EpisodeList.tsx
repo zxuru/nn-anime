@@ -1,42 +1,43 @@
 /**
- * Lista de episodios.
+ * El selector de episodios.
  *
- * Es una lista ordenada y no una rejilla: el número importa y el orden importa,
- * y `<ol>` dice las dos cosas sin ayuda. Cada episodio muestra su modo, porque
- * un título puede tener el 3 en subtitulado y el 4 doblado, y elegir sin saberlo
- * es la forma más rápida de que la reproducción falle.
+ * Tres piezas y cada una con su dueño: `EpisodePager` son los mandos —página
+ * anterior y siguiente, salto por número, último episodio—, `EpisodeRows` es lo
+ * que se dibuja y `EpisodeList` es quien pide las páginas.
  *
- * **Cada fila es un enlace al reproductor**, no una fila que parece pulsable: el
- * episodio es la acción de la pantalla, y un `<li>` con `onClick` no se puede
- * abrir en otra pestaña, ni copiar, ni recorrer con el teclado sin inventar nada.
- * El modo elegido en la ficha viaja en la dirección.
+ * **La lista se pide por páginas al servidor.** Antes la ficha pedía la lista
+ * entera y el navegador recortaba cien filas: con mil ciento ochenta episodios eso
+ * es un cuerpo que crece con la serie y una búsqueda por número que sólo
+ * encontraba lo que ya estaba descargado. El servidor trocea —con la página que el
+ * plugin declare o en trozos de cien— y aquí sólo se guarda la que se está
+ * mirando.
  *
- * La marca de visto es del **episodio**, no del par episodio y modo: verlo en
- * subtitulado es haberlo visto. Un episodio a medias lleva su barra con la
- * proporción que calculó el servidor, y uno del que no se sabe la duración no
- * lleva ni barra ni marca: inventar el dato sería peor que no decirlo.
+ * **El salto por número pregunta al servidor**, no a la lista cargada: si el
+ * episodio 743 existe, se abre; y si el proveedor contesta que no está, se dice
+ * con un texto, sin dejar la pantalla en blanco. Un número que no se encuentra no
+ * es un fallo de la aplicación: es que ese episodio no está.
  *
- * **La lista se pinta por ventanas de cien.** Una serie de mil ciento ochenta
- * episodios no se busca leyendo: se busca saltando al número, y mil filas en el
- * documento no ayudan a ninguna de las dos cosas. Con cien episodios o menos no
- * hay controles, porque una barra de paginación para doce filas es un mueble.
+ * Las filas siguen siendo enlaces —el episodio es la acción de la pantalla— y el
+ * número viaja en la dirección (`?n=`) porque quien lo conoce es esta lista: el
+ * reproductor lo lee para pedir los vecinos sin descargar el título entero.
  */
 
-import type { WatchedEpisodePayload } from '@nn-anime/core/api'
+import type { EpisodesResponse, WatchedEpisodePayload } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { Episode } from '@nn-anime/core/models'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
-import { Link } from '../../router'
+import { Link, useNavigate } from '../../router'
 import { type PlayMode, watchPath } from '../player/watch-route'
+import { EPISODE_WINDOW, watchedInWindow, windowAt } from './episode-window'
 import {
-  EPISODE_WINDOW,
-  type EpisodeWindow,
-  watchedInWindow,
-  windowAt,
-  windowForNumber,
-} from './episode-window'
-import { formatDuration, watchedPercent } from './useDetail'
+  formatDuration,
+  loadEpisodeByNumber,
+  loadEpisodesPage,
+  loadLatestEpisode,
+  parseJump,
+  watchedPercent,
+} from './useDetail'
 
 /**
  * Las claves del catálogo, escritas una a una.
@@ -51,12 +52,15 @@ const MODE_KEYS = {
   raw: 'detail.mode.raw',
 } as const
 
-export interface EpisodeListProps {
-  readonly episodes: readonly Episode[]
-  /** El modo con el que se abre el reproductor. Sin él, el que elija el reproductor. */
-  readonly mode?: PlayMode
-  /** Lo que ya se vio de este título, por número de episodio. */
-  readonly watched?: readonly WatchedEpisodePayload[]
+/**
+ * La página a la que lleva cada botón.
+ *
+ * La anterior no baja de la primera: una página cero es un 400 del servidor, y
+ * una pantalla que manda una petición que ya sabe que va a fallar es una pantalla
+ * que no comprobó sus propios límites.
+ */
+export function pageAfter(page: number, direction: -1 | 1): number {
+  return Math.max(1, page + direction)
 }
 
 /** Lo que se pinta en la fila por haberlo visto: terminado, a medias o nada. */
@@ -65,8 +69,8 @@ type Marca = { readonly tipo: 'visto' } | { readonly tipo: 'progreso'; readonly 
 /**
  * La marca de una fila.
  *
- * Sin duración no hay proporción, y sin proporción no se marca nada: un
- * episodio abierto y cerrado en el segundo uno no está «a medias» de nada.
+ * Sin duración no hay proporción, y sin proporción no se marca nada: un episodio
+ * abierto y cerrado en el segundo uno no está «a medias» de nada.
  */
 function marcaDe(visto: WatchedEpisodePayload | undefined): Marca | undefined {
   if (visto === undefined) return undefined
@@ -76,136 +80,83 @@ function marcaDe(visto: WatchedEpisodePayload | undefined): Marca | undefined {
   return { tipo: 'progreso', percent: watchedPercent(visto.ratio) }
 }
 
-/**
- * Los controles de una lista larga.
- *
- * Sólo aparecen cuando hay más de una ventana: con doce episodios, una barra de
- * paginación es un mueble que nadie usa. El salto es un formulario y no un campo
- * suelto para que la tecla Intro funcione sin JavaScript de más, y lleva su
- * etiqueta porque un número sin nombre no dice qué se escribe ahí.
- */
-function WindowControls(props: {
-  readonly total: number
-  readonly window: EpisodeWindow
-  readonly seen: number
-  readonly onWindow: (index: number) => void
-  readonly onJump: (number: number) => void
-}): ReactNode {
-  const [salto, setSalto] = useState('')
-  const primero = props.window.start + 1
-  const ultimo = props.window.end
-
-  return (
-    <div className="episodes__windows">
-      <button
-        type="button"
-        className="button"
-        disabled={props.window.start === 0}
-        onClick={() => props.onWindow(props.window.start / EPISODE_WINDOW - 1)}
-      >
-        {t(DEFAULT_LOCALE, 'detail.window.previous')}
-      </button>
-
-      <span className="episodes__range">
-        {t(DEFAULT_LOCALE, 'detail.window.range', { from: primero, to: ultimo })}
-      </span>
-
-      <button
-        type="button"
-        className="button"
-        disabled={props.window.end >= props.total}
-        onClick={() => props.onWindow(props.window.start / EPISODE_WINDOW + 1)}
-      >
-        {t(DEFAULT_LOCALE, 'detail.window.next')}
-      </button>
-
-      <form
-        className="episodes__jump"
-        onSubmit={(event) => {
-          event.preventDefault()
-          const numero = Number(salto)
-          if (Number.isInteger(numero) && numero > 0) props.onJump(numero)
-        }}
-      >
-        <label className="field__label" htmlFor="salto-episodio">
-          {t(DEFAULT_LOCALE, 'detail.window.jump')}
-        </label>
-        <input
-          id="salto-episodio"
-          className="field__input episodes__input"
-          type="number"
-          min={1}
-          max={props.total}
-          value={salto}
-          onChange={(event) => setSalto(event.target.value)}
-        />
-        <button type="submit" className="button">
-          {t(DEFAULT_LOCALE, 'detail.window.go')}
-        </button>
-      </form>
-
-      <p className="episodes__watched">
-        {t(DEFAULT_LOCALE, 'detail.window.watched', {
-          seen: props.seen,
-          total: ultimo - props.window.start,
-        })}
-      </p>
-    </div>
-  )
+export interface EpisodeRowsProps {
+  readonly episodes: readonly Episode[]
+  readonly mode?: PlayMode
+  /** Lo que ya se vio de este título, por número de episodio. */
+  readonly watched?: readonly WatchedEpisodePayload[]
+  /** Cuántos episodios tiene el título, cuando el proveedor lo dice. */
+  readonly total?: number
 }
 
-export function EpisodeList(props: EpisodeListProps): ReactNode {
+/**
+ * Las filas de una página.
+ *
+ * Es una lista ordenada y no una rejilla: el número importa y el orden importa, y
+ * `<ol>` dice las dos cosas sin ayuda. Cada episodio muestra su modo, porque un
+ * título puede tener el 3 en subtitulado y el 4 doblado, y elegir sin saberlo es
+ * la forma más rápida de que la reproducción falle.
+ *
+ * **Cada fila es un enlace al reproductor**, no una fila que parece pulsable: un
+ * `<li>` con `onClick` no se puede abrir en otra pestaña, ni copiar, ni recorrer
+ * con el teclado sin inventar nada.
+ *
+ * **La ventana de cien sigue recortando lo que se dibuja**, por si una página del
+ * plugin trae más de cien episodios: el tope es de pintado, no de datos.
+ */
+export function EpisodeRows(props: EpisodeRowsProps): ReactNode {
   const [ventana, setVentana] = useState(0)
-  /**
-   * El episodio al que hay que llevar el foco después de un salto.
-   *
-   * Es estado y no una llamada directa porque el foco tiene que ponerse **cuando
-   * la fila ya está pintada**: al saltar, la ventana cambia en el mismo paso, y
-   * buscar el elemento antes de que exista no encuentra nada.
-   */
-  const [foco, setFoco] = useState<number | undefined>(undefined)
-  const lista = useRef<HTMLOListElement | null>(null)
-
-  useEffect(() => {
-    if (foco === undefined) return
-
-    const fila = lista.current?.querySelector(`#episodio-${foco} a`)
-    if (fila instanceof HTMLElement) fila.focus()
-    setFoco(undefined)
-  }, [foco])
 
   if (props.episodes.length === 0) {
     return <p className="empty">{t(DEFAULT_LOCALE, 'detail.noEpisodes')}</p>
   }
 
-  const total = props.episodes.length
+  const cuantos = props.episodes.length
   const numeros = props.episodes.map((episode) => episode.number)
-  // Con una sola ventana no hay controles ni recorte: la lista se pinta entera y
-  // el navegador no tiene que montar cien filas para nada.
-  const conVentanas = total > EPISODE_WINDOW
-  const rango = conVentanas ? windowAt(ventana, total) : { start: 0, end: total }
+  const conVentanas = cuantos > EPISODE_WINDOW
+  const rango = conVentanas ? windowAt(ventana, cuantos) : { start: 0, end: cuantos }
   const visibles = conVentanas ? props.episodes.slice(rango.start, rango.end) : props.episodes
-
   const vistos = new Map((props.watched ?? []).map((fila) => [fila.number, fila]))
-
-  const irA = (numero: number): void => {
-    setVentana(windowForNumber(numero, numeros))
-    setFoco(numero)
-  }
 
   return (
     <>
       {conVentanas ? (
-        <WindowControls
-          total={total}
-          window={rango}
-          seen={watchedInWindow(rango, numeros, props.watched ?? [])}
-          onWindow={setVentana}
-          onJump={irA}
-        />
+        <div className="episodes__windows">
+          <button
+            type="button"
+            className="button"
+            disabled={rango.start === 0}
+            onClick={() => setVentana(ventana - 1)}
+          >
+            {t(DEFAULT_LOCALE, 'detail.window.previous')}
+          </button>
+
+          <span className="episodes__range">
+            {t(DEFAULT_LOCALE, 'detail.window.range', {
+              from: visibles[0]?.number ?? 1,
+              to: visibles[visibles.length - 1]?.number ?? cuantos,
+            })}
+          </span>
+
+          <button
+            type="button"
+            className="button"
+            disabled={rango.end >= cuantos}
+            onClick={() => setVentana(ventana + 1)}
+          >
+            {t(DEFAULT_LOCALE, 'detail.window.next')}
+          </button>
+
+          <p className="episodes__watched">
+            {t(DEFAULT_LOCALE, 'detail.window.watched', {
+              seen: watchedInWindow(rango, numeros, props.watched ?? []),
+              total: rango.end - rango.start,
+            })}
+          </p>
+        </div>
       ) : null}
 
-      <ol className="episodes" start={rango.start + 1} ref={lista}>
+      <ol className="episodes" start={rango.start + 1}>
         {visibles.map((episode) => {
           const duracion = formatDuration(episode.durationS)
           const marca = marcaDe(vistos.get(episode.number))
@@ -223,10 +174,20 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
                   // episodio, y sin él el reproductor tenía que adivinarlo de la
                   // referencia y con jkanime adivinaba mal.
                   anime: episode.animeRef.value,
+                  // El número va escrito porque quien lo conoce es esta lista: el
+                  // reproductor lo lee para pedir los vecinos sin la lista entera.
+                  n: episode.number,
                 })}
               >
                 <span className="episode__number">
-                  {t(DEFAULT_LOCALE, 'detail.episode', { number: episode.number })}
+                  {/* El total sólo se dice cuando el proveedor lo da: un «de 26»
+                      inventado es peor que no decir de cuántos. */}
+                  {props.total === undefined
+                    ? t(DEFAULT_LOCALE, 'detail.episode', { number: episode.number })
+                    : t(DEFAULT_LOCALE, 'detail.episodeOf', {
+                        number: episode.number,
+                        total: props.total,
+                      })}
                 </span>
                 {episode.title === undefined ? null : (
                   <span className="episode__title">{episode.title}</span>
@@ -255,6 +216,303 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
           )
         })}
       </ol>
+    </>
+  )
+}
+
+export interface EpisodePagerProps {
+  readonly page: number
+  readonly hasMore: boolean
+  /** El número que se pidió y el proveedor no tiene, si pasó. */
+  readonly notFound?: number | undefined
+  /**
+   * El motivo que dio el servidor cuando el salto falló.
+   *
+   * No es un «error de red» genérico: el plugin real contesta 502 con lo que pasó
+   * —«no tiene el episodio 999: la ficha dice 26»— y ese texto es lo único que
+   * explica el fallo. Se enseña tal cual.
+   */
+  readonly jumpMessage?: string | undefined
+  /** El último episodio no se pudo averiguar, sin motivo que enseñar. */
+  readonly latestMissing?: boolean
+  /** El motivo que dio el servidor cuando el último episodio falló. */
+  readonly latestMessage?: string | undefined
+  readonly onPage: (direction: -1 | 1) => void
+  readonly onJump: (number: number) => void
+  readonly onLatest: () => void
+}
+
+/**
+ * Los mandos del selector.
+ *
+ * Las flechas se apagan en los extremos —la primera página no tiene anterior y
+ * `hasMore` falso no tiene siguiente— porque un botón que existe y no hace nada se
+ * lee como una aplicación rota. El número de página se ve: sin él, «siguiente» no
+ * dice a dónde va.
+ *
+ * El salto es un formulario para que la tecla Intro funcione sin JavaScript de
+ * más, y admite decimales porque hay fuentes que numeran `7.5`.
+ */
+export function EpisodePager(props: EpisodePagerProps): ReactNode {
+  const [salto, setSalto] = useState('')
+
+  return (
+    <div className="episodes__windows">
+      <button
+        type="button"
+        className="button"
+        aria-label={t(DEFAULT_LOCALE, 'detail.page.previous')}
+        disabled={props.page === 1}
+        onClick={() => props.onPage(-1)}
+      >
+        {t(DEFAULT_LOCALE, 'detail.page.previous')}
+      </button>
+
+      <span className="episodes__range">
+        {t(DEFAULT_LOCALE, 'detail.page.label', { page: props.page })}
+      </span>
+
+      <button
+        type="button"
+        className="button"
+        aria-label={t(DEFAULT_LOCALE, 'detail.page.next')}
+        disabled={!props.hasMore}
+        onClick={() => props.onPage(1)}
+      >
+        {t(DEFAULT_LOCALE, 'detail.page.next')}
+      </button>
+
+      <form
+        className="episodes__jump"
+        onSubmit={(event) => {
+          event.preventDefault()
+          const numero = parseJump(salto)
+          if (numero !== undefined) props.onJump(numero)
+        }}
+      >
+        <label className="field__label" htmlFor="salto-episodio">
+          {t(DEFAULT_LOCALE, 'detail.window.jump')}
+        </label>
+        <input
+          id="salto-episodio"
+          className="field__input episodes__input"
+          type="number"
+          min={1}
+          // `step="any"` y no el paso entero por defecto: una fuente que numera
+          // 7.5 se busca escribiéndolo, y el navegador lo rechazaría antes de
+          // que el número llegara al formulario.
+          step="any"
+          value={salto}
+          onChange={(event) => setSalto(event.target.value)}
+        />
+        <button type="submit" className="button">
+          {t(DEFAULT_LOCALE, 'detail.window.go')}
+        </button>
+      </form>
+
+      <button type="button" className="button" onClick={props.onLatest}>
+        {t(DEFAULT_LOCALE, 'detail.latest')}
+      </button>
+
+      {props.notFound === undefined ? null : (
+        <p className="search__error">
+          {t(DEFAULT_LOCALE, 'detail.jump.notFound', { number: props.notFound })}
+        </p>
+      )}
+
+      {props.jumpMessage === undefined ? null : (
+        <p className="search__error">
+          {t(DEFAULT_LOCALE, 'detail.jump.failed', { message: props.jumpMessage })}
+        </p>
+      )}
+
+      {props.latestMissing === true ? (
+        <p className="search__error">{t(DEFAULT_LOCALE, 'detail.latest.error')}</p>
+      ) : null}
+
+      {props.latestMessage === undefined ? null : (
+        <p className="search__error">
+          {t(DEFAULT_LOCALE, 'detail.latest.failed', { message: props.latestMessage })}
+        </p>
+      )}
+    </div>
+  )
+}
+
+export interface EpisodeListProps {
+  readonly providerId: string
+  /** La referencia del **título**, que es con la que se piden sus episodios. */
+  readonly ref: string
+  /** El modo con el que se abre el reproductor. Sin él, el que elija el reproductor. */
+  readonly mode?: PlayMode
+  readonly watched?: readonly WatchedEpisodePayload[]
+}
+
+/**
+ * Lo que el selector está pidiendo.
+ *
+ * Es una petición y no una página porque el salto por número y el último episodio
+ * también se piden aquí: los tres estados tienen que convivir —el aviso de un
+ * salto que no encontró nada se pinta **encima** de la página que ya estaba, no en
+ * su lugar—, y con tres banderas sueltas el componente tendría tres caminos que se
+ * pisan entre sí.
+ */
+type Solicitud =
+  | { readonly tipo: 'pagina'; readonly page: number }
+  | { readonly tipo: 'numero'; readonly number: number }
+  | { readonly tipo: 'ultimo' }
+
+/**
+ * Los mandos sólo cuando sirven de algo.
+ *
+ * Con una sola página y sin más detrás, una barra de paginación para doce filas es
+ * un mueble; pero en cuanto hay una página 2, el proveedor dice que queda algo o
+ * la página trae más de cien episodios, los mandos son la única forma de llegar al
+ * resto.
+ */
+export function conMandos(pagina: EpisodesResponse): boolean {
+  return pagina.page > 1 || pagina.hasMore || (pagina.total ?? 0) > EPISODE_WINDOW
+}
+
+export function EpisodeList(props: EpisodeListProps): ReactNode {
+  const navegar = useNavigate()
+  const [solicitud, setSolicitud] = useState<Solicitud>({ tipo: 'pagina', page: 1 })
+  const [pagina, setPagina] = useState<EpisodesResponse | undefined>(undefined)
+  /**
+   * El estado de la página que se está mirando.
+   *
+   * Un salto que falla **no** lo cambia: el aviso se pinta junto a la página que ya
+   * estaba, porque vaciar la lista por no encontrar un episodio deja sin nada a
+   * quien se equivocó al escribir un número.
+   */
+  const [estado, setEstado] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [notFound, setNotFound] = useState<number | undefined>(undefined)
+  const [jumpMessage, setJumpMessage] = useState<string | undefined>(undefined)
+  const [latestMissing, setLatestMissing] = useState(false)
+  const [latestMessage, setLatestMessage] = useState<string | undefined>(undefined)
+
+  const { providerId, ref } = props
+
+  /**
+   * El modo, en una referencia.
+   *
+   * Va aquí y no en las dependencias del efecto porque el modo se puede cambiar en
+   * la ficha con la lista ya cargada: como dependencia, cambiar de subtitulado a
+   * doblado volvería a pedir la página y la lista parpadearía para nada.
+   */
+  const modoRef = useRef(props.mode)
+  modoRef.current = props.mode
+
+  useEffect(() => {
+    let vivo = true
+
+    setNotFound(undefined)
+    setJumpMessage(undefined)
+    setLatestMissing(false)
+    setLatestMessage(undefined)
+
+    /**
+     * Abrir un episodio suelto.
+     *
+     * Se navega en vez de pintarlo dentro de la página porque el episodio tiene su
+     * propia pantalla: es lo que hace el enlace de cada fila, y hacerlo de dos
+     * formas distintas según cómo se llegó serían dos comportamientos para el
+     * mismo gesto.
+     */
+    const abrir = (episode: Episode): void => {
+      navegar.push(
+        watchPath(episode.ref.providerId, episode.ref.value, {
+          ...(modoRef.current === undefined ? {} : { mode: modoRef.current }),
+          anime: episode.animeRef.value,
+          n: episode.number,
+        }),
+      )
+    }
+
+    if (solicitud.tipo === 'pagina') {
+      setEstado('loading')
+      void loadEpisodesPage(providerId, ref, solicitud.page).then(
+        (respuesta) => {
+          if (!vivo) return
+
+          setPagina(respuesta)
+          setEstado('ready')
+        },
+        () => {
+          if (!vivo) return
+
+          setEstado('error')
+        },
+      )
+    }
+
+    if (solicitud.tipo === 'numero') {
+      const { number } = solicitud
+      // El lector no rechaza: distingue «no está» de «falló con este motivo». El
+      // plugin real contesta 502 con el motivo cuando el episodio no existe —no
+      // puede construir un 404—, así que ese texto se enseña tal cual en vez de
+      // contarlo como un proveedor caído.
+      void loadEpisodeByNumber(providerId, ref, number).then((salida) => {
+        if (!vivo) return
+
+        if (salida.kind === 'found') abrir(salida.episode)
+        else if (salida.kind === 'missing') setNotFound(number)
+        else setJumpMessage(salida.message)
+      })
+    }
+
+    if (solicitud.tipo === 'ultimo') {
+      void loadLatestEpisode(providerId, ref).then((salida) => {
+        if (!vivo) return
+
+        if (salida.kind === 'found') abrir(salida.episode)
+        else if (salida.kind === 'missing') setLatestMissing(true)
+        else setLatestMessage(salida.message)
+      })
+    }
+
+    return () => {
+      vivo = false
+    }
+  }, [providerId, ref, solicitud, navegar])
+
+  if (pagina === undefined) {
+    return (
+      <p className={estado === 'error' ? 'search__error' : 'empty'}>
+        {estado === 'error'
+          ? t(DEFAULT_LOCALE, 'detail.episodes.error')
+          : t(DEFAULT_LOCALE, 'detail.episodes.loading')}
+      </p>
+    )
+  }
+
+  return (
+    <>
+      {conMandos(pagina) ? (
+        <EpisodePager
+          page={pagina.page}
+          hasMore={pagina.hasMore}
+          notFound={notFound}
+          jumpMessage={jumpMessage}
+          latestMissing={latestMissing}
+          latestMessage={latestMessage}
+          onPage={(direction) =>
+            setSolicitud({ tipo: 'pagina', page: pageAfter(pagina.page, direction) })
+          }
+          onJump={(number) => setSolicitud({ tipo: 'numero', number })}
+          onLatest={() => setSolicitud({ tipo: 'ultimo' })}
+        />
+      ) : null}
+
+      {/* La clave remonta las filas al cambiar de página: la ventana de cien es de
+          la página que se está mirando, no del componente. */}
+      <EpisodeRows
+        key={`${providerId}:${ref}:${pagina.page}`}
+        episodes={pagina.episodes}
+        mode={props.mode}
+        watched={props.watched}
+        total={pagina.total}
+      />
     </>
   )
 }

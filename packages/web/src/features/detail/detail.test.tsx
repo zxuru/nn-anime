@@ -7,7 +7,7 @@ import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { DetailPage } from './DetailPage'
-import { EpisodeList } from './EpisodeList'
+import { EpisodeRows } from './EpisodeList'
 import { watchedInWindow, windowAt, windowCount, windowForNumber } from './episode-window'
 import { FavoriteButton } from './FavoriteButton'
 import { RelatedList } from './RelatedList'
@@ -105,7 +105,7 @@ describe('duración legible', () => {
 
 describe('lista de episodios', () => {
   test('numera, titula, dura y dice el modo', () => {
-    const html = render(<EpisodeList episodes={[episodio(1), episodio(2, { mode: 'dub' })]} />)
+    const html = render(<EpisodeRows episodes={[episodio(1), episodio(2, { mode: 'dub' })]} />)
 
     expect(html).toContain('<ol class="episodes"')
     expect(html).toContain('Episodio 1')
@@ -115,7 +115,7 @@ describe('lista de episodios', () => {
   })
 
   test('sin episodios lo dice, en lugar de dejar la lista vacía', () => {
-    const html = render(<EpisodeList episodes={[]} />)
+    const html = render(<EpisodeRows episodes={[]} />)
 
     expect(html).toContain('no tiene episodios')
     expect(html).not.toContain('<ol')
@@ -129,10 +129,16 @@ describe('lista de episodios', () => {
    * escribiendo la dirección a mano.
    */
   test('cada episodio enlaza con el reproductor', () => {
-    const html = render(<EpisodeList episodes={[episodio(1), episodio(2)]} />)
+    const html = render(<EpisodeRows episodes={[episodio(1), episodio(2)]} />)
 
-    expect(html).toContain('href="/watch/fixture/aurora-nocturna%231?anime=aurora-nocturna"')
-    expect(html).toContain('href="/watch/fixture/aurora-nocturna%232?anime=aurora-nocturna"')
+    // El número viaja en la dirección: es lo que deja al reproductor pedir los
+    // vecinos con dos lecturas puntuales en vez de con la lista entera.
+    expect(html).toContain(
+      'href="/watch/fixture/aurora-nocturna%231?anime=aurora-nocturna&amp;n=1"',
+    )
+    expect(html).toContain(
+      'href="/watch/fixture/aurora-nocturna%232?anime=aurora-nocturna&amp;n=2"',
+    )
   })
 
   /**
@@ -145,7 +151,7 @@ describe('lista de episodios', () => {
    */
   test('el título viaja aunque la referencia del episodio no lo delate', () => {
     const html = render(
-      <EpisodeList
+      <EpisodeRows
         episodes={[
           episodio(12, {
             ref: { providerId: 'jkanime', value: 'dandadan/12' },
@@ -155,20 +161,33 @@ describe('lista de episodios', () => {
       />,
     )
 
-    expect(html).toContain('href="/watch/jkanime/dandadan%2F12?anime=dandadan"')
+    expect(html).toContain('href="/watch/jkanime/dandadan%2F12?anime=dandadan&amp;n=12"')
   })
 
   test('el modo elegido viaja en el enlace', () => {
-    const html = render(<EpisodeList episodes={[episodio(1)]} mode="dub" />)
+    const html = render(<EpisodeRows episodes={[episodio(1)]} mode="dub" />)
 
     expect(html).toContain(
-      'href="/watch/fixture/aurora-nocturna%231?mode=dub&amp;anime=aurora-nocturna"',
+      'href="/watch/fixture/aurora-nocturna%231?mode=dub&amp;anime=aurora-nocturna&amp;n=1"',
     )
+  })
+
+  test('con total, la fila dice de cuántos', () => {
+    const html = render(<EpisodeRows episodes={[episodio(12)]} total={26} />)
+
+    expect(html).toContain('Episodio 12 de 26')
+  })
+
+  test('sin total, la fila sólo dice el número: no se inventa el de cuántos', () => {
+    const html = render(<EpisodeRows episodes={[episodio(12)]} />)
+
+    expect(html).toContain('Episodio 12')
+    expect(html).not.toContain('de 26')
   })
 
   test('un episodio sin título ni duración no rompe la fila', () => {
     const html = render(
-      <EpisodeList
+      <EpisodeRows
         episodes={[
           {
             ref: { providerId: 'fixture', value: 'x#1' },
@@ -245,17 +264,19 @@ describe('las ventanas de la lista larga', () => {
   })
 
   test('con mil ciento ochenta episodios se pintan cien filas y sus controles', () => {
-    const html = render(<EpisodeList episodes={saga(1180)} />)
+    const html = render(<EpisodeRows episodes={saga(1180)} />)
 
     expect((html.match(/<li/g) ?? []).length).toBe(100)
     expect(html).toContain('Episodios 1–100')
-    expect(html).toContain('Ir al episodio')
+    // La ventana se navega con «Siguientes», no con un salto: el salto por número
+    // vive ahora en los mandos de la página, que preguntan al servidor.
+    expect(html).toContain('Siguientes')
     // La numeración del documento sigue contando desde donde va la ventana.
     expect(html).toContain('start="1"')
   })
 
   test('con cien episodios o menos no hay controles', () => {
-    const html = render(<EpisodeList episodes={saga(100)} />)
+    const html = render(<EpisodeRows episodes={saga(100)} />)
 
     // La mutación que quite la condición pinta una barra de paginación para una
     // lista que cabe entera.
@@ -264,7 +285,7 @@ describe('las ventanas de la lista larga', () => {
   })
 
   test('el resumen de la ventana sale en la banda', () => {
-    const html = render(<EpisodeList episodes={saga(1180)} watched={[visto(5, true)]} />)
+    const html = render(<EpisodeRows episodes={saga(1180)} watched={[visto(5, true)]} />)
 
     expect(html).toContain('1 de 100 vistos')
   })
@@ -299,7 +320,7 @@ describe('episodios vistos', () => {
 
   test('el terminado lleva la palabra «visto», no sólo el color', () => {
     const html = render(
-      <EpisodeList episodes={[episodio(1)]} watched={[visto(1, { finished: true, ratio: 1 })]} />,
+      <EpisodeRows episodes={[episodio(1)]} watched={[visto(1, { finished: true, ratio: 1 })]} />,
     )
 
     expect(html).toContain('episode--visto')
@@ -308,7 +329,7 @@ describe('episodios vistos', () => {
   })
 
   test('el que está a medias lleva su barra con el porcentaje', () => {
-    const html = render(<EpisodeList episodes={[episodio(2)]} watched={[visto(2)]} />)
+    const html = render(<EpisodeRows episodes={[episodio(2)]} watched={[visto(2)]} />)
 
     expect(html).toContain('<progress')
     expect(html).toContain('Visto al 40 %')
@@ -317,7 +338,7 @@ describe('episodios vistos', () => {
 
   test('sin duración no hay barra ni marca: no se inventa la proporción', () => {
     const html = render(
-      <EpisodeList
+      <EpisodeRows
         episodes={[episodio(3)]}
         watched={[visto(3, { durationS: 0, ratio: 0, positionS: 900 })]}
       />,
@@ -328,7 +349,7 @@ describe('episodios vistos', () => {
   })
 
   test('sin visionados, la lista es la de siempre', () => {
-    const html = render(<EpisodeList episodes={[episodio(1)]} />)
+    const html = render(<EpisodeRows episodes={[episodio(1)]} />)
 
     expect(html).not.toContain('<progress')
     expect(html).not.toContain('episode--visto')
@@ -340,7 +361,7 @@ describe('episodios vistos', () => {
    */
   test('el mismo número visto en sub se marca también con la lista en dub', () => {
     const html = render(
-      <EpisodeList
+      <EpisodeRows
         episodes={[episodio(5, { mode: 'dub' })]}
         mode="dub"
         watched={[visto(5, { mode: 'sub', finished: true })]}

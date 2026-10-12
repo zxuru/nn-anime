@@ -6,6 +6,14 @@
  * título. La pantalla los pinta y la lista de episodios los decide.
  *
  * La ficha construye el enlace al reproductor y el reproductor lee de esa misma
+ * dirección el modo, el segundo donde se dejó, la referencia del título y **el
+ * número del episodio**. El número viaja porque quien lo conoce —el selector de la
+ * ficha— lo tiene en la mano: deducirlo de la referencia es lo que hacía
+ * `animeRefOf` con el título, y con jkanime acertaba por casualidad. Sin número, la
+ * pantalla se comporta como si el título no tuviera vecinos, en vez de inventarse
+ * un `n-1` sobre una referencia que puede no numerar nada.
+ *
+ * La ficha construye el enlace al reproductor y el reproductor lee de esa misma
  * dirección el modo, el segundo donde se dejó y la referencia del título. Con las
  * dos mitades escritas por separado, el día que una cambie la otra sigue
  * escribiendo el parámetro viejo y nadie se entera hasta que un episodio se
@@ -46,6 +54,14 @@ export interface WatchPathOptions {
    * base la ficha del episodio `dandadan/12` como si fuera un título.
    */
   readonly anime?: string
+  /**
+   * El número del episodio, cuando quien escribe la dirección lo conoce.
+   *
+   * Es lo que permite pedir los vecinos con dos lecturas puntuales
+   * —`number/(n-1)` y `number/(n+1)`— en vez de la lista entera del título. Sin
+   * él no se supone nada: una dirección escrita a mano no inventa un número.
+   */
+  readonly n?: number
 }
 
 /**
@@ -68,6 +84,12 @@ export function watchPath(providerId: string, ref: string, options: WatchPathOpt
     consulta.set('at', String(options.at))
   }
   if (options.anime !== undefined && options.anime !== '') consulta.set('anime', options.anime)
+  // Un número que no sea finito y positivo no se escribe: `?n=0` o `?n=NaN` haría
+  // que el reproductor pidiera el episodio -1, que es una petición que se sabe
+  // mala antes de mandarla.
+  if (options.n !== undefined && Number.isFinite(options.n) && options.n > 0) {
+    consulta.set('n', String(options.n))
+  }
 
   const query = consulta.toString()
 
@@ -116,6 +138,25 @@ export function startAtFromPath(path: string): number | undefined {
   const segundos = Number(crudo)
 
   return Number.isInteger(segundos) && segundos > 0 ? segundos : undefined
+}
+
+/**
+ * El número de episodio que la dirección trae escrito, si lo trae.
+ *
+ * Admite decimales —una fuente numera `7.5`— y exige que sea finito y positivo:
+ * `?n=0` no es un episodio y `?n=1e999` es infinito, así que ninguna de las dos
+ * se interpreta. Una dirección escrita a mano no puede inventar un número, y por
+ * eso la ausencia de `?n=` **no** se sustituye por el número que se pueda deducir
+ * de la referencia: sin él, la pantalla se comporta como si no hubiera vecinos.
+ */
+export function numberFromPath(path: string): number | undefined {
+  const consulta = path.split('?')[1] ?? ''
+  const crudo = new URLSearchParams(consulta).get('n')
+  if (crudo === null || crudo.trim() === '') return undefined
+
+  const numero = Number(crudo)
+
+  return Number.isFinite(numero) && numero > 0 ? numero : undefined
 }
 
 /**

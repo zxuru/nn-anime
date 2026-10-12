@@ -27,6 +27,11 @@ continuar y recibir recomendaciones. Sin recargar la página y sin recargar el c
 
 Superficie HTTP que la UI consume. La implementa `server` componiendo los otros módulos.
 
+**Enmienda aprobada (T92).** Las tres rutas de episodios y las reglas del selector y de los vecinos
+se integraron aquí desde la propuesta «los episodios por página» (T84). Esa propuesta quedó
+integrada —`core` y `provider-sdk` en T85, `catalog-store` y `server` en T86, el modelo de datos en
+T87 y esto en T92— y se borró su archivo.
+
 **Las formas de estas respuestas no se declaran aquí ni se escriben dos veces.** Viven en
 `packages/core/src/api.ts`, que es también lo que el server usa para construirlas. Este documento
 nombra las rutas y para qué sirven; la forma exacta de cada cuerpo es un schema compartido.
@@ -36,7 +41,22 @@ GET  /api/health                     estado, versión, mpv disponible, proveedor
 GET  /api/providers                  proveedores cargados y sus capabilities
 GET  /api/search?q=&provider=        SSE: resultados por proveedor a medida que llegan
 GET  /api/anime/:providerId/:ref     detalle, con Cache-Control y cabecera X-Cache
-GET  /api/anime/:providerId/:ref/episodes
+GET  /api/anime/:providerId/:ref/episodes?page=N
+                                     la página N de episodios, base 1; sin `page=` es la 1, y el
+                                     cuerpo trae `page`, `hasMore` y `total` cuando se conoce. El
+                                     servidor normaliza: con un plugin que declara `episodePages`
+                                     pide esa página al sitio; con uno que no, trocea la lista
+                                     completa en páginas de 100. La interfaz pide páginas siempre,
+                                     sin mirar capacidades.
+GET  /api/anime/:providerId/:ref/episodes/latest
+                                     el último episodio del título
+GET  /api/anime/:providerId/:ref/episodes/number/:n
+                                     un episodio por su número; admite decimales (12.5). El número
+                                     que el proveedor no tiene llega como 404, o como 502 con su
+                                     mensaje cuando el plugin no puede construir un 404 —el de
+                                     jkanime vive fuera del repositorio y no resuelve el paquete—.
+                                     Las dos cosas se cuentan con un texto; ninguna deja la
+                                     pantalla en blanco.
 POST /api/stream/resolve             body: { episodeRef, mode } -> StreamSource sin headers
 GET  /stream/:ticket                 proxy de bytes (media-proxy)
 POST /api/play/mpv                   lanzar mpv
@@ -58,7 +78,11 @@ Rutas de la SPA, todas del lado del cliente salvo la primera:
                        último añadido, continuar, favoritos y géneros
 /search?q=             búsqueda incremental
 /anime/:providerId/:ref
-/watch/:providerId/:ref
+/watch/:providerId/:ref?n=<número>
+                       el reproductor. `?n=` es el número del episodio, escrito por quien lo
+                       conoce —el selector de la ficha y las flechas del reproductor—; sin él,
+                       nada que dependa del número se supone, porque una dirección escrita a
+                       mano no puede inventarlo.
 /settings              proveedores, rutas de datos, tema
 ```
 
@@ -82,6 +106,26 @@ Reglas de la interfaz:
   las demás en el `title`. Hay un botón para abrir el detalle del score.
 - **Búsqueda alimenta la recomendación.** El panel de recomendaciones se refresca al cambiar la
   consulta, con debounce de 400 ms y cancelación de la petición anterior.
+
+El selector de episodios y los vecinos del reproductor:
+
+- **Nunca la lista completa.** El selector pide la página que va a pintar (`?page=`) y el
+  reproductor pide los vecinos de a uno (`number/(n-1)`, `number/(n+1)`). Pedir el catálogo entero
+  para pintar una ventana es lo que disparaba los 429 del sitio: una serie de 1216 episodios eran 76
+  peticiones.
+- **Las flechas de página** se deshabilitan en los extremos (`page === 1`, `hasMore === false`), y el
+  número de página se ve.
+- **El salto por número** pregunta al servidor por `number/:n` y abre ese episodio; admite decimales.
+  Un número que no está se dice con un texto traducido —y un fallo se dice con el mensaje del
+  servidor— sin dejar la lista en blanco.
+- **El botón de último episodio** llama a `latest` y abre ese episodio.
+- **El total sólo se dice si el proveedor lo da.** `episodio 3 de 26` con un total inventado es peor
+  que `episodio 3`.
+- **El recorte de cien** (`features/detail/episode-window.ts`) no cambia: sigue recortando lo que se
+  dibuja dentro de una página que traiga más episodios que la ventana.
+- **Sin `?n=` en la dirección**, el reproductor pide la **página 1** una vez: si el episodio está en
+  ella, los vecinos salen de ahí, y si es el último de la página con `hasMore` se pide la siguiente
+  **una sola vez**. Un episodio que no está en la página 1 no inventa flechas.
 
 Accesibilidad, mínimos verificables:
 
@@ -109,7 +153,12 @@ packages/web/
 │  ├─ api/stream-events.ts       consumo de SSE de búsqueda y de mpv
 │  ├─ features/home/
 │  ├─ features/search/
-│  ├─ features/detail/
+│  ├─ features/detail/           la ficha y el selector de episodios
+│  │  ├─ DetailPage.tsx          la ficha
+│  │  ├─ EpisodeList.tsx         el selector: EpisodePager (los mandos), EpisodeRows (las filas)
+│  │  │                          y la lectura de la página
+│  │  ├─ useDetail.ts            los datos de la ficha y las rutas y lecturas de episodios
+│  │  └─ episode-window.ts       el recorte de cien que se dibuja dentro de una página
 │  ├─ features/player/           hls.js, subtítulos, sub/dub
 │  ├─ features/recommendations/
 │  ├─ features/settings/
