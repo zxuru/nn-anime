@@ -2,9 +2,15 @@ import { describe, expect, test } from 'bun:test'
 import {
   episodeResponseSchema,
   episodesResponseSchema,
+  providerRepoRecordSchema,
+  providerRepoSelectionSchema,
+  providerReposResponseSchema,
+  providerRepoUrlSchema,
+  providerRepoViewSchema,
   relatedResponseSchema,
   watchedResponseSchema,
 } from './api'
+import { MAX_ENABLED_REPO_FILES, MAX_REPO_PATH_LENGTH, MAX_REPO_URL_LENGTH } from './repos'
 
 const fila = {
   number: 3,
@@ -108,5 +114,132 @@ describe('episodeResponseSchema: el episodio suelto', () => {
 
   test('rechaza un cuerpo sin episodio', () => {
     expect(episodeResponseSchema.safeParse({}).success).toBe(false)
+  })
+})
+
+const REPO = {
+  url: 'https://github.com/zxuru/nn-anime-plugins',
+  owner: 'zxuru',
+  repo: 'nn-anime-plugins',
+  ref: 'main',
+  fetchedAt: '2026-10-13T10:00:00.000Z',
+  enabled: ['jkanime.ts'],
+  files: 7,
+}
+
+describe('providerRepoUrlSchema: la dirección del formulario', () => {
+  test('acepta lo que se copia del navegador y lo que se teclea', () => {
+    const formas = [
+      'https://github.com/zxuru/nn-anime-plugins',
+      'github.com/zxuru/nn-anime-plugins/tree/dev/src',
+      'zxuru/nn-anime-plugins',
+    ]
+
+    for (const forma of formas) {
+      expect(providerRepoUrlSchema.safeParse(forma).success).toBe(true)
+    }
+  })
+
+  test('recorta el espacio de alrededor antes de juzgar', () => {
+    const parsed = providerRepoUrlSchema.safeParse('  zxuru/nn-anime-plugins  ')
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) expect(parsed.data).toBe('zxuru/nn-anime-plugins')
+  })
+
+  test('rechaza lo que no es un repositorio de GitHub, y lo dice', () => {
+    const parsed = providerRepoUrlSchema.safeParse('https://gitlab.com/o/r')
+
+    expect(parsed.success).toBe(false)
+    if (!parsed.success) {
+      expect(parsed.error.issues[0]?.message).toBe('no es una dirección de repositorio de GitHub')
+    }
+  })
+
+  test('una ruta de más de lo que cabe en un repositorio se rechaza', () => {
+    const larga = 'x'.repeat(MAX_REPO_PATH_LENGTH + 1)
+
+    expect(
+      providerReposResponseSchema.safeParse({
+        repos: [
+          {
+            ...REPO,
+            present: true,
+            candidates: [{ path: larga }],
+          },
+        ],
+      }).success,
+    ).toBe(false)
+    expect(providerRepoSelectionSchema.safeParse({ url: 'o/r', enabled: [larga] }).success).toBe(
+      false,
+    )
+  })
+
+  test('una ficha con una dirección imposible no se lee del store', () => {
+    // Nada que salga del analizador mide esto, así que la única forma de que
+    // llegue es que alguien la haya escrito: se rechaza en vez de circular.
+    expect(
+      providerRepoRecordSchema.safeParse({
+        ...REPO,
+        url: `https://github.com/${'u'.repeat(MAX_REPO_URL_LENGTH)}`,
+      }).success,
+    ).toBe(false)
+  })
+})
+
+describe('providerRepoRecordSchema: lo que se guarda', () => {
+  test('acepta una ficha completa', () => {
+    expect(providerRepoRecordSchema.safeParse(REPO).success).toBe(true)
+  })
+
+  test('la fecha va en ISO: una fecha suelta no es una fecha', () => {
+    expect(providerRepoRecordSchema.safeParse({ ...REPO, fetchedAt: 'ayer' }).success).toBe(false)
+  })
+
+  test('una clave de más es un error, no algo que se ignora', () => {
+    expect(providerRepoRecordSchema.safeParse({ ...REPO, extra: 1 }).success).toBe(false)
+  })
+
+  test('una lista de habilitados vacía es un estado legítimo', () => {
+    expect(providerRepoRecordSchema.safeParse({ ...REPO, enabled: [] }).success).toBe(true)
+  })
+})
+
+describe('providerRepoViewSchema: lo guardado más lo que hay ahora', () => {
+  test('acepta la vista con sus candidatos', () => {
+    const parsed = providerRepoViewSchema.safeParse({
+      ...REPO,
+      present: true,
+      candidates: [{ path: 'jkanime.ts', id: 'jkanime', name: 'JKanime' }, { path: 'src/otro.ts' }],
+    })
+
+    expect(parsed.success).toBe(true)
+  })
+
+  test('sin `present` no es una vista: la interfaz tiene que poder decir si falta', () => {
+    expect(providerRepoViewSchema.safeParse({ ...REPO, candidates: [] }).success).toBe(false)
+  })
+})
+
+describe('providerRepoSelectionSchema: qué se activa', () => {
+  test('acepta la selección con sus rutas', () => {
+    expect(
+      providerRepoSelectionSchema.safeParse({
+        url: 'zxuru/nn-anime-plugins',
+        enabled: ['a.ts', 'src/b.ts'],
+      }).success,
+    ).toBe(true)
+  })
+
+  test('una ruta vacía no es un archivo', () => {
+    expect(providerRepoSelectionSchema.safeParse({ url: 'o/r', enabled: [''] }).success).toBe(false)
+  })
+
+  test('la lista tiene tope: una selección sin límite es una fila que crece sin fin', () => {
+    const demasiadas = Array.from({ length: MAX_ENABLED_REPO_FILES + 1 }, (_, i) => `p${i}.ts`)
+
+    expect(providerRepoSelectionSchema.safeParse({ url: 'o/r', enabled: demasiadas }).success).toBe(
+      false,
+    )
   })
 })
