@@ -20,6 +20,8 @@ export interface Settings {
   readonly data: SettingsResponse | undefined
   readonly error: Fallo | undefined
   readonly setTheme: (theme: 'dark' | 'light' | 'system') => void
+  /** Guarda el orden de preferencia de proveedores, del primero al último. */
+  readonly setProviderPriority: (order: readonly string[]) => void
   /** Registra un proveedor y refresca la lista. Lanza si no se pudo. */
   readonly register: (draft: unknown) => Promise<ProviderSummary>
 }
@@ -90,6 +92,31 @@ export function useSettings(): Settings {
     [data?.theme],
   )
 
+  /**
+   * El orden, también optimista.
+   *
+   * Subir un proveedor se ve al instante y se deshace si el servidor falla. Un
+   * botón que espera a la red para mover una fila invita a pulsarlo dos veces, y
+   * la segunda pulsación movería la fila equivocada.
+   */
+  const setProviderPriority = useCallback(
+    (order: readonly string[]) => {
+      const previo = data?.providerPriority
+
+      setData((actual) =>
+        actual === undefined ? actual : { ...actual, providerPriority: [...order] },
+      )
+      void apiPatch('/api/settings', { providerPriority: order }).catch(() => {
+        setData((actual) =>
+          actual === undefined || previo === undefined
+            ? actual
+            : { ...actual, providerPriority: previo },
+        )
+      })
+    },
+    [data?.providerPriority],
+  )
+
   const register = useCallback(async (draft: unknown): Promise<ProviderSummary> => {
     // Aquí no hay escritura optimista, y es a propósito: esto no pinta una lista,
     // escribe un archivo. Enseñar «guardado» antes de que el servidor conteste
@@ -116,5 +143,5 @@ export function useSettings(): Settings {
     return salida.provider
   }, [])
 
-  return { state, data, error, setTheme, register }
+  return { state, data, error, setTheme, setProviderPriority, register }
 }

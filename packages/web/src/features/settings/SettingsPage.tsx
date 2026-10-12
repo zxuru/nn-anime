@@ -26,7 +26,7 @@ import { useSecurityNotice } from './useSecurityNotice'
 import { useSettings } from './useSettings'
 
 export function SettingsPage(): ReactNode {
-  const { state, data, error, setTheme, register } = useSettings()
+  const { state, data, error, setTheme, setProviderPriority, register } = useSettings()
   const [noticeOpen, setNoticeOpen] = useState(false)
   const notice = useSecurityNotice(noticeOpen)
 
@@ -82,7 +82,11 @@ export function SettingsPage(): ReactNode {
 
       <section>
         <h2>{t(DEFAULT_LOCALE, 'settings.providers')}</h2>
-        <ProviderList providers={data.providers} />
+        <ProviderList
+          providers={data.providers}
+          priority={data.providerPriority}
+          onReorder={setProviderPriority}
+        />
       </section>
 
       {/* El alta va después de la lista: primero se ve qué hay, y el formulario
