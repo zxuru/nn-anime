@@ -23,9 +23,31 @@ export const CONTENT_SECURITY_POLICY = [
   "media-src 'self' blob:",
   "connect-src 'self'",
   "frame-ancestors 'none'",
+  // Declaradas aunque `default-src` ya las cubra: el día que alguien relaje
+  // `default-src`, éstas no se abren sin que nadie lo note.
+  "frame-src 'none'",
+  "worker-src 'none'",
+  "manifest-src 'self'",
+  // Sin esto `default-src` no la cubre, y un formulario inyectado enviaría datos
+  // a un origen ajeno.
+  "form-action 'self'",
   "base-uri 'none'",
   "object-src 'none'",
 ].join('; ')
+
+/**
+ * Lo que la aplicación no usa, y por tanto un guion inyectado no tiene por qué
+ * poder pedir. No hay cámara, ni micrófono, ni geolocalización, ni pagos, ni USB
+ * en ninguna parte de `packages/web/src`: medido con una búsqueda sobre el árbol.
+ */
+export const PERMISSIONS_POLICY = [
+  'camera=()',
+  'microphone=()',
+  'geolocation=()',
+  'payment=()',
+  'usb=()',
+  'serial=()',
+].join(', ')
 
 export interface SecurityHeadersOptions {
   /** Permite relajar la política en desarrollo. Por defecto, la del spec. */
@@ -42,5 +64,12 @@ export function securityHeaders(options: SecurityHeadersOptions = {}): Middlewar
     c.header('X-Content-Type-Options', 'nosniff')
     c.header('Referrer-Policy', 'no-referrer')
     c.header('X-Frame-Options', 'DENY')
+    c.header('Permissions-Policy', PERMISSIONS_POLICY)
+    // Aíslan el contexto del navegador y evitan que otro origen incruste estas
+    // respuestas. En una aplicación local, «otro origen» es cualquier página que
+    // el usuario tenga abierta.
+    c.header('Cross-Origin-Opener-Policy', 'same-origin')
+    c.header('Cross-Origin-Resource-Policy', 'same-origin')
+    c.header('X-Permitted-Cross-Domain-Policies', 'none')
   }
 }

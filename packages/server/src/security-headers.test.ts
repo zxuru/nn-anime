@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { Hono } from 'hono'
 import { type AppOptions, createApp } from './app'
-import { CONTENT_SECURITY_POLICY } from './middleware/security-headers'
+import { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } from './middleware/security-headers'
 import { SESSION_COOKIE, type Session } from './session'
 
 const PORT = 7717
@@ -14,6 +14,10 @@ const REQUIRED_HEADERS: readonly string[] = [
   'x-content-type-options',
   'referrer-policy',
   'x-frame-options',
+  'permissions-policy',
+  'cross-origin-opener-policy',
+  'cross-origin-resource-policy',
+  'x-permitted-cross-domain-policies',
 ]
 
 function fakeSession(value = SESSION_VALUE): Session {
@@ -44,6 +48,12 @@ describe('política de seguridad de contenido', () => {
       "media-src 'self' blob:",
       "connect-src 'self'",
       "frame-ancestors 'none'",
+      // Las cuatro que cierran vías que `default-src` no cubre, o que cubriría
+      // sin que nadie se enterara el día que se relaje.
+      "frame-src 'none'",
+      "worker-src 'none'",
+      "manifest-src 'self'",
+      "form-action 'self'",
       "base-uri 'none'",
       "object-src 'none'",
     ]) {
@@ -58,6 +68,19 @@ describe('política de seguridad de contenido', () => {
 
   test('prohíbe enmarcar la aplicación', () => {
     expect(CONTENT_SECURITY_POLICY).toContain("frame-ancestors 'none'")
+  })
+
+  test('`form-action` no queda abierta a un origen ajeno', () => {
+    // Sin esta directiva, `default-src` no la cubre y un formulario inyectado
+    // puede mandar lo que haya en la página a donde quiera.
+    expect(CONTENT_SECURITY_POLICY).toContain("form-action 'self'")
+    expect(CONTENT_SECURITY_POLICY).not.toContain('form-action *')
+  })
+
+  test('la política de permisos cierra cámara, micrófono y geolocalización', () => {
+    for (const permiso of ['camera=()', 'microphone=()', 'geolocation=()']) {
+      expect(PERMISSIONS_POLICY).toContain(permiso)
+    }
   })
 })
 
@@ -147,7 +170,7 @@ describe('tabla de rutas', () => {
       .map((route) => ({ path: route.path, method: route.method }))
   }
 
-  test('toda ruta registrada lleva las cuatro cabeceras', async () => {
+  test('toda ruta registrada lleva todas las cabeceras', async () => {
     const target = app()
     const routes = protectedRoutes(target)
 
