@@ -280,32 +280,53 @@ describe('pesos de las señales', () => {
 })
 
 describe('presupuesto de tiempo', () => {
-  test('500 registros y 5000 candidatos por debajo de 50 ms', () => {
+  test('diez veces más candidatos no cuestan cien veces más tiempo', () => {
+    // Lo que se mide es la **forma** del coste, no lo que tarda esta máquina.
+    // Un umbral absoluto en milisegundos mide el runner: el 12 de octubre de
+    // 2026 esta misma prueba tardó 153 ms en el runner de GitHub y 13 ms aquí, y
+    // se puso roja sin que nada del motor hubiera cambiado. Una implementación
+    // cuadrática tarda unas cien veces más con diez veces más datos; una lineal,
+    // unas diez. El listón se pone en cuarenta, que separa las dos sin depender
+    // de la velocidad del hierro.
     const eventos = Array.from({ length: 500 }, (_valor, indice) => ({
       tags: [`tag-${indice % 20}`],
       studios: [`estudio-${indice % 10}`],
       at: new Date(AHORA.getTime() - (indice % 60) * DIA),
       completion: 1,
     }))
-    const candidatos = Array.from({ length: 5000 }, (_valor, indice) =>
-      candidato(`t${indice}`, [`tag-${indice % 20}`, `otro-${indice % 7}`], {
-        popularity: (indice % 100) / 100,
-      }),
-    )
 
-    const inicio = performance.now()
-    const salida = recommend(
-      { events: eventos, coVisits: [], searches: [], watchState: [] },
-      candidatos,
-      {
-        now: AHORA,
-        limit: 20,
-      },
-    )
-    const transcurrido = performance.now() - inicio
+    const candidatos = (cuantos: number) =>
+      Array.from({ length: cuantos }, (_valor, indice) =>
+        candidato(`t${indice}`, [`tag-${indice % 20}`, `otro-${indice % 7}`], {
+          popularity: (indice % 100) / 100,
+        }),
+      )
 
-    expect(salida.items).toHaveLength(20)
-    expect(transcurrido).toBeLessThan(50)
+    const medir = (cuantos: number): number => {
+      const corpus = candidatos(cuantos)
+      let mejor = Number.POSITIVE_INFINITY
+
+      // Tres vueltas y el mínimo: el mínimo es lo que menos se deja contaminar
+      // por el resto de la máquina, que en un runner es mucho decir.
+      for (let vuelta = 0; vuelta < 3; vuelta++) {
+        const inicio = performance.now()
+        const salida = recommend(
+          { events: eventos, coVisits: [], searches: [], watchState: [] },
+          corpus,
+          { now: AHORA, limit: 20 },
+        )
+        mejor = Math.min(mejor, performance.now() - inicio)
+
+        expect(salida.items).toHaveLength(20)
+      }
+
+      return mejor
+    }
+
+    const pequeno = medir(500)
+    const grande = medir(5000)
+
+    expect(grande / pequeno).toBeLessThan(40)
   })
 })
 

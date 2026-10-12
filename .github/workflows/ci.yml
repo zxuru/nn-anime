@@ -35,6 +35,12 @@ jobs:
       - name: Instalar
         run: bun install --frozen-lockfile
 
+      # El gancho se instala una vez por clon y `scripts/git-hooks.test.ts` lo
+      # comprueba: sin este paso, el trabajo falla por una configuración que
+      # depende del clon y no del código.
+      - name: Instalar el gancho de pre-commit
+        run: bun run hooks:instalar
+
       - name: Auditoría de dependencias
         run: bun audit
 
