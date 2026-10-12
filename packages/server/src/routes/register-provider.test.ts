@@ -141,7 +141,18 @@ describe('alta de un proveedor', () => {
       // libre; el `wx` de la escritura sí ve el enlace y falla con `EEXIST`.
       // Si la escritura no llevara el `wx`, esto contestaría 201 y el enlace se
       // habría seguido hasta escribir fuera del directorio de plugins.
-      await symlink('/no/existe', join(dir, 'mio.ts'))
+      try {
+        await symlink('/no/existe', join(dir, 'mio.ts'))
+      } catch (error) {
+        // Windows no deja crear enlaces simbólicos sin el modo desarrollador
+        // activado o sin privilegios de administrador, y falla con `EPERM`. Sin
+        // enlace no hay carrera que reproducir —una unión tampoco vale: exige
+        // que el destino exista, y entonces `access()` sí lo ve—, así que el
+        // hueco se declara en vez de fingir que se midió. Se afirma el motivo
+        // para que un fallo distinto siga poniendo la suite en rojo.
+        expect(String(error)).toContain('EPERM')
+        return
+      }
 
       const respuesta = await altas(DRAFT)
 

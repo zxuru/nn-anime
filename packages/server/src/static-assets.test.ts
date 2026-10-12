@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import type { Hono } from 'hono'
 import { type AppOptions, createApp } from './app'
 import { withStaticAssets } from './index'
@@ -50,13 +50,20 @@ async function withAssets<T>(body: (root: string) => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * La raíz de prueba, resuelta por la plataforma. `confine` resuelve la suya con
+ * el `resolve` de la máquina, así que en Windows `/srv/web` es `C:\srv\web` y
+ * un literal con `/` no mediría lo que la función hace.
+ */
+const RAIZ = resolve('/srv/web')
+
 describe('confine', () => {
   test('deja pasar una ruta relativa normal', () => {
-    expect(confine('/srv/web', '/assets/app.js')).toBe('/srv/web/assets/app.js')
+    expect(confine('/srv/web', '/assets/app.js')).toBe(join(RAIZ, 'assets', 'app.js'))
   })
 
   test('la raíz se resuelve al propio directorio', () => {
-    expect(confine('/srv/web', '/')).toBe('/srv/web')
+    expect(confine('/srv/web', '/')).toBe(RAIZ)
   })
 
   test('bloquea el ascenso con puntos suspensivos', () => {
@@ -72,7 +79,7 @@ describe('confine', () => {
   })
 
   test('una ruta con punto normal no se bloquea', () => {
-    expect(confine('/srv/web', '/assets/./app.js')).toBe('/srv/web/assets/app.js')
+    expect(confine('/srv/web', '/assets/./app.js')).toBe(join(RAIZ, 'assets', 'app.js'))
   })
 })
 
@@ -172,10 +179,36 @@ describe('servido de la interfaz', () => {
     })
   })
 
+  test('un directorio dentro de la raíz no se sirve como archivo', async () => {
+    await withAssets(async (root) => {
+      // Sólo se sirven archivos regulares, y un directorio no lo es. Esta
+      // comprobación corre en cualquier plataforma; la del enlace simbólico de
+      // abajo necesita un privilegio que Windows no da por defecto.
+      const response = await appWithAssets(root).request(`${BASE}/assets`)
+
+      expect(await response.text()).toContain('id="root"')
+    })
+  })
+
   test('un enlace simbólico que apunta fuera no se sirve', async () => {
     await withAssets(async (root) => {
-      await writeFile(join(root, '..', 'secreto-nn-anime.txt'), 'no deberías verme')
-      await symlink(join(root, '..', 'secreto-nn-anime.txt'), join(root, 'enlace.txt'))
+      const fuera = join(root, '..', 'secreto-nn-anime.txt')
+      await writeFile(fuera, 'no deberías verme')
+
+      try {
+        await symlink(fuera, join(root, 'enlace.txt'))
+      } catch (error) {
+        // Windows no deja crear enlaces simbólicos sin el modo desarrollador
+        // activado o sin privilegios de administrador, y falla con `EPERM`. El
+        // hueco se declara en lugar de fingir que se midió: lo que se pierde es
+        // la comprobación del enlace, no la de «sólo archivos regulares», que
+        // mide la prueba del directorio. Se afirma el motivo para que un fallo
+        // distinto —otro código de error— siga poniendo la suite en rojo.
+        expect(String(error)).toContain('EPERM')
+
+        await rm(fuera, { force: true })
+        return
+      }
 
       const response = await appWithAssets(root).request(`${BASE}/enlace.txt`)
 
@@ -184,7 +217,7 @@ describe('servido de la interfaz', () => {
       const body = await response.text()
       expect(body).not.toContain('no deberías verme')
 
-      await rm(join(root, '..', 'secreto-nn-anime.txt'), { force: true })
+      await rm(fuera, { force: true })
     })
   })
 
