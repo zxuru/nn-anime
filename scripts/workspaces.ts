@@ -2,6 +2,7 @@
  * Utilidades compartidas por los scripts de desarrollo.
  */
 
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
@@ -29,18 +30,29 @@ export interface Workspace {
   readonly manifest: Record<string, unknown>
 }
 
-/** Lista los workspaces declarados en `packages/`, ordenados por nombre. */
+/**
+ * Lista los workspaces declarados en `packages/`, ordenados por nombre.
+ *
+ * Las rutas se arman con `node:path` y no cortando la cadena por `/`. `Bun.Glob`
+ * devuelve el separador de la plataforma —en Windows, `packages\web\package.json`—
+ * así que `lastIndexOf('/')` no encontraba nada y el `dir` salía del tamaño
+ * entero del archivo menos uno. No se notaba al listar, porque el nombre se lee
+ * del manifiesto; sí al usar `dir` como `cwd`, que es lo que hace `bun run
+ * build`: `Bun.spawn` fallaba con `ENOENT` y el mensaje hablaba del proceso, no
+ * de la ruta inventada.
+ */
 export async function listWorkspaces(): Promise<readonly Workspace[]> {
   const glob = new Bun.Glob('packages/*/package.json')
   const found: Workspace[] = []
 
   for await (const relative of glob.scan({ cwd: ROOT })) {
-    const dir = ROOT + relative.slice(0, relative.lastIndexOf('/'))
-    const raw: unknown = JSON.parse(await Bun.file(ROOT + relative).text())
+    const manifestPath = join(ROOT, relative)
+    const dir = dirname(manifestPath)
+    const raw: unknown = JSON.parse(await Bun.file(manifestPath).text())
     if (!isRecord(raw)) continue
 
     const declared = raw.name
-    const name = typeof declared === 'string' ? declared : dir.slice(dir.lastIndexOf('/') + 1)
+    const name = typeof declared === 'string' ? declared : basename(dir)
     found.push({ name, dir, manifest: raw })
   }
 

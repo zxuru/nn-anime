@@ -1,21 +1,38 @@
 import { describe, expect, test } from 'bun:test'
+import { join, sep } from 'node:path'
 import { dirOfModule, isRecord, listWorkspaces, scriptOf } from './workspaces'
+
+/**
+ * Una URL `file://` de Windows lleva la unidad —`file:///C:/…`— y una de POSIX
+ * no. `fileURLToPath` rechaza la de la otra plataforma con «File URL path must
+ * be an absolute path», así que la prueba arma la suya con el prefijo de esta
+ * máquina. Lo que mide —que los escapes se descodifican— es igual en las dos.
+ */
+const RAIZ_URL = process.platform === 'win32' ? 'file:///C:/' : 'file:///'
+const RAIZ_FS = process.platform === 'win32' ? 'C:\\' : '/'
+
+/** Lo que `dirOfModule` devuelve: el padre del directorio del módulo, con separador final. */
+function esperado(...segmentos: readonly string[]): string {
+  return join(RAIZ_FS, ...segmentos) + sep
+}
 
 describe('dirOfModule', () => {
   test('devuelve una ruta del sistema de archivos, sin codificar', () => {
-    expect(dirOfModule('file:///home/prueba/nn-anime/scripts/dev.ts')).toBe(
-      '/home/prueba/nn-anime/',
+    expect(dirOfModule(`${RAIZ_URL}home/prueba/nn-anime/scripts/dev.ts`)).toBe(
+      esperado('home', 'prueba', 'nn-anime'),
     )
   })
 
   test('descodifica los espacios en lugar de dejar %20', () => {
-    expect(dirOfModule('file:///home/ana/mis%20proyectos/nn-anime/scripts/dev.ts')).toBe(
-      '/home/ana/mis proyectos/nn-anime/',
+    expect(dirOfModule(`${RAIZ_URL}home/ana/mis%20proyectos/nn-anime/scripts/dev.ts`)).toBe(
+      esperado('home', 'ana', 'mis proyectos', 'nn-anime'),
     )
   })
 
   test('descodifica otros caracteres escapados', () => {
-    expect(dirOfModule('file:///tmp/a%2Bb%20%26%20c/scripts/x.ts')).toBe('/tmp/a+b & c/')
+    expect(dirOfModule(`${RAIZ_URL}tmp/a%2Bb%20%26%20c/scripts/x.ts`)).toBe(
+      esperado('tmp', 'a+b & c'),
+    )
   })
 })
 
@@ -81,7 +98,7 @@ describe('listWorkspaces', () => {
     const workspaces = await listWorkspaces()
 
     for (const workspace of workspaces) {
-      expect(await Bun.file(`${workspace.dir}/package.json`).exists()).toBe(true)
+      expect(await Bun.file(join(workspace.dir, 'package.json')).exists()).toBe(true)
     }
   })
 })
