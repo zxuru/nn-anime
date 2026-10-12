@@ -105,15 +105,50 @@ describe('tokens de diseño', () => {
     expect(css).not.toMatch(/\brgb\(/)
   })
 
-  test('la hoja de estructura no usa medidas literales', async () => {
+  /**
+   * Las medidas, salvo las de los `@media`.
+   *
+   * Un punto de corte **no puede** venir de un token: `var()` no existe dentro de
+   * un `@media`. Así que el preludio de las at-rules se quita antes de mirar, y lo
+   * que tiene que salir de un token son las declaraciones —que es donde el token
+   * sirve—. El ancho de las consultas se comprueba aparte, contra `tokens.css`.
+   */
+  test('la hoja de estructura no usa medidas literales en las declaraciones', async () => {
     const css = await read(SHELL)
 
-    // Cualquier `12px`, `1.5rem`, `-0.01em` o `60ch` que no venga de un token.
-    const literals = [...css.matchAll(/(?<![\w(])(-?[\d.]+)(px|rem|em|ch)\b/g)].map(
+    // Cualquier `12px`, `1.5rem`, `-0.01em` o `60ch` que no venga de un token, ya
+    // sin los preludios: `@media (max-width: 600px)`, `@keyframes latido`…
+    const sinPreludios = css.replace(/@[a-z-]+[^{;]*/g, '')
+    const literals = [...sinPreludios.matchAll(/(?<![\w(])(-?[\d.]+)(px|rem|em|ch)\b/g)].map(
       (match) => match[0],
     )
 
     expect(literals, `medidas sueltas: ${literals.join(', ')}`).toEqual([])
+  })
+
+  /**
+   * Y los anchos de las consultas, de los tokens.
+   *
+   * Es la mitad que no se puede delegar: el número va escrito en el `@media` y
+   * repetido en `tokens.css` —el componente también lo lee con `matchMedia`—, así
+   * que lo que impide que se separen es esta comprobación.
+   */
+  test('los anchos de los `@media` salen de los tokens de punto de corte', async () => {
+    const declarados = new Set(
+      [...(await read(TOKENS)).matchAll(/--bp-[a-z]+:\s*(\d+px)/g)].map((match) => match[1]),
+    )
+
+    expect(declarados.size, 'faltan tokens --bp-* en tokens.css').toBeGreaterThan(0)
+
+    const usados = [
+      ...(await read(SHELL)).matchAll(/@media[^{]*\((?:max|min)-width:\s*(\d+px)\)/g),
+    ].map((match) => match[1])
+
+    expect(usados.length, 'no hay ninguna consulta de ancho que comprobar').toBeGreaterThan(0)
+
+    for (const ancho of usados) {
+      expect(declarados, `el ancho ${ancho} de un @media no está en tokens.css`).toContain(ancho)
+    }
   })
 
   /**

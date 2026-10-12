@@ -115,6 +115,61 @@ describe('contraste de la paleta', () => {
 })
 
 /**
+ * Las capas de la barra de progreso.
+ *
+ * Son partes de un componente, así que el mínimo es 3:1 y no 4.5:1. Se miden
+ * **compuestas sobre negro**, que es lo que hay detrás: la barra va sobre el
+ * degradado de los mandos y el degradado es negro en los dos temas. Un color con
+ * alfa medido a secas —como si fuera opaco— daría un número que no es el que se
+ * ve.
+ */
+describe('contraste de la barra de progreso', () => {
+  /** El color con su alfa, ya mezclado sobre negro, en hexadecimal. */
+  function sobreNegro(color: string): string {
+    // Un hexadecimal no lleva alfa: es el color tal cual, ya opaco.
+    const hex = /^#([0-9a-f]{6})\b/i.exec(color.trim())
+    if (hex?.[1] !== undefined) return `#${hex[1]}`
+
+    const numeros = (color.match(/[\d.]+/g) ?? []).map(Number)
+    const [r = 0, g = 0, b = 0] = numeros
+    const alfa = (numeros[3] ?? 100) / 100
+    const canal = (valor: number): string =>
+      Math.round(valor * alfa)
+        .toString(16)
+        .padStart(2, '0')
+
+    return `#${canal(r)}${canal(g)}${canal(b)}`
+  }
+
+  test('el carril, el búfer y el tramo reproducido pasan el 3:1', async () => {
+    const tokens = await Bun.file(TOKENS).text()
+    const color = (nombre: string): string =>
+      new RegExp(`--${nombre}:\\s*([^;]+);`).exec(tokens)?.[1]?.trim() ?? ''
+
+    const capas = [
+      ['seek-track', color('seek-track')],
+      ['seek-buffer', color('seek-buffer')],
+      ['color-accent', color('color-accent')],
+    ] as const
+
+    for (const [nombre, valor] of capas) {
+      expect(valor, `falta --${nombre}`).not.toBe('')
+
+      const ratio = contrast(sobreNegro(valor), '#000000')
+
+      expect(ratio, `--${nombre} sobre el video: ${valor}`).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  test('la fórmula de la mezcla es la que se cree', () => {
+    // Un crema opaco es él mismo; al 50 % sobre negro, la mitad.
+    expect(sobreNegro('rgb(242 233 216 / 100%)')).toBe('#f2e9d8')
+    expect(sobreNegro('rgb(242 233 216 / 50%)')).toBe('#79756c')
+    expect(sobreNegro('#ff4a2e')).toBe('#ff4a2e')
+  })
+})
+
+/**
  * Lo que se puede comprobar sin navegador.
  *
  * Un recorrido de teclado de verdad necesita un navegador y es del e2e (T43).

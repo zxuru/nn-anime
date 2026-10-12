@@ -343,12 +343,16 @@ describe('el modo compatible', () => {
     expect(html).not.toContain('<canvas')
     expect(html).toContain('aria-expanded="false"')
     expect(html).toContain('aria-label="Ajustes"')
+    // Y como el menú empieza cerrado, el interruptor no está en el documento: no
+    // hay forma de encenderlo sin abrirlo.
+    expect(html).not.toContain('Modo compatible')
 
     const fuente = await readFile(`${ROOT}Player.tsx`, 'utf8')
-    const menu = /\{menu \? \(([\s\S]*?)\) : null\}/.exec(fuente)?.[1] ?? ''
 
-    expect(menu).toContain("t(DEFAULT_LOCALE, 'player.compat')")
-    expect(menu).toContain('aria-pressed={pintando}')
+    // El único interruptor del archivo es el del menú: un segundo sitio donde
+    // encenderlo sería un segundo estado que mantener.
+    expect(fuente.match(/player\.compat'\)/g)?.length).toBe(1)
+    expect(fuente).toContain('aria-pressed={pintando}')
   })
 
   test('el lienzo del modo compatible se pide por CPU', async () => {

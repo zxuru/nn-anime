@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, type Page, test } from '@playwright/test'
 import { entrar } from './fixtures'
 
 /**
@@ -1183,6 +1183,244 @@ test.describe('la disposición', () => {
     expect(lateral?.y ?? 0).toBeGreaterThanOrEqual(
       (principal?.y ?? 0) + (principal?.height ?? 0) - 1,
     )
+  })
+})
+
+/**
+ * La ventana estrecha, que es donde la pantalla se rompía.
+ *
+ * En 360 px la banda de mandos se superponía al video, y como no cabía en una
+ * fila crecía hacia arriba hasta salirse del marco: la barra de progreso aparecía
+ * **por encima del video**, sobre el fondo de la página. Estas pruebas miden la
+ * caja de verdad —que es el único sitio donde un desborde existe— y los dos
+ * tamaños de teléfono que pide el encargo.
+ */
+test.describe('la ventana estrecha', () => {
+  /** Un teléfono en vertical: el ancho más pequeño que se soporta. */
+  const MOVIL = { width: 360, height: 640 }
+  const MOVIL_ALTO = { width: 390, height: 844 }
+
+  /** Abre la pantalla con el número en la dirección, como la ficha. */
+  async function abrir(page: Page, medida: { width: number; height: number }): Promise<void> {
+    await page.setViewportSize(medida)
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna&n=3')
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+  }
+
+  test('en 360 px la barra va debajo del video y dentro del reproductor', async ({ page }) => {
+    await abrir(page, MOVIL)
+
+    const video = await page.locator('.player__video').boundingBox()
+    const controles = await page.locator('.player__controls').boundingBox()
+    const seek = await page.locator('.player__seek').boundingBox()
+    const botones = await page.locator('.player__buttons').boundingBox()
+    const escenario = await page.locator('.player__stage').boundingBox()
+
+    // Dentro del reproductor: la banda es hija del escenario, no del documento.
+    await expect(page.locator('.player__stage .player__controls')).toHaveCount(1)
+
+    // Debajo del video y dentro del escenario: ni superpuesta a la imagen ni
+    // fuera del marco, que era el fallo.
+    expect(controles?.y ?? 0).toBeGreaterThanOrEqual((video?.y ?? 0) + (video?.height ?? 0) - 1)
+    expect((controles?.y ?? 0) + (controles?.height ?? 0)).toBeLessThanOrEqual(
+      (escenario?.y ?? 0) + (escenario?.height ?? 0) + 1,
+    )
+
+    // Y la barra de progreso, encima de la fila de botones.
+    expect((seek?.y ?? 0) + (seek?.height ?? 0)).toBeLessThanOrEqual(botones?.y ?? 0)
+  })
+
+  test('en 360 px los mandos no se comen el video y el botón grande se ve', async ({ page }) => {
+    await abrir(page, MOVIL)
+
+    const video = await page.locator('.player__video').boundingBox()
+    const controles = await page.locator('.player__controls').boundingBox()
+    const botones = await page.locator('.player__buttons').boundingBox()
+
+    // Una sola fila de botones —40 px— y la banda entera por debajo de la mitad
+    // de la altura del video. Superpuesta era más alta que el propio video.
+    expect(botones?.height ?? 0).toBeLessThanOrEqual(48)
+    expect(controles?.height ?? 0).toBeLessThanOrEqual((video?.height ?? 0) * 0.5)
+
+    // El botón grande está centrado en el video y no lo tapa la banda.
+    const grande = await page.locator('.player__play-icon').boundingBox()
+    const centroVideo = (video?.y ?? 0) + (video?.height ?? 0) / 2
+    const centroGrande = (grande?.y ?? 0) + (grande?.height ?? 0) / 2
+
+    expect(Math.abs(centroGrande - centroVideo)).toBeLessThanOrEqual(4)
+    expect((grande?.y ?? 0) + (grande?.height ?? 0)).toBeLessThanOrEqual(controles?.y ?? 0)
+  })
+
+  test('en 390 px la barra sigue debajo del video', async ({ page }) => {
+    await abrir(page, MOVIL_ALTO)
+
+    const video = await page.locator('.player__video').boundingBox()
+    const controles = await page.locator('.player__controls').boundingBox()
+
+    expect(controles?.y ?? 0).toBeGreaterThanOrEqual((video?.y ?? 0) + (video?.height ?? 0) - 1)
+  })
+
+  /**
+   * Lo que no cabe, no se pinta: los saltos de diez segundos se van y el volumen
+   * se muda al menú.
+   *
+   * No es «se esconden con CSS»: no están en el documento. Con dos mandos iguales
+   * —el de la fila y el del menú— el nombre accesible sería ambiguo, y el que
+   * navega con el teclado tendría que adivinar cuál es cuál.
+   */
+  test('en 360 px no hay saltos de diez segundos y el volumen vive en el menú', async ({
+    page,
+  }) => {
+    await abrir(page, MOVIL)
+
+    await expect(page.getByRole('button', { name: 'Retroceder 10 segundos' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Adelantar 10 segundos' })).toHaveCount(0)
+    // En la fila tampoco hay ni barra ni botón de volumen: el grupo entero se mudó.
+    await expect(page.locator('.player__buttons .player__slider')).toHaveCount(0)
+    await expect(page.locator('.player__menu .player__slider')).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Ajustes' }).click()
+
+    const menu = page.locator('.player__menu')
+    await expect(menu.locator('.player__slider')).toHaveCount(1)
+    await expect(menu.getByRole('button', { name: 'Silenciar' })).toHaveCount(1)
+
+    // Y funciona igual: la barra del menú mueve el volumen del elemento.
+    await menu.getByRole('slider', { name: 'Volumen' }).fill('40')
+    await expect
+      .poll(async () => await page.locator('video').evaluate((e: HTMLVideoElement) => e.volume))
+      .toBeCloseTo(0.4, 2)
+  })
+
+  /**
+   * El doble toque en los bordes: lo que sustituye a los botones que no caben.
+   *
+   * Es la convención de todos los reproductores, y sin ella quitar los botones
+   * sería quitar la función. Se mide el tiempo del elemento, que es quien salta.
+   */
+  test('el doble toque en los bordes del video salta diez segundos', async ({ page }) => {
+    await abrir(page, MOVIL)
+
+    const video = page.locator('video')
+    await page.getByRole('slider', { name: 'Posición del video' }).fill('20')
+
+    // El borde izquierdo retrocede…
+    await video.dblclick({ position: { x: 20, y: 90 } })
+    await expect
+      .poll(async () => await video.evaluate((elemento: HTMLVideoElement) => elemento.currentTime))
+      .toBeLessThan(12)
+
+    // …y el derecho adelanta. Sin pausar: el doble gesto no es un clic de más.
+    await page.getByRole('slider', { name: 'Posición del video' }).fill('20')
+    await video.dblclick({ position: { x: 316, y: 90 } })
+    await expect
+      .poll(async () => await video.evaluate((elemento: HTMLVideoElement) => elemento.currentTime))
+      .toBeGreaterThan(28)
+
+    expect(await video.evaluate((elemento: HTMLVideoElement) => elemento.paused)).toBe(true)
+  })
+
+  test('el nombre de la aplicación no se parte en dos líneas', async ({ page }) => {
+    await abrir(page, MOVIL)
+
+    const logo = page.locator('.shell__brand')
+    const medidas = await logo.evaluate((elemento) => {
+      const caja = elemento.getBoundingClientRect()
+      const estilo = getComputedStyle(elemento)
+
+      return {
+        alto: caja.height,
+        tipo: Number.parseFloat(estilo.fontSize),
+        blancos: estilo.whiteSpace,
+      }
+    })
+
+    expect(medidas.blancos).toBe('nowrap')
+    // Un renglón y no dos: el doble del tipo ya sería dos líneas.
+    expect(medidas.alto).toBeLessThan(medidas.tipo * 2)
+  })
+
+  test('en 360 px los pasos van a partes iguales y el audio debajo a lo ancho', async ({
+    page,
+  }) => {
+    await abrir(page, MOVIL)
+
+    const pasos = page.locator('.watch__steps a, .watch__steps span')
+    const primero = await pasos.nth(0).boundingBox()
+    const segundo = await pasos.nth(1).boundingBox()
+    const audio = await page.locator('.audio-switch').boundingBox()
+    const fila = await page.locator('.watch__steps').boundingBox()
+
+    // Las dos mitades, iguales y en la misma fila.
+    expect(Math.abs((primero?.width ?? 0) - (segundo?.width ?? 0))).toBeLessThanOrEqual(1)
+    expect(Math.abs((primero?.y ?? 0) - (segundo?.y ?? 0))).toBeLessThanOrEqual(1)
+
+    // Y el selector de audio, debajo y a lo ancho de la fila entera.
+    expect(audio?.y ?? 0).toBeGreaterThanOrEqual((fila?.y ?? 0) + (fila?.height ?? 0) - 1)
+    expect(Math.abs((audio?.width ?? 0) - (fila?.width ?? 0))).toBeLessThanOrEqual(2)
+  })
+
+  /**
+   * El menú, anclado encima de su botón y con ancho fijo.
+   *
+   * 240 px: lo que mide el mando más un dedo. Con ancho de contenido, la lista de
+   * subtítulos lo estiraba y el menú se salía por la izquierda.
+   */
+  test('el menú mide 240 px y se abre encima del botón que lo abre', async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 })
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna&n=3')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const boton = page.getByRole('button', { name: 'Ajustes' })
+    await boton.click()
+
+    const menu = await page.locator('.player__menu').boundingBox()
+    const ancla = await boton.boundingBox()
+
+    expect(menu?.width ?? 0).toBeCloseTo(240, 0)
+    expect((menu?.y ?? 0) + (menu?.height ?? 0)).toBeLessThanOrEqual(ancla?.y ?? 0)
+  })
+
+  /**
+   * El interruptor, de interruptor.
+   *
+   * La casilla nativa sigue siendo la que guarda el estado —y la que se anuncia—,
+   * pero mide como un mando y su tirador se mueve: es lo que se ve. Se mide el
+   * tirador y no la casilla porque el dibujo es lo que hay que comprobar.
+   */
+  test('el interruptor de reproducción automática se mueve', async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 })
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna&n=3')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Ajustes' }).click()
+
+    const casilla = page.getByRole('checkbox', { name: 'Reproducción automática' })
+    const tirador = page.locator('.player__switch-knob')
+
+    await expect(casilla).toBeChecked()
+
+    const encendido = await tirador.boundingBox()
+    await casilla.uncheck()
+    await expect(casilla).not.toBeChecked()
+
+    // El tirador viaja de un extremo al otro. Se pregunta hasta que llega: el
+    // movimiento es una transición, y medirlo justo al soltar la casilla lo pilla
+    // a medio camino.
+    await expect
+      .poll(async () => Math.abs(((await tirador.boundingBox())?.x ?? 0) - (encendido?.x ?? 0)), {
+        timeout: 5000,
+      })
+      .toBeGreaterThanOrEqual(16)
+
+    // Y la casilla mide como un mando, no como el cuadradito nativo.
+    const caja = await casilla.boundingBox()
+    expect(caja?.width ?? 0).toBeCloseTo(44, 0)
+    expect(caja?.height ?? 0).toBeCloseTo(24, 0)
   })
 })
 

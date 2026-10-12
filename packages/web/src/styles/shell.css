@@ -39,6 +39,10 @@
   text-decoration: none;
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
+  /* En una línea, siempre: el nombre partido en dos —«NN-» y «ANIME»— deja la
+     cabecera con dos renglones y empuja todo lo de debajo. En una ventana
+     estrecha se encoge el tipo, no se parte el nombre. */
+  white-space: nowrap;
 }
 
 .shell__nav {
@@ -860,7 +864,21 @@
   gap: var(--space-4);
 }
 
+/*
+ * El escenario: el marco del video y, debajo o encima, los mandos.
+ *
+ * `position: relative` es lo que ancla la barra de mandos en escritorio —donde se
+ * superpone al borde inferior del video— y el botón grande de reproducir dentro
+ * del **marco**, que es lo que mide el video y no el escenario entero: en una
+ * ventana estrecha los mandos van debajo y centrar sobre el escenario dejaría el
+ * botón fuera de la imagen.
+ */
 .player__stage {
+  position: relative;
+  display: block;
+}
+
+.player__frame {
   position: relative;
   display: block;
 }
@@ -1029,7 +1047,14 @@
  * El degradado la separa de la imagen sin taparla: un cartel opaco encima del
  * video es peor que no tener mandos. Va por encima de la espera y del botón
  * grande —`z-index` mayor— para que un aviso de búfer no deje los mandos
- * debajo. */
+ * debajo.
+ *
+ * Dentro van dos filas: la barra de progreso arriba y los botones debajo. La
+ * barra de progreso **nunca** se sale de la banda: con la banda superpuesta al
+ * video, una barra más alta que el video aparecía por encima del marco, sobre el
+ * fondo de la página. En una ventana estrecha la banda deja de superponerse y se
+ * va debajo del video —ver el `@media` del final—, así que el problema no puede
+ * volver. */
 .player__controls {
   position: absolute;
   inset-inline: 0;
@@ -1198,6 +1223,21 @@
 
 .player__volume:hover .player__slider,
 .player__volume:focus-within .player__slider {
+  opacity: 1;
+}
+
+/*
+ * El mismo grupo, dentro del menú de ajustes.
+ *
+ * Es donde vive cuando la ventana es estrecha —lo decide el componente, que es
+ * quien sabe cuánto cabe— y ahí la barra **no** se esconde: el menú ya es «donde
+ * se toca una vez», y una barra que sólo aparece al pasar por encima, dentro de un
+ * desplegable, es un mando que no está. El selector lleva el menú delante para
+ * pesar lo mismo que la regla del puntero y no dejar la hoja desordenada.
+ */
+.player__menu .player__menu-volume .player__slider {
+  flex: 1 1 auto;
+  width: auto;
   opacity: 1;
 }
 
@@ -1388,21 +1428,78 @@
   text-align: left;
 }
 
-/* El interruptor del menú: la casilla nativa, con el acento de la interfaz, y su
-   texto al lado. La etiqueta entera es el objetivo, no el cuadradito. */
-.player__menu-switch {
+/* El grupo del volumen dentro del menú: el botón del silencio y su barra. */
+.player__menu-volume {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  width: 100%;
+}
+
+/*
+ * El interruptor del menú.
+ *
+ * Es un `<input type="checkbox">` de verdad —el que guarda el estado y el que se
+ * anuncia— vestido de interruptor: un carril con el borde duro de la interfaz y
+ * un tirador cuadrado que se mueve. Los radios son cero, como todo lo demás, y el
+ * carril se enciende con el acento. La etiqueta entera es el objetivo, no el
+ * cuadradito.
+ */
+.player__menu-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   min-height: var(--control-size);
   font-size: var(--text-sm);
   cursor: pointer;
 }
 
-.player__menu-switch input {
-  width: var(--space-4);
-  height: var(--space-4);
-  accent-color: var(--color-accent);
+/* La caja del carril: lo que mide el mando, para poder colocar el tirador encima
+   sin que la caja del texto se corra. No se encoge —`flex: 0 0 auto`—: con el
+   texto largo al lado, el carril se quedaba en 42 px y el tirador se salía del
+   carril al encenderse. */
+.player__switch-box {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: var(--switch-width);
+  height: var(--switch-height);
+}
+
+.player__switch {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface);
+  appearance: none;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.player__switch:checked {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.player__switch-knob {
+  position: absolute;
+  top: var(--border-width-strong);
+  left: var(--border-width-strong);
+  width: var(--switch-knob);
+  height: var(--switch-knob);
+  background: var(--color-text-dim);
+  transition: transform var(--transition-fast);
+  pointer-events: none;
+}
+
+/* Encendido: el tirador al otro extremo y en el color que contrasta con el
+   carril encendido. Lo dice el estado de la casilla, que es la que manda. */
+.player__switch:checked + .player__switch-knob {
+  background: var(--color-accent-contrast);
+  transform: translateX(var(--switch-travel));
 }
 
 /*
@@ -2721,4 +2818,116 @@
 
 .notice__foot a {
   color: var(--color-accent);
+}
+
+/*
+ * La ventana estrecha.
+ *
+ * Va al final y no repartido por el archivo a propósito: son las reglas que
+ * cambian la forma de lo de arriba, y juntas se leen como lo que son —la pantalla
+ * en un teléfono— en vez de como excepciones sueltas. Los anchos son los tokens
+ * `--bp-mobile` y `--bp-compact`; el número se repite porque `var()` no existe
+ * dentro de un `@media`, y la prueba de la hoja comprueba que coincidan.
+ *
+ * Los mismos anchos los lee el componente con `matchMedia` para decidir qué mandos
+ * existen —el volumen se muda al menú, los saltos de diez segundos
+ * desaparecen—: eso no se puede hacer con CSS sin dejar dos mandos con el mismo
+ * nombre en el documento.
+ */
+@media (max-width: 600px) {
+  /* La cabecera, en una línea: el nombre encogido y el menú más junto. */
+  .shell__header {
+    gap: var(--space-2);
+    padding: 0 var(--space-3);
+  }
+
+  .shell__brand {
+    font-size: var(--text-md);
+  }
+
+  .shell__nav {
+    gap: var(--space-2);
+  }
+
+  .shell__nav a {
+    font-size: var(--text-sm);
+    letter-spacing: 0;
+  }
+
+  .shell__main {
+    padding: var(--space-5) var(--space-3);
+  }
+
+  /*
+   * Los mandos, debajo del video.
+   *
+   * Dejan de superponerse: con un video de 167 px de alto, una banda encima se
+   * come la imagen —y la barra de progreso, más alta que el video, aparecía por
+   * encima del marco, sobre el fondo de la página—. En el flujo, dentro del
+   * escenario, la barra de progreso va arriba y los botones debajo, y el botón
+   * grande de reproducir se centra en el video entero porque el marco es sólo el
+   * video.
+   *
+   * Tampoco se esconden solos: no tapan nada, así que esconderlos sería quitar el
+   * mando sin ganar nada.
+   */
+  .player__controls,
+  .player__controls[data-oculto="true"] {
+    position: static;
+    gap: var(--gap-compact);
+    padding: var(--space-2) 0 0;
+    background: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .player__buttons {
+    flex-wrap: nowrap;
+    gap: var(--gap-compact);
+  }
+
+  /* 40 px de lado, el mínimo táctil recomendado, para que la fila quepa. */
+  .player__control {
+    min-width: var(--control-size-compact);
+    min-height: var(--control-size-compact);
+    padding: 0 var(--space-1);
+  }
+
+  .player__time {
+    font-size: var(--text-sm);
+  }
+
+  .player__menu {
+    /* Anclado al botón y sin salirse: con el mando pegado al borde derecho, el
+       menú de 240 px cabe justo. */
+    max-width: calc(100vw - var(--space-6));
+  }
+
+  /* Los dos pasos de episodio, a partes iguales, y el audio debajo a lo ancho:
+     dos botones de anchos distintos en la misma fila se leen como uno solo. */
+  .watch__nav {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .watch__steps {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+  }
+
+  .watch__nav-link,
+  .watch__nav-off {
+    justify-content: center;
+  }
+
+  .audio-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .audio-switch__option {
+    width: 100%;
+  }
 }
