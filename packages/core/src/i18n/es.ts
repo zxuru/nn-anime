@@ -11,5 +11,5 @@ import type { Messages } from '../i18n'
 export const messages: Messages = {
   'app.name': 'nn-anime',
   'error.config.missingHome':
-    'No se pudo determinar el directorio personal: falta HOME y no se indicó ruta para {dirs}.',
+    'No se pudo determinar el directorio del usuario: no hay HOME ni USERPROFILE, y no se indicó ruta para {dirs}.',
 }

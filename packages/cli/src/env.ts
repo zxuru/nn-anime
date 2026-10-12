@@ -13,6 +13,11 @@ import type { ConfigEnvironment } from '@nn-anime/core'
 export function configEnvironment(env: NodeJS.ProcessEnv): ConfigEnvironment {
   return {
     HOME: env.HOME,
+    // Windows no define `HOME`: su equivalente es `USERPROFILE`, y los dos
+    // directorios del perfil son `%APPDATA%` y `%LOCALAPPDATA%`.
+    USERPROFILE: env.USERPROFILE,
+    APPDATA: env.APPDATA,
+    LOCALAPPDATA: env.LOCALAPPDATA,
     XDG_DATA_HOME: env.XDG_DATA_HOME,
     XDG_CONFIG_HOME: env.XDG_CONFIG_HOME,
     XDG_CACHE_HOME: env.XDG_CACHE_HOME,

@@ -2,7 +2,14 @@
  * Configuración del proceso: rutas de datos, configuración y caché.
  *
  * Precedencia, de mayor a menor: overrides de línea de comandos, variables
- * `NN_ANIME_*`, variables `XDG_*`, valores por defecto bajo `HOME`.
+ * `NN_ANIME_*`, variables `XDG_*`, valores por defecto de la plataforma.
+ *
+ * Los valores por defecto **no son los de XDG a secas**: XDG es la convención de
+ * Linux y en Windows no existe. Bun no define `HOME` en Windows —sólo
+ * `USERPROFILE`—, así que con la convención de Linux no se encontraba ninguna
+ * raíz y la aplicación no arrancaba: salía con «no se pudo determinar el
+ * directorio personal». En Windows los datos y la caché van a `%LOCALAPPDATA%` y
+ * la configuración a `%APPDATA%`, que es donde el sistema dice que van.
  *
  * Este módulo sólo calcula rutas. No crea nada en disco salvo que se llame a
  * `ensureDirs` de forma explícita, para que los tests puedan calcular rutas sin
@@ -10,11 +17,11 @@
  */
 
 import { chmod, mkdir } from 'node:fs/promises'
-import { isAbsolute, join, resolve } from 'node:path'
+import { isAbsolute, join, parse, resolve } from 'node:path'
 import { AppError } from './errors'
 import { DEFAULT_LOCALE, t } from './i18n'
 
-/** Nombre del directorio de la aplicación dentro de cada raíz XDG. */
+/** Nombre del directorio de la aplicación dentro de cada raíz del sistema. */
 export const APP_DIR_NAME = 'nn-anime'
 
 export interface ConfigPaths {
@@ -29,6 +36,12 @@ export interface ConfigPaths {
 
 export interface ConfigEnvironment {
   readonly HOME?: string | undefined
+  /** Lo que Windows define en lugar de `HOME`. */
+  readonly USERPROFILE?: string | undefined
+  /** Configuración del usuario en Windows: `%APPDATA%`. */
+  readonly APPDATA?: string | undefined
+  /** Datos locales del usuario en Windows: `%LOCALAPPDATA%`. */
+  readonly LOCALAPPDATA?: string | undefined
   readonly XDG_DATA_HOME?: string | undefined
   readonly XDG_CONFIG_HOME?: string | undefined
   readonly XDG_CACHE_HOME?: string | undefined
@@ -47,6 +60,11 @@ export interface ConfigOverrides {
 export interface LoadConfigOptions {
   readonly env?: ConfigEnvironment
   readonly overrides?: ConfigOverrides
+  /**
+   * Plataforma cuyas convenciones se aplican. Se inyecta para poder medir las
+   * dos desde cualquier máquina; por defecto, la de verdad.
+   */
+  readonly platform?: string
 }
 
 /** Una variable vacía o con sólo espacios no es una respuesta. */
@@ -57,12 +75,28 @@ function usable(value: string | undefined): string | undefined {
   return trimmed === '' ? undefined : trimmed
 }
 
-/** Deja la ruta absoluta y sin barras finales. La raíz se conserva entera. */
+/**
+ * El separador final que sobra, según la plataforma. En Windows una ruta llega
+ * con `\` y a veces con `/`; en POSIX, una barra invertida final es parte del
+ * nombre del directorio y no se toca.
+ */
+const TRAILING_SEPARATOR = process.platform === 'win32' ? /[\\/]+$/ : /\/+$/
+
+/**
+ * Deja la ruta absoluta y sin separador final. La raíz se conserva entera.
+ *
+ * La raíz no se toca porque quitarle el separador a `C:\` deja `C:`, que en
+ * Windows es «la unidad actual» y no su raíz: la ruta dejaría de ser absoluta
+ * sin que se note.
+ */
 function normalize(path: string): string {
   const absolute = isAbsolute(path) ? path : resolve(path)
-  const stripped = absolute.replace(/\/+$/, '')
+  const root = parse(absolute).root
+  if (absolute === root) return absolute
 
-  return stripped === '' ? '/' : stripped
+  const stripped = absolute.replace(TRAILING_SEPARATOR, '')
+
+  return stripped === '' ? root : stripped
 }
 
 interface DirInputs {
@@ -72,7 +106,7 @@ interface DirInputs {
   readonly fallback: string | undefined
 }
 
-/** Aplica la precedencia para un solo directorio. `undefined` significa que falta HOME. */
+/** Aplica la precedencia para un solo directorio. `undefined` significa que falta la raíz. */
 function resolveDir(inputs: DirInputs): string | undefined {
   const override = usable(inputs.override)
   if (override !== undefined) return normalize(override)
@@ -86,33 +120,73 @@ function resolveDir(inputs: DirInputs): string | undefined {
   return inputs.fallback
 }
 
+/** Las raíces del sistema para los tres directorios, según la plataforma. */
+interface PlatformRoots {
+  readonly data: string | undefined
+  readonly config: string | undefined
+  readonly cache: string | undefined
+}
+
+/**
+ * Dónde dice cada plataforma que van los datos, la configuración y la caché.
+ *
+ * En Windows `%APPDATA%` y `%LOCALAPPDATA%` pueden faltar —un servicio sin
+ * perfil cargado—, así que se cuelgan de `USERPROFILE`, que es lo que documenta
+ * Microsoft: `%USERPROFILE%\AppData\Roaming` y `%USERPROFILE%\AppData\Local`.
+ */
+function platformRoots(
+  platform: string,
+  env: ConfigEnvironment,
+  home: string | undefined,
+): PlatformRoots {
+  const underHome = (suffix: string): string | undefined =>
+    home === undefined ? undefined : join(home, suffix)
+
+  if (platform === 'win32') {
+    const local = usable(env.LOCALAPPDATA) ?? underHome(join('AppData', 'Local'))
+    const roaming = usable(env.APPDATA) ?? underHome(join('AppData', 'Roaming'))
+
+    return {
+      data: local === undefined ? undefined : join(local, APP_DIR_NAME),
+      config: roaming === undefined ? undefined : join(roaming, APP_DIR_NAME),
+      // La caché es desechable y local a la máquina: no viaja con el perfil.
+      cache: local === undefined ? undefined : join(local, APP_DIR_NAME, 'cache'),
+    }
+  }
+
+  return {
+    data: underHome(join('.local', 'share', APP_DIR_NAME)),
+    config: underHome(join('.config', APP_DIR_NAME)),
+    cache: underHome(join('.cache', APP_DIR_NAME)),
+  }
+}
+
 export function loadConfig(options: LoadConfigOptions = {}): ConfigPaths {
   const env = options.env ?? {}
   const overrides = options.overrides ?? {}
-  const home = usable(env.HOME)
-
-  const underHome = (suffix: string): string | undefined =>
-    home === undefined ? undefined : join(home, suffix, APP_DIR_NAME)
+  // `USERPROFILE` es el `HOME` de Windows, donde Bun no define `HOME`.
+  const home = usable(env.HOME) ?? usable(env.USERPROFILE)
+  const roots = platformRoots(options.platform ?? process.platform, env, home)
 
   const dataDir = resolveDir({
     override: overrides.dataDir,
     fromEnv: env.NN_ANIME_DATA_DIR,
     xdgRoot: env.XDG_DATA_HOME,
-    fallback: underHome('.local/share'),
+    fallback: roots.data,
   })
 
   const configDir = resolveDir({
     override: overrides.configDir,
     fromEnv: env.NN_ANIME_CONFIG_DIR,
     xdgRoot: env.XDG_CONFIG_HOME,
-    fallback: underHome('.config'),
+    fallback: roots.config,
   })
 
   const cacheDir = resolveDir({
     override: overrides.cacheDir,
     fromEnv: env.NN_ANIME_CACHE_DIR,
     xdgRoot: env.XDG_CACHE_HOME,
-    fallback: underHome('.cache'),
+    fallback: roots.cache,
   })
 
   const missing = [
@@ -150,6 +224,11 @@ export function loadConfig(options: LoadConfigOptions = {}): ConfigPaths {
  * aplica con `chmod` después. Si no se puede cerrar un directorio que estaba
  * más abierto, esto falla en lugar de seguir: la aplicación no arranca con los
  * datos a la vista de otros usuarios.
+ *
+ * El `0700` es una garantía POSIX. En Windows los permisos son ACLs y `chmod`
+ * sólo toca el bit de sólo lectura, así que ahí lo que se asegura es que el
+ * directorio queda escribible por su dueño; quién más puede entrar lo decide la
+ * ACL que hereda de `%LOCALAPPDATA%`, que ya es del usuario.
  */
 export async function ensureDirs(config: ConfigPaths): Promise<readonly string[]> {
   const dirs = [config.dataDir, config.configDir, config.cacheDir, config.providersDir]
