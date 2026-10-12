@@ -10,10 +10,14 @@
  * La región `aria-live` es `polite` y no `assertive`: el estado del reproductor
  * cambia constantemente, y una región que interrumpe cada segundo hace que la
  * página sea inservible con un lector de pantalla.
+ *
+ * Los mandos van **encima del video**, en una banda con degradado: el elemento es
+ * lo que se mira, y una fila de botones debajo del marco obligaba a bajar la
+ * vista —y a desplazar la página— para tocar cualquier cosa.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { ReactNode } from 'react'
+import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import {
@@ -22,9 +26,11 @@ import {
   formatTime,
   keyAction,
   needsHls,
+  spokenTime,
   volumeFromPercent,
   volumePercent,
 } from './controls'
+import { IconoReproducir } from './icons'
 import { isProxyPath } from './subtitle-tracks'
 import { useCompatPaint } from './useCompatPaint'
 import { type SafeTrack, usePlayer } from './usePlayer'
@@ -36,6 +42,15 @@ export interface PlayerProps {
   readonly title?: string | undefined
   /** Pistas que el navegador puede pintar, ya filtradas. */
   readonly tracks?: readonly SafeTrack[] | undefined
+  /**
+   * La imagen que se ve antes del primer fotograma.
+   *
+   * Es la portada del título servida por el proxy —`/api/cover/...`—, y sólo se
+   * pasa cuando el proveedor dio una: sin portada, el `<video>` se queda con su
+   * fondo, que es lo que había antes de esto. Inventar una dirección aquí sería
+   * pedirle una imagen a un sitio que no dijo tenerla.
+   */
+  readonly poster?: string | undefined
   /** Se llama al empezar a reproducir de verdad, no al cargar la página. */
   readonly onPlay?: (() => void) | undefined
   readonly onPause?: (() => void) | undefined
@@ -87,6 +102,25 @@ function RotuloDoble(props: { readonly actual: string; readonly alterno: string 
   )
 }
 
+/** Lo que ocupa una parte del total, en por ciento, sin salirse de la barra. */
+function porcentaje(valor: number, total: number): number {
+  if (!Number.isFinite(valor) || !Number.isFinite(total) || total <= 0) return 0
+
+  return Math.min(Math.max((valor / total) * 100, 0), 100)
+}
+
+/**
+ * ¿El dispositivo tiene puntero fino?
+ *
+ * El doble clic para la pantalla completa sólo tiene sentido con ratón: en una
+ * pantalla táctil, el doble toque es hacer zum, y el navegador lo resuelve él.
+ * Se pregunta en el momento del gesto y no al montar: el mismo navegador cambia
+ * de respuesta cuando se le enchufa un ratón.
+ */
+function punteroFino(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia?.('(pointer: fine)').matches === true
+}
+
 export function Player(props: PlayerProps): ReactNode {
   // Los avisos de reproducción, pausa y avance salen de los eventos del propio
   // elemento, no del render: llamarlos al pintar los dispararía en cada vuelta.
@@ -127,6 +161,15 @@ export function Player(props: PlayerProps): ReactNode {
    * Mientras dura el arrastre manda el dedo; al soltar, manda el video.
    */
   const [arrastre, setArrastre] = useState<number | undefined>(undefined)
+
+  /**
+   * El segundo sobre el que está el puntero, si está sobre la barra.
+   *
+   * Es el globo que dice el tiempo antes de soltar: sin él hay que arrastrar a
+   * ciegas hasta el punto que se busca. Es estado y no CSS porque el texto cambia
+   * con la posición, y se apaga al salir de la barra para no tapar el video.
+   */
+  const [sobreBarra, setSobreBarra] = useState<number | undefined>(undefined)
 
   const duracion = Number.isFinite(state.durationS) && state.durationS > 0 ? state.durationS : 0
   const posicion = Math.min(arrastre ?? state.positionS, duracion)
@@ -183,6 +226,8 @@ export function Player(props: PlayerProps): ReactNode {
 
   const alDobleClic = useCallback(() => {
     cancelarClic()
+    if (!punteroFino()) return
+
     act('fullscreen')
   }, [act, cancelarClic])
 
@@ -211,6 +256,24 @@ export function Player(props: PlayerProps): ReactNode {
     return () => window.removeEventListener('keydown', alPulsar)
   }, [act])
 
+  /** El tiempo que está debajo del puntero, si está sobre la barra. */
+  const alMoverPuntero = useCallback(
+    (evento: ReactPointerEvent<HTMLDivElement>) => {
+      if (duracion <= 0) return
+
+      const caja = evento.currentTarget.getBoundingClientRect()
+      if (caja.width <= 0) return
+
+      const proporcion = Math.min(Math.max((evento.clientX - caja.left) / caja.width, 0), 1)
+      setSobreBarra(proporcion * duracion)
+    },
+    [duracion],
+  )
+
+  // El botón grande de reproducir: en pausa y con el medio ya cargado. Durante la
+  // carga manda el cartel de la espera, que dice qué se está esperando.
+  const enPausa = !state.playing && espera === undefined
+
   return (
     <section className="player">
       {/* El marco y el video, con la espera encima del segundo. El cartel va
@@ -223,10 +286,15 @@ export function Player(props: PlayerProps): ReactNode {
           controls={false}
           playsInline
           preload="metadata"
+          poster={props.poster}
           aria-label={props.title ?? t(DEFAULT_LOCALE, 'player.label')}
           // El clic sobre la imagen pausa y el doble clic pone pantalla completa:
           // la superficie que se mira es la que se toca, y quien mira el video no
           // tiene por qué bajar la vista a los mandos.
+          //
+          // El botón grande de encima es un dibujo sin eventos —`pointer-events:
+          // none`—: el gesto es del video entero, y un cartel que se comiera el
+          // clic obligaría a apuntarle a un cuadrado del centro.
           //
           // Los dos gestos se separan con una espera corta —ver `CLICK_DELAY_MS`—
           // y no dejando correr los dos `click` que el navegador manda antes del
@@ -264,6 +332,18 @@ export function Player(props: PlayerProps): ReactNode {
             es el `<video>` de debajo. */}
         {pintando ? <canvas className="player__canvas" ref={canvasRef} /> : null}
 
+        {/* El botón de reproducir, grande y en el centro. Es decoración para el
+            ojo —quien no ve la pantalla tiene el mando de la barra, que sí se
+            anuncia— y por eso va `aria-hidden` y sin recibir el puntero: el clic
+            es del video, que es toda la superficie. */}
+        {enPausa ? (
+          <div className="player__overlay" aria-hidden="true">
+            <span className="player__play-icon">
+              <IconoReproducir className="player__play-glyph" />
+            </span>
+          </div>
+        ) : null}
+
         {espera === undefined ? null : (
           <div className="player__wait">
             {/* El cartel va en su caja y no suelto sobre el velo: el velo oscurece
@@ -276,110 +356,157 @@ export function Player(props: PlayerProps): ReactNode {
             </p>
           </div>
         )}
-      </div>
 
-      <div className="player__seek">
-        {/* Una barra de progreso de verdad, y un `<input type="range">`: se
-            arrastra, se toca y se recorre con el teclado sin escribir nada. El
-            `aria-valuetext` dice el tiempo, porque un número de segundos no es
-            lo que nadie quiere oír. */}
-        <input
-          className="player__range"
-          type="range"
-          min={0}
-          max={duracion}
-          step={0.1}
-          value={posicion}
-          disabled={duracion === 0}
-          aria-label={t(DEFAULT_LOCALE, 'player.seek')}
-          aria-valuetext={`${formatTime(posicion)} / ${formatTime(duracion)}`}
-          onChange={(evento) => {
-            const segundo = Number(evento.target.value)
-            setArrastre(segundo)
-            seekTo(segundo)
-          }}
-          onPointerUp={() => setArrastre(undefined)}
-          onPointerCancel={() => setArrastre(undefined)}
-          onBlur={() => setArrastre(undefined)}
-          onKeyUp={() => setArrastre(undefined)}
-        />
+        {/* Los mandos, sobre el borde inferior del video y con un degradado que
+            los separa de la imagen sin taparla. */}
+        <div className="player__controls">
+          <div
+            className="player__seek"
+            onPointerMove={alMoverPuntero}
+            onPointerLeave={() => setSobreBarra(undefined)}
+          >
+            {/* El carril, por capas: lo que hay en búfer debajo, lo ya reproducido
+                encima y el `input` arriba del todo. El `input` es transparente y
+                está por encima de las capas para no perder ni el arrastre ni el
+                teclado; pintarlo él mismo obligaría a un degradado calculado. */}
+            <span className="player__track" aria-hidden="true">
+              <span
+                className="player__buffer"
+                style={{ width: `${porcentaje(state.bufferedS, duracion)}%` }}
+              />
+              <span
+                className="player__played"
+                style={{ width: `${porcentaje(posicion, duracion)}%` }}
+              />
+            </span>
 
-        <span className="player__time">
-          {formatTime(posicion)} / {formatTime(state.durationS)}
-        </span>
-      </div>
+            {/* Una barra de progreso de verdad, y un `<input type="range">`: se
+                arrastra, se toca y se recorre con el teclado sin escribir nada. El
+                `aria-valuetext` dice el tiempo **en palabras**, porque un número de
+                segundos no es lo que nadie quiere oír. */}
+            <input
+              className="player__range"
+              type="range"
+              min={0}
+              max={duracion}
+              step={0.1}
+              value={posicion}
+              disabled={duracion === 0}
+              aria-label={t(DEFAULT_LOCALE, 'player.seek')}
+              aria-valuetext={`${spokenTime(posicion)} de ${spokenTime(duracion)}`}
+              onChange={(evento) => {
+                const segundo = Number(evento.target.value)
+                setArrastre(segundo)
+                seekTo(segundo)
+              }}
+              onPointerUp={() => setArrastre(undefined)}
+              onPointerCancel={() => setArrastre(undefined)}
+              onBlur={() => setArrastre(undefined)}
+              onKeyUp={() => setArrastre(undefined)}
+            />
 
-      <div className="player__controls">
-        <button
-          type="button"
-          className="button button--primary"
-          aria-keyshortcuts="Space Enter K"
-          onClick={() => act('toggle')}
-        >
-          <RotuloDoble
-            actual={
-              state.playing ? t(DEFAULT_LOCALE, 'player.pause') : t(DEFAULT_LOCALE, 'player.play')
-            }
-            alterno={
-              state.playing ? t(DEFAULT_LOCALE, 'player.play') : t(DEFAULT_LOCALE, 'player.pause')
-            }
-          />
-        </button>
-        <button
-          type="button"
-          className="button"
-          aria-keyshortcuts="ArrowLeft"
-          onClick={() => act('back')}
-        >
-          {t(DEFAULT_LOCALE, 'player.back')}
-        </button>
-        <button
-          type="button"
-          className="button"
-          aria-keyshortcuts="ArrowRight"
-          onClick={() => act('forward')}
-        >
-          {t(DEFAULT_LOCALE, 'player.forward')}
-        </button>
-        <button type="button" className="button" aria-keyshortcuts="M" onClick={() => act('mute')}>
-          <RotuloDoble
-            actual={
-              state.muted ? t(DEFAULT_LOCALE, 'player.unmute') : t(DEFAULT_LOCALE, 'player.mute')
-            }
-            alterno={
-              state.muted ? t(DEFAULT_LOCALE, 'player.mute') : t(DEFAULT_LOCALE, 'player.unmute')
-            }
-          />
-        </button>
-        {/* La barra de volumen, al lado del silencio: son el mismo mando en dos
-            pasos —uno dice si suena, la otra cuánto— y separarlos obligaba a
-            buscar el volumen en otra fila. Va de 0 a 100 porque es lo que
-            entiende quien oye el valor: «50», no «0,5». */}
-        <input
-          className="player__range player__volume"
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={volumePercent(state.volume)}
-          aria-label={t(DEFAULT_LOCALE, 'player.volume')}
-          onChange={(evento) => setVolume(volumeFromPercent(Number(evento.target.value)))}
-        />
-        <button
-          type="button"
-          className="button"
-          aria-keyshortcuts="F"
-          onClick={() => act('fullscreen')}
-        >
-          {t(DEFAULT_LOCALE, 'player.fullscreen')}
-        </button>
-        {/* El modo compatible a mano. La sonda lo enciende sola cuando ve el
-            fallo, pero una sonda que mira un fotograma puede no verlo: quien
-            está mirando la pantalla en negro lo enciende aquí, sin tocar nada
-            del navegador. `aria-pressed` dice si está encendido. */}
-        <button type="button" className="button" aria-pressed={pintando} onClick={alternar}>
-          {t(DEFAULT_LOCALE, 'player.compat')}
-        </button>
+            {sobreBarra === undefined ? null : (
+              <span
+                className="player__tooltip"
+                style={{ left: `${porcentaje(sobreBarra, duracion)}%` }}
+                aria-hidden="true"
+              >
+                {formatTime(sobreBarra)}
+              </span>
+            )}
+          </div>
+
+          <div className="player__buttons">
+            <button
+              type="button"
+              className="button button--primary"
+              aria-keyshortcuts="Space Enter K"
+              onClick={() => act('toggle')}
+            >
+              <RotuloDoble
+                actual={
+                  state.playing
+                    ? t(DEFAULT_LOCALE, 'player.pause')
+                    : t(DEFAULT_LOCALE, 'player.play')
+                }
+                alterno={
+                  state.playing
+                    ? t(DEFAULT_LOCALE, 'player.play')
+                    : t(DEFAULT_LOCALE, 'player.pause')
+                }
+              />
+            </button>
+            <button
+              type="button"
+              className="button"
+              aria-keyshortcuts="ArrowLeft"
+              onClick={() => act('back')}
+            >
+              {t(DEFAULT_LOCALE, 'player.back')}
+            </button>
+            <button
+              type="button"
+              className="button"
+              aria-keyshortcuts="ArrowRight"
+              onClick={() => act('forward')}
+            >
+              {t(DEFAULT_LOCALE, 'player.forward')}
+            </button>
+            <button
+              type="button"
+              className="button"
+              aria-keyshortcuts="M"
+              onClick={() => act('mute')}
+            >
+              <RotuloDoble
+                actual={
+                  state.muted
+                    ? t(DEFAULT_LOCALE, 'player.unmute')
+                    : t(DEFAULT_LOCALE, 'player.mute')
+                }
+                alterno={
+                  state.muted
+                    ? t(DEFAULT_LOCALE, 'player.mute')
+                    : t(DEFAULT_LOCALE, 'player.unmute')
+                }
+              />
+            </button>
+            {/* La barra de volumen, al lado del silencio: son el mismo mando en dos
+                pasos —uno dice si suena, la otra cuánto— y separarlos obligaba a
+                buscar el volumen en otra fila. Va de 0 a 100 porque es lo que
+                entiende quien oye el valor: «50», no «0,5». */}
+            <input
+              className="player__range player__volume"
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={volumePercent(state.volume)}
+              aria-label={t(DEFAULT_LOCALE, 'player.volume')}
+              onChange={(evento) => setVolume(volumeFromPercent(Number(evento.target.value)))}
+            />
+            {/* El contador, con cifras de ancho fijo: sin `tabular-nums` el reloj
+                baila en cada segundo y arrastra lo que tenga al lado. */}
+            <span className="player__time">
+              {formatTime(posicion)} / {formatTime(state.durationS)}
+            </span>
+            <button
+              type="button"
+              className="button"
+              aria-keyshortcuts="F"
+              onClick={() => act('fullscreen')}
+            >
+              {t(DEFAULT_LOCALE, 'player.fullscreen')}
+            </button>
+            {/* El modo compatible a mano. La sonda lo enciende sola cuando ve el
+                fallo, pero una sonda que mira un fotograma puede no verlo: quien
+                está mirando la pantalla en negro lo enciende aquí, sin tocar nada
+                del navegador. `aria-pressed` dice si está encendido. */}
+            <button type="button" className="button" aria-pressed={pintando} onClick={alternar}>
+              {t(DEFAULT_LOCALE, 'player.compat')}
+            </button>
+          </div>
+        </div>
       </div>
 
       {sinImagen ? <p className="search__error">{t(DEFAULT_LOCALE, 'player.sinImagen')}</p> : null}

@@ -155,6 +155,58 @@ describe('el reproductor', () => {
     expect(html).toContain('Cargando el video')
   })
 
+  /**
+   * La portada, sólo cuando el proveedor dio una.
+   *
+   * El atributo es lo que llena el marco antes del primer fotograma: sin él, el
+   * reproductor enseña un rectángulo negro mientras carga, que es justo lo que
+   * P5 denunciaba. Y sin portada no se pone un valor inventado: el atributo no
+   * aparece y el `<video>` se queda con su fondo.
+   */
+  test('la portada se pinta sólo si existe', () => {
+    expect(
+      render(<Player url="/stream/abc" kind="file" poster="/api/cover/fixture/aurora" />),
+    ).toContain('poster="/api/cover/fixture/aurora"')
+    expect(render(<Player url="/stream/abc" kind="file" />)).not.toContain('poster=')
+  })
+
+  /**
+   * La barra de progreso dice el tiempo en palabras.
+   *
+   * `0:31 / 24:55` es lo que se lee; lo que se oye tiene que ser una frase. Y la
+   * barra lleva tres capas —carril, búfer y reproducido— porque el navegador no
+   * deja pedirle dos tramos de color al carril de un `input`.
+   */
+  test('la barra de progreso lleva búfer, lo reproducido y el tiempo en palabras', () => {
+    const html = render(<Player url="/stream/abc" kind="file" />)
+
+    expect(html).toContain('player__track')
+    expect(html).toContain('player__buffer')
+    expect(html).toContain('player__played')
+    expect(html).toMatch(/aria-valuetext="[^"]*segundos de[^"]*segundos"/)
+  })
+
+  /**
+   * El botón grande de reproducir es decoración.
+   *
+   * No lleva nombre accesible ni recibe el puntero: el dibujo se ve, pero el
+   * mando que se anuncia es el de la barra y el gesto es del video entero. Un
+   * segundo botón llamado «Reproducir» sería, además, un nombre ambiguo para
+   * cualquiera que lo busque. Se mira el código porque el overlay sólo existe
+   * cuando hay imagen y eso no pasa en un render sin navegador.
+   */
+  test('el botón grande no compite con el mando de la barra', async () => {
+    const fuente = await readFile(`${ROOT}Player.tsx`, 'utf8')
+    const overlay = /\{enPausa \? \(([\s\S]*?)\) : null\}/.exec(fuente)?.[1] ?? ''
+
+    expect(overlay).toContain('player__play-icon')
+    expect(overlay).toContain('aria-hidden="true"')
+    // Sin manejador y sin botón: el clic es del video entero —que es toda la
+    // superficie— y el mando que se anuncia es el de la barra.
+    expect(overlay).not.toContain('onClick')
+    expect(overlay).not.toContain('<button')
+  })
+
   test('la URL que recibe es la del proxy, no una del upstream', () => {
     const html = render(<Player url="/stream/abc" kind="file" />)
 

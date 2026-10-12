@@ -53,6 +53,14 @@ export interface PlayerState {
    */
   readonly buffering: boolean
   /**
+   * Hasta dónde tiene datos el elemento, en segundos.
+   *
+   * Es la segunda capa de la barra de progreso: sin ella, una pausa para
+   * almacenar en búfer y una pausa porque a alguien se le acabó el episodio se
+   * ven igual. Sale de `video.buffered`, que es del elemento y no nuestra.
+   */
+  readonly bufferedS: number
+  /**
    * Ancho de la pista de video, en píxeles; cero si no hay ninguna.
    *
    * Es la única señal de que el navegador **está decodificando la imagen**: el
@@ -84,6 +92,20 @@ function aplicarVolumen(video: HTMLVideoElement, volume: number): void {
   video.volume = clampVolume(volume)
 
   if (video.volume > 0) video.muted = false
+}
+
+/**
+ * Hasta dónde hay datos, en segundos.
+ *
+ * Se toma el final del último tramo y no el que contiene la posición actual: los
+ * tramos se descartan por detrás al reproducir, así que el último es el que
+ * termina más lejos. Un elemento sin datos —o sin `buffered`— devuelve cero, que
+ * es lo que la barra pinta cuando no hay nada que enseñar.
+ */
+export function finDeBuffer(video: { readonly buffered: TimeRanges }): number {
+  const tramos = video.buffered
+
+  return tramos.length === 0 ? 0 : tramos.end(tramos.length - 1)
 }
 
 /**
@@ -164,6 +186,7 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     error: undefined,
     loading: true,
     buffering: false,
+    bufferedS: 0,
     videoWidth: 0,
   })
 
@@ -217,7 +240,13 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     // —o reintentar— dejaba el estado de la fuente anterior y la espera de la
     // nueva no se pintaba: la pantalla se quedaba con el último fotograma del
     // modo viejo y parecía que el botón no había hecho nada.
-    setState((previo) => ({ ...previo, loading: true, buffering: false, error: undefined }))
+    setState((previo) => ({
+      ...previo,
+      loading: true,
+      buffering: false,
+      bufferedS: 0,
+      error: undefined,
+    }))
 
     if (needsHls(source.kind)) {
       void attachHls(
@@ -267,10 +296,20 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
       setState((previo) => ({
         ...previo,
         positionS: video.currentTime,
+        bufferedS: finDeBuffer(video),
         videoWidth: video.videoWidth,
       }))
       avisos.current.onProgress?.(video.currentTime, video.duration)
     }
+    /**
+     * El búfer, que no llega con `timeupdate`.
+     *
+     * El elemento avisa de que tiene más datos con `progress`, y sin escucharlo
+     * la segunda capa de la barra sólo se movería cuando el reloj avanza: con el
+     * video en pausa, la barra se quedaría mintiendo.
+     */
+    const alBuffer = (): void =>
+      setState((previo) => ({ ...previo, bufferedS: finDeBuffer(video) }))
     const alDuracion = (): void => {
       setState((previo) => ({
         ...previo,
@@ -318,6 +357,7 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     const alVolver = (): void => setState((previo) => ({ ...previo, buffering: false }))
 
     video.addEventListener('timeupdate', alTiempo)
+    video.addEventListener('progress', alBuffer)
     video.addEventListener('loadedmetadata', alDuracion)
     video.addEventListener('durationchange', alDuracion)
     video.addEventListener('play', alReproducir)
@@ -332,6 +372,7 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     return () => {
       vivo = false
       video.removeEventListener('timeupdate', alTiempo)
+      video.removeEventListener('progress', alBuffer)
       video.removeEventListener('loadedmetadata', alDuracion)
       video.removeEventListener('durationchange', alDuracion)
       video.removeEventListener('play', alReproducir)

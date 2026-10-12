@@ -350,6 +350,86 @@ test.describe('el reproductor', () => {
   })
 
   /**
+   * El botón grande y la barra de progreso por capas.
+   *
+   * Lo que se mide aquí no lo puede medir una prueba de marcado: el overlay sólo
+   * aparece cuando el medio ya trajo metadatos y, sobre todo, que el dibujo **no
+   * se coma el clic** —el gesto es del video entero— es una propiedad del
+   * puntero, no del HTML.
+   */
+  test('en pausa se ve el botón grande y el clic sigue siendo del video', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const grande = page.locator('.player__play-icon')
+    await expect(grande).toBeVisible()
+    // Debajo del dibujo está el video: el clic llega al elemento, que es quien
+    // reproduce. Si el overlay recibiera el puntero, el clic en la imagen
+    // fallaría por «elemento tapado» en vez de por el gesto.
+    const overlay = grande.locator('..')
+    expect(await overlay.evaluate((elemento) => getComputedStyle(elemento).pointerEvents)).toBe(
+      'none',
+    )
+
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await expect(grande).toHaveCount(0, { timeout: 10_000 })
+  })
+
+  /**
+   * La barra, con el búfer debajo y el tiempo encima del puntero.
+   *
+   * El búfer es la capa que distingue una pausa de red del final del episodio, y
+   * el globo es lo que hace que se pueda apuntar a un segundo concreto: sin él se
+   * arrastra a ciegas.
+   */
+  test('la barra enseña el búfer y el tiempo bajo el puntero', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    const video = page.locator('video')
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    // Se reproduce un momento: con `preload="metadata"` el elemento no trae datos
+    // de más hasta que alguien le da a reproducir, y un búfer de cero no dice
+    // nada de la capa que lo pinta.
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+
+    const anchura = async (selector: string): Promise<number> =>
+      await page.locator(selector).evaluate((elemento) => elemento.getBoundingClientRect().width)
+
+    await expect
+      .poll(async () => await anchura('.player__buffer'), { timeout: 10_000 })
+      .toBeGreaterThan(0)
+
+    // Y no cualquier anchura: la proporción que se pinta es la que el elemento
+    // tiene en búfer. Una capa que midiera siempre lo mismo pasaría la
+    // comprobación anterior y no mediría nada.
+    const delElemento = await video.evaluate((elemento: HTMLVideoElement) => {
+      const tramos = elemento.buffered
+
+      return tramos.length === 0 || elemento.duration <= 0
+        ? 0
+        : tramos.end(tramos.length - 1) / elemento.duration
+    })
+    const pintada = (await anchura('.player__buffer')) / (await anchura('.player__track'))
+
+    expect(Math.abs(pintada - delElemento)).toBeLessThan(0.05)
+
+    await page.locator('.player__seek').hover({ position: { x: 60, y: 12 } })
+
+    const globo = page.locator('.player__tooltip')
+    await expect(globo).toBeVisible()
+    await expect(globo).toHaveText(/^\d+:\d{2}$/)
+
+    await page.mouse.move(0, 0)
+    await expect(globo).toHaveCount(0)
+  })
+
+  /**
    * La espera, encima del video.
    *
    * El estado de «cargando» se cubre en la prueba del componente, que lo pilla en

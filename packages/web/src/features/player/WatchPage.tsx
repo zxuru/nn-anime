@@ -41,6 +41,7 @@ import {
   watchTitleParts,
 } from '../../lib/document-title'
 import { buildPath, Link, usePath } from '../../router'
+import { coverPath } from '../search/ResultCard'
 import { AudioModeSwitch } from './AudioModeSwitch'
 import { Player } from './Player'
 import { type SubtitleCandidate, toSafeTracks, tracksFromSource } from './subtitle-tracks'
@@ -141,6 +142,11 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   // del episodio, así que sin esta petición la pantalla no sabe cómo se llama lo
   // que está reproduciendo y la pestaña sólo puede decir «Ep. 3».
   const [tituloAnime, setTituloAnime] = useState<string | undefined>(undefined)
+  // La portada del título, si el proveedor dio una. No se pasa la dirección del
+  // proveedor —que puede ser de fuera y la CSP no la admitiría—: se pide al
+  // proxy, que es el único que habla con el upstream. Sin portada no se inventa
+  // ninguna: el `<video>` se queda con su fondo, que es lo que había antes.
+  const [portada, setPortada] = useState<string | undefined>(undefined)
 
   // Los episodios del título, para las flechas de al lado. La petición se
   // cancela al desmontar y su fallo no se pinta: una flecha que no aparece es
@@ -176,7 +182,12 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       animeResponseSchema,
     ).then(
       (detalle) => {
-        if (vivo) setTituloAnime(detalle.title)
+        if (!vivo) return
+
+        setTituloAnime(detalle.title)
+        setPortada(
+          detalle.coverUrl === undefined ? undefined : coverPath(props.providerId, animeRef.value),
+        )
       },
       () => undefined,
     )
@@ -472,6 +483,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
             // etiqueta que lee un lector de pantalla y `aurora-nocturna#3` no es
             // cómo se llama nada. Sin nombre, `Player` pone la suya.
             title={nombreCompleto === '' ? undefined : nombreCompleto}
+            poster={portada}
             tracks={pistas}
             startAtS={posicion}
             onPlay={visionado.onPlay}

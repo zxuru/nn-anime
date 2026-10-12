@@ -9,6 +9,7 @@ import {
   needsHls,
   SEEK_STEP_S,
   seekBy,
+  spokenTime,
   volumeBy,
   volumeFromPercent,
   volumePercent,
@@ -131,6 +132,31 @@ describe('tiempos legibles', () => {
   test('un tiempo imposible no rompe la interfaz', () => {
     expect(formatTime(Number.NaN)).toBe('0:00')
     expect(formatTime(-5)).toBe('0:00')
+  })
+})
+
+describe('el tiempo dicho en palabras', () => {
+  /**
+   * Es el `aria-valuetext` de la barra de progreso.
+   *
+   * `0:31 / 24:55` es lo que se lee en la pantalla; quien no la ve necesita oír
+   * «31 segundos de 24 minutos 55 segundos». Se mide la frase y no el número
+   * porque el número ya lo dice el reloj de al lado.
+   */
+  test('minutos y segundos, sin unidades vacías', () => {
+    expect(spokenTime(31)).toBe('31 segundos')
+    expect(spokenTime(60)).toBe('1 minuto 0 segundos')
+    expect(spokenTime(125)).toBe('2 minutos 5 segundos')
+    expect(spokenTime(164)).toBe('2 minutos 44 segundos')
+  })
+
+  test('con horas, también', () => {
+    expect(spokenTime(3661)).toBe('1 hora 1 minuto 1 segundo')
+  })
+
+  test('un tiempo imposible se dice como cero', () => {
+    expect(spokenTime(Number.NaN)).toBe('0 segundos')
+    expect(spokenTime(-5)).toBe('0 segundos')
   })
 })
 

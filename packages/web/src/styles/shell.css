@@ -980,10 +980,133 @@
    prueba de accesibilidad mira el **último** bloque de movimiento reducido de la
    hoja, y uno suelto aquí la dejaba mirando el sitio equivocado. */
 
-.player__seek {
+/* El botón grande de reproducir, encima del video.
+ *
+ * Es una capa sin eventos —`pointer-events: none`— y sin nombre accesible: el
+ * gesto es del video entero y el mando que se anuncia es el de la barra. Un
+ * cuadrado al que hubiera que apuntarle sería peor que el clic en cualquier
+ * parte, que es lo que ya hace el elemento. */
+.player__overlay {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  justify-content: center;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Con el borde grueso y la sombra dura del resto de la interfaz, y el acento en
+   el triángulo: es lo único que se mueve en una pantalla en pausa. */
+.player__play-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--play-size);
+  height: var(--play-size);
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-hard-accent);
+}
+
+.player__play-glyph {
+  width: var(--space-6);
+  height: var(--space-6);
+  fill: var(--color-accent);
+}
+
+/* Los dibujos de los mandos, con el color del mando que los contiene. */
+.player__icon {
+  display: block;
+  width: var(--space-5);
+  height: var(--space-5);
+  fill: currentcolor;
+}
+
+/* La banda de mandos, sobre el borde inferior del video.
+ *
+ * El degradado la separa de la imagen sin taparla: un cartel opaco encima del
+ * video es peor que no tener mandos. Va por encima de la espera y del botón
+ * grande —`z-index` mayor— para que un aviso de búfer no deje los mandos
+ * debajo. */
+.player__controls {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-3) var(--space-3);
+  background: var(--player-gradient);
+}
+
+.player__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* La barra del tiempo: el carril por capas y el `input` encima.
+ *
+ * No lleva el reloj al lado —vive en la fila de botones, con el resto de los
+ * mandos— y por eso no es `flex`: el carril ocupa el ancho entero. */
+.player__seek {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+/* El carril. Fino en reposo y más grueso cuando el puntero está encima: el
+   grosor es lo que dice que se puede arrastrar, y engordarlo siempre dejaría una
+   barra de diez píxeles tapando el video. */
+.player__track {
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: var(--seek-height);
+  overflow: hidden;
+  background: var(--seek-track);
+  transform: translateY(-50%);
+  transition: height var(--transition-fast);
+}
+
+.player__seek:hover .player__track,
+.player__seek:focus-within .player__track {
+  height: var(--seek-height-active);
+}
+
+/* Lo que hay en búfer, debajo de lo reproducido: es la segunda capa que dice si
+   una pausa es de red o es el final del episodio. */
+.player__buffer {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  background: var(--seek-buffer);
+}
+
+.player__played {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  background: var(--color-accent);
+}
+
+/* El globo del tiempo, encima del carril. */
+.player__tooltip {
+  position: absolute;
+  bottom: var(--space-5);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .player__range {
@@ -1043,11 +1166,56 @@
   border: var(--border-width-strong) solid var(--color-border);
 }
 
-.player__controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
+/* El `input` del tiempo, encima de las dos capas y con el carril transparente:
+   quien pinta el carril son los `span` de debajo, porque el navegador no deja
+   pedirle al carril dos tramos de color a la vez. Va **después** del carril
+   compartido con el volumen: con menos especificidad delante, el carril del
+   volumen se quedaría sin fondo. */
+.player__seek .player__range {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: var(--seek-hit);
+  margin: 0;
+}
+
+.player__seek .player__range::-webkit-slider-runnable-track {
+  height: var(--seek-hit);
+  background: transparent;
+}
+
+.player__seek .player__range::-moz-range-track {
+  height: var(--seek-hit);
+  background: transparent;
+}
+
+.player__seek .player__range::-webkit-slider-thumb {
+  margin-top: calc((var(--seek-hit) - var(--space-4)) / 2);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.player__seek .player__range::-moz-range-thumb {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+/* El pulgar aparece con el puntero encima o con el foco del teclado: el resto
+   del tiempo estorba sobre la imagen. */
+.player__seek:hover .player__range::-webkit-slider-thumb,
+.player__seek:focus-within .player__range::-webkit-slider-thumb,
+.player__seek:hover .player__range::-moz-range-thumb,
+.player__seek:focus-within .player__range::-moz-range-thumb {
+  opacity: 1;
+}
+
+/* En una pantalla táctil no hay «encima»: el pulgar se queda a la vista, que es
+   lo único que dice dónde está el mando. */
+@media (pointer: coarse) {
+  .player__seek .player__range::-webkit-slider-thumb,
+  .player__seek .player__range::-moz-range-thumb {
+    opacity: 1;
+  }
 }
 
 /*

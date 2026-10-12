@@ -157,6 +157,28 @@
   --watch-episode-height: 2.75rem;
   /** El lado mínimo de un mando: 44 px, el objetivo táctil que pide el spec. */
   --control-size: 2.75rem;
+  /**
+   * El reproductor.
+   *
+   * La barra de progreso tiene tres alturas distintas a propósito: el carril
+   * fino de siempre, el carril que engorda cuando el puntero está encima —que es
+   * cuando se va a arrastrar— y el alto del `input` que recibe el gesto, que es
+   * mayor que los dos para que se pueda tocar con el dedo.
+   */
+  --seek-height: 6px;
+  --seek-height-active: 10px;
+  --seek-hit: 1.5rem;
+  --play-size: 5rem;
+  /**
+   * El degradado de la barra de mandos.
+   *
+   * Va sobre el video, así que tiene que oscurecerlo sin taparlo: un cartel
+   * opaco encima de la imagen es peor que no tener mandos. Va en los tokens
+   * porque es un color, y la hoja de estructura no admite colores literales.
+   */
+  --player-gradient: linear-gradient(to top, rgb(0 0 0 / 85%), rgb(0 0 0 / 0%));
+  --seek-track: rgb(242 233 216 / 25%);
+  --seek-buffer: rgb(242 233 216 / 45%);
   --letter-tight: -0.01em;
   --content-max: 1200px;
   --header-height: 3.5rem;
