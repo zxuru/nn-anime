@@ -13,6 +13,17 @@
 
 import { z } from 'zod'
 import {
+  githubRepoFromUrl,
+  MAX_ENABLED_REPO_FILES,
+  MAX_REPO_CANDIDATES,
+  MAX_REPO_NAME_LENGTH,
+  MAX_REPO_OWNER_LENGTH,
+  MAX_REPO_PATH_LENGTH,
+  MAX_REPO_REF_LENGTH,
+  MAX_REPO_SUBDIR_LENGTH,
+  MAX_REPO_URL_LENGTH,
+} from './repos'
+import {
   animeDetailSchema,
   animeSummarySchema,
   episodeSchema,
@@ -159,6 +170,90 @@ export const providerDraftSchema = z.strictObject({
 export const providerRegisterResponseSchema = z.strictObject({
   provider: providerSummarySchema,
 })
+
+/**
+ * La dirección de un repositorio de GitHub, tal como la escribe el usuario.
+ *
+ * Se admite lo que se copia del navegador y lo que se teclea a mano —con host o
+ * sin él, con barra final, con `.git`— y el análisis vive en `repos.ts` porque lo
+ * comparten el formulario y la ruta: si cada uno tuviera el suyo, la interfaz
+ * aceptaría direcciones que el servidor rechaza, que es la peor forma de
+ * rechazar algo.
+ */
+export const providerRepoUrlSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine((value) => githubRepoFromUrl(value) !== undefined, {
+    message: 'no es una dirección de repositorio de GitHub',
+  })
+
+/**
+ * Un proveedor que un repositorio ofrece.
+ *
+ * `id` y `name` son **pistas**: salen de leer el texto sin ejecutarlo, y el
+ * nombre de verdad lo dice el plugin cuando se carga. Van como opcionales porque
+ * un archivo puede declararlos de una forma que el escaneo no sabe leer, y eso no
+ * es un error: es un archivo que se puede marcar igual.
+ */
+export const providerRepoCandidateSchema = z.strictObject({
+  /** Ruta dentro del repositorio, con `/` como separador. */
+  path: z.string().min(1).max(MAX_REPO_PATH_LENGTH),
+  id: z.string().min(1).max(64).optional(),
+  name: z.string().min(1).max(120).optional(),
+})
+
+/** Un repositorio instalado. Es lo que se guarda en los ajustes. */
+export const providerRepoRecordSchema = z.strictObject({
+  /** La dirección normalizada: la misma entrada da siempre esta cadena. */
+  url: z.string().min(1).max(MAX_REPO_URL_LENGTH),
+  owner: z.string().min(1).max(MAX_REPO_OWNER_LENGTH),
+  repo: z.string().min(1).max(MAX_REPO_NAME_LENGTH),
+  ref: z.string().min(1).max(MAX_REPO_REF_LENGTH),
+  subdir: z.string().min(1).max(MAX_REPO_SUBDIR_LENGTH).optional(),
+  /** Cuándo se descargó, en ISO-8601. */
+  fetchedAt: z.iso.datetime(),
+  /**
+   * Las rutas habilitadas, tal como las nombra el catálogo de candidatos.
+   *
+   * Se guarda la lista entera y no una marca por archivo: la lista es la fuente
+   * de verdad de qué se carga, y una lista vacía es un repositorio instalado sin
+   * nada activo, que es un estado legítimo.
+   */
+  enabled: z.array(z.string().min(1).max(MAX_REPO_PATH_LENGTH)).max(MAX_ENABLED_REPO_FILES),
+  /** Cuántos archivos se descargaron. Se enseña; no decide nada. */
+  files: z.number().int().nonnegative(),
+})
+
+/**
+ * Un repositorio tal como lo ve la interfaz: lo guardado más lo que hay ahora.
+ *
+ * `candidates` se recalcula leyendo el disco en cada petición —el escaneo no
+ * ejecuta nada— y `present` dice si el contenido sigue ahí: un repo borrado a
+ * mano tiene que poder contarse en vez de desaparecer de la pantalla.
+ */
+export const providerRepoViewSchema = providerRepoRecordSchema.extend({
+  candidates: z.array(providerRepoCandidateSchema).max(MAX_REPO_CANDIDATES),
+  present: z.boolean(),
+})
+
+export const providerReposResponseSchema = z.strictObject({
+  repos: z.array(providerRepoViewSchema),
+})
+
+export const providerRepoResponseSchema = z.strictObject({ repo: providerRepoViewSchema })
+
+/** Instalar o actualizar: la dirección, y nada más. */
+export const providerRepoRequestSchema = z.strictObject({ url: providerRepoUrlSchema })
+
+/** Elegir qué se activa: la dirección y las rutas marcadas. */
+export const providerRepoSelectionSchema = z.strictObject({
+  url: providerRepoUrlSchema,
+  enabled: z.array(z.string().min(1).max(MAX_REPO_PATH_LENGTH)).max(MAX_ENABLED_REPO_FILES),
+})
+
+/** Desinstalar: la dirección, como consulta de la ruta. */
+export const providerRepoQuerySchema = z.strictObject({ url: providerRepoUrlSchema })
 
 export const favoritesResponseSchema = z.strictObject({
   favorites: z.array(animeSummarySchema),
@@ -497,5 +592,10 @@ export type ProvidersResponse = z.infer<typeof providersResponseSchema>
 export type ProviderDraft = z.infer<typeof providerDraftSchema>
 export type ProviderFieldMap = z.infer<typeof providerFieldMapSchema>
 export type ProviderRegisterResponse = z.infer<typeof providerRegisterResponseSchema>
+export type ProviderRepoCandidate = z.infer<typeof providerRepoCandidateSchema>
+export type ProviderRepoRecord = z.infer<typeof providerRepoRecordSchema>
+export type ProviderRepoSelection = z.infer<typeof providerRepoSelectionSchema>
+export type ProviderRepoView = z.infer<typeof providerRepoViewSchema>
+export type ProviderReposResponse = z.infer<typeof providerReposResponseSchema>
 export type SearchQuery = z.infer<typeof searchQuerySchema>
 export type SearchEventPayload = z.infer<typeof searchEventSchema>
