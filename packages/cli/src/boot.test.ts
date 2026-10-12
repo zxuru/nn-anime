@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, rm, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { AppError, loadConfig, type ProviderError } from '@nn-anime/core'
+import { dirname, join } from 'node:path'
+import { openDb, runMigrations } from '@nn-anime/catalog-store'
+import { AppError, type ConfigPaths, loadConfig, type ProviderError } from '@nn-anime/core'
 import { type Provider, providerFailure } from '@nn-anime/provider-sdk'
-import type { RunningServer } from '@nn-anime/server'
+import { createContainer, type RunningServer, saveRepoRecords } from '@nn-anime/server'
 import { type CliOptions, parseArgs } from './args'
 import {
   boot,
@@ -13,6 +14,8 @@ import {
   type Listen,
   listenOnFreePort,
   type Migrate,
+  type MigrationOutcome,
+  type OpenContainer,
   type ReadSettings,
 } from './boot'
 import { createLifecycle } from './lifecycle'
@@ -773,6 +776,153 @@ describe('proveedores activos', () => {
 
       expect(result.code).toBe(0)
       expect(target.err.join('\n')).toContain('no se puede leer /plugins')
+    })
+  })
+})
+
+describe('los proveedores habilitados de los repositorios', () => {
+  const FETCHED = '2026-10-13T10:00:00.000Z'
+  const STAMP = '2026-10-13T10-00-00-000Z'
+  const FUENTE = `const provider = {
+  id: 'jkanime',
+  name: 'JKanime',
+  apiVersion: '1',
+  capabilities: { search: true, sub: false, dub: false, trending: false },
+  async search() { return [] },
+  async getAnime() { return { ref: { providerId: 'jkanime', value: 'a' }, title: 'A', genres: [], studios: [] } },
+  async getEpisodes() { return [] },
+  async resolveStream() { return [] },
+}
+
+export default provider
+`
+
+  /**
+   * Una migración que además deja la ficha guardada.
+   *
+   * Es la forma de medir el orden de verdad: la tabla y la ficha las crea
+   * `migrate`, así que si el arranque leyera la selección **antes** de migrar se
+   * encontraría con una base sin tablas y la consulta fallaría. Con una base
+   * preparada de antemano, invertir el orden no se notaría y la prueba no
+   * mediría nada.
+   */
+  async function migrateConFicha(
+    config: ConfigPaths,
+    enabled: readonly string[],
+  ): Promise<MigrationOutcome> {
+    const db = openDb(config.dbPath)
+    runMigrations(db)
+    const container = createContainer({ db })
+
+    try {
+      await saveRepoRecords(container.store, [
+        {
+          url: 'https://github.com/zxuru/nn-anime-plugins',
+          owner: 'zxuru',
+          repo: 'nn-anime-plugins',
+          ref: 'main',
+          fetchedAt: FETCHED,
+          enabled: [...enabled],
+          files: 1,
+        },
+      ])
+
+      return { ok: true }
+    } finally {
+      await container.close().catch(() => {})
+    }
+  }
+
+  const ABRIR: OpenContainer = (config) => createContainer({ db: openDb(config.dbPath) })
+
+  test('los archivos habilitados se le pasan al cargador, y salen en la lista', async () => {
+    await withTempHome(async (home) => {
+      const dir = await mkdtemp(join(tmpdir(), 'nn-anime-boot-repos-'))
+      const file = join(dir, 'repos', 'zxuru__nn-anime-plugins', STAMP, 'jkanime.ts')
+      const target = harness({})
+      const lifecycle = createLifecycle()
+      let recibidos: readonly string[] = []
+
+      try {
+        await mkdir(dirname(file), { recursive: true })
+        await writeFile(file, FUENTE)
+
+        const result = await boot(
+          options(['--data-dir', dir, '--config-dir', dir]),
+          depsFor(target, home, {
+            lifecycle,
+            migrate: (config) => migrateConFicha(config, ['jkanime.ts']),
+            openContainer: ABRIR,
+            loadProviders: async (_directory, files) => {
+              recibidos = files
+
+              return {
+                active: [{ provider: { ...PROVIDER, id: 'jkanime' }, file }],
+                rejected: [],
+              }
+            },
+          }),
+        )
+
+        expect(result.code).toBe(0)
+        expect(recibidos).toEqual([file])
+        // El informe que se le pasa al servidor y el que se imprime son el mismo.
+        expect(target.out.join('\n')).toContain('jkanime')
+      } finally {
+        await lifecycle.shutdown()
+        await rm(dir, { recursive: true, force: true })
+      }
+    })
+  })
+
+  test('un archivo habilitado que ya no está no impide arrancar', async () => {
+    await withTempHome(async (home) => {
+      const dir = await mkdtemp(join(tmpdir(), 'nn-anime-boot-repos-'))
+      const target = harness({})
+      const lifecycle = createLifecycle()
+      let recibidos: readonly string[] | undefined
+
+      try {
+        const result = await boot(
+          options(['--data-dir', dir, '--config-dir', dir]),
+          depsFor(target, home, {
+            lifecycle,
+            migrate: (config) => migrateConFicha(config, ['desaparecido.ts']),
+            openContainer: ABRIR,
+            loadProviders: async (_directory, files) => {
+              recibidos = files
+
+              return { active: [], rejected: [] }
+            },
+          }),
+        )
+
+        expect(result.code).toBe(0)
+        expect(recibidos).toEqual([])
+      } finally {
+        await lifecycle.shutdown()
+        await rm(dir, { recursive: true, force: true })
+      }
+    })
+  })
+
+  test('sin contenedor el cargador recibe la lista vacía, no `undefined`', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      let recibidos: readonly string[] | undefined
+
+      await boot(
+        options(),
+        depsFor(target, home, {
+          loadProviders: async (_directory, files) => {
+            recibidos = files
+
+            return { active: [], rejected: [] }
+          },
+        }),
+      )
+
+      expect(recibidos).toEqual([])
     })
   })
 })

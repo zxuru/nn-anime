@@ -23,6 +23,7 @@ import {
 import type { LoadReport } from '@nn-anime/provider-sdk'
 import {
   BOOT_PARAM,
+  enabledProviderFiles,
   type PluginReport,
   type RunningServer,
   type ServerContainer,
@@ -55,14 +56,18 @@ export type Migrate = (config: ConfigPaths) => Promise<MigrationOutcome>
 export type ReadSettings = (path: string) => Promise<Result<Settings | undefined, AppError>>
 
 /**
- * Carga los plugins del directorio del usuario.
+ * Carga los plugins del directorio del usuario y los archivos habilitados de los
+ * repositorios.
  *
  * Se inyecta por el mismo motivo que el resto: sin esto habría que escribir
  * plugins de verdad en el disco del usuario para probar el arranque, y el
  * informe de rechazos —que es lo que el usuario necesita leer— no se podría
  * provocar desde una prueba.
+ *
+ * Los archivos van aparte del directorio porque son otra cosa: los elige el
+ * usuario uno a uno desde Ajustes y viven en la carpeta de datos.
  */
-export type LoadPlugins = (directory: string) => Promise<LoadReport>
+export type LoadPlugins = (directory: string, files: readonly string[]) => Promise<LoadReport>
 
 /**
  * Abre el store del server.
@@ -302,11 +307,12 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
 
   const options = applySettings(rawOptions, settings.value)
 
-  // Paso 4 del arranque del spec: cargar los plugins. Un plugin roto se
-  // reporta y se omite, pero no impide arrancar: el usuario puede seguir usando
-  // la interfaz con los que sí funcionan.
-  const plugins = await deps.loadProviders(config.providersDir)
-
+  // El orden de aquí abajo es una decisión y no una casualidad: **migrar, abrir
+  // la base, leer qué repositorios están habilitados y sólo entonces cargar los
+  // plugins**. La selección vive en la tabla de ajustes, así que leerla antes de
+  // migrar sería consultar una tabla que puede no existir todavía; y cargar los
+  // plugins antes de leerla dejaría fuera, en silencio, a todos los proveedores
+  // de repositorios.
   const migration = await deps.migrate(config)
   if (!migration.ok) {
     io.err(t(locale, 'cli.migration.failed', { message: migration.message }))
@@ -324,6 +330,16 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     // las escrituras que el server tuviera a medias.
     deps.lifecycle.onShutdown(() => container.close())
   }
+
+  // Sin contenedor no hay ajustes que leer, y eso es lo que usan las pruebas que
+  // montan el arranque sin base: se cargan los del directorio, como siempre.
+  const enabled =
+    container === undefined ? [] : await enabledProviderFiles(container.store, config.dataDir)
+
+  // Paso 4 del arranque del spec: cargar los plugins. Un plugin roto se
+  // reporta y se omite, pero no impide arrancar: el usuario puede seguir usando
+  // la interfaz con los que sí funcionan.
+  const plugins = await deps.loadProviders(config.providersDir, enabled)
 
   const session = deps.createSession()
   const bootToken = deps.createBootToken()

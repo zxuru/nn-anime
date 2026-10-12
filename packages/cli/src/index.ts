@@ -140,7 +140,7 @@ const code = await run(Bun.argv.slice(2), {
     listen: listenOnFreePort,
     migrate,
     readSettings,
-    loadProviders: (directory) => loadProviders({ directory }),
+    loadProviders: (directory, files) => loadProviders({ directory, files }),
     /**
      * El store del server: una conexión que vive lo que vive el proceso.
      *
