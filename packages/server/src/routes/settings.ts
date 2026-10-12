@@ -90,6 +90,13 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
       reason: entrada.reason.message,
     }))
 
+    // Esta respuesta lleva las rutas del disco del usuario: no se cachea. En
+    // loopback no hay caché compartida, pero el navegador guarda en disco una
+    // copia de lo que no se le prohíbe. Va aquí y no en `securityHeaders` porque
+    // `/api/cover/:providerId/:ref` **quiere** caché larga, y una cabecera puesta
+    // después de `next()` la pisaría.
+    c.header('cache-control', 'no-store')
+
     return c.json(
       settingsResponseSchema.parse({
         theme,

@@ -80,6 +80,17 @@ describe('GET /api/settings', () => {
     })
   })
 
+  test('no se cachea: la respuesta lleva las rutas del disco', async () => {
+    // `paths` viene del arranque, que es quien las calculó. En loopback no hay
+    // caché compartida, pero el navegador guarda en disco lo que no se le
+    // prohíbe.
+    await conApp(async ({ pedir }) => {
+      const respuesta = await pedir('/api/settings')
+
+      expect(respuesta.headers.get('cache-control')).toBe('no-store')
+    })
+  })
+
   test('el proveedor rechazado sale con su motivo', async () => {
     await conApp(async ({ pedir }) => {
       const salida = settingsResponseSchema.parse(await (await pedir('/api/settings')).json())
