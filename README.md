@@ -34,13 +34,25 @@ mismo. Se enseña lo que sí se sabe en vez de inventar fechas.
 
 ```bash
 bun install
-bun run dev          # interfaz en desarrollo, con recarga
+bun run build        # construye la interfaz, que es lo que sirve `bun run start`
 bun run start        # servidor real en 127.0.0.1, abre el navegador
 ```
+
+`bun run start` sirve `packages/web/dist` desde el disco, así que **sin `bun run build` la interfaz no
+está**: el servidor arranca y contesta 404 en `/`. Para desarrollar la interfaz con recarga en caliente
+está `bun run dev`, que sirve el código fuente y no necesita el `build`.
 
 `bun run start` levanta el servidor en `127.0.0.1`, imprime una dirección con un **token de arranque**
 de un solo uso y la abre en el navegador. Sin ese token no se entra: es lo que impide que cualquier
 página del navegador hable con tu aplicación local.
+
+Si vas a contribuir, `bun run hooks:instalar` una vez por clon: instala el gancho que frena el commit
+directo en `main`, y hay una prueba que comprueba que está puesto.
+
+**En Windows** funciona igual, con dos particularidades. Bun no define `HOME` ahí, así que los datos
+van a `%LOCALAPPDATA%` y la configuración a `%APPDATA%` en lugar de a las rutas de XDG. Y dos pruebas
+que crean enlaces simbólicos necesitan el **modo desarrollador** activado: sin él Windows las rechaza
+con `EPERM` y las pruebas lo declaran en lugar de fingir que midieron.
 
 No hay ningún proveedor instalado de fábrica. Hasta que copies uno —ver
 [la guía de plugins](docs/providers.md)— la aplicación arranca, se ve y no encuentra nada.
@@ -70,15 +82,17 @@ que v1 no necesita. Requiere Bun en la máquina, y por eso está declarado en `e
 
 ## Dónde vive cada cosa
 
-| Qué | Dónde |
-|---|---|
-| Datos y base de datos | `~/.local/share/nn-anime/` |
-| Configuración | `~/.config/nn-anime/` |
-| Tus plugins | `~/.config/nn-anime/providers/` |
-| Caché | `~/.cache/nn-anime/` |
+| Qué | Linux y macOS | Windows |
+|---|---|---|
+| Datos y base de datos | `~/.local/share/nn-anime/` | `%LOCALAPPDATA%\nn-anime\` |
+| Configuración | `~/.config/nn-anime/` | `%APPDATA%\nn-anime\` |
+| Tus plugins | `~/.config/nn-anime/providers/` | `%APPDATA%\nn-anime\providers\` |
+| Caché | `~/.cache/nn-anime/` | `%LOCALAPPDATA%\nn-anime\cache\` |
 
-Las rutas exactas en uso se ven en **Ajustes**, dentro de la aplicación. Se respetan `XDG_DATA_HOME`,
-`XDG_CONFIG_HOME` y `XDG_CACHE_HOME`.
+Las rutas exactas en uso se ven en **Ajustes**, dentro de la aplicación. En Linux y macOS se respetan
+`XDG_DATA_HOME`, `XDG_CONFIG_HOME` y `XDG_CACHE_HOME`; en Windows mandan `%LOCALAPPDATA%` y
+`%APPDATA%` —colgando de `USERPROFILE` si faltan—, y las `XDG_*` se siguen respetando para quien las
+tenga puestas.
 
 Las variables de entorno que lee la aplicación están inventariadas en `.env.example`, sin ningún valor
 real. Ninguna es obligatoria y ninguna lleva un secreto: los directorios se pueden cambiar por ahí, y

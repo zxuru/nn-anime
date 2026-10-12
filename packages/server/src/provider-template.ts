@@ -9,8 +9,9 @@
  *
  * Dos reglas que no son negociables y se ven en el texto generado:
  *
- * 1. **Sin imports en tiempo de ejecución.** Un plugin vive en
- *    `~/.config/nn-anime/providers/`, fuera del proyecto, así que
+ * 1. **Sin imports en tiempo de ejecución.** Un plugin vive en el directorio de
+ *    plugins del usuario —`~/.config/nn-anime/providers/` en Linux y macOS,
+ *    `%APPDATA%\nn-anime\providers\` en Windows—, fuera del proyecto, así que
  *    `@nn-anime/provider-sdk` no se puede resolver desde ahí. Lo que se importa
  *    es sólo `import type`, que se borra al compilar: por eso el archivo
  *    funciona igual con Bun, con Node o copiado a otra máquina.
