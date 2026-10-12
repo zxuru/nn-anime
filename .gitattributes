@@ -1,0 +1,15 @@
+# Finales de línea: LF en el índice y en el árbol, en cualquier plataforma.
+#
+# Git para Windows trae `core.autocrlf=true` de fábrica, así que un clon en
+# Windows deja los 451 archivos de texto en CRLF. Eso rompe dos cosas a la vez:
+# Biome exige LF y devuelve 349 errores de formato —con `bun run lint` en rojo,
+# que es parte del Definition of Done— y las pruebas que leen un archivo del
+# repositorio y lo comparan con texto generado en memoria fallan por el `\r` de
+# más. `eol=lf` manda sobre `core.autocrlf`, así que el clon queda bien sin que
+# nadie tenga que tocar su configuración de Git.
+* text=auto eol=lf
+
+# El fixture de subtítulos es CRLF **a propósito**, con BOM: mide que la
+# conversión normaliza CRLF y que se come el BOM. Renormalizarlo a LF borraría
+# justo lo que la prueba mira.
+packages/media-proxy/fixtures/sample.srt -text
