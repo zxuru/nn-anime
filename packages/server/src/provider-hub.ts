@@ -42,7 +42,17 @@ export interface ProviderHubOptions {
   /** Lo que el arranque ya cargó. */
   readonly initial?: PluginReport | undefined
   /** Inyectable: las pruebas comprueban la recarga sin escribir plugins. */
-  readonly load?: ((directory: string) => Promise<LoadReport>) | undefined
+  readonly load?: ((directory: string, files: readonly string[]) => Promise<LoadReport>) | undefined
+  /**
+   * Los archivos de fuera del directorio que hay que cargar: los proveedores
+   * habilitados de los repositorios descargados.
+   *
+   * Es una función y no una lista porque **se recalcula en cada recarga**, y ahí
+   * está todo el asunto: habilitar una casilla en Ajustes tiene que verse sin
+   * reiniciar, y quien sabe qué está habilitado es el store. El hub no consulta
+   * los ajustes: pregunta.
+   */
+  readonly extraFiles?: (() => Promise<readonly string[]>) | undefined
 }
 
 const EMPTY: LoadReport = { active: [], rejected: [] }
@@ -59,7 +69,9 @@ export function createProviderHub(options: ProviderHubOptions = {}): ProviderHub
   const rejected: RejectedEntry[] = []
   const report: PluginReport = { active, rejected }
   const directory = options.directory
-  const load = options.load ?? ((target: string) => loadProviders({ directory: target }))
+  const load =
+    options.load ??
+    ((target: string, files: readonly string[]) => loadProviders({ directory: target, files }))
 
   /** Copia en el sitio. Es lo único que puede tocar los tres arrays. */
   function apply(loaded: PluginReport): void {
@@ -86,7 +98,10 @@ export function createProviderHub(options: ProviderHubOptions = {}): ProviderHub
       // lo que hay cargado: se devuelve el informe actual tal cual.
       if (directory === undefined) return { active: [...active], rejected: [...rejected] }
 
-      const loaded = await load(directory)
+      // Se pregunta por los habilitados **antes** de cargar: si el store falla,
+      // el informe que ya había se queda como está en vez de vaciarse.
+      const files = options.extraFiles === undefined ? [] : await options.extraFiles()
+      const loaded = await load(directory, files)
       apply(loaded)
 
       return loaded

@@ -139,22 +139,26 @@ de hosts 1, sin el tope de archivos 1, sin la comprobación de árbol truncado 1
 el sitio donde vive lo instalado y el `reload` del hub con los archivos habilitados.
 
 **Aceptación:**
-- [ ] `GET /api/provider-repos` devuelve cada repo con sus candidatos, leídos del disco en el momento
+- [x] `GET /api/provider-repos` devuelve cada repo con sus candidatos, leídos del disco en el momento
       de la petición, y `present: false` cuando el contenido se borró a mano.
-- [ ] `POST /api/provider-repos` descarga e instala, y con un repo ya instalado **actualiza** el
+- [x] `POST /api/provider-repos` descarga e instala, y con un repo ya instalado **actualiza** el
       contenido conservando lo que siga existiendo de la selección anterior.
-- [ ] `PATCH /api/provider-repos` sólo acepta rutas que el escáner reconoció como candidatas: una ruta
+- [x] `PATCH /api/provider-repos` sólo acepta rutas que el escáner reconoció como candidatas: una ruta
       inventada es un 400 con el motivo, no un archivo que se importa.
-- [ ] La selección se guarda en la tabla de ajustes (`providerRepos`), sin migración nueva, y el hub
+- [x] La selección se guarda en la tabla de ajustes (`providerRepos`), sin migración nueva, y el hub
       recarga al instante: `/api/providers` y la búsqueda ven el cambio sin reiniciar.
-- [ ] `DELETE /api/provider-repos?url=…` borra el contenido y la ficha, y deja de cargar sus archivos;
+- [x] `DELETE /api/provider-repos?url=…` borra el contenido y la ficha, y deja de cargar sus archivos;
       borrar algo que no está es un 404 explicable.
-- [ ] `enabledProviderFiles(store, dataDir)` es la única definición de «qué archivos de repo están
+- [x] `enabledProviderFiles(store, dataDir)` es la única definición de «qué archivos de repo están
       habilitados»: devuelve las rutas existentes y ordenadas, y la usan la ruta y el arranque.
-- [ ] Las cuatro rutas quedan cubiertas por el test de tabla de rutas protegidas, sin excepción.
+- [x] Las cuatro rutas quedan cubiertas por el test de tabla de rutas protegidas, sin excepción: la
+      tabla se monta con contenedor y una prueba exige las cuatro en ella.
 
-**Verificación:** `bun test packages/server` · medido mutando: sin la comprobación de candidatos en el
-`PATCH` falla 1, sin la intersección al actualizar falla 1, sin recargar el hub falla 1.
+**Verificación:** `bun test packages/server packages/core packages/provider-sdk packages/cli` · 1004
+pasan, 0 fallan. Medido mutando: sin la comprobación de candidatos en el `PATCH` falla 1, sin la
+intersección al actualizar 1, sin recargar el hub 4, con la carpeta de descarga fija 4 —incluida «el
+código nuevo de verdad»: Bun cachea los módulos por URL y sin carpeta nueva se recarga el código
+viejo—.
 
 **Depende de:** T98, T99, T100. **Tamaño:** M.
 

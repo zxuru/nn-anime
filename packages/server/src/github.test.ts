@@ -12,7 +12,8 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { githubRepoFromUrl } from '@nn-anime/core'
-import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
+import type { Resolver } from '@nn-anime/media-proxy'
+import { fakeGithub } from './__fixtures__/github'
 import {
   confine,
   downloadGithubRepo,
@@ -29,79 +30,6 @@ const RESOLVER: Resolver = async () => ['140.82.121.3']
 const LOCATION = githubRepoFromUrl('https://github.com/zxuru/nn-anime-plugins')
 
 if (LOCATION === undefined) throw new Error('la dirección de la prueba no analiza')
-
-interface TreeEntry {
-  readonly path: string
-  readonly type?: string
-  readonly size?: number
-}
-
-interface GithubFixture {
-  readonly branch?: string
-  readonly tree?: readonly TreeEntry[]
-  readonly truncated?: boolean
-  readonly blobs?: Readonly<Record<string, string>>
-  /** Estado exacto por URL, para los casos de error. */
-  readonly status?: Readonly<Record<string, number>>
-  /** Redirección exacta por URL. */
-  readonly redirect?: Readonly<Record<string, string>>
-}
-
-interface Fake {
-  readonly impl: FetchLike
-  /** Las URLs que de verdad se pidieron, en orden. */
-  readonly calls: readonly string[]
-}
-
-function fakeGithub(fixture: GithubFixture = {}): Fake {
-  const calls: string[] = []
-
-  const impl: FetchLike = async (input) => {
-    calls.push(input)
-
-    const status = fixture.status?.[input]
-    if (status !== undefined) return new Response('no', { status })
-
-    const redirect = fixture.redirect?.[input]
-    if (redirect !== undefined) {
-      return new Response(null, { status: 302, headers: { location: redirect } })
-    }
-
-    const url = new URL(input)
-
-    if (url.host === GITHUB_API_HOST && url.pathname.includes('/git/trees/')) {
-      return Response.json({
-        truncated: fixture.truncated ?? false,
-        tree: (fixture.tree ?? []).map((entry) => ({
-          path: entry.path,
-          type: entry.type ?? 'blob',
-          ...(entry.size === undefined ? {} : { size: entry.size }),
-        })),
-      })
-    }
-
-    if (url.host === GITHUB_API_HOST && /^\/repos\/[^/]+\/[^/]+$/.test(url.pathname)) {
-      return Response.json({ default_branch: fixture.branch ?? 'main' })
-    }
-
-    if (url.host === GITHUB_RAW_HOST) {
-      // `/usuario/repo/referencia/ruta…`: los cuatro primeros segmentos son el
-      // sobre, y lo que queda es la ruta dentro del repositorio.
-      const path = url.pathname
-        .split('/')
-        .slice(4)
-        .map((segment) => decodeURIComponent(segment))
-        .join('/')
-      const text = fixture.blobs?.[path]
-
-      return text === undefined ? new Response('no', { status: 404 }) : new Response(text)
-    }
-
-    return new Response('no', { status: 404 })
-  }
-
-  return { impl, calls }
-}
 
 /** Un directorio temporal, que hace de carpeta de datos. */
 async function withTemp<T>(body: (directory: string) => Promise<T>): Promise<T> {

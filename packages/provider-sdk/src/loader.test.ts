@@ -391,4 +391,19 @@ describe('archivos explícitos: los proveedores habilitados de un repositorio', 
       expect(ids(report)).toEqual(['bueno'])
     })
   })
+
+  test('un directorio de plugins que no existe no deja fuera a los del repo', async () => {
+    // Es el caso de quien sólo usa repositorios: nunca copió un plugin a mano y
+    // la carpeta no existe. Devolver la lista vacía por eso los dejaría a todos
+    // fuera en silencio.
+    await withRepo({ 'jkanime.ts': providerSource('jkanime') }, async (repo) => {
+      const report = await loadProviders({
+        directory: join(tmpdir(), 'nn-anime-plugins-que-no-existe'),
+        files: [join(repo, 'jkanime.ts')],
+      })
+
+      expect(ids(report)).toEqual(['jkanime'])
+      expect(report.directoryError).toBeUndefined()
+    })
+  })
 })

@@ -215,21 +215,25 @@ export async function loadProviders(options: LoadOptions): Promise<LoadReport> {
   const directory = resolve(options.directory)
   const imported = options.importModule ?? defaultImport
 
-  let names: readonly string[]
+  let names: readonly string[] = []
   try {
     names = await pluginFileNames(directory)
   } catch (cause) {
-    if (isMissing(cause)) return { active: [], rejected: [] }
-
-    return {
-      active: [],
-      rejected: [],
-      directoryError: providerFailure({
-        providerId: directory,
-        kind: 'invalid-shape',
-        cause,
-        detail: `el directorio de plugins no se puede leer: ${directory}`,
-      }),
+    // Un directorio que no existe no es un error: es el arranque de alguien que
+    // todavía no ha copiado ningún plugin. Se sigue con los archivos explícitos,
+    // que es el caso de quien sólo usa proveedores de repositorios: devolver aquí
+    // una lista vacía los dejaría a todos fuera sin decir nada.
+    if (!isMissing(cause)) {
+      return {
+        active: [],
+        rejected: [],
+        directoryError: providerFailure({
+          providerId: directory,
+          kind: 'invalid-shape',
+          cause,
+          detail: `el directorio de plugins no se puede leer: ${directory}`,
+        }),
+      }
     }
   }
 
