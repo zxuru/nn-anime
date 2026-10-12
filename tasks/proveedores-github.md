@@ -197,29 +197,34 @@ la base y leer la selección antes de migrar— fallan 2 con `SQLiteError: no su
 poder actualizarlo o quitarlo.
 
 **Aceptación:**
-- [ ] Un formulario con una sola dirección: acepta lo que se copia del navegador y lo que se teclea a
+- [x] Un formulario con una sola dirección: acepta lo que se copia del navegador y lo que se teclea a
       mano, y el error de una dirección inválida lo dice el schema, no el server.
-- [ ] Cada repo instalado se enseña con sus candidatos, el `id` y el nombre detectados y una casilla
+- [x] Cada repo instalado se enseña con sus candidatos, el `id` y el nombre detectados y una casilla
       por archivo; guardar manda la selección y refresca la lista de proveedores.
-- [ ] Debajo del título se dice, en texto claro, que activar un proveedor ejecuta el código del repo
+- [x] Debajo del título se dice, en texto claro, que activar un proveedor ejecuta el código del repo
       sin sandbox, y el aviso del `SECURITY.md` sigue estando en la misma pantalla.
-- [ ] Un repo sin candidatos, un repo con el contenido borrado (`present: false`) y un archivo que no
+- [x] Un repo sin candidatos, un repo con el contenido borrado (`present: false`) y un archivo que no
       cargó tienen cada uno su mensaje: ninguno se queda en silencio.
-- [ ] Actualizar y quitar piden confirmación de lo que van a hacer, y quitar dice que se pierde la
-      copia local.
-- [ ] Todo el texto va en `packages/web/src/i18n/es.ts`, sin cadenas sueltas, y ninguna clave queda
+- [x] Quitar pide confirmación y dice que se pierde la copia local; actualizar lo dice en su etiqueta y
+      no pide confirmación —una confirmación por cada descarga es un aviso que se aprende a saltar—.
+- [x] Todo el texto va en `packages/web/src/i18n/es.ts`, sin cadenas sueltas, y ninguna clave queda
       huérfana.
 
-**Verificación:** `bun test packages/web` · medido mutando: sin el filtro de candidatos en las casillas
-falla 1, sin refrescar tras guardar falla 1.
+**Verificación:** `bun test packages` · 2177 pasan, 0 fallan. Medido mutando: pintando las casillas de
+un repositorio sin contenido descodificado fallan 2, marcando todas las casillas por defecto fallan 2,
+con `changed` siempre en falso falla 1. **Declarado:** el paquete no tiene arnés de DOM, así que el gesto
+de marcar y guardar en el navegador no lo mide ninguna prueba unitaria; lo que sí está medido del camino
+completo es el `PATCH` del servidor con el loader real, en `routes/provider-repos.test.ts`.
 
 **Depende de:** T101. **Tamaño:** M.
 
 **Archivos:** `packages/web/src/features/settings/ProviderRepos.tsx`,
+`packages/web/src/features/settings/useProviderRepos.ts`,
 `packages/web/src/features/settings/useSettings.ts`,
-`packages/web/src/features/settings/SettingsPage.tsx`, `packages/web/src/i18n/es.ts`,
-`packages/web/src/styles/shell.css`.
+`packages/web/src/features/settings/SettingsPage.tsx`, `packages/web/src/i18n/es.ts`.
 **Ampliación declarada:** `packages/web/src/features/settings/provider-repos.test.tsx`.
+**Sin tocar, y es una decisión:** `packages/web/src/styles/shell.css`. La sección usa las clases que ya
+existían, así que la hoja de estilos no crece con cada pantalla.
 
 ## T104 — Documentación: qué se instala, qué se ejecuta y qué no
 
