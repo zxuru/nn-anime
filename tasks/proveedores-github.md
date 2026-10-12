@@ -173,17 +173,18 @@ viejo—.
 instalado ayer esté activo al abrir la aplicación y salga en la lista que imprime el CLI.
 
 **Aceptación:**
-- [ ] `loadProviders` del arranque recibe los archivos habilitados, y el orden del arranque es
+- [x] `loadProviders` del arranque recibe los archivos habilitados, y el orden del arranque es
       migrar → abrir el contenedor → leer la selección → cargar plugins: leerla antes de migrar sería
       leer una tabla que puede no existir.
-- [ ] Sin contenedor —una prueba montada sin base— el arranque carga igual que antes, sin archivos
+- [x] Sin contenedor —una prueba montada sin base— el arranque carga igual que antes, sin archivos
       extra.
-- [ ] Un archivo habilitado que desapareció del disco no impide arrancar y no aparece en la lista.
-- [ ] La lista de proveedores que imprime el CLI incluye los de repos, con el mismo informe de
+- [x] Un archivo habilitado que desapareció del disco no impide arrancar y no aparece en la lista.
+- [x] La lista de proveedores que imprime el CLI incluye los de repos, con el mismo informe de
       rechazos.
 
-**Verificación:** `bun test packages/cli` · medido mutando: quitando los archivos de la llamada falla 1,
-invirtiendo el orden de migración y lectura falla 1.
+**Verificación:** `bun test packages/cli packages/server packages/core packages/provider-sdk` · 1007
+pasan, 0 fallan. Medido mutando: pasando la lista vacía al cargador falla 1; invirtiendo el orden —abrir
+la base y leer la selección antes de migrar— fallan 2 con `SQLiteError: no such table`.
 
 **Depende de:** T101. **Tamaño:** S.
 
