@@ -158,6 +158,32 @@ export function formatTime(seconds: number): string {
     : `${minutos}:${dosDigitos(segundos)}`
 }
 
+/**
+ * El tiempo, dicho como se dice.
+ *
+ * Es lo que anuncia el `aria-valuetext` de la barra de progreso: `0:31 / 24:55`
+ * es lo que se lee en la pantalla, no lo que se oye. Se redondea hacia abajo y no
+ * se dicen unidades vacías —«2 minutos 44 segundos», no «0 horas 2 minutos»—,
+ * porque el nombre de un mando se oye entero cada vez que se toca.
+ */
+export function spokenTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0 segundos'
+
+  const total = Math.floor(seconds)
+  const horas = Math.floor(total / 3600)
+  const minutos = Math.floor((total % 3600) / 60)
+  const segundos = total % 60
+  const partes: string[] = []
+
+  if (horas > 0) partes.push(horas === 1 ? '1 hora' : `${horas} horas`)
+  if (minutos > 0) partes.push(minutos === 1 ? '1 minuto' : `${minutos} minutos`)
+  // Los segundos van siempre: sin ellos, «2 minutos» para 2:05 se queda corto y
+  // el reloj que está al lado diría otra cosa.
+  partes.push(segundos === 1 ? '1 segundo' : `${segundos} segundos`)
+
+  return partes.join(' ')
+}
+
 /** Lo que se anuncia por `aria-live`. Una frase corta, sin números raros. */
 export function announcement(state: {
   readonly playing: boolean

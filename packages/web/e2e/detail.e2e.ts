@@ -220,9 +220,11 @@ test.describe('de la búsqueda al detalle', () => {
     await page.getByRole('button', { name: 'Ir', exact: true }).click()
 
     // El salto lleva al episodio, y la pantalla dice de cuántos es el título con la
-    // primera página que pidió: sin ella el rótulo perdía el total.
+    // primera página que pidió: sin ella el rótulo perdía el total. La línea del
+    // episodio vive en el encabezado desde el rediseño de la pantalla; antes iba en
+    // medio de las dos flechas.
     await expect(page).toHaveURL(/\/watch\/fixture\/aurora-nocturna%231180\?/)
-    await expect(page.locator('.watch__nav-pos')).toHaveText('Episodio 1180 de 1180', {
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 1180 de 1180', {
       timeout: 15_000,
     })
   })

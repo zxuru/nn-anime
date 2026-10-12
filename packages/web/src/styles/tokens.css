@@ -42,6 +42,14 @@
   --color-success: #7fe0a8;
   /** El fondo de las etiquetas activas y del cartel de un día con estreno. */
   --color-highlight: #ff4a2e;
+  /**
+   * El texto que va encima del velo y del degradado de los mandos.
+   *
+   * No es `--color-text`: el degradado es negro en los dos temas —lo que hay
+   * debajo es el video, no el fondo de la aplicación— así que en tema claro el
+   * texto oscuro del tema se quedaba en 3:1 sobre él. Es crema en los dos.
+   */
+  --color-on-overlay: #f2e9d8;
 
   /* El velo del diálogo y su ancho. Ninguno de los dos es un color de texto, así
      que no entran en los pares de contraste que se miden. */
@@ -141,6 +149,61 @@
   --hero-poster-width: 22rem;
   --video-ratio: 16 / 9;
   --title-clamp: 2;
+  /**
+   * La pantalla de reproducción.
+   *
+   * Las dos columnas se resuelven con `flex-wrap` y no con una consulta de
+   * medios: la hoja de estructura no admite medidas literales —hay una prueba
+   * que lo impide— y una consulta de medios no puede leer un token con `var()`.
+   * La columna principal pide su mínimo y la lateral el suyo; si no caben las
+   * dos, la lista de episodios cae debajo del reproductor.
+   */
+  --watch-title-size: clamp(1.5rem, 2.5vw, 2rem);
+  --watch-main-min: 38rem;
+  --watch-episodes-width: 20rem;
+  --watch-episodes-max: 22rem;
+  --watch-episode-height: 2.75rem;
+  /**
+   * El alto máximo de la lista de episodios de la pantalla de reproducción.
+   *
+   * La columna se desplaza por dentro: una serie de mil capítulos no puede
+   * empujar hacia abajo lo que hay debajo, y el video tiene que seguir a la vista
+   * mientras se busca el episodio.
+   */
+  --watch-list-height: 30rem;
+  /** El lado mínimo de un mando: 44 px, el objetivo táctil que pide el spec. */
+  --control-size: 2.75rem;
+  /**
+   * El reproductor.
+   *
+   * La barra de progreso tiene tres alturas distintas a propósito: el carril
+   * fino de siempre, el carril que engorda cuando el puntero está encima —que es
+   * cuando se va a arrastrar— y el alto del `input` que recibe el gesto, que es
+   * mayor que los dos para que se pueda tocar con el dedo.
+   */
+  --seek-height: 6px;
+  --seek-height-active: 10px;
+  --seek-hit: 1.5rem;
+  --play-size: 5rem;
+  /**
+   * El degradado de la barra de mandos.
+   *
+   * Va sobre el video, así que tiene que oscurecerlo sin taparlo: un cartel
+   * opaco encima de la imagen es peor que no tener mandos. Va en los tokens
+   * porque es un color, y la hoja de estructura no admite colores literales.
+   */
+  --player-gradient: linear-gradient(to top, rgb(0 0 0 / 85%), rgb(0 0 0 / 0%));
+  --seek-track: rgb(242 233 216 / 25%);
+  --seek-buffer: rgb(242 233 216 / 45%);
+  /**
+   * El menú de ajustes del reproductor.
+   *
+   * Un ancho de mando, no de panel, y un alto máximo para que una lista de
+   * subtítulos larga no empuje el menú fuera de la ventana: a partir de ahí se
+   * desplaza por dentro.
+   */
+  --menu-width: 18rem;
+  --menu-height: 24rem;
   --letter-tight: -0.01em;
   --content-max: 1200px;
   --header-height: 3.5rem;
@@ -168,6 +231,9 @@
   --color-danger: #a32222;
   --color-success: #1d6b3f;
   --color-highlight: #c62f16;
+  /* El degradado de los mandos es negro también en tema claro: el texto que va
+     encima sigue siendo crema. */
+  --color-on-overlay: #f2e9d8;
   --shadow-1: 0 1px 2px rgb(12 12 16 / 12%);
   --shadow-2: 0 8px 24px rgb(12 12 16 / 18%);
   /* En claro la sombra dura va en negro: el acento sobre crema no se distingue. */

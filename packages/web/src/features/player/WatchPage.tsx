@@ -25,6 +25,12 @@
  * Sin número —una dirección escrita a mano— se pide la primera página y los
  * vecinos salen de ahí: lo que no se hace nunca es suponer un `n-1` sobre una
  * referencia que puede no numerar nada.
+ *
+ * La pantalla se compone en **dos columnas**: el reproductor y sus mandos a la
+ * izquierda, la lista de episodios a la derecha. El encabezado, el video y el pie
+ * comparten el mismo borde porque viven en la misma columna: antes el título
+ * llegaba hasta el ancho de la página y el video se quedaba en la mitad, con un
+ * hueco vacío al lado.
  */
 
 import {
@@ -35,7 +41,7 @@ import {
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { Episode } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet, apiPostJson } from '../../api/client'
 import { describirFallo, FALLO_SIN_CAUSA, type Fallo, falloSinFuente } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
@@ -46,25 +52,38 @@ import {
   useDocumentTitle,
   watchTitleParts,
 } from '../../lib/document-title'
-import { buildPath, Link, usePath } from '../../router'
+import { buildPath, Link, useNavigate, usePath } from '../../router'
 import {
   type EpisodeLookup,
   type EpisodeReads,
   loadEpisodeByNumber,
   loadEpisodesPage,
 } from '../detail/useDetail'
+import { coverPath } from '../search/ResultCard'
+import { AudioModeSwitch } from './AudioModeSwitch'
 import { Player } from './Player'
+import {
+  almacenLocal,
+  claveDeProgreso,
+  guardarAutoplay,
+  guardarProgreso,
+  leerAutoplay,
+  leerProgreso,
+  olvidarProgreso,
+  reanudarEn,
+} from './storage'
 import { type SubtitleCandidate, toSafeTracks, tracksFromSource } from './subtitle-tracks'
 import { useMpvHandoff } from './useMpvHandoff'
 import { useWatchEvents } from './useWatchEvents'
+import { WatchEpisodes } from './WatchEpisodes'
 import {
   animeRefFromPath,
   animeRefOf,
   type EpisodeRef,
   modeFromPath,
   numberFromPath,
-  PLAY_MODES,
   startAtFromPath,
+  type WatchPathOptions,
   watchPath,
 } from './watch-route'
 
@@ -74,6 +93,12 @@ export interface WatchPageProps {
 }
 
 type Estado = 'loading' | 'ready' | 'error'
+
+/** Cada cuánto se apunta por dónde va, como mucho. */
+const GUARDADO_MS = 5000
+
+/** Los segundos que se espera antes de pasar solo al episodio siguiente. */
+const SEGUNDOS_DEL_SIGUIENTE = 5
 
 /** Un vecino, con lo que hace falta para enlazarlo: a dónde va y con qué número. */
 export interface WatchNeighbour {
@@ -313,10 +338,47 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   // una elección que acaba de hacer. Dentro de la pantalla manda este selector.
   const path = usePath()
   const [modo, setModo] = useState<'sub' | 'dub'>(() => modeFromPath(path) ?? 'sub')
-  // El segundo donde se dejó, si la dirección lo trae: la tarjeta de «continuar
-  // viendo» lo pone en su enlace. Arrancar aquí y no en el cero es lo que hace
-  // que la fila sirva para seguir viendo y no para volver a empezar.
-  const [posicion, setPosicion] = useState(() => startAtFromPath(path) ?? 0)
+
+  /**
+   * El segundo por el que se empieza.
+   *
+   * Tres fuentes, por orden: lo que la dirección pide —la tarjeta de «continuar
+   * viendo» lo escribe en el enlace—, lo que la pantalla apuntó la última vez que
+   * se vio este episodio y, si no hay nada, el principio.
+   *
+   * Se lee en el arranque y no en un efecto: el reproductor monta con la fuente ya
+   * resuelta y su posición de reanudación se decide una sola vez por fuente, así
+   * que llegar tarde es llegar al segundo cero.
+   */
+  const [posicion, setPosicion] = useState(() => {
+    const deLaDireccion = startAtFromPath(path)
+    if (deLaDireccion !== undefined) return deLaDireccion
+
+    return (
+      reanudarEn(leerProgreso(almacenLocal(), claveDeProgreso(props.providerId, props.ref))) ?? 0
+    )
+  })
+
+  /**
+   * Lo último que se supo de la reproducción, en una referencia.
+   *
+   * El guardado final ocurre al desmontar, y ahí el cierre del efecto ve el estado
+   * del primer render: la posición que hay que apuntar es la de ahora, no la del
+   * principio.
+   */
+  const viva = useRef({ positionS: 0, durationS: 0, ultimoGuardado: 0 })
+
+  /**
+   * Si el siguiente episodio empieza solo.
+   *
+   * Lo guardado manda y el valor de fábrica es que sí: quien ve una serie espera
+   * que siga. Se puede apagar desde los ajustes del reproductor.
+   */
+  const [autoplay, setAutoplay] = useState(() => leerAutoplay(almacenLocal()))
+  const cambiarAutoplay = useCallback((valor: boolean) => {
+    setAutoplay(valor)
+    guardarAutoplay(almacenLocal(), valor)
+  }, [])
 
   // El registro del visionado: alta al reproducir de verdad, avance cada 15 s y
   // al pausar, y la posición final al desmontar o cerrar la pestaña.
@@ -352,6 +414,11 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   // del episodio, así que sin esta petición la pantalla no sabe cómo se llama lo
   // que está reproduciendo y la pestaña sólo puede decir «Ep. 3».
   const [tituloAnime, setTituloAnime] = useState<string | undefined>(undefined)
+  // La portada del título, si el proveedor dio una. No se pasa la dirección del
+  // proveedor —que puede ser de fuera y la CSP no la admitiría—: se pide al
+  // proxy, que es el único que habla con el upstream. Sin portada no se inventa
+  // ninguna: el `<video>` se queda con su fondo, que es lo que había antes.
+  const [portada, setPortada] = useState<string | undefined>(undefined)
 
   // El número que la dirección trae escrito. Es lo que decide si se piden dos
   // vecinos puntuales o la primera página; sin él no se deduce nada.
@@ -400,7 +467,12 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       animeResponseSchema,
     ).then(
       (detalle) => {
-        if (vivo) setTituloAnime(detalle.title)
+        if (!vivo) return
+
+        setTituloAnime(detalle.title)
+        setPortada(
+          detalle.coverUrl === undefined ? undefined : coverPath(props.providerId, animeRef.value),
+        )
       },
       () => undefined,
     )
@@ -478,6 +550,100 @@ export function WatchPage(props: WatchPageProps): ReactNode {
 
   const posicionEpisodio = vecinos?.position
 
+  /** Dónde se apunta el progreso de este episodio. */
+  const claveProgreso = claveDeProgreso(props.providerId, props.ref)
+  const navegar = useNavigate()
+
+  /**
+   * Apuntar por dónde va, sin apuntarlo en cada aviso.
+   *
+   * El elemento avisa cuatro veces por segundo: escribir el progreso con cada uno
+   * serían cuatro escrituras por segundo en el almacén del navegador para un dato
+   * que sólo hace falta cuando se vuelve. Se escribe cada cinco segundos, al
+   * pausar y al salir, que es cuando de verdad importa.
+   */
+  const anotarProgreso = useCallback(
+    (positionS: number, durationS: number, forzar: boolean) => {
+      viva.current = { ...viva.current, positionS, durationS }
+
+      const ahora = Date.now()
+      if (!forzar && ahora - viva.current.ultimoGuardado < GUARDADO_MS) return
+
+      viva.current = { ...viva.current, ultimoGuardado: ahora }
+      guardarProgreso(almacenLocal(), claveProgreso, { positionS, durationS })
+    },
+    [claveProgreso],
+  )
+
+  // Al salir de la pantalla —o al cambiar de episodio— se apunta dónde se quedó:
+  // es el momento en el que el dato sirve, y el último aviso puede ser de hace
+  // cinco segundos.
+  useEffect(() => {
+    const referencia = viva
+
+    return () => {
+      const { positionS, durationS } = referencia.current
+      if (durationS > 0) guardarProgreso(almacenLocal(), claveProgreso, { positionS, durationS })
+    }
+  }, [claveProgreso])
+
+  /**
+   * El episodio siguiente, cuando el actual termina.
+   *
+   * La tarjeta se ofrece con cuenta atrás y se puede parar: pasar solo al
+   * siguiente es lo que se espera de una serie, pero sin preguntar sería quitarle
+   * a alguien el mando. Y se puede apagar del todo desde los ajustes.
+   */
+  const [cuenta, setCuenta] = useState<number | undefined>(undefined)
+
+  const opcionesDePaso: WatchPathOptions = { mode: modo, anime: animeValue }
+  const siguiente = vecinos?.next
+  const rutaSiguiente =
+    siguiente === undefined
+      ? undefined
+      : watchPath(props.providerId, siguiente.ref.value, {
+          ...opcionesDePaso,
+          n: siguiente.number,
+        })
+
+  const alTerminar = useCallback(() => {
+    // El episodio está visto: lo apuntado a medias ya no sirve para reanudar.
+    olvidarProgreso(almacenLocal(), claveProgreso)
+
+    if (siguiente === undefined || !autoplay) return
+
+    setCuenta(SEGUNDOS_DEL_SIGUIENTE)
+  }, [autoplay, claveProgreso, siguiente])
+
+  useEffect(() => {
+    if (cuenta === undefined) return
+
+    if (cuenta <= 0) {
+      if (rutaSiguiente !== undefined) navegar.push(rutaSiguiente)
+
+      return
+    }
+
+    const reloj = setTimeout(() => setCuenta((valor) => (valor ?? 1) - 1), 1000)
+
+    return () => clearTimeout(reloj)
+  }, [cuenta, rutaSiguiente, navegar])
+
+  /**
+   * El título propio del episodio, si lo trae.
+   *
+   * Hay proveedores cuyo nombre de episodio es otra vez el número —«Episodio 3»—,
+   * así que repetirlo daría un «Episodio 3 de 12 · Episodio 3». Cuando el nombre ya
+   * dice lo mismo que la etiqueta, no se pinta.
+   */
+  const tituloEpisodio = posicionEpisodio?.title?.trim() ?? ''
+  const tituloUtil =
+    tituloEpisodio === '' ||
+    tituloEpisodio ===
+      t(DEFAULT_LOCALE, 'player.episode', { number: posicionEpisodio?.number ?? 0 })
+      ? undefined
+      : tituloEpisodio
+
   /**
    * Cómo se llama el episodio que se está viendo.
    *
@@ -486,7 +652,27 @@ export function WatchPage(props: WatchPageProps): ReactNode {
    * reproduciendo y la etiqueta se queda sin número: el episodio es un adorno del
    * título, no al revés.
    */
-  const etiquetaEpisodio = episodeLabel(posicionEpisodio?.number, posicionEpisodio?.title)
+  const etiquetaEpisodio = episodeLabel(posicionEpisodio?.number, tituloUtil)
+
+  /**
+   * La línea del episodio, con el número una sola vez.
+   *
+   * Antes eran dos textos —«Episodio 3» encima y «Episodio 3 de 12» en medio de
+   * las flechas— y el número se leía dos veces. Ahora es una línea: el episodio,
+   * de cuántos es —si el proveedor lo dijo— y su título, si lo trae.
+   */
+  const lineaEpisodio =
+    posicionEpisodio === undefined
+      ? etiquetaEpisodio
+      : composeTitle([
+          posicionEpisodio.total === undefined
+            ? t(DEFAULT_LOCALE, 'player.episode', { number: posicionEpisodio.number })
+            : t(DEFAULT_LOCALE, 'player.episodeOf', {
+                number: posicionEpisodio.number,
+                total: posicionEpisodio.total,
+              }),
+          tituloUtil,
+        ])
 
   // La pestaña y el encabezado dicen lo mismo: el nombre del título y por qué
   // episodio va. Es lo que distingue dos pestañas de la misma aplicación.
@@ -507,9 +693,13 @@ export function WatchPage(props: WatchPageProps): ReactNode {
    * pensada para verse a pantalla completa—. El título de la ficha es la
    * referencia que la dirección trae o la que se deduce del episodio: es la misma
    * que usa el registro del visionado, no una segunda conjetura.
+   *
+   * El nombre del título va en **una línea con puntos suspensivos**: es un
+   * encabezado, no el contenido de la pantalla, y creciendo con el nombre más
+   * largo empujaba el video fuera de la ventana.
    */
   const encabezado = (
-    <header>
+    <header className="watch__head">
       <Link
         className="watch__back"
         to={buildPath('detail', { providerId: props.providerId, ref: animeRef.value })}
@@ -517,7 +707,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         {t(DEFAULT_LOCALE, 'player.backToDetail')}
       </Link>
       <h1>{tituloAnime ?? t(DEFAULT_LOCALE, 'title.loading')}</h1>
-      {etiquetaEpisodio === undefined ? null : <p className="card__meta">{etiquetaEpisodio}</p>}
+      {lineaEpisodio === undefined ? null : <p className="watch__episode">{lineaEpisodio}</p>}
     </header>
   )
 
@@ -527,88 +717,117 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   /**
    * Las flechas de episodio.
    *
-   * Van **encima del video** para que se vean sin bajar, y cada una sólo es un
-   * enlace cuando existe ese episodio: en el primero no hay flecha a la
-   * izquierda y en el último no la hay a la derecha.
+   * Van **debajo del video**, en la misma fila que el selector de audio: el salto
+   * al episodio de al lado sigue estando a la vista al terminar uno, y el
+   * encabezado se queda con lo que sólo se lee una vez.
    *
-   * Cuando no existe, el sitio no se queda con una flecha suelta: se pinta el
-   * mismo rótulo, apagado y con el borde discontinuo, y el `title` dice por qué
-   * no lleva a ninguna parte. Una flecha diminuta sin texto no explica nada, y
-   * quien la ve por primera vez cree que la aplicación está rota.
-   *
-   * En medio va el episodio que se está viendo, de cuántos: es lo que convierte
-   * dos botones en los extremos de una fila vacía en algo que se entiende de un
-   * vistazo, y lo que hace evidente que la flecha apagada es un límite y no un
-   * fallo.
+   * Cada una sólo es un enlace cuando existe ese episodio: en el primero no hay
+   * flecha a la izquierda y en el último no la hay a la derecha. Cuando no existe,
+   * el sitio no se queda con una flecha suelta: se pinta el mismo rótulo, apagado,
+   * con `aria-disabled` y el `title` diciendo por qué no lleva a ninguna parte.
    *
    * El modo con el que se está viendo viaja en la dirección: si alguien cambió a
    * doblado, el episodio siguiente se abre doblado y no vuelve a preguntarlo. Y el
    * número viaja también, para que la pantalla que se abra no tenga que pedir la
    * lista entera para saber cuáles son **sus** vecinos.
    */
-  const navegacion = (
-    <nav className="watch__nav" aria-label={t(DEFAULT_LOCALE, 'player.episodes')}>
+  const pasos = (
+    <div className="watch__steps">
       {vecinos?.previous === undefined ? (
-        <span className="watch__nav-off" title={t(DEFAULT_LOCALE, 'player.firstEpisode')}>
+        <span
+          className="watch__nav-off"
+          aria-disabled="true"
+          title={t(DEFAULT_LOCALE, 'player.firstEpisode')}
+        >
           <EpisodeArrow towards="previous" />
-          {t(DEFAULT_LOCALE, 'player.previousEpisode')}
+          {t(DEFAULT_LOCALE, 'player.previous')}
         </span>
       ) : (
         <Link
           className="watch__nav-link"
+          ariaLabel={t(DEFAULT_LOCALE, 'player.previousEpisode')}
           title={t(DEFAULT_LOCALE, 'player.previousEpisode')}
           to={watchPath(props.providerId, vecinos.previous.ref.value, {
-            mode: modo,
-            anime: animeValue,
+            ...opcionesDePaso,
             n: vecinos.previous.number,
           })}
         >
           <EpisodeArrow towards="previous" />
-          {t(DEFAULT_LOCALE, 'player.previousEpisode')}
+          {t(DEFAULT_LOCALE, 'player.previous')}
         </Link>
       )}
 
-      {posicionEpisodio === undefined ? null : (
-        <span className="watch__nav-pos">
-          {/* Con total se dice «de 26»; sin él, sólo el número. El total de un
-              episodio suelto no lo trae nadie, así que inventarlo sería mentir
-              sobre cuánto queda. */}
-          {posicionEpisodio.total === undefined
-            ? t(DEFAULT_LOCALE, 'player.episode', { number: posicionEpisodio.number })
-            : t(DEFAULT_LOCALE, 'player.episodeOf', {
-                number: posicionEpisodio.number,
-                total: posicionEpisodio.total,
-              })}
-        </span>
-      )}
-
       {vecinos?.next === undefined ? (
-        <span className="watch__nav-off" title={t(DEFAULT_LOCALE, 'player.lastEpisode')}>
-          {t(DEFAULT_LOCALE, 'player.nextEpisode')}
+        <span
+          className="watch__nav-off"
+          aria-disabled="true"
+          title={t(DEFAULT_LOCALE, 'player.lastEpisode')}
+        >
+          {t(DEFAULT_LOCALE, 'player.next')}
           <EpisodeArrow towards="next" />
         </span>
       ) : (
         <Link
           className="watch__nav-link"
+          ariaLabel={t(DEFAULT_LOCALE, 'player.nextEpisode')}
           title={t(DEFAULT_LOCALE, 'player.nextEpisode')}
           to={watchPath(props.providerId, vecinos.next.ref.value, {
-            mode: modo,
-            anime: animeValue,
+            ...opcionesDePaso,
             n: vecinos.next.number,
           })}
         >
-          {t(DEFAULT_LOCALE, 'player.nextEpisode')}
+          {t(DEFAULT_LOCALE, 'player.next')}
           <EpisodeArrow towards="next" />
         </Link>
       )}
+    </div>
+  )
+
+  /**
+   * La fila de mandos bajo el reproductor.
+   *
+   * A la izquierda el salto de episodio y a la derecha la elección de audio, que
+   * es lo que se cambia a menudo y por eso no vive dentro del menú de ajustes.
+   * En la carga y en el error sólo van las flechas: el modo no resuelve nada
+   * cuando no hay fuente.
+   */
+  const filaDeMandos = (conAudio: boolean): ReactNode => (
+    <nav className="watch__nav" aria-label={t(DEFAULT_LOCALE, 'player.episodes')}>
+      {pasos}
+      {conAudio ? <AudioModeSwitch mode={modo} onMode={setModo} /> : null}
     </nav>
+  )
+
+  /**
+   * La lista de episodios, en su columna.
+   *
+   * Va en los dos estados en los que hay algo que elegir: en el error es justo
+   * cuando más falta hace —el episodio que no abre tiene al lado los que sí— y en
+   * la reproducción es la forma de cambiar sin volver a la ficha. Pide sus páginas
+   * ella misma, de cien en cien: esta pantalla no descarga la lista entera para
+   * pintarla, que es lo que T92 vino a quitar.
+   */
+  const listaDeEpisodios = (
+    <aside className="watch__aside">
+      <WatchEpisodes
+        providerId={props.providerId}
+        titleRef={animeValue}
+        currentRef={props.ref}
+        mode={modo}
+        actual={posicionEpisodio}
+      />
+    </aside>
   )
 
   if (estado === 'loading') {
     return (
       <section className="watch">
-        {encabezado}
-        <p className="empty">{t(DEFAULT_LOCALE, 'player.loading')}</p>
+        <div className="watch__layout">
+          <div className="watch__main">
+            {encabezado}
+            <p className="empty">{t(DEFAULT_LOCALE, 'player.loading')}</p>
+          </div>
+        </div>
       </section>
     )
   }
@@ -616,9 +835,14 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   if (estado === 'error' || fuente === undefined) {
     return (
       <section className="watch">
-        {encabezado}
-        {navegacion}
-        <ErrorNotice fallo={error ?? FALLO_SIN_CAUSA} onRetry={recargar} />
+        <div className="watch__layout">
+          <div className="watch__main">
+            {encabezado}
+            <ErrorNotice fallo={error ?? FALLO_SIN_CAUSA} onRetry={recargar} />
+            {filaDeMandos(false)}
+          </div>
+          {listaDeEpisodios}
+        </div>
       </section>
     )
   }
@@ -627,56 +851,76 @@ export function WatchPage(props: WatchPageProps): ReactNode {
 
   return (
     <section className="watch">
-      {encabezado}
-      {navegacion}
+      <div className="watch__layout">
+        <div className="watch__main">
+          {encabezado}
 
-      <div className="watch__modes">
-        <button type="button" className="button" onClick={mpv.abrir}>
-          {t(DEFAULT_LOCALE, 'player.mpv')}
-        </button>
-        <span className="card__meta">{t(DEFAULT_LOCALE, 'player.mode')}</span>
-        {PLAY_MODES.map((candidato) => (
-          <button
-            key={candidato}
-            type="button"
-            className="button"
-            aria-pressed={modo === candidato}
-            onClick={() => setModo(candidato)}
-          >
-            {t(DEFAULT_LOCALE, candidato === 'sub' ? 'player.mode.sub' : 'player.mode.dub')}
-          </button>
-        ))}
+          {mpv.estado.kind === 'abierto' ? (
+            <p className="watch__episode">{t(DEFAULT_LOCALE, 'player.mpv.opened')}</p>
+          ) : null}
+
+          {mpv.estado.kind === 'error' ? (
+            <p className="search__error">
+              {t(DEFAULT_LOCALE, 'player.mpv.error', { message: mpv.estado.mensaje })}
+            </p>
+          ) : null}
+
+          <Player
+            url={fuente.url}
+            kind={fuente.kind}
+            // El nombre del título, y no la referencia del episodio: `title` es la
+            // etiqueta que lee un lector de pantalla y `aurora-nocturna#3` no es
+            // cómo se llama nada. Sin nombre, `Player` pone la suya.
+            title={nombreCompleto === '' ? undefined : nombreCompleto}
+            poster={portada}
+            tracks={pistas}
+            // El modo de audio y el reproductor externo son de la pantalla, no
+            // del elemento de video: el menú de ajustes del reproductor los
+            // recibe para no tener una segunda copia del estado.
+            mode={modo}
+            onMode={setModo}
+            onMpv={mpv.abrir}
+            autoplay={autoplay}
+            onAutoplay={cambiarAutoplay}
+            startAtS={posicion}
+            onPlay={visionado.onPlay}
+            // Pausar es el otro momento en el que el dato importa —quien pausa
+            // suele estar a punto de irse—, así que aquí se apunta sin esperar al
+            // turno del guardado periódico.
+            onPause={() => {
+              anotarProgreso(viva.current.positionS, viva.current.durationS, true)
+              visionado.onPause()
+            }}
+            onEnded={alTerminar}
+            // La duración viaja al registro además de la posición: el servidor
+            // calcula con ella la proporción vista, y sin duración todo visionado
+            // valía cero y la fila de «continuar viendo» los descartaba a todos.
+            onProgress={(positionS, durationS) => {
+              setPosicion(positionS)
+              visionado.onProgress(positionS, durationS)
+              anotarProgreso(positionS, durationS, false)
+            }}
+          />
+
+          {filaDeMandos(true)}
+
+          {cuenta === undefined || rutaSiguiente === undefined ? null : (
+            <div className="watch__next">
+              <p className="watch__next-text">
+                {t(DEFAULT_LOCALE, 'player.next.in', { seconds: cuenta })}
+              </p>
+              <Link className="button button--primary" to={rutaSiguiente}>
+                {t(DEFAULT_LOCALE, 'player.next.now')}
+              </Link>
+              <button type="button" className="button" onClick={() => setCuenta(undefined)}>
+                {t(DEFAULT_LOCALE, 'player.next.cancel')}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {listaDeEpisodios}
       </div>
-
-      {mpv.estado.kind === 'abierto' ? (
-        <p className="card__meta">{t(DEFAULT_LOCALE, 'player.mpv.opened')}</p>
-      ) : null}
-
-      {mpv.estado.kind === 'error' ? (
-        <p className="search__error">
-          {t(DEFAULT_LOCALE, 'player.mpv.error', { message: mpv.estado.mensaje })}
-        </p>
-      ) : null}
-
-      <Player
-        url={fuente.url}
-        kind={fuente.kind}
-        // El nombre del título, y no la referencia del episodio: `title` es la
-        // etiqueta que lee un lector de pantalla y `aurora-nocturna#3` no es
-        // cómo se llama nada. Sin nombre, `Player` pone la suya.
-        title={nombreCompleto === '' ? undefined : nombreCompleto}
-        tracks={pistas}
-        startAtS={posicion}
-        onPlay={visionado.onPlay}
-        onPause={visionado.onPause}
-        // La duración viaja al registro además de la posición: el servidor
-        // calcula con ella la proporción vista, y sin duración todo visionado
-        // valía cero y la fila de «continuar viendo» los descartaba a todos.
-        onProgress={(positionS, durationS) => {
-          setPosicion(positionS)
-          visionado.onProgress(positionS, durationS)
-        }}
-      />
     </section>
   )
 }

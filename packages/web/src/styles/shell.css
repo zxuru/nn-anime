@@ -280,9 +280,10 @@
 /*
  * Lo que sólo existe para un lector de pantalla.
  *
- * El esqueleto es decoración —`aria-hidden`—, así que la frase que dice qué está
- * pasando tiene que seguir en el documento para quien no lo ve. `clip-path` y no
- * `display: none`: un texto oculto de verdad no se anuncia.
+ * Es lo que en otros sitios se llama `sr-only`. El esqueleto es decoración
+ * —`aria-hidden`—, así que la frase que dice qué está pasando tiene que seguir en
+ * el documento para quien no lo ve. `clip-path` y no `display: none`: un texto
+ * oculto de verdad no se anuncia.
  */
 .solo-lectores {
   position: absolute;
@@ -845,11 +846,18 @@
   color: var(--color-success);
 }
 
+/*
+ * El reproductor ocupa el ancho de su columna.
+ *
+ * Antes llevaba un ancho máximo propio —960 px— y el encabezado no: el título
+ * llegaba hasta el borde de la página y el video se quedaba en la mitad, con un
+ * hueco vacío a su derecha. El ancho lo decide la columna que lo contiene, que es
+ * la misma que la del encabezado y la del pie.
+ */
 .player {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  max-width: var(--measure-wide);
 }
 
 .player__stage {
@@ -925,12 +933,12 @@
   background: var(--color-surface);
   color: var(--color-text);
   box-shadow: var(--shadow-hard);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  /* Es una frase de estado, no una etiqueta: va en la fuente del texto y en su
+     caja, con el tamaño mínimo de 13 px. La monoespaciada en mayúsculas se queda
+     para los botones y los rótulos cortos, que es donde ayuda a comparar. */
+  font-size: var(--text-sm);
   font-weight: 700;
   text-align: center;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
 }
 
 /*
@@ -973,10 +981,183 @@
    prueba de accesibilidad mira el **último** bloque de movimiento reducido de la
    hoja, y uno suelto aquí la dejaba mirando el sitio equivocado. */
 
-.player__seek {
+/* El botón grande de reproducir, encima del video.
+ *
+ * Es una capa sin eventos —`pointer-events: none`— y sin nombre accesible: el
+ * gesto es del video entero y el mando que se anuncia es el de la barra. Un
+ * cuadrado al que hubiera que apuntarle sería peor que el clic en cualquier
+ * parte, que es lo que ya hace el elemento. */
+.player__overlay {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  justify-content: center;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Con el borde grueso y la sombra dura del resto de la interfaz, y el acento en
+   el triángulo: es lo único que se mueve en una pantalla en pausa. */
+.player__play-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--play-size);
+  height: var(--play-size);
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-hard-accent);
+}
+
+.player__play-glyph {
+  width: var(--space-6);
+  height: var(--space-6);
+  fill: var(--color-accent);
+}
+
+/* Los dibujos de los mandos, con el color del mando que los contiene. */
+.player__icon {
+  display: block;
+  width: var(--space-5);
+  height: var(--space-5);
+  fill: currentcolor;
+}
+
+/* La banda de mandos, sobre el borde inferior del video.
+ *
+ * El degradado la separa de la imagen sin taparla: un cartel opaco encima del
+ * video es peor que no tener mandos. Va por encima de la espera y del botón
+ * grande —`z-index` mayor— para que un aviso de búfer no deje los mandos
+ * debajo. */
+.player__controls {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-3) var(--space-3);
+  background: var(--player-gradient);
+  transition: opacity var(--transition-normal);
+}
+
+/*
+ * Los mandos escondidos.
+ *
+ * Transparentes y sin recibir el puntero, pero **en el documento**: con
+ * `display: none` el foco del teclado se iría al `body` en mitad de una
+ * reproducción, y quien navega con el tabulador perdería el sitio donde estaba.
+ * Vuelven al pasar el puntero por el marco —lo hace el componente— y mientras
+ * algo de dentro tenga el foco: esconderle el mando enfocado a quien usa el
+ * teclado es dejarle pulsando a ciegas.
+ */
+.player__controls[data-oculto="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.player__stage:focus-within .player__controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.player__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/*
+ * Un mando cuadrado.
+ *
+ * 44 px de lado, que es el objetivo táctil que pide el spec: con el texto dentro
+ * el botón medía lo que medía su rótulo y unos eran el doble de anchos que
+ * otros. Aquí el ancho lo fija el dibujo y el `padding` lo que respira, así que
+ * la fila es regular y el pie de cada mando no se mueve de un estado al otro.
+ */
+.player__control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: var(--control-size);
+  min-height: var(--control-size);
+  padding: 0 var(--space-2);
+}
+
+/* El «10» de los saltos, al lado de la flecha: lo que dice cuántos segundos. */
+.player__control-step {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* El hueco entre lo que se toca a menudo y el reloj. */
+.player__spacer {
+  flex: 1 1 auto;
+}
+
+/* La barra del tiempo: el carril por capas y el `input` encima.
+ *
+ * No lleva el reloj al lado —vive en la fila de botones, con el resto de los
+ * mandos— y por eso no es `flex`: el carril ocupa el ancho entero. */
+.player__seek {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+/* El carril. Fino en reposo y más grueso cuando el puntero está encima: el
+   grosor es lo que dice que se puede arrastrar, y engordarlo siempre dejaría una
+   barra de diez píxeles tapando el video. */
+.player__track {
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: var(--seek-height);
+  overflow: hidden;
+  background: var(--seek-track);
+  transform: translateY(-50%);
+  transition: height var(--transition-fast);
+}
+
+.player__seek:hover .player__track,
+.player__seek:focus-within .player__track {
+  height: var(--seek-height-active);
+}
+
+/* Lo que hay en búfer, debajo de lo reproducido: es la segunda capa que dice si
+   una pausa es de red o es el final del episodio. */
+.player__buffer {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  background: var(--seek-buffer);
+}
+
+.player__played {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  background: var(--color-accent);
+}
+
+/* El globo del tiempo, encima del carril. */
+.player__tooltip {
+  position: absolute;
+  bottom: var(--space-5);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .player__range {
@@ -995,15 +1176,36 @@
 }
 
 /*
- * La barra de volumen.
+ * El volumen: el botón del silencio y su barra, en un solo grupo.
  *
- * La barra del tiempo se lleva el ancho que sobra —`flex: 1`—, y ésta no: es un
- * mando corto y pegado a su botón, y con el mismo `flex` se comería la fila
- * entera. Comparte con aquélla el carril y el pulgar, que son los mismos.
+ * La barra aparece al pasar el puntero por encima —o al enfocar cualquiera de los
+ * dos, que es como se llega sin ratón—: es un mando que se toca de vez en cuando
+ * y ocupaba el ancho de tres botones todo el rato. Se esconde con `opacity` y no
+ * con `display` ni con ancho cero: sigue en su sitio, la fila no se mueve cuando
+ * aparece, y el tabulador la encuentra.
  */
 .player__volume {
+  display: flex;
+  align-items: center;
+}
+
+.player__slider {
   flex: 0 0 auto;
   width: var(--volume-width);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.player__volume:hover .player__slider,
+.player__volume:focus-within .player__slider {
+  opacity: 1;
+}
+
+/* En una pantalla táctil no hay «encima»: el mando se queda a la vista. */
+@media (pointer: coarse) {
+  .player__slider {
+    opacity: 1;
+  }
 }
 
 /* El carril y el pulgar, con el mismo borde duro que el resto de la interfaz: el
@@ -1036,45 +1238,198 @@
   border: var(--border-width-strong) solid var(--color-border);
 }
 
-.player__controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
+/* El `input` del tiempo, encima de las dos capas y con el carril transparente:
+   quien pinta el carril son los `span` de debajo, porque el navegador no deja
+   pedirle al carril dos tramos de color a la vez. Va **después** del carril
+   compartido con el volumen: con menos especificidad delante, el carril del
+   volumen se quedaría sin fondo. */
+.player__seek .player__range {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: var(--seek-hit);
+  margin: 0;
 }
 
-/*
- * Los mandos que cambian de rótulo —reproducir y silenciar— llevan los dos
- * dentro, en la misma celda.
+.player__seek .player__range::-webkit-slider-runnable-track {
+  height: var(--seek-hit);
+  background: transparent;
+}
+
+.player__seek .player__range::-moz-range-track {
+  height: var(--seek-hit);
+  background: transparent;
+}
+
+.player__seek .player__range::-webkit-slider-thumb {
+  margin-top: calc((var(--seek-hit) - var(--space-4)) / 2);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.player__seek .player__range::-moz-range-thumb {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+/* El pulgar aparece con el puntero encima o con el foco del teclado: el resto
+   del tiempo estorba sobre la imagen. */
+.player__seek:hover .player__range::-webkit-slider-thumb,
+.player__seek:focus-within .player__range::-webkit-slider-thumb,
+.player__seek:hover .player__range::-moz-range-thumb,
+.player__seek:focus-within .player__range::-moz-range-thumb {
+  opacity: 1;
+}
+
+/* En una pantalla táctil no hay «encima»: el pulgar se queda a la vista, que es
+   lo único que dice dónde está el mando. */
+@media (pointer: coarse) {
+  .player__seek .player__range::-webkit-slider-thumb,
+  .player__seek .player__range::-moz-range-thumb {
+    opacity: 1;
+  }
+}
+
+/* Las notas del reproductor —el modo compatible encendido, los subtítulos que
+   hay y el crédito de hls.js—.
  *
- * El botón medía lo que medía su rótulo: «Pausa» es más corto que «Reproducir»,
- * así que al pausar el botón encogía, los mandos de al lado se corrían y el modo
- * compatible saltaba de fila. Con los dos superpuestos el ancho lo fija el más
- * largo, y el que no toca sigue ocupando su hueco: `visibility: hidden` y no
- * `display: none`, que es justo lo que mide el ancho.
- */
-.player__labels {
-  display: grid;
-  place-items: center;
-}
-
-.player__label {
-  grid-area: 1 / 1;
-}
-
-.player__label--alterno {
-  visibility: hidden;
-}
-
-.player__time {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+ * Son frases, no etiquetas: van en la fuente del texto, en minúsculas como se
+ * escriben y a 13 px. Estaban en la monoespaciada en mayúsculas de las tarjetas,
+ * a 11 px y en gris sobre negro, que es justo lo que no se leía. */
+.player__note {
+  margin: 0;
+  max-width: var(--measure);
   color: var(--color-text-dim);
   font-size: var(--text-sm);
 }
 
+/* El reloj va sobre el degradado, y el degradado es negro en los dos temas: con
+   el gris del tema —que está pensado para el fondo de la página— se quedaba por
+   debajo del contraste que exige el spec. */
+.player__time {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-on-overlay);
+  font-size: var(--text-sm);
+}
+
 /*
- * La pantalla de reproducción no se selecciona.
+ * El menú de ajustes.
+ *
+ * Es un popover y no un diálogo: se abre **hacia arriba** desde su botón —el
+ * mando está pegado al borde inferior del video y debajo no hay sitio— y deja
+ * ver lo que se está reproduciendo, que es lo que se ajusta mientras se mira.
+ * Se cierra con `Esc`, con un clic fuera o volviendo a pulsar el botón, que es
+ * donde vuelve el foco.
+ */
+.player__settings {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.player__menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-2));
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: var(--menu-width);
+  max-height: var(--menu-height);
+  overflow-y: auto;
+  padding: var(--space-4);
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-hard);
+}
+
+.player__menu-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Los títulos del menú, con el mismo tratamiento que las etiquetas cortas del
+   resto de la interfaz: monoespaciada y en mayúsculas. */
+.player__menu-title {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/* Lo que se pulsa dentro del menú: una acción por fila y a lo ancho, para que el
+   objetivo táctil sea el de siempre y no un texto al que hay que apuntar. */
+.player__menu-action {
+  justify-content: flex-start;
+  width: 100%;
+  text-align: left;
+}
+
+.player__menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.player__menu-choice {
+  justify-content: flex-start;
+  width: 100%;
+  font-size: var(--text-sm);
+  text-align: left;
+}
+
+/* El interruptor del menú: la casilla nativa, con el acento de la interfaz, y su
+   texto al lado. La etiqueta entera es el objetivo, no el cuadradito. */
+.player__menu-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-size);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.player__menu-switch input {
+  width: var(--space-4);
+  height: var(--space-4);
+  accent-color: var(--color-accent);
+}
+
+/*
+ * La ayuda del teclado.
+ *
+ * Es un `<dialog>` nativo: el navegador trae el `Esc`, el encierro del foco y el
+ * fondo inerte, que es justo lo que hay que escribir a mano en un diálogo de
+ * mentira. Se viste con los tokens de siempre.
+ */
+.player__dialog {
+  width: min(var(--notice-width), 90vw);
+  padding: var(--space-5);
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-hard);
+}
+
+.player__dialog::backdrop {
+  background: var(--overlay);
+}
+
+.player__dialog-close {
+  margin-top: var(--space-4);
+}
+
+/* La pantalla de reproducción no se selecciona.
  *
  * No es una manía: el reproductor entero es una superficie de mandos —flechas,
  * modos, teclas— y arrastrar por encima seleccionaba los rótulos y dejaba el
@@ -1086,6 +1441,200 @@
   flex-direction: column;
   gap: var(--space-4);
   user-select: none;
+}
+
+/*
+ * Las dos columnas de la pantalla.
+ *
+ * El ancho lo resuelven solas: la columna principal pide su mínimo y la de la
+ * lista de episodios el suyo, y cuando no caben las dos la lista cae debajo del
+ * reproductor. No hay consulta de medios porque no puede haberla: la hoja de
+ * estructura no admite medidas literales —una prueba lo impide— y `var()` no
+ * existe dentro de un `@media`.
+ *
+ * `min-width: 0` en la columna principal no es adorno: sin él, un hijo ancho —el
+ * propio video, sin ir más lejos— empuja la columna y aparece una barra
+ * horizontal en pantallas estrechas.
+ */
+.watch__layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-5);
+}
+
+.watch__main {
+  display: flex;
+  flex: 1 1 var(--watch-main-min);
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/*
+ * La lista de episodios, en su columna.
+ *
+ * El ancho lo pide con `flex` y no lo impone: cuando no cabe al lado del
+ * reproductor, cae debajo —y crece a lo ancho— sin una consulta de medios, que no
+ * puede leer un token. La lista se desplaza **dentro**: el video se queda donde
+ * está mientras se busca el episodio.
+ */
+.watch__aside {
+  display: flex;
+  flex: 1 1 var(--watch-episodes-width);
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: var(--watch-episodes-max);
+}
+
+.watch__aside-title {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.watch__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: var(--watch-list-height);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.watch__list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-size);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width-strong) solid transparent;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.watch__list-item:hover,
+.watch__list-item:focus-visible {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* El episodio que se está viendo.
+ *
+ * Lo dice el `aria-current` —y por eso lo lleva el marcado—, un marco y el número
+ * en el color de acción: tres señales y no sólo el color, que es lo que pide el
+ * spec para no dejar el estado a quien no distingue colores. */
+.watch__list-item[aria-current="page"] {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.watch__list-number {
+  min-width: var(--space-6);
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+}
+
+.watch__list-item[aria-current="page"] .watch__list-number {
+  color: var(--color-accent);
+}
+
+.watch__list-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* El estado de la lista y su «ver más»: la columna pide los episodios de cien en
+   cien, así que hay un momento en el que todavía no están y un resto por pedir. */
+.watch__list-note {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+}
+
+.watch__list-more {
+  justify-content: center;
+  width: 100%;
+}
+
+/*
+ * La tarjeta del episodio siguiente.
+ *
+ * Aparece cuando el episodio termina, con cuenta atrás y dos salidas: seguir
+ * ahora o pararla. El marco lleva la sombra del acento porque es lo único que se
+ * puede pulsar en ese momento.
+ */
+.watch__next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-hard-accent);
+}
+
+.watch__next-text {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+/*
+ * El encabezado, compacto.
+ *
+ * El título era el titular de la ficha —48 px, dos líneas— y empujaba el video
+ * a media pantalla: en una ventana de 768 px de alto había que desplazarse para
+ * ver el episodio. Aquí es un encabezado más: una línea, con puntos suspensivos
+ * si el nombre no cabe, y el episodio debajo.
+ */
+.watch__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* El titular de la aplicación es `h1`, así que el nombre del título tiene que
+   ganarle por especificidad: `.shell__main h1` pesa lo mismo que esto y la hoja
+   se lee de arriba abajo. */
+.watch__head h1 {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: var(--watch-title-size);
+  font-weight: 800;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* El episodio, en texto de cuerpo y no en la monoespaciada de las etiquetas: es
+   lo que se lee para saber por dónde va, no un botón ni un adorno. */
+.watch__episode {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
 }
 
 /*
@@ -1104,7 +1653,7 @@
   margin-bottom: var(--space-2);
   color: var(--color-text-dim);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
@@ -1117,10 +1666,56 @@
   color: var(--color-accent);
 }
 
-.watch__modes {
+/*
+ * El selector de audio.
+ *
+ * Dos botones pegados dentro de un marco, como un interruptor de dos
+ * posiciones: el activo lleva el color de acción y el otro queda apagado, así
+ * que el estado se lee de un vistazo sin abrir ningún menú. Es el mismo control
+ * que aparece dentro del menú de ajustes, y por eso vive en una clase propia y
+ * no en la de los modos de la ficha.
+ */
+.audio-switch {
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface);
+  list-style: none;
+}
+
+.audio-switch__item {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+}
+
+.audio-switch__option {
+  min-height: var(--control-size);
+  padding: 0 var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.audio-switch__item + .audio-switch__item .audio-switch__option {
+  border-left: var(--border-width-strong) solid var(--color-border);
+}
+
+.audio-switch__option:hover {
+  color: var(--color-text);
+}
+
+.audio-switch__option[aria-pressed="true"] {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
 }
 
 /*
@@ -1145,7 +1740,7 @@
   margin: 0;
   color: var(--color-text-dim);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
@@ -1182,50 +1777,51 @@
   color: var(--color-text);
   box-shadow: var(--shadow-hard-pressed);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 700;
   line-height: var(--leading-tight);
 }
 
 .player__key-does {
   color: var(--color-text-dim);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
 }
 
 /*
- * Las flechas de episodio.
+ * La fila de mandos bajo el video.
  *
- * Encima del video y a los dos extremos de la fila: el salto al episodio de al
- * lado es lo que más se usa al terminar uno, y no debería estar debajo del
- * reproductor, donde hay que bajar para encontrarlo.
- *
- * La flecha apagada ocupa el sitio de la que no existe —el primero no tiene
- * anterior, el último no tiene siguiente— para que la fila no se mueva al
- * cambiar de episodio. Lleva el mismo rótulo que la flecha viva: el borde
- * discontinuo y el color apagado dicen que ahí no se puede pulsar, y el texto
- * dice qué es, que es lo que una flecha suelta no dice.
+ * A la izquierda las flechas de episodio y a la derecha el selector de audio: el
+ * salto al episodio de al lado sigue a la vista al terminar uno, y el modo de
+ * audio —que se cambia a menudo— no queda enterrado en un menú.
  */
 .watch__nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+}
+
+.watch__steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .watch__nav-link,
 .watch__nav-off {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
-  min-height: var(--header-height);
-  padding: 0 var(--space-4);
+  gap: var(--space-2);
+  min-height: var(--control-size);
+  padding: 0 var(--space-3);
   border: var(--border-width-strong) solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
@@ -1248,8 +1844,8 @@
  * píxeles por debajo y la flecha se va hacia arriba. */
 .watch__nav-arrow {
   display: block;
-  width: var(--space-5);
-  height: var(--space-5);
+  width: var(--space-4);
+  height: var(--space-4);
   fill: var(--color-accent);
   stroke: var(--color-bg);
   stroke-width: var(--border-width-strong);
@@ -1284,23 +1880,20 @@
   transform: translate(var(--shadow-offset-hover), var(--shadow-offset-hover));
 }
 
-/* El episodio que se está viendo, en medio de las dos flechas. */
-.watch__nav-pos {
-  color: var(--color-text-dim);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
-}
-
+/* El episodio que no existe.
+ *
+ * Ocupa el sitio del que sí —el primero no tiene anterior, el último no tiene
+ * siguiente— para que la fila no se mueva al cambiar de episodio. Sin borde
+ * discontinuo: el punteado se leía como un mando a medio dibujar. Lo que dice
+ * que ahí no se puede pulsar es la opacidad, el `aria-disabled` y el `title`.
+ */
 .watch__nav-off {
-  border-style: dashed;
   border-color: var(--color-text-dim);
   background: transparent;
   color: var(--color-text-dim);
   box-shadow: none;
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .panel {

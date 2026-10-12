@@ -227,6 +227,22 @@ export interface LinkProps {
   readonly children: ReactNode
   readonly className?: string
   readonly title?: string
+  /**
+   * El nombre accesible, cuando el texto visible no basta.
+   *
+   * El enlace de episodio dice «Anterior» para que la fila sea compacta, y quien
+   * no ve la pantalla necesita oír «Episodio anterior»: el rótulo corto depende
+   * del contexto que el ojo tiene delante y un lector de pantalla no da.
+   */
+  readonly ariaLabel?: string
+  /**
+   * Qué elemento es el actual de un conjunto, cuando lo es.
+   *
+   * Es lo que marca el episodio que se está viendo en la lista: un enlace al que
+   * ya estás no se distingue de los demás por el texto, y para quien no ve la
+   * pantalla el color no existe.
+   */
+  readonly ariaCurrent?: 'page' | undefined
   readonly onNavigate?: () => void
   /**
    * Sucesos del puntero.
@@ -253,6 +269,8 @@ export function Link(props: LinkProps): ReactNode {
       href={props.to}
       className={props.className}
       title={props.title}
+      aria-label={props.ariaLabel}
+      aria-current={props.ariaCurrent}
       onMouseEnter={props.onMouseEnter}
       onMouseLeave={props.onMouseLeave}
       onClick={(event) => {

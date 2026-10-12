@@ -24,57 +24,99 @@ describe('el reproductor', () => {
     expect(html.toLowerCase()).toContain('playsinline')
   })
 
-  test('los controles son botones con su texto', () => {
+  /**
+   * Los mandos son botones con nombre.
+   *
+   * Con iconos no queda texto a la vista, así que el nombre accesible es lo único
+   * que dice qué hace cada uno: sin él, un lector de pantalla lee «botón» seis
+   * veces seguidas. Y con un dibujo dentro, el dibujo va `aria-hidden` para que el
+   * nombre no se lea dos veces.
+   */
+  test('los controles son botones con su nombre accesible', () => {
     const html = render(<Player url="/stream/abc" kind="file" />)
 
     for (const texto of [
       'Reproducir',
-      'Atrás 10 s',
-      'Adelante 10 s',
+      'Retroceder 10 segundos',
+      'Adelantar 10 segundos',
       'Silenciar',
       'Pantalla completa',
     ]) {
-      expect(html, texto).toContain(texto)
+      expect(html, texto).toContain(`aria-label="${texto}"`)
+      expect(html, texto).toContain(`title="${texto}"`)
     }
     expect(html).toContain('type="button"')
+    // El dibujo no se anuncia: el nombre ya lo dice el botón.
+    expect(html.match(/aria-hidden="true"/g)?.length).toBeGreaterThan(3)
   })
 
-  test('el estado vive en una región `aria-live` educada', () => {
+  /**
+   * El estado vive fuera de la pantalla, en una región educada.
+   *
+   * Fuera de la pantalla porque la frase —«En pausa, 0:31 de 24:55»— repetía lo
+   * que ya dicen el reloj y el icono, y ocupaba sitio debajo del video. Y educada
+   * porque el estado cambia a cada rato: una región que interrumpe cada segundo
+   * hace inservible la página con un lector de pantalla.
+   */
+  test('el estado vive en una región `aria-live` educada y fuera de la pantalla', () => {
     const html = render(<Player url="/stream/abc" kind="file" />)
 
     expect(html).toContain('aria-live="polite"')
+    expect(html).toContain('solo-lectores')
     expect(html).toContain('En pausa')
   })
 
   /**
-   * El botón no cambia de tamaño al cambiar de estado.
+   * El anuncio no se rehace con el reloj.
    *
-   * «Reproducir» y «Pausa» no ocupan lo mismo, y el botón medía lo que decía su
-   * rótulo: al pausar encogía, los mandos de al lado se corrían y el modo
-   * compatible saltaba de fila. Los dos rótulos van dentro del botón, en la misma
-   * caja, y sólo el visible es el nombre del botón.
+   * Es la mitad que no se ve en el marcado: `status` sólo cambia en los eventos
+   * que se cuentan —empezar, parar, buscar, terminar o fallar—, así que el
+   * `timeupdate` no lo toca. Se mira el código porque un render sin navegador no
+   * tiene eventos; el e2e mide que el texto no cambie mientras el video avanza.
    */
-  test('los mandos que cambian de rótulo llevan los dos estados dentro', () => {
+  test('el anuncio sólo se rehace cuando pasa algo que se cuenta', async () => {
+    const fuente = await readFile(`${ROOT}usePlayer.ts`, 'utf8')
+
+    // `alTiempo` es el que corre cuatro veces por segundo: no puede tocar
+    // `status`, y la única forma de tocarlo es pasar por `anunciar`.
+    const alTiempo = /const alTiempo = \(\): void => \{([\s\S]*?)\n {4}\}/.exec(fuente)?.[1] ?? ''
+    expect(alTiempo).not.toContain('anunciar')
+
+    for (const evento of [
+      'const alReproducir',
+      'const alPausar',
+      'const alBuscar',
+      'const alTerminar',
+      'const alError',
+    ]) {
+      const cuerpo = new RegExp(`${evento}[\\s\\S]*?\\n {4}\\}`).exec(fuente)?.[0] ?? ''
+      expect(cuerpo, evento).toContain('anunciar(')
+    }
+  })
+
+  /**
+   * El mando anuncia un solo estado, y el mismo mando sirve para los dos.
+   *
+   * Antes esto se resolvía con dos rótulos superpuestos dentro del botón —el que
+   * no tocaba, `visibility: hidden`— porque el botón medía lo que medía su texto.
+   * Con el dibujo y el nombre accesible, lo que hay que medir es lo otro: que el
+   * nombre sea **uno**, el del estado actual, y que el botón siga midiendo lo
+   * mismo en los dos estados —eso lo mide el e2e—.
+   */
+  test('cada mando dice un solo estado, y el que toca', () => {
     const html = render(<Player url="/stream/abc" kind="file" />)
 
-    for (const [atajo, rotulos] of [
-      ['Space Enter K', ['Reproducir', 'Pausa']],
-      ['M', ['Silenciar', 'Quitar silencio']],
-    ] as const) {
-      const boton = new RegExp(`<button[^>]*aria-keyshortcuts="${atajo}"[\\s\\S]*?</button>`).exec(
-        html,
-      )?.[0]
+    const boton = (atajo: string): string =>
+      new RegExp(`<button[^>]*aria-keyshortcuts="${atajo}"[\\s\\S]*?</button>`).exec(html)?.[0] ??
+      ''
 
-      expect(boton, atajo).toBeDefined()
+    const reproduccion = boton('Space Enter K')
+    expect(reproduccion).toContain('aria-label="Reproducir"')
+    expect(reproduccion).not.toContain('aria-label="Pausar"')
 
-      for (const rotulo of rotulos) {
-        expect(boton, `${atajo}: falta «${rotulo}»`).toContain(rotulo)
-      }
-
-      // Uno de los dos rótulos está oculto, y ese no se anuncia: con los dos en
-      // el nombre accesible, el lector de pantalla leería los dos estados.
-      expect(boton?.match(/aria-hidden="true"/g)?.length, atajo).toBe(1)
-    }
+    const silencio = boton('M')
+    expect(silencio).toContain('aria-label="Silenciar"')
+    expect(silencio).not.toContain('aria-label="Activar sonido"')
   })
 
   test('la atribución de hls.js aparece sólo cuando se usa HLS', () => {
@@ -155,6 +197,58 @@ describe('el reproductor', () => {
     expect(html).toContain('Cargando el video')
   })
 
+  /**
+   * La portada, sólo cuando el proveedor dio una.
+   *
+   * El atributo es lo que llena el marco antes del primer fotograma: sin él, el
+   * reproductor enseña un rectángulo negro mientras carga, que es justo lo que
+   * P5 denunciaba. Y sin portada no se pone un valor inventado: el atributo no
+   * aparece y el `<video>` se queda con su fondo.
+   */
+  test('la portada se pinta sólo si existe', () => {
+    expect(
+      render(<Player url="/stream/abc" kind="file" poster="/api/cover/fixture/aurora" />),
+    ).toContain('poster="/api/cover/fixture/aurora"')
+    expect(render(<Player url="/stream/abc" kind="file" />)).not.toContain('poster=')
+  })
+
+  /**
+   * La barra de progreso dice el tiempo en palabras.
+   *
+   * `0:31 / 24:55` es lo que se lee; lo que se oye tiene que ser una frase. Y la
+   * barra lleva tres capas —carril, búfer y reproducido— porque el navegador no
+   * deja pedirle dos tramos de color al carril de un `input`.
+   */
+  test('la barra de progreso lleva búfer, lo reproducido y el tiempo en palabras', () => {
+    const html = render(<Player url="/stream/abc" kind="file" />)
+
+    expect(html).toContain('player__track')
+    expect(html).toContain('player__buffer')
+    expect(html).toContain('player__played')
+    expect(html).toMatch(/aria-valuetext="[^"]*segundos de[^"]*segundos"/)
+  })
+
+  /**
+   * El botón grande de reproducir es decoración.
+   *
+   * No lleva nombre accesible ni recibe el puntero: el dibujo se ve, pero el
+   * mando que se anuncia es el de la barra y el gesto es del video entero. Un
+   * segundo botón llamado «Reproducir» sería, además, un nombre ambiguo para
+   * cualquiera que lo busque. Se mira el código porque el overlay sólo existe
+   * cuando hay imagen y eso no pasa en un render sin navegador.
+   */
+  test('el botón grande no compite con el mando de la barra', async () => {
+    const fuente = await readFile(`${ROOT}Player.tsx`, 'utf8')
+    const overlay = /\{enPausa \? \(([\s\S]*?)\) : null\}/.exec(fuente)?.[1] ?? ''
+
+    expect(overlay).toContain('player__play-icon')
+    expect(overlay).toContain('aria-hidden="true"')
+    // Sin manejador y sin botón: el clic es del video entero —que es toda la
+    // superficie— y el mando que se anuncia es el de la barra.
+    expect(overlay).not.toContain('onClick')
+    expect(overlay).not.toContain('<button')
+  })
+
   test('la URL que recibe es la del proxy, no una del upstream', () => {
     const html = render(<Player url="/stream/abc" kind="file" />)
 
@@ -233,14 +327,28 @@ describe('pistas y reanudación', () => {
 })
 
 describe('el modo compatible', () => {
-  test('empieza apagado y el botón lo dice', () => {
+  /**
+   * El interruptor vive en el menú de ajustes.
+   *
+   * Estaba en la fila de mandos, con el mismo peso que reproducir: una opción
+   * técnica que se toca una vez al lado de lo que se toca cada minuto. Como el
+   * menú empieza cerrado, en el primer render sólo está su mando; el interruptor
+   * se comprueba en el código, y encenderlo de verdad lo mide el e2e.
+   */
+  test('empieza apagado y vive en el menú de ajustes', async () => {
     const html = render(<Player url="/stream/abc" kind="file" />)
 
     // El camino normal es el del navegador; el lienzo sólo aparece cuando la
     // sonda —o quien está mirando la pantalla— lo enciende.
     expect(html).not.toContain('<canvas')
-    expect(html).toContain('aria-pressed="false"')
-    expect(html).toContain('Modo compatible')
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).toContain('aria-label="Ajustes"')
+
+    const fuente = await readFile(`${ROOT}Player.tsx`, 'utf8')
+    const menu = /\{menu \? \(([\s\S]*?)\) : null\}/.exec(fuente)?.[1] ?? ''
+
+    expect(menu).toContain("t(DEFAULT_LOCALE, 'player.compat')")
+    expect(menu).toContain('aria-pressed={pintando}')
   })
 
   test('el lienzo del modo compatible se pide por CPU', async () => {

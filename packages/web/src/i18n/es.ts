@@ -205,31 +205,51 @@ export const messages: Messages = {
   'reco.score': 'Puntuación: {score}',
   'player.label': 'Reproductor de video',
   'player.tracks': 'Subtítulos disponibles: {count}.',
-  'player.mode': 'Modo',
+  // El nombre del grupo de los dos modos de audio. Antes era «Modo», que no decía
+  // de qué se estaba hablando: el modo compatible también es un modo.
+  'player.audio': 'Audio',
   'player.episodes': 'Episodios',
   // El regreso a la ficha: la pantalla de reproducción es un callejón sin salida
   // sin este enlace, porque la cabecera lleva a la home y no al título.
   'player.backToDetail': 'Volver a la ficha',
   'player.previousEpisode': 'Episodio anterior',
   'player.nextEpisode': 'Episodio siguiente',
+  // El rótulo corto de las flechas, que ahora van en una fila compacta bajo el
+  // video. El nombre largo sigue existiendo como `title` y como nombre accesible:
+  // «Anterior» a secas depende de un contexto que el ojo tiene delante.
+  'player.previous': 'Anterior',
+  'player.next': 'Siguiente',
   'player.firstEpisode': 'Este es el primer episodio: no hay anterior.',
   'player.lastEpisode': 'Este es el último episodio: no hay siguiente.',
+  // El episodio en una sola línea, con el número una sola vez: el episodio, de
+  // cuántos es —si el proveedor lo dijo— y, si lo trae, su título. Antes eran dos
+  // textos, «Episodio 3» encima y «Episodio 3 de 12» en medio de las flechas.
   'player.episodeOf': 'Episodio {number} de {total}',
+  // La lista de la columna: se pide de cien en cien, así que tiene estados.
+  'player.episodes.more': 'Ver más episodios',
+  'player.episodes.loading': 'Cargando los episodios…',
+  'player.episodes.error': 'No se pudieron cargar los episodios.',
   // El episodio, para el título de la pestaña y para el encabezado de la pantalla.
   'player.episode': 'Episodio {number}',
   'player.episodeNamed': 'Episodio {number} · {title}',
   'player.mode.sub': 'Subtitulado',
   'player.mode.dub': 'Doblado',
+  // Los mandos de la barra. Con iconos, estos textos son el **nombre accesible**
+  // y el `title`: lo que se ve es el dibujo, así que el nombre tiene que decir el
+  // estado entero —«Pausar», no «Pausa»— y no depender del contexto.
   'player.play': 'Reproducir',
-  'player.pause': 'Pausa',
-  'player.back': 'Atrás 10 s',
-  'player.forward': 'Adelante 10 s',
+  'player.pause': 'Pausar',
+  'player.back': 'Retroceder 10 segundos',
+  'player.forward': 'Adelantar 10 segundos',
+  // Lo que se ve dentro de los dos botones de salto, al lado de la flecha.
+  'player.seek.step': '10',
   'player.mute': 'Silenciar',
   // El mando de volumen. La barra no lleva rótulo a la vista, así que este es su
   // nombre accesible: sin él, un lector de pantalla lee un «deslizador» y nada más.
   'player.volume': 'Volumen',
-  'player.unmute': 'Quitar silencio',
+  'player.unmute': 'Activar sonido',
   'player.fullscreen': 'Pantalla completa',
+  'player.fullscreen.exit': 'Salir de pantalla completa',
   'player.seek': 'Posición del video',
   'player.mpv': 'Ver en mpv',
   'player.mpv.opened': 'Se abrió en el reproductor externo.',
@@ -255,8 +275,22 @@ export const messages: Messages = {
   'player.noSource': 'el proveedor no dio ninguna fuente para este episodio',
   // Los atajos, en dos piezas: la tecla —que se pinta como una tecla— y lo que
   // hace. Antes eran una sola frase en la parte de abajo y no se leía como lo
-  // que es: teclas que se pueden pulsar.
+  // que es: teclas que se pueden pulsar. Ahora viven en un diálogo, y se abre
+  // desde los ajustes o con la tecla `?`.
   'player.keys': 'Teclado',
+  'player.keys.open': 'Atajos de teclado',
+  'player.keys.close': 'Cerrar la ayuda',
+  // El menú de ajustes: el mando y lo que hay dentro.
+  'player.settings': 'Ajustes',
+  // La elección de subtítulos del propio reproductor. Va aparte de los modos de
+  // audio: son dos cosas distintas y se eligen por separado.
+  'player.tracks.pick': 'Subtítulos',
+  'player.tracks.none': 'Ninguno',
+  // El episodio siguiente, que empieza solo si nadie lo para.
+  'player.autoplay': 'Reproducción automática',
+  'player.next.in': 'Siguiente episodio en {seconds} s',
+  'player.next.now': 'Reproducir ahora',
+  'player.next.cancel': 'Cancelar',
   'player.key.toggle': 'Pausa y reanudar',
   'player.key.seek': 'Retroceder o avanzar 10 s',
   'player.key.volume': 'Bajar o subir el volumen',
