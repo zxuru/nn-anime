@@ -24,6 +24,16 @@ export interface Settings {
   readonly setProviderPriority: (order: readonly string[]) => void
   /** Registra un proveedor y refresca la lista. Lanza si no se pudo. */
   readonly register: (draft: unknown) => Promise<ProviderSummary>
+  /**
+   * Vuelve a leer los ajustes.
+   *
+   * Lo necesita la sección de repositorios: activar uno carga un proveedor nuevo
+   * y la lista de proveedores de esta pantalla es la que tiene que enterarse. Se
+   * relee en vez de componer la lista a mano porque el servidor es quien sabe qué
+   * cargó de verdad —un archivo del repositorio puede estar rechazado—, y
+   * componerla aquí sería una segunda versión de esa verdad.
+   */
+  readonly refresh: () => void
 }
 
 /**
@@ -52,7 +62,13 @@ export function useSettings(): Settings {
   const [data, setData] = useState<SettingsResponse | undefined>(undefined)
   const [state, setState] = useState<SettingsState>('loading')
   const [error, setError] = useState<Fallo | undefined>(undefined)
+  // Un contador y no una función de carga: la lectura vive en el efecto, que es
+  // el que sabe cancelarse al desmontar, y volver a leer es volver a ejecutarlo.
+  const [lectura, setLectura] = useState(0)
 
+  // El contador `lectura` es el disparador de la relectura y no un dato que el
+  // efecto lea: por eso no aparece dentro, y por eso la supresión.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `lectura` dispara la relectura
   useEffect(() => {
     let vivo = true
 
@@ -74,6 +90,12 @@ export function useSettings(): Settings {
     return () => {
       vivo = false
     }
+  }, [lectura])
+
+  const refresh = useCallback(() => {
+    // No se vuelve a «cargando»: la pantalla ya tiene datos y parpadeárselos
+    // mientras se relee es peor que enseñar los de hace un segundo.
+    setLectura((actual) => actual + 1)
   }, [])
 
   const setTheme = useCallback(
@@ -143,5 +165,5 @@ export function useSettings(): Settings {
     return salida.provider
   }, [])
 
-  return { state, data, error, setTheme, setProviderPriority, register }
+  return { state, data, error, setTheme, setProviderPriority, register, refresh }
 }

@@ -19,14 +19,17 @@ import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import { ProviderList } from './ProviderList'
+import { ProviderRepos } from './ProviderRepos'
 import { RegisterProvider } from './RegisterProvider'
 import { SecurityNoticeDialog } from './SecurityNotice'
 import { ThemeToggle } from './ThemeToggle'
+import { useProviderRepos } from './useProviderRepos'
 import { useSecurityNotice } from './useSecurityNotice'
 import { useSettings } from './useSettings'
 
 export function SettingsPage(): ReactNode {
-  const { state, data, error, setTheme, setProviderPriority, register } = useSettings()
+  const { state, data, error, setTheme, setProviderPriority, register, refresh } = useSettings()
+  const repos = useProviderRepos(refresh)
   const [noticeOpen, setNoticeOpen] = useState(false)
   const notice = useSecurityNotice(noticeOpen)
 
@@ -88,6 +91,10 @@ export function SettingsPage(): ReactNode {
           onReorder={setProviderPriority}
         />
       </section>
+
+      {/* Los repositorios van justo debajo de la lista de proveedores: es otra
+          forma de llenarla, y la lista de arriba es donde se ve el resultado. */}
+      <ProviderRepos {...repos} />
 
       {/* El alta va después de la lista: primero se ve qué hay, y el formulario
           está justo debajo de lo que va a cambiar. */}
