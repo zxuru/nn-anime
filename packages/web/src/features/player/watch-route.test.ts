@@ -5,6 +5,7 @@ import {
   episodePosition,
   modeFromPath,
   neighbourEpisodes,
+  numberFromPath,
   PLAY_MODES,
   startAtFromPath,
   watchPath,
@@ -39,6 +40,57 @@ describe('la ruta del reproductor', () => {
 
   test('los modos son los dos que existen', () => {
     expect(PLAY_MODES).toEqual(['sub', 'dub'])
+  })
+
+  test('el número del episodio viaja cuando quien escribe lo conoce', () => {
+    expect(watchPath('fixture', 'aurora-nocturna#3', { n: 3 })).toBe(
+      '/watch/fixture/aurora-nocturna%233?n=3',
+    )
+    // Decimal, que es como numeran los recopilatorios de algunas fuentes.
+    expect(watchPath('fixture', 'aurora-nocturna#12.5', { n: 12.5 })).toBe(
+      '/watch/fixture/aurora-nocturna%2312.5?n=12.5',
+    )
+  })
+
+  test('el número va detrás del modo y del título, en la misma consulta', () => {
+    expect(watchPath('jkanime', 'dandadan/12', { mode: 'dub', anime: 'dandadan', n: 12 })).toBe(
+      '/watch/jkanime/dandadan%2F12?mode=dub&anime=dandadan&n=12',
+    )
+  })
+
+  test('un número imposible no se escribe: no se manda una petición que se sabe mala', () => {
+    expect(watchPath('fixture', 'aurora-nocturna#3', { n: 0 })).toBe(
+      '/watch/fixture/aurora-nocturna%233',
+    )
+    expect(watchPath('fixture', 'aurora-nocturna#3', { n: -1 })).toBe(
+      '/watch/fixture/aurora-nocturna%233',
+    )
+    expect(watchPath('fixture', 'aurora-nocturna#3', { n: Number.NaN })).toBe(
+      '/watch/fixture/aurora-nocturna%233',
+    )
+  })
+})
+
+describe('el número que la dirección trae escrito', () => {
+  test('lo lee de la consulta, junto al modo y al título', () => {
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%2312?mode=sub&anime=x&n=12')).toBe(12)
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%2312.5?n=12.5')).toBe(12.5)
+  })
+
+  /**
+   * Sin número no se deduce nada.
+   *
+   * Una dirección escrita a mano —o un enlace viejo— no puede inventar un
+   * `n-1`: se comporta como si el título no tuviera vecinos, que es distinto de
+   * suponer que la referencia lleva el número detrás.
+   */
+  test('sin él, o con un valor que no es un episodio, no hay número', () => {
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%233?mode=sub')).toBeUndefined()
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%233')).toBeUndefined()
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%233?n=')).toBeUndefined()
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%233?n=0')).toBeUndefined()
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%233?n=-2')).toBeUndefined()
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%233?n=abc')).toBeUndefined()
   })
 })
 

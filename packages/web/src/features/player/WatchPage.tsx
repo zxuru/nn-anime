@@ -9,17 +9,20 @@
  * La elección de sub o dub, la pista de subtítulos y el guardado de la posición
  * son de T32; aquí está la reproducción.
  *
- * La lista de episodios se pide **sólo para saber quién va antes y quién
- * después**: sin ella no hay flechas, pero la reproducción no depende de esa
- * petición. Si falla, el episodio se ve igual y lo único que se pierde es el
- * salto al de al lado.
+ * **Los vecinos se piden de a uno.** Antes esta pantalla descargaba la lista
+ * entera del título —mil ciento ochenta episodios de One Piece— para saber quién
+ * iba antes y quién después, y lo hacía aunque la flecha no se llegara a usar. Con
+ * el número en la dirección (`?n=`) son dos lecturas puntuales, y sólo cuando la
+ * pantalla ya está pintada: la reproducción no depende de ninguna de las dos, y si
+ * fallan el episodio se ve igual y lo único que se pierde es el salto al de al
+ * lado.
+ *
+ * Sin número —una dirección escrita a mano— se pide la primera página y los
+ * vecinos salen de ahí: lo que no se hace nunca es suponer un `n-1` sobre una
+ * referencia que puede no numerar nada.
  */
 
-import {
-  animeResponseSchema,
-  episodesResponseSchema,
-  streamResolveResponseSchema,
-} from '@nn-anime/core/api'
+import { animeResponseSchema, streamResolveResponseSchema } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { Episode } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
@@ -35,6 +38,12 @@ import {
   watchTitleParts,
 } from '../../lib/document-title'
 import { buildPath, Link, usePath } from '../../router'
+import {
+  type EpisodeLookup,
+  type EpisodeReads,
+  loadEpisodeByNumber,
+  loadEpisodesPage,
+} from '../detail/useDetail'
 import { Player } from './Player'
 import { type SubtitleCandidate, toSafeTracks, tracksFromSource } from './subtitle-tracks'
 import { useMpvHandoff } from './useMpvHandoff'
@@ -42,9 +51,9 @@ import { useWatchEvents } from './useWatchEvents'
 import {
   animeRefFromPath,
   animeRefOf,
-  episodePosition,
+  type EpisodeRef,
   modeFromPath,
-  neighbourEpisodes,
+  numberFromPath,
   PLAY_MODES,
   startAtFromPath,
   watchPath,
@@ -56,6 +65,133 @@ export interface WatchPageProps {
 }
 
 type Estado = 'loading' | 'ready' | 'error'
+
+/** Un vecino, con lo que hace falta para enlazarlo: a dónde va y con qué número. */
+export interface WatchNeighbour {
+  readonly ref: EpisodeRef
+  readonly number: number
+}
+
+/** Dónde está el episodio que se ve, con lo que el proveedor haya dicho. */
+export interface WatchPosition {
+  readonly number: number
+  /** Cuántos episodios tiene el título, si la página trajo el total. */
+  readonly total?: number
+  /** El título del episodio, si venía en la lista. */
+  readonly title?: string
+}
+
+export interface WatchNeighbours {
+  /** El anterior, o nada si no lo hay o el proveedor no lo conoce. */
+  readonly previous: WatchNeighbour | undefined
+  /** El siguiente, o nada si no lo hay o el proveedor no lo conoce. */
+  readonly next: WatchNeighbour | undefined
+  readonly position: WatchPosition | undefined
+}
+
+/** Lo que hace falta saber para buscar los vecinos. */
+export interface NeighbourLookup {
+  readonly providerId: string
+  /** La referencia del título, que es con la que se piden sus episodios. */
+  readonly titleRef: string
+  readonly episodeRef: string
+  /** El número que la dirección trae escrito, si lo trae. */
+  readonly number: number | undefined
+}
+
+/**
+ * Si toca pedir los vecinos.
+ *
+ * No se piden en la carga inicial: mientras el stream se resuelve la pantalla
+ * enseña que está cargando y ninguna flecha, así que pedir vecinos entonces es
+ * gastar dos peticiones en botones que todavía no existen.
+ */
+export function shouldLoadNeighbours(estado: Estado): boolean {
+  return estado !== 'loading'
+}
+
+function aVecino(episode: Episode | undefined): WatchNeighbour | undefined {
+  return episode === undefined ? undefined : { ref: episode.ref, number: episode.number }
+}
+
+/**
+ * El episodio del resultado de una búsqueda puntual, o nada.
+ *
+ * Para un vecino, no haberlo es no tenerlo: que el proveedor conteste que no está
+ * o que conteste un error con su motivo da lo mismo aquí, porque la flecha se
+ * apaga igual. El motivo se cuenta en el selector, donde sí importa.
+ */
+function hallado(lookup: EpisodeLookup | undefined): Episode | undefined {
+  return lookup?.kind === 'found' ? lookup.episode : undefined
+}
+
+/** Sólo los episodios de este proveedor: la lista puede traer los de otro. */
+function delProveedor(episodes: readonly Episode[], providerId: string): readonly Episode[] {
+  return episodes.filter((episode) => episode.ref.providerId === providerId)
+}
+
+/**
+ * Los vecinos del episodio que se ve.
+ *
+ * Con número en la dirección son dos lecturas puntuales y ni una lista: el
+ * anterior no se pide si el episodio es el primero —`number/0` es un 404
+ * garantizado— y un fallo en cualquiera de las dos significa «no hay vecino», que
+ * es una flecha apagada y no un error que contar. Aquí da igual que el proveedor
+ * conteste 404 o 502: las dos cosas quieren decir que ese episodio no lo tiene.
+ *
+ * Sin número se pide la **primera página** una vez. Si el episodio está en ella,
+ * los vecinos salen de ahí; si es el último de la página y el servidor dice que
+ * queda más, se pide la segunda **una sola vez** para encontrar al siguiente. Si el
+ * episodio no está en la primera página, no se pintan flechas: es una dirección
+ * escrita a mano y no hay nada que suponer.
+ */
+export async function loadWatchNeighbours(
+  lookup: NeighbourLookup,
+  reads: EpisodeReads = {},
+): Promise<WatchNeighbours> {
+  const { providerId, titleRef, episodeRef, number } = lookup
+
+  if (number !== undefined) {
+    const [anterior, siguiente] = await Promise.all([
+      number > 1 ? loadEpisodeByNumber(providerId, titleRef, number - 1, reads) : undefined,
+      loadEpisodeByNumber(providerId, titleRef, number + 1, reads),
+    ])
+
+    return {
+      previous: aVecino(hallado(anterior)),
+      next: aVecino(hallado(siguiente)),
+      // El total no se inventa: la lectura de un episodio suelto no lo trae, así
+      // que la pantalla dirá «Episodio 12» y no «de 26».
+      position: { number },
+    }
+  }
+
+  const pagina = await loadEpisodesPage(providerId, titleRef, 1, reads)
+  const propios = delProveedor(pagina.episodes, providerId)
+  const indice = propios.findIndex((episode) => episode.ref.value === episodeRef)
+  const actual = indice === -1 ? undefined : propios[indice]
+
+  if (actual === undefined) return { previous: undefined, next: undefined, position: undefined }
+
+  let siguiente = propios[indice + 1]
+  let total = pagina.total
+
+  if (siguiente === undefined && pagina.hasMore) {
+    const segunda = await loadEpisodesPage(providerId, titleRef, 2, reads)
+    siguiente = delProveedor(segunda.episodes, providerId)[0]
+    total = segunda.total ?? total
+  }
+
+  return {
+    previous: aVecino(propios[indice - 1]),
+    next: aVecino(siguiente),
+    position: {
+      number: actual.number,
+      ...(total === undefined ? {} : { total }),
+      ...(actual.title === undefined ? {} : { title: actual.title }),
+    },
+  }
+}
 
 /**
  * La flecha de episodio.
@@ -129,34 +265,47 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   })
   const [estado, setEstado] = useState<Estado>('loading')
   const [error, setError] = useState<Fallo | undefined>(undefined)
-  const [episodios, setEpisodios] = useState<readonly Episode[]>([])
+  const [vecinos, setVecinos] = useState<WatchNeighbours | undefined>(undefined)
   // El nombre del título. La dirección del reproductor sólo lleva la referencia
   // del episodio, así que sin esta petición la pantalla no sabe cómo se llama lo
   // que está reproduciendo y la pestaña sólo puede decir «Ep. 3».
   const [tituloAnime, setTituloAnime] = useState<string | undefined>(undefined)
 
-  // Los episodios del título, para las flechas de al lado. La petición se
-  // cancela al desmontar y su fallo no se pinta: una flecha que no aparece es
-  // una molestia, un error encima del video que sí se ve es otra cosa.
+  // El número que la dirección trae escrito. Es lo que decide si se piden dos
+  // vecinos puntuales o la primera página; sin él no se deduce nada.
+  const numero = numberFromPath(path)
+
+  /**
+   * Los vecinos, cuando la pantalla ya está pintada.
+   *
+   * El fallo no se pinta: una flecha que no aparece es una molestia, un error
+   * encima del video que sí se ve es otra cosa. Y no se pide nada mientras el
+   * stream se resuelve —`shouldLoadNeighbours`—, porque entonces no hay flechas
+   * que dibujar y serían peticiones a fondo perdido.
+   */
   useEffect(() => {
+    if (!shouldLoadNeighbours(estado)) return
+
     let vivo = true
 
-    void apiGet(
-      `/api/anime/${encodeURIComponent(props.providerId)}/${encodeURIComponent(animeRef.value)}/episodes`,
-      episodesResponseSchema,
-    ).then(
-      (lista) => {
-        if (vivo) setEpisodios(lista.episodes)
+    void loadWatchNeighbours({
+      providerId: props.providerId,
+      titleRef: animeRef.value,
+      episodeRef: props.ref,
+      number: numero,
+    }).then(
+      (salida) => {
+        if (vivo) setVecinos(salida)
       },
       () => {
-        if (vivo) setEpisodios([])
+        if (vivo) setVecinos(undefined)
       },
     )
 
     return () => {
       vivo = false
     }
-  }, [props.providerId, animeRef.value])
+  }, [props.providerId, props.ref, animeRef.value, numero, estado])
 
   // El nombre del título, que es lo que la pestaña necesita para distinguirse de
   // las demás. Si falla, la reproducción no se entera: se pierde el nombre, no el
@@ -245,22 +394,17 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     resolver()
   }, [resolver])
 
-  const vecinos = neighbourEpisodes(episodios, props.providerId, props.ref)
-  const posicionEpisodio = episodePosition(episodios, props.providerId, props.ref)
+  const posicionEpisodio = vecinos?.position
 
   /**
    * Cómo se llama el episodio que se está viendo.
    *
-   * El número sale de la lista de episodios, que es la misma petición que dibuja
-   * las flechas. Si esa petición falla, la pantalla sigue reproduciendo y la
-   * etiqueta se queda con el nombre que el proveedor le haya dado: el episodio
-   * es un adorno del título, no al revés.
+   * El número sale de los vecinos: con `?n=` es el de la dirección, y sin él el
+   * que traía la primera página. Si esa lectura falla, la pantalla sigue
+   * reproduciendo y la etiqueta se queda sin número: el episodio es un adorno del
+   * título, no al revés.
    */
-  const episodioActual = episodios.find((episodio) => episodio.ref.value === props.ref)
-  const etiquetaEpisodio = episodeLabel(
-    posicionEpisodio?.number ?? episodioActual?.number,
-    episodioActual?.title,
-  )
+  const etiquetaEpisodio = episodeLabel(posicionEpisodio?.number, posicionEpisodio?.title)
 
   // La pestaña y el encabezado dicen lo mismo: el nombre del título y por qué
   // episodio va. Es lo que distingue dos pestañas de la misma aplicación.
@@ -316,11 +460,13 @@ export function WatchPage(props: WatchPageProps): ReactNode {
    * fallo.
    *
    * El modo con el que se está viendo viaja en la dirección: si alguien cambió a
-   * doblado, el episodio siguiente se abre doblado y no vuelve a preguntarlo.
+   * doblado, el episodio siguiente se abre doblado y no vuelve a preguntarlo. Y el
+   * número viaja también, para que la pantalla que se abra no tenga que pedir la
+   * lista entera para saber cuáles son **sus** vecinos.
    */
   const navegacion = (
     <nav className="watch__nav" aria-label={t(DEFAULT_LOCALE, 'player.episodes')}>
-      {vecinos.previous === undefined ? (
+      {vecinos?.previous === undefined ? (
         <span className="watch__nav-off" title={t(DEFAULT_LOCALE, 'player.firstEpisode')}>
           <EpisodeArrow towards="previous" />
           {t(DEFAULT_LOCALE, 'player.previousEpisode')}
@@ -329,9 +475,10 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         <Link
           className="watch__nav-link"
           title={t(DEFAULT_LOCALE, 'player.previousEpisode')}
-          to={watchPath(props.providerId, vecinos.previous.value, {
+          to={watchPath(props.providerId, vecinos.previous.ref.value, {
             mode: modo,
             anime: animeValue,
+            n: vecinos.previous.number,
           })}
         >
           <EpisodeArrow towards="previous" />
@@ -341,14 +488,19 @@ export function WatchPage(props: WatchPageProps): ReactNode {
 
       {posicionEpisodio === undefined ? null : (
         <span className="watch__nav-pos">
-          {t(DEFAULT_LOCALE, 'player.episodeOf', {
-            number: posicionEpisodio.number,
-            total: posicionEpisodio.total,
-          })}
+          {/* Con total se dice «de 26»; sin él, sólo el número. El total de un
+              episodio suelto no lo trae nadie, así que inventarlo sería mentir
+              sobre cuánto queda. */}
+          {posicionEpisodio.total === undefined
+            ? t(DEFAULT_LOCALE, 'player.episode', { number: posicionEpisodio.number })
+            : t(DEFAULT_LOCALE, 'player.episodeOf', {
+                number: posicionEpisodio.number,
+                total: posicionEpisodio.total,
+              })}
         </span>
       )}
 
-      {vecinos.next === undefined ? (
+      {vecinos?.next === undefined ? (
         <span className="watch__nav-off" title={t(DEFAULT_LOCALE, 'player.lastEpisode')}>
           {t(DEFAULT_LOCALE, 'player.nextEpisode')}
           <EpisodeArrow towards="next" />
@@ -357,9 +509,10 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         <Link
           className="watch__nav-link"
           title={t(DEFAULT_LOCALE, 'player.nextEpisode')}
-          to={watchPath(props.providerId, vecinos.next.value, {
+          to={watchPath(props.providerId, vecinos.next.ref.value, {
             mode: modo,
             anime: animeValue,
+            n: vecinos.next.number,
           })}
         >
           {t(DEFAULT_LOCALE, 'player.nextEpisode')}
