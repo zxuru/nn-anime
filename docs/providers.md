@@ -37,13 +37,19 @@ Un proveedor es un objeto con:
 | `id` | Identificador corto, en minúsculas y con guiones. Es el que aparece en las rutas |
 | `name` | Nombre visible |
 | `apiVersion` | Versión del contrato. Hoy `1` |
-| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending`, `feed` |
+| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending`, `feed`, `episodePages` |
 | `search(query, options)` | Busca títulos |
 | `getAnime(ref, options)` | Detalle de un título |
 | `getEpisodes(ref, options)` | Lista de episodios |
 | `resolveStream(request, options)` | Enlaces de reproducción de un episodio |
 | `getTrending(options)` | **Opcional.** Lo que está de moda |
 | `getFeed(options)` | **Opcional.** Novedades de la fuente, con su fecha de publicación |
+| `getEpisodesPage(ref, page, options)` | **Opcional.** Una página de episodios |
+| `getEpisode(ref, number, options)` | **Opcional.** Un episodio por su número |
+| `getLatestEpisode(ref, options)` | **Opcional.** El último episodio del título |
+
+Los tres últimos van juntos y con `capabilities.episodePages: true`: declarar la capacidad sin los
+métodos, o tener los métodos sin declararla, se rechaza al cargar el plugin nombrando lo que falta.
 
 Todos los métodos devuelven `Promise<Result<T, ProviderError>>` o lanzan: el SDK convierte lo que se
 lance en un `Result` fallido, así que **no hace falta envolver nada a mano**.
@@ -160,6 +166,78 @@ Tres cosas que conviene saber antes de escribirlo:
   llena el disco ni pinta mil tarjetas.
 - **La respuesta se valida antes de salir.** Una fecha que no es ISO-8601 se rechaza nombrando el
   campo, así que no llega a la caché.
+
+### Si tu fuente pagina los episodios
+
+Traer el catálogo entero para pintar una ventana del selector es lo que convierte una serie de mil
+doscientos episodios en 76 peticiones seguidas, y lo que hace que un sitio que limita por ráfaga
+responda 429 y te deje sin nada. Se declara con `capabilities.episodePages: true` y se implementan
+los **tres** métodos:
+
+```ts
+const proveedor = {
+  // …lo de arriba…
+  capabilities: { search: true, sub: true, dub: false, trending: false, episodePages: true },
+
+  async getEpisodesPage(ref, page, options) {
+    void options
+    // `page` se numera desde 1 y el tamaño de la página lo decides tú: el
+    // contrato no lo fija. `hasMore` no se deduce de que la página venga llena:
+    // en el borde del catálogo una página puede venir corta sin ser la última.
+    return {
+      episodes: [
+        {
+          ref: { providerId: 'mi-proveedor', value: `${ref.value}#1` },
+          animeRef: ref,
+          number: 1,
+          mode: 'sub',
+        },
+      ],
+      page,
+      hasMore: true,
+      total: 26, // opcional: sin él, el selector no promete un total
+    }
+  },
+
+  async getEpisode(ref, number, options) {
+    void options
+    // Un número que no existe se dice aquí, con su motivo: la interfaz lo enseña
+    // tal cual. Devolver un episodio inventado deja el fallo para el reproductor.
+    return {
+      ref: { providerId: 'mi-proveedor', value: `${ref.value}#${number}` },
+      animeRef: ref,
+      number,
+      mode: 'sub',
+    }
+  },
+
+  async getLatestEpisode(ref, options) {
+    void options
+    // El último de la fuente, no el mayor de una página: si tu sitio ordena al
+    // revés, el que manda es el número.
+    return {
+      ref: { providerId: 'mi-proveedor', value: `${ref.value}#26` },
+      animeRef: ref,
+      number: 26,
+      mode: 'sub',
+    }
+  },
+}
+```
+
+Cuatro cosas que conviene saber antes de escribirlos:
+
+- **Los números son de la fuente, no un índice.** Un `12.5` es un episodio válido —así numera el
+  sitio los recopilatorios— y un hueco no se rellena: si tu fuente numera 1, 2, 4, eso es lo que se
+  pinta.
+- **Las páginas se cachean cinco minutos** en la aplicación. Tú no guardes nada entre llamadas: el
+  plugin se ejecuta en el proceso del servidor y su estado no sobrevive a un reinicio.
+- **Si no declaras la capacidad, el servidor trocea por ti**: pide `getEpisodes` una vez, lo cachea
+  con su TTL de siempre y sirve páginas de 100. Es el camino de un plugin que tiene la lista entera,
+  y el que deja a un plugin escrito antes de esto con su selector completo.
+- **Un 429 no es un error de datos.** Si tu sitio limita por ráfaga, deja de pedirle durante un rato
+  —el plugin de jkanime espera 65 s— y dilo en el mensaje: la interfaz enseña el motivo, y un «el
+  proveedor no dio ninguna fuente» sin motivo no se puede arreglar desde fuera.
 
 ## Comprobar que conforma
 
