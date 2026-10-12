@@ -258,7 +258,7 @@ topes, los dos hosts de la descarga, la carpeta `<dataDir>/repos/<usuario>__<rep
 ## Estado final
 
 Las siete tareas están hechas e integradas en `main`, cada una con su commit y su cierre en
-`tasks/done/`:
+`tasks/done/`, más dos correcciones que salieron de la comprobación en vivo:
 
 | Task | Qué dejó | Commit |
 |---|---|---|
@@ -269,11 +269,29 @@ Las siete tareas están hechas e integradas en `main`, cada una con su commit y 
 | T102 | `cli`: arrancar con los repositorios habilitados | `feat(cli): arrancar con los proveedores… (T102)` |
 | T103 | `web`: la sección de repositorios en Ajustes | `feat(web): la seccion de repositorios en Ajustes (T103)` |
 | T104 | Documentación: qué se instala, qué se ejecuta y qué no | `docs: los proveedores de un repositorio… (T104)` |
+| T105 | `provider-sdk`: una declaración de tipos no es un proveedor | `fix(provider-sdk): una declaracion de tipos… (T105)` |
+| T106 | `server`: el rechazo se llama por su archivo, también en Windows | `fix(server): el rechazo se llama por su archivo… (T106)` |
+
+### Comprobación en vivo, con el servidor de verdad
+
+Sobre un repositorio público real, `sindresorhus/is-plain-obj` (8 archivos), con la sesión canjeada y
+las cabeceras de `Host` y `Origin`:
+
+| Paso | Resultado |
+|---|---|
+| `POST /api/provider-repos` con `sindresorhus/is-plain-obj` | 201, `ref: main`, 8 archivos, candidatos `index.d.ts` e `index.js`, `enabled: []` y **cero proveedores activos** |
+| `PATCH` con `enabled: ["index.js"]` | 200; `/api/providers` lo enseña como **rechazado con su motivo** («expected object, received function»): el archivo no es un proveedor y el error llega con nombre |
+| `DELETE` | 204, la copia en `repos/` desaparece y `/api/providers` queda vacío |
+
+De ahí salieron T105 —`index.d.ts` se ofrecía como proveedor— y T106 —el rechazo se llamaba por la ruta
+entera, porque `fileStem` partía sólo por `/`—.
 
 **Lo que no está medido, y se declara:** el gesto de marcar una casilla y guardar en el navegador no lo
 mide ninguna prueba unitaria, porque `packages/web` no tiene arnés de DOM. Lo que sí está medido del
 camino completo es el `PATCH` del servidor con el loader real, y el e2e queda como el sitio donde
-medirlo cuando se extienda.
+medirlo cuando se extienda. `bun run build` tampoco se pudo correr aquí: Vite lanza `esbuild` como
+proceso hijo y el sandbox de Windows no deja crear la tubería —el mismo límite que impide ejecutar el
+gancho de git—.
 
 **Lo que este trabajo NO hizo:** no hay token ni repositorios privados, no hay actualización automática
 —actualizar es un botón— y no hay e2e de la sección.
