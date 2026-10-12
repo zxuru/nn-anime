@@ -10,11 +10,15 @@ sobre él.
 
 Fecha: revisión sobre `8c27922`.
 
-**Estado: S1 y S2 aplicados.** El parche de S1 vive en `ipv6Rule()` (`destination-guard.ts`) con sus
-pruebas en `destination-guard.test.ts` y en `tests/seguridad.test.ts`; el de S2 es
-`maxRequestBodySize` en `startServer()` (`packages/server/src/index.ts`), con la prueba de frontera en
-`tests/limite-cuerpo.test.ts`. `bun test`: 1568 pruebas, 0 fallos. `bun run typecheck`: limpio. Los
-otros ocho siguen pendientes.
+**Estado: los nueve aplicables, aplicados; S5 no se aplica y se declara.** El parche de S1 vive en
+`ipv6Rule()` (`destination-guard.ts`) con sus pruebas en `destination-guard.test.ts` y en
+`tests/seguridad.test.ts`; el de S2 es `maxRequestBodySize` en `startServer()`
+(`packages/server/src/index.ts`), con la prueba de frontera en `tests/limite-cuerpo.test.ts`. S3, S4,
+S6, S7, S8, S9 y S10 se aplicaron después de una auditoría previa a publicar el repositorio, cada uno
+con su prueba y con la prueba medida mutando la implementación. S5 —el limitador de tasa— se decide
+**no** aplicar y queda como riesgo residual número 4 de `SECURITY.md`, con el motivo escrito: es una
+aplicación local de un solo usuario y un contador en memoria no cierra nada que no cierren ya el guard
+de `Host` y la cookie de sesión.
 
 ## Resumen
 
@@ -22,14 +26,14 @@ otros ocho siguen pendientes.
 |---|---|---|---|---|
 | S1 | La lista blanca de destinos acepta IPv4 dentro de IPv6 (`::ffff:…`) | **Crítica** | Bajo | **Aplicado** |
 | S2 | `Bun.serve` sin tope de cuerpo: 128 MiB por petición | Alta | Muy bajo | **Aplicado** |
-| S3 | Faltan cabeceras de seguridad y dos directivas de CSP | Media | Muy bajo | Leído |
-| S4 | Alta de proveedor: `access()` + `writeFile()` sin `wx` (TOCTOU) | Media | Muy bajo | Leído |
-| S5 | Sin límite de tasa en ninguna ruta | Baja | Medio | Leído |
-| S6 | `.gitignore` no cubre `.env*` ni material de claves | Baja | Muy bajo | Leído |
-| S7 | El guard de `Host` no cubre `/` ni los estáticos | Baja | Muy bajo | Leído |
-| S8 | Sin `Cache-Control: no-store` en las respuestas JSON protegidas | Baja | Bajo | Leído |
-| S9 | Sin límite de tiempo hacia el upstream cuando el cliente sigue conectado | Baja | Bajo | Leído |
-| S10 | Sin CI que ejecute auditoría de dependencias y pruebas | Baja | Bajo | Leído |
+| S3 | Faltan cabeceras de seguridad y dos directivas de CSP | Media | Muy bajo | **Aplicado** |
+| S4 | Alta de proveedor: `access()` + `writeFile()` sin `wx` (TOCTOU) | Media | Muy bajo | **Aplicado** |
+| S5 | Sin límite de tasa en ninguna ruta | Baja | Medio | **No se aplica**: riesgo residual 4 de `SECURITY.md` |
+| S6 | `.gitignore` no cubre `.env*` ni material de claves | Baja | Muy bajo | **Aplicado** |
+| S7 | El guard de `Host` no cubre `/` ni los estáticos | Baja | Muy bajo | **Aplicado** |
+| S8 | Sin `Cache-Control: no-store` en las respuestas JSON protegidas | Baja | Bajo | **Aplicado** |
+| S9 | Sin límite de tiempo hacia el upstream cuando el cliente sigue conectado | Baja | Bajo | **Aplicado** (vigilante de inactividad, no plazo total) |
+| S10 | Sin CI que ejecute auditoría de dependencias y pruebas | Baja | Bajo | **Aplicado** |
 
 Lo que ya está bien, y no hay que tocar: la sesión y el token de arranque (32 bytes, comparación en
 tiempo constante, un solo uso, caducidad de 5 min, `HttpOnly; SameSite=Strict`), el guard de `Host`
@@ -360,6 +364,13 @@ for (const prefix of PROTECTED_PREFIXES) {
 Comprobar que el e2e y `bun run start` siguen entrando: ambos usan `127.0.0.1:PUERTO`, que es lo
 único que el guard admite.
 
+**Aplicado, y con una consecuencia que conviene leer.** La prueba `app.test.ts` que se llamaba «no
+toca las rutas fuera de /api y /stream» fijaba el comportamiento contrario —que `/otra/cosa` con un
+`Host` ajeno **no** daba 403— y se sustituyó por la que ahora se espera: 403 en `/`, en `/otra/cosa` y
+en `/?boot=…` con `Host` ajeno, más una que comprueba que el canje con el `Host` correcto sigue dando
+302. Un guard que se salta una ruta no es un guard, y el precio de arreglarlo era cambiar una prueba
+que decía lo contrario.
+
 ---
 
 ## S8 · Baja · Respuestas JSON protegidas sin `no-store`
@@ -386,6 +397,14 @@ tiempo.
 Un `AbortSignal.timeout(30_000)` combinado con la señal del cliente cierra el caso sin tocar nada
 más. Es defensa contra un tercero hostil, no contra el usuario.
 
+**Lo aplicado no es ese parche, y a propósito.** `AbortSignal.timeout` es un plazo **total**: empieza
+a contar al crear la señal y dispara a los treinta segundos pase lo que pase. Aplicado aquí, mataría
+la reproducción a los treinta segundos de empezar, porque un episodio de dos horas tarda dos horas en
+llegar. Lo que hay es un vigilante de **inactividad** en `byte-proxy.ts` (`IDLE_TIMEOUT_MS`), que se
+rearma con cada trozo que llega del upstream: corta el silencio, no la descarga. La prueba que
+distingue los dos está en `byte-proxy.test.ts` —cinco trozos cada 8 ms con un plazo de 15 ms: pasa con
+el vigilante y falla con un plazo total— y se midió mutando la implementación para comprobarlo.
+
 ---
 
 ## S10 · Baja · Sin CI
@@ -405,13 +424,20 @@ comentario.
 
 ## Orden de aplicación
 
+Se aplicaron así, cada uno con su commit y su prueba:
+
 1. **S1** — parche, pruebas nuevas, `bun test`, `bun run typecheck`.
 2. **S2, S4** — dos líneas cada uno, con su prueba.
 3. **S3** — cabeceras y ampliación de `security-headers.test.ts`.
 4. **S6, S7** — una línea cada uno.
-5. **S8, S9, S5, S10** — opcionales, por este orden.
+5. **S8, S9, S10** — opcionales, por este orden.
+6. **S5** — no se aplica; queda escrito como riesgo residual en `SECURITY.md`.
 
 S1 y S2 no se solapan con nada de lo documentado en `SECURITY.md`: el riesgo residual número 2 (DNS
-rebinding) sigue siendo cierto y no lo cierra ninguno de los dos. Conviene añadir a `SECURITY.md`
-—y con ello a la pantalla de Ajustes, que lee ese mismo archivo— una línea sobre IPv4 embebida una
-vez aplicado el parche, porque la lista blanca de destinos pasa a tener dos reglas en lugar de tres.
+rebinding) sigue siendo cierto y no lo cierra ninguno de los dos. La línea sobre IPv4 embebida se
+añadió a `SECURITY.md` —y con ello a la pantalla de Ajustes, que lee ese mismo archivo— cuando se
+aplicó el parche.
+
+Sobre la tabla de amenazas de `SECURITY.md`: se amplió con las filas de S3, S4, S7, S8 y S9, y **no**
+se le añadió una segunda tabla, porque `security-notice.test.tsx` fija que haya exactamente una y con
+tres columnas.
