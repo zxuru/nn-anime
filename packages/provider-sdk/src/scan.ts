@@ -51,6 +51,18 @@ export const SCAN_SKIPPED_DIRECTORIES: readonly string[] = [
 /** Un archivo de pruebas no es un proveedor aunque exporte uno. */
 const TEST_FILE_RE = /\.(test|spec|e2e)\.[^.]+$/
 
+/**
+ * Un archivo de declaración de tipos tampoco.
+ *
+ * `index.d.ts` termina en `.ts`, contiene `export default` —declara el tipo de lo
+ * que el módulo exporta— y no se puede ejecutar: importarlo no da un proveedor,
+ * da nada. Ofrecerlo es una casilla que sólo puede acabar en un rechazo, y quien
+ * la marca no tiene por qué saber que un `.d.ts` no es código. Salió del primer
+ * repositorio real que se instaló con esto: `sindresorhus/is-plain-obj`, con su
+ * `index.d.ts` al lado de su `index.js`.
+ */
+const DECLARATION_FILE_RE = /\.d\.ts$/
+
 /** Hasta dónde se baja. Un repo de proveedores no anida doce carpetas. */
 export const SCAN_MAX_DEPTH = 12
 
@@ -205,6 +217,7 @@ async function pluginFilesIn(
       if (!entry.isFile()) continue
       if (!isPluginFile(entry.name)) continue
       if (TEST_FILE_RE.test(entry.name)) continue
+      if (DECLARATION_FILE_RE.test(entry.name)) continue
 
       if (files.length >= limits.maxFiles) {
         truncated = true
