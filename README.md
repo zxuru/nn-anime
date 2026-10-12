@@ -80,6 +80,10 @@ que v1 no necesita. Requiere Bun en la máquina, y por eso está declarado en `e
 Las rutas exactas en uso se ven en **Ajustes**, dentro de la aplicación. Se respetan `XDG_DATA_HOME`,
 `XDG_CONFIG_HOME` y `XDG_CACHE_HOME`.
 
+Las variables de entorno que lee la aplicación están inventariadas en `.env.example`, sin ningún valor
+real. Ninguna es obligatoria y ninguna lleva un secreto: los directorios se pueden cambiar por ahí, y
+también `NN_ANIME_LANG` para el idioma. Copiar el archivo a `.env` es opcional; Bun lo carga solo.
+
 ## Aviso de seguridad: los plugins se ejecutan sin sandbox
 
 **Un plugin se ejecuta con tus permisos y sin aislamiento.** Puede leer y escribir lo mismo que tú. No
@@ -101,6 +105,11 @@ alojamiento de contenido. Lo que hay es:
 
 **Conseguir las fuentes es responsabilidad de quien usa el programa.** Escribe tu propio plugin, o usa
 uno que respete las condiciones del sitio del que salen los datos.
+
+Los proveedores que escribimos para sitios reales no viven aquí, viven en su propio repositorio:
+[nn-anime-plugins](https://github.com/zxuru/nn-anime-plugins). Se copian a
+`~/.config/nn-anime/providers/` y la aplicación los carga al arrancar. La separación es deliberada: es
+lo que permite que este repositorio siga sin incluir un solo scraper.
 
 ## Documentación
 

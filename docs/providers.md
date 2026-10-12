@@ -3,6 +3,10 @@
 Un plugin es **un archivo `.ts`** que exporta por defecto un objeto que cumple el contrato. Se copia a
 `~/.config/nn-anime/providers/` y la aplicación lo carga al arrancar.
 
+Los proveedores de sitios reales que escribimos viven en su propio repositorio,
+[nn-anime-plugins](https://github.com/zxuru/nn-anime-plugins), y de ahí se copian a esa misma carpeta.
+Este repositorio no incluye ninguno: publica el contrato y un plugin de prueba con datos inventados.
+
 > **Un plugin se ejecuta con tus permisos y sin sandbox.** Puede leer y escribir lo mismo que tú.
 > Cópialo sólo si sabes de dónde viene. El detalle está en [SECURITY.md](../SECURITY.md).
 
