@@ -108,23 +108,25 @@ filtro de pruebas 1, sin el de directorios de trabajo 1, sin el de lo oculto 1.
 descargar los archivos, con lista blanca de hosts, validación de rutas y topes.
 
 **Aceptación:**
-- [ ] Sólo se piden `api.github.com` y `raw.githubusercontent.com`; cualquier otro host es un error
-      antes de abrir la conexión, aunque la comprobación de destino lo dejara pasar.
-- [ ] Cada petición pasa por `fetchAllowed` con el resolutor inyectado: la comprobación de red privada
+- [x] Sólo se piden `api.github.com`, `raw.githubusercontent.com` y el host canónico `github.com`;
+      cualquier otro host es un error antes de abrir la conexión, aunque la comprobación de destino lo
+      dejara pasar.
+- [x] Cada petición pasa por `fetchAllowed` con el resolutor inyectado: la comprobación de red privada
       y loopback se aplica también aquí, y en cada salto de redirección.
-- [ ] Sin `ref`, la rama por defecto se pregunta una vez (`GET /repos/{o}/{r}`); con `ref`, se pide el
+- [x] Sin `ref`, la rama por defecto se pregunta una vez (`GET /repos/{o}/{r}`); con `ref`, se pide el
       árbol directamente. Un 404 explica que el repositorio o la referencia no existen.
-- [ ] El árbol truncado por GitHub es un error explícito: instalar la mitad de un repo es peor que no
+- [x] El árbol truncado por GitHub es un error explícito: instalar la mitad de un repo es peor que no
       instalarlo.
-- [ ] Una ruta con `..`, absoluta, con barra invertida, con NUL o con unidad de Windows se rechaza y
+- [x] Una ruta con `..`, absoluta, con barra invertida, con NUL o con unidad de Windows se rechaza y
       **no** se escribe nada fuera del directorio de destino; se comprueba con una ruta hostil.
-- [ ] Se saltan binarios y directorios de trabajo (`node_modules`, `.git`, `.github`, `dist`, `build`,
+- [x] Se saltan binarios y directorios de trabajo (`node_modules`, `.git`, `.github`, `dist`, `build`,
       `coverage`) y se respetan los tres topes: 400 archivos, 512 KiB por archivo, 8 MiB en total.
-- [ ] La descarga se escribe primero en un directorio temporal dentro del destino y se mueve al
+- [x] La descarga se escribe primero en un directorio temporal dentro del destino y se mueve al
       definitivo al terminar: un fallo a mitad no deja un repo a medias que parezca completo.
 
-**Verificación:** `bun test packages/server` · medido mutando: quitando la lista blanca de hosts falla 1
-(la prueba pide un host ajeno), sin la validación de `..` falla 1, sin el tope de archivos falla 1.
+**Verificación:** `bun test packages/server` · 407 pasan, 0 fallan. Medido mutando: sin la lista blanca
+de hosts 1, sin el tope de archivos 1, sin la comprobación de árbol truncado 1, sin `isSafeRepoPath` 1
+—la ruta hostil llega a `confine`, que aborta—.
 
 **Depende de:** T98. **Tamaño:** M.
 
