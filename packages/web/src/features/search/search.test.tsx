@@ -267,6 +267,34 @@ describe('rejilla y estado vacío', () => {
     expect(html).not.toContain('card__extra')
   })
 
+  /**
+   * La prioridad de los ajustes elige **cuál** de las fuentes da la tarjeta; la
+   * otra sigue en «También en». Mutar `ResultGrid` para no pasar la prioridad a
+   * `groupResults` deja esta prueba en rojo: la tarjeta se quedaría con `jkanime`,
+   * que es el primero que respondió.
+   */
+  test('la tarjeta lleva al proveedor preferido, y el otro sigue en «También en»', () => {
+    const html = render(
+      <ResultGrid
+        query="kimetsu"
+        results={[
+          resultado('jkanime', 'kimetsu', 'Kimetsu no Yaiba'),
+          resultado('animeav1', 'kimetsu-no-yaiba', 'Kimetsu no Yaiba'),
+        ]}
+        providerPriority={['animeav1']}
+      />,
+    )
+
+    // El primer enlace de la rejilla es la tarjeta; el `href` va antes que la
+    // clase, así que se corta desde la etiqueta y no desde `class="card"`.
+    const carta = html.indexOf('<a ')
+    const enlace = html.slice(carta, html.indexOf('</a>', carta))
+
+    expect(enlace).toContain('href="/anime/animeav1/kimetsu-no-yaiba"')
+    expect(html).toContain('También en')
+    expect(html).toContain('>jkanime</a>')
+  })
+
   test('sin resultados dice qué consulta no encontró nada', () => {
     const html = render(<ResultGrid query="xyz" results={[]} />)
 

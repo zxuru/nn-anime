@@ -26,6 +26,12 @@ export interface ResultGridProps {
   readonly results: readonly SearchResult[]
   /** La consulta que produjo estos resultados, para el texto del estado vacío. */
   readonly query: string
+  /**
+   * El orden de preferencia de proveedores, de los ajustes. Decide a qué ficha
+   * lleva la tarjeta cuando la misma obra está en varios; el resto de fuentes
+   * siguen en «También en».
+   */
+  readonly providerPriority?: readonly string[]
   readonly providerLabels?: ReadonlyMap<string, string>
   readonly onPreview?: (result: SearchResult) => void
   readonly onPreviewEnd?: () => void
@@ -49,7 +55,7 @@ export function ResultGrid(props: ResultGridProps): ReactNode {
 
   return (
     <Grid label={t(DEFAULT_LOCALE, 'search.results')}>
-      {groupResults(props.results).map((grupo) => {
+      {groupResults(props.results, props.providerPriority ?? []).map((grupo) => {
         // El grupo nunca está vacío: sale de un resultado que existe.
         const primero = grupo.results[0]
         if (primero === undefined) return null
