@@ -22,6 +22,7 @@ import {
   type RevalidateResource,
   type Revalidator,
   type StoreConnection,
+  type StoredEpisodePage,
   type WriteQueue,
 } from '@nn-anime/catalog-store'
 import type { FeedEntry, StreamRequest, StreamSource } from '@nn-anime/core'
@@ -50,8 +51,11 @@ import {
 import {
   type CallOptions,
   getAnime as fetchAnime,
+  getEpisode as fetchEpisode,
   getEpisodes as fetchEpisodes,
+  getEpisodesPage as fetchEpisodesPage,
   getFeed as fetchFeed,
+  getLatestEpisode as fetchLatestEpisode,
   resolveStream as fetchStream,
   getTrending as fetchTrending,
   type Provider,
@@ -68,6 +72,17 @@ import { type CacheOutcome, readThrough } from './cache-read'
  * lo que recibe.
  */
 export const MAX_FEED_ENTRIES = 200
+
+/**
+ * Cuántos episodios trae cada página cuando el proveedor **no** sabe paginar.
+ *
+ * El troceado es del servidor y no de la interfaz, para que el selector tenga un
+ * solo camino: con página del proveedor o sin ella, la respuesta es una página.
+ * Son los mismos 100 que recorta la ventana de pintado de la web
+ * (`EPISODE_WINDOW`), pero no se importan de allí: el servidor no depende de la
+ * web, y el día que el número cambie en un sitio el otro tiene que decidirlo.
+ */
+export const EPISODES_PER_PAGE = 100
 
 /** Clave de caché de una búsqueda: el proveedor y la consulta normalizada. */
 export function searchKey(providerId: string, query: string): string {
@@ -108,6 +123,38 @@ export interface ServerContainer {
     ref: ProviderRef,
     callOptions: CallOptions,
   ): Promise<Result<CacheOutcome<readonly Episode[]>, ProviderError>>
+  /**
+   * Una página del selector, con la caché de cinco minutos o la de la lista.
+   *
+   * Aquí vive la decisión de dónde sale la página: del proveedor, si declara
+   * `episodePages`, o del troceado de la lista completa que ya cachea
+   * `getEpisodes`. La ruta no sabe cuál de los dos caminos se tomó.
+   */
+  getEpisodesPage(
+    provider: Provider,
+    ref: ProviderRef,
+    page: number,
+    callOptions: CallOptions,
+  ): Promise<Result<CacheOutcome<StoredEpisodePage>, ProviderError>>
+  /**
+   * Un episodio por su número, con el proveedor o desde la lista cacheada.
+   *
+   * No tiene caché propia: lo que se pide una vez —un salto a un número— no se
+   * vuelve a pedir en la misma sesión, y el número suelto no es una lista que
+   * merezca una tabla. La lista cacheada sí es la de `getEpisodes`.
+   */
+  getEpisode(
+    provider: Provider,
+    ref: ProviderRef,
+    number: number,
+    callOptions: CallOptions,
+  ): Promise<Result<Episode, ProviderError>>
+  /** El último episodio del título, con el proveedor o desde la lista cacheada. */
+  getLatestEpisode(
+    provider: Provider,
+    ref: ProviderRef,
+    callOptions: CallOptions,
+  ): Promise<Result<Episode, ProviderError>>
   /** Resultados de un proveedor, con caché y refresco por detrás si toca. */
   searchProvider(
     provider: Provider,
@@ -247,6 +294,26 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     }
   }
 
+  /**
+   * El título tiene que existir antes de colgarle nada.
+   *
+   * La clave foránea lo exige: sin la fila del anime, guardar episodios o
+   * páginas falla. Si no está, se pide el detalle primero —una llamada más en el
+   * peor caso— en lugar de escribir filas huérfanas que no se podrían leer.
+   */
+  const ensureAnime = async (
+    provider: Provider,
+    ref: ProviderRef,
+    callOptions: CallOptions,
+  ): Promise<Result<unknown, ProviderError>> => {
+    if ((await store.readAnime(ref)) !== null) return ok(undefined)
+
+    const detalle = await loadAnime(provider, ref, callOptions)
+    if (!detalle.ok) return detalle
+
+    return ok(undefined)
+  }
+
   const loadEpisodes = async (
     provider: Provider,
     ref: ProviderRef,
@@ -254,14 +321,8 @@ export function createContainer(options: ContainerOptions): ServerContainer {
   ): Promise<Result<CacheOutcome<readonly Episode[]>, ProviderError>> => {
     const clave = `${provider.id}#${ref.value}`
 
-    // La lista de episodios pertenece a un anime, y la clave foránea lo exige:
-    // sin la fila del título, guardar episodios falla. Si no está, se pide el
-    // detalle primero —una llamada más en el peor caso— en lugar de escribir
-    // episodios huérfanos que no se podrían leer.
-    if ((await store.readAnime(ref)) === null) {
-      const detalle = await loadAnime(provider, ref, callOptions)
-      if (!detalle.ok) return detalle
-    }
+    const titulo = await ensureAnime(provider, ref, callOptions)
+    if (!titulo.ok) return titulo
 
     try {
       const outcome = await readThrough<readonly Episode[]>({
@@ -287,6 +348,107 @@ export function createContainer(options: ContainerOptions): ServerContainer {
       return ok(outcome)
     } catch (cause) {
       return err(asProviderError(cause, provider.id, 'getEpisodes'))
+    }
+  }
+
+  /**
+   * Una página del selector.
+   *
+   * Dos caminos según lo que el proveedor sepa hacer, y la ruta ve uno solo:
+   *
+   * - Con `episodePages`, la página se pide tal cual y se cachea cinco minutos.
+   *   Un acierto **no vencido** se sirve sin red; una página vencida se vuelve a
+   *   pedir, sin rama «vieja servible», como el stream: una ventana de ayer no
+   *   se sirve un poco vieja, se pide otra vez.
+   * - Sin la capacidad, se pide la lista completa de siempre —con su caché de
+   *   seis horas— y se trocea aquí. El troceado es del servidor para que el
+   *   selector tenga un solo camino: un plugin viejo no se queda sin páginas.
+   */
+  const loadEpisodesPage = async (
+    provider: Provider,
+    ref: ProviderRef,
+    page: number,
+    callOptions: CallOptions,
+  ): Promise<Result<CacheOutcome<StoredEpisodePage>, ProviderError>> => {
+    try {
+      if (provider.capabilities.episodePages === true) {
+        // La página cuelga del título: sin su fila, la escritura falla.
+        const titulo = await ensureAnime(provider, ref, callOptions)
+        if (!titulo.ok) return titulo
+
+        const guardada = await store.readEpisodePage(ref, page)
+        if (guardada !== null && !guardada.stale) {
+          return ok({ value: guardada.value, source: 'hit' })
+        }
+
+        const resultado = await fetchEpisodesPage(provider, ref, page, callOptions)
+        if (!resultado.ok) return err(resultado.error)
+
+        await store.writeEpisodePage(ref, page, resultado.value)
+
+        return ok({ value: resultado.value, source: 'miss' })
+      }
+
+      const lista = await loadEpisodes(provider, ref, callOptions)
+      if (!lista.ok) return lista
+
+      return ok({ value: sliceEpisodesPage(lista.value.value, page), source: lista.value.source })
+    } catch (cause) {
+      return err(asProviderError(cause, provider.id, 'getEpisodesPage'))
+    }
+  }
+
+  /** Un episodio por número: del proveedor o de la lista cacheada. */
+  const loadEpisode = async (
+    provider: Provider,
+    ref: ProviderRef,
+    number: number,
+    callOptions: CallOptions,
+  ): Promise<Result<Episode, ProviderError>> => {
+    try {
+      if (provider.capabilities.episodePages === true) {
+        return await fetchEpisode(provider, ref, number, callOptions)
+      }
+
+      const lista = await loadEpisodes(provider, ref, callOptions)
+      if (!lista.ok) return lista
+
+      const encontrado = lista.value.value.find((episodio) => episodio.number === number)
+      if (encontrado === undefined) return err(episodeNotFound(provider, ref, number))
+
+      return ok(encontrado)
+    } catch (cause) {
+      return err(asProviderError(cause, provider.id, 'getEpisode'))
+    }
+  }
+
+  /** El último episodio: del proveedor o el mayor de la lista cacheada. */
+  const loadLatestEpisode = async (
+    provider: Provider,
+    ref: ProviderRef,
+    callOptions: CallOptions,
+  ): Promise<Result<Episode, ProviderError>> => {
+    try {
+      if (provider.capabilities.episodePages === true) {
+        return await fetchLatestEpisode(provider, ref, callOptions)
+      }
+
+      const lista = await loadEpisodes(provider, ref, callOptions)
+      if (!lista.ok) return lista
+
+      // «El mayor número de la lista», no el último de la lista: una fuente
+      // puede servir los episodios en cualquier orden y el último del título es
+      // el que numera más alto.
+      let ultimo: Episode | undefined
+      for (const episodio of lista.value.value) {
+        if (ultimo === undefined || episodio.number > ultimo.number) ultimo = episodio
+      }
+
+      if (ultimo === undefined) return err(episodesEmpty(provider, ref))
+
+      return ok(ultimo)
+    } catch (cause) {
+      return err(asProviderError(cause, provider.id, 'getLatestEpisode'))
     }
   }
 
@@ -370,6 +532,9 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     mpv,
     getAnime: loadAnime,
     getEpisodes: loadEpisodes,
+    getEpisodesPage: loadEpisodesPage,
+    getEpisode: loadEpisode,
+    getLatestEpisode: loadLatestEpisode,
     getFeed: loadFeed,
     getTrending: loadTrending,
     resolveStream: loadStream,
@@ -412,6 +577,51 @@ export function createContainer(options: ContainerOptions): ServerContainer {
       await store.close()
     },
   }
+}
+
+/**
+ * Trocea la lista completa en la página pedida.
+ *
+ * `hasMore` sale del trozo y no del tamaño: la última página puede venir
+ * incompleta y eso no significa que haya más. `total` es la longitud de la lista
+ * porque aquí sí se conoce entera; con un proveedor que pagina lo dice él, y si
+ * no lo dice no se inventa.
+ */
+function sliceEpisodesPage(episodes: readonly Episode[], page: number): StoredEpisodePage {
+  const desde = (page - 1) * EPISODES_PER_PAGE
+
+  return {
+    episodes: episodes.slice(desde, desde + EPISODES_PER_PAGE),
+    page,
+    hasMore: desde + EPISODES_PER_PAGE < episodes.length,
+    total: episodes.length,
+  }
+}
+
+/**
+ * El número pedido no está en la lista: es un 404, no una página vacía.
+ *
+ * El `estado` del contexto es el que ya lee `statusForEpisodes` para decidir el
+ * estado HTTP: inventar aquí un código nuevo obligaría a la ruta a distinguir un
+ * fallo del proveedor de un hueco de numeración, y los dos son «no está».
+ */
+function episodeNotFound(provider: Provider, ref: ProviderRef, number: number): ProviderError {
+  return new ProviderError({
+    message: `el título ${ref.value} de ${provider.id} no tiene ningún episodio con el número ${number}`,
+    scope: provider.id,
+    op: 'getEpisode',
+    context: { estado: 404 },
+  })
+}
+
+/** Un título sin episodios no tiene último: 404 con el motivo, no un hueco. */
+function episodesEmpty(provider: Provider, ref: ProviderRef): ProviderError {
+  return new ProviderError({
+    message: `el título ${ref.value} de ${provider.id} no tiene episodios`,
+    scope: provider.id,
+    op: 'getLatestEpisode',
+    context: { estado: 404 },
+  })
 }
 
 /** Cualquier fallo se convierte en el error del proveedor que lo causó. */
