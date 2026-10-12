@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'
-import { ProviderList } from './ProviderList'
+import { moved, ProviderList, providersByPriority } from './ProviderList'
 import { RegisterProvider } from './RegisterProvider'
 import { SettingsPage } from './SettingsPage'
 import { resolvedTheme, ThemeToggle, themeAttribute } from './ThemeToggle'
@@ -101,6 +101,66 @@ describe('lista de proveedores', () => {
 
   test('sin proveedores lo dice', () => {
     expect(render(<ProviderList providers={[]} />)).toContain('No hay ningún proveedor instalado')
+  })
+})
+
+describe('la prioridad de proveedor', () => {
+  const UNO = { id: 'uno', name: 'Uno', capabilities: CAPACIDADES, status: 'active' as const }
+  const DOS = { id: 'dos', name: 'Dos', capabilities: CAPACIDADES, status: 'active' as const }
+  const ROTO = {
+    id: 'roto',
+    name: 'roto.ts',
+    capabilities: { search: false, sub: false, dub: false, trending: false, feed: false },
+    status: 'rejected' as const,
+    reason: 'no exporta un proveedor válido',
+  }
+
+  test('el orden guardado manda sobre el orden en que cargaron', () => {
+    // Mutar `providersByPriority` para devolver la lista tal cual deja esta prueba
+    // en rojo: el preferido no sube.
+    expect(providersByPriority([UNO, DOS], ['dos']).map((p) => p.id)).toEqual(['dos', 'uno'])
+  })
+
+  test('un proveedor que la lista no nombra no desaparece: va después', () => {
+    // Un id que ya no existe no puede llevarse por delante a los que sí están.
+    expect(providersByPriority([UNO, DOS], ['fantasma']).map((p) => p.id)).toEqual(['uno', 'dos'])
+  })
+
+  test('los rechazados van al final, aunque la lista los nombre', () => {
+    expect(providersByPriority([ROTO, UNO], ['roto']).map((p) => p.id)).toEqual(['uno', 'roto'])
+  })
+
+  test('mover intercambia el puesto con el de al lado', () => {
+    expect(moved(['uno', 'dos', 'tres'], 2, 1)).toEqual(['uno', 'tres', 'dos'])
+  })
+
+  test('el primero no sube y el último no baja', () => {
+    // Los tres casos distinguen el guardián del rango de no tenerlo: sin él,
+    // mover fuera de la lista reordena igual —`splice` recorta por su cuenta— y
+    // la lista sale distinta de la que entró.
+    expect(moved(['uno', 'dos', 'tres'], 0, -1)).toEqual(['uno', 'dos', 'tres'])
+    expect(moved(['uno', 'dos', 'tres'], 1, -2)).toEqual(['uno', 'dos', 'tres'])
+    expect(moved(['uno', 'dos', 'tres'], 1, 3)).toEqual(['uno', 'dos', 'tres'])
+  })
+
+  test('el preferido se marca y el suyo es el botón de subir deshabilitado', () => {
+    const html = render(
+      <ProviderList providers={[UNO, DOS]} priority={['dos']} onReorder={() => {}} />,
+    )
+
+    expect(html).toContain('preferido')
+    // El de arriba no puede subir más; el de abajo sí puede bajar por su cuenta
+    // hasta la última posición, así que su «Bajar» está deshabilitado.
+    expect(html).toMatch(/disabled=""[^>]*aria-label="Subir Dos"/)
+    expect(html).toMatch(/disabled=""[^>]*aria-label="Bajar Uno"/)
+    expect(html).not.toMatch(/disabled=""[^>]*aria-label="Subir Uno"/)
+  })
+
+  test('sin quien guarde el orden, no se ofrecen los botones', () => {
+    const html = render(<ProviderList providers={[UNO, DOS]} priority={['dos']} />)
+
+    expect(html).toContain('preferido')
+    expect(html).not.toContain('Subir')
   })
 })
 

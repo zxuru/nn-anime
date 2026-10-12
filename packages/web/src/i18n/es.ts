@@ -135,6 +135,13 @@ export const messages: Messages = {
   'settings.providers.empty': 'No hay ningún proveedor instalado.',
   'settings.provider.active': 'activo',
   'settings.provider.rejected': 'rechazado',
+  'settings.provider.preferred': 'preferido',
+  'settings.priority.body':
+    'Cuando la misma obra está en varios, la tarjeta de la búsqueda lleva al primero de la lista. El orden se guarda solo.',
+  'settings.priority.up': 'Subir {provider}',
+  'settings.priority.down': 'Bajar {provider}',
+  'settings.priority.moveUp': 'Subir',
+  'settings.priority.moveDown': 'Bajar',
   'settings.cap.search': 'búsqueda',
   'settings.cap.sub': 'subtitulado',
   'settings.cap.dub': 'doblado',
