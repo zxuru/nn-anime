@@ -359,3 +359,113 @@ describe('cancelación y memoria', () => {
     expect(JSON.stringify(error.context)).not.toContain('/a/b.mp4')
   })
 })
+
+describe('vigilante de inactividad', () => {
+  /** Un upstream que manda un trozo y después se calla para siempre. */
+  function dormido(init: RequestInit): Promise<Response> {
+    const cuerpo = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(4).fill(65))
+
+        // El vigilante aborta la señal; el cuerpo del upstream hace lo que haría
+        // un `fetch` de verdad al que le abortan la respuesta: termina en error.
+        init.signal?.addEventListener(
+          'abort',
+          () => {
+            controller.error(new Error('el upstream dejó de responder'))
+          },
+          { once: true },
+        )
+      },
+      pull() {
+        // Silencio. No se cierra: el upstream sigue conectado y sin mandar nada.
+        return new Promise<void>(() => {})
+      },
+    })
+
+    return Promise.resolve(
+      new Response(cuerpo, { status: 200, headers: { 'content-type': 'video/mp4' } }),
+    )
+  }
+
+  test('un upstream que se duerme se corta y el cuerpo falla', async () => {
+    const respuesta = await proxy({
+      url: ARCHIVO,
+      headers: {},
+      idleTimeoutMs: 20,
+      fetchImpl: (_url: string, init: RequestInit) => dormido(init),
+    })
+
+    const desenlace = await respuesta.arrayBuffer().then(
+      () => 'completo',
+      () => 'cortado',
+    )
+
+    expect(desenlace).toBe('cortado')
+  })
+
+  test('mientras el upstream dé señales de vida, la conexión sigue', async () => {
+    // Cinco trozos cada 8 ms: 40 ms de reloj, más que el plazo de 15 ms. Pasa
+    // sólo si el plazo se rearma con cada trozo. Un plazo total, que es el
+    // arreglo obvio, mataría aquí la reproducción —y en la vida real, a los
+    // treinta segundos de empezar una película.
+    let enviados = 0
+
+    const respuesta = await proxy({
+      url: ARCHIVO,
+      headers: {},
+      idleTimeoutMs: 15,
+      fetchImpl: (_url: string, init: RequestInit) => {
+        const cuerpo = new ReadableStream<Uint8Array>({
+          async pull(controller) {
+            if (enviados >= 5) {
+              controller.close()
+
+              return
+            }
+
+            enviados += 1
+            await Bun.sleep(8)
+
+            // El upstream de verdad también se entera del abort: si el vigilante
+            // cortó mientras dormía, el trozo no sale. Sin esto la prueba pasaría
+            // con un plazo total, porque nadie rompería el cuerpo.
+            if (init.signal?.aborted === true) {
+              controller.error(new Error('el upstream dejó de responder'))
+
+              return
+            }
+
+            controller.enqueue(new Uint8Array(4).fill(65))
+          },
+        })
+
+        return Promise.resolve(
+          new Response(cuerpo, { status: 200, headers: { 'content-type': 'video/mp4' } }),
+        )
+      },
+    })
+
+    const desenlace = await respuesta.arrayBuffer().then(
+      () => `completo`,
+      () => 'cortado',
+    )
+
+    expect(desenlace).toBe('completo')
+  })
+
+  test('un plazo de cero o menos lo desactiva, para poder medir otra cosa', async () => {
+    const respuesta = await proxy({
+      url: ARCHIVO,
+      headers: {},
+      idleTimeoutMs: 0,
+      fetchImpl: () => dormido({}),
+    })
+
+    const lector = respuesta.body?.getReader()
+    const primero = await lector?.read()
+
+    expect(primero?.value?.byteLength).toBe(4)
+    await lector?.cancel()
+  })
+})

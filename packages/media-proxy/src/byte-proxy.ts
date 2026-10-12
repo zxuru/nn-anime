@@ -107,12 +107,28 @@ export const RASTER_TYPES: readonly string[] = [
 /** Tope de una portada. */
 export const MAX_COVER_BYTES = 5 * 1024 * 1024
 
+/**
+ * Segundos que se espera al upstream antes de darlo por perdido.
+ *
+ * **Es un plazo de inactividad, no un plazo total.** Un episodio de dos horas
+ * tarda dos horas en llegar, y un plazo total mataría la reproducción a los
+ * treinta segundos. Lo que se corta es un upstream que deja de responder, y por
+ * eso el temporizador se rearma con cada trozo que llega.
+ */
+export const IDLE_TIMEOUT_MS = 30_000
+
 export interface ByteProxyRequest {
   readonly url: string
   /** Cabeceras que el proveedor declaró necesarias. Nunca salen del proceso. */
   readonly headers: Readonly<Record<string, string>>
   readonly range?: string | undefined
   readonly signal?: AbortSignal | undefined
+  /**
+   * Inactividad tolerada antes de cortar la conexión con el upstream. Por
+   * defecto, `IDLE_TIMEOUT_MS`. Cero o menos lo desactiva, que es lo que
+   * necesita una prueba que quiere medir otra cosa.
+   */
+  readonly idleTimeoutMs?: number | undefined
   readonly fetchImpl?: FetchLike
   /**
    * Si se indica, sólo se sirven estos tipos. Lo que no esté en la lista se
@@ -158,7 +174,38 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
   }
 
   const maxBytes = request.maxBytes ?? Number.POSITIVE_INFINITY
+  const idleTimeoutMs = request.idleTimeoutMs ?? IDLE_TIMEOUT_MS
   let visto = 0
+
+  // El vigilante de inactividad. Sin él, un upstream que responde a cuentagotas
+  // mantiene viva la conexión con el sitio de terceros mientras el cliente siga
+  // ahí: el `Accept-Encoding: identity` y el `pipeTo` acotan la memoria, no el
+  // tiempo.
+  const controlador = new AbortController()
+  let vigilante: ReturnType<typeof setTimeout> | undefined
+
+  const desarmar = (): void => {
+    if (vigilante !== undefined) {
+      clearTimeout(vigilante)
+      vigilante = undefined
+    }
+  }
+
+  const rearmar = (): void => {
+    desarmar()
+    if (idleTimeoutMs <= 0) return
+
+    vigilante = setTimeout(() => {
+      controlador.abort(new Error('el upstream dejó de responder'))
+    }, idleTimeoutMs)
+  }
+
+  // La señal que ve la salida a la red es la del cliente **y** la del vigilante:
+  // si el cliente se va, se cancela; si el upstream se duerme, se aborta.
+  const senal =
+    request.signal === undefined
+      ? controlador.signal
+      : AbortSignal.any([request.signal, controlador.signal])
 
   const doFetch: FetchLike =
     request.fetchImpl ?? ((input: string, init: RequestInit) => fetch(input, init))
@@ -181,16 +228,20 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
   // redirección es la forma más fácil de saltarse una comprobación que sólo mira
   // la primera URL.
   let upstream: Response
+  rearmar()
+
   try {
     upstream = await fetchAllowed({
       url: request.url,
       headers: Object.fromEntries(cabeceras.entries()),
       fetchImpl: doFetch,
-      ...(request.signal === undefined ? {} : { signal: request.signal }),
+      signal: senal,
       ...(request.resolver === undefined ? {} : { resolver: request.resolver }),
       ...(request.allowLoopback === undefined ? {} : { allowLoopback: request.allowLoopback }),
     })
   } catch (cause) {
+    desarmar()
+
     // El cliente cerró la conexión antes de que el upstream contestara, y con él
     // se fue la petición. No es un fallo de nadie: el reproductor cambia de
     // nivel, salta de posición o descarta el búfer, y cancela lo que tenía en
@@ -211,6 +262,8 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
 
   const tipo = (upstream.headers.get('content-type') ?? '').split(';')[0]?.trim() ?? ''
   if (request.acceptedTypes !== undefined && !request.acceptedTypes.includes(tipo)) {
+    desarmar()
+
     return new Response(null, { status: 415, headers: { 'x-content-type-options': 'nosniff' } })
   }
 
@@ -220,11 +273,15 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
     Number.isFinite(declarado) &&
     declarado > request.maxBytes
   ) {
+    desarmar()
+
     return new Response(null, { status: 413, headers: { 'x-content-type-options': 'nosniff' } })
   }
 
   const cuerpo = upstream.body
   if (cuerpo === null) {
+    desarmar()
+
     return new Response(null, {
       status: upstream.status,
       headers: passthroughHeaders(upstream.headers, request.forceType),
@@ -232,30 +289,37 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
   }
 
   // El tope se comprueba también mientras se transmite: un upstream puede no
-  // declarar `content-length`, y entonces la única defensa es contar.
-  const limitado =
-    request.maxBytes === undefined
-      ? cuerpo
-      : cuerpo.pipeThrough(
-          new TransformStream<Uint8Array, Uint8Array>({
-            transform(chunk, controller) {
-              visto += chunk.byteLength
-              if (visto > maxBytes) {
-                controller.error(new Error('el cuerpo supera el tope'))
+  // declarar `content-length`, y entonces la única defensa es contar. El mismo
+  // paso por donde se cuentan los bytes es donde se rearma el vigilante: cada
+  // trozo que llega es una señal de vida del upstream.
+  const vigilado = cuerpo.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        rearmar()
 
-                return
-              }
+        visto += chunk.byteLength
+        if (visto > maxBytes) {
+          controller.error(new Error('el cuerpo supera el tope'))
 
-              controller.enqueue(chunk)
-            },
-          }),
-        )
+          return
+        }
+
+        controller.enqueue(chunk)
+      },
+      // El cuerpo terminó: no queda nada que vigilar. La cancelación del cliente
+      // la cubre el `finally` del `pipeTo`, que es donde se entera de las dos.
+      flush: desarmar,
+    }),
+  )
 
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>()
-  void limitado.pipeTo(writable).catch(() => {
-    // El cliente se fue o el upstream cortó: no hay nada que contar aquí. El
-    // `catch` existe para que el rechazo no salga como error no gestionado.
-  })
+  void vigilado
+    .pipeTo(writable)
+    .catch(() => {
+      // El cliente se fue o el upstream cortó: no hay nada que contar aquí. El
+      // `catch` existe para que el rechazo no salga como error no gestionado.
+    })
+    .finally(desarmar)
 
   return new Response(readable, {
     status: upstream.status,
