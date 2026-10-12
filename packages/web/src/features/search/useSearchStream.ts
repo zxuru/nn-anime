@@ -15,6 +15,7 @@ import {
   type ProviderSummary,
   providersResponseSchema,
   type SearchEventPayload,
+  settingsResponseSchema,
 } from '@nn-anime/core/api'
 import { groupByWork } from '@nn-anime/core/identity'
 import type { SearchResult } from '@nn-anime/core/models'
@@ -125,6 +126,23 @@ function porNombre(a: SearchResult, b: SearchResult): number {
 }
 
 /**
+ * El orden dentro de una obra: primero el proveedor preferido, y a igualdad el
+ * nombre más largo de siempre.
+ *
+ * La preferencia es del usuario y está en los ajustes (`providerPriority`, del
+ * primero al último). Un proveedor que la lista no nombra —uno recién instalado,
+ * o uno que el usuario nunca movió— vale lo mismo que cualquier otro no nombrado
+ * y cae en `porNombre`, que es la regla de antes: la prioridad **añade** un
+ * criterio, no sustituye al que ya funcionaba cuando nadie ha reordenado nada.
+ */
+function porPreferencia(priority: readonly string[]): (a: SearchResult, b: SearchResult) => number {
+  const puestos = new Map(priority.map((id, indice) => [id, indice]))
+  const puesto = (providerId: string): number => puestos.get(providerId) ?? Number.MAX_SAFE_INTEGER
+
+  return (a, b) => puesto(a.ref.providerId) - puesto(b.ref.providerId) || porNombre(a, b)
+}
+
+/**
  * Una tarjeta por obra.
  *
  * Pintar dos tarjetas de lo mismo es el «contenido repetido» que se reportó. La
@@ -136,12 +154,20 @@ function porNombre(a: SearchResult, b: SearchResult): number {
  * **No se fusionan las referencias**: quien elige la fuente es el usuario, con
  * un enlace por proveedor, porque abrir la tarjeta lleva a una ficha concreta y
  * no a una media.
+ *
+ * `priority` es el orden de preferencia guardado en los ajustes y decide **cuál**
+ * de las fuentes da el nombre y el enlace de la tarjeta. Sin él —vacío, o con un
+ * id que ya no existe— todo queda como estaba.
  */
-export function groupResults(results: readonly SearchResult[]): readonly ResultGroup[] {
+export function groupResults(
+  results: readonly SearchResult[],
+  priority: readonly string[] = [],
+): readonly ResultGroup[] {
   const grupos = groupByWork(results, (uno, otro) => uno.year === otro.year)
+  const ordenar = porPreferencia(priority)
 
   return grupos.map((grupo) => {
-    const ordenados = [...grupo].sort(porNombre)
+    const ordenados = [...grupo].sort(ordenar)
     const primero = ordenados[0]
 
     return {
@@ -310,6 +336,65 @@ export async function fetchProviders(signal: AbortSignal): Promise<readonly Prov
   }
 
   return providersResponseSchema.parse(await response.json()).providers
+}
+
+/**
+ * El orden de preferencia de proveedores, tal como lo guardan los ajustes.
+ *
+ * Va por `/api/settings` y no por `/api/providers`: la preferencia es un ajuste
+ * del usuario, no una capacidad del plugin, y `GET /api/providers` describe lo
+ * que cargó. Se pide aparte y sin bloquear: los resultados se pintan en cuanto
+ * llegan, y si esta petición falla la búsqueda se queda sin preferencia, que es
+ * exactamente lo que hacía antes de que existiera.
+ */
+/**
+ * El mínimo que se usa de `fetch`: una URL, unas opciones y una respuesta.
+ *
+ * Se inyecta en las pruebas en vez de tocar el `fetch` global: es el mismo
+ * contrato que usan el cliente (`api/client.ts`) y el distribuidor, y no deja una
+ * prueba dependiendo del orden de otras.
+ */
+export type Fetcher = (url: string, init: RequestInit) => Promise<Response>
+
+export async function fetchProviderPriority(
+  signal: AbortSignal,
+  fetcher: Fetcher = fetch,
+): Promise<readonly string[]> {
+  const response = await fetcher('/api/settings', {
+    credentials: 'same-origin',
+    headers: { accept: 'application/json' },
+    signal,
+  })
+
+  if (!response.ok) {
+    throw new ApiError(response.status, `GET /api/settings respondió ${response.status}`)
+  }
+
+  return settingsResponseSchema.parse(await response.json()).providerPriority
+}
+
+const PRIORITY = createDedupe<readonly string[]>()
+
+/** El orden guardado, una sola vez por montaje, y vacío si no se pudo leer. */
+export function useProviderPriority(): readonly string[] {
+  const [priority, setPriority] = useState<readonly string[]>([])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    PRIORITY.run('/api/settings', () => fetchProviderPriority(controller.signal)).then(
+      (orden) => {
+        if (!controller.signal.aborted) setPriority(orden)
+      },
+      () => {
+        // Sin ajustes legibles no hay preferencia: la regla de siempre decide.
+      },
+    )
+
+    return () => controller.abort()
+  }, [])
+
+  return priority
 }
 
 /**

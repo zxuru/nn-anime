@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 import type { ProviderSummary, SearchEventPayload } from '@nn-anime/core/api'
 import type { SearchResult } from '@nn-anime/core/models'
+import { ApiError } from '../../api/client'
 import {
   activeProviderIds,
   alternativas,
   createPrefetcher,
   createSearchHub,
+  fetchProviderPriority,
   groupResults,
   initialState,
   normalizeTitle,
@@ -207,6 +209,92 @@ describe('agrupación de duplicados', () => {
     if (grupo === undefined) throw new Error('la agrupación no devolvió ningún grupo')
 
     expect(alternativas(grupo, 'dos').map((item) => item.ref.providerId)).toEqual(['uno', 'tres'])
+  })
+})
+
+describe('la preferencia de proveedor', () => {
+  /**
+   * La misma obra con el nombre corto en una fuente y el título original en la
+   * otra —el caso medido en una captura—, con la referencia de cada una apuntando
+   * al nombre de la otra. Es lo que hace que las dos entren en el mismo grupo:
+   * con títulos distintos sueltos no se agrupan.
+   */
+  const DANMACHI = [
+    resultado('uno', 'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka', 'Danmachi'),
+    resultado('dos', 'danmachi', 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka'),
+  ]
+
+  test('la tarjeta se queda con el proveedor preferido, no con el nombre más largo', () => {
+    // Mutar `porPreferencia` para devolver sólo `porNombre` deja esta prueba en
+    // rojo: la tarjeta volvería a `dos`, que es el título largo.
+    const grupos = groupResults(DANMACHI, ['uno'])
+
+    expect(grupos[0]?.results.map((item) => item.ref.providerId)).toEqual(['uno', 'dos'])
+  })
+
+  test('el preferido manda aunque no sea el primero que respondió', () => {
+    const grupos = groupResults(
+      [resultado('uno', 'a', 'Aurora'), resultado('dos', 'b', 'Aurora')],
+      ['dos'],
+    )
+
+    expect(grupos[0]?.results[0]?.ref.providerId).toBe('dos')
+  })
+
+  test('sin preferencia guardada todo queda como estaba', () => {
+    const grupos = groupResults(DANMACHI)
+
+    expect(grupos[0]?.results.map((item) => item.ref.providerId)).toEqual(['dos', 'uno'])
+  })
+
+  test('un id que ya no existe no cambia la tarjeta', () => {
+    const grupos = groupResults(DANMACHI, ['fantasma'])
+
+    expect(grupos[0]?.results.map((item) => item.ref.providerId)).toEqual(['dos', 'uno'])
+  })
+
+  test('entre los no preferidos sigue ganando el nombre más largo', () => {
+    const grupos = groupResults(DANMACHI, ['otro'])
+
+    expect(grupos[0]?.results[0]?.ref.providerId).toBe('dos')
+  })
+
+  test('equivale a `groupResults` sin prioridad cuando la lista está vacía', () => {
+    expect(groupResults(DANMACHI, [])).toEqual(groupResults(DANMACHI))
+  })
+})
+
+describe('la lectura de la preferencia', () => {
+  /** Unos ajustes completos: el schema es estricto y no admite un cuerpo a medias. */
+  function ajustes(providerPriority: readonly string[]): Record<string, unknown> {
+    return {
+      theme: 'system',
+      providerPriority,
+      paths: { data: '/d', config: '/c', cache: '/k' },
+      mpv: { available: false },
+      providers: [],
+    }
+  }
+
+  test('se lee de `/api/settings` y se devuelve tal cual', async () => {
+    let pedida = ''
+    const orden = await fetchProviderPriority(new AbortController().signal, async (url) => {
+      pedida = url
+
+      return Response.json(ajustes(['jkanime', 'animeav1']))
+    })
+
+    expect(pedida).toBe('/api/settings')
+    expect(orden).toEqual(['jkanime', 'animeav1'])
+  })
+
+  test('unos ajustes que no contestan son un fallo, no una lista inventada', async () => {
+    await expect(
+      fetchProviderPriority(
+        new AbortController().signal,
+        async () => new Response('no', { status: 500 }),
+      ),
+    ).rejects.toBeInstanceOf(ApiError)
   })
 })
 

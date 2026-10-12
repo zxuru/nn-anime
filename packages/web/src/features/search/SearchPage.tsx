@@ -31,6 +31,7 @@ import {
   groupResults,
   type Prefetcher,
   type SearchState,
+  useProviderPriority,
   useSearchStream,
 } from './useSearchStream'
 
@@ -147,6 +148,9 @@ export function SearchPage(props: SearchPageProps): ReactNode {
 
   const proveedores = useMemo(() => (filtro === '' ? [] : filtro.split(',')), [filtro])
   const { state, active, labels, providersLoaded } = useSearchStream(aplicado, proveedores)
+  // La preferencia decide cuál de las fuentes da la tarjeta. Llega después que
+  // los resultados —es otra petición— y la rejilla se vuelve a ordenar sola.
+  const prioridad = useProviderPriority()
   const prefetch = useMemo(() => props.prefetcher ?? createDefaultPrefetcher(), [props.prefetcher])
 
   // El retardo: `aplicado` sólo cambia cuando el usuario deja de teclear.
@@ -209,6 +213,7 @@ export function SearchPage(props: SearchPageProps): ReactNode {
       <ResultGrid
         results={state.results}
         query={aplicado}
+        providerPriority={prioridad}
         providerLabels={labels}
         onPreview={(result) => prefetch.hover(result.ref.providerId, result.ref.value)}
         onPreviewEnd={() => prefetch.leave()}
