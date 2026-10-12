@@ -9,20 +9,29 @@
  * La elección de sub o dub, la pista de subtítulos y el guardado de la posición
  * son de T32; aquí está la reproducción.
  *
- * **Los vecinos se piden de a uno.** Antes esta pantalla descargaba la lista
- * entera del título —mil ciento ochenta episodios de One Piece— para saber quién
- * iba antes y quién después, y lo hacía aunque la flecha no se llegara a usar. Con
- * el número en la dirección (`?n=`) son dos lecturas puntuales, y sólo cuando la
- * pantalla ya está pintada: la reproducción no depende de ninguna de las dos, y si
- * fallan el episodio se ve igual y lo único que se pierde es el salto al de al
- * lado.
+ * **Los vecinos se piden de a uno, y el total de la primera página.** Antes esta
+ * pantalla descargaba la lista entera del título —mil ciento ochenta episodios de
+ * One Piece— para saber quién iba antes, quién después y de cuántos era el título,
+ * y lo hacía aunque la flecha no se llegara a usar. Con el número en la dirección
+ * (`?n=`) se pide **una** página —la primera, que el servidor cachea cinco
+ * minutos— por dos cosas: leer el total, para poder decir «Episodio 2 de 12», y
+ * sacar de ahí los dos vecinos cuando el episodio está en ella, que es lo que
+ * ahorra las dos lecturas puntuales. Si el episodio no está en esa página, se
+ * vuelve a `number/n-1` y `number/n+1`, que es lo único que lo encuentra sin
+ * descargar la lista entera. Y sólo cuando la pantalla ya está pintada: la
+ * reproducción no depende de ninguna de estas lecturas, y si fallan el episodio se
+ * ve igual y lo único que se pierde es el salto al de al lado y el total.
  *
  * Sin número —una dirección escrita a mano— se pide la primera página y los
  * vecinos salen de ahí: lo que no se hace nunca es suponer un `n-1` sobre una
  * referencia que puede no numerar nada.
  */
 
-import { animeResponseSchema, streamResolveResponseSchema } from '@nn-anime/core/api'
+import {
+  animeResponseSchema,
+  type EpisodesResponse,
+  streamResolveResponseSchema,
+} from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { Episode } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
@@ -131,48 +140,24 @@ function delProveedor(episodes: readonly Episode[], providerId: string): readonl
 }
 
 /**
- * Los vecinos del episodio que se ve.
+ * Los vecinos que salen de una página ya leída.
  *
- * Con número en la dirección son dos lecturas puntuales y ni una lista: el
- * anterior no se pide si el episodio es el primero —`number/0` es un 404
- * garantizado— y un fallo en cualquiera de las dos significa «no hay vecino», que
- * es una flecha apagada y no un error que contar. Aquí da igual que el proveedor
- * conteste 404 o 502: las dos cosas quieren decir que ese episodio no lo tiene.
- *
- * Sin número se pide la **primera página** una vez. Si el episodio está en ella,
- * los vecinos salen de ahí; si es el último de la página y el servidor dice que
- * queda más, se pide la segunda **una sola vez** para encontrar al siguiente. Si el
- * episodio no está en la primera página, no se pintan flechas: es una dirección
- * escrita a mano y no hay nada que suponer.
+ * El siguiente del último de la página no está en ella: si el servidor dice que
+ * queda más, se pide la segunda **una sola vez** y se toma el primero. El total de
+ * la segunda vale igual que el de la primera: es el del título.
  */
-export async function loadWatchNeighbours(
-  lookup: NeighbourLookup,
-  reads: EpisodeReads = {},
-): Promise<WatchNeighbours> {
-  const { providerId, titleRef, episodeRef, number } = lookup
-
-  if (number !== undefined) {
-    const [anterior, siguiente] = await Promise.all([
-      number > 1 ? loadEpisodeByNumber(providerId, titleRef, number - 1, reads) : undefined,
-      loadEpisodeByNumber(providerId, titleRef, number + 1, reads),
-    ])
-
-    return {
-      previous: aVecino(hallado(anterior)),
-      next: aVecino(hallado(siguiente)),
-      // El total no se inventa: la lectura de un episodio suelto no lo trae, así
-      // que la pantalla dirá «Episodio 12» y no «de 26».
-      position: { number },
-    }
-  }
-
-  const pagina = await loadEpisodesPage(providerId, titleRef, 1, reads)
-  const propios = delProveedor(pagina.episodes, providerId)
-  const indice = propios.findIndex((episode) => episode.ref.value === episodeRef)
-  const actual = indice === -1 ? undefined : propios[indice]
-
-  if (actual === undefined) return { previous: undefined, next: undefined, position: undefined }
-
+async function neighboursInPage(
+  propios: readonly Episode[],
+  indice: number,
+  pagina: EpisodesResponse,
+  providerId: string,
+  titleRef: string,
+  reads: EpisodeReads,
+): Promise<{
+  readonly previous: WatchNeighbour | undefined
+  readonly next: WatchNeighbour | undefined
+  readonly total: number | undefined
+}> {
   let siguiente = propios[indice + 1]
   let total = pagina.total
 
@@ -182,9 +167,106 @@ export async function loadWatchNeighbours(
     total = segunda.total ?? total
   }
 
+  return { previous: aVecino(propios[indice - 1]), next: aVecino(siguiente), total }
+}
+
+/**
+ * Los vecinos cuando la dirección trae el número.
+ *
+ * La primera página se pide **siempre**, y su fallo no se cuenta: sin ella se
+ * pierde el total que hace decir «de 26», no el episodio. El total no se inventa
+ * —un «de 26» que el proveedor no dio es peor que no decir de cuántos—, así que
+ * sin total la pantalla se queda en «Episodio 2» como antes.
+ */
+async function neighboursWithNumber(
+  providerId: string,
+  titleRef: string,
+  episodeRef: string,
+  number: number,
+  reads: EpisodeReads,
+): Promise<WatchNeighbours> {
+  const pagina = await loadEpisodesPage(providerId, titleRef, 1, reads).catch(() => undefined)
+  const propios = pagina === undefined ? [] : delProveedor(pagina.episodes, providerId)
+  const actual = propios.find((episode) => episode.ref.value === episodeRef)
+
+  if (pagina !== undefined && actual !== undefined) {
+    const indice = propios.indexOf(actual)
+    const { previous, next, total } = await neighboursInPage(
+      propios,
+      indice,
+      pagina,
+      providerId,
+      titleRef,
+      reads,
+    )
+
+    return {
+      previous,
+      next,
+      position: {
+        number: actual.number,
+        ...(total === undefined ? {} : { total }),
+        ...(actual.title === undefined ? {} : { title: actual.title }),
+      },
+    }
+  }
+
+  const [anterior, siguiente] = await Promise.all([
+    number > 1 ? loadEpisodeByNumber(providerId, titleRef, number - 1, reads) : undefined,
+    loadEpisodeByNumber(providerId, titleRef, number + 1, reads),
+  ])
+
   return {
-    previous: aVecino(propios[indice - 1]),
-    next: aVecino(siguiente),
+    previous: aVecino(hallado(anterior)),
+    next: aVecino(hallado(siguiente)),
+    // El número es el que traía la dirección: la página que se leyó es la primera
+    // y este episodio no está en ella, así que no hay otro número que dar. Y si la
+    // página falló, el total tampoco está.
+    position: { number, ...(pagina?.total === undefined ? {} : { total: pagina.total }) },
+  }
+}
+
+/**
+ * Los vecinos del episodio que se ve.
+ *
+ * Con número en la dirección manda `neighboursWithNumber`; sin él se pide la
+ * primera página y, si el episodio no está en ella, no se pintan flechas: es una
+ * dirección escrita a mano y no hay nada que suponer.
+ *
+ * Un fallo en una lectura puntual significa «no hay vecino»: `number/0` es un 404
+ * garantizado y se evita, y aquí da igual que el proveedor conteste 404 o 502
+ * porque las dos cosas quieren decir que ese episodio no lo tiene. La flecha se
+ * apaga y no hay error que contar.
+ */
+export async function loadWatchNeighbours(
+  lookup: NeighbourLookup,
+  reads: EpisodeReads = {},
+): Promise<WatchNeighbours> {
+  const { providerId, titleRef, episodeRef, number } = lookup
+
+  if (number !== undefined) {
+    return neighboursWithNumber(providerId, titleRef, episodeRef, number, reads)
+  }
+
+  const pagina = await loadEpisodesPage(providerId, titleRef, 1, reads)
+  const propios = delProveedor(pagina.episodes, providerId)
+  const actual = propios.find((episode) => episode.ref.value === episodeRef)
+
+  if (actual === undefined) return { previous: undefined, next: undefined, position: undefined }
+
+  const indice = propios.indexOf(actual)
+  const { previous, next, total } = await neighboursInPage(
+    propios,
+    indice,
+    pagina,
+    providerId,
+    titleRef,
+    reads,
+  )
+
+  return {
+    previous,
+    next,
     position: {
       number: actual.number,
       ...(total === undefined ? {} : { total }),
