@@ -53,6 +53,20 @@ function reasonOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
 }
 
+/**
+ * El `code` de un error del sistema de archivos, si lo lleva.
+ *
+ * Con `Reflect.get` y no con un `as`: el proyecto prohíbe las aserciones que
+ * silencian al compilador, y `unknown` se estrecha comprobando, no afirmando.
+ */
+function errnoCode(cause: unknown): string | undefined {
+  if (typeof cause !== 'object' || cause === null) return undefined
+
+  const code = Reflect.get(cause, 'code')
+
+  return typeof code === 'string' ? code : undefined
+}
+
 export function registerProviderRoute(app: Hono, options: RegisterProviderOptions): void {
   const directory = resolve(options.directory)
 
@@ -85,8 +99,16 @@ export function registerProviderRoute(app: Hono, options: RegisterProviderOption
 
     try {
       await mkdir(directory, { recursive: true, mode: 0o700 })
-      await writeFile(file, renderProviderModule(draft), { mode: 0o600 })
+      // `wx` es la garantía de verdad: entre el `exists()` de arriba y esta
+      // llamada cabe otro proceso, y aquí decide el sistema de archivos, no una
+      // comprobación que puede haber quedado vieja. El `exists()` se queda
+      // porque da el 409 barato en el caso normal.
+      await writeFile(file, renderProviderModule(draft), { mode: 0o600, flag: 'wx' })
     } catch (cause) {
+      if (errnoCode(cause) === 'EEXIST') {
+        return c.json(badRequest(`ya hay un proveedor con ese identificador: ${draft.id}`), 409)
+      }
+
       return c.json(badRequest(`no se pudo escribir el plugin: ${reasonOf(cause)}`), 500)
     }
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { providersResponseSchema } from '@nn-anime/core'
@@ -131,6 +131,21 @@ describe('alta de un proveedor', () => {
 
       expect(respuesta.status).toBe(409)
       expect(await readFile(join(dir, 'mio.ts'), 'utf8')).toBe('// el original')
+    })
+  })
+
+  test('un enlace roto con el nombre del plugin es un 409, no un alta', async () => {
+    await conApp(async ({ altas, dir }) => {
+      // Esto es la carrera de S4 reproducida sin intercalar dos procesos:
+      // `access()` sigue el enlace, no encuentra nada y dice que la plaza está
+      // libre; el `wx` de la escritura sí ve el enlace y falla con `EEXIST`.
+      // Si la escritura no llevara el `wx`, esto contestaría 201 y el enlace se
+      // habría seguido hasta escribir fuera del directorio de plugins.
+      await symlink('/no/existe', join(dir, 'mio.ts'))
+
+      const respuesta = await altas(DRAFT)
+
+      expect(respuesta.status).toBe(409)
     })
   })
 
