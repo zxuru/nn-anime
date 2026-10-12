@@ -101,10 +101,21 @@ describe('host-guard', () => {
     expect(response.status).toBe(403)
   })
 
-  test('no toca las rutas fuera de /api y /stream', async () => {
-    const response = await app().request('http://evil.example/otra/cosa')
+  test('cubre también lo que no cuelga de /api ni de /stream, empezando por `/`', async () => {
+    // El guard no lee cookies ni estado: montarlo sobre `*` no cuesta nada, y un
+    // guard que se salta una ruta deja de ser un guard. Antes se saltaba `/`, que
+    // es donde vive el canje de arranque.
+    for (const ruta of ['/', '/otra/cosa', `/?boot=${BOOT_TOKEN}`]) {
+      const response = await app().request(`http://evil.example${ruta}`)
 
-    expect(response.status).not.toBe(403)
+      expect(response.status, ruta).toBe(403)
+    }
+  })
+
+  test('el canje de arranque con el Host correcto sigue entrando', async () => {
+    const response = await app().request(`${BASE}/?boot=${BOOT_TOKEN}`)
+
+    expect(response.status).toBe(302)
   })
 })
 
@@ -181,6 +192,18 @@ describe('origin-guard', () => {
     const response = await app().request(`${BASE}/api/health`, {
       method: 'POST',
       headers: { ...GOOD_COOKIE, origin: 'https://evil.example' },
+    })
+
+    expect(response.status).toBe(403)
+  })
+
+  test('**rechaza el Origin de `localhost`**, el mismo nombre que rechaza el guard de Host', async () => {
+    // Las cookies ignoran el puerto: una página servida por otra aplicación
+    // local en `localhost:OTRO_PUERTO` comparte sitio con ésta. Aceptarlo aquí
+    // era código muerto que decía lo contrario de lo que hace el proyecto.
+    const response = await app().request(`${BASE}/api/health`, {
+      method: 'POST',
+      headers: { ...GOOD_COOKIE, origin: `http://localhost:${PORT}` },
     })
 
     expect(response.status).toBe(403)

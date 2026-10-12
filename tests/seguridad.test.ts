@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { readdir } from 'node:fs/promises'
 import { checkDestination } from '@nn-anime/media-proxy'
-import { conCiclo, GOOD, JSON_HEADERS } from './fixtures'
+import { conCiclo, GOOD, HOST, JSON_HEADERS } from './fixtures'
 
 /**
  * Las doce mitigaciones del spec, como pruebas.
@@ -115,8 +115,8 @@ describe('M2 · sin sesión no se pasa', () => {
 
   test('el token de arranque sirve una sola vez', async () => {
     await conCiclo(async ({ pedir }) => {
-      const primera = await pedir('/?boot=token-de-integracion', { headers: { host: GOOD.origin } })
-      const segunda = await pedir('/?boot=token-de-integracion', { headers: { host: GOOD.origin } })
+      const primera = await pedir('/?boot=token-de-integracion', { headers: { host: HOST } })
+      const segunda = await pedir('/?boot=token-de-integracion', { headers: { host: HOST } })
 
       // El segundo intento no redirige: el token ya se gastó y la petición llega
       // sin sesión.

@@ -25,6 +25,16 @@ export const PORT = 7717
 export const SESSION_COOKIE = 'nn_session'
 export const SESSION_VALUE = 'sesion-de-integracion'
 export const BASE = `http://127.0.0.1:${PORT}`
+
+/**
+ * El valor que lleva la cabecera `Host`: nombre y puerto, sin esquema.
+ *
+ * Existía una prueba que ponía `host: GOOD.origin` —con el `http://` dentro— y
+ * pasaba porque el guard de `Host` no cubría `/`. Un valor así no es un `Host`
+ * válido: no lo manda ningún navegador. Ahora que el guard cubre todo, se usa
+ * esto.
+ */
+export const HOST = `127.0.0.1:${PORT}`
 export const GOOD = { cookie: `${SESSION_COOKIE}=${SESSION_VALUE}`, origin: BASE }
 export const JSON_HEADERS = { ...GOOD, 'content-type': 'application/json' }
 
