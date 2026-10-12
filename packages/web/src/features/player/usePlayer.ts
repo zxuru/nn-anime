@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  announcement,
   clampVolume,
   needsHls,
   type PlayerAction,
@@ -61,6 +62,16 @@ export interface PlayerState {
    */
   readonly bufferedS: number
   /**
+   * Lo que se anuncia por `aria-live`, y **cuándo** se rehace.
+   *
+   * No se recalcula en cada vuelta: se rehace cuando pasa algo que se cuenta
+   * —empezar, parar, buscar, terminar o fallar—, que son los eventos del
+   * elemento que importan. Una región `aria-live` que cambia con el reloj
+   * —cuatro veces por segundo— es inservible con un lector de pantalla: no deja
+   * oír nada más.
+   */
+  readonly status: string
+  /**
    * Ancho de la pista de video, en píxeles; cero si no hay ninguna.
    *
    * Es la única señal de que el navegador **está decodificando la imagen**: el
@@ -106,6 +117,20 @@ export function finDeBuffer(video: { readonly buffered: TimeRanges }): number {
   const tramos = video.buffered
 
   return tramos.length === 0 ? 0 : tramos.end(tramos.length - 1)
+}
+
+/**
+ * El estado con su anuncio rehecho.
+ *
+ * Es el **único** sitio donde se rehace `status`, y por eso el anuncio cambia
+ * cuando pasa algo que se cuenta —empezar, parar, buscar, terminar o fallar— y
+ * no en cada `timeupdate`. Quien llama decide qué pasó; la frase sale del estado
+ * que queda, así que nunca dice una posición que no es la del momento.
+ */
+function anunciar(previo: PlayerState, cambio: Partial<PlayerState>): PlayerState {
+  const siguiente = { ...previo, ...cambio }
+
+  return { ...siguiente, status: announcement(siguiente) }
 }
 
 /**
@@ -188,6 +213,9 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     buffering: false,
     bufferedS: 0,
     videoWidth: 0,
+    // Arranca con la frase del estado inicial: la región existe desde el primer
+    // render y lo que se anuncia al entrar es que está en pausa.
+    status: announcement({ playing: false, positionS: 0, durationS: 0 }),
   })
 
   const elemento = useRef<HTMLVideoElement | null>(null)
@@ -240,13 +268,14 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     // —o reintentar— dejaba el estado de la fuente anterior y la espera de la
     // nueva no se pintaba: la pantalla se quedaba con el último fotograma del
     // modo viejo y parecía que el botón no había hecho nada.
-    setState((previo) => ({
-      ...previo,
-      loading: true,
-      buffering: false,
-      bufferedS: 0,
-      error: undefined,
-    }))
+    setState((previo) =>
+      anunciar(previo, {
+        loading: true,
+        buffering: false,
+        bufferedS: 0,
+        error: undefined,
+      }),
+    )
 
     if (needsHls(source.kind)) {
       void attachHls(
@@ -255,12 +284,13 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
         (detalle) => {
           if (!vivo) return
 
-          setState((previo) => ({
-            ...previo,
-            error: `hls.js se detuvo: ${detalle}`,
-            loading: false,
-            buffering: false,
-          }))
+          setState((previo) =>
+            anunciar(previo, {
+              error: `hls.js se detuvo: ${detalle}`,
+              loading: false,
+              buffering: false,
+            }),
+          )
         },
         () => vivo,
       ).then((resultado) => {
@@ -271,7 +301,9 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
         }
 
         if ('error' in resultado) {
-          setState((previo) => ({ ...previo, error: resultado.error, loading: false }))
+          // El anuncio también aquí: un fallo que sólo se ve en la pantalla no
+          // existe para quien no la ve.
+          setState((previo) => anunciar(previo, { error: resultado.error, loading: false }))
 
           return
         }
@@ -311,15 +343,16 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     const alBuffer = (): void =>
       setState((previo) => ({ ...previo, bufferedS: finDeBuffer(video) }))
     const alDuracion = (): void => {
-      setState((previo) => ({
-        ...previo,
-        durationS: video.duration,
-        videoWidth: video.videoWidth,
-        // Aquí sí: el elemento ya trajo los metadatos. Es la primera señal de
-        // que hay algo al otro lado, y la que apaga la espera inicial.
-        loading: false,
-        buffering: false,
-      }))
+      setState((previo) =>
+        anunciar(previo, {
+          durationS: video.duration,
+          videoWidth: video.videoWidth,
+          // Aquí sí: el elemento ya trajo los metadatos. Es la primera señal de
+          // que hay algo al otro lado, y la que apaga la espera inicial.
+          loading: false,
+          buffering: false,
+        }),
+      )
 
       // Reanudar: al saber la duración, se salta a donde se dejó. Se hace aquí y
       // no al montar porque el elemento todavía no admite un `currentTime` que no
@@ -330,22 +363,23 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
       }
     }
     const alReproducir = (): void => {
-      setState((previo) => ({ ...previo, playing: true, buffering: false }))
+      setState((previo) => anunciar(previo, { playing: true, buffering: false }))
       avisos.current.onPlay?.()
     }
     const alPausar = (): void => {
       // La espera se apaga al pausar: quien pausa a mitad de un tirón quiere ver
       // el fotograma, no un cartel encima.
-      setState((previo) => ({ ...previo, playing: false, buffering: false }))
+      setState((previo) => anunciar(previo, { playing: false, buffering: false }))
       avisos.current.onPause?.()
     }
     const alError = (): void =>
-      setState((previo) => ({
-        ...previo,
-        error: 'no se pudo cargar el video',
-        loading: false,
-        buffering: false,
-      }))
+      setState((previo) =>
+        anunciar(previo, {
+          error: 'no se pudo cargar el video',
+          loading: false,
+          buffering: false,
+        }),
+      )
     /**
      * La espera que no es la del principio.
      *
@@ -355,6 +389,19 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
      */
     const alEsperar = (): void => setState((previo) => ({ ...previo, buffering: true }))
     const alVolver = (): void => setState((previo) => ({ ...previo, buffering: false }))
+    /**
+     * Al soltar la búsqueda, se cuenta dónde quedó.
+     *
+     * Es una de las cuatro cosas que se anuncian —empezar, parar, buscar y
+     * terminar—, y la única que necesita la posición en ese momento: la del
+     * estado es la del último `timeupdate`, que mientras se arrastra no es
+     * ninguna.
+     */
+    const alBuscar = (): void =>
+      setState((previo) => anunciar(previo, { buffering: false, positionS: video.currentTime }))
+    /** El final del episodio: deja de sonar y se cuenta. */
+    const alTerminar = (): void =>
+      setState((previo) => anunciar(previo, { playing: false, buffering: false }))
 
     video.addEventListener('timeupdate', alTiempo)
     video.addEventListener('progress', alBuffer)
@@ -367,7 +414,8 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     video.addEventListener('stalled', alEsperar)
     video.addEventListener('canplay', alVolver)
     video.addEventListener('playing', alVolver)
-    video.addEventListener('seeked', alVolver)
+    video.addEventListener('seeked', alBuscar)
+    video.addEventListener('ended', alTerminar)
 
     return () => {
       vivo = false
@@ -382,7 +430,8 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
       video.removeEventListener('stalled', alEsperar)
       video.removeEventListener('canplay', alVolver)
       video.removeEventListener('playing', alVolver)
-      video.removeEventListener('seeked', alVolver)
+      video.removeEventListener('seeked', alBuscar)
+      video.removeEventListener('ended', alTerminar)
 
       hls.current?.destroy()
       hls.current = undefined

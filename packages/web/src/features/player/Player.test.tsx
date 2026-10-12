@@ -50,11 +50,48 @@ describe('el reproductor', () => {
     expect(html.match(/aria-hidden="true"/g)?.length).toBeGreaterThan(3)
   })
 
-  test('el estado vive en una región `aria-live` educada', () => {
+  /**
+   * El estado vive fuera de la pantalla, en una región educada.
+   *
+   * Fuera de la pantalla porque la frase —«En pausa, 0:31 de 24:55»— repetía lo
+   * que ya dicen el reloj y el icono, y ocupaba sitio debajo del video. Y educada
+   * porque el estado cambia a cada rato: una región que interrumpe cada segundo
+   * hace inservible la página con un lector de pantalla.
+   */
+  test('el estado vive en una región `aria-live` educada y fuera de la pantalla', () => {
     const html = render(<Player url="/stream/abc" kind="file" />)
 
     expect(html).toContain('aria-live="polite"')
+    expect(html).toContain('solo-lectores')
     expect(html).toContain('En pausa')
+  })
+
+  /**
+   * El anuncio no se rehace con el reloj.
+   *
+   * Es la mitad que no se ve en el marcado: `status` sólo cambia en los eventos
+   * que se cuentan —empezar, parar, buscar, terminar o fallar—, así que el
+   * `timeupdate` no lo toca. Se mira el código porque un render sin navegador no
+   * tiene eventos; el e2e mide que el texto no cambie mientras el video avanza.
+   */
+  test('el anuncio sólo se rehace cuando pasa algo que se cuenta', async () => {
+    const fuente = await readFile(`${ROOT}usePlayer.ts`, 'utf8')
+
+    // `alTiempo` es el que corre cuatro veces por segundo: no puede tocar
+    // `status`, y la única forma de tocarlo es pasar por `anunciar`.
+    const alTiempo = /const alTiempo = \(\): void => \{([\s\S]*?)\n {4}\}/.exec(fuente)?.[1] ?? ''
+    expect(alTiempo).not.toContain('anunciar')
+
+    for (const evento of [
+      'const alReproducir',
+      'const alPausar',
+      'const alBuscar',
+      'const alTerminar',
+      'const alError',
+    ]) {
+      const cuerpo = new RegExp(`${evento}[\\s\\S]*?\\n {4}\\}`).exec(fuente)?.[0] ?? ''
+      expect(cuerpo, evento).toContain('anunciar(')
+    }
   })
 
   /**

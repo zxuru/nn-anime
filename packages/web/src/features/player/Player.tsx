@@ -23,7 +23,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { AudioModeSwitch } from './AudioModeSwitch'
 import {
-  announcement,
   CLICK_DELAY_MS,
   formatTime,
   isTypingTarget,
@@ -800,7 +799,7 @@ export function Player(props: PlayerProps): ReactNode {
 
       {sinImagen ? <p className="search__error">{t(DEFAULT_LOCALE, 'player.sinImagen')}</p> : null}
 
-      {pintando ? <p className="card__meta">{t(DEFAULT_LOCALE, 'player.compat.on')}</p> : null}
+      {pintando ? <p className="player__note">{t(DEFAULT_LOCALE, 'player.compat.on')}</p> : null}
 
       {state.error === undefined ? null : (
         <p className="search__error">
@@ -808,20 +807,26 @@ export function Player(props: PlayerProps): ReactNode {
         </p>
       )}
 
-      {/* La misma clase que usa la búsqueda para su anuncio: la región existe
-          para quien no ve la pantalla, y el estilo la deja fuera del flujo. */}
-      <p className="search__status" aria-live="polite">
-        {announcement(state)}
+      {/* El estado, para quien no ve la pantalla: el párrafo está fuera del flujo
+          —`solo-lectores`, que es lo que en otros sitios se llama `sr-only`— y su
+          texto **no** se rehace con el reloj: `usePlayer` sólo lo cambia cuando
+          pasa algo que se cuenta —empezar, parar, buscar, terminar o fallar—.
+          Una región `aria-live` que cambia cuatro veces por segundo no deja oír
+          nada más. */}
+      <p className="solo-lectores" aria-live="polite">
+        {state.status}
       </p>
 
       {pistas.length === 0 ? null : (
-        <p className="card__meta">{t(DEFAULT_LOCALE, 'player.tracks', { count: pistas.length })}</p>
+        <p className="player__note">
+          {t(DEFAULT_LOCALE, 'player.tracks', { count: pistas.length })}
+        </p>
       )}
 
       {/* La atribución sólo aparece cuando se usa la biblioteca: hls.js es
           Apache 2.0 y su licencia pide conservar el aviso. */}
       {needsHls(props.kind) ? (
-        <p className="card__meta">{t(DEFAULT_LOCALE, 'player.attribution')}</p>
+        <p className="player__note">{t(DEFAULT_LOCALE, 'player.attribution')}</p>
       ) : null}
 
       {/* La ayuda del teclado, en un diálogo y no siempre a la vista.

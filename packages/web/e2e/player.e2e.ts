@@ -728,6 +728,126 @@ test.describe('el reproductor', () => {
   })
 
   /**
+   * El estado se anuncia sin reescribirse con el reloj.
+   *
+   * Es la diferencia entre una región `aria-live` que sirve y una que no: si el
+   * texto cambiara en cada `timeupdate` —cuatro veces por segundo—, un lector de
+   * pantalla no dejaría oír nada más. Se mide que el reloj avanza y el anuncio no,
+   * y que al pausar sí se rehace con la posición del momento.
+   */
+  test('el anuncio no se reescribe en cada segundo', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const video = page.locator('video')
+    const estado = page.locator('.player [aria-live="polite"]')
+
+    const antes = await video.evaluate((elemento: HTMLVideoElement) => elemento.currentTime)
+
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await expect(estado).toContainText('Reproduciendo')
+
+    const anuncio = await estado.textContent()
+    await page.waitForTimeout(2500)
+
+    // El reloj se movió…
+    expect(
+      await video.evaluate((elemento: HTMLVideoElement) => elemento.currentTime),
+    ).toBeGreaterThan(antes)
+    // …y el anuncio sigue diciendo lo mismo, que es de lo que se trata.
+    expect(await estado.textContent()).toBe(anuncio)
+
+    // Y al parar sí cuenta dónde quedó.
+    await page.getByRole('button', { name: 'Pausar' }).click()
+    await expect(estado).toContainText('En pausa')
+    expect(await estado.textContent()).not.toBe(anuncio)
+  })
+
+  /**
+   * El texto secundario no baja de 13 px.
+   *
+   * Se mide el tamaño **calculado**, no la regla escrita: lo que importa es lo que
+   * el navegador pinta. La lista son los textos que no son un botón ni un titular,
+   * que es donde estaban los 10 y 11 px en gris sobre negro.
+   */
+  test('el texto secundario se lee: 13 px o más', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 3 · 3 de 12')
+
+    // Los atajos viven en el diálogo: se abre para poder medirlos.
+    await page.keyboard.press('?')
+    await expect(page.locator('.player__dialog')).toBeVisible()
+
+    const tamanos = await page.evaluate(() =>
+      [
+        '.watch__back',
+        '.watch__episode',
+        '.watch__nav-link',
+        '.audio-switch__option',
+        '.player__time',
+        '.player__key-does',
+        '.player__key-cap',
+      ].map((selector) => {
+        const elemento = document.querySelector(selector)
+
+        return {
+          selector,
+          px: elemento === null ? 0 : Number.parseFloat(getComputedStyle(elemento).fontSize),
+        }
+      }),
+    )
+
+    for (const { selector, px } of tamanos) {
+      expect(px, selector).toBeGreaterThanOrEqual(13)
+    }
+  })
+
+  /**
+   * El foco se ve.
+   *
+   * Se recorre con el tabulador —y no con `focus()`— porque el anillo es de
+   * `:focus-visible`, que es justo lo que distingue haber llegado con el teclado
+   * de haber hecho clic. Sin anillo, quien navega con el teclado no sabe dónde
+   * está.
+   */
+  test('los mandos enseñan el anillo de foco al llegar con el teclado', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const mando = page.getByRole('button', { name: 'Reproducir' })
+
+    for (let intento = 0; intento < 15; intento++) {
+      if (await mando.evaluate((elemento) => elemento === document.activeElement)) break
+
+      await page.keyboard.press('Tab')
+    }
+
+    expect(await mando.evaluate((elemento) => elemento === document.activeElement)).toBe(true)
+
+    const anillo = await mando.evaluate((elemento) => {
+      const estilo = getComputedStyle(elemento)
+
+      return {
+        ancho: Number.parseFloat(estilo.outlineWidth),
+        estilo: estilo.outlineStyle,
+        separacion: Number.parseFloat(estilo.outlineOffset),
+      }
+    })
+
+    expect(anillo.estilo).not.toBe('none')
+    expect(anillo.ancho).toBeGreaterThanOrEqual(2)
+    expect(anillo.ancho).toBeLessThanOrEqual(3)
+    expect(anillo.separacion).toBeGreaterThanOrEqual(1)
+  })
+
+  /**
    * El visionado queda registrado con su **duración**, una sola vez por episodio
    * y con el segundo donde se dejó.
    *
