@@ -58,8 +58,61 @@ export interface LoadReport {
 
 export interface LoadOptions {
   readonly directory: string
+  /**
+   * Archivos de fuera del directorio que también se cargan.
+   *
+   * Son los proveedores habilitados de un repositorio descargado: viven en la
+   * carpeta de datos, no en la de plugins, y los elige el usuario uno a uno.
+   *
+   * Van **después** del directorio a propósito. La regla del registro es que gana
+   * el primero, así que un archivo que el usuario escribió a mano y otro que
+   * habilitó de un repo con el mismo `id` se resuelven a favor del suyo, y el del
+   * repo se reporta como duplicado con su ruta delante. Es lo que se espera: el
+   * sitio donde el usuario escribe es el que manda.
+   */
+  readonly files?: readonly string[]
   /** Inyectable: los tests comprueban un import que lanza sin tocar el disco. */
   readonly importModule?: (url: string) => Promise<unknown>
+}
+
+/**
+ * Un archivo a importar, con lo que hace falta para poder nombrarlo.
+ *
+ * `label` va aparte de `file` porque no son lo mismo: un plugin del directorio se
+ * nombra por su nombre —`bueno.ts`— y uno de un repo, por su ruta entera, que es
+ * lo único que lo distingue de otro repo con un archivo que se llama igual.
+ */
+interface Target {
+  readonly file: string
+  readonly label: string
+  /** Si su extensión es una de las del contrato. */
+  readonly plugin: boolean
+}
+
+function isPluginFile(file: string): boolean {
+  return PLUGIN_EXTENSIONS.some((extension) => file.endsWith(extension))
+}
+
+/**
+ * Los archivos explícitos que no estaban ya en la lista, en orden de ruta.
+ *
+ * Se descartan los repetidos por ruta resuelta: habilitar un archivo que ya está
+ * en el directorio de plugins lo cargaría dos veces y el segundo sería un
+ * duplicado, que es un error que el usuario no cometió.
+ */
+function extraTargets(files: readonly string[], already: readonly Target[]): readonly Target[] {
+  const seen = new Set(already.map((target) => target.file))
+  const targets: Target[] = []
+
+  for (const file of [...files].sort()) {
+    const absolute = resolve(file)
+    if (seen.has(absolute)) continue
+
+    seen.add(absolute)
+    targets.push({ file: absolute, label: absolute, plugin: isPluginFile(absolute) })
+  }
+
+  return targets
 }
 
 function isMissing(cause: unknown): boolean {
@@ -84,6 +137,15 @@ export function pluginNames(names: readonly string[]): readonly string[] {
   return names
     .filter((name) => PLUGIN_EXTENSIONS.some((extension) => name.endsWith(extension)))
     .sort()
+}
+
+/** Un archivo que no es de los que este cargador sabe importar. */
+function notAPlugin(target: Target): ProviderError {
+  return new ProviderError({
+    message: `no es un archivo de proveedor: se espera ${PLUGIN_EXTENSIONS.join(', ')}`,
+    scope: target.label,
+    context: { kind: 'invalid-shape' },
+  })
 }
 
 /** Nombres de plugin del directorio, en orden alfabético. */
@@ -175,44 +237,65 @@ export async function loadProviders(options: LoadOptions): Promise<LoadReport> {
   const active: LoadedProvider[] = []
   const rejected: RejectedPlugin[] = []
 
-  for (const name of names) {
-    const file = join(directory, name)
+  // El directorio primero y los explícitos después: la regla de «gana el
+  // primero» del registro se lee como «gana el del usuario».
+  const fromDirectory: readonly Target[] = names.map((name) => ({
+    file: join(directory, name),
+    label: name,
+    plugin: true,
+  }))
+  const targets: readonly Target[] = [
+    ...fromDirectory,
+    ...extraTargets(options.files ?? [], fromDirectory),
+  ]
+
+  for (const target of targets) {
+    if (!target.plugin) {
+      // La lista de archivos habilitados vive en un ajuste que alguien puede
+      // editar a mano: importar un `.txt` daría un error de sintaxis que no
+      // explica nada. Se dice lo que pasa.
+      rejected.push({
+        file: target.file,
+        reason: namedByFile(notAPlugin(target), target.label),
+      })
+      continue
+    }
 
     let module: unknown
     try {
-      module = await imported(pathToFileURL(file).href)
+      module = await imported(pathToFileURL(target.file).href)
     } catch (cause) {
       // El mensaje se construye aquí y no con `providerFailure`: un archivo que
       // no se puede importar no incumple el contrato, no llegó a declararlo.
       rejected.push({
-        file,
+        file: target.file,
         reason: namedByFile(
           new ProviderError({
             message: `no se pudo importar: ${cause instanceof Error ? cause.message : 'sin causa'}`,
-            scope: name,
+            scope: target.label,
             cause,
             context: { kind: classifyThrow(cause) },
           }),
-          name,
+          target.label,
         ),
       })
       continue
     }
 
-    const candidates = candidatesFrom(module, name)
+    const candidates = candidatesFrom(module, target.label)
     if (isFailure(candidates)) {
-      rejected.push({ file, reason: namedByFile(candidates, name) })
+      rejected.push({ file: target.file, reason: namedByFile(candidates, target.label) })
       continue
     }
 
     for (const candidate of candidates) {
       const added = registry.add(candidate)
       if (!added.ok) {
-        rejected.push({ file, reason: namedByFile(added.error, name) })
+        rejected.push({ file: target.file, reason: namedByFile(added.error, target.label) })
         continue
       }
 
-      active.push({ provider: added.value, file })
+      active.push({ provider: added.value, file: target.file })
     }
   }
 

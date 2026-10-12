@@ -75,25 +75,26 @@ distingue de su ausencia no está midiendo nada.
 repo— y sabe reconocer, **leyendo el texto**, qué archivos de un repo declaran un proveedor.
 
 **Aceptación:**
-- [ ] `loadProviders({ directory, files })` carga el directorio y además los archivos explícitos, en
+- [x] `loadProviders({ directory, files })` carga el directorio y además los archivos explícitos, en
       ese orden: un archivo del usuario con el mismo `id` gana y el del repo se reporta como duplicado
       nombrando su archivo.
-- [ ] Un archivo explícito que no existe se reporta como rechazado con su motivo, no rompe la carga
+- [x] Un archivo explícito que no existe se reporta como rechazado con su motivo, no rompe la carga
       de los demás y no lanza.
-- [ ] El informe sigue siendo el mismo tipo: `active` con `file`, `rejected` con `reason`, y el orden
+- [x] El informe sigue siendo el mismo tipo: `active` con `file`, `rejected` con `reason`, y el orden
       es determinista —directorio por nombre, después los explícitos por ruta—.
-- [ ] `scanProviderSources(root)` devuelve los candidatos de un árbol: archivos `.ts`, `.js` o `.mjs`
+- [x] `scanProviderSources(root)` devuelve los candidatos de un árbol: archivos `.ts`, `.js` o `.mjs`
       que declaran `export default`, `export const providers`, `export { … as default }`,
       `export { providers }` o `module.exports =`; y su pista de `id` y `name` tomada de un literal.
-- [ ] Quedan fuera `node_modules`, `.git`, `.github`, `dist`, `build`, `coverage`, los directorios y
+- [x] Quedan fuera `node_modules`, `.git`, `.github`, `dist`, `build`, `coverage`, los directorios y
       archivos de pruebas (`*.test.*`, `*.spec.*`, `__fixtures__`, `test`, `tests`, `__tests__`) y las
       rutas ocultas: los tests de un repo exportan proveedores de mentira y no son la oferta del repo.
-- [ ] `ignored` enumera los archivos con extensión de plugin que **no** declararon nada, y los topes de
+- [x] `ignored` enumera los archivos con extensión de plugin que **no** declararon nada, y los topes de
       candidatos y de tamaño se declaran en el resultado (`truncated`), no se aplican en silencio.
-- [ ] El escaneo no ejecuta nada: un candidato con un `throw` en la primera línea se sigue listando.
+- [x] El escaneo no ejecuta nada: un candidato con un `throw` en la primera línea se sigue listando.
 
-**Verificación:** `bun test packages/provider-sdk` · medido mutando: invirtiendo el orden falla 1,
-sin el filtro de pruebas 2, sin el filtro de directorios 1, sin la detección de `providers` 1.
+**Verificación:** `bun test packages/provider-sdk` · 138 pasan, 0 fallan. Medido mutando: invirtiendo
+el orden falla 1, sin la detección de `export const providers` 1, sin el tope de archivos 1, sin el
+filtro de pruebas 1, sin el de directorios de trabajo 1, sin el de lo oculto 1.
 
 **Depende de:** nada. **Tamaño:** M.
 

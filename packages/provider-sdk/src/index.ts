@@ -55,6 +55,18 @@ export {
   validateProvider,
 } from './registry'
 export {
+  candidateHints,
+  declaresProvider,
+  type ProviderCandidate,
+  SCAN_MAX_DEPTH,
+  SCAN_MAX_FILE_BYTES,
+  SCAN_MAX_FILES,
+  SCAN_SKIPPED_DIRECTORIES,
+  type ScanOptions,
+  type ScanResult,
+  scanProviderSources,
+} from './scan'
+export {
   type ProviderResponse,
   type ProviderShape,
   providerAnimeDetailSchema,

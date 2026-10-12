@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { loadProviders, PLUGIN_EXTENSIONS, pluginNames } from './loader'
 
 const FIXTURES = join(import.meta.dir, '__fixtures__')
@@ -27,6 +27,45 @@ async function withPlugins<T>(
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
+}
+
+/**
+ * Un directorio que hace de repositorio descargado: fuera del de plugins, con
+ * los archivos que se le digan escritos de verdad.
+ */
+async function withRepo<T>(
+  files: Readonly<Record<string, string>>,
+  body: (directory: string) => Promise<T>,
+): Promise<T> {
+  const directory = await mkdtemp(join(tmpdir(), 'nn-anime-repo-'))
+
+  try {
+    for (const [name, content] of Object.entries(files)) {
+      const full = join(directory, name)
+      await mkdir(dirname(full), { recursive: true })
+      await writeFile(full, content)
+    }
+    return await body(directory)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+}
+
+/** El texto de un proveedor mínimo, con el `id` y el nombre que se le pidan. */
+function providerSource(id: string, name = id): string {
+  return `const provider = {
+  id: ${JSON.stringify(id)},
+  name: ${JSON.stringify(name)},
+  apiVersion: '1',
+  capabilities: { search: true, sub: false, dub: false, trending: false },
+  async search() { return [] },
+  async getAnime() { return { ref: { providerId: ${JSON.stringify(id)}, value: 'a' }, title: 'A', genres: [], studios: [] } },
+  async getEpisodes() { return [] },
+  async resolveStream() { return [] },
+}
+
+export default provider
+`
 }
 
 function ids(report: Awaited<ReturnType<typeof loadProviders>>): readonly string[] {
@@ -256,6 +295,100 @@ describe('importación inyectada', () => {
       })
 
       expect(ids(report)).toEqual(['inyectado'])
+    })
+  })
+})
+
+describe('archivos explícitos: los proveedores habilitados de un repositorio', () => {
+  test('un archivo de fuera del directorio se carga, y se sabe de dónde salió', async () => {
+    await withPlugins([], async (directory) => {
+      await withRepo({ 'jkanime.ts': providerSource('jkanime', 'JKanime') }, async (repo) => {
+        const report = await loadProviders({ directory, files: [join(repo, 'jkanime.ts')] })
+
+        expect(ids(report)).toEqual(['jkanime'])
+        expect(report.rejected).toEqual([])
+        expect(report.active[0]?.file).toBe(join(repo, 'jkanime.ts'))
+      })
+    })
+  })
+
+  test('el del directorio gana el id repetido, y el del repo se reporta con su ruta', async () => {
+    await withPlugins(['bueno.ts'], async (directory) => {
+      await withRepo({ 'duplicado.ts': providerSource('bueno', 'Del repo') }, async (repo) => {
+        const report = await loadProviders({ directory, files: [join(repo, 'duplicado.ts')] })
+
+        // Gana el del usuario: la regla del registro es «gana el primero» y el
+        // directorio va primero.
+        expect(report.active[0]?.provider.name).toBe('Proveedor bueno')
+        expect(report.rejected).toHaveLength(1)
+        expect(reasons(report)).toContain(join(repo, 'duplicado.ts'))
+        expect(reasons(report)).toContain('ya hay un proveedor con el id')
+      })
+    })
+  })
+
+  test('un archivo que ya está en el directorio no se carga dos veces', async () => {
+    await withPlugins(['bueno.ts'], async (directory) => {
+      const report = await loadProviders({ directory, files: [join(directory, 'bueno.ts')] })
+
+      expect(ids(report)).toEqual(['bueno'])
+      // Sin la deduplicación por ruta, el segundo intento sería un duplicado: un
+      // rechazo que el usuario no provocó.
+      expect(report.rejected).toEqual([])
+    })
+  })
+
+  test('un archivo que no existe se reporta y los demás se cargan igual', async () => {
+    await withPlugins([], async (directory) => {
+      await withRepo({ 'bueno.ts': providerSource('del-repo') }, async (repo) => {
+        const report = await loadProviders({
+          directory,
+          files: [join(repo, 'no-existe.ts'), join(repo, 'bueno.ts')],
+        })
+
+        expect(ids(report)).toEqual(['del-repo'])
+        expect(report.rejected).toHaveLength(1)
+        expect(reasons(report)).toContain('no-existe.ts')
+        expect(reasons(report)).toContain('no se pudo importar')
+      })
+    })
+  })
+
+  test('un archivo con extensión que no es de plugin se rechaza sin importarlo', async () => {
+    await withPlugins([], async (directory) => {
+      // El contenido es un plugin válido: si se importara, estaría activo. Lo que
+      // se comprueba es que no se llegó a importar.
+      await withRepo({ 'notas.txt': providerSource('colado') }, async (repo) => {
+        const report = await loadProviders({ directory, files: [join(repo, 'notas.txt')] })
+
+        expect(report.active).toEqual([])
+        expect(reasons(report)).toContain('no es un archivo de proveedor')
+        expect(reasons(report)).toContain('.ts, .js, .mjs')
+      })
+    })
+  })
+
+  test('el orden no depende de cómo se pidieron: se ordenan por ruta', async () => {
+    await withPlugins([], async (directory) => {
+      await withRepo(
+        { 'b.ts': providerSource('zeta'), 'a.ts': providerSource('alfa') },
+        async (repo) => {
+          const report = await loadProviders({
+            directory,
+            files: [join(repo, 'b.ts'), join(repo, 'a.ts')],
+          })
+
+          expect(ids(report)).toEqual(['alfa', 'zeta'])
+        },
+      )
+    })
+  })
+
+  test('sin archivos explícitos todo sigue igual que antes', async () => {
+    await withPlugins(['bueno.ts'], async (directory) => {
+      const report = await loadProviders({ directory, files: [] })
+
+      expect(ids(report)).toEqual(['bueno'])
     })
   })
 })
