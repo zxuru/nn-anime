@@ -357,7 +357,7 @@ test.describe('el reproductor', () => {
     await expect(page).toHaveTitle('Aurora Nocturna · Episodio 3 · nn-anime', { timeout: 15_000 })
     await expect(page.getByRole('heading', { level: 1, name: 'Aurora Nocturna' })).toBeVisible()
     // El episodio, en una sola línea: el número, el lugar que ocupa de cuántos.
-    await expect(page.locator('.watch__episode')).toHaveText('Episodio 3 · 3 de 12')
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 3 de 12')
   })
 
   /**
@@ -541,7 +541,7 @@ test.describe('el reproductor', () => {
     await page.goto('/watch/fixture/aurora-nocturna%232')
 
     const posicion = page.locator('.watch__episode')
-    await expect(posicion).toHaveText('Episodio 2 · 2 de 12')
+    await expect(posicion).toHaveText('Episodio 2 de 12')
 
     expect(await posicion.evaluate((elemento) => getComputedStyle(elemento).userSelect)).toBe(
       'none',
@@ -568,11 +568,11 @@ test.describe('el reproductor', () => {
 
     // Y debajo del video, dónde se está: sin esto, dos botones en los extremos de
     // una fila vacía no dicen ni el episodio ni cuántos quedan.
-    await expect(page.locator('.watch__episode')).toHaveText('Episodio 2 · 2 de 12')
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 2 de 12')
 
     await page.getByRole('link', { name: 'Episodio siguiente' }).click()
     await expect(page).toHaveURL(/aurora-nocturna%233/)
-    await expect(page.locator('.watch__episode')).toHaveText('Episodio 3 · 3 de 12')
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 3 de 12')
 
     await page.getByRole('link', { name: 'Episodio anterior' }).click()
     await expect(page).toHaveURL(/aurora-nocturna%232/)
@@ -588,7 +588,7 @@ test.describe('el reproductor', () => {
     const enlaces = page.locator('a.watch__nav-link')
     await expect(enlaces).toHaveCount(1)
     await expect(enlaces).toHaveAttribute('href', /aurora-nocturna%232/)
-    await expect(page.locator('.watch__episode')).toHaveText('Episodio 1 · 1 de 12')
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 1 de 12')
 
     // El anterior existe como hueco apagado, y dice por qué no lleva a ninguna
     // parte: sin eso, una flecha muerta se lee como un fallo de la aplicación.
@@ -777,7 +777,7 @@ test.describe('el reproductor', () => {
     await entrar(page)
     await page.goto('/watch/fixture/aurora-nocturna%233')
 
-    await expect(page.locator('.watch__episode')).toHaveText('Episodio 3 · 3 de 12')
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 3 de 12')
 
     // Los atajos viven en el diálogo: se abre para poder medirlos.
     await page.keyboard.press('?')
@@ -965,7 +965,7 @@ test.describe('la lista, el progreso y el siguiente', () => {
 
     await expect(page).toHaveURL(/aurora-nocturna%235/)
     await expect(lista.locator('[aria-current="page"]')).toContainText('5')
-    await expect(page.locator('.watch__episode')).toHaveText('Episodio 5 · 5 de 12')
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 5 de 12')
   })
 
   /**

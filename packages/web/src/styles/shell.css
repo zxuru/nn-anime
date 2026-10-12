@@ -1561,6 +1561,19 @@
   text-overflow: ellipsis;
 }
 
+/* El estado de la lista y su «ver más»: la columna pide los episodios de cien en
+   cien, así que hay un momento en el que todavía no están y un resto por pedir. */
+.watch__list-note {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+}
+
+.watch__list-more {
+  justify-content: center;
+  width: 100%;
+}
+
 /*
  * La tarjeta del episodio siguiente.
  *

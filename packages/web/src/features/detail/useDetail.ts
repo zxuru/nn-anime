@@ -1,10 +1,16 @@
 /**
  * Datos de la pantalla de detalle.
  *
- * Siete peticiones en paralelo —detalle, episodios, relacionados, franquicia,
- * fuentes, vistos y capacidades del proveedor— porque ninguna necesita a las
- * otras: en serie, la pantalla tardaría la suma de las siete latencias sin ninguna
- * razón.
+ * Seis peticiones en paralelo —detalle, relacionados, franquicia, fuentes, vistos
+ * y capacidades del proveedor— porque ninguna necesita a las otras: en serie, la
+ * pantalla tardaría la suma de las seis latencias sin ninguna razón.
+ *
+ * **Los episodios no están aquí.** La lista se pide por páginas desde el selector
+ * (`EpisodeList`), que es quien sabe en qué página va y cuál se está mirando: con
+ * la lectura aquí, la ficha pedía una lista que ya no puede recortar y el selector
+ * pedía la suya, con dos claves de caché para el mismo dato. Aquí quedan las rutas
+ * y los cargadores, para que las dos pantallas que abren un episodio suelto —el
+ * selector y el reproductor— los compartan.
  *
  * Las fuentes son las otras que tienen **esta misma obra**, de la base local: es
  * lo que el «También en» de la ficha necesita para ofrecer elegir dónde verla.
@@ -24,9 +30,10 @@
  * campo en `undefined`.
  */
 
-import type { WatchedEpisodePayload } from '@nn-anime/core/api'
+import type { EpisodesResponse, WatchedEpisodePayload } from '@nn-anime/core/api'
 import {
   animeResponseSchema,
+  episodeResponseSchema,
   episodesResponseSchema,
   favoritesResponseSchema,
   providersResponseSchema,
@@ -42,7 +49,7 @@ import type {
   ProviderRef,
 } from '@nn-anime/core/models'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { apiGet, apiPost } from '../../api/client'
+import { ApiError, apiGet, apiPost, type RequestDeps } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
 
@@ -69,9 +76,138 @@ export function sourcesPath(providerId: string, ref: string): string {
   return `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/sources`
 }
 
+/**
+ * Las lecturas de episodios, con lo que un test puede sustituir.
+ *
+ * El `fetch` entra por aquí y no por variable global para que una prueba mida
+ * **qué rutas se piden** sin levantar un navegador: es la única forma de
+ * comprobar que la pantalla de reproducción no pide la lista entera cuando sólo
+ * necesita los vecinos.
+ */
+export interface EpisodeReads {
+  readonly deps?: RequestDeps
+  readonly signal?: AbortSignal
+}
+
+function opciones(reads: EpisodeReads): { readonly signal?: AbortSignal } {
+  return reads.signal === undefined ? {} : { signal: reads.signal }
+}
+
+/**
+ * La ruta de una página de episodios.
+ *
+ * `page` va **siempre**, también la primera: el servidor trata la ausencia como
+ * la 1, pero una lectura sin página y otra con `?page=1` son dos claves distintas
+ * en la caché del cliente, y la pantalla que trocea en páginas nunca debería
+ * pedir una lista sin decir cuál.
+ */
+export function episodesPath(providerId: string, ref: string, page: number): string {
+  const base = `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/episodes`
+
+  return `${base}?page=${page}`
+}
+
+/** La ruta de un episodio por su número. Admite decimales. */
+export function episodeNumberPath(providerId: string, ref: string, number: number): string {
+  const base = `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/episodes`
+
+  return `${base}/number/${number}`
+}
+
+/** La ruta del último episodio del título. */
+export function latestEpisodePath(providerId: string, ref: string): string {
+  const base = `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/episodes`
+
+  return `${base}/latest`
+}
+
+/** Una página de episodios, tal y como la sirve el servidor. */
+export async function loadEpisodesPage(
+  providerId: string,
+  ref: string,
+  page: number,
+  reads: EpisodeReads = {},
+): Promise<EpisodesResponse> {
+  return apiGet(
+    episodesPath(providerId, ref, page),
+    episodesResponseSchema,
+    opciones(reads),
+    reads.deps,
+  )
+}
+
+/**
+ * Lo que se encontró al pedir un episodio suelto.
+ *
+ * Son tres y no dos porque «no está» y «no se pudo» se cuentan distinto: el
+ * primero es una respuesta del proveedor y el segundo trae su motivo. Y la razón
+ * de separarlos está medida: el plugin de jkanime **no puede** construir un error
+ * con estado 404 —vive fuera del repositorio y no resuelve el paquete—, así que un
+ * episodio que no tiene llega como 502 con el mensaje «no tiene el episodio 999 de
+ * kimetsu-no-yaiba: la ficha dice 26». Tratar ese 502 como «el proveedor está
+ * caído» esconde lo único que explica lo que pasó.
+ */
+export type EpisodeLookup =
+  | { readonly kind: 'found'; readonly episode: Episode }
+  | { readonly kind: 'missing' }
+  | { readonly kind: 'failed'; readonly message: string }
+
+/** Lo que el servidor contó del fallo, o el del error corriente si no contó nada. */
+function mensajeDe(cause: unknown): string {
+  if (cause instanceof ApiError) return cause.detail ?? cause.message
+
+  return cause instanceof Error ? cause.message : String(cause)
+}
+
+async function loadSingleEpisode(path: string, reads: EpisodeReads): Promise<EpisodeLookup> {
+  try {
+    const respuesta = await apiGet(path, episodeResponseSchema, opciones(reads), reads.deps)
+
+    return { kind: 'found', episode: respuesta.episode }
+  } catch (cause) {
+    if (cause instanceof ApiError && cause.status === 404) return { kind: 'missing' }
+
+    return { kind: 'failed', message: mensajeDe(cause) }
+  }
+}
+
+/** El episodio con ese número, o por qué no se pudo dar. */
+export function loadEpisodeByNumber(
+  providerId: string,
+  ref: string,
+  number: number,
+  reads: EpisodeReads = {},
+): Promise<EpisodeLookup> {
+  return loadSingleEpisode(episodeNumberPath(providerId, ref, number), reads)
+}
+
+/** El último episodio del título, o por qué no se pudo dar. */
+export function loadLatestEpisode(
+  providerId: string,
+  ref: string,
+  reads: EpisodeReads = {},
+): Promise<EpisodeLookup> {
+  return loadSingleEpisode(latestEpisodePath(providerId, ref), reads)
+}
+
+/**
+ * El número escrito en el campo de salto, o nada si no es un número.
+ *
+ * Admite decimales —hay fuentes que numeran `7.5`— y rechaza el vacío, el cero,
+ * lo negativo y lo que no sea finito: `Number('')` es 0 y `Number('x')` es `NaN`,
+ * así que sin esta comprobación un campo vacío pedía el episodio 0.
+ */
+export function parseJump(raw: string): number | undefined {
+  const texto = raw.trim()
+  if (texto === '') return undefined
+
+  const numero = Number(texto)
+
+  return Number.isFinite(numero) && numero > 0 ? numero : undefined
+}
+
 export interface DetailData {
   readonly detail: AnimeDetail | undefined
-  readonly episodes: readonly Episode[]
   /**
    * Los hermanos de saga, de lo que la base ya conoce.
    *
@@ -161,7 +297,6 @@ export function watchedPercent(ratio: number): number {
 
 export function useDetail(providerId: string, ref: string): DetailData {
   const [detail, setDetail] = useState<AnimeDetail | undefined>(undefined)
-  const [episodes, setEpisodes] = useState<readonly Episode[]>([])
   const [related, setRelated] = useState<readonly AnimeSummary[]>([])
   const [franchise, setFranchise] = useState<readonly AnimeSummary[]>([])
   const [sources, setSources] = useState<readonly AnimeSummary[]>([])
@@ -194,11 +329,6 @@ export function useDetail(providerId: string, ref: string): DetailData {
         animeResponseSchema,
         opciones,
       ),
-      apiGet(
-        `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/episodes`,
-        episodesResponseSchema,
-        opciones,
-      ),
       apiGet(relatedPath(providerId, ref), relatedResponseSchema, opciones),
       apiGet(relatedPath(providerId, ref, 'franchise'), relatedResponseSchema, opciones),
       apiGet(sourcesPath(providerId, ref), sourcesResponseSchema, opciones),
@@ -209,11 +339,10 @@ export function useDetail(providerId: string, ref: string): DetailData {
       ),
       apiGet('/api/providers', providersResponseSchema, opciones),
     ]).then(
-      ([detalle, lista, hermanos, franquicia, fuentes, vistos, proveedores]) => {
+      ([detalle, hermanos, franquicia, fuentes, vistos, proveedores]) => {
         if (controller.signal.aborted) return
 
         setDetail(detalle)
-        setEpisodes(lista.episodes)
         setRelated(hermanos.items)
         setFranchise(franquicia.items)
         setSources(fuentes.items)
@@ -243,7 +372,6 @@ export function useDetail(providerId: string, ref: string): DetailData {
 
   return {
     detail,
-    episodes,
     related,
     franchise,
     sources,

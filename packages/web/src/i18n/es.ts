@@ -221,9 +221,14 @@ export const messages: Messages = {
   'player.next': 'Siguiente',
   'player.firstEpisode': 'Este es el primer episodio: no hay anterior.',
   'player.lastEpisode': 'Este es el último episodio: no hay siguiente.',
-  // El episodio en una sola línea: el número, el lugar que ocupa de cuántos —que
-  // antes se decía en medio de las flechas— y, si el proveedor lo dio, su título.
-  'player.episodeAt': 'Episodio {number} · {position} de {total}',
+  // El episodio en una sola línea, con el número una sola vez: el episodio, de
+  // cuántos es —si el proveedor lo dijo— y, si lo trae, su título. Antes eran dos
+  // textos, «Episodio 3» encima y «Episodio 3 de 12» en medio de las flechas.
+  'player.episodeOf': 'Episodio {number} de {total}',
+  // La lista de la columna: se pide de cien en cien, así que tiene estados.
+  'player.episodes.more': 'Ver más episodios',
+  'player.episodes.loading': 'Cargando los episodios…',
+  'player.episodes.error': 'No se pudieron cargar los episodios.',
   // El episodio, para el título de la pestaña y para el encabezado de la pantalla.
   'player.episode': 'Episodio {number}',
   'player.episodeNamed': 'Episodio {number} · {title}',
@@ -311,8 +316,27 @@ export const messages: Messages = {
   'detail.studios': 'Estudios',
   'detail.episodes': 'Episodios',
   'detail.episode': 'Episodio {number}',
+  // Con total y sin él, porque el proveedor no siempre dice de cuántos: un «de 26»
+  // inventado es peor que sólo el número.
+  'detail.episodeOf': 'Episodio {number} de {total}',
   'detail.episode.watched': 'visto',
   'detail.episode.progress': 'Visto al {percent} %',
+  'detail.episodes.loading': 'Cargando los episodios…',
+  'detail.episodes.error': 'No se pudieron cargar los episodios.',
+  // Los mandos de la lista por páginas. El rótulo de las flechas es también su
+  // nombre accesible: son botones con texto, no iconos.
+  'detail.page.previous': 'Página anterior',
+  'detail.page.next': 'Página siguiente',
+  'detail.page.label': 'Página {page}',
+  'detail.latest': 'Último episodio',
+  'detail.latest.error': 'No se pudo abrir el último episodio.',
+  'detail.latest.failed': 'No se pudo abrir el último episodio: {message}',
+  // El salto por número pregunta al servidor: si contesta que no está, se dice
+  // eso y no un error, porque no hay ningún fallo. Cuando sí falla —el plugin real
+  // contesta 502 con el motivo, porque no puede construir un 404—, el texto del
+  // servidor se enseña dentro del aviso: es lo único que explica qué pasó.
+  'detail.jump.notFound': 'El episodio {number} no está en este título.',
+  'detail.jump.failed': 'No se pudo buscar el episodio: {message}',
   'detail.window.previous': 'Anteriores',
   'detail.window.next': 'Siguientes',
   'detail.window.range': 'Episodios {from}–{to}',

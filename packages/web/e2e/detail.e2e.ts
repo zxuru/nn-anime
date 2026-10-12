@@ -45,14 +45,16 @@ test.describe('de la búsqueda al detalle', () => {
     await page.goto('/anime/fixture/aurora-nocturna')
     await expect(page.locator('.episodes li')).toHaveCount(12, { timeout: 15_000 })
 
-    // El enlace lleva el episodio en la dirección, el modo elegido y la
-    // referencia del título en la consulta: el reproductor abre en subtitulado,
-    // que es el que ofrece el proveedor y el que sale marcado, y el visionado se
-    // registra contra el título, no contra la referencia del episodio.
+    // El enlace lleva el episodio en la dirección, el modo elegido, la
+    // referencia del título en la consulta y el número del episodio: el
+    // reproductor abre en subtitulado, que es el que ofrece el proveedor y el que
+    // sale marcado; el visionado se registra contra el título, no contra la
+    // referencia del episodio; y el número es lo que le deja resolver los vecinos
+    // sin descargar la lista entera.
     const tercero = page.locator('.episodes li').nth(2).getByRole('link')
     await expect(tercero).toHaveAttribute(
       'href',
-      '/watch/fixture/aurora-nocturna%233?mode=sub&anime=aurora-nocturna',
+      '/watch/fixture/aurora-nocturna%233?mode=sub&anime=aurora-nocturna&n=3',
     )
 
     await tercero.click()
@@ -129,47 +131,102 @@ test.describe('de la búsqueda al detalle', () => {
   /**
    * Una serie de mil episodios, en el navegador.
    *
-   * El fixture tiene doce episodios y con doce no hay ventanas: el caso se mide
+   * El fixture tiene doce episodios y con doce no hay páginas: el caso se mide
    * interceptando la ruta de episodios y sirviendo mil ciento ochenta, que es lo
    * que devuelve una fuente real para One Piece. Aquí se comprueba lo que el
-   * renderizado de servidor no puede: que la lista no monte las mil filas, que el
-   * salto cambie de ventana y que deje el foco en la fila pedida.
+   * renderizado de servidor no puede: que la lista se pide **por páginas** —con su
+   * `?page=`, que es lo que el troceado del servidor y su caché necesitan—, que no
+   * se montan más de cien filas y que el salto por número pregunta al servidor en
+   * vez de buscar en lo que ya está descargado.
    */
-  test('una lista de mil episodios se recorre por ventanas y salta al número', async ({ page }) => {
+  test('una lista de mil episodios se pide por páginas y el salto va al servidor', async ({
+    page,
+  }) => {
     await entrar(page)
 
-    const episodios = Array.from({ length: 1180 }, (_, indice) => {
-      const numero = indice + 1
+    const POR_PAGINA = 100
+    const TOTAL = 1180
 
-      return {
-        ref: { providerId: 'fixture', value: `aurora-nocturna#${numero}` },
-        animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
-        number: numero,
-        title: `Episodio ${numero}`,
-        durationS: 1440,
-        mode: 'sub',
-      }
+    /** Un episodio del proveedor, con lo mínimo que exige el schema. */
+    const episodio = (numero: number): unknown => ({
+      ref: { providerId: 'fixture', value: `aurora-nocturna#${numero}` },
+      animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+      number: numero,
+      title: `Episodio ${numero}`,
+      durationS: 1440,
+      mode: 'sub',
     })
 
-    await page.route('**/api/anime/fixture/aurora-nocturna/episodes', async (ruta) => {
-      await ruta.fulfill({ json: { episodes: episodios } })
-    })
+    /** Los cien de una página, numerados como los numera el proveedor. */
+    const episodiosDe = (numero: number): readonly unknown[] =>
+      Array.from({ length: POR_PAGINA }, (_, indice) =>
+        episodio((numero - 1) * POR_PAGINA + indice + 1),
+      )
+
+    const paginas: number[] = []
+
+    /**
+     * La ruta se intercepta **con su `?page=`**, y el predicado lo exige: un patrón
+     * sin consulta no coincide con la petición paginada, se va al servidor de
+     * verdad y la prueba mide los doce episodios del fixture creyendo medir mil.
+     */
+    await page.route(
+      (url) =>
+        url.pathname === '/api/anime/fixture/aurora-nocturna/episodes' &&
+        url.searchParams.has('page'),
+      async (ruta) => {
+        const numero = Number(new URL(ruta.request().url()).searchParams.get('page'))
+        paginas.push(numero)
+
+        await ruta.fulfill({
+          json: {
+            episodes: episodiosDe(numero),
+            page: numero,
+            hasMore: numero * POR_PAGINA < TOTAL,
+            total: TOTAL,
+          },
+        })
+      },
+    )
+
+    // El salto pregunta por el número al servidor, así que se intercepta también:
+    // el fixture no tiene ningún episodio 1180.
+    await page.route(
+      (url) => url.pathname.startsWith('/api/anime/fixture/aurora-nocturna/episodes/number/'),
+      async (ruta) => {
+        const numero = Number(new URL(ruta.request().url()).pathname.split('/').pop())
+
+        await ruta.fulfill({ json: { episode: episodio(numero) } })
+      },
+    )
 
     await page.goto('/anime/fixture/aurora-nocturna')
 
-    // Cien filas y no mil: el tope es de pintado.
-    await expect(page.locator('.episodes li')).toHaveCount(100, { timeout: 15_000 })
-    await expect(page.locator('.episodes__range')).toHaveText('Episodios 1–100')
+    // Cien filas y no mil: el tope de pintado sigue siendo el de
+    // `episode-window.ts`, y con él la página que se mira no crece con la serie.
+    await expect(page.locator('.episodes li')).toHaveCount(POR_PAGINA, { timeout: 15_000 })
+    await expect(page.locator('.episodes__range')).toHaveText('Página 1')
+    expect(paginas).toEqual([1])
 
-    await page.getByRole('button', { name: 'Siguientes' }).click()
-    await expect(page.locator('.episodes__range')).toHaveText('Episodios 101–200')
-    await expect(page.locator('.episodes li')).toHaveCount(100)
+    // La flecha de página siguiente pide la 2 al servidor, no la siguiente ventana
+    // de lo que ya está descargado.
+    await page.getByRole('button', { name: 'Página siguiente' }).click()
+
+    await expect(page.locator('.episodes__range')).toHaveText('Página 2')
+    await expect(page.locator('.episodes li').first()).toContainText('Episodio 101')
+    expect(paginas).toEqual([1, 2])
 
     await page.getByLabel('Ir al episodio').fill('1180')
     await page.getByRole('button', { name: 'Ir', exact: true }).click()
 
-    await expect(page.locator('.episodes__range')).toHaveText('Episodios 1101–1180')
-    await expect(page.locator('#episodio-1180 a')).toBeFocused()
+    // El salto lleva al episodio, y la pantalla dice de cuántos es el título con la
+    // primera página que pidió: sin ella el rótulo perdía el total. La línea del
+    // episodio vive en el encabezado desde el rediseño de la pantalla; antes iba en
+    // medio de las dos flechas.
+    await expect(page).toHaveURL(/\/watch\/fixture\/aurora-nocturna%231180\?/)
+    await expect(page.locator('.watch__episode')).toHaveText('Episodio 1180 de 1180', {
+      timeout: 15_000,
+    })
   })
 
   /**

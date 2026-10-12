@@ -5,6 +5,7 @@ import {
   episodePosition,
   modeFromPath,
   neighbourEpisodes,
+  numberFromPath,
   PLAY_MODES,
   startAtFromPath,
   watchPath,
@@ -39,6 +40,57 @@ describe('la ruta del reproductor', () => {
 
   test('los modos son los dos que existen', () => {
     expect(PLAY_MODES).toEqual(['sub', 'dub'])
+  })
+
+  test('el número del episodio viaja cuando quien escribe lo conoce', () => {
+    expect(watchPath('fixture', 'aurora-nocturna#3', { n: 3 })).toBe(
+      '/watch/fixture/aurora-nocturna%233?n=3',
+    )
+    // Decimal, que es como numeran los recopilatorios de algunas fuentes.
+    expect(watchPath('fixture', 'aurora-nocturna#12.5', { n: 12.5 })).toBe(
+      '/watch/fixture/aurora-nocturna%2312.5?n=12.5',
+    )
+  })
+
+  test('el número va detrás del modo y del título, en la misma consulta', () => {
+    expect(watchPath('jkanime', 'dandadan/12', { mode: 'dub', anime: 'dandadan', n: 12 })).toBe(
+      '/watch/jkanime/dandadan%2F12?mode=dub&anime=dandadan&n=12',
+    )
+  })
+
+  test('un número imposible no se escribe: no se manda una petición que se sabe mala', () => {
+    expect(watchPath('fixture', 'aurora-nocturna#3', { n: 0 })).toBe(
+      '/watch/fixture/aurora-nocturna%233',
+    )
+    expect(watchPath('fixture', 'aurora-nocturna#3', { n: -1 })).toBe(
+      '/watch/fixture/aurora-nocturna%233',
+    )
+    expect(watchPath('fixture', 'aurora-nocturna#3', { n: Number.NaN })).toBe(
+      '/watch/fixture/aurora-nocturna%233',
+    )
+  })
+})
+
+describe('el número que la dirección trae escrito', () => {
+  test('lo lee de la consulta, junto al modo y al título', () => {
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%2312?mode=sub&anime=x&n=12')).toBe(12)
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%2312.5?n=12.5')).toBe(12.5)
+  })
+
+  /**
+   * Sin número no se deduce nada.
+   *
+   * Una dirección escrita a mano —o un enlace viejo— no puede inventar un
+   * `n-1`: se comporta como si el título no tuviera vecinos, que es distinto de
+   * suponer que la referencia lleva el número detrás.
+   */
+  test('sin él, o con un valor que no es un episodio, no hay número', () => {
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%233?mode=sub')).toBeUndefined()
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%233')).toBeUndefined()
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%233?n=')).toBeUndefined()
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%233?n=0')).toBeUndefined()
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%233?n=-2')).toBeUndefined()
+    expect(numberFromPath('/watch/fixture/aurora-nocturna%233?n=abc')).toBeUndefined()
   })
 })
 
@@ -210,55 +262,18 @@ describe('los vecinos de un episodio', () => {
       previous: { providerId: 'jkanime', value: 'dandadan/11' },
       next: undefined,
     })
-    expect(episodePosition(doce, 'jkanime', 'dandadan/12')).toEqual({
-      number: 12,
-      position: 12,
-      total: 12,
-    })
+    expect(episodePosition(doce, 'jkanime', 'dandadan/12')).toEqual({ number: 12, total: 12 })
   })
 })
 
 describe('el episodio que se está viendo, de cuántos', () => {
-  test('el número, el lugar y el total de la lista', () => {
-    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#2')).toEqual({
-      number: 2,
-      position: 2,
-      total: 3,
-    })
+  test('el número y el total de la lista', () => {
+    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#2')).toEqual({ number: 2, total: 3 })
   })
 
   test('el primero y el último también se sitúan', () => {
-    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#1')).toEqual({
-      number: 1,
-      position: 1,
-      total: 3,
-    })
-    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#3')).toEqual({
-      number: 3,
-      position: 3,
-      total: 3,
-    })
-  })
-
-  /**
-   * El lugar en la lista no es el número que el proveedor escribió.
-   *
-   * Es lo que hace que «3 de 12» diga el tercero y no lo que diga el rótulo:
-   * hay listas que empiezan en cero, que numeran por temporada o que repiten
-   * número, y el rótulo del episodio es del proveedor.
-   */
-  test('el lugar es el de la lista, aunque el número sea otro', () => {
-    const desordenada = [
-      { ref: { providerId: 'fixture', value: 'aurora-nocturna#0' }, number: 0 },
-      { ref: { providerId: 'fixture', value: 'aurora-nocturna#7' }, number: 7 },
-      { ref: { providerId: 'fixture', value: 'aurora-nocturna#7b' }, number: 7 },
-    ]
-
-    expect(episodePosition(desordenada, 'fixture', 'aurora-nocturna#7')).toEqual({
-      number: 7,
-      position: 2,
-      total: 3,
-    })
+    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#1')).toEqual({ number: 1, total: 3 })
+    expect(episodePosition(LISTA, 'fixture', 'aurora-nocturna#3')).toEqual({ number: 3, total: 3 })
   })
 
   test('un episodio que no está en la lista no se sitúa', () => {
@@ -276,7 +291,6 @@ describe('el episodio que se está viendo, de cuántos', () => {
 
     expect(episodePosition(mezcla, 'fixture', 'aurora-nocturna#2')).toEqual({
       number: 2,
-      position: 2,
       total: 3,
     })
   })

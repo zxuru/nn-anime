@@ -74,7 +74,6 @@ function Skeletons(): ReactNode {
 export function DetailPage(props: DetailPageProps): ReactNode {
   const {
     detail,
-    episodes,
     related,
     franchise,
     sources,
@@ -225,7 +224,15 @@ export function DetailPage(props: DetailPageProps): ReactNode {
 
         <section>
           <h2>{t(DEFAULT_LOCALE, 'detail.episodes')}</h2>
-          <EpisodeList episodes={episodes} mode={modo} watched={watched} />
+          {/* El selector pide sus propias páginas: la ficha le da con qué
+              pedirlas —el proveedor y la referencia del título— y no una lista
+              ya descargada que no podría trocear. */}
+          <EpisodeList
+            providerId={props.providerId}
+            ref={props.ref}
+            mode={modo}
+            watched={watched}
+          />
         </section>
       </div>
     </article>
