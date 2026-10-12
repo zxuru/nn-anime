@@ -121,6 +121,26 @@ describe('GET /api/providers', () => {
     expect(rechazado?.reason).toContain('se rompe al cargarse')
   })
 
+  test('en Windows el rechazo se llama por su archivo, no por su ruta entera', async () => {
+    // Lo encontró la comprobación en vivo: un proveedor habilitado de un
+    // repositorio que no conforma salía en la lista con la ruta completa del
+    // disco como identificador, porque el nombre se sacaba partiendo por `/`.
+    const report: PluginReport = {
+      active: [],
+      rejected: [
+        {
+          file: 'C:\\datos\\repos\\zxuru__nn-anime-plugins\\marca\\index.js',
+          reason: { message: 'no cumple el contrato' },
+        },
+      ],
+    }
+    const response = await app(report).request(`${BASE}/api/providers`, { headers: GOOD })
+    const body = providersResponseSchema.parse(await response.json())
+
+    expect(body.providers[0]?.id).toBe('index')
+    expect(body.providers[0]?.name).toBe('index')
+  })
+
   test('sin plugins la lista está vacía, no ausente', async () => {
     const response = await app({ active: [], rejected: [] }).request(`${BASE}/api/providers`, {
       headers: GOOD,
