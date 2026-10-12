@@ -54,13 +54,22 @@ function peticion(overrides: Partial<StreamRequest> = {}): StreamRequest {
   return { episodeRef: EPISODIO, mode: 'sub', ...overrides }
 }
 
+/** Cierra la base sin lanzar: algún test la cierra por su cuenta. */
+function cerrarBase(db: Database): void {
+  try {
+    db.close()
+  } catch {
+    // Ya estaba cerrada: no hay nada que hacer.
+  }
+}
+
 /** Base temporal con el anime y el episodio ya escritos. */
 async function withStore<T>(body: (db: Database, path: string) => Promise<T> | T): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-stream-'))
   const path = join(dir, 'nn-anime.db')
+  const db = openDb(path)
 
   try {
-    const db = openDb(path)
     runMigrations(db)
 
     const anime = createAnimeRepository(db)
@@ -72,6 +81,10 @@ async function withStore<T>(body: (db: Database, path: string) => Promise<T> | T
 
     return await body(db, path)
   } finally {
+    // Windows no deja borrar un archivo abierto, y SQLite mantiene la base y sus
+    // `-wal`/`-shm` hasta el cierre: cerrarla antes del `rm` es lo que permite
+    // borrar el directorio sin un EBUSY que tape el resultado del test.
+    cerrarBase(db)
     await rm(dir, { recursive: true, force: true })
   }
 }

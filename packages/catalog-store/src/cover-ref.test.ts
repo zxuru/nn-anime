@@ -32,15 +32,28 @@ function resultado(titulo: string, overrides: Partial<SearchResult> = {}): Searc
   }
 }
 
+/** Cierra la base sin lanzar: algún test la cierra por su cuenta. */
+function cerrarBase(db: Database): void {
+  try {
+    db.close()
+  } catch {
+    // Ya estaba cerrada: no hay nada que hacer.
+  }
+}
+
 async function withDb<T>(body: (db: Database) => T): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-portada-'))
+  const db = openDb(join(dir, 'nn-anime.db'))
 
   try {
-    const db = openDb(join(dir, 'nn-anime.db'))
     runMigrations(db)
 
     return body(db)
   } finally {
+    // Windows no deja borrar un archivo abierto, y SQLite mantiene la base y sus
+    // `-wal`/`-shm` hasta el cierre: cerrarla antes del `rm` es lo que permite
+    // borrar el directorio sin un EBUSY que tape el resultado del test.
+    cerrarBase(db)
     await rm(dir, { recursive: true, force: true })
   }
 }

@@ -80,6 +80,15 @@ interface Store {
   readonly historial: ReturnType<typeof createSearchHistoryRepository>
 }
 
+/** Cierra la base sin lanzar: algún test la cierra por su cuenta. */
+function cerrarBase(db: Database): void {
+  try {
+    db.close()
+  } catch {
+    // Ya estaba cerrada: no hay nada que hacer.
+  }
+}
+
 /** Base temporal con dos títulos y sus episodios ya dentro. */
 async function withStore<T>(body: (store: Store) => Promise<T> | T): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-usuario-'))
@@ -108,7 +117,10 @@ async function withStore<T>(body: (store: Store) => Promise<T> | T): Promise<T> 
       historial: createSearchHistoryRepository(db),
     })
   } finally {
-    db.close()
+    // Windows no deja borrar un archivo abierto, y SQLite mantiene la base y sus
+    // `-wal`/`-shm` hasta el cierre: cerrarla antes del `rm` es lo que permite
+    // borrar el directorio sin un EBUSY que tape el resultado del test.
+    cerrarBase(db)
     await rm(dir, { recursive: true, force: true })
   }
 }
@@ -368,9 +380,11 @@ describe('todo sobrevive a cerrar y reabrir', () => {
   test('historial, favoritos y búsquedas siguen ahí después', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'nn-anime-usuario-'))
     const path = join(dir, 'nn-anime.db')
+    const abiertas: Database[] = []
 
     try {
       const primera = openDb(path)
+      abiertas.push(primera)
       runMigrations(primera)
       createAnimeRepository(primera).write(AURORA, anime(AURORA, 'Aurora Nocturna', 2019))
       createEpisodesRepository(primera).write(AURORA, [episodio(AURORA, 1)])
@@ -383,6 +397,7 @@ describe('todo sobrevive a cerrar y reabrir', () => {
       primera.close()
 
       const segunda = openDb(path)
+      abiertas.push(segunda)
       runMigrations(segunda)
       const visto = createWatchRepository(segunda).listRecentlyWatched(10)
       const favoritos = createFavoritesRepository(segunda).listFavorites()
@@ -395,6 +410,9 @@ describe('todo sobrevive a cerrar y reabrir', () => {
       expect(favoritos).toHaveLength(1)
       expect(busquedas[0]?.query).toBe('aurora')
     } finally {
+      // Cerrar en el `finally` y no en el cuerpo evita que una aserción que falle
+      // deje la base abierta y convierta el `rm` en un EBUSY que la tape.
+      for (const abierta of abiertas) cerrarBase(abierta)
       await rm(dir, { recursive: true, force: true })
     }
   })

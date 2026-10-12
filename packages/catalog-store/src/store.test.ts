@@ -1,3 +1,4 @@
+import type { Database } from 'bun:sqlite'
 import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -49,6 +50,15 @@ function visionado(ref: ProviderRef): WatchEventInput {
   }
 }
 
+/** Cierra la base sin lanzar: algún test la cierra por su cuenta. */
+function cerrarBase(db: Database): void {
+  try {
+    db.close()
+  } catch {
+    // Ya estaba cerrada: no hay nada que hacer.
+  }
+}
+
 async function withStore<T>(
   body: (context: {
     store: ReturnType<typeof createCatalogStore>
@@ -65,7 +75,12 @@ async function withStore<T>(
     await store.runMigrations()
     return await body({ store, queue, dir })
   } finally {
+    // Windows no deja borrar un archivo abierto: hay que cerrar la base (y sus
+    // `-wal`/`-shm`) antes del `rm`, o el EBUSY del `finally` tapa el resultado
+    // del test. `store.close()` ya la cierra; el cierre defensivo cubre el caso
+    // de que el test la haya cerrado antes.
     await store.close().catch(() => {})
+    cerrarBase(db)
     await rm(dir, { recursive: true, force: true })
   }
 }
@@ -225,6 +240,7 @@ describe('cierre', () => {
       // Y la base queda cerrada de verdad: consultarla ahora falla.
       expect(() => db.query('SELECT 1').get()).toThrow(/closed|cerrada/)
     } finally {
+      cerrarBase(db)
       await rm(dir, { recursive: true, force: true })
     }
   })
@@ -240,6 +256,7 @@ describe('cierre', () => {
 
       await expect(store.writeAnime(AURORA, detalle(AURORA))).rejects.toThrow(/cerrada/)
     } finally {
+      cerrarBase(db)
       await rm(dir, { recursive: true, force: true })
     }
   })
@@ -263,13 +280,20 @@ describe('cierre', () => {
       await Promise.all(pendientes.map((promesa) => promesa.catch(() => {})))
 
       const reabierta = openDb(join(dir, 'nn-anime.db'))
-      const fila = reabierta.query('SELECT COUNT(*) AS total FROM setting').get() as {
-        total: number
-      }
-      reabierta.close()
 
-      expect(fila.total).toBe(50)
+      try {
+        const fila = reabierta.query('SELECT COUNT(*) AS total FROM setting').get() as {
+          total: number
+        }
+
+        expect(fila.total).toBe(50)
+      } finally {
+        // La reapertura es del test, no del helper: se cierra aquí para que el
+        // `rm` de fuera no se encuentre el archivo todavía abierto.
+        cerrarBase(reabierta)
+      }
     } finally {
+      cerrarBase(db)
       await rm(dir, { recursive: true, force: true })
     }
   })
@@ -312,6 +336,7 @@ describe('mantenimiento desde la fachada', () => {
       expect(db.query('SELECT COUNT(*) AS total FROM revalidate_error').get()).toEqual({ total: 1 })
     } finally {
       await store.close()
+      cerrarBase(db)
       await rm(dir, { recursive: true, force: true })
     }
   })

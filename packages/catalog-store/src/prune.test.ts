@@ -65,6 +65,15 @@ interface Store {
   readonly episodios: ReturnType<typeof createEpisodesRepository>
 }
 
+/** Cierra la base sin lanzar: algún test la cierra por su cuenta. */
+function cerrarBase(db: Database): void {
+  try {
+    db.close()
+  } catch {
+    // Ya estaba cerrada: no hay nada que hacer.
+  }
+}
+
 async function withStore<T>(body: (store: Store) => Promise<T> | T): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-prune-'))
   const db = openDb(join(dir, 'nn-anime.db'))
@@ -77,7 +86,10 @@ async function withStore<T>(body: (store: Store) => Promise<T> | T): Promise<T> 
       episodios: createEpisodesRepository(db),
     })
   } finally {
-    db.close()
+    // Windows no deja borrar un archivo abierto, y SQLite mantiene la base y sus
+    // `-wal`/`-shm` hasta el cierre: cerrarla antes del `rm` es lo que permite
+    // borrar el directorio sin un EBUSY que tape el resultado del test.
+    cerrarBase(db)
     await rm(dir, { recursive: true, force: true })
   }
 }
@@ -172,18 +184,18 @@ describe('umbral de tamaño', () => {
   test('con la base de verdad, el tamaño se mide en disco', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'nn-anime-prune-'))
     const path = join(dir, 'nn-anime.db')
+    const db = openDb(path)
 
     try {
-      const db = openDb(path)
       runMigrations(db)
       db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
       const info = await stat(path)
-      db.close()
 
       // Una base recién creada cabe de sobra: lo que se comprueba es que el
       // umbral se aplica sobre bytes reales y no sobre una suposición.
       expect(shouldPrune(info.size)).toBe(false)
     } finally {
+      cerrarBase(db)
       await rm(dir, { recursive: true, force: true })
     }
   })

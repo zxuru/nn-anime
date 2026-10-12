@@ -27,18 +27,31 @@ function episodio(numero: number): Episode {
   }
 }
 
+/** Cierra la base sin lanzar: algún test la cierra por su cuenta. */
+function cerrarBase(db: Database): void {
+  try {
+    db.close()
+  } catch {
+    // Ya estaba cerrada: no hay nada que hacer.
+  }
+}
+
 /** Base temporal con el título ya escrito, que es lo que la página necesita. */
 async function withDb<T>(body: (db: Database) => Promise<T> | T): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-episode-page-'))
   const path = join(dir, 'nn-anime.db')
+  const db = openDb(path)
 
   try {
-    const db = openDb(path)
     runMigrations(db)
     createAnimeRepository(db).write(ANIME, detalle(ANIME))
 
     return await body(db)
   } finally {
+    // Windows no deja borrar un archivo abierto, y SQLite mantiene la base y sus
+    // `-wal`/`-shm` hasta el cierre: cerrarla antes del `rm` es lo que permite
+    // borrar el directorio sin un EBUSY que tape el resultado del test.
+    cerrarBase(db)
     await rm(dir, { recursive: true, force: true })
   }
 }

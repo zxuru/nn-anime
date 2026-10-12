@@ -1,3 +1,4 @@
+import type { Database } from 'bun:sqlite'
 import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -38,6 +39,15 @@ interface Store {
   readonly vistos: ReturnType<typeof createWatchedEpisodesRepository>
 }
 
+/** Cierra la base sin lanzar: algún test la cierra por su cuenta. */
+function cerrarBase(db: Database): void {
+  try {
+    db.close()
+  } catch {
+    // Ya estaba cerrada: no hay nada que hacer.
+  }
+}
+
 async function withStore<T>(body: (store: Store) => T): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-vistos-'))
   const db = openDb(join(dir, 'nn-anime.db'))
@@ -52,7 +62,10 @@ async function withStore<T>(body: (store: Store) => T): Promise<T> {
       vistos: createWatchedEpisodesRepository(db),
     })
   } finally {
-    db.close()
+    // Windows no deja borrar un archivo abierto, y SQLite mantiene la base y sus
+    // `-wal`/`-shm` hasta el cierre: cerrarla antes del `rm` es lo que permite
+    // borrar el directorio sin un EBUSY que tape el resultado del test.
+    cerrarBase(db)
     await rm(dir, { recursive: true, force: true })
   }
 }

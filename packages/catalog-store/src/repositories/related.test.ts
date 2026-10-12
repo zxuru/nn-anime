@@ -58,6 +58,15 @@ interface Listado {
   readonly results: readonly SearchResult[]
 }
 
+/** Cierra la base sin lanzar: algún test la cierra por su cuenta. */
+function cerrarBase(db: Database): void {
+  try {
+    db.close()
+  } catch {
+    // Ya estaba cerrada: no hay nada que hacer.
+  }
+}
+
 /** Base temporal con la saga dentro, en fichas abiertas y en listados cacheados. */
 async function withStore<T>(
   titulos: readonly (readonly [ProviderRef, string, number])[],
@@ -82,7 +91,10 @@ async function withStore<T>(
 
     return body({ related, llamadas: contador.llamadas })
   } finally {
-    db.close()
+    // Windows no deja borrar un archivo abierto, y SQLite mantiene la base y sus
+    // `-wal`/`-shm` hasta el cierre: cerrarla antes del `rm` es lo que permite
+    // borrar el directorio sin un EBUSY que tape el resultado del test.
+    cerrarBase(db)
     await rm(dir, { recursive: true, force: true })
   }
 }

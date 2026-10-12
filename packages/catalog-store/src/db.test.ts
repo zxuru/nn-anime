@@ -45,13 +45,32 @@ const TABLAS_POSTERIORES = [
 const VERSIONES = listMigrations().map((migration) => migration.version)
 const ULTIMA = Math.max(...VERSIONES)
 
+/**
+ * Cierra la base sin lanzar.
+ *
+ * Algún test cierra la suya por su cuenta, y cerrar dos veces no es un fallo.
+ */
+function cerrarBase(db: Database): void {
+  try {
+    db.close()
+  } catch {
+    // Ya estaba cerrada: no hay nada que hacer.
+  }
+}
+
 async function withDb<T>(body: (db: Database, path: string) => Promise<T> | T): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-store-'))
   const path = join(dir, 'nn-anime.db')
+  const db = openDb(path)
 
   try {
-    return await body(openDb(path), path)
+    return await body(db, path)
   } finally {
+    // Windows no deja borrar un archivo abierto, y SQLite mantiene la base y sus
+    // hermanos `-wal`/`-shm` hasta el cierre: cerrarla antes del `rm` es lo que
+    // permite borrar el directorio. Sin eso el `rm` falla con EBUSY y ese error
+    // sale del `finally`, así que tapa el resultado de un test que sí pasó.
+    cerrarBase(db)
     await rm(dir, { recursive: true, force: true })
   }
 }
@@ -99,14 +118,14 @@ describe('apertura de la base', () => {
 
   test('crea la base si no existe', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'nn-anime-store-'))
+    const db = openDb(join(dir, 'nueva.db'))
 
     try {
-      const db = openDb(join(dir, 'nueva.db'))
       db.exec('CREATE TABLE prueba (a INTEGER)')
 
       expect(tableNames(db)).toEqual(['prueba'])
-      db.close()
     } finally {
+      cerrarBase(db)
       await rm(dir, { recursive: true, force: true })
     }
   })
@@ -287,19 +306,25 @@ describe('segunda ejecución', () => {
   test('cerrar y reabrir no vuelve a aplicar nada', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'nn-anime-store-'))
     const path = join(dir, 'nn-anime.db')
+    const abiertas: Database[] = []
 
     try {
       const primera = openDb(path)
+      abiertas.push(primera)
       runMigrations(primera)
       primera.close()
 
       const segunda = openDb(path)
+      abiertas.push(segunda)
       const informe = runMigrations(segunda)
       segunda.close()
 
       expect(informe.applied).toEqual([])
       expect(informe.version).toBe(ULTIMA)
     } finally {
+      // Cerrar en el `finally` y no en el cuerpo evita que una aserción que falle
+      // deje la base abierta y convierta el `rm` en un EBUSY que la tape.
+      for (const abierta of abiertas) cerrarBase(abierta)
       await rm(dir, { recursive: true, force: true })
     }
   })
