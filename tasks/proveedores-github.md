@@ -232,15 +232,48 @@ existían, así que la hoja de estilos no crece con cada pantalla.
 añade y el riesgo que no se mitiga; el README nombra la sección de Ajustes.
 
 **Aceptación:**
-- [ ] `docs/providers.md` explica el flujo —pegar la dirección, elegir, activar—, dónde queda el repo
+- [x] `docs/providers.md` explica el flujo —pegar la dirección, elegir, activar—, dónde queda el repo
       en el disco, qué gasta del límite de GitHub y cómo se actualiza.
-- [ ] `SECURITY.md` dice: la descarga sale sólo a hosts de GitHub; el escaneo no ejecuta nada; activar
+- [x] `SECURITY.md` dice: la descarga sale sólo a hosts de GitHub; el escaneo no ejecuta nada; activar
       ejecuta el repo entero, porque el archivo habilitado puede importar cualquier otro.
-- [ ] Las direcciones y las rutas que citan los documentos existen en el código: lo comprueba
+- [x] Las direcciones y las rutas que citan los documentos existen en el código: lo comprueba
       `packages/web/src/docs.test.ts`, que falla cuando un documento cita algo que no existe.
-- [ ] `tasks/todo.md` recibe la fase y las siete tareas, con la tabla de dependencias al día.
+- [x] El registro de las siete tareas queda donde queda el de las tareas posteriores a la v1: el plan
+      en `tasks/proveedores-github.md` y los cierres en `tasks/done/T98.md` … `tasks/done/T104.md`.
+      **El plan decía `tasks/todo.md`, y eso era un error del plan:** `todo.md` termina en T47 y desde
+      entonces el integrador no lo toca —las 42 fichas de `tasks/done/` son el registro—, así que
+      pegar estas siete ahí habría roto la forma del archivo en vez de seguirla.
 
-**Verificación:** `bun test packages/web` (docs) · `bun run lint` · revisión a mano de los tres
-documentos contra lo implementado.
+**Verificación:** `bun test packages/web/src/docs.test.ts` 7 pasan, 0 fallan · `bun run lint` 0 errores,
+los 2 avisos de `main` · revisión a mano de los tres documentos contra lo implementado: los cuatro
+topes, los dos hosts de la descarga, la carpeta `<dataDir>/repos/<usuario>__<repo>/<marca>/` y la clave
+`providerRepos` de los ajustes están en el código con esos nombres.
 
 **Depende de:** T103. **Tamaño:** S.
+
+**Archivos:** `docs/providers.md`, `SECURITY.md`, `README.md`.
+
+---
+
+## Estado final
+
+Las siete tareas están hechas e integradas en `main`, cada una con su commit y su cierre en
+`tasks/done/`:
+
+| Task | Qué dejó | Commit |
+|---|---|---|
+| T98 | `core`: la dirección de un repo y las formas del contrato | `feat(core): la direccion de un repo de GitHub… (T98)` |
+| T99 | `provider-sdk`: archivos explícitos y candidatos sin ejecutar | `feat(provider-sdk): archivos explicitos y candidatos… (T99)` |
+| T100 | `server`: descargar un repo dentro de la lista blanca | `feat(server): descargar un repo de GitHub… (T100)` |
+| T101 | `server`: los repos instalados, sus rutas y el registro vivo | `feat(server): los repositorios instalados… (T101)` |
+| T102 | `cli`: arrancar con los repositorios habilitados | `feat(cli): arrancar con los proveedores… (T102)` |
+| T103 | `web`: la sección de repositorios en Ajustes | `feat(web): la seccion de repositorios en Ajustes (T103)` |
+| T104 | Documentación: qué se instala, qué se ejecuta y qué no | `docs: los proveedores de un repositorio… (T104)` |
+
+**Lo que no está medido, y se declara:** el gesto de marcar una casilla y guardar en el navegador no lo
+mide ninguna prueba unitaria, porque `packages/web` no tiene arnés de DOM. Lo que sí está medido del
+camino completo es el `PATCH` del servidor con el loader real, y el e2e queda como el sitio donde
+medirlo cuando se extienda.
+
+**Lo que este trabajo NO hizo:** no hay token ni repositorios privados, no hay actualización automática
+—actualizar es un botón— y no hay e2e de la sección.

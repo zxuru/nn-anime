@@ -87,6 +87,7 @@ que v1 no necesita. Requiere Bun en la máquina, y por eso está declarado en `e
 | Datos y base de datos | `~/.local/share/nn-anime/` | `%LOCALAPPDATA%\nn-anime\` |
 | Configuración | `~/.config/nn-anime/` | `%APPDATA%\nn-anime\` |
 | Tus plugins | `~/.config/nn-anime/providers/` | `%APPDATA%\nn-anime\providers\` |
+| Repositorios de proveedores descargados | `~/.local/share/nn-anime/repos/` | `%LOCALAPPDATA%\nn-anime\repos\` |
 | Caché | `~/.cache/nn-anime/` | `%LOCALAPPDATA%\nn-anime\cache\` |
 
 Las rutas exactas en uso se ven en **Ajustes**, dentro de la aplicación. En Linux y macOS se respetan
@@ -106,6 +107,12 @@ hay sandbox, y no lo habrá en v1: el proceso que carga el plugin es el mismo qu
 - Copia sólo plugins cuyo origen conozcas.
 - La aplicación lo dice **en la pantalla de Ajustes**, no sólo aquí.
 - El detalle está en [SECURITY.md](SECURITY.md), con el modelo de amenaza y los riesgos residuales.
+
+En **Ajustes** hay además una sección para traer los proveedores de un repositorio de GitHub: se pega la
+dirección, se mira qué trae y se marca cuáles se activan. Instalar **no ejecuta nada** —el repositorio se
+descarga y sus archivos se leen, no se importan—; marcar una casilla es el momento en que ese código se
+ejecuta, con el mismo aviso de arriba delante. El repositorio entero queda en `repos/` y los archivos
+marcados se cargan desde ahí, así que un proveedor que importe un archivo hermano sigue funcionando.
 
 ## Este repositorio no incluye scrapers
 

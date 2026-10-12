@@ -10,6 +10,52 @@ Este repositorio no incluye ninguno: publica el contrato y un plugin de prueba c
 > **Un plugin se ejecuta con tus permisos y sin sandbox.** Puede leer y escribir lo mismo que tú.
 > Cópialo sólo si sabes de dónde viene. El detalle está en [SECURITY.md](../SECURITY.md).
 
+## Traer los proveedores de un repositorio
+
+Copiar archivos a mano funciona hasta que el repositorio tiene tres proveedores y uno importa un
+archivo hermano. En **Ajustes**, la sección *Proveedores de un repositorio* hace el trabajo: se pega la
+dirección, se elige qué se activa y se guarda.
+
+| Lo que se pega | Qué se instala |
+|---|---|
+| `https://github.com/usuario/repo` | El repositorio entero, rama por defecto |
+| `usuario/repo` | Lo mismo, sin escribir el host |
+| `github.com/usuario/repo/tree/dev` | La rama `dev` |
+| `.../tree/main/src/providers` | La rama `main`, y sólo la subcarpeta `src/providers` |
+
+Sólo repositorios **públicos**: no hay token, ni campo donde ponerlo. Un repositorio privado responde
+404 y la aplicación lo dice con esas palabras. Cada instalación gasta **dos peticiones** a la API de
+GitHub —la rama por defecto y el árbol— y sin autenticar el límite es de 60 por hora y por dirección;
+si se agota, el mensaje lo nombra en vez de quedarse en un «falló».
+
+**Nada se ejecuta al instalar.** El repositorio se descarga y se miran sus archivos leyendo el texto:
+se ofrecen los que declaran un proveedor (`export default`, `export const providers`, una cláusula
+`export { … as default }` o `module.exports =`), y se quedan fuera los directorios de trabajo
+(`node_modules`, `dist`…), los archivos de pruebas y lo oculto. El `id` y el nombre que se enseñan al
+lado de cada casilla salen de leer un literal del texto: son una **pista**, y el que vale es el que dice
+el plugin cuando se carga.
+
+Marcar una casilla y guardar es el momento en que ese archivo se importa. Desde ahí es un proveedor
+más: aparece en la lista de arriba, con sus capacidades y su puesto en el orden de preferencia.
+
+Dónde queda todo:
+
+| Qué | Dónde |
+|---|---|
+| La copia del repositorio | `<dataDir>/repos/<usuario>__<repo>/<marca>/` — la marca es la fecha de la descarga |
+| Qué está activado | La tabla de ajustes de la base, clave `providerRepos` |
+| El proveedor cargado | El mismo proceso del servidor, como cualquier plugin |
+
+**Actualizar** vuelve a descargar y conserva marcados los archivos que sigan existiendo; los que ya no
+están desaparecen de la lista. Cada descarga estrena carpeta a propósito: los módulos se cachean por
+ruta, y reutilizarla haría que se siguiera ejecutando el código viejo. **Quitar** borra la copia
+descargada y desactiva sus proveedores.
+
+Los topes, para que un repositorio no llene el disco: 400 archivos, 512 KiB por archivo —los más
+grandes se saltan, no rompen la instalación— y 8 MiB en total. Si GitHub trunca el árbol, la
+instalación se rechaza: instalar la mitad sin decirlo deja un proveedor que falla por un archivo que no
+está.
+
 ## El camino fácil: registrarlo desde Ajustes
 
 Si el sitio es una API JSON —una dirección, unas rutas y unos nombres de campo— no hace falta
