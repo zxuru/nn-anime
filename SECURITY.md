@@ -28,6 +28,10 @@ prueba que lo sostiene.
 | Una URL de video se filtra al cliente | Tickets opacos en memoria: el cliente nunca ve la dirección del upstream | T25 |
 | Una petición sin cookie lee el video | Sólo bajo `/stream/:ticket`, y con un ticket vivo: es la credencial que `mpv` sí puede presentar, porque no tiene cookie. 192 bits de CSPRNG, 600 s y tope de 500; no abre `/api/*` ni otra ruta | T73 |
 | Un log guarda una credencial o una URL de video | Claves sensibles redactadas, `ticket` incluido | T25 |
+| Una dirección de repositorio lleva al servidor a la red local o a un host ajeno | Lista blanca de **hosts de GitHub** comprobada en **cada salto**, dentro del `fetch` que usa la revalidación de destinos: un host permitido que redirige fuera de GitHub se corta antes de pedir nada | T100 |
+| Una ruta del árbol de GitHub escribe fuera del repositorio (`..`, absoluta, unidad de Windows) | Cada ruta se valida segmento a segmento y se confina contra el directorio de destino; el árbol truncado, las rutas hostiles y los archivos que no caben se rechazan o se saltan, y nada se escribe fuera | T100 |
+| Un repositorio enorme llena el disco o la memoria | 400 archivos, 512 KiB por archivo y 8 MiB en total; la descarga va a un directorio temporal y se mueve al final, así que un fallo a mitad no reemplaza lo que había | T100 |
+| Activar un archivo ejecuta otro que el usuario no marcó | **No se mitiga, se declara.** Ver el riesgo residual 6 | T101 |
 
 ## Riesgo residual, en texto claro
 
@@ -49,6 +53,12 @@ prueba que lo sostiene.
    loopback y redes privadas en la lista blanca de destinos. Existe para el arnés de pruebas, se anuncia
    en el registro al arrancar y **desactiva la mitigación de SSRF** para esas direcciones mientras esté
    puesta. La metadata de nube se sigue rechazando.
+6. **Activar un proveedor de un repositorio es confiar en el repositorio entero.** La aplicación
+   ejecuta el archivo que el usuario marca, y ese archivo puede importar cualquier otro del repositorio
+   —o cualquier cosa que quepa en un `import`—. La descarga y el escaneo no ejecutan nada y la selección
+   está limitada a los archivos que el escáner reconoció, pero eso acota **la puerta de entrada**, no lo
+   que hay detrás: no hay sandbox, igual que con un plugin copiado a mano. La aplicación no descarga
+   nada hasta que alguien pega una dirección, y no activa nada hasta que alguien marca una casilla.
 
 ## Qué no hace esta aplicación
 
