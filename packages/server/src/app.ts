@@ -28,6 +28,7 @@ import { securityHeaders } from './middleware/security-headers'
 import { sessionGuard } from './middleware/session-guard'
 import { PROTECTED_PREFIXES } from './paths'
 import { createProviderHub } from './provider-hub'
+import { acotarAProveedoresActivos } from './provider-scope'
 import { enabledProviderFiles } from './repo-store'
 import { registerAnimeRoutes } from './routes/anime'
 import { registerCoverRoute } from './routes/cover'
@@ -187,6 +188,19 @@ export function createApp(options: AppOptions): Hono {
   })
   const plugins: PluginReport = hub.report
 
+  /**
+   * El contenedor que ven las rutas: el mismo, con las lecturas locales acotadas
+   * a los proveedores cargados.
+   *
+   * Sin esto, la base sigue teniendo las filas de un proveedor desmarcado en
+   * Ajustes —desmarcar no borra— y la home ofrece una tarjeta que su ficha
+   * contesta con 404. La regla y su motivo están en `provider-scope.ts`.
+   */
+  const container =
+    options.container === undefined
+      ? undefined
+      : acotarAProveedoresActivos(options.container, hub.providers)
+
   app.get('/api/health', (c) =>
     c.json(
       healthResponseSchema.parse({
@@ -208,33 +222,33 @@ export function createApp(options: AppOptions): Hono {
   }
   // Las rutas de metadatos necesitan el store: sin contenedor no se registran,
   // y una petición a ellas es un 404 explicable en vez de un 500 por dentro.
-  if (options.container !== undefined) {
+  if (container !== undefined) {
     const routeOptions = {
       providers: hub.providers,
-      container: options.container,
+      container,
       ...(options.searchTimeoutMs === undefined ? {} : { timeoutMs: options.searchTimeoutMs }),
     }
 
     registerAnimeRoutes(app, routeOptions)
     registerDetailRoutes(app, routeOptions)
     registerEpisodesRoute(app, routeOptions)
-    registerFavoritesRoutes(app, { container: options.container })
+    registerFavoritesRoutes(app, { container })
     const proxyOptions = {
       ...(options.streamFetchImpl === undefined ? {} : { fetchImpl: options.streamFetchImpl }),
       ...(options.streamResolver === undefined ? {} : { resolver: options.streamResolver }),
       ...(options.allowLoopback === undefined ? {} : { allowLoopback: options.allowLoopback }),
     }
 
-    registerCoverRoute(app, { container: options.container, ...proxyOptions })
+    registerCoverRoute(app, { container, ...proxyOptions })
     registerStreamRoutes(app, { ...routeOptions, ...proxyOptions })
-    registerSubtitlesRoute(app, { container: options.container, ...proxyOptions })
-    registerWatchRoutes(app, { container: options.container })
+    registerSubtitlesRoute(app, { container, ...proxyOptions })
+    registerWatchRoutes(app, { container })
     registerRecommendationsRoute(app, routeOptions)
     registerTrendingRoute(app, routeOptions)
     registerFeedRoute(app, routeOptions)
     registerRecentRoute(app, routeOptions)
     registerSettingsRoute(app, {
-      container: options.container,
+      container,
       plugins,
       ...(options.paths === undefined ? {} : { paths: options.paths }),
       ...(options.mpvVersion === undefined ? {} : { mpvVersion: options.mpvVersion }),
@@ -246,9 +260,9 @@ export function createApp(options: AppOptions): Hono {
   // «qué está habilitado»—, la carpeta de datos donde vive el contenido y el hub
   // que recarga. Sin las tres, las rutas no se registran y una petición a ellas
   // es un 404 explicable en vez de un 500 por dentro.
-  if (options.container !== undefined && options.paths !== undefined) {
+  if (container !== undefined && options.paths !== undefined) {
     registerProviderReposRoutes(app, {
-      container: options.container,
+      container,
       hub,
       dataDir: options.paths.dataDir,
       ...(options.githubFetchImpl === undefined ? {} : { fetchImpl: options.githubFetchImpl }),
@@ -260,7 +274,7 @@ export function createApp(options: AppOptions): Hono {
   registerSearchRoute(app, {
     providers: hub.providers,
     ...(options.searchTimeoutMs === undefined ? {} : { timeoutMs: options.searchTimeoutMs }),
-    ...(options.container === undefined ? {} : { container: options.container }),
+    ...(container === undefined ? {} : { container }),
   })
 
   return app

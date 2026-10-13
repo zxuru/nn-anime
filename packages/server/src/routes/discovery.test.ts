@@ -535,6 +535,11 @@ describe('GET /api/catalog/recent', () => {
    * Es lo que mide esta familia de pruebas: qué se pinta cuando la misma obra está
    * en dos fuentes. Pasar por el detalle de un proveedor ataría la prueba al
    * fixture —que tiene una sola fuente— y a la red.
+   *
+   * Los identificadores son los de los proveedores **cargados**: una lectura
+   * local sólo ofrece referencias de un proveedor que está en el registro, así
+   * que una fila de un proveedor ausente —lo que queda después de desmarcarlo en
+   * Ajustes— no saldría y la prueba mediría el filtro en vez de la agrupación.
    */
   function insertar(
     db: ReturnType<typeof openDb>,
@@ -553,13 +558,13 @@ describe('GET /api/catalog/recent', () => {
   test('la misma obra en dos fuentes deja una tarjeta, la de la marca más nueva', async () => {
     await conApp(
       async ({ pedir, db }) => {
-        insertar(db, 'jkanime', 'yani-neko', 'Yani Neko', 2026, 2000)
-        insertar(db, 'animeav1', 'yani-neko', 'yani  neko!', 2026, 1000)
+        insertar(db, 'fixture', 'yani-neko', 'Yani Neko', 2026, 2000)
+        insertar(db, 'otra', 'yani-neko', 'yani  neko!', 2026, 1000)
 
         const salida = recentResponseSchema.parse(await (await pedir('/api/catalog/recent')).json())
 
         expect(salida.items).toHaveLength(1)
-        expect(salida.items[0]?.ref.providerId).toBe('jkanime')
+        expect(salida.items[0]?.ref.providerId).toBe('fixture')
       },
       { proveedores: [createFixtureProvider(), { ...createFixtureProvider(), id: 'otra' }] },
     )
@@ -567,8 +572,8 @@ describe('GET /api/catalog/recent', () => {
 
   test('un título y su temporada son dos tarjetas, no una', async () => {
     await conApp(async ({ pedir, db }) => {
-      insertar(db, 'jkanime', 'dandadan', 'Dandadan', 2024, 2000)
-      insertar(db, 'jkanime', 'dandadan-2', 'Dandadan 2nd Season', 2025, 1000)
+      insertar(db, 'fixture', 'dandadan', 'Dandadan', 2024, 2000)
+      insertar(db, 'fixture', 'dandadan-2', 'Dandadan 2nd Season', 2025, 1000)
 
       const salida = recentResponseSchema.parse(await (await pedir('/api/catalog/recent')).json())
 
@@ -584,10 +589,10 @@ describe('GET /api/catalog/recent', () => {
         // Dos obras, cada una en las dos fuentes, y las cuatro filas entrelazadas:
         // sin el margen de la lectura, pedir dos traería las dos filas de la misma
         // obra y la fila devolvería una sola tarjeta.
-        insertar(db, 'jkanime', 'uno', 'Uno', 2026, 4000)
-        insertar(db, 'animeav1', 'uno', 'Uno', 2026, 3999)
-        insertar(db, 'jkanime', 'dos', 'Dos', 2026, 3998)
-        insertar(db, 'animeav1', 'dos', 'Dos', 2026, 3997)
+        insertar(db, 'fixture', 'uno', 'Uno', 2026, 4000)
+        insertar(db, 'otra', 'uno', 'Uno', 2026, 3999)
+        insertar(db, 'fixture', 'dos', 'Dos', 2026, 3998)
+        insertar(db, 'otra', 'dos', 'Dos', 2026, 3997)
 
         const salida = recentResponseSchema.parse(
           await (await pedir('/api/catalog/recent?limit=2')).json(),

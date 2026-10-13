@@ -17,6 +17,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations, type StoreConnection } from '@nn-anime/catalog-store'
+import type { Provider } from '@nn-anime/provider-sdk'
 import type { FixtureOptions } from '@nn-anime/providers-fixture'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
 import { createApp, createContainer, type ServerContainer } from '@nn-anime/server'
@@ -70,6 +71,14 @@ export interface Ciclo {
 export interface CicloOptions {
   /** Fallo del proveedor, por método. */
   readonly fallos?: FixtureOptions['failures']
+  /**
+   * Proveedores activos **además** del fixture.
+   *
+   * Existe para poder medir lo contrario de una ausencia: las mismas filas de la
+   * base, con su proveedor cargado. Sin ese control, una prueba que espera que no
+   * salga nada pasaría también con la lectura rota.
+   */
+  readonly activos?: readonly Provider[]
 }
 
 /**
@@ -114,7 +123,16 @@ export async function conCiclo<T>(
       },
       bootToken: 'token-de-integracion',
       version: '0.1.0',
-      plugins: { active: [{ provider: proveedor, file: '/plugins/fixture.ts' }], rejected: [] },
+      plugins: {
+        active: [
+          { provider: proveedor, file: '/plugins/fixture.ts' },
+          ...(options.activos ?? []).map((provider) => ({
+            provider,
+            file: `/plugins/${provider.id}.ts`,
+          })),
+        ],
+        rejected: [],
+      },
       container,
       streamFetchImpl: fetchImpl,
       streamResolver: async () => ['93.184.216.34'],
