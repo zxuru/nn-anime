@@ -501,6 +501,45 @@ describe('relacionados', () => {
 
     expect(html).toContain('Temporada 2')
   })
+
+  /**
+   * El año y la insignia van juntos y **en su propio renglón**.
+   *
+   * Sueltos en el flujo del título, la barra lateral los parte: «Año 2025» rompe
+   * por el espacio y el recuadro de «Temporada 2» se abre en dos renglones. Es el
+   * fallo que se reportó con una captura de la ficha. El reparto de líneas no se
+   * puede medir sin un navegador; lo que sí se mide aquí es la forma que lo
+   * decide, y con ella el orden del marcado: los datos, después del título y
+   * dentro de su grupo.
+   */
+  test('el año y la insignia van en su renglón, no en el del título', () => {
+    const html = render(
+      <RelatedList
+        items={[resumen('darling-2', 'My Dress-Up Darling Season 2', 2025)]}
+        badge={() => 'Temporada 2'}
+      />,
+    )
+
+    const titulo = html.indexOf('related__title')
+    const datos = html.indexOf('related__chips')
+    const año = html.indexOf('related__meta')
+    const insignia = html.indexOf('class="badge"')
+
+    expect(titulo).toBeGreaterThan(-1)
+    // El grupo de los datos existe y abre después del título: con el título
+    // dentro, los tres comparten renglón y el año se parte a la mitad.
+    expect(datos).toBeGreaterThan(titulo)
+    expect(año).toBeGreaterThan(datos)
+    expect(insignia).toBeGreaterThan(datos)
+  })
+
+  test('sin año ni insignia no queda un renglón de datos vacío', () => {
+    const html = render(<RelatedList items={[resumen('x', 'Sin Año')]} />)
+
+    // El grupo vacío no se pinta: con el `gap` de la columna, un hueco sin nada
+    // dentro es un renglón de aire entre el título y el borde.
+    expect(html).not.toContain('related__chips')
+  })
 })
 
 describe('el rail de temporadas', () => {

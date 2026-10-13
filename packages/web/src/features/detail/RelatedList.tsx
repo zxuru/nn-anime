@@ -10,6 +10,14 @@
  * encima—, así que se abre en otra pestaña y se recorre con el teclado. La
  * portada se pide al proxy y, si el proveedor no declaró una dirección usable,
  * el hueco se pinta como hueco en lugar de pedir algo que no puede existir.
+ *
+ * **La fila lleva el título arriba y los datos debajo, y eso es una decisión de
+ * lectura, no de adorno.** La lista vive en la barra lateral, que es estrecha:
+ * con el título, el año y las insignias en un mismo flujo, «Año 2025» se parte
+ * por el espacio —queda un «AÑO» colgando— y el recuadro de «Temporada 2» se
+ * abre en dos renglones. Los títulos de estos catálogos son largos —«Sono Bisque
+ * Doll wa Koi wo Suru Season 2»—, así que el renglón compartido no es un caso
+ * raro: es el normal.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
@@ -61,6 +69,13 @@ export function RelatedList(props: RelatedListProps): ReactNode {
         const año = meta(item)
         const insignia = props.badge?.(item)
         const actual = esLaActual(item, props.current)
+        /**
+         * Si la fila tiene algo que decir de sí misma.
+         *
+         * El grupo de los datos no se pinta vacío: la columna lleva `gap`, y un
+         * grupo sin nada dentro es un renglón de aire entre el título y el borde.
+         */
+        const hayDatos = año !== '' || insignia !== undefined || actual
 
         // El contenido es el mismo para la fila actual y para las demás: lo único
         // que cambia es si va dentro de un enlace.
@@ -75,15 +90,19 @@ export function RelatedList(props: RelatedListProps): ReactNode {
             ) : (
               <span className="related__cover" aria-hidden="true" />
             )}
-            <span>
+            <span className="related__body">
               <span className="related__title">{item.title}</span>
-              {año === '' ? null : <span className="related__meta">{año}</span>}
-              {insignia === undefined ? null : <span className="badge">{insignia}</span>}
-              {actual ? (
-                // La palabra, no sólo el color: el estado tiene que leerse también
-                // sin distinguir colores.
-                <span className="badge badge--visto">
-                  {t(DEFAULT_LOCALE, 'detail.related.current')}
+              {hayDatos ? (
+                <span className="related__chips">
+                  {año === '' ? null : <span className="related__meta">{año}</span>}
+                  {insignia === undefined ? null : <span className="badge">{insignia}</span>}
+                  {actual ? (
+                    // La palabra, no sólo el color: el estado tiene que leerse
+                    // también sin distinguir colores.
+                    <span className="badge badge--visto">
+                      {t(DEFAULT_LOCALE, 'detail.related.current')}
+                    </span>
+                  ) : null}
                 </span>
               ) : null}
             </span>

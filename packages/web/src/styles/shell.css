@@ -693,9 +693,37 @@
   background: var(--cover-a);
 }
 
+/*
+ * El texto de la fila, en columna.
+ *
+ * La barra lateral es estrecha y el título, el año y las insignias no caben en un
+ * renglón: en un mismo flujo, «Año 2025» se parte por el espacio y el recuadro de
+ * «Temporada 2» se abre en dos. Con el título arriba y los datos debajo, cada uno
+ * se lee entero.
+ */
+.related__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  /* El ancho lo decide la fila: sin esto, un título sin espacios la ensancha en
+     lugar de partirse. */
+  min-width: 0;
+}
+
+/* El año y las insignias, en su renglón: caben dos, o baja entera la que no quepa. */
+.related__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .related__title {
   font-weight: 700;
   font-size: var(--text-sm);
+  /* Un título sin espacios —el slug con el que alguna fuente lo publica— se parte
+     antes que desbordar la barra. */
+  overflow-wrap: anywhere;
 }
 
 .related__meta {
@@ -704,6 +732,21 @@
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
+  /* «Año 2025» partido deja un «AÑO» colgando y un «2025» suelto debajo. */
+  white-space: nowrap;
+}
+
+/*
+ * La insignia de una fila de la saga.
+ *
+ * Es la misma pinta que la del `card`, pero el hueco lo pone el `gap` de la fila:
+ * los márgenes de la tarjeta dejaban aquí un renglón de más y, con su
+ * `align-self`, la insignia quedaba más alta que el año que tiene al lado.
+ */
+.related .badge {
+  align-self: center;
+  margin: 0;
+  white-space: nowrap;
 }
 
 .episodes {

@@ -175,6 +175,41 @@ describe('tokens de diseño', () => {
   })
 
   /**
+   * El renglón de un relacionado no se parte.
+   *
+   * El año y la insignia son unidades cortas —«Año 2025», «Temporada 2»— y la
+   * barra lateral es estrecha. En un contenedor que fluye en línea, el año rompe
+   * por el espacio y el recuadro de la insignia se abre en dos renglones: es lo
+   * que se vio en la captura de una ficha. El DOM no lo delata —el mismo marcado
+   * se pinta entero o partido según estas declaraciones—, así que se mide aquí.
+   */
+  test('el año y la insignia de un relacionado no se parten', async () => {
+    const css = await read(SHELL)
+
+    /** El cuerpo de una regla, por su selector exacto. */
+    const regla = (selector: string): string => {
+      const desde = css.indexOf(`${selector} {`)
+      if (desde === -1) return ''
+
+      return css.slice(desde, css.indexOf('}', desde))
+    }
+
+    // El título arriba y los datos debajo: dos renglones y no uno compartido.
+    const cuerpo = regla('.related__body')
+    expect(cuerpo, 'falta .related__body en shell.css').toContain('display: flex')
+    expect(cuerpo).toContain('flex-direction: column')
+
+    // Los datos, en fila y con vuelta: dos insignias caben, o baja la que no.
+    expect(regla('.related__chips')).toContain('flex-wrap: wrap')
+
+    // Y ninguno de los dos se corta por la mitad.
+    expect(regla('.related__meta')).toContain('white-space: nowrap')
+    expect(regla('.related .badge')).toContain('white-space: nowrap')
+    // Los márgenes del `card` no valen aquí: el hueco lo pone el `gap` de la fila.
+    expect(regla('.related .badge')).toContain('margin: 0')
+  })
+
+  /**
    * El encabezado se apila por encima del contenido.
    *
    * No es un detalle de pintura: con la misma capa que una insignia o que el
