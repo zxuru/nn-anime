@@ -19,10 +19,14 @@
  *    `127.0.0.1`. Se revisan todas las respuestas del DNS: basta con que una sea
  *    prohibida para rechazar el destino.
  *
- * Queda un riesgo residual que conviene decir en voz alta: entre la comprobación
- * y la conexión, un DNS hostil puede cambiar la respuesta (rebinding). Cerrarlo
- * del todo exige conectar a la IP ya validada, y eso rompe SNI y la validación
- * del certificado. Está anotado en el informe de v1 como riesgo aceptado.
+ * El riesgo residual que esta lista **no** cerraba: entre la comprobación y la
+ * conexión, un DNS hostil podía cambiar la respuesta (rebinding). Estuvo anotado
+ * como aceptado con el argumento de que conectar a la IP ya validada rompía SNI y
+ * la validación del certificado; **medido, no era cierto** —el nombre viaja en el
+ * SNI y el certificado se valida contra él—. Desde T110 quien conecta es
+ * `pinned-fetch.ts`, que resuelve una vez, juzga todas las direcciones aquí y
+ * conecta a la que validó. Esta lista sigue siendo la puerta; la conexión ya no
+ * vuelve a preguntarle al DNS.
  */
 
 import { lookup } from 'node:dns/promises'
@@ -254,23 +258,27 @@ export async function checkResolvedDestination(
 export const MAX_REDIRECTS = 5
 
 /**
- * El error de un destino rechazado.
- *
- * Nombra la regla y el host, y **no** la URL completa: un error se registra, y
- * una URL de un proveedor puede llevar tokens de referencia dentro.
- */
-/**
  * ¿La excepción cubre esta regla?
  *
  * Sólo loopback y redes privadas. La metadata de nube es un destino que no tiene
  * ningún caso de uso legítimo, ni siquiera en pruebas.
+ *
+ * Está exportada porque `pinned-fetch.ts` aplica la excepción **dirección a
+ * dirección**, sobre las que va a conectar de verdad, y una segunda lista de
+ * reglas eximidas divergiría de ésta sin que nadie lo notara.
  */
-function eximido(rule: DestinationRule, options: GuardOptions): boolean {
+export function eximido(rule: DestinationRule, options: GuardOptions): boolean {
   if (options.allowLoopback !== true) return false
 
   return rule === 'loopback' || rule === 'private'
 }
 
+/**
+ * El error de un destino rechazado.
+ *
+ * Nombra la regla y el host, y **no** la URL completa: un error se registra, y
+ * una URL de un proveedor puede llevar tokens de referencia dentro.
+ */
 export function destinationError(rule: DestinationRule, rawUrl: string): AppError {
   const host = ((): string => {
     try {

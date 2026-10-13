@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
+import { createServer, type IncomingMessage } from 'node:http'
 import { fileURLToPath } from 'node:url'
 import { parseRange, proxyBytes, upstreamFailure } from './byte-proxy'
 import { ALLOWED_RESPONSE_HEADERS } from './response-headers'
@@ -467,5 +468,83 @@ describe('vigilante de inactividad', () => {
 
     expect(primero?.value?.byteLength).toBe(4)
     await lector?.cancel()
+  })
+})
+
+describe('la salida por defecto', () => {
+  /**
+   * Un servidor de verdad en `127.0.0.1` y un nombre que no resuelve.
+   *
+   * Es lo que mide la mitad que el `fetch` de mentira no puede medir: que sin
+   * `fetchImpl` el proxy **conecta a la dirección que validó el resolutor** y no
+   * vuelve a preguntarle al DNS. Si volviera a preguntar —o si saliera por el
+   * `fetch` global—, `pin.example.test` no resolvería y esto sería un 502.
+   */
+  async function servidorLocal(): Promise<{
+    url: string
+    cerrar: () => Promise<void>
+    vistas: IncomingMessage[]
+  }> {
+    const vistas: IncomingMessage[] = []
+    const servidor = createServer((req: IncomingMessage, res) => {
+      vistas.push(req)
+      res.writeHead(200, { 'content-type': 'video/mp4' })
+      res.end('bytes del video')
+    })
+
+    await new Promise<void>((resolve) => servidor.listen(0, '127.0.0.1', resolve))
+    const direccion = servidor.address()
+    const puerto = typeof direccion === 'object' && direccion !== null ? direccion.port : 0
+
+    return {
+      url: `http://pin.example.test:${puerto}/v.mp4`,
+      vistas,
+      cerrar: async () => {
+        await new Promise<void>((resolve) => servidor.close(() => resolve()))
+      },
+    }
+  }
+
+  test('conecta a la dirección validada y el nombre viaja en el `Host`', async () => {
+    const local = await servidorLocal()
+
+    try {
+      const respuesta = await proxyBytes({
+        url: local.url,
+        headers: { Referer: 'https://sitio.example' },
+        range: 'bytes=0-3',
+        resolver: async () => ['127.0.0.1'],
+        allowLoopback: true,
+        idleTimeoutMs: 0,
+      })
+
+      expect(respuesta.status).toBe(200)
+      expect(await respuesta.text()).toBe('bytes del video')
+      expect(local.vistas).toHaveLength(1)
+      expect(local.vistas[0]?.headers.host).toBe(`pin.example.test:${new URL(local.url).port}`)
+      expect(local.vistas[0]?.headers.range).toBe('bytes=0-3')
+      expect(local.vistas[0]?.headers['accept-encoding']).toBe('identity')
+      expect(local.vistas[0]?.headers.referer).toBe('https://sitio.example')
+    } finally {
+      await local.cerrar()
+    }
+  })
+
+  test('sin la excepción de loopback el destino se rechaza y el servidor no ve nada', async () => {
+    const local = await servidorLocal()
+
+    try {
+      const respuesta = await proxyBytes({
+        url: local.url,
+        headers: {},
+        resolver: async () => ['127.0.0.1'],
+        idleTimeoutMs: 0,
+      })
+
+      expect(respuesta.status).toBe(502)
+      expect(local.vistas).toHaveLength(0)
+    } finally {
+      await local.cerrar()
+    }
   })
 })
