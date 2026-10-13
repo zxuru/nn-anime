@@ -13,6 +13,7 @@ prueba que lo sostiene.
 | Un sitio cualquiera abre la aplicación | Sesión en cookie `HttpOnly; SameSite=Strict` y token de arranque de un solo uso | `docs/specs/SPEC-nn-anime.md`, mitigación 1 |
 | Otro sitio del navegador llama a la API local | Guard de `Origin` en métodos mutantes | mitigación 2 |
 | Un plugin hace peticiones a la red local | Lista blanca de destinos: sólo `http`/`https`, sin loopback, sin redes privadas, sin metadata de nube, sin IPv4 embebida en IPv6 y sólo unicast global; revalidada en cada salto de redirección | T26a, S1 |
+| Un DNS hostil cambia la respuesta entre la comprobación del destino y la conexión | El nombre se resuelve **una vez**, se juzgan todas sus direcciones y la conexión va a una ya validada, con el nombre en el SNI y el certificado validado contra él. Vale para las dos rutas que salen a la red: la capacidad de red de los plugins y el proxy de bytes | T110 |
 | Un sitio cualquiera usa la aplicación desde otro nombre | El guard de `Host` se aplica a **todas** las rutas, incluido `/` y el canje de arranque | S7 |
 | Un cuerpo de petición agota la memoria | Tope de 256 KiB por petición, aplicado por el servidor antes de que ningún manejador lo lea | `packages/server/src/index.ts` |
 | Un plugin lee o escribe fuera de su sitio | El plugin sólo devuelve datos; nunca recibe rutas ni la base | `docs/specs/SPEC-provider-core.md` |
@@ -39,9 +40,16 @@ prueba que lo sostiene.
    que carga el plugin es el mismo que sirve la aplicación. Un plugin hostil puede leer lo que el
    usuario pueda leer. Por eso sólo se cargan plugins que el usuario copia a mano en su directorio de
    configuración, y por eso esta advertencia aparece **en la interfaz**, no sólo aquí.
-2. **DNS rebinding.** Entre la comprobación de destino y la conexión, un DNS hostil puede cambiar la
-   respuesta. Cerrarlo del todo exige conectar a la IP ya validada, y eso rompe SNI y la validación
-   del certificado. Aceptado y anotado en T26a.
+2. **DNS rebinding: cerrado en las dos rutas que salen a la red, y declarado lo que no cubre.** Entre la
+   comprobación de destino y la conexión, un DNS hostil podía cambiar la respuesta. Desde T110 no puede:
+   el nombre se resuelve **una vez**, se juzgan todas sus direcciones y la conexión va a una ya validada,
+   con el nombre en el SNI, así que el certificado se sigue validando contra el nombre. La afirmación
+   contraria que había aquí —que eso rompía SNI y la validación— era falsa, y está medida. Cubre la
+   capacidad de red de los plugins (`plugin-fetch.ts`) y el proxy de bytes (`pinned-fetch.ts`). Lo que
+   el código **no** puede impedir es que un plugin llame al `fetch` global y se salte la lista blanca:
+   por eso el motor inyecta la capacidad en cada llamada —saltársela es visible, no un descuido— y el
+   repositorio de plugins tiene una prueba estática que lo impide. Falta migrar los seis plugins
+   publicados y avisar desde el cargador al que no la use, que es trabajo de la fase siguiente.
 3. **Los sitios de terceros pueden cambiar.** Un proveedor puede empezar a servir otra cosa, o dejar de
    servir: la aplicación lo dice con un error claro, no lo esconde.
 4. **No hay limitador de tasa en ninguna ruta.** Es deliberado: la aplicación escucha en `127.0.0.1`,

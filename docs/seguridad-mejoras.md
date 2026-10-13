@@ -438,6 +438,11 @@ rebinding) sigue siendo cierto y no lo cierra ninguno de los dos. La línea sobr
 añadió a `SECURITY.md` —y con ello a la pantalla de Ajustes, que lee ese mismo archivo— cuando se
 aplicó el parche.
 
+**Corregido en T110:** el riesgo residual 2 **sí** se puede cerrar, y se cerró, en las dos rutas que
+salen a la red —la capacidad de red de los plugins y el proxy de bytes—, con el nombre resuelto una
+vez y la conexión a la dirección validada. Lo que queda declarado es un plugin que llame al `fetch`
+global. Ver `SECURITY.md`.
+
 Sobre la tabla de amenazas de `SECURITY.md`: se amplió con las filas de S3, S4, S7, S8 y S9, y **no**
 se le añadió una segunda tabla, porque `security-notice.test.tsx` fija que haya exactamente una y con
 tres columnas.

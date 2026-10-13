@@ -73,6 +73,15 @@ export {
   validHeaderValue,
 } from './mpv-args'
 export {
+  createPinnedFetch,
+  type PinnedFetch,
+  type PinnedFetchOptions,
+  type PinnedRequestOptions,
+  type RequestLike,
+  type UpstreamRequest,
+  type UpstreamResponse,
+} from './pinned-fetch'
+export {
   createPluginFetch,
   DEFAULT_TIMEOUT_MS,
   MAX_BODY_BYTES,

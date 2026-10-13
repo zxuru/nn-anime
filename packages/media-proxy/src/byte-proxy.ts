@@ -20,11 +20,16 @@
  *
  * Y la que no se hace: no se decide **a dónde** se puede salir. Eso es la lista
  * blanca de destinos (T26a), y vive fuera de este archivo para que este se pueda
- * probar con un `fetch` de mentira.
+ * probar con un `fetch` de mentira. Lo que sí decide, desde T110, es **con qué
+ * conexión** se sale: el `fetch` por defecto no es el global, es
+ * `createPinnedFetch`, que conecta a la dirección que la lista blanca validó y no
+ * a la que el DNS vuelva a decir. Es el riesgo residual 2 de `SECURITY.md`,
+ * cerrado también en esta ruta.
  */
 
 import { AppError } from '@nn-anime/core'
 import { fetchAllowed, type Resolver } from './destination-guard'
+import { createPinnedFetch } from './pinned-fetch'
 import { sanitizeHeaders } from './response-headers'
 
 export type RangeOutcome =
@@ -129,6 +134,10 @@ export interface ByteProxyRequest {
    * necesita una prueba que quiere medir otra cosa.
    */
   readonly idleTimeoutMs?: number | undefined
+  /**
+   * Se inyecta para probar sin red. Por defecto se sale con `createPinnedFetch`,
+   * que conecta a la dirección que la lista blanca validó.
+   */
   readonly fetchImpl?: FetchLike
   /**
    * Si se indica, sólo se sirven estos tipos. Lo que no esté en la lista se
@@ -207,8 +216,15 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
       ? controlador.signal
       : AbortSignal.any([request.signal, controlador.signal])
 
+  // El `fetch` por defecto conecta a la dirección validada; el global volvía a
+  // resolver y dejaba el rebinding abierto. Se construye por petición porque el
+  // resolutor y la excepción de loopback son de quien llama, no del proceso.
   const doFetch: FetchLike =
-    request.fetchImpl ?? ((input: string, init: RequestInit) => fetch(input, init))
+    request.fetchImpl ??
+    createPinnedFetch({
+      ...(request.resolver === undefined ? {} : { resolver: request.resolver }),
+      ...(request.allowLoopback === undefined ? {} : { allowLoopback: request.allowLoopback }),
+    })
   // Los headers se copian uno a uno y luego se **sobrescribe** el de codificación:
   // con un objeto plano, `Accept-Encoding` y `accept-encoding` son dos claves
   // distintas y `Headers` acaba uniendo las dos, así que la compresión del
