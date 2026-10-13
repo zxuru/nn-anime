@@ -57,6 +57,36 @@ describe('el documento, en elementos', () => {
   })
 })
 
+/**
+ * El documento es una fuente de verdad, no un folleto: declara lo que está
+ * mitigado y lo que no. Estas pruebas son las que impiden que vuelva a decir que
+ * el rebinding es imposible de cerrar —lo decía, y era falso— o que deje de
+ * declarar lo que el código no cubre.
+ */
+describe('lo que el documento declara', () => {
+  test('el rebinding ya no se declara imposible de cerrar', async () => {
+    const markdown = await documento()
+
+    expect(markdown).not.toContain('rompe SNI')
+    expect(markdown).not.toContain('riesgo aceptado')
+  })
+
+  test('dice con qué se cierra, y en qué rutas', async () => {
+    const markdown = await documento()
+
+    expect(markdown).toContain('se resuelve **una vez**')
+    expect(markdown).toContain('la conexión va a una ya validada')
+    expect(markdown).toContain('T110')
+  })
+
+  test('mantiene declarado lo que el código no cubre: un plugin que salga por el fetch global', async () => {
+    const markdown = await documento()
+
+    expect(markdown).toContain('`fetch` global')
+    expect(markdown).toContain('se salte la lista blanca')
+  })
+})
+
 describe('el diálogo', () => {
   test('enseña el documento y el enlace al archivo, cerrado por defecto', async () => {
     const html = render(
