@@ -51,7 +51,15 @@ async function conApp<T>(body: (contexto: Contexto) => Promise<T>): Promise<T> {
       },
       bootToken: 'token',
       version: '0.1.0',
-      plugins: { active: [{ provider: proveedor, file: '/plugins/fixture.ts' }], rejected: [] },
+      plugins: {
+        active: [
+          { provider: proveedor, file: '/plugins/fixture.ts' },
+          // La segunda fuente de la misma obra: la ficha sólo ofrece fuentes
+          // **cargadas**, así que la otra tiene que estar en el registro.
+          { provider: { ...proveedor, id: 'otra' }, file: '/plugins/otra.ts' },
+        ],
+        rejected: [],
+      },
       container,
     })
 
@@ -181,7 +189,7 @@ describe('GET /api/anime/:providerId/:ref/related', () => {
 })
 
 describe('GET /api/anime/:providerId/:ref/sources', () => {
-  const OTRA: ProviderRef = { providerId: 'animeav1', value: 'aurora-nocturna' }
+  const OTRA: ProviderRef = { providerId: 'otra', value: 'aurora-nocturna' }
 
   test('devuelve la otra fuente de la misma obra, y no la pedida', async () => {
     await conApp(async ({ pedir, store }) => {
@@ -196,7 +204,7 @@ describe('GET /api/anime/:providerId/:ref/sources', () => {
 
       expect(respuesta.status).toBe(200)
       expect(cuerpo.items.map((item) => `${item.ref.providerId}:${item.ref.value}`)).toEqual([
-        'animeav1:aurora-nocturna',
+        'otra:aurora-nocturna',
       ])
     })
   })
