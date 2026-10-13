@@ -74,8 +74,12 @@ describe('lo que el documento declara', () => {
   test('dice con qué se cierra, y en qué rutas', async () => {
     const markdown = await documento()
 
-    expect(markdown).toContain('se resuelve **una vez**')
-    expect(markdown).toContain('la conexión va a una ya validada')
+    // La frase del renglón, no la de la tabla: la tabla también dice «una vez» y
+    // «T110», así que una prueba que sólo mirara eso pasaría con el riesgo
+    // residual restaurado. Medido: con el texto anterior, esta prueba se pone
+    // roja.
+    expect(markdown).toContain('así que el certificado se sigue validando contra el nombre')
+    expect(markdown).toContain('el proxy de bytes (`pinned-fetch.ts`)')
     expect(markdown).toContain('T110')
   })
 
