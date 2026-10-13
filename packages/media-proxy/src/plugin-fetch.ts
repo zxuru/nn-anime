@@ -37,7 +37,14 @@ import {
   inflateSync,
   constants as zlibConstants,
 } from 'node:zlib'
-import { AppError } from '@nn-anime/core'
+import {
+  AppError,
+  type PluginFetch,
+  type PluginFetchCall,
+  type PluginFetchFactory,
+  type PluginRequest,
+  type PluginResponse,
+} from '@nn-anime/core'
 import {
   addressRule,
   allowLoopbackFromEnv,
@@ -49,36 +56,11 @@ import {
   systemResolver,
 } from './destination-guard'
 
-/** Lo que un plugin pide. */
-export interface PluginRequest {
-  readonly method?: 'GET' | 'POST'
-  readonly headers?: Readonly<Record<string, string>>
-  readonly body?: string
-  /** Tope que pide el plugin. El motor impone el suyo por debajo. */
-  readonly maxBytes?: number
-}
-
-/**
- * Lo que recibe. Todo clonable a propósito: el día que el plugin corra en otro
- * hilo o en otro proceso, esta misma forma viaja por un socket.
- *
- * `set-cookie` vive aparte porque es la única cabecera que se repite y no se
- * puede juntar con comas —una fecha de caducidad las lleva—, y porque hay un
- * flujo que la necesita: el token CSRF de jkanime se pide con la cookie de la
- * ficha.
+/*
+ * `PluginRequest`, `PluginResponse` y `PluginFetch` no se declaran aquí: viven en
+ * `core`, que es lo que comparten este paquete y el SDK. Una segunda declaración
+ * sería una segunda forma del mismo contrato, y dos formas divergen.
  */
-export interface PluginResponse {
-  readonly status: number
-  /** La dirección final, después de los saltos revalidados. */
-  readonly url: string
-  /** Cabeceras de la respuesta, en minúsculas. Sin `set-cookie`. */
-  readonly headers: Readonly<Record<string, string>>
-  readonly setCookie: readonly string[]
-  /** El cuerpo, ya descomprimido y ya acotado por el motor. */
-  readonly body: string
-}
-
-export type PluginFetch = (url: string, request?: PluginRequest) => Promise<PluginResponse>
 
 /** Tope por defecto del cuerpo, contado ya descomprimido. */
 export const MAX_BODY_BYTES = 8 * 1024 * 1024
@@ -778,3 +760,13 @@ export function createPluginFetch(options: PluginFetchOptions = {}): PluginFetch
     throw destinationError('redirect-limit', actual)
   }
 }
+
+/**
+ * La capacidad, con la forma que el motor espera: una fábrica por llamada.
+ *
+ * Es lo que se registra al arrancar. Sin registrar nada, `CallOptions.fetch` se
+ * queda sin poner y el plugin que la necesite falla cerrado —con un mensaje que
+ * lo dice— en vez de salir por el `fetch` global sin que nadie lo note.
+ */
+export const pluginFetchFactory: PluginFetchFactory = (call: PluginFetchCall) =>
+  createPluginFetch({ signal: call.signal, timeoutMs: call.timeoutMs })

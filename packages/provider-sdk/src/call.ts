@@ -33,6 +33,7 @@ import {
 } from '@nn-anime/core'
 import type { z } from 'zod'
 import { classifyThrow, describeProblems, providerFailure } from './errors'
+import { pluginFetchFor } from './network'
 import {
   providerAnimeDetailSchema,
   providerEpisodePageSchema,
@@ -42,6 +43,23 @@ import {
   providerStreamSourcesSchema,
 } from './schema'
 import type { CallOptions, EpisodePage, Provider, ProviderMethod } from './types'
+
+/**
+ * Las opciones que ve el plugin: las de la llamada, con la capacidad de red puesta.
+ *
+ * `fetch` es opcional en el contrato —un miembro obligatorio rompería a todo lo
+ * publicado y a la plantilla—, pero el motor la pone **siempre**: un plugin que
+ * prefiera el `fetch` global se salta la política de destinos, y eso tiene que ser
+ * una decisión visible y no un descuido. Si no hay ninguna capacidad registrada no
+ * se pone nada, y el plugin que la use falla cerrado con un mensaje claro.
+ */
+function conCapacidad(options: CallOptions): CallOptions {
+  if (options.fetch !== undefined) return options
+
+  const fetch = pluginFetchFor({ signal: options.signal, timeoutMs: options.timeoutMs })
+
+  return fetch === undefined ? options : { ...options, fetch }
+}
 
 /**
  * Ejecuta y convierte la excepción en `Result`.
@@ -114,7 +132,7 @@ export async function search(
   options: CallOptions,
 ): Promise<Result<readonly SearchResult[], ProviderError>> {
   const raw = await execute(provider, 'search', provider.capabilities.search, () =>
-    provider.search(query, options),
+    provider.search(query, conCapacidad(options)),
   )
 
   return parse(provider, 'search', providerSearchResultsSchema, raw)
@@ -125,7 +143,9 @@ export async function getAnime(
   ref: ProviderRef,
   options: CallOptions,
 ): Promise<Result<AnimeDetail, ProviderError>> {
-  const raw = await execute(provider, 'getAnime', true, () => provider.getAnime(ref, options))
+  const raw = await execute(provider, 'getAnime', true, () =>
+    provider.getAnime(ref, conCapacidad(options)),
+  )
 
   return parse(provider, 'getAnime', providerAnimeDetailSchema, raw)
 }
@@ -135,7 +155,9 @@ export async function getEpisodes(
   ref: ProviderRef,
   options: CallOptions,
 ): Promise<Result<readonly Episode[], ProviderError>> {
-  const raw = await execute(provider, 'getEpisodes', true, () => provider.getEpisodes(ref, options))
+  const raw = await execute(provider, 'getEpisodes', true, () =>
+    provider.getEpisodes(ref, conCapacidad(options)),
+  )
 
   return parse(provider, 'getEpisodes', providerEpisodesSchema, raw)
 }
@@ -160,7 +182,9 @@ export async function getEpisodesPage(
     )
   }
 
-  const raw = await execute(provider, 'getEpisodesPage', true, () => invoke(ref, page, options))
+  const raw = await execute(provider, 'getEpisodesPage', true, () =>
+    invoke(ref, page, conCapacidad(options)),
+  )
 
   return parse(provider, 'getEpisodesPage', providerEpisodePageSchema, raw)
 }
@@ -185,7 +209,9 @@ export async function getEpisode(
     )
   }
 
-  const raw = await execute(provider, 'getEpisode', true, () => invoke(ref, number, options))
+  const raw = await execute(provider, 'getEpisode', true, () =>
+    invoke(ref, number, conCapacidad(options)),
+  )
 
   return parse(provider, 'getEpisode', episodeSchema, raw)
 }
@@ -203,7 +229,9 @@ export async function getLatestEpisode(
     )
   }
 
-  const raw = await execute(provider, 'getLatestEpisode', true, () => invoke(ref, options))
+  const raw = await execute(provider, 'getLatestEpisode', true, () =>
+    invoke(ref, conCapacidad(options)),
+  )
 
   return parse(provider, 'getLatestEpisode', episodeSchema, raw)
 }
@@ -214,7 +242,7 @@ export async function resolveStream(
   options: CallOptions,
 ): Promise<Result<readonly StreamSource[], ProviderError>> {
   const raw = await execute(provider, 'resolveStream', true, () =>
-    provider.resolveStream(request, options),
+    provider.resolveStream(request, conCapacidad(options)),
   )
 
   return parse(provider, 'resolveStream', providerStreamSourcesSchema, raw)
@@ -231,7 +259,7 @@ export async function getTrending(
     )
   }
 
-  const raw = await execute(provider, 'getTrending', true, () => invoke(options))
+  const raw = await execute(provider, 'getTrending', true, () => invoke(conCapacidad(options)))
 
   return parse(provider, 'getTrending', providerSearchResultsSchema, raw)
 }
@@ -252,7 +280,7 @@ export async function getFeed(
     return err(providerFailure({ providerId: provider.id, method: 'getFeed', kind: 'unsupported' }))
   }
 
-  const raw = await execute(provider, 'getFeed', true, () => invoke(options))
+  const raw = await execute(provider, 'getFeed', true, () => invoke(conCapacidad(options)))
 
   return parse(provider, 'getFeed', providerFeedSchema, raw)
 }

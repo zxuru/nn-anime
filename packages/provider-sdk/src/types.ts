@@ -16,6 +16,7 @@ import type {
   ProviderCapabilities as CoreProviderCapabilities,
   Episode,
   FeedEntry,
+  PluginFetch,
   ProviderRef,
   SearchResult,
   StreamRequest,
@@ -78,6 +79,16 @@ export interface CallOptions {
   readonly signal: AbortSignal
   /** Milisegundos. El módulo ya aplica un timeout mayor; esto es una sugerencia. */
   readonly timeoutMs: number
+  /**
+   * La capacidad de red del motor.
+   *
+   * Es **opcional** en el contrato —un miembro obligatorio rompería a todo lo
+   * publicado y a la plantilla—, pero el motor la pone **siempre**: `call.ts` la
+   * inyecta en cada llamada. Un plugin que prefiera el `fetch` global se salta la
+   * política de destinos, y eso tiene que ser una decisión visible; para los
+   * plugins de terceros será obligatoria en la siguiente versión mayor.
+   */
+  readonly fetch?: PluginFetch
 }
 
 /**

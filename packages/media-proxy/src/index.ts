@@ -73,6 +73,16 @@ export {
   validHeaderValue,
 } from './mpv-args'
 export {
+  createPluginFetch,
+  DEFAULT_TIMEOUT_MS,
+  MAX_BODY_BYTES,
+  type PluginFetchOptions,
+  type PluginTransport,
+  pluginFetchFactory,
+  type SocketLike,
+  systemConnector,
+} from './plugin-fetch'
+export {
   ALLOWED_RESPONSE_HEADERS,
   contentTypeFor,
   type ResourceKind,

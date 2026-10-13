@@ -10,6 +10,19 @@
  * de conformidad que el autor puede correr contra su plugin, en `conformance.ts`.
  */
 
+/*
+ * Los tipos de la capacidad de red, reexportados desde `core`.
+ *
+ * Un plugin sólo puede nombrar `@nn-anime/provider-sdk`: los demás paquetes no le
+ * resuelven desde su directorio. Lo que el contrato usa tiene que salir por aquí.
+ */
+export type {
+  PluginFetch,
+  PluginFetchCall,
+  PluginFetchFactory,
+  PluginRequest,
+  PluginResponse,
+} from '@nn-anime/core'
 export {
   getAnime,
   getEpisode,
@@ -47,6 +60,7 @@ export {
   pluginNames,
   type RejectedPlugin,
 } from './loader'
+export { pluginFetchFor, setPluginFetchFactory } from './network'
 export {
   createRegistry,
   type ProviderRegistry,

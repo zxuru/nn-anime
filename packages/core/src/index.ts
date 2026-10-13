@@ -175,6 +175,13 @@ export {
   type WatchedEpisode,
   type WatchRecord,
 } from './models'
+export type {
+  PluginFetch,
+  PluginFetchCall,
+  PluginFetchFactory,
+  PluginRequest,
+  PluginResponse,
+} from './plugin-net'
 export {
   type GithubRepoLocation,
   githubRepoFromUrl,

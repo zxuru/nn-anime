@@ -44,6 +44,7 @@ import {
   DEFAULT_TTL_S,
   type MpvPlayer,
   type PlaylistCache,
+  pluginFetchFactory,
   type SpawnMpv,
   spawnMpvProcess,
   type TicketStore,
@@ -60,6 +61,7 @@ import {
   getTrending as fetchTrending,
   type Provider,
   search as searchProvider,
+  setPluginFetchFactory,
 } from '@nn-anime/provider-sdk'
 import { type CacheOutcome, readThrough } from './cache-read'
 
@@ -224,6 +226,16 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     spawn: options.spawnMpv ?? spawnMpvProcess,
     available: options.mpvAvailable ?? false,
   })
+
+  /*
+   * La capacidad de red de los plugins, registrada una vez por contenedor.
+   *
+   * `createPluginFetch` lee `NN_ANIME_ALLOW_LOOPBACK` por su cuenta —la misma
+   * variable que el proxy, y el aviso de arranque del CLI ya cubre las dos—, así
+   * que aquí no hay nada que pasarle: la fábrica se construye en cada llamada, con
+   * el `signal` y el `timeoutMs` de quien la pidió.
+   */
+  setPluginFetchFactory(pluginFetchFactory)
 
   /**
    * El stream de un episodio, con su caché de URL corta.
