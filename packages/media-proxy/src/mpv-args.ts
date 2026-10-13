@@ -98,6 +98,13 @@ export function mpvArgs(options: MpvArgsOptions): MpvArgsOutcome {
 
   args.push(...(options.extraArgs ?? []))
 
+  // `--` cierra el análisis de opciones: de aquí en adelante todo lo que empiece
+  // por guion es un dato, no una opción. La URL la elige un plugin y sale del
+  // sitio raspado; el esquema la acota a http(s) en el contrato y en los seis
+  // plugins, pero eso es una comprobación de este lado, y esto es decírselo al
+  // reproductor. Va después de `extraArgs` para no romper esa vía.
+  args.push('--')
+
   // La URL va la última y como un argumento entero.
   args.push(options.url)
 

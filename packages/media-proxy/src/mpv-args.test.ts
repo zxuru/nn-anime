@@ -63,8 +63,9 @@ describe('argumentos de mpv', () => {
     const cabeceras = args.find((arg) => arg.startsWith(HEADER_FIELD_FLAG))
 
     expect(cabeceras).toContain('rm -rf /')
-    expect(args).toHaveLength(5)
+    expect(args).toHaveLength(6)
     expect(args.at(-1)).toBe('http://127.0.0.1/stream/abc')
+    expect(args.at(-2)).toBe('--')
   })
 
   test('los argumentos extra van antes de la URL', () => {
@@ -156,6 +157,7 @@ describe('validación de cabeceras', () => {
         '--keep-open=no',
         '--http-header-fields=Referer: https://sitio.example',
         '--start=90',
+        '--',
         'http://127.0.0.1:7717/stream/abc',
       ],
     ])
