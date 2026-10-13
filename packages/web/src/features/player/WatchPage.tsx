@@ -815,6 +815,11 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         currentRef={props.ref}
         mode={modo}
         actual={posicionEpisodio}
+        // El nombre del título, que es el respaldo del renglón cuando el
+        // proveedor no nombra sus episodios: esta columna no tiene al lado el
+        // encabezado de la pantalla, así que un renglón con sólo el número no
+        // dice de qué serie es.
+        animeTitle={tituloAnime}
       />
     </aside>
   )
