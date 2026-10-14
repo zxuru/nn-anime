@@ -27,7 +27,10 @@
     "e2e:fallo": "NN_ANIME_E2E_FALLO=search NN_ANIME_E2E_PORT=7802 playwright test failure.e2e.ts",
     "e2e:todo": "bun run e2e && bun run e2e:fallo",
     "captura": "bun run scripts/captura.ts",
-    "recorte": "bun run scripts/recorte.ts"
+    "recorte": "bun run scripts/recorte.ts",
+    "version:check": "bun run scripts/version.ts check",
+    "version:sync": "bun run scripts/version.ts sync",
+    "version:set": "bun run scripts/version.ts set"
   },
   "devDependencies": {
     "@biomejs/biome": "^2",
