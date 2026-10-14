@@ -23,7 +23,7 @@
  *   bun run package --only-installer       # el instalador, con el ejecutable ya hecho
  */
 
-import { mkdir, rm } from 'node:fs/promises'
+import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { type BinarySpec, buildBinary, missingAssets, TARGETS } from './package/binary'
 import { linuxAppImage, linuxPackages } from './package/linux'
@@ -135,6 +135,31 @@ export function installerName(version: string, spec: BinarySpec): string {
   return spec.platform === 'windows' ? `${base}-setup.exe` : `${base}.dmg`
 }
 
+/**
+ * Comprueba que en el directorio de la release sólo hay archivos sueltos.
+ *
+ * `gh release upload release/*` no sabe subir un directorio. El `.app` de macOS se
+ * armaba justo ahí, así que la release habría fallado **al final**, con los
+ * instaladores de las tres plataformas ya compilados y el gasto hecho. El `.app`
+ * se arma ahora en el directorio de trabajo —sólo viaja dentro del `.dmg`— y esto
+ * es la red que lo sujetaría si alguien volviera a dejarlo caer.
+ */
+export async function assertReleaseFiles(directory: string): Promise<readonly string[]> {
+  const nombres: string[] = []
+
+  for (const entrada of await readdir(directory, { withFileTypes: true })) {
+    if (!entrada.isFile()) {
+      throw new Error(
+        `${join(directory, entrada.name)} no es un archivo, y una release sólo admite archivos`,
+      )
+    }
+
+    nombres.push(entrada.name)
+  }
+
+  return nombres
+}
+
 export interface Packaged {
   readonly target: string
   readonly binary: string
@@ -203,6 +228,11 @@ export async function packageApp(options: PackageOptions = {}): Promise<Packaged
     } else {
       process.stdout.write('armando el instalador…\n')
       artifacts.push(...(await buildInstaller({ spec, version, binary, stage })))
+
+      // Antes de dar el trabajo por bueno: lo que hay en `release/` tiene que poder
+      // subirse tal cual.
+      const enLaRelease = await assertReleaseFiles(RELEASE_DIR)
+      process.stdout.write(`release/: ${enLaRelease.join(', ')}\n`)
     }
   }
 
@@ -245,6 +275,7 @@ async function buildInstaller(build: InstallerBuild): Promise<readonly string[]>
             version,
             binary,
             releaseDir: RELEASE_DIR,
+            workDir: stage,
             dmgName: installerName(version, spec),
           })
         ).dmg,

@@ -32,8 +32,17 @@ export interface MacOptions {
   readonly version: string
   /** El ejecutable ya compilado. */
   readonly binary: string
-  /** Directorio donde se deja el `.app` y el `.dmg`. */
+  /** Dónde queda el `.dmg`: es lo único que se publica. */
   readonly releaseDir: string
+  /**
+   * Dónde se arma el `.app`.
+   *
+   * **Fuera de `releaseDir`, y no es un detalle de orden**: `gh release upload
+   * release/*` no sabe subir un directorio, y el `.app` es uno. Con él ahí, la
+   * release habría fallado al final, con los instaladores de las tres
+   * plataformas ya compilados. Sólo el `.dmg` viaja.
+   */
+  readonly workDir: string
   /** Nombre del `.dmg`, sin directorio. */
   readonly dmgName: string
   /** `true` para no firmar aunque haya identidad. Sólo lo usan las pruebas. */
@@ -75,7 +84,7 @@ export async function sign(path: string, cwd: string): Promise<boolean> {
  * desincroniza.
  */
 export async function macBundle(options: MacOptions): Promise<string> {
-  const app = join(options.releaseDir, 'nn-anime.app')
+  const app = join(options.workDir, 'nn-anime.app')
   const macos = join(app, 'Contents', 'MacOS')
 
   await rm(app, { recursive: true, force: true })
@@ -97,7 +106,7 @@ export async function macBundle(options: MacOptions): Promise<string> {
     await copyFile(ICON, join(app, 'Contents', 'Resources', 'icon.icns'))
   }
 
-  if (options.unsigned !== true) await sign(app, options.releaseDir)
+  if (options.unsigned !== true) await sign(app, options.workDir)
 
   return app
 }
@@ -117,7 +126,7 @@ export interface DmgResult {
  */
 export async function macDmg(options: MacOptions): Promise<DmgResult> {
   const app = await macBundle(options)
-  const staging = join(options.releaseDir, 'dmg')
+  const staging = join(options.workDir, 'dmg')
   const dmg = join(options.releaseDir, options.dmgName)
 
   await rm(staging, { recursive: true, force: true })

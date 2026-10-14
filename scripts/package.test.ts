@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
-import { hostPlatform, hostTarget, installerName } from './package'
+import { assertReleaseFiles, hostPlatform, hostTarget, installerName } from './package'
 import { dottedVersion, EMBEDDED_DIRECTORIES, TARGETS } from './package/binary'
 import { artifactsIn, hashOf, writeChecksums } from './package/checksums'
 import { render, template } from './package/render'
@@ -262,6 +262,42 @@ describe('las plantillas de los instaladores', () => {
     // Cocoa y no tiene menú ni «Salir». Se busca la **clave** y no la palabra: la
     // plantilla la nombra en un comentario para contar justo esto.
     expect(texto).not.toContain('<key>LSUIElement</key>')
+  })
+})
+
+describe('lo que se publica', () => {
+  test('un directorio en el directorio de la release se rechaza', async () => {
+    const dir = await mkdtemp(join(ROOT, '.tmp', 'release-'))
+
+    try {
+      await writeFile(join(dir, 'nn-anime-1.2.3-windows-x64-setup.exe'), 'instalador')
+      await mkdir(join(dir, 'nn-anime.app'), { recursive: true })
+
+      // `gh release upload release/*` no sabe subir un directorio, y el `.app` de
+      // macOS se armaba justo ahí: la release habría fallado al final, con los
+      // instaladores de las tres plataformas ya compilados.
+      await expect(assertReleaseFiles(dir)).rejects.toThrow(/no es un archivo/)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  test('sólo archivos sueltos pasa, y los devuelve', async () => {
+    const dir = await mkdtemp(join(ROOT, '.tmp', 'release-'))
+
+    try {
+      await writeFile(join(dir, 'nn-anime-1.2.3-macos-arm64.dmg'), 'disco')
+      await writeFile(join(dir, 'SHA256SUMS.txt'), 'hashes')
+
+      // Ordenado en la prueba y no en la función: `readdir` no promete orden, y
+      // exigirlo ahí sería pedirle a una lectura del disco algo que no da.
+      expect([...(await assertReleaseFiles(dir))].sort()).toEqual([
+        'SHA256SUMS.txt',
+        'nn-anime-1.2.3-macos-arm64.dmg',
+      ])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })
 
