@@ -30,6 +30,87 @@ como reserva: sin nada que recomendar, sale de ahí en vez de dejar la página c
 una fecha de emisión por episodio, y un feed da la fecha de **publicación del título**, que no es lo
 mismo. Se enseña lo que sí se sabe en vez de inventar fechas.
 
+## Instalación (para usuarios)
+
+**No hace falta instalar nada más**: ni Node, ni Bun, ni Python. El instalador trae dentro el
+programa entero —la interfaz, el servidor y la base de datos—, y todos están en
+[la página de Releases](https://github.com/zxuru/nn-anime/releases).
+
+| Sistema | Archivo |
+|---|---|
+| Windows x64 | `nn-anime-X.Y.Z-windows-x64-setup.exe` |
+| macOS, chip de Apple | `nn-anime-X.Y.Z-macos-arm64.dmg` |
+| macOS, Intel | `nn-anime-X.Y.Z-macos-x64.dmg` |
+| Linux x64 | `nn-anime-X.Y.Z-linux-x64.AppImage`, `.deb` o `.rpm` |
+
+### Windows
+
+Ejecuta el `.exe` y sigue el asistente. Se instala **sólo para tu usuario** —no pide permisos de
+administrador— en `%LOCALAPPDATA%\Programs\nn-anime`, y deja un acceso en el menú Inicio y otro en el
+escritorio.
+
+Al abrirlo aparece una **ventana de consola** y, a los pocos segundos, el navegador. Esa ventana es
+la aplicación: mientras esté abierta, el servidor vive y ahí se leen los avisos. **Para cerrarla,
+cierra la ventana**; el navegador dejará de funcionar.
+
+Desinstalar desde «Agregar o quitar programas» **no borra tus datos**: la base, los ajustes y los
+plugins viven en `%APPDATA%\nn-anime` y `%LOCALAPPDATA%\nn-anime`.
+
+Windows avisará de que el programa viene de un **desarrollador no verificado** mientras la release no
+esté firmada. En «Más información» del aviso hay un «Ejecutar de todas formas»; el aviso es de que
+nadie ha pagado un certificado, no de que el archivo esté mal. El `SHA256SUMS.txt` de la release
+sirve para comprobar que llegó entero.
+
+### macOS
+
+Abre el `.dmg` y arrastra **nn-anime** a la carpeta Aplicaciones. Hay un `.dmg` por arquitectura:
+`arm64` para los Mac con chip de Apple y `x64` para los Intel. Cuál es el tuyo se ve en el menú
+Apple → «Acerca de este Mac».
+
+Mientras la release no esté firmada ni notarizada, macOS la frena la primera vez con «no se puede
+abrir porque proviene de un desarrollador no identificado». Para abrirla:
+
+- **Botón derecho sobre la aplicación → Abrir** y, en el diálogo, **Abrir**. Sólo hace falta la
+  primera vez.
+- Si esa opción no aparece: **Ajustes del Sistema → Privacidad y seguridad** y, abajo, **«Abrir de
+  todos modos»**.
+
+La aplicación no tiene ventana propia: abre el navegador y deja su icono en el Dock. **Para cerrarla,
+botón derecho sobre el icono del Dock → Salir.**
+
+### Linux
+
+- **AppImage**: descárgalo, dale permiso de ejecución y lánzalo.
+  `chmod +x nn-anime-X.Y.Z-linux-x64.AppImage && ./nn-anime-X.Y.Z-linux-x64.AppImage`. No instala
+  nada ni toca el sistema.
+- **`.deb`** (Debian, Ubuntu): `sudo apt install ./nn-anime-X.Y.Z-linux-x64.deb`. Deja `nn-anime` en
+  el PATH y un acceso en el menú de aplicaciones.
+- **`.rpm`** (Fedora, RHEL): `sudo dnf install ./nn-anime-X.Y.Z-linux-x64.rpm`.
+
+El acceso del menú abre una terminal además del navegador: ahí se leen los avisos y desde ahí se para
+con `Ctrl+C`. El AppImage lanzado desde el explorador de archivos no abre ninguna terminal, así que
+conviene lanzarlo desde una.
+
+### Comprobar la descarga
+
+Cada release lleva un `SHA256SUMS.txt` con el hash SHA256 de todos sus archivos:
+
+```bash
+sha256sum -c SHA256SUMS.txt
+```
+
+En Windows, `certutil -hashfile <archivo> SHA256` y se compara a ojo.
+
+### Después de instalar
+
+**No hay ningún proveedor instalado de fábrica**, así que la aplicación arranca, se ve y no encuentra
+nada. Para que encuentre algo hay que copiar un plugin, y eso se cuenta en
+[la guía de plugins](docs/providers.md). Sin plugins no hay búsqueda, ni catálogo, ni
+recomendaciones: sólo la interfaz y el motor.
+
+Si tienes `mpv` instalado, la aplicación lo detecta al arrancar y ofrece reproducir en él además de
+en el navegador. No hace falta para nada.
+
 ## Arrancar
 
 ```bash
@@ -74,11 +155,17 @@ No hay ningún proveedor instalado de fábrica. Hasta que copies uno —ver
 | `bun run db:prune` | Limpia lo viejo |
 | `bun run coverage:gate` | Cobertura por paquete, con su umbral |
 | `bun run captura` | Vuelve a hacer la captura de este README |
+| `bun run package` | Compila el ejecutable de esta plataforma, lo prueba y arma su instalador |
+| `bun run package:smoke` | Arranca un ejecutable ya compilado y le pregunta si sirve la interfaz |
+| `bun run version:check` | Comprueba que los diez `package.json` dicen la misma versión |
+| `bun run version:set` | Sube la versión en los diez `package.json` de una vez |
+| `bun run icon` | Vuelve a generar el icono (PNG, ICO e ICNS) desde código |
 
 **Qué produce `bun run build`:** la interfaz. El servidor y el CLI **se ejecutan desde el código fuente
-con Bun** y no se compilan a un artefacto: el servidor sirve `packages/web/dist` desde el disco, así que
-un binario de un solo archivo tendría que incrustar la interfaz dentro, y eso es trabajo de empaquetado
-que v1 no necesita. Requiere Bun en la máquina, y por eso está declarado en `engines`.
+con Bun** para desarrollar, y `bun run package` es lo que los convierte en un programa instalable: un
+ejecutable por plataforma que lleva dentro el runtime, la interfaz y las migraciones, envuelto en un
+instalador. Para desarrollar hace falta Bun en la máquina —y por eso está declarado en `engines`—;
+para **usar** la aplicación instalada, no hace falta nada.
 
 ## Dónde vive cada cosa
 
@@ -132,11 +219,39 @@ Los proveedores que escribimos para sitios reales no viven aquí, viven en su pr
 `~/.config/nn-anime/providers/` y la aplicación los carga al arrancar. La separación es deliberada: es
 lo que permite que este repositorio siga sin incluir un solo scraper.
 
+## Cómo publicar una release (para mantenedores)
+
+La versión vive **en un solo sitio**: `package.json` de la raíz. Los otros nueve manifiestos la copian,
+y `bun run version:check` falla si alguno se desvió —lo que impide publicar un binario que dice una
+versión y unos instaladores que dicen otra—.
+
+1. **Deja que el PR de release se abra solo.** `release-please` lee los Conventional Commits
+   (`feat:`, `fix:`…) que ya se escriben en `main`, y mantiene un PR con el `CHANGELOG.md` escrito y
+   la versión subida en los diez `package.json`. Se titula «chore(main): release X.Y.Z».
+2. **Fusiona ese PR.** Al fusionarlo, `release-please` crea el tag `vX.Y.Z` y deja la release **en
+   borrador**, con el changelog como cuerpo.
+3. **El resto lo hace el workflow.** El tag dispara `.github/workflows/release.yml`, que pasa el
+   listón (tipos, estilo, auditoría y pruebas), compila los instaladores de Windows, macOS y Linux,
+   calcula el `SHA256SUMS.txt`, sube todo al borrador y **lo publica**.
+
+No hay que tocar nada a mano. Si hace falta lanzarlo sin publicar —para probar la cadena de
+empaquetado— está **Actions → Release → Run workflow** con «publish» sin marcar: compila todo y deja
+los artefactos en el resumen del propio workflow, sin gastar un número de versión.
+
+Si hay que subir la versión a mano —un `hotfix` sin commits que lo justifiquen—:
+`bun run version:set 0.2.1`, commit, y el tag `v0.2.1` a mano. El resto es igual.
+
+**Lo que hay que configurar una vez:** los secretos de firma están en
+[la guía de publicación](docs/release.md), junto con el ajuste del repositorio que necesita
+`release-please` para poder abrir su PR. Sin ningún secreto, las releases salen **sin firmar** y se
+instalan igual, con las advertencias del sistema que cuenta la sección de instalación.
+
 ## Documentación
 
 | Documento | Qué cuenta |
 |---|---|
 | [docs/providers.md](docs/providers.md) | Cómo escribir un plugin, con un ejemplo comentado |
+| [docs/release.md](docs/release.md) | Cómo se publica: secretos de firma, ajustes del repositorio y qué queda por probar |
 | [SECURITY.md](SECURITY.md) | Modelo de amenaza, mitigaciones y riesgos residuales |
 | [docs/a11y.md](docs/a11y.md) | Qué se comprueba de accesibilidad y qué no |
 | [docs/PLAN-B-HLS.md](docs/PLAN-B-HLS.md) | Por qué HLS se queda en v1 |
