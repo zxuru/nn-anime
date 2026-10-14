@@ -327,13 +327,14 @@ describe('el icono del instalador de Windows', () => {
     return Array.from({ length: entradas }, (_, i) => bytes[6 + i * 16] ?? 0)
   }
 
-  test('el del asistente no lleva el de 256, que NSIS escribe como un cero y rechaza', async () => {
+  test('el del asistente se queda en los tamaños clásicos', async () => {
     const tamanos = await anchos('icon-setup.ico')
 
-    // Medido: con la entrada de 256 dentro, `makensis` aborta al cargar el
-    // `MUI_ICON` con «invalid icon file size» —el tamaño de 256 no cabe en el byte
-    // del directorio y se escribe como un cero—. El instalador que falló en la
-    // primera ejecución del CI fue justo este.
+    // NSIS nunca ha manejado bien el tamaño de 256, que no cabe en el byte del
+    // directorio y se escribe como un cero. El instalador que falló en el CI no
+    // falló por esto —falló por la endianness del directorio, ver `icon.ts`—, pero
+    // el icono del asistente se queda en los cuatro tamaños de siempre: aquí no se
+    // juega a adivinar.
     expect(tamanos.length).toBeGreaterThan(0)
     expect(tamanos).not.toContain(0)
     expect(Math.max(...tamanos)).toBeLessThanOrEqual(64)
@@ -343,6 +344,36 @@ describe('el icono del instalador de Windows', () => {
     const tamanos = await anchos('icon.ico')
 
     expect(tamanos).toContain(0)
+  })
+
+  test('el directorio del .ico va en little-endian, que es lo que costó dos fallos', async () => {
+    // Esto es lo que estaba mal: el tamaño y la posición de cada entrada se
+    // escribían en big-endian, y con los números del revés el inyector de recursos
+    // de Bun producía un ejecutable de 2,66 GB y `makensis` contestaba «invalid
+    // icon file size».
+    for (const nombre of ['icon.ico', 'icon-setup.ico']) {
+      const bytes = new Uint8Array(
+        await Bun.file(join(ROOT, 'packaging', 'icons', nombre)).arrayBuffer(),
+      )
+      const entradas = bytes[4] ?? 0
+      let esperado = 6 + entradas * 16
+
+      for (let i = 0; i < entradas; i++) {
+        const e = 6 + i * 16
+        const bytes32 = (o: number): number =>
+          ((bytes[o] ?? 0) |
+            ((bytes[o + 1] ?? 0) << 8) |
+            ((bytes[o + 2] ?? 0) << 16) |
+            ((bytes[o + 3] ?? 0) << 24)) >>>
+          0
+
+        expect(bytes32(e + 12), `${nombre}, entrada ${i}: posición`).toBe(esperado)
+        esperado += bytes32(e + 8)
+      }
+
+      // Y las entradas llenan el archivo justo: sin huecos ni sobras.
+      expect(esperado, `${nombre}: el directorio no llena el archivo`).toBe(bytes.byteLength)
+    }
   })
 })
 

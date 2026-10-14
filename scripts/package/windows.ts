@@ -19,12 +19,12 @@ import { dottedVersion, WINDOWS_ICON } from './binary'
 export const SCRIPT = join(ROOT, 'packaging', 'windows', 'nn-anime.nsi')
 
 /**
- * El icono que lleva el **instalador**, aparte del que se instala.
+ * El icono que lleva el **asistente**, aparte del que se instala.
  *
- * Son dos archivos y no uno porque NSIS no admite un `.ico` con la entrada de
- * 256 px: la escribe como un cero y aborta con «invalid icon file size». El
- * grande se instala como archivo —de ahí lo cogen el explorador y los accesos— y
- * este otro es el que dibuja el asistente.
+ * Son dos archivos y no uno porque NSIS nunca ha manejado bien la entrada de 256
+ * px —el tamaño no cabe en el byte del directorio y se escribe como un cero—, así
+ * que el asistente lleva uno con los cuatro tamaños clásicos y el programa instala
+ * el completo, que es el que enseñan el explorador y los accesos.
  */
 export const SETUP_ICON = join(ROOT, 'packaging', 'icons', 'icon-setup.ico')
 

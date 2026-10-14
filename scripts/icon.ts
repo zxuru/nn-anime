@@ -171,6 +171,23 @@ function be32(value: number): Uint8Array {
   ])
 }
 
+/**
+ * Cuatro bytes en little-endian.
+ *
+ * Hace falta porque el `.ico` es el único de los tres formatos que va así: el PNG
+ * y el ICNS escriben sus enteros al revés. Confundirlos no da un archivo
+ * ilegible, da uno con los números del revés, que es peor: se abre y lo que dice
+ * dentro es mentira.
+ */
+function le32(value: number): Uint8Array {
+  return new Uint8Array([
+    value & 0xff,
+    (value >>> 8) & 0xff,
+    (value >>> 16) & 0xff,
+    (value >>> 24) & 0xff,
+  ])
+}
+
 function concat(parts: readonly Uint8Array[]): Uint8Array {
   const total = parts.reduce((suma, parte) => suma + parte.byteLength, 0)
   const salida = new Uint8Array(total)
@@ -300,8 +317,13 @@ export function encodeIco(images: readonly IconImage[]): Uint8Array {
         ]),
         new Uint8Array([1, 0]), // planos
         new Uint8Array([32, 0]), // bits por píxel
-        be32(datos.byteLength),
-        be32(offset),
+        // En **little-endian**, como todo el `.ico`. Con big-endian —el orden
+        // natural de un PNG o un ICNS, que es de donde vino la confusión— el
+        // tamaño y la posición se leen al revés: `makensis` contesta «invalid icon
+        // file size» y el inyector de recursos de Bun escribía un ejecutable de
+        // 2,66 GB. Los dos salieron de aquí.
+        le32(datos.byteLength),
+        le32(offset),
       ]),
     )
 
@@ -375,16 +397,16 @@ async function main(): Promise<void> {
 
   await Bun.write(join(ICONS, 'icon.ico'), encodeIco(images.filter((image) => image.size <= 256)))
 
-  // El `.ico` del instalador, **sin la entrada de 256**.
+  // El `.ico` del instalador, sin la entrada de 256.
   //
-  // NSIS no admite un icono de 256 px en un `.ico`: ese tamaño no cabe en el byte
-  // del directorio y se escribe como un cero, y `makensis` aborta con «invalid
-  // icon file size» al cargar el `MUI_ICON`. Medido en la primera ejecución del
-  // CI, que es donde se compila el `.nsi`.
+  // No es lo que fallaba —lo que fallaba era la endianness del directorio, ver
+  // `le32`—, pero se queda así a propósito: NSIS nunca ha manejado bien el tamaño
+  // de 256, que no cabe en el byte del directorio y se escribe como un cero, y con
+  // el icono del instalador no se juega a adivinar. Los cuatro tamaños clásicos
+  // son los que usa cualquier asistente.
   //
-  // El `.ico` grande sigue instalándose como archivo —de ahí lo cogen el
-  // explorador, los accesos y «Agregar o quitar programas»—, pero el instalador
-  // lleva el suyo.
+  // El `.ico` completo se sigue instalando como archivo: de ahí lo cogen el
+  // explorador, los accesos y «Agregar o quitar programas».
   await Bun.write(
     join(ICONS, SETUP_ICON_NAME),
     encodeIco(images.filter((image) => image.size <= 64)),

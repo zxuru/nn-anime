@@ -35,16 +35,15 @@ export const EMBEDDED_DIRECTORIES: readonly string[] = [
 /**
  * El icono de la aplicación, en el formato de Windows.
  *
- * **No se le pasa a `--windows-icon`**, y es una decisión medida, no un olvido:
- * en Bun 1.4.3 esa bandera produce un ejecutable que Windows no arranca. Con un
- * `.ico` de entradas PNG escribe 2,66 GB de basura; con uno de entradas DIB
- * —el formato clásico, que es el que se genera aquí— el archivo pesa lo que debe
- * pero Windows contesta «la configuración en paralelo no es correcta», que es un
- * manifiesto de recursos roto.
+ * Va dentro del ejecutable con `--windows-icon`, y estuvo a punto de no ir por un
+ * fallo que era **de este repositorio y no de Bun**: el generador del `.ico`
+ * escribía el tamaño y la posición de cada entrada en big-endian, y el formato
+ * `.ico` los quiere en little-endian. Con los números del revés, el inyector de
+ * recursos de Bun escribía un ejecutable de **2,66 GB** que Windows rechazaba, y
+ * `makensis` abortaba con «invalid icon file size».
  *
- * El icono lo pone el instalador de NSIS, que sí lo admite, y los accesos del
- * menú Inicio y del escritorio lo usan. Cuando Bun lo arregle, volver a ponerlo
- * es una línea en `buildArgs`.
+ * Los dos síntomas se fueron al arreglar la endianness en `scripts/icon.ts`, y
+ * hay una prueba que lee el directorio del `.ico` para que no vuelva.
  */
 export const WINDOWS_ICON = join(ROOT, 'packaging', 'icons', 'icon.ico')
 
@@ -125,6 +124,10 @@ export function buildArgs(options: BuildBinaryOptions): readonly string[] {
       '--windows-publisher=nn-anime',
       '--windows-copyright=nn-anime',
     )
+
+    // El icono, dentro del ejecutable. Sin él, la ventana de la consola y la barra
+    // de tareas enseñarían el icono de Bun.
+    if (existsSync(WINDOWS_ICON)) args.push(`--windows-icon=${WINDOWS_ICON}`)
   }
 
   return args

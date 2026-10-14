@@ -192,42 +192,62 @@ y se actualizan la URL y el hash en `.github/actions/herramientas/action.yml`, l
   papeles: instala, deja accesos, se desinstala y aparece en «Agregar o quitar programas». Un MSI
   pediría WiX y una instalación por máquina que necesitaría administrador para un programa que vive
   en `%LOCALAPPDATA%`.
-- **El icono no está dentro del `.exe` de Windows.** Lo lleva el instalador, y los accesos del menú
-  Inicio y del escritorio lo usan; el ejecutable suelto tiene el icono por defecto. Es una decisión
-  medida: `--windows-icon` de Bun 1.4.3 produce un ejecutable que Windows no arranca —con un `.ico`
-  de entradas PNG escribe 2,66 GB; con uno de entradas DIB, que es el que se genera aquí, el archivo
-  pesa lo que debe pero Windows contesta «la configuración en paralelo no es correcta»—. Cuando Bun
-  lo arregle, devolverlo es una línea en `scripts/package/binary.ts`.
 - **Linux arm64 y Windows arm64: no se publican.** Bun los compila y añadirlos es una línea por
   plataforma, pero cada objetivo es una release que hay que poder probar.
 - **El desinstalador no borra los datos.** `%APPDATA%\nn-anime` y `%LOCALAPPDATA%\nn-anime` —la base,
   los ajustes y los plugins— se quedan. Desinstalar el programa no es pedir que se pierda eso.
 
+### Una que no era de Bun
+
+El icono de Windows estuvo a punto de quedarse fuera del ejecutable por un fallo que se le achacó a
+Bun 1.4.3 durante dos ejecuciones del CI: `--windows-icon` escribía un ejecutable de **2,66 GB** que
+Windows rechazaba, y `makensis` abortaba con «invalid icon file size».
+
+El fallo era del generador del `.ico` de este repositorio: el tamaño y la posición de cada entrada se
+escribían en **big-endian**, y el formato `.ico` los quiere en **little-endian**. Con los números del
+revés, los dos programas leían un tamaño absurdo y reaccionaban como se espera de un archivo
+corrupto. Al arreglarlo, el ejecutable pesa 93,6 MB, arranca, y el icono va dentro.
+
+Queda una prueba (`scripts/package.test.ts`) que recorre el directorio del `.ico` y comprueba que las
+entradas se encadenan y llenan el archivo justo, para que no vuelva. Y la lección, que es la de
+siempre en este repositorio: el validador que escribí para comprobarlo repetía el mismo error —leía
+en big-endian— y por eso daba por bueno un archivo que no lo estaba.
+
 ## Lo que está verificado y lo que no
 
-Medido en Windows, en la máquina de quien preparó esto:
+Medido en la máquina donde se preparó esto:
 
 - El ejecutable compilado arranca, sirve la interfaz y sus recursos con hash, canjea el token de
   arranque y **aplica las siete migraciones** (`schema_version = 7`).
 - Las seis comprobaciones de `smoke.ts` en verde sobre el ejecutable empaquetado.
 - `actionlint` con `shellcheck` sobre los tres workflows, sin avisos.
-- Las estructuras del icono (PNG, ICO e ICNS) parseadas y comprobadas: CRC de cada chunk, directorio
-  del `.ico` coherente con los PNG que lleva dentro, y longitudes del `.icns`.
 - Las dependencias del `.deb` y el `.rpm` no se suponen: se leyeron los `DT_NEEDED` del ejecutable de
   Linux —`libc.so.6`, `libm`, `libdl`, `libpthread`, todas de libc6— y su versión mínima de símbolos
   versionados, `GLIBC_2.17`, que es lo que declara el paquete.
 
-**No verificado en la máquina donde se escribió esto, y lo verifica GitHub en el primer push:**
+Verificado **por el CI**, que es donde se comprueba lo que no se puede comprobar aquí:
 
-- **macOS entero**: el `.app`, el `.dmg`, la firma y la notarización.
-- **Linux entero**: el AppImage, el `.deb` y el `.rpm`, y que `nfpm` acepte el YAML generado.
-- **NSIS**: `packaging/windows/nn-anime.nsi` no se ha compilado nunca —no hay `makensis` en esa
-  máquina—, así que es lo primero que mira el trabajo de Windows.
-- **La firma de código**: sin certificados, los pasos se saltan. Que `signtool` y `codesign` reciban
-  lo que esperan no se ha podido ejecutar.
-- **Las pruebas en macOS y Linux en CI**: en Windows pasan (menos diez que fallan sólo por el sandbox
-  local, que impide lanzar `git` con tuberías; con el sandbox levantado, las 24 pasan).
+- El listón entero en Linux, macOS y Windows, y **las pruebas en los tres sistemas** (2.387 en verde).
+- **Linux**: el AppImage, el `.deb` y el `.rpm`, construidos con `nfpm` y `appimagetool`.
+- **macOS**: el `.app` y el `.dmg`, con `hdiutil`.
 
-Los cuatro se comprueban solos en el primer push: el CI arma el instalador de las tres plataformas.
-Lo que **no** se puede comprobar sin certificados es la firma y la notarización, y eso sólo lo dirá
-una release con los secretos puestos.
+Lo que sigue sin estar comprobado, y lo dirá el siguiente push o una release con secretos:
+
+- **El instalador de Windows (NSIS)**: la primera vez falló por la endianness del `.ico` —ver arriba—,
+  que ya está arreglada y comprobada en local compilando el ejecutable con `--windows-icon`. Aun así,
+  `packaging/windows/nn-anime.nsi` **no se ha compilado nunca**: no hay `makensis` en esta máquina y
+  no se puede instalar (sin red para el gestor de paquetes y sin permisos para el otro). Es lo único
+  que queda por ver en verde.
+- **La firma de código y la notarización**: sin certificados, los pasos se saltan. Que `signtool` y
+  `codesign` reciban lo que esperan no se ha podido ejecutar.
+
+### El e2e falla, y no es de este cambio
+
+La suite de extremo a extremo falla en `favorites.e2e.ts` y en `home.e2e.ts` —una prueba marca un
+favorito y otra espera la lista vacía—: los dos archivos corren contra el mismo servidor y comparten
+la base, así que el resultado depende del orden. Es anterior a este trabajo y no tiene que ver con el
+empaquetado: el mismo commit en `main` pasa, y la rama de rediseño de la interfaz también falló igual.
+
+Se arregla dando a cada archivo su propio servidor o su propio estado, y eso es un cambio de las
+pruebas, no del empaquetado. Queda aquí anotado para que un `e2e` en rojo no parezca un fallo de la
+release.
