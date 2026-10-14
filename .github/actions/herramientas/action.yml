@@ -1,0 +1,76 @@
+name: Herramientas de empaquetado
+description: Lo que cada sistema necesita para armar su instalador, sin que haga falta nada en la máquina de nadie.
+
+# Las tres plataformas necesitan algo que no viene en la imagen de GitHub:
+#
+#  - Windows: NSIS (`makensis`), que suele estar pero no siempre en el `PATH`.
+#  - Linux: `nfpm` (los `.deb` y `.rpm`) y `appimagetool` (el AppImage).
+#  - macOS: nada. `hdiutil` y `codesign` vienen con el sistema.
+#
+# Los dos binarios de Linux se descargan fijados **por versión y por SHA256**. La
+# versión sola no basta: un archivo publicado se puede reemplazar, y aquí se está
+# ejecutando lo que se descarga.
+#
+# Está como acción compuesta y no repetido en cada workflow porque la lista de
+# hashes duplicada es una lista que se desincroniza: el día que se suba `nfpm` en
+# un sitio y no en el otro, la mitad de las builds usaría la versión vieja.
+
+runs:
+  using: composite
+  steps:
+    - name: NSIS (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $exe = $null
+
+        $encontrado = Get-Command makensis -ErrorAction SilentlyContinue
+        if ($encontrado) { $exe = $encontrado.Source }
+
+        if (-not $exe) {
+          $candidatos = @(
+            "${env:ProgramFiles(x86)}\NSIS\makensis.exe",
+            "$env:ProgramFiles\NSIS\makensis.exe"
+          )
+          $exe = $candidatos | Where-Object { Test-Path $_ } | Select-Object -First 1
+        }
+
+        if (-not $exe) {
+          Write-Output 'makensis no está en la imagen: se instala con Chocolatey'
+          choco install nsis --no-progress -y
+          $exe = Get-ChildItem "${env:ProgramFiles(x86)}\NSIS\makensis.exe" -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+        }
+
+        if (-not $exe) { throw 'no se pudo preparar NSIS (makensis)' }
+
+        # A `GITHUB_PATH` para que los pasos siguientes lo encuentren sin buscar.
+        Split-Path $exe | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+        & $exe -VERSION
+        Write-Output "NSIS listo: $exe"
+
+    - name: nfpm y appimagetool (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p "$RUNNER_TEMP/tools"
+        cd "$RUNNER_TEMP/tools"
+
+        curl -fsSL -o nfpm.tar.gz \
+          "https://github.com/goreleaser/nfpm/releases/download/v2.48.0/nfpm_2.48.0_Linux_x86_64.tar.gz"
+        echo "6d7f9a28b2f397934403950fcbba83f598b08d02edbe79a0815b3b4897341750  nfpm.tar.gz" | sha256sum -c -
+        tar -xzf nfpm.tar.gz nfpm
+
+        curl -fsSL -o appimagetool \
+          "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage"
+        echo "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  appimagetool" | sha256sum -c -
+
+        chmod +x nfpm appimagetool
+        {
+          echo "NFPM_PATH=$RUNNER_TEMP/tools/nfpm"
+          echo "APPIMAGETOOL_PATH=$RUNNER_TEMP/tools/appimagetool"
+        } >> "$GITHUB_ENV"
+
+        ./nfpm --version
+        echo 'nfpm y appimagetool listos'

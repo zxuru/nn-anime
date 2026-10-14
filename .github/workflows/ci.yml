@@ -102,20 +102,22 @@ jobs:
       - name: Extremo a extremo
         run: bun run e2e:todo
 
-  # El empaquetado, en las tres plataformas. No es una repetición del trabajo de calidad: lo que se
-  # comprueba aquí es el **ejecutable**, que es lo que recibe quien instala la aplicación. Un
-  # `bun build --compile` sale verde y produce un programa que arranca sin interfaz y sin
-  # migraciones —pasó—, y eso sólo lo ve quien lo ejecuta.
+  # El empaquetado, en las tres plataformas, **en cada push**. No es una repetición del trabajo de
+  # calidad: lo que se comprueba aquí es el ejecutable y su instalador, que es lo que recibe quien
+  # instala la aplicación. Un `bun build --compile` sale verde y produce un programa que arranca sin
+  # interfaz y sin migraciones —pasó—, y eso sólo lo ve quien lo ejecuta.
   #
-  # El instalador no se arma aquí: firmarlo y publicarlo es cosa de la release, y hacerlo en cada
-  # push gastaría minutos en artefactos que nadie descarga.
+  # Se arma el instalador entero y no sólo el ejecutable por dos motivos. El primero: quien mantiene
+  # esto no tiene por qué tener NSIS, `nfpm` ni un Mac a mano — **compila GitHub**. El segundo: un
+  # error en el script de NSIS o en el `.dmg` se descubre en el push que lo introdujo, y no el día de
+  # la release, que es el peor día para descubrirlo.
   empaquetado:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -145,7 +147,26 @@ jobs:
       - name: Construir la interfaz
         run: bun run build
 
-      # Compila el ejecutable de esta plataforma y lo arranca de verdad: comprueba que sirve la
-      # interfaz, que sus recursos viajan dentro y que la base queda migrada.
-      - name: Empaquetar y probar el ejecutable
-        run: bun run package --skip-installer
+      # NSIS en Windows, `nfpm` y `appimagetool` en Linux, con sus hashes comprobados. En macOS no
+      # hace falta nada: `hdiutil` viene con el sistema.
+      - name: Preparar las herramientas de empaquetado
+        uses: ./.github/actions/herramientas
+
+      # Compila el ejecutable de esta plataforma, lo arranca de verdad —interfaz, recursos, token de
+      # arranque y base migrada— y arma su instalador.
+      - name: Empaquetar, probar y armar el instalador
+        run: bun run package
+
+      # El instalador queda descargable desde la página del workflow, sin que nadie compile en su
+      # máquina. Sin firmar: un push no tiene los certificados, y el README explica los avisos que
+      # eso deja.
+      - name: Dejar el instalador descargable
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nn-anime-${{ matrix.os }}
+          path: |
+            build/package/*/nn-anime
+            build/package/*/nn-anime.exe
+            release/*
+          if-no-files-found: error
+          retention-days: 7

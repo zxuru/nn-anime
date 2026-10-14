@@ -238,6 +238,12 @@ No hay que tocar nada a mano. Si hace falta lanzarlo sin publicar —para probar
 empaquetado— está **Actions → Release → Run workflow** con «publish» sin marcar: compila todo y deja
 los artefactos en el resumen del propio workflow, sin gastar un número de versión.
 
+**Compila GitHub, no tu máquina.** Cada push compila el ejecutable y el instalador en las tres
+plataformas y los deja descargables en «Artifacts» del workflow, para que no haga falta tener NSIS,
+`nfpm` ni un Mac a mano. Las herramientas que no vienen en la imagen las prepara
+`.github/actions/herramientas`, con sus versiones y sus SHA256 en un solo sitio. El detalle está en
+[la guía de publicación](docs/release.md).
+
 Si hay que subir la versión a mano —un `hotfix` sin commits que lo justifiquen—:
 `bun run version:set 0.2.1`, commit, y el tag `v0.2.1` a mano. El resto es igual.
 

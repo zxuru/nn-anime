@@ -112,13 +112,28 @@ el aviso de «desarrollador no identificado».
 - **Firma GPG de los paquetes de Linux.** El `.deb` y el `.rpm` no van firmados. `apt` lo admitirá con
   un aviso; quien quiera comprobarlos tiene el `SHA256SUMS.txt`.
 
-## Probar sin publicar
+## Compila GitHub, no tú
 
-**Actions → Release → Run workflow**, con «publish» sin marcar. Compila los instaladores de las cuatro
-plataformas y los deja como artefactos del workflow (7 días), sin crear ni tocar ninguna release. Es
-la forma de recorrer el camino entero sin gastar un número de versión.
+**No hace falta tener NSIS, `nfpm` ni un Mac a mano.** Cada push compila el ejecutable **y su
+instalador** en las tres plataformas, y los deja descargables en la página del workflow, en
+«Artifacts» (7 días):
 
-Para probar sólo la plataforma en la que estás, en local:
+| Artefacto | Qué lleva |
+|---|---|
+| `nn-anime-ubuntu-latest` | El ejecutable de Linux, el `.AppImage`, el `.deb` y el `.rpm` |
+| `nn-anime-windows-latest` | El `nn-anime.exe` y su instalador `.exe` |
+| `nn-anime-macos-latest` | El ejecutable de macOS y el `.dmg` de esa arquitectura |
+
+Las herramientas que no vienen en la imagen de GitHub las prepara
+`.github/actions/herramientas`: NSIS en Windows —y si no estuviera, lo instala—, y `nfpm` y
+`appimagetool` en Linux, **fijados por versión y por SHA256**. macOS no necesita nada: `hdiutil` y
+`codesign` vienen con el sistema.
+
+Por eso el instalador se arma también en cada push y no sólo en la release: un error en el script de
+NSIS o en el `.dmg` aparece en el push que lo introdujo, que es cuando se arregla en un minuto, y no
+el día de la release.
+
+Si quieres construir en tu máquina de todos modos:
 
 ```bash
 bun run build            # la interfaz, que es lo que viaja dentro del ejecutable
@@ -127,6 +142,13 @@ bun run package          # ejecutable + instalador de esta plataforma, y lo arra
 
 `bun run package` **se niega a compilar** si falta el build de la interfaz: un ejecutable sin interfaz
 arranca, contesta 404 en `/` y parece que la aplicación está rota.
+
+## Probar sin publicar
+
+**Actions → Release → Run workflow**, con «publish» sin marcar. Compila los instaladores de las cuatro
+plataformas y los deja como artefactos del workflow (7 días), sin crear ni tocar ninguna release. Es
+la forma de recorrer el camino entero sin gastar un número de versión — y de tener los cuatro
+instaladores, incluidos los dos `.dmg`, sin un Mac.
 
 ## Qué hay dentro del ejecutable
 
@@ -144,9 +166,10 @@ renombrar, así que mover `packages/web/dist` rompería el ejecutable sin que na
 
 ## Las herramientas de Linux
 
-`nfpm` (los `.deb` y `.rpm`) y `appimagetool` (el AppImage) no vienen en la imagen de GitHub. El
-workflow los descarga fijados **por versión y por SHA256**, porque la versión sola no basta: un
-archivo publicado se puede reemplazar. Están en `.github/workflows/release.yml`.
+`nfpm` (los `.deb` y `.rpm`) y `appimagetool` (el AppImage) no vienen en la imagen de GitHub. Los
+prepara `.github/actions/herramientas` —la misma acción compuesta para el CI y para la release— y los
+descarga fijados **por versión y por SHA256**, porque la versión sola no basta: un archivo publicado
+se puede reemplazar.
 
 Para subir de versión:
 
@@ -155,7 +178,7 @@ gh release download vX.Y.Z --repo goreleaser/nfpm --pattern "nfpm_X.Y.Z_Linux_x8
 sha256sum nfpm_X.Y.Z_Linux_x86_64.tar.gz
 ```
 
-y se actualizan la URL y el hash en el workflow, los dos a la vez.
+y se actualizan la URL y el hash en `.github/actions/herramientas/action.yml`, los dos a la vez.
 
 ## Lo que falta, y por qué
 
@@ -194,15 +217,17 @@ Medido en Windows, en la máquina de quien preparó esto:
   Linux —`libc.so.6`, `libm`, `libdl`, `libpthread`, todas de libc6— y su versión mínima de símbolos
   versionados, `GLIBC_2.17`, que es lo que declara el paquete.
 
-**No verificado, y hay que mirarlo en la primera release de verdad:**
+**No verificado en la máquina donde se escribió esto, y lo verifica GitHub en el primer push:**
 
-- **macOS entero**: el `.app`, el `.dmg`, la firma y la notarización. No hay un Mac a mano.
+- **macOS entero**: el `.app`, el `.dmg`, la firma y la notarización.
 - **Linux entero**: el AppImage, el `.deb` y el `.rpm`, y que `nfpm` acepte el YAML generado.
-- **NSIS**: no hay `makensis` en la máquina donde se escribió el instalador de Windows, así que
-  `packaging/windows/nn-anime.nsi` **no se ha compilado nunca**. Es lo primero que hay que mirar en
-  CI.
+- **NSIS**: `packaging/windows/nn-anime.nsi` no se ha compilado nunca —no hay `makensis` en esa
+  máquina—, así que es lo primero que mira el trabajo de Windows.
 - **La firma de código**: sin certificados, los pasos se saltan. Que `signtool` y `codesign` reciban
   lo que esperan no se ha podido ejecutar.
 - **Las pruebas en macOS y Linux en CI**: en Windows pasan (menos diez que fallan sólo por el sandbox
-  local, que impide lanzar `git` con tuberías). El primer run del CI dirá si en los otros dos
-  sistemas hay algo que sólo se rompe ahí.
+  local, que impide lanzar `git` con tuberías; con el sandbox levantado, las 24 pasan).
+
+Los cuatro se comprueban solos en el primer push: el CI arma el instalador de las tres plataformas.
+Lo que **no** se puede comprobar sin certificados es la firma y la notarización, y eso sólo lo dirá
+una release con los secretos puestos.

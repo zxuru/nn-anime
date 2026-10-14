@@ -229,28 +229,10 @@ jobs:
         run: Remove-Item -Force "$env:PFX_PATH" -ErrorAction SilentlyContinue
 
       # --- Linux: las herramientas de empaquetado -------------------------
-      - name: Descargar nfpm y appimagetool
-        if: runner.os == 'Linux'
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/tools"
-          cd "$RUNNER_TEMP/tools"
-
-          # Los dos van fijados por versión **y** por SHA256. No hay acciones de terceros que
-          # auditar aquí, pero sí dos binarios que se ejecutan en el runner: la versión sola no
-          # basta, porque un archivo publicado se puede reemplazar.
-          curl -fsSL -o nfpm.tar.gz \
-            "https://github.com/goreleaser/nfpm/releases/download/v2.48.0/nfpm_2.48.0_Linux_x86_64.tar.gz"
-          echo "6d7f9a28b2f397934403950fcbba83f598b08d02edbe79a0815b3b4897341750  nfpm.tar.gz" | sha256sum -c -
-          tar -xzf nfpm.tar.gz nfpm
-
-          curl -fsSL -o appimagetool \
-            "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage"
-          echo "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  appimagetool" | sha256sum -c -
-
-          chmod +x nfpm appimagetool
-          echo "NFPM_PATH=$RUNNER_TEMP/tools/nfpm" >> "$GITHUB_ENV"
-          echo "APPIMAGETOOL_PATH=$RUNNER_TEMP/tools/appimagetool" >> "$GITHUB_ENV"
+      # NSIS en Windows, `nfpm` y `appimagetool` en Linux, con sus hashes comprobados. La misma
+      # acción compuesta que usa el CI: la lista de versiones y hashes vive en un solo sitio.
+      - name: Preparar las herramientas de empaquetado
+        uses: ./.github/actions/herramientas
 
       # --- El instalador, ya con el ejecutable firmado --------------------
       - name: Armar el instalador

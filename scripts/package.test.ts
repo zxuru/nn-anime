@@ -264,3 +264,47 @@ describe('las plantillas de los instaladores', () => {
     expect(texto).not.toContain('<key>LSUIElement</key>')
   })
 })
+
+describe('la acción compuesta de las herramientas', () => {
+  const ACCION = join(ROOT, '.github', 'actions', 'herramientas', 'action.yml')
+
+  /**
+   * `actionlint` es un linter de **workflows** y no mira los metadatos de una
+   * acción compuesta, así que estas dos cosas se comprueban aquí. Las dos son
+   * fallos que no se ven hasta que el trabajo falla en GitHub, y con un mensaje
+   * que no dice cuál es el archivo.
+   */
+  test('todos los pasos con `run` declaran `shell`, que GitHub exige', async () => {
+    const accion = Bun.YAML.parse(await Bun.file(ACCION).text()) as {
+      runs?: { using?: string; steps?: readonly { run?: string; shell?: string }[] }
+    }
+
+    expect(accion.runs?.using).toBe('composite')
+
+    const pasos = accion.runs?.steps ?? []
+    expect(pasos.length).toBeGreaterThan(0)
+
+    for (const paso of pasos) {
+      if (paso.run !== undefined) expect(paso.shell, 'un paso con run y sin shell').toBeDefined()
+    }
+  })
+
+  test('nada se descarga sin comprobar su SHA256', async () => {
+    const texto = await Bun.file(ACCION).text()
+
+    const descargas = [...texto.matchAll(/curl\s+-fsSL\s+-o\s+(\S+)/g)].map((m) => m[1])
+    // Sin las comillas: el hash va dentro de un `echo "…"` para poder pasarlo por
+    // la tubería a `sha256sum -c -`, y `\S+` se llevaría la de cierre.
+    const hashes = [...texto.matchAll(/([0-9a-f]{64})\s{2}([^\s"]+)/g)]
+
+    // Un `curl` sin su `sha256sum -c` es un binario de internet ejecutándose en el
+    // runner sin nada que lo ate a una versión: la versión en la URL sola no basta,
+    // porque un archivo publicado se puede reemplazar.
+    expect(descargas.length).toBeGreaterThan(0)
+    expect(hashes).toHaveLength(descargas.length)
+
+    for (const descarga of descargas) {
+      expect(hashes.map((m) => m[2])).toContain(descarga)
+    }
+  })
+})
