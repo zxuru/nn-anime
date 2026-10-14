@@ -6,6 +6,11 @@ name: CI
 # La versión de Bun está fijada a propósito: `bun.lock` es la fuente de verdad de las dependencias,
 # y una versión distinta del gestor puede resolverlas de otra forma. Si se sube aquí, que se suba
 # también `engines.bun` en `package.json`, en el mismo commit.
+#
+# Las acciones de terceros van fijadas **por SHA de commit**, no por etiqueta: una etiqueta se puede
+# mover, y quien pueda moverla puede ejecutar lo que quiera en este repositorio con el token del
+# workflow. El comentario dice a qué versión corresponde cada SHA; Dependabot lo reescribe al
+# proponer una actualización.
 
 on:
   push:
@@ -24,11 +29,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.3
+
+      # `restore-keys` sin el hash deja una caché anterior cuando `bun.lock` cambia: no acierta
+      # del todo, pero ahorra la descarga de lo que no se movió.
+      - name: Caché de Bun
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
 
       # `--frozen-lockfile` falla si `bun.lock` no cuadra con los `package.json`: es lo que impide
       # que una dependencia entre sin pasar por revisión.
@@ -41,13 +55,20 @@ jobs:
       - name: Instalar el gancho de pre-commit
         run: bun run hooks:instalar
 
+      # La versión tiene que ser la misma en los diez `package.json`: si divergen, el binario y los
+      # instaladores de una release dirían cosas distintas y nada lo impediría.
+      - name: Versión
+        run: bun run version:check
+
       - name: Auditoría de dependencias
         run: bun audit
 
       - name: Tipos
         run: bun run typecheck
 
-      - name: Estilo
+      # `biome check` comprueba lint **y** formato: no hace falta un paso aparte de formateo, y
+      # añadirlo sería tener dos herramientas donde el repositorio eligió una.
+      - name: Estilo y formato
         run: bun run lint
 
       - name: Pruebas
@@ -59,11 +80,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.3
+
+      - name: Caché de Bun
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
 
       - name: Instalar
         run: bun install --frozen-lockfile
@@ -73,3 +101,51 @@ jobs:
 
       - name: Extremo a extremo
         run: bun run e2e:todo
+
+  # El empaquetado, en las tres plataformas. No es una repetición del trabajo de calidad: lo que se
+  # comprueba aquí es el **ejecutable**, que es lo que recibe quien instala la aplicación. Un
+  # `bun build --compile` sale verde y produce un programa que arranca sin interfaz y sin
+  # migraciones —pasó—, y eso sólo lo ve quien lo ejecuta.
+  #
+  # El instalador no se arma aquí: firmarlo y publicarlo es cosa de la release, y hacerlo en cada
+  # push gastaría minutos en artefactos que nadie descarga.
+  empaquetado:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.3
+
+      - name: Caché de Bun
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Instalar
+        run: bun install --frozen-lockfile
+
+      - name: Instalar el gancho de pre-commit
+        run: bun run hooks:instalar
+
+      # Las pruebas también aquí y no sólo en Linux: el repositorio tiene caminos que dependen del
+      # sistema —las rutas de los datos, los enlaces simbólicos de Windows— y probarlos en un solo
+      # sistema es probar la mitad.
+      - name: Pruebas
+        run: bun test
+
+      - name: Construir la interfaz
+        run: bun run build
+
+      # Compila el ejecutable de esta plataforma y lo arranca de verdad: comprueba que sirve la
+      # interfaz, que sus recursos viajan dentro y que la base queda migrada.
+      - name: Empaquetar y probar el ejecutable
+        run: bun run package --skip-installer

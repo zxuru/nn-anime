@@ -1,0 +1,55 @@
+version: 2
+
+# Las dependencias y las acciones, al día sin que nadie se acuerde.
+#
+# `bun` y no `npm`: este repositorio usa `bun.lock` como fuente de verdad, y el ecosistema `npm` no
+# sabe escribirlo —abriría PRs que suben un rango en `package.json` y dejan el lockfile atrás, y
+# entonces `bun install --frozen-lockfile` del CI falla en el PR que venía a arreglar algo—.
+# Dependabot tiene un ecosistema `bun` propio, con su actualizador de `bun.lock`.
+#
+# Si el repositorio se queja de que el ecosistema `bun` no existe —la función es reciente—, cambiar
+# esa línea por `npm` es el remedio, sabiendo lo de arriba.
+
+updates:
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      # Un PR por grupo y no uno por dependencia: veinte PRs de una línea se revisan peor que tres,
+      # y el ruido es lo que hace que al final nadie los mire.
+      produccion:
+        patterns:
+          - 'hono'
+          - 'zod'
+          - 'react'
+          - 'react-dom'
+          - 'hls.js'
+      herramientas:
+        patterns:
+          - '@biomejs/*'
+          - 'typescript'
+          - '@types/*'
+          - '@playwright/*'
+          - 'vite'
+          - '@vitejs/*'
+        exclude-patterns:
+          - '@nn-anime/*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(ci)'
+    groups:
+      # Las acciones van fijadas por SHA: este es el que reescribe el SHA y el comentario de versión.
+      acciones:
+        patterns:
+          - '*'
