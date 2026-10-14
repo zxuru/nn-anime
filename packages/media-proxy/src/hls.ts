@@ -2,10 +2,12 @@
  * Reescritura de playlists HLS.
  *
  * Una playlist apunta a segmentos y a otras playlists con direcciones del
- * upstream. Si se le entrega tal cual al reproductor, el navegador sale a pedir
- * los segmentos directamente al sitio de terceros: se salta el proxy, la lista
- * blanca de destinos y —lo que importa— deja al descubierto la dirección del
- * upstream. Aquí cada URI se cambia por una ruta del proxy con su índice.
+ * upstream, unas en su propia línea y otras dentro del atributo `URI` de una
+ * etiqueta —ahí viajan las pistas de audio y de subtítulos—. Si se le entrega
+ * tal cual al reproductor, el navegador sale a pedir esos recursos directamente
+ * al sitio de terceros: se salta el proxy, la lista blanca de destinos y —lo que
+ * importa— deja al descubierto la dirección del upstream. Aquí cada URI se
+ * cambia por una ruta del proxy con su índice.
  *
  * Tres reglas que no son negociables:
  *
@@ -89,14 +91,21 @@ export interface RewriteOptions {
 
 export interface RewrittenPlaylist {
   readonly text: string
-  /** Las URIs originales, en orden: es el índice que resuelve `/seg/:index`. */
+  /**
+   * Las URIs originales, en orden: es el índice que resuelve `/seg/:index`.
+   *
+   * Incluye las que van en un atributo y apuntan a un recurso —las variantes de
+   * `#EXT-X-MEDIA`, los `#EXT-X-I-FRAME-STREAM-INF`—: son playlists y segmentos
+   * como los de una línea suelta, y el reproductor los pide igual.
+   */
   readonly uris: readonly string[]
   /**
    * Las URIs de claves e inicializadores, en orden de aparición.
    *
    * Van en una lista propia porque su índice es otro: `/key/:index`. Y van
-   * juntas —clave y mapa— porque para pedir los bytes dan igual: las dos son un
-   * recurso más del upstream que tiene que pasar por el proxy.
+   * juntas —clave, mapa y clave de sesión— porque para pedir los bytes dan
+   * igual: las tres son un recurso más del upstream que tiene que pasar por el
+   * proxy.
    */
   readonly keys: readonly string[]
 }
@@ -111,8 +120,34 @@ export function defaultKeyPath(ticket: string, index: number): string {
   return `/stream/${ticket}/key/${index}`
 }
 
-/** Etiquetas cuyos atributos `URI` apuntan a un recurso que hay que proxear. */
-const URI_TAGS: readonly string[] = ['#EXT-X-KEY:', '#EXT-X-MAP:']
+/**
+ * Etiquetas cuyo atributo `URI` apunta a una clave o a un inicializador.
+ *
+ * Su índice es el de `/key/:index`. `#EXT-X-SESSION-KEY` es la misma cosa
+ * declarada para todo el master.
+ */
+const KEY_URI_TAGS: readonly string[] = ['#EXT-X-KEY:', '#EXT-X-MAP:', '#EXT-X-SESSION-KEY:']
+
+/**
+ * Etiquetas cuyo atributo `URI` apunta a un segmento o a otra playlist.
+ *
+ * `#EXT-X-MEDIA` es la que importa: por ahí viajan las pistas de audio y de
+ * subtítulos, y es donde VixSrc publica su *rendition* de audio
+ * (`?type=audio&rendition=eng`). Dejarla sin reescribir es lo que hacía que
+ * hls.js saliera a pedir el audio al sitio de terceros y el navegador lo
+ * bloqueara por `connect-src 'self'`: un error de CSP en la consola y una
+ * reproducción muda. Las demás —la del truco de avance y las de baja latencia—
+ * no salen en una lista bajo demanda, porque este proxy no sirve directos, pero
+ * una URI de atributo sin reescribir filtra la dirección del upstream igual que
+ * cualquier otra: la regla es del atributo, no de la etiqueta.
+ */
+const SEGMENT_URI_TAGS: readonly string[] = [
+  '#EXT-X-MEDIA:',
+  '#EXT-X-I-FRAME-STREAM-INF:',
+  '#EXT-X-PART:',
+  '#EXT-X-PRELOAD-HINT:',
+  '#EXT-X-RENDITION-REPORT:',
+]
 
 /** El atributo `URI`, con comillas dobles o simples. */
 const URI_ATTRIBUTE = /URI=("([^"]*)"|'([^']*)')/g
@@ -146,10 +181,17 @@ export function rewritePlaylist(text: string, options: RewriteOptions): Rewritte
   for (const linea of lineas) {
     const limpia = linea.trim()
 
-    // Una etiqueta con atributos `URI` —clave o inicializador— se reescribe sólo
-    // en esos atributos: el resto de la línea (`METHOD`, `IV`, `BYTERANGE`) es
-    // del upstream y se copia sin tocar.
-    if (URI_TAGS.some((etiqueta) => limpia.startsWith(etiqueta))) {
+    // Una etiqueta con atributos `URI` se reescribe sólo en esos atributos: el
+    // resto de la línea (`METHOD`, `IV`, `BYTERANGE`, `LANGUAGE`, `GROUP-ID`…)
+    // es del upstream y se copia sin tocar. A qué lista va el índice lo decide
+    // la etiqueta: una clave no se pide en la ruta de un segmento.
+    const esClave = KEY_URI_TAGS.some((etiqueta) => limpia.startsWith(etiqueta))
+    const esSegmento = SEGMENT_URI_TAGS.some((etiqueta) => limpia.startsWith(etiqueta))
+
+    if (esClave || esSegmento) {
+      const lista = esClave ? keys : uris
+      const ruta = esClave ? keyPath : segPath
+
       salida.push(
         linea.replace(URI_ATTRIBUTE, (_todo, _comillas, dobles: string, simples: string) => {
           // El grupo que no participa llega como `undefined`, no como cadena
@@ -157,9 +199,9 @@ export function rewritePlaylist(text: string, options: RewriteOptions): Rewritte
           // acababa resolviéndose como «undefined». Lo encontró la prueba de las
           // comillas simples.
           const original = dobles !== undefined && dobles !== '' ? dobles : (simples ?? '')
-          keys.push(resolveUri(original, options.baseUrl))
+          lista.push(resolveUri(original, options.baseUrl))
 
-          return `URI="${keyPath(options.ticket, keys.length - 1)}"`
+          return `URI="${ruta(options.ticket, lista.length - 1)}"`
         }),
       )
       continue

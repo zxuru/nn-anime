@@ -62,8 +62,13 @@ async function conApp<T>(
     // Una playlist de mentira sólo se sirve donde se pide una playlist: si el
     // mismo texto saliera para un segmento, la prueba del índice no probaría que
     // los bytes vienen del recurso resuelto.
+    //
+    // Y no todas las listas acaban en `.m3u8`: VixSrc las publica en
+    // `/playlist/<id>?type=audio`, que es por donde entró el bloqueo de CSP. El
+    // tipo lo sigue declarando el upstream, que es lo que mira el proxy.
+    const ruta = new URL(url).pathname.toLowerCase()
     const esPlaylist =
-      opciones.cuerpo !== undefined && new URL(url).pathname.toLowerCase().endsWith('.m3u8')
+      opciones.cuerpo !== undefined && (ruta.endsWith('.m3u8') || ruta.startsWith('/playlist/'))
 
     if (esPlaylist) {
       if (opciones.alServirPlaylist !== undefined) {
@@ -511,6 +516,51 @@ describe('la reescritura de la playlist', () => {
         expect(hija).toContain('#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=1280x720')
       },
       { cuerpo: anidada },
+    )
+  })
+
+  /**
+   * El master de VixSrc, que es el que rompió la reproducción: publica sus
+   * pistas de audio en `#EXT-X-MEDIA:…,URI="…"` y ese URI no lleva extensión.
+   *
+   * Antes de reescribirlo, la lista que llegaba al reproductor traía la
+   * dirección absoluta del upstream, hls.js salía a pedir el audio por su
+   * cuenta y el navegador lo bloqueaba con `connect-src 'self'`: el episodio se
+   * quedaba mudo y la consola llena de avisos de CSP.
+   */
+  test('una variante de audio del master también pasa por el proxy', async () => {
+    const master = [
+      '#EXTM3U',
+      '#EXT-X-VERSION:6',
+      '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="English",DEFAULT=YES,URI="https://fixture.invalid/playlist/260398?type=audio&rendition=eng"',
+      '#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=1280x720,AUDIO="audio"',
+      '720/index.m3u8',
+      '',
+    ].join('\n')
+
+    await conApp(
+      async ({ pedir, upstream }) => {
+        const ticket = await ticketDePlaylist(pedir)
+        const texto = await (await pedir(ticket, { headers: GOOD })).text()
+
+        expect(texto).toContain(`URI="${ticket}/seg/0"`)
+        expect(texto).toContain(`${ticket}/seg/1`)
+        // Ni una dirección absoluta: cada una es una petición que la CSP del
+        // proxy bloquea antes de salir del navegador.
+        expect(texto).not.toMatch(/https?:\/\//)
+
+        const antes = upstream.llamadas
+        const audio = await pedir(`${ticket}/seg/0`, { headers: GOOD })
+
+        // La variante es una lista, no un segmento, aunque su ruta no acabe en
+        // `.m3u8`: la sirve el proxy en streaming y vuelve reescrita.
+        expect(audio.status).toBe(200)
+        expect(audio.headers.get('content-type')).toBe('application/vnd.apple.mpegurl')
+        expect(await audio.text()).not.toMatch(/https?:\/\//)
+        // Y quien pide el audio al upstream es el proxy, una sola vez.
+        expect(upstream.llamadas).toBe(antes + 1)
+      },
+      { cuerpo: master },
     )
   })
 
