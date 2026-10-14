@@ -231,6 +231,80 @@ describe('claves, inicializadores y discontinuidad', () => {
   })
 })
 
+describe('variantes de audio, subtítulos e iframe', () => {
+  test('el master con variantes coincide con la salida esperada', async () => {
+    const salida = reescribir(await fixture('variantes.m3u8'))
+
+    expect(salida.text).toBe(await fixture('variantes.expected.m3u8'))
+  })
+
+  test('la URI de una variante va al índice de los segmentos, en su orden', async () => {
+    const salida = reescribir(await fixture('variantes.m3u8'))
+
+    expect(salida.uris).toEqual([
+      'https://cdn.example/playlist/260398?type=audio&rendition=eng&token=firma&expires=1797138416',
+      'https://fixture.invalid/aurora/1/sub/audio/italiano.m3u8',
+      'https://fixture.invalid/aurora/1/sub/subs/es.m3u8',
+      'https://fixture.invalid/aurora/1/sub/iframe/720.m3u8',
+      'https://fixture.invalid/aurora/1/sub/720/index.m3u8',
+      'https://fixture.invalid/aurora/1/sub/1080/index.m3u8',
+    ])
+  })
+
+  /**
+   * La medición que importa: con `connect-src 'self'`, **una sola** dirección
+   * absoluta en la lista que recibe el reproductor es la petición que el
+   * navegador bloquea —y con ella, la reproducción—. Antes de reescribir las
+   * variantes, este master salía con `https://cdn.example/playlist/…` dentro.
+   */
+  test('en la lista que recibe el reproductor no queda ninguna dirección absoluta', async () => {
+    const salida = reescribir(await fixture('variantes.m3u8'))
+
+    expect(salida.text).not.toMatch(/https?:\/\//)
+  })
+
+  test('la clave de sesión va al índice de las claves, no al de los segmentos', async () => {
+    const salida = reescribir(await fixture('variantes.m3u8'))
+
+    expect(salida.keys).toEqual(['https://otro.example/clave-de-sesion.bin'])
+    expect(salida.text).toContain('#EXT-X-SESSION-KEY:METHOD=AES-128,URI="/stream/TICKET/key/0"')
+  })
+
+  test('una variante sin `URI` no consume índice: las cerradas por defecto van en el flujo', async () => {
+    const salida = reescribir(await fixture('variantes.m3u8'))
+
+    expect(salida.text).toContain('INSTREAM-ID="CC1"')
+    expect(salida.uris).toHaveLength(6)
+  })
+
+  /**
+   * La regla es del atributo `URI`, no de la etiqueta que lo lleva, y una que se
+   * quede fuera filtra la dirección del upstream. Las de baja latencia no salen
+   * en una lista bajo demanda —este proxy no sirve directos—, pero si salen
+   * tienen que pasar por el proxy igual.
+   */
+  test('todas las etiquetas con `URI` de recurso se reescriben', () => {
+    const casos = [
+      ['#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="a",NAME="x",URI="v.m3u8"', 'v.m3u8'],
+      ['#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1,URI="v.m3u8"', 'v.m3u8'],
+      ['#EXT-X-PART:DURATION=0.5,URI="v.ts"', 'v.ts'],
+      ['#EXT-X-PRELOAD-HINT:TYPE=PART,URI="v.ts"', 'v.ts'],
+      ['#EXT-X-RENDITION-REPORT:URI="v.m3u8",LAST-MSN=3', 'v.m3u8'],
+    ] as const
+
+    for (const [linea, uri] of casos) {
+      const salida = rewritePlaylist(`#EXTM3U\n${linea}\n`, {
+        ticket: 'T',
+        baseUrl: 'https://ejemplo/a/master.m3u8',
+      })
+
+      expect(salida.uris, linea).toEqual([`https://ejemplo/a/${uri}`])
+      expect(salida.text, linea).toContain('URI="/stream/T/seg/0"')
+      expect(salida.text, linea).not.toContain(uri)
+    }
+  })
+})
+
 describe('tope de líneas', () => {
   test('el tope es el del spec', () => {
     expect(MAX_PLAYLIST_LINES).toBe(5000)
