@@ -40,30 +40,62 @@ function crudo(
 /**
  * Un socket de mentira.
  *
+ * Contesta cuando ha leído la petición —que es lo que hace un servidor de
+ * verdad—, no cuando el cliente cierra su lado de escritura: `end()` es
+ * precisamente lo que el cliente **no** debe llamar, y `cortaSiMedioCierra`
+ * modela al servidor que lo castiga cerrando sin contestar.
+ *
  * `destroy()` avisa del fallo, como el socket de verdad: es lo que hace que un
  * corte por plazo se vea como un corte y no como un cuerpo vacío.
  */
 function transporteFalso(
   respuesta: Buffer,
   escritos: string[],
-  trozos: number,
-  silencio: boolean,
+  opciones: {
+    /** En cuántos trozos llega la respuesta. */
+    readonly trozos?: number
+    /** El servidor no contesta nunca: es el caso del plazo. */
+    readonly silencio?: boolean
+    /** El servidor corta en seco si el cliente medio cierra, como Cloudflare. */
+    readonly cortaSiMedioCierra?: boolean
+    /** El servidor cierra la conexión sin contestar nada. */
+    readonly cierraSinContestar?: boolean
+  } = {},
 ): PluginTransport {
+  const trozos = opciones.trozos ?? 1
   let alDatos: ((trozo: Buffer) => void) | undefined
   let alCerrar: (() => void) | undefined
   let alFallar: ((causa: Error) => void) | undefined
 
-  return {
-    write: (datos) => escritos.push(datos),
-    end: () => {
-      if (silencio) return
+  const responder = (): void => {
+    if (opciones.silencio === true) return
 
-      const tamano = Math.max(1, Math.ceil(respuesta.length / trozos))
-      for (let i = 0; i < respuesta.length; i += tamano) {
-        alDatos?.(respuesta.subarray(i, i + tamano))
+    const tamano = Math.max(1, Math.ceil(respuesta.length / trozos))
+    for (let i = 0; i < respuesta.length; i += tamano) {
+      alDatos?.(respuesta.subarray(i, i + tamano))
+    }
+
+    alCerrar?.()
+  }
+
+  return {
+    write: (datos) => {
+      escritos.push(datos)
+
+      if (opciones.cierraSinContestar === true) {
+        alCerrar?.()
+        return
       }
 
-      alCerrar?.()
+      // La respuesta llega **después** de que el cliente termine de escribir: un
+      // servidor de verdad tarda un viaje de ida y vuelta, y ese hueco es el que
+      // hace visible un medio cierre. Si el cliente manda el FIN en el mismo turno
+      // —que es lo que hacía—, el servidor corta antes de contestar.
+      queueMicrotask(responder)
+    },
+    end: () => {
+      if (opciones.cortaSiMedioCierra === true) alCerrar?.()
+      else responder()
     },
     destroy: () => alFallar?.(new Error('el socket se cerró')),
     onData: (cb) => {
@@ -121,6 +153,8 @@ function montar(config: {
   direcciones?: readonly string[]
   trozos?: number
   silencio?: boolean
+  cortaSiMedioCierra?: boolean
+  cierraSinContestar?: boolean
   timeoutMs?: number
   maxBytes?: number
   maxRedirects?: number
@@ -143,7 +177,12 @@ function montar(config: {
       const respuesta = config.respuestas[indice] ?? crudo('')
       indice += 1
 
-      return transporteFalso(respuesta, escritos, config.trozos ?? 1, config.silencio ?? false)
+      return transporteFalso(respuesta, escritos, {
+        trozos: config.trozos,
+        silencio: config.silencio,
+        cortaSiMedioCierra: config.cortaSiMedioCierra,
+        cierraSinContestar: config.cierraSinContestar,
+      })
     },
     ...(config.timeoutMs === undefined ? {} : { timeoutMs: config.timeoutMs }),
     ...(config.maxBytes === undefined ? {} : { maxBytes: config.maxBytes }),
@@ -403,6 +442,58 @@ describe('el plazo', () => {
     } finally {
       clearTimeout(temporizador)
     }
+  })
+})
+
+/**
+ * Una carrera contra el reloj, para las pruebas que miden un cuelgue.
+ *
+ * Bun 1.4.3 no interrumpe una promesa que nunca se resuelve: sin esto, una
+ * implementación que no corte deja la suite esperando para siempre en vez de
+ * fallar. Es el mismo recurso que usa la prueba del plazo.
+ */
+async function conPlazo<T>(promesa: Promise<T>, ms = 2000): Promise<T> {
+  let temporizador: ReturnType<typeof setTimeout> | undefined
+  const plazo = new Promise<never>((_, rechazar) => {
+    temporizador = setTimeout(() => rechazar(new Error('no falló: se quedó esperando')), ms)
+  })
+
+  try {
+    return await Promise.race([promesa, plazo])
+  } finally {
+    clearTimeout(temporizador)
+  }
+}
+
+describe('el servidor que corta antes de contestar', () => {
+  /**
+   * Medido contra Cloudflare: con un `end()` justo detrás de la petición, el sitio
+   * contesta **cero bytes**; sin él, la respuesta entera. Este montaje imita a ese
+   * servidor, así que volver a medio cerrar deja la prueba en rojo.
+   */
+  test('el cliente no medio cierra la petición', async () => {
+    const falso = montar({ respuestas: [crudo('hola')], cortaSiMedioCierra: true })
+    const respuesta = await conPlazo(falso.fetch('https://sitio.example/a'))
+
+    expect(respuesta.body).toBe('hola')
+  })
+
+  /**
+   * Y si aun así la conexión se cierra sin contestar —un intermediario que corta,
+   * un servidor que se cae—, la petición falla en vez de quedarse colgada. Antes
+   * se quedaba: `acabar()` salía sin resolver ni rechazar, y el plazo tampoco la
+   * salvaba, porque destruir un socket ya cerrado no emite nada.
+   */
+  test('una conexión que se cierra sin contestar falla, no se queda colgada', async () => {
+    const falso = montar({ respuestas: [crudo('')], cierraSinContestar: true, timeoutMs: 30 })
+
+    await expect(conPlazo(falso.fetch('https://sitio.example/a'))).rejects.toThrow('sin contestar')
+  })
+
+  test('una respuesta que sólo trae un `1xx` tampoco cuelga', async () => {
+    const falso = montar({ respuestas: [crudo('', { status: 100 })], timeoutMs: 30 })
+
+    await expect(conPlazo(falso.fetch('https://sitio.example/a'))).rejects.toThrow('sin contestar')
   })
 })
 

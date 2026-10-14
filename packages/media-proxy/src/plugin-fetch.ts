@@ -412,7 +412,18 @@ async function readResponse(
     }
 
     const acabar = (): void => {
-      if (terminado || cabeceras === undefined) return
+      if (terminado) return
+
+      // La conexión se cerró sin una respuesta completa —un servidor que corta
+      // antes de contestar, o que sólo manda un `1xx`—: sin esto la promesa no se
+      // resuelve ni se rechaza, así que la petición del plugin se queda colgada
+      // para siempre. El plazo tampoco la salva: destruir un socket que ya se cerró
+      // no emite nada, y el vigilante se queda esperando lo que no va a llegar.
+      if (cabeceras === undefined) {
+        fallar(new Error('el servidor cerró la conexión sin contestar'))
+        return
+      }
+
       terminado = true
       resolve({ status: cabeceras.status, headers: cabeceras.headers, body: Buffer.concat(cuerpo) })
     }
@@ -538,9 +549,13 @@ async function readResponse(
     transporte.onError((cause) => fallar(cause))
 
     // La petición se escribe al final de montar la lectura: si el servidor
-    // contestara antes de que haya quien escuche, el trozo se perdería.
+    // contestara antes de que haya quien escuche, el trozo se perdería. Y se
+    // escribe **sin medio cierre**: `end()` manda un FIN justo detrás de la
+    // petición y hay servidores que lo leen como un corte y cierran sin contestar
+    // nada —medido contra Cloudflare: con `end()`, cero bytes; sin él, la respuesta
+    // entera—. `Connection: close` ya pide al servidor que cierre cuando termine, y
+    // el socket se destruye en cuanto la respuesta está leída.
     transporte.write(options.request)
-    transporte.end()
   })
 }
 
