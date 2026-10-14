@@ -21,6 +21,13 @@ import { Link, type RouteMatch, usePath, useRoute } from './router'
 const LOCALE: Locale = DEFAULT_LOCALE
 
 function Shell(props: { readonly children: ReactNode }): ReactNode {
+  // La pantalla actual la dice `aria-current` y no un color suelto: es lo que
+  // lee quien no ve la pantalla, y lo que la hoja de estilos mira para pintar la
+  // pastilla. La ficha y el reproductor no marcan nada —ninguna de las tres
+  // entradas del menú es «la que estás viendo»— y por eso se compara por nombre
+  // de ruta y no por prefijo del camino.
+  const ruta = useRoute()
+
   return (
     <div className="shell">
       <header className="shell__header">
@@ -28,9 +35,15 @@ function Shell(props: { readonly children: ReactNode }): ReactNode {
           {t(LOCALE, 'app.name')}
         </Link>
         <nav className="shell__nav">
-          <Link to="/">{t(LOCALE, 'nav.home')}</Link>
-          <Link to="/search">{t(LOCALE, 'nav.search')}</Link>
-          <Link to="/settings">{t(LOCALE, 'nav.settings')}</Link>
+          <Link to="/" ariaCurrent={ruta.name === 'home' ? 'page' : undefined}>
+            {t(LOCALE, 'nav.home')}
+          </Link>
+          <Link to="/search" ariaCurrent={ruta.name === 'search' ? 'page' : undefined}>
+            {t(LOCALE, 'nav.search')}
+          </Link>
+          <Link to="/settings" ariaCurrent={ruta.name === 'settings' ? 'page' : undefined}>
+            {t(LOCALE, 'nav.settings')}
+          </Link>
         </nav>
       </header>
       <main className="shell__main">{props.children}</main>

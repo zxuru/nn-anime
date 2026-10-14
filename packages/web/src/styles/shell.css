@@ -8,8 +8,24 @@
  * estar definidos en algún sitio. Una clase usada y no definida es una
  * referencia muerta, y hay un test que lo impide.
  *
- * La lengua visual —bordes gruesos, sombras duras desplazadas, radios cero,
- * etiquetas monoespaciadas en mayúsculas— está explicada en `tokens.css`.
+ * La lengua visual —dos colores de línea, elevación difusa en tres pasos,
+ * titulares que no compiten— está explicada en `tokens.css`.
+ *
+ * ## Lo que cambió en el rediseño, y por qué
+ *
+ * 1. **La home son rieles, no rejillas que envuelven.** Cada fila era una
+ *    rejilla `auto-fill` de seis columnas que envolvía: con veinte títulos por
+ *    fila, la sexta fila de la página empezaba a dos mil píxeles de scroll y una
+ *    sección ya no se leía como una sección. Un riel de ancho fijo —siete
+ *    portadas a la vista— deja una banda por fila, la página cabe en dos
+ *    pantallas y el orden de las secciones se sigue de un vistazo. Lo que sobra
+ *    se desplaza en horizontal, con el carril a la vista para que se sepa.
+ * 2. **Un solo trazo donde antes había dos píxeles de crema en cada caja.** El
+ *    borde grueso se queda para lo que la identidad quiere subrayar; la
+ *    estructura usa `--color-line`.
+ * 3. **La jerarquía se hace con escala y familia, no con volumen.** Ver los
+ *    comentarios de la escala de titulares en `tokens.css`.
+ * 4. **El encabezado se alinea con la columna de contenido**, no con la ventana.
  */
 
 .shell {
@@ -18,17 +34,27 @@
   min-height: 100vh;
 }
 
+/*
+ * El encabezado, pegado arriba y alineado con el contenido.
+ *
+ * El relleno lateral es `max(--space-6, lo que sobresale la columna)` y no un
+ * número fijo: así la marca cae exactamente sobre el primer titular de la
+ * página en cualquier ancho —los dos crecen lo mismo cuando la ventana pasa de
+ * `--content-max`— y la barra sigue ocupando la ventana entera, que es lo que
+ * un fondo pegajoso tiene que hacer. Antes eran dos paddings distintos y en un
+ * monitor ancho la marca quedaba descolgada a la izquierda de todo.
+ */
 .shell__header {
+  position: sticky;
+  top: 0;
+  z-index: var(--layer-header);
   display: flex;
   align-items: center;
   gap: var(--space-6);
   height: var(--header-height);
-  padding: 0 var(--space-6);
-  border-bottom: var(--border-width-strong) solid var(--color-border);
+  padding-inline: max(var(--space-6), calc((100% - var(--content-max)) / 2));
+  border-bottom: var(--border-width) solid var(--color-line);
   background: var(--color-bg);
-  position: sticky;
-  top: 0;
-  z-index: var(--layer-header);
 }
 
 .shell__brand {
@@ -45,12 +71,28 @@
   white-space: nowrap;
 }
 
+/*
+ * La navegación, a la derecha y en pastillas.
+ *
+ * Iba pegada a la marca, con las tres palabras en monoespaciada y un subrayado
+ * que sólo aparecía al pasar por encima: en una ventana de 1920 la mitad derecha
+ * de la barra quedaba vacía y no había forma de saber en qué pantalla se estaba.
+ * Ahora el grupo se va al extremo —donde el ojo busca el menú— y la pantalla
+ * actual lo dice `aria-current`, que es lo que ya usa el episodio que se está
+ * viendo en la lista del reproductor.
+ */
 .shell__nav {
   display: flex;
-  gap: var(--space-5);
+  gap: var(--space-2);
+  margin-left: auto;
 }
 
 .shell__nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-size);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full);
   color: var(--color-text-dim);
   text-decoration: none;
   font-family: var(--font-mono);
@@ -58,29 +100,40 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
-  padding: var(--space-1) 0;
-  border-bottom: var(--border-width-strong) solid transparent;
   transition:
     color var(--transition-fast),
-    border-color var(--transition-fast);
+    background var(--transition-fast);
 }
 
 .shell__nav a:hover {
+  background: var(--color-surface);
   color: var(--color-text);
-  border-bottom-color: var(--color-accent);
 }
 
+.shell__nav a[aria-current="page"] {
+  background: var(--color-surface-raised);
+  color: var(--color-accent);
+}
+
+/*
+ * La columna de contenido.
+ *
+ * El tope incluye el relleno —`--content-max` más los dos márgenes— para que el
+ * ancho *útil* sea exactamente `--content-max` y el encabezado pueda calcular su
+ * relleno con el mismo número. Con el tope puesto sólo al contenido, la línea de
+ * una sección no caía bajo la marca.
+ */
 .shell__main {
   flex: 1;
   width: 100%;
-  max-width: var(--content-max);
+  max-width: calc(var(--content-max) + 2 * var(--space-6));
   margin: 0 auto;
-  padding: var(--space-7) var(--space-6);
+  padding: var(--space-6) var(--space-6) var(--space-8);
 }
 
 .shell__main h1 {
   font-family: var(--font-display);
-  font-size: var(--text-3xl);
+  font-size: var(--text-2xl);
   font-weight: 800;
   line-height: var(--leading-tight);
   letter-spacing: var(--tracking-display);
@@ -97,6 +150,15 @@
  * componente declara su color, y el enlace suelto lo toma de la regla base.
  */
 
+/*
+ * La rejilla que envuelve.
+ *
+ * Se queda para lo que sí quiere envolver —los resultados de una búsqueda, que
+ * son una lista larga y sin orden de lectura fijo— y no para las filas de la
+ * home, que tienen su propio riel. `minmax(0, 1fr)` y no `1fr`: con el valor por
+ * defecto, el mínimo de una columna es el de su contenido y un título sin
+ * espacios desbordaba su celda.
+ */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--grid-min), 1fr));
@@ -108,42 +170,55 @@
 
 .grid__item {
   display: block;
+  min-width: 0;
 }
 
 /*
  * La tarjeta.
  *
- * Marco grueso, sin radio y con sombra dura desplazada en el color del acento:
- * la elevación se dibuja, no se difumina. Al pasar el puntero se acorta la
- * sombra y la tarjeta se desplaza lo mismo que se acortó, así que parece que se
- * levanta sin que nada se mueva de sitio.
+ * Un filo de un píxel, el radio del sistema y una elevación que aparece cuando
+ * el puntero llega: la tarjeta se levanta un par de píxeles y proyecta sombra.
+ * Antes llevaba marco grueso y sombra dura desplazada en el color del acento, y
+ * en una rejilla de seis columnas eso eran treinta marcos gritando a la vez.
+ *
+ * El `translateY` al pasar por encima es lo que hace que se lea como una pieza
+ * que se coge: un cambio de color solo se lee como un cambio de color.
  */
 .card {
   display: flex;
   flex-direction: column;
   height: 100%;
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
   text-decoration: none;
-  box-shadow: var(--shadow-hard-sm);
   transition:
+    border-color var(--transition-fast),
     box-shadow var(--transition-fast),
-    transform var(--transition-fast),
-    border-color var(--transition-fast);
+    transform var(--transition-fast);
 }
 
 .card:hover,
 .card:focus-visible {
   border-color: var(--color-accent);
-  box-shadow: none;
-  transform: translate(var(--shadow-offset-hover), var(--shadow-offset-hover));
+  box-shadow: var(--shadow-2);
+  transform: translateY(var(--lift-hover));
 }
 
+/*
+ * La portada y su hueco.
+ *
+ * El radio va en la propia imagen y no en el contenedor: con `overflow: hidden`
+ * en la tarjeta se recortaría también lo que se sale de ella a propósito —el
+ * número del top, que se apoya fuera del marco— y ese número es medio diseño.
+ */
 .card__cover {
   display: block;
   width: 100%;
   aspect-ratio: var(--cover-ratio);
+  border-start-start-radius: var(--radius-md);
+  border-start-end-radius: var(--radius-md);
   background: var(--color-surface-raised);
   object-fit: cover;
 }
@@ -226,11 +301,19 @@
   padding-bottom: var(--space-3);
 }
 
+/*
+ * La insignia.
+ *
+ * Una pastilla con el filo de la estructura y el fondo de la página: dice un
+ * dato corto —«TEMPORADA 2», «SUB», el nombre del proveedor— sin parecer un
+ * mando. El borde del acento se reserva para el estado, no para el dato.
+ */
 .badge {
   align-self: flex-start;
   margin: var(--space-2) var(--space-3) var(--space-3);
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-width-strong) solid var(--color-border);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--color-line-strong);
+  border-radius: var(--radius-full);
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-mono);
@@ -240,23 +323,42 @@
   letter-spacing: var(--tracking-label);
 }
 
+/*
+ * El campo de búsqueda.
+ *
+ * Es el mando principal de su pantalla y el único sitio de la aplicación donde
+ * se escribe una frase larga. En escritorio pide el ancho de la columna de
+ * lectura ancha —`--measure-wide`— y no el de un párrafo: con la medida de texto
+ * el campo se quedaba en el 40 % de la página y los resultados, que sí van a lo
+ * ancho, empezaban bajo un mando que parecía de otra pantalla.
+ *
+ * El alto es `--field-height`, el radio es completo y el fondo es el de
+ * superficie: es lo que lo separa del fondo de la página y dice dónde se puede
+ * pinchar. La monoespaciada se queda, que es la lengua de los campos del
+ * proyecto.
+ */
 .search__field {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  max-width: var(--measure);
+  max-width: var(--measure-wide);
   margin-bottom: var(--space-5);
 }
-
 .search__input {
-  min-height: var(--header-height);
-  padding: 0 var(--space-3);
-  border: var(--border-width-strong) solid var(--color-border);
-  background: var(--color-bg);
+  min-height: var(--field-height);
+  padding: 0 var(--space-5);
+  border: var(--border-width) solid var(--color-line-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
+  transition: border-color var(--transition-fast);
+}
+
+.search__input:hover {
+  border-color: var(--color-text-dim);
 }
 
 .search__label {
@@ -267,17 +369,30 @@
   letter-spacing: var(--tracking-label);
 }
 
+/*
+ * Los estados de una pantalla: cargando, vacío, no encontrado.
+ *
+ * Eran una frase en monoespaciada al 11 px en mitad de la página, que en una
+ * pantalla vacía no se lee como un estado sino como un resto de depuración. Es un
+ * panel con el filo de la estructura: ocupa el sitio de lo que no llegó sin
+ * dejar de ser discreto.
+ */
 .empty {
   max-width: var(--measure);
+  margin: 0;
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
   color: var(--color-text-dim);
-  font-family: var(--font-mono);
   font-size: var(--text-sm);
 }
 
 .skeleton {
   min-height: var(--skeleton-height);
-  border: var(--border-width-strong) solid var(--color-border);
-  background: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
   animation: latido var(--transition-normal) infinite alternate;
 }
 
@@ -304,20 +419,23 @@
 /*
  * El esqueleto de la home.
  *
- * Una banda por fila y la misma rejilla que las filas de verdad, para que la
+ * Una banda por fila y el mismo riel que las filas de verdad, para que la
  * página no dé un salto cuando llegue el contenido: el hueco que ocupa el
  * esqueleto es el que va a ocupar lo que sustituye.
  */
 .home__esqueletos {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--grid-min), 1fr));
-  gap: var(--space-5);
+  grid-auto-flow: column;
+  grid-auto-columns: var(--cover-width);
+  gap: var(--space-4);
+  overflow: hidden;
 }
 
 @keyframes latido {
   from {
     opacity: var(--skeleton-dim);
   }
+
   to {
     opacity: 1;
   }
@@ -335,7 +453,7 @@
 @keyframes entrada {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(var(--lift-hover));
   }
 }
 
@@ -434,7 +552,8 @@
   gap: var(--space-4);
   max-width: var(--measure);
   padding: var(--space-5);
-  border: var(--border-width-strong) solid var(--color-danger);
+  border: var(--border-width) solid var(--color-danger);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 
@@ -442,7 +561,7 @@
   margin: 0;
   color: var(--color-danger);
   font-family: var(--font-display);
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   letter-spacing: var(--tracking-display);
 }
 
@@ -454,7 +573,7 @@
 .fallo__detail {
   margin: 0;
   padding-left: var(--space-3);
-  border-left: var(--border-width-strong) solid var(--color-border);
+  border-left: var(--border-width) solid var(--color-line);
   color: var(--color-text-dim);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
@@ -509,12 +628,20 @@
   gap: var(--space-4);
 }
 
+/*
+ * La portada de la ficha, con el trazo de acento.
+ *
+ * Es de los pocos sitios donde queda el borde del color de la tinta: es la
+ * pieza suelta que representa a la obra entera, y la ficha no tiene otra imagen.
+ * Con el filo de la estructura se perdía entre el resto de cajas.
+ */
 .detail__cover {
   width: 100%;
   aspect-ratio: var(--cover-ratio);
   border: var(--border-width-strong) solid var(--color-border);
+  border-radius: var(--radius-md);
   background: var(--cover-a);
-  box-shadow: var(--shadow-hard-accent);
+  box-shadow: var(--shadow-2);
   object-fit: cover;
 }
 
@@ -563,25 +690,28 @@
 
 .detail__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-3);
 }
 
 /*
  * Los botones.
  *
- * Marco grueso y tipografía monoespaciada en mayúsculas, como las etiquetas del
- * diseño. El activo —`aria-pressed="true"`, que es lo que ya usan el favorito y
- * el selector de tema— se pinta con el acento y texto oscuro, sin que el
+ * Pastilla, con el filo de la estructura y el fondo de superficie: se ve dónde
+ * se puede pulsar sin que la fila de mandos se convierta en un muro de marcos.
+ * El activo —`aria-pressed="true"`, que es lo que ya usan el favorito y el
+ * selector de tema— se pinta con el acento y texto oscuro, sin que el
  * componente tenga que saber que está activo.
  */
 .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--header-height);
-  padding: 0 var(--space-4);
-  border: var(--border-width-strong) solid var(--color-border);
-  background: transparent;
+  min-height: var(--control-size);
+  padding: 0 var(--space-5);
+  border: var(--border-width) solid var(--color-line-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
   color: var(--color-text);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -592,11 +722,11 @@
   transition:
     background var(--transition-fast),
     color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+    border-color var(--transition-fast);
 }
 
 .button:hover:not(:disabled) {
+  border-color: var(--color-accent);
   background: var(--color-surface-raised);
 }
 
@@ -605,21 +735,17 @@
   background: var(--color-accent);
   border-color: var(--color-accent);
   color: var(--color-accent-contrast);
-  /* La sombra del activo no es del color del relleno: el acento sobre el
-     acento no se lee como una sombra, se lee como un botón duplicado. */
-  box-shadow: var(--shadow-hard-pressed);
 }
 
 .button[aria-pressed="true"]:hover,
 .button--primary:hover:not(:disabled) {
   background: var(--color-accent-strong);
-  box-shadow: none;
-  transform: translate(var(--shadow-offset-hover), var(--shadow-offset-hover));
+  border-color: var(--color-accent-strong);
 }
 
 .button:disabled {
   color: var(--color-text-dim);
-  border-color: var(--color-text-dim);
+  border-color: var(--color-line);
   cursor: not-allowed;
 }
 
@@ -659,7 +785,8 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2);
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
   text-decoration: none;
@@ -689,6 +816,7 @@
   width: var(--thumb-width);
   aspect-ratio: var(--cover-ratio);
   flex: none;
+  border-radius: var(--radius-sm);
   object-fit: cover;
   background: var(--cover-a);
 }
@@ -763,7 +891,7 @@
  *
  * Una banda encima de la lista con lo que se necesita para no leer mil filas: la
  * ventana en la que se está, las dos flechas y el salto a un número. Va pegada
- * arriba y con el mismo borde que las filas, para que se lea como parte de la
+ * arriba y con el mismo filo que las filas, para que se lea como parte de la
  * lista y no como un adorno suelto.
  */
 .episodes__windows {
@@ -772,7 +900,8 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 
@@ -810,30 +939,31 @@
  * La fila de un episodio.
  *
  * Es un enlace, así que no hereda el subrayado ni el color del navegador, y
- * lleva el mismo realce que las tarjetas: borde de acento y el bloque que se
- * levanta. Una fila que no reacciona al puntero no se lee como pulsable.
+ * lleva el mismo realce que las tarjetas: el filo de acento y el bloque que se
+ * levanta un par de píxeles. Una fila que no reacciona al puntero no se lee como
+ * pulsable, y una lista de cuarenta episodios se lee como una tabla.
  */
 .episode {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
   text-decoration: none;
-  box-shadow: var(--shadow-hard-sm);
   transition:
     border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
+    background var(--transition-fast),
     transform var(--transition-fast);
 }
 
 .episode:hover,
 .episode:focus-visible {
   border-color: var(--color-accent);
-  box-shadow: none;
-  transform: translate(var(--shadow-offset-hover), var(--shadow-offset-hover));
+  background: var(--color-surface-raised);
+  transform: translateY(var(--lift-hover));
 }
 
 .episode__number {
@@ -858,7 +988,7 @@
 /*
  * El episodio visto y el que está a medias.
  *
- * El visto lleva el borde del acento **y la palabra**: sólo con el color, el
+ * El visto lleva el filo del acento **y la palabra**: sólo con el color, el
  * estado no existe para quien no distingue colores. La barra es un `<progress>`
  * de verdad, como la de «continuar viendo», y ocupa un ancho fijo en la fila:
  * el título ya se lleva el espacio flexible.
@@ -873,6 +1003,7 @@
   height: var(--space-2);
   appearance: none;
   border: none;
+  border-radius: var(--radius-full);
   background: var(--color-bg);
 }
 
@@ -921,15 +1052,26 @@
   display: block;
 }
 
+/*
+ * El marco del video, con el radio del sistema.
+ *
+ * `overflow: hidden` recorta las esquinas del `<video>` y del lienzo del modo
+ * compatible a la vez, con un solo sitio donde decirlo. Los mandos **no** están
+ * dentro —son hermanos del marco, dentro del escenario—, así que el recorte no
+ * les afecta: el menú de ajustes se abre hacia arriba y saldría cortado.
+ */
 .player__frame {
   position: relative;
   display: block;
+  overflow: hidden;
+  border-radius: var(--radius-md);
 }
 
 .player__video {
+  display: block;
   width: 100%;
   aspect-ratio: var(--video-ratio);
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line);
   background: var(--color-surface-raised);
 }
 
@@ -949,7 +1091,7 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line);
   background: var(--color-surface-raised);
   pointer-events: none;
 }
@@ -990,10 +1132,11 @@
   gap: var(--space-3);
   margin: 0;
   padding: var(--space-4) var(--space-5);
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
-  box-shadow: var(--shadow-hard);
+  box-shadow: var(--shadow-3);
   /* Es una frase de estado, no una etiqueta: va en la fuente del texto y en su
      caja, con el tamaño mínimo de 13 px. La monoespaciada en mayúsculas se queda
      para los botones y los rótulos cortos, que es donde ayuda a comparar. */
@@ -1005,16 +1148,18 @@
 /*
  * La barra que dice «esto se mueve».
  *
- * Es una barra y no un círculo girando: los radios de esta interfaz son cero y
- * un aro con `border-radius` no existe aquí. La duración va literal porque el
- * test de la hoja prohíbe medidas de longitud sueltas —`px`, `rem`, `em`, `ch`—
- * y un `ms` no es una medida: no hay token para una animación que no es una
- * transición, y añadirlo por esto sería un token de un solo uso.
+ * Es una barra y no un aro girando: un aro de carga con `border-radius` es la
+ * forma por defecto de cualquier interfaz y aquí el carril es la forma del
+ * sistema —es la misma que la de la barra de progreso—. La duración va literal
+ * porque el test de la hoja prohíbe medidas de longitud sueltas —`px`, `rem`,
+ * `em`, `ch`— y un `ms` no es una medida: no hay token para una animación que no
+ * es una transición.
  */
 .player__bar {
   width: var(--progress-width);
   height: var(--space-2);
-  border: var(--border-width-strong) solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg);
   overflow: hidden;
 }
 
@@ -1023,6 +1168,7 @@
   display: block;
   width: var(--space-6);
   height: 100%;
+  border-radius: var(--radius-full);
   background: var(--color-accent);
   animation: player-espera 1200ms ease-in-out infinite;
 }
@@ -1043,7 +1189,7 @@
    hoja, y uno suelto aquí la dejaba mirando el sitio equivocado. */
 
 /* El botón grande de reproducir, encima del video.
- *
+ * 
  * Es una capa sin eventos —`pointer-events: none`— y sin nombre accesible: el
  * gesto es del video entero y el mando que se anuncia es el de la barra. Un
  * cuadrado al que hubiera que apuntarle sería peor que el clic en cualquier
@@ -1058,8 +1204,9 @@
   pointer-events: none;
 }
 
-/* Con el borde grueso y la sombra dura del resto de la interfaz, y el acento en
-   el triángulo: es lo único que se mueve en una pantalla en pausa. */
+/* Redondo, con el filo del acento y una sombra ancha: es lo único que se puede
+   hacer en una pantalla en pausa y tiene que verse desde el otro lado de la
+   sala. */
 .player__play-icon {
   display: flex;
   align-items: center;
@@ -1067,8 +1214,9 @@
   width: var(--play-size);
   height: var(--play-size);
   border: var(--border-width-strong) solid var(--color-border);
+  border-radius: var(--radius-full);
   background: var(--color-surface);
-  box-shadow: var(--shadow-hard-accent);
+  box-shadow: var(--shadow-3);
 }
 
 .player__play-glyph {
@@ -1092,12 +1240,15 @@
  * grande —`z-index` mayor— para que un aviso de búfer no deje los mandos
  * debajo.
  *
+ * El radio inferior es el del marco: la banda se apoya en el borde de abajo del
+ * video, que está redondeado, y sin él las esquinas del degradado se salían de la
+ * imagen. No lleva `overflow: hidden` precisamente por eso: el menú de ajustes
+ * vive aquí dentro y se abre hacia arriba.
+ *
  * Dentro van dos filas: la barra de progreso arriba y los botones debajo. La
- * barra de progreso **nunca** se sale de la banda: con la banda superpuesta al
- * video, una barra más alta que el video aparecía por encima del marco, sobre el
- * fondo de la página. En una ventana estrecha la banda deja de superponerse y se
- * va debajo del video —ver el `@media` del final—, así que el problema no puede
- * volver. */
+ * barra de progreso **nunca** se sale de la banda, y en una ventana estrecha la
+ * banda deja de superponerse y se va debajo del video —ver el `@media` del
+ * final—. */
 .player__controls {
   position: absolute;
   inset-inline: 0;
@@ -1107,6 +1258,8 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-6) var(--space-3) var(--space-3);
+  border-end-start-radius: var(--radius-md);
+  border-end-end-radius: var(--radius-md);
   background: var(--player-gradient);
   transition: opacity var(--transition-normal);
 }
@@ -1185,6 +1338,7 @@
   inset-inline: 0;
   top: 50%;
   height: var(--seek-height);
+  border-radius: var(--radius-full);
   overflow: hidden;
   background: var(--seek-track);
   transform: translateY(-50%);
@@ -1216,8 +1370,9 @@
 .player__tooltip {
   position: absolute;
   bottom: var(--space-5);
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-width-strong) solid var(--color-border);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
   font-family: var(--font-mono);
@@ -1291,34 +1446,37 @@
   }
 }
 
-/* El carril y el pulgar, con el mismo borde duro que el resto de la interfaz: el
+/* El carril y el pulgar, con el mismo filo duro que el resto de la interfaz: el
    navegador no los deja vestir con `background` y `border` a secas, cada motor
    los expone con su propio pseudo-elemento. */
 .player__range::-webkit-slider-runnable-track {
-  height: var(--border-width-strong);
-  background: var(--color-border);
+  height: var(--seek-height);
+  border-radius: var(--radius-full);
+  background: var(--color-line-strong);
 }
 
 .player__range::-webkit-slider-thumb {
   appearance: none;
   width: var(--space-4);
   height: var(--space-4);
-  margin-top: calc((var(--border-width-strong) - var(--space-4)) / 2);
+  margin-top: calc((var(--seek-height) - var(--space-4)) / 2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-full);
   background: var(--color-accent);
-  border: var(--border-width-strong) solid var(--color-border);
 }
 
 .player__range::-moz-range-track {
-  height: var(--border-width-strong);
-  background: var(--color-border);
+  height: var(--seek-height);
+  border-radius: var(--radius-full);
+  background: var(--color-line-strong);
 }
 
 .player__range::-moz-range-thumb {
   width: var(--space-4);
   height: var(--space-4);
-  border-radius: 0;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-full);
   background: var(--color-accent);
-  border: var(--border-width-strong) solid var(--color-border);
 }
 
 /* El `input` del tiempo, encima de las dos capas y con el carril transparente:
@@ -1423,10 +1581,11 @@
   max-height: var(--menu-height);
   overflow-y: auto;
   padding: var(--space-4);
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
-  box-shadow: var(--shadow-hard);
+  box-shadow: var(--shadow-3);
 }
 
 .player__menu-block {
@@ -1483,10 +1642,9 @@
  * El interruptor del menú.
  *
  * Es un `<input type="checkbox">` de verdad —el que guarda el estado y el que se
- * anuncia— vestido de interruptor: un carril con el borde duro de la interfaz y
- * un tirador cuadrado que se mueve. Los radios son cero, como todo lo demás, y el
- * carril se enciende con el acento. La etiqueta entera es el objetivo, no el
- * cuadradito.
+ * anuncia— vestido de interruptor: un carril redondo con el filo de la estructura
+ * y un tirador redondo que se mueve. El carril se enciende con el acento. La
+ * etiqueta entera es el objetivo, no el cuadradito.
  */
 .player__menu-switch {
   display: flex;
@@ -1513,7 +1671,8 @@
   width: 100%;
   height: 100%;
   margin: 0;
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line-strong);
+  border-radius: var(--radius-full);
   background: var(--color-surface);
   appearance: none;
   cursor: pointer;
@@ -1529,10 +1688,11 @@
 
 .player__switch-knob {
   position: absolute;
-  top: var(--border-width-strong);
-  left: var(--border-width-strong);
+  top: var(--border-width);
+  left: var(--border-width);
   width: var(--switch-knob);
   height: var(--switch-knob);
+  border-radius: var(--radius-full);
   background: var(--color-text-dim);
   transition: transform var(--transition-fast);
   pointer-events: none;
@@ -1555,10 +1715,11 @@
 .player__dialog {
   width: min(var(--notice-width), 90vw);
   padding: var(--space-5);
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-text);
-  box-shadow: var(--shadow-hard);
+  box-shadow: var(--shadow-3);
 }
 
 .player__dialog::backdrop {
@@ -1655,30 +1816,32 @@
   gap: var(--space-3);
   min-height: var(--control-size);
   padding: var(--space-1) var(--space-3);
-  border: var(--border-width-strong) solid transparent;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
   color: var(--color-text);
   font-size: var(--text-sm);
   text-decoration: none;
   transition:
     border-color var(--transition-fast),
+    background var(--transition-fast),
     color var(--transition-fast);
 }
 
 .watch__list-item:hover,
 .watch__list-item:focus-visible {
   border-color: var(--color-accent);
+  background: var(--color-surface);
   color: var(--color-accent);
 }
 
 /* El episodio que se está viendo.
  *
- * Lo dice el `aria-current` —y por eso lo lleva el marcado—, un marco y el número
- * en el color de acción: tres señales y no sólo el color, que es lo que pide el
+ * Lo dice el `aria-current` —y por eso lo lleva el marcado—, un filo de acento y
+ * el fondo de superficie: tres señales y no sólo el color, que es lo que pide el
  * spec para no dejar el estado a quien no distingue colores. */
 .watch__list-item[aria-current="page"] {
-  border-color: var(--color-border);
+  border-color: var(--color-accent);
   background: var(--color-surface);
-  box-shadow: var(--shadow-hard-sm);
 }
 
 .watch__list-number {
@@ -1718,8 +1881,8 @@
  * La tarjeta del episodio siguiente.
  *
  * Aparece cuando el episodio termina, con cuenta atrás y dos salidas: seguir
- * ahora o pararla. El marco lleva la sombra del acento porque es lo único que se
- * puede pulsar en ese momento.
+ * ahora o pararla. Es la única cosa que se puede pulsar en ese momento, así que es
+ * la única de la pantalla con el filo de acento y una sombra ancha.
  */
 .watch__next {
   display: flex;
@@ -1727,9 +1890,10 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-4);
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width-strong) solid var(--color-accent);
+  border-radius: var(--radius-md);
   background: var(--color-surface-raised);
-  box-shadow: var(--shadow-hard-accent);
+  box-shadow: var(--shadow-2);
 }
 
 .watch__next-text {
@@ -1809,7 +1973,7 @@
 /*
  * El selector de audio.
  *
- * Dos botones pegados dentro de un marco, como un interruptor de dos
+ * Dos botones pegados dentro de un marco redondo, como un interruptor de dos
  * posiciones: el activo lleva el color de acción y el otro queda apagado, así
  * que el estado se lee de un vistazo sin abrir ningún menú. Es el mismo control
  * que aparece dentro del menú de ajustes, y por eso vive en una clase propia y
@@ -1818,8 +1982,9 @@
 .audio-switch {
   display: inline-flex;
   margin: 0;
-  padding: 0;
-  border: var(--border-width-strong) solid var(--color-border);
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--color-line-strong);
+  border-radius: var(--radius-full);
   background: var(--color-surface);
   list-style: none;
 }
@@ -1832,6 +1997,7 @@
   min-height: var(--control-size);
   padding: 0 var(--space-4);
   border: 0;
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--color-text-dim);
   font-family: var(--font-mono);
@@ -1846,7 +2012,7 @@
 }
 
 .audio-switch__item + .audio-switch__item .audio-switch__option {
-  border-left: var(--border-width-strong) solid var(--color-border);
+  margin-left: var(--space-1);
 }
 
 .audio-switch__option:hover {
@@ -1861,14 +2027,12 @@
 /*
  * La ayuda del teclado.
  *
- * Cada tecla es una tecla dibujada —borde grueso, sombra dura y monoespaciada,
- * como los botones— y no una palabra dentro de una frase: lo que hay que
- * entender de un vistazo es **qué se puede pulsar**, y una línea de texto
- * corrido no lo dice.
+ * Cada tecla es una tecla dibujada —filo firme, radio corto y monoespaciada, como
+ * los botones— y no una palabra dentro de una frase: lo que hay que entender de un
+ * vistazo es **qué se puede pulsar**, y una línea de texto corrido no lo dice.
  *
- * La sombra es la del botón pulsado: una tecla sin levantar. Levantarlas con la
- * sombra del botón activo las haría parecer mandos que se pulsan con el ratón, y
- * no lo son: son la tecla que hay que buscar en el teclado.
+ * El fondo hundido —el de la página, no el de la superficie— es lo que la
+ * distingue de un mando: una tecla que se mira no se pulsa con el ratón.
  */
 .player__keys {
   display: flex;
@@ -1912,10 +2076,10 @@
   justify-content: center;
   min-width: var(--space-6);
   padding: var(--space-1) var(--space-2);
-  border: var(--border-width-strong) solid var(--color-border);
-  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
   color: var(--color-text);
-  box-shadow: var(--shadow-hard-pressed);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: 700;
@@ -1956,8 +2120,9 @@
   align-items: center;
   gap: var(--space-2);
   min-height: var(--control-size);
-  padding: 0 var(--space-3);
-  border: var(--border-width-strong) solid var(--color-border);
+  padding: 0 var(--space-4);
+  border: var(--border-width) solid var(--color-line-strong);
+  border-radius: var(--radius-full);
   background: var(--color-surface);
   color: var(--color-text);
   font-family: var(--font-mono);
@@ -1966,18 +2131,16 @@
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   text-decoration: none;
-  box-shadow: var(--shadow-hard-sm);
   transition:
     border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+    background var(--transition-fast);
 }
 
 /* La flecha.
  *
- * Es un bloque con contorno y sombra dura, como los botones de la interfaz, y no
- * el glifo de la tipografía: el glifo se apoya en la línea de base —queda
- * descentrado en la caja— y cambia de forma según la fuente de cada máquina.
+ * Es un bloque con contorno y no el glifo de la tipografía: el glifo se apoya en
+ * la línea de base —queda descentrado en la caja— y cambia de forma según la
+ * fuente de cada máquina.
  *
  * `display: block` es lo que la centra: dentro de un `inline-flex` con
  * `align-items: center`, el hueco de línea de un dibujo en línea añade un par de
@@ -1989,11 +2152,9 @@
   fill: var(--color-accent);
   stroke: var(--color-bg);
   stroke-width: var(--border-width-strong);
-  filter: drop-shadow(var(--border-width-strong) var(--border-width-strong) 0 var(--color-accent));
 }
 
-/* La misma flecha, espejada. Al espejar, la sombra se va con ella: queda hacia
-   dentro de la fila, que es hacia donde apunta. */
+/* La misma flecha, espejada. */
 .watch__nav-arrow[data-towards="previous"] {
   transform: scaleX(-1);
 }
@@ -2003,21 +2164,12 @@
 .watch__nav-off .watch__nav-arrow {
   fill: none;
   stroke: var(--color-text-dim);
-  filter: none;
-}
-
-/* Cuando el botón se levanta, la sombra sobra: es el mismo gesto que hacen los
-   botones de la interfaz al pasar por encima. */
-.watch__nav-link:hover .watch__nav-arrow,
-.watch__nav-link:focus-visible .watch__nav-arrow {
-  filter: none;
 }
 
 .watch__nav-link:hover,
 .watch__nav-link:focus-visible {
   border-color: var(--color-accent);
-  box-shadow: none;
-  transform: translate(var(--shadow-offset-hover), var(--shadow-offset-hover));
+  background: var(--color-surface-raised);
 }
 
 /* El episodio que no existe.
@@ -2028,10 +2180,9 @@
  * que ahí no se puede pulsar es la opacidad, el `aria-disabled` y el `title`.
  */
 .watch__nav-off {
-  border-color: var(--color-text-dim);
+  border-color: var(--color-line);
   background: transparent;
   color: var(--color-text-dim);
-  box-shadow: none;
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -2047,7 +2198,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-4);
-  border-bottom: var(--border-width-strong) solid var(--color-border);
+  border-bottom: var(--border-width) solid var(--color-line);
   padding-bottom: var(--space-3);
 }
 
@@ -2068,7 +2219,7 @@
 
 .score {
   padding: var(--space-3);
-  border-top: var(--border-width-strong) solid var(--color-border);
+  border-top: var(--border-width) solid var(--color-line);
 }
 
 .score__reasons {
@@ -2079,7 +2230,7 @@
 .home {
   display: flex;
   flex-direction: column;
-  gap: var(--space-7);
+  gap: var(--space-6);
 }
 
 /*
@@ -2105,9 +2256,10 @@
 
 .settings__warning {
   padding: var(--space-5);
-  border: var(--border-width-strong) solid var(--color-danger);
+  border: var(--border-width) solid var(--color-danger);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
-  box-shadow: var(--shadow-hard-sm);
+  box-shadow: var(--shadow-1);
 }
 
 .settings__warning h2 {
@@ -2166,6 +2318,7 @@
 
 .settings__paths dd {
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .settings__theme {
@@ -2181,7 +2334,7 @@
 /*
  * El alta de un proveedor.
  *
- * El formulario no inventa lenguaje visual: reutiliza el borde grueso, la fuente
+ * El formulario no inventa lenguaje visual: reutiliza el campo redondo, la fuente
  * monoespaciada y las etiquetas en mayúsculas del resto de la interfaz. Lo único
  * que añade es la rejilla, que es lo que hace que veinte campos se lean.
  */
@@ -2205,9 +2358,17 @@
   margin-bottom: var(--space-2);
 }
 
+/*
+ * La rejilla del formulario.
+ *
+ * El mínimo es más ancho que el de una rejilla de tarjetas —`--grid-min` son
+ * 11 rem— y no por capricho: aquí dentro van direcciones como
+ * `/anime/{ref}/episodes`, y con 11 rem caben cinco columnas por fila en las que
+ * el texto del campo se corta a la mitad. Con 14 rem caben cuatro y se lee entero.
+ */
 .settings__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(var(--grid-min), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-8) * 3.5), 1fr));
   gap: var(--space-4);
 }
 
@@ -2232,6 +2393,7 @@
 
 .settings__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-3);
 }
 
@@ -2250,14 +2412,20 @@
 }
 
 .field__input {
-  min-height: var(--header-height);
-  padding: 0 var(--space-2);
-  border: var(--border-width-strong) solid var(--color-border);
-  background: var(--color-bg);
+  min-height: var(--field-height);
+  padding: 0 var(--space-4);
+  border: var(--border-width) solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
+  transition: border-color var(--transition-fast);
+}
+
+.field__input:hover {
+  border-color: var(--color-text-dim);
 }
 
 .field__hint {
@@ -2278,8 +2446,10 @@
 /*
  * Las filas de la home.
  *
- * Cada fila lleva su titular grande y su rejilla. El titular va en la fuente de
- * display, en mayúsculas y apretado, como los del diseño de referencia.
+ * Cada fila lleva su titular y su riel. El titular va en la fuente de display, en
+ * mayúsculas y apretado, como los del diseño de referencia, pero a `--text-xl` y
+ * no a `--text-2xl`: el titular de una fila no puede pesar lo mismo que el nombre
+ * del título en el reproductor.
  */
 .row {
   display: flex;
@@ -2297,13 +2467,62 @@
   margin: 0;
 }
 
+/*
+ * El riel de una fila.
+ *
+ * **Es lo que cambió el rediseño.** Cada fila era una rejilla `auto-fill` que
+ * envolvía: en un monitor ancho caben siete portadas por línea, así que veinte
+ * títulos hacían tres líneas y la sección dejaba de leerse como una sección —la
+ * sexta fila de la home empezaba pasados dos mil píxeles de scroll—. Un riel de
+ * ancho fijo deja **una banda por fila**: el orden de la página se sigue de un
+ * vistazo y lo que no cabe se desplaza en horizontal.
+ *
+ * El carril se deja a la vista —`thin` y del color de la estructura— en lugar de
+ * esconderlo: un riel sin barra no dice que haya más a la derecha, y todo lo que
+ * se sale de la pantalla sin avisar es contenido que nadie encuentra. Se añade
+ * relleno abajo para que la barra no se pegue a las portadas.
+ *
+ * El desplazamiento con el teclado funciona sin escribir nada: las tarjetas son
+ * enlaces, y enfocar una que esté fuera trae el carril hasta ella.
+ *
+ * La máscara del borde derecho —ver `--rail-fade`— es lo que dice que hay más
+ * incluso cuando el navegador no pinta el carril.
+ */
 .row__list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--cover-width), 1fr));
-  gap: var(--space-5);
+  grid-auto-flow: column;
+  grid-auto-columns: var(--cover-width);
+  gap: var(--space-4);
   margin: 0;
-  padding: 0;
+  padding: 0 0 var(--space-3);
+  overflow-x: auto;
+  /* Un riel no encadena el desplazamiento de toda la página al llegar al final:
+     el gesto se queda dentro de la fila. */
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+  -webkit-mask-image: var(--rail-fade);
+  mask-image: var(--rail-fade);
   list-style: none;
+}
+
+.row__list > li {
+  scroll-snap-align: start;
+}
+
+/* El carril, en los motores WebKit, que no entienden `scrollbar-width`. */
+.row__list::-webkit-scrollbar {
+  height: var(--rail-scrollbar-height);
+}
+
+.row__list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.row__list::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-full);
+  background: var(--color-line-strong);
 }
 
 /*
@@ -2319,6 +2538,7 @@
   height: var(--space-2);
   appearance: none;
   border: none;
+  border-radius: var(--radius-full);
   background: var(--color-bg);
 }
 
@@ -2352,42 +2572,64 @@
 /*
  * La cinta de arriba.
  *
- * Barra llena del color del acento, con el texto oscuro encima y las etiquetas
- * en monoespaciada: es lo primero que se ve y lo que dice que la página está
- * viva. Se corta sola si hay más títulos de los que caben.
+ * Dejó de ser una barra llena del color del acento: ocupaba el ancho entero y lo
+ * primero que se veía al abrir la página era un rectángulo naranja más grande que
+ * el titular. Ahora es una pastilla de superficie con la etiqueta en el acento —
+ * «lo de ahora mismo» sigue siendo lo primero que se lee— y los títulos en el
+ * texto de la aplicación: son títulos, no etiquetas, y en monoespaciada y
+ * mayúsculas se leían como códigos.
  */
 .ticker {
   display: flex;
   align-items: center;
   gap: var(--space-5);
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-highlight);
-  color: var(--color-accent-contrast);
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
   overflow: hidden;
   white-space: nowrap;
 }
 
 .ticker__label {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
-}
-
-.ticker__item {
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-highlight);
   color: var(--color-accent-contrast);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
-  text-decoration: none;
-  border-bottom: var(--border-width-strong) solid transparent;
 }
 
-.ticker__item:hover {
-  border-bottom-color: var(--color-accent-contrast);
+/*
+ * Un título de la cinta.
+ *
+ * Subrayado con el color de la estructura y no en el color del texto: son enlaces
+ * y tienen que parecerlo sin que la cinta se llene de color. El subrayado se
+ * enciende con el acento al pasar por encima, que es el mismo gesto de los enlaces
+ * de la aplicación. Sin él, los títulos se leían como texto muerto —lo dijo la
+ * revisión del rediseño, y era razón bastante—.
+ */
+.ticker__item {
+  flex: none;
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  text-decoration-color: var(--color-line-strong);
+  text-decoration-thickness: var(--border-width);
+  text-underline-offset: var(--space-1);
+  transition:
+    color var(--transition-fast),
+    text-decoration-color var(--transition-fast);
+}
+
+.ticker__item:hover,
+.ticker__item:focus-visible {
+  color: var(--color-accent);
+  text-decoration-color: var(--color-accent);
 }
 
 /*
@@ -2396,13 +2638,23 @@
  * Dos columnas: el texto a la izquierda y la pila de portadas a la derecha. La
  * pila son tres elementos —dos copias giradas detrás y la portada delante— y el
  * giro lo hace el CSS, sin imágenes de más.
+ *
+ * Es la única pieza de la página con superficie elevada, radio grande y sombra:
+ * es lo que hay que mirar primero, y para eso tiene que ser distinta del resto. El
+ * primer intento usó el fondo de una tarjeta y el panel se confundía con la
+ * página. El título de la página también vive aquí —es el `h1`—, así que el
+ * cartel hace de cabecera y de escaparate a la vez.
  */
 .hero {
   display: grid;
-  grid-template-columns: 1fr minmax(var(--cover-width), var(--hero-poster-width));
+  grid-template-columns: minmax(0, 1fr) minmax(var(--cover-width), var(--hero-poster-width));
   gap: var(--space-7);
   align-items: center;
-  padding: var(--space-6) 0 var(--space-7);
+  padding: var(--space-6);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-1);
 }
 
 .hero__body {
@@ -2412,7 +2664,10 @@
   align-items: flex-start;
 }
 
-.hero__title {
+/* La especificidad es a propósito: `.shell__main h1` pesa (0,1,1) y le ganaría a
+   `.hero__title` a secas, así que el tamaño del titular del destacado se decide
+   aquí y no en el `h1` de la aplicación. */
+.shell__main .hero__title {
   font-family: var(--font-display);
   font-size: var(--text-3xl);
   font-weight: 800;
@@ -2420,6 +2675,7 @@
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
   margin: 0;
+  text-wrap: balance;
 }
 
 .hero__meta {
@@ -2431,10 +2687,17 @@
   margin: 0;
 }
 
+/* La sinopsis, recortada a las líneas del token: el cartel es una invitación y el
+   texto entero vive en la ficha. Con el párrafo completo, un título con una
+   sinopsis larga empujaba los botones fuera de la primera pantalla. */
 .hero__synopsis {
+  display: -webkit-box;
   max-width: var(--measure);
-  color: var(--color-text-dim);
   margin: 0;
+  overflow: hidden;
+  color: var(--color-text-dim);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--synopsis-clamp);
 }
 
 .hero__actions {
@@ -2452,17 +2715,18 @@
 .hero__back {
   position: absolute;
   inset: 0;
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-md);
   background: var(--cover-b);
 }
 
 .hero__back--left {
-  transform: rotate(-8deg) translate(-8%, 4%);
+  transform: rotate(-6deg) translate(-5%, 3%);
   background: var(--cover-e);
 }
 
 .hero__back--right {
-  transform: rotate(7deg) translate(8%, 2%);
+  transform: rotate(5deg) translate(5%, 2%);
   background: var(--cover-c);
 }
 
@@ -2475,10 +2739,11 @@
   height: 100%;
   overflow: hidden;
   border: var(--border-width-strong) solid var(--color-border);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
   text-decoration: none;
-  box-shadow: var(--shadow-hard-accent);
+  box-shadow: var(--shadow-3);
 }
 
 .hero__cover {
@@ -2493,8 +2758,8 @@
  * La tarjeta de una fila.
  *
  * Portada con marco y franja de pie: el título arriba y el dato abajo, separados
- * del marco por un trazo grueso. El número del top va detrás del texto, enorme y
- * sin relleno, como en el diseño.
+ * del marco por un filo. El número del top va detrás del texto, enorme y sin
+ * relleno, como en el diseño.
  */
 .poster {
   position: relative;
@@ -2517,6 +2782,9 @@
   line-height: 1;
   color: transparent;
   -webkit-text-stroke: var(--number-stroke) var(--color-border);
+  /* El halo: el puesto va encima de una portada cualquiera y sobre las claras el
+     contorno crema se perdía. */
+  filter: drop-shadow(0 0 var(--number-halo) var(--color-bg));
   pointer-events: none;
 }
 
@@ -2524,22 +2792,22 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
   text-decoration: none;
-  box-shadow: var(--shadow-hard-sm);
   transition:
+    border-color var(--transition-fast),
     box-shadow var(--transition-fast),
-    transform var(--transition-fast),
-    border-color var(--transition-fast);
+    transform var(--transition-fast);
 }
 
 .poster__link:hover,
 .poster__link:focus-visible {
   border-color: var(--color-accent);
-  box-shadow: none;
-  transform: translate(var(--shadow-offset-hover), var(--shadow-offset-hover));
+  box-shadow: var(--shadow-2);
+  transform: translateY(var(--lift-hover));
 }
 
 .poster__frame {
@@ -2547,10 +2815,14 @@
   display: block;
 }
 
+/* El radio va en la imagen y no en el marco: el número del top se apoya **fuera**
+   del marco a propósito, y un `overflow: hidden` aquí lo recortaría. */
 .poster__cover {
   display: block;
   width: 100%;
   aspect-ratio: var(--cover-ratio);
+  border-start-start-radius: var(--radius-md);
+  border-start-end-radius: var(--radius-md);
   object-fit: cover;
 }
 
@@ -2559,7 +2831,7 @@
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-3);
-  border-top: var(--border-width-strong) solid var(--color-border);
+  border-top: var(--border-width) solid var(--color-line);
   margin-top: auto;
 }
 
@@ -2610,8 +2882,9 @@
   top: var(--space-2);
   left: var(--space-2);
   z-index: 1;
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-width-strong) solid var(--color-border);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--color-line-strong);
+  border-radius: var(--radius-full);
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-mono);
@@ -2623,8 +2896,8 @@
 
 .tag--hot {
   position: static;
-  background: var(--color-accent);
-  border-color: var(--color-accent);
+  background: var(--color-highlight);
+  border-color: var(--color-highlight);
   color: var(--color-accent-contrast);
 }
 
@@ -2632,7 +2905,8 @@
  * El titular de una fila.
  *
  * El título a la izquierda y la etiqueta a la derecha, con la misma línea de
- * separación que usa el panel.
+ * separación que usa el panel. La línea es lo que da el ritmo de la página: sin
+ * ella, seis rieles seguidos se leen como una sola lista larga.
  */
 .section {
   display: flex;
@@ -2645,7 +2919,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-4);
-  border-bottom: var(--border-width-strong) solid var(--color-border);
+  border-bottom: var(--border-width) solid var(--color-line);
   padding-bottom: var(--space-3);
 }
 
@@ -2668,37 +2942,50 @@
 }
 
 /*
- * Los géneros, en grande.
+ * Los géneros, en pastillas.
  *
- * Enlaces del tamaño de un titular, en la fuente de display y sin subrayado: la
- * lista se lee como un índice y cada palabra lleva a su búsqueda.
+ * Eran enlaces del tamaño de un titular —36 px, en la fuente de display y en
+ * mayúsculas—: diez palabras enormes que pesaban más que cualquier fila de
+ * portadas y empujaban la sección de abajo media pantalla. Como pastillas ocupan
+ * lo que miden, se comparan de un vistazo y el dedo las encuentra.
  */
 .genres {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-6);
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .genres__item {
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: 800;
-  letter-spacing: var(--tracking-display);
-  color: var(--color-text-dim);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-size);
+  padding: 0 var(--space-4);
+  border: var(--border-width) solid var(--color-line-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: 600;
   text-decoration: none;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .genres__item:hover,
 .genres__item:focus-visible {
+  border-color: var(--color-accent);
+  background: var(--color-surface-raised);
   color: var(--color-accent);
 }
 
 /* El desplegable del detalle del motor. */
 .panel__details {
-  border-top: var(--border-width-strong) solid var(--color-border);
+  border-top: var(--border-width) solid var(--color-line);
   padding-top: var(--space-4);
 }
 
@@ -2710,7 +2997,7 @@
  * El top de la fuente.
  *
  * Los números van fuera de la tarjeta, así que la fila necesita aire a la
- * izquierda para que el «1» no se salga del contenedor.
+ * izquierda para que el «1» no se salga del carril.
  */
 .section--top .row__list {
   padding-left: var(--space-4);
@@ -2719,7 +3006,7 @@
 /*
  * «Mostrar más» del top.
  *
- * Va debajo de la rejilla y con el aire de un pie: pegado a las portadas se lee
+ * Va debajo del riel y con el aire de un pie: pegado a las portadas se lee
  * como parte de la última tarjeta y no como lo que es, el resto de la lista.
  */
 .top__more {
@@ -2730,9 +3017,9 @@
  * El documento de seguridad, dentro de la aplicación.
  *
  * Es `<dialog>` nativo: el navegador lo centra, lo pinta por encima, atrapa el
- * foco y cierra con `Esc`. Aquí sólo se le da la lengua visual del resto —borde
- * grueso, sombra dura, mono en las etiquetas— y un cuerpo con desplazamiento
- * propio, para que un documento largo no estire la ventana.
+ * foco y cierra con `Esc`. Aquí sólo se le da la lengua visual del resto y un
+ * cuerpo con desplazamiento propio, para que un documento largo no estire la
+ * ventana.
  *
  * `display: flex` va con `[open]` y no a secas: un `dialog` cerrado se oculta
  * con `display: none`, y darle un `display` propio lo dejaría siempre a la vista.
@@ -2746,10 +3033,12 @@
   width: var(--notice-width);
   max-height: 85vh;
   padding: 0;
+  overflow: hidden;
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-lg);
   background: var(--color-surface-raised);
   color: var(--color-text);
-  border: var(--border-width-strong) solid var(--color-border);
-  box-shadow: var(--shadow-hard);
+  box-shadow: var(--shadow-3);
 }
 
 .notice::backdrop {
@@ -2762,7 +3051,7 @@
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
-  border-bottom: var(--border-width-strong) solid var(--color-border);
+  border-bottom: var(--border-width) solid var(--color-line);
 }
 
 .notice__title {
@@ -2772,7 +3061,8 @@
 
 .notice__close {
   background: none;
-  border: var(--border-width) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line-strong);
+  border-radius: var(--radius-full);
   color: var(--color-text);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -2835,7 +3125,7 @@
 
 .notice__table th,
 .notice__table td {
-  border: var(--border-width) solid var(--color-border);
+  border: var(--border-width) solid var(--color-line);
   padding: var(--space-2) var(--space-3);
   text-align: left;
   vertical-align: top;
@@ -2854,13 +3144,44 @@
 
 .notice__foot {
   padding: var(--space-3) var(--space-5);
-  border-top: var(--border-width-strong) solid var(--color-border);
+  border-top: var(--border-width) solid var(--color-line);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
 }
 
 .notice__foot a {
   color: var(--color-accent);
+}
+
+/*
+ * La ventana mediana.
+ *
+ * Entre `--bp-wide` y el teléfono el destacado sigue en dos columnas, pero con la
+ * portada al mínimo: a 1440 px la pila de portadas mide 24 rem y a 1100 medía lo
+ * mismo, así que la columna de texto se quedaba en un palmo. Por debajo de
+ * `--bp-wide` la portada se encoge a una tarjeta y el texto recupera su mitad.
+ *
+ * El número del destacado también baja: a este ancho el titular ya no es el
+ * elemento más grande de la pantalla y no tiene que gritarlo.
+ */
+@media (max-width: 1100px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, var(--cover-width));
+    gap: var(--space-5);
+    padding: var(--space-6);
+  }
+
+  .shell__main .hero__title {
+    font-size: var(--text-2xl);
+  }
+
+  .shell__main {
+    padding: var(--space-5) var(--space-6) var(--space-7);
+  }
+
+  .shell__header {
+    padding-inline: var(--space-6);
+  }
 }
 
 /*
@@ -2880,8 +3201,8 @@
 @media (max-width: 600px) {
   /* La cabecera, en una línea: el nombre encogido y el menú más junto. */
   .shell__header {
-    gap: var(--space-2);
-    padding: 0 var(--space-3);
+    gap: var(--space-3);
+    padding-inline: var(--space-4);
   }
 
   .shell__brand {
@@ -2889,27 +3210,53 @@
   }
 
   .shell__nav {
-    gap: var(--space-2);
+    gap: var(--space-1);
   }
 
   .shell__nav a {
+    padding: 0 var(--space-3);
     font-size: var(--text-sm);
     letter-spacing: 0;
   }
 
   .shell__main {
-    padding: var(--space-5) var(--space-3);
+    padding: var(--space-4) var(--space-4) var(--space-6);
+  }
+
+  /*
+   * El titular de una fila y su etiqueta, cada uno en su renglón.
+   *
+   * En una ventana de 390 px no caben los dos en la misma línea, así que la
+   * etiqueta se partía por dentro: seguía compartiendo la línea de base con el
+   * titular —eso lo hace `align-items: baseline`— pero su caja crecía un renglón
+   * y la pareja dejaba de leerse como una pareja. Medido: 20 px de diferencia
+   * entre los dos pies. Con la vuelta, la etiqueta baja entera.
+   */
+  .section__head {
+    flex-wrap: wrap;
+  }
+
+  /* El destacado, en una columna: a 360 px de ancho no caben el titular y una
+     portada, y lo que se estrecha es el titular. La pila de portadas baja debajo
+     del texto y se limita al ancho de una tarjeta. */
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+    padding: var(--space-5);
+  }
+
+  .hero__stack {
+    width: var(--cover-width);
+    max-width: 100%;
   }
 
   /*
    * Los mandos, debajo del video.
    *
    * Dejan de superponerse: con un video de 167 px de alto, una banda encima se
-   * come la imagen —y la barra de progreso, más alta que el video, aparecía por
-   * encima del marco, sobre el fondo de la página—. En el flujo, dentro del
-   * escenario, la barra de progreso va arriba y los botones debajo, y el botón
-   * grande de reproducir se centra en el video entero porque el marco es sólo el
-   * video.
+   * come la imagen. En el flujo, dentro del escenario, la barra de progreso va
+   * arriba y los botones debajo, y el botón grande de reproducir se centra en el
+   * video entero porque el marco es sólo el video.
    *
    * Tampoco se esconden solos: no tapan nada, así que esconderlos sería quitar el
    * mando sin ganar nada.
@@ -2919,6 +3266,8 @@
     position: static;
     gap: var(--gap-compact);
     padding: var(--space-2) 0 0;
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
     background: none;
     opacity: 1;
     pointer-events: auto;

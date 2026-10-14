@@ -10,11 +10,26 @@
  *
  * ## La lengua visual
  *
- * Tema oscuro casi negro con **bordes gruesos color crema** y **sombras duras
- * desplazadas** —sin desenfoque— en vez de sombras difusas. Los radios son cero:
- * la rejilla es recta y los marcos hacen el trabajo que en otros diseños hace la
- * elevación. El acento es un naranja encendido que se usa para lo activo y para
- * el borde de las tarjetas, no para decorar.
+ * Tema oscuro casi negro con **superficies apenas más claras que el fondo**,
+ * **líneas finas** y **elevación difusa**. El acento sigue siendo un naranja
+ * encendido y se usa para lo activo —el borde de la tarjeta bajo el puntero, el
+ * mando principal, el tramo reproducido—, no para decorar.
+ *
+ * Antes esto era otra cosa: bordes gruesos color crema en cada tarjeta, sombras
+ * duras desplazadas sin desenfoque y radios cero. En una rejilla de seis
+ * columnas eso son cientos de marcos de dos píxeles compitiendo, y la página se
+ * leía como un muro de cajas. La identidad —fondo oscuro, acento naranja,
+ * titulares en la fuente de display, etiquetas en monoespaciada— es la misma; lo
+ * que cambió es **cuánta tinta hace falta para decir lo mismo**.
+ *
+ * Por eso hay dos colores de línea y no uno:
+ *
+ * - `--color-border` es la **tinta**: el trazo de acento sobre el que se apoya
+ *   la identidad —el marco de la portada del destacado, el tirador de la barra
+ *   de progreso, las teclas de la ayuda, el pulgar del volumen—. Se ve poco y
+ *   se ve a propósito.
+ * - `--color-line` es la **estructura**: la línea de una tarjeta, el filo de un
+ *   panel, la separación entre secciones. Sostiene sin pedir atención.
  *
  * ## Las fuentes
  *
@@ -30,8 +45,8 @@
 :root {
   /* Color, tema oscuro por defecto */
   --color-bg: #0c0c10;
-  --color-surface: #16161d;
-  --color-surface-raised: #1f1f28;
+  --color-surface: #14141a;
+  --color-surface-raised: #1e1e27;
   --color-border: #f2e9d8;
   --color-text: #f2e9d8;
   --color-text-dim: #a9a293;
@@ -43,6 +58,33 @@
   /** El fondo de las etiquetas activas y del cartel de un día con estreno. */
   --color-highlight: #ff4a2e;
   /**
+   * La estructura: el filo de una tarjeta y la línea que separa dos secciones.
+   *
+   * Va en hexadecimal de seis dígitos y no con alfa para que la prueba de
+   * contraste lo vea: con `rgb(… / 8%)` sería invisible para ella y el tema
+   * claro podría olvidarse de definirlo sin que nadie se enterara.
+   *
+   * Los dos temas quedan sobre 1.5:1 contra su fondo. No llega al 3:1 que pide
+   * el apartado de componentes de WCAG 1.4.11, y es a propósito: esto **no es el
+   * borde de un mando**, es la línea de una sección. Llevarlo a 3:1 obliga a un
+   * gris medio —un filo de tinta— que devuelve la página al muro de cajas del que
+   * venimos. Lo que sí se mide es que los dos temas se vean igual: si uno se
+   * aclarara y el otro no, el mismo diseño tendría dos grises distintos.
+   */
+  --color-line: #31313d;
+  /**
+   * El filo de lo que se pulsa: el borde de un botón, de un campo, de una
+   * pastilla de género, del carril del volumen.
+   *
+   * **Este sí llega al 3:1** que WCAG 1.4.11 pide para las partes de un
+   * componente —3.16:1 medido contra el fondo—, y por eso es un gris más claro
+   * que `--color-line`: un borde que se ve igual que la estructura deja un mando
+   * con el mismo aspecto que un párrafo, y una pastilla de género que no se
+   * distingue de una frase se lee como un botón deshabilitado. Los paneles y los
+   * diálogos **no** usan éste: traen su sombra ancha y su filo es estructura.
+   */
+  --color-line-strong: #606070;
+  /**
    * El texto que va encima del velo y del degradado de los mandos.
    *
    * No es `--color-text`: el degradado es negro en los dos temas —lo que hay
@@ -53,7 +95,7 @@
 
   /* El velo del diálogo y su ancho. Ninguno de los dos es un color de texto, así
      que no entran en los pares de contraste que se miden. */
-  --overlay: rgb(0 0 0 / 60%);
+  --overlay: rgb(0 0 0 / 65%);
   --notice-width: min(48rem, 92vw);
 
   /* Portadas de relleno: dos colores en diagonal, como el diseño de referencia.
@@ -75,11 +117,18 @@
   --space-7: 3rem;
   --space-8: 4rem;
 
-  /* Radios: cero. Los marcos rectos son la lengua visual. */
-  --radius-sm: 0;
-  --radius-md: 0;
-  --radius-lg: 0;
-  --radius-full: 0;
+  /**
+   * Radios: una escala corta y usada con criterio.
+   *
+   * `sm` es para lo que se apoya en otra cosa —una tarjeta dentro de un panel,
+   * un campo—; `md` para lo que flota solo; `lg` para el destacado, que es una
+   * pieza y se lee como tal; `full` para los mandos y las etiquetas, donde la
+   * forma redonda dice «esto se pulsa».
+   */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
 
   /* Tipografía */
   --font-display: "Bricolage Grotesque", "Arial Black", "Helvetica Neue", system-ui, sans-serif;
@@ -90,29 +139,48 @@
   --text-sm: 0.8125rem;
   --text-md: 0.9375rem;
   --text-lg: 1.125rem;
-  --text-xl: 1.5rem;
-  --text-2xl: 2.25rem;
-  --text-3xl: 3.5rem;
-  /** El número del top: enorme y sin relleno, como en el diseño. */
-  --text-number: 7rem;
-  --number-stroke: 3px;
+  /**
+   * La escala de titulares, bajada a propósito.
+   *
+   * Estaba en 1.5 / 2.25 / 3.5 rem y **todo** gritaba con la misma fuerza: el
+   * titular de la página, los de las filas, los géneros y el nombre del título
+   * en el reproductor. Cuando siete cosas son titulares, ninguna lo es. La
+   * jerarquía se hace ahora con escala —cuatro pasos, del titular de la página
+   * al nombre de una tarjeta— y con la familia, no con el volumen.
+   */
+  --text-xl: 1.375rem;
+  --text-2xl: 1.875rem;
+  --text-3xl: 2.75rem;
+  /** El número del top: grande y sin relleno, lo justo para una portada de 11.5 rem. */
+  --text-number: 4.5rem;
+  --number-stroke: 2px;
+  /**
+   * El halo del número del top.
+   *
+   * El número es un contorno sin relleno y va encima de una portada, que puede ser
+   * amarilla, rosa o naranja: sobre las claras el contorno crema se perdía y el
+   * puesto dejaba de leerse. El halo es una sombra del color del fondo —difusa, sin
+   * desplazamiento— que separa el trazo de lo que tenga debajo, sea lo que sea. Es
+   * la misma idea que el velo del borde de un riel: el elemento no elige su fondo,
+   * así que tiene que traer su propio contraste.
+   */
+  --number-halo: 2px;
   --leading-tight: 1.05;
   --leading-normal: 1.45;
   /** Interletrado de las etiquetas: mono, mayúsculas y separadas. */
   --tracking-label: 0.08em;
-  /** Interletrado de los titulares: apretado, como el diseño de referencia. */
-  --tracking-display: -0.03em;
+  /** Interletrado de los titulares: apretado, pero sin apelotonar la minúscula. */
+  --tracking-display: -0.02em;
 
-  /* Elevación: dura y desplazada, sin desenfoque */
-  --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
-  --shadow-2: 0 8px 24px rgb(0 0 0 / 45%);
-  --shadow-hard: 6px 6px 0 var(--color-border);
-  --shadow-hard-accent: 6px 6px 0 var(--color-accent);
-  --shadow-hard-sm: 4px 4px 0 var(--color-accent);
-  /** La sombra del botón activo. No repite el relleno: si lo repitiera, el
-      botón se leería como dos botones, uno detrás de otro. */
-  --shadow-hard-pressed: 4px 4px 0 var(--color-border);
-  --shadow-offset-hover: 2px;
+  /* Elevación: difusa y en tres pasos. Es el sistema, no un adorno: `1` es una
+     pieza apoyada, `2` una que se levanta bajo el puntero, `3` lo que flota
+     sobre la página —un menú, un diálogo—. */
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow-2: 0 8px 20px rgb(0 0 0 / 40%);
+  --shadow-3: 0 18px 40px rgb(0 0 0 / 55%);
+  /** Lo que sube una tarjeta al pasar el puntero. Es un token porque es la
+      misma cantidad en las seis rejillas y en el reproductor. */
+  --lift-hover: -2px;
 
   /* Foco y movimiento */
   --focus-ring: 2px solid var(--color-accent);
@@ -134,21 +202,69 @@
   --border-width: 1px;
   --border-width-strong: 2px;
   --grid-min: 11rem;
-  --skeleton-height: 14rem;
+  --skeleton-height: 20rem;
   --skeleton-dim: 0.45;
   --cover-ratio: 2 / 3;
-  --cover-width: 11rem;
+  /**
+   * El ancho de una portada.
+   *
+   * Es a la vez el mínimo de una columna de rejilla y el ancho de una tarjeta
+   * en un riel, y por eso mide lo que mide: 11.5 rem deja siete portadas en el
+   * ancho de la página en escritorio —el número al que una fila se lee de un
+   * vistazo sin que las portadas se vuelvan sellos—.
+   */
+  --cover-width: 11.5rem;
+  /**
+   * El filo del carril de una fila.
+   *
+   * Los navegadores no dejan darle al carril desplazable de una fila el grosor
+   * `thin` —que es lo que pide Firefox—, así que el alto va aquí y se repite en
+   * el `::-webkit-scrollbar`. Seis píxeles: se ve que hay más a la derecha sin
+   * que la barra compita con las portadas.
+   */
+  --rail-scrollbar-height: 6px;
+  /**
+   * El velo del borde de un riel.
+   *
+   * Lo que sobra de una fila se desplaza en horizontal, y una portada cortada a
+   * media altura en el borde derecho se lee como un fallo de composición y no
+   * como «aquí hay más». El velo —un degradado que se aplica como máscara— dice
+   * lo mismo que el carril, y lo dice **siempre**: un navegador no pinta la barra
+   * de desplazamiento hasta que se desplaza, un sistema con las barras ocultas no
+   * la pinta nunca, y una captura de pantalla no la pinta jamás. Las tres reseñas
+   * del rediseño leyeron la tarjeta cortada como un recorte accidental.
+   *
+   * Va en tokens porque es un color, y la hoja de estructura no admite colores
+   * literales: en una máscara lo único que cuenta es el canal alfa, así que
+   * `#000` quiere decir «opaco» y no «negro».
+   */
+  --rail-fade: linear-gradient(to right, #000 calc(100% - var(--space-6)), transparent);
   /** Ancho de la barra lateral de la ficha y de la miniatura de un relacionado. */
-  --aside-width: 17rem;
+  --aside-width: 18rem;
   --thumb-width: 3rem;
   /** Ancho de la barra de progreso de un episodio en la ficha. */
   --progress-width: 6rem;
   /** Ancho de la barra de volumen del reproductor: un mando, no una pista. */
   --volume-width: 8rem;
-  /** Ancho máximo de la portada del cartel de destacado. */
-  --hero-poster-width: 22rem;
+  /**
+   * Ancho máximo de la portada del cartel de destacado.
+   *
+   * 20 rem y no 24: con 24 la pila medía 576 px de alto y el destacado se comía la
+   * primera pantalla entera —la primera fila de la home quedaba por debajo del
+   * pliegue—. A 20 rem el cartel mide 480 px y la portada sigue siendo el doble de
+   * ancha que una tarjeta de fila.
+   */
+  --hero-poster-width: 20rem;
   --video-ratio: 16 / 9;
   --title-clamp: 2;
+  /**
+   * Las líneas de sinopsis que caben en el destacado.
+   *
+   * Tres y no todas: el cartel es una invitación y la sinopsis entera vive en la
+   * ficha. Con el texto completo, un título con un párrafo largo empujaba los
+   * botones fuera de la primera pantalla, que es donde tienen que estar.
+   */
+  --synopsis-clamp: 3;
   /**
    * La pantalla de reproducción.
    *
@@ -173,15 +289,20 @@
   --watch-list-height: 30rem;
   /** El lado mínimo de un mando: 44 px, el objetivo táctil que pide el spec. */
   --control-size: 2.75rem;
+  /** El alto de un campo de texto. Un dedo más que un mando: es donde se
+      escribe, y en escritorio el cursor necesita su aire. */
+  --field-height: 3.25rem;
   /**
-   * Los dos puntos de corte de la interfaz.
+   * Los puntos de corte de la interfaz.
    *
    * `var()` no existe dentro de un `@media`, así que el número se repite en la
    * consulta; aquí queda el valor con nombre y la prueba de la hoja comprueba que
-   * los dos coincidan. `--bp-mobile` es donde el reproductor deja de superponer
+   * los dos coincidan. `--bp-wide` es donde el destacado deja de caber en dos
+   * columnas con holgura; `--bp-mobile` es donde el reproductor deja de superponer
    * los mandos al video; `--bp-compact`, donde no caben los saltos de diez
    * segundos.
    */
+  --bp-wide: 1100px;
   --bp-mobile: 600px;
   --bp-compact: 480px;
   /** El mando estrecho y su hueco: 40 px y 6 px, para que quepan en una fila. */
@@ -235,7 +356,7 @@
   /**
    * El menú de ajustes del reproductor.
    *
-   * 240 px: lo que mide el mando que lo abre más un dedo. Se ancla **encima** del
+   * 15 rem: lo que mide el mando que lo abre más un dedo. Se ancla **encima** del
    * botón y con ancho fijo, para que no cambie de tamaño con lo que lleve dentro
    * ni se salga de la ventana en un teléfono. El alto es tope: una lista de
    * subtítulos larga se desplaza por dentro en vez de empujar el menú.
@@ -243,16 +364,26 @@
   --menu-width: 15rem;
   --menu-height: 24rem;
   --letter-tight: -0.01em;
-  --content-max: 1200px;
-  --header-height: 3.5rem;
+  /**
+   * El ancho de la columna de contenido.
+   *
+   * 1440 px y no 1200: en un monitor de 1920 el contenido se quedaba en dos
+   * tercios de la ventana con una franja muerta a cada lado, y los rieles de la
+   * home —que es donde se ve— perdían dos portadas. El encabezado se alinea con
+   * esta columna en vez de ser una barra más ancha que su propio contenido.
+   */
+  --content-max: 1440px;
+  --header-height: 4rem;
   --measure-wide: 60rem;
   --measure: 60ch;
-  /** La capa del encabezado pegajoso. El contenido va debajo y no puede
-      empatarle: una insignia de tarjeta es un elemento flex, y un `z-index`
-      distinto de `auto` en un elemento flex crea contexto de apilado aunque su
-      `position` sea `static`, así que la insignia y los números del top se
-      dibujaban **encima** de la barra al desplazarse. Con el mismo valor gana el
-      que va después en el documento, y ése es el contenido. */
+  /**
+   * La capa del encabezado pegajoso. El contenido va debajo y no puede
+   * empatarle: una insignia de tarjeta es un elemento flex, y un `z-index`
+   * distinto de `auto` en un elemento flex crea contexto de apilado aunque su
+   * `position` sea `static`, así que la insignia y los números del top se
+   * dibujaban **encima** de la barra al desplazarse. Con el mismo valor gana el
+   * que va después en el documento, y ése es el contenido.
+   */
   --layer-header: 10;
 }
 
@@ -269,16 +400,25 @@
   --color-danger: #a32222;
   --color-success: #1d6b3f;
   --color-highlight: #c62f16;
+  /* En claro la estructura es una línea de papel y no una de humo: el mismo gris
+     casi negro no valdría —un filo oscuro sobre crema vuelve a dibujar el muro
+     de cajas— y por eso no hay un `--color-line` compartido entre los dos temas.
+     Lo que sí se mide es que se vea y que se vea **lo mismo que en oscuro**:
+     `#e2ddd2` quedaba en 1.1:1 y las líneas de sección desaparecían; `#d9d2c3`
+     seguía quedando por debajo del oscuro. Aquí el par queda sobre 1.6:1. */
+  --color-line: #cfc7b6;
+  /**
+   * El filo de lo que se pulsa, también en claro: 3.16:1 contra el fondo, el
+   * mismo número que en oscuro. Un borde de mando que se aclara en el tema claro
+   * es un mando que desaparece justo donde el contraste del resto es mayor.
+   */
+  --color-line-strong: #948c7c;
   /* El degradado de los mandos es negro también en tema claro: el texto que va
      encima sigue siendo crema. */
   --color-on-overlay: #f2e9d8;
-  --shadow-1: 0 1px 2px rgb(12 12 16 / 12%);
-  --shadow-2: 0 8px 24px rgb(12 12 16 / 18%);
-  /* En claro la sombra dura va en negro: el acento sobre crema no se distingue. */
-  --shadow-hard: 6px 6px 0 var(--color-border);
-  --shadow-hard-accent: 6px 6px 0 var(--color-border);
-  --shadow-hard-sm: 4px 4px 0 var(--color-border);
-  --shadow-hard-pressed: 4px 4px 0 var(--color-border);
+  --shadow-1: 0 1px 2px rgb(12 12 16 / 10%);
+  --shadow-2: 0 8px 20px rgb(12 12 16 / 14%);
+  --shadow-3: 0 18px 40px rgb(12 12 16 / 20%);
 }
 
 @media (prefers-reduced-motion: reduce) {
