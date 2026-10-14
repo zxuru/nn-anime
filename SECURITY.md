@@ -25,6 +25,7 @@ prueba que lo sostiene.
 | Un alta de proveedor pisa un archivo que ya existe | La escritura lleva `flag: 'wx'`: decide el sistema de archivos, no una comprobación previa que puede quedar vieja | S4 |
 | El navegador guarda en disco las rutas del usuario | `Cache-Control: no-store` en `GET /api/settings`, que es la única respuesta que las lleva | S8 |
 | Un upstream que deja de responder mantiene la conexión abierta | Vigilante de inactividad de 30 s que se rearma con cada trozo: corta el silencio, no la reproducción | S9 |
+| Un sitio corta la conexión antes de contestar y deja la petición del plugin colgada —con el proceso a un 100 % de CPU— | La capacidad **rechaza** cuando la conexión termina sin una respuesta completa, y el plazo la corta igual; y la petición no se medio cierra, que es lo que provoca ese corte en algunos servidores | T111 |
 | Un valor de cabecera inyecta argumentos en `mpv` | Nombre validado con `^[A-Za-z0-9-]+$`, valor sin caracteres de control, argumentos en array y `--no-config` | T29, T29a |
 | Una URL de video se filtra al cliente | Tickets opacos en memoria: el cliente nunca ve la dirección del upstream | T25 |
 | Una petición sin cookie lee el video | Sólo bajo `/stream/:ticket`, y con un ticket vivo: es la credencial que `mpv` sí puede presentar, porque no tiene cookie. 192 bits de CSPRNG, 600 s y tope de 500; no abre `/api/*` ni otra ruta | T73 |
