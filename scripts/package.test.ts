@@ -208,12 +208,59 @@ describe('las plantillas de los instaladores', () => {
     expect(() => render('nn-anime __VERSION__ __ARCH__', { VERSION: '1.2.3' })).toThrow(/__ARCH__/)
   })
 
-  test('las plantillas del repositorio se pueden rellenar con lo que reciben', async () => {
-    const nfpm = await template('linux/nfpm.yaml')
+  test('el nfpm.yaml del repositorio se rellena y queda con las dependencias medidas', async () => {
+    // `render` falla si queda un marcador sin valor, así que llegar hasta aquí ya
+    // comprueba que la plantilla y quien la rellena dicen lo mismo.
+    const texto = render(await template('linux/nfpm.yaml'), {
+      ARCH: 'amd64',
+      VERSION: '1.2.3',
+      BINARY: '/tmp/nn-anime',
+      DESKTOP: '/tmp/nn-anime.desktop',
+      ICON: '/tmp/icon.png',
+    })
 
-    expect(nfpm).toContain('__VERSION__')
-    // Sin `rpm` en los overrides, el `.rpm` saldría sin dependencia de glibc.
-    expect(nfpm).toContain('overrides:')
-    expect(nfpm).toContain('rpm:')
+    const yaml = Bun.YAML.parse(texto) as {
+      name: string
+      arch: string
+      version: string
+      contents: readonly { dst: string; type?: string }[]
+      overrides: Record<string, { depends?: readonly string[] }>
+    }
+
+    expect(yaml.name).toBe('nn-anime')
+    expect(yaml.arch).toBe('amd64')
+    expect(yaml.version).toBe('1.2.3')
+
+    // Los nombres de la dependencia cambian entre los dos formatos, y la versión
+    // es la que el binario pide de verdad —`GLIBC_2.17`, leída de sus símbolos
+    // versionados—. Sin `overrides`, el `.rpm` saldría sin declarar glibc.
+    expect(yaml.overrides.deb?.depends).toEqual(['libc6 (>= 2.17)'])
+    expect(yaml.overrides.rpm?.depends).toEqual(['glibc >= 2.17'])
+
+    // El binario a `/usr/lib`, el enlace en `/usr/bin`, y el acceso y el icono
+    // donde los busca el escritorio.
+    expect(yaml.contents.map((entrada) => entrada.dst)).toEqual([
+      '/usr/lib/nn-anime/nn-anime',
+      '/usr/bin/nn-anime',
+      '/usr/share/applications/nn-anime.desktop',
+      '/usr/share/icons/hicolor/512x512/apps/nn-anime.png',
+    ])
+    expect(yaml.contents[1]?.type).toBe('symlink')
+  })
+
+  test('el Info.plist del repositorio se rellena y no declara la aplicación como agente', async () => {
+    const texto = render(await template('macos/Info.plist'), {
+      VERSION: '1.2.3',
+      BUNDLE_VERSION: '1.2.3.0',
+    })
+
+    expect(texto).toContain('<string>io.github.zxuru.nn-anime</string>')
+    expect(texto).toContain('<string>nn-anime</string>')
+    expect(texto).toContain('<string>1.2.3.0</string>')
+    // `LSUIElement` convertiría la aplicación en un agente sin icono en el Dock,
+    // y el Dock es lo único desde donde se puede cerrar: no es una aplicación de
+    // Cocoa y no tiene menú ni «Salir». Se busca la **clave** y no la palabra: la
+    // plantilla la nombra en un comentario para contar justo esto.
+    expect(texto).not.toContain('<key>LSUIElement</key>')
   })
 })
