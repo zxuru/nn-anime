@@ -347,6 +347,14 @@ export function encodeIcns(images: readonly IconImage[]): Uint8Array {
 /** Los tamaños que se generan, de menor a mayor. */
 export const SIZES: readonly number[] = [16, 32, 48, 64, 128, 256, 512, 1024]
 
+/**
+ * El nombre del `.ico` del instalador de Windows.
+ *
+ * Aparte del otro porque NSIS no admite la entrada de 256 px: la escribe como un
+ * cero y aborta con «invalid icon file size». Ver `main`.
+ */
+export const SETUP_ICON_NAME = 'icon-setup.ico'
+
 async function main(): Promise<void> {
   await mkdir(ICONS, { recursive: true })
 
@@ -366,10 +374,27 @@ async function main(): Promise<void> {
   if (maestro !== undefined) await Bun.write(join(ICONS, 'icon.png'), maestro.png)
 
   await Bun.write(join(ICONS, 'icon.ico'), encodeIco(images.filter((image) => image.size <= 256)))
+
+  // El `.ico` del instalador, **sin la entrada de 256**.
+  //
+  // NSIS no admite un icono de 256 px en un `.ico`: ese tamaño no cabe en el byte
+  // del directorio y se escribe como un cero, y `makensis` aborta con «invalid
+  // icon file size» al cargar el `MUI_ICON`. Medido en la primera ejecución del
+  // CI, que es donde se compila el `.nsi`.
+  //
+  // El `.ico` grande sigue instalándose como archivo —de ahí lo cogen el
+  // explorador, los accesos y «Agregar o quitar programas»—, pero el instalador
+  // lleva el suyo.
+  await Bun.write(
+    join(ICONS, SETUP_ICON_NAME),
+    encodeIco(images.filter((image) => image.size <= 64)),
+  )
+
   await Bun.write(join(ICONS, 'icon.icns'), encodeIcns(images))
 
   process.stdout.write(`iconos escritos en ${ICONS}\n`)
   process.stdout.write(`  tamaños: ${SIZES.join(', ')}\n`)
+  process.stdout.write(`  instalador de Windows: ${SETUP_ICON_NAME}\n`)
 }
 
 if (import.meta.main) {

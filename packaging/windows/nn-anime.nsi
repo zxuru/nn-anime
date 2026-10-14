@@ -39,6 +39,16 @@ Unicode true
   !define ICON ""
 !endif
 
+; El icono del asistente, que **no** es el mismo que el que se instala.
+;
+; NSIS no admite un `.ico` con la entrada de 256 px —la escribe como un cero y
+; aborta con «invalid icon file size»—, así que el asistente lleva uno sin ese
+; tamaño y el programa instala el completo, que es el que usan el explorador, los
+; accesos y «Agregar o quitar programas».
+!ifndef MUIICON
+  !define MUIICON ""
+!endif
+
 !define APP_NAME "nn-anime"
 !define APP_EXE "nn-anime.exe"
 !define APP_ICO "nn-anime.ico"
@@ -64,11 +74,14 @@ VIAddVersionKey "LegalCopyright" "${APP_NAME}"
 ; El icono sólo si existe: `MUI_ICON` con una ruta que no está rompe la
 ; compilación, y quedarse sin icono no es motivo para no publicar.
 !if "${ICON}" != ""
-  !define MUI_ICON "${ICON}"
-  !define MUI_UNICON "${ICON}"
   !define ACCESO_ICONO "$INSTDIR\${APP_ICO}"
 !else
   !define ACCESO_ICONO "$INSTDIR\${APP_EXE}"
+!endif
+
+!if "${MUIICON}" != ""
+  !define MUI_ICON "${MUIICON}"
+  !define MUI_UNICON "${MUIICON}"
 !endif
 
 !insertmacro MUI_PAGE_WELCOME

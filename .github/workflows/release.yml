@@ -234,6 +234,12 @@ jobs:
       - name: Preparar las herramientas de empaquetado
         uses: ./.github/actions/herramientas
 
+      # El espacio libre, por si `hdiutil` se queda sin sitio: sin este número, el fallo es «No space
+      # left on device» y no se sabe de qué volumen.
+      - name: Espacio en disco (macOS)
+        if: runner.os == 'macOS'
+        run: df -h
+
       # --- El instalador, ya con el ejecutable firmado --------------------
       - name: Armar el instalador
         env:

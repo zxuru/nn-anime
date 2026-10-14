@@ -8,6 +8,21 @@ import { render, template } from './package/render'
 import { listWorkspaces, ROOT } from './workspaces'
 
 /**
+ * Un directorio temporal, dentro del repositorio y con su padre asegurado.
+ *
+ * `mkdtemp` **no crea el directorio padre**, y `.tmp/` no existe en un checkout
+ * limpio: en el CI esto fallaba con `ENOENT` sólo a veces, según qué otro archivo
+ * de prueba hubiera creado `.tmp` antes. Una prueba que pasa o falla según el
+ * orden en que corran las demás no mide nada.
+ */
+async function tempDir(prefijo: string): Promise<string> {
+  const base = join(ROOT, '.tmp')
+  await mkdir(base, { recursive: true })
+
+  return await mkdtemp(join(base, prefijo))
+}
+
+/**
  * Lo que estas pruebas defienden.
  *
  * El empaquetado tiene dos contratos que **no fallan cuando se rompen**: si el
@@ -139,7 +154,7 @@ describe('la versión de cuatro números', () => {
 
 describe('los checksums', () => {
   test('cada línea lleva el hash y el nombre, comprobable con sha256sum -c', async () => {
-    const dir = await mkdtemp(join(ROOT, '.tmp', 'checksums-'))
+    const dir = await tempDir('checksums-')
 
     try {
       await writeFile(join(dir, 'uno.bin'), 'contenido uno')
@@ -170,7 +185,7 @@ describe('los checksums', () => {
   })
 
   test('el resumen no se resume a sí mismo', async () => {
-    const dir = await mkdtemp(join(ROOT, '.tmp', 'checksums-'))
+    const dir = await tempDir('checksums-')
 
     try {
       await writeFile(join(dir, 'uno.bin'), 'contenido')
@@ -183,7 +198,7 @@ describe('los checksums', () => {
   })
 
   test('un archivo vacío se rechaza: su hash sería válido y el release estaría roto', async () => {
-    const dir = await mkdtemp(join(ROOT, '.tmp', 'checksums-'))
+    const dir = await tempDir('checksums-')
 
     try {
       await writeFile(join(dir, 'vacio.exe'), '')
@@ -267,7 +282,7 @@ describe('las plantillas de los instaladores', () => {
 
 describe('lo que se publica', () => {
   test('un directorio en el directorio de la release se rechaza', async () => {
-    const dir = await mkdtemp(join(ROOT, '.tmp', 'release-'))
+    const dir = await tempDir('release-')
 
     try {
       await writeFile(join(dir, 'nn-anime-1.2.3-windows-x64-setup.exe'), 'instalador')
@@ -283,7 +298,7 @@ describe('lo que se publica', () => {
   })
 
   test('sólo archivos sueltos pasa, y los devuelve', async () => {
-    const dir = await mkdtemp(join(ROOT, '.tmp', 'release-'))
+    const dir = await tempDir('release-')
 
     try {
       await writeFile(join(dir, 'nn-anime-1.2.3-macos-arm64.dmg'), 'disco')
@@ -298,6 +313,36 @@ describe('lo que se publica', () => {
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
+  })
+})
+
+describe('el icono del instalador de Windows', () => {
+  /** Los anchos que declara el directorio de un `.ico`. Un cero significa 256. */
+  async function anchos(nombre: string): Promise<readonly number[]> {
+    const bytes = new Uint8Array(
+      await Bun.file(join(ROOT, 'packaging', 'icons', nombre)).arrayBuffer(),
+    )
+    const entradas = bytes[4] ?? 0
+
+    return Array.from({ length: entradas }, (_, i) => bytes[6 + i * 16] ?? 0)
+  }
+
+  test('el del asistente no lleva el de 256, que NSIS escribe como un cero y rechaza', async () => {
+    const tamanos = await anchos('icon-setup.ico')
+
+    // Medido: con la entrada de 256 dentro, `makensis` aborta al cargar el
+    // `MUI_ICON` con «invalid icon file size» —el tamaño de 256 no cabe en el byte
+    // del directorio y se escribe como un cero—. El instalador que falló en la
+    // primera ejecución del CI fue justo este.
+    expect(tamanos.length).toBeGreaterThan(0)
+    expect(tamanos).not.toContain(0)
+    expect(Math.max(...tamanos)).toBeLessThanOrEqual(64)
+  })
+
+  test('el que se instala sí lleva el de 256, que es el que enseña el explorador', async () => {
+    const tamanos = await anchos('icon.ico')
+
+    expect(tamanos).toContain(0)
   })
 })
 

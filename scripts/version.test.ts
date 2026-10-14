@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   divergences,
@@ -11,6 +11,21 @@ import {
   writeVersion,
 } from './version'
 import { ROOT } from './workspaces'
+
+/**
+ * Un directorio temporal, dentro del repositorio y con su padre asegurado.
+ *
+ * `mkdtemp` **no crea el directorio padre**, y `.tmp/` no existe en un checkout
+ * limpio: en el CI esto fallaba con `ENOENT` sólo a veces, según qué otro archivo
+ * de prueba hubiera creado `.tmp` antes. Una prueba que pasa o falla según el
+ * orden en que corran las demás no mide nada.
+ */
+async function tempDir(prefijo: string): Promise<string> {
+  const base = join(ROOT, '.tmp')
+  await mkdir(base, { recursive: true })
+
+  return await mkdtemp(join(base, prefijo))
+}
 
 /**
  * Lo que estas pruebas defienden.
@@ -90,7 +105,7 @@ describe('la reescritura de un manifiesto', () => {
   })
 
   test('un manifiesto con otro formato se rechaza en vez de reformatearse', async () => {
-    const dir = await mkdtemp(join(ROOT, '.tmp', 'version-'))
+    const dir = await tempDir('version-')
 
     try {
       const path = join(dir, 'package.json')
@@ -107,7 +122,7 @@ describe('la reescritura de un manifiesto', () => {
   })
 
   test('escribir la versión que ya está no toca el archivo', async () => {
-    const dir = await mkdtemp(join(ROOT, '.tmp', 'version-'))
+    const dir = await tempDir('version-')
 
     try {
       const path = join(dir, 'package.json')

@@ -16,7 +16,7 @@
  */
 
 import { existsSync } from 'node:fs'
-import { chmod, copyFile, cp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { chmod, copyFile, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ROOT } from '../workspaces'
 import { dottedVersion } from './binary'
@@ -125,39 +125,76 @@ export interface DmgResult {
  * y el workflow lo deja escrito en el resumen, que es donde se lee.
  */
 export async function macDmg(options: MacOptions): Promise<DmgResult> {
-  const app = await macBundle(options)
-  const staging = join(options.workDir, 'dmg')
+  const imagen = join(options.workDir, 'nn-anime-rw.dmg')
+  const montaje = join(options.workDir, 'montaje')
   const dmg = join(options.releaseDir, options.dmgName)
 
-  await rm(staging, { recursive: true, force: true })
+  await rm(imagen, { force: true })
   await rm(dmg, { force: true })
-  await mkdir(staging, { recursive: true })
+  await rm(montaje, { recursive: true, force: true })
+  await mkdir(montaje, { recursive: true })
 
-  await cp(app, join(staging, 'nn-anime.app'), { recursive: true })
-  await symlink('/Applications', join(staging, 'Applications'))
-
+  // El tamaño se dice **explícitamente** en vez de dejar que hdiutil lo adivine
+  // con `-srcfolder`. Medido en la primera ejecución del CI: con `-srcfolder` el
+  // cálculo salió mal —`hdiutil: create failed - No space left on device` y
+  // después un volumen demasiado pequeño hasta para la propia aplicación—. Con un
+  // tamaño fijo no hay nada que calcular, y lo que sobre se recorta al convertir
+  // a UDZO, que es donde se comprime de verdad.
   await run(
     [
       'hdiutil',
       'create',
+      '-size',
+      imageSize(options.binary),
       '-volname',
       'nn-anime',
-      '-srcfolder',
-      staging,
       '-ov',
-      '-format',
-      'UDZO',
-      dmg,
+      imagen,
     ],
-    options.releaseDir,
+    options.workDir,
   )
 
-  await rm(staging, { recursive: true, force: true })
+  await run(
+    ['hdiutil', 'attach', imagen, '-mountpoint', montaje, '-nobrowse', '-noautoopen'],
+    options.workDir,
+  )
+
+  try {
+    // El `.app` se arma **dentro de la imagen montada**. Así no hay una copia de
+    // 70 MB en el disco de trabajo, y el enlace a `/Applications` —que es el que
+    // deja arrastrar la aplicación— se crea donde tiene que verse y no en el
+    // árbol del que hdiutil saca el tamaño.
+    await macBundle({ ...options, workDir: montaje })
+    await symlink('/Applications', join(montaje, 'Applications'))
+  } finally {
+    // `-force` porque el volumen acaba de recibir un `.app` de 70 MB y el
+    // desmontaje normal a veces lo encuentra ocupado.
+    await run(['hdiutil', 'detach', montaje, '-force'], options.workDir)
+  }
+
+  await run(['hdiutil', 'convert', imagen, '-format', 'UDZO', '-ov', '-o', dmg], options.workDir)
+
+  await rm(imagen, { force: true })
+  await rm(montaje, { recursive: true, force: true })
 
   const firmado = options.unsigned === true ? false : await sign(dmg, options.releaseDir)
   const notarized = firmado && (await notarize(dmg, options.releaseDir))
 
   return { dmg, signed: firmado, notarized }
+}
+
+/**
+ * El tamaño de la imagen temporal, en la forma que entiende `hdiutil`.
+ *
+ * Tres veces lo que ocupa el ejecutable, con un suelo de 150 MB: el `.app` es el
+ * ejecutable, su `Info.plist` y un icono, así que el margen sobra y una versión
+ * que crezca no rompe la release por dos megabytes. Lo que no se use no viaja: el
+ * `.dmg` que se publica es el resultado de comprimir, no la imagen.
+ */
+export function imageSize(binary: string): string {
+  const mb = Math.ceil(Bun.file(binary).size / (1024 * 1024))
+
+  return `${Math.max(150, mb * 3)}m`
 }
 
 /** Envía el `.dmg` a notarizar y grapa el ticket. `false` si no hay credenciales. */

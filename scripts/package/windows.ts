@@ -19,6 +19,16 @@ import { dottedVersion, WINDOWS_ICON } from './binary'
 export const SCRIPT = join(ROOT, 'packaging', 'windows', 'nn-anime.nsi')
 
 /**
+ * El icono que lleva el **instalador**, aparte del que se instala.
+ *
+ * Son dos archivos y no uno porque NSIS no admite un `.ico` con la entrada de
+ * 256 px: la escribe como un cero y aborta con «invalid icon file size». El
+ * grande se instala como archivo —de ahí lo cogen el explorador y los accesos— y
+ * este otro es el que dibuja el asistente.
+ */
+export const SETUP_ICON = join(ROOT, 'packaging', 'icons', 'icon-setup.ico')
+
+/**
  * Dónde puede estar `makensis`.
  *
  * La imagen de GitHub lo trae instalado, pero no siempre en el `PATH`: sin esta
@@ -73,6 +83,7 @@ export function nsisArgs(options: WindowsInstallerOptions): readonly string[] {
     `/DSOURCE=${options.sourceDir}`,
     `/DOUTFILE=${options.outfile}`,
     ...(existsSync(WINDOWS_ICON) ? [`/DICON=${WINDOWS_ICON}`] : []),
+    ...(existsSync(SETUP_ICON) ? [`/DMUIICON=${SETUP_ICON}`] : []),
     SCRIPT,
   ]
 }
