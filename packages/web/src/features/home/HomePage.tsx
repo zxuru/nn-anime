@@ -28,7 +28,6 @@ import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import { usePath } from '../../router'
 import { useRecommendations } from '../recommendations/useRecommendations'
-import { ConmutadorTipo } from '../tipo/ConmutadorTipo'
 import {
   enElTipo,
   fuenteDeResumen,
@@ -166,17 +165,6 @@ export function HomePage(props: HomePageProps): ReactNode {
 
   return (
     <section className="home">
-      {/*
-        El conmutador va en su propia franja, encima de la marquesina y fuera de la
-        composición: mide lo que un mando —44 px, como el resto de la interfaz— y en
-        la cabecera, que mide 56, no cabe sin apretarla. Lo comparten la home y la
-        búsqueda, y el estado es el de la dirección, así que cambiar de mitad desde
-        la búsqueda conserva la consulta.
-      */}
-      <div className="franja-tipo">
-        <ConmutadorTipo />
-      </div>
-
       {/*
         El fallo va con el aviso entero y sin botón de reintentar: la home se
         relee sola al volver a la pestaña y cada dos minutos, así que un botón

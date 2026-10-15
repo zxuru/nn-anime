@@ -1,5 +1,6 @@
-import { expect, test } from '@playwright/test'
-import { entrar, esperarApp } from './fixtures'
+import { setTimeout as pausa } from 'node:timers/promises'
+import { expect, type Page, test } from '@playwright/test'
+import { BASE, entrar, esperarApp } from './fixtures'
 
 /**
  * La home del e2e.
@@ -173,6 +174,141 @@ test.describe('la home', () => {
 })
 
 /**
+ * La marquesina del destacado.
+ *
+ * Dos cosas que se ven en el navegador y no en un `renderToString`: que un titular
+ * larguísimo no crezca sin freno —va a cuerpo de cartel, y un nombre con subtítulo
+ * se comía la pantalla y dejaba los mandos fuera— y que la columna de texto **no se
+ * mueva** cuando llega la ficha, que es el salto que se veía al cargar: la sinopsis
+ * viaja en la ficha, llegaba tarde, y como la marquesina centra su texto, el titular
+ * subía de golpe.
+ */
+test.describe('la marquesina', () => {
+  /** Dónde está el titular y cuánto mide la marquesina, en coordenadas de la ventana. */
+  async function cajaDeLaMarquesina(page: Page): Promise<{ titulo: string; marquesina: string }> {
+    return page.evaluate(() => {
+      const caja = (selector: string): string => {
+        const nodo = document.querySelector(selector)
+        if (nodo === null) return 'no está'
+
+        const r = nodo.getBoundingClientRect()
+
+        return `${r.y.toFixed(2)} × ${r.x.toFixed(2)} ${r.width.toFixed(2)}×${r.height.toFixed(2)}`
+      }
+
+      return { titulo: caja('.marquesina__titulo'), marquesina: caja('.marquesina') }
+    })
+  }
+
+  /**
+   * Espera a que la vitrina termine de entrar.
+   *
+   * `.home > *` entra con un desplazamiento de seis píxeles, así que una medida
+   * tomada a mitad de camino sale movida. El bucle de la cinta no cuelga de aquí:
+   * `getAnimations()` no baja a los descendientes.
+   */
+  async function esperarLaEntrada(page: Page): Promise<void> {
+    await page.locator('.marquesina').evaluate(async (nodo) => {
+      await Promise.all(nodo.getAnimations().map((animacion) => animacion.finished))
+    })
+  }
+
+  test('un titular larguísimo no pasa de tres renglones', async ({ page }) => {
+    await entrar(page)
+
+    const medida = await page.evaluate(() => {
+      const titulo = document.querySelector('.marquesina__titulo')
+      if (titulo === null) return null
+
+      // El mismo texto dos veces: lo que se mide es el recorte, no el nombre que
+      // traiga el fixture, que hoy cabe en dos renglones.
+      titulo.textContent =
+        `${titulo.textContent ?? ''} con su segunda temporada y la película recapitulatoria, subtítulo incluido`.repeat(
+          2,
+        )
+
+      const estilo = getComputedStyle(titulo)
+
+      return {
+        alto: titulo.getBoundingClientRect().height,
+        linea: Number.parseFloat(estilo.lineHeight),
+      }
+    })
+
+    expect(medida, 'no hay titular en la marquesina').not.toBeNull()
+
+    // Tres renglones, con medio píxel de tolerancia por el redondeo del subpíxel.
+    expect(medida?.alto ?? 0).toBeLessThanOrEqual(3 * (medida?.linea ?? 0) + 0.5)
+    expect(medida?.alto ?? 0).toBeGreaterThan(2 * (medida?.linea ?? 0))
+  })
+
+  /**
+   * El titular, y todo lo que hay debajo, quietos mientras llegan los datos.
+   *
+   * La marquesina se pinta con lo primero que hay —un destacado de reserva, del
+   * feed— y después la completan dos respuestas: la recomendación, que trae el
+   * motivo, y la ficha, que trae la sinopsis y la referencia del primer episodio.
+   * Antes, cada una empujaba la columna de texto y el titular subía de golpe: se
+   * veía como un salto al cargar.
+   *
+   * Se retrasan las dos respuestas a propósito. Sin el retraso llegan antes de que
+   * se pueda medir el primer fotograma y el salto —si lo hubiera— no se vería.
+   *
+   * Lo que se mide es la caja del titular **y el alto de la marquesina**: el
+   * segundo es lo que dice que nada de lo que va debajo se ha movido.
+   *
+   * Se mide en dos ventanas, y no sólo en la ancha: en un teléfono el motivo ocupa
+   * dos renglones y los dos mandos no caben en la misma fila, así que la reserva de
+   * la hoja es otra. Medido a 360 px, con la reserva de la ventana ancha, la fila de
+   * mandos crecía 64 px al aparecer el botón de reproducir.
+   */
+  test('el titular y la marquesina no se mueven mientras llegan los datos', async ({ page }) => {
+    await page.route('**/api/recommendations**', async (ruta) => {
+      await pausa(1200)
+      await ruta.continue()
+    })
+    await page.route('**/api/anime/**', async (ruta) => {
+      await pausa(2400)
+      await ruta.continue()
+    })
+
+    for (const ancho of [1280, 360]) {
+      await page.setViewportSize({ width: ancho, height: 760 })
+
+      await page.goto(`${BASE}/`)
+      await page.waitForSelector('.marquesina__esqueleto', { timeout: 15_000 })
+      // La letra de la casa, ya cambiada: el intercambio de la del sistema por la
+      // nuestra mueve el titular por su cuenta y lo que se mide aquí es la ficha.
+      await page.evaluate(async () => {
+        await document.fonts.ready
+      })
+      // Y la entrada de la vitrina, que desplaza el bloque entero seis píxeles
+      // mientras entra. Medida a mitad, la primera versión de esta prueba daba tres
+      // píxeles de diferencia que eran de la animación y no de los datos.
+      await esperarLaEntrada(page)
+
+      const antes = await cajaDeLaMarquesina(page)
+      await expect(page.locator('.marquesina__esqueleto')).toBeVisible()
+
+      // La recomendación: cambia el destacado y aparece el motivo.
+      await expect(page.locator('.marquesina__motivo')).not.toBeEmpty()
+
+      const conRecomendacion = await cajaDeLaMarquesina(page)
+      await expect(page.locator('.marquesina__sinopsis')).toBeVisible({ timeout: 15_000 })
+
+      const conFicha = await cajaDeLaMarquesina(page)
+
+      for (const [momento, caja] of [
+        ['con la recomendación', conRecomendacion],
+        ['con la ficha', conFicha],
+      ] as const) {
+        expect(caja, `en ${ancho} px el titular se movió ${momento}`).toEqual(antes)
+      }
+    }
+  })
+})
+
+/**
  * El conmutador entre anime y películas.
  *
  * El fixture declara `media: 'both'` y su catálogo trae series y **una** película
@@ -187,7 +323,7 @@ test.describe('la home', () => {
 test.describe('el conmutador de tipo', () => {
   const PELICULA = '.pz__enlace[href*="el-jardin-de-hierro"]'
 
-  function elTop(page: import('@playwright/test').Page) {
+  function elTop(page: Page) {
     return page.locator('.seccion', {
       has: page.getByRole('heading', { name: 'Top de la fuente' }),
     })
@@ -195,6 +331,10 @@ test.describe('el conmutador de tipo', () => {
 
   test('la mitad vive en la dirección y cambia lo que se enseña', async ({ page }) => {
     await entrar(page)
+
+    // El mando, dentro de la cabecera: es donde vive desde que dejó la franja que
+    // tenía encima de la marquesina.
+    await expect(page.locator('.shell__header .conmutador')).toHaveCount(1)
 
     await expect(elTop(page).locator(PELICULA)).toHaveCount(0)
 
@@ -214,15 +354,16 @@ test.describe('el conmutador de tipo', () => {
   })
 
   /**
-   * La franja, en una ventana estrecha.
+   * El mando en una ventana estrecha: la cabecera envuelve y el carril cabe dentro.
    *
-   * El mando mide lo que el resto de mandos de la interfaz —44 px— y en la cabecera
-   * de 56 no cabía: esto mide que la franja propia no desborda a 360 px y que el
-   * conmutador sigue siendo pulsable, que es lo que promete la hoja.
+   * El mando mide lo que el resto de mandos de la interfaz —44 px— y su carril 54:
+   * no cabe en la misma línea que la marca y el menú, así que la cabecera envuelve
+   * y el conmutador baja a su propio renglón. Se mide que no haya desplazamiento
+   * horizontal, que el mando siga siendo pulsable y que **no asome** por arriba:
+   * la cabecera está pegada al borde de la ventana, así que un carril que la
+   * desborde se recorta contra ese borde y la píldora pierde su línea de arriba.
    */
-  test('en 360 px no hay desplazamiento horizontal y el mando sigue midiendo lo suyo', async ({
-    page,
-  }) => {
+  test('en 360 px la cabecera envuelve y el carril no se sale de ella', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 640 })
     await entrar(page)
 
@@ -232,11 +373,18 @@ test.describe('el conmutador de tipo', () => {
 
     expect(desborde).toBeLessThanOrEqual(0)
 
-    const caja = await page
+    const cabecera = await page.locator('.shell__header').boundingBox()
+    const carril = await page.locator('.shell__header .conmutador').boundingBox()
+    const opcion = await page
       .locator('.conmutador')
       .getByRole('link', { name: 'Anime' })
       .boundingBox()
 
-    expect(caja?.height ?? 0).toBeGreaterThanOrEqual(44)
+    expect(opcion?.height ?? 0).toBeGreaterThanOrEqual(44)
+    expect(carril?.y ?? -1).toBeGreaterThanOrEqual(0)
+    expect(carril?.y ?? 0).toBeGreaterThan(cabecera?.y ?? -1)
+    expect((carril?.y ?? 0) + (carril?.height ?? 0)).toBeLessThanOrEqual(
+      (cabecera?.y ?? 0) + (cabecera?.height ?? 0),
+    )
   })
 })
