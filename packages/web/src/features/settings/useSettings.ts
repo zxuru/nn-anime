@@ -20,6 +20,13 @@ export interface Settings {
   readonly data: SettingsResponse | undefined
   readonly error: Fallo | undefined
   readonly setTheme: (theme: 'dark' | 'light' | 'system') => void
+  /**
+   * Enseña o esconde el contenido que AniList marca para adultos.
+   *
+   * Es del servidor y no del navegador: con él se decide qué se pide a AniList, qué se
+   * guarda y qué se sirve, así que la interfaz sólo lo refleja.
+   */
+  readonly setAdultContent: (adultContent: boolean) => void
   /** Guarda el orden de preferencia de proveedores, del primero al último. */
   readonly setProviderPriority: (order: readonly string[]) => void
   /** Registra un proveedor y refresca la lista. Lanza si no se pudo. */
@@ -115,6 +122,31 @@ export function useSettings(): Settings {
   )
 
   /**
+   * El contenido para adultos, también optimista.
+   *
+   * El cambio no se ve en esta pantalla —no pinta ninguna fila— sino al volver a la
+   * vitrina: sus filas se leen al montar la página, así que el ajuste nuevo lo ven sin
+   * reiniciar nada.
+   */
+  const setAdultContent = useCallback(
+    (adultContent: boolean) => {
+      const previo = data?.adultContent
+
+      setData((actual) => (actual === undefined ? actual : { ...actual, adultContent }))
+      void apiPatch('/api/settings', { adultContent }).catch(() => {
+        // Si no se pudo guardar, el interruptor vuelve a donde estaba: lo que se ve
+        // tiene que ser lo que el servidor está aplicando.
+        setData((actual) =>
+          actual === undefined || previo === undefined
+            ? actual
+            : { ...actual, adultContent: previo },
+        )
+      })
+    },
+    [data?.adultContent],
+  )
+
+  /**
    * El orden, también optimista.
    *
    * Subir un proveedor se ve al instante y se deshace si el servidor falla. Un
@@ -165,5 +197,5 @@ export function useSettings(): Settings {
     return salida.provider
   }, [])
 
-  return { state, data, error, setTheme, setProviderPriority, register, refresh }
+  return { state, data, error, setTheme, setProviderPriority, setAdultContent, register, refresh }
 }
