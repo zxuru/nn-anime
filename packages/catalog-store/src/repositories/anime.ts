@@ -77,7 +77,7 @@ interface AnimeRow {
   readonly raw_json: string | null
 }
 
-interface GenreRow {
+interface TituloRow {
   readonly provider_id: string
   readonly provider_ref: string
   readonly title: string
@@ -88,14 +88,14 @@ interface GenreRow {
 }
 
 /**
- * Clave de comparación de un nombre de género.
+ * Clave de comparación de un nombre: el de un género o el de un estudio.
  *
  * SQLite compara texto byte a byte y su `lower()` sólo entiende ASCII, así que
- * allí «accion» no encuentra «Acción». Se pliega aquí: minúsculas, sin
- * diacríticos y en NFC, para que la búsqueda por género no dependa de que el
- * usuario escriba la tilde.
+ * allí «accion» no encuentra «Acción» ni «ufotable» encuentra «Ufotable». Se
+ * pliega aquí: minúsculas, sin diacríticos y en NFC, para que la consulta no
+ * dependa de que quien escribe ponga la tilde ni la mayúscula.
  */
-function claveDeGenero(texto: string): string {
+function claveDeNombre(texto: string): string {
   return texto
     .trim()
     .toLowerCase()
@@ -105,17 +105,59 @@ function claveDeGenero(texto: string): string {
 }
 
 /**
- * Si el término encaja con el género.
+ * Si el término encaja con el nombre.
  *
  * Encaja por **principio de palabra** y no por cualquier trozo: «acción» y
  * «accion» sí, pero «ccion» no. Con coincidencia libre, media consulta de un
  * título arrastraría el catálogo entero por llevar una «a» dentro.
  */
-function encajaElGenero(nombre: string, buscado: string): boolean {
-  const clave = claveDeGenero(nombre)
+function encajaElNombre(nombre: string, buscado: string): boolean {
+  const clave = claveDeNombre(nombre)
   if (clave.startsWith(buscado)) return true
 
   return clave.split(/[^\p{L}\p{N}]+/u).some((palabra) => palabra.startsWith(buscado))
+}
+
+/**
+ * Los títulos de una lista de identificadores, como resultados de búsqueda.
+ *
+ * Es la mitad que comparten las dos consultas del catálogo —la de género y la de
+ * estudio—: una vez se sabe **qué** filas encajan, lo que se devuelve es lo mismo
+ * y en el mismo orden, así que se escribe una vez. Se ordena por título y se
+ * corta con el límite aquí, que es donde el `LIMIT` puede contar lo que se
+ * devuelve y no lo que se miró.
+ */
+function porIds(db: Database, ids: readonly number[], limit: number): readonly SearchResult[] {
+  if (ids.length === 0 || limit <= 0) return []
+
+  const huecos = ids.map(() => '?').join(', ')
+  const filas = db
+    .query<TituloRow, number[]>(
+      `SELECT a.provider_id, a.provider_ref, a.title, a.title_alt, a.cover_url, a.year,
+              json_extract(a.raw_json, '$.kind') AS kind
+         FROM anime a
+        WHERE a.id IN (${huecos})
+        ORDER BY a.title COLLATE NOCASE
+        LIMIT ?`,
+    )
+    .all(...ids, limit)
+
+  return filas.map((fila) => {
+    // `kind` vive en el JSON como una cadena entrecomillada, y sólo vale si es
+    // uno de los tipos del contrato: un valor inventado por un proveedor no
+    // puede colarse en un `SearchResult` y romper la validación de la frontera,
+    // que es donde se descubriría.
+    const kind = titleKindSchema.safeParse(fila.kind?.replace(/^"|"$/g, ''))
+
+    return {
+      ref: { providerId: fila.provider_id, value: fila.provider_ref },
+      title: fila.title,
+      ...(fila.title_alt === null ? {} : { titleAlt: fila.title_alt }),
+      ...(fila.cover_url === null ? {} : { coverUrl: fila.cover_url }),
+      ...(fila.year === null ? {} : { year: fila.year }),
+      ...(kind.success ? { kind: kind.data } : {}),
+    }
+  })
 }
 
 export interface AnimeRepository {
@@ -139,6 +181,15 @@ export interface AnimeRepository {
    * `genre` existe justo para estas consultas.
    */
   searchByGenre(term: string, limit: number): readonly SearchResult[]
+  /**
+   * Los títulos cacheados cuyo estudio encaja con el término buscado.
+   *
+   * La otra mitad de lo mismo, y la pregunta que contesta el nombre de un estudio
+   * en la ficha: «qué más ha hecho éstos». Los estudios no tienen tabla —viven en
+   * `raw_json`, que es lo único que los conserva en orden—, así que la lectura es
+   * un recorrido de los pares (título, estudio) y no una consulta por índice.
+   */
+  searchByStudio(term: string, limit: number): readonly SearchResult[]
   /** Identificador interno, para las tablas que apuntan al anime. */
   idOf(ref: ProviderRef): number | undefined
 }
@@ -214,48 +265,63 @@ export function createAnimeRepository(db: Database, ttlS: number = TTL_SECONDS.a
      * Comparar allí obligaría a escribir «Acción» con tilde exacta.
      */
     searchByGenre(term: string, limit: number): readonly SearchResult[] {
-      const buscado = claveDeGenero(term)
+      const buscado = claveDeNombre(term)
       if (buscado === '' || limit <= 0) return []
 
       const nombres = db
         .query<{ name: string }, []>('SELECT DISTINCT name FROM genre')
         .all()
         .map((fila) => fila.name)
-        .filter((nombre) => encajaElGenero(nombre, buscado))
+        .filter((nombre) => encajaElNombre(nombre, buscado))
 
       if (nombres.length === 0) return []
 
       const huecos = nombres.map(() => '?').join(', ')
-      const filas = db
-        .query<GenreRow, (string | number)[]>(
-          // El `IN` contra una subconsulta y no un `JOIN`: un título con dos
-          // géneros que encajen —«Ciencia ficción» y «Ficción»— saldría dos
-          // veces con la unión.
-          `SELECT a.provider_id, a.provider_ref, a.title, a.title_alt, a.cover_url, a.year,
-                  json_extract(a.raw_json, '$.kind') AS kind
-             FROM anime a
-            WHERE a.id IN (SELECT g.anime_id FROM genre g WHERE g.name IN (${huecos}))
-            ORDER BY a.title COLLATE NOCASE
-            LIMIT ?`,
+      // `DISTINCT` y no una unión a secas: un título con dos géneros que encajen
+      // —«Ciencia ficción» y «Ficción»— saldría dos veces.
+      const ids = db
+        .query<{ anime_id: number }, string[]>(
+          `SELECT DISTINCT anime_id FROM genre WHERE name IN (${huecos})`,
         )
-        .all(...nombres, limit)
+        .all(...nombres)
+        .map((fila) => fila.anime_id)
 
-      return filas.map((fila) => {
-        // `kind` vive en el JSON como una cadena entrecomillada, y sólo vale si
-        // es uno de los tipos del contrato: un valor inventado por un proveedor
-        // no puede colarse en un `SearchResult` y romper la validación de la
-        // frontera, que es donde se descubriría.
-        const kind = titleKindSchema.safeParse(fila.kind?.replace(/^"|"$/g, ''))
+      return porIds(db, ids, limit)
+    },
 
-        return {
-          ref: { providerId: fila.provider_id, value: fila.provider_ref },
-          title: fila.title,
-          ...(fila.title_alt === null ? {} : { titleAlt: fila.title_alt }),
-          ...(fila.cover_url === null ? {} : { coverUrl: fila.cover_url }),
-          ...(fila.year === null ? {} : { year: fila.year }),
-          ...(kind.success ? { kind: kind.data } : {}),
-        }
-      })
+    /**
+     * Los estudios viven en `raw_json` y no en una tabla, así que la lectura es
+     * un recorrido de los pares (título, estudio) con la comparación en memoria:
+     * es la misma decisión que la del género —SQLite no sabe ignorar los
+     * acentos— y el mismo precio, una consulta por búsqueda y no por fila.
+     *
+     * La tabla son los títulos que alguien abrió: unos miles como mucho, y el
+     * recorrido del JSON se paga una vez por consulta. Si algún día el catálogo
+     * crece hasta notarse, el paso siguiente es una tabla `studio` como la de
+     * `genre`, escrita en la misma transacción que el título.
+     */
+    searchByStudio(term: string, limit: number): readonly SearchResult[] {
+      const buscado = claveDeNombre(term)
+      if (buscado === '' || limit <= 0) return []
+
+      const pares = db
+        .query<{ anime_id: number; estudio: string | null }, []>(
+          // `json_each` de un `raw_json` nulo no devuelve filas, así que una fila
+          // sin JSON —las que siembran las pruebas de alcance— no rompe nada.
+          `SELECT a.id AS anime_id, e.value AS estudio
+             FROM anime a, json_each(a.raw_json, '$.studios') AS e`,
+        )
+        .all()
+
+      const ids = [
+        ...new Set(
+          pares
+            .filter((par) => par.estudio !== null && encajaElNombre(par.estudio, buscado))
+            .map((par) => par.anime_id),
+        ),
+      ]
+
+      return porIds(db, ids, limit)
     },
 
     read(ref: ProviderRef, now: number = Date.now()): CacheHit<AnimeDetail> | null {

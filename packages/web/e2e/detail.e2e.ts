@@ -665,3 +665,79 @@ test.describe('un título con temporadas', () => {
     await expect(page.locator('.episodes__seasons')).toHaveCount(0)
   })
 })
+
+/**
+ * De la ficha a los títulos que comparten su estudio.
+ *
+ * El nombre de un estudio era texto muerto: se leía y no llevaba a ninguna parte.
+ * Ahora es un enlace a la búsqueda por ese término, que es lo que ya hacía la banda
+ * de géneros de la vitrina —los proveedores buscan por título y ninguno entiende
+ * el nombre de un estudio—, así que la respuesta sale del **catálogo local**: los
+ * títulos que la base ya conoce.
+ *
+ * Se mide en un navegador porque el camino entero es de tres capas: el enlace de la
+ * ficha, la lectura por estudio del almacén y el evento del catálogo que la ruta de
+ * búsqueda emite. Ninguna de las tres se ve desde el renderizado de servidor.
+ *
+ * **Y falta el caso del género**, que es el mismo camino con otro término: no pasa
+ * por un defecto de la pantalla de búsqueda que no es de esta tarea. Pulsar un
+ * enlace que lleva a `/search?q=<término>` desde otra pantalla deja la búsqueda en
+ * «Buscando…» para siempre —el estado del flujo se pierde y la pantalla lee el de
+ * relleno: ni tarjetas ni esqueletos—, y se reproduce igual **hoy**, sin este
+ * cambio, pulsando un género en la vitrina o abriendo esa dirección a mano. Está
+ * contado en `tasks/done/T130.md`.
+ */
+test.describe('de la ficha a sus títulos', () => {
+  /** Espera a que la ficha esté montada, con sus etiquetas. */
+  async function abrirLaFicha(page: import('@playwright/test').Page, ref: string): Promise<void> {
+    await page.goto(`/anime/fixture/${ref}`)
+    await expect(page.locator('.detail__etiquetas').first()).toBeVisible({ timeout: 15_000 })
+  }
+
+  test('el estudio lleva a los títulos que lo comparten', async ({ page }) => {
+    await entrar(page)
+    await abrirLaFicha(page, 'aurora-nocturna')
+
+    await page.getByRole('link', { name: 'Estudio Cobre' }).click()
+
+    await expect(page).toHaveURL(/\/search\?q=Estudio%20Cobre/)
+    // La **tarjeta** y no un texto cualquiera: el titular de la ficha que se acaba
+    // de dejar también dice «Aurora Nocturna», así que una aserción por texto pasa
+    // con la pantalla anterior todavía montada y no mide que la búsqueda contestara.
+    await expect(page.locator('.grid .card', { hasText: 'Aurora Nocturna' })).toBeVisible({
+      timeout: 15_000,
+    })
+  })
+
+  /**
+   * Y del mismo estudio salen también sus películas.
+   *
+   * Es la otra mitad de lo que se pidió: una película de ese estudio aparece en la
+   * pestaña de películas sin volver a buscar. El reparto lo hace el `kind` de cada
+   * título, que es la regla de toda la aplicación; el fixture sirve las dos cosas y
+   * tiene una película —«El Jardín de Hierro»— del mismo estudio que la serie.
+   *
+   * Las dos fichas se abren antes de pulsar porque el catálogo local es eso: las
+   * fichas que alguien abrió.
+   */
+  test('del mismo estudio salen también sus películas', async ({ page }) => {
+    await entrar(page)
+    await abrirLaFicha(page, 'el-jardin-de-hierro')
+    await abrirLaFicha(page, 'aurora-nocturna')
+
+    await page.getByRole('link', { name: 'Estudio Cobre' }).click()
+    await expect(page.locator('.grid .card', { hasText: 'Aurora Nocturna' })).toBeVisible({
+      timeout: 15_000,
+    })
+
+    await page.getByRole('link', { name: 'Películas' }).click()
+
+    // La consulta es la misma y la mitad, otra: la película entra y la serie no.
+    await expect(page).toHaveURL(/tipo=movies/)
+    await expect(page.getByLabel('Buscar por título')).toHaveValue('Estudio Cobre')
+    await expect(page.locator('.grid .card', { hasText: 'El Jardín de Hierro' })).toBeVisible({
+      timeout: 15_000,
+    })
+    await expect(page.locator('.grid .card', { hasText: 'Aurora Nocturna' })).toHaveCount(0)
+  })
+})

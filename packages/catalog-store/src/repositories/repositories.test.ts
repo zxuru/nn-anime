@@ -290,6 +290,121 @@ describe('la búsqueda por género', () => {
   })
 })
 
+/**
+ * La otra mitad de la misma pregunta: pulsar el nombre de un estudio en la ficha.
+ *
+ * Los estudios no tienen tabla —viven en `raw_json`—, así que estas pruebas miden
+ * lo que la tabla no puede garantizar: que el recorrido del JSON devuelve lo mismo
+ * que la consulta por índice y que una fila sin JSON no la tumba.
+ */
+describe('la búsqueda por estudio', () => {
+  const OTRO: ProviderRef = { providerId: 'fixture', value: 'mar-de-cristal' }
+
+  /** Dos títulos de estudios distintos, que es lo mínimo para notar un filtro. */
+  async function conDosTitulos<T>(
+    body: (anime: ReturnType<typeof createAnimeRepository>) => T,
+  ): Promise<T> {
+    return await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      anime.write(REF, detalle())
+      anime.write(OTRO, detalle({ ref: OTRO, title: 'Mar de Cristal', studios: ['Otro Taller'] }))
+
+      return body(anime)
+    })
+  }
+
+  test('el nombre del estudio se compara sin mayúsculas y sin tildes', async () => {
+    await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      anime.write(REF, detalle({ studios: ['Estudio Cóndor'] }))
+
+      for (const termino of ['Estudio Cóndor', 'estudio condor', '  ESTUDIO CÓNDOR  ', 'condor']) {
+        expect(anime.searchByStudio(termino, 10).map((hit) => hit.title)).toEqual([
+          'Aurora Nocturna',
+        ])
+      }
+    })
+  })
+
+  test('lo que sale es un resultado de búsqueda completo, no una fila a medias', async () => {
+    await conDosTitulos((anime) => {
+      expect(anime.searchByStudio('estudio cobre', 10)).toEqual([
+        {
+          ref: REF,
+          title: 'Aurora Nocturna',
+          titleAlt: 'Night Aurora',
+          coverUrl: 'https://fixture.invalid/portada/aurora.webp',
+          year: 2019,
+          kind: 'tv',
+        },
+      ])
+    })
+  })
+
+  test('un estudio de dos palabras se encuentra por la segunda', async () => {
+    await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      anime.write(REF, detalle({ studios: ['Estudio Cobre'] }))
+
+      expect(anime.searchByStudio('cobre', 10).map((hit) => hit.title)).toEqual(['Aurora Nocturna'])
+    })
+  })
+
+  test('un título con dos estudios que encajan sale una sola vez', async () => {
+    await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      anime.write(REF, detalle({ studios: ['Estudio Cobre', 'Cobre Animación'] }))
+
+      expect(anime.searchByStudio('cobre', 10)).toHaveLength(1)
+    })
+  })
+
+  test('sin coincidencias devuelve vacío, no el catálogo entero', async () => {
+    await conDosTitulos((anime) => {
+      expect(anime.searchByStudio('ufotable', 10)).toEqual([])
+      expect(anime.searchByStudio('   ', 10)).toEqual([])
+    })
+  })
+
+  test('un trozo a mitad de palabra no cuenta: se busca por principio de palabra', async () => {
+    await conDosTitulos((anime) => {
+      expect(anime.searchByStudio('obre', 10)).toEqual([])
+    })
+  })
+
+  test('el límite se respeta', async () => {
+    await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      anime.write(REF, detalle())
+      anime.write(OTRO, detalle({ ref: OTRO, title: 'Mar de Cristal', studios: ['Estudio Cobre'] }))
+
+      expect(anime.searchByStudio('cobre', 1)).toHaveLength(1)
+      expect(anime.searchByStudio('cobre', 10)).toHaveLength(2)
+    })
+  })
+
+  /**
+   * Una fila sin `raw_json` no puede tumbar la consulta.
+   *
+   * El `raw_json` es obligatorio para leer un detalle, pero no para que la fila
+   * exista: las pruebas de alcance siembran filas sintéticas sin él, y una búsqueda
+   * por estudio que se cayera con la primera de ésas dejaría la pantalla en error
+   * por un dato que no se está enseñando.
+   */
+  test('una fila sin raw_json no rompe la consulta', async () => {
+    await withStore((db) => {
+      const anime = createAnimeRepository(db)
+      anime.write(REF, detalle())
+      db.query(
+        `INSERT INTO anime (provider_id, provider_ref, title, year, fetched_at, ttl_s)
+         VALUES ('fixture', 'sin-json', 'Sin JSON', 2020, 1, 3600)`,
+      ).run()
+
+      expect(anime.searchByStudio('cobre', 10).map((hit) => hit.title)).toEqual(['Aurora Nocturna'])
+    })
+  })
+})
+
 describe('episodios', () => {
   test('sin el anime, un MISS devuelve null', async () => {
     await withStore((db) => {

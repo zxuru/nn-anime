@@ -703,6 +703,34 @@
   max-width: var(--measure);
 }
 
+/*
+ * Las etiquetas de la ficha: los géneros y los estudios.
+ *
+ * Son enlaces y se ven como tales **en reposo**, no sólo con el puntero encima: el
+ * nombre de un estudio era texto muerto, y una palabra que de pronto se puede
+ * pulsar tiene que decirlo antes de que nadie la pulse. La regla es la misma que la
+ * de la navegación —subrayado que se enciende— y el borde llega al 45 % de tinta,
+ * que es lo que el token reserva para el borde de algo que se pulsa.
+ */
+.detail__etiquetas {
+  margin: 0;
+}
+
+.detail__etiqueta {
+  color: var(--color-text);
+  text-decoration: none;
+  border-bottom: var(--border-width) solid var(--color-control-border);
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.detail__etiqueta:hover,
+.detail__etiqueta:focus-visible {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
 .detail__body h2 {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
