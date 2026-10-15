@@ -554,13 +554,84 @@
     rgb(8 8 10 / 12%) 55%,
     rgb(8 8 10 / 62%) 100%
   );
+
+  /**
+   * La tinta de la marquesina y el velo que la sostiene.
+   *
+   * El campo de la marquesina dejó de ser siempre el degradado oscuro: cuando la
+   * obra está emparejada con AniList, el campo **es su banner**. Un banner puede
+   * ser una nieve, y sobre una nieve la tinta crema desaparece. Así que la
+   * marquesina mira el tono de la imagen —`features/home/tinta.ts`— y elige su
+   * par: tinta crema con velo oscuro, o tinta oscura con velo claro.
+   *
+   * La tinta se declara una vez —`--marquesina-tinta`— y cada texto se mezcla
+   * consigo mismo a su tanto por ciento, así que el par entero se da la vuelta
+   * con un solo cambio. Los tantos son los de siempre: son la jerarquía de la
+   * columna, no una consecuencia del color.
+   */
+  --marquesina-tinta-clara: var(--color-on-overlay);
+  /**
+   * La tinta oscura de la marquesina.
+   *
+   * No es `--color-text`: el velo claro es crema en los dos temas —lo que hay
+   * debajo es una imagen, no el fondo de la aplicación—, así que la tinta de
+   * encima también es la misma en los dos.
+   */
+  --marquesina-tinta-oscura: #08080a;
+  --marquesina-tinta-dato: 88%;
+  --marquesina-tinta-prosa: 82%;
+  --marquesina-tinta-marca: 80%;
+  --marquesina-tinta-motivo: 74%;
+  --marquesina-tinta-hueso: 22%;
+
+  /**
+   * La opacidad mínima del velo, y por qué es ésa.
+   *
+   * No es un número de gusto: el velo es lo que hace que el texto se lea sobre
+   * **cualquier** banner, del color que sea. Por debajo de esto, la tinta más
+   * tenue —el motivo— no llega al 4.5:1 que el spec pide sobre un campo del
+   * color contrario al del velo, y `a11y.test.ts` lo mide y falla.
+   */
+  --velo-campo-minimo: 60%;
+
+  /**
+   * El velo del campo cuando el campo es una imagen.
+   *
+   * Dos capas, y cada una tapa lo suyo: la horizontal sostiene la columna de
+   * texto —fuerte hasta el 64 %, que es donde la columna acaba— y se retira hacia
+   * la derecha, que es donde está el cartel y donde la imagen se enseña entera; la
+   * vertical cubre el borde de arriba, donde vive la marca de refresco y hasta
+   * donde la horizontal ya no llega.
+   *
+   * El tono del velo **es el del campo** y no el contrario: lo que aplana la
+   * imagen hasta que el texto se lee es un velo de su mismo color, y así la imagen
+   * sigue siendo ella misma en vez de quedar bajo un gris.
+   */
+  --velo-campo-oscuro:
+    linear-gradient(to bottom, rgb(8 8 10 / var(--velo-campo-minimo)) 0%, rgb(8 8 10 / 0%) 34%),
+    linear-gradient(
+      to right,
+      rgb(8 8 10 / var(--velo-campo-minimo)) 0%,
+      rgb(8 8 10 / var(--velo-campo-minimo)) 64%,
+      rgb(8 8 10 / 22%) 82%,
+      rgb(8 8 10 / 46%) 100%
+    );
+  --velo-campo-claro:
+    linear-gradient(
+      to bottom,
+      rgb(245 240 230 / var(--velo-campo-minimo)) 0%,
+      rgb(245 240 230 / 0%) 34%
+    ),
+    linear-gradient(
+      to right,
+      rgb(245 240 230 / var(--velo-campo-minimo)) 0%,
+      rgb(245 240 230 / var(--velo-campo-minimo)) 64%,
+      rgb(245 240 230 / 20%) 82%,
+      rgb(245 240 230 / 44%) 100%
+    );
+
   --arte-letra: rgb(245 240 230 / 24%);
-  /** El hueso del esqueleto de la marquesina, sobre el campo de arte. */
-  --arte-hueso: rgb(245 240 230 / 22%);
   --arte-cifra: rgb(245 240 230 / 32%);
-  --arte-sinopsis: rgb(245 240 230 / 82%);
-  --arte-motivo: rgb(245 240 230 / 74%);
-  --arte-refresco: rgb(245 240 230 / 80%);
   --arte-borde-fuerte: rgb(245 240 230 / 45%);
   /** El punto y el cuerpo de la «i» del mando que abre el asomo. */
   --mando-punto-alto: 0.78rem;

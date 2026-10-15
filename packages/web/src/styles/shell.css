@@ -2981,6 +2981,31 @@
   min-block-size: var(--marquesina-alto);
   padding: var(--marquesina-relleno);
   overflow: clip;
+  /* La tinta y el velo de partida: la del campo de siempre, el degradado. El
+     banner los cambia con `data-tinta`, que es lo que decide `tinta.ts`. */
+  --marquesina-tinta: var(--marquesina-tinta-clara);
+  --marquesina-velo: var(--velo-campo);
+}
+
+/*
+ * La marquesina con banner: su tinta y su velo, según el tono que se midió.
+ *
+ * El atributo lo escribe el componente y nombra **la tinta**, no el campo: `clara`
+ * es la crema de siempre —un banner oscuro— y `oscura` es la que se da la vuelta
+ * para un banner claro. Sin atributo no hay banner y el campo es el degradado, que
+ * es el caso de partida.
+ *
+ * El velo va siempre **al tono del campo**, que es lo contrario de la tinta: es lo
+ * que aplana la imagen hasta que el texto se lee sobre cualquier banner, también
+ * sobre uno que debajo del titular tenga un claro. `a11y.test.ts` mide ese mínimo.
+ */
+.marquesina[data-tinta="clara"] {
+  --marquesina-velo: var(--velo-campo-oscuro);
+}
+
+.marquesina[data-tinta="oscura"] {
+  --marquesina-tinta: var(--marquesina-tinta-oscura);
+  --marquesina-velo: var(--velo-campo-claro);
 }
 
 .marquesina__campo {
@@ -2990,11 +3015,21 @@
   background-size: cover;
 }
 
+/* El banner de la obra, cuando lo hay: cubre el degradado del campo. Se monta
+   sólo con la tinta ya medida —lo decide el componente—, así que el campo no
+   enseña nunca la imagen con el color de letra equivocado. */
+.marquesina__banner {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
 .marquesina__capa {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: var(--velo-campo);
+  background: var(--marquesina-velo);
   pointer-events: none;
 }
 
@@ -3005,13 +3040,15 @@
   gap: var(--marquesina-texto-hueco);
 }
 
+/* El rótulo de la marquesina, sobre el campo: lleva su tinta, que se da la vuelta
+   con el banner. El respaldo es para fuera de la marquesina, donde no hay campo. */
 .etiqueta {
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
-  color: var(--color-on-overlay);
+  color: var(--marquesina-tinta, var(--color-on-overlay));
 }
 
 /* Dos clases a propósito: `.shell__main h1` —la regla de las pantallas de
@@ -3030,7 +3067,7 @@
   line-height: var(--leading-tight);
   letter-spacing: var(--tracking-display);
   text-transform: none;
-  color: var(--color-on-overlay);
+  color: var(--marquesina-tinta);
   overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-line-clamp: var(--marquesina-titulo-lineas);
@@ -3046,16 +3083,22 @@
  * el hueco reservado, la columna mide lo mismo antes y después de la respuesta y el
  * titular no se mueve. El hueco lo mide `--renglon`, que sigue al cuerpo de letra de
  * cada uno —los dos son un `clamp`—.
+ *
+ * El color es la tinta de la marquesina mezclada consigo misma al tanto por ciento
+ * que le toca —la misma jerarquía de siempre: el dato por encima de la sinopsis y
+ * el motivo por debajo—. Al mezclar sobre `transparent` el resultado es la tinta
+ * con esa opacidad, así que el par entero se da la vuelta declarando la tinta una
+ * sola vez.
  */
 .marquesina__meta {
-  color: var(--arte-resto);
+  color: color-mix(in srgb, var(--marquesina-tinta) var(--marquesina-tinta-dato), transparent);
   font-size: var(--marquesina-meta);
   min-block-size: var(--renglon);
 }
 
 .marquesina__sinopsis {
   max-inline-size: var(--marquesina-sinopsis);
-  color: var(--arte-sinopsis);
+  color: color-mix(in srgb, var(--marquesina-tinta) var(--marquesina-tinta-prosa), transparent);
   font-size: var(--marquesina-sinopsis-cuerpo);
   min-block-size: calc(var(--marquesina-sinopsis-lineas) * var(--renglon));
   display: -webkit-box;
@@ -3084,7 +3127,11 @@
 .marquesina__hueso {
   block-size: var(--marquesina-hueso);
   border-radius: var(--radius-full);
-  background: var(--arte-hueso);
+  background: color-mix(
+    in srgb,
+    var(--marquesina-tinta) var(--marquesina-tinta-hueso),
+    transparent
+  );
 }
 
 .marquesina__hueso--corto {
@@ -3097,7 +3144,7 @@
   font-weight: 600;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
-  color: var(--arte-motivo);
+  color: color-mix(in srgb, var(--marquesina-tinta) var(--marquesina-tinta-motivo), transparent);
   min-block-size: calc(var(--marquesina-motivo-lineas) * var(--renglon));
   display: -webkit-box;
   -webkit-line-clamp: var(--marquesina-motivo-lineas);
@@ -3119,6 +3166,32 @@
   gap: var(--space-2);
   align-items: center;
   min-block-size: var(--marquesina-acciones-alto);
+}
+
+/*
+ * El mando de contorno, cuando la marquesina se da la vuelta.
+ *
+ * Su borde y su letra salen del tema —crema—, y sobre el velo claro de un banner
+ * claro eso es un mando que no se ve: el borde se pierde en el campo y la letra
+ * con él. El de acento no entra en la regla: lleva su relleno naranja y su letra
+ * oscura, y se lee sobre los dos campos.
+ *
+ * El puntero también cambia: el mando del tema se rellena con la superficie
+ * elevada —oscura— y sobre un campo claro eso dejaría la letra oscura sobre
+ * oscuro. Encendido se pinta como el de acento, que es lo que ya hace el mando
+ * cuando está activo.
+ */
+.marquesina[data-tinta="oscura"] .acciones .button:not(.button--primary, [aria-pressed="true"]) {
+  border-color: var(--marquesina-tinta);
+  color: var(--marquesina-tinta);
+}
+
+.marquesina[data-tinta="oscura"]
+  .acciones
+  .button:not(.button--primary, [aria-pressed="true"]):hover:not(:disabled) {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-contrast);
 }
 
 /* El cartel: la portada dibujada, con marco propio y algo girada. */
@@ -3247,6 +3320,9 @@
   }
 }
 
+/* La marca vive en la esquina de la marquesina, sobre el campo: lleva su tinta,
+   que se da la vuelta con el banner. El velo la cubre por arriba —la capa
+   vertical de `--velo-campo-*`—, que es donde la horizontal ya no llega. */
 .marca-refresco {
   position: absolute;
   inset-block-start: clamp(var(--space-3), 2vw, var(--space-5));
@@ -3257,7 +3333,7 @@
   font-weight: 600;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
-  color: var(--arte-refresco);
+  color: color-mix(in srgb, var(--marquesina-tinta) var(--marquesina-tinta-marca), transparent);
 }
 
 /* Sin destacado no hay campo detrás: la marca se lee sobre el fondo. */

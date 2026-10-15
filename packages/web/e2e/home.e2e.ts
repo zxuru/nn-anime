@@ -363,6 +363,99 @@ test.describe('la marquesina', () => {
       }
     }
   })
+
+  /**
+   * El campo es el banner de la obra, y con él se da la vuelta la tinta.
+   *
+   * Lo que se mide aquí no se puede medir en un `renderToString`: la sonda lee los
+   * píxeles del banner en un lienzo, decide su tono y la marquesina cambia su tinta
+   * —y su velo— antes de pintar la imagen. Con una sola respuesta de dobles, el
+   * enriquecimiento y la imagen se sirven desde la prueba, que es la única forma de
+   * tener un banner de un tono conocido sin salir a la red.
+   */
+  const BANNER = '/api/anilist/image/banner/101922'
+
+  /**
+   * Un banner partido en dos mitades, y por qué partido.
+   *
+   * Con una imagen de un solo color, la medida saldría igual mirando la columna del
+   * texto que la imagen entera, y la prueba pasaría sin comprobar nada. Partida,
+   * cada mitad pide una tinta distinta: la clara a la izquierda —donde vive el
+   * texto— tiene que dar la tinta oscura, y la oscura a la izquierda la crema. Si la
+   * sonda mirara la imagen entera, las dos darían el mismo tono —el medio, que cae
+   * del lado oscuro— y la segunda mitad fallaría.
+   */
+  async function conBannerPartido(page: Page, izquierda: 'blanco' | 'negro'): Promise<void> {
+    const mitad = izquierda === 'blanco' ? '#ffffff' : '#000000'
+    const otra = izquierda === 'blanco' ? '#000000' : '#ffffff'
+
+    await page.route('**/api/anime/*/*/enrichment', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          enrichment: {
+            anilistId: 101922,
+            cover: '/api/anilist/image/cover/101922',
+            banner: BANNER,
+            genres: [],
+            studios: [],
+            siteUrl: 'https://anilist.co/anime/101922',
+          },
+        },
+      })
+    })
+
+    // Una imagen de verdad y de tamaño propio: la sonda necesita píxeles que leer,
+    // y `naturalWidth` para recortar la columna del texto.
+    await page.route('**/api/anilist/image/banner/**', async (ruta) => {
+      await ruta.fulfill({
+        contentType: 'image/svg+xml',
+        body: `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="80"><rect width="160" height="80" fill="${mitad}"/><rect x="160" width="160" height="80" fill="${otra}"/></svg>`,
+      })
+    })
+
+    await entrar(page)
+    await expect(page.locator('.marquesina__banner')).toBeVisible({ timeout: 15_000 })
+  }
+
+  /** La tinta del titular, tal y como la pinta el navegador. */
+  async function tintaDelTitular(page: Page): Promise<string> {
+    return page.locator('.marquesina__titulo').evaluate((nodo) => getComputedStyle(nodo).color)
+  }
+
+  test('un banner claro a la izquierda pide la tinta oscura', async ({ page }) => {
+    await conBannerPartido(page, 'blanco')
+
+    await expect(page.locator('.marquesina__banner')).toHaveAttribute('src', BANNER)
+    await expect(page.locator('.marquesina')).toHaveAttribute('data-tinta', 'oscura')
+    expect(await tintaDelTitular(page)).toBe('rgb(8, 8, 10)')
+  })
+
+  test('un banner oscuro a la izquierda deja la tinta crema', async ({ page }) => {
+    await conBannerPartido(page, 'negro')
+
+    await expect(page.locator('.marquesina')).toHaveAttribute('data-tinta', 'clara')
+    expect(await tintaDelTitular(page)).toBe('rgb(245, 240, 230)')
+  })
+
+  /**
+   * Sin banner no hay atributo y el campo se queda con su degradado.
+   *
+   * Es el caso de una obra que AniList no conoce —y el de antes de este trabajo—:
+   * la marquesina se pinta igual, con la tinta de siempre.
+   */
+  test('sin banner el campo es el degradado y la tinta no cambia', async ({ page }) => {
+    await page.route('**/api/anime/*/*/enrichment', async (ruta) => {
+      await ruta.fulfill({ json: { enrichment: null } })
+    })
+
+    await entrar(page)
+
+    await expect(page.locator('.marquesina__titulo')).toBeVisible()
+    await expect(page.locator('.marquesina__banner')).toHaveCount(0)
+    // Sin banner no hay atributo: el campo es el degradado y la tinta, la de siempre.
+    await expect(page.locator('.marquesina[data-tinta]')).toHaveCount(0)
+    expect(await tintaDelTitular(page)).toBe('rgb(245, 240, 230)')
+  })
 })
 
 /**
