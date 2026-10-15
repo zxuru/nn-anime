@@ -31,9 +31,12 @@ import {
 import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import { recommend } from '@nn-anime/recsys'
 import type { Hono } from 'hono'
+import { adultosDeLaFila, TOPE_DE_VERIFICACION } from '../adultos'
+import type { AniListCatalog } from '../anilist/catalog'
 import type { ServerContainer } from '../container'
 import { gatherSignals, refKey } from '../recommend/signals'
 import { enMedia, mediaFrom, mediaPorProveedor } from './media'
+import { adultContentOf } from './settings'
 
 /** Tope de la lista: más de veinte recomendaciones no las mira nadie. */
 export const MAX_LIMIT = 20
@@ -41,6 +44,8 @@ export const MAX_LIMIT = 20
 export interface RecommendationsRouteOptions {
   readonly providers: readonly Provider[]
   readonly container: ServerContainer
+  /** El catálogo de AniList: las tendencias lo necesitan para saber qué es para adultos. */
+  readonly catalog: AniListCatalog
   readonly timeoutMs?: number
 }
 
@@ -137,7 +142,22 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
       }),
     )
 
-    const items = sinRepetir(resultados.flat()).map((resultado) => ({
+    const candidatos = sinRepetir(resultados.flat())
+    const conAdultos = await adultContentOf(options.container.store)
+
+    // La fila no tiene tope propio, así que la ventana la pone el tope de verificación:
+    // por encima de él la pieza se sirve sin verificar, y eso está declarado en
+    // `SECURITY.md`. Una referencia ya marcada no gasta una petición nunca más.
+    const ventana = candidatos.slice(0, TOPE_DE_VERIFICACION)
+    const adultos = await adultosDeLaFila(
+      { container: options.container, catalog: options.catalog },
+      ventana,
+      conAdultos,
+      c.req.raw.signal,
+    )
+    const visibles = ventana.filter((pieza) => conAdultos || !adultos.has(refKey(pieza.ref)))
+
+    const items = visibles.map((resultado) => ({
       ref: resultado.ref,
       title: resultado.title,
       ...(resultado.coverUrl === undefined ? {} : { coverUrl: resultado.coverUrl }),

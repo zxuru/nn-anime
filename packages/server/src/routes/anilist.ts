@@ -25,7 +25,6 @@ import type {
   AniListEntry,
   DiscoverItem,
   Enrichment,
-  LocalWork,
   MediaFilter,
   ProviderRef,
 } from '@nn-anime/core'
@@ -38,7 +37,6 @@ import {
   enrichmentResponseSchema,
   errorResponseSchema,
   kindOfFormat,
-  localWork,
 } from '@nn-anime/core'
 import {
   type FetchLike,
@@ -49,6 +47,7 @@ import {
 } from '@nn-anime/media-proxy'
 import type { Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
+import { localWorkOf } from '../adultos'
 import type { AniListCatalog } from '../anilist/catalog'
 import { matchKey } from '../anilist/catalog'
 import { isAniListImageUrl } from '../anilist/entries'
@@ -267,12 +266,13 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
     if (!resultado.ok) return c.json(enrichmentResponseSchema.parse({ enrichment: null }))
 
     const entrada = resultado.value
-    if (entrada?.adult === true && !conAdultos) {
-      // Se apunta y no se sirve: la marca es lo que puede esconder esa obra del feed,
-      // de las tendencias y de las filas de la base, donde no hay entrada que consultar.
+    if (entrada?.adult === true) {
+      // La marca es conocimiento y se apunta en los **dos** estados del interruptor: es lo
+      // que pinta el `+18` cuando el contenido está encendido y lo que lo esconde —sin
+      // volver a preguntar— cuando está apagado.
       await options.container.store.markAdult(providerRef)
 
-      return c.json(enrichmentResponseSchema.parse({ enrichment: null }))
+      if (!conAdultos) return c.json(enrichmentResponseSchema.parse({ enrichment: null }))
     }
 
     return c.json(
@@ -326,18 +326,18 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
       const media = emparejados.get(key)
       if (media === undefined || media === null) return []
 
-      if (media.adult && !conAdultos) {
+      if (media.adult) {
         porMarcar.push(ref)
-
-        return []
+        if (!conAdultos) return []
       }
 
       return [{ ref, enrichment: enrichmentOf(media) }]
     })
 
-    // Se apunta lo visto y no se sirve: la marca es lo que puede esconder esa obra del
-    // feed, de las tendencias y de las filas de la base, donde no hay entrada que
-    // consultar. Sin ella, cada carga de la home volvería a preguntar por lo mismo.
+    // Se apunta lo visto —en los dos estados— y con el interruptor apagado no se sirve: la
+    // marca es lo que puede esconder esa obra del feed, de las tendencias y de las filas de
+    // la base, donde no hay entrada que consultar. Sin ella, cada carga volvería a
+    // preguntar por lo mismo.
     await Promise.all(porMarcar.map((ref) => options.container.store.markAdult(ref)))
 
     return c.json(enrichmentBatchResponseSchema.parse({ items }))
@@ -401,19 +401,4 @@ export function imageEtag(kind: string, id: number): string {
   const hash = new Bun.CryptoHasher('sha256').update(`${kind}\u0000${id}`).digest('hex')
 
   return `"${hash.slice(0, 16)}"`
-}
-
-/**
- * Los nombres comparables de un título local, con lo que el detalle sabe.
- *
- * `titleAlt` entra: es el otro nombre con el que la fuente reconoce la obra —el
- * original, o el corto— y es exactamente lo que junta «Danmachi» con «Dungeon ni
- * Deai wo Motomeru no wa Machigatteiru Darou ka».
- */
-function localWorkOf(
-  title: string,
-  year: number | undefined,
-  titleAlt?: string | undefined,
-): LocalWork {
-  return localWork({ title, ...(titleAlt === undefined ? {} : { titleAlt }) }, year)
 }

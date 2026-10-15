@@ -27,6 +27,7 @@
  * siempre.
  */
 
+import { refKey } from '@nn-anime/catalog-store'
 import type { FeedResponse } from '@nn-anime/core'
 import {
   errorResponseSchema,
@@ -40,15 +41,20 @@ import {
 } from '@nn-anime/core'
 import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
+import { adultosDeLaFila, MARGEN_DE_VERIFICACION } from '../adultos'
+import type { AniListCatalog } from '../anilist/catalog'
 import type { ServerContainer } from '../container'
 import { enMedia, mediaFrom, mediaPorProveedor } from './media'
 import { clampLimit } from './recommendations'
+import { adultContentOf } from './settings'
 
 const DEFAULT_TIMEOUT_MS = 8000
 
 export interface DiscoveryRouteOptions {
   readonly providers: readonly Provider[]
   readonly container: ServerContainer
+  /** El catálogo de AniList: el feed lo necesita para saber qué entrada es para adultos. */
+  readonly catalog: AniListCatalog
   readonly timeoutMs?: number
 }
 
@@ -146,7 +152,7 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
       }),
     )
 
-    const items = sinRepetirPorObra(
+    const candidatas = sinRepetirPorObra(
       orderFeed(
         resultados.flat().map((entrada) => ({
           ref: entrada.ref,
@@ -157,9 +163,30 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
           ...(entrada.publishedAt === undefined ? {} : { publishedAt: entrada.publishedAt }),
         })),
       ),
-    ).slice(0, limite)
+    )
 
-    return c.json(feedResponseSchema.parse({ items }))
+    const conAdultos = await adultContentOf(options.container.store)
+
+    // La verificación va sobre la ventana que se va a enseñar y no sobre el feed entero:
+    // la caché guarda hasta doscientas entradas y la fila enseña diez. La primera carga
+    // paga esas consultas una vez; después contestan la marca y el emparejamiento.
+    const ventana = candidatas.slice(0, limite + MARGEN_DE_VERIFICACION)
+    const adultos = await adultosDeLaFila(
+      { container: options.container, catalog: options.catalog },
+      ventana,
+      conAdultos,
+      c.req.raw.signal,
+    )
+    const conMarca = ventana.map((pieza) => ({
+      ...pieza,
+      ...(adultos.has(refKey(pieza.ref)) ? { adult: true as const } : {}),
+    }))
+
+    // El descarte va **antes** del tope: recortar primero dejaría la fila con una pieza
+    // menos de las que hay, que es lo mismo que el motor de recomendaciones ya evita.
+    const visibles = conAdultos ? conMarca : conMarca.filter((pieza) => pieza.adult === undefined)
+
+    return c.json(feedResponseSchema.parse({ items: visibles.slice(0, limite) }))
   })
 }
 
