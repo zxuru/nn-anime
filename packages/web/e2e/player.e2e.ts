@@ -1184,6 +1184,67 @@ test.describe('la disposición', () => {
       (principal?.y ?? 0) + (principal?.height ?? 0) - 1,
     )
   })
+
+  /**
+   * La ventana grande, que es la que estaba desaprovechada.
+   *
+   * La pantalla tenía un video de ancho fijo —760 px, el que le dejaba la caja de
+   * 1200 con su relleno— y todo lo que sobraba quedaba muerto: a los lados en una
+   * ventana ancha y debajo en una alta. En 1920×1080 eran 680 px de cada lado y
+   * 380 por debajo. Ahora el alto manda: el video crece hasta el que hay y la
+   * lista de episodios se lleva su columna entera.
+   *
+   * Los tres números están medidos en esta ventana, y el caso discrimina: volver
+   * el ancho del marco a un valor fijo deja el video en 428 px de alto —el 40 %
+   * de la ventana— y la lista en 480.
+   */
+  test('la sala se lleva el alto de una ventana grande', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 })
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    const video = page.locator('video')
+    await expect(video).toBeVisible({ timeout: 10_000 })
+
+    const marco = await video.boundingBox()
+    const lista = await page.locator('.watch__list').boundingBox()
+    const desborde = await page.evaluate(
+      () => document.documentElement.scrollHeight - document.documentElement.clientHeight,
+    )
+
+    // El video se lleva dos tercios del alto de la ventana.
+    expect((marco?.height ?? 0) / 1080).toBeGreaterThan(0.62)
+    // La lista de episodios llena su columna, no se queda en el tope de siempre.
+    expect(lista?.height ?? 0).toBeGreaterThan(720)
+    // Y lo que no cabe en el alto no se le pide al desplazamiento de la página.
+    expect(desborde).toBeLessThanOrEqual(0)
+  })
+
+  test('en una ventana ancha el marco cruza la pantalla sin deformarse', async ({ page }) => {
+    await page.setViewportSize({ width: 2560, height: 1440 })
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    const video = page.locator('video')
+    await expect(video).toBeVisible({ timeout: 10_000 })
+
+    const marco = await video.boundingBox()
+    const ancho = marco?.width ?? 0
+    const alto = marco?.height ?? 1
+    const desborde = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+
+    // Más de 1800 px de marco donde había 760: el ancho muerto de los lados es
+    // del video, no del margen.
+    expect(ancho).toBeGreaterThan(1800)
+    // Y sin deformarse: el marco sigue siendo 16:9 exacto, así que el recorte lo
+    // fija el alto disponible y no un ancho cualquiera.
+    expect(Math.abs(ancho / alto - 16 / 9)).toBeLessThan(0.01)
+    expect(desborde).toBeLessThanOrEqual(0)
+  })
 })
 
 /**

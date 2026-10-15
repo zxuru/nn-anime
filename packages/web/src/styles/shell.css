@@ -956,7 +956,17 @@
   display: block;
 }
 
+/*
+ * El video, en bloque.
+ *
+ * `display: block` no es cosmético: un elemento reemplazado en línea se apoya en
+ * la línea de base y deja debajo el hueco del descendente —unos siete píxeles
+ * medidos—, así que el marco quedaba más alto que la imagen que contiene y la
+ * cuenta del alto disponible salía corta por ese hueco. En bloque, el marco mide
+ * exactamente el video.
+ */
 .player__video {
+  display: block;
   width: 100%;
   aspect-ratio: var(--video-ratio);
   border: var(--border-width-strong) solid var(--color-border);
@@ -1625,20 +1635,40 @@
  * `min-width: 0` en la columna principal no es adorno: sin él, un hijo ancho —el
  * propio video, sin ir más lejos— empuja la columna y aparece una barra
  * horizontal en pantallas estrechas.
+ *
+ * El alto también es de la ventana. `min-block-size` ocupa el hueco visible
+ * entero y `align-items: stretch` hace que la lista de episodios mida lo que mida
+ * la columna del video: en una pantalla grande la lista se lleva las filas que
+ * caben —se desplaza dentro, no empuja la página hacia abajo— en vez de quedarse
+ * en un tope fijo con el resto de la pantalla vacío. El sobrante de ancho, cuando
+ * lo hay, se reparte a los dos lados: centrado, que es lo que ya hacía la caja.
  */
 .watch__layout {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: stretch;
+  justify-content: center;
   gap: var(--space-5);
+  min-block-size: var(--watch-room-height);
 }
 
+/*
+ * La columna del reproductor, con su tope de ancho.
+ *
+ * El tope sale del alto de la ventana —ver `--watch-main-max` en `tokens.css`—:
+ * el video deja de crecer cuando el marco llega al alto disponible, y a partir de
+ * ahí el ancho que sobra se queda fuera de la columna en lugar de estirar el
+ * marco y obligar a desplazarse para ver la imagen entera. El suelo es el mínimo
+ * de siempre, así que una ventana baja o una pantalla estrecha no encogen nada:
+ * ahí manda el ancho, como antes.
+ */
 .watch__main {
   display: flex;
   flex: 1 1 var(--watch-main-min);
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
+  max-inline-size: var(--watch-main-max);
 }
 
 /*
@@ -1647,7 +1677,9 @@
  * El ancho lo pide con `flex` y no lo impone: cuando no cabe al lado del
  * reproductor, cae debajo —y crece a lo ancho— sin una consulta de medios, que no
  * puede leer un token. La lista se desplaza **dentro**: el video se queda donde
- * está mientras se busca el episodio.
+ * está mientras se busca el episodio. Y se lleva el alto que le deje la columna
+ * del video: al lado, esa columna es la de la pantalla, y la lista enseña tantos
+ * episodios como quepan; debajo, manda el tope de siempre.
  */
 .watch__aside {
   display: flex;
@@ -1668,10 +1700,19 @@
   text-transform: uppercase;
 }
 
+/*
+ * `flex: 1 1 auto` y `min-block-size: 0` son la pareja que llena la columna: la
+ * lista se estira hasta el pie de la pantalla y, si no cabe, se desplaza por
+ * dentro en lugar de recortar el último renglón. `min-block-size: 0` no sobra:
+ * sin él, un flex item no baja de su tamaño de contenido y el desplazamiento
+ * interno no llega a existir.
+ */
 .watch__list {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-1);
+  min-block-size: 0;
   max-height: var(--watch-list-height);
   margin: 0;
   padding: 0;
@@ -2676,6 +2717,18 @@
 .shell__main--ancha {
   max-inline-size: none;
   padding: 0;
+}
+
+/* La caja de la pantalla de reproducción: sin tope, con relleno.
+   Es la otra mitad de lo mismo. El reproductor se mide contra la ventana —el
+   video crece hasta el alto disponible y la lista de episodios se lleva el
+   resto— así que un tope de 1200 px le dejaría a los lados un margen muerto que
+   crece con la pantalla: en una de 2560, más de mil píxeles entre las dos
+   bandas. A sangre no va, y ahí está la diferencia con la vitrina: la marquesina
+   cruza la pantalla por diseño, y un video pegado al borde se lee como un
+   descuido. El relleno de la caja es su margen. */
+.shell__main--sin-tope {
+  max-inline-size: none;
 }
 
 /* --- 3. Marcas de arte: el recurso propio de cada pieza -----------------
