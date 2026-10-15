@@ -380,6 +380,14 @@ export const messages: Messages = {
   'player.key.m': 'M',
   'player.key.f': 'F',
   'player.attribution': 'Reproducción HLS con hls.js (licencia Apache 2.0).',
+  /**
+   * La marca del contenido para adultos.
+   *
+   * Es texto y no un color: un borde o un tinte no lo lee un lector de pantalla, y la
+   * marca existe para que quien enciende el contenido sepa cuál de las piezas es la que
+   * el filtro estaría escondiendo.
+   */
+  'adult.mark': '+18',
   'detail.synopsis': 'Sinopsis',
   'detail.meta': 'Año {year} · {status}',
   'detail.status.airing': 'en emisión',

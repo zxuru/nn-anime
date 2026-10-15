@@ -44,6 +44,21 @@ function capitulo(overrides: Partial<AiringItem> = {}): AiringItem {
 }
 
 describe('a dónde lleva una pieza', () => {
+  /**
+   * La marca del contenido para adultos, en la línea de datos.
+   *
+   * Es texto y no un color, así que la lee también un lector de pantalla; y no sale
+   * cuando la obra no está marcada, que es la mitad de la regla.
+   */
+  test('la obra marcada lleva su marca, y la que no lo está no', () => {
+    expect(desdeEmision(capitulo({ adult: true })).meta).toBe('Ep. 5 · +18')
+    expect(desdeEmision(capitulo()).meta).toBe('Ep. 5')
+
+    expect(
+      metaDeDescubrir({ anilistId: 1, title: 'x', cover: '/y', adult: true, year: 2015 }),
+    ).toBe('Año 2015 · +18')
+  })
+
   test('con referencia local, a su ficha', () => {
     expect(
       destinoDe({ title: 'Danmachi', ref: { providerId: 'fixture', value: 'danmachi' } }),

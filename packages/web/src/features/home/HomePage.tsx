@@ -120,6 +120,10 @@ export function metaDeNovedad(item: AiringItem): string {
     if (anio !== undefined) partes.push(anio)
   }
 
+  // La marca, en la misma línea de datos y no en un adorno: es texto, así que la lee
+  // cualquiera —también un lector de pantalla— y no depende de un color.
+  if (item.adult) partes.push(t(DEFAULT_LOCALE, 'adult.mark'))
+
   return partes.join(' · ')
 }
 
@@ -153,13 +157,21 @@ export function piezasDeNovedades(
     }))
   }
 
-  return filas.feed.map((item) => ({
-    ...desdeResumen(item),
-    meta:
-      item.year === undefined
-        ? undefined
-        : t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year }),
-  }))
+  return filas.feed.map((item) => {
+    const partes: string[] = []
+    if (item.year !== undefined) {
+      partes.push(t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year }))
+    }
+
+    // El servidor marca la novedad del feed cuando la verificó, y **sólo** cuando la
+    // sabe: su ausencia significa «no consta», que no es lo mismo que «no lo es».
+    if (item.adult === true) partes.push(t(DEFAULT_LOCALE, 'adult.mark'))
+
+    return {
+      ...desdeResumen(item),
+      ...(partes.length === 0 ? {} : { meta: partes.join(' · ') }),
+    }
+  })
 }
 
 /**

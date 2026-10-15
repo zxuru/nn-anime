@@ -790,6 +790,23 @@ describe('el rail de temporadas', () => {
   })
 })
 
+/**
+ * La marca del contenido para adultos en la ficha.
+ *
+ * Se mide sobre la fuente, como el aviso de seguridad de los ajustes: la ficha se dibuja
+ * con datos que se piden por la red, así que lo que se comprueba aquí es que la marca
+ * esté **en la línea de datos del bloque de AniList** y sólo cuando la obra consta
+ * marcada.
+ */
+describe('la marca de adultos en la ficha', () => {
+  test('la línea de AniList lleva la marca, y sólo cuando consta', async () => {
+    const fuente = await Bun.file(new URL('DetailPage.tsx', import.meta.url)).text()
+
+    expect(fuente).toContain('enriquecido.adult ?')
+    expect(fuente).toContain("t(DEFAULT_LOCALE, 'adult.mark')")
+  })
+})
+
 describe('las otras fuentes de la misma obra', () => {
   const OTRA: AnimeSummary = {
     ref: { providerId: 'animeav1', value: 'aurora-nocturna' },

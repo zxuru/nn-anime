@@ -579,6 +579,41 @@ describe('lo que eligen las filas nuevas', () => {
     expect(deLaFuente[0]?.to).toBe('/anime/fixture/Mar%20de%20Cristal')
   })
 
+  /**
+   * La marca en las novedades, por sus **dos** procedencias.
+   *
+   * La del feed sólo viaja cuando el servidor la verificó: su ausencia significa «no
+   * consta», y por eso una pieza sin marca no es «apta», es «no lo sé».
+   */
+  test('la marca de adultos sale en las novedades de las dos procedencias', () => {
+    const deAniList = piezasDeNovedades({
+      emisiones: [
+        {
+          anilistId: 101922,
+          title: 'Kimetsu no Yaiba',
+          cover: '/api/anilist/image/cover/101922',
+          adult: true,
+          episode: 5,
+          airingAt: new Date(2026, 9, 15, 20, 30).toISOString(),
+        },
+      ],
+      feed: [],
+    })
+    expect(deAniList[0]?.meta).toContain('+18')
+
+    const delFeed = piezasDeNovedades({
+      emisiones: [],
+      feed: [{ ...resumen('Del feed'), adult: true, publishedAt: '2026-10-01T12:00:00.000Z' }],
+    })
+    expect(delFeed[0]?.meta).toBe('+18')
+
+    const sinMarca = piezasDeNovedades({
+      emisiones: [],
+      feed: [{ ...resumen('Otra'), publishedAt: '2026-10-01T12:00:00.000Z' }],
+    })
+    expect(sinMarca[0]?.meta).toBeUndefined()
+  })
+
   test('las novedades son los episodios recién emitidos, o el feed', () => {
     const emisiones = piezasDeNovedades({
       emisiones: [

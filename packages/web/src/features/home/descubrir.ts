@@ -73,12 +73,15 @@ export function desdeResumen(item: AnimeSummary): PiezaVista {
   }
 }
 
-/** La meta de una obra de AniList: el año, y el formato si no es una serie. */
+/** La meta de una obra de AniList: el año, el formato si no es una serie, y la marca. */
 export function metaDeDescubrir(item: DiscoverItem): string | undefined {
   const partes: string[] = []
   if (item.year !== undefined)
     partes.push(t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year }))
   if (item.format !== undefined && item.format !== 'TV') partes.push(item.format)
+  // La marca va en la línea de datos y no en un adorno: es texto, así que la lee
+  // cualquiera —también un lector de pantalla— y no depende de un color.
+  if (item.adult) partes.push(t(DEFAULT_LOCALE, 'adult.mark'))
 
   return partes.length === 0 ? undefined : partes.join(' · ')
 }
@@ -103,17 +106,25 @@ export function episodioDe(item: { readonly episode?: number | undefined }): str
     : t(DEFAULT_LOCALE, 'home.episode', { number: item.episode })
 }
 
+/** La meta de una emisión: el capítulo, y la marca si la obra es para adultos. */
+export function metaDeEmision(item: AiringItem): string | undefined {
+  const partes: string[] = []
+  const episodio = episodioDe(item)
+  if (episodio !== undefined) partes.push(episodio)
+  if (item.adult) partes.push(t(DEFAULT_LOCALE, 'adult.mark'))
+
+  return partes.length === 0 ? undefined : partes.join(' · ')
+}
+
 /** Un capítulo o un estreno de la parrilla. */
 export function desdeEmision(item: AiringItem): PiezaVista {
-  const episodio = episodioDe(item)
-
   return {
     clave: `anilist:${item.anilistId}:${item.airingAt ?? item.year ?? ''}`,
     title: item.title,
     to: destinoDe(item),
     portada: item.cover,
     ...(item.ref === undefined ? {} : { providerId: item.ref.providerId, ref: item.ref.value }),
-    ...(episodio === undefined ? {} : { meta: episodio }),
+    ...(metaDeEmision(item) === undefined ? {} : { meta: metaDeEmision(item) }),
   }
 }
 
