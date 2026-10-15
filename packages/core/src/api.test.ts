@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  anilistRelatedResponseSchema,
   episodeResponseSchema,
   episodesResponseSchema,
   feedItemSchema,
@@ -265,5 +266,45 @@ describe('providerRepoSelectionSchema: qué se activa', () => {
     expect(providerRepoSelectionSchema.safeParse({ url: 'o/r', enabled: demasiadas }).success).toBe(
       false,
     )
+  })
+})
+
+/** Una pieza de los relacionados de AniList, sin `ref`: la obra no está en la base. */
+const RELACIONADA = {
+  anilistId: 112151,
+  title: 'Kimetsu no Yaiba: Mugen Ressha-hen',
+  cover: '/api/anilist/image/cover/112151',
+  year: 2020,
+  kind: 'movie',
+  relation: 'sequel',
+}
+
+describe('anilistRelatedResponseSchema: la pieza con su motivo', () => {
+  test('acepta la pieza con su relación y con la referencia local cuando la hay', () => {
+    expect(anilistRelatedResponseSchema.safeParse({ items: [RELACIONADA] }).success).toBe(true)
+    expect(
+      anilistRelatedResponseSchema.safeParse({
+        items: [{ ...RELACIONADA, ref: { providerId: 'jkanime', value: 'kimetsu' } }],
+      }).success,
+    ).toBe(true)
+  })
+
+  test('un motivo que no es de la lista cerrada no vale', () => {
+    // El nombre de AniList —`SEQUEL`— no es el del contrato: si viaja tal cual,
+    // la interfaz traduce una clave que no existe y la pieza sale sin motivo.
+    expect(
+      anilistRelatedResponseSchema.safeParse({ items: [{ ...RELACIONADA, relation: 'SEQUEL' }] })
+        .success,
+    ).toBe(false)
+    expect(
+      anilistRelatedResponseSchema.safeParse({ items: [{ ...RELACIONADA, relation: 'crossover' }] })
+        .success,
+    ).toBe(false)
+  })
+
+  test('sin motivo no es una pieza relacionada', () => {
+    const { relation: _sinMotivo, ...sinRelacion } = RELACIONADA
+
+    expect(anilistRelatedResponseSchema.safeParse({ items: [sinRelacion] }).success).toBe(false)
   })
 })

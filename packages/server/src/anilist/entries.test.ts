@@ -14,8 +14,10 @@ import {
   mediaAliasSchema,
   mediaOfAlias,
   mediaSchema,
+  relationsSchema,
   toAiringEntry,
   toEntry,
+  toRelatedEntries,
 } from './entries'
 
 const CRUDA = {
@@ -185,5 +187,100 @@ describe('la página de un alias', () => {
     expect(mediaOfAlias(aplanada)).toHaveLength(1)
     expect(mediaOfAlias(envuelta)).toHaveLength(1)
     expect(mediaOfAlias({})).toEqual([])
+  })
+})
+
+/** Un nodo de una arista, con lo que la prueba quiera cambiar. */
+function nodo(overrides: Record<string, unknown> = {}) {
+  return { ...CRUDA, ...overrides }
+}
+
+/** Las aristas tal y como las valida el cliente. */
+function aristas(...edges: readonly Record<string, unknown>[]) {
+  return relationsSchema.parse({ Media: { relations: { edges } } })
+}
+
+describe('las relaciones de una obra', () => {
+  test('se queda con la secuela y tira el manga de origen y el crossover', () => {
+    // Los tres casos son los que devolvió la API para «Kimetsu no Yaiba»: el
+    // manga (`SOURCE`, `format: MANGA`), la película (`SEQUEL`) y los cortos de
+    // gag (`CHARACTER`). Sólo el segundo es una entrega que encadenar.
+    const relaciones = toRelatedEntries(
+      aristas(
+        { relationType: 'SOURCE', node: nodo({ id: 87216, format: 'MANGA' }) },
+        {
+          relationType: 'SEQUEL',
+          node: nodo({
+            id: 112151,
+            format: 'MOVIE',
+            title: { romaji: 'Mugen Ressha-hen', english: null, native: null },
+          }),
+        },
+        { relationType: 'CHARACTER', node: nodo({ id: 129627, format: 'ONA' }) },
+      ),
+    )
+
+    expect(relaciones.map((una) => una.media.id)).toEqual([112151])
+    expect(relaciones[0]?.relation).toBe('sequel')
+    expect(relaciones[0]?.media.names.romaji).toBe('Mugen Ressha-hen')
+  })
+
+  test('una relación que apunta a una novela o a un manga no es una entrega que ver', () => {
+    // Es la red que queda **bajo** la lista blanca: el manga de origen se cae por
+    // `SOURCE`, pero AniList publica relaciones que sí se leen —`SIDE_STORY`,
+    // `SUMMARY`— apuntando a una novela ligera o a un tomo. Sin el filtro de
+    // formato, la ficha ofrece una obra que no está en ninguna fuente de anime.
+    const relaciones = toRelatedEntries(
+      aristas(
+        { relationType: 'SIDE_STORY', node: nodo({ id: 700, format: 'NOVEL' }) },
+        { relationType: 'SUMMARY', node: nodo({ id: 701, format: 'MANGA' }) },
+      ),
+    )
+
+    expect(relaciones).toEqual([])
+  })
+
+  test('una obra que viene en dos aristas sale una vez, con la primera', () => {
+    // AniList publica la misma entrega como precuela de una y secuela de otra.
+    // Sin el mapa por id, la ficha pinta dos veces la misma obra.
+    const relaciones = toRelatedEntries(
+      aristas(
+        { relationType: 'PREQUEL', node: nodo({ id: 112151 }) },
+        { relationType: 'SEQUEL', node: nodo({ id: 112151 }) },
+      ),
+    )
+
+    expect(relaciones).toHaveLength(1)
+    expect(relaciones[0]?.relation).toBe('prequel')
+  })
+
+  test('sin portada de su CDN no hay pieza que pintar, y la relación se cae', () => {
+    const relaciones = toRelatedEntries(
+      aristas({
+        relationType: 'SEQUEL',
+        node: nodo({
+          id: 112151,
+          coverImage: { extraLarge: 'https://ejemplo.invalid/portada.jpg', large: null },
+        }),
+      }),
+    )
+
+    expect(relaciones).toEqual([])
+  })
+
+  test('un tipo que no se sabe leer no se enseña', () => {
+    // Un tipo nuevo de AniList no puede llegar a la ficha por el hecho de ser
+    // nuevo: la lista es cerrada y esto es lo que la cierra.
+    const relaciones = toRelatedEntries(
+      aristas({ relationType: 'CROSSOVER_NUEVO', node: nodo({ id: 112151 }) }),
+    )
+
+    expect(relaciones).toEqual([])
+  })
+
+  test('sin relaciones, o con la obra fuera, la lista viene vacía y no revienta', () => {
+    expect(toRelatedEntries(relationsSchema.parse({ Media: { relations: null } }))).toEqual([])
+    expect(toRelatedEntries(relationsSchema.parse({ Media: {} }))).toEqual([])
+    expect(toRelatedEntries(aristas({ relationType: 'SEQUEL' }))).toEqual([])
   })
 })

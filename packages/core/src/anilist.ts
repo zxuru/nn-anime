@@ -194,6 +194,61 @@ export function kindOfFormat(formato: string): TitleKind | undefined {
 }
 
 /**
+ * Los tipos de relación de AniList que esta aplicación enseña.
+ *
+ * Son los que apuntan a **otra entrega de la misma franquicia**, y la lista es
+ * cerrada y está escrita porque AniList publica quince tipos y tres de ellos no
+ * son una obra que encadenar. Medido contra su API el 2026-10-15, para
+ * `Media(id: 101922)` —«Kimetsu no Yaiba»—: `SOURCE` apunta al manga —el nodo
+ * llega con `format: MANGA`— y `CHARACTER` a cuatro ONAs de gag y a un crossover
+ * con la MLB. Con el catálogo entero de tipos, la sección de la ficha ofrece un
+ * cómic y un anuncio.
+ *
+ * El orden es el de utilidad: primero lo que se encadena —secuela, precuela,
+ * obra madre— y después el resto de la franquicia.
+ */
+export const ANILIST_RELATIONS = [
+  'sequel',
+  'prequel',
+  'parent',
+  'sideStory',
+  'spinOff',
+  'alternative',
+  'summary',
+  'special',
+] as const
+
+export type AniListRelation = (typeof ANILIST_RELATIONS)[number]
+
+/**
+ * El nombre con el que AniList publica cada relación.
+ *
+ * Se compara tal cual, en mayúsculas: la API las publica así, y aceptar
+ * variantes convertiría un cambio suyo en un dato silenciosamente distinto.
+ */
+const NOMBRES_DE_RELACION: Readonly<Record<string, AniListRelation>> = {
+  SEQUEL: 'sequel',
+  PREQUEL: 'prequel',
+  PARENT: 'parent',
+  SIDE_STORY: 'sideStory',
+  SPIN_OFF: 'spinOff',
+  ALTERNATIVE: 'alternative',
+  SUMMARY: 'summary',
+  SPECIAL: 'special',
+}
+
+/**
+ * La relación que esta aplicación enseña, o nada si no es de las suyas.
+ *
+ * `undefined` es la respuesta para `SOURCE`, `ADAPTATION`, `CHARACTER`,
+ * `COMPILATION`, `CONTAINS`, `OTHER` y para cualquier nombre nuevo: una relación
+ * que no se sabe leer no se pinta.
+ */
+export function relationOf(nombre: string): AniListRelation | undefined {
+  return NOMBRES_DE_RELACION[nombre]
+}
+
+/**
  * La ruta de una imagen de AniList, por su id.
  *
  * El cliente manda una **referencia** —la clase de imagen y el id—, nunca una

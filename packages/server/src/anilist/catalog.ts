@@ -50,10 +50,21 @@ import {
   mediaPageSchema,
   mediaPagesSchema,
   type RawMedia,
+  type RelatedEntry,
+  relatedEntrySchema,
+  relationsSchema,
   toAiringEntry,
   toEntry,
+  toRelatedEntries,
 } from './entries'
-import { AIRED_QUERY, AIRING_QUERY, matchQuery, moviesReleasedQuery, topQuery } from './queries'
+import {
+  AIRED_QUERY,
+  AIRING_QUERY,
+  matchQuery,
+  moviesReleasedQuery,
+  RELATED_QUERY,
+  topQuery,
+} from './queries'
 
 /** Los formatos de cada mitad: la interfaz llama «anime» a lo que no es película. */
 const FORMATOS = {
@@ -145,6 +156,16 @@ export interface AniListCatalog {
     adultAllowed: boolean,
     signal?: AbortSignal | undefined,
   ): Promise<ReadonlyMap<string, AniListEntry | null>>
+  /**
+   * Las relaciones de una obra, por su id de AniList.
+   *
+   * Lista vacía es una respuesta: la obra no tiene secuelas ni precuelas que
+   * enseñar. Un fallo del tercero sólo es un error si no hay nada cacheado.
+   */
+  related(
+    mediaId: number,
+    signal?: AbortSignal | undefined,
+  ): Promise<Result<readonly RelatedEntry[], AppError>>
   /** Las obras de estas listas que la base ya conoce, por id de AniList. */
   localRefs(entries: readonly AniListEntry[]): Promise<ReadonlyMap<number, ProviderRef>>
   image(mediaId: number, kind: AniListImageKind): Promise<string | undefined>
@@ -349,6 +370,9 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
     Promise<Result<readonly AniListAiringEntry[], AppError>>
   >()
   const enVueloEmparejamiento = new Map<string, Promise<Result<AniListEntry | null, AppError>>>()
+  // Las relaciones van con su propia lista en vuelo: abrir dos fichas de la misma
+  // obra a la vez comparte la consulta, como el top y la parrilla.
+  const enVueloRelaciones = new Map<string, Promise<Result<readonly RelatedEntry[], AppError>>>()
 
   const avisar = (mensaje: string, contexto: Readonly<Record<string, string | number>>): void => {
     options.logger?.warn(mensaje, contexto)
@@ -646,12 +670,52 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
     return encontrados
   }
 
+  /**
+   * Las relaciones de una obra.
+   *
+   * La clave es el id de AniList y no el título local: la misma obra en dos
+   * fuentes es la misma consulta, y el emparejamiento ya la resolvió antes.
+   */
+  async function related(
+    mediaId: number,
+    signal?: AbortSignal,
+  ): Promise<Result<readonly RelatedEntry[], AppError>> {
+    const clave = `related:${mediaId}`
+
+    return cachedList(
+      {
+        store,
+        clave,
+        schema: relatedEntrySchema,
+        ttlS: TTL_SECONDS.anilistRelated,
+        enVuelo: enVueloRelaciones,
+        // La media entera entra en la caché de imágenes: sin ella, la ruta de la
+        // portada no tendría con qué resolver la de una secuela.
+        imagenes: (items) => items.map((item) => item.media),
+      },
+      async () => {
+        const outcome = await client.query({
+          key: clave,
+          query: RELATED_QUERY,
+          variables: { id: mediaId },
+          schema: relationsSchema,
+          signal,
+        })
+
+        if (!outcome.ok) return err(outcome.error)
+
+        return ok(toRelatedEntries(outcome.value))
+      },
+    )
+  }
+
   return {
     top,
     airing,
     recent,
     match,
     matchMany,
+    related,
     localRefs,
     async image(mediaId, kind) {
       return store.readAniListImage(mediaId, kind)

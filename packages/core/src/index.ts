@@ -8,9 +8,11 @@
  */
 
 export {
+  ANILIST_RELATIONS,
   type AniListCandidate,
   type AniListImageKind,
   type AniListNames,
+  type AniListRelation,
   anilistImagePath,
   anilistNames,
   kindOfFormat,
@@ -18,14 +20,20 @@ export {
   localWork,
   pickAniListMatch,
   plainText,
+  relationOf,
   sameAniListWork,
 } from './anilist'
 export {
   type AiringItem,
   type AiringResponse,
+  type AniListRelatedItem,
+  type AniListRelatedResponse,
   type AnimeResponse,
   airingItemSchema,
   airingResponseSchema,
+  anilistRelatedItemSchema,
+  anilistRelatedResponseSchema,
+  anilistRelationSchema,
   animeResponseSchema,
   type ContinueWatchingItem,
   type ContinueWatchingResponse,

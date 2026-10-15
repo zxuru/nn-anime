@@ -20,9 +20,13 @@
 import {
   type AniListAiringEntry,
   type AniListEntry,
+  anilistEntrySchema,
+  anilistRelationSchema,
+  type DeepReadonly,
   httpUrlSchema,
   kindOfFormat,
   plainText,
+  relationOf,
 } from '@nn-anime/core'
 import { z } from 'zod'
 import { ANILIST_IMAGE_HOSTS } from './client'
@@ -130,6 +134,24 @@ export const scheduleSchema = z.object({
 export const mediaPageSchema = z.object({ Page: z.object({ media: z.array(mediaSchema) }) })
 export const airingPageSchema = z.object({
   Page: z.object({ airingSchedules: z.array(scheduleSchema) }),
+})
+
+/**
+ * Las relaciones de una obra.
+ *
+ * `node` es opcional aunque la API siempre lo publique: una arista sin obra no
+ * es un error de nadie, es una arista que no se puede pintar, y se descarta al
+ * convertir. `relations` admite `null` por el mismo motivo.
+ */
+export const relationsSchema = z.object({
+  Media: z.object({
+    relations: z
+      .object({
+        edges: z.array(z.object({ relationType: z.string(), node: mediaSchema.optional() })),
+      })
+      .nullable()
+      .optional(),
+  }),
 })
 
 /**
@@ -250,6 +272,54 @@ export function toEntry(media: z.infer<typeof mediaSchema>): AniListEntry | unde
 /** Si la obra es de la mitad que la interfaz llama «películas». */
 export function isMovie(entry: AniListEntry): boolean {
   return kindOfFormat(entry.format ?? '') === 'movie'
+}
+
+/**
+ * Una relación ya convertida: el motivo y la obra.
+ *
+ * Es la forma que se guarda en la caché de listas, y lleva la obra entera —y no
+ * sólo su id— para que la ruta de la imagen resuelva sus portadas con el mismo
+ * mecanismo que el top y la parrilla. El tipo es el de sólo lectura, como todo lo
+ * que sale de `core`: lo que se lee de la caché no se muta por el camino.
+ */
+export const relatedEntrySchema = z.strictObject({
+  relation: anilistRelationSchema,
+  media: anilistEntrySchema,
+})
+
+export type RelatedEntry = DeepReadonly<z.infer<typeof relatedEntrySchema>>
+
+/**
+ * Las relaciones que esta aplicación enseña, en el orden en que llegan.
+ *
+ * Tres descartes, y los tres medidos contra la API: lo que **no es una entrega**
+ * —`SOURCE` es el manga de origen—, lo que no es **anime** —el formato no tiene
+ * tipo en esta aplicación, que es lo que descarta la novela y el manga— y lo que
+ * **no se puede pintar** —sin nombre o sin portada de su CDN, `toEntry` ya
+ * devuelve nada—.
+ *
+ * Una obra sale **una vez** aunque venga en dos aristas: AniList publica la
+ * misma entrega como secuela de una y precuela de otra, y repetirla en la fila
+ * sería el contenido duplicado que el spec de la ficha prohíbe.
+ */
+export function toRelatedEntries(raw: z.infer<typeof relationsSchema>): readonly RelatedEntry[] {
+  const vistas = new Set<number>()
+  const relaciones: RelatedEntry[] = []
+
+  for (const arista of raw.Media.relations?.edges ?? []) {
+    const relation = relationOf(arista.relationType)
+    if (relation === undefined || arista.node === undefined) continue
+
+    const media = toEntry(arista.node)
+    if (media === undefined) continue
+    if (kindOfFormat(media.format ?? '') === undefined) continue
+    if (vistas.has(media.id)) continue
+
+    vistas.add(media.id)
+    relaciones.push({ relation, media })
+  }
+
+  return relaciones
 }
 
 /** Un capítulo de la parrilla, con su obra dentro. */
