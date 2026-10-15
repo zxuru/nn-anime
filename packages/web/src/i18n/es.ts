@@ -400,6 +400,10 @@ export const messages: Messages = {
   'detail.enrichment.site': 'Ver la ficha en AniList',
   'detail.genres': 'Géneros',
   'detail.studios': 'Estudios',
+  // A dónde lleva pulsar una etiqueta de la ficha: el nombre solo no lo dice, y
+  // sin decirlo el enlace pide un clic a ciegas.
+  'detail.genreLink': 'Ver los títulos del género {name}',
+  'detail.studioLink': 'Ver los títulos de {name}',
   'detail.episodes': 'Episodios',
   'detail.episode': 'Episodio {number}',
   // Con total y sin él, porque el proveedor no siempre dice de cuántos: un «de 26»

@@ -7,7 +7,7 @@
  * el proceso—, así que un plugin que llega después tiene que devolver sus filas
  * al instante, y uno que se va, esconderlas.
  *
- * Las siete lecturas se miden **con** el proveedor ausente cargado y sin él: sin
+ * Las ocho lecturas se miden **con** el proveedor ausente cargado y sin él: sin
  * el control, una lectura rota que devolviera vacío pasaría por buena.
  */
 
@@ -56,6 +56,11 @@ const LECTURAS: readonly Lectura[] = [
       (await store.searchByGenre('accion', 50)).map((item) => item.ref.providerId),
   },
   {
+    nombre: 'searchByStudio',
+    ids: async (store) =>
+      (await store.searchByStudio('estudio comun', 50)).map((item) => item.ref.providerId),
+  },
+  {
     nombre: 'listFavorites',
     ids: async (store) => (await store.listFavorites()).map((item) => item.ref.providerId),
   },
@@ -85,6 +90,13 @@ function proveedor(id: string): Provider {
   return { ...createFixtureProvider(), id }
 }
 
+/**
+ * Una fila de anime, con el JSON mínimo que leen las dos consultas del catálogo.
+ *
+ * El `raw_json` hace falta aquí y no es adorno: la búsqueda por estudio recorre
+ * los pares (título, estudio) de ese JSON, así que sin él la lectura no tendría
+ * nada que mirar y el control mediría una lectura que devuelve vacío.
+ */
 function insertarAnime(
   db: StoreConnection,
   providerId: string,
@@ -94,11 +106,18 @@ function insertarAnime(
   fetchedAt: number,
 ): number {
   const fila = db
-    .query<{ id: number }, [string, string, string, number, number]>(
-      `INSERT INTO anime (provider_id, provider_ref, title, year, fetched_at, ttl_s)
-       VALUES (?, ?, ?, ?, ?, 3600) RETURNING id`,
+    .query<{ id: number }, [string, string, string, number, number, string]>(
+      `INSERT INTO anime (provider_id, provider_ref, title, year, fetched_at, ttl_s, raw_json)
+       VALUES (?, ?, ?, ?, ?, 3600, ?) RETURNING id`,
     )
-    .get(providerId, ref, title, year, fetchedAt)
+    .get(
+      providerId,
+      ref,
+      title,
+      year,
+      fetchedAt,
+      JSON.stringify({ title, studios: ['Estudio Común'] }),
+    )
 
   return fila?.id ?? 0
 }

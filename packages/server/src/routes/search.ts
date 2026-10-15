@@ -40,8 +40,42 @@ import { type AggregateOptions, type SearchEvent, searchAll } from '../search/ag
  */
 export const CATALOG_PROVIDER_ID = 'catalog'
 
-/** Cuántos títulos cacheados se ofrecen por género. Una fila, no el catálogo. */
-export const CATALOG_GENRE_LIMIT = 24
+/**
+ * Cuántos títulos cacheados se ofrecen por término. Una fila, no el catálogo.
+ *
+ * El tope es del evento entero y no de cada lectura: una consulta que encaje con
+ * un género y con un estudio a la vez devuelve la unión, y lo que se enseña sigue
+ * siendo una fila.
+ */
+export const CATALOG_LIMIT = 24
+
+/**
+ * La unión de dos listas de resultados, sin repetir y con el tope puesto.
+ *
+ * Se compara por referencia —proveedor y valor— y no por título: dos obras
+ * homónimas de fuentes distintas son dos fichas, y una que encaje por género y
+ * por estudio es una sola.
+ */
+function unirSinRepetir(
+  listas: readonly (readonly SearchResult[])[],
+  limit: number,
+): readonly SearchResult[] {
+  const vistos = new Set<string>()
+  const unidos: SearchResult[] = []
+
+  for (const lista of listas) {
+    for (const resultado of lista) {
+      const clave = `${resultado.ref.providerId}:${resultado.ref.value}`
+      if (vistos.has(clave)) continue
+
+      vistos.add(clave)
+      unidos.push(resultado)
+      if (unidos.length >= limit) return unidos
+    }
+  }
+
+  return unidos
+}
 
 export interface SearchRouteOptions {
   readonly providers: readonly Provider[]
@@ -124,16 +158,24 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
       /**
        * Primero lo que el catálogo ya tiene.
        *
-       * Es la única forma de que una búsqueda por género devuelva algo: los
-       * proveedores buscan por título y ninguno entiende «acción». Se filtra por
-       * los proveedores seleccionados para que el filtro de la interfaz siga
-       * significando lo mismo, y se emite como proveedor propio porque estos
-       * títulos son de la base, no de la respuesta que esté por llegar.
+       * Es la única forma de que una consulta por **género o por estudio** devuelva
+       * algo: los proveedores buscan por título y ninguno entiende «acción» ni
+       * «ufotable». Se filtra por los proveedores seleccionados para que el filtro
+       * de la interfaz siga significando lo mismo, y se emite como proveedor propio
+       * porque estos títulos son de la base, no de la respuesta que esté por llegar.
+       *
+       * Las dos lecturas se piden siempre y se unen: quien escribe «acción» puede
+       * estar buscando el género o un estudio que se llame así, y ninguna de las dos
+       * preguntas se puede descartar sin mirar.
        */
       if (container !== undefined && parsed.data.q.trim() !== '') {
         const permitidos = new Set(selected.map((provider) => provider.id))
-        const locales = (
-          await container.store.searchByGenre(parsed.data.q, CATALOG_GENRE_LIMIT)
+        const locales = unirSinRepetir(
+          [
+            await container.store.searchByGenre(parsed.data.q, CATALOG_LIMIT),
+            await container.store.searchByStudio(parsed.data.q, CATALOG_LIMIT),
+          ],
+          CATALOG_LIMIT,
         ).filter((resultado) => permitidos.has(resultado.ref.providerId))
 
         if (locales.length > 0 && !disconnected.aborted) {

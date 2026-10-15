@@ -128,6 +128,14 @@ export interface CatalogStore {
    * —la que da sentido a la fila de géneros de la home— sale de la base.
    */
   searchByGenre(term: string, limit: number): Promise<readonly SearchResult[]>
+  /**
+   * Los títulos cacheados cuyo estudio encaja con el término.
+   *
+   * La misma pregunta con el otro nombre de la ficha: pulsar «ufotable» lleva a
+   * lo que ese estudio tiene en el catálogo local, que es lo único que la
+   * aplicación puede abrir sin preguntarle a nadie.
+   */
+  searchByStudio(term: string, limit: number): Promise<readonly SearchResult[]>
   /** Tendencias cacheadas de un proveedor. */
   readTrending(providerId: string): Promise<CacheHit<readonly SearchResult[]> | null>
   writeTrending(providerId: string, results: readonly SearchResult[]): Promise<void>
@@ -319,6 +327,9 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async searchByGenre(term, limit) {
       return of().anime.searchByGenre(term, limit)
+    },
+    async searchByStudio(term, limit) {
+      return of().anime.searchByStudio(term, limit)
     },
 
     async readTrending(providerId) {

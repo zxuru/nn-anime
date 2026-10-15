@@ -1050,6 +1050,29 @@ describe('la lectura en dos pistas', () => {
     expect(prosa).not.toContain('Estudios')
   })
 
+  /**
+   * El nombre de un género y el de un estudio llevan a sus títulos.
+   *
+   * Es la ruta de la banda de géneros de la vitrina —la búsqueda por ese término—,
+   * y la dirección va escrita a mano en la comprobación: componerla con `searchPath`
+   * mediría que la función es igual a sí misma, y lo que hay que medir es **qué**
+   * dirección sale, con sus espacios y su tilde codificados.
+   */
+  test('los géneros y los estudios llevan a sus títulos', () => {
+    const html = render(
+      <Lectura
+        detail={{ ...detalle, genres: ['Ciencia ficción'] }}
+        enrichment={{ ...enriquecido, studios: ['Estudio Cobre'] }}
+      />,
+    )
+
+    expect(html).toContain('href="/search?q=Ciencia%20ficci%C3%B3n"')
+    expect(html).toContain('href="/search?q=Estudio%20Cobre"')
+    // Y cada enlace dice a dónde lleva: el nombre solo pide un clic a ciegas.
+    expect(html).toContain('title="Ver los títulos del género Ciencia ficción"')
+    expect(html).toContain('title="Ver los títulos de Estudio Cobre"')
+  })
+
   test('sin sinopsis ni datos, la lectura no deja dos pistas vacías', () => {
     // Ni sinopsis, ni géneros, ni estudios, ni emparejamiento: no hay nada que
     // leer arriba, y un bloque vacío entre la cabecera y los episodios no dice

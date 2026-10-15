@@ -21,15 +21,16 @@
 import type { Enrichment } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { AnimeDetail } from '@nn-anime/core/models'
-import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { Fragment, type ReactNode, useState } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { Cover } from '../../components/Cover'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import { detailTitleParts, useDocumentTitle } from '../../lib/document-title'
 import { isSafeUrl } from '../../lib/safe-url'
+import { Link } from '../../router'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
+import { searchPath } from '../search/SearchPage'
 import { AniListRelated } from './AniListRelated'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
@@ -266,19 +267,54 @@ export function Lectura(props: {
           {listaGeneros.length === 0 ? null : (
             <section>
               <h2>{t(DEFAULT_LOCALE, 'detail.genres')}</h2>
-              <p>{listaGeneros.join(' · ')}</p>
+              <Etiquetas valores={listaGeneros} clave="detail.genreLink" />
             </section>
           )}
 
           {listaEstudios.length === 0 ? null : (
             <section>
               <h2>{t(DEFAULT_LOCALE, 'detail.studios')}</h2>
-              <p>{listaEstudios.join(' · ')}</p>
+              <Etiquetas valores={listaEstudios} clave="detail.studioLink" />
             </section>
           )}
         </div>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * Las etiquetas de la ficha —los géneros y los estudios—, cada una un enlace.
+ *
+ * Pulsarlas lleva a la búsqueda por ese término, que es lo que ya hace la banda de
+ * géneros de la vitrina: los proveedores buscan por título y ninguno entiende
+ * «acción» ni el nombre de un estudio, así que lo que responde sale del **catálogo
+ * local** —los títulos que la base ya conoce—. El reparto entre anime y películas
+ * lo hace el conmutador de la cabecera, el mismo de todas las pantallas.
+ *
+ * El separador va como texto y no como estilo: es la misma línea de antes
+ * —«Fantasía · Romance»—, con las palabras convertidas en enlaces. El `title`
+ * dice a dónde lleva cada uno, que es lo que el nombre solo no cuenta.
+ */
+function Etiquetas(props: {
+  readonly valores: readonly string[]
+  readonly clave: 'detail.genreLink' | 'detail.studioLink'
+}): ReactNode {
+  return (
+    <p className="detail__etiquetas">
+      {props.valores.map((valor, indice) => (
+        <Fragment key={valor}>
+          {indice === 0 ? null : ' · '}
+          <Link
+            className="detail__etiqueta"
+            to={searchPath(valor)}
+            title={t(DEFAULT_LOCALE, props.clave, { name: valor })}
+          >
+            {valor}
+          </Link>
+        </Fragment>
+      ))}
+    </p>
   )
 }
 
