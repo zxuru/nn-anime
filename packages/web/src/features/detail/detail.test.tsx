@@ -11,7 +11,15 @@ import type {
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'
-import { DetailPage, estudios, generos, seccionesDe, sinopsis } from './DetailPage'
+import {
+  BandaBanner,
+  DetailPage,
+  estudios,
+  fondoDe,
+  generos,
+  seccionesDe,
+  sinopsis,
+} from './DetailPage'
 import { EpisodeRows } from './EpisodeList'
 import { watchedInWindow, windowAt, windowCount, windowForNumber } from './episode-window'
 import { FavoriteButton } from './FavoriteButton'
@@ -812,5 +820,104 @@ describe('lo que añade AniList', () => {
 
     expect(html).toContain('Próximo capítulo')
     expect(html).toContain('12')
+  })
+})
+
+/**
+ * La ruta del banner, sólo si es la del servidor.
+ *
+ * El dato llega por HTTP, y la capa del fondo se compone con él: sin esta
+ * comprobación, una ruta con comillas cerraría el `url()` y metería otra imagen.
+ * No pasa por `isSafeUrl` —que sólo admite direcciones absolutas y rechazaría la
+ * ruta local que el servidor compone— sino por la forma exacta de esa ruta.
+ */
+describe('la ruta del banner de AniList', () => {
+  const enriquecido: Enrichment = {
+    anilistId: 555,
+    cover: '/api/anilist/image/cover/555',
+    genres: [],
+    studios: [],
+    siteUrl: 'https://anilist.co/anime/555',
+  }
+
+  test('se acepta la que compone el servidor para un banner', () => {
+    expect(fondoDe({ ...enriquecido, banner: '/api/anilist/image/banner/182255' })).toBe(
+      '/api/anilist/image/banner/182255',
+    )
+  })
+
+  test('sin banner, o sin emparejamiento, no hay fondo', () => {
+    expect(fondoDe(enriquecido)).toBeUndefined()
+    expect(fondoDe(null)).toBeUndefined()
+    expect(fondoDe(undefined)).toBeUndefined()
+  })
+
+  test('cualquier otra cosa no se pinta', () => {
+    for (const banner of [
+      'https://otro.example/banner.jpg',
+      'javascript:alert(1)',
+      '//otro.example/banner.jpg',
+      '/api/anilist/image/cover/555',
+      '/api/anilist/image/banner/0',
+      '/api/anilist/image/banner/555"',
+      '/api/anilist/image/banner/../../etc',
+    ]) {
+      expect(fondoDe({ ...enriquecido, banner }), banner).toBeUndefined()
+    }
+  })
+})
+
+/**
+ * La banda del banner.
+ *
+ * La imagen dejó de ser un `<img>` del flujo —el que dejaba el icono de imagen
+ * rota cuando la obra no tenía banner o la caché todavía no lo servía— y pasó a
+ * ser el fondo de la cabecera. Aquí se mide la forma del marcado: que se vea, y
+ * con qué contraste, es del e2e y de `a11y.test.ts`.
+ */
+describe('la banda del banner', () => {
+  const detalle: AnimeDetail = {
+    ref: { providerId: 'fixture', value: 'aurora-nocturna' },
+    title: 'Aurora Nocturna',
+    titleAlt: 'Aurora Nocturna: el cielo a pie',
+    genres: [],
+    studios: [],
+    year: 2019,
+    status: 'finished',
+  }
+
+  test('el título, el otro nombre y el año van dentro de la banda', () => {
+    const html = render(<BandaBanner detail={detalle} fondo="/api/anilist/image/banner/555" />)
+
+    const banda = html.indexOf('class="detail__banner"')
+    const titulo = html.indexOf('<h1>Aurora Nocturna</h1>')
+    const otro = html.indexOf('Aurora Nocturna: el cielo a pie')
+    const anyo = html.indexOf('Año 2019')
+
+    expect(banda).toBeGreaterThan(-1)
+    expect(titulo).toBeGreaterThan(banda)
+    expect(otro).toBeGreaterThan(titulo)
+    expect(anyo).toBeGreaterThan(otro)
+  })
+
+  test('el banner entra como fondo, decorativo, y sin ninguna imagen que romper', () => {
+    const html = render(<BandaBanner detail={detalle} fondo="/api/anilist/image/banner/555" />)
+
+    const capa = /<span class="detail__banner-fondo"[^>]*>/.exec(html)?.[0] ?? ''
+
+    expect(capa).toContain('banner/555')
+    // Decorativa: no lleva texto y no se anuncia.
+    expect(capa).toContain('aria-hidden="true"')
+    // Y no queda ninguna imagen en el flujo: el navegador no pinta el icono de
+    // imagen rota de un fondo que no carga.
+    expect(html).not.toContain('<img')
+  })
+
+  test('sin banner la banda sigue: es la cabecera, no el adorno', () => {
+    const html = render(<BandaBanner detail={detalle} />)
+
+    expect(html).toContain('class="detail__banner"')
+    expect(html).toContain('<h1>Aurora Nocturna</h1>')
+    expect(html).not.toContain('detail__banner-fondo')
   })
 })

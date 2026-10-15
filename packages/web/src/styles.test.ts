@@ -210,6 +210,30 @@ describe('tokens de diseño', () => {
   })
 
   /**
+   * El velo del banner acaba en el fondo de la página.
+   *
+   * Es lo que sostiene el titular, y no una cuestión de gusto: debajo hay una
+   * fotografía cualquiera, así que el texto se lee porque la última parada del
+   * velo es **opaca** y del color del tema. Medido sobre el banner real de una
+   * ficha emparejada —la captura del recuadro del titular, con la letra
+   * escondida— el peor píxel queda en 4.61:1 en el tema oscuro y 6.48:1 en el
+   * claro. Eso no se puede medir sin navegador, pero lo que lo decide, sí.
+   */
+  test('el velo de la banda acaba en el fondo del tema', async () => {
+    const css = await read(SHELL)
+    const desde = css.indexOf('.detail__banner-fondo::after {')
+
+    expect(desde, 'falta el velo de la banda en shell.css').toBeGreaterThan(-1)
+
+    const velo = css.slice(desde, css.indexOf('}', desde))
+
+    // La última parada, opaca y del fondo de la página: es lo que deja el
+    // titular sobre un color conocido y no sobre lo que la imagen tenga ahí.
+    expect(velo).toContain('var(--color-bg) 100%')
+    expect(velo).not.toContain('transparent 100%')
+  })
+
+  /**
    * El encabezado se apila por encima del contenido.
    *
    * No es un detalle de pintura: con la misma capa que una insignia o que el

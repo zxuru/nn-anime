@@ -63,6 +63,63 @@ function Meta(props: { readonly detail: AnimeDetail }): ReactNode {
   )
 }
 
+/**
+ * La ruta del banner, sólo si es la que compone el servidor.
+ *
+ * No pasa por `isSafeUrl`, que sólo admite direcciones absolutas: la del banner
+ * es una ruta local —el navegador no conoce ninguna dirección de AniList— y
+ * `isSafeUrl` la rechazaría dejando la ficha sin fondo. Lo que se comprueba es
+ * el contrato entero: la forma exacta que produce `anilistImagePath` para un
+ * banner. Cualquier otra cosa —un esquema, comillas, otra ruta— no se pinta.
+ */
+export function fondoDe(enrichment: Enrichment | null | undefined): string | undefined {
+  const banner = enrichment?.banner
+  if (banner === undefined || !BANNER_PATH.test(banner)) return undefined
+
+  return banner
+}
+
+/** La ruta que el servidor compone para el banner de una obra de AniList. */
+const BANNER_PATH = /^\/api\/anilist\/image\/banner\/[1-9]\d*$/
+
+/**
+ * La cabecera de la ficha: el título, el otro nombre y el año, sobre el banner.
+ *
+ * La imagen va **de fondo**, en una capa decorativa —`aria-hidden` y sin texto—
+ * y nunca como un `<img>` del flujo: un banner que no llegaba dejaba el icono de
+ * imagen rota del navegador entre la sinopsis y los episodios, que es lo que se
+ * veía en la ficha. Como fondo, una imagen que no carga simplemente no se pinta,
+ * y la ficha se lee igual.
+ *
+ * La banda se pinta **con o sin** banner: es la cabecera de la ficha, así que la
+ * pantalla no cambia de forma cuando el emparejamiento con AniList llega tarde o
+ * no llega.
+ */
+export function BandaBanner(props: {
+  readonly detail: AnimeDetail
+  readonly fondo?: string | undefined
+}): ReactNode {
+  const { detail, fondo } = props
+
+  return (
+    <header className="detail__banner">
+      {/* El `url()` se compone con `JSON.stringify` para que la ruta quede entre
+          comillas y no pueda cerrar el valor: el estilo entra por CSSOM —esto no
+          es HTML—, pero tampoco es un sitio donde dejar pasar texto ajeno. */}
+      {fondo === undefined ? null : (
+        <span
+          className="detail__banner-fondo"
+          style={{ backgroundImage: `url(${JSON.stringify(fondo)})` }}
+          aria-hidden="true"
+        />
+      )}
+      <h1>{detail.title}</h1>
+      {detail.titleAlt === undefined ? null : <p className="card__meta">{detail.titleAlt}</p>}
+      <Meta detail={detail} />
+    </header>
+  )
+}
+
 /** La sinopsis: la del proveedor y, si no la trae, la de AniList. */
 export function sinopsis(
   detail: AnimeDetail,
@@ -211,6 +268,10 @@ export function DetailPage(props: DetailPageProps): ReactNode {
 
   return (
     <article className="detail">
+      {/* La cabecera de la ficha, con el banner de AniList de fondo. Va antes de
+          las dos columnas y las cruza: es la banda que abre la pantalla. */}
+      <BandaBanner detail={detail} fondo={fondoDe(enrichment)} />
+
       {/*
         Dos columnas: lo que se consulta de un vistazo a la izquierda —portada,
         acciones, modos, datos y saga— y lo que se lee a la derecha. Antes todo
@@ -308,10 +369,6 @@ export function DetailPage(props: DetailPageProps): ReactNode {
       </aside>
 
       <div className="detail__body">
-        <h1>{detail.title}</h1>
-        {detail.titleAlt === undefined ? null : <p className="card__meta">{detail.titleAlt}</p>}
-        <Meta detail={detail} />
-
         {sinopsis(detail, enrichment) === undefined ? null : (
           <section>
             <h2>{t(DEFAULT_LOCALE, 'detail.synopsis')}</h2>
@@ -319,13 +376,6 @@ export function DetailPage(props: DetailPageProps): ReactNode {
                 lectura, que es lo único de la ficha que quiere ser estrecho. */}
             <p className="detail__synopsis">{sinopsis(detail, enrichment)}</p>
           </section>
-        )}
-
-        {/* El banner de AniList, cuando lo hay, abre el cuerpo de la ficha: es la
-            imagen apaisada de la obra y no la carátula, así que no sustituye a
-            nada — acompaña. */}
-        {enrichment?.banner === undefined ? null : (
-          <img className="detail__banner" src={enrichment.banner} alt="" loading="lazy" />
         )}
 
         {seccionesDe(enrichment)}
