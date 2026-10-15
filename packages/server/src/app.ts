@@ -254,22 +254,25 @@ export function createApp(options: AppOptions): Hono {
     }
 
     registerCoverRoute(app, { container, ...proxyOptions })
+    // Un solo catálogo para todas las rutas que hablan con AniList: dos instancias serían
+    // dos cachés en memoria y dos mapas de «en vuelo» que no se ven entre sí. El feed y
+    // las tendencias lo necesitan para saber qué pieza es para adultos.
+    const catalog = createAniListCatalog({
+      store: container.store,
+      client: createAniListClient({
+        offline: options.anilistOffline ?? anilistOfflineFromEnv(),
+        ...(options.anilistFetchImpl === undefined ? {} : { fetchImpl: options.anilistFetchImpl }),
+        ...(options.anilistResolver === undefined ? {} : { resolver: options.anilistResolver }),
+        ...(options.anilistClock === undefined ? {} : { now: options.anilistClock }),
+      }),
+      ...(options.anilistClock === undefined ? {} : { now: options.anilistClock }),
+      ...(options.logger === undefined ? {} : { logger: options.logger }),
+    })
+
     registerAniListRoutes(app, {
       providers: hub.providers,
       container,
-      catalog: createAniListCatalog({
-        store: container.store,
-        client: createAniListClient({
-          offline: options.anilistOffline ?? anilistOfflineFromEnv(),
-          ...(options.anilistFetchImpl === undefined
-            ? {}
-            : { fetchImpl: options.anilistFetchImpl }),
-          ...(options.anilistResolver === undefined ? {} : { resolver: options.anilistResolver }),
-          ...(options.anilistClock === undefined ? {} : { now: options.anilistClock }),
-        }),
-        ...(options.anilistClock === undefined ? {} : { now: options.anilistClock }),
-        ...(options.logger === undefined ? {} : { logger: options.logger }),
-      }),
+      catalog,
       // Las imágenes van con el `fetch` de AniList y no con el del proxy de
       // streams: son dos superficies distintas y una prueba que inyecta una no
       // tiene por qué estar sirviendo la otra.
@@ -280,10 +283,12 @@ export function createApp(options: AppOptions): Hono {
     registerStreamRoutes(app, { ...routeOptions, ...proxyOptions })
     registerSubtitlesRoute(app, { container, ...proxyOptions })
     registerWatchRoutes(app, { container })
-    registerRecommendationsRoute(app, routeOptions)
-    registerTrendingRoute(app, routeOptions)
-    registerFeedRoute(app, routeOptions)
-    registerRecentRoute(app, routeOptions)
+    registerRecommendationsRoute(app, { ...routeOptions, catalog })
+    registerTrendingRoute(app, { ...routeOptions, catalog })
+    registerFeedRoute(app, { ...routeOptions, catalog })
+    // `recent` no necesita el catálogo —es una lectura de la base—, pero comparte el tipo
+    // de opciones con el feed, que sí lo necesita para saber qué entrada es para adultos.
+    registerRecentRoute(app, { ...routeOptions, catalog })
     registerSettingsRoute(app, {
       container,
       plugins,

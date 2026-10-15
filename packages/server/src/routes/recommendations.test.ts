@@ -10,6 +10,7 @@ import {
 } from '@nn-anime/core'
 import { createRegistry, type Provider } from '@nn-anime/provider-sdk'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import { fakeAniList } from '../__fixtures__/anilist'
 import { createApp, createContainer } from '../index'
 import { clampLimit, MAX_LIMIT } from './recommendations'
 
@@ -68,6 +69,8 @@ async function conApp<T>(
   opciones: {
     readonly cachear?: readonly string[]
     readonly proveedores?: readonly Provider[]
+    /** Un AniList de mentira, para las pruebas que miden el filtro de tendencias. */
+    readonly anilist?: Parameters<typeof fakeAniList>[0]
   } = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-recs-'))
@@ -76,6 +79,7 @@ async function conApp<T>(
   const container = createContainer({ db })
   const proveedor = createFixtureProvider()
   const activos = opciones.proveedores ?? [proveedor]
+  const anilist = opciones.anilist === undefined ? undefined : fakeAniList(opciones.anilist)
 
   try {
     const servidor = createApp({
@@ -92,6 +96,12 @@ async function conApp<T>(
         rejected: [],
       },
       container,
+      // Sin doble, estas pruebas no salen a la red: las tendencias verifican sus piezas
+      // contra AniList, y sin el interruptor cada fila intentaría hablar con un tercero.
+      anilistOffline: anilist === undefined,
+      ...(anilist === undefined
+        ? {}
+        : { anilistFetchImpl: anilist.impl, anilistResolver: async () => ['140.82.121.3'] }),
     })
 
     // Se cachean los títulos pedidos: son los candidatos del motor.
@@ -192,6 +202,32 @@ describe('GET /api/trending', () => {
     ])
 
     expect(salida.items).toHaveLength(3)
+  })
+  /**
+   * Las tendencias tampoco publican la edad: la única forma de saberla es preguntar, y
+   * una pieza marcada no se sirve con el interruptor apagado.
+   */
+  test('apagado, la tendencia que AniList marca para adultos no sale', async () => {
+    const salida = await conApp(
+      async ({ pedir }) =>
+        trendingResponseSchema.parse(await (await pedir('/api/trending')).json()),
+      {
+        proveedores: [
+          proveedorConTop('uno', [
+            resultado('uno', 'marcada', 'Obra Marcada'),
+            resultado('uno', 'normal', 'Obra Normal'),
+          ]),
+        ],
+        anilist: {
+          search: {
+            'Obra Marcada': [{ id: 700, romaji: 'Obra Marcada', year: 2024, isAdult: true }],
+            'Obra Normal': [{ id: 701, romaji: 'Obra Normal', year: 2023 }],
+          },
+        },
+      },
+    )
+
+    expect(salida.items.map((item) => item.title)).toEqual(['Obra Normal'])
   })
 })
 
