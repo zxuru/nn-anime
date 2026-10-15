@@ -171,6 +171,99 @@ describe('contraste de la barra de progreso', () => {
 })
 
 /**
+ * La lupa de las medidas de color sobre arte.
+ *
+ * Las usan las dos medidas que componen colores sobre una imagen —el banner de la
+ * marquesina y el velo de la cifra del top—, y una fórmula escrita dos veces es una
+ * fórmula que se separa: la del velo de la marquesina se compone sobre el campo, y
+ * la de la cifra, sobre una portada cualquiera.
+ */
+const TABLA = fileURLToPath(new URL('./styles/tokens.css', import.meta.url))
+
+type Canal = readonly [number, number, number]
+
+/** Los tokens, tal cual están escritos. */
+async function tokens(): Promise<string> {
+  return Bun.file(TABLA).text()
+}
+
+function valor(css: string, nombre: string): string {
+  return new RegExp(`--${nombre}:\\s*([^;]+);`).exec(css)?.[1]?.trim() ?? ''
+}
+
+/**
+ * El valor de un token, siguiendo un `var(--otro)` si es que lo es.
+ *
+ * La tinta crema de la marquesina **es** `--color-on-overlay`: se declara una vez
+ * y el par de la marquesina la nombra, así que la medida tiene que seguir el
+ * nombre hasta el color o mediría una cadena.
+ */
+function resuelto(css: string, nombre: string): string {
+  const propio = valor(css, nombre)
+  const referencia = /^var\(--([a-z-]+)\)$/.exec(propio)
+
+  return referencia?.[1] === undefined ? propio : valor(css, referencia[1])
+}
+
+/** Los canales de un color, escrito en `#rrggbb` o en `rgb(r g b …)`. */
+function canales(texto: string): Canal {
+  const hexadecimal = /#([0-9a-f]{3}|[0-9a-f]{6})\b/i.exec(texto)
+
+  if (hexadecimal?.[1] !== undefined) {
+    const digitos = hexadecimal[1]
+    const completo = digitos.length === 3 ? [...digitos].map((d) => d + d).join('') : digitos
+
+    return [
+      Number.parseInt(completo.slice(0, 2), 16),
+      Number.parseInt(completo.slice(2, 4), 16),
+      Number.parseInt(completo.slice(4, 6), 16),
+    ]
+  }
+
+  const coincidencia = /rgb\(\s*(\d+)\s+(\d+)\s+(\d+)/.exec(texto)
+  expect(coincidencia, `no hay ningún color en «${texto}»`).not.toBeNull()
+
+  return [
+    Number(coincidencia?.[1] ?? 0),
+    Number(coincidencia?.[2] ?? 0),
+    Number(coincidencia?.[3] ?? 0),
+  ]
+}
+
+/** El tanto por ciento de un token como `0.6`, y no como `60`. */
+function tanto(css: string, nombre: string): number {
+  const texto = valor(css, nombre)
+  const numero = Number.parseFloat(texto)
+
+  expect(Number.isFinite(numero), `--${nombre} no es un número: «${texto}»`).toBe(true)
+
+  return numero / 100
+}
+
+/** El canal sRGB cuya luminancia relativa es exactamente `l`: la vuelta de la fórmula. */
+function canalDeLuminancia(l: number): number {
+  return 1.055 * l ** (1 / 2.4) - 0.055
+}
+
+/** Un color compuesto sobre otro, canal a canal, como lo hace el navegador. */
+function compuesto(fondo: Canal, encima: Canal, alfa: number): Canal {
+  return [
+    encima[0] * alfa + fondo[0] * (1 - alfa),
+    encima[1] * alfa + fondo[1] * (1 - alfa),
+    encima[2] * alfa + fondo[2] * (1 - alfa),
+  ]
+}
+
+function hexDe(color: Canal): string {
+  const canal = (valor: number): string =>
+    Math.min(255, Math.max(0, Math.round(valor)))
+      .toString(16)
+      .padStart(2, '0')
+
+  return `#${canal(color[0])}${canal(color[1])}${canal(color[2])}`
+}
+
+/**
  * La tinta de la marquesina sobre el banner, medida.
  *
  * La marquesina elige su tinta —crema o negra— según el tono del banner, y el velo
@@ -190,91 +283,6 @@ describe('contraste de la barra de progreso', () => {
  * progreso ya comete a propósito para explicar por qué no.
  */
 describe('la tinta de la marquesina sobre el banner', () => {
-  const TABLA = fileURLToPath(new URL('./styles/tokens.css', import.meta.url))
-
-  type Canal = readonly [number, number, number]
-
-  /** El valor de un token, tal cual está escrito. */
-  async function tokens(): Promise<string> {
-    return Bun.file(TABLA).text()
-  }
-
-  function valor(css: string, nombre: string): string {
-    return new RegExp(`--${nombre}:\\s*([^;]+);`).exec(css)?.[1]?.trim() ?? ''
-  }
-
-  /**
-   * El valor de un token, siguiendo un `var(--otro)` si es que lo es.
-   *
-   * La tinta crema de la marquesina **es** `--color-on-overlay`: se declara una vez
-   * y el par de la marquesina la nombra, así que la medida tiene que seguir el
-   * nombre hasta el color o mediría una cadena.
-   */
-  function resuelto(css: string, nombre: string): string {
-    const propio = valor(css, nombre)
-    const referencia = /^var\(--([a-z-]+)\)$/.exec(propio)
-
-    return referencia?.[1] === undefined ? propio : valor(css, referencia[1])
-  }
-
-  /** Los canales de un color, escrito en `#rrggbb` o en `rgb(r g b …)`. */
-  function canales(texto: string): Canal {
-    const hexadecimal = /#([0-9a-f]{3}|[0-9a-f]{6})\b/i.exec(texto)
-
-    if (hexadecimal?.[1] !== undefined) {
-      const digitos = hexadecimal[1]
-      const completo = digitos.length === 3 ? [...digitos].map((d) => d + d).join('') : digitos
-
-      return [
-        Number.parseInt(completo.slice(0, 2), 16),
-        Number.parseInt(completo.slice(2, 4), 16),
-        Number.parseInt(completo.slice(4, 6), 16),
-      ]
-    }
-
-    const coincidencia = /rgb\(\s*(\d+)\s+(\d+)\s+(\d+)/.exec(texto)
-    expect(coincidencia, `no hay ningún color en «${texto}»`).not.toBeNull()
-
-    return [
-      Number(coincidencia?.[1] ?? 0),
-      Number(coincidencia?.[2] ?? 0),
-      Number(coincidencia?.[3] ?? 0),
-    ]
-  }
-
-  /** El tanto por ciento de un token como `0.6`, y no como `60`. */
-  function tanto(css: string, nombre: string): number {
-    const texto = valor(css, nombre)
-    const numero = Number.parseFloat(texto)
-
-    expect(Number.isFinite(numero), `--${nombre} no es un número: «${texto}»`).toBe(true)
-
-    return numero / 100
-  }
-
-  /** El canal sRGB cuya luminancia relativa es exactamente `l`: la vuelta de la fórmula. */
-  function canalDeLuminancia(l: number): number {
-    return 1.055 * l ** (1 / 2.4) - 0.055
-  }
-
-  /** Un color compuesto sobre otro, canal a canal, como lo hace el navegador. */
-  function compuesto(fondo: Canal, encima: Canal, alfa: number): Canal {
-    return [
-      encima[0] * alfa + fondo[0] * (1 - alfa),
-      encima[1] * alfa + fondo[1] * (1 - alfa),
-      encima[2] * alfa + fondo[2] * (1 - alfa),
-    ]
-  }
-
-  function hexDe(color: Canal): string {
-    const canal = (valor: number): string =>
-      Math.min(255, Math.max(0, Math.round(valor)))
-        .toString(16)
-        .padStart(2, '0')
-
-    return `#${canal(color[0])}${canal(color[1])}${canal(color[2])}`
-  }
-
   /**
    * Los pares, con el lado del umbral que le toca a cada uno.
    *
@@ -402,6 +410,70 @@ describe('la tinta de la marquesina sobre el banner', () => {
         `el velo fuerte de --${nombre} se queda corto`,
       ).toBeGreaterThanOrEqual(corte)
     }
+  })
+})
+
+/**
+ * La cifra del top sobre la portada, medida.
+ *
+ * La cifra del puesto va sobre el arte de la pieza, y desde que AniList manda en el
+ * top ese arte es **una portada de verdad**: un cielo, una nieve o el amarillo de un
+ * héroe. El crema del número desaparecía sobre los claros —en la captura del top, el
+ * «5» de Boku no Hero y el «8» de ONE PIECE no se leían— y el color de lo que hay
+ * debajo no se elige, así que se oscurece con un velo. Su mínimo es un número que
+ * falla si alguien lo baja.
+ *
+ * El peor arte posible es el blanco: es el que deja el velo con menos que tapar. Y el
+ * velo dura lo que la cifra —`--velo-puesto-alto` se mide en cifras, no en tantos de
+ * la pieza—, así que la parte fuerte tiene que llegar hasta donde llega su caja: si
+ * se queda corta, la mitad de abajo del número vuelve a caer sobre el arte crudo.
+ */
+describe('la cifra del top sobre la portada', () => {
+  /** El blanco puro: lo más claro que puede quedar debajo de la cifra. */
+  const BLANCO: Canal = [255, 255, 255]
+
+  test('el mínimo del velo deja la cifra por encima del 4.5:1 en el peor arte', async () => {
+    const css = await tokens()
+    const minimo = tanto(css, 'velo-puesto-minimo')
+    const cifra = canales(resuelto(css, 'color-on-overlay'))
+    // El color del velo es el de los otros velos del arte: el negro de la casa.
+    const velo = canales(valor(css, 'velo-puesto'))
+
+    // Lo que se ve detrás de la cifra: el velo a su mínimo, sobre el arte más claro.
+    const fondo = compuesto(BLANCO, velo, minimo)
+    const ratio = contrast(hexDe(cifra), hexDe(fondo))
+
+    expect(ratio, `la cifra del top sobre arte claro: ${hexDe(fondo)}`).toBeGreaterThanOrEqual(4.5)
+  })
+
+  test('el velo fuerte llega hasta debajo de la cifra', async () => {
+    const css = await tokens()
+    const minimo = tanto(css, 'velo-puesto-minimo')
+    const multiplicador = Number(
+      /--velo-puesto-alto:\s*calc\(var\(--pieza-posicion\)\s*\*\s*([\d.]+)\)/.exec(css)?.[1] ?? 0,
+    )
+
+    expect(multiplicador, 'falta --velo-puesto-alto, o no se mide en cifras').toBeGreaterThan(1)
+
+    // La cifra mide una `--pieza-posicion` de alto —el `line-height` es 1— y el velo,
+    // `multiplicador` veces eso: hasta dónde tiene que aguantar el mínimo.
+    const hastaLaCifra = 1 / multiplicador
+
+    const paradas = [
+      ...valor(css, 'velo-puesto')
+        .replaceAll('var(--velo-puesto-minimo)', `${minimo * 100}%`)
+        .matchAll(/([\d.]+)%\s*\)\s*([\d.]+)%/g),
+    ].map((parada) => ({ alfa: Number(parada[1]) / 100, posicion: Number(parada[2]) / 100 }))
+
+    expect(paradas.length, '--velo-puesto no tiene paradas que leer').toBeGreaterThan(1)
+
+    const hastaDondeLlega = Math.max(
+      ...paradas.filter((parada) => parada.alfa >= minimo).map((parada) => parada.posicion),
+    )
+
+    expect(hastaDondeLlega, 'el velo del puesto se queda corto').toBeGreaterThanOrEqual(
+      hastaLaCifra,
+    )
   })
 })
 

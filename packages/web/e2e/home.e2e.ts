@@ -129,6 +129,95 @@ test.describe('la home', () => {
   })
 
   /**
+   * La cifra del top cabe entera en su pieza.
+   *
+   * Medía `--pieza-posicion` —48 px en la rejilla de seis columnas— y colgaba del
+   * borde de arriba: el corte se llevaba la mitad de la cifra. Con un solo dígito
+   * parecía un recorte a propósito; con «10» y «11» no se sabía qué número era.
+   *
+   * Lo que se mide es **la tinta**, no la caja: la caja de línea de un texto dice
+   * dónde empieza su línea, no dónde empieza el dibujo de la letra, y con un
+   * interlineado corto la letra se sale de la caja y el borde la corta sin que la
+   * caja se entere. El lienzo da las dos medidas que hacen falta —lo que sube la
+   * fuente sobre su línea base y lo que sube el dibujo de estos dígitos—, y de ahí
+   * sale dónde empieza la tinta de verdad.
+   */
+  test('el puesto del top cabe entero en la pieza', async ({ page }) => {
+    await entrar(page)
+    await esperarApp(page)
+
+    // La letra de la casa, ya cargada: con la del sistema las medidas son otras y lo
+    // que se mide aquí es dónde cae la tinta con la letra de verdad.
+    await page.evaluate(async () => {
+      await document.fonts.ready
+    })
+
+    const top = page.locator('.seccion', {
+      has: page.getByRole('heading', { name: 'Top', exact: true }),
+    })
+
+    const medidas = await top.locator('.pz:not(.pz--mando)').evaluateAll((piezas) =>
+      piezas.map((pieza) => {
+        const cifra = pieza.querySelector('.pz__posicion')
+        if (cifra === null) return null
+
+        const estilo = getComputedStyle(cifra)
+        const lienzo = document.createElement('canvas').getContext('2d')
+        if (lienzo === null) return null
+
+        lienzo.font = `${estilo.fontWeight} ${estilo.fontSize} ${estilo.fontFamily}`
+
+        const medida = lienzo.measureText(cifra.textContent ?? '')
+        const linea = Number.parseFloat(estilo.lineHeight)
+        const caja = cifra.getBoundingClientRect()
+        const piezaCaja = pieza.getBoundingClientRect()
+        // La línea base dentro de la caja de línea: medio interlineado —que con
+        // `line-height: 1` es medio hueco de la fuente— más lo que sube la fuente.
+        const base =
+          caja.top +
+          (linea - (medida.fontBoundingBoxAscent + medida.fontBoundingBoxDescent)) / 2 +
+          medida.fontBoundingBoxAscent
+
+        return {
+          texto: cifra.textContent ?? '',
+          tintaArriba: base - medida.actualBoundingBoxAscent,
+          tintaAbajo: base + medida.actualBoundingBoxDescent,
+          tintaIzquierda: caja.left,
+          tintaDerecha: caja.right,
+          piezaArriba: piezaCaja.top,
+          piezaAbajo: piezaCaja.bottom,
+          piezaIzquierda: piezaCaja.left,
+          piezaDerecha: piezaCaja.right,
+        }
+      }),
+    )
+
+    const numeradas = medidas.filter((medida) => medida !== null)
+
+    expect(numeradas.length).toBeGreaterThan(2)
+
+    for (const medida of numeradas) {
+      expect(medida.texto, 'una pieza del top sin su cifra').not.toBe('')
+      expect(
+        medida.tintaArriba - medida.piezaArriba,
+        `el puesto ${medida.texto} se sale por arriba de su pieza`,
+      ).toBeGreaterThan(0)
+      expect(
+        medida.piezaAbajo - medida.tintaAbajo,
+        `el puesto ${medida.texto} se sale por abajo de su pieza`,
+      ).toBeGreaterThan(0)
+      expect(
+        medida.tintaIzquierda - medida.piezaIzquierda,
+        `el puesto ${medida.texto} se sale por la izquierda`,
+      ).toBeGreaterThanOrEqual(0)
+      expect(
+        medida.piezaDerecha - medida.tintaDerecha,
+        `el puesto ${medida.texto} se sale por la derecha`,
+      ).toBeGreaterThan(0)
+    }
+  })
+
+  /**
    * Una instalación sin historial: la home dice qué falta en vez de quedarse en
    * blanco.
    *

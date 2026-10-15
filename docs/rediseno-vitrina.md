@@ -179,3 +179,24 @@ medida en el navegador antes de pintarla.
   sin el otro deja la prueba en rojo.
 - **Sin banner no cambia nada.** Una obra que AniList no conoce —o un AniList caído— deja el campo
   como estaba: el degradado, la tinta de siempre y ningún atributo en el elemento.
+
+## La cifra del top (T129)
+
+El puesto se pintaba enorme y **recortado por el borde**. Colgaba por encima de la pieza y el
+interlineado era más corto que la letra, así que el corte se llevaba media cifra: con un solo dígito
+parecía un recorte a propósito, y con «10» y «11» ya no se sabía qué número era. Se vio con el top
+delante, en la captura de la home.
+
+- **La cifra va entera dentro de la pieza.** `--arte-posicion-alto` deja de ser un voladizo negativo
+  y el alto de línea vuelve a ser el de la letra, que es lo que hace que el número quepa en su caja.
+  Lo mide el e2e contra la caja de la pieza, y mide **la tinta** y no la caja de línea: la caja de un
+  texto no dice dónde empieza el dibujo de la letra, y con un interlineado corto la letra se sale de
+  la caja sin que la medida lo vea.
+- **Y se lee sobre cualquier portada.** Desde que AniList manda en el top, debajo hay una portada de
+  verdad —un cielo, una nieve, el amarillo de un héroe— y el crema desaparecía: en la captura del
+  top, el «5» de Boku no Hero y el «8» de ONE PIECE no se leían. Las piezas numeradas llevan un velo
+  corto en su esquina, `--velo-puesto`, del alto de la propia cifra para que tape lo mismo en la
+  rejilla de seis columnas que en la banda del móvil. Su mínimo es el que hace pasar el 4.5:1 sobre
+  el peor arte posible —el blanco—, medido en `a11y.test.ts`; el velo cuelga de la pieza numerada y
+  de nadie más, así que el arte de las demás se sigue enseñando entero.
+

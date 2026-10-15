@@ -511,7 +511,15 @@
   --arte-cifra-alto: -0.12em;
   --arte-cifra-lado: -0.08em;
   --arte-cifra-letra: -0.04em;
-  --arte-posicion-alto: -0.22em;
+  /**
+   * El puesto, a diferencia de los demás recursos, **no** va en voladizo.
+   *
+   * Colgaba del borde `-0.22em` —10 px de una cifra de 48— y con el `line-height`
+   * por debajo de la línea, el corte se llevaba la mitad de arriba del número: con
+   * un solo dígito parecía un recorte a propósito, y con «10» o «11» ya no se sabía
+   * qué número era. Va entero dentro de la pieza, con su velo debajo.
+   */
+  --arte-posicion-alto: 0.05em;
   --arte-posicion-lado: 0.02em;
   --arte-posicion-letra: -0.05em;
 
@@ -553,6 +561,30 @@
     rgb(8 8 10 / 55%) 0%,
     rgb(8 8 10 / 12%) 55%,
     rgb(8 8 10 / 62%) 100%
+  );
+
+  /**
+   * El velo del puesto, que es lo que hace legible la cifra del top.
+   *
+   * La cifra va sobre el arte de una portada cualquiera —la de AniList, que lo
+   * mismo es un cielo que el amarillo de un héroe— y en crema sobre esos fondos
+   * desaparecía: en la captura del top, el «5» de Boku no Hero y el «8» de ONE
+   * PIECE no se leían. No se puede elegir el color de lo que hay debajo, así que
+   * se oscurece.
+   *
+   * **Dura lo que la cifra**, no un tanto de la pieza: `--velo-puesto-alto` se mide
+   * en cifras, así que tapa lo mismo en la rejilla de seis columnas que en la banda
+   * del móvil, donde la cifra ocupa el triple de la pieza. El mínimo no es un
+   * gusto: es el que hace que la cifra pase el 4.5:1 sobre el peor arte posible —el
+   * blanco—, y está medido en `a11y.test.ts`.
+   */
+  --velo-puesto-minimo: 72%;
+  --velo-puesto-alto: calc(var(--pieza-posicion) * 1.5);
+  --velo-puesto: linear-gradient(
+    to bottom,
+    rgb(8 8 10 / 84%) 0%,
+    rgb(8 8 10 / var(--velo-puesto-minimo)) 68%,
+    rgb(8 8 10 / 0%) 100%
   );
 
   /**

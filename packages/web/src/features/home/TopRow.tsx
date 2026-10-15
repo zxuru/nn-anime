@@ -8,9 +8,10 @@
  * destino —la ficha si la base conoce la obra, la búsqueda si no—, y la del
  * proveedor trae su referencia.
  *
- * En la vitrina el puesto se pinta **dentro de la pieza**, enorme y recortado por
- * el borde, y todas las piezas pesan lo mismo —un cartel de una columna—: es la
- * fila que sostiene la home y la única que numera lo que enseña.
+ * En la vitrina el puesto se pinta **dentro de la pieza** —enorme, entero y con su
+ * velo debajo, porque debajo hay una portada cualquiera—, y todas las piezas pesan
+ * lo mismo —un cartel de una columna—: es la fila que sostiene la home y la única
+ * que numera lo que enseña.
  *
  * Se enseñan los primeros puestos y «Mostrar más» despliega el resto: la fuente
  * publica decenas de títulos y una home no puede abrir con cincuenta portadas.

@@ -124,7 +124,7 @@ export interface PiezaProps {
   readonly year?: number | undefined
   /** La línea de datos del pie: géneros, año, episodios. */
   readonly meta?: string | undefined
-  /** El puesto del top, enorme y recortado por el borde. */
+  /** El puesto del top: la cifra, entera y con su velo debajo. */
   readonly posicion?: number | undefined
   /** Lo que se retoma: el episodio y lo que queda. */
   readonly episodio?: string | undefined
@@ -148,7 +148,12 @@ export function Pieza(props: PiezaProps): ReactNode {
   const recurso = props.recurso ?? 'trama'
   const [abierta, setAbierta] = useState(false)
   const hayHoja = props.sinopsis !== undefined || props.motivo !== undefined
-  const clases = props.apagada === true ? 'pz pz--apagada' : 'pz'
+  // La pieza numerada lleva el velo de su cifra: sobre una portada clara, el crema
+  // del puesto no se lee. Va en la clase y no en un estilo suelto para que la hoja
+  // —y no el componente— decida cómo se oscurece.
+  const clases = `pz${props.apagada === true ? ' pz--apagada' : ''}${
+    props.posicion === undefined ? '' : ' pz--puesto'
+  }`
 
   return (
     <article className={clases}>
