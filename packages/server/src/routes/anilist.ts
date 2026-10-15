@@ -23,6 +23,8 @@ import { refKey } from '@nn-anime/catalog-store'
 import type {
   AiringItem,
   AniListEntry,
+  AniListRelatedItem,
+  AniListRelation,
   DiscoverItem,
   Enrichment,
   MediaFilter,
@@ -31,6 +33,7 @@ import type {
 import {
   airingResponseSchema,
   anilistImagePath,
+  anilistRelatedResponseSchema,
   discoverResponseSchema,
   enrichmentBatchRequestSchema,
   enrichmentBatchResponseSchema,
@@ -50,7 +53,7 @@ import type { Hono } from 'hono'
 import { localWorkOf } from '../adultos'
 import type { AniListCatalog } from '../anilist/catalog'
 import { matchKey } from '../anilist/catalog'
-import { isAniListImageUrl } from '../anilist/entries'
+import { isAniListImageUrl, type RelatedEntry } from '../anilist/entries'
 import type { ServerContainer } from '../container'
 import { findProvider } from './anime'
 import { mediaFrom } from './media'
@@ -155,6 +158,57 @@ export function enrichmentOf(entrada: AniListEntry): Enrichment {
     siteUrl: entrada.siteUrl,
     ...(entrada.nextEpisode === undefined ? {} : { nextEpisode: entrada.nextEpisode }),
   }
+}
+
+/** El tope de la fila: el mismo que el de los relacionados locales. */
+export const ANILIST_RELATED_LIMIT = 24
+
+/**
+ * El puesto de cada relación en la fila.
+ *
+ * Primero lo que **encadena** —la secuela, la precuela, la obra madre—, que es
+ * lo que se busca al abrir una ficha; después el resto de la franquicia. El orden
+ * no es el de AniList, que mezcla un crossover con la secuela.
+ */
+const PUESTO: Readonly<Record<AniListRelation, number>> = {
+  sequel: 0,
+  prequel: 1,
+  parent: 2,
+  sideStory: 3,
+  spinOff: 4,
+  alternative: 5,
+  summary: 6,
+  special: 7,
+}
+
+/**
+ * Las piezas de la fila, en orden y con su tope.
+ *
+ * Dentro de cada puesto manda el año, lo más antiguo primero —la secuela de 2020
+ * antes que la de 2024—, y sin año van al final: inventarles un año las pondría
+ * delante de las que sí lo tienen. El título desempata para que dos llamadas
+ * seguidas pinten lo mismo.
+ */
+export function relatedItems(
+  entradas: readonly RelatedEntry[],
+  refs: ReadonlyMap<number, ProviderRef>,
+): readonly AniListRelatedItem[] {
+  return [...entradas]
+    .sort((una, otra) => {
+      const puesto = PUESTO[una.relation] - PUESTO[otra.relation]
+      if (puesto !== 0) return puesto
+
+      const ano =
+        (una.media.year ?? Number.POSITIVE_INFINITY) - (otra.media.year ?? Number.POSITIVE_INFINITY)
+      if (ano !== 0) return ano
+
+      return una.media.names.romaji.localeCompare(otra.media.names.romaji)
+    })
+    .slice(0, ANILIST_RELATED_LIMIT)
+    .map((entrada) => ({
+      relation: entrada.relation,
+      ...discoverItem(entrada.media, refs.get(entrada.media.id)),
+    }))
 }
 
 export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions): void {
@@ -341,6 +395,50 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
     await Promise.all(porMarcar.map((ref) => options.container.store.markAdult(ref)))
 
     return c.json(enrichmentBatchResponseSchema.parse({ items }))
+  })
+
+  /**
+   * Las relaciones que AniList declara de la obra emparejada.
+   *
+   * Tres preguntas encadenadas y ninguna sale a la red si la anterior no tiene
+   * respuesta: qué obra local es (la base), con qué obra de AniList se empareja
+   * (la caché de emparejamientos, que la ficha ya pidió) y qué relaciona. Sin
+   * emparejamiento, sin relaciones o con AniList caído, la respuesta es una lista
+   * vacía: la sección no se pinta y la ficha sigue entera. Un proveedor
+   * desconocido sigue siendo 404, como en el resto de la ficha.
+   */
+  app.get('/api/anime/:providerId/:ref/anilist-related', async (c) => {
+    const providerId = c.req.param('providerId')
+    const ref = c.req.param('ref')
+
+    if (findProvider(options.providers, providerId) === undefined) {
+      return c.json(desconocido(providerId), 404)
+    }
+
+    const vacio = anilistRelatedResponseSchema.parse({ items: [] })
+    const detalle = await options.container.store.readAnime({ providerId, value: ref })
+    if (detalle === null) return c.json(vacio)
+
+    const conAdultos = await adultContentOf(options.container.store)
+
+    const key = matchKey(detalle.value.title, detalle.value.year)
+    const emparejado = await options.catalog.match(
+      { key, local: localWorkOf(detalle.value.title, detalle.value.year, detalle.value.titleAlt) },
+      conAdultos,
+      c.req.raw.signal,
+    )
+    if (!emparejado.ok || emparejado.value === null) return c.json(vacio)
+
+    const relaciones = await options.catalog.related(emparejado.value.id, c.req.raw.signal)
+    if (!relaciones.ok) return c.json(vacio)
+
+    // La caché guarda la franquicia entera —la clave es el id de AniList, no el
+    // ajuste— y el filtro se aplica al servir: así encender el interruptor no
+    // obliga a volver a preguntar por todas las fichas ya visitadas.
+    const visibles = sinAdultos(relaciones.value, conAdultos, (entrada) => entrada.media.adult)
+    const refs = await options.catalog.localRefs(visibles.map((entrada) => entrada.media))
+
+    return c.json(anilistRelatedResponseSchema.parse({ items: relatedItems(visibles, refs) }))
   })
 
   app.get('/api/anilist/image/:kind/:id', async (c) => {

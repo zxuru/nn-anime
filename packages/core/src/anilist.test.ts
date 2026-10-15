@@ -10,6 +10,7 @@
 
 import { describe, expect, test } from 'bun:test'
 import {
+  ANILIST_RELATIONS,
   type AniListCandidate,
   anilistImagePath,
   anilistKeys,
@@ -17,6 +18,7 @@ import {
   kindOfFormat,
   pickAniListMatch,
   plainText,
+  relationOf,
   sameAniListWork,
 } from './anilist'
 import { namesOf } from './identity'
@@ -146,6 +148,48 @@ describe('el formato de AniList', () => {
     expect(kindOfFormat('SPECIAL')).toBe('special')
     expect(kindOfFormat('MUSIC')).toBeUndefined()
     expect(kindOfFormat('LO_QUE_SEA')).toBeUndefined()
+  })
+})
+
+/**
+ * Los nombres con los que AniList publica las relaciones que se enseñan, en su
+ * orden. Es la lista de fuera, escrita a mano aquí: si el mapa de dentro cambia
+ * —un valor de menos, un nombre mal escrito, dos intercambiados— esta prueba y la
+ * de arriba se contradicen.
+ */
+const RELACIONES_DE_ANILIST = [
+  'SEQUEL',
+  'PREQUEL',
+  'PARENT',
+  'SIDE_STORY',
+  'SPIN_OFF',
+  'ALTERNATIVE',
+  'SUMMARY',
+  'SPECIAL',
+] as const
+
+describe('las relaciones de AniList', () => {
+  test('cada nombre que se enseña se lee, y en el orden declarado', () => {
+    expect(RELACIONES_DE_ANILIST.map((nombre) => relationOf(nombre))).toEqual([
+      ...ANILIST_RELATIONS,
+    ])
+  })
+
+  test('lo que apunta a otra cosa no se enseña', () => {
+    // Medido contra la API para «Kimetsu no Yaiba»: SOURCE es el manga y
+    // CHARACTER son cuatro ONAs de gag y un crossover. Ninguna es una entrega
+    // que encadenar, y las dos llegarían a la ficha si la lista fuese abierta.
+    expect(relationOf('SOURCE')).toBeUndefined()
+    expect(relationOf('ADAPTATION')).toBeUndefined()
+    expect(relationOf('CHARACTER')).toBeUndefined()
+    expect(relationOf('COMPILATION')).toBeUndefined()
+    expect(relationOf('CONTAINS')).toBeUndefined()
+    expect(relationOf('OTHER')).toBeUndefined()
+  })
+
+  test('un tipo nuevo, o el mismo en minúsculas, no se adivina', () => {
+    expect(relationOf('SIDE_STORY_NEW')).toBeUndefined()
+    expect(relationOf('sequel')).toBeUndefined()
   })
 })
 

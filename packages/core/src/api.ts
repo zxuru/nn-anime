@@ -12,6 +12,7 @@
  */
 
 import { z } from 'zod'
+import { ANILIST_RELATIONS } from './anilist'
 import {
   githubRepoFromUrl,
   MAX_ENABLED_REPO_FILES,
@@ -571,6 +572,30 @@ export const enrichmentBatchResponseSchema = z.strictObject({
 })
 
 /**
+ * Una relación de AniList, en la forma de esta aplicación.
+ *
+ * El motivo viaja como uno de los valores de `ANILIST_RELATIONS` y no con el
+ * nombre que publica la API: la interfaz traduce una lista cerrada y no tiene por
+ * qué saber que `SIDE_STORY` se escribe así.
+ */
+export const anilistRelationSchema = z.enum(ANILIST_RELATIONS)
+
+/**
+ * Una pieza del descubrimiento más el motivo por el que AniList la relaciona.
+ *
+ * Es la misma pieza que la del top y la parrilla —portada por la ruta local,
+ * `kind`, año, nota y `ref`— porque la pinta el mismo componente, y el `ref`
+ * decide lo mismo: con ficha local abre la ficha, sin ella la búsqueda.
+ */
+export const anilistRelatedItemSchema = discoverItemSchema.extend({
+  relation: anilistRelationSchema,
+})
+
+export const anilistRelatedResponseSchema = z.strictObject({
+  items: z.array(anilistRelatedItemSchema),
+})
+
+/**
  * El orden de preferencia de proveedores, del más prioritario al menos.
  *
  * Es una lista de ids y no un campo por proveedor porque el orden es el dato: la
@@ -773,3 +798,5 @@ export type EnrichmentResponse = z.infer<typeof enrichmentResponseSchema>
 export type EnrichmentBatchRequest = z.infer<typeof enrichmentBatchRequestSchema>
 export type EnrichmentBatchItem = z.infer<typeof enrichmentBatchItemSchema>
 export type EnrichmentBatchResponse = z.infer<typeof enrichmentBatchResponseSchema>
+export type AniListRelatedItem = z.infer<typeof anilistRelatedItemSchema>
+export type AniListRelatedResponse = z.infer<typeof anilistRelatedResponseSchema>

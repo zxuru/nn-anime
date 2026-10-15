@@ -13,7 +13,12 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations, type StoreConnection } from '@nn-anime/catalog-store'
-import type { AiringResponse, DiscoverResponse, EnrichmentResponse } from '@nn-anime/core'
+import type {
+  AiringResponse,
+  AniListRelatedResponse,
+  DiscoverResponse,
+  EnrichmentResponse,
+} from '@nn-anime/core'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
 import { type FakeAniList, fakeAniList, type RawMediaFixture } from '../__fixtures__/anilist'
 import { createApp, createContainer } from '../index'
@@ -329,6 +334,129 @@ describe('el enriquecimiento de una ficha', () => {
       expect(respuesta.status).toBe(400)
       expect(fake.calls).toHaveLength(0)
     })
+  })
+})
+
+describe('los relacionados de AniList', () => {
+  /** Lo que AniList declara relacionado con «Aurora Nocturna» (id 555). */
+  const RELACIONES = {
+    555: [
+      // El especial es el más antiguo y sale el último: primero lo que encadena.
+      {
+        relation: 'SPECIAL',
+        media: { id: 558, romaji: 'Aurora Nocturna: Especial', year: 2015, format: 'SPECIAL' },
+      },
+      // Dos secuelas, y entre ellas manda el año: la de 2021 antes que la de 2024.
+      {
+        relation: 'SEQUEL',
+        media: { id: 557, romaji: 'Aurora Nocturna III', year: 2024, format: 'TV' },
+      },
+      {
+        relation: 'SEQUEL',
+        media: { id: 556, romaji: 'Cazador de Sombras', year: 2021, format: 'TV' },
+      },
+    ],
+  } as const
+
+  test('sin proveedor es 404, y sin ficha abierta la lista viene vacía', async () => {
+    await conApp({}, async ({ pedir, fake }) => {
+      const ajeno = await pedir('/api/anime/desconocido/x/anilist-related')
+      expect(ajeno.status).toBe(404)
+
+      const vacio = await pedir('/api/anime/fixture/nadie-abrio-esta/anilist-related')
+      expect(vacio.status).toBe(200)
+      expect(((await vacio.json()) as AniListRelatedResponse).items).toEqual([])
+      // Sin ficha local no hay título que emparejar: no se sale a la red.
+      expect(fake.calls).toHaveLength(0)
+    })
+  })
+
+  test('llegan con su motivo, su portada y el enlace que les toca', async () => {
+    await conApp(
+      { search: { 'Aurora Nocturna': [AURORA] }, relations: RELACIONES },
+      async ({ pedir, fake }) => {
+        // La segunda ficha se abre para que la base conozca esa obra.
+        await pedir('/api/anime/fixture/cazador-de-sombras')
+
+        const respuesta = await pedir(`/api/anime/fixture/${REF}/anilist-related`)
+        expect(respuesta.status).toBe(200)
+
+        const cuerpo = (await respuesta.json()) as AniListRelatedResponse
+        // Primero lo que encadena —la secuela, aunque el especial sea más
+        // antiguo— y dentro de lo mismo, el año.
+        expect(cuerpo.items.map((item) => item.anilistId)).toEqual([556, 557, 558])
+        expect(cuerpo.items.map((item) => item.relation)).toEqual(['sequel', 'sequel', 'special'])
+        expect(cuerpo.items[0]?.title).toBe('Cazador de Sombras')
+        expect(cuerpo.items[0]?.cover).toBe('/api/anilist/image/cover/556')
+        expect(cuerpo.items[0]?.kind).toBe('tv')
+        // La que está en la base abre su ficha; la que no, la búsqueda de su título.
+        expect(cuerpo.items[0]?.ref).toEqual({ providerId: 'fixture', value: 'cazador-de-sombras' })
+        expect(cuerpo.items[1]?.ref).toBeUndefined()
+        expect(fake.calls.at(-1)?.query).toContain('relationType(version: 2)')
+      },
+    )
+  })
+
+  test('el manga de origen y el crossover no llegan a la ficha', async () => {
+    await conApp(
+      {
+        search: { 'Aurora Nocturna': [AURORA] },
+        relations: {
+          555: [
+            { relation: 'SOURCE', media: { id: 900, romaji: 'Aurora Nocturna', format: 'MANGA' } },
+            { relation: 'CHARACTER', media: { id: 901, romaji: 'Corto de gag', format: 'ONA' } },
+          ],
+        },
+      },
+      async ({ pedir }) => {
+        const respuesta = await pedir(`/api/anime/fixture/${REF}/anilist-related`)
+
+        expect(((await respuesta.json()) as AniListRelatedResponse).items).toEqual([])
+      },
+    )
+  })
+
+  test('sin emparejamiento no se pregunta por las relaciones', async () => {
+    await conApp({ relations: RELACIONES }, async ({ pedir, fake }) => {
+      const respuesta = await pedir(`/api/anime/fixture/${REF}/anilist-related`)
+
+      expect(respuesta.status).toBe(200)
+      expect(((await respuesta.json()) as AniListRelatedResponse).items).toEqual([])
+      expect(fake.calls.some((llamada) => llamada.query.includes('relations {'))).toBe(false)
+    })
+  })
+
+  test('con AniList caído la lista viene vacía y la ficha no falla', async () => {
+    const fixture: Parameters<typeof fakeAniList>[0] = {
+      search: { 'Aurora Nocturna': [AURORA] },
+      relations: RELACIONES,
+    }
+
+    await conApp(fixture, async ({ pedir }) => {
+      // El enriquecimiento deja el emparejamiento cacheado: lo que se cae aquí es
+      // la consulta de relaciones, no la de identidad.
+      await pedir(`/api/anime/fixture/${REF}/enrichment`)
+      fixture.status = { 'relations {': 500 }
+
+      const respuesta = await pedir(`/api/anime/fixture/${REF}/anilist-related`)
+      expect(respuesta.status).toBe(200)
+      expect(((await respuesta.json()) as AniListRelatedResponse).items).toEqual([])
+    })
+  })
+
+  test('la segunda lectura no vuelve a salir a AniList', async () => {
+    await conApp(
+      { search: { 'Aurora Nocturna': [AURORA] }, relations: RELACIONES },
+      async ({ pedir, fake }) => {
+        await pedir(`/api/anime/fixture/${REF}/anilist-related`)
+        const antes = fake.calls.length
+
+        const segunda = await pedir(`/api/anime/fixture/${REF}/anilist-related`)
+
+        expect(fake.calls).toHaveLength(antes)
+        expect(((await segunda.json()) as AniListRelatedResponse).items).toHaveLength(3)
+      },
+    )
   })
 })
 

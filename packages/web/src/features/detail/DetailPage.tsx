@@ -30,6 +30,7 @@ import { t } from '../../i18n'
 import { detailTitleParts, useDocumentTitle } from '../../lib/document-title'
 import { isSafeUrl } from '../../lib/safe-url'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
+import { AniListRelated } from './AniListRelated'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
 import { SagaRail } from './SagaRail'
@@ -287,6 +288,7 @@ export function DetailPage(props: DetailPageProps): ReactNode {
     watched,
     capabilities,
     enrichment,
+    anilistRelated,
     providerNames,
     state,
     error,
@@ -432,6 +434,12 @@ export function DetailPage(props: DetailPageProps): ReactNode {
         {/* La sinopsis y los datos, en las dos pistas de la lectura; debajo, los
             episodios a lo ancho de las dos, que es donde la lista se lee mejor. */}
         <Lectura detail={detail} enrichment={enrichment} />
+
+        {/* La franquicia según AniList, debajo de lo que AniList ya cuenta de la
+            obra. Va en el cuerpo y no en la barra lateral porque son piezas de la
+            vitrina —portada, título y motivo— y en la barra, que mide 17rem, no
+            caben sin partir el título en tres renglones. */}
+        <AniListRelated items={anilistRelated} />
 
         <section>
           {/* Una película se titula por lo que es. Dejarle «Episodios» encima del

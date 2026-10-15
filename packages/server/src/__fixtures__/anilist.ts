@@ -107,6 +107,16 @@ export interface AniListFixture {
   /** Lo que devuelve cada búsqueda, por el título con el que se preguntó. */
   readonly search?: Readonly<Record<string, readonly RawMediaFixture[]>>
   /**
+   * Las relaciones de cada obra, por su id de AniList.
+   *
+   * El tipo llega con el nombre que publica la API —`SEQUEL`, `SOURCE`— y no con
+   * el del dominio: es lo que hace que la prueba mida el filtro de verdad y no
+   * una traducción que el doble ya hizo.
+   */
+  readonly relations?: Readonly<
+    Record<number, readonly { readonly relation: string; readonly media: RawMediaFixture }[]>
+  >
+  /**
    * Estado exacto por consulta que contenga este texto.
    *
    * Va **sin `readonly`** a propósito: una prueba necesita que la primera
@@ -153,6 +163,17 @@ export function fakeAniList(fixture: AniListFixture = {}): FakeAniList {
 
         return new Response('{}', { status, headers })
       }
+    }
+
+    // Las relaciones de una obra, por su id.
+    if (query.includes('relations {')) {
+      const id = typeof variables.id === 'number' ? variables.id : Number(variables.id)
+      const edges = (fixture.relations?.[id] ?? []).map((arista) => ({
+        relationType: arista.relation,
+        node: mediaJson(arista.media),
+      }))
+
+      return Response.json({ data: { Media: { relations: { edges } } } })
     }
 
     // El lote de búsqueda: una página por alias, con lo que el fixture tenga para

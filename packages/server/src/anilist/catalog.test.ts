@@ -402,3 +402,69 @@ describe('el emparejamiento con lo que la base ya conoce', () => {
     })
   })
 })
+
+/** La película que AniList declara como secuela de «Kimetsu no Yaiba». */
+const MUGEN: RawMediaFixture = {
+  id: 112151,
+  romaji: 'Kimetsu no Yaiba: Mugen Ressha-hen',
+  year: 2020,
+  format: 'MOVIE',
+}
+
+describe('las relaciones de una obra', () => {
+  test('la segunda lectura no vuelve a salir a la red', async () => {
+    await conCatalogo(
+      { relations: { 101922: [{ relation: 'SEQUEL', media: MUGEN }] } },
+      async ({ catalog, fake }) => {
+        const primera = await catalog.related(101922)
+        expect(primera.ok ? primera.value.map((una) => una.media.id) : []).toEqual([112151])
+        expect(primera.ok ? primera.value[0]?.relation : undefined).toBe('sequel')
+        expect(fake.calls).toHaveLength(1)
+        expect(fake.calls[0]?.variables.id).toBe(101922)
+
+        const segunda = await catalog.related(101922)
+        expect(segunda.ok ? segunda.value.length : 0).toBe(1)
+        expect(fake.calls).toHaveLength(1)
+      },
+    )
+  })
+
+  test('la caché guarda la portada de la secuela: su imagen se puede pedir', async () => {
+    // Sin la media en la lista cacheada, la ruta de la imagen contestaría 404 y
+    // la pieza saldría sin carátula: la caché de imágenes la escribe esta lectura.
+    await conCatalogo(
+      { relations: { 101922: [{ relation: 'SEQUEL', media: MUGEN }] } },
+      async ({ catalog }) => {
+        await catalog.related(101922)
+
+        expect(await catalog.image(112151, 'cover')).toContain('112151')
+      },
+    )
+  })
+
+  test('con la caché vencida y AniList caído se sirve lo viejo', async () => {
+    const fixture: Parameters<typeof fakeAniList>[0] = {
+      relations: { 101922: [{ relation: 'SEQUEL', media: MUGEN }] },
+    }
+
+    await conCatalogo(fixture, async ({ catalog, reloj, db }) => {
+      const primera = await catalog.related(101922)
+      expect(primera.ok).toBe(true)
+
+      fixture.status = { relations: 500 }
+      db.query('UPDATE anilist_list_cache SET fetched_at = 0').run()
+      reloj.avanzar(TTL_SECONDS.anilistRelated * 1000 + 1)
+
+      const segunda = await catalog.related(101922)
+      expect(segunda.ok ? segunda.value.map((una) => una.media.id) : []).toEqual([112151])
+    })
+  })
+
+  test('sin relaciones la respuesta es una lista vacía, no un error', async () => {
+    await conCatalogo({ relations: {} }, async ({ catalog }) => {
+      const resultado = await catalog.related(101922)
+
+      expect(resultado.ok ? resultado.value : undefined).toEqual([])
+    })
+  })
+})

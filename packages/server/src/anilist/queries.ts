@@ -149,6 +149,27 @@ export function moviesUpcomingQuery(adultAllowed: boolean): string {
 }
 
 /**
+ * Las relaciones de una obra, por su id.
+ *
+ * `relationType(version: 2)` no es un adorno: la versión 2 es la que publica los
+ * nombres nuevos —medido contra la API el 2026-10-15—, y sin ella un tipo como
+ * `SEQUEL` llega igual pero los que se descartan llegan con otro nombre, que es
+ * justo lo que la lista blanca de `core` no puede leer.
+ */
+export const RELATED_QUERY = `
+  query ($id: Int) {
+    Media(id: $id, type: ANIME) {
+      relations {
+        edges {
+          relationType(version: 2)
+          node { ${MEDIA_FIELDS} }
+        }
+      }
+    }
+  }
+`
+
+/**
  * La búsqueda de varias obras en **una** consulta.
  *
  * Es lo que hace que emparejar diez títulos no sean diez peticiones: el

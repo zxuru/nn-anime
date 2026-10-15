@@ -42,6 +42,10 @@ export const TTL_SECONDS = {
   // El ranking y lo recién emitido: seis horas y media hora.
   anilistTop: 21600,
   anilistSchedule: 1800,
+  // Las relaciones de una obra —su secuela, su precuela—: una semana. Es la
+  // estructura de una franquicia, y una secuela aparece cuando se anuncia, no
+  // cada día. La añade T124.
+  anilistRelated: 604800,
 } as const
 
 export type CacheResource = keyof typeof TTL_SECONDS

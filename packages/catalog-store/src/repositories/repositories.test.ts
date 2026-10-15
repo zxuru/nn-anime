@@ -101,6 +101,10 @@ describe('política de caché', () => {
       anilistMiss: 604800,
       anilistTop: 21600,
       anilistSchedule: 1800,
+      // Las relaciones las añade T124: una semana. Es la estructura de una
+      // franquicia —qué secuela tiene— y eso no se mueve a diario, pero se mueve
+      // más que el título de una obra: cuando AniList anuncia la secuela, está.
+      anilistRelated: 604800,
     })
   })
 

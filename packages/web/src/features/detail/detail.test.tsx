@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import type { Enrichment, WatchedEpisodePayload } from '@nn-anime/core/api'
+import { ANILIST_RELATIONS } from '@nn-anime/core/anilist'
+import type { AniListRelatedItem, Enrichment, WatchedEpisodePayload } from '@nn-anime/core/api'
+import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type {
   AnimeDetail,
   AnimeSummary,
@@ -10,7 +12,9 @@ import type {
 } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
+import { t } from '../../i18n'
 import { createMemoryHistory, HistoryProvider } from '../../router'
+import { AniListRelated, piezaDeRelacion } from './AniListRelated'
 import {
   BandaBanner,
   DetailPage,
@@ -25,6 +29,7 @@ import { EpisodeRows } from './EpisodeList'
 import { watchedInWindow, windowAt, windowCount, windowForNumber } from './episode-window'
 import { FavoriteButton } from './FavoriteButton'
 import { RelatedList } from './RelatedList'
+import { claveDeRelacion } from './relacion'
 import { SagaRail, sagaGroups } from './SagaRail'
 import { SourcePicker } from './SourcePicker'
 import {
@@ -586,6 +591,90 @@ describe('relacionados', () => {
     // El grupo vacío no se pinta: con el `gap` de la columna, un hueco sin nada
     // dentro es un renglón de aire entre el título y el borde.
     expect(html).not.toContain('related__chips')
+  })
+})
+
+/**
+ * La franquicia de AniList, que es la única sección de la ficha que sale a la red.
+ *
+ * Lo que se mide aquí es lo que el renderizado de servidor sí puede decidir: el
+ * motivo delante de los datos, el destino de cada pieza —la ficha si la base la
+ * conoce, la búsqueda si no— y que sin relaciones no quede una sección vacía.
+ */
+describe('la franquicia de AniList', () => {
+  const S2: AniListRelatedItem = {
+    anilistId: 101167,
+    title: 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka II',
+    cover: '/api/anilist/image/cover/101167',
+    adult: false,
+    year: 2019,
+    kind: 'tv',
+    format: 'TV',
+    relation: 'sequel',
+  }
+
+  test('el motivo va delante del año y del formato', () => {
+    // La serie de siempre no lleva el formato —«TV» no distingue nada—, y la
+    // película sí: es lo que dice que esa pieza no es una temporada.
+    expect(piezaDeRelacion(S2).meta).toBe('Secuela · Año 2019')
+    expect(piezaDeRelacion({ ...S2, format: 'MOVIE', kind: 'movie' }).meta).toBe(
+      'Secuela · Año 2019 · MOVIE',
+    )
+  })
+
+  test('sin referencia local la pieza abre la búsqueda de su título', () => {
+    // La base no conoce esa entrega en ninguna fuente: abrir una ficha que no
+    // existe sería el enlace roto, y la búsqueda es la salida honesta.
+    const pieza = piezaDeRelacion(S2)
+
+    expect(pieza.to).toContain('/search?q=')
+    expect(pieza.ref).toBeUndefined()
+  })
+
+  test('con referencia local la pieza abre la ficha, con su portada de AniList', () => {
+    const pieza = piezaDeRelacion({ ...S2, ref: { providerId: 'jkanime', value: 'danmachi-ii' } })
+
+    expect(pieza.to).toBe('/anime/jkanime/danmachi-ii')
+    expect(pieza.providerId).toBe('jkanime')
+    expect(pieza.ref).toBe('danmachi-ii')
+    expect(pieza.portada).toBe('/api/anilist/image/cover/101167')
+  })
+
+  test('la sección se pinta con su atribución y una pieza por relación', () => {
+    const html = render(
+      <AniListRelated items={[S2, { ...S2, anilistId: 21676, relation: 'sideStory' }]} />,
+    )
+
+    expect(html).toContain('La franquicia en AniList')
+    // La atribución: el dato es de AniList y quien lo lee tiene que poder saberlo.
+    expect(html).toContain('Lo que AniList relaciona con esta obra')
+    expect(html).toContain('Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka II')
+    expect(html).toContain('Secuela')
+    expect(html).toContain('Historia paralela')
+    // Una pieza por relación: el enlace es el cuerpo de cada una.
+    expect(html.match(/class="pz__enlace"/g)?.length).toBe(2)
+  })
+
+  test('sin relaciones no se pinta la sección: no hay nada que decir', () => {
+    expect(render(<AniListRelated items={[]} />)).toBe('')
+  })
+
+  test('cada relación de la lista cerrada tiene su texto, no su clave', () => {
+    const textos = new Set<string>()
+
+    for (const relacion of ANILIST_RELATIONS) {
+      const texto = t(DEFAULT_LOCALE, claveDeRelacion(relacion))
+
+      // Una clave que falta devuelve la clave: se vería «detail.relation.sequel»
+      // en pantalla, que es justo lo que esta prueba impide.
+      expect(texto, `falta el texto de ${relacion}`).not.toBe(claveDeRelacion(relacion))
+      expect(texto.trim()).not.toBe('')
+      textos.add(texto)
+    }
+
+    // Y ninguna comparte texto con otra: dos relaciones con el mismo rótulo son
+    // una traducción mal copiada, y en la ficha se leen como la misma cosa.
+    expect(textos.size).toBe(ANILIST_RELATIONS.length)
   })
 })
 
