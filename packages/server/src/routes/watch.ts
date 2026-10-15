@@ -21,7 +21,9 @@ import {
   watchUpdateRequestSchema,
 } from '@nn-anime/core'
 import type { Hono } from 'hono'
+import { sinMarcadas } from '../adultos'
 import type { ServerContainer } from '../container'
+import { adultContentOf } from './settings'
 
 export interface WatchRouteOptions {
   readonly container: ServerContainer
@@ -90,7 +92,16 @@ export function unaPorEpisodio(filas: readonly WatchRecord[]): readonly Continue
 
 export function registerWatchRoutes(app: Hono, options: WatchRouteOptions): void {
   app.get('/api/watch/recent', async (c) => {
-    const filas = await options.container.store.listRecentlyWatched(CONTINUE_SCAN)
+    const conAdultos = await adultContentOf(options.container.store)
+
+    // Lo que se retoma también se calla con el interruptor apagado: una obra marcada no
+    // vuelve a la vitrina por la puerta de «continuar viendo».
+    const filas = await sinMarcadas(
+      options.container.store,
+      await options.container.store.listRecentlyWatched(CONTINUE_SCAN),
+      conAdultos,
+      (fila) => fila.anime.ref,
+    )
 
     const items = unaPorEpisodio(filas)
       .filter(({ fila, ratio }) => !fila.finished && ratio >= MIN_CONTINUE_RATIO)
