@@ -257,6 +257,18 @@ export const messages: Messages = {
   'settings.theme.system': 'El del sistema',
   'settings.theme.dark': 'Oscuro',
   'settings.theme.light': 'Claro',
+  'settings.adult': 'Contenido para adultos',
+  'settings.adult.hide': 'Esconderlo',
+  'settings.adult.show': 'Enseñarlo',
+  /**
+   * Lo que hace y lo que no.
+   *
+   * El aviso dice las dos cosas porque un interruptor sin consecuencia declarada se
+   * enciende por curiosidad y se queda encendido: no comprueba la edad de nadie y no
+   * alcanza a lo que las fuentes no publican.
+   */
+  'settings.adult.help':
+    'Enseña también lo que AniList marca para adultos. No comprueba la edad de nadie, y sólo alcanza a lo que las fuentes publican: lo que no se puede comprobar se enseña igual.',
   'reco.title': 'Recomendado para ti',
   'reco.loading': 'Buscando qué recomendarte…',
   'reco.empty': 'Todavía no hay nada que recomendar. Busca algo y vuelve.',

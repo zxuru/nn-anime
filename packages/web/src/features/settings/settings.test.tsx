@@ -279,4 +279,30 @@ describe('la página', () => {
     expect(catalogo).toContain('sin sandbox')
     expect(catalogo).toContain('con tus permisos')
   })
+
+  /**
+   * El interruptor del contenido para adultos.
+   *
+   * Se mide sobre la fuente, como el aviso de seguridad: la página se dibuja sin datos
+   * en `renderToString` —los efectos no corren— y lo que importa aquí es que el estado
+   * esté declarado y que el aviso diga qué hace y qué no.
+   */
+  test('el interruptor declara su estado y lleva su aviso', async () => {
+    const fuente = await readFile(`${ROOT}SettingsPage.tsx`, 'utf8')
+    const catalogo = await readFile(
+      fileURLToPath(new URL('../../i18n/es.ts', import.meta.url)),
+      'utf8',
+    )
+
+    // Una fila de botones con estado, como el tema: `aria-pressed` es lo que dice cuál
+    // está activo, y funciona con teclado sin nada más.
+    expect(fuente).toContain('settings.adult')
+    expect(fuente).toContain('aria-pressed={data.adultContent}')
+    expect(fuente).toContain('setAdultContent')
+
+    // Y el aviso dice las dos cosas —qué hace y qué no—: un interruptor sin
+    // consecuencia declarada se enciende por curiosidad y se queda encendido.
+    expect(catalogo).toContain('No comprueba la edad de nadie')
+    expect(catalogo).toContain('sólo alcanza a lo que las fuentes publican')
+  })
 })
