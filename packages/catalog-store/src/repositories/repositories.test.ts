@@ -93,6 +93,14 @@ describe('política de caché', () => {
       // La página del selector la añade T87: cinco minutos, porque una página es
       // lo que se está mirando ahora y no el catálogo del título.
       episodePage: 300,
+      // Las cuatro de AniList las añade T121: un mes el emparejamiento de una
+      // obra —su título y su sinopsis no cambian—, una semana el «no hay» —que es
+      // una respuesta y no se repite por nada—, seis horas el ranking y media
+      // hora la parrilla, que es lo único que se mueve a diario.
+      anilistMedia: 2592000,
+      anilistMiss: 604800,
+      anilistTop: 21600,
+      anilistSchedule: 1800,
     })
   })
 

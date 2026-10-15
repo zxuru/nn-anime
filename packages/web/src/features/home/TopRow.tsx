@@ -1,11 +1,12 @@
 /**
- * El top de la fuente.
+ * El top.
  *
- * Es el ranking que publica el proveedor —jkanime: los más votados de su página
- * `/top`— **en su orden y con su puesto**: el uno es el uno, y la fila no
- * reordena nada. Antes esta sección eran cinco recomendaciones con su motivo; el
- * motivo se mudó al panel, que es donde se explica el motor, y aquí queda lo que
- * el usuario reconoce de la fuente.
+ * Con AniList delante, es **su** ranking —el de todo el catálogo, no el de una
+ * fuente— en su orden y con su puesto; sin él, el que publica el proveedor. Las
+ * dos formas llegan ya convertidas a `PiezaVista` por quien compone la home, así
+ * que esta fila no sabe de dónde salen: la pieza de AniList trae su portada y su
+ * destino —la ficha si la base conoce la obra, la búsqueda si no—, y la del
+ * proveedor trae su referencia.
  *
  * En la vitrina el puesto se pinta **dentro de la pieza**, enorme y recortado por
  * el borde, y todas las piezas pesan lo mismo —un cartel de una columna—: es la
@@ -22,13 +23,13 @@
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { AnimeSummary } from '@nn-anime/core/models'
 import { type ReactNode, useState } from 'react'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
 import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
+import type { PiezaVista } from './descubrir'
 import { cuentaDelTop } from './tramo'
 
 /** Cuántos puestos se ven antes de pulsar «Mostrar más». */
@@ -42,9 +43,9 @@ export const TOP_VISIBLES = 10
  * algo— y así se mide sin un navegador: un `renderToString` no pulsa botones.
  */
 export function puestosVisibles(
-  items: readonly AnimeSummary[],
+  items: readonly PiezaVista[],
   todas: boolean,
-): readonly AnimeSummary[] {
+): readonly PiezaVista[] {
   return todas ? items : items.slice(0, TOP_VISIBLES)
 }
 
@@ -54,7 +55,9 @@ export function quedanPuestos(total: number, todas: boolean): boolean {
 }
 
 export interface TopRowProps {
-  readonly items: readonly AnimeSummary[]
+  readonly items: readonly PiezaVista[]
+  /** La nota del tramo: de quién es el ranking que se está viendo. */
+  readonly meta?: string | undefined
 }
 
 export function TopRow(props: TopRowProps): ReactNode {
@@ -65,7 +68,7 @@ export function TopRow(props: TopRowProps): ReactNode {
     <section className="seccion">
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.top')}
-        meta={t(DEFAULT_LOCALE, 'home.top.meta')}
+        meta={props.meta ?? t(DEFAULT_LOCALE, 'home.top.meta')}
         {...(props.items.length === 0
           ? {}
           : { cuenta: cuentaDelTop(props.items.length, visibles.length) })}
@@ -78,13 +81,15 @@ export function TopRow(props: TopRowProps): ReactNode {
           ) : (
             visibles.map((item, indice) => (
               <Pieza
-                key={`${item.ref.providerId}:${item.ref.value}`}
-                providerId={item.ref.providerId}
-                ref={item.ref.value}
+                key={item.clave}
+                {...(item.providerId === undefined ? {} : { providerId: item.providerId })}
+                {...(item.ref === undefined ? {} : { ref: item.ref })}
+                {...(item.portada === undefined ? {} : { portada: item.portada })}
                 title={item.title}
-                to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
+                to={item.to}
                 recurso={recursoDe(indice)}
-                // El puesto de la fuente, no el de la lista recortada: el 11
+                {...(item.meta === undefined ? {} : { meta: item.meta })}
+                // El puesto del ranking, no el de la lista recortada: el 11
                 // sigue siendo el 11 cuando se despliega el resto.
                 posicion={indice + 1}
               />

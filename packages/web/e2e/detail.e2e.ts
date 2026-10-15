@@ -9,6 +9,56 @@ import { entrar } from './fixtures'
  * el camino crítico de la aplicación y el que rompe si alguien toca el enrutador.
  */
 
+test.describe('la ficha enriquecida', () => {
+  /**
+   * Lo que añade AniList cuando está emparejada.
+   *
+   * El arnés arranca con AniList apagado —una prueba no puede depender de un
+   * tercero—, así que la respuesta se sirve desde la prueba. Lo que se comprueba
+   * es lo que el servidor no puede: que la sinopsis se pinta como texto, que la
+   * nota y el enlace salen, y que nada de eso rompe la ficha.
+   */
+  test('enseña la sinopsis, la nota y el enlace a AniList', async ({ page }) => {
+    await page.route('**/api/anime/*/*/enrichment', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          enrichment: {
+            anilistId: 555,
+            cover: '/api/anilist/image/cover/555',
+            synopsis: 'Una cartógrafa recorre el cielo de su ciudad.',
+            genres: ['Misterio', 'Fantasía'],
+            score: 84,
+            status: 'finished',
+            year: 2019,
+            format: 'TV',
+            studios: ['Estudio Cobre'],
+            siteUrl: 'https://anilist.co/anime/555',
+          },
+        },
+      })
+    })
+
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    await expect(page.getByRole('heading', { name: 'De AniList' })).toBeVisible({
+      timeout: 10_000,
+    })
+    await expect(page.getByText('Nota 84/100')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Ver la ficha en AniList' })).toHaveAttribute(
+      'href',
+      'https://anilist.co/anime/555',
+    )
+    // La sinopsis del proveedor es la que manda —es su ficha—, y la de AniList
+    // se queda como reserva: se comprueba que la de la fuente sigue siendo la
+    // que se lee y que no aparece la otra.
+    await expect(
+      page.getByText('Una cartógrafa descubre que el cielo de su ciudad se puede recorrer a pie.'),
+    ).toBeVisible()
+    await expect(page.getByText('Una cartógrafa recorre el cielo de su ciudad.')).toHaveCount(0)
+  })
+})
+
 test.describe('de la búsqueda al detalle', () => {
   test('buscar, elegir y ver los episodios', async ({ page }) => {
     await entrar(page)

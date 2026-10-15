@@ -29,7 +29,7 @@
  * la precarga especulativa.
  */
 
-import type { Database } from 'bun:sqlite'
+import type { Database, Statement } from 'bun:sqlite'
 import {
   type AnimeSummary,
   franchiseTitle,
@@ -76,47 +76,46 @@ export const RELATED_SCAN_LIMIT = 1000
  * expande el array guardado en cada fila.
  */
 const CANDIDATOS = `
-  WITH conocidos AS (
+  WITH patrones AS (
+    SELECT value AS p FROM json_each(?)
+  ),
+  conocidos AS (
     SELECT provider_id, provider_ref AS ref, title, title_alt, cover_url, year,
            json_extract(raw_json, '$.kind') AS kind
       FROM anime
-     WHERE title LIKE ? OR title LIKE ? OR title LIKE ?
+     WHERE EXISTS (
+       SELECT 1 FROM patrones WHERE title LIKE p || '%' OR provider_ref LIKE p || '%'
+     )
     UNION ALL
     SELECT c.provider_id, json_extract(j.value, '$.ref.value'), json_extract(j.value, '$.title'),
            json_extract(j.value, '$.titleAlt'), json_extract(j.value, '$.coverUrl'),
            json_extract(j.value, '$.year'), json_extract(j.value, '$.kind')
       FROM search_cache c, json_each(c.results_json) AS j
-     WHERE json_extract(j.value, '$.title') LIKE ?
-        OR json_extract(j.value, '$.title') LIKE ?
-        OR json_extract(j.value, '$.title') LIKE ?
+     WHERE EXISTS (
+       SELECT 1 FROM patrones WHERE json_extract(j.value, '$.title') LIKE p || '%'
+     )
     UNION ALL
     SELECT c.provider_id, json_extract(j.value, '$.ref.value'), json_extract(j.value, '$.title'),
            json_extract(j.value, '$.titleAlt'), json_extract(j.value, '$.coverUrl'),
            json_extract(j.value, '$.year'), json_extract(j.value, '$.kind')
       FROM trending_cache c, json_each(c.results_json) AS j
-     WHERE json_extract(j.value, '$.title') LIKE ?
-        OR json_extract(j.value, '$.title') LIKE ?
-        OR json_extract(j.value, '$.title') LIKE ?
+     WHERE EXISTS (
+       SELECT 1 FROM patrones WHERE json_extract(j.value, '$.title') LIKE p || '%'
+     )
     UNION ALL
     SELECT c.provider_id, json_extract(j.value, '$.ref.value'), json_extract(j.value, '$.title'),
            json_extract(j.value, '$.titleAlt'), json_extract(j.value, '$.coverUrl'),
            json_extract(j.value, '$.year'), json_extract(j.value, '$.kind')
       FROM feed_cache c, json_each(c.results_json) AS j
-     WHERE json_extract(j.value, '$.title') LIKE ?
-        OR json_extract(j.value, '$.title') LIKE ?
-        OR json_extract(j.value, '$.title') LIKE ?
+     WHERE EXISTS (
+       SELECT 1 FROM patrones WHERE json_extract(j.value, '$.title') LIKE p || '%'
+     )
   )
   SELECT provider_id, ref, title, title_alt, cover_url, year, kind
     FROM conocidos
    WHERE ref IS NOT NULL AND title IS NOT NULL
    ORDER BY year DESC, title
    LIMIT ?`
-
-/** Los prefiltros de una rama: huecos fijos, sin `undefined` que comprobar. */
-type Rama = readonly [string, string, string]
-
-/** Los de las cuatro ramas del `UNION ALL`, en el orden en que la consulta los pide. */
-type Prefiltros = readonly [...Rama, ...Rama, ...Rama, ...Rama]
 
 interface RelatedRow {
   readonly provider_id: string
@@ -175,24 +174,25 @@ function sagasDe(names: WorkNames, clave: (title: string) => string): ReadonlySe
 /**
  * Los prefiltros de la consulta, o `undefined` si no hay ninguno.
  *
- * Cada rama del `UNION ALL` repite los mismos tres, y los huecos que sobran
- * repiten el primer patrón: el `LIKE` da lo mismo repetido y así la sentencia
- * preparada es una sola, con el número de parámetros fijo.
+ * Van como un **array JSON** en un solo parámetro y no como un hueco por patrón:
+ * el número de nombres con los que se reconoce una obra cambia —una ficha local
+ * tiene hasta tres, una de AniList hasta diez— y con un hueco por nombre cada
+ * lector necesitaría su propia sentencia preparada. `json_each` deja una sola.
+ *
+ * El tope de 64 es una defensa: el prefiltro es para que SQLite no recorra la
+ * tabla entera, y sesenta y cuatro palabras ya lo consiguen. El número sale de
+ * una fila de la vitrina entera —treinta obras, dos nombres cada una— que se
+ * empareja en **una** consulta.
  */
-function patronesDe(sagas: ReadonlySet<string>): Prefiltros | undefined {
-  const palabras = [
-    ...new Set([...sagas].map((saga) => primeraPalabra(saga)).filter((palabra) => palabra !== '')),
-  ].slice(0, 3)
-  const primera = palabras[0]
-  if (primera === undefined) return undefined
+function patronesDe(palabras: readonly string[]): string | undefined {
+  const distintas = [...new Set(palabras.filter((palabra) => palabra !== ''))].slice(0, 64)
 
-  const rama: Rama = [
-    `${palabras[0] ?? primera}%`,
-    `${palabras[1] ?? primera}%`,
-    `${palabras[2] ?? primera}%`,
-  ]
+  return distintas.length === 0 ? undefined : JSON.stringify(distintas)
+}
 
-  return [...rama, ...rama, ...rama, ...rama]
+/** Las primeras palabras de una lista de nombres, que es lo que se pasa a `patronesDe`. */
+function palabrasDe(nombres: ReadonlySet<string> | readonly string[]): readonly string[] {
+  return [...nombres].map((nombre) => primeraPalabra(nombre)).filter((palabra) => palabra !== '')
 }
 
 /**
@@ -246,24 +246,15 @@ export function createRelatedRepository(db: Database) {
   const selectPropia = db.query<OwnRow, [string, string]>(
     'SELECT title, title_alt, year FROM anime WHERE provider_id = ? AND provider_ref = ?',
   )
-  const selectCandidatos = db.query<
-    RelatedRow,
-    [
-      string,
-      string,
-      string,
-      string,
-      string,
-      string,
-      string,
-      string,
-      string,
-      string,
-      string,
-      string,
-      number,
-    ]
-  >(CANDIDATOS)
+  const selectCandidatos = db.query<RelatedRow, [string, number]>(CANDIDATOS)
+
+  /**
+   * La lectura por nombre se prepara la primera vez que se usa.
+   *
+   * Quien sólo lee hermanos y fuentes no paga por una consulta que no usa, y el
+   * contador de sentencias de las pruebas de esos dos sigue midiendo lo mismo: dos.
+   */
+  let selectPorNombre: Statement<RelatedRow, [string, number]> | undefined
 
   return {
     /**
@@ -295,10 +286,10 @@ export function createRelatedRepository(db: Database) {
       const clave = scope === 'franchise' ? franchiseTitle : sagaTitle
       const nombres = nombresDe({ ...propia, ref: ref.value })
       const sagas = sagasDe(nombres, clave)
-      const patrones = patronesDe(sagas)
+      const patrones = patronesDe(palabrasDe(sagas))
       if (patrones === undefined) return []
 
-      const filas = selectCandidatos.all(...patrones, RELATED_SCAN_LIMIT)
+      const filas = selectCandidatos.all(patrones, RELATED_SCAN_LIMIT)
 
       // Una obra, una fila: la misma entrega en dos proveedores no puede salir
       // dos veces en la sección. La clave es el título tal cual —no la saga—,
@@ -347,10 +338,10 @@ export function createRelatedRepository(db: Database) {
       if (propia === null) return []
 
       const nombres = nombresDe({ ...propia, ref: ref.value })
-      const patrones = patronesDe(sagasDe(nombres, sagaTitle))
+      const patrones = patronesDe(palabrasDe(sagasDe(nombres, sagaTitle)))
       if (patrones === undefined) return []
 
-      const filas = selectCandidatos.all(...patrones, RELATED_SCAN_LIMIT)
+      const filas = selectCandidatos.all(patrones, RELATED_SCAN_LIMIT)
 
       const porProveedor = new Map<string, RelatedRow>()
       for (const fila of filas) {
@@ -370,6 +361,27 @@ export function createRelatedRepository(db: Database) {
         .sort(([uno], [otro]) => (uno < otro ? -1 : uno > otro ? 1 : 0))
         .slice(0, limit)
         .map(([, fila]) => resumen(fila))
+    },
+
+    /**
+     * Los candidatos de la base que empiezan como alguno de estos nombres.
+     *
+     * Es la mitad de la lectura de hermanos y de fuentes, expuesta aparte para
+     * quien compara contra los nombres de una obra **que no tiene fila aquí**
+     * —una de AniList, que llega de la red—: necesita el mismo prefiltro y las
+     * mismas cuatro tablas, no una segunda consulta escrita al lado. Quien llama
+     * decide después, con la misma identidad de siempre, cuál es la misma obra.
+     *
+     * El orden es el de la consulta —año descendente y título—, para que dos
+     * llamadas seguidas devuelvan lo mismo.
+     */
+    candidatesByNames(names: readonly string[], limit: number): readonly AnimeSummary[] {
+      const patrones = patronesDe(palabrasDe(names))
+      if (patrones === undefined) return []
+
+      selectPorNombre ??= db.query<RelatedRow, [string, number]>(CANDIDATOS)
+
+      return selectPorNombre.all(patrones, limit).map(resumen)
     },
   }
 }

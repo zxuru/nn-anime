@@ -1,12 +1,17 @@
 import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import type { WatchedEpisodePayload } from '@nn-anime/core/api'
-import type { AnimeSummary, Episode, ProviderCapabilities } from '@nn-anime/core/models'
+import type { Enrichment, WatchedEpisodePayload } from '@nn-anime/core/api'
+import type {
+  AnimeDetail,
+  AnimeSummary,
+  Episode,
+  ProviderCapabilities,
+} from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'
-import { DetailPage } from './DetailPage'
+import { DetailPage, estudios, generos, seccionesDe, sinopsis } from './DetailPage'
 import { EpisodeRows } from './EpisodeList'
 import { watchedInWindow, windowAt, windowCount, windowForNumber } from './episode-window'
 import { FavoriteButton } from './FavoriteButton'
@@ -744,5 +749,68 @@ describe('pantalla de detalle', () => {
       expect(codigo).not.toContain('dangerouslySetInnerHTML')
       expect(codigo).not.toContain('innerHTML')
     }
+  })
+})
+
+describe('lo que añade AniList', () => {
+  const detalle: AnimeDetail = {
+    ref: { providerId: 'fixture', value: 'aurora-nocturna' },
+    title: 'Aurora Nocturna',
+    genres: [],
+    studios: [],
+  }
+
+  const enriquecido: Enrichment = {
+    anilistId: 555,
+    cover: '/api/anilist/image/cover/555',
+    synopsis: 'Una cartógrafa recorre el cielo.',
+    genres: ['Misterio'],
+    studios: ['Estudio Cobre'],
+    score: 84,
+    year: 2019,
+    status: 'finished',
+    siteUrl: 'https://anilist.co/anime/555',
+  }
+
+  test('la sinopsis del proveedor manda y la de AniList llena el vacío', () => {
+    expect(sinopsis(detalle, enriquecido)).toBe('Una cartógrafa recorre el cielo.')
+    expect(sinopsis({ ...detalle, synopsis: 'La de la fuente.' }, enriquecido)).toBe(
+      'La de la fuente.',
+    )
+    expect(sinopsis(detalle, null)).toBeUndefined()
+  })
+
+  test('los géneros y los estudios de la fuente mandan; AniList completa', () => {
+    expect(generos(detalle, enriquecido)).toEqual(['Misterio'])
+    expect(generos({ ...detalle, genres: ['Acción'] }, enriquecido)).toEqual(['Acción'])
+    expect(estudios(detalle, enriquecido)).toEqual(['Estudio Cobre'])
+    expect(estudios({ ...detalle, studios: ['Otro'] }, enriquecido)).toEqual(['Otro'])
+  })
+
+  test('sin emparejamiento no se pinta nada nuevo', () => {
+    expect(seccionesDe(null)).toBeNull()
+    expect(seccionesDe(undefined)).toBeNull()
+  })
+
+  test('con emparejamiento salen la nota, el estado y el enlace', () => {
+    const html = render(seccionesDe(enriquecido))
+
+    expect(html).toContain('De AniList')
+    expect(html).toContain('Nota 84/100')
+    expect(html).toContain('terminado')
+    expect(html).toContain('href="https://anilist.co/anime/555"')
+    expect(html).toContain('rel="noreferrer noopener"')
+  })
+
+  test('un próximo capítulo se anuncia con su fecha', () => {
+    const html = render(
+      seccionesDe({
+        ...enriquecido,
+        nextEpisode: { number: 12, airingAt: new Date(2026, 9, 20, 20, 30).toISOString() },
+      }),
+    )
+
+    expect(html).toContain('Próximo capítulo')
+    expect(html).toContain('12')
   })
 })

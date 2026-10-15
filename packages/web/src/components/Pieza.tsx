@@ -111,10 +111,13 @@ export function tituloYCuerpo(texto: string): { readonly title: string; readonly
 }
 
 export interface PiezaProps {
-  readonly providerId: string
-  readonly ref: string
+  /** La referencia local, cuando la pieza es de una ficha. */
+  readonly providerId?: string | undefined
+  readonly ref?: string | undefined
+  /** Una ruta de portada ya compuesta —la de AniList— que gana sobre la referencia. */
+  readonly portada?: string | undefined
   readonly title: string
-  /** A dónde lleva el cuerpo de la pieza: la ficha. */
+  /** A dónde lleva el cuerpo de la pieza: la ficha o la búsqueda. */
   readonly to: string
   readonly recurso?: RecursoPieza | undefined
   /** El año, que la cifra usa en voladizo. */
@@ -151,7 +154,12 @@ export function Pieza(props: PiezaProps): ReactNode {
     <article className={clases}>
       <Link to={props.to} className="pz__enlace" title={props.title}>
         <span className="pz__arte" aria-hidden="true">
-          <Cover providerId={props.providerId} ref={props.ref} className={CAMPO_DE_ARTE[recurso]}>
+          <Cover
+            {...(props.providerId === undefined ? {} : { providerId: props.providerId })}
+            {...(props.ref === undefined ? {} : { ref: props.ref })}
+            {...(props.portada === undefined ? {} : { src: props.portada })}
+            className={CAMPO_DE_ARTE[recurso]}
+          >
             {arteDibujado(recurso, props.title, props.year)}
           </Cover>
           <span className="pz__velo" />

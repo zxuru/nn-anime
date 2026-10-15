@@ -27,6 +27,58 @@ test.describe('la home', () => {
   })
 
   /**
+   * La parrilla de estrenos.
+   *
+   * El arnés arranca con AniList apagado —una prueba no puede depender de un
+   * tercero—, así que aquí se le da de comer la respuesta de la ruta como si
+   * hubiera contestado: es la única forma de comprobar que la fila agrupa por día
+   * y que cada capítulo lleva su hora.
+   */
+  test('la parrilla agrupa los estrenos por día', async ({ page }) => {
+    const hoy = new Date()
+    const manana = new Date(hoy.getTime() + 86_400_000)
+
+    await page.route('**/api/discover/airing*', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          items: [
+            {
+              anilistId: 101922,
+              title: 'Kimetsu no Yaiba',
+              cover: '/api/anilist/image/cover/101922',
+              episode: 5,
+              airingAt: hoy.toISOString(),
+              kind: 'tv',
+            },
+            {
+              anilistId: 20920,
+              title: 'Danmachi',
+              cover: '/api/anilist/image/cover/20920',
+              episode: 12,
+              airingAt: manana.toISOString(),
+              kind: 'tv',
+            },
+          ],
+        },
+      })
+    })
+
+    await entrar(page)
+    await esperarApp(page)
+
+    const parrilla = page.locator('.seccion', {
+      has: page.getByRole('heading', { name: 'Parrilla', exact: true }),
+    })
+
+    await expect(parrilla.getByRole('heading', { name: 'Hoy', exact: true })).toBeVisible()
+    await expect(parrilla.getByRole('heading', { name: 'Mañana', exact: true })).toBeVisible()
+    await expect(parrilla.getByText('Kimetsu no Yaiba')).toBeVisible()
+    await expect(parrilla.getByText('Ep. 5 ·', { exact: false })).toBeVisible()
+    // Sin referencia local, la pieza abre la búsqueda de su título.
+    await expect(parrilla.locator('a[href^="/search?q=Kimetsu"]')).toHaveCount(1)
+  })
+
+  /**
    * «Mostrar más», con un top largo.
    *
    * El fixture publica cinco puestos —menos que los que se ven de golpe—, así que
@@ -41,7 +93,10 @@ test.describe('la home', () => {
       title: `Puesto ${indice + 1}`,
     }))
 
-    await page.route('**/api/trending', async (ruta) => {
+    // El patrón lleva el comodín del final: la ruta viaja con `?media=anime`
+    // desde el conmutador de tipo, y sin él no interceptaba nada —la prueba
+    // medía el top del fixture y no el que le daba de comer—.
+    await page.route('**/api/trending**', async (ruta) => {
       await ruta.fulfill({ json: { items } })
     })
 
@@ -60,7 +115,9 @@ test.describe('la home', () => {
     await expect(top.locator('.pz__posicion').last()).toHaveText('10')
     // La nota cuenta los puestos **a la vista** y los que quedan: quince en el top
     // con diez recortados se lee «10 títulos · y 5 más», no «15 títulos».
-    await expect(top.locator('.nota__cuenta')).toHaveText('10 títulos · y 5 más')
+    // La cuenta del tramo, no la del mando de desplegar: las dos llevan la clase
+    // y la del mando dice sólo lo que queda.
+    await expect(top.locator('.seccion__nota .nota__cuenta')).toHaveText('10 títulos · y 5 más')
 
     await top.getByRole('button', { name: 'Mostrar más' }).click()
 
@@ -68,7 +125,7 @@ test.describe('la home', () => {
     await expect(top.locator('.pz__posicion').last()).toHaveText('15')
     await expect(top.getByRole('button', { name: 'Mostrar más' })).toHaveCount(0)
     // Desplegado, el renglón dice los que hay: ya no queda nada por enseñar.
-    await expect(top.locator('.nota__cuenta')).toHaveText('15 títulos')
+    await expect(top.locator('.seccion__nota .nota__cuenta')).toHaveText('15 títulos')
   })
 
   /**
@@ -325,7 +382,7 @@ test.describe('el conmutador de tipo', () => {
 
   function elTop(page: Page) {
     return page.locator('.seccion', {
-      has: page.getByRole('heading', { name: 'Top de la fuente' }),
+      has: page.getByRole('heading', { name: 'Top', exact: true }),
     })
   }
 

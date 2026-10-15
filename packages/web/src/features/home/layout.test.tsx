@@ -7,6 +7,7 @@ import { arteDibujado, Pieza, RECURSOS, recursoDe, tituloYCuerpo } from '../../c
 import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { createMemoryHistory, HistoryProvider } from '../../router'
+import { desdeResumen, type PiezaVista } from './descubrir'
 import { featuredMeta, pieDelCartel } from './FeaturedHero'
 import { GenreRow, generosConCuenta, topGenres } from './GenreRow'
 import { metaDeRecomendacion } from './RecommendedRow'
@@ -282,8 +283,10 @@ describe('el vacío de un tramo', () => {
 
 describe('el top de la fuente', () => {
   /** Doce puestos: dos más que los que se ven de golpe. */
-  function puestos(cuantos: number): readonly AnimeSummary[] {
-    return Array.from({ length: cuantos }, (_, indice) => resumen(`puesto-${indice + 1}`))
+  function puestos(cuantos: number): readonly PiezaVista[] {
+    return Array.from({ length: cuantos }, (_, indice) =>
+      desdeResumen(resumen(`puesto-${indice + 1}`)),
+    )
   }
 
   test('numera los puestos y corta en los visibles', () => {

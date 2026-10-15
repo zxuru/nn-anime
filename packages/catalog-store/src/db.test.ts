@@ -39,6 +39,9 @@ const TABLAS_POSTERIORES = [
   'trending_cache',
   'feed_cache',
   'episode_page',
+  'anilist_media',
+  'anilist_list_cache',
+  'anilist_image',
 ]
 
 /** Las versiones que hay hoy, para no fijar números que crecen con cada migración. */

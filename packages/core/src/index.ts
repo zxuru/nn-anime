@@ -8,16 +8,47 @@
  */
 
 export {
+  type AniListCandidate,
+  type AniListImageKind,
+  type AniListNames,
+  anilistImagePath,
+  anilistNames,
+  kindOfFormat,
+  type LocalWork,
+  localWork,
+  pickAniListMatch,
+  plainText,
+  sameAniListWork,
+} from './anilist'
+export {
+  type AiringItem,
+  type AiringResponse,
   type AnimeResponse,
+  airingItemSchema,
+  airingResponseSchema,
   animeResponseSchema,
   type ContinueWatchingItem,
   type ContinueWatchingResponse,
   continueWatchingItemSchema,
   continueWatchingResponseSchema,
+  type DiscoverItem,
+  type DiscoverResponse,
+  discoverItemSchema,
+  discoverResponseSchema,
+  type Enrichment,
+  type EnrichmentBatchItem,
+  type EnrichmentBatchRequest,
+  type EnrichmentBatchResponse,
+  type EnrichmentResponse,
   type EpisodeResponse,
   type EpisodeSeason,
   type EpisodesResponse,
   type ErrorResponse,
+  enrichmentBatchItemSchema,
+  enrichmentBatchRequestSchema,
+  enrichmentBatchResponseSchema,
+  enrichmentResponseSchema,
+  enrichmentSchema,
   episodeResponseSchema,
   episodeSeasonSchema,
   episodesResponseSchema,
@@ -129,6 +160,7 @@ export {
 } from './i18n'
 export {
   groupByWork,
+  keysOfNames,
   namesOf,
   sameWork,
   type TitleInput,
@@ -160,6 +192,8 @@ export {
 } from './media'
 export {
   type AiringStatus,
+  type AniListAiringEntry,
+  type AniListEntry,
   type AnimeDetail,
   type AnimeSummary,
   type CacheHit,
@@ -209,6 +243,8 @@ export {
 export { type Err, err, map, mapErr, type Ok, ok, type Result, unwrapOr } from './result'
 export {
   airingStatusSchema,
+  anilistAiringEntrySchema,
+  anilistEntrySchema,
   animeDetailSchema,
   animeSummarySchema,
   cacheHitSchema,

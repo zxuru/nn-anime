@@ -240,6 +240,10 @@ const servidor = Bun.spawn(
       // La excepción de loopback: sin ella el proxy rechaza el archivo local, que
       // es exactamente lo que hace en producción.
       NN_ANIME_ALLOW_LOOPBACK: '1',
+      // Sin salida a AniList: la home siempre pide el descubrimiento y una prueba
+      // que sale a internet se rompe sola. Con esto, sus rutas contestan lo mismo
+      // que un AniList caído, que es el camino que hay que poder probar.
+      NN_ANIME_ANILIST_OFFLINE: '1',
       NN_ANIME_E2E_MEDIA: `http://127.0.0.1:${puertoMedios}/tono.wav`,
     },
     stdout: 'pipe',

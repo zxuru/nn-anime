@@ -24,6 +24,7 @@ import {
   MAX_REPO_URL_LENGTH,
 } from './repos'
 import {
+  airingStatusSchema,
   animeDetailSchema,
   animeSummarySchema,
   episodeSchema,
@@ -445,6 +446,113 @@ export const recentResponseSchema = z.strictObject({
 })
 
 /**
+ * Una pieza de las filas de descubrimiento: el top y las novedades.
+ *
+ * `cover` es una **ruta local** —`/api/anilist/image/cover/<id>`— y no la
+ * dirección que publica AniList: el navegador sigue sin conocer ningún origen
+ * remoto y la CSP no cambia, igual que con las portadas de proveedor.
+ *
+ * `ref` viaja sólo cuando la base ya conoce esa obra en alguna fuente. Es lo que
+ * decide si la pieza abre una ficha o la búsqueda de su título, y por eso las dos
+ * formas tienen que poder convivir en la misma fila.
+ */
+export const discoverItemSchema = z.strictObject({
+  anilistId: z.number().int().positive(),
+  title: z.string().min(1),
+  cover: z.string().min(1),
+  score: z.number().min(0).max(100).optional(),
+  year: z.number().int().optional(),
+  kind: titleKindSchema.optional(),
+  format: z.string().min(1).optional(),
+  episodes: z.number().int().positive().optional(),
+  ref: providerRefSchema.optional(),
+})
+
+export const discoverResponseSchema = z.strictObject({ items: z.array(discoverItemSchema) })
+
+/**
+ * Un episodio que se emite, o que se acaba de emitir.
+ *
+ * `airingAt` es la fecha del capítulo y no la de una entrada de catálogo: es el
+ * dato que los proveedores no publican y por el que existen la parrilla y la fila
+ * de novedades.
+ */
+export const airingItemSchema = z.strictObject({
+  anilistId: z.number().int().positive(),
+  title: z.string().min(1),
+  cover: z.string().min(1),
+  /** El capítulo. Una película no tiene: su cita es el estreno. */
+  episode: z.number().int().positive().optional(),
+  /**
+   * Cuándo. **Opcional** porque AniList publica el estreno de muchas películas
+   * con precisión de año y aquí no se inventa un día: sin fecha, la pieza lleva
+   * el año y la parrilla no la coloca en el calendario.
+   */
+  airingAt: z.iso.datetime().optional(),
+  year: z.number().int().optional(),
+  kind: titleKindSchema.optional(),
+  ref: providerRefSchema.optional(),
+})
+
+export const airingResponseSchema = z.strictObject({ items: z.array(airingItemSchema) })
+
+/**
+ * Lo que AniList sabe de una obra, ya saneado.
+ *
+ * La sinopsis llega como **texto plano** —la API la publica con etiquetas y se
+ * limpia en `core`—, así que este contrato no puede llevar HTML ni por descuido.
+ * `banner` es la imagen apaisada de la ficha, también por una ruta local.
+ */
+export const enrichmentSchema = z.strictObject({
+  anilistId: z.number().int().positive(),
+  cover: z.string().min(1),
+  banner: z.string().min(1).optional(),
+  synopsis: z.string().min(1).optional(),
+  genres: z.array(z.string().min(1)),
+  score: z.number().min(0).max(100).optional(),
+  status: airingStatusSchema.optional(),
+  year: z.number().int().optional(),
+  format: z.string().min(1).optional(),
+  episodes: z.number().int().positive().optional(),
+  durationMin: z.number().int().positive().optional(),
+  studios: z.array(z.string().min(1)),
+  /** La ficha de la obra en AniList, para atribuir el dato. */
+  siteUrl: httpUrlSchema,
+  nextEpisode: z
+    .strictObject({
+      number: z.number().int().positive(),
+      airingAt: z.iso.datetime(),
+    })
+    .optional(),
+})
+
+/** El enriquecimiento de una ficha. `null` es «no hay con qué», no un error. */
+export const enrichmentResponseSchema = z.strictObject({
+  enrichment: enrichmentSchema.nullable(),
+})
+
+/** Las referencias que la vitrina quiere emparejar de una vez. */
+export const enrichmentBatchRequestSchema = z.strictObject({
+  refs: z.array(providerRefSchema).min(1).max(24),
+})
+
+/**
+ * El lote del motor: cada referencia con lo que se encontró, o sin ello.
+ *
+ * `enrichment` se omite cuando no hubo emparejamiento en vez de viajar como
+ * `null`: en una lista de veinte, decir «esta no tiene» una vez por elemento es
+ * ruido, y la ausencia ya significa exactamente eso.
+ */
+export const enrichmentBatchItemSchema = z.strictObject({
+  ref: providerRefSchema,
+  enrichment: enrichmentSchema.optional(),
+})
+
+export const enrichmentBatchResponseSchema = z.strictObject({
+  items: z.array(enrichmentBatchItemSchema),
+})
+
+/**
  * El orden de preferencia de proveedores, del más prioritario al menos.
  *
  * Es una lista de ids y no un campo por proveedor porque el orden es el dato: la
@@ -627,3 +735,12 @@ export type ProviderRepoView = z.infer<typeof providerRepoViewSchema>
 export type ProviderReposResponse = z.infer<typeof providerReposResponseSchema>
 export type SearchQuery = z.infer<typeof searchQuerySchema>
 export type SearchEventPayload = z.infer<typeof searchEventSchema>
+export type DiscoverItem = z.infer<typeof discoverItemSchema>
+export type DiscoverResponse = z.infer<typeof discoverResponseSchema>
+export type AiringItem = z.infer<typeof airingItemSchema>
+export type AiringResponse = z.infer<typeof airingResponseSchema>
+export type Enrichment = z.infer<typeof enrichmentSchema>
+export type EnrichmentResponse = z.infer<typeof enrichmentResponseSchema>
+export type EnrichmentBatchRequest = z.infer<typeof enrichmentBatchRequestSchema>
+export type EnrichmentBatchItem = z.infer<typeof enrichmentBatchItemSchema>
+export type EnrichmentBatchResponse = z.infer<typeof enrichmentBatchResponseSchema>

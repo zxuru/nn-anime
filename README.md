@@ -16,9 +16,10 @@ telemetría.**
 El tema por defecto es el del sistema; se cambia en **Ajustes** y queda guardado.
 
 La home sigue el orden del diseño: cinta de lo más visto, cartel de destacado —con el botón que
-reproduce el primer episodio y el de favoritos—, **top** —el ranking de la fuente, numerado del uno
-al N y con «Mostrar más»—, **novedades** de la fuente, continuar viendo, favoritos y los géneros del
-catálogo. Todas las piezas del mosaico son **carteles del mismo tamaño** —una columna, con la
+reproduce el primer episodio y el de favoritos—, **top** —el ranking de AniList cuando su API
+contesta y el de la fuente cuando no, numerado del uno al N y con «Mostrar más»—, **parrilla** de
+estrenos —los capítulos de los próximos días, agrupados por día—, **novedades** —los episodios recién
+emitidos, o el feed de la fuente—, continuar viendo, favoritos y los géneros del catálogo. Todas las piezas del mosaico son **carteles del mismo tamaño** —una columna, con la
 proporción de una portada—, así que una fila pone seis títulos a la vista y no deja huecos. El motivo
 de cada recomendación viaja con su pieza: se lee en el asomo, al pasar el puntero, y en la hoja que
 abre el botón «i».
@@ -36,9 +37,14 @@ sirve (`capabilities.media`, ausente es anime): **Ajustes** lo enseña junto a c
 sirva las dos cosas declara `both` y su catálogo se reparte por el tipo de cada título. Si no hay
 ninguna fuente de esa mitad, la pantalla lo dice en vez de quedarse en blanco.
 
-**La parrilla semanal de estrenos y la fila de episodios nuevos siguen sin estar**: las dos necesitan
-una fecha de emisión por episodio, y un feed da la fecha de **publicación del título**, que no es lo
-mismo. Se enseña lo que sí se sabe en vez de inventar fechas.
+**La parrilla y los episodios recién emitidos salen de la API pública de AniList**, que es la única
+fuente consultada con fecha de emisión por episodio: un feed da la fecha de **publicación del título**,
+que no es lo mismo. Se consulta `graphql.anilist.co` directamente, con lista blanca de hosts, un
+presupuesto de una petición cada dos segundos y caché con TTL en la base local; sus términos —gratuita
+para uso no comercial, sin `hoarding` ni usarla como almacenamiento— se respetan no pidiendo nada que
+no esté en pantalla. La ficha además se enriquece con su sinopsis, sus géneros, su nota y su portada
+cuando la obra está emparejada, y `NN_ANIME_ANILIST_OFFLINE=1` apaga esa salida (lo usa el arnés de
+pruebas, que no puede depender de un tercero).
 
 ## Arrancar
 
