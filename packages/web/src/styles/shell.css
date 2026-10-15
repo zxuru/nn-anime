@@ -816,6 +816,29 @@
 }
 
 /*
+ * La banda de temporadas.
+ *
+ * Encima de la lista y con los mismos botones que el resto —el activo lo pinta
+ * `aria-pressed`, que es la regla de `.button`—, porque lo que hace es elegir
+ * qué parte del título se está mirando. Se envuelve sola: nueve temporadas no
+ * caben en un renglón de la columna de la ficha.
+ */
+.episodes__seasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+/* El número de episodios de la temporada, pegado a su nombre y sin mover el
+   botón: la insignia de la fila tiene margen propio y aquí sobra. */
+.episodes__seasons .badge {
+  margin: 0 0 0 var(--space-2);
+}
+
+/*
  * Los controles de una lista larga.
  *
  * Una banda encima de la lista con lo que se necesita para no leer mil filas: la

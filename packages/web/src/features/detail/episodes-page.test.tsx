@@ -12,6 +12,7 @@ import {
   MovieAction,
   pageAfter,
   parteUnicaDe,
+  SeasonPicker,
 } from './EpisodeList'
 import {
   type EpisodeLookup,
@@ -39,7 +40,7 @@ function episodio(number: number): Episode {
 /** Una página servida, con lo que no venga en el cuerpo por defecto. */
 function pagina(
   episodes: readonly Episode[],
-  extras: Partial<Pick<EpisodesResponse, 'page' | 'hasMore' | 'total'>> = {},
+  extras: Partial<Pick<EpisodesResponse, 'page' | 'hasMore' | 'total' | 'seasons'>> = {},
 ): EpisodesResponse {
   return {
     // El schema devuelve un array mutable y el de la lista es de sólo lectura.
@@ -47,6 +48,7 @@ function pagina(
     page: extras.page ?? 1,
     hasMore: extras.hasMore ?? false,
     ...(extras.total === undefined ? {} : { total: extras.total }),
+    ...(extras.seasons === undefined ? {} : { seasons: extras.seasons }),
   }
 }
 
@@ -130,12 +132,19 @@ describe('la lista, por páginas', () => {
    */
   test('la primera página se pide con su número', async () => {
     const objetivo = servidor(
-      new Map([[episodesPath('fixture', 'aurora-nocturna', 1), { body: pagina([episodio(1)]) }]]),
+      new Map([
+        [episodesPath('fixture', 'aurora-nocturna', { page: 1 }), { body: pagina([episodio(1)]) }],
+      ]),
     )
 
-    const recibida = await loadEpisodesPage('fixture', 'aurora-nocturna', 1, {
-      deps: objetivo.deps,
-    })
+    const recibida = await loadEpisodesPage(
+      'fixture',
+      'aurora-nocturna',
+      { page: 1 },
+      {
+        deps: objetivo.deps,
+      },
+    )
 
     expect(objetivo.rutas).toEqual(['/api/anime/fixture/aurora-nocturna/episodes?page=1'])
     expect(recibida.episodes.map((episode) => episode.number)).toEqual([1])
@@ -143,18 +152,23 @@ describe('la lista, por páginas', () => {
 
   test('«siguiente» pide la 2 y «anterior» en la 1 vuelve a la 1, nunca a la 0', async () => {
     // Es la misma expresión que usan los botones: la página que pide cada uno.
-    expect(episodesPath('fixture', 'aurora-nocturna', pageAfter(1, 1))).toBe(
+    expect(episodesPath('fixture', 'aurora-nocturna', { page: pageAfter(1, 1) })).toBe(
       '/api/anime/fixture/aurora-nocturna/episodes?page=2',
     )
-    expect(episodesPath('fixture', 'aurora-nocturna', pageAfter(1, -1))).toBe(
+    expect(episodesPath('fixture', 'aurora-nocturna', { page: pageAfter(1, -1) })).toBe(
       '/api/anime/fixture/aurora-nocturna/episodes?page=1',
     )
 
     const objetivo = servidor(
-      new Map([[episodesPath('fixture', 'aurora-nocturna', 2), { body: pagina([]) }]]),
+      new Map([[episodesPath('fixture', 'aurora-nocturna', { page: 2 }), { body: pagina([]) }]]),
     )
 
-    await loadEpisodesPage('fixture', 'aurora-nocturna', pageAfter(1, 1), { deps: objetivo.deps })
+    await loadEpisodesPage(
+      'fixture',
+      'aurora-nocturna',
+      { page: pageAfter(1, 1) },
+      { deps: objetivo.deps },
+    )
 
     expect(objetivo.rutas).toEqual(['/api/anime/fixture/aurora-nocturna/episodes?page=2'])
   })
@@ -303,6 +317,77 @@ describe('el último episodio', () => {
     expect(pager({ latestMessage: 'la ficha no dice cuál es el último' })).toContain(
       'la ficha no dice cuál es el último',
     )
+  })
+})
+
+describe('la temporada, en la ruta', () => {
+  /**
+   * La lista entera y una temporada suya son dos lecturas distintas.
+   *
+   * Escribir el parámetro siempre daría dos claves de caché para la misma
+   * lectura —como con la página—, y no escribirlo cuando se pidió una temporada
+   * serviría el título entero creyendo servir la temporada.
+   */
+  test('sin temporada la ruta es la de siempre; con ella, la lleva escrita', () => {
+    expect(episodesPath('fixture', 'aurora-nocturna', { page: 1 })).toBe(
+      '/api/anime/fixture/aurora-nocturna/episodes?page=1',
+    )
+    expect(episodesPath('cuevana3', 'serie/rick-y-morty-1p1v6', { page: 1, season: 3 })).toBe(
+      '/api/anime/cuevana3/serie%2Frick-y-morty-1p1v6/episodes?page=1&season=3',
+    )
+  })
+
+  test('la lectura de una temporada pide su página con la temporada y lee su índice', async () => {
+    const temporadas = [
+      { season: 1, count: 2 },
+      { season: 2, count: 2 },
+    ]
+    const objetivo = servidor(
+      new Map([
+        [
+          '/api/anime/fixture/aurora-nocturna/episodes?page=2&season=2',
+          { body: pagina([episodio(3)], { page: 2, total: 12, seasons: temporadas }) },
+        ],
+      ]),
+    )
+
+    const recibida = await loadEpisodesPage(
+      'fixture',
+      'aurora-nocturna',
+      { page: 2, season: 2 },
+      { deps: objetivo.deps },
+    )
+
+    expect(objetivo.rutas).toEqual(['/api/anime/fixture/aurora-nocturna/episodes?page=2&season=2'])
+    expect(recibida.seasons).toEqual(temporadas)
+  })
+})
+
+describe('la banda de temporadas', () => {
+  /**
+   * Cada botón dice su temporada y cuántos episodios tiene.
+   *
+   * Sin el número, saber si una temporada son doce capítulos o cuarenta cuesta
+   * entrar en cada una; y sin `aria-pressed`, cuál se está mirando se leería sólo
+   * por el color.
+   */
+  test('dice el número y los episodios de cada una, y marca la que se mira', () => {
+    const html = render(
+      <SeasonPicker
+        seasons={[
+          { season: 1, count: 11 },
+          { season: 2, count: 10 },
+        ]}
+        active={2}
+        onPick={() => {}}
+      />,
+    )
+
+    expect(html).toContain('aria-label="Temporadas"')
+    expect(html).toContain('Temporada 1')
+    expect(html).toContain('11 episodios')
+    expect(boton(html, 'Temporada 2')).toContain('aria-pressed="true"')
+    expect(boton(html, 'Temporada 1')).toContain('aria-pressed="false"')
   })
 })
 

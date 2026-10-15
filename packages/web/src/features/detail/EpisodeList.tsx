@@ -25,9 +25,19 @@
  * pinta de dos formas según lo que el título sea: una serie numera sus episodios
  * y una película ofrece verla. Numerar «Episodio 1 de 1» es inventar una lista
  * donde no hay nada que elegir.
+ *
+ * **Un título con temporadas se lee por temporadas.** Hay fuentes que juntan las
+ * nueve temporadas de una serie en un solo título de noventa y un episodios, y
+ * una lista así no se recorre: el índice de temporadas lo calcula el servidor
+ * —sale de la lista entera, que es la única que las conoce— y aquí se pinta una
+ * banda con la temporada de cada uno. Elegir una temporada la pide al servidor,
+ * que devuelve sus episodios numerados contra el título: la fila sigue diciendo
+ * «Episodio 12 de 91», que es la etiqueta de la fuente y lo que enseña el
+ * reproductor. Sin índice —una fuente que no marca la temporada, o una sola
+ * temporada— la lista se lee entera, como siempre.
  */
 
-import type { EpisodesResponse, WatchedEpisodePayload } from '@nn-anime/core/api'
+import type { EpisodeSeason, EpisodesResponse, WatchedEpisodePayload } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { Episode } from '@nn-anime/core/models'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
@@ -250,6 +260,44 @@ export function EpisodeRows(props: EpisodeRowsProps): ReactNode {
   )
 }
 
+/**
+ * La banda de temporadas.
+ *
+ * Una temporada por botón, con `aria-pressed` para decir cuál se está mirando
+ * —lo que ya lee el resto de la interfaz, y sin depender del color—, y su número
+ * de episodios al lado: sin él, saber si una temporada son doce capítulos o
+ * cuarenta cuesta entrar en cada una.
+ *
+ * El nombre de cada temporada lo escribe la fuente, y aquí se enseña tal cual:
+ * `Temporada 0` es como TMDB numera los especiales, y renumerarlos sería
+ * inventar una temporada que nadie declaró.
+ */
+export function SeasonPicker(props: {
+  readonly seasons: readonly EpisodeSeason[]
+  readonly active: number
+  readonly onPick: (season: number) => void
+}): ReactNode {
+  return (
+    <ul className="episodes__seasons" aria-label={t(DEFAULT_LOCALE, 'detail.seasons')}>
+      {props.seasons.map((season) => (
+        <li key={season.season}>
+          <button
+            type="button"
+            className="button"
+            aria-pressed={season.season === props.active}
+            onClick={() => props.onPick(season.season)}
+          >
+            {t(DEFAULT_LOCALE, 'detail.season', { number: season.season })}
+            <span className="badge">
+              {t(DEFAULT_LOCALE, 'detail.season.count', { count: season.count })}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export interface EpisodePagerProps {
   readonly page: number
   readonly hasMore: boolean
@@ -428,9 +476,13 @@ export function MovieAction(props: {
  * salto que no encontró nada se pinta **encima** de la página que ya estaba, no en
  * su lugar—, y con tres banderas sueltas el componente tendría tres caminos que se
  * pisan entre sí.
+ *
+ * `season` va en la página y no aparte porque la temporada **cambia la página**:
+ * la lista entera y una temporada suya tienen cada una su primera página, y son
+ * dos peticiones distintas.
  */
 type Solicitud =
-  | { readonly tipo: 'pagina'; readonly page: number }
+  | { readonly tipo: 'pagina'; readonly page: number; readonly season?: number }
   | { readonly tipo: 'numero'; readonly number: number }
   | { readonly tipo: 'ultimo' }
 
@@ -450,6 +502,14 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
   const navegar = useNavigate()
   const [solicitud, setSolicitud] = useState<Solicitud>({ tipo: 'pagina', page: 1 })
   const [pagina, setPagina] = useState<EpisodesResponse | undefined>(undefined)
+  /**
+   * La temporada de la página que se está mirando.
+   *
+   * Va aparte de la petición porque no es lo mismo: un salto o el último episodio
+   * no cambian la lista que hay debajo, así que la temporada que manda en la banda
+   * es la de la última página que se pintó, no la de la última petición.
+   */
+  const [temporada, setTemporada] = useState<number | undefined>(undefined)
   /**
    * El estado de la página que se está mirando.
    *
@@ -497,11 +557,33 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
 
     if (solicitud.tipo === 'pagina') {
       setEstado('loading')
-      void loadEpisodesPage(providerId, ref, solicitud.page).then(
+      void loadEpisodesPage(providerId, ref, {
+        page: solicitud.page,
+        ...(solicitud.season === undefined ? {} : { season: solicitud.season }),
+      }).then(
         (respuesta) => {
           if (!vivo) return
 
+          /**
+           * El título tiene temporadas y esta lectura no pedía ninguna.
+           *
+           * Es la primera lectura de la ficha, que no puede saber que el título
+           * las tiene: se pide la primera temporada y no se pinta la lista entera,
+           * porque pintarla y cambiarla dos milisegundos después es justo el
+           * parpadeo que la banda existe para evitar.
+           */
+          const primera = respuesta.seasons?.[0]
+          if (
+            solicitud.tipo === 'pagina' &&
+            solicitud.season === undefined &&
+            primera !== undefined
+          ) {
+            setSolicitud({ tipo: 'pagina', page: respuesta.page, season: primera.season })
+            return
+          }
+
           setPagina(respuesta)
+          setTemporada(solicitud.tipo === 'pagina' ? solicitud.season : undefined)
           setEstado('ready')
         },
         () => {
@@ -562,8 +644,21 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
 
   if (unica !== undefined) return <MovieAction episode={unica} mode={props.mode} />
 
+  // La temporada que manda en la banda: la de la página que se está mirando. El
+  // respaldo es por el orden de los fotogramas —siempre hay una elegida cuando hay
+  // índice—, no por si acaso.
+  const activa = pagina.seasons === undefined ? undefined : (temporada ?? pagina.seasons[0]?.season)
+
   return (
     <>
+      {pagina.seasons === undefined || activa === undefined ? null : (
+        <SeasonPicker
+          seasons={pagina.seasons}
+          active={activa}
+          onPick={(season) => setSolicitud({ tipo: 'pagina', page: 1, season })}
+        />
+      )}
+
       {conMandos(pagina) ? (
         <EpisodePager
           page={pagina.page}
@@ -573,17 +668,21 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
           latestMissing={latestMissing}
           latestMessage={latestMessage}
           onPage={(direction) =>
-            setSolicitud({ tipo: 'pagina', page: pageAfter(pagina.page, direction) })
+            setSolicitud({
+              tipo: 'pagina',
+              page: pageAfter(pagina.page, direction),
+              ...(activa === undefined ? {} : { season: activa }),
+            })
           }
           onJump={(number) => setSolicitud({ tipo: 'numero', number })}
           onLatest={() => setSolicitud({ tipo: 'ultimo' })}
         />
       ) : null}
 
-      {/* La clave remonta las filas al cambiar de página: la ventana de cien es de
-          la página que se está mirando, no del componente. */}
+      {/* La clave remonta las filas al cambiar de página o de temporada: la ventana
+          de cien es de la página que se está mirando, no del componente. */}
       <EpisodeRows
-        key={`${providerId}:${ref}:${pagina.page}`}
+        key={`${providerId}:${ref}:${pagina.page}:${activa ?? ''}`}
         episodes={pagina.episodes}
         mode={props.mode}
         watched={props.watched}

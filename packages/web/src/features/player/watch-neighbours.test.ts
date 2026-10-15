@@ -90,7 +90,7 @@ describe('los vecinos con el número en la dirección', () => {
     const objetivo = servidor(
       new Map([
         [
-          episodesPath('fixture', 'aurora-nocturna', 1),
+          episodesPath('fixture', 'aurora-nocturna', { page: 1 }),
           pagina([episodio(11), episodio(12), episodio(13)], { total: 26 }),
         ],
       ]),
@@ -110,7 +110,7 @@ describe('los vecinos con el número en la dirección', () => {
 
   test('sin total en la página, el episodio se dice y no de cuántos', async () => {
     const objetivo = servidor(
-      new Map([[episodesPath('fixture', 'aurora-nocturna', 1), pagina([episodio(12)])]]),
+      new Map([[episodesPath('fixture', 'aurora-nocturna', { page: 1 }), pagina([episodio(12)])]]),
     )
 
     const vecinos = await loadWatchNeighbours(mirar('aurora-nocturna#12', 12), {
@@ -132,7 +132,7 @@ describe('los vecinos con el número en la dirección', () => {
     const objetivo = servidor(
       new Map<string, unknown>([
         [
-          episodesPath('fixture', 'aurora-nocturna', 1),
+          episodesPath('fixture', 'aurora-nocturna', { page: 1 }),
           pagina([episodio(1), episodio(2)], { hasMore: true, total: 1180 }),
         ],
         [episodeNumberPath('fixture', 'aurora-nocturna', 1179), { episode: episodio(1179) }],
@@ -159,7 +159,7 @@ describe('los vecinos con el número en la dirección', () => {
     const objetivo = servidor(
       new Map([
         [
-          episodesPath('fixture', 'aurora-nocturna', 1),
+          episodesPath('fixture', 'aurora-nocturna', { page: 1 }),
           pagina([episodio(1), episodio(2)], { total: 12 }),
         ],
       ]),
@@ -181,11 +181,11 @@ describe('los vecinos con el número en la dirección', () => {
     const objetivo = servidor(
       new Map([
         [
-          episodesPath('fixture', 'aurora-nocturna', 1),
+          episodesPath('fixture', 'aurora-nocturna', { page: 1 }),
           pagina([episodio(99), episodio(100)], { hasMore: true }),
         ],
         [
-          episodesPath('fixture', 'aurora-nocturna', 2),
+          episodesPath('fixture', 'aurora-nocturna', { page: 2 }),
           pagina([episodio(101)], { page: 2, total: 101 }),
         ],
       ]),
@@ -208,7 +208,7 @@ describe('los vecinos con el número en la dirección', () => {
     const objetivo = servidor(
       new Map<string, unknown>([
         [
-          episodesPath('fixture', 'aurora-nocturna', 1),
+          episodesPath('fixture', 'aurora-nocturna', { page: 1 }),
           pagina([episodio(1), episodio(2)], { hasMore: true, total: 12 }),
         ],
         [episodeNumberPath('fixture', 'aurora-nocturna', 13), { episode: episodio(13) }],
@@ -257,7 +257,7 @@ describe('los vecinos sin número', () => {
     const objetivo = servidor(
       new Map([
         [
-          episodesPath('fixture', 'aurora-nocturna', 1),
+          episodesPath('fixture', 'aurora-nocturna', { page: 1 }),
           { episodes: [episodio(1), episodio(2), episodio(3)], page: 1, hasMore: false, total: 3 },
         ],
       ]),
@@ -277,11 +277,11 @@ describe('los vecinos sin número', () => {
     const objetivo = servidor(
       new Map([
         [
-          episodesPath('fixture', 'aurora-nocturna', 1),
+          episodesPath('fixture', 'aurora-nocturna', { page: 1 }),
           { episodes: [episodio(1), episodio(2)], page: 1, hasMore: true },
         ],
         [
-          episodesPath('fixture', 'aurora-nocturna', 2),
+          episodesPath('fixture', 'aurora-nocturna', { page: 2 }),
           { episodes: [episodio(3)], page: 2, hasMore: false, total: 3 },
         ],
       ]),
@@ -301,7 +301,7 @@ describe('los vecinos sin número', () => {
     const objetivo = servidor(
       new Map([
         [
-          episodesPath('fixture', 'aurora-nocturna', 1),
+          episodesPath('fixture', 'aurora-nocturna', { page: 1 }),
           { episodes: [episodio(1), episodio(2)], page: 1, hasMore: true },
         ],
       ]),
@@ -319,7 +319,7 @@ describe('los vecinos sin número', () => {
     const objetivo = servidor(
       new Map([
         [
-          episodesPath('fixture', 'aurora-nocturna', 1),
+          episodesPath('fixture', 'aurora-nocturna', { page: 1 }),
           { episodes: [episodio(1), episodio(2)], page: 1, hasMore: true },
         ],
       ]),
