@@ -20,7 +20,28 @@ import { Link, type RouteMatch, usePath, useRoute } from './router'
 
 const LOCALE: Locale = DEFAULT_LOCALE
 
-function Shell(props: { readonly children: ReactNode; readonly ancha?: boolean }): ReactNode {
+/** La caja de la pantalla, con lo que cada una pide de ella. */
+function Shell(props: {
+  readonly children: ReactNode
+  /**
+   * La vitrina va **a sangre**: su marquesina ocupa el ancho entero y el mosaico
+   * reparte seis columnas, así que la caja del contenido —con su tope de ancho y
+   * su relleno— la dejaría en una columna central.
+   */
+  readonly ancha?: boolean
+  /**
+   * La pantalla de reproducción, sin tope de ancho.
+   *
+   * El reproductor se mide contra la ventana —el video crece hasta el alto
+   * disponible— y un tope de 1200 px le dejaría a los lados un margen que crece
+   * con la pantalla. Conserva el relleno, que es su margen.
+   */
+  readonly sinTope?: boolean
+}): ReactNode {
+  const caja = ['shell__main']
+  if (props.ancha === true) caja.push('shell__main--ancha')
+  if (props.sinTope === true) caja.push('shell__main--sin-tope')
+
   return (
     <div className="shell">
       <header className="shell__header">
@@ -33,15 +54,7 @@ function Shell(props: { readonly children: ReactNode; readonly ancha?: boolean }
           <Link to="/settings">{t(LOCALE, 'nav.settings')}</Link>
         </nav>
       </header>
-      {/*
-        La vitrina va **a sangre**: su marquesina ocupa el ancho entero y el
-        mosaico reparte seis columnas, así que la caja del contenido —con su tope
-        de ancho y su relleno— la dejaría en una columna central. Las demás
-        pantallas siguen con la caja de siempre.
-      */}
-      <main className={props.ancha === true ? 'shell__main shell__main--ancha' : 'shell__main'}>
-        {props.children}
-      </main>
+      <main className={caja.join(' ')}>{props.children}</main>
     </div>
   )
 }
@@ -101,5 +114,9 @@ export function App(): ReactNode {
   // fuera— y lo borraría.
   useDocumentTitle(routeTitleParts(route.name, path))
 
-  return <Shell ancha={route.name === 'home'}>{screenFor(route, path)}</Shell>
+  return (
+    <Shell ancha={route.name === 'home'} sinTope={route.name === 'watch'}>
+      {screenFor(route, path)}
+    </Shell>
+  )
 }

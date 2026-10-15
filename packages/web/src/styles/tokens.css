@@ -186,13 +186,46 @@
   --watch-episodes-max: 22rem;
   --watch-episode-height: 2.75rem;
   /**
+   * El reparto del **alto**. La pantalla se mide contra la ventana, no contra un
+   * ancho fijo: un video de ancho fijo deja muerto todo lo que sobra a los lados
+   * —y debajo— en una pantalla grande, que es la mitad de lo que hay que gastar.
+   *
+   * `--watch-room-height` es el hueco visible: la ventana menos la cabecera y el
+   * relleno de la caja. De ahí se descuenta lo que la columna gasta antes y
+   * después del video —el encabezado, los dos huecos y la fila de mandos—, y lo
+   * que queda es el alto del escenario: el video crece hasta llenarlo y para.
+   * El ancho máximo de la columna es ese alto por la relación del video, que es
+   * lo que hace que el marco tenga exactamente el alto del presupuesto.
+   *
+   * Los dos sumandos constantes —el encabezado y la fila de mandos— están
+   * medidos en el navegador, y la prueba de disposición del e2e falla si la
+   * cuenta deja de salir: un alto de sobra no se ve, uno de menos mete la página
+   * en un desplazamiento de dos píxeles que nadie entiende.
+   */
+  --watch-head-height: 5.5rem;
+  --watch-nav-height: 3rem;
+  --watch-room-height: calc(100dvh - var(--header-height) - 2 * var(--space-7));
+  --watch-stage-height: calc(
+    var(--watch-room-height) -
+    var(--watch-head-height) -
+    2 *
+    var(--space-4) -
+    var(--watch-nav-height)
+  );
+  --watch-main-max: min(
+    100%,
+    max(var(--watch-main-min), calc(var(--watch-stage-height) * var(--video-ratio)))
+  );
+  /**
    * El alto máximo de la lista de episodios de la pantalla de reproducción.
    *
    * La columna se desplaza por dentro: una serie de mil capítulos no puede
    * empujar hacia abajo lo que hay debajo, y el video tiene que seguir a la vista
-   * mientras se busca el episodio.
+   * mientras se busca el episodio. El tope es el del escenario —la lista nunca es
+   * más alta que el video que tiene al lado— con el suelo de siempre, que es el
+   * que vale cuando la lista cae debajo, en una ventana estrecha.
    */
-  --watch-list-height: 30rem;
+  --watch-list-height: max(30rem, var(--watch-stage-height));
   /** El lado mínimo de un mando: 44 px, el objetivo táctil que pide el spec. */
   --control-size: 2.75rem;
   /**
