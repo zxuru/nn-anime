@@ -94,6 +94,17 @@ test.describe('la ficha enriquecida', () => {
     })
 
     await entrar(page)
+
+    /*
+      La cuenta empieza al entrar en la ficha.
+
+      El enriquecimiento se sirve para **cualquier** referencia en esta prueba, así
+      que la vitrina —que desde T125 también pinta el banner de su destacado— pide
+      esta misma imagen al pasar por la home. Lo que se mide aquí es que la ficha
+      pida la suya, no cuántas veces la pidió la pantalla anterior.
+    */
+    pedidas.length = 0
+
     await page.goto('/anime/fixture/aurora-nocturna')
 
     const banda = page.locator('.detail__banner')
