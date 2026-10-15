@@ -13,6 +13,13 @@
  * referencia del primer episodio: sin ella llevaría a una pantalla de error, y es
  * mejor no ofrecerlo.
  *
+ * **La composición no depende de lo que tarde la ficha.** El titular se acota a tres
+ * renglones, y la línea de datos y la sinopsis ocupan su hueco desde el primer
+ * fotograma —con un esqueleto mientras no hay nada que decir—, así que la columna
+ * mide lo mismo antes y después de que llegue la respuesta. Antes no: la sinopsis
+ * aparecía tarde, la marquesina centra su texto y el titular subía de golpe al
+ * cargar, que es el salto que se veía.
+ *
  * El arte del cartel es el de reserva —el campo y la inicial—: si la portada llega,
  * manda la portada. La letra se mide con el contenedor del cartel (104 cqi) porque
  * es un campo grande: a tamaño de pieza pequeña se comería el marco.
@@ -70,7 +77,7 @@ export function pieDelCartel(item: FeaturedItem): string {
 }
 
 export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
-  const { detail, firstEpisode } = useFeatured(props.item.ref)
+  const { loading, detail, firstEpisode } = useFeatured(props.item.ref)
   const favorite = useFavorite(props.item.ref)
   // Los géneros del detalle son el respaldo de un destacado sin tags: una entrada
   // del feed no trae vector, pero su ficha sí trae géneros, y la línea de datos no
@@ -89,22 +96,44 @@ export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
         </p>
       )}
 
-      <div className="marquesina__texto">
+      <div className="marquesina__texto" aria-busy={loading}>
         <p className="etiqueta">{t(DEFAULT_LOCALE, 'home.featured.tag')}</p>
 
+        {/*
+          El titular se acota a tres renglones. Un nombre largo —«… 3rd Season Part
+          2», con el subtítulo pegado— a cuerpo de cartel ocupaba media pantalla y
+          empujaba los mandos fuera de ella. El texto entero sigue en el documento:
+          quien lo lea con un lector de pantalla lo oye completo.
+        */}
         <h1 className="marquesina__titulo" id="hero-title">
           {props.item.title}
         </h1>
 
-        {meta === '' ? null : <p className="marquesina__meta">{meta}</p>}
+        {/*
+          La línea de datos y la sinopsis se pintan **siempre**, aunque estén
+          vacías: su hueco está reservado en la hoja y el titular de al lado no se
+          mueve cuando la ficha llega. Antes la sinopsis aparecía tarde y empujaba
+          la columna entera hacia arriba —la marquesina centra su texto—, así que
+          la página daba un salto al cargar.
+        */}
+        <p className="marquesina__meta">{meta}</p>
 
-        {detail?.synopsis === undefined ? null : (
-          <p className="marquesina__sinopsis">{detail.synopsis}</p>
+        {loading ? (
+          <p className="marquesina__esqueleto" aria-hidden="true">
+            <span className="marquesina__hueso" />
+            <span className="marquesina__hueso marquesina__hueso--corto" />
+          </p>
+        ) : (
+          <p className="marquesina__sinopsis">{detail?.synopsis}</p>
         )}
 
-        {props.item.reason === undefined ? null : (
-          <p className="marquesina__motivo">{props.item.reason.text}</p>
-        )}
+        {/*
+          El motivo se pinta siempre por el mismo motivo que la línea de datos:
+          llega con la recomendación, y un destacado de reserva —el del feed, que no
+          puntúa en el motor— no lo tiene hasta que el motor responde. Sin su hueco,
+          el cambio de destacado movía todo lo que hay debajo de la marquesina.
+        */}
+        <p className="marquesina__motivo">{props.item.reason?.text}</p>
 
         <div className="acciones">
           {firstEpisode === undefined ? null : (

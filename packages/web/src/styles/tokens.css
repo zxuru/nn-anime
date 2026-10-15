@@ -23,14 +23,55 @@
  * destapa el asomo, pero nada cambia de tamaño ni de sitio. Ninguna regla `:hover` de la hoja de
  * estructura toca geometría, y el asomo sólo aparece donde cabe.
  *
- * ## Las fuentes
+ * ## La tipografía
  *
- * Dos familias —Fraunces para titulares y números, Manrope para texto, meta y mandos— que **no se
- * cargan de fuera**: la CSP de la aplicación es `default-src 'self'` y un e2e no puede depender de una
- * red. Las pilas empiezan por esas familias y caen a las del sistema, así que quien las tenga
- * instaladas las verá y quien no, verá el mismo diseño con otras letras: los pesos, el interletrado y
- * los tamaños son los del diseño y son los que sostienen el parecido.
+ * Una sola familia, **Nunito**, para todo lo que se lee: el titular de la marquesina, el título de
+ * una pieza, la sinopsis y los mandos. Es redonda y de trazo humano, y a cuerpo de cartel —800 en el
+ * titular, 700 en la pieza— sostiene la jerarquía que antes sostenía el contraste entre una serif y
+ * una sans: la diferencia la da el peso, no la familia.
+ *
+ * El archivo va **en el repositorio** y lo sirve la propia aplicación. No es una preferencia: la CSP
+ * es `default-src 'self'` y un e2e no puede depender de una red, así que una hoja de Google dejaría
+ * la aplicación sin su tipografía en el peor momento. Los dos `woff2` —latino y latino extendido—
+ * son la variable de 200 a 1000, así que todos los pesos salen de un archivo por subconjunto y no
+ * de treinta estáticos. Lo que la familia no cubre —el japonés de un título sin romanizar— cae a la
+ * del sistema, y por eso las pilas de abajo no terminan en `sans-serif` a secas.
  */
+
+/*
+ * Nunito, variable de 200 a 1000, en los dos subconjuntos que hacen falta.
+ *
+ * `swap` y no `block`: la letra llega de la misma máquina y tarda lo que tarde un
+ * archivo local, así que el texto se pinta ya con la del sistema y cambia solo si
+ * el archivo tarda más de lo razonable. Un `block` dejaría el titular invisible
+ * —el titular es lo primero que se lee— y un `optional` haría que la letra no
+ * llegara nunca en una conexión lenta.
+ *
+ * El `unicode-range` es el de Google tal cual: con él, un texto latino no descarga
+ * el subconjunto extendido, y uno con acentos raros —ħ, ū— sí.
+ */
+@font-face {
+  font-family: "Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url("./fonts/nunito-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url("./fonts/nunito-latin-ext.woff2") format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
 
 :root {
   /* Color, tema oscuro por defecto: es una sala a oscuras y el arte manda. */
@@ -102,9 +143,11 @@
   --radius-full: 999px;
 
   /* Tipografía */
-  --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --font-sans:
-    "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-display: "Nunito", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  /* Los rótulos y las cifras de la interfaz siguen en monoespaciada: es otro
+     registro —el de un dato— y no la letra de la casa. Sin la familia instalada
+     cae a la del sistema, que es lo que ya hacía. */
   --font-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --text-xs: 0.6875rem;
   --text-sm: 0.8125rem;
@@ -118,6 +161,16 @@
   --number-stroke: 3px;
   --leading-tight: 1.05;
   --leading-normal: 1.45;
+  /**
+   * Un renglón de texto, con su interlínea, medido con el cuerpo de letra de quien
+   * lo use.
+   *
+   * Es lo que permite reservar «dos líneas de sinopsis» sin escribir una medida:
+   * `1em` se resuelve contra el `font-size` del elemento —que en la vitrina es un
+   * `clamp`—, así que el hueco crece con el texto. La hoja de estructura no admite
+   * números sueltos, ni siquiera dentro de un `calc()`.
+   */
+  --renglon: calc(1em * var(--leading-normal));
   /** Interletrado de las etiquetas: mayúsculas y separadas, cuerpo pequeño. */
   --tracking-label: 0.12em;
   /** Interletrado de los titulares: apretado, como el diseño de referencia. */
@@ -366,8 +419,40 @@
   --marquesina-relleno: clamp(1.5rem, 4vw, 4rem) var(--vitrina-margen) clamp(5rem, 10vw, 7rem);
   --marquesina-texto-hueco: clamp(0.6rem, 1.4vw, 1rem);
   --marquesina-titulo: clamp(3rem, 9vw, 7.5rem);
+  /**
+   * Los renglones que puede ocupar el titular.
+   *
+   * A cuerpo de cartel, un nombre con subtítulo —«… 3rd Season Part 2»— se comía la
+   * marquesina entera y dejaba los mandos fuera de la pantalla. El texto no se
+   * recorta a la fuerza: se le da un tope y el nombre completo sigue tres líneas más
+   * abajo, en la ficha.
+   */
+  --marquesina-titulo-lineas: 3;
   --marquesina-meta: clamp(0.875rem, 1.4vw, 1rem);
   --marquesina-sinopsis: 44ch;
+  /**
+   * Los renglones que ocupa la sinopsis, y por tanto su hueco.
+   *
+   * La sinopsis es lo último que llega —viaja en la ficha, no en el ranking—, así que
+   * su sitio se reserva desde el primer fotograma: sin reserva, la columna de texto
+   * crecía al llegar la respuesta y el titular se movía. Los dos renglones son también
+   * el recorte: más texto se lee en la ficha.
+   */
+  --marquesina-sinopsis-lineas: 2;
+  /**
+   * Los renglones del motivo y lo que ocupa la fila de mandos.
+   *
+   * Los dos son de una línea en la ventana ancha —el motivo es una frase corta y los
+   * dos mandos caben en la misma fila—, pero en un teléfono el motivo ocupa dos y los
+   * mandos no caben juntos: se envuelven. Son los valores de partida y el punto de
+   * corte de 600 px los sube, que es lo que mantiene quieto lo que va debajo de la
+   * marquesina en las dos ventanas.
+   */
+  --marquesina-motivo-lineas: 1;
+  --marquesina-acciones-alto: var(--header-height);
+  /** El hueso del esqueleto: lo que mide de alto y lo que mide el segundo, corto. */
+  --marquesina-hueso: 0.55rem;
+  --marquesina-hueso-corto: 62%;
   --marquesina-texto-ancho: 40rem;
   /* El titular y el remate, cuando la marquesina pasa a un solo bloque. */
   --marquesina-titulo-angosto: clamp(2rem, 11vw, 3.2rem);
@@ -463,6 +548,8 @@
     rgb(8 8 10 / 62%) 100%
   );
   --arte-letra: rgb(245 240 230 / 24%);
+  /** El hueso del esqueleto de la marquesina, sobre el campo de arte. */
+  --arte-hueso: rgb(245 240 230 / 22%);
   --arte-cifra: rgb(245 240 230 / 32%);
   --arte-sinopsis: rgb(245 240 230 / 82%);
   --arte-motivo: rgb(245 240 230 / 74%);

@@ -7,6 +7,7 @@ import { ApiError } from '../../api/client'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { ContinueRow } from './ContinueRow'
 import { FavoritesRow } from './FavoritesRow'
+import { FeaturedHero } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
 import { featuredOf, HomePage, marcaDeRefresco, minutosDesde, textoDeRefresco } from './HomePage'
 import { continuePath, progressPercent, resumeLabel } from './rows'
@@ -281,9 +282,10 @@ describe('la home', () => {
    * cree que va contigo»— y cada pieza, con su puntuación a la vista. Se mide para
    * que no vuelva por su cuenta con el panel del motor colgando de la composición.
    *
-   * Se nombran las clases de la franja (`franja`, `franja__*`) y no la palabra: el
-   * conmutador de tipo vive en una `.franja-tipo`, y una comprobación por el
-   * substring «franja» daba la franja del motor por retirada estando delante.
+   * Se nombran las clases de la franja (`franja`, `franja__*`) y no la palabra
+   * «franja»: cuando el conmutador de tipo tenía una franja propia encima de la
+   * marquesina, una comprobación por el substring daba la franja del motor por
+   * retirada estando delante.
    */
   test('la franja de motivos ya no está', () => {
     const html = render(<HomePage />)
@@ -296,13 +298,55 @@ describe('la home', () => {
 })
 
 /**
+ * La marquesina mientras llega la ficha.
+ *
+ * El primer render no tiene ficha —la sinopsis viaja en una petición, y es lo
+ * último que aparece— y antes eso se veía como un salto: al llegar la respuesta, la
+ * columna de texto crecía y el titular subía, porque la marquesina centra lo que
+ * hay dentro. Lo que se mide es que el hueco ya está: el esqueleto ocupa el sitio de
+ * la sinopsis y la columna se declara ocupada. El titular, además, sale entero —el
+ * recorte de la hoja es visual— y con `aria-busy` quien no ve la pantalla sabe que
+ * ahí todavía está llegando algo.
+ *
+ * En estos renders no corren los efectos, así que es exactamente el estado de los
+ * primeros milisegundos de la aplicación. Que la respuesta llegue y el titular no se
+ * mueva se mide en el e2e, que es donde hay navegador.
+ */
+describe('la marquesina', () => {
+  const DESTACADO = {
+    ref: { providerId: 'fixture', value: 'aurora-nocturna' },
+    title: 'Aurora Nocturna',
+    tags: ['Misterio'],
+  }
+
+  test('el hueco de la sinopsis lo ocupa un esqueleto, y la columna lo dice', () => {
+    const html = render(<FeaturedHero item={DESTACADO} />)
+
+    expect(html).toContain('marquesina__esqueleto')
+    expect(html).toContain('marquesina__hueso--corto')
+    expect(html).toContain('aria-busy="true"')
+    expect(html).not.toContain('marquesina__sinopsis')
+  })
+
+  test('el titular sale entero: el recorte es de la hoja, no del marcado', () => {
+    const largo =
+      'Aurora Nocturna: la segunda temporada, con la película recapitulatoria y el resto del subtítulo'
+
+    expect(render(<FeaturedHero item={{ ...DESTACADO, title: largo }} />)).toContain(largo)
+  })
+})
+
+/**
  * La mitad que se está mirando.
  *
  * El tipo vive en la dirección y las filas que salen de las fuentes se piden ya
  * filtradas, así que aquí se mide lo que se puede ver en un `renderToString`: que
- * el conmutador sale en la home y en la búsqueda, y que las tres direcciones que sí
- * llevan el tipo lo llevan. La petición en sí no corre —no hay efectos en
- * servidor—, y por eso `rutasDeTipo` se prueba aparte.
+ * las tres direcciones que sí llevan el tipo lo llevan y que el aviso de «ninguna
+ * fuente sirve esta mitad» no sale antes de saberlo. La petición en sí no corre
+ * —no hay efectos en servidor—, y por eso `rutasDeTipo` se prueba aparte.
+ *
+ * El conmutador que cambia de mitad ya no lo pinta esta pantalla: vive en la
+ * cabecera, y su sitio lo mide la prueba de la aplicación.
  */
 describe('el tipo de la home', () => {
   function renderEn(path: string): string {
@@ -312,16 +356,6 @@ describe('el tipo de la home', () => {
       </HistoryProvider>,
     )
   }
-
-  test('el conmutador sale en la home, con la mitad de la dirección marcada', () => {
-    expect(renderEn('/')).toContain('aria-label="Tipo de contenido"')
-
-    const enPeliculas = renderEn('/?tipo=movies')
-    expect(enPeliculas).toContain('aria-current="page"')
-    expect(enPeliculas.indexOf('aria-current="page"')).toBeLessThan(
-      enPeliculas.indexOf('Películas</a>'),
-    )
-  })
 
   /**
    * Sin los proveedores leídos no se avisa de nada.

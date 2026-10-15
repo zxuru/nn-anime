@@ -422,6 +422,70 @@ describe('tokens de diseño', () => {
     expect(enlace).not.toContain('block-size: 100%')
   })
 
+  /**
+   * La tipografía llega de verdad.
+   *
+   * Una familia nombrada en `--font-sans` que no resuelve a ningún archivo no da
+   * ningún error: la página se pinta con la letra del sistema y parece que todo
+   * está bien. Es lo que pasaba con Fraunces y Manrope, que se nombraban y no se
+   * cargaban en ningún sitio, y nadie lo notaba porque el diseño no se rompe.
+   *
+   * Lo que se mide es el camino entero: cada `src` de un `@font-face` de la hoja
+   * existe en el disco y es un woff2 de verdad —los cuatro primeros bytes—, y la
+   * familia que empieza las pilas de texto y de titulares es la que declara el
+   * `@font-face`. Cambiar el nombre en un sitio y no en el otro —el error que
+   * dejaría la aplicación sin su letra— falla aquí.
+   */
+  test('la letra que nombran los tokens es la que se carga', async () => {
+    const css = await read(TOKENS)
+    const caras = [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map((cara) => cara[1] ?? '')
+
+    expect(caras.length, 'no hay ningún @font-face en tokens.css').toBeGreaterThan(0)
+
+    const familias: string[] = []
+    const fuentes: string[] = []
+
+    for (const cara of caras) {
+      const familia = /font-family:\s*"([^"]+)"/.exec(cara)?.[1]
+      if (familia !== undefined) familias.push(familia)
+
+      expect(cara, 'una cara sin `font-display` deja el titular invisible').toContain(
+        'font-display: swap',
+      )
+
+      for (const fuente of cara.matchAll(/url\("([^"]+)"\)/g)) fuentes.push(fuente[1] ?? '')
+    }
+
+    expect(fuentes.length).toBeGreaterThan(0)
+
+    for (const fuente of fuentes) {
+      // Relativa a la hoja, que es como la resuelve el empaquetador.
+      const ruta = fileURLToPath(
+        new URL(`./styles/${fuente.replace(/^\.\//, '')}`, import.meta.url),
+      )
+      const archivo = Bun.file(ruta)
+
+      expect(await archivo.exists(), `la cara apunta a ${fuente}, que no existe`).toBe(true)
+
+      const bytes = new Uint8Array(await archivo.arrayBuffer())
+      const firma = new TextDecoder().decode(bytes.subarray(0, 4))
+
+      // `wOF2` es la firma del contenedor: un archivo truncado o un HTML de error
+      // con extensión `.woff2` se colaría sin esta comprobación.
+      expect(firma, `${fuente} no es un woff2`).toBe('wOF2')
+    }
+
+    for (const pila of ['--font-sans', '--font-display']) {
+      // Si la pila no está en la hoja, la cadena vacía no figura entre las familias
+      // declaradas y la comprobación de abajo falla nombrando el token que falta.
+      const familia = new RegExp(`${pila}:\\s*"([^"]+)"`).exec(css)?.[1] ?? ''
+
+      expect(familias, `${pila} nombra una familia que no declara ningún @font-face`).toContain(
+        familia,
+      )
+    }
+  })
+
   test('respeta la preferencia de movimiento reducido', async () => {
     expect(await read(TOKENS)).toContain('prefers-reduced-motion')
   })

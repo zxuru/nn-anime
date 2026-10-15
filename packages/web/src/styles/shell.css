@@ -21,8 +21,20 @@
 .shell__header {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
-  height: var(--header-height);
+  /*
+   * El hueco de la línea (8 px) y el de entre elementos (32 px) son distintos: la
+   * cabecera envuelve cuando no cabe todo —el mando de tipo baja a su renglón— y el
+   * aire de esa bajada no es el que separa la marca del menú.
+   */
+  gap: var(--space-2) var(--space-6);
+  /*
+   * `min-height` y no `height`: el renglón del mando de tipo mide 54 px —el carril
+   * del conmutador— y con la altura fija se saldría de la barra por abajo. Con el
+   * suelo, la cabecera mide el token mientras quepa en una línea y crece lo justo
+   * cuando el mando baja.
+   */
+  min-height: var(--header-height);
+  flex-wrap: wrap;
   padding: 0 var(--space-6);
   border-bottom: var(--border-width-strong) solid var(--color-border);
   background: var(--color-bg);
@@ -79,24 +91,21 @@
 }
 
 /*
- * La franja del conmutador de tipo.
+ * El conmutador de tipo.
  *
- * Va **fuera de la composición diseñada** —encima de la marquesina, con el aire de
- * la vitrina— porque el mando mide lo que el resto de mandos de la interfaz y en la
- * cabecera no cabe sin apretarla. Alineado al final: el titular de la pantalla es
- * lo primero que se lee y el mando no compite con él.
+ * Es un mando y no un destino: la mitad que se mira cambia lo que enseña la
+ * pantalla, no la pantalla. El carril mide 54 px —los 44 del mando, el relleno y un
+ * borde de un píxel—, que es justo el alto de la cabecera menos su regla inferior.
+ * Con el borde grueso de antes medía 56 y asomaba un píxel por arriba y por abajo, y
+ * el de arriba caía fuera de la ventana, porque la cabecera está pegada al borde: la
+ * píldora no cabe a lo alto y por eso el carril lleva el borde fino. Es una medida,
+ * no un gusto.
  */
-.franja-tipo {
-  display: flex;
-  justify-content: flex-end;
-  padding: var(--space-4) var(--vitrina-margen) 0;
-}
-
 .conmutador {
   display: flex;
   gap: var(--space-1);
   padding: var(--space-1);
-  border: var(--border-width-strong) solid var(--color-border);
+  border: var(--border-width) solid var(--color-control-border);
   border-radius: var(--radius-full);
 }
 
@@ -130,6 +139,23 @@
 .conmutador__opcion[aria-current="page"] {
   background: var(--color-accent);
   color: var(--color-accent-contrast);
+}
+
+/*
+ * Y su sitio: la cabecera, al final.
+ *
+ * Va detrás de la navegación y empujado al borde con `margin-inline-start: auto`,
+ * así que su posición no depende de cuántos destinos tenga la navegación y la
+ * cabecera se lee de fuera hacia dentro: la marca, los destinos y el mando. En una
+ * ventana estrecha la cabecera envuelve y el mando baja a su propio renglón antes
+ * que apretar la marca o los enlaces.
+ *
+ * Va después de las reglas del mando y no antes: un selector más específico
+ * delante de uno menos específico es la trampa que avisa el linter —lo de abajo
+ * no se aplicaría por orden, sino por peso—.
+ */
+.shell__header .conmutador {
+  margin-inline-start: auto;
 }
 
 /* El aviso de que ninguna fuente sirve esta mitad: la pantalla vacía, explicada. */
@@ -2792,11 +2818,8 @@
   inset-inline-start: var(--arte-letra-lado);
   font-family: var(--font-display);
   font-size: 132cqi;
-  font-weight: 600;
+  font-weight: 800;
   line-height: 0.72;
-  font-variation-settings:
-    "opsz" 144,
-    "SOFT" 40;
   color: var(--arte-letra);
 }
 
@@ -2913,34 +2936,78 @@
 /* Dos clases a propósito: `.shell__main h1` —la regla de las pantallas de
    lectura— le pone versalitas, 3,5 rem y un margen de bloque, y pesa lo mismo que
    un solo nombre de clase. El titular de la vitrina es el suyo: mayúsculas y
-   minúsculas como está escrito, cuerpo de cartel y sin margen. */
+   minúsculas como está escrito, cuerpo de cartel y sin margen.
+
+   Se acota a `--marquesina-titulo-lineas` renglones. No es un adorno: el titular va
+   a cuerpo de cartel, y un nombre largo —con su subtítulo— medía media pantalla y
+   empujaba los mandos fuera de ella. El texto entero sigue en el documento. */
 .marquesina .marquesina__titulo {
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--marquesina-titulo);
-  font-weight: 600;
-  font-variation-settings: "opsz" 144;
-  line-height: 0.92;
+  font-weight: 800;
+  line-height: var(--leading-tight);
   letter-spacing: var(--tracking-display);
   text-transform: none;
   color: var(--color-on-overlay);
-  text-wrap: balance;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: var(--marquesina-titulo-lineas);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
+/*
+ * La línea de datos y la sinopsis, con su hueco reservado.
+ *
+ * La ficha —que es de donde salen las dos— llega después que el ranking, así que
+ * estos dos renglones se pintan desde el primer fotograma aunque estén vacíos: con
+ * el hueco reservado, la columna mide lo mismo antes y después de la respuesta y el
+ * titular no se mueve. El hueco lo mide `--renglon`, que sigue al cuerpo de letra de
+ * cada uno —los dos son un `clamp`—.
+ */
 .marquesina__meta {
   color: var(--arte-resto);
   font-size: var(--marquesina-meta);
+  min-block-size: var(--renglon);
 }
 
 .marquesina__sinopsis {
   max-inline-size: var(--marquesina-sinopsis);
   color: var(--arte-sinopsis);
   font-size: var(--marquesina-sinopsis-cuerpo);
+  min-block-size: calc(var(--marquesina-sinopsis-lineas) * var(--renglon));
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: var(--marquesina-sinopsis-lineas);
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/*
+ * El esqueleto de la sinopsis: dos huesos, uno por renglón, con la misma métrica
+ * que el texto que sustituyen.
+ *
+ * `grid-template-rows` con un renglón por línea —y no dos barras seguidas— porque
+ * así el alto de cada una es el de la línea que ocupa: el esqueleto y la sinopsis
+ * miden exactamente lo mismo. Es decoración: el texto lo dice `aria-busy` en la
+ * columna.
+ */
+.marquesina__esqueleto {
+  display: grid;
+  grid-template-rows: repeat(var(--marquesina-sinopsis-lineas), 1fr);
+  align-items: center;
+  font-size: var(--marquesina-sinopsis-cuerpo);
+  min-block-size: calc(var(--marquesina-sinopsis-lineas) * var(--renglon));
+}
+
+.marquesina__hueso {
+  block-size: var(--marquesina-hueso);
+  border-radius: var(--radius-full);
+  background: var(--arte-hueso);
+}
+
+.marquesina__hueso--corto {
+  inline-size: var(--marquesina-hueso-corto);
 }
 
 .marquesina__motivo {
@@ -2950,13 +3017,27 @@
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--arte-motivo);
+  min-block-size: calc(var(--marquesina-motivo-lineas) * var(--renglon));
+  display: -webkit-box;
+  -webkit-line-clamp: var(--marquesina-motivo-lineas);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
+/*
+ * La fila de mandos, con su alto reservado.
+ *
+ * El botón de reproducir sólo aparece cuando se conoce la referencia del primer
+ * episodio —viaja en los episodios del título, no en el ranking—, así que la fila
+ * se reserva el alto de un mando desde el primer fotograma: si no, al aparecer el
+ * botón la columna de texto crecía un mando entero y el titular subía.
+ */
 .acciones {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
   align-items: center;
+  min-block-size: var(--marquesina-acciones-alto);
 }
 
 /* El cartel: la portada dibujada, con marco propio y algo girada. */
@@ -2988,6 +3069,14 @@
   font-size: 104cqi;
 }
 
+/*
+ * El pie del cartel: el título y el año, en un solo renglón.
+ *
+ * El cartel mide lo suyo —hasta 26 rem— y el pie lleva el nombre del título, que
+ * puede ser larguísimo: sin recorte, el pie se partía en tres renglones y se comía
+ * la portada por abajo. Se acorta con puntos suspensivos, que es lo que dice «aquí
+ * hay más»: el nombre entero está en el titular de la izquierda.
+ */
 .cartel__pie {
   position: absolute;
   inset-block-end: 0;
@@ -3001,6 +3090,9 @@
   text-transform: uppercase;
   color: var(--color-on-overlay);
   background: var(--velo-art);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Marca de refresco y cinta, pegadas al borde inferior de la marquesina. */
@@ -3237,7 +3329,7 @@
 .pz__titulo {
   font-family: var(--font-display);
   font-size: var(--pieza-titulo);
-  font-weight: 600;
+  font-weight: 700;
   line-height: var(--leading-tight);
   letter-spacing: var(--letter-tight);
   text-wrap: balance;
@@ -3776,6 +3868,21 @@
 /* < 560 : una columna; las piezas son bandas a ancho completo —un cartel de 2:3
    mediría la pantalla entera—; el asomo no crece y pasa al panel inferior. */
 @media (max-width: 560px) {
+  /*
+   * La marquesina, con el motivo en dos renglones y los mandos en dos filas.
+   *
+   * En un teléfono la frase del motivo no cabe en una línea y los dos mandos
+   * —reproducir y favoritos— tampoco caben juntos en la misma fila: se envuelven.
+   * El hueco reservado tiene que ser el de la forma final, que es lo que mantiene
+   * quieto todo lo que va debajo de la marquesina; el corte va en 560 y no en los
+   * 430 px donde se envuelven de verdad para dejar sitio a un motivo más largo o a
+   * un número de episodio de tres cifras.
+   */
+  :root {
+    --marquesina-motivo-lineas: 2;
+    --marquesina-acciones-alto: calc(2 * var(--header-height) + var(--space-2));
+  }
+
   .mosaico {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3808,10 +3915,6 @@
 
   .marquesina .marquesina__titulo {
     font-size: var(--marquesina-titulo-angosto);
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
   }
 
   .cinta {

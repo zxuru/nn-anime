@@ -14,6 +14,7 @@ import { WatchPage } from './features/player/WatchPage'
 import { SearchPage } from './features/search/SearchPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { useAppTheme } from './features/settings/useSettings'
+import { ConmutadorTipo } from './features/tipo/ConmutadorTipo'
 import { t } from './i18n'
 import { routeTitleParts, useDocumentTitle } from './lib/document-title'
 import { Link, type RouteMatch, usePath, useRoute } from './router'
@@ -37,11 +38,18 @@ function Shell(props: {
    * con la pantalla. Conserva el relleno, que es su margen.
    */
   readonly sinTope?: boolean
+  /**
+   * Si la cabecera lleva el conmutador de tipo.
+   *
+   * No lo lleva siempre: la mitad que se mira sólo significa algo donde hay algo
+   * que partir en dos —la vitrina y la búsqueda—. En una ficha o en el
+   * reproductor el mando no cambiaría nada de lo que se está viendo.
+   */
+  readonly tipo?: boolean
 }): ReactNode {
   const caja = ['shell__main']
   if (props.ancha === true) caja.push('shell__main--ancha')
   if (props.sinTope === true) caja.push('shell__main--sin-tope')
-
   return (
     <div className="shell">
       <header className="shell__header">
@@ -53,6 +61,7 @@ function Shell(props: {
           <Link to="/search">{t(LOCALE, 'nav.search')}</Link>
           <Link to="/settings">{t(LOCALE, 'nav.settings')}</Link>
         </nav>
+        {props.tipo === true ? <ConmutadorTipo /> : null}
       </header>
       <main className={caja.join(' ')}>{props.children}</main>
     </div>
@@ -115,7 +124,11 @@ export function App(): ReactNode {
   useDocumentTitle(routeTitleParts(route.name, path))
 
   return (
-    <Shell ancha={route.name === 'home'} sinTope={route.name === 'watch'}>
+    <Shell
+      ancha={route.name === 'home'}
+      sinTope={route.name === 'watch'}
+      tipo={route.name === 'home' || route.name === 'search'}
+    >
       {screenFor(route, path)}
     </Shell>
   )

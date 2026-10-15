@@ -25,7 +25,6 @@ import { resumenDeFallo } from '../../components/ErrorNotice'
 import { Grid, GridItem } from '../../components/Grid'
 import { t } from '../../i18n'
 import { useNavigate, usePath } from '../../router'
-import { ConmutadorTipo } from '../tipo/ConmutadorTipo'
 import {
   enElTipo,
   fuenteDeResumen,
@@ -196,13 +195,6 @@ export function SearchPage(props: SearchPageProps): ReactNode {
   return (
     <section>
       <h1>{t(DEFAULT_LOCALE, 'search.title')}</h1>
-
-      {/* La misma franja que en la home: el tipo se cambia desde las dos pantallas
-          y el estado es el de la dirección, así que aquí conserva la consulta y el
-          filtro de proveedores. */}
-      <div className="franja-tipo">
-        <ConmutadorTipo />
-      </div>
 
       <div className="search__field">
         <label className="search__label" htmlFor="search-term">
