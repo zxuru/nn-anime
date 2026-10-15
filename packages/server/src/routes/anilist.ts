@@ -19,6 +19,7 @@
  * cuando no. La interfaz sólo decide qué enlace pintar.
  */
 
+import { refKey } from '@nn-anime/catalog-store'
 import type {
   AiringItem,
   AniListEntry,
@@ -54,6 +55,7 @@ import { isAniListImageUrl } from '../anilist/entries'
 import type { ServerContainer } from '../container'
 import { findProvider } from './anime'
 import { mediaFrom } from './media'
+import { adultContentOf } from './settings'
 
 /** La ventana por defecto de la parrilla, en días. */
 export const DEFAULT_AIRING_DAYS = 7
@@ -67,6 +69,21 @@ export function airingDays(raw: string | undefined): number {
   if (!Number.isInteger(numero) || numero <= 0) return DEFAULT_AIRING_DAYS
 
   return Math.min(numero, MAX_AIRING_DAYS)
+}
+
+/**
+ * Lo que se puede servir, según el interruptor.
+ *
+ * Con el interruptor apagado no sale ninguna obra marcada, venga de la consulta o de
+ * la caché. En la parrilla y en lo recién emitido es **el único** filtro que hay: su
+ * consulta cuelga de `airingSchedules`, que no admite `isAdult`.
+ */
+function sinAdultos<T>(
+  items: readonly T[],
+  conAdultos: boolean,
+  esAdulto: (item: T) => boolean,
+): readonly T[] {
+  return conAdultos ? items : items.filter((item) => !esAdulto(item))
 }
 
 export interface AniListRoutesOptions {
@@ -166,11 +183,13 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
       return c.json(errorResponseSchema.parse({ error: 'media tiene que ser anime o movies' }), 400)
     }
 
-    const resultado = await options.catalog.top(media, c.req.raw.signal)
+    const conAdultos = await adultContentOf(options.container.store)
+    const resultado = await options.catalog.top(media, conAdultos, c.req.raw.signal)
     if (!resultado.ok) return c.json(discoverResponseSchema.parse({ items: [] }))
 
-    const refs = await options.catalog.localRefs(resultado.value)
-    const items = resultado.value.map((entrada) => discoverItem(entrada, refs.get(entrada.id)))
+    const visibles = sinAdultos(resultado.value, conAdultos, (entrada) => entrada.adult)
+    const refs = await options.catalog.localRefs(visibles)
+    const items = visibles.map((entrada) => discoverItem(entrada, refs.get(entrada.id)))
 
     return c.json(discoverResponseSchema.parse({ items }))
   })
@@ -181,6 +200,7 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
       return c.json(errorResponseSchema.parse({ error: 'media tiene que ser anime o movies' }), 400)
     }
 
+    const conAdultos = await adultContentOf(options.container.store)
     const resultado = await options.catalog.airing(
       media,
       airingDays(c.req.query('days')),
@@ -188,8 +208,9 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
     )
     if (!resultado.ok) return c.json(airingResponseSchema.parse({ items: [] }))
 
-    const refs = await options.catalog.localRefs(resultado.value.map((cita) => cita.media))
-    const items = resultado.value.map((cita) =>
+    const visibles = sinAdultos(resultado.value, conAdultos, (cita) => cita.media.adult)
+    const refs = await options.catalog.localRefs(visibles.map((cita) => cita.media))
+    const items = visibles.map((cita) =>
       airingItem(cita.media, cita.airingAt, cita.episode, refs.get(cita.media.id), cita.year),
     )
 
@@ -202,11 +223,13 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
       return c.json(errorResponseSchema.parse({ error: 'media tiene que ser anime o movies' }), 400)
     }
 
-    const resultado = await options.catalog.recent(media, c.req.raw.signal)
+    const conAdultos = await adultContentOf(options.container.store)
+    const resultado = await options.catalog.recent(media, conAdultos, c.req.raw.signal)
     if (!resultado.ok) return c.json(airingResponseSchema.parse({ items: [] }))
 
-    const refs = await options.catalog.localRefs(resultado.value.map((cita) => cita.media))
-    const items = resultado.value.map((cita) =>
+    const visibles = sinAdultos(resultado.value, conAdultos, (cita) => cita.media.adult)
+    const refs = await options.catalog.localRefs(visibles.map((cita) => cita.media))
+    const items = visibles.map((cita) =>
       airingItem(cita.media, cita.airingAt, cita.episode, refs.get(cita.media.id), cita.year),
     )
 
@@ -221,7 +244,15 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
       return c.json(desconocido(providerId), 404)
     }
 
-    const detalle = await options.container.store.readAnime({ providerId, value: ref })
+    const providerRef = { providerId, value: ref }
+    const conAdultos = await adultContentOf(options.container.store)
+
+    // Lo que ya consta marcado no se pregunta otra vez: la marca es local y no caduca.
+    if (!conAdultos && (await options.container.store.listAdultRefs([providerRef])).length > 0) {
+      return c.json(enrichmentResponseSchema.parse({ enrichment: null }))
+    }
+
+    const detalle = await options.container.store.readAnime(providerRef)
     // Una referencia que la base no conoce no tiene título con el que emparejar:
     // no es un error, es una ficha que nadie ha abierto todavía.
     if (detalle === null) return c.json(enrichmentResponseSchema.parse({ enrichment: null }))
@@ -229,14 +260,24 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
     const key = matchKey(detalle.value.title, detalle.value.year)
     const resultado = await options.catalog.match(
       { key, local: localWorkOf(detalle.value.title, detalle.value.year, detalle.value.titleAlt) },
+      conAdultos,
       c.req.raw.signal,
     )
 
     if (!resultado.ok) return c.json(enrichmentResponseSchema.parse({ enrichment: null }))
 
+    const entrada = resultado.value
+    if (entrada?.adult === true && !conAdultos) {
+      // Se apunta y no se sirve: la marca es lo que puede esconder esa obra del feed,
+      // de las tendencias y de las filas de la base, donde no hay entrada que consultar.
+      await options.container.store.markAdult(providerRef)
+
+      return c.json(enrichmentResponseSchema.parse({ enrichment: null }))
+    }
+
     return c.json(
       enrichmentResponseSchema.parse({
-        enrichment: resultado.value === null ? null : enrichmentOf(resultado.value),
+        enrichment: entrada === null ? null : enrichmentOf(entrada),
       }),
     )
   })
@@ -252,10 +293,18 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
       )
     }
 
+    const conAdultos = await adultContentOf(options.container.store)
+    // Lo que ya consta marcado no gasta una petición: se descarta antes de preguntar.
+    const yaMarcadas = new Set(
+      (await options.container.store.listAdultRefs(pedido.data.refs)).map((ref) => refKey(ref)),
+    )
+
     const peticiones: { key: string; local: ReturnType<typeof localWorkOf>; ref: ProviderRef }[] =
       []
 
     for (const ref of pedido.data.refs) {
+      if (!conAdultos && yaMarcadas.has(refKey(ref))) continue
+
       const detalle = await options.container.store.readAnime(ref)
       if (detalle === null) continue
 
@@ -268,14 +317,28 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
 
     const emparejados = await options.catalog.matchMany(
       peticiones.map(({ key, local }) => ({ key, local })),
+      conAdultos,
       c.req.raw.signal,
     )
 
+    const porMarcar: ProviderRef[] = []
     const items = peticiones.flatMap(({ key, ref }) => {
       const media = emparejados.get(key)
+      if (media === undefined || media === null) return []
 
-      return media === undefined || media === null ? [] : [{ ref, enrichment: enrichmentOf(media) }]
+      if (media.adult && !conAdultos) {
+        porMarcar.push(ref)
+
+        return []
+      }
+
+      return [{ ref, enrichment: enrichmentOf(media) }]
     })
+
+    // Se apunta lo visto y no se sirve: la marca es lo que puede esconder esa obra del
+    // feed, de las tendencias y de las filas de la base, donde no hay entrada que
+    // consultar. Sin ella, cada carga de la home volvería a preguntar por lo mismo.
+    await Promise.all(porMarcar.map((ref) => options.container.store.markAdult(ref)))
 
     return c.json(enrichmentBatchResponseSchema.parse({ items }))
   })

@@ -97,6 +97,20 @@ async function conApp<T>(
   }
 }
 
+/**
+ * Enciende el contenido para adultos como lo haría la página de ajustes.
+ *
+ * Por HTTP y no escribiendo en la base: el ajuste entra por donde entra el del
+ * usuario, así que la prueba mide también que la ruta lo persiste.
+ */
+async function encender(pedir: Contexto['pedir']): Promise<void> {
+  await pedir('/api/settings', {
+    method: 'PATCH',
+    headers: { ...GOOD, 'content-type': 'application/json' },
+    body: JSON.stringify({ adultContent: true }),
+  })
+}
+
 describe('el descubrimiento', () => {
   test('el top llega con la referencia local cuando la base conoce la obra', async () => {
     await conApp({ top: [KIMETSU, AURORA] }, async ({ pedir }) => {
@@ -142,26 +156,47 @@ describe('el descubrimiento', () => {
     })
   })
 
-  test('la obra que AniList marca para adultos viaja marcada, en el top y en la parrilla', async () => {
+  /**
+   * El doble devuelve la obra marcada aunque la consulta la excluya, que es lo que
+   * haría un tercero que ignorara el filtro **y** lo que pasa de verdad en la parrilla
+   * y en lo recién emitido: su consulta cuelga de `airingSchedules` y no puede filtrar.
+   * Con el interruptor apagado, la frontera las descarta igual.
+   */
+  test('apagado, la obra marcada no sale ni en el top, ni en la parrilla, ni en las novedades', async () => {
     const marcada: RawMediaFixture = { ...KIMETSU, id: 999, isAdult: true }
+    const cita = { media: marcada, episode: 1, airingAt: 1_760_000_000 }
 
-    await conApp(
-      {
-        top: [KIMETSU, marcada],
-        airing: [{ media: marcada, episode: 1, airingAt: 1_760_000_000 }],
-      },
-      async ({ pedir }) => {
-        const top = (await (
-          await pedir('/api/discover/top?media=anime')
-        ).json()) as DiscoverResponse
-        expect(top.items.map((item) => item.adult)).toEqual([false, true])
+    await conApp({ top: [KIMETSU, marcada], airing: [cita], recent: [cita] }, async ({ pedir }) => {
+      const top = (await (await pedir('/api/discover/top?media=anime')).json()) as DiscoverResponse
+      expect(top.items.map((item) => item.anilistId)).toEqual([101922])
 
-        const parrilla = (await (
-          await pedir('/api/discover/airing?media=anime&days=3')
-        ).json()) as AiringResponse
-        expect(parrilla.items[0]?.adult).toBe(true)
-      },
-    )
+      const parrilla = (await (
+        await pedir('/api/discover/airing?media=anime&days=3')
+      ).json()) as AiringResponse
+      expect(parrilla.items).toEqual([])
+
+      const novedades = (await (
+        await pedir('/api/discover/recent?media=anime')
+      ).json()) as AiringResponse
+      expect(novedades.items).toEqual([])
+    })
+  })
+
+  test('encendido, la obra marcada sale con su marca', async () => {
+    const marcada: RawMediaFixture = { ...KIMETSU, id: 999, isAdult: true }
+    const cita = { media: marcada, episode: 1, airingAt: 1_760_000_000 }
+
+    await conApp({ top: [KIMETSU, marcada], airing: [cita] }, async ({ pedir }) => {
+      await encender(pedir)
+
+      const top = (await (await pedir('/api/discover/top?media=anime')).json()) as DiscoverResponse
+      expect(top.items.map((item) => item.adult)).toEqual([false, true])
+
+      const parrilla = (await (
+        await pedir('/api/discover/airing?media=anime&days=3')
+      ).json()) as AiringResponse
+      expect(parrilla.items[0]?.adult).toBe(true)
+    })
   })
 
   test('la parrilla anuncia los capítulos de los próximos días', async () => {
@@ -212,10 +247,48 @@ describe('el enriquecimiento de una ficha', () => {
     })
   })
 
-  test('la marca de adultos viaja también en el enriquecido de la ficha', async () => {
+  test('apagado, el enriquecido de una obra marcada no se sirve y deja su marca', async () => {
+    await conApp(
+      { search: { 'Aurora Nocturna': [{ ...AURORA, isAdult: true }] } },
+      async ({ pedir, db }) => {
+        const cuerpo = (await (
+          await pedir(`/api/anime/fixture/${REF}/enrichment`)
+        ).json()) as EnrichmentResponse
+
+        expect(cuerpo.enrichment).toBeNull()
+
+        // La marca es lo que después puede esconder esa obra del feed, de las
+        // tendencias y de las filas de la base.
+        const filas = db.query('SELECT COUNT(*) AS total FROM adult_ref').get() as { total: number }
+
+        expect(filas.total).toBe(1)
+      },
+    )
+  })
+
+  test('con la marca puesta, la segunda petición no vuelve a preguntar a AniList', async () => {
+    await conApp(
+      { search: { 'Aurora Nocturna': [{ ...AURORA, isAdult: true }] } },
+      async ({ pedir, fake }) => {
+        await pedir(`/api/anime/fixture/${REF}/enrichment`)
+        const antes = fake.calls.length
+
+        const segunda = (await (
+          await pedir(`/api/anime/fixture/${REF}/enrichment`)
+        ).json()) as EnrichmentResponse
+
+        expect(segunda.enrichment).toBeNull()
+        expect(fake.calls.length).toBe(antes)
+      },
+    )
+  })
+
+  test('encendido, el enriquecido de una obra marcada sí se sirve', async () => {
     await conApp(
       { search: { 'Aurora Nocturna': [{ ...AURORA, isAdult: true }] } },
       async ({ pedir }) => {
+        await encender(pedir)
+
         const cuerpo = (await (
           await pedir(`/api/anime/fixture/${REF}/enrichment`)
         ).json()) as EnrichmentResponse
