@@ -20,6 +20,11 @@
  * Las filas siguen siendo enlaces —el episodio es la acción de la pantalla— y el
  * número viaja en la dirección (`?n=`) porque quien lo conoce es esta lista: el
  * reproductor lo lee para pedir los vecinos sin descargar el título entero.
+ *
+ * **Una película no tiene capítulos.** La misma lectura de una parte suelta se
+ * pinta de dos formas según lo que el título sea: una serie numera sus episodios
+ * y una película ofrece verla. Numerar «Episodio 1 de 1» es inventar una lista
+ * donde no hay nada que elegir.
  */
 
 import type { EpisodesResponse, WatchedEpisodePayload } from '@nn-anime/core/api'
@@ -51,6 +56,40 @@ const MODE_KEYS = {
   dub: 'detail.mode.dub',
   raw: 'detail.mode.raw',
 } as const
+
+/**
+ * Los textos del estado, escritos uno a uno y por forma del título.
+ *
+ * Una película no tiene episodios, así que el «cargando los episodios» de la
+ * lista tampoco vale para ella: son dos pantallas distintas y cada una dice lo
+ * suyo. Van literales y no compuestos con el tipo —`detail.movie.${estado}`—
+ * porque una clave compuesta se esconde del buscador de textos sin usar y acaba
+ * borrada del catálogo por parecer huérfana.
+ */
+const ESTADO_KEYS = {
+  serie: { loading: 'detail.episodes.loading', error: 'detail.episodes.error' },
+  pelicula: { loading: 'detail.movie.loading', error: 'detail.movie.error' },
+} as const
+
+/**
+ * La ruta del reproductor para un episodio.
+ *
+ * La escriben tres sitios —la fila, el salto por número y la acción de una
+ * película— y con tres copias la primera que cambie deja a las otras dos
+ * pidiendo otra cosa.
+ */
+function rutaDe(episode: Episode, mode: PlayMode | undefined): string {
+  return watchPath(episode.ref.providerId, episode.ref.value, {
+    ...(mode === undefined ? {} : { mode }),
+    // El título viaja con el enlace: la lista lo trae en cada episodio, y sin él
+    // el reproductor tenía que adivinarlo de la referencia y con jkanime
+    // adivinaba mal.
+    anime: episode.animeRef.value,
+    // El número va escrito porque quien lo conoce es esta lista: el reproductor
+    // lo lee para pedir los vecinos sin la lista entera.
+    n: episode.number,
+  })
+}
 
 /**
  * La página a la que lleva cada botón.
@@ -168,16 +207,7 @@ export function EpisodeRows(props: EpisodeRowsProps): ReactNode {
             >
               <Link
                 className={marca?.tipo === 'visto' ? 'episode episode--visto' : 'episode'}
-                to={watchPath(episode.ref.providerId, episode.ref.value, {
-                  ...(props.mode === undefined ? {} : { mode: props.mode }),
-                  // El título viaja con el enlace: la lista lo trae en cada
-                  // episodio, y sin él el reproductor tenía que adivinarlo de la
-                  // referencia y con jkanime adivinaba mal.
-                  anime: episode.animeRef.value,
-                  // El número va escrito porque quien lo conoce es esta lista: el
-                  // reproductor lo lee para pedir los vecinos sin la lista entera.
-                  n: episode.number,
-                })}
+                to={rutaDe(episode, props.mode)}
               >
                 <span className="episode__number">
                   {/* El total sólo se dice cuando el proveedor lo da: un «de 26»
@@ -346,6 +376,48 @@ export interface EpisodeListProps {
   /** El modo con el que se abre el reproductor. Sin él, el que elija el reproductor. */
   readonly mode?: PlayMode
   readonly watched?: readonly WatchedEpisodePayload[]
+  /**
+   * El título es una película.
+   *
+   * Una película no tiene capítulos, así que con la marca puesta y **una sola
+   * parte** —sin nada detrás— la pantalla ofrece verla en vez de numerar un
+   * «Episodio 1 de 1» que nadie puede elegir. Si el proveedor la parte en varias
+   * o publica más páginas, la lista vuelve: esconder partes detrás de un botón
+   * dejaría contenido sin puerta.
+   *
+   * La marca la pone la ficha con el `kind` que declara el proveedor. Un título
+   * de un solo episodio sin tipo declarado sigue siendo una lista: llamar película
+   * a un OVA de uno es peor que numerarlo.
+   */
+  readonly movie?: boolean
+}
+
+/**
+ * La parte que se ofrece como acción suelta, o nada.
+ *
+ * Una parte con más páginas detrás no es única aunque venga sola en la página: lo
+ * que se mira es el título, y el título no se termina de leer hasta que el
+ * servidor dice que no queda nada.
+ */
+export function parteUnicaDe(pagina: EpisodesResponse): Episode | undefined {
+  return pagina.episodes.length === 1 && !pagina.hasMore ? pagina.episodes[0] : undefined
+}
+
+/**
+ * La acción de una película: un enlace que abre su única parte.
+ *
+ * Es un enlace y no un botón con `onClick` —igual que las filas de la lista— para
+ * que se pueda abrir en otra pestaña, copiar y seguir con el teclado.
+ */
+export function MovieAction(props: {
+  readonly episode: Episode
+  readonly mode?: PlayMode
+}): ReactNode {
+  return (
+    <Link className="button button--primary" to={rutaDe(props.episode, props.mode)}>
+      {t(DEFAULT_LOCALE, 'detail.movie.watch')}
+    </Link>
+  )
 }
 
 /**
@@ -420,13 +492,7 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
      * mismo gesto.
      */
     const abrir = (episode: Episode): void => {
-      navegar.push(
-        watchPath(episode.ref.providerId, episode.ref.value, {
-          ...(modoRef.current === undefined ? {} : { mode: modoRef.current }),
-          anime: episode.animeRef.value,
-          n: episode.number,
-        }),
-      )
+      navegar.push(rutaDe(episode, modoRef.current))
     }
 
     if (solicitud.tipo === 'pagina') {
@@ -477,14 +543,24 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
   }, [providerId, ref, solicitud, navegar])
 
   if (pagina === undefined) {
+    const claves = props.movie === true ? ESTADO_KEYS.pelicula : ESTADO_KEYS.serie
+
     return (
       <p className={estado === 'error' ? 'search__error' : 'empty'}>
-        {estado === 'error'
-          ? t(DEFAULT_LOCALE, 'detail.episodes.error')
-          : t(DEFAULT_LOCALE, 'detail.episodes.loading')}
+        {t(DEFAULT_LOCALE, estado === 'error' ? claves.error : claves.loading)}
       </p>
     )
   }
+
+  // Una película de la que el proveedor no sirve ninguna parte no se queda con el
+  // «no tiene episodios»: tampoco tiene episodios de los que hablar.
+  if (props.movie === true && pagina.episodes.length === 0) {
+    return <p className="empty">{t(DEFAULT_LOCALE, 'detail.movie.missing')}</p>
+  }
+
+  const unica = props.movie === true ? parteUnicaDe(pagina) : undefined
+
+  if (unica !== undefined) return <MovieAction episode={unica} mode={props.mode} />
 
   return (
     <>

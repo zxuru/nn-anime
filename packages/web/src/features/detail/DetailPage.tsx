@@ -117,6 +117,16 @@ export function DetailPage(props: DetailPageProps): ReactNode {
   const modos = modesFor(capabilities)
   const modo = chosenMode(modos, preferido)
 
+  /**
+   * El título es una película.
+   *
+   * Una película no tiene capítulos, así que su bloque no se titula «Episodios» ni
+   * numera nada: ofrece verla. El tipo lo declara el proveedor y el que no lo
+   * declare sigue con la lista de siempre —deducir «película» de tener un solo
+   * episodio llamaría película a un OVA de uno—.
+   */
+  const esPelicula = detail.kind === 'movie'
+
   return (
     <article className="detail">
       {/*
@@ -223,15 +233,19 @@ export function DetailPage(props: DetailPageProps): ReactNode {
         )}
 
         <section>
-          <h2>{t(DEFAULT_LOCALE, 'detail.episodes')}</h2>
+          {/* Una película se titula por lo que es. Dejarle «Episodios» encima del
+              botón que la abre era el mismo error que numerar su única parte. */}
+          <h2>{t(DEFAULT_LOCALE, esPelicula ? 'detail.movie' : 'detail.episodes')}</h2>
           {/* El selector pide sus propias páginas: la ficha le da con qué
               pedirlas —el proveedor y la referencia del título— y no una lista
-              ya descargada que no podría trocear. */}
+              ya descargada que no podría trocear. Con la marca de película, la
+              misma lectura se pinta como una acción en vez de como una lista. */}
           <EpisodeList
             providerId={props.providerId}
             ref={props.ref}
             mode={modo}
             watched={watched}
+            movie={esPelicula}
           />
         </section>
       </div>

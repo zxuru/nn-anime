@@ -397,6 +397,15 @@ export const messages: Messages = {
   'detail.sources': 'También en',
   'detail.sourcesItem': '{title} en {provider}',
   'detail.noEpisodes': 'Este título no tiene episodios todavía.',
+  // Una película no tiene capítulos: su bloque se titula por lo que es —no
+  // «Episodios»— y ofrece verla en vez de numerar un «Episodio 1» que nadie puede
+  // elegir. Los textos de carga y error van aparte por lo mismo: decir que se
+  // están cargando episodios es anunciar algo que no existe.
+  'detail.movie': 'Película',
+  'detail.movie.watch': 'Ver película',
+  'detail.movie.loading': 'Cargando la película…',
+  'detail.movie.error': 'No se pudo cargar la película.',
+  'detail.movie.missing': 'Esta película no tiene nada que reproducir todavía.',
   'detail.favorite.add': 'Añadir a favoritos',
   'detail.favorite.remove': 'Quitar de favoritos',
   'detail.loading': 'Cargando la ficha…',

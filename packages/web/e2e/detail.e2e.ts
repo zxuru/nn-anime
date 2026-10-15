@@ -278,4 +278,59 @@ test.describe('de la búsqueda al detalle', () => {
     // no tiene una sección vacía.
     await expect(page.getByRole('heading', { name: 'También en' })).toHaveCount(0)
   })
+
+  /**
+   * Una película no tiene capítulos.
+   *
+   * El fixture trae una —«El Jardín de Hierro», que su proveedor declara
+   * `movie`— y su ficha enseñaba «Episodios» con un «Episodio 1 de 1» que nadie
+   * puede elegir. Se mide en un navegador porque la decisión depende de la lectura
+   * de episodios, que llega dentro de un efecto.
+   */
+  test('la ficha de una película ofrece verla, sin numerar capítulos', async ({ page }) => {
+    await entrar(page)
+
+    await page.goto('/anime/fixture/el-jardin-de-hierro')
+
+    const verla = page.getByRole('link', { name: 'Ver película' })
+    await expect(verla).toHaveAttribute(
+      'href',
+      '/watch/fixture/el-jardin-de-hierro%231?mode=sub&anime=el-jardin-de-hierro&n=1',
+      { timeout: 15_000 },
+    )
+
+    // Ni la lista, ni su titular, ni el número: la película no finge capítulos.
+    await expect(page.locator('.episodes li')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Episodios', exact: true })).toHaveCount(0)
+    await expect(page.getByText('Episodio 1')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Película', exact: true })).toBeVisible()
+
+    await verla.click()
+    await expect(page).toHaveURL(/\/watch\/fixture\/el-jardin-de-hierro%231\?mode=sub/)
+    await expect(page.locator('video')).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('una película sin ninguna parte lo dice, y no deja un botón que no lleva a nada', async ({
+    page,
+  }) => {
+    await entrar(page)
+
+    // El proveedor declara la película y no sirve ninguna parte: es el caso del
+    // título que la fuente anuncia y todavía no publica.
+    await page.route(
+      (url) =>
+        url.pathname === '/api/anime/fixture/el-jardin-de-hierro/episodes' &&
+        url.searchParams.has('page'),
+      async (ruta) => {
+        await ruta.fulfill({ json: { episodes: [], page: 1, hasMore: false } })
+      },
+    )
+
+    await page.goto('/anime/fixture/el-jardin-de-hierro')
+
+    await expect(page.getByText('Esta película no tiene nada que reproducir todavía.')).toBeVisible(
+      { timeout: 15_000 },
+    )
+    await expect(page.getByRole('link', { name: 'Ver película' })).toHaveCount(0)
+  })
 })

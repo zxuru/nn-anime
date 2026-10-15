@@ -5,7 +5,14 @@ import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import type { RequestDeps } from '../../api/client'
 import { createMemoryHistory, HistoryProvider } from '../../router'
-import { conMandos, EpisodeList, EpisodePager, pageAfter } from './EpisodeList'
+import {
+  conMandos,
+  EpisodeList,
+  EpisodePager,
+  MovieAction,
+  pageAfter,
+  parteUnicaDe,
+} from './EpisodeList'
 import {
   type EpisodeLookup,
   episodeNumberPath,
@@ -311,5 +318,58 @@ describe('el selector completo', () => {
     const html = render(<EpisodeList providerId="fixture" ref="aurora-nocturna" />)
 
     expect(html).toContain('Cargando los episodios')
+  })
+
+  /**
+   * Una película no carga «los episodios».
+   *
+   * El aviso de la lista hablaba de capítulos, y en la ficha de una película ese
+   * texto es el mismo error que la lista numerada: anunciar algo que no existe.
+   * Es el único estado de la lectura que se ve sin navegador —los demás llegan
+   * dentro de un efecto—, así que es el que se mide aquí; la acción montada la
+   * mide el e2e.
+   */
+  test('una película dice que carga la película, no los episodios', () => {
+    const html = render(<EpisodeList providerId="fixture" ref="el-jardin-de-hierro" movie />)
+
+    expect(html).toContain('Cargando la película')
+    expect(html).not.toContain('los episodios')
+  })
+})
+
+describe('una película no se lista', () => {
+  /**
+   * Una sola parte y nada detrás: es una acción, no una lista.
+   *
+   * «Episodio 1 de 1» numera un capítulo que nadie puede elegir. Medido mutando:
+   * sin la condición de una sola parte, un título de tres se ofrece como un botón
+   * y pierde dos episodios; sin la de `hasMore`, una primera página de uno esconde
+   * la segunda.
+   */
+  test('con una sola parte y nada detrás, hay acción', () => {
+    const unica = parteUnicaDe(pagina([episodio(1)]))
+
+    expect(unica?.number).toBe(1)
+  })
+
+  test('varias partes se siguen listando: esconderlas sería perder contenido', () => {
+    expect(parteUnicaDe(pagina([episodio(1), episodio(2)]))).toBeUndefined()
+  })
+
+  test('una parte con más páginas detrás no es única', () => {
+    expect(parteUnicaDe(pagina([episodio(1)], { hasMore: true }))).toBeUndefined()
+  })
+
+  test('sin ninguna parte no hay acción que ofrecer', () => {
+    expect(parteUnicaDe(pagina([]))).toBeUndefined()
+  })
+
+  test('la acción abre su única parte, con el modo y el número en la dirección', () => {
+    const html = render(<MovieAction episode={episodio(1)} mode="sub" />)
+
+    expect(html).toContain('Ver película')
+    expect(html).toContain(
+      'href="/watch/fixture/aurora-nocturna%231?mode=sub&amp;anime=aurora-nocturna&amp;n=1"',
+    )
   })
 })
