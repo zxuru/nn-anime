@@ -18,6 +18,7 @@
  * que la ficha entera era un callejón sin salida.
  */
 
+import type { Enrichment } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { AnimeDetail } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
@@ -62,6 +63,86 @@ function Meta(props: { readonly detail: AnimeDetail }): ReactNode {
   )
 }
 
+/** La sinopsis: la del proveedor y, si no la trae, la de AniList. */
+export function sinopsis(
+  detail: AnimeDetail,
+  enrichment: Enrichment | null | undefined,
+): string | undefined {
+  return detail.synopsis ?? enrichment?.synopsis
+}
+
+/** Los géneros: los de la fuente mandan; AniList sólo llena el vacío. */
+export function generos(
+  detail: AnimeDetail,
+  enrichment: Enrichment | null | undefined,
+): readonly string[] {
+  return detail.genres.length > 0 ? detail.genres : (enrichment?.genres ?? [])
+}
+
+/** Los estudios, con la misma regla que los géneros. */
+export function estudios(
+  detail: AnimeDetail,
+  enrichment: Enrichment | null | undefined,
+): readonly string[] {
+  return detail.studios.length > 0 ? detail.studios : (enrichment?.studios ?? [])
+}
+
+/**
+ * Lo que añade AniList a la ficha.
+ *
+ * Tres decisiones, y las tres se ven aquí:
+ *
+ * 1. **La sinopsis de AniList es la reserva.** Si el proveedor trae la suya, manda
+ *    la suya —es el dato de la fuente que el usuario eligió—; cuando no la trae,
+ *    ésta la llena.
+ * 2. **Los géneros y los estudios se prefieren de la ficha local** y AniList sólo
+ *    los completa cuando están vacíos: son los de la fuente, que es de quien es el
+ *    título.
+ * 3. **Nada de esto es HTML.** La sinopsis llega en texto plano desde el servidor
+ *    —el saneado está en `core`— y se pinta como texto, igual que la del proveedor.
+ */
+export function seccionesDe(enriquecido: Enrichment | null | undefined): ReactNode {
+  if (enriquecido === null || enriquecido === undefined) return null
+
+  const siguiente = enriquecido.nextEpisode
+
+  return (
+    <section className="enriquecido">
+      <h2>{t(DEFAULT_LOCALE, 'detail.enrichment')}</h2>
+      <p className="enriquecido__fuente">
+        {t(DEFAULT_LOCALE, 'detail.enrichment.score', { score: enriquecido.score ?? '—' })}
+        {enriquecido.year === undefined ? '' : ` · ${enriquecido.year}`}
+        {enriquecido.status === undefined
+          ? ''
+          : ` · ${t(DEFAULT_LOCALE, STATUS_KEYS[enriquecido.status])}`}
+      </p>
+      {siguiente === undefined ? null : (
+        <p className="card__meta">
+          {t(DEFAULT_LOCALE, 'detail.enrichment.next', {
+            episode: siguiente.number,
+            when: new Intl.DateTimeFormat(DEFAULT_LOCALE, {
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            }).format(new Date(siguiente.airingAt)),
+          })}
+        </p>
+      )}
+      {/* La ficha de AniList se abre en otra pestaña y con `noreferrer`: es un
+          enlace saliente y no tiene por qué saber de dónde vino. */}
+      <a
+        className="enriquecido__enlace"
+        href={enriquecido.siteUrl}
+        target="_blank"
+        rel="noreferrer noopener"
+      >
+        {t(DEFAULT_LOCALE, 'detail.enrichment.site')}
+      </a>
+    </section>
+  )
+}
+
 function Skeletons(): ReactNode {
   return (
     <section aria-busy="true">
@@ -79,6 +160,7 @@ export function DetailPage(props: DetailPageProps): ReactNode {
     sources,
     watched,
     capabilities,
+    enrichment,
     providerNames,
     state,
     error,
@@ -139,10 +221,17 @@ export function DetailPage(props: DetailPageProps): ReactNode {
         {/* La portada sale del proxy, y sólo si el proveedor declaró una
             dirección que se puede usar: un `javascript:` ahí no se convierte en
             atributo. */}
-        {detail.coverUrl !== undefined && !isSafeUrl(detail.coverUrl) ? (
-          <span className="detail__cover card__cover--vacia" aria-hidden="true" />
+        {enrichment === null || enrichment === undefined ? (
+          detail.coverUrl !== undefined && !isSafeUrl(detail.coverUrl) ? (
+            <span className="detail__cover card__cover--vacia" aria-hidden="true" />
+          ) : (
+            <Cover providerId={props.providerId} ref={props.ref} className="detail__cover" />
+          )
         ) : (
-          <Cover providerId={props.providerId} ref={props.ref} className="detail__cover" />
+          // La de AniList es más grande y es la misma con la que la vitrina pinta
+          // sus piezas: una ficha con otra carátula que su tarjeta se lee como dos
+          // obras.
+          <Cover src={enrichment.cover} className="detail__cover" />
         )}
 
         <div className="detail__actions">
@@ -189,12 +278,12 @@ export function DetailPage(props: DetailPageProps): ReactNode {
 
         <section>
           <h2>{t(DEFAULT_LOCALE, 'detail.genres')}</h2>
-          <p>{detail.genres.join(' · ')}</p>
+          <p>{generos(detail, enrichment).join(' · ')}</p>
         </section>
 
         <section>
           <h2>{t(DEFAULT_LOCALE, 'detail.studios')}</h2>
-          <p>{detail.studios.join(' · ')}</p>
+          <p>{estudios(detail, enrichment).join(' · ')}</p>
         </section>
 
         <section>
@@ -223,14 +312,23 @@ export function DetailPage(props: DetailPageProps): ReactNode {
         {detail.titleAlt === undefined ? null : <p className="card__meta">{detail.titleAlt}</p>}
         <Meta detail={detail} />
 
-        {detail.synopsis === undefined ? null : (
+        {sinopsis(detail, enrichment) === undefined ? null : (
           <section>
             <h2>{t(DEFAULT_LOCALE, 'detail.synopsis')}</h2>
             {/* Texto, nunca HTML: la sinopsis viene de fuera. Y con su medida de
                 lectura, que es lo único de la ficha que quiere ser estrecho. */}
-            <p className="detail__synopsis">{detail.synopsis}</p>
+            <p className="detail__synopsis">{sinopsis(detail, enrichment)}</p>
           </section>
         )}
+
+        {/* El banner de AniList, cuando lo hay, abre el cuerpo de la ficha: es la
+            imagen apaisada de la obra y no la carátula, así que no sustituye a
+            nada — acompaña. */}
+        {enrichment?.banner === undefined ? null : (
+          <img className="detail__banner" src={enrichment.banner} alt="" loading="lazy" />
+        )}
+
+        {seccionesDe(enrichment)}
 
         <section>
           {/* Una película se titula por lo que es. Dejarle «Episodios» encima del

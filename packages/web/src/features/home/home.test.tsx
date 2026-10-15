@@ -6,10 +6,19 @@ import { renderToString } from 'react-dom/server'
 import { ApiError } from '../../api/client'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { ContinueRow } from './ContinueRow'
+import { desdeResumen, type PiezaVista } from './descubrir'
 import { FavoritesRow } from './FavoritesRow'
 import { FeaturedHero } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
-import { featuredOf, HomePage, marcaDeRefresco, minutosDesde, textoDeRefresco } from './HomePage'
+import {
+  featuredOf,
+  HomePage,
+  marcaDeRefresco,
+  minutosDesde,
+  piezasDelTop,
+  piezasDeNovedades,
+  textoDeRefresco,
+} from './HomePage'
 import { continuePath, progressPercent, resumeLabel } from './rows'
 import { TopRow } from './TopRow'
 import {
@@ -44,6 +53,11 @@ function item(overrides: Partial<ContinueWatchingItem> = {}): ContinueWatchingIt
 
 function resumen(titulo: string): AnimeSummary {
   return { ref: { providerId: 'fixture', value: titulo }, title: titulo }
+}
+
+/** Una pieza ya convertida, que es lo que pintan las filas del top y de novedades. */
+function pieza(titulo: string): PiezaVista {
+  return desdeResumen(resumen(titulo))
 }
 
 function recomendacion(titulo: string): RecommendationResponse {
@@ -122,11 +136,33 @@ describe('la fila del top', () => {
   })
 
   test('cada puesto enlaza a su ficha', () => {
-    const html = render(<TopRow items={[resumen('Mar de Cristal')]} />)
+    const html = render(<TopRow items={[pieza('Mar de Cristal')]} />)
 
     expect(html).toContain('Mar de Cristal')
     expect(html).toContain('href="/anime/fixture/Mar%20de%20Cristal"')
     expect(html).toContain('src="/api/cover/fixture/Mar%20de%20Cristal"')
+  })
+
+  test('una pieza de AniList enseña su portada y su destino', () => {
+    const html = render(
+      <TopRow
+        items={[
+          {
+            clave: 'anilist:101922',
+            title: 'Kimetsu no Yaiba',
+            to: '/search?q=Kimetsu%20no%20Yaiba',
+            portada: '/api/anilist/image/cover/101922',
+            meta: '2019 · TV',
+          },
+        ]}
+      />,
+    )
+
+    // La portada va por la ruta del servidor, nunca por una dirección de fuera.
+    expect(html).toContain('src="/api/anilist/image/cover/101922"')
+    // Sin ficha local, el destino es la búsqueda.
+    expect(html).toContain('href="/search?q=Kimetsu%20no%20Yaiba"')
+    expect(html).toContain('2019 · TV')
   })
 })
 
@@ -136,14 +172,7 @@ describe('la fila de novedades', () => {
   })
 
   test('con novedades, cada una enlaza a su ficha y no reordena', () => {
-    const html = render(
-      <FeedRow
-        items={[
-          { ...resumen('Mar de Cristal'), publishedAt: '2026-09-01T12:00:00.000Z' },
-          { ...resumen('Aurora Nocturna'), publishedAt: '2026-10-01T12:00:00.000Z' },
-        ]}
-      />,
-    )
+    const html = render(<FeedRow items={[pieza('Mar de Cristal'), pieza('Aurora Nocturna')]} />)
 
     // El orden lo decide el servidor: la fila pinta lo que le dan, tal cual.
     expect(html.indexOf('Mar de Cristal')).toBeLessThan(html.indexOf('Aurora Nocturna'))
@@ -190,6 +219,9 @@ describe('las filas, cuando una lectura falla', () => {
       trending: ok({ items: [resumen('Mar de Cristal')] }),
       feed: ok({ items: [resumen('Del feed')] }),
       recent: ok({ items: [resumen('De la caché')] }),
+      descubrir: ok({ items: [] }),
+      parrilla: ok({ items: [] }),
+      emisiones: ok({ items: [] }),
     })
 
     expect(filas.loading).toBe(false)
@@ -208,6 +240,9 @@ describe('las filas, cuando una lectura falla', () => {
       trending: mal,
       feed: mal,
       recent: mal,
+      descubrir: mal,
+      parrilla: mal,
+      emisiones: mal,
     })
 
     expect(filas.error).toBeDefined()
@@ -228,6 +263,9 @@ describe('las filas, cuando una lectura falla', () => {
       trending: sinSesion,
       feed: sinSesion,
       recent: sinSesion,
+      descubrir: sinSesion,
+      parrilla: sinSesion,
+      emisiones: sinSesion,
     })
 
     expect(filas.error?.clase).toBe('sesion')
@@ -375,11 +413,17 @@ describe('el tipo de la home', () => {
       trending: '/api/trending?media=anime',
       feed: '/api/feed?media=anime',
       recent: '/api/catalog/recent?media=anime',
+      descubrir: '/api/discover/top?media=anime',
+      parrilla: '/api/discover/airing?media=anime',
+      emisiones: '/api/discover/recent?media=anime',
     })
     expect(rutasDeTipo('movies')).toEqual({
       trending: '/api/trending?media=movies',
       feed: '/api/feed?media=movies',
       recent: '/api/catalog/recent?media=movies',
+      descubrir: '/api/discover/top?media=movies',
+      parrilla: '/api/discover/airing?media=movies',
+      emisiones: '/api/discover/recent?media=movies',
     })
   })
 })
@@ -398,6 +442,9 @@ describe('la relectura de la home', () => {
       trending: ok({ items: [] }),
       feed: ok({ items: [] }),
       recent: ok({ items: [] }),
+      descubrir: ok({ items: [] }),
+      parrilla: ok({ items: [] }),
+      emisiones: ok({ items: [] }),
       ...overrides,
     }
   }
@@ -408,6 +455,9 @@ describe('la relectura de la home', () => {
     trending: mal,
     feed: mal,
     recent: mal,
+    descubrir: mal,
+    parrilla: mal,
+    emisiones: mal,
   }
 
   test('la pestaña oculta no relee, por mucho tiempo que pase', () => {
@@ -503,5 +553,53 @@ describe('la relectura de la home', () => {
     )
     expect(marcaDeRefresco(0)).toBe('home.refreshedNow')
     expect(marcaDeRefresco(1)).toBe('home.refreshed')
+  })
+})
+
+describe('lo que eligen las filas nuevas', () => {
+  test('el top es el de AniList cuando llega y el de la fuente cuando no', () => {
+    const deAniList = piezasDelTop({
+      descubrir: [
+        {
+          anilistId: 101922,
+          title: 'Kimetsu no Yaiba',
+          cover: '/api/anilist/image/cover/101922',
+        },
+      ],
+      trending: [resumen('Mar de Cristal')],
+    })
+
+    expect(deAniList.map((pieza) => pieza.title)).toEqual(['Kimetsu no Yaiba'])
+    expect(deAniList[0]?.to).toBe('/search?q=Kimetsu%20no%20Yaiba')
+
+    const deLaFuente = piezasDelTop({ descubrir: [], trending: [resumen('Mar de Cristal')] })
+
+    expect(deLaFuente.map((pieza) => pieza.title)).toEqual(['Mar de Cristal'])
+    expect(deLaFuente[0]?.to).toBe('/anime/fixture/Mar%20de%20Cristal')
+  })
+
+  test('las novedades son los episodios recién emitidos, o el feed', () => {
+    const emisiones = piezasDeNovedades({
+      emisiones: [
+        {
+          anilistId: 101922,
+          title: 'Kimetsu no Yaiba',
+          cover: '/api/anilist/image/cover/101922',
+          episode: 5,
+          airingAt: new Date(2026, 9, 15, 20, 30).toISOString(),
+        },
+      ],
+      feed: [{ ...resumen('Del feed'), publishedAt: '2026-10-01T12:00:00.000Z' }],
+    })
+
+    expect(emisiones).toHaveLength(1)
+    expect(emisiones[0]?.meta).toBe('Ep. 5 · 20:30')
+
+    const delFeed = piezasDeNovedades({
+      emisiones: [],
+      feed: [{ ...resumen('Del feed'), publishedAt: '2026-10-01T12:00:00.000Z' }],
+    })
+
+    expect(delFeed.map((pieza) => pieza.title)).toEqual(['Del feed'])
   })
 })

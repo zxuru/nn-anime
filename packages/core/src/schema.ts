@@ -217,6 +217,65 @@ export const animeDetailSchema = searchResultSchema.extend({
 })
 
 /**
+ * Una obra de AniList, reducida a lo que este proyecto usa.
+ *
+ * Es el dominio del enriquecimiento: lo que se guarda en la caché de
+ * emparejamientos y lo que valida cada lectura. No es la forma en que responde la
+ * API —esa se valida en el servidor y se convierte aquí— ni la forma en que la
+ * recibe la interfaz: `enrichmentSchema` es la de la frontera HTTP.
+ *
+ * `airingAt` va en ISO-8601, como `publishedAt` del feed: el dato cruza JSON y un
+ * `Date` volvería como cadena igual, así que el tipo mentiría. La conversión desde
+ * las fechas Unix de AniList se hace una sola vez, al construir la entrada.
+ */
+export const anilistEntrySchema = z.strictObject({
+  id: z.number().int().positive(),
+  names: z.strictObject({
+    romaji: z.string().min(1),
+    english: z.string().min(1).optional(),
+    native: z.string().min(1).optional(),
+    synonyms: z.array(z.string().min(1)).optional(),
+  }),
+  /** El formato tal y como lo escribe AniList: `TV`, `MOVIE`, `OVA`… */
+  format: z.string().min(1).optional(),
+  status: airingStatusSchema.optional(),
+  year: z.number().int().optional(),
+  episodes: z.number().int().positive().optional(),
+  durationMin: z.number().int().positive().optional(),
+  score: z.number().min(0).max(100).optional(),
+  /** Texto plano: `plainText` corrió antes de guardarla. */
+  synopsis: z.string().min(1).optional(),
+  genres: z.array(z.string().min(1)),
+  studios: z.array(z.string().min(1)),
+  coverUrl: httpUrlSchema,
+  bannerUrl: httpUrlSchema.optional(),
+  siteUrl: httpUrlSchema,
+  nextEpisode: z
+    .strictObject({
+      number: z.number().int().positive(),
+      airingAt: z.iso.datetime(),
+    })
+    .optional(),
+})
+
+/**
+ * Un capítulo de la parrilla, o un estreno, si la fecha se sabe con día.
+ *
+ * Los dos campos de la cita son opcionales y significan lo que dicen, medido
+ * contra la API: una película no tiene capítulo, y AniList publica el estreno de
+ * muchas futuras con precisión de año —`{"year": 2026}`— así que **no hay día que
+ * poner**. Inventarle uno sería mentir en un calendario.
+ */
+export const anilistAiringEntrySchema = z.strictObject({
+  media: anilistEntrySchema,
+  /** El capítulo. Una película no tiene: su cita es el estreno. */
+  episode: z.number().int().positive().optional(),
+  airingAt: z.iso.datetime().optional(),
+  /** El año, cuando la fecha no tiene día pero el año se conoce. */
+  year: z.number().int().optional(),
+})
+
+/**
  * Resumen de un título para listas.
  *
  * Tiene schema propio, y no es un `SearchResult` recortado, porque es lo que

@@ -30,6 +30,18 @@ import { cuentaDeTitulos } from './tramo'
 
 export interface RecommendedRowProps {
   readonly items: readonly RecommendationResponse[]
+  /**
+   * La portada de AniList por referencia, cuando la hay.
+   *
+   * Es un adorno opcional: sin ella la pieza enseña la del proveedor, que es lo
+   * que hacía antes de esta entrega.
+   */
+  readonly portadas?: ReadonlyMap<string, string> | undefined
+}
+
+/** La clave con la que esta recomendación busca su portada de AniList. */
+export function claveDeRecomendacion(item: RecommendationResponse): string {
+  return `${item.ref.providerId}:${item.ref.value}`
 }
 
 /**
@@ -62,9 +74,12 @@ export function RecommendedRow(props: RecommendedRowProps): ReactNode {
         <Mosaico>
           {props.items.map((item, indice) => (
             <Pieza
-              key={`${item.ref.providerId}:${item.ref.value}`}
+              key={claveDeRecomendacion(item)}
               providerId={item.ref.providerId}
               ref={item.ref.value}
+              {...(props.portadas?.get(claveDeRecomendacion(item)) === undefined
+                ? {}
+                : { portada: props.portadas.get(claveDeRecomendacion(item)) })}
               title={item.title}
               to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
               recurso={recursoDe(indice)}

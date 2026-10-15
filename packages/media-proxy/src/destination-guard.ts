@@ -313,6 +313,17 @@ export type FetchLike = (input: string, init: RequestInit) => Promise<Response>
 export interface AllowedFetchOptions {
   readonly url: string
   readonly headers: Readonly<Record<string, string>>
+  /**
+   * El método, cuando no es `GET`.
+   *
+   * Se admite `POST` porque hay APIs que sólo contestan así —GraphQL, sin ir más
+   * lejos—, y la comprobación de destino es la misma: lo que se juzga es a dónde
+   * se sale, no cómo. Sólo estos dos: esto es una puerta de salida, no un cliente
+   * HTTP, y un `DELETE` que llegue hasta aquí es un error de quien llama.
+   */
+  readonly method?: 'GET' | 'POST' | undefined
+  /** El cuerpo de la petición, para el POST. */
+  readonly body?: string | undefined
   readonly signal?: AbortSignal | undefined
   readonly fetchImpl: FetchLike
   readonly resolver?: Resolver
@@ -341,6 +352,8 @@ export async function fetchAllowed(options: AllowedFetchOptions): Promise<Respon
     const respuesta = await options.fetchImpl(actual, {
       headers: options.headers,
       redirect: 'manual',
+      ...(options.method === undefined ? {} : { method: options.method }),
+      ...(options.body === undefined ? {} : { body: options.body }),
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     })
 

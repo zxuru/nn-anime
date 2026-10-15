@@ -18,6 +18,8 @@
 
 import type { Database } from 'bun:sqlite'
 import type {
+  AniListEntry,
+  AniListImageKind,
   AnimeDetail,
   AnimeSummary,
   CacheHit,
@@ -39,6 +41,7 @@ import type { z } from 'zod'
 import { findCoverUrl } from './cover-ref'
 import { runMigrations } from './migrations/runner'
 import { pruneOrphans } from './prune'
+import { type AniListRepository, createAniListRepository } from './repositories/anilist'
 import { type CandidateRow, createAnimeRepository } from './repositories/anime'
 import { createEpisodePageRepository, type StoredEpisodePage } from './repositories/episode-page'
 import { createEpisodesRepository } from './repositories/episodes'
@@ -134,6 +137,34 @@ export interface CatalogStore {
   readSearch(providerId: string, query: string): Promise<CacheHit<readonly SearchResult[]> | null>
   writeSearch(providerId: string, query: string, results: readonly SearchResult[]): Promise<void>
 
+  /**
+   * El emparejamiento de una obra local con su ficha de AniList.
+   *
+   * `null` como valor es «se buscó y no hay equivalente», que es una respuesta y
+   * se guarda; `null` como retorno es «no se ha buscado», que es otra cosa. La
+   * distinción importa: la primera no vuelve a preguntarse en una semana y la
+   * segunda se pregunta en cuanto hace falta.
+   */
+  readAniListMedia(titleKey: string): Promise<CacheHit<AniListEntry | null> | null>
+  writeAniListMedia(titleKey: string, media: AniListEntry | null): Promise<void>
+  /**
+   * Una lista cacheada de AniList —el top, la parrilla— con el schema de su
+   * contenido: la tabla guarda dos formas y quien lee sabe cuál le toca.
+   */
+  readAniListList<T>(key: string, schema: z.ZodType<T>): Promise<CacheHit<readonly T[]> | null>
+  /**
+   * Guarda la lista **y las imágenes de las obras que lleva dentro**, para que la
+   * ruta de la imagen pueda resolver un id que la vitrina está enseñando sin que
+   * nadie haya abierto su ficha.
+   */
+  writeAniListList<T>(
+    key: string,
+    items: readonly T[],
+    options: { readonly ttlS: number; readonly images: readonly AniListEntry[] },
+  ): Promise<void>
+  /** La dirección de una imagen ya cacheada. No descubre imágenes nuevas. */
+  readAniListImage(mediaId: number, kind: AniListImageKind): Promise<string | undefined>
+
   readStream(episodeRef: ProviderRef, mode: StreamMode): Promise<StreamSource | null>
   writeStream(request: StreamRequest, sources: readonly StreamSource[]): Promise<void>
   invalidateStream(episodeRef: ProviderRef, mode: StreamMode): Promise<number>
@@ -162,6 +193,14 @@ export interface CatalogStore {
    * la del `ref` pedido; lista vacía cuando no hay ninguna, que no es un error.
    */
   listSources(ref: ProviderRef, limit: number): Promise<readonly AnimeSummary[]>
+  /**
+   * Lo que la base ya conoce que empieza como alguno de estos nombres.
+   *
+   * Es para emparejar una obra que llega de un tercero —AniList— con su ficha
+   * local: la lectura vive aquí —una consulta, la misma de los relacionados— y la
+   * identidad la decide quien llama, que es quien tiene los dos lados.
+   */
+  listLocalCandidates(names: readonly string[], limit: number): Promise<readonly AnimeSummary[]>
   /**
    * El estado de visionado de cada episodio, por número.
    *
@@ -194,6 +233,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
    * natural —migrar y luego usar— sale solo, y da igual cuál sea.
    */
   interface Repos {
+    readonly anilist: AniListRepository
     readonly anime: ReturnType<typeof createAnimeRepository>
     readonly episodes: ReturnType<typeof createEpisodesRepository>
     readonly episodePages: ReturnType<typeof createEpisodePageRepository>
@@ -213,6 +253,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
   let repos: Repos | undefined
   const of = (): Repos =>
     (repos ??= {
+      anilist: createAniListRepository(db),
       anime: createAnimeRepository(db),
       episodes: createEpisodesRepository(db),
       episodePages: createEpisodePageRepository(db),
@@ -290,6 +331,27 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       await queue.run(() => of().search.write(providerId, query, results, ahora()))
     },
 
+    async readAniListMedia(titleKey) {
+      return of().anilist.readMedia(titleKey, ahora())
+    },
+    async writeAniListMedia(titleKey, media) {
+      await queue.run(() => of().anilist.writeMedia(titleKey, media, ahora()))
+    },
+    async readAniListList(key, schema) {
+      return of().anilist.readList(key, schema, ahora())
+    },
+    async writeAniListList(key, items, options) {
+      await queue.run(() => {
+        const anilist = of().anilist
+
+        anilist.writeList(key, items, options.ttlS, ahora())
+        for (const media of options.images) anilist.writeImages(media)
+      })
+    },
+    async readAniListImage(mediaId, kind) {
+      return of().anilist.readImage(mediaId, kind)
+    },
+
     async readStream(episodeRef, mode) {
       return of().streams.read(episodeRef, mode, ahora())
     },
@@ -314,6 +376,9 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async listSources(ref, limit) {
       return of().related.listSources(ref, limit)
+    },
+    async listLocalCandidates(names, limit) {
+      return of().related.candidatesByNames(names, limit)
     },
     async listWatchedEpisodes(animeRef) {
       return of().watched.list(animeRef)

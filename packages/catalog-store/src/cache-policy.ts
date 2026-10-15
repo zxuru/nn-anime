@@ -31,6 +31,17 @@ export const TTL_SECONDS = {
   // cinco minutos. La ventana corta es la que hace que una página pedida durante
   // una ráfaga no se sirva durante horas. La añade T87.
   episodePage: 300,
+  // El emparejamiento de una obra con AniList: un mes. El título, la portada y
+  // la sinopsis de una obra no cambian; lo que caduca es el próximo episodio, y
+  // eso lo refresca la parrilla, que es otra tabla.
+  anilistMedia: 2592000,
+  // «Esta obra se buscó y no tiene equivalente»: una semana. Es una pregunta que
+  // se hizo y se respondió que no, y repetirla cada carga gastaría del presupuesto
+  // de un tercero por nada.
+  anilistMiss: 604800,
+  // El ranking y lo recién emitido: seis horas y media hora.
+  anilistTop: 21600,
+  anilistSchedule: 1800,
 } as const
 
 export type CacheResource = keyof typeof TTL_SECONDS

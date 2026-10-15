@@ -30,9 +30,10 @@
  * campo en `undefined`.
  */
 
-import type { EpisodesResponse, WatchedEpisodePayload } from '@nn-anime/core/api'
+import type { Enrichment, EpisodesResponse, WatchedEpisodePayload } from '@nn-anime/core/api'
 import {
   animeResponseSchema,
+  enrichmentResponseSchema,
   episodeResponseSchema,
   episodesResponseSchema,
   favoritesResponseSchema,
@@ -248,6 +249,14 @@ export interface DetailData {
    */
   readonly watched: readonly WatchedEpisodePayload[]
   readonly capabilities: ProviderCapabilities | undefined
+  /**
+   * Lo que AniList sabe de esta obra, si está emparejada.
+   *
+   * `undefined` es «no se pudo preguntar» y `null` es «no hay equivalente»: las
+   * dos cosas se pintan igual —la ficha sin nada nuevo—, pero sólo la segunda se
+   * guarda como respuesta.
+   */
+  readonly enrichment: Enrichment | null | undefined
   /** El nombre declarado por cada proveedor cargado, por su id. */
   readonly providerNames: ReadonlyMap<string, string>
   readonly state: DetailState
@@ -312,6 +321,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
   const [franchise, setFranchise] = useState<readonly AnimeSummary[]>([])
   const [sources, setSources] = useState<readonly AnimeSummary[]>([])
   const [watched, setWatched] = useState<readonly WatchedEpisodePayload[]>([])
+  const [enrichment, setEnrichment] = useState<Enrichment | null | undefined>(undefined)
   const [capabilities, setCapabilities] = useState<ProviderCapabilities | undefined>(undefined)
   const [providerNames, setProviderNames] = useState<ReadonlyMap<string, string>>(new Map())
   const [state, setState] = useState<DetailState>('loading')
@@ -349,8 +359,16 @@ export function useDetail(providerId: string, ref: string): DetailData {
         opciones,
       ),
       apiGet('/api/providers', providersResponseSchema, opciones),
+      // El enriquecimiento **no puede tumbar la ficha**: es un adorno de una
+      // lectura que depende de un tercero, así que su fallo se queda en «no hay
+      // nada nuevo» en vez de en la pantalla de error.
+      apiGet(
+        `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/enrichment`,
+        enrichmentResponseSchema,
+        opciones,
+      ).catch(() => ({ enrichment: null })),
     ]).then(
-      ([detalle, hermanos, franquicia, fuentes, vistos, proveedores]) => {
+      ([detalle, hermanos, franquicia, fuentes, vistos, proveedores, enriquecido]) => {
         if (controller.signal.aborted) return
 
         setDetail(detalle)
@@ -358,6 +376,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
         setFranchise(franquicia.items)
         setSources(fuentes.items)
         setWatched(vistos.episodes)
+        setEnrichment(enriquecido.enrichment)
         setCapabilities(
           proveedores.providers.find((provider) => provider.id === providerId)?.capabilities,
         )
@@ -388,6 +407,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
     sources,
     watched,
     capabilities,
+    enrichment,
     providerNames,
     state,
     error,

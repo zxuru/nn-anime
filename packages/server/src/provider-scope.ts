@@ -11,10 +11,11 @@
  *
  * El filtro vive aquí, en un solo sitio, y no en cada ruta, por dos motivos:
  *
- * 1. **Son siete lecturas** —los candidatos del motor, lo último conocido, el
- *    catálogo por género, los favoritos, los visionados, los hermanos de saga y
- *    las otras fuentes de la ficha—, y la octava que se añada sin esto repetiría
- *    el fallo. Repetida en cada ruta, la regla se olvida en la siguiente.
+ * 1. **Son ocho lecturas** —los candidatos del motor, lo último conocido, el
+ *    catálogo por género, los favoritos, los visionados, los hermanos de saga, las
+ *    otras fuentes de la ficha y los candidatos locales del emparejamiento con
+ *    AniList—, y la novena que se añada sin esto repetiría el fallo. Repetida en
+ *    cada ruta, la regla se olvida en la siguiente.
  * 2. **La regla es una sola**: una referencia se ofrece si su proveedor está
  *    cargado ahora. `/api/search` ya la aplicaba por su cuenta, para el filtro de
  *    proveedores de la interfaz; esa parte sigue siendo suya y no se toca.
@@ -70,7 +71,7 @@ export function acotarAlmacen(store: CatalogStore, providers: readonly Provider[
   return {
     ...store,
 
-    // Las siete lecturas que pueden ofrecer una tarjeta de otro proveedor. Una
+    // Las ocho lecturas que pueden ofrecer una tarjeta de otro proveedor. Una
     // lectura nueva que devuelva referencias se añade **aquí**: es el único
     // sitio donde la regla se aplica.
     listCandidates: async (limit) => soloActivos(await store.listCandidates(limit)),
@@ -80,6 +81,12 @@ export function acotarAlmacen(store: CatalogStore, providers: readonly Provider[
     listRelated: async (ref, limit, scope) =>
       soloActivos(await store.listRelated(ref, limit, scope)),
     listSources: async (ref, limit) => soloActivos(await store.listSources(ref, limit)),
+    // El emparejamiento con AniList ofrece una tarjeta local: si su proveedor no
+    // está cargado, la vitrina enlazaría a una ficha que no existe. La lectura
+    // acotada deja la pieza sin referencia y se abre la búsqueda, que es la
+    // salida honesta.
+    listLocalCandidates: async (names, limit) =>
+      soloActivos(await store.listLocalCandidates(names, limit)),
     // El visionado lleva el resumen del anime dentro: la referencia que la fila
     // abre es la del título, no la del episodio.
     listRecentlyWatched: async (limit) =>

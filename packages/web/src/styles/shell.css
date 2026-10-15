@@ -3277,6 +3277,48 @@
   gap: var(--vitrina-hueco);
 }
 
+/* La parrilla: un mosaico por día con la etiqueta delante.
+   La etiqueta cabe en el tramo y no es un titular de sección: varios días viven
+   dentro del mismo tramo, y dos niveles de titular en la misma sección se leen
+   como dos secciones. */
+.parrilla + .parrilla {
+  margin-block-start: var(--vitrina-hueco);
+}
+
+.enriquecido {
+  display: grid;
+  gap: var(--space-2);
+  margin-block-start: var(--space-4);
+}
+
+.enriquecido__fuente {
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+}
+
+.enriquecido__enlace {
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+}
+
+.detail__banner {
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  margin-block-end: var(--space-4);
+}
+
+.parrilla__dia {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-block-end: var(--space-2);
+}
+
 /* Piezas. Todas son un cartel de una columna: el ancho lo da la rejilla y el alto
    la proporción, así que la fila se llena sola y no hay huecos. El arte recortado
    es parte del dibujo. */

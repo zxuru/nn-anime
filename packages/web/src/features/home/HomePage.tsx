@@ -20,7 +20,7 @@
  * desaparece sin más deja al usuario sin saber si la función existe.
  */
 
-import type { FeedItem, RecommendationResponse } from '@nn-anime/core/api'
+import type { AiringItem, FeedItem, RecommendationResponse } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
@@ -37,14 +37,26 @@ import {
   useMedias,
 } from '../tipo/tipo'
 import { ContinueRow } from './ContinueRow'
+import {
+  agruparPorDia,
+  anioDe,
+  desdeDescubrir,
+  desdeEmision,
+  desdeResumen,
+  episodioDe,
+  horaDe,
+  type PiezaVista,
+} from './descubrir'
 import { FavoritesRow } from './FavoritesRow'
 import { FeaturedHero, type FeaturedItem } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
 import { GenreRow, generosConCuenta } from './GenreRow'
 import { HomeSkeletons } from './HomeSkeletons'
+import { ParrillaRow } from './ParrillaRow'
 import { RecommendedRow } from './RecommendedRow'
 import { Ticker } from './Ticker'
 import { TopRow } from './TopRow'
+import { usePortadasDeAniList } from './useEnriquecidos'
 import { type HomeRows, useHomeRows } from './useHomeRows'
 
 export interface HomePageProps {
@@ -85,6 +97,69 @@ export function featuredOf(
   recientes: readonly AnimeSummary[],
 ): FeaturedItem | undefined {
   return recomendaciones[0] ?? comoDestacado(feed[0]) ?? comoDestacado(recientes[0])
+}
+
+/**
+ * La meta de una novedad de AniList: el capítulo y el día en que salió.
+ *
+ * El feed del proveedor enseñaba el año del título; aquí lo que importa es qué
+ * capítulo y cuándo, porque eso es lo que acaba de pasar.
+ */
+export function metaDeNovedad(item: AiringItem): string {
+  const partes: string[] = []
+  const episodio = episodioDe(item)
+  if (episodio !== undefined) partes.push(episodio)
+
+  const hora = horaDe(item.airingAt)
+  if (hora !== '') partes.push(hora)
+
+  // Sin día —un estreno con precisión de año— la línea es el año, que es lo
+  // único que la API sabe de esa fecha.
+  if (partes.length === 0) {
+    const anio = anioDe(item)
+    if (anio !== undefined) partes.push(anio)
+  }
+
+  return partes.join(' · ')
+}
+
+/**
+ * Las piezas del top: el de AniList cuando llega, el de la fuente cuando no.
+ *
+ * Es la vuelta atrás declarada: un tercero caído no deja la fila vacía, la deja
+ * como estaba antes de esta entrega.
+ */
+export function piezasDelTop(
+  filas: Pick<HomeRows, 'descubrir' | 'trending'>,
+): readonly PiezaVista[] {
+  return filas.descubrir.length > 0
+    ? filas.descubrir.map(desdeDescubrir)
+    : filas.trending.map(desdeResumen)
+}
+
+/**
+ * Las piezas de novedades: los capítulos recién emitidos o el feed de la fuente.
+ *
+ * Con AniList se enseña qué capítulo y a qué hora; con el feed, lo de siempre. Las
+ * dos formas son `PiezaVista` y la fila no sabe cuál está pintando.
+ */
+export function piezasDeNovedades(
+  filas: Pick<HomeRows, 'emisiones' | 'feed'>,
+): readonly PiezaVista[] {
+  if (filas.emisiones.length > 0) {
+    return filas.emisiones.map((item) => ({
+      ...desdeEmision(item),
+      meta: metaDeNovedad(item),
+    }))
+  }
+
+  return filas.feed.map((item) => ({
+    ...desdeResumen(item),
+    meta:
+      item.year === undefined
+        ? undefined
+        : t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year }),
+  }))
 }
 
 /**
@@ -147,6 +222,12 @@ export function HomePage(props: HomePageProps): ReactNode {
   // sin feed era la misma lista— y el destacado sigue teniendo con qué llenarse
   // cuando no hay nada más.
   const destacado = featuredOf(items, filas.feed, filas.recent)
+  const top = piezasDelTop(filas)
+  const novedades = piezasDeNovedades(filas)
+  const dias = agruparPorDia(filas.parrilla, new Date())
+  // Las portadas del motor llegan en lote y son opcionales: sin ellas la pieza
+  // enseña la del proveedor.
+  const portadas = usePortadasDeAniList(items.map((item) => item.ref))
   const generos = generosConCuenta(
     items.map((item) => item.tags),
     GENRE_LIMIT,
@@ -232,13 +313,35 @@ export function HomePage(props: HomePageProps): ReactNode {
         detalle. La franja que explicaba el motor se retiró: ocupaba el ancho del
         tramo para decir lo que ya dice la nota y la pieza.
       */}
-      <RecommendedRow items={items} />
+      <RecommendedRow items={items} portadas={portadas} />
 
-      {/* El top es el de la fuente —su orden y su puesto— y no el ranking del
-          motor: el motor ya tiene su sitio, el destacado y su propio tramo. */}
-      <TopRow items={filas.trending} />
+      {/* El top es un ranking —el de AniList cuando está, el de la fuente
+          cuando no— **en su orden y con su puesto**: el motor ya tiene su sitio,
+          el destacado y su propio tramo. */}
+      <TopRow
+        items={top}
+        {...(filas.descubrir.length === 0
+          ? {}
+          : { meta: t(DEFAULT_LOCALE, 'home.top.meta.anilist') })}
+      />
 
-      <FeedRow items={filas.feed} />
+      {/* La parrilla va pegada al top: lo que se emite esta semana es la mitad
+          que le faltaba al descubrimiento, y la otra mitad son las novedades,
+          que van justo detrás. */}
+      <ParrillaRow
+        dias={dias}
+        {...(tipo === 'movies' ? { vacio: t(DEFAULT_LOCALE, 'home.parrilla.empty.movies') } : {})}
+      />
+
+      <FeedRow
+        items={novedades}
+        {...(filas.emisiones.length === 0
+          ? { vacio: t(DEFAULT_LOCALE, 'home.feed.empty') }
+          : {
+              meta: t(DEFAULT_LOCALE, 'home.feed.meta.anilist'),
+              vacio: t(DEFAULT_LOCALE, 'home.feed.empty.anilist'),
+            })}
+      />
 
       <FavoritesRow items={favoritos} />
 
