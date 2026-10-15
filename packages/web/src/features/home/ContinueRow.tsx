@@ -16,10 +16,12 @@ import type { ContinueWatchingItem } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'
-import { Pieza, pesoDelTramo, recursoDe } from '../../components/Pieza'
+import { Pieza, recursoDe } from '../../components/Pieza'
+import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 import { continuePath, progressPercent, remainingLabel, resumeLabel } from './rows'
+import { cuentaDeTitulos } from './tramo'
 
 export interface ContinueRowProps {
   readonly items: readonly ContinueWatchingItem[]
@@ -31,14 +33,15 @@ export function ContinueRow(props: ContinueRowProps): ReactNode {
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.continue')}
         meta={t(DEFAULT_LOCALE, 'home.continue.meta')}
+        {...(props.items.length === 0 ? {} : { cuenta: cuentaDeTitulos(props.items.length) })}
       />
 
       <div className="seccion__cuerpo">
-        {props.items.length === 0 ? (
-          <p className="empty">{t(DEFAULT_LOCALE, 'home.continue.empty')}</p>
-        ) : (
-          <Mosaico>
-            {props.items.map((item, indice) => {
+        <Mosaico>
+          {props.items.length === 0 ? (
+            <PiezaVacia texto={t(DEFAULT_LOCALE, 'home.continue.empty')} />
+          ) : (
+            props.items.map((item, indice) => {
               const restante = remainingLabel(item)
 
               return (
@@ -48,7 +51,7 @@ export function ContinueRow(props: ContinueRowProps): ReactNode {
                   ref={item.animeRef.value}
                   title={item.title}
                   to={continuePath(item)}
-                  peso={pesoDelTramo(indice, 'b', 'm')}
+                  peso="b"
                   recurso={recursoDe(indice)}
                   episodio={t(DEFAULT_LOCALE, 'home.episode', { number: item.episodeNumber })}
                   resto={
@@ -60,9 +63,9 @@ export function ContinueRow(props: ContinueRowProps): ReactNode {
                   progresoEtiqueta={t(DEFAULT_LOCALE, 'home.resume', { time: resumeLabel(item) })}
                 />
               )
-            })}
-          </Mosaico>
-        )}
+            })
+          )}
+        </Mosaico>
       </div>
     </section>
   )

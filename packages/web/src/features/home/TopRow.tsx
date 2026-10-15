@@ -24,9 +24,11 @@ import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { AnimeSummary } from '@nn-anime/core/models'
 import { type ReactNode, useState } from 'react'
 import { Mosaico } from '../../components/Mosaico'
-import { Pieza, pesoDelTramo, recursoDe } from '../../components/Pieza'
+import { Pieza, recursoDe } from '../../components/Pieza'
+import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
+import { cuentaDelTop } from './tramo'
 
 /** Cuántos puestos se ven antes de pulsar «Mostrar más». */
 export const TOP_VISIBLES = 10
@@ -63,37 +65,43 @@ export function TopRow(props: TopRowProps): ReactNode {
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.top')}
         meta={t(DEFAULT_LOCALE, 'home.top.meta')}
+        {...(props.items.length === 0
+          ? {}
+          : { cuenta: cuentaDelTop(props.items.length, visibles.length) })}
       />
 
       <div className="seccion__cuerpo">
-        {props.items.length === 0 ? (
-          <p className="empty">{t(DEFAULT_LOCALE, 'home.top.empty')}</p>
-        ) : (
-          <Mosaico>
-            {visibles.map((item, indice) => (
+        <Mosaico>
+          {props.items.length === 0 ? (
+            <PiezaVacia texto={t(DEFAULT_LOCALE, 'home.top.empty')} />
+          ) : (
+            visibles.map((item, indice) => (
               <Pieza
                 key={`${item.ref.providerId}:${item.ref.value}`}
                 providerId={item.ref.providerId}
                 ref={item.ref.value}
                 title={item.title}
                 to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
-                peso={pesoDelTramo(indice, 'b', 'm')}
+                peso="b"
                 recurso={recursoDe(indice)}
                 // El puesto de la fuente, no el de la lista recortada: el 11
                 // sigue siendo el 11 cuando se despliega el resto.
                 posicion={indice + 1}
               />
-            ))}
+            ))
+          )}
 
-            {quedanPuestos(props.items.length, todas) ? (
-              <article className="pz pz--w pz--mando">
-                <button type="button" className="button" onClick={() => setTodas(true)}>
-                  {t(DEFAULT_LOCALE, 'home.top.more')}
-                </button>
-              </article>
-            ) : null}
-          </Mosaico>
-        )}
+          {quedanPuestos(props.items.length, todas) ? (
+            <article className="pz pz--b pz--mando">
+              <p className="nota__cuenta">
+                {t(DEFAULT_LOCALE, 'home.more', { count: props.items.length - visibles.length })}
+              </p>
+              <button type="button" className="button" onClick={() => setTodas(true)}>
+                {t(DEFAULT_LOCALE, 'home.top.more')}
+              </button>
+            </article>
+          ) : null}
+        </Mosaico>
       </div>
     </section>
   )

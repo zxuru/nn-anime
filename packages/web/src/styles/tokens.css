@@ -309,12 +309,27 @@
   /** El aire entre el encabezado y la nota al margen pegajosa. */
   --vitrina-nota-aire: 1.25rem;
 
-  /** La marquesina: a sangre, 62 dvh, con el título en cuerpo de cartel. */
-  --marquesina-alto: 62dvh;
-  --marquesina-titulo: clamp(2.5rem, 6.5vw, 5.5rem);
-  --marquesina-sinopsis: min(38rem, 92%);
-  --marquesina-cartel: clamp(11rem, 20vw, 19rem);
-  --marquesina-bloque: 22rem;
+  /** La marquesina: a sangre, 62 dvh, con el titular en cuerpo de cartel. */
+  --marquesina-alto: min(62dvh, 44rem);
+  --marquesina-cols: minmax(0, 1fr) minmax(0, 0.58fr);
+  --marquesina-aire: clamp(1rem, 3vw, 3rem);
+  --marquesina-relleno: clamp(1.5rem, 4vw, 4rem) var(--vitrina-margen) clamp(5rem, 10vw, 7rem);
+  --marquesina-texto-hueco: clamp(0.6rem, 1.4vw, 1rem);
+  --marquesina-titulo: clamp(3rem, 9vw, 7.5rem);
+  --marquesina-meta: clamp(0.875rem, 1.4vw, 1rem);
+  --marquesina-sinopsis: 44ch;
+  --marquesina-texto-ancho: 40rem;
+  /* El titular y el remate, cuando la marquesina pasa a un solo bloque. */
+  --marquesina-titulo-angosto: clamp(2rem, 11vw, 3.2rem);
+  --marquesina-remate: clamp(4.5rem, 12vw, 6rem);
+  --marquesina-remate-angosto: clamp(4.5rem, 18vw, 6rem);
+  --marquesina-sinopsis-cuerpo: clamp(1rem, 1.3vw, 1.0625rem);
+  /** El cartel: la portada, con marco propio y algo girada. */
+  --cartel-ancho: min(100%, 26rem);
+  --cartel-alto: min(52dvh, 30rem);
+  --cartel-giro: -3.5deg;
+  --cartel-marco: 0 0 0 0.5rem rgb(8 8 10 / 35%);
+  --cartel-pie-relleno: 0.7rem 0.9rem;
 
   /** Los textos de la vitrina, cada uno con su cuerpo. */
   --pieza-titulo: clamp(1.05rem, 2.4cqi + 0.5rem, 1.6rem);
@@ -325,7 +340,11 @@
   --pieza-episodio: clamp(1rem, 3cqi + 0.4rem, 1.35rem);
   --pieza-sinopsis: var(--text-md);
   --nota-titulo: clamp(1.25rem, 1.9vw, 1.75rem);
-  --genero-nombre: clamp(1.5rem, 3.4vw, 2.6rem);
+  --genero-nombre: clamp(1.5rem, 5.5vw, 3.25rem);
+  /** El recuento del género, en voladizo sobre la esquina de la palabra. */
+  --genero-linea: 1.12;
+  --genero-cuenta-alto: -0.15em;
+  --genero-cuenta-lado: -0.6em;
   --buscador-campo: clamp(1.35rem, 4vw, 2.25rem);
   --seccion-aire: clamp(2.5rem, 6vw, 5rem);
 
@@ -357,7 +376,19 @@
 
   /** La cinta de la marquesina: una vuelta cada 46 s, en bucle. */
   --cinta-vuelta: 46s;
-  --cinta-alto: 2.25rem;
+  --cinta-alto: clamp(3rem, 6vw, 4rem);
+  --cinta-hueco: clamp(0.5rem, 2vw, 1.4rem);
+  --cinta-item-hueco: 1.5rem;
+  --cinta-item: clamp(1rem, 1.8vw, 1.5rem);
+  --cinta-punto: 0.35rem;
+
+  /** La franja de motivos: el desplegable del motor, convertido en franja. */
+  --franja-relleno: 0.9rem 1rem;
+  --franja-titulo: clamp(1.1rem, 1.6vw, 1.35rem);
+  --franja-detalle: min(100%, 22rem);
+
+  /** El esqueleto del mosaico, con la métrica del contenido. */
+  --esqueleto-fila: clamp(6rem, 30vw, 9rem);
 
   /**
    * El arte: los velos que sostienen el texto y los recursos de cada pieza.
@@ -380,15 +411,37 @@
   );
   --arte-letra: rgb(245 240 230 / 24%);
   --arte-cifra: rgb(245 240 230 / 32%);
+  --arte-sinopsis: rgb(245 240 230 / 82%);
+  --arte-motivo: rgb(245 240 230 / 74%);
+  --arte-refresco: rgb(245 240 230 / 80%);
+  --arte-borde-fuerte: rgb(245 240 230 / 45%);
+  /** El punto y el cuerpo de la «i» del mando que abre el asomo. */
+  --mando-punto-alto: 0.78rem;
+  --mando-punto-lado: 3px;
+  --mando-cuerpo-alto: 1.15rem;
+  --mando-cuerpo-largo: 0.65rem;
+  /** El relleno de un sello de origen, en Buscar. */
+  --sello-relleno: 0.2rem 0.4rem;
+  /** El campo de la búsqueda, que en la vitrina es un titular. */
+  --buscador-alto: clamp(3.25rem, 8vw, 4.5rem);
+  --buscador-relleno: clamp(1.25rem, 4vw, 3rem);
+  --buscador-campo-angosto: clamp(1.35rem, 9vw, 2rem);
+  /** El asa del panel inferior, que se arrastra hacia abajo para cerrarlo. */
+  --panel-asa-ancho: 2.5rem;
+  --panel-asa-alto: 0.3rem;
+  --hoja-titulo: clamp(1.4rem, 5vw, 2rem);
+  --hoja-relleno-lado: clamp(1rem, 4vw, 2rem);
   --arte-meta: rgb(245 240 230 / 84%);
   --arte-resto: rgb(245 240 230 / 88%);
-  --arte-punto: rgb(245 240 230 / 90%);
+  /* Las marcas de arte: la trama, la mitad partida, el círculo y su aro. */
   --arte-trama: rgb(245 240 230 / 26%);
   --arte-mitad: rgb(245 240 230 / 20%);
   --arte-circulo: rgb(245 240 230 / 16%);
-  --arte-circulo-borde: rgb(245 240 230 / 30%);
-  --arte-caja: rgb(8 8 10 / 45%);
-  --arte-recorte: rgb(8 8 10 / 45%);
+  --arte-division: rgb(245 240 230 / 38%);
+  --arte-corte: rgb(8 8 10 / 45%);
+  --arte-corte-grosor: 2px;
+  --arte-circulo-borde: inset 0 0 0 2px rgb(245 240 230 / 30%);
+  --arte-punto: rgb(245 240 230 / 90%);
   --pieza-barra-fondo: rgb(245 240 230 / 32%);
   --pieza-sombra-texto: 0 2px 18px rgb(8 8 10 / 55%);
   /** El mando redondo del asomo, sobre cualquier arte. */

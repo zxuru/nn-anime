@@ -15,9 +15,11 @@ import type { RecentResponse } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'
-import { Pieza, pesoDelTramo, recursoDe } from '../../components/Pieza'
+import { Pieza, recursoDe } from '../../components/Pieza'
+import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
+import { cuentaDeTitulos } from './tramo'
 
 export interface RecentRowProps {
   readonly items: RecentResponse['items']
@@ -29,28 +31,33 @@ export function RecentRow(props: RecentRowProps): ReactNode {
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.recent')}
         meta={t(DEFAULT_LOCALE, 'home.recent.meta')}
+        {...(props.items.length === 0 ? {} : { cuenta: cuentaDeTitulos(props.items.length) })}
       />
 
       <div className="seccion__cuerpo">
-        {props.items.length === 0 ? (
-          <p className="empty">{t(DEFAULT_LOCALE, 'home.recent.empty')}</p>
-        ) : (
-          <Mosaico>
-            {props.items.map((item, indice) => (
+        <Mosaico>
+          {props.items.length === 0 ? (
+            <PiezaVacia texto={t(DEFAULT_LOCALE, 'home.recent.empty')} />
+          ) : (
+            props.items.map((item, indice) => (
               <Pieza
                 key={`${item.ref.providerId}:${item.ref.value}`}
                 providerId={item.ref.providerId}
                 ref={item.ref.value}
                 title={item.title}
                 to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
-                peso={pesoDelTramo(indice, 'w', 'b')}
+                peso="w"
                 recurso={recursoDe(indice)}
                 year={item.year}
-                meta={item.year === undefined ? undefined : String(item.year)}
+                meta={
+                  item.year === undefined
+                    ? undefined
+                    : t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year })
+                }
               />
-            ))}
-          </Mosaico>
-        )}
+            ))
+          )}
+        </Mosaico>
       </div>
     </section>
   )

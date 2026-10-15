@@ -249,9 +249,13 @@ describe('la home', () => {
     // porque el esqueleto es decoración y no dice qué está pasando.
     expect(html).toContain('Cargando tu inicio')
     expect(html).toContain('aria-busy="true"')
-    expect(html).toContain('home__esqueletos')
+    expect(html).toContain('class="esqueleto"')
     expect(html).toContain('solo-lectores')
-    expect(html).toContain('class="skeleton"')
+    // Y el esqueleto tiene la métrica del mosaico: las celdas son grandes,
+    // anchas y celdas sueltas, como las piezas que van a llegar.
+    expect(html).toContain('esq esq--b')
+    expect(html).toContain('esq esq--w')
+    expect(html).toContain('esq esq--s')
   })
 
   test('el panel de recomendaciones es una fila más', () => {

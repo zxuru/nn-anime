@@ -15,8 +15,10 @@ import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
+import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
+import { cuentaDeTitulos } from './tramo'
 
 export interface FavoritesRowProps {
   readonly items: readonly AnimeSummary[]
@@ -28,14 +30,15 @@ export function FavoritesRow(props: FavoritesRowProps): ReactNode {
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.favorites')}
         meta={t(DEFAULT_LOCALE, 'home.favorites.meta')}
+        {...(props.items.length === 0 ? {} : { cuenta: cuentaDeTitulos(props.items.length) })}
       />
 
       <div className="seccion__cuerpo">
-        {props.items.length === 0 ? (
-          <p className="empty">{t(DEFAULT_LOCALE, 'home.favorites.empty')}</p>
-        ) : (
-          <Mosaico>
-            {props.items.map((item, indice) => (
+        <Mosaico>
+          {props.items.length === 0 ? (
+            <PiezaVacia texto={t(DEFAULT_LOCALE, 'home.favorites.empty')} />
+          ) : (
+            props.items.map((item, indice) => (
               <Pieza
                 key={`${item.ref.providerId}:${item.ref.value}`}
                 providerId={item.ref.providerId}
@@ -44,12 +47,16 @@ export function FavoritesRow(props: FavoritesRowProps): ReactNode {
                 to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
                 peso="s"
                 recurso={recursoDe(indice)}
-                meta={item.year === undefined ? undefined : String(item.year)}
+                meta={
+                  item.year === undefined
+                    ? undefined
+                    : t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year })
+                }
                 apagada
               />
-            ))}
-          </Mosaico>
-        )}
+            ))
+          )}
+        </Mosaico>
       </div>
     </section>
   )

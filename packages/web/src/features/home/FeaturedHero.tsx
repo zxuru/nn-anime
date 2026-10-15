@@ -2,27 +2,31 @@
  * La marquesina: el destacado.
  *
  * Es la primera pieza de la vitrina y la que dice de qué va la aplicación: un
- * campo de degradado a sangre, el título en cuerpo de cartel a la izquierda y el
- * cartel —la portada, con marco— a la derecha. Debajo cuelga la cinta, que la
- * pone la home.
+ * campo de degradado a sangre, el título en cuerpo de cartel a la izquierda —con su
+ * etiqueta, su línea de datos, la sinopsis y el motivo— y el cartel a la derecha:
+ * la portada dibujada, con marco propio y algo girada, con su pie. Debajo, pegada
+ * al borde inferior, corre la cinta de lo más visto. En la esquina, la marca que
+ * dice cuándo se releyó.
  *
  * El botón principal **reproduce el primer episodio** y el secundario guarda el
  * título en favoritos. El botón de reproducir sólo aparece si se conoce la
  * referencia del primer episodio: sin ella llevaría a una pantalla de error, y es
  * mejor no ofrecerlo.
  *
- * El cartel no lleva pie: el titular ya está enfrente, en cuerpo de cartel, y
- * repetirlo dentro del marco es decir dos veces lo mismo.
+ * El arte del cartel es el de reserva —el campo y la inicial—: si la portada llega,
+ * manda la portada. La letra se mide con el contenedor del cartel (104 cqi) porque
+ * es un campo grande: a tamaño de pieza pequeña se comería el marco.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { ProviderRef } from '@nn-anime/core/models'
+import type { AnimeSummary, ProviderRef } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { FavoriteButton } from '../detail/FavoriteButton'
 import { useFavorite } from '../detail/useDetail'
+import { Ticker } from './Ticker'
 import { useFeatured } from './useFeatured'
 
 /**
@@ -45,6 +49,10 @@ export interface FeaturedItem {
 
 export interface FeaturedHeroProps {
   readonly item: FeaturedItem
+  /** Cuándo se releyó la home, si ya se releyó. */
+  readonly refresco?: string | undefined
+  /** Lo que corre por la cinta, pegada al borde inferior. */
+  readonly tendencias?: readonly AnimeSummary[] | undefined
 }
 
 /** La línea de datos: géneros, año y número de episodios, con lo que haya. */
@@ -53,7 +61,12 @@ export function featuredMeta(item: FeaturedItem, episodeCount: number | undefine
   if (item.year !== undefined) partes.push(String(item.year))
   if (episodeCount !== undefined) partes.push(`${episodeCount} ep.`)
 
-  return partes.join(' / ')
+  return partes.join(' · ')
+}
+
+/** El pie del cartel: el título y el año, como en la vitrina impresa. */
+export function pieDelCartel(item: FeaturedItem): string {
+  return item.year === undefined ? item.title : `${item.title} · ${item.year}`
 }
 
 export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
@@ -68,56 +81,67 @@ export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
   return (
     <section className="marquesina" aria-labelledby="hero-title">
       <span className="marquesina__campo" aria-hidden="true" />
-      <span className="marquesina__velo" aria-hidden="true" />
+      <span className="marquesina__capa" aria-hidden="true" />
 
-      <div className="marquesina__cuerpo">
-        <div className="marquesina__texto">
-          <span className="marquesina__etiqueta">{t(DEFAULT_LOCALE, 'home.featured.tag')}</span>
+      {props.refresco === undefined ? null : (
+        <p className="marca-refresco" role="status">
+          {props.refresco}
+        </p>
+      )}
 
-          <h1 className="marquesina__titulo" id="hero-title">
-            {props.item.title}
-          </h1>
+      <div className="marquesina__texto">
+        <p className="etiqueta">{t(DEFAULT_LOCALE, 'home.featured.tag')}</p>
 
-          {meta === '' ? null : <p className="marquesina__meta">{meta}</p>}
+        <h1 className="marquesina__titulo" id="hero-title">
+          {props.item.title}
+        </h1>
 
-          {detail?.synopsis === undefined ? null : (
-            <p className="marquesina__sinopsis">{detail.synopsis}</p>
+        {meta === '' ? null : <p className="marquesina__meta">{meta}</p>}
+
+        {detail?.synopsis === undefined ? null : (
+          <p className="marquesina__sinopsis">{detail.synopsis}</p>
+        )}
+
+        {props.item.reason === undefined ? null : (
+          <p className="marquesina__motivo">{props.item.reason.text}</p>
+        )}
+
+        <div className="acciones">
+          {firstEpisode === undefined ? null : (
+            <Link
+              to={`/watch/${encodeURIComponent(props.item.ref.providerId)}/${encodeURIComponent(firstEpisode.ref.value)}`}
+              className="button button--primary"
+            >
+              {t(DEFAULT_LOCALE, 'home.featured.play', { number: firstEpisode.number })}
+            </Link>
           )}
 
-          {props.item.reason === undefined ? null : (
-            <p className="marquesina__motivo">{props.item.reason.text}</p>
-          )}
-
-          <div className="marquesina__acciones">
-            {firstEpisode === undefined ? null : (
-              <Link
-                to={`/watch/${encodeURIComponent(props.item.ref.providerId)}/${encodeURIComponent(firstEpisode.ref.value)}`}
-                className="button button--primary"
-              >
-                {t(DEFAULT_LOCALE, 'home.featured.play', { number: firstEpisode.number })}
-              </Link>
-            )}
-
-            <FavoriteButton
-              value={favorite.value}
-              busy={favorite.busy}
-              onToggle={favorite.toggle}
-            />
-          </div>
+          <FavoriteButton value={favorite.value} busy={favorite.busy} onToggle={favorite.toggle} />
         </div>
+      </div>
 
-        <Link
-          to={`/anime/${encodeURIComponent(props.item.ref.providerId)}/${encodeURIComponent(props.item.ref.value)}`}
-          className="marquesina__cartel"
-          title={props.item.title}
-        >
+      <Link
+        to={`/anime/${encodeURIComponent(props.item.ref.providerId)}/${encodeURIComponent(props.item.ref.value)}`}
+        className="cartel"
+        title={props.item.title}
+      >
+        <span className="pz__arte" aria-hidden="true">
           <Cover
             providerId={props.item.ref.providerId}
             ref={props.item.ref.value}
-            className="marquesina__cover"
-          />
-        </Link>
-      </div>
+            className="pz__campo"
+          >
+            <span className="pz__letra" aria-hidden="true">
+              {props.item.title.slice(0, 1)}
+            </span>
+          </Cover>
+          <span className="pz__velo" />
+        </span>
+
+        <span className="cartel__pie">{pieDelCartel(props.item)}</span>
+      </Link>
+
+      {props.tendencias === undefined ? null : <Ticker items={props.tendencias} />}
     </section>
   )
 }

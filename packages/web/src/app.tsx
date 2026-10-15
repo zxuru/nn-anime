@@ -20,7 +20,7 @@ import { Link, type RouteMatch, usePath, useRoute } from './router'
 
 const LOCALE: Locale = DEFAULT_LOCALE
 
-function Shell(props: { readonly children: ReactNode }): ReactNode {
+function Shell(props: { readonly children: ReactNode; readonly ancha?: boolean }): ReactNode {
   return (
     <div className="shell">
       <header className="shell__header">
@@ -33,7 +33,15 @@ function Shell(props: { readonly children: ReactNode }): ReactNode {
           <Link to="/settings">{t(LOCALE, 'nav.settings')}</Link>
         </nav>
       </header>
-      <main className="shell__main">{props.children}</main>
+      {/*
+        La vitrina va **a sangre**: su marquesina ocupa el ancho entero y el
+        mosaico reparte seis columnas, así que la caja del contenido —con su tope
+        de ancho y su relleno— la dejaría en una columna central. Las demás
+        pantallas siguen con la caja de siempre.
+      */}
+      <main className={props.ancha === true ? 'shell__main shell__main--ancha' : 'shell__main'}>
+        {props.children}
+      </main>
     </div>
   )
 }
@@ -93,5 +101,7 @@ export function App(): ReactNode {
   // fuera— y lo borraría.
   useDocumentTitle(routeTitleParts(route.name, path))
 
-  return <Shell>{screenFor(route, path)}</Shell>
+  return (
+    <Shell ancha={route.name === 'home'}>{screenFor(route, path)}</Shell>
+  )
 }

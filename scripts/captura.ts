@@ -36,9 +36,9 @@ await pagina.waitForLoadState('networkidle')
 await pagina.goto(`http://127.0.0.1:${PORT}/anime/fixture/aurora-nocturna`)
 await pagina.waitForTimeout(1500)
 await pagina.goto(`http://127.0.0.1:${PORT}/`)
-// La home carga sus filas por detrás: sin esta espera, la cinta y las tarjetas
+// La home carga sus filas por detrás: sin esta espera, la cinta y las piezas
 // salen vacías en la captura. Lo encontró la primera captura del rediseño.
-await pagina.waitForSelector('.poster__link', { timeout: 15_000 }).catch(() => {})
+await pagina.waitForSelector('.pz__enlace', { timeout: 15_000 }).catch(() => {})
 await pagina.waitForTimeout(1500)
 
 for (const [tema, destino] of [

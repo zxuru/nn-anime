@@ -16,6 +16,9 @@ lleva a `packages/web` y en qué orden, sin cambiar lo que el artefacto promete.
 | Elevación | Sombras duras desplazadas, radios cero | Tono y marco: radio 10 px en la pieza, 3 px en el mando, sin desenfoques |
 | Arte | Portada del proveedor, con relleno de degradado | El arte se dibuja: seis campos de degradado, más saturados, más un recurso por pieza |
 | Puntero encima | — | La pieza se enciende. **No cambia de tamaño ni de sitio** (ver «Movimiento») |
+| Nota de un tramo | Titular y etiqueta | Tres renglones: titular, etiqueta y **cuenta** («3 títulos», «12 títulos · y 7 más») |
+| Motor | Panel plegado al final de la home | Tramo propio, con la puntuación en cada pieza y la franja de motivos con el detalle plegado dentro |
+| Piezas sin nada que contar | Caja de texto vacía | Pieza fantasma: ocupa el hueco de una pieza, rayada y explicada |
 
 Lo que **no** cambia: los datos y su origen, las rutas, los textos del catálogo de i18n, los estados
 obligatorios (vacío, carga, fallo), el foco visible y el movimiento reducido. Un rediseño de la
@@ -73,6 +76,19 @@ contra los `@media`.
       `:hover` de la composición toca geometría o si algo se mueve con `transform`. Lo que
       quedaba del diseño viejo —la tarjeta que se «levantaba» 2 px al pasar el ratón— se
       cambió por tono: el puntero no mueve nada en ninguna pantalla.
+- [x] La marquesina del artefacto: a sangre, dos bloques enfrentados —el titular en cuerpo de
+      cartel y el cartel 2:3 girado con su pie—, la marca de refresco en la esquina y la
+      **cinta dentro**, pegada al borde inferior, con su rótulo fuera del carro y sus puntos.
+- [x] La nota de cada tramo con su cuenta, la franja de motivos del motor y su tramo
+      («Recomendado para ti») con la puntuación en la pieza y el detalle del score plegado dentro.
+- [x] Los pesos del artefacto: el top entero en 2x2, continuar viendo en 2x2, novedades con una
+      3x2 de entrada y luego 2x1 y celdas, último añadido y favoritos en 2x1 y 1x1 apagadas, y la
+      banda de géneros con el recuento en voladizo.
+- [x] La pieza: el botón «i» que abre su hoja —el mismo asomo en panel inferior, con asa que se
+      arrastra y cierre con `Escape`—, el sello de origen, la puntuación y el pie de lo que se
+      retoma. Los mandos del asomo viven **fuera** del enlace de la pieza.
+- [x] El esqueleto de la primera carga con la métrica del mosaico (mismas columnas, mismas filas,
+      mismo hueco) y en gris plano, sin latido.
 - [ ] El asomo con datos: la pieza no lleva sinopsis hoy porque ninguna fila la trae. El
       enlace ya acepta `onMouseEnter` para la precarga del detalle, que es lo que pide el
       spec, así que el asomo se llena al pasar el puntero —con lo que se pida— en un paso
@@ -88,4 +104,16 @@ contra los `@media`.
       la acompañan, y donde no cabe en tres columnas baja a dos de ancho y sube a tres de alto.
 - [x] Capturas al día en `docs/` (`captura.png` y `captura-claro.png`, hechas con `bun run
       captura` contra el servidor del fixture).
-- [ ] El `e2e` de la home al día; quedan las otras pantallas por portar y sus pruebas.
+- [x] El `e2e` de la home al día.
+- [ ] Buscar, ficha, ver y estados con la composición del artefacto: hoy sólo la home está
+      portada. El artefacto trae las cinco pantallas.
+
+## Lo que el port encontró en el camino
+
+- **El destacado puede cambiar entre dos cargas.** El motor ordena por puntuación y, cuando varios
+  candidatos empatan —en el catálogo de prueba hay tres a 0,3—, un favorito nuevo mueve el orden, así
+  que el cartel puede enseñar otro título al recargar. La prueba del favorito daba por hecho que no
+  cambiaba; ahora mide el estado contra la lista guardada, que vale con los dos desenlaces. Si el
+  cartel no debe bailar entre cargas, la decisión es del motor, no de la vitrina.
+- **El alta de un favorito se pinta antes de llegar al servidor.** Recargar justo después de pulsar
+  puede leer una lista sin el título: la prueba espera la respuesta del `POST` antes de recargar.

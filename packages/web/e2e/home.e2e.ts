@@ -51,8 +51,9 @@ test.describe('la home', () => {
       has: page.getByRole('heading', { name: 'Top de la fuente' }),
     })
     // Las piezas del top: el mando de «Mostrar más» también es una pieza del
-    // mosaico, pero no un puesto. Y la que abre el tramo pesa más (tres columnas
-    // donde caben, dos de ancho por tres de alto donde no).
+    // mosaico, pero no un puesto. Todas pesan lo mismo —dos de ancho por dos de
+    // alto—: el orden de la fuente no admite que una destaque sobre otra, y el
+    // peso lo usa la vitrina para el puesto, no para el rango.
     const tarjetas = top.locator('.pz:not(.pz--mando)')
 
     await expect(tarjetas).toHaveCount(10)
@@ -65,7 +66,28 @@ test.describe('la home', () => {
     await expect(top.getByRole('button', { name: 'Mostrar más' })).toHaveCount(0)
   })
 
+  /**
+   * Una instalación sin historial: la home dice qué falta en vez de quedarse en
+   * blanco.
+   *
+   * Las dos listas que pueden traer algo se sirven vacías desde aquí y no se le
+   * piden al servidor: la base del e2e es una sola para toda la pasada y otra
+   * prueba puede haber guardado un favorito o dejado un episodio a medias, así que
+   * mirar el estado real haría de esto una prueba del orden en que corren las
+   * demás. Lo que se mide es cómo se pinta una home vacía, y eso se sirve vacío.
+   */
   test('sin historial lo dice en vez de quedarse en blanco', async ({ page }) => {
+    await page.route('**/api/favorites', async (ruta) => {
+      if (ruta.request().method() === 'GET') {
+        await ruta.fulfill({ json: { favorites: [] } })
+        return
+      }
+      await ruta.continue()
+    })
+    await page.route('**/api/watch/recent', async (ruta) => {
+      await ruta.fulfill({ json: { items: [] } })
+    })
+
     await entrar(page)
 
     await expect(page.getByText('Nada a medias')).toBeVisible()

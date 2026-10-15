@@ -35,7 +35,7 @@ test.describe('las recomendaciones', () => {
 
     await page.getByText('¿Por qué estas recomendaciones?').click()
 
-    await expect(page.getByText(/Sin historial todavía|Ordenado por lo que has visto/)).toBeVisible(
+    await expect(page.locator('.panel').getByText(/Sin historial todavía|Ordenado por lo que has visto/)).toBeVisible(
       { timeout: 10_000 },
     )
   })
@@ -46,9 +46,11 @@ test.describe('las recomendaciones', () => {
 
     await page.getByRole('button', { name: 'Ver el detalle' }).click()
 
-    await expect(page.getByText(/Puntuación:/).first()).toBeVisible({ timeout: 10_000 })
+    const puntuaciones = page.locator('.panel').getByText(/Puntuación:/)
+
+    await expect(puntuaciones.first()).toBeVisible({ timeout: 10_000 })
 
     await page.getByRole('button', { name: 'Ocultar el detalle' }).click()
-    await expect(page.getByText(/Puntuación:/)).toHaveCount(0)
+    await expect(puntuaciones).toHaveCount(0)
   })
 })

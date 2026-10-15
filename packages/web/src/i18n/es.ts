@@ -108,6 +108,23 @@ export const messages: Messages = {
   'home.genres.meta': 'Del catálogo que tienes',
   'home.genres.empty': 'Todavía no hay géneros: aparecen cuando se cachean títulos.',
   'home.explain': '¿Por qué estas recomendaciones?',
+  'home.recommended': 'Recomendado para ti',
+  'home.recommended.meta': 'Lo que el motor cree que va contigo',
+  'home.franja.title': 'Lo que el motor ha elegido',
+  'home.franja.body':
+    'La puntuación de cada pieza es la del motor de recomendación, y sólo aparece cuando ha podido calcularse.',
+  // Los tres renglones de la nota de un tramo: el titular, la etiqueta y la cuenta.
+  'home.count': '{count} títulos',
+  'home.countOne': '1 título',
+  'home.countMore': '{count} títulos · y {more} más',
+  'home.genres.count': '{count} géneros',
+  'home.genres.countOne': '1 género',
+  // La pieza: el mando que abre su panel y lo que ofrece el asomo.
+  'home.pieza.abrir': 'Ver más de {title}',
+  'home.pieza.ficha': 'Ver ficha',
+  'home.pieza.reproducir': 'Reproducir',
+  'home.panel.cerrar': 'Cerrar',
+  'home.panel.asa': 'Cerrar el panel',
   'home.continue': 'Continuar viendo',
   'home.continue.empty': 'Nada a medias. Lo que empieces aparecerá aquí.',
   'home.favorites': 'Tus favoritos',

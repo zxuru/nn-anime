@@ -20,15 +20,15 @@ import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
-import { Panel } from '../recommendations/Panel'
 import { useRecommendations } from '../recommendations/useRecommendations'
 import { ContinueRow } from './ContinueRow'
 import { FavoritesRow } from './FavoritesRow'
 import { FeaturedHero, type FeaturedItem } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
-import { GenreRow, topGenres } from './GenreRow'
+import { GenreRow, generosConCuenta } from './GenreRow'
 import { HomeSkeletons } from './HomeSkeletons'
 import { RecentRow } from './RecentRow'
+import { RecommendedRow } from './RecommendedRow'
 import { Ticker } from './Ticker'
 import { TopRow } from './TopRow'
 import { type HomeRows, useHomeRows } from './useHomeRows'
@@ -125,7 +125,7 @@ export function HomePage(props: HomePageProps): ReactNode {
   // fuente y lo último que la aplicación conoce. Sin ellas, una instalación nueva
   // con un proveedor sin tendencias se quedaba con un titular y nada más.
   const destacado = featuredOf(items, filas.feed, filas.recent)
-  const generos = topGenres(
+  const generos = generosConCuenta(
     items.map((item) => item.tags),
     GENRE_LIMIT,
   )
@@ -133,8 +133,6 @@ export function HomePage(props: HomePageProps): ReactNode {
 
   return (
     <section className="home">
-      <Ticker items={filas.trending} />
-
       {/*
         El fallo va con el aviso entero y sin botón de reintentar: la home se
         relee sola al volver a la pestaña y cada dos minutos, así que un botón
@@ -143,23 +141,32 @@ export function HomePage(props: HomePageProps): ReactNode {
       {filas.error === undefined ? null : <ErrorNotice fallo={filas.error} />}
 
       {/*
-        La marca del refresco. Sólo sale después de la primera relectura: al abrir,
-        «actualizado ahora mismo» es el estado normal de la página y decirlo no
-        informa de nada. Es `role="status"` para que se anuncie sin robar el foco.
+        La marquesina lleva dentro la marca de refresco y la cinta: las tres cosas
+        son la misma pieza del diseño —el campo a sangre con el cartel, la línea
+        pegada al borde inferior y la fecha de la última relectura en la esquina—.
+        La marca sólo sale después de la primera relectura: al abrir, «actualizado
+        ahora mismo» es el estado normal de la página y decirlo no informa de nada.
+        Es `role="status"` para que se anuncie sin robar el foco.
       */}
-      {refresco === undefined ? null : (
-        <p className="home__refresco" role="status">
-          {refresco}
-        </p>
-      )}
-
-      {/* Sin destacado —todavía no hay nada que recomendar— el titular de la
-          página es el suyo: una pantalla sin `h1` deja al lector de pantalla sin
-          saber dónde está. */}
       {destacado === undefined ? (
-        <h1 className="marquesina__titulo">{t(DEFAULT_LOCALE, 'home.title')}</h1>
+        <section className="marquesina marquesina--suelta">
+          {refresco === undefined ? null : (
+            <p className="marca-refresco" role="status">
+              {refresco}
+            </p>
+          )}
+          {/* Sin destacado —todavía no hay nada que recomendar— el titular de la
+              página es el suyo: una pantalla sin `h1` deja al lector de pantalla
+              sin saber dónde está. */}
+          <h1 className="marquesina__titulo">{t(DEFAULT_LOCALE, 'home.title')}</h1>
+          <Ticker items={filas.trending} />
+        </section>
       ) : (
-        <FeaturedHero item={destacado} />
+        <FeaturedHero
+          item={destacado}
+          {...(refresco === undefined ? {} : { refresco })}
+          tendencias={filas.trending}
+        />
       )}
 
       {recomendaciones.state === 'loading' ? (
@@ -167,15 +174,26 @@ export function HomePage(props: HomePageProps): ReactNode {
       ) : null}
 
       {/*
-        «Continuar viendo» va la primera, antes que el top y que las novedades.
-        Es la única fila que pide una acción concreta —retomar lo que se dejó a
-        medias— y lo demás es descubrir: quien entra a seguir un episodio no
-        debería bajarlo a buscar entre las recomendaciones.
+        «Continuar viendo» va la primera, antes del motor y antes que el top. Es la
+        única fila que pide una acción concreta —retomar lo que se dejó a medias— y
+        lo demás es descubrir: quien entra a seguir un episodio no debería bajarlo
+        a buscar entre las recomendaciones.
       */}
       <ContinueRow items={filas.continueWatching} />
 
+      {/*
+        El motor va segundo y con su tramo entero: la puntuación y el motivo viajan
+        en cada pieza, así que la razón de una recomendación se lee sin abrir el
+        detalle. El detalle del score —los componentes que suman— queda plegado en
+        la franja, que es donde se explica el motor.
+      */}
+      <RecommendedRow
+        items={items}
+        {...(props.query === undefined ? {} : { query: props.query })}
+      />
+
       {/* El top es el de la fuente —su orden y su puesto— y no el ranking del
-          motor: el motor ya tiene su sitio, el destacado y el panel de abajo. */}
+          motor: el motor ya tiene su sitio, el destacado y su propio tramo. */}
       <TopRow items={filas.trending} />
 
       <FeedRow items={filas.feed} />
@@ -184,18 +202,6 @@ export function HomePage(props: HomePageProps): ReactNode {
       <FavoritesRow items={filas.favorites} />
 
       <GenreRow genres={generos} />
-
-      {/*
-        El panel con el detalle del score sigue existiendo, pero como lo que es:
-        una herramienta para entender el motor, no la fila principal. Desde que el
-        top es el de la fuente, **aquí** es donde se leen las razones de cada
-        recomendación: quitar la fila de motivos sin dejarlos en otro sitio habría
-        dejado al motor recomendando sin explicarse.
-      */}
-      <details className="panel__details">
-        <summary className="section__meta">{t(DEFAULT_LOCALE, 'home.explain')}</summary>
-        <Panel {...(props.query === undefined ? {} : { query: props.query })} />
-      </details>
     </section>
   )
 }
