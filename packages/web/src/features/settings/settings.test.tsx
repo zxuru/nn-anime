@@ -97,6 +97,41 @@ describe('lista de proveedores', () => {
     expect(html).toContain('rechazado')
     expect(html).toContain('no exporta un proveedor válido')
     expect(html).toContain('sin capacidades')
+    // Y no se le inventa lo que sirve: un plugin que no cargó no declaró nada.
+    expect(html).not.toContain('Anime')
+  })
+
+  /**
+   * El sello del tipo.
+   *
+   * Es lo único que distingue, de un vistazo, una fuente de anime de una de
+   * películas: sin él hay que abrir el plugin para saber en qué pestaña aparece cada
+   * una, que es justo lo que el conmutador necesita saber.
+   */
+  test('un activo dice qué sirve, y el que no lo declara es de anime', () => {
+    const html = render(
+      <ProviderList
+        providers={[
+          {
+            id: 'pelis',
+            name: 'Fuente de películas',
+            capabilities: { ...CAPACIDADES, media: 'movies' },
+            status: 'active',
+          },
+          {
+            id: 'mixta',
+            name: 'Fuente mixta',
+            capabilities: { ...CAPACIDADES, media: 'both' },
+            status: 'active',
+          },
+          { id: 'clasica', name: 'Fuente clásica', capabilities: CAPACIDADES, status: 'active' },
+        ]}
+      />,
+    )
+
+    expect(html).toContain('Películas')
+    expect(html).toContain('Anime y películas')
+    expect(html).toContain('Anime')
   })
 
   test('sin proveedores lo dice', () => {
@@ -199,6 +234,18 @@ describe('el alta de un proveedor', () => {
 
     expect(html).toContain('<details')
     expect(html).not.toContain('open=""')
+  })
+
+  test('qué sirve se elige de una lista cerrada, y arranca en anime', () => {
+    const html = render(<RegisterProvider register={sinGuardar} />)
+
+    expect(html).toContain('Qué sirve')
+    expect(html).toContain('id="provider-media"')
+    // Las tres opciones del contrato, con la de por defecto marcada: dos casillas
+    // podrían marcarse juntas o ninguna, y eso no significa nada.
+    expect(html).toContain('<option value="anime" selected')
+    expect(html).toContain('<option value="movies"')
+    expect(html).toContain('<option value="both"')
   })
 })
 

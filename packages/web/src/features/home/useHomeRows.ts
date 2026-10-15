@@ -37,6 +37,7 @@ import {
   recentResponseSchema,
   trendingResponseSchema,
 } from '@nn-anime/core/api'
+import type { MediaFilter } from '@nn-anime/core/media'
 import { useEffect, useRef, useState } from 'react'
 import { ApiError, apiGet } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'
@@ -215,30 +216,72 @@ export function combineRows(resultados: RowResults, ahora: Date = new Date()): H
   return mergeRows(VACIO, resultados, ahora)
 }
 
-/** Las cinco lecturas, en paralelo y con la misma señal. */
-async function leerLasCinco(signal: AbortSignal): Promise<RowResults> {
+/**
+ * Las tres rutas que llevan el tipo, aparte del hook.
+ *
+ * Es una función —y no tres literales dentro de la lectura— para poder comprobarlo
+ * sin un DOM: un `useEffect` no corre en `renderToString`, así que la única forma
+ * de medir que el tipo viaja es leer las direcciones que se piden.
+ */
+export function rutasDeTipo(tipo: MediaFilter): {
+  readonly trending: string
+  readonly feed: string
+  readonly recent: string
+} {
+  return {
+    trending: `/api/trending?media=${tipo}`,
+    feed: `/api/feed?media=${tipo}`,
+    recent: `/api/catalog/recent?media=${tipo}`,
+  }
+}
+
+/**
+ * Las cinco lecturas, en paralelo y con la misma señal.
+ *
+ * Tres de las cinco llevan el tipo: las tendencias, el feed y lo último que la
+ * aplicación conoce son filas que mezclan fuentes, y el servidor es el único que
+ * sabe de qué es cada una. Continuar viendo y favoritos **no** lo llevan: son
+ * listas de lo que el usuario hizo, y ahí el tipo se filtra en la interfaz, con los
+ * proveedores que ya están cargados en la mano.
+ */
+async function leerLasCinco(signal: AbortSignal, tipo: MediaFilter): Promise<RowResults> {
   const opciones = { signal }
+  const rutas = rutasDeTipo(tipo)
   const [continueWatching, favorites, trending, feed, recent] = await Promise.allSettled([
     apiGet('/api/watch/recent', continueWatchingResponseSchema, opciones),
     apiGet('/api/favorites', favoritesResponseSchema, opciones),
-    apiGet('/api/trending', trendingResponseSchema, opciones),
-    apiGet('/api/feed', feedResponseSchema, opciones),
-    apiGet('/api/catalog/recent', recentResponseSchema, opciones),
+    apiGet(rutas.trending, trendingResponseSchema, opciones),
+    apiGet(rutas.feed, feedResponseSchema, opciones),
+    apiGet(rutas.recent, recentResponseSchema, opciones),
   ])
 
   return { continueWatching, favorites, trending, feed, recent }
 }
 
-export function useHomeRows(): HomeRows {
+export function useHomeRows(tipo: MediaFilter): HomeRows {
   const [filas, setFilas] = useState<HomeRows>(VACIO)
   // El reloj de los intentos vive en un `ref`: no se pinta, y meterlo en el
   // estado volvería a montar el efecto en cada relectura.
   const ultimoIntento = useRef<number | undefined>(undefined)
+  const tipoAnterior = useRef(tipo)
 
   useEffect(() => {
     let vivo = true
     let enVuelo = false
     const controller = new AbortController()
+
+    /**
+     * Al cambiar de mitad, lo pintado es de la otra: se vacía.
+     *
+     * No es una relectura —ésa conserva lo viejo si la lectura falla— sino otra
+     * pantalla. Fusionar aquí enseñaría películas en la pestaña de anime hasta que
+     * llegara la respuesta, y para siempre si la lectura fallaba.
+     */
+    if (tipoAnterior.current !== tipo) {
+      tipoAnterior.current = tipo
+      ultimoIntento.current = undefined
+      setFilas(VACIO)
+    }
 
     const leer = async (): Promise<void> => {
       // Dos disparos a la vez —la pestaña y el temporizador— no son dos lecturas.
@@ -248,7 +291,7 @@ export function useHomeRows(): HomeRows {
       ultimoIntento.current = Date.now()
       setFilas((previas) => ({ ...previas, refrescando: !previas.loading }))
 
-      const resultados = await leerLasCinco(controller.signal)
+      const resultados = await leerLasCinco(controller.signal, tipo)
       enVuelo = false
       if (!vivo) return
 
@@ -269,7 +312,7 @@ export function useHomeRows(): HomeRows {
       clearInterval(temporizador)
       document.removeEventListener('visibilitychange', siToca)
     }
-  }, [])
+  }, [tipo])
 
   return filas
 }

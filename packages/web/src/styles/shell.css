@@ -78,6 +78,71 @@
   padding: var(--space-7) var(--space-6);
 }
 
+/*
+ * La franja del conmutador de tipo.
+ *
+ * Va **fuera de la composición diseñada** —encima de la marquesina, con el aire de
+ * la vitrina— porque el mando mide lo que el resto de mandos de la interfaz y en la
+ * cabecera no cabe sin apretarla. Alineado al final: el titular de la pantalla es
+ * lo primero que se lee y el mando no compite con él.
+ */
+.franja-tipo {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-4) var(--vitrina-margen) 0;
+}
+
+.conmutador {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-width-strong) solid var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.conmutador__opcion {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-size);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full);
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  text-decoration: none;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.conmutador__opcion:hover {
+  color: var(--color-text);
+}
+
+/*
+ * La mitad que se está mirando, marcada por `aria-current`: el color la distingue
+ * a la vista y el atributo se lo dice a quien no ve la pantalla, que es la mitad
+ * que un fondo de acento no cuenta.
+ */
+.conmutador__opcion[aria-current="page"] {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+/* El aviso de que ninguna fuente sirve esta mitad: la pantalla vacía, explicada. */
+.aviso-tipo {
+  margin: 0 var(--space-6) var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width-strong) solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-size: var(--text-md);
+}
+
 .shell__main h1 {
   font-family: var(--font-display);
   font-size: var(--text-3xl);
@@ -2630,7 +2695,9 @@
   font-size: 132cqi;
   font-weight: 600;
   line-height: 0.72;
-  font-variation-settings: "opsz" 144, "SOFT" 40;
+  font-variation-settings:
+    "opsz" 144,
+    "SOFT" 40;
   color: var(--arte-letra);
 }
 
@@ -2649,7 +2716,7 @@
 
 /* Trama de líneas paralelas. */
 .pz__campo--trama::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background-image: repeating-linear-gradient(
@@ -2661,7 +2728,7 @@
 
 /* Mitad partida: dos tonos con corte seco. */
 .pz__campo--mitad::after {
-  content: '';
+  content: "";
   position: absolute;
   inset-block: 0;
   inset-inline-start: 0;
@@ -2672,7 +2739,7 @@
 
 /* Círculo recortado. */
 .pz__campo--circulo::after {
-  content: '';
+  content: "";
   position: absolute;
   inline-size: 76cqi;
   aspect-ratio: 1;
@@ -2685,7 +2752,7 @@
 
 /* Caja de tercio. */
 .pz__campo--caja::after {
-  content: '';
+  content: "";
   position: absolute;
   inset-block: 0;
   inset-inline-end: 0;
@@ -3221,7 +3288,7 @@
 
 /* La «i» se dibuja: el punto y el cuerpo. */
 .pz__abrir::before {
-  content: '';
+  content: "";
   position: absolute;
   inset-block-start: var(--mando-punto-alto);
   inset-inline-start: 50%;
@@ -3233,7 +3300,7 @@
 }
 
 .pz__abrir::after {
-  content: '';
+  content: "";
   position: absolute;
   inset-block-start: var(--mando-cuerpo-alto);
   inset-inline-start: 50%;
@@ -3458,7 +3525,9 @@
   letter-spacing: var(--tracking-display);
   color: var(--color-text);
   border-block-end: var(--border-width-strong) solid transparent;
-  transition: color var(--transition-fast), border-color var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .genero:hover,
@@ -3551,7 +3620,8 @@
   overflow: auto;
   display: grid;
   gap: var(--space-3);
-  padding: var(--space-3) var(--hoja-relleno-lado) calc(var(--space-4) + env(safe-area-inset-bottom));
+  padding: var(--space-3) var(--hoja-relleno-lado)
+    calc(var(--space-4) + env(safe-area-inset-bottom));
   background: var(--color-surface-raised);
   border-block-start: var(--border-width) solid var(--color-rule);
   border-start-start-radius: var(--radius-md);
@@ -3613,7 +3683,6 @@
   .esqueleto {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-
 }
 
 /* 820–1100 : mosaico de 3 columnas; la nota pasa a cabecera de sección; la
@@ -3647,7 +3716,6 @@
   .esqueleto {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-
 
   .marquesina {
     grid-template-columns: minmax(0, 1fr);
@@ -3684,7 +3752,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-
   .seccion__cuerpo {
     container-type: inline-size;
   }
@@ -3709,7 +3776,6 @@
   .esqueleto {
     grid-template-columns: minmax(0, 1fr);
   }
-
 
   .mosaico .pz--b,
   .mosaico .pz--m,

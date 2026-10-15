@@ -30,6 +30,7 @@ import {
   httpUrlSchema,
   modeSchema,
   providerCapabilitiesSchema,
+  providerMediaSchema,
   providerRefSchema,
   searchResultSchema,
   streamRequestSchema,
@@ -533,10 +534,18 @@ export const episodeResponseSchema = z.strictObject({
  *
  * `provider` se repite en la dirección (`?provider=a&provider=b`), que es lo que
  * permite filtrar por varios sin inventar un separador dentro de un valor.
+ *
+ * `media` es el mismo filtro de tipo que el resto de lecturas y va **en la
+ * petición, no sólo en la interfaz**: una búsqueda de películas no puede
+ * preguntarle a las fuentes de anime. Filtrar los resultados al llegar dejaría el
+ * gasto hecho —son sitios de terceros— y además el catálogo cacheado se filtra por
+ * los proveedores seleccionados, así que la mitad de la base que no toca tampoco
+ * aparecería.
  */
 export const searchQuerySchema = z.strictObject({
   q: z.string().max(200).default(''),
   provider: z.array(z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)).default([]),
+  media: providerMediaSchema.optional(),
 })
 
 /** Un evento del flujo de búsqueda, tal como viaja por SSE. */

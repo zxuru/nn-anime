@@ -101,7 +101,5 @@ export function App(): ReactNode {
   // fuera— y lo borraría.
   useDocumentTitle(routeTitleParts(route.name, path))
 
-  return (
-    <Shell ancha={route.name === 'home'}>{screenFor(route, path)}</Shell>
-  )
+  return <Shell ancha={route.name === 'home'}>{screenFor(route, path)}</Shell>
 }

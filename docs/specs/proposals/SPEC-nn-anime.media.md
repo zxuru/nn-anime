@@ -80,18 +80,25 @@ cada título —`movie` a un lado, lo demás al otro—, y un título sin `kind`
 mismo defecto. Es lo único que hace falta que el plugin devuelva de más, y ya lo puede devolver hoy:
 `searchResultSchema.kind` es opcional desde T4.
 
-## 2. `SPEC-discovery`, `SPEC-recsys` y `SPEC-web-ui`: `?media=` en las cuatro lecturas
+## 2. `SPEC-discovery`, `SPEC-recsys` y `SPEC-web-ui`: `?media=` en las cinco lecturas
 
-Las cuatro rutas que leen del catálogo o de las fuentes aceptan un parámetro nuevo, **opcional y
-aditivo** —sin él la respuesta es la de hoy, que es lo que mantiene a quien ya las pedía sin
-conocerlo—:
+Las cinco rutas que leen del catálogo o de las fuentes aceptan un parámetro nuevo,
+**opcional y aditivo** —sin él la respuesta es la de hoy, que es lo que mantiene a quien ya las
+pedía sin conocerlo—:
 
 ```
 GET /api/trending?limit=&media=anime|movies|both
 GET /api/feed?limit=&media=
 GET /api/catalog/recent?limit=&media=
 GET /api/recommendations?limit=&media=
+GET /api/search?q=&provider=&media=
 ```
+
+- En `/api/search` el tipo va **en la petición y no en la interfaz**: una búsqueda de películas no
+  puede preguntarle a las fuentes de anime. Filtrar los resultados al llegar dejaría el gasto hecho
+  —son sitios de terceros— y el catálogo cacheado se filtra por los proveedores seleccionados, así que
+  la mitad de la base que no toca tampoco aparecería. El `media` de `searchQuerySchema` es la única
+  adición de esa forma; `q` y `provider` no cambian.
 
 - Un valor **fuera del vocabulario es un 400** con el valor delante y las opciones
   (`tipo inválido: «anime-y-peliculas»; se esperaba anime, movies o both`). Devolver todo en silencio
@@ -130,8 +137,10 @@ schema estricto de la respuesta rechazara el cuerpo entero.
 - **La conformidad** no gana una comprobación: `media` es una declaración sin método detrás y no hay
   nada que pueda contradecirla. Un valor fuera del vocabulario lo rechaza el schema al cargar, que es
   donde ya se rechaza `trending: 'sí'`.
-- `/api/search` no gana parámetro: quien filtra es el cliente, que ya elige la lista de proveedores con
-  `?provider=` y descarta por `kind` lo que llegue de una fuente mixta.
+- **La interfaz** no cambia de contrato: el conmutador vive en la dirección de cada pantalla
+  (`?tipo=anime|movies`) y esa parte es presentación. Lo que sí hace es pasar el tipo en cada lectura,
+  incluidas las dos que no lo llevan —continuar viendo y favoritos—, que se filtran en el cliente por
+  la fuente de cada título: son listas de lo que el usuario hizo, y no tiene sentido pedirlas dos veces.
 
 ## Alternativa descartada
 
@@ -155,5 +164,13 @@ así que no es un cajón nuevo.
   contador de llamadas—, sin el parámetro las dos mitades siguen saliendo y un valor inventado es un
   400. Medido mutando `pasaElFiltro`, `puedeServir` y el rechazo del vocabulario: cada uno hace fallar
   entre una y diez pruebas.
+- La búsqueda (`search.test.ts`): con `?media=movies` no se le pregunta a la fuente de anime —el id del
+  evento SSE es quien lo dice—, la mixta sí entra, sin el parámetro se pregunta a todas y un tipo
+  inventado es un 400.
+- La interfaz: el conmutador son dos enlaces con `aria-current` y la mitad en la dirección
+  (`ConmutadorTipo.test.tsx`), las tres filas que mezclan fuentes piden su mitad (`rutasDeTipo`), el
+  reparto de las listas locales por la fuente de cada título —con el `kind` al lado de la referencia y
+  no dentro— (`tipo.test.ts`), y el sello del tipo en Ajustes y en el alta (`settings.test.tsx`,
+  `draft.test.ts`).
 - El fixture declara `both` y sigue conformando
   (`packages/providers-fixture/src/conformance.test.ts`).

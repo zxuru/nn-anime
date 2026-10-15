@@ -307,6 +307,64 @@ describe('GET /api/search como SSE', () => {
     expect([...ids].sort()).toEqual(['tres', 'uno'])
   })
 
+  /**
+   * El tipo filtra **antes de preguntar**.
+   *
+   * Una búsqueda de películas no puede gastar el ancho de banda de una fuente de
+   * anime: son sitios de terceros, y filtrar los resultados al llegar dejaría el
+   * gasto hecho. Se mide con el id del evento, que es quien dice a quién se le
+   * preguntó.
+   */
+  test('`?media=` deja fuera a las fuentes que no pueden tener esa mitad', async () => {
+    const report: PluginReport = {
+      active: [
+        { provider: createFixtureProvider({ id: 'anime', media: 'anime' }), file: '/p/a.ts' },
+        { provider: createFixtureProvider({ id: 'pelis', media: 'movies' }), file: '/p/p.ts' },
+        { provider: createFixtureProvider({ id: 'mixta', media: 'both' }), file: '/p/m.ts' },
+      ],
+      rejected: [],
+    }
+    const response = await app(report).request(`${BASE}/api/search?q=aurora&media=movies`, {
+      headers: GOOD,
+    })
+    const eventos = await readSse(response)
+    const ids = eventos
+      .filter((evento) => evento.event === 'results')
+      .map((evento) => (JSON.parse(evento.data) as { providerId: string }).providerId)
+
+    // La mixta entra: sus resultados pueden ser de las dos mitades y el reparto por
+    // `kind` lo hace la interfaz, que es quien tiene las tarjetas.
+    expect([...ids].sort()).toEqual(['mixta', 'pelis'])
+  })
+
+  test('sin `media` se pregunta a todas, que es lo de siempre', async () => {
+    const report: PluginReport = {
+      active: [
+        { provider: createFixtureProvider({ id: 'anime', media: 'anime' }), file: '/p/a.ts' },
+        { provider: createFixtureProvider({ id: 'pelis', media: 'movies' }), file: '/p/p.ts' },
+      ],
+      rejected: [],
+    }
+    const eventos = await readSse(
+      await app(report).request(`${BASE}/api/search?q=aurora`, { headers: GOOD }),
+    )
+    const ids = eventos
+      .filter((evento) => evento.event === 'results')
+      .map((evento) => (JSON.parse(evento.data) as { providerId: string }).providerId)
+
+    expect([...ids].sort()).toEqual(['anime', 'pelis'])
+  })
+
+  test('un tipo fuera del vocabulario se rechaza con 400', async () => {
+    const response = await app(SOLO_FIXTURE).request(
+      `${BASE}/api/search?q=aurora&media=anime-y-peliculas`,
+      { headers: GOOD },
+    )
+
+    expect(response.status).toBe(400)
+    expect((await response.json()).error).toContain('media')
+  })
+
   test('sin proveedores cierra con el recuento en cero', async () => {
     const response = await app({ active: [], rejected: [] }).request(
       `${BASE}/api/search?q=aurora`,

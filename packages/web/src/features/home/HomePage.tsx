@@ -5,6 +5,12 @@
  * destacado, **el top de la fuente**, continuar viendo, favoritos, novedades,
  * último añadido y géneros.
  *
+ * La pantalla se parte en dos mitades —anime y películas— con el conmutador de la
+ * cabecera, y el tipo vive en la dirección (`?tipo=movies`). Las filas que salen de
+ * las fuentes se piden **ya filtradas** al servidor, que es el único que sabe de
+ * qué es cada título; las dos que son listas del usuario se filtran aquí, con los
+ * proveedores que ya están cargados.
+ *
  * Lo que el diseño trae y aquí no está, porque no hay datos para ello: la
  * **parrilla semanal** de estrenos y la fila de **episodios nuevos**. Las dos
  * necesitan una fecha de emisión por episodio, y los proveedores no la dan. Se
@@ -20,7 +26,17 @@ import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
+import { usePath } from '../../router'
 import { useRecommendations } from '../recommendations/useRecommendations'
+import { ConmutadorTipo } from '../tipo/ConmutadorTipo'
+import {
+  enElTipo,
+  fuenteDeResumen,
+  fuenteDeVisionado,
+  sinFuenteQueSirva,
+  tipoFromPath,
+  useMedias,
+} from '../tipo/tipo'
 import { ContinueRow } from './ContinueRow'
 import { FavoritesRow } from './FavoritesRow'
 import { FeaturedHero, type FeaturedItem } from './FeaturedHero'
@@ -115,8 +131,12 @@ export function textoDeRefresco(
 }
 
 export function HomePage(props: HomePageProps): ReactNode {
-  const filas = useHomeRows()
+  const path = usePath()
+  const tipo = tipoFromPath(path)
+  const medias = useMedias()
+  const filas = useHomeRows(tipo)
   const recomendaciones = useRecommendations({
+    media: tipo,
     ...(props.query === undefined ? {} : { query: props.query }),
   })
 
@@ -131,14 +151,48 @@ export function HomePage(props: HomePageProps): ReactNode {
   )
   const refresco = textoDeRefresco(filas, new Date())
 
+  /*
+    Las dos listas que no llevan el tipo en la petición se filtran aquí: son lo que
+    el usuario hizo, y no una fila que mezcle fuentes. Lo que se retoma **no** trae
+    `kind` en el contrato, así que un título de una fuente mixta sólo aparece en la
+    pestaña de anime: es el mismo defecto que el proveedor que no declara de qué es,
+    y añadirlo a esa ruta es otro cambio.
+  */
+  const favoritos = enElTipo(filas.favorites, tipo, medias, fuenteDeResumen)
+  const continuar = enElTipo(filas.continueWatching, tipo, medias, fuenteDeVisionado)
+
   return (
     <section className="home">
+      {/*
+        El conmutador va en su propia franja, encima de la marquesina y fuera de la
+        composición: mide lo que un mando —44 px, como el resto de la interfaz— y en
+        la cabecera, que mide 56, no cabe sin apretarla. Lo comparten la home y la
+        búsqueda, y el estado es el de la dirección, así que cambiar de mitad desde
+        la búsqueda conserva la consulta.
+      */}
+      <div className="franja-tipo">
+        <ConmutadorTipo />
+      </div>
+
       {/*
         El fallo va con el aviso entero y sin botón de reintentar: la home se
         relee sola al volver a la pestaña y cada dos minutos, así que un botón
         sería una segunda forma de pedir lo que ya está pedido.
       */}
       {filas.error === undefined ? null : <ErrorNotice fallo={filas.error} />}
+
+      {/*
+        Una instalación sin ninguna fuente de esta mitad no puede llenar la
+        pantalla, y una pantalla vacía se lee como una aplicación rota. El aviso
+        dice qué falta y dónde se arregla; el conmutador sigue a la vista, que es la
+        otra salida.
+      */}
+      {sinFuenteQueSirva(medias, tipo) ? (
+        <p className="aviso-tipo" role="status">
+          {t(DEFAULT_LOCALE, tipo === 'movies' ? 'media.empty.movies' : 'media.empty.anime')}{' '}
+          {t(DEFAULT_LOCALE, 'media.empty.hint')}
+        </p>
+      ) : null}
 
       {/*
         La marquesina lleva dentro la marca de refresco y la cinta: las tres cosas
@@ -179,7 +233,7 @@ export function HomePage(props: HomePageProps): ReactNode {
         lo demás es descubrir: quien entra a seguir un episodio no debería bajarlo
         a buscar entre las recomendaciones.
       */}
-      <ContinueRow items={filas.continueWatching} />
+      <ContinueRow items={continuar} />
 
       {/*
         El motor va segundo y con su tramo entero: la puntuación y el motivo viajan
@@ -199,7 +253,7 @@ export function HomePage(props: HomePageProps): ReactNode {
       <FeedRow items={filas.feed} />
       <RecentRow items={filas.recent} />
 
-      <FavoritesRow items={filas.favorites} />
+      <FavoritesRow items={favoritos} />
 
       <GenreRow genres={generos} />
     </section>

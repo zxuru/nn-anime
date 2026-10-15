@@ -105,6 +105,10 @@ contra los `@media`.
 - [x] Capturas al día en `docs/` (`captura.png` y `captura-claro.png`, hechas con `bun run
       captura` contra el servidor del fixture).
 - [x] El `e2e` de la home al día.
+- [x] El conmutador de tipo —anime y películas— en la home y en la búsqueda, con la mitad en la
+      dirección (`?tipo=movies`) y una franja propia encima de la marquesina: el mando mide 44 px y en
+      la cabecera de 56 no cabía. Lo que sirve cada fuente se declara en su manifiesto
+      (`capabilities.media`) y se enseña en Ajustes.
 - [ ] Buscar, ficha, ver y estados con la composición del artefacto: hoy sólo la home está
       portada. El artefacto trae las cinco pantallas.
 

@@ -11,6 +11,7 @@
     "./i18n": "./src/i18n.ts",
     "./identity": "./src/identity.ts",
     "./logger": "./src/logger.ts",
+    "./media": "./src/media.ts",
     "./models": "./src/models.ts",
     "./result": "./src/result.ts",
     "./schema": "./src/schema.ts",

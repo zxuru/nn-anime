@@ -15,6 +15,7 @@
 
 import type { RecommendationsResponse } from '@nn-anime/core/api'
 import { recommendationsResponseSchema } from '@nn-anime/core/api'
+import type { MediaFilter } from '@nn-anime/core/media'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'
@@ -38,13 +39,20 @@ export interface UseRecommendationsOptions {
   /** Se refresca cuando cambia: es la consulta que se está escribiendo. */
   readonly query?: string | undefined
   readonly limit?: number
+  /** La mitad que se mira: el motor filtra sus candidatos antes de puntuar. */
+  readonly media?: MediaFilter | undefined
   /** Retardo inyectable: una prueba no espera 400 ms. */
   readonly debounceMs?: number
 }
 
-export function recommendationsPath(query: string | undefined, limit: number): string {
+export function recommendationsPath(
+  query: string | undefined,
+  limit: number,
+  media: MediaFilter | undefined = undefined,
+): string {
   const parametros = new URLSearchParams({ limit: String(limit) })
   if (query !== undefined && query.trim() !== '') parametros.set('q', query.trim())
+  if (media !== undefined) parametros.set('media', media)
 
   return `/api/recommendations?${parametros.toString()}`
 }
@@ -58,7 +66,7 @@ export function useRecommendations(options: UseRecommendationsOptions = {}): Rec
   // efecto, no habría nada que cancelar entre una clave y la siguiente.
   const planificador = useRef<ReturnType<typeof createScheduler> | undefined>(undefined)
   const retardo = options.debounceMs ?? DEBOUNCE_MS
-  const ruta = recommendationsPath(options.query, options.limit ?? 10)
+  const ruta = recommendationsPath(options.query, options.limit ?? 10, options.media)
 
   /**
    * Volver a pedir lo mismo.
