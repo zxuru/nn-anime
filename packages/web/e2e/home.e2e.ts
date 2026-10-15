@@ -15,10 +15,11 @@ test.describe('la home', () => {
     await entrar(page)
     await esperarApp(page)
 
-    // La home del diseño: cinta, cartel de destacado, top y las filas.
-    await expect(page.locator('.ticker')).toBeVisible()
-    await expect(page.locator('.hero__title')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Top de la fuente' })).toBeVisible()
+    // La home de la vitrina: la cinta, la marquesina del destacado, el mosaico del
+    // top y las demás secciones.
+    await expect(page.locator('.cinta')).toBeVisible()
+    await expect(page.locator('.marquesina__titulo')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Top', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Continuar viendo' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Tus favoritos' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Explorar por género' })).toBeVisible()
@@ -46,20 +47,52 @@ test.describe('la home', () => {
     await entrar(page)
     await esperarApp(page)
 
-    const top = page.locator('.section--top')
-    const tarjetas = top.locator('.poster')
+    const top = page.locator('.seccion', {
+      has: page.getByRole('heading', { name: 'Top', exact: true }),
+    })
+    // Las piezas del top: el mando de «Mostrar más» también es una pieza del
+    // mosaico, pero no un puesto. Todas pesan lo mismo —dos de ancho por dos de
+    // alto—: el orden de la fuente no admite que una destaque sobre otra, y el
+    // peso lo usa la vitrina para el puesto, no para el rango.
+    const tarjetas = top.locator('.pz:not(.pz--mando)')
 
     await expect(tarjetas).toHaveCount(10)
-    await expect(top.locator('.poster__number').last()).toHaveText('10')
+    await expect(top.locator('.pz__posicion').last()).toHaveText('10')
+    // La nota cuenta los puestos **a la vista** y los que quedan: quince en el top
+    // con diez recortados se lee «10 títulos · y 5 más», no «15 títulos».
+    await expect(top.locator('.nota__cuenta')).toHaveText('10 títulos · y 5 más')
 
     await top.getByRole('button', { name: 'Mostrar más' }).click()
 
     await expect(tarjetas).toHaveCount(15)
-    await expect(top.locator('.poster__number').last()).toHaveText('15')
+    await expect(top.locator('.pz__posicion').last()).toHaveText('15')
     await expect(top.getByRole('button', { name: 'Mostrar más' })).toHaveCount(0)
+    // Desplegado, el renglón dice los que hay: ya no queda nada por enseñar.
+    await expect(top.locator('.nota__cuenta')).toHaveText('15 títulos')
   })
 
+  /**
+   * Una instalación sin historial: la home dice qué falta en vez de quedarse en
+   * blanco.
+   *
+   * Las dos listas que pueden traer algo se sirven vacías desde aquí y no se le
+   * piden al servidor: la base del e2e es una sola para toda la pasada y otra
+   * prueba puede haber guardado un favorito o dejado un episodio a medias, así que
+   * mirar el estado real haría de esto una prueba del orden en que corren las
+   * demás. Lo que se mide es cómo se pinta una home vacía, y eso se sirve vacío.
+   */
   test('sin historial lo dice en vez de quedarse en blanco', async ({ page }) => {
+    await page.route('**/api/favorites', async (ruta) => {
+      if (ruta.request().method() === 'GET') {
+        await ruta.fulfill({ json: { favorites: [] } })
+        return
+      }
+      await ruta.continue()
+    })
+    await page.route('**/api/watch/recent', async (ruta) => {
+      await ruta.fulfill({ json: { items: [] } })
+    })
+
     await entrar(page)
 
     await expect(page.getByText('Nada a medias')).toBeVisible()
@@ -71,14 +104,14 @@ test.describe('la home', () => {
     await esperarApp(page)
 
     // El fixture declara `capabilities.feed`, así que la fila de novedades tiene
-    // tarjetas propias: es lo que hace que una instalación nueva no se quede con
-    // un titular y nada más. Se mira **lo que se ve**, no lo que devuelve la API.
-    const novedades = page.locator('.section', {
+    // piezas propias: es lo que hace que una instalación nueva no se quede con un
+    // titular y nada más. Se mira **lo que se ve**, no lo que devuelve la API.
+    const novedades = page.locator('.seccion', {
       has: page.getByRole('heading', { name: 'Novedades' }),
     })
 
     await expect(novedades).toBeVisible()
-    await expect(novedades.locator('.poster__title').first()).toBeVisible()
+    await expect(novedades.locator('.pz__titulo').first()).toBeVisible()
 
     // Y la fila de lo que la aplicación conoce está siempre, con contenido o con
     // su explicación: una fila que desaparece deja al usuario sin saber si la
@@ -97,14 +130,73 @@ test.describe('la home', () => {
 
     expect(['dark', 'light']).toContain(tema)
   })
+})
 
-  test('el panel dice que no hay historial todavía', async ({ page }) => {
+/**
+ * El conmutador entre anime y películas.
+ *
+ * El fixture declara `media: 'both'` y su catálogo trae series y **una** película
+ * —`el-jardin-de-hierro`—, así que es el único sitio donde se puede medir en un
+ * navegador que una fuente mixta se reparta por el `kind`: en la pestaña de anime la
+ * película no sale del top, y en la de películas el top se queda con ella y con
+ * nadie más.
+ *
+ * Se busca la película por su **enlace** —`/anime/fixture/el-jardin-de-hierro`— y no
+ * por su título: el título lleva tilde y el enlace no depende de cómo se escriba.
+ */
+test.describe('el conmutador de tipo', () => {
+  const PELICULA = '.pz__enlace[href*="el-jardin-de-hierro"]'
+
+  function elTop(page: import('@playwright/test').Page) {
+    return page.locator('.seccion', {
+      has: page.getByRole('heading', { name: 'Top de la fuente' }),
+    })
+  }
+
+  test('la mitad vive en la dirección y cambia lo que se enseña', async ({ page }) => {
     await entrar(page)
 
-    // El panel del motor vive dentro de un desplegable: el top es el de la fuente
-    // y no lleva motivos, así que el sitio donde el motor se explica es éste.
-    await page.getByText('¿Por qué estas recomendaciones?').click()
+    await expect(elTop(page).locator(PELICULA)).toHaveCount(0)
 
-    await expect(page.getByText('Sin historial todavía')).toBeVisible()
+    await page.locator('.conmutador').getByRole('link', { name: 'Películas' }).click()
+
+    // La elección queda en la dirección: se puede recargar, compartir, y el botón
+    // «atrás» del navegador la deshace.
+    await expect(page).toHaveURL(/tipo=movies/)
+    await expect(
+      page.locator('.conmutador').getByRole('link', { name: 'Películas' }),
+    ).toHaveAttribute('aria-current', 'page')
+
+    await expect(elTop(page).locator(PELICULA)).toHaveCount(1)
+    // Y el top de esa mitad es sólo la película: las series de la misma fuente se
+    // quedaron en la otra pestaña.
+    await expect(elTop(page).locator('.pz:not(.pz--mando)')).toHaveCount(1)
+  })
+
+  /**
+   * La franja, en una ventana estrecha.
+   *
+   * El mando mide lo que el resto de mandos de la interfaz —44 px— y en la cabecera
+   * de 56 no cabía: esto mide que la franja propia no desborda a 360 px y que el
+   * conmutador sigue siendo pulsable, que es lo que promete la hoja.
+   */
+  test('en 360 px no hay desplazamiento horizontal y el mando sigue midiendo lo suyo', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 360, height: 640 })
+    await entrar(page)
+
+    const desborde = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+
+    expect(desborde).toBeLessThanOrEqual(0)
+
+    const caja = await page
+      .locator('.conmutador')
+      .getByRole('link', { name: 'Anime' })
+      .boundingBox()
+
+    expect(caja?.height ?? 0).toBeGreaterThanOrEqual(44)
   })
 })

@@ -38,6 +38,14 @@ describe('el formulario, convertido en petición', () => {
     expect(draft.endpoints.trending).toBeUndefined()
   })
 
+  test('qué sirve es una elección del formulario y viaja entera', () => {
+    // Sin esto, un plugin de películas nacería declarando anime —el defecto— y su
+    // contenido no aparecería en la pestaña que le toca.
+    expect(toProviderDraft(form({})).capabilities.media).toBe('anime')
+    expect(toProviderDraft(form({ media: 'movies' })).capabilities.media).toBe('movies')
+    expect(toProviderDraft(form({ media: 'both' })).capabilities.media).toBe('both')
+  })
+
   test('lo que se teclea se recorta antes de salir', () => {
     const draft = toProviderDraft(
       form({ id: ' mio ', name: ' Mío ', baseUrl: ' https://e.example ' }),

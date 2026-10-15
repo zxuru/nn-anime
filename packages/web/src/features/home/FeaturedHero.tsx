@@ -1,24 +1,32 @@
 /**
- * El cartel de destacado.
+ * La marquesina: el destacado.
  *
- * Es el primero del ranking y ocupa el ancho entero: portada, etiquetas de
- * género, la línea de datos, la sinopsis en dos líneas y los dos botones. El
- * botón principal **reproduce el primer episodio** y el secundario guarda el
- * título en favoritos, que es lo que hace el diseño de referencia con «play» y
- * «my list».
+ * Es la primera pieza de la vitrina y la que dice de qué va la aplicación: un
+ * campo de degradado a sangre, el título en cuerpo de cartel a la izquierda —con su
+ * etiqueta, su línea de datos, la sinopsis y el motivo— y el cartel a la derecha:
+ * la portada dibujada, con marco propio y algo girada, con su pie. Debajo, pegada
+ * al borde inferior, corre la cinta de lo más visto. En la esquina, la marca que
+ * dice cuándo se releyó.
  *
- * El botón de reproducir sólo aparece si se conoce la referencia del primer
- * episodio: sin ella llevaría a una pantalla de error, y es mejor no ofrecerlo.
+ * El botón principal **reproduce el primer episodio** y el secundario guarda el
+ * título en favoritos. El botón de reproducir sólo aparece si se conoce la
+ * referencia del primer episodio: sin ella llevaría a una pantalla de error, y es
+ * mejor no ofrecerlo.
+ *
+ * El arte del cartel es el de reserva —el campo y la inicial—: si la portada llega,
+ * manda la portada. La letra se mide con el contenedor del cartel (104 cqi) porque
+ * es un campo grande: a tamaño de pieza pequeña se comería el marco.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { ProviderRef } from '@nn-anime/core/models'
+import type { AnimeSummary, ProviderRef } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { FavoriteButton } from '../detail/FavoriteButton'
 import { useFavorite } from '../detail/useDetail'
+import { Ticker } from './Ticker'
 import { useFeatured } from './useFeatured'
 
 /**
@@ -41,6 +49,10 @@ export interface FeaturedItem {
 
 export interface FeaturedHeroProps {
   readonly item: FeaturedItem
+  /** Cuándo se releyó la home, si ya se releyó. */
+  readonly refresco?: string | undefined
+  /** Lo que corre por la cinta, pegada al borde inferior. */
+  readonly tendencias?: readonly AnimeSummary[] | undefined
 }
 
 /** La línea de datos: géneros, año y número de episodios, con lo que haya. */
@@ -49,7 +61,12 @@ export function featuredMeta(item: FeaturedItem, episodeCount: number | undefine
   if (item.year !== undefined) partes.push(String(item.year))
   if (episodeCount !== undefined) partes.push(`${episodeCount} ep.`)
 
-  return partes.join(' / ')
+  return partes.join(' · ')
+}
+
+/** El pie del cartel: el título y el año, como en la vitrina impresa. */
+export function pieDelCartel(item: FeaturedItem): string {
+  return item.year === undefined ? item.title : `${item.title} · ${item.year}`
 }
 
 export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
@@ -62,21 +79,34 @@ export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
   const meta = featuredMeta({ ...props.item, tags }, detail?.episodeCount)
 
   return (
-    <section className="hero" aria-labelledby="hero-title">
-      <div className="hero__body">
-        <span className="tag tag--hot">{t(DEFAULT_LOCALE, 'home.featured.tag')}</span>
+    <section className="marquesina" aria-labelledby="hero-title">
+      <span className="marquesina__campo" aria-hidden="true" />
+      <span className="marquesina__capa" aria-hidden="true" />
 
-        <h1 className="hero__title" id="hero-title">
+      {props.refresco === undefined ? null : (
+        <p className="marca-refresco" role="status">
+          {props.refresco}
+        </p>
+      )}
+
+      <div className="marquesina__texto">
+        <p className="etiqueta">{t(DEFAULT_LOCALE, 'home.featured.tag')}</p>
+
+        <h1 className="marquesina__titulo" id="hero-title">
           {props.item.title}
         </h1>
 
-        {meta === '' ? null : <p className="hero__meta">{meta}</p>}
+        {meta === '' ? null : <p className="marquesina__meta">{meta}</p>}
 
         {detail?.synopsis === undefined ? null : (
-          <p className="hero__synopsis">{detail.synopsis}</p>
+          <p className="marquesina__sinopsis">{detail.synopsis}</p>
         )}
 
-        <div className="hero__actions">
+        {props.item.reason === undefined ? null : (
+          <p className="marquesina__motivo">{props.item.reason.text}</p>
+        )}
+
+        <div className="acciones">
           {firstEpisode === undefined ? null : (
             <Link
               to={`/watch/${encodeURIComponent(props.item.ref.providerId)}/${encodeURIComponent(firstEpisode.ref.value)}`}
@@ -90,30 +120,28 @@ export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
         </div>
       </div>
 
-      {/*
-        La pila de portadas: la del título y dos copias giradas detrás. Es del
-        diseño de referencia y se hace con CSS, sin imágenes de más.
-      */}
-      <div className="hero__stack" aria-hidden="true">
-        <span className="hero__back hero__back--left" />
-        <span className="hero__back hero__back--right" />
-        <Link
-          to={`/anime/${encodeURIComponent(props.item.ref.providerId)}/${encodeURIComponent(props.item.ref.value)}`}
-          className="hero__poster"
-        >
+      <Link
+        to={`/anime/${encodeURIComponent(props.item.ref.providerId)}/${encodeURIComponent(props.item.ref.value)}`}
+        className="cartel"
+        title={props.item.title}
+      >
+        <span className="pz__arte" aria-hidden="true">
           <Cover
             providerId={props.item.ref.providerId}
             ref={props.item.ref.value}
-            className="hero__cover"
-          />
-          <span className="poster__caption">
-            <span className="poster__title">{props.item.title}</span>
-            {props.item.reason === undefined ? null : (
-              <span className="poster__meta">{props.item.reason.text}</span>
-            )}
-          </span>
-        </Link>
-      </div>
+            className="pz__campo"
+          >
+            <span className="pz__letra" aria-hidden="true">
+              {props.item.title.slice(0, 1)}
+            </span>
+          </Cover>
+          <span className="pz__velo" />
+        </span>
+
+        <span className="cartel__pie">{pieDelCartel(props.item)}</span>
+      </Link>
+
+      {props.tendencias === undefined ? null : <Ticker items={props.tendencias} />}
     </section>
   )
 }

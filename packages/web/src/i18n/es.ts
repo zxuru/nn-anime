@@ -72,6 +72,18 @@ export const messages: Messages = {
 
   'home.title': 'Inicio',
 
+  // El tipo de contenido: la mitad de la aplicación que se está mirando. El
+  // vocabulario del contrato es `anime` / `movies` / `both`, y `movies` es «lo que
+  // no es anime» —películas, series y doramas—, que es la partición que hacen las
+  // fuentes: la etiqueta dice «Películas» porque es lo que el usuario busca.
+  'media.anime': 'Anime',
+  'media.movies': 'Películas',
+  'media.both': 'Anime y películas',
+  'media.switch': 'Tipo de contenido',
+  'media.empty.movies': 'Ningún proveedor instalado sirve películas todavía.',
+  'media.empty.anime': 'Ningún proveedor instalado sirve anime todavía.',
+  'media.empty.hint': 'Añade uno en Ajustes o cambia de pestaña.',
+
   'search.title': 'Buscar',
   'search.field': 'Buscar por título',
   'search.placeholder': 'Escribe un título…',
@@ -96,7 +108,7 @@ export const messages: Messages = {
   'home.ticker': 'Lo más visto ahora',
   'home.featured.tag': 'Destacado',
   'home.featured.play': 'Reproducir el episodio {number}',
-  'home.top': 'Top de la fuente',
+  'home.top': 'Top',
   'home.top.meta': 'El orden de la fuente',
   'home.top.more': 'Mostrar más',
   'home.top.empty': 'Ningún proveedor activo publica un top.',
@@ -107,7 +119,20 @@ export const messages: Messages = {
   'home.genres': 'Explorar por género',
   'home.genres.meta': 'Del catálogo que tienes',
   'home.genres.empty': 'Todavía no hay géneros: aparecen cuando se cachean títulos.',
-  'home.explain': '¿Por qué estas recomendaciones?',
+  'home.recommended': 'Recomendado para ti',
+  'home.recommended.meta': 'Lo que el motor cree que va contigo',
+  // Los tres renglones de la nota de un tramo: el titular, la etiqueta y la cuenta.
+  'home.count': '{count} títulos',
+  'home.countOne': '1 título',
+  'home.countMore': '{count} títulos · y {more} más',
+  'home.genres.count': '{count} géneros',
+  'home.genres.countOne': '1 género',
+  // La pieza: el mando que abre su panel y lo que ofrece el asomo.
+  'home.pieza.abrir': 'Ver más de {title}',
+  'home.pieza.ficha': 'Ver ficha',
+  'home.pieza.reproducir': 'Reproducir',
+  'home.panel.cerrar': 'Cerrar',
+  'home.panel.asa': 'Cerrar el panel',
   'home.continue': 'Continuar viendo',
   'home.continue.empty': 'Nada a medias. Lo que empieces aparecerá aquí.',
   'home.favorites': 'Tus favoritos',
@@ -167,6 +192,8 @@ export const messages: Messages = {
   'settings.register.capabilities': 'Qué sabe hacer',
   'settings.register.cap.sub': 'Subtitulado',
   'settings.register.cap.dub': 'Doblado',
+  'settings.register.media': 'Qué sirve',
+  'settings.register.mediaHint': 'en qué pestaña aparece: anime, películas o las dos',
   'settings.register.advanced': 'Dónde está cada dato (avanzado)',
   'settings.register.advancedHint':
     'Rutas con puntos dentro del JSON de la respuesta. Se dejan como están si el sitio usa los nombres habituales.',
@@ -380,6 +407,15 @@ export const messages: Messages = {
   'detail.sources': 'También en',
   'detail.sourcesItem': '{title} en {provider}',
   'detail.noEpisodes': 'Este título no tiene episodios todavía.',
+  // Una película no tiene capítulos: su bloque se titula por lo que es —no
+  // «Episodios»— y ofrece verla en vez de numerar un «Episodio 1» que nadie puede
+  // elegir. Los textos de carga y error van aparte por lo mismo: decir que se
+  // están cargando episodios es anunciar algo que no existe.
+  'detail.movie': 'Película',
+  'detail.movie.watch': 'Ver película',
+  'detail.movie.loading': 'Cargando la película…',
+  'detail.movie.error': 'No se pudo cargar la película.',
+  'detail.movie.missing': 'Esta película no tiene nada que reproducir todavía.',
   'detail.favorite.add': 'Añadir a favoritos',
   'detail.favorite.remove': 'Quitar de favoritos',
   'detail.loading': 'Cargando la ficha…',

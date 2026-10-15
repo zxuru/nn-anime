@@ -87,7 +87,7 @@ Un proveedor es un objeto con:
 | `id` | Identificador corto, en minúsculas y con guiones. Es el que aparece en las rutas |
 | `name` | Nombre visible |
 | `apiVersion` | Versión del contrato. Hoy `1` |
-| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending`, `feed`, `episodePages` |
+| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending`, `feed`, `episodePages` —y, con `media`, qué sirve: `anime`, `movies` o `both` |
 | `search(query, options)` | Busca títulos |
 | `getAnime(ref, options)` | Detalle de un título |
 | `getEpisodes(ref, options)` | Lista de episodios |
@@ -100,6 +100,14 @@ Un proveedor es un objeto con:
 
 Los tres últimos van juntos y con `capabilities.episodePages: true`: declarar la capacidad sin los
 métodos, o tener los métodos sin declararla, se rechaza al cargar el plugin nombrando lo que falta.
+
+`capabilities.media` dice **qué sirve** el plugin, que es otra cosa que lo que sabe hacer: la interfaz
+divide la home y la búsqueda con un conmutador entre anime y películas, y cada título cae en una mitad
+según lo que declare su fuente. Vale `'anime'`, `'movies'` —películas, series y doramas: lo que no es
+anime va por el mismo camino— o `'both'`. **No declararlo es `'anime'`**: es lo que eran todos los
+plugins antes de que el campo existiera, así que no hay nada que cambiar para seguir funcionando. Un
+plugin de las dos cosas declara `'both'` y reparte por el `kind` de cada título (`'movie'` para las
+películas, lo demás del lado del anime), que es un dato que sus resultados ya pueden traer.
 
 Todos los métodos devuelven `Promise<Result<T, ProviderError>>` o lanzan: el SDK convierte lo que se
 lance en un `Result` fallido, así que **no hace falta envolver nada a mano**.

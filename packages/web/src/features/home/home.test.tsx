@@ -12,7 +12,14 @@ import { featuredOf, HomePage, marcaDeRefresco, minutosDesde, textoDeRefresco } 
 import { RecentRow } from './RecentRow'
 import { continuePath, progressPercent, resumeLabel } from './rows'
 import { TopRow } from './TopRow'
-import { combineRows, debeReleer, mergeRows, REFRESCO_MS, type RowResults } from './useHomeRows'
+import {
+  combineRows,
+  debeReleer,
+  mergeRows,
+  REFRESCO_MS,
+  type RowResults,
+  rutasDeTipo,
+} from './useHomeRows'
 
 function render(node: ReactNode): string {
   return renderToString(
@@ -249,9 +256,13 @@ describe('la home', () => {
     // porque el esqueleto es decoración y no dice qué está pasando.
     expect(html).toContain('Cargando tu inicio')
     expect(html).toContain('aria-busy="true"')
-    expect(html).toContain('home__esqueletos')
+    expect(html).toContain('class="esqueleto"')
     expect(html).toContain('solo-lectores')
-    expect(html).toContain('class="skeleton"')
+    // Y el esqueleto tiene la métrica del mosaico: las celdas son grandes,
+    // anchas y celdas sueltas, como las piezas que van a llegar.
+    expect(html).toContain('esq esq--b')
+    expect(html).toContain('esq esq--w')
+    expect(html).toContain('esq esq--s')
   })
 
   test('el panel de recomendaciones es una fila más', () => {
@@ -273,9 +284,84 @@ describe('la home', () => {
     const seguir = html.indexOf('Continuar viendo')
 
     expect(seguir).toBeGreaterThan(-1)
-    for (const despues of ['Top de la fuente', 'Novedades', 'Último añadido', 'Tus favoritos']) {
+    for (const despues of ['Top', 'Novedades', 'Último añadido', 'Tus favoritos']) {
       expect(seguir, despues).toBeLessThan(html.indexOf(despues))
     }
+  })
+
+  /**
+   * La franja que explicaba el motor se retiró de la home.
+   *
+   * Ocupaba el ancho del tramo para decir lo que ya dicen la nota —«Lo que el motor
+   * cree que va contigo»— y cada pieza, con su puntuación a la vista. Se mide para
+   * que no vuelva por su cuenta con el panel del motor colgando de la composición.
+   *
+   * Se nombran las clases de la franja (`franja`, `franja__*`) y no la palabra: el
+   * conmutador de tipo vive en una `.franja-tipo`, y una comprobación por el
+   * substring «franja» daba la franja del motor por retirada estando delante.
+   */
+  test('la franja de motivos ya no está', () => {
+    const html = render(<HomePage />)
+
+    expect(html).not.toContain('Lo que el motor ha elegido')
+    expect(html).not.toContain('¿Por qué estas recomendaciones?')
+    expect(html).not.toContain('class="franja"')
+    expect(html).not.toContain('franja__')
+  })
+})
+
+/**
+ * La mitad que se está mirando.
+ *
+ * El tipo vive en la dirección y las filas que salen de las fuentes se piden ya
+ * filtradas, así que aquí se mide lo que se puede ver en un `renderToString`: que
+ * el conmutador sale en la home y en la búsqueda, y que las tres direcciones que sí
+ * llevan el tipo lo llevan. La petición en sí no corre —no hay efectos en
+ * servidor—, y por eso `rutasDeTipo` se prueba aparte.
+ */
+describe('el tipo de la home', () => {
+  function renderEn(path: string): string {
+    return renderToString(
+      <HistoryProvider history={createMemoryHistory(path)}>
+        <HomePage />
+      </HistoryProvider>,
+    )
+  }
+
+  test('el conmutador sale en la home, con la mitad de la dirección marcada', () => {
+    expect(renderEn('/')).toContain('aria-label="Tipo de contenido"')
+
+    const enPeliculas = renderEn('/?tipo=movies')
+    expect(enPeliculas).toContain('aria-current="page"')
+    expect(enPeliculas.indexOf('aria-current="page"')).toBeLessThan(
+      enPeliculas.indexOf('Películas</a>'),
+    )
+  })
+
+  /**
+   * Sin los proveedores leídos no se avisa de nada.
+   *
+   * En este render no hay efectos, así que la lista de proveedores está vacía: es
+   * exactamente el estado de los primeros milisegundos de la aplicación —y el que
+   * queda si esa lectura falla—. Decir ahí «ningún proveedor sirve películas» sería
+   * afirmar algo que no se sabe, en el arranque de todas las pantallas.
+   */
+  test('con los proveedores sin leer no dice que no haya fuente', () => {
+    expect(renderEn('/')).not.toContain('Ningún proveedor instalado sirve')
+    expect(renderEn('/?tipo=movies')).not.toContain('Ningún proveedor instalado sirve')
+  })
+
+  test('las tres filas que mezclan fuentes piden su mitad al servidor', () => {
+    expect(rutasDeTipo('anime')).toEqual({
+      trending: '/api/trending?media=anime',
+      feed: '/api/feed?media=anime',
+      recent: '/api/catalog/recent?media=anime',
+    })
+    expect(rutasDeTipo('movies')).toEqual({
+      trending: '/api/trending?media=movies',
+      feed: '/api/feed?media=movies',
+      recent: '/api/catalog/recent?media=movies',
+    })
   })
 })
 

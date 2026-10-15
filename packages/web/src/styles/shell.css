@@ -78,6 +78,71 @@
   padding: var(--space-7) var(--space-6);
 }
 
+/*
+ * La franja del conmutador de tipo.
+ *
+ * Va **fuera de la composición diseñada** —encima de la marquesina, con el aire de
+ * la vitrina— porque el mando mide lo que el resto de mandos de la interfaz y en la
+ * cabecera no cabe sin apretarla. Alineado al final: el titular de la pantalla es
+ * lo primero que se lee y el mando no compite con él.
+ */
+.franja-tipo {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-4) var(--vitrina-margen) 0;
+}
+
+.conmutador {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-width-strong) solid var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.conmutador__opcion {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-size);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full);
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  text-decoration: none;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.conmutador__opcion:hover {
+  color: var(--color-text);
+}
+
+/*
+ * La mitad que se está mirando, marcada por `aria-current`: el color la distingue
+ * a la vista y el atributo se lo dice a quien no ve la pantalla, que es la mitad
+ * que un fondo de acento no cuenta.
+ */
+.conmutador__opcion[aria-current="page"] {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+/* El aviso de que ninguna fuente sirve esta mitad: la pantalla vacía, explicada. */
+.aviso-tipo {
+  margin: 0 var(--space-6) var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width-strong) solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-size: var(--text-md);
+}
+
 .shell__main h1 {
   font-family: var(--font-display);
   font-size: var(--text-3xl);
@@ -136,59 +201,27 @@
 .card:hover,
 .card:focus-visible {
   border-color: var(--color-accent);
-  box-shadow: none;
-  transform: translate(var(--shadow-offset-hover), var(--shadow-offset-hover));
-}
-
-.card__cover {
-  display: block;
-  width: 100%;
-  aspect-ratio: var(--cover-ratio);
   background: var(--color-surface-raised);
-  object-fit: cover;
 }
 
 /*
- * Las portadas de relleno.
+ * La portada de una tarjeta.
  *
- * Todo hueco de portada lleva uno de los seis degradados del diseño, repartidos
- * por posición: el hueco de una tarjeta sin portada, y también el fondo de la
- * imagen, que es lo que se ve cuando la portada no carga. Sin eso, un título sin
- * portada —o con una que falla, que es lo normal sin red— deja un rectángulo gris
- * con el icono de imagen rota.
+ * El hueco lleva el campo de degradado que le toca por posición —`--campo`, que
+ * reparte el bloque de las marcas de arte—: se ve mientras la portada carga, y se
+ * queda si la portada no llega, que sin red es lo normal. Sin él, un título sin
+ * portada deja un rectángulo gris liso.
  *
- * Se hace con `nth-child` y no con JavaScript porque es una decisión de pintura:
- * el componente no tiene por qué saber qué color le toca.
+ * El pie de la imagen no lleva la tipografía del título: `padding` y
+ * `-webkit-line-clamp` aquí recortaban la portada, no el texto que va debajo.
  */
 .card__cover,
-.card__cover--vacia,
-.poster__cover {
-  background: var(--cover-a);
-}
-
-.row__list > li:nth-child(6n + 2) .card__cover,
-.row__list > li:nth-child(6n + 2) .poster__cover {
-  background: var(--cover-b);
-}
-
-.row__list > li:nth-child(6n + 3) .card__cover,
-.row__list > li:nth-child(6n + 3) .poster__cover {
-  background: var(--cover-c);
-}
-
-.row__list > li:nth-child(6n + 4) .card__cover,
-.row__list > li:nth-child(6n + 4) .poster__cover {
-  background: var(--cover-d);
-}
-
-.row__list > li:nth-child(6n + 5) .card__cover,
-.row__list > li:nth-child(6n + 5) .poster__cover {
-  background: var(--cover-e);
-}
-
-.row__list > li:nth-child(6n + 6) .card__cover,
-.row__list > li:nth-child(6n + 6) .poster__cover {
-  background: var(--cover-f);
+.card__cover--vacia {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--cover-ratio);
+  object-fit: cover;
+  background: var(--campo, var(--cover-a));
 }
 
 .card__title {
@@ -613,8 +646,6 @@
 .button[aria-pressed="true"]:hover,
 .button--primary:hover:not(:disabled) {
   background: var(--color-accent-strong);
-  box-shadow: none;
-  transform: translate(var(--shadow-offset-hover), var(--shadow-offset-hover));
 }
 
 .button:disabled {
@@ -690,7 +721,7 @@
   aspect-ratio: var(--cover-ratio);
   flex: none;
   object-fit: cover;
-  background: var(--cover-a);
+  background: var(--campo, var(--cover-a));
 }
 
 /*
@@ -832,8 +863,7 @@
 .episode:hover,
 .episode:focus-visible {
   border-color: var(--color-accent);
-  box-shadow: none;
-  transform: translate(var(--shadow-offset-hover), var(--shadow-offset-hover));
+  background: var(--color-surface-raised);
 }
 
 .episode__number {
@@ -2016,8 +2046,7 @@
 .watch__nav-link:hover,
 .watch__nav-link:focus-visible {
   border-color: var(--color-accent);
-  box-shadow: none;
-  transform: translate(var(--shadow-offset-hover), var(--shadow-offset-hover));
+  background: var(--color-surface-raised);
 }
 
 /* El episodio que no existe.
@@ -2275,19 +2304,6 @@
   font-size: var(--text-sm);
 }
 
-/*
- * Las filas de la home.
- *
- * Cada fila lleva su titular grande y su rejilla. El titular va en la fuente de
- * display, en mayúsculas y apretado, como los del diseño de referencia.
- */
-.row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.row h2,
 .panel h2 {
   font-family: var(--font-display);
   font-size: var(--text-xl);
@@ -2295,43 +2311,6 @@
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
   margin: 0;
-}
-
-.row__list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--cover-width), 1fr));
-  gap: var(--space-5);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/*
- * La barra de progreso de «continuar viendo».
- *
- * Es un `<progress>` de verdad y se pinta como la barra del diseño: seis píxeles
- * en el color del acento. El fondo lo da cada motor por su cuenta, así que hay
- * que decirlo en los dos.
- */
-.row__progress {
-  display: block;
-  width: 100%;
-  height: var(--space-2);
-  appearance: none;
-  border: none;
-  background: var(--color-bg);
-}
-
-.row__progress::-webkit-progress-bar {
-  background: var(--color-bg);
-}
-
-.row__progress::-webkit-progress-value {
-  background: var(--color-accent);
-}
-
-.row__progress::-moz-progress-bar {
-  background: var(--color-accent);
 }
 
 /*
@@ -2347,24 +2326,6 @@
 :focus-visible {
   outline: var(--focus-ring-width) solid var(--color-accent);
   outline-offset: var(--focus-ring-offset);
-}
-
-/*
- * La cinta de arriba.
- *
- * Barra llena del color del acento, con el texto oscuro encima y las etiquetas
- * en monoespaciada: es lo primero que se ve y lo que dice que la página está
- * viva. Se corta sola si hay más títulos de los que caben.
- */
-.ticker {
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-highlight);
-  color: var(--color-accent-contrast);
-  overflow: hidden;
-  white-space: nowrap;
 }
 
 .ticker__label {
@@ -2390,218 +2351,11 @@
   border-bottom-color: var(--color-accent-contrast);
 }
 
-/*
- * El cartel de destacado.
- *
- * Dos columnas: el texto a la izquierda y la pila de portadas a la derecha. La
- * pila son tres elementos —dos copias giradas detrás y la portada delante— y el
- * giro lo hace el CSS, sin imágenes de más.
- */
-.hero {
-  display: grid;
-  grid-template-columns: 1fr minmax(var(--cover-width), var(--hero-poster-width));
-  gap: var(--space-7);
-  align-items: center;
-  padding: var(--space-6) 0 var(--space-7);
-}
-
-.hero__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  align-items: flex-start;
-}
-
-.hero__title {
-  font-family: var(--font-display);
-  font-size: var(--text-3xl);
-  font-weight: 800;
-  line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
-  margin: 0;
-}
-
-.hero__meta {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
-  color: var(--color-text-dim);
-  margin: 0;
-}
-
-.hero__synopsis {
-  max-width: var(--measure);
-  color: var(--color-text-dim);
-  margin: 0;
-}
-
-.hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
-}
-
-.hero__stack {
-  position: relative;
-  aspect-ratio: var(--cover-ratio);
-}
-
-.hero__back {
-  position: absolute;
-  inset: 0;
-  border: var(--border-width-strong) solid var(--color-border);
-  background: var(--cover-b);
-}
-
-.hero__back--left {
-  transform: rotate(-8deg) translate(-8%, 4%);
-  background: var(--cover-e);
-}
-
-.hero__back--right {
-  transform: rotate(7deg) translate(8%, 2%);
-  background: var(--cover-c);
-}
-
-.hero__poster {
-  position: relative;
-  /* Dos filas: la portada se queda con lo que sobra y el pie con lo suyo. Con
-     `flex` y una portada con proporción propia, el pie se salía de la pila. */
-  display: grid;
-  grid-template-rows: 1fr auto;
-  height: 100%;
-  overflow: hidden;
-  border: var(--border-width-strong) solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
-  text-decoration: none;
-  box-shadow: var(--shadow-hard-accent);
-}
-
-.hero__cover {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  object-fit: cover;
-  background: var(--cover-a);
-}
-
-/*
- * La tarjeta de una fila.
- *
- * Portada con marco y franja de pie: el título arriba y el dato abajo, separados
- * del marco por un trazo grueso. El número del top va detrás del texto, enorme y
- * sin relleno, como en el diseño.
- */
-.poster {
-  position: relative;
-  height: 100%;
-}
-
-.poster__number {
-  position: absolute;
-  /* Un poco fuera de la tarjeta, como en el diseño: el número se apoya en el
-     borde izquierdo y en el borde del pie. */
-  left: calc(-1 * var(--space-3));
-  /* El pie, no su texto: con el número metido hasta la franja —`--space-5`— la
-     tinta del dígito llegaba al título y lo tapaba. Aquí se queda dentro de la
-     portada y roza la franja sin cruzar el título, que empieza en el relleno. */
-  bottom: calc(-1 * var(--space-2));
-  z-index: 1;
-  font-family: var(--font-display);
-  font-size: var(--text-number);
-  font-weight: 800;
-  line-height: 1;
-  color: transparent;
-  -webkit-text-stroke: var(--number-stroke) var(--color-border);
-  pointer-events: none;
-}
-
-.poster__link {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  border: var(--border-width-strong) solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
-  text-decoration: none;
-  box-shadow: var(--shadow-hard-sm);
-  transition:
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.poster__link:hover,
-.poster__link:focus-visible {
-  border-color: var(--color-accent);
-  box-shadow: none;
-  transform: translate(var(--shadow-offset-hover), var(--shadow-offset-hover));
-}
-
-.poster__frame {
-  position: relative;
-  display: block;
-}
-
 .poster__cover {
   display: block;
   width: 100%;
   aspect-ratio: var(--cover-ratio);
   object-fit: cover;
-}
-
-.poster__caption {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3);
-  border-top: var(--border-width-strong) solid var(--color-border);
-  margin-top: auto;
-}
-
-/* El título del pie es pequeño y en la fuente de texto, no en la de titulares:
-   en el diseño el protagonista de la tarjeta es la portada, no el nombre. */
-.poster__title {
-  font-size: var(--text-sm);
-  font-weight: 700;
-  line-height: var(--leading-tight);
-}
-
-.poster__meta {
-  color: var(--color-text-dim);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: var(--title-clamp);
-  overflow: hidden;
-}
-
-.poster__progress {
-  display: block;
-  width: 100%;
-  height: var(--space-2);
-  appearance: none;
-  border: none;
-  background: var(--color-bg);
-}
-
-.poster__progress::-webkit-progress-bar {
-  background: var(--color-bg);
-}
-
-.poster__progress::-webkit-progress-value {
-  background: var(--color-accent);
-}
-
-.poster__progress::-moz-progress-bar {
-  background: var(--color-accent);
 }
 
 /* La etiqueta de la esquina, como el «SUB» o el «HOY» del diseño. */
@@ -2628,36 +2382,6 @@
   color: var(--color-accent-contrast);
 }
 
-/*
- * El titular de una fila.
- *
- * El título a la izquierda y la etiqueta a la derecha, con la misma línea de
- * separación que usa el panel.
- */
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.section__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
-  border-bottom: var(--border-width-strong) solid var(--color-border);
-  padding-bottom: var(--space-3);
-}
-
-.section__title {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 800;
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
-  margin: 0;
-}
-
 .section__meta {
   color: var(--color-text-dim);
   font-family: var(--font-mono);
@@ -2665,35 +2389,6 @@
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   margin: 0;
-}
-
-/*
- * Los géneros, en grande.
- *
- * Enlaces del tamaño de un titular, en la fuente de display y sin subrayado: la
- * lista se lee como un índice y cada palabra lleva a su búsqueda.
- */
-.genres {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-6);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.genres__item {
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: 800;
-  letter-spacing: var(--tracking-display);
-  color: var(--color-text-dim);
-  text-decoration: none;
-}
-
-.genres__item:hover,
-.genres__item:focus-visible {
-  color: var(--color-accent);
 }
 
 /* El desplegable del detalle del motor. */
@@ -2704,26 +2399,6 @@
 
 .panel__details summary {
   cursor: pointer;
-}
-
-/*
- * El top de la fuente.
- *
- * Los números van fuera de la tarjeta, así que la fila necesita aire a la
- * izquierda para que el «1» no se salga del contenedor.
- */
-.section--top .row__list {
-  padding-left: var(--space-4);
-}
-
-/*
- * «Mostrar más» del top.
- *
- * Va debajo de la rejilla y con el aire de un pie: pegado a las portadas se lee
- * como parte de la última tarjeta y no como lo que es, el resto de la lista.
- */
-.top__more {
-  margin-top: var(--space-5);
 }
 
 /*
@@ -2972,5 +2647,1241 @@
 
   .audio-switch__option {
     width: 100%;
+  }
+}
+
+/* =====================================================================
+   La vitrina (v2): la composición de la pantalla de inicio
+   =====================================================================
+   El artefacto manda: la marquesina va a sangre con el titular en cuerpo de
+   cartel y el cartel 2:3 algo girado; debajo, el mosaico modular de 6 columnas
+   —piezas de 1x1, 2x1, 2x2 y 3x2 repartidas por peso— con la nota de cada tramo
+   pegajosa en la canaleta izquierda de la rejilla de 12; la cinta corre pegada
+   al borde inferior de la marquesina y el mosaico cierra con la banda de
+   géneros.
+
+   El puntero no mueve la vitrina: ninguna regla de esta sección cambia
+   geometría en `:hover`. La pieza se enciende —borde, campo, asomo— y nada más.
+   ===================================================================== */
+
+.home {
+  padding-block-end: var(--space-8);
+}
+
+/* La caja de la pantalla de inicio: a sangre.
+   `.shell__main` tiene tope de ancho y relleno porque todas las demás pantallas
+   son una columna de lectura; la vitrina no: su marquesina cruza la pantalla y su
+   mosaico reparte seis columnas, así que la caja la dejaría en el centro sin
+   llegar nunca a los puntos de corte que la recomponen. */
+.shell__main--ancha {
+  max-inline-size: none;
+  padding: 0;
+}
+
+/* --- 3. Marcas de arte: el recurso propio de cada pieza -----------------
+   El campo dice la posición; el recurso dice qué pieza es. Se dibujan con
+   pseudo-elementos **dentro del campo**, así que si la portada llega, el
+   navegador los aparta con el campo. Todos recortados por el borde: el marco
+   corta, y por eso los tamaños van en `cqi` —unidades del propio campo—. */
+
+/* El reparto de los seis campos por posición.
+ *
+ * Seis degradados para seis posiciones seguidas, así que dos piezas contiguas
+ * nunca repiten campo. Cuelga del contenedor —el mosaico de la vitrina, la
+ * rejilla de Buscar, la lista de relacionados— y no del componente: qué color le
+ * toca a una pieza es una decisión de pintura, y el que pinta no tiene por qué
+ * saberla. El campo se pinta en `.pz__arte` y en `.card__cover`, que lo leen de
+ * aquí por herencia.
+ *
+ * Estuvo y se perdió al retirar los bloques de la home vieja —el reparto colgaba
+ * de `.row__list`, que ya no existe—: sin él, todo hueco sin portada salía del
+ * mismo gris. */
+.mosaico > .pz:nth-child(6n + 1),
+.grid__item:nth-child(6n + 1),
+.related > .related__item:nth-child(6n + 1) {
+  --campo: var(--cover-a);
+}
+
+.mosaico > .pz:nth-child(6n + 2),
+.grid__item:nth-child(6n + 2),
+.related > .related__item:nth-child(6n + 2) {
+  --campo: var(--cover-b);
+}
+
+.mosaico > .pz:nth-child(6n + 3),
+.grid__item:nth-child(6n + 3),
+.related > .related__item:nth-child(6n + 3) {
+  --campo: var(--cover-c);
+}
+
+.mosaico > .pz:nth-child(6n + 4),
+.grid__item:nth-child(6n + 4),
+.related > .related__item:nth-child(6n + 4) {
+  --campo: var(--cover-d);
+}
+
+.mosaico > .pz:nth-child(6n + 5),
+.grid__item:nth-child(6n + 5),
+.related > .related__item:nth-child(6n + 5) {
+  --campo: var(--cover-e);
+}
+
+.mosaico > .pz:nth-child(6n + 6),
+.grid__item:nth-child(6n + 6),
+.related > .related__item:nth-child(6n + 6) {
+  --campo: var(--cover-f);
+}
+
+/* Inicial a cuerpo enorme, recortada por el borde de la pieza. */
+.pz__letra {
+  position: absolute;
+  inset-block-start: var(--arte-letra-alto);
+  inset-inline-start: var(--arte-letra-lado);
+  font-family: var(--font-display);
+  font-size: 132cqi;
+  font-weight: 600;
+  line-height: 0.72;
+  font-variation-settings:
+    "opsz" 144,
+    "SOFT" 40;
+  color: var(--arte-letra);
+}
+
+/* Cifra del año en voladizo: se sale de la pieza y el borde la corta. */
+.pz__cifra {
+  position: absolute;
+  inset-block-start: var(--arte-cifra-alto);
+  inset-inline-end: var(--arte-cifra-lado);
+  font-family: var(--font-display);
+  font-size: 48cqi;
+  font-weight: 300;
+  line-height: 0.78;
+  letter-spacing: var(--arte-cifra-letra);
+  color: var(--arte-cifra);
+}
+
+/* Trama de líneas paralelas. */
+.pz__campo--trama::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    118deg,
+    transparent 0 1.5cqi,
+    var(--arte-trama) 1.5cqi 2cqi
+  );
+}
+
+/* Mitad partida: dos tonos con corte seco. */
+.pz__campo--mitad::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: 50%;
+  background: var(--arte-mitad);
+  border-inline-end: var(--arte-corte-grosor) solid var(--arte-corte);
+}
+
+/* Círculo recortado. */
+.pz__campo--circulo::after {
+  content: "";
+  position: absolute;
+  inline-size: 76cqi;
+  aspect-ratio: 1;
+  border-radius: var(--radius-full);
+  inset-block-start: -22cqi;
+  inset-inline-end: -24cqi;
+  background: var(--arte-circulo);
+  box-shadow: var(--arte-circulo-borde);
+}
+
+/* Caja de tercio. */
+.pz__campo--caja::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: 34%;
+  background: var(--arte-corte);
+  border-inline-start: var(--border-width) solid var(--arte-division);
+}
+
+/* El aviso de un fallo, dentro de la vitrina: el canal de la página, como las
+   secciones, que la caja a sangre no le deja ninguno. */
+.home .fallo {
+  margin-inline: var(--vitrina-margen);
+  margin-block-start: var(--seccion-aire);
+}
+
+/* --- 5. Marquesina ----------------------------------------------------- */
+.marquesina {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--marquesina-cols);
+  align-items: center;
+  gap: var(--marquesina-aire);
+  min-block-size: var(--marquesina-alto);
+  padding: var(--marquesina-relleno);
+  overflow: clip;
+}
+
+.marquesina__campo {
+  position: absolute;
+  inset: 0;
+  background-image: var(--cover-a);
+  background-size: cover;
+}
+
+.marquesina__capa {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--velo-campo);
+  pointer-events: none;
+}
+
+.marquesina__texto {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: var(--marquesina-texto-hueco);
+}
+
+.etiqueta {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-on-overlay);
+}
+
+/* Dos clases a propósito: `.shell__main h1` —la regla de las pantallas de
+   lectura— le pone versalitas, 3,5 rem y un margen de bloque, y pesa lo mismo que
+   un solo nombre de clase. El titular de la vitrina es el suyo: mayúsculas y
+   minúsculas como está escrito, cuerpo de cartel y sin margen. */
+.marquesina .marquesina__titulo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--marquesina-titulo);
+  font-weight: 600;
+  font-variation-settings: "opsz" 144;
+  line-height: 0.92;
+  letter-spacing: var(--tracking-display);
+  text-transform: none;
+  color: var(--color-on-overlay);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.marquesina__meta {
+  color: var(--arte-resto);
+  font-size: var(--marquesina-meta);
+}
+
+.marquesina__sinopsis {
+  max-inline-size: var(--marquesina-sinopsis);
+  color: var(--arte-sinopsis);
+  font-size: var(--marquesina-sinopsis-cuerpo);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.marquesina__motivo {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--arte-motivo);
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* El cartel: la portada dibujada, con marco propio y algo girada. */
+.cartel {
+  position: relative;
+  z-index: 2;
+  justify-self: end;
+  align-self: center;
+  inline-size: var(--cartel-ancho);
+  aspect-ratio: 2 / 3;
+  max-block-size: var(--cartel-alto);
+  rotate: var(--cartel-giro);
+  border: var(--border-width) solid var(--arte-borde-fuerte);
+  border-radius: var(--radius-md);
+  overflow: clip;
+  container-type: inline-size;
+  box-shadow: var(--cartel-marco);
+}
+
+/* El campo del cartel y el de la carátula: el mismo reparto por posición que las
+   piezas, fijado a mano porque son campos sueltos y no celdas de un mosaico. */
+.cartel .pz__arte {
+  --campo: var(--cover-c);
+}
+
+/* El cartel y la carátula son campos grandes: el recurso se mide con su
+   contenedor, no con una pieza pequeña, o la letra se come el marco. */
+.cartel .pz__letra {
+  font-size: 104cqi;
+}
+
+.cartel__pie {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline: 0;
+  z-index: 2;
+  padding: var(--cartel-pie-relleno);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-on-overlay);
+  background: var(--velo-art);
+}
+
+/* Marca de refresco y cinta, pegadas al borde inferior de la marquesina. */
+.cinta {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--cinta-hueco);
+  block-size: var(--cinta-alto);
+  padding-inline: var(--vitrina-margen);
+  background: var(--color-bg);
+  border-block-start: var(--border-width) solid var(--color-rule);
+  overflow: clip;
+}
+
+.cinta__rotulo {
+  flex: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.cinta__pista {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: clip;
+}
+
+.cinta__carro {
+  display: flex;
+  align-items: center;
+  gap: var(--cinta-item-hueco);
+  inline-size: max-content;
+  animation: cinta var(--cinta-vuelta) linear infinite;
+}
+
+.cinta__item {
+  font-family: var(--font-display);
+  text-decoration: none;
+  font-size: var(--cinta-item);
+  white-space: nowrap;
+  color: var(--color-text);
+}
+
+.cinta__punto {
+  flex: none;
+  inline-size: var(--cinta-punto);
+  block-size: var(--cinta-punto);
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+}
+
+.cinta:hover .cinta__carro,
+.cinta:focus-within .cinta__carro {
+  animation-play-state: paused;
+}
+
+@keyframes cinta {
+  from {
+    translate: 0 0;
+  }
+
+  to {
+    translate: -50% 0;
+  }
+}
+
+.marca-refresco {
+  position: absolute;
+  inset-block-start: clamp(var(--space-3), 2vw, var(--space-5));
+  inset-inline-end: var(--vitrina-margen);
+  z-index: 3;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--arte-refresco);
+}
+
+/* Sin destacado no hay campo detrás: la marca se lee sobre el fondo. */
+.marquesina--suelta .marca-refresco {
+  color: var(--color-text-dim);
+}
+
+/* El esqueleto de la primera carga: la métrica exacta del mosaico, así que cuando
+   llega el catálogo nada salta de sitio. Gris plano, sin latido. */
+.esqueleto {
+  padding-inline: var(--vitrina-margen);
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-auto-rows: var(--vitrina-fila);
+  gap: var(--vitrina-hueco);
+}
+
+.esq {
+  border: var(--border-width) solid var(--color-rule);
+  border-radius: var(--radius-md);
+  background: var(--color-skeleton);
+}
+
+.esq--b {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.esq--w {
+  grid-column: span 2;
+}
+
+/* --- 6. Sección, nota al margen y mosaico ------------------------------ */
+.seccion {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--vitrina-hueco);
+  padding-inline: var(--vitrina-margen);
+  margin-block-start: var(--seccion-aire);
+}
+
+.seccion__nota {
+  grid-column: 1 / span var(--vitrina-canaleta);
+  align-self: start;
+  position: sticky;
+  inset-block-start: calc(var(--header-height) + var(--vitrina-nota-aire));
+  display: grid;
+  gap: var(--nota-hueco);
+}
+
+.seccion__cuerpo {
+  grid-column: calc(var(--vitrina-canaleta) + 1) / 13;
+  min-inline-size: 0;
+  container-type: inline-size;
+}
+
+.nota__titulo {
+  font-family: var(--font-display);
+  font-size: var(--nota-titulo);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
+  text-wrap: balance;
+}
+
+.nota__meta {
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+}
+
+.nota__cuenta {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+.mosaico {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-auto-rows: var(--vitrina-fila);
+  gap: var(--vitrina-hueco);
+}
+
+/* Piezas. El tamaño dice el peso; el arte recortado es parte del dibujo. */
+.pz {
+  --cs: 1;
+  --rs: 1;
+  position: relative;
+  grid-column: span var(--cs);
+  grid-row: span var(--rs);
+  overflow: clip;
+  container-type: inline-size;
+  border: var(--border-width) solid var(--color-rule);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-on-overlay);
+  display: grid;
+  align-content: end;
+  text-align: start;
+  transition: border-color var(--transition-fast);
+}
+
+.pz--s {
+  --cs: 1;
+  --rs: 1;
+}
+
+.pz--w {
+  --cs: 2;
+  --rs: 1;
+}
+
+.pz--b {
+  --cs: 2;
+  --rs: 2;
+}
+
+.pz--m {
+  --cs: 3;
+  --rs: 2;
+}
+
+.pz__arte {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: var(--campo);
+  background-size: cover;
+}
+
+.pz__campo {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  background-image: var(--campo);
+  background-size: cover;
+}
+
+.pz__velo {
+  position: absolute;
+  inset: 0;
+  background: var(--velo-art);
+}
+
+/* El enlace es **la pieza entera**, y el arte va dentro.
+ *
+ * Las dos cosas cuelgan de esto. El arte (`.pz__arte`, y la portada dentro) se
+ * coloca contra el ancestro posicionado más cercano, que era el enlace; con el
+ * enlace en el flujo, su alto era el de su texto —el pie— y el arte de una pieza
+ * 2x2 quedaba en una franja de abajo con el resto del hueco en negro: la portada
+ * de una pieza se veía como una tira. Y lo pulsable era esa misma tira: el cuerpo
+ * de la pieza tiene que ser el enlace, no su pie.
+ *
+ * `block-size: 100%` no servía: contra una fila de altura automática, un
+ * porcentaje se resuelve como `auto`. La pieza ya tiene alto —se lo da
+ * `grid-auto-rows` del mosaico—, así que el enlace lo ocupa y no lo propone. */
+.pz__enlace {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: end;
+  color: inherit;
+  text-decoration: none;
+}
+
+.pz__pie {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--pieza-pie-alto) var(--pieza-pie-lado) var(--pieza-pie-lado);
+}
+
+.pz__titulo {
+  font-family: var(--font-display);
+  font-size: var(--pieza-titulo);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--letter-tight);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.pz--b .pz__titulo,
+.pz--m .pz__titulo {
+  font-size: var(--pieza-titulo-alta);
+}
+
+.pz--apagada .pz__titulo {
+  font-size: var(--pieza-titulo-baja);
+}
+
+.pz__meta {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--arte-meta);
+}
+
+/* Posición del top: enorme y recortada por el borde. */
+.pz__posicion {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: var(--arte-posicion-alto);
+  inset-inline-start: var(--arte-posicion-lado);
+  font-family: var(--font-display);
+  font-size: var(--pieza-posicion);
+  font-weight: 300;
+  line-height: 0.8;
+  letter-spacing: var(--arte-posicion-letra);
+  color: var(--color-on-overlay);
+  text-shadow: var(--pieza-sombra-texto);
+}
+
+/* El progreso va incrustado en el campo, no debajo: la pieza que se retoma
+   dice cuánto queda antes de que la mires. */
+.pz__retomar {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: var(--nota-hueco);
+  padding: 0 var(--pieza-pie-lado) var(--pieza-pie-lado);
+}
+
+.pz__linea {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.pz__ep {
+  font-family: var(--font-display);
+  font-size: var(--pieza-episodio);
+  font-weight: 600;
+}
+
+.pz__resto {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--arte-resto);
+}
+
+.pz__barra-control {
+  appearance: none;
+  inline-size: 100%;
+  block-size: var(--pieza-barra-alto);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--pieza-barra-fondo);
+  overflow: clip;
+}
+
+.pz__barra-control::-webkit-progress-bar {
+  background: var(--pieza-barra-fondo);
+  border-radius: var(--radius-full);
+}
+
+.pz__barra-control::-webkit-progress-value {
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+}
+
+.pz__barra-control::-moz-progress-bar {
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+}
+
+/* Puntuación del motor a la vista en la pieza recomendada. */
+.pz__punto {
+  position: relative;
+  z-index: 2;
+  padding: 0 var(--pieza-pie-lado) var(--pieza-pie-lado);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--arte-punto);
+}
+
+/* El botón que abre el asomo. Invisible hasta que hay puntero encima o foco
+   dentro: ocupa su sitio siempre —los 44 px del dedo— pero no ensucia la
+   vitrina. En táctil se ve siempre, porque no hay puntero que lo descubra. */
+.pz__abrir {
+  position: absolute;
+  z-index: 5;
+  inset-block-start: var(--space-2);
+  inset-inline-end: var(--space-2);
+  inline-size: var(--pieza-mando);
+  block-size: var(--pieza-mando);
+  display: grid;
+  place-items: center;
+  border: var(--border-width) solid var(--pieza-mando-borde);
+  border-radius: var(--radius-full);
+  background: var(--pieza-mando-fondo);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+}
+
+/* La «i» se dibuja: el punto y el cuerpo. */
+.pz__abrir::before {
+  content: "";
+  position: absolute;
+  inset-block-start: var(--mando-punto-alto);
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  inline-size: var(--mando-punto-lado);
+  block-size: var(--mando-punto-lado);
+  border-radius: var(--radius-full);
+  background: var(--color-on-overlay);
+}
+
+.pz__abrir::after {
+  content: "";
+  position: absolute;
+  inset-block-start: var(--mando-cuerpo-alto);
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  inline-size: var(--mando-punto-lado);
+  block-size: var(--mando-cuerpo-largo);
+  border-radius: var(--border-width);
+  background: var(--color-on-overlay);
+}
+
+.pz:hover .pz__abrir,
+.pz:focus-within .pz__abrir {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Asomo: aparece dentro de la pieza cuando hay puntero o foco. Es un panel
+   opaco —tono, no velo— con su borde: el texto no depende del arte de debajo. */
+.pz__asomo {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 4;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--pieza-pie-lado);
+  background: var(--color-surface-raised);
+  border-block-start: var(--border-width) solid var(--color-rule);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal) var(--ease-piece);
+}
+
+.pz:hover .pz__asomo,
+.pz:focus-within .pz__asomo {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pz__sinopsis {
+  color: var(--color-text);
+  font-size: var(--pieza-sinopsis);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pz__motivo {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+.pz__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* Favoritos: el mismo arte, apagado. Una banda que ya has visto no puede
+   competir con la que no has empezado, así que se le baja la saturación al
+   campo en vez de cambiarle el dibujo. */
+.pz--apagada .pz__arte,
+.pz--apagada .pz__campo {
+  filter: saturate(0.32) brightness(0.9);
+}
+
+/* La pieza fantasma: el fallo de un proveedor ocupa su hueco, rayado y sin
+   degradado, para que el hueco se vea y se explique. */
+.pz--fantasma {
+  background: var(--color-surface);
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--color-rule) 0 var(--border-width),
+    transparent var(--border-width) var(--space-3)
+  );
+  border-style: dashed;
+  color: var(--color-text);
+  place-content: center;
+  align-content: center;
+  text-align: center;
+}
+
+.pz--fantasma .pz__pie {
+  padding-inline: var(--space-4);
+}
+
+.pz--fantasma .pz__titulo {
+  font-size: var(--pieza-titulo-ancha);
+}
+
+.pz--fantasma .pz__meta {
+  color: var(--color-danger);
+}
+
+/* Pieza que es un mando (el «Mostrar más» del top): ocupa su hueco y se lee
+   como parte de la composición, no como un botón perdido. */
+.pz--mando {
+  display: grid;
+  place-content: center;
+  align-content: center;
+  text-align: center;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border-style: dashed;
+}
+
+.pz--mando .button {
+  min-block-size: var(--pieza-mando);
+}
+
+/* Sello de origen, en Buscar. */
+.pz__sello {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: var(--space-2);
+  inset-inline-start: var(--space-2);
+  display: grid;
+  gap: var(--space-1);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.pz__sello span {
+  justify-self: start;
+  padding: var(--sello-relleno);
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: var(--border-width) solid var(--color-rule);
+  border-radius: var(--radius-sm);
+}
+
+.pz__sello span + span {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border-color: var(--color-accent);
+}
+
+/* --- 7. Banda de géneros ---------------------------------------------- */
+.generos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--generos-hueco-columna);
+  align-items: baseline;
+}
+
+.genero {
+  position: relative;
+  text-decoration: none;
+  padding: var(--generos-aire);
+  min-block-size: var(--pieza-mando);
+  font-family: var(--font-display);
+  font-size: var(--genero-nombre);
+  font-weight: 300;
+  line-height: var(--genero-linea);
+  letter-spacing: var(--tracking-display);
+  color: var(--color-text);
+  border-block-end: var(--border-width-strong) solid transparent;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.genero:hover,
+.genero:focus-visible {
+  color: var(--color-accent);
+  border-block-end-color: var(--color-accent);
+}
+
+.genero__cuenta {
+  position: absolute;
+  inset-block-start: var(--genero-cuenta-alto);
+  inset-inline-end: var(--genero-cuenta-lado);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--genero-cuenta-letra);
+  color: var(--color-text-dim);
+}
+
+/* --- 9. Buscar: el campo y su línea de estado -------------------------- */
+.buscador {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--buscador-relleno) var(--vitrina-margen) 0;
+}
+
+.buscador__rotulo {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+.buscador__campo {
+  inline-size: 100%;
+  min-block-size: var(--buscador-alto);
+  padding-inline: var(--space-4);
+  border: 0;
+  border-block-end: var(--border-width-strong) solid var(--color-text);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: var(--buscador-campo);
+  font-weight: 300;
+  letter-spacing: var(--tracking-display);
+}
+
+.buscador__campo::placeholder {
+  color: var(--color-text-dim);
+}
+
+.buscador__estado {
+  padding: var(--space-2) var(--vitrina-margen) var(--space-2);
+  border-block-end: var(--border-width) solid var(--color-rule);
+  color: var(--color-text-dim);
+  font-size: var(--text-md);
+}
+
+.aviso-vacio {
+  margin-inline: var(--vitrina-margen);
+  padding: var(--space-5);
+  border: var(--border-width) dashed var(--color-rule);
+  border-radius: var(--radius-md);
+  color: var(--color-text-dim);
+  font-size: var(--text-md);
+}
+
+/* --- 13. La hoja: el asomo de la pieza en táctil y para teclado --------
+   No se llama `panel` porque el panel del motor ya usa ese nombre. */
+.hoja {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+}
+
+.hoja__fondo {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay);
+}
+
+.hoja__caja {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  max-block-size: 82dvh;
+  overflow: auto;
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--hoja-relleno-lado)
+    calc(var(--space-4) + env(safe-area-inset-bottom));
+  background: var(--color-surface-raised);
+  border-block-start: var(--border-width) solid var(--color-rule);
+  border-start-start-radius: var(--radius-md);
+  border-start-end-radius: var(--radius-md);
+}
+
+.hoja__asa {
+  justify-self: center;
+  inline-size: var(--panel-asa-ancho);
+  block-size: var(--panel-asa-alto);
+  border-radius: var(--radius-full);
+  background: var(--color-control-border);
+  touch-action: none;
+}
+
+.hoja__titulo {
+  font-family: var(--font-display);
+  font-size: var(--hoja-titulo);
+  font-weight: 600;
+  letter-spacing: var(--tracking-display);
+}
+
+.hoja__cuerpo {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text);
+}
+
+.hoja__cuerpo .pz__sinopsis {
+  -webkit-line-clamp: unset;
+  color: var(--color-text);
+  font-size: var(--text-md);
+}
+
+.hoja__cuerpo .pz__motivo {
+  color: var(--color-text-dim);
+}
+
+.hoja__cerrar {
+  justify-self: start;
+}
+
+/* --- 14. Adaptación. Recompone, no encoge. ----------------------------- */
+
+/* 1100–1400 : mosaico de 4 columnas; las 3x2 bajan a 2x2; la nota a la mitad. */
+@media (max-width: 1400px) {
+  :root {
+    --vitrina-canaleta: 1;
+  }
+
+  .mosaico {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .mosaico .pz--m {
+    --cs: 2;
+  }
+
+  .esqueleto {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* 820–1100 : mosaico de 3 columnas; la nota pasa a cabecera de sección; la
+   marquesina a un solo bloque con el cartel detrás, atenuado. */
+@media (max-width: 1100px) {
+  .seccion {
+    display: block;
+  }
+
+  .seccion__nota {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-4);
+    margin-block-end: var(--space-3);
+  }
+
+  .seccion__nota .nota__cuenta {
+    margin-inline-start: auto;
+  }
+
+  .seccion__cuerpo {
+    container-type: normal;
+  }
+
+  .mosaico {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .esqueleto {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .marquesina {
+    grid-template-columns: minmax(0, 1fr);
+    padding-block-end: var(--marquesina-remate);
+  }
+
+  .cartel {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    inline-size: auto;
+    max-block-size: none;
+    aspect-ratio: auto;
+    rotate: 0deg;
+    border: 0;
+    border-radius: 0;
+    opacity: 0.34;
+  }
+
+  .marquesina__texto {
+    max-inline-size: var(--marquesina-texto-ancho);
+  }
+}
+
+/* 560–820 : mosaico de 2 columnas; la 1x1 se hace cuadrada (el ancho de una
+   columna, medido con unidades de contenedor); marquesina de 46dvh. */
+@media (min-width: 560px) and (max-width: 820px) {
+  .mosaico {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    --vitrina-fila: calc((100cqi - var(--vitrina-hueco)) / 2);
+  }
+
+  .esqueleto {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .seccion__cuerpo {
+    container-type: inline-size;
+  }
+
+  .marquesina {
+    min-block-size: 46dvh;
+  }
+
+  .marquesina .marquesina__titulo {
+    font-size: var(--marquesina-titulo-angosto);
+  }
+}
+
+/* < 560 : una columna; las piezas grandes son bandas a ancho completo; el
+   asomo no crece y pasa al panel inferior. */
+@media (max-width: 560px) {
+  .mosaico {
+    grid-template-columns: minmax(0, 1fr);
+    --vitrina-fila: var(--esqueleto-fila);
+  }
+
+  .esqueleto {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mosaico .pz--b,
+  .mosaico .pz--m,
+  .mosaico .pz--w,
+  .mosaico .pz--s {
+    --cs: 1;
+    --rs: 1;
+  }
+
+  .mosaico .pz--b,
+  .mosaico .pz--m {
+    --rs: 2;
+  }
+
+  .pz__abrir {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .marquesina {
+    min-block-size: auto;
+    padding-block: var(--space-6) var(--marquesina-remate-angosto);
+  }
+
+  .marquesina .marquesina__titulo {
+    font-size: var(--marquesina-titulo-angosto);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .cinta {
+    block-size: auto;
+    padding-block: var(--space-2);
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .buscador__campo {
+    font-size: var(--buscador-campo-angosto);
+  }
+}
+
+/* En táctil, los mandos incrustados se ven siempre. */
+@media (hover: none) {
+  .pz__abrir {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* Cuerpo de 16 px o más por debajo de 600 px. */
+@media (max-width: 600px) {
+  .pz__sinopsis,
+  .estado__nota,
+  .buscador__estado,
+  .nota__meta {
+    font-size: var(--text-md);
+  }
+
+  .button {
+    padding-inline: var(--space-4);
+  }
+
+  .pz__pie {
+    padding: var(--pieza-pie-lado);
+  }
+}
+
+/* Con puntero encima la pieza se enciende: no cambia de tamaño ni de sitio. */
+@media (hover: hover) {
+  .pz:hover {
+    border-color: var(--color-control-border);
+  }
+
+  /* Hover sobre el campo: el degradado se intensifica. */
+  .pz:hover .pz__campo {
+    filter: saturate(1.12) contrast(1.05);
+  }
+}
+
+/* El asomo sólo se enseña donde cabe: en una pieza de una sola fila la caja
+   del asomo mide más que la pieza, y con el recorte se leería a medias. Es la
+   pieza la que presta su asomo al panel inferior. */
+.pz.pz--s .pz__asomo,
+.pz.pz--w .pz__asomo {
+  display: none;
+}
+
+@media (hover: none) {
+  .pz.pz--s .pz__asomo,
+  .pz.pz--w .pz__asomo {
+    display: none;
+  }
+}
+
+/* --- 15. Movimiento reducido y otros entornos -------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .cinta__carro {
+    animation: none;
+  }
+}
+
+@media print {
+  .cinta__carro {
+    animation: none;
   }
 }

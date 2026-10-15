@@ -14,8 +14,11 @@
 
 import {
   errorResponseSchema,
+  mediaOf,
   ok,
   type ProviderError,
+  type ProviderMedia,
+  puedeServir,
   type Result,
   type SearchResult,
   searchEventSchema,
@@ -51,14 +54,24 @@ export interface SearchRouteOptions {
   readonly container?: ServerContainer
 }
 
-/** Los proveedores que entran en la búsqueda, según el filtro de la consulta. */
+/**
+ * Los proveedores que entran en la búsqueda, según la consulta.
+ *
+ * El tipo filtra **antes de preguntar**: una búsqueda de películas no puede gastar
+ * el ancho de banda de una fuente de anime, que es el mismo motivo por el que el
+ * filtro de proveedores existe. Una fuente que sirve las dos cosas sí entra: sus
+ * resultados se reparten después, por el `kind` de cada uno.
+ */
 export function selectedProviders(
   providers: readonly Provider[],
   wanted: readonly string[],
+  media: ProviderMedia | undefined = undefined,
 ): readonly Provider[] {
-  if (wanted.length === 0) return providers
+  const porTipo = providers.filter((provider) => puedeServir(media, mediaOf(provider.capabilities)))
 
-  return providers.filter((provider) => wanted.includes(provider.id))
+  if (wanted.length === 0) return porTipo
+
+  return porTipo.filter((provider) => wanted.includes(provider.id))
 }
 
 export function registerSearchRoute(app: Hono, options: SearchRouteOptions): void {
@@ -66,6 +79,7 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
     const parsed = searchQuerySchema.safeParse({
       q: c.req.query('q') ?? '',
       provider: c.req.queries('provider') ?? [],
+      ...(c.req.query('media') === undefined ? {} : { media: c.req.query('media') }),
     })
 
     if (!parsed.success) {
@@ -75,7 +89,7 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
       )
     }
 
-    const selected = selectedProviders(options.providers, parsed.data.provider)
+    const selected = selectedProviders(options.providers, parsed.data.provider, parsed.data.media)
     const timeoutMs = options.timeoutMs
     const container = options.container
 

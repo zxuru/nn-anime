@@ -15,17 +15,31 @@
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { coverPath } from '../features/search/ResultCard'
-
 export interface CoverProps {
   readonly providerId: string
   readonly ref: string
   readonly className?: string | undefined
+  /**
+   * Lo que se dibuja cuando la portada no llega.
+   *
+   * La vitrina dibuja su propio arte —inicial, cifra, trama— y lo enseña sólo si
+   * la portada falla: si llega la de verdad, manda la portada. Va como hijo del
+   * campo y no como hermano porque un `<img>` no pinta pseudo-elementos ni dibuja
+   * dentro: el navegador, si tiene imagen, no deja hueco para el dibujo.
+   */
+  readonly children?: ReactNode
 }
 
 export function Cover(props: CoverProps): ReactNode {
   const [fallo, setFallo] = useState(false)
 
-  if (fallo) return <span className={props.className ?? 'card__cover'} aria-hidden="true" />
+  if (fallo) {
+    return (
+      <span className={props.className ?? 'card__cover'} aria-hidden="true">
+        {props.children}
+      </span>
+    )
+  }
 
   return (
     <img

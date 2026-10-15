@@ -1,21 +1,27 @@
 /**
  * Fila «continuar viendo».
  *
- * Cada tarjeta lleva su barra de progreso y, en el pie, el episodio y los minutos
+ * Cada pieza lleva su barra de progreso y, en el pie, el episodio y los minutos
  * que quedan: es la información que hace falta para decidir si se retoma ahora o
  * no. El enlace va a la pantalla de reproducción **sin reanudar sola**: quien
  * decide seguir donde lo dejó es el reproductor, y sólo cuando se le da a
  * reproducir. Reanudar al entrar es lo que hace que alguien vea el final de un
  * episodio sin querer.
+ *
+ * Es lo que más pesa de la vitrina —piezas de dos por dos— porque es la única fila
+ * que pide una acción concreta: retomar lo que se dejó a medias.
  */
 
 import type { ContinueWatchingItem } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
-import { PosterCard } from '../../components/PosterCard'
+import { Mosaico } from '../../components/Mosaico'
+import { Pieza, recursoDe } from '../../components/Pieza'
+import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 import { continuePath, progressPercent, remainingLabel, resumeLabel } from './rows'
+import { cuentaDeTitulos } from './tramo'
 
 export interface ContinueRowProps {
   readonly items: readonly ContinueWatchingItem[]
@@ -23,40 +29,44 @@ export interface ContinueRowProps {
 
 export function ContinueRow(props: ContinueRowProps): ReactNode {
   return (
-    <section className="section">
+    <section className="seccion">
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.continue')}
         meta={t(DEFAULT_LOCALE, 'home.continue.meta')}
+        {...(props.items.length === 0 ? {} : { cuenta: cuentaDeTitulos(props.items.length) })}
       />
 
-      {props.items.length === 0 ? (
-        <p className="empty">{t(DEFAULT_LOCALE, 'home.continue.empty')}</p>
-      ) : (
-        <ul className="row__list">
-          {props.items.map((item) => {
-            const restante = remainingLabel(item)
+      <div className="seccion__cuerpo">
+        <Mosaico>
+          {props.items.length === 0 ? (
+            <PiezaVacia texto={t(DEFAULT_LOCALE, 'home.continue.empty')} />
+          ) : (
+            props.items.map((item, indice) => {
+              const restante = remainingLabel(item)
 
-            return (
-              <li key={`${item.animeRef.providerId}:${item.episodeRef.value}`}>
-                <PosterCard
+              return (
+                <Pieza
+                  key={`${item.animeRef.providerId}:${item.episodeRef.value}`}
                   providerId={item.animeRef.providerId}
                   ref={item.animeRef.value}
                   title={item.title}
                   to={continuePath(item)}
-                  badge={t(DEFAULT_LOCALE, 'home.episode', { number: item.episodeNumber })}
-                  caption={
+                  peso="b"
+                  recurso={recursoDe(indice)}
+                  episodio={t(DEFAULT_LOCALE, 'home.episode', { number: item.episodeNumber })}
+                  resto={
                     restante === undefined
                       ? resumeLabel(item)
                       : t(DEFAULT_LOCALE, 'home.remaining', { time: restante })
                   }
-                  progress={progressPercent(item)}
-                  progressLabel={t(DEFAULT_LOCALE, 'home.resume', { time: resumeLabel(item) })}
+                  progreso={progressPercent(item)}
+                  progresoEtiqueta={t(DEFAULT_LOCALE, 'home.resume', { time: resumeLabel(item) })}
                 />
-              </li>
-            )
-          })}
-        </ul>
-      )}
+              )
+            })
+          )}
+        </Mosaico>
+      </div>
     </section>
   )
 }

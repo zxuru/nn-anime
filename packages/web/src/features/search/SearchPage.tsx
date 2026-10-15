@@ -25,6 +25,15 @@ import { resumenDeFallo } from '../../components/ErrorNotice'
 import { Grid, GridItem } from '../../components/Grid'
 import { t } from '../../i18n'
 import { useNavigate, usePath } from '../../router'
+import { ConmutadorTipo } from '../tipo/ConmutadorTipo'
+import {
+  enElTipo,
+  fuenteDeResumen,
+  pathConTipo,
+  sinFuenteQueSirva,
+  tipoFromPath,
+  useMedias,
+} from '../tipo/tipo'
 import { ResultGrid } from './ResultGrid'
 import {
   createDefaultPrefetcher,
@@ -142,16 +151,32 @@ export function SearchPage(props: SearchPageProps): ReactNode {
   const path = usePath()
   const navigate = useNavigate()
   const filtro = providersFromPath(path).join(',')
+  const tipo = tipoFromPath(path)
 
   const [term, setTerm] = useState(() => queryFromPath(path))
   const [aplicado, setAplicado] = useState(term)
 
   const proveedores = useMemo(() => (filtro === '' ? [] : filtro.split(',')), [filtro])
-  const { state, active, labels, providersLoaded } = useSearchStream(aplicado, proveedores)
+  const { state, active, labels, providersLoaded } = useSearchStream(aplicado, proveedores, tipo)
   // La preferencia decide cuál de las fuentes da la tarjeta. Llega después que
   // los resultados —es otra petición— y la rejilla se vuelve a ordenar sola.
   const prioridad = useProviderPriority()
   const prefetch = useMemo(() => props.prefetcher ?? createDefaultPrefetcher(), [props.prefetcher])
+  const medias = useMedias()
+
+  /*
+    Lo que llega de una fuente que sirve las dos cosas viene mezclado: el servidor
+    filtra por proveedor, no por título. El reparto se hace aquí sobre el estado
+    entero, para que el recuento que se anuncia y las tarjetas que se pintan cuenten
+    lo mismo.
+  */
+  const visibles: SearchState = useMemo(
+    () => ({
+      ...state,
+      results: enElTipo(state.results, tipo, medias, fuenteDeResumen),
+    }),
+    [state, tipo, medias],
+  )
 
   // El retardo: `aplicado` sólo cambia cuando el usuario deja de teclear.
   useEffect(() => {
@@ -160,16 +185,25 @@ export function SearchPage(props: SearchPageProps): ReactNode {
     return cancelar
   }, [term])
 
-  // La consulta se refleja en la dirección, sin apilar historial ni perder el filtro.
+  // La consulta se refleja en la dirección, sin apilar historial ni perder el filtro
+  // ni el tipo.
   useEffect(() => {
     if (queryFromPath(path) === aplicado && providersFromPath(path).join(',') === filtro) return
 
-    navigate.replace(searchPath(aplicado, proveedores))
-  }, [aplicado, filtro, path, navigate, proveedores])
+    navigate.replace(pathConTipo(searchPath(aplicado, proveedores), tipo))
+  }, [aplicado, filtro, path, navigate, proveedores, tipo])
 
   return (
     <section>
       <h1>{t(DEFAULT_LOCALE, 'search.title')}</h1>
+
+      {/* La misma franja que en la home: el tipo se cambia desde las dos pantallas
+          y el estado es el de la dirección, así que aquí conserva la consulta y el
+          filtro de proveedores. */}
+      <div className="franja-tipo">
+        <ConmutadorTipo />
+      </div>
+
       <div className="search__field">
         <label className="search__label" htmlFor="search-term">
           {t(DEFAULT_LOCALE, 'search.field')}
@@ -186,8 +220,21 @@ export function SearchPage(props: SearchPageProps): ReactNode {
       </div>
 
       <p className="search__status" aria-live="polite">
-        {announce(state, active, providersLoaded)}
+        {announce(visibles, active, providersLoaded)}
       </p>
+
+      {/*
+        Ninguna fuente sirve esta mitad: es lo que convierte una búsqueda que no
+        devuelve nada en un problema con solución. El conmutador de la cabecera es la
+        otra salida, y con el mapa de fuentes vacío no se avisa —no se sabe todavía—:
+        de eso se encarga `sinFuenteQueSirva`.
+      */}
+      {sinFuenteQueSirva(medias, tipo) ? (
+        <p className="aviso-tipo" role="status">
+          {t(DEFAULT_LOCALE, tipo === 'movies' ? 'media.empty.movies' : 'media.empty.anime')}{' '}
+          {t(DEFAULT_LOCALE, 'media.empty.hint')}
+        </p>
+      ) : null}
 
       {state.errors.map((issue) => (
         <p className="search__error" key={issue.providerId}>
@@ -211,7 +258,7 @@ export function SearchPage(props: SearchPageProps): ReactNode {
       ) : null}
 
       <ResultGrid
-        results={state.results}
+        results={visibles.results}
         query={aplicado}
         providerPriority={prioridad}
         providerLabels={labels}

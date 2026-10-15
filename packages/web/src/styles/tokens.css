@@ -10,38 +10,43 @@
  *
  * ## La lengua visual
  *
- * Tema oscuro casi negro con **bordes gruesos color crema** y **sombras duras
- * desplazadas** —sin desenfoque— en vez de sombras difusas. Los radios son cero:
- * la rejilla es recta y los marcos hacen el trabajo que en otros diseños hace la
- * elevación. El acento es un naranja encendido que se usa para lo activo y para
- * el borde de las tarjetas, no para decorar.
+ * Sala a oscuras. Fondo casi negro, tinta crema, acento coral, y el **arte se dibuja**: seis campos
+ * de degradado saturados más un recurso propio por pieza (trama, mitad, círculo, caja) para que doce
+ * piezas no parezcan la misma. La jerarquía la da la superficie de la pieza en un mosaico modular,
+ * no el orden de las filas.
+ *
+ * La elevación es por **tono y por marco**: los radios son pequeños pero reales —10 px en la pieza,
+ * 3 px en el mando— y no hay desenfoques ni velos decorativos. El borde de una pieza en reposo es una
+ * regla tenue; el de un control de verdad llega al 45 % de tinta para pasar el 3:1.
+ *
+ * El **puntero no mueve la vitrina**: pasar el ratón por encima enciende el borde, aviva el campo y
+ * destapa el asomo, pero nada cambia de tamaño ni de sitio. Ninguna regla `:hover` de la hoja de
+ * estructura toca geometría, y el asomo sólo aparece donde cabe.
  *
  * ## Las fuentes
  *
- * El diseño de referencia usa tres familias —una de titulares, una de texto y una
- * monoespaciada para las etiquetas— que **no se cargan de fuera**: la CSP de la
- * aplicación es `default-src 'self'` y un e2e no puede depender de una red. Las
- * pilas empiezan por esas familias y caen a las del sistema, así que quien las
- * tenga instaladas las verá y quien no, verá el mismo diseño con otras letras:
- * los pesos, el interletrado y los tamaños son los del diseño y son los que
- * sostienen el parecido.
+ * Dos familias —Fraunces para titulares y números, Manrope para texto, meta y mandos— que **no se
+ * cargan de fuera**: la CSP de la aplicación es `default-src 'self'` y un e2e no puede depender de una
+ * red. Las pilas empiezan por esas familias y caen a las del sistema, así que quien las tenga
+ * instaladas las verá y quien no, verá el mismo diseño con otras letras: los pesos, el interletrado y
+ * los tamaños son los del diseño y son los que sostienen el parecido.
  */
 
 :root {
-  /* Color, tema oscuro por defecto */
-  --color-bg: #0c0c10;
-  --color-surface: #16161d;
-  --color-surface-raised: #1f1f28;
-  --color-border: #f2e9d8;
-  --color-text: #f2e9d8;
-  --color-text-dim: #a9a293;
-  --color-accent: #ff4a2e;
-  --color-accent-strong: #e63b2e;
-  --color-accent-contrast: #0c0c10;
+  /* Color, tema oscuro por defecto: es una sala a oscuras y el arte manda. */
+  --color-bg: #08080a;
+  --color-surface: #0e0e13;
+  --color-surface-raised: #14141b;
+  --color-border: #f5f0e6;
+  --color-text: #f5f0e6;
+  --color-text-dim: #a8a094;
+  --color-accent: #ff5c35;
+  --color-accent-strong: #e8451f;
+  --color-accent-contrast: #08080a;
   --color-danger: #ff8a80;
-  --color-success: #7fe0a8;
+  --color-success: #63d9a0;
   /** El fondo de las etiquetas activas y del cartel de un día con estreno. */
-  --color-highlight: #ff4a2e;
+  --color-highlight: #ff5c35;
   /**
    * El texto que va encima del velo y del degradado de los mandos.
    *
@@ -49,21 +54,34 @@
    * debajo es el video, no el fondo de la aplicación— así que en tema claro el
    * texto oscuro del tema se quedaba en 3:1 sobre él. Es crema en los dos.
    */
-  --color-on-overlay: #f2e9d8;
+  --color-on-overlay: #f5f0e6;
+  /**
+   * La regla tenue y el borde de un control de verdad.
+   *
+   * La primera es decorativa —separa piezas y tramos— y puede quedarse al 14 %.
+   * La segunda es el borde de algo que se pulsa: llega al 45 % porque tiene que
+   * pasar el 3:1 que el spec pide para las partes de un componente, medido sobre
+   * el fondo o sobre el arte más oscuro de la vitrina.
+   */
+  --color-rule: rgb(245 240 230 / 14%);
+  --color-control-border: rgb(245 240 230 / 45%);
+  /** El hueco de una pieza que aún no tiene arte, cuando el catálogo carga. */
+  --color-skeleton: #1a1a22;
 
   /* El velo del diálogo y su ancho. Ninguno de los dos es un color de texto, así
      que no entran en los pares de contraste que se miden. */
   --overlay: rgb(0 0 0 / 60%);
   --notice-width: min(48rem, 92vw);
 
-  /* Portadas de relleno: dos colores en diagonal, como el diseño de referencia.
-     Se usan cuando el título no tiene portada o cuando la suya no carga. */
-  --cover-a: linear-gradient(135deg, #e63b2e 50%, #1b1b3a 50%);
-  --cover-b: linear-gradient(160deg, #f2b632 55%, #2a1d5c 55%);
-  --cover-c: linear-gradient(120deg, #2f6bd6 45%, #e8587c 45%);
-  --cover-d: linear-gradient(150deg, #1f8a6b 50%, #0f2a3d 50%);
-  --cover-e: linear-gradient(135deg, #8a2fd6 50%, #f28a32 50%);
-  --cover-f: linear-gradient(170deg, #d62f5a 40%, #1a1a2e 40%);
+  /* Los seis campos de portada. Son el arte: saturados y sin corte seco —el
+     corte seco es un recurso de pieza, no un campo—. Se usan cuando el título no
+     tiene portada o cuando la suya no carga. */
+  --cover-a: linear-gradient(122deg, #ff5c35 4%, #3a2470 96%);
+  --cover-b: linear-gradient(196deg, #ffb02e 6%, #16265c 94%);
+  --cover-c: linear-gradient(142deg, #2f6bd6 8%, #ff6f91 92%);
+  --cover-d: linear-gradient(168deg, #35b58a 6%, #0d3a3f 94%);
+  --cover-e: linear-gradient(112deg, #8a2fd6 6%, #ff8a3d 94%);
+  --cover-f: linear-gradient(186deg, #d62f5a 6%, #101a2e 94%);
 
   /* Espaciado, escala de 4 puntos */
   --space-1: 0.25rem;
@@ -75,16 +93,18 @@
   --space-7: 3rem;
   --space-8: 4rem;
 
-  /* Radios: cero. Los marcos rectos son la lengua visual. */
-  --radius-sm: 0;
-  --radius-md: 0;
-  --radius-lg: 0;
-  --radius-full: 0;
+  /* Radios: pequeños pero reales. El arte pide marco redondeado, y el borde duro
+     —cero— es la lengua del diseño viejo, no una regla. */
+  --radius-sm: 3px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  /** El botón redondo de una pieza: un círculo, no una caja. */
+  --radius-full: 999px;
 
   /* Tipografía */
-  --font-display: "Bricolage Grotesque", "Arial Black", "Helvetica Neue", system-ui, sans-serif;
+  --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --font-sans:
-    "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --text-xs: 0.6875rem;
   --text-sm: 0.8125rem;
@@ -98,8 +118,8 @@
   --number-stroke: 3px;
   --leading-tight: 1.05;
   --leading-normal: 1.45;
-  /** Interletrado de las etiquetas: mono, mayúsculas y separadas. */
-  --tracking-label: 0.08em;
+  /** Interletrado de las etiquetas: mayúsculas y separadas, cuerpo pequeño. */
+  --tracking-label: 0.12em;
   /** Interletrado de los titulares: apretado, como el diseño de referencia. */
   --tracking-display: -0.03em;
 
@@ -121,6 +141,8 @@
   --focus-ring-offset: 2px;
   --transition-fast: 120ms;
   --transition-normal: 200ms;
+  /** La curva del asomo y de lo que crece al abrirse: arranca rápido y frena. */
+  --ease-piece: cubic-bezier(0.22, 0.61, 0.36, 1);
   /* La entrada de la home: un fundido corto y un escalón por fila. El paso es
      pequeño a propósito —seis filas entran en menos de medio segundo— porque un
      escalón largo convierte la carga en una cola. */
@@ -184,6 +206,17 @@
    */
   --bp-mobile: 600px;
   --bp-compact: 480px;
+  /**
+   * Los cuatro anchos donde el mosaico se recompone.
+   *
+   * De 6 columnas a 4, a 3, a 2 y a 1: la vitrina recompone, no encoge. Los
+   * nombres van por lo que hace el ancho, no por el aparato: `wide` es donde el
+   * mosaico se ve entero, `desk` donde la nota al margen baja a cabecera.
+   */
+  --bp-wide: 1400px;
+  --bp-desk: 1100px;
+  --bp-mid: 820px;
+  --bp-narrow: 560px;
   /** El mando estrecho y su hueco: 40 px y 6 px, para que quepan en una fila. */
   --control-size-compact: 2.5rem;
   --gap-compact: 6px;
@@ -254,24 +287,196 @@
       dibujaban **encima** de la barra al desplazarse. Con el mismo valor gana el
       que va después en el documento, y ése es el contenido. */
   --layer-header: 10;
+
+  /* ---------------------------------------------------------------------
+     La vitrina: la composición de la pantalla de inicio.
+     ---------------------------------------------------------------------
+     Las medidas van con la misma cuenta que en el artefacto y con `clamp()`
+     dentro del token, porque la hoja de estructura no admite ni un número
+     suelto —hay una prueba que lo impide— y `var()` no existe dentro de un
+     `@media`. Lo que cambia con el ancho se recompone en los `@media` de la
+     hoja; aquí queda sólo el valor.
+  */
+
+  /** El canal de la página: lo que se aparta del borde en cualquier ancho. */
+  --vitrina-margen: clamp(1rem, 4vw, 3.5rem);
+  /** El hueco entre piezas y entre las columnas de una sección. */
+  --vitrina-hueco: clamp(0.5rem, 1.1vw, 1rem);
+  /** El alto de una fila del mosaico: el módulo del que cuelga cada tamaño. */
+  --vitrina-fila: clamp(7rem, 9vw, 9.5rem);
+  /** Las columnas de la rejilla de 12 que ocupa la nota al margen. */
+  --vitrina-canaleta: 2;
+  /** El aire entre el encabezado y la nota al margen pegajosa. */
+  --vitrina-nota-aire: 1.25rem;
+
+  /** La marquesina: a sangre, 62 dvh, con el titular en cuerpo de cartel. */
+  --marquesina-alto: min(62dvh, 44rem);
+  --marquesina-cols: minmax(0, 1fr) minmax(0, 0.58fr);
+  --marquesina-aire: clamp(1rem, 3vw, 3rem);
+  --marquesina-relleno: clamp(1.5rem, 4vw, 4rem) var(--vitrina-margen) clamp(5rem, 10vw, 7rem);
+  --marquesina-texto-hueco: clamp(0.6rem, 1.4vw, 1rem);
+  --marquesina-titulo: clamp(3rem, 9vw, 7.5rem);
+  --marquesina-meta: clamp(0.875rem, 1.4vw, 1rem);
+  --marquesina-sinopsis: 44ch;
+  --marquesina-texto-ancho: 40rem;
+  /* El titular y el remate, cuando la marquesina pasa a un solo bloque. */
+  --marquesina-titulo-angosto: clamp(2rem, 11vw, 3.2rem);
+  --marquesina-remate: clamp(4.5rem, 12vw, 6rem);
+  --marquesina-remate-angosto: clamp(4.5rem, 18vw, 6rem);
+  --marquesina-sinopsis-cuerpo: clamp(1rem, 1.3vw, 1.0625rem);
+  /** El cartel: la portada, con marco propio y algo girada. */
+  --cartel-ancho: min(100%, 26rem);
+  --cartel-alto: min(52dvh, 30rem);
+  --cartel-giro: -3.5deg;
+  --cartel-marco: 0 0 0 0.5rem rgb(8 8 10 / 35%);
+  --cartel-pie-relleno: 0.7rem 0.9rem;
+
+  /** Los textos de la vitrina, cada uno con su cuerpo. */
+  --pieza-titulo: clamp(1.05rem, 2.4cqi + 0.5rem, 1.6rem);
+  --pieza-titulo-baja: clamp(0.95rem, 2.2cqi + 0.4rem, 1.25rem);
+  --pieza-titulo-alta: clamp(1.3rem, 2.2cqi + 0.6rem, 2.1rem);
+  --pieza-titulo-ancha: clamp(1.1rem, 3cqi + 0.4rem, 1.5rem);
+  --pieza-posicion: clamp(3rem, 14cqi, 6rem);
+  --pieza-episodio: clamp(1rem, 3cqi + 0.4rem, 1.35rem);
+  --pieza-sinopsis: var(--text-md);
+  --nota-titulo: clamp(1.25rem, 1.9vw, 1.75rem);
+  --genero-nombre: clamp(1.5rem, 5.5vw, 3.25rem);
+  /** El recuento del género, en voladizo sobre la esquina de la palabra. */
+  --genero-linea: 1.12;
+  --genero-cuenta-alto: -0.15em;
+  --genero-cuenta-lado: -0.6em;
+  --buscador-campo: clamp(1.35rem, 4vw, 2.25rem);
+  --seccion-aire: clamp(2.5rem, 6vw, 5rem);
+
+  /** El mando redondo que abre el asomo de una pieza. */
+  --pieza-mando: var(--control-size);
+  /** El relleno del pie de una pieza y la barra de lo que se retoma. */
+  --pieza-pie-alto: 0.7rem;
+  --pieza-pie-lado: 0.85rem;
+  --pieza-barra-alto: 0.3rem;
+  /** El hueco entre la nota al margen y su cuenta. */
+  --nota-hueco: 0.35rem;
+
+  /** La banda de géneros: dos huecos —fila y columna— y su aire. */
+  --generos-hueco-fila: 0.25rem;
+  --generos-hueco-columna: clamp(0.75rem, 2.5vw, 2rem);
+  --generos-aire: 0.15em;
+
+  /** Los recursos de arte, en unidades de la pieza (cqi) y en voladizo. */
+  --arte-trama-paso: 1.5cqi;
+  --arte-trama-linea: 2cqi;
+  --arte-letra-alto: -0.14em;
+  --arte-letra-lado: -0.05em;
+  --arte-cifra-alto: -0.12em;
+  --arte-cifra-lado: -0.08em;
+  --arte-cifra-letra: -0.04em;
+  --arte-posicion-alto: -0.22em;
+  --arte-posicion-lado: 0.02em;
+  --arte-posicion-letra: -0.05em;
+
+  /**
+   * La cinta de la marquesina.
+   *
+   * La vuelta la calcula el componente: mide el carro y le da el tiempo que tarda
+   * en pasar a **esta** velocidad. Con una vuelta fija, la cinta corría el doble
+   * de rápido con cincuenta títulos que con doce —el carro se desplaza la mitad de
+   * su ancho, y su ancho es lo que mide la lista entera—, y con la lista de un
+   * proveedor real, que publica decenas, no se podía leer.
+   *
+   * `--cinta-vuelta` es sólo lo que se ve antes de que el carro se mida: lento a
+   * propósito, para que el primer fotograma no sea un latigazo.
+   */
+  --cinta-velocidad: 60px / s;
+  --cinta-vuelta: 240s;
+  --cinta-alto: clamp(3rem, 6vw, 4rem);
+  --cinta-hueco: clamp(0.5rem, 2vw, 1.4rem);
+  --cinta-item-hueco: 1.5rem;
+  --cinta-item: clamp(1rem, 1.8vw, 1.5rem);
+  --cinta-punto: 0.35rem;
+
+  /** El esqueleto del mosaico, con la métrica del contenido. */
+  --esqueleto-fila: clamp(6rem, 30vw, 9rem);
+
+  /**
+   * El arte: los velos que sostienen el texto y los recursos de cada pieza.
+   *
+   * Ninguno cambia con el tema. Sobre una pieza el texto es crema en los dos
+   * temas, porque lo que hay debajo es un degradado oscuro y no el fondo de la
+   * aplicación; y el arte tampoco se aclara en el tema claro.
+   */
+  --velo-art: linear-gradient(
+    to top,
+    rgb(8 8 10 / 88%) 0%,
+    rgb(8 8 10 / 62%) 34%,
+    rgb(8 8 10 / 0%) 78%
+  );
+  --velo-campo: linear-gradient(
+    200deg,
+    rgb(8 8 10 / 55%) 0%,
+    rgb(8 8 10 / 12%) 55%,
+    rgb(8 8 10 / 62%) 100%
+  );
+  --arte-letra: rgb(245 240 230 / 24%);
+  --arte-cifra: rgb(245 240 230 / 32%);
+  --arte-sinopsis: rgb(245 240 230 / 82%);
+  --arte-motivo: rgb(245 240 230 / 74%);
+  --arte-refresco: rgb(245 240 230 / 80%);
+  --arte-borde-fuerte: rgb(245 240 230 / 45%);
+  /** El punto y el cuerpo de la «i» del mando que abre el asomo. */
+  --mando-punto-alto: 0.78rem;
+  --mando-punto-lado: 3px;
+  --mando-cuerpo-alto: 1.15rem;
+  --mando-cuerpo-largo: 0.65rem;
+  /** El relleno de un sello de origen, en Buscar. */
+  --sello-relleno: 0.2rem 0.4rem;
+  /** El campo de la búsqueda, que en la vitrina es un titular. */
+  --buscador-alto: clamp(3.25rem, 8vw, 4.5rem);
+  --buscador-relleno: clamp(1.25rem, 4vw, 3rem);
+  --buscador-campo-angosto: clamp(1.35rem, 9vw, 2rem);
+  /** El asa del panel inferior, que se arrastra hacia abajo para cerrarlo. */
+  --panel-asa-ancho: 2.5rem;
+  --panel-asa-alto: 0.3rem;
+  --hoja-titulo: clamp(1.4rem, 5vw, 2rem);
+  --hoja-relleno-lado: clamp(1rem, 4vw, 2rem);
+  --arte-meta: rgb(245 240 230 / 84%);
+  --arte-resto: rgb(245 240 230 / 88%);
+  /* Las marcas de arte: la trama, la mitad partida, el círculo y su aro. */
+  --arte-trama: rgb(245 240 230 / 26%);
+  --arte-mitad: rgb(245 240 230 / 20%);
+  --arte-circulo: rgb(245 240 230 / 16%);
+  --arte-division: rgb(245 240 230 / 38%);
+  --arte-corte: rgb(8 8 10 / 45%);
+  --arte-corte-grosor: 2px;
+  --arte-circulo-borde: inset 0 0 0 2px rgb(245 240 230 / 30%);
+  --arte-punto: rgb(245 240 230 / 90%);
+  --pieza-barra-fondo: rgb(245 240 230 / 32%);
+  --pieza-sombra-texto: 0 2px 18px rgb(8 8 10 / 55%);
+  /** El mando redondo del asomo, sobre cualquier arte. */
+  --pieza-mando-fondo: rgb(8 8 10 / 62%);
+  --pieza-mando-borde: rgb(245 240 230 / 55%);
+  /** El relleno del asomo cuando aparece encima del arte del reproductor. */
+  --sobre-video-banda: rgb(0 0 0 / 78%);
 }
 
 [data-theme="light"] {
-  --color-bg: #faf9f5;
-  --color-surface: #ffffff;
-  --color-surface-raised: #f2e9d8;
-  --color-border: #0c0c10;
-  --color-text: #0c0c10;
-  --color-text-dim: #5c5548;
-  --color-accent: #c62f16;
+  --color-bg: #f2ede3;
+  --color-surface: #fbf8f2;
+  --color-surface-raised: #ffffff;
+  --color-border: #14120f;
+  --color-text: #14120f;
+  --color-text-dim: #6a6257;
+  --color-accent: #c02f10;
   --color-accent-strong: #a32512;
-  --color-accent-contrast: #faf9f5;
+  --color-accent-contrast: #f2ede3;
   --color-danger: #a32222;
   --color-success: #1d6b3f;
-  --color-highlight: #c62f16;
+  --color-highlight: #c02f10;
   /* El degradado de los mandos es negro también en tema claro: el texto que va
      encima sigue siendo crema. */
-  --color-on-overlay: #f2e9d8;
+  --color-on-overlay: #f5f0e6;
+  --color-rule: rgb(20 18 15 / 14%);
+  --color-control-border: rgb(20 18 15 / 55%);
+  --color-skeleton: #ded7c9;
   --shadow-1: 0 1px 2px rgb(12 12 16 / 12%);
   --shadow-2: 0 8px 24px rgb(12 12 16 / 18%);
   /* En claro la sombra dura va en negro: el acento sobre crema no se distingue. */

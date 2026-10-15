@@ -11,6 +11,7 @@ import {
   groupResults,
   initialState,
   normalizeTitle,
+  proveedoresSeleccionados,
   reduce,
 } from './useSearchStream'
 
@@ -25,6 +26,15 @@ function resumen(id: string, status: 'active' | 'rejected'): ProviderSummary {
     capabilities: { search: true, sub: true, dub: false, trending: false, feed: false },
     status,
     ...(status === 'rejected' ? { reason: 'no cargó' } : {}),
+  }
+}
+
+function fuente(id: string, media: 'anime' | 'movies' | 'both'): ProviderSummary {
+  return {
+    id,
+    name: id,
+    capabilities: { search: true, sub: true, dub: false, trending: false, feed: false, media },
+    status: 'active',
   }
 }
 
@@ -303,6 +313,37 @@ describe('proveedores activos', () => {
     expect(activeProviderIds([resumen('uno', 'active'), resumen('roto', 'rejected')])).toEqual([
       'uno',
     ])
+  })
+
+  test('el tipo deja fuera a quien no puede tenerlo, y deja entrar a la fuente mixta', () => {
+    const fuentes = [
+      fuente('anime', 'anime'),
+      fuente('pelis', 'movies'),
+      fuente('mixta', 'both'),
+      resumen('roto', 'rejected'),
+    ]
+
+    // Es lo que decide cuántos esqueletos salen y a quién se le pregunta: la mixta
+    // entra en las dos mitades porque sus resultados se reparten después.
+    expect(proveedoresSeleccionados(fuentes, [], 'anime')).toEqual(['anime', 'mixta'])
+    expect(proveedoresSeleccionados(fuentes, [], 'movies')).toEqual(['pelis', 'mixta'])
+  })
+
+  test('sin declarar el tipo, la fuente cuenta como anime', () => {
+    expect(proveedoresSeleccionados([resumen('uno', 'active')], [], 'anime')).toEqual(['uno'])
+    expect(proveedoresSeleccionados([resumen('uno', 'active')], [], 'movies')).toEqual([])
+  })
+
+  test('el filtro de la dirección se cruza con el tipo', () => {
+    const fuentes = [fuente('anime', 'anime'), fuente('pelis', 'movies'), fuente('mixta', 'both')]
+
+    expect(proveedoresSeleccionados(fuentes, ['pelis', 'mixta'], 'movies')).toEqual([
+      'pelis',
+      'mixta',
+    ])
+    // El filtro pide una fuente de anime con la pestaña de películas: no hay
+    // intersección, y por eso la búsqueda no se le pregunta a nadie.
+    expect(proveedoresSeleccionados(fuentes, ['anime'], 'movies')).toEqual([])
   })
 })
 

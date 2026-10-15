@@ -908,20 +908,20 @@ test.describe('el reproductor', () => {
     expect(item?.durationS).toBeGreaterThan(0)
     expect(item?.positionS).toBeGreaterThan(0)
 
-    // En la home, la tarjeta con su barra, y la fila **la primera**: es lo único
+    // En la home, la pieza con su barra, y la sección **la primera**: es lo único
     // de la página que retoma algo a medias.
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Continuar viendo' })).toBeVisible()
     await expect(page.getByText('Nada a medias')).toHaveCount(0)
-    expect((await page.locator('.section__title').allTextContents())[0]).toBe('Continuar viendo')
+    expect((await page.locator('.nota__titulo').allTextContents())[0]).toBe('Continuar viendo')
 
-    const fila = page.locator('.section').filter({ hasText: 'Continuar viendo' })
+    const fila = page.locator('.seccion').filter({ hasText: 'Continuar viendo' })
     await expect(fila.locator('progress')).toBeVisible()
-    await expect(fila.locator('.poster__title').first()).toHaveText('Aurora Nocturna')
+    await expect(fila.locator('.pz__titulo').first()).toHaveText('Aurora Nocturna')
 
-    // Y la tarjeta continúa el episodio: el enlace lleva el segundo y el video
+    // Y la pieza continúa el episodio: el enlace lleva el segundo y el video
     // arranca ahí, no en el cero.
-    await fila.locator('.poster__link').first().click()
+    await fila.locator('.pz__enlace').first().click()
     await expect(page).toHaveURL(/at=/)
 
     const reanudado = page.locator('video')

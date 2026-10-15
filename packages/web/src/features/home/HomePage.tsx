@@ -5,6 +5,12 @@
  * destacado, **el top de la fuente**, continuar viendo, favoritos, novedades,
  * último añadido y géneros.
  *
+ * La pantalla se parte en dos mitades —anime y películas— con el conmutador de la
+ * cabecera, y el tipo vive en la dirección (`?tipo=movies`). Las filas que salen de
+ * las fuentes se piden **ya filtradas** al servidor, que es el único que sabe de
+ * qué es cada título; las dos que son listas del usuario se filtran aquí, con los
+ * proveedores que ya están cargados.
+ *
  * Lo que el diseño trae y aquí no está, porque no hay datos para ello: la
  * **parrilla semanal** de estrenos y la fila de **episodios nuevos**. Las dos
  * necesitan una fecha de emisión por episodio, y los proveedores no la dan. Se
@@ -20,15 +26,25 @@ import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
-import { Panel } from '../recommendations/Panel'
+import { usePath } from '../../router'
 import { useRecommendations } from '../recommendations/useRecommendations'
+import { ConmutadorTipo } from '../tipo/ConmutadorTipo'
+import {
+  enElTipo,
+  fuenteDeResumen,
+  fuenteDeVisionado,
+  sinFuenteQueSirva,
+  tipoFromPath,
+  useMedias,
+} from '../tipo/tipo'
 import { ContinueRow } from './ContinueRow'
 import { FavoritesRow } from './FavoritesRow'
 import { FeaturedHero, type FeaturedItem } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
-import { GenreRow, topGenres } from './GenreRow'
+import { GenreRow, generosConCuenta } from './GenreRow'
 import { HomeSkeletons } from './HomeSkeletons'
 import { RecentRow } from './RecentRow'
+import { RecommendedRow } from './RecommendedRow'
 import { Ticker } from './Ticker'
 import { TopRow } from './TopRow'
 import { type HomeRows, useHomeRows } from './useHomeRows'
@@ -115,8 +131,12 @@ export function textoDeRefresco(
 }
 
 export function HomePage(props: HomePageProps): ReactNode {
-  const filas = useHomeRows()
+  const path = usePath()
+  const tipo = tipoFromPath(path)
+  const medias = useMedias()
+  const filas = useHomeRows(tipo)
   const recomendaciones = useRecommendations({
+    media: tipo,
     ...(props.query === undefined ? {} : { query: props.query }),
   })
 
@@ -125,15 +145,34 @@ export function HomePage(props: HomePageProps): ReactNode {
   // fuente y lo último que la aplicación conoce. Sin ellas, una instalación nueva
   // con un proveedor sin tendencias se quedaba con un titular y nada más.
   const destacado = featuredOf(items, filas.feed, filas.recent)
-  const generos = topGenres(
+  const generos = generosConCuenta(
     items.map((item) => item.tags),
     GENRE_LIMIT,
   )
   const refresco = textoDeRefresco(filas, new Date())
 
+  /*
+    Las dos listas que no llevan el tipo en la petición se filtran aquí: son lo que
+    el usuario hizo, y no una fila que mezcle fuentes. Lo que se retoma **no** trae
+    `kind` en el contrato, así que un título de una fuente mixta sólo aparece en la
+    pestaña de anime: es el mismo defecto que el proveedor que no declara de qué es,
+    y añadirlo a esa ruta es otro cambio.
+  */
+  const favoritos = enElTipo(filas.favorites, tipo, medias, fuenteDeResumen)
+  const continuar = enElTipo(filas.continueWatching, tipo, medias, fuenteDeVisionado)
+
   return (
     <section className="home">
-      <Ticker items={filas.trending} />
+      {/*
+        El conmutador va en su propia franja, encima de la marquesina y fuera de la
+        composición: mide lo que un mando —44 px, como el resto de la interfaz— y en
+        la cabecera, que mide 56, no cabe sin apretarla. Lo comparten la home y la
+        búsqueda, y el estado es el de la dirección, así que cambiar de mitad desde
+        la búsqueda conserva la consulta.
+      */}
+      <div className="franja-tipo">
+        <ConmutadorTipo />
+      </div>
 
       {/*
         El fallo va con el aviso entero y sin botón de reintentar: la home se
@@ -143,23 +182,45 @@ export function HomePage(props: HomePageProps): ReactNode {
       {filas.error === undefined ? null : <ErrorNotice fallo={filas.error} />}
 
       {/*
-        La marca del refresco. Sólo sale después de la primera relectura: al abrir,
-        «actualizado ahora mismo» es el estado normal de la página y decirlo no
-        informa de nada. Es `role="status"` para que se anuncie sin robar el foco.
+        Una instalación sin ninguna fuente de esta mitad no puede llenar la
+        pantalla, y una pantalla vacía se lee como una aplicación rota. El aviso
+        dice qué falta y dónde se arregla; el conmutador sigue a la vista, que es la
+        otra salida.
       */}
-      {refresco === undefined ? null : (
-        <p className="home__refresco" role="status">
-          {refresco}
+      {sinFuenteQueSirva(medias, tipo) ? (
+        <p className="aviso-tipo" role="status">
+          {t(DEFAULT_LOCALE, tipo === 'movies' ? 'media.empty.movies' : 'media.empty.anime')}{' '}
+          {t(DEFAULT_LOCALE, 'media.empty.hint')}
         </p>
-      )}
+      ) : null}
 
-      {/* Sin destacado —todavía no hay nada que recomendar— el titular de la
-          página es el suyo: una pantalla sin `h1` deja al lector de pantalla sin
-          saber dónde está. */}
+      {/*
+        La marquesina lleva dentro la marca de refresco y la cinta: las tres cosas
+        son la misma pieza del diseño —el campo a sangre con el cartel, la línea
+        pegada al borde inferior y la fecha de la última relectura en la esquina—.
+        La marca sólo sale después de la primera relectura: al abrir, «actualizado
+        ahora mismo» es el estado normal de la página y decirlo no informa de nada.
+        Es `role="status"` para que se anuncie sin robar el foco.
+      */}
       {destacado === undefined ? (
-        <h1 className="hero__title">{t(DEFAULT_LOCALE, 'home.title')}</h1>
+        <section className="marquesina marquesina--suelta">
+          {refresco === undefined ? null : (
+            <p className="marca-refresco" role="status">
+              {refresco}
+            </p>
+          )}
+          {/* Sin destacado —todavía no hay nada que recomendar— el titular de la
+              página es el suyo: una pantalla sin `h1` deja al lector de pantalla
+              sin saber dónde está. */}
+          <h1 className="marquesina__titulo">{t(DEFAULT_LOCALE, 'home.title')}</h1>
+          <Ticker items={filas.trending} />
+        </section>
       ) : (
-        <FeaturedHero item={destacado} />
+        <FeaturedHero
+          item={destacado}
+          {...(refresco === undefined ? {} : { refresco })}
+          tendencias={filas.trending}
+        />
       )}
 
       {recomendaciones.state === 'loading' ? (
@@ -167,35 +228,31 @@ export function HomePage(props: HomePageProps): ReactNode {
       ) : null}
 
       {/*
-        «Continuar viendo» va la primera, antes que el top y que las novedades.
-        Es la única fila que pide una acción concreta —retomar lo que se dejó a
-        medias— y lo demás es descubrir: quien entra a seguir un episodio no
-        debería bajarlo a buscar entre las recomendaciones.
+        «Continuar viendo» va la primera, antes del motor y antes que el top. Es la
+        única fila que pide una acción concreta —retomar lo que se dejó a medias— y
+        lo demás es descubrir: quien entra a seguir un episodio no debería bajarlo
+        a buscar entre las recomendaciones.
       */}
-      <ContinueRow items={filas.continueWatching} />
+      <ContinueRow items={continuar} />
+
+      {/*
+        El motor va segundo y con su tramo entero: la puntuación y el motivo viajan
+        en cada pieza, así que la razón de una recomendación se lee sin abrir el
+        detalle. La franja que explicaba el motor se retiró: ocupaba el ancho del
+        tramo para decir lo que ya dice la nota y la pieza.
+      */}
+      <RecommendedRow items={items} />
 
       {/* El top es el de la fuente —su orden y su puesto— y no el ranking del
-          motor: el motor ya tiene su sitio, el destacado y el panel de abajo. */}
+          motor: el motor ya tiene su sitio, el destacado y su propio tramo. */}
       <TopRow items={filas.trending} />
 
       <FeedRow items={filas.feed} />
       <RecentRow items={filas.recent} />
 
-      <FavoritesRow items={filas.favorites} />
+      <FavoritesRow items={favoritos} />
 
       <GenreRow genres={generos} />
-
-      {/*
-        El panel con el detalle del score sigue existiendo, pero como lo que es:
-        una herramienta para entender el motor, no la fila principal. Desde que el
-        top es el de la fuente, **aquí** es donde se leen las razones de cada
-        recomendación: quitar la fila de motivos sin dejarlos en otro sitio habría
-        dejado al motor recomendando sin explicarse.
-      */}
-      <details className="panel__details">
-        <summary className="section__meta">{t(DEFAULT_LOCALE, 'home.explain')}</summary>
-        <Panel {...(props.query === undefined ? {} : { query: props.query })} />
-      </details>
     </section>
   )
 }
