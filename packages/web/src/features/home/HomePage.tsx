@@ -238,13 +238,10 @@ export function HomePage(props: HomePageProps): ReactNode {
       {/*
         El motor va segundo y con su tramo entero: la puntuación y el motivo viajan
         en cada pieza, así que la razón de una recomendación se lee sin abrir el
-        detalle. El detalle del score —los componentes que suman— queda plegado en
-        la franja, que es donde se explica el motor.
+        detalle. La franja que explicaba el motor se retiró: ocupaba el ancho del
+        tramo para decir lo que ya dice la nota y la pieza.
       */}
-      <RecommendedRow
-        items={items}
-        {...(props.query === undefined ? {} : { query: props.query })}
-      />
+      <RecommendedRow items={items} />
 
       {/* El top es el de la fuente —su orden y su puesto— y no el ranking del
           motor: el motor ya tiene su sitio, el destacado y su propio tramo. */}

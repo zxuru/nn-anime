@@ -7,10 +7,11 @@
  * puntuación y motivo viajan en la pieza —en el asomo y en la hoja—, así que la
  * razón de cada recomendación se lee sin abrir nada.
  *
- * El tramo abre con la **franja de motivos**: el desplegable suelto que antes
- * colgaba al final de la home, convertido en una franja que dice quién eligió esto
- * y cómo se puede leer el número. El detalle del score —los componentes que suman—
- * vive dentro, plegado: es para mirar, no para leer de corrido.
+ * El tramo abría con la **franja de motivos** —el titular «Lo que el motor ha
+ * elegido» y, dentro, el desplegable del detalle del score—. Se retiró: repetía lo
+ * que ya dice la nota del tramo y metía una caja dentro del mosaico. El panel del
+ * motor sigue en `features/recommendations/Panel.tsx`, con sus pruebas, a la espera
+ * del sitio donde vuelva a leerse.
  *
  * Todas las piezas pesan lo mismo, dos de ancho: en un tramo de tres títulos nadie
  * es más importante que nadie, y hacer uno grande sería inventarse una jerarquía
@@ -24,13 +25,10 @@ import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
-import { Panel } from '../recommendations/Panel'
 import { cuentaDeTitulos } from './tramo'
 
 export interface RecommendedRowProps {
   readonly items: readonly RecommendationResponse[]
-  /** La consulta en curso: el motor también recomienda con lo que se busca. */
-  readonly query?: string | undefined
 }
 
 /**
@@ -60,15 +58,6 @@ export function RecommendedRow(props: RecommendedRowProps): ReactNode {
       />
 
       <div className="seccion__cuerpo">
-        <div className="franja">
-          <p className="franja__titulo">{t(DEFAULT_LOCALE, 'home.franja.title')}</p>
-          <details>
-            <summary className="franja__desplegar">{t(DEFAULT_LOCALE, 'home.explain')}</summary>
-            <p className="franja__cuerpo">{t(DEFAULT_LOCALE, 'home.franja.body')}</p>
-            <Panel {...(props.query === undefined ? {} : { query: props.query })} />
-          </details>
-        </div>
-
         <Mosaico>
           {props.items.map((item, indice) => (
             <Pieza

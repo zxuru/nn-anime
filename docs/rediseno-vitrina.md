@@ -16,8 +16,8 @@ lleva a `packages/web` y en qué orden, sin cambiar lo que el artefacto promete.
 | Elevación | Sombras duras desplazadas, radios cero | Tono y marco: radio 10 px en la pieza, 3 px en el mando, sin desenfoques |
 | Arte | Portada del proveedor, con relleno de degradado | El arte se dibuja: seis campos de degradado, más saturados, más un recurso por pieza |
 | Puntero encima | — | La pieza se enciende. **No cambia de tamaño ni de sitio** (ver «Movimiento») |
-| Nota de un tramo | Titular y etiqueta | Tres renglones: titular, etiqueta y **cuenta** («3 títulos», «12 títulos · y 7 más») |
-| Motor | Panel plegado al final de la home | Tramo propio, con la puntuación en cada pieza y la franja de motivos con el detalle plegado dentro |
+| Nota de un tramo | Titular y etiqueta | Tres renglones: titular, etiqueta y **cuenta** («3 títulos», «10 títulos · y 5 más») |
+| Motor | Panel plegado al final de la home | Tramo propio, con la puntuación en cada pieza y el motivo en su asomo y su hoja |
 | Piezas sin nada que contar | Caja de texto vacía | Pieza fantasma: ocupa el hueco de una pieza, rayada y explicada |
 
 Lo que **no** cambia: los datos y su origen, las rutas, los textos del catálogo de i18n, los estados
@@ -79,8 +79,9 @@ contra los `@media`.
 - [x] La marquesina del artefacto: a sangre, dos bloques enfrentados —el titular en cuerpo de
       cartel y el cartel 2:3 girado con su pie—, la marca de refresco en la esquina y la
       **cinta dentro**, pegada al borde inferior, con su rótulo fuera del carro y sus puntos.
-- [x] La nota de cada tramo con su cuenta, la franja de motivos del motor y su tramo
-      («Recomendado para ti») con la puntuación en la pieza y el detalle del score plegado dentro.
+- [x] La nota de cada tramo con su cuenta —los títulos **a la vista** y los que quedan— y el tramo
+      del motor («Recomendado para ti») con la puntuación en la pieza. La franja de motivos se
+      retiró después: repetía lo que ya dice la nota y metía una caja dentro del mosaico.
 - [x] Los pesos del artefacto: el top entero en 2x2, continuar viendo en 2x2, novedades con una
       3x2 de entrada y luego 2x1 y celdas, último añadido y favoritos en 2x1 y 1x1 apagadas, y la
       banda de géneros con el recuento en voladizo.
@@ -121,3 +122,10 @@ contra los `@media`.
   cartel no debe bailar entre cargas, la decisión es del motor, no de la vitrina.
 - **El alta de un favorito se pinta antes de llegar al servidor.** Recargar justo después de pulsar
   puede leer una lista sin el título: la prueba espera la respuesta del `POST` antes de recargar.
+- **El arte de la pieza colgaba de su enlace, y no de la pieza.** El port envolvió el arte y el pie
+  en un enlace para que el cuerpo de la pieza fuera pulsable, y el enlace quedó en el flujo: medía lo
+  que su texto. El arte se coloca contra el ancestro posicionado más cercano, así que en una pieza
+  2x2 —continuar viendo, el top— la portada salía como una tira pegada al borde de abajo y el resto
+  del hueco quedaba en negro. `block-size: 100%` no lo arreglaba: contra una fila de altura
+  automática, un porcentaje se resuelve como `auto`. El enlace cubre ahora la pieza (`inset: 0`), y
+  con eso lo pulsable es la pieza entera, como decía el comentario del componente.
