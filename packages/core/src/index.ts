@@ -15,9 +15,11 @@ export {
   continueWatchingItemSchema,
   continueWatchingResponseSchema,
   type EpisodeResponse,
+  type EpisodeSeason,
   type EpisodesResponse,
   type ErrorResponse,
   episodeResponseSchema,
+  episodeSeasonSchema,
   episodesResponseSchema,
   errorResponseSchema,
   type FavoriteRequest,
@@ -104,6 +106,7 @@ export {
   type LoadConfigOptions,
   loadConfig,
 } from './config'
+export { episodeSeasonOf, episodeSeasons } from './episodes'
 export {
   AppError,
   type AppErrorOptions,

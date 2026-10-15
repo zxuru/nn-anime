@@ -334,3 +334,133 @@ test.describe('de la búsqueda al detalle', () => {
     await expect(page.getByRole('link', { name: 'Ver película' })).toHaveCount(0)
   })
 })
+
+/**
+ * Un título que junta sus temporadas en una sola lista.
+ *
+ * La fuente escribe la temporada en el título del episodio —`T2 E1 · Algo`— y la
+ * aplicación la lee de ahí; el índice lo calcula el servidor, que es el único que
+ * ve la lista entera. Se mide en un navegador porque el índice llega dentro de un
+ * efecto: el renderizado de servidor pinta el aviso de que los episodios están
+ * llegando y ninguna banda. La ruta se intercepta porque el fixture no marca
+ * temporadas —sus títulos son «Episodio N»—, así que aquí se sirve un título de
+ * dos temporadas de seis episodios, con páginas de tres para medir las dos.
+ */
+test.describe('un título con temporadas', () => {
+  test('la banda elige la temporada y la lista se pide por temporada', async ({ page }) => {
+    await entrar(page)
+
+    const POR_TEMPORADA = 6
+    const POR_PAGINA = 3
+    const TOTAL = 12
+    const temporadas = [
+      { season: 1, count: POR_TEMPORADA },
+      { season: 2, count: POR_TEMPORADA },
+    ]
+
+    /** Un episodio del título, numerado contra él y marcado con su temporada. */
+    const episodio = (number: number): unknown => {
+      const season = Math.ceil(number / POR_TEMPORADA)
+      const inSeason = number - (season - 1) * POR_TEMPORADA
+
+      return {
+        ref: { providerId: 'fixture', value: `aurora-nocturna#${number}` },
+        animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+        number,
+        title: `T${season} E${inSeason} · Episodio ${inSeason}`,
+        durationS: 1440,
+        mode: 'sub',
+      }
+    }
+
+    /** Lo que pidió la pantalla, con su consulta, en orden. */
+    const rutas: string[] = []
+
+    await page.route(
+      (url) => url.pathname === '/api/anime/fixture/aurora-nocturna/episodes',
+      async (ruta) => {
+        const consulta = new URL(ruta.request().url()).searchParams
+        rutas.push(consulta.toString())
+
+        const season = Number(consulta.get('season') ?? '1')
+        const numero = Number(consulta.get('page') ?? '1')
+        const desde = (numero - 1) * POR_PAGINA
+        const suyos = Array.from({ length: POR_PAGINA }, (_, indice) =>
+          episodio((season - 1) * POR_TEMPORADA + desde + indice + 1),
+        )
+
+        await ruta.fulfill({
+          json: {
+            episodes: suyos,
+            page: numero,
+            hasMore: desde + POR_PAGINA < POR_TEMPORADA,
+            total: TOTAL,
+            seasons: temporadas,
+          },
+        })
+      },
+    )
+
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    // La banda, con sus dos temporadas, y la primera marcada: la ficha pide la
+    // lista entera, ve que el título tiene temporadas y pide la primera en vez de
+    // pintar los doce episodios y cambiarlos después.
+    const banda = page.getByRole('list', { name: 'Temporadas' })
+    await expect(banda.getByRole('button', { name: /Temporada 1/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+      { timeout: 15_000 },
+    )
+    await expect(banda.getByRole('button', { name: /Temporada 2/ })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    await expect(banda.getByRole('button', { name: /Temporada 2/ })).toContainText('6 episodios')
+
+    // Y la lista son los tres primeros de la temporada 1, numerados **contra el
+    // título**: «Episodio 1 de 12», que es la etiqueta de la fuente y lo que
+    // enseña el reproductor.
+    await expect(page.locator('.episodes li')).toHaveCount(POR_PAGINA)
+    await expect(page.locator('.episodes li').first()).toContainText('Episodio 1 de 12')
+    await expect(page.locator('.episodes li').first()).toContainText('T1 E1 · Episodio 1')
+    expect(rutas).toEqual(['page=1', 'page=1&season=1'])
+
+    // La página siguiente sigue siendo la de esta temporada.
+    await page.getByRole('button', { name: 'Página siguiente' }).click()
+
+    await expect(page.locator('.episodes li').first()).toContainText('Episodio 4 de 12')
+
+    // Y elegir la otra temporada es pedirla: la lista cambia de contenido, no de
+    // filtro sobre lo ya descargado.
+    await banda.getByRole('button', { name: /Temporada 2/ }).click()
+
+    await expect(banda.getByRole('button', { name: /Temporada 2/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect(page.locator('.episodes li').first()).toContainText('Episodio 7 de 12')
+    await expect(page.locator('.episodes li').first()).toContainText('T2 E1 · Episodio 1')
+
+    /**
+     * Las cuatro peticiones, y en ese orden.
+     *
+     * La comparación es la lista entera y no la última ruta porque una petición de
+     * más —`page=2` sin temporada, que devuelve la lista entera otra vez— se ve en
+     * la secuencia y no en el resultado: la banda seguiría enseñando la temporada
+     * marcada y la lista, los mismos episodios.
+     */
+    await expect
+      .poll(() => rutas)
+      .toEqual(['page=1', 'page=1&season=1', 'page=2&season=1', 'page=1&season=2'])
+  })
+
+  test('sin temporadas marcadas no hay banda: la lista se lee entera', async ({ page }) => {
+    await entrar(page)
+
+    await page.goto('/anime/fixture/mar-de-cristal')
+
+    await expect(page.locator('.episodes li')).toHaveCount(5, { timeout: 15_000 })
+    await expect(page.locator('.episodes__seasons')).toHaveCount(0)
+  })
+})

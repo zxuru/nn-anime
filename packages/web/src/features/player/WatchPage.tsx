@@ -187,7 +187,7 @@ async function neighboursInPage(
   let total = pagina.total
 
   if (siguiente === undefined && pagina.hasMore) {
-    const segunda = await loadEpisodesPage(providerId, titleRef, 2, reads)
+    const segunda = await loadEpisodesPage(providerId, titleRef, { page: 2 }, reads)
     siguiente = delProveedor(segunda.episodes, providerId)[0]
     total = segunda.total ?? total
   }
@@ -210,7 +210,9 @@ async function neighboursWithNumber(
   number: number,
   reads: EpisodeReads,
 ): Promise<WatchNeighbours> {
-  const pagina = await loadEpisodesPage(providerId, titleRef, 1, reads).catch(() => undefined)
+  const pagina = await loadEpisodesPage(providerId, titleRef, { page: 1 }, reads).catch(
+    () => undefined,
+  )
   const propios = pagina === undefined ? [] : delProveedor(pagina.episodes, providerId)
   const actual = propios.find((episode) => episode.ref.value === episodeRef)
 
@@ -273,7 +275,7 @@ export async function loadWatchNeighbours(
     return neighboursWithNumber(providerId, titleRef, episodeRef, number, reads)
   }
 
-  const pagina = await loadEpisodesPage(providerId, titleRef, 1, reads)
+  const pagina = await loadEpisodesPage(providerId, titleRef, { page: 1 }, reads)
   const propios = delProveedor(pagina.episodes, providerId)
   const actual = propios.find((episode) => episode.ref.value === episodeRef)
 

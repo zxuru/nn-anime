@@ -423,6 +423,8 @@ export const messages: Messages = {
   'detail.related.franchise': 'Más de esta franquicia',
   'detail.related.current': 'viendo',
   'detail.season': 'Temporada {number}',
+  'detail.season.count': '{count} episodios',
+  'detail.seasons': 'Temporadas',
 
   'notFound.title': 'Esa ruta no existe',
   'notFound.body': 'La dirección {path} no corresponde a ninguna pantalla.',

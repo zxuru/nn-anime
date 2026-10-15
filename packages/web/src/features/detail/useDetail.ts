@@ -100,11 +100,22 @@ function opciones(reads: EpisodeReads): { readonly signal?: AbortSignal } {
  * la 1, pero una lectura sin página y otra con `?page=1` son dos claves distintas
  * en la caché del cliente, y la pantalla que trocea en páginas nunca debería
  * pedir una lista sin decir cuál.
+ *
+ * `season` sólo va cuando se pidió una: la lista entera y una temporada suya son
+ * dos cosas distintas, y la ausencia del parámetro es «todas». Escribirlo en la
+ * lista entera daría dos claves de caché para la misma lectura, como con la
+ * página.
  */
-export function episodesPath(providerId: string, ref: string, page: number): string {
-  const base = `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/episodes`
+export interface EpisodesQuery {
+  readonly page: number
+  readonly season?: number
+}
 
-  return `${base}?page=${page}`
+export function episodesPath(providerId: string, ref: string, query: EpisodesQuery): string {
+  const base = `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/episodes`
+  const temporada = query.season === undefined ? '' : `&season=${query.season}`
+
+  return `${base}?page=${query.page}${temporada}`
 }
 
 /** La ruta de un episodio por su número. Admite decimales. */
@@ -125,11 +136,11 @@ export function latestEpisodePath(providerId: string, ref: string): string {
 export async function loadEpisodesPage(
   providerId: string,
   ref: string,
-  page: number,
+  query: EpisodesQuery,
   reads: EpisodeReads = {},
 ): Promise<EpisodesResponse> {
   return apiGet(
-    episodesPath(providerId, ref, page),
+    episodesPath(providerId, ref, query),
     episodesResponseSchema,
     opciones(reads),
     reads.deps,
