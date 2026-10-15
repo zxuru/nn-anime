@@ -103,7 +103,8 @@
 
   /* Tipografía */
   --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --font-sans: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-sans:
+    "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --text-xs: 0.6875rem;
   --text-sm: 0.8125rem;
@@ -141,7 +142,7 @@
   --transition-fast: 120ms;
   --transition-normal: 200ms;
   /** La curva del asomo y de lo que crece al abrirse: arranca rápido y frena. */
-  --ease-piece: cubic-bezier(.22, .61, .36, 1);
+  --ease-piece: cubic-bezier(0.22, 0.61, 0.36, 1);
   /* La entrada de la home: un fundido corto y un escalón por fila. El paso es
      pequeño a propósito —seis filas entran en menos de medio segundo— porque un
      escalón largo convierte la carga en una cola. */
@@ -330,6 +331,29 @@
 
   /** El mando redondo que abre el asomo de una pieza. */
   --pieza-mando: var(--control-size);
+  /** El relleno del pie de una pieza y la barra de lo que se retoma. */
+  --pieza-pie-alto: 0.7rem;
+  --pieza-pie-lado: 0.85rem;
+  --pieza-barra-alto: 0.3rem;
+  /** El hueco entre la nota al margen y su cuenta. */
+  --nota-hueco: 0.35rem;
+
+  /** La banda de géneros: dos huecos —fila y columna— y su aire. */
+  --generos-hueco-fila: 0.25rem;
+  --generos-hueco-columna: clamp(0.75rem, 2.5vw, 2rem);
+  --generos-aire: 0.15em;
+
+  /** Los recursos de arte, en unidades de la pieza (cqi) y en voladizo. */
+  --arte-trama-paso: 1.5cqi;
+  --arte-trama-linea: 2cqi;
+  --arte-letra-alto: -0.14em;
+  --arte-letra-lado: -0.05em;
+  --arte-cifra-alto: -0.12em;
+  --arte-cifra-lado: -0.08em;
+  --arte-cifra-letra: -0.04em;
+  --arte-posicion-alto: -0.22em;
+  --arte-posicion-lado: 0.02em;
+  --arte-posicion-letra: -0.05em;
 
   /** La cinta de la marquesina: una vuelta cada 46 s, en bucle. */
   --cinta-vuelta: 46s;

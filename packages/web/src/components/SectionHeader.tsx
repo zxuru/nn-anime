@@ -1,27 +1,31 @@
 /**
- * El titular de una fila.
+ * La nota de una sección.
  *
- * Grande, en mayúsculas y apretado, con la etiqueta de la derecha en
- * monoespaciada: es lo que separa una fila de la siguiente y lo que dice de qué
- * va la lista —«lo más visto», «retoma donde lo dejaste»— sin gastar un párrafo.
+ * Es el titular de una fila, y en la vitrina vive **al margen**: en la canaleta
+ * izquierda del mosaico, pegajosa, de modo que sigue a la vista mientras se
+ * recorre el tramo. Es lo que hace que el mosaico se lea como una revista y no
+ * como una cuadrícula suelta.
  *
- * La etiqueta de la derecha se pasa como texto ya traducido y no como clave: este
- * componente no sabe de filas, sólo de titulares.
+ * El texto llega ya traducido y no como clave: este componente no sabe de filas,
+ * sólo de titulares.
  */
 
 import type { ReactNode } from 'react'
 
 export interface SectionHeaderProps {
   readonly title: string
-  /** La etiqueta de la derecha. Sin ella, sólo el titular. */
+  /** La etiqueta de debajo del titular. Sin ella, sólo el titular. */
   readonly meta?: string | undefined
+  /** La cuenta del tramo, arriba del todo. Sin ella, no se pinta. */
+  readonly cuenta?: string | undefined
 }
 
 export function SectionHeader(props: SectionHeaderProps): ReactNode {
   return (
-    <header className="section__head">
-      <h2 className="section__title">{props.title}</h2>
-      {props.meta === undefined ? null : <p className="section__meta">{props.meta}</p>}
+    <header className="seccion__nota">
+      <h2 className="nota__titulo">{props.title}</h2>
+      {props.meta === undefined ? null : <p className="nota__meta">{props.meta}</p>}
+      {props.cuenta === undefined ? null : <p className="nota__cuenta">{props.cuenta}</p>}
     </header>
   )
 }

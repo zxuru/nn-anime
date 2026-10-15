@@ -6,6 +6,9 @@
  * lo que ya había— y no «hace dos días», que pide un formato relativo y un i18n de
  * fechas que no cambia lo que la fila resuelve.
  *
+ * En la vitrina es un mosaico de piezas de dos de ancho: pesa más que un favorito y
+ * menos que lo que se retoma, y eso lo dice su tamaño.
+ *
  * El orden lo decide el servidor y la fila **no reordena**: una sola fuente de
  * verdad para las dos pantallas, y ordenar dos veces acaba en dos órdenes.
  *
@@ -17,7 +20,8 @@
 import type { FeedItem } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
-import { PosterCard } from '../../components/PosterCard'
+import { Mosaico } from '../../components/Mosaico'
+import { Pieza, recursoDe } from '../../components/Pieza'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 
@@ -27,29 +31,33 @@ export interface FeedRowProps {
 
 export function FeedRow(props: FeedRowProps): ReactNode {
   return (
-    <section className="section">
+    <section className="seccion">
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.feed')}
         meta={t(DEFAULT_LOCALE, 'home.feed.meta')}
       />
 
-      {props.items.length === 0 ? (
-        <p className="empty">{t(DEFAULT_LOCALE, 'home.feed.empty')}</p>
-      ) : (
-        <ul className="row__list">
-          {props.items.map((item) => (
-            <li key={`${item.ref.providerId}:${item.ref.value}`}>
-              <PosterCard
+      <div className="seccion__cuerpo">
+        {props.items.length === 0 ? (
+          <p className="empty">{t(DEFAULT_LOCALE, 'home.feed.empty')}</p>
+        ) : (
+          <Mosaico>
+            {props.items.map((item, indice) => (
+              <Pieza
+                key={`${item.ref.providerId}:${item.ref.value}`}
                 providerId={item.ref.providerId}
                 ref={item.ref.value}
                 title={item.title}
                 to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
-                caption={item.year === undefined ? undefined : String(item.year)}
+                peso="w"
+                recurso={recursoDe(indice)}
+                year={item.year}
+                meta={item.year === undefined ? undefined : String(item.year)}
               />
-            </li>
-          ))}
-        </ul>
-      )}
+            ))}
+          </Mosaico>
+        )}
+      </div>
     </section>
   )
 }

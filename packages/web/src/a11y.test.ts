@@ -222,22 +222,29 @@ describe('movimiento reducido', () => {
   })
 
   /**
-   * La entrada de la home, apagada.
+   * La potencia que falta, apagada.
    *
-   * Se mira el bloque entero y no sólo el esqueleto porque las tres animaciones
-   * nuevas viven en el mismo `@media`, y una que se quede fuera no rompe ninguna
-   * otra prueba: sólo mueve la página de quien pidió que no se moviera. La
-   * supresión tiene la **misma especificidad** que la regla que apaga, así que
-   * también importa que vaya después; por eso el bloque se busca desde la última
-   * aparición del `@media`.
+   * La entrada de la home y la cinta de la marquesina son lo único que se mueve
+   * sin que nadie lo pida; el resto de la vitrina espera al puntero. Se mira el
+   * bloque entero y no sólo una regla porque una animación nueva que se quede
+   * fuera no rompe ninguna otra prueba: sólo mueve la página de quien pidió que no
+   * se moviera. La supresión tiene la **misma especificidad** que la regla que
+   * apaga, así que también importa que vaya después; por eso el bloque se busca
+   * desde la última aparición del `@media`.
    */
-  test('las filas y las tarjetas dejan de entrar animadas', async () => {
+  test('la entrada y la cinta dejan de moverse', async () => {
     const css = await Bun.file(SHELL).text()
-    const bloque = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce)'))
+    const bloques = css.split('@media (prefers-reduced-motion: reduce)')
+    const ultimo = bloques[bloques.length - 1] ?? ''
 
-    expect(bloque).toContain('.home > *')
-    expect(bloque).toContain('.row__list > li')
-    expect(bloque).toContain('animation: none')
+    expect(bloques.length).toBeGreaterThan(1)
+    expect(ultimo).toContain('.cinta__carro')
+    expect(ultimo).toContain('animation: none')
+
+    // Y la entrada de la home sigue apagándose en algún bloque: es lo que entra
+    // solo al abrir la pantalla.
+    expect(bloques.join('')).toContain('.home > *')
+    expect(bloques.join('')).toContain('.skeleton')
   })
 
   test('el desplazamiento de la entrada sale de un token, no de un número suelto', async () => {

@@ -64,8 +64,22 @@ contra los `@media`.
 ## Estado
 
 - [x] Decisión: la vitrina es la v2; los otros tres rediseños se retiraron del repositorio.
-- [ ] Tokens de la vitrina.
-- [ ] Bloque de composición en `shell.css` (marquesina, sección, mosaico, pieza, géneros, cinta).
-- [ ] Home recompuesta (marquesina + secciones en mosaico + banda de géneros).
+- [x] Tokens de la vitrina (paleta, radios, tipografía, movimiento, puntos de corte, arte).
+- [x] Bloque de composición en `shell.css`: marquesina, cinta, sección con nota al margen,
+      mosaico, pieza, asomo y banda de géneros, con los cuatro anchos donde recompone.
+- [x] Home recompuesta: las cinco filas son mosaicos de piezas (`Pieza`, `Mosaico`), el
+      destacado es la marquesina y los géneros son la banda. `PosterCard` se retiró.
+- [x] La regla del puntero, medida: dos pruebas en `styles.test.ts` fallan si una regla
+      `:hover` de la composición toca geometría o si algo se mueve con `transform`. Lo que
+      quedaba del diseño viejo —la tarjeta que se «levantaba» 2 px al pasar el ratón— se
+      cambió por tono: el puntero no mueve nada en ninguna pantalla.
+- [ ] El asomo con datos: la pieza no lleva sinopsis hoy porque ninguna fila la trae. El
+      enlace ya acepta `onMouseEnter` para la precarga del detalle, que es lo que pide el
+      spec, así que el asomo se llena al pasar el puntero —con lo que se pida— en un paso
+      siguiente.
 - [ ] Buscar, ficha, ver y ajustes sobre la misma composición.
+- [ ] Limpieza: los bloques `.row*`, `.hero*`, `.poster*`, `.ticker*`, `.genres*` y
+      `.section*` de `shell.css` se quedan sin uso al portar la home (salvo `.section__meta`,
+      que sigue en el panel). Se retiran en el paso siguiente, con su parte de `shell.css`
+      ya medida.
 - [ ] `e2e` al día (home, buscar, ficha, ver) y capturas nuevas en `docs/`.

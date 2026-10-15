@@ -157,7 +157,7 @@ export function HomePage(props: HomePageProps): ReactNode {
           página es el suyo: una pantalla sin `h1` deja al lector de pantalla sin
           saber dónde está. */}
       {destacado === undefined ? (
-        <h1 className="hero__title">{t(DEFAULT_LOCALE, 'home.title')}</h1>
+        <h1 className="marquesina__titulo">{t(DEFAULT_LOCALE, 'home.title')}</h1>
       ) : (
         <FeaturedHero item={destacado} />
       )}

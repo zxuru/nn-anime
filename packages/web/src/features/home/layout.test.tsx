@@ -3,7 +3,7 @@ import type { RecommendationResponse } from '@nn-anime/core/api'
 import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
-import { PosterCard } from '../../components/PosterCard'
+import { Pieza, RECURSOS, recursoDe } from '../../components/Pieza'
 import { SectionHeader } from '../../components/SectionHeader'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { featuredMeta } from './FeaturedHero'
@@ -32,68 +32,149 @@ function resumen(titulo: string): AnimeSummary {
   return { ref: { providerId: 'fixture', value: titulo }, title: titulo }
 }
 
-describe('el titular de una fila', () => {
-  test('lleva su etiqueta a la derecha', () => {
+describe('la nota de una sección', () => {
+  test('lleva su titular y su etiqueta', () => {
     const html = render(<SectionHeader title="Top 5" meta="Lo mejor para ti" />)
 
-    expect(html).toContain('section__title')
+    expect(html).toContain('seccion__nota')
+    expect(html).toContain('nota__titulo')
     expect(html).toContain('Lo mejor para ti')
   })
 
   test('sin etiqueta no deja el hueco', () => {
-    expect(render(<SectionHeader title="Sólo el título" />)).not.toContain('section__meta')
+    expect(render(<SectionHeader title="Sólo el título" />)).not.toContain('nota__meta')
+  })
+
+  test('la cuenta del tramo es opcional y va aparte', () => {
+    const html = render(<SectionHeader title="Top 5" cuenta="10 de 42" />)
+
+    expect(html).toContain('nota__cuenta')
+    expect(html).toContain('10 de 42')
+    expect(render(<SectionHeader title="sólo" />)).not.toContain('nota__cuenta')
   })
 })
 
-describe('la tarjeta de una fila', () => {
-  test('portada, título y pie', () => {
+describe('la pieza de la vitrina', () => {
+  test('el arte, el título y el pie', () => {
     const html = render(
-      <PosterCard
+      <Pieza
         providerId="fixture"
         ref="aurora-nocturna"
         title="Aurora Nocturna"
         to="/anime/fixture/aurora-nocturna"
-        caption="Quedan 12 min"
+        meta="2019"
       />,
     )
 
     expect(html).toContain('src="/api/cover/fixture/aurora-nocturna"')
     expect(html).toContain('Aurora Nocturna')
-    expect(html).toContain('Quedan 12 min')
+    expect(html).toContain('2019')
   })
 
-  test('el número del top va dentro del marco, antes que el pie', () => {
-    const html = render(<PosterCard providerId="f" ref="x" title="X" to="/anime/f/x" number={3} />)
-
-    // En el diseño el número ocupa la esquina de la portada y el pie se lee por
-    // debajo: fuera del marco, o después del pie, tapaba el título.
-    expect(html).toContain('poster__number')
-    expect(html.indexOf('poster__frame')).toBeLessThan(html.indexOf('poster__number'))
-    expect(html.indexOf('poster__number')).toBeLessThan(html.indexOf('poster__caption'))
-  })
-
-  test('sin pie ni número no inventa nada', () => {
-    const html = render(<PosterCard providerId="f" ref="x" title="X" to="/anime/f/x" />)
-
-    expect(html).not.toContain('poster__meta')
-    expect(html).not.toContain('poster__number')
-    expect(html).not.toContain('<progress')
-  })
-
-  test('con progreso, la barra lleva su etiqueta accesible', () => {
+  /**
+   * La pieza es un enlace de verdad y **sin mandos dentro**: lo que hay que pulsar
+   * de verdad vive en la ficha, y un control dentro de otro control no es un
+   * control.
+   */
+  test('es un enlace a la ficha y no lleva mandos dentro', () => {
     const html = render(
-      <PosterCard
+      <Pieza
         providerId="f"
         ref="x"
         title="X"
         to="/anime/f/x"
-        progress={40}
-        progressLabel="Seguir en 12:00"
+        asomo={{ sinopsis: 'Una flota navega un océano transparente.' }}
+      />,
+    )
+
+    expect(html).toContain('href="/anime/f/x"')
+    expect(html).toContain('pz__enlace')
+    expect(html).not.toContain('<button')
+  })
+
+  test('el peso lo pone la sección, y sin peso es una celda', () => {
+    expect(render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" peso="m" />)).toContain(
+      'pz--m',
+    )
+    expect(render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" />)).toContain('pz--s')
+  })
+
+  test('el puesto del top va en la pieza', () => {
+    const html = render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" posicion={3} />)
+
+    expect(html).toContain('pz__posicion')
+    expect(html).toContain('3')
+    expect(render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" />)).not.toContain(
+      'pz__posicion',
+    )
+  })
+
+  test('con progreso, la barra lleva su etiqueta accesible', () => {
+    const html = render(
+      <Pieza
+        providerId="f"
+        ref="x"
+        title="X"
+        to="/anime/f/x"
+        episodio="Ep. 3"
+        progreso={40}
+        progresoEtiqueta="Seguir en 12:00"
       />,
     )
 
     expect(html).toContain('value="40"')
     expect(html).toContain('aria-label="Seguir en 12:00"')
+    expect(html).toContain('Ep. 3')
+  })
+
+  test('sin pie, sin puesto y sin progreso no inventa nada', () => {
+    const html = render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" />)
+
+    expect(html).not.toContain('pz__meta')
+    expect(html).not.toContain('pz__posicion')
+    expect(html).not.toContain('<progress')
+    expect(html).not.toContain('pz__asomo')
+  })
+
+  test('la pieza de favoritos va apagada', () => {
+    expect(render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" apagada />)).toContain(
+      'pz--apagada',
+    )
+  })
+
+  /**
+   * El arte no cambia con el tema ni con la carga: se reparte por el puesto, así
+   * que dos piezas contiguas nunca repiten dibujo y la misma pieza enseña el mismo
+   * en cada visita. Al azar, el mosaico temblaría en cada carga.
+   */
+  test('el recurso se reparte por el puesto y no al azar', () => {
+    expect(recursoDe(0)).toBe(RECURSOS[0] ?? 'trama')
+    expect(recursoDe(RECURSOS.length)).toBe(RECURSOS[0] ?? 'trama')
+    expect(recursoDe(1)).not.toBe(recursoDe(0))
+
+    const html = render(
+      <Pieza providerId="f" ref="x" title="X" to="/anime/f/x" recurso="circulo" />,
+    )
+
+    expect(html).toContain('pz__arte--circulo')
+  })
+
+  test('la inicial y la cifra son texto, no dibujo', () => {
+    const letra = render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" recurso="letra" />)
+
+    expect(letra).toContain('pz__letra')
+    expect(letra).toContain('>X<')
+
+    const cifra = render(
+      <Pieza providerId="f" ref="x" title="X" to="/anime/f/x" recurso="cifra" year={2019} />,
+    )
+
+    expect(cifra).toContain('pz__cifra')
+    expect(cifra).toContain('2019')
+    // Sin año, la cifra no se pinta: no hay número que enseñar.
+    expect(
+      render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" recurso="cifra" />),
+    ).not.toContain('pz__cifra')
   })
 })
 
@@ -106,7 +187,7 @@ describe('el top de la fuente', () => {
   test('numera los puestos y corta en los visibles', () => {
     const html = render(<TopRow items={puestos(12)} />)
 
-    expect(html.match(/poster__number/g)?.length).toBe(TOP_VISIBLES)
+    expect(html.match(/pz__posicion/g)?.length).toBe(TOP_VISIBLES)
     expect(html).toContain('puesto-1')
     expect(html).not.toContain('puesto-11')
   })
@@ -126,6 +207,17 @@ describe('el top de la fuente', () => {
     expect(quedanPuestos(TOP_VISIBLES + 1, false)).toBe(true)
   })
 
+  /**
+   * El mando que despliega es una pieza del mosaico, no un botón suelto por
+   * debajo: ocupa su hueco y la rejilla no se descoloca al aparecer.
+   */
+  test('el mando de desplegar ocupa su hueco en el mosaico', () => {
+    const html = render(<TopRow items={puestos(TOP_VISIBLES + 1)} />)
+
+    expect(html).toContain('pz--mando')
+    expect(html.indexOf('pz--mando')).toBeLessThan(html.indexOf('Mostrar más'))
+  })
+
   test('sin nada que enseñar lo explica', () => {
     expect(render(<TopRow items={[]} />)).toContain('Ningún proveedor activo publica un top')
   })
@@ -139,8 +231,23 @@ describe('la cinta', () => {
   test('con títulos, cada uno lleva a su ficha', () => {
     const html = render(<Ticker items={[resumen('Mar de Cristal')]} />)
 
-    expect(html).toContain('ticker__label')
+    expect(html).toContain('cinta__rotulo')
     expect(html).toContain('href="/anime/fixture/Mar%20de%20Cristal"')
+  })
+
+  /**
+   * La lista va dos veces para que el bucle no tenga costura. La copia **no es un
+   * enlace ni se anuncia**: es la misma información otra vez, y quien navega con
+   * el teclado no tiene por qué pasar por ella.
+   */
+  test('la copia que cierra el bucle queda fuera del foco y del lector', () => {
+    const html = render(<Ticker items={[resumen('Mar de Cristal')]} />)
+
+    expect(html.match(/href="\/anime\/fixture\/Mar%20de%20Cristal"/g)?.length).toBe(1)
+    expect(html.match(/aria-hidden="true"/g)?.length).toBe(1)
+    expect(html).not.toContain('tabindex')
+    // Y la copia sigue estando: sin ella el bucle salta al empezar de nuevo.
+    expect(html.match(/cinta__item/g)?.length).toBe(2)
   })
 })
 
@@ -163,6 +270,8 @@ describe('los géneros', () => {
     const html = render(<GenreRow genres={['Acción']} />)
 
     expect(html).toContain('href="/search?q=Acci%C3%B3n"')
+    expect(html).toContain('generos')
+    expect(html).toContain('genero')
   })
 
   test('sin géneros lo explica en vez de dejar la lista vacía', () => {

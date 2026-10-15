@@ -5,10 +5,14 @@
  * de que la lista sirva para algo. Salen de los títulos que hay en la base —los
  * que el motor usa como características— y no de una lista fija, así que un
  * catálogo sin género «mecha» no lo enseña.
+ *
+ * Es la banda que cierra la vitrina: palabras grandes en serif, una al lado de
+ * otra, con la línea por debajo. Se lee al pasear la vista, no al leer.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
+import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { searchPath } from '../search/SearchPage'
@@ -33,25 +37,27 @@ export function topGenres(tags: readonly (readonly string[])[], limit: number): 
 
 export function GenreRow(props: GenreRowProps): ReactNode {
   return (
-    <section className="section">
-      <header className="section__head">
-        <h2 className="section__title">{t(DEFAULT_LOCALE, 'home.genres')}</h2>
-        <p className="section__meta">{t(DEFAULT_LOCALE, 'home.genres.meta')}</p>
-      </header>
+    <section className="seccion">
+      <SectionHeader
+        title={t(DEFAULT_LOCALE, 'home.genres')}
+        meta={t(DEFAULT_LOCALE, 'home.genres.meta')}
+      />
 
-      {props.genres.length === 0 ? (
-        <p className="empty">{t(DEFAULT_LOCALE, 'home.genres.empty')}</p>
-      ) : (
-        <ul className="genres">
-          {props.genres.map((genero) => (
-            <li key={genero}>
-              <Link to={searchPath(genero)} className="genres__item">
-                {genero}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="seccion__cuerpo">
+        {props.genres.length === 0 ? (
+          <p className="empty">{t(DEFAULT_LOCALE, 'home.genres.empty')}</p>
+        ) : (
+          <ul className="generos">
+            {props.genres.map((genero) => (
+              <li key={genero}>
+                <Link to={searchPath(genero)} className="genero">
+                  {genero}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   )
 }

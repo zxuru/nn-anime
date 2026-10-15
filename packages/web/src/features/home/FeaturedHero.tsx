@@ -1,14 +1,18 @@
 /**
- * El cartel de destacado.
+ * La marquesina: el destacado.
  *
- * Es el primero del ranking y ocupa el ancho entero: portada, etiquetas de
- * género, la línea de datos, la sinopsis en dos líneas y los dos botones. El
- * botón principal **reproduce el primer episodio** y el secundario guarda el
- * título en favoritos, que es lo que hace el diseño de referencia con «play» y
- * «my list».
+ * Es la primera pieza de la vitrina y la que dice de qué va la aplicación: un
+ * campo de degradado a sangre, el título en cuerpo de cartel a la izquierda y el
+ * cartel —la portada, con marco— a la derecha. Debajo cuelga la cinta, que la
+ * pone la home.
  *
- * El botón de reproducir sólo aparece si se conoce la referencia del primer
- * episodio: sin ella llevaría a una pantalla de error, y es mejor no ofrecerlo.
+ * El botón principal **reproduce el primer episodio** y el secundario guarda el
+ * título en favoritos. El botón de reproducir sólo aparece si se conoce la
+ * referencia del primer episodio: sin ella llevaría a una pantalla de error, y es
+ * mejor no ofrecerlo.
+ *
+ * El cartel no lleva pie: el titular ya está enfrente, en cuerpo de cartel, y
+ * repetirlo dentro del marco es decir dos veces lo mismo.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
@@ -62,56 +66,56 @@ export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
   const meta = featuredMeta({ ...props.item, tags }, detail?.episodeCount)
 
   return (
-    <section className="hero" aria-labelledby="hero-title">
-      <div className="hero__body">
-        <span className="tag tag--hot">{t(DEFAULT_LOCALE, 'home.featured.tag')}</span>
+    <section className="marquesina" aria-labelledby="hero-title">
+      <span className="marquesina__campo" aria-hidden="true" />
+      <span className="marquesina__velo" aria-hidden="true" />
 
-        <h1 className="hero__title" id="hero-title">
-          {props.item.title}
-        </h1>
+      <div className="marquesina__cuerpo">
+        <div className="marquesina__texto">
+          <span className="marquesina__etiqueta">{t(DEFAULT_LOCALE, 'home.featured.tag')}</span>
 
-        {meta === '' ? null : <p className="hero__meta">{meta}</p>}
+          <h1 className="marquesina__titulo" id="hero-title">
+            {props.item.title}
+          </h1>
 
-        {detail?.synopsis === undefined ? null : (
-          <p className="hero__synopsis">{detail.synopsis}</p>
-        )}
+          {meta === '' ? null : <p className="marquesina__meta">{meta}</p>}
 
-        <div className="hero__actions">
-          {firstEpisode === undefined ? null : (
-            <Link
-              to={`/watch/${encodeURIComponent(props.item.ref.providerId)}/${encodeURIComponent(firstEpisode.ref.value)}`}
-              className="button button--primary"
-            >
-              {t(DEFAULT_LOCALE, 'home.featured.play', { number: firstEpisode.number })}
-            </Link>
+          {detail?.synopsis === undefined ? null : (
+            <p className="marquesina__sinopsis">{detail.synopsis}</p>
           )}
 
-          <FavoriteButton value={favorite.value} busy={favorite.busy} onToggle={favorite.toggle} />
-        </div>
-      </div>
+          {props.item.reason === undefined ? null : (
+            <p className="marquesina__motivo">{props.item.reason.text}</p>
+          )}
 
-      {/*
-        La pila de portadas: la del título y dos copias giradas detrás. Es del
-        diseño de referencia y se hace con CSS, sin imágenes de más.
-      */}
-      <div className="hero__stack" aria-hidden="true">
-        <span className="hero__back hero__back--left" />
-        <span className="hero__back hero__back--right" />
+          <div className="marquesina__acciones">
+            {firstEpisode === undefined ? null : (
+              <Link
+                to={`/watch/${encodeURIComponent(props.item.ref.providerId)}/${encodeURIComponent(firstEpisode.ref.value)}`}
+                className="button button--primary"
+              >
+                {t(DEFAULT_LOCALE, 'home.featured.play', { number: firstEpisode.number })}
+              </Link>
+            )}
+
+            <FavoriteButton
+              value={favorite.value}
+              busy={favorite.busy}
+              onToggle={favorite.toggle}
+            />
+          </div>
+        </div>
+
         <Link
           to={`/anime/${encodeURIComponent(props.item.ref.providerId)}/${encodeURIComponent(props.item.ref.value)}`}
-          className="hero__poster"
+          className="marquesina__cartel"
+          title={props.item.title}
         >
           <Cover
             providerId={props.item.ref.providerId}
             ref={props.item.ref.value}
-            className="hero__cover"
+            className="marquesina__cover"
           />
-          <span className="poster__caption">
-            <span className="poster__title">{props.item.title}</span>
-            {props.item.reason === undefined ? null : (
-              <span className="poster__meta">{props.item.reason.text}</span>
-            )}
-          </span>
         </Link>
       </div>
     </section>

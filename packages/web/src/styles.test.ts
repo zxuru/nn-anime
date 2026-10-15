@@ -234,6 +234,96 @@ describe('tokens de diseño', () => {
     }
   })
 
+  /**
+   * El puntero no mueve la vitrina.
+   *
+   * Pasar el ratón por encima de una pieza enciende su borde, aviva el campo y
+   * destapa el asomo, pero **nada cambia de tamaño ni de sitio**. La primera
+   * versión de la vitrina crecía al pasar el ratón —de una fila a dos, de dos a
+   * tres— y todo lo que venía debajo bajaba 145 px, ida y vuelta: el contenido se
+   * movía solo bajo el puntero, y eso marea. Se mide aquí porque en el CSS no se
+   * ve: el fallo no rompe ninguna otra prueba y sólo aparece con el ratón encima.
+   */
+  test('ninguna regla de hover de la composición cambia geometría', async () => {
+    const css = await read(SHELL)
+
+    // Las propiedades que reflotan, mueven o redimensionan. Un color, un fondo,
+    // un filtro, una opacidad o el pausado de una animación no están aquí.
+    const geometria = [
+      'grid-row',
+      'grid-column',
+      'grid-template',
+      'transform',
+      'translate',
+      'rotate',
+      'scale',
+      'width',
+      'height',
+      'inline-size',
+      'block-size',
+      'padding',
+      'margin',
+      'inset',
+      'top',
+      'left',
+      'right',
+      'bottom',
+      'font-size',
+      'flex',
+    ]
+
+    const deLaVitrina = /\.(pz|cinta|marquesina|seccion|nota|genero|mosaico)\b/
+    const reglas = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    let comprobadas = 0
+
+    for (const regla of reglas) {
+      const selector = (regla[1] ?? '').trim()
+      const cuerpo = regla[2] ?? ''
+      if (!selector.includes(':hover') || !deLaVitrina.test(selector)) continue
+
+      comprobadas += 1
+
+      for (const propiedad of geometria) {
+        expect(
+          cuerpo,
+          `${selector} cambia ${propiedad} con el puntero encima`,
+        ).not.toMatch(new RegExp(`(^|[;\\s])${propiedad}\\s*:`))
+      }
+    }
+
+    expect(comprobadas, 'no se encontró ninguna regla de hover que comprobar').toBeGreaterThan(2)
+  })
+
+  /** Y el movimiento —lo que además de cambiar de sitio, se ve moverse— tampoco. */
+  test('ninguna regla de hover mueve nada con `transform` ni cambia de fila', async () => {
+    const css = await read(SHELL)
+    const reglas = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+
+    for (const regla of reglas) {
+      const selector = (regla[1] ?? '').trim()
+      if (!selector.includes(':hover')) continue
+
+      expect(regla[2] ?? '', `${selector} se mueve con el puntero encima`).not.toMatch(
+        /(^|[;\s])(transform|translate|rotate|scale|grid-row|grid-column)\s*:/,
+      )
+    }
+  })
+
+  /**
+   * El asomo sólo se enseña donde cabe.
+   *
+   * La caja del asomo mide entre 7 y 9,5 rem: más que una pieza de una sola fila
+   * —112 a 152 px—, y con el recorte de la pieza se leería a medias. Donde no
+   * cabe, la pieza no lo enseña.
+   */
+  test('la pieza de una sola fila no enseña el asomo', async () => {
+    const css = await read(SHELL)
+
+    expect(css).toContain('.pz.pz--s .pz__asomo')
+    expect(css).toContain('.pz.pz--w .pz__asomo')
+    expect(css).toContain('display: none')
+  })
+
   test('respeta la preferencia de movimiento reducido', async () => {
     expect(await read(TOKENS)).toContain('prefers-reduced-motion')
   })
