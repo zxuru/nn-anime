@@ -40,10 +40,22 @@ export const THEME_KEY = 'theme'
  */
 export const PROVIDER_PRIORITY_KEY = 'providerPriority'
 
+/**
+ * Clave de «enseñar también el contenido para adultos».
+ *
+ * Vive donde viven los demás ajustes y no en el navegador por el motivo que ya
+ * está escrito arriba: es el servidor quien decide qué pide a AniList, qué guarda
+ * y qué sirve, y un ajuste que sólo lee la interfaz no puede cambiar nada de eso.
+ */
+export const ADULT_CONTENT_KEY = 'adultContent'
+
 const themeSchema = z.enum(['dark', 'light', 'system'])
 const DEFAULT_THEME = 'system' as const
 const prioritySchema = z.array(z.string().min(1)).max(64)
 const NO_PRIORITY: readonly string[] = []
+const adultContentSchema = z.boolean()
+/** Apagado: lo que no se enciende a conciencia no se enseña. */
+const DEFAULT_ADULT_CONTENT = false
 
 export interface SettingsRouteOptions {
   readonly container: ServerContainer
@@ -70,6 +82,11 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
       PROVIDER_PRIORITY_KEY,
       prioritySchema,
       NO_PRIORITY,
+    )
+    const adultContent = await options.container.store.getSetting(
+      ADULT_CONTENT_KEY,
+      adultContentSchema,
+      DEFAULT_ADULT_CONTENT,
     )
 
     const activos = options.plugins.active.map((entrada) => ({
@@ -101,6 +118,7 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
       settingsResponseSchema.parse({
         theme,
         providerPriority,
+        adultContent,
         paths: pathsOf(options.paths),
         mpv: {
           available: options.container.mpv.available,
@@ -138,6 +156,10 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
       await options.container.store.setSetting(PROVIDER_PRIORITY_KEY, [
         ...new Set(parsed.data.providerPriority),
       ])
+    }
+
+    if (parsed.data.adultContent !== undefined) {
+      await options.container.store.setSetting(ADULT_CONTENT_KEY, parsed.data.adultContent)
     }
 
     return c.body(null, 204)
