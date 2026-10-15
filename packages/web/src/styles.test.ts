@@ -284,10 +284,9 @@ describe('tokens de diseño', () => {
       comprobadas += 1
 
       for (const propiedad of geometria) {
-        expect(
-          cuerpo,
-          `${selector} cambia ${propiedad} con el puntero encima`,
-        ).not.toMatch(new RegExp(`(^|[;\\s])${propiedad}\\s*:`))
+        expect(cuerpo, `${selector} cambia ${propiedad} con el puntero encima`).not.toMatch(
+          new RegExp(`(^|[;\\s])${propiedad}\\s*:`),
+        )
       }
     }
 

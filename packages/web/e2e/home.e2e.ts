@@ -15,9 +15,10 @@ test.describe('la home', () => {
     await entrar(page)
     await esperarApp(page)
 
-    // La home del diseño: cinta, cartel de destacado, top y las filas.
-    await expect(page.locator('.ticker')).toBeVisible()
-    await expect(page.locator('.hero__title')).toBeVisible()
+    // La home de la vitrina: la cinta, la marquesina del destacado, el mosaico del
+    // top y las demás secciones.
+    await expect(page.locator('.cinta')).toBeVisible()
+    await expect(page.locator('.marquesina__titulo')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Top de la fuente' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Continuar viendo' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Tus favoritos' })).toBeVisible()
@@ -46,16 +47,20 @@ test.describe('la home', () => {
     await entrar(page)
     await esperarApp(page)
 
-    const top = page.locator('.section--top')
-    const tarjetas = top.locator('.poster')
+    const top = page.locator('.seccion', {
+      has: page.getByRole('heading', { name: 'Top de la fuente' }),
+    })
+    // Las piezas del top son las de dos por dos: el mando de «Mostrar más» también
+    // es una pieza del mosaico, pero no un puesto.
+    const tarjetas = top.locator('.pz--b')
 
     await expect(tarjetas).toHaveCount(10)
-    await expect(top.locator('.poster__number').last()).toHaveText('10')
+    await expect(top.locator('.pz__posicion').last()).toHaveText('10')
 
     await top.getByRole('button', { name: 'Mostrar más' }).click()
 
     await expect(tarjetas).toHaveCount(15)
-    await expect(top.locator('.poster__number').last()).toHaveText('15')
+    await expect(top.locator('.pz__posicion').last()).toHaveText('15')
     await expect(top.getByRole('button', { name: 'Mostrar más' })).toHaveCount(0)
   })
 
@@ -71,14 +76,14 @@ test.describe('la home', () => {
     await esperarApp(page)
 
     // El fixture declara `capabilities.feed`, así que la fila de novedades tiene
-    // tarjetas propias: es lo que hace que una instalación nueva no se quede con
-    // un titular y nada más. Se mira **lo que se ve**, no lo que devuelve la API.
-    const novedades = page.locator('.section', {
+    // piezas propias: es lo que hace que una instalación nueva no se quede con un
+    // titular y nada más. Se mira **lo que se ve**, no lo que devuelve la API.
+    const novedades = page.locator('.seccion', {
       has: page.getByRole('heading', { name: 'Novedades' }),
     })
 
     await expect(novedades).toBeVisible()
-    await expect(novedades.locator('.poster__title').first()).toBeVisible()
+    await expect(novedades.locator('.pz__titulo').first()).toBeVisible()
 
     // Y la fila de lo que la aplicación conoce está siempre, con contenido o con
     // su explicación: una fila que desaparece deja al usuario sin saber si la

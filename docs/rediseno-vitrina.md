@@ -78,8 +78,7 @@ contra los `@media`.
       spec, así que el asomo se llena al pasar el puntero —con lo que se pida— en un paso
       siguiente.
 - [ ] Buscar, ficha, ver y ajustes sobre la misma composición.
-- [ ] Limpieza: los bloques `.row*`, `.hero*`, `.poster*`, `.ticker*`, `.genres*` y
-      `.section*` de `shell.css` se quedan sin uso al portar la home (salvo `.section__meta`,
-      que sigue en el panel). Se retiran en el paso siguiente, con su parte de `shell.css`
-      ya medida.
-- [ ] `e2e` al día (home, buscar, ficha, ver) y capturas nuevas en `docs/`.
+- [x] Limpieza: los bloques `.row*`, `.hero*`, `.poster*`, `.ticker*`, `.genres*` y los
+      `.section*` que se quedaron sin uso al portar la home se retiraron de `shell.css`
+      (`.section__meta` se queda: el panel lo usa) junto con `PosterCard`.
+- [ ] El `e2e` de la home al día; quedan las otras pantallas por portar y sus pruebas.
