@@ -57,6 +57,19 @@ const adultContentSchema = z.boolean()
 /** Apagado: lo que no se enciende a conciencia no se enseña. */
 const DEFAULT_ADULT_CONTENT = false
 
+/**
+ * Si esta instalación pide, guarda y sirve el contenido para adultos.
+ *
+ * Se lee en cada petición y no se guarda en memoria al arrancar: encender el
+ * interruptor en Ajustes tiene que verse sin reiniciar. Lo leen las rutas de AniList,
+ * que con él deciden qué piden y qué sirven.
+ */
+export async function adultContentOf(
+  store: Pick<ServerContainer['store'], 'getSetting'>,
+): Promise<boolean> {
+  return await store.getSetting(ADULT_CONTENT_KEY, adultContentSchema, DEFAULT_ADULT_CONTENT)
+}
+
 export interface SettingsRouteOptions {
   readonly container: ServerContainer
   readonly plugins: PluginReport

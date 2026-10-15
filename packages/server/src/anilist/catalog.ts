@@ -53,7 +53,7 @@ import {
   toAiringEntry,
   toEntry,
 } from './entries'
-import { AIRED_QUERY, AIRING_QUERY, MOVIES_RELEASED_QUERY, matchQuery, TOP_QUERY } from './queries'
+import { AIRED_QUERY, AIRING_QUERY, matchQuery, moviesReleasedQuery, topQuery } from './queries'
 
 /** Los formatos de cada mitad: la interfaz llama «anime» a lo que no es película. */
 const FORMATOS = {
@@ -102,8 +102,16 @@ export interface AniListCatalogOptions {
 }
 
 export interface AniListCatalog {
+  /**
+   * El ranking de una mitad.
+   *
+   * `adultAllowed` decide si la consulta filtra, y **la clave de caché lleva ese
+   * eje**: encender el interruptor pide otra cosa, y servir la lista del estado
+   * anterior hasta que venza el TTL haría que pareciera roto media hora.
+   */
   top(
     media: MediaFilter,
+    adultAllowed: boolean,
     signal?: AbortSignal | undefined,
   ): Promise<Result<readonly AniListEntry[], AppError>>
   airing(
@@ -111,16 +119,30 @@ export interface AniListCatalog {
     days: number,
     signal?: AbortSignal | undefined,
   ): Promise<Result<readonly AniListAiringEntry[], AppError>>
+  /**
+   * Lo recién emitido. La mitad de anime no se puede filtrar en la consulta
+   * —`airingSchedules` no acepta `isAdult`—, así que su caché se comparte entre los
+   * dos estados y el descarte lo hace la ruta. La de películas sí lleva el eje.
+   */
   recent(
     media: MediaFilter,
+    adultAllowed: boolean,
     signal?: AbortSignal | undefined,
   ): Promise<Result<readonly AniListAiringEntry[], AppError>>
+  /**
+   * Empareja una obra con AniList, **sin filtrar**: preguntar es la única forma de
+   * saber que una obra es para adultos. `adultAllowed` decide si su entrada se
+   * guarda; con el interruptor apagado, de una obra marcada queda sólo la marca de
+   * su referencia.
+   */
   match(
     request: AniListMatchRequest,
+    adultAllowed: boolean,
     signal?: AbortSignal | undefined,
   ): Promise<Result<AniListEntry | null, AppError>>
   matchMany(
     requests: readonly AniListMatchRequest[],
+    adultAllowed: boolean,
     signal?: AbortSignal | undefined,
   ): Promise<ReadonlyMap<string, AniListEntry | null>>
   /** Las obras de estas listas que la base ya conoce, por id de AniList. */
@@ -292,6 +314,31 @@ async function searchBatch(
   return { ok: true, encontrados }
 }
 
+/**
+ * El eje del interruptor, para las claves que dependen de él.
+ *
+ * Sin el eje, la lista pedida con un estado se sirve en el otro hasta que vence el
+ * TTL, y el interruptor parece no hacer nada.
+ */
+function ejeDeAdultos(adultAllowed: boolean): 'all' | 'safe' {
+  return adultAllowed ? 'all' : 'safe'
+}
+
+/**
+ * Si la entrada emparejada se puede guardar.
+ *
+ * Con el interruptor apagado, de una obra marcada se guarda **sólo la marca de su
+ * referencia** —lo hace la ruta, que es quien la conoce— y no la entrada: ni
+ * portada, ni sinopsis, ni id de AniList. Así la caché no llega a tener lo que el
+ * usuario ha pedido no ver, y la marca evita volver a preguntarlo.
+ *
+ * Un `null` siempre se guarda: «esta obra no está en AniList» es un dato, y sin él
+ * cada carga de la home volvería a preguntar por lo que ya se sabe que no está.
+ */
+function seGuarda(media: AniListEntry | null, adultAllowed: boolean): boolean {
+  return media === null || !media.adult || adultAllowed
+}
+
 export function createAniListCatalog(options: AniListCatalogOptions): AniListCatalog {
   const { store, client } = options
   const ahora = options.now ?? Date.now
@@ -313,9 +360,10 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
 
   async function top(
     media: MediaFilter,
+    adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListEntry[], AppError>> {
-    const clave = `top:${media}`
+    const clave = `top:${media}:${ejeDeAdultos(adultAllowed)}`
 
     return cachedList(
       {
@@ -329,7 +377,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
       async () => {
         const outcome = await client.query({
           key: clave,
-          query: TOP_QUERY,
+          query: topQuery(adultAllowed),
           variables: { perPage: PER_PAGE, formatos: FORMATOS[media] },
           schema: mediaPageSchema,
           signal,
@@ -395,9 +443,14 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
 
   async function recent(
     media: MediaFilter,
+    adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListAiringEntry[], AppError>> {
-    const clave = `recent:${media}`
+    // El eje sólo en la mitad que se puede filtrar: la de anime pide la misma
+    // parrilla en los dos estados, así que comparten caché y el descarte lo hace la
+    // ruta que sirve.
+    const clave =
+      media === 'movies' ? `recent:movies:${ejeDeAdultos(adultAllowed)}` : 'recent:anime'
     const hasta = ahora()
     const desde = hasta - RECENT_DAYS * 86_400_000
 
@@ -414,7 +467,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
         if (media === 'movies') {
           const outcome = await client.query({
             key: clave,
-            query: MOVIES_RELEASED_QUERY,
+            query: moviesReleasedQuery(adultAllowed),
             variables: {
               desde: fuzzyDate(hasta - MOVIE_RELEASED_DAYS * 86_400_000),
               hasta: fuzzyDate(hasta),
@@ -518,6 +571,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
 
   async function match(
     request: AniListMatchRequest,
+    adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<Result<AniListEntry | null, AppError>> {
     const guardado = await leerSinRomper(() => store.readAniListMedia(request.key))
@@ -535,7 +589,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
       }
 
       const media = lote.encontrados.get(request.key) ?? null
-      await store.writeAniListMedia(request.key, media)
+      if (seGuarda(media, adultAllowed)) await store.writeAniListMedia(request.key, media)
 
       return ok(media)
     })().finally(() => enVueloEmparejamiento.delete(request.key))
@@ -547,6 +601,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
 
   async function matchMany(
     requests: readonly AniListMatchRequest[],
+    adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<ReadonlyMap<string, AniListEntry | null>> {
     const encontrados = new Map<string, AniListEntry | null>()
@@ -584,7 +639,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
       for (const item of lote) {
         const media = resultado.encontrados.get(item.key) ?? null
         encontrados.set(item.key, media)
-        await store.writeAniListMedia(item.key, media)
+        if (seGuarda(media, adultAllowed)) await store.writeAniListMedia(item.key, media)
       }
     }
 

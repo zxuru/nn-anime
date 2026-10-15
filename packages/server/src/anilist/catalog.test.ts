@@ -109,12 +109,12 @@ async function conCatalogo(
 describe('el top', () => {
   test('la segunda lectura no vuelve a salir a la red', async () => {
     await conCatalogo({ top: [KIMETSU, DANMACHI] }, async ({ catalog, fake }) => {
-      const primera = await catalog.top('anime')
+      const primera = await catalog.top('anime', false)
       expect(primera.ok).toBe(true)
       expect(primera.ok ? primera.value.map((una) => una.id) : []).toEqual([101922, 20920])
       expect(fake.calls).toHaveLength(1)
 
-      const segunda = await catalog.top('anime')
+      const segunda = await catalog.top('anime', false)
       expect(segunda.ok ? segunda.value.length : 0).toBe(2)
       expect(fake.calls).toHaveLength(1)
     })
@@ -124,7 +124,7 @@ describe('el top', () => {
     const fixture: Parameters<typeof fakeAniList>[0] = { top: [KIMETSU] }
 
     await conCatalogo(fixture, async ({ catalog, reloj, db }) => {
-      const primera = await catalog.top('anime')
+      const primera = await catalog.top('anime', false)
       expect(primera.ok).toBe(true)
 
       // El fixture pasa a contestar 500: la lectura vencida no puede vaciar la
@@ -133,7 +133,7 @@ describe('el top', () => {
       db.query('UPDATE anilist_list_cache SET fetched_at = 0').run()
       reloj.avanzar(TTL_SECONDS.anilistTop * 1000 + 1)
 
-      const segunda = await catalog.top('anime')
+      const segunda = await catalog.top('anime', false)
       expect(segunda.ok).toBe(true)
       expect(segunda.ok ? segunda.value.map((una) => una.id) : []).toEqual([101922])
     })
@@ -141,8 +141,8 @@ describe('el top', () => {
 
   test('cada mitad pide sus formatos y tiene su propia caché', async () => {
     await conCatalogo({ top: [KIMETSU] }, async ({ catalog, fake }) => {
-      await catalog.top('anime')
-      await catalog.top('movies')
+      await catalog.top('anime', false)
+      await catalog.top('movies', false)
 
       expect(fake.calls).toHaveLength(2)
       expect(fake.calls[0]?.variables.formatos).toEqual(['TV', 'TV_SHORT', 'SPECIAL', 'OVA', 'ONA'])
@@ -182,7 +182,7 @@ describe('la parrilla', () => {
 
   test('los estrenos recientes de películas se listan con día o con año', async () => {
     await conCatalogo({}, async ({ catalog, fake }) => {
-      const resultado = await catalog.recent('movies')
+      const resultado = await catalog.recent('movies', false)
 
       expect(resultado.ok).toBe(true)
       expect(fake.calls).toHaveLength(1)
@@ -195,17 +195,39 @@ describe('la parrilla', () => {
 describe('una caché que no se entiende', () => {
   test('no tumba la fila: se pide otra vez y la escritura la reemplaza', async () => {
     await conCatalogo({ top: [KIMETSU] }, async ({ catalog, db, fake }) => {
-      const primera = await catalog.top('anime')
+      const primera = await catalog.top('anime', false)
       expect(primera.ok).toBe(true)
 
       // Una fila con otra forma —lo que dejaría una versión anterior del código—
       // no puede convertirse en un error para quien está mirando la home.
       db.query('UPDATE anilist_list_cache SET payload_json = \'{"no": true}\'').run()
 
-      const segunda = await catalog.top('anime')
+      const segunda = await catalog.top('anime', false)
       expect(segunda.ok).toBe(true)
       expect(segunda.ok ? segunda.value.map((una) => una.id) : []).toEqual([101922])
       expect(fake.calls.length).toBeGreaterThan(1)
+    })
+  })
+
+  /**
+   * Una entrada guardada antes de que existiera `adult` no se puede leer —el schema la
+   * exige—, así que la fila se trata como ausente y se vuelve a pedir. Es a propósito:
+   * un `false` por defecto daría por apta una obra que nadie ha mirado.
+   */
+  test('una entrada sin la marca de adultos se vuelve a pedir', async () => {
+    await conCatalogo({ top: [KIMETSU] }, async ({ catalog, db, fake }) => {
+      const primera = await catalog.top('anime', false)
+      expect(primera.ok).toBe(true)
+      const antes = fake.calls.length
+
+      db.query(
+        "UPDATE anilist_list_cache SET payload_json = json_remove(payload_json, '$[0].adult')",
+      ).run()
+
+      const segunda = await catalog.top('anime', false)
+
+      expect(segunda.ok ? segunda.value.length : 0).toBe(1)
+      expect(fake.calls.length).toBeGreaterThan(antes)
     })
   })
 })
@@ -218,12 +240,12 @@ describe('el emparejamiento', () => {
       const key = matchKey('Danmachi', 2015)
       const local = localWork({ title: 'Danmachi' }, 2015)
 
-      const primera = await catalog.match({ key, local })
+      const primera = await catalog.match({ key, local }, false)
       expect(primera.ok).toBe(true)
       expect(primera.ok ? primera.value?.id : undefined).toBe(20920)
       expect(fake.calls).toHaveLength(1)
 
-      const segunda = await catalog.match({ key, local })
+      const segunda = await catalog.match({ key, local }, false)
       expect(segunda.ok ? segunda.value?.id : undefined).toBe(20920)
       expect(fake.calls).toHaveLength(1)
     })
@@ -238,7 +260,7 @@ describe('el emparejamiento', () => {
           local: localWork({ title: indice === 0 ? 'Kimetsu no Yaiba' : `Obra ${indice}` }),
         }))
 
-        const primera = await catalog.matchMany(peticiones)
+        const primera = await catalog.matchMany(peticiones, false)
         expect(primera.get(matchKey('Kimetsu no Yaiba', undefined))?.id).toBe(101922)
         expect(primera.get(matchKey('Obra 3', undefined))).toBeNull()
         // Diez obras, dos consultas: ocho y dos.
@@ -246,17 +268,103 @@ describe('el emparejamiento', () => {
 
         // Y la siguiente vez no sale ninguna: lo emparejado y lo que no, se recuerda.
         const antes = fake.calls.length
-        await catalog.matchMany(peticiones)
+        await catalog.matchMany(peticiones, false)
         expect(fake.calls).toHaveLength(antes)
 
         // Pasado el TTL del «no hay», vuelve a preguntarse por lo que no hay.
         reloj.avanzar(TTL_SECONDS.anilistMiss * 1000 + 1)
         const segunda = peticiones[1]
         if (segunda === undefined) throw new Error('la petición de prueba no está')
-        await catalog.matchMany([segunda])
+        await catalog.matchMany([segunda], false)
         expect(fake.calls.length).toBeGreaterThan(antes)
       },
     )
+  })
+})
+
+describe('el contenido para adultos en la caché', () => {
+  const MARCADA: RawMediaFixture = { ...KIMETSU, id: 999, isAdult: true }
+
+  /**
+   * La regla de guarda: con el interruptor apagado, de una obra marcada queda sólo la
+   * marca de su referencia —la escribe la ruta, que es quien la conoce— y no la
+   * entrada. Sin esto, la caché tendría la portada y la sinopsis de lo que el usuario
+   * ha pedido no ver.
+   */
+  test('apagado, un emparejamiento marcado no deja entrada en la caché', async () => {
+    await conCatalogo({ search: { 'Kimetsu no Yaiba': [MARCADA] } }, async ({ catalog, db }) => {
+      const key = matchKey('Kimetsu no Yaiba', undefined)
+      const resultado = await catalog.match(
+        { key, local: localWork({ title: 'Kimetsu no Yaiba' }) },
+        false,
+      )
+
+      expect(resultado.ok ? resultado.value?.adult : undefined).toBe(true)
+
+      const filas = db.query('SELECT COUNT(*) AS total FROM anilist_media').get() as {
+        total: number
+      }
+
+      expect(filas.total).toBe(0)
+    })
+  })
+
+  test('encendido, sí la guarda: es lo que la ficha necesita', async () => {
+    await conCatalogo({ search: { 'Kimetsu no Yaiba': [MARCADA] } }, async ({ catalog, db }) => {
+      const key = matchKey('Kimetsu no Yaiba', undefined)
+      await catalog.match({ key, local: localWork({ title: 'Kimetsu no Yaiba' }) }, true)
+
+      const filas = db.query('SELECT COUNT(*) AS total FROM anilist_media').get() as {
+        total: number
+      }
+
+      expect(filas.total).toBe(1)
+    })
+  })
+
+  /**
+   * El eje va en la clave: con el interruptor encendido se pide otra cosa, y sin él la
+   * lista cacheada apagada se serviría encendida hasta que venciera el TTL.
+   */
+  test('el top se cachea por eje: lo pedido apagado no se sirve encendido', async () => {
+    await conCatalogo({ top: [KIMETSU, MARCADA] }, async ({ catalog, fake }) => {
+      await catalog.top('anime', false)
+      await catalog.top('anime', false)
+      expect(fake.calls).toHaveLength(1)
+
+      await catalog.top('anime', true)
+      expect(fake.calls).toHaveLength(2)
+    })
+  })
+
+  test('la consulta excluye apagado y omite el argumento encendido', async () => {
+    await conCatalogo({ top: [KIMETSU] }, async ({ catalog, fake }) => {
+      await catalog.top('anime', false)
+      await catalog.top('anime', true)
+
+      // El campo `isAdult` va en la selección **siempre** —se guarda con cada obra—;
+      // lo que cambia es el argumento que filtra.
+      expect(fake.calls[0]?.query).toContain('isAdult: false')
+      expect(fake.calls[1]?.query).not.toContain('isAdult: false')
+    })
+  })
+
+  /**
+   * El emparejamiento **no filtra nunca**: preguntar es la única forma de saber que una
+   * obra es para adultos, y el feed de una fuente no publica la edad de sus entradas.
+   */
+  test('el emparejamiento no filtra en ninguno de los dos estados', async () => {
+    await conCatalogo({ search: { 'Kimetsu no Yaiba': [KIMETSU] } }, async ({ catalog, fake }) => {
+      const peticion = {
+        key: matchKey('Kimetsu no Yaiba', undefined),
+        local: localWork({ title: 'Kimetsu no Yaiba' }),
+      }
+
+      await catalog.match(peticion, false)
+      await catalog.match(peticion, true)
+
+      for (const llamada of fake.calls) expect(llamada.query).not.toContain('isAdult: false')
+    })
   })
 })
 
