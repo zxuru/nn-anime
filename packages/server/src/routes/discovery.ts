@@ -97,12 +97,12 @@ export function orderFeed(entradas: FeedResponse['items']): FeedResponse['items'
 /**
  * La misma obra publicada por dos fuentes deja una entrada.
  *
- * «Último añadido» y «Novedades» pintaban el mismo título una vez por proveedor
- * —la referencia no lo delata, cada fuente tiene la suya— y la fila se leía como
- * dos obras distintas. La identidad la resuelve `uniqueByWork` con el título, su
- * alternativa y la referencia de cada fuente, así que dos fuentes que nombran la
- * misma obra de otra forma —«Danmachi» y «Dungeon ni Deai wo Motomeru no wa
- * Machigatteiru Darou ka»— también dejan una.
+ * «Novedades» y la lectura de lo último que conoce la aplicación pintaban el mismo
+ * título una vez por proveedor —la referencia no lo delata, cada fuente tiene la
+ * suya— y la fila se leía como dos obras distintas. La identidad la resuelve
+ * `uniqueByWork` con el título, su alternativa y la referencia de cada fuente, así
+ * que dos fuentes que nombran la misma obra de otra forma —«Danmachi» y «Dungeon ni
+ * Deai wo Motomeru no wa Machigatteiru Darou ka»— también dejan una.
  *
  * El año entra en la comparación porque aquí se tiene: dos fuentes que escriben
  * el mismo título el mismo año son la misma obra, y un año ausente en las dos es

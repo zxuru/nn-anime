@@ -7,20 +7,18 @@
  */
 
 import type { ReactNode } from 'react'
-import { type PesoPieza, tituloYCuerpo } from './Pieza'
+import { tituloYCuerpo } from './Pieza'
 
 export interface PiezaVaciaProps {
   /** El texto del catálogo: el primer punto separa el titular del cuerpo. */
   readonly texto: string
-  readonly peso?: PesoPieza | undefined
 }
 
 export function PiezaVacia(props: PiezaVaciaProps): ReactNode {
   const { title, body } = tituloYCuerpo(props.texto)
-  const peso = props.peso ?? 'b'
 
   return (
-    <article className={peso === 'b' ? 'pz pz--b pz--fantasma' : 'pz pz--w pz--fantasma'}>
+    <article className="pz pz--fantasma">
       <div className="pz__pie">
         <h3 className="pz__titulo">{title}</h3>
         {body === undefined ? null : <p className="pz__meta">{body}</p>}

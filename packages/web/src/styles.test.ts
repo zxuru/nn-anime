@@ -309,18 +309,47 @@ describe('tokens de diseño', () => {
   })
 
   /**
-   * El asomo sólo se enseña donde cabe.
+   * La rejilla apretada: cada pieza es un cartel de una columna.
    *
-   * La caja del asomo mide entre 7 y 9,5 rem: más que una pieza de una sola fila
-   * —112 a 152 px—, y con el recorte de la pieza se leería a medias. Donde no
-   * cabe, la pieza no lo enseña.
+   * El alto de la pieza sale de su ancho —la proporción de una portada—, así que el
+   * mosaico se llena solo: seis carteles por fila en la rejilla ancha y cuatro,
+   * tres o dos según el ancho, sin que ninguna fila declare tamaños. Con el módulo
+   * de filas y un peso por fila, una pieza de dos columnas medía 491x152 px —más
+   * ancha que alta— y dejaba tres títulos por fila con un hueco al lado.
    */
-  test('la pieza de una sola fila no enseña el asomo', async () => {
+  test('la pieza del mosaico es un cartel y ninguna fila declara tamaños', async () => {
     const css = await read(SHELL)
+    const cuerpo = /\.pz\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
 
-    expect(css).toContain('.pz.pz--s .pz__asomo')
-    expect(css).toContain('.pz.pz--w .pz__asomo')
-    expect(css).toContain('display: none')
+    expect(cuerpo, 'falta la proporción de la pieza en .pz').toContain(
+      'aspect-ratio: var(--pieza-proporcion)',
+    )
+
+    // Y el token es la proporción de una portada, sin unidades: un `aspect-ratio`
+    // con `px` no significa nada.
+    expect(await read(TOKENS)).toContain('--pieza-proporcion: 2 / 3')
+
+    // Los pesos por fila no vuelven: el tamaño ya no es una decisión de la fila.
+    // `pz--mando` no cuenta: es el botón del top, no un tamaño.
+    expect(css).not.toMatch(/\.pz--(s|w|b|m)\b/)
+  })
+
+  /**
+   * El asomo se enseña donde cabe.
+   *
+   * La caja del asomo mide entre 7 y 9,5 rem —112 a 152 px— y el cartel de 2:3 de
+   * una columna unos 350: cabe, y de eso depende que se lea entero dentro de la
+   * pieza. La excepción es la banda del régimen de una columna, que mide 6 rem como
+   * mucho: ahí sigue apagado.
+   */
+  test('el asomo sólo se apaga en la banda del móvil', async () => {
+    const css = await read(SHELL)
+    const apagados = [...css.matchAll(/[^{}]*\.pz__asomo[^{}]*\{[^}]*display:\s*none[^}]*\}/g)]
+
+    expect(apagados).toHaveLength(1)
+    expect(css.indexOf(apagados[0]?.[0] ?? '')).toBeGreaterThan(
+      css.indexOf('@media (max-width: 560px)'),
+    )
   })
 
   /**

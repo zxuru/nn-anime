@@ -8,7 +8,8 @@
  * el usuario reconoce de la fuente.
  *
  * En la vitrina el puesto se pinta **dentro de la pieza**, enorme y recortado por
- * el borde, y las piezas pesan dos por dos: es la fila que sostiene la home.
+ * el borde, y todas las piezas pesan lo mismo —un cartel de una columna—: es la
+ * fila que sostiene la home y la única que numera lo que enseña.
  *
  * Se enseñan los primeros puestos y «Mostrar más» despliega el resto: la fuente
  * publica decenas de títulos y una home no puede abrir con cincuenta portadas.
@@ -82,7 +83,6 @@ export function TopRow(props: TopRowProps): ReactNode {
                 ref={item.ref.value}
                 title={item.title}
                 to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
-                peso="b"
                 recurso={recursoDe(indice)}
                 // El puesto de la fuente, no el de la lista recortada: el 11
                 // sigue siendo el 11 cuando se despliega el resto.
@@ -92,7 +92,7 @@ export function TopRow(props: TopRowProps): ReactNode {
           )}
 
           {quedanPuestos(props.items.length, todas) ? (
-            <article className="pz pz--b pz--mando">
+            <article className="pz pz--mando">
               <p className="nota__cuenta">
                 {t(DEFAULT_LOCALE, 'home.more', { count: props.items.length - visibles.length })}
               </p>

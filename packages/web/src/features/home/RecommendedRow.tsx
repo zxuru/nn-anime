@@ -13,9 +13,10 @@
  * motor sigue en `features/recommendations/Panel.tsx`, con sus pruebas, a la espera
  * del sitio donde vuelva a leerse.
  *
- * Todas las piezas pesan lo mismo, dos de ancho: en un tramo de tres títulos nadie
- * es más importante que nadie, y hacer uno grande sería inventarse una jerarquía
- * que el motor no ha dado.
+ * Todas las piezas pesan lo mismo —un cartel de una columna—: en un tramo de tres
+ * títulos nadie es más importante que nadie, y hacer uno grande sería inventarse una
+ * jerarquía que el motor no ha dado. El mismo tamaño para todos es, además, lo que
+ * deja la rejilla sin huecos.
  */
 
 import type { RecommendationResponse } from '@nn-anime/core/api'
@@ -66,7 +67,6 @@ export function RecommendedRow(props: RecommendedRowProps): ReactNode {
               ref={item.ref.value}
               title={item.title}
               to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
-              peso="w"
               recurso={recursoDe(indice)}
               year={item.year}
               meta={metaDeRecomendacion(item)}

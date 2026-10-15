@@ -6,9 +6,10 @@
  * lo que ya había— y no «hace dos días», que pide un formato relativo y un i18n de
  * fechas que no cambia lo que la fila resuelve.
  *
- * En la vitrina el tramo abre con la pieza más reciente —tres de ancho por dos de
- * alto—, sigue con una de dos de ancho y reparte el resto en celdas: lo último que
- * ha publicado la fuente manda dentro del tramo.
+ * El reparto por peso —una 3x2 de entrada, una 2x1 y el resto en celdas— se
+ * retiró con la rejilla apretada: dejaba huecos en el mosaico y tres títulos por
+ * fila. Lo más reciente manda por ir el primero, no por ocupar más sitio, y la
+ * fila no pierde nada: la fecha la sigue trayendo cada pieza.
  *
  * El orden lo decide el servidor y la fila **no reordena**: una sola fuente de
  * verdad para las dos pantallas, y ordenar dos veces acaba en dos órdenes.
@@ -26,7 +27,7 @@ import { Pieza, recursoDe } from '../../components/Pieza'
 import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
-import { cuentaDeTitulos, pesoDeNovedades } from './tramo'
+import { cuentaDeTitulos } from './tramo'
 
 export interface FeedRowProps {
   readonly items: readonly FeedItem[]
@@ -53,7 +54,6 @@ export function FeedRow(props: FeedRowProps): ReactNode {
                 ref={item.ref.value}
                 title={item.title}
                 to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
-                peso={pesoDeNovedades(indice)}
                 recurso={recursoDe(indice)}
                 year={item.year}
                 meta={

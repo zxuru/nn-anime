@@ -93,9 +93,11 @@ export interface CatalogStore {
   /**
    * Lo último que la aplicación conoce, del más nuevo al más viejo.
    *
-   * Une lo abierto y lo encontrado por una búsqueda. Es la fila «Último añadido»
-   * de la home: existe para que la primera pantalla no dependa de que el usuario
-   * haya buscado o de que su proveedor ofrezca tendencias.
+   * Une lo abierto y lo encontrado por una búsqueda. Es la reserva del destacado de
+   * la home —y una señal del motor en el arranque en frío—: existe para que la
+   * primera pantalla no dependa de que el usuario haya buscado o de que su proveedor
+   * ofrezca tendencias. La fila «Último añadido», que la pintaba, se retiró de la
+   * home en T118: repetía lo que ya enseñaban las novedades y el top.
    */
   listRecentSummaries(limit: number): Promise<readonly AnimeSummary[]>
   /**

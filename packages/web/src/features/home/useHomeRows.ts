@@ -59,7 +59,7 @@ export interface HomeRows {
   readonly trending: TrendingResponse['items']
   /** Lo que publica la fuente, sin que nadie haya buscado. */
   readonly feed: FeedResponse['items']
-  /** Lo último que la aplicación ya conoce, sin red. */
+  /** Lo último que la aplicación ya conoce, sin red: la reserva del destacado. */
   readonly recent: RecentResponse['items']
 }
 

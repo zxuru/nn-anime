@@ -17,14 +17,17 @@ El tema por defecto es el del sistema; se cambia en **Ajustes** y queda guardado
 
 La home sigue el orden del diseño: cinta de lo más visto, cartel de destacado —con el botón que
 reproduce el primer episodio y el de favoritos—, **top** —el ranking de la fuente, numerado del uno
-al N y con «Mostrar más»—, **novedades** de la fuente, **último añadido**, continuar viendo, favoritos y
-los géneros del catálogo. El motivo de cada recomendación viaja con su pieza: se lee en el asomo, al
-pasar el puntero, y en la hoja que abre el botón «i».
+al N y con «Mostrar más»—, **novedades** de la fuente, continuar viendo, favoritos y los géneros del
+catálogo. Todas las piezas del mosaico son **carteles del mismo tamaño** —una columna, con la
+proporción de una portada—, así que una fila pone seis títulos a la vista y no deja huecos. El motivo
+de cada recomendación viaja con su pieza: se lee en el asomo, al pasar el puntero, y en la hoja que
+abre el botón «i».
 
-Las dos filas del medio existen para que la primera pantalla no dependa de que hayas buscado antes:
-«último añadido» enseña lo que la aplicación ya conoce —lo que buscaste y lo que abriste— y
-«novedades» se llena con lo que publica tu proveedor si declara `feed`. El destacado también las usa
-como reserva: sin nada que recomendar, sale de ahí en vez de dejar la página con un titular.
+«Novedades» existe para que la primera pantalla no dependa de que hayas buscado antes: se llena con
+lo que publica tu proveedor si declara `feed`. Lo que la aplicación ya conoce —lo que buscaste y lo
+que abriste— también es la reserva del destacado: sin nada que recomendar, sale de ahí en vez de
+dejar la página con un titular. Pintaba una fila propia, «último añadido», y se retiró: repetía lo
+que las novedades y el top ya enseñaban.
 
 La home y la búsqueda se parten en dos con el **conmutador de tipo**: anime a un lado y películas al
 otro —con las series y los doramas, que van por el mismo camino—. La elección queda en la dirección

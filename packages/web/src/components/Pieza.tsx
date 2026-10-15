@@ -3,9 +3,15 @@
  *
  * Es la unidad del mosaico: arte dibujado —el campo de degradado que le toca por
  * posición más un recurso propio—, el pie con lo que se sepa del título y, en las
- * que lo llevan, el puesto del top, lo que se retoma y la puntuación del motor. El
- * tamaño lo dice su peso (`pz--s` es una celda; `pz--m`, tres de ancho por dos de
- * alto) y eso es lo que hace que la vitrina se lea como una revista.
+ * que lo llevan, el puesto del top, lo que se retoma y la puntuación del motor.
+ *
+ * **Todas pesan lo mismo**: un cartel de una columna, con la proporción de una
+ * portada (2:3). El tamaño decía la jerarquía mientras el mosaico fue ancho, pero
+ * una pieza de dos columnas dejaba tres títulos a la vista con un hueco al lado y
+ * once en una fila de dos; la rejilla apretada enseña seis veces más títulos por
+ * fila y no deja huecos. Lo que distingue una pieza de otra fila es lo que lleva
+ * dentro —el puesto, la puntuación, la barra de lo que se retoma— y el orden de los
+ * tramos, no el ancho.
  *
  * **El cuerpo de la pieza es un enlace de verdad** —el arte y el pie— y lo que se
  * pulsa vive fuera de él: el botón «i», que abre la hoja, y los dos mandos del
@@ -22,17 +28,6 @@ import { t } from '../i18n'
 import { Link } from '../router'
 import { Cover } from './Cover'
 import { PanelPieza } from './PanelPieza'
-
-/** El tamaño de la pieza: una celda, dos de ancho, o dos filas de alto. */
-export type PesoPieza = 's' | 'w' | 'b' | 'm'
-
-/** Las clases de cada peso, literales: una clase armada a mano no se lee. */
-const CLASES_DE_PESO: Record<PesoPieza, string> = {
-  s: 'pz pz--s',
-  w: 'pz pz--w',
-  b: 'pz pz--b',
-  m: 'pz pz--m',
-}
 
 /**
  * El recurso de arte de una pieza.
@@ -121,8 +116,6 @@ export interface PiezaProps {
   readonly title: string
   /** A dónde lleva el cuerpo de la pieza: la ficha. */
   readonly to: string
-  /** Una celda por defecto; el peso lo elige la sección. */
-  readonly peso?: PesoPieza | undefined
   readonly recurso?: RecursoPieza | undefined
   /** El año, que la cifra usa en voladizo. */
   readonly year?: number | undefined
@@ -149,12 +142,10 @@ export interface PiezaProps {
 }
 
 export function Pieza(props: PiezaProps): ReactNode {
-  const peso = props.peso ?? 's'
   const recurso = props.recurso ?? 'trama'
   const [abierta, setAbierta] = useState(false)
   const hayHoja = props.sinopsis !== undefined || props.motivo !== undefined
-  const clases =
-    props.apagada === true ? `${CLASES_DE_PESO[peso]} pz--apagada` : CLASES_DE_PESO[peso]
+  const clases = props.apagada === true ? 'pz pz--apagada' : 'pz'
 
   return (
     <article className={clases}>

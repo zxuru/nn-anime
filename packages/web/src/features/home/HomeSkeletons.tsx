@@ -1,9 +1,9 @@
 /**
  * Los esqueletos de la primera carga de la home.
  *
- * El esqueleto tiene **la métrica exacta del mosaico** —mismas columnas, mismas
- * filas, mismo hueco—, así que cuando llega el catálogo nada salta de sitio: lo que
- * se ve antes y lo que se ve después ocupan el mismo hueco.
+ * El esqueleto tiene **la métrica exacta del mosaico** —mismas columnas, mismo
+ * hueco, misma proporción de pieza—, así que cuando llega el catálogo nada salta de
+ * sitio: lo que se ve antes y lo que se ve después ocupa el mismo hueco.
  *
  * Está en gris plano y **sin latido**: un bucle infinito de brillo sería ruido, y
  * el diseño sólo admite un bucle, el de la cinta. La frase que antes ocupaba el
@@ -14,25 +14,17 @@
 import type { ReactNode } from 'react'
 
 /**
- * Las celdas, con nombre y no por índice.
+ * Cuántas celdas se pintan.
  *
- * Son decorativas y su orden no significa nada, así que la tentación es
- * `key={indice}`. Biome lo rechaza y tiene razón: una clave por índice ata la
- * identidad del nodo a su posición, y el día que estas celdas lleven algo dentro
- * —un texto, un número— la posición será justo lo que cambia.
+ * Doce: dos filas de seis en el mosaico ancho y tres de cuatro en el de cuatro
+ * columnas, que es lo que llena la primera pantalla de una home que todavía no
+ * tiene nada. Antes eran siete y de tres tamaños distintos —el reparto por peso que
+ * ya no existe—, con el nombre de cada una escrito a mano. Ahora son iguales, así
+ * que la clave es su puesto.
  */
-const CELDAS = [
-  { nombre: 'primera', clase: 'esq esq--b' },
-  { nombre: 'segunda', clase: 'esq esq--b' },
-  { nombre: 'tercera', clase: 'esq esq--b' },
-  { nombre: 'cuarta', clase: 'esq esq--w' },
-  { nombre: 'quinta', clase: 'esq esq--s' },
-  { nombre: 'sexta', clase: 'esq esq--s' },
-  { nombre: 'septima', clase: 'esq esq--s' },
-] as const
+export const ESQUELETOS = 12
 
-/** Cuántas celdas se pintan: un tramo entero, el que llena la primera pantalla. */
-export const ESQUELETOS = CELDAS.length
+const CELDAS = Array.from({ length: ESQUELETOS }, (_, indice) => `esqueleto-${indice + 1}`)
 
 export interface HomeSkeletonsProps {
   readonly label: string
@@ -44,8 +36,8 @@ export function HomeSkeletons(props: HomeSkeletonsProps): ReactNode {
       {/* Fuera de la rejilla no hace falta: el hueco es para las celdas. */}
       <p className="solo-lectores">{props.label}</p>
       <div className="esqueleto" aria-busy="true">
-        {CELDAS.map((celda) => (
-          <span key={celda.nombre} className={celda.clase} aria-hidden="true" />
+        {CELDAS.map((nombre) => (
+          <span key={nombre} className="esq" aria-hidden="true" />
         ))}
       </div>
     </>

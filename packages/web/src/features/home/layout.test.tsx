@@ -8,12 +8,11 @@ import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { featuredMeta, pieDelCartel } from './FeaturedHero'
-import { FeedRow } from './FeedRow'
 import { GenreRow, generosConCuenta, topGenres } from './GenreRow'
 import { metaDeRecomendacion } from './RecommendedRow'
 import { Ticker, velocidadEnPxPorSegundo, vueltasDeLaCinta } from './Ticker'
 import { puestosVisibles, quedanPuestos, TOP_VISIBLES, TopRow } from './TopRow'
-import { cuentaDelTop, cuentaDeTitulos, pesoDeNovedades } from './tramo'
+import { cuentaDelTop, cuentaDeTitulos } from './tramo'
 
 function render(node: ReactNode): string {
   return renderToString(
@@ -135,13 +134,6 @@ describe('la pieza de la vitrina', () => {
     expect(html).toContain('pz__abrir')
     // La hoja es estado: se abre al pulsar y aquí no se pulsa.
     expect(html).not.toContain('hoja__caja')
-  })
-
-  test('el peso lo pone la sección, y sin peso es una celda', () => {
-    expect(render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" peso="m" />)).toContain(
-      'pz--m',
-    )
-    expect(render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" />)).toContain('pz--s')
   })
 
   test('el puesto del top va en la pieza', () => {
@@ -330,33 +322,13 @@ describe('el top de la fuente', () => {
     expect(html.indexOf('pz--mando')).toBeLessThan(html.indexOf('Mostrar más'))
   })
 
-  test('todas las piezas del top pesan lo mismo: dos por dos', () => {
+  test('todas las piezas del top son iguales: un cartel de una columna', () => {
     const html = render(<TopRow items={puestos(5)} />)
 
-    expect(html.match(/pz--b/g)?.length).toBe(5)
-  })
-})
-
-describe('los pesos de un tramo', () => {
-  /**
-   * El primer título de un tramo pesa más que los que lo acompañan: es lo que hace
-   * que el mosaico se lea como una revista y no como una cuadrícula uniforme.
-   */
-  test('novedades abre con la más reciente, que es la que manda', () => {
-    expect(pesoDeNovedades(0)).toBe('m')
-    expect(pesoDeNovedades(1)).toBe('w')
-    expect(pesoDeNovedades(2)).toBe('s')
-
-    const html = render(<FeedRow items={[resumen('uno'), resumen('dos')]} />)
-
-    expect(html).toContain('pz--m')
-    expect(html).toContain('pz--w')
-  })
-
-  /** El ciclo se repite: un tramo largo no se queda sin dibujo a mitad. */
-  test('el reparto se repite con el tramo', () => {
-    expect(pesoDeNovedades(5)).toBe(pesoDeNovedades(0))
-    expect(recursoDe(6)).toBe(recursoDe(0))
+    // Ninguna pieza del top declara tamaño: todas ocupan su columna y su
+    // proporción, así que la fila se llena sin huecos y el rango lo dice el
+    // número, no el ancho.
+    expect(html.match(/class="pz"/g)?.length).toBe(5)
   })
 })
 

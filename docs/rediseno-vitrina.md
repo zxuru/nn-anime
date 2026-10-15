@@ -8,11 +8,11 @@ lleva a `packages/web` y en qué orden, sin cambiar lo que el artefacto promete.
 
 | | Hoy | Vitrina |
 |---|---|---|
-| Superficie | Pila de filas iguales: seis `section`, todas con la misma tarjeta | Mosaico modular: la pieza pesa por su superficie (1x1, 2x1, 2x2, 3x2) |
-| Jerarquía | La da el orden de las filas | La da el tamaño de la pieza |
+| Superficie | Pila de filas iguales: seis `section`, todas con la misma tarjeta | Mosaico de carteles: todas las piezas pesan lo mismo —una columna, 2:3— y la fila se llena |
+| Jerarquía | La da el orden de las filas | La da el orden de los tramos y lo que lleva dentro cada pieza (puesto, puntuación, progreso) |
 | Marca de sección | `SectionHeader` encima de la fila | Nota al margen pegajosa, a la izquierda del mosaico |
 | Destacado | Cartel con pila de portadas giradas detrás | Marquesina a sangre (62 dvh) con el cartel y dos bloques enfrentados |
-| Descubrir | Cada fila se desplaza en horizontal | Cinco piezas del top a la vista a la vez |
+| Descubrir | Cada fila se desplaza en horizontal | Seis títulos por fila en la rejilla ancha y el top entero del primer tirón |
 | Elevación | Sombras duras desplazadas, radios cero | Tono y marco: radio 10 px en la pieza, 3 px en el mando, sin desenfoques |
 | Arte | Portada del proveedor, con relleno de degradado | El arte se dibuja: seis campos de degradado, más saturados, más un recurso por pieza |
 | Puntero encima | — | La pieza se enciende. **No cambia de tamaño ni de sitio** (ver «Movimiento») |
@@ -45,9 +45,10 @@ destapa el asomo, pero nada cambia de tamaño ni de sitio. En la primera versió
 crecía al pasar el ratón —de una fila a dos, de dos a tres— y todo lo que venía debajo bajaba 145 px,
 ida y vuelta: el contenido se movía bajo el puntero. Se midió y se quitó.
 
-El asomo (sinopsis, motivo y mandos) sólo se enseña **donde cabe**: en la pieza de una sola fila no
-entra, así que la pieza lo deja en un panel inferior en vez de recortarlo. La regla vale igual en el
-código: ninguna regla `:hover` de la hoja puede tocar geometría.
+El asomo (sinopsis, motivo y mandos) sólo se enseña **donde cabe**: en el cartel de 2:3 —unos 350 px
+de alto— cabe, así que la pieza lo enseña dentro; en la banda del régimen de una columna, que mide 6
+rem como mucho, no, y ahí se lee en la hoja. La regla vale igual en el código: ninguna regla `:hover`
+de la hoja puede tocar geometría.
 
 ## Puntos de corte
 
@@ -83,13 +84,14 @@ contra los `@media`.
       del motor («Recomendado para ti») con la puntuación en la pieza. La franja de motivos se
       retiró después: repetía lo que ya dice la nota y metía una caja dentro del mosaico.
 - [x] Los pesos del artefacto: el top entero en 2x2, continuar viendo en 2x2, novedades con una
-      3x2 de entrada y luego 2x1 y celdas, último añadido y favoritos en 2x1 y 1x1 apagadas, y la
-      banda de géneros con el recuento en voladizo.
+      3x2 de entrada y luego 2x1 y celdas, y favoritos en 1x1 apagadas. **Se retiró en T118** (ver
+      «La rejilla apretada»): una pieza de dos columnas medía 491x152 px y dejaba tres títulos por
+      fila con un hueco al lado. La banda de géneros con el recuento en voladizo se queda.
 - [x] La pieza: el botón «i» que abre su hoja —el mismo asomo en panel inferior, con asa que se
       arrastra y cierre con `Escape`—, el sello de origen, la puntuación y el pie de lo que se
       retoma. Los mandos del asomo viven **fuera** del enlace de la pieza.
-- [x] El esqueleto de la primera carga con la métrica del mosaico (mismas columnas, mismas filas,
-      mismo hueco) y en gris plano, sin latido.
+- [x] El esqueleto de la primera carga con la métrica del mosaico (mismas columnas, misma proporción
+      de cartel, mismo hueco) y en gris plano, sin latido.
 - [ ] El asomo con datos: la pieza no lleva sinopsis hoy porque ninguna fila la trae. El
       enlace ya acepta `onMouseEnter` para la precarga del detalle, que es lo que pide el
       spec, así que el asomo se llena al pasar el puntero —con lo que se pida— en un paso
@@ -101,8 +103,8 @@ contra los `@media`.
 - [x] El arte de la pieza: el campo de degradado por posición y un recurso propio —trama,
       inicial, mitad, cifra del año, círculo, caja— repartido por el puesto. El dibujo se pinta
       sólo si la portada no llega: manda la portada, y por eso viaja dentro del campo (un
-      `<img>` no pinta pseudo-elementos). La primera pieza de cada tramo pesa más que las que
-      la acompañan, y donde no cabe en tres columnas baja a dos de ancho y sube a tres de alto.
+      `<img>` no pinta pseudo-elementos). La primera pieza de cada tramo pesaba más que las que la
+      acompañan; **se retiró en T118**, que dejó todas las piezas del mismo tamaño.
 - [x] Capturas al día en `docs/` (`captura.png` y `captura-claro.png`, hechas con `bun run
       captura` contra el servidor del fixture).
 - [x] El `e2e` de la home al día.
@@ -112,6 +114,36 @@ contra los `@media`.
       (`capabilities.media`) y se enseña en Ajustes.
 - [ ] Buscar, ficha, ver y estados con la composición del artefacto: hoy sólo la home está
       portada. El artefacto trae las cinco pantallas.
+
+## La rejilla apretada (T118)
+
+Dos cambios pedidos con la home delante: fuera la fila «Último añadido» y piezas más altas y más
+títulos por fila.
+
+- **La fila «Último añadido» se retiró.** Enseñaba lo que la aplicación ya conoce —lo que se buscó y
+  lo que se abrió— y en la práctica repetía lo que ya estaban diciendo «Novedades» y el top. La
+  **lectura no se toca**: `/api/catalog/recent` sigue, porque es la tercera reserva del destacado y
+  una señal del motor en el arranque en frío, y es lo que llena la primera pantalla de una instalación
+  sin `feed` ni tendencias.
+- **Todas las piezas son el mismo cartel**: una columna del mosaico y la proporción de una portada
+  (2:3), que es de donde sale el alto (`--pieza-proporcion`). El módulo de filas (`--vitrina-fila`) y
+  los pesos por fila (`pz--s`, `pz--w`, `pz--b`, `pz--m`) se retiraron: la fila se llena sola y no
+  queda hueco entre piezas.
+- **La banda del móvil se queda**: por debajo de 560 px una columna mide la pantalla y un cartel de
+  2:3 la ocuparía entera, así que ahí la pieza vuelve a ser una banda (`--pieza-banda`) y el asomo se
+  lee en la hoja, como antes.
+
+Medido en el arnés con el plugin de ejemplo (`bun run e2e` y una sonda que pide la caja de cada
+pieza), sin desbordamiento horizontal en ningún ancho:
+
+| Ancho | Columnas | Pieza | Antes |
+|---|---|---|---|
+| 1920 | 6 | 237x356 (2:3) | 491x152 (3,1:1) y 491x320 |
+| 1440 | 6 | 171x256 (2:3) | 357x275 |
+| 1280 | 4 | 259x389 (2:3) | 532x244 |
+| 1000 | 3 | 299x449 (2:3) | 610x235 |
+| 700 | 2 | 318x477 (2:3) | cuadrado (una celda) |
+| 480 | 1 | 442x144 (banda) | igual: 1 columna, banda |
 
 ## Lo que el port encontró en el camino
 
