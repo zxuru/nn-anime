@@ -209,6 +209,75 @@ function Skeletons(): ReactNode {
   )
 }
 
+/**
+ * Lo que se lee arriba de la ficha: la sinopsis y, al lado, los datos.
+ *
+ * Son **dos pistas** porque la sinopsis no quiere el ancho entero —una línea de
+ * 120 caracteres no se lee— y lo que sobraba a su derecha era negro durante todo
+ * lo alto del texto. La pista de datos ocupa ese hueco con la nota, los géneros y
+ * los estudios, que antes vivían apretados en la barra lateral, estrecha y ya
+ * llena de mandos.
+ *
+ * La marca `--dos` sólo se pone cuando están las dos cosas: con una sola, la pista
+ * única se lee entera en vez de dejar la otra mitad en negro.
+ *
+ * **Una sección sin datos no se pinta.** El titular «Estudios» con un párrafo
+ * vacío debajo es un renglón que no dice nada, y era el que cerraba la barra
+ * lateral con un hueco. Y sin nada que leer —ni sinopsis ni datos— no hay bloque:
+ * un hueco vacío entre la cabecera y los episodios no dice nada tampoco.
+ */
+export function Lectura(props: {
+  readonly detail: AnimeDetail
+  readonly enrichment: Enrichment | null | undefined
+}): ReactNode {
+  const { detail, enrichment } = props
+  const texto = sinopsis(detail, enrichment)
+  const listaGeneros = generos(detail, enrichment)
+  const listaEstudios = estudios(detail, enrichment)
+  const hayDatos = enrichment != null || listaGeneros.length > 0 || listaEstudios.length > 0
+
+  if (texto === undefined && !hayDatos) return null
+
+  return (
+    <div
+      className={
+        texto !== undefined && hayDatos ? 'detail__lectura detail__lectura--dos' : 'detail__lectura'
+      }
+    >
+      {texto === undefined ? null : (
+        <div className="detail__prosa">
+          <section>
+            <h2>{t(DEFAULT_LOCALE, 'detail.synopsis')}</h2>
+            {/* Texto, nunca HTML: la sinopsis viene de fuera. Y con su medida de
+                lectura, que es lo único de la ficha que quiere ser estrecho. */}
+            <p className="detail__synopsis">{texto}</p>
+          </section>
+        </div>
+      )}
+
+      {hayDatos ? (
+        <div className="detail__datos">
+          {seccionesDe(enrichment)}
+
+          {listaGeneros.length === 0 ? null : (
+            <section>
+              <h2>{t(DEFAULT_LOCALE, 'detail.genres')}</h2>
+              <p>{listaGeneros.join(' · ')}</p>
+            </section>
+          )}
+
+          {listaEstudios.length === 0 ? null : (
+            <section>
+              <h2>{t(DEFAULT_LOCALE, 'detail.studios')}</h2>
+              <p>{listaEstudios.join(' · ')}</p>
+            </section>
+          )}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function DetailPage(props: DetailPageProps): ReactNode {
   const {
     detail,
@@ -273,10 +342,11 @@ export function DetailPage(props: DetailPageProps): ReactNode {
       <BandaBanner detail={detail} fondo={fondoDe(enrichment)} />
 
       {/*
-        Dos columnas: lo que se consulta de un vistazo a la izquierda —portada,
-        acciones, modos, datos y saga— y lo que se lee a la derecha. Antes todo
+        Dos columnas: lo que se **hace** con la obra a la izquierda —portada,
+        acciones, modos, fuentes y saga— y lo que se lee a la derecha. Antes todo
         iba en una columna con `max-width: var(--measure)` dentro de media
-        pantalla, y la mitad derecha quedaba muerta.
+        pantalla, y la mitad derecha quedaba muerta. Los datos se mudaron de aquí
+        a la columna de lectura: la barra mide 17rem y ya iba llena de mandos.
       */}
       <aside className="detail__aside">
         {/* La portada sale del proxy, y sólo si el proveedor declaró una
@@ -338,16 +408,6 @@ export function DetailPage(props: DetailPageProps): ReactNode {
         <SourcePicker items={sources} current={props.providerId} providerLabels={providerNames} />
 
         <section>
-          <h2>{t(DEFAULT_LOCALE, 'detail.genres')}</h2>
-          <p>{generos(detail, enrichment).join(' · ')}</p>
-        </section>
-
-        <section>
-          <h2>{t(DEFAULT_LOCALE, 'detail.studios')}</h2>
-          <p>{estudios(detail, enrichment).join(' · ')}</p>
-        </section>
-
-        <section>
           {/*
             La entrega actual entra en la lista del rail, y por eso se construye
             aquí con lo que la ficha ya sabe: el servidor no la devuelve entre sus
@@ -369,16 +429,9 @@ export function DetailPage(props: DetailPageProps): ReactNode {
       </aside>
 
       <div className="detail__body">
-        {sinopsis(detail, enrichment) === undefined ? null : (
-          <section>
-            <h2>{t(DEFAULT_LOCALE, 'detail.synopsis')}</h2>
-            {/* Texto, nunca HTML: la sinopsis viene de fuera. Y con su medida de
-                lectura, que es lo único de la ficha que quiere ser estrecho. */}
-            <p className="detail__synopsis">{sinopsis(detail, enrichment)}</p>
-          </section>
-        )}
-
-        {seccionesDe(enrichment)}
+        {/* La sinopsis y los datos, en las dos pistas de la lectura; debajo, los
+            episodios a lo ancho de las dos, que es donde la lista se lee mejor. */}
+        <Lectura detail={detail} enrichment={enrichment} />
 
         <section>
           {/* Una película se titula por lo que es. Dejarle «Episodios» encima del
