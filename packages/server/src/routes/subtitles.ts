@@ -12,14 +12,18 @@
  * quien decide no ofrecerlo en la web es el reproductor, no este módulo.
  */
 
-import { errorResponseSchema } from '@nn-anime/core'
+import { AppError, errorResponseSchema } from '@nn-anime/core'
 import {
   decodeSubtitle,
+  extractFirstSubtitle,
   type FetchLike,
+  isRarBytes,
+  isZipBytes,
   MAX_SUBTITLE_BYTES,
   type Resolver,
   srtToVtt,
   subtitleKind,
+  subtitleRarUnsupported,
   subtitleTooLarge,
 } from '@nn-anime/media-proxy'
 import type { Hono } from 'hono'
@@ -29,6 +33,11 @@ export interface SubtitlesRouteOptions {
   readonly container: ServerContainer
   readonly fetchImpl?: FetchLike
   readonly resolver?: Resolver
+}
+
+/** La dirección con la que el cliente pide una pista: el ticket, no la URL. */
+export function subtitleTicketPath(ticket: string): string {
+  return `/api/subtitles/${ticket}`
 }
 
 export function registerSubtitlesRoute(app: Hono, options: SubtitlesRouteOptions): void {
@@ -66,15 +75,50 @@ export function registerSubtitlesRoute(app: Hono, options: SubtitlesRouteOptions
     const respuesta = await fetchTrack(options, salida.contents)
     if (!respuesta.ok) return respuesta.response
 
-    const bytes = respuesta.bytes
+    let bytes = respuesta.bytes
     if (bytes.byteLength > MAX_SUBTITLE_BYTES) {
       const error = subtitleTooLarge(bytes.byteLength)
 
       return c.json(errorResponseSchema.parse({ error: error.message }), 413)
     }
 
+    // SubDivX sirve el subtítulo dentro de un zip y sin extensión en la
+    // dirección: se extrae en memoria antes de convertir, con el mismo tope.
+    // Un rar no se sabe abrir y se dice con su nombre, con un 415 y no un 502.
+    let nombre = salida.contents.url
+    if (isZipBytes(bytes)) {
+      try {
+        const extraido = extractFirstSubtitle(bytes)
+        bytes = extraido.bytes
+        nombre = extraido.name
+      } catch (cause) {
+        return archivoRespuesta(cause)
+      }
+    } else if (isRarBytes(bytes)) {
+      const error = subtitleRarUnsupported()
+
+      return c.json(errorResponseSchema.parse({ error: error.message }), 415)
+    }
+
+    const tipoExtraido = subtitleKind(nombre)
+
+    // Un `ass` dentro de un zip se sirve tal cual, como el que viene suelto.
+    if (tipoExtraido === 'ass') {
+      // `slice` antes del buffer: los bytes extraídos pueden ser una vista sobre
+      // el zip, y el buffer entero traería el archivo completo.
+      const cuerpo = bytes.slice().buffer as ArrayBuffer
+
+      return new Response(cuerpo, {
+        status: 200,
+        headers: {
+          'content-type': 'text/ass; charset=utf-8',
+          'x-content-type-options': 'nosniff',
+        },
+      })
+    }
+
     const { text } = decodeSubtitle(bytes)
-    const cuerpo = tipo === 'srt' ? srtToVtt(text) : text
+    const cuerpo = tipoExtraido === 'srt' ? srtToVtt(text) : text
 
     return new Response(cuerpo, {
       status: 200,
@@ -84,6 +128,26 @@ export function registerSubtitlesRoute(app: Hono, options: SubtitlesRouteOptions
       },
     })
   })
+}
+
+/**
+ * La respuesta para un zip que no se deja servir.
+ *
+ * Lo que el formato no admite —un rar, un zip sin subtítulos— es un 415: el
+ * origen contestó bien y el contenido no se sirve. Lo que llegó roto es un 502,
+ * como cualquier otro fallo del origen.
+ */
+function archivoRespuesta(cause: unknown): Response {
+  const mensaje = cause instanceof Error ? cause.message : String(cause)
+
+  if (
+    cause instanceof AppError &&
+    (cause.context.motivo === 'sin-subtitulo' || cause.context.motivo === 'rar')
+  ) {
+    return Response.json(errorResponseSchema.parse({ error: mensaje }), { status: 415 })
+  }
+
+  return Response.json(errorResponseSchema.parse({ error: mensaje }), { status: 502 })
 }
 
 /** Pide la pista al upstream y devuelve sus bytes, o la respuesta de error. */

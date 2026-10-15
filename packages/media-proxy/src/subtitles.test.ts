@@ -1,8 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { deflateRawSync } from 'node:zlib'
 import {
   decodeSubtitle,
+  extractFirstSubtitle,
+  isRarBytes,
+  isZipBytes,
   MAX_SUBTITLE_BYTES,
   srtToVtt,
   subtitleKind,
@@ -127,5 +131,95 @@ describe('tope de tamaño', () => {
 
     expect(error.message).toContain(String(MAX_SUBTITLE_BYTES))
     expect(error.context.bytes).toBe(MAX_SUBTITLE_BYTES + 1)
+  })
+})
+
+/**
+ * Un zip mínimo construido a mano, sin dependencias: cabecera local, nombre y
+ * datos, sin directorio central. El lector sólo mira cabeceras locales, así que
+ * lo que venga detrás de la última entrada frena el recorrido sin romper nada.
+ */
+function entradaZip(nombre: string, datos: Uint8Array, method: 0 | 8): Uint8Array {
+  const nombreBytes = new TextEncoder().encode(nombre)
+  const cuerpo = method === 0 ? datos : new Uint8Array(deflateRawSync(datos))
+  const cabecera = new DataView(new ArrayBuffer(30))
+
+  cabecera.setUint32(0, 0x04034b50, true)
+  cabecera.setUint16(8, method, true)
+  cabecera.setUint32(18, cuerpo.byteLength, true)
+  cabecera.setUint32(22, datos.byteLength, true)
+  cabecera.setUint16(26, nombreBytes.byteLength, true)
+
+  const zip = new Uint8Array(30 + nombreBytes.byteLength + cuerpo.byteLength)
+  zip.set(new Uint8Array(cabecera.buffer), 0)
+  zip.set(nombreBytes, 30)
+  zip.set(cuerpo, 30 + nombreBytes.byteLength)
+
+  return zip
+}
+
+function zipDe(...entradas: Uint8Array[]): Uint8Array {
+  const total = entradas.reduce((largo, entrada) => largo + entrada.byteLength, 0)
+  const zip = new Uint8Array(total)
+  let offset = 0
+
+  for (const entrada of entradas) {
+    zip.set(entrada, offset)
+    offset += entrada.byteLength
+  }
+
+  return zip
+}
+
+const SRT = new TextEncoder().encode('1\n00:00:01,000 --> 00:00:04,000\nHola\n')
+
+describe('subtítulos dentro de un zip', () => {
+  test('la firma manda, no la extensión: un bajar.php sin ella es zip', () => {
+    const zip = zipDe(entradaZip('peli.srt', SRT, 0))
+
+    expect(isZipBytes(zip)).toBe(true)
+    expect(isZipBytes(SRT)).toBe(false)
+    expect(isRarBytes(new Uint8Array([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x00, 0x00]))).toBe(true)
+    expect(isRarBytes(zip)).toBe(false)
+  })
+
+  test('extrae la primera con extensión de subtítulo aunque haya otras antes', () => {
+    const zip = zipDe(
+      entradaZip('leeme.txt', new TextEncoder().encode('hola'), 0),
+      entradaZip('peli.srt', SRT, 0),
+    )
+    const salida = extractFirstSubtitle(zip)
+
+    expect(salida.name).toBe('peli.srt')
+    expect(salida.bytes).toEqual(SRT)
+  })
+
+  test('infla una entrada deflated y el texto convierte a vtt', () => {
+    const zip = zipDe(entradaZip('peli.srt', SRT, 8))
+    const salida = extractFirstSubtitle(zip)
+
+    expect(salida.bytes).toEqual(SRT)
+    expect(srtToVtt(decodeSubtitle(salida.bytes).text)).toContain('00:00:01.000')
+  })
+
+  test('un zip sin subtítulos lo dice con su nombre', () => {
+    const zip = zipDe(entradaZip('leeme.txt', new TextEncoder().encode('hola'), 0))
+
+    expect(() => extractFirstSubtitle(zip)).toThrow(/ningún subtítulo/)
+  })
+
+  test('un zip truncado es un zip roto, no un vacío', () => {
+    const zip = zipDe(entradaZip('peli.srt', SRT, 0))
+
+    expect(() => extractFirstSubtitle(zip.subarray(0, 10))).toThrow(/roto/)
+  })
+
+  test('una bomba descomprimida choca contra el tope', () => {
+    // Seis megas de ceros comprimen en kilobytes: el tope tiene que mirar lo
+    // que sale, no lo que entra.
+    const grande = new Uint8Array(MAX_SUBTITLE_BYTES + 1)
+    const zip = zipDe(entradaZip('peli.srt', grande, 8))
+
+    expect(() => extractFirstSubtitle(zip)).toThrow(String(MAX_SUBTITLE_BYTES))
   })
 })

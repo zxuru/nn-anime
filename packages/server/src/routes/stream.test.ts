@@ -173,6 +173,52 @@ describe('POST /api/stream/resolve', () => {
     })
   })
 
+  test('las pistas llegan con tickets del proxy, no con URLs del upstream', async () => {
+    await conApp(async ({ pedir }) => {
+      const { cuerpo } = await resolver(pedir)
+      const salida = streamResolveResponseSchema.parse(cuerpo)
+      const pistas = salida.sources[0]?.subtitles
+
+      // El reproductor web sólo acepta rutas del proxy: una dirección del
+      // upstream no llegaría nunca a pintarse.
+      expect(Array.isArray(pistas)).toBe(true)
+      if (!Array.isArray(pistas) || pistas.length === 0) throw new Error('sin pistas')
+
+      for (const pista of pistas) {
+        if (typeof pista !== 'object' || pista === null || !('url' in pista)) {
+          throw new Error('una pista sin dirección')
+        }
+
+        expect(typeof pista.url === 'string' && pista.url.startsWith('/api/subtitles/')).toBe(true)
+        expect(JSON.stringify(pista)).not.toContain('fixture.invalid')
+      }
+    })
+  })
+
+  test('el ticket de una pista sirve el subtítulo convertido', async () => {
+    await conApp(async ({ pedir }) => {
+      const { cuerpo } = await resolver(pedir)
+      const salida = streamResolveResponseSchema.parse(cuerpo)
+      const pistas = salida.sources[0]?.subtitles
+
+      expect(Array.isArray(pistas)).toBe(true)
+      if (!Array.isArray(pistas) || pistas.length === 0) throw new Error('sin pistas')
+
+      const primera = pistas[0]
+      if (typeof primera !== 'object' || primera === null || !('url' in primera)) {
+        throw new Error('una pista sin dirección')
+      }
+      if (typeof primera.url !== 'string') throw new Error('una pista sin dirección')
+
+      // El upstream de mentira sirve bytes de video: lo que se comprueba es el
+      // cableado —el ticket resuelve y la pista sale como `vtt`—, no el texto.
+      const respuesta = await pedir(primera.url)
+
+      expect(respuesta.status).toBe(200)
+      expect(respuesta.headers.get('content-type')).toBe('text/vtt; charset=utf-8')
+    })
+  })
+
   test('ninguna cabecera del upstream sale en la respuesta', async () => {
     await conApp(async ({ pedir }) => {
       const { cuerpo } = await resolver(pedir)

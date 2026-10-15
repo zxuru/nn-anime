@@ -40,6 +40,7 @@ import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
 import { findProvider } from './anime'
+import { subtitleTicketPath } from './subtitles'
 
 export interface StreamRouteOptions {
   readonly providers: readonly Provider[]
@@ -317,13 +318,27 @@ export function registerStreamRoutes(app: Hono, options: StreamRouteOptions): vo
     }
 
     // Cada fuente se convierte en un ticket: la URL del upstream se queda aquí.
+    // Y cada pista de subtítulos, en el suyo: el cliente sólo acepta rutas del
+    // proxy (`/api/subtitles/…`) y una dirección del upstream no llegaría nunca
+    // al reproductor. La pista hereda las cabeceras de su fuente, que son las
+    // que el sitio exige para servir sus archivos.
     const sources = resultado.value.value.map((source) => {
       const ticket = options.container.tickets.issue({
         url: source.url,
         headers: source.headers ?? {},
       })
+      const headers = source.headers ?? {}
+      const subtitles = source.subtitles?.map((pista) => {
+        const pistaTicket = options.container.tickets.issue({ url: pista.url, headers })
 
-      return toPublicStreamSource({ ...source, url: ticketPath(ticket) })
+        return { ...pista, url: subtitleTicketPath(pistaTicket) }
+      })
+
+      return toPublicStreamSource({
+        ...source,
+        url: ticketPath(ticket),
+        ...(subtitles === undefined ? {} : { subtitles }),
+      })
     })
 
     c.header('X-Cache', resultado.value.source)
