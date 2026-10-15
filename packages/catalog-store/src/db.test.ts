@@ -42,6 +42,7 @@ const TABLAS_POSTERIORES = [
   'anilist_media',
   'anilist_list_cache',
   'anilist_image',
+  'adult_ref',
 ]
 
 /** Las versiones que hay hoy, para no fijar números que crecen con cada migración. */

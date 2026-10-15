@@ -5,21 +5,25 @@ del spec.
 
 ## El cambio exacto
 
-1. **Migración `0010-adulto.sql`: `ALTER TABLE anime ADD COLUMN adult INTEGER NOT NULL DEFAULT 0`.**
-   La tabla `anime` ya tiene una fila por referencia de proveedor conocida, y esa fila es la que
-   leen todos los consumidores que pueden enseñar una obra: `favorites`, `recent` (seguir viendo),
-   los candidatos del motor y los relacionados.
-2. **La marca se escribe por referencia y sin el contenido.** La sabe el emparejamiento —que tiene
-   el título y la obra que AniList devuelve— pero se guarda donde sirve: `provider_id` y
-   `provider_ref` ya son la clave única de `anime`, y el historial, los favoritos y el feed guardan
-   referencias. Cuando la obra viene marcada y el interruptor está apagado, **no se escribe la fila
-   de `anilist_media`**: se escribe el booleano y nada más, así que la caché no llega a tener la
-   portada ni la sinopsis. Con el interruptor encendido se guarda entera, como hoy.
-3. **Lectura por lote de las marcas.** Una consulta que recibe las referencias de una fila y
-   devuelve cuáles están marcadas: es lo que usan `/api/feed` y `/api/trending` para descartar
-   **antes de preguntar** —una referencia marcada no gasta una petición a AniList nunca más—. Va por
-   lote y no por referencia por el motivo de siempre: una fila puede traer veinte piezas y veinte
-   consultas para pintar una fila es lo que el spec prohíbe.
+1. **Migración `0010-adulto.sql`: una tabla `adult_ref (provider_id, provider_ref)`, con esa pareja
+   como clave primaria.** Una tabla propia y **no** una columna de `anime`, aunque la marca sea de la
+   obra: la marca la aprende el emparejamiento de AniList, y la obra puede **no tener fila** —una
+   novedad del feed de un título que nadie ha abierto no la tiene—. Con una columna habría que
+   inventar un `anime` con un detalle de mentira y una caducidad que miente para poder escribir un
+   booleano, y ese detalle falso lo leería cualquiera que abriera la ficha.
+   La clave primaria es también el índice de las dos consultas que hay: la de una referencia y la de
+   un lote.
+2. **La marca se escribe por referencia y sin el contenido.** La sabe el emparejamiento —que tiene el
+   título y la obra que AniList devuelve— pero se guarda por `provider_id` y `provider_ref`, que es
+   lo que el historial, los favoritos y el feed manejan. Cuando la obra viene marcada y el interruptor
+   está apagado, **no se escribe la fila de `anilist_media`**: se escribe la marca y nada más, así que
+   la caché no llega a tener la portada ni la sinopsis. Con el interruptor encendido se guarda entera,
+   como hoy.
+3. **Lectura por lote de las marcas.** Una consulta que recibe las referencias de una fila y devuelve
+   cuáles están marcadas: es lo que usan `/api/feed` y `/api/trending` para descartar **antes de
+   preguntar** —una referencia marcada no gasta una petición a AniList nunca más—. Va por lote y no
+   por referencia por el motivo de siempre: una fila puede traer veinte piezas y veinte consultas para
+   pintar una fila es lo que el spec prohíbe.
 4. **Las lecturas que alimentan filas excluyen las marcadas cuando quien cablea se lo pide**: los
    candidatos del motor, el historial, los favoritos y lo último conocido. El almacén no decide
    política: expone el parámetro y el servidor lo pasa con el ajuste en la mano.
@@ -37,32 +41,35 @@ El filtro va en la lectura y **antes** del motor, con el mismo motivo que ya est
 `routes/recommendations.ts`: recortar después de recomendar deja la fila con menos piezas de las que
 hay, porque el motor ya habría llenado su tope con títulos que no se van a enseñar.
 
-## Dos estados y no tres
+## La marca es la fila
 
-`0` significa «no consta que sea para adultos», y el desconocido se comporta como el que no lo es:
-se enseña. Un tercer estado —«se preguntó y no lo es»— sólo serviría para medir la cobertura del
+Estar en `adult_ref` significa «consta que es para adultos»; no estar es «no consta», y el
+desconocido se comporta como el que no lo es: se enseña. No hay columna de estado ni de fecha, y es a
+propósito: un tercer estado —«se preguntó y no lo es»— sólo serviría para medir la cobertura del
 emparejamiento, y una columna de métricas se queda en el esquema para siempre. Si algún día hace
 falta esa cuenta, se saca de `anilist_media`, que ya distingue la fila ausente de la fila sin valor.
 
 ## Las trampas que el task tiene que medir
 
 - **Un refresco del proveedor no puede borrar la marca.** `anime.write` viene de `getAnime`, que no
-  sabe nada de esto: si la escritura reemplaza la fila —un `INSERT OR REPLACE`— la marca se pierde
-  y la obra vuelve a enseñarse en la siguiente lectura. Se mide mutando: reemplazando en vez de
-  actualizar, la prueba del refresco queda en rojo.
-- **La ampliación de la tabla es aditiva.** `ALTER TABLE` con valor por defecto deja las filas que
-  ya existen en `0`, que es la respuesta correcta: no consta.
+  sabe nada de esto, y reescribe su fila entera: si la marca viviera en esa fila, o si el refresco
+  limpiara la tabla, la obra volvería a enseñarse en la siguiente lectura. Se mide mutando: borrando
+  las marcas dentro de la escritura del anime, la prueba del refresco queda en rojo.
+- **La migración es aditiva.** Crea una tabla vacía y no toca `anime`: ninguna fila existente cambia
+  de forma y ninguna lectura vieja se rompe.
 - **La marca sobrevive al interruptor.** No es un ajuste: es lo que se aprendió. Apagar el
   interruptor no la borra, y volver a encenderlo no vuelve a preguntar por lo ya marcado.
-- **`prune` no necesita tocarla**, pero la limpieza de `anime` se lleva la marca con la fila, que es
-  lo que debe pasar: sin obra no hay nada que esconder.
+- **`prune` no la toca, y es deliberado.** La limpieza se lleva la fila de `anime` de un título que
+  nadie mira desde hace meses; la marca se queda, porque que una obra sea para adultos no se vence y
+  si la obra vuelve a aparecer no hay que volver a preguntarlo.
 
 ## Las alternativas descartadas
 
-**Una tabla propia (`adult_ref`) en vez de una columna.** Separa mejor el dato de la caché —que
-caduca— pero obliga a una unión en cada lectura que puede enseñar una obra, y esas lecturas ya
-llevan una consulta por fila de la interfaz. La marca no caduca como el detalle: que una obra sea
-para adultos no se vence, y eso es justo lo que una columna pegada a la fila dice.
+**Una columna `adult` en `anime`.** Es lo que se propuso primero y no se sostiene: la marca la aprende
+el emparejamiento sobre una entrada del feed, y esa obra puede no tener fila, así que habría que
+crear un `anime` de relleno con un `raw_json` inventado —que la ficha leería— y una caducidad que
+miente para que la ficha volviera a pedir el detalle. El ahorro era una subconsulta por lectura, y no
+compensa.
 
 **Que decida el almacén leyendo el ajuste.** Sería una línea menos en el servidor y una dependencia
 más dentro del almacén: `getSetting` ya vive ahí, pero la misma lectura se usa para cosas que sí
