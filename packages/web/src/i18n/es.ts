@@ -455,16 +455,21 @@ export const messages: Messages = {
   'detail.loading': 'Cargando la ficha…',
   'detail.notFound': 'Ese título no está en el proveedor.',
   'detail.related.year': 'Año {year}',
-  'detail.related.none': 'No hay más títulos de esta saga en el catálogo local.',
+  // El rail mezcla lo que la base conoce con lo que declara AniList, así que el
+  // vacío lo dice de las dos procedencias: «no hay más en el catálogo local» a
+  // secas sería mentira desde que la sección también mira fuera.
+  'detail.related.none': 'No hay más entregas de esta saga: ni en el catálogo local ni en AniList.',
   'detail.related.seasons': 'Temporadas',
-  'detail.related.movies': 'Películas y especiales',
+  // Tres grupos por tipo de entrega y no dos: el OVA y el especial no son una
+  // película, y mezclarlos en «Películas y especiales» es lo que hacía que una
+  // franquicia con dos OVA pareciera tener dos películas.
+  'detail.related.movies': 'Películas',
+  'detail.related.ova': 'OVA',
   'detail.related.franchise': 'Más de esta franquicia',
   'detail.related.current': 'viendo',
-  // La franquicia según AniList, que es otra sección: la de arriba es lo que la
-  // base conoce y ésta sale de la red, y quien la lee tiene que poder saber de
-  // quién es el dato.
-  'detail.anilistRelated': 'La franquicia en AniList',
-  'detail.anilistRelated.meta': 'Lo que AniList relaciona con esta obra',
+  // La atribución de las filas que no son de la base: el rail las mezcla y quien
+  // lo lee tiene que poder saber de quién es el dato.
+  'detail.related.anilist': 'Incluye lo que AniList relaciona con esta obra.',
   // El motivo de cada relación. Los ocho tipos son los que la frontera deja pasar
   // (`ANILIST_RELATIONS`, en core) y el mapa de `relacion.ts` está atado a ellos:
   // uno nuevo sin texto aquí no compila.

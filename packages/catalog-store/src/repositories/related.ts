@@ -33,12 +33,13 @@ import type { Database, Statement } from 'bun:sqlite'
 import {
   type AnimeSummary,
   franchiseTitle,
+  groupByWork,
   namesOf,
-  normalizeQuery,
   type ProviderRef,
   sagaTitle,
   sameWork,
   titleKindSchema,
+  type WorkItem,
   type WorkNames,
 } from '@nn-anime/core'
 
@@ -292,9 +293,15 @@ export function createRelatedRepository(db: Database) {
       const filas = selectCandidatos.all(patrones, RELATED_SCAN_LIMIT)
 
       // Una obra, una fila: la misma entrega en dos proveedores no puede salir
-      // dos veces en la sección. La clave es el título tal cual —no la saga—,
-      // porque dos entregas distintas de la misma saga son dos filas.
-      const porObra = new Map<string, RelatedRow>()
+      // dos veces en la sección, y la identidad no la da el título —hay fuentes
+      // que publican la misma entrega con el nombre largo y con el corto:
+      // «Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka Gaiden: Sword
+      // Oratoria» y «Danmachi: Sword Oratoria» son la misma—. La resuelve
+      // `sameWork`, la misma regla que excluye la ficha propia, y `groupByWork`
+      // lleva su índice de claves: agrupar no es comparar cada fila con todas.
+      const porRef = new Map<string, RelatedRow>()
+      const candidatos: WorkItem[] = []
+
       for (const fila of filas) {
         if (fila.provider_id === ref.providerId && fila.ref === ref.value) continue
 
@@ -309,12 +316,34 @@ export function createRelatedRepository(db: Database) {
         const suyas = sagasDe(nombresFila, clave)
         if (![...suyas].some((saga) => sagas.has(saga))) continue
 
-        const obra = normalizeQuery(fila.title)
-        const actual = porObra.get(obra)
-        if (actual === undefined || preferida(fila, actual, ref.providerId)) porObra.set(obra, fila)
+        const item: WorkItem = {
+          ref: { providerId: fila.provider_id, value: fila.ref },
+          title: fila.title,
+          ...(fila.title_alt === null ? {} : { titleAlt: fila.title_alt }),
+        }
+
+        candidatos.push(item)
+        porRef.set(`${item.ref.providerId}:${item.ref.value}`, fila)
       }
 
-      return [...porObra.values()]
+      // De cada obra se queda una fila: la del proveedor de la ficha —pulsarla no
+      // cambia de sitio— y, si ninguna o las dos son de ahí, la del id
+      // alfabéticamente menor. Sin el año en la comparación: las dos fuentes
+      // publican el mismo estreno con años distintos y sigue siendo una obra.
+      const elegidas: RelatedRow[] = []
+      for (const grupo of groupByWork(candidatos, () => true)) {
+        let elegida: RelatedRow | undefined
+
+        for (const item of grupo) {
+          const fila = porRef.get(`${item.ref.providerId}:${item.ref.value}`)
+          if (fila === undefined) continue
+          if (elegida === undefined || preferida(fila, elegida, ref.providerId)) elegida = fila
+        }
+
+        if (elegida !== undefined) elegidas.push(elegida)
+      }
+
+      return elegidas
         .map(resumen)
         .sort(byYearProximity(propia.year ?? undefined))
         .slice(0, limit)

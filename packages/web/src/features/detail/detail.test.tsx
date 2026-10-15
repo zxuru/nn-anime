@@ -14,7 +14,6 @@ import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { t } from '../../i18n'
 import { createMemoryHistory, HistoryProvider } from '../../router'
-import { AniListRelated, piezaDeRelacion } from './AniListRelated'
 import {
   BandaBanner,
   DetailPage,
@@ -30,8 +29,9 @@ import { watchedInWindow, windowAt, windowCount, windowForNumber } from './episo
 import { FavoriteButton } from './FavoriteButton'
 import { RelatedList } from './RelatedList'
 import { claveDeRelacion } from './relacion'
-import { SagaRail, sagaGroups } from './SagaRail'
+import { SagaRail } from './SagaRail'
 import { SourcePicker } from './SourcePicker'
+import { type FilaDeSaga, filasDeSaga } from './saga'
 import {
   chosenMode,
   formatDuration,
@@ -487,13 +487,20 @@ describe('la ruta de los hermanos', () => {
   })
 })
 
-describe('relacionados', () => {
-  function resumen(value: string, title: string, year?: number): AnimeSummary {
-    return { ref: { providerId: 'fixture', value }, title, ...(year === undefined ? {} : { year }) }
+describe('las filas del rail', () => {
+  function fila(overrides: Partial<FilaDeSaga> = {}): FilaDeSaga {
+    return {
+      clave: 'fixture:frieren',
+      title: 'Sousou no Frieren',
+      to: '/anime/fixture/frieren',
+      providerId: 'fixture',
+      ref: 'frieren',
+      ...overrides,
+    }
   }
 
-  test('cada hermano es un enlace a su ficha, con su año', () => {
-    const html = render(<RelatedList items={[resumen('frieren', 'Sousou no Frieren', 2023)]} />)
+  test('cada fila es un enlace a su ficha, con su año', () => {
+    const html = render(<RelatedList items={[fila({ year: 2023 })]} />)
 
     expect(html).toContain('href="/anime/fixture/frieren"')
     expect(html).toContain('Sousou no Frieren')
@@ -501,41 +508,62 @@ describe('relacionados', () => {
   })
 
   test('un relacionado sin año no se inventa uno', () => {
-    const html = render(<RelatedList items={[resumen('x', 'Sin Año')]} />)
+    const html = render(<RelatedList items={[fila({ title: 'Sin Año' })]} />)
 
     expect(html).toContain('related__title')
     expect(html).not.toContain('related__meta')
   })
 
-  test('sin hermanos lo dice en lugar de dejar el hueco', () => {
-    const html = render(<RelatedList items={[]} />)
-
-    expect(html).toContain('No hay más títulos de esta saga')
-    expect(html).not.toContain('<ul')
-  })
-
-  test('una portada con esquema raro no se pide: el hueco se ve como hueco', () => {
+  /**
+   * La fila que sólo conoce AniList.
+   *
+   * No tiene referencia local —ninguna fuente la tiene—, así que su portada sale de
+   * la ruta de AniList, su enlace va a la búsqueda de su título y su motivo dice por
+   * qué está en la lista. Es la mitad de las filas de una franquicia larga.
+   */
+  test('la fila de AniList lleva su motivo y su portada, y abre la búsqueda', () => {
     const html = render(
       <RelatedList
-        items={[{ ...resumen('x', 'Raro'), coverUrl: 'javascript:alert(1)' } as AnimeSummary]}
+        items={[
+          fila({
+            clave: 'anilist:101167',
+            title: 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka II',
+            to: '/search?q=Danmachi%20II',
+            providerId: undefined,
+            ref: undefined,
+            portada: '/api/anilist/image/cover/101167',
+            year: 2019,
+            motivo: 'Secuela',
+          }),
+        ]}
       />,
     )
 
-    expect(html).not.toContain('<img')
-    expect(html).toContain('related__cover')
+    expect(html).toContain('href="/search?q=Danmachi%20II"')
+    expect(html).toContain('src="/api/anilist/image/cover/101167"')
+    expect(html).toContain('Secuela')
+    // La portada ya viene compuesta: la ruta del proxy no se pide.
+    expect(html).not.toContain('/api/cover/')
   })
 
   test('la entrega que se está viendo sale marcada y sin enlace', () => {
-    const actual = resumen('dandadan', 'Dandadan', 2024)
     const html = render(
       <RelatedList
-        items={[actual, resumen('dandadan-2', 'Dandadan 2nd Season', 2025)]}
-        current={actual.ref}
+        items={[
+          fila({ title: 'Dandadan', year: 2024, actual: true }),
+          fila({
+            clave: 'fixture:dandadan-2',
+            title: 'Dandadan 2nd Season',
+            to: '/anime/fixture/dandadan-2',
+            ref: 'dandadan-2',
+            year: 2025,
+          }),
+        ]}
       />,
     )
 
     // Sin enlace: la fila lleva a la ficha que ya se está leyendo.
-    expect(html).not.toContain('href="/anime/fixture/dandadan"')
+    expect(html).not.toContain('href="/anime/fixture/frieren"')
     expect(html).toContain('aria-current="page"')
     // Y lo dice con la palabra, no sólo con el color.
     expect(html).toContain('viendo')
@@ -543,12 +571,9 @@ describe('relacionados', () => {
     expect(html).toContain('href="/anime/fixture/dandadan-2"')
   })
 
-  test('la insignia la pone quien conoce el grupo', () => {
+  test('la insignia de la temporada sale del número que el título lleva', () => {
     const html = render(
-      <RelatedList
-        items={[resumen('frieren-2', 'Sousou no Frieren 2nd Season', 2026)]}
-        badge={(item) => (item.year === 2026 ? 'Temporada 2' : undefined)}
-      />,
+      <RelatedList items={[fila({ title: 'Dandadan 2nd Season', temporada: 2 })]} />,
     )
 
     expect(html).toContain('Temporada 2')
@@ -567,8 +592,14 @@ describe('relacionados', () => {
   test('el año y la insignia van en su renglón, no en el del título', () => {
     const html = render(
       <RelatedList
-        items={[resumen('darling-2', 'My Dress-Up Darling Season 2', 2025)]}
-        badge={() => 'Temporada 2'}
+        items={[
+          fila({
+            title: 'My Dress-Up Darling Season 2',
+            year: 2025,
+            temporada: 2,
+            motivo: 'Secuela',
+          }),
+        ]}
       />,
     )
 
@@ -586,7 +617,7 @@ describe('relacionados', () => {
   })
 
   test('sin año ni insignia no queda un renglón de datos vacío', () => {
-    const html = render(<RelatedList items={[resumen('x', 'Sin Año')]} />)
+    const html = render(<RelatedList items={[fila({ title: 'Sin Año' })]} />)
 
     // El grupo vacío no se pinta: con el `gap` de la columna, un hueco sin nada
     // dentro es un renglón de aire entre el título y el borde.
@@ -595,68 +626,278 @@ describe('relacionados', () => {
 })
 
 /**
- * La franquicia de AniList, que es la única sección de la ficha que sale a la red.
+ * El rail de la saga: lo de la base y lo de AniList, en una sola lista por tipo.
  *
- * Lo que se mide aquí es lo que el renderizado de servidor sí puede decidir: el
- * motivo delante de los datos, el destino de cada pieza —la ficha si la base la
- * conoce, la búsqueda si no— y que sin relaciones no quede una sección vacía.
+ * Lo que se mide aquí es la decisión que se ve en pantalla —qué grupo le toca a
+ * cada entrega, en qué orden, y que la misma obra no salga dos veces porque las dos
+ * procedencias la declaren— más la atribución del dato ajeno y el hueco explicado.
  */
-describe('la franquicia de AniList', () => {
-  const S2: AniListRelatedItem = {
-    anilistId: 101167,
-    title: 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka II',
-    cover: '/api/anilist/image/cover/101167',
-    adult: false,
-    year: 2019,
-    kind: 'tv',
-    format: 'TV',
-    relation: 'sequel',
+describe('el rail de la saga', () => {
+  function entrega(
+    value: string,
+    title: string,
+    year: number | undefined,
+    kind: AnimeSummary['kind'],
+  ): AnimeSummary {
+    return {
+      ref: { providerId: 'jkanime', value },
+      title,
+      ...(year === undefined ? {} : { year }),
+      ...(kind === undefined ? {} : { kind }),
+    }
   }
 
-  test('el motivo va delante del año y del formato', () => {
-    // La serie de siempre no lleva el formato —«TV» no distingue nada—, y la
-    // película sí: es lo que dice que esa pieza no es una temporada.
-    expect(piezaDeRelacion(S2).meta).toBe('Secuela · Año 2019')
-    expect(piezaDeRelacion({ ...S2, format: 'MOVIE', kind: 'movie' }).meta).toBe(
-      'Secuela · Año 2019 · MOVIE',
-    )
+  /** Una relación de AniList con lo mínimo que exige el contrato. */
+  function relacion(overrides: Partial<AniListRelatedItem> = {}): AniListRelatedItem {
+    return {
+      anilistId: 101167,
+      title: 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka II',
+      cover: '/api/anilist/image/cover/101167',
+      adult: false,
+      year: 2019,
+      kind: 'tv',
+      format: 'TV',
+      relation: 'sequel',
+      ...overrides,
+    }
+  }
+
+  const DANDADAN = entrega('dandadan', 'Dandadan', 2024, 'tv')
+  const DANDADAN_2 = entrega('dandadan-2', 'Dandadan 2nd Season', 2025, 'tv')
+
+  test('las temporadas van en orden y la actual está entre ellas', () => {
+    const grupos = filasDeSaga({
+      current: DANDADAN,
+      siblings: [DANDADAN_2],
+      franchise: [],
+      anilistRelated: [],
+    })
+
+    // La mutación que deje fuera la entrega actual devuelve una sola fila y deja
+    // esta prueba en rojo: sin ella no se sabe en qué temporada se está.
+    expect(grupos.seasons.map((fila) => fila.ref)).toEqual(['dandadan', 'dandadan-2'])
+    expect(grupos.movies).toEqual([])
+    expect(grupos.ovas).toEqual([])
   })
 
-  test('sin referencia local la pieza abre la búsqueda de su título', () => {
-    // La base no conoce esa entrega en ninguna fuente: abrir una ficha que no
-    // existe sería el enlace roto, y la búsqueda es la salida honesta.
-    const pieza = piezaDeRelacion(S2)
+  test('el orden es por año, y sin año la fila va al final', () => {
+    const sinAño = entrega('bleach-ttbw', 'Bleach: Sennen Kessen-hen', undefined, 'tv')
+    const grupos = filasDeSaga({
+      current: entrega('bleach', 'Bleach', 2004, 'tv'),
+      siblings: [sinAño, entrega('bleach-ketsubetsu', 'Bleach: Ketsubetsu-tan', 2023, 'tv')],
+      franchise: [],
+      anilistRelated: [],
+    })
 
-    expect(pieza.to).toContain('/search?q=')
-    expect(pieza.ref).toBeUndefined()
+    expect(grupos.seasons.map((fila) => fila.ref)).toEqual([
+      'bleach',
+      'bleach-ketsubetsu',
+      'bleach-ttbw',
+    ])
   })
 
-  test('con referencia local la pieza abre la ficha, con su portada de AniList', () => {
-    const pieza = piezaDeRelacion({ ...S2, ref: { providerId: 'jkanime', value: 'danmachi-ii' } })
+  test('la película y el OVA van cada uno en su grupo, no intercalados', () => {
+    const pelicula = entrega('bleach-movie', 'Bleach Movie 3: Fade to Black', 2008, 'movie')
+    const ova = entrega('bleach-ova', 'Bleach: Memories in the Rain', 2004, 'ova')
+    const grupos = filasDeSaga({
+      current: entrega('bleach', 'Bleach', 2004, 'tv'),
+      siblings: [pelicula, ova, entrega('bleach-ttbw', 'Bleach: Sennen Kessen-hen', 2022, 'tv')],
+      franchise: [],
+      anilistRelated: [],
+    })
 
-    expect(pieza.to).toBe('/anime/jkanime/danmachi-ii')
-    expect(pieza.providerId).toBe('jkanime')
-    expect(pieza.ref).toBe('danmachi-ii')
-    expect(pieza.portada).toBe('/api/anilist/image/cover/101167')
+    // La mutación que clasifique todo como serie mete las tres en Temporadas; la
+    // que junte OVA y películas deja el grupo de OVA vacío.
+    expect(grupos.seasons.map((fila) => fila.ref)).toEqual(['bleach', 'bleach-ttbw'])
+    expect(grupos.movies.map((fila) => fila.ref)).toEqual(['bleach-movie'])
+    expect(grupos.ovas.map((fila) => fila.ref)).toEqual(['bleach-ova'])
   })
 
-  test('la sección se pinta con su atribución y una pieza por relación', () => {
+  test('la temporada que sólo declara AniList entra en Temporadas y abre la búsqueda', () => {
+    const grupos = filasDeSaga({
+      current: DANDADAN,
+      siblings: [DANDADAN_2],
+      franchise: [],
+      anilistRelated: [relacion({ anilistId: 999, title: 'Dandadan 3rd Season', year: 2026 })],
+    })
+    const tercera = grupos.seasons.find((fila) => fila.temporada === 3)
+
+    // Está en la lista aunque la base no la tenga: es lo que responde «¿hay más
+    // temporadas?».
+    expect(tercera?.title).toBe('Dandadan 3rd Season')
+    // Sin referencia local, la salida honesta es la búsqueda de su título.
+    expect(tercera?.to).toContain('/search?q=')
+    expect(tercera?.motivo).toBe('Secuela')
+    expect(tercera?.ref).toBeUndefined()
+    expect(grupos.deAniList).toBe(true)
+  })
+
+  test('la obra que la base ya conoce no se repite porque AniList la declare', () => {
+    // Con la misma referencia: la fila de AniList trae la de la base.
+    const conRef = filasDeSaga({
+      current: DANDADAN,
+      siblings: [DANDADAN_2],
+      franchise: [],
+      anilistRelated: [
+        relacion({
+          anilistId: 55,
+          title: 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka II',
+          ref: { providerId: 'jkanime', value: 'dandadan-2' },
+        }),
+      ],
+    })
+
+    // Y con el mismo título, aunque la referencia no venga.
+    const porTitulo = filasDeSaga({
+      current: DANDADAN,
+      siblings: [DANDADAN_2],
+      franchise: [],
+      anilistRelated: [relacion({ anilistId: 56, title: 'dandadan 2nd season' })],
+    })
+
+    // Sin el filtro, la misma temporada sale dos veces con dos nombres distintos:
+    // es el contenido repetido que se reportó.
+    expect(conRef.seasons).toHaveLength(2)
+    expect(porTitulo.seasons).toHaveLength(2)
+    // Y no hay nada que atribuir: sus filas se cayeron.
+    expect(conRef.deAniList).toBe(false)
+    expect(porTitulo.deAniList).toBe(false)
+  })
+
+  /**
+   * El caso real que se vio en la ficha de «Danmachi».
+   *
+   * La misma obra en dos fuentes con dos nombres —y por tanto con dos
+   * referencias—: el nombre largo que publica una es la referencia de la otra. La
+   * identidad la resuelve `sameWork`; con el título a secas salían las dos filas.
+   */
+  test('la misma obra con dos nombres y dos referencias tampoco se repite', () => {
+    const grupos = filasDeSaga({
+      current: DANDADAN,
+      siblings: [
+        {
+          ref: {
+            providerId: 'jkanime',
+            value: 'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka-gaiden-sword-oratoria',
+          },
+          title: 'Danmachi: Sword Oratoria',
+          year: 2017,
+        },
+      ],
+      franchise: [],
+      anilistRelated: [
+        relacion({
+          anilistId: 21676,
+          title: 'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka Gaiden: Sword Oratoria',
+          year: 2017,
+          relation: 'sideStory',
+          ref: { providerId: 'animeav1', value: 'danmachi-sword-oratoria' },
+        }),
+      ],
+    })
+
+    expect(grupos.seasons).toHaveLength(2)
+    expect(grupos.deAniList).toBe(false)
+  })
+
+  test('la obra que la base conoce en otra fuente abre su ficha, con la portada del proxy', () => {
+    const grupos = filasDeSaga({
+      current: DANDADAN,
+      siblings: [],
+      franchise: [],
+      anilistRelated: [
+        relacion({
+          anilistId: 77,
+          title: 'Dan Da Dan 3',
+          year: 2026,
+          ref: { providerId: 'animeav1', value: 'dandadan-3' },
+        }),
+      ],
+    })
+    const tercera = grupos.seasons.find((fila) => fila.title === 'Dan Da Dan 3')
+
+    expect(tercera?.to).toBe('/anime/animeav1/dandadan-3')
+    expect(tercera?.providerId).toBe('animeav1')
+    // La portada sale del proxy y no de AniList: todas las fichas se parecen.
+    expect(tercera?.portada).toBeUndefined()
+  })
+
+  test('la franquicia no repite lo que ya está en las temporadas', () => {
+    const naruto = entrega('naruto', 'Naruto', 2002, 'tv')
+    const shippuden = entrega('naruto-shippuden', 'Naruto Shippuden', 2007, 'tv')
+    const grupos = filasDeSaga({
+      current: naruto,
+      // La franquicia contiene a la saga: la misma entrega llega en las dos listas.
+      siblings: [shippuden],
+      franchise: [naruto, shippuden, entrega('boruto', 'Boruto', 2017, 'tv')],
+      anilistRelated: [],
+    })
+
+    // La mutación que no filtre deja «Naruto» y «Naruto Shippuden» repetidos.
+    expect(grupos.franchise.map((fila) => fila.ref)).toEqual(['boruto'])
+  })
+
+  test('sin ninguna entrega más, el hueco se explica', () => {
     const html = render(
-      <AniListRelated items={[S2, { ...S2, anilistId: 21676, relation: 'sideStory' }]} />,
+      <SagaRail current={DANDADAN} siblings={[]} franchise={[DANDADAN]} anilistRelated={[]} />,
     )
 
-    expect(html).toContain('La franquicia en AniList')
-    // La atribución: el dato es de AniList y quien lo lee tiene que poder saberlo.
-    expect(html).toContain('Lo que AniList relaciona con esta obra')
-    expect(html).toContain('Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka II')
-    expect(html).toContain('Secuela')
-    expect(html).toContain('Historia paralela')
-    // Una pieza por relación: el enlace es el cuerpo de cada una.
-    expect(html.match(/class="pz__enlace"/g)?.length).toBe(2)
+    expect(html).toContain('No hay más entregas de esta saga')
+    expect(html).not.toContain('<ul')
   })
 
-  test('sin relaciones no se pinta la sección: no hay nada que decir', () => {
-    expect(render(<AniListRelated items={[]} />)).toBe('')
+  test('con dos temporadas, una película y un OVA, cada grupo tiene su titular', () => {
+    const html = render(
+      <SagaRail
+        current={DANDADAN}
+        siblings={[
+          DANDADAN_2,
+          entrega('dandadan-movie', 'Dandadan Movie', 2025, 'movie'),
+          entrega('dandadan-ova', 'Dandadan OVA', 2025, 'ova'),
+        ]}
+        franchise={[]}
+        anilistRelated={[]}
+      />,
+    )
+
+    expect(html).toContain('Temporadas')
+    expect(html).toContain('Películas')
+    expect(html).toContain('OVA')
+    expect(html).toContain('Temporada 2')
+    expect(html).toContain('viendo')
+    // La franquicia no aporta nada nuevo: su sección no se pinta.
+    expect(html).not.toContain('Más de esta franquicia')
+    // Y sin filas de AniList no hay nada que atribuir.
+    expect(html).not.toContain('Incluye lo que AniList')
+  })
+
+  test('el dato de AniList se atribuye cuando aporta alguna fila', () => {
+    const html = render(
+      <SagaRail
+        current={DANDADAN}
+        siblings={[]}
+        franchise={[]}
+        anilistRelated={[relacion({ anilistId: 999, title: 'Dandadan 3rd Season', year: 2026 })]}
+      />,
+    )
+
+    expect(html).toContain('Dandadan 3rd Season')
+    expect(html).toContain('Secuela')
+    expect(html).toContain('Incluye lo que AniList relaciona con esta obra')
+  })
+
+  test('la franquicia se pinta cuando aporta una entrega nueva', () => {
+    const html = render(
+      <SagaRail
+        current={entrega('naruto', 'Naruto', 2002, 'tv')}
+        siblings={[]}
+        franchise={[entrega('naruto-shippuden', 'Naruto Shippuden', 2007, 'tv')]}
+        anilistRelated={[]}
+      />,
+    )
+
+    expect(html).toContain('Más de esta franquicia')
+    expect(html).toContain('Naruto Shippuden')
   })
 
   test('cada relación de la lista cerrada tiene su texto, no su clave', () => {
@@ -675,118 +916,6 @@ describe('la franquicia de AniList', () => {
     // Y ninguna comparte texto con otra: dos relaciones con el mismo rótulo son
     // una traducción mal copiada, y en la ficha se leen como la misma cosa.
     expect(textos.size).toBe(ANILIST_RELATIONS.length)
-  })
-})
-
-describe('el rail de temporadas', () => {
-  function entrega(
-    value: string,
-    title: string,
-    year: number | undefined,
-    kind: AnimeSummary['kind'],
-  ): AnimeSummary {
-    return {
-      ref: { providerId: 'jkanime', value },
-      title,
-      ...(year === undefined ? {} : { year }),
-      ...(kind === undefined ? {} : { kind }),
-    }
-  }
-
-  const DANDADAN = entrega('dandadan', 'Dandadan', 2024, 'tv')
-  const DANDADAN_2 = entrega('dandadan-2', 'Dandadan 2nd Season', 2025, 'tv')
-
-  test('las temporadas van en orden y la actual está entre ellas', () => {
-    const grupos = sagaGroups({ current: DANDADAN, siblings: [DANDADAN_2], franchise: [] })
-
-    // La mutación que deje fuera la entrega actual devuelve una sola fila y deja
-    // esta prueba en rojo: sin ella no se sabe en qué temporada se está.
-    expect(grupos.seasons.map((item) => item.ref.value)).toEqual(['dandadan', 'dandadan-2'])
-    expect(grupos.movies).toEqual([])
-  })
-
-  test('el orden es por año, y sin año la fila va al final', () => {
-    const sinAño = entrega('bleach-ttbw', 'Bleach: Sennen Kessen-hen', undefined, 'tv')
-    const grupos = sagaGroups({
-      current: entrega('bleach', 'Bleach', 2004, 'tv'),
-      siblings: [sinAño, entrega('bleach-ketsubetsu', 'Bleach: Ketsubetsu-tan', 2023, 'tv')],
-      franchise: [],
-    })
-
-    expect(grupos.seasons.map((item) => item.ref.value)).toEqual([
-      'bleach',
-      'bleach-ketsubetsu',
-      'bleach-ttbw',
-    ])
-  })
-
-  test('las películas y los especiales van en su grupo, no intercalados', () => {
-    const pelicula = entrega('bleach-movie', 'Bleach Movie 3: Fade to Black', 2008, 'movie')
-    const especial = entrega('bleach-special', 'Bleach: Memories in the Rain', 2004, 'special')
-    const grupos = sagaGroups({
-      current: entrega('bleach', 'Bleach', 2004, 'tv'),
-      siblings: [
-        pelicula,
-        especial,
-        entrega('bleach-ttbw', 'Bleach: Sennen Kessen-hen', 2022, 'tv'),
-      ],
-      franchise: [],
-    })
-
-    // La mutación que clasifique todo como serie mete las tres en Temporadas.
-    expect(grupos.seasons.map((item) => item.ref.value)).toEqual(['bleach', 'bleach-ttbw'])
-    expect(grupos.movies.map((item) => item.ref.value)).toEqual(['bleach-special', 'bleach-movie'])
-  })
-
-  test('la franquicia no repite lo que ya está en las temporadas', () => {
-    const naruto = entrega('naruto', 'Naruto', 2002, 'tv')
-    const shippuden = entrega('naruto-shippuden', 'Naruto Shippuden', 2007, 'tv')
-    const grupos = sagaGroups({
-      current: naruto,
-      // La franquicia contiene a la saga: la misma entrega llega en las dos listas.
-      siblings: [shippuden],
-      franchise: [naruto, shippuden, entrega('boruto', 'Boruto', 2017, 'tv')],
-    })
-
-    // La mutación que no filtre deja «Naruto» y «Naruto Shippuden» repetidos.
-    expect(grupos.franchise.map((item) => item.ref.value)).toEqual(['boruto'])
-  })
-
-  test('sin ninguna entrega más, el hueco se explica', () => {
-    const html = render(<SagaRail current={DANDADAN} siblings={[]} franchise={[DANDADAN]} />)
-
-    expect(html).toContain('No hay más títulos de esta saga')
-    expect(html).not.toContain('<ul')
-  })
-
-  test('con dos temporadas, cada grupo tiene su titular', () => {
-    const html = render(
-      <SagaRail
-        current={DANDADAN}
-        siblings={[DANDADAN_2, entrega('dandadan-movie', 'Dandadan Movie', 2025, 'movie')]}
-        franchise={[]}
-      />,
-    )
-
-    expect(html).toContain('Temporadas')
-    expect(html).toContain('Películas y especiales')
-    expect(html).toContain('Temporada 2')
-    expect(html).toContain('viendo')
-    // La franquicia no aporta nada nuevo: su sección no se pinta.
-    expect(html).not.toContain('Más de esta franquicia')
-  })
-
-  test('la franquicia se pinta cuando aporta una entrega nueva', () => {
-    const html = render(
-      <SagaRail
-        current={entrega('naruto', 'Naruto', 2002, 'tv')}
-        siblings={[]}
-        franchise={[entrega('naruto-shippuden', 'Naruto Shippuden', 2007, 'tv')]}
-      />,
-    )
-
-    expect(html).toContain('Más de esta franquicia')
-    expect(html).toContain('Naruto Shippuden')
   })
 })
 
