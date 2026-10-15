@@ -16,15 +16,22 @@ spec.
    —«no comprueba la edad de nadie»—, porque un interruptor sin consecuencia declarada se enciende
    por curiosidad y se deja encendido.
 3. **El cambio se ve sin reiniciar.** Encender o apagar el interruptor tiene que notarse en la
-   vitrina sin recargar: las listas se vuelven a leer y las filas del panel se repintan. El
-   precedente es el de los proveedores —desmarcar una casilla se ve al instante— y el ajuste se
-   aplica en la lectura, así que no hay nada que reiniciar; lo que hay que hacer es **volver a
-   pedir**.
-4. **La marca `+18` va donde el dato llega: en la pieza de las listas de AniList y en la ficha.**
-   La pieza la lee de `discoverItem.adult` / `airingItem.adult`, y la ficha de `enrichment.adult`
-   —el enriquecido de la obra emparejada—. Es texto y no sólo color: un borde o un tinte no lo lee
-   un lector de pantalla, y el repo ya tiene una pasada de accesibilidad que lo vigila. Los textos
-   van a `packages/web/src/i18n/es.ts`, no sueltos en el componente.
+   vitrina sin recargar: las listas se vuelven a leer y las filas se repintan. El precedente es el
+   de los proveedores —desmarcar una casilla se ve al instante— y el ajuste se aplica en la
+   lectura, así que no hay nada que reiniciar; lo que hay que hacer es **volver a pedir**.
+4. **La marca `+18` va donde el dato llega, y la fila de Novedades la lleva en sus dos
+   procedencias:**
+   - Las piezas del top y de la parrilla la leen de `discoverItem.adult` y `airingItem.adult`.
+   - **Las novedades de AniList** —los capítulos recién emitidos— la leen de `airingItem.adult`, que
+     es la misma forma de la parrilla.
+   - **Las novedades del feed** la leen de `feedItem.adult`, que es **opcional y sólo verdadero**.
+     Cuando falta no se pinta marca, que es lo correcto: de una entrada del feed sólo se sabe que es
+     para adultos cuando la verificación lo dijo, y afirmar lo contrario sería afirmar que se
+     comprobó. Así la fila se lee igual venga de donde venga.
+   - La ficha la lee de `enrichment.adult`.
+   - Es texto y no sólo color: un borde o un tinte no lo lee un lector de pantalla, y el repo ya
+     tiene una pasada de accesibilidad que lo vigila. Los textos van a
+     `packages/web/src/i18n/es.ts`, no sueltos en el componente.
 
 ## Por qué
 
@@ -51,12 +58,13 @@ clasificación que nadie publica.
 - **Un ajuste por proveedor.** El criterio es de la obra y no de la fuente: la misma obra puede
   venir de dos fuentes y la decisión es la misma. Con un booleano por proveedor, apagar uno dejaría
   la obra entrando por el otro.
+- **Esconder la pieza en el cliente cuando el enriquecido dice que es para adultos.** Deja el título
+  y la portada del proveedor en pantalla hasta que la respuesta llega, que es justo lo que hay que
+  evitar. La marca es para leer, no para decidir.
 
 ## Lo que la propuesta no afirma
 
 Que con el interruptor apagado desaparezca todo lo que el usuario consideraría para adultos. La
-interfaz sólo puede esconder lo que el servidor no le manda, y el servidor sólo filtra donde tiene
-señal: las filas de proveedor —búsqueda, tendencias, novedades, favoritos, historial, «seguir
-viendo»— se filtran sólo si la referencia se marcó antes, con el interruptor encendido. La ficha de
-un título al que el usuario llegue por su cuenta no se bloquea: es su catálogo, y esconderle una
-ficha que ya abrió antes no protege a nadie.
+interfaz sólo puede esconder lo que el servidor no le manda. La ficha de un título al que el usuario
+llegue por su cuenta no se bloquea: es su catálogo, y esconderle una ficha que ya abrió antes no
+protege a nadie.
