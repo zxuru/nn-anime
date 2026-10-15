@@ -186,7 +186,11 @@ export function registerRecommendationsRoute(
     const pedido = mediaFrom(c.req.query('media'))
     if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
 
-    const señales = await gatherSignals(options.container.store)
+    // El filtro va **antes** de recomendar: recortar después deja la fila con menos
+    // piezas de las que hay, porque el motor ya habría llenado su tope con títulos que
+    // no se van a enseñar.
+    const conAdultos = await adultContentOf(options.container.store)
+    const señales = await gatherSignals(options.container.store, { includeAdult: conAdultos })
     const conConsulta =
       consulta === ''
         ? señales
@@ -253,9 +257,21 @@ export function registerRecommendationsRoute(
       // géneros se quedaban vacíos cuando el top venía de tendencias.
       const enLaBase = new Map(candidatos.map((candidato) => [refKey(candidato.ref), candidato]))
 
-      for (const resultado of resultados.flat()) {
+      // Las tendencias entran por aquí y no por `gatherSignals`, así que se filtran con
+      // la misma pasada que la fila de tendencias: si no, el motor elegiría una obra
+      // marcada que la fila de al lado no enseña.
+      const planas = resultados.flat()
+      const adultos = await adultosDeLaFila(
+        { container: options.container, catalog: options.catalog },
+        planas,
+        conAdultos,
+        c.req.raw.signal,
+      )
+
+      for (const resultado of planas) {
         const clave = refKey(resultado.ref)
         if (yaEstan.has(clave)) continue
+        if (!conAdultos && adultos.has(clave)) continue
 
         yaEstan.add(clave)
         const cacheado = enLaBase.get(clave)

@@ -94,10 +94,12 @@ export interface CatalogStore {
   /**
    * De estas referencias, las que constan como para adultos.
    *
-   * Va por lote porque quien pregunta trae una fila entera. Una referencia marcada
-   * no vuelve a preguntarse a AniList: la marca es local y dura.
+   * Va por lote porque quien pregunta trae una fila entera, y **sin lista devuelve todas
+   * las que constan**: quien tiene que filtrar un corpus largo —el motor de
+   * recomendaciones— no puede construir una consulta con un par por candidato. Una
+   * referencia marcada no vuelve a preguntarse a AniList: la marca es local y dura.
    */
-  listAdultRefs(refs: readonly ProviderRef[]): Promise<readonly ProviderRef[]>
+  listAdultRefs(refs?: readonly ProviderRef[]): Promise<readonly ProviderRef[]>
   /**
    * La URL de portada de una referencia que ya apareció en un listado cacheado.
    *

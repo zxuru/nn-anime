@@ -24,8 +24,15 @@ interface MarkRow {
 export interface AdultRepository {
   /** Marca una referencia. Volver a marcarla no cambia nada. */
   mark(ref: ProviderRef): void
-  /** De estas referencias, las que constan como para adultos. */
-  list(refs: readonly ProviderRef[]): readonly ProviderRef[]
+  /**
+   * De estas referencias, las que constan como para adultos.
+   *
+   * **Sin lista, todas** las que constan. La tabla es pequeña por construcción —una fila
+   * por obra marcada— y hay quien tiene que filtrar una lista larga: preguntar por
+   * quinientos candidatos sería una consulta de mil parámetros, y leer la tabla entera
+   * cuesta un recorrido de unas pocas filas.
+   */
+  list(refs?: readonly ProviderRef[]): readonly ProviderRef[]
   /** Si esta referencia consta como para adultos. */
   isMarked(ref: ProviderRef): boolean
 }
@@ -73,6 +80,13 @@ export function createAdultRepository(db: Database): AdultRepository {
      * plan es una búsqueda por referencia y no un recorrido de la tabla.
      */
     list(refs) {
+      if (refs === undefined) {
+        return db
+          .query<MarkRow, []>('SELECT provider_id, provider_ref FROM adult_ref')
+          .all()
+          .map((fila) => ({ providerId: fila.provider_id, value: fila.provider_ref }))
+      }
+
       const unicas = sinRepetir(refs)
       if (unicas.length === 0) return []
 

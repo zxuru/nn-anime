@@ -542,3 +542,38 @@ describe('GET /api/recommendations?media=', () => {
     )
   })
 })
+
+/**
+ * El motor no puede recomendar lo que el filtro esconde.
+ *
+ * Es el caso que justifica el filtro en la base: la marca se aprendió con el interruptor
+ * encendido —o la puso el feed al verificar— y ahora está apagado, así que la obra sigue
+ * en el catálogo y el motor la elegiría sin saber que no se puede enseñar.
+ */
+describe('el filtro de adultos en las recomendaciones', () => {
+  test('apagado, una obra marcada no se recomienda; encendido, sí', async () => {
+    await conApp(
+      async ({ pedir, db }) => {
+        db.query("INSERT INTO adult_ref (provider_id, provider_ref) VALUES ('fixture', ?)").run(REF)
+
+        const apagado = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations')).json(),
+        )
+        expect(apagado.items.map((item) => item.ref.value)).not.toContain(REF)
+
+        const parche = await pedir('/api/settings', {
+          method: 'PATCH',
+          headers: { ...GOOD, 'content-type': 'application/json' },
+          body: JSON.stringify({ adultContent: true }),
+        })
+        expect(parche.status).toBe(204)
+
+        const encendido = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations')).json(),
+        )
+        expect(encendido.items.map((item) => item.ref.value)).toContain(REF)
+      },
+      { cachear: [REF] },
+    )
+  })
+})
