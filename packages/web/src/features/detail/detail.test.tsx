@@ -17,6 +17,7 @@ import {
   estudios,
   fondoDe,
   generos,
+  Lectura,
   seccionesDe,
   sinopsis,
 } from './DetailPage'
@@ -214,6 +215,39 @@ describe('lista de episodios', () => {
 
     expect(html).toContain('Episodio 1')
     expect(html).not.toContain('episode__title')
+  })
+
+  /**
+   * Las marcas de la fila van juntas, para poder ir al borde.
+   *
+   * La duración, el progreso, el «visto» y el modo son lo que se compara al bajar
+   * por la lista. Con título delante, su `flex: 1` ya las empujaba al borde; sin
+   * él —y hay fuentes que no titulan sus episodios— quedaban a media anchura con
+   * la fila vacía al lado. Que vayan dentro del mismo bloque es lo que deja al
+   * CSS llevarlas al borde en los dos casos, y por eso se mide aquí: el número se
+   * queda fuera, que es el índice de la fila y no una marca.
+   */
+  test('las marcas van agrupadas, y el número fuera del grupo', () => {
+    const html = render(
+      <EpisodeRows
+        episodes={[
+          {
+            ref: { providerId: 'fixture', value: 'x#1' },
+            animeRef: { providerId: 'fixture', value: 'x' },
+            number: 1,
+            mode: 'sub',
+            durationS: 1440,
+          },
+        ]}
+      />,
+    )
+
+    const marcas = /<span class="episode__marcas">([\s\S]*?)<\/span><\/a>/.exec(html)?.[1]
+
+    expect(marcas, 'falta el bloque de marcas en la fila').toBeDefined()
+    expect(marcas).toContain('24 min')
+    expect(marcas).toContain('subtitulado')
+    expect(marcas).not.toContain('Episodio 1')
   })
 })
 
@@ -820,6 +854,101 @@ describe('lo que añade AniList', () => {
 
     expect(html).toContain('Próximo capítulo')
     expect(html).toContain('12')
+  })
+})
+
+/**
+ * La lectura en dos pistas.
+ *
+ * La ficha dejaba a la derecha de la sinopsis un rectángulo de negro de todo lo
+ * alto del texto: la sinopsis se queda en su medida de lectura —una línea de 120
+ * caracteres no se lee— y la columna mide el doble. Los datos —nota, géneros y
+ * estudios— son lo que ocupa ese hueco, y estas pruebas miden las tres decisiones
+ * que lo hacen posible: que las dos pistas se marquen **sólo** cuando hay las dos
+ * cosas, que los datos vivan en su pista y que una sección sin datos no se pinte.
+ */
+describe('la lectura en dos pistas', () => {
+  const detalle: AnimeDetail = {
+    ref: { providerId: 'fixture', value: 'aurora-nocturna' },
+    title: 'Aurora Nocturna',
+    synopsis: 'Una cartógrafa descubre que el cielo de su ciudad se puede recorrer a pie.',
+    genres: ['Misterio'],
+    studios: [],
+  }
+
+  /** Lo mínimo que el contrato exige de un enriquecimiento. */
+  const enriquecido: Enrichment = {
+    anilistId: 555,
+    cover: '/api/anilist/image/cover/555',
+    genres: [],
+    studios: [],
+    score: 84,
+    siteUrl: 'https://anilist.co/anime/555',
+  }
+
+  /** El mismo detalle sin sinopsis, escrita a mano: `undefined` no es «vacío». */
+  const sinSinopsis: AnimeDetail = {
+    ref: detalle.ref,
+    title: detalle.title,
+    genres: detalle.genres,
+    studios: detalle.studios,
+  }
+
+  test('con sinopsis y datos, la lectura se reparte en dos pistas', () => {
+    const html = render(<Lectura detail={detalle} enrichment={enriquecido} />)
+
+    expect(html).toContain('detail__lectura detail__lectura--dos')
+    expect(html).toContain('class="detail__prosa"')
+    expect(html).toContain('class="detail__datos"')
+    // La prosa primero: el orden del documento es el de la lectura.
+    expect(html.indexOf('detail__prosa')).toBeLessThan(html.indexOf('detail__datos'))
+  })
+
+  test('sin datos, la sinopsis se lee en una pista y no deja la mitad en negro', () => {
+    const html = render(<Lectura detail={{ ...detalle, genres: [] }} enrichment={null} />)
+
+    expect(html).toContain('class="detail__lectura"')
+    expect(html).not.toContain('detail__lectura--dos')
+  })
+
+  test('sin sinopsis, los datos tampoco se quedan en media pista', () => {
+    const html = render(<Lectura detail={sinSinopsis} enrichment={enriquecido} />)
+
+    expect(html).not.toContain('detail__lectura--dos')
+    expect(html).toContain('De AniList')
+  })
+
+  test('sin estudios no se pinta el titular, ni la sección vacía debajo', () => {
+    const html = render(<Lectura detail={detalle} enrichment={enriquecido} />)
+
+    // Es el renglón que cerraba la barra lateral con un hueco: un titular con un
+    // párrafo vacío.
+    expect(html).not.toContain('Estudios')
+    expect(html).toContain('Géneros')
+    expect(html).toContain('Misterio')
+  })
+
+  test('con estudios, su sección va en la pista de datos', () => {
+    const html = render(
+      <Lectura detail={detalle} enrichment={{ ...enriquecido, studios: ['Estudio Cobre'] }} />,
+    )
+
+    const datos = html.slice(html.indexOf('class="detail__datos"'))
+
+    expect(datos).toContain('Estudios')
+    expect(datos).toContain('Estudio Cobre')
+    // Y no en la prosa: los géneros y los estudios dejaron de vivir con los mandos.
+    const prosa = html.slice(html.indexOf('class="detail__prosa"'), html.indexOf('detail__datos'))
+    expect(prosa).not.toContain('Estudios')
+  })
+
+  test('sin sinopsis ni datos, la lectura no deja dos pistas vacías', () => {
+    // Ni sinopsis, ni géneros, ni estudios, ni emparejamiento: no hay nada que
+    // leer arriba, y un bloque vacío entre la cabecera y los episodios no dice
+    // nada.
+    const vacio: AnimeDetail = { ref: detalle.ref, title: detalle.title, genres: [], studios: [] }
+
+    expect(render(<Lectura detail={vacio} enrichment={null} />)).toBe('')
   })
 })
 

@@ -232,25 +232,33 @@ export function EpisodeRows(props: EpisodeRowsProps): ReactNode {
                 {episode.title === undefined ? null : (
                   <span className="episode__title">{episode.title}</span>
                 )}
-                {marca?.tipo === 'progreso' ? (
-                  <progress
-                    className="episode__progress"
-                    value={marca.percent}
-                    max={100}
-                    aria-label={t(DEFAULT_LOCALE, 'detail.episode.progress', {
-                      percent: marca.percent,
-                    })}
-                  />
-                ) : null}
-                {duracion === undefined ? null : <span className="episode__time">{duracion}</span>}
-                {marca?.tipo === 'visto' ? (
-                  // La palabra, no sólo el color: el estado tiene que leerse también
-                  // sin distinguir colores.
-                  <span className="badge badge--visto">
-                    {t(DEFAULT_LOCALE, 'detail.episode.watched')}
-                  </span>
-                ) : null}
-                <span className="badge">{t(DEFAULT_LOCALE, MODE_KEYS[episode.mode])}</span>
+                {/* Las marcas van juntas al borde derecho de la fila: la duración,
+                    el progreso, el «visto» y el modo son lo que se compara al
+                    bajar por la lista, y sin título delante quedaban a media
+                    anchura con la fila vacía al lado. */}
+                <span className="episode__marcas">
+                  {marca?.tipo === 'progreso' ? (
+                    <progress
+                      className="episode__progress"
+                      value={marca.percent}
+                      max={100}
+                      aria-label={t(DEFAULT_LOCALE, 'detail.episode.progress', {
+                        percent: marca.percent,
+                      })}
+                    />
+                  ) : null}
+                  {duracion === undefined ? null : (
+                    <span className="episode__time">{duracion}</span>
+                  )}
+                  {marca?.tipo === 'visto' ? (
+                    // La palabra, no sólo el color: el estado tiene que leerse también
+                    // sin distinguir colores.
+                    <span className="badge badge--visto">
+                      {t(DEFAULT_LOCALE, 'detail.episode.watched')}
+                    </span>
+                  ) : null}
+                  <span className="badge">{t(DEFAULT_LOCALE, MODE_KEYS[episode.mode])}</span>
+                </span>
               </Link>
             </li>
           )

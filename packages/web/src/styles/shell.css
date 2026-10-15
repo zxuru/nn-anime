@@ -549,11 +549,14 @@
 /*
  * La ficha, en dos columnas.
  *
- * La barra lateral lleva lo que se consulta de un vistazo —portada, acciones,
- * modos, datos y saga— y la principal lo que se lee. Antes todo iba en una
- * columna con `max-width: var(--measure)` dentro de media pantalla: a la
- * derecha quedaban cientos de píxeles muertos y los episodios se apilaban en
- * una tira estrecha.
+ * La barra lateral lleva lo que se **hace** con la obra —portada, acciones, modos,
+ * fuentes y saga— y la principal lo que se **lee**. Antes todo iba en una columna
+ * con `max-width: var(--measure)` dentro de media pantalla: a la derecha quedaban
+ * cientos de píxeles muertos y los episodios se apilaban en una tira estrecha.
+ *
+ * Los datos —la nota, los géneros y los estudios— dejaron de vivir en la barra
+ * lateral, que es estrecha y ya va llena de mandos, para ocupar el hueco que
+ * quedaba al lado de la sinopsis: ver `.detail__lectura`.
  */
 .detail {
   display: grid;
@@ -645,11 +648,51 @@
 }
 
 /*
- * La columna de lectura ocupa su mitad; la sinopsis, además, se limita a una
- * medida legible. El tope va en el párrafo y no en el bloque: puesto en el
- * bloque recortaba también las filas de episodios, que sí quieren el ancho.
+ * La columna de lectura.
+ *
+ * La sinopsis se limita a una medida legible —una línea de 120 caracteres no se
+ * lee— y el tope va en el párrafo y no en el bloque: puesto en el bloque recortaba
+ * también las filas de episodios, que sí quieren el ancho.
  */
 .detail__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/*
+ * Las dos pistas de arriba: la sinopsis a su medida y, al lado, los datos.
+ *
+ * Es el hueco que la ficha dejaba vacío. La sinopsis se queda en su medida de
+ * lectura, que es la mitad de la columna, así que a su derecha quedaba un rectángulo
+ * de negro durante todo lo alto del texto; y los datos —nota, géneros y estudios—
+ * vivían apretados en la barra lateral, que es estrecha y ya va llena de mandos.
+ * Aquí cada uno tiene su pista: el texto a su medida y los datos a lo ancho de lo
+ * que sobra, que es de donde salen los episodios sin encoger.
+ *
+ * La clase `--dos` sólo se pone cuando están las dos cosas: con una sola, la pista
+ * única se lee entera en vez de dejar la otra mitad en negro.
+ */
+.detail__lectura {
+  display: grid;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.detail__lectura--dos {
+  grid-template-columns: minmax(0, var(--measure)) minmax(0, 1fr);
+}
+
+/*
+ * La prosa y los datos, cada uno en su columna.
+ *
+ * El hueco entre bloques lo pone el `gap` del padre: los bloques de la pista de
+ * datos se separan entre sí y de la sinopsis con la misma medida, y al apilarse
+ * las dos pistas el aire no se suma dos veces.
+ */
+.detail__prosa,
+.detail__datos {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -982,6 +1025,22 @@
 .episode__title {
   flex: 1;
   font-weight: 700;
+}
+
+/*
+ * Las marcas de la fila —duración, progreso, «visto» y modo—, al borde derecho.
+ *
+ * Es lo que se compara de un vistazo al bajar por la lista, así que va en su
+ * columna, pegada al borde derecho, y no detrás del título. Con el título delante
+ * el `flex: 1` ya las empujaba; sin él —y hay fuentes que no titulan sus
+ * episodios— la insignia se quedaba a media anchura con la fila vacía al lado, que
+ * es la mitad de lo que ocupa cada renglón de la lista.
+ */
+.episode__marcas {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-inline-start: auto;
 }
 
 .episode__time {
@@ -3422,7 +3481,6 @@
 .enriquecido {
   display: grid;
   gap: var(--space-2);
-  margin-block-start: var(--space-4);
 }
 
 .enriquecido__fuente {
@@ -3985,6 +4043,18 @@
 /* 820–1100 : mosaico de 3 columnas; la nota pasa a cabecera de sección; la
    marquesina a un solo bloque con el cartel detrás, atenuado. */
 @media (max-width: 1100px) {
+  /*
+   * La ficha: la sinopsis y los datos vuelven a una sola pista.
+   *
+   * A este ancho la columna de lectura mide menos que la medida de la sinopsis
+   * —la caja menos la barra lateral y los dos huecos—, así que las dos pistas se
+   * quedan sin sitio y la de datos se apilaría en una tira de tres caracteres. Se
+   * apilan, que es como se leían antes de tenerlas.
+   */
+  .detail__lectura--dos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .seccion {
     display: block;
   }
