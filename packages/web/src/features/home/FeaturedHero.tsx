@@ -23,6 +23,11 @@
  * El arte del cartel es el de reserva —el campo y la inicial—: si la portada llega,
  * manda la portada. La letra se mide con el contenedor del cartel (104 cqi) porque
  * es un campo grande: a tamaño de pieza pequeña se comería el marco.
+ *
+ * **El campo es el banner de la obra cuando lo hay**, y con él cambia la tinta:
+ * una imagen clara pide letra oscura y una oscura, letra crema. El par —tinta y
+ * velo— lo elige `tinta.ts` midiendo la imagen, y el banner no se pinta hasta que
+ * la medida está: así el campo no enseña nunca la letra del color equivocado.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
@@ -34,6 +39,7 @@ import { Link } from '../../router'
 import { FavoriteButton } from '../detail/FavoriteButton'
 import { useFavorite } from '../detail/useDetail'
 import { Ticker } from './Ticker'
+import { useBannerDeLaMarquesina } from './tinta'
 import { useFeatured } from './useFeatured'
 
 /**
@@ -77,7 +83,11 @@ export function pieDelCartel(item: FeaturedItem): string {
 }
 
 export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
-  const { loading, detail, firstEpisode } = useFeatured(props.item.ref)
+  const { loading, detail, firstEpisode, banner } = useFeatured(props.item.ref)
+  // El banner no se pinta hasta que se conoce su tono: la tinta se elige con él, y
+  // enseñarlo antes sería enseñar el texto del color equivocado durante un
+  // fotograma. Sin medida no hay banner y el campo se queda con su degradado.
+  const bannerMedido = useBannerDeLaMarquesina(banner)
   const favorite = useFavorite(props.item.ref)
   // Los géneros del detalle son el respaldo de un destacado sin tags: una entrada
   // del feed no trae vector, pero su ficha sí trae géneros, y la línea de datos no
@@ -86,8 +96,14 @@ export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
   const meta = featuredMeta({ ...props.item, tags }, detail?.episodeCount)
 
   return (
-    <section className="marquesina" aria-labelledby="hero-title">
-      <span className="marquesina__campo" aria-hidden="true" />
+    <section className="marquesina" aria-labelledby="hero-title" data-tinta={bannerMedido?.tinta}>
+      <span className="marquesina__campo" aria-hidden="true">
+        {/* La dirección sale del gancho ya comprobada —es una ruta local de AniList
+            y no una de fuera—: aquí sólo se pinta lo que él devuelve. */}
+        {bannerMedido === undefined ? null : (
+          <img className="marquesina__banner" src={bannerMedido.src} alt="" />
+        )}
+      </span>
       <span className="marquesina__capa" aria-hidden="true" />
 
       {props.refresco === undefined ? null : (

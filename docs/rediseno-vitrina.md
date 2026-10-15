@@ -161,3 +161,21 @@ pieza), sin desbordamiento horizontal en ningún ancho:
   del hueco quedaba en negro. `block-size: 100%` no lo arreglaba: contra una fila de altura
   automática, un porcentaje se resuelve como `auto`. El enlace cubre ahora la pieza (`inset: 0`), y
   con eso lo pulsable es la pieza entera, como decía el comentario del componente.
+
+## El banner del destacado (T125)
+
+El campo de la marquesina era siempre el degradado naranja. Cuando la obra está emparejada con
+AniList, ahora **es su banner**: la imagen apaisada que publica la API, servida por el servidor y
+medida en el navegador antes de pintarla.
+
+- **La tinta se elige midiendo.** Una imagen puede ser una nieve, y sobre una nieve la tinta crema
+  de siempre desaparece. `features/home/tinta.ts` lee la luminancia media del trozo de banner que
+  queda debajo del texto —la columna izquierda, no la imagen entera— y elige el par: tinta crema con
+  velo oscuro, o tinta oscura con velo claro. La imagen no se pinta hasta que la medida está, así que
+  el campo no enseña nunca la letra del color equivocado.
+- **El velo es lo que garantiza que se lea.** Va al tono del campo —lo contrario de la tinta— y
+  aplana la imagen hasta el mínimo necesario: `--velo-campo-minimo`, medido contra el peor caso de
+  cada dirección en `a11y.test.ts` y no elegido a ojo. El umbral y el mínimo están atados: mover uno
+  sin el otro deja la prueba en rojo.
+- **Sin banner no cambia nada.** Una obra que AniList no conoce —o un AniList caído— deja el campo
+  como estaba: el degradado, la tinta de siempre y ningún atributo en el elemento.

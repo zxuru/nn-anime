@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { fileURLToPath } from 'node:url'
+import { UMBRAL_DE_TINTA } from './features/home/tinta'
 
 /**
  * Contraste de la paleta, medido y no afirmado.
@@ -166,6 +167,241 @@ describe('contraste de la barra de progreso', () => {
     expect(sobreNegro('rgb(242 233 216 / 100%)')).toBe('#f2e9d8')
     expect(sobreNegro('rgb(242 233 216 / 50%)')).toBe('#79756c')
     expect(sobreNegro('#ff4a2e')).toBe('#ff4a2e')
+  })
+})
+
+/**
+ * La tinta de la marquesina sobre el banner, medida.
+ *
+ * La marquesina elige su tinta —crema o negra— según el tono del banner, y el velo
+ * va al contrario: es lo que aplana la imagen hasta que el texto se lee sobre
+ * cualquier banner, del color que sea. Con el umbral y el mínimo puestos a ojo, la
+ * garantía sería una frase en un comentario; aquí es un número que falla.
+ *
+ * El peor caso de cada dirección es **el campo en el propio umbral**: el más claro
+ * que todavía lleva tinta crema y el más oscuro que lleva tinta negra. Por eso el
+ * umbral y el mínimo del velo están atados: subir el umbral deja la tinta crema
+ * sobre un campo más claro, y bajar el mínimo deja menos velo para taparlo.
+ *
+ * La tinta de cada texto llega con su propia opacidad —el motivo es más tenue que
+ * el titular—, así que lo que se mide es el color **compuesto**: la tinta sobre el
+ * campo ya velado, que es el que se ve. Medir la tinta como si fuera opaca daría un
+ * número que no es el de la pantalla, y es el error que la prueba de la barra de
+ * progreso ya comete a propósito para explicar por qué no.
+ */
+describe('la tinta de la marquesina sobre el banner', () => {
+  const TABLA = fileURLToPath(new URL('./styles/tokens.css', import.meta.url))
+
+  type Canal = readonly [number, number, number]
+
+  /** El valor de un token, tal cual está escrito. */
+  async function tokens(): Promise<string> {
+    return Bun.file(TABLA).text()
+  }
+
+  function valor(css: string, nombre: string): string {
+    return new RegExp(`--${nombre}:\\s*([^;]+);`).exec(css)?.[1]?.trim() ?? ''
+  }
+
+  /**
+   * El valor de un token, siguiendo un `var(--otro)` si es que lo es.
+   *
+   * La tinta crema de la marquesina **es** `--color-on-overlay`: se declara una vez
+   * y el par de la marquesina la nombra, así que la medida tiene que seguir el
+   * nombre hasta el color o mediría una cadena.
+   */
+  function resuelto(css: string, nombre: string): string {
+    const propio = valor(css, nombre)
+    const referencia = /^var\(--([a-z-]+)\)$/.exec(propio)
+
+    return referencia?.[1] === undefined ? propio : valor(css, referencia[1])
+  }
+
+  /** Los canales de un color, escrito en `#rrggbb` o en `rgb(r g b …)`. */
+  function canales(texto: string): Canal {
+    const hexadecimal = /#([0-9a-f]{3}|[0-9a-f]{6})\b/i.exec(texto)
+
+    if (hexadecimal?.[1] !== undefined) {
+      const digitos = hexadecimal[1]
+      const completo = digitos.length === 3 ? [...digitos].map((d) => d + d).join('') : digitos
+
+      return [
+        Number.parseInt(completo.slice(0, 2), 16),
+        Number.parseInt(completo.slice(2, 4), 16),
+        Number.parseInt(completo.slice(4, 6), 16),
+      ]
+    }
+
+    const coincidencia = /rgb\(\s*(\d+)\s+(\d+)\s+(\d+)/.exec(texto)
+    expect(coincidencia, `no hay ningún color en «${texto}»`).not.toBeNull()
+
+    return [
+      Number(coincidencia?.[1] ?? 0),
+      Number(coincidencia?.[2] ?? 0),
+      Number(coincidencia?.[3] ?? 0),
+    ]
+  }
+
+  /** El tanto por ciento de un token como `0.6`, y no como `60`. */
+  function tanto(css: string, nombre: string): number {
+    const texto = valor(css, nombre)
+    const numero = Number.parseFloat(texto)
+
+    expect(Number.isFinite(numero), `--${nombre} no es un número: «${texto}»`).toBe(true)
+
+    return numero / 100
+  }
+
+  /** El canal sRGB cuya luminancia relativa es exactamente `l`: la vuelta de la fórmula. */
+  function canalDeLuminancia(l: number): number {
+    return 1.055 * l ** (1 / 2.4) - 0.055
+  }
+
+  /** Un color compuesto sobre otro, canal a canal, como lo hace el navegador. */
+  function compuesto(fondo: Canal, encima: Canal, alfa: number): Canal {
+    return [
+      encima[0] * alfa + fondo[0] * (1 - alfa),
+      encima[1] * alfa + fondo[1] * (1 - alfa),
+      encima[2] * alfa + fondo[2] * (1 - alfa),
+    ]
+  }
+
+  function hexDe(color: Canal): string {
+    const canal = (valor: number): string =>
+      Math.min(255, Math.max(0, Math.round(valor)))
+        .toString(16)
+        .padStart(2, '0')
+
+    return `#${canal(color[0])}${canal(color[1])}${canal(color[2])}`
+  }
+
+  /**
+   * Los pares, con el lado del umbral que le toca a cada uno.
+   *
+   * El campo es un gris neutro en el umbral: la medida no depende del color del
+   * banner, sólo de su luminancia, así que el peor caso se puede poner con un gris.
+   */
+  async function pares(): Promise<
+    {
+      readonly nombre: string
+      readonly tinta: Canal
+      readonly velo: Canal
+      readonly alfaDelVelo: number
+    }[]
+  > {
+    const css = await tokens()
+    const alfa = tanto(css, 'velo-campo-minimo')
+
+    return [
+      {
+        nombre: 'tinta crema sobre un campo oscuro',
+        tinta: canales(resuelto(css, 'marquesina-tinta-clara')),
+        velo: canales(valor(css, 'velo-campo-oscuro')),
+        alfaDelVelo: alfa,
+      },
+      {
+        nombre: 'tinta negra sobre un campo claro',
+        tinta: canales(resuelto(css, 'marquesina-tinta-oscura')),
+        velo: canales(valor(css, 'velo-campo-claro')),
+        alfaDelVelo: alfa,
+      },
+    ]
+  }
+
+  /** Las tintas que van sobre el campo, con la opacidad con la que se pintan. */
+  const TINTAS: readonly (readonly [string, string])[] = [
+    ['titular y rótulo', '100'],
+    ['línea de datos', 'marquesina-tinta-dato'],
+    ['sinopsis', 'marquesina-tinta-prosa'],
+    ['marca de refresco', 'marquesina-tinta-marca'],
+    ['motivo', 'marquesina-tinta-motivo'],
+  ]
+
+  test('cada tinta pasa el 4.5:1 del spec en el peor caso de su dirección', async () => {
+    const campos = await pares()
+    const css = await tokens()
+    const gris = canalDeLuminancia(UMBRAL_DE_TINTA) * 255
+
+    for (const campo of campos) {
+      // El campo velado: lo que se ve detrás del texto.
+      const fondo = compuesto([gris, gris, gris], campo.velo, campo.alfaDelVelo)
+
+      for (const [nombre, token] of TINTAS) {
+        const opacidadDelTexto = token === '100' ? 1 : tanto(css, token)
+        const texto = compuesto(fondo, campo.tinta, opacidadDelTexto)
+        const ratio = contrast(hexDe(texto), hexDe(fondo))
+
+        expect(ratio, `${campo.nombre}: ${nombre}`).toBeGreaterThanOrEqual(4.5)
+      }
+    }
+  })
+
+  /**
+   * Y el mínimo del velo es el que se usa.
+   *
+   * Un token declarado y no usado no garantiza nada: la prueba de arriba mediría un
+   * número que la hoja no aplica. Los dos velos llevan el mínimo por el tanto, y por
+   * eso se comprueba que lo citan.
+   */
+  test('los dos velos usan el mínimo declarado', async () => {
+    const css = await tokens()
+
+    for (const nombre of ['velo-campo-oscuro', 'velo-campo-claro']) {
+      expect(valor(css, nombre), `--${nombre}`).toContain('var(--velo-campo-minimo)')
+    }
+  })
+
+  /**
+   * El mínimo llega hasta el final de la columna de texto.
+   *
+   * El velo se retira hacia la derecha —donde está el cartel y donde la imagen se
+   * enseña entera—, y hasta dónde llega el velo fuerte es lo que decide si el
+   * titular se lee. La columna es la primera del reparto —`1fr` contra `0.58fr`—, y
+   * el velo tiene que seguir en su mínimo hasta ahí: acortarlo deja el texto sobre
+   * la imagen cruda, que es justo el banner que se come la letra.
+   */
+  test('el velo aguanta el mínimo hasta el final de la columna', async () => {
+    const css = await tokens()
+    const minimo = tanto(css, 'velo-campo-minimo')
+
+    /** La primera columna del reparto, en tanto por uno del ancho. */
+    const columnas =
+      /--marquesina-cols:\s*minmax\(0,\s*([\d.]+)fr\)\s*minmax\(0,\s*([\d.]+)fr\)/.exec(css)
+    const primera = Number(columnas?.[1] ?? 0)
+    const segunda = Number(columnas?.[2] ?? 0)
+
+    expect(primera, 'falta el reparto de columnas de la marquesina').toBeGreaterThan(0)
+    const corte = primera / (primera + segunda)
+
+    for (const nombre of ['velo-campo-oscuro', 'velo-campo-claro']) {
+      // Sólo la capa horizontal, que es la que sostiene la columna de texto. Se
+      // resuelve el `var()` del mínimo antes de leer los tantos: lo que se mide es
+      // la opacidad que acaba en la hoja, no el nombre del token.
+      const capas = valor(css, nombre)
+        .replaceAll('var(--velo-campo-minimo)', `${minimo * 100}%`)
+        .split('linear-gradient(')
+        .filter((capa) => capa.trimStart().startsWith('to right'))
+
+      expect(capas.length, `--${nombre} no tiene capa horizontal`).toBe(1)
+
+      const paradas = [...(capas[0] ?? '').matchAll(/([\d.]+)%\s*\)\s*([\d.]+)%/g)].map(
+        (parada) => ({
+          alfa: Number(parada[1]) / 100,
+          posicion: Number(parada[2]) / 100,
+        }),
+      )
+
+      expect(paradas.length, `--${nombre} no tiene paradas que leer`).toBeGreaterThan(1)
+
+      const hastaDondeLlega = Math.max(
+        ...paradas.filter((parada) => parada.alfa >= minimo).map((parada) => parada.posicion),
+      )
+
+      expect(
+        hastaDondeLlega,
+        `el velo fuerte de --${nombre} se queda corto`,
+      ).toBeGreaterThanOrEqual(corte)
+    }
   })
 })
 
