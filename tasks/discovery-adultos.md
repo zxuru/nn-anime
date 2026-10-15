@@ -104,22 +104,22 @@ pruebas.
 
 ## T128c — `catalog-store`: la marca, su migración y su lectura por lote
 
-**Descripción:** la columna `adult` en `anime`, la escritura de la marca por referencia —sin el
-contenido— y la lectura por lote que dice qué referencias de una fila están marcadas.
+**Descripción:** la tabla `adult_ref` —la marca por referencia, que la obra puede no tener fila de
+`anime`—, su escritura y la lectura por lote que dice qué referencias de una fila están marcadas.
 
-**Archivos:** `migrations/0010-adulto.sql`, `repositories/anime.ts`, `store.ts`, `index.ts` y las
+**Archivos:** `migrations/0010-adulto.sql`, `repositories/adult.ts`, `store.ts`, `index.ts` y las
 pruebas del repositorio.
 
 **Aceptación:**
-- [ ] La migración es aditiva y deja las filas que ya existen en `0`. Medido mutando: un valor por
-      defecto `1` deja en rojo la prueba de «no consta».
+- [ ] La migración es aditiva: crea una tabla vacía y no toca `anime`. Medido mutando: quitar la
+      clave primaria deja en rojo la prueba de que marcar dos veces no duplica la fila.
+- [ ] Una referencia **sin** fila de `anime` se puede marcar, que es lo que justifica la tabla.
+      Medido mutando: con una columna de `anime` el caso no se puede escribir sin inventar un detalle.
 - [ ] La lectura por lote devuelve las marcadas de una lista de veinte referencias en **una**
       consulta. Medido mutando: resolverla con una consulta por referencia deja en rojo la prueba
       que cuenta las consultas.
-- [ ] Un refresco del proveedor **no** borra la marca. Medido mutando: reemplazando la fila en vez
-      de actualizarla, la prueba queda en rojo.
-- [ ] El almacén no decide: la marca se lee cuando se le pide. Medido mutando: filtrando dentro de
-      la lectura de la ficha, la prueba de la ficha marcada que sí se enseña queda en rojo.
+- [ ] Un refresco del proveedor **no** borra la marca. Medido mutando: borrar la marca dentro de la
+      escritura del anime deja la prueba en rojo.
 - [ ] `bun test packages/catalog-store` verde.
 
 **Depende de:** T128a. **Tamaño:** M.

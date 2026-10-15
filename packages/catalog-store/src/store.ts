@@ -41,6 +41,7 @@ import type { z } from 'zod'
 import { findCoverUrl } from './cover-ref'
 import { runMigrations } from './migrations/runner'
 import { pruneOrphans } from './prune'
+import { type AdultRepository, createAdultRepository } from './repositories/adult'
 import { type AniListRepository, createAniListRepository } from './repositories/anilist'
 import { type CandidateRow, createAnimeRepository } from './repositories/anime'
 import { createEpisodePageRepository, type StoredEpisodePage } from './repositories/episode-page'
@@ -82,6 +83,21 @@ export interface CatalogStoreOptions {
 export interface CatalogStore {
   readAnime(ref: ProviderRef): Promise<CacheHit<AnimeDetail> | null>
   writeAnime(ref: ProviderRef, detail: AnimeDetail): Promise<void>
+  /**
+   * Marca una referencia como contenido para adultos.
+   *
+   * Lo que se guarda es un booleano por referencia, nunca la obra. La marca **no
+   * caduca**: que una obra sea para adultos no se vence, y por eso el refresco del
+   * proveedor —que reescribe la fila del anime— no la toca.
+   */
+  markAdult(ref: ProviderRef): Promise<void>
+  /**
+   * De estas referencias, las que constan como para adultos.
+   *
+   * Va por lote porque quien pregunta trae una fila entera. Una referencia marcada
+   * no vuelve a preguntarse a AniList: la marca es local y dura.
+   */
+  listAdultRefs(refs: readonly ProviderRef[]): Promise<readonly ProviderRef[]>
   /**
    * La URL de portada de una referencia que ya apareció en un listado cacheado.
    *
@@ -233,6 +249,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
    * natural —migrar y luego usar— sale solo, y da igual cuál sea.
    */
   interface Repos {
+    readonly adult: AdultRepository
     readonly anilist: AniListRepository
     readonly anime: ReturnType<typeof createAnimeRepository>
     readonly episodes: ReturnType<typeof createEpisodesRepository>
@@ -253,6 +270,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
   let repos: Repos | undefined
   const of = (): Repos =>
     (repos ??= {
+      adult: createAdultRepository(db),
       anilist: createAniListRepository(db),
       anime: createAnimeRepository(db),
       episodes: createEpisodesRepository(db),
@@ -279,6 +297,14 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       // una fila quedaría con la fecha real y la caducidad inyectada no se
       // podría probar. Lo encontró la prueba de integración del ciclo.
       await queue.run(() => of().anime.write(ref, detail, ahora()))
+    },
+    async markAdult(ref) {
+      // La marca es una escritura como las demás: pasa por la cola, que es lo que
+      // hace que una sola conexión no tenga dos escrituras a la vez.
+      await queue.run(() => of().adult.mark(ref))
+    },
+    async listAdultRefs(refs) {
+      return of().adult.list(refs)
     },
     async readCover(ref) {
       return findCoverUrl(db, ref)
