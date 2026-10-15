@@ -3598,7 +3598,14 @@
   color: var(--arte-meta);
 }
 
-/* Posición del top: enorme y recortada por el borde. */
+/* Posición del top: enorme y entera.
+ *
+ * Era enorme y **recortada por el borde**: colgaba por encima del borde de arriba
+ * —una fracción de la propia cifra— y el interlineado era más corto que la letra, así
+ * que el corte se llevaba la mitad del número. En un solo dígito parecía un recorte a
+ * propósito; en «10» y «11» ya no se sabía qué número era. El alto de línea vuelve a
+ * ser el de la letra, que es lo que hace que la cifra quepa en su caja —y el velo, del
+ * alto de esa caja—. */
 .pz__posicion {
   position: absolute;
   z-index: 2;
@@ -3607,10 +3614,24 @@
   font-family: var(--font-display);
   font-size: var(--pieza-posicion);
   font-weight: 300;
-  line-height: 0.8;
+  line-height: 1;
   letter-spacing: var(--arte-posicion-letra);
   color: var(--color-on-overlay);
   text-shadow: var(--pieza-sombra-texto);
+}
+
+/* El velo del puesto: oscurece la esquina sobre la que se apoya la cifra.
+ *
+ * Sólo lo llevan las piezas numeradas —el top— y no tapa nada más: el resto del
+ * arte se sigue enseñando entero. Va dentro del velo del arte para quedar por
+ * encima de la portada y por debajo de la cifra, y dura lo que la cifra. */
+.pz--puesto .pz__velo::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  block-size: var(--velo-puesto-alto);
+  background: var(--velo-puesto);
 }
 
 /* El progreso va incrustado en el campo, no debajo: la pieza que se retoma

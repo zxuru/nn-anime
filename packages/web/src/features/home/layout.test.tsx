@@ -147,6 +147,27 @@ describe('la pieza de la vitrina', () => {
     )
   })
 
+  /**
+   * El velo de la cifra lo lleva la pieza numerada y sólo ella.
+   *
+   * La cifra del top va sobre la portada de una obra de AniList, que lo mismo es un
+   * cielo que el amarillo de un héroe: en crema sobre esos fondos no se leía. El velo
+   * cuelga de la clase, así que una pieza sin puesto que lo llevara oscurecería su
+   * arte sin motivo —y eso no lo ve ninguna prueba de la hoja.
+   */
+  test('la pieza numerada lleva el velo de su cifra, y la que no, no', () => {
+    const numerada = render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" posicion={1} />)
+
+    expect(numerada).toContain('pz--puesto')
+    expect(render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" />)).not.toContain(
+      'pz--puesto',
+    )
+    // Y el apagado de los favoritos no se pierde por el camino.
+    expect(render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" apagada />)).toContain(
+      'pz--apagada',
+    )
+  })
+
   test('la puntuación del motor se lee en la pieza', () => {
     const html = render(
       <Pieza providerId="f" ref="x" title="X" to="/anime/f/x" puntuacion={0.92} />,
@@ -330,8 +351,10 @@ describe('el top de la fuente', () => {
 
     // Ninguna pieza del top declara tamaño: todas ocupan su columna y su
     // proporción, así que la fila se llena sin huecos y el rango lo dice el
-    // número, no el ancho.
-    expect(html.match(/class="pz"/g)?.length).toBe(5)
+    // número, no el ancho. Lo único que añaden es el velo de su cifra, que no es
+    // un tamaño: la pieza mide lo mismo con número que sin él.
+    expect(html.match(/class="pz pz--puesto"/g)?.length).toBe(5)
+    expect(html).not.toMatch(/class="pz[^"]*\bpz--[swbm]"/)
   })
 })
 

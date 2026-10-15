@@ -398,6 +398,31 @@ describe('tokens de diseño', () => {
   })
 
   /**
+   * El velo de la cifra del top lo llevan **sólo** las piezas numeradas.
+   *
+   * La cifra va sobre el arte y el crema no se lee sobre una portada clara, así que
+   * el puesto lleva un velo corto en su esquina. Colgado de `.pz` a secas, ese velo
+   * oscurecería la esquina de todas las piezas de la home —buscar, novedades,
+   * favoritos— sin que ninguna otra prueba se enterara: es un recorte de arte, y el
+   * arte no se mide sin navegador. Aquí se mide de quién cuelga.
+   */
+  test('el velo del puesto cuelga de la pieza numerada', async () => {
+    const css = await read(SHELL)
+    // Sin comentarios: el selector de una regla se lee desde el cierre de la
+    // anterior, y el comentario que la explica viaja con él.
+    const sinComentarios = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    const reglas = [...sinComentarios.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((regla) =>
+      (regla[2] ?? '').includes('var(--velo-puesto)'),
+    )
+
+    expect(reglas, 'no hay ninguna regla que pinte el velo del puesto').toHaveLength(1)
+    expect((reglas[0]?.[1] ?? '').trim()).toBe('.pz--puesto .pz__velo::before')
+    expect(reglas[0]?.[2], 'el velo del puesto no dura lo que la cifra').toContain(
+      'block-size: var(--velo-puesto-alto)',
+    )
+  })
+
+  /**
    * Los seis campos de arte se reparten por posición.
    *
    * Es lo que se perdió al retirar los bloques de la home vieja: el reparto colgaba
