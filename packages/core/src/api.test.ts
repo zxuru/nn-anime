@@ -275,6 +275,7 @@ const RELACIONADA = {
   title: 'Kimetsu no Yaiba: Mugen Ressha-hen',
   cover: '/api/anilist/image/cover/112151',
   year: 2020,
+  adult: false,
   kind: 'movie',
   relation: 'sequel',
 }

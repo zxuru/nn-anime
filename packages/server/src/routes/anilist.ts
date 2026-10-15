@@ -419,9 +419,12 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
     const detalle = await options.container.store.readAnime({ providerId, value: ref })
     if (detalle === null) return c.json(vacio)
 
+    const conAdultos = await adultContentOf(options.container.store)
+
     const key = matchKey(detalle.value.title, detalle.value.year)
     const emparejado = await options.catalog.match(
       { key, local: localWorkOf(detalle.value.title, detalle.value.year, detalle.value.titleAlt) },
+      conAdultos,
       c.req.raw.signal,
     )
     if (!emparejado.ok || emparejado.value === null) return c.json(vacio)
@@ -429,11 +432,13 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
     const relaciones = await options.catalog.related(emparejado.value.id, c.req.raw.signal)
     if (!relaciones.ok) return c.json(vacio)
 
-    const refs = await options.catalog.localRefs(relaciones.value.map((entrada) => entrada.media))
+    // La caché guarda la franquicia entera —la clave es el id de AniList, no el
+    // ajuste— y el filtro se aplica al servir: así encender el interruptor no
+    // obliga a volver a preguntar por todas las fichas ya visitadas.
+    const visibles = sinAdultos(relaciones.value, conAdultos, (entrada) => entrada.media.adult)
+    const refs = await options.catalog.localRefs(visibles.map((entrada) => entrada.media))
 
-    return c.json(
-      anilistRelatedResponseSchema.parse({ items: relatedItems(relaciones.value, refs) }),
-    )
+    return c.json(anilistRelatedResponseSchema.parse({ items: relatedItems(visibles, refs) }))
   })
 
   app.get('/api/anilist/image/:kind/:id', async (c) => {
