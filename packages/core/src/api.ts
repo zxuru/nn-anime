@@ -587,6 +587,13 @@ const providerPrioritySchema = z.array(z.string().min(1)).max(64)
 export const settingsResponseSchema = z.strictObject({
   theme: z.enum(['dark', 'light', 'system']),
   providerPriority: providerPrioritySchema,
+  /**
+   * Si la vitrina enseña también lo que AniList marca para adultos.
+   *
+   * Nace apagado, y es el ajuste del que cuelga todo lo demás: decide qué se pide
+   * a AniList, qué se guarda y qué se sirve.
+   */
+  adultContent: z.boolean(),
   paths: z.strictObject({
     data: z.string().min(1),
     config: z.string().min(1),
@@ -611,8 +618,8 @@ export const settingsResponseSchema = z.strictObject({
 /**
  * Lo que un `PATCH /api/settings` puede cambiar.
  *
- * Los dos campos son opcionales y hace falta que venga uno: el parche cambia lo
- * que trae y deja lo demás como está. Exigir los dos obligaría a la interfaz a
+ * Los tres campos son opcionales y hace falta que venga uno: el parche cambia lo
+ * que trae y deja lo demás como está. Exigir los tres obligaría a la interfaz a
  * mandar el tema cuando sólo quiere reordenar proveedores, y un `PATCH` vacío no
  * describe ningún cambio: es una petición mal escrita, no una escritura inútil.
  */
@@ -620,9 +627,13 @@ export const settingsPatchSchema = z
   .strictObject({
     theme: z.enum(['dark', 'light', 'system']).optional(),
     providerPriority: providerPrioritySchema.optional(),
+    adultContent: z.boolean().optional(),
   })
   .refine(
-    (parche) => parche.theme !== undefined || parche.providerPriority !== undefined,
+    (parche) =>
+      parche.theme !== undefined ||
+      parche.providerPriority !== undefined ||
+      parche.adultContent !== undefined,
     'el parche no cambia ningún ajuste',
   )
 

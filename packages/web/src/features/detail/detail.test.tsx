@@ -881,6 +881,7 @@ describe('la lectura en dos pistas', () => {
   const enriquecido: Enrichment = {
     anilistId: 555,
     cover: '/api/anilist/image/cover/555',
+    adult: false,
     genres: [],
     studios: [],
     score: 84,

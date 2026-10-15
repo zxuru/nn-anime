@@ -280,6 +280,7 @@ describe('la lectura de la preferencia', () => {
     return {
       theme: 'system',
       providerPriority,
+      adultContent: false,
       paths: { data: '/d', config: '/c', cache: '/k' },
       mpv: { available: false },
       providers: [],
