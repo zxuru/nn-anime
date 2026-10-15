@@ -436,6 +436,22 @@ export const messages: Messages = {
   'detail.related.movies': 'Películas y especiales',
   'detail.related.franchise': 'Más de esta franquicia',
   'detail.related.current': 'viendo',
+  // La franquicia según AniList, que es otra sección: la de arriba es lo que la
+  // base conoce y ésta sale de la red, y quien la lee tiene que poder saber de
+  // quién es el dato.
+  'detail.anilistRelated': 'La franquicia en AniList',
+  'detail.anilistRelated.meta': 'Lo que AniList relaciona con esta obra',
+  // El motivo de cada relación. Los ocho tipos son los que la frontera deja pasar
+  // (`ANILIST_RELATIONS`, en core) y el mapa de `relacion.ts` está atado a ellos:
+  // uno nuevo sin texto aquí no compila.
+  'detail.relation.sequel': 'Secuela',
+  'detail.relation.prequel': 'Precuela',
+  'detail.relation.parent': 'Obra principal',
+  'detail.relation.sideStory': 'Historia paralela',
+  'detail.relation.spinOff': 'Spin-off',
+  'detail.relation.alternative': 'Versión alternativa',
+  'detail.relation.summary': 'Resumen',
+  'detail.relation.special': 'Especial',
   'detail.season': 'Temporada {number}',
   'detail.season.count': '{count} episodios',
   'detail.seasons': 'Temporadas',
