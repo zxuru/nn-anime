@@ -29,7 +29,11 @@
 
 import type { FeedResponse } from '@nn-anime/core'
 import {
+  errorResponseSchema,
   feedResponseSchema,
+  mediaOf,
+  pasaElFiltro,
+  puedeServir,
   recentResponseSchema,
   uniqueByWork,
   type WorkItem,
@@ -37,6 +41,7 @@ import {
 import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
+import { enMedia, mediaFrom, mediaPorProveedor } from './media'
 import { clampLimit } from './recommendations'
 
 const DEFAULT_TIMEOUT_MS = 8000
@@ -113,7 +118,14 @@ export function sinRepetirPorObra<T extends WorkItem>(items: readonly T[]): read
 export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): void {
   app.get('/api/feed', async (c) => {
     const limite = clampLimit(c.req.query('limit'))
-    const fuentes = conFeed(options.providers)
+    const pedido = mediaFrom(c.req.query('media'))
+    if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
+
+    // La fuente mixta se consulta en las dos mitades: sus novedades pueden ser de
+    // cualquiera de las dos, y sólo se sabe al leer el `kind` de cada entrada.
+    const fuentes = conFeed(options.providers).filter((provider) =>
+      puedeServir(pedido.media, mediaOf(provider.capabilities)),
+    )
     const callOptions: CallOptions = {
       signal: c.req.raw.signal,
       timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
@@ -124,7 +136,13 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
         const lectura = await options.container.getFeed(provider, callOptions)
 
         // Un feed que no responde no puede tumbar la fila: lo local sigue ahí.
-        return lectura.ok ? lectura.value.value : []
+        if (!lectura.ok) return []
+
+        // El filtro va después de la caché, como en tendencias: se guarda lo que
+        // publica la fuente y cada pestaña se queda con su mitad al leerlo.
+        return lectura.value.value.filter((entrada) =>
+          pasaElFiltro(pedido.media, mediaOf(provider.capabilities), entrada.kind),
+        )
       }),
     )
 
@@ -154,6 +172,9 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
 export function registerRecentRoute(app: Hono, options: DiscoveryRouteOptions): void {
   app.get('/api/catalog/recent', async (c) => {
     const limite = clampLimit(c.req.query('limit'))
+    const pedido = mediaFrom(c.req.query('media'))
+    if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
+
     /**
      * Se lee más de lo que se va a pintar.
      *
@@ -162,10 +183,17 @@ export function registerRecentRoute(app: Hono, options: DiscoveryRouteOptions): 
      * fila devolvería menos entradas de las pedidas. El margen es el número de
      * fuentes —cada una aporta como mucho una entrada por obra— y el recorte de
      * después deja el tope donde estaba.
+     *
+     * El tipo se filtra **después de leer y antes de recortar**, sobre la misma
+     * ventana de siempre: la fila es «lo último que la aplicación conoce» y no un
+     * ranking, así que una fuente que copa las últimas fichas se lleva su mitad y
+     * la otra mitad enseña lo que haya. Leer el catálogo entero para llenar una
+     * fila sería pagar la lectura por lo que no se va a pintar.
      */
     const margen = Math.max(1, options.providers.length)
     const leidas = await options.container.store.listRecentSummaries(limite * margen)
-    const items = sinRepetirPorObra(leidas).slice(0, limite)
+    const delTipo = enMedia(leidas, pedido.media, mediaPorProveedor(options.providers))
+    const items = sinRepetirPorObra(delTipo).slice(0, limite)
 
     return c.json(recentResponseSchema.parse({ items: [...items] }))
   })

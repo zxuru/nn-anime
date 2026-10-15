@@ -33,6 +33,7 @@ describe('conformidad', () => {
       dub: true,
       trending: true,
       feed: true,
+      media: 'both',
     })
   })
 

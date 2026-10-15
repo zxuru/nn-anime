@@ -35,9 +35,9 @@ test.describe('las recomendaciones', () => {
 
     await page.getByText('¿Por qué estas recomendaciones?').click()
 
-    await expect(page.locator('.panel').getByText(/Sin historial todavía|Ordenado por lo que has visto/)).toBeVisible(
-      { timeout: 10_000 },
-    )
+    await expect(
+      page.locator('.panel').getByText(/Sin historial todavía|Ordenado por lo que has visto/),
+    ).toBeVisible({ timeout: 10_000 })
   })
 
   test('el detalle del score se abre y se cierra', async ({ page }) => {

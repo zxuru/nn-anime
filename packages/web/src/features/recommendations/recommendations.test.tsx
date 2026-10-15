@@ -33,6 +33,15 @@ describe('la dirección de la petición', () => {
     expect(recommendationsPath('   ', 10)).not.toContain('q=')
   })
 
+  test('el tipo va en la petición: el motor filtra sus candidatos antes de puntuar', () => {
+    expect(recommendationsPath(undefined, 10, 'movies')).toBe(
+      '/api/recommendations?limit=10&media=movies',
+    )
+    // Sin tipo —el defecto del servidor— no se manda parámetro: así la respuesta es
+    // la de siempre para quien no conoce el filtro.
+    expect(recommendationsPath(undefined, 10)).toBe('/api/recommendations?limit=10')
+  })
+
   test('el retardo es el del spec', () => {
     expect(DEBOUNCE_MS).toBe(400)
   })

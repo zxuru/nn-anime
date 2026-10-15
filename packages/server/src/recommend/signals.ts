@@ -18,8 +18,8 @@
  */
 
 import type { CatalogStore } from '@nn-anime/catalog-store'
-import type { Candidate, ProviderRef } from '@nn-anime/core'
-import { normalizeQuery } from '@nn-anime/core'
+import type { Candidate, ProviderRef, TitleKind } from '@nn-anime/core'
+import { normalizeQuery, titleKindSchema } from '@nn-anime/core'
 import type { AffinityEvent, CoVisit, SearchSignalRecord, WatchState } from '@nn-anime/recsys'
 
 /** Cuántos títulos se miran para construir el corpus. */
@@ -42,6 +42,20 @@ export interface Signals {
 
 export function refKey(ref: ProviderRef): string {
   return `${ref.providerId}#${ref.value}`
+}
+
+/**
+ * El tipo de un título cacheado, si es uno de los del contrato.
+ *
+ * La base guarda lo que el proveedor dijo, y lo que dijo no tiene por qué estar en
+ * el vocabulario: `kind` es texto libre en el JSON. Validarlo aquí es lo que impide
+ * que un valor inventado entre en un candidato —y de ahí en la respuesta, donde el
+ * schema estricto lo rechazaría con un 502 en lugar de ignorarlo—.
+ */
+function kindOf(raw: string | undefined): TitleKind | undefined {
+  const parsed = titleKindSchema.safeParse(raw)
+
+  return parsed.success ? parsed.data : undefined
 }
 
 /**
@@ -153,17 +167,25 @@ export async function gatherSignals(
   ])
 
   const corpus = new Map<string, Candidate>(
-    candidatos.map((fila) => [
-      refKey(fila.ref),
-      {
-        ref: fila.ref,
-        title: fila.title,
-        tags: [...fila.tags],
-        studios: [...fila.studios],
-        ...(fila.year === undefined ? {} : { year: fila.year }),
-        ...(fila.coverUrl === undefined ? {} : { coverUrl: fila.coverUrl }),
-      },
-    ]),
+    candidatos.map((fila) => {
+      // El tipo va al candidato porque es lo que reparte una fuente que sirve anime
+      // y películas: sin él, la mitad de su catálogo caería en la pestaña
+      // equivocada y no habría forma de saberlo.
+      const kind = kindOf(fila.kind)
+
+      return [
+        refKey(fila.ref),
+        {
+          ref: fila.ref,
+          title: fila.title,
+          tags: [...fila.tags],
+          studios: [...fila.studios],
+          ...(fila.year === undefined ? {} : { year: fila.year }),
+          ...(fila.coverUrl === undefined ? {} : { coverUrl: fila.coverUrl }),
+          ...(kind === undefined ? {} : { kind }),
+        },
+      ]
+    }),
   )
 
   // Los favoritos son candidatos aunque no tengan tags: entran por popularidad.

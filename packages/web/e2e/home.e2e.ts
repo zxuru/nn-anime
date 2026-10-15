@@ -136,3 +136,72 @@ test.describe('la home', () => {
     await expect(page.getByText('Sin historial todavía')).toBeVisible()
   })
 })
+
+/**
+ * El conmutador entre anime y películas.
+ *
+ * El fixture declara `media: 'both'` y su catálogo trae series y **una** película
+ * —`el-jardin-de-hierro`—, así que es el único sitio donde se puede medir en un
+ * navegador que una fuente mixta se reparta por el `kind`: en la pestaña de anime la
+ * película no sale del top, y en la de películas el top se queda con ella y con
+ * nadie más.
+ *
+ * Se busca la película por su **enlace** —`/anime/fixture/el-jardin-de-hierro`— y no
+ * por su título: el título lleva tilde y el enlace no depende de cómo se escriba.
+ */
+test.describe('el conmutador de tipo', () => {
+  const PELICULA = '.pz__enlace[href*="el-jardin-de-hierro"]'
+
+  function elTop(page: import('@playwright/test').Page) {
+    return page.locator('.seccion', {
+      has: page.getByRole('heading', { name: 'Top de la fuente' }),
+    })
+  }
+
+  test('la mitad vive en la dirección y cambia lo que se enseña', async ({ page }) => {
+    await entrar(page)
+
+    await expect(elTop(page).locator(PELICULA)).toHaveCount(0)
+
+    await page.locator('.conmutador').getByRole('link', { name: 'Películas' }).click()
+
+    // La elección queda en la dirección: se puede recargar, compartir, y el botón
+    // «atrás» del navegador la deshace.
+    await expect(page).toHaveURL(/tipo=movies/)
+    await expect(
+      page.locator('.conmutador').getByRole('link', { name: 'Películas' }),
+    ).toHaveAttribute('aria-current', 'page')
+
+    await expect(elTop(page).locator(PELICULA)).toHaveCount(1)
+    // Y el top de esa mitad es sólo la película: las series de la misma fuente se
+    // quedaron en la otra pestaña.
+    await expect(elTop(page).locator('.pz:not(.pz--mando)')).toHaveCount(1)
+  })
+
+  /**
+   * La franja, en una ventana estrecha.
+   *
+   * El mando mide lo que el resto de mandos de la interfaz —44 px— y en la cabecera
+   * de 56 no cabía: esto mide que la franja propia no desborda a 360 px y que el
+   * conmutador sigue siendo pulsable, que es lo que promete la hoja.
+   */
+  test('en 360 px no hay desplazamiento horizontal y el mando sigue midiendo lo suyo', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 360, height: 640 })
+    await entrar(page)
+
+    const desborde = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+
+    expect(desborde).toBeLessThanOrEqual(0)
+
+    const caja = await page
+      .locator('.conmutador')
+      .getByRole('link', { name: 'Anime' })
+      .boundingBox()
+
+    expect(caja?.height ?? 0).toBeGreaterThanOrEqual(44)
+  })
+})

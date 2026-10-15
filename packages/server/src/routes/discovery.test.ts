@@ -648,3 +648,80 @@ describe('el motor con una búsqueda y sin detalle abierto', () => {
     )
   })
 })
+
+/**
+ * El tipo pedido, en las dos filas que no vienen de una búsqueda.
+ *
+ * Son caminos distintos y por eso se miden por separado: el feed se reparte por el
+ * `kind` que publica la fuente —que puede servir las dos cosas— y «último añadido»
+ * por la media que declara **la fuente de cada título**, que es lo único que se sabe
+ * de una fila que ya está en la base.
+ */
+describe('el tipo pedido en las filas del arranque en frío', () => {
+  test('el feed de una fuente mixta se reparte por el `kind` de cada entrada', async () => {
+    await conApp(async ({ pedir }) => {
+      const todas = feedResponseSchema.parse(await (await pedir('/api/feed?limit=20')).json())
+      const peliculas = feedResponseSchema.parse(
+        await (await pedir('/api/feed?limit=20&media=movies')).json(),
+      )
+
+      expect(todas.items.some((entrada) => entrada.kind === 'movie')).toBe(true)
+      expect(peliculas.items.length).toBeGreaterThan(0)
+      expect(peliculas.items.every((entrada) => entrada.kind === 'movie')).toBe(true)
+      expect(peliculas.items.length).toBeLessThan(todas.items.length)
+    })
+  })
+
+  test('«último añadido» se reparte por la fuente de cada título', async () => {
+    await conApp(
+      async ({ pedir, db }) => {
+        // El `kind` no es columna: vive en el `raw_json` que escribió el detalle,
+        // que es de donde lo lee la fila.
+        const insertar = (providerId: string, ref: string, kind: string, fetchedAt: number) => {
+          db.query(
+            `INSERT INTO anime (provider_id, provider_ref, title, year, fetched_at, ttl_s, raw_json)
+             VALUES (?, ?, ?, 2026, ?, 60, ?)`,
+          ).run(providerId, ref, ref, fetchedAt, JSON.stringify({ kind }))
+        }
+        insertar('anime', 'serie-de-anime', 'tv', 2000)
+        insertar('pelis', 'pelicula-de-pelis', 'movie', 1000)
+
+        const peliculas = recentResponseSchema.parse(
+          await (await pedir('/api/catalog/recent?media=movies')).json(),
+        )
+        const anime = recentResponseSchema.parse(
+          await (await pedir('/api/catalog/recent?media=anime')).json(),
+        )
+
+        expect(peliculas.items.map((item) => item.ref.value)).toEqual(['pelicula-de-pelis'])
+        expect(anime.items.map((item) => item.ref.value)).toEqual(['serie-de-anime'])
+      },
+      {
+        proveedores: [
+          createFixtureProvider({ id: 'anime', media: 'anime' }),
+          createFixtureProvider({ id: 'pelis', media: 'movies' }),
+        ],
+      },
+    )
+  })
+
+  test('sin el parámetro, las dos filas traen lo de siempre', async () => {
+    await conApp(
+      async ({ pedir, db }) => {
+        db.query(
+          `INSERT INTO anime (provider_id, provider_ref, title, year, fetched_at, ttl_s, raw_json)
+           VALUES ('pelis', 'pelicula-de-pelis', 'Una película', 2026, 1000, 60, ?)`,
+        ).run(JSON.stringify({ kind: 'movie' }))
+
+        const sinFiltro = recentResponseSchema.parse(
+          await (await pedir('/api/catalog/recent')).json(),
+        )
+
+        // Es lo que mantiene funcionando a quien ya leía la ruta sin conocer el
+        // parámetro: la ausencia de filtro no puede significar «sólo anime».
+        expect(sinFiltro.items.map((item) => item.ref.value)).toEqual(['pelicula-de-pelis'])
+      },
+      { proveedores: [createFixtureProvider({ id: 'pelis', media: 'movies' })] },
+    )
+  })
+})

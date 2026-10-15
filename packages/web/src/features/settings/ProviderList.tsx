@@ -14,6 +14,7 @@
 
 import type { SettingsResponse } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { mediaOf } from '@nn-anime/core/media'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 
@@ -26,6 +27,23 @@ export interface ProviderListProps {
 }
 
 type Provider = SettingsResponse['providers'][number]
+
+/**
+ * Lo que sirve un proveedor, en una palabra.
+ *
+ * Es el dato que el usuario tiene que poder ver sin abrir el plugin: con dos
+ * fuentes instaladas —una de anime y una de películas—, esta lista es el único
+ * sitio donde se ve cuál es cuál antes de cambiar de pestaña. El que no lo declara
+ * sirve anime, que es el defecto del contrato.
+ */
+export function mediaLabel(provider: Provider): string {
+  const media = mediaOf(provider.capabilities)
+
+  return t(
+    DEFAULT_LOCALE,
+    media === 'movies' ? 'media.movies' : media === 'both' ? 'media.both' : 'media.anime',
+  )
+}
 
 /** Las capacidades, en texto. */
 function capabilitiesOf(provider: Provider): string {
@@ -96,6 +114,13 @@ export function ProviderList(props: ProviderListProps): ReactNode {
           return (
             <li key={`${provider.status}:${provider.id}`} className="episode">
               <span className="episode__title">{provider.name}</span>
+              {/* Lo que sirve, antes del estado, y sólo si el plugin cargó: de un
+                  rechazado no se sabe qué sirve —no declaró nada que valga— y
+                  enseñar el defecto del contrato sería inventarle una capacidad, que
+                  es lo que el motivo del rechazo ya evita. */}
+              {provider.status === 'active' ? (
+                <span className="badge">{mediaLabel(provider)}</span>
+              ) : null}
               <span className="badge">
                 {provider.status === 'active'
                   ? t(DEFAULT_LOCALE, 'settings.provider.active')

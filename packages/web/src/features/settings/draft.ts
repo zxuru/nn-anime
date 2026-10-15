@@ -12,6 +12,7 @@
  */
 
 import type { ProviderDraft } from '@nn-anime/core/api'
+import type { ProviderMedia } from '@nn-anime/core/media'
 
 /** Los campos de la respuesta que el formulario deja ajustar. */
 export type FieldKey =
@@ -31,11 +32,22 @@ export type EndpointKey = 'search' | 'anime' | 'episodes' | 'stream' | 'trending
 /** Lo que se puede marcar. `search` no: un proveedor sin búsqueda no se ofrece. */
 export type CapabilityKey = 'sub' | 'dub'
 
+/** Las tres respuestas posibles a «qué sirve». */
+export const MEDIA_OPTIONS: readonly ProviderMedia[] = ['anime', 'movies', 'both']
+
 export interface ProviderForm {
   readonly id: string
   readonly name: string
   readonly baseUrl: string
   readonly capabilities: Readonly<Record<CapabilityKey, boolean>>
+  /**
+   * Qué sirve, para las dos pestañas de la interfaz.
+   *
+   * Se pregunta aquí y no se deduce: el autor del plugin lo sabe y el usuario no,
+   * y una fuente de películas que se declarara de anime dejaría la pestaña de
+   * películas vacía sin que nada explicara por qué.
+   */
+  readonly media: ProviderMedia
   readonly endpoints: Readonly<Record<EndpointKey, string>>
   readonly fields: Readonly<Record<FieldKey, string>>
 }
@@ -45,6 +57,7 @@ export const EMPTY_FORM: ProviderForm = {
   name: '',
   baseUrl: '',
   capabilities: { sub: true, dub: false },
+  media: 'anime',
   endpoints: {
     search: '/search?q={query}',
     anime: '/anime/{ref}',
@@ -112,6 +125,7 @@ export function toProviderDraft(form: ProviderForm): ProviderDraftRequest {
       // El asistente no ofrece un feed: un RSS necesita parseo XML y esto genera
       // rutas JSON. La capacidad existe para plugins escritos a mano.
       feed: false,
+      media: form.media,
     },
     endpoints: {
       search: form.endpoints.search.trim(),

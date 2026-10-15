@@ -56,9 +56,7 @@ export function RecommendedRow(props: RecommendedRowProps): ReactNode {
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.recommended')}
         meta={t(DEFAULT_LOCALE, 'home.recommended.meta')}
-        {...(props.items.length === 0
-          ? {}
-          : { cuenta: cuentaDeTitulos(props.items.length) })}
+        {...(props.items.length === 0 ? {} : { cuenta: cuentaDeTitulos(props.items.length) })}
       />
 
       <div className="seccion__cuerpo">

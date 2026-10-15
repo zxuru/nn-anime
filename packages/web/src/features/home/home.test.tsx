@@ -12,7 +12,14 @@ import { featuredOf, HomePage, marcaDeRefresco, minutosDesde, textoDeRefresco } 
 import { RecentRow } from './RecentRow'
 import { continuePath, progressPercent, resumeLabel } from './rows'
 import { TopRow } from './TopRow'
-import { combineRows, debeReleer, mergeRows, REFRESCO_MS, type RowResults } from './useHomeRows'
+import {
+  combineRows,
+  debeReleer,
+  mergeRows,
+  REFRESCO_MS,
+  type RowResults,
+  rutasDeTipo,
+} from './useHomeRows'
 
 function render(node: ReactNode): string {
   return renderToString(
@@ -280,6 +287,48 @@ describe('la home', () => {
     for (const despues of ['Top de la fuente', 'Novedades', 'Último añadido', 'Tus favoritos']) {
       expect(seguir, despues).toBeLessThan(html.indexOf(despues))
     }
+  })
+})
+
+/**
+ * La mitad que se está mirando.
+ *
+ * El tipo vive en la dirección y las filas que salen de las fuentes se piden ya
+ * filtradas, así que aquí se mide lo que se puede ver en un `renderToString`: que
+ * el conmutador sale en la home y en la búsqueda, y que las tres direcciones que sí
+ * llevan el tipo lo llevan. La petición en sí no corre —no hay efectos en
+ * servidor—, y por eso `rutasDeTipo` se prueba aparte.
+ */
+describe('el tipo de la home', () => {
+  function renderEn(path: string): string {
+    return renderToString(
+      <HistoryProvider history={createMemoryHistory(path)}>
+        <HomePage />
+      </HistoryProvider>,
+    )
+  }
+
+  test('el conmutador sale en la home, con la mitad de la dirección marcada', () => {
+    expect(renderEn('/')).toContain('aria-label="Tipo de contenido"')
+
+    const enPeliculas = renderEn('/?tipo=movies')
+    expect(enPeliculas).toContain('aria-current="page"')
+    expect(enPeliculas.indexOf('aria-current="page"')).toBeLessThan(
+      enPeliculas.indexOf('Películas</a>'),
+    )
+  })
+
+  test('las tres filas que mezclan fuentes piden su mitad al servidor', () => {
+    expect(rutasDeTipo('anime')).toEqual({
+      trending: '/api/trending?media=anime',
+      feed: '/api/feed?media=anime',
+      recent: '/api/catalog/recent?media=anime',
+    })
+    expect(rutasDeTipo('movies')).toEqual({
+      trending: '/api/trending?media=movies',
+      feed: '/api/feed?media=movies',
+      recent: '/api/catalog/recent?media=movies',
+    })
   })
 })
 
