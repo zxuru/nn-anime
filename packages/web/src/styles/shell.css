@@ -741,22 +741,6 @@
   margin: 0 0 var(--space-2);
 }
 
-/*
- * La franquicia de AniList: la nota de la sección y, debajo, las piezas.
- *
- * El aire entre la nota y el mosaico lo pone el `gap` de la sección y no el
- * margen de un párrafo —la nota no lo lleva—: sin él, la primera fila de
- * portadas empezaba pegada al renglón de la atribución.
- */
-.detail__anilist {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.detail__anilist h2 {
-  margin-block-end: 0;
-}
-
 .detail__meta {
   color: var(--color-text-dim);
   font-family: var(--font-mono);

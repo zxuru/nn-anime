@@ -10,6 +10,17 @@ obra** con selector de proveedor. Motivo: sobre la base de desarrollo, «kimetsu
 13 tarjetas para 7 obras antes, y la ficha de `jkanime/kimetsu-no-yaiba` no relacionaba nada aunque
 la saga estuviera en la caché.
 
+Ampliación aprobada el 2026-10-15 (T124 y T131): la ficha lee además **lo que AniList declara** de
+la obra emparejada —`GET /api/anime/:providerId/:ref/anilist-related`, con la lista blanca de tipos
+de relación y el filtro de formato de `core`— y **las dos procedencias se pintan en la misma
+lista**, agrupadas por tipo de entrega: Temporadas, Películas, OVA y «Más de esta franquicia». La
+base manda y AniList rellena. Motivo: el rail emparejaba por título contra lo que la base conocía y
+de una franquicia larga conocía una sola entrega —la que se acababa de abrir—, así que la ficha de
+«Danmachi» decía «no hay más títulos de esta saga» con seis temporadas, una película y dos OVA
+publicadas; y con la sección de AniList aparte, la misma obra salía dos veces y con dos nombres
+distintos. La heurística local **no se retira**: sigue siendo la que resuelve el caso sin red, y lo
+de AniList es lo que falta cuando la fuente no declara relaciones.
+
 Esta entrega **no crea un módulo**: extiende contratos y paquetes ya aprobados. No toca
 `docs/specs/CAPABILITY-MAP.md` ni su build order.
 
@@ -147,7 +158,7 @@ devuelve lista vacía, no `null`: «no hay» no es «no se pudo».
 La proporción se calcula **en el servidor** y contra el mismo umbral que lee la interfaz: con dos
 umbrales, un episodio podría salir «visto» en la ficha y seguir en «continuar viendo».
 
-### `server` — dos rutas y un umbral
+### `server` — dos rutas locales y un umbral
 
 ```
 GET /api/anime/:providerId/:ref/related   -> { items: AnimeSummary[] }
@@ -158,6 +169,11 @@ Las dos son locales: no llaman al proveedor y no llevan `X-Cache`. Un proveedor 
 siendo 404; una referencia que no está en la base devuelve lista vacía, que es la verdad —nadie
 abrió esa ficha todavía—.
 
+La ficha lee además, **por su cuenta y sin bloquearse**, `GET /api/anime/:providerId/:ref/anilist-related`
+(`routes/anilist.ts`, ampliación T124): las relaciones que AniList declara de la obra emparejada, ya
+filtradas por tipo y por formato, con `ref` local cuando la base conoce esa obra en alguna fuente.
+Sin emparejamiento, sin relaciones o con AniList caído responde `{ items: [] }`.
+
 `GET /api/watch/recent` deja de llevar su propio `MAX_CONTINUE_RATIO` y filtra por `finished`:
 un episodio terminado no es «continuar viendo» aunque su proporción quepa en la ventana. Las dos
 reglas pasan a ser una.
@@ -166,10 +182,29 @@ reglas pasan a ser una.
 
 ```
 .detail                      grid: barra lateral (minmax(13rem, 17rem)) + principal (1fr)
-├─ .detail__aside            portada, acciones, modos, géneros, estudios, relacionados
+├─ .detail__aside            portada, acciones, modos, también en, y el rail de la saga
 └─ .detail__body             título, meta, sinopsis, episodios (sin `--measure` en el bloque)
 ```
 
+El **rail de la saga** vive en la barra lateral y pinta grupos por tipo de entrega, y sólo los que
+tienen algo dentro:
+
+```
+Temporadas            series, ONA y lo que no declara tipo —incluida la que se está viendo—
+Películas             película
+OVA                   OVA y especial
+Más de esta franquicia  lo que la lectura de franquicia aporta y no está ya arriba
+```
+
+- Cada fila es una entrega: portada, título, año, y la insignia de temporada cuando el título la
+  lleva. La que se está viendo va marcada, con la palabra «viendo», y sin enlace.
+- Las filas salen de **tres** lecturas ya existentes —hermanos de saga, hermanos de franquicia y
+  las relaciones de AniList— y `filasDeSaga` las junta **sin repetir obra**: primero lo que la base
+  conoce —por referencia y por título normalizado— y después lo que AniList declara y falta. Una
+  fila de AniList que la base conozca en otra fuente enlaza a esa ficha y usa la portada del proxy;
+  la que no conoce ninguna enlaza a la búsqueda de su título y usa la portada de AniList.
+- La fila que viene de AniList lleva **su motivo** («Secuela», «Historia paralela»…) como insignia,
+  y si hay alguna, el rail cierra con la atribución: el dato es de un tercero y se dice.
 - La sinopsis conserva `max-width: var(--measure)`: una línea de 120 caracteres no se lee.
 - La lista de episodios ocupa el ancho de la columna principal.
 - `.episode--visto` y `.episode__progress` (barra fina con `ratio`) se pintan con los tokens que
@@ -185,6 +220,7 @@ packages/core/src/titles.test.ts
 packages/catalog-store/src/repositories/related.ts
 packages/catalog-store/src/repositories/watched-episodes.ts
 packages/web/src/features/detail/RelatedList.tsx
+packages/web/src/features/detail/saga.ts          las filas del rail y sus grupos (T131)
 ```
 
 ## Success Criteria
@@ -212,6 +248,26 @@ packages/web/src/features/detail/RelatedList.tsx
 - [ ] Un episodio terminado **no** sale en `GET /api/watch/recent`.
 - [ ] La ficha, con relacionados, los pinta como enlaces a su ficha; sin relacionados, explica el
       hueco.
+- [x] El rail de la saga agrupa por tipo —Temporadas, Películas, OVA, Más de esta franquicia— y
+      **una obra sale una vez** aunque llegue por dos procedencias. Verificado contra el servidor de
+      verdad: la ficha de «Danmachi» (`jkanime`, una sola fila en la base) enseña «Secuela» de la
+      segunda temporada en Temporadas, dos OVA en su grupo y la película en Películas, con
+      «Sword Oratoria» una sola vez —estaba en la base y AniList también la declara—.
+- [x] La fila que no es de la base enlaza a la búsqueda de su título y enseña su portada de AniList;
+      la que la base conoce en otra fuente enlaza a esa ficha. Medido mutando: darle la portada de
+      AniList a la fila que tiene referencia local deja 2 pruebas en rojo; quitarle el motivo a la
+      fila de AniList deja 4.
+- [x] El dato de AniList se atribuye: el rail cierra con la línea de AniList **si y sólo si** alguna
+      fila suya sobrevivió al filtro. Medido mutando: encender la atribución siempre deja 6 pruebas
+      en rojo.
+- [x] La misma obra sale **una vez** aunque llegue por dos procedencias: por su referencia —el
+      servidor ya la emparejó— o por `sameWork`, que la reconoce cuando cada fuente la publica con
+      otro nombre y otra referencia. Medido mutando: quitar el filtro de duplicados deja 4 pruebas en
+      rojo y quitarle la identidad de `sameWork`, otras 4.
+- [x] `listRelated` saca **una fila por obra** también cuando las dos fuentes la nombran distinto:
+      «Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka Gaiden: Sword Oratoria» y «Danmachi:
+      Sword Oratoria» son la misma y salían las dos —visto en la ficha real de «Danmachi»—. Medido
+      mutando: quitar el agrupado por obra deja 2 pruebas en rojo.
 - [ ] La lista de episodios marca el terminado con la palabra «visto» y la barra de progreso del
       que está a medias; sin `durationS`, ninguna de las dos cosas.
 - [ ] `bun run typecheck`, `bun run lint` y `bun test` en verde en los paquetes tocados.
@@ -224,6 +280,9 @@ packages/web/src/features/detail/RelatedList.tsx
 - Los textos de interfaz nuevos en `packages/web/src/i18n/es.ts`, con clave explícita una a una.
 - Comparar referencias por `providerId` **y** `value`.
 - Todo lo local primero: si la base ya lo sabe, no se pide a la red.
+- **Decir de quién es el dato ajeno.** Una fila que no sale de la base se atribuye —el motivo de
+  AniList en la fila y la línea de atribución en la sección—: mezclar lo local con lo de un tercero
+  sin decirlo hace que el catálogo parezca saber más de lo que sabe.
 
 **Ask first**
 
@@ -235,10 +294,13 @@ packages/web/src/features/detail/RelatedList.tsx
 **Never**
 
 - Sembrar la sección de relacionados con recomendaciones del motor: una razón de `recsys` no es una
-  relación, y mezclarlas hace que «Relacionados» signifique dos cosas.
+  relación, y mezclarlas hace que «Relacionados» signifique dos cosas. Las relaciones que **declara
+  AniList** no son recomendaciones: son la franquicia de la obra, y la lista blanca de tipos está en
+  `core` para que sólo entre eso.
 - Marcar como visto un episodio que nadie reprodujo —la regla que ya defiende `useWatchEvents`—.
 - Redondear el umbral hacia arriba con `Math.ceil` o sumar segundos de gracia a ojo.
 - Una consulta por episodio o por candidato.
+- Listar dos veces la misma obra por venir de dos procedencias.
 
 ## Open Questions
 

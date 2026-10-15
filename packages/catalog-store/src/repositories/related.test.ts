@@ -346,6 +346,37 @@ describe('listRelated', () => {
     )
   })
 
+  test('la misma obra con dos nombres en dos fuentes sale una vez', async () => {
+    const ORATORIA_AV1: ProviderRef = { providerId: 'animeav1', value: 'danmachi-sword-oratoria' }
+    const ORATORIA_JK: ProviderRef = {
+      providerId: 'jkanime',
+      value: 'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka-gaiden-sword-oratoria',
+    }
+
+    await withStore(
+      [
+        [DANMACHI_JK, 'Danmachi', 2015],
+        [
+          ORATORIA_AV1,
+          'Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka Gaiden: Sword Oratoria',
+          2017,
+        ],
+        [ORATORIA_JK, 'Danmachi: Sword Oratoria', 2017],
+      ],
+      (store) => {
+        const lista = store.related.list(DANMACHI_JK, 10)
+
+        // Es la misma obra: el nombre largo de una es la referencia de la otra, y
+        // `sameWork` las junta. Con la clave por título salían las dos —es el caso
+        // real que se vio en la ficha de «Danmachi»—, que es el contenido repetido
+        // que el spec prohíbe. Gana la del proveedor de la ficha.
+        expect(lista).toHaveLength(1)
+        expect(lista[0]?.ref).toEqual(ORATORIA_JK)
+        expect(lista[0]?.title).toBe('Danmachi: Sword Oratoria')
+      },
+    )
+  })
+
   test('la saga vecina que sólo comparte la primera palabra no entra', async () => {
     await withStore(
       [
