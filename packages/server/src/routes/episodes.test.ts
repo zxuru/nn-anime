@@ -59,6 +59,28 @@ function lista(providerId: string, cuantos: number): readonly Episode[] {
   return Array.from({ length: cuantos }, (_, indice) => episodio(providerId, indice + 1))
 }
 
+/**
+ * Una lista marcada con temporadas, con la numeración global seguida.
+ *
+ * `temporadas` son los episodios de cada una —`[110, 40]` es una temporada 1 de
+ * 110 y una 2 de 40, con los números globales 1..150—, que es como las numera una
+ * fuente que las junta en un solo título: el marcador del título dice la
+ * temporada y el número del contrato es el del título entero.
+ */
+function marcada(providerId: string, temporadas: readonly number[]): readonly Episode[] {
+  const lista: Episode[] = []
+  let global = 1
+
+  for (const [indice, cuantos] of temporadas.entries()) {
+    for (let inSeason = 1; inSeason <= cuantos; inSeason++) {
+      lista.push({ ...episodio(providerId, global), title: `T${indice + 1} E${inSeason} · Algo` })
+      global += 1
+    }
+  }
+
+  return lista
+}
+
 function contador(): { cuentas: Map<string, number>; suma: (metodo: string) => void } {
   const cuentas = new Map<string, number>()
 
@@ -307,6 +329,129 @@ describe('GET /api/anime/:providerId/:ref/episodes sin paginación del proveedor
 
       // Una sola vez: la segunda página sale de la lista cacheada.
       expect(cuentas.get('getEpisodes')).toBe(1)
+    })
+  })
+})
+
+describe('las temporadas de un título', () => {
+  test('el índice viaja con la página que se mire, no sólo con la primera', async () => {
+    const { provider } = crearSimple(marcada('simple', [110, 40]))
+
+    await conApp(provider, async (pedir) => {
+      const primera = episodesResponseSchema.parse(
+        (await pedir(`/api/anime/simple/${REF}/episodes`)).body,
+      )
+      const segunda = episodesResponseSchema.parse(
+        (await pedir(`/api/anime/simple/${REF}/episodes?page=2`)).body,
+      )
+
+      // El índice describe el título entero —el selector tiene que poder ofrecer
+      // todas las temporadas desde cualquier página— y el orden es el de la
+      // fuente.
+      expect(primera.seasons).toEqual([
+        { season: 1, count: 110 },
+        { season: 2, count: 40 },
+      ])
+      expect(segunda.seasons).toEqual(primera.seasons)
+      // Y la página de la lista entera sigue siendo de cien.
+      expect(primera.episodes.length).toBe(100)
+      expect(segunda.episodes.length).toBe(50)
+    })
+  })
+
+  test('pedir una temporada devuelve sus episodios y numera contra el título', async () => {
+    const { provider, cuentas } = crearSimple(marcada('simple', [110, 40]))
+
+    await conApp(provider, async (pedir) => {
+      const respuesta = await pedir(`/api/anime/simple/${REF}/episodes?season=2`)
+      const cuerpo = episodesResponseSchema.parse(respuesta.body)
+
+      expect(respuesta.status).toBe(200)
+      expect(cuerpo.episodes.length).toBe(40)
+      expect(cuerpo.episodes[0]?.number).toBe(111)
+      expect(cuerpo.episodes[0]?.title).toBe('T2 E1 · Algo')
+      // El total es el del título: la fila numera «Episodio 111 de 150», que es
+      // la etiqueta de la fuente y lo que enseña el reproductor.
+      expect(cuerpo.total).toBe(150)
+      expect(cuerpo.page).toBe(1)
+      expect(cuerpo.hasMore).toBe(false)
+      expect(cuerpo.seasons).toEqual([
+        { season: 1, count: 110 },
+        { season: 2, count: 40 },
+      ])
+      // Y la lista entera sigue pidiéndose una sola vez.
+      expect(cuentas.get('getEpisodes')).toBe(1)
+    })
+  })
+
+  test('la temporada se pagina por su cuenta: la página 2 es la suya', async () => {
+    const { provider } = crearSimple(marcada('simple', [110, 40]))
+
+    await conApp(provider, async (pedir) => {
+      const cuerpo = episodesResponseSchema.parse(
+        (await pedir(`/api/anime/simple/${REF}/episodes?season=1&page=2`)).body,
+      )
+
+      expect(cuerpo.episodes.length).toBe(10)
+      expect(cuerpo.episodes.map((episodio) => episodio.number)).toEqual([
+        101, 102, 103, 104, 105, 106, 107, 108, 109, 110,
+      ])
+      expect(cuerpo.page).toBe(2)
+      expect(cuerpo.hasMore).toBe(false)
+    })
+  })
+
+  test('una temporada que no está es 404 con el motivo', async () => {
+    const { provider } = crearSimple(marcada('simple', [110, 40]))
+
+    await conApp(provider, async (pedir) => {
+      const respuesta = await pedir(`/api/anime/simple/${REF}/episodes?season=9`)
+
+      expect(respuesta.status).toBe(404)
+      expect(JSON.stringify(respuesta.body)).toContain('temporada 9')
+    })
+  })
+
+  test('una lista sin marcar no tiene índice, y pedir temporada no inventa una', async () => {
+    const { provider } = crearSimple(lista('simple', 30))
+
+    await conApp(provider, async (pedir) => {
+      const sinIndice = episodesResponseSchema.parse(
+        (await pedir(`/api/anime/simple/${REF}/episodes`)).body,
+      )
+
+      // Agrupar escondería lo que no declara temporada: no hay índice que dar.
+      expect(sinIndice.seasons).toBeUndefined()
+      expect((await pedir(`/api/anime/simple/${REF}/episodes?season=1`)).status).toBe(404)
+    })
+  })
+
+  test('una temporada no numérica es 400 y no lee la lista', async () => {
+    const { provider, cuentas } = crearSimple(marcada('simple', [12, 12]))
+
+    await conApp(provider, async (pedir) => {
+      for (const consulta of ['season=0', 'season=abc', 'season=1.5', 'season=']) {
+        const respuesta = await pedir(`/api/anime/simple/${REF}/episodes?${consulta}`)
+
+        expect(respuesta.status).toBe(400)
+        expect(JSON.stringify(respuesta.body)).toContain('temporada')
+      }
+
+      expect(cuentas.get('getEpisodes')).toBeUndefined()
+    })
+  })
+
+  test('una fuente que pagina por su cuenta no puede dar una temporada', async () => {
+    const { provider, cuentas } = crearPaginado(marcada('paginado', [12, 12]))
+
+    await conApp(provider, async (pedir) => {
+      const respuesta = await pedir(`/api/anime/paginado/${REF}/episodes?season=2`)
+
+      // No es un 404: la fuente tiene la temporada. Lo que no puede es contestar
+      // por ella sin leer su catálogo entero.
+      expect(respuesta.status).toBe(400)
+      expect(JSON.stringify(respuesta.body)).toContain('temporada')
+      expect(cuentas.get('getEpisodesPage')).toBeUndefined()
     })
   })
 })

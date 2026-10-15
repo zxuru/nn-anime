@@ -504,6 +504,17 @@ export const settingsPatchSchema = z
 export const animeResponseSchema = animeDetailSchema
 
 /**
+ * Una temporada de un título, tal como la ve el selector.
+ *
+ * `count` es cuántos episodios tiene: sin el número, el botón de la temporada no
+ * dice cuánto hay detrás y hay que entrar para saberlo.
+ */
+export const episodeSeasonSchema = z.strictObject({
+  season: z.number().int().nonnegative(),
+  count: z.number().int().positive(),
+})
+
+/**
  * Lista de episodios de un título, por páginas.
  *
  * `page` y `hasMore` van **con valor por defecto** y no obligatorios, por el
@@ -511,12 +522,19 @@ export const animeResponseSchema = animeDetailSchema
  * que el cliente aprendiera a leer `episodes`, y un campo requerido nuevo
  * rompería a quien ya leía la respuesta. `total` es opcional porque hay fuentes
  * que no lo dicen: sin él, el selector numera el episodio y no promete un total.
+ *
+ * `seasons` es el índice de temporadas **del título**, y por eso no depende de
+ * la página que se esté mirando: el selector tiene que poder ofrecer todas las
+ * temporadas desde la primera página. Sólo viaja cuando la lista se puede
+ * agrupar —todas las fuentes que marcan la temporada, y más de una—, así que su
+ * ausencia no es un fallo: es una lista que se lee entera.
  */
 export const episodesResponseSchema = z.strictObject({
   episodes: z.array(episodeSchema),
   page: z.number().int().positive().default(1),
   hasMore: z.boolean().default(false),
   total: z.number().int().nonnegative().optional(),
+  seasons: z.array(episodeSeasonSchema).min(1).optional(),
 })
 
 /**
@@ -589,6 +607,7 @@ export type StreamSourceResponse = z.infer<typeof streamSourceResponseSchema>
 export type FavoriteRequest = z.infer<typeof favoriteRequestSchema>
 export type FavoritesResponse = z.infer<typeof favoritesResponseSchema>
 export type EpisodesResponse = z.infer<typeof episodesResponseSchema>
+export type EpisodeSeason = z.infer<typeof episodeSeasonSchema>
 export type EpisodeResponse = z.infer<typeof episodeResponseSchema>
 export type RelatedResponse = z.infer<typeof relatedResponseSchema>
 export type SourcesResponse = z.infer<typeof sourcesResponseSchema>
