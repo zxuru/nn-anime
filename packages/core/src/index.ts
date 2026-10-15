@@ -147,6 +147,14 @@ export {
   toJsonLine,
 } from './logger'
 export {
+  DEFAULT_MEDIA,
+  esDeMedia,
+  type MediaFilter,
+  mediaOf,
+  type ProviderMedia,
+  pasaElFiltro,
+} from './media'
+export {
   type AiringStatus,
   type AnimeDetail,
   type AnimeSummary,
@@ -206,6 +214,7 @@ export {
   httpUrlSchema,
   modeSchema,
   providerCapabilitiesSchema,
+  providerMediaSchema,
   providerRefSchema,
   searchResultSchema,
   streamHeadersSchema,

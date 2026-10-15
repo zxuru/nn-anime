@@ -93,6 +93,24 @@ function hasCredentials(value: string): boolean {
 }
 
 /**
+ * Qué sirve un proveedor: anime, películas —y series— o las dos cosas.
+ *
+ * **Se declara, no se deduce.** Una fuente que mezcla un catálogo de anime con
+ * películas no se distingue por sus resultados: deducirlo dejaría la pestaña
+ * equivocada llena y la otra vacía sin que nadie pueda corregirlo. `movies` es «lo
+ * que no es anime» —películas, series y doramas—, que es la partición que hacen
+ * las fuentes de este tipo: PelisPlusHD sirve las tres y todas caen al mismo lado.
+ *
+ * **Opcional y sin valor por defecto**, al revés que `feed` y por el mismo motivo
+ * que `episodePages`: un valor por defecto volvería el campo obligatorio en el
+ * tipo inferido, y el compilador dejaría de aceptar el `Provider` de todo plugin
+ * publicado —y de cada literal de las pruebas del repositorio— por un dato que
+ * sólo lee el conmutador de la interfaz. Ausente significa «anime», que es lo que
+ * son los plugins que ya existen, y quien lo necesita lo lee con `mediaOf`.
+ */
+export const providerMediaSchema = z.enum(['anime', 'movies', 'both'])
+
+/**
  * Lo que un proveedor dice saber hacer.
  *
  * Vive aquí y no en `provider-sdk` porque también cruza el HTTP: la interfaz
@@ -123,6 +141,8 @@ export const providerCapabilitiesSchema = z.strictObject({
    * episodios. Quien la necesita la comprueba con `=== true`. Añadido en T86.
    */
   episodePages: z.boolean().optional(),
+  /** Qué sirve. Ausente es `anime`; la regla vive en `mediaOf`. */
+  media: providerMediaSchema.optional(),
 })
 
 export const modeSchema = z.enum(['sub', 'dub', 'raw'])

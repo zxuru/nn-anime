@@ -173,7 +173,17 @@ export function createFixtureProvider(options: FixtureOptions = {}): FixtureProv
     id,
     name: options.name ?? 'Proveedor de prueba',
     apiVersion: '1',
-    capabilities: { search: true, sub: true, dub: true, trending: true, feed: true },
+    capabilities: {
+      search: true,
+      sub: true,
+      dub: true,
+      trending: true,
+      feed: true,
+      // Las dos cosas: el catálogo inventado trae series y una película, así que
+      // es el único proveedor del repositorio que puede medir las dos pestañas del
+      // conmutador —y el reparto por `kind` dentro de una fuente mixta— sin red.
+      media: 'both',
+    },
     calls,
 
     async search(query, callOptions) {

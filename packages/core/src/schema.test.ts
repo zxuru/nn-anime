@@ -462,3 +462,53 @@ describe('feed: la lista de novedades de una fuente', () => {
     }
   })
 })
+
+describe('media: qué sirve un proveedor', () => {
+  test('sin declararla, el manifiesto de siempre sigue cargando', () => {
+    // Es lo que hace que añadirla no sea un cambio de versión mayor para los
+    // plugins publicados: no aparece y no se rechaza.
+    const result = providerCapabilitiesSchema.safeParse({
+      search: true,
+      sub: true,
+      dub: false,
+      trending: false,
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.media).toBeUndefined()
+  })
+
+  test('declarada, se valida contra el vocabulario', () => {
+    const vocabulario = ['anime', 'movies', 'both'] as const
+
+    for (const media of vocabulario) {
+      const result = providerCapabilitiesSchema.safeParse({
+        search: true,
+        sub: true,
+        dub: false,
+        trending: false,
+        media,
+      })
+
+      expect(result.success, media).toBe(true)
+      if (result.success) expect(result.data.media).toBe(media)
+    }
+  })
+
+  test('un valor fuera del vocabulario se rechaza nombrando el campo', () => {
+    const result = providerCapabilitiesSchema.safeParse({
+      search: true,
+      sub: true,
+      dub: false,
+      trending: false,
+      media: 'anime-y-peliculas',
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join('.')).join(' | ')).toContain(
+        'media',
+      )
+    }
+  })
+})
