@@ -43,7 +43,6 @@ import { FeaturedHero, type FeaturedItem } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
 import { GenreRow, generosConCuenta } from './GenreRow'
 import { HomeSkeletons } from './HomeSkeletons'
-import { RecentRow } from './RecentRow'
 import { RecommendedRow } from './RecommendedRow'
 import { Ticker } from './Ticker'
 import { TopRow } from './TopRow'
@@ -143,7 +142,11 @@ export function HomePage(props: HomePageProps): ReactNode {
   const items = recomendaciones.data?.items ?? []
   // El destacado tiene tres reservas, en este orden: el motor, lo que publica la
   // fuente y lo último que la aplicación conoce. Sin ellas, una instalación nueva
-  // con un proveedor sin tendencias se quedaba con un titular y nada más.
+  // con un proveedor sin tendencias se quedaba con un titular y nada más. **Es lo
+  // único que queda de la lectura de `recent`**: la fila «Último añadido» se retiró
+  // de la home —repetía lo que ya enseñan Novedades y el top, y en una instalación
+  // sin feed era la misma lista— y el destacado sigue teniendo con qué llenarse
+  // cuando no hay nada más.
   const destacado = featuredOf(items, filas.feed, filas.recent)
   const generos = generosConCuenta(
     items.map((item) => item.tags),
@@ -248,7 +251,6 @@ export function HomePage(props: HomePageProps): ReactNode {
       <TopRow items={filas.trending} />
 
       <FeedRow items={filas.feed} />
-      <RecentRow items={filas.recent} />
 
       <FavoritesRow items={favoritos} />
 

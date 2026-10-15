@@ -51,9 +51,8 @@ test.describe('la home', () => {
       has: page.getByRole('heading', { name: 'Top', exact: true }),
     })
     // Las piezas del top: el mando de «Mostrar más» también es una pieza del
-    // mosaico, pero no un puesto. Todas pesan lo mismo —dos de ancho por dos de
-    // alto—: el orden de la fuente no admite que una destaque sobre otra, y el
-    // peso lo usa la vitrina para el puesto, no para el rango.
+    // mosaico, pero no un puesto. Todas son iguales —un cartel de una columna—: el
+    // orden de la fuente no admite que una destaque sobre otra.
     const tarjetas = top.locator('.pz:not(.pz--mando)')
 
     await expect(tarjetas).toHaveCount(10)
@@ -112,11 +111,52 @@ test.describe('la home', () => {
 
     await expect(novedades).toBeVisible()
     await expect(novedades.locator('.pz__titulo').first()).toBeVisible()
+  })
 
-    // Y la fila de lo que la aplicación conoce está siempre, con contenido o con
-    // su explicación: una fila que desaparece deja al usuario sin saber si la
-    // función existe.
-    await expect(page.getByRole('heading', { name: 'Último añadido' })).toBeVisible()
+  /**
+   * La rejilla apretada: carteles de una columna, más títulos por fila.
+   *
+   * El mosaico medía dos columnas por pieza —491x152 px en la rejilla ancha— y
+   * dejaba tres títulos por fila con un hueco al lado. Ahora cada pieza es un
+   * cartel de 2:3 y la fila se llena: es lo que se mide aquí, porque la proporción
+   * de una pieza no la ve ninguna prueba de marcado y en la hoja de estilos sólo
+   * se puede leer el token, no el resultado.
+   */
+  test('las piezas del mosaico son carteles y llenan la fila', async ({ page }) => {
+    await entrar(page)
+    await esperarApp(page)
+
+    const novedades = page.locator('.seccion', {
+      has: page.getByRole('heading', { name: 'Novedades' }),
+    })
+
+    const cajas = await novedades.locator('.mosaico .pz').evaluateAll((piezas) =>
+      piezas.map((pieza) => {
+        const caja = pieza.getBoundingClientRect()
+
+        return {
+          ancho: Math.round(caja.width),
+          alto: Math.round(caja.height),
+          arriba: Math.round(caja.top),
+        }
+      }),
+    )
+
+    expect(cajas.length).toBeGreaterThan(3)
+
+    for (const caja of cajas) {
+      // Más altas que anchas, y con la proporción de una portada: 2:3.
+      expect(caja.alto).toBeGreaterThan(caja.ancho)
+      expect(caja.alto / caja.ancho).toBeCloseTo(1.5, 1)
+    }
+
+    // Y la fila se llena: el tramo de novedades pone más de dos títulos a la vista
+    // —con el mosaico ancho ponía dos, con las piezas de dos columnas—, todos del
+    // mismo tamaño, así que no queda hueco entre ellos.
+    const primera = cajas.filter((caja) => caja.arriba === cajas[0]?.arriba)
+
+    expect(primera.length).toBeGreaterThan(2)
+    expect(new Set(cajas.map((caja) => caja.ancho)).size).toBe(1)
   })
 
   test('el tema se aplica al documento', async ({ page }) => {

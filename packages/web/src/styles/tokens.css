@@ -335,8 +335,25 @@
   --vitrina-margen: clamp(1rem, 4vw, 3.5rem);
   /** El hueco entre piezas y entre las columnas de una sección. */
   --vitrina-hueco: clamp(0.5rem, 1.1vw, 1rem);
-  /** El alto de una fila del mosaico: el módulo del que cuelga cada tamaño. */
-  --vitrina-fila: clamp(7rem, 9vw, 9.5rem);
+  /**
+   * La proporción de una pieza: ancho entre alto.
+   *
+   * Es la de una portada —2:3, la que publican los proveedores— y con ella el
+   * alto de la pieza sale de su ancho, así que el cartel mide lo mismo en la
+   * rejilla de seis columnas que en la de dos. Antes el alto era el de un módulo
+   * —`clamp(7rem, 9vw, 9.5rem)`— y cada tamaño declaraba cuántas filas ocupaba:
+   * con el módulo, una pieza de dos columnas medía 490x152 px, más ancha que alta,
+   * y cabían tres por fila.
+   */
+  --pieza-proporcion: 2 / 3;
+  /**
+   * El alto de una pieza cuando el mosaico va de una sola columna.
+   *
+   * En un móvil una columna mide el ancho de la pantalla, y un cartel de 2:3
+   * ocuparía la pantalla entera: ahí la pieza vuelve a ser una banda ancha —lo que
+   * ya era— y se ven cuatro títulos por pantalla en vez de uno.
+   */
+  --pieza-banda: clamp(6rem, 30vw, 9rem);
   /** Las columnas de la rejilla de 12 que ocupa la nota al margen. */
   --vitrina-canaleta: 2;
   /** El aire entre el encabezado y la nota al margen pegajosa. */
@@ -367,7 +384,6 @@
   /** Los textos de la vitrina, cada uno con su cuerpo. */
   --pieza-titulo: clamp(1.05rem, 2.4cqi + 0.5rem, 1.6rem);
   --pieza-titulo-baja: clamp(0.95rem, 2.2cqi + 0.4rem, 1.25rem);
-  --pieza-titulo-alta: clamp(1.3rem, 2.2cqi + 0.6rem, 2.1rem);
   --pieza-titulo-ancha: clamp(1.1rem, 3cqi + 0.4rem, 1.5rem);
   --pieza-posicion: clamp(3rem, 14cqi, 6rem);
   --pieza-episodio: clamp(1rem, 3cqi + 0.4rem, 1.35rem);
@@ -426,9 +442,6 @@
   --cinta-item-hueco: 1.5rem;
   --cinta-item: clamp(1rem, 1.8vw, 1.5rem);
   --cinta-punto: 0.35rem;
-
-  /** El esqueleto del mosaico, con la métrica del contenido. */
-  --esqueleto-fila: clamp(6rem, 30vw, 9rem);
 
   /**
    * El arte: los velos que sostienen el texto y los recursos de cada pieza.

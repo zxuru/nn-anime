@@ -141,10 +141,6 @@ export const messages: Messages = {
   'home.feed': 'Novedades',
   'home.feed.meta': 'Lo último que publica la fuente',
   'home.feed.empty': 'Ningún proveedor activo publica novedades.',
-  'home.recent': 'Último añadido',
-  'home.recent.meta': 'Lo último que conoce esta aplicación',
-  'home.recent.empty':
-    'Todavía no hay nada: aparece lo que busques y lo que abras. Un proveedor con novedades llena esta fila solo.',
   'home.more': 'y {count} más',
   'home.resume': 'Seguir en {time}',
   'settings.title': 'Ajustes',

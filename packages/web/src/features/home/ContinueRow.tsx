@@ -8,8 +8,10 @@
  * reproducir. Reanudar al entrar es lo que hace que alguien vea el final de un
  * episodio sin querer.
  *
- * Es lo que más pesa de la vitrina —piezas de dos por dos— porque es la única fila
- * que pide una acción concreta: retomar lo que se dejó a medias.
+ * Es la fila que abre la home, y no es casualidad: es la única que pide una acción
+ * concreta, retomar lo que se dejó a medias. Su pieza mide lo mismo que las demás
+ * —un cartel de una columna— y quien dice «retoma esto» es el orden y la barra de
+ * progreso, no el tamaño.
  */
 
 import type { ContinueWatchingItem } from '@nn-anime/core/api'
@@ -51,7 +53,6 @@ export function ContinueRow(props: ContinueRowProps): ReactNode {
                   ref={item.animeRef.value}
                   title={item.title}
                   to={continuePath(item)}
-                  peso="b"
                   recurso={recursoDe(indice)}
                   episodio={t(DEFAULT_LOCALE, 'home.episode', { number: item.episodeNumber })}
                   resto={

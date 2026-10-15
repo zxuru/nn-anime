@@ -9,7 +9,6 @@ import { ContinueRow } from './ContinueRow'
 import { FavoritesRow } from './FavoritesRow'
 import { FeedRow } from './FeedRow'
 import { featuredOf, HomePage, marcaDeRefresco, minutosDesde, textoDeRefresco } from './HomePage'
-import { RecentRow } from './RecentRow'
 import { continuePath, progressPercent, resumeLabel } from './rows'
 import { TopRow } from './TopRow'
 import {
@@ -151,20 +150,6 @@ describe('la fila de novedades', () => {
   })
 })
 
-describe('la fila de lo último añadido', () => {
-  test('el estado vacío dice de dónde sale el contenido', () => {
-    const html = render(<RecentRow items={[]} />)
-
-    expect(html).toContain('aparece lo que busques')
-  })
-
-  test('con títulos, cada uno enlaza a su ficha', () => {
-    const html = render(<RecentRow items={[resumen('Aurora Nocturna')]} />)
-
-    expect(html).toContain('href="/anime/fixture/Aurora%20Nocturna"')
-  })
-})
-
 describe('el destacado con reservas', () => {
   test('manda el motor cuando tiene algo', () => {
     const destacado = featuredOf([recomendacion('Del motor')], [], [])
@@ -258,11 +243,11 @@ describe('la home', () => {
     expect(html).toContain('aria-busy="true"')
     expect(html).toContain('class="esqueleto"')
     expect(html).toContain('solo-lectores')
-    // Y el esqueleto tiene la métrica del mosaico: las celdas son grandes,
-    // anchas y celdas sueltas, como las piezas que van a llegar.
-    expect(html).toContain('esq esq--b')
-    expect(html).toContain('esq esq--w')
-    expect(html).toContain('esq esq--s')
+    // Y el esqueleto tiene la métrica del mosaico: dos filas de seis carteles, todos
+    // iguales, que es lo que va a llegar. El número va escrito aquí y no se lee de
+    // `ESQUELETOS`: si el componente cambia de idea, la prueba lo tiene que decir.
+    expect(html.match(/class="esq" aria-hidden="true"/g)?.length).toBe(12)
+    expect(html).not.toContain('esq--')
   })
 
   test('el panel de recomendaciones es una fila más', () => {
@@ -284,7 +269,7 @@ describe('la home', () => {
     const seguir = html.indexOf('Continuar viendo')
 
     expect(seguir).toBeGreaterThan(-1)
-    for (const despues of ['Top', 'Novedades', 'Último añadido', 'Tus favoritos']) {
+    for (const despues of ['Top', 'Novedades', 'Tus favoritos']) {
       expect(seguir, despues).toBeLessThan(html.indexOf(despues))
     }
   })
