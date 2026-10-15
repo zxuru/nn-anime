@@ -102,6 +102,9 @@ describe('GET /api/providers', () => {
       dub: true,
       trending: true,
       feed: true,
+      // El fixture declara que sirve las dos cosas, y las capacidades viajan
+      // enteras: es lo que la interfaz lee para saber en qué pestaña enseñarlo.
+      media: 'both',
     })
     expect(body.providers[0]?.status).toBe('active')
   })

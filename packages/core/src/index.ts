@@ -153,6 +153,7 @@ export {
   mediaOf,
   type ProviderMedia,
   pasaElFiltro,
+  puedeServir,
 } from './media'
 export {
   type AiringStatus,

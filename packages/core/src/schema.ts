@@ -269,6 +269,15 @@ export const candidateSchema = z.strictObject({
   title: z.string().min(1),
   tags: z.array(z.string().min(1)),
   year: z.number().int().optional(),
+  /**
+   * El tipo del título, para poder repartirlo por mitades.
+   *
+   * Un candidato lo lleva porque el motor tiene que poder filtrar por él —una
+   * fuente que sirve anime y películas mezcla las dos cosas en el mismo ranking— y
+   * porque quien lee la recomendación lo enseña. Opcional: un candidato de una
+   * fuente que no lo declara no deja de valer, y sin él cuenta como anime.
+   */
+  kind: titleKindSchema.optional(),
   studios: z.array(z.string().min(1)),
   /** Popularidad normalizada dentro del proveedor, de 0 a 1. */
   popularity: z.number().min(0).max(1).optional(),

@@ -441,3 +441,68 @@ describe('la consulta en curso', () => {
     )
   })
 })
+
+/**
+ * El motor, cuando se le pide una sola mitad.
+ *
+ * El proveedor se declara **sin tendencias** a propósito: así los únicos
+ * candidatos son los que dejó el detalle cacheado, y lo que se mide es el filtro
+ * del motor —que va antes de recomendar— y no el de la fila del top, que tiene su
+ * propia prueba. Filtrar después de recomendar dejaría la pestaña con menos piezas
+ * de las que hay, porque el motor ya habría llenado su tope con la otra mitad.
+ */
+describe('GET /api/recommendations?media=', () => {
+  const PELICULA = 'el-jardin-de-hierro'
+
+  function sinTendencias(): Provider {
+    const base = createFixtureProvider()
+    const { getTrending: _sinUsar, ...resto } = base
+
+    return { ...resto, capabilities: { ...base.capabilities, trending: false } }
+  }
+
+  test('con `movies` no devuelve el anime que ya conoce', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const salida = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations?media=movies')).json(),
+        )
+
+        expect(salida.items.length).toBeGreaterThan(0)
+        expect(salida.items.every((item) => item.kind === 'movie')).toBe(true)
+      },
+      { proveedores: [sinTendencias()], cachear: [REF, PELICULA] },
+    )
+  })
+
+  test('con `anime` no devuelve la película, aunque sea lo más popular', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const salida = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations?media=anime')).json(),
+        )
+
+        expect(salida.items.length).toBeGreaterThan(0)
+        expect(salida.items.every((item) => item.kind !== 'movie')).toBe(true)
+      },
+      { proveedores: [sinTendencias()], cachear: [REF, PELICULA] },
+    )
+  })
+
+  test('sin el parámetro siguen saliendo las dos mitades', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const salida = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations')).json(),
+        )
+
+        // Es lo que mantiene a quien ya leía la ruta: no pedir tipo no puede
+        // significar «sólo anime», que es el defecto del proveedor y no el de la
+        // petición.
+        expect(salida.items.some((item) => item.kind === 'movie')).toBe(true)
+        expect(salida.items.some((item) => item.kind !== 'movie')).toBe(true)
+      },
+      { proveedores: [sinTendencias()], cachear: [REF, PELICULA] },
+    )
+  })
+})

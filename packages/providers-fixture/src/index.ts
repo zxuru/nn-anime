@@ -21,6 +21,7 @@ import {
   type FeedEntry,
   type ProviderError,
   ProviderError as ProviderErrorClass,
+  type ProviderMedia,
   type ProviderRef,
   type SearchResult,
   type StreamMode,
@@ -47,6 +48,14 @@ export type FixtureFailure = 'http500' | 'http404' | 'throws' | 'timeout'
 export interface FixtureOptions {
   readonly id?: string
   readonly name?: string
+  /**
+   * Qué sirve, para las pruebas del conmutador.
+   *
+   * Por defecto `both`, que es lo que la instancia compartida declara: el catálogo
+   * inventado trae series y una película. Con `anime` o `movies` se mide que una
+   * fuente de un solo tipo no aparezca en la otra mitad.
+   */
+  readonly media?: ProviderMedia
   /** Latencia artificial de todas las llamadas, en milisegundos. */
   readonly latencyMs?: number
   /** Fallo por método. Lo que no esté aquí se comporta bien. */
@@ -182,7 +191,7 @@ export function createFixtureProvider(options: FixtureOptions = {}): FixtureProv
       // Las dos cosas: el catálogo inventado trae series y una película, así que
       // es el único proveedor del repositorio que puede medir las dos pestañas del
       // conmutador —y el reparto por `kind` dentro de una fuente mixta— sin red.
-      media: 'both',
+      media: options.media ?? 'both',
     },
     calls,
 

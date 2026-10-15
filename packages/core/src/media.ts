@@ -55,6 +55,20 @@ export function esDeMedia(
 }
 
 /**
+ * Si merece la pena preguntarle a un proveedor por esa mitad.
+ *
+ * Es distinto de `esDeMedia`, y la diferencia importa: a una fuente que sirve las
+ * dos cosas **hay que preguntarle** por las películas, y sólo después se sabe
+ * cuáles de sus títulos lo son. Descartarla por proveedor dejaría la pestaña vacía
+ * sin haber preguntado.
+ */
+export function puedeServir(filtro: ProviderMedia | undefined, proveedor: ProviderMedia): boolean {
+  if (filtro === undefined || filtro === 'both') return true
+
+  return proveedor === 'both' || proveedor === filtro
+}
+
+/**
  * Si un título entra en lo pedido, admitiendo que no se pida nada.
  *
  * `both` y la ausencia significan lo mismo —traer lo que haya— y se admiten los
