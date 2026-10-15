@@ -173,6 +173,9 @@ export function seccionesDe(enriquecido: Enrichment | null | undefined): ReactNo
         {enriquecido.status === undefined
           ? ''
           : ` · ${t(DEFAULT_LOCALE, STATUS_KEYS[enriquecido.status])}`}
+        {/* La marca del contenido para adultos, en la misma línea de datos: es texto y
+            no un adorno, así que la lee también un lector de pantalla. */}
+        {enriquecido.adult ? ` · ${t(DEFAULT_LOCALE, 'adult.mark')}` : ''}
       </p>
       {siguiente === undefined ? null : (
         <p className="card__meta">
