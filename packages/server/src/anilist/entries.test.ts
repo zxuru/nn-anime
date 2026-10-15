@@ -28,6 +28,7 @@ const CRUDA = {
   synonyms: ['Kimetsu no Yaiba TV'],
   format: 'TV',
   status: 'FINISHED',
+  isAdult: false,
   startDate: { year: 2019, month: 4, day: 6 },
   episodes: 26,
   duration: 23,
@@ -70,6 +71,17 @@ describe('una obra de AniList', () => {
       number: 27,
       airingAt: isoOf(1_760_000_000),
     })
+  })
+
+  test('la marca de adultos de la API llega a la entrada, sin valor por defecto', () => {
+    expect(normalizar({ isAdult: true })?.adult).toBe(true)
+    expect(normalizar()?.adult).toBe(false)
+  })
+
+  test('una obra cruda sin `isAdult` no se valida: se descarta en vez de darse por apta', () => {
+    const { isAdult: _sinMarca, ...sinMarca } = CRUDA
+
+    expect(mediaSchema.safeParse(sinMarca).success).toBe(false)
   })
 
   test('el nativo no se repite como nombre si es el principal', () => {

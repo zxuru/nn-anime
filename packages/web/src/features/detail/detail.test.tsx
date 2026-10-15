@@ -805,6 +805,7 @@ describe('lo que añade AniList', () => {
   const enriquecido: Enrichment = {
     anilistId: 555,
     cover: '/api/anilist/image/cover/555',
+    adult: false,
     synopsis: 'Una cartógrafa recorre el cielo.',
     genres: ['Misterio'],
     studios: ['Estudio Cobre'],
@@ -964,6 +965,7 @@ describe('la ruta del banner de AniList', () => {
   const enriquecido: Enrichment = {
     anilistId: 555,
     cover: '/api/anilist/image/cover/555',
+    adult: false,
     genres: [],
     studios: [],
     siteUrl: 'https://anilist.co/anime/555',

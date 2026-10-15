@@ -27,6 +27,8 @@ export interface RawMediaFixture {
   readonly format?: string
   readonly status?: string
   readonly year?: number
+  /** Si la obra es para adultos. Por defecto no: es el caso corriente. */
+  readonly isAdult?: boolean
   readonly episodes?: number
   readonly duration?: number
   readonly score?: number
@@ -64,6 +66,7 @@ export function mediaJson(media: RawMediaFixture): Record<string, unknown> {
     synonyms: media.synonyms ?? [],
     format: media.format ?? 'TV',
     status: media.status ?? 'FINISHED',
+    isAdult: media.isAdult ?? false,
     startDate: { year: media.year ?? 2019, month: 4, day: 6 },
     episodes: media.episodes ?? 12,
     duration: media.duration ?? 24,

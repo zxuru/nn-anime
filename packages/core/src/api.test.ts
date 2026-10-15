@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   episodeResponseSchema,
   episodesResponseSchema,
+  feedItemSchema,
   providerRepoRecordSchema,
   providerRepoSelectionSchema,
   providerReposResponseSchema,
@@ -21,6 +22,29 @@ const fila = {
   finished: false,
   watchedAt: '2026-10-12T10:00:00.000Z',
 }
+
+/**
+ * La marca de adultos de una novedad del feed.
+ *
+ * Opcional y **sólo verdadera**: la entrada la publica un plugin que no dice la
+ * edad, así que lo único que se puede afirmar de ella es que se comprobó que lo es.
+ * Un `false` diría que se miró, y no consta.
+ */
+describe('feedItemSchema: la marca de adultos', () => {
+  const item = { ref: { providerId: 'fuente-ejemplo', value: 'titulo-1' }, title: 'Un título' }
+
+  test('sin marca vale: de una novedad del feed no consta la edad', () => {
+    expect(feedItemSchema.safeParse(item).success).toBe(true)
+  })
+
+  test('con la marca puesta vale', () => {
+    expect(feedItemSchema.safeParse({ ...item, adult: true }).success).toBe(true)
+  })
+
+  test('`adult: false` se rechaza', () => {
+    expect(feedItemSchema.safeParse({ ...item, adult: false }).success).toBe(false)
+  })
+})
 
 describe('watchedResponseSchema', () => {
   test('acepta una fila completa', () => {

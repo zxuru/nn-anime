@@ -19,6 +19,7 @@ export const MEDIA_FIELDS = `
   synonyms
   format
   status
+  isAdult
   startDate { year month day }
   episodes
   duration

@@ -46,6 +46,7 @@ test.describe('la home', () => {
               anilistId: 101922,
               title: 'Kimetsu no Yaiba',
               cover: '/api/anilist/image/cover/101922',
+              adult: false,
               episode: 5,
               airingAt: hoy.toISOString(),
               kind: 'tv',
@@ -54,6 +55,7 @@ test.describe('la home', () => {
               anilistId: 20920,
               title: 'Danmachi',
               cover: '/api/anilist/image/cover/20920',
+              adult: false,
               episode: 12,
               airingAt: manana.toISOString(),
               kind: 'tv',
@@ -484,6 +486,7 @@ test.describe('la marquesina', () => {
           enrichment: {
             anilistId: 101922,
             cover: '/api/anilist/image/cover/101922',
+            adult: false,
             banner: BANNER,
             genres: [],
             studios: [],
