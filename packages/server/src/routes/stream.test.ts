@@ -25,7 +25,13 @@ interface Contexto {
   readonly pedir: (ruta: string, init?: RequestInit) => Promise<Response>
   readonly db: ReturnType<typeof openDb>
   readonly proveedor: ReturnType<typeof createFixtureProvider>
-  readonly upstream: { llamadas: number; ranges: (string | null)[]; cancelado: boolean }
+  readonly upstream: {
+    llamadas: number
+    ranges: (string | null)[]
+    cancelado: boolean
+    /** Cada petición que el proxy hizo al upstream, con sus cabeceras. */
+    peticiones: { url: string; headers: Headers }[]
+  }
 }
 
 interface OpcionesDeApp {
@@ -52,12 +58,18 @@ async function conApp<T>(
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-stream-'))
   const db = openDb(join(dir, 'nn-anime.db'))
   runMigrations(db)
-  const upstream = { llamadas: 0, ranges: [] as (string | null)[], cancelado: false }
+  const upstream = {
+    llamadas: 0,
+    ranges: [] as (string | null)[],
+    cancelado: false,
+    peticiones: [] as { url: string; headers: Headers }[],
+  }
 
   // Upstream de mentira: no hay red en ninguna prueba.
   const fetchImpl = async (url: string, init: RequestInit): Promise<Response> => {
     upstream.llamadas += 1
     upstream.ranges.push(new Headers(init.headers).get('range'))
+    upstream.peticiones.push({ url, headers: new Headers(init.headers) })
 
     // Una playlist de mentira sólo se sirve donde se pide una playlist: si el
     // mismo texto saliera para un segmento, la prueba del índice no probaría que
@@ -235,6 +247,73 @@ describe('POST /api/stream/resolve', () => {
 
       expect(respuesta.status).toBe(401)
     })
+  })
+})
+
+/**
+ * La pista de subtítulos que declara el proveedor, que es lo que el selector de
+ * subtítulos de la web tiene que poder pintar.
+ *
+ * Antes, `source.subtitles` cruzaba la frontera tal cual: la dirección del
+ * upstream llegaba al navegador y el reproductor la descartaba por no ser una
+ * ruta del proxy, así que el selector salía vacío aunque el proveedor hubiera
+ * declarado la pista. El contrato de la respuesta ya no lo admite.
+ */
+describe('los subtítulos que declara el proveedor', () => {
+  const CON_REFERER = {
+    episodeRef: { providerId: 'fixture', value: 'selva-de-hormigon#1' },
+    mode: 'sub' as const,
+  }
+
+  test('salen como ruta del proxy y su ticket guarda la dirección real', async () => {
+    await conApp(async ({ pedir, upstream }) => {
+      const { cuerpo } = await resolver(pedir, CON_REFERER)
+      const fuente = streamResolveResponseSchema.parse(cuerpo).sources[0]
+      const pista = fuente?.subtitles?.[0]
+
+      // Las dos pistas del título, con su etiqueta y su formato, y ninguna
+      // dirección de terceros en la respuesta.
+      expect(fuente?.subtitles?.length).toBe(2)
+      expect(pista?.url).toStartWith('/api/subtitles/')
+      expect(pista?.label).toBe('Español')
+      expect(pista?.format).toBe('vtt')
+      expect(pista?.default).toBe(true)
+      expect(JSON.stringify(cuerpo)).not.toContain('fixture.invalid')
+
+      const respuesta = await pedir(pista?.url ?? '', { headers: GOOD })
+
+      expect(respuesta.status).toBe(200)
+      expect(respuesta.headers.get('content-type')).toBe('text/vtt; charset=utf-8')
+
+      // Quien pide la pista al upstream es el proxy, y con el `Referer` que el
+      // proveedor declaró para la fuente: sin él el sitio contesta 403.
+      const ultima = upstream.peticiones.at(-1)
+      expect(ultima?.url).toBe('https://fixture.invalid/selva-de-hormigon/1.es.vtt')
+      expect(ultima?.headers.get('referer')).toBe('https://fixture.invalid/selva-de-hormigon')
+    })
+  })
+
+  test('la dirección del upstream no vale como pista en la respuesta', async () => {
+    // La puerta que se cerró: con el schema anterior —una cadena cualquiera—
+    // esto pasaba la validación y el cliente recibía una dirección de terceros.
+    const conTerceros = {
+      sources: [
+        {
+          url: '/stream/abc',
+          kind: 'hls',
+          subtitles: [
+            {
+              lang: 'es',
+              label: 'Español',
+              url: 'https://tercero.example/es.srt',
+              format: 'srt',
+            },
+          ],
+        },
+      ],
+    }
+
+    expect(streamResolveResponseSchema.safeParse(conTerceros).success).toBe(false)
   })
 })
 

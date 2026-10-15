@@ -7,6 +7,11 @@
  * exige se quedan en el proceso: `toPublicStreamSource` los quita por tipo, así
  * que no hay forma de que se cuelen.
  *
+ * Las **pistas de subtítulos que declara el proveedor pasan por lo mismo**: cada
+ * una sale como `/api/subtitles/:ticket`, no como la dirección del upstream. Sin
+ * ese paso el reproductor descarta la pista —sólo acepta rutas internas— y el
+ * selector de subtítulos se queda vacío aunque el proveedor los haya declarado.
+ *
  * `GET /stream/:ticket` resuelve el ticket y reenvía los bytes con su `Range`. Un
  * ticket que no existe es 404 y uno vencido es 410: la diferencia importa al
  * depurar, y son dos cosas distintas.
@@ -21,6 +26,8 @@
 
 import {
   errorResponseSchema,
+  type PublicStreamSource,
+  type StreamSource,
   streamRequestSchema,
   streamResolveResponseSchema,
   toPublicStreamSource,
@@ -40,6 +47,7 @@ import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
 import { findProvider } from './anime'
+import { subtitlesPath } from './subtitles'
 
 export interface StreamRouteOptions {
   readonly providers: readonly Provider[]
@@ -58,6 +66,34 @@ const DEFAULT_TIMEOUT_MS = 8000
 /** La dirección con la que el cliente pide los bytes: el ticket, no la URL. */
 export function ticketPath(ticket: string): string {
   return `/stream/${ticket}`
+}
+
+/**
+ * Las pistas de subtítulos del proveedor, una por ticket.
+ *
+ * Una pista declarada trae la dirección del upstream igual que la fuente, y el
+ * cliente no puede pedirla: el reproductor sólo acepta rutas del proxy —lo
+ * comprueba antes de pintar nada— y el contrato de la respuesta exige que
+ * `subtitles` sean rutas internas. Sin este paso la pista llegaba al navegador
+ * con la dirección de terceros dentro y se descartaba en silencio: el selector de
+ * subtítulos existía y nunca tenía nada que ofrecer.
+ *
+ * El ticket guarda las **mismas cabeceras que el video**, que son las que el
+ * sitio exige: un subtítulo servido sin el `Referer` de la ficha es un 403.
+ */
+function subtitlesWithTickets(
+  options: StreamRouteOptions,
+  source: StreamSource,
+): PublicStreamSource['subtitles'] {
+  const pistas = source.subtitles
+  if (pistas === undefined) return undefined
+
+  return pistas.map((pista) => ({
+    ...pista,
+    url: subtitlesPath(
+      options.container.tickets.issue({ url: pista.url, headers: source.headers ?? {} }),
+    ),
+  }))
 }
 
 /**
@@ -317,13 +353,20 @@ export function registerStreamRoutes(app: Hono, options: StreamRouteOptions): vo
     }
 
     // Cada fuente se convierte en un ticket: la URL del upstream se queda aquí.
+    // Y cada pista de subtítulos, en otro: la pista no es la fuente, y una
+    // reproducción pide las dos cosas por caminos distintos.
     const sources = resultado.value.value.map((source) => {
       const ticket = options.container.tickets.issue({
         url: source.url,
         headers: source.headers ?? {},
       })
+      const subtitles = subtitlesWithTickets(options, source)
 
-      return toPublicStreamSource({ ...source, url: ticketPath(ticket) })
+      return toPublicStreamSource({
+        ...source,
+        url: ticketPath(ticket),
+        ...(subtitles === undefined ? {} : { subtitles }),
+      })
     })
 
     c.header('X-Cache', resultado.value.source)

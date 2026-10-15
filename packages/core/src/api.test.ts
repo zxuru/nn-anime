@@ -8,6 +8,7 @@ import {
   providerRepoUrlSchema,
   providerRepoViewSchema,
   relatedResponseSchema,
+  streamResolveResponseSchema,
   watchedResponseSchema,
 } from './api'
 import { MAX_ENABLED_REPO_FILES, MAX_REPO_PATH_LENGTH, MAX_REPO_URL_LENGTH } from './repos'
@@ -241,5 +242,42 @@ describe('providerRepoSelectionSchema: qué se activa', () => {
     expect(providerRepoSelectionSchema.safeParse({ url: 'o/r', enabled: demasiadas }).success).toBe(
       false,
     )
+  })
+})
+
+/**
+ * La pista de subtítulos que cruza la frontera.
+ *
+ * La regla que sostiene este contrato es que el cliente nunca ve la dirección del
+ * upstream, y una cadena cualquiera la deja en convención: se comprueba el
+ * prefijo del proxy, no que sea una cadena.
+ */
+describe('streamResolveResponseSchema: las pistas de subtítulos', () => {
+  const pista = { lang: 'es', label: 'Español', url: '/api/subtitles/abc', format: 'srt' }
+  const fuente = { url: '/stream/abc', kind: 'hls' }
+
+  test('acepta una pista con la ruta del proxy', () => {
+    expect(
+      streamResolveResponseSchema.safeParse({ sources: [{ ...fuente, subtitles: [pista] }] })
+        .success,
+    ).toBe(true)
+  })
+
+  test('rechaza la dirección del upstream, que es lo que no puede llegar al navegador', () => {
+    const tercera = { ...pista, url: 'https://tercero.example/es.srt' }
+
+    expect(
+      streamResolveResponseSchema.safeParse({ sources: [{ ...fuente, subtitles: [tercera] }] })
+        .success,
+    ).toBe(false)
+  })
+
+  test('rechaza una ruta del proxy que no sea la de las pistas', () => {
+    const otra = { ...pista, url: '/stream/abc' }
+
+    expect(
+      streamResolveResponseSchema.safeParse({ sources: [{ ...fuente, subtitles: [otra] }] })
+        .success,
+    ).toBe(false)
   })
 })
