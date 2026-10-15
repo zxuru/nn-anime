@@ -39,6 +39,50 @@ export function recursoDe(indice: number): RecursoPieza {
   return RECURSOS[indice % RECURSOS.length] ?? 'trama'
 }
 
+/**
+ * Lo que se dibuja cuando la portada no llega.
+ *
+ * La inicial a cuerpo enorme y la cifra del año en voladizo: son texto y no un
+ * degradado, así que van en su propio elemento. Se pintan **dentro del campo**, y
+ * el campo sólo los deja ver cuando ha fallado la portada: si la portada llega,
+ * manda la portada y el dibujo se aparta.
+ */
+export function arteDibujado(
+  recurso: RecursoPieza,
+  title: string,
+  year: number | undefined,
+): ReactNode {
+  if (recurso === 'letra') {
+    return (
+      <span className="pz__letra" aria-hidden="true">
+        {title.slice(0, 1)}
+      </span>
+    )
+  }
+
+  if (recurso === 'cifra' && year !== undefined) {
+    return (
+      <span className="pz__cifra" aria-hidden="true">
+        {year}
+      </span>
+    )
+  }
+
+  return null
+}
+
+/**
+ * El peso de una pieza dentro de su tramo: la que abre pesa más.
+ *
+ * Es lo que hace que un mosaico se lea como una revista y no como una cuadrícula:
+ * el primer título del tramo manda —más superficie— y los demás lo acompañan. Los
+ * tramos que ya pesan por sí mismos —lo que se retoma, el top— usan el peso
+ * grande en su primera pieza y el suyo en el resto.
+ */
+export function pesoDelTramo(indice: number, base: PesoPieza, lider: PesoPieza): PesoPieza {
+  return indice === 0 ? lider : base
+}
+
 export interface AsomoPieza {
   readonly sinopsis?: string | undefined
   readonly motivo?: string | undefined
@@ -70,22 +114,35 @@ export interface PiezaProps {
   readonly apagada?: boolean | undefined
 }
 
+/**
+ * Lo que se le pone al campo de cada recurso.
+ *
+ * Los dibujos van en la clase del campo y no en un elemento aparte: un `<img>` no
+ * pinta pseudo-elementos, así que si la portada llega, el dibujo se aparta solo.
+ * La inicial y la cifra son texto y viajan dentro del campo, por lo mismo.
+ */
+const CAMPO_DE_ARTE: Record<RecursoPieza, string> = {
+  trama: 'pz__campo pz__campo--trama',
+  letra: 'pz__campo',
+  mitad: 'pz__campo pz__campo--mitad',
+  cifra: 'pz__campo',
+  circulo: 'pz__campo pz__campo--circulo',
+  caja: 'pz__campo pz__campo--caja',
+}
+
 export function Pieza(props: PiezaProps): ReactNode {
   const peso = props.peso ?? 's'
   const recurso = props.recurso ?? 'trama'
   const clases = ['pz', `pz--${peso}`]
   if (props.apagada === true) clases.push('pz--apagada')
 
-  // Los recursos que son un dibujo van en clase; la inicial y la cifra son texto
-  // y van en su propio elemento, porque el CSS no sabe qué letra es.
-  const dibujo =
-    recurso === 'letra' || recurso === 'cifra' ? 'pz__arte' : `pz__arte pz__arte--${recurso}`
-
   return (
     <article className={clases.join(' ')}>
       <Link to={props.to} className="pz__enlace" title={props.title}>
-        <span className={dibujo} aria-hidden="true">
-          <Cover providerId={props.providerId} ref={props.ref} className="pz__campo" />
+        <span className="pz__arte" aria-hidden="true">
+          <Cover providerId={props.providerId} ref={props.ref} className={CAMPO_DE_ARTE[recurso]}>
+            {arteDibujado(recurso, props.title, props.year)}
+          </Cover>
           <span className="pz__velo" />
         </span>
 
@@ -130,18 +187,6 @@ export function Pieza(props: PiezaProps): ReactNode {
             )}
           </span>
         )}
-
-        {recurso === 'letra' ? (
-          <span className="pz__letra" aria-hidden="true">
-            {props.title.slice(0, 1)}
-          </span>
-        ) : null}
-
-        {recurso === 'cifra' && props.year !== undefined ? (
-          <span className="pz__cifra" aria-hidden="true">
-            {props.year}
-          </span>
-        ) : null}
       </Link>
     </article>
   )

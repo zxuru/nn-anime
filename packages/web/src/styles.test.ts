@@ -323,6 +323,27 @@ describe('tokens de diseño', () => {
     expect(css).toContain('display: none')
   })
 
+  /**
+   * Los recursos de arte de la pieza están en la hoja.
+   *
+   * Van en la clase del campo, y el nombre se arma en el componente con un mapa:
+   * la comprobación general de clases leídas del marcado no los ve, así que se
+   * miran aquí. Uno que falte no rompe nada —el recurso simplemente no se
+   * dibuja—, y es justo el fallo que no se nota hasta que alguien mira la
+   * pantalla.
+   */
+  test('los recursos de arte de la pieza están definidos', async () => {
+    const css = await read(SHELL)
+
+    for (const recurso of ['trama', 'mitad', 'circulo', 'caja']) {
+      expect(css, `falta el recurso ${recurso}`).toContain(`.pz__campo--${recurso}`)
+    }
+
+    // Y los dos que son texto, que se pintan dentro del campo.
+    expect(css).toContain('.pz__letra')
+    expect(css).toContain('.pz__cifra')
+  })
+
   test('respeta la preferencia de movimiento reducido', async () => {
     expect(await read(TOKENS)).toContain('prefers-reduced-motion')
   })

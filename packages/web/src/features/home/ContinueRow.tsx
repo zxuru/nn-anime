@@ -16,7 +16,7 @@ import type { ContinueWatchingItem } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'
-import { Pieza, recursoDe } from '../../components/Pieza'
+import { Pieza, pesoDelTramo, recursoDe } from '../../components/Pieza'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 import { continuePath, progressPercent, remainingLabel, resumeLabel } from './rows'
@@ -48,7 +48,7 @@ export function ContinueRow(props: ContinueRowProps): ReactNode {
                   ref={item.animeRef.value}
                   title={item.title}
                   to={continuePath(item)}
-                  peso="b"
+                  peso={pesoDelTramo(indice, 'b', 'm')}
                   recurso={recursoDe(indice)}
                   episodio={t(DEFAULT_LOCALE, 'home.episode', { number: item.episodeNumber })}
                   resto={

@@ -81,4 +81,11 @@ contra los `@media`.
 - [x] Limpieza: los bloques `.row*`, `.hero*`, `.poster*`, `.ticker*`, `.genres*` y los
       `.section*` que se quedaron sin uso al portar la home se retiraron de `shell.css`
       (`.section__meta` se queda: el panel lo usa) junto con `PosterCard`.
+- [x] El arte de la pieza: el campo de degradado por posición y un recurso propio —trama,
+      inicial, mitad, cifra del año, círculo, caja— repartido por el puesto. El dibujo se pinta
+      sólo si la portada no llega: manda la portada, y por eso viaja dentro del campo (un
+      `<img>` no pinta pseudo-elementos). La primera pieza de cada tramo pesa más que las que
+      la acompañan, y donde no cabe en tres columnas baja a dos de ancho y sube a tres de alto.
+- [x] Capturas al día en `docs/` (`captura.png` y `captura-claro.png`, hechas con `bun run
+      captura` contra el servidor del fixture).
 - [ ] El `e2e` de la home al día; quedan las otras pantallas por portar y sus pruebas.

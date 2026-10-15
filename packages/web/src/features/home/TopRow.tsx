@@ -24,7 +24,7 @@ import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { AnimeSummary } from '@nn-anime/core/models'
 import { type ReactNode, useState } from 'react'
 import { Mosaico } from '../../components/Mosaico'
-import { Pieza, recursoDe } from '../../components/Pieza'
+import { Pieza, pesoDelTramo, recursoDe } from '../../components/Pieza'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 
@@ -77,7 +77,7 @@ export function TopRow(props: TopRowProps): ReactNode {
                 ref={item.ref.value}
                 title={item.title}
                 to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
-                peso="b"
+                peso={pesoDelTramo(indice, 'b', 'm')}
                 recurso={recursoDe(indice)}
                 // El puesto de la fuente, no el de la lista recortada: el 11
                 // sigue siendo el 11 cuando se despliega el resto.

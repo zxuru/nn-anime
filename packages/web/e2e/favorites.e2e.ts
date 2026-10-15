@@ -56,22 +56,22 @@ test.describe('el favorito', () => {
     await expect(page.locator('.episodes li')).toHaveCount(12, { timeout: 15_000 })
     await page.goto('/')
 
-    const boton = page.locator('.hero__actions').getByRole('button')
-    const titulo = await page.locator('.hero__title').innerText()
+    const boton = page.locator('.marquesina__acciones').getByRole('button')
+    const titulo = await page.locator('.marquesina__titulo').innerText()
 
     await expect(boton).toHaveAttribute('aria-pressed', 'false')
     await boton.click()
     await expect(boton).toHaveAttribute('aria-pressed', 'true')
 
     await page.reload()
-    await expect(page.locator('.hero__title')).toBeVisible()
+    await expect(page.locator('.marquesina__titulo')).toBeVisible()
 
     // Un favorito pesa en el motor, así que el cartel debería seguir siendo el
     // mismo título. Se comprueba que lo sea antes de mirar el botón: si el motor
     // cambiara de destacado, esta prueba mediría otro título y no lo que dice.
-    expect(await page.locator('.hero__title').innerText()).toBe(titulo)
+    expect(await page.locator('.marquesina__titulo').innerText()).toBe(titulo)
 
-    const despues = page.locator('.hero__actions').getByRole('button')
+    const despues = page.locator('.marquesina__acciones').getByRole('button')
     await expect(despues).toHaveAttribute('aria-pressed', 'true')
     await expect(despues).toHaveText('Quitar de favoritos')
 

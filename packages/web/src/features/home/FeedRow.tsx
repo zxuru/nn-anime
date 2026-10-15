@@ -21,7 +21,7 @@ import type { FeedItem } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'
-import { Pieza, recursoDe } from '../../components/Pieza'
+import { Pieza, pesoDelTramo, recursoDe } from '../../components/Pieza'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 
@@ -49,7 +49,7 @@ export function FeedRow(props: FeedRowProps): ReactNode {
                 ref={item.ref.value}
                 title={item.title}
                 to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
-                peso="w"
+                peso={pesoDelTramo(indice, 'w', 'b')}
                 recurso={recursoDe(indice)}
                 year={item.year}
                 meta={item.year === undefined ? undefined : String(item.year)}

@@ -3,10 +3,11 @@ import type { RecommendationResponse } from '@nn-anime/core/api'
 import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
-import { Pieza, RECURSOS, recursoDe } from '../../components/Pieza'
+import { arteDibujado, Pieza, pesoDelTramo, RECURSOS, recursoDe } from '../../components/Pieza'
 import { SectionHeader } from '../../components/SectionHeader'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { featuredMeta } from './FeaturedHero'
+import { FeedRow } from './FeedRow'
 import { GenreRow, topGenres } from './GenreRow'
 import { Ticker } from './Ticker'
 import { puestosVisibles, quedanPuestos, TOP_VISIBLES, TopRow } from './TopRow'
@@ -99,6 +100,21 @@ describe('la pieza de la vitrina', () => {
     expect(render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" />)).toContain('pz--s')
   })
 
+  /**
+   * El primer título de un tramo pesa más que los que lo acompañan: es lo que hace
+   * que el mosaico se lea como una revista y no como una cuadrícula uniforme.
+   */
+  test('la pieza que abre el tramo pesa más', () => {
+    expect(pesoDelTramo(0, 'w', 'b')).toBe('b')
+    expect(pesoDelTramo(1, 'w', 'b')).toBe('w')
+    expect(pesoDelTramo(7, 'w', 'b')).toBe('w')
+
+    const html = render(<FeedRow items={[resumen('uno'), resumen('dos')]} />)
+
+    expect(html.match(/pz--b/g)?.length).toBe(1)
+    expect(html.match(/pz--w/g)?.length).toBe(1)
+  })
+
   test('el puesto del top va en la pieza', () => {
     const html = render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" posicion={3} />)
 
@@ -156,25 +172,35 @@ describe('la pieza de la vitrina', () => {
       <Pieza providerId="f" ref="x" title="X" to="/anime/f/x" recurso="circulo" />,
     )
 
-    expect(html).toContain('pz__arte--circulo')
+    expect(html).toContain('pz__campo--circulo')
   })
 
-  test('la inicial y la cifra son texto, no dibujo', () => {
-    const letra = render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" recurso="letra" />)
-
-    expect(letra).toContain('pz__letra')
-    expect(letra).toContain('>X<')
-
-    const cifra = render(
-      <Pieza providerId="f" ref="x" title="X" to="/anime/f/x" recurso="cifra" year={2019} />,
+  /**
+   * El dibujo sólo aparece si la portada no llega: manda la portada. Viaja como
+   * hijo del campo porque un `<img>` no pinta pseudo-elementos ni dibuja dentro,
+   * así que con portada el navegador aparta el dibujo solo.
+   */
+  test('el dibujo no se pinta si la portada llega', () => {
+    const html = render(
+      <Pieza providerId="f" ref="x" title="X" to="/anime/f/x" recurso="letra" year={2019} />,
     )
+
+    expect(html).toContain('src="/api/cover/f/x"')
+    expect(html).not.toContain('pz__letra')
+    expect(html).not.toContain('pz__cifra')
+  })
+
+  test('lo que se dibuja cuando la portada falla: inicial, cifra y nada más', () => {
+    expect(render(<>{arteDibujado('letra', 'Xilófono', undefined)}</>)).toContain('pz__letra')
+    expect(render(<>{arteDibujado('letra', 'Xilófono', undefined)}</>)).toContain('X')
+
+    const cifra = render(<>{arteDibujado('cifra', 'X', 2019)}</>)
 
     expect(cifra).toContain('pz__cifra')
     expect(cifra).toContain('2019')
-    // Sin año, la cifra no se pinta: no hay número que enseñar.
-    expect(
-      render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" recurso="cifra" />),
-    ).not.toContain('pz__cifra')
+    // Sin año no hay cifra que enseñar, y un recurso de dibujo no añade texto.
+    expect(render(<>{arteDibujado('cifra', 'X', undefined)}</>)).toBe('')
+    expect(render(<>{arteDibujado('trama', 'X', 2019)}</>)).toBe('')
   })
 })
 

@@ -50,9 +50,10 @@ test.describe('la home', () => {
     const top = page.locator('.seccion', {
       has: page.getByRole('heading', { name: 'Top de la fuente' }),
     })
-    // Las piezas del top son las de dos por dos: el mando de «Mostrar más» también
-    // es una pieza del mosaico, pero no un puesto.
-    const tarjetas = top.locator('.pz--b')
+    // Las piezas del top: el mando de «Mostrar más» también es una pieza del
+    // mosaico, pero no un puesto. Y la que abre el tramo pesa más (tres columnas
+    // donde caben, dos de ancho por tres de alto donde no).
+    const tarjetas = top.locator('.pz:not(.pz--mando)')
 
     await expect(tarjetas).toHaveCount(10)
     await expect(top.locator('.pz__posicion').last()).toHaveText('10')

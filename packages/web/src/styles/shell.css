@@ -2707,8 +2707,11 @@
 }
 
 /* La portada del cartel: llena el marco y, si no llega —o el título no tiene—,
-   enseña el campo de degradado del diseño, como el resto del arte. */
+   enseña el campo de degradado del diseño, como el resto del arte. El `display`
+   importa: cuando la portada falla, lo que queda es un `span`, y un `span` en
+   línea no mide lo que dice su caja. */
 .marquesina__cover {
+  display: block;
   inline-size: 100%;
   block-size: 100%;
   object-fit: cover;
@@ -3148,7 +3151,8 @@
 /* --- El arte, por posición -------------------------------------------
    El campo dice la posición —seis degradados para seis piezas seguidas, así dos
    contiguas nunca repiten— y el recurso dice qué pieza es. El recurso lo elige
-   el componente y se pinta aquí. */
+   el componente y se pinta en el propio campo: un `<img>` no pinta
+   pseudo-elementos, así que si la portada llega, el dibujo se aparta. */
 
 .mosaico > .pz:nth-child(6n + 1) {
   --campo: var(--cover-a);
@@ -3175,7 +3179,7 @@
 }
 
 /* Trama de líneas paralelas. */
-.pz__arte--trama::before {
+.pz__campo--trama::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -3187,7 +3191,7 @@
 }
 
 /* Mitad partida: dos tonos con corte seco. */
-.pz__arte--mitad::after {
+.pz__campo--mitad::after {
   content: "";
   position: absolute;
   inset-block: 0;
@@ -3198,7 +3202,7 @@
 }
 
 /* Círculo recortado. */
-.pz__arte--circulo::after {
+.pz__campo--circulo::after {
   content: "";
   position: absolute;
   inline-size: 76cqi;
@@ -3211,7 +3215,7 @@
 }
 
 /* Caja de tercio. */
-.pz__arte--caja::after {
+.pz__campo--caja::after {
   content: "";
   position: absolute;
   inset-block: 0;
@@ -3281,8 +3285,12 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
+  /* La pieza que abre el tramo no cabe en tres columnas: baja a dos de ancho y
+     sube a tres de alto, que es lo que la sigue dejando ver más grande que las
+     que la acompañan. Recompone, no encoge. */
   .mosaico .pz--m {
     --cs: 2;
+    --rs: 3;
   }
 }
 
@@ -3299,6 +3307,7 @@
 
   .mosaico .pz--m {
     --cs: 2;
+    --rs: 3;
   }
 }
 
@@ -3315,9 +3324,14 @@
     --rs: 1;
   }
 
-  .mosaico .pz--b,
-  .mosaico .pz--m {
+  .mosaico .pz--b {
     --rs: 2;
+  }
+
+  /* El tramo que abre pesa uno más: en una sola columna el peso se dice con el
+     alto, porque el ancho ya es el de la pantalla. */
+  .mosaico .pz--m {
+    --rs: 3;
   }
 }
 
