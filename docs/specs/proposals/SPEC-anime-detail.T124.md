@@ -88,3 +88,21 @@ La sección se pinta en el cuerpo, bajo «De AniList», como carrusel de piezas.
 aparte que no bloquea la ficha**: el cliente de AniList espacia las consultas dos segundos, así que
 meterla en el `Promise.all` de la ficha le sumaría esa espera a la carga entera. `T124` entrega
 `core`, `catalog-store` y `server`; la interfaz la añade la parte 2.
+
+### Lo que la parte 2 hizo, en concreto
+
+- **`AniListRelated`**, en `packages/web/src/features/detail/`, pinta la sección en `detail__body`
+  —debajo de la lectura, que es donde vive «De AniList»— con las **piezas de la vitrina** (`Mosaico` +
+  `Pieza`) y no con la lista de la barra lateral: la pieza ya sabe de una portada y de un destino, y
+  el destino es el de siempre —la ficha si el servidor mandó `ref`, la búsqueda del título si no—.
+  Sin relaciones **no se pinta nada**.
+- **El motivo va delante de los datos** de la pieza: «Secuela · Año 2019», «Historia paralela · Año
+  2016 · OVA». El mapa de los ocho tipos a sus textos vive en `relacion.ts`, atado al tipo de `core`:
+  una relación nueva allí sin texto aquí no compila.
+- **La sección se atribuye**: titular «La franquicia en AniList» y la nota «Lo que AniList relaciona
+  con esta obra». La sección local de la barra lateral no se toca.
+- **La petición no bloquea**: `useDetail` la dispara fuera del `Promise.all` y su fallo se traga —la
+  ficha es la misma sin ella—. Con el ajuste de adultos apagado, la ruta filtra las relaciones
+  marcadas (`sinAdultos`), y la caché sigue guardando la franquicia entera porque su clave es el id
+  de AniList: encender el interruptor no obliga a volver a preguntar.
+
