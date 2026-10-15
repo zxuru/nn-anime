@@ -70,6 +70,18 @@ prueba que lo sostiene.
    está limitada a los archivos que el escáner reconoció, pero eso acota **la puerta de entrada**, no lo
    que hay detrás: no hay sandbox, igual que con un plugin copiado a mano. La aplicación no descarga
    nada hasta que alguien pega una dirección, y no activa nada hasta que alguien marca una casilla.
+7. **El filtro de contenido para adultos no es una verificación de edad, y sólo alcanza a lo que las
+   fuentes publican.** El ajuste —apagado por defecto— decide qué se pide a AniList, qué se guarda y qué
+   se sirve, y la interfaz lo dice con esas palabras. Lo que **no** puede: comprobar quién mira, porque
+   es un servidor local de un solo usuario y la sesión la tiene quien abre el puerto; alcanzar a lo que
+   ninguna fuente publica, porque el feed de un proveedor no dice la edad de sus entradas —se verifica
+   contra AniList y, si AniList no contesta, la entrada se enseña: un tercero caído no puede vaciar una
+   fila—; verificar la búsqueda, cuyos resultados llegan mientras se teclea y donde una ida y vuelta a
+   AniList por pulsación se pagaría en cada tecla; ni comprobar más allá de la ventana de verificación
+   —treinta piezas en las tendencias, y el tope de la fila más ocho en el feed—, que es lo que acota
+   cuántas consultas paga la primera carga. Lo que sí hace: con el ajuste apagado no pide, no guarda y
+   no sirve nada marcado, y de lo marcado conserva **un booleano por referencia** —nunca la portada, la
+   sinopsis ni el identificador de la obra—.
 
 ## Qué no hace esta aplicación
 
