@@ -57,6 +57,142 @@ test.describe('la ficha enriquecida', () => {
     ).toBeVisible()
     await expect(page.getByText('Una cartógrafa recorre el cielo de su ciudad.')).toHaveCount(0)
   })
+
+  /**
+   * El banner de AniList, como fondo de la cabecera.
+   *
+   * El enriquecimiento y la imagen llegan interceptados —el arnés arranca sin
+   * AniList—, y lo que se mide es lo que el renderizado de servidor no puede: que
+   * el navegador **pida** la imagen, que la pinte como fondo de la banda, que el
+   * titular quede por encima y que no haya ninguna `<img>` que pueda quedar rota.
+   *
+   * El GIF es un píxel: lo que se comprueba es el mecanismo —petición, fondo,
+   * capa decorativa—, no el contenido de la imagen.
+   */
+  test('el banner es el fondo de la cabecera, con el título encima', async ({ page }) => {
+    const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64')
+    const pedidas: string[] = []
+
+    await page.route('**/api/anime/*/*/enrichment', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          enrichment: {
+            anilistId: 555,
+            cover: '/api/anilist/image/cover/555',
+            banner: '/api/anilist/image/banner/555',
+            genres: [],
+            studios: [],
+            siteUrl: 'https://anilist.co/anime/555',
+          },
+        },
+      })
+    })
+
+    await page.route('**/api/anilist/image/banner/555', async (ruta) => {
+      pedidas.push(ruta.request().url())
+      await ruta.fulfill({ body: PIXEL, contentType: 'image/gif' })
+    })
+
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    const banda = page.locator('.detail__banner')
+    await expect(banda).toBeVisible({ timeout: 10_000 })
+    // El titular, dentro de la banda: el encabezado no es un adorno.
+    await expect(banda.getByRole('heading', { name: 'Aurora Nocturna' })).toBeVisible()
+
+    const capa = page.locator('.detail__banner-fondo')
+    await expect(capa).toHaveAttribute('aria-hidden', 'true')
+    await expect
+      .poll(async () => capa.evaluate((nodo) => getComputedStyle(nodo).backgroundImage))
+      .toContain('/api/anilist/image/banner/555')
+
+    // La imagen se pidió de verdad —el navegador sólo pide el fondo de lo que
+    // pinta— y el titular está **encima** de la capa, no detrás.
+    expect(pedidas).toHaveLength(1)
+
+    const capas = await banda.evaluate((nodo) => {
+      const capa = nodo.querySelector('.detail__banner-fondo')
+      const titulo = nodo.querySelector('h1')
+
+      return {
+        zIndex: capa === null ? '' : getComputedStyle(capa).zIndex,
+        fondo: capa?.getBoundingClientRect().height ?? 0,
+        titulo: titulo?.getBoundingClientRect().height ?? 0,
+      }
+    })
+
+    // La capa va por detrás (`z-index` negativo) y cubre la banda: si midiera
+    // cero, el fondo no se vería aunque la ruta estuviera bien puesta.
+    expect(capas.zIndex).toBe('-1')
+    expect(capas.fondo).toBeGreaterThan(capas.titulo)
+
+    // Y no hay ninguna `<img>` del banner: es lo que dejaba el icono de imagen
+    // rota cuando la obra no tenía banner o su caché todavía no lo servía.
+    await expect(page.locator('img[src*="/api/anilist/image/banner"]')).toHaveCount(0)
+  })
+
+  test('un banner que no llega no deja ninguna imagen rota', async ({ page }) => {
+    await page.route('**/api/anime/*/*/enrichment', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          enrichment: {
+            anilistId: 555,
+            cover: '/api/anilist/image/cover/555',
+            banner: '/api/anilist/image/banner/555',
+            genres: [],
+            studios: [],
+            siteUrl: 'https://anilist.co/anime/555',
+          },
+        },
+      })
+    })
+
+    // El caso que se veía en la ficha: la ruta del banner contesta 404.
+    await page.route('**/api/anilist/image/banner/555', async (ruta) => {
+      await ruta.fulfill({ status: 404, body: 'no está' })
+    })
+
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    await expect(page.getByRole('heading', { name: 'Aurora Nocturna' })).toBeVisible({
+      timeout: 10_000,
+    })
+    // La ficha se lee igual, y no queda ninguna imagen rota: el fondo que no
+    // carga simplemente no se pinta.
+    await expect(page.locator('.episodes li').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('img[src*="/api/anilist/image/banner"]')).toHaveCount(0)
+  })
+
+  test('un banner que no es la ruta del servidor no se pinta', async ({ page }) => {
+    await page.route('**/api/anime/*/*/enrichment', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          enrichment: {
+            anilistId: 555,
+            cover: '/api/anilist/image/cover/555',
+            // Una dirección ajena. La capa del fondo se compone con este valor,
+            // así que sólo se pinta si tiene la forma que compone el servidor.
+            banner: 'https://otro.example/banner.jpg',
+            genres: [],
+            studios: [],
+            siteUrl: 'https://anilist.co/anime/555',
+          },
+        },
+      })
+    })
+
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    await expect(page.getByRole('heading', { name: 'Aurora Nocturna' })).toBeVisible({
+      timeout: 10_000,
+    })
+    await expect(page.locator('.detail__banner-fondo')).toHaveCount(0)
+    // Y la cabecera sigue ahí: la banda no depende del banner.
+    await expect(page.locator('.detail__banner')).toBeVisible()
+  })
 })
 
 test.describe('de la búsqueda al detalle', () => {

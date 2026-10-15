@@ -562,6 +562,73 @@
   align-items: start;
 }
 
+/*
+ * La banda del banner: la imagen de AniList como fondo de la cabecera.
+ *
+ * La imagen entra por el fondo de la banda y no como una imagen del flujo. Antes
+ * era un `<img>` debajo de la sinopsis, y una obra sin banner —o con la imagen
+ * todavía sin cachear— dejaba ahí el icono de imagen rota del navegador. Como
+ * fondo, una imagen que no llega sencillamente no se pinta.
+ *
+ * El velo es lo que sostiene el titular: debajo hay una fotografía cualquiera y
+ * sin él el texto se lee o no según lo que la imagen tenga justo en esa esquina.
+ * Va del color del tema —abajo, que es donde está el texto— a casi nada arriba,
+ * y se compone con `color-mix` sobre el fondo de la página para que valga en los
+ * dos temas sin declarar dos degradados.
+ *
+ * La banda existe **con o sin** banner: es la cabecera de la ficha, así que la
+ * pantalla no cambia de forma cuando el emparejamiento con AniList llega —ni
+ * cuando no llega—.
+ */
+.detail__banner {
+  grid-column: 1 / -1;
+  position: relative;
+  /* Contexto de apilado propio: la capa del fondo va en `z-index: -1` para no
+     tapar el texto, y sin esto se iría detrás del fondo de la página. */
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-block-size: var(--detail-banner-alto);
+  padding: var(--space-6);
+  border: var(--border-width-strong) solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: clip;
+}
+
+.detail__banner-fondo {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-size: cover;
+  /* Por encima del centro: los banners de AniList llevan la cara en la mitad de
+     arriba y el recorte apaisado se come lo de abajo. */
+  background-position: center 35%;
+}
+
+.detail__banner-fondo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--color-bg) 32%, transparent) 0%,
+    color-mix(in oklab, var(--color-bg) 72%, transparent) 56%,
+    var(--color-bg) 100%
+  );
+}
+
+/* El titular de la ficha vive en la banda y no en la columna de lectura. */
+.detail__banner h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  margin: 0;
+}
+
 .detail__aside {
   display: flex;
   flex-direction: column;
@@ -591,15 +658,6 @@
 
 .detail__synopsis {
   max-width: var(--measure);
-}
-
-.detail__body h1 {
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: 800;
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
-  margin: 0;
 }
 
 .detail__body h2 {
@@ -3299,14 +3357,6 @@
 .enriquecido__enlace {
   color: var(--color-accent);
   font-size: var(--text-sm);
-}
-
-.detail__banner {
-  inline-size: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  border-radius: var(--radius-md);
-  margin-block-end: var(--space-4);
 }
 
 .parrilla__dia {

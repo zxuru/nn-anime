@@ -46,6 +46,14 @@ interface ImageRow {
 export interface AniListRepository {
   /** El emparejamiento guardado. `value: null` es «se buscó y no hay». */
   readMedia(titleKey: string, now?: number): CacheHit<AniListEntry | null> | null
+  /**
+   * Guarda el emparejamiento **con sus direcciones de imagen**.
+   *
+   * Las dos cosas van juntas porque la ficha pide la imagen por el id de esta
+   * fila: guardar la obra y no sus direcciones deja la portada y el banner en un
+   * 404 que el navegador pinta como una imagen rota. `null` —«se buscó y no
+   * hay»— no tiene imágenes que guardar.
+   */
   writeMedia(titleKey: string, media: AniListEntry | null, now?: number): void
   readList<T>(key: string, schema: z.ZodType<T>, now?: number): CacheHit<readonly T[]> | null
   writeList<T>(key: string, items: readonly T[], ttlS: number, now?: number): void
@@ -93,6 +101,18 @@ export function createAniListRepository(db: Database): AniListRepository {
      ON CONFLICT (media_id, kind) DO UPDATE SET url = excluded.url`,
   )
 
+  /**
+   * Las direcciones de imagen de una obra, por su id.
+   *
+   * El banner es opcional —hay obras sin él— y el `undefined` no escribe fila:
+   * una fila con la cadena «undefined» sería una dirección que la ruta intentaría
+   * resolver y no resolvería.
+   */
+  function guardarImagenes(media: AniListEntry): void {
+    upsertImage.run(media.id, 'cover', media.coverUrl)
+    if (media.bannerUrl !== undefined) upsertImage.run(media.id, 'banner', media.bannerUrl)
+  }
+
   return {
     readMedia(titleKey, now = Date.now()) {
       const fila = selectMedia.get(titleKey)
@@ -120,6 +140,11 @@ export function createAniListRepository(db: Database): AniListRepository {
       const ttlS = media === null ? TTL_SECONDS.anilistMiss : TTL_SECONDS.anilistMedia
 
       upsertMedia.run(titleKey, media === null ? null : JSON.stringify(media), now, ttlS)
+
+      // El emparejamiento y sus imágenes, en la misma escritura: quien sirve la
+      // ficha resuelve el banner contra `anilist_image` por el id de esta fila, y
+      // guardar sólo una de las dos mitades dejaba la ficha sin imagen.
+      if (media !== null) guardarImagenes(media)
     },
 
     readList<T>(key: string, schema: z.ZodType<T>, now = Date.now()) {
@@ -149,8 +174,7 @@ export function createAniListRepository(db: Database): AniListRepository {
     },
 
     writeImages(media) {
-      upsertImage.run(media.id, 'cover', media.coverUrl)
-      if (media.bannerUrl !== undefined) upsertImage.run(media.id, 'banner', media.bannerUrl)
+      guardarImagenes(media)
     },
   }
 }

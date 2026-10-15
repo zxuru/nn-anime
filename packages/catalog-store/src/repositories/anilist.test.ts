@@ -21,7 +21,7 @@ import {
 } from '@nn-anime/core'
 import { TTL_SECONDS } from '../cache-policy'
 import { openDb } from '../db'
-import { runMigrations } from '../migrations/runner'
+import { listMigrations, runMigrations } from '../migrations/runner'
 import { createAniListRepository } from './anilist'
 
 /** Una obra con la forma que guarda la caché, con datos de la API real. */
@@ -51,13 +51,25 @@ function entrada(overrides: Partial<AniListEntry> = {}): AniListEntry {
   }
 }
 
-/** Base en directorio temporal: ningún test toca `$XDG_DATA_HOME`. */
-async function withDb<T>(body: (db: Database) => T): Promise<T> {
+/**
+ * Base en directorio temporal: ningún test toca `$XDG_DATA_HOME`.
+ *
+ * `hasta` aplica sólo las migraciones anteriores o iguales a esa versión, que es
+ * lo que necesita una prueba del relleno: hay que dejar la base como estaba
+ * **antes** de la migración que se mide, escribir la fila antigua y aplicar
+ * después lo que falta.
+ */
+async function withDb<T>(body: (db: Database) => T, hasta?: number): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-anilist-'))
   const db = openDb(join(dir, 'nn-anime.db'))
 
   try {
-    runMigrations(db)
+    const migraciones =
+      hasta === undefined
+        ? listMigrations()
+        : listMigrations().filter((migration) => migration.version <= hasta)
+
+    runMigrations(db, migraciones)
 
     return body(db)
   } finally {
@@ -124,6 +136,40 @@ describe('el emparejamiento guardado', () => {
       expect(() => createAniListRepository(db).readMedia('rota', 1_000)).toThrow(StoreError)
     })
   })
+
+  /**
+   * El emparejamiento y sus imágenes, en la misma escritura.
+   *
+   * La ficha resuelve el banner **por el id de esta fila**, así que guardar la
+   * obra sin sus direcciones dejaba la portada y el banner en un 404 —lo que el
+   * navegador pinta como el icono de imagen rota—. No lo veía ninguna prueba
+   * porque el único camino que escribía imágenes era el de las listas, y éste es
+   * el de la ficha.
+   */
+  test('guardar el emparejamiento guarda también sus direcciones de imagen', async () => {
+    await withDb((db) => {
+      const repo = createAniListRepository(db)
+      repo.writeMedia('kimetsu', entrada(), 1_000)
+
+      expect(repo.readImage(101922, 'cover')).toBe(entrada().coverUrl)
+      expect(repo.readImage(101922, 'banner')).toBe(entrada().bannerUrl)
+    })
+  })
+
+  test('el «se buscó y no hay» no deja imágenes de una obra que no existe', async () => {
+    await withDb((db) => {
+      const repo = createAniListRepository(db)
+      repo.writeMedia('sin-equivalente', null, 1_000)
+
+      expect(repo.readMedia('sin-equivalente', 1_000)?.value).toBeNull()
+
+      const filas = db
+        .query<{ filas: number }, []>('SELECT COUNT(*) AS filas FROM anilist_image')
+        .get()
+
+      expect(filas?.filas).toBe(0)
+    })
+  })
 })
 
 describe('las listas cacheadas', () => {
@@ -184,5 +230,64 @@ describe('las imágenes por id', () => {
       expect(repo.readImage(101922, 'banner')).toBeUndefined()
       expect(repo.readImage(101922, 'cover')).toBe(resto.coverUrl)
     })
+  })
+})
+
+/**
+ * El relleno de lo emparejado antes del arreglo.
+ *
+ * Esta migración no crea esquema: arregla datos. Una fila que guardó la versión
+ * que no escribía imágenes tiene que aparecer con las suyas sin volver a
+ * preguntarle a AniList, que es lo que el TTL de un mes obligaría a esperar.
+ */
+describe('el relleno de las imágenes ya emparejadas', () => {
+  const RELLENO = listMigrations().find((migration) => migration.name === 'anilist-image-relleno')
+
+  /** La versión anterior a la del relleno, para dejar la base como estaba. */
+  const ANTES = (RELLENO?.version ?? 0) - 1
+
+  /** Una obra emparejada, escrita como la escribía la versión anterior. */
+  function emparejar(db: Database, media: AniListEntry | null, clave = 'kimetsu'): void {
+    db.query(
+      'INSERT INTO anilist_media (title_key, media_json, fetched_at, ttl_s) VALUES (?, ?, ?, ?)',
+    ).run(clave, media === null ? null : JSON.stringify(media), 1_000, TTL_SECONDS.anilistMedia)
+  }
+
+  test('la obra guardada sin imágenes recupera su portada y su banner', async () => {
+    expect(RELLENO, 'falta la migración del relleno').toBeDefined()
+
+    await withDb((db) => {
+      emparejar(db, entrada())
+
+      const repo = createAniListRepository(db)
+      expect(repo.readImage(101922, 'banner')).toBeUndefined()
+
+      // Lo que hace el arranque de la aplicación al abrir una base ya usada.
+      runMigrations(db)
+
+      expect(repo.readImage(101922, 'cover')).toBe(entrada().coverUrl)
+      expect(repo.readImage(101922, 'banner')).toBe(entrada().bannerUrl)
+    }, ANTES)
+  })
+
+  test('no se inventa lo que no había: ni el banner de una obra sin él, ni el «no hay»', async () => {
+    const sinBanner = entrada()
+    const { bannerUrl: _sinBanner, ...resto } = sinBanner
+
+    await withDb((db) => {
+      emparejar(db, resto)
+      emparejar(db, null, 'sin-equivalente')
+
+      runMigrations(db)
+
+      const repo = createAniListRepository(db)
+      const filas = db
+        .query<{ filas: number }, []>('SELECT COUNT(*) AS filas FROM anilist_image')
+        .get()
+
+      expect(repo.readImage(101922, 'cover')).toBe(resto.coverUrl)
+      expect(repo.readImage(101922, 'banner')).toBeUndefined()
+      expect(filas?.filas).toBe(1)
+    }, ANTES)
   })
 })

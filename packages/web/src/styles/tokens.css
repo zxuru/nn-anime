@@ -215,6 +215,13 @@
   --cover-width: 11rem;
   /** Ancho de la barra lateral de la ficha y de la miniatura de un relacionado. */
   --aside-width: 17rem;
+  /**
+   * El alto de la banda del banner en la ficha.
+   *
+   * Es una franja y no la proporción de la imagen: el banner de AniList es
+   * apaisado, y a todo lo ancho de la ficha mediría media pantalla.
+   */
+  --detail-banner-alto: 16rem;
   --thumb-width: 3rem;
   /** Ancho de la barra de progreso de un episodio en la ficha. */
   --progress-width: 6rem;
