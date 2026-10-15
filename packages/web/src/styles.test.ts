@@ -344,6 +344,55 @@ describe('tokens de diseño', () => {
     expect(css).toContain('.pz__cifra')
   })
 
+  /**
+   * Los seis campos de arte se reparten por posición.
+   *
+   * Es lo que se perdió al retirar los bloques de la home vieja: el reparto colgaba
+   * de `.row__list`, que se fue con ellos, y desde entonces todo hueco sin portada
+   * —y toda pieza cuya portada no llega, que sin red es lo normal— salía del mismo
+   * gris. Se comprueban las seis posiciones y los seis campos: con cinco de los
+   * seis, dos piezas contiguas vuelven a repetir degradado.
+   */
+  test('los seis campos de arte se reparten por posición', async () => {
+    const css = await read(SHELL)
+    const tokens = await read(TOKENS)
+
+    for (const campo of ['a', 'b', 'c', 'd', 'e', 'f']) {
+      expect(tokens, `falta el campo --cover-${campo} en tokens.css`).toContain(`--cover-${campo}:`)
+      expect(css, `el campo --cover-${campo} no se reparte`).toContain(
+        `--campo: var(--cover-${campo})`,
+      )
+    }
+
+    const posiciones = [...css.matchAll(/\.mosaico > \.pz:nth-child\((6n \+ \d)\)/g)].map(
+      (coincidencia) => coincidencia[1] ?? '',
+    )
+
+    expect(posiciones.sort()).toEqual(['6n + 1', '6n + 2', '6n + 3', '6n + 4', '6n + 5', '6n + 6'])
+  })
+
+  /**
+   * El arte de la pieza se coloca contra la pieza, no contra su pie.
+   *
+   * `position: absolute` se resuelve contra el ancestro posicionado más cercano, y
+   * con el enlace en el flujo ése era el enlace: medía lo que su texto, así que la
+   * portada de una pieza 2x2 —la del top, la de continuar viendo— salía como una
+   * tira pegada abajo y el resto del hueco quedaba en negro. El resultado no se
+   * puede medir sin un navegador; se mide la regla que lo decide, que es una.
+   */
+  test('el enlace de la pieza cubre el hueco entero', async () => {
+    const css = await read(SHELL)
+    const enlace = /\.pz__enlace\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+
+    expect(enlace, 'falta .pz__enlace en shell.css').not.toBe('')
+    expect(enlace).toContain('position: absolute')
+    expect(enlace).toContain('inset: 0')
+    // Y no vuelve el `block-size: 100%`, que no resolvía nada: contra una fila de
+    // altura automática, un porcentaje se lee como `auto` y el arte vuelve a la
+    // tira de abajo.
+    expect(enlace).not.toContain('block-size: 100%')
+  })
+
   test('respeta la preferencia de movimiento reducido', async () => {
     expect(await read(TOKENS)).toContain('prefers-reduced-motion')
   })

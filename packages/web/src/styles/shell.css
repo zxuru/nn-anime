@@ -204,28 +204,26 @@
   background: var(--color-surface-raised);
 }
 
-.card__cover {
+/*
+ * La portada de una tarjeta.
+ *
+ * El hueco lleva el campo de degradado que le toca por posición —`--campo`, que
+ * reparte el bloque de las marcas de arte—: se ve mientras la portada carga, y se
+ * queda si la portada no llega, que sin red es lo normal. Sin él, un título sin
+ * portada deja un rectángulo gris liso.
+ *
+ * El pie de la imagen no lleva la tipografía del título: `padding` y
+ * `-webkit-line-clamp` aquí recortaban la portada, no el texto que va debajo.
+ */
+.card__cover,
+.card__cover--vacia {
   display: block;
   width: 100%;
   aspect-ratio: var(--cover-ratio);
-  background: var(--color-surface-raised);
   object-fit: cover;
+  background: var(--campo, var(--cover-a));
 }
 
-/*
- * Las portadas de relleno.
- *
- * Todo hueco de portada lleva uno de los seis degradados del diseño, repartidos
- * por posición: el hueco de una tarjeta sin portada, y también el fondo de la
- * imagen, que es lo que se ve cuando la portada no carga. Sin eso, un título sin
- * portada —o con una que falla, que es lo normal sin red— deja un rectángulo gris
- * con el icono de imagen rota.
- *
- * Se hace con `nth-child` y no con JavaScript porque es una decisión de pintura:
- * el componente no tiene por qué saber qué color le toca.
- */
-.card__cover,
-.card__cover--vacia,
 .card__title {
   font-family: var(--font-display);
   font-size: var(--text-md);
@@ -723,7 +721,7 @@
   aspect-ratio: var(--cover-ratio);
   flex: none;
   object-fit: cover;
-  background: var(--cover-a);
+  background: var(--campo, var(--cover-a));
 }
 
 /*
@@ -2686,6 +2684,54 @@
    navegador los aparta con el campo. Todos recortados por el borde: el marco
    corta, y por eso los tamaños van en `cqi` —unidades del propio campo—. */
 
+/* El reparto de los seis campos por posición.
+ *
+ * Seis degradados para seis posiciones seguidas, así que dos piezas contiguas
+ * nunca repiten campo. Cuelga del contenedor —el mosaico de la vitrina, la
+ * rejilla de Buscar, la lista de relacionados— y no del componente: qué color le
+ * toca a una pieza es una decisión de pintura, y el que pinta no tiene por qué
+ * saberla. El campo se pinta en `.pz__arte` y en `.card__cover`, que lo leen de
+ * aquí por herencia.
+ *
+ * Estuvo y se perdió al retirar los bloques de la home vieja —el reparto colgaba
+ * de `.row__list`, que ya no existe—: sin él, todo hueco sin portada salía del
+ * mismo gris. */
+.mosaico > .pz:nth-child(6n + 1),
+.grid__item:nth-child(6n + 1),
+.related > .related__item:nth-child(6n + 1) {
+  --campo: var(--cover-a);
+}
+
+.mosaico > .pz:nth-child(6n + 2),
+.grid__item:nth-child(6n + 2),
+.related > .related__item:nth-child(6n + 2) {
+  --campo: var(--cover-b);
+}
+
+.mosaico > .pz:nth-child(6n + 3),
+.grid__item:nth-child(6n + 3),
+.related > .related__item:nth-child(6n + 3) {
+  --campo: var(--cover-c);
+}
+
+.mosaico > .pz:nth-child(6n + 4),
+.grid__item:nth-child(6n + 4),
+.related > .related__item:nth-child(6n + 4) {
+  --campo: var(--cover-d);
+}
+
+.mosaico > .pz:nth-child(6n + 5),
+.grid__item:nth-child(6n + 5),
+.related > .related__item:nth-child(6n + 5) {
+  --campo: var(--cover-e);
+}
+
+.mosaico > .pz:nth-child(6n + 6),
+.grid__item:nth-child(6n + 6),
+.related > .related__item:nth-child(6n + 6) {
+  --campo: var(--cover-f);
+}
+
 /* Inicial a cuerpo enorme, recortada por el borde de la pieza. */
 .pz__letra {
   position: absolute;
@@ -3136,11 +3182,23 @@
   background: var(--velo-art);
 }
 
+/* El enlace es **la pieza entera**, y el arte va dentro.
+ *
+ * Las dos cosas cuelgan de esto. El arte (`.pz__arte`, y la portada dentro) se
+ * coloca contra el ancestro posicionado más cercano, que era el enlace; con el
+ * enlace en el flujo, su alto era el de su texto —el pie— y el arte de una pieza
+ * 2x2 quedaba en una franja de abajo con el resto del hueco en negro: la portada
+ * de una pieza se veía como una tira. Y lo pulsable era esa misma tira: el cuerpo
+ * de la pieza tiene que ser el enlace, no su pie.
+ *
+ * `block-size: 100%` no servía: contra una fila de altura automática, un
+ * porcentaje se resuelve como `auto`. La pieza ya tiene alto —se lo da
+ * `grid-auto-rows` del mosaico—, así que el enlace lo ocupa y no lo propone. */
 .pz__enlace {
-  position: relative;
+  position: absolute;
+  inset: 0;
   display: grid;
   align-content: end;
-  block-size: 100%;
   color: inherit;
   text-decoration: none;
 }
@@ -3445,64 +3503,6 @@
   background: var(--color-accent);
   color: var(--color-accent-contrast);
   border-color: var(--color-accent);
-}
-
-/* --- 8. Franja de motivos (el desplegable, convertido en franja) ------- */
-.franja {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2) var(--space-5);
-  padding: var(--franja-relleno);
-  border: var(--border-width) solid var(--color-rule);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  margin-block-end: var(--vitrina-hueco);
-}
-
-.franja__titulo {
-  font-family: var(--font-display);
-  font-size: var(--franja-titulo);
-  font-weight: 600;
-}
-
-.franja details {
-  min-inline-size: var(--franja-detalle);
-}
-
-.franja details summary.franja__desplegar {
-  display: inline-flex;
-  align-items: center;
-  min-block-size: var(--pieza-mando);
-  padding-inline: var(--space-3);
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--color-accent);
-  cursor: pointer;
-  border: var(--border-width) solid var(--color-rule);
-  border-radius: var(--radius-sm);
-}
-
-/* El párrafo que acompaña al desplegable: el por qué del motor, en prosa. */
-.franja__cuerpo {
-  padding: var(--space-2) var(--space-3) var(--space-1);
-  color: var(--color-text-dim);
-  font-size: var(--text-md);
-}
-
-/* El detalle del motor dentro de la franja: sus títulos no compiten con el de la
-   franja, que es el que manda. */
-.franja details .panel {
-  padding-inline: var(--space-3);
-}
-
-.franja details .panel h2 {
-  font-family: var(--font-display);
-  font-size: var(--franja-titulo);
-  font-weight: 600;
 }
 
 /* --- 7. Banda de géneros ---------------------------------------------- */

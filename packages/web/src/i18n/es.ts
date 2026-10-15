@@ -108,7 +108,7 @@ export const messages: Messages = {
   'home.ticker': 'Lo más visto ahora',
   'home.featured.tag': 'Destacado',
   'home.featured.play': 'Reproducir el episodio {number}',
-  'home.top': 'Top de la fuente',
+  'home.top': 'Top',
   'home.top.meta': 'El orden de la fuente',
   'home.top.more': 'Mostrar más',
   'home.top.empty': 'Ningún proveedor activo publica un top.',
@@ -119,12 +119,8 @@ export const messages: Messages = {
   'home.genres': 'Explorar por género',
   'home.genres.meta': 'Del catálogo que tienes',
   'home.genres.empty': 'Todavía no hay géneros: aparecen cuando se cachean títulos.',
-  'home.explain': '¿Por qué estas recomendaciones?',
   'home.recommended': 'Recomendado para ti',
   'home.recommended.meta': 'Lo que el motor cree que va contigo',
-  'home.franja.title': 'Lo que el motor ha elegido',
-  'home.franja.body':
-    'La puntuación de cada pieza es la del motor de recomendación, y sólo aparece cuando ha podido calcularse.',
   // Los tres renglones de la nota de un tramo: el titular, la etiqueta y la cuenta.
   'home.count': '{count} títulos',
   'home.countOne': '1 título',

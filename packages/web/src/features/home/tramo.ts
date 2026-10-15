@@ -22,13 +22,17 @@ export function cuentaDeTitulos(total: number): string {
 /**
  * La cuenta del top: los que se ven y los que quedan por desplegar.
  *
- * «12 títulos · y 7 más» mientras está recortado, «12 títulos» cuando ya se
- * desplegó: el renglón dice lo que hay, no lo que cabría.
+ * «12 títulos · y 7 más» mientras está recortado, «19 títulos» cuando ya se
+ * desplegó. El primer número es el de los puestos que **se ven**: el renglón
+ * acompaña lo que hay en pantalla, y decir «50 títulos» sobre diez piezas hace
+ * dudar de si la rejilla se ha cortado o de si el recuento cuenta otra cosa. En el
+ * artefacto es el mismo reparto —cinco piezas a la vista y «12 títulos · y 7 más»
+ * con doce en el top—.
  */
 export function cuentaDelTop(total: number, visibles: number): string {
   if (visibles >= total) return cuentaDeTitulos(total)
 
-  return t(DEFAULT_LOCALE, 'home.countMore', { count: total, more: total - visibles })
+  return t(DEFAULT_LOCALE, 'home.countMore', { count: visibles, more: total - visibles })
 }
 
 /**

@@ -374,18 +374,25 @@
   --arte-posicion-lado: 0.02em;
   --arte-posicion-letra: -0.05em;
 
-  /** La cinta de la marquesina: una vuelta cada 46 s, en bucle. */
-  --cinta-vuelta: 46s;
+  /**
+   * La cinta de la marquesina.
+   *
+   * La vuelta la calcula el componente: mide el carro y le da el tiempo que tarda
+   * en pasar a **esta** velocidad. Con una vuelta fija, la cinta corría el doble
+   * de rápido con cincuenta títulos que con doce —el carro se desplaza la mitad de
+   * su ancho, y su ancho es lo que mide la lista entera—, y con la lista de un
+   * proveedor real, que publica decenas, no se podía leer.
+   *
+   * `--cinta-vuelta` es sólo lo que se ve antes de que el carro se mida: lento a
+   * propósito, para que el primer fotograma no sea un latigazo.
+   */
+  --cinta-velocidad: 60px / s;
+  --cinta-vuelta: 240s;
   --cinta-alto: clamp(3rem, 6vw, 4rem);
   --cinta-hueco: clamp(0.5rem, 2vw, 1.4rem);
   --cinta-item-hueco: 1.5rem;
   --cinta-item: clamp(1rem, 1.8vw, 1.5rem);
   --cinta-punto: 0.35rem;
-
-  /** La franja de motivos: el desplegable del motor, convertido en franja. */
-  --franja-relleno: 0.9rem 1rem;
-  --franja-titulo: clamp(1.1rem, 1.6vw, 1.35rem);
-  --franja-detalle: min(100%, 22rem);
 
   /** El esqueleto del mosaico, con la métrica del contenido. */
   --esqueleto-fila: clamp(6rem, 30vw, 9rem);

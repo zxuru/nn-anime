@@ -16,10 +16,10 @@ telemetría.**
 El tema por defecto es el del sistema; se cambia en **Ajustes** y queda guardado.
 
 La home sigue el orden del diseño: cinta de lo más visto, cartel de destacado —con el botón que
-reproduce el primer episodio y el de favoritos—, el **top de la fuente** —su ranking, numerado del uno
+reproduce el primer episodio y el de favoritos—, **top** —el ranking de la fuente, numerado del uno
 al N y con «Mostrar más»—, **novedades** de la fuente, **último añadido**, continuar viendo, favoritos y
-los géneros del catálogo. Los motivos del motor se leen en el desplegable «¿Por qué estas
-recomendaciones?».
+los géneros del catálogo. El motivo de cada recomendación viaja con su pieza: se lee en el asomo, al
+pasar el puntero, y en la hoja que abre el botón «i».
 
 Las dos filas del medio existen para que la primera pantalla no dependa de que hayas buscado antes:
 «último añadido» enseña lo que la aplicación ya conoce —lo que buscaste y lo que abriste— y

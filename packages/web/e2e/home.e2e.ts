@@ -19,7 +19,7 @@ test.describe('la home', () => {
     // top y las demás secciones.
     await expect(page.locator('.cinta')).toBeVisible()
     await expect(page.locator('.marquesina__titulo')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Top de la fuente' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Top', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Continuar viendo' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Tus favoritos' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Explorar por género' })).toBeVisible()
@@ -48,7 +48,7 @@ test.describe('la home', () => {
     await esperarApp(page)
 
     const top = page.locator('.seccion', {
-      has: page.getByRole('heading', { name: 'Top de la fuente' }),
+      has: page.getByRole('heading', { name: 'Top', exact: true }),
     })
     // Las piezas del top: el mando de «Mostrar más» también es una pieza del
     // mosaico, pero no un puesto. Todas pesan lo mismo —dos de ancho por dos de
@@ -58,12 +58,17 @@ test.describe('la home', () => {
 
     await expect(tarjetas).toHaveCount(10)
     await expect(top.locator('.pz__posicion').last()).toHaveText('10')
+    // La nota cuenta los puestos **a la vista** y los que quedan: quince en el top
+    // con diez recortados se lee «10 títulos · y 5 más», no «15 títulos».
+    await expect(top.locator('.nota__cuenta')).toHaveText('10 títulos · y 5 más')
 
     await top.getByRole('button', { name: 'Mostrar más' }).click()
 
     await expect(tarjetas).toHaveCount(15)
     await expect(top.locator('.pz__posicion').last()).toHaveText('15')
     await expect(top.getByRole('button', { name: 'Mostrar más' })).toHaveCount(0)
+    // Desplegado, el renglón dice los que hay: ya no queda nada por enseñar.
+    await expect(top.locator('.nota__cuenta')).toHaveText('15 títulos')
   })
 
   /**
@@ -124,16 +129,6 @@ test.describe('la home', () => {
     const tema = await page.evaluate(() => document.documentElement.dataset.theme)
 
     expect(['dark', 'light']).toContain(tema)
-  })
-
-  test('el panel dice que no hay historial todavía', async ({ page }) => {
-    await entrar(page)
-
-    // El panel del motor vive dentro de un desplegable: el top es el de la fuente
-    // y no lleva motivos, así que el sitio donde el motor se explica es éste.
-    await page.getByText('¿Por qué estas recomendaciones?').click()
-
-    await expect(page.getByText('Sin historial todavía')).toBeVisible()
   })
 })
 

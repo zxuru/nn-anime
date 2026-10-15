@@ -11,7 +11,7 @@ import { featuredMeta, pieDelCartel } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
 import { GenreRow, generosConCuenta, topGenres } from './GenreRow'
 import { metaDeRecomendacion } from './RecommendedRow'
-import { Ticker } from './Ticker'
+import { Ticker, velocidadEnPxPorSegundo, vueltasDeLaCinta } from './Ticker'
 import { puestosVisibles, quedanPuestos, TOP_VISIBLES, TopRow } from './TopRow'
 import { cuentaDelTop, cuentaDeTitulos, pesoDeNovedades } from './tramo'
 
@@ -68,8 +68,10 @@ describe('la cuenta de un tramo', () => {
     expect(cuentaDeTitulos(3)).toBe('3 títulos')
   })
 
-  test('el top dice lo que hay y lo que queda por desplegar', () => {
-    expect(cuentaDelTop(12, 10)).toBe('12 títulos · y 2 más')
+  test('el top cuenta los que se ven y los que quedan por desplegar', () => {
+    // El primer renglón es el de los puestos a la vista: con doce en el top y diez
+    // recortados, decir «12 títulos» sobre diez piezas hace dudar del recuento.
+    expect(cuentaDelTop(12, 10)).toBe('10 títulos · y 2 más')
     // Desplegado, la cuenta deja de mentir: ya no queda nada por enseñar.
     expect(cuentaDelTop(12, 12)).toBe('12 títulos')
   })
@@ -395,6 +397,35 @@ describe('la cinta', () => {
     expect(html).not.toContain('tabindex')
     // Y la copia sigue estando: sin ella el bucle salta al empezar de nuevo.
     expect(html.match(/cinta__item/g)?.length).toBe(2)
+  })
+
+  /**
+   * La vuelta sale del ancho del carro, no del número de títulos.
+   *
+   * Es el fallo que se vio en la pantalla: la vuelta era un número fijo y el
+   * recorrido no, así que la cinta corría el doble de rápido con los cincuenta
+   * títulos de un proveedor real que con una lista corta. Se mide aquí porque en un
+   * navegador no se puede esperar a que la cinta dé una vuelta entera.
+   */
+  test('la vuelta es la mitad del carro a la velocidad del token', () => {
+    // 6000 px de carro a 60 px/s: 3000 px de recorrido, 50 s.
+    expect(vueltasDeLaCinta(6000, 60)).toBe(50)
+    // El doble de carro, el doble de vuelta: la velocidad no cambia.
+    expect(vueltasDeLaCinta(12_000, 60)).toBe(2 * vueltasDeLaCinta(6000, 60))
+  })
+
+  test('sin carro medido o sin velocidad no se inventa una vuelta', () => {
+    expect(vueltasDeLaCinta(0, 60)).toBe(0)
+    expect(vueltasDeLaCinta(6000, 0)).toBe(0)
+    expect(vueltasDeLaCinta(6000, -1)).toBe(0)
+  })
+
+  test('la velocidad se lee del token; un valor que no encaja no la inventa', () => {
+    expect(velocidadEnPxPorSegundo('60px/s')).toBe(60)
+    expect(velocidadEnPxPorSegundo(' 12.5px / s ')).toBe(12.5)
+    expect(velocidadEnPxPorSegundo('')).toBeUndefined()
+    expect(velocidadEnPxPorSegundo('46s')).toBeUndefined()
+    expect(velocidadEnPxPorSegundo('0px/s')).toBeUndefined()
   })
 })
 
