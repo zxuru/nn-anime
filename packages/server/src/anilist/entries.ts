@@ -79,6 +79,13 @@ export const mediaSchema = z.object({
   synonyms: z.array(z.string()).nullable().optional(),
   format: z.string().nullable().optional(),
   status: z.string().nullable().optional(),
+  /**
+   * Obligatorio, no opcional, porque de la obra se guarda `adult` y el schema que
+   * lo guarda lo exige. AniList publica el campo como booleano no nulo; si
+   * faltara, la obra se descarta —como todo lo que falta de lo que se usa— en vez
+   * de darse por apta.
+   */
+  isAdult: z.boolean(),
   // Los tres campos: la API devuelve el día cuando lo conoce —una película ya
   // estrenada— y sólo el año cuando no. Zod descarta lo que no se declara, y sin
   // `month`/`day` aquí la fecha se quedaba en el año sin que nadie lo notara.
@@ -214,6 +221,7 @@ export function toEntry(media: z.infer<typeof mediaSchema>): AniListEntry | unde
     ...(media.format === null || media.format === undefined ? {} : { format: media.format }),
     ...(statusOf(media.status) === undefined ? {} : { status: statusOf(media.status) }),
     ...(yearOf(media) === undefined ? {} : { year: yearOf(media) }),
+    adult: media.isAdult,
     ...(media.episodes === null || media.episodes === undefined
       ? {}
       : { episodes: media.episodes }),

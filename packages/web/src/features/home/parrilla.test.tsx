@@ -36,6 +36,7 @@ function capitulo(overrides: Partial<AiringItem> = {}): AiringItem {
     anilistId: 101922,
     title: 'Kimetsu no Yaiba',
     cover: '/api/anilist/image/cover/101922',
+    adult: false,
     episode: 5,
     airingAt: new Date(2026, 9, 15, 20, 30).toISOString(),
     ...overrides,
@@ -58,6 +59,7 @@ describe('a dónde lleva una pieza', () => {
       anilistId: 20920,
       title: 'Danmachi',
       cover: '/api/anilist/image/cover/20920',
+      adult: false,
       year: 2015,
       format: 'TV',
       ref: { providerId: 'fixture', value: 'danmachi' },
@@ -73,9 +75,9 @@ describe('a dónde lleva una pieza', () => {
   })
 
   test('una película se anuncia por su formato y un capítulo por su número', () => {
-    expect(metaDeDescubrir({ anilistId: 1, title: 'x', cover: '/y', format: 'MOVIE' })).toBe(
-      'MOVIE',
-    )
+    expect(
+      metaDeDescubrir({ anilistId: 1, title: 'x', cover: '/y', adult: false, format: 'MOVIE' }),
+    ).toBe('MOVIE')
     expect(desdeEmision(capitulo()).meta).toBe('Ep. 5')
     // Un estreno no tiene episodio: se queda sin esa parte.
     expect(desdeEmision(capitulo({ episode: undefined })).meta).toBeUndefined()

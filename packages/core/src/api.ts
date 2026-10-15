@@ -433,6 +433,15 @@ export const watchedResponseSchema = z.strictObject({
  */
 export const feedItemSchema = animeSummarySchema.extend({
   publishedAt: z.iso.datetime().optional(),
+  /**
+   * Si **se sabe** que la obra es para adultos.
+   *
+   * Opcional y sólo verdadero: una entrada del feed viene de un plugin que no
+   * publica la edad, así que lo único que se puede afirmar de ella es que se
+   * comprobó que lo es. La ausencia significa «no consta»; un `false` diría que se
+   * miró, y eso sería mentir en la marca.
+   */
+  adult: z.literal(true).optional(),
 })
 
 /** La fila de novedades: lo que publica la fuente, sin que nadie busque. */
@@ -462,6 +471,11 @@ export const discoverItemSchema = z.strictObject({
   cover: z.string().min(1),
   score: z.number().min(0).max(100).optional(),
   year: z.number().int().optional(),
+  /**
+   * Si AniList la marca para adultos. Es lo que pinta la marca `+18` y lo que la
+   * frontera descarta cuando el ajuste está apagado.
+   */
+  adult: z.boolean(),
   kind: titleKindSchema.optional(),
   format: z.string().min(1).optional(),
   episodes: z.number().int().positive().optional(),
@@ -490,6 +504,8 @@ export const airingItemSchema = z.strictObject({
    */
   airingAt: z.iso.datetime().optional(),
   year: z.number().int().optional(),
+  /** Si AniList la marca para adultos. Ver `discoverItemSchema`. */
+  adult: z.boolean(),
   kind: titleKindSchema.optional(),
   ref: providerRefSchema.optional(),
 })
@@ -516,6 +532,8 @@ export const enrichmentSchema = z.strictObject({
   episodes: z.number().int().positive().optional(),
   durationMin: z.number().int().positive().optional(),
   studios: z.array(z.string().min(1)),
+  /** Si AniList la marca para adultos. Ver `discoverItemSchema`. */
+  adult: z.boolean(),
   /** La ficha de la obra en AniList, para atribuir el dato. */
   siteUrl: httpUrlSchema,
   nextEpisode: z

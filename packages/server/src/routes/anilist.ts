@@ -87,6 +87,7 @@ export function discoverItem(entrada: AniListEntry, ref: ProviderRef | undefined
     anilistId: entrada.id,
     title: entrada.names.romaji,
     cover: anilistImagePath('cover', entrada.id),
+    adult: entrada.adult,
     ...(entrada.score === undefined ? {} : { score: entrada.score }),
     ...(entrada.year === undefined ? {} : { year: entrada.year }),
     ...(kind === undefined ? {} : { kind }),
@@ -110,6 +111,7 @@ export function airingItem(
     anilistId: media.id,
     title: media.names.romaji,
     cover: anilistImagePath('cover', media.id),
+    adult: media.adult,
     ...(episode === undefined ? {} : { episode }),
     ...(airingAt === undefined ? {} : { airingAt }),
     ...(year === undefined ? {} : { year }),
@@ -123,6 +125,7 @@ export function enrichmentOf(entrada: AniListEntry): Enrichment {
   return {
     anilistId: entrada.id,
     cover: anilistImagePath('cover', entrada.id),
+    adult: entrada.adult,
     ...(entrada.bannerUrl === undefined ? {} : { banner: anilistImagePath('banner', entrada.id) }),
     ...(entrada.synopsis === undefined ? {} : { synopsis: entrada.synopsis }),
     genres: [...entrada.genres],

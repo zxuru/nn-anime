@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { z } from 'zod'
 import { type PublicStreamSource, toPublicStreamSource } from './models'
 import {
+  anilistEntrySchema,
   animeDetailSchema,
   cacheHitSchema,
   candidateSchema,
@@ -17,6 +18,17 @@ import {
 } from './schema'
 
 const REF = { providerId: 'fuente-ejemplo', value: 'titulo-1' }
+
+/** Una obra de AniList guardada, con lo mínimo que exige el schema. */
+const ENTRADA_ANILIST = {
+  id: 1,
+  names: { romaji: 'Una obra' },
+  adult: false,
+  genres: ['Acción'],
+  studios: ['Estudio'],
+  coverUrl: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1-a.jpg',
+  siteUrl: 'https://anilist.co/anime/1',
+}
 
 interface SafeParser {
   safeParse(
@@ -117,6 +129,13 @@ const CASES: readonly ParseCase[] = [
     invalid: { ref: REF, title: 'Un título', tags: 'Acción', studios: [] },
     invalidField: 'tags',
   },
+  {
+    name: 'anilistEntrySchema',
+    parser: anilistEntrySchema,
+    valid: ENTRADA_ANILIST,
+    invalid: { ...ENTRADA_ANILIST, adult: 'no' },
+    invalidField: 'adult',
+  },
 ]
 
 describe('schemas: aceptan la forma canónica', () => {
@@ -136,6 +155,26 @@ describe('schemas: rechazan un campo mal tipado y lo nombran', () => {
       expect(result.message).toContain(parseCase.invalidField)
     })
   }
+})
+
+/**
+ * La marca de adultos de una obra guardada.
+ *
+ * Es obligatoria y no opcional a propósito: un `false` por defecto daría por apta
+ * una obra que nadie ha mirado, y la caché no se enteraría de que le falta el dato.
+ */
+describe('anilistEntrySchema: la marca de adultos no tiene valor por defecto', () => {
+  test('sin el campo, la entrada no se lee', () => {
+    const { adult: _sinMarca, ...sinMarca } = ENTRADA_ANILIST
+    const result = outcome(anilistEntrySchema, sinMarca)
+
+    expect(result.success).toBe(false)
+    expect(result.message).toContain('adult')
+  })
+
+  test('con el campo, se lee aunque sea falsa', () => {
+    expect(outcome(anilistEntrySchema, { ...ENTRADA_ANILIST, adult: false }).success).toBe(true)
+  })
 })
 
 describe('schemas: son estrictos con las claves desconocidas', () => {

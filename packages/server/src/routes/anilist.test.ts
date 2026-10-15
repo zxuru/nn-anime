@@ -142,6 +142,28 @@ describe('el descubrimiento', () => {
     })
   })
 
+  test('la obra que AniList marca para adultos viaja marcada, en el top y en la parrilla', async () => {
+    const marcada: RawMediaFixture = { ...KIMETSU, id: 999, isAdult: true }
+
+    await conApp(
+      {
+        top: [KIMETSU, marcada],
+        airing: [{ media: marcada, episode: 1, airingAt: 1_760_000_000 }],
+      },
+      async ({ pedir }) => {
+        const top = (await (
+          await pedir('/api/discover/top?media=anime')
+        ).json()) as DiscoverResponse
+        expect(top.items.map((item) => item.adult)).toEqual([false, true])
+
+        const parrilla = (await (
+          await pedir('/api/discover/airing?media=anime&days=3')
+        ).json()) as AiringResponse
+        expect(parrilla.items[0]?.adult).toBe(true)
+      },
+    )
+  })
+
   test('la parrilla anuncia los capítulos de los próximos días', async () => {
     await conApp(
       { airing: [{ media: AURORA, episode: 8, airingAt: 1_760_000_000 }] },
@@ -188,6 +210,19 @@ describe('el enriquecimiento de una ficha', () => {
       expect(cuerpo.enrichment?.banner).toBe('/api/anilist/image/banner/555')
       expect(cuerpo.enrichment?.siteUrl).toBe('https://anilist.co/anime/555')
     })
+  })
+
+  test('la marca de adultos viaja también en el enriquecido de la ficha', async () => {
+    await conApp(
+      { search: { 'Aurora Nocturna': [{ ...AURORA, isAdult: true }] } },
+      async ({ pedir }) => {
+        const cuerpo = (await (
+          await pedir(`/api/anime/fixture/${REF}/enrichment`)
+        ).json()) as EnrichmentResponse
+
+        expect(cuerpo.enrichment?.adult).toBe(true)
+      },
+    )
   })
 
   test('el lote del motor empareja lo que ya está en la base y omite lo demás', async () => {

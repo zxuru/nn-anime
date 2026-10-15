@@ -37,6 +37,7 @@ function entrada(overrides: Partial<AniListEntry> = {}): AniListEntry {
     format: 'TV',
     status: 'finished',
     year: 2019,
+    adult: false,
     episodes: 26,
     durationMin: 23,
     score: 84,

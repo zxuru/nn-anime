@@ -240,6 +240,16 @@ export const anilistEntrySchema = z.strictObject({
   format: z.string().min(1).optional(),
   status: airingStatusSchema.optional(),
   year: z.number().int().optional(),
+  /**
+   * Si AniList marca la obra para adultos.
+   *
+   * Obligatorio y no opcional a propósito: la caché guarda la entrada entera, así
+   * que una fila escrita antes de que este campo existiera **no se puede leer**
+   * —`catalog-store` lanza y quien lee la trata como ausente, así que se vuelve a
+   * pedir—. Un `false` por defecto sería peor que no leerla: daría por apta una
+   * obra que nadie ha mirado, que es justo lo que el filtro existe para no hacer.
+   */
+  adult: z.boolean(),
   episodes: z.number().int().positive().optional(),
   durationMin: z.number().int().positive().optional(),
   score: z.number().min(0).max(100).optional(),

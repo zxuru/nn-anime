@@ -25,6 +25,7 @@ test.describe('la ficha enriquecida', () => {
           enrichment: {
             anilistId: 555,
             cover: '/api/anilist/image/cover/555',
+            adult: false,
             synopsis: 'Una cartógrafa recorre el cielo de su ciudad.',
             genres: ['Misterio', 'Fantasía'],
             score: 84,
@@ -79,6 +80,7 @@ test.describe('la ficha enriquecida', () => {
           enrichment: {
             anilistId: 555,
             cover: '/api/anilist/image/cover/555',
+            adult: false,
             banner: '/api/anilist/image/banner/555',
             genres: [],
             studios: [],
@@ -150,6 +152,7 @@ test.describe('la ficha enriquecida', () => {
           enrichment: {
             anilistId: 555,
             cover: '/api/anilist/image/cover/555',
+            adult: false,
             banner: '/api/anilist/image/banner/555',
             genres: [],
             studios: [],
@@ -183,6 +186,7 @@ test.describe('la ficha enriquecida', () => {
           enrichment: {
             anilistId: 555,
             cover: '/api/anilist/image/cover/555',
+            adult: false,
             // Una dirección ajena. La capa del fondo se compone con este valor,
             // así que sólo se pinta si tiene la forma que compone el servidor.
             banner: 'https://otro.example/banner.jpg',

@@ -54,6 +54,7 @@ describe('las portadas de la respuesta', () => {
           enrichment: {
             anilistId: 1,
             cover: '/api/anilist/image/cover/1',
+            adult: false,
             genres: [],
             studios: [],
             siteUrl: 'https://anilist.co/anime/1',
