@@ -102,10 +102,16 @@ export {
 export {
   type DecodedSubtitle,
   decodeSubtitle,
+  type ExtractedSubtitle,
+  extractFirstSubtitle,
+  isRarBytes,
+  isZipBytes,
   MAX_SUBTITLE_BYTES,
   type SubtitleKind,
   srtToVtt,
   subtitleKind,
+  subtitleNotInArchive,
+  subtitleRarUnsupported,
   subtitleTooLarge,
 } from './subtitles'
 export {

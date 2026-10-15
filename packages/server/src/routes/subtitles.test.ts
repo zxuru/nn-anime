@@ -157,4 +157,88 @@ describe('GET /api/subtitles/:ticket', () => {
       expect(respuesta.status).toBe(401)
     })
   })
+
+  test('un zip de SubDivX sin extensión se extrae y convierte a `vtt`', async () => {
+    const srt = new TextEncoder().encode('1\n00:00:01,000 --> 00:00:04,000\nHola\n')
+    const zip = zipDe(entradaZip('pelicula.srt', srt))
+
+    await conApp(
+      async ({ pedir, ticket }) => {
+        // Sin extensión en la dirección, como un `bajar.php?id=…`: la firma manda.
+        const respuesta = await pedir(
+          `/api/subtitles/${ticket('https://subdivx.invalid/bajar.php?id=1')}`,
+        )
+
+        expect(respuesta.status).toBe(200)
+        expect(respuesta.headers.get('content-type')).toBe('text/vtt; charset=utf-8')
+        expect(await respuesta.text()).toContain('00:00:01.000')
+      },
+      { cuerpo: zip, tipo: 'application/zip' },
+    )
+  })
+
+  test('un rar se rechaza con 415 y su nombre', async () => {
+    await conApp(
+      async ({ pedir, ticket }) => {
+        const respuesta = await pedir(
+          `/api/subtitles/${ticket('https://subdivx.invalid/bajar.php?id=1')}`,
+        )
+
+        expect(respuesta.status).toBe(415)
+        expect(JSON.stringify(await respuesta.json())).toContain('rar')
+      },
+      { cuerpo: new Uint8Array([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x00, 0x00]) },
+    )
+  })
+
+  test('un zip sin subtítulos es 415, no un 502 del origen', async () => {
+    const zip = zipDe(entradaZip('leeme.txt', new TextEncoder().encode('hola')))
+
+    await conApp(
+      async ({ pedir, ticket }) => {
+        const respuesta = await pedir(
+          `/api/subtitles/${ticket('https://subdivx.invalid/bajar.php?id=1')}`,
+        )
+
+        expect(respuesta.status).toBe(415)
+      },
+      { cuerpo: zip, tipo: 'application/zip' },
+    )
+  })
 })
+
+/**
+ * Un zip mínimo con una entrada `stored`, como el de `media-proxy`: la ruta no
+ * sabe de zips, sólo de lo que el proxy extrae, y aquí se comprueba el cableado
+ * de punta a punta.
+ */
+function entradaZip(nombre: string, datos: Uint8Array): Uint8Array {
+  const nombreBytes = new TextEncoder().encode(nombre)
+  const cabecera = new DataView(new ArrayBuffer(30))
+
+  cabecera.setUint32(0, 0x04034b50, true)
+  cabecera.setUint16(8, 0, true)
+  cabecera.setUint32(18, datos.byteLength, true)
+  cabecera.setUint32(22, datos.byteLength, true)
+  cabecera.setUint16(26, nombreBytes.byteLength, true)
+
+  const zip = new Uint8Array(30 + nombreBytes.byteLength + datos.byteLength)
+  zip.set(new Uint8Array(cabecera.buffer), 0)
+  zip.set(nombreBytes, 30)
+  zip.set(datos, 30 + nombreBytes.byteLength)
+
+  return zip
+}
+
+function zipDe(...entradas: Uint8Array[]): Uint8Array {
+  const total = entradas.reduce((largo, entrada) => largo + entrada.byteLength, 0)
+  const zip = new Uint8Array(total)
+  let offset = 0
+
+  for (const entrada of entradas) {
+    zip.set(entrada, offset)
+    offset += entrada.byteLength
+  }
+
+  return zip
+}
