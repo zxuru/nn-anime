@@ -318,6 +318,19 @@ describe('el tipo de la home', () => {
     )
   })
 
+  /**
+   * Sin los proveedores leídos no se avisa de nada.
+   *
+   * En este render no hay efectos, así que la lista de proveedores está vacía: es
+   * exactamente el estado de los primeros milisegundos de la aplicación —y el que
+   * queda si esa lectura falla—. Decir ahí «ningún proveedor sirve películas» sería
+   * afirmar algo que no se sabe, en el arranque de todas las pantallas.
+   */
+  test('con los proveedores sin leer no dice que no haya fuente', () => {
+    expect(renderEn('/')).not.toContain('Ningún proveedor instalado sirve')
+    expect(renderEn('/?tipo=movies')).not.toContain('Ningún proveedor instalado sirve')
+  })
+
   test('las tres filas que mezclan fuentes piden su mitad al servidor', () => {
     expect(rutasDeTipo('anime')).toEqual({
       trending: '/api/trending?media=anime',

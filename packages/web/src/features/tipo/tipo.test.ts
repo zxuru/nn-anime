@@ -124,9 +124,12 @@ describe('a qué mitad pertenece un título', () => {
 })
 
 describe('avisar de que no hay fuente para esta mitad', () => {
-  test('sin ninguna fuente, sí', () => {
-    expect(sinFuenteQueSirva(new Map(), 'movies')).toBe(true)
-    expect(sinFuenteQueSirva(new Map(), 'anime')).toBe(true)
+  test('con el mapa vacío no se afirma nada: no se sabe, y es el arranque de todo', () => {
+    // El mapa está vacío mientras los proveedores llegan —y si esa lectura falla—:
+    // avisar ahí diría «ninguna fuente sirve esta mitad» en el primer render de
+    // todas las pantallas.
+    expect(sinFuenteQueSirva(new Map(), 'movies')).toBe(false)
+    expect(sinFuenteQueSirva(new Map(), 'anime')).toBe(false)
   })
 
   test('una fuente de anime no sirve la pestaña de películas', () => {

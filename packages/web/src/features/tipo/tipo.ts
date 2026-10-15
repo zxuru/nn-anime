@@ -131,15 +131,23 @@ export function enElTipo<T>(
 }
 
 /**
- * Si no hay ninguna fuente que pueda servir esta mitad.
+ * Si hay que avisar de que a esta mitad no la sirve nadie.
  *
  * Es lo que convierte una pantalla vacía en un problema con solución: sin esto, la
  * pestaña de películas de una instalación sólo de anime se lee como una aplicación
  * rota, y lo que falta es un plugin.
+ *
+ * **Con el mapa vacío no se avisa de nada**, y no es un detalle: el mapa está vacío
+ * las primeras décimas de segundo —los proveedores se piden al servidor— y también
+ * cuando esa lectura falla. Afirmar ahí que ninguna fuente sirve la mitad sería
+ * decir algo que no se sabe, y encima en el arranque de todas las pantallas. Una
+ * instalación sin ninguna fuente se explica en las filas, que ya dicen qué falta.
  */
 export function sinFuenteQueSirva(
   medias: ReadonlyMap<string, ProviderMedia>,
   tipo: MediaFilter,
 ): boolean {
+  if (medias.size === 0) return false
+
   return [...medias.values()].every((media) => !puedeServir(tipo, media))
 }

@@ -225,10 +225,11 @@ export function SearchPage(props: SearchPageProps): ReactNode {
 
       {/*
         Ninguna fuente sirve esta mitad: es lo que convierte una búsqueda que no
-        devuelve nada en un problema con solución. El conmutador de la cabecera es
-        la otra salida.
+        devuelve nada en un problema con solución. El conmutador de la cabecera es la
+        otra salida, y con el mapa de fuentes vacío no se avisa —no se sabe todavía—:
+        de eso se encarga `sinFuenteQueSirva`.
       */}
-      {providersLoaded && sinFuenteQueSirva(medias, tipo) ? (
+      {sinFuenteQueSirva(medias, tipo) ? (
         <p className="aviso-tipo" role="status">
           {t(DEFAULT_LOCALE, tipo === 'movies' ? 'media.empty.movies' : 'media.empty.anime')}{' '}
           {t(DEFAULT_LOCALE, 'media.empty.hint')}
