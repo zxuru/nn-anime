@@ -13,7 +13,9 @@
 
 import { errorResponseSchema, favoriteRequestSchema, favoritesResponseSchema } from '@nn-anime/core'
 import type { Hono } from 'hono'
+import { sinMarcadas } from '../adultos'
 import type { ServerContainer } from '../container'
+import { adultContentOf } from './settings'
 
 export interface FavoritesRouteOptions {
   readonly container: ServerContainer
@@ -21,7 +23,17 @@ export interface FavoritesRouteOptions {
 
 export function registerFavoritesRoutes(app: Hono, options: FavoritesRouteOptions): void {
   app.get('/api/favorites', async (c) => {
-    const favoritos = await options.container.store.listFavorites()
+    const conAdultos = await adultContentOf(options.container.store)
+
+    // Los favoritos son del usuario, y aun así una obra marcada no se enseña con el
+    // interruptor apagado: la marca es lo único que puede esconderla, y aquí no hay
+    // entrada de AniList que consultar.
+    const favoritos = await sinMarcadas(
+      options.container.store,
+      await options.container.store.listFavorites(),
+      conAdultos,
+      (favorito) => favorito.ref,
+    )
 
     return c.json(favoritesResponseSchema.parse({ favorites: favoritos }))
   })

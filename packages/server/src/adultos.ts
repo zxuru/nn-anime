@@ -113,3 +113,24 @@ export async function adultosDeLaFila(
 
   return marcadas
 }
+
+/**
+ * Fuera las piezas marcadas, con el interruptor apagado.
+ *
+ * Es la versión **local** del filtro: no pregunta nada a AniList —son las filas del usuario,
+ * y abrir su historial no justifica una consulta— y sólo descarta lo que ya consta marcado.
+ * La tabla de marcas se lee entera porque es pequeña por construcción: una fila por obra
+ * marcada.
+ */
+export async function sinMarcadas<T>(
+  store: Pick<ServerContainer['store'], 'listAdultRefs'>,
+  piezas: readonly T[],
+  conAdultos: boolean,
+  referencia: (pieza: T) => ProviderRef,
+): Promise<readonly T[]> {
+  if (conAdultos) return piezas
+
+  const marcas = new Set((await store.listAdultRefs()).map((ref) => refKey(ref)))
+
+  return piezas.filter((pieza) => !marcas.has(refKey(referencia(pieza))))
+}

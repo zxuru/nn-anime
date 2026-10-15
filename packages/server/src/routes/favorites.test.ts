@@ -57,6 +57,41 @@ async function conDetalle(pedir: (ruta: string, init?: RequestInit) => Promise<R
   return pedir(`/api/anime/fixture/aurora-nocturna`, { headers: GOOD })
 }
 
+/**
+ * El filtro de adultos en los favoritos.
+ *
+ * Es la parte que el alcance aprobado dejó fuera y el plan sí pedía: una obra marcada no se
+ * enseña con el interruptor apagado ni por la puerta de los favoritos, que no pasa por
+ * AniList y no tiene más señal que la marca. La misma pasada cubre «continuar viendo».
+ */
+describe('el filtro de adultos en los favoritos', () => {
+  test('apagado no sale, y encendido sí', async () => {
+    await conApp(async ({ pedir, db }) => {
+      await conDetalle(pedir)
+      await pedir('/api/favorites', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ ref: AURORA, value: true }),
+      })
+      db.query("INSERT INTO adult_ref (provider_id, provider_ref) VALUES ('fixture', ?)").run(
+        AURORA.value,
+      )
+
+      const apagado = favoritesResponseSchema.parse(await (await pedir('/api/favorites')).json())
+      expect(apagado.favorites).toEqual([])
+
+      await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ adultContent: true }),
+      })
+
+      const encendido = favoritesResponseSchema.parse(await (await pedir('/api/favorites')).json())
+      expect(encendido.favorites).toHaveLength(1)
+    })
+  })
+})
+
 describe('favoritos', () => {
   test('sin nada marcado, la lista está vacía', async () => {
     await conApp(async ({ pedir }) => {
