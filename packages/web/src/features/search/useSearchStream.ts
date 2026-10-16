@@ -248,12 +248,24 @@ interface Entry {
  *
  * La entrada se borra al terminar si nadie escucha, así que un remontaje
  * posterior vuelve a pedir en lugar de recibir un estado muerto.
+ *
+ * Se borra **la suya y sólo si sigue siendo la suya**. Lo segundo no es
+ * ceremonia: la misma ruta puede tener dos entradas seguidas —la búsqueda monta
+ * con la lista de proveedores en camino y se vuelve a suscribir en cuanto
+ * llega—, y la vieja muere un giro después. Borrar por ruta se llevaba la nueva,
+ * y a partir de ahí `read` contestaba el estado de relleno para siempre: la
+ * pantalla se quedaba en «Buscando…», sin tarjetas y sin esqueletos.
  */
 export function createSearchHub(deps: SearchHubDeps): SearchHub {
   const entries = new Map<string, Entry>()
 
   const notify = (entry: Entry): void => {
     for (const listener of [...entry.listeners]) listener()
+  }
+
+  /** Saca del mapa la entrada que se le pasa, si es la que la ruta tiene ahora. */
+  const retirar = (path: string, entry: Entry): void => {
+    if (entries.get(path) === entry) entries.delete(path)
   }
 
   const start = (path: string, active: readonly string[]): Entry => {
@@ -293,7 +305,7 @@ export function createSearchHub(deps: SearchHubDeps): SearchHub {
             notify(entry)
           }
         } finally {
-          if (entry.listeners.size === 0) entries.delete(path)
+          if (entry.listeners.size === 0) retirar(path, entry)
         }
       })()
     })
@@ -310,7 +322,7 @@ export function createSearchHub(deps: SearchHubDeps): SearchHub {
         entry.listeners.delete(listener)
         if (entry.listeners.size === 0) {
           entry.controller.abort()
-          entries.delete(path)
+          retirar(path, entry)
         }
       }
     },

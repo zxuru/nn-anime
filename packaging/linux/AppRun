@@ -1,0 +1,12 @@
+#!/bin/sh
+# El lanzador del AppImage.
+#
+# Dentro del AppImage el directorio está montado en sólo lectura y su ruta la dice
+# `$APPDIR`; si se ejecuta el AppDir sin montar —que es como se prueba—, la ruta
+# es la del propio guion. Las dos formas se resuelven aquí para que el AppImage
+# funcione igual de las dos maneras.
+#
+# No se copia el ejecutable como `AppRun` porque entonces no habría forma de saber
+# dónde quedó el resto del AppDir.
+aqui=${APPDIR:-$(dirname "$(readlink -f "$0")")}
+exec "$aqui/usr/bin/nn-anime" "$@"

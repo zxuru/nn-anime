@@ -1,0 +1,51 @@
+# Paquete de nn-anime para Debian/Ubuntu y para Fedora/RHEL.
+#
+# Un solo archivo para los dos y no un `debian/` con su `rules` más un `.spec`:
+# nfpm los genera desde esto, y tener dos descripciones del mismo paquete es tener
+# dos sitios donde olvidarse de la versión.
+#
+# Las dependencias son las que **mide** el binario, no las que uno supondría: se
+# leyeron sus `DT_NEEDED` —`libc.so.6`, `libm`, `libdl`, `libpthread`, todas de
+# libc6— y la versión mínima de sus símbolos versionados, que es `GLIBC_2.17`. Por
+# eso el paquete declara libc6 y nada más. Los nombres cambian entre los dos
+# formatos, y por eso van en `overrides`.
+name: nn-anime
+arch: __ARCH__
+version: __VERSION__
+platform: linux
+section: video
+priority: optional
+maintainer: nn-anime <nn-anime@localhost>
+vendor: nn-anime
+homepage: https://github.com/zxuru/nn-anime
+license: MIT
+description: |
+  Ver anime desde el navegador, con una interfaz que arranca en 127.0.0.1.
+
+  Todo local: no hay servidor central, ni cuentas, ni telemetria. El programa
+  sirve la interfaz y su API en 127.0.0.1, abre el navegador con un token de
+  arranque y no necesita ningun runtime instalado.
+
+  No incluye ningun scraper: las fuentes las aporta quien lo usa, en forma de
+  plugins.
+contents:
+  - src: __BINARY__
+    dst: /usr/lib/nn-anime/nn-anime
+    file_info:
+      mode: 0755
+  # `/usr/bin` para que `nn-anime` esté en el PATH; el ejecutable vive en
+  # `/usr/lib` porque no es lo que se invoca a mano todos los días.
+  - src: /usr/lib/nn-anime/nn-anime
+    dst: /usr/bin/nn-anime
+    type: symlink
+  - src: __DESKTOP__
+    dst: /usr/share/applications/nn-anime.desktop
+  - src: __ICON__
+    dst: /usr/share/icons/hicolor/512x512/apps/nn-anime.png
+overrides:
+  deb:
+    depends:
+      - libc6 (>= 2.17)
+  rpm:
+    depends:
+      - glibc >= 2.17
