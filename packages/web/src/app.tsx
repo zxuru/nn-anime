@@ -8,6 +8,7 @@
 
 import { DEFAULT_LOCALE, type Locale } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
+import { AniListSearchPage } from './features/anilist/AniListSearchPage'
 import { DetailPage } from './features/detail/DetailPage'
 import { HomePage } from './features/home/HomePage'
 import { WatchPage } from './features/player/WatchPage'
@@ -59,6 +60,7 @@ function Shell(props: {
         <nav className="shell__nav">
           <Link to="/">{t(LOCALE, 'nav.home')}</Link>
           <Link to="/search">{t(LOCALE, 'nav.search')}</Link>
+          <Link to="/anilist">{t(LOCALE, 'nav.anilist')}</Link>
           <Link to="/settings">{t(LOCALE, 'nav.settings')}</Link>
         </nav>
         {props.tipo === true ? <ConmutadorTipo /> : null}
@@ -83,6 +85,8 @@ function screenFor(route: RouteMatch, path: string): ReactNode {
       return <HomePage />
     case 'search':
       return <SearchPage />
+    case 'anilist':
+      return <AniListSearchPage />
     case 'detail':
       return <DetailPage providerId={route.params.providerId ?? ''} ref={route.params.ref ?? ''} />
     case 'watch':
