@@ -25,16 +25,31 @@ cross(
 Con dos piezas nuevas en `queries.ts` y en `core`:
 
 - `crossQuery(adultAllowed, genero)` compone **una** consulta con dos alias —`porEstudio` y
-  `porGenero`—, cada uno con `format_in` según la mitad, `sort: POPULARITY_DESC` y el filtro de
-  adultos cuando el interruptor está apagado. El alias del género **se omite cuando el término no es
-  un género**: `genre:` sólo acepta un nombre de la lista cerrada de AniList y un valor que no está
-  en ella no devuelve vacío, devuelve un error que tumba la consulta entera —la lista del estudio
-  incluida—.
+  `porGenero`—. El del género es el de siempre: `media(type: ANIME, genre: $genero, format_in:
+  $formatos, sort: POPULARITY_DESC)` con el filtro de adultos cuando el interruptor está apagado, y
+  **se omite cuando el término no es un género**, porque `genre:` sólo acepta un nombre de la lista
+  cerrada de AniList y con otro devuelve un error.
+- El del estudio **no se pide con `Media(studio:)` porque ese argumento no existe**: los filtros de
+  `Media` son `genre`, `tag`, `search`, `licensedBy`… y ninguno es el estudio —medido en la
+  referencia de la API el 2026-10-16—. Se pide por donde sí se puede: `Page.studios(search: $q)`
+  busca el estudio por nombre y cada estudio publica su conexión de obras,
+  `media(isMain: true, sort: POPULARITY_DESC)`. Esa conexión **no acepta `format_in` ni `isAdult`**
+  —sus argumentos son `sort`, `isMain`, `page`, `perPage` y `onList`—, así que la mitad y el
+  interruptor de adultos se filtran **después**, sobre lo que llegue (`crossEntries`), y no en la
+  consulta. El estudio que manda es el del nombre exacto cuando está entre los que devuelve la
+  búsqueda.
 - `ANILIST_GENRES` y `anilistGenre(term)` en `packages/core/src/anilist.ts`: la lista cerrada de los
   18 géneros de AniList, con sus alias en español —«Acción» → `Action`, «Recuentos de la vida» →
   `Slice of Life`— y la comparación de siempre —sin acentos, sin mayúsculas—. Sin esta traducción,
   pulsar un género en la vitrina no podría pedirle su lista a AniList, que es la mitad de lo que esta
   entrega viene a hacer.
+
+**Corregido en T139, y se dice aquí porque esta propuesta describe lo que hay que integrar:** la
+primera versión pedía `media(type: ANIME, studio: $q, …)`, un argumento que `Media` no tiene. AniList
+contestaba un error de validación **de la consulta entera** —y con él caía también la lista del
+género que viajaba al lado, que es lo que se reportó: «solicité un género y no me dio ningún
+resultado»—. El doble de las pruebas lo aceptaba, así que nada lo dijo: ahora ese doble contesta el
+error, como AniList, y hay una prueba que falla si la consulta vuelve a pedirlo.
 
 La caché es la de T121, con su propia clave —término normalizado, mitad y eje del interruptor— y un
 TTL nuevo (`anilistSearch`, seis horas), que va en su propia propuesta.
