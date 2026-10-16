@@ -15,6 +15,7 @@ import {
   DEFAULT_PER_PAGE,
   displayTitleOf,
   genreKey,
+  hasGenreToken,
   MAX_PER_PAGE,
   parseAniListInput,
 } from './anilist-search'
@@ -132,6 +133,18 @@ describe('el texto de la casilla se separa en título y géneros', () => {
       genres: [],
       unknownGenres: ['shonnen'],
     })
+  })
+
+  test('el texto pide un género cuando algún término empieza por `#`', () => {
+    // Es la regla que decide quién contesta la búsqueda: con género, el catálogo; sin él,
+    // las fuentes. Un `#` suelto no pide nada.
+    expect(hasGenreToken('#aventura')).toBe(true)
+    expect(hasGenreToken('naruto #action')).toBe(true)
+    expect(hasGenreToken('  #slice-of-life  ')).toBe(true)
+    expect(hasGenreToken('naruto')).toBe(false)
+    expect(hasGenreToken('')).toBe(false)
+    expect(hasGenreToken('#')).toBe(false)
+    expect(hasGenreToken('C# tutorial')).toBe(false)
   })
 
   test('un `#` suelto se informa como se escribió', () => {

@@ -14,6 +14,7 @@
 
 import {
   errorResponseSchema,
+  hasGenreToken,
   mediaOf,
   ok,
   type ProviderError,
@@ -189,7 +190,19 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
       )
     }
 
-    const selected = selectedProviders(options.providers, parsed.data.provider, parsed.data.media)
+    /**
+     * Con un género en la casilla, a las fuentes no se les pregunta.
+     *
+     * Un término con `#` no es un título: los proveedores buscan el texto literal y
+     * devuelven lo que se les parezca —ruido que además se paga en su ancho de banda—. Esa
+     * búsqueda la contesta el catálogo, así que la lista de proveedores queda vacía y el
+     * cierre lo dice con cero. La regla es la misma que usa la pantalla para decidir qué
+     * pinta, y por eso vive en `core` y no aquí.
+     */
+    const soloCatalogo = hasGenreToken(parsed.data.q)
+    const selected = soloCatalogo
+      ? []
+      : selectedProviders(options.providers, parsed.data.provider, parsed.data.media)
     const timeoutMs = options.timeoutMs
     const container = options.container
 
@@ -253,8 +266,12 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
        * Las dos lecturas se piden siempre y se unen: quien escribe «acción» puede
        * estar buscando el género o un estudio que se llame así, y ninguna de las dos
        * preguntas se puede descartar sin mirar.
+       *
+       * Con un género escrito en la casilla, esto no se emite: sus títulos ya salen en la
+       * lista del catálogo —con su referencia local, que es lo que abre la ficha— y la
+       * pantalla no pinta tarjetas de proveedor en esa búsqueda.
        */
-      if (container !== undefined && parsed.data.q.trim() !== '') {
+      if (!soloCatalogo && container !== undefined && parsed.data.q.trim() !== '') {
         const permitidos = new Set(selected.map((provider) => provider.id))
         const locales = unirSinRepetir(
           [

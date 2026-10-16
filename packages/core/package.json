@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./anilist": "./src/anilist.ts",
+    "./anilist-search": "./src/anilist-search.ts",
     "./api": "./src/api.ts",
     "./config": "./src/config.ts",
     "./errors": "./src/errors.ts",

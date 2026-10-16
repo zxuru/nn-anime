@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Página de búsqueda.
  *
  * Cuatro decisiones que se ven en el código:
@@ -19,6 +19,7 @@
  * la búsqueda terminó.
  */
 
+import { hasGenreToken } from '@nn-anime/core/anilist-search'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { resumenDeFallo } from '../../components/ErrorNotice'
@@ -33,6 +34,7 @@ import {
   tipoFromPath,
   useMedias,
 } from '../tipo/tipo'
+import { AniListCards } from './AniListCards'
 import { AniListResults } from './AniListResults'
 import { ResultGrid } from './ResultGrid'
 import {
@@ -116,11 +118,15 @@ export function searchPath(term: string, providers: readonly string[] = []): str
  * por estudio suele no tener nada de los proveedores y sí veinte piezas de AniList
  * en pantalla, y callarlas dejaría al lector de pantalla con un «0 resultados» que
  * no es lo que hay.
+ *
+ * Con un género en la casilla no hay dos listas: la del catálogo **es** el resultado, y el
+ * anuncio lo dice así en vez de contar unos proveedores a los que no se ha preguntado.
  */
 export function announce(
   state: SearchState,
   active: readonly string[],
   providersLoaded = true,
+  soloCatalogo = false,
 ): string {
   if (state.failed !== undefined) {
     // El resumen y no el mensaje crudo: esto lo lee un lector de pantalla, y
@@ -133,9 +139,16 @@ export function announce(
     // afirmar algo que aún no se sabe.
     if (!providersLoaded) return t(DEFAULT_LOCALE, 'search.loading')
 
-    return active.length === 0
+    return active.length === 0 && !soloCatalogo
       ? t(DEFAULT_LOCALE, 'search.noProviders')
       : t(DEFAULT_LOCALE, 'search.loading')
+  }
+
+  if (soloCatalogo) {
+    const clave =
+      state.anilist.length === 1 ? 'search.catalogue.countOne' : 'search.catalogue.count'
+
+    return t(DEFAULT_LOCALE, clave, { count: state.anilist.length })
   }
 
   const obras = groupResults(state.results).length
@@ -202,6 +215,14 @@ export function SearchPage(props: SearchPageProps): ReactNode {
     [state, tipo, medias],
   )
 
+  /*
+    Con un género escrito, la búsqueda es del catálogo: a los proveedores no se les
+    pregunta y la lista que se pinta es la de AniList, con las tarjetas de la página. La
+    regla es la misma que usa el servidor para decidirlo, y vive en `core` por eso: si cada
+    lado tuviera la suya, la pantalla pediría una cosa y pintaría otra.
+  */
+  const soloCatalogo = hasGenreToken(aplicado)
+
   // El retardo: `aplicado` sólo cambia cuando el usuario deja de teclear.
   useEffect(() => {
     const cancelar = PROGRAMAR(() => setAplicado(term), SEARCH_DEBOUNCE_MS)
@@ -237,7 +258,7 @@ export function SearchPage(props: SearchPageProps): ReactNode {
       </div>
 
       <p className="search__status" aria-live="polite">
-        {announce(visibles, active, providersLoaded)}
+        {announce(visibles, active, providersLoaded, soloCatalogo)}
       </p>
 
       {/*
@@ -262,37 +283,49 @@ export function SearchPage(props: SearchPageProps): ReactNode {
         </p>
       ))}
 
-      {state.pending.length > 0 ? (
-        <Grid label={t(DEFAULT_LOCALE, 'search.results')}>
-          {state.pending.map((providerId) => (
-            <GridItem key={providerId}>
-              {/* Un esqueleto por proveedor pendiente: lo que falta se ve, en
-                  lugar de aparecer de golpe cuando responda el último. */}
-              <span className="skeleton" aria-hidden="true" />
-            </GridItem>
-          ))}
-        </Grid>
-      ) : null}
-
-      <ResultGrid
-        results={visibles.results}
-        query={aplicado}
-        done={resuelta(visibles)}
-        hayAniList={visibles.anilist.length > 0}
-        providerPriority={prioridad}
-        providerLabels={labels}
-        onPreview={(result) => prefetch.hover(result.ref.providerId, result.ref.value)}
-        onPreviewEnd={() => prefetch.leave()}
-      />
-
       {/*
-        La búsqueda cruzada, debajo de lo de los proveedores. Va aparte y no
-        mezclada porque sus piezas no son la respuesta de un proveedor: son lo que
-        AniList tiene de ese estudio o de ese género, y cada una dice si está en tus
-        fuentes. Es lo que responde cuando lo local se queda corto, que es justo el
-        caso de una búsqueda por género o por estudio.
+        Con un género en la casilla, la lista del catálogo **es** el resultado: se pinta
+        con las tarjetas de siempre, donde estaban las de los proveedores, y a los
+        proveedores no se les ha preguntado —buscarían el texto literal—. Sin género, la
+        página es la de siempre y la lista del catálogo va debajo, aparte.
       */}
-      <AniListResults items={visibles.anilist} query={aplicado} />
+      {soloCatalogo ? (
+        <AniListCards items={visibles.anilist} query={aplicado} done={resuelta(visibles)} />
+      ) : (
+        <>
+          {state.pending.length > 0 ? (
+            <Grid label={t(DEFAULT_LOCALE, 'search.results')}>
+              {state.pending.map((providerId) => (
+                <GridItem key={providerId}>
+                  {/* Un esqueleto por proveedor pendiente: lo que falta se ve, en
+                      lugar de aparecer de golpe cuando responda el último. */}
+                  <span className="skeleton" aria-hidden="true" />
+                </GridItem>
+              ))}
+            </Grid>
+          ) : null}
+
+          <ResultGrid
+            results={visibles.results}
+            query={aplicado}
+            done={resuelta(visibles)}
+            hayAniList={visibles.anilist.length > 0}
+            providerPriority={prioridad}
+            providerLabels={labels}
+            onPreview={(result) => prefetch.hover(result.ref.providerId, result.ref.value)}
+            onPreviewEnd={() => prefetch.leave()}
+          />
+
+          {/*
+            La búsqueda cruzada, debajo de lo de los proveedores. Va aparte y no
+            mezclada porque sus piezas no son la respuesta de un proveedor: son lo que
+            AniList tiene de ese estudio o de ese género, y cada una dice si está en tus
+            fuentes. Es lo que responde cuando lo local se queda corto, que es justo el
+            caso de una búsqueda por género o por estudio.
+          */}
+          <AniListResults items={visibles.anilist} query={aplicado} />
+        </>
+      )}
     </section>
   )
 }
