@@ -46,12 +46,16 @@ const ROMANO_FINAL = /\s+(?:ii|iii|iv|v|vi|vii|viii|ix|x)$/
  * pantalla y no en la de al lado.
  */
 export function titleKey(title: string): string {
-  return title
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
+  return (
+    title
+      .normalize('NFD')
+      // El dakuten cambia la letra japonesa: sólo se pliegan marcas latinas.
+      .replace(/([a-z])\p{M}+/giu, '$1')
+      .normalize('NFC')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{Nd}\p{M}]+/gu, ' ')
+      .trim()
+  )
 }
 
 export function baseTitle(title: string): string {

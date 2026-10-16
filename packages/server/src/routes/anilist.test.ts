@@ -12,10 +12,16 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations, type StoreConnection } from '@nn-anime/catalog-store'
+import {
+  type CatalogStore,
+  openDb,
+  runMigrations,
+  type StoreConnection,
+} from '@nn-anime/catalog-store'
 import {
   type AiringResponse,
   type AniListRelatedResponse,
+  type AnimeDetail,
   anilistSearchResponseSchema,
   type DiscoverResponse,
   type EnrichmentResponse,
@@ -58,6 +64,7 @@ interface Contexto {
   readonly pedir: (ruta: string, init?: RequestInit) => Promise<Response>
   readonly fake: FakeAniList
   readonly db: StoreConnection
+  readonly store: CatalogStore
 }
 
 async function conApp<T>(
@@ -97,6 +104,7 @@ async function conApp<T>(
         await Promise.resolve(servidor.request(`${BASE}${ruta}`, init ?? { headers: GOOD })),
       fake,
       db,
+      store: container.store,
     })
   } finally {
     await container.close().catch(() => {})
@@ -674,6 +682,46 @@ describe('la búsqueda de una casilla', () => {
 
         // La ficha de Aurora se abrió al montar el arnés; la de Frieren no existe.
         expect(cuerpo.items[0]?.ref).toEqual({ providerId: 'fixture', value: REF })
+        expect(cuerpo.items[1]?.ref).toBeUndefined()
+      },
+    )
+  })
+
+  test('un género no asigna la ficha local de Naruto a Shippuuden', async () => {
+    const NARUTO: RawMediaFixture = {
+      id: 20,
+      romaji: 'NARUTO',
+      english: 'Naruto',
+      native: 'NARUTO -ナルト-',
+      year: 2002,
+    }
+    const SHIPPUUDEN: RawMediaFixture = {
+      id: 1735,
+      romaji: 'NARUTO: Shippuuden',
+      english: 'Naruto: Shippuden',
+      native: 'NARUTO -ナルト- 疾風伝',
+      synonyms: ['Naruto Shippuuden', 'Naruto Shippuden'],
+      year: 2007,
+    }
+    const detalle: AnimeDetail = {
+      ref: { providerId: 'fixture', value: 'naruto' },
+      title: 'Naruto',
+      year: 2002,
+      genres: [],
+      studios: [],
+    }
+
+    await conApp(
+      { searchPage: { 1: [NARUTO, SHIPPUUDEN] }, genres: GENEROS },
+      async ({ pedir, store }) => {
+        await store.writeAnime(detalle.ref, detalle)
+
+        const cuerpo = anilistSearchResponseSchema.parse(
+          await (await pedir('/api/anilist/search?q=%23action')).json(),
+        )
+
+        expect(cuerpo.items.map((item) => item.anilistId)).toEqual([20, 1735])
+        expect(cuerpo.items[0]?.ref).toEqual({ providerId: 'fixture', value: 'naruto' })
         expect(cuerpo.items[1]?.ref).toBeUndefined()
       },
     )

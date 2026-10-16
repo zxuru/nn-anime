@@ -11,6 +11,11 @@ describe('titleKey', () => {
     expect(titleKey('Bleach: Sennen Kessen-hen')).toBe(titleKey('bleach sennen kessen hen'))
   })
 
+  test('conserva la escritura nativa y no pierde marcas fonéticas japonesas', () => {
+    expect(titleKey('NARUTO -ナルト- 疾風伝')).toBe('naruto ナルト 疾風伝')
+    expect(titleKey('がガぱパ')).toBe('がガぱパ')
+  })
+
   test('conserva los números: una entrega numerada no pierde su número', () => {
     expect(titleKey('Dandadan 2nd Season')).toBe('dandadan 2nd season')
     expect(titleKey('86')).toBe('86')
