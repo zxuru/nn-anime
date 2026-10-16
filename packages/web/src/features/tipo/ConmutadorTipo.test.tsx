@@ -51,4 +51,17 @@ describe('el conmutador de tipo', () => {
 
     expect(html).toContain('href="/search?q=aurora&amp;provider=fixture&amp;tipo=movies"')
   })
+
+  /**
+   * El carril lleva la mitad activa en `data-tipo`.
+   *
+   * Es lo que la hoja de estilos lee para deslizar la píldora: sin el atributo, el
+   * tirador se queda siempre en la primera mitad y el cambio no se ve. Sale del
+   * mismo dato que el `aria-current`, así que se comprueban los dos a la vez: uno no
+   * puede decir «anime» mientras el otro dice «películas».
+   */
+  test('el carril lleva la mitad activa, que es lo que desliza la píldora', () => {
+    expect(render('/')).toContain('data-tipo="anime"')
+    expect(render('/?tipo=movies')).toContain('data-tipo="movies"')
+  })
 })

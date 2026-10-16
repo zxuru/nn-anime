@@ -78,6 +78,47 @@ describe('App: cabecera', () => {
     expect(html).toContain('href="/search"')
     expect(html).toContain('href="/settings"')
   })
+
+  /**
+   * El bloque de la navegación, que es donde se decide qué arrastra cada destino.
+   *
+   * Se mira el `<nav>` y no el documento entero: el conmutador de tipo también
+   * enlaza a `/?tipo=movies`, así que una comprobación sobre todo el marcado no
+   * distinguiría su enlace del de «Inicio».
+   */
+  function navegacion(path: string): string {
+    const trozo = /<nav class="shell__nav">([\s\S]*?)<\/nav>/.exec(render(path))
+    if (trozo === null) throw new Error(`la navegación no está en el marcado de ${path}`)
+
+    return trozo[1] ?? ''
+  }
+
+  /**
+   * La mitad que se mira viaja en los destinos de la navegación.
+   *
+   * Es lo que hace que el conmutador **recuerde su estado** al pasar de la vitrina a
+   * la búsqueda y vuelta: el tipo vive en la dirección, y el destino que no lo
+   * arrastra lo pierde. La marca no lo lleva —volver a la casa en anime es el punto
+   * de referencia—, y por eso se mide el `<nav>` y no la cabecera entera.
+   */
+  test('los destinos conservan la mitad que se está mirando', () => {
+    const nav = navegacion('/?tipo=movies')
+
+    expect(nav).toContain('href="/?tipo=movies"')
+    expect(nav).toContain('href="/search?tipo=movies"')
+  })
+
+  test('en anime, que es el defecto, los destinos van sin el parámetro', () => {
+    const nav = navegacion('/')
+
+    expect(nav).toContain('href="/"')
+    expect(nav).toContain('href="/search"')
+    expect(nav).not.toContain('tipo=')
+  })
+
+  test('desde la búsqueda en películas, Inicio vuelve a la vitrina en películas', () => {
+    expect(navegacion('/search?tipo=movies')).toContain('href="/?tipo=movies"')
+  })
 })
 
 /**
