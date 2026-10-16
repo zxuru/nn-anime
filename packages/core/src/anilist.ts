@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Lo que comparte todo el que habla de AniList.
  *
  * Son funciones puras —comparación de nombres, saneado de la descripción, mapa de
@@ -20,6 +20,7 @@
 
 import { keysOfNames, namesOf, type TitleInput, type WorkNames } from './identity'
 import type { TitleKind } from './models'
+import { titleKey } from './titles'
 
 /** Los nombres con los que AniList publica una obra. */
 export interface AniListNames {
@@ -274,4 +275,88 @@ export interface LocalWork {
 /** Los nombres de una obra local a partir de lo que la fuente dijo. */
 export function localWork(input: TitleInput, year?: number): LocalWork {
   return { names: namesOf(input), ...(year === undefined ? {} : { year }) }
+}
+
+/**
+ * Los géneros de AniList, con el nombre con el que hay que pedírselos.
+ *
+ * Es una lista **cerrada** por el mismo motivo que la de relaciones: son los
+ * géneros que publica `GenreCollection` y el filtro `genre:` de su API exige uno
+ * de ellos, con su nombre exacto. Un término que no esté aquí no se le pide a
+ * AniList como género —una cadena inventada no devuelve vacío, devuelve un error
+ * que tumba la consulta entera— y el título sigue buscándose en las fuentes.
+ */
+export const ANILIST_GENRES = [
+  'Action',
+  'Adventure',
+  'Comedy',
+  'Drama',
+  'Ecchi',
+  'Fantasy',
+  'Horror',
+  'Mahou Shoujo',
+  'Mecha',
+  'Music',
+  'Mystery',
+  'Psychological',
+  'Romance',
+  'Sci-Fi',
+  'Slice of Life',
+  'Sports',
+  'Supernatural',
+  'Thriller',
+] as const
+
+export type AniListGenre = (typeof ANILIST_GENRES)[number]
+
+/**
+ * Cómo se llama cada género en los catálogos en español.
+ *
+ * Los proveedores de este proyecto publican los géneros en español —«Acción»,
+ * «Recuentos de la vida»— y AniList sólo acepta el inglés: sin esta tabla, pulsar
+ * un género en la vitrina no podría pedirle a AniList su lista, que es justo lo
+ * que la búsqueda cruzada viene a hacer. Son alias y no una traducción: se aceptan
+ * los nombres con los que estos catálogos nombran el género, y la comparación es
+ * la de los títulos —sin acentos, sin mayúsculas—, así que «Accion» vale igual.
+ */
+const ALIAS_EN_ESPANOL: Readonly<Record<AniListGenre, readonly string[]>> = {
+  Action: ['acción', 'accion'],
+  Adventure: ['aventura', 'aventuras'],
+  Comedy: ['comedia'],
+  Drama: ['drama'],
+  Ecchi: ['ecchi'],
+  Fantasy: ['fantasía', 'fantasia'],
+  Horror: ['terror', 'horror'],
+  'Mahou Shoujo': ['chicas mágicas', 'chicas magicas', 'magical girls'],
+  Mecha: ['mecha', 'robots'],
+  Music: ['música', 'musica'],
+  Mystery: ['misterio', 'misterios'],
+  Psychological: ['psicológico', 'psicologico', 'psicología', 'psicologia'],
+  Romance: ['romance', 'romántico', 'romantico'],
+  'Sci-Fi': ['ciencia ficción', 'ciencia ficcion', 'científica', 'cientifica', 'sci fi'],
+  'Slice of Life': ['recuentos de la vida', 'vida cotidiana', 'cotidiano', 'slice of life'],
+  Sports: ['deportes', 'deporte'],
+  Supernatural: ['sobrenatural', 'supernatural'],
+  Thriller: ['suspense', 'thriller', 'suspenso'],
+}
+
+/**
+ * El género de AniList al que se refiere un término, o nada.
+ *
+ * Se compara con la misma normalización que los títulos y contra **los dos
+ * idiomas**: el nombre canónico y sus alias en español. No hay coincidencia
+ * parcial a propósito: «acción» y «acción romántica» no son el mismo género, y
+ * aceptar prefijos convertiría cualquier título que empiece por «drama» en una
+ * consulta de género.
+ */
+export function anilistGenre(term: string): AniListGenre | undefined {
+  const buscado = titleKey(term)
+  if (buscado === '') return undefined
+
+  for (const genero of ANILIST_GENRES) {
+    if (titleKey(genero) === buscado) return genero
+    if (ALIAS_EN_ESPANOL[genero].some((alias) => titleKey(alias) === buscado)) return genero
+  }
+
+  return undefined
 }

@@ -105,6 +105,10 @@ describe('política de caché', () => {
       // franquicia —qué secuela tiene— y eso no se mueve a diario, pero se mueve
       // más que el título de una obra: cuando AniList anuncia la secuela, está.
       anilistRelated: 604800,
+      // La de la búsqueda cruzada la añade T138: seis horas, como el ranking. De un
+      // estudio o de un género, lo que hay cambia cuando se anuncia una obra, no
+      // cada día.
+      anilistSearch: 21600,
     })
   })
 

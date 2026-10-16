@@ -10,8 +10,10 @@
 
 import { describe, expect, test } from 'bun:test'
 import {
+  ANILIST_GENRES,
   ANILIST_RELATIONS,
   type AniListCandidate,
+  anilistGenre,
   anilistImagePath,
   anilistKeys,
   anilistNames,
@@ -203,5 +205,57 @@ describe('la ruta de una imagen', () => {
     expect(() => anilistImagePath('cover', 0)).toThrow()
     expect(() => anilistImagePath('cover', 1.5)).toThrow()
     expect(() => anilistImagePath('cover', -3)).toThrow()
+  })
+})
+
+/**
+ * El término de la búsqueda, traducido al género de AniList.
+ *
+ * AniList sólo acepta el nombre inglés de su lista cerrada, y los catálogos de
+ * este proyecto publican el género en español: sin esta traducción, pulsar
+ * «Acción» no podría pedirle a AniList su lista. Lo que se mide, además del caso
+ * que funciona, es lo que **no** se traduce: un término que no es un género no
+ * puede viajar como `genre:`.
+ */
+describe('el género de AniList al que se refiere un término', () => {
+  test('el nombre canónico, tal cual y sin acentos', () => {
+    expect(anilistGenre('Action')).toBe('Action')
+    expect(anilistGenre('sci-fi')).toBe('Sci-Fi')
+    expect(anilistGenre('  Slice of Life ')).toBe('Slice of Life')
+    expect(anilistGenre('Mahou Shoujo')).toBe('Mahou Shoujo')
+  })
+
+  test('el nombre con el que lo publican los catálogos en español', () => {
+    expect(anilistGenre('Acción')).toBe('Action')
+    expect(anilistGenre('accion')).toBe('Action')
+    expect(anilistGenre('Ciencia ficción')).toBe('Sci-Fi')
+    expect(anilistGenre('Recuentos de la vida')).toBe('Slice of Life')
+    expect(anilistGenre('Terror')).toBe('Horror')
+    expect(anilistGenre('Sobrenatural')).toBe('Supernatural')
+    expect(anilistGenre('Suspense')).toBe('Thriller')
+  })
+
+  test('un estudio, un título o un vacío no son un género', () => {
+    // Es la mitad que evita el fallo caro: `genre:` con un valor que no está en
+    // su lista no devuelve vacío, devuelve un error que tumba la consulta entera
+    // —y con ella la lista del estudio que sí valía—.
+    expect(anilistGenre('ufotable')).toBeUndefined()
+    expect(anilistGenre('Kimetsu no Yaiba')).toBeUndefined()
+    expect(anilistGenre('   ')).toBeUndefined()
+    expect(anilistGenre('')).toBeUndefined()
+  })
+
+  test('no se acepta una coincidencia parcial', () => {
+    expect(anilistGenre('acción romántica')).toBeUndefined()
+    expect(anilistGenre('drama')).toBe('Drama')
+    expect(anilistGenre('dramatismo')).toBeUndefined()
+  })
+
+  test('cada género de la lista se reconoce por su nombre', () => {
+    // La tabla está indexada por el tipo, así que un género nuevo sin alias no
+    // compila; esto mide lo otro: que ninguno se quede sin reconocer.
+    for (const genero of ANILIST_GENRES) {
+      expect(anilistGenre(genero)).toBe(genero)
+    }
   })
 })

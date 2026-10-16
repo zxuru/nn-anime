@@ -46,6 +46,10 @@ export const TTL_SECONDS = {
   // estructura de una franquicia, y una secuela aparece cuando se anuncia, no
   // cada día. La añade T124.
   anilistRelated: 604800,
+  // Lo que AniList tiene de un término como estudio o como género: seis horas,
+  // como el ranking. Un estudio estrena como mucho una vez por temporada y su
+  // lista cambia cuando se anuncia la obra, no cada día. La añade T138.
+  anilistSearch: 21600,
 } as const
 
 export type CacheResource = keyof typeof TTL_SECONDS
