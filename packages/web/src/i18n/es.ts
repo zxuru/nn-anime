@@ -124,6 +124,8 @@ export const messages: Messages = {
    * ayuda escondida.
    */
   'anilist.title': 'Catálogo de AniList',
+  'anilist.description':
+    'Explora anime por título o género. Abre una serie que ya esté en tus fuentes o busca el resto para encontrar dónde verla.',
   'anilist.field': 'Buscar en el catálogo',
   'anilist.placeholder': 'frieren #fantasy',
   'anilist.hint':

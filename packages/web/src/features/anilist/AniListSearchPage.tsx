@@ -1,4 +1,4 @@
-﻿/**
+/**
  * La pantalla de la búsqueda de una casilla.
  *
  * Una casilla y una rejilla. El texto lleva el título y los géneros: lo que empieza por `#`
@@ -85,10 +85,11 @@ export function AniListSearchPage(props: AniListSearchPageProps): ReactNode {
   const vacio = state.loading === 'none' && state.failure === undefined && piezas.length === 0
 
   return (
-    <section className="seccion">
+    <section className="anilist-page">
       <h1>{t(DEFAULT_LOCALE, 'anilist.title')}</h1>
+      <p className="anilist-page__description">{t(DEFAULT_LOCALE, 'anilist.description')}</p>
 
-      <div className="search__field">
+      <div className="search__field anilist-page__field">
         <label className="search__label" htmlFor="anilist-term">
           {t(DEFAULT_LOCALE, 'anilist.field')}
         </label>
@@ -104,7 +105,7 @@ export function AniListSearchPage(props: AniListSearchPageProps): ReactNode {
         <p className="nota__meta">{t(DEFAULT_LOCALE, 'anilist.hint')}</p>
       </div>
 
-      <p className="search__status" aria-live="polite">
+      <p className="search__status anilist-page__status" aria-live="polite">
         {state.loading !== 'none'
           ? t(DEFAULT_LOCALE, 'anilist.loading')
           : state.failure !== undefined
@@ -124,7 +125,7 @@ export function AniListSearchPage(props: AniListSearchPageProps): ReactNode {
       )}
 
       {state.failure === undefined ? null : (
-        <p className="search__error">
+        <p className="search__error anilist-page__error">
           {t(DEFAULT_LOCALE, claveDeFallo(state.failure), {
             status: state.failure.kind === 'server' ? state.failure.status : 0,
             wait: state.failure.kind === 'throttled' ? state.failure.waitS : 0,
@@ -136,18 +137,20 @@ export function AniListSearchPage(props: AniListSearchPageProps): ReactNode {
       )}
 
       {state.loading === 'first' ? (
-        <Mosaico>
+        <Mosaico className="anilist-page__mosaic">
           <span className="skeleton" aria-hidden="true" />
         </Mosaico>
       ) : null}
 
       {vacio ? (
-        <p className="empty">{t(DEFAULT_LOCALE, 'anilist.empty', { query: aplicado })}</p>
+        <p className="empty anilist-page__empty">
+          {t(DEFAULT_LOCALE, 'anilist.empty', { query: aplicado })}
+        </p>
       ) : null}
 
       {piezas.length === 0 ? null : (
         <>
-          <Mosaico>
+          <Mosaico className="anilist-page__mosaic">
             {piezas.map((pieza, indice) => (
               <Pieza
                 key={pieza.clave}

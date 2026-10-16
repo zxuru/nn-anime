@@ -11,8 +11,11 @@ import type { ReactNode } from 'react'
 
 export interface MosaicoProps {
   readonly children: ReactNode
+  readonly className?: string | undefined
 }
 
 export function Mosaico(props: MosaicoProps): ReactNode {
-  return <div className="mosaico">{props.children}</div>
+  const clase = props.className === undefined ? 'mosaico' : `mosaico ${props.className}`
+
+  return <div className={clase}>{props.children}</div>
 }
