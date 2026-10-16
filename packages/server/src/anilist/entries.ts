@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Lo que AniList publica y lo que este proyecto guarda.
  *
  * Dos formas distintas y a propósito:
@@ -199,10 +199,16 @@ export const studioSchema = z.object({
  * Se aplana igual que la de obras —`porEstudio: { studios: […] }`, medido el
  * 2026-10-16— y las dos formas se aceptan aquí por el mismo motivo: quien escribe la
  * consulta no tiene por qué saber la rareza.
+ *
+ * La lista admite `null` **y** su ausencia: un término que no es el nombre de ningún
+ * estudio —el caso corriente de una búsqueda por género— no puede tumbar la respuesta
+ * entera, y con ella la lista del género que viene al lado. Es la lección del fallo que
+ * este task arregla: una forma más estricta que la API convierte una lista vacía en una
+ * pantalla vacía.
  */
 export const studioPageSchema = z.object({
-  Page: z.object({ studios: z.array(studioSchema) }).optional(),
-  studios: z.array(studioSchema).optional(),
+  Page: z.object({ studios: z.array(studioSchema).nullable() }).optional(),
+  studios: z.array(studioSchema).nullable().optional(),
 })
 
 /** Los estudios de una página aliaseada, con envoltorio o aplanada. */
