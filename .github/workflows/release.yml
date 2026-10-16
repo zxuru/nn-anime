@@ -1,0 +1,339 @@
+name: Release
+
+# Los instaladores, desde un tag `vX.Y.Z`.
+#
+# El tag lo crea el PR de release de `release-please` (que además deja el changelog escrito) y
+# siempre en borrador: `force-tag-creation` hace que el tag exista aunque la release esté en
+# borrador, que es lo que permite que este workflow se dispare con el tag.
+#
+# `workflow_dispatch` existe para poder recorrer el camino entero sin publicar nada: por defecto
+# sólo sube los artefactos al resumen del propio workflow. Es la forma de probar la cadena de
+# empaquetado sin gastar un número de versión.
+#
+# Aquí no se publica código sin el listón pasado: este workflow corre los tipos, el estilo, la
+# auditoría y las pruebas antes de compilar, porque un push de tag no dispara el CI de la rama.
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versión a construir. Vacío: la de package.json.'
+        required: false
+        type: string
+      publish:
+        description: 'Publicar la release en GitHub. Sin marcar: sólo artefactos.'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Lo primero es saber **qué** se está publicando. Un tag que no coincide con la versión del
+  # repositorio produce un instalador que dice una cosa y un `--version` que dice otra, y eso no se
+  # arregla después: hay que borrar la release.
+  comprobar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      publicar: ${{ steps.version.outputs.publicar }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.3
+
+      - name: Caché de Bun
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Instalar
+        run: bun install --frozen-lockfile
+
+      - name: Instalar el gancho de pre-commit
+        run: bun run hooks:instalar
+
+      - name: Resolver la versión y el tag
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          ENTRADA: ${{ inputs.version }}
+          PUBLICAR: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+
+          if [ "$REF_TYPE" = "tag" ]; then
+            tag="$REF_NAME"
+            # Falla si el tag no empieza por `v` o no coincide con los diez `package.json`.
+            bun run version:check "$tag"
+            version="${tag#v}"
+            publicar=true
+          else
+            version="${ENTRADA:-$(bun run scripts/version.ts current)}"
+            bun run version:check
+            tag="v$version"
+            publicar="${PUBLICAR:-false}"
+          fi
+
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "publicar=$publicar"
+          } >> "$GITHUB_OUTPUT"
+          echo "Se va a construir la $version ($tag); publicar: $publicar"
+
+      - name: Auditar las dependencias
+        run: bun audit
+
+      - name: Tipos
+        run: bun run typecheck
+
+      - name: Estilo y formato
+        run: bun run lint
+
+      - name: Pruebas
+        run: bun test
+
+  # Un instalador por plataforma. La firma va aquí dentro y es **condicional**: si el secreto no
+  # está, el paso se salta y el instalador sale sin firmar, con las advertencias normales del
+  # sistema. Una build que falla porque falta un certificado es una build que nadie puede hacer.
+  instaladores:
+    needs: comprobar
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: windows-x64
+          - os: macos-latest
+            target: darwin-arm64
+          - os: macos-latest
+            target: darwin-x64
+          - os: ubuntu-latest
+            target: linux-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      # `secrets` no está disponible en el `if` de un paso de forma fiable; el `env` del job sí, y
+      # a partir de ahí la decisión es una comparación de cadenas.
+      FIRMAR_WINDOWS: ${{ secrets.WINDOWS_CERT_PFX_BASE64 != '' }}
+      FIRMAR_MACOS: ${{ secrets.APPLE_CERT_P12_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.3
+
+      - name: Caché de Bun
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Instalar
+        run: bun install --frozen-lockfile
+
+      - name: Construir la interfaz
+        run: bun run build
+
+      # Primero el ejecutable, y **sin** instalador: en Windows el `.exe` tiene que estar firmado
+      # antes de que NSIS lo meta dentro, así que los dos pasos están separados por la firma.
+      - name: Compilar y probar el ejecutable
+        run: bun run package --skip-installer --target=${{ matrix.target }}
+
+      # --- Windows: firma condicional -------------------------------------
+      - name: Preparar el certificado de Windows
+        if: runner.os == 'Windows' && env.FIRMAR_WINDOWS == 'true'
+        shell: pwsh
+        env:
+          PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+        run: |
+          # Se escribe a un archivo temporal y se borra al final. El contenido del certificado y su
+          # contraseña no se imprimen nunca: lo que se enseña es que existe.
+          $ruta = Join-Path $env:RUNNER_TEMP 'nn-anime.pfx'
+          [IO.File]::WriteAllBytes($ruta, [Convert]::FromBase64String($env:PFX_BASE64))
+          "PFX_PATH=$ruta" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Output "certificado de Windows preparado en $ruta"
+
+      - name: Firmar el ejecutable de Windows
+        if: runner.os == 'Windows' && env.FIRMAR_WINDOWS == 'true'
+        shell: pwsh
+        env:
+          PFX_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $signtool) { throw 'no se encontró signtool.exe (Windows SDK)' }
+
+          & $signtool.FullName sign /f "$env:PFX_PATH" /p "$env:PFX_PASSWORD" /fd SHA256 `
+            /tr http://timestamp.digicert.com /td SHA256 `
+            "build\package\windows-x64\nn-anime.exe"
+          if ($LASTEXITCODE -ne 0) { throw "signtool falló con $LASTEXITCODE" }
+
+          & $signtool.FullName verify /pa "build\package\windows-x64\nn-anime.exe"
+          Write-Output 'ejecutable de Windows firmado'
+
+      # --- macOS: firma y notarización condicionales ----------------------
+      - name: Preparar el certificado de macOS
+        if: runner.os == 'macOS' && env.FIRMAR_MACOS == 'true'
+        env:
+          P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/nn-anime.keychain"
+          password="$(uuidgen)"
+
+          echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/certificado.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/certificado.p12" -k "$keychain" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security list-keychain -d user -s "$keychain"
+          rm -f "$RUNNER_TEMP/certificado.p12"
+
+          # La identidad se deduce del certificado importado en vez de ser otro secreto: en un
+          # runner limpio es el único que hay, y un secreto de más es un sitio más donde
+          # desincronizarse.
+          identidad="$(security find-identity -v -p codesigning "$keychain" | awk -F'"' '/Developer ID Application/ {print $2; exit}')"
+          if [ -z "$identidad" ]; then
+            echo "el certificado importado no es un Developer ID Application" >&2
+            security find-identity -v -p codesigning "$keychain" >&2
+            exit 1
+          fi
+
+          echo "APPLE_SIGNING_IDENTITY=$identidad" >> "$GITHUB_ENV"
+          echo "identidad de firma preparada: $identidad"
+
+      - name: Limpiar el certificado de Windows
+        if: always() && runner.os == 'Windows' && env.FIRMAR_WINDOWS == 'true'
+        shell: pwsh
+        run: Remove-Item -Force "$env:PFX_PATH" -ErrorAction SilentlyContinue
+
+      # --- Linux: las herramientas de empaquetado -------------------------
+      # NSIS en Windows, `nfpm` y `appimagetool` en Linux, con sus hashes comprobados. La misma
+      # acción compuesta que usa el CI: la lista de versiones y hashes vive en un solo sitio.
+      - name: Preparar las herramientas de empaquetado
+        uses: ./.github/actions/herramientas
+
+      # El espacio libre, por si `hdiutil` se queda sin sitio: sin este número, el fallo es «No space
+      # left on device» y no se sabe de qué volumen.
+      - name: Espacio en disco (macOS)
+        if: runner.os == 'macOS'
+        run: df -h
+
+      # --- El instalador, ya con el ejecutable firmado --------------------
+      - name: Armar el instalador
+        env:
+          # Vacíos si no hay certificado, y entonces `macos.ts` no firma ni notariza.
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bun run package --only-installer --target=${{ matrix.target }}
+
+      - name: Subir los instaladores
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: instaladores-${{ matrix.target }}
+          path: release/*
+          if-no-files-found: error
+          # Una release se publica en minutos, no en semanas: guardar 90 MB por plataforma más
+          # tiempo del necesario es pagar por nada.
+          retention-days: 7
+
+  # Un solo sitio con todos los artefactos, y el resumen de ellos. Los checksums se calculan aquí y
+  # no en cada plataforma: tres `SHA256SUMS.txt` con el mismo nombre en la misma release dejarían el
+  # que sobreviviera hablando sólo de una.
+  publicar:
+    needs: [comprobar, instaladores]
+    if: needs.comprobar.outputs.publicar == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # Lo mínimo para escribir la release. Nada más: ni paquetes, ni issues, ni acciones.
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.3
+
+      - name: Bajar los artefactos
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Resumir los artefactos con SHA256
+        run: bun run scripts/package/checksums.ts release
+
+      - name: Enseñar qué se va a publicar
+        run: |
+          {
+            echo "### nn-anime ${{ needs.comprobar.outputs.version }}"
+            echo
+            echo "| Archivo | Tamaño |"
+            echo "|---|---|"
+            # `find` y no `ls`: los nombres de estos archivos llevan puntos y guiones, y leer la
+            # salida de `ls` es la forma clásica de equivocarse con ellos.
+            find release -maxdepth 1 -type f -printf '%f %s\n' |
+              sort |
+              awk '{printf "| %s | %.1f MB |\n", $1, $2/1048576}'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Crear el borrador y publicarlo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.comprobar.outputs.tag }}
+          VERSION: ${{ needs.comprobar.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # El cuerpo del changelog sale del `CHANGELOG.md` que escribió `release-please`: la
+          # sección de esta versión, ni una línea más.
+          notas=()
+          if [ -f CHANGELOG.md ]; then
+            awk -v v="$VERSION" '
+              $0 ~ "^## \\[" v "\\]" { dentro = 1; next }
+              dentro && /^## \[/ { dentro = 0 }
+              dentro { print }
+            ' CHANGELOG.md > "$RUNNER_TEMP/notas.md"
+
+            if [ -s "$RUNNER_TEMP/notas.md" ]; then
+              notas=(--notes-file "$RUNNER_TEMP/notas.md")
+            fi
+          fi
+
+          # Borrador **primero**: si algo se corta a mitad, no queda una release pública con la
+          # mitad de los instaladores. `release-please` ya deja una en borrador para este tag; si
+          # el tag se empujó a mano, no hay ninguna y se crea.
+          if gh api "repos/$REPO/releases/tags/$TAG" >/dev/null 2>&1; then
+            echo "ya hay una release para $TAG: se le añaden los artefactos"
+            gh release upload "$TAG" release/* --clobber
+          else
+            gh release create "$TAG" --verify-tag --draft --title "$TAG" \
+              ${notas[@]+"${notas[@]}"} release/*
+          fi
+
+          gh release edit "$TAG" --draft=false --latest
+          echo "publicada: $TAG"

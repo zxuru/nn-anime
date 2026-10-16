@@ -12,8 +12,13 @@
 
 import { existsSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
-import { fileURLToPath } from 'node:url'
-import { openDb, pruneOrphans, runMigrations, shouldPrune } from '@nn-anime/catalog-store'
+import {
+  listMigrations,
+  openDb,
+  pruneOrphans,
+  runMigrations,
+  shouldPrune,
+} from '@nn-anime/catalog-store'
 import { createLogger, DEFAULT_LOCALE, readSettings, t } from '@nn-anime/core'
 import { ALLOW_LOOPBACK_ENV, allowLoopbackFromEnv, hasMpv } from '@nn-anime/media-proxy'
 import { loadProviders } from '@nn-anime/provider-sdk'
@@ -23,6 +28,7 @@ import { boot, listenOnFreePort, type Migrate } from './boot'
 import { configEnvironment } from './env'
 import { createLifecycle, waitForSignal } from './lifecycle'
 import { openInBrowser } from './open-browser'
+import { resolveResources } from './resources'
 import { type CliIO, run } from './run'
 import { createStarter } from './start'
 
@@ -36,18 +42,41 @@ const io: CliIO = {
 }
 
 /**
+ * Los recursos del arranque, resueltos una sola vez.
+ *
+ * `Bun.embeddedFiles` está vacío fuera de un ejecutable compilado, y ese es el
+ * dato que distingue los dos mundos: dentro del binario `import.meta.dir` es la
+ * raíz de su sistema de archivos —donde `--asset` dejó la interfaz y las
+ * migraciones—, y fuera es un directorio del árbol de fuentes. Preguntarlo en
+ * vez de suponerlo deja el orden de `resolveResources` legible.
+ */
+const resources = resolveResources({
+  env: process.env,
+  embeddedRoot: Bun.embeddedFiles.length > 0 ? import.meta.dir : undefined,
+  sourceDir: import.meta.dir,
+  exists: existsSync,
+})
+
+/**
  * Migrar al arrancar, y limpiar si la base se ha hecho grande.
  *
  * El runner es el mismo que el de `bun run db:migrate`: uno distinto sería una
  * forma silenciosa de tener dos esquemas. Y la comprobación de tamaño es la del
  * store (`shouldPrune`), no un número escrito aquí.
+ *
+ * El directorio de migraciones se resuelve fuera porque dentro del binario los
+ * `.sql` no están donde el runner los busca por defecto. Sin directorio —el caso
+ * de `bun run start`— el runner usa el suyo, que es el camino de siempre.
  */
 const migrate: Migrate = async (config) => {
   let db: ReturnType<typeof openDb> | undefined
 
   try {
     db = openDb(config.dbPath)
-    runMigrations(db)
+    runMigrations(
+      db,
+      resources.migrationsDir === undefined ? undefined : listMigrations(resources.migrationsDir),
+    )
 
     const info = await stat(config.dbPath).catch(() => undefined)
     if (info !== undefined && shouldPrune(info.size)) {
@@ -66,19 +95,6 @@ const migrate: Migrate = async (config) => {
 }
 
 const envLang = process.env.NN_ANIME_LANG
-
-/**
- * Directorio del build de la interfaz, si está construido.
- *
- * Sin build, el server sólo expone la API y el desarrollo va por Vite. Con él,
- * un solo proceso sirve la interfaz y la API en el mismo origen, que es lo que
- * hace válida la cookie de sesión y evita el CORS.
- */
-function webBuildRoot(): string | undefined {
-  const dist = fileURLToPath(new URL('../../web/dist/', import.meta.url))
-
-  return existsSync(dist) ? dist : undefined
-}
 
 /**
  * Si hay mpv, se mira **una vez** al arrancar.
@@ -136,7 +152,7 @@ const code = await run(Bun.argv.slice(2), {
     envLang,
     env: configEnvironment(process.env),
     publicOrigin: process.env.NN_ANIME_DEV_ORIGIN,
-    webRoot: webBuildRoot(),
+    webRoot: resources.webRoot,
     listen: listenOnFreePort,
     migrate,
     readSettings,

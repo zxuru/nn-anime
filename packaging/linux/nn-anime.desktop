@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=nn-anime
+GenericName=Ver anime
+Comment=Ver anime desde el navegador, con una interfaz que arranca en 127.0.0.1
+Exec=nn-anime
+Icon=nn-anime
+# `Terminal=true` a propósito: la aplicación **es** un programa de consola que
+# arranca un servidor local y abre el navegador. La ventana de la terminal es su
+# forma de vivir —ahí se leen los avisos y ahí se para con Ctrl+C—, y lanzarla sin
+# ella dejaría un proceso sin ventana y sin manera de cerrarlo.
+Terminal=true
+Categories=AudioVideo;Player;
+Keywords=anime;video;

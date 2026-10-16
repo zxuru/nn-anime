@@ -1,0 +1,42 @@
+name: Release Please
+
+# El changelog y el número de versión, a partir de los Conventional Commits que ya se escriben.
+#
+# Abre un PR de release con el `CHANGELOG.md` escrito y la versión subida en los diez `package.json`.
+# Mientras ese PR no se fusione, no pasa nada más. Al fusionarlo, `release-please` crea el tag
+# `vX.Y.Z` y deja la release **en borrador**; el tag es lo que dispara `.github/workflows/release.yml`,
+# que compila los instaladores y publica.
+#
+# Las dos opciones que hacen que eso funcione están en `release-please-config.json` y no aquí:
+#
+#  - `force-tag-creation`: GitHub no crea el tag de una release en borrador hasta que se publica, así
+#    que sin esto el tag no existiría y `release.yml` no se dispararía nunca.
+#  - `draft`: la release nace en borrador para que nadie vea una release a la que todavía le faltan
+#    los instaladores.
+#
+# **Requiere un ajuste del repositorio**: en Settings → Actions → General → Workflow permissions hay
+# que marcar «Allow GitHub Actions to create and approve pull requests». Sin eso, `GITHUB_TOKEN` no
+# puede abrir el PR de release y este workflow falla. Está dicho en `docs/release.md`.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

@@ -5,6 +5,12 @@ coverage/
 .vite/
 *.tsbuildinfo
 
+# El ejecutable y los instaladores que produce `bun run package`: se publican en
+# la release, no se versionan. Y la caché de runtimes que deja Bun al compilar
+# para otra plataforma.
+release/
+.bun-cache/
+
 # Secretos: nunca dentro del repo. `.env.example` sí, con marcadores.
 .env
 .env.*
