@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Las consultas de GraphQL, escritas una vez y con nombre.
  *
  * Los campos son los mismos en todas: lo que se guarda de una obra no depende de
@@ -249,3 +249,41 @@ export function crossQuery(adultAllowed: boolean, genero: string | undefined): s
   }
 `
 }
+
+/**
+ * La búsqueda de una sola casilla: un título, unos géneros, o las dos cosas.
+ *
+ * Las variables las arma `buildAniListVariables` de `core` y **sólo viajan las que se
+ * piden**: sin título, `$search` no existe en la petición —una cadena vacía filtraría por
+ * la cadena vacía— y sin géneros tampoco `$genres`. La consulta declara las dos como
+ * opcionales para que su ausencia sea «sin filtro» y no un valor.
+ *
+ * `isAdult: false` va **fijo**, como en el contrato de esta búsqueda: es una búsqueda de
+ * catálogo general y no la vitrina, que sí mira el interruptor de adultos.
+ *
+ * `total` se pide porque la interfaz puede enseñarlo como aproximado, y la propia API
+ * avisa de que no es exacto: la paginación se decide con `hasNextPage` y con nada más.
+ */
+export const SEARCH_QUERY = `
+  query ($search: String, $genres: [String], $page: Int, $perPage: Int, $sort: [MediaSort]) {
+    Page(page: $page, perPage: $perPage) {
+      pageInfo { total currentPage hasNextPage }
+      media(type: ANIME, search: $search, genre_in: $genres, sort: $sort, isAdult: false) {
+        ${MEDIA_FIELDS}
+      }
+    }
+  }
+`
+
+/**
+ * La lista de géneros que acepta AniList.
+ *
+ * Es la única forma de saber cómo se llaman sus géneros, y por eso no hay ninguna lista
+ * escrita a mano en el código: la que hubiera se quedaría vieja el día que añadan uno, y
+ * un nombre que ya no exista no devuelve vacío, devuelve un error.
+ */
+export const GENRES_QUERY = `
+  query {
+    GenreCollection
+  }
+`

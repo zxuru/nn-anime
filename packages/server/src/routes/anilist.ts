@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Las rutas de AniList: descubrimiento, enriquecimiento e imágenes.
  *
  * Tres familias con la misma forma de trabajar: **nada de lo que pasa aquí tumba
@@ -25,6 +25,7 @@ import type {
   AniListEntry,
   AniListRelatedItem,
   AniListRelation,
+  AniListSearchItem,
   DiscoverItem,
   Enrichment,
   MediaFilter,
@@ -34,7 +35,9 @@ import {
   airingResponseSchema,
   anilistImagePath,
   anilistRelatedResponseSchema,
+  anilistSearchResponseSchema,
   discoverResponseSchema,
+  displayTitleOf,
   enrichmentBatchRequestSchema,
   enrichmentBatchResponseSchema,
   enrichmentResponseSchema,
@@ -71,6 +74,22 @@ export function airingDays(raw: string | undefined): number {
   if (!Number.isInteger(numero) || numero <= 0) return DEFAULT_AIRING_DAYS
 
   return Math.min(numero, MAX_AIRING_DAYS)
+}
+
+/**
+ * La página pedida, saneada.
+ *
+ * Las páginas empiezan en 1: un valor que no sea un entero positivo —o que no venga— es
+ * la primera, y no un error, porque una dirección escrita a mano no tiene por qué
+ * conocer el contrato. El tope de la API por página lo pone quien construye las
+ * variables, no esto.
+ */
+export function paginaPedida(raw: string | undefined): number {
+  if (raw === undefined) return 1
+
+  const numero = Number(raw)
+
+  return Number.isInteger(numero) && numero > 0 ? numero : 1
 }
 
 /**
@@ -113,6 +132,32 @@ export function discoverItem(entrada: AniListEntry, ref: ProviderRef | undefined
     ...(entrada.format === undefined ? {} : { format: entrada.format }),
     ...(entrada.episodes === undefined ? {} : { episodes: entrada.episodes }),
     ...(ref === undefined ? {} : { ref }),
+  }
+}
+
+/**
+ * Una obra de la búsqueda como pieza: la del descubrimiento más lo que la búsqueda sabe.
+ *
+ * El título que se enseña es el inglés si lo hay —con el romaji debajo cuando no es el
+ * mismo texto—, y por eso la pieza lleva los tres nombres: la casilla busca en los tres y
+ * el usuario tiene que poder reconocer lo que le devuelven. La pieza es la misma que la
+ * del top y la parrilla (`discoverItem`) así que se pinta igual y su `ref` decide lo
+ * mismo: con ficha local abre la ficha, sin ella la búsqueda de su título.
+ */
+export function searchItem(entrada: AniListEntry, ref: ProviderRef | undefined): AniListSearchItem {
+  const titles = {
+    romaji: entrada.names.romaji,
+    english: entrada.names.english ?? null,
+    native: entrada.names.native ?? null,
+  }
+  const { title, secondary } = displayTitleOf(titles, entrada.id)
+
+  return {
+    ...discoverItem(entrada, ref),
+    title,
+    titles,
+    ...(secondary === undefined ? {} : { secondaryTitle: secondary }),
+    genres: [...entrada.genres],
   }
 }
 
@@ -287,6 +332,49 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
     )
 
     return c.json(airingResponseSchema.parse({ items }))
+  })
+
+  /**
+   * La búsqueda de una sola casilla contra AniList.
+   *
+   * `q` es lo que el usuario escribió entero: los términos con `#` son géneros y el resto
+   * es el título. Se acepta vacío, y entonces devuelve lo más popular —es la forma de
+   * enseñar algo en la pantalla recién abierta—; los géneros que no existen se devuelven
+   * en `unknownGenres` y **no** viajan a la API, porque su filtro sólo acepta sus nombres.
+   *
+   * La mitad de adultos no es un parámetro: la consulta filtra `isAdult: false` siempre.
+   * Es una búsqueda de catálogo, no la vitrina, que sí mira el interruptor.
+   *
+   * Un fallo de AniList es un 502 y no una lista vacía: aquí el usuario ha pedido algo y
+   * tiene que poder distinguir «no hay nada» de «no se pudo preguntar».
+   */
+  app.get('/api/anilist/search', async (c) => {
+    const texto = c.req.query('q') ?? ''
+    const resultado = await options.catalog.search(
+      texto,
+      paginaPedida(c.req.query('page')),
+      c.req.raw.signal,
+    )
+
+    if (!resultado.ok) {
+      return c.json(errorResponseSchema.parse({ error: 'no se pudo buscar en AniList' }), 502)
+    }
+
+    const pagina = resultado.value
+    // La referencia local es lo que hace que una pieza abra su ficha en vez de la
+    // búsqueda de su título: es el mismo cruce que hacen el top y la parrilla.
+    const refs = await options.catalog.localRefs(pagina.items)
+    const items = pagina.items.map((entrada) => searchItem(entrada, refs.get(entrada.id)))
+
+    return c.json(
+      anilistSearchResponseSchema.parse({
+        items,
+        page: pagina.page,
+        hasNextPage: pagina.hasNextPage,
+        ...(pagina.total === undefined ? {} : { total: pagina.total }),
+        unknownGenres: [...pagina.parsed.unknownGenres],
+      }),
+    )
   })
 
   app.get('/api/anime/:providerId/:ref/enrichment', async (c) => {

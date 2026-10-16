@@ -26,10 +26,12 @@ import {
   type AniListAiringEntry,
   type AniListEntry,
   type AniListImageKind,
+  type AniListSearchInput,
   type AppError,
   anilistAiringEntrySchema,
   anilistEntrySchema,
   anilistGenre,
+  buildAniListVariables,
   err,
   kindOfFormat,
   type LocalWork,
@@ -40,6 +42,7 @@ import {
   ok,
   type ProviderMedia,
   type ProviderRef,
+  parseAniListInput,
   pickAniListMatch,
   type Result,
   sameAniListWork,
@@ -49,6 +52,7 @@ import type { AniListClient, AniListOutcome } from './client'
 import {
   airingPageSchema,
   crossSchema,
+  genreCollectionSchema,
   mediaOfAlias,
   mediaPageSchema,
   mediaPagesSchema,
@@ -56,6 +60,7 @@ import {
   type RelatedEntry,
   relatedEntrySchema,
   relationsSchema,
+  searchPageSchema,
   type studioPageSchema,
   type studioSchema,
   studiosOf,
@@ -67,9 +72,11 @@ import {
   AIRED_QUERY,
   AIRING_QUERY,
   crossQuery,
+  GENRES_QUERY,
   matchQuery,
   moviesReleasedQuery,
   RELATED_QUERY,
+  SEARCH_QUERY,
   topQuery,
 } from './queries'
 
@@ -134,10 +141,43 @@ const ESTUDIOS_A_MIRAR = 3
  */
 const OBRAS_POR_ESTUDIO = 25
 
+/**
+ * Lo que dura en memoria la lista de géneros de AniList.
+ *
+ * Es la lista de todo el catálogo y cambia cuando AniList añade o renombra un género, que
+ * pasa como mucho un par de veces al año: un día es un compromiso entre no preguntarla en
+ * cada búsqueda y no quedarse una semana con un nombre viejo. No se guarda en la base
+ * porque no es un dato del usuario ni de una obra: es una constante de un tercero.
+ */
+const GENRES_TTL_MS = 86_400_000
+
+/**
+ * Cuántas páginas se recuerdan para poder servirlas de la caché con su «hay más».
+ *
+ * Una por búsqueda distinta: sesenta y cuatro es más de lo que una persona busca en una
+ * sesión, y el tope evita que el mapa crezca con cada término que alguien pruebe.
+ */
+const PAGINACION_MAX = 64
+
 export interface AniListMatchRequest {
   /** La clave de la caché: el título normalizado y su año. */
   readonly key: string
   readonly local: LocalWork
+}
+
+/**
+ * Una página de la búsqueda de una casilla, con lo que se escribió ya interpretado.
+ *
+ * `unknownGenres` viaja hasta la interfaz porque el usuario tiene que poder ver que lo que
+ * escribió con `#` no existe: descartarlo en silencio sería contestar a otra pregunta.
+ */
+export interface AniListSearchPage {
+  readonly parsed: AniListSearchInput
+  readonly items: readonly AniListEntry[]
+  readonly page: number
+  readonly hasNextPage: boolean
+  /** Aproximado, tal y como lo publica la API. Sólo para enseñarlo. */
+  readonly total?: number
 }
 
 /**
@@ -223,6 +263,25 @@ export interface AniListCatalog {
     adultAllowed: boolean,
     signal?: AbortSignal | undefined,
   ): Promise<ReadonlyMap<string, AniListEntry | null>>
+  /**
+   * La búsqueda de una casilla: un título, unos géneros, o los dos.
+   *
+   * Lo que llega es **lo que el usuario escribió**, sin analizar: el análisis necesita la
+   * lista de géneros —que es un dato de la API— y por eso vive aquí, donde también se
+   * pide. El resultado trae la lista ya cruzada y lo que se escribió con `#` y no existe,
+   * porque la interfaz tiene que poder decirlo.
+   *
+   * La lista de géneros sólo se pide cuando el texto lleva algún `#`: una búsqueda por
+   * título no necesita saber cómo se llaman los géneros, y no hay razón para gastar una
+   * petición de su presupuesto en averiguarlo.
+   */
+  search(
+    texto: string,
+    page: number,
+    signal?: AbortSignal | undefined,
+  ): Promise<Result<AniListSearchPage, AppError>>
+  /** La colección de géneros de AniList, pedida una vez y guardada en memoria. */
+  genres(signal?: AbortSignal | undefined): Promise<Result<readonly string[], AppError>>
   /**
    * Las relaciones de una obra, por su id de AniList.
    *
@@ -513,6 +572,33 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
   // Las relaciones van con su propia lista en vuelo: abrir dos fichas de la misma
   // obra a la vez comparte la consulta, como el top y la parrilla.
   const enVueloRelaciones = new Map<string, Promise<Result<readonly RelatedEntry[], AppError>>>()
+  // La lista de géneros es una sola para todo el proceso: dos búsquedas a la vez —o dos
+  // pantallas— comparten la misma petición, que es lo que evita gastar el presupuesto dos
+  // veces en una constante.
+  let generosGuardados: { readonly value: readonly string[]; readonly at: number } | undefined
+  let enVueloGeneros: Promise<Result<readonly string[], AppError>> | undefined
+  /**
+   * El marco de cada página ya servida: si hay siguiente y cuánto dice la API que hay.
+   *
+   * Vive en memoria y **no en la tabla**, que guarda listas de obras: es lo único que
+   * falta para poder servir una página desde la caché sin esconder el botón de «más».
+   * Se acota porque una entrada por búsqueda distinta crecería sin fin, y se reinserta al
+   * usarla para que lo que se tira sea lo más viejo.
+   */
+  const paginacion = new Map<string, { readonly hasNextPage: boolean; readonly total?: number }>()
+
+  const recordarPagina = (
+    clave: string,
+    info: { readonly hasNextPage: boolean; readonly total?: number },
+  ): void => {
+    paginacion.delete(clave)
+    paginacion.set(clave, info)
+
+    if (paginacion.size > PAGINACION_MAX) {
+      const vieja = paginacion.keys().next().value
+      if (vieja !== undefined) paginacion.delete(vieja)
+    }
+  }
 
   const avisar = (mensaje: string, contexto: Readonly<Record<string, string | number>>): void => {
     options.logger?.warn(mensaje, contexto)
@@ -521,6 +607,130 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
   const listasDeObras = (items: readonly AniListEntry[]): readonly AniListEntry[] => items
   const listasDeCapitulos = (items: readonly AniListAiringEntry[]): readonly AniListEntry[] =>
     items.map((item) => item.media)
+
+  /**
+   * La lista de géneros de AniList.
+   *
+   * Se pide una vez y se guarda en memoria. Un fallo **no** se guarda: la siguiente
+   * búsqueda vuelve a intentarlo, porque una lista que no llegó no es un dato.
+   *
+   * La petición en vuelo se comparte tal cual, con la señal del primero que la pidió: si
+   * ese cliente corta, el que esperaba detrás recibe el fallo y lo reintenta en la
+   * siguiente búsqueda. Se prefiere eso a una petición por llamada, que es lo que el
+   * presupuesto de la API no admite en una pantalla con dos casillas.
+   */
+  async function genres(signal?: AbortSignal): Promise<Result<readonly string[], AppError>> {
+    if (generosGuardados !== undefined && ahora() - generosGuardados.at < GENRES_TTL_MS) {
+      return ok(generosGuardados.value)
+    }
+
+    if (enVueloGeneros !== undefined) return enVueloGeneros
+
+    const promesa = (async (): Promise<Result<readonly string[], AppError>> => {
+      const outcome = await client.query({
+        key: 'genres',
+        query: GENRES_QUERY,
+        variables: {},
+        schema: genreCollectionSchema,
+        signal,
+      })
+
+      if (!outcome.ok) {
+        avisar('no se pudo pedir la lista de géneros a AniList', {
+          motivo: outcome.error.message,
+        })
+
+        return err(outcome.error)
+      }
+
+      const generos = (outcome.value.GenreCollection ?? []).filter((nombre) => nombre.trim() !== '')
+      generosGuardados = { value: generos, at: ahora() }
+
+      return ok(generos)
+    })().finally(() => {
+      enVueloGeneros = undefined
+    })
+
+    enVueloGeneros = promesa
+
+    return promesa
+  }
+
+  /**
+   * La búsqueda de una casilla.
+   *
+   * El análisis necesita la lista de géneros, así que se pide **sólo si el texto lleva
+   * algún `#`**: una búsqueda por título no tiene por qué esperar a una constante que no
+   * va a usar, y su presupuesto tampoco. Cuando sí hace falta y no llega, la búsqueda
+   * falla: contestar sin el filtro que se pidió sería contestar a otra pregunta.
+   *
+   * La lista de la página se guarda con el TTL de una búsqueda de proveedor, y con ella
+   * sus portadas —que es lo que deja servir la imagen por id—. Se sirve de la caché sólo
+   * cuando además se sabe si hay página siguiente: `hasNextPage` no se guarda en la tabla
+   * —guarda listas de obras, no marcos de página— y una caché de la que no se sabe eso
+   * concluiría «no hay más» y escondería el botón. En ese caso se vuelve a preguntar, que
+   * es lo que ya hacía la aplicación antes de tener caché para esto.
+   */
+  async function search(
+    texto: string,
+    page: number,
+    signal?: AbortSignal,
+  ): Promise<Result<AniListSearchPage, AppError>> {
+    const necesitaGeneros = texto.includes('#')
+    const validos = necesitaGeneros ? await genres(signal) : ok<readonly string[]>([])
+    if (!validos.ok) return err(validos.error)
+
+    const parsed = parseAniListInput(texto, validos.value)
+    const variables = buildAniListVariables(parsed, { page })
+    const clave = `search:${variables.perPage}:${variables.page}:${normalizeQuery(texto)}`
+    const guardado = await leerSinRomper(() => store.readAniListList(clave, anilistEntrySchema))
+    const conocida = paginacion.get(clave)
+
+    if (guardado !== null && !guardado.stale && conocida !== undefined) {
+      return ok({
+        parsed,
+        items: guardado.value,
+        page: variables.page,
+        hasNextPage: conocida.hasNextPage,
+        ...(conocida.total === undefined ? {} : { total: conocida.total }),
+      })
+    }
+
+    const outcome = await client.query({
+      key: clave,
+      query: SEARCH_QUERY,
+      variables: { ...variables },
+      schema: searchPageSchema,
+      signal,
+    })
+
+    if (!outcome.ok) {
+      avisar('no se pudo buscar en AniList', {
+        termino: texto,
+        motivo: outcome.error.message,
+      })
+
+      return err(outcome.error)
+    }
+
+    const items = entriesOf(outcome.value.Page.media ?? [])
+    const pageInfo = outcome.value.Page.pageInfo
+    const total = pageInfo?.total
+    const marco =
+      total === undefined || total === null
+        ? { hasNextPage: pageInfo?.hasNextPage === true }
+        : { hasNextPage: pageInfo?.hasNextPage === true, total }
+
+    await store.writeAniListList(clave, items, { ttlS: TTL_SECONDS.search, images: items })
+    recordarPagina(clave, marco)
+
+    return ok({
+      parsed,
+      items,
+      page: variables.page,
+      ...marco,
+    })
+  }
 
   async function top(
     media: MediaFilter,
@@ -918,6 +1128,8 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
     match,
     matchMany,
     related,
+    search,
+    genres,
     localRefs,
     async image(mediaId, kind) {
       return store.readAniListImage(mediaId, kind)
