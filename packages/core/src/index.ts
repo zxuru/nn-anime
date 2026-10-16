@@ -137,6 +137,13 @@ export {
   watchUpdateRequestSchema,
 } from './api'
 export {
+  BOOT_LINE_PREFIX,
+  type BootLine,
+  bootLineSchema,
+  formatBootLine,
+  parseBootLine,
+} from './boot-line'
+export {
   APP_DIR_NAME,
   type ConfigEnvironment,
   type ConfigOverrides,

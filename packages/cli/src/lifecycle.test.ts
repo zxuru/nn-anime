@@ -1,10 +1,15 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  type Chunk,
+  type ClosingReason,
   createLifecycle,
+  exitCodeFor,
+  SHUTDOWN_LINE,
   type SignalTarget,
+  type StdinTarget,
   signalExitCode,
   type TerminatingSignal,
-  waitForSignal,
+  waitForClose,
 } from './lifecycle'
 
 interface FakeTarget extends SignalTarget {
@@ -31,6 +36,44 @@ function fakeTarget(): FakeTarget {
     },
     listeners(event) {
       return handlers.get(event)?.size ?? 0
+    },
+  }
+}
+
+/**
+ * La entrada estándar de mentira.
+ *
+ * Anota a qué eventos se suscribe, que es lo que permite afirmar que el fin de la
+ * entrada **no** cierra: si alguien añade la escucha de `end`, la prueba lo dice.
+ */
+interface FakeStdin extends StdinTarget {
+  write(text: string): void
+  listeners(): number
+  events(): readonly string[]
+}
+
+function fakeStdin(): FakeStdin {
+  const handlers = new Set<(chunk: Chunk) => void>()
+  const events: string[] = []
+
+  return {
+    on(event, handler) {
+      events.push(event)
+      handlers.add(handler)
+      return undefined
+    },
+    off(_event, handler) {
+      handlers.delete(handler)
+      return undefined
+    },
+    write(text) {
+      for (const handler of [...handlers]) handler(text)
+    },
+    listeners() {
+      return handlers.size
+    },
+    events() {
+      return events
     },
   }
 }
@@ -145,10 +188,21 @@ describe('signalExitCode', () => {
   })
 })
 
-describe('waitForSignal', () => {
+describe('exitCodeFor', () => {
+  test('las señales conservan su convención de shell', () => {
+    expect(exitCodeFor('SIGINT')).toBe(130)
+    expect(exitCodeFor('SIGTERM')).toBe(143)
+  })
+
+  test('un cierre pedido por la entrada estándar sale con 0', () => {
+    expect(exitCodeFor('stdin')).toBe(0)
+  })
+})
+
+describe('waitForClose', () => {
   test('resuelve con SIGINT cuando llega la interrupción', async () => {
     const target = fakeTarget()
-    const waiting = waitForSignal(target)
+    const waiting = waitForClose(target, fakeStdin())
 
     target.emit('SIGINT')
 
@@ -157,34 +211,90 @@ describe('waitForSignal', () => {
 
   test('resuelve con SIGTERM cuando llega la terminación', async () => {
     const target = fakeTarget()
-    const waiting = waitForSignal(target)
+    const waiting = waitForClose(target, fakeStdin())
 
     target.emit('SIGTERM')
 
     expect(await waiting).toBe('SIGTERM')
   })
 
-  test('quita las dos escuchas al resolverse', async () => {
+  test('resuelve con `stdin` cuando llega la línea de cierre', async () => {
+    const stdin = fakeStdin()
+    const waiting = waitForClose(fakeTarget(), stdin)
+
+    stdin.write(`${SHUTDOWN_LINE}\n`)
+
+    expect(await waiting).toBe('stdin')
+  })
+
+  test('una línea que no es la de cierre no cierra nada', async () => {
+    const stdin = fakeStdin()
+    const waiting = waitForClose(fakeTarget(), stdin)
+    let resuelto: ClosingReason | undefined
+    void waiting.then((reason) => {
+      resuelto = reason
+    })
+
+    stdin.write('otra cosa\n')
+    stdin.write(`${SHUTDOWN_LINE} pero con más\n`)
+    await Bun.sleep(5)
+
+    expect(resuelto).toBeUndefined()
+  })
+
+  test('una línea partida en dos trozos también cierra', async () => {
+    const stdin = fakeStdin()
+    const waiting = waitForClose(fakeTarget(), stdin)
+
+    stdin.write('shut')
+    stdin.write('down\n')
+
+    expect(await waiting).toBe('stdin')
+  })
+
+  test('no se suscribe al fin de la entrada: cerrar con la entrada cerrada mataría el servidor al nacer', () => {
+    const stdin = fakeStdin()
+
+    void waitForClose(fakeTarget(), stdin)
+
+    expect(stdin.events()).toEqual(['data'])
+  })
+
+  test('quita las tres escuchas al resolverse', async () => {
     const target = fakeTarget()
-    const waiting = waitForSignal(target)
+    const stdin = fakeStdin()
+    const waiting = waitForClose(target, stdin)
 
     expect(target.listeners('SIGINT')).toBe(1)
     expect(target.listeners('SIGTERM')).toBe(1)
+    expect(stdin.listeners()).toBe(1)
 
     target.emit('SIGINT')
     await waiting
 
     expect(target.listeners('SIGINT')).toBe(0)
     expect(target.listeners('SIGTERM')).toBe(0)
+    expect(stdin.listeners()).toBe(0)
   })
 
   test('una segunda señal no vuelve a resolver ni rompe nada', async () => {
     const target = fakeTarget()
-    const waiting = waitForSignal(target)
+    const waiting = waitForClose(target, fakeStdin())
 
     target.emit('SIGTERM')
     target.emit('SIGTERM')
 
     expect(await waiting).toBe('SIGTERM')
+  })
+
+  test('lo que llegue después de la primera orden no cambia el motivo', async () => {
+    const target = fakeTarget()
+    const stdin = fakeStdin()
+    const waiting = waitForClose(target, stdin)
+
+    target.emit('SIGINT')
+    stdin.write(`${SHUTDOWN_LINE}\n`)
+
+    expect(await waiting).toBe('SIGINT')
   })
 })

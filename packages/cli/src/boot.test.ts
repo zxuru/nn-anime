@@ -3,7 +3,13 @@ import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import { AppError, type ConfigPaths, loadConfig, type ProviderError } from '@nn-anime/core'
+import {
+  AppError,
+  type ConfigPaths,
+  loadConfig,
+  type ProviderError,
+  parseBootLine,
+} from '@nn-anime/core'
 import { type Provider, providerFailure } from '@nn-anime/provider-sdk'
 import { createContainer, type RunningServer, saveRepoRecords } from '@nn-anime/server'
 import { type CliOptions, parseArgs } from './args'
@@ -152,6 +158,33 @@ describe('arranque correcto', () => {
       await boot(options(), depsFor(target, home))
 
       expect(target.out[0]).toContain(`http://127.0.0.1:${DEFAULT_PORT}/?boot=${BOOT_TOKEN}`)
+    })
+  })
+
+  test('imprime además la línea legible por máquina, con el mismo puerto y la misma dirección', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      await boot(options(), depsFor(target, home))
+
+      // Se busca en toda la salida y no en una posición concreta: lo que importa
+      // es que esté, no en qué renglón. El formato lo define `core`, que es quien
+      // también lo analiza.
+      const linea = parseBootLine(target.out.join('\n'))
+
+      expect(linea?.port).toBe(DEFAULT_PORT)
+      expect(linea?.url).toBe(`http://127.0.0.1:${DEFAULT_PORT}/?boot=${BOOT_TOKEN}`)
+    })
+  })
+
+  test('la línea legible por máquina no lleva la traducción por medio', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      await boot(options(['--lang', 'en']), depsFor(target, home))
+
+      // Con `--lang en` la línea humana sigue saliendo en español —el inglés no
+      // está traducido—, y es justo el motivo de que exista la otra: el día que
+      // se traduzca, un lector que analizara la humana se rompería.
+      expect(parseBootLine(target.out.join('\n'))?.url).toContain('?boot=')
     })
   })
 
@@ -724,8 +757,15 @@ describe('proveedores activos', () => {
         }),
       )
 
-      expect(target.out[0]).toContain('?boot=')
-      expect(target.out[1]).toContain('uno')
+      // Se compara la posición de las dos líneas y no un índice escrito a mano:
+      // lo que la prueba afirma es el orden —los activos después de la URL—, y
+      // con un `out[1]` cualquier línea que se añada en medio la rompería sin que
+      // el orden dejara de cumplirse.
+      const url = target.out.findIndex((line) => line.includes('?boot='))
+      const activos = target.out.findIndex((line) => line.includes('uno'))
+
+      expect(url).toBeGreaterThanOrEqual(0)
+      expect(activos).toBeGreaterThan(url)
     })
   })
 
