@@ -37,6 +37,7 @@ export {
   DEFAULT_PER_PAGE,
   displayTitleOf,
   genreKey,
+  hasGenreToken,
   MAX_PER_PAGE,
   parseAniListInput,
 } from './anilist-search'

@@ -81,6 +81,24 @@ export function genreKey(name: string): string {
 }
 
 /**
+ * Si el texto pide algún género.
+ *
+ * Es la regla que decide **quién contesta** a una búsqueda, y por eso vive aquí y no en
+ * cada lado: un término con `#` no lo entiende ninguna fuente —buscan el texto literal, y
+ * `#aventura` no es un título—, así que esa búsqueda la contesta el catálogo y no se
+ * pregunta a los proveedores. Con el mismo criterio en el servidor y en la interfaz, la
+ * pantalla y la petición no pueden discrepar.
+ *
+ * Un `#` suelto no cuenta: no pide ningún género y no hay nada que buscar por él.
+ */
+export function hasGenreToken(input: string): boolean {
+  return input
+    .normalize('NFC')
+    .split(/\s+/)
+    .some((token) => token.startsWith('#') && token.length > 1)
+}
+
+/**
  * Separa el texto de la casilla en título y géneros.
  *
  * `validGenres` es la lista que devuelve `GenreCollection`. Con la lista vacía —todavía

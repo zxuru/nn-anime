@@ -1,4 +1,4 @@
-﻿import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -939,6 +939,44 @@ describe('la búsqueda cruzada con AniList', () => {
 
       expect(eventos.some((evento) => evento.event === 'anilist')).toBe(false)
       expect(eventos.at(-1)?.event).toBe('done')
+    })
+  })
+
+  /**
+   * Con un género escrito, a las fuentes no se les pregunta.
+   *
+   * Un término con `#` no es un título —`#aventura` no lo busca nadie— y sus respuestas son
+   * ruido que además se paga en su ancho de banda. Se mide con el contador del fixture: la
+   * ruta no puede preguntar «por si acaso» y luego no pintarlo.
+   */
+  test('con un género no se pregunta a ningún proveedor, y cierra con cero', async () => {
+    await conCruzada(
+      { cross: { studios: [{ name: 'Acción', media: [KIMETSU] }], genre: [KIMETSU] } },
+      async ({ servidor }) => {
+        const antes = fixtureProvider.calls.count('search')
+
+        const eventos = await readSse(
+          await servidor.request(`${BASE}/api/search?q=%23action&media=anime`, { headers: GOOD }),
+        )
+
+        expect(fixtureProvider.calls.count('search')).toBe(antes)
+        expect(eventos.filter((evento) => evento.event === 'results')).toEqual([])
+        expect(eventos.some((evento) => evento.event === 'anilist')).toBe(true)
+        expect(JSON.parse(eventos.at(-1)?.data ?? '{}')).toMatchObject({ providers: 0 })
+      },
+    )
+  })
+
+  test('sin género sí se pregunta, como siempre', async () => {
+    await conCruzada({}, async ({ servidor }) => {
+      const antes = fixtureProvider.calls.count('search')
+
+      const eventos = await readSse(
+        await servidor.request(`${BASE}/api/search?q=aurora&media=anime`, { headers: GOOD }),
+      )
+
+      expect(fixtureProvider.calls.count('search')).toBeGreaterThan(antes)
+      expect(eventos.some((evento) => evento.event === 'results')).toBe(true)
     })
   })
 
