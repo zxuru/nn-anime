@@ -12,6 +12,7 @@ import {
   createScheduler,
   providersFromPath,
   queryFromPath,
+  resuelta,
   SEARCH_DEBOUNCE_MS,
   SearchPage,
   searchPath,
@@ -115,6 +116,26 @@ describe('anuncio para lectores de pantalla', () => {
     // Contar respuestas en lugar de obras diría «2 resultados» con una sola
     // tarjeta en pantalla.
     expect(announce(estado, ['uno', 'dos'])).toContain('1 resultado de 2 proveedores')
+  })
+})
+
+describe('cuándo se puede concluir que no hay nada', () => {
+  test('con la búsqueda en vuelo, no', () => {
+    // Es el instante en que se abre la pantalla desde un enlace: la petición
+    // acaba de salir y todavía no ha contestado nadie.
+    expect(resuelta({ done: false })).toBe(false)
+  })
+
+  test('cuando la búsqueda no llegó a abrirse, tampoco', () => {
+    // Aquí el anuncio ya dice que falló; debajo no puede poner «nada coincide».
+    // Mutar `resuelta` para mirar sólo `done` deja esta prueba en rojo.
+    expect(resuelta({ done: true, failed: describirFallo(new TypeError('Failed to fetch')) })).toBe(
+      false,
+    )
+  })
+
+  test('con la búsqueda cerrada y respondida, sí', () => {
+    expect(resuelta({ done: true })).toBe(true)
   })
 })
 
@@ -225,6 +246,7 @@ describe('rejilla y estado vacío', () => {
       <ResultGrid
         query="uno"
         results={[resultado('mio', 't1', 'Uno'), resultado('otro', 't2', 'Dos')]}
+        done
       />,
     )
 
@@ -247,6 +269,7 @@ describe('rejilla y estado vacío', () => {
             ['animeav1', 'ANIMEAV1'],
           ])
         }
+        done
       />,
     )
 
@@ -261,7 +284,7 @@ describe('rejilla y estado vacío', () => {
   })
 
   test('sin duplicados no aparece el «también en»', () => {
-    const html = render(<ResultGrid query="uno" results={[resultado('mio', 't1', 'Uno')]} />)
+    const html = render(<ResultGrid query="uno" results={[resultado('mio', 't1', 'Uno')]} done />)
 
     expect(html).not.toContain('También en')
     expect(html).not.toContain('card__extra')
@@ -282,6 +305,7 @@ describe('rejilla y estado vacío', () => {
           resultado('animeav1', 'kimetsu-no-yaiba', 'Kimetsu no Yaiba'),
         ]}
         providerPriority={['animeav1']}
+        done
       />,
     )
 
@@ -296,15 +320,30 @@ describe('rejilla y estado vacío', () => {
   })
 
   test('sin resultados dice qué consulta no encontró nada', () => {
-    const html = render(<ResultGrid query="xyz" results={[]} />)
+    const html = render(<ResultGrid query="xyz" results={[]} done />)
 
     expect(html).toContain('Nada coincide')
     expect(html).toContain('xyz')
     expect(html).not.toContain('<ul')
   })
 
+  /**
+   * El renglón que se leyó como respuesta. La pantalla se abría diciendo «Nada
+   * coincide con «…»» a la vez que «Buscando…», y quien llegaba desde un enlace
+   * —la tarjeta de un género, una pieza de la vitrina sin ficha local— se iba
+   * creyendo que su título no existía en ninguna fuente. Quitar la guarda de
+   * `done` deja esto en rojo.
+   */
+  test('mientras busca no dice que no haya nada', () => {
+    const html = render(<ResultGrid query="xyz" results={[]} done={false} />)
+
+    expect(html).not.toContain('Nada coincide')
+    expect(html).not.toContain('Escribe un título')
+    expect(html).toBe('')
+  })
+
   test('sin consulta explica que hay que escribir algo', () => {
-    const html = render(<ResultGrid query="" results={[]} />)
+    const html = render(<ResultGrid query="" results={[]} done />)
 
     expect(html).toContain('Escribe un título')
   })
@@ -347,7 +386,17 @@ describe('página', () => {
     expect(html).toContain('aria-live="polite"')
   })
 
-  test('sin resultados, el estado vacío explica la consulta', () => {
-    expect(pagina('/search?q=xyz')).toContain('Escribe un título')
+  /**
+   * El caso del usuario, en el primer render: se abre `/search?q=<título>` desde
+   * otra pantalla y la búsqueda todavía no ha preguntado a nadie. Antes decía
+   * «Nada coincide con «…»» en ese mismo instante; la medición de que ya no lo
+   * dice es esta. Mutar la guarda de `done` la deja en rojo.
+   */
+  test('abrir una búsqueda no afirma que no haya nada antes de buscar', () => {
+    const html = pagina('/search?q=Tokyo%20Revengers%3A%20Santen%20Sensou-hen')
+
+    expect(html).toContain('value="Tokyo Revengers: Santen Sensou-hen"')
+    expect(html).toContain('Buscando')
+    expect(html).not.toContain('Nada coincide')
   })
 })
