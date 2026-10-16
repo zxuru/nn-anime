@@ -203,15 +203,25 @@ export function matchQuery(alias: number): string {
  * cuenta en peticiones y las dos son la misma pregunta: «¿qué más tiene esto?».
  * Cada alias devuelve su página y quien llama las une sin repetir.
  *
- * **El género se omite cuando no lo es**, y ésa es la decisión que importa:
- * `genre:` sólo acepta un nombre de la lista cerrada de AniList —`ANILIST_GENRES`—
- * y un valor que no está en ella no devuelve vacío, devuelve un error que tumba la
- * consulta entera, la lista del estudio incluida. Por eso el argumento se compone
- * aquí y no viaja siempre: con `genero` sin definir, la consulta es la del estudio
- * y nada más.
+ * **El estudio se pide por `Page.studios`, no con `Media(studio:)`.** Ese argumento
+ * no existe: los filtros de `Media` son `genre`, `tag`, `search`, `licensedBy`… y
+ * ninguno es el estudio —medido en la referencia de la API el 2026-10-16—. Una consulta
+ * que lo pedía la contestaba AniList con un error de validación **de la consulta
+ * entera**, y con ella caía también la lista del género que viajaba al lado: el género
+ * se quedaba sin resultados por un argumento que no era suyo. La forma que sí existe es
+ * la de aquí: se busca el estudio por su nombre y cada estudio publica su conexión de
+ * obras, filtrada por `isMain` —sus obras principales, las mismas que enseña una ficha—
+ * y ordenada por popularidad.
  *
- * El orden es por popularidad y no por fecha: de un estudio o de un género, lo que
- * se busca es lo que hay que ver primero, no lo último que salió.
+ * Esa conexión **no acepta `format_in` ni `isAdult`** —sus argumentos son `sort`,
+ * `isMain`, `page`, `perPage` y `onList`—, así que la mitad y el interruptor de adultos
+ * no se pueden filtrar en la consulta del estudio: los filtra `crossEntries` después,
+ * sobre lo que llegue. La del género sí los lleva.
+ *
+ * **El género se omite cuando no lo es**, y ésa es la otra decisión que importa:
+ * `genre:` sólo acepta un nombre de la lista cerrada de AniList —`ANILIST_GENRES`— y un
+ * valor que no está en ella devuelve un error. Con `genero` sin definir, la consulta es
+ * la del estudio y nada más.
  */
 export function crossQuery(adultAllowed: boolean, genero: string | undefined): string {
   const filtro = filtroDeAdultos(adultAllowed)
@@ -227,10 +237,13 @@ export function crossQuery(adultAllowed: boolean, genero: string | undefined): s
     }`
 
   return `
-  query ($q: String, $perPage: Int, $formatos: [MediaFormat]${variableGenero}) {
-    porEstudio: Page(page: 1, perPage: $perPage) {
-      media(type: ANIME, studio: $q, format_in: $formatos, sort: POPULARITY_DESC${filtro}) {
-        ${MEDIA_FIELDS}
+  query ($q: String, $estudios: Int, $porEstudio: Int, $perPage: Int, $formatos: [MediaFormat]${variableGenero}) {
+    porEstudio: Page(page: 1, perPage: $estudios) {
+      studios(search: $q) {
+        name
+        media(page: 1, perPage: $porEstudio, isMain: true, sort: POPULARITY_DESC) {
+          nodes { ${MEDIA_FIELDS} }
+        }
       }
     }${paginaGenero}
   }

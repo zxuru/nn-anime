@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+﻿import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -880,34 +880,43 @@ describe('la búsqueda cruzada con AniList', () => {
   }
 
   test('el estudio llega como lista, con la referencia local en la obra que la tiene', async () => {
-    await conCruzada({ cross: { studio: [KIMETSU, AURORA] } }, async ({ servidor }) => {
-      const respuesta = await servidor.request(`${BASE}/api/search?q=Estudio%20Cobre&media=anime`, {
-        headers: GOOD,
-      })
-      const eventos = await readSse(respuesta)
-      const items = cruzadaDe(eventos)
+    await conCruzada(
+      { cross: { studios: [{ name: 'Estudio Cobre', media: [KIMETSU, AURORA] }] } },
+      async ({ servidor }) => {
+        const respuesta = await servidor.request(
+          `${BASE}/api/search?q=Estudio%20Cobre&media=anime`,
+          {
+            headers: GOOD,
+          },
+        )
+        const eventos = await readSse(respuesta)
+        const items = cruzadaDe(eventos)
 
-      expect(items.map((item) => item.anilistId)).toEqual([101922, 555])
-      expect(items[0]?.cover).toBe('/api/anilist/image/cover/101922')
-      // La de Aurora está en la base —su ficha se abrió—; la de Kimetsu no. Ése es
-      // el cruce: la misma obra está en AniList y en una fuente, o sólo en AniList.
-      expect(items[0]?.ref).toBeUndefined()
-      expect(items[1]?.ref).toEqual({ providerId: 'fixture', value: REF_LOCAL })
-    })
+        expect(items.map((item) => item.anilistId)).toEqual([101922, 555])
+        expect(items[0]?.cover).toBe('/api/anilist/image/cover/101922')
+        // La de Aurora está en la base —su ficha se abrió—; la de Kimetsu no. Ése es
+        // el cruce: la misma obra está en AniList y en una fuente, o sólo en AniList.
+        expect(items[0]?.ref).toBeUndefined()
+        expect(items[1]?.ref).toEqual({ providerId: 'fixture', value: REF_LOCAL })
+      },
+    )
   })
 
   test('la lista sale antes del cierre: no se da la búsqueda por terminada sin ella', async () => {
-    await conCruzada({ cross: { studio: [KIMETSU] } }, async ({ servidor }) => {
-      const eventos = await readSse(
-        await servidor.request(`${BASE}/api/search?q=Estudio%20Cobre&media=anime`, {
-          headers: GOOD,
-        }),
-      )
-      const nombres = eventos.map((evento) => evento.event)
+    await conCruzada(
+      { cross: { studios: [{ name: 'Estudio Cobre', media: [KIMETSU] }] } },
+      async ({ servidor }) => {
+        const eventos = await readSse(
+          await servidor.request(`${BASE}/api/search?q=Estudio%20Cobre&media=anime`, {
+            headers: GOOD,
+          }),
+        )
+        const nombres = eventos.map((evento) => evento.event)
 
-      expect(nombres).toContain('anilist')
-      expect(nombres.indexOf('anilist')).toBeLessThan(nombres.indexOf('done'))
-    })
+        expect(nombres).toContain('anilist')
+        expect(nombres.indexOf('anilist')).toBeLessThan(nombres.indexOf('done'))
+      },
+    )
   })
 
   test('el género en español se le pide a AniList con su nombre en inglés', async () => {
@@ -935,7 +944,7 @@ describe('la búsqueda cruzada con AniList', () => {
 
   test('una obra marcada no sale con el interruptor apagado', async () => {
     await conCruzada(
-      { cross: { studio: [{ ...KIMETSU, isAdult: true }] } },
+      { cross: { studios: [{ name: 'Estudio Cobre', media: [{ ...KIMETSU, isAdult: true }] }] } },
       async ({ servidor }) => {
         const eventos = await readSse(
           await servidor.request(`${BASE}/api/search?q=Estudio%20Cobre&media=anime`, {

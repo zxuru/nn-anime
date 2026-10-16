@@ -19,7 +19,7 @@ import {
   type StoreConnection,
   TTL_SECONDS,
 } from '@nn-anime/catalog-store'
-import { type AnimeDetail, localWork } from '@nn-anime/core'
+import { type AnimeDetail, createLogger, localWork } from '@nn-anime/core'
 import type { Resolver } from '@nn-anime/media-proxy'
 import { fakeAniList, mediaJson, type RawMediaFixture } from '../__fixtures__/anilist'
 import { type AniListCatalog, createAniListCatalog, matchKey } from './catalog'
@@ -44,6 +44,31 @@ const DANMACHI: RawMediaFixture = {
   synonyms: ['Danmachi', 'DanMachi: Familia Myth'],
   year: 2015,
   format: 'TV',
+}
+
+/** Una obra local del fixture, que la cruzada tiene que poder cruzar. */
+const AURORA: RawMediaFixture = {
+  id: 555,
+  romaji: 'Aurora Nocturna',
+  year: 2019,
+  format: 'TV',
+}
+
+/** Una película del mismo estudio: la mitad de anime no la admite. */
+const PELICULA: RawMediaFixture = {
+  id: 999,
+  romaji: 'El Jardín de Hierro',
+  year: 2021,
+  format: 'MOVIE',
+}
+
+/** Una obra marcada para adultos: con el interruptor apagado no se sirve. */
+const MARCADA: RawMediaFixture = {
+  id: 777,
+  romaji: 'Obra Marcada',
+  year: 2020,
+  format: 'TV',
+  isAdult: true,
 }
 
 /** El reloj falso, con espera: así el presupuesto no se espera de verdad. */
@@ -73,6 +98,8 @@ interface Contexto {
   readonly reloj: Reloj
   readonly fake: ReturnType<typeof fakeAniList>
   readonly db: StoreConnection
+  /** Los avisos que el catálogo escribió por el registro, en orden. */
+  readonly avisos: readonly string[]
 }
 
 async function conCatalogo(
@@ -93,9 +120,17 @@ async function conCatalogo(
       now: reloj.now,
       sleep: reloj.sleep,
     })
-    const catalog = createAniListCatalog({ store, client, now: reloj.now })
+    // El registro se recoge: un fallo que sólo se devuelve y no se cuenta deja la
+    // búsqueda sin su lista sin que nada lo diga, que es el defecto que se arregló.
+    const avisos: string[] = []
+    const catalog = createAniListCatalog({
+      store,
+      client,
+      now: reloj.now,
+      logger: createLogger({ level: 'warn', sink: (entrada) => avisos.push(entrada.msg) }),
+    })
 
-    await body({ catalog, store, reloj, fake, db })
+    await body({ catalog, store, reloj, fake, db, avisos })
   } finally {
     try {
       db.close()
@@ -151,19 +186,88 @@ describe('el top', () => {
   })
 })
 
+/**
+ * La búsqueda cruzada.
+ *
+ * Lo que se mide aquí y no en la ruta: que la consulta que sale sea **una que AniList
+ * acepta** —el estudio por `Page.studios`, con sus obras, y el género por `genre:`, y
+ * ninguno de los dos con argumentos que `Media` no tiene—, y que el filtro de la mitad
+ * y el del interruptor se apliquen donde la consulta no puede: la conexión de obras de
+ * un estudio no acepta `format_in` ni `isAdult`.
+ */
 describe('la búsqueda cruzada', () => {
+  const ESTUDIO_COBRE = {
+    name: 'Estudio Cobre',
+    media: [KIMETSU, AURORA],
+  }
+
   test('el término viaja como estudio, y como género sólo si lo es', async () => {
     await conCatalogo(
-      { cross: { studio: [KIMETSU], genre: [DANMACHI] } },
+      { cross: { studios: [ESTUDIO_COBRE], genre: [DANMACHI] } },
       async ({ catalog, fake }) => {
         const porEstudio = await catalog.cross('ufotable', 'anime', false)
 
-        expect(porEstudio.ok ? porEstudio.value.map((una) => una.id) : []).toEqual([101922])
-        // Sin género en la consulta: `genre:` con un valor que no está en la lista
-        // de AniList devuelve un error que tumba también la lista del estudio.
+        expect(porEstudio.ok ? porEstudio.value.map((una) => una.id) : []).toEqual([101922, 555])
+        // Sin género en la consulta: `genre:` sólo acepta un nombre de la lista cerrada
+        // de AniList y con otro devuelve un error.
         expect(fake.calls[0]?.variables.q).toBe('ufotable')
         expect(fake.calls[0]?.variables.genero).toBeUndefined()
         expect(fake.calls[0]?.query).not.toContain('genre:')
+      },
+    )
+  })
+
+  test('el estudio se pide por `Page.studios`, que es lo que AniList tiene', async () => {
+    // El fallo que esto mide, y que llegó a producción: la consulta pedía
+    // `media(studio: $q)`, un argumento que `Media` no tiene. AniList contestaba un
+    // error de la consulta entera —con él caía también el género que viajaba al lado— y
+    // el doble de las pruebas lo aceptaba, así que nada lo dijo.
+    await conCatalogo({ cross: { studios: [ESTUDIO_COBRE] } }, async ({ catalog, fake }) => {
+      const resultado = await catalog.cross('ufotable', 'anime', false)
+      const consulta = fake.calls[0]?.query ?? ''
+
+      expect(resultado.ok).toBe(true)
+      expect(consulta).toContain('studios(search: $q)')
+      expect(consulta).toContain('media(page: 1, perPage: $porEstudio, isMain: true')
+      // Un `studio:` dentro de un `media(` es el argumento que no existe.
+      expect(consulta).not.toMatch(/media\([^)]*\bstudio\s*:/s)
+    })
+  })
+
+  test('se miran las obras del estudio del nombre exacto, no las de sus parecidos', async () => {
+    // «Cobre» devuelve dos estudios —es una búsqueda, no una igualdad— y el usuario ha
+    // pedido uno: las obras del otro no son suyas.
+    await conCatalogo(
+      {
+        cross: {
+          studios: [
+            { name: 'Estudio Cobre Animación', media: [DANMACHI] },
+            { name: 'Estudio Cobre', media: [KIMETSU] },
+          ],
+        },
+      },
+      async ({ catalog }) => {
+        const resultado = await catalog.cross('estudio cobre', 'anime', false)
+
+        expect(resultado.ok ? resultado.value.map((una) => una.id) : []).toEqual([101922])
+      },
+    )
+  })
+
+  test('sin nombre exacto se miran los estudios que devolvió la búsqueda', async () => {
+    await conCatalogo(
+      {
+        cross: {
+          studios: [
+            { name: 'Toei Animation', media: [KIMETSU] },
+            { name: 'Toei Company', media: [DANMACHI] },
+          ],
+        },
+      },
+      async ({ catalog }) => {
+        const resultado = await catalog.cross('toei', 'anime', false)
+
+        expect(resultado.ok ? resultado.value.map((una) => una.id) : []).toEqual([101922, 20920])
       },
     )
   })
@@ -182,7 +286,12 @@ describe('la búsqueda cruzada', () => {
     // La misma obra en las dos —un estudio que se llame como un género— es una
     // pieza: sin la unión, la rejilla la pintaría dos veces.
     await conCatalogo(
-      { cross: { studio: [KIMETSU, DANMACHI], genre: [KIMETSU] } },
+      {
+        cross: {
+          studios: [{ name: 'Action', media: [KIMETSU, DANMACHI] }],
+          genre: [KIMETSU],
+        },
+      },
       async ({ catalog, fake }) => {
         const resultado = await catalog.cross('Action', 'anime', false)
 
@@ -192,8 +301,39 @@ describe('la búsqueda cruzada', () => {
     )
   })
 
+  test('la mitad se filtra después: la conexión del estudio no acepta `format_in`', async () => {
+    // La película del estudio no entra en la mitad de anime, y la serie no entra en la
+    // de películas: el filtro va sobre lo que llegó porque la consulta no puede pedirlo.
+    await conCatalogo(
+      { cross: { studios: [{ name: 'Estudio Cobre', media: [KIMETSU, PELICULA] }] } },
+      async ({ catalog }) => {
+        const anime = await catalog.cross('estudio cobre', 'anime', false)
+        const peliculas = await catalog.cross('estudio cobre', 'movies', false)
+
+        expect(anime.ok ? anime.value.map((una) => una.id) : []).toEqual([101922])
+        expect(peliculas.ok ? peliculas.value.map((una) => una.id) : []).toEqual([999])
+      },
+    )
+  })
+
+  test('la obra marcada del estudio tampoco entra con el interruptor apagado', async () => {
+    // La consulta del género filtra por `isAdult`, la del estudio no puede: si este
+    // filtro no estuviera, la lista del estudio sería la única puerta por la que se
+    // colaría una obra marcada.
+    await conCatalogo(
+      { cross: { studios: [{ name: 'Estudio Cobre', media: [KIMETSU, MARCADA] }] } },
+      async ({ catalog }) => {
+        const segura = await catalog.cross('estudio cobre', 'anime', false)
+        const entera = await catalog.cross('estudio cobre', 'anime', true)
+
+        expect(segura.ok ? segura.value.map((una) => una.id) : []).toEqual([101922])
+        expect(entera.ok ? entera.value.map((una) => una.id) : []).toEqual([101922, 777])
+      },
+    )
+  })
+
   test('la segunda lectura del mismo término no vuelve a salir a la red', async () => {
-    await conCatalogo({ cross: { studio: [KIMETSU] } }, async ({ catalog, fake }) => {
+    await conCatalogo({ cross: { studios: [ESTUDIO_COBRE] } }, async ({ catalog, fake }) => {
       await catalog.cross('ufotable', 'anime', false)
       await catalog.cross('  UFOTABLE ', 'anime', false)
 
@@ -203,10 +343,10 @@ describe('la búsqueda cruzada', () => {
     })
   })
 
-  test('con el interruptor apagado la consulta filtra; con él encendido no', async () => {
-    await conCatalogo({ cross: { studio: [KIMETSU] } }, async ({ catalog, fake }) => {
-      await catalog.cross('ufotable', 'anime', false)
-      await catalog.cross('ufotable', 'anime', true)
+  test('con el interruptor apagado la consulta del género filtra; con él encendido no', async () => {
+    await conCatalogo({ cross: { genre: [KIMETSU] } }, async ({ catalog, fake }) => {
+      await catalog.cross('Acción', 'anime', false)
+      await catalog.cross('Acción', 'anime', true)
 
       expect(fake.calls[0]?.query).toContain('isAdult: false')
       // El eje viaja en la clave de caché: encender el interruptor pide otra cosa y
@@ -217,9 +357,25 @@ describe('la búsqueda cruzada', () => {
     })
   })
 
-  test('la mitad decide los formatos que se piden', async () => {
-    await conCatalogo({ cross: { studio: [KIMETSU] } }, async ({ catalog, fake }) => {
-      await catalog.cross('ufotable', 'movies', false)
+  test('un fallo de AniList se avisa por el registro, no sólo se devuelve', async () => {
+    // El fallo que costó una tarde: la consulta no validaba, la lista no llegaba y nada
+    // lo decía. La prueba mide que ahora sí se dice.
+    const fixture: Parameters<typeof fakeAniList>[0] = { cross: { studios: [ESTUDIO_COBRE] } }
+
+    await conCatalogo(fixture, async ({ catalog, avisos }) => {
+      fixture.status = { 'porEstudio: Page(': 500 }
+
+      const resultado = await catalog.cross('Estudio Cobre', 'anime', false)
+
+      expect(resultado.ok).toBe(false)
+      expect(avisos).toHaveLength(1)
+      expect(avisos[0]).toContain('AniList')
+    })
+  })
+
+  test('la mitad decide los formatos que se piden al género', async () => {
+    await conCatalogo({ cross: { genre: [KIMETSU] } }, async ({ catalog, fake }) => {
+      await catalog.cross('Acción', 'movies', false)
 
       expect(fake.calls[0]?.variables.formatos).toEqual(['MOVIE'])
     })
