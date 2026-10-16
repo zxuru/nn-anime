@@ -6,9 +6,10 @@
  * devolvería una forma distinta de la que el cliente valida.
  *
  * No sale a la red: contesta al POST de GraphQL mirando qué consulta es —el top,
- * la parrilla, lo recién emitido, el lote de búsqueda— y devuelve la obra de
- * cada caso con **nombres reales**, que es lo que hace que las pruebas de
- * emparejamiento midan la identidad de verdad y no una cadena inventada.
+ * la parrilla, lo recién emitido, el lote de búsqueda, la cruzada de estudio y
+ * género— y devuelve la obra de cada caso con **nombres reales**, que es lo que
+ * hace que las pruebas de emparejamiento midan la identidad de verdad y no una
+ * cadena inventada.
  *
  * Los `calls` guardan la consulta y las variables de cada petición: es lo que
  * permite comprobar que la caché evita la segunda y que el lote va en una sola.
@@ -107,6 +108,17 @@ export interface AniListFixture {
   /** Lo que devuelve cada búsqueda, por el título con el que se preguntó. */
   readonly search?: Readonly<Record<string, readonly RawMediaFixture[]>>
   /**
+   * Lo que devuelve la búsqueda cruzada: una lista por estudio y otra por género.
+   *
+   * Las dos van en la misma consulta y con alias propios, así que el doble las
+   * contesta por separado y deja que la prueba mida la unión —el alias que falta
+   * cuando el término no es un género incluido—.
+   */
+  readonly cross?: {
+    readonly studio?: readonly RawMediaFixture[]
+    readonly genre?: readonly RawMediaFixture[]
+  }
+  /**
    * Las relaciones de cada obra, por su id de AniList.
    *
    * El tipo llega con el nombre que publica la API —`SEQUEL`, `SOURCE`— y no con
@@ -174,6 +186,26 @@ export function fakeAniList(fixture: AniListFixture = {}): FakeAniList {
       }))
 
       return Response.json({ data: { Media: { relations: { edges } } } })
+    }
+
+    /**
+     * La búsqueda cruzada: una página por alias.
+     *
+     * El alias del género **sólo está cuando el término lo es** —la consulta lo
+     * omite a propósito, porque un `genre:` que no está en la lista de AniList
+     * devuelve un error y no una lista vacía—, así que el doble tampoco lo
+     * publica: devolverlo siempre escondería que la consulta lo pide cuando no
+     * debe.
+     */
+    if (query.includes('porEstudio: Page(')) {
+      const paginas: Record<string, unknown> = {
+        porEstudio: { media: (fixture.cross?.studio ?? []).map((una) => mediaJson(una)) },
+      }
+      if (variables.genero !== undefined) {
+        paginas.porGenero = { media: (fixture.cross?.genre ?? []).map((una) => mediaJson(una)) }
+      }
+
+      return Response.json({ data: paginas })
     }
 
     // El lote de búsqueda: una página por alias, con lo que el fixture tenga para

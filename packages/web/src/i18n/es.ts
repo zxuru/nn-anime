@@ -100,6 +100,12 @@ export const messages: Messages = {
   'search.failed': 'No se pudo buscar: {message}',
   'search.alsoIn': 'También en',
   'search.alsoInItem': '{title} en {provider}',
+  // La mitad que las fuentes no pueden contestar: lo que AniList tiene de ese
+  // estudio o de ese género. El sello dice cuál de esas obras ya está en una fuente.
+  'search.anilist': 'En AniList',
+  'search.anilist.meta': 'De «{query}», como estudio o como género.',
+  'search.anilist.inSources': 'En tus fuentes',
+  'search.anilist.announce': 'Y {count} en AniList.',
 
   'home.loading': 'Cargando tu inicio…',
   'home.refreshing': 'Actualizando…',

@@ -33,6 +33,7 @@ import {
   tipoFromPath,
   useMedias,
 } from '../tipo/tipo'
+import { AniListResults } from './AniListResults'
 import { ResultGrid } from './ResultGrid'
 import {
   createDefaultPrefetcher,
@@ -110,6 +111,11 @@ export function searchPath(term: string, providers: readonly string[] = []): str
  * El recuento es de **obras**, no de respuestas: con cuatro tarjetas en pantalla,
  * decir «trece resultados» porque dos proveedores devolvieron lo mismo es
  * contar lo que no se ve.
+ *
+ * Las piezas de AniList se cuentan **aparte y también**: una búsqueda por género o
+ * por estudio suele no tener nada de los proveedores y sí veinte piezas de AniList
+ * en pantalla, y callarlas dejaría al lector de pantalla con un «0 resultados» que
+ * no es lo que hay.
  */
 export function announce(
   state: SearchState,
@@ -134,11 +140,16 @@ export function announce(
 
   const obras = groupResults(state.results).length
   const clave = obras === 1 ? 'search.resultsCountOne' : 'search.resultsCount'
-
-  return t(DEFAULT_LOCALE, clave, {
+  const proveedores = t(DEFAULT_LOCALE, clave, {
     count: obras,
     providers: new Set(state.results.map((result) => result.ref.providerId)).size,
   })
+
+  if (state.anilist.length === 0) return proveedores
+
+  return `${proveedores} ${t(DEFAULT_LOCALE, 'search.anilist.announce', {
+    count: state.anilist.length,
+  })}`
 }
 
 /**
@@ -272,6 +283,15 @@ export function SearchPage(props: SearchPageProps): ReactNode {
         onPreview={(result) => prefetch.hover(result.ref.providerId, result.ref.value)}
         onPreviewEnd={() => prefetch.leave()}
       />
+
+      {/*
+        La búsqueda cruzada, debajo de lo de los proveedores. Va aparte y no
+        mezclada porque sus piezas no son la respuesta de un proveedor: son lo que
+        AniList tiene de ese estudio o de ese género, y cada una dice si está en tus
+        fuentes. Es lo que responde cuando lo local se queda corto, que es justo el
+        caso de una búsqueda por género o por estudio.
+      */}
+      <AniListResults items={visibles.anilist} query={aplicado} />
     </section>
   )
 }

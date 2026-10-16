@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Contrato HTTP: las formas que cruzan la frontera entre el server y la interfaz.
  *
  * Viven aquí, en `core`, y no en cada lado, porque son **la misma forma**. El
@@ -728,12 +728,26 @@ export const searchQuerySchema = z.strictObject({
   media: providerMediaSchema.optional(),
 })
 
-/** Un evento del flujo de búsqueda, tal como viaja por SSE. */
+/**
+ * Un evento del flujo de búsqueda, tal como viaja por SSE.
+ *
+ * `anilist` es la búsqueda cruzada: lo que AniList tiene de ese término como
+ * **estudio o como género**. Va con `discoverItemSchema` y no con `searchResultSchema`
+ * porque una obra que ninguna fuente tiene no tiene referencia local que ofrecer
+ * —lo que sí lleva es la de la ficha cuando la base ya la conoce, y eso es lo que
+ * decide si la pieza abre una ficha o la búsqueda de su título—. Es un evento
+ * propio porque sus piezas no son la respuesta de un proveedor: la interfaz las
+ * pinta aparte y el recuento por proveedor sigue contando lo que es.
+ */
 export const searchEventSchema = z.discriminatedUnion('type', [
   z.strictObject({
     type: z.literal('results'),
     providerId: z.string().min(1),
     results: z.array(searchResultSchema),
+  }),
+  z.strictObject({
+    type: z.literal('anilist'),
+    items: z.array(discoverItemSchema),
   }),
   z.strictObject({
     type: z.literal('error'),

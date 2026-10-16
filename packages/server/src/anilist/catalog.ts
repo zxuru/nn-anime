@@ -1,4 +1,4 @@
-/**
+﻿/**
  * La caché delante de AniList: qué se pide, cuándo se reutiliza y qué se sirve
  * cuando el tercero no contesta.
  *
@@ -29,6 +29,7 @@ import {
   type AppError,
   anilistAiringEntrySchema,
   anilistEntrySchema,
+  anilistGenre,
   err,
   kindOfFormat,
   type LocalWork,
@@ -37,6 +38,7 @@ import {
   namesOf,
   normalizeQuery,
   ok,
+  type ProviderMedia,
   type ProviderRef,
   pickAniListMatch,
   type Result,
@@ -60,6 +62,7 @@ import {
 import {
   AIRED_QUERY,
   AIRING_QUERY,
+  crossQuery,
   matchQuery,
   moviesReleasedQuery,
   RELATED_QUERY,
@@ -86,6 +89,28 @@ export const MOVIE_RELEASED_DAYS = 365
 export const MATCH_BATCH = 8
 /** Lo que se mira de la base al emparejar una obra: el prefiltro ya descarta. */
 const LOCAL_SCAN_LIMIT = 200
+
+/**
+ * Lo que se enseña de la búsqueda cruzada: una fila de la rejilla, no el catálogo
+ * del estudio. De un estudio con sesenta obras se pintan las más populares y la
+ * pieza dice cuántas hay; traerlas todas sería el espejo que los términos de uso
+ * de AniList prohíben.
+ */
+export const CROSS_LIMIT = 24
+
+/**
+ * Los formatos que se le piden a AniList para la mitad que se está mirando.
+ *
+ * La búsqueda cruzada puede llegar sin mitad —«no lo he pedido»—, y ahí se piden
+ * las dos: la pestaña que no toca descarta después por el `kind` de cada pieza,
+ * que es la misma regla que usan las fuentes mixtas.
+ */
+export function formatosDe(media: ProviderMedia | undefined): readonly string[] {
+  if (media === 'movies') return FORMATOS.movies
+  if (media === 'anime') return FORMATOS.anime
+
+  return [...FORMATOS.anime, ...FORMATOS.movies]
+}
 
 export interface AniListMatchRequest {
   /** La clave de la caché: el título normalizado y su año. */
@@ -122,6 +147,26 @@ export interface AniListCatalog {
    */
   top(
     media: MediaFilter,
+    adultAllowed: boolean,
+    signal?: AbortSignal | undefined,
+  ): Promise<Result<readonly AniListEntry[], AppError>>
+  /**
+   * La búsqueda cruzada: lo que AniList tiene de un término como estudio y como
+   * género, en una sola lista y sin repetir.
+   *
+   * Es la mitad que las fuentes no pueden contestar: ninguna busca por estudio ni
+   * por género, así que una búsqueda de «ufotable» sólo podía devolver lo que ya
+   * estuviera cacheado. El género se resuelve con `anilistGenre`, que traduce el
+   * nombre en español al de su lista cerrada; si el término no es un género, la
+   * consulta se hace sólo por estudio.
+   *
+   * Lista vacía es una respuesta —no hay nada con ese nombre— y un fallo del
+   * tercero no es un error de la pantalla: la búsqueda sigue con lo local y con
+   * los proveedores.
+   */
+  cross(
+    term: string,
+    media: ProviderMedia | undefined,
     adultAllowed: boolean,
     signal?: AbortSignal | undefined,
   ): Promise<Result<readonly AniListEntry[], AppError>>
@@ -410,6 +455,72 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
         if (!outcome.ok) return err(outcome.error)
 
         return ok(entriesOf(outcome.value.Page.media).slice(0, TOP_LIMIT))
+      },
+    )
+  }
+
+  /**
+   * La búsqueda cruzada: las dos listas —estudio y género— en una sola lectura.
+   *
+   * La clave lleva el término **normalizado**, la mitad y el eje del interruptor:
+   * dos personas buscando «Acción» y «acción» comparten consulta, y encender el
+   * interruptor no sirve la lista del estado anterior.
+   *
+   * Se unen las dos páginas sin repetir por id y se recorta al tope: una obra que
+   * salga en las dos —un estudio que se llame como un género— es una pieza.
+   */
+  async function cross(
+    term: string,
+    media: ProviderMedia | undefined,
+    adultAllowed: boolean,
+    signal?: AbortSignal,
+  ): Promise<Result<readonly AniListEntry[], AppError>> {
+    const genero = anilistGenre(term)
+    const clave = `cross:${ejeDeAdultos(adultAllowed)}:${media ?? 'both'}:${normalizeQuery(term)}`
+
+    return cachedList(
+      {
+        store,
+        clave,
+        schema: anilistEntrySchema,
+        ttlS: TTL_SECONDS.anilistSearch,
+        enVuelo: enVueloEntradas,
+        imagenes: listasDeObras,
+      },
+      async () => {
+        const outcome = await client.query({
+          key: clave,
+          query: crossQuery(adultAllowed, genero),
+          variables: {
+            q: term,
+            ...(genero === undefined ? {} : { genero }),
+            perPage: PER_PAGE,
+            formatos: [...formatosDe(media)],
+          },
+          schema: mediaPagesSchema,
+          signal,
+        })
+
+        if (!outcome.ok) return err(outcome.error)
+
+        // El orden de los alias manda: primero lo del estudio —el caso que pidió
+        // esta búsqueda— y después lo del género.
+        const vistas = new Set<number>()
+        const entradas: AniListEntry[] = []
+
+        for (const alias of ['porEstudio', 'porGenero']) {
+          const pagina = outcome.value[alias]
+          if (pagina === undefined) continue
+
+          for (const entrada of entriesOf(mediaOfAlias(pagina))) {
+            if (vistas.has(entrada.id)) continue
+
+            vistas.add(entrada.id)
+            entradas.push(entrada)
+          }
+        }
+
+        return ok(entradas.slice(0, CROSS_LIMIT))
       },
     )
   }
@@ -711,6 +822,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
 
   return {
     top,
+    cross,
     airing,
     recent,
     match,

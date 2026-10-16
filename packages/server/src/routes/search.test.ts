@@ -3,9 +3,10 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import { type ProviderSummary, providersResponseSchema } from '@nn-anime/core'
+import { type DiscoverItem, type ProviderSummary, providersResponseSchema } from '@nn-anime/core'
 import { createRegistry, type Provider } from '@nn-anime/provider-sdk'
 import { createFixtureProvider, fixtureProvider } from '@nn-anime/providers-fixture'
+import { fakeAniList, type RawMediaFixture } from '../__fixtures__/anilist'
 import { createApp, createContainer, type PluginReport } from '../index'
 
 const PORT = 7717
@@ -797,5 +798,153 @@ describe('cancelación', () => {
     await espera()
 
     expect(aborted).toEqual(['lento'])
+  })
+})
+
+/**
+ * La búsqueda cruzada, de punta a punta.
+ *
+ * Es el caso que la pidió: una búsqueda por **estudio** o por **género** que en
+ * las fuentes no tiene nada más que dar —ninguna busca por ahí— y que AniList sí
+ * contesta. Lo que se mide es que la lista llega como evento propio, que cada
+ * pieza trae la referencia local cuando la base conoce la obra —el cruce con lo
+ * que hay en los proveedores—, y que el cierre no se adelanta a la lista.
+ */
+describe('la búsqueda cruzada con AniList', () => {
+  const REF_LOCAL = 'aurora-nocturna'
+
+  /** La obra local del fixture: la base la conoce en cuanto se abre su ficha. */
+  const AURORA: RawMediaFixture = {
+    id: 555,
+    romaji: 'Aurora Nocturna',
+    year: 2019,
+    format: 'TV',
+    genres: ['Misterio'],
+    studios: ['Estudio Cobre'],
+  }
+
+  const KIMETSU: RawMediaFixture = {
+    id: 101922,
+    romaji: 'Kimetsu no Yaiba',
+    english: 'Demon Slayer',
+    year: 2019,
+    format: 'TV',
+  }
+
+  async function conCruzada<T>(
+    fixture: Parameters<typeof fakeAniList>[0],
+    body: (contexto: {
+      readonly servidor: ReturnType<typeof createApp>
+      readonly fake: ReturnType<typeof fakeAniList>
+    }) => Promise<T>,
+  ): Promise<T> {
+    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-cruzada-'))
+    const db = openDb(join(dir, 'nn-anime.db'))
+    runMigrations(db)
+    const container = createContainer({ db })
+    const fake = fakeAniList(fixture)
+
+    try {
+      const servidor = createApp({
+        port: PORT,
+        session: {
+          cookieName: SESSION_COOKIE,
+          value: SESSION_VALUE,
+          matches: (candidate) => candidate === SESSION_VALUE,
+        },
+        bootToken: BOOT_TOKEN,
+        version: '0.1.0',
+        plugins: SOLO_FIXTURE,
+        container,
+        anilistFetchImpl: fake.impl,
+        anilistResolver: async () => ['140.82.121.3'],
+        anilistClock: () => 1_700_000_000_000,
+      })
+
+      // La ficha local se cachea abriéndola, que es como la conoce la aplicación:
+      // sin ella no hay nada con lo que cruzar la lista de AniList.
+      await servidor.request(`${BASE}/api/anime/fixture/${REF_LOCAL}`, { headers: GOOD })
+
+      return await body({ servidor, fake })
+    } finally {
+      await container.close().catch(() => {})
+      await rm(dir, { recursive: true, force: true })
+    }
+  }
+
+  function cruzadaDe(eventos: readonly { event: string; data: string }[]): readonly DiscoverItem[] {
+    const evento = eventos.find((uno) => uno.event === 'anilist')
+    if (evento === undefined) return []
+
+    return (JSON.parse(evento.data) as { items: readonly DiscoverItem[] }).items
+  }
+
+  test('el estudio llega como lista, con la referencia local en la obra que la tiene', async () => {
+    await conCruzada({ cross: { studio: [KIMETSU, AURORA] } }, async ({ servidor }) => {
+      const respuesta = await servidor.request(`${BASE}/api/search?q=Estudio%20Cobre&media=anime`, {
+        headers: GOOD,
+      })
+      const eventos = await readSse(respuesta)
+      const items = cruzadaDe(eventos)
+
+      expect(items.map((item) => item.anilistId)).toEqual([101922, 555])
+      expect(items[0]?.cover).toBe('/api/anilist/image/cover/101922')
+      // La de Aurora está en la base —su ficha se abrió—; la de Kimetsu no. Ése es
+      // el cruce: la misma obra está en AniList y en una fuente, o sólo en AniList.
+      expect(items[0]?.ref).toBeUndefined()
+      expect(items[1]?.ref).toEqual({ providerId: 'fixture', value: REF_LOCAL })
+    })
+  })
+
+  test('la lista sale antes del cierre: no se da la búsqueda por terminada sin ella', async () => {
+    await conCruzada({ cross: { studio: [KIMETSU] } }, async ({ servidor }) => {
+      const eventos = await readSse(
+        await servidor.request(`${BASE}/api/search?q=Estudio%20Cobre&media=anime`, {
+          headers: GOOD,
+        }),
+      )
+      const nombres = eventos.map((evento) => evento.event)
+
+      expect(nombres).toContain('anilist')
+      expect(nombres.indexOf('anilist')).toBeLessThan(nombres.indexOf('done'))
+    })
+  })
+
+  test('el género en español se le pide a AniList con su nombre en inglés', async () => {
+    await conCruzada({ cross: { genre: [KIMETSU] } }, async ({ servidor, fake }) => {
+      const eventos = await readSse(
+        await servidor.request(`${BASE}/api/search?q=Acci%C3%B3n&media=anime`, { headers: GOOD }),
+      )
+
+      const llamada = fake.calls.find((una) => una.query.includes('porEstudio: Page('))
+      expect(llamada?.variables.genero).toBe('Action')
+      expect(cruzadaDe(eventos).map((item) => item.anilistId)).toEqual([101922])
+    })
+  })
+
+  test('sin nada que AniList tenga del término no se emite el evento, y la búsqueda cierra', async () => {
+    await conCruzada({}, async ({ servidor }) => {
+      const eventos = await readSse(
+        await servidor.request(`${BASE}/api/search?q=naruto&media=anime`, { headers: GOOD }),
+      )
+
+      expect(eventos.some((evento) => evento.event === 'anilist')).toBe(false)
+      expect(eventos.at(-1)?.event).toBe('done')
+    })
+  })
+
+  test('una obra marcada no sale con el interruptor apagado', async () => {
+    await conCruzada(
+      { cross: { studio: [{ ...KIMETSU, isAdult: true }] } },
+      async ({ servidor }) => {
+        const eventos = await readSse(
+          await servidor.request(`${BASE}/api/search?q=Estudio%20Cobre&media=anime`, {
+            headers: GOOD,
+          }),
+        )
+
+        expect(eventos.some((evento) => evento.event === 'anilist')).toBe(false)
+      },
+    )
   })
 })

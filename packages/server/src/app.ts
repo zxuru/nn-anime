@@ -20,7 +20,7 @@ import { healthResponseSchema, type Logger } from '@nn-anime/core'
 import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
 import type { LoadReport } from '@nn-anime/provider-sdk'
 import { Hono } from 'hono'
-import { createAniListCatalog } from './anilist/catalog'
+import { type AniListCatalog, createAniListCatalog } from './anilist/catalog'
 import { anilistOfflineFromEnv, createAniListClient } from './anilist/client'
 import { bootstrapHandler } from './bootstrap'
 import type { ServerContainer } from './container'
@@ -236,6 +236,12 @@ export function createApp(options: AppOptions): Hono {
   }
   // Las rutas de metadatos necesitan el store: sin contenedor no se registran,
   // y una petición a ellas es un 404 explicable en vez de un 500 por dentro.
+  //
+  // El catálogo de AniList se declara aquí fuera porque la búsqueda —que sí se
+  // registra sin contenedor— lo recibe cuando existe: es el mismo de la vitrina y
+  // de la ficha, y la búsqueda cruzada es su tercera superficie.
+  let catalogoAniList: AniListCatalog | undefined
+
   if (container !== undefined) {
     const routeOptions = {
       providers: hub.providers,
@@ -268,6 +274,10 @@ export function createApp(options: AppOptions): Hono {
       ...(options.anilistClock === undefined ? {} : { now: options.anilistClock }),
       ...(options.logger === undefined ? {} : { logger: options.logger }),
     })
+
+    // La búsqueda se registra más abajo, fuera de este bloque: recibe el catálogo
+    // por aquí y sigue funcionando sin él cuando no hay contenedor.
+    catalogoAniList = catalog
 
     registerAniListRoutes(app, {
       providers: hub.providers,
@@ -317,6 +327,7 @@ export function createApp(options: AppOptions): Hono {
     providers: hub.providers,
     ...(options.searchTimeoutMs === undefined ? {} : { timeoutMs: options.searchTimeoutMs }),
     ...(container === undefined ? {} : { container }),
+    ...(catalogoAniList === undefined ? {} : { catalog: catalogoAniList }),
   })
 
   return app

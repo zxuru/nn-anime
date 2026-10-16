@@ -8,11 +8,14 @@
  */
 
 export {
+  ANILIST_GENRES,
   ANILIST_RELATIONS,
   type AniListCandidate,
+  type AniListGenre,
   type AniListImageKind,
   type AniListNames,
   type AniListRelation,
+  anilistGenre,
   anilistImagePath,
   anilistNames,
   kindOfFormat,

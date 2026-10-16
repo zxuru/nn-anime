@@ -151,6 +151,81 @@ describe('el top', () => {
   })
 })
 
+describe('la búsqueda cruzada', () => {
+  test('el término viaja como estudio, y como género sólo si lo es', async () => {
+    await conCatalogo(
+      { cross: { studio: [KIMETSU], genre: [DANMACHI] } },
+      async ({ catalog, fake }) => {
+        const porEstudio = await catalog.cross('ufotable', 'anime', false)
+
+        expect(porEstudio.ok ? porEstudio.value.map((una) => una.id) : []).toEqual([101922])
+        // Sin género en la consulta: `genre:` con un valor que no está en la lista
+        // de AniList devuelve un error que tumba también la lista del estudio.
+        expect(fake.calls[0]?.variables.q).toBe('ufotable')
+        expect(fake.calls[0]?.variables.genero).toBeUndefined()
+        expect(fake.calls[0]?.query).not.toContain('genre:')
+      },
+    )
+  })
+
+  test('un género en español viaja con el nombre que exige AniList', async () => {
+    await conCatalogo({ cross: { genre: [DANMACHI] } }, async ({ catalog, fake }) => {
+      const resultado = await catalog.cross('Acción', 'anime', false)
+
+      expect(resultado.ok ? resultado.value.map((una) => una.id) : []).toEqual([20920])
+      expect(fake.calls[0]?.variables.genero).toBe('Action')
+      expect(fake.calls[0]?.query).toContain('genre: $genero')
+    })
+  })
+
+  test('las dos listas se unen sin repetir y con el tope puesto', async () => {
+    // La misma obra en las dos —un estudio que se llame como un género— es una
+    // pieza: sin la unión, la rejilla la pintaría dos veces.
+    await conCatalogo(
+      { cross: { studio: [KIMETSU, DANMACHI], genre: [KIMETSU] } },
+      async ({ catalog, fake }) => {
+        const resultado = await catalog.cross('Action', 'anime', false)
+
+        expect(resultado.ok ? resultado.value.map((una) => una.id) : []).toEqual([101922, 20920])
+        expect(fake.calls).toHaveLength(1)
+      },
+    )
+  })
+
+  test('la segunda lectura del mismo término no vuelve a salir a la red', async () => {
+    await conCatalogo({ cross: { studio: [KIMETSU] } }, async ({ catalog, fake }) => {
+      await catalog.cross('ufotable', 'anime', false)
+      await catalog.cross('  UFOTABLE ', 'anime', false)
+
+      // El término se normaliza en la clave: dos grafías del mismo estudio son una
+      // consulta, y el presupuesto de AniList no se gasta dos veces en lo mismo.
+      expect(fake.calls).toHaveLength(1)
+    })
+  })
+
+  test('con el interruptor apagado la consulta filtra; con él encendido no', async () => {
+    await conCatalogo({ cross: { studio: [KIMETSU] } }, async ({ catalog, fake }) => {
+      await catalog.cross('ufotable', 'anime', false)
+      await catalog.cross('ufotable', 'anime', true)
+
+      expect(fake.calls[0]?.query).toContain('isAdult: false')
+      // El eje viaja en la clave de caché: encender el interruptor pide otra cosa y
+      // no puede servirse la lista del estado anterior.
+      expect(fake.calls).toHaveLength(2)
+      // `isAdult` está también en los campos de la obra; lo que cambia es el filtro.
+      expect(fake.calls[1]?.query).not.toContain('isAdult: false')
+    })
+  })
+
+  test('la mitad decide los formatos que se piden', async () => {
+    await conCatalogo({ cross: { studio: [KIMETSU] } }, async ({ catalog, fake }) => {
+      await catalog.cross('ufotable', 'movies', false)
+
+      expect(fake.calls[0]?.variables.formatos).toEqual(['MOVIE'])
+    })
+  })
+})
+
 describe('la parrilla', () => {
   test('llega con el capítulo, la fecha y su obra', async () => {
     await conCatalogo(

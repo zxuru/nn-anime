@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'bun:test'
+import type { DiscoverItem } from '@nn-anime/core/api'
 import type { SearchResult } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describirFallo } from '../../api/fallo'
 import { Grid, GridItem } from '../../components/Grid'
 import { createMemoryHistory, HistoryProvider } from '../../router'
+import { AniListResults } from './AniListResults'
 import { ResultCard } from './ResultCard'
 import { ResultGrid } from './ResultGrid'
 import {
@@ -17,7 +19,7 @@ import {
   SearchPage,
   searchPath,
 } from './SearchPage'
-import { createPrefetcher, initialState } from './useSearchStream'
+import { createPrefetcher, initialState, reduce } from './useSearchStream'
 
 function resultado(
   providerId: string,
@@ -83,9 +85,8 @@ describe('anuncio para lectores de pantalla', () => {
 
   test('al cerrar anuncia el recuento y cuántos proveedores respondieron', () => {
     const estado = {
+      ...initialState([]),
       results: [resultado('uno', 'a', 'A'), resultado('dos', 'b', 'B'), resultado('dos', 'c', 'C')],
-      pending: [],
-      errors: [],
       done: true,
     }
 
@@ -107,9 +108,8 @@ describe('anuncio para lectores de pantalla', () => {
 
   test('la misma obra en dos proveedores cuenta como un resultado, no como dos', () => {
     const estado = {
+      ...initialState([]),
       results: [resultado('uno', 'a', 'Aurora'), resultado('dos', 'b', 'Aurora')],
-      pending: [],
-      errors: [],
       done: true,
     }
 
@@ -385,7 +385,6 @@ describe('página', () => {
     expect(html).toContain('Escribe un título')
     expect(html).toContain('aria-live="polite"')
   })
-
   /**
    * El caso del usuario, en el primer render: se abre `/search?q=<título>` desde
    * otra pantalla y la búsqueda todavía no ha preguntado a nadie. Antes decía
@@ -398,5 +397,89 @@ describe('página', () => {
     expect(html).toContain('value="Tokyo Revengers: Santen Sensou-hen"')
     expect(html).toContain('Buscando')
     expect(html).not.toContain('Nada coincide')
+  })
+})
+
+/**
+ * La búsqueda cruzada, en la página.
+ *
+ * Es la mitad que las fuentes no pueden contestar: de un estudio o de un género,
+ * AniList sí tiene la lista, y la lista se cruza con lo que hay en los proveedores
+ * —cada pieza dice si está y abre su ficha cuando la tiene—. Lo que se mide aquí
+ * es ese cruce y el estado que lo guarda, no el pintado del mosaico, que es el de
+ * siempre.
+ */
+describe('lo que AniList tiene del término', () => {
+  const DE_ANILIST: DiscoverItem = {
+    anilistId: 16498,
+    title: 'Shingeki no Kyojin',
+    cover: '/api/anilist/image/cover/16498',
+    adult: false,
+    year: 2013,
+  }
+
+  test('una pieza que la base conoce abre su ficha y lleva el sello', () => {
+    const html = render(
+      <AniListResults
+        items={[{ ...DE_ANILIST, ref: { providerId: 'jkanime', value: 'shingeki' } }]}
+        query="Action"
+      />,
+    )
+
+    expect(html).toContain('href="/anime/jkanime/shingeki"')
+    expect(html).toContain('En AniList')
+    expect(html).toContain('En tus fuentes')
+  })
+
+  test('una que ninguna fuente tiene lleva a la búsqueda de su título, y sin sello', () => {
+    const html = render(<AniListResults items={[DE_ANILIST]} query="Action" />)
+
+    // La salida honesta: no hay ficha que abrir, así que se busca el título.
+    expect(html).toContain(`href="${searchPath('Shingeki no Kyojin')}"`)
+    expect(html).not.toContain('En tus fuentes')
+  })
+
+  test('el sello no se le pone a la pieza que sólo está en AniList', () => {
+    // Es la medición del cruce: si el sello se pintara por estar en la lista y no
+    // por tener referencia local, diría que una fuente la tiene cuando no la tiene.
+    const html = render(
+      <AniListResults
+        items={[
+          DE_ANILIST,
+          { ...DE_ANILIST, anilistId: 20, title: 'Naruto', ref: { providerId: 'mio', value: 'n' } },
+        ]}
+        query="Action"
+      />,
+    )
+
+    expect(html.match(/En tus fuentes/g)).toHaveLength(1)
+  })
+
+  test('sin nada de AniList no se pinta la sección', () => {
+    expect(render(<AniListResults items={[]} query="Action" />)).toBe('')
+  })
+
+  test('el estado guarda la lista y la sustituye cuando llega la del término siguiente', () => {
+    const conLista = reduce(initialState([]), { type: 'anilist', items: [DE_ANILIST] })
+
+    expect(conLista.anilist).toHaveLength(1)
+    // Sustituir y no acumular: la lista es la del término que se está buscando.
+    expect(reduce(conLista, { type: 'anilist', items: [] }).anilist).toEqual([])
+  })
+
+  test('el anuncio cuenta también las piezas de AniList', () => {
+    // El caso que importa: una búsqueda por género sin nada en los proveedores.
+    // Anunciar «0 resultados» con veinte piezas en pantalla es mentir a quien no
+    // ve la pantalla.
+    const estado = reduce(
+      { ...initialState(['uno']), done: true },
+      {
+        type: 'anilist',
+        items: [DE_ANILIST],
+      },
+    )
+
+    expect(announce(estado, ['uno'])).toContain('0 resultados')
+    expect(announce(estado, ['uno'])).toContain('1 en AniList')
   })
 })

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Las consultas de GraphQL, escritas una vez y con nombre.
  *
  * Los campos son los mismos en todas: lo que se guarda de una obra no depende de
@@ -194,4 +194,45 @@ export function matchQuery(alias: number): string {
   ).join('\n')
 
   return `query (${variables}) {${paginas}\n}`
+}
+
+/**
+ * La búsqueda cruzada: el mismo término como estudio y como género.
+ *
+ * Las dos listas van en **una** consulta porque el presupuesto de AniList se
+ * cuenta en peticiones y las dos son la misma pregunta: «¿qué más tiene esto?».
+ * Cada alias devuelve su página y quien llama las une sin repetir.
+ *
+ * **El género se omite cuando no lo es**, y ésa es la decisión que importa:
+ * `genre:` sólo acepta un nombre de la lista cerrada de AniList —`ANILIST_GENRES`—
+ * y un valor que no está en ella no devuelve vacío, devuelve un error que tumba la
+ * consulta entera, la lista del estudio incluida. Por eso el argumento se compone
+ * aquí y no viaja siempre: con `genero` sin definir, la consulta es la del estudio
+ * y nada más.
+ *
+ * El orden es por popularidad y no por fecha: de un estudio o de un género, lo que
+ * se busca es lo que hay que ver primero, no lo último que salió.
+ */
+export function crossQuery(adultAllowed: boolean, genero: string | undefined): string {
+  const filtro = filtroDeAdultos(adultAllowed)
+  const variableGenero = genero === undefined ? '' : ', $genero: String'
+  const paginaGenero =
+    genero === undefined
+      ? ''
+      : `
+    porGenero: Page(page: 1, perPage: $perPage) {
+      media(type: ANIME, genre: $genero, format_in: $formatos, sort: POPULARITY_DESC${filtro}) {
+        ${MEDIA_FIELDS}
+      }
+    }`
+
+  return `
+  query ($q: String, $perPage: Int, $formatos: [MediaFormat]${variableGenero}) {
+    porEstudio: Page(page: 1, perPage: $perPage) {
+      media(type: ANIME, studio: $q, format_in: $formatos, sort: POPULARITY_DESC${filtro}) {
+        ${MEDIA_FIELDS}
+      }
+    }${paginaGenero}
+  }
+`
 }

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Estado de la búsqueda incremental.
  *
  * Aquí vive todo lo que se puede probar sin un DOM: la reducción de eventos a
@@ -12,6 +12,7 @@
  */
 
 import {
+  type DiscoverItem,
   type ProviderSummary,
   providersResponseSchema,
   type SearchEventPayload,
@@ -34,6 +35,16 @@ export interface ProviderIssue {
 export interface SearchState {
   /** Resultados en orden de llegada, sin agrupar: cada proveedor aporta los suyos. */
   readonly results: readonly SearchResult[]
+  /**
+   * Lo que AniList tiene de este término como estudio o como género.
+   *
+   * Va aparte de `results` porque no es lo mismo: son piezas de AniList —con su
+   * portada y su ficha cuando la base la conoce— y no la respuesta de un proveedor.
+   * Mezclarlas obligaría a la rejilla a saber de dos formas para pintar una lista
+   * que se lee distinto: ésta dice «esto es lo que hay», no «esto es lo que tus
+   * fuentes tienen».
+   */
+  readonly anilist: readonly DiscoverItem[]
   /** Proveedores de los que todavía no ha llegado nada. Uno, un esqueleto. */
   readonly pending: readonly string[]
   readonly errors: readonly ProviderIssue[]
@@ -43,7 +54,7 @@ export interface SearchState {
 }
 
 export function initialState(active: readonly string[]): SearchState {
-  return { results: [], pending: [...active], errors: [], done: false }
+  return { results: [], anilist: [], pending: [...active], errors: [], done: false }
 }
 
 function sin(lista: readonly string[], valor: string): readonly string[] {
@@ -81,6 +92,13 @@ export function reduce(state: SearchState, event: SearchEventPayload): SearchSta
         pending: sin(state.pending, event.providerId),
       }
     }
+    case 'anilist':
+      /**
+       * Se **sustituye** y no se acumula: la cruzada es una consulta por término, y
+       * su respuesta es la lista entera de ese término. Acumular dejaría la lista
+       * del término anterior debajo de la del actual.
+       */
+      return { ...state, anilist: event.items }
     case 'error':
       return {
         ...state,

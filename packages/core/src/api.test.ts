@@ -10,6 +10,7 @@ import {
   providerRepoUrlSchema,
   providerRepoViewSchema,
   relatedResponseSchema,
+  searchEventSchema,
   watchedResponseSchema,
 } from './api'
 import { MAX_ENABLED_REPO_FILES, MAX_REPO_PATH_LENGTH, MAX_REPO_URL_LENGTH } from './repos'
@@ -307,5 +308,56 @@ describe('anilistRelatedResponseSchema: la pieza con su motivo', () => {
     const { relation: _sinMotivo, ...sinRelacion } = RELACIONADA
 
     expect(anilistRelatedResponseSchema.safeParse({ items: [sinRelacion] }).success).toBe(false)
+  })
+})
+
+/**
+ * El evento de la búsqueda cruzada.
+ *
+ * Sus piezas son las del descubrimiento —con `anilistId` y portada local— y no las
+ * de un proveedor, porque una obra que ninguna fuente tiene no tiene referencia que
+ * ofrecer. Es la forma la que decide qué puede pintar la rejilla, así que se mide
+ * aquí y no en la interfaz.
+ */
+describe('searchEventSchema: la búsqueda cruzada con AniList', () => {
+  const EVENTO = { type: 'anilist', items: [RELACIONADA] }
+
+  test('acepta las piezas de AniList, con referencia local o sin ella', () => {
+    const { relation: _motivo, ...pieza } = RELACIONADA
+
+    expect(searchEventSchema.safeParse({ type: 'anilist', items: [pieza] }).success).toBe(true)
+    expect(
+      searchEventSchema.safeParse({
+        type: 'anilist',
+        items: [{ ...pieza, adult: true, ref: { providerId: 'jkanime', value: 'kimetsu' } }],
+      }).success,
+    ).toBe(true)
+  })
+
+  test('la pieza tiene que ser del descubrimiento, no de un proveedor', () => {
+    // Un resultado de proveedor —`ref` y `title`, sin `anilistId` ni portada por la
+    // ruta local— no se puede pintar en la rejilla de AniList: si viajara así, la
+    // tarjeta saldría sin portada y sin saber a qué obra pertenece.
+    expect(
+      searchEventSchema.safeParse({
+        type: 'anilist',
+        items: [{ ref: { providerId: 'jkanime', value: 'naruto' }, title: 'Naruto' }],
+      }).success,
+    ).toBe(false)
+  })
+
+  test('el evento no admite campos de más', () => {
+    expect(searchEventSchema.safeParse({ ...EVENTO, providerId: 'catalog' }).success).toBe(false)
+  })
+
+  test('los eventos de siempre siguen valiendo', () => {
+    expect(
+      searchEventSchema.safeParse({
+        type: 'results',
+        providerId: 'catalog',
+        results: [{ ref: { providerId: 'jkanime', value: 'naruto' }, title: 'Naruto' }],
+      }).success,
+    ).toBe(true)
+    expect(searchEventSchema.safeParse({ type: 'done', providers: 2 }).success).toBe(true)
   })
 })
