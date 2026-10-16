@@ -28,14 +28,20 @@
    */
   gap: var(--space-2) var(--space-6);
   /*
-   * `min-height` y no `height`: el renglón del mando de tipo mide 54 px —el carril
+   * `min-height` y no `height`: el renglón del mando de tipo mide 48 px —el carril
    * del conmutador— y con la altura fija se saldría de la barra por abajo. Con el
    * suelo, la cabecera mide el token mientras quepa en una línea y crece lo justo
    * cuando el mando baja.
    */
   min-height: var(--header-height);
   flex-wrap: wrap;
-  padding: 0 var(--space-6);
+  /*
+   * Aire arriba y abajo **sin mover la barra**: el relleno en bloque sale del alto
+   * que el mando deja libre —mide 48 y la cabecera 56—, así que sigue midiendo
+   * `--header-height` exactos y el contenido no toca sus dos bordes. El relleno en
+   * línea es el margen de la barra.
+   */
+  padding: var(--space-1) var(--space-6);
   border-bottom: var(--border-width-strong) solid var(--color-border);
   background: var(--color-bg);
   position: sticky;
@@ -94,24 +100,66 @@
  * El conmutador de tipo.
  *
  * Es un mando y no un destino: la mitad que se mira cambia lo que enseña la
- * pantalla, no la pantalla. El carril mide 54 px —los 44 del mando, el relleno y un
- * borde de un píxel—, que es justo el alto de la cabecera menos su regla inferior.
- * Con el borde grueso de antes medía 56 y asomaba un píxel por arriba y por abajo, y
- * el de arriba caía fuera de la ventana, porque la cabecera está pegada al borde: la
- * píldora no cabe a lo alto y por eso el carril lleva el borde fino. Es una medida,
- * no un gusto.
+ * pantalla, no la pantalla. El carril mide 48 px —los 44 del mando, el relleno y un
+ * borde de un píxel—, que es el alto de la cabecera menos el aire que ésta reparte
+ * arriba y abajo: con el relleno grueso de antes medía 54 y no dejaba sitio para
+ * ese aire. Es una medida, no un gusto.
+ *
+ * Las dos mitades van en **columnas iguales** y no al ancho de su rótulo: la
+ * píldora que marca la mitad activa se desliza una columna entera, y con anchos
+ * distintos —«Anime» y «Películas» no miden lo mismo— el deslizamiento no tendría
+ * dónde llegar. El rótulo se centra en su mitad.
  */
 .conmutador {
-  display: flex;
-  gap: var(--space-1);
-  padding: var(--space-1);
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: var(--conmutador-relleno);
   border: var(--border-width) solid var(--color-control-border);
   border-radius: var(--radius-full);
+}
+
+/*
+ * La píldora: el relleno de la mitad que se mira, y **se desliza** al cambiarla.
+ *
+ * Es un `::before` del carril y no el fondo de la opción activa: un fondo que
+ * aparece y desaparece no se mueve, y lo que se pidió es el movimiento. El tirador
+ * del interruptor del reproductor usa el mismo recurso —un tirador que viaja con
+ * `transform`—, y la duración sale del token de siempre, así que con movimiento
+ * reducido se apaga sola.
+ *
+ * Se mide **media columna menos el relleno del carril**, que es lo que mide una
+ * mitad: con el relleno en su token, el 100 % de la píldora cae justo donde empieza
+ * la segunda mitad. La opción activa va por encima para que el relleno no tape su
+ * rótulo.
+ *
+ * Va después del carril y no antes: un selector más específico delante de uno menos
+ * específico es la trampa que avisa el linter —lo de abajo no se aplicaría por
+ * orden, sino por peso—.
+ */
+.conmutador::before {
+  content: "";
+  position: absolute;
+  inset-block: var(--conmutador-relleno);
+  inset-inline-start: var(--conmutador-relleno);
+  width: calc(50% - var(--conmutador-relleno));
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  transition: transform var(--transition-normal) var(--ease-piece);
+}
+
+/* La segunda mitad —películas—, a una píldora de distancia. */
+.conmutador[data-tipo="movies"]::before {
+  transform: translateX(100%);
 }
 
 .conmutador__opcion {
   display: flex;
   align-items: center;
+  justify-content: center;
+  /* Sobre la píldora: sin esto, el relleno —que va antes en el orden de pintado, por
+     ser un elemento posicionado— taparía el rótulo de la mitad activa. */
+  position: relative;
   min-height: var(--control-size);
   padding: 0 var(--space-4);
   border-radius: var(--radius-full);
@@ -122,9 +170,7 @@
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   text-decoration: none;
-  transition:
-    color var(--transition-fast),
-    background var(--transition-fast);
+  transition: color var(--transition-fast);
 }
 
 .conmutador__opcion:hover {
@@ -134,10 +180,10 @@
 /*
  * La mitad que se está mirando, marcada por `aria-current`: el color la distingue
  * a la vista y el atributo se lo dice a quien no ve la pantalla, que es la mitad
- * que un fondo de acento no cuenta.
+ * que el relleno de acento no cuenta. El relleno lo pone la píldora del carril, que
+ * es la que se desliza: aquí queda sólo la tinta que contrasta con ella.
  */
 .conmutador__opcion[aria-current="page"] {
-  background: var(--color-accent);
   color: var(--color-accent-contrast);
 }
 
@@ -2833,7 +2879,9 @@
   /* La cabecera, en una línea: el nombre encogido y el menú más junto. */
   .shell__header {
     gap: var(--space-2);
-    padding: 0 var(--space-3);
+    /* El aire de arriba y de abajo se conserva: es el mismo que separa el mando de
+       los dos bordes de la barra, y en un teléfono sigue haciendo falta. */
+    padding: var(--space-1) var(--space-3);
   }
 
   .shell__brand {

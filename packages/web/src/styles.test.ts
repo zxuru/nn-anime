@@ -561,3 +561,105 @@ describe('tokens de diseño', () => {
     expect(await read(TOKENS)).toMatch(/data-theme=["']light["']/)
   })
 })
+
+/**
+ * La cabecera y su conmutador de tipo.
+ *
+ * Las dos cosas que se piden aquí son de **medida** y no de gusto, y ninguna se ve
+ * en el DOM. El aire de la barra sale del alto que el mando deja libre: si el carril
+ * engordara, la cabecera —que tiene `min-height` y no `height`— crecería con él. Y
+ * la píldora que se desliza tiene que medir exactamente media columna menos el
+ * relleno del carril, o aterriza desplazada de la segunda mitad.
+ */
+describe('la cabecera y el conmutador de tipo', () => {
+  /** El cuerpo de una regla, por su selector exacto. */
+  async function reglaDe(selector: string): Promise<string> {
+    const css = await read(SHELL)
+    const desde = css.indexOf(`${selector} {`)
+    if (desde === -1) return ''
+
+    return css.slice(desde, css.indexOf('}', desde))
+  }
+
+  /**
+   * Un token de `tokens.css`, resuelto a píxeles.
+   *
+   * Resuelve un `var(--otro)` encadenado —que es lo que permite que
+   * `--conmutador-relleno` sea un alias de `--border-width` y aun así se pueda
+   * sumar— y convierte los `rem` con la raíz de 16 px, que es lo que mide la
+   * cabecera. El tope de profundidad corta una cadena de alias circular con un
+   * mensaje y no con un desbordamiento de pila.
+   */
+  function medidaDe(tokens: string, nombre: string, profundidad = 0): number {
+    if (profundidad > 4) throw new Error(`token circular: ${nombre}`)
+
+    const valor = new RegExp(`${nombre}:\\s*([^;]+);`).exec(tokens)?.[1]?.trim()
+    if (valor === undefined) throw new Error(`falta ${nombre} en tokens.css`)
+
+    const referencia = /^var\((--[\w-]+)\)$/.exec(valor)
+    if (referencia !== null) return medidaDe(tokens, referencia[1] ?? '', profundidad + 1)
+
+    const numero = /^(-?[\d.]+)(rem|px)$/.exec(valor)
+    if (numero === null) throw new Error(`${nombre} no es una medida: ${valor}`)
+
+    return numero[2] === 'rem' ? Number(numero[1]) * 16 : Number(numero[1])
+  }
+
+  test('el carril cabe en la cabecera con el aire que se le añadió', async () => {
+    const tokens = await read(TOKENS)
+
+    // El carril: dos bordes, dos rellenos y el mando, que es lo más alto de dentro.
+    const carril =
+      2 * medidaDe(tokens, '--border-width') +
+      2 * medidaDe(tokens, '--conmutador-relleno') +
+      medidaDe(tokens, '--control-size')
+
+    // Y el aire: el relleno en bloque de la cabecera, arriba y abajo.
+    const aire = 2 * medidaDe(tokens, '--space-1')
+
+    // La suma es el alto de la barra, que es lo que no puede cambiar.
+    expect(carril + aire).toBe(medidaDe(tokens, '--header-height'))
+
+    // Y las tres piezas salen de donde el cálculo dice, no de un número suelto.
+    expect(await reglaDe('.shell__header')).toContain('padding: var(--space-1) var(--space-6)')
+    expect(await reglaDe('.conmutador')).toContain('padding: var(--conmutador-relleno)')
+    expect(await reglaDe('.conmutador__opcion')).toContain('min-height: var(--control-size)')
+  })
+
+  test('la píldora del conmutador se desliza una columna entera', async () => {
+    const carril = await reglaDe('.conmutador')
+    const pastilla = await reglaDe('.conmutador::before')
+    const segunda = await reglaDe('.conmutador[data-tipo="movies"]::before')
+
+    // Dos mitades iguales: al ancho del rótulo, «Anime» y «Películas» no medirían
+    // lo mismo y el deslizamiento no tendría a dónde llegar.
+    expect(carril).toContain('grid-template-columns: 1fr 1fr')
+
+    // Media columna menos el relleno: el 100 % de la píldora es, justo, donde
+    // empieza la segunda mitad.
+    expect(pastilla).toContain('width: calc(50% - var(--conmutador-relleno))')
+    expect(pastilla).toContain('inset-inline-start: var(--conmutador-relleno)')
+    expect(segunda).toContain('transform: translateX(100%)')
+
+    // La duración sale de un token, y ése lo apaga el movimiento reducido solo.
+    expect(pastilla).toContain('transition: transform var(--transition-normal) var(--ease-piece)')
+
+    // Y la opción va por encima: si no, el relleno taparía su rótulo.
+    expect(await reglaDe('.conmutador__opcion')).toContain('position: relative')
+  })
+
+  /**
+   * Y el rótulo de la mitad activa contrasta con la píldora.
+   *
+   * El fondo lo pone ahora la píldora y no la opción: si el relleno se quedara en
+   * las dos, el deslizamiento no se vería —la mitad vieja seguiría encendida— y la
+   * tinta del rótulo se leería sobre el par de colores equivocado. El par lo mide
+   * `a11y.test.ts`; aquí se mide que sea ése.
+   */
+  test('la mitad activa lleva la tinta de la píldora y no un relleno propio', async () => {
+    const activa = await reglaDe('.conmutador__opcion[aria-current="page"]')
+
+    expect(activa).toContain('color: var(--color-accent-contrast)')
+    expect(activa).not.toContain('background')
+  })
+})

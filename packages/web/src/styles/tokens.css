@@ -289,6 +289,16 @@
   /** El lado mínimo de un mando: 44 px, el objetivo táctil que pide el spec. */
   --control-size: 2.75rem;
   /**
+   * El relleno del carril del conmutador de tipo.
+   *
+   * Es a la vez el `padding` del carril y el hueco que la píldora deja al borde y
+   * entre mitad y mitad: la píldora mide **media columna menos este relleno**, así
+   * que los dos usos tienen que salir del mismo token o el tirador se descoloca. El
+   * relleno es fino —un píxel— porque de él sale el aire de arriba y de abajo de la
+   * cabecera: con el relleno de antes, el carril medía 54 px y no dejaba sitio.
+   */
+  --conmutador-relleno: var(--border-width);
+  /**
    * Los dos puntos de corte de la interfaz.
    *
    * `var()` no existe dentro de un `@media`, así que el número se repite en la

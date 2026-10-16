@@ -16,6 +16,7 @@ import { SearchPage } from './features/search/SearchPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { useAppTheme } from './features/settings/useSettings'
 import { ConmutadorTipo } from './features/tipo/ConmutadorTipo'
+import { pathConTipo, tipoFromPath } from './features/tipo/tipo'
 import { t } from './i18n'
 import { routeTitleParts, useDocumentTitle } from './lib/document-title'
 import { Link, type RouteMatch, usePath, useRoute } from './router'
@@ -51,6 +52,17 @@ function Shell(props: {
   const caja = ['shell__main']
   if (props.ancha === true) caja.push('shell__main--ancha')
   if (props.sinTope === true) caja.push('shell__main--sin-tope')
+
+  /*
+    Los destinos de la navegación conservan la mitad que se está mirando: al pasar
+    de la vitrina a la búsqueda y vuelta, `?tipo=movies` viaja en el enlace y el
+    conmutador no vuelve solo a anime. La marca no lo hace —volver a la casa en
+    anime es el punto de referencia— y AniList y Ajustes tampoco, porque ahí no hay
+    dos mitades que partir.
+  */
+  const path = usePath()
+  const tipo = tipoFromPath(path)
+
   return (
     <div className="shell">
       <header className="shell__header">
@@ -58,8 +70,8 @@ function Shell(props: {
           {t(LOCALE, 'app.name')}
         </Link>
         <nav className="shell__nav">
-          <Link to="/">{t(LOCALE, 'nav.home')}</Link>
-          <Link to="/search">{t(LOCALE, 'nav.search')}</Link>
+          <Link to={pathConTipo('/', tipo)}>{t(LOCALE, 'nav.home')}</Link>
+          <Link to={pathConTipo('/search', tipo)}>{t(LOCALE, 'nav.search')}</Link>
           <Link to="/anilist">{t(LOCALE, 'nav.anilist')}</Link>
           <Link to="/settings">{t(LOCALE, 'nav.settings')}</Link>
         </nav>

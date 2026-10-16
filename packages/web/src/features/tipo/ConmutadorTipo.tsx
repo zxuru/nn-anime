@@ -9,6 +9,11 @@
  * El conmutador viaja con la ruta: al cambiar de mitad desde la búsqueda se
  * conservan la consulta y el filtro de proveedores, y desde la home sólo cambia la
  * mitad. Lo pinta la cabecera, y sólo en las pantallas donde significa algo.
+ *
+ * El carril lleva la mitad activa también en `data-tipo`: la píldora que se desliza
+ * es un `::before` de la hoja de estilos y necesita saber a qué mitad saltar. Sale
+ * del mismo `actual` que marca el `aria-current`, así que los dos no pueden decir
+ * cosas distintas.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
@@ -31,7 +36,7 @@ export function ConmutadorTipo(): ReactNode {
   const actual = tipoFromPath(path)
 
   return (
-    <nav className="conmutador" aria-label={t(DEFAULT_LOCALE, 'media.switch')}>
+    <nav className="conmutador" data-tipo={actual} aria-label={t(DEFAULT_LOCALE, 'media.switch')}>
       {OPCIONES.map((opcion) => (
         <Link
           key={opcion}
