@@ -13,15 +13,17 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations, type StoreConnection } from '@nn-anime/catalog-store'
-import type {
-  AiringResponse,
-  AniListRelatedResponse,
-  DiscoverResponse,
-  EnrichmentResponse,
+import {
+  type AiringResponse,
+  type AniListRelatedResponse,
+  anilistSearchResponseSchema,
+  type DiscoverResponse,
+  type EnrichmentResponse,
 } from '@nn-anime/core'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
 import { type FakeAniList, fakeAniList, type RawMediaFixture } from '../__fixtures__/anilist'
 import { createApp, createContainer } from '../index'
+import { paginaPedida } from './anilist'
 
 const PORT = 7719
 const SESSION_COOKIE = 'nn_session'
@@ -522,5 +524,220 @@ describe('los guards siguen delante', () => {
 
       expect(sinCookie.status).toBe(401)
     })
+  })
+})
+
+/**
+ * La búsqueda de una sola casilla, de punta a punta.
+ *
+ * Lo que se mide aquí y no en `core`: que los valores que salen sean los que el análisis
+ * dice —incluido lo que **no** sale, que es lo que la API lee como «sin filtro»—, que la
+ * lista de géneros se pida sólo cuando el texto lleva un `#`, que la paginación se decida
+ * con `hasNextPage`, que las portadas queden resolubles por su id y que un fallo del
+ * tercero sea un 502 y no una lista vacía.
+ */
+describe('la búsqueda de una casilla', () => {
+  const AURORA_NOCTURNA: RawMediaFixture = {
+    id: 555,
+    romaji: 'Aurora Nocturna',
+    year: 2019,
+    format: 'TV',
+    genres: ['Misterio'],
+  }
+
+  /** Una obra con nombre en los tres idiomas: es la que mide qué se enseña. */
+  const FRIEREN: RawMediaFixture = {
+    id: 154587,
+    romaji: 'Sousou no Frieren',
+    english: 'Frieren: Beyond Journey’s End',
+    native: '葬送のフリーレン',
+    year: 2023,
+    format: 'TV',
+    genres: ['Adventure', 'Drama', 'Fantasy'],
+  }
+
+  const GENEROS = ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Sci-Fi']
+
+  /** Las variables de la última consulta de búsqueda que vio el doble. */
+  function variablesDeBusqueda(fake: FakeAniList): Readonly<Record<string, unknown>> {
+    const llamada = [...fake.calls].reverse().find((una) => una.query.includes('pageInfo {'))
+
+    return llamada?.variables ?? {}
+  }
+
+  test('un título devuelve la página con el nombre que se enseña y los tres que publica', async () => {
+    await conApp({ searchPage: { 1: [FRIEREN] }, genres: GENEROS }, async ({ pedir, fake }) => {
+      const respuesta = await pedir('/api/anilist/search?q=frieren')
+
+      expect(respuesta.status).toBe(200)
+      const cuerpo = anilistSearchResponseSchema.parse(await respuesta.json())
+
+      expect(cuerpo.items).toHaveLength(1)
+      expect(cuerpo.items[0]?.title).toBe('Frieren: Beyond Journey’s End')
+      expect(cuerpo.items[0]?.secondaryTitle).toBe('Sousou no Frieren')
+      expect(cuerpo.items[0]?.titles).toEqual({
+        romaji: 'Sousou no Frieren',
+        english: 'Frieren: Beyond Journey’s End',
+        native: '葬送のフリーレン',
+      })
+      expect(cuerpo.items[0]?.genres).toEqual(['Adventure', 'Drama', 'Fantasy'])
+      // La portada va por la ruta local, no por la dirección que publica AniList.
+      expect(cuerpo.items[0]?.cover).toBe('/api/anilist/image/cover/154587')
+      expect(cuerpo).toMatchObject({ page: 1, hasNextPage: false, unknownGenres: [] })
+
+      const variables = variablesDeBusqueda(fake)
+      expect(variables.search).toBe('frieren')
+      expect(variables.sort).toEqual(['SEARCH_MATCH'])
+      expect(Object.hasOwn(variables, 'genres')).toBe(false)
+    })
+  })
+
+  test('un género se manda como género, sin título, y con el orden de lo popular', async () => {
+    await conApp({ searchPage: { 1: [FRIEREN] }, genres: GENEROS }, async ({ pedir, fake }) => {
+      const respuesta = await pedir('/api/anilist/search?q=%23fantasy')
+
+      expect(respuesta.status).toBe(200)
+      const variables = variablesDeBusqueda(fake)
+
+      expect(variables.genres).toEqual(['Fantasy'])
+      expect(Object.hasOwn(variables, 'search')).toBe(false)
+      expect(variables.sort).toEqual(['POPULARITY_DESC'])
+    })
+  })
+
+  test('título y géneros juntos: los dos filtros y el orden de la búsqueda', async () => {
+    await conApp({ searchPage: { 1: [FRIEREN] }, genres: GENEROS }, async ({ pedir, fake }) => {
+      await pedir('/api/anilist/search?q=frieren%20%23adventure%20%23drama')
+
+      const variables = variablesDeBusqueda(fake)
+
+      expect(variables.search).toBe('frieren')
+      expect(variables.genres).toEqual(['Adventure', 'Drama'])
+      expect(variables.sort).toEqual(['SEARCH_MATCH'])
+    })
+  })
+
+  test('un género que AniList no tiene se informa y no se manda', async () => {
+    await conApp({ searchPage: { 1: [] }, genres: GENEROS }, async ({ pedir, fake }) => {
+      const respuesta = await pedir('/api/anilist/search?q=naruto%20%23shonnen')
+      const cuerpo = anilistSearchResponseSchema.parse(await respuesta.json())
+
+      expect(cuerpo.unknownGenres).toEqual(['shonnen'])
+      expect(variablesDeBusqueda(fake).search).toBe('naruto')
+      expect(variablesDeBusqueda(fake).genres).toBeUndefined()
+      expect(JSON.stringify(variablesDeBusqueda(fake))).not.toContain('shonnen')
+    })
+  })
+
+  test('una casilla vacía enseña lo más popular', async () => {
+    await conApp({ searchPage: { 1: [FRIEREN] }, genres: GENEROS }, async ({ pedir, fake }) => {
+      const respuesta = await pedir('/api/anilist/search?q=')
+      const cuerpo = anilistSearchResponseSchema.parse(await respuesta.json())
+
+      expect(cuerpo.items).toHaveLength(1)
+      expect(variablesDeBusqueda(fake).sort).toEqual(['POPULARITY_DESC'])
+      expect(Object.hasOwn(variablesDeBusqueda(fake), 'search')).toBe(false)
+    })
+  })
+
+  test('la paginación la decide `hasNextPage`, y `total` sólo se enseña', async () => {
+    const fixture: Parameters<typeof fakeAniList>[0] = {
+      searchPage: { 1: [FRIEREN], 2: [AURORA_NOCTURNA] },
+      genres: GENEROS,
+    }
+
+    await conApp(fixture, async ({ pedir }) => {
+      const primera = anilistSearchResponseSchema.parse(
+        await (await pedir('/api/anilist/search?q=naruto')).json(),
+      )
+
+      expect(primera.hasNextPage).toBe(true)
+      expect(primera.total).toBe(2)
+
+      const segunda = anilistSearchResponseSchema.parse(
+        await (await pedir('/api/anilist/search?q=naruto&page=2')).json(),
+      )
+
+      expect(segunda.page).toBe(2)
+      expect(segunda.items.map((item) => item.anilistId)).toEqual([555])
+      expect(segunda.hasNextPage).toBe(false)
+    })
+  })
+
+  test('una obra que la base conoce llega con su referencia local', async () => {
+    await conApp(
+      { searchPage: { 1: [AURORA_NOCTURNA, FRIEREN] }, genres: GENEROS },
+      async ({ pedir }) => {
+        const cuerpo = anilistSearchResponseSchema.parse(
+          await (await pedir('/api/anilist/search?q=aurora')).json(),
+        )
+
+        // La ficha de Aurora se abrió al montar el arnés; la de Frieren no existe.
+        expect(cuerpo.items[0]?.ref).toEqual({ providerId: 'fixture', value: REF })
+        expect(cuerpo.items[1]?.ref).toBeUndefined()
+      },
+    )
+  })
+
+  test('las portadas de la búsqueda se sirven por su id', async () => {
+    // Es lo que mide que la lista de la búsqueda escriba sus imágenes en la caché: sin
+    // eso, la rejilla pediría una portada que la ruta contesta con 404.
+    await conApp({ searchPage: { 1: [FRIEREN] }, genres: GENEROS }, async ({ pedir, fake }) => {
+      await pedir('/api/anilist/search?q=frieren')
+
+      const imagen = await pedir('/api/anilist/image/cover/154587')
+
+      expect(imagen.status).toBe(200)
+      expect(imagen.headers.get('content-type')).toContain('image/jpeg')
+      expect(fake.images).toHaveLength(1)
+    })
+  })
+
+  /**
+   * El reloj de la API no se inyecta en la ruta, así que esta prueba paga el presupuesto
+   * de verdad: cada petición espera dos segundos a la anterior. Tres búsquedas —una de
+   * ellas con su lista de géneros— no caben en los cinco segundos por defecto.
+   */
+  test('la lista de géneros se pide sólo cuando el texto lleva un `#`', async () => {
+    await conApp({ searchPage: { 1: [FRIEREN] }, genres: GENEROS }, async ({ pedir, fake }) => {
+      const generos = (): number =>
+        fake.calls.filter((una) => una.query.includes('GenreCollection')).length
+
+      await pedir('/api/anilist/search?q=naruto')
+      expect(generos()).toBe(0)
+
+      await pedir('/api/anilist/search?q=%23drama')
+      expect(generos()).toBe(1)
+
+      // La segunda no la vuelve a pedir: la lista se guarda en memoria.
+      await pedir('/api/anilist/search?q=%23comedy')
+      expect(generos()).toBe(1)
+    })
+  }, 20_000)
+
+  test('un fallo de AniList es un 502, no una lista vacía', async () => {
+    const fixture: Parameters<typeof fakeAniList>[0] = {
+      searchPage: { 1: [FRIEREN] },
+      genres: GENEROS,
+    }
+
+    await conApp(fixture, async ({ pedir }) => {
+      fixture.status = { 'pageInfo {': 500 }
+
+      const respuesta = await pedir('/api/anilist/search?q=naruto')
+
+      expect(respuesta.status).toBe(502)
+      expect(await respuesta.json()).toMatchObject({ error: expect.stringContaining('AniList') })
+    })
+  })
+
+  test('la página pedida se sanea: lo que no es un entero positivo es la primera', () => {
+    expect(paginaPedida(undefined)).toBe(1)
+    expect(paginaPedida('')).toBe(1)
+    expect(paginaPedida('0')).toBe(1)
+    expect(paginaPedida('-3')).toBe(1)
+    expect(paginaPedida('2.5')).toBe(1)
+    expect(paginaPedida('abc')).toBe(1)
+    expect(paginaPedida('3')).toBe(3)
   })
 })

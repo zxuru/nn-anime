@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Lo que AniList publica y lo que este proyecto guarda.
  *
  * Dos formas distintas y a propósito:
@@ -233,6 +233,34 @@ export function studiosOf(
 export const crossSchema = z.object({
   porEstudio: studioPageSchema.optional(),
   porGenero: mediaAliasSchema.optional(),
+})
+
+/**
+ * Una página de la búsqueda de una casilla.
+ *
+ * `pageInfo` no es adorno: `hasNextPage` es lo que decide si hay «más», y `total` lo que
+ * se puede enseñar como aproximado —la propia API lo documenta como no fiable y pide no
+ * usarlo para lógica—. Los tres campos se aceptan como opcionales para que una respuesta
+ * sin `pageInfo` —que no debería llegar— no tumbe la lista entera: sin `hasNextPage` no
+ * hay más páginas, que es la conclusión prudente.
+ */
+export const searchPageSchema = z.object({
+  Page: z.object({
+    pageInfo: z
+      .object({
+        total: z.number().int().nonnegative().nullable().optional(),
+        currentPage: z.number().int().positive().nullable().optional(),
+        hasNextPage: z.boolean().nullable().optional(),
+      })
+      .nullable()
+      .optional(),
+    media: z.array(mediaSchema).nullable().optional(),
+  }),
+})
+
+/** La colección de géneros: la única lista buena que publica la API. */
+export const genreCollectionSchema = z.object({
+  GenreCollection: z.array(z.string()).nullable().optional(),
 })
 
 /** Los estados de AniList, traducidos a los del dominio. */
