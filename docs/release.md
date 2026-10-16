@@ -143,6 +143,13 @@ bun run package          # ejecutable + instalador de esta plataforma, y lo arra
 `bun run package` **se niega a compilar** si falta el build de la interfaz: un ejecutable sin interfaz
 arranca, contesta 404 en `/` y parece que la aplicación está rota.
 
+**En Windows hace falta `makensis`, y no hace falta instalarlo.** NSIS tiene distribución portátil:
+se baja el `.zip` de `nsis.sourceforge.io`, se descomprime donde sea y se pone su carpeta en el
+`PATH` para ese comando. Medido: con NSIS 3.11 portable, `bun run package` compila el instalador sin
+tocar el sistema (`choco install nsis -y` también vale, pero pide permisos y deja el programa
+instalado). Sin `makensis` en el `PATH`, `bun run package` falla y lo dice con el nombre del que
+falta.
+
 ## Probar sin publicar
 
 **Actions → Release → Run workflow**, con «publish» sin marcar. Compila los instaladores de las cuatro
@@ -231,13 +238,26 @@ Verificado **por el CI**, que es donde se comprueba lo que no se puede comprobar
 - **Linux**: el AppImage, el `.deb` y el `.rpm`, construidos con `nfpm` y `appimagetool`.
 - **macOS**: el `.app` y el `.dmg`, con `hdiutil`.
 
+Y verificado **en local, el 2026-10-16**, con NSIS 3.11 portable:
+
+- **El instalador de Windows (NSIS) compila.** `bun run package` sin `--skip-installer` produce
+  `release/nn-anime-0.1.0-windows-x64-setup.exe`: **33,24 MB**, un ejecutable de Windows válido, con
+  `ProductName=nn-anime`, `FileVersion=0.1.0` y la descripción «Instalador de nn-anime» dentro —o
+  sea, con los defines del `.nsi` bien cableados—, y sin un solo aviso de `makensis`. La primera vez
+  que se compila este archivo. Antes de esto, la frase que había aquí —«no se ha compilado nunca»—
+  era cierta y ya no lo es.
+
 Lo que sigue sin estar comprobado, y lo dirá el siguiente push o una release con secretos:
 
-- **El instalador de Windows (NSIS)**: la primera vez falló por la endianness del `.ico` —ver arriba—,
-  que ya está arreglada y comprobada en local compilando el ejecutable con `--windows-icon`. Aun así,
-  `packaging/windows/nn-anime.nsi` **no se ha compilado nunca**: no hay `makensis` en esta máquina y
-  no se puede instalar (sin red para el gestor de paquetes y sin permisos para el otro). Es lo único
-  que queda por ver en verde.
+- **Ejecutar el instalador**: instalarlo en silencio, mirar que deja los accesos del escritorio y del
+  menú y su entrada en «Agregar o quitar programas», y desinstalarlo. **No se ha podido hacer en la
+  máquina donde se compiló**: el instalador, lanzado en silencio, se queda colgado sin escribir nada
+  ni dejar rastro —ni directorio, ni accesos, ni registro—, así que parece necesitar una sesión
+  interactiva. Es lo que le toca al CI, donde el runner de Windows sí la tiene: el paso que falta es
+  instalarlo con `/S /D=<carpeta temporal>`, comprobar los accesos y el registro, arrancar el
+  ejecutable instalado y desinstalarlo. Las líneas que eso comprueba están en
+  `packaging/windows/nn-anime.nsi` (`CreateShortCut "$DESKTOP…"`, los `WriteRegStr` y la sección
+  `Uninstall`).
 - **La firma de código y la notarización**: sin certificados, los pasos se saltan. Que `signtool` y
   `codesign` reciban lo que esperan no se ha podido ejecutar.
 
