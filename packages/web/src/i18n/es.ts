@@ -72,6 +72,18 @@ export const messages: Messages = {
 
   'home.title': 'Inicio',
 
+  // El tipo de contenido: la mitad de la aplicación que se está mirando. El
+  // vocabulario del contrato es `anime` / `movies` / `both`, y `movies` es «lo que
+  // no es anime» —películas, series y doramas—, que es la partición que hacen las
+  // fuentes: la etiqueta dice «Películas» porque es lo que el usuario busca.
+  'media.anime': 'Anime',
+  'media.movies': 'Películas',
+  'media.both': 'Anime y películas',
+  'media.switch': 'Tipo de contenido',
+  'media.empty.movies': 'Ningún proveedor instalado sirve películas todavía.',
+  'media.empty.anime': 'Ningún proveedor instalado sirve anime todavía.',
+  'media.empty.hint': 'Añade uno en Ajustes o cambia de pestaña.',
+
   'search.title': 'Buscar',
   'search.field': 'Buscar por título',
   'search.placeholder': 'Escribe un título…',
@@ -96,8 +108,9 @@ export const messages: Messages = {
   'home.ticker': 'Lo más visto ahora',
   'home.featured.tag': 'Destacado',
   'home.featured.play': 'Reproducir el episodio {number}',
-  'home.top': 'Top de la fuente',
+  'home.top': 'Top',
   'home.top.meta': 'El orden de la fuente',
+  'home.top.meta.anilist': 'El ranking de AniList',
   'home.top.more': 'Mostrar más',
   'home.top.empty': 'Ningún proveedor activo publica un top.',
   'home.continue.meta': 'Retoma donde lo dejaste',
@@ -107,7 +120,20 @@ export const messages: Messages = {
   'home.genres': 'Explorar por género',
   'home.genres.meta': 'Del catálogo que tienes',
   'home.genres.empty': 'Todavía no hay géneros: aparecen cuando se cachean títulos.',
-  'home.explain': '¿Por qué estas recomendaciones?',
+  'home.recommended': 'Recomendado para ti',
+  'home.recommended.meta': 'Lo que el motor cree que va contigo',
+  // Los tres renglones de la nota de un tramo: el titular, la etiqueta y la cuenta.
+  'home.count': '{count} títulos',
+  'home.countOne': '1 título',
+  'home.countMore': '{count} títulos · y {more} más',
+  'home.genres.count': '{count} géneros',
+  'home.genres.countOne': '1 género',
+  // La pieza: el mando que abre su panel y lo que ofrece el asomo.
+  'home.pieza.abrir': 'Ver más de {title}',
+  'home.pieza.ficha': 'Ver ficha',
+  'home.pieza.reproducir': 'Reproducir',
+  'home.panel.cerrar': 'Cerrar',
+  'home.panel.asa': 'Cerrar el panel',
   'home.continue': 'Continuar viendo',
   'home.continue.empty': 'Nada a medias. Lo que empieces aparecerá aquí.',
   'home.favorites': 'Tus favoritos',
@@ -115,11 +141,16 @@ export const messages: Messages = {
     'Todavía no has marcado ninguno. La estrella está en la ficha de cada título.',
   'home.feed': 'Novedades',
   'home.feed.meta': 'Lo último que publica la fuente',
+  'home.feed.meta.anilist': 'Episodios recién emitidos',
   'home.feed.empty': 'Ningún proveedor activo publica novedades.',
-  'home.recent': 'Último añadido',
-  'home.recent.meta': 'Lo último que conoce esta aplicación',
-  'home.recent.empty':
-    'Todavía no hay nada: aparece lo que busques y lo que abras. Un proveedor con novedades llena esta fila solo.',
+  'home.feed.empty.anilist': 'AniList no anuncia episodios recién emitidos ahora mismo.',
+  'home.parrilla': 'Parrilla',
+  'home.parrilla.meta': 'Lo que se emite estos días, según AniList',
+  'home.parrilla.empty': 'No hay capítulos anunciados en los próximos días.',
+  'home.parrilla.empty.movies':
+    'La parrilla es de series. Los estrenos de películas se anuncian con el año y se ven en Novedades.',
+  'home.parrilla.hoy': 'Hoy',
+  'home.parrilla.manana': 'Mañana',
   'home.more': 'y {count} más',
   'home.resume': 'Seguir en {time}',
   'settings.title': 'Ajustes',
@@ -167,6 +198,8 @@ export const messages: Messages = {
   'settings.register.capabilities': 'Qué sabe hacer',
   'settings.register.cap.sub': 'Subtitulado',
   'settings.register.cap.dub': 'Doblado',
+  'settings.register.media': 'Qué sirve',
+  'settings.register.mediaHint': 'en qué pestaña aparece: anime, películas o las dos',
   'settings.register.advanced': 'Dónde está cada dato (avanzado)',
   'settings.register.advancedHint':
     'Rutas con puntos dentro del JSON de la respuesta. Se dejan como están si el sitio usa los nombres habituales.',
@@ -224,6 +257,18 @@ export const messages: Messages = {
   'settings.theme.system': 'El del sistema',
   'settings.theme.dark': 'Oscuro',
   'settings.theme.light': 'Claro',
+  'settings.adult': 'Contenido para adultos',
+  'settings.adult.hide': 'Esconderlo',
+  'settings.adult.show': 'Enseñarlo',
+  /**
+   * Lo que hace y lo que no.
+   *
+   * El aviso dice las dos cosas porque un interruptor sin consecuencia declarada se
+   * enciende por curiosidad y se queda encendido: no comprueba la edad de nadie y no
+   * alcanza a lo que las fuentes no publican.
+   */
+  'settings.adult.help':
+    'Enseña también lo que AniList marca para adultos. No comprueba la edad de nadie, y sólo alcanza a lo que las fuentes publican: lo que no se puede comprobar se enseña igual.',
   'reco.title': 'Recomendado para ti',
   'reco.loading': 'Buscando qué recomendarte…',
   'reco.empty': 'Todavía no hay nada que recomendar. Busca algo y vuelve.',
@@ -335,14 +380,30 @@ export const messages: Messages = {
   'player.key.m': 'M',
   'player.key.f': 'F',
   'player.attribution': 'Reproducción HLS con hls.js (licencia Apache 2.0).',
+  /**
+   * La marca del contenido para adultos.
+   *
+   * Es texto y no un color: un borde o un tinte no lo lee un lector de pantalla, y la
+   * marca existe para que quien enciende el contenido sepa cuál de las piezas es la que
+   * el filtro estaría escondiendo.
+   */
+  'adult.mark': '+18',
   'detail.synopsis': 'Sinopsis',
   'detail.meta': 'Año {year} · {status}',
   'detail.status.airing': 'en emisión',
   'detail.status.finished': 'terminado',
   'detail.status.upcoming': 'próximamente',
   'detail.status.unknown': 'estado desconocido',
+  'detail.enrichment': 'De AniList',
+  'detail.enrichment.score': 'Nota {score}/100',
+  'detail.enrichment.next': 'Próximo capítulo: {episode} · {when}',
+  'detail.enrichment.site': 'Ver la ficha en AniList',
   'detail.genres': 'Géneros',
   'detail.studios': 'Estudios',
+  // A dónde lleva pulsar una etiqueta de la ficha: el nombre solo no lo dice, y
+  // sin decirlo el enlace pide un clic a ciegas.
+  'detail.genreLink': 'Ver los títulos del género {name}',
+  'detail.studioLink': 'Ver los títulos de {name}',
   'detail.episodes': 'Episodios',
   'detail.episode': 'Episodio {number}',
   // Con total y sin él, porque el proveedor no siempre dice de cuántos: un «de 26»
@@ -380,17 +441,49 @@ export const messages: Messages = {
   'detail.sources': 'También en',
   'detail.sourcesItem': '{title} en {provider}',
   'detail.noEpisodes': 'Este título no tiene episodios todavía.',
+  // Una película no tiene capítulos: su bloque se titula por lo que es —no
+  // «Episodios»— y ofrece verla en vez de numerar un «Episodio 1» que nadie puede
+  // elegir. Los textos de carga y error van aparte por lo mismo: decir que se
+  // están cargando episodios es anunciar algo que no existe.
+  'detail.movie': 'Película',
+  'detail.movie.watch': 'Ver película',
+  'detail.movie.loading': 'Cargando la película…',
+  'detail.movie.error': 'No se pudo cargar la película.',
+  'detail.movie.missing': 'Esta película no tiene nada que reproducir todavía.',
   'detail.favorite.add': 'Añadir a favoritos',
   'detail.favorite.remove': 'Quitar de favoritos',
   'detail.loading': 'Cargando la ficha…',
   'detail.notFound': 'Ese título no está en el proveedor.',
   'detail.related.year': 'Año {year}',
-  'detail.related.none': 'No hay más títulos de esta saga en el catálogo local.',
+  // El rail mezcla lo que la base conoce con lo que declara AniList, así que el
+  // vacío lo dice de las dos procedencias: «no hay más en el catálogo local» a
+  // secas sería mentira desde que la sección también mira fuera.
+  'detail.related.none': 'No hay más entregas de esta saga: ni en el catálogo local ni en AniList.',
   'detail.related.seasons': 'Temporadas',
-  'detail.related.movies': 'Películas y especiales',
+  // Tres grupos por tipo de entrega y no dos: el OVA y el especial no son una
+  // película, y mezclarlos en «Películas y especiales» es lo que hacía que una
+  // franquicia con dos OVA pareciera tener dos películas.
+  'detail.related.movies': 'Películas',
+  'detail.related.ova': 'OVA',
   'detail.related.franchise': 'Más de esta franquicia',
   'detail.related.current': 'viendo',
+  // La atribución de las filas que no son de la base: el rail las mezcla y quien
+  // lo lee tiene que poder saber de quién es el dato.
+  'detail.related.anilist': 'Incluye lo que AniList relaciona con esta obra.',
+  // El motivo de cada relación. Los ocho tipos son los que la frontera deja pasar
+  // (`ANILIST_RELATIONS`, en core) y el mapa de `relacion.ts` está atado a ellos:
+  // uno nuevo sin texto aquí no compila.
+  'detail.relation.sequel': 'Secuela',
+  'detail.relation.prequel': 'Precuela',
+  'detail.relation.parent': 'Obra principal',
+  'detail.relation.sideStory': 'Historia paralela',
+  'detail.relation.spinOff': 'Spin-off',
+  'detail.relation.alternative': 'Versión alternativa',
+  'detail.relation.summary': 'Resumen',
+  'detail.relation.special': 'Especial',
   'detail.season': 'Temporada {number}',
+  'detail.season.count': '{count} episodios',
+  'detail.seasons': 'Temporadas',
 
   'notFound.title': 'Esa ruta no existe',
   'notFound.body': 'La dirección {path} no corresponde a ninguna pantalla.',

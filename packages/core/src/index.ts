@@ -8,16 +8,57 @@
  */
 
 export {
+  ANILIST_RELATIONS,
+  type AniListCandidate,
+  type AniListImageKind,
+  type AniListNames,
+  type AniListRelation,
+  anilistImagePath,
+  anilistNames,
+  kindOfFormat,
+  type LocalWork,
+  localWork,
+  pickAniListMatch,
+  plainText,
+  relationOf,
+  sameAniListWork,
+} from './anilist'
+export {
+  type AiringItem,
+  type AiringResponse,
+  type AniListRelatedItem,
+  type AniListRelatedResponse,
   type AnimeResponse,
+  airingItemSchema,
+  airingResponseSchema,
+  anilistRelatedItemSchema,
+  anilistRelatedResponseSchema,
+  anilistRelationSchema,
   animeResponseSchema,
   type ContinueWatchingItem,
   type ContinueWatchingResponse,
   continueWatchingItemSchema,
   continueWatchingResponseSchema,
+  type DiscoverItem,
+  type DiscoverResponse,
+  discoverItemSchema,
+  discoverResponseSchema,
+  type Enrichment,
+  type EnrichmentBatchItem,
+  type EnrichmentBatchRequest,
+  type EnrichmentBatchResponse,
+  type EnrichmentResponse,
   type EpisodeResponse,
+  type EpisodeSeason,
   type EpisodesResponse,
   type ErrorResponse,
+  enrichmentBatchItemSchema,
+  enrichmentBatchRequestSchema,
+  enrichmentBatchResponseSchema,
+  enrichmentResponseSchema,
+  enrichmentSchema,
   episodeResponseSchema,
+  episodeSeasonSchema,
   episodesResponseSchema,
   errorResponseSchema,
   type FavoriteRequest,
@@ -104,6 +145,7 @@ export {
   type LoadConfigOptions,
   loadConfig,
 } from './config'
+export { episodeSeasonOf, episodeSeasons } from './episodes'
 export {
   AppError,
   type AppErrorOptions,
@@ -126,6 +168,7 @@ export {
 } from './i18n'
 export {
   groupByWork,
+  keysOfNames,
   namesOf,
   sameWork,
   type TitleInput,
@@ -147,7 +190,18 @@ export {
   toJsonLine,
 } from './logger'
 export {
+  DEFAULT_MEDIA,
+  esDeMedia,
+  type MediaFilter,
+  mediaOf,
+  type ProviderMedia,
+  pasaElFiltro,
+  puedeServir,
+} from './media'
+export {
   type AiringStatus,
+  type AniListAiringEntry,
+  type AniListEntry,
   type AnimeDetail,
   type AnimeSummary,
   type CacheHit,
@@ -197,6 +251,8 @@ export {
 export { type Err, err, map, mapErr, type Ok, ok, type Result, unwrapOr } from './result'
 export {
   airingStatusSchema,
+  anilistAiringEntrySchema,
+  anilistEntrySchema,
   animeDetailSchema,
   animeSummarySchema,
   cacheHitSchema,
@@ -206,6 +262,7 @@ export {
   httpUrlSchema,
   modeSchema,
   providerCapabilitiesSchema,
+  providerMediaSchema,
   providerRefSchema,
   searchResultSchema,
   streamHeadersSchema,

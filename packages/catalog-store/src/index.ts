@@ -31,6 +31,11 @@ export {
   STREAM_GRACE_DAYS,
   shouldPrune,
 } from './prune'
+export { type AdultRepository, type AdultStore, createAdultRepository } from './repositories/adult'
+export {
+  type AniListRepository,
+  createAniListRepository,
+} from './repositories/anilist'
 export { type AnimeRepository, type AnimeStore, createAnimeRepository } from './repositories/anime'
 export {
   createEpisodePageRepository,

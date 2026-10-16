@@ -56,6 +56,14 @@ test-results/
 # workspace, y en .gitignore para que bun test y biome no recorran la copia
 .worktrees/
 
+# Skills de terceros instaladas en local por la herramienta: no son del
+# repositorio. La skill propia, `.agents/skills/agente-worktree/`, sí se
+# versiona, y el `!` la rescata del comodín anterior.
+.claude/
+skills-lock.json
+.agents/skills/*
+!.agents/skills/agente-worktree/
+
 # Editores y sistema operativo
 .vscode/
 .idea/

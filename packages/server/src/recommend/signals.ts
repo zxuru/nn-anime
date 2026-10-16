@@ -18,8 +18,8 @@
  */
 
 import type { CatalogStore } from '@nn-anime/catalog-store'
-import type { Candidate, ProviderRef } from '@nn-anime/core'
-import { normalizeQuery } from '@nn-anime/core'
+import type { Candidate, ProviderRef, TitleKind } from '@nn-anime/core'
+import { normalizeQuery, titleKindSchema } from '@nn-anime/core'
 import type { AffinityEvent, CoVisit, SearchSignalRecord, WatchState } from '@nn-anime/recsys'
 
 /** Cuántos títulos se miran para construir el corpus. */
@@ -42,6 +42,20 @@ export interface Signals {
 
 export function refKey(ref: ProviderRef): string {
   return `${ref.providerId}#${ref.value}`
+}
+
+/**
+ * El tipo de un título cacheado, si es uno de los del contrato.
+ *
+ * La base guarda lo que el proveedor dijo, y lo que dijo no tiene por qué estar en
+ * el vocabulario: `kind` es texto libre en el JSON. Validarlo aquí es lo que impide
+ * que un valor inventado entre en un candidato —y de ahí en la respuesta, donde el
+ * schema estricto lo rechazaría con un 502 en lugar de ignorarlo—.
+ */
+function kindOf(raw: string | undefined): TitleKind | undefined {
+  const parsed = titleKindSchema.safeParse(raw)
+
+  return parsed.success ? parsed.data : undefined
 }
 
 /**
@@ -126,6 +140,15 @@ export function searchesFrom(
 export interface GatherOptions {
   readonly corpusLimit?: number
   readonly historyLimit?: number
+  /**
+   * Si el corpus puede llevar obras marcadas para adultos.
+   *
+   * El motor **no puede recomendar lo que el filtro esconde**, ni usarlo como señal: una
+   * afinidad calculada con algo que el usuario no ve es una recomendación que no se puede
+   * explicar. El defecto no filtra —quien lo pide es el servidor, con el ajuste en la
+   * mano— porque el motor es puro y no sabe de ajustes.
+   */
+  readonly includeAdult?: boolean | undefined
 }
 
 /**
@@ -152,22 +175,43 @@ export async function gatherSignals(
     store.listRecentSummaries(RECENT_LIMIT),
   ])
 
-  const corpus = new Map<string, Candidate>(
-    candidatos.map((fila) => [
-      refKey(fila.ref),
-      {
-        ref: fila.ref,
-        title: fila.title,
-        tags: [...fila.tags],
-        studios: [...fila.studios],
-        ...(fila.year === undefined ? {} : { year: fila.year }),
-        ...(fila.coverUrl === undefined ? {} : { coverUrl: fila.coverUrl }),
-      },
-    ]),
+  const corpus = new Map<string, Candidate>()
+
+  /**
+   * Si esta referencia se puede enseñar.
+   *
+   * La tabla de marcas se lee **entera** y no por referencia: es pequeña por construcción
+   * —una fila por obra marcada— y el corpus puede traer quinientas piezas, así que
+   * preguntar por cada una sería la consulta de mil parámetros que el spec prohíbe.
+   */
+  const marcas = new Set(
+    (options.includeAdult === false ? await store.listAdultRefs() : []).map((ref) => refKey(ref)),
   )
+  const apta = (ref: ProviderRef): boolean => !marcas.has(refKey(ref))
+
+  for (const fila of candidatos) {
+    if (!apta(fila.ref)) continue
+
+    // El tipo va al candidato porque es lo que reparte una fuente que sirve anime y
+    // películas: sin él, la mitad de su catálogo caería en la pestaña equivocada y no
+    // habría forma de saberlo.
+    const kind = kindOf(fila.kind)
+
+    corpus.set(refKey(fila.ref), {
+      ref: fila.ref,
+      title: fila.title,
+      tags: [...fila.tags],
+      studios: [...fila.studios],
+      ...(fila.year === undefined ? {} : { year: fila.year }),
+      ...(fila.coverUrl === undefined ? {} : { coverUrl: fila.coverUrl }),
+      ...(kind === undefined ? {} : { kind }),
+    })
+  }
 
   // Los favoritos son candidatos aunque no tengan tags: entran por popularidad.
   for (const favorito of favoritos) {
+    if (!apta(favorito.ref)) continue
+
     const clave = refKey(favorito.ref)
     if (!corpus.has(clave)) {
       corpus.set(clave, {
@@ -186,6 +230,8 @@ export async function gatherSignals(
   // puntúan. Lo que entra por aquí no tiene vector y sólo puede entrar por
   // popularidad, que es justo lo que se quiere de un resultado que nadie abrió.
   for (const reciente of recientes) {
+    if (!apta(reciente.ref)) continue
+
     const clave = refKey(reciente.ref)
     if (corpus.has(clave)) continue
 

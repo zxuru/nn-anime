@@ -28,7 +28,7 @@ await pagina.waitForTimeout(1200)
 await pagina.goto(`http://127.0.0.1:${PORT}/`)
 // La sección existe antes que sus datos: sin esperar a las tarjetas, el recorte
 // sale con el estado vacío y no con el top. Lo encontró el primer recorte.
-await pagina.waitForSelector(`${SELECTOR} .poster__link`, { timeout: 15_000 })
+await pagina.waitForSelector(`${SELECTOR} .pz__enlace`, { timeout: 15_000 })
 await pagina.waitForTimeout(1200)
 
 await mkdir(dirname(DESTINO), { recursive: true })

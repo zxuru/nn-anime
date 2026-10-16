@@ -159,7 +159,7 @@ export function WatchEpisodes(props: WatchEpisodesProps): ReactNode {
     setCargando(true)
     setFallo(false)
 
-    void loadEpisodesPage(props.providerId, props.titleRef, pagina).then(
+    void loadEpisodesPage(props.providerId, props.titleRef, { page: pagina }).then(
       (salida) => {
         if (!vivo) return
 

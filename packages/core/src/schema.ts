@@ -93,6 +93,24 @@ function hasCredentials(value: string): boolean {
 }
 
 /**
+ * Qué sirve un proveedor: anime, películas —y series— o las dos cosas.
+ *
+ * **Se declara, no se deduce.** Una fuente que mezcla un catálogo de anime con
+ * películas no se distingue por sus resultados: deducirlo dejaría la pestaña
+ * equivocada llena y la otra vacía sin que nadie pueda corregirlo. `movies` es «lo
+ * que no es anime» —películas, series y doramas—, que es la partición que hacen
+ * las fuentes de este tipo: PelisPlusHD sirve las tres y todas caen al mismo lado.
+ *
+ * **Opcional y sin valor por defecto**, al revés que `feed` y por el mismo motivo
+ * que `episodePages`: un valor por defecto volvería el campo obligatorio en el
+ * tipo inferido, y el compilador dejaría de aceptar el `Provider` de todo plugin
+ * publicado —y de cada literal de las pruebas del repositorio— por un dato que
+ * sólo lee el conmutador de la interfaz. Ausente significa «anime», que es lo que
+ * son los plugins que ya existen, y quien lo necesita lo lee con `mediaOf`.
+ */
+export const providerMediaSchema = z.enum(['anime', 'movies', 'both'])
+
+/**
  * Lo que un proveedor dice saber hacer.
  *
  * Vive aquí y no en `provider-sdk` porque también cruza el HTTP: la interfaz
@@ -123,6 +141,8 @@ export const providerCapabilitiesSchema = z.strictObject({
    * episodios. Quien la necesita la comprueba con `=== true`. Añadido en T86.
    */
   episodePages: z.boolean().optional(),
+  /** Qué sirve. Ausente es `anime`; la regla vive en `mediaOf`. */
+  media: providerMediaSchema.optional(),
 })
 
 export const modeSchema = z.enum(['sub', 'dub', 'raw'])
@@ -197,6 +217,75 @@ export const animeDetailSchema = searchResultSchema.extend({
 })
 
 /**
+ * Una obra de AniList, reducida a lo que este proyecto usa.
+ *
+ * Es el dominio del enriquecimiento: lo que se guarda en la caché de
+ * emparejamientos y lo que valida cada lectura. No es la forma en que responde la
+ * API —esa se valida en el servidor y se convierte aquí— ni la forma en que la
+ * recibe la interfaz: `enrichmentSchema` es la de la frontera HTTP.
+ *
+ * `airingAt` va en ISO-8601, como `publishedAt` del feed: el dato cruza JSON y un
+ * `Date` volvería como cadena igual, así que el tipo mentiría. La conversión desde
+ * las fechas Unix de AniList se hace una sola vez, al construir la entrada.
+ */
+export const anilistEntrySchema = z.strictObject({
+  id: z.number().int().positive(),
+  names: z.strictObject({
+    romaji: z.string().min(1),
+    english: z.string().min(1).optional(),
+    native: z.string().min(1).optional(),
+    synonyms: z.array(z.string().min(1)).optional(),
+  }),
+  /** El formato tal y como lo escribe AniList: `TV`, `MOVIE`, `OVA`… */
+  format: z.string().min(1).optional(),
+  status: airingStatusSchema.optional(),
+  year: z.number().int().optional(),
+  /**
+   * Si AniList marca la obra para adultos.
+   *
+   * Obligatorio y no opcional a propósito: la caché guarda la entrada entera, así
+   * que una fila escrita antes de que este campo existiera **no se puede leer**
+   * —`catalog-store` lanza y quien lee la trata como ausente, así que se vuelve a
+   * pedir—. Un `false` por defecto sería peor que no leerla: daría por apta una
+   * obra que nadie ha mirado, que es justo lo que el filtro existe para no hacer.
+   */
+  adult: z.boolean(),
+  episodes: z.number().int().positive().optional(),
+  durationMin: z.number().int().positive().optional(),
+  score: z.number().min(0).max(100).optional(),
+  /** Texto plano: `plainText` corrió antes de guardarla. */
+  synopsis: z.string().min(1).optional(),
+  genres: z.array(z.string().min(1)),
+  studios: z.array(z.string().min(1)),
+  coverUrl: httpUrlSchema,
+  bannerUrl: httpUrlSchema.optional(),
+  siteUrl: httpUrlSchema,
+  nextEpisode: z
+    .strictObject({
+      number: z.number().int().positive(),
+      airingAt: z.iso.datetime(),
+    })
+    .optional(),
+})
+
+/**
+ * Un capítulo de la parrilla, o un estreno, si la fecha se sabe con día.
+ *
+ * Los dos campos de la cita son opcionales y significan lo que dicen, medido
+ * contra la API: una película no tiene capítulo, y AniList publica el estreno de
+ * muchas futuras con precisión de año —`{"year": 2026}`— así que **no hay día que
+ * poner**. Inventarle uno sería mentir en un calendario.
+ */
+export const anilistAiringEntrySchema = z.strictObject({
+  media: anilistEntrySchema,
+  /** El capítulo. Una película no tiene: su cita es el estreno. */
+  episode: z.number().int().positive().optional(),
+  airingAt: z.iso.datetime().optional(),
+  /** El año, cuando la fecha no tiene día pero el año se conoce. */
+  year: z.number().int().optional(),
+})
+
+/**
  * Resumen de un título para listas.
  *
  * Tiene schema propio, y no es un `SearchResult` recortado, porque es lo que
@@ -249,6 +338,15 @@ export const candidateSchema = z.strictObject({
   title: z.string().min(1),
   tags: z.array(z.string().min(1)),
   year: z.number().int().optional(),
+  /**
+   * El tipo del título, para poder repartirlo por mitades.
+   *
+   * Un candidato lo lleva porque el motor tiene que poder filtrar por él —una
+   * fuente que sirve anime y películas mezcla las dos cosas en el mismo ranking— y
+   * porque quien lee la recomendación lo enseña. Opcional: un candidato de una
+   * fuente que no lo declara no deja de valer, y sin él cuenta como anime.
+   */
+  kind: titleKindSchema.optional(),
   studios: z.array(z.string().min(1)),
   /** Popularidad normalizada dentro del proveedor, de 0 a 1. */
   popularity: z.number().min(0).max(1).optional(),

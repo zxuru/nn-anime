@@ -13,7 +13,7 @@ prueba que lo sostiene.
 | Un sitio cualquiera abre la aplicación | Sesión en cookie `HttpOnly; SameSite=Strict` y token de arranque de un solo uso | `docs/specs/SPEC-nn-anime.md`, mitigación 1 |
 | Otro sitio del navegador llama a la API local | Guard de `Origin` en métodos mutantes | mitigación 2 |
 | Un plugin hace peticiones a la red local | Lista blanca de destinos: sólo `http`/`https`, sin loopback, sin redes privadas, sin metadata de nube, sin IPv4 embebida en IPv6 y sólo unicast global; revalidada en cada salto de redirección | T26a, S1 |
-| Un DNS hostil cambia la respuesta entre la comprobación del destino y la conexión | El nombre se resuelve **una vez**, se juzgan todas sus direcciones y la conexión va a una ya validada, con el nombre en el SNI y el certificado validado contra él. Vale para las dos rutas que salen a la red: la capacidad de red de los plugins y el proxy de bytes | T110 |
+| Un DNS hostil cambia la respuesta entre la comprobación del destino y la conexión | El nombre se resuelve **una vez**, se juzgan todas sus direcciones y la conexión va a una ya validada, con el nombre en el SNI y el certificado validado contra él. Vale para las cuatro rutas que salen a la red: la capacidad de red de los plugins, el proxy de bytes, la descarga de repositorios y la consulta de metadatos a AniList | T110 |
 | Un sitio cualquiera usa la aplicación desde otro nombre | El guard de `Host` se aplica a **todas** las rutas, incluido `/` y el canje de arranque | S7 |
 | Un cuerpo de petición agota la memoria | Tope de 256 KiB por petición, aplicado por el servidor antes de que ningún manejador lo lea | `packages/server/src/index.ts` |
 | Un plugin lee o escribe fuera de su sitio | El plugin sólo devuelve datos; nunca recibe rutas ni la base | `docs/specs/SPEC-provider-core.md` |
@@ -31,6 +31,7 @@ prueba que lo sostiene.
 | Una petición sin cookie lee el video | Sólo bajo `/stream/:ticket`, y con un ticket vivo: es la credencial que `mpv` sí puede presentar, porque no tiene cookie. 192 bits de CSPRNG, 600 s y tope de 500; no abre `/api/*` ni otra ruta | T73 |
 | Un log guarda una credencial o una URL de video | Claves sensibles redactadas, `ticket` incluido | T25 |
 | Una dirección de repositorio lleva al servidor a la red local o a un host ajeno | Lista blanca de **hosts de GitHub** comprobada en **cada salto**, dentro del `fetch` que usa la revalidación de destinos: un host permitido que redirige fuera de GitHub se corta antes de pedir nada | T100 |
+| La consulta de metadatos a AniList lleva al servidor a otro sitio, o la usa para saturar a un tercero | Lista blanca de **hosts de AniList** —`graphql.anilist.co` para la API y su CDN para las imágenes— comprobada en cada salto, y **presupuesto**: una petición cada dos segundos, en fila india, con `Retry-After` obedecido en un 429 y una sola repetición. La imagen se pide **por referencia**, nunca por una dirección que venga del cliente | T121 |
 | Una ruta del árbol de GitHub escribe fuera del repositorio (`..`, absoluta, unidad de Windows) | Cada ruta se valida segmento a segmento y se confina contra el directorio de destino; el árbol truncado, las rutas hostiles y los archivos que no caben se rechazan o se saltan, y nada se escribe fuera | T100 |
 | Un repositorio enorme llena el disco o la memoria | 400 archivos, 512 KiB por archivo y 8 MiB en total; la descarga va a un directorio temporal y se mueve al final, así que un fallo a mitad no reemplaza lo que había | T100 |
 | Activar un archivo ejecuta otro que el usuario no marcó | **No se mitiga, se declara.** Ver el riesgo residual 6 | T101 |
@@ -41,12 +42,13 @@ prueba que lo sostiene.
    que carga el plugin es el mismo que sirve la aplicación. Un plugin hostil puede leer lo que el
    usuario pueda leer. Por eso sólo se cargan plugins que el usuario copia a mano en su directorio de
    configuración, y por eso esta advertencia aparece **en la interfaz**, no sólo aquí.
-2. **DNS rebinding: cerrado en las dos rutas que salen a la red, y declarado lo que no cubre.** Entre la
+2. **DNS rebinding: cerrado en las rutas que salen a la red, y declarado lo que no cubre.** Entre la
    comprobación de destino y la conexión, un DNS hostil podía cambiar la respuesta. Desde T110 no puede:
    el nombre se resuelve **una vez**, se juzgan todas sus direcciones y la conexión va a una ya validada,
    con el nombre en el SNI, así que el certificado se sigue validando contra el nombre. La afirmación
    contraria que había aquí —que eso rompía SNI y la validación— era falsa, y está medida. Cubre la
-   capacidad de red de los plugins (`plugin-fetch.ts`) y el proxy de bytes (`pinned-fetch.ts`). Lo que
+   capacidad de red de los plugins (`plugin-fetch.ts`), el proxy de bytes (`pinned-fetch.ts`), la
+   descarga de repositorios y la consulta a AniList, que usan el mismo `fetchAllowed`. Lo que
    el código **no** puede impedir es que un plugin llame al `fetch` global y se salte la lista blanca:
    por eso el motor inyecta la capacidad en cada llamada —saltársela es visible, no un descuido— y el
    repositorio de plugins tiene una prueba estática que lo impide. Falta migrar los seis plugins
@@ -68,6 +70,18 @@ prueba que lo sostiene.
    está limitada a los archivos que el escáner reconoció, pero eso acota **la puerta de entrada**, no lo
    que hay detrás: no hay sandbox, igual que con un plugin copiado a mano. La aplicación no descarga
    nada hasta que alguien pega una dirección, y no activa nada hasta que alguien marca una casilla.
+7. **El filtro de contenido para adultos no es una verificación de edad, y sólo alcanza a lo que las
+   fuentes publican.** El ajuste —apagado por defecto— decide qué se pide a AniList, qué se guarda y qué
+   se sirve, y la interfaz lo dice con esas palabras. Lo que **no** puede: comprobar quién mira, porque
+   es un servidor local de un solo usuario y la sesión la tiene quien abre el puerto; alcanzar a lo que
+   ninguna fuente publica, porque el feed de un proveedor no dice la edad de sus entradas —se verifica
+   contra AniList y, si AniList no contesta, la entrada se enseña: un tercero caído no puede vaciar una
+   fila—; verificar la búsqueda, cuyos resultados llegan mientras se teclea y donde una ida y vuelta a
+   AniList por pulsación se pagaría en cada tecla; ni comprobar más allá de la ventana de verificación
+   —treinta piezas en las tendencias, y el tope de la fila más ocho en el feed—, que es lo que acota
+   cuántas consultas paga la primera carga. Lo que sí hace: con el ajuste apagado no pide, no guarda y
+   no sirve nada marcado, y de lo marcado conserva **un booleano por referencia** —nunca la portada, la
+   sinopsis ni el identificador de la obra—.
 
 ## Qué no hace esta aplicación
 

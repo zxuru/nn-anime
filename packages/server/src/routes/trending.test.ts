@@ -230,3 +230,71 @@ describe('GET /api/trending', () => {
     )
   })
 })
+
+/**
+ * El reparto por tipo del top.
+ *
+ * El fixture declara `media: 'both'` y su catálogo tiene series y una película
+ * —`el-jardin-de-hierro`—, que además entra en su top 5: es el único sitio del
+ * repositorio donde se puede medir el reparto por `kind` de una fuente mixta sin
+ * red y sin inventar datos.
+ */
+describe('GET /api/trending?media=', () => {
+  test('sin pedirlo, la fila trae las dos mitades', async () => {
+    await conApp(async ({ pedir }) => {
+      const salida = trendingResponseSchema.parse(await (await pedir('/api/trending')).json())
+
+      expect(salida.items.some((item) => item.kind === 'movie')).toBe(true)
+      expect(salida.items.some((item) => item.kind === 'tv')).toBe(true)
+    })
+  })
+
+  test('con `movies`, de una fuente mixta sólo sale la película', async () => {
+    await conApp(async ({ pedir }) => {
+      const salida = trendingResponseSchema.parse(
+        await (await pedir('/api/trending?media=movies')).json(),
+      )
+
+      expect(salida.items).toHaveLength(1)
+      expect(salida.items[0]?.kind).toBe('movie')
+    })
+  })
+
+  test('con `anime`, la película de esa misma fuente no sale', async () => {
+    await conApp(async ({ pedir }) => {
+      const salida = trendingResponseSchema.parse(
+        await (await pedir('/api/trending?media=anime')).json(),
+      )
+
+      expect(salida.items.length).toBeGreaterThan(1)
+      expect(salida.items.every((item) => item.kind !== 'movie')).toBe(true)
+    })
+  })
+
+  test('a una fuente de anime no se le pregunta por las películas', async () => {
+    // La otra mitad de la regla: filtrar los títulos no basta si antes se le ha
+    // pedido el top a una fuente que no puede tenerlos. El contador es quien lo
+    // dice, y sin esta prueba el filtro de proveedores podría sobrar sin que nada
+    // lo notara.
+    await conApp(
+      async ({ pedir, proveedor }) => {
+        const salida = trendingResponseSchema.parse(
+          await (await pedir('/api/trending?media=movies')).json(),
+        )
+
+        expect(salida.items).toEqual([])
+        expect(proveedor.calls.count('getTrending')).toBe(0)
+      },
+      { proveedor: createFixtureProvider({ media: 'anime' }) },
+    )
+  })
+
+  test('un tipo que no está en el vocabulario es una petición mal escrita', async () => {
+    await conApp(async ({ pedir }) => {
+      const respuesta = await pedir('/api/trending?media=anime-y-peliculas')
+
+      expect(respuesta.status).toBe(400)
+      expect((await respuesta.json()).error).toContain('anime-y-peliculas')
+    })
+  })
+})

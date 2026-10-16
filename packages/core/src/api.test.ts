@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  anilistRelatedResponseSchema,
   episodeResponseSchema,
   episodesResponseSchema,
+  feedItemSchema,
   providerRepoRecordSchema,
   providerRepoSelectionSchema,
   providerReposResponseSchema,
@@ -21,6 +23,29 @@ const fila = {
   finished: false,
   watchedAt: '2026-10-12T10:00:00.000Z',
 }
+
+/**
+ * La marca de adultos de una novedad del feed.
+ *
+ * Opcional y **sólo verdadera**: la entrada la publica un plugin que no dice la
+ * edad, así que lo único que se puede afirmar de ella es que se comprobó que lo es.
+ * Un `false` diría que se miró, y no consta.
+ */
+describe('feedItemSchema: la marca de adultos', () => {
+  const item = { ref: { providerId: 'fuente-ejemplo', value: 'titulo-1' }, title: 'Un título' }
+
+  test('sin marca vale: de una novedad del feed no consta la edad', () => {
+    expect(feedItemSchema.safeParse(item).success).toBe(true)
+  })
+
+  test('con la marca puesta vale', () => {
+    expect(feedItemSchema.safeParse({ ...item, adult: true }).success).toBe(true)
+  })
+
+  test('`adult: false` se rechaza', () => {
+    expect(feedItemSchema.safeParse({ ...item, adult: false }).success).toBe(false)
+  })
+})
 
 describe('watchedResponseSchema', () => {
   test('acepta una fila completa', () => {
@@ -241,5 +266,46 @@ describe('providerRepoSelectionSchema: qué se activa', () => {
     expect(providerRepoSelectionSchema.safeParse({ url: 'o/r', enabled: demasiadas }).success).toBe(
       false,
     )
+  })
+})
+
+/** Una pieza de los relacionados de AniList, sin `ref`: la obra no está en la base. */
+const RELACIONADA = {
+  anilistId: 112151,
+  title: 'Kimetsu no Yaiba: Mugen Ressha-hen',
+  cover: '/api/anilist/image/cover/112151',
+  year: 2020,
+  adult: false,
+  kind: 'movie',
+  relation: 'sequel',
+}
+
+describe('anilistRelatedResponseSchema: la pieza con su motivo', () => {
+  test('acepta la pieza con su relación y con la referencia local cuando la hay', () => {
+    expect(anilistRelatedResponseSchema.safeParse({ items: [RELACIONADA] }).success).toBe(true)
+    expect(
+      anilistRelatedResponseSchema.safeParse({
+        items: [{ ...RELACIONADA, ref: { providerId: 'jkanime', value: 'kimetsu' } }],
+      }).success,
+    ).toBe(true)
+  })
+
+  test('un motivo que no es de la lista cerrada no vale', () => {
+    // El nombre de AniList —`SEQUEL`— no es el del contrato: si viaja tal cual,
+    // la interfaz traduce una clave que no existe y la pieza sale sin motivo.
+    expect(
+      anilistRelatedResponseSchema.safeParse({ items: [{ ...RELACIONADA, relation: 'SEQUEL' }] })
+        .success,
+    ).toBe(false)
+    expect(
+      anilistRelatedResponseSchema.safeParse({ items: [{ ...RELACIONADA, relation: 'crossover' }] })
+        .success,
+    ).toBe(false)
+  })
+
+  test('sin motivo no es una pieza relacionada', () => {
+    const { relation: _sinMotivo, ...sinRelacion } = RELACIONADA
+
+    expect(anilistRelatedResponseSchema.safeParse({ items: [sinRelacion] }).success).toBe(false)
   })
 })

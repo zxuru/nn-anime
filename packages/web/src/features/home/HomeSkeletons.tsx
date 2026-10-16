@@ -1,27 +1,30 @@
 /**
  * Los esqueletos de la primera carga de la home.
  *
- * Antes había una frase —«Cargando tu inicio…»— en el sitio del contenido: la
- * página decía que estaba trabajando y no enseñaba de qué. Tres bandas con la
- * misma rejilla que las filas hacen que el hueco sea el que va a ocupar lo que
- * llega, y la frase no se pierde: se queda para quien usa un lector de pantalla,
+ * El esqueleto tiene **la métrica exacta del mosaico** —mismas columnas, mismo
+ * hueco, misma proporción de pieza—, así que cuando llega el catálogo nada salta de
+ * sitio: lo que se ve antes y lo que se ve después ocupa el mismo hueco.
+ *
+ * Está en gris plano y **sin latido**: un bucle infinito de brillo sería ruido, y
+ * el diseño sólo admite un bucle, el de la cinta. La frase que antes ocupaba el
+ * sitio del contenido no se pierde: se queda para quien usa un lector de pantalla,
  * porque el esqueleto es decoración.
  */
 
 import type { ReactNode } from 'react'
 
 /**
- * Las bandas, con nombre y no por índice.
+ * Cuántas celdas se pintan.
  *
- * Son decorativas y su orden no significa nada, así que la tentación es
- * `key={indice}`. Biome lo rechaza y tiene razón: una clave por índice ata la
- * identidad del nodo a su posición, y el día que estas bandas lleven algo dentro
- * —un texto, un número— la posición será justo lo que cambia.
+ * Doce: dos filas de seis en el mosaico ancho y tres de cuatro en el de cuatro
+ * columnas, que es lo que llena la primera pantalla de una home que todavía no
+ * tiene nada. Antes eran siete y de tres tamaños distintos —el reparto por peso que
+ * ya no existe—, con el nombre de cada una escrito a mano. Ahora son iguales, así
+ * que la clave es su puesto.
  */
-const BANDAS = ['primera', 'segunda', 'tercera'] as const
+export const ESQUELETOS = 12
 
-/** Cuántas bandas se pintan. Tres llenan la primera pantalla sin mentir. */
-export const ESQUELETOS = BANDAS.length
+const CELDAS = Array.from({ length: ESQUELETOS }, (_, indice) => `esqueleto-${indice + 1}`)
 
 export interface HomeSkeletonsProps {
   readonly label: string
@@ -29,13 +32,14 @@ export interface HomeSkeletonsProps {
 
 export function HomeSkeletons(props: HomeSkeletonsProps): ReactNode {
   return (
-    <div className="home__esqueletos" aria-busy="true">
-      {/* Absoluto, así que no ocupa celda de la rejilla: el hueco es para las
-          bandas. */}
+    <>
+      {/* Fuera de la rejilla no hace falta: el hueco es para las celdas. */}
       <p className="solo-lectores">{props.label}</p>
-      {BANDAS.map((banda) => (
-        <span key={banda} className="skeleton" aria-hidden="true" />
-      ))}
-    </div>
+      <div className="esqueleto" aria-busy="true">
+        {CELDAS.map((nombre) => (
+          <span key={nombre} className="esq" aria-hidden="true" />
+        ))}
+      </div>
+    </>
   )
 }

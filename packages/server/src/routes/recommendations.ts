@@ -21,6 +21,9 @@
 import type { Candidate, SearchResult } from '@nn-anime/core'
 import {
   errorResponseSchema,
+  mediaOf,
+  pasaElFiltro,
+  puedeServir,
   recommendationsResponseSchema,
   trendingResponseSchema,
   uniqueByWork,
@@ -28,8 +31,12 @@ import {
 import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import { recommend } from '@nn-anime/recsys'
 import type { Hono } from 'hono'
+import { adultosDeLaFila, TOPE_DE_VERIFICACION } from '../adultos'
+import type { AniListCatalog } from '../anilist/catalog'
 import type { ServerContainer } from '../container'
 import { gatherSignals, refKey } from '../recommend/signals'
+import { enMedia, mediaFrom, mediaPorProveedor } from './media'
+import { adultContentOf } from './settings'
 
 /** Tope de la lista: más de veinte recomendaciones no las mira nadie. */
 export const MAX_LIMIT = 20
@@ -37,6 +44,8 @@ export const MAX_LIMIT = 20
 export interface RecommendationsRouteOptions {
   readonly providers: readonly Provider[]
   readonly container: ServerContainer
+  /** El catálogo de AniList: las tendencias lo necesitan para saber qué es para adultos. */
+  readonly catalog: AniListCatalog
   readonly timeoutMs?: number
 }
 
@@ -97,8 +106,17 @@ export function sinRepetir(resultados: readonly SearchResult[]): readonly Search
  */
 export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOptions): void {
   app.get('/api/trending', async (c) => {
+    const pedido = mediaFrom(c.req.query('media'))
+    if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
+
     const conTendencias = options.providers.filter(
-      (provider) => provider.capabilities.trending && provider.getTrending !== undefined,
+      (provider) =>
+        provider.capabilities.trending &&
+        provider.getTrending !== undefined &&
+        // La fuente mixta entra en las dos mitades: se le pregunta y se reparte lo
+        // que devuelva. Descartarla aquí dejaría la pestaña de películas sin
+        // preguntarle a la única fuente que puede tenerlas.
+        puedeServir(pedido.media, mediaOf(provider.capabilities)),
     )
 
     // Primero la caché, y con su TTL: la segunda carga de la home no puede volver
@@ -114,11 +132,32 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
         const lectura = await options.container.getTrending(provider, callOptions)
 
         // Un proveedor que no responde a tendencias no puede tumbar la lista.
-        return lectura.ok ? lectura.value.value : []
+        if (!lectura.ok) return []
+
+        // El filtro va **después de la caché**: lo que se guarda es la lista de la
+        // fuente, y cada pestaña se queda con su mitad al leerla.
+        return lectura.value.value.filter((resultado) =>
+          pasaElFiltro(pedido.media, mediaOf(provider.capabilities), resultado.kind),
+        )
       }),
     )
 
-    const items = sinRepetir(resultados.flat()).map((resultado) => ({
+    const candidatos = sinRepetir(resultados.flat())
+    const conAdultos = await adultContentOf(options.container.store)
+
+    // La fila no tiene tope propio, así que la ventana la pone el tope de verificación:
+    // por encima de él la pieza se sirve sin verificar, y eso está declarado en
+    // `SECURITY.md`. Una referencia ya marcada no gasta una petición nunca más.
+    const ventana = candidatos.slice(0, TOPE_DE_VERIFICACION)
+    const adultos = await adultosDeLaFila(
+      { container: options.container, catalog: options.catalog },
+      ventana,
+      conAdultos,
+      c.req.raw.signal,
+    )
+    const visibles = ventana.filter((pieza) => conAdultos || !adultos.has(refKey(pieza.ref)))
+
+    const items = visibles.map((resultado) => ({
       ref: resultado.ref,
       title: resultado.title,
       ...(resultado.coverUrl === undefined ? {} : { coverUrl: resultado.coverUrl }),
@@ -144,7 +183,14 @@ export function registerRecommendationsRoute(
     // Checkpoint G, no una prueba: la prueba comprobaba que la consulta viajaba,
     // no que sirviera de algo.
     const consulta = c.req.query('q')?.trim() ?? ''
-    const señales = await gatherSignals(options.container.store)
+    const pedido = mediaFrom(c.req.query('media'))
+    if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
+
+    // El filtro va **antes** de recomendar: recortar después deja la fila con menos
+    // piezas de las que hay, porque el motor ya habría llenado su tope con títulos que
+    // no se van a enseñar.
+    const conAdultos = await adultContentOf(options.container.store)
+    const señales = await gatherSignals(options.container.store, { includeAdult: conAdultos })
     const conConsulta =
       consulta === ''
         ? señales
@@ -152,11 +198,21 @@ export function registerRecommendationsRoute(
             ...señales,
             searches: [{ query: consulta, at: new Date(ahora), hits: 1 }, ...señales.searches],
           }
-    const candidatos: Candidate[] = [...señales.candidates]
+    // Las medias de las fuentes cargadas: lo que ya está en la base se reparte por
+    // la fuente que lo trajo, y una referencia de un plugin que ya no está cuenta
+    // como anime.
+    const medias = mediaPorProveedor(options.providers)
+    // El filtro va **antes de recomendar**: recortar después deja la pestaña con
+    // menos piezas de las que hay, porque el motor ya habría llenado su tope con
+    // títulos de la otra mitad.
+    const candidatos: Candidate[] = [...enMedia(señales.candidates, pedido.media, medias)]
 
     // Tendencias: lo único que se pide al proveedor, y sólo si dice saber hacerlo.
     const conTendencias = options.providers.filter(
-      (provider) => provider.capabilities.trending && provider.getTrending !== undefined,
+      (provider) =>
+        provider.capabilities.trending &&
+        provider.getTrending !== undefined &&
+        puedeServir(pedido.media, mediaOf(provider.capabilities)),
     )
     if (conTendencias.length > 0) {
       const callOptions: CallOptions = {
@@ -169,17 +225,23 @@ export function registerRecommendationsRoute(
       // auditoría de T47 midiendo las llamadas.
       const resultados = await Promise.all(
         conTendencias.map(async (provider) => {
+          const media = mediaOf(provider.capabilities)
+          const suyos = (lista: readonly SearchResult[]): readonly SearchResult[] =>
+            lista.filter((resultado) => pasaElFiltro(pedido.media, media, resultado.kind))
+
           const cacheado = await options.container.store.readTrending(provider.id)
-          if (cacheado !== null) return cacheado.value
+          if (cacheado !== null) return suyos(cacheado.value)
 
           try {
             const tendencias = provider.getTrending
             if (tendencias === undefined) return []
 
             const lista = await tendencias.call(provider, callOptions)
+            // A la caché va la lista entera: el reparto por mitades es de quien
+            // lee, y guardar sólo una mitad dejaría la otra sin datos.
             await options.container.store.writeTrending(provider.id, lista)
 
-            return lista
+            return suyos(lista)
           } catch {
             // Un proveedor que no responde a tendencias no puede tumbar la lista:
             // lo local sigue estando.
@@ -195,9 +257,21 @@ export function registerRecommendationsRoute(
       // géneros se quedaban vacíos cuando el top venía de tendencias.
       const enLaBase = new Map(candidatos.map((candidato) => [refKey(candidato.ref), candidato]))
 
-      for (const resultado of resultados.flat()) {
+      // Las tendencias entran por aquí y no por `gatherSignals`, así que se filtran con
+      // la misma pasada que la fila de tendencias: si no, el motor elegiría una obra
+      // marcada que la fila de al lado no enseña.
+      const planas = resultados.flat()
+      const adultos = await adultosDeLaFila(
+        { container: options.container, catalog: options.catalog },
+        planas,
+        conAdultos,
+        c.req.raw.signal,
+      )
+
+      for (const resultado of planas) {
         const clave = refKey(resultado.ref)
         if (yaEstan.has(clave)) continue
+        if (!conAdultos && adultos.has(clave)) continue
 
         yaEstan.add(clave)
         const cacheado = enLaBase.get(clave)
@@ -209,6 +283,10 @@ export function registerRecommendationsRoute(
           studios: cacheado === undefined ? [] : [...cacheado.studios],
           ...(resultado.coverUrl === undefined ? {} : { coverUrl: resultado.coverUrl }),
           ...(resultado.year === undefined ? {} : { year: resultado.year }),
+          // El tipo viaja: la pieza de la home lo enseña y es lo que reparte una
+          // fuente mixta. Sin él, lo que entra por tendencias no se podría filtrar
+          // en la interfaz si cambiara de pestaña sin volver a pedir.
+          ...(resultado.kind === undefined ? {} : { kind: resultado.kind }),
           popularity: 1,
         })
       }
@@ -226,6 +304,9 @@ export function registerRecommendationsRoute(
             ? {}
             : { coverUrl: entrada.candidate.coverUrl }),
           ...(entrada.candidate.year === undefined ? {} : { year: entrada.candidate.year }),
+          // El tipo del título sale de aquí y no se deduce: es lo que reparte la
+          // pestaña de anime de la de películas cuando la fuente sirve las dos.
+          ...(entrada.candidate.kind === undefined ? {} : { kind: entrada.candidate.kind }),
           score: entrada.score,
           tags: [...entrada.candidate.tags],
           reason: { kind: entrada.reason.kind, text: entrada.reason.text },

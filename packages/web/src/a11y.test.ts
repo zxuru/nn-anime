@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { fileURLToPath } from 'node:url'
+import { UMBRAL_DE_TINTA } from './features/home/tinta'
 
 /**
  * Contraste de la paleta, medido y no afirmado.
@@ -170,6 +171,313 @@ describe('contraste de la barra de progreso', () => {
 })
 
 /**
+ * La lupa de las medidas de color sobre arte.
+ *
+ * Las usan las dos medidas que componen colores sobre una imagen —el banner de la
+ * marquesina y el velo de la cifra del top—, y una fórmula escrita dos veces es una
+ * fórmula que se separa: la del velo de la marquesina se compone sobre el campo, y
+ * la de la cifra, sobre una portada cualquiera.
+ */
+const TABLA = fileURLToPath(new URL('./styles/tokens.css', import.meta.url))
+
+type Canal = readonly [number, number, number]
+
+/** Los tokens, tal cual están escritos. */
+async function tokens(): Promise<string> {
+  return Bun.file(TABLA).text()
+}
+
+function valor(css: string, nombre: string): string {
+  return new RegExp(`--${nombre}:\\s*([^;]+);`).exec(css)?.[1]?.trim() ?? ''
+}
+
+/**
+ * El valor de un token, siguiendo un `var(--otro)` si es que lo es.
+ *
+ * La tinta crema de la marquesina **es** `--color-on-overlay`: se declara una vez
+ * y el par de la marquesina la nombra, así que la medida tiene que seguir el
+ * nombre hasta el color o mediría una cadena.
+ */
+function resuelto(css: string, nombre: string): string {
+  const propio = valor(css, nombre)
+  const referencia = /^var\(--([a-z-]+)\)$/.exec(propio)
+
+  return referencia?.[1] === undefined ? propio : valor(css, referencia[1])
+}
+
+/** Los canales de un color, escrito en `#rrggbb` o en `rgb(r g b …)`. */
+function canales(texto: string): Canal {
+  const hexadecimal = /#([0-9a-f]{3}|[0-9a-f]{6})\b/i.exec(texto)
+
+  if (hexadecimal?.[1] !== undefined) {
+    const digitos = hexadecimal[1]
+    const completo = digitos.length === 3 ? [...digitos].map((d) => d + d).join('') : digitos
+
+    return [
+      Number.parseInt(completo.slice(0, 2), 16),
+      Number.parseInt(completo.slice(2, 4), 16),
+      Number.parseInt(completo.slice(4, 6), 16),
+    ]
+  }
+
+  const coincidencia = /rgb\(\s*(\d+)\s+(\d+)\s+(\d+)/.exec(texto)
+  expect(coincidencia, `no hay ningún color en «${texto}»`).not.toBeNull()
+
+  return [
+    Number(coincidencia?.[1] ?? 0),
+    Number(coincidencia?.[2] ?? 0),
+    Number(coincidencia?.[3] ?? 0),
+  ]
+}
+
+/** El tanto por ciento de un token como `0.6`, y no como `60`. */
+function tanto(css: string, nombre: string): number {
+  const texto = valor(css, nombre)
+  const numero = Number.parseFloat(texto)
+
+  expect(Number.isFinite(numero), `--${nombre} no es un número: «${texto}»`).toBe(true)
+
+  return numero / 100
+}
+
+/** El canal sRGB cuya luminancia relativa es exactamente `l`: la vuelta de la fórmula. */
+function canalDeLuminancia(l: number): number {
+  return 1.055 * l ** (1 / 2.4) - 0.055
+}
+
+/** Un color compuesto sobre otro, canal a canal, como lo hace el navegador. */
+function compuesto(fondo: Canal, encima: Canal, alfa: number): Canal {
+  return [
+    encima[0] * alfa + fondo[0] * (1 - alfa),
+    encima[1] * alfa + fondo[1] * (1 - alfa),
+    encima[2] * alfa + fondo[2] * (1 - alfa),
+  ]
+}
+
+function hexDe(color: Canal): string {
+  const canal = (valor: number): string =>
+    Math.min(255, Math.max(0, Math.round(valor)))
+      .toString(16)
+      .padStart(2, '0')
+
+  return `#${canal(color[0])}${canal(color[1])}${canal(color[2])}`
+}
+
+/**
+ * La tinta de la marquesina sobre el banner, medida.
+ *
+ * La marquesina elige su tinta —crema o negra— según el tono del banner, y el velo
+ * va al contrario: es lo que aplana la imagen hasta que el texto se lee sobre
+ * cualquier banner, del color que sea. Con el umbral y el mínimo puestos a ojo, la
+ * garantía sería una frase en un comentario; aquí es un número que falla.
+ *
+ * El peor caso de cada dirección es **el campo en el propio umbral**: el más claro
+ * que todavía lleva tinta crema y el más oscuro que lleva tinta negra. Por eso el
+ * umbral y el mínimo del velo están atados: subir el umbral deja la tinta crema
+ * sobre un campo más claro, y bajar el mínimo deja menos velo para taparlo.
+ *
+ * La tinta de cada texto llega con su propia opacidad —el motivo es más tenue que
+ * el titular—, así que lo que se mide es el color **compuesto**: la tinta sobre el
+ * campo ya velado, que es el que se ve. Medir la tinta como si fuera opaca daría un
+ * número que no es el de la pantalla, y es el error que la prueba de la barra de
+ * progreso ya comete a propósito para explicar por qué no.
+ */
+describe('la tinta de la marquesina sobre el banner', () => {
+  /**
+   * Los pares, con el lado del umbral que le toca a cada uno.
+   *
+   * El campo es un gris neutro en el umbral: la medida no depende del color del
+   * banner, sólo de su luminancia, así que el peor caso se puede poner con un gris.
+   */
+  async function pares(): Promise<
+    {
+      readonly nombre: string
+      readonly tinta: Canal
+      readonly velo: Canal
+      readonly alfaDelVelo: number
+    }[]
+  > {
+    const css = await tokens()
+    const alfa = tanto(css, 'velo-campo-minimo')
+
+    return [
+      {
+        nombre: 'tinta crema sobre un campo oscuro',
+        tinta: canales(resuelto(css, 'marquesina-tinta-clara')),
+        velo: canales(valor(css, 'velo-campo-oscuro')),
+        alfaDelVelo: alfa,
+      },
+      {
+        nombre: 'tinta negra sobre un campo claro',
+        tinta: canales(resuelto(css, 'marquesina-tinta-oscura')),
+        velo: canales(valor(css, 'velo-campo-claro')),
+        alfaDelVelo: alfa,
+      },
+    ]
+  }
+
+  /** Las tintas que van sobre el campo, con la opacidad con la que se pintan. */
+  const TINTAS: readonly (readonly [string, string])[] = [
+    ['titular y rótulo', '100'],
+    ['línea de datos', 'marquesina-tinta-dato'],
+    ['sinopsis', 'marquesina-tinta-prosa'],
+    ['marca de refresco', 'marquesina-tinta-marca'],
+    ['motivo', 'marquesina-tinta-motivo'],
+  ]
+
+  test('cada tinta pasa el 4.5:1 del spec en el peor caso de su dirección', async () => {
+    const campos = await pares()
+    const css = await tokens()
+    const gris = canalDeLuminancia(UMBRAL_DE_TINTA) * 255
+
+    for (const campo of campos) {
+      // El campo velado: lo que se ve detrás del texto.
+      const fondo = compuesto([gris, gris, gris], campo.velo, campo.alfaDelVelo)
+
+      for (const [nombre, token] of TINTAS) {
+        const opacidadDelTexto = token === '100' ? 1 : tanto(css, token)
+        const texto = compuesto(fondo, campo.tinta, opacidadDelTexto)
+        const ratio = contrast(hexDe(texto), hexDe(fondo))
+
+        expect(ratio, `${campo.nombre}: ${nombre}`).toBeGreaterThanOrEqual(4.5)
+      }
+    }
+  })
+
+  /**
+   * Y el mínimo del velo es el que se usa.
+   *
+   * Un token declarado y no usado no garantiza nada: la prueba de arriba mediría un
+   * número que la hoja no aplica. Los dos velos llevan el mínimo por el tanto, y por
+   * eso se comprueba que lo citan.
+   */
+  test('los dos velos usan el mínimo declarado', async () => {
+    const css = await tokens()
+
+    for (const nombre of ['velo-campo-oscuro', 'velo-campo-claro']) {
+      expect(valor(css, nombre), `--${nombre}`).toContain('var(--velo-campo-minimo)')
+    }
+  })
+
+  /**
+   * El mínimo llega hasta el final de la columna de texto.
+   *
+   * El velo se retira hacia la derecha —donde está el cartel y donde la imagen se
+   * enseña entera—, y hasta dónde llega el velo fuerte es lo que decide si el
+   * titular se lee. La columna es la primera del reparto —`1fr` contra `0.58fr`—, y
+   * el velo tiene que seguir en su mínimo hasta ahí: acortarlo deja el texto sobre
+   * la imagen cruda, que es justo el banner que se come la letra.
+   */
+  test('el velo aguanta el mínimo hasta el final de la columna', async () => {
+    const css = await tokens()
+    const minimo = tanto(css, 'velo-campo-minimo')
+
+    /** La primera columna del reparto, en tanto por uno del ancho. */
+    const columnas =
+      /--marquesina-cols:\s*minmax\(0,\s*([\d.]+)fr\)\s*minmax\(0,\s*([\d.]+)fr\)/.exec(css)
+    const primera = Number(columnas?.[1] ?? 0)
+    const segunda = Number(columnas?.[2] ?? 0)
+
+    expect(primera, 'falta el reparto de columnas de la marquesina').toBeGreaterThan(0)
+    const corte = primera / (primera + segunda)
+
+    for (const nombre of ['velo-campo-oscuro', 'velo-campo-claro']) {
+      // Sólo la capa horizontal, que es la que sostiene la columna de texto. Se
+      // resuelve el `var()` del mínimo antes de leer los tantos: lo que se mide es
+      // la opacidad que acaba en la hoja, no el nombre del token.
+      const capas = valor(css, nombre)
+        .replaceAll('var(--velo-campo-minimo)', `${minimo * 100}%`)
+        .split('linear-gradient(')
+        .filter((capa) => capa.trimStart().startsWith('to right'))
+
+      expect(capas.length, `--${nombre} no tiene capa horizontal`).toBe(1)
+
+      const paradas = [...(capas[0] ?? '').matchAll(/([\d.]+)%\s*\)\s*([\d.]+)%/g)].map(
+        (parada) => ({
+          alfa: Number(parada[1]) / 100,
+          posicion: Number(parada[2]) / 100,
+        }),
+      )
+
+      expect(paradas.length, `--${nombre} no tiene paradas que leer`).toBeGreaterThan(1)
+
+      const hastaDondeLlega = Math.max(
+        ...paradas.filter((parada) => parada.alfa >= minimo).map((parada) => parada.posicion),
+      )
+
+      expect(
+        hastaDondeLlega,
+        `el velo fuerte de --${nombre} se queda corto`,
+      ).toBeGreaterThanOrEqual(corte)
+    }
+  })
+})
+
+/**
+ * La cifra del top sobre la portada, medida.
+ *
+ * La cifra del puesto va sobre el arte de la pieza, y desde que AniList manda en el
+ * top ese arte es **una portada de verdad**: un cielo, una nieve o el amarillo de un
+ * héroe. El crema del número desaparecía sobre los claros —en la captura del top, el
+ * «5» de Boku no Hero y el «8» de ONE PIECE no se leían— y el color de lo que hay
+ * debajo no se elige, así que se oscurece con un velo. Su mínimo es un número que
+ * falla si alguien lo baja.
+ *
+ * El peor arte posible es el blanco: es el que deja el velo con menos que tapar. Y el
+ * velo dura lo que la cifra —`--velo-puesto-alto` se mide en cifras, no en tantos de
+ * la pieza—, así que la parte fuerte tiene que llegar hasta donde llega su caja: si
+ * se queda corta, la mitad de abajo del número vuelve a caer sobre el arte crudo.
+ */
+describe('la cifra del top sobre la portada', () => {
+  /** El blanco puro: lo más claro que puede quedar debajo de la cifra. */
+  const BLANCO: Canal = [255, 255, 255]
+
+  test('el mínimo del velo deja la cifra por encima del 4.5:1 en el peor arte', async () => {
+    const css = await tokens()
+    const minimo = tanto(css, 'velo-puesto-minimo')
+    const cifra = canales(resuelto(css, 'color-on-overlay'))
+    // El color del velo es el de los otros velos del arte: el negro de la casa.
+    const velo = canales(valor(css, 'velo-puesto'))
+
+    // Lo que se ve detrás de la cifra: el velo a su mínimo, sobre el arte más claro.
+    const fondo = compuesto(BLANCO, velo, minimo)
+    const ratio = contrast(hexDe(cifra), hexDe(fondo))
+
+    expect(ratio, `la cifra del top sobre arte claro: ${hexDe(fondo)}`).toBeGreaterThanOrEqual(4.5)
+  })
+
+  test('el velo fuerte llega hasta debajo de la cifra', async () => {
+    const css = await tokens()
+    const minimo = tanto(css, 'velo-puesto-minimo')
+    const multiplicador = Number(
+      /--velo-puesto-alto:\s*calc\(var\(--pieza-posicion\)\s*\*\s*([\d.]+)\)/.exec(css)?.[1] ?? 0,
+    )
+
+    expect(multiplicador, 'falta --velo-puesto-alto, o no se mide en cifras').toBeGreaterThan(1)
+
+    // La cifra mide una `--pieza-posicion` de alto —el `line-height` es 1— y el velo,
+    // `multiplicador` veces eso: hasta dónde tiene que aguantar el mínimo.
+    const hastaLaCifra = 1 / multiplicador
+
+    const paradas = [
+      ...valor(css, 'velo-puesto')
+        .replaceAll('var(--velo-puesto-minimo)', `${minimo * 100}%`)
+        .matchAll(/([\d.]+)%\s*\)\s*([\d.]+)%/g),
+    ].map((parada) => ({ alfa: Number(parada[1]) / 100, posicion: Number(parada[2]) / 100 }))
+
+    expect(paradas.length, '--velo-puesto no tiene paradas que leer').toBeGreaterThan(1)
+
+    const hastaDondeLlega = Math.max(
+      ...paradas.filter((parada) => parada.alfa >= minimo).map((parada) => parada.posicion),
+    )
+
+    expect(hastaDondeLlega, 'el velo del puesto se queda corto').toBeGreaterThanOrEqual(
+      hastaLaCifra,
+    )
+  })
+})
+
+/**
  * Lo que se puede comprobar sin navegador.
  *
  * Un recorrido de teclado de verdad necesita un navegador y es del e2e (T43).
@@ -222,22 +530,29 @@ describe('movimiento reducido', () => {
   })
 
   /**
-   * La entrada de la home, apagada.
+   * La potencia que falta, apagada.
    *
-   * Se mira el bloque entero y no sólo el esqueleto porque las tres animaciones
-   * nuevas viven en el mismo `@media`, y una que se quede fuera no rompe ninguna
-   * otra prueba: sólo mueve la página de quien pidió que no se moviera. La
-   * supresión tiene la **misma especificidad** que la regla que apaga, así que
-   * también importa que vaya después; por eso el bloque se busca desde la última
-   * aparición del `@media`.
+   * La entrada de la home y la cinta de la marquesina son lo único que se mueve
+   * sin que nadie lo pida; el resto de la vitrina espera al puntero. Se mira el
+   * bloque entero y no sólo una regla porque una animación nueva que se quede
+   * fuera no rompe ninguna otra prueba: sólo mueve la página de quien pidió que no
+   * se moviera. La supresión tiene la **misma especificidad** que la regla que
+   * apaga, así que también importa que vaya después; por eso el bloque se busca
+   * desde la última aparición del `@media`.
    */
-  test('las filas y las tarjetas dejan de entrar animadas', async () => {
+  test('la entrada y la cinta dejan de moverse', async () => {
     const css = await Bun.file(SHELL).text()
-    const bloque = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce)'))
+    const bloques = css.split('@media (prefers-reduced-motion: reduce)')
+    const ultimo = bloques[bloques.length - 1] ?? ''
 
-    expect(bloque).toContain('.home > *')
-    expect(bloque).toContain('.row__list > li')
-    expect(bloque).toContain('animation: none')
+    expect(bloques.length).toBeGreaterThan(1)
+    expect(ultimo).toContain('.cinta__carro')
+    expect(ultimo).toContain('animation: none')
+
+    // Y la entrada de la home sigue apagándose en algún bloque: es lo que entra
+    // solo al abrir la pantalla.
+    expect(bloques.join('')).toContain('.home > *')
+    expect(bloques.join('')).toContain('.skeleton')
   })
 
   test('el desplazamiento de la entrada sale de un token, no de un número suelto', async () => {

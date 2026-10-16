@@ -210,6 +210,30 @@ describe('tokens de diseño', () => {
   })
 
   /**
+   * El velo del banner acaba en el fondo de la página.
+   *
+   * Es lo que sostiene el titular, y no una cuestión de gusto: debajo hay una
+   * fotografía cualquiera, así que el texto se lee porque la última parada del
+   * velo es **opaca** y del color del tema. Medido sobre el banner real de una
+   * ficha emparejada —la captura del recuadro del titular, con la letra
+   * escondida— el peor píxel queda en 4.61:1 en el tema oscuro y 6.48:1 en el
+   * claro. Eso no se puede medir sin navegador, pero lo que lo decide, sí.
+   */
+  test('el velo de la banda acaba en el fondo del tema', async () => {
+    const css = await read(SHELL)
+    const desde = css.indexOf('.detail__banner-fondo::after {')
+
+    expect(desde, 'falta el velo de la banda en shell.css').toBeGreaterThan(-1)
+
+    const velo = css.slice(desde, css.indexOf('}', desde))
+
+    // La última parada, opaca y del fondo de la página: es lo que deja el
+    // titular sobre un color conocido y no sobre lo que la imagen tenga ahí.
+    expect(velo).toContain('var(--color-bg) 100%')
+    expect(velo).not.toContain('transparent 100%')
+  })
+
+  /**
    * El encabezado se apila por encima del contenido.
    *
    * No es un detalle de pintura: con la misma capa que una insignia o que el
@@ -231,6 +255,283 @@ describe('tokens de diseño', () => {
 
     for (const capaDelContenido of capasDelContenido) {
       expect(Number(capa)).toBeGreaterThan(capaDelContenido)
+    }
+  })
+
+  /**
+   * El puntero no mueve la vitrina.
+   *
+   * Pasar el ratón por encima de una pieza enciende su borde, aviva el campo y
+   * destapa el asomo, pero **nada cambia de tamaño ni de sitio**. La primera
+   * versión de la vitrina crecía al pasar el ratón —de una fila a dos, de dos a
+   * tres— y todo lo que venía debajo bajaba 145 px, ida y vuelta: el contenido se
+   * movía solo bajo el puntero, y eso marea. Se mide aquí porque en el CSS no se
+   * ve: el fallo no rompe ninguna otra prueba y sólo aparece con el ratón encima.
+   */
+  test('ninguna regla de hover de la composición cambia geometría', async () => {
+    const css = await read(SHELL)
+
+    // Las propiedades que reflotan, mueven o redimensionan. Un color, un fondo,
+    // un filtro, una opacidad o el pausado de una animación no están aquí.
+    const geometria = [
+      'grid-row',
+      'grid-column',
+      'grid-template',
+      'transform',
+      'translate',
+      'rotate',
+      'scale',
+      'width',
+      'height',
+      'inline-size',
+      'block-size',
+      'padding',
+      'margin',
+      'inset',
+      'top',
+      'left',
+      'right',
+      'bottom',
+      'font-size',
+      'flex',
+    ]
+
+    const deLaVitrina = /\.(pz|cinta|marquesina|seccion|nota|genero|mosaico)\b/
+    const reglas = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    let comprobadas = 0
+
+    for (const regla of reglas) {
+      const selector = (regla[1] ?? '').trim()
+      const cuerpo = regla[2] ?? ''
+      if (!selector.includes(':hover') || !deLaVitrina.test(selector)) continue
+
+      comprobadas += 1
+
+      for (const propiedad of geometria) {
+        expect(cuerpo, `${selector} cambia ${propiedad} con el puntero encima`).not.toMatch(
+          new RegExp(`(^|[;\\s])${propiedad}\\s*:`),
+        )
+      }
+    }
+
+    expect(comprobadas, 'no se encontró ninguna regla de hover que comprobar').toBeGreaterThan(2)
+  })
+
+  /** Y el movimiento —lo que además de cambiar de sitio, se ve moverse— tampoco. */
+  test('ninguna regla de hover mueve nada con `transform` ni cambia de fila', async () => {
+    const css = await read(SHELL)
+    const reglas = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+
+    for (const regla of reglas) {
+      const selector = (regla[1] ?? '').trim()
+      if (!selector.includes(':hover')) continue
+
+      expect(regla[2] ?? '', `${selector} se mueve con el puntero encima`).not.toMatch(
+        /(^|[;\s])(transform|translate|rotate|scale|grid-row|grid-column)\s*:/,
+      )
+    }
+  })
+
+  /**
+   * La rejilla apretada: cada pieza es un cartel de una columna.
+   *
+   * El alto de la pieza sale de su ancho —la proporción de una portada—, así que el
+   * mosaico se llena solo: seis carteles por fila en la rejilla ancha y cuatro,
+   * tres o dos según el ancho, sin que ninguna fila declare tamaños. Con el módulo
+   * de filas y un peso por fila, una pieza de dos columnas medía 491x152 px —más
+   * ancha que alta— y dejaba tres títulos por fila con un hueco al lado.
+   */
+  test('la pieza del mosaico es un cartel y ninguna fila declara tamaños', async () => {
+    const css = await read(SHELL)
+    const cuerpo = /\.pz\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+
+    expect(cuerpo, 'falta la proporción de la pieza en .pz').toContain(
+      'aspect-ratio: var(--pieza-proporcion)',
+    )
+
+    // Y el token es la proporción de una portada, sin unidades: un `aspect-ratio`
+    // con `px` no significa nada.
+    expect(await read(TOKENS)).toContain('--pieza-proporcion: 2 / 3')
+
+    // Los pesos por fila no vuelven: el tamaño ya no es una decisión de la fila.
+    // `pz--mando` no cuenta: es el botón del top, no un tamaño.
+    expect(css).not.toMatch(/\.pz--(s|w|b|m)\b/)
+  })
+
+  /**
+   * El asomo se enseña donde cabe.
+   *
+   * La caja del asomo mide entre 7 y 9,5 rem —112 a 152 px— y el cartel de 2:3 de
+   * una columna unos 350: cabe, y de eso depende que se lea entero dentro de la
+   * pieza. La excepción es la banda del régimen de una columna, que mide 6 rem como
+   * mucho: ahí sigue apagado.
+   */
+  test('el asomo sólo se apaga en la banda del móvil', async () => {
+    const css = await read(SHELL)
+    const apagados = [...css.matchAll(/[^{}]*\.pz__asomo[^{}]*\{[^}]*display:\s*none[^}]*\}/g)]
+
+    expect(apagados).toHaveLength(1)
+    expect(css.indexOf(apagados[0]?.[0] ?? '')).toBeGreaterThan(
+      css.indexOf('@media (max-width: 560px)'),
+    )
+  })
+
+  /**
+   * Los recursos de arte de la pieza están en la hoja.
+   *
+   * Van en la clase del campo, y el nombre se arma en el componente con un mapa:
+   * la comprobación general de clases leídas del marcado no los ve, así que se
+   * miran aquí. Uno que falte no rompe nada —el recurso simplemente no se
+   * dibuja—, y es justo el fallo que no se nota hasta que alguien mira la
+   * pantalla.
+   */
+  test('los recursos de arte de la pieza están definidos', async () => {
+    const css = await read(SHELL)
+
+    for (const recurso of ['trama', 'mitad', 'circulo', 'caja']) {
+      expect(css, `falta el recurso ${recurso}`).toContain(`.pz__campo--${recurso}`)
+    }
+
+    // Y los dos que son texto, que se pintan dentro del campo.
+    expect(css).toContain('.pz__letra')
+    expect(css).toContain('.pz__cifra')
+  })
+
+  /**
+   * El velo de la cifra del top lo llevan **sólo** las piezas numeradas.
+   *
+   * La cifra va sobre el arte y el crema no se lee sobre una portada clara, así que
+   * el puesto lleva un velo corto en su esquina. Colgado de `.pz` a secas, ese velo
+   * oscurecería la esquina de todas las piezas de la home —buscar, novedades,
+   * favoritos— sin que ninguna otra prueba se enterara: es un recorte de arte, y el
+   * arte no se mide sin navegador. Aquí se mide de quién cuelga.
+   */
+  test('el velo del puesto cuelga de la pieza numerada', async () => {
+    const css = await read(SHELL)
+    // Sin comentarios: el selector de una regla se lee desde el cierre de la
+    // anterior, y el comentario que la explica viaja con él.
+    const sinComentarios = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    const reglas = [...sinComentarios.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((regla) =>
+      (regla[2] ?? '').includes('var(--velo-puesto)'),
+    )
+
+    expect(reglas, 'no hay ninguna regla que pinte el velo del puesto').toHaveLength(1)
+    expect((reglas[0]?.[1] ?? '').trim()).toBe('.pz--puesto .pz__velo::before')
+    expect(reglas[0]?.[2], 'el velo del puesto no dura lo que la cifra').toContain(
+      'block-size: var(--velo-puesto-alto)',
+    )
+  })
+
+  /**
+   * Los seis campos de arte se reparten por posición.
+   *
+   * Es lo que se perdió al retirar los bloques de la home vieja: el reparto colgaba
+   * de `.row__list`, que se fue con ellos, y desde entonces todo hueco sin portada
+   * —y toda pieza cuya portada no llega, que sin red es lo normal— salía del mismo
+   * gris. Se comprueban las seis posiciones y los seis campos: con cinco de los
+   * seis, dos piezas contiguas vuelven a repetir degradado.
+   */
+  test('los seis campos de arte se reparten por posición', async () => {
+    const css = await read(SHELL)
+    const tokens = await read(TOKENS)
+
+    for (const campo of ['a', 'b', 'c', 'd', 'e', 'f']) {
+      expect(tokens, `falta el campo --cover-${campo} en tokens.css`).toContain(`--cover-${campo}:`)
+      expect(css, `el campo --cover-${campo} no se reparte`).toContain(
+        `--campo: var(--cover-${campo})`,
+      )
+    }
+
+    const posiciones = [...css.matchAll(/\.mosaico > \.pz:nth-child\((6n \+ \d)\)/g)].map(
+      (coincidencia) => coincidencia[1] ?? '',
+    )
+
+    expect(posiciones.sort()).toEqual(['6n + 1', '6n + 2', '6n + 3', '6n + 4', '6n + 5', '6n + 6'])
+  })
+
+  /**
+   * El arte de la pieza se coloca contra la pieza, no contra su pie.
+   *
+   * `position: absolute` se resuelve contra el ancestro posicionado más cercano, y
+   * con el enlace en el flujo ése era el enlace: medía lo que su texto, así que la
+   * portada de una pieza 2x2 —la del top, la de continuar viendo— salía como una
+   * tira pegada abajo y el resto del hueco quedaba en negro. El resultado no se
+   * puede medir sin un navegador; se mide la regla que lo decide, que es una.
+   */
+  test('el enlace de la pieza cubre el hueco entero', async () => {
+    const css = await read(SHELL)
+    const enlace = /\.pz__enlace\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+
+    expect(enlace, 'falta .pz__enlace en shell.css').not.toBe('')
+    expect(enlace).toContain('position: absolute')
+    expect(enlace).toContain('inset: 0')
+    // Y no vuelve el `block-size: 100%`, que no resolvía nada: contra una fila de
+    // altura automática, un porcentaje se lee como `auto` y el arte vuelve a la
+    // tira de abajo.
+    expect(enlace).not.toContain('block-size: 100%')
+  })
+
+  /**
+   * La tipografía llega de verdad.
+   *
+   * Una familia nombrada en `--font-sans` que no resuelve a ningún archivo no da
+   * ningún error: la página se pinta con la letra del sistema y parece que todo
+   * está bien. Es lo que pasaba con Fraunces y Manrope, que se nombraban y no se
+   * cargaban en ningún sitio, y nadie lo notaba porque el diseño no se rompe.
+   *
+   * Lo que se mide es el camino entero: cada `src` de un `@font-face` de la hoja
+   * existe en el disco y es un woff2 de verdad —los cuatro primeros bytes—, y la
+   * familia que empieza las pilas de texto y de titulares es la que declara el
+   * `@font-face`. Cambiar el nombre en un sitio y no en el otro —el error que
+   * dejaría la aplicación sin su letra— falla aquí.
+   */
+  test('la letra que nombran los tokens es la que se carga', async () => {
+    const css = await read(TOKENS)
+    const caras = [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map((cara) => cara[1] ?? '')
+
+    expect(caras.length, 'no hay ningún @font-face en tokens.css').toBeGreaterThan(0)
+
+    const familias: string[] = []
+    const fuentes: string[] = []
+
+    for (const cara of caras) {
+      const familia = /font-family:\s*"([^"]+)"/.exec(cara)?.[1]
+      if (familia !== undefined) familias.push(familia)
+
+      expect(cara, 'una cara sin `font-display` deja el titular invisible').toContain(
+        'font-display: swap',
+      )
+
+      for (const fuente of cara.matchAll(/url\("([^"]+)"\)/g)) fuentes.push(fuente[1] ?? '')
+    }
+
+    expect(fuentes.length).toBeGreaterThan(0)
+
+    for (const fuente of fuentes) {
+      // Relativa a la hoja, que es como la resuelve el empaquetador.
+      const ruta = fileURLToPath(
+        new URL(`./styles/${fuente.replace(/^\.\//, '')}`, import.meta.url),
+      )
+      const archivo = Bun.file(ruta)
+
+      expect(await archivo.exists(), `la cara apunta a ${fuente}, que no existe`).toBe(true)
+
+      const bytes = new Uint8Array(await archivo.arrayBuffer())
+      const firma = new TextDecoder().decode(bytes.subarray(0, 4))
+
+      // `wOF2` es la firma del contenedor: un archivo truncado o un HTML de error
+      // con extensión `.woff2` se colaría sin esta comprobación.
+      expect(firma, `${fuente} no es un woff2`).toBe('wOF2')
+    }
+
+    for (const pila of ['--font-sans', '--font-display']) {
+      // Si la pila no está en la hoja, la cadena vacía no figura entre las familias
+      // declaradas y la comprobación de abajo falla nombrando el token que falta.
+      const familia = new RegExp(`${pila}:\\s*"([^"]+)"`).exec(css)?.[1] ?? ''
+
+      expect(familias, `${pila} nombra una familia que no declara ningún @font-face`).toContain(
+        familia,
+      )
     }
   })
 

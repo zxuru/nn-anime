@@ -121,6 +121,17 @@ function claves(names: readonly string[]): ReadonlySet<string> {
 }
 
 /**
+ * Las claves comparables de una lista de nombres.
+ *
+ * Es la misma normalización que usan `namesOf` y `sameWork`, expuesta para quien
+ * compara contra **muchos** nombres a la vez —una obra de AniList publica hasta
+ * diez, entre sinónimos— sin fabricar un `TitleInput` que no existe.
+ */
+export function keysOfNames(names: readonly string[]): ReadonlySet<string> {
+  return claves(names)
+}
+
+/**
  * Los nombres de una obra a partir de lo que la fuente dijo.
  *
  * Se quitan los repetidos por clave: el título y su slug suelen ser el mismo

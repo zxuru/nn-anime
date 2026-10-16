@@ -6,13 +6,29 @@ import { renderToString } from 'react-dom/server'
 import { ApiError } from '../../api/client'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { ContinueRow } from './ContinueRow'
+import { desdeResumen, type PiezaVista } from './descubrir'
 import { FavoritesRow } from './FavoritesRow'
+import { FeaturedHero } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
-import { featuredOf, HomePage, marcaDeRefresco, minutosDesde, textoDeRefresco } from './HomePage'
-import { RecentRow } from './RecentRow'
+import {
+  featuredOf,
+  HomePage,
+  marcaDeRefresco,
+  minutosDesde,
+  piezasDelTop,
+  piezasDeNovedades,
+  textoDeRefresco,
+} from './HomePage'
 import { continuePath, progressPercent, resumeLabel } from './rows'
 import { TopRow } from './TopRow'
-import { combineRows, debeReleer, mergeRows, REFRESCO_MS, type RowResults } from './useHomeRows'
+import {
+  combineRows,
+  debeReleer,
+  mergeRows,
+  REFRESCO_MS,
+  type RowResults,
+  rutasDeTipo,
+} from './useHomeRows'
 
 function render(node: ReactNode): string {
   return renderToString(
@@ -37,6 +53,11 @@ function item(overrides: Partial<ContinueWatchingItem> = {}): ContinueWatchingIt
 
 function resumen(titulo: string): AnimeSummary {
   return { ref: { providerId: 'fixture', value: titulo }, title: titulo }
+}
+
+/** Una pieza ya convertida, que es lo que pintan las filas del top y de novedades. */
+function pieza(titulo: string): PiezaVista {
+  return desdeResumen(resumen(titulo))
 }
 
 function recomendacion(titulo: string): RecommendationResponse {
@@ -115,11 +136,33 @@ describe('la fila del top', () => {
   })
 
   test('cada puesto enlaza a su ficha', () => {
-    const html = render(<TopRow items={[resumen('Mar de Cristal')]} />)
+    const html = render(<TopRow items={[pieza('Mar de Cristal')]} />)
 
     expect(html).toContain('Mar de Cristal')
     expect(html).toContain('href="/anime/fixture/Mar%20de%20Cristal"')
     expect(html).toContain('src="/api/cover/fixture/Mar%20de%20Cristal"')
+  })
+
+  test('una pieza de AniList enseña su portada y su destino', () => {
+    const html = render(
+      <TopRow
+        items={[
+          {
+            clave: 'anilist:101922',
+            title: 'Kimetsu no Yaiba',
+            to: '/search?q=Kimetsu%20no%20Yaiba',
+            portada: '/api/anilist/image/cover/101922',
+            meta: '2019 · TV',
+          },
+        ]}
+      />,
+    )
+
+    // La portada va por la ruta del servidor, nunca por una dirección de fuera.
+    expect(html).toContain('src="/api/anilist/image/cover/101922"')
+    // Sin ficha local, el destino es la búsqueda.
+    expect(html).toContain('href="/search?q=Kimetsu%20no%20Yaiba"')
+    expect(html).toContain('2019 · TV')
   })
 })
 
@@ -129,31 +172,10 @@ describe('la fila de novedades', () => {
   })
 
   test('con novedades, cada una enlaza a su ficha y no reordena', () => {
-    const html = render(
-      <FeedRow
-        items={[
-          { ...resumen('Mar de Cristal'), publishedAt: '2026-09-01T12:00:00.000Z' },
-          { ...resumen('Aurora Nocturna'), publishedAt: '2026-10-01T12:00:00.000Z' },
-        ]}
-      />,
-    )
+    const html = render(<FeedRow items={[pieza('Mar de Cristal'), pieza('Aurora Nocturna')]} />)
 
     // El orden lo decide el servidor: la fila pinta lo que le dan, tal cual.
     expect(html.indexOf('Mar de Cristal')).toBeLessThan(html.indexOf('Aurora Nocturna'))
-    expect(html).toContain('href="/anime/fixture/Aurora%20Nocturna"')
-  })
-})
-
-describe('la fila de lo último añadido', () => {
-  test('el estado vacío dice de dónde sale el contenido', () => {
-    const html = render(<RecentRow items={[]} />)
-
-    expect(html).toContain('aparece lo que busques')
-  })
-
-  test('con títulos, cada uno enlaza a su ficha', () => {
-    const html = render(<RecentRow items={[resumen('Aurora Nocturna')]} />)
-
     expect(html).toContain('href="/anime/fixture/Aurora%20Nocturna"')
   })
 })
@@ -197,6 +219,9 @@ describe('las filas, cuando una lectura falla', () => {
       trending: ok({ items: [resumen('Mar de Cristal')] }),
       feed: ok({ items: [resumen('Del feed')] }),
       recent: ok({ items: [resumen('De la caché')] }),
+      descubrir: ok({ items: [] }),
+      parrilla: ok({ items: [] }),
+      emisiones: ok({ items: [] }),
     })
 
     expect(filas.loading).toBe(false)
@@ -215,6 +240,9 @@ describe('las filas, cuando una lectura falla', () => {
       trending: mal,
       feed: mal,
       recent: mal,
+      descubrir: mal,
+      parrilla: mal,
+      emisiones: mal,
     })
 
     expect(filas.error).toBeDefined()
@@ -235,6 +263,9 @@ describe('las filas, cuando una lectura falla', () => {
       trending: sinSesion,
       feed: sinSesion,
       recent: sinSesion,
+      descubrir: sinSesion,
+      parrilla: sinSesion,
+      emisiones: sinSesion,
     })
 
     expect(filas.error?.clase).toBe('sesion')
@@ -249,9 +280,13 @@ describe('la home', () => {
     // porque el esqueleto es decoración y no dice qué está pasando.
     expect(html).toContain('Cargando tu inicio')
     expect(html).toContain('aria-busy="true"')
-    expect(html).toContain('home__esqueletos')
+    expect(html).toContain('class="esqueleto"')
     expect(html).toContain('solo-lectores')
-    expect(html).toContain('class="skeleton"')
+    // Y el esqueleto tiene la métrica del mosaico: dos filas de seis carteles, todos
+    // iguales, que es lo que va a llegar. El número va escrito aquí y no se lee de
+    // `ESQUELETOS`: si el componente cambia de idea, la prueba lo tiene que decir.
+    expect(html.match(/class="esq" aria-hidden="true"/g)?.length).toBe(12)
+    expect(html).not.toContain('esq--')
   })
 
   test('el panel de recomendaciones es una fila más', () => {
@@ -273,9 +308,123 @@ describe('la home', () => {
     const seguir = html.indexOf('Continuar viendo')
 
     expect(seguir).toBeGreaterThan(-1)
-    for (const despues of ['Top de la fuente', 'Novedades', 'Último añadido', 'Tus favoritos']) {
+    for (const despues of ['Top', 'Novedades', 'Tus favoritos']) {
       expect(seguir, despues).toBeLessThan(html.indexOf(despues))
     }
+  })
+
+  /**
+   * La franja que explicaba el motor se retiró de la home.
+   *
+   * Ocupaba el ancho del tramo para decir lo que ya dicen la nota —«Lo que el motor
+   * cree que va contigo»— y cada pieza, con su puntuación a la vista. Se mide para
+   * que no vuelva por su cuenta con el panel del motor colgando de la composición.
+   *
+   * Se nombran las clases de la franja (`franja`, `franja__*`) y no la palabra
+   * «franja»: cuando el conmutador de tipo tenía una franja propia encima de la
+   * marquesina, una comprobación por el substring daba la franja del motor por
+   * retirada estando delante.
+   */
+  test('la franja de motivos ya no está', () => {
+    const html = render(<HomePage />)
+
+    expect(html).not.toContain('Lo que el motor ha elegido')
+    expect(html).not.toContain('¿Por qué estas recomendaciones?')
+    expect(html).not.toContain('class="franja"')
+    expect(html).not.toContain('franja__')
+  })
+})
+
+/**
+ * La marquesina mientras llega la ficha.
+ *
+ * El primer render no tiene ficha —la sinopsis viaja en una petición, y es lo
+ * último que aparece— y antes eso se veía como un salto: al llegar la respuesta, la
+ * columna de texto crecía y el titular subía, porque la marquesina centra lo que
+ * hay dentro. Lo que se mide es que el hueco ya está: el esqueleto ocupa el sitio de
+ * la sinopsis y la columna se declara ocupada. El titular, además, sale entero —el
+ * recorte de la hoja es visual— y con `aria-busy` quien no ve la pantalla sabe que
+ * ahí todavía está llegando algo.
+ *
+ * En estos renders no corren los efectos, así que es exactamente el estado de los
+ * primeros milisegundos de la aplicación. Que la respuesta llegue y el titular no se
+ * mueva se mide en el e2e, que es donde hay navegador.
+ */
+describe('la marquesina', () => {
+  const DESTACADO = {
+    ref: { providerId: 'fixture', value: 'aurora-nocturna' },
+    title: 'Aurora Nocturna',
+    tags: ['Misterio'],
+  }
+
+  test('el hueco de la sinopsis lo ocupa un esqueleto, y la columna lo dice', () => {
+    const html = render(<FeaturedHero item={DESTACADO} />)
+
+    expect(html).toContain('marquesina__esqueleto')
+    expect(html).toContain('marquesina__hueso--corto')
+    expect(html).toContain('aria-busy="true"')
+    expect(html).not.toContain('marquesina__sinopsis')
+  })
+
+  test('el titular sale entero: el recorte es de la hoja, no del marcado', () => {
+    const largo =
+      'Aurora Nocturna: la segunda temporada, con la película recapitulatoria y el resto del subtítulo'
+
+    expect(render(<FeaturedHero item={{ ...DESTACADO, title: largo }} />)).toContain(largo)
+  })
+})
+
+/**
+ * La mitad que se está mirando.
+ *
+ * El tipo vive en la dirección y las filas que salen de las fuentes se piden ya
+ * filtradas, así que aquí se mide lo que se puede ver en un `renderToString`: que
+ * las tres direcciones que sí llevan el tipo lo llevan y que el aviso de «ninguna
+ * fuente sirve esta mitad» no sale antes de saberlo. La petición en sí no corre
+ * —no hay efectos en servidor—, y por eso `rutasDeTipo` se prueba aparte.
+ *
+ * El conmutador que cambia de mitad ya no lo pinta esta pantalla: vive en la
+ * cabecera, y su sitio lo mide la prueba de la aplicación.
+ */
+describe('el tipo de la home', () => {
+  function renderEn(path: string): string {
+    return renderToString(
+      <HistoryProvider history={createMemoryHistory(path)}>
+        <HomePage />
+      </HistoryProvider>,
+    )
+  }
+
+  /**
+   * Sin los proveedores leídos no se avisa de nada.
+   *
+   * En este render no hay efectos, así que la lista de proveedores está vacía: es
+   * exactamente el estado de los primeros milisegundos de la aplicación —y el que
+   * queda si esa lectura falla—. Decir ahí «ningún proveedor sirve películas» sería
+   * afirmar algo que no se sabe, en el arranque de todas las pantallas.
+   */
+  test('con los proveedores sin leer no dice que no haya fuente', () => {
+    expect(renderEn('/')).not.toContain('Ningún proveedor instalado sirve')
+    expect(renderEn('/?tipo=movies')).not.toContain('Ningún proveedor instalado sirve')
+  })
+
+  test('las tres filas que mezclan fuentes piden su mitad al servidor', () => {
+    expect(rutasDeTipo('anime')).toEqual({
+      trending: '/api/trending?media=anime',
+      feed: '/api/feed?media=anime',
+      recent: '/api/catalog/recent?media=anime',
+      descubrir: '/api/discover/top?media=anime',
+      parrilla: '/api/discover/airing?media=anime',
+      emisiones: '/api/discover/recent?media=anime',
+    })
+    expect(rutasDeTipo('movies')).toEqual({
+      trending: '/api/trending?media=movies',
+      feed: '/api/feed?media=movies',
+      recent: '/api/catalog/recent?media=movies',
+      descubrir: '/api/discover/top?media=movies',
+      parrilla: '/api/discover/airing?media=movies',
+      emisiones: '/api/discover/recent?media=movies',
+    })
   })
 })
 
@@ -293,6 +442,9 @@ describe('la relectura de la home', () => {
       trending: ok({ items: [] }),
       feed: ok({ items: [] }),
       recent: ok({ items: [] }),
+      descubrir: ok({ items: [] }),
+      parrilla: ok({ items: [] }),
+      emisiones: ok({ items: [] }),
       ...overrides,
     }
   }
@@ -303,6 +455,9 @@ describe('la relectura de la home', () => {
     trending: mal,
     feed: mal,
     recent: mal,
+    descubrir: mal,
+    parrilla: mal,
+    emisiones: mal,
   }
 
   test('la pestaña oculta no relee, por mucho tiempo que pase', () => {
@@ -398,5 +553,90 @@ describe('la relectura de la home', () => {
     )
     expect(marcaDeRefresco(0)).toBe('home.refreshedNow')
     expect(marcaDeRefresco(1)).toBe('home.refreshed')
+  })
+})
+
+describe('lo que eligen las filas nuevas', () => {
+  test('el top es el de AniList cuando llega y el de la fuente cuando no', () => {
+    const deAniList = piezasDelTop({
+      descubrir: [
+        {
+          anilistId: 101922,
+          title: 'Kimetsu no Yaiba',
+          cover: '/api/anilist/image/cover/101922',
+          adult: false,
+        },
+      ],
+      trending: [resumen('Mar de Cristal')],
+    })
+
+    expect(deAniList.map((pieza) => pieza.title)).toEqual(['Kimetsu no Yaiba'])
+    expect(deAniList[0]?.to).toBe('/search?q=Kimetsu%20no%20Yaiba')
+
+    const deLaFuente = piezasDelTop({ descubrir: [], trending: [resumen('Mar de Cristal')] })
+
+    expect(deLaFuente.map((pieza) => pieza.title)).toEqual(['Mar de Cristal'])
+    expect(deLaFuente[0]?.to).toBe('/anime/fixture/Mar%20de%20Cristal')
+  })
+
+  /**
+   * La marca en las novedades, por sus **dos** procedencias.
+   *
+   * La del feed sólo viaja cuando el servidor la verificó: su ausencia significa «no
+   * consta», y por eso una pieza sin marca no es «apta», es «no lo sé».
+   */
+  test('la marca de adultos sale en las novedades de las dos procedencias', () => {
+    const deAniList = piezasDeNovedades({
+      emisiones: [
+        {
+          anilistId: 101922,
+          title: 'Kimetsu no Yaiba',
+          cover: '/api/anilist/image/cover/101922',
+          adult: true,
+          episode: 5,
+          airingAt: new Date(2026, 9, 15, 20, 30).toISOString(),
+        },
+      ],
+      feed: [],
+    })
+    expect(deAniList[0]?.meta).toContain('+18')
+
+    const delFeed = piezasDeNovedades({
+      emisiones: [],
+      feed: [{ ...resumen('Del feed'), adult: true, publishedAt: '2026-10-01T12:00:00.000Z' }],
+    })
+    expect(delFeed[0]?.meta).toBe('+18')
+
+    const sinMarca = piezasDeNovedades({
+      emisiones: [],
+      feed: [{ ...resumen('Otra'), publishedAt: '2026-10-01T12:00:00.000Z' }],
+    })
+    expect(sinMarca[0]?.meta).toBeUndefined()
+  })
+
+  test('las novedades son los episodios recién emitidos, o el feed', () => {
+    const emisiones = piezasDeNovedades({
+      emisiones: [
+        {
+          anilistId: 101922,
+          title: 'Kimetsu no Yaiba',
+          cover: '/api/anilist/image/cover/101922',
+          adult: false,
+          episode: 5,
+          airingAt: new Date(2026, 9, 15, 20, 30).toISOString(),
+        },
+      ],
+      feed: [{ ...resumen('Del feed'), publishedAt: '2026-10-01T12:00:00.000Z' }],
+    })
+
+    expect(emisiones).toHaveLength(1)
+    expect(emisiones[0]?.meta).toBe('Ep. 5 · 20:30')
+
+    const delFeed = piezasDeNovedades({
+      emisiones: [],
+      feed: [{ ...resumen('Del feed'), publishedAt: '2026-10-01T12:00:00.000Z' }],
+    })
+
+    expect(delFeed.map((pieza) => pieza.title)).toEqual(['Del feed'])
   })
 })

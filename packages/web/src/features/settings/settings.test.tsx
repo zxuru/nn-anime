@@ -97,6 +97,41 @@ describe('lista de proveedores', () => {
     expect(html).toContain('rechazado')
     expect(html).toContain('no exporta un proveedor válido')
     expect(html).toContain('sin capacidades')
+    // Y no se le inventa lo que sirve: un plugin que no cargó no declaró nada.
+    expect(html).not.toContain('Anime')
+  })
+
+  /**
+   * El sello del tipo.
+   *
+   * Es lo único que distingue, de un vistazo, una fuente de anime de una de
+   * películas: sin él hay que abrir el plugin para saber en qué pestaña aparece cada
+   * una, que es justo lo que el conmutador necesita saber.
+   */
+  test('un activo dice qué sirve, y el que no lo declara es de anime', () => {
+    const html = render(
+      <ProviderList
+        providers={[
+          {
+            id: 'pelis',
+            name: 'Fuente de películas',
+            capabilities: { ...CAPACIDADES, media: 'movies' },
+            status: 'active',
+          },
+          {
+            id: 'mixta',
+            name: 'Fuente mixta',
+            capabilities: { ...CAPACIDADES, media: 'both' },
+            status: 'active',
+          },
+          { id: 'clasica', name: 'Fuente clásica', capabilities: CAPACIDADES, status: 'active' },
+        ]}
+      />,
+    )
+
+    expect(html).toContain('Películas')
+    expect(html).toContain('Anime y películas')
+    expect(html).toContain('Anime')
   })
 
   test('sin proveedores lo dice', () => {
@@ -200,6 +235,18 @@ describe('el alta de un proveedor', () => {
     expect(html).toContain('<details')
     expect(html).not.toContain('open=""')
   })
+
+  test('qué sirve se elige de una lista cerrada, y arranca en anime', () => {
+    const html = render(<RegisterProvider register={sinGuardar} />)
+
+    expect(html).toContain('Qué sirve')
+    expect(html).toContain('id="provider-media"')
+    // Las tres opciones del contrato, con la de por defecto marcada: dos casillas
+    // podrían marcarse juntas o ninguna, y eso no significa nada.
+    expect(html).toContain('<option value="anime" selected')
+    expect(html).toContain('<option value="movies"')
+    expect(html).toContain('<option value="both"')
+  })
 })
 
 describe('la página', () => {
@@ -231,5 +278,31 @@ describe('la página', () => {
 
     expect(catalogo).toContain('sin sandbox')
     expect(catalogo).toContain('con tus permisos')
+  })
+
+  /**
+   * El interruptor del contenido para adultos.
+   *
+   * Se mide sobre la fuente, como el aviso de seguridad: la página se dibuja sin datos
+   * en `renderToString` —los efectos no corren— y lo que importa aquí es que el estado
+   * esté declarado y que el aviso diga qué hace y qué no.
+   */
+  test('el interruptor declara su estado y lleva su aviso', async () => {
+    const fuente = await readFile(`${ROOT}SettingsPage.tsx`, 'utf8')
+    const catalogo = await readFile(
+      fileURLToPath(new URL('../../i18n/es.ts', import.meta.url)),
+      'utf8',
+    )
+
+    // Una fila de botones con estado, como el tema: `aria-pressed` es lo que dice cuál
+    // está activo, y funciona con teclado sin nada más.
+    expect(fuente).toContain('settings.adult')
+    expect(fuente).toContain('aria-pressed={data.adultContent}')
+    expect(fuente).toContain('setAdultContent')
+
+    // Y el aviso dice las dos cosas —qué hace y qué no—: un interruptor sin
+    // consecuencia declarada se enciende por curiosidad y se queda encendido.
+    expect(catalogo).toContain('No comprueba la edad de nadie')
+    expect(catalogo).toContain('sólo alcanza a lo que las fuentes publican')
   })
 })

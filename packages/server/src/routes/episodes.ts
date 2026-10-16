@@ -70,6 +70,25 @@ export function parsePage(raw: string | undefined): Result<number, string> {
 }
 
 /**
+ * La temporada pedida en `?season=`, base 1.
+ *
+ * Ausente es «todas»: la lista entera del título, como antes de que existieran
+ * las temporadas. Cualquier otra cosa —cero, negativa, decimal, texto, vacío— es
+ * un 400 con el motivo, igual que la página: inventarse una temporada es servir
+ * datos que nadie pidió.
+ */
+export function parseSeason(raw: string | undefined): Result<number | undefined, string> {
+  if (raw === undefined) return ok(undefined)
+
+  const season = Number(raw)
+  if (!Number.isInteger(season) || season < 1) {
+    return err(`la temporada tiene que ser un número entero mayor o igual que 1, no «${raw}»`)
+  }
+
+  return ok(season)
+}
+
+/**
  * El número de episodio de `number/:n`.
  *
  * Admite decimales —una fuente numera `7.5`— y no admite ni negativos ni
@@ -108,10 +127,27 @@ export function registerEpisodesRoute(app: Hono, options: EpisodesRouteOptions):
       return c.json(errorResponseSchema.parse({ error: page.error }), 400)
     }
 
+    const season = parseSeason(c.req.query('season'))
+    if (!season.ok) {
+      return c.json(errorResponseSchema.parse({ error: season.error }), 400)
+    }
+
+    // Una temporada de una fuente que pagina por su cuenta no se puede servir: el
+    // índice sale de la lista entera, y esa lista no se pide —una serie de mil
+    // doscientos episodios son 76 peticiones—. Es un 400 y no un 404 porque la
+    // fuente sí tiene la temporada: lo que no puede es contestar por ella.
+    if (season.value !== undefined && provider.capabilities.episodePages === true) {
+      return errorJson(
+        c,
+        400,
+        `la fuente ${providerId} pagina sus episodios: no se puede pedir una temporada suya`,
+      )
+    }
+
     const resultado = await options.container.getEpisodesPage(
       provider,
       { providerId, value: ref },
-      page.value,
+      { page: page.value, ...(season.value === undefined ? {} : { season: season.value }) },
       callOptionsOf(c, options.timeoutMs),
     )
 
@@ -128,6 +164,7 @@ export function registerEpisodesRoute(app: Hono, options: EpisodesRouteOptions):
     // no se puede ampliar después sin romper a quien lo lee. El total sólo se
     // manda cuando se conoce; inventarlo sería peor que no darlo.
     const { episodes, page: numero, hasMore, total } = resultado.value.value
+    const { seasons } = resultado.value
 
     return c.json(
       episodesResponseSchema.parse({
@@ -135,6 +172,7 @@ export function registerEpisodesRoute(app: Hono, options: EpisodesRouteOptions):
         page: numero,
         hasMore,
         ...(total === undefined ? {} : { total }),
+        ...(seasons === undefined ? {} : { seasons }),
       }),
     )
   })

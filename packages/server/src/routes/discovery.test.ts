@@ -15,6 +15,7 @@ import { join } from 'node:path'
 import { openDb, runMigrations, TTL_SECONDS } from '@nn-anime/catalog-store'
 import { type FeedEntry, feedResponseSchema, recentResponseSchema } from '@nn-anime/core'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import { fakeAniList, type RawMediaFixture } from '../__fixtures__/anilist'
 import { MAX_FEED_ENTRIES } from '../container'
 import { createApp, createContainer } from '../index'
 
@@ -34,6 +35,8 @@ interface Contexto {
   readonly db: ReturnType<typeof openDb>
   readonly proveedor: ReturnType<typeof createFixtureProvider>
   readonly container: ReturnType<typeof createContainer>
+  /** El doble de AniList, sólo si la prueba pidió uno: es quien cuenta las peticiones. */
+  readonly anilist: ReturnType<typeof fakeAniList> | undefined
 }
 
 /** Espera a que la cola de revalidación se vacíe, sin dormir de más. */
@@ -53,6 +56,8 @@ async function conApp<T>(
     readonly buscar?: string
     /** Reloj inyectable: sin él, la caducidad son treinta minutos de espera. */
     readonly now?: () => number
+    /** Un AniList de mentira, para las pruebas que miden la verificación del feed. */
+    readonly anilist?: Parameters<typeof fakeAniList>[0]
   } = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-discovery-'))
@@ -63,6 +68,7 @@ async function conApp<T>(
     ...(opciones.now === undefined ? {} : { now: opciones.now }),
   })
   const proveedor = opciones.proveedor ?? createFixtureProvider()
+  const anilist = opciones.anilist === undefined ? undefined : fakeAniList(opciones.anilist)
   const activos = (opciones.proveedores ?? [proveedor]).map((provider, indice) => ({
     provider,
     file: `/plugins/${provider.id}-${indice}.ts`,
@@ -80,6 +86,14 @@ async function conApp<T>(
       version: '0.1.0',
       plugins: { active: activos, rejected: [] },
       container,
+      // Sin doble de AniList, estas pruebas **no salen a la red**: el feed verifica sus
+      // entradas contra AniList, y sin este interruptor cada fila intentaría hablar con
+      // un tercero de verdad. La verificación se mide con el doble, que es donde se
+      // puede fingir que una obra está marcada.
+      anilistOffline: anilist === undefined,
+      ...(anilist === undefined
+        ? {}
+        : { anilistFetchImpl: anilist.impl, anilistResolver: async () => ['140.82.121.3'] }),
     })
 
     if (opciones.buscar !== undefined) {
@@ -98,6 +112,7 @@ async function conApp<T>(
       db,
       proveedor,
       container,
+      anilist,
     })
   } finally {
     await container.close().catch(() => {})
@@ -645,6 +660,185 @@ describe('el motor con una búsqueda y sin detalle abierto', () => {
         expect(salida.items).toEqual([])
       },
       { proveedor: sinTendencias },
+    )
+  })
+})
+
+/**
+ * El tipo pedido, en las dos filas que no vienen de una búsqueda.
+ *
+ * Son caminos distintos y por eso se miden por separado: el feed se reparte por el
+ * `kind` que publica la fuente —que puede servir las dos cosas— y «último añadido»
+ * por la media que declara **la fuente de cada título**, que es lo único que se sabe
+ * de una fila que ya está en la base.
+ */
+describe('el tipo pedido en las filas del arranque en frío', () => {
+  test('el feed de una fuente mixta se reparte por el `kind` de cada entrada', async () => {
+    await conApp(async ({ pedir }) => {
+      const todas = feedResponseSchema.parse(await (await pedir('/api/feed?limit=20')).json())
+      const peliculas = feedResponseSchema.parse(
+        await (await pedir('/api/feed?limit=20&media=movies')).json(),
+      )
+
+      expect(todas.items.some((entrada) => entrada.kind === 'movie')).toBe(true)
+      expect(peliculas.items.length).toBeGreaterThan(0)
+      expect(peliculas.items.every((entrada) => entrada.kind === 'movie')).toBe(true)
+      expect(peliculas.items.length).toBeLessThan(todas.items.length)
+    })
+  })
+
+  test('«último añadido» se reparte por la fuente de cada título', async () => {
+    await conApp(
+      async ({ pedir, db }) => {
+        // El `kind` no es columna: vive en el `raw_json` que escribió el detalle,
+        // que es de donde lo lee la fila.
+        const insertar = (providerId: string, ref: string, kind: string, fetchedAt: number) => {
+          db.query(
+            `INSERT INTO anime (provider_id, provider_ref, title, year, fetched_at, ttl_s, raw_json)
+             VALUES (?, ?, ?, 2026, ?, 60, ?)`,
+          ).run(providerId, ref, ref, fetchedAt, JSON.stringify({ kind }))
+        }
+        insertar('anime', 'serie-de-anime', 'tv', 2000)
+        insertar('pelis', 'pelicula-de-pelis', 'movie', 1000)
+
+        const peliculas = recentResponseSchema.parse(
+          await (await pedir('/api/catalog/recent?media=movies')).json(),
+        )
+        const anime = recentResponseSchema.parse(
+          await (await pedir('/api/catalog/recent?media=anime')).json(),
+        )
+
+        expect(peliculas.items.map((item) => item.ref.value)).toEqual(['pelicula-de-pelis'])
+        expect(anime.items.map((item) => item.ref.value)).toEqual(['serie-de-anime'])
+      },
+      {
+        proveedores: [
+          createFixtureProvider({ id: 'anime', media: 'anime' }),
+          createFixtureProvider({ id: 'pelis', media: 'movies' }),
+        ],
+      },
+    )
+  })
+
+  test('sin el parámetro, las dos filas traen lo de siempre', async () => {
+    await conApp(
+      async ({ pedir, db }) => {
+        db.query(
+          `INSERT INTO anime (provider_id, provider_ref, title, year, fetched_at, ttl_s, raw_json)
+           VALUES ('pelis', 'pelicula-de-pelis', 'Una película', 2026, 1000, 60, ?)`,
+        ).run(JSON.stringify({ kind: 'movie' }))
+
+        const sinFiltro = recentResponseSchema.parse(
+          await (await pedir('/api/catalog/recent')).json(),
+        )
+
+        // Es lo que mantiene funcionando a quien ya leía la ruta sin conocer el
+        // parámetro: la ausencia de filtro no puede significar «sólo anime».
+        expect(sinFiltro.items.map((item) => item.ref.value)).toEqual(['pelicula-de-pelis'])
+      },
+      { proveedores: [createFixtureProvider({ id: 'pelis', media: 'movies' })] },
+    )
+  })
+})
+
+/**
+ * El filtro donde no hay señal.
+ *
+ * El feed de una fuente no publica la edad de sus entradas, así que la única forma de
+ * saber que una es para adultos es preguntarle a AniList. Es la procedencia de
+ * **Novedades** cuando AniList no responde, y la que la aprobación de este trabajo puso
+ * como condición.
+ */
+describe('el filtro de adultos en el feed', () => {
+  const ADULTA: RawMediaFixture = { id: 700, romaji: 'Obra Marcada', year: 2024, isAdult: true }
+  const NORMAL: RawMediaFixture = { id: 701, romaji: 'Obra Normal', year: 2023 }
+
+  /** Un feed de dos entradas, la marcada **la más nueva**: así el orden y el tope se miden. */
+  function conDosEntradas(): ReturnType<typeof createFixtureProvider> {
+    const base = createFixtureProvider()
+
+    return {
+      ...base,
+      capabilities: { ...base.capabilities, feed: true },
+      getFeed: async (): Promise<readonly FeedEntry[]> => [
+        {
+          ref: { providerId: 'fixture', value: 'marcada' },
+          title: 'Obra Marcada',
+          publishedAt: '2026-10-01T12:00:00.000Z',
+        },
+        {
+          ref: { providerId: 'fixture', value: 'normal' },
+          title: 'Obra Normal',
+          publishedAt: '2026-09-01T12:00:00.000Z',
+        },
+      ],
+    }
+  }
+
+  const BUSQUEDA = { search: { 'Obra Marcada': [ADULTA], 'Obra Normal': [NORMAL] } }
+
+  test('apagado, la entrada marcada no sale, y queda marcada', async () => {
+    await conApp(
+      async ({ pedir, db }) => {
+        const salida = feedResponseSchema.parse(await (await pedir('/api/feed')).json())
+
+        expect(salida.items.map((item) => item.title)).toEqual(['Obra Normal'])
+
+        // La marca es lo que evita volver a preguntar por ella en la carga siguiente.
+        const filas = db.query('SELECT COUNT(*) AS total FROM adult_ref').get() as { total: number }
+
+        expect(filas.total).toBe(1)
+      },
+      { proveedor: conDosEntradas(), anilist: BUSQUEDA },
+    )
+  })
+
+  test('con la marca puesta, la carga siguiente no pregunta por lo marcado', async () => {
+    await conApp(
+      async ({ pedir, anilist }) => {
+        await pedir('/api/feed')
+        const antes = anilist?.calls.length ?? 0
+        expect(antes).toBeGreaterThan(0)
+
+        await pedir('/api/feed')
+
+        expect(anilist?.calls.length ?? 0).toBe(antes)
+      },
+      { proveedor: conDosEntradas(), anilist: BUSQUEDA },
+    )
+  })
+
+  test('el descarte va antes del tope: la fila no sale corta', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const salida = feedResponseSchema.parse(await (await pedir('/api/feed?limit=1')).json())
+
+        // La marcada es la más nueva: sin el margen, el recorte la habría elegido y la
+        // fila se habría quedado vacía en vez de enseñar la siguiente.
+        expect(salida.items.map((item) => item.title)).toEqual(['Obra Normal'])
+      },
+      { proveedor: conDosEntradas(), anilist: BUSQUEDA },
+    )
+  })
+
+  test('encendido, la entrada ya marcada sale con su marca', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        // La primera carga —con el interruptor apagado— es la que aprende la marca.
+        await pedir('/api/feed')
+        await pedir('/api/settings', {
+          method: 'PATCH',
+          headers: { ...GOOD, 'content-type': 'application/json' },
+          body: JSON.stringify({ adultContent: true }),
+        })
+
+        const salida = feedResponseSchema.parse(await (await pedir('/api/feed')).json())
+
+        expect(salida.items.map((item) => item.title)).toEqual(['Obra Marcada', 'Obra Normal'])
+        expect(salida.items[0]?.adult).toBe(true)
+        expect(salida.items[1]?.adult).toBeUndefined()
+      },
+      { proveedor: conDosEntradas(), anilist: BUSQUEDA },
     )
   })
 })

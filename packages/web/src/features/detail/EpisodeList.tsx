@@ -20,9 +20,24 @@
  * Las filas siguen siendo enlaces —el episodio es la acción de la pantalla— y el
  * número viaja en la dirección (`?n=`) porque quien lo conoce es esta lista: el
  * reproductor lo lee para pedir los vecinos sin descargar el título entero.
+ *
+ * **Una película no tiene capítulos.** La misma lectura de una parte suelta se
+ * pinta de dos formas según lo que el título sea: una serie numera sus episodios
+ * y una película ofrece verla. Numerar «Episodio 1 de 1» es inventar una lista
+ * donde no hay nada que elegir.
+ *
+ * **Un título con temporadas se lee por temporadas.** Hay fuentes que juntan las
+ * nueve temporadas de una serie en un solo título de noventa y un episodios, y
+ * una lista así no se recorre: el índice de temporadas lo calcula el servidor
+ * —sale de la lista entera, que es la única que las conoce— y aquí se pinta una
+ * banda con la temporada de cada uno. Elegir una temporada la pide al servidor,
+ * que devuelve sus episodios numerados contra el título: la fila sigue diciendo
+ * «Episodio 12 de 91», que es la etiqueta de la fuente y lo que enseña el
+ * reproductor. Sin índice —una fuente que no marca la temporada, o una sola
+ * temporada— la lista se lee entera, como siempre.
  */
 
-import type { EpisodesResponse, WatchedEpisodePayload } from '@nn-anime/core/api'
+import type { EpisodeSeason, EpisodesResponse, WatchedEpisodePayload } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { Episode } from '@nn-anime/core/models'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
@@ -51,6 +66,40 @@ const MODE_KEYS = {
   dub: 'detail.mode.dub',
   raw: 'detail.mode.raw',
 } as const
+
+/**
+ * Los textos del estado, escritos uno a uno y por forma del título.
+ *
+ * Una película no tiene episodios, así que el «cargando los episodios» de la
+ * lista tampoco vale para ella: son dos pantallas distintas y cada una dice lo
+ * suyo. Van literales y no compuestos con el tipo —`detail.movie.${estado}`—
+ * porque una clave compuesta se esconde del buscador de textos sin usar y acaba
+ * borrada del catálogo por parecer huérfana.
+ */
+const ESTADO_KEYS = {
+  serie: { loading: 'detail.episodes.loading', error: 'detail.episodes.error' },
+  pelicula: { loading: 'detail.movie.loading', error: 'detail.movie.error' },
+} as const
+
+/**
+ * La ruta del reproductor para un episodio.
+ *
+ * La escriben tres sitios —la fila, el salto por número y la acción de una
+ * película— y con tres copias la primera que cambie deja a las otras dos
+ * pidiendo otra cosa.
+ */
+function rutaDe(episode: Episode, mode: PlayMode | undefined): string {
+  return watchPath(episode.ref.providerId, episode.ref.value, {
+    ...(mode === undefined ? {} : { mode }),
+    // El título viaja con el enlace: la lista lo trae en cada episodio, y sin él
+    // el reproductor tenía que adivinarlo de la referencia y con jkanime
+    // adivinaba mal.
+    anime: episode.animeRef.value,
+    // El número va escrito porque quien lo conoce es esta lista: el reproductor
+    // lo lee para pedir los vecinos sin la lista entera.
+    n: episode.number,
+  })
+}
 
 /**
  * La página a la que lleva cada botón.
@@ -168,16 +217,7 @@ export function EpisodeRows(props: EpisodeRowsProps): ReactNode {
             >
               <Link
                 className={marca?.tipo === 'visto' ? 'episode episode--visto' : 'episode'}
-                to={watchPath(episode.ref.providerId, episode.ref.value, {
-                  ...(props.mode === undefined ? {} : { mode: props.mode }),
-                  // El título viaja con el enlace: la lista lo trae en cada
-                  // episodio, y sin él el reproductor tenía que adivinarlo de la
-                  // referencia y con jkanime adivinaba mal.
-                  anime: episode.animeRef.value,
-                  // El número va escrito porque quien lo conoce es esta lista: el
-                  // reproductor lo lee para pedir los vecinos sin la lista entera.
-                  n: episode.number,
-                })}
+                to={rutaDe(episode, props.mode)}
               >
                 <span className="episode__number">
                   {/* El total sólo se dice cuando el proveedor lo da: un «de 26»
@@ -192,31 +232,77 @@ export function EpisodeRows(props: EpisodeRowsProps): ReactNode {
                 {episode.title === undefined ? null : (
                   <span className="episode__title">{episode.title}</span>
                 )}
-                {marca?.tipo === 'progreso' ? (
-                  <progress
-                    className="episode__progress"
-                    value={marca.percent}
-                    max={100}
-                    aria-label={t(DEFAULT_LOCALE, 'detail.episode.progress', {
-                      percent: marca.percent,
-                    })}
-                  />
-                ) : null}
-                {duracion === undefined ? null : <span className="episode__time">{duracion}</span>}
-                {marca?.tipo === 'visto' ? (
-                  // La palabra, no sólo el color: el estado tiene que leerse también
-                  // sin distinguir colores.
-                  <span className="badge badge--visto">
-                    {t(DEFAULT_LOCALE, 'detail.episode.watched')}
-                  </span>
-                ) : null}
-                <span className="badge">{t(DEFAULT_LOCALE, MODE_KEYS[episode.mode])}</span>
+                {/* Las marcas van juntas al borde derecho de la fila: la duración,
+                    el progreso, el «visto» y el modo son lo que se compara al
+                    bajar por la lista, y sin título delante quedaban a media
+                    anchura con la fila vacía al lado. */}
+                <span className="episode__marcas">
+                  {marca?.tipo === 'progreso' ? (
+                    <progress
+                      className="episode__progress"
+                      value={marca.percent}
+                      max={100}
+                      aria-label={t(DEFAULT_LOCALE, 'detail.episode.progress', {
+                        percent: marca.percent,
+                      })}
+                    />
+                  ) : null}
+                  {duracion === undefined ? null : (
+                    <span className="episode__time">{duracion}</span>
+                  )}
+                  {marca?.tipo === 'visto' ? (
+                    // La palabra, no sólo el color: el estado tiene que leerse también
+                    // sin distinguir colores.
+                    <span className="badge badge--visto">
+                      {t(DEFAULT_LOCALE, 'detail.episode.watched')}
+                    </span>
+                  ) : null}
+                  <span className="badge">{t(DEFAULT_LOCALE, MODE_KEYS[episode.mode])}</span>
+                </span>
               </Link>
             </li>
           )
         })}
       </ol>
     </>
+  )
+}
+
+/**
+ * La banda de temporadas.
+ *
+ * Una temporada por botón, con `aria-pressed` para decir cuál se está mirando
+ * —lo que ya lee el resto de la interfaz, y sin depender del color—, y su número
+ * de episodios al lado: sin él, saber si una temporada son doce capítulos o
+ * cuarenta cuesta entrar en cada una.
+ *
+ * El nombre de cada temporada lo escribe la fuente, y aquí se enseña tal cual:
+ * `Temporada 0` es como TMDB numera los especiales, y renumerarlos sería
+ * inventar una temporada que nadie declaró.
+ */
+export function SeasonPicker(props: {
+  readonly seasons: readonly EpisodeSeason[]
+  readonly active: number
+  readonly onPick: (season: number) => void
+}): ReactNode {
+  return (
+    <ul className="episodes__seasons" aria-label={t(DEFAULT_LOCALE, 'detail.seasons')}>
+      {props.seasons.map((season) => (
+        <li key={season.season}>
+          <button
+            type="button"
+            className="button"
+            aria-pressed={season.season === props.active}
+            onClick={() => props.onPick(season.season)}
+          >
+            {t(DEFAULT_LOCALE, 'detail.season', { number: season.season })}
+            <span className="badge">
+              {t(DEFAULT_LOCALE, 'detail.season.count', { count: season.count })}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -346,6 +432,48 @@ export interface EpisodeListProps {
   /** El modo con el que se abre el reproductor. Sin él, el que elija el reproductor. */
   readonly mode?: PlayMode
   readonly watched?: readonly WatchedEpisodePayload[]
+  /**
+   * El título es una película.
+   *
+   * Una película no tiene capítulos, así que con la marca puesta y **una sola
+   * parte** —sin nada detrás— la pantalla ofrece verla en vez de numerar un
+   * «Episodio 1 de 1» que nadie puede elegir. Si el proveedor la parte en varias
+   * o publica más páginas, la lista vuelve: esconder partes detrás de un botón
+   * dejaría contenido sin puerta.
+   *
+   * La marca la pone la ficha con el `kind` que declara el proveedor. Un título
+   * de un solo episodio sin tipo declarado sigue siendo una lista: llamar película
+   * a un OVA de uno es peor que numerarlo.
+   */
+  readonly movie?: boolean
+}
+
+/**
+ * La parte que se ofrece como acción suelta, o nada.
+ *
+ * Una parte con más páginas detrás no es única aunque venga sola en la página: lo
+ * que se mira es el título, y el título no se termina de leer hasta que el
+ * servidor dice que no queda nada.
+ */
+export function parteUnicaDe(pagina: EpisodesResponse): Episode | undefined {
+  return pagina.episodes.length === 1 && !pagina.hasMore ? pagina.episodes[0] : undefined
+}
+
+/**
+ * La acción de una película: un enlace que abre su única parte.
+ *
+ * Es un enlace y no un botón con `onClick` —igual que las filas de la lista— para
+ * que se pueda abrir en otra pestaña, copiar y seguir con el teclado.
+ */
+export function MovieAction(props: {
+  readonly episode: Episode
+  readonly mode?: PlayMode
+}): ReactNode {
+  return (
+    <Link className="button button--primary" to={rutaDe(props.episode, props.mode)}>
+      {t(DEFAULT_LOCALE, 'detail.movie.watch')}
+    </Link>
+  )
 }
 
 /**
@@ -356,9 +484,13 @@ export interface EpisodeListProps {
  * salto que no encontró nada se pinta **encima** de la página que ya estaba, no en
  * su lugar—, y con tres banderas sueltas el componente tendría tres caminos que se
  * pisan entre sí.
+ *
+ * `season` va en la página y no aparte porque la temporada **cambia la página**:
+ * la lista entera y una temporada suya tienen cada una su primera página, y son
+ * dos peticiones distintas.
  */
 type Solicitud =
-  | { readonly tipo: 'pagina'; readonly page: number }
+  | { readonly tipo: 'pagina'; readonly page: number; readonly season?: number }
   | { readonly tipo: 'numero'; readonly number: number }
   | { readonly tipo: 'ultimo' }
 
@@ -378,6 +510,14 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
   const navegar = useNavigate()
   const [solicitud, setSolicitud] = useState<Solicitud>({ tipo: 'pagina', page: 1 })
   const [pagina, setPagina] = useState<EpisodesResponse | undefined>(undefined)
+  /**
+   * La temporada de la página que se está mirando.
+   *
+   * Va aparte de la petición porque no es lo mismo: un salto o el último episodio
+   * no cambian la lista que hay debajo, así que la temporada que manda en la banda
+   * es la de la última página que se pintó, no la de la última petición.
+   */
+  const [temporada, setTemporada] = useState<number | undefined>(undefined)
   /**
    * El estado de la página que se está mirando.
    *
@@ -420,22 +560,38 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
      * mismo gesto.
      */
     const abrir = (episode: Episode): void => {
-      navegar.push(
-        watchPath(episode.ref.providerId, episode.ref.value, {
-          ...(modoRef.current === undefined ? {} : { mode: modoRef.current }),
-          anime: episode.animeRef.value,
-          n: episode.number,
-        }),
-      )
+      navegar.push(rutaDe(episode, modoRef.current))
     }
 
     if (solicitud.tipo === 'pagina') {
       setEstado('loading')
-      void loadEpisodesPage(providerId, ref, solicitud.page).then(
+      void loadEpisodesPage(providerId, ref, {
+        page: solicitud.page,
+        ...(solicitud.season === undefined ? {} : { season: solicitud.season }),
+      }).then(
         (respuesta) => {
           if (!vivo) return
 
+          /**
+           * El título tiene temporadas y esta lectura no pedía ninguna.
+           *
+           * Es la primera lectura de la ficha, que no puede saber que el título
+           * las tiene: se pide la primera temporada y no se pinta la lista entera,
+           * porque pintarla y cambiarla dos milisegundos después es justo el
+           * parpadeo que la banda existe para evitar.
+           */
+          const primera = respuesta.seasons?.[0]
+          if (
+            solicitud.tipo === 'pagina' &&
+            solicitud.season === undefined &&
+            primera !== undefined
+          ) {
+            setSolicitud({ tipo: 'pagina', page: respuesta.page, season: primera.season })
+            return
+          }
+
           setPagina(respuesta)
+          setTemporada(solicitud.tipo === 'pagina' ? solicitud.season : undefined)
           setEstado('ready')
         },
         () => {
@@ -477,17 +633,40 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
   }, [providerId, ref, solicitud, navegar])
 
   if (pagina === undefined) {
+    const claves = props.movie === true ? ESTADO_KEYS.pelicula : ESTADO_KEYS.serie
+
     return (
       <p className={estado === 'error' ? 'search__error' : 'empty'}>
-        {estado === 'error'
-          ? t(DEFAULT_LOCALE, 'detail.episodes.error')
-          : t(DEFAULT_LOCALE, 'detail.episodes.loading')}
+        {t(DEFAULT_LOCALE, estado === 'error' ? claves.error : claves.loading)}
       </p>
     )
   }
 
+  // Una película de la que el proveedor no sirve ninguna parte no se queda con el
+  // «no tiene episodios»: tampoco tiene episodios de los que hablar.
+  if (props.movie === true && pagina.episodes.length === 0) {
+    return <p className="empty">{t(DEFAULT_LOCALE, 'detail.movie.missing')}</p>
+  }
+
+  const unica = props.movie === true ? parteUnicaDe(pagina) : undefined
+
+  if (unica !== undefined) return <MovieAction episode={unica} mode={props.mode} />
+
+  // La temporada que manda en la banda: la de la página que se está mirando. El
+  // respaldo es por el orden de los fotogramas —siempre hay una elegida cuando hay
+  // índice—, no por si acaso.
+  const activa = pagina.seasons === undefined ? undefined : (temporada ?? pagina.seasons[0]?.season)
+
   return (
     <>
+      {pagina.seasons === undefined || activa === undefined ? null : (
+        <SeasonPicker
+          seasons={pagina.seasons}
+          active={activa}
+          onPick={(season) => setSolicitud({ tipo: 'pagina', page: 1, season })}
+        />
+      )}
+
       {conMandos(pagina) ? (
         <EpisodePager
           page={pagina.page}
@@ -497,17 +676,21 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
           latestMissing={latestMissing}
           latestMessage={latestMessage}
           onPage={(direction) =>
-            setSolicitud({ tipo: 'pagina', page: pageAfter(pagina.page, direction) })
+            setSolicitud({
+              tipo: 'pagina',
+              page: pageAfter(pagina.page, direction),
+              ...(activa === undefined ? {} : { season: activa }),
+            })
           }
           onJump={(number) => setSolicitud({ tipo: 'numero', number })}
           onLatest={() => setSolicitud({ tipo: 'ultimo' })}
         />
       ) : null}
 
-      {/* La clave remonta las filas al cambiar de página: la ventana de cien es de
-          la página que se está mirando, no del componente. */}
+      {/* La clave remonta las filas al cambiar de página o de temporada: la ventana
+          de cien es de la página que se está mirando, no del componente. */}
       <EpisodeRows
-        key={`${providerId}:${ref}:${pagina.page}`}
+        key={`${providerId}:${ref}:${pagina.page}:${activa ?? ''}`}
         episodes={pagina.episodes}
         mode={props.mode}
         watched={props.watched}

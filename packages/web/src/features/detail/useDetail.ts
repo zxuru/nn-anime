@@ -3,7 +3,9 @@
  *
  * Seis peticiones en paralelo —detalle, relacionados, franquicia, fuentes, vistos
  * y capacidades del proveedor— porque ninguna necesita a las otras: en serie, la
- * pantalla tardaría la suma de las seis latencias sin ninguna razón.
+ * pantalla tardaría la suma de las seis latencias sin ninguna razón. La séptima,
+ * las relaciones de AniList, va **aparte y sin esperarla**: su consulta al tercero
+ * está espaciada y no puede retrasar la ficha.
  *
  * **Los episodios no están aquí.** La lista se pide por páginas desde el selector
  * (`EpisodeList`), que es quien sabe en qué página va y cuál se está mirando: con
@@ -30,9 +32,16 @@
  * campo en `undefined`.
  */
 
-import type { EpisodesResponse, WatchedEpisodePayload } from '@nn-anime/core/api'
+import type {
+  AniListRelatedItem,
+  Enrichment,
+  EpisodesResponse,
+  WatchedEpisodePayload,
+} from '@nn-anime/core/api'
 import {
+  anilistRelatedResponseSchema,
   animeResponseSchema,
+  enrichmentResponseSchema,
   episodeResponseSchema,
   episodesResponseSchema,
   favoritesResponseSchema,
@@ -77,6 +86,18 @@ export function sourcesPath(providerId: string, ref: string): string {
 }
 
 /**
+ * La ruta de lo que AniList relaciona con esta obra.
+ *
+ * Es una lectura **de tercero** y va aparte de las demás: el cliente de AniList
+ * espacia sus consultas dos segundos, así que esperarla junto al resto de la
+ * ficha le sumaría esa espera a la pantalla entera. Aquí se pide y se pinta
+ * cuando llegue; sin ella, la ficha es la misma.
+ */
+export function anilistRelatedPath(providerId: string, ref: string): string {
+  return `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/anilist-related`
+}
+
+/**
  * Las lecturas de episodios, con lo que un test puede sustituir.
  *
  * El `fetch` entra por aquí y no por variable global para que una prueba mida
@@ -100,11 +121,22 @@ function opciones(reads: EpisodeReads): { readonly signal?: AbortSignal } {
  * la 1, pero una lectura sin página y otra con `?page=1` son dos claves distintas
  * en la caché del cliente, y la pantalla que trocea en páginas nunca debería
  * pedir una lista sin decir cuál.
+ *
+ * `season` sólo va cuando se pidió una: la lista entera y una temporada suya son
+ * dos cosas distintas, y la ausencia del parámetro es «todas». Escribirlo en la
+ * lista entera daría dos claves de caché para la misma lectura, como con la
+ * página.
  */
-export function episodesPath(providerId: string, ref: string, page: number): string {
-  const base = `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/episodes`
+export interface EpisodesQuery {
+  readonly page: number
+  readonly season?: number
+}
 
-  return `${base}?page=${page}`
+export function episodesPath(providerId: string, ref: string, query: EpisodesQuery): string {
+  const base = `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/episodes`
+  const temporada = query.season === undefined ? '' : `&season=${query.season}`
+
+  return `${base}?page=${query.page}${temporada}`
 }
 
 /** La ruta de un episodio por su número. Admite decimales. */
@@ -125,11 +157,11 @@ export function latestEpisodePath(providerId: string, ref: string): string {
 export async function loadEpisodesPage(
   providerId: string,
   ref: string,
-  page: number,
+  query: EpisodesQuery,
   reads: EpisodeReads = {},
 ): Promise<EpisodesResponse> {
   return apiGet(
-    episodesPath(providerId, ref, page),
+    episodesPath(providerId, ref, query),
     episodesResponseSchema,
     opciones(reads),
     reads.deps,
@@ -237,6 +269,24 @@ export interface DetailData {
    */
   readonly watched: readonly WatchedEpisodePayload[]
   readonly capabilities: ProviderCapabilities | undefined
+  /**
+   * Lo que AniList sabe de esta obra, si está emparejada.
+   *
+   * `undefined` es «no se pudo preguntar» y `null` es «no hay equivalente»: las
+   * dos cosas se pintan igual —la ficha sin nada nuevo—, pero sólo la segunda se
+   * guarda como respuesta.
+   */
+  readonly enrichment: Enrichment | null | undefined
+  /**
+   * Lo que AniList relaciona con esta obra: secuelas, precuelas, películas.
+   *
+   * Es la única lectura que **no** viene con la ficha: llega por su cuenta, sin
+   * bloquearla. Lista vacía significa «no hay nada que enseñar» —sin
+   * emparejamiento, sin relaciones o sin respuesta del tercero— y la sección no se
+   * pinta: una fila vacía sobre un dato que no es de la aplicación sólo dice que
+   * algo falló.
+   */
+  readonly anilistRelated: readonly AniListRelatedItem[]
   /** El nombre declarado por cada proveedor cargado, por su id. */
   readonly providerNames: ReadonlyMap<string, string>
   readonly state: DetailState
@@ -301,6 +351,8 @@ export function useDetail(providerId: string, ref: string): DetailData {
   const [franchise, setFranchise] = useState<readonly AnimeSummary[]>([])
   const [sources, setSources] = useState<readonly AnimeSummary[]>([])
   const [watched, setWatched] = useState<readonly WatchedEpisodePayload[]>([])
+  const [enrichment, setEnrichment] = useState<Enrichment | null | undefined>(undefined)
+  const [anilistRelated, setAnilistRelated] = useState<readonly AniListRelatedItem[]>([])
   const [capabilities, setCapabilities] = useState<ProviderCapabilities | undefined>(undefined)
   const [providerNames, setProviderNames] = useState<ReadonlyMap<string, string>>(new Map())
   const [state, setState] = useState<DetailState>('loading')
@@ -322,6 +374,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
 
     setState('loading')
     setError(undefined)
+    setAnilistRelated([])
 
     void Promise.all([
       apiGet(
@@ -338,8 +391,16 @@ export function useDetail(providerId: string, ref: string): DetailData {
         opciones,
       ),
       apiGet('/api/providers', providersResponseSchema, opciones),
+      // El enriquecimiento **no puede tumbar la ficha**: es un adorno de una
+      // lectura que depende de un tercero, así que su fallo se queda en «no hay
+      // nada nuevo» en vez de en la pantalla de error.
+      apiGet(
+        `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/enrichment`,
+        enrichmentResponseSchema,
+        opciones,
+      ).catch(() => ({ enrichment: null })),
     ]).then(
-      ([detalle, hermanos, franquicia, fuentes, vistos, proveedores]) => {
+      ([detalle, hermanos, franquicia, fuentes, vistos, proveedores, enriquecido]) => {
         if (controller.signal.aborted) return
 
         setDetail(detalle)
@@ -347,6 +408,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
         setFranchise(franquicia.items)
         setSources(fuentes.items)
         setWatched(vistos.episodes)
+        setEnrichment(enriquecido.enrichment)
         setCapabilities(
           proveedores.providers.find((provider) => provider.id === providerId)?.capabilities,
         )
@@ -362,6 +424,22 @@ export function useDetail(providerId: string, ref: string): DetailData {
         setState('error')
       },
     )
+
+    /**
+     * Las relaciones de AniList, aparte y sin `await`.
+     *
+     * Van fuera de la tanda anterior porque su consulta al tercero está espaciada
+     * —una cada dos segundos— y la ficha no tiene por qué esperarla: la sección
+     * aparece cuando llega, y si no llega, la ficha sigue igual. El fallo se traga
+     * a propósito: un tercero caído no es un fallo de esta pantalla.
+     */
+    void apiGet(anilistRelatedPath(providerId, ref), anilistRelatedResponseSchema, opciones)
+      .then((relacionadas) => {
+        if (controller.signal.aborted) return
+
+        setAnilistRelated(relacionadas.items)
+      })
+      .catch(() => undefined)
   }, [providerId, ref])
 
   useEffect(() => {
@@ -377,6 +455,8 @@ export function useDetail(providerId: string, ref: string): DetailData {
     sources,
     watched,
     capabilities,
+    enrichment,
+    anilistRelated,
     providerNames,
     state,
     error,

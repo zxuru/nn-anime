@@ -104,6 +104,15 @@ export interface Provider {
   /** Nombre para mostrar. */
   readonly name: string
   readonly apiVersion: typeof PROVIDER_API_VERSION
+  /**
+   * Lo que el plugin sabe hacer y, con `media`, **qué sirve**: `anime`, `movies`
+   * —películas, series y doramas— o `both`.
+   *
+   * `media` es opcional: ausente significa `anime`, que es lo que eran todos los
+   * plugins antes de que el campo existiera, y por eso declararlo no es un
+   * requisito. Un plugin que sirva otra cosa lo declara, y con eso la interfaz
+   * sabe en qué pestaña enseñarlo. Añadido en T113.
+   */
   readonly capabilities: ProviderCapabilities
 
   search(query: string, options: CallOptions): Promise<readonly SearchResult[]>

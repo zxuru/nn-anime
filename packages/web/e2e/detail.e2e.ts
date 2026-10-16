@@ -9,6 +9,207 @@ import { entrar } from './fixtures'
  * el camino crítico de la aplicación y el que rompe si alguien toca el enrutador.
  */
 
+test.describe('la ficha enriquecida', () => {
+  /**
+   * Lo que añade AniList cuando está emparejada.
+   *
+   * El arnés arranca con AniList apagado —una prueba no puede depender de un
+   * tercero—, así que la respuesta se sirve desde la prueba. Lo que se comprueba
+   * es lo que el servidor no puede: que la sinopsis se pinta como texto, que la
+   * nota y el enlace salen, y que nada de eso rompe la ficha.
+   */
+  test('enseña la sinopsis, la nota y el enlace a AniList', async ({ page }) => {
+    await page.route('**/api/anime/*/*/enrichment', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          enrichment: {
+            anilistId: 555,
+            cover: '/api/anilist/image/cover/555',
+            adult: false,
+            synopsis: 'Una cartógrafa recorre el cielo de su ciudad.',
+            genres: ['Misterio', 'Fantasía'],
+            score: 84,
+            status: 'finished',
+            year: 2019,
+            format: 'TV',
+            studios: ['Estudio Cobre'],
+            siteUrl: 'https://anilist.co/anime/555',
+          },
+        },
+      })
+    })
+
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    await expect(page.getByRole('heading', { name: 'De AniList' })).toBeVisible({
+      timeout: 10_000,
+    })
+    await expect(page.getByText('Nota 84/100')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Ver la ficha en AniList' })).toHaveAttribute(
+      'href',
+      'https://anilist.co/anime/555',
+    )
+    // La sinopsis del proveedor es la que manda —es su ficha—, y la de AniList
+    // se queda como reserva: se comprueba que la de la fuente sigue siendo la
+    // que se lee y que no aparece la otra.
+    await expect(
+      page.getByText('Una cartógrafa descubre que el cielo de su ciudad se puede recorrer a pie.'),
+    ).toBeVisible()
+    await expect(page.getByText('Una cartógrafa recorre el cielo de su ciudad.')).toHaveCount(0)
+  })
+
+  /**
+   * El banner de AniList, como fondo de la cabecera.
+   *
+   * El enriquecimiento y la imagen llegan interceptados —el arnés arranca sin
+   * AniList—, y lo que se mide es lo que el renderizado de servidor no puede: que
+   * el navegador **pida** la imagen, que la pinte como fondo de la banda, que el
+   * titular quede por encima y que no haya ninguna `<img>` que pueda quedar rota.
+   *
+   * El GIF es un píxel: lo que se comprueba es el mecanismo —petición, fondo,
+   * capa decorativa—, no el contenido de la imagen.
+   */
+  test('el banner es el fondo de la cabecera, con el título encima', async ({ page }) => {
+    const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64')
+    const pedidas: string[] = []
+
+    await page.route('**/api/anime/*/*/enrichment', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          enrichment: {
+            anilistId: 555,
+            cover: '/api/anilist/image/cover/555',
+            adult: false,
+            banner: '/api/anilist/image/banner/555',
+            genres: [],
+            studios: [],
+            siteUrl: 'https://anilist.co/anime/555',
+          },
+        },
+      })
+    })
+
+    await page.route('**/api/anilist/image/banner/555', async (ruta) => {
+      pedidas.push(ruta.request().url())
+      await ruta.fulfill({ body: PIXEL, contentType: 'image/gif' })
+    })
+
+    await entrar(page)
+
+    /*
+      La cuenta empieza al entrar en la ficha.
+
+      El enriquecimiento se sirve para **cualquier** referencia en esta prueba, así
+      que la vitrina —que desde T125 también pinta el banner de su destacado— pide
+      esta misma imagen al pasar por la home. Lo que se mide aquí es que la ficha
+      pida la suya, no cuántas veces la pidió la pantalla anterior.
+    */
+    pedidas.length = 0
+
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    const banda = page.locator('.detail__banner')
+    await expect(banda).toBeVisible({ timeout: 10_000 })
+    // El titular, dentro de la banda: el encabezado no es un adorno.
+    await expect(banda.getByRole('heading', { name: 'Aurora Nocturna' })).toBeVisible()
+
+    const capa = page.locator('.detail__banner-fondo')
+    await expect(capa).toHaveAttribute('aria-hidden', 'true')
+    await expect
+      .poll(async () => capa.evaluate((nodo) => getComputedStyle(nodo).backgroundImage))
+      .toContain('/api/anilist/image/banner/555')
+
+    // La imagen se pidió de verdad —el navegador sólo pide el fondo de lo que
+    // pinta— y el titular está **encima** de la capa, no detrás.
+    expect(pedidas).toHaveLength(1)
+
+    const capas = await banda.evaluate((nodo) => {
+      const capa = nodo.querySelector('.detail__banner-fondo')
+      const titulo = nodo.querySelector('h1')
+
+      return {
+        zIndex: capa === null ? '' : getComputedStyle(capa).zIndex,
+        fondo: capa?.getBoundingClientRect().height ?? 0,
+        titulo: titulo?.getBoundingClientRect().height ?? 0,
+      }
+    })
+
+    // La capa va por detrás (`z-index` negativo) y cubre la banda: si midiera
+    // cero, el fondo no se vería aunque la ruta estuviera bien puesta.
+    expect(capas.zIndex).toBe('-1')
+    expect(capas.fondo).toBeGreaterThan(capas.titulo)
+
+    // Y no hay ninguna `<img>` del banner: es lo que dejaba el icono de imagen
+    // rota cuando la obra no tenía banner o su caché todavía no lo servía.
+    await expect(page.locator('img[src*="/api/anilist/image/banner"]')).toHaveCount(0)
+  })
+
+  test('un banner que no llega no deja ninguna imagen rota', async ({ page }) => {
+    await page.route('**/api/anime/*/*/enrichment', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          enrichment: {
+            anilistId: 555,
+            cover: '/api/anilist/image/cover/555',
+            adult: false,
+            banner: '/api/anilist/image/banner/555',
+            genres: [],
+            studios: [],
+            siteUrl: 'https://anilist.co/anime/555',
+          },
+        },
+      })
+    })
+
+    // El caso que se veía en la ficha: la ruta del banner contesta 404.
+    await page.route('**/api/anilist/image/banner/555', async (ruta) => {
+      await ruta.fulfill({ status: 404, body: 'no está' })
+    })
+
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    await expect(page.getByRole('heading', { name: 'Aurora Nocturna' })).toBeVisible({
+      timeout: 10_000,
+    })
+    // La ficha se lee igual, y no queda ninguna imagen rota: el fondo que no
+    // carga simplemente no se pinta.
+    await expect(page.locator('.episodes li').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('img[src*="/api/anilist/image/banner"]')).toHaveCount(0)
+  })
+
+  test('un banner que no es la ruta del servidor no se pinta', async ({ page }) => {
+    await page.route('**/api/anime/*/*/enrichment', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          enrichment: {
+            anilistId: 555,
+            cover: '/api/anilist/image/cover/555',
+            adult: false,
+            // Una dirección ajena. La capa del fondo se compone con este valor,
+            // así que sólo se pinta si tiene la forma que compone el servidor.
+            banner: 'https://otro.example/banner.jpg',
+            genres: [],
+            studios: [],
+            siteUrl: 'https://anilist.co/anime/555',
+          },
+        },
+      })
+    })
+
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    await expect(page.getByRole('heading', { name: 'Aurora Nocturna' })).toBeVisible({
+      timeout: 10_000,
+    })
+    await expect(page.locator('.detail__banner-fondo')).toHaveCount(0)
+    // Y la cabecera sigue ahí: la banda no depende del banner.
+    await expect(page.locator('.detail__banner')).toBeVisible()
+  })
+})
+
 test.describe('de la búsqueda al detalle', () => {
   test('buscar, elegir y ver los episodios', async ({ page }) => {
     await entrar(page)
@@ -277,5 +478,266 @@ test.describe('de la búsqueda al detalle', () => {
     // El caso contrario, con la base del e2e vacía: una ficha sin nada que elegir
     // no tiene una sección vacía.
     await expect(page.getByRole('heading', { name: 'También en' })).toHaveCount(0)
+  })
+
+  /**
+   * Una película no tiene capítulos.
+   *
+   * El fixture trae una —«El Jardín de Hierro», que su proveedor declara
+   * `movie`— y su ficha enseñaba «Episodios» con un «Episodio 1 de 1» que nadie
+   * puede elegir. Se mide en un navegador porque la decisión depende de la lectura
+   * de episodios, que llega dentro de un efecto.
+   */
+  test('la ficha de una película ofrece verla, sin numerar capítulos', async ({ page }) => {
+    await entrar(page)
+
+    await page.goto('/anime/fixture/el-jardin-de-hierro')
+
+    const verla = page.getByRole('link', { name: 'Ver película' })
+    await expect(verla).toHaveAttribute(
+      'href',
+      '/watch/fixture/el-jardin-de-hierro%231?mode=sub&anime=el-jardin-de-hierro&n=1',
+      { timeout: 15_000 },
+    )
+
+    // Ni la lista, ni su titular, ni el número: la película no finge capítulos.
+    await expect(page.locator('.episodes li')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Episodios', exact: true })).toHaveCount(0)
+    await expect(page.getByText('Episodio 1')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Película', exact: true })).toBeVisible()
+
+    await verla.click()
+    await expect(page).toHaveURL(/\/watch\/fixture\/el-jardin-de-hierro%231\?mode=sub/)
+    await expect(page.locator('video')).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('una película sin ninguna parte lo dice, y no deja un botón que no lleva a nada', async ({
+    page,
+  }) => {
+    await entrar(page)
+
+    // El proveedor declara la película y no sirve ninguna parte: es el caso del
+    // título que la fuente anuncia y todavía no publica.
+    await page.route(
+      (url) =>
+        url.pathname === '/api/anime/fixture/el-jardin-de-hierro/episodes' &&
+        url.searchParams.has('page'),
+      async (ruta) => {
+        await ruta.fulfill({ json: { episodes: [], page: 1, hasMore: false } })
+      },
+    )
+
+    await page.goto('/anime/fixture/el-jardin-de-hierro')
+
+    await expect(page.getByText('Esta película no tiene nada que reproducir todavía.')).toBeVisible(
+      { timeout: 15_000 },
+    )
+    await expect(page.getByRole('link', { name: 'Ver película' })).toHaveCount(0)
+  })
+})
+
+/**
+ * Un título que junta sus temporadas en una sola lista.
+ *
+ * La fuente escribe la temporada en el título del episodio —`T2 E1 · Algo`— y la
+ * aplicación la lee de ahí; el índice lo calcula el servidor, que es el único que
+ * ve la lista entera. Se mide en un navegador porque el índice llega dentro de un
+ * efecto: el renderizado de servidor pinta el aviso de que los episodios están
+ * llegando y ninguna banda. La ruta se intercepta porque el fixture no marca
+ * temporadas —sus títulos son «Episodio N»—, así que aquí se sirve un título de
+ * dos temporadas de seis episodios, con páginas de tres para medir las dos.
+ */
+test.describe('un título con temporadas', () => {
+  test('la banda elige la temporada y la lista se pide por temporada', async ({ page }) => {
+    await entrar(page)
+
+    const POR_TEMPORADA = 6
+    const POR_PAGINA = 3
+    const TOTAL = 12
+    const temporadas = [
+      { season: 1, count: POR_TEMPORADA },
+      { season: 2, count: POR_TEMPORADA },
+    ]
+
+    /** Un episodio del título, numerado contra él y marcado con su temporada. */
+    const episodio = (number: number): unknown => {
+      const season = Math.ceil(number / POR_TEMPORADA)
+      const inSeason = number - (season - 1) * POR_TEMPORADA
+
+      return {
+        ref: { providerId: 'fixture', value: `aurora-nocturna#${number}` },
+        animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+        number,
+        title: `T${season} E${inSeason} · Episodio ${inSeason}`,
+        durationS: 1440,
+        mode: 'sub',
+      }
+    }
+
+    /** Lo que pidió la pantalla, con su consulta, en orden. */
+    const rutas: string[] = []
+
+    await page.route(
+      (url) => url.pathname === '/api/anime/fixture/aurora-nocturna/episodes',
+      async (ruta) => {
+        const consulta = new URL(ruta.request().url()).searchParams
+        rutas.push(consulta.toString())
+
+        const season = Number(consulta.get('season') ?? '1')
+        const numero = Number(consulta.get('page') ?? '1')
+        const desde = (numero - 1) * POR_PAGINA
+        const suyos = Array.from({ length: POR_PAGINA }, (_, indice) =>
+          episodio((season - 1) * POR_TEMPORADA + desde + indice + 1),
+        )
+
+        await ruta.fulfill({
+          json: {
+            episodes: suyos,
+            page: numero,
+            hasMore: desde + POR_PAGINA < POR_TEMPORADA,
+            total: TOTAL,
+            seasons: temporadas,
+          },
+        })
+      },
+    )
+
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    // La banda, con sus dos temporadas, y la primera marcada: la ficha pide la
+    // lista entera, ve que el título tiene temporadas y pide la primera en vez de
+    // pintar los doce episodios y cambiarlos después.
+    const banda = page.getByRole('list', { name: 'Temporadas' })
+    await expect(banda.getByRole('button', { name: /Temporada 1/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+      { timeout: 15_000 },
+    )
+    await expect(banda.getByRole('button', { name: /Temporada 2/ })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    await expect(banda.getByRole('button', { name: /Temporada 2/ })).toContainText('6 episodios')
+
+    // Y la lista son los tres primeros de la temporada 1, numerados **contra el
+    // título**: «Episodio 1 de 12», que es la etiqueta de la fuente y lo que
+    // enseña el reproductor.
+    await expect(page.locator('.episodes li')).toHaveCount(POR_PAGINA)
+    await expect(page.locator('.episodes li').first()).toContainText('Episodio 1 de 12')
+    await expect(page.locator('.episodes li').first()).toContainText('T1 E1 · Episodio 1')
+    expect(rutas).toEqual(['page=1', 'page=1&season=1'])
+
+    // La página siguiente sigue siendo la de esta temporada.
+    await page.getByRole('button', { name: 'Página siguiente' }).click()
+
+    await expect(page.locator('.episodes li').first()).toContainText('Episodio 4 de 12')
+
+    // Y elegir la otra temporada es pedirla: la lista cambia de contenido, no de
+    // filtro sobre lo ya descargado.
+    await banda.getByRole('button', { name: /Temporada 2/ }).click()
+
+    await expect(banda.getByRole('button', { name: /Temporada 2/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect(page.locator('.episodes li').first()).toContainText('Episodio 7 de 12')
+    await expect(page.locator('.episodes li').first()).toContainText('T2 E1 · Episodio 1')
+
+    /**
+     * Las cuatro peticiones, y en ese orden.
+     *
+     * La comparación es la lista entera y no la última ruta porque una petición de
+     * más —`page=2` sin temporada, que devuelve la lista entera otra vez— se ve en
+     * la secuencia y no en el resultado: la banda seguiría enseñando la temporada
+     * marcada y la lista, los mismos episodios.
+     */
+    await expect
+      .poll(() => rutas)
+      .toEqual(['page=1', 'page=1&season=1', 'page=2&season=1', 'page=1&season=2'])
+  })
+
+  test('sin temporadas marcadas no hay banda: la lista se lee entera', async ({ page }) => {
+    await entrar(page)
+
+    await page.goto('/anime/fixture/mar-de-cristal')
+
+    await expect(page.locator('.episodes li')).toHaveCount(5, { timeout: 15_000 })
+    await expect(page.locator('.episodes__seasons')).toHaveCount(0)
+  })
+})
+
+/**
+ * De la ficha a los títulos que comparten su estudio.
+ *
+ * El nombre de un estudio era texto muerto: se leía y no llevaba a ninguna parte.
+ * Ahora es un enlace a la búsqueda por ese término, que es lo que ya hacía la banda
+ * de géneros de la vitrina —los proveedores buscan por título y ninguno entiende
+ * el nombre de un estudio—, así que la respuesta sale del **catálogo local**: los
+ * títulos que la base ya conoce.
+ *
+ * Se mide en un navegador porque el camino entero es de tres capas: el enlace de la
+ * ficha, la lectura por estudio del almacén y el evento del catálogo que la ruta de
+ * búsqueda emite. Ninguna de las tres se ve desde el renderizado de servidor.
+ *
+ * **Y falta el caso del género**, que es el mismo camino con otro término: no pasa
+ * por un defecto de la pantalla de búsqueda que no es de esta tarea. Pulsar un
+ * enlace que lleva a `/search?q=<término>` desde otra pantalla deja la búsqueda en
+ * «Buscando…» para siempre —el estado del flujo se pierde y la pantalla lee el de
+ * relleno: ni tarjetas ni esqueletos—, y se reproduce igual **hoy**, sin este
+ * cambio, pulsando un género en la vitrina o abriendo esa dirección a mano. Está
+ * contado en `tasks/done/T130.md`.
+ */
+test.describe('de la ficha a sus títulos', () => {
+  /** Espera a que la ficha esté montada, con sus etiquetas. */
+  async function abrirLaFicha(page: import('@playwright/test').Page, ref: string): Promise<void> {
+    await page.goto(`/anime/fixture/${ref}`)
+    await expect(page.locator('.detail__etiquetas').first()).toBeVisible({ timeout: 15_000 })
+  }
+
+  test('el estudio lleva a los títulos que lo comparten', async ({ page }) => {
+    await entrar(page)
+    await abrirLaFicha(page, 'aurora-nocturna')
+
+    await page.getByRole('link', { name: 'Estudio Cobre' }).click()
+
+    await expect(page).toHaveURL(/\/search\?q=Estudio%20Cobre/)
+    // La **tarjeta** y no un texto cualquiera: el titular de la ficha que se acaba
+    // de dejar también dice «Aurora Nocturna», así que una aserción por texto pasa
+    // con la pantalla anterior todavía montada y no mide que la búsqueda contestara.
+    await expect(page.locator('.grid .card', { hasText: 'Aurora Nocturna' })).toBeVisible({
+      timeout: 15_000,
+    })
+  })
+
+  /**
+   * Y del mismo estudio salen también sus películas.
+   *
+   * Es la otra mitad de lo que se pidió: una película de ese estudio aparece en la
+   * pestaña de películas sin volver a buscar. El reparto lo hace el `kind` de cada
+   * título, que es la regla de toda la aplicación; el fixture sirve las dos cosas y
+   * tiene una película —«El Jardín de Hierro»— del mismo estudio que la serie.
+   *
+   * Las dos fichas se abren antes de pulsar porque el catálogo local es eso: las
+   * fichas que alguien abrió.
+   */
+  test('del mismo estudio salen también sus películas', async ({ page }) => {
+    await entrar(page)
+    await abrirLaFicha(page, 'el-jardin-de-hierro')
+    await abrirLaFicha(page, 'aurora-nocturna')
+
+    await page.getByRole('link', { name: 'Estudio Cobre' }).click()
+    await expect(page.locator('.grid .card', { hasText: 'Aurora Nocturna' })).toBeVisible({
+      timeout: 15_000,
+    })
+
+    await page.getByRole('link', { name: 'Películas' }).click()
+
+    // La consulta es la misma y la mitad, otra: la película entra y la serie no.
+    await expect(page).toHaveURL(/tipo=movies/)
+    await expect(page.getByLabel('Buscar por título')).toHaveValue('Estudio Cobre')
+    await expect(page.locator('.grid .card', { hasText: 'El Jardín de Hierro' })).toBeVisible({
+      timeout: 15_000,
+    })
+    await expect(page.locator('.grid .card', { hasText: 'Aurora Nocturna' })).toHaveCount(0)
   })
 })

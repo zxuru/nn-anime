@@ -12,13 +12,27 @@
  */
 
 import { type SearchEventPayload, searchEventSchema } from '@nn-anime/core/api'
+import type { MediaFilter } from '@nn-anime/core/media'
 
-/** Ruta de la búsqueda. El filtro de proveedor se repite, como en el server. */
-export function searchRequestPath(query: string, providers: readonly string[] = []): string {
+/**
+ * Ruta de la búsqueda. El filtro de proveedor se repite, como en el server.
+ *
+ * El tipo viaja **en la petición**, y eso no es un detalle de la interfaz: una
+ * búsqueda de películas no puede preguntarle a las fuentes de anime. Filtrar los
+ * resultados al llegar dejaría el gasto hecho —son sitios de terceros— y además el
+ * catálogo cacheado se filtra por los proveedores seleccionados, así que la mitad
+ * de la base que no toca tampoco aparecería.
+ */
+export function searchRequestPath(
+  query: string,
+  providers: readonly string[] = [],
+  media: MediaFilter | undefined = undefined,
+): string {
   const partes: string[] = []
   const limpio = query.trim()
   if (limpio !== '') partes.push(`q=${encodeURIComponent(limpio)}`)
   for (const provider of providers) partes.push(`provider=${encodeURIComponent(provider)}`)
+  if (media !== undefined) partes.push(`media=${media}`)
 
   // `%20` y no `+`: es lo que escribe la dirección de arranque del CLI, y dos
   // convenciones para la misma consulta darían dos claves de caché distintas.

@@ -102,6 +102,9 @@ describe('GET /api/providers', () => {
       dub: true,
       trending: true,
       feed: true,
+      // El fixture declara que sirve las dos cosas, y las capacidades viajan
+      // enteras: es lo que la interfaz lee para saber en qué pestaña enseñarlo.
+      media: 'both',
     })
     expect(body.providers[0]?.status).toBe('active')
   })
@@ -302,6 +305,64 @@ describe('GET /api/search como SSE', () => {
       .map((evento) => (JSON.parse(evento.data) as { providerId: string }).providerId)
 
     expect([...ids].sort()).toEqual(['tres', 'uno'])
+  })
+
+  /**
+   * El tipo filtra **antes de preguntar**.
+   *
+   * Una búsqueda de películas no puede gastar el ancho de banda de una fuente de
+   * anime: son sitios de terceros, y filtrar los resultados al llegar dejaría el
+   * gasto hecho. Se mide con el id del evento, que es quien dice a quién se le
+   * preguntó.
+   */
+  test('`?media=` deja fuera a las fuentes que no pueden tener esa mitad', async () => {
+    const report: PluginReport = {
+      active: [
+        { provider: createFixtureProvider({ id: 'anime', media: 'anime' }), file: '/p/a.ts' },
+        { provider: createFixtureProvider({ id: 'pelis', media: 'movies' }), file: '/p/p.ts' },
+        { provider: createFixtureProvider({ id: 'mixta', media: 'both' }), file: '/p/m.ts' },
+      ],
+      rejected: [],
+    }
+    const response = await app(report).request(`${BASE}/api/search?q=aurora&media=movies`, {
+      headers: GOOD,
+    })
+    const eventos = await readSse(response)
+    const ids = eventos
+      .filter((evento) => evento.event === 'results')
+      .map((evento) => (JSON.parse(evento.data) as { providerId: string }).providerId)
+
+    // La mixta entra: sus resultados pueden ser de las dos mitades y el reparto por
+    // `kind` lo hace la interfaz, que es quien tiene las tarjetas.
+    expect([...ids].sort()).toEqual(['mixta', 'pelis'])
+  })
+
+  test('sin `media` se pregunta a todas, que es lo de siempre', async () => {
+    const report: PluginReport = {
+      active: [
+        { provider: createFixtureProvider({ id: 'anime', media: 'anime' }), file: '/p/a.ts' },
+        { provider: createFixtureProvider({ id: 'pelis', media: 'movies' }), file: '/p/p.ts' },
+      ],
+      rejected: [],
+    }
+    const eventos = await readSse(
+      await app(report).request(`${BASE}/api/search?q=aurora`, { headers: GOOD }),
+    )
+    const ids = eventos
+      .filter((evento) => evento.event === 'results')
+      .map((evento) => (JSON.parse(evento.data) as { providerId: string }).providerId)
+
+    expect([...ids].sort()).toEqual(['anime', 'pelis'])
+  })
+
+  test('un tipo fuera del vocabulario se rechaza con 400', async () => {
+    const response = await app(SOLO_FIXTURE).request(
+      `${BASE}/api/search?q=aurora&media=anime-y-peliculas`,
+      { headers: GOOD },
+    )
+
+    expect(response.status).toBe(400)
+    expect((await response.json()).error).toContain('media')
   })
 
   test('sin proveedores cierra con el recuento en cero', async () => {
@@ -589,6 +650,77 @@ describe('con caché de resultados', () => {
       const respuesta = await servidor.request(`${BASE}/api/search?q=accion`, { headers: GOOD })
 
       expect(delCatalogo(await readSse(respuesta))).toHaveLength(1)
+    })
+  })
+
+  /**
+   * Y el estudio, que es la otra mitad de la misma pregunta.
+   *
+   * El fixture declara «Estudio Cobre» y ningún proveedor sabe buscar por estudio:
+   * el único sitio donde ese nombre lleva a sus títulos es la base local, que es
+   * lo que se mide aquí.
+   */
+  test('un estudio devuelve los títulos que ya están en la base', async () => {
+    await conCache(async ({ servidor }) => {
+      await cachearDetalle(servidor)
+
+      const respuesta = await servidor.request(`${BASE}/api/search?q=cobre`, { headers: GOOD })
+
+      expect(delCatalogo(await readSse(respuesta)).map((hit) => hit.title)).toEqual([
+        'Aurora Nocturna',
+      ])
+    })
+  })
+
+  test('el estudio se encuentra con otra caja y sin tilde', async () => {
+    await conCache(async ({ servidor }) => {
+      await cachearDetalle(servidor)
+
+      const respuesta = await servidor.request(`${BASE}/api/search?q=Estudio%20Cobre`, {
+        headers: GOOD,
+      })
+
+      expect(delCatalogo(await readSse(respuesta))).toHaveLength(1)
+    })
+  })
+
+  /**
+   * Una consulta que encaja por las dos vías.
+   *
+   * «acción» es un género del fixture y, en esta fila sembrada a mano, también el
+   * nombre del estudio. Las dos lecturas se piden siempre —ninguna se puede
+   * descartar sin mirar— y la unión tiene que salir sin repetidos: sin el descarte
+   * por referencia, el mismo título saldría dos veces en el evento del catálogo y
+   * dos tarjetas iguales en la rejilla.
+   */
+  test('una consulta que encaja por género y por estudio no repite el título', async () => {
+    await conCache(async ({ db, servidor }) => {
+      await cachearDetalle(servidor)
+
+      const fila = db
+        .query<{ id: number }, [string]>(
+          `INSERT INTO anime (provider_id, provider_ref, title, year, fetched_at, ttl_s, raw_json)
+           VALUES ('fixture', 'accion-y-estudio', 'Acción y estudio', 2020, 1, 3600, ?)
+           RETURNING id`,
+        )
+        .get(
+          JSON.stringify({
+            ref: { providerId: 'fixture', value: 'accion-y-estudio' },
+            title: 'Acción y estudio',
+            genres: ['Acción'],
+            studios: ['Acción'],
+          }),
+        )
+      db.query('INSERT INTO genre (anime_id, name) VALUES (?, ?)').run(fila?.id ?? 0, 'Acción')
+
+      const respuesta = await servidor.request(`${BASE}/api/search?q=acci%C3%B3n`, {
+        headers: GOOD,
+      })
+
+      expect(delCatalogo(await readSse(respuesta)).map((hit) => hit.title)).toEqual([
+        'Acción y estudio',
+        'Aurora Nocturna',
+      ])
     })
   })
 

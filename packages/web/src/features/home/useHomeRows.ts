@@ -1,9 +1,10 @@
 /**
  * Los datos de las filas de la home.
  *
- * Cinco lecturas en paralelo: continuar viendo, favoritos, tendencias, novedades
- * del feed y lo último que la aplicación ya conoce. En serie tardarían la suma de
- * las cinco latencias sin ninguna razón, porque ninguna necesita a las otras.
+ * Ocho lecturas en paralelo: continuar viendo, favoritos, tendencias, novedades
+ * del feed, lo último que la aplicación ya conoce y las tres de AniList —el top,
+ * la parrilla y los episodios recién emitidos—. En serie tardarían la suma de las
+ * ocho latencias sin ninguna razón, porque ninguna necesita a las otras.
  *
  * Si una falla, **las demás se pintan igual**: la home no puede quedarse en blanco
  * porque un proveedor no conteste a tendencias o porque su feed esté roto. Sólo se
@@ -24,19 +25,24 @@
  */
 
 import type {
+  AiringResponse,
   ContinueWatchingResponse,
+  DiscoverResponse,
   FavoritesResponse,
   FeedResponse,
   RecentResponse,
   TrendingResponse,
 } from '@nn-anime/core/api'
 import {
+  airingResponseSchema,
   continueWatchingResponseSchema,
+  discoverResponseSchema,
   favoritesResponseSchema,
   feedResponseSchema,
   recentResponseSchema,
   trendingResponseSchema,
 } from '@nn-anime/core/api'
+import type { MediaFilter } from '@nn-anime/core/media'
 import { useEffect, useRef, useState } from 'react'
 import { ApiError, apiGet } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'
@@ -58,8 +64,14 @@ export interface HomeRows {
   readonly trending: TrendingResponse['items']
   /** Lo que publica la fuente, sin que nadie haya buscado. */
   readonly feed: FeedResponse['items']
-  /** Lo último que la aplicación ya conoce, sin red. */
+  /** Lo último que la aplicación ya conoce, sin red: la reserva del destacado. */
   readonly recent: RecentResponse['items']
+  /** El ranking de AniList. Es la fila del top cuando llega; si no, manda `trending`. */
+  readonly descubrir: DiscoverResponse['items']
+  /** Los capítulos que se emiten estos días. Es la parrilla. */
+  readonly parrilla: AiringResponse['items']
+  /** Los capítulos que se acaban de emitir. Son las novedades cuando llegan. */
+  readonly emisiones: AiringResponse['items']
 }
 
 const VACIO: HomeRows = {
@@ -73,6 +85,9 @@ const VACIO: HomeRows = {
   trending: [],
   feed: [],
   recent: [],
+  descubrir: [],
+  parrilla: [],
+  emisiones: [],
 }
 
 /** Lo que devolvió cada lectura, tal cual sale de `Promise.allSettled`. */
@@ -82,6 +97,9 @@ export interface RowResults {
   readonly trending: PromiseSettledResult<TrendingResponse>
   readonly feed: PromiseSettledResult<FeedResponse>
   readonly recent: PromiseSettledResult<RecentResponse>
+  readonly descubrir: PromiseSettledResult<DiscoverResponse>
+  readonly parrilla: PromiseSettledResult<AiringResponse>
+  readonly emisiones: PromiseSettledResult<AiringResponse>
 }
 
 /**
@@ -115,7 +133,7 @@ export function debeReleer(
  *    era entrar por la dirección de arranque. La cookie es de cada navegador:
  *    abrir la misma dirección en otro no hereda la sesión del primero.
  * 2. **Lo demás sólo cuando no hay nada que enseñar**, y se cuenta el primero de
- *    los fallos. Si las cinco lecturas fallaron con un 502, lo que hay que decir
+ *    los fallos. Si todas las lecturas fallaron con un 502, lo que hay que decir
  *    es que el proveedor no responde; un «algo falló» genérico tiraría el único
  *    dato que se tiene sobre la causa.
  */
@@ -152,7 +170,7 @@ function valorDe<T, V>(
  * decisiones que importan y no se pueden probar dentro de un hook: **una lectura
  * que falla conserva su fila** y el error sólo se declara cuando no hay nada que
  * enseñar —ni de esta lectura ni de la anterior—. Antes de T55 la condición era
- * «fallan las cinco», escrita a mano, y la primera relectura fallida habría
+ * «fallan todas», escrita a mano, y la primera relectura fallida habría
  * borrado la home entera.
  *
  * La excepción es la sesión perdida: ahí sí se avisa aunque haya datos, porque no
@@ -173,6 +191,9 @@ export function mergeRows(
   const trending = valorDe(resultados.trending, previas.trending, (value) => value.items)
   const feed = valorDe(resultados.feed, previas.feed, (value) => value.items)
   const recent = valorDe(resultados.recent, previas.recent, (value) => value.items)
+  const descubrir = valorDe(resultados.descubrir, previas.descubrir, (value) => value.items)
+  const parrilla = valorDe(resultados.parrilla, previas.parrilla, (value) => value.items)
+  const emisiones = valorDe(resultados.emisiones, previas.emisiones, (value) => value.items)
 
   const lecturas = [
     resultados.continueWatching,
@@ -180,10 +201,20 @@ export function mergeRows(
     resultados.trending,
     resultados.feed,
     resultados.recent,
+    resultados.descubrir,
+    resultados.parrilla,
+    resultados.emisiones,
   ]
-  const algoQueEnsenar = [continueWatching, favorites, trending, feed, recent].some(
-    (fila) => fila.length > 0,
-  )
+  const algoQueEnsenar = [
+    continueWatching,
+    favorites,
+    trending,
+    feed,
+    recent,
+    descubrir,
+    parrilla,
+    emisiones,
+  ].some((fila) => fila.length > 0)
 
   // `loading` dice «es la primera lectura»: después de la primera ya no vuelve a
   // ser cierto, y es lo que distingue una relectura de un arranque.
@@ -201,6 +232,9 @@ export function mergeRows(
     trending,
     feed,
     recent,
+    descubrir,
+    parrilla,
+    emisiones,
   }
 }
 
@@ -215,30 +249,85 @@ export function combineRows(resultados: RowResults, ahora: Date = new Date()): H
   return mergeRows(VACIO, resultados, ahora)
 }
 
-/** Las cinco lecturas, en paralelo y con la misma señal. */
-async function leerLasCinco(signal: AbortSignal): Promise<RowResults> {
-  const opciones = { signal }
-  const [continueWatching, favorites, trending, feed, recent] = await Promise.allSettled([
-    apiGet('/api/watch/recent', continueWatchingResponseSchema, opciones),
-    apiGet('/api/favorites', favoritesResponseSchema, opciones),
-    apiGet('/api/trending', trendingResponseSchema, opciones),
-    apiGet('/api/feed', feedResponseSchema, opciones),
-    apiGet('/api/catalog/recent', recentResponseSchema, opciones),
-  ])
-
-  return { continueWatching, favorites, trending, feed, recent }
+/**
+ * Las tres rutas que llevan el tipo, aparte del hook.
+ *
+ * Es una función —y no tres literales dentro de la lectura— para poder comprobarlo
+ * sin un DOM: un `useEffect` no corre en `renderToString`, así que la única forma
+ * de medir que el tipo viaja es leer las direcciones que se piden.
+ */
+export function rutasDeTipo(tipo: MediaFilter): {
+  readonly trending: string
+  readonly feed: string
+  readonly recent: string
+  readonly descubrir: string
+  readonly parrilla: string
+  readonly emisiones: string
+} {
+  return {
+    trending: `/api/trending?media=${tipo}`,
+    feed: `/api/feed?media=${tipo}`,
+    recent: `/api/catalog/recent?media=${tipo}`,
+    descubrir: `/api/discover/top?media=${tipo}`,
+    parrilla: `/api/discover/airing?media=${tipo}`,
+    emisiones: `/api/discover/recent?media=${tipo}`,
+  }
 }
 
-export function useHomeRows(): HomeRows {
+/**
+ * Las ocho lecturas, en paralelo y con la misma señal.
+ *
+ * Seis llevan el tipo: el top, las novedades y la parrilla —de AniList— más las
+ * tres filas que mezclan fuentes y cuyo tipo sólo conoce el servidor. Continuar
+ * viendo y favoritos **no** lo llevan: son listas de lo que el usuario hizo, y ahí
+ * el tipo se filtra en la interfaz, con los proveedores que ya están cargados.
+ *
+ * Las tres de AniList no tumban nada: si fallan, quedan vacías y sus filas
+ * vuelven a lo de la fuente —el top al ranking del proveedor y las novedades a su
+ * feed—, que es la razón de que las dos lecturas sigan aquí.
+ */
+async function leerLasFilas(signal: AbortSignal, tipo: MediaFilter): Promise<RowResults> {
+  const opciones = { signal }
+  const rutas = rutasDeTipo(tipo)
+  const [continueWatching, favorites, trending, feed, recent, descubrir, parrilla, emisiones] =
+    await Promise.allSettled([
+      apiGet('/api/watch/recent', continueWatchingResponseSchema, opciones),
+      apiGet('/api/favorites', favoritesResponseSchema, opciones),
+      apiGet(rutas.trending, trendingResponseSchema, opciones),
+      apiGet(rutas.feed, feedResponseSchema, opciones),
+      apiGet(rutas.recent, recentResponseSchema, opciones),
+      apiGet(rutas.descubrir, discoverResponseSchema, opciones),
+      apiGet(rutas.parrilla, airingResponseSchema, opciones),
+      apiGet(rutas.emisiones, airingResponseSchema, opciones),
+    ])
+
+  return { continueWatching, favorites, trending, feed, recent, descubrir, parrilla, emisiones }
+}
+
+export function useHomeRows(tipo: MediaFilter): HomeRows {
   const [filas, setFilas] = useState<HomeRows>(VACIO)
   // El reloj de los intentos vive en un `ref`: no se pinta, y meterlo en el
   // estado volvería a montar el efecto en cada relectura.
   const ultimoIntento = useRef<number | undefined>(undefined)
+  const tipoAnterior = useRef(tipo)
 
   useEffect(() => {
     let vivo = true
     let enVuelo = false
     const controller = new AbortController()
+
+    /**
+     * Al cambiar de mitad, lo pintado es de la otra: se vacía.
+     *
+     * No es una relectura —ésa conserva lo viejo si la lectura falla— sino otra
+     * pantalla. Fusionar aquí enseñaría películas en la pestaña de anime hasta que
+     * llegara la respuesta, y para siempre si la lectura fallaba.
+     */
+    if (tipoAnterior.current !== tipo) {
+      tipoAnterior.current = tipo
+      ultimoIntento.current = undefined
+      setFilas(VACIO)
+    }
 
     const leer = async (): Promise<void> => {
       // Dos disparos a la vez —la pestaña y el temporizador— no son dos lecturas.
@@ -248,7 +337,7 @@ export function useHomeRows(): HomeRows {
       ultimoIntento.current = Date.now()
       setFilas((previas) => ({ ...previas, refrescando: !previas.loading }))
 
-      const resultados = await leerLasCinco(controller.signal)
+      const resultados = await leerLasFilas(controller.signal, tipo)
       enVuelo = false
       if (!vivo) return
 
@@ -269,7 +358,7 @@ export function useHomeRows(): HomeRows {
       clearInterval(temporizador)
       document.removeEventListener('visibilitychange', siToca)
     }
-  }, [])
+  }, [tipo])
 
   return filas
 }

@@ -28,7 +28,8 @@ import { useSecurityNotice } from './useSecurityNotice'
 import { useSettings } from './useSettings'
 
 export function SettingsPage(): ReactNode {
-  const { state, data, error, setTheme, setProviderPriority, register, refresh } = useSettings()
+  const { state, data, error, setTheme, setProviderPriority, setAdultContent, register, refresh } =
+    useSettings()
   const repos = useProviderRepos(refresh)
   const [noticeOpen, setNoticeOpen] = useState(false)
   const notice = useSecurityNotice(noticeOpen)
@@ -127,6 +128,36 @@ export function SettingsPage(): ReactNode {
       <section>
         <h2>{t(DEFAULT_LOCALE, 'settings.theme')}</h2>
         <ThemeToggle value={data.theme} onChange={setTheme} />
+      </section>
+
+      {/*
+        El interruptor del contenido para adultos.
+
+        Reutiliza el contenedor de botones del tema: es una fila de botones con estado
+        —`aria-pressed`— y nada de la regla habla del tema. Una clase nueva sería la
+        misma regla de CSS escrita dos veces para el mismo dibujo.
+      */}
+      <section>
+        <h2>{t(DEFAULT_LOCALE, 'settings.adult')}</h2>
+        <fieldset className="settings__theme" aria-label={t(DEFAULT_LOCALE, 'settings.adult')}>
+          <button
+            type="button"
+            className="button"
+            aria-pressed={!data.adultContent}
+            onClick={() => setAdultContent(false)}
+          >
+            {t(DEFAULT_LOCALE, 'settings.adult.hide')}
+          </button>
+          <button
+            type="button"
+            className="button"
+            aria-pressed={data.adultContent}
+            onClick={() => setAdultContent(true)}
+          >
+            {t(DEFAULT_LOCALE, 'settings.adult.show')}
+          </button>
+        </fieldset>
+        <p>{t(DEFAULT_LOCALE, 'settings.adult.help')}</p>
       </section>
     </section>
   )

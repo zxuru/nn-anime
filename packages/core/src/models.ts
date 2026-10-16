@@ -9,6 +9,8 @@
 import type { z } from 'zod'
 import type {
   airingStatusSchema,
+  anilistAiringEntrySchema,
+  anilistEntrySchema,
   animeDetailSchema,
   animeSummarySchema,
   candidateSchema,
@@ -54,6 +56,10 @@ export type Episode = DeepReadonly<z.infer<typeof episodeSchema>>
 export type StreamRequest = DeepReadonly<z.infer<typeof streamRequestSchema>>
 export type WatchEventInput = DeepReadonly<z.infer<typeof watchEventInputSchema>>
 export type Candidate = DeepReadonly<z.infer<typeof candidateSchema>>
+/** Una obra de AniList, en la forma que este proyecto guarda y compara. */
+export type AniListEntry = DeepReadonly<z.infer<typeof anilistEntrySchema>>
+/** Un capítulo de la parrilla de AniList: la obra, el episodio y cuándo sale. */
+export type AniListAiringEntry = DeepReadonly<z.infer<typeof anilistAiringEntrySchema>>
 
 /**
  * Forma de un stream tal como puede salir del proceso hacia el cliente web.

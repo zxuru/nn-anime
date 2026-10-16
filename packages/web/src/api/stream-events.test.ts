@@ -49,6 +49,17 @@ describe('ruta de la petición', () => {
   test('los caracteres raros van escapados', () => {
     expect(searchRequestPath('a&b=c')).toBe('/api/search?q=a%26b%3Dc')
   })
+
+  test('el tipo viaja en la petición, no sólo en el filtro de la interfaz', () => {
+    // Una búsqueda de películas no puede preguntarle a las fuentes de anime: el
+    // gasto es de sitios de terceros y filtrar al llegar lo dejaría hecho.
+    expect(searchRequestPath('aurora', [], 'movies')).toBe('/api/search?q=aurora&media=movies')
+    expect(searchRequestPath('', ['uno'], 'anime')).toBe('/api/search?provider=uno&media=anime')
+  })
+
+  test('sin tipo —el defecto del servidor— la ruta no lo lleva', () => {
+    expect(searchRequestPath('aurora')).toBe('/api/search?q=aurora')
+  })
 })
 
 describe('analizador de eventos', () => {

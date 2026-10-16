@@ -18,6 +18,8 @@
 
 import type { Database } from 'bun:sqlite'
 import type {
+  AniListEntry,
+  AniListImageKind,
   AnimeDetail,
   AnimeSummary,
   CacheHit,
@@ -39,6 +41,8 @@ import type { z } from 'zod'
 import { findCoverUrl } from './cover-ref'
 import { runMigrations } from './migrations/runner'
 import { pruneOrphans } from './prune'
+import { type AdultRepository, createAdultRepository } from './repositories/adult'
+import { type AniListRepository, createAniListRepository } from './repositories/anilist'
 import { type CandidateRow, createAnimeRepository } from './repositories/anime'
 import { createEpisodePageRepository, type StoredEpisodePage } from './repositories/episode-page'
 import { createEpisodesRepository } from './repositories/episodes'
@@ -80,6 +84,23 @@ export interface CatalogStore {
   readAnime(ref: ProviderRef): Promise<CacheHit<AnimeDetail> | null>
   writeAnime(ref: ProviderRef, detail: AnimeDetail): Promise<void>
   /**
+   * Marca una referencia como contenido para adultos.
+   *
+   * Lo que se guarda es un booleano por referencia, nunca la obra. La marca **no
+   * caduca**: que una obra sea para adultos no se vence, y por eso el refresco del
+   * proveedor —que reescribe la fila del anime— no la toca.
+   */
+  markAdult(ref: ProviderRef): Promise<void>
+  /**
+   * De estas referencias, las que constan como para adultos.
+   *
+   * Va por lote porque quien pregunta trae una fila entera, y **sin lista devuelve todas
+   * las que constan**: quien tiene que filtrar un corpus largo —el motor de
+   * recomendaciones— no puede construir una consulta con un par por candidato. Una
+   * referencia marcada no vuelve a preguntarse a AniList: la marca es local y dura.
+   */
+  listAdultRefs(refs?: readonly ProviderRef[]): Promise<readonly ProviderRef[]>
+  /**
    * La URL de portada de una referencia que ya apareció en un listado cacheado.
    *
    * `readAnime` sólo la tiene si alguien abrió la ficha. Esto cubre el hueco de
@@ -93,9 +114,11 @@ export interface CatalogStore {
   /**
    * Lo último que la aplicación conoce, del más nuevo al más viejo.
    *
-   * Une lo abierto y lo encontrado por una búsqueda. Es la fila «Último añadido»
-   * de la home: existe para que la primera pantalla no dependa de que el usuario
-   * haya buscado o de que su proveedor ofrezca tendencias.
+   * Une lo abierto y lo encontrado por una búsqueda. Es la reserva del destacado de
+   * la home —y una señal del motor en el arranque en frío—: existe para que la
+   * primera pantalla no dependa de que el usuario haya buscado o de que su proveedor
+   * ofrezca tendencias. La fila «Último añadido», que la pintaba, se retiró de la
+   * home en T118: repetía lo que ya enseñaban las novedades y el top.
    */
   listRecentSummaries(limit: number): Promise<readonly AnimeSummary[]>
   /**
@@ -105,6 +128,14 @@ export interface CatalogStore {
    * —la que da sentido a la fila de géneros de la home— sale de la base.
    */
   searchByGenre(term: string, limit: number): Promise<readonly SearchResult[]>
+  /**
+   * Los títulos cacheados cuyo estudio encaja con el término.
+   *
+   * La misma pregunta con el otro nombre de la ficha: pulsar «ufotable» lleva a
+   * lo que ese estudio tiene en el catálogo local, que es lo único que la
+   * aplicación puede abrir sin preguntarle a nadie.
+   */
+  searchByStudio(term: string, limit: number): Promise<readonly SearchResult[]>
   /** Tendencias cacheadas de un proveedor. */
   readTrending(providerId: string): Promise<CacheHit<readonly SearchResult[]> | null>
   writeTrending(providerId: string, results: readonly SearchResult[]): Promise<void>
@@ -131,6 +162,34 @@ export interface CatalogStore {
   ): Promise<void>
   readSearch(providerId: string, query: string): Promise<CacheHit<readonly SearchResult[]> | null>
   writeSearch(providerId: string, query: string, results: readonly SearchResult[]): Promise<void>
+
+  /**
+   * El emparejamiento de una obra local con su ficha de AniList.
+   *
+   * `null` como valor es «se buscó y no hay equivalente», que es una respuesta y
+   * se guarda; `null` como retorno es «no se ha buscado», que es otra cosa. La
+   * distinción importa: la primera no vuelve a preguntarse en una semana y la
+   * segunda se pregunta en cuanto hace falta.
+   */
+  readAniListMedia(titleKey: string): Promise<CacheHit<AniListEntry | null> | null>
+  writeAniListMedia(titleKey: string, media: AniListEntry | null): Promise<void>
+  /**
+   * Una lista cacheada de AniList —el top, la parrilla— con el schema de su
+   * contenido: la tabla guarda dos formas y quien lee sabe cuál le toca.
+   */
+  readAniListList<T>(key: string, schema: z.ZodType<T>): Promise<CacheHit<readonly T[]> | null>
+  /**
+   * Guarda la lista **y las imágenes de las obras que lleva dentro**, para que la
+   * ruta de la imagen pueda resolver un id que la vitrina está enseñando sin que
+   * nadie haya abierto su ficha.
+   */
+  writeAniListList<T>(
+    key: string,
+    items: readonly T[],
+    options: { readonly ttlS: number; readonly images: readonly AniListEntry[] },
+  ): Promise<void>
+  /** La dirección de una imagen ya cacheada. No descubre imágenes nuevas. */
+  readAniListImage(mediaId: number, kind: AniListImageKind): Promise<string | undefined>
 
   readStream(episodeRef: ProviderRef, mode: StreamMode): Promise<StreamSource | null>
   writeStream(request: StreamRequest, sources: readonly StreamSource[]): Promise<void>
@@ -160,6 +219,14 @@ export interface CatalogStore {
    * la del `ref` pedido; lista vacía cuando no hay ninguna, que no es un error.
    */
   listSources(ref: ProviderRef, limit: number): Promise<readonly AnimeSummary[]>
+  /**
+   * Lo que la base ya conoce que empieza como alguno de estos nombres.
+   *
+   * Es para emparejar una obra que llega de un tercero —AniList— con su ficha
+   * local: la lectura vive aquí —una consulta, la misma de los relacionados— y la
+   * identidad la decide quien llama, que es quien tiene los dos lados.
+   */
+  listLocalCandidates(names: readonly string[], limit: number): Promise<readonly AnimeSummary[]>
   /**
    * El estado de visionado de cada episodio, por número.
    *
@@ -192,6 +259,8 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
    * natural —migrar y luego usar— sale solo, y da igual cuál sea.
    */
   interface Repos {
+    readonly adult: AdultRepository
+    readonly anilist: AniListRepository
     readonly anime: ReturnType<typeof createAnimeRepository>
     readonly episodes: ReturnType<typeof createEpisodesRepository>
     readonly episodePages: ReturnType<typeof createEpisodePageRepository>
@@ -211,6 +280,8 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
   let repos: Repos | undefined
   const of = (): Repos =>
     (repos ??= {
+      adult: createAdultRepository(db),
+      anilist: createAniListRepository(db),
       anime: createAnimeRepository(db),
       episodes: createEpisodesRepository(db),
       episodePages: createEpisodePageRepository(db),
@@ -237,6 +308,14 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       // podría probar. Lo encontró la prueba de integración del ciclo.
       await queue.run(() => of().anime.write(ref, detail, ahora()))
     },
+    async markAdult(ref) {
+      // La marca es una escritura como las demás: pasa por la cola, que es lo que
+      // hace que una sola conexión no tenga dos escrituras a la vez.
+      await queue.run(() => of().adult.mark(ref))
+    },
+    async listAdultRefs(refs) {
+      return of().adult.list(refs)
+    },
     async readCover(ref) {
       return findCoverUrl(db, ref)
     },
@@ -248,6 +327,9 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async searchByGenre(term, limit) {
       return of().anime.searchByGenre(term, limit)
+    },
+    async searchByStudio(term, limit) {
+      return of().anime.searchByStudio(term, limit)
     },
 
     async readTrending(providerId) {
@@ -288,6 +370,27 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       await queue.run(() => of().search.write(providerId, query, results, ahora()))
     },
 
+    async readAniListMedia(titleKey) {
+      return of().anilist.readMedia(titleKey, ahora())
+    },
+    async writeAniListMedia(titleKey, media) {
+      await queue.run(() => of().anilist.writeMedia(titleKey, media, ahora()))
+    },
+    async readAniListList(key, schema) {
+      return of().anilist.readList(key, schema, ahora())
+    },
+    async writeAniListList(key, items, options) {
+      await queue.run(() => {
+        const anilist = of().anilist
+
+        anilist.writeList(key, items, options.ttlS, ahora())
+        for (const media of options.images) anilist.writeImages(media)
+      })
+    },
+    async readAniListImage(mediaId, kind) {
+      return of().anilist.readImage(mediaId, kind)
+    },
+
     async readStream(episodeRef, mode) {
       return of().streams.read(episodeRef, mode, ahora())
     },
@@ -312,6 +415,9 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async listSources(ref, limit) {
       return of().related.listSources(ref, limit)
+    },
+    async listLocalCandidates(names, limit) {
+      return of().related.candidatesByNames(names, limit)
     },
     async listWatchedEpisodes(animeRef) {
       return of().watched.list(animeRef)

@@ -80,6 +80,47 @@ describe('App: cabecera', () => {
   })
 })
 
+/**
+ * El conmutador de tipo, dentro de la cabecera y sólo donde significa algo.
+ *
+ * Cambió de sitio: vivía en una franja propia encima de la marquesina y ahora va
+ * en la cabecera, al final. Lo que se mide es la decisión de dónde sale —la mitad
+ * que se mira parte en dos la vitrina y la búsqueda, y en una ficha, en el
+ * reproductor o en los ajustes no hay nada que partir— y que sale **dentro** de la
+ * cabecera, que es el cambio. Que cada mitad sea un enlace con su `aria-current` se
+ * mide en la prueba del conmutador.
+ */
+describe('App: el conmutador de tipo en la cabecera', () => {
+  /**
+   * El marcado de la cabecera, que es donde se decide si el mando está.
+   *
+   * Falla si no encuentra la cabecera: una cabecera vacía daría por bueno el
+   * «no sale» de las pantallas donde no toca sin haber mirado nada.
+   */
+  function cabecera(path: string): string {
+    const trozo = /<header class="shell__header">([\s\S]*?)<\/header>/.exec(render(path))
+    if (trozo === null) throw new Error(`la cabecera no está en el marcado de ${path}`)
+
+    return trozo[1] ?? ''
+  }
+
+  test('sale en la vitrina y en la búsqueda', () => {
+    for (const ruta of ['/', '/search']) {
+      expect(cabecera(ruta), `el conmutador falta en la cabecera de ${ruta}`).toContain(
+        'aria-label="Tipo de contenido"',
+      )
+    }
+  })
+
+  test('no sale donde no hay dos mitades que elegir', () => {
+    for (const ruta of ['/anime/fuente/titulo-1', '/watch/fuente/titulo-1', '/settings']) {
+      expect(cabecera(ruta), `el conmutador no pinta nada en ${ruta}`).not.toContain(
+        'Tipo de contenido',
+      )
+    }
+  })
+})
+
 describe('App: ruta desconocida', () => {
   test('dice que la ruta no existe', () => {
     expect(render('/no-existe')).toContain('Esa ruta no existe')
@@ -94,5 +135,42 @@ describe('App: ruta desconocida', () => {
 
   test('nombra una ruta anidada entera', () => {
     expect(render('/muy/raro/esto')).toContain('/muy/raro/esto')
+  })
+})
+
+/**
+ * App: la caja de cada pantalla.
+ *
+ * La caja es la que decide si la pantalla llega a los bordes de la ventana o se
+ * queda en la columna de lectura de 1200 px. Es una decisión de composición, y
+ * por eso se mide en el marcado: la vitrina va a sangre —su marquesina cruza la
+ * pantalla— y el reproductor va sin tope —el video se mide contra la ventana—.
+ */
+describe('App: la caja de la pantalla', () => {
+  /** La clase del `<main>`, que es donde la decisión se ve. */
+  function caja(path: string): string {
+    const trozo = /<main class="([^"]*)"/.exec(render(path))
+    if (trozo === null) throw new Error(`no hay <main> en el marcado de ${path}`)
+
+    return trozo[1] ?? ''
+  }
+
+  test('la vitrina va a sangre', () => {
+    expect(caja('/')).toContain('shell__main--ancha')
+  })
+
+  test('el reproductor va sin tope y con relleno', () => {
+    const clase = caja('/watch/fuente/titulo-1')
+
+    expect(clase).toContain('shell__main--sin-tope')
+    // A sangre no: el relleno es el margen del video, y sin él quedaría pegado
+    // al borde de la ventana.
+    expect(clase).not.toContain('shell__main--ancha')
+  })
+
+  test('la ficha y la búsqueda se quedan en la columna de siempre', () => {
+    for (const ruta of ['/anime/fuente/titulo-1', '/search', '/settings']) {
+      expect(caja(ruta), `la caja de ${ruta} cambió de ancho`).toBe('shell__main')
+    }
   })
 })

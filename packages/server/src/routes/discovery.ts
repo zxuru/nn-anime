@@ -27,23 +27,34 @@
  * siempre.
  */
 
+import { refKey } from '@nn-anime/catalog-store'
 import type { FeedResponse } from '@nn-anime/core'
 import {
+  errorResponseSchema,
   feedResponseSchema,
+  mediaOf,
+  pasaElFiltro,
+  puedeServir,
   recentResponseSchema,
   uniqueByWork,
   type WorkItem,
 } from '@nn-anime/core'
 import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import type { Hono } from 'hono'
+import { adultosDeLaFila, MARGEN_DE_VERIFICACION } from '../adultos'
+import type { AniListCatalog } from '../anilist/catalog'
 import type { ServerContainer } from '../container'
+import { enMedia, mediaFrom, mediaPorProveedor } from './media'
 import { clampLimit } from './recommendations'
+import { adultContentOf } from './settings'
 
 const DEFAULT_TIMEOUT_MS = 8000
 
 export interface DiscoveryRouteOptions {
   readonly providers: readonly Provider[]
   readonly container: ServerContainer
+  /** El catálogo de AniList: el feed lo necesita para saber qué entrada es para adultos. */
+  readonly catalog: AniListCatalog
   readonly timeoutMs?: number
 }
 
@@ -92,12 +103,12 @@ export function orderFeed(entradas: FeedResponse['items']): FeedResponse['items'
 /**
  * La misma obra publicada por dos fuentes deja una entrada.
  *
- * «Último añadido» y «Novedades» pintaban el mismo título una vez por proveedor
- * —la referencia no lo delata, cada fuente tiene la suya— y la fila se leía como
- * dos obras distintas. La identidad la resuelve `uniqueByWork` con el título, su
- * alternativa y la referencia de cada fuente, así que dos fuentes que nombran la
- * misma obra de otra forma —«Danmachi» y «Dungeon ni Deai wo Motomeru no wa
- * Machigatteiru Darou ka»— también dejan una.
+ * «Novedades» y la lectura de lo último que conoce la aplicación pintaban el mismo
+ * título una vez por proveedor —la referencia no lo delata, cada fuente tiene la
+ * suya— y la fila se leía como dos obras distintas. La identidad la resuelve
+ * `uniqueByWork` con el título, su alternativa y la referencia de cada fuente, así
+ * que dos fuentes que nombran la misma obra de otra forma —«Danmachi» y «Dungeon ni
+ * Deai wo Motomeru no wa Machigatteiru Darou ka»— también dejan una.
  *
  * El año entra en la comparación porque aquí se tiene: dos fuentes que escriben
  * el mismo título el mismo año son la misma obra, y un año ausente en las dos es
@@ -113,7 +124,14 @@ export function sinRepetirPorObra<T extends WorkItem>(items: readonly T[]): read
 export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): void {
   app.get('/api/feed', async (c) => {
     const limite = clampLimit(c.req.query('limit'))
-    const fuentes = conFeed(options.providers)
+    const pedido = mediaFrom(c.req.query('media'))
+    if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
+
+    // La fuente mixta se consulta en las dos mitades: sus novedades pueden ser de
+    // cualquiera de las dos, y sólo se sabe al leer el `kind` de cada entrada.
+    const fuentes = conFeed(options.providers).filter((provider) =>
+      puedeServir(pedido.media, mediaOf(provider.capabilities)),
+    )
     const callOptions: CallOptions = {
       signal: c.req.raw.signal,
       timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
@@ -124,11 +142,17 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
         const lectura = await options.container.getFeed(provider, callOptions)
 
         // Un feed que no responde no puede tumbar la fila: lo local sigue ahí.
-        return lectura.ok ? lectura.value.value : []
+        if (!lectura.ok) return []
+
+        // El filtro va después de la caché, como en tendencias: se guarda lo que
+        // publica la fuente y cada pestaña se queda con su mitad al leerlo.
+        return lectura.value.value.filter((entrada) =>
+          pasaElFiltro(pedido.media, mediaOf(provider.capabilities), entrada.kind),
+        )
       }),
     )
 
-    const items = sinRepetirPorObra(
+    const candidatas = sinRepetirPorObra(
       orderFeed(
         resultados.flat().map((entrada) => ({
           ref: entrada.ref,
@@ -139,9 +163,30 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
           ...(entrada.publishedAt === undefined ? {} : { publishedAt: entrada.publishedAt }),
         })),
       ),
-    ).slice(0, limite)
+    )
 
-    return c.json(feedResponseSchema.parse({ items }))
+    const conAdultos = await adultContentOf(options.container.store)
+
+    // La verificación va sobre la ventana que se va a enseñar y no sobre el feed entero:
+    // la caché guarda hasta doscientas entradas y la fila enseña diez. La primera carga
+    // paga esas consultas una vez; después contestan la marca y el emparejamiento.
+    const ventana = candidatas.slice(0, limite + MARGEN_DE_VERIFICACION)
+    const adultos = await adultosDeLaFila(
+      { container: options.container, catalog: options.catalog },
+      ventana,
+      conAdultos,
+      c.req.raw.signal,
+    )
+    const conMarca = ventana.map((pieza) => ({
+      ...pieza,
+      ...(adultos.has(refKey(pieza.ref)) ? { adult: true as const } : {}),
+    }))
+
+    // El descarte va **antes** del tope: recortar primero dejaría la fila con una pieza
+    // menos de las que hay, que es lo mismo que el motor de recomendaciones ya evita.
+    const visibles = conAdultos ? conMarca : conMarca.filter((pieza) => pieza.adult === undefined)
+
+    return c.json(feedResponseSchema.parse({ items: visibles.slice(0, limite) }))
   })
 }
 
@@ -154,6 +199,9 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
 export function registerRecentRoute(app: Hono, options: DiscoveryRouteOptions): void {
   app.get('/api/catalog/recent', async (c) => {
     const limite = clampLimit(c.req.query('limit'))
+    const pedido = mediaFrom(c.req.query('media'))
+    if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
+
     /**
      * Se lee más de lo que se va a pintar.
      *
@@ -162,10 +210,17 @@ export function registerRecentRoute(app: Hono, options: DiscoveryRouteOptions): 
      * fila devolvería menos entradas de las pedidas. El margen es el número de
      * fuentes —cada una aporta como mucho una entrada por obra— y el recorte de
      * después deja el tope donde estaba.
+     *
+     * El tipo se filtra **después de leer y antes de recortar**, sobre la misma
+     * ventana de siempre: la fila es «lo último que la aplicación conoce» y no un
+     * ranking, así que una fuente que copa las últimas fichas se lleva su mitad y
+     * la otra mitad enseña lo que haya. Leer el catálogo entero para llenar una
+     * fila sería pagar la lectura por lo que no se va a pintar.
      */
     const margen = Math.max(1, options.providers.length)
     const leidas = await options.container.store.listRecentSummaries(limite * margen)
-    const items = sinRepetirPorObra(leidas).slice(0, limite)
+    const delTipo = enMedia(leidas, pedido.media, mediaPorProveedor(options.providers))
+    const items = sinRepetirPorObra(delTipo).slice(0, limite)
 
     return c.json(recentResponseSchema.parse({ items: [...items] }))
   })

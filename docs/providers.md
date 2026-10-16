@@ -87,7 +87,7 @@ Un proveedor es un objeto con:
 | `id` | Identificador corto, en minúsculas y con guiones. Es el que aparece en las rutas |
 | `name` | Nombre visible |
 | `apiVersion` | Versión del contrato. Hoy `1` |
-| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending`, `feed`, `episodePages` |
+| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending`, `feed`, `episodePages` —y, con `media`, qué sirve: `anime`, `movies` o `both` |
 | `search(query, options)` | Busca títulos |
 | `getAnime(ref, options)` | Detalle de un título |
 | `getEpisodes(ref, options)` | Lista de episodios |
@@ -100,6 +100,14 @@ Un proveedor es un objeto con:
 
 Los tres últimos van juntos y con `capabilities.episodePages: true`: declarar la capacidad sin los
 métodos, o tener los métodos sin declararla, se rechaza al cargar el plugin nombrando lo que falta.
+
+`capabilities.media` dice **qué sirve** el plugin, que es otra cosa que lo que sabe hacer: la interfaz
+divide la home y la búsqueda con un conmutador entre anime y películas, y cada título cae en una mitad
+según lo que declare su fuente. Vale `'anime'`, `'movies'` —películas, series y doramas: lo que no es
+anime va por el mismo camino— o `'both'`. **No declararlo es `'anime'`**: es lo que eran todos los
+plugins antes de que el campo existiera, así que no hay nada que cambiar para seguir funcionando. Un
+plugin de las dos cosas declara `'both'` y reparte por el `kind` de cada título (`'movie'` para las
+películas, lo demás del lado del anime), que es un dato que sus resultados ya pueden traer.
 
 Todos los métodos devuelven `Promise<Result<T, ProviderError>>` o lanzan: el SDK convierte lo que se
 lance en un `Result` fallido, así que **no hace falta envolver nada a mano**.
@@ -288,6 +296,63 @@ Cuatro cosas que conviene saber antes de escribirlos:
 - **Un 429 no es un error de datos.** Si tu sitio limita por ráfaga, deja de pedirle durante un rato
   —el plugin de jkanime espera 65 s— y dilo en el mensaje: la interfaz enseña el motivo, y un «el
   proveedor no dio ninguna fuente» sin motivo no se puede arreglar desde fuera.
+
+## Subtítulos de SubDivX para películas y series
+
+Un proveedor de películas —con `capabilities.media: 'movies'`— puede acompañar
+cada fuente con subtítulos de SubDivX. No hay API: el plugin busca en
+`https://www.subdivx.com` y devuelve el enlace de descarga como una pista más de
+`resolveStream`. Lo que el plugin no tiene que resolver —y por eso esta receta
+es corta— lo resuelve el servidor:
+
+- Cada pista se convierte en un ticket `/api/subtitles/…`: el reproductor web
+  sólo acepta rutas del proxy, y sin ese ticket la pista no llegaría a pintarse.
+- Si la descarga es un zip —el caso de SubDivX, cuyo `bajar.php` no lleva
+  extensión—, se extrae en memoria la primera entrada `.srt`, `.vtt` o `.ass` y
+  se sirve. Un rar se rechaza diciéndolo, con un 415.
+- Un `srt` se convierte a `vtt`, que es lo que el navegador entiende. Un `ass`
+  se sirve tal cual para mpv; la web lo omite, como todos.
+- Las cabeceras que la fuente declare (`headers`) valen también para descargar
+  sus pistas.
+
+```ts
+async resolveStream(request, options) {
+  void options
+  const video = {
+    url: `${BASE}/video/${request.episodeRef.value}.mp4`,
+    kind: 'file' as const,
+  }
+
+  // La búsqueda en SubDivX y la elección de la descarga son del plugin: este
+  // repositorio no incluye scrapers y su guía no los enseña. Lo que salga de
+  // esa búsqueda —el enlace de descarga tal cual, o nada si no hay subtítulo—
+  // se enchufa aquí, con su formato.
+  const descarga: string | undefined = undefined // ← tu búsqueda aquí
+
+  if (descarga === undefined) return [video]
+
+  return [
+    {
+      ...video,
+      // Si SubDivX exige `Referer` para descargar, se declara aquí: la pista lo
+      // hereda y el navegador no lo ve nunca.
+      headers: { Referer: 'https://www.subdivx.com/' },
+      subtitles: [{ lang: 'es', label: 'Español (SubDivX)', url: descarga, format: 'srt' }],
+    },
+  ]
+}
+```
+
+Tres cosas que conviene saber antes de escribirlo:
+
+- **SubDivX no tiene API y su página puede cambiar.** El día que cambie, se
+  actualiza el plugin, no la aplicación: el contrato (`subtitles` en cada
+  fuente) sigue valiendo igual.
+- **SubDivX está tras una protección anti-bots.** Si la búsqueda falla, el
+  episodio se reproduce igual y sin subtítulos: un fallo de la fuente de
+  subtítulos no puede ser un fallo de la reproducción.
+- **En mpv las pistas aún no se pasan.** El reproductor web las recibe por sus
+  tickets; el handoff a mpv de momento sólo lleva el video.
 
 ## Comprobar que conforma
 

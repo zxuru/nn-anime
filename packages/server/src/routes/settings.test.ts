@@ -146,6 +146,18 @@ describe('GET /api/settings', () => {
       expect(salida.providerPriority).toEqual([])
     })
   })
+
+  /**
+   * Lo que no se enciende a conciencia no se enseña: el defecto es la mitad del
+   * ajuste, y con él encendido la vitrina enseñaría lo que nadie ha pedido ver.
+   */
+  test('el contenido para adultos nace apagado', async () => {
+    await conApp(async ({ pedir }) => {
+      const salida = settingsResponseSchema.parse(await (await pedir('/api/settings')).json())
+
+      expect(salida.adultContent).toBe(false)
+    })
+  })
 })
 
 describe('PATCH /api/settings', () => {
@@ -160,6 +172,45 @@ describe('PATCH /api/settings', () => {
 
       expect(guardar.status).toBe(204)
       expect(salida.theme).toBe('light')
+    })
+  })
+
+  /**
+   * El parche cambia lo que trae y **sólo** lo que trae: encender el contenido
+   * para adultos no puede llevarse por delante el tema ni el orden de proveedores,
+   * que es lo que haría un parche que escribiera el objeto entero.
+   */
+  test('el contenido para adultos se guarda, se lee de vuelta y no borra lo demás', async () => {
+    await conApp(async ({ pedir }) => {
+      await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ theme: 'light', providerPriority: ['jkanime'] }),
+      })
+
+      const guardar = await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ adultContent: true }),
+      })
+      const salida = settingsResponseSchema.parse(await (await pedir('/api/settings')).json())
+
+      expect(guardar.status).toBe(204)
+      expect(salida.adultContent).toBe(true)
+      expect(salida.theme).toBe('light')
+      expect(salida.providerPriority).toEqual(['jkanime'])
+    })
+  })
+
+  test('un `adultContent` que no es booleano es 400', async () => {
+    await conApp(async ({ pedir }) => {
+      const respuesta = await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ adultContent: 'sí' }),
+      })
+
+      expect(respuesta.status).toBe(400)
     })
   })
 

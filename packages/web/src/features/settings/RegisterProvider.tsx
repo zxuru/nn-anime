@@ -14,6 +14,7 @@
 
 import type { ProviderSummary } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import type { ProviderMedia } from '@nn-anime/core/media'
 import { type ReactNode, useState } from 'react'
 import { describirFallo } from '../../api/fallo'
 import { resumenDeFallo } from '../../components/ErrorNotice'
@@ -23,6 +24,7 @@ import {
   EMPTY_FORM,
   type EndpointKey,
   type FieldKey,
+  MEDIA_OPTIONS,
   type ProviderForm,
   toProviderDraft,
 } from './draft'
@@ -132,6 +134,10 @@ export function RegisterProvider(props: RegisterProviderProps): ReactNode {
     setForm((actual) => ({ ...actual, capabilities: { ...actual.capabilities, [key]: value } }))
   }
 
+  function setMedia(media: ProviderMedia): void {
+    setForm((actual) => ({ ...actual, media }))
+  }
+
   function onSubmit(event: { preventDefault: () => void }): void {
     event.preventDefault()
     setStatus('saving')
@@ -210,6 +216,35 @@ export function RegisterProvider(props: RegisterProviderProps): ReactNode {
               <span>{t(DEFAULT_LOCALE, entry.label)}</span>
             </label>
           ))}
+
+          {/*
+            Qué sirve es una elección cerrada y no una casilla: una fuente sirve
+            anime, películas o las dos cosas, y con dos casillas se podrían marcar
+            las dos o ninguna, que no significan nada.
+          */}
+          <label className="field" htmlFor="provider-media">
+            <span className="field__label">{t(DEFAULT_LOCALE, 'settings.register.media')}</span>
+            <select
+              className="field__input"
+              id="provider-media"
+              value={form.media}
+              onChange={(event) => setMedia(event.target.value as ProviderMedia)}
+            >
+              {MEDIA_OPTIONS.map((media) => (
+                <option key={media} value={media}>
+                  {t(
+                    DEFAULT_LOCALE,
+                    media === 'movies'
+                      ? 'media.movies'
+                      : media === 'both'
+                        ? 'media.both'
+                        : 'media.anime',
+                  )}
+                </option>
+              ))}
+            </select>
+            <span className="field__hint">{t(DEFAULT_LOCALE, 'settings.register.mediaHint')}</span>
+          </label>
         </div>
       </fieldset>
 

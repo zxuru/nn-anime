@@ -29,6 +29,9 @@ import type { FeedEntry, StreamRequest, StreamSource } from '@nn-anime/core'
 import {
   type AnimeDetail,
   type Episode,
+  type EpisodeSeason,
+  episodeSeasonOf,
+  episodeSeasons,
   err,
   normalizeQuery,
   ok,
@@ -86,6 +89,33 @@ export const MAX_FEED_ENTRIES = 200
  */
 export const EPISODES_PER_PAGE = 100
 
+/** Qué página del selector se pide. */
+export interface EpisodesPageRequest {
+  readonly page: number
+  /**
+   * La temporada pedida, si se pidió una.
+   *
+   * Sin ella, la página es la del título entero. Un proveedor que pagina por su
+   * cuenta —`capabilities.episodePages`— no la admite: su lista no se lee entera,
+   * así que no hay de dónde sacar las temporadas, y la ruta lo rechaza antes de
+   * llegar aquí.
+   */
+  readonly season?: number
+}
+
+/**
+ * Una página del selector, con el índice de temporadas del título.
+ *
+ * El índice va **fuera** de la página: `StoredEpisodePage` es lo que se guarda y
+ * lo que el contrato del plugin devuelve —una ventana de cien episodios—, y el
+ * índice describe el título entero. Guardarlo dentro obligaría a escribirlo en
+ * cada página y a que las páginas del plugin mintieran sobre un campo que no
+ * tienen.
+ */
+export interface EpisodesPageOutcome extends CacheOutcome<StoredEpisodePage> {
+  readonly seasons?: readonly EpisodeSeason[]
+}
+
 /** Clave de caché de una búsqueda: el proveedor y la consulta normalizada. */
 export function searchKey(providerId: string, query: string): string {
   return `${providerId}#${normalizeQuery(query)}`
@@ -131,13 +161,17 @@ export interface ServerContainer {
    * Aquí vive la decisión de dónde sale la página: del proveedor, si declara
    * `episodePages`, o del troceado de la lista completa que ya cachea
    * `getEpisodes`. La ruta no sabe cuál de los dos caminos se tomó.
+   *
+   * Con una temporada pedida, la página es **suya** —su primer centenar, sus
+   * páginas siguientes— y el índice de temporadas sigue siendo el del título:
+   * el selector tiene que poder ofrecer todas desde cualquier página.
    */
   getEpisodesPage(
     provider: Provider,
     ref: ProviderRef,
-    page: number,
+    request: EpisodesPageRequest,
     callOptions: CallOptions,
-  ): Promise<Result<CacheOutcome<StoredEpisodePage>, ProviderError>>
+  ): Promise<Result<EpisodesPageOutcome, ProviderError>>
   /**
    * Un episodio por su número, con el proveedor o desde la lista cacheada.
    *
@@ -379,24 +413,24 @@ export function createContainer(options: ContainerOptions): ServerContainer {
   const loadEpisodesPage = async (
     provider: Provider,
     ref: ProviderRef,
-    page: number,
+    request: EpisodesPageRequest,
     callOptions: CallOptions,
-  ): Promise<Result<CacheOutcome<StoredEpisodePage>, ProviderError>> => {
+  ): Promise<Result<EpisodesPageOutcome, ProviderError>> => {
     try {
       if (provider.capabilities.episodePages === true) {
         // La página cuelga del título: sin su fila, la escritura falla.
         const titulo = await ensureAnime(provider, ref, callOptions)
         if (!titulo.ok) return titulo
 
-        const guardada = await store.readEpisodePage(ref, page)
+        const guardada = await store.readEpisodePage(ref, request.page)
         if (guardada !== null && !guardada.stale) {
           return ok({ value: guardada.value, source: 'hit' })
         }
 
-        const resultado = await fetchEpisodesPage(provider, ref, page, callOptions)
+        const resultado = await fetchEpisodesPage(provider, ref, request.page, callOptions)
         if (!resultado.ok) return err(resultado.error)
 
-        await store.writeEpisodePage(ref, page, resultado.value)
+        await store.writeEpisodePage(ref, request.page, resultado.value)
 
         return ok({ value: resultado.value, source: 'miss' })
       }
@@ -404,7 +438,43 @@ export function createContainer(options: ContainerOptions): ServerContainer {
       const lista = await loadEpisodes(provider, ref, callOptions)
       if (!lista.ok) return lista
 
-      return ok({ value: sliceEpisodesPage(lista.value.value, page), source: lista.value.source })
+      const completa = lista.value.value
+      const seasons = episodeSeasons(completa)
+      if (request.season === undefined) {
+        return ok({
+          value: sliceEpisodesPage(completa, request.page),
+          source: lista.value.source,
+          ...(seasons === undefined ? {} : { seasons }),
+        })
+      }
+
+      const temporada = completa.filter(
+        (episodio) => episodeSeasonOf(episodio.title) === request.season,
+      )
+      if (temporada.length === 0) {
+        // La temporada pedida no está: 404 como el episodio suelto que no
+        // existe, y por el mismo camino —el `estado` del contexto es el que ya
+        // lee `statusForEpisodes`— para que la interfaz no trate dos «no está»
+        // de forma distinta.
+        return err(
+          new ProviderError({
+            message: `el título ${ref.value} de ${provider.id} no tiene la temporada ${request.season}`,
+            scope: provider.id,
+            op: 'getEpisodesPage',
+            context: { estado: 404 },
+          }),
+        )
+      }
+
+      return ok({
+        // El `total` sigue siendo el del título, no el de la temporada: la fila
+        // numera «Episodio 12 de 91», que es la etiqueta de la fuente y lo que
+        // dice el reproductor. Lo que se recorta es la página, que ahora es la
+        // de esta temporada.
+        value: sliceEpisodesPage(temporada, request.page, completa.length),
+        source: lista.value.source,
+        ...(seasons === undefined ? {} : { seasons }),
+      })
     } catch (cause) {
       return err(asProviderError(cause, provider.id, 'getEpisodesPage'))
     }
@@ -592,21 +662,29 @@ export function createContainer(options: ContainerOptions): ServerContainer {
 }
 
 /**
- * Trocea la lista completa en la página pedida.
+ * Trocea una lista de episodios en la página pedida.
  *
  * `hasMore` sale del trozo y no del tamaño: la última página puede venir
  * incompleta y eso no significa que haya más. `total` es la longitud de la lista
  * porque aquí sí se conoce entera; con un proveedor que pagina lo dice él, y si
  * no lo dice no se inventa.
+ *
+ * `total` se puede decir aparte, y hay un caso que lo necesita: la página de una
+ * temporada. Lo que se trocea es la temporada, y lo que la fila numera es el
+ * título —«Episodio 12 de 91»—, así que el total no puede salir del trozo.
  */
-function sliceEpisodesPage(episodes: readonly Episode[], page: number): StoredEpisodePage {
+function sliceEpisodesPage(
+  episodes: readonly Episode[],
+  page: number,
+  total: number = episodes.length,
+): StoredEpisodePage {
   const desde = (page - 1) * EPISODES_PER_PAGE
 
   return {
     episodes: episodes.slice(desde, desde + EPISODES_PER_PAGE),
     page,
     hasMore: desde + EPISODES_PER_PAGE < episodes.length,
-    total: episodes.length,
+    total,
   }
 }
 

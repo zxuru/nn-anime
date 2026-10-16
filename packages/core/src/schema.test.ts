@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { z } from 'zod'
 import { type PublicStreamSource, toPublicStreamSource } from './models'
 import {
+  anilistEntrySchema,
   animeDetailSchema,
   cacheHitSchema,
   candidateSchema,
@@ -17,6 +18,17 @@ import {
 } from './schema'
 
 const REF = { providerId: 'fuente-ejemplo', value: 'titulo-1' }
+
+/** Una obra de AniList guardada, con lo mínimo que exige el schema. */
+const ENTRADA_ANILIST = {
+  id: 1,
+  names: { romaji: 'Una obra' },
+  adult: false,
+  genres: ['Acción'],
+  studios: ['Estudio'],
+  coverUrl: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1-a.jpg',
+  siteUrl: 'https://anilist.co/anime/1',
+}
 
 interface SafeParser {
   safeParse(
@@ -117,6 +129,13 @@ const CASES: readonly ParseCase[] = [
     invalid: { ref: REF, title: 'Un título', tags: 'Acción', studios: [] },
     invalidField: 'tags',
   },
+  {
+    name: 'anilistEntrySchema',
+    parser: anilistEntrySchema,
+    valid: ENTRADA_ANILIST,
+    invalid: { ...ENTRADA_ANILIST, adult: 'no' },
+    invalidField: 'adult',
+  },
 ]
 
 describe('schemas: aceptan la forma canónica', () => {
@@ -136,6 +155,26 @@ describe('schemas: rechazan un campo mal tipado y lo nombran', () => {
       expect(result.message).toContain(parseCase.invalidField)
     })
   }
+})
+
+/**
+ * La marca de adultos de una obra guardada.
+ *
+ * Es obligatoria y no opcional a propósito: un `false` por defecto daría por apta
+ * una obra que nadie ha mirado, y la caché no se enteraría de que le falta el dato.
+ */
+describe('anilistEntrySchema: la marca de adultos no tiene valor por defecto', () => {
+  test('sin el campo, la entrada no se lee', () => {
+    const { adult: _sinMarca, ...sinMarca } = ENTRADA_ANILIST
+    const result = outcome(anilistEntrySchema, sinMarca)
+
+    expect(result.success).toBe(false)
+    expect(result.message).toContain('adult')
+  })
+
+  test('con el campo, se lee aunque sea falsa', () => {
+    expect(outcome(anilistEntrySchema, { ...ENTRADA_ANILIST, adult: false }).success).toBe(true)
+  })
 })
 
 describe('schemas: son estrictos con las claves desconocidas', () => {
@@ -458,6 +497,56 @@ describe('feed: la lista de novedades de una fuente', () => {
     if (!result.success) {
       expect(result.error.issues.map((issue) => issue.path.join('.')).join(' | ')).toContain(
         'publishedAt',
+      )
+    }
+  })
+})
+
+describe('media: qué sirve un proveedor', () => {
+  test('sin declararla, el manifiesto de siempre sigue cargando', () => {
+    // Es lo que hace que añadirla no sea un cambio de versión mayor para los
+    // plugins publicados: no aparece y no se rechaza.
+    const result = providerCapabilitiesSchema.safeParse({
+      search: true,
+      sub: true,
+      dub: false,
+      trending: false,
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.media).toBeUndefined()
+  })
+
+  test('declarada, se valida contra el vocabulario', () => {
+    const vocabulario = ['anime', 'movies', 'both'] as const
+
+    for (const media of vocabulario) {
+      const result = providerCapabilitiesSchema.safeParse({
+        search: true,
+        sub: true,
+        dub: false,
+        trending: false,
+        media,
+      })
+
+      expect(result.success, media).toBe(true)
+      if (result.success) expect(result.data.media).toBe(media)
+    }
+  })
+
+  test('un valor fuera del vocabulario se rechaza nombrando el campo', () => {
+    const result = providerCapabilitiesSchema.safeParse({
+      search: true,
+      sub: true,
+      dub: false,
+      trending: false,
+      media: 'anime-y-peliculas',
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join('.')).join(' | ')).toContain(
+        'media',
       )
     }
   })

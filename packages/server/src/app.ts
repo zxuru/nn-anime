@@ -20,6 +20,8 @@ import { healthResponseSchema, type Logger } from '@nn-anime/core'
 import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
 import type { LoadReport } from '@nn-anime/provider-sdk'
 import { Hono } from 'hono'
+import { createAniListCatalog } from './anilist/catalog'
+import { anilistOfflineFromEnv, createAniListClient } from './anilist/client'
 import { bootstrapHandler } from './bootstrap'
 import type { ServerContainer } from './container'
 import { hostGuard } from './middleware/host-guard'
@@ -30,6 +32,7 @@ import { PROTECTED_PREFIXES } from './paths'
 import { createProviderHub } from './provider-hub'
 import { acotarAProveedoresActivos } from './provider-scope'
 import { enabledProviderFiles } from './repo-store'
+import { registerAniListRoutes } from './routes/anilist'
 import { registerAnimeRoutes } from './routes/anime'
 import { registerCoverRoute } from './routes/cover'
 import { registerDetailRoutes } from './routes/detail'
@@ -103,20 +106,31 @@ export interface AppOptions {
   /** Versión de mpv detectada al arrancar, si la hay. */
   readonly mpvVersion?: string
   /**
-   * `fetch` de la descarga de repositorios. Se inyecta en los tests para no
-   * salir a la red; en producción se usa el global.
+   * La descarga de repositorios de GitHub.
+   *
+   * Tres inyecciones por el mismo motivo: las pruebas no salen a la red, no
+   * resuelven nombres de verdad y no dependen del reloj real.
    */
   readonly githubFetchImpl?: FetchLike
-  /** Resolutor del DNS para la lista blanca de la descarga. Igual que el del proxy. */
   readonly githubResolver?: Resolver
-  /**
-   * Reloj de la descarga de repositorios.
-   *
-   * Se inyecta porque `fetchedAt` no es sólo un dato que se enseña: es la marca
-   * que distingue una descarga de la siguiente, y dos descargas en el mismo
-   * milisegundo compartirían carpeta y el módulo no se volvería a importar.
-   */
   readonly githubClock?: () => number
+  /**
+   * El cliente de AniList.
+   *
+   * Misma tríada que GitHub —`fetch`, resolutor y reloj— porque es el mismo
+   * problema: un tercero al que se sale con lista blanca, en pruebas sin red.
+   */
+  readonly anilistFetchImpl?: FetchLike
+  readonly anilistResolver?: Resolver
+  readonly anilistClock?: () => number
+  /**
+   * Sin salida a AniList, para el arnés de pruebas.
+   *
+   * Por defecto lo dice el entorno (`NN_ANIME_ANILIST_OFFLINE`), que es como lo
+   * pone el e2e: la home siempre pide el descubrimiento, y una prueba que sale a
+   * internet es una prueba que se rompe sola.
+   */
+  readonly anilistOffline?: boolean
   /**
    * Excepción de loopback para el proxy. La pone el arranque leyendo el entorno,
    * y **sólo** el e2e la pone. Ver `ALLOW_LOOPBACK_ENV`.
@@ -240,13 +254,41 @@ export function createApp(options: AppOptions): Hono {
     }
 
     registerCoverRoute(app, { container, ...proxyOptions })
+    // Un solo catálogo para todas las rutas que hablan con AniList: dos instancias serían
+    // dos cachés en memoria y dos mapas de «en vuelo» que no se ven entre sí. El feed y
+    // las tendencias lo necesitan para saber qué pieza es para adultos.
+    const catalog = createAniListCatalog({
+      store: container.store,
+      client: createAniListClient({
+        offline: options.anilistOffline ?? anilistOfflineFromEnv(),
+        ...(options.anilistFetchImpl === undefined ? {} : { fetchImpl: options.anilistFetchImpl }),
+        ...(options.anilistResolver === undefined ? {} : { resolver: options.anilistResolver }),
+        ...(options.anilistClock === undefined ? {} : { now: options.anilistClock }),
+      }),
+      ...(options.anilistClock === undefined ? {} : { now: options.anilistClock }),
+      ...(options.logger === undefined ? {} : { logger: options.logger }),
+    })
+
+    registerAniListRoutes(app, {
+      providers: hub.providers,
+      container,
+      catalog,
+      // Las imágenes van con el `fetch` de AniList y no con el del proxy de
+      // streams: son dos superficies distintas y una prueba que inyecta una no
+      // tiene por qué estar sirviendo la otra.
+      ...(options.anilistFetchImpl === undefined ? {} : { fetchImpl: options.anilistFetchImpl }),
+      ...(options.anilistResolver === undefined ? {} : { resolver: options.anilistResolver }),
+      ...(options.allowLoopback === undefined ? {} : { allowLoopback: options.allowLoopback }),
+    })
     registerStreamRoutes(app, { ...routeOptions, ...proxyOptions })
     registerSubtitlesRoute(app, { container, ...proxyOptions })
     registerWatchRoutes(app, { container })
-    registerRecommendationsRoute(app, routeOptions)
-    registerTrendingRoute(app, routeOptions)
-    registerFeedRoute(app, routeOptions)
-    registerRecentRoute(app, routeOptions)
+    registerRecommendationsRoute(app, { ...routeOptions, catalog })
+    registerTrendingRoute(app, { ...routeOptions, catalog })
+    registerFeedRoute(app, { ...routeOptions, catalog })
+    // `recent` no necesita el catálogo —es una lectura de la base—, pero comparte el tipo
+    // de opciones con el feed, que sí lo necesita para saber qué entrada es para adultos.
+    registerRecentRoute(app, { ...routeOptions, catalog })
     registerSettingsRoute(app, {
       container,
       plugins,

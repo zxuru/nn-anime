@@ -10,6 +10,7 @@ import {
 } from '@nn-anime/core'
 import { createRegistry, type Provider } from '@nn-anime/provider-sdk'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import { fakeAniList } from '../__fixtures__/anilist'
 import { createApp, createContainer } from '../index'
 import { clampLimit, MAX_LIMIT } from './recommendations'
 
@@ -68,6 +69,8 @@ async function conApp<T>(
   opciones: {
     readonly cachear?: readonly string[]
     readonly proveedores?: readonly Provider[]
+    /** Un AniList de mentira, para las pruebas que miden el filtro de tendencias. */
+    readonly anilist?: Parameters<typeof fakeAniList>[0]
   } = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-recs-'))
@@ -76,6 +79,7 @@ async function conApp<T>(
   const container = createContainer({ db })
   const proveedor = createFixtureProvider()
   const activos = opciones.proveedores ?? [proveedor]
+  const anilist = opciones.anilist === undefined ? undefined : fakeAniList(opciones.anilist)
 
   try {
     const servidor = createApp({
@@ -92,6 +96,12 @@ async function conApp<T>(
         rejected: [],
       },
       container,
+      // Sin doble, estas pruebas no salen a la red: las tendencias verifican sus piezas
+      // contra AniList, y sin el interruptor cada fila intentaría hablar con un tercero.
+      anilistOffline: anilist === undefined,
+      ...(anilist === undefined
+        ? {}
+        : { anilistFetchImpl: anilist.impl, anilistResolver: async () => ['140.82.121.3'] }),
     })
 
     // Se cachean los títulos pedidos: son los candidatos del motor.
@@ -192,6 +202,32 @@ describe('GET /api/trending', () => {
     ])
 
     expect(salida.items).toHaveLength(3)
+  })
+  /**
+   * Las tendencias tampoco publican la edad: la única forma de saberla es preguntar, y
+   * una pieza marcada no se sirve con el interruptor apagado.
+   */
+  test('apagado, la tendencia que AniList marca para adultos no sale', async () => {
+    const salida = await conApp(
+      async ({ pedir }) =>
+        trendingResponseSchema.parse(await (await pedir('/api/trending')).json()),
+      {
+        proveedores: [
+          proveedorConTop('uno', [
+            resultado('uno', 'marcada', 'Obra Marcada'),
+            resultado('uno', 'normal', 'Obra Normal'),
+          ]),
+        ],
+        anilist: {
+          search: {
+            'Obra Marcada': [{ id: 700, romaji: 'Obra Marcada', year: 2024, isAdult: true }],
+            'Obra Normal': [{ id: 701, romaji: 'Obra Normal', year: 2023 }],
+          },
+        },
+      },
+    )
+
+    expect(salida.items.map((item) => item.title)).toEqual(['Obra Normal'])
   })
 })
 
@@ -438,6 +474,106 @@ describe('la consulta en curso', () => {
         )
       },
       { cachear: [REF, 'cazador-de-sombras'] },
+    )
+  })
+})
+
+/**
+ * El motor, cuando se le pide una sola mitad.
+ *
+ * El proveedor se declara **sin tendencias** a propósito: así los únicos
+ * candidatos son los que dejó el detalle cacheado, y lo que se mide es el filtro
+ * del motor —que va antes de recomendar— y no el de la fila del top, que tiene su
+ * propia prueba. Filtrar después de recomendar dejaría la pestaña con menos piezas
+ * de las que hay, porque el motor ya habría llenado su tope con la otra mitad.
+ */
+describe('GET /api/recommendations?media=', () => {
+  const PELICULA = 'el-jardin-de-hierro'
+
+  function sinTendencias(): Provider {
+    const base = createFixtureProvider()
+    const { getTrending: _sinUsar, ...resto } = base
+
+    return { ...resto, capabilities: { ...base.capabilities, trending: false } }
+  }
+
+  test('con `movies` no devuelve el anime que ya conoce', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const salida = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations?media=movies')).json(),
+        )
+
+        expect(salida.items.length).toBeGreaterThan(0)
+        expect(salida.items.every((item) => item.kind === 'movie')).toBe(true)
+      },
+      { proveedores: [sinTendencias()], cachear: [REF, PELICULA] },
+    )
+  })
+
+  test('con `anime` no devuelve la película, aunque sea lo más popular', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const salida = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations?media=anime')).json(),
+        )
+
+        expect(salida.items.length).toBeGreaterThan(0)
+        expect(salida.items.every((item) => item.kind !== 'movie')).toBe(true)
+      },
+      { proveedores: [sinTendencias()], cachear: [REF, PELICULA] },
+    )
+  })
+
+  test('sin el parámetro siguen saliendo las dos mitades', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const salida = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations')).json(),
+        )
+
+        // Es lo que mantiene a quien ya leía la ruta: no pedir tipo no puede
+        // significar «sólo anime», que es el defecto del proveedor y no el de la
+        // petición.
+        expect(salida.items.some((item) => item.kind === 'movie')).toBe(true)
+        expect(salida.items.some((item) => item.kind !== 'movie')).toBe(true)
+      },
+      { proveedores: [sinTendencias()], cachear: [REF, PELICULA] },
+    )
+  })
+})
+
+/**
+ * El motor no puede recomendar lo que el filtro esconde.
+ *
+ * Es el caso que justifica el filtro en la base: la marca se aprendió con el interruptor
+ * encendido —o la puso el feed al verificar— y ahora está apagado, así que la obra sigue
+ * en el catálogo y el motor la elegiría sin saber que no se puede enseñar.
+ */
+describe('el filtro de adultos en las recomendaciones', () => {
+  test('apagado, una obra marcada no se recomienda; encendido, sí', async () => {
+    await conApp(
+      async ({ pedir, db }) => {
+        db.query("INSERT INTO adult_ref (provider_id, provider_ref) VALUES ('fixture', ?)").run(REF)
+
+        const apagado = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations')).json(),
+        )
+        expect(apagado.items.map((item) => item.ref.value)).not.toContain(REF)
+
+        const parche = await pedir('/api/settings', {
+          method: 'PATCH',
+          headers: { ...GOOD, 'content-type': 'application/json' },
+          body: JSON.stringify({ adultContent: true }),
+        })
+        expect(parche.status).toBe(204)
+
+        const encendido = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations')).json(),
+        )
+        expect(encendido.items.map((item) => item.ref.value)).toContain(REF)
+      },
+      { cachear: [REF] },
     )
   })
 })

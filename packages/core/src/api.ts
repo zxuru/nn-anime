@@ -12,6 +12,7 @@
  */
 
 import { z } from 'zod'
+import { ANILIST_RELATIONS } from './anilist'
 import {
   githubRepoFromUrl,
   MAX_ENABLED_REPO_FILES,
@@ -24,12 +25,14 @@ import {
   MAX_REPO_URL_LENGTH,
 } from './repos'
 import {
+  airingStatusSchema,
   animeDetailSchema,
   animeSummarySchema,
   episodeSchema,
   httpUrlSchema,
   modeSchema,
   providerCapabilitiesSchema,
+  providerMediaSchema,
   providerRefSchema,
   searchResultSchema,
   streamRequestSchema,
@@ -431,6 +434,15 @@ export const watchedResponseSchema = z.strictObject({
  */
 export const feedItemSchema = animeSummarySchema.extend({
   publishedAt: z.iso.datetime().optional(),
+  /**
+   * Si **se sabe** que la obra es para adultos.
+   *
+   * Opcional y sólo verdadero: una entrada del feed viene de un plugin que no
+   * publica la edad, así que lo único que se puede afirmar de ella es que se
+   * comprobó que lo es. La ausencia significa «no consta»; un `false` diría que se
+   * miró, y eso sería mentir en la marca.
+   */
+  adult: z.literal(true).optional(),
 })
 
 /** La fila de novedades: lo que publica la fuente, sin que nadie busque. */
@@ -441,6 +453,146 @@ export const feedResponseSchema = z.strictObject({
 /** La fila «último añadido»: lo que la aplicación ya conoce, sin red. */
 export const recentResponseSchema = z.strictObject({
   items: z.array(animeSummarySchema),
+})
+
+/**
+ * Una pieza de las filas de descubrimiento: el top y las novedades.
+ *
+ * `cover` es una **ruta local** —`/api/anilist/image/cover/<id>`— y no la
+ * dirección que publica AniList: el navegador sigue sin conocer ningún origen
+ * remoto y la CSP no cambia, igual que con las portadas de proveedor.
+ *
+ * `ref` viaja sólo cuando la base ya conoce esa obra en alguna fuente. Es lo que
+ * decide si la pieza abre una ficha o la búsqueda de su título, y por eso las dos
+ * formas tienen que poder convivir en la misma fila.
+ */
+export const discoverItemSchema = z.strictObject({
+  anilistId: z.number().int().positive(),
+  title: z.string().min(1),
+  cover: z.string().min(1),
+  score: z.number().min(0).max(100).optional(),
+  year: z.number().int().optional(),
+  /**
+   * Si AniList la marca para adultos. Es lo que pinta la marca `+18` y lo que la
+   * frontera descarta cuando el ajuste está apagado.
+   */
+  adult: z.boolean(),
+  kind: titleKindSchema.optional(),
+  format: z.string().min(1).optional(),
+  episodes: z.number().int().positive().optional(),
+  ref: providerRefSchema.optional(),
+})
+
+export const discoverResponseSchema = z.strictObject({ items: z.array(discoverItemSchema) })
+
+/**
+ * Un episodio que se emite, o que se acaba de emitir.
+ *
+ * `airingAt` es la fecha del capítulo y no la de una entrada de catálogo: es el
+ * dato que los proveedores no publican y por el que existen la parrilla y la fila
+ * de novedades.
+ */
+export const airingItemSchema = z.strictObject({
+  anilistId: z.number().int().positive(),
+  title: z.string().min(1),
+  cover: z.string().min(1),
+  /** El capítulo. Una película no tiene: su cita es el estreno. */
+  episode: z.number().int().positive().optional(),
+  /**
+   * Cuándo. **Opcional** porque AniList publica el estreno de muchas películas
+   * con precisión de año y aquí no se inventa un día: sin fecha, la pieza lleva
+   * el año y la parrilla no la coloca en el calendario.
+   */
+  airingAt: z.iso.datetime().optional(),
+  year: z.number().int().optional(),
+  /** Si AniList la marca para adultos. Ver `discoverItemSchema`. */
+  adult: z.boolean(),
+  kind: titleKindSchema.optional(),
+  ref: providerRefSchema.optional(),
+})
+
+export const airingResponseSchema = z.strictObject({ items: z.array(airingItemSchema) })
+
+/**
+ * Lo que AniList sabe de una obra, ya saneado.
+ *
+ * La sinopsis llega como **texto plano** —la API la publica con etiquetas y se
+ * limpia en `core`—, así que este contrato no puede llevar HTML ni por descuido.
+ * `banner` es la imagen apaisada de la ficha, también por una ruta local.
+ */
+export const enrichmentSchema = z.strictObject({
+  anilistId: z.number().int().positive(),
+  cover: z.string().min(1),
+  banner: z.string().min(1).optional(),
+  synopsis: z.string().min(1).optional(),
+  genres: z.array(z.string().min(1)),
+  score: z.number().min(0).max(100).optional(),
+  status: airingStatusSchema.optional(),
+  year: z.number().int().optional(),
+  format: z.string().min(1).optional(),
+  episodes: z.number().int().positive().optional(),
+  durationMin: z.number().int().positive().optional(),
+  studios: z.array(z.string().min(1)),
+  /** Si AniList la marca para adultos. Ver `discoverItemSchema`. */
+  adult: z.boolean(),
+  /** La ficha de la obra en AniList, para atribuir el dato. */
+  siteUrl: httpUrlSchema,
+  nextEpisode: z
+    .strictObject({
+      number: z.number().int().positive(),
+      airingAt: z.iso.datetime(),
+    })
+    .optional(),
+})
+
+/** El enriquecimiento de una ficha. `null` es «no hay con qué», no un error. */
+export const enrichmentResponseSchema = z.strictObject({
+  enrichment: enrichmentSchema.nullable(),
+})
+
+/** Las referencias que la vitrina quiere emparejar de una vez. */
+export const enrichmentBatchRequestSchema = z.strictObject({
+  refs: z.array(providerRefSchema).min(1).max(24),
+})
+
+/**
+ * El lote del motor: cada referencia con lo que se encontró, o sin ello.
+ *
+ * `enrichment` se omite cuando no hubo emparejamiento en vez de viajar como
+ * `null`: en una lista de veinte, decir «esta no tiene» una vez por elemento es
+ * ruido, y la ausencia ya significa exactamente eso.
+ */
+export const enrichmentBatchItemSchema = z.strictObject({
+  ref: providerRefSchema,
+  enrichment: enrichmentSchema.optional(),
+})
+
+export const enrichmentBatchResponseSchema = z.strictObject({
+  items: z.array(enrichmentBatchItemSchema),
+})
+
+/**
+ * Una relación de AniList, en la forma de esta aplicación.
+ *
+ * El motivo viaja como uno de los valores de `ANILIST_RELATIONS` y no con el
+ * nombre que publica la API: la interfaz traduce una lista cerrada y no tiene por
+ * qué saber que `SIDE_STORY` se escribe así.
+ */
+export const anilistRelationSchema = z.enum(ANILIST_RELATIONS)
+
+/**
+ * Una pieza del descubrimiento más el motivo por el que AniList la relaciona.
+ *
+ * Es la misma pieza que la del top y la parrilla —portada por la ruta local,
+ * `kind`, año, nota y `ref`— porque la pinta el mismo componente, y el `ref`
+ * decide lo mismo: con ficha local abre la ficha, sin ella la búsqueda.
+ */
+export const anilistRelatedItemSchema = discoverItemSchema.extend({
+  relation: anilistRelationSchema,
+})
+
+export const anilistRelatedResponseSchema = z.strictObject({
+  items: z.array(anilistRelatedItemSchema),
 })
 
 /**
@@ -460,6 +612,13 @@ const providerPrioritySchema = z.array(z.string().min(1)).max(64)
 export const settingsResponseSchema = z.strictObject({
   theme: z.enum(['dark', 'light', 'system']),
   providerPriority: providerPrioritySchema,
+  /**
+   * Si la vitrina enseña también lo que AniList marca para adultos.
+   *
+   * Nace apagado, y es el ajuste del que cuelga todo lo demás: decide qué se pide
+   * a AniList, qué se guarda y qué se sirve.
+   */
+  adultContent: z.boolean(),
   paths: z.strictObject({
     data: z.string().min(1),
     config: z.string().min(1),
@@ -484,8 +643,8 @@ export const settingsResponseSchema = z.strictObject({
 /**
  * Lo que un `PATCH /api/settings` puede cambiar.
  *
- * Los dos campos son opcionales y hace falta que venga uno: el parche cambia lo
- * que trae y deja lo demás como está. Exigir los dos obligaría a la interfaz a
+ * Los tres campos son opcionales y hace falta que venga uno: el parche cambia lo
+ * que trae y deja lo demás como está. Exigir los tres obligaría a la interfaz a
  * mandar el tema cuando sólo quiere reordenar proveedores, y un `PATCH` vacío no
  * describe ningún cambio: es una petición mal escrita, no una escritura inútil.
  */
@@ -493,14 +652,29 @@ export const settingsPatchSchema = z
   .strictObject({
     theme: z.enum(['dark', 'light', 'system']).optional(),
     providerPriority: providerPrioritySchema.optional(),
+    adultContent: z.boolean().optional(),
   })
   .refine(
-    (parche) => parche.theme !== undefined || parche.providerPriority !== undefined,
+    (parche) =>
+      parche.theme !== undefined ||
+      parche.providerPriority !== undefined ||
+      parche.adultContent !== undefined,
     'el parche no cambia ningún ajuste',
   )
 
 /** Detalle de un título. Es el mismo schema del dominio, no una copia. */
 export const animeResponseSchema = animeDetailSchema
+
+/**
+ * Una temporada de un título, tal como la ve el selector.
+ *
+ * `count` es cuántos episodios tiene: sin el número, el botón de la temporada no
+ * dice cuánto hay detrás y hay que entrar para saberlo.
+ */
+export const episodeSeasonSchema = z.strictObject({
+  season: z.number().int().nonnegative(),
+  count: z.number().int().positive(),
+})
 
 /**
  * Lista de episodios de un título, por páginas.
@@ -510,12 +684,19 @@ export const animeResponseSchema = animeDetailSchema
  * que el cliente aprendiera a leer `episodes`, y un campo requerido nuevo
  * rompería a quien ya leía la respuesta. `total` es opcional porque hay fuentes
  * que no lo dicen: sin él, el selector numera el episodio y no promete un total.
+ *
+ * `seasons` es el índice de temporadas **del título**, y por eso no depende de
+ * la página que se esté mirando: el selector tiene que poder ofrecer todas las
+ * temporadas desde la primera página. Sólo viaja cuando la lista se puede
+ * agrupar —todas las fuentes que marcan la temporada, y más de una—, así que su
+ * ausencia no es un fallo: es una lista que se lee entera.
  */
 export const episodesResponseSchema = z.strictObject({
   episodes: z.array(episodeSchema),
   page: z.number().int().positive().default(1),
   hasMore: z.boolean().default(false),
   total: z.number().int().nonnegative().optional(),
+  seasons: z.array(episodeSeasonSchema).min(1).optional(),
 })
 
 /**
@@ -533,10 +714,18 @@ export const episodeResponseSchema = z.strictObject({
  *
  * `provider` se repite en la dirección (`?provider=a&provider=b`), que es lo que
  * permite filtrar por varios sin inventar un separador dentro de un valor.
+ *
+ * `media` es el mismo filtro de tipo que el resto de lecturas y va **en la
+ * petición, no sólo en la interfaz**: una búsqueda de películas no puede
+ * preguntarle a las fuentes de anime. Filtrar los resultados al llegar dejaría el
+ * gasto hecho —son sitios de terceros— y además el catálogo cacheado se filtra por
+ * los proveedores seleccionados, así que la mitad de la base que no toca tampoco
+ * aparecería.
  */
 export const searchQuerySchema = z.strictObject({
   q: z.string().max(200).default(''),
   provider: z.array(z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)).default([]),
+  media: providerMediaSchema.optional(),
 })
 
 /** Un evento del flujo de búsqueda, tal como viaja por SSE. */
@@ -580,6 +769,7 @@ export type StreamSourceResponse = z.infer<typeof streamSourceResponseSchema>
 export type FavoriteRequest = z.infer<typeof favoriteRequestSchema>
 export type FavoritesResponse = z.infer<typeof favoritesResponseSchema>
 export type EpisodesResponse = z.infer<typeof episodesResponseSchema>
+export type EpisodeSeason = z.infer<typeof episodeSeasonSchema>
 export type EpisodeResponse = z.infer<typeof episodeResponseSchema>
 export type RelatedResponse = z.infer<typeof relatedResponseSchema>
 export type SourcesResponse = z.infer<typeof sourcesResponseSchema>
@@ -599,3 +789,14 @@ export type ProviderRepoView = z.infer<typeof providerRepoViewSchema>
 export type ProviderReposResponse = z.infer<typeof providerReposResponseSchema>
 export type SearchQuery = z.infer<typeof searchQuerySchema>
 export type SearchEventPayload = z.infer<typeof searchEventSchema>
+export type DiscoverItem = z.infer<typeof discoverItemSchema>
+export type DiscoverResponse = z.infer<typeof discoverResponseSchema>
+export type AiringItem = z.infer<typeof airingItemSchema>
+export type AiringResponse = z.infer<typeof airingResponseSchema>
+export type Enrichment = z.infer<typeof enrichmentSchema>
+export type EnrichmentResponse = z.infer<typeof enrichmentResponseSchema>
+export type EnrichmentBatchRequest = z.infer<typeof enrichmentBatchRequestSchema>
+export type EnrichmentBatchItem = z.infer<typeof enrichmentBatchItemSchema>
+export type EnrichmentBatchResponse = z.infer<typeof enrichmentBatchResponseSchema>
+export type AniListRelatedItem = z.infer<typeof anilistRelatedItemSchema>
+export type AniListRelatedResponse = z.infer<typeof anilistRelatedResponseSchema>
