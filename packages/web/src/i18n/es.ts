@@ -110,6 +110,15 @@ export const messages: Messages = {
   'search.anilist.announce': 'Y {count} en AniList.',
 
   /*
+   * La búsqueda con género: no la contesta ninguna fuente —buscan el texto literal, y
+   * `#aventura` no es un título—, así que la lista del catálogo ocupa el sitio de los
+   * resultados y éstos son sus textos.
+   */
+  'search.catalogue.count': '{count} títulos en el catálogo.',
+  'search.catalogue.countOne': '1 título en el catálogo.',
+  'search.catalogue.empty': 'Nada en el catálogo coincide con «{query}».',
+
+  /*
    * La búsqueda del catálogo: una casilla contra AniList. El texto lleva el título y los
    * géneros con `#`, así que el aviso de cómo se escribe es parte de la pantalla y no una
    * ayuda escondida.

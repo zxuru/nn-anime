@@ -6,6 +6,7 @@ import { renderToString } from 'react-dom/server'
 import { describirFallo } from '../../api/fallo'
 import { Grid, GridItem } from '../../components/Grid'
 import { createMemoryHistory, HistoryProvider } from '../../router'
+import { AniListCard, AniListCards } from './AniListCards'
 import { AniListResults } from './AniListResults'
 import { ResultCard } from './ResultCard'
 import { ResultGrid } from './ResultGrid'
@@ -499,5 +500,80 @@ describe('lo que AniList tiene del término', () => {
 
     expect(announce(estado, ['uno'])).toContain('0 resultados')
     expect(announce(estado, ['uno'])).toContain('1 en AniList')
+  })
+
+  test('con un género, el anuncio cuenta el catálogo y no unos proveedores que no se preguntaron', () => {
+    const estado = reduce(
+      { ...initialState(['uno']), done: true },
+      {
+        type: 'anilist',
+        items: [DE_ANILIST],
+      },
+    )
+
+    expect(announce(estado, ['uno'], true, true)).toBe('1 título en el catálogo.')
+    expect(announce(estado, ['uno'], true, true)).not.toContain('proveedores')
+  })
+})
+
+/**
+ * La lista del catálogo pintada como los resultados de la página.
+ *
+ * Lo que se mide es el diseño y el destino: la tarjeta es la misma `card` de los
+ * resultados —no la pieza del mosaico—, **sin sello**, y el enlace lleva a la ficha
+ * cuando la base conoce la obra y a la búsqueda de su título cuando no.
+ */
+describe('las tarjetas del catálogo', () => {
+  const PIEZA: DiscoverItem = {
+    anilistId: 101922,
+    title: 'Kimetsu no Yaiba',
+    cover: '/api/anilist/image/cover/101922',
+    adult: false,
+    year: 2019,
+    format: 'TV',
+  }
+
+  test('la tarjeta es la de los resultados, con su portada local y su pie', () => {
+    const html = render(<AniListCard item={PIEZA} />)
+
+    expect(html).toContain('class="card"')
+    expect(html).toContain('card__cover')
+    expect(html).toContain('card__title')
+    expect(html).toContain('/api/anilist/image/cover/101922')
+    expect(html).toContain('Kimetsu no Yaiba')
+    // La misma marca de año que la tarjeta de un proveedor.
+    expect(html).toContain('Año 2019')
+  })
+
+  test('no lleva sello: el enlace ya dice lo que hay', () => {
+    const conFicha = render(
+      <AniListCard item={{ ...PIEZA, ref: { providerId: 'jkanime', value: 'kimetsu' } }} />,
+    )
+
+    expect(conFicha).not.toContain('badge')
+    expect(conFicha).not.toContain('Origen:')
+    expect(conFicha).not.toContain('En tus fuentes')
+  })
+
+  test('una obra que la base conoce abre su ficha; la que no, la búsqueda de su título', () => {
+    expect(
+      render(<AniListCard item={{ ...PIEZA, ref: { providerId: 'jkanime', value: 'kimetsu' } }} />),
+    ).toContain('href="/anime/jkanime/kimetsu"')
+    expect(render(<AniListCard item={PIEZA} />)).toContain('href="/search?q=Kimetsu%20no%20Yaiba"')
+  })
+
+  test('la rejilla usa la lista de resultados de la página, no el mosaico', () => {
+    const html = render(<AniListCards items={[PIEZA]} query="#aventura" done />)
+
+    expect(html).toContain('class="grid"')
+    expect(html).not.toContain('mosaico')
+    expect(html).toContain('aria-label="Resultados"')
+  })
+
+  test('sin nada y con la búsqueda cerrada lo dice; mientras busca, no', () => {
+    expect(render(<AniListCards items={[]} query="#aventura" done={false} />)).toBe('')
+    expect(render(<AniListCards items={[]} query="#aventura" done />)).toContain(
+      'Nada en el catálogo coincide',
+    )
   })
 })
