@@ -425,6 +425,69 @@ describe('distribuidor de búsquedas', () => {
     expect(cancelado).toBe(true)
   })
 
+  /**
+   * El defecto que colgaba la búsqueda abierta desde un enlace.
+   *
+   * La pantalla de búsqueda monta con la lista de proveedores todavía en camino
+   * —`active` vacío— y vuelve a suscribirse en cuanto llega, con la misma ruta.
+   * La suscripción vieja se cancela, pero su flujo tarda un giro más en morir, y
+   * su limpieza borraba del mapa **por ruta**: se llevaba la entrada nueva. A
+   * partir de ahí `hub.read` devuelve el estado de relleno y la pantalla se queda
+   * en «Buscando…» para siempre, sin tarjetas y sin esqueletos.
+   *
+   * Es el caso que se recorre al pulsar un enlace a `/search?q=…` desde otra
+   * pantalla: en T130 se midió en Chromium que se quedaba colgado, y que
+   * editando la consulta —sin volver a montar— sí respondía.
+   */
+  test('la entrada nueva sobrevive al cierre de la suscripción vieja', async () => {
+    let terminarLaVieja: (() => void) | undefined
+    let abiertas = 0
+
+    const hub = createSearchHub({
+      open: () => {
+        abiertas += 1
+        // La primera se queda en vuelo: es la que se cancela al llegar los
+        // proveedores. La segunda es la que tiene que sobrevivir.
+        if (abiertas === 1) {
+          return (async function* () {
+            await new Promise<void>((resolver) => {
+              terminarLaVieja = resolver
+            })
+            yield { type: 'done', providers: 0 } as SearchEventPayload
+          })()
+        }
+
+        return (async function* () {
+          yield {
+            type: 'results',
+            providerId: 'uno',
+            results: [resultado('uno', 'a', 'A')],
+          } as SearchEventPayload
+          yield { type: 'done', providers: 1 } as SearchEventPayload
+        })()
+      },
+    })
+
+    const vieja = hub.subscribe('/api/search?q=a', [], () => {})
+    await Bun.sleep(1)
+    vieja()
+
+    const nueva = hub.subscribe('/api/search?q=a', ['uno'], () => {})
+    await Bun.sleep(1)
+
+    // La vieja termina **después** de que la nueva haya entrado: es el orden que
+    // rompía. Mutar la comprobación de identidad de `retirar` deja esto en rojo
+    // con `[]`: el mapa se queda sin entrada y `read` contesta el relleno.
+    terminarLaVieja?.()
+    await Bun.sleep(1)
+
+    const estado = hub.read('/api/search?q=a')
+    expect(estado.results.map((hit) => hit.ref.value)).toEqual(['a'])
+    expect(estado.done).toBe(true)
+
+    nueva()
+  })
+
   test('si se va antes de arrancar, ni se abre la conexión', async () => {
     let abiertas = 0
     const hub = createSearchHub({

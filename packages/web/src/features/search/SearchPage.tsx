@@ -141,6 +141,20 @@ export function announce(
   })
 }
 
+/**
+ * Si lo que hay en la pantalla permite concluir que no hay nada.
+ *
+ * Son dos «todavía no»: la búsqueda en vuelo —la respuesta puede estar a punto
+ * de llegar— y la búsqueda que no llegó a abrirse, que ya dice su propio
+ * anuncio. En los dos, un estado vacío estaría culpando a la consulta del
+ * usuario de algo que no es culpa suya. Es la medición del caso que se reportó:
+ * abrir `/search?q=<título>` desde otra pantalla decía «Nada coincide» en el
+ * mismo instante en que decía «Buscando…».
+ */
+export function resuelta(state: Pick<SearchState, 'done' | 'failed'>): boolean {
+  return state.done && state.failed === undefined
+}
+
 export interface SearchPageProps {
   /** Se inyecta en los tests; en producción, la precarga real. */
   readonly prefetcher?: Prefetcher
@@ -252,6 +266,7 @@ export function SearchPage(props: SearchPageProps): ReactNode {
       <ResultGrid
         results={visibles.results}
         query={aplicado}
+        done={resuelta(visibles)}
         providerPriority={prioridad}
         providerLabels={labels}
         onPreview={(result) => prefetch.hover(result.ref.providerId, result.ref.value)}

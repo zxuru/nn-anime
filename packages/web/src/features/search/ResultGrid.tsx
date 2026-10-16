@@ -11,6 +11,11 @@
  * coincidencias que una pantalla en la que todavía no se ha buscado nada. Un
  * «no hay resultados» genérico obliga al usuario a adivinar cuál de las dos
  * cosas está mirando.
+ *
+ * Y sólo se dice **cuando la búsqueda terminó**. Decirlo antes es afirmar algo
+ * que todavía no se sabe: la pantalla enseñaba «Nada coincide con «…»» junto a
+ * «Buscando…» mientras los proveedores contestaban, y quien abría desde un
+ * enlace leía ahí su respuesta y se iba con las manos vacías.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
@@ -26,6 +31,14 @@ export interface ResultGridProps {
   readonly results: readonly SearchResult[]
   /** La consulta que produjo estos resultados, para el texto del estado vacío. */
   readonly query: string
+  /**
+   * Si la búsqueda ya cerró **con respuesta**: lo que hay es todo lo que va a
+   * haber. Sin esto —y con un fallo de transporte— no se puede concluir nada:
+   * el «no coincide nada» y el «escribe un título» son conclusiones, y
+   * afirmarlas antes de la última respuesta, o después de que la búsqueda no
+   * llegara a abrirse, culpa a la consulta del usuario de lo que no es su culpa.
+   */
+  readonly done: boolean
   /**
    * El orden de preferencia de proveedores, de los ajustes. Decide a qué ficha
    * lleva la tarjeta cuando la misma obra está en varios; el resto de fuentes
@@ -44,6 +57,10 @@ function detailPath(result: SearchResult): string {
 
 export function ResultGrid(props: ResultGridProps): ReactNode {
   if (props.results.length === 0) {
+    // Mientras busca no se pinta nada de esto: el renglón de estado y los
+    // esqueletos —uno por proveedor pendiente— ya dicen que se está buscando.
+    if (!props.done) return null
+
     return (
       <p className="empty">
         {props.query === ''
