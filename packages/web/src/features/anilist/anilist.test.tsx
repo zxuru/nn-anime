@@ -179,6 +179,8 @@ describe('la pantalla', () => {
     expect(html).not.toContain('Nada en el catálogo coincide')
     expect(html).toContain('aria-live="polite"')
     expect(html).toContain('id="anilist-term"')
+    expect(html).toContain('class="anilist-page"')
+    expect(html).toContain('Explora anime por título o género.')
   })
 
   test('explica cómo se escribe un género', () => {

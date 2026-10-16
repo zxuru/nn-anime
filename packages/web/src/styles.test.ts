@@ -19,6 +19,9 @@ import { fileURLToPath } from 'node:url'
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
 const TOKENS = fileURLToPath(new URL('./styles/tokens.css', import.meta.url))
 const SHELL = fileURLToPath(new URL('./styles/shell.css', import.meta.url))
+const ANILIST_PAGE = fileURLToPath(
+  new URL('./features/anilist/AniListSearchPage.tsx', import.meta.url),
+)
 
 async function read(path: string): Promise<string> {
   const file = Bun.file(path)
@@ -87,6 +90,21 @@ describe('referencias entre marcado y estilos', () => {
         expect(css, `la clase .${name} se usa en ${file} y no está definida`).toContain(`.${name}`)
       }
     }
+  })
+
+  /**
+   * La búsqueda de AniList no es una fila de la vitrina.
+   *
+   * `.seccion` reserva una canaleta para notas y un mosaico de seis columnas;
+   * montar una página entera directamente ahí dejaba cada control en una doceava
+   * parte del ancho. El HTML de la página debe usar la caja de lectura del sitio,
+   * no heredar la composición de las filas de descubrimiento.
+   */
+  test('la página de AniList no hereda la rejilla de la vitrina', async () => {
+    const pagina = await read(ANILIST_PAGE)
+
+    expect(pagina).toMatch(/<section className="anilist-page">/)
+    expect(pagina).not.toMatch(/<section className="seccion">/)
   })
 })
 
