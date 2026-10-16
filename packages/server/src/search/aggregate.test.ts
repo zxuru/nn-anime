@@ -1,7 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 import { createRegistry, type Provider } from '@nn-anime/provider-sdk'
 import { createFixtureProvider, fixtureProvider } from '@nn-anime/providers-fixture'
-import { normalizeQuery, SEARCH_TIMEOUT_MS, type SearchEvent, searchAll } from './aggregate'
+import {
+  mergeEvents,
+  normalizeQuery,
+  SEARCH_TIMEOUT_MS,
+  type SearchEvent,
+  searchAll,
+} from './aggregate'
 
 const REF = { providerId: 'prueba', value: 'uno' }
 
@@ -236,5 +242,96 @@ describe('con el proveedor de prueba', () => {
       .map((event) => (event.type === 'results' ? event.providerId : ''))
 
     expect([...ids].sort()).toEqual(['fixture-a', 'fixture-b'])
+  })
+})
+
+/**
+ * El evento extra —el de la búsqueda cruzada— mezclado con los proveedores.
+ *
+ * La regla que se mide es la de siempre, ahora con una fuente más: ninguna espera
+ * a la otra. El extra sale cuando llega aunque los proveedores sigan trabajando, y
+ * los proveedores salen aunque el extra no haya llegado; el flujo cierra cuando
+ * cierran los dos.
+ */
+describe('mezcla de fuentes', () => {
+  const CRUZADA: SearchEvent = {
+    type: 'anilist',
+    items: [
+      {
+        anilistId: 101922,
+        title: 'Kimetsu no Yaiba',
+        cover: '/api/anilist/image/cover/101922',
+        adult: false,
+      },
+    ],
+  }
+
+  async function mezclados(
+    fuente: AsyncGenerator<SearchEvent>,
+    extra: Promise<SearchEvent | undefined>,
+  ): Promise<readonly SearchEvent[]> {
+    const collected: SearchEvent[] = []
+    for await (const event of mergeEvents(fuente, extra, (evento) => evento.type === 'done')) {
+      collected.push(event)
+    }
+
+    return collected
+  }
+
+  test('el extra sale en cuanto llega, sin esperar a los proveedores', async () => {
+    // El proveedor tarda 60 ms y el extra está listo ya: si la mezcla esperara a
+    // la fuente, el evento de AniList saldría el último.
+    const lento = providerFrom({
+      id: 'lento',
+      search: async () => {
+        await Bun.sleep(60)
+        return [resultado('lento', 'L')]
+      },
+    })
+    const lista = await mezclados(searchAll([lento], 'aurora'), Promise.resolve(CRUZADA))
+
+    expect(lista[0]).toEqual(CRUZADA)
+    expect(lista.at(-1)).toEqual({ type: 'done', providers: 1 })
+  })
+
+  test('un extra que no llega a nada no emite evento, pero no corta la fuente', async () => {
+    const lista = await mezclados(
+      searchAll([fixtureProvider], 'aurora'),
+      Promise.resolve(undefined),
+    )
+
+    expect(lista.some((event) => event.type === 'results')).toBe(true)
+    expect(lista.at(-1)).toEqual({ type: 'done', providers: 1 })
+  })
+
+  test('el cierre espera al extra: no se da la búsqueda por terminada antes', async () => {
+    // El caso que importa: los proveedores ya cerraron y el extra está en camino.
+    // Dar el `done` antes dejaría la pantalla diciendo «nada coincide» mientras la
+    // lista de AniList todavía no ha llegado.
+    let resolver: ((evento: SearchEvent | undefined) => void) | undefined
+    const extra = new Promise<SearchEvent | undefined>((resolve) => {
+      resolver = resolve
+    })
+    const lista: SearchEvent[] = []
+
+    const recorrido = (async () => {
+      for await (const event of mergeEvents(
+        searchAll([fixtureProvider], 'aurora'),
+        extra,
+        (evento) => evento.type === 'done',
+      )) {
+        lista.push(event)
+      }
+    })()
+
+    // Se le da tiempo al proveedor a responder y a su `done` a llegar al bucle.
+    await Bun.sleep(30)
+    expect(lista.some((event) => event.type === 'done')).toBe(false)
+
+    resolver?.(CRUZADA)
+    await recorrido
+
+    expect(lista.at(-2)).toEqual(CRUZADA)
+    expect(lista.at(-1)?.type).toBe('done')
   })
 })

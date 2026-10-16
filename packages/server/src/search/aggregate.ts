@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Búsqueda agregada sobre todos los proveedores activos.
  *
  * La regla es que **un proveedor no puede retrasar ni romper a los demás**. Un
@@ -16,7 +16,13 @@
  * de lo que se quiere medir.
  */
 
-import { normalizeQuery, type ProviderError, type Result, type SearchResult } from '@nn-anime/core'
+import {
+  type DiscoverItem,
+  normalizeQuery,
+  type ProviderError,
+  type Result,
+  type SearchResult,
+} from '@nn-anime/core'
 import {
   type CallOptions,
   classifyThrow,
@@ -45,6 +51,15 @@ export type SearchEvent =
       readonly kind: ProviderFailureKind
       readonly message: string
     }
+  /**
+   * Lo que AniList tiene de este término como estudio o como género.
+   *
+   * No es la respuesta de un proveedor y por eso lleva piezas de descubrimiento
+   * —con su id de AniList y la referencia local cuando la base la conoce—: es la
+   * mitad que ninguna fuente puede contestar y sale como evento propio para que la
+   * rejilla de proveedores siga contando lo suyo.
+   */
+  | { readonly type: 'anilist'; readonly items: readonly DiscoverItem[] }
   /** Se acabó: han respondido todos, o se han agotado. */
   | { readonly type: 'done'; readonly providers: number }
 
@@ -183,6 +198,81 @@ async function searchOne(
   })
 
   return Promise.race([consulta, limite])
+}
+
+/**
+ * Un evento extra —el de la búsqueda cruzada— mezclado con los de los proveedores.
+ *
+ * La regla es la misma que la de dentro de `searchAll`, ahora con una fuente más:
+ * **ninguna espera a la otra**. El evento de AniList sale cuando llega, sin
+ * retrasar a un proveedor, y los proveedores salen cuando responden sin retrasar a
+ * AniList.
+ *
+ * `esCierre` marca el evento con el que la fuente da la búsqueda por terminada —el
+ * `done`— y **se retiene hasta que el extra haya hablado**. Sin esa retención el
+ * cierre sale antes que la cruzada y la pantalla concluye «nada coincide» mientras
+ * la lista de AniList todavía está en camino: el orden de los eventos es una
+ * promesa, y esa promesa es justo la que se mide.
+ *
+ * El extra es una promesa y no un generador porque es **un** evento: la búsqueda
+ * cruzada es una consulta, no un flujo. Un extra que no llega a nada —sin lista,
+ * con AniList caído o sin catálogo— se resuelve a `undefined` y no emite nada.
+ */
+export async function* mergeEvents<T>(
+  fuente: AsyncGenerator<T>,
+  extra: Promise<T | undefined>,
+  esCierre: (evento: T) => boolean = () => false,
+): AsyncGenerator<T> {
+  type Ganador =
+    | { readonly de: 'extra'; readonly evento: T | undefined }
+    | { readonly de: 'fuente'; readonly paso: IteratorResult<T> }
+
+  let pendienteExtra: Promise<Ganador> | undefined = extra.then((evento) => ({
+    de: 'extra',
+    evento,
+  }))
+  let pendienteFuente: Promise<Ganador> | undefined = fuente.next().then((paso) => ({
+    de: 'fuente',
+    paso,
+  }))
+  let fuenteViva = true
+  let cierre: T | undefined
+
+  while (fuenteViva || pendienteExtra !== undefined) {
+    const esperas: Promise<Ganador>[] = []
+    if (pendienteFuente !== undefined) esperas.push(pendienteFuente)
+    if (pendienteExtra !== undefined) esperas.push(pendienteExtra)
+
+    const ganador = await Promise.race(esperas)
+
+    if (ganador.de === 'extra') {
+      pendienteExtra = undefined
+      if (ganador.evento !== undefined) yield ganador.evento
+      continue
+    }
+
+    if (ganador.paso.done === true) {
+      // La fuente agotada no se vuelve a pedir: su promesa ya resolvió y volver a
+      // `next()` sería un turno por nada.
+      fuenteViva = false
+      pendienteFuente = undefined
+      continue
+    }
+
+    // El cierre se guarda y se sigue drenando la fuente: lo que quede por salir
+    // —nada, porque `searchAll` cierra con él— se leería después de un evento que
+    // ya da la búsqueda por terminada.
+    if (esCierre(ganador.paso.value)) {
+      cierre = ganador.paso.value
+    } else {
+      yield ganador.paso.value
+    }
+
+    pendienteFuente = fuente.next().then((paso) => ({ de: 'fuente', paso }))
+  }
+
+  // Aquí las dos fuentes callaron: el cierre sale ya con la cruzada dicha.
+  if (cierre !== undefined) yield cierre
 }
 
 /**
