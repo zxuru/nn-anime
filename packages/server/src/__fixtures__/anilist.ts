@@ -108,14 +108,19 @@ export interface AniListFixture {
   /** Lo que devuelve cada búsqueda, por el título con el que se preguntó. */
   readonly search?: Readonly<Record<string, readonly RawMediaFixture[]>>
   /**
-   * Lo que devuelve la búsqueda cruzada: una lista por estudio y otra por género.
+   * Lo que devuelve la búsqueda cruzada: los estudios y la lista del género.
    *
-   * Las dos van en la misma consulta y con alias propios, así que el doble las
-   * contesta por separado y deja que la prueba mida la unión —el alias que falta
-   * cuando el término no es un género incluido—.
+   * Los estudios se declaran **con su nombre**, porque la consulta los busca por nombre
+   * y cada uno publica su conexión de obras: es lo que deja medir que se miran las obras
+   * del estudio que se ha pedido y no las de otro que se le parezca. Las dos listas van
+   * en la misma consulta y con alias propios, así que el doble las contesta por separado
+   * y el alias del género **sólo aparece cuando el término es un género**.
    */
   readonly cross?: {
-    readonly studio?: readonly RawMediaFixture[]
+    readonly studios?: readonly {
+      readonly name: string
+      readonly media: readonly RawMediaFixture[]
+    }[]
     readonly genre?: readonly RawMediaFixture[]
   }
   /**
@@ -169,6 +174,23 @@ export function fakeAniList(fixture: AniListFixture = {}): FakeAniList {
 
     calls.push({ query, variables })
 
+    /**
+     * Un argumento que `Media` no tiene se contesta como lo contesta AniList: con un
+     * error de validación.
+     *
+     * Es la lección de este doble y va escrita aquí: aceptaba `media(studio:)`, que no
+     * existe —los filtros de `Media` son `genre`, `tag`, `search`, `licensedBy`…—, y con
+     * eso la prueba pasaba mientras la consulta de verdad fallaba contra la API: AniList
+     * devolvía el error de la consulta **entera** y con él caía también la lista del
+     * género que viajaba al lado. Un doble más cómodo esconde el fallo que luego aparece
+     * en vivo.
+     */
+    if (/media\([^)]*\bstudio\s*:/s.test(query)) {
+      return Response.json({
+        errors: [{ message: 'Cannot query field "studio" on type "Media".' }],
+      })
+    }
+
     for (const [marca, status] of Object.entries(fixture.status ?? {})) {
       if (query.includes(marca)) {
         const headers = fixture.headers?.[marca] ?? {}
@@ -191,15 +213,25 @@ export function fakeAniList(fixture: AniListFixture = {}): FakeAniList {
     /**
      * La búsqueda cruzada: una página por alias.
      *
-     * El alias del género **sólo está cuando el término lo es** —la consulta lo
-     * omite a propósito, porque un `genre:` que no está en la lista de AniList
-     * devuelve un error y no una lista vacía—, así que el doble tampoco lo
-     * publica: devolverlo siempre escondería que la consulta lo pide cuando no
-     * debe.
+     * La del estudio devuelve `studios` con las obras de cada uno —la forma que publica
+     * la API para `Page.studios`, con el nodo `Page` aplanado bajo el alias— y **no**
+     * admite que se le pida el filtro de la mitad: la conexión de obras de un estudio no
+     * tiene `format_in`, y por eso lo que devuelve aquí puede ser de cualquier formato.
+     * Es lo que deja medir que el filtro se aplica después.
+     *
+     * El alias del género **sólo está cuando el término lo es** —la consulta lo omite a
+     * propósito, porque un `genre:` que no está en la lista de AniList devuelve un error
+     * y no una lista vacía—, así que el doble tampoco lo publica: devolverlo siempre
+     * escondería que la consulta lo pide cuando no debe.
      */
     if (query.includes('porEstudio: Page(')) {
       const paginas: Record<string, unknown> = {
-        porEstudio: { media: (fixture.cross?.studio ?? []).map((una) => mediaJson(una)) },
+        porEstudio: {
+          studios: (fixture.cross?.studios ?? []).map((estudio) => ({
+            name: estudio.name,
+            media: { nodes: estudio.media.map((una) => mediaJson(una)) },
+          })),
+        },
       }
       if (variables.genero !== undefined) {
         paginas.porGenero = { media: (fixture.cross?.genre ?? []).map((una) => mediaJson(una)) }

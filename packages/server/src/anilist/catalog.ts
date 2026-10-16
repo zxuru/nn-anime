@@ -48,6 +48,7 @@ import type { z } from 'zod'
 import type { AniListClient, AniListOutcome } from './client'
 import {
   airingPageSchema,
+  crossSchema,
   mediaOfAlias,
   mediaPageSchema,
   mediaPagesSchema,
@@ -55,6 +56,9 @@ import {
   type RelatedEntry,
   relatedEntrySchema,
   relationsSchema,
+  type studioPageSchema,
+  type studioSchema,
+  studiosOf,
   toAiringEntry,
   toEntry,
   toRelatedEntries,
@@ -111,6 +115,24 @@ export function formatosDe(media: ProviderMedia | undefined): readonly string[] 
 
   return [...FORMATOS.anime, ...FORMATOS.movies]
 }
+
+/**
+ * Los estudios que se miran de un término.
+ *
+ * `Page.studios(search:)` es una búsqueda por nombre: tres es lo que se necesita para
+ * que un nombre exacto esté entre los primeros sin traer media docena de estudios que
+ * sólo se parecen. Cada uno cuesta una conexión de obras en la misma petición.
+ */
+const ESTUDIOS_A_MIRAR = 3
+
+/**
+ * Las obras que se piden de cada estudio.
+ *
+ * Veinticinco es el tope que admite `Studio.media`, y **no se puede filtrar por mitad
+ * en la consulta** —la conexión no acepta `format_in`—, así que se piden las más
+ * populares y `crossEntries` descarta después lo que no es de la mitad pedida.
+ */
+const OBRAS_POR_ESTUDIO = 25
 
 export interface AniListMatchRequest {
   /** La clave de la caché: el título normalizado y su año. */
@@ -405,6 +427,79 @@ function seGuarda(media: AniListEntry | null, adultAllowed: boolean): boolean {
   return media === null || !media.adult || adultAllowed
 }
 
+/**
+ * Los estudios que se miran de un término, con el del nombre exacto delante.
+ *
+ * `studios(search:)` es una búsqueda, no una igualdad: «Toei» devuelve «Toei Animation»
+ * y «Toei Company». Si entre los que vuelven hay uno que se llama **exactamente** como
+ * el término, se miran sólo sus obras —es el estudio que el usuario ha pedido, no la
+ * familia de nombres que se le parecen—; si no hay ninguno exacto, se miran todos los
+ * que la búsqueda devolvió, que es lo que AniList enseña al buscar ese nombre.
+ *
+ * La comparación es la de la búsqueda —recorte, minúsculas, NFC—: un nombre de estudio
+ * no lleva marcador de temporada ni sinopsis, así que la identidad de los títulos sería
+ * aquí una regla de más.
+ */
+export function estudiosDe(
+  pagina: z.infer<typeof studioPageSchema>,
+  termino: string,
+): readonly z.infer<typeof studioSchema>[] {
+  const estudios = studiosOf(pagina)
+  const buscado = normalizeQuery(termino)
+  const exactos = estudios.filter((estudio) => normalizeQuery(estudio.name) === buscado)
+
+  return exactos.length > 0 ? exactos : estudios
+}
+
+/**
+ * Las piezas de la cruzada, filtradas y sin repetir.
+ *
+ * **El filtro va aquí y no sólo en la consulta** porque la conexión de obras de un
+ * estudio no acepta `format_in` ni `isAdult`: de la lista del estudio llega lo que
+ * AniList tenga, y sin mirarlo uno a uno la pestaña de películas enseñaría las series
+ * del estudio y el interruptor de adultos no escondería nada. La lista del género, que
+ * sí los lleva en la consulta, pasa por el mismo filtro: es idempotente y así hay una
+ * sola regla en un solo sitio.
+ *
+ * El orden es el de llegada —primero el estudio, después el género— y se recorta al
+ * tope: una obra que salga en las dos —un estudio que se llame como un género— es una
+ * pieza.
+ */
+export function crossEntries(
+  crudo: z.infer<typeof crossSchema>,
+  opciones: {
+    readonly termino: string
+    readonly formatos: readonly string[]
+    readonly adultAllowed: boolean
+  },
+): readonly AniListEntry[] {
+  const delEstudio =
+    crudo.porEstudio === undefined
+      ? []
+      : estudiosDe(crudo.porEstudio, opciones.termino).flatMap(
+          (estudio) => estudio.media?.nodes ?? [],
+        )
+  const delGenero = crudo.porGenero === undefined ? [] : mediaOfAlias(crudo.porGenero)
+
+  const vistas = new Set<number>()
+  const entradas: AniListEntry[] = []
+
+  for (const cruda of [...delEstudio, ...delGenero]) {
+    const entrada = toEntry(cruda)
+    if (entrada === undefined) continue
+    if (vistas.has(entrada.id)) continue
+    if (!opciones.adultAllowed && entrada.adult) continue
+    // La mitad: una obra de un formato que no es el pedido no entra. `MUSIC` tampoco
+    // —no es de ninguna mitad— y así no llega una pieza que la rejilla no sabe pintar.
+    if (!opciones.formatos.includes(entrada.format ?? '')) continue
+
+    vistas.add(entrada.id)
+    entradas.push(entrada)
+  }
+
+  return entradas.slice(0, CROSS_LIMIT)
+}
+
 export function createAniListCatalog(options: AniListCatalogOptions): AniListCatalog {
   const { store, client } = options
   const ahora = options.now ?? Date.now
@@ -466,8 +561,10 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
    * dos personas buscando «Acción» y «acción» comparten consulta, y encender el
    * interruptor no sirve la lista del estado anterior.
    *
-   * Se unen las dos páginas sin repetir por id y se recorta al tope: una obra que
-   * salga en las dos —un estudio que se llame como un género— es una pieza.
+   * Un fallo se **avisa por el registro** y no sólo se devuelve: una consulta mal
+   * formada la contesta AniList con un error, y sin la línea del registro la
+   * búsqueda se queda sin su lista sin que nada lo diga. Pasó: la consulta pedía un
+   * argumento que `Media` no tiene y el fallo era invisible desde la pantalla.
    */
   async function cross(
     term: string,
@@ -477,6 +574,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
   ): Promise<Result<readonly AniListEntry[], AppError>> {
     const genero = anilistGenre(term)
     const clave = `cross:${ejeDeAdultos(adultAllowed)}:${media ?? 'both'}:${normalizeQuery(term)}`
+    const formatos = formatosDe(media)
 
     return cachedList(
       {
@@ -493,34 +591,26 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
           query: crossQuery(adultAllowed, genero),
           variables: {
             q: term,
+            estudios: ESTUDIOS_A_MIRAR,
+            porEstudio: OBRAS_POR_ESTUDIO,
             ...(genero === undefined ? {} : { genero }),
             perPage: PER_PAGE,
-            formatos: [...formatosDe(media)],
+            formatos: [...formatos],
           },
-          schema: mediaPagesSchema,
+          schema: crossSchema,
           signal,
         })
 
-        if (!outcome.ok) return err(outcome.error)
+        if (!outcome.ok) {
+          avisar('no se pudo preguntar a AniList por el término', {
+            termino: term,
+            motivo: outcome.error.message,
+          })
 
-        // El orden de los alias manda: primero lo del estudio —el caso que pidió
-        // esta búsqueda— y después lo del género.
-        const vistas = new Set<number>()
-        const entradas: AniListEntry[] = []
-
-        for (const alias of ['porEstudio', 'porGenero']) {
-          const pagina = outcome.value[alias]
-          if (pagina === undefined) continue
-
-          for (const entrada of entriesOf(mediaOfAlias(pagina))) {
-            if (vistas.has(entrada.id)) continue
-
-            vistas.add(entrada.id)
-            entradas.push(entrada)
-          }
+          return err(outcome.error)
         }
 
-        return ok(entradas.slice(0, CROSS_LIMIT))
+        return ok(crossEntries(outcome.value, { termino: term, formatos, adultAllowed }))
       },
     )
   }

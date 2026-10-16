@@ -176,6 +176,59 @@ export function mediaOfAlias(alias: z.infer<typeof mediaAliasSchema>): readonly 
 /** La respuesta del lote: una página por alias, con el nombre del alias de clave. */
 export const mediaPagesSchema = z.record(z.string(), mediaAliasSchema)
 
+/**
+ * Un estudio, con las obras que AniList le atribuye.
+ *
+ * `media` es la conexión de obras del estudio y **no acepta `format_in` ni `isAdult`**:
+ * sus argumentos son `sort`, `isMain`, `page`, `perPage` y `onList` —medido en la
+ * referencia de la API el 2026-10-16—, así que la mitad y el interruptor de adultos se
+ * filtran después, sobre lo que llegue. Es la mitad de lo que hay que saber de esta
+ * forma y por eso se dice aquí, donde vive la forma.
+ */
+export const studioSchema = z.object({
+  name: z.string(),
+  media: z
+    .object({ nodes: z.array(mediaSchema).nullable().optional() })
+    .nullable()
+    .optional(),
+})
+
+/**
+ * Una página **aliaseada** de estudios.
+ *
+ * Se aplana igual que la de obras —`porEstudio: { studios: […] }`, medido el
+ * 2026-10-16— y las dos formas se aceptan aquí por el mismo motivo: quien escribe la
+ * consulta no tiene por qué saber la rareza.
+ */
+export const studioPageSchema = z.object({
+  Page: z.object({ studios: z.array(studioSchema) }).optional(),
+  studios: z.array(studioSchema).optional(),
+})
+
+/** Los estudios de una página aliaseada, con envoltorio o aplanada. */
+export function studiosOf(
+  pagina: z.infer<typeof studioPageSchema>,
+): readonly z.infer<typeof studioSchema>[] {
+  return pagina.Page?.studios ?? pagina.studios ?? []
+}
+
+/**
+ * La respuesta de la búsqueda cruzada: el estudio y el género, cada uno si se pidió.
+ *
+ * **El estudio no se pide con `Media(studio:)` porque ese argumento no existe.** Los
+ * filtros de `Media` son `genre`, `tag`, `search`, `licensedBy`… y ninguno filtra por
+ * estudio: las obras de un estudio se piden por `Page.studios`, que lo busca por nombre
+ * y publica su conexión de obras. La consulta que pedía `Media(studio:)` la contestaba
+ * AniList con un error de validación —y con él caía **también** la lista del género, que
+ * viajaba en la misma consulta—, así que el doble de las pruebas rechaza ese argumento
+ * en vez de aceptarlo: un doble más cómodo esconde justo el fallo que luego aparece en
+ * vivo.
+ */
+export const crossSchema = z.object({
+  porEstudio: studioPageSchema.optional(),
+  porGenero: mediaAliasSchema.optional(),
+})
+
 /** Los estados de AniList, traducidos a los del dominio. */
 function statusOf(status: string | null | undefined): AniListEntry['status'] {
   switch (status) {
