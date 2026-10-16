@@ -278,6 +278,7 @@ export function SearchPage(props: SearchPageProps): ReactNode {
         results={visibles.results}
         query={aplicado}
         done={resuelta(visibles)}
+        hayAniList={visibles.anilist.length > 0}
         providerPriority={prioridad}
         providerLabels={labels}
         onPreview={(result) => prefetch.hover(result.ref.providerId, result.ref.value)}

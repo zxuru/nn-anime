@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Resultados de la búsqueda, o su ausencia explicada.
  *
  * Una tarjeta por **obra**, no por proveedor: dos fuentes que devuelven el mismo
@@ -40,6 +40,15 @@ export interface ResultGridProps {
    */
   readonly done: boolean
   /**
+   * Si la página tiene además la lista de AniList.
+   *
+   * Con ella, «nada coincide» es media verdad: la búsqueda sí encontró —lo que
+   * AniList tiene de ese estudio o de ese género— y decirlo sería contradecir la
+   * sección que está justo debajo. Es lo normal en una búsqueda por género, donde
+   * ninguna fuente busca por ahí.
+   */
+  readonly hayAniList?: boolean
+  /**
    * El orden de preferencia de proveedores, de los ajustes. Decide a qué ficha
    * lleva la tarjeta cuando la misma obra está en varios; el resto de fuentes
    * siguen en «También en».
@@ -60,6 +69,10 @@ export function ResultGrid(props: ResultGridProps): ReactNode {
     // Mientras busca no se pinta nada de esto: el renglón de estado y los
     // esqueletos —uno por proveedor pendiente— ya dicen que se está buscando.
     if (!props.done) return null
+
+    // Con la lista de AniList debajo no se dice que no haya nada: lo que no hay es
+    // en los proveedores, y eso ya lo cuenta la sección de AniList con su recuento.
+    if (props.hayAniList === true) return null
 
     return (
       <p className="empty">

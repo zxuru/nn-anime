@@ -348,6 +348,24 @@ describe('rejilla y estado vacío', () => {
     expect(html).toContain('Escribe un título')
   })
 
+  /**
+   * El caso de una búsqueda por género, que es el que trajo la búsqueda cruzada:
+   * las fuentes no encuentran nada —ninguna busca por género— y AniList sí tiene
+   * su lista. Decir «nada coincide» ahí contradice la sección que está debajo.
+   */
+  test('con la lista de AniList debajo no dice que no haya nada', () => {
+    const html = render(<ResultGrid query="Acción" results={[]} done hayAniList />)
+
+    expect(html).not.toContain('Nada coincide')
+    expect(html).toBe('')
+  })
+
+  test('sin lista de AniList sí lo dice: entonces es verdad', () => {
+    const html = render(<ResultGrid query="xyz" results={[]} done />)
+
+    expect(html).toContain('Nada coincide')
+  })
+
   test('la rejilla genérica numera sus elementos', () => {
     const html = render(
       <Grid label="Cosas">
