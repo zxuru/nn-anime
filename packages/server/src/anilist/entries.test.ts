@@ -15,6 +15,8 @@ import {
   mediaOfAlias,
   mediaSchema,
   relationsSchema,
+  studioPageSchema,
+  studiosOf,
   toAiringEntry,
   toEntry,
   toRelatedEntries,
@@ -187,6 +189,40 @@ describe('la página de un alias', () => {
     expect(mediaOfAlias(aplanada)).toHaveLength(1)
     expect(mediaOfAlias(envuelta)).toHaveLength(1)
     expect(mediaOfAlias({})).toEqual([])
+  })
+})
+
+/**
+ * La página de estudios de la búsqueda cruzada.
+ *
+ * Un término que no es el nombre de ningún estudio —el caso corriente de buscar un
+ * género— devuelve una lista vacía, y esa lista vacía **no puede tumbar la respuesta**:
+ * el género que viaja al lado se quedaría sin resultados por un alias que no era el
+ * suyo. Es el mismo fallo que este task arregla, en su otra forma: una forma más
+ * estricta que la API convierte una lista vacía en una pantalla vacía.
+ */
+describe('la página de estudios', () => {
+  const ESTUDIO = { name: 'ufotable', media: { nodes: [CRUDA] } }
+
+  test('lee la forma aplanada y la envuelta', () => {
+    expect(studiosOf(studioPageSchema.parse({ studios: [ESTUDIO] }))).toHaveLength(1)
+    expect(studiosOf(studioPageSchema.parse({ Page: { studios: [ESTUDIO] } }))).toHaveLength(1)
+  })
+
+  test('una lista vacía, un `null` y la ausencia del campo son lo mismo: nada', () => {
+    expect(studiosOf(studioPageSchema.parse({ studios: [] }))).toEqual([])
+    expect(studiosOf(studioPageSchema.parse({ studios: null }))).toEqual([])
+    expect(studiosOf(studioPageSchema.parse({ Page: { studios: null } }))).toEqual([])
+    expect(studiosOf(studioPageSchema.parse({}))).toEqual([])
+  })
+
+  test('un estudio sin obras no rompe: su conexión también puede faltar', () => {
+    const sinObras = studiosOf(studioPageSchema.parse({ studios: [{ name: 'ufotable' }] }))
+
+    expect(sinObras[0]?.media).toBeUndefined()
+    expect(
+      studiosOf(studioPageSchema.parse({ studios: [{ name: 'ufotable', media: null }] }))[0]?.media,
+    ).toBeNull()
   })
 })
 
