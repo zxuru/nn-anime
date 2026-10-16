@@ -150,6 +150,12 @@ tocar el sistema (`choco install nsis -y` también vale, pero pide permisos y de
 instalado). Sin `makensis` en el `PATH`, `bun run package` falla y lo dice con el nombre del que
 falta.
 
+**Y `makensis` necesita un temporal escribible.** Medido el 2026-10-16, compilando sólo el
+instalador con `--only-installer`: con la excepción de acceso del agente concedida murió con
+`Internal compiler error #12345: error creating mmap the size of 115163022`, y sin ella compiló (dos
+veces, con el temporal por defecto y con `TMP`/`TEMP` dentro del workspace). Si aparece ese error,
+apunta `TMP` y `TEMP` a una carpeta que exista y se pueda escribir.
+
 ## Probar sin publicar
 
 **Actions → Release → Run workflow**, con «publish» sin marcar. Compila los instaladores de las cuatro
@@ -250,14 +256,18 @@ Y verificado **en local, el 2026-10-16**, con NSIS 3.11 portable:
 Lo que sigue sin estar comprobado, y lo dirá el siguiente push o una release con secretos:
 
 - **Ejecutar el instalador**: instalarlo en silencio, mirar que deja los accesos del escritorio y del
-  menú y su entrada en «Agregar o quitar programas», y desinstalarlo. **No se ha podido hacer en la
-  máquina donde se compiló**: el instalador, lanzado en silencio, se queda colgado sin escribir nada
-  ni dejar rastro —ni directorio, ni accesos, ni registro—, así que parece necesitar una sesión
-  interactiva. Es lo que le toca al CI, donde el runner de Windows sí la tiene: el paso que falta es
-  instalarlo con `/S /D=<carpeta temporal>`, comprobar los accesos y el registro, arrancar el
-  ejecutable instalado y desinstalarlo. Las líneas que eso comprueba están en
-  `packaging/windows/nn-anime.nsi` (`CreateShortCut "$DESKTOP…"`, los `WriteRegStr` y la sección
-  `Uninstall`).
+  menú y su entrada en «Agregar o quitar programas», y desinstalarlo. **En la máquina donde se
+  compiló no se puede juzgar**, y conviene saber por qué, porque lo que pasa es raro. Lanzado con
+  `cmd /c "<setup>" /S /D=<carpeta del workspace>`, **sí instala los tres archivos** —`nn-anime.exe`
+  de 98,3 MB, `nn-anime.ico` y el desinstalador— y sale con **0**; pero **no deja ni los accesos ni el
+  registro**. Con una sonda temporal dentro de la propia sección se comprobó que **llega hasta el
+  final** —el `FileWrite` del último paso se escribió, con el tamaño que calculó `${GetSize}`—, y
+  desde el mismo contexto `HKCU` sí se puede escribir y no hay claves en `WOW6432Node`. Es decir: las
+  instrucciones se ejecutan y su efecto no aparece, que es lo que apunta a un contexto sin escritorio
+  interactivo y a que `CreateShortCut` y `WriteRegStr` fallan **en silencio** —NSIS se los calla—.
+  Nada de esto dice que el `.nsi` esté mal: no se puede concluir desde aquí. Es lo que le toca al CI,
+  que sí tiene sesión: el paso que falta es instalarlo con `/S /D=<carpeta temporal>`, comprobar los
+  accesos y el registro, arrancar el ejecutable instalado y desinstalarlo.
 - **La firma de código y la notarización**: sin certificados, los pasos se saltan. Que `signtool` y
   `codesign` reciban lo que esperan no se ha podido ejecutar.
 
