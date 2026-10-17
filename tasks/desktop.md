@@ -30,6 +30,30 @@ funcione sin que nadie sepa usar una terminal ni tenga Bun instalado. El reparto
 alcanza crates.io. Las pruebas de Rust están escritas y **sin correr**. El trabajo `desktop` del CI es
 quien las corre, y esa es la primera cosa que hay que mirar en el primer push.
 
+## Lo que sí se ha **ejecutado** aquí, para no confundirlo con lo que sólo se leyó
+
+| Comprobación | Resultado |
+|---|---|
+| `cargo fmt --check` sobre los seis archivos de Rust | **exit 0** — es el primer paso de `desktop:check`, y sin esto el CI habría fallado en las tres plataformas |
+| Que el árbol de Rust **parsee** | sí: `rustfmt` analiza cada archivo entero, así que no hay errores de sintaxis |
+| `bun run desktop:check` | llega hasta `clippy` y **sólo** falla por la red; el orden del script es el correcto |
+| `bun run desktop:build --target=darwin-x64` | toma la rama de compilación cruzada y ejecuta `rustup target add x86_64-apple-darwin` |
+| El instalador NSIS | **compila** en las dos ramas —con anfitrión y sin él— con NSIS 3.11 portable |
+| El anfitrión viaja **dentro** del instalador | con 5 MB incompresibles en la ruta que usa cargo, el instalador pasa de 34.854.509 a **40.172.309** bytes |
+| `bun run package --only-installer` **sin** anfitrión | se niega y nombra el comando que falta: `bun run desktop:build --target=windows-x64` |
+| Instalación silenciosa real (`cmd /c … /S /D=`) | **exit 0** y deja **los dos ejecutables** en el destino |
+| `actionlint` con `shellcheck` sobre los tres workflows | **0 avisos** |
+| `bun run typecheck`, `bun run lint`, `bun test` | 0 · 0 errores (3 avisos anteriores) · **2990 pasan, 10 fallan** (los mismos de la línea base) |
+
+**Lo que sigue sin poder ejecutarse aquí, y hay que medirlo en el CI o en otra máquina:** `cargo
+check`, `cargo clippy` y `cargo test`; `nfpm` y `appimagetool` —son binarios de Linux—; el guion
+`AppRun` —Git Bash choca con el mismo sandbox que el gancho de git—; y la ejecución del CI entera.
+La causa de que el instalador no dejara accesos ni registro **ya está identificada y medida** (el
+sandbox deniega escribir fuera del espacio de trabajo; ver `tasks/done/T160b.md`).
+
+Tres revisiones con contexto nuevo se han hecho sobre lo que no se puede compilar: el módulo entero
+(`T154a`), el instalador y los workflows (`T160a`) y la ventana de fallo (`T154b`).
+
 Estudio previo: `docs/estudio-tauri.md` · Propuesta de contrato: promovida a `docs/specs/SPEC-desktop.md`.
 
 Rige el mismo **Definition of Done** de `tasks/plan.md`: `typecheck`, `lint` y `bun test` en verde,
