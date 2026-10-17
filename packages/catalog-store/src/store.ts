@@ -48,6 +48,7 @@ import { createEpisodePageRepository, type StoredEpisodePage } from './repositor
 import { createEpisodesRepository } from './repositories/episodes'
 import { createFavoritesRepository } from './repositories/favorites'
 import { createFeedRepository } from './repositories/feed'
+import { createPlanToWatchRepository, type PlanToWatchTitle } from './repositories/plan-to-watch'
 import { createRecentRepository } from './repositories/recent'
 import { createRelatedRepository, type RelatedScope } from './repositories/related'
 import { createSearchRepository } from './repositories/search'
@@ -200,6 +201,19 @@ export interface CatalogStore {
   updateWatchPosition(eventId: number, positionS: number, durationS: number): Promise<void>
   listRecentlyWatched(limit: number): Promise<readonly WatchRecord[]>
   /**
+   * El historial, por páginas: todo lo que se reprodujo, lo terminado incluido.
+   *
+   * Va aparte de `listRecentlyWatched` y no es un parámetro suyo: aquélla alimenta
+   * «continuar viendo» **y** es señal de afinidad del motor, así que su semántica
+   * —qué descarta y cuánto lee— no se toca para servir una pantalla. Aquí no se
+   * agrupa por episodio ni se descarta lo acabado: el historial cuenta lo que pasó.
+   *
+   * `offset` en lugar de un cursor porque el orden es por fecha de inicio y la
+   * pantalla ya tiene delante lo que está mirando: una lista que se desplaza sola
+   * bajo el dedo es peor que un salto entre páginas.
+   */
+  listWatchHistory(limit: number, offset: number): Promise<readonly WatchRecord[]>
+  /**
    * Los hermanos de `ref`, de lo que la base ya conoce.
    *
    * El alcance elige la clave del emparejamiento: la saga —el de por defecto— o
@@ -247,6 +261,16 @@ export interface CatalogStore {
    */
   setWatchedTitle(ref: ProviderRef, value: boolean): Promise<void>
   listWatchedTitles(): Promise<readonly WatchedTitle[]>
+  /**
+   * La marca de «quiero ver» de una obra, y su lectura.
+   *
+   * Tercera lista del usuario y **independiente de las otras dos**: escribir aquí
+   * no toca `favorite` ni `watched_title`, y ninguna de las otras dos toca ésta.
+   * Declara una intención, no un visionado, así que —como la marca de visto— no
+   * escribe ningún `watch_event`.
+   */
+  setPlanToWatch(ref: ProviderRef, value: boolean): Promise<void>
+  listPlanToWatch(): Promise<readonly PlanToWatchTitle[]>
   recordSearch(query: string, providerId: string, hits: number): Promise<void>
   listRecentSearches(limit: number): Promise<readonly SearchRecord[]>
 
@@ -287,6 +311,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     readonly related: ReturnType<typeof createRelatedRepository>
     readonly watched: ReturnType<typeof createWatchedEpisodesRepository>
     readonly watchedTitles: ReturnType<typeof createWatchedTitlesRepository>
+    readonly planToWatch: ReturnType<typeof createPlanToWatchRepository>
   }
 
   let repos: Repos | undefined
@@ -309,6 +334,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       related: createRelatedRepository(db),
       watched: createWatchedEpisodesRepository(db),
       watchedTitles: createWatchedTitlesRepository(db),
+      planToWatch: createPlanToWatchRepository(db),
     })
 
   return {
@@ -423,6 +449,9 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     async listRecentlyWatched(limit) {
       return of().watch.listRecentlyWatched(limit)
     },
+    async listWatchHistory(limit, offset) {
+      return of().watch.listWatchHistory(limit, offset)
+    },
     async listRelated(ref, limit, scope) {
       return of().related.list(ref, limit, scope)
     },
@@ -446,6 +475,12 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async listWatchedTitles() {
       return of().watchedTitles.listWatchedTitles()
+    },
+    async setPlanToWatch(ref, value) {
+      await queue.run(() => of().planToWatch.setPlanToWatch(ref, value))
+    },
+    async listPlanToWatch() {
+      return of().planToWatch.listPlanToWatch()
     },
     async recordSearch(query, providerId, hits) {
       await queue.run(() => of().history.recordSearch(query, providerId, hits))

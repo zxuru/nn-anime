@@ -9,6 +9,7 @@ import { runMigrations } from '../migrations/runner'
 import { createAnimeRepository } from './anime'
 import { createEpisodesRepository } from './episodes'
 import { createFavoritesRepository } from './favorites'
+import { createPlanToWatchRepository } from './plan-to-watch'
 import { createSearchHistoryRepository } from './search-history'
 import { createWatchRepository } from './watch'
 import { createWatchedTitlesRepository } from './watched-titles'
@@ -79,6 +80,7 @@ interface Store {
   readonly watch: ReturnType<typeof createWatchRepository>
   readonly favoritos: ReturnType<typeof createFavoritesRepository>
   readonly vistos: ReturnType<typeof createWatchedTitlesRepository>
+  readonly pendientes: ReturnType<typeof createPlanToWatchRepository>
   readonly historial: ReturnType<typeof createSearchHistoryRepository>
 }
 
@@ -117,6 +119,7 @@ async function withStore<T>(body: (store: Store) => Promise<T> | T): Promise<T> 
       watch: createWatchRepository(db),
       favoritos: createFavoritesRepository(db),
       vistos: createWatchedTitlesRepository(db),
+      pendientes: createPlanToWatchRepository(db),
       historial: createSearchHistoryRepository(db),
     })
   } finally {
@@ -226,6 +229,90 @@ describe('historial de visionado', () => {
 
       expect(favoritos).toHaveLength(2)
       expect(contador.llamadas()).toBe(1)
+    })
+  })
+
+  /**
+   * El historial paginado del Perfil.
+   *
+   * Va aparte de `listRecentlyWatched` —que alimenta «continuar viendo» y es señal
+   * del motor— y por eso lo que se comprueba aquí, además del troceado, es que la
+   * lectura de siempre **no cambia**: son dos preguntas distintas sobre la misma
+   * tabla, y la nueva no puede alterar la vieja.
+   */
+  describe('el historial, por páginas', () => {
+    test('recorre todas las filas sin solapar ni perder ninguna', async () => {
+      await withStore((store) => {
+        // Cinco visionados sobre los dos episodios que siembra el envoltorio: lo
+        // que se trocea son las filas del historial, no los episodios.
+        const ids: number[] = []
+        for (let indice = 0; indice < 5; indice++) {
+          ids.push(
+            store.watch.recordWatch(
+              visionado(AURORA, indice % 2 === 0 ? 1 : 2, new Date(1_000_000 + indice)),
+            ),
+          )
+        }
+
+        const primera = store.watch.listWatchHistory(2, 0)
+        const segunda = store.watch.listWatchHistory(2, 2)
+        const tercera = store.watch.listWatchHistory(2, 4)
+
+        // De la más reciente a la más antigua, y las cinco exactamente una vez: sin
+        // el desplazamiento, la segunda página repetiría las dos primeras.
+        expect([...primera, ...segunda, ...tercera].map((fila) => fila.id)).toEqual(
+          [...ids].reverse(),
+        )
+      })
+    })
+
+    test('una página más allá del final es una lista vacía, no un error', async () => {
+      await withStore((store) => {
+        store.watch.recordWatch(visionado(AURORA, 1, new Date(1_000_000)))
+
+        expect(store.watch.listWatchHistory(10, 50)).toEqual([])
+      })
+    })
+
+    test('no descarta lo terminado ni agrupa por episodio: cuenta lo que pasó', async () => {
+      await withStore((store) => {
+        const primera = store.watch.recordWatch(visionado(AURORA, 1, new Date(1_000_000)))
+        store.watch.updateWatchPosition(primera, 1440, 1440)
+        // La misma obra y el mismo episodio, otra vez: son dos renglones.
+        store.watch.recordWatch(visionado(AURORA, 1, new Date(2_000_000)))
+
+        const historial = store.watch.listWatchHistory(10, 0)
+
+        expect(historial).toHaveLength(2)
+        expect(historial.some((fila) => fila.finished)).toBe(true)
+      })
+    })
+
+    test('no cambia lo que lee «continuar viendo»', async () => {
+      await withStore((store) => {
+        store.watch.recordWatch(visionado(AURORA, 1, new Date(1_000_000)))
+        store.watch.recordWatch(visionado(MAR, 1, new Date(2_000_000)))
+
+        // La lectura de siempre sigue viendo las dos: el historial paginado no le
+        // ha cambiado el tope, ni el orden, ni el troceado.
+        expect(store.watch.listRecentlyWatched(1)).toHaveLength(1)
+        expect(store.watch.listRecentlyWatched(10)).toHaveLength(2)
+      })
+    })
+
+    test('los metadatos salen de una sola consulta, como en la lectura de siempre', async () => {
+      await withStore((store) => {
+        for (let indice = 0; indice < 5; indice++) {
+          store.watch.recordWatch(visionado(AURORA, 1, new Date(1_000_000 + indice)))
+        }
+
+        const contador = contarConsultas(store.db)
+        const lista = createWatchRepository(contador.db).listWatchHistory(5, 0)
+
+        expect(lista).toHaveLength(5)
+        expect(lista[0]?.anime.title).toBe('Aurora Nocturna')
+        expect(contador.llamadas()).toBe(1)
+      })
     })
   })
 
@@ -387,6 +474,111 @@ describe('la marca de visto', () => {
         .run(MAR.value)
 
       expect(store.vistos.listWatchedTitles().map((item) => item.title)).toEqual([
+        'Mar de Cristal',
+        'Aurora Nocturna',
+      ])
+    })
+  })
+})
+
+/**
+ * La marca de «quiero ver».
+ *
+ * Tercera hermana del favorito y de la de visto, con sus mismos casos: la clave
+ * es el anime —marcar dos veces deja una fila— y marcar algo que no está se
+ * denuncia, que es lo que la ruta convierte en un 404. Lo que se añade aquí, y es
+ * lo que la distingue, es que las tres listas son **independientes**: escribir en
+ * una no toca las otras dos, que es la decisión de producto de este corte.
+ */
+describe('la marca de quiero ver', () => {
+  test('marcar y leer, con la fecha de la marca', async () => {
+    await withStore((store) => {
+      store.pendientes.setPlanToWatch(AURORA, true)
+
+      const lista = store.pendientes.listPlanToWatch()
+
+      expect(lista.map((item) => item.title)).toEqual(['Aurora Nocturna'])
+      expect(lista[0]?.createdAt).toBeInstanceOf(Date)
+      // El resumen viaja entero: la lectura alimenta el Perfil y su tarjeta.
+      expect(lista[0]?.year).toBe(2019)
+      expect(lista[0]?.kind).toBe('tv')
+    })
+  })
+
+  test('marcar dos veces no duplica: la clave es el anime', async () => {
+    await withStore((store) => {
+      store.pendientes.setPlanToWatch(AURORA, true)
+      store.pendientes.setPlanToWatch(AURORA, true)
+
+      expect(store.pendientes.listPlanToWatch()).toHaveLength(1)
+      expect(store.db.query('SELECT COUNT(*) AS total FROM plan_to_watch').get()).toEqual({
+        total: 1,
+      })
+    })
+  })
+
+  test('desmarcar lo saca, y desmarcar algo que no estaba no falla', async () => {
+    await withStore((store) => {
+      store.pendientes.setPlanToWatch(AURORA, true)
+      store.pendientes.setPlanToWatch(AURORA, false)
+
+      expect(store.pendientes.listPlanToWatch()).toEqual([])
+
+      store.pendientes.setPlanToWatch(MAR, false)
+      expect(store.pendientes.listPlanToWatch()).toEqual([])
+    })
+  })
+
+  test('marcar una obra que no está se denuncia', async () => {
+    await withStore((store) => {
+      expect(() =>
+        store.pendientes.setPlanToWatch({ providerId: 'fixture', value: 'no-existe' }, true),
+      ).toThrow(/no está/)
+    })
+  })
+
+  test('no fabrica progreso de episodios: declara una intención, no un visionado', async () => {
+    await withStore((store) => {
+      store.pendientes.setPlanToWatch(AURORA, true)
+
+      expect(store.db.query('SELECT COUNT(*) AS total FROM watch_event').get()).toEqual({
+        total: 0,
+      })
+    })
+  })
+
+  test('las tres marcas son independientes: ninguna escribe en las otras dos', async () => {
+    await withStore((store) => {
+      store.pendientes.setPlanToWatch(AURORA, true)
+
+      expect(store.favoritos.listFavorites()).toEqual([])
+      expect(store.vistos.listWatchedTitles()).toEqual([])
+
+      store.vistos.setWatchedTitle(AURORA, true)
+
+      // Marcar como vista no la saca de pendientes: son tres listas del usuario y
+      // acoplarlas borraría una marca a mano sin decirlo.
+      expect(store.pendientes.listPlanToWatch()).toHaveLength(1)
+
+      store.pendientes.setPlanToWatch(AURORA, false)
+
+      // Y al revés: quitarla de pendientes no toca la marca de visto.
+      expect(store.vistos.listWatchedTitles()).toHaveLength(1)
+    })
+  })
+
+  test('la lista sale de la más reciente a la más antigua', async () => {
+    await withStore((store) => {
+      store.pendientes.setPlanToWatch(AURORA, true)
+      store.db.query('UPDATE plan_to_watch SET created_at = 1').run()
+      store.pendientes.setPlanToWatch(MAR, true)
+      store.db
+        .query(
+          'UPDATE plan_to_watch SET created_at = 2 WHERE anime_id = (SELECT id FROM anime WHERE provider_ref = ?)',
+        )
+        .run(MAR.value)
+
+      expect(store.pendientes.listPlanToWatch().map((item) => item.title)).toEqual([
         'Mar de Cristal',
         'Aurora Nocturna',
       ])

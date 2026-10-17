@@ -17,6 +17,7 @@ import {
 import { createAnimeRepository } from './repositories/anime'
 import { createEpisodesRepository } from './repositories/episodes'
 import { createFavoritesRepository } from './repositories/favorites'
+import { createPlanToWatchRepository } from './repositories/plan-to-watch'
 import { createSettingsRepository } from './repositories/settings'
 import { createStreamRepository } from './repositories/stream'
 import { createWatchRepository } from './repositories/watch'
@@ -309,6 +310,22 @@ describe('limpieza de huérfanos', () => {
       expect(informe.deleted.anime).toBe(0)
       expect(cuenta(store.db, 'anime')).toBe(1)
       expect(cuenta(store.db, 'watched_title')).toBe(1)
+    })
+  })
+
+  test('una obra pendiente nunca se limpia, aunque lleve meses sin reproducirse', async () => {
+    await withStore((store) => {
+      // El caso extremo de la protección: algo guardado para verlo más adelante
+      // puede llevar mucho tiempo sin un solo visionado, y es justo lo que no se
+      // puede perder. Sin la guarda, la poda se lo lleva con el detalle.
+      sembrar(store, ref('pendiente'), AHORA - 500 * DAY)
+      createPlanToWatchRepository(store.db).setPlanToWatch(ref('pendiente'), true)
+
+      const informe = pruneOrphans(store.db, new Date(AHORA))
+
+      expect(informe.deleted.anime).toBe(0)
+      expect(cuenta(store.db, 'anime')).toBe(1)
+      expect(cuenta(store.db, 'plan_to_watch')).toBe(1)
     })
   })
 

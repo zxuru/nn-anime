@@ -14,9 +14,12 @@
  * 1. **Un favorito nunca se limpia.** El spec dice «no se haya visto ni buscado
  *    en 90 días», y un favorito no es ninguna de las dos cosas; borrarlo sería
  *    hacer desaparecer de la lista algo que el usuario marcó a mano. Ante la
- *    duda, se conserva. **Y lo mismo vale para la marca de visto**: una película
- *    vista fuera de la aplicación puede no tener un solo visionado ni búsqueda, y
- *    su marca se iría con el detalle a los 90 días sin que nadie la quitara.
+ *    duda, se conserva. **Y lo mismo vale para la marca de visto y para la de
+ *    «quiero ver»**: una película vista fuera de la aplicación puede no tener un
+ *    solo visionado ni búsqueda, y su marca se iría con el detalle a los 90 días
+ *    sin que nadie la quitara. Lo pendiente es el caso extremo de lo mismo: una
+ *    obra que alguien guardó para verla más adelante puede llevar meses sin un
+ *    solo visionado, y es justo la que no se puede perder.
  * 2. **«Buscado» no se puede saber por título.** `search_history` guarda la
  *    consulta y el proveedor, no los títulos que salieron. Lo que sí cubre el
  *    caso es que un título abierto desde una búsqueda se cachea en ese momento:
@@ -51,8 +54,8 @@ function placeholders(count: number): string {
 }
 
 /**
- * Los detalles que se pueden limpiar: sin actividad en el plazo, sin favorito y
- * sin la marca de visto.
+ * Los detalles que se pueden limpiar: sin actividad en el plazo, sin favorito,
+ * sin la marca de visto y sin la de «quiero ver».
  *
  * Se seleccionan primero y se borran después con la lista de identificadores, en
  * lugar de repetir la subconsulta en cada `DELETE`: así lo que se borra es
@@ -67,6 +70,7 @@ function doomedAnime(db: Database, cutoff: number): readonly number[] {
         WHERE a.fetched_at <= ?
           AND NOT EXISTS (SELECT 1 FROM favorite f WHERE f.anime_id = a.id)
           AND NOT EXISTS (SELECT 1 FROM watched_title w WHERE w.anime_id = a.id)
+          AND NOT EXISTS (SELECT 1 FROM plan_to_watch p WHERE p.anime_id = a.id)
           AND NOT EXISTS (
             SELECT 1 FROM watch_event w WHERE w.anime_id = a.id AND w.started_at > ?
           )`,
@@ -88,6 +92,7 @@ export const PRUNED_TABLES: readonly string[] = [
   'watch_event',
   'favorite',
   'watched_title',
+  'plan_to_watch',
   'episode',
   'genre',
   'anime',
@@ -110,7 +115,7 @@ export function pruneOrphans(db: Database, now: Date = new Date()): PruneReport 
 
     const lista = placeholders(ids.length)
 
-    for (const tabla of ['watch_event', 'favorite', 'watched_title']) {
+    for (const tabla of ['watch_event', 'favorite', 'watched_title', 'plan_to_watch']) {
       const borradasAqui = db
         .query(`DELETE FROM ${tabla} WHERE anime_id IN (${lista})`)
         .run(...ids).changes

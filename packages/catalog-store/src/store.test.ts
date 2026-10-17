@@ -168,6 +168,34 @@ describe('lecturas y escrituras', () => {
     })
   })
 
+  /**
+   * Las dos lecturas nuevas del Perfil, por la fachada.
+   *
+   * La fachada es el único camino de escritura del sistema, así que probar el
+   * repositorio por su cuenta no basta: lo que hay que medir es que las dos rutas
+   * existen en el contrato que usa el server y que escriben donde se lee.
+   */
+  test('la marca de quiero ver y el historial paginado, por la fachada', async () => {
+    await withStore(async ({ store }) => {
+      await store.writeAnimeWithEpisodes(AURORA, detalle(AURORA), episodios(AURORA))
+      for (let indice = 0; indice < 3; indice++) await store.recordWatch(visionado(AURORA))
+      await store.setPlanToWatch(AURORA, true)
+
+      expect((await store.listPlanToWatch())[0]?.title).toBe('Título aurora-nocturna')
+      expect((await store.listWatchHistory(2, 0))[0]?.anime.title).toBe('Título aurora-nocturna')
+
+      // El troceado es de verdad: la segunda página trae la fila que queda.
+      expect(await store.listWatchHistory(2, 0)).toHaveLength(2)
+      expect(await store.listWatchHistory(2, 2)).toHaveLength(1)
+
+      await store.setPlanToWatch(AURORA, false)
+
+      expect(await store.listPlanToWatch()).toEqual([])
+      // Y quitarla de pendientes no ha tocado el historial.
+      expect(await store.listWatchHistory(10, 0)).toHaveLength(3)
+    })
+  })
+
   test('los ajustes se guardan con JSON y se validan al leer', async () => {
     await withStore(async ({ store }) => {
       await store.setSetting('tema', 'claro')

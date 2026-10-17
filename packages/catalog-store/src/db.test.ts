@@ -44,6 +44,7 @@ const TABLAS_POSTERIORES = [
   'anilist_image',
   'adult_ref',
   'watched_title',
+  'plan_to_watch',
 ]
 
 /** Las versiones que hay hoy, para no fijar números que crecen con cada migración. */

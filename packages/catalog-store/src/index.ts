@@ -48,6 +48,11 @@ export {
 } from './repositories/episodes'
 export { createFavoritesRepository, type FavoritesStore } from './repositories/favorites'
 export {
+  createPlanToWatchRepository,
+  type PlanToWatchStore,
+  type PlanToWatchTitle,
+} from './repositories/plan-to-watch'
+export {
   byYearProximity,
   createRelatedRepository,
   RELATED_SCAN_LIMIT,

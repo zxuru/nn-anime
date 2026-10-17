@@ -96,6 +96,29 @@ function toRecord(row: WatchRow): WatchRecord {
   }
 }
 
+/**
+ * La proyección de un visionado con los datos del anime.
+ *
+ * Va en una constante porque la leen **dos** consultas —la de «continuar viendo»
+ * y la del historial— y tienen que devolver exactamente la misma forma: con dos
+ * copias, añadir una columna a una sola daría dos `WatchRecord` distintos según
+ * por dónde se llegue, y el que se dejara atrás saldría con un campo en `undefined`
+ * sin que nada avisara.
+ *
+ * El `JOIN` es lo que evita el N+1 que el spec prohíbe: veinte filas son una
+ * consulta, no veinte.
+ */
+const WATCH_SELECT = `SELECT w.id AS id, w.provider_id AS provider_id, w.mode AS mode,
+                             w.position_s AS position_s, w.duration_s AS duration_s,
+                             w.started_at AS started_at, w.finished AS finished,
+                             e.number AS episode_number,
+                             a.provider_id AS anime_provider, a.provider_ref AS anime_ref,
+                             a.title AS title, a.cover_url AS cover_url, a.year AS year,
+                             a.raw_json AS raw_json
+                        FROM watch_event w
+                        JOIN episode e ON e.id = w.episode_id
+                        JOIN anime a ON a.id = w.anime_id`
+
 export function createWatchRepository(db: Database) {
   const episodeLookup = (ref: ProviderRef): number | undefined => episodeIdOf(db, ref)
 
@@ -177,20 +200,39 @@ export function createWatchRepository(db: Database) {
     listRecentlyWatched(limit: number): readonly WatchRecord[] {
       const rows = db
         .query<WatchRow, [number]>(
-          `SELECT w.id AS id, w.provider_id AS provider_id, w.mode AS mode,
-                  w.position_s AS position_s, w.duration_s AS duration_s,
-                  w.started_at AS started_at, w.finished AS finished,
-                  e.number AS episode_number,
-                  a.provider_id AS anime_provider, a.provider_ref AS anime_ref,
-                  a.title AS title, a.cover_url AS cover_url, a.year AS year,
-                  a.raw_json AS raw_json
-             FROM watch_event w
-             JOIN episode e ON e.id = w.episode_id
-             JOIN anime a ON a.id = w.anime_id
+          `${WATCH_SELECT}
             ORDER BY w.started_at DESC
             LIMIT ?`,
         )
         .all(limit)
+
+      return rows.map(toRecord)
+    },
+
+    /**
+     * El historial, por páginas.
+     *
+     * Es la misma consulta que `listRecentlyWatched` con un desplazamiento, y va
+     * aparte **a propósito**: aquélla alimenta la fila «continuar viendo» y es
+     * señal de afinidad del motor, así que no se le puede cambiar la semántica
+     * —ni el tope, ni el orden, ni el troceado— para servir una pantalla nueva.
+     * Aquí no se agrupa por episodio ni se descarta lo terminado: el historial
+     * cuenta **lo que pasó**, y que un episodio se reprodujera dos veces son dos
+     * renglones, no uno.
+     *
+     * El desplazamiento y no un cursor porque el orden es por fecha de inicio y el
+     * historial se escribe por detrás: una página que se desplaza sola mientras se
+     * mira es peor que un salto entre páginas, y el usuario está mirando lo que ya
+     * tiene delante.
+     */
+    listWatchHistory(limit: number, offset: number): readonly WatchRecord[] {
+      const rows = db
+        .query<WatchRow, [number, number]>(
+          `${WATCH_SELECT}
+            ORDER BY w.started_at DESC
+            LIMIT ? OFFSET ?`,
+        )
+        .all(limit, offset)
 
       return rows.map(toRecord)
     },
