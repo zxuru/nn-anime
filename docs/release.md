@@ -171,11 +171,53 @@ Un solo archivo por plataforma, compilado con `bun build --compile`, que lleva d
 - la interfaz construida, incrustada con `--asset` (`packages/web/dist`);
 - los archivos `.sql` de las migraciones, incrustados igual.
 
+Y **al lado** de ese archivo, dentro del mismo instalador, viaja el **anfitrión de ventana**
+(`nn-anime-desktop`): un binario aparte, compilado con Rust, que lanza al servidor y abre la ventana.
+No se incrusta dentro del servidor porque duplicaría sus 93,8 MB en cada plataforma, y porque así el
+servidor de consola sigue existiendo para quien lo quiera.
+
 `packages/cli/src/resources.ts` los resuelve en este orden: variable de entorno
 (`NN_ANIME_WEB_DIR`, `NN_ANIME_MIGRATIONS_DIR`), recurso incrustado y árbol de fuentes. Los dos
 nombres con los que se incrustan —`dist` y `migrations`— son un contrato entre
 `scripts/package/binary.ts` y ese archivo, y hay una prueba que los compara: `--asset` no sabe
 renombrar, así que mover `packages/web/dist` rompería el ejecutable sin que nada más avisara.
+
+## El anfitrión de ventana, y su toolchain
+
+Desde la 0.1.0 cada instalador lleva **dos** ejecutables: el servidor de consola (`nn-anime`) y el
+anfitrión de ventana (`nn-anime-desktop`, en `desktop/src-tauri`). El anfitrión se compila con `cargo`
+y **no** con el CLI de Tauri: `tauri-build` lee `tauri.conf.json` en el guion de compilación, así que
+`cargo build --release` produce el binario entero y el empaquetado sigue siendo el de siempre.
+
+`bun run package` **se niega** a armar un instalador sin el anfitrión, porque uno sin él abre la
+consola que este trabajo viene a quitar. `--skip-desktop` existe para compilar sin el árbol de Rust, y
+lo dice en voz alta.
+
+```bash
+bun run build                                   # la interfaz, que va dentro del servidor
+bun run desktop:build                           # el anfitrión de esta máquina
+bun run package                                 # ejecutable + instalador, con los dos
+```
+
+Para la compilación cruzada —la matriz arma el `.dmg` de Intel desde un Mac arm64— se le dice el
+objetivo, y el triple de Rust lo resuelve el propio comando:
+
+```bash
+bun run desktop:build --target=darwin-x64       # añade el target y compila cruzado
+```
+
+En Linux, `cargo` necesita las dependencias del webview, que no vienen en todas las imágenes:
+
+```bash
+sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf
+```
+
+El listón del árbol de Rust es **suyo** y no lo mira `bun test` —vive fuera de `packages/` a
+propósito—: `bun run desktop:check` (formato, `clippy` con `-D warnings` y sus pruebas), y lo ejecuta
+el trabajo `desktop` del CI en las tres plataformas.
+
+La firma de Windows cubre **los dos** ejecutables: el acceso abre el anfitrión, así que firmar sólo el
+servidor dejaría el aviso de SmartScreen justo en el que se ejecuta al pulsar el acceso.
 
 ## Las herramientas de Linux
 
@@ -236,7 +278,14 @@ Medido en la máquina donde se preparó esto:
 - `actionlint` con `shellcheck` sobre los tres workflows, sin avisos.
 - Las dependencias del `.deb` y el `.rpm` no se suponen: se leyeron los `DT_NEEDED` del ejecutable de
   Linux —`libc.so.6`, `libm`, `libdl`, `libpthread`, todas de libc6— y su versión mínima de símbolos
-  versionados, `GLIBC_2.17`, que es lo que declara el paquete.
+  versionados, `GLIBC_2.17`, que es lo que declara el paquete. **El anfitrión añadió dos más**,
+  `libwebkit2gtk-4.1-0` y `libgtk-3-0`, que son las que documenta Tauri y que **no** se han medido
+  aquí: no hay un Linux donde leer sus `DT_NEEDED`.
+- **El subsistema PE de los binarios de Windows**, leído de su cabecera con
+  `bun run scripts/package/pe.ts <ruta> <windows|console>`: el servidor empaquetado declara `console`
+  (3) y el instalador NSIS `windows` (2). Es la medición de «sin consola» que un CI puede hacer, y
+  mover el desplazamiento del campo de `0x44` a `0x40` hace que el binario real declare
+  `desconocido (20383)`, así que el lector está validado contra un ejecutable de verdad.
 
 Verificado **por el CI**, que es donde se comprueba lo que no se puede comprobar aquí:
 

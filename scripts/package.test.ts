@@ -95,6 +95,31 @@ describe('la lista de manifiestos de release-please', () => {
 
     expect(manifest['.']).toBe(root.version)
   })
+
+  test('el CHANGELOG trae la sección de la versión que se va a publicar', async () => {
+    // `release.yml` saca de aquí el cuerpo de la release con un `awk` que va de
+    // `## [X.Y.Z]` al encabezado siguiente, y esta prueba usa **la misma regla**.
+    // Si la versión sube y su sección no aparece —o el encabezado cambia de
+    // forma—, la release se publica **sin cuerpo**: se ve en la página de
+    // descargas, no en el CI, y por eso se comprueba aquí.
+    const root = (await Bun.file(join(ROOT, 'package.json')).json()) as { version: string }
+    const lineas = (await Bun.file(join(ROOT, 'CHANGELOG.md')).text()).split(/\r?\n/)
+
+    let dentro = false
+    const seccion: string[] = []
+
+    for (const linea of lineas) {
+      if (linea.startsWith(`## [${root.version}]`)) {
+        dentro = true
+        continue
+      }
+
+      if (dentro && linea.startsWith('## [')) dentro = false
+      if (dentro) seccion.push(linea)
+    }
+
+    expect(seccion.join('\n').trim().length).toBeGreaterThan(0)
+  })
 })
 
 describe('el nombre de los objetivos', () => {

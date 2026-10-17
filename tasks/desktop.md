@@ -5,6 +5,27 @@ Origen: la petición de que la aplicación sea instalable o portable, se descarg
 funcione sin que nadie sepa usar una terminal ni tenga Bun instalado. El reparto ya existe
 (`scripts/package.ts`, `packaging/`, `release.yml`); lo que falta es **la ventana** y **publicar**.
 
+## Estado, al cerrar cada tarea
+
+| Task | Estado | Cierre |
+|---|---|---|
+| T153 | hecho | `tasks/done/T153.md` |
+| T154 | hecho en lo medible aquí; el Rust **no compilado** | `tasks/done/T154.md` |
+| T155 | hecho en lo medible aquí; el Rust **no compilado** | `tasks/done/T155.md` |
+| T156 | hecho en lo medible aquí; el Rust **no compilado** | `tasks/done/T156.md` |
+| T157 | hecho; el instalador **no compilado** (no hay `makensis`) | `tasks/done/T157.md` |
+| T157a | hecho (**tarea insertada** al implementar T157) | `tasks/done/T157a.md` |
+| T158 | hecho; los paquetes **no construidos** (no hay `nfpm` ni Linux) | `tasks/done/T158.md` |
+| T159 | hecho; el `.app` **no construido** (no hay un Mac) | `tasks/done/T159.md` |
+| T160 | hecho; el instalador **no ejecutado** aquí | `tasks/done/T160.md` |
+| T161 | **pendiente: necesita un Linux de verdad** | — |
+| T162 | hecho | `tasks/done/T162.md` |
+
+**Lo que ninguna casilla de este plan puede decir, y hay que leer en los cierres:** el árbol de Rust
+**no se ha compilado ni una vez**, porque el entorno donde se escribió no tiene HTTPS y `cargo` no
+alcanza crates.io. Las pruebas de Rust están escritas y **sin correr**. El trabajo `desktop` del CI es
+quien las corre, y esa es la primera cosa que hay que mirar en el primer push.
+
 Estudio previo: `docs/estudio-tauri.md` · Propuesta de contrato: promovida a `docs/specs/SPEC-desktop.md`.
 
 Rige el mismo **Definition of Done** de `tasks/plan.md`: `typecheck`, `lint` y `bun test` en verde,

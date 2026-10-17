@@ -65,9 +65,12 @@ Ejecuta el `.exe` y sigue el asistente. Se instala **sólo para tu usuario** —
 administrador— en `%LOCALAPPDATA%\Programs\nn-anime`, y deja un acceso en el menú Inicio y otro en el
 escritorio.
 
-Al abrirlo aparece una **ventana de consola** y, a los pocos segundos, el navegador. Esa ventana es
-la aplicación: mientras esté abierta, el servidor vive y ahí se leen los avisos. **Para cerrarla,
-cierra la ventana**; el navegador dejará de funcionar.
+Al abrirlo desde el menú Inicio o desde el escritorio aparece **su ventana**, con la interfaz dentro:
+no hay ninguna consola de por medio. **Para cerrar la aplicación, cierra la ventana**; el servidor se
+apaga con ella y no queda ningún proceso vivo.
+
+El lanzador de consola sigue instalado **al lado** (`%LOCALAPPDATA%\Programs\nn-anime\nn-anime.exe`)
+para quien quiera `nn-anime "naruto"` desde una terminal: es el mismo servidor, sin ventana.
 
 Desinstalar desde «Agregar o quitar programas» **no borra tus datos**: la base, los ajustes y los
 plugins viven en `%APPDATA%\nn-anime` y `%LOCALAPPDATA%\nn-anime`.
@@ -91,8 +94,8 @@ abrir porque proviene de un desarrollador no identificado». Para abrirla:
 - Si esa opción no aparece: **Ajustes del Sistema → Privacidad y seguridad** y, abajo, **«Abrir de
   todos modos»**.
 
-La aplicación no tiene ventana propia: abre el navegador y deja su icono en el Dock. **Para cerrarla,
-botón derecho sobre el icono del Dock → Salir.**
+La aplicación abre **su propia ventana**, con la interfaz dentro, y deja su icono en el Dock. **Para
+cerrarla, cierra la ventana**; el icono del Dock sigue estando para volver a ella.
 
 ### Linux
 
@@ -103,9 +106,9 @@ botón derecho sobre el icono del Dock → Salir.**
   el PATH y un acceso en el menú de aplicaciones.
 - **`.rpm`** (Fedora, RHEL): `sudo dnf install ./nn-anime-X.Y.Z-linux-x64.rpm`.
 
-El acceso del menú abre una terminal además del navegador: ahí se leen los avisos y desde ahí se para
-con `Ctrl+C`. El AppImage lanzado desde el explorador de archivos no abre ninguna terminal, así que
-conviene lanzarlo desde una.
+El acceso del menú abre **la ventana**, sin ninguna terminal de por medio. El lanzador de consola
+sigue en el `PATH` (`nn-anime`) para quien lo quiera, y el AppImage hace las dos cosas: sin argumentos
+abre la ventana y con ellos ejecuta la consola.
 
 ### Comprobar la descarga
 
@@ -173,6 +176,8 @@ No hay ningún proveedor instalado de fábrica. Hasta que copies uno —ver
 | `bun run captura` | Vuelve a hacer la captura de este README |
 | `bun run package` | Compila el ejecutable de esta plataforma, lo prueba y arma su instalador |
 | `bun run package:smoke` | Arranca un ejecutable ya compilado y le pregunta si sirve la interfaz |
+| `bun run desktop:build` | Compila el anfitrión de ventana; `--target=darwin-x64` lo compila cruzado |
+| `bun run desktop:check` | El listón del árbol de Rust: formato, `clippy` y sus pruebas |
 | `bun run version:check` | Comprueba que los diez `package.json` dicen la misma versión |
 | `bun run version:set` | Sube la versión en los diez `package.json` de una vez |
 | `bun run icon` | Vuelve a generar el icono (PNG, ICO e ICNS) desde código |
@@ -182,6 +187,10 @@ con Bun** para desarrollar, y `bun run package` es lo que los convierte en un pr
 ejecutable por plataforma que lleva dentro el runtime, la interfaz y las migraciones, envuelto en un
 instalador. Para desarrollar hace falta Bun en la máquina —y por eso está declarado en `engines`—;
 para **usar** la aplicación instalada, no hace falta nada.
+
+Y desde `desktop/` se compila el **anfitrión de ventana**, que es lo que hace que el acceso abra una
+ventana y no una consola: `bun run package` lo exige y se niega a armar un instalador sin él, porque
+uno sin anfitrión abre justo la consola que este trabajo quita.
 
 ## Dónde vive cada cosa
 
@@ -296,3 +305,9 @@ servidor. Los paquetes viven en `packages/`:
 - `server` — la API
 - `web` — la interfaz
 - `cli` — el lanzador
+
+Y fuera de `packages/`, en `desktop/`, vive el **anfitrión de ventana** —Rust y Tauri—: lanza el
+lanzador como hermano, lee su dirección, abre la ventana en ella y lo cierra cuando la ventana se
+cierra. Está fuera del monorepo a propósito: así `tsc`, `bun test` y biome no miran un árbol que no es
+suyo, y tiene su propio listón en `bun run desktop:check`, que corre el CI. Su contrato está en
+[docs/specs/SPEC-desktop.md](docs/specs/SPEC-desktop.md).
