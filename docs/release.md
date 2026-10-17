@@ -216,6 +216,16 @@ El listón del árbol de Rust es **suyo** y no lo mira `bun test` —vive fuera 
 propósito—: `bun run desktop:check` (formato, `clippy` con `-D warnings` y sus pruebas), y lo ejecuta
 el trabajo `desktop` del CI en las tres plataformas.
 
+**Falta `desktop/src-tauri/Cargo.lock`, y hay que generarlo.** No está en el repositorio porque el
+entorno donde se escribió el anfitrión no tenía red y `cargo` no podía resolver dependencias. Sin él,
+la primera compilación elige las versiones más nuevas de cada crate —nada reproducible, que es justo lo
+que el lock promete— y la caché de cargo del CI se queda con una clave vacía. Se hace **una vez**, en
+una máquina con red, y se commitea:
+
+```bash
+cargo generate-lockfile --manifest-path desktop/src-tauri/Cargo.toml
+```
+
 La firma de Windows cubre **los dos** ejecutables: el acceso abre el anfitrión, así que firmar sólo el
 servidor dejaría el aviso de SmartScreen justo en el que se ejecuta al pulsar el acceso.
 
