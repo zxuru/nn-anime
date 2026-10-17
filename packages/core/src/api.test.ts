@@ -4,6 +4,9 @@ import {
   episodeResponseSchema,
   episodesResponseSchema,
   feedItemSchema,
+  planToWatchRequestSchema,
+  planToWatchResponseSchema,
+  profileResponseSchema,
   providerRepoRecordSchema,
   providerRepoSelectionSchema,
   providerReposResponseSchema,
@@ -13,6 +16,7 @@ import {
   searchEventSchema,
   streamResolveResponseSchema,
   watchedResponseSchema,
+  watchHistoryResponseSchema,
 } from './api'
 import { MAX_ENABLED_REPO_FILES, MAX_REPO_PATH_LENGTH, MAX_REPO_URL_LENGTH } from './repos'
 
@@ -397,5 +401,132 @@ describe('streamResolveResponseSchema: las pistas de subtítulos', () => {
       streamResolveResponseSchema.safeParse({ sources: [{ ...fuente, subtitles: [otra] }] })
         .success,
     ).toBe(false)
+  })
+})
+
+/** Una marca de obra: la forma que comparten «quiero ver» y el favorito. */
+const MARCA = { ref: { providerId: 'fuente-ejemplo', value: 'titulo-1' }, value: true }
+
+describe('planToWatchRequestSchema', () => {
+  test('acepta el alta y la baja: el mismo cuerpo dice el estado que queda', () => {
+    expect(planToWatchRequestSchema.safeParse(MARCA).success).toBe(true)
+    expect(planToWatchRequestSchema.safeParse({ ...MARCA, value: false }).success).toBe(true)
+  })
+
+  test('exige la referencia entera: sin proveedor no hay marca posible', () => {
+    expect(planToWatchRequestSchema.safeParse({ ref: { value: 'x' }, value: true }).success).toBe(
+      false,
+    )
+  })
+
+  test('no admite campos de más', () => {
+    expect(planToWatchRequestSchema.safeParse({ ...MARCA, createdAt: 1 }).success).toBe(false)
+  })
+})
+
+describe('planToWatchResponseSchema', () => {
+  const resumen = { ref: { providerId: 'fuente-ejemplo', value: 'titulo-1' }, title: 'Un título' }
+
+  test('acepta la lista vacía: no haber marcado nada no es un error', () => {
+    expect(planToWatchResponseSchema.safeParse({ items: [] }).success).toBe(true)
+  })
+
+  test('acepta un resumen con sus campos opcionales', () => {
+    expect(
+      planToWatchResponseSchema.safeParse({
+        items: [{ ...resumen, coverUrl: 'https://portadas.example/a.jpg', year: 2024 }],
+      }).success,
+    ).toBe(true)
+  })
+
+  test('rechaza un resumen sin título', () => {
+    expect(planToWatchResponseSchema.safeParse({ items: [{ ref: resumen.ref }] }).success).toBe(
+      false,
+    )
+  })
+})
+
+/**
+ * Una fila de visionado con su `finished`.
+ *
+ * La forma base es la de «continuar viendo», que **no** lleva `finished` porque esa
+ * fila descarta lo terminado. El historial sí lo lleva, y sin él la pantalla no
+ * puede decir qué se dejó a la mitad.
+ */
+const VISIONADO = {
+  animeRef: { providerId: 'fuente-ejemplo', value: 'titulo-1' },
+  title: 'Un título',
+  episodeRef: { providerId: 'fuente-ejemplo', value: 'titulo-1#3' },
+  episodeNumber: 3,
+  mode: 'sub',
+  positionS: 600,
+  durationS: 1440,
+  ratio: 0.4166,
+  watchedAt: '2026-10-12T10:00:00.000Z',
+  finished: false,
+}
+
+describe('watchHistoryResponseSchema', () => {
+  test('acepta una página con su fila', () => {
+    expect(
+      watchHistoryResponseSchema.safeParse({ items: [VISIONADO], page: 1, hasMore: true }).success,
+    ).toBe(true)
+  })
+
+  test('acepta una página vacía al final del historial', () => {
+    expect(
+      watchHistoryResponseSchema.safeParse({ items: [], page: 7, hasMore: false }).success,
+    ).toBe(true)
+  })
+
+  test('exige `finished`: sin él no se distingue lo acabado de lo dejado a medias', () => {
+    const { finished: _finished, ...sinTerminar } = VISIONADO
+
+    expect(
+      watchHistoryResponseSchema.safeParse({ items: [sinTerminar], page: 1, hasMore: false })
+        .success,
+    ).toBe(false)
+  })
+
+  test('rechaza una página que no es un entero positivo', () => {
+    expect(
+      watchHistoryResponseSchema.safeParse({ items: [], page: 0, hasMore: false }).success,
+    ).toBe(false)
+    expect(
+      watchHistoryResponseSchema.safeParse({ items: [], page: 1.5, hasMore: false }).success,
+    ).toBe(false)
+  })
+})
+
+describe('profileResponseSchema', () => {
+  const resumen = { ref: { providerId: 'fuente-ejemplo', value: 'titulo-1' }, title: 'Un título' }
+  const vacio = { items: [], page: 1, hasMore: false }
+
+  test('acepta un perfil entero, con las cuatro listas vacías', () => {
+    expect(
+      profileResponseSchema.safeParse({
+        favorites: [],
+        watched: [],
+        planToWatch: [],
+        history: vacio,
+      }).success,
+    ).toBe(true)
+  })
+
+  test('exige las cuatro secciones: un perfil sin historial no describe el estado del usuario', () => {
+    expect(
+      profileResponseSchema.safeParse({ favorites: [], watched: [], planToWatch: [] }).success,
+    ).toBe(false)
+  })
+
+  test('acepta las tres marcas con su tarjeta y el historial con su página', () => {
+    expect(
+      profileResponseSchema.safeParse({
+        favorites: [resumen],
+        watched: [resumen],
+        planToWatch: [resumen],
+        history: { items: [VISIONADO], page: 1, hasMore: false },
+      }).success,
+    ).toBe(true)
   })
 })

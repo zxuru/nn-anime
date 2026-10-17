@@ -287,6 +287,25 @@ export const watchedTitleRequestSchema = z.strictObject({
 })
 
 /**
+ * La marca de «quiero ver», como la lee y la escribe el botón de la ficha.
+ *
+ * Tercera marca del usuario y hermana de las otras dos: misma forma de petición
+ * —un solo `POST` con `value`— y misma forma de lectura que los vistos. **Es
+ * independiente de ellas**: marcar una obra como vista no la saca de «quiero
+ * ver», y ponerla en «quiero ver» no la marca como vista. Son tres tablas y
+ * ninguna escribe en otra.
+ */
+export const planToWatchResponseSchema = z.strictObject({
+  items: z.array(animeSummarySchema),
+})
+
+/** Alta o baja de «quiero ver». `value` dice en qué estado queda. */
+export const planToWatchRequestSchema = z.strictObject({
+  ref: providerRefSchema,
+  value: z.boolean(),
+})
+
+/**
  * Una pista de subtítulos tal y como la ve el cliente.
  *
  * La `url` es la ruta del proxy con su ticket, no la del upstream —igual que la
@@ -414,6 +433,52 @@ export const continueWatchingItemSchema = z.strictObject({
 
 export const continueWatchingResponseSchema = z.strictObject({
   items: z.array(continueWatchingItemSchema),
+})
+
+/**
+ * Un visionado del historial: el de «continuar viendo» más si terminó.
+ *
+ * `continueWatchingItemSchema` no lleva `finished` porque esa fila se construye
+ * descartando justo lo terminado. El historial sí lo enseña: una lista que no
+ * distingue «lo dejé a la mitad» de «lo acabé» no cuenta lo que pasó y obliga a
+ * abrir la ficha para saberlo.
+ */
+export const watchHistoryItemSchema = continueWatchingItemSchema.extend({
+  finished: z.boolean(),
+})
+
+/**
+ * Una página del historial.
+ *
+ * Misma convención que `episodesResponseSchema` —`page` base 1 y `hasMore`— porque
+ * es la misma pregunta: qué hay en esta ventana y si queda algo detrás. El
+ * historial no se sirve entero: crece con cada reproducción y nadie mira el año
+ * pasado de una vez, así que pedirlo completo sería una respuesta que crece sin
+ * tope.
+ */
+export const watchHistoryResponseSchema = z.strictObject({
+  items: z.array(watchHistoryItemSchema),
+  page: z.number().int().positive(),
+  hasMore: z.boolean(),
+})
+
+/**
+ * El Perfil: las listas del usuario en una sola respuesta.
+ *
+ * Es una lectura **agregada** a propósito. Con cuatro peticiones en paralelo, una
+ * que falla deja la pantalla a medio pintar, y una pantalla que enseña el estado
+ * del único usuario no puede callar una de sus partes sin decirlo: o están las
+ * cuatro o el Perfil está en error y se puede reintentar.
+ *
+ * `history` lleva la forma paginada de su ruta —la página 1— y no una lista
+ * suelta: el Perfil enseña el principio y enlaza al Historial, que habla el mismo
+ * contrato. Dos formas para el mismo dato acaban diciendo cosas distintas.
+ */
+export const profileResponseSchema = z.strictObject({
+  favorites: z.array(animeSummarySchema),
+  watched: z.array(animeSummarySchema),
+  planToWatch: z.array(animeSummarySchema),
+  history: watchHistoryResponseSchema,
 })
 
 /** Una fila de tendencias. */
@@ -822,6 +887,11 @@ export type FavoriteRequest = z.infer<typeof favoriteRequestSchema>
 export type FavoritesResponse = z.infer<typeof favoritesResponseSchema>
 export type WatchedTitleRequest = z.infer<typeof watchedTitleRequestSchema>
 export type WatchedTitlesResponse = z.infer<typeof watchedTitlesResponseSchema>
+export type PlanToWatchRequest = z.infer<typeof planToWatchRequestSchema>
+export type PlanToWatchResponse = z.infer<typeof planToWatchResponseSchema>
+export type WatchHistoryItem = z.infer<typeof watchHistoryItemSchema>
+export type WatchHistoryResponse = z.infer<typeof watchHistoryResponseSchema>
+export type ProfileResponse = z.infer<typeof profileResponseSchema>
 export type EpisodesResponse = z.infer<typeof episodesResponseSchema>
 export type EpisodeSeason = z.infer<typeof episodeSeasonSchema>
 export type EpisodeResponse = z.infer<typeof episodeResponseSchema>
