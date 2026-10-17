@@ -71,11 +71,14 @@ impl std::fmt::Display for SidecarError {
             ),
             Self::Spawn(motivo) => write!(salida, "no se pudo lanzar el servidor: {motivo}"),
             Self::Boot(error) => write!(salida, "{error}"),
-            Self::Timeout => write!(
-                salida,
-                "el servidor no anunció su dirección en {} s",
-                BOOT_TIMEOUT.as_secs()
-            ),
+            Self::Timeout => {
+                // El plazo se ata a un local por el mismo motivo que los demás: un
+                // argumento implícito tiene que ser un identificador, y
+                // `BOOT_TIMEOUT.as_secs()` es una llamada.
+                let segundos = BOOT_TIMEOUT.as_secs();
+
+                write!(salida, "el servidor no anunció su dirección en {segundos} s")
+            }
         }
     }
 }
@@ -132,7 +135,12 @@ pub fn sidecar_path() -> std::io::Result<PathBuf> {
         )
     })?;
 
-    Ok(dir.join(format!("{SIDECAR_NAME}{}", std::env::consts::EXE_SUFFIX)))
+    // El sufijo se ata a un local para poder interpolarlo: los argumentos
+    // implícitos de `format!` tienen que ser identificadores, y
+    // `std::env::consts::EXE_SUFFIX` es un camino.
+    let sufijo = std::env::consts::EXE_SUFFIX;
+
+    Ok(dir.join(format!("{SIDECAR_NAME}{sufijo}")))
 }
 
 /// Dónde queda el registro del anfitrión.

@@ -87,9 +87,12 @@ fn interpretar(json: &str) -> Result<BootLine, BootLineError> {
     // Lista blanca de esquemas, como en `httpUrlSchema` de `core`: la ventana
     // carga esta dirección, así que un `file:` o un `javascript:` no pasan.
     if !(linea.url.starts_with("http://") || linea.url.starts_with("https://")) {
+        // La URL se ata a un local para poder interpolarla: un argumento implícito
+        // de `format!` tiene que ser un identificador, y `linea.url` es un campo.
+        let url = &linea.url;
+
         return Err(BootLineError::Malformed(format!(
-            "la URL no es http ni https: {}",
-            linea.url
+            "la URL no es http ni https: {url}"
         )));
     }
 
