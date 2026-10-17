@@ -18,37 +18,38 @@ export const messages: Messages = {
   /*
    * El Perfil y su Historial.
    *
-   * Cada vacío dice **dónde** se marca o se reproduce: un «no hay nada» a secas deja
-   * al usuario buscando el botón por toda la aplicación. Y el enlace al Historial dice
-   * que lleva a todo, no a «más», porque es la pantalla que pagina.
+   * Cada vacío dice **dónde** se marca o se reproduce, y va en dos frases: la primera
+   * es el titular de la pieza fantasma y el resto su cuerpo, que es como el resto de
+   * la vitrina explica un hueco. Un «no hay nada» a secas deja al usuario buscando el
+   * botón por toda la aplicación.
    */
   'profile.title': 'Perfil',
   'profile.loading': 'Cargando tu perfil…',
   'profile.favorites': 'Favoritos',
   'profile.favorites.meta': 'Lo que has guardado',
   'profile.favorites.empty':
-    'Todavía no has marcado ningún favorito: se marca desde la ficha de un título.',
+    'Todavía no has marcado ninguno. La estrella está en la ficha de cada título.',
   'profile.watched': 'Ya vistos',
   'profile.watched.meta': 'Lo que has marcado como visto',
   'profile.watched.empty':
-    'Todavía no has marcado nada como visto: se marca desde la ficha de un título.',
+    'Todavía no has marcado nada. El botón «Marcar como visto» está en la ficha.',
   'profile.planToWatch': 'Quiero ver',
   'profile.planToWatch.meta': 'Lo que has dejado pendiente',
   'profile.planToWatch.empty':
-    'Todavía no has dejado nada pendiente: se marca desde la ficha con «Quiero verla».',
+    'Todavía no has dejado nada pendiente. El botón «Quiero verla» está en la ficha.',
   'profile.history': 'Historial',
   'profile.history.meta': 'Lo que has reproducido',
-  'profile.history.empty': 'Todavía no has reproducido nada: aparecerá aquí lo que veas.',
+  'profile.history.empty': 'Todavía no has reproducido nada. Lo que veas aparecerá aquí.',
   'profile.history.all': 'Ver todo el historial',
 
   'history.title': 'Historial',
   'history.loading': 'Cargando el historial…',
   'history.section': 'Reproducido',
   'history.meta': 'De lo más reciente a lo más antiguo',
-  'history.empty': 'Todavía no has reproducido nada: aparecerá aquí lo que veas.',
+  'history.empty': 'Todavía no has reproducido nada. Lo que veas aparecerá aquí.',
   // Una página más allá del final no es «no hay historial»: es que esa página no
   // tiene nada, y decirlo distinto evita mandar al usuario a marcar lo que ya hizo.
-  'history.emptyPage': 'Esta página del historial está vacía.',
+  'history.emptyPage': 'Esta página está vacía. El historial no llega hasta aquí.',
   'history.back': 'Volver al perfil',
   'history.pages': 'Páginas del historial',
   'history.page': 'Página {page}',
