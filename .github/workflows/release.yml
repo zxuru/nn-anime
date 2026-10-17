@@ -292,6 +292,23 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bun run package --only-installer --target=${{ matrix.target }}
 
+      # El instalador, probado **antes** de subirlo: instalarlo en silencio, mirar
+      # que deja los dos ejecutables, sus accesos y su entrada en «Agregar o quitar
+      # programas», abrirlo, comprobar que la ventana aparece y que al cerrarla no
+      # queda nada vivo, y desinstalarlo. Es lo que `docs/release.md` declaraba sin
+      # probar, y por eso va aquí y no en un trabajo aparte: no se publica un
+      # instalador que nadie ha ejecutado.
+      - name: Comprobar el subsistema de los ejecutables (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          bun run scripts/package/pe.ts build\package\windows-x64\nn-anime.exe console
+          bun run scripts/package/pe.ts build\package\windows-x64\nn-anime-desktop.exe windows
+
+      - name: Probar el instalador (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: pwsh -NoProfile -File packaging/windows/probar-instalador.ps1 -Release release
+
       - name: Subir los instaladores
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

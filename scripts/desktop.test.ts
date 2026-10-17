@@ -31,6 +31,13 @@ import {
   SERVER_NAME,
   targetKey,
 } from './package/desktop'
+import {
+  assertSubsystem,
+  readSubsystem,
+  SUBSYSTEM_CONSOLE,
+  SUBSYSTEM_WINDOWS,
+  subsystemName,
+} from './package/pe'
 import { ROOT } from './workspaces'
 
 const SPEC = join(ROOT, 'docs', 'specs', 'SPEC-desktop.md')
@@ -330,5 +337,63 @@ describe('el paquete de Linux', () => {
     expect(apprun).toContain('[ "$#" -eq 0 ]')
     expect(apprun).toContain('exec "$aqui/usr/bin/nn-anime-desktop"')
     expect(apprun).toContain('exec "$aqui/usr/bin/nn-anime" "$@"')
+  })
+})
+
+describe('el subsistema PE', () => {
+  /** Una cabecera PE mínima con el `Subsystem` que se le pida. */
+  function peFalso(subsystem: number): Uint8Array {
+    const bytes = new Uint8Array(0x200)
+    const view = new DataView(bytes.buffer)
+
+    view.setUint32(0x3c, 0x80, true) // `e_lfanew`
+    view.setUint32(0x80, 0x0000_4550, true) // la firma `PE\0\0`
+    view.setUint16(0x80 + 4 + 20 + 0x44, subsystem, true)
+
+    return bytes
+  }
+
+  test('lee el subsistema de una cabecera bien formada', () => {
+    expect(readSubsystem(peFalso(SUBSYSTEM_WINDOWS))).toBe(SUBSYSTEM_WINDOWS)
+    expect(readSubsystem(peFalso(SUBSYSTEM_CONSOLE))).toBe(SUBSYSTEM_CONSOLE)
+  })
+
+  test('nombra los dos que importan, y no inventa con el resto', () => {
+    expect(subsystemName(SUBSYSTEM_WINDOWS)).toBe('windows')
+    expect(subsystemName(SUBSYSTEM_CONSOLE)).toBe('console')
+    expect(subsystemName(9)).toBe('desconocido (9)')
+  })
+
+  test('rechaza lo que no es un ejecutable en vez de devolver un cero', () => {
+    // Un `0` haría que el fallo apareciera como «no es ninguno de los dos» en
+    // lugar de «esto no es un ejecutable de Windows».
+    expect(() => readSubsystem(new Uint8Array(0x200))).toThrow(/firma/)
+    expect(() => readSubsystem(new Uint8Array(8))).toThrow(/corto/)
+  })
+
+  test('rechaza una cabecera que apunta fuera del archivo', () => {
+    const bytes = peFalso(SUBSYSTEM_WINDOWS)
+
+    new DataView(bytes.buffer).setUint32(0x3c, 0xffff_fff0, true)
+
+    expect(() => readSubsystem(bytes)).toThrow(/fuera del archivo/)
+  })
+
+  test('dice qué se esperaba y qué hay cuando no coincide', () => {
+    expect(assertSubsystem(peFalso(SUBSYSTEM_WINDOWS), 'windows')).toBe('windows (2)')
+    expect(() => assertSubsystem(peFalso(SUBSYSTEM_CONSOLE), 'windows')).toThrow(
+      /se esperaba windows \(2\) y el ejecutable declara console/,
+    )
+  })
+
+  test('el CI mide el subsistema de los dos ejecutables de Windows', async () => {
+    // La medición de «sin consola» que un CI puede hacer. El anfitrión tiene que
+    // declarar WINDOWS y el servidor CONSOLE —y el servidor está bien así: quien
+    // no puede abrir consola es el anfitrión, y al lanzarlo usa CREATE_NO_WINDOW—.
+    const ci = await leer(join(ROOT, '.github', 'workflows', 'ci.yml'))
+
+    expect(ci).toContain('scripts/package/pe.ts')
+    expect(ci).toContain('nn-anime.exe console')
+    expect(ci).toContain('nn-anime-desktop.exe windows')
   })
 })

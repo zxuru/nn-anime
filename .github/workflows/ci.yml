@@ -199,9 +199,31 @@ jobs:
           path: |
             build/package/*/nn-anime
             build/package/*/nn-anime.exe
+            build/package/*/nn-anime-desktop
+            build/package/*/nn-anime-desktop.exe
             release/*
           if-no-files-found: error
           retention-days: 7
+
+      # La medición de «sin consola», y la única que un CI puede hacer sobre esto:
+      # Windows decide si un proceso abre consola por el campo `Subsystem` de su
+      # cabecera PE, no por ninguna convención del código. El anfitrión tiene que
+      # declarar WINDOWS (2); el servidor declara CONSOLE (3) y está bien que lo
+      # haga —así se invoca a mano desde una terminal—, porque quien no puede abrir
+      # consola es el anfitrión, y al lanzarlo usa `CREATE_NO_WINDOW`.
+      - name: Comprobar el subsistema de los ejecutables (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          bun run scripts/package/pe.ts build\package\windows-x64\nn-anime.exe console
+          bun run scripts/package/pe.ts build\package\windows-x64\nn-anime-desktop.exe windows
+
+      # Ejecutar el instalador de verdad, que es lo que `docs/release.md` declaraba
+      # sin probar. Va **después** de dejar los artefactos subidos: si falla, se
+      # pueden mirar sin volver a compilar.
+      - name: Probar el instalador (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: pwsh -NoProfile -File packaging/windows/probar-instalador.ps1 -Release release
 
   # El árbol de Rust del anfitrión de ventana (`desktop/`).
   #
