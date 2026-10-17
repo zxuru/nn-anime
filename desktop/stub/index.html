@@ -1,0 +1,19 @@
+<!doctype html>
+<!--
+  Relleno para `tauri build`.
+
+  La ventana del anfitrión carga una URL **externa** (`WebviewUrl::External`), así
+  que esta página no se enseña nunca: existe porque `tauri.conf.json` exige un
+  `frontendDist` y sin él `tauri build` no compila. Enseñar la interfaz como
+  recurso de Tauri (`tauri://`) cambiaría el origen del webview y tumbaría los
+  guards del servidor; el porqué está en `docs/specs/SPEC-desktop.md`.
+-->
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>nn-anime</title>
+  </head>
+  <body>
+    <p>Si estás leyendo esto, la ventana no encontró el servidor local.</p>
+  </body>
+</html>

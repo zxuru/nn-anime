@@ -11,6 +11,12 @@ coverage/
 release/
 .bun-cache/
 
+# El árbol de Rust del anfitrión de ventana (`desktop/`). Lo que compila `cargo`
+# no se versiona; `Cargo.lock` **sí**, porque sin él la release no es reproducible.
+# Van aquí y no en `biome.json` porque biome respeta este archivo.
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+
 # Secretos: nunca dentro del repo. `.env.example` sí, con marcadores.
 .env
 .env.*

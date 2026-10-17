@@ -15,6 +15,7 @@ Cada módulo tiene su `SPEC-<module-id>.md` en `docs/specs/`, junto a este mapa.
 | `media-proxy` | Proxy de bytes y HLS con headers de upstream, reescritura de playlists, handoff y control de mpv | `core`, `provider-core` | `packages/media-proxy` |
 | `recsys` | Motor de recomendación explicable sobre señales locales | `core`, `catalog-store` | `packages/recsys` |
 | `web-ui` | SPA: home, búsqueda, detalle, reproductor web, panel de recomendaciones | `core`, los 5 anteriores vía HTTP | `packages/web` |
+| `desktop` | Anfitrión de ventana: lanza el servidor que ya existe, abre una ventana con la interfaz y lo cierra con ella | `cli-launcher` | `desktop/` (**fuera de `packages/`**) |
 
 Módulo auxiliar no listado como capacidad de producto:
 
@@ -34,6 +35,11 @@ core ──┬──> provider-core ──┬──> media-proxy ──┐
 
 Un solo sentido. Sin ciclos. `web-ui` no importa código de los otros módulos: sólo consume su
 superficie HTTP. `recsys` no importa `provider-core`: recibe metadatos ya persistidos.
+
+`desktop` no aparece en el diagrama porque **no es una capacidad de producto**: consume
+`cli-launcher` por su línea de arranque y su cierre por entrada estándar, y habla con la aplicación
+**sólo por HTTP**, igual que un navegador. No importa código de `packages/` y vive fuera del
+monorepo, en `desktop/`.
 
 ## Build order
 
