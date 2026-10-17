@@ -404,6 +404,10 @@ export const messages: Messages = {
   // audio: son dos cosas distintas y se eligen por separado.
   'player.tracks.pick': 'Subtítulos',
   'player.tracks.none': 'Ninguno',
+  // El respaldo de una pista que trae el manifiesto sin nombre ni idioma: el
+  // botón tiene que decir algo, porque un mando sin texto no se puede pulsar con
+  // un lector de pantalla.
+  'player.tracks.sinNombre': 'Subtítulos del video',
   // El episodio siguiente, que empieza solo si nadie lo para.
   'player.autoplay': 'Reproducción automática',
   'player.next.in': 'Siguiente episodio en {seconds} s',

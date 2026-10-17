@@ -43,6 +43,7 @@ import {
   IconoSilencio,
   IconoVolumen,
 } from './icons'
+import { type SubtitleChoice, subtitleAction, subtitleOptions } from './subtitle-menu'
 import { isProxyPath } from './subtitle-tracks'
 import { useCompatPaint } from './useCompatPaint'
 import { type SafeTrack, usePlayer } from './usePlayer'
@@ -197,7 +198,7 @@ function punteroFino(): boolean {
 export function Player(props: PlayerProps): ReactNode {
   // Los avisos de reproducción, pausa y avance salen de los eventos del propio
   // elemento, no del render: llamarlos al pintar los dispararía en cada vuelta.
-  const { state, videoRef, act, seekTo, setVolume } = usePlayer({
+  const { state, videoRef, act, seekTo, setVolume, hlsTracks, pickHlsTrack } = usePlayer({
     url: props.url,
     kind: props.kind,
     ...(props.onPlay === undefined ? {} : { onPlay: props.onPlay }),
@@ -252,33 +253,66 @@ export function Player(props: PlayerProps): ReactNode {
   const dialogoAtajos = useRef<HTMLDialogElement | null>(null)
 
   /**
-   * La pista de subtítulos que se está pintando, o ninguna.
+   * Los subtítulos que están puestos: una pista del proveedor, una del manifiesto
+   * o ninguno.
    *
-   * El elemento trae una pista por subtítulo y las pinta él: lo único que hay que
-   * hacer es decirle cuál. La primera —la que el proveedor prefiere— viene
-   * marcada por defecto, y aquí se puede cambiar o apagar sin salir de la
+   * El elemento trae una pista por subtítulo declarado y las pinta él: lo único
+   * que hay que hacer es decirle cuál. La primera —la que el proveedor prefiere—
+   * viene marcada por defecto, y aquí se puede cambiar o apagar sin salir de la
    * pantalla, que es lo que faltaba: un episodio con subtítulos forzados en otro
    * idioma no tenía arreglo.
+   *
+   * Las del manifiesto —las que trae la propia lista HLS— son el otro origen, y
+   * van en la misma decisión: encender una apaga la otra. Ver `subtitle-menu`.
    */
-  const [pista, setPista] = useState<number | 'ninguna'>(pistas.length === 0 ? 'ninguna' : 0)
+  const [elegida, setElegida] = useState<SubtitleChoice>(
+    pistas.length === 0 ? { origen: 'ninguna' } : { origen: 'declarada', indice: 0 },
+  )
+
+  /** Aplica una elección: al elemento por un lado y a hls.js por el otro. */
+  const elegirSubtitulos = useCallback(
+    (choice: SubtitleChoice) => {
+      setElegida(choice)
+      pickHlsTrack(subtitleAction(choice).manifiesto)
+    },
+    [pickHlsTrack],
+  )
+
+  /**
+   * Las entradas del menú: los dos orígenes en una sola lista.
+   *
+   * Se calcula al pintar y no se guarda: las pistas del manifiesto llegan cuando
+   * hls.js lo parsea, así que una copia guardada se quedaría vieja justo en la
+   * vuelta en que aparece la primera pista.
+   */
+  const opcionesSubtitulos = subtitleOptions({
+    declaradas: pistas,
+    manifiesto: hlsTracks,
+    elegida,
+    ninguna: t(DEFAULT_LOCALE, 'player.tracks.none'),
+    sinNombre: t(DEFAULT_LOCALE, 'player.tracks.sinNombre'),
+  })
 
   useEffect(() => {
     const video = elemento
     if (video === null) return
 
     const lista = video.textTracks
+    const encendida = subtitleAction(elegida).declarada
 
     // Se recorre el número de pistas del componente y no el del elemento: al
     // cambiar de fuente —de subtitulado a doblado— el `<video>` es el mismo y sus
     // `textTracks` se rehacen, así que el efecto tiene que volver a correr cuando
-    // la lista cambia aunque el elemento no.
+    // la lista cambia aunque el elemento no. Y las que hls.js añade por su cuenta
+    // —una pista del manifiesto— van **detrás** de las nuestras, así que este
+    // recorrido no las toca.
     for (let indice = 0; indice < pistas.length; indice++) {
       const actual = lista[indice]
       if (actual === undefined) continue
 
-      actual.mode = pista === indice ? 'showing' : 'disabled'
+      actual.mode = encendida === indice ? 'showing' : 'disabled'
     }
-  }, [elemento, pista, pistas.length])
+  }, [elemento, elegida, pistas.length])
 
   // El diálogo se abre con la API del elemento y no con un atributo: `showModal`
   // es lo que trae el `Esc`, el encierro del foco y el fondo inerte.
@@ -890,31 +924,21 @@ export function Player(props: PlayerProps): ReactNode {
                     {t(DEFAULT_LOCALE, 'player.compat')}
                   </button>
 
-                  {pistas.length === 0 ? null : (
+                  {opcionesSubtitulos.length === 0 ? null : (
                     <div className="player__menu-block">
                       <p className="player__menu-title">
                         {t(DEFAULT_LOCALE, 'player.tracks.pick')}
                       </p>
                       <ul className="player__menu-list">
-                        <li>
-                          <button
-                            type="button"
-                            className="button player__menu-choice"
-                            aria-pressed={pista === 'ninguna'}
-                            onClick={() => setPista('ninguna')}
-                          >
-                            {t(DEFAULT_LOCALE, 'player.tracks.none')}
-                          </button>
-                        </li>
-                        {pistas.map((entrada, indice) => (
-                          <li key={entrada.url}>
+                        {opcionesSubtitulos.map((opcion) => (
+                          <li key={opcion.key}>
                             <button
                               type="button"
                               className="button player__menu-choice"
-                              aria-pressed={pista === indice}
-                              onClick={() => setPista(indice)}
+                              aria-pressed={opcion.pressed}
+                              onClick={() => elegirSubtitulos(opcion.choice)}
                             >
-                              {entrada.label}
+                              {opcion.label}
                             </button>
                           </li>
                         ))}
@@ -989,9 +1013,12 @@ export function Player(props: PlayerProps): ReactNode {
         {state.status}
       </p>
 
-      {pistas.length === 0 ? null : (
+      {/* El aviso cuenta las dos clases de pista: para quien lee, «subtítulos
+          disponibles» son las que puede elegir, vengan del proveedor o del
+          manifiesto. */}
+      {pistas.length + hlsTracks.length === 0 ? null : (
         <p className="player__note">
-          {t(DEFAULT_LOCALE, 'player.tracks', { count: pistas.length })}
+          {t(DEFAULT_LOCALE, 'player.tracks', { count: pistas.length + hlsTracks.length })}
         </p>
       )}
 

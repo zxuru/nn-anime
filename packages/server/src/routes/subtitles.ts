@@ -35,14 +35,24 @@ export interface SubtitlesRouteOptions {
   readonly resolver?: Resolver
 }
 
-/** La dirección con la que el cliente pide una pista: el ticket, no la URL. */
-export function subtitleTicketPath(ticket: string): string {
+/**
+ * La dirección con la que el cliente pide una pista: el ticket, no la URL.
+ *
+ * Se escribe aquí y no en quien la llama porque el contrato tiene que coincidir
+ * con la ruta que la atiende: una plantilla en un sitio y la ruta en otro es una
+ * errata esperando a que alguien cambie una de las dos.
+ */
+export function subtitlesPath(ticket: string): string {
   return `/api/subtitles/${ticket}`
 }
 
 export function registerSubtitlesRoute(app: Hono, options: SubtitlesRouteOptions): void {
-  app.get('/api/subtitles/:ticket', async (c) => {
-    const ticket = c.req.param('ticket')
+  app.get(subtitlesPath(':ticket'), async (c) => {
+    // La ruta sale de una función —la misma que escribe la dirección del
+    // cliente—, así que Hono no puede deducir el parámetro y lo tipa como
+    // opcional. Una cadena vacía no resuelve ningún ticket y acaba en el mismo
+    // 404 que uno que no existe.
+    const ticket = c.req.param('ticket') ?? ''
     const salida = options.container.tickets.resolve(ticket)
 
     if (!salida.ok) {

@@ -36,6 +36,7 @@ import {
   providerRefSchema,
   searchResultSchema,
   streamRequestSchema,
+  subtitleFormatSchema,
   titleKindSchema,
 } from './schema'
 
@@ -269,6 +270,26 @@ export const favoriteRequestSchema = z.strictObject({
 })
 
 /**
+ * Una pista de subtítulos tal y como la ve el cliente.
+ *
+ * La `url` es la ruta del proxy con su ticket, no la del upstream —igual que la
+ * de la fuente—, y por eso aquí **no** vale `httpUrlSchema`: la dirección es
+ * interna y relativa al origen. Y no basta con exigir una cadena cualquiera: el
+ * prefijo se comprueba, porque «el cliente nunca ve la dirección del upstream» es
+ * la regla que sostiene este contrato. Con `z.string()` a secas, una pista
+ * declarada por el proveedor pasaba la validación con la dirección de terceros
+ * dentro y el reproductor la descartaba después por no ser una ruta del proxy: la
+ * pista llegaba al navegador y no se podía pintar, sin que nada avisara.
+ */
+export const publicSubtitleTrackSchema = z.strictObject({
+  lang: z.string().min(1),
+  label: z.string().min(1),
+  url: z.string().regex(/^\/api\/subtitles\/[^/]+$/, 'la pista tiene que ser una ruta del proxy'),
+  format: subtitleFormatSchema,
+  default: z.boolean().optional(),
+})
+
+/**
  * Una fuente de reproducción tal y como la ve el cliente.
  *
  * `url` es la ruta del proxy con su ticket, no la del upstream: el tipo no
@@ -279,7 +300,7 @@ export const streamSourceResponseSchema = z.strictObject({
   url: z.string().min(1),
   kind: z.enum(['hls', 'file']),
   quality: z.string().min(1).optional(),
-  subtitles: z.array(z.unknown()).optional(),
+  subtitles: z.array(publicSubtitleTrackSchema).optional(),
 })
 
 export const streamResolveResponseSchema = z.strictObject({

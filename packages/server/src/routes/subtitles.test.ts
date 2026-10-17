@@ -7,6 +7,7 @@ import { openDb, runMigrations } from '@nn-anime/catalog-store'
 import { MAX_SUBTITLE_BYTES } from '@nn-anime/media-proxy'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
 import { createApp, createContainer } from '../index'
+import { subtitlesPath } from './subtitles'
 
 const PORT = 7717
 const SESSION_COOKIE = 'nn_session'
@@ -242,3 +243,26 @@ function zipDe(...entradas: Uint8Array[]): Uint8Array {
 
   return zip
 }
+
+/**
+ * La dirección que se escribe en un solo sitio y se atiende en otro.
+ *
+ * Si las dos se separan, el cliente pide una ruta que nadie contesta y el
+ * reproductor se queda sin pistas con un 404 en la consola. La prueba no compara
+ * la cadena consigo misma: pide el recurso.
+ */
+describe('la dirección de la pista', () => {
+  test('es una ruta del proxy, no una URL', () => {
+    expect(subtitlesPath('abc123')).toBe('/api/subtitles/abc123')
+  })
+
+  test('la ruta registrada es la que escribe esa dirección', async () => {
+    await conApp(async ({ pedir, ticket }) => {
+      const ruta = subtitlesPath(ticket('https://fixture.invalid/es.srt'))
+      const respuesta = await pedir(ruta)
+
+      expect(respuesta.status).toBe(200)
+      expect(respuesta.headers.get('content-type')).toBe('text/vtt; charset=utf-8')
+    })
+  })
+})

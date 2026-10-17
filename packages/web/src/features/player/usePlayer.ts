@@ -22,6 +22,7 @@ import {
   VOLUME_STEP,
   volumeBy,
 } from './controls'
+import { type HlsSubtitleTrack, hlsSubtitleTracks } from './subtitle-menu'
 
 /** Una pista que el reproductor puede pintar. */
 export interface SafeTrack {
@@ -90,6 +91,15 @@ export interface PlayerHandle {
   /** Volumen entre 0 y 1, que es lo que el elemento entiende. */
   readonly setVolume: (volume: number) => void
   readonly toggle: () => void
+  /**
+   * Las pistas de subtítulos que trae el manifiesto, si trae alguna.
+   *
+   * Son otro origen que las que declara el proveedor —viajan dentro de la lista
+   * HLS y las sirve hls.js— y se ofrece porque hls.js no enciende ninguna sola.
+   */
+  readonly hlsTracks: readonly HlsSubtitleTrack[]
+  /** Enciende la pista del manifiesto con ese índice, o las apaga con `-1`. */
+  readonly pickHlsTrack: (id: number) => void
 }
 
 /**
@@ -134,57 +144,103 @@ function anunciar(previo: PlayerState, cambio: Partial<PlayerState>): PlayerStat
 }
 
 /**
- * Carga `hls.js` y conecta el elemento. Devuelve cómo destruirlo.
+ * Lo que devuelve montar el medio: cómo soltarlo y cómo elegir subtítulos.
  *
- * `alFallar` recibe el detalle de un error **fatal** de la biblioteca. Hace
- * falta un oído: hls.js no lanza, avisa, y el elemento no dispara `error` cuando
- * lo que falla es el Media Source. Sin esto, un corte de red o un códec que el
- * navegador no decodifica se quedan en una pantalla negra sin decir nada.
- *
- * `sigueVivo` se comprueba **después** de la importación y antes de tocar el
- * elemento. La importación es asíncrona y el efecto puede haberse desmontado
- * mientras llegaba: React en modo estricto monta, desmonta y vuelve a montar, así
- * que la primera vuelta llega tarde y su `destroy()` —el que la segunda vuelta
- * pide para lo que ya no sirve— arrancaría el medio que la segunda acababa de
- * montar. Se veía como una lista cargada —200— y **ni una sola petición de
- * segmento**: el video se quedaba sin fuente y en negro, con el audio a veces
- * sonando de milagro según el orden de los microtasks. Sólo pasa en desarrollo,
- * que es donde React duplica los efectos.
+ * La carga de `hls.js` es dinámica —son unos 300 KB que sólo hacen falta al
+ * reproducir HLS—, así que montar el medio es una función aparte de este gancho y
+ * con su propio contrato.
  */
-export async function attachHls(
-  video: HTMLVideoElement,
-  url: string,
-  alFallar?: (detalle: string) => void,
-  sigueVivo: () => boolean = () => true,
-): Promise<{ destroy: () => void } | { error: string }> {
+export interface HlsHandle {
+  readonly destroy: () => void
+  /**
+   * Enciende la pista del manifiesto con ese índice, o las apaga con `-1`.
+   *
+   * Es una pista que viaja **dentro de la lista** (`#EXT-X-MEDIA` con
+   * `TYPE=SUBTITLES`), no un `<track>`: la sirve hls.js y se elige por índice.
+   */
+  readonly elegirSubtitulo: (id: number) => void
+}
+
+export interface AttachHlsOptions {
+  readonly video: HTMLVideoElement
+  readonly url: string
+  /**
+   * Un error **fatal** de la biblioteca.
+   *
+   * Hace falta un oído: hls.js no lanza, avisa, y el elemento no dispara `error`
+   * cuando lo que falla es el Media Source. Sin esto, un corte de red o un códec
+   * que el navegador no decodifica se quedan en una pantalla negra sin decir nada.
+   */
+  readonly alFallar?: ((detalle: string) => void) | undefined
+  /**
+   * ¿Sigue vivo el efecto que pidió el montaje?
+   *
+   * Se comprueba **después** de la importación y antes de tocar el elemento. La
+   * importación es asíncrona y el efecto puede haberse desmontado mientras
+   * llegaba: React en modo estricto monta, desmonta y vuelve a montar, así que la
+   * primera vuelta llega tarde y su `destroy()` —el que la segunda vuelta pide
+   * para lo que ya no sirve— arrancaría el medio que la segunda acababa de
+   * montar. Se veía como una lista cargada —200— y **ni una sola petición de
+   * segmento**: el video se quedaba sin fuente y en negro, con el audio a veces
+   * sonando de milagro según el orden de los microtasks. Sólo pasa en desarrollo,
+   * que es donde React duplica los efectos.
+   */
+  readonly sigueVivo?: (() => boolean) | undefined
+  /**
+   * Las pistas de subtítulos que trae el manifiesto, cada vez que la lista cambia.
+   *
+   * hls.js las publica al parsear la lista maestra y **no enciende ninguna**: sin
+   * esto, una fuente con subtítulos incrustados —el audio original con su pista
+   * en inglés, que es lo que sirven estos sitios— llegaba al reproductor con sus
+   * subtítulos dentro y sin forma de verlos.
+   */
+  readonly alDescubrirPistas?: ((pistas: readonly HlsSubtitleTrack[]) => void) | undefined
+}
+
+export async function attachHls(options: AttachHlsOptions): Promise<HlsHandle | { error: string }> {
+  const sigueVivo = options.sigueVivo ?? (() => true)
+
   try {
     const { default: Hls } = await import('hls.js')
 
-    if (!sigueVivo()) return { destroy: () => {} }
+    if (!sigueVivo()) return { destroy: () => {}, elegirSubtitulo: () => {} }
 
     if (!Hls.isSupported()) {
       // Safari reproduce HLS sin ayuda; si tampoco puede, se dice.
-      if (video.canPlayType('application/vnd.apple.mpegurl') === '') {
+      if (options.video.canPlayType('application/vnd.apple.mpegurl') === '') {
         return { error: 'este navegador no puede reproducir HLS' }
       }
 
-      video.src = url
+      // Aquí el HLS lo lleva el navegador: la lista la lee él y sus pistas de
+      // subtítulos no las publica en ninguna parte, así que no hay nada que
+      // ofrecer. La pista vacía se devuelve igual para que quien llama no tenga
+      // que distinguir dos formas de lo mismo.
+      options.video.src = options.url
 
-      return { destroy: () => video.removeAttribute('src') }
+      return { destroy: () => options.video.removeAttribute('src'), elegirSubtitulo: () => {} }
     }
 
     const hls = new Hls({ enableWorker: true })
 
+    const publicarPistas = (): void => {
+      options.alDescubrirPistas?.(hlsSubtitleTracks(hls.subtitleTracks))
+    }
+
+    // Se escucha antes de cargar la lista: el evento llega al parsearla, y
+    // suscribirse después es no enterarse de la primera —y única— vez que se
+    // publican las pistas de una lista bajo demanda.
+    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, publicarPistas)
+
     hls.on(Hls.Events.ERROR, (_evento, datos) => {
       // Los no fatales se reintentan por dentro: avisar de ellos sería llenar la
       // pantalla de avisos que se arreglan solos.
-      if (datos.fatal) alFallar?.(datos.details)
+      if (datos.fatal) options.alFallar?.(datos.details)
     })
 
-    hls.loadSource(url)
-    hls.attachMedia(video)
+    hls.loadSource(options.url)
+    hls.attachMedia(options.video)
 
-    return { destroy: () => hls.destroy() }
+    return { destroy: () => hls.destroy(), elegirSubtitulo: (id) => (hls.subtitleTrack = id) }
   } catch (cause) {
     return { error: cause instanceof Error ? cause.message : String(cause) }
   }
@@ -227,7 +283,14 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
   })
 
   const elemento = useRef<HTMLVideoElement | null>(null)
-  const hls = useRef<{ destroy: () => void } | undefined>(undefined)
+  const hls = useRef<HlsHandle | undefined>(undefined)
+  /**
+   * Las pistas de subtítulos que publicó el manifiesto.
+   *
+   * En estado y no en una referencia: son parte de lo que se pinta —el menú
+   * crece cuando llegan—, y el evento que las trae llega una sola vez por fuente.
+   */
+  const [hlsTracks, setHlsTracks] = useState<readonly HlsSubtitleTrack[]>([])
   /**
    * Los avisos, en referencias y no en las dependencias del efecto.
    *
@@ -286,12 +349,15 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
         error: undefined,
       }),
     )
+    // Y las pistas del manifiesto también son de la fuente: las de la anterior no
+    // existen en ésta, y ofrecerlas sería un menú que no enciende nada.
+    setHlsTracks([])
 
     if (needsHls(source.kind)) {
-      void attachHls(
+      void attachHls({
         video,
-        source.url,
-        (detalle) => {
+        url: source.url,
+        alFallar: (detalle) => {
           if (!vivo) return
 
           setState((previo) =>
@@ -302,8 +368,13 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
             }),
           )
         },
-        () => vivo,
-      ).then((resultado) => {
+        sigueVivo: () => vivo,
+        alDescubrirPistas: (pistas) => {
+          if (!vivo) return
+
+          setHlsTracks(pistas)
+        },
+      }).then((resultado) => {
         if (!vivo) {
           if ('destroy' in resultado) resultado.destroy()
 
@@ -515,5 +586,16 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
 
   const toggle = useCallback(() => act('toggle'), [act])
 
-  return { state, videoRef, act, seekTo, setVolume, toggle }
+  /**
+   * Enciende una pista del manifiesto, o las apaga.
+   *
+   * Si no hay instancia —un mp4, o un HLS que el navegador lleva por su cuenta—
+   * no hay nada que encender y el gesto no hace nada: inventar aquí un estado
+   * pondría el menú a decir que hay una pista puesta cuando no la hay.
+   */
+  const pickHlsTrack = useCallback((id: number) => {
+    hls.current?.elegirSubtitulo(id)
+  }, [])
+
+  return { state, videoRef, act, seekTo, setVolume, toggle, hlsTracks, pickHlsTrack }
 }
