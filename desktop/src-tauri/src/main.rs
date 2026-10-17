@@ -124,7 +124,9 @@ fn arrancar(handle: AppHandle) {
     });
 
     if let Err(error) = resultado {
-        registrar(&format!("no se pudo llegar al hilo de la interfaz: {error}"));
+        registrar(&format!(
+            "no se pudo llegar al hilo de la interfaz: {error}"
+        ));
         cerrar_servidor(&handle);
         handle.exit(1);
     }
@@ -149,7 +151,9 @@ fn abrir_ventana(handle: &AppHandle, url: tauri::Url) -> tauri::Result<()> {
             // navegación se cancela igual: llevarse la ventana a un sitio que no
             // es la aplicación es peor que no abrir nada.
             if let Err(error) = browser::open(destino.as_str()) {
-                registrar(&format!("no se pudo abrir el enlace en el navegador: {error}"));
+                registrar(&format!(
+                    "no se pudo abrir el enlace en el navegador: {error}"
+                ));
             }
 
             false

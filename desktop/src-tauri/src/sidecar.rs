@@ -242,11 +242,7 @@ pub fn start() -> Result<Sidecar, SidecarError> {
     // `child` a la vez.
     let stdin = child.stdin.take();
 
-    Ok(Sidecar {
-        stdin,
-        child,
-        boot,
-    })
+    Ok(Sidecar { stdin, child, boot })
 }
 
 fn abrir_registro() -> Option<std::fs::File> {

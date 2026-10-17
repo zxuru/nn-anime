@@ -40,7 +40,9 @@ impl std::fmt::Display for BootLineError {
     fn fmt(&self, salida: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Missing => write!(salida, "el servidor no anunció su dirección"),
-            Self::Malformed(motivo) => write!(salida, "la línea de arranque está mal formada: {motivo}"),
+            Self::Malformed(motivo) => {
+                write!(salida, "la línea de arranque está mal formada: {motivo}")
+            }
         }
     }
 }
@@ -71,8 +73,8 @@ pub fn parse(texto: &str) -> Result<BootLine, BootLineError> {
 }
 
 fn interpretar(json: &str) -> Result<BootLine, BootLineError> {
-    let linea: BootLine = serde_json::from_str(json)
-        .map_err(|error| BootLineError::Malformed(error.to_string()))?;
+    let linea: BootLine =
+        serde_json::from_str(json).map_err(|error| BootLineError::Malformed(error.to_string()))?;
 
     // El puerto 0 significa «que el sistema elija» en `Bun.serve`, y el CLI
     // anuncia el puerto **real**, así que un 0 aquí es una línea de otro sitio.
@@ -127,7 +129,10 @@ mod tests {
 
     #[test]
     fn sin_la_linea_dice_que_no_esta() {
-        assert_eq!(parse("Proveedores activos: ninguno\n"), Err(BootLineError::Missing));
+        assert_eq!(
+            parse("Proveedores activos: ninguno\n"),
+            Err(BootLineError::Missing)
+        );
         assert_eq!(parse(""), Err(BootLineError::Missing));
     }
 
