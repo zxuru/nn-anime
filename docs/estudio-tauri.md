@@ -1,6 +1,20 @@
 # Estudio: la ventana propia de nn-anime
 
-**Estado:** propuesta. Nada de esto está implementado **en `main`**. Fecha: 2026-10-16. Task: **T132**.
+**Estado:** **implementado** en la rama `tarea/desktop`. Fecha del estudio: 2026-10-16. Task: **T132**.
+El plan de ejecución y los cierres de cada tarea están en `tasks/desktop.md`.
+
+> **Corrección al implementarlo (T153–T162).** Tres cosas de este estudio ya no son verdad:
+>
+> 1. **`rustc` y `cargo` sí están en la máquina** (1.99.1): el estudio decía que no, y sobre eso
+>    apoyaba parte del calendario. Tampoco hace falta el CLI de Tauri: `tauri-build` lee
+>    `tauri.conf.json` en el guion de compilación, así que `cargo build --release` produce el binario.
+> 2. **La salida del hijo no va a un archivo.** Este estudio la mandaba a uno, y eso habría dejado el
+>    **token de arranque en disco** —el paso 8 del CLI escribe la URL humana y la línea de máquina, y
+>    las dos lo llevan—, contra el *Never* de `SPEC-cli-launcher.md`. Va por tubería, drenada y
+>    descartada; sólo `stderr` va a un registro.
+> 3. **El `.nsi` prohibía ocultar la consola «porque dejaría un servidor sin forma de pararlo»**, y eso
+>    ya no aplica: el que cierra el servidor ahora es el anfitrión, y el servidor de consola sigue
+>    instalado al lado para quien lo quiera.
 
 > **Corrección de la primera versión de este estudio.** La primera versión proponía hacer el
 > empaquetado desde cero: una bandera `--web-root`, un ejecutable autocontenido y unos instaladores.
