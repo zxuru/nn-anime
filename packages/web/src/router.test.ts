@@ -14,6 +14,12 @@ describe('matchRoute', () => {
     expect(matchRoute('/settings')).toEqual({ name: 'settings', params: {} })
   })
 
+  test('reconoce el perfil y su historial', () => {
+    expect(matchRoute('/profile')).toEqual({ name: 'profile', params: {} })
+    // El historial pagina por consulta, y la consulta no cambia de pantalla.
+    expect(matchRoute('/history?page=3')).toEqual({ name: 'history', params: {} })
+  })
+
   test('extrae los parámetros del detalle', () => {
     expect(matchRoute('/anime/fuente-ejemplo/titulo-1')).toEqual({
       name: 'detail',
@@ -62,6 +68,11 @@ describe('buildPath', () => {
 
   test('construye una ruta fija', () => {
     expect(buildPath('settings')).toBe('/settings')
+  })
+
+  test('construye las dos rutas del usuario: el perfil y su historial', () => {
+    expect(buildPath('profile')).toBe('/profile')
+    expect(buildPath('history')).toBe('/history')
   })
 
   test('construye una ruta con parámetros', () => {

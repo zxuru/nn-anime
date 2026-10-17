@@ -12,7 +12,50 @@ export const messages: Messages = {
 
   'nav.home': 'Inicio',
   'nav.search': 'Buscar',
+  'nav.profile': 'Perfil',
   'nav.settings': 'Ajustes',
+
+  /*
+   * El Perfil y su Historial.
+   *
+   * Cada vacío dice **dónde** se marca o se reproduce: un «no hay nada» a secas deja
+   * al usuario buscando el botón por toda la aplicación. Y el enlace al Historial dice
+   * que lleva a todo, no a «más», porque es la pantalla que pagina.
+   */
+  'profile.title': 'Perfil',
+  'profile.loading': 'Cargando tu perfil…',
+  'profile.favorites': 'Favoritos',
+  'profile.favorites.meta': 'Lo que has guardado',
+  'profile.favorites.empty':
+    'Todavía no has marcado ningún favorito: se marca desde la ficha de un título.',
+  'profile.watched': 'Ya vistos',
+  'profile.watched.meta': 'Lo que has marcado como visto',
+  'profile.watched.empty':
+    'Todavía no has marcado nada como visto: se marca desde la ficha de un título.',
+  'profile.planToWatch': 'Quiero ver',
+  'profile.planToWatch.meta': 'Lo que has dejado pendiente',
+  'profile.planToWatch.empty':
+    'Todavía no has dejado nada pendiente: se marca desde la ficha con «Quiero verla».',
+  'profile.history': 'Historial',
+  'profile.history.meta': 'Lo que has reproducido',
+  'profile.history.empty': 'Todavía no has reproducido nada: aparecerá aquí lo que veas.',
+  'profile.history.all': 'Ver todo el historial',
+
+  'history.title': 'Historial',
+  'history.loading': 'Cargando el historial…',
+  'history.section': 'Reproducido',
+  'history.meta': 'De lo más reciente a lo más antiguo',
+  'history.empty': 'Todavía no has reproducido nada: aparecerá aquí lo que veas.',
+  // Una página más allá del final no es «no hay historial»: es que esa página no
+  // tiene nada, y decirlo distinto evita mandar al usuario a marcar lo que ya hizo.
+  'history.emptyPage': 'Esta página del historial está vacía.',
+  'history.back': 'Volver al perfil',
+  'history.pages': 'Páginas del historial',
+  'history.page': 'Página {page}',
+  'history.previous': 'Anterior',
+  'history.next': 'Siguiente',
+  'history.finished': 'Terminado',
+  'history.watched': '{percent} % visto',
 
   // Lo que va en el título de la pestaña mientras no hay dato que poner.
   'title.loading': 'Cargando…',

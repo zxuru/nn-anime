@@ -17,7 +17,15 @@ import {
   useSyncExternalStore,
 } from 'react'
 
-export type RouteName = 'home' | 'search' | 'detail' | 'watch' | 'settings' | 'not-found'
+export type RouteName =
+  | 'home'
+  | 'search'
+  | 'detail'
+  | 'watch'
+  | 'settings'
+  | 'profile'
+  | 'history'
+  | 'not-found'
 
 export interface RouteMatch {
   readonly name: RouteName
@@ -34,6 +42,12 @@ const PATTERNS: readonly RoutePattern[] = [
   { name: 'search', segments: ['search'] },
   { name: 'detail', segments: ['anime', ':providerId', ':ref'] },
   { name: 'watch', segments: ['watch', ':providerId', ':ref'] },
+  // El Perfil y su Historial son pantallas propias: el Perfil reúne las listas del
+  // usuario y el Historial es la que pagina. Van antes de `settings` sólo por orden
+  // de lectura; el emparejamiento es por número de segmentos y nombre exacto, así
+  // que el orden entre patrones de distinta longitud no decide nada.
+  { name: 'profile', segments: ['profile'] },
+  { name: 'history', segments: ['history'] },
   { name: 'settings', segments: ['settings'] },
 ]
 

@@ -11,6 +11,8 @@ import type { ReactNode } from 'react'
 import { DetailPage } from './features/detail/DetailPage'
 import { HomePage } from './features/home/HomePage'
 import { WatchPage } from './features/player/WatchPage'
+import { HistoryPage } from './features/profile/HistoryPage'
+import { ProfilePage } from './features/profile/ProfilePage'
 import { SearchPage } from './features/search/SearchPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { useAppTheme } from './features/settings/useSettings'
@@ -81,6 +83,10 @@ function Shell(props: {
         <nav className="shell__nav">
           <Link to={pathConTipo('/', tipo)}>{t(LOCALE, 'nav.home')}</Link>
           <Link to={pathConTipo('/search', tipo)}>{t(LOCALE, 'nav.search')}</Link>
+          {/* El Perfil tampoco conserva la mitad que se mira: es el estado del
+              usuario, y ahí no hay dos mitades que partir —como en Ajustes—. Lo que
+              sí enseña es lo de las dos, porque sus listas son de las dos. */}
+          <Link to="/profile">{t(LOCALE, 'nav.profile')}</Link>
           <Link to="/settings">{t(LOCALE, 'nav.settings')}</Link>
         </nav>
         {props.tipo === true ? <ConmutadorTipo /> : null}
@@ -121,6 +127,10 @@ function screenFor(route: RouteMatch, path: string): ReactNode {
       )
     case 'settings':
       return <SettingsPage />
+    case 'profile':
+      return <ProfilePage />
+    case 'history':
+      return <HistoryPage />
     case 'not-found':
       return (
         <section>

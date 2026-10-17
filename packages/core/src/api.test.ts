@@ -454,6 +454,7 @@ describe('planToWatchResponseSchema', () => {
  * puede decir qué se dejó a la mitad.
  */
 const VISIONADO = {
+  id: 7,
   animeRef: { providerId: 'fuente-ejemplo', value: 'titulo-1' },
   title: 'Un título',
   episodeRef: { providerId: 'fuente-ejemplo', value: 'titulo-1#3' },
@@ -485,6 +486,22 @@ describe('watchHistoryResponseSchema', () => {
     expect(
       watchHistoryResponseSchema.safeParse({ items: [sinTerminar], page: 1, hasMore: false })
         .success,
+    ).toBe(false)
+  })
+
+  test('exige el identificador de la fila: el historial no agrupa y puede repetir episodio', () => {
+    const { id: _id, ...sinId } = VISIONADO
+
+    expect(
+      watchHistoryResponseSchema.safeParse({ items: [sinId], page: 1, hasMore: false }).success,
+    ).toBe(false)
+    // Y no vale cualquier cosa: es la clave de una fila, un entero positivo.
+    expect(
+      watchHistoryResponseSchema.safeParse({
+        items: [{ ...VISIONADO, id: 0 }],
+        page: 1,
+        hasMore: false,
+      }).success,
     ).toBe(false)
   })
 

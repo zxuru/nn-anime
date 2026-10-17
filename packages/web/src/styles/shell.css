@@ -4386,7 +4386,41 @@
   }
 }
 
-/* --- 15. Movimiento reducido y otros entornos -------------------------- */
+/* --- 15. El Perfil y su Historial -------------------------------------- */
+/*
+  Las dos pantallas son una lista de secciones, así que su caja sólo reparte aire
+  entre ellas. El relleno lateral lo pone cada `.seccion`, que es quien conoce el
+  margen de la vitrina: repetirlo aquí daría dos márgenes que se suman.
+*/
+.perfil,
+.historial {
+  display: grid;
+  gap: var(--seccion-aire);
+  padding-block-end: var(--space-7);
+}
+
+/* El enlace al Historial y la vuelta al Perfil van alineados con las secciones. */
+.perfil__enlace,
+.historial__volver {
+  padding-inline: var(--vitrina-margen);
+}
+
+.perfil__enlace a,
+.historial__volver a {
+  color: var(--color-accent);
+}
+
+/* Los mandos de página, centrados y con el número en medio. */
+.historial__pagina {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding-inline: var(--vitrina-margen);
+  margin-block-start: var(--space-6);
+}
+
+/* --- 16. Movimiento reducido y otros entornos -------------------------- */
 @media (prefers-reduced-motion: reduce) {
   .cinta__carro {
     animation: none;

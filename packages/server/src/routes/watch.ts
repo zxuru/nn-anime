@@ -109,6 +109,7 @@ export const HISTORY_PAGE_SIZE = 50
  */
 export function historyItems(filas: readonly WatchRecord[]): readonly WatchHistoryItem[] {
   return filas.map((fila) => ({
+    id: fila.id,
     animeRef: fila.anime.ref,
     title: fila.anime.title,
     ...(fila.anime.coverUrl === undefined ? {} : { coverUrl: fila.anime.coverUrl }),

@@ -100,6 +100,10 @@ describe('routeTitleParts', () => {
   test('cada pantalla sin datos propios tiene el suyo', () => {
     expect(routeTitleParts('home', '/')).toEqual(['Inicio'])
     expect(routeTitleParts('settings', '/settings')).toEqual(['Ajustes'])
+    // El Perfil y su Historial se llaman distinto: son dos pantallas, y confundirlas
+    // en la pestaña quita la única etiqueta que ve quien tiene varias abiertas.
+    expect(routeTitleParts('profile', '/profile')).toEqual(['Perfil'])
+    expect(routeTitleParts('history', '/history?page=2')).toEqual(['Historial'])
     expect(routeTitleParts('not-found', '/raro')).toEqual(['Esa ruta no existe'])
   })
 

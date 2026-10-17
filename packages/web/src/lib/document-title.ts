@@ -86,6 +86,10 @@ export function routeTitleParts(name: RouteName, path: string): readonly string[
     }
     case 'settings':
       return [t(DEFAULT_LOCALE, 'settings.title')]
+    case 'profile':
+      return [t(DEFAULT_LOCALE, 'profile.title')]
+    case 'history':
+      return [t(DEFAULT_LOCALE, 'history.title')]
     case 'not-found':
       return [t(DEFAULT_LOCALE, 'notFound.title')]
     default:

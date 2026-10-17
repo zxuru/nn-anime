@@ -444,6 +444,15 @@ export const continueWatchingResponseSchema = z.strictObject({
  * abrir la ficha para saberlo.
  */
 export const watchHistoryItemSchema = continueWatchingItemSchema.extend({
+  /**
+   * La fila de visionado, que es lo que identifica un renglón del historial.
+   *
+   * Hace falta y por eso está, aunque «continuar viendo» no lo lleve: esa fila se
+   * agrupa por episodio, así que cada episodio sale una vez. El historial **no
+   * agrupa** —el mismo episodio reproducido dos veces son dos renglones— y sin un
+   * identificador propio la lista no tiene con qué distinguir dos filas idénticas.
+   */
+  id: z.number().int().positive(),
   finished: z.boolean(),
 })
 
