@@ -479,6 +479,11 @@ export const messages: Messages = {
   // porque vale igual para una película, y «ya visto» es lo que el botón deja dicho.
   'detail.watched.add': 'Marcar como visto',
   'detail.watched.remove': 'Quitar de vistos',
+  // Y la tercera marca, con el mismo criterio: es de la obra y no menciona
+  // episodios. «Quiero verla» es lo que el botón deja dicho, y el rótulo dice el
+  // estado en el que está para que un lector de pantalla lo oiga igual que se ve.
+  'detail.planToWatch.add': 'Quiero verla',
+  'detail.planToWatch.remove': 'Quitar de quiero ver',
   'detail.loading': 'Cargando la ficha…',
   'detail.notFound': 'Ese título no está en el proveedor.',
   'detail.related.year': 'Año {year}',

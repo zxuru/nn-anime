@@ -45,6 +45,7 @@ import {
   episodeResponseSchema,
   episodesResponseSchema,
   favoritesResponseSchema,
+  planToWatchResponseSchema,
   providersResponseSchema,
   relatedResponseSchema,
   sourcesResponseSchema,
@@ -520,6 +521,12 @@ const VISTOS: MarkEndpoint<{ readonly items: readonly AnimeSummary[] }> = {
   lista: (cuerpo) => cuerpo.items,
 }
 
+const QUIERO_VER: MarkEndpoint<{ readonly items: readonly AnimeSummary[] }> = {
+  ruta: '/api/plan-to-watch',
+  schema: planToWatchResponseSchema,
+  lista: (cuerpo) => cuerpo.items,
+}
+
 /**
  * Una marca con estado inmediato.
  *
@@ -601,4 +608,16 @@ export function useFavorite(ref: ProviderRef): MarkState {
  */
 export function useWatchedTitle(ref: ProviderRef): MarkState {
   return useMark(VISTOS, ref)
+}
+
+/**
+ * La marca de «quiero ver», con el mismo contrato que las otras dos.
+ *
+ * Es la tercera lista del usuario y es **independiente** de ellas: marcar aquí no
+ * marca como vista ni como favorita. Por eso comparte la mecánica —el estado
+ * inmediato, la lectura inicial del servidor y la reversión si falla— pero no el
+ * endpoint, que es lo único que cambia.
+ */
+export function usePlanToWatch(ref: ProviderRef): MarkState {
+  return useMark(QUIERO_VER, ref)
 }

@@ -34,9 +34,17 @@ import { PLAY_MODES, type PlayMode } from '../player/watch-route'
 import { searchPath } from '../search/SearchPage'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
+import { PlanToWatchButton } from './PlanToWatchButton'
 import { SagaRail } from './SagaRail'
 import { SourcePicker } from './SourcePicker'
-import { chosenMode, modesFor, useDetail, useFavorite, useWatchedTitle } from './useDetail'
+import {
+  chosenMode,
+  modesFor,
+  useDetail,
+  useFavorite,
+  usePlanToWatch,
+  useWatchedTitle,
+} from './useDetail'
 import { WatchedButton } from './WatchedButton'
 
 /** La clave de traducción del estado, escrita una a una. */
@@ -364,6 +372,13 @@ export function DetailPage(props: DetailPageProps): ReactNode {
    */
   const visto = useWatchedTitle({ providerId: props.providerId, value: props.ref })
   /**
+   * La marca de «quiero ver», la tercera hermana.
+   *
+   * Es independiente de las otras dos: pulsarla no cambia el favorito ni la marca
+   * de visto, y por eso son tres botones y no un mando con tres estados.
+   */
+  const quieroVer = usePlanToWatch({ providerId: props.providerId, value: props.ref })
+  /**
    * El modo elegido a mano.
    *
    * Empieza sin elegir porque las capacidades llegan por red: en el primer render
@@ -440,9 +455,11 @@ export function DetailPage(props: DetailPageProps): ReactNode {
             <Cover src={enrichment.cover} className="detail__cover" />
           )}
 
-          {/* Las dos marcas del usuario, juntas: lo que se guarda y lo que ya se
-              vio. Son dos botones con el mismo contrato —`aria-pressed`, estado
-              inmediato y vuelta atrás si el servidor falla— y se leen como pareja. */}
+          {/* Las tres marcas del usuario, juntas: lo que se guarda, lo que ya se vio
+              y lo que se quiere ver. Son tres botones con el mismo contrato
+              —`aria-pressed`, estado inmediato y vuelta atrás si el servidor falla— y
+              se leen como grupo. Son tres y no un mando con tres estados porque son
+              tres listas independientes del usuario: ninguna escribe en las otras. */}
           <div className="detail__actions">
             <FavoriteButton
               value={favorite.value}
@@ -450,6 +467,11 @@ export function DetailPage(props: DetailPageProps): ReactNode {
               onToggle={favorite.toggle}
             />
             <WatchedButton value={visto.value} busy={visto.busy} onToggle={visto.toggle} />
+            <PlanToWatchButton
+              value={quieroVer.value}
+              busy={quieroVer.busy}
+              onToggle={quieroVer.toggle}
+            />
           </div>
 
           <section>

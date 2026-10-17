@@ -27,6 +27,7 @@ import {
 import { EpisodeRows } from './EpisodeList'
 import { watchedInWindow, windowAt, windowCount, windowForNumber } from './episode-window'
 import { FavoriteButton } from './FavoriteButton'
+import { PlanToWatchButton } from './PlanToWatchButton'
 import { RelatedList } from './RelatedList'
 import { claveDeRelacion } from './relacion'
 import { SagaRail } from './SagaRail'
@@ -528,6 +529,69 @@ describe('si la obra ya está marcada como vista', () => {
   })
 
   test('sin lista no hay nada marcado', () => {
+    expect(enLaLista([], { providerId: 'fixture', value: 'aurora-nocturna' })).toBe(false)
+  })
+})
+
+/**
+ * El botón de «quiero ver».
+ *
+ * Es el tercer hermano y se prueba con los mismos tres casos que los otros dos: el
+ * estado se dice con `aria-pressed` —no con el color—, el rótulo nombra el estado en
+ * el que está y mientras guarda se deshabilita. Tampoco menciona episodios: la marca
+ * es de la obra.
+ *
+ * Lo que **no** comparte con ellos es la lista, y eso se mide abajo: las tres marcas
+ * son independientes, así que el hook no puede leer ni escribir las otras dos.
+ */
+describe('botón de quiero ver', () => {
+  test('dice su estado con aria-pressed', () => {
+    expect(render(<PlanToWatchButton value={false} onToggle={() => {}} />)).toContain(
+      'aria-pressed="false"',
+    )
+    expect(render(<PlanToWatchButton value onToggle={() => {}} />)).toContain('aria-pressed="true"')
+  })
+
+  test('el texto cambia con el estado, sin mencionar episodios', () => {
+    const sinMarcar = render(<PlanToWatchButton value={false} onToggle={() => {}} />)
+
+    expect(sinMarcar).toContain('Quiero verla')
+    expect(sinMarcar).not.toMatch(/episodio/i)
+
+    const marcado = render(<PlanToWatchButton value onToggle={() => {}} />)
+
+    expect(marcado).toContain('Quitar de quiero ver')
+    expect(marcado).not.toMatch(/episodio/i)
+  })
+
+  test('mientras guarda, se deshabilita', () => {
+    expect(render(<PlanToWatchButton value={false} busy onToggle={() => {}} />)).toContain(
+      'disabled',
+    )
+  })
+})
+
+/**
+ * El estado inicial de «quiero ver» se lee de su propia lista.
+ *
+ * Es la misma comparación que las otras dos marcas —la referencia entera, no sólo su
+ * valor— pero sobre otra respuesta: si el hook leyera la lista equivocada, el botón
+ * nacería marcado por un favorito que no es una marca de pendiente.
+ */
+describe('si la obra ya está en quiero ver', () => {
+  function resumen(providerId: string, value: string): AnimeSummary {
+    return { ref: { providerId, value }, title: value }
+  }
+
+  test('se compara la referencia entera, no sólo el valor', () => {
+    const lista = [resumen('fixture', 'aurora-nocturna')]
+
+    expect(enLaLista(lista, { providerId: 'fixture', value: 'aurora-nocturna' })).toBe(true)
+    expect(enLaLista(lista, { providerId: 'otro', value: 'aurora-nocturna' })).toBe(false)
+    expect(enLaLista(lista, { providerId: 'fixture', value: 'otro-titulo' })).toBe(false)
+  })
+
+  test('sin lista no hay nada pendiente', () => {
     expect(enLaLista([], { providerId: 'fixture', value: 'aurora-nocturna' })).toBe(false)
   })
 })
