@@ -1,0 +1,165 @@
+//! El anfitrión de ventana de nn-anime.
+//!
+//! Cinco responsabilidades y ninguna más: lanzar el servidor que ya existe, leer
+//! su dirección, abrir la ventana en ella, cerrarlo cuando la ventana se cierre y
+//! no dejar nada vivo. El producto sigue entero en `packages/`.
+//!
+//! **La ventana carga `http://127.0.0.1:<puerto>`, nunca `tauri://`.** Empaquetar
+//! la interfaz como recursos de Tauri cambiaría el `Origin` del webview, y con él
+//! dejarían de valer la cookie `HttpOnly; SameSite=Strict`, el guard de `Origin`
+//! del servidor y la CSP: toda petición mutante daría 403. Aquí el webview es un
+//! navegador sin cromo, y el modelo de amenaza de `SECURITY.md` no cambia.
+//!
+//! En Windows, `windows_subsystem = "windows"` es lo que hace que el **anfitrión**
+//! no abra consola: sin él, el acceso del escritorio volvería a enseñar la ventana
+//! negra que este módulo viene a quitar. El servidor **sí** es un binario de
+//! consola, y por eso se lanza con `CREATE_NO_WINDOW` (ver `sidecar.rs`).
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod boot_line;
+mod sidecar;
+
+use std::io::Write;
+use std::sync::Mutex;
+
+use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+
+/// La etiqueta de la única ventana.
+const LABEL: &str = "main";
+
+const TITULO: &str = "nn-anime";
+const ANCHO: f64 = 1280.0;
+const ALTO: f64 = 800.0;
+const ANCHO_MINIMO: f64 = 900.0;
+const ALTO_MINIMO: f64 = 600.0;
+
+/// Lo que vive mientras vive la ventana.
+///
+/// El servidor está en el estado de la aplicación para poder cerrarlo cuando la
+/// ventana se cierre: si viviera sólo en el hilo que lo lanzó, no habría forma de
+/// pedirle el cierre desde el manejador de eventos.
+struct Estado {
+    sidecar: Mutex<Option<sidecar::Sidecar>>,
+}
+
+fn main() {
+    let app = tauri::Builder::default()
+        .setup(|app| {
+            let handle = app.handle().clone();
+
+            // En un hilo propio: esperar hasta 30 s a que el servidor anuncie su
+            // dirección no puede bloquear el bucle de eventos, que es quien tiene
+            // que crear la ventana cuando la dirección llegue.
+            std::thread::spawn(move || arrancar(handle));
+
+            Ok(())
+        })
+        .build(tauri::generate_context!())
+        .unwrap_or_else(|error| {
+            registrar(&format!("no se pudo construir la aplicación: {error}"));
+            std::process::exit(1);
+        });
+
+    // `ExitRequested` llega cuando se cierra la última ventana, que es el momento
+    // de apagar el servidor **con orden**: se le pide el cierre y se le espera.
+    app.run(|handle, evento| {
+        if let RunEvent::ExitRequested { .. } = evento {
+            cerrar_servidor(handle);
+        }
+    });
+}
+
+/// Lanza el hermano, lee su dirección y abre la ventana en ella.
+fn arrancar(handle: AppHandle) {
+    let servidor = match sidecar::start() {
+        Ok(servidor) => servidor,
+        Err(error) => {
+            registrar(&format!("{error}"));
+            handle.exit(1);
+            return;
+        }
+    };
+
+    // El puerto es lo único de la línea de arranque que se puede registrar: la
+    // URL lleva el token de un solo uso, y un registro se copia y se comparte.
+    let puerto = servidor.port();
+
+    let url = match tauri::Url::parse(servidor.url()) {
+        Ok(url) => url,
+        Err(error) => {
+            registrar(&format!("la dirección del servidor no es válida: {error}"));
+            servidor.shutdown();
+            handle.exit(1);
+            return;
+        }
+    };
+
+    handle.manage(Estado {
+        sidecar: Mutex::new(Some(servidor)),
+    });
+
+    registrar(&format!("el servidor escucha en el puerto {puerto}"));
+
+    let para_la_ventana = handle.clone();
+    let resultado = handle.run_on_main_thread(move || {
+        if let Err(error) = abrir_ventana(&para_la_ventana, url) {
+            registrar(&format!("no se pudo abrir la ventana: {error}"));
+            cerrar_servidor(&para_la_ventana);
+            para_la_ventana.exit(1);
+        }
+    });
+
+    if let Err(error) = resultado {
+        registrar(&format!("no se pudo llegar al hilo de la interfaz: {error}"));
+        cerrar_servidor(&handle);
+        handle.exit(1);
+    }
+}
+
+fn abrir_ventana(handle: &AppHandle, url: tauri::Url) -> tauri::Result<()> {
+    WebviewWindowBuilder::new(handle, LABEL, WebviewUrl::External(url))
+        .title(TITULO)
+        .inner_size(ANCHO, ALTO)
+        .min_inner_size(ANCHO_MINIMO, ALTO_MINIMO)
+        .build()?;
+
+    Ok(())
+}
+
+/// Le pide el cierre al servidor y espera a que salga.
+///
+/// Es idempotente por construcción: `take()` deja el hueco vacío, así que una
+/// segunda llamada —el cierre de la ventana y después la salida del proceso— no
+/// vuelve a tocar un servidor que ya no está.
+fn cerrar_servidor(handle: &AppHandle) {
+    let Some(estado) = handle.try_state::<Estado>() else {
+        return;
+    };
+
+    let Ok(mut guardia) = estado.sidecar.lock() else {
+        return;
+    };
+
+    if let Some(servidor) = guardia.take() {
+        servidor.shutdown();
+    }
+}
+
+/// Escribe una línea en el registro del anfitrión, y también en `stderr`.
+///
+/// No hay ventana todavía cuando esto se usa —los fallos de arranque ocurren
+/// antes de que exista—, así que el registro es el único sitio donde se puede
+/// leer qué pasó. **Nunca se le pasa la URL**: lleva el token.
+fn registrar(mensaje: &str) {
+    let linea = format!("nn-anime-desktop: {mensaje}\n");
+
+    eprint!("{linea}");
+
+    if let Ok(mut archivo) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(sidecar::log_path())
+    {
+        let _ = archivo.write_all(linea.as_bytes());
+    }
+}

@@ -30,6 +30,8 @@
     "recorte": "bun run scripts/recorte.ts",
     "package": "bun run scripts/package.ts",
     "package:smoke": "bun run scripts/package/smoke.ts",
+    "desktop:check": "bun run scripts/package/desktop.ts check",
+    "desktop:build": "bun run scripts/package/desktop.ts build",
     "version:check": "bun run scripts/version.ts check",
     "version:sync": "bun run scripts/version.ts sync",
     "version:set": "bun run scripts/version.ts set",

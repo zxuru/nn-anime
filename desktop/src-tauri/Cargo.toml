@@ -1,0 +1,47 @@
+[package]
+name = "nn-anime-desktop"
+version = "0.1.0"
+edition = "2021"
+# `tauri-plugin-single-instance` (T156) exige Rust >= 1.90. El anfitrión no usa
+# nada más nuevo que eso, y declararlo hace que el fallo salga al compilar y no
+# en el CI de una release.
+rust-version = "1.90"
+publish = false
+
+# Sin `[lib]`: es un binario de ventana y nada más. El nombre tiene que ser
+# `nn-anime-desktop` porque el servidor, que se instala **al lado**, ya se llama
+# `nn-anime`; los dos conviven en el mismo directorio.
+[[bin]]
+name = "nn-anime-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+# `tauri-build` lee `tauri.conf.json` y genera el contexto de la aplicación. Es
+# lo que permite compilar con `cargo build --release` sin el CLI de Tauri: el
+# empaquetado sigue siendo el de `scripts/package.ts`, no el de `tauri bundle`.
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+# El Job Object: si el anfitrión muere de golpe, el servidor se va con él. Es el
+# único seguro que existe en Windows, donde no hay `PR_SET_PDEATHSIG`.
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_System_JobObjects",
+  "Win32_System_Threading",
+] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[profile.release]
+# El anfitrión es una ventana alrededor de un servidor que ya está compilado: no
+# hay razón para pagar tamaño por él.
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

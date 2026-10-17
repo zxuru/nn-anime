@@ -22,6 +22,7 @@
 
 import { describe, expect, test } from 'bun:test'
 import { join } from 'node:path'
+import { HOST_NAME, MANIFEST, manifestVersion, SERVER_NAME } from './package/desktop'
 import { ROOT } from './workspaces'
 
 const SPEC = join(ROOT, 'docs', 'specs', 'SPEC-desktop.md')
@@ -60,7 +61,9 @@ describe('el contrato del módulo desktop', () => {
       files?: { includes?: readonly string[] }
     }
 
-    expect(biome.files?.includes ?? []).toContain('!desktop/**')
+    // Biome nombra la carpeta sin comodín: `!desktop/**` lo rechaza con «use
+    // `!desktop`», así que la guarda fija la forma que la herramienta acepta.
+    expect(biome.files?.includes ?? []).toContain('!desktop')
   })
 
   test('lo que compila cargo no se versiona, y el lock sí', async () => {
@@ -86,5 +89,78 @@ describe('el contrato del módulo desktop', () => {
     // fallaría por un archivo que existe en la máquina de quien lo escribió.
     expect(await Bun.file(STUB).exists()).toBe(true)
     expect(await Bun.file(join(ROOT, 'desktop', 'dist')).exists()).toBe(false)
+  })
+})
+
+describe('el anfitrión de ventana', () => {
+  const CRATE = join(ROOT, 'desktop', 'src-tauri')
+
+  test('el prefijo de la línea de arranque es el mismo en Rust y en TypeScript', async () => {
+    // El formato vive en dos sitios por necesidad: uno lo escribe (`core`) y otro
+    // lo lee (Rust). Si el prefijo se separa, el anfitrión no encuentra nunca la
+    // línea y el síntoma es «no anunció su dirección», lejos de la causa.
+    const enTs = /BOOT_LINE_PREFIX\s*=\s*'([^']+)'/.exec(
+      await leer(join(ROOT, 'packages', 'core', 'src', 'boot-line.ts')),
+    )?.[1]
+    const enRust = /BOOT_LINE_PREFIX:\s*&str\s*=\s*"([^"]+)"/.exec(
+      await leer(join(CRATE, 'src', 'boot_line.rs')),
+    )?.[1]
+
+    expect(enTs).toBeDefined()
+    expect(enRust).toBe(enTs)
+  })
+
+  test('la versión del anfitrión es la de los package.json', async () => {
+    const raiz = JSON.parse(await leer(join(ROOT, 'package.json'))) as { version: string }
+
+    // `release-please` no sabe tocar un `Cargo.toml`: esta prueba es la que avisa
+    // el día que las dos versiones se separen.
+    expect(await manifestVersion()).toBe(raiz.version)
+  })
+
+  test('el anfitrión no se llama como el servidor, y Rust busca el nombre del servidor', async () => {
+    const manifiesto = await leer(MANIFEST)
+    const sidecar = await leer(join(CRATE, 'src', 'sidecar.rs'))
+
+    // Los dos tienen que convivir en el mismo directorio: si se llamaran igual,
+    // el instalador no podría llevar los dos.
+    expect(HOST_NAME).not.toBe(SERVER_NAME)
+    expect(manifiesto).toContain(`name = "${HOST_NAME}"`)
+    expect(sidecar).toContain(`const SIDECAR_NAME: &str = "${SERVER_NAME}"`)
+  })
+
+  test('la ventana se crea en tiempo de ejecución y el webview no tiene permisos', async () => {
+    const config = JSON.parse(await leer(join(CRATE, 'tauri.conf.json'))) as {
+      build: { frontendDist: string }
+      app: { windows: readonly unknown[] }
+      bundle: { active: boolean }
+    }
+
+    // Sin ventanas declaradas: la URL y el tamaño los pone `main.rs`, que es quien
+    // sabe en qué puerto escucha el servidor. El puerto no se puede fijar antes.
+    expect(config.app.windows).toHaveLength(0)
+
+    // Y el empaquetado de Tauri está apagado: los instaladores los sigue armando
+    // `scripts/package.ts`, que es el que está probado.
+    expect(config.bundle.active).toBe(false)
+
+    const relleno = join(CRATE, config.build.frontendDist, 'index.html')
+    expect(await Bun.file(relleno).exists()).toBe(true)
+
+    const capacidades = JSON.parse(await leer(join(CRATE, 'capabilities', 'default.json'))) as {
+      permissions: readonly unknown[]
+    }
+
+    // El webview carga un origen remoto: sin permisos no puede invocar ni un
+    // comando, y por eso no hay superficie de IPC que auditar.
+    expect(capacidades.permissions).toHaveLength(0)
+  })
+
+  test('el anfitrión de Windows no abre consola', async () => {
+    // Guarda **estática**, y se dice lo que es: la medición de verdad es la
+    // cabecera PE del binario, que comprueba el CI. Esto avisa antes, al editar.
+    const main = await leer(join(CRATE, 'src', 'main.rs'))
+
+    expect(main).toContain('windows_subsystem = "windows"')
   })
 })

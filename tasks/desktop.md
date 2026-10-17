@@ -95,6 +95,20 @@ hace fallar 2.
 `scripts/desktop.test.ts`, `package.json`, `.github/workflows/ci.yml`.
 **Tamaño:** M.
 
+**Desvío declarado al implementarlo:**
+1. **La ventana y el cierre por `stdin` entraron aquí, no en T155.** Sin crear la ventana, la
+   aplicación se queda sin ninguna y **sale sola**; sin el cierre, cerrar la ventana deja el servidor
+   huérfano sobre la base. Las dos cosas son lo mínimo para que el binario sea un programa y no un
+   ejercicio, así que T155 se queda con lo que de verdad es suyo: `on_navigation` y los seguros del
+   sistema.
+2. **`Cargo.lock` no se pudo generar**, y no es un olvido: `cargo` no alcanza crates.io desde el
+   entorno donde se escribió esto (sin HTTPS: `schannel: SEC_E_NO_CREDENTIALS`). Queda pendiente de
+   la primera compilación con red, y hasta entonces la resolución de dependencias **no es
+   reproducible**.
+3. **El árbol de Rust no se ha compilado ni probado aquí.** El trabajo del CI que lo compila y lo mide
+   entra en este mismo task; lo que no se puede afirmar es que esté verde. Se declara en
+   `tasks/done/T154.md`.
+
 ---
 
 ## T155 — La ventana, la navegación externa y el cierre ordenado
@@ -102,12 +116,12 @@ hace fallar 2.
 **Descripción:** Abrir la URL anunciada en la ventana y no dejar nada vivo al cerrarla.
 
 **Aceptación:**
-- [ ] La ventana carga `WebviewUrl::External(http://127.0.0.1:<puerto>)` con el título y el icono.
-- [ ] Al cerrar la ventana se escribe `shutdown\n` en la entrada del sidecar, se espera **2 s** y, si
-      no sale, se le mata.
-- [ ] El seguro del sistema: **Job Object** en Windows y **`PR_SET_PDEATHSIG`** en Linux.
 - [ ] `on_navigation`: lo que no sea el origen local se abre en el navegador del sistema y la
       navegación se cancela.
+- [ ] El seguro del sistema: **Job Object** en Windows y **`PR_SET_PDEATHSIG`** en Linux.
+
+**Desvío declarado:** la ventana con `WebviewUrl::External` y el cierre con `shutdown\n` + plazo
+bajaron a **T154** (ver su desvío). Aquí queda la política de navegación y los seguros del sistema.
 
 **Verificación:** en Windows, abrir y cerrar deja **cero** procesos `nn-anime.exe` (`Get-Process`) ·
 mutación: no escribir `shutdown` deja el servidor vivo y la prueba falla.

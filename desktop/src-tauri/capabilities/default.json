@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Sin permisos a propósito. La ventana carga http://127.0.0.1 y el webview no puede invocar ni un solo comando: lo que se pierde —updater, bandeja, diálogos nativos al alcance de la interfaz— no se usa, y lo que se gana es no tener superficie que auditar. El servidor se lanza desde Rust con std::process::Command, no con el plugin de shell.",
+  "windows": [],
+  "permissions": []
+}
