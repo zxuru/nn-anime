@@ -34,6 +34,7 @@ import { SourcePicker } from './SourcePicker'
 import { type FilaDeSaga, filasDeSaga } from './saga'
 import {
   chosenMode,
+  enLaLista,
   formatDuration,
   isFavorite,
   modesFor,
@@ -41,6 +42,7 @@ import {
   sourcesPath,
   watchedPercent,
 } from './useDetail'
+import { WatchedButton } from './WatchedButton'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
 
@@ -469,6 +471,64 @@ describe('si el título ya está en favoritos', () => {
 
   test('sin lista no hay nada guardado', () => {
     expect(isFavorite([], { providerId: 'fixture', value: 'aurora-nocturna' })).toBe(false)
+  })
+})
+
+/**
+ * El botón de «ya visto».
+ *
+ * Es el hermano del de favoritos y se prueba con sus mismos tres casos: el estado
+ * se dice con `aria-pressed` —no con el color—, el rótulo nombra el estado en el
+ * que está y mientras guarda se deshabilita. Lo que **no** dice es nada de
+ * episodios: la marca es de la obra, y por eso vale igual para una película.
+ */
+describe('botón de visto', () => {
+  test('dice su estado con aria-pressed', () => {
+    expect(render(<WatchedButton value={false} onToggle={() => {}} />)).toContain(
+      'aria-pressed="false"',
+    )
+    expect(render(<WatchedButton value onToggle={() => {}} />)).toContain('aria-pressed="true"')
+  })
+
+  test('el texto cambia con el estado, sin mencionar episodios', () => {
+    const sinMarcar = render(<WatchedButton value={false} onToggle={() => {}} />)
+
+    expect(sinMarcar).toContain('Marcar como visto')
+    expect(sinMarcar).not.toMatch(/episodio/i)
+
+    const marcado = render(<WatchedButton value onToggle={() => {}} />)
+
+    expect(marcado).toContain('Quitar de vistos')
+    expect(marcado).not.toMatch(/episodio/i)
+  })
+
+  test('mientras guarda, se deshabilita', () => {
+    expect(render(<WatchedButton value={false} busy onToggle={() => {}} />)).toContain('disabled')
+  })
+})
+
+/**
+ * El botón nace marcado si la obra ya estaba marcada.
+ *
+ * La comparación decide eso, y es la misma que la del favorito: la marca se lee del
+ * servidor al montar, así que comparar sólo el valor de la referencia —y no el
+ * proveedor— daría por marcado un título que no lo está.
+ */
+describe('si la obra ya está marcada como vista', () => {
+  function resumen(providerId: string, value: string): AnimeSummary {
+    return { ref: { providerId, value }, title: value }
+  }
+
+  test('se compara la referencia entera, no sólo el valor', () => {
+    const lista = [resumen('fixture', 'aurora-nocturna')]
+
+    expect(enLaLista(lista, { providerId: 'fixture', value: 'aurora-nocturna' })).toBe(true)
+    expect(enLaLista(lista, { providerId: 'otro', value: 'aurora-nocturna' })).toBe(false)
+    expect(enLaLista(lista, { providerId: 'fixture', value: 'otro-titulo' })).toBe(false)
+  })
+
+  test('sin lista no hay nada marcado', () => {
+    expect(enLaLista([], { providerId: 'fixture', value: 'aurora-nocturna' })).toBe(false)
   })
 })
 
@@ -1186,19 +1246,28 @@ describe('la lectura en dos pistas', () => {
    * y la dirección va escrita a mano en la comprobación: componerla con `searchPath`
    * mediría que la función es igual a sí misma, y lo que hay que medir es **qué**
    * dirección sale, con sus espacios y su tilde codificados.
+   *
+   * Y el `#` sólo donde AniList sabe qué pedir: «Aventura» es un género suyo —el
+   * `#` manda la consulta a su catálogo—, «Isekai» no está entre los dieciocho y
+   * con `#` la búsqueda se quedaría buscando estudios por un texto que no devuelve
+   * nada. Sin él sigue enseñando los títulos locales de ese género, que es lo que
+   * hacía.
    */
-  test('los géneros y los estudios llevan a sus títulos', () => {
+  test('el género de AniList lleva el `#` y el que no lo es, la búsqueda de siempre', () => {
     const html = render(
       <Lectura
-        detail={{ ...detalle, genres: ['Ciencia ficción'] }}
+        detail={{ ...detalle, genres: ['Aventura', 'Isekai'] }}
         enrichment={{ ...enriquecido, studios: ['Estudio Cobre'] }}
       />,
     )
 
-    expect(html).toContain('href="/search?q=Ciencia%20ficci%C3%B3n"')
+    expect(html).toContain('href="/search?q=%23Aventura"')
+    expect(html).toContain('href="/search?q=Isekai"')
     expect(html).toContain('href="/search?q=Estudio%20Cobre"')
-    // Y cada enlace dice a dónde lleva: el nombre solo pide un clic a ciegas.
-    expect(html).toContain('title="Ver los títulos del género Ciencia ficción"')
+    // Y cada enlace dice a dónde lleva, con dos frases: el nombre solo pide un
+    // clic a ciegas, y el `#` cambia de catálogo.
+    expect(html).toContain('title="Ver todo lo que AniList tiene de Aventura"')
+    expect(html).toContain('title="Ver los títulos del género Isekai"')
     expect(html).toContain('title="Ver los títulos de Estudio Cobre"')
   })
 
@@ -1309,5 +1378,30 @@ describe('la banda del banner', () => {
     expect(html).toContain('class="detail__banner"')
     expect(html).toContain('<h1>Aurora Nocturna</h1>')
     expect(html).not.toContain('detail__banner-fondo')
+  })
+
+  /**
+   * El contenido de la banda va en su caja, y el fondo no.
+   *
+   * La banda cruza la ventana entera, así que el titular necesita una caja con la
+   * medida del sitio dentro: sin ella, en una pantalla ancha el nombre queda a 32
+   * px del borde y la sinopsis a 680, que es un fallo de geometría que no rompe
+   * ninguna otra prueba. La capa del fondo, en cambio, cuelga de la banda: es la
+   * que tiene que llegar a los dos bordes.
+   */
+  test('el titular vive en la caja y el fondo cuelga de la banda', () => {
+    const html = render(<BandaBanner detail={detalle} fondo="/api/anilist/image/banner/555" />)
+
+    const banda = html.indexOf('class="detail__banner"')
+    const capa = html.indexOf('detail__banner-fondo')
+    const caja = html.indexOf('class="detail__banner-caja"')
+    const titulo = html.indexOf('<h1>Aurora Nocturna</h1>')
+
+    expect(banda).toBeGreaterThan(-1)
+    expect(caja).toBeGreaterThan(banda)
+    expect(titulo).toBeGreaterThan(caja)
+    // El fondo, antes de la caja: la capa va pegada a la banda, no a su contenido.
+    expect(capa).toBeGreaterThan(banda)
+    expect(capa).toBeLessThan(caja)
   })
 })

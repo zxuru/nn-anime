@@ -7,8 +7,8 @@
  * el proceso—, así que un plugin que llega después tiene que devolver sus filas
  * al instante, y uno que se va, esconderlas.
  *
- * Las ocho lecturas se miden **con** el proveedor ausente cargado y sin él: sin
- * el control, una lectura rota que devolviera vacío pasaría por buena.
+ * Las nueve lecturas de esta lista se miden **con** el proveedor ausente cargado y
+ * sin él: sin el control, una lectura rota que devolviera vacío pasaría por buena.
  */
 
 import { describe, expect, test } from 'bun:test'
@@ -63,6 +63,10 @@ const LECTURAS: readonly Lectura[] = [
   {
     nombre: 'listFavorites',
     ids: async (store) => (await store.listFavorites()).map((item) => item.ref.providerId),
+  },
+  {
+    nombre: 'listWatchedTitles',
+    ids: async (store) => (await store.listWatchedTitles()).map((item) => item.ref.providerId),
   },
   {
     nombre: 'listRecentlyWatched',
@@ -127,8 +131,8 @@ function insertarAnime(
  *
  * Cada lectura tiene con qué: la misma obra en las dos fuentes —«otras fuentes»
  * empareja por título y año—, una tercera entrega que sólo tiene el ausente
- * —«relacionados» empareja por saga—, un género, un visionado a medias y un
- * favorito.
+ * —«relacionados» empareja por saga—, un género, un visionado a medias, un
+ * favorito y una marca de visto.
  */
 function sembrar(db: StoreConnection): void {
   const cargado = insertarAnime(db, CARGADO, 'dandadan', 'Dandadan', 2024, AHORA)
@@ -180,6 +184,7 @@ function sembrar(db: StoreConnection): void {
     ).run(animeId, episodio?.id ?? 0, providerId, AHORA)
 
     db.query('INSERT INTO favorite (anime_id, created_at) VALUES (?, ?)').run(animeId, AHORA)
+    db.query('INSERT INTO watched_title (anime_id, created_at) VALUES (?, ?)').run(animeId, AHORA)
   }
 
   // Un título que sólo salió en una búsqueda, sin ficha abierta.

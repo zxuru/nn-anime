@@ -17,14 +17,7 @@ import {
   useSyncExternalStore,
 } from 'react'
 
-export type RouteName =
-  | 'home'
-  | 'search'
-  | 'anilist'
-  | 'detail'
-  | 'watch'
-  | 'settings'
-  | 'not-found'
+export type RouteName = 'home' | 'search' | 'detail' | 'watch' | 'settings' | 'not-found'
 
 export interface RouteMatch {
   readonly name: RouteName
@@ -39,9 +32,6 @@ interface RoutePattern {
 const PATTERNS: readonly RoutePattern[] = [
   { name: 'home', segments: [] },
   { name: 'search', segments: ['search'] },
-  // La búsqueda de una casilla contra AniList: una pantalla propia, porque no busca en
-  // los proveedores y su casilla se escribe de otra forma (`#` para los géneros).
-  { name: 'anilist', segments: ['anilist'] },
   { name: 'detail', segments: ['anime', ':providerId', ':ref'] },
   { name: 'watch', segments: ['watch', ':providerId', ':ref'] },
   { name: 'settings', segments: ['settings'] },

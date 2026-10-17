@@ -124,27 +124,6 @@ export interface AniListFixture {
     readonly genre?: readonly RawMediaFixture[]
   }
   /**
-   * Lo que devuelve la búsqueda de una sola casilla, **por página**.
-   *
-   * Por página y no una lista suelta porque lo que hay que poder medir es la paginación:
-   * con la página 2 declarada, `hasNextPage` es verdadero y el «más» se puede pulsar; con
-   * ella sin declarar, la búsqueda cierra. El doble devuelve `pageInfo` con `total` y sin
-   * filtrar nada: **no** comprueba los géneros ni el título que se le piden, porque quién
-   * los manda es lo que miden las pruebas de los valores, y un doble que filtra por su
-   * cuenta taparía que la consulta no los llevaba.
-   */
-  readonly searchPage?: Readonly<Record<number, readonly RawMediaFixture[]>>
-  /**
-   * Si la página de la búsqueda publica `pageInfo`.
-   *
-   * Por defecto sí, que es lo que publica la API. Puesto en falso sirve para medir que una
-   * forma que no lo traiga no tumbe la lista: es la misma precaución que el resto del
-   * doble, que devuelve las formas de verdad y no las cómodas.
-   */
-  readonly searchPageInfo?: boolean
-  /** La colección de géneros. Sin ella, la búsqueda por género no puede analizarse. */
-  readonly genres?: readonly string[]
-  /**
    * Las relaciones de cada obra, por su id de AniList.
    *
    * El tipo llega con el nombre que publica la API —`SEQUEL`, `SOURCE`— y no con
@@ -280,40 +259,6 @@ export function fakeAniList(fixture: AniListFixture = {}): FakeAniList {
       }
 
       return Response.json({ data: paginas })
-    }
-
-    /**
-     * La búsqueda de una sola casilla: una página con su `pageInfo`.
-     *
-     * `currentPage` es la que se pidió —el doble la lee de las variables, como la API— y
-     * `hasNextPage` es verdadero cuando el fixture declara la página siguiente. `total` se
-     * publica como el número de obras declaradas: es el dato que la interfaz sólo puede
-     * enseñar como aproximado.
-     */
-    if (query.includes('pageInfo {')) {
-      const pedida = typeof variables.page === 'number' ? variables.page : 1
-      const media = fixture.searchPage?.[pedida] ?? []
-      const siguiente = fixture.searchPage?.[pedida + 1] !== undefined
-      const total = Object.values(fixture.searchPage ?? {}).reduce(
-        (suma, pagina) => suma + pagina.length,
-        0,
-      )
-
-      return Response.json({
-        data: {
-          Page: {
-            ...(fixture.searchPageInfo === false
-              ? {}
-              : { pageInfo: { total, currentPage: pedida, hasNextPage: siguiente } }),
-            media: media.map((una) => mediaJson(una)),
-          },
-        },
-      })
-    }
-
-    // La colección de géneros: es lo que deja saber cómo se llaman los suyos.
-    if (query.includes('GenreCollection')) {
-      return Response.json({ data: { GenreCollection: fixture.genres ?? [] } })
     }
 
     if (query.includes('airingSchedules')) {

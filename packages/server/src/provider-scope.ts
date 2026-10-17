@@ -11,11 +11,12 @@
  *
  * El filtro vive aquí, en un solo sitio, y no en cada ruta, por dos motivos:
  *
- * 1. **Son nueve lecturas** —los candidatos del motor, lo último conocido, el
- *    catálogo por género, el catálogo por estudio, los favoritos, los visionados,
- *    los hermanos de saga, las otras fuentes de la ficha y los candidatos locales
- *    del emparejamiento con AniList—, y la décima que se añada sin esto repetiría
- *    el fallo. Repetida en cada ruta, la regla se olvida en la siguiente.
+ * 1. **Son diez lecturas** —los candidatos del motor, lo último conocido, el
+ *    catálogo por género, el catálogo por estudio, los favoritos, las obras
+ *    marcadas como vistas, los visionados, los hermanos de saga, las otras
+ *    fuentes de la ficha y los candidatos locales del emparejamiento con
+ *    AniList—, y la undécima que se añada sin esto repetiría el fallo. Repetida
+ *    en cada ruta, la regla se olvida en la siguiente.
  * 2. **La regla es una sola**: una referencia se ofrece si su proveedor está
  *    cargado ahora. `/api/search` ya la aplicaba por su cuenta, para el filtro de
  *    proveedores de la interfaz; esa parte sigue siendo suya y no se toca.
@@ -71,7 +72,7 @@ export function acotarAlmacen(store: CatalogStore, providers: readonly Provider[
   return {
     ...store,
 
-    // Las nueve lecturas que pueden ofrecer una tarjeta de otro proveedor. Una
+    // Las diez lecturas que pueden ofrecer una tarjeta de otro proveedor. Una
     // lectura nueva que devuelva referencias se añade **aquí**: es el único
     // sitio donde la regla se aplica.
     listCandidates: async (limit) => soloActivos(await store.listCandidates(limit)),
@@ -79,6 +80,9 @@ export function acotarAlmacen(store: CatalogStore, providers: readonly Provider[
     searchByGenre: async (term, limit) => soloActivos(await store.searchByGenre(term, limit)),
     searchByStudio: async (term, limit) => soloActivos(await store.searchByStudio(term, limit)),
     listFavorites: async () => soloActivos(await store.listFavorites()),
+    // La marca de visto alimenta el botón de la ficha y el motor: una obra de un
+    // proveedor desmarcado no se ofrece ni como marcada.
+    listWatchedTitles: async () => soloActivos(await store.listWatchedTitles()),
     listRelated: async (ref, limit, scope) =>
       soloActivos(await store.listRelated(ref, limit, scope)),
     listSources: async (ref, limit) => soloActivos(await store.listSources(ref, limit)),

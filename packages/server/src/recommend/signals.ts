@@ -122,6 +122,38 @@ export function watchStateFrom(
   }))
 }
 
+/**
+ * Los estados de visionado con la marca de visto mezclada.
+ *
+ * La marca entra como lo que es —un estado al 100 %, con la fecha en que se
+ * marcó— y la referencia marcada **sale de los estados de sus filas**: si una fila
+ * vieja al 10 % siguiera ahí, `indexWatchState` se queda con el estado más
+ * reciente y una marca de hace un año perdería contra un visionado de ayer, con lo
+ * que el título volvería por reencuentro. «Ya visto» dicho a mano no es un
+ * abandono del que uno se arrepiente: excluye siempre, y no por ganar una
+ * comparación de fechas.
+ *
+ * `watchStateFrom` no se toca: su contrato —una fila de visionado, un estado— sigue
+ * siendo el mismo, y es lo que hace que esta composición se pueda probar sola.
+ */
+export function watchStateWithMarks(
+  watch: readonly {
+    readonly anime: { readonly ref: ProviderRef }
+    readonly positionS: number
+    readonly durationS: number
+    readonly startedAt: Date
+    readonly finished: boolean
+  }[],
+  marks: readonly { readonly ref: ProviderRef; readonly watchedAt: Date }[],
+): readonly WatchState[] {
+  const marcadas = new Set(marks.map((marca) => refKey(marca.ref)))
+
+  return [
+    ...marks.map((marca) => ({ ref: refKey(marca.ref), ratio: 1, at: marca.watchedAt })),
+    ...watchStateFrom(watch.filter((fila) => !marcadas.has(refKey(fila.anime.ref)))),
+  ]
+}
+
 /** Las búsquedas recientes, como señal. */
 export function searchesFrom(
   historial: readonly {
@@ -167,12 +199,13 @@ export async function gatherSignals(
   store: CatalogStore,
   options: GatherOptions = {},
 ): Promise<Signals> {
-  const [candidatos, watch, historial, favoritos, recientes] = await Promise.all([
+  const [candidatos, watch, historial, favoritos, recientes, marcadas] = await Promise.all([
     store.listCandidates(options.corpusLimit ?? CORPUS_LIMIT),
     store.listRecentlyWatched(options.historyLimit ?? HISTORY_LIMIT),
     store.listRecentSearches(50),
     store.listFavorites(),
     store.listRecentSummaries(RECENT_LIMIT),
+    store.listWatchedTitles(),
   ])
 
   const corpus = new Map<string, Candidate>()
@@ -252,7 +285,7 @@ export async function gatherSignals(
     events: eventos,
     coVisits: [],
     searches: searchesFrom(historial),
-    watchState: watchStateFrom(watch),
+    watchState: watchStateWithMarks(watch, marcadas),
     ...(ultimo === undefined ? {} : { lastSeen: refKey(ultimo.anime.ref) }),
     candidates: [...corpus.values()],
   }

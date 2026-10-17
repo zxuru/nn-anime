@@ -270,6 +270,23 @@ export const favoriteRequestSchema = z.strictObject({
 })
 
 /**
+ * La marca de «ya visto», como la lee el botón de la ficha.
+ *
+ * Misma forma que los favoritos y por el mismo motivo: el alta y la baja se hacen
+ * con el mismo cuerpo, y `value` dice en qué estado queda la obra. La **fecha** de
+ * la marca no viaja: la usa el motor para desempatar y la interfaz no la pinta.
+ */
+export const watchedTitlesResponseSchema = z.strictObject({
+  items: z.array(animeSummarySchema),
+})
+
+/** Alta o baja de la marca de visto. `value` dice en qué estado queda. */
+export const watchedTitleRequestSchema = z.strictObject({
+  ref: providerRefSchema,
+  value: z.boolean(),
+})
+
+/**
  * Una pista de subtítulos tal y como la ve el cliente.
  *
  * La `url` es la ruta del proxy con su ticket, no la del upstream —igual que la
@@ -505,42 +522,6 @@ export const discoverItemSchema = z.strictObject({
 })
 
 export const discoverResponseSchema = z.strictObject({ items: z.array(discoverItemSchema) })
-
-/**
- * Una pieza de la búsqueda de AniList: la del descubrimiento más lo que la búsqueda sabe.
- *
- * Es la misma forma que la del top y las novedades —portada por la ruta local, `kind`,
- * `year`, `ref` cuando la base conoce la obra— porque la pinta la misma pieza, y añade
- * los tres nombres y los géneros: `title` es el que se enseña —el inglés si lo hay— y
- * `titles` los que publica la API, que es lo que deja escribir el romaji debajo cuando no
- * es el mismo texto. Los géneros viajan porque el usuario ha podido filtrar por ellos: sin
- * la lista no puede ver que el filtro se aplicó.
- */
-export const anilistSearchItemSchema = discoverItemSchema.extend({
-  titles: z.strictObject({
-    romaji: z.string().min(1).nullable(),
-    english: z.string().min(1).nullable(),
-    native: z.string().min(1).nullable(),
-  }),
-  secondaryTitle: z.string().min(1).optional(),
-  genres: z.array(z.string().min(1)),
-})
-
-/**
- * Una página de la búsqueda de AniList.
- *
- * `total` viaja como **aproximado y sólo para enseñarlo**: la propia API avisa de que no
- * es exacto y de que no se use para lógica, así que la paginación se decide con
- * `hasNextPage` y con nada más. `unknownGenres` son los géneros que se escribieron con
- * `#` y no existen para AniList: nunca se enviaron y se devuelven para poder decirlo.
- */
-export const anilistSearchResponseSchema = z.strictObject({
-  items: z.array(anilistSearchItemSchema),
-  page: z.number().int().positive(),
-  hasNextPage: z.boolean(),
-  total: z.number().int().nonnegative().optional(),
-  unknownGenres: z.array(z.string().min(1)),
-})
 
 /**
  * Un episodio que se emite, o que se acaba de emitir.
@@ -839,6 +820,8 @@ export type StreamResolveResponse = z.infer<typeof streamResolveResponseSchema>
 export type StreamSourceResponse = z.infer<typeof streamSourceResponseSchema>
 export type FavoriteRequest = z.infer<typeof favoriteRequestSchema>
 export type FavoritesResponse = z.infer<typeof favoritesResponseSchema>
+export type WatchedTitleRequest = z.infer<typeof watchedTitleRequestSchema>
+export type WatchedTitlesResponse = z.infer<typeof watchedTitlesResponseSchema>
 export type EpisodesResponse = z.infer<typeof episodesResponseSchema>
 export type EpisodeSeason = z.infer<typeof episodeSeasonSchema>
 export type EpisodeResponse = z.infer<typeof episodeResponseSchema>
@@ -862,8 +845,6 @@ export type SearchQuery = z.infer<typeof searchQuerySchema>
 export type SearchEventPayload = z.infer<typeof searchEventSchema>
 export type DiscoverItem = z.infer<typeof discoverItemSchema>
 export type DiscoverResponse = z.infer<typeof discoverResponseSchema>
-export type AniListSearchItem = z.infer<typeof anilistSearchItemSchema>
-export type AniListSearchResponse = z.infer<typeof anilistSearchResponseSchema>
 export type AiringItem = z.infer<typeof airingItemSchema>
 export type AiringResponse = z.infer<typeof airingResponseSchema>
 export type Enrichment = z.infer<typeof enrichmentSchema>

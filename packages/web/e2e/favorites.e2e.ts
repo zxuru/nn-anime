@@ -23,7 +23,11 @@ test.describe('el favorito', () => {
     await page.goto(FICHA)
     await expect(page.locator('.episodes li')).toHaveCount(12, { timeout: 15_000 })
 
-    const boton = page.locator('.detail__actions').getByRole('button')
+    // Por el texto que **no** cambia con el estado y no por el nombre accesible
+    // entero: `aria-pressed` y el rótulo van juntos, así que un localizador por
+    // «Añadir a favoritos» deja de encontrar el botón en cuanto se pulsa. El de
+    // visto dice «visto»/«vistos», así que «favoritos» sólo lo lleva éste.
+    const boton = page.locator('.detail__actions button', { hasText: 'favoritos' })
     await expect(boton).toHaveAttribute('aria-pressed', 'false')
 
     await boton.click()
@@ -35,7 +39,7 @@ test.describe('el favorito', () => {
     await page.reload()
     await expect(page.locator('.episodes li')).toHaveCount(12, { timeout: 15_000 })
 
-    const despues = page.locator('.detail__actions').getByRole('button')
+    const despues = page.locator('.detail__actions button', { hasText: 'favoritos' })
     await expect(despues).toHaveAttribute('aria-pressed', 'true')
     await expect(despues).toHaveText('Quitar de favoritos')
 

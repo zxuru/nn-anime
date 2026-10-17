@@ -43,6 +43,7 @@ const TABLAS_POSTERIORES = [
   'anilist_list_cache',
   'anilist_image',
   'adult_ref',
+  'watched_title',
 ]
 
 /** Las versiones que hay hoy, para no fijar números que crecen con cada migración. */
@@ -280,6 +281,47 @@ describe('migración inicial', () => {
         db.exec(
           "INSERT INTO episode (anime_id, provider_ref, number, mode, fetched_at, ttl_s) VALUES (99, 'x', 1, 'sub', 0, 0)",
         ),
+      ).toThrow()
+    })
+  })
+})
+
+/**
+ * La tabla de la marca de visto.
+ *
+ * Se mide aquí, y no en el repositorio, lo que es del esquema: que la tabla tenga
+ * las dos columnas y que **el anime sea la clave primaria**. Eso último no es un
+ * detalle de estilo: el repositorio escribe con `ON CONFLICT (anime_id) DO
+ * NOTHING`, así que sin la clave una segunda pulsación dejaría una segunda fila y
+ * la marca saldría repetida en la lectura.
+ */
+describe('la marca de visto', () => {
+  test('la tabla tiene dos columnas y el anime como clave', async () => {
+    await withDb((db) => {
+      runMigrations(db)
+
+      expect(columnNames(db, 'watched_title')).toEqual(['anime_id', 'created_at'])
+
+      db.query(
+        `INSERT INTO anime (provider_id, provider_ref, title, fetched_at, ttl_s)
+         VALUES ('fixture', 'vista', 'Vista', 0, 0)`,
+      ).run()
+      const animeId = db.query<{ id: number }, []>('SELECT id FROM anime').get()?.id ?? 0
+
+      db.query('INSERT INTO watched_title (anime_id, created_at) VALUES (?, 1)').run(animeId)
+
+      expect(() =>
+        db.query('INSERT INTO watched_title (anime_id, created_at) VALUES (?, 2)').run(animeId),
+      ).toThrow()
+    })
+  })
+
+  test('una marca sin su anime no entra: la clave foránea se hace cumplir', async () => {
+    await withDb((db) => {
+      runMigrations(db)
+
+      expect(() =>
+        db.query('INSERT INTO watched_title (anime_id, created_at) VALUES (99, 1)').run(),
       ).toThrow()
     })
   })

@@ -49,6 +49,7 @@ import { registerSettingsRoute } from './routes/settings'
 import { registerStreamRoutes } from './routes/stream'
 import { registerSubtitlesRoute } from './routes/subtitles'
 import { registerWatchRoutes } from './routes/watch'
+import { registerWatchedTitlesRoutes } from './routes/watched-titles'
 import type { Session } from './session'
 
 /** Puerto conocido en el momento de montar la aplicación, o función que lo lee. */
@@ -253,6 +254,7 @@ export function createApp(options: AppOptions): Hono {
     registerDetailRoutes(app, routeOptions)
     registerEpisodesRoute(app, routeOptions)
     registerFavoritesRoutes(app, { container })
+    registerWatchedTitlesRoutes(app, { container })
     const proxyOptions = {
       ...(options.streamFetchImpl === undefined ? {} : { fetchImpl: options.streamFetchImpl }),
       ...(options.streamResolver === undefined ? {} : { resolver: options.streamResolver }),

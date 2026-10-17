@@ -8,7 +8,6 @@
 
 import { DEFAULT_LOCALE, type Locale } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
-import { AniListSearchPage } from './features/anilist/AniListSearchPage'
 import { DetailPage } from './features/detail/DetailPage'
 import { HomePage } from './features/home/HomePage'
 import { WatchPage } from './features/player/WatchPage'
@@ -41,6 +40,15 @@ function Shell(props: {
    */
   readonly sinTope?: boolean
   /**
+   * La ficha, a sangre y sin relleno.
+   *
+   * Su banda cruza la ventana y va pegada al borde inferior de la cabecera, así
+   * que la caja no puede tener ni tope ni aire: la medida del sitio la recuperan
+   * las dos cajas de dentro —la de la banda y la del cuerpo—, que es lo que deja
+   * el titular alineado con las columnas.
+   */
+  readonly ficha?: boolean
+  /**
    * Si la cabecera lleva el conmutador de tipo.
    *
    * No lo lleva siempre: la mitad que se mira sólo significa algo donde hay algo
@@ -52,13 +60,14 @@ function Shell(props: {
   const caja = ['shell__main']
   if (props.ancha === true) caja.push('shell__main--ancha')
   if (props.sinTope === true) caja.push('shell__main--sin-tope')
+  if (props.ficha === true) caja.push('shell__main--ficha')
 
   /*
     Los destinos de la navegación conservan la mitad que se está mirando: al pasar
     de la vitrina a la búsqueda y vuelta, `?tipo=movies` viaja en el enlace y el
     conmutador no vuelve solo a anime. La marca no lo hace —volver a la casa en
-    anime es el punto de referencia— y AniList y Ajustes tampoco, porque ahí no hay
-    dos mitades que partir.
+    anime es el punto de referencia— y Ajustes tampoco, porque ahí no hay dos
+    mitades que partir.
   */
   const path = usePath()
   const tipo = tipoFromPath(path)
@@ -72,7 +81,6 @@ function Shell(props: {
         <nav className="shell__nav">
           <Link to={pathConTipo('/', tipo)}>{t(LOCALE, 'nav.home')}</Link>
           <Link to={pathConTipo('/search', tipo)}>{t(LOCALE, 'nav.search')}</Link>
-          <Link to="/anilist">{t(LOCALE, 'nav.anilist')}</Link>
           <Link to="/settings">{t(LOCALE, 'nav.settings')}</Link>
         </nav>
         {props.tipo === true ? <ConmutadorTipo /> : null}
@@ -97,8 +105,6 @@ function screenFor(route: RouteMatch, path: string): ReactNode {
       return <HomePage />
     case 'search':
       return <SearchPage />
-    case 'anilist':
-      return <AniListSearchPage />
     case 'detail':
       return <DetailPage providerId={route.params.providerId ?? ''} ref={route.params.ref ?? ''} />
     case 'watch':
@@ -143,6 +149,7 @@ export function App(): ReactNode {
     <Shell
       ancha={route.name === 'home'}
       sinTope={route.name === 'watch'}
+      ficha={route.name === 'detail'}
       tipo={route.name === 'home' || route.name === 'search'}
     >
       {screenFor(route, path)}

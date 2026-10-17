@@ -18,6 +18,7 @@
  * que la ficha entera era un callejón sin salida.
  */
 
+import { anilistGenre } from '@nn-anime/core/anilist'
 import type { Enrichment } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { AnimeDetail } from '@nn-anime/core/models'
@@ -35,7 +36,8 @@ import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
 import { SagaRail } from './SagaRail'
 import { SourcePicker } from './SourcePicker'
-import { chosenMode, modesFor, useDetail, useFavorite } from './useDetail'
+import { chosenMode, modesFor, useDetail, useFavorite, useWatchedTitle } from './useDetail'
+import { WatchedButton } from './WatchedButton'
 
 /** La clave de traducción del estado, escrita una a una. */
 const STATUS_KEYS = {
@@ -95,6 +97,11 @@ const BANNER_PATH = /^\/api\/anilist\/image\/banner\/[1-9]\d*$/
  * La banda se pinta **con o sin** banner: es la cabecera de la ficha, así que la
  * pantalla no cambia de forma cuando el emparejamiento con AniList llega tarde o
  * no llega.
+ *
+ * El contenido va en su propia caja porque la banda cruza la ventana entera: sin
+ * ella, en una pantalla de 2560 px el nombre quedaría a 32 px del borde y la
+ * sinopsis, que sí conserva la medida del sitio, a 680. La caja es lo que alinea
+ * el titular con el resto de la ficha.
  */
 export function BandaBanner(props: {
   readonly detail: AnimeDetail
@@ -114,9 +121,11 @@ export function BandaBanner(props: {
           aria-hidden="true"
         />
       )}
-      <h1>{detail.title}</h1>
-      {detail.titleAlt === undefined ? null : <p className="card__meta">{detail.titleAlt}</p>}
-      <Meta detail={detail} />
+      <div className="detail__banner-caja">
+        <h1>{detail.title}</h1>
+        {detail.titleAlt === undefined ? null : <p className="card__meta">{detail.titleAlt}</p>}
+        <Meta detail={detail} />
+      </div>
     </header>
   )
 }
@@ -294,6 +303,14 @@ export function Lectura(props: {
  * El separador va como texto y no como estilo: es la misma línea de antes
  * —«Fantasía · Romance»—, con las palabras convertidas en enlaces. El `title`
  * dice a dónde lleva cada uno, que es lo que el nombre solo no cuenta.
+ *
+ * **El `#` del género, sólo cuando AniList lo conoce.** El `#` es lo que manda la
+ * consulta a su catálogo, y con él un género que AniList no tiene —«Isekai» no
+ * está entre sus dieciocho— dejaría la búsqueda pidiendo estudios por el texto
+ * «#Isekai», que no devuelve nada: se perdería lo que ese enlace ya enseñaba. La
+ * condición se resuelve con `anilistGenre`, que es la misma tabla con la que el
+ * servidor decide si puede preguntarle por ese género. El estudio no la lleva
+ * nunca: no es un género y con `#` su búsqueda se quedaría en cero.
  */
 function Etiquetas(props: {
   readonly valores: readonly string[]
@@ -301,18 +318,24 @@ function Etiquetas(props: {
 }): ReactNode {
   return (
     <p className="detail__etiquetas">
-      {props.valores.map((valor, indice) => (
-        <Fragment key={valor}>
-          {indice === 0 ? null : ' · '}
-          <Link
-            className="detail__etiqueta"
-            to={searchPath(valor)}
-            title={t(DEFAULT_LOCALE, props.clave, { name: valor })}
-          >
-            {valor}
-          </Link>
-        </Fragment>
-      ))}
+      {props.valores.map((valor, indice) => {
+        const ensanchado = props.clave === 'detail.genreLink' && anilistGenre(valor) !== undefined
+
+        return (
+          <Fragment key={valor}>
+            {indice === 0 ? null : ' · '}
+            <Link
+              className="detail__etiqueta"
+              to={searchPath(ensanchado ? `#${valor}` : valor)}
+              title={t(DEFAULT_LOCALE, ensanchado ? 'detail.genreLinkAnilist' : props.clave, {
+                name: valor,
+              })}
+            >
+              {valor}
+            </Link>
+          </Fragment>
+        )
+      })}
     </p>
   )
 }
@@ -333,6 +356,13 @@ export function DetailPage(props: DetailPageProps): ReactNode {
     reload,
   } = useDetail(props.providerId, props.ref)
   const favorite = useFavorite({ providerId: props.providerId, value: props.ref })
+  /**
+   * La marca de «ya visto», hermana del favorito.
+   *
+   * Sale en todas las fichas, película o serie: lo que cambia con `kind ===
+   * 'movie'` es el titular de la lista de episodios, no lo que se puede marcar.
+   */
+  const visto = useWatchedTitle({ providerId: props.providerId, value: props.ref })
   /**
    * El modo elegido a mano.
    *
@@ -377,8 +407,9 @@ export function DetailPage(props: DetailPageProps): ReactNode {
 
   return (
     <article className="detail">
-      {/* La cabecera de la ficha, con el banner de AniList de fondo. Va antes de
-          las dos columnas y las cruza: es la banda que abre la pantalla. */}
+      {/* La cabecera de la ficha, con el banner de AniList de fondo. Cruza la
+          pantalla entera y abre la ficha: la banda va a sangre y su contenido
+          —el titular— se alinea con las columnas de abajo. */}
       <BandaBanner detail={detail} fondo={fondoDe(enrichment)} />
 
       {/*
@@ -387,109 +418,122 @@ export function DetailPage(props: DetailPageProps): ReactNode {
         iba en una columna con `max-width: var(--measure)` dentro de media
         pantalla, y la mitad derecha quedaba muerta. Los datos se mudaron de aquí
         a la columna de lectura: la barra mide 17rem y ya iba llena de mandos.
+
+        La rejilla vive en su propia caja y no en `.detail`: la banda cruza la
+        ventana, así que la medida del sitio —y su relleno— se recuperan aquí.
       */}
-      <aside className="detail__aside">
-        {/* La portada sale del proxy, y sólo si el proveedor declaró una
+      <div className="detail__cuerpo">
+        <aside className="detail__aside">
+          {/* La portada sale del proxy, y sólo si el proveedor declaró una
             dirección que se puede usar: un `javascript:` ahí no se convierte en
             atributo. */}
-        {enrichment === null || enrichment === undefined ? (
-          detail.coverUrl !== undefined && !isSafeUrl(detail.coverUrl) ? (
-            <span className="detail__cover card__cover--vacia" aria-hidden="true" />
+          {enrichment === null || enrichment === undefined ? (
+            detail.coverUrl !== undefined && !isSafeUrl(detail.coverUrl) ? (
+              <span className="detail__cover card__cover--vacia" aria-hidden="true" />
+            ) : (
+              <Cover providerId={props.providerId} ref={props.ref} className="detail__cover" />
+            )
           ) : (
-            <Cover providerId={props.providerId} ref={props.ref} className="detail__cover" />
-          )
-        ) : (
-          // La de AniList es más grande y es la misma con la que la vitrina pinta
-          // sus piezas: una ficha con otra carátula que su tarjeta se lee como dos
-          // obras.
-          <Cover src={enrichment.cover} className="detail__cover" />
-        )}
+            // La de AniList es más grande y es la misma con la que la vitrina pinta
+            // sus piezas: una ficha con otra carátula que su tarjeta se lee como dos
+            // obras.
+            <Cover src={enrichment.cover} className="detail__cover" />
+          )}
 
-        <div className="detail__actions">
-          <FavoriteButton value={favorite.value} busy={favorite.busy} onToggle={favorite.toggle} />
-        </div>
+          {/* Las dos marcas del usuario, juntas: lo que se guarda y lo que ya se
+              vio. Son dos botones con el mismo contrato —`aria-pressed`, estado
+              inmediato y vuelta atrás si el servidor falla— y se leen como pareja. */}
+          <div className="detail__actions">
+            <FavoriteButton
+              value={favorite.value}
+              busy={favorite.busy}
+              onToggle={favorite.toggle}
+            />
+            <WatchedButton value={visto.value} busy={visto.busy} onToggle={visto.toggle} />
+          </div>
 
-        <section>
-          <h2>{t(DEFAULT_LOCALE, 'detail.modes')}</h2>
-          <ul className="modes">
-            {PLAY_MODES.map((candidato) => {
-              const disponible = modos.includes(candidato)
-              const clave = candidato === 'sub' ? 'detail.mode.sub' : 'detail.mode.dub'
+          <section>
+            <h2>{t(DEFAULT_LOCALE, 'detail.modes')}</h2>
+            <ul className="modes">
+              {PLAY_MODES.map((candidato) => {
+                const disponible = modos.includes(candidato)
+                const clave = candidato === 'sub' ? 'detail.mode.sub' : 'detail.mode.dub'
 
-              return (
-                <li className="mode" key={candidato}>
-                  <button
-                    type="button"
-                    className="button"
-                    // El marcado es el modo que se va a reproducir, y se dice con
-                    // `aria-pressed` —lo que ya lee el resto de la interfaz— y no
-                    // sólo con el color.
-                    aria-pressed={modo === candidato}
-                    disabled={!disponible}
-                    onClick={() => setPreferido(candidato)}
-                  >
-                    {t(DEFAULT_LOCALE, clave)}
-                  </button>
-                  {disponible ? null : (
-                    <span className="card__meta">
-                      {t(DEFAULT_LOCALE, 'detail.modeUnavailable', {
-                        mode: t(DEFAULT_LOCALE, clave),
-                      })}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        </section>
+                return (
+                  <li className="mode" key={candidato}>
+                    <button
+                      type="button"
+                      className="button"
+                      // El marcado es el modo que se va a reproducir, y se dice con
+                      // `aria-pressed` —lo que ya lee el resto de la interfaz— y no
+                      // sólo con el color.
+                      aria-pressed={modo === candidato}
+                      disabled={!disponible}
+                      onClick={() => setPreferido(candidato)}
+                    >
+                      {t(DEFAULT_LOCALE, clave)}
+                    </button>
+                    {disponible ? null : (
+                      <span className="card__meta">
+                        {t(DEFAULT_LOCALE, 'detail.modeUnavailable', {
+                          mode: t(DEFAULT_LOCALE, clave),
+                        })}
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
 
-        {/* Dónde verlo, al lado de cómo: son las dos preguntas que se contestan
+          {/* Dónde verlo, al lado de cómo: son las dos preguntas que se contestan
             antes de darle a reproducir. Sin otras fuentes no pinta nada. */}
-        <SourcePicker items={sources} current={props.providerId} providerLabels={providerNames} />
+          <SourcePicker items={sources} current={props.providerId} providerLabels={providerNames} />
 
-        <section>
-          {/*
+          <section>
+            {/*
             La entrega actual entra en la lista del rail, y por eso se construye
             aquí con lo que la ficha ya sabe: el servidor no la devuelve entre sus
             hermanos —excluirla es lo que evita el contenido repetido—, y sin ella
             no se sabría en qué temporada se está.
           */}
-          <SagaRail
-            current={{
-              ref: { providerId: props.providerId, value: props.ref },
-              title: detail.title,
-              ...(detail.coverUrl === undefined ? {} : { coverUrl: detail.coverUrl }),
-              ...(detail.year === undefined ? {} : { year: detail.year }),
-              ...(detail.kind === undefined ? {} : { kind: detail.kind }),
-            }}
-            siblings={related}
-            franchise={franchise}
-            anilistRelated={anilistRelated}
-          />
-        </section>
-      </aside>
+            <SagaRail
+              current={{
+                ref: { providerId: props.providerId, value: props.ref },
+                title: detail.title,
+                ...(detail.coverUrl === undefined ? {} : { coverUrl: detail.coverUrl }),
+                ...(detail.year === undefined ? {} : { year: detail.year }),
+                ...(detail.kind === undefined ? {} : { kind: detail.kind }),
+              }}
+              siblings={related}
+              franchise={franchise}
+              anilistRelated={anilistRelated}
+            />
+          </section>
+        </aside>
 
-      <div className="detail__body">
-        {/* La sinopsis y los datos, en las dos pistas de la lectura; debajo, los
+        <div className="detail__body">
+          {/* La sinopsis y los datos, en las dos pistas de la lectura; debajo, los
             episodios a lo ancho de las dos, que es donde la lista se lee mejor. */}
-        <Lectura detail={detail} enrichment={enrichment} />
+          <Lectura detail={detail} enrichment={enrichment} />
 
-        <section>
-          {/* Una película se titula por lo que es. Dejarle «Episodios» encima del
+          <section>
+            {/* Una película se titula por lo que es. Dejarle «Episodios» encima del
               botón que la abre era el mismo error que numerar su única parte. */}
-          <h2>{t(DEFAULT_LOCALE, esPelicula ? 'detail.movie' : 'detail.episodes')}</h2>
-          {/* El selector pide sus propias páginas: la ficha le da con qué
+            <h2>{t(DEFAULT_LOCALE, esPelicula ? 'detail.movie' : 'detail.episodes')}</h2>
+            {/* El selector pide sus propias páginas: la ficha le da con qué
               pedirlas —el proveedor y la referencia del título— y no una lista
               ya descargada que no podría trocear. Con la marca de película, la
               misma lectura se pinta como una acción en vez de como una lista. */}
-          <EpisodeList
-            providerId={props.providerId}
-            ref={props.ref}
-            mode={modo}
-            watched={watched}
-            movie={esPelicula}
-          />
-        </section>
+            <EpisodeList
+              providerId={props.providerId}
+              ref={props.ref}
+              mode={modo}
+              watched={watched}
+              movie={esPelicula}
+            />
+          </section>
+        </div>
       </div>
     </article>
   )

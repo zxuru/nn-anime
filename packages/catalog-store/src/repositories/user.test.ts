@@ -11,6 +11,7 @@ import { createEpisodesRepository } from './episodes'
 import { createFavoritesRepository } from './favorites'
 import { createSearchHistoryRepository } from './search-history'
 import { createWatchRepository } from './watch'
+import { createWatchedTitlesRepository } from './watched-titles'
 
 const AURORA: ProviderRef = { providerId: 'fixture', value: 'aurora-nocturna' }
 const MAR: ProviderRef = { providerId: 'fixture', value: 'mar-de-cristal' }
@@ -77,6 +78,7 @@ interface Store {
   readonly episodios: ReturnType<typeof createEpisodesRepository>
   readonly watch: ReturnType<typeof createWatchRepository>
   readonly favoritos: ReturnType<typeof createFavoritesRepository>
+  readonly vistos: ReturnType<typeof createWatchedTitlesRepository>
   readonly historial: ReturnType<typeof createSearchHistoryRepository>
 }
 
@@ -114,6 +116,7 @@ async function withStore<T>(body: (store: Store) => Promise<T> | T): Promise<T> 
       episodios,
       watch: createWatchRepository(db),
       favoritos: createFavoritesRepository(db),
+      vistos: createWatchedTitlesRepository(db),
       historial: createSearchHistoryRepository(db),
     })
   } finally {
@@ -304,6 +307,93 @@ describe('favoritos', () => {
   })
 })
 
+/**
+ * La marca de «ya visto».
+ *
+ * Es la hermana del favorito y se prueba con sus mismos casos, porque comparte sus
+ * dos decisiones: la tabla tiene el anime como clave —marcar dos veces deja una
+ * fila— y marcar un título que no está se denuncia, que es lo que la ruta convierte
+ * en un 404. Lo que se añade aquí es la **fecha**, que el favorito no devuelve y el
+ * motor sí necesita.
+ */
+describe('la marca de visto', () => {
+  test('marcar y leer, con la fecha de la marca', async () => {
+    await withStore((store) => {
+      store.vistos.setWatchedTitle(AURORA, true)
+
+      const lista = store.vistos.listWatchedTitles()
+
+      expect(lista.map((item) => item.title)).toEqual(['Aurora Nocturna'])
+      expect(lista[0]?.watchedAt).toBeInstanceOf(Date)
+      // El resumen viaja entero: la lectura alimenta el motor y el botón de la ficha.
+      expect(lista[0]?.year).toBe(2019)
+      expect(lista[0]?.kind).toBe('tv')
+    })
+  })
+
+  test('marcar dos veces no duplica: la clave es el anime', async () => {
+    await withStore((store) => {
+      store.vistos.setWatchedTitle(AURORA, true)
+      store.vistos.setWatchedTitle(AURORA, true)
+
+      expect(store.vistos.listWatchedTitles()).toHaveLength(1)
+      expect(store.db.query('SELECT COUNT(*) AS total FROM watched_title').get()).toEqual({
+        total: 1,
+      })
+    })
+  })
+
+  test('desmarcar lo saca, y desmarcar algo que no estaba no falla', async () => {
+    await withStore((store) => {
+      store.vistos.setWatchedTitle(AURORA, true)
+      store.vistos.setWatchedTitle(AURORA, false)
+
+      expect(store.vistos.listWatchedTitles()).toEqual([])
+
+      store.vistos.setWatchedTitle(MAR, false)
+      expect(store.vistos.listWatchedTitles()).toEqual([])
+    })
+  })
+
+  test('marcar una obra que no está se denuncia', async () => {
+    await withStore((store) => {
+      expect(() =>
+        store.vistos.setWatchedTitle({ providerId: 'fixture', value: 'no-existe' }, true),
+      ).toThrow(/no está/)
+    })
+  })
+
+  test('la lectura acota la marca al título, sin tocar el visionado', async () => {
+    await withStore((store) => {
+      store.vistos.setWatchedTitle(AURORA, true)
+
+      // La marca es de la obra: no fabrica progreso de episodios, que es lo que
+      // ensuciaría la afinidad del motor y lo que la spec prohíbe.
+      expect(store.db.query('SELECT COUNT(*) AS total FROM watch_event').get()).toEqual({
+        total: 0,
+      })
+    })
+  })
+
+  test('la lista sale de la más reciente a la más antigua', async () => {
+    await withStore((store) => {
+      store.vistos.setWatchedTitle(AURORA, true)
+      store.db.query('UPDATE watched_title SET created_at = 1').run()
+      store.vistos.setWatchedTitle(MAR, true)
+      store.db
+        .query(
+          'UPDATE watched_title SET created_at = 2 WHERE anime_id = (SELECT id FROM anime WHERE provider_ref = ?)',
+        )
+        .run(MAR.value)
+
+      expect(store.vistos.listWatchedTitles().map((item) => item.title)).toEqual([
+        'Mar de Cristal',
+        'Aurora Nocturna',
+      ])
+    })
+  })
+})
+
 describe('búsquedas recientes', () => {
   test('registra y lee, con su número de aciertos', async () => {
     await withStore((store) => {
@@ -377,7 +467,7 @@ describe('búsquedas recientes', () => {
 })
 
 describe('todo sobrevive a cerrar y reabrir', () => {
-  test('historial, favoritos y búsquedas siguen ahí después', async () => {
+  test('historial, favoritos, vistos y búsquedas siguen ahí después', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'nn-anime-usuario-'))
     const path = join(dir, 'nn-anime.db')
     const abiertas: Database[] = []
@@ -393,6 +483,7 @@ describe('todo sobrevive a cerrar y reabrir', () => {
       )
       createWatchRepository(primera).updateWatchPosition(id, 300, 1440)
       createFavoritesRepository(primera).setFavorite(AURORA, true)
+      createWatchedTitlesRepository(primera).setWatchedTitle(AURORA, true)
       createSearchHistoryRepository(primera).recordSearch('aurora', 'fixture', 2)
       primera.close()
 
@@ -401,6 +492,7 @@ describe('todo sobrevive a cerrar y reabrir', () => {
       runMigrations(segunda)
       const visto = createWatchRepository(segunda).listRecentlyWatched(10)
       const favoritos = createFavoritesRepository(segunda).listFavorites()
+      const marcadas = createWatchedTitlesRepository(segunda).listWatchedTitles()
       const busquedas = createSearchHistoryRepository(segunda).listRecentSearches(10)
       segunda.close()
 
@@ -408,6 +500,7 @@ describe('todo sobrevive a cerrar y reabrir', () => {
       expect(visto[0]?.positionS).toBe(300)
       expect(visto[0]?.anime.title).toBe('Aurora Nocturna')
       expect(favoritos).toHaveLength(1)
+      expect(marcadas.map((item) => item.title)).toEqual(['Aurora Nocturna'])
       expect(busquedas[0]?.query).toBe('aurora')
     } finally {
       // Cerrar en el `finally` y no en el cuerpo evita que una aserción que falle
@@ -417,10 +510,11 @@ describe('todo sobrevive a cerrar y reabrir', () => {
     }
   })
 
-  test('borrar el anime se lleva su historial y sus favoritos', async () => {
+  test('borrar el anime se lleva su historial, sus favoritos y su marca', async () => {
     await withStore((store) => {
       store.watch.recordWatch(visionado(AURORA, 1, new Date()))
       store.favoritos.setFavorite(AURORA, true)
+      store.vistos.setWatchedTitle(AURORA, true)
 
       store.db
         .query('DELETE FROM anime WHERE provider_id = ? AND provider_ref = ?')
@@ -428,6 +522,7 @@ describe('todo sobrevive a cerrar y reabrir', () => {
 
       expect(store.watch.listRecentlyWatched(10)).toEqual([])
       expect(store.favoritos.listFavorites()).toEqual([])
+      expect(store.vistos.listWatchedTitles()).toEqual([])
     })
   })
 })

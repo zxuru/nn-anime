@@ -345,48 +345,6 @@
   letter-spacing: var(--tracking-label);
 }
 
-/* La búsqueda de AniList es una pantalla de lectura, no un tramo de la vitrina.
-   Su propia caja evita que la canaleta y las columnas de la home compriman el texto. */
-.anilist-page {
-  display: grid;
-  gap: var(--space-3);
-  width: min(100%, var(--measure));
-  margin-inline: auto;
-}
-
-.anilist-page h1 {
-  margin-block-end: 0;
-}
-
-.anilist-page__description {
-  max-width: var(--measure);
-  margin: 0 0 var(--space-2);
-  color: var(--color-text-dim);
-  font-size: var(--text-md);
-  line-height: var(--leading-normal);
-}
-
-.search__field.anilist-page__field {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-}
-
-.search__status.anilist-page__status {
-  min-height: 0;
-  margin: 0;
-}
-
-.mosaico.anilist-page__mosaic {
-  grid-template-columns: repeat(auto-fill, minmax(var(--grid-min), 1fr));
-}
-
-.empty.anilist-page__empty,
-.search__error.anilist-page__error {
-  max-width: var(--measure);
-  margin: 0;
-}
-
 .search__field {
   display: flex;
   flex-direction: column;
@@ -647,10 +605,8 @@
  * quedaba al lado de la sinopsis: ver `.detail__lectura`.
  */
 .detail {
-  display: grid;
-  grid-template-columns: minmax(var(--grid-min), var(--aside-width)) 1fr;
-  gap: var(--space-6);
-  align-items: start;
+  display: flex;
+  flex-direction: column;
 }
 
 /*
@@ -670,9 +626,13 @@
  * La banda existe **con o sin** banner: es la cabecera de la ficha, así que la
  * pantalla no cambia de forma cuando el emparejamiento con AniList llega —ni
  * cuando no llega—.
+ *
+ * Y cruza la ventana entera, **sin marco y sin margen con la cabecera**: era una
+ * tarjeta dentro de la caja de la pantalla, y el borde y el aire que la separaban
+ * de la barra la dejaban flotando. El contenido va en `.detail__banner-caja`,
+ * que es quien conserva la medida del sitio.
  */
 .detail__banner {
-  grid-column: 1 / -1;
   position: relative;
   /* Contexto de apilado propio: la capa del fondo va en `z-index: -1` para no
      tapar el texto, y sin esto se iría detrás del fondo de la página. */
@@ -680,12 +640,28 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  gap: var(--space-2);
   min-block-size: var(--detail-banner-alto);
-  padding: var(--space-6);
-  border: var(--border-width-strong) solid var(--color-border);
-  border-radius: var(--radius-md);
+  padding-block: var(--space-6);
   overflow: clip;
+}
+
+/*
+ * La caja del contenido de la banda.
+ *
+ * Es lo que alinea el titular con el resto de la ficha: la banda va a sangre, y
+ * sin esta caja —en una ventana de 2560 px— el nombre quedaría a 32 px del borde
+ * mientras la sinopsis, que sí conserva la medida, empezaría a 680. Misma medida
+ * y mismo relleno que `.detail__cuerpo`, que es lo que hace que las dos se lean
+ * como una sola columna.
+ */
+.detail__banner-caja {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  inline-size: 100%;
+  max-inline-size: var(--content-max);
+  margin-inline: auto;
+  padding-inline: var(--space-6);
 }
 
 .detail__banner-fondo {
@@ -718,6 +694,25 @@
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
   margin: 0;
+}
+
+/*
+ * El cuerpo: las dos columnas de la ficha, con la medida del sitio.
+ *
+ * La rejilla que antes era `.detail` vive aquí porque `.detail` cruza la
+ * ventana: la medida y el relleno que le daba la caja de la pantalla —que en la
+ * ficha ya no tiene— se recuperan en esta caja. Es también el aire con la banda:
+ * la banda no lleva margen por abajo y el hueco lo pone este relleno.
+ */
+.detail__cuerpo {
+  display: grid;
+  grid-template-columns: minmax(var(--grid-min), var(--aside-width)) 1fr;
+  gap: var(--space-6);
+  align-items: start;
+  inline-size: 100%;
+  max-inline-size: var(--content-max);
+  margin-inline: auto;
+  padding: var(--space-7) var(--space-6);
 }
 
 .detail__aside {
@@ -2902,6 +2897,19 @@
   }
 
   /*
+   * Y la ficha, con ese mismo relleno estrecho.
+   *
+   * `.shell__main--ficha` no reparte relleno —la banda va a sangre—, así que el
+   * aire de los lados lo ponen las dos cajas de dentro, y sin esto se quedarían
+   * con los 2 rem del sitio: en un teléfono de 360 px el titular perdía 64 px de
+   * ancho por un aire que la caja ya no da.
+   */
+  .detail__banner-caja,
+  .detail__cuerpo {
+    padding-inline: var(--space-3);
+  }
+
+  /*
    * Los mandos, debajo del video.
    *
    * Dejan de superponerse: con un video de 167 px de alto, una banda encima se
@@ -3013,6 +3021,17 @@
    descuido. El relleno de la caja es su margen. */
 .shell__main--sin-tope {
   max-inline-size: none;
+}
+
+/* La caja de la ficha: a sangre y **sin relleno**.
+   La banda del banner cruza la pantalla y va pegada al borde inferior de la
+   cabecera, así que la caja no puede tener aire por arriba ni a los lados: el
+   marco que se le veía era esto. El relleno no desaparece, se muda a las dos
+   cajas de dentro —`.detail__banner-caja` y `.detail__cuerpo`—, que son las que
+   conservan la medida del sitio y alinean el titular con las columnas. */
+.shell__main--ficha {
+  max-inline-size: none;
+  padding: 0;
 }
 
 /* --- 3. Marcas de arte: el recurso propio de cada pieza -----------------
