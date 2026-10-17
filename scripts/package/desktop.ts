@@ -11,13 +11,15 @@
  * verificar en las tres plataformas.
  *
  * Uso:
- *   bun run desktop:check      fmt, clippy y pruebas del árbol de Rust
- *   bun run desktop:build      compila el anfitrión de esta plataforma
+ *   bun run desktop:check                          fmt, clippy y pruebas del árbol de Rust
+ *   bun run desktop:build                          compila el anfitrión de esta máquina
+ *   bun run desktop:build --target=darwin-x64      lo compila cruzado para otro objetivo
  */
 
 import { copyFile, mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { ROOT } from '../workspaces'
+import { TARGETS } from './binary'
 
 /** El manifiesto del árbol de Rust. `cargo` recibe siempre esta ruta. */
 export const MANIFEST = join(ROOT, 'desktop', 'src-tauri', 'Cargo.toml')
@@ -42,14 +44,78 @@ export function hostFileName(platform: string): string {
   return platform === 'win32' || platform === 'windows' ? `${HOST_NAME}.exe` : HOST_NAME
 }
 
+/** El nombre de plataforma del artefacto a partir del de `process`. */
+export function platformName(platform: string = process.platform): string {
+  if (platform === 'win32') return 'windows'
+  if (platform === 'darwin') return 'macos'
+
+  return platform
+}
+
 /**
- * Dónde deja `cargo build --release` el binario del anfitrión.
+ * El triple de Rust de un objetivo.
  *
- * La plataforma se puede decir para poder afirmar la **ruta** de otro sistema sin
- * fingir que se compiló: es lo que usan las pruebas de empaquetado.
+ * Existe porque el empaquetado **no** puede dar por hecho que compila para la
+ * máquina en la que corre: `macos-latest` es arm64 y de ahí salen los dos `.dmg`,
+ * el de Apple Silicon y el de Intel. Sin el triple, el `.dmg` de Intel llevaría
+ * dentro un anfitrión arm64 —un ejecutable que no arranca— y se descubriría al
+ * instalarlo.
  */
-export function hostBinary(platform: string = process.platform): string {
-  return join(CRATE_DIR, 'target', 'release', hostFileName(platform))
+export function rustTriple(platform: string, arch: string): string | undefined {
+  const normal = platformName(platform)
+
+  if (normal === 'windows') {
+    if (arch === 'x64') return 'x86_64-pc-windows-msvc'
+    if (arch === 'arm64') return 'aarch64-pc-windows-msvc'
+  }
+
+  if (normal === 'macos') {
+    if (arch === 'x64') return 'x86_64-apple-darwin'
+    if (arch === 'arm64') return 'aarch64-apple-darwin'
+  }
+
+  if (normal === 'linux') {
+    if (arch === 'x64') return 'x86_64-unknown-linux-gnu'
+    if (arch === 'arm64') return 'aarch64-unknown-linux-gnu'
+  }
+
+  return undefined
+}
+
+/** La clave de `TARGETS` de una plataforma y una arquitectura, si está publicada. */
+export function targetKey(platform: string, arch: string): string | undefined {
+  const normal = platformName(platform)
+
+  return Object.keys(TARGETS).find((clave) => {
+    const spec = TARGETS[clave]
+
+    return spec !== undefined && spec.platform === normal && spec.arch === arch
+  })
+}
+
+/** `true` si el objetivo es el de la máquina en la que corre esto. */
+export function isNative(platform: string, arch: string): boolean {
+  return platformName(platform) === platformName() && arch === process.arch
+}
+
+/**
+ * Dónde deja `cargo` el binario del anfitrión.
+ *
+ * **Siempre** bajo el directorio del triple, y no en `target/release`, porque
+ * `buildDesktop` pasa `--target` en todas las compilaciones: con una sola forma de
+ * la ruta, no hay dos sitios donde buscar ni una rama que se olvide de probar.
+ */
+export function hostBinary(
+  platform: string = process.platform,
+  arch: string = process.arch,
+): string {
+  const triple = rustTriple(platform, arch)
+
+  if (triple === undefined) {
+    throw new Error(`no hay objetivo de Rust para ${platform}-${arch}`)
+  }
+
+  return join(CRATE_DIR, 'target', triple, 'release', hostFileName(platform))
 }
 
 export interface RunOptions {
@@ -79,11 +145,47 @@ export async function run(argv: readonly string[], options: RunOptions = {}): Pr
   }
 }
 
-/** Compila el anfitrión de esta plataforma y devuelve su ruta. */
-export async function buildDesktop(): Promise<string> {
-  await run(['cargo', 'build', '--release', '--manifest-path', MANIFEST])
+/** Compila el anfitrión y devuelve su ruta. */
+export interface BuildDesktopOptions {
+  /** Clave de `TARGETS` (`darwin-x64`). Por defecto, el de esta máquina. */
+  readonly target?: string
+}
 
-  const binario = hostBinary()
+/**
+ * Compila el anfitrión, del objetivo que se le diga.
+ *
+ * Se pasa `--target` **siempre**, también cuando el objetivo es el de esta
+ * máquina: así la ruta del binario es una sola y no hay un caso que se pruebe y
+ * otro que no.
+ */
+export async function buildDesktop(options: BuildDesktopOptions = {}): Promise<string> {
+  const spec = options.target === undefined ? undefined : TARGETS[options.target]
+
+  if (options.target !== undefined && spec === undefined) {
+    throw new Error(
+      `objetivo desconocido: ${options.target}. Los que hay: ${Object.keys(TARGETS).join(', ')}`,
+    )
+  }
+
+  const platform = spec?.platform ?? platformName()
+  const arch = spec?.arch ?? process.arch
+  const triple = rustTriple(platform, arch)
+
+  if (triple === undefined) {
+    throw new Error(`no hay objetivo de Rust para ${platform}-${arch}`)
+  }
+
+  // Una compilación cruzada necesita el objetivo en el toolchain. Se añade aquí
+  // en vez de comprobarlo: `rustup target add` sobre uno que ya está no descarga
+  // nada, y sin `rustup` el error que sale es el de `cargo`, que dice lo mismo.
+  if (!isNative(platform, arch)) {
+    process.stdout.write(`compilación cruzada: se añade el objetivo ${triple}\n`)
+    await run(['rustup', 'target', 'add', triple])
+  }
+
+  await run(['cargo', 'build', '--release', '--target', triple, '--manifest-path', MANIFEST])
+
+  const binario = hostBinary(platform, arch)
 
   if (!(await Bun.file(binario).exists())) {
     throw new Error(`cargo terminó bien y no hay binario en ${binario}`)
@@ -125,26 +227,17 @@ export async function stageDesktop(
   platform: string = process.platform,
   arch: string = process.arch,
 ): Promise<string> {
-  // `cargo` compila para la máquina en la que corre: el binario que hay en
-  // `target/release` es de la arquitectura del runner. Meterlo en un paquete de
-  // otra arquitectura sería servir un ejecutable que no arranca, y eso se ve
-  // cuando el usuario ya lo ha instalado. Se para y se dice.
-  //
-  // Comprobado en la matriz de la release: `macos-latest` arma el `.dmg` de
-  // Apple Silicon y el de Intel en la misma máquina, así que el de Intel necesita
-  // una compilación cruzada (`--target x86_64-apple-darwin`) que es de T159.
-  if (arch !== process.arch) {
-    throw new Error(
-      `el anfitrión de ${platform}-${arch} no se puede preparar desde ${process.platform}-${process.arch}: ` +
-        'hay que compilarlo cruzado con `cargo build --target`, que es la compilación cruzada de T159',
-    )
-  }
-
-  const origen = hostBinary(platform)
+  // El binario del objetivo, y no el de esta máquina: en la matriz de la release
+  // `macos-latest` arma los dos `.dmg` y cada uno tiene que llevarse el suyo. Si
+  // no está, es que no se compiló para ese objetivo, y se dice cuál falta.
+  const origen = hostBinary(platform, arch)
 
   if (!(await Bun.file(origen).exists())) {
+    const clave = targetKey(platform, arch)
+
     throw new Error(
-      `no hay anfitrión que preparar en ${origen}: compílalo antes con \`bun run desktop:build\``,
+      `no hay anfitrión que preparar en ${origen}: compílalo antes con ` +
+        `\`bun run desktop:build${clave === undefined ? '' : ` --target=${clave}`}\``,
     )
   }
 
@@ -190,17 +283,21 @@ export async function manifestVersion(): Promise<string | undefined> {
 }
 
 if (import.meta.main) {
-  const orden = Bun.argv[2]
+  const argv = Bun.argv.slice(2)
+  const orden = argv[0]
+  const flag = (nombre: string): string | undefined =>
+    argv.find((arg) => arg.startsWith(`--${nombre}=`))?.slice(nombre.length + 3)
 
   try {
     if (orden === 'check') {
       await checkDesktop()
       process.stdout.write('el árbol de Rust pasa fmt, clippy y sus pruebas\n')
     } else if (orden === 'build') {
-      const binario = await buildDesktop()
+      const target = flag('target')
+      const binario = await buildDesktop(target === undefined ? {} : { target })
       process.stdout.write(`anfitrión: ${binario}\n`)
     } else {
-      process.stderr.write('uso: desktop.ts <check|build>\n')
+      process.stderr.write('uso: desktop.ts <check|build> [--target=darwin-x64]\n')
       process.exitCode = 2
     }
   } catch (error) {

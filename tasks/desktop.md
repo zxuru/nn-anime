@@ -177,6 +177,44 @@ ejecutables · la prueba de `T160` comprueba el destino de los accesos.
 
 ---
 
+## T157a — La compilación cruzada del anfitrión (**tarea insertada**)
+
+**Descripción:** Tarea que **no estaba en el plan**. Al implementar T157 apareció el hueco: `cargo`
+compila para la máquina en la que corre, y la matriz de la release arma el `.dmg` de Apple Silicon y
+el de Intel **en la misma máquina** (`macos-latest`, que es arm64). Sin compilación cruzada, el `.dmg`
+de Intel habría llevado dentro un anfitrión arm64 —un ejecutable que no arranca— y se habría
+descubierto al instalarlo. Peor: la comprobación que puse en T157 para no publicarlo hacía **fallar la
+matriz entera** y, con ella, la publicación de la release.
+
+**Aceptación:**
+- [x] `rustTriple(platform, arch)` da el triple de Rust de cada objetivo, y `hostBinary` busca bajo
+      `target/<triple>/release` —que es donde `cargo build --target` escribe— y no en `target/release`.
+- [x] `buildDesktop({ target })` acepta una clave de `TARGETS`, pasa `--target` **siempre** —también
+      en la compilación nativa— y añade el objetivo con `rustup target add` cuando es cruzada.
+- [x] `stageDesktop` busca el binario del **objetivo**, no el de la máquina, y si falta nombra el
+      comando exacto que lo compila.
+- [x] El workflow de release pide `desktop:build --target=${{ matrix.target }}`.
+- [x] **Los dos ejecutables de Windows se firman.** El acceso abre el anfitrión: firmar sólo el
+      servidor dejaba el aviso de SmartScreen justo en el que se lanza al pulsar el acceso. Es un
+      defecto que introdujo T157 al añadir el segundo ejecutable.
+- [x] Guardas: cada objetivo de `TARGETS` tiene su triple, la ruta sale del directorio del triple, un
+      objetivo sin triple se rechaza, y la release pide el objetivo de su vuelta.
+
+**Verificación:** `bun test scripts/desktop.test.ts` **18 pasan** · `bun run lint` exit 0 con las
+**mismas 3 advertencias** · `bun run typecheck` 0 · **mutación**: devolver `hostBinary` a
+`target/release` hace fallar **exactamente 1** guarda.
+
+**Depende de:** T157. **T159 depende de esta.**
+**Archivos:** `scripts/package/desktop.ts`, `scripts/desktop.test.ts`, `.github/workflows/release.yml`.
+**Tamaño:** M.
+
+**Lo que sigue sin poder medirse aquí:** el árbol de Rust no se compila en esta máquina (sin HTTPS,
+`cargo` no alcanza crates.io), así que la compilación cruzada **no se ha ejecutado**. Lo que sí está
+medido es la aritmética de rutas y triples, que es lo que decide entre publicar un binario que arranca
+y uno que no.
+
+---
+
 ## T158 — Linux: el AppImage, el `.deb` y el `.rpm` abren ventana
 
 **Descripción:** Quitar la terminal de la entrada del menú y llevar el anfitrión en el paquete.

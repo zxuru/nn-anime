@@ -22,7 +22,15 @@
 
 import { describe, expect, test } from 'bun:test'
 import { join } from 'node:path'
-import { HOST_NAME, MANIFEST, manifestVersion, SERVER_NAME } from './package/desktop'
+import {
+  HOST_NAME,
+  hostBinary,
+  MANIFEST,
+  manifestVersion,
+  rustTriple,
+  SERVER_NAME,
+  targetKey,
+} from './package/desktop'
 import { ROOT } from './workspaces'
 
 const SPEC = join(ROOT, 'docs', 'specs', 'SPEC-desktop.md')
@@ -215,5 +223,49 @@ describe('el anfitrión de ventana', () => {
     expect(ci).toContain('\n  desktop:')
     expect(ci).toContain('bun run desktop:check')
     expect(ci).toContain('bun run desktop:build')
+  })
+})
+
+describe('la compilación cruzada del anfitrión', () => {
+  test('cada objetivo publicado tiene su triple de Rust', async () => {
+    // Si se añade una plataforma a `TARGETS` —Linux arm64, por ejemplo— y se
+    // olvida su triple, el empaquetado falla al preparar el anfitrión. Esto lo
+    // dice antes y nombra el objetivo que falta.
+    const { TARGETS } = await import('./package/binary')
+
+    for (const [clave, spec] of Object.entries(TARGETS)) {
+      expect(rustTriple(spec.platform, spec.arch), clave).toBeDefined()
+      expect(targetKey(spec.platform, spec.arch), clave).toBe(clave)
+    }
+  })
+
+  test('el binario sale del directorio del triple, no de `target/release`', () => {
+    // `cargo build --target` escribe en `target/<triple>/release`. Buscar en
+    // `target/release` encontraría el binario de la máquina, y en el `.dmg` de
+    // Intel eso es un anfitrión arm64: un ejecutable que no arranca.
+    expect(hostBinary('macos', 'x64')).toContain(join('target', 'x86_64-apple-darwin', 'release'))
+    expect(hostBinary('macos', 'arm64')).toContain(
+      join('target', 'aarch64-apple-darwin', 'release'),
+    )
+    expect(hostBinary('windows', 'x64').endsWith('nn-anime-desktop.exe')).toBe(true)
+    expect(hostBinary('macos', 'x64').endsWith('nn-anime-desktop')).toBe(true)
+  })
+
+  test('un objetivo sin triple se rechaza en vez de inventar una ruta', () => {
+    expect(rustTriple('macos', 'riscv64')).toBeUndefined()
+    expect(() => hostBinary('macos', 'riscv64')).toThrow()
+  })
+
+  test('la release pide el anfitrión del objetivo de su vuelta', async () => {
+    // Sin `--target`, las dos vueltas de macOS compilarían el anfitrión de la
+    // máquina y el `.dmg` de Intel llevaría el de Apple Silicon.
+    const release = await leer(join(ROOT, '.github', 'workflows', 'release.yml'))
+
+    // Expresión regular y no cadena: el texto lleva una expresión de Actions
+    // (`${{ ... }}`), y escribirla dentro de una cadena dispara
+    // `noTemplateCurlyInString`.
+    expect(release).toMatch(/bun run desktop:build --target=\$\{\{ matrix\.target \}\}/)
+    // Y los dos ejecutables de Windows se firman: el acceso abre el anfitrión.
+    expect(release).toContain('nn-anime-desktop.exe')
   })
 })
