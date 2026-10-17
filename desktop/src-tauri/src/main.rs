@@ -46,6 +46,18 @@ struct Estado {
 
 fn main() {
     let app = tauri::Builder::default()
+        // El primero que se registra, y tiene que ser así: el plugin decide si
+        // este proceso es el dueño de la aplicación **antes** de que se cree
+        // ninguna ventana. Un segundo lanzamiento no arranca otro servidor;
+        // enfoca el que ya está, que es lo que espera quien vuelve a pulsar el
+        // acceso del escritorio.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(ventana) = app.get_webview_window(LABEL) {
+                let _ = ventana.unminimize();
+                let _ = ventana.show();
+                let _ = ventana.set_focus();
+            }
+        }))
         .setup(|app| {
             let handle = app.handle().clone();
 

@@ -173,6 +173,17 @@ describe('el anfitrión de ventana', () => {
     expect(main).toContain('browser::open')
   })
 
+  test('la aplicación es de instancia única', async () => {
+    const manifiesto = await leer(MANIFEST)
+    const main = await leer(join(CRATE, 'src', 'main.rs'))
+
+    // Dos anfitriones son dos servidores sobre la misma base, y cerrar uno deja
+    // al otro sirviendo sin que nadie lo sepa. La segunda pulsación del acceso
+    // tiene que enfocar la ventana que ya está.
+    expect(manifiesto).toContain('tauri-plugin-single-instance')
+    expect(main).toContain('tauri_plugin_single_instance::init')
+  })
+
   test('el CI compila y mide el árbol de Rust', async () => {
     // Esta es la guarda que más importa del archivo. El anfitrión vive fuera de
     // `packages/`, así que `tsc`, `bun test` y biome no ven una línea suya: si
