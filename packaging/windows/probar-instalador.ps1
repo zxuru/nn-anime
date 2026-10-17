@@ -1,12 +1,18 @@
 # Probar el instalador de Windows de verdad.
 #
 # Lo que `docs/release.md` declaraba sin probar: nadie había **ejecutado** el
-# instalador. En la máquina donde se escribió el `.nsi` no se puede juzgar del
-# todo, y el motivo está medido: en un contexto sin escritorio interactivo, NSIS
-# **falla en silencio** al crear los accesos y al escribir el registro —las
-# instrucciones se ejecutan y su efecto no aparece—. Lo que sí funciona ahí, y está
-# medido, es instalar los archivos: con `cmd /c` el instalador sale con 0 y deja los
-# dos ejecutables en el destino.
+# instalador. En la máquina donde se escribió el `.nsi` no se puede juzgar del todo,
+# y **el motivo está medido**: el sandbox del agente deniega las escrituras fuera del
+# espacio de trabajo, y eso incluye el registro —`HKCU` vive en `NTUSER.DAT`— y el
+# escritorio. Medido con `reg.exe add`, que usa la misma API que NSIS: «Acceso
+# denegado». Y NSIS **se calla** los dos fallos, así que el efecto no aparece y
+# parece que el `.nsi` está mal cuando no lo está.
+#
+# Lo que sí funciona ahí, y también está medido: instalar los archivos. Con `cmd /c`
+# el instalador sale con 0 y deja los dos ejecutables en el destino. Por eso el guion
+# empieza comprobando si el entorno deja escribir en el registro y en el escritorio
+# **antes** de juzgar nada: sin eso, el paso reportaría un fallo del instalador que en
+# realidad es del entorno.
 #
 # Se comprueba lo que un usuario notaría, en el orden en que lo notaría:
 #   1. Se instala en silencio, sin permisos de administrador.
@@ -32,10 +38,34 @@ function Paso([string] $mensaje) { Write-Output "  $mensaje" }
 # Un servidor de una ejecución anterior dejaría el recuento de procesos mintiendo.
 Get-Process -Name 'nn-anime', 'nn-anime-desktop' -ErrorAction SilentlyContinue | Stop-Process -Force
 
-# Sonda barata, para el día que algo de esto falle: si el paso corre sin escritorio
-# interactivo, los accesos y el registro **no** se crean y el fallo hay que saber
-# leerlo. No se afirma nada con esto; se deja escrito.
+# Sonda de sesión, para el día que algo de esto falle: se deja escrito, no se afirma
+# nada con ella.
 Write-Output "  sesion: SESSIONNAME='$env:SESSIONNAME' interactivo=$([Environment]::UserInteractive)"
+
+# Y la comprobación que de verdad importa antes de empezar: **¿deja este entorno
+# escribir donde el instalador tiene que escribir?** Si el registro o el escritorio no
+# son escribibles, las comprobaciones 3 y 4 no pueden pasar nunca, y decir «no hay
+# entrada en Agregar o quitar programas» culparía al `.nsi` de una restricción del
+# entorno. Se para aquí y se dice cuál de las dos cosas falta.
+$escritorio = [Environment]::GetFolderPath('Desktop')
+$sondaClave = 'HKCU:\Software\nn-anime-sonda-entorno'
+$sondaArchivo = Join-Path $escritorio 'nn-anime-sonda-entorno.txt'
+
+try {
+  New-Item -Path $sondaClave -Force -ErrorAction Stop | Out-Null
+  Remove-Item $sondaClave -Force -ErrorAction Stop
+} catch {
+  throw "este entorno NO deja escribir en el registro (HKCU), así que el instalador no puede crear su entrada de desinstalación y este paso no mediría lo que dice. Ejecútalo en un runner. Detalle: $($_.Exception.Message)"
+}
+
+try {
+  Set-Content -Path $sondaArchivo -Value 'sonda' -ErrorAction Stop
+  Remove-Item $sondaArchivo -Force -ErrorAction Stop
+} catch {
+  throw "este entorno NO deja escribir en el escritorio ($escritorio), así que el instalador no puede crear los accesos y este paso no mediría lo que dice. Ejecútalo en un runner. Detalle: $($_.Exception.Message)"
+}
+
+Paso 'el entorno deja escribir en el registro y en el escritorio'
 
 $setup = Get-ChildItem -Path $Release -Filter 'nn-anime-*-setup.exe' -ErrorAction SilentlyContinue |
   Select-Object -First 1
@@ -169,8 +199,8 @@ $desinstalador = Join-Path $destino 'Desinstalar nn-anime.exe'
 if (-not (Test-Path $desinstalador)) { throw 'no hay desinstalador' }
 
 # `_?=<carpeta>` le dice al desinstalador dónde está instalado. Medido aquí: sin él
-# —y con la clave del registro ausente, que es lo que pasa sin escritorio
-# interactivo— el desinstalador **sale con 0 y no borra nada**; con él borra el
+# —y con la clave del registro ausente, que es lo que pasa cuando el entorno no deja
+# escribirla— el desinstalador **sale con 0 y no borra nada**; con él borra el
 # directorio entero.
 #
 # Y **no se exige código de salida**: medido, con `_?=` termina con **1** después de

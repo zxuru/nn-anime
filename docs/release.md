@@ -305,18 +305,22 @@ Y verificado **en local, el 2026-10-16**, con NSIS 3.11 portable:
 Lo que sigue sin estar comprobado, y lo dirá el siguiente push o una release con secretos:
 
 - **Ejecutar el instalador**: instalarlo en silencio, mirar que deja los accesos del escritorio y del
-  menú y su entrada en «Agregar o quitar programas», y desinstalarlo. **En la máquina donde se
-  compiló no se puede juzgar**, y conviene saber por qué, porque lo que pasa es raro. Lanzado con
-  `cmd /c "<setup>" /S /D=<carpeta del workspace>`, **sí instala los tres archivos** —`nn-anime.exe`
-  de 98,3 MB, `nn-anime.ico` y el desinstalador— y sale con **0**; pero **no deja ni los accesos ni el
-  registro**. Con una sonda temporal dentro de la propia sección se comprobó que **llega hasta el
-  final** —el `FileWrite` del último paso se escribió, con el tamaño que calculó `${GetSize}`—, y
-  desde el mismo contexto `HKCU` sí se puede escribir y no hay claves en `WOW6432Node`. Es decir: las
-  instrucciones se ejecutan y su efecto no aparece, que es lo que apunta a un contexto sin escritorio
-  interactivo y a que `CreateShortCut` y `WriteRegStr` fallan **en silencio** —NSIS se los calla—.
-  Nada de esto dice que el `.nsi` esté mal: no se puede concluir desde aquí. Es lo que le toca al CI,
-  que sí tiene sesión: el paso que falta es instalarlo con `/S /D=<carpeta temporal>`, comprobar los
-  accesos y el registro, arrancar el ejecutable instalado y desinstalarlo.
+  menú y su entrada en «Agregar o quitar programas», y desinstalarlo. **En la máquina donde se compiló
+  no se puede juzgar**, y ahora sí se sabe por qué: **el sandbox del agente deniega las escrituras
+  fuera del espacio de trabajo**, y eso incluye el registro —`HKCU` vive en `NTUSER.DAT`— y el
+  escritorio. Medido con `reg.exe add`, que usa la misma API que NSIS: «Acceso denegado». Y NSIS **se
+  calla** los dos fallos, así que el efecto no aparece y parece que el `.nsi` está mal cuando no lo
+  está. *(La versión anterior de este párrafo decía que `HKCU` sí se podía escribir y lo atribuía a un
+  contexto sin escritorio interactivo. Era falso: una medición posterior con `reg.exe` lo desmiente.)*
+
+  Lo que **sí** está medido aquí: con `cmd /c "<setup>" /S /D=<carpeta del workspace>` el instalador
+  sale con **0** e instala **los dos ejecutables** —`nn-anime.exe` de 98,3 MB y
+  `nn-anime-desktop.exe`—, más el icono y el desinstalador. Y el anfitrión viaja de verdad dentro:
+  con un anfitrión de prueba de 5 MB incompresibles, el instalador crece **5.317.010 bytes**.
+
+  El paso que faltaba ya existe: `packaging/windows/probar-instalador.ps1`, que lo ejecuta el CI en
+  Windows y que **se niega a juzgar** si el entorno no deja escribir en el registro o en el
+  escritorio, en vez de culpar al `.nsi` de una restricción del entorno.
 - **La firma de código y la notarización**: sin certificados, los pasos se saltan. Que `signtool` y
   `codesign` reciban lo que esperan no se ha podido ejecutar.
 

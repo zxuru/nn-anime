@@ -20,6 +20,7 @@ funcione sin que nadie sepa usar una terminal ni tenga Bun instalado. El reparto
 | T159 | hecho; el `.app` **no construido** (no hay un Mac) | `tasks/done/T159.md` |
 | T160 | hecho; el instalador **no ejecutado** aquí | `tasks/done/T160.md` |
 | T160a | hecho (**insertada**: la revisión encontró dos comprobaciones que no medían) | `tasks/done/T160a.md` |
+| T160b | hecho (**insertada**: la causa de los accesos y el registro, medida) | `tasks/done/T160b.md` |
 | T161 | **pendiente: necesita un Linux de verdad** | — |
 | T162 | hecho | `tasks/done/T162.md` |
 
