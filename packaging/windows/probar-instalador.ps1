@@ -1,11 +1,12 @@
 # Probar el instalador de Windows de verdad.
 #
 # Lo que `docs/release.md` declaraba sin probar: nadie había **ejecutado** el
-# instalador. En la máquina donde se escribió el `.nsi` no se podía juzgar, y el
-# motivo está medido: lanzado en silencio instalaba los archivos pero no dejaba ni
-# los accesos ni las claves del registro, y todo apuntaba a un contexto sin
-# escritorio interactivo —NSIS falla en silencio al crear accesos y al escribir el
-# registro—. Un runner de GitHub sí tiene sesión, así que aquí sí se puede juzgar.
+# instalador. En la máquina donde se escribió el `.nsi` no se puede juzgar del
+# todo, y el motivo está medido: en un contexto sin escritorio interactivo, NSIS
+# **falla en silencio** al crear los accesos y al escribir el registro —las
+# instrucciones se ejecutan y su efecto no aparece—. Lo que sí funciona ahí, y está
+# medido, es instalar los archivos: con `cmd /c` el instalador sale con 0 y deja los
+# dos ejecutables en el destino.
 #
 # Se comprueba lo que un usuario notaría, en el orden en que lo notaría:
 #   1. Se instala en silencio, sin permisos de administrador.
@@ -14,8 +15,8 @@
 #   4. Los dos accesos existen y abren el **anfitrión**, no la consola.
 #   5. Al abrirlo aparece una ventana, el servidor escucha **sólo en loopback** y al
 #      cerrar la ventana no queda ningún proceso vivo.
-#   6. Al desinstalar se van los archivos y las claves, y los datos del usuario
-#      **se quedan**.
+#   6. Al desinstalar se van los archivos y las claves, y **los datos del usuario se
+#      quedan** —la base incluida, que vive en `%LOCALAPPDATA%`, no en `%APPDATA%`—.
 #
 # Uso: pwsh -NoProfile -File packaging/windows/probar-instalador.ps1 -Release release
 
@@ -31,25 +32,50 @@ function Paso([string] $mensaje) { Write-Output "  $mensaje" }
 # Un servidor de una ejecución anterior dejaría el recuento de procesos mintiendo.
 Get-Process -Name 'nn-anime', 'nn-anime-desktop' -ErrorAction SilentlyContinue | Stop-Process -Force
 
+# Sonda barata, para el día que algo de esto falle: si el paso corre sin escritorio
+# interactivo, los accesos y el registro **no** se crean y el fallo hay que saber
+# leerlo. No se afirma nada con esto; se deja escrito.
+Write-Output "  sesion: SESSIONNAME='$env:SESSIONNAME' interactivo=$([Environment]::UserInteractive)"
+
 $setup = Get-ChildItem -Path $Release -Filter 'nn-anime-*-setup.exe' -ErrorAction SilentlyContinue |
   Select-Object -First 1
 
 if (-not $setup) { throw "no hay instalador en $Release" }
 
-$destino = Join-Path $env:RUNNER_TEMP 'nn-anime-instalado'
+# Fuera de un runner `RUNNER_TEMP` no existe, y `Join-Path $null` daría un error que
+# no habla de lo que falta.
+$raizTemp = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
+$destino = Join-Path $raizTemp 'nn-anime-instalado'
+
 $clave = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\nn-anime'
-$datos = Join-Path $env:APPDATA 'nn-anime'
+
+# Los dos directorios del usuario, y **no son lo mismo**: la configuración va a
+# `%APPDATA%` y los datos —la base de datos entre ellos— a `%LOCALAPPDATA%`. Mirar
+# sólo el primero dejaría la base fuera de la comprobación.
+$datos = @(
+  (Join-Path $env:APPDATA 'nn-anime'),
+  (Join-Path $env:LOCALAPPDATA 'nn-anime')
+)
 
 Remove-Item -Recurse -Force $destino -ErrorAction SilentlyContinue
 
 # 1. En silencio y **sin UAC**: el `.nsi` declara `RequestExecutionLevel user`. `/D`
 #    fija el destino, tiene que ir el último y sin comillas.
+#
+#    Se lanza con `cmd /c` y **no** con `Start-Process -FilePath <setup>`: medido aquí,
+#    `Start-Process` sobre el `.exe` del instalador se queda colgado y **no llega a
+#    crear el destino**, mientras que el mismo instalador con `cmd /c` termina con 0
+#    y deja los archivos dentro.
 Paso "instalando en $destino"
-$proceso = Start-Process -FilePath $setup.FullName -ArgumentList '/S', "/D=$destino" -Wait -PassThru
+$proceso = Start-Process -FilePath 'cmd.exe' `
+  -ArgumentList '/c', "`"$($setup.FullName)`" /S /D=$destino" `
+  -Wait -PassThru -WindowStyle Hidden
 if ($proceso.ExitCode -ne 0) { throw "el instalador salió con $($proceso.ExitCode)" }
 
 # 2. Los archivos: los dos ejecutables, porque el acceso abre el anfitrión y el
-#    anfitrión necesita al servidor a su lado.
+#    anfitrión necesita al servidor a su lado. Esta comprobación es además la que
+#    impide que una release publique **en silencio** un instalador sin ventana: si el
+#    anfitrión no viajó dentro, aquí se para.
 foreach ($archivo in 'nn-anime.exe', 'nn-anime-desktop.exe', 'nn-anime.ico') {
   if (-not (Test-Path (Join-Path $destino $archivo))) { throw "no se instaló $archivo" }
 }
@@ -80,7 +106,6 @@ foreach ($acceso in $accesos) {
 
 # 5. Abrirlo: ventana, servidor escuchando sólo en loopback, y cierre limpio.
 Paso 'abriendo el anfitrión instalado'
-$datosAntes = Test-Path $datos
 $anfitrion = Start-Process -FilePath (Join-Path $destino 'nn-anime-desktop.exe') -PassThru
 
 $ventana = $false
@@ -115,23 +140,51 @@ if ($fuera.Count -gt 0) { throw "el servidor escucha fuera de loopback: $($fuera
 Paso "el servidor escucha en $($escuchas[0].LocalAddress):$($escuchas[0].LocalPort)"
 
 # Cerrar la ventana es la forma normal de salir: tiene que apagar el servidor.
-$anfitrion.CloseMainWindow() | Out-Null
+if (-not $anfitrion.CloseMainWindow()) { throw 'no se pudo cerrar la ventana del anfitrión' }
 Start-Sleep -Seconds 5
 
 $vivos = @(Get-Process -Name 'nn-anime', 'nn-anime-desktop' -ErrorAction SilentlyContinue)
 
 if ($vivos.Count -ne 0) {
-  $vivos | ForEach-Object { $_.Kill() }
+  # `Stop-Process` y no `.Kill()`: si uno ya murió entre la captura y aquí, `.Kill()`
+  # lanzaría y taparía el mensaje que de verdad importa, que es el `throw` de abajo.
+  $vivos | Stop-Process -Force -ErrorAction SilentlyContinue
   throw "al cerrar la ventana quedaron $($vivos.Count) procesos vivos"
 }
 Paso 'al cerrar la ventana no quedó ningún proceso'
 
-# 6. Desinstalar: se van los archivos y las claves; los datos se quedan.
+# 6. Los datos del usuario, **sembrados antes de desinstalar**. No basta con mirar si
+#    el directorio existía antes: en un runner limpio no existe —lo crea la aplicación
+#    al arrancar, no el instalador—, así que la comprobación pasaría sin medir nada.
+#    Se siembra un centinela en los DOS directorios y se exige que siga ahí.
+foreach ($directorio in $datos) {
+  if (-not (Test-Path $directorio)) { throw "la aplicación no creó $directorio" }
+
+  Set-Content -Path (Join-Path $directorio 'no-borrar.txt') -Value 'sonda' -Encoding ascii
+}
+Paso 'los datos del usuario están y llevan su centinela'
+
+# Desinstalar: se van los archivos y las claves; los centinelas se quedan.
 $desinstalador = Join-Path $destino 'Desinstalar nn-anime.exe'
 if (-not (Test-Path $desinstalador)) { throw 'no hay desinstalador' }
 
-$proceso = Start-Process -FilePath $desinstalador -ArgumentList '/S' -Wait -PassThru
-if ($proceso.ExitCode -ne 0) { throw "el desinstalador salió con $($proceso.ExitCode)" }
+# `_?=<carpeta>` le dice al desinstalador dónde está instalado. Medido aquí: sin él
+# —y con la clave del registro ausente, que es lo que pasa sin escritorio
+# interactivo— el desinstalador **sale con 0 y no borra nada**; con él borra el
+# directorio entero.
+#
+# Y **no se exige código de salida**: medido, con `_?=` termina con **1** después de
+# haber borrado todo. El código no mide la desinstalación —NSIS relanza el
+# desinstalador desde una copia temporal, así que el proceso que se espera no es el
+# que hace el trabajo—, y por eso lo que se juzga es el **efecto**, que es lo que le
+# importa a quien desinstala.
+$proceso = Start-Process -FilePath 'cmd.exe' `
+  -ArgumentList '/c', "`"$desinstalador`" /S _?=$destino" `
+  -Wait -PassThru -WindowStyle Hidden
+
+if ($proceso.ExitCode -ne 0) {
+  Write-Output "  (el desinstalador salió con $($proceso.ExitCode); se juzga por el efecto)"
+}
 
 foreach ($archivo in 'nn-anime.exe', 'nn-anime-desktop.exe') {
   if (Test-Path (Join-Path $destino $archivo)) { throw "el desinstalador dejó $archivo" }
@@ -139,9 +192,15 @@ foreach ($archivo in 'nn-anime.exe', 'nn-anime-desktop.exe') {
 if (Test-Path $clave) { throw 'el desinstalador dejó la entrada del registro' }
 Paso 'el desinstalador se llevó los archivos y las claves'
 
-if ($datosAntes -and -not (Test-Path $datos)) {
-  throw 'el desinstalador borró los datos del usuario: desinstalar no es pedir que se pierdan'
+foreach ($directorio in $datos) {
+  $centinela = Join-Path $directorio 'no-borrar.txt'
+
+  if (-not (Test-Path $centinela)) {
+    throw "el desinstalador borró los datos del usuario en ${directorio}: desinstalar no es pedir que se pierdan"
+  }
+
+  Remove-Item $centinela -Force -ErrorAction SilentlyContinue
 }
-Paso 'los datos del usuario siguen donde estaban'
+Paso 'los datos del usuario, con su base, siguen donde estaban'
 
 Write-Output 'el instalador instala, crea los accesos, abre la ventana y desinstala'

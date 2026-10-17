@@ -117,7 +117,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # 45 y no 30: este trabajo compila ahora **también el árbol de Rust** —una
+    # compilación de Tauri en frío—, además del ejecutable, el instalador y su
+    # prueba. El trabajo `desktop`, que sólo compila el anfitrión, ya presupuesta 45.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
