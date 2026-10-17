@@ -179,6 +179,28 @@ describe('el anfitrión de ventana', () => {
     expect(main).toContain('windows_subsystem = "windows"')
   })
 
+  test('los iconos existen donde dice el `tauri.conf.json`', async () => {
+    // Las rutas de `bundle.icon` son **relativas al directorio del
+    // `tauri.conf.json`**, no a la raíz del repositorio. Con un `../` de menos
+    // apuntan a `desktop/packaging/icons/…`, que no existe, y el resultado es que
+    // **no compila en ninguna plataforma**: en Windows `tauri-build` aborta al
+    // generar el recurso del icono («not found; required for generating a Windows
+    // Resource file») y en Linux y macOS `generate_context!()` paniquea con
+    // «failed to open icon». Es el fallo más caro de esta carpeta, porque cuesta
+    // una vuelta entera de CI en las tres a la vez.
+    const config = (await Bun.file(join(CRATE, 'tauri.conf.json')).json()) as {
+      bundle?: { icon?: readonly string[] }
+    }
+
+    const iconos = config.bundle?.icon ?? []
+
+    expect(iconos.length).toBeGreaterThan(0)
+
+    for (const icono of iconos) {
+      expect(await Bun.file(join(CRATE, icono)).exists(), icono).toBe(true)
+    }
+  })
+
   test('la ventana no se lleva los enlaces externos', async () => {
     const main = await leer(join(CRATE, 'src', 'main.rs'))
 

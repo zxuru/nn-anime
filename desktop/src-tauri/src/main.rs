@@ -64,7 +64,18 @@ fn main() {
             // En un hilo propio: esperar hasta 30 s a que el servidor anuncie su
             // dirección no puede bloquear el bucle de eventos, que es quien tiene
             // que crear la ventana cuando la dirección llegue.
-            std::thread::spawn(move || arrancar(handle));
+            //
+            // Y el hilo **se queda vivo** a propósito. En Linux, el
+            // `PR_SET_PDEATHSIG` de `guards.rs` se dispara cuando muere **el hilo
+            // que creó el proceso, no el proceso** —está en las CAVEATS de
+            // `man 2 PR_SET_PDEATHSIG`—, así que un hilo que terminara al arrancar
+            // le mandaría un SIGTERM al servidor nada más abrirse la ventana. El
+            // aparcamiento lo mantiene vivo hasta que termina el proceso, que es
+            // justo lo que el seguro quiere decir.
+            std::thread::spawn(move || {
+                arrancar(handle);
+                std::thread::park();
+            });
 
             Ok(())
         })

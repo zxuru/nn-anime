@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Sin permisos a propósito. La ventana carga http://127.0.0.1 y el webview no puede invocar ni un solo comando: lo que se pierde —updater, bandeja, diálogos nativos al alcance de la interfaz— no se usa, y lo que se gana es no tener superficie que auditar. El servidor se lanza desde Rust con std::process::Command, no con el plugin de shell.",
+  "description": "Sin permisos a propósito. Lo que deja ciego al webview es `permissions: []`: no hay ninguna capacidad concedida, así que no puede invocar ni un solo comando, y por eso no hay superficie de IPC que auditar. `windows` no aporta nada aquí —al deserializar, la lista vacía es indistinguible de omitir el campo— y se deja vacío para no prometer lo que no hace. La ventana carga http://127.0.0.1 y el servidor se lanza desde Rust con std::process::Command, no con el plugin de shell.",
   "windows": [],
   "permissions": []
 }
