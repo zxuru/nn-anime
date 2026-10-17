@@ -17,9 +17,10 @@
 
 import { existsSync } from 'node:fs'
 import { chmod, copyFile, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { ROOT } from '../workspaces'
 import { dottedVersion } from './binary'
+import { HOST_NAME } from './desktop'
 import { render, template } from './render'
 
 /** El icono del paquete, dentro del repositorio. Sin él macOS pone uno genérico. */
@@ -78,10 +79,19 @@ export async function sign(path: string, cwd: string): Promise<boolean> {
 /**
  * Arma `nn-anime.app`.
  *
- * El paquete es la aplicación ejecutable y su `Info.plist`. No hay `Resources`
- * con código: la interfaz y las migraciones viajan **dentro** del ejecutable
- * gracias a `--asset`, y tener una copia fuera sería una segunda fuente que se
- * desincroniza.
+ * El paquete lleva **dos** ejecutables, y no es un detalle: el servidor
+ * (`nn-anime`, que es lo que la aplicación es hoy) y el anfitrión de ventana
+ * (`nn-anime-desktop`), que es a quien apunta `CFBundleExecutable` y quien lanza
+ * al servidor como hermano. Los dos van en `Contents/MacOS` porque el anfitrión
+ * busca al servidor **por su nombre, en su propio directorio**.
+ *
+ * El `Info.plist` declara `CFBundleExecutable = nn-anime-desktop`: es lo que hace
+ * que abrir la aplicación abra la ventana y no una terminal. La consola sigue
+ * dentro del paquete, en `Contents/MacOS/nn-anime`, para quien la quiera.
+ *
+ * No hay `Resources` con código: la interfaz y las migraciones viajan **dentro**
+ * del servidor gracias a `--asset`, y tener una copia fuera sería una segunda
+ * fuente que se desincroniza.
  */
 export async function macBundle(options: MacOptions): Promise<string> {
   const app = join(options.workDir, 'nn-anime.app')
@@ -92,6 +102,19 @@ export async function macBundle(options: MacOptions): Promise<string> {
 
   await copyFile(options.binary, join(macos, 'nn-anime'))
   await chmod(join(macos, 'nn-anime'), 0o755)
+
+  // El anfitrión lo deja `stageDesktop` al lado del servidor, en el directorio de
+  // trabajo del paquete. Si no está, `CFBundleExecutable` nombraría un archivo que
+  // no existe y macOS no abriría nada: se dice aquí y no en el Mac de quien lo
+  // instala.
+  const anfitrion = join(dirname(options.binary), HOST_NAME)
+
+  if (!existsSync(anfitrion)) {
+    throw new Error(`no hay anfitrión junto al servidor en ${anfitrion}: es lo que abre la ventana`)
+  }
+
+  await copyFile(anfitrion, join(macos, HOST_NAME))
+  await chmod(join(macos, HOST_NAME), 0o755)
 
   await writeFile(
     join(app, 'Contents', 'Info.plist'),

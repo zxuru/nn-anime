@@ -3,12 +3,16 @@
 <!--
   El paquete de nn-anime para macOS.
 
-  El ejecutable es la aplicación entera —interfaz y migraciones van dentro—, así
-  que `Contents/MacOS` no lleva nada más. Lo que sí importa:
+  `Contents/MacOS` lleva **dos** ejecutables: el servidor (`nn-anime`) y el
+  anfitrión de ventana (`nn-anime-desktop`). El anfitrión lanza al servidor como
+  hermano, y por eso los dos viven en el mismo directorio. Lo que sí importa:
 
-  - `LSUIElement` **no** está, a propósito. Como no es una aplicación de Cocoa no
-    tiene barra de menú ni «Salir»; el icono del Dock es la única forma de
-    cerrarla (botón derecho → Salir), y marcarla como agente la quitaría. Un
+  - `CFBundleExecutable` apunta al **anfitrión**: es lo que hace que abrir la
+    aplicación abra una ventana con la interfaz y no una terminal. La consola
+    sigue dentro del paquete, para quien la invoque a mano.
+  - `LSUIElement` **no** está, a propósito. Con ventana propia, cerrarla es la
+    forma normal de salir; el icono del Dock sigue ahí para volver a la ventana y
+    para «Salir» desde el menú contextual. Marcarla como agente la quitaría, y un
     proceso sin ventana ni icono sólo se para desde el Monitor de Actividad.
   - `CFBundleVersion` lleva los cuatro números y `CFBundleShortVersionString` la
     versión tal cual: la primera es la que compara macOS y quiere dígitos.
@@ -22,7 +26,7 @@
   <key>CFBundleIdentifier</key>
   <string>io.github.zxuru.nn-anime</string>
   <key>CFBundleExecutable</key>
-  <string>nn-anime</string>
+  <string>nn-anime-desktop</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleInfoDictionaryVersion</key>

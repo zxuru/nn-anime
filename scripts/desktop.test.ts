@@ -269,3 +269,27 @@ describe('la compilación cruzada del anfitrión', () => {
     expect(release).toContain('nn-anime-desktop.exe')
   })
 })
+
+describe('el paquete de macOS', () => {
+  test('abre el anfitrión, no el servidor de consola', async () => {
+    const plist = await leer(join(ROOT, 'packaging', 'macos', 'Info.plist'))
+
+    const ejecutable = /<key>CFBundleExecutable<\/key>\s*<string>([^<]+)<\/string>/.exec(plist)?.[1]
+
+    // Se compara contra la constante y no contra el literal: si alguien renombra
+    // el anfitrión, esto falla en lugar de dejar el `Info.plist` nombrando un
+    // archivo que ya no existe —y macOS sin abrir nada—.
+    expect(ejecutable).toBe(HOST_NAME)
+  })
+
+  test('los dos ejecutables viajan dentro del `.app`', async () => {
+    const macos = await leer(join(ROOT, 'scripts', 'package', 'macos.ts'))
+
+    // El servidor y el anfitrión, en el mismo `Contents/MacOS`: el anfitrión
+    // busca al servidor por su nombre en su propio directorio.
+    expect(macos).toContain("join(macos, 'nn-anime')")
+    expect(macos).toContain('join(macos, HOST_NAME)')
+    // Y si el anfitrión no está, se para aquí y no en el Mac de quien instala.
+    expect(macos).toContain('no hay anfitrión junto al servidor')
+  })
+})
