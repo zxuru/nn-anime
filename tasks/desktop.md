@@ -12,6 +12,7 @@ funcione sin que nadie sepa usar una terminal ni tenga Bun instalado. El reparto
 | T153 | hecho | `tasks/done/T153.md` |
 | T154 | hecho en lo medible aquí; el Rust **no compilado** | `tasks/done/T154.md` |
 | T154a | hecho (**insertada**: la revisión del anfitrión encontró dos defectos reales) | `tasks/done/T154a.md` |
+| T154b | hecho (**insertada**: el fallo de arranque no enseñaba nada) | `tasks/done/T154b.md` |
 | T155 | hecho en lo medible aquí; el Rust **no compilado** | `tasks/done/T155.md` |
 | T156 | hecho en lo medible aquí; el Rust **no compilado** | `tasks/done/T156.md` |
 | T157 | hecho; el instalador **no compilado** (no hay `makensis`) | `tasks/done/T157.md` |

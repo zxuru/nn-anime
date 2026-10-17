@@ -99,8 +99,7 @@ fn arrancar(handle: AppHandle) {
     let servidor = match sidecar::start() {
         Ok(servidor) => servidor,
         Err(error) => {
-            registrar(&format!("{error}"));
-            handle.exit(1);
+            avisar_fallo(&handle, &format!("{error}"));
             return;
         }
     };
@@ -112,9 +111,11 @@ fn arrancar(handle: AppHandle) {
     let url = match tauri::Url::parse(servidor.url()) {
         Ok(url) => url,
         Err(error) => {
-            registrar(&format!("la dirección del servidor no es válida: {error}"));
             servidor.shutdown();
-            handle.exit(1);
+            avisar_fallo(
+                &handle,
+                &format!("la dirección del servidor no es válida: {error}"),
+            );
             return;
         }
     };
@@ -139,6 +140,48 @@ fn arrancar(handle: AppHandle) {
             "no se pudo llegar al hilo de la interfaz: {error}"
         ));
         cerrar_servidor(&handle);
+        handle.exit(1);
+    }
+}
+
+/// Enseña el motivo cuando el servidor no llega a arrancar.
+///
+/// Sin esto, un fallo de arranque deja **ninguna ventana y ningún mensaje**: en
+/// Windows el anfitrión es un binario de subsistema `windows`, así que tampoco hay
+/// consola donde leerlo, y quien lo abre desde el acceso ve que no pasa nada. Se
+/// enseña la página que **viaja dentro del binario** —el `frontendDist`, o sea el
+/// aviso de relleno— y no una URL: aquí ya se sabe que no hay servidor al que pedirle
+/// nada, así que no hay sesión, ni guards, ni token de por medio.
+///
+/// El motivo completo queda además en el registro, que es donde se diagnostica.
+fn avisar_fallo(handle: &AppHandle, motivo: &str) {
+    registrar(motivo);
+
+    let para_la_ventana = handle.clone();
+    let resultado = handle.run_on_main_thread(move || {
+        // La misma ventana que abre el camino bueno, con la página de dentro en vez
+        // de la dirección del servidor.
+        let aviso = WebviewWindowBuilder::new(
+            &para_la_ventana,
+            LABEL,
+            WebviewUrl::App("index.html".into()),
+        )
+        .title(TITULO)
+        .inner_size(ANCHO, ALTO)
+        .build();
+
+        if let Err(error) = aviso {
+            registrar(&format!(
+                "ni siquiera se pudo abrir el aviso del fallo: {error}"
+            ));
+            para_la_ventana.exit(1);
+        }
+    });
+
+    if let Err(error) = resultado {
+        registrar(&format!(
+            "no se pudo llegar al hilo de la interfaz: {error}"
+        ));
         handle.exit(1);
     }
 }

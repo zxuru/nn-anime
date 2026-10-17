@@ -67,8 +67,15 @@ JSON en una sola línea.
 - **`stderr` → archivo** de registro (avisos y errores, sin token):
   `<caché>/nn-anime/desktop.log`, respetando `NN_ANIME_CACHE_DIR` y las rutas XDG de cada sistema.
 
-**Plazo de arranque: 30 s.** Sin línea, un diálogo de error con la cola de `stderr` y salida 1. Un
-anfitrión que espera para siempre delante de una ventana en blanco es peor que uno que lo dice.
+**Plazo de arranque: 30 s.** Sin línea —o con la línea rota— la ventana **enseña el motivo**: se abre
+con la página que viaja dentro del binario, que dice que el servidor no arrancó y dónde está el
+registro, y el motivo completo queda ahí. Un anfitrión que espera para siempre delante de una ventana
+en blanco es peor que uno que lo dice; y uno que **muere en silencio** —sin ventana y sin consola, que
+es el caso de Windows— es el peor de los tres. *(Decía «un diálogo de error con la cola de `stderr` y
+salida 1». Un diálogo nativo pide el plugin de diálogos o una API por sistema, y la ventana es el
+mecanismo que ya existe y no necesita ninguna capacidad nueva; el código de salida deja de ser 1 en
+esos dos caminos, porque el proceso vive hasta que se cierra el aviso. Se corrige el criterio para que
+diga la garantía real, como se hizo con `--lang` en `SPEC-cli-launcher.md`.)*
 
 Y abre la ventana en esa URL con **`WebviewUrl::External(url)`** (API de `tauri 2.x`: «An external
 URL. Must use either the `http` or `https` schemes.»). El origen es `http://127.0.0.1:<puerto>`,
@@ -117,8 +124,9 @@ desktop/
 │     ├─ main.rs              arranque, ventana, cierre, instancia única
 │     ├─ sidecar.rs           spawn, drenaje de stdout, análisis de la línea, cierre
 │     └─ boot_line.rs         el espejo del esquema de `core`
-└─ stub/index.html            relleno para `tauri build`: la ventana carga una URL externa
-                              (no se llama `dist/` porque `.gitignore` ignora ese nombre)
+└─ stub/index.html            lo que la ventana enseña si el servidor no arranca, y
+                              el `frontendDist` que `tauri build` exige. No se llama
+                              `dist/` porque `.gitignore` ignora ese nombre
 ```
 
 **Cómo se empaqueta: el binario vive al lado, no dentro.**
@@ -154,6 +162,9 @@ Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
 - [ ] El enlace de AniList abre el navegador del sistema y la ventana sigue donde estaba.
 - [ ] Sin `mpv`, la reproducción dentro de la ventana funciona en Windows (WebView2). **En Linux se
       mide antes de prometerlo**: WebKitGTK no es Chromium.
+- [ ] **Si el servidor no arranca, la ventana lo dice.** Se mide quitando el servidor de al lado del
+      anfitrión y abriéndolo: tiene que aparecer la página del aviso, con el motivo en el registro. Es
+      el fallo más probable de todos y el único que, sin esto, no enseñaría **nada**.
 - [ ] El token de arranque **no aparece en ningún archivo** del disco del usuario.
 - [ ] El listón entero sigue verde, y `bun run build`, `bun test` y `bun run lint` **no** miran el
       árbol de Rust: vive fuera de `packages/` y no toca `scripts/workspaces.test.ts`. El árbol de

@@ -1,19 +1,64 @@
 <!doctype html>
 <!--
-  Relleno para `tauri build`.
+  La página que se enseña cuando el servidor **no arranca**.
 
-  La ventana del anfitrión carga una URL **externa** (`WebviewUrl::External`), así
-  que esta página no se enseña nunca: existe porque `tauri.conf.json` exige un
-  `frontendDist` y sin él `tauri build` no compila. Enseñar la interfaz como
-  recurso de Tauri (`tauri://`) cambiaría el origen del webview y tumbaría los
-  guards del servidor; el porqué está en `docs/specs/SPEC-desktop.md`.
+  En el camino bueno la ventana carga una URL externa (`WebviewUrl::External`); esta
+  página viaja dentro del binario como `frontendDist` y sólo aparece si el servidor no
+  llegó a anunciar su dirección. Antes de esto, ese fallo no enseñaba **nada**: en
+  Windows el anfitrión es un binario de subsistema `windows`, así que tampoco hay
+  consola donde leerlo.
+
+  Sin recursos externos a propósito: se enseña precisamente cuando no hay servidor, así
+  que no puede pedirle nada a nadie. Por el mismo motivo no usa nada de la aplicación:
+  ni su CSS, ni su i18n, ni su router.
 -->
 <html lang="es">
   <head>
     <meta charset="utf-8" />
-    <title>nn-anime</title>
+    <title>nn-anime — el servidor no arrancó</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font-family: system-ui, sans-serif;
+        line-height: 1.6;
+        margin: 0 auto;
+        max-width: 44rem;
+        padding: 3rem 2rem;
+      }
+      h1 {
+        font-size: 1.35rem;
+        margin: 0 0 1rem;
+      }
+      code {
+        font-family: ui-monospace, monospace;
+      }
+      ul {
+        padding-left: 1.2rem;
+      }
+      .pista {
+        font-size: 0.95rem;
+        opacity: 0.8;
+      }
+    </style>
   </head>
   <body>
-    <p>Si estás leyendo esto, la ventana no encontró el servidor local.</p>
+    <h1>nn-anime no pudo arrancar el servidor</h1>
+    <p>
+      Esta ventana es la aplicación, pero el servidor local que vive detrás no llegó a
+      arrancar, así que no hay interfaz que enseñar. El motivo completo está en el
+      registro:
+    </p>
+    <ul>
+      <li><code>%LOCALAPPDATA%\nn-anime\cache\desktop.log</code> en Windows</li>
+      <li><code>~/.cache/nn-anime/desktop.log</code> en Linux y macOS</li>
+    </ul>
+    <p class="pista">
+      Lo más habitual es que falte el servidor: el ejecutable <code>nn-anime</code> tiene
+      que estar en la misma carpeta que este programa, porque el anfitrión lo lanza como
+      hermano. Desde una terminal, <code>nn-anime --no-open</code> dice el motivo ahí
+      mismo.
+    </p>
   </body>
 </html>

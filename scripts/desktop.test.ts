@@ -98,10 +98,11 @@ describe('el contrato del módulo desktop', () => {
     expect(patrones.some((patron) => patron.endsWith('Cargo.lock'))).toBe(false)
   })
 
-  test('el relleno de `tauri build` existe y no se llama `dist`', async () => {
-    // `dist/` está ignorado en cualquier nivel del repositorio: un relleno con ese
-    // nombre no llegaría al control de versiones y el `tauri build` del CI
-    // fallaría por un archivo que existe en la máquina de quien lo escribió.
+  test('el `frontendDist` existe y no se llama `dist`', async () => {
+    // `dist/` está ignorado en cualquier nivel del repositorio: un `frontendDist` con
+    // ese nombre no llegaría al control de versiones y el `tauri build` del CI
+    // fallaría por un archivo que existe en la máquina de quien lo escribió. Y no es
+    // sólo relleno: es la página que la ventana enseña si el servidor no arranca.
     expect(await Bun.file(STUB).exists()).toBe(true)
     expect(await Bun.file(join(ROOT, 'desktop', 'dist')).exists()).toBe(false)
   })
@@ -199,6 +200,23 @@ describe('el anfitrión de ventana', () => {
     for (const icono of iconos) {
       expect(await Bun.file(join(CRATE, icono)).exists(), icono).toBe(true)
     }
+  })
+
+  test('si el servidor no arranca, la ventana lo dice', async () => {
+    // El fallo más probable de todos —que el servidor no esté al lado del anfitrión—
+    // no puede quedarse en «no pasa nada»: en Windows el anfitrión es un binario de
+    // subsistema `windows`, así que no hay consola donde leerlo y quien abre el acceso
+    // no vería ni ventana ni mensaje.
+    const main = await leer(join(CRATE, 'src', 'main.rs'))
+    const aviso = await leer(join(ROOT, 'desktop', 'stub', 'index.html'))
+
+    expect(main).toContain('avisar_fallo')
+    // La página de dentro, no una URL: cuando el servidor no arranca no hay a quién
+    // pedirle nada.
+    expect(main).toContain('WebviewUrl::App')
+    // Y la página tiene que decir **dónde mirar**: es lo único que ve quien se topa
+    // con ella.
+    expect(aviso).toContain('desktop.log')
   })
 
   test('la ventana no se lleva los enlaces externos', async () => {
