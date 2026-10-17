@@ -17,7 +17,11 @@ import { entrar, esperarApp } from './fixtures'
 test.describe('el contenido para adultos', () => {
   test('el interruptor se cambia, se guarda y sigue puesto al recargar', async ({ page }) => {
     await entrar(page)
-    await page.goto('/ajustes')
+    // `/settings` y no `/ajustes`: la ruta del enrutador es la inglesa —la del
+    // `<nav>`— desde que existe la pantalla, y la prueba pedía una dirección que
+    // nunca estuvo en la tabla, así que aterrizaba en «Esa ruta no existe» y el
+    // interruptor no aparecía. La encontró el cierre de T145, al correr la suite.
+    await page.goto('/settings')
 
     const esconder = page.getByRole('button', { name: 'Esconderlo' })
     const ensenar = page.getByRole('button', { name: 'Enseñarlo' })
