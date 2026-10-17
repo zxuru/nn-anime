@@ -163,3 +163,41 @@ test.describe('el Historial, desde el Perfil', () => {
     await expect(page).toHaveURL(/\/profile$/)
   })
 })
+
+/**
+ * La disposición, que es lo que ninguna prueba de marcado ve.
+ *
+ * Las dos pantallas usan la misma rejilla de secciones que la vitrina, y esa rejilla
+ * tiene su propio margen lateral dentro de una caja que ya tiene relleno: dos anchos
+ * que se suman y pueden sacar una barra horizontal. Una pantalla con desplazamiento
+ * lateral en un teléfono se lee fatal, y se mide a 360 px, que es donde se rompe.
+ */
+test.describe('la disposición de las dos pantallas', () => {
+  test('en 360 px el Perfil no tiene desplazamiento horizontal', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 640 })
+    await entrar(page)
+    await page.goto('/profile')
+
+    await expect(page.locator('.nota__titulo', { hasText: 'Favoritos' })).toBeVisible()
+
+    const desborde = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+
+    expect(desborde).toBeLessThanOrEqual(0)
+  })
+
+  test('en 360 px el Historial no tiene desplazamiento horizontal', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 640 })
+    await entrar(page)
+    await page.goto('/history')
+
+    await expect(page.locator('.historial__volver a')).toBeVisible()
+
+    const desborde = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+
+    expect(desborde).toBeLessThanOrEqual(0)
+  })
+})
