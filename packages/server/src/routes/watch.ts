@@ -14,8 +14,10 @@
 import {
   continueWatchingResponseSchema,
   errorResponseSchema,
+  type WatchHistoryItem,
   type WatchRecord,
   watchedRatio,
+  watchHistoryResponseSchema,
   watchStartRequestSchema,
   watchStartResponseSchema,
   watchUpdateRequestSchema,
@@ -23,6 +25,7 @@ import {
 import type { Hono } from 'hono'
 import { sinMarcadas } from '../adultos'
 import type { ServerContainer } from '../container'
+import { parsePage } from './episodes'
 import { adultContentOf } from './settings'
 
 export interface WatchRouteOptions {
@@ -90,6 +93,41 @@ export function unaPorEpisodio(filas: readonly WatchRecord[]): readonly Continue
   return [...porEpisodio.values()]
 }
 
+/** Cuántas filas trae una página del historial. */
+export const HISTORY_PAGE_SIZE = 50
+
+/**
+ * Un visionado en la forma del contrato del historial.
+ *
+ * Vive aquí y no dentro de la ruta porque la usan **dos** superficies —la página
+ * del Historial y la vista previa del Perfil— y tienen que contar lo mismo: con dos
+ * copias, la misma fila saldría con la proporción calculada de dos maneras y las
+ * dos pantallas enseñarían barras distintas del mismo episodio.
+ *
+ * La proporción la calcula el servidor, como en «continuar viendo»: si la calculara
+ * cada pantalla, dos pantallas podrían pintar la misma barra con valores distintos.
+ */
+export function historyItems(filas: readonly WatchRecord[]): readonly WatchHistoryItem[] {
+  return filas.map((fila) => ({
+    animeRef: fila.anime.ref,
+    title: fila.anime.title,
+    ...(fila.anime.coverUrl === undefined ? {} : { coverUrl: fila.anime.coverUrl }),
+    // La convención de la referencia de un episodio: el número detrás de la
+    // almohadilla. Es la misma que arma la fila de «continuar viendo».
+    episodeRef: {
+      providerId: fila.providerId,
+      value: `${fila.anime.ref.value}#${fila.episodeNumber}`,
+    },
+    episodeNumber: fila.episodeNumber,
+    mode: fila.mode,
+    positionS: fila.positionS,
+    durationS: fila.durationS,
+    ratio: watchedRatio(fila.positionS, fila.durationS),
+    watchedAt: fila.startedAt.toISOString(),
+    finished: fila.finished,
+  }))
+}
+
 export function registerWatchRoutes(app: Hono, options: WatchRouteOptions): void {
   app.get('/api/watch/recent', async (c) => {
     const conAdultos = await adultContentOf(options.container.store)
@@ -142,6 +180,50 @@ export function registerWatchRoutes(app: Hono, options: WatchRouteOptions): void
       }))
 
     return c.json(continueWatchingResponseSchema.parse({ items }))
+  })
+
+  /**
+   * El historial completo, por páginas.
+   *
+   * Va en la misma ruta base que «continuar viendo» y no en `/api/watch/:id`
+   * porque comparte el recurso: son dos lecturas de `watch_event` y la dirección lo
+   * dice. Lo que **no** comparte es el recorte —aquí nada se descarta y nada se
+   * agrupa— ni la lectura del almacén, que es otra a propósito.
+   *
+   * La página se valida con el mismo analizador que la lista de episodios: una
+   * página inventada es un 400 con el motivo, y una convención de páginas distinta
+   * en dos rutas de la misma aplicación es dos veces la misma pregunta con dos
+   * respuestas.
+   */
+  app.get('/api/watch/history', async (c) => {
+    const pagina = parsePage(c.req.query('page'))
+    if (!pagina.ok) {
+      return c.json(errorResponseSchema.parse({ error: pagina.error }), 400)
+    }
+
+    const conAdultos = await adultContentOf(options.container.store)
+    const offset = (pagina.value - 1) * HISTORY_PAGE_SIZE
+
+    // Una fila de más que la página: ver si queda algo detrás sin contar el total,
+    // que en una tabla que crece con cada reproducción sería una consulta más para
+    // un dato que nadie mira.
+    const filas = await options.container.store.listWatchHistory(HISTORY_PAGE_SIZE + 1, offset)
+    const hasMore = filas.length > HISTORY_PAGE_SIZE
+
+    const visibles = await sinMarcadas(
+      options.container.store,
+      filas.slice(0, HISTORY_PAGE_SIZE),
+      conAdultos,
+      (fila) => fila.anime.ref,
+    )
+
+    return c.json(
+      watchHistoryResponseSchema.parse({
+        items: historyItems(visibles),
+        page: pagina.value,
+        hasMore,
+      }),
+    )
   })
 
   app.post('/api/watch', async (c) => {

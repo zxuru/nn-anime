@@ -39,7 +39,9 @@ import { registerDetailRoutes } from './routes/detail'
 import { registerFeedRoute, registerRecentRoute } from './routes/discovery'
 import { registerEpisodesRoute } from './routes/episodes'
 import { registerFavoritesRoutes } from './routes/favorites'
+import { registerPlanToWatchRoutes } from './routes/plan-to-watch'
 import { registerPlayRoutes } from './routes/play'
+import { registerProfileRoutes } from './routes/profile'
 import { registerProviderReposRoutes } from './routes/provider-repos'
 import { type PluginReport, registerProvidersRoute, summarizePlugins } from './routes/providers'
 import { registerRecommendationsRoute, registerTrendingRoute } from './routes/recommendations'
@@ -255,6 +257,10 @@ export function createApp(options: AppOptions): Hono {
     registerEpisodesRoute(app, routeOptions)
     registerFavoritesRoutes(app, { container })
     registerWatchedTitlesRoutes(app, { container })
+    registerPlanToWatchRoutes(app, { container })
+    // El Perfil y el Historial van con las rutas del usuario: son sus listas y su
+    // visionado, leídos de la base. No piden nada a un proveedor.
+    registerProfileRoutes(app, { container })
     const proxyOptions = {
       ...(options.streamFetchImpl === undefined ? {} : { fetchImpl: options.streamFetchImpl }),
       ...(options.streamResolver === undefined ? {} : { resolver: options.streamResolver }),

@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { openDb, runMigrations } from '@nn-anime/catalog-store'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
 import { createApp, createContainer } from '../index'
+import { HISTORY_PAGE_SIZE } from './watch'
 
 const PORT = 7717
 const SESSION_COOKIE = 'nn_session'
@@ -411,6 +412,170 @@ describe('GET /api/watch/recent', () => {
   test('exige sesión', async () => {
     await conApp(async ({ pedir }) => {
       expect((await pedir('/api/watch/recent', { headers: {} })).status).toBe(401)
+    })
+  })
+})
+
+/**
+ * `GET /api/watch/history`, el historial paginado.
+ *
+ * Es la lectura que alimenta la pantalla del Historial, a la que se llega desde el
+ * Perfil. Lo que se mide aquí, además del troceado, es la diferencia con
+ * «continuar viendo»: **nada se descarta** —lo terminado también cuenta— y **nada
+ * se agrupa** por episodio, porque el historial cuenta lo que pasó y no lo que
+ * queda por terminar.
+ */
+describe('GET /api/watch/history', () => {
+  /** Registra un visionado y lo deja en el estado pedido. */
+  async function visionado(
+    pedir: Contexto['pedir'],
+    numero: number,
+    positionS: number,
+    durationS: number,
+  ) {
+    const alta = await pedir('/api/watch', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({
+        animeRef: { providerId: 'fixture', value: REF },
+        episodeRef: { providerId: 'fixture', value: `${REF}#${numero}` },
+        mode: 'sub',
+      }),
+    })
+    const { id } = (await alta.json()) as { id: number }
+
+    await pedir(`/api/watch/${id}`, {
+      method: 'PATCH',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ positionS, durationS }),
+    })
+
+    return id
+  }
+
+  test('sin nada reproducido, la página está vacía y no promete más', async () => {
+    await conApp(async ({ pedir }) => {
+      const respuesta = await pedir('/api/watch/history')
+      const cuerpo = (await respuesta.json()) as {
+        items: unknown[]
+        page: number
+        hasMore: boolean
+      }
+
+      expect(respuesta.status).toBe(200)
+      expect(cuerpo.items).toEqual([])
+      expect(cuerpo.page).toBe(1)
+      expect(cuerpo.hasMore).toBe(false)
+    })
+  })
+
+  test('una fila por visionado, con su episodio, su modo y su proporción', async () => {
+    await conApp(async ({ pedir }) => {
+      await visionado(pedir, 1, 300, 1440)
+
+      const cuerpo = (await (await pedir('/api/watch/history')).json()) as {
+        items: { episodeNumber: number; mode: string; ratio: number; finished: boolean }[]
+      }
+
+      expect(cuerpo.items).toHaveLength(1)
+      expect(cuerpo.items[0]?.episodeNumber).toBe(1)
+      expect(cuerpo.items[0]?.mode).toBe('sub')
+      expect(cuerpo.items[0]?.ratio).toBeCloseTo(300 / 1440, 3)
+      expect(cuerpo.items[0]?.finished).toBe(false)
+    })
+  })
+
+  test('lo terminado también cuenta, al contrario que en «continuar viendo»', async () => {
+    await conApp(async ({ pedir }) => {
+      await visionado(pedir, 1, 1440, 1440)
+
+      const historial = (await (await pedir('/api/watch/history')).json()) as {
+        items: { finished: boolean }[]
+      }
+      const recientes = (await (await pedir('/api/watch/recent')).json()) as { items: unknown[] }
+
+      expect(historial.items[0]?.finished).toBe(true)
+      // La fila de la home lo descarta: ya se vio. El historial lo conserva.
+      expect(recientes.items).toEqual([])
+    })
+  })
+
+  test('el mismo episodio dos veces son dos renglones: no se agrupa', async () => {
+    await conApp(async ({ pedir }) => {
+      await visionado(pedir, 1, 100, 1440)
+      await visionado(pedir, 1, 200, 1440)
+
+      const cuerpo = (await (await pedir('/api/watch/history')).json()) as {
+        items: { episodeNumber: number }[]
+      }
+
+      expect(cuerpo.items).toHaveLength(2)
+      expect(cuerpo.items.map((item) => item.episodeNumber)).toEqual([1, 1])
+    })
+  })
+
+  test('la segunda página no repite lo de la primera', async () => {
+    await conApp(async ({ pedir }) => {
+      /*
+        Una página llena y una fila más.
+
+        Se reproduce **el mismo episodio** una y otra vez, que es legítimo: el
+        historial no agrupa, así que cada reproducción es un renglón. Con los doce
+        episodios del fixture no habría forma de llenar una página de cincuenta, y
+        sembrar la base a mano probaría el troceado sobre datos que ninguna ruta
+        escribió.
+
+        Cada uno con su posición: es lo que hace única a cada fila para poder
+        comprobar que las dos páginas no repiten ninguna.
+      */
+      for (let indice = 0; indice < HISTORY_PAGE_SIZE + 1; indice++) {
+        await visionado(pedir, 1, 100 + indice, 1440)
+      }
+
+      const primera = (await (await pedir('/api/watch/history')).json()) as {
+        items: { positionS: number }[]
+        hasMore: boolean
+      }
+      const segunda = (await (await pedir('/api/watch/history?page=2')).json()) as {
+        items: { positionS: number }[]
+        hasMore: boolean
+      }
+
+      expect(primera.items).toHaveLength(HISTORY_PAGE_SIZE)
+      expect(primera.hasMore).toBe(true)
+      expect(segunda.items).toHaveLength(1)
+      expect(segunda.hasMore).toBe(false)
+
+      const posiciones = [...primera.items, ...segunda.items].map((item) => item.positionS)
+
+      expect(new Set(posiciones).size).toBe(HISTORY_PAGE_SIZE + 1)
+    })
+  })
+
+  test('una página más allá del final es una lista vacía, no un error', async () => {
+    await conApp(async ({ pedir }) => {
+      await visionado(pedir, 1, 100, 1440)
+
+      const respuesta = await pedir('/api/watch/history?page=9')
+
+      expect(respuesta.status).toBe(200)
+      expect(await respuesta.json()).toEqual({ items: [], page: 9, hasMore: false })
+    })
+  })
+
+  test('una página inventada es 400 con el motivo, como en la lista de episodios', async () => {
+    await conApp(async ({ pedir }) => {
+      const cero = await pedir('/api/watch/history?page=0')
+      const texto = await pedir('/api/watch/history?page=abc')
+
+      expect([cero.status, texto.status]).toEqual([400, 400])
+      expect(JSON.stringify(await texto.json())).toContain('página')
+    })
+  })
+
+  test('exige sesión', async () => {
+    await conApp(async ({ pedir }) => {
+      expect((await pedir('/api/watch/history', { headers: {} })).status).toBe(401)
     })
   })
 })
