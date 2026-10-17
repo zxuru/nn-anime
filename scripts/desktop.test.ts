@@ -163,4 +163,25 @@ describe('el anfitrión de ventana', () => {
 
     expect(main).toContain('windows_subsystem = "windows"')
   })
+
+  test('la ventana no se lleva los enlaces externos', async () => {
+    const main = await leer(join(CRATE, 'src', 'main.rs'))
+
+    // Sin política de navegación, pulsar el enlace a AniList de la ficha se
+    // llevaría la ventana fuera de la aplicación y no habría forma de volver.
+    expect(main).toContain('on_navigation')
+    expect(main).toContain('browser::open')
+  })
+
+  test('el CI compila y mide el árbol de Rust', async () => {
+    // Esta es la guarda que más importa del archivo. El anfitrión vive fuera de
+    // `packages/`, así que `tsc`, `bun test` y biome no ven una línea suya: si
+    // desaparece este trabajo, el módulo se queda sin nadie que lo mida y nada
+    // más lo delata. Quitarlo pone esta prueba en rojo.
+    const ci = await leer(join(ROOT, '.github', 'workflows', 'ci.yml'))
+
+    expect(ci).toContain('\n  desktop:')
+    expect(ci).toContain('bun run desktop:check')
+    expect(ci).toContain('bun run desktop:build')
+  })
 })

@@ -17,6 +17,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod boot_line;
+mod browser;
+mod guards;
 mod sidecar;
 
 use std::io::Write;
@@ -117,10 +119,29 @@ fn arrancar(handle: AppHandle) {
 }
 
 fn abrir_ventana(handle: &AppHandle, url: tauri::Url) -> tauri::Result<()> {
+    // El origen local es lo único que se queda dentro de la ventana. Se calcula
+    // **antes** de mover la URL al constructor, que se la queda.
+    let local = url.origin().ascii_serialization();
+
     WebviewWindowBuilder::new(handle, LABEL, WebviewUrl::External(url))
         .title(TITULO)
         .inner_size(ANCHO, ALTO)
         .min_inner_size(ANCHO_MINIMO, ALTO_MINIMO)
+        .on_navigation(move |destino| {
+            if destino.origin().ascii_serialization() == local {
+                return true;
+            }
+
+            // Fuera de la aplicación: al navegador del sistema, y la ventana se
+            // queda donde estaba. Si el abridor falla, se registra y la
+            // navegación se cancela igual: llevarse la ventana a un sitio que no
+            // es la aplicación es peor que no abrir nada.
+            if let Err(error) = browser::open(destino.as_str()) {
+                registrar(&format!("no se pudo abrir el enlace en el navegador: {error}"));
+            }
+
+            false
+        })
         .build()?;
 
     Ok(())

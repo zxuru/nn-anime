@@ -123,6 +123,14 @@ hace fallar 2.
 **Desvío declarado:** la ventana con `WebviewUrl::External` y el cierre con `shutdown\n` + plazo
 bajaron a **T154** (ver su desvío). Aquí queda la política de navegación y los seguros del sistema.
 
+**Lo que queda pendiente, y es a propósito: el Job Object de Windows.** Se escribió
+`PR_SET_PDEATHSIG` para Linux —`pre_exec` más un `prctl`, `unsafe` de tres líneas y con forma
+conocida—, y **no** el Job Object, que es FFI `unsafe` contra `windows-sys` (el tipo de `HANDLE`, el
+empaquetado de `JOBOBJECT_EXTENDED_LIMIT_INFORMATION`, las características de `Cargo.toml`) y no se
+puede compilar en el entorno donde se escribió esto. Un bloque `unsafe` a ciegas compila o no, y si
+compila puede fallar en tiempo de ejecución sin que nadie lo mida: es peor que no tenerlo. Va como
+tarea pendiente, con su medición, en cuanto haya una máquina con red.
+
 **Verificación:** en Windows, abrir y cerrar deja **cero** procesos `nn-anime.exe` (`Get-Process`) ·
 mutación: no escribir `shutdown` deja el servidor vivo y la prueba falla.
 

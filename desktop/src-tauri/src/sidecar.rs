@@ -207,6 +207,10 @@ pub fn start() -> Result<Sidecar, SidecarError> {
         command.creation_flags(CREATE_NO_WINDOW);
     }
 
+    // El seguro del sistema, antes de lanzarlo: en Linux marca al hijo para que
+    // muera con el anfitrión. En Windows hoy no hace nada (ver `guards.rs`).
+    crate::guards::before_spawn(&mut command);
+
     let mut child = command
         .spawn()
         .map_err(|error| SidecarError::Spawn(error.to_string()))?;
