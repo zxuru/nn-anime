@@ -14,7 +14,9 @@
  * 1. **Un favorito nunca se limpia.** El spec dice «no se haya visto ni buscado
  *    en 90 días», y un favorito no es ninguna de las dos cosas; borrarlo sería
  *    hacer desaparecer de la lista algo que el usuario marcó a mano. Ante la
- *    duda, se conserva.
+ *    duda, se conserva. **Y lo mismo vale para la marca de visto**: una película
+ *    vista fuera de la aplicación puede no tener un solo visionado ni búsqueda, y
+ *    su marca se iría con el detalle a los 90 días sin que nadie la quitara.
  * 2. **«Buscado» no se puede saber por título.** `search_history` guarda la
  *    consulta y el proveedor, no los títulos que salieron. Lo que sí cubre el
  *    caso es que un título abierto desde una búsqueda se cachea en ese momento:
@@ -49,7 +51,8 @@ function placeholders(count: number): string {
 }
 
 /**
- * Los detalles que se pueden limpiar: sin actividad en el plazo y sin favorito.
+ * Los detalles que se pueden limpiar: sin actividad en el plazo, sin favorito y
+ * sin la marca de visto.
  *
  * Se seleccionan primero y se borran después con la lista de identificadores, en
  * lugar de repetir la subconsulta en cada `DELETE`: así lo que se borra es
@@ -63,6 +66,7 @@ function doomedAnime(db: Database, cutoff: number): readonly number[] {
          FROM anime a
         WHERE a.fetched_at <= ?
           AND NOT EXISTS (SELECT 1 FROM favorite f WHERE f.anime_id = a.id)
+          AND NOT EXISTS (SELECT 1 FROM watched_title w WHERE w.anime_id = a.id)
           AND NOT EXISTS (
             SELECT 1 FROM watch_event w WHERE w.anime_id = a.id AND w.started_at > ?
           )`,
@@ -83,6 +87,7 @@ export const PRUNED_TABLES: readonly string[] = [
   'stream_cache',
   'watch_event',
   'favorite',
+  'watched_title',
   'episode',
   'genre',
   'anime',
@@ -105,7 +110,7 @@ export function pruneOrphans(db: Database, now: Date = new Date()): PruneReport 
 
     const lista = placeholders(ids.length)
 
-    for (const tabla of ['watch_event', 'favorite']) {
+    for (const tabla of ['watch_event', 'favorite', 'watched_title']) {
       const borradasAqui = db
         .query(`DELETE FROM ${tabla} WHERE anime_id IN (${lista})`)
         .run(...ids).changes

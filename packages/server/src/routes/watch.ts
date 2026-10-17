@@ -103,7 +103,26 @@ export function registerWatchRoutes(app: Hono, options: WatchRouteOptions): void
       (fila) => fila.anime.ref,
     )
 
-    const items = unaPorEpisodio(filas)
+    /*
+      Y lo marcado como visto se cae de la fila.
+
+      El filtro vive **aquí y no en `listRecentlyWatched`**: esa lectura es también
+      la señal de afinidad del motor, así que filtrarla en la consulta borraría del
+      motor un título que sí se vio —dejaría de saber que se reprodujo—. La tabla
+      se lee entera porque es pequeña por construcción —una fila por obra marcada—
+      y preguntar por cada fila sería la consulta de mil parámetros que el spec del
+      almacén prohíbe.
+    */
+    const marcadas = new Set(
+      (await options.container.store.listWatchedTitles()).map(
+        (marcada) => `${marcada.ref.providerId}#${marcada.ref.value}`,
+      ),
+    )
+    const reanudables = filas.filter(
+      (fila) => !marcadas.has(`${fila.anime.ref.providerId}#${fila.anime.ref.value}`),
+    )
+
+    const items = unaPorEpisodio(reanudables)
       .filter(({ fila, ratio }) => !fila.finished && ratio >= MIN_CONTINUE_RATIO)
       .slice(0, CONTINUE_LIMIT)
       .map(({ fila, ratio }) => ({

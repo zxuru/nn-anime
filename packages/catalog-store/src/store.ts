@@ -57,6 +57,7 @@ import { createStreamRepository } from './repositories/stream'
 import { createTrendingRepository } from './repositories/trending'
 import { createWatchRepository } from './repositories/watch'
 import { createWatchedEpisodesRepository } from './repositories/watched-episodes'
+import { createWatchedTitlesRepository, type WatchedTitle } from './repositories/watched-titles'
 import type { Revalidator } from './revalidate'
 import { createWriteQueue, type WriteQueue } from './write-queue'
 
@@ -236,6 +237,16 @@ export interface CatalogStore {
   listWatchedEpisodes(animeRef: ProviderRef): Promise<readonly WatchedEpisode[]>
   setFavorite(ref: ProviderRef, value: boolean): Promise<void>
   listFavorites(): Promise<readonly AnimeSummary[]>
+  /**
+   * La marca de «ya visto» de una obra, y su lectura.
+   *
+   * **No es progreso de episodios**: escribe una fila por obra y ningún
+   * `watch_event`, porque la marca es del usuario y el motor calcula la afinidad
+   * con lo que de verdad se reprodujo. La fecha de la marca viaja en la lectura
+   * —el motor la usa para desempatar— y no en la API.
+   */
+  setWatchedTitle(ref: ProviderRef, value: boolean): Promise<void>
+  listWatchedTitles(): Promise<readonly WatchedTitle[]>
   recordSearch(query: string, providerId: string, hits: number): Promise<void>
   listRecentSearches(limit: number): Promise<readonly SearchRecord[]>
 
@@ -275,6 +286,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     readonly recent: ReturnType<typeof createRecentRepository>
     readonly related: ReturnType<typeof createRelatedRepository>
     readonly watched: ReturnType<typeof createWatchedEpisodesRepository>
+    readonly watchedTitles: ReturnType<typeof createWatchedTitlesRepository>
   }
 
   let repos: Repos | undefined
@@ -296,6 +308,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       recent: createRecentRepository(db),
       related: createRelatedRepository(db),
       watched: createWatchedEpisodesRepository(db),
+      watchedTitles: createWatchedTitlesRepository(db),
     })
 
   return {
@@ -427,6 +440,12 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async listFavorites() {
       return of().favorites.listFavorites()
+    },
+    async setWatchedTitle(ref, value) {
+      await queue.run(() => of().watchedTitles.setWatchedTitle(ref, value))
+    },
+    async listWatchedTitles() {
+      return of().watchedTitles.listWatchedTitles()
     },
     async recordSearch(query, providerId, hits) {
       await queue.run(() => of().history.recordSearch(query, providerId, hits))

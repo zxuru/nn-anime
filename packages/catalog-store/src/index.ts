@@ -74,6 +74,11 @@ export {
   type WatchedEpisodesStore,
 } from './repositories/watched-episodes'
 export {
+  createWatchedTitlesRepository,
+  type WatchedTitle,
+  type WatchedTitlesStore,
+} from './repositories/watched-titles'
+export {
   clearRevalidateError,
   createRevalidator,
   listRevalidateErrors,

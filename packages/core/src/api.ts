@@ -270,6 +270,23 @@ export const favoriteRequestSchema = z.strictObject({
 })
 
 /**
+ * La marca de «ya visto», como la lee el botón de la ficha.
+ *
+ * Misma forma que los favoritos y por el mismo motivo: el alta y la baja se hacen
+ * con el mismo cuerpo, y `value` dice en qué estado queda la obra. La **fecha** de
+ * la marca no viaja: la usa el motor para desempatar y la interfaz no la pinta.
+ */
+export const watchedTitlesResponseSchema = z.strictObject({
+  items: z.array(animeSummarySchema),
+})
+
+/** Alta o baja de la marca de visto. `value` dice en qué estado queda. */
+export const watchedTitleRequestSchema = z.strictObject({
+  ref: providerRefSchema,
+  value: z.boolean(),
+})
+
+/**
  * Una pista de subtítulos tal y como la ve el cliente.
  *
  * La `url` es la ruta del proxy con su ticket, no la del upstream —igual que la
@@ -803,6 +820,8 @@ export type StreamResolveResponse = z.infer<typeof streamResolveResponseSchema>
 export type StreamSourceResponse = z.infer<typeof streamSourceResponseSchema>
 export type FavoriteRequest = z.infer<typeof favoriteRequestSchema>
 export type FavoritesResponse = z.infer<typeof favoritesResponseSchema>
+export type WatchedTitleRequest = z.infer<typeof watchedTitleRequestSchema>
+export type WatchedTitlesResponse = z.infer<typeof watchedTitlesResponseSchema>
 export type EpisodesResponse = z.infer<typeof episodesResponseSchema>
 export type EpisodeSeason = z.infer<typeof episodeSeasonSchema>
 export type EpisodeResponse = z.infer<typeof episodeResponseSchema>

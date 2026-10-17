@@ -20,6 +20,7 @@ import { createFavoritesRepository } from './repositories/favorites'
 import { createSettingsRepository } from './repositories/settings'
 import { createStreamRepository } from './repositories/stream'
 import { createWatchRepository } from './repositories/watch'
+import { createWatchedTitlesRepository } from './repositories/watched-titles'
 
 const DAY = 24 * 60 * 60 * 1000
 const AHORA = new Date('2026-10-10T12:00:00.000Z').getTime()
@@ -296,6 +297,21 @@ describe('limpieza de huérfanos', () => {
     })
   })
 
+  test('una obra marcada como vista nunca se limpia, aunque no tenga un solo visionado', async () => {
+    await withStore((store) => {
+      // Una película vista fuera de la aplicación: nadie reprodujo nada aquí, así
+      // que la única cosa que la protege es la marca.
+      sembrar(store, ref('vista-fuera'), AHORA - 500 * DAY)
+      createWatchedTitlesRepository(store.db).setWatchedTitle(ref('vista-fuera'), true)
+
+      const informe = pruneOrphans(store.db, new Date(AHORA))
+
+      expect(informe.deleted.anime).toBe(0)
+      expect(cuenta(store.db, 'anime')).toBe(1)
+      expect(cuenta(store.db, 'watched_title')).toBe(1)
+    })
+  })
+
   test('el informe lleva todas las tablas, con cero las que no tocó', async () => {
     await withStore((store) => {
       sembrar(store, ref('antiguo'), AHORA - 400 * DAY)
@@ -306,6 +322,7 @@ describe('limpieza de huérfanos', () => {
       expect(informe.deleted.anime).toBe(1)
       expect(informe.deleted.watch_event).toBe(0)
       expect(informe.deleted.favorite).toBe(0)
+      expect(informe.deleted.watched_title).toBe(0)
     })
   })
 

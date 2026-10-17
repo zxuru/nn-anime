@@ -352,6 +352,62 @@ describe('GET /api/watch/recent', () => {
     })
   })
 
+  /**
+   * La marca de visto se lleva su título de la fila.
+   *
+   * Aquí se mide la mitad **visible**: de dos títulos a medias, el marcado no sale
+   * y el otro sí —que es lo que distingue «lo filtré» de «devolví vacío»—. El
+   * filtro vive en esta ruta y no en `listRecentlyWatched` a propósito: esa lectura
+   * es también la señal de afinidad del motor, así que filtrarla en la consulta
+   * borraría del motor un título que sí se vio. Esa otra mitad se mide en
+   * `recommend/signals.test.ts`.
+   */
+  test('una obra marcada como vista no sale, y las demás sí', async () => {
+    await conApp(async ({ pedir }) => {
+      const OTRO = 'mar-de-cristal'
+      await pedir(`/api/anime/fixture/${OTRO}/episodes`, { headers: GOOD })
+
+      const marcada = await alta(pedir, ALTA)
+      await pedir(`/api/watch/${((await marcada.json()) as { id: number }).id}`, {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ positionS: 720, durationS: 1440 }),
+      })
+
+      const otra = await alta(pedir, {
+        animeRef: { providerId: 'fixture', value: OTRO },
+        episodeRef: { providerId: 'fixture', value: `${OTRO}#1` },
+        mode: 'sub',
+      })
+      await pedir(`/api/watch/${((await otra.json()) as { id: number }).id}`, {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ positionS: 700, durationS: 1440 }),
+      })
+
+      // Las dos están a medias: el control.
+      const antes = (await (await pedir('/api/watch/recent')).json()) as {
+        items: { title: string }[]
+      }
+      expect(antes.items.map((item) => item.title).sort()).toEqual([
+        'Aurora Nocturna',
+        'Mar de Cristal',
+      ])
+
+      await pedir('/api/watched-titles', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ ref: { providerId: 'fixture', value: REF }, value: true }),
+      })
+
+      const despues = (await (await pedir('/api/watch/recent')).json()) as {
+        items: { title: string }[]
+      }
+
+      expect(despues.items.map((item) => item.title)).toEqual(['Mar de Cristal'])
+    })
+  })
+
   test('exige sesión', async () => {
     await conApp(async ({ pedir }) => {
       expect((await pedir('/api/watch/recent', { headers: {} })).status).toBe(401)
