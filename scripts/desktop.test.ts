@@ -184,6 +184,27 @@ describe('el anfitrión de ventana', () => {
     expect(main).toContain('tauri_plugin_single_instance::init')
   })
 
+  test('el instalador de Windows lleva la ventana y el acceso la abre', async () => {
+    // Es lo que quita la consola de la experiencia de quien instala. Se comprueba
+    // sobre el `.nsi` **y se dice por qué**: `makensis` no está en esta máquina,
+    // así que el instalador no se puede compilar aquí. Lo que se fija es que la
+    // receta instale los dos ejecutables y que los accesos abran el anfitrión.
+    const nsi = await leer(join(ROOT, 'packaging', 'windows', 'nn-anime.nsi'))
+
+    expect(nsi).toContain('nn-anime-desktop.exe')
+    // Los dos se instalan y los dos se borran al desinstalar. Se busca con una
+    // expresión regular y no con una cadena porque el texto que se compara lleva
+    // llaves de NSIS (`${...}`), y escribirlas dentro de una cadena dispara
+    // `noTemplateCurlyInString`: son literales del script, no plantillas.
+    expect(nsi).toMatch(/File "\$\{SOURCE\}\\\$\{APP_HOST\}"/)
+    expect(nsi).toMatch(/Delete "\$INSTDIR\\\$\{APP_HOST\}"/)
+    // Y los dos accesos abren el anfitrión, no el servidor de consola.
+    expect(nsi).toMatch(/"\$\{ACCESO_EXE\}"/)
+    expect(nsi).not.toMatch(
+      /CreateShortCut "\$DESKTOP\\\$\{APP_NAME\}\.lnk" "\$INSTDIR\\\$\{APP_EXE\}"/,
+    )
+  })
+
   test('el CI compila y mide el árbol de Rust', async () => {
     // Esta es la guarda que más importa del archivo. El anfitrión vive fuera de
     // `packages/`, así que `tsc`, `bun test` y biome no ven una línea suya: si

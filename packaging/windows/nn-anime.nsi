@@ -51,6 +51,10 @@ Unicode true
 
 !define APP_NAME "nn-anime"
 !define APP_EXE "nn-anime.exe"
+; El anfitrión de ventana. Vive **al lado** del servidor y no dentro: incrustarlo
+; duplicaría los 93,8 MB del ejecutable por plataforma, y así la consola sigue
+; existiendo para quien quiera `nn-anime "naruto"` desde una terminal.
+!define APP_HOST "nn-anime-desktop.exe"
 !define APP_ICO "nn-anime.ico"
 !define UNINSTALLER "Desinstalar nn-anime.exe"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\nn-anime"
@@ -84,6 +88,23 @@ VIAddVersionKey "LegalCopyright" "${APP_NAME}"
   !define MUI_UNICON "${MUIICON}"
 !endif
 
+; ¿Va el anfitrión dentro? Se pregunta al **archivo**, no a quien compila: un
+; `bun run package --skip-desktop` produce un instalador sin él, y entonces el
+; acceso abre la consola de siempre en lugar de romperse. El empaquetado de la
+; release lo exige (ver `scripts/package.ts`), así que este camino es sólo para
+; quien compila a mano sin el árbol de Rust.
+!if /FileExists "${SOURCE}\${APP_HOST}"
+  !define WITH_HOST
+!endif
+
+; A qué ejecutable apunta el acceso del escritorio. Con anfitrión, a la ventana:
+; **es lo único que quita la consola** de la experiencia de quien instala.
+!ifdef WITH_HOST
+  !define ACCESO_EXE "$INSTDIR\${APP_HOST}"
+!else
+  !define ACCESO_EXE "$INSTDIR\${APP_EXE}"
+!endif
+
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
@@ -98,6 +119,12 @@ Section "${APP_NAME}" SecApp
   SetOutPath "$INSTDIR"
   File "${SOURCE}\${APP_EXE}"
 
+  ; El anfitrión, si el empaquetado lo compiló. Va en el **mismo directorio**
+  ; porque el anfitrión busca al servidor como hermano, por su propio nombre.
+  !ifdef WITH_HOST
+    File "${SOURCE}\${APP_HOST}"
+  !endif
+
   ; El icono lo lleva el instalador porque el ejecutable no puede: `--windows-icon`
   ; de Bun 1.4.3 produce un `.exe` que Windows rechaza —medido—, así que el icono
   ; lo usan los accesos y «Agregar o quitar programas» en lugar del propio
@@ -108,12 +135,13 @@ Section "${APP_NAME}" SecApp
 
   WriteUninstaller "$INSTDIR\${UNINSTALLER}"
 
-  ; El acceso abre el ejecutable, que es una aplicación de consola: la ventana
-  ; que aparece **es** la aplicación mientras vive, y cerrarla la apaga. Ocultarla
-  ; dejaría un servidor sin forma de pararlo.
+  ; El acceso abre **la ventana**, no la consola: el anfitrión lanza el servidor,
+  ; lee su dirección y abre la ventana en ella, y al cerrarla le pide el cierre y
+  ; lo apaga. La consola sigue existiendo en el PATH del usuario para quien la
+  ; quiera; lo que ya no aparece es una ventana negra al pulsar el acceso.
   CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-  CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" "" "${ACCESO_ICONO}" 0
-  CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" "" "${ACCESO_ICONO}" 0
+  CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "${ACCESO_EXE}" "" "${ACCESO_ICONO}" 0
+  CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "${ACCESO_EXE}" "" "${ACCESO_ICONO}" 0
 
   WriteRegStr HKCU "Software\nn-anime" "InstallDir" "$INSTDIR"
 
@@ -135,6 +163,9 @@ Section "Uninstall"
   RMDir "$SMPROGRAMS\${APP_NAME}"
 
   Delete "$INSTDIR\${APP_EXE}"
+  ; El anfitrión puede no estar (instalador compilado sin el árbol de Rust):
+  ; `Delete` de un archivo que no existe no es un error en NSIS.
+  Delete "$INSTDIR\${APP_HOST}"
   Delete "$INSTDIR\${APP_ICO}"
   Delete "$INSTDIR\${UNINSTALLER}"
   ; Sólo si quedó vacío: si alguien dejó algo suyo ahí, no se borra.

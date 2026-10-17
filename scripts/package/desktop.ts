@@ -32,15 +32,24 @@ export const HOST_NAME = 'nn-anime-desktop'
 export const SERVER_NAME = 'nn-anime'
 
 /**
+ * El nombre del archivo del anfitrión en una plataforma.
+ *
+ * Se aceptan los dos nombres de Windows a propósito: `process.platform` dice
+ * `win32` y el nombre del artefacto dice `windows`. Confundirlos buscaría un
+ * `.exe` como si no lo fuera y el empaquetado fallaría por un archivo que sí está.
+ */
+export function hostFileName(platform: string): string {
+  return platform === 'win32' || platform === 'windows' ? `${HOST_NAME}.exe` : HOST_NAME
+}
+
+/**
  * Dónde deja `cargo build --release` el binario del anfitrión.
  *
  * La plataforma se puede decir para poder afirmar la **ruta** de otro sistema sin
  * fingir que se compiló: es lo que usan las pruebas de empaquetado.
  */
 export function hostBinary(platform: string = process.platform): string {
-  const nombre = platform === 'win32' ? `${HOST_NAME}.exe` : HOST_NAME
-
-  return join(CRATE_DIR, 'target', 'release', nombre)
+  return join(CRATE_DIR, 'target', 'release', hostFileName(platform))
 }
 
 export interface RunOptions {
@@ -114,16 +123,34 @@ export async function checkDesktop(): Promise<void> {
 export async function stageDesktop(
   outDir: string,
   platform: string = process.platform,
+  arch: string = process.arch,
 ): Promise<string> {
+  // `cargo` compila para la máquina en la que corre: el binario que hay en
+  // `target/release` es de la arquitectura del runner. Meterlo en un paquete de
+  // otra arquitectura sería servir un ejecutable que no arranca, y eso se ve
+  // cuando el usuario ya lo ha instalado. Se para y se dice.
+  //
+  // Comprobado en la matriz de la release: `macos-latest` arma el `.dmg` de
+  // Apple Silicon y el de Intel en la misma máquina, así que el de Intel necesita
+  // una compilación cruzada (`--target x86_64-apple-darwin`) que es de T159.
+  if (arch !== process.arch) {
+    throw new Error(
+      `el anfitrión de ${platform}-${arch} no se puede preparar desde ${process.platform}-${process.arch}: ` +
+        'hay que compilarlo cruzado con `cargo build --target`, que es la compilación cruzada de T159',
+    )
+  }
+
   const origen = hostBinary(platform)
 
   if (!(await Bun.file(origen).exists())) {
-    throw new Error(`no hay anfitrión que preparar en ${origen}: compílalo antes`)
+    throw new Error(
+      `no hay anfitrión que preparar en ${origen}: compílalo antes con \`bun run desktop:build\``,
+    )
   }
 
   await mkdir(outDir, { recursive: true })
 
-  const destino = join(outDir, platform === 'win32' ? `${HOST_NAME}.exe` : HOST_NAME)
+  const destino = join(outDir, hostFileName(platform))
   await copyFile(origen, destino)
 
   return destino

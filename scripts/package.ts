@@ -21,11 +21,13 @@
  *   bun run package --skip-smoke           # sin probar el ejecutable
  *   bun run package --skip-installer       # sólo el ejecutable
  *   bun run package --only-installer       # el instalador, con el ejecutable ya hecho
+ *   bun run package --skip-desktop         # sin la ventana (el acceso abre consola)
  */
 
 import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { type BinarySpec, buildBinary, missingAssets, TARGETS } from './package/binary'
+import { stageDesktop } from './package/desktop'
 import { linuxAppImage, linuxPackages } from './package/linux'
 import { macDmg } from './package/macos'
 import { smoke } from './package/smoke'
@@ -49,6 +51,15 @@ export interface PackageOptions {
    * workflow firma. Sin esto habría que recompilar el binario para nada.
    */
   readonly onlyInstaller?: boolean
+  /**
+   * No prepara el anfitrión de ventana junto al servidor.
+   *
+   * Existe para poder compilar un instalador sin el árbol de Rust —que necesita
+   * red y un compilador de Rust—, y **no** es el camino de la release: sin
+   * anfitrión, el acceso del escritorio abre una consola, que es justo lo que este
+   * trabajo viene a quitar. Se dice en voz alta al usarlo.
+   */
+  readonly skipDesktop?: boolean
 }
 
 /**
@@ -227,6 +238,20 @@ export async function packageApp(options: PackageOptions = {}): Promise<Packaged
       )
     } else {
       process.stdout.write('armando el instalador…\n')
+
+      // El anfitrión va **al lado** del servidor, en el mismo directorio: es lo
+      // que hace que el acceso del escritorio abra una ventana y no una consola.
+      // Si falta, se para: un instalador que abre una consola es exactamente lo
+      // que este trabajo existe para no publicar.
+      if (options.skipDesktop === true) {
+        process.stdout.write(
+          '  aviso: --skip-desktop, el instalador NO llevará la ventana y el acceso abrirá una consola\n',
+        )
+      } else {
+        const anfitrion = await stageDesktop(dirname(binary), spec.platform, spec.arch)
+        process.stdout.write(`  anfitrión:  ${anfitrion}\n`)
+      }
+
       artifacts.push(...(await buildInstaller({ spec, version, binary, stage })))
 
       // Antes de dar el trabajo por bueno: lo que hay en `release/` tiene que poder
@@ -321,6 +346,7 @@ if (import.meta.main) {
       skipSmoke: argv.includes('--skip-smoke'),
       skipInstaller: argv.includes('--skip-installer'),
       onlyInstaller: argv.includes('--only-installer'),
+      skipDesktop: argv.includes('--skip-desktop'),
     })
 
     process.stdout.write(`\nobjetivo ${resultado.target}\n`)
