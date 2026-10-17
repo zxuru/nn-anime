@@ -33,10 +33,20 @@ contents:
     dst: /usr/lib/nn-anime/nn-anime
     file_info:
       mode: 0755
-  # `/usr/bin` para que `nn-anime` esté en el PATH; el ejecutable vive en
-  # `/usr/lib` porque no es lo que se invoca a mano todos los días.
+  # El anfitrión de ventana, **al lado** del servidor: lo busca por su nombre, en
+  # su propio directorio, igual que en Windows y en el `.app` de macOS.
+  - src: __HOST__
+    dst: /usr/lib/nn-anime/nn-anime-desktop
+    file_info:
+      mode: 0755
+  # `/usr/bin` para que los dos estén en el PATH; los ejecutables viven en
+  # `/usr/lib` porque no son lo que se invoca a mano todos los días. El acceso del
+  # menú abre `nn-anime-desktop`; `nn-anime` sigue ahí para la terminal.
   - src: /usr/lib/nn-anime/nn-anime
     dst: /usr/bin/nn-anime
+    type: symlink
+  - src: /usr/lib/nn-anime/nn-anime-desktop
+    dst: /usr/bin/nn-anime-desktop
     type: symlink
   - src: __DESKTOP__
     dst: /usr/share/applications/nn-anime.desktop
@@ -45,7 +55,14 @@ contents:
 overrides:
   deb:
     depends:
+      # `libc6` es lo que **mide** el servidor: se leyeron sus `DT_NEEDED` y todas
+      # eran de libc6. El anfitrión añade el webview: sin webkit2gtk no hay
+      # ventana, y sin GTK no arranca. Son las dos que documenta Tauri para Linux.
       - libc6 (>= 2.17)
+      - libwebkit2gtk-4.1-0
+      - libgtk-3-0
   rpm:
     depends:
       - glibc >= 2.17
+      - webkit2gtk4.1
+      - gtk3

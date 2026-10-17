@@ -8,5 +8,14 @@
 #
 # No se copia el ejecutable como `AppRun` porque entonces no habría forma de saber
 # dónde quedó el resto del AppDir.
+#
+# **Con argumentos, el servidor de consola; sin ellos, la ventana.** Es lo que
+# conserva `./nn-anime.AppImage "naruto"` y `--no-open` para quien los use, sin
+# quitarle a quien hace doble clic la ventana que este trabajo viene a poner.
 aqui=${APPDIR:-$(dirname "$(readlink -f "$0")")}
+
+if [ "$#" -eq 0 ]; then
+  exec "$aqui/usr/bin/nn-anime-desktop"
+fi
+
 exec "$aqui/usr/bin/nn-anime" "$@"

@@ -3,12 +3,13 @@ Type=Application
 Name=nn-anime
 GenericName=Ver anime
 Comment=Ver anime desde el navegador, con una interfaz que arranca en 127.0.0.1
-Exec=nn-anime
+Exec=nn-anime-desktop
 Icon=nn-anime
-# `Terminal=true` a propósito: la aplicación **es** un programa de consola que
-# arranca un servidor local y abre el navegador. La ventana de la terminal es su
-# forma de vivir —ahí se leen los avisos y ahí se para con Ctrl+C—, y lanzarla sin
-# ella dejaría un proceso sin ventana y sin manera de cerrarlo.
-Terminal=true
+# `Terminal=false` desde que existe la ventana propia. Antes era `true` a
+# propósito: la aplicación **era** un programa de consola y su ventana de terminal
+# era la forma de vivir y de pararla. Ahora el acceso abre el anfitrión, que abre
+# una ventana con la interfaz y apaga el servidor cuando se cierra; la consola
+# sigue en el PATH para quien invoque `nn-anime` a mano.
+Terminal=false
 Categories=AudioVideo;Player;
 Keywords=anime;video;

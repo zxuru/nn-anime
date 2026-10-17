@@ -293,3 +293,42 @@ describe('el paquete de macOS', () => {
     expect(macos).toContain('no hay anfitrión junto al servidor')
   })
 })
+
+describe('el paquete de Linux', () => {
+  test('el acceso del menú abre la ventana y no pide terminal', async () => {
+    const desktop = await leer(join(ROOT, 'packaging', 'linux', 'nn-anime.desktop'))
+
+    expect(desktop).toContain('Exec=nn-anime-desktop')
+    // Se ancla a la **línea de la directiva** y no se busca la subcadena en
+    // cualquier parte: el comentario del archivo nombra `Terminal=false` para
+    // explicar por qué, así que un `toContain` daría por bueno un archivo con
+    // `Terminal=true` de verdad. Es la clase de prueba que pasa con el código roto.
+    expect(desktop).toMatch(/^Terminal=false$/m)
+    expect(desktop).not.toMatch(/^Terminal=true$/m)
+  })
+
+  test('el `.deb` y el `.rpm` llevan los dos ejecutables, sus enlaces y el webview', async () => {
+    const nfpm = await leer(join(ROOT, 'packaging', 'linux', 'nfpm.yaml'))
+
+    expect(nfpm).toContain('__HOST__')
+    expect(nfpm).toContain('/usr/lib/nn-anime/nn-anime-desktop')
+    // Los dos en el PATH: el `.desktop` invoca `nn-anime-desktop` a secas y la
+    // consola sigue siendo invocable a mano.
+    expect(nfpm).toContain('dst: /usr/bin/nn-anime-desktop')
+    expect(nfpm).toContain('dst: /usr/bin/nn-anime')
+    // El anfitrión necesita el webview; el servidor sólo necesitaba libc6.
+    expect(nfpm).toContain('libwebkit2gtk-4.1-0')
+    expect(nfpm).toContain('webkit2gtk4.1')
+  })
+
+  test('el AppImage abre la ventana sin argumentos y la consola con ellos', async () => {
+    const apprun = await leer(join(ROOT, 'packaging', 'linux', 'AppRun'))
+
+    // Sin la primera rama, el doble clic en el AppImage seguiría abriendo una
+    // consola; sin la segunda, `./nn-anime.AppImage "naruto"` dejaría de
+    // funcionar. Las dos cosas a la vez son el trato.
+    expect(apprun).toContain('[ "$#" -eq 0 ]')
+    expect(apprun).toContain('exec "$aqui/usr/bin/nn-anime-desktop"')
+    expect(apprun).toContain('exec "$aqui/usr/bin/nn-anime" "$@"')
+  })
+})

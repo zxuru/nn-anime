@@ -223,13 +223,14 @@ describe('las plantillas de los instaladores', () => {
     expect(() => render('nn-anime __VERSION__ __ARCH__', { VERSION: '1.2.3' })).toThrow(/__ARCH__/)
   })
 
-  test('el nfpm.yaml del repositorio se rellena y queda con las dependencias medidas', async () => {
+  test('el nfpm.yaml del repositorio se rellena y queda con sus dependencias', async () => {
     // `render` falla si queda un marcador sin valor, así que llegar hasta aquí ya
     // comprueba que la plantilla y quien la rellena dicen lo mismo.
     const texto = render(await template('linux/nfpm.yaml'), {
       ARCH: 'amd64',
       VERSION: '1.2.3',
       BINARY: '/tmp/nn-anime',
+      HOST: '/tmp/nn-anime-desktop',
       DESKTOP: '/tmp/nn-anime.desktop',
       ICON: '/tmp/icon.png',
     })
@@ -246,21 +247,31 @@ describe('las plantillas de los instaladores', () => {
     expect(yaml.arch).toBe('amd64')
     expect(yaml.version).toBe('1.2.3')
 
-    // Los nombres de la dependencia cambian entre los dos formatos, y la versión
-    // es la que el binario pide de verdad —`GLIBC_2.17`, leída de sus símbolos
-    // versionados—. Sin `overrides`, el `.rpm` saldría sin declarar glibc.
-    expect(yaml.overrides.deb?.depends).toEqual(['libc6 (>= 2.17)'])
-    expect(yaml.overrides.rpm?.depends).toEqual(['glibc >= 2.17'])
+    // Los nombres cambian entre los dos formatos. `libc6` es lo que **mide** el
+    // servidor —`GLIBC_2.17`, leída de sus símbolos versionados—; el webview y GTK
+    // los añade el anfitrión y son las dos que documenta Tauri para Linux, sin
+    // medir aquí: no hay un Linux donde leer sus `DT_NEEDED`. Se dice, para que no
+    // parezca que las cuatro salieron del binario.
+    expect(yaml.overrides.deb?.depends).toEqual([
+      'libc6 (>= 2.17)',
+      'libwebkit2gtk-4.1-0',
+      'libgtk-3-0',
+    ])
+    expect(yaml.overrides.rpm?.depends).toEqual(['glibc >= 2.17', 'webkit2gtk4.1', 'gtk3'])
 
-    // El binario a `/usr/lib`, el enlace en `/usr/bin`, y el acceso y el icono
-    // donde los busca el escritorio.
+    // Los dos ejecutables a `/usr/lib` —el anfitrión **al lado** del servidor,
+    // porque lo busca por su nombre en su propio directorio—, sus dos enlaces en
+    // `/usr/bin`, y el acceso y el icono donde los busca el escritorio.
     expect(yaml.contents.map((entrada) => entrada.dst)).toEqual([
       '/usr/lib/nn-anime/nn-anime',
+      '/usr/lib/nn-anime/nn-anime-desktop',
       '/usr/bin/nn-anime',
+      '/usr/bin/nn-anime-desktop',
       '/usr/share/applications/nn-anime.desktop',
       '/usr/share/icons/hicolor/512x512/apps/nn-anime.png',
     ])
-    expect(yaml.contents[1]?.type).toBe('symlink')
+    expect(yaml.contents[2]?.type).toBe('symlink')
+    expect(yaml.contents[3]?.type).toBe('symlink')
   })
 
   test('el Info.plist del repositorio se rellena y no declara la aplicación como agente', async () => {

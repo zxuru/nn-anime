@@ -16,9 +16,11 @@
  * ruta que falta.
  */
 
+import { existsSync } from 'node:fs'
 import { chmod, copyFile, mkdir, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { ROOT } from '../workspaces'
+import { hostFileName } from './desktop'
 import { render, template } from './render'
 
 /** El icono de 512 px, que es el que quieren el AppImage y hicolor. */
@@ -39,6 +41,24 @@ export const APPRUN = join(ROOT, 'packaging', 'linux', 'AppRun')
 /** nfpm nombra las arquitecturas como Debian. */
 export function nfpmArch(arch: string): string {
   return arch === 'x64' ? 'amd64' : arch === 'arm64' ? 'arm64' : arch
+}
+
+/**
+ * El anfitrión de ventana, que `stageDesktop` deja **al lado** del servidor.
+ *
+ * Se comprueba aquí y no se deja a `nfpm`: un `src` que no existe da un error de
+ * la herramienta que habla de una ruta, y lo que hay que decir es que falta la
+ * ventana y por qué. Y en el AppImage, sin esta comprobación, el paquete saldría
+ * con un `AppRun` que apunta a un ejecutable que no está.
+ */
+export function hostBeside(binary: string): string {
+  const host = join(dirname(binary), hostFileName('linux'))
+
+  if (!existsSync(host)) {
+    throw new Error(`no hay anfitrión junto al servidor en ${host}: es lo que abre la ventana`)
+  }
+
+  return host
 }
 
 /** AppImage nombra las suyas como el kernel. */
@@ -101,6 +121,7 @@ export async function linuxPackages(
       ARCH: arch,
       VERSION: options.version,
       BINARY: options.binary,
+      HOST: hostBeside(options.binary),
       DESKTOP: DESKTOP,
       ICON: ICON,
     }),
@@ -147,6 +168,13 @@ export async function linuxAppImage(options: LinuxOptions, appimagetool: string)
 
   await copyFile(options.binary, join(appDir, 'usr', 'bin', 'nn-anime'))
   await chmod(join(appDir, 'usr', 'bin', 'nn-anime'), 0o755)
+
+  // El anfitrión, en el mismo `usr/bin`: `AppRun` lo lanza sin argumentos y el
+  // servidor con ellos.
+  const host = hostBeside(options.binary)
+
+  await copyFile(host, join(appDir, 'usr', 'bin', hostFileName('linux')))
+  await chmod(join(appDir, 'usr', 'bin', hostFileName('linux')), 0o755)
 
   await copyFile(DESKTOP, join(appDir, 'nn-anime.desktop'))
   await copyFile(APPRUN, join(appDir, 'AppRun'))
