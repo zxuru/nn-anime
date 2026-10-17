@@ -645,3 +645,68 @@ describe('la cabecera y el conmutador de tipo', () => {
     expect(activa).not.toContain('background')
   })
 })
+
+/**
+ * La ficha a sangre.
+ *
+ * La banda era una tarjeta dentro de la caja de la pantalla: de ahí el marco que
+ * se le veía y el aire que la separaba de la cabecera. Lo que se mide aquí no se
+ * ve en el DOM —el mismo marcado se pinta pegado o flotando según estas
+ * declaraciones— y sin la medida en las dos cajas de dentro el titular queda
+ * desalineado de las columnas: en una ventana de 2560 px, el nombre a 32 px del
+ * borde y la sinopsis a 680.
+ */
+describe('la ficha a sangre', () => {
+  /** El cuerpo de una regla, por su selector exacto. */
+  async function regla(selector: string): Promise<string> {
+    const css = await read(SHELL)
+    const desde = css.indexOf(`${selector} {`)
+    if (desde === -1) return ''
+
+    return css.slice(desde, css.indexOf('}', desde))
+  }
+
+  test('la caja de la pantalla no tiene tope de ancho ni relleno', async () => {
+    const caja = await regla('.shell__main--ficha')
+
+    expect(caja, 'falta .shell__main--ficha en shell.css').not.toBe('')
+    // A sangre: la banda tiene que llegar a los dos bordes de la ventana.
+    expect(caja).toContain('max-inline-size: none')
+    // Y sin relleno: el aire es lo que separaba la banda de la cabecera.
+    expect(caja).toContain('padding: 0')
+  })
+
+  test('la banda pierde el marco y conserva su alto', async () => {
+    const banda = await regla('.detail__banner')
+
+    expect(banda).not.toContain('border:')
+    expect(banda).not.toContain('border-radius')
+    // Y sigue siendo una cabecera: su alto no depende de la imagen.
+    expect(banda).toContain('min-block-size: var(--detail-banner-alto)')
+    // Sin relleno en línea: el que alinea el titular lo pone la caja de dentro.
+    expect(banda).toContain('padding-block: var(--space-6)')
+  })
+
+  test('la medida del sitio vive en las dos cajas de dentro', async () => {
+    for (const selector of ['.detail__banner-caja', '.detail__cuerpo']) {
+      const caja = await regla(selector)
+
+      expect(caja, `falta ${selector} en shell.css`).not.toBe('')
+      expect(caja).toContain('max-inline-size: var(--content-max)')
+      expect(caja).toContain('margin-inline: auto')
+    }
+
+    // El mismo relleno en línea en las dos: es lo que alinea el titular con las
+    // columnas. La de la banda sólo tiene ése; el cuerpo reparte también el aire
+    // de arriba, que es el hueco con la banda.
+    expect(await regla('.detail__banner-caja')).toContain('padding-inline: var(--space-6)')
+    expect(await regla('.detail__cuerpo')).toContain('padding: var(--space-7) var(--space-6)')
+
+    // La rejilla de dos columnas ya no está en `.detail`, que es la caja a lo
+    // ancho: si volviera, la banda se partiría en dos columnas de 17rem y 1fr.
+    expect(await regla('.detail')).not.toContain('grid-template-columns')
+    expect(await regla('.detail__cuerpo')).toContain(
+      'grid-template-columns: minmax(var(--grid-min), var(--aside-width)) 1fr',
+    )
+  })
+})

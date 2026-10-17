@@ -1186,19 +1186,28 @@ describe('la lectura en dos pistas', () => {
    * y la dirección va escrita a mano en la comprobación: componerla con `searchPath`
    * mediría que la función es igual a sí misma, y lo que hay que medir es **qué**
    * dirección sale, con sus espacios y su tilde codificados.
+   *
+   * Y el `#` sólo donde AniList sabe qué pedir: «Aventura» es un género suyo —el
+   * `#` manda la consulta a su catálogo—, «Isekai» no está entre los dieciocho y
+   * con `#` la búsqueda se quedaría buscando estudios por un texto que no devuelve
+   * nada. Sin él sigue enseñando los títulos locales de ese género, que es lo que
+   * hacía.
    */
-  test('los géneros y los estudios llevan a sus títulos', () => {
+  test('el género de AniList lleva el `#` y el que no lo es, la búsqueda de siempre', () => {
     const html = render(
       <Lectura
-        detail={{ ...detalle, genres: ['Ciencia ficción'] }}
+        detail={{ ...detalle, genres: ['Aventura', 'Isekai'] }}
         enrichment={{ ...enriquecido, studios: ['Estudio Cobre'] }}
       />,
     )
 
-    expect(html).toContain('href="/search?q=Ciencia%20ficci%C3%B3n"')
+    expect(html).toContain('href="/search?q=%23Aventura"')
+    expect(html).toContain('href="/search?q=Isekai"')
     expect(html).toContain('href="/search?q=Estudio%20Cobre"')
-    // Y cada enlace dice a dónde lleva: el nombre solo pide un clic a ciegas.
-    expect(html).toContain('title="Ver los títulos del género Ciencia ficción"')
+    // Y cada enlace dice a dónde lleva, con dos frases: el nombre solo pide un
+    // clic a ciegas, y el `#` cambia de catálogo.
+    expect(html).toContain('title="Ver todo lo que AniList tiene de Aventura"')
+    expect(html).toContain('title="Ver los títulos del género Isekai"')
     expect(html).toContain('title="Ver los títulos de Estudio Cobre"')
   })
 
@@ -1309,5 +1318,30 @@ describe('la banda del banner', () => {
     expect(html).toContain('class="detail__banner"')
     expect(html).toContain('<h1>Aurora Nocturna</h1>')
     expect(html).not.toContain('detail__banner-fondo')
+  })
+
+  /**
+   * El contenido de la banda va en su caja, y el fondo no.
+   *
+   * La banda cruza la ventana entera, así que el titular necesita una caja con la
+   * medida del sitio dentro: sin ella, en una pantalla ancha el nombre queda a 32
+   * px del borde y la sinopsis a 680, que es un fallo de geometría que no rompe
+   * ninguna otra prueba. La capa del fondo, en cambio, cuelga de la banda: es la
+   * que tiene que llegar a los dos bordes.
+   */
+  test('el titular vive en la caja y el fondo cuelga de la banda', () => {
+    const html = render(<BandaBanner detail={detalle} fondo="/api/anilist/image/banner/555" />)
+
+    const banda = html.indexOf('class="detail__banner"')
+    const capa = html.indexOf('detail__banner-fondo')
+    const caja = html.indexOf('class="detail__banner-caja"')
+    const titulo = html.indexOf('<h1>Aurora Nocturna</h1>')
+
+    expect(banda).toBeGreaterThan(-1)
+    expect(caja).toBeGreaterThan(banda)
+    expect(titulo).toBeGreaterThan(caja)
+    // El fondo, antes de la caja: la capa va pegada a la banda, no a su contenido.
+    expect(capa).toBeGreaterThan(banda)
+    expect(capa).toBeLessThan(caja)
   })
 })

@@ -40,6 +40,15 @@ function Shell(props: {
    */
   readonly sinTope?: boolean
   /**
+   * La ficha, a sangre y sin relleno.
+   *
+   * Su banda cruza la ventana y va pegada al borde inferior de la cabecera, así
+   * que la caja no puede tener ni tope ni aire: la medida del sitio la recuperan
+   * las dos cajas de dentro —la de la banda y la del cuerpo—, que es lo que deja
+   * el titular alineado con las columnas.
+   */
+  readonly ficha?: boolean
+  /**
    * Si la cabecera lleva el conmutador de tipo.
    *
    * No lo lleva siempre: la mitad que se mira sólo significa algo donde hay algo
@@ -51,6 +60,7 @@ function Shell(props: {
   const caja = ['shell__main']
   if (props.ancha === true) caja.push('shell__main--ancha')
   if (props.sinTope === true) caja.push('shell__main--sin-tope')
+  if (props.ficha === true) caja.push('shell__main--ficha')
 
   /*
     Los destinos de la navegación conservan la mitad que se está mirando: al pasar
@@ -139,6 +149,7 @@ export function App(): ReactNode {
     <Shell
       ancha={route.name === 'home'}
       sinTope={route.name === 'watch'}
+      ficha={route.name === 'detail'}
       tipo={route.name === 'home' || route.name === 'search'}
     >
       {screenFor(route, path)}

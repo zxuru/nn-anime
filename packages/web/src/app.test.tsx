@@ -209,8 +209,18 @@ describe('App: la caja de la pantalla', () => {
     expect(clase).not.toContain('shell__main--ancha')
   })
 
-  test('la ficha y la búsqueda se quedan en la columna de siempre', () => {
-    for (const ruta of ['/anime/fuente/titulo-1', '/search', '/settings']) {
+  test('la ficha va a sangre y sin relleno', () => {
+    const clase = caja('/anime/fuente/titulo-1')
+
+    // Su banda cruza la pantalla y va pegada a la cabecera: el aire y la medida
+    // los reparten las dos cajas de dentro, que es lo que mide `styles.test.ts`.
+    expect(clase).toContain('shell__main--ficha')
+    expect(clase).not.toContain('shell__main--ancha')
+    expect(clase).not.toContain('shell__main--sin-tope')
+  })
+
+  test('la búsqueda y los ajustes se quedan en la columna de siempre', () => {
+    for (const ruta of ['/search', '/settings']) {
       expect(caja(ruta), `la caja de ${ruta} cambió de ancho`).toBe('shell__main')
     }
   })

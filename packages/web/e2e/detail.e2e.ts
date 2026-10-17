@@ -210,6 +210,139 @@ test.describe('la ficha enriquecida', () => {
   })
 })
 
+/**
+ * La banda a sangre.
+ *
+ * Era una tarjeta dentro de la caja de la pantalla: un marco con su borde y su
+ * radio, y el aire de la caja entre ella y la cabecera. Lo que se mide aquí no se
+ * puede medir sin navegador —el mismo marcado se pinta pegado o flotando según las
+ * declaraciones—, y son cuatro medidas: que no haya borde, que empiece en `x` 0, que
+ * mida lo que la ventana y que el titular quede alineado con las columnas de la
+ * ficha. La última es la que evita el fallo que no se ve: la banda a lo ancho con el
+ * titular sin la medida del sitio lo deja a 32 px del borde mientras la sinopsis
+ * empieza a 72.
+ */
+test.describe('la banda a sangre', () => {
+  const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64')
+
+  /**
+   * El enriquecimiento y su banner, servidos desde la prueba.
+   *
+   * El arnés arranca sin AniList, así que el emparejamiento llega interceptado. Con
+   * `conFondo` en falso se sirve el mismo enriquecimiento **sin** banner, que es la
+   * otra mitad de lo que hay que medir: que la banda no dependa de la imagen.
+   */
+  async function enriquecer(
+    page: import('@playwright/test').Page,
+    conFondo: boolean,
+  ): Promise<void> {
+    await page.route('**/api/anime/*/*/enrichment', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          enrichment: {
+            anilistId: 555,
+            cover: '/api/anilist/image/cover/555',
+            adult: false,
+            ...(conFondo ? { banner: '/api/anilist/image/banner/555' } : {}),
+            genres: [],
+            studios: [],
+            siteUrl: 'https://anilist.co/anime/555',
+          },
+        },
+      })
+    })
+
+    if (!conFondo) return
+
+    await page.route('**/api/anilist/image/banner/555', async (ruta) => {
+      await ruta.fulfill({ body: PIXEL, contentType: 'image/gif' })
+    })
+  }
+
+  /** El alto de la banda, ya montada. */
+  async function altoDeLaBanda(page: import('@playwright/test').Page): Promise<number> {
+    const banda = page.locator('.detail__banner')
+    await expect(banda).toBeVisible({ timeout: 10_000 })
+
+    return banda.evaluate((nodo) => nodo.getBoundingClientRect().height)
+  }
+
+  test('cruza la pantalla, sin marco y pegada a la cabecera', async ({ page }) => {
+    await enriquecer(page, true)
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    const banda = page.locator('.detail__banner')
+    await expect(banda).toBeVisible({ timeout: 10_000 })
+
+    const medida = await banda.evaluate((nodo) => {
+      const caja = nodo.getBoundingClientRect()
+      const cabecera = document.querySelector('.shell__header')?.getBoundingClientRect()
+
+      return {
+        x: caja.x,
+        ancho: caja.width,
+        ventana: document.documentElement.clientWidth,
+        borde: getComputedStyle(nodo).borderTopWidth,
+        arriba: caja.top,
+        cabeceraAbajo: cabecera?.bottom ?? -1,
+      }
+    })
+
+    // De lado a lado de la ventana y sin el relleno de la caja de la pantalla.
+    expect(medida.x).toBe(0)
+    expect(medida.ancho).toBe(medida.ventana)
+    // Sin marco: era una tarjeta con borde.
+    expect(medida.borde).toBe('0px')
+    // Y sin margen con la cabecera: empieza donde la barra acaba.
+    expect(Math.round(medida.arriba)).toBe(Math.round(medida.cabeceraAbajo))
+  })
+
+  test('el titular queda alineado con las columnas', async ({ page }) => {
+    await enriquecer(page, true)
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+    await expect(page.locator('.episodes li').first()).toBeVisible({ timeout: 15_000 })
+
+    const alineacion = await page.evaluate(() => {
+      const x = (selector: string): number =>
+        document.querySelector(selector)?.getBoundingClientRect().x ?? -1
+
+      return {
+        titular: x('.detail__banner h1'),
+        primeraColumna: x('.detail__aside'),
+        cajaDeLaBanda: x('.detail__banner-caja'),
+        cuerpo: x('.detail__cuerpo'),
+      }
+    })
+
+    // El titular empieza donde la columna: es la medida del sitio, no el borde.
+    expect(alineacion.titular).toBe(alineacion.primeraColumna)
+    expect(alineacion.cajaDeLaBanda).toBe(alineacion.cuerpo)
+    expect(alineacion.titular).toBeGreaterThan(0)
+  })
+
+  test('con banner y sin banner la banda mide lo mismo', async ({ page }) => {
+    await enriquecer(page, true)
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    const conFondo = await altoDeLaBanda(page)
+
+    // La misma ficha, con el enriquecimiento pero sin banner: la banda es la
+    // cabecera y no el adorno, así que la pantalla no cambia de forma.
+    await page.unroute('**/api/anime/*/*/enrichment')
+    await enriquecer(page, false)
+    await page.reload()
+
+    const sinFondo = await altoDeLaBanda(page)
+
+    expect(sinFondo).toBe(conFondo)
+    // Y el alto es el del token (`--detail-banner-alto`, 16rem), no un hueco.
+    expect(conFondo).toBeGreaterThanOrEqual(256)
+  })
+})
+
 test.describe('de la búsqueda al detalle', () => {
   test('buscar, elegir y ver los episodios', async ({ page }) => {
     await entrar(page)
@@ -667,7 +800,7 @@ test.describe('un título con temporadas', () => {
 })
 
 /**
- * De la ficha a los títulos que comparten su estudio.
+ * De la ficha a los títulos que comparten su estudio o su género.
  *
  * El nombre de un estudio era texto muerto: se leía y no llevaba a ninguna parte.
  * Ahora es un enlace a la búsqueda por ese término, que es lo que ya hacía la banda
@@ -679,13 +812,11 @@ test.describe('un título con temporadas', () => {
  * ficha, la lectura por estudio del almacén y el evento del catálogo que la ruta de
  * búsqueda emite. Ninguna de las tres se ve desde el renderizado de servidor.
  *
- * **Y falta el caso del género**, que es el mismo camino con otro término: no pasa
- * por un defecto de la pantalla de búsqueda que no es de esta tarea. Pulsar un
- * enlace que lleva a `/search?q=<término>` desde otra pantalla deja la búsqueda en
- * «Buscando…» para siempre —el estado del flujo se pierde y la pantalla lee el de
- * relleno: ni tarjetas ni esqueletos—, y se reproduce igual **hoy**, sin este
- * cambio, pulsando un género en la vitrina o abriendo esa dirección a mano. Está
- * contado en `tasks/done/T130.md`.
+ * El género, además, **cambia de catálogo**: con el `#` delante, la búsqueda es la
+ * del catálogo y a los proveedores no se les pregunta. Lo que se mide de ese camino
+ * es eso —que la pantalla entre en el modo del catálogo, que es donde el `#` decide
+ * algo—, y no las tarjetas: el arnés arranca con **AniList apagado** (una prueba no
+ * puede depender de un tercero), y en ese modo la lista que se pinta es la suya.
  */
 test.describe('de la ficha a sus títulos', () => {
   /** Espera a que la ficha esté montada, con sus etiquetas. */
@@ -707,6 +838,34 @@ test.describe('de la ficha a sus títulos', () => {
     await expect(page.locator('.grid .card', { hasText: 'Aurora Nocturna' })).toBeVisible({
       timeout: 15_000,
     })
+  })
+
+  /**
+   * El género de la ficha, con el `#` que lo manda al catálogo.
+   *
+   * El `#` no es un adorno de la dirección: es lo que decide que a los proveedores
+   * no se les pregunte y que la lista que se pinta sea la del catálogo. Por eso lo
+   * que se comprueba al llegar no es una tarjeta —con AniList apagado no hay
+   * ninguna que pintar— sino el **modo** en el que ha entrado la pantalla: el
+   * renglón de estado cuenta títulos del catálogo, que es un texto que sólo sale
+   * por ese camino. Sin el `#`, la búsqueda preguntaría a los proveedores por el
+   * texto literal y ese renglón diría otra cosa.
+   */
+  test('el género con equivalente en AniList lleva al catálogo', async ({ page }) => {
+    await entrar(page)
+    await abrirLaFicha(page, 'aurora-nocturna')
+
+    const genero = page.getByRole('link', { name: 'Acción', exact: true })
+    // El `#` viaja codificado, y el enlace dice a dónde lleva: es lo que distingue
+    // «lo que ya está en tu catálogo» de «todo lo que AniList tiene del género».
+    await expect(genero).toHaveAttribute('href', '/search?q=%23Acci%C3%B3n')
+    await expect(genero).toHaveAttribute('title', 'Ver todo lo que AniList tiene de Acción')
+
+    await genero.click()
+
+    await expect(page).toHaveURL(/\/search\?q=%23Acci%C3%B3n/)
+    await expect(page.getByLabel('Buscar por título')).toHaveValue('#Acción')
+    await expect(page.locator('.search__status')).toHaveText('0 títulos en el catálogo.')
   })
 
   /**

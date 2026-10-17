@@ -422,6 +422,10 @@ export const messages: Messages = {
   // A dónde lleva pulsar una etiqueta de la ficha: el nombre solo no lo dice, y
   // sin decirlo el enlace pide un clic a ciegas.
   'detail.genreLink': 'Ver los títulos del género {name}',
+  // Dos frases porque son dos destinos: la de arriba mira el catálogo local y
+  // ésta, con el `#`, todo lo que AniList tiene de ese género. Un lector de
+  // pantalla tiene que poder distinguirlas.
+  'detail.genreLinkAnilist': 'Ver todo lo que AniList tiene de {name}',
   'detail.studioLink': 'Ver los títulos de {name}',
   'detail.episodes': 'Episodios',
   'detail.episode': 'Episodio {number}',
