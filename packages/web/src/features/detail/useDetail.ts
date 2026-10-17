@@ -49,6 +49,7 @@ import {
   relatedResponseSchema,
   sourcesResponseSchema,
   watchedResponseSchema,
+  watchedTitlesResponseSchema,
 } from '@nn-anime/core/api'
 import type {
   AnimeDetail,
@@ -58,6 +59,7 @@ import type {
   ProviderRef,
 } from '@nn-anime/core/models'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { z } from 'zod'
 import { ApiError, apiGet, apiPost, type RequestDeps } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
@@ -470,33 +472,69 @@ export interface FavoriteState {
   readonly toggle: () => void
 }
 
+/** El estado de una marca del usuario: favorito o visto. */
+export type MarkState = FavoriteState
+
 /**
- * Si el título está entre los favoritos.
+ * Si el título está en una de esas listas.
  *
  * Se compara la referencia entera —proveedor y valor— y no sólo el valor: dos
  * proveedores pueden usar el mismo identificador para títulos distintos, y
  * mirar sólo uno de los dos marcaría como guardado algo que no lo está.
  */
-export function isFavorite(favorites: readonly AnimeSummary[], ref: ProviderRef): boolean {
-  return favorites.some(
+export function enLaLista(lista: readonly AnimeSummary[], ref: ProviderRef): boolean {
+  return lista.some(
     (item) => item.ref.providerId === ref.providerId && item.ref.value === ref.value,
   )
 }
 
+/** Si el título está entre los favoritos. */
+export function isFavorite(favorites: readonly AnimeSummary[], ref: ProviderRef): boolean {
+  return enLaLista(favorites, ref)
+}
+
 /**
- * Favorito con estado inmediato.
+ * Una marca del usuario por HTTP: su ruta, su forma y de dónde sale la lista.
  *
- * Se pinta el cambio antes de que el servidor conteste y se revierte si falla:
- * un botón que espera a la red para cambiar de color se siente roto. Si la
- * petición falla, el estado vuelve a lo que había, que es la verdad.
- *
- * **El estado inicial se lee del servidor.** Antes empezaba siempre en «no
- * está»: en el cartel de destacado y en la ficha, un título ya guardado salía
- * sin marcar y el botón mentía hasta que se pulsaba dos veces. La lista se pide
- * **sin señal** a propósito: el cliente deduplica las lecturas por ruta, y con
- * una señal propia cada botón montado pediría la suya.
+ * Los dos endpoints —favoritos y vistos— tienen la misma forma por fuera y cambian
+ * sólo en eso, así que la mecánica del botón vive una sola vez. Los tres campos
+ * son constantes de módulo y no se arman en cada render: son dependencias del
+ * efecto que lee la lista, y una identidad nueva en cada render lo dispararía en
+ * bucle.
  */
-export function useFavorite(ref: ProviderRef): FavoriteState {
+interface MarkEndpoint<Cuerpo> {
+  readonly ruta: string
+  readonly schema: z.ZodType<Cuerpo>
+  readonly lista: (cuerpo: Cuerpo) => readonly AnimeSummary[]
+}
+
+const FAVORITOS: MarkEndpoint<{ readonly favorites: readonly AnimeSummary[] }> = {
+  ruta: '/api/favorites',
+  schema: favoritesResponseSchema,
+  lista: (cuerpo) => cuerpo.favorites,
+}
+
+const VISTOS: MarkEndpoint<{ readonly items: readonly AnimeSummary[] }> = {
+  ruta: '/api/watched-titles',
+  schema: watchedTitlesResponseSchema,
+  lista: (cuerpo) => cuerpo.items,
+}
+
+/**
+ * Una marca con estado inmediato.
+ *
+ * Se pinta el cambio antes de que el servidor conteste y se revierte si falla: un
+ * botón que espera a la red para cambiar de color se siente roto. Si la petición
+ * falla, el estado vuelve a lo que había, que es la verdad.
+ *
+ * **El estado inicial se lee del servidor.** Antes empezaba siempre en «no está»:
+ * en el cartel de destacado y en la ficha, un título ya guardado salía sin marcar
+ * y el botón mentía hasta que se pulsaba dos veces. La lista se pide **sin señal**
+ * a propósito: el cliente deduplica las lecturas por ruta, y con una señal propia
+ * cada botón montado pediría la suya.
+ */
+function useMark<Cuerpo>(endpoint: MarkEndpoint<Cuerpo>, ref: ProviderRef): MarkState {
+  const { ruta, schema, lista } = endpoint
   const [value, setValue] = useState(false)
   const [busy, setBusy] = useState(false)
   /**
@@ -512,22 +550,22 @@ export function useFavorite(ref: ProviderRef): FavoriteState {
   useEffect(() => {
     let vivo = true
 
-    void apiGet('/api/favorites', favoritesResponseSchema).then(
-      (lista) => {
+    void apiGet(ruta, schema).then(
+      (cuerpo) => {
         if (!vivo || tocado.current) return
 
-        setValue(isFavorite(lista.favorites, { providerId, value: referencia }))
+        setValue(enLaLista(lista(cuerpo), { providerId, value: referencia }))
       },
       // Sin la lista no se afirma nada: el botón se queda en «no está» y quien lo
-      // pulse sigue pudiendo guardar el título. Un favorito que no se pudo leer no
-      // es motivo para dejar la pantalla sin botón.
+      // pulse sigue pudiendo marcar el título. Una marca que no se pudo leer no es
+      // motivo para dejar la pantalla sin botón.
       () => undefined,
     )
 
     return () => {
       vivo = false
     }
-  }, [providerId, referencia])
+  }, [ruta, schema, lista, providerId, referencia])
 
   const toggle = useCallback(() => {
     tocado.current = true
@@ -535,7 +573,7 @@ export function useFavorite(ref: ProviderRef): FavoriteState {
     setValue(siguiente)
     setBusy(true)
 
-    void apiPost('/api/favorites', {
+    void apiPost(ruta, {
       ref: { providerId, value: referencia },
       value: siguiente,
     }).then(
@@ -545,7 +583,22 @@ export function useFavorite(ref: ProviderRef): FavoriteState {
         setBusy(false)
       },
     )
-  }, [providerId, referencia, value])
+  }, [ruta, providerId, referencia, value])
 
   return { value, busy, toggle }
+}
+
+/** Favorito con estado inmediato. */
+export function useFavorite(ref: ProviderRef): MarkState {
+  return useMark(FAVORITOS, ref)
+}
+
+/**
+ * La marca de «ya visto» de la obra, con el mismo contrato que el favorito.
+ *
+ * Es de la **obra** y no del episodio, así que vale igual para una película: el
+ * botón sale en todas las fichas y no menciona capítulos.
+ */
+export function useWatchedTitle(ref: ProviderRef): MarkState {
+  return useMark(VISTOS, ref)
 }

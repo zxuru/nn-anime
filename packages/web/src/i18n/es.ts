@@ -475,6 +475,10 @@ export const messages: Messages = {
   'detail.movie.missing': 'Esta película no tiene nada que reproducir todavía.',
   'detail.favorite.add': 'Añadir a favoritos',
   'detail.favorite.remove': 'Quitar de favoritos',
+  // La marca es de la **obra**, no del episodio: el rótulo no menciona capítulos
+  // porque vale igual para una película, y «ya visto» es lo que el botón deja dicho.
+  'detail.watched.add': 'Marcar como visto',
+  'detail.watched.remove': 'Quitar de vistos',
   'detail.loading': 'Cargando la ficha…',
   'detail.notFound': 'Ese título no está en el proveedor.',
   'detail.related.year': 'Año {year}',

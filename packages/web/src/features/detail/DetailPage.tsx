@@ -36,7 +36,8 @@ import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
 import { SagaRail } from './SagaRail'
 import { SourcePicker } from './SourcePicker'
-import { chosenMode, modesFor, useDetail, useFavorite } from './useDetail'
+import { chosenMode, modesFor, useDetail, useFavorite, useWatchedTitle } from './useDetail'
+import { WatchedButton } from './WatchedButton'
 
 /** La clave de traducción del estado, escrita una a una. */
 const STATUS_KEYS = {
@@ -356,6 +357,13 @@ export function DetailPage(props: DetailPageProps): ReactNode {
   } = useDetail(props.providerId, props.ref)
   const favorite = useFavorite({ providerId: props.providerId, value: props.ref })
   /**
+   * La marca de «ya visto», hermana del favorito.
+   *
+   * Sale en todas las fichas, película o serie: lo que cambia con `kind ===
+   * 'movie'` es el titular de la lista de episodios, no lo que se puede marcar.
+   */
+  const visto = useWatchedTitle({ providerId: props.providerId, value: props.ref })
+  /**
    * El modo elegido a mano.
    *
    * Empieza sin elegir porque las capacidades llegan por red: en el primer render
@@ -432,12 +440,16 @@ export function DetailPage(props: DetailPageProps): ReactNode {
             <Cover src={enrichment.cover} className="detail__cover" />
           )}
 
+          {/* Las dos marcas del usuario, juntas: lo que se guarda y lo que ya se
+              vio. Son dos botones con el mismo contrato —`aria-pressed`, estado
+              inmediato y vuelta atrás si el servidor falla— y se leen como pareja. */}
           <div className="detail__actions">
             <FavoriteButton
               value={favorite.value}
               busy={favorite.busy}
               onToggle={favorite.toggle}
             />
+            <WatchedButton value={visto.value} busy={visto.busy} onToggle={visto.toggle} />
           </div>
 
           <section>

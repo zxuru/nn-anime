@@ -34,6 +34,7 @@ import { SourcePicker } from './SourcePicker'
 import { type FilaDeSaga, filasDeSaga } from './saga'
 import {
   chosenMode,
+  enLaLista,
   formatDuration,
   isFavorite,
   modesFor,
@@ -41,6 +42,7 @@ import {
   sourcesPath,
   watchedPercent,
 } from './useDetail'
+import { WatchedButton } from './WatchedButton'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
 
@@ -469,6 +471,64 @@ describe('si el título ya está en favoritos', () => {
 
   test('sin lista no hay nada guardado', () => {
     expect(isFavorite([], { providerId: 'fixture', value: 'aurora-nocturna' })).toBe(false)
+  })
+})
+
+/**
+ * El botón de «ya visto».
+ *
+ * Es el hermano del de favoritos y se prueba con sus mismos tres casos: el estado
+ * se dice con `aria-pressed` —no con el color—, el rótulo nombra el estado en el
+ * que está y mientras guarda se deshabilita. Lo que **no** dice es nada de
+ * episodios: la marca es de la obra, y por eso vale igual para una película.
+ */
+describe('botón de visto', () => {
+  test('dice su estado con aria-pressed', () => {
+    expect(render(<WatchedButton value={false} onToggle={() => {}} />)).toContain(
+      'aria-pressed="false"',
+    )
+    expect(render(<WatchedButton value onToggle={() => {}} />)).toContain('aria-pressed="true"')
+  })
+
+  test('el texto cambia con el estado, sin mencionar episodios', () => {
+    const sinMarcar = render(<WatchedButton value={false} onToggle={() => {}} />)
+
+    expect(sinMarcar).toContain('Marcar como visto')
+    expect(sinMarcar).not.toMatch(/episodio/i)
+
+    const marcado = render(<WatchedButton value onToggle={() => {}} />)
+
+    expect(marcado).toContain('Quitar de vistos')
+    expect(marcado).not.toMatch(/episodio/i)
+  })
+
+  test('mientras guarda, se deshabilita', () => {
+    expect(render(<WatchedButton value={false} busy onToggle={() => {}} />)).toContain('disabled')
+  })
+})
+
+/**
+ * El botón nace marcado si la obra ya estaba marcada.
+ *
+ * La comparación decide eso, y es la misma que la del favorito: la marca se lee del
+ * servidor al montar, así que comparar sólo el valor de la referencia —y no el
+ * proveedor— daría por marcado un título que no lo está.
+ */
+describe('si la obra ya está marcada como vista', () => {
+  function resumen(providerId: string, value: string): AnimeSummary {
+    return { ref: { providerId, value }, title: value }
+  }
+
+  test('se compara la referencia entera, no sólo el valor', () => {
+    const lista = [resumen('fixture', 'aurora-nocturna')]
+
+    expect(enLaLista(lista, { providerId: 'fixture', value: 'aurora-nocturna' })).toBe(true)
+    expect(enLaLista(lista, { providerId: 'otro', value: 'aurora-nocturna' })).toBe(false)
+    expect(enLaLista(lista, { providerId: 'fixture', value: 'otro-titulo' })).toBe(false)
+  })
+
+  test('sin lista no hay nada marcado', () => {
+    expect(enLaLista([], { providerId: 'fixture', value: 'aurora-nocturna' })).toBe(false)
   })
 })
 

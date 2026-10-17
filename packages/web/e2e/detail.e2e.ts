@@ -900,3 +900,62 @@ test.describe('de la ficha a sus títulos', () => {
     await expect(page.locator('.grid .card', { hasText: 'Aurora Nocturna' })).toHaveCount(0)
   })
 })
+
+/**
+ * La marca de visto, en el navegador.
+ *
+ * El botón es lo único de la marca que se ve: se pulsa, cambia de rótulo y el
+ * servidor guarda una fila. Lo que se mide aquí es lo que el renderizado de
+ * servidor no puede —que el estado **nazca leído del servidor** y sobreviva a una
+ * recarga: si el botón sólo cambiara de color al pulsarlo, la recarga lo dejaría
+ * mintiendo—, y que salga también en la ficha de una película, que no tiene
+ * episodios y aun así se puede marcar.
+ */
+test.describe('la marca de visto', () => {
+  test('pulsar, recargar y encontrar el botón pulsado', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    const sinMarcar = page.getByRole('button', { name: 'Marcar como visto' })
+    await expect(sinMarcar).toBeVisible({ timeout: 15_000 })
+    // El estado inicial se lee del servidor: sin la marca, es «no está».
+    await expect(sinMarcar).toHaveAttribute('aria-pressed', 'false')
+
+    await sinMarcar.click()
+
+    await expect(page.getByRole('button', { name: 'Quitar de vistos' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    // Y sigue marcado después de recargar: la marca está en la base, no en la
+    // pantalla. El reinicio del servidor lo mide el almacén, que es donde vive
+    // (`repositories/user.test.ts`, «todo sobrevive a cerrar y reabrir»).
+    await page.reload()
+
+    const marcado = page.getByRole('button', { name: 'Quitar de vistos' })
+    await expect(marcado).toBeVisible({ timeout: 15_000 })
+    await expect(marcado).toHaveAttribute('aria-pressed', 'true')
+
+    // Y se puede deshacer: volver a pulsarlo la quita. Se recarga después para
+    // medir el **servidor** y no el rótulo: el cambio optimista se pinta solo, así
+    // que sin recargar la prueba pasaría con una baja que no llegó a guardarse.
+    await marcado.click()
+
+    await page.reload()
+
+    const desmarcada = page.getByRole('button', { name: 'Marcar como visto' })
+    await expect(desmarcada).toBeVisible({ timeout: 15_000 })
+    await expect(desmarcada).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('sale también en la ficha de una película', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/anime/fixture/el-jardin-de-hierro')
+
+    // Una película no tiene episodios, pero se marca igual: la marca es de la obra.
+    await expect(page.getByRole('button', { name: 'Marcar como visto' })).toBeVisible({
+      timeout: 15_000,
+    })
+  })
+})
