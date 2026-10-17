@@ -15,6 +15,7 @@ import {
   type ConfigEnvironment,
   type ConfigPaths,
   ensureDirs,
+  formatBootLine,
   type Locale,
   loadConfig,
   type Result,
@@ -379,6 +380,11 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
 
   // Paso 8 del arranque del spec: la URL y la lista de proveedores activos.
   io.out(t(locale, 'cli.url', { url }))
+  // Y la misma dirección en la línea que lee un programa. Va aquí, con la humana,
+  // porque las dos dicen lo mismo: el formato vive en `core` y lo consume el
+  // `smoke` del paquete, que es quien arranca el ejecutable y necesita saber dónde
+  // escucha. No se traduce y no se registra en el log.
+  io.out(formatBootLine({ port: outcome.server.port, url }))
   reportPlugins(io, locale, plugins, config.providersDir)
 
   // Se registra antes de abrir el navegador: si abrir falla, el servidor ya

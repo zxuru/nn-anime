@@ -26,7 +26,7 @@ import { createBootToken, createContainer, createSession } from '@nn-anime/serve
 import { version } from '../package.json'
 import { boot, listenOnFreePort, type Migrate } from './boot'
 import { configEnvironment } from './env'
-import { createLifecycle, waitForSignal } from './lifecycle'
+import { createLifecycle, waitForClose } from './lifecycle'
 import { openInBrowser } from './open-browser'
 import { resolveResources } from './resources'
 import { type CliIO, run } from './run'
@@ -178,7 +178,10 @@ const code = await run(Bun.argv.slice(2), {
     createLogger: (verbose) => createLogger({ level: verbose ? 'debug' : 'info' }),
     createLifecycle: (onError) => createLifecycle({ onError }),
     boot,
-    waitForSignal: () => waitForSignal(process),
+    // Las tres formas de pedir el cierre: Ctrl+C, `SIGTERM` y la línea `shutdown`
+    // por la entrada estándar. La tercera es la que puede usar un anfitrión de
+    // escritorio en Windows, donde `SIGTERM` no existe de verdad.
+    waitForClose: () => waitForClose(process, process.stdin),
   }),
 }).catch((error: unknown) => {
   io.err(error instanceof Error ? error.message : String(error))

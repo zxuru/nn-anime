@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * El ejecutable, probado de verdad.
  *
@@ -24,10 +25,9 @@
 
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
+import { parseBootLine } from '@nn-anime/core'
+import { BOOT_PARAM } from '@nn-anime/server'
 import { isRecord, ROOT } from '../workspaces'
-
-/** La línea que anuncia el arranque. El idioma no importa: la URL no se traduce. */
-const BOOT_URL = /http:\/\/127\.0\.0\.1:(\d+)\/\?boot=([A-Za-z0-9_-]+)/
 
 /** Los recursos del build, tal como los nombra el HTML. */
 const ASSET_REF = /(?:src|href)="(\/assets\/[^"]+)"/g
@@ -83,10 +83,15 @@ async function waitForBoot(log: string, timeoutMs: number): Promise<Booted> {
     const texto = await Bun.file(log)
       .text()
       .catch(() => '')
-    const match = BOOT_URL.exec(texto)
+    const boot = parseBootLine(texto)
 
-    if (match?.[1] !== undefined && match[2] !== undefined) {
-      return { port: Number(match[1]), token: match[2] }
+    // La línea legible por máquina y no la humana: la humana se traduce, y este
+    // smoke se rompería el día que exista el catálogo del idioma que falta. El
+    // formato vive en `@nn-anime/core`, con su análisis y sus pruebas.
+    if (boot !== undefined) {
+      const token = new URL(boot.url).searchParams.get(BOOT_PARAM)
+
+      if (token !== null && token !== '') return { port: boot.port, token }
     }
 
     await Bun.sleep(150)

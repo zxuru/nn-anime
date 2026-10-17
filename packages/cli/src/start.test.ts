@@ -3,7 +3,7 @@ import { createLogger, type LogEntry } from '@nn-anime/core'
 import { createSession } from '@nn-anime/server'
 import { parseArgs } from './args'
 import type { BootDeps, BootResult, Listen } from './boot'
-import { createLifecycle, type TerminatingSignal } from './lifecycle'
+import { type ClosingReason, createLifecycle } from './lifecycle'
 import { createStarter, type StartDeps } from './start'
 
 const BOOT_URL = 'http://127.0.0.1:7717/?boot=token-de-arranque'
@@ -22,7 +22,7 @@ interface Harness {
 }
 
 function harness(
-  outcome: { code?: number; signal?: TerminatingSignal; onError?: unknown } = {},
+  outcome: { code?: number; reason?: ClosingReason; onError?: unknown } = {},
   overrides: Partial<StartDeps> = {},
 ): Harness {
   const order: string[] = []
@@ -68,9 +68,9 @@ function harness(
         order.push('boot')
         return { code: outcome.code ?? 0, url: BOOT_URL, port: 7717 }
       },
-      waitForSignal: async (): Promise<TerminatingSignal> => {
-        order.push('señal')
-        return outcome.signal ?? 'SIGINT'
+      waitForClose: async (): Promise<ClosingReason> => {
+        order.push('cierre')
+        return outcome.reason ?? 'SIGINT'
       },
       // Al final: una sustitución de fuera gana sobre el comportamiento base.
       ...overrides,
@@ -79,22 +79,22 @@ function harness(
 }
 
 describe('orden del arranque', () => {
-  test('la espera de señal se registra antes de arrancar el servidor', async () => {
+  test('la espera del cierre se registra antes de arrancar el servidor', async () => {
     const target = harness()
 
     await createStarter(target.deps)(options())
 
     // Es la propiedad que protege del Ctrl+C en la ventana entre el arranque y
     // el registro del manejador. Con el orden inverso esto sería
-    // ['boot', 'señal'] y nadie se enteraría.
-    expect(target.order).toEqual(['señal', 'boot'])
+    // ['boot', 'cierre'] y nadie se enteraría.
+    expect(target.order).toEqual(['cierre', 'boot'])
   })
 
-  test('no espera ninguna señal si el arranque falla', async () => {
+  test('no espera ningún cierre si el arranque falla', async () => {
     const target = harness({ code: 3 })
 
     expect(await createStarter(target.deps)(options())).toBe(3)
-    expect(target.order).toEqual(['señal', 'boot'])
+    expect(target.order).toEqual(['cierre', 'boot'])
   })
 
   test('el código de salida de un arranque fallido es el del arranque', async () => {
@@ -113,18 +113,33 @@ describe('cierre', () => {
   })
 
   test('SIGTERM sale con 143', async () => {
-    const target = harness({ signal: 'SIGTERM' })
+    const target = harness({ reason: 'SIGTERM' })
 
     expect(await createStarter(target.deps)(options())).toBe(143)
   })
 
-  test('registra qué señal llegó', async () => {
-    const target = harness({ signal: 'SIGTERM' })
+  test('un cierre pedido por la entrada estándar sale con 0', async () => {
+    const target = harness({ reason: 'stdin' })
+
+    expect(await createStarter(target.deps)(options())).toBe(0)
+  })
+
+  test('registra qué lo cerró', async () => {
+    const target = harness({ reason: 'SIGTERM' })
 
     await createStarter(target.deps)(options())
 
     const closing = target.logged.find((entry) => entry.msg === 'cerrando')
-    expect(closing?.fields.signal).toBe('SIGTERM')
+    expect(closing?.fields.reason).toBe('SIGTERM')
+  })
+
+  test('un cierre por la entrada también queda registrado', async () => {
+    const target = harness({ reason: 'stdin' })
+
+    await createStarter(target.deps)(options())
+
+    const closing = target.logged.find((entry) => entry.msg === 'cerrando')
+    expect(closing?.fields.reason).toBe('stdin')
   })
 })
 

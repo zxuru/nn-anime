@@ -19,7 +19,7 @@ import type {
   OpenContainer,
   ReadSettings,
 } from './boot'
-import { type Lifecycle, signalExitCode, type TerminatingSignal } from './lifecycle'
+import { type ClosingReason, exitCodeFor, type Lifecycle } from './lifecycle'
 import type { CliIO } from './run'
 
 export interface StartDeps {
@@ -46,7 +46,11 @@ export interface StartDeps {
   readonly createLogger: (verbose: boolean) => Logger
   readonly createLifecycle: (onError: (error: unknown) => void) => Lifecycle
   readonly boot: (options: CliOptions, deps: BootDeps) => Promise<BootResult>
-  readonly waitForSignal: () => Promise<TerminatingSignal>
+  /**
+   * Espera a que alguien pida el cierre: una señal o la línea `shutdown` por la
+   * entrada estándar. En Windows lo segundo no es un adorno: no hay `SIGTERM`.
+   */
+  readonly waitForClose: () => Promise<ClosingReason>
 }
 
 export function createStarter(deps: StartDeps): (options: CliOptions) => Promise<number> {
@@ -60,7 +64,7 @@ export function createStarter(deps: StartDeps): (options: CliOptions) => Promise
     // La espera se registra antes de arrancar nada. Registrarla después deja una
     // ventana en la que un Ctrl+C usa la acción por defecto y se salta el cierre
     // ordenado: hoy no habría daño, pero en T29 dejaría un mpv vivo.
-    const signal = deps.waitForSignal()
+    const closing = deps.waitForClose()
 
     const result = await deps.boot(options, {
       io: deps.io,
@@ -90,10 +94,10 @@ export function createStarter(deps: StartDeps): (options: CliOptions) => Promise
     // Se registra el puerto, nunca la URL: lleva el token de arranque.
     logger.info('servidor en marcha', { port: result.port })
 
-    const received = await signal
-    logger.info('cerrando', { signal: received })
+    const received = await closing
+    logger.info('cerrando', { reason: received })
     await lifecycle.shutdown()
 
-    return signalExitCode(received)
+    return exitCodeFor(received)
   }
 }
