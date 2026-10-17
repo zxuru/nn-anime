@@ -12,8 +12,6 @@ export const messages: Messages = {
 
   'nav.home': 'Inicio',
   'nav.search': 'Buscar',
-  // La otra búsqueda: la que pregunta a AniList y se escribe con `#` para los géneros.
-  'nav.anilist': 'Catálogo',
   'nav.settings': 'Ajustes',
 
   // Lo que va en el título de la pestaña mientras no hay dato que poner.
@@ -117,33 +115,6 @@ export const messages: Messages = {
   'search.catalogue.count': '{count} títulos en el catálogo.',
   'search.catalogue.countOne': '1 título en el catálogo.',
   'search.catalogue.empty': 'Nada en el catálogo coincide con «{query}».',
-
-  /*
-   * La búsqueda del catálogo: una casilla contra AniList. El texto lleva el título y los
-   * géneros con `#`, así que el aviso de cómo se escribe es parte de la pantalla y no una
-   * ayuda escondida.
-   */
-  'anilist.title': 'Catálogo de AniList',
-  'anilist.description':
-    'Explora anime por título o género. Abre una serie que ya esté en tus fuentes o busca el resto para encontrar dónde verla.',
-  'anilist.field': 'Buscar en el catálogo',
-  'anilist.placeholder': 'frieren #fantasy',
-  'anilist.hint':
-    'Escribe un título, o géneros con `#`: `#slice-of-life`, `#sci-fi`. Un género de dos palabras se escribe con guion.',
-  'anilist.loading': 'Buscando en el catálogo…',
-  'anilist.count': '{count} títulos',
-  'anilist.total': '≈ {total} títulos en total',
-  'anilist.empty': 'Nada en el catálogo coincide con «{query}».',
-  'anilist.unknown': 'Géneros ignorados, porque AniList no los tiene: {genres}.',
-  'anilist.retry': 'Reintentar',
-  'anilist.more': 'Ver más',
-  'anilist.failed': 'No se pudo buscar en el catálogo.',
-  'anilist.failed.network': 'No se pudo llegar al catálogo. Comprueba la conexión.',
-  'anilist.failed.timeout': 'El catálogo tardó demasiado en contestar.',
-  'anilist.failed.throttled':
-    'AniList está limitando las peticiones. Se puede volver a intentar en {wait} segundos.',
-  'anilist.failed.server': 'El catálogo contestó con un error ({status}).',
-  'anilist.failed.shape': 'El catálogo contestó algo que no se entiende.',
 
   'home.loading': 'Cargando tu inicio…',
   'home.refreshing': 'Actualizando…',

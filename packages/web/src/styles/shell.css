@@ -345,48 +345,6 @@
   letter-spacing: var(--tracking-label);
 }
 
-/* La búsqueda de AniList es una pantalla de lectura, no un tramo de la vitrina.
-   Su propia caja evita que la canaleta y las columnas de la home compriman el texto. */
-.anilist-page {
-  display: grid;
-  gap: var(--space-3);
-  width: min(100%, var(--measure));
-  margin-inline: auto;
-}
-
-.anilist-page h1 {
-  margin-block-end: 0;
-}
-
-.anilist-page__description {
-  max-width: var(--measure);
-  margin: 0 0 var(--space-2);
-  color: var(--color-text-dim);
-  font-size: var(--text-md);
-  line-height: var(--leading-normal);
-}
-
-.search__field.anilist-page__field {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-}
-
-.search__status.anilist-page__status {
-  min-height: 0;
-  margin: 0;
-}
-
-.mosaico.anilist-page__mosaic {
-  grid-template-columns: repeat(auto-fill, minmax(var(--grid-min), 1fr));
-}
-
-.empty.anilist-page__empty,
-.search__error.anilist-page__error {
-  max-width: var(--measure);
-  margin: 0;
-}
-
 .search__field {
   display: flex;
   flex-direction: column;

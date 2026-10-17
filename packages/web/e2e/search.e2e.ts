@@ -11,34 +11,6 @@ import { entrar, esperarApp } from './fixtures'
  */
 
 test.describe('la búsqueda', () => {
-  test('el catálogo de AniList se explica y mantiene ancho de lectura en escritorio y móvil', async ({
-    page,
-  }) => {
-    await entrar(page)
-    await esperarApp(page)
-    await page.goto('/anilist')
-
-    const catalogo = page.locator('.anilist-page')
-    const descripcion = page.getByText('Explora anime por título o género.')
-    const campo = page.getByLabel('Buscar en el catálogo')
-
-    await expect(catalogo).toBeVisible()
-    await expect(descripcion).toBeVisible()
-    await expect(campo).toBeVisible()
-
-    const escritorio = await catalogo.boundingBox()
-    expect(escritorio).not.toBeNull()
-    expect(escritorio?.width).toBeGreaterThan(500)
-    await page.screenshot({ path: '.tmp/anilist-desktop.png', fullPage: true })
-
-    await page.setViewportSize({ width: 390, height: 844 })
-    const movil = await catalogo.boundingBox()
-    expect(movil).not.toBeNull()
-    expect(movil?.width).toBeGreaterThan(340)
-    await expect(campo).toBeVisible()
-    await page.screenshot({ path: '.tmp/anilist-mobile.png', fullPage: true })
-  })
-
   test('buscar muestra resultados del fixture', async ({ page }) => {
     await entrar(page)
     await esperarApp(page)
