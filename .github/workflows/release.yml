@@ -300,9 +300,13 @@ jobs:
       # instalador que nadie ha ejecutado.
       - name: Comprobar el subsistema de los ejecutables (Windows)
         if: runner.os == 'Windows'
+        # `shell: pwsh` y barras normales por el mismo motivo que en `ci.yml`:
+        # sin declarar el intérprete, actionlint analiza el paso como `bash` y
+        # `build\package\…` pierde las barras.
+        shell: pwsh
         run: |
-          bun run scripts/package/pe.ts build\package\windows-x64\nn-anime.exe console
-          bun run scripts/package/pe.ts build\package\windows-x64\nn-anime-desktop.exe windows
+          bun run scripts/package/pe.ts build/package/windows-x64/nn-anime.exe console
+          bun run scripts/package/pe.ts build/package/windows-x64/nn-anime-desktop.exe windows
 
       - name: Probar el instalador (Windows)
         if: runner.os == 'Windows'

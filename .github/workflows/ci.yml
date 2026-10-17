@@ -216,9 +216,14 @@ jobs:
       # consola es el anfitrión, y al lanzarlo usa `CREATE_NO_WINDOW`.
       - name: Comprobar el subsistema de los ejecutables (Windows)
         if: runner.os == 'Windows'
+        # `shell: pwsh` explícito, y las rutas con **barras normales**: el paso sólo
+        # corre en Windows, pero sin declarar el intérprete actionlint lo analiza
+        # como `bash`, donde `build\package\…` se come las barras y queda
+        # `buildpackage…`. Con barras normales el comando vale en los dos.
+        shell: pwsh
         run: |
-          bun run scripts/package/pe.ts build\package\windows-x64\nn-anime.exe console
-          bun run scripts/package/pe.ts build\package\windows-x64\nn-anime-desktop.exe windows
+          bun run scripts/package/pe.ts build/package/windows-x64/nn-anime.exe console
+          bun run scripts/package/pe.ts build/package/windows-x64/nn-anime-desktop.exe windows
 
       # Ejecutar el instalador de verdad, que es lo que `docs/release.md` declaraba
       # sin probar. Va **después** de dejar los artefactos subidos: si falla, se
