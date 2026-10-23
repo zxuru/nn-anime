@@ -15,40 +15,91 @@
 
 use std::process::{Command, Stdio};
 
+/// La línea de `start` de Windows para una dirección.
+///
+/// `start` es un comando del intérprete, y eso tiene dos consecuencias que se ven
+/// en los argumentos:
+///
+/// - el **primer** argumento que no es una opción es el *título* de la ventana, así
+///   que sin el hueco vacío intermedio `start` se come la dirección como si fuera el
+///   título y no abre nada;
+/// - `cmd` trata `&`, `|`, `^`, `<` y `>` como **separadores de comando**, así que
+///   una dirección con `&` —`?a=1&b=2`, que un proveedor puede poner en un enlace—
+///   partiría la línea y ejecutaría lo que viniera detrás. Entre comillas es un
+///   carácter más de la dirección, y por eso va entrecomillada.
+///
+/// Es una función pura y por eso se puede probar: la prueba no puede abrir un
+/// navegador, pero sí comprobar **exactamente** lo que se le pasa al intérprete.
+fn windows_args(url: &str) -> Vec<String> {
+    vec![
+        "/C".to_string(),
+        "start".to_string(),
+        String::new(),
+        format!("\"{url}\""),
+    ]
+}
+
 pub fn open(url: &str) -> std::io::Result<()> {
-    // En Windows, `start` es un comando del intérprete, y el primer argumento
-    // entrecomillado es el **título** de la ventana: sin el `""`, `start` se come
-    // la dirección como si fuera el título y no abre nada.
-    let (programa, argumentos): (&str, &[&str]) = if cfg!(target_os = "windows") {
-        ("cmd", &["/C", "start", "", url])
+    // Una dirección que no se puede entrecomillar no se lanza: en Windows acabaría
+    // dentro de una línea de comandos. La que llega viene de `Url::parse` en
+    // `on_navigation`, así que sus comillas y saltos de línea vienen
+    // percent-codificados; esto es la red por si algún día llega por otro camino.
+    if url.contains('"') || url.contains('\n') || url.contains('\r') || url.contains('\0') {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "la dirección lleva caracteres que no se pueden pasar al abridor",
+        ));
+    }
+
+    let (program, args): (&str, Vec<String>) = if cfg!(target_os = "windows") {
+        ("cmd", windows_args(url))
     } else if cfg!(target_os = "macos") {
-        ("open", &[url])
+        ("open", vec![url.to_string()])
     } else {
-        ("xdg-open", &[url])
+        ("xdg-open", vec![url.to_string()])
     };
 
-    Command::new(programa)
-        .args(argumentos)
+    Command::new(program)
+        .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .spawn()
-        .map(|_hijo| ())
+        .spawn()?;
+
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    /// El `""` de Windows no es decorativo: `start` interpreta el primer
-    /// argumento como el título de la ventana, así que sin él la dirección se
-    /// pierde y el enlace no abre. Se fija aquí porque no hay forma de probar el
-    /// abridor de verdad sin abrir un navegador.
-    #[test]
-    fn la_linea_de_windows_lleva_el_titulo_vacio() {
-        let argumentos: &[&str] = &["/C", "start", "", "https://example.org"];
+    use super::*;
 
-        assert_eq!(argumentos[0], "/C");
-        assert_eq!(argumentos[1], "start");
-        assert_eq!(argumentos[2], "");
-        assert_eq!(argumentos[3], "https://example.org");
+    #[test]
+    fn windows_puts_an_empty_title_before_the_url() {
+        let args = windows_args("https://example.org");
+
+        assert_eq!(args[0], "/C");
+        assert_eq!(args[1], "start");
+        // Sin este hueco, `start` interpreta la dirección como el título de la
+        // ventana y no abre nada.
+        assert_eq!(args[2], "");
+    }
+
+    #[test]
+    fn windows_quotes_the_url_so_its_metacharacters_do_not_split_the_command() {
+        // El caso que importa: sin comillas, `&` parte la línea de `cmd` y lo que
+        // venga detrás se ejecuta. La prueba mira el argumento **de verdad**, el que
+        // construye el código, y no una copia del literal.
+        let args = windows_args("https://example.org/?a=1&b=2");
+
+        assert_eq!(args[3], "\"https://example.org/?a=1&b=2\"");
+        assert!(args[3].starts_with('"') && args[3].ends_with('"'));
+    }
+
+    #[test]
+    fn a_url_that_cannot_be_quoted_is_not_launched() {
+        // Devuelve `Err` antes de lanzar nada, así que la prueba no abre un
+        // navegador ni ejecuta un comando.
+        assert!(open("https://example.org/\"raro").is_err());
+        assert!(open("https://example.org/\ninject").is_err());
     }
 }
