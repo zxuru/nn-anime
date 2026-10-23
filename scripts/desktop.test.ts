@@ -210,9 +210,18 @@ describe('el anfitrión de ventana', () => {
     const main = await leer(join(CRATE, 'src', 'main.rs'))
     const aviso = await leer(join(ROOT, 'desktop', 'stub', 'index.html'))
 
-    expect(main).toContain('avisar_fallo')
-    // La página de dentro, no una URL: cuando el servidor no arranca no hay a quién
-    // pedirle nada.
+    // Se cuentan las **llamadas**, no la definición: `toContain('avisar_fallo')` lo
+    // satisface la propia `fn avisar_fallo`, así que borrar las dos llamadas —o sea,
+    // el comportamiento— dejaba esta prueba en verde. Lo encontró la revisión, y es
+    // la misma clase de prueba vacua que este archivo persigue en los demás.
+    //
+    // `\s*` y no un espacio literal porque `rustfmt` parte la llamada larga en varias
+    // líneas; con el espacio fijo, la prueba fallaba por su propia expresión regular.
+    const llamadas = main.match(/avisar_fallo\(\s*&handle/g) ?? []
+
+    expect(llamadas.length).toBeGreaterThanOrEqual(2)
+    // Y la página de dentro, no una URL: cuando el servidor no arranca no hay a quién
+    // pedirle nada. Esto vive en la definición, que es donde se construye la ventana.
     expect(main).toContain('WebviewUrl::App')
     // Y la página tiene que decir **dónde mirar**: es lo único que ve quien se topa
     // con ella.
@@ -237,6 +246,155 @@ describe('el anfitrión de ventana', () => {
     // tiene que enfocar la ventana que ya está.
     expect(manifiesto).toContain('tauri-plugin-single-instance')
     expect(main).toContain('tauri_plugin_single_instance::init')
+  })
+
+  test('el icono de la bandeja se crea y su menú tiene tres opciones', async () => {
+    const manifiesto = await leer(MANIFEST)
+    const main = await leer(join(CRATE, 'src', 'main.rs'))
+    const tray = await leer(join(CRATE, 'src', 'tray.rs'))
+
+    // Sin `tray-icon` el módulo ni siquiera compila; sin `image-png` no se puede
+    // meter el icono dentro del binario y habría que leerlo del disco, donde no
+    // está en la máquina de quien instaló el programa.
+    expect(manifiesto).toContain('"tray-icon"')
+    expect(manifiesto).toContain('"image-png"')
+    expect(main).toContain('mod tray;')
+
+    // El icono viaja dentro del ejecutable, y el archivo del que sale existe.
+    expect(tray).toContain('include_bytes!')
+    expect(await Bun.file(join(ROOT, 'packaging', 'icons', 'icon-32.png')).exists()).toBe(true)
+
+    // Tres opciones y ni una más: el menú de la bandeja se lee de un vistazo o
+    // deja de usarse. Se comparan los ids en orden, que es el orden del menú.
+    const opciones = [...tray.matchAll(/MenuItem::with_id\(app, ID_([A-Z]+)/g)].map(
+      (coincidencia) => coincidencia[1],
+    )
+
+    expect(opciones).toEqual(['ABRIR', 'ALTERNAR', 'SALIR'])
+  })
+
+  test('cerrar la ventana la oculta, y sólo «Salir» termina la aplicación', async () => {
+    const main = await leer(join(CRATE, 'src', 'main.rs'))
+    const tray = await leer(join(CRATE, 'src', 'tray.rs'))
+
+    // La X no puede llevarse el proceso: con la ventana oculta, el icono es la
+    // única forma de volver a ella. `prevent_close` es lo que la convierte en
+    // «ocultar» en vez de «cerrar».
+    expect(main).toContain('api.prevent_close()')
+    expect(main).toContain('ventana.hide()')
+
+    // Y la única salida se lleva el icono antes de terminar: si se quedara, el
+    // menú seguiría vivo un instante sobre una aplicación que ya no está.
+    expect(tray).toContain('remove_tray_by_id')
+    expect(tray).toContain('app.exit(0)')
+  })
+
+  test('el registro dice qué ruta falló y por qué', async () => {
+    const main = await leer(join(CRATE, 'src', 'main.rs'))
+    const sidecar = await leer(join(CRATE, 'src', 'sidecar.rs'))
+
+    // Un registro que se elige en silencio deja el fallo sin evidencia: si cae al
+    // lado del ejecutable en vez de en la caché, el archivo tiene que decir cuál
+    // se intentó primero y qué error lo impidió. Antes se tiraba el error y sólo
+    // quedaba «está aquí», que es justo el dato que no sirve.
+    expect(sidecar).toContain('intentos_de_registro')
+    expect(sidecar).toContain('no se pudo crear el directorio')
+    expect(sidecar).toContain('no se pudo abrir')
+    expect(main).toContain('sidecar::intentos_de_registro()')
+
+    // Y el perfil del navegador interno vive con los datos: se le pasa a la
+    // ventana con `data_directory`, así que borrar la carpeta de la aplicación se
+    // lleva también el webview.
+    expect(main).toContain('data_directory')
+    expect(main).toContain('webview()')
+  })
+
+  test('el servidor nombra la base y los directorios que no pudo preparar', async () => {
+    const config = await leer(join(ROOT, 'packages', 'core', 'src', 'config.ts'))
+    const boot = await leer(join(ROOT, 'packages', 'cli', 'src', 'boot.ts'))
+    const index = await leer(join(ROOT, 'packages', 'cli', 'src', 'index.ts'))
+
+    // La ruta absoluta y el error, juntos: `unable to open database file` sin
+    // ruta no distingue un directorio que falta de uno sin permisos. Se comprueba
+    // que el mensaje acumula los fallos en vez de parar en el primero.
+    expect(config).toContain('no se pudieron preparar directorios')
+    expect(config).toContain('fallos.push')
+    expect(index).toContain('path: config.dbPath')
+    expect(boot).toContain('cli.migration.failedPath')
+    expect(boot).toContain('cli.dirs.failed')
+  })
+
+  test('el anfitrión detecta la etiqueta Low y lo dice con un diálogo nativo', async () => {
+    const entorno = await leer(join(CRATE, 'src', 'entorno.rs'))
+    const main = await leer(join(CRATE, 'src', 'main.rs'))
+
+    // Un ejecutable con etiqueta `Low` no puede escribir en el perfil ni crear el
+    // perfil de WebView2, y el anfitrión no tiene consola: sin esto el fallo se
+    // queda en silencio. Se registra el nivel y el usuario, y se avisa con
+    // `MessageBoxW`, que no depende de archivos ni del webview.
+    expect(entorno).toContain('TokenIntegrityLevel')
+    expect(entorno).toContain('LookupAccountSidW')
+    expect(entorno).toContain('MessageBoxW')
+    expect(entorno).toContain('integridad baja')
+    expect(main).toContain('entorno::comprobar()')
+
+    // Y el aviso de fallo también cae al diálogo nativo: la ventana puede no
+    // existir justo cuando hace falta avisar.
+    expect(main).toContain('entorno::aviso_nativo')
+  })
+
+  test('los datos van al perfil del usuario, con respaldo y modo portable explícito', async () => {
+    const entorno = await leer(join(CRATE, 'src', 'entorno.rs'))
+
+    // `%LOCALAPPDATA%\nn-anime` primero: los datos sobreviven a borrar el `.exe` y
+    // no ensucian la carpeta donde se copió.
+    expect(entorno).toContain('LOCALAPPDATA')
+    expect(entorno).toContain('join("nn-anime")')
+    expect(entorno).toContain('NN_ANIME_DATA_DIR')
+    expect(entorno).toContain('NN_ANIME_CONFIG_DIR')
+    expect(entorno).toContain('NN_ANIME_CACHE_DIR')
+
+    // El portable es **explícito**: un archivo, no la presencia de una carpeta que
+    // podría crear cualquiera sin saber qué hace.
+    expect(entorno).toContain('portable.txt')
+
+    // Y la prueba de escritura es de verdad, no una mirada a los permisos.
+    expect(entorno).toContain('probar_escritura')
+  })
+
+  test('el entregable es un solo archivo, con el servidor dentro', async () => {
+    const build = await leer(join(CRATE, 'build.rs'))
+    const embebido = await leer(join(CRATE, 'src', 'embebido.rs'))
+    const unico = await leer(join(ROOT, 'scripts', 'package', 'unico.ts'))
+
+    // El servidor viaja dentro del anfitrión: un `.exe` que se copia a cualquier
+    // carpeta sin llevar nada al lado. Es lo que quita el fallo más repetido de
+    // esta aplicación —dos archivos que se separan—.
+    expect(build).toContain('include_bytes!')
+    expect(build).toContain('Sha256')
+    expect(embebido).toContain('HASH_SERVIDOR')
+
+    // Se escribe en un temporal y se renombra: `rename` es atómico y nadie puede
+    // ver un `.exe` a medio escribir.
+    expect(embebido).toContain('exe.tmp')
+    expect(embebido).toContain('rename')
+
+    // Y el nombre que descarga un usuario.
+    expect(unico).toContain('windows-x64.exe')
+  })
+
+  test('el icono se crea antes de lanzar el servidor', async () => {
+    const main = await leer(join(CRATE, 'src', 'main.rs'))
+
+    // El orden es el arreglo, no un detalle: la ventana no existe hasta que el
+    // servidor anuncia su dirección, así que si el icono se creara después de
+    // lanzarlo, el hueco inicial volvería a parecer «no pasa nada».
+    const icono = main.indexOf('tray::crear')
+    const hilo = main.indexOf('std::thread::spawn')
+
+    expect(icono).toBeGreaterThan(-1)
+    expect(hilo).toBeGreaterThan(-1)
+    expect(icono).toBeLessThan(hilo)
   })
 
   test('el instalador de Windows lleva la ventana y el acceso la abre', async () => {

@@ -49,7 +49,18 @@ export type MigrationOutcome =
       /** Algo que contar tras migrar, como una limpieza que se hizo al pasar. */
       readonly note?: string
     }
-  | { readonly ok: false; readonly message: string }
+  | {
+      readonly ok: false
+      readonly message: string
+      /**
+       * Ruta absoluta de la base que no se pudo abrir, cuando el fallo es de ella.
+       *
+       * Existe para que el mensaje diga **dónde** falló y no sólo qué dijo SQLite:
+       * `unable to open database file` sin la ruta no permite distinguir un
+       * directorio que no existe de uno sin permisos.
+       */
+      readonly path?: string
+    }
 
 export type Migrate = (config: ConfigPaths) => Promise<MigrationOutcome>
 
@@ -294,7 +305,21 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     return { code: 1, url: undefined, port: undefined }
   }
 
-  await ensureDirs(config)
+  try {
+    await ensureDirs(config)
+  } catch (error) {
+    // Sin este `try`, un directorio que no se puede crear subía como rechazo sin
+    // manejar y el único rastro era un volcado. El mensaje ya trae cada ruta
+    // absoluta con su error, así que el registro del anfitrión lo dice entero.
+    io.err(
+      t(locale, 'cli.dirs.failed', {
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    )
+    io.err(t(locale, 'cli.migration.failedPath', { path: config.dbPath, message: '—' }))
+
+    return { code: 1, url: undefined, port: undefined }
+  }
 
   // Paso 2 del arranque del spec: cargar `config.json` si existe, con las
   // banderas ganando sobre el archivo. Un archivo ilegible o inválido es un
@@ -316,7 +341,14 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
   // de repositorios.
   const migration = await deps.migrate(config)
   if (!migration.ok) {
-    io.err(t(locale, 'cli.migration.failed', { message: migration.message }))
+    io.err(
+      migration.path === undefined
+        ? t(locale, 'cli.migration.failed', { message: migration.message })
+        : t(locale, 'cli.migration.failedPath', {
+            path: migration.path,
+            message: migration.message,
+          }),
+    )
     return { code: MIGRATION_FAILED, url: undefined, port: undefined }
   }
 

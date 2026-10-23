@@ -19,9 +19,9 @@
 
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::mpsc;
+use std::sync::{mpsc, OnceLock};
 use std::time::{Duration, Instant};
 
 use crate::boot_line::{self, BootLine, BootLineError};
@@ -125,30 +125,118 @@ impl Sidecar {
     }
 }
 
-/// La ruta del hermano: el mismo directorio que el anfitrión.
-pub fn sidecar_path() -> std::io::Result<PathBuf> {
-    let exe = std::env::current_exe()?;
-    let dir = exe.parent().ok_or_else(|| {
-        std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "el ejecutable del anfitrión no tiene directorio",
-        )
-    })?;
-
-    // El sufijo se ata a un local para poder interpolarlo: los argumentos
-    // implícitos de `format!` tienen que ser identificadores, y
-    // `std::env::consts::EXE_SUFFIX` es un camino.
+/// La ruta del servidor: `<raíz>\bin\<versión>\nn-anime.exe`.
+///
+/// Ya no es un hermano del ejecutable. El servidor viaja **dentro** del
+/// anfitrión y se extrae a la raíz de datos, que en el caso normal es
+/// `%LOCALAPPDATA%\nn-anime`. La versión va en la ruta para que una actualización
+/// no pise la anterior mientras todavía se está escribiendo.
+pub fn sidecar_path(raiz: &Path) -> PathBuf {
     let sufijo = std::env::consts::EXE_SUFFIX;
 
-    Ok(dir.join(format!("{SIDECAR_NAME}{sufijo}")))
+    raiz.join("bin")
+        .join(env!("CARGO_PKG_VERSION"))
+        .join(format!("{SIDECAR_NAME}{sufijo}"))
 }
 
 /// Dónde queda el registro del anfitrión.
+///
+/// Se prefiere el directorio de caché, que es el que documenta el README. Si ahí
+/// **no se puede escribir** —un perfil restringido, un disco lleno, una ruta que
+/// no se deja crear—, el registro cae al lado del ejecutable. Un registro en un
+/// sitio raro es infinitamente mejor que ninguno: en Windows el anfitrión no tiene
+/// consola, así que sin este archivo un fallo de arranque no deja **nada**.
+///
+/// La decisión se toma **una vez** y se recuerda, junto con el motivo de cada
+/// candidato descartado: quien lea el registro tiene que poder ver qué ruta se
+/// intentó, cuál es su ruta absoluta y **por qué** falló. Antes esto devolvía un
+/// `bool` y tiraba el error, que es justo el dato que hacía falta.
 pub fn log_path() -> PathBuf {
-    let dir = cache_dir_from(|nombre| std::env::var(nombre).ok());
-    let _ = fs::create_dir_all(&dir);
+    registro().ruta.clone()
+}
 
-    dir.join("desktop.log")
+/// Las líneas que explican dónde acabó el registro y qué pasó con las demás rutas.
+pub fn intentos_de_registro() -> &'static [String] {
+    &registro().intentos
+}
+
+struct Registro {
+    ruta: PathBuf,
+    intentos: Vec<String>,
+}
+
+static REGISTRO: OnceLock<Registro> = OnceLock::new();
+
+fn registro() -> &'static Registro {
+    REGISTRO.get_or_init(elegir_registro)
+}
+
+fn elegir_registro() -> Registro {
+    let preferido = cache_dir_from(|nombre| std::env::var(nombre).ok()).join("desktop.log");
+    let mut candidatos = vec![preferido.clone()];
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            candidatos.push(dir.join("desktop.log"));
+        }
+    }
+
+    let mut intentos = Vec::new();
+
+    for candidato in &candidatos {
+        match preparar(candidato) {
+            Ok(()) => {
+                intentos.push(format!(
+                    "registro: {} -> se puede escribir",
+                    candidato.display()
+                ));
+
+                return Registro {
+                    ruta: candidato.clone(),
+                    intentos,
+                };
+            }
+            Err(error) => intentos.push(format!(
+                "registro: {} -> NO se puede escribir: {error}",
+                candidato.display()
+            )),
+        }
+    }
+
+    // Ninguno se pudo abrir. Se devuelve el preferido igualmente: quien intente
+    // escribir contará el error, y el resumen de arriba ya dice por qué.
+    Registro {
+        ruta: preferido,
+        intentos,
+    }
+}
+
+/// Deja la ruta lista para añadir: crea el directorio y prueba abrir el archivo.
+///
+/// Se prueba abriéndolo y no mirando permisos: es la única comprobación que dice
+/// la verdad en las tres plataformas. El error se devuelve **con la ruta dentro**,
+/// porque un `EACCES` suelto no dice si falló el directorio o el archivo.
+fn preparar(ruta: &Path) -> std::io::Result<()> {
+    if let Some(dir) = ruta.parent() {
+        fs::create_dir_all(dir).map_err(|error| {
+            std::io::Error::new(
+                error.kind(),
+                format!("no se pudo crear el directorio {}: {error}", dir.display()),
+            )
+        })?;
+    }
+
+    OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(ruta)
+        .map(|_| ())
+        .map_err(|error| {
+            std::io::Error::new(
+                error.kind(),
+                format!("no se pudo abrir {}: {error}", ruta.display()),
+            )
+        })
 }
 
 /// El directorio de caché de la aplicación, con la misma precedencia que
@@ -189,15 +277,14 @@ pub fn cache_dir_from(env: impl Fn(&str) -> Option<String>) -> PathBuf {
     std::env::temp_dir().join("nn-anime")
 }
 
-/// Lanza el hermano, espera su línea de arranque y se queda con él.
-pub fn start() -> Result<Sidecar, SidecarError> {
-    let ruta = sidecar_path().map_err(|error| SidecarError::Missing(error.to_string()))?;
-
+/// Lanza el servidor de la ruta indicada, espera su línea de arranque y se queda
+/// con él. La ruta la resuelve `embebido`, que es quien lo extrae y lo verifica.
+pub fn start(ruta: &Path) -> Result<Sidecar, SidecarError> {
     if !ruta.exists() {
         return Err(SidecarError::Missing(ruta.display().to_string()));
     }
 
-    let mut command = Command::new(&ruta);
+    let mut command = Command::new(ruta);
     command
         .arg("--no-open")
         // La entrada se abre porque es por donde se le pide el cierre.
@@ -326,7 +413,7 @@ fn esperar(child: &mut Child, plazo: Duration) -> bool {
 mod tests {
     use super::*;
 
-    fn entorno(pares: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> + '_ {
+    fn entorno<'a>(pares: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
         move |nombre| {
             pares
                 .iter()

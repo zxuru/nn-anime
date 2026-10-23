@@ -223,7 +223,9 @@ export function loadConfig(options: LoadConfigOptions = {}): ConfigPaths {
  * `mkdir` no toca el modo de un directorio que ya existe, así que el modo se
  * aplica con `chmod` después. Si no se puede cerrar un directorio que estaba
  * más abierto, esto falla en lugar de seguir: la aplicación no arranca con los
- * datos a la vista de otros usuarios.
+ * datos a la vista de otros usuarios. **Eso vale en POSIX**, donde el modo es la
+ * garantía; en Windows el `chmod` sólo toca el bit de sólo lectura y un fallo
+ * ahí no se propaga (ver el `catch` de abajo).
  *
  * El `0700` es una garantía POSIX. En Windows los permisos son ACLs y `chmod`
  * sólo toca el bit de sólo lectura, así que ahí lo que se asegura es que el
@@ -233,9 +235,35 @@ export function loadConfig(options: LoadConfigOptions = {}): ConfigPaths {
 export async function ensureDirs(config: ConfigPaths): Promise<readonly string[]> {
   const dirs = [config.dataDir, config.configDir, config.cacheDir, config.providersDir]
 
+  const fallos: string[] = []
+
   for (const dir of dirs) {
-    await mkdir(dir, { recursive: true, mode: 0o700 })
-    await chmod(dir, 0o700)
+    try {
+      await mkdir(dir, { recursive: true, mode: 0o700 })
+
+      try {
+        await chmod(dir, 0o700)
+      } catch (error) {
+        // En Windows `chmod` no son permisos: sólo toca el bit de sólo lectura, y
+        // quién puede entrar lo decide la ACL que el directorio hereda de
+        // `%LOCALAPPDATA%`, que ya es del usuario. Abortar aquí no protege nada y
+        // deja la aplicación sin arrancar en cuanto el proceso no puede cambiar
+        // atributos —un perfil restringido, una carpeta administrada, un contenedor—.
+        // En POSIX sí se aborta: ahí el `0700` **es** la garantía de que nadie más
+        // entra, y seguir con los datos a la vista sería peor que no arrancar.
+        if (process.platform !== 'win32') throw error
+      }
+    } catch (error) {
+      // Se sigue con los demás para poder decir **todas** las rutas que fallaron,
+      // con su ruta absoluta y su error concreto. Quedarse en la primera obliga a
+      // arreglar, reintentar y descubrir la siguiente, y en el registro del
+      // anfitrión —que es donde acaba esto— no hay consola donde preguntar.
+      fallos.push(`${dir}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  if (fallos.length > 0) {
+    throw new Error(`no se pudieron preparar directorios:\n  ${fallos.join('\n  ')}`)
   }
 
   return dirs

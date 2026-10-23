@@ -18,10 +18,14 @@
 
 mod boot_line;
 mod browser;
+mod embebido;
+mod entorno;
 mod guards;
 mod sidecar;
+mod tray;
 
 use std::io::Write;
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
@@ -44,7 +48,73 @@ struct Estado {
     sidecar: Mutex<Option<sidecar::Sidecar>>,
 }
 
+/// Lo que se puede pedir por línea de comandos.
+///
+/// Son dos banderas y ninguna más: todo lo demás vive en la ventana y en el menú
+/// de la bandeja, que es donde se busca.
+struct Opciones {
+    /// `--diagnostico`: escribe rutas, versión, integridad y estado del servidor
+    /// incrustado, y sale sin abrir ventana. Sustituye al viejo `DIAGNOSTICO.cmd`.
+    diagnostico: bool,
+    /// `--navegador`: abre la interfaz en el navegador del sistema en vez de en la
+    /// ventana. Sustituye al viejo `ARRANCAR-EN-NAVEGADOR.cmd`.
+    navegador: bool,
+}
+
+impl Opciones {
+    fn leer() -> Self {
+        let args: Vec<String> = std::env::args().skip(1).collect();
+
+        Self {
+            diagnostico: args.iter().any(|arg| arg == "--diagnostico"),
+            navegador: args.iter().any(|arg| arg == "--navegador"),
+        }
+    }
+}
+
 fn main() {
+    // Lo primero: dónde viven los datos. La comprobación es una escritura real y
+    // se hace una sola vez; de ahí sale también el perfil de WebView2, para que
+    // nada quede fuera de la carpeta de la aplicación.
+    let raiz = entorno::preparar_raiz();
+
+    // Primera línea, antes de tocar Tauri: si el proceso llega a ejecutarse, esto
+    // queda escrito. Si el archivo no aparece, entonces el que no arrancó es el
+    // proceso —bloqueado, o no era éste el que se abrió— y no la aplicación.
+    //
+    // Y antes, el motivo de cada ruta de registro que se descartó: si el archivo
+    // acabó al lado del ejecutable en vez de en el perfil, aquí está por qué.
+    for intento in sidecar::intentos_de_registro() {
+        registrar(intento);
+    }
+
+    registrar(&format!(
+        "arrancando nn-anime {}; registro en {}",
+        embebido::VERSION,
+        sidecar::log_path().display()
+    ));
+
+    registrar(&format!(
+        "datos en {} ({})",
+        raiz.ruta.display(),
+        if raiz.portable {
+            "portable"
+        } else {
+            "perfil del usuario"
+        }
+    ));
+
+    // El nivel de integridad y el usuario, siempre en el registro. Con etiqueta
+    // `Low` el perfil no se deja escribir y el respaldo es lo que mantiene la
+    // aplicación en pie; saber en qué nivel corre ahorra horas de diagnóstico.
+    entorno::comprobar();
+
+    let opciones = Opciones::leer();
+
+    if opciones.diagnostico {
+        diagnostico(&raiz);
+    }
+
     let app = tauri::Builder::default()
         // El primero que se registra, y tiene que ser así: el plugin decide si
         // este proceso es el dueño de la aplicación **antes** de que se cree
@@ -57,8 +127,34 @@ fn main() {
                 let _ = ventana.show();
                 let _ = ventana.set_focus();
             }
+
+            // Un segundo lanzamiento también deja la ventana visible, así que el
+            // menú tiene que volver a decir «Ocultar».
+            tray::actualizar(app);
         }))
-        .setup(|app| {
+        // La X **oculta**, no cierra. Sin esto, cerrar la única ventana termina el
+        // proceso y se lleva el servidor por delante: quien cierra espera seguir
+        // teniéndolo en la bandeja, no apagar la aplicación sin querer.
+        //
+        // La excepción es el aviso de fallo: si el servidor no llegó a arrancar no
+        // hay nada que conservar, así que ahí la X sí termina. Se distingue por el
+        // estado, que sólo existe cuando el hermano está vivo.
+        .on_window_event(|ventana, evento| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = evento {
+                if ventana.app_handle().try_state::<Estado>().is_some() {
+                    api.prevent_close();
+                    let _ = ventana.hide();
+                    tray::actualizar(ventana.app_handle());
+                }
+            }
+        })
+        .setup(move |app| {
+            // El icono **antes** que nada, y no después de la ventana: mientras el
+            // servidor arranca no hay ventana, y hasta que exista el icono no hay
+            // ninguna señal de que la aplicación esté viva. Si se creara junto a la
+            // ventana, el hueco seguiría pareciendo «no pasa nada».
+            tray::crear(app.handle())?;
+
             let handle = app.handle().clone();
 
             // En un hilo propio: esperar hasta 30 s a que el servidor anuncie su
@@ -73,7 +169,7 @@ fn main() {
             // aparcamiento lo mantiene vivo hasta que termina el proceso, que es
             // justo lo que el seguro quiere decir.
             std::thread::spawn(move || {
-                arrancar(handle);
+                arrancar(handle, raiz, opciones.navegador);
                 std::thread::park();
             });
 
@@ -94,12 +190,32 @@ fn main() {
     });
 }
 
-/// Lanza el hermano, lee su dirección y abre la ventana en ella.
-fn arrancar(handle: AppHandle) {
-    let servidor = match sidecar::start() {
-        Ok(servidor) => servidor,
+/// Extrae el servidor, lo lanza, lee su dirección y abre la ventana —o el
+/// navegador, con `--navegador`.
+fn arrancar(handle: AppHandle, raiz: entorno::Raiz, navegador: bool) {
+    let ruta = match embebido::preparar(&raiz.ruta) {
+        Ok(ruta) => ruta,
         Err(error) => {
-            avisar_fallo(&handle, &format!("{error}"));
+            avisar_fallo(
+                &handle,
+                &raiz,
+                &format!(
+                    "no se pudo extraer el servidor en {}: {error}",
+                    raiz.ruta.display()
+                ),
+            );
+            return;
+        }
+    };
+
+    registrar(&format!("servidor extraído en {}", ruta.display()));
+
+    let servidor = match sidecar::start(&ruta) {
+        Ok(servidor) => servidor,
+        // Con `avisar_fallo` y no sólo con `registrar`: este es el fallo **habitual**
+        // y sin la ventana el anfitrión se queda vivo, sin interfaz y sin mensaje.
+        Err(error) => {
+            avisar_fallo(&handle, &raiz, &format!("{error}"));
             return;
         }
     };
@@ -114,6 +230,7 @@ fn arrancar(handle: AppHandle) {
             servidor.shutdown();
             avisar_fallo(
                 &handle,
+                &raiz,
                 &format!("la dirección del servidor no es válida: {error}"),
             );
             return;
@@ -127,9 +244,38 @@ fn arrancar(handle: AppHandle) {
     registrar(&format!("el servidor escucha en el puerto {puerto}"));
 
     let para_la_ventana = handle.clone();
+    let perfil = raiz.webview();
     let resultado = handle.run_on_main_thread(move || {
-        if let Err(error) = abrir_ventana(&para_la_ventana, url) {
-            registrar(&format!("no se pudo abrir la ventana: {error}"));
+        // `--navegador`: la misma aplicación, en el navegador de siempre. Sirve
+        // para sesiones donde no hay escritorio interactivo; el icono de la
+        // bandeja sigue y «Salir» termina.
+        if navegador {
+            match browser::open(url.as_str()) {
+                Ok(()) => registrar("interfaz abierta en el navegador"),
+                Err(error) => registrar(&format!("no se pudo abrir el navegador: {error}")),
+            }
+
+            tray::actualizar(&para_la_ventana);
+
+            return;
+        }
+
+        if let Err(error) = abrir_ventana(&para_la_ventana, url, perfil.clone()) {
+            registrar(&format!(
+                "no se pudo abrir la ventana: {error} (perfil de WebView2: {})",
+                perfil.display()
+            ));
+
+            entorno::aviso_nativo(
+                "nn-anime",
+                &format!(
+                    "El servidor arrancó, pero no se pudo abrir la ventana.\n\n{error}\n\n\
+                     Prueba con --navegador para usarla en el navegador.\n\n\
+                     El registro está en:\n{}",
+                    sidecar::log_path().display()
+                ),
+            );
+
             cerrar_servidor(&para_la_ventana);
             para_la_ventana.exit(1);
         }
@@ -154,10 +300,11 @@ fn arrancar(handle: AppHandle) {
 /// nada, así que no hay sesión, ni guards, ni token de por medio.
 ///
 /// El motivo completo queda además en el registro, que es donde se diagnostica.
-fn avisar_fallo(handle: &AppHandle, motivo: &str) {
+fn avisar_fallo(handle: &AppHandle, raiz: &entorno::Raiz, motivo: &str) {
     registrar(motivo);
 
     let para_la_ventana = handle.clone();
+    let perfil = raiz.webview();
     let resultado = handle.run_on_main_thread(move || {
         // La misma ventana que abre el camino bueno, con la página de dentro en vez
         // de la dirección del servidor.
@@ -168,14 +315,34 @@ fn avisar_fallo(handle: &AppHandle, motivo: &str) {
         )
         .title(TITULO)
         .inner_size(ANCHO, ALTO)
+        .data_directory(perfil.clone())
         .build();
 
         if let Err(error) = aviso {
             registrar(&format!(
-                "ni siquiera se pudo abrir el aviso del fallo: {error}"
+                "ni siquiera se pudo abrir el aviso del fallo: {error} (perfil de WebView2: {})",
+                perfil.display()
             ));
+
+            // El aviso de verdad no puede depender del webview ni de escribir
+            // archivos: si la ventana falla —etiqueta `Low`, sesión sin
+            // escritorio— un diálogo nativo sigue siendo posible, y es lo único
+            // que impide que el fallo se quede en silencio.
+            entorno::aviso_nativo(
+                "nn-anime",
+                &format!(
+                    "No se pudo abrir la ventana ni su aviso.\n\n{error}\n\nEl registro está en:\n{}",
+                    sidecar::log_path().display()
+                ),
+            );
+
             para_la_ventana.exit(1);
+            return;
         }
+
+        // Aquí también: el aviso es una ventana visible, así que el menú tiene que
+        // ofrecer «Ocultar» y no «Mostrar».
+        tray::actualizar(&para_la_ventana);
     });
 
     if let Err(error) = resultado {
@@ -186,15 +353,26 @@ fn avisar_fallo(handle: &AppHandle, motivo: &str) {
     }
 }
 
-fn abrir_ventana(handle: &AppHandle, url: tauri::Url) -> tauri::Result<()> {
+fn abrir_ventana(handle: &AppHandle, url: tauri::Url, perfil: PathBuf) -> tauri::Result<()> {
     // El origen local es lo único que se queda dentro de la ventana. Se calcula
     // **antes** de mover la URL al constructor, que se la queda.
     let local = url.origin().ascii_serialization();
+
+    // Se registra **antes** de intentarlo: si el intento mata el proceso o se
+    // queda colgado, esto ya está escrito. El origen no lleva el token.
+    registrar(&format!(
+        "abriendo la ventana en {local}; perfil de WebView2: {}",
+        perfil.display()
+    ));
 
     WebviewWindowBuilder::new(handle, LABEL, WebviewUrl::External(url))
         .title(TITULO)
         .inner_size(ANCHO, ALTO)
         .min_inner_size(ANCHO_MINIMO, ALTO_MINIMO)
+        // El perfil del navegador interno vive con los datos, no en
+        // `%LOCALAPPDATA%\<identificador>`: así borrar la carpeta de la aplicación
+        // lo borra todo, y el respaldo portable se lleva también el webview.
+        .data_directory(perfil)
         .on_navigation(move |destino| {
             if destino.origin().ascii_serialization() == local {
                 return true;
@@ -213,6 +391,9 @@ fn abrir_ventana(handle: &AppHandle, url: tauri::Url) -> tauri::Result<()> {
             false
         })
         .build()?;
+
+    // Ya hay ventana visible: el menú pasa de «Mostrar» a «Ocultar».
+    tray::actualizar(handle);
 
     Ok(())
 }
@@ -234,6 +415,56 @@ fn cerrar_servidor(handle: &AppHandle) {
     if let Some(servidor) = guardia.take() {
         servidor.shutdown();
     }
+}
+
+/// `--diagnostico`: escribe rutas, versión, integridad y estado del servidor, y
+/// sale sin abrir nada.
+///
+/// Sustituye al viejo `DIAGNOSTICO.cmd`. En un binario de subsistema `windows` no
+/// hay consola, así que el informe va a tres sitios: la salida estándar (por si
+/// alguien redirige), un archivo junto a los datos y un diálogo nativo, que es lo
+/// único que se ve al ejecutarlo desde el Explorador.
+fn diagnostico(raiz: &entorno::Raiz) -> ! {
+    let ejecutable = std::env::current_exe()
+        .map(|ruta| ruta.display().to_string())
+        .unwrap_or_else(|_| "(no se pudo leer)".to_string());
+
+    let mut lineas = vec![
+        format!("nn-anime {}", embebido::VERSION),
+        format!("ejecutable: {}", ejecutable),
+        format!(
+            "datos:      {} ({})",
+            raiz.ruta.display(),
+            if raiz.portable {
+                "portable"
+            } else {
+                "perfil del usuario"
+            }
+        ),
+        format!("base:       {}", raiz.ruta.join("nn-anime.db").display()),
+        format!("registro:   {}", sidecar::log_path().display()),
+        format!("webview:    {}", raiz.webview().display()),
+        format!("integridad: {}", entorno::descripcion()),
+    ];
+
+    lineas.extend(embebido::estado(&raiz.ruta));
+
+    let texto = lineas.join("\n");
+
+    println!("{texto}");
+
+    let informe = raiz.ruta.join("diagnostico.txt");
+
+    if let Err(error) = std::fs::write(&informe, &texto) {
+        registrar(&format!("no se pudo escribir el informe: {error}"));
+    }
+
+    entorno::aviso_nativo(
+        "nn-anime — diagnóstico",
+        &format!("{texto}\n\nGuardado en:\n{}", informe.display()),
+    );
+
+    std::process::exit(0);
 }
 
 /// Escribe una línea en el registro del anfitrión, y también en `stderr`.

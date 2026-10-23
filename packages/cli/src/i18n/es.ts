@@ -38,6 +38,10 @@ Banderas:
   'cli.port.busyBlocked':
     'El puerto {port} está ocupado y el proxy de desarrollo apunta a él. Libéralo o cambia el origen del proxy. Detalle: {detail}',
   'cli.migration.failed': 'No se pudo preparar la base de datos: {message}',
+  // Con la ruta absoluta y el error concreto, que es lo que hace falta cuando el
+  // fallo llega a un registro y ya no hay consola donde preguntar.
+  'cli.migration.failedPath': 'No se pudo preparar la base de datos en {path}: {message}',
+  'cli.dirs.failed': 'No se pudieron preparar los directorios de la aplicación: {message}',
   'cli.prune.atStartup':
     'La base superaba el tamaño previsto: se limpiaron {rows} filas de datos viejos.',
   'cli.settings.invalid': 'No se pudieron leer los ajustes: {message}',

@@ -20,22 +20,41 @@ path = "src/main.rs"
 # lo que permite compilar con `cargo build --release` sin el CLI de Tauri: el
 # empaquetado sigue siendo el de `scripts/package.ts`, no el de `tauri bundle`.
 tauri-build = { version = "2", features = [] }
+# El SHA-256 del servidor se calcula al compilar y se comprueba al extraerlo.
+sha2 = "0.10"
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# `tray-icon`: el icono de la bandeja, que es la única señal de que la aplicación
+# sigue viva cuando la ventana está oculta. `image-png`: lo que hace falta para
+# meter el icono **dentro** del binario (`Image::from_bytes`); sin esa
+# característica habría que leerlo del disco al arrancar y no existiría en la
+# máquina de quien instaló el programa.
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 # Instancia única. Sin él, dos lanzamientos conviven sobre la misma base sin decir
 # nada y cerrar uno deja al otro sirviendo. Exige Rust >= 1.90.
 tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# El servidor extraído se verifica contra el hash que calculó `build.rs`.
+sha2 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
-# El Job Object: si el anfitrión muere de golpe, el servidor se va con él. Es el
-# único seguro que existe en Windows, donde no hay `PR_SET_PDEATHSIG`.
+# **Pendiente, y no hecho.** El Job Object es el único seguro que existe en Windows
+# —ahí no hay `PR_SET_PDEATHSIG`— y **no está escrito**: `guards.rs` sólo pone
+# `PR_SET_PDEATHSIG` en Linux y no hace nada en el resto. La dependencia y sus
+# características están puestas para cuando se escriba, y están aquí y no en un
+# commit futuro porque son justo las que hay que activar. Mientras tanto, en Windows
+# un `kill` seco del anfitrión deja el servidor vivo: es el riesgo residual que
+# declara `SPEC-desktop.md`, y lo cuenta `tasks/done/T155.md`.
 windows-sys = { version = "0.59", features = [
   "Win32_Foundation",
   "Win32_System_JobObjects",
   "Win32_System_Threading",
+  # El testigo del proceso: nivel de integridad y usuario, para registrarlos y
+  # avisar cuando la etiqueta `Low` impide arrancar.
+  "Win32_Security",
+  # `MessageBoxW`: el único aviso que funciona sin webview ni archivos.
+  "Win32_UI_WindowsAndMessaging",
 ] }
 
 [target.'cfg(target_os = "linux")'.dependencies]

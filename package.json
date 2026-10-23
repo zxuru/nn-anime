@@ -29,6 +29,7 @@
     "captura": "bun run scripts/captura.ts",
     "recorte": "bun run scripts/recorte.ts",
     "package": "bun run scripts/package.ts",
+    "package:unico": "bun run scripts/package/unico.ts",
     "package:smoke": "bun run scripts/package/smoke.ts",
     "desktop:check": "bun run scripts/package/desktop.ts check",
     "desktop:build": "bun run scripts/package/desktop.ts build",

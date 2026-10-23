@@ -1,0 +1,207 @@
+# El entregable de escritorio de Windows, generado **sólo** por el CI.
+#
+# Por qué existe un workflow aparte y no una vuelta más de `release.yml`: aquí lo
+# que se publica es **un archivo**. El anfitrión lleva el servidor dentro, así que
+# el orden de los pasos es parte del contrato —servidor, después anfitrión, después
+# el `.exe`— y un orden equivocado produce un binario con el servidor de ayer, que
+# arranca y miente.
+#
+# Los binarios no van firmados. SmartScreen y Smart App Control pueden advertir al
+# abrirlos; el paso de firma está escrito y comentado más abajo, listo para cuando
+# haya certificado.
+name: desktop
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'packages/**'
+      - 'scripts/**'
+      - 'packaging/**'
+      - '.github/workflows/desktop.yml'
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - 'packages/**'
+      - 'scripts/**'
+      - 'packaging/**'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+
+# Una vuelta por rama: dos compilaciones del mismo commit se pisan el `target/` y
+# la caché, y no aportan nada.
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Fijadas a propósito: una vuelta que cambia de Bun o de Rust sin querer es una
+  # vuelta que no se puede comparar con la anterior.
+  BUN_VERSION: '1.4.3'
+  RUST_VERSION: '1.99.1'
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Instalar Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Instalar Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: x86_64-pc-windows-msvc
+          components: rustfmt, clippy
+
+      - name: Caché de Bun
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      # El `Cargo.lock` es la entrada de esta caché y **tiene que estar
+      # versionado**: es una aplicación binaria, y sin él dos vueltas compilan
+      # árboles distintos con el mismo número de versión.
+      - name: Caché de cargo
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Instalar dependencias
+        run: bun install --frozen-lockfile
+
+      # El listón, antes de compilar nada que se publique. Si esto está en rojo, no
+      # se gasta tiempo en un .exe que no se va a subir.
+      - name: Tipos
+        run: bun run typecheck
+
+      - name: Estilo
+        run: bun run lint
+
+      - name: Pruebas
+        run: bun test
+
+      - name: Formato de Rust
+        run: cargo fmt --manifest-path desktop/src-tauri/Cargo.toml -- --check
+
+      - name: Clippy
+        run: cargo clippy --locked --manifest-path desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Pruebas de Rust
+        run: cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml
+
+      - name: Construir la interfaz
+        run: bun run build
+
+      # 1) El servidor. Va primero porque es lo que el anfitrión va a llevar
+      #    dentro: `build.rs` lo lee de `build/package/windows-x64/nn-anime.exe`.
+      - name: Servidor
+        run: bun run package --skip-installer
+
+      # 2) El anfitrión, con el servidor embebido. `--locked` para que el árbol de
+      #    dependencias sea exactamente el del `Cargo.lock`.
+      - name: Anfitrión
+        run: cargo build --release --locked --target x86_64-pc-windows-msvc --manifest-path desktop/src-tauri/Cargo.toml
+
+      # 3) El archivo único que se descarga. El script comprueba que el anfitrión
+      #    sea más nuevo que el servidor: si no, el `.exe` llevaría dentro el de
+      #    ayer y arrancaría diciendo la versión anterior.
+      - name: Ejecutable único
+        run: bun run package:unico
+
+      # 4) El instalador, que instala ese mismo archivo.
+      - name: Instalador NSIS
+        run: bun run package --only-installer
+
+      # El sandbox donde se compiló esto en desarrollo etiquetaba los binarios como
+      # `Low Mandatory Level`, y eso hacía que la aplicación no pudiera escribir en
+      # el perfil ni crear el perfil de WebView2: se quedaba muda. Un binario de
+      # release no puede salir así, y aquí se comprueba en vez de confiar.
+      - name: Comprobar etiqueta de integridad y ACL
+        shell: pwsh
+        run: |
+          $archivos = Get-ChildItem release -Filter 'nn-anime-*.exe'
+          if ($archivos.Count -eq 0) { throw 'no hay binarios en release/' }
+
+          foreach ($archivo in $archivos) {
+            $acl = icacls $archivo.FullName
+            Write-Host "== $($archivo.Name)"
+
+            if ($acl -match 'Low Mandatory Level') {
+              throw "$($archivo.Name) lleva la etiqueta Low: no podrá escribir en el perfil del usuario."
+            }
+
+            if ($acl -match 'DENY') {
+              throw "$($archivo.Name) tiene una regla DENY en la ACL."
+            }
+
+            # La integridad tiene que ser Medium o superior. `icacls` no imprime la
+            # etiqueta cuando es Medium heredada, así que se acepta su ausencia.
+            if ($acl -match 'Mandatory Label') {
+              Write-Host ($acl | Select-String 'Mandatory Label')
+            }
+          }
+
+      - name: Checksums
+        shell: pwsh
+        run: |
+          $lineas = Get-ChildItem release -Filter 'nn-anime-*' | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)"
+          }
+
+          $lineas | Set-Content release/SHA256SUMS.txt -Encoding ascii
+          Get-Content release/SHA256SUMS.txt
+
+      # El paso de firma, listo y comentado. Necesita un certificado en
+      # `secrets.WINDOWS_CERT_PFX_BASE64` y su contraseña; sin ellos, los binarios
+      # salen sin firmar y Windows avisará al abrirlos.
+      #
+      # - name: Firmar
+      #   if: ${{ secrets.WINDOWS_CERT_PFX_BASE64 != '' }}
+      #   shell: pwsh
+      #   run: |
+      #     $pfx = [IO.Path]::GetTempFileName() + '.pfx'
+      #     [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String('${{ secrets.WINDOWS_CERT_PFX_BASE64 }}'))
+      #     $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
+      #       Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1
+      #     foreach ($exe in Get-ChildItem release -Filter 'nn-anime-*.exe') {
+      #       & $signtool.FullName sign /f $pfx /p '${{ secrets.WINDOWS_CERT_PFX_PASSWORD }}' /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $exe.FullName
+      #     }
+
+      - name: Subir artefactos
+        uses: actions/upload-artifact@v4
+        with:
+          name: nn-anime-windows-x64
+          path: |
+            release/nn-anime-*.exe
+            release/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Publicar en la Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = '${{ github.ref_name }}'
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -ne 0) { gh release create $tag --title "nn-anime $tag" --notes-file CHANGELOG.md }
+          gh release upload $tag release/nn-anime-*.exe release/SHA256SUMS.txt --clobber

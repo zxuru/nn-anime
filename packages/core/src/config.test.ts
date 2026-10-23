@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { chmod, mkdir, mkdtemp, rm, stat } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { ensureDirs, loadConfig } from './config'
 import { AppError } from './errors'
 
@@ -228,6 +228,35 @@ describe('ensureDirs', () => {
       for (const dir of created) {
         expect((await stat(dir)).isDirectory()).toBe(true)
       }
+    } finally {
+      await rm(base, { recursive: true, force: true })
+    }
+  })
+
+  test('si un directorio no se puede preparar, el error dice cuál y por qué', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'nn-anime-config-'))
+
+    try {
+      // Un archivo donde tiene que ir el directorio de datos: `mkdir` falla con
+      // `EEXIST` y el mensaje tiene que nombrar esa ruta absoluta. Sin ella,
+      // `unable to open database file` no dice qué se intentó crear. Se rompen
+      // **dos** destinos para comprobar que se acumulan en vez de parar en el
+      // primero: si parara, habría que arreglar, reintentar y descubrir el otro.
+      const config = loadConfig({ env: { HOME: base }, platform: LINUX })
+      await mkdir(dirname(config.dataDir), { recursive: true })
+      await writeFile(config.dataDir, 'estorbo')
+      await mkdir(dirname(config.configDir), { recursive: true })
+      await writeFile(config.configDir, 'estorbo')
+
+      const error = await ensureDirs(config).then(
+        () => undefined,
+        (fracaso: unknown) => fracaso as Error,
+      )
+
+      expect(error).toBeInstanceOf(Error)
+      expect(error?.message).toContain(config.dataDir)
+      expect(error?.message).toContain('EEXIST')
+      expect(error?.message).toContain(config.configDir)
     } finally {
       await rm(base, { recursive: true, force: true })
     }

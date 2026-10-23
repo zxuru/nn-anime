@@ -97,13 +97,10 @@ VIAddVersionKey "LegalCopyright" "${APP_NAME}"
   !define WITH_HOST
 !endif
 
-; A qué ejecutable apunta el acceso del escritorio. Con anfitrión, a la ventana:
-; **es lo único que quita la consola** de la experiencia de quien instala.
-!ifdef WITH_HOST
-  !define ACCESO_EXE "$INSTDIR\${APP_HOST}"
-!else
-  !define ACCESO_EXE "$INSTDIR\${APP_EXE}"
-!endif
+; El acceso apunta **siempre** al anfitrión: es el único ejecutable que se
+; instala y el único que abre una ventana. Ya no hay una variante «sin ventana»,
+; porque sin el anfitrión no hay servidor: viaja dentro de él.
+!define ACCESO_EXE "$INSTDIR\${APP_HOST}"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -117,13 +114,12 @@ VIAddVersionKey "LegalCopyright" "${APP_NAME}"
 
 Section "${APP_NAME}" SecApp
   SetOutPath "$INSTDIR"
-  File "${SOURCE}\${APP_EXE}"
 
-  ; El anfitrión, si el empaquetado lo compiló. Va en el **mismo directorio**
-  ; porque el anfitrión busca al servidor como hermano, por su propio nombre.
-  !ifdef WITH_HOST
-    File "${SOURCE}\${APP_HOST}"
-  !endif
+  ; **Un solo archivo.** El servidor viaja dentro del anfitrión y se extrae a la
+  ; carpeta de datos en el primer arranque, así que ya no hay dos ejecutables que
+  ; puedan separarse —el fallo más repetido de esta aplicación— ni un `nn-anime.exe`
+  ; que haya que conservar al lado.
+  File "${SOURCE}\${APP_HOST}"
 
   ; El icono lo lleva el instalador porque el ejecutable no puede: `--windows-icon`
   ; de Bun 1.4.3 produce un `.exe` que Windows rechaza —medido—, así que el icono

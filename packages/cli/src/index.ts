@@ -88,7 +88,14 @@ const migrate: Migrate = async (config) => {
 
     return { ok: true }
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : String(error) }
+    // Se devuelve también la ruta absoluta: `unable to open database file` sin
+    // ella no distingue un directorio que no existe de uno sin permisos, y este
+    // mensaje es lo único que queda en el registro cuando no hay consola.
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+      path: config.dbPath,
+    }
   } finally {
     db?.close()
   }
