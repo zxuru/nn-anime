@@ -58,6 +58,16 @@ test-results/
 # Temporales locales del sandbox
 .tmp/
 
+# Lo que el `.exe` único deja **junto a sí** cuando corre en modo portable —el
+# respaldo de cuando `%LOCALAPPDATA%` no es escribible—: el servidor extraído, el
+# perfil de WebView2 y el informe de `--diagnostico`. En el repositorio sólo
+# aparecen si alguien ejecuta el binario desde aquí, y entonces ensucian el árbol
+# con cosas que no son fuente. Van con barra inicial para no tapar jamás un
+# `bin/` o un `webview/` de verdad dentro de un paquete.
+/bin/
+/webview/
+/diagnostico.txt
+
 # Un worktree por agente: anidado porque el sandbox de escritura se limita al
 # workspace, y en .gitignore para que bun test y biome no recorran la copia
 .worktrees/
