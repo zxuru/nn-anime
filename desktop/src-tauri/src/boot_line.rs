@@ -17,9 +17,6 @@ use serde::Deserialize;
 /// El prefijo literal. No se traduce y no cambia.
 pub const BOOT_LINE_PREFIX: &str = "NN_ANIME_BOOT";
 
-/// El prefijo **con el espacio** que lo separa del JSON.
-const PREFIJO_CON_ESPACIO: &str = "NN_ANIME_BOOT ";
-
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct BootLine {
     /// Puerto real de escucha. `u16` ya rechaza lo que no cabe en un puerto.
@@ -60,7 +57,14 @@ pub fn parse(texto: &str) -> Result<BootLine, BootLineError> {
         // y el `\r` se colaría dentro del JSON.
         let linea = linea.strip_suffix('\r').unwrap_or(linea);
 
-        let Some(json) = linea.strip_prefix(PREFIJO_CON_ESPACIO) else {
+        // Una sola constante para el prefijo: el espacio se quita aparte, así no
+        // hay dos literales que puedan desviarse. `NN_ANIME_BOOT{…}` sin espacio
+        // se trata como si no estuviera, igual que el `startsWith` de TypeScript.
+        let Some(resto) = linea.strip_prefix(BOOT_LINE_PREFIX) else {
+            continue;
+        };
+
+        let Some(json) = resto.strip_prefix(' ') else {
             continue;
         };
 
