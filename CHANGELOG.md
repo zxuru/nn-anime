@@ -16,17 +16,24 @@ La primera versión que se instala y se usa sin saber nada de terminales.
 - **La ventana propia.** El acceso del escritorio —y el del menú Inicio, y el del menú de
   aplicaciones— abre una **ventana con la interfaz dentro**, no una consola. Detrás está el webview del
   sistema: WebView2 en Windows, WKWebView en macOS y WebKitGTK en Linux.
-- **Cerrar la ventana apaga la aplicación.** El anfitrión le pide el cierre al servidor y espera a que
-  salga; no queda ningún proceso vivo. Cerrar el servidor de golpe tampoco lo deja huérfano en Linux.
+- **Un solo archivo para Windows.** `nn-anime-X.Y.Z-windows-x64.exe` lleva dentro el servidor y la
+  interfaz: se descarga, se ejecuta y abre la ventana, sin instalar nada. El servidor se extrae a
+  `%LOCALAPPDATA%\nn-anime\bin\<versión>` y se verifica con su SHA-256 antes de lanzarlo. Con un
+  `portable.txt` al lado, los datos viajan con el `.exe`.
+- **La X oculta la ventana en la bandeja; «Salir» apaga la aplicación.** El anfitrión le pide el
+  cierre al servidor y espera a que salga; no queda ningún proceso vivo. Cerrar el servidor de golpe
+  tampoco lo deja huérfano en Linux.
 - **Una sola aplicación a la vez.** Volver a pulsar el acceso enfoca la ventana que ya está, en vez de
   abrir un segundo servidor sobre la misma base de datos.
 - **Los enlaces externos abren en el navegador** y no se llevan la ventana.
 - **Instaladores autocontenidos**, sin Bun, Node ni Python en la máquina de quien los usa:
-  - Windows x64: `.exe`, por usuario y sin permisos de administrador.
+  - Windows x64: el archivo único y el instalador `.exe`, por usuario y sin permisos de administrador.
+    El instalador instala ese mismo archivo.
   - macOS: `.dmg` para Apple Silicon y para Intel.
   - Linux x64: AppImage, `.deb` y `.rpm`.
-- El lanzador de consola (`nn-anime`) sigue instalado al lado de la ventana, para quien quiera
-  `nn-anime "naruto"` desde una terminal o encadenarlo en un guion.
+- **La release se publica sola.** `release-please` mantiene el PR de versión y, al fusionarlo, el tag
+  dispara `release.yml`: compila el archivo único y los instaladores, calcula `SHA256SUMS.txt` y
+  publica. Hay un solo publicador.
 
 ### Notas
 

@@ -14,15 +14,20 @@ main ──► release-please ──► PR de release ──► merge ──► 
                                                               ▼
                                   release.yml (el tag lo dispara)
                                   ├── comprobar: listón + tag == package.json
-                                  ├── instaladores: windows, macos×2, linux
+                                  ├── instaladores: servidor → anfitrión → .exe único
+                                  │                (windows), y los paquetes de macos×2 y linux
                                   └── publicar: SHA256SUMS + subir al borrador + publicar
 ```
 
 | Workflow | Cuándo | Qué hace |
 |---|---|---|
-| `ci.yml` | Cada push y cada PR | Tipos, estilo, pruebas, e2e, y el empaquetado en matriz con el ejecutable arrancado |
+| `ci.yml` | Cada push y cada PR | Tipos, estilo, pruebas, e2e, y el empaquetado en matriz con el ejecutable arrancado y el `.exe` único de Windows |
 | `release-please.yml` | Push a `main` | Mantiene el PR de release: `CHANGELOG.md` y la versión de los diez `package.json` |
-| `release.yml` | Push de un tag `v*.*.*`, o a mano | Compila los instaladores y publica la release |
+| `release.yml` | Push de un tag `v*.*.*`, o a mano | Compila el archivo único y los instaladores, y publica la release. **Es el único publicador** |
+
+`desktop.yml` ya no existe. Nació para construir y publicar el `.exe` único por su cuenta y competía
+con `release.yml` por el mismo tag; ahora `ci.yml` lo construye en cada push y `release.yml` es el
+único que crea o modifica una release.
 
 ### Un ajuste que hay que hacer una vez
 
@@ -121,7 +126,7 @@ instalador** en las tres plataformas, y los deja descargables en la página del 
 | Artefacto | Qué lleva |
 |---|---|
 | `nn-anime-ubuntu-latest` | El ejecutable de Linux, el `.AppImage`, el `.deb` y el `.rpm` |
-| `nn-anime-windows-latest` | El `nn-anime.exe` y su instalador `.exe` |
+| `nn-anime-windows-latest` | El **archivo único** `nn-anime-<v>-windows-x64.exe` y su instalador `…-setup.exe` |
 | `nn-anime-macos-latest` | El ejecutable de macOS y el `.dmg` de esa arquitectura |
 
 Las herramientas que no vienen en la imagen de GitHub las prepara
@@ -136,9 +141,17 @@ el día de la release.
 Si quieres construir en tu máquina de todos modos:
 
 ```bash
-bun run build            # la interfaz, que es lo que viaja dentro del ejecutable
-bun run package          # ejecutable + instalador de esta plataforma, y lo arranca para probarlo
+bun run build                        # la interfaz, que viaja dentro del servidor
+bun run package --skip-installer     # el servidor, y lo arranca para probarlo
+bun run desktop:build                # el anfitrión, con el servidor embebido (Windows)
+bun run package --only-installer     # el instalador, con el anfitrión ya compilado
+bun run package:unico                # el archivo único (Windows)
 ```
+
+El orden **no es opcional en Windows**: `desktop/build.rs` embebe el servidor al compilar el anfitrión,
+así que el servidor va primero. Si se compila al revés, `package:unico` falla con «el anfitrión es más
+viejo que el servidor», y `bun run package` a secas también se niega a armar el instalador. Es
+preferible un error ahí que un `.exe` que arranca sin interfaz.
 
 `bun run package` **se niega a compilar** si falta el build de la interfaz: un ejecutable sin interfaz
 arranca, contesta 404 en `/` y parece que la aplicación está rota.
@@ -158,10 +171,25 @@ apunta `TMP` y `TEMP` a una carpeta que exista y se pueda escribir.
 
 ## Probar sin publicar
 
-**Actions → Release → Run workflow**, con «publish» sin marcar. Compila los instaladores de las cuatro
-plataformas y los deja como artefactos del workflow (7 días), sin crear ni tocar ninguna release. Es
-la forma de recorrer el camino entero sin gastar un número de versión — y de tener los cuatro
-instaladores, incluidos los dos `.dmg`, sin un Mac.
+**Actions → Release → Run workflow**, con «publish» sin marcar. Compila el archivo único y los
+instaladores de las cuatro plataformas y los deja como artefactos del workflow (7 días), sin crear ni
+tocar ninguna release. Es la forma de recorrer el camino entero sin gastar un número de versión — y de
+tener los cuatro instaladores, incluidos los dos `.dmg`, sin un Mac.
+
+## La primera release
+
+El mecanismo de `release-please` necesita un tag del que partir, y hoy no hay ninguno. La primera
+versión se corta a mano, **después** de que `main` tenga el trabajo y el CI esté verde:
+
+```bash
+git tag -a v0.1.0 -m "nn-anime 0.1.0"
+git push origin v0.1.0
+```
+
+El tag dispara `release.yml` y publica la release con el cuerpo de `CHANGELOG.md`. A partir de ahí
+`release-please` mantiene el PR de versión con cada push a `main`; fusionarlo crea el tag y el borrador,
+y `release.yml` lo publica. Si `release-please` abre un PR antes de que se empuje `v0.1.0`, se cierra:
+el siguiente run recalcula desde el tag.
 
 ## Qué hay dentro del ejecutable
 
@@ -171,10 +199,15 @@ Un solo archivo por plataforma, compilado con `bun build --compile`, que lleva d
 - la interfaz construida, incrustada con `--asset` (`packages/web/dist`);
 - los archivos `.sql` de las migraciones, incrustados igual.
 
-Y **al lado** de ese archivo, dentro del mismo instalador, viaja el **anfitrión de ventana**
-(`nn-anime-desktop`): un binario aparte, compilado con Rust, que lanza al servidor y abre la ventana.
-No se incrusta dentro del servidor porque duplicaría sus 93,8 MB en cada plataforma, y porque así el
-servidor de consola sigue existiendo para quien lo quiera.
+En **Windows** hay un paso más y es el que entrega el archivo único: el anfitrión de ventana
+(`nn-anime-desktop.exe`, Rust) se compila con `build.rs`, que **incrusta el servidor** con
+`include_bytes!` y guarda su SHA-256. El `.exe` que se descarga es ese anfitrión: al arrancar extrae el
+servidor a `<raíz>\bin\<versión>\nn-anime.exe`, comprueba el hash y lo lanza. No hay un `nn-anime.exe`
+al lado que se pueda perder ni una carpeta que haya que mantener intacta.
+
+En **macOS y Linux**, mientras el archivo único siga siendo sólo de Windows, el anfitrión viaja **al
+lado** del servidor dentro del `.dmg`, del `.deb`, del `.rpm` y del AppImage. Es la estructura de
+siempre y este cambio no la toca.
 
 `packages/cli/src/resources.ts` los resuelve en este orden: variable de entorno
 (`NN_ANIME_WEB_DIR`, `NN_ANIME_MIGRATIONS_DIR`), recurso incrustado y árbol de fuentes. Los dos
@@ -184,20 +217,24 @@ renombrar, así que mover `packages/web/dist` rompería el ejecutable sin que na
 
 ## El anfitrión de ventana, y su toolchain
 
-Desde la 0.1.0 cada instalador lleva **dos** ejecutables: el servidor de consola (`nn-anime`) y el
-anfitrión de ventana (`nn-anime-desktop`, en `desktop/src-tauri`). El anfitrión se compila con `cargo`
-y **no** con el CLI de Tauri: `tauri-build` lee `tauri.conf.json` en el guion de compilación, así que
-`cargo build --release` produce el binario entero y el empaquetado sigue siendo el de siempre.
+El anfitrión (`nn-anime-desktop`, en `desktop/src-tauri`) se compila con `cargo` y **no** con el CLI de
+Tauri: `tauri-build` lee `tauri.conf.json` en el guion de compilación, así que `cargo build --release`
+produce el binario entero y el empaquetado sigue siendo el de siempre.
 
-`bun run package` **se niega** a armar un instalador sin el anfitrión, porque uno sin él abre la
-consola que este trabajo viene a quitar. `--skip-desktop` existe para compilar sin el árbol de Rust, y
-lo dice en voz alta.
+En Windows el instalador instala **sólo el anfitrión**, que lleva el servidor dentro; en macOS y Linux
+viajan los dos ejecutables, como hasta ahora. El orden de compilación es un contrato:
 
 ```bash
 bun run build                                   # la interfaz, que va dentro del servidor
-bun run desktop:build                           # el anfitrión de esta máquina
-bun run package                                 # ejecutable + instalador, con los dos
+bun run package --skip-installer                # el servidor, primero
+bun run desktop:build                           # el anfitrión, con el servidor dentro (Windows)
+bun run package --only-installer                # el instalador
+bun run package:unico                           # el archivo único (Windows)
 ```
+
+`bun run package` a secas comprueba que el anfitrión no sea más viejo que el servidor y se niega a
+armar un instalador que arrancaría sin interfaz. `--skip-desktop` sigue existiendo para compilar sin
+el árbol de Rust, pero sin anfitrión no hay instalador que se pueda publicar.
 
 Para la compilación cruzada —la matriz arma el `.dmg` de Intel desde un Mac arm64— se le dice el
 objetivo, y el triple de Rust lo resuelve el propio comando:
@@ -216,18 +253,16 @@ El listón del árbol de Rust es **suyo** y no lo mira `bun test` —vive fuera 
 propósito—: `bun run desktop:check` (formato, `clippy` con `-D warnings` y sus pruebas), y lo ejecuta
 el trabajo `desktop` del CI en las tres plataformas.
 
-**Falta `desktop/src-tauri/Cargo.lock`, y hay que generarlo.** No está en el repositorio porque el
-entorno donde se escribió el anfitrión no tenía red y `cargo` no podía resolver dependencias. Sin él,
-la primera compilación elige las versiones más nuevas de cada crate —nada reproducible, que es justo lo
-que el lock promete— y la caché de cargo del CI se queda con una clave vacía. Se hace **una vez**, en
-una máquina con red, y se commitea:
+`desktop/src-tauri/Cargo.lock` **está versionado**. Si alguna vez falta, se genera en una máquina con
+red y se commitea; sin él la resolución de dependencias no es reproducible:
 
 ```bash
 cargo generate-lockfile --manifest-path desktop/src-tauri/Cargo.toml
 ```
 
-La firma de Windows cubre **los dos** ejecutables: el acceso abre el anfitrión, así que firmar sólo el
-servidor dejaría el aviso de SmartScreen justo en el que se ejecuta al pulsar el acceso.
+La firma de Windows va **por partes**: primero el servidor, después el anfitrión. `include_bytes!` copia
+los bytes tal cual, así que un servidor firmado después de compilar el anfitrión no llegaría firmado al
+`.exe` único. El anfitrión es el que se descarga, así que su firma es la que ve SmartScreen.
 
 ## Las herramientas de Linux
 
@@ -259,8 +294,9 @@ y se actualizan la URL y el hash en `.github/actions/herramientas/action.yml`, l
   en `%LOCALAPPDATA%`.
 - **Linux arm64 y Windows arm64: no se publican.** Bun los compila y añadirlos es una línea por
   plataforma, pero cada objetivo es una release que hay que poder probar.
-- **El desinstalador no borra los datos.** `%APPDATA%\nn-anime` y `%LOCALAPPDATA%\nn-anime` —la base,
-  los ajustes y los plugins— se quedan. Desinstalar el programa no es pedir que se pierda eso.
+- **El desinstalador no borra los datos.** `%LOCALAPPDATA%\nn-anime` —la base, los ajustes, los
+  plugins, el servidor extraído y el perfil del webview— se queda. Desinstalar el programa no es pedir
+  que se pierda eso.
 
 ### Una que no era de Bun
 
@@ -293,46 +329,35 @@ Medido en la máquina donde se preparó esto:
   aquí: no hay un Linux donde leer sus `DT_NEEDED`.
 - **El subsistema PE de los binarios de Windows**, leído de su cabecera con
   `bun run scripts/package/pe.ts <ruta> <windows|console>`: el servidor empaquetado declara `console`
-  (3) y el instalador NSIS `windows` (2). Es la medición de «sin consola» que un CI puede hacer, y
-  mover el desplazamiento del campo de `0x44` a `0x40` hace que el binario real declare
-  `desconocido (20383)`, así que el lector está validado contra un ejecutable de verdad.
+  (3); el anfitrión y **el archivo único** declaran `windows` (2). Es la medición de «sin consola» que
+  un CI puede hacer, y mover el desplazamiento del campo de `0x44` a `0x40` hace que el binario real
+  declare `desconocido (20383)`, así que el lector está validado contra un ejecutable de verdad.
 
 Verificado **por el CI**, que es donde se comprueba lo que no se puede comprobar aquí:
 
-- El listón entero en Linux, macOS y Windows, y **las pruebas en los tres sistemas** (2.387 en verde).
+- El listón entero en Linux, macOS y Windows, y **las pruebas en los tres sistemas**.
+- **Windows**: el archivo único y el instalador, y `probar-instalador.ps1` ejecutándolo de verdad:
+  un solo ejecutable, el servidor extraído en `%LOCALAPPDATA%\nn-anime\bin\<versión>`, la ventana
+  abierta, el loopback, la X ocultando en la bandeja y la desinstalación. La salida ordenada por
+  «Salir» **no** se automatiza: el script lo dice y no finge medirla.
 - **Linux**: el AppImage, el `.deb` y el `.rpm`, construidos con `nfpm` y `appimagetool`.
 - **macOS**: el `.app` y el `.dmg`, con `hdiutil`.
 
 Y verificado **en local, el 2026-10-16**, con NSIS 3.11 portable:
 
-- **El instalador de Windows (NSIS) compila.** `bun run package` sin `--skip-installer` produce
+- **El instalador de Windows (NSIS) compila.** `bun run package` producía
   `release/nn-anime-0.1.0-windows-x64-setup.exe`: **33,24 MB**, un ejecutable de Windows válido, con
   `ProductName=nn-anime`, `FileVersion=0.1.0` y la descripción «Instalador de nn-anime» dentro —o
-  sea, con los defines del `.nsi` bien cableados—, y sin un solo aviso de `makensis`. La primera vez
-  que se compila este archivo. Antes de esto, la frase que había aquí —«no se ha compilado nunca»—
-  era cierta y ya no lo es.
+  sea, con los defines del `.nsi` bien cableados—, y sin un solo aviso de `makensis`.
 
 Lo que sigue sin estar comprobado, y lo dirá el siguiente push o una release con secretos:
 
-- **Ejecutar el instalador**: instalarlo en silencio, mirar que deja los accesos del escritorio y del
-  menú y su entrada en «Agregar o quitar programas», y desinstalarlo. **En la máquina donde se compiló
-  no se puede juzgar**, y ahora sí se sabe por qué: **el sandbox del agente deniega las escrituras
-  fuera del espacio de trabajo**, y eso incluye el registro —`HKCU` vive en `NTUSER.DAT`— y el
-  escritorio. Medido con `reg.exe add`, que usa la misma API que NSIS: «Acceso denegado». Y NSIS **se
-  calla** los dos fallos, así que el efecto no aparece y parece que el `.nsi` está mal cuando no lo
-  está. *(La versión anterior de este párrafo decía que `HKCU` sí se podía escribir y lo atribuía a un
-  contexto sin escritorio interactivo. Era falso: una medición posterior con `reg.exe` lo desmiente.)*
-
-  Lo que **sí** está medido aquí: con `cmd /c "<setup>" /S /D=<carpeta del workspace>` el instalador
-  sale con **0** e instala **los dos ejecutables** —`nn-anime.exe` de 98,3 MB y
-  `nn-anime-desktop.exe`—, más el icono y el desinstalador. Y el anfitrión viaja de verdad dentro:
-  con un anfitrión de prueba de 5 MB incompresibles, el instalador crece **5.317.010 bytes**.
-
-  El paso que faltaba ya existe: `packaging/windows/probar-instalador.ps1`, que lo ejecuta el CI en
-  Windows y que **se niega a juzgar** si el entorno no deja escribir en el registro o en el
-  escritorio, en vez de culpar al `.nsi` de una restricción del entorno.
 - **La firma de código y la notarización**: sin certificados, los pasos se saltan. Que `signtool` y
   `codesign` reciban lo que esperan no se ha podido ejecutar.
+- **El cierre ordenado por «Salir»**: la bandeja es una interfaz nativa y la prueba del instalador no
+  la automatiza. Se mide a mano al aceptar una release.
+- **La ventana en macOS y Linux**: T161 sigue pendiente; el archivo único es sólo de Windows y estas
+  plataformas conservan sus instaladores.
 
 ### El e2e falla, y no es de este cambio
 

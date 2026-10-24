@@ -54,26 +54,56 @@ programa entero —la interfaz, el servidor y la base de datos—, y todos está
 
 | Sistema | Archivo |
 |---|---|
-| Windows x64 | `nn-anime-X.Y.Z-windows-x64-setup.exe` |
+| Windows x64, **un solo archivo** | `nn-anime-X.Y.Z-windows-x64.exe` |
+| Windows x64, instalador | `nn-anime-X.Y.Z-windows-x64-setup.exe` |
 | macOS, chip de Apple | `nn-anime-X.Y.Z-macos-arm64.dmg` |
 | macOS, Intel | `nn-anime-X.Y.Z-macos-x64.dmg` |
 | Linux x64 | `nn-anime-X.Y.Z-linux-x64.AppImage`, `.deb` o `.rpm` |
 
-### Windows
+El `.exe` **sin** `setup` es el archivo único: se descarga, se ejecuta y ya está, sin instalar nada.
+El `setup` es el instalador clásico, con sus accesos y su desinstalador. Los dos abren la misma
+aplicación.
 
-Ejecuta el `.exe` y sigue el asistente. Se instala **sólo para tu usuario** —no pide permisos de
-administrador— en `%LOCALAPPDATA%\Programs\nn-anime`, y deja un acceso en el menú Inicio y otro en el
-escritorio.
+### Windows: un solo archivo
+
+Descarga `nn-anime-X.Y.Z-windows-x64.exe`, ponlo donde quieras y ejecútalo. **No instala nada** y no
+deja accesos: el mismo archivo lleva dentro la interfaz, el servidor y la base. Al abrirlo aparece su
+ventana, con la aplicación dentro y sin ninguna consola de por medio.
+
+Por defecto los datos —la base, los ajustes, los plugins y el perfil del webview— van a
+`%LOCALAPPDATA%\nn-anime`, así que sobreviven a mover o borrar el `.exe`. Si prefieres que viajen con
+él —una memoria USB, una carpeta portátil—, crea un archivo vacío llamado `portable.txt` **al lado**
+del ejecutable: entonces todo se guarda ahí (`bin`, `config`, `cache`, `webview` y la base).
+
+Dos banderas, por si hacen falta:
+
+- `nn-anime-X.Y.Z-windows-x64.exe --diagnostico` escribe un informe con las rutas, la versión y el
+  estado del servidor embebido, y lo enseña en un diálogo.
+- `nn-anime-X.Y.Z-windows-x64.exe --navegador` abre la interfaz en el navegador del sistema en vez de
+  en la ventana.
+
+**La X oculta la ventana en la bandeja**; para cerrar del todo, pulsa **Salir** en el icono de la
+bandeja. Entonces el servidor se apaga y no queda ningún proceso vivo. Mientras la ventana está
+oculta, el icono sigue ahí para volver a abrirla.
+
+Windows avisará de que el programa viene de un **desarrollador no verificado** mientras la release no
+esté firmada. En «Más información» del aviso hay un «Ejecutar de todas formas»; el aviso es de que
+nadie ha pagado un certificado, no de que el archivo esté mal. El `SHA256SUMS.txt` de la release
+sirve para comprobar que llegó entero.
+
+### Windows: instalador
+
+Ejecuta el `…-setup.exe` y sigue el asistente. Se instala **sólo para tu usuario** —no pide permisos
+de administrador— en `%LOCALAPPDATA%\Programs\nn-anime`, y deja un acceso en el menú Inicio y otro en
+el escritorio. Instala **el mismo archivo único**: no hay un segundo `nn-anime.exe` de consola al
+lado.
 
 Al abrirlo desde el menú Inicio o desde el escritorio aparece **su ventana**, con la interfaz dentro:
-no hay ninguna consola de por medio. **Para cerrar la aplicación, cierra la ventana**; el servidor se
-apaga con ella y no queda ningún proceso vivo.
-
-El lanzador de consola sigue instalado **al lado** (`%LOCALAPPDATA%\Programs\nn-anime\nn-anime.exe`)
-para quien quiera `nn-anime "naruto"` desde una terminal: es el mismo servidor, sin ventana.
+no hay ninguna consola de por medio. **La X la oculta en la bandeja**; «Salir» cierra la aplicación y
+apaga el servidor, y no queda ningún proceso vivo.
 
 Desinstalar desde «Agregar o quitar programas» **no borra tus datos**: la base, los ajustes y los
-plugins viven en `%APPDATA%\nn-anime` y `%LOCALAPPDATA%\nn-anime`.
+plugins viven en `%LOCALAPPDATA%\nn-anime` y se quedan donde están.
 
 Windows avisará de que el programa viene de un **desarrollador no verificado** mientras la release no
 esté firmada. En «Más información» del aviso hay un «Ejecutar de todas formas»; el aviso es de que
@@ -94,8 +124,9 @@ abrir porque proviene de un desarrollador no identificado». Para abrirla:
 - Si esa opción no aparece: **Ajustes del Sistema → Privacidad y seguridad** y, abajo, **«Abrir de
   todos modos»**.
 
-La aplicación abre **su propia ventana**, con la interfaz dentro, y deja su icono en el Dock. **Para
-cerrarla, cierra la ventana**; el icono del Dock sigue estando para volver a ella.
+La aplicación abre **su propia ventana**, con la interfaz dentro, y deja su icono en el Dock. **La X
+oculta la ventana en la bandeja**; «Salir» cierra la aplicación. El icono del Dock sigue estando para
+volver a ella.
 
 ### Linux
 
@@ -106,9 +137,10 @@ cerrarla, cierra la ventana**; el icono del Dock sigue estando para volver a ell
   el PATH y un acceso en el menú de aplicaciones.
 - **`.rpm`** (Fedora, RHEL): `sudo dnf install ./nn-anime-X.Y.Z-linux-x64.rpm`.
 
-El acceso del menú abre **la ventana**, sin ninguna terminal de por medio. El lanzador de consola
-sigue en el `PATH` (`nn-anime`) para quien lo quiera, y el AppImage hace las dos cosas: sin argumentos
-abre la ventana y con ellos ejecuta la consola.
+El acceso del menú abre **la ventana**, sin ninguna terminal de por medio. **La X la oculta en la
+bandeja**; «Salir» cierra la aplicación. El lanzador de consola sigue en el `PATH` (`nn-anime`) para
+quien lo quiera, y el AppImage hace las dos cosas: sin argumentos abre la ventana y con ellos ejecuta
+la consola.
 
 ### Comprobar la descarga
 
@@ -175,6 +207,7 @@ No hay ningún proveedor instalado de fábrica. Hasta que copies uno —ver
 | `bun run coverage:gate` | Cobertura por paquete, con su umbral |
 | `bun run captura` | Vuelve a hacer la captura de este README |
 | `bun run package` | Compila el ejecutable de esta plataforma, lo prueba y arma su instalador |
+| `bun run package:unico` | Deja el archivo único de Windows en `release/`; el anfitrión tiene que ser más nuevo que el servidor |
 | `bun run package:smoke` | Arranca un ejecutable ya compilado y le pregunta si sirve la interfaz |
 | `bun run desktop:build` | Compila el anfitrión de ventana; `--target=darwin-x64` lo compila cruzado |
 | `bun run desktop:check` | El listón del árbol de Rust: formato, `clippy` y sus pruebas |
@@ -185,12 +218,16 @@ No hay ningún proveedor instalado de fábrica. Hasta que copies uno —ver
 **Qué produce `bun run build`:** la interfaz. El servidor y el CLI **se ejecutan desde el código fuente
 con Bun** para desarrollar, y `bun run package` es lo que los convierte en un programa instalable: un
 ejecutable por plataforma que lleva dentro el runtime, la interfaz y las migraciones, envuelto en un
-instalador. Para desarrollar hace falta Bun en la máquina —y por eso está declarado en `engines`—;
-para **usar** la aplicación instalada, no hace falta nada.
+instalador. En Windows, `bun run package:unico` copia el anfitrión —que lleva el servidor dentro— como
+**un solo archivo** que se descarga y se ejecuta. Para desarrollar hace falta Bun en la máquina —y por
+eso está declarado en `engines`—; para **usar** la aplicación instalada, no hace falta nada.
 
 Y desde `desktop/` se compila el **anfitrión de ventana**, que es lo que hace que el acceso abra una
-ventana y no una consola: `bun run package` lo exige y se niega a armar un instalador sin él, porque
-uno sin anfitrión abre justo la consola que este trabajo quita.
+ventana y no una consola. En Windows el instalador ya instala **sólo ese anfitrión**, así que el orden
+importa: primero el servidor (`bun run package --skip-installer`), después el anfitrión
+(`bun run desktop:build`), después el instalador (`bun run package --only-installer`) y, si se quiere
+el archivo único, `bun run package:unico`. `bun run package` a secas comprueba que el anfitrión no sea
+más viejo que el servidor y se niega a armar un instalador que arrancaría sin interfaz.
 
 ## Dónde vive cada cosa
 
@@ -202,10 +239,13 @@ uno sin anfitrión abre justo la consola que este trabajo quita.
 | Repositorios de proveedores descargados | `~/.local/share/nn-anime/repos/` | `%LOCALAPPDATA%\nn-anime\repos\` |
 | Caché | `~/.cache/nn-anime/` | `%LOCALAPPDATA%\nn-anime\cache\` |
 
-Las rutas exactas en uso se ven en **Ajustes**, dentro de la aplicación. En Linux y macOS se respetan
-`XDG_DATA_HOME`, `XDG_CONFIG_HOME` y `XDG_CACHE_HOME`; en Windows mandan `%LOCALAPPDATA%` y
-`%APPDATA%` —colgando de `USERPROFILE` si faltan—, y las `XDG_*` se siguen respetando para quien las
-tenga puestas.
+La tabla es la del **CLI** (`bun run start`). La **ventana** —el archivo único y el instalador de
+Windows— fija los tres directorios bajo una sola raíz, `%LOCALAPPDATA%\nn-anime`, con `config`,
+`cache`, `bin` (el servidor extraído) y `webview` dentro; en modo portable (`portable.txt`) esa raíz es
+la carpeta del `.exe`. Las rutas exactas en uso se ven en **Ajustes**, dentro de la aplicación. En
+Linux y macOS se respetan `XDG_DATA_HOME`, `XDG_CONFIG_HOME` y `XDG_CACHE_HOME`; en Windows mandan
+`%LOCALAPPDATA%` y `%APPDATA%` —colgando de `USERPROFILE` si faltan—, y las `XDG_*` se siguen
+respetando para quien las tenga puestas.
 
 Las variables de entorno que lee la aplicación están inventariadas en `.env.example`, sin ningún valor
 real. Ninguna es obligatoria y ninguna lleva un secreto: los directorios se pueden cambiar por ahí, y
@@ -256,16 +296,20 @@ versión y unos instaladores que dicen otra—.
 2. **Fusiona ese PR.** Al fusionarlo, `release-please` crea el tag `vX.Y.Z` y deja la release **en
    borrador**, con el changelog como cuerpo.
 3. **El resto lo hace el workflow.** El tag dispara `.github/workflows/release.yml`, que pasa el
-   listón (tipos, estilo, auditoría y pruebas), compila los instaladores de Windows, macOS y Linux,
-   calcula el `SHA256SUMS.txt`, sube todo al borrador y **lo publica**.
+   listón (tipos, estilo, auditoría y pruebas), compila **el archivo único de Windows** y los
+   instaladores de Windows, macOS y Linux, calcula el `SHA256SUMS.txt`, sube todo al borrador y **lo
+   publica**. Es el único workflow que publica: `desktop.yml` ya no existe, para que no haya dos
+   publicadores compitiendo por el mismo tag.
 
-No hay que tocar nada a mano. Si hace falta lanzarlo sin publicar —para probar la cadena de
+No hay que tocar nada a mano. **La primera vez sí**: no hay ningún tag del que partir, así que
+`v0.1.0` se crea a mano (`git tag -a v0.1.0 -m "nn-anime 0.1.0" && git push origin v0.1.0`) y desde
+ahí `release-please` lleva el resto. Si hace falta lanzarlo sin publicar —para probar la cadena de
 empaquetado— está **Actions → Release → Run workflow** con «publish» sin marcar: compila todo y deja
 los artefactos en el resumen del propio workflow, sin gastar un número de versión.
 
-**Compila GitHub, no tu máquina.** Cada push compila el ejecutable y el instalador en las tres
-plataformas y los deja descargables en «Artifacts» del workflow, para que no haga falta tener NSIS,
-`nfpm` ni un Mac a mano. Las herramientas que no vienen en la imagen las prepara
+**Compila GitHub, no tu máquina.** Cada push compila el ejecutable, el archivo único y el instalador en
+las tres plataformas y los deja descargables en «Artifacts» del workflow, para que no haga falta tener
+NSIS, `nfpm` ni un Mac a mano. Las herramientas que no vienen en la imagen las prepara
 `.github/actions/herramientas`, con sus versiones y sus SHA256 en un solo sitio. El detalle está en
 [la guía de publicación](docs/release.md).
 
