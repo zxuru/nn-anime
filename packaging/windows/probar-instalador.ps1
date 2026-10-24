@@ -235,7 +235,41 @@ Paso "el servidor escucha en $($escuchas[0].LocalAddress):$($escuchas[0].LocalPo
 # esté asentado. Cerrar en el mismo instante del anuncio del servidor hacía que,
 # a veces, el cierre llegara antes que el manejador y la aplicación terminara.
 Start-Sleep -Seconds 2
-if (-not $anfitrion.CloseMainWindow()) { throw 'no se pudo cerrar la ventana del anfitrión' }
+
+if ($handleVentana -eq 0) { throw 'no hay una ventana del anfitrión a la que mandar la X' }
+
+if (-not ('NnAnimeVentana' -as [type])) {
+  Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class NnAnimeVentana
+{
+    public const uint WM_CLOSE = 0x0010;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+}
+'@
+}
+
+# La X se manda **a la ventana que se midió**, no a `CloseMainWindow()`: después de
+# crear el icono de la bandeja, `MainWindowHandle` puede apuntar a otra ventana del
+# proceso, y el cierre llegaba a la ventana equivocada. En el runner eso terminaba
+# la aplicación y hacía fallar una prueba que el comportamiento del anfitrión sí
+# pasa.
+$cerrada = [NnAnimeVentana]::PostMessage(
+  $handleVentana,
+  [NnAnimeVentana]::WM_CLOSE,
+  [IntPtr]::Zero,
+  [IntPtr]::Zero
+)
+if (-not $cerrada) { throw 'no se pudo cerrar la ventana del anfitrión' }
 Start-Sleep -Seconds 3
 $anfitrion.Refresh()
 
@@ -246,20 +280,6 @@ if ($anfitrion.HasExited) {
 $handle = $handleVentana
 $visible = $false
 if ($handle -ne 0) {
-  if (-not ('NnAnimeVentana' -as [type])) {
-    Add-Type -TypeDefinition @'
-using System;
-using System.Runtime.InteropServices;
-
-public static class NnAnimeVentana
-{
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool IsWindowVisible(IntPtr hWnd);
-}
-'@
-  }
-
   $visible = [NnAnimeVentana]::IsWindowVisible($handle)
 }
 
