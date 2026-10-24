@@ -338,5 +338,7 @@ jobs:
       - name: Listón del anfitrión
         run: bun run desktop:check
 
+      # Sin servidor: este trabajo mide el árbol de Rust, no arma un entregable.
+      # El empaquetado sí lo exige (ver el trabajo `empaquetado`).
       - name: Compilar el anfitrión
-        run: bun run desktop:build
+        run: bun run desktop:build --sin-servidor

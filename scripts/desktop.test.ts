@@ -131,8 +131,8 @@ describe('el anfitrión de ventana', () => {
   test('la versión del anfitrión es la de los package.json', async () => {
     const raiz = JSON.parse(await leer(join(ROOT, 'package.json'))) as { version: string }
 
-    // `release-please` no sabe tocar un `Cargo.toml`: esta prueba es la que avisa
-    // el día que las dos versiones se separen.
+    // `release-please` sube esta versión con el `extra-files` de tipo `toml`; esta
+    // prueba es la que avisa el día que las dos versiones se separen.
     expect(await manifestVersion()).toBe(raiz.version)
   })
 
@@ -454,6 +454,9 @@ describe('el anfitrión de ventana', () => {
     expect(ci).toContain('\n  desktop:')
     expect(ci).toContain('bun run desktop:check')
     expect(ci).toContain('bun run desktop:build')
+    // El trabajo `desktop` mide el árbol de Rust, no empaqueta: compila sin
+    // servidor. El `empaquetado` sí lo exige.
+    expect(ci).toContain('bun run desktop:build --sin-servidor')
   })
 })
 
