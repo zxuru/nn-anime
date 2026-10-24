@@ -3532,7 +3532,16 @@
   color: color-mix(in srgb, var(--marquesina-tinta) var(--marquesina-tinta-marca), transparent);
 }
 
-/* Sin destacado no hay campo detrás: la marca se lee sobre el fondo. */
+/*
+ * Sin destacado no hay campo detrás: la tinta que manda es la del tema y no la
+ * crema de la marquesina. Sobre el fondo claro, la crema desaparece; el titular
+ * de la pantalla se quedaba ilegible en el tema claro del sistema.
+ */
+.marquesina--suelta {
+  --marquesina-tinta: var(--color-text);
+}
+
+/* La marca de refresco se lee sobre el fondo, no sobre un campo. */
 .marquesina--suelta .marca-refresco {
   color: var(--color-text-dim);
 }
