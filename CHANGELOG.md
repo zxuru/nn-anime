@@ -7,6 +7,19 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.2.0](https://github.com/zxuru/nn-anime/compare/v0.1.0...v0.2.0) (2026-10-24)
+
+
+### Features
+
+* **web,cli:** el primer arranque recomienda el repositorio de proveedores (T165) ([aabc1f8](https://github.com/zxuru/nn-anime/commit/aabc1f8ad9009e7f864577d6e5736e619c49c447))
+
+
+### Bug Fixes
+
+* **web:** la marquesina de reserva usa la tinta del tema (T165) ([333af73](https://github.com/zxuru/nn-anime/commit/333af73fc887353318a786ccbff527c37616ccc1))
+* **web:** los esqueletos se ven y la home dice que carga (T165) ([df1f92a](https://github.com/zxuru/nn-anime/commit/df1f92ab2645ddc9d53eecb6e093500e4ae895f3))
+
 ## [0.1.0] - 2026-10-16
 
 La primera versión que se instala y se usa sin saber nada de terminales.
