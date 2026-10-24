@@ -759,7 +759,10 @@ describe('el archivo único y la release', () => {
     expect(script).toContain('la ventana quedó oculta')
 
     // El `.exe` extrae 98 MB antes de lanzar el servidor: la prueba espera al
-    // servidor **y** a la ventana, no al primer handle de la bandeja.
+    // servidor **y** a la ventana, no al primer handle de la bandeja. Y la
+    // visibilidad se mide sobre el handle de la aplicación, que se guarda antes
+    // de cerrarla: después, `MainWindowHandle` puede ser el de la bandeja.
     expect(script).toContain('$servidores.Count -eq 1 -and $ventana')
+    expect(script).toContain('$handleVentana')
   })
 })

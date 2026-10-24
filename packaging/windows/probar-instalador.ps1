@@ -166,6 +166,12 @@ if ($servidores.Count -eq 1 -and $ventana) {
   Paso "la ventana se abrió: '$($anfitrion.MainWindowTitle)'"
 }
 
+# El handle de **la ventana de la aplicación**, tomado ahora. Después de ocultarla,
+# `MainWindowHandle` puede pasar a otra ventana del proceso —la de la bandeja—, y
+# preguntar por esa diría que sigue visible cuando la aplicación ya se ocultó.
+$handleVentana = 0
+if ($ventana) { $handleVentana = $anfitrion.MainWindowHandle }
+
 if ($servidores.Count -ne 1) {
   # Sin el registro, este fallo no dice **por qué**: el anfitrión abre el aviso de
   # fallo y la ventana aparece igual. Se vuelca lo que escribió antes de salir y lo
@@ -232,7 +238,7 @@ if ($anfitrion.HasExited) {
   throw 'la X cerró la aplicación: se esperaba que la ocultara en la bandeja'
 }
 
-$handle = $anfitrion.MainWindowHandle
+$handle = $handleVentana
 $visible = $false
 if ($handle -ne 0) {
   if (-not ('NnAnimeVentana' -as [type])) {
@@ -252,7 +258,9 @@ public static class NnAnimeVentana
   $visible = [NnAnimeVentana]::IsWindowVisible($handle)
 }
 
-if ($visible) { throw 'la ventana sigue visible después de cerrarla' }
+if ($visible) {
+  throw "la ventana sigue visible después de cerrarla (título: '$($anfitrion.MainWindowTitle)')"
+}
 Paso 'la ventana quedó oculta y la aplicación sigue viva en la bandeja'
 
 # La salida ordenada es «Salir» del menú de la bandeja, y no se automatiza aquí. Se
