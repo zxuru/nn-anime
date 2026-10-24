@@ -23,7 +23,7 @@
  * Uso: `bun run scripts/package/smoke.ts <ruta-al-ejecutable> [--version X.Y.Z]`
  */
 
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parseBootLine } from '@nn-anime/core'
 import { BOOT_PARAM } from '@nn-anime/server'
@@ -130,7 +130,12 @@ async function get(url: string, cookie?: string): Promise<Response> {
 
 export async function smoke(options: SmokeOptions): Promise<readonly SmokeCheck[]> {
   const timeout = options.timeoutMs ?? 30_000
-  const dir = await mkdtemp(join(ROOT, '.tmp', 'package-smoke-'))
+  // `.tmp` no existe en un clon limpio ni en la release: la release no corre
+  // `bun test`, que es lo que lo creaba de rebote en el CI. `mkdtemp` no crea el
+  // padre y fallaba con ENOENT antes de probar el ejecutable.
+  const base = join(ROOT, '.tmp')
+  await mkdir(base, { recursive: true })
+  const dir = await mkdtemp(join(base, 'package-smoke-'))
   const log = join(dir, 'salida.log')
   const errores = join(dir, 'error.log')
 
