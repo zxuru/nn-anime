@@ -152,6 +152,14 @@ export async function run(argv: readonly string[], options: RunOptions = {}): Pr
 export interface BuildDesktopOptions {
   /** Clave de `TARGETS` (`darwin-x64`). Por defecto, el de esta máquina. */
   readonly target?: string
+  /**
+   * Compila el anfitrión **sin exigir** el servidor embebido.
+   *
+   * Es para el trabajo `desktop` del CI, que compila el anfitrión para medir el
+   * árbol de Rust y no está empaquetando nada. El empaquetado y la release **no**
+   * lo usan: allí el servidor tiene que estar, o el `.exe` arranca sin interfaz.
+   */
+  readonly sinServidor?: boolean
 }
 
 /**
@@ -193,9 +201,13 @@ export async function buildDesktop(options: BuildDesktopOptions = {}): Promise<s
   // anfitrión vacío. Un `.exe` sin servidor dentro arranca, enseña el aviso de
   // fallo y parece un problema del instalador; el fallo tiene que estar aquí, con
   // la ruta delante. En macOS y Linux no se exige: allí el servidor viaja al lado.
+  // El trabajo `desktop` del CI pasa `sinServidor`: compila para medir el árbol de
+  // Rust, no para entregar.
+  const exigir = platform === 'windows' && options.sinServidor !== true
+
   await run(
     ['cargo', 'build', '--release', '--locked', '--target', triple, '--manifest-path', MANIFEST],
-    platform === 'windows' ? { env: { ...process.env, NN_ANIME_EXIGIR_SERVIDOR: '1' } } : {},
+    exigir ? { env: { ...process.env, NN_ANIME_EXIGIR_SERVIDOR: '1' } } : {},
   )
 
   const binario = hostBinary(platform, arch)
@@ -308,10 +320,13 @@ if (import.meta.main) {
       process.stdout.write('el árbol de Rust pasa fmt, clippy y sus pruebas\n')
     } else if (orden === 'build') {
       const target = flag('target')
-      const binario = await buildDesktop(target === undefined ? {} : { target })
+      const binario = await buildDesktop({
+        ...(target === undefined ? {} : { target }),
+        ...(argv.includes('--sin-servidor') ? { sinServidor: true } : {}),
+      })
       process.stdout.write(`anfitrión: ${binario}\n`)
     } else {
-      process.stderr.write('uso: desktop.ts <check|build> [--target=darwin-x64]\n')
+      process.stderr.write('uso: desktop.ts <check|build> [--target=darwin-x64] [--sin-servidor]\n')
       process.exitCode = 2
     }
   } catch (error) {

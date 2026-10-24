@@ -71,12 +71,15 @@ describe('el nombre de los recursos incrustados', () => {
 describe('la lista de manifiestos de release-please', () => {
   test('nombra exactamente los nueve paquetes, ni uno menos', async () => {
     const config = (await Bun.file(join(ROOT, 'release-please-config.json')).json()) as {
-      packages?: Record<string, { 'extra-files'?: readonly { path: string }[] }>
+      packages?: Record<
+        string,
+        { 'extra-files'?: readonly { path: string; type?: string; jsonpath?: string }[] }
+      >
     }
 
-    const declarados = (config.packages?.['.']?.['extra-files'] ?? []).map(
-      (entrada) => entrada.path,
-    )
+    const declarados = (config.packages?.['.']?.['extra-files'] ?? [])
+      .map((entrada) => entrada.path)
+      .filter((ruta) => ruta.startsWith('packages/'))
     const workspaces = (await listWorkspaces()).map(
       (workspace) => `packages/${basename(workspace.dir)}/package.json`,
     )
@@ -84,6 +87,25 @@ describe('la lista de manifiestos de release-please', () => {
     // Un paquete que no esté aquí se queda en la versión vieja para siempre, y la
     // release sale con dos versiones distintas sin que nada avise.
     expect([...declarados].sort()).toEqual([...workspaces].sort())
+  })
+
+  test('el Cargo.toml del anfitrión se sube con el resto de versiones', async () => {
+    const config = (await Bun.file(join(ROOT, 'release-please-config.json')).json()) as {
+      packages?: Record<
+        string,
+        { 'extra-files'?: readonly { path: string; type?: string; jsonpath?: string }[] }
+      >
+    }
+
+    const cargo = (config.packages?.['.']?.['extra-files'] ?? []).find(
+      (entrada) => entrada.path === 'desktop/src-tauri/Cargo.toml',
+    )
+
+    // `release-please` sólo toca lo que está en esta lista. Sin el TOML, la
+    // versión del anfitrión se queda atrás y `desktop.test.ts` —que compara las
+    // dos— pone el PR de release en rojo.
+    expect(cargo?.type).toBe('toml')
+    expect(cargo?.jsonpath).toBe('$.package.version')
   })
 
   test('el manifiesto de release-please arranca en la versión del repositorio', async () => {

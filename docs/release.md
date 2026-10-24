@@ -51,8 +51,11 @@ ajuste del repositorio que hace falta; el resto es cosa de los secretos, que son
 
 La raíz manda. `bun run version:check` falla si alguno de los nueve paquetes se desvió, y
 `release-please` los actualiza a la vez con la lista `extra-files` de `release-please-config.json`.
-Si algún día se añade un paquete a `packages/`, hay que añadirlo también ahí: hay una prueba
-(`scripts/package.test.ts`) que compara las dos listas y falla si no coinciden.
+Esa lista incluye también `desktop/src-tauri/Cargo.toml` (tipo `toml`, `$.package.version`): sin eso,
+el anfitrión se quedaría en la versión anterior y `scripts/desktop.test.ts` —que compara las dos—
+pondría el PR de release en rojo. Si algún día se añade un paquete a `packages/`, hay que añadirlo
+también ahí: hay una prueba (`scripts/package.test.ts`) que compara las dos listas y falla si no
+coinciden.
 
 `bun.lock` guarda la versión de cada workspace y **release-please no lo toca**. Comprobado: mover esas
 versiones no rompe `bun install --frozen-lockfile`, así que no hace falta regenerarlo en la release.
@@ -153,7 +156,9 @@ así que el servidor va primero. Si se compila al revés, `package:unico` falla 
 viejo que el servidor», y `bun run package` a secas también se niega a armar el instalador. Además,
 `desktop:build` pasa `NN_ANIME_EXIGIR_SERVIDOR=1` en Windows: `build.rs` **se para** si no encuentra
 el servidor, en vez de compilar un anfitrión vacío que arrancaría y enseñaría el aviso de fallo. Es
-preferible un error ahí que un `.exe` que arranca sin interfaz.
+preferible un error ahí que un `.exe` que arranca sin interfaz. El único sitio que compila sin
+servidor es el trabajo `desktop` del CI, con `desktop:build --sin-servidor`: mide el árbol de Rust y
+no entrega nada.
 
 `bun run package` **se niega a compilar** si falta el build de la interfaz: un ejecutable sin interfaz
 arranca, contesta 404 en `/` y parece que la aplicación está rota.
