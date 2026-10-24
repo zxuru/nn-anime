@@ -384,6 +384,7 @@ describe('el anfitrión de ventana', () => {
     const build = await leer(join(CRATE, 'build.rs'))
     const embebido = await leer(join(CRATE, 'src', 'embebido.rs'))
     const unico = await leer(join(ROOT, 'scripts', 'package', 'unico.ts'))
+    const desktop = await leer(join(ROOT, 'scripts', 'package', 'desktop.ts'))
 
     // El servidor viaja dentro del anfitrión: un `.exe` que se copia a cualquier
     // carpeta sin llevar nada al lado. Es lo que quita el fallo más repetido de
@@ -391,6 +392,13 @@ describe('el anfitrión de ventana', () => {
     expect(build).toContain('include_bytes!')
     expect(build).toContain('Sha256')
     expect(embebido).toContain('HASH_SERVIDOR')
+
+    // Y el empaquetado **exige** el servidor en Windows: sin esta variable,
+    // `build.rs` compila un anfitrión vacío que arranca y enseña el aviso de fallo,
+    // y el fallo aparece en el instalador en vez de en la compilación.
+    expect(build).toContain('NN_ANIME_EXIGIR_SERVIDOR')
+    expect(desktop).toContain('NN_ANIME_EXIGIR_SERVIDOR')
+    expect(desktop).toContain("platform === 'windows'")
 
     // Se escribe en un temporal y se renombra: `rename` es atómico y nadie puede
     // ver un `.exe` a medio escribir.

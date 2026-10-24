@@ -35,6 +35,7 @@ fn main() {
     );
 
     println!("cargo:rerun-if-env-changed=NN_ANIME_SERVIDOR");
+    println!("cargo:rerun-if-env-changed=NN_ANIME_EXIGIR_SERVIDOR");
     println!("cargo:rerun-if-changed={}", servidor.display());
 
     let codigo = match std::fs::read(&servidor) {
@@ -52,11 +53,20 @@ fn main() {
                  pub const HASH_SERVIDOR: &str = \"{hex}\";\n"
             )
         }
-        Err(error) => format!(
-            "/// No había servidor al compilar ({error}).\n\
-             pub static SERVIDOR: &[u8] = &[];\n\
-             pub const HASH_SERVIDOR: &str = \"\";\n"
-        ),
+        Err(error) => {
+            if std::env::var_os("NN_ANIME_EXIGIR_SERVIDOR").is_some() {
+                panic!(
+                    "no hay servidor en {}: el empaquetado no puede compilar el anfitrión sin él ({error})",
+                    servidor.display()
+                );
+            }
+
+            format!(
+                "/// No había servidor al compilar ({error}).\n\
+                 pub static SERVIDOR: &[u8] = &[];\n\
+                 pub const HASH_SERVIDOR: &str = \"\";\n"
+            )
+        }
     };
 
     std::fs::write(&salida, codigo).expect("no se pudo escribir el servidor embebido");

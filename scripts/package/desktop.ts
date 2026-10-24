@@ -121,6 +121,8 @@ export function hostBinary(
 export interface RunOptions {
   /** Directorio de trabajo del comando. */
   readonly cwd?: string
+  /** Entorno del proceso, si hay que añadirle algo. */
+  readonly env?: Record<string, string | undefined>
 }
 
 /**
@@ -136,6 +138,7 @@ export async function run(argv: readonly string[], options: RunOptions = {}): Pr
     stdin: 'ignore',
     stdout: 'inherit',
     stderr: 'inherit',
+    ...(options.env === undefined ? {} : { env: options.env }),
   })
 
   const code = await proceso.exited
@@ -185,16 +188,15 @@ export async function buildDesktop(options: BuildDesktopOptions = {}): Promise<s
 
   // `--locked`: el `Cargo.lock` está versionado y la release tiene que usar
   // exactamente ese árbol, no el que resuelva cargo ese día.
-  await run([
-    'cargo',
-    'build',
-    '--release',
-    '--locked',
-    '--target',
-    triple,
-    '--manifest-path',
-    MANIFEST,
-  ])
+  // `NN_ANIME_EXIGIR_SERVIDOR`: en Windows, cuando lo compila el empaquetado,
+  // `build.rs` **falla** si no encuentra el servidor en vez de generar un
+  // anfitrión vacío. Un `.exe` sin servidor dentro arranca, enseña el aviso de
+  // fallo y parece un problema del instalador; el fallo tiene que estar aquí, con
+  // la ruta delante. En macOS y Linux no se exige: allí el servidor viaja al lado.
+  await run(
+    ['cargo', 'build', '--release', '--locked', '--target', triple, '--manifest-path', MANIFEST],
+    platform === 'windows' ? { env: { ...process.env, NN_ANIME_EXIGIR_SERVIDOR: '1' } } : {},
+  )
 
   const binario = hostBinary(platform, arch)
 
