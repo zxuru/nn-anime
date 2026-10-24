@@ -160,7 +160,30 @@ if (-not $ventana) { throw 'el anfitrión no abrió ninguna ventana en 60 s' }
 Paso 'la ventana se abrió'
 
 $servidores = @(Get-Process -Name 'nn-anime' -ErrorAction SilentlyContinue)
-if ($servidores.Count -ne 1) { throw "se esperaba un servidor y hay $($servidores.Count)" }
+
+if ($servidores.Count -ne 1) {
+  # Sin el registro, este fallo no dice **por qué**: el anfitrión abre el aviso de
+  # fallo y la ventana aparece igual. Se vuelca lo que escribió antes de salir y lo
+  # que quedó extraído; es la diferencia entre «no arrancó» y «no hay servidor».
+  $registro = Join-Path $env:LOCALAPPDATA 'nn-anime\cache\desktop.log'
+  if (-not (Test-Path $registro)) { $registro = Join-Path $destino 'desktop.log' }
+
+  $cola = if (Test-Path $registro) {
+    (Get-Content $registro -Tail 40) -join "`n"
+  } else {
+    '(sin registro)'
+  }
+
+  $raizBin = Join-Path $env:LOCALAPPDATA 'nn-anime\bin'
+  $extraidos = if (Test-Path $raizBin) {
+    @(Get-ChildItem $raizBin -Recurse -Filter 'nn-anime.exe' |
+      ForEach-Object { "$($_.FullName) ($($_.Length) bytes)" }) -join "`n"
+  } else {
+    '(no hay carpeta bin)'
+  }
+
+  throw "se esperaba un servidor y hay $($servidores.Count). Registro:`n$cola`nExtraídos:`n$extraidos"
+}
 
 # La prueba de que el servidor viaja **dentro** del `.exe`: el proceso que corre
 # sale de la carpeta de datos, no de la carpeta de instalación. Si el anfitrión se

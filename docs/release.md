@@ -150,7 +150,9 @@ bun run package:unico                # el archivo único (Windows)
 
 El orden **no es opcional en Windows**: `desktop/build.rs` embebe el servidor al compilar el anfitrión,
 así que el servidor va primero. Si se compila al revés, `package:unico` falla con «el anfitrión es más
-viejo que el servidor», y `bun run package` a secas también se niega a armar el instalador. Es
+viejo que el servidor», y `bun run package` a secas también se niega a armar el instalador. Además,
+`desktop:build` pasa `NN_ANIME_EXIGIR_SERVIDOR=1` en Windows: `build.rs` **se para** si no encuentra
+el servidor, en vez de compilar un anfitrión vacío que arrancaría y enseñaría el aviso de fallo. Es
 preferible un error ahí que un `.exe` que arranca sin interfaz.
 
 `bun run package` **se niega a compilar** si falta el build de la interfaz: un ejecutable sin interfaz
