@@ -71,6 +71,10 @@ async function conApp<T>(
       version: '0.1.0',
       plugins: { active: [{ provider: proveedor, file: '/plugins/fixture.ts' }], rejected: [] },
       container,
+      // La fila se mide sin AniList: el reparto por tipo no depende de un
+      // tercero, y pedirle la edad de la película convertía estas pruebas en una
+      // espera de red que en el CI caducaba a los 5 s.
+      anilistOffline: true,
     })
 
     return await body({

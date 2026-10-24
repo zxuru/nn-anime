@@ -117,11 +117,8 @@ pub fn preparar_raiz() -> Raiz {
         let base = std::env::var_os("XDG_DATA_HOME")
             .map(std::path::PathBuf::from)
             .or_else(|| {
-                std::env::var_os("HOME").map(|home| {
-                    std::path::PathBuf::from(home)
-                        .join(".local")
-                        .join("share")
-                })
+                std::env::var_os("HOME")
+                    .map(|home| std::path::PathBuf::from(home).join(".local").join("share"))
             });
 
         if let Some(base) = base {
