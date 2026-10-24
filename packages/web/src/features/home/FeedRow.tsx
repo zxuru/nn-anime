@@ -21,6 +21,7 @@ import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 import type { PiezaVista } from './descubrir'
+import { SeccionCargando } from './SeccionCargando'
 import { cuentaDeTitulos } from './tramo'
 
 export interface FeedRowProps {
@@ -29,9 +30,20 @@ export interface FeedRowProps {
   readonly meta?: string | undefined
   /** Lo que se dice cuando no hay nada. Cambia con la procedencia. */
   readonly vacio?: string | undefined
+  /** Si la lectura de esta fila sigue en vuelo. */
+  readonly cargando?: boolean | undefined
 }
 
 export function FeedRow(props: FeedRowProps): ReactNode {
+  if (props.cargando === true) {
+    return (
+      <SeccionCargando
+        title={t(DEFAULT_LOCALE, 'home.feed')}
+        meta={props.meta ?? t(DEFAULT_LOCALE, 'home.feed.meta')}
+      />
+    )
+  }
+
   return (
     <section className="seccion">
       <SectionHeader

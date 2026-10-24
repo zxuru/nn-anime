@@ -18,13 +18,25 @@ import { Pieza, recursoDe } from '../../components/Pieza'
 import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
+import { SeccionCargando } from './SeccionCargando'
 import { cuentaDeTitulos } from './tramo'
 
 export interface FavoritesRowProps {
   readonly items: readonly AnimeSummary[]
+  /** Si la lectura de esta fila sigue en vuelo. */
+  readonly cargando?: boolean | undefined
 }
 
 export function FavoritesRow(props: FavoritesRowProps): ReactNode {
+  if (props.cargando === true) {
+    return (
+      <SeccionCargando
+        title={t(DEFAULT_LOCALE, 'home.favorites')}
+        meta={t(DEFAULT_LOCALE, 'home.favorites.meta')}
+      />
+    )
+  }
+
   return (
     <section className="seccion">
       <SectionHeader

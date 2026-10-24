@@ -23,13 +23,25 @@ import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 import { continuePath, progressPercent, remainingLabel, resumeLabel } from './rows'
+import { SeccionCargando } from './SeccionCargando'
 import { cuentaDeTitulos } from './tramo'
 
 export interface ContinueRowProps {
   readonly items: readonly ContinueWatchingItem[]
+  /** Si la lectura de esta fila sigue en vuelo. */
+  readonly cargando?: boolean | undefined
 }
 
 export function ContinueRow(props: ContinueRowProps): ReactNode {
+  if (props.cargando === true) {
+    return (
+      <SeccionCargando
+        title={t(DEFAULT_LOCALE, 'home.continue')}
+        meta={t(DEFAULT_LOCALE, 'home.continue.meta')}
+      />
+    )
+  }
+
   return (
     <section className="seccion">
       <SectionHeader

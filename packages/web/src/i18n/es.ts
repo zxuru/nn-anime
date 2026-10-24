@@ -128,6 +128,21 @@ export const messages: Messages = {
   'media.empty.anime': 'Ningún proveedor instalado sirve anime todavía.',
   'media.empty.hint': 'Añade uno en Ajustes o cambia de pestaña.',
 
+  /*
+   * El primer arranque.
+   *
+   * No hay ningún proveedor de fábrica, así que la primera pantalla explica qué
+   * falta y cuál es el repositorio recomendado. El aviso no instala nada: el
+   * flujo de dos pasos de Ajustes sigue siendo el que ejecuta código.
+   */
+  'home.firstRun.title': 'Todavía no hay ningún proveedor',
+  'home.firstRun.body':
+    'nn-anime no incluye scrapers. Añade un repositorio de proveedores en Ajustes: se descarga, se miran sus archivos y eliges cuáles se activan.',
+  'home.firstRun.repo': 'Repositorio recomendado:',
+  'home.firstRun.warning':
+    'Añadirlo no ejecuta nada. Activar un proveedor sí, y sin sandbox: revisa lo que marcas.',
+  'home.firstRun.action': 'Abrir Ajustes',
+
   'search.title': 'Buscar',
   'search.field': 'Buscar por título',
   'search.placeholder': 'Escribe un título…',
@@ -281,6 +296,7 @@ export const messages: Messages = {
     'Pega la dirección de un repositorio público de GitHub. Se descarga, se miran sus archivos y eliges cuáles se activan: hasta que no marques uno, no se ejecuta nada.',
   'settings.repos.url': 'Dirección del repositorio',
   'settings.repos.urlHint': 'github.com/usuario/repo, con rama y carpeta si hacen falta',
+  'settings.repos.recommended': 'El repositorio recomendado es {url}; ya viene escrito.',
   'settings.repos.install': 'Añadir o actualizar',
   'settings.repos.installing': 'Descargando…',
   'settings.repos.installed': 'Repositorio descargado: marca qué proveedores se activan.',

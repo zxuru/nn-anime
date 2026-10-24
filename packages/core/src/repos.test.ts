@@ -13,6 +13,7 @@ import {
   MAX_REPO_OWNER_LENGTH,
   MAX_REPO_REF_LENGTH,
   MAX_REPO_SUBDIR_LENGTH,
+  RECOMMENDED_PROVIDER_REPO,
 } from './repos'
 
 const SIMPLE = {
@@ -213,5 +214,18 @@ describe('githubRepoFromUrl: lo que se normaliza y lo que se rechaza', () => {
   test('un solo segmento no es un repositorio', () => {
     expect(githubRepoFromUrl('nn-anime-plugins')).toBeUndefined()
     expect(githubRepoFromUrl('/')).toBeUndefined()
+  })
+})
+
+/**
+ * El repositorio que la aplicación recomienda en el primer arranque.
+ *
+ * No basta con que sea una cadena: tiene que pasar el mismo analizador que el
+ * campo de Ajustes, o la recomendación sería una dirección que la propia
+ * aplicación rechaza. Si alguien cambia el host o el nombre, esto falla.
+ */
+describe('el repositorio recomendado', () => {
+  test('es un repositorio de GitHub válido y normalizado', () => {
+    expect(githubRepoFromUrl(RECOMMENDED_PROVIDER_REPO)).toEqual(SIMPLE)
   })
 })

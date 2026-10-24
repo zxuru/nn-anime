@@ -31,6 +31,7 @@ import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 import type { PiezaVista } from './descubrir'
+import { SeccionCargando } from './SeccionCargando'
 import { cuentaDelTop } from './tramo'
 
 /** Cuántos puestos se ven antes de pulsar «Mostrar más». */
@@ -59,10 +60,24 @@ export interface TopRowProps {
   readonly items: readonly PiezaVista[]
   /** La nota del tramo: de quién es el ranking que se está viendo. */
   readonly meta?: string | undefined
+  /** Si la lectura de esta fila sigue en vuelo. */
+  readonly cargando?: boolean | undefined
 }
 
 export function TopRow(props: TopRowProps): ReactNode {
   const [todas, setTodas] = useState(false)
+
+  // Los hooks van siempre antes del retorno: si el orden cambiara al pasar de
+  // cargando a listo, React lo lee como un componente distinto.
+  if (props.cargando === true) {
+    return (
+      <SeccionCargando
+        title={t(DEFAULT_LOCALE, 'home.top')}
+        meta={props.meta ?? t(DEFAULT_LOCALE, 'home.top.meta')}
+      />
+    )
+  }
+
   const visibles = puestosVisibles(props.items, todas)
 
   return (

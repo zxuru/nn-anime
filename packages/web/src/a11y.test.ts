@@ -14,6 +14,7 @@ import { UMBRAL_DE_TINTA } from './features/home/tinta'
  */
 
 const TOKENS = fileURLToPath(new URL('./styles/tokens.css', import.meta.url))
+const SHELL = fileURLToPath(new URL('./styles/shell.css', import.meta.url))
 
 /** La raíz del paquete, para recorrer los componentes. */
 const ROOT_DIR = fileURLToPath(new URL('.', import.meta.url))
@@ -414,6 +415,28 @@ describe('la tinta de la marquesina sobre el banner', () => {
 })
 
 /**
+ * La marquesina sin destacado.
+ *
+ * Cuando la home no tiene nada que destacar, la marquesina se queda sin campo:
+ * detrás del titular está el fondo del tema. La tinta de la marquesina es crema
+ * porque nace para ir sobre el degradado oscuro, y en el tema claro eso deja el
+ * «Inicio» crema sobre crema. La regla de `.marquesina--suelta` es la que devuelve
+ * la tinta del tema; sin ella, el titular de la pantalla desaparece en claro.
+ *
+ * Se comprueba la declaración y no un contraste calculado porque el par que la
+ * sostiene —`text` sobre `bg` en los dos temas— ya se mide arriba: lo que aquí se
+ * fija es que esa marquesina **use ese par** y no el de la crema.
+ */
+describe('la marquesina sin destacado', () => {
+  test('usa la tinta del tema, no la crema del campo', async () => {
+    const css = await Bun.file(SHELL).text()
+    const bloque = /\.marquesina--suelta\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+
+    expect(bloque).toContain('--marquesina-tinta: var(--color-text)')
+  })
+})
+
+/**
  * La cifra del top sobre la portada, medida.
  *
  * La cifra del puesto va sobre el arte de la pieza, y desde que AniList manda en el
@@ -485,8 +508,6 @@ describe('la cifra del top sobre la portada', () => {
  * foco declarado, que el movimiento reducido se respeta y que ningún elemento
  * interactivo se queda sin nombre accesible.
  */
-
-const SHELL = fileURLToPath(new URL('./styles/shell.css', import.meta.url))
 
 describe('foco visible', () => {
   test('hay una regla de `:focus-visible` con un anillo del tema', async () => {

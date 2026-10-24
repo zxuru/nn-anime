@@ -215,6 +215,47 @@
   font-size: var(--text-md);
 }
 
+/*
+ * El aviso del primer arranque.
+ *
+ * Va en el canal de la vitrina —la caja de la home va a sangre— y antes de la
+ * marquesina: en una instalación nueva no hay destacado y la marquesina de
+ * reserva mide 62 dvh, así que un aviso debajo quedaría fuera de la primera
+ * pantalla. El borde de acento lo separa del resto sin añadir un color nuevo.
+ */
+.primer-arranque {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-inline: var(--vitrina-margen);
+  margin-block: var(--seccion-aire) var(--space-5);
+  padding: var(--space-5);
+  border: var(--border-width-strong) solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+.primer-arranque p {
+  margin: 0;
+}
+
+.primer-arranque__titulo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 800;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
+}
+
+.primer-arranque__url {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
 .shell__main h1 {
   font-family: var(--font-display);
   font-size: var(--text-3xl);
@@ -380,8 +421,11 @@
 }
 
 .skeleton {
+  display: block;
+  inline-size: 100%;
   min-height: var(--skeleton-height);
   border: var(--border-width-strong) solid var(--color-border);
+  border-radius: var(--radius-md);
   background: var(--color-surface-raised);
   animation: latido var(--transition-normal) infinite alternate;
 }
@@ -406,19 +450,8 @@
   clip-path: inset(50%);
 }
 
-/*
- * El esqueleto de la home.
- *
- * Una banda por fila y la misma rejilla que las filas de verdad, para que la
- * página no dé un salto cuando llegue el contenido: el hueco que ocupa el
- * esqueleto es el que va a ocupar lo que sustituye.
- */
-.home__esqueletos {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--grid-min), 1fr));
-  gap: var(--space-5);
-}
-
+/* El latido de los esqueletos de pantalla: el pulso que dice que algo está en
+   camino. Se apaga entero con `prefers-reduced-motion`, más abajo. */
 @keyframes latido {
   from {
     opacity: var(--skeleton-dim);
@@ -3167,6 +3200,13 @@
   margin-block-start: var(--seccion-aire);
 }
 
+/* Un fallo dentro de una sección ya está en el canal de la sección: no lleva
+   otra vez el margen de la vitrina. */
+.seccion__cuerpo .fallo {
+  margin-inline: 0;
+  margin-block-start: 0;
+}
+
 /* --- 5. Marquesina ----------------------------------------------------- */
 .marquesina {
   position: relative;
@@ -3532,21 +3572,29 @@
   color: color-mix(in srgb, var(--marquesina-tinta) var(--marquesina-tinta-marca), transparent);
 }
 
-/* Sin destacado no hay campo detrás: la marca se lee sobre el fondo. */
+/*
+ * Sin destacado no hay campo detrás: la tinta que manda es la del tema y no la
+ * crema de la marquesina. Sobre el fondo claro, la crema desaparece; el titular
+ * de la pantalla se quedaba ilegible en el tema claro del sistema.
+ */
+.marquesina--suelta {
+  --marquesina-tinta: var(--color-text);
+}
+
+/* La marca de refresco se lee sobre el fondo, no sobre un campo. */
 .marquesina--suelta .marca-refresco {
   color: var(--color-text-dim);
 }
 
-/* El esqueleto de la primera carga: la métrica exacta del mosaico, así que cuando
-   llega el catálogo nada salta de sitio. Gris plano, sin latido. Las celdas son
-   carteles como las piezas, así que la proporción la pone el mismo token. */
-.esqueleto {
-  padding-inline: var(--vitrina-margen);
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--vitrina-hueco);
-}
-
+/*
+ * La celda de un esqueleto de fila.
+ *
+ * Es un cartel con la proporción de una pieza y vive dentro del `.mosaico` de la
+ * fila, así que hereda su rejilla y sus cortes: el hueco que ocupa es el que va a
+ * ocupar lo que sustituye. Antes el esqueleto de la home era un bloque aparte de
+ * doce celdas con su propia métrica; con las filas cargando cada una por su
+ * cuenta, esa segunda rejilla era una copia que se desincronizaba.
+ */
 .esq {
   aspect-ratio: var(--pieza-proporcion);
   border: var(--border-width) solid var(--color-rule);
@@ -4192,10 +4240,6 @@
   .mosaico {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-
-  .esqueleto {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
 }
 
 /* 820–1100 : mosaico de 3 columnas; la nota pasa a cabecera de sección; la
@@ -4238,10 +4282,6 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .esqueleto {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .marquesina {
     grid-template-columns: minmax(0, 1fr);
     padding-block-end: var(--marquesina-remate);
@@ -4268,10 +4308,6 @@
 /* 560–820 : mosaico de 2 columnas; marquesina de 46dvh. */
 @media (min-width: 560px) and (max-width: 820px) {
   .mosaico {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .esqueleto {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -4303,10 +4339,6 @@
   }
 
   .mosaico {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .esqueleto {
     grid-template-columns: minmax(0, 1fr);
   }
 

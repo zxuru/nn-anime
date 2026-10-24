@@ -272,6 +272,7 @@ export {
   MAX_REPO_REF_LENGTH,
   MAX_REPO_SUBDIR_LENGTH,
   MAX_REPO_URL_LENGTH,
+  RECOMMENDED_PROVIDER_REPO,
 } from './repos'
 export { type Err, err, map, mapErr, type Ok, ok, type Result, unwrapOr } from './result'
 export {

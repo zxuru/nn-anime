@@ -47,7 +47,8 @@ Banderas:
   'cli.settings.invalid': 'No se pudieron leer los ajustes: {message}',
 
   'cli.providers.active': 'Proveedores activos: {list}',
-  'cli.providers.none': 'Sin proveedores. Copia un plugin a {dir} y vuelve a arrancar.',
+  'cli.providers.none':
+    'Sin proveedores. Añade el repositorio recomendado en Ajustes ({repo}) o copia un plugin a {dir}.',
   'cli.providers.rejected': 'Proveedor rechazado: {message}',
   'cli.providers.directory': 'No se pudieron leer los plugins: {message}',
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Estado de la búsqueda incremental.
  *
  * Aquí vive todo lo que se puede probar sin un DOM: la reducción de eventos a
@@ -456,13 +456,19 @@ export function useProviderPriority(): readonly string[] {
  * La deduplicación importa aquí: dos componentes que monten a la vez —la
  * búsqueda y el panel de la home— comparten la petición en lugar de pedir dos
  * veces lo mismo.
+ *
+ * `failed` distingue «la lista está vacía» de «no se pudo leer la lista». El
+ * primer arranque de la home sólo puede decir que no hay proveedores cuando la
+ * lectura terminó bien; sobre una lectura fallida, afirmarlo sería mentir.
  */
 export function useProviders(): {
   readonly summaries: readonly ProviderSummary[]
   readonly loaded: boolean
+  readonly failed: boolean
 } {
   const [summaries, setSummaries] = useState<readonly ProviderSummary[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -471,10 +477,12 @@ export function useProviders(): {
       (resultado) => {
         if (controller.signal.aborted) return
         setSummaries(resultado)
+        setFailed(false)
         setLoaded(true)
       },
       () => {
         if (controller.signal.aborted) return
+        setFailed(true)
         setLoaded(true)
       },
     )
@@ -482,7 +490,7 @@ export function useProviders(): {
     return () => controller.abort()
   }, [])
 
-  return { summaries, loaded }
+  return { summaries, loaded, failed }
 }
 
 export interface PrefetchOptions {

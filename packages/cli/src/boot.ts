@@ -18,6 +18,7 @@ import {
   formatBootLine,
   type Locale,
   loadConfig,
+  RECOMMENDED_PROVIDER_REPO,
   type Result,
   type Settings,
 } from '@nn-anime/core'
@@ -267,7 +268,10 @@ function reportPlugins(io: CliIO, locale: Locale, report: LoadReport, providersD
   const ids = report.active.map((entry) => entry.provider.id)
   io.out(
     ids.length === 0
-      ? t(locale, 'cli.providers.none', { dir: providersDir })
+      ? t(locale, 'cli.providers.none', {
+          dir: providersDir,
+          repo: RECOMMENDED_PROVIDER_REPO,
+        })
       : t(locale, 'cli.providers.active', { list: ids.join(', ') }),
   )
 

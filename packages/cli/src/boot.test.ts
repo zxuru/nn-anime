@@ -9,6 +9,7 @@ import {
   loadConfig,
   type ProviderError,
   parseBootLine,
+  RECOMMENDED_PROVIDER_REPO,
 } from '@nn-anime/core'
 import { type Provider, providerFailure } from '@nn-anime/provider-sdk'
 import { createContainer, type RunningServer, saveRepoRecords } from '@nn-anime/server'
@@ -775,6 +776,9 @@ describe('proveedores activos', () => {
       await boot(options(), depsFor(target, home))
 
       expect(target.out.join('\n')).toContain('Sin proveedores')
+      // Y nombra el repositorio recomendado, que es lo que la interfaz ofrece en
+      // el primer arranque: la consola y la pantalla dicen lo mismo.
+      expect(target.out.join('\n')).toContain(RECOMMENDED_PROVIDER_REPO)
       // Y dice la ruta de verdad, no una escrita a mano: en Windows los plugins
       // viven bajo `%APPDATA%`, y `~/.config/...` no existe.
       expect(target.out.join('\n')).toContain(loadConfig({ env: { HOME: home } }).providersDir)

@@ -16,6 +16,7 @@ import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { searchPath } from '../search/SearchPage'
+import { SeccionCargando } from './SeccionCargando'
 import { cuentaDeTitulos } from './tramo'
 
 export interface GenreCount {
@@ -27,6 +28,8 @@ export interface GenreCount {
 
 export interface GenreRowProps {
   readonly genres: readonly GenreCount[]
+  /** Si el motor sigue buscando los géneros del catálogo. */
+  readonly cargando?: boolean | undefined
 }
 
 /** Las etiquetas ordenadas por cuántas veces salen. */
@@ -35,6 +38,15 @@ export function topGenres(tags: readonly (readonly string[])[], limit: number): 
 }
 
 export function GenreRow(props: GenreRowProps): ReactNode {
+  if (props.cargando === true) {
+    return (
+      <SeccionCargando
+        title={t(DEFAULT_LOCALE, 'home.genres')}
+        meta={t(DEFAULT_LOCALE, 'home.genres.meta')}
+      />
+    )
+  }
+
   return (
     <section className="seccion">
       <SectionHeader

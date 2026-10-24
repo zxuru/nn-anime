@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Página de búsqueda.
  *
  * Cuatro decisiones que se ven en el código:
@@ -48,6 +48,21 @@ import {
 
 /** Retardo del spec entre la última tecla y la petición. */
 export const SEARCH_DEBOUNCE_MS = 400
+
+/**
+ * Cuántos esqueletos se ven mientras no se sabe qué proveedores hay.
+ *
+ * Es lo que tapa el hueco entre «Buscando…» y la primera respuesta: hasta que
+ * `/api/providers` no llega, no hay un `pending` por proveedor del que colgar la
+ * rejilla. Cuatro es una primera pantalla; cuando la lista llega, los sustituye
+ * un esqueleto por proveedor de verdad.
+ *
+ * Las claves son fijas y no el índice del bucle: un índice como `key` es lo que
+ * rechaza el linter y aquí no hay estado que conservar por celda.
+ */
+const ESPERA_KEYS = ['espera-1', 'espera-2', 'espera-3', 'espera-4'] as const
+
+export const ESQUELETOS_SIN_PROVEEDORES = ESPERA_KEYS.length
 
 /** Programa algo y devuelve cómo cancelarlo, sustituyendo lo programado antes. */
 export type Schedule = (run: () => void, ms: number) => () => void
@@ -222,6 +237,9 @@ export function SearchPage(props: SearchPageProps): ReactNode {
     lado tuviera la suya, la pantalla pediría una cosa y pintaría otra.
   */
   const soloCatalogo = hasGenreToken(aplicado)
+  // Sin la lista de proveedores todavía, no hay pendientes por proveedor: la
+  // rejilla de esqueletos se pinta igual, para no dejar la pantalla en una frase.
+  const esperandoProveedores = !providersLoaded && aplicado !== '' && !soloCatalogo
 
   // El retardo: `aplicado` sólo cambia cuando el usuario deja de teclear.
   useEffect(() => {
@@ -293,15 +311,23 @@ export function SearchPage(props: SearchPageProps): ReactNode {
         <AniListCards items={visibles.anilist} query={aplicado} done={resuelta(visibles)} />
       ) : (
         <>
-          {state.pending.length > 0 ? (
+          {state.pending.length > 0 || esperandoProveedores ? (
             <Grid label={t(DEFAULT_LOCALE, 'search.results')}>
-              {state.pending.map((providerId) => (
-                <GridItem key={providerId}>
-                  {/* Un esqueleto por proveedor pendiente: lo que falta se ve, en
-                      lugar de aparecer de golpe cuando responda el último. */}
-                  <span className="skeleton" aria-hidden="true" />
-                </GridItem>
-              ))}
+              {state.pending.length > 0
+                ? state.pending.map((providerId) => (
+                    <GridItem key={providerId}>
+                      {/* Un esqueleto por proveedor pendiente: lo que falta se ve,
+                          en lugar de aparecer de golpe cuando responda el último. */}
+                      <span className="skeleton" aria-hidden="true" />
+                    </GridItem>
+                  ))
+                : ESPERA_KEYS.slice(0, ESQUELETOS_SIN_PROVEEDORES).map((clave) => (
+                    <GridItem key={clave}>
+                      {/* Todavía no se sabe a quién se le pregunta: la rejilla
+                          existe para que la espera se vea. */}
+                      <span className="skeleton" aria-hidden="true" />
+                    </GridItem>
+                  ))}
             </Grid>
           ) : null}
 

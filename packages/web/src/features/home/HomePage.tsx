@@ -34,7 +34,7 @@ import {
   fuenteDeVisionado,
   sinFuenteQueSirva,
   tipoFromPath,
-  useMedias,
+  useFuentes,
 } from '../tipo/tipo'
 import { ContinueRow } from './ContinueRow'
 import {
@@ -51,8 +51,8 @@ import { FavoritesRow } from './FavoritesRow'
 import { FeaturedHero, type FeaturedItem } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
 import { GenreRow, generosConCuenta } from './GenreRow'
-import { HomeSkeletons } from './HomeSkeletons'
 import { ParrillaRow } from './ParrillaRow'
+import { esPrimerArranque, PrimerArranque } from './PrimerArranque'
 import { RecommendedRow } from './RecommendedRow'
 import { Ticker } from './Ticker'
 import { TopRow } from './TopRow'
@@ -218,8 +218,17 @@ export function textoDeRefresco(
 export function HomePage(props: HomePageProps): ReactNode {
   const path = usePath()
   const tipo = tipoFromPath(path)
-  const medias = useMedias()
+  const fuentes = useFuentes()
+  const medias = fuentes.medias
   const filas = useHomeRows(tipo)
+  const cargandoFilas = filas.loading
+  // La lista vacía sólo es «no hay proveedores» si la lectura terminó bien: el
+  // aviso del primer arranque no puede apoyarse en una lectura que falló.
+  const primerArranque = esPrimerArranque({
+    loaded: fuentes.loaded,
+    failed: fuentes.failed,
+    total: fuentes.summaries.length,
+  })
   const recomendaciones = useRecommendations({
     media: tipo,
     ...(props.query === undefined ? {} : { query: props.query }),
@@ -279,6 +288,24 @@ export function HomePage(props: HomePageProps): ReactNode {
       ) : null}
 
       {/*
+        La frase que explica la espera, una sola vez y para quien no ve los
+        esqueletos: cada fila es `aria-busy` y sus celdas son decoración, así que
+        sin esto el lector de pantalla no sabe que falta contenido.
+      */}
+      {cargandoFilas ? (
+        <p className="solo-lectores" role="status">
+          {t(DEFAULT_LOCALE, 'home.loading')}
+        </p>
+      ) : null}
+
+      {/*
+        El aviso del primer arranque va antes de la marquesina: la de reserva mide
+        62 dvh, y un aviso debajo de ella quedaría fuera de la primera pantalla,
+        que es justo donde tiene que leerse.
+      */}
+      {primerArranque ? <PrimerArranque /> : null}
+
+      {/*
         La marquesina lleva dentro la marca de refresco y la cinta: las tres cosas
         son la misma pieza del diseño —el campo a sangre con el cartel, la línea
         pegada al borde inferior y la fecha de la última relectura en la esquina—.
@@ -307,17 +334,13 @@ export function HomePage(props: HomePageProps): ReactNode {
         />
       )}
 
-      {recomendaciones.state === 'loading' ? (
-        <HomeSkeletons label={t(DEFAULT_LOCALE, 'home.loading')} />
-      ) : null}
-
       {/*
         «Continuar viendo» va la primera, antes del motor y antes que el top. Es la
         única fila que pide una acción concreta —retomar lo que se dejó a medias— y
         lo demás es descubrir: quien entra a seguir un episodio no debería bajarlo
         a buscar entre las recomendaciones.
       */}
-      <ContinueRow items={continuar} />
+      <ContinueRow items={continuar} cargando={cargandoFilas} />
 
       {/*
         El motor va segundo y con su tramo entero: la puntuación y el motivo viajan
@@ -325,13 +348,20 @@ export function HomePage(props: HomePageProps): ReactNode {
         detalle. La franja que explicaba el motor se retiró: ocupaba el ancho del
         tramo para decir lo que ya dice la nota y la pieza.
       */}
-      <RecommendedRow items={items} portadas={portadas} />
+      <RecommendedRow
+        items={items}
+        portadas={portadas}
+        cargando={recomendaciones.state === 'loading'}
+        fallo={recomendaciones.error}
+        onRetry={recomendaciones.reload}
+      />
 
       {/* El top es un ranking —el de AniList cuando está, el de la fuente
           cuando no— **en su orden y con su puesto**: el motor ya tiene su sitio,
           el destacado y su propio tramo. */}
       <TopRow
         items={top}
+        cargando={cargandoFilas}
         {...(filas.descubrir.length === 0
           ? {}
           : { meta: t(DEFAULT_LOCALE, 'home.top.meta.anilist') })}
@@ -342,11 +372,13 @@ export function HomePage(props: HomePageProps): ReactNode {
           que van justo detrás. */}
       <ParrillaRow
         dias={dias}
+        cargando={cargandoFilas}
         {...(tipo === 'movies' ? { vacio: t(DEFAULT_LOCALE, 'home.parrilla.empty.movies') } : {})}
       />
 
       <FeedRow
         items={novedades}
+        cargando={cargandoFilas}
         {...(filas.emisiones.length === 0
           ? { vacio: t(DEFAULT_LOCALE, 'home.feed.empty') }
           : {
@@ -355,9 +387,9 @@ export function HomePage(props: HomePageProps): ReactNode {
             })}
       />
 
-      <FavoritesRow items={favoritos} />
+      <FavoritesRow items={favoritos} cargando={cargandoFilas} />
 
-      <GenreRow genres={generos} />
+      <GenreRow genres={generos} cargando={recomendaciones.state === 'loading'} />
     </section>
   )
 }
