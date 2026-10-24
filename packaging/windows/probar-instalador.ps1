@@ -230,6 +230,11 @@ Paso "el servidor escucha en $($escuchas[0].LocalAddress):$($escuchas[0].LocalPo
 
 # La X **oculta** en la bandeja; no cierra. Es el comportamiento del `.exe` que se
 # publica, y por eso se mide aquí en vez de exigir el que decía el README viejo.
+#
+# La ventana acaba de abrirse: se le da un momento para que el bucle de eventos
+# esté asentado. Cerrar en el mismo instante del anuncio del servidor hacía que,
+# a veces, el cierre llegara antes que el manejador y la aplicación terminara.
+Start-Sleep -Seconds 2
 if (-not $anfitrion.CloseMainWindow()) { throw 'no se pudo cerrar la ventana del anfitrión' }
 Start-Sleep -Seconds 3
 $anfitrion.Refresh()
