@@ -46,7 +46,9 @@ lo lanza con `--no-open`. La raíz es `%LOCALAPPDATA%\nn-anime`, o la carpeta de
 
 En **macOS y Linux**, mientras el archivo único siga siendo de Windows, el servidor viaja al lado del
 anfitrión, dentro del `.app`, del `.deb`, del `.rpm` o del AppImage, y se lanza desde el mismo
-directorio (`Contents/MacOS`, `/usr/lib/nn-anime`).
+directorio (`Contents/MacOS`, `/usr/lib/nn-anime`). La raíz de datos es
+`~/.local/share/nn-anime` —o `XDG_DATA_HOME`—, no el directorio del ejecutable: un `.deb` vive en
+`/usr/lib` y un AppImage está montado en sólo lectura.
 
 ```
 <ruta del servidor> --no-open

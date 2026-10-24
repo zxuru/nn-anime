@@ -239,10 +239,11 @@ más viejo que el servidor y se niega a armar un instalador que arrancaría sin 
 | Repositorios de proveedores descargados | `~/.local/share/nn-anime/repos/` | `%LOCALAPPDATA%\nn-anime\repos\` |
 | Caché | `~/.cache/nn-anime/` | `%LOCALAPPDATA%\nn-anime\cache\` |
 
-La tabla es la del **CLI** (`bun run start`). La **ventana** —el archivo único y el instalador de
-Windows— fija los tres directorios bajo una sola raíz, `%LOCALAPPDATA%\nn-anime`, con `config`,
-`cache`, `bin` (el servidor extraído) y `webview` dentro; en modo portable (`portable.txt`) esa raíz es
-la carpeta del `.exe`. Las rutas exactas en uso se ven en **Ajustes**, dentro de la aplicación. En
+La tabla es la del **CLI** (`bun run start`). La **ventana** fija los tres directorios bajo una sola
+raíz: `%LOCALAPPDATA%\nn-anime` en Windows y `~/.local/share/nn-anime` —o `XDG_DATA_HOME`— en macOS y
+Linux, con `config`, `cache`, `bin` (el servidor) y `webview` dentro. En modo portable
+(`portable.txt`) esa raíz es la carpeta del `.exe`. Las rutas exactas en uso se ven en **Ajustes**,
+dentro de la aplicación. En
 Linux y macOS se respetan `XDG_DATA_HOME`, `XDG_CONFIG_HOME` y `XDG_CACHE_HOME`; en Windows mandan
 `%LOCALAPPDATA%` y `%APPDATA%` —colgando de `USERPROFILE` si faltan—, y las `XDG_*` se siguen
 respetando para quien las tenga puestas.

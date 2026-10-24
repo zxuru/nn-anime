@@ -206,8 +206,11 @@ servidor a `<raíz>\bin\<versión>\nn-anime.exe`, comprueba el hash y lo lanza. 
 al lado que se pueda perder ni una carpeta que haya que mantener intacta.
 
 En **macOS y Linux**, mientras el archivo único siga siendo sólo de Windows, el anfitrión viaja **al
-lado** del servidor dentro del `.dmg`, del `.deb`, del `.rpm` y del AppImage. Es la estructura de
-siempre y este cambio no la toca.
+lado** del servidor dentro del `.dmg`, del `.deb`, del `.rpm` y del AppImage. `main.rs` lo detecta
+porque `build.rs` compiló un servidor embebido vacío y usa `sidecar::sibling_path`; la ventana no
+intenta extraer cero bytes. Los datos de esos paquetes van a `~/.local/share/nn-anime` —o
+`XDG_DATA_HOME`—, no al directorio del ejecutable, que en un `.deb` es de root y en un AppImage está
+montado en sólo lectura.
 
 `packages/cli/src/resources.ts` los resuelve en este orden: variable de entorno
 (`NN_ANIME_WEB_DIR`, `NN_ANIME_MIGRATIONS_DIR`), recurso incrustado y árbol de fuentes. Los dos

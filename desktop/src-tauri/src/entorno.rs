@@ -88,7 +88,7 @@ pub fn preparar_raiz() -> Raiz {
 
     let mut intentos: Vec<String> = Vec::new();
 
-    // 2. El perfil del usuario.
+    // 2. El perfil del usuario en Windows.
     if let Some(perfil) = std::env::var_os("LOCALAPPDATA") {
         let ruta = std::path::PathBuf::from(perfil).join("nn-anime");
 
@@ -104,6 +104,42 @@ pub fn preparar_raiz() -> Raiz {
                 return raiz;
             }
             Err(error) => intentos.push(format!("{}: {error}", ruta.display())),
+        }
+    }
+
+    // 2b. El perfil del usuario en macOS y Linux. Sin esto caería al directorio del
+    //     ejecutable, que en un `.deb` es de root y en un AppImage está montado en
+    //     sólo lectura: la aplicación no podría guardar nada y saldría con un aviso.
+    //     Una sola raíz para datos, configuración y caché, como en Windows; es la
+    //     que el anfitrión fija en `NN_ANIME_*` y la que documenta el README.
+    #[cfg(not(windows))]
+    {
+        let base = std::env::var_os("XDG_DATA_HOME")
+            .map(std::path::PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("HOME").map(|home| {
+                    std::path::PathBuf::from(home)
+                        .join(".local")
+                        .join("share")
+                })
+            });
+
+        if let Some(base) = base {
+            let ruta = base.join("nn-anime");
+
+            match probar_escritura(&ruta) {
+                Ok(()) => {
+                    let raiz = Raiz {
+                        ruta,
+                        portable: false,
+                    };
+
+                    fijar(&raiz);
+
+                    return raiz;
+                }
+                Err(error) => intentos.push(format!("{}: {error}", ruta.display())),
+            }
         }
     }
 

@@ -311,6 +311,18 @@ describe('el anfitrión de ventana', () => {
     expect(main).toContain('webview()')
   })
 
+  test('en macOS y Linux el servidor viaja al lado del anfitrión', async () => {
+    const sidecar = await leer(join(CRATE, 'src', 'sidecar.rs'))
+    const main = await leer(join(CRATE, 'src', 'main.rs'))
+
+    // Allí el anfitrión no lleva el servidor dentro: el `.app`, el `.deb`, el
+    // `.rpm` y el AppImage instalan los dos juntos. Sin esta rama, `embebido`
+    // escribiría cero bytes, los ejecutaría y la ventana enseñaría el aviso.
+    expect(sidecar).toContain('pub fn sibling_path')
+    expect(main).toContain('embebido::hay_servidor()')
+    expect(main).toContain('sidecar::sibling_path()')
+  })
+
   test('el servidor nombra la base y los directorios que no pudo preparar', async () => {
     const config = await leer(join(ROOT, 'packages', 'core', 'src', 'config.ts'))
     const boot = await leer(join(ROOT, 'packages', 'cli', 'src', 'boot.ts'))
@@ -352,6 +364,10 @@ describe('el anfitrión de ventana', () => {
     // no ensucian la carpeta donde se copió.
     expect(entorno).toContain('LOCALAPPDATA')
     expect(entorno).toContain('join("nn-anime")')
+    // Y en macOS y Linux, la raíz XDG del usuario: sin ella caería al directorio
+    // del ejecutable, que en un `.deb` es de root y en un AppImage no se escribe.
+    expect(entorno).toContain('XDG_DATA_HOME')
+    expect(entorno).toContain('HOME')
     expect(entorno).toContain('NN_ANIME_DATA_DIR')
     expect(entorno).toContain('NN_ANIME_CONFIG_DIR')
     expect(entorno).toContain('NN_ANIME_CACHE_DIR')
