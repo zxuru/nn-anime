@@ -22,10 +22,14 @@
 import type { RecommendationResponse } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
+import type { Fallo } from '../../api/fallo'
+import { ErrorNotice } from '../../components/ErrorNotice'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
+import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
+import { SeccionCargando } from './SeccionCargando'
 import { cuentaDeTitulos } from './tramo'
 
 export interface RecommendedRowProps {
@@ -37,6 +41,16 @@ export interface RecommendedRowProps {
    * que hacía antes de esta entrega.
    */
   readonly portadas?: ReadonlyMap<string, string> | undefined
+  /** Si el motor sigue buscando qué recomendar. */
+  readonly cargando?: boolean | undefined
+  /**
+   * El fallo del motor, si lo hubo.
+   *
+   * Sin él, una fila vacía diría «todavía no hay nada que recomendar», que es una
+   * afirmación sobre el catálogo y no sobre una petición que no llegó.
+   */
+  readonly fallo?: Fallo | undefined
+  readonly onRetry?: (() => void) | undefined
 }
 
 /** La clave con la que esta recomendación busca su portada de AniList. */
@@ -62,6 +76,15 @@ export function metaDeRecomendacion(item: RecommendationResponse): string | unde
 }
 
 export function RecommendedRow(props: RecommendedRowProps): ReactNode {
+  if (props.cargando === true) {
+    return (
+      <SeccionCargando
+        title={t(DEFAULT_LOCALE, 'home.recommended')}
+        meta={t(DEFAULT_LOCALE, 'home.recommended.meta')}
+      />
+    )
+  }
+
   return (
     <section className="seccion">
       <SectionHeader
@@ -71,25 +94,33 @@ export function RecommendedRow(props: RecommendedRowProps): ReactNode {
       />
 
       <div className="seccion__cuerpo">
-        <Mosaico>
-          {props.items.map((item, indice) => (
-            <Pieza
-              key={claveDeRecomendacion(item)}
-              providerId={item.ref.providerId}
-              ref={item.ref.value}
-              {...(props.portadas?.get(claveDeRecomendacion(item)) === undefined
-                ? {}
-                : { portada: props.portadas.get(claveDeRecomendacion(item)) })}
-              title={item.title}
-              to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
-              recurso={recursoDe(indice)}
-              year={item.year}
-              meta={metaDeRecomendacion(item)}
-              puntuacion={item.score}
-              motivo={item.reason.text}
-            />
-          ))}
-        </Mosaico>
+        {props.items.length === 0 ? (
+          props.fallo === undefined ? (
+            <PiezaVacia texto={t(DEFAULT_LOCALE, 'reco.empty')} />
+          ) : (
+            <ErrorNotice fallo={props.fallo} onRetry={props.onRetry} />
+          )
+        ) : (
+          <Mosaico>
+            {props.items.map((item, indice) => (
+              <Pieza
+                key={claveDeRecomendacion(item)}
+                providerId={item.ref.providerId}
+                ref={item.ref.value}
+                {...(props.portadas?.get(claveDeRecomendacion(item)) === undefined
+                  ? {}
+                  : { portada: props.portadas.get(claveDeRecomendacion(item)) })}
+                title={item.title}
+                to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
+                recurso={recursoDe(indice)}
+                year={item.year}
+                meta={metaDeRecomendacion(item)}
+                puntuacion={item.score}
+                motivo={item.reason.text}
+              />
+            ))}
+          </Mosaico>
+        )}
       </div>
     </section>
   )

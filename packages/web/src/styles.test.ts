@@ -107,6 +107,27 @@ describe('tokens de diseño', () => {
   })
 
   /**
+   * El esqueleto de una pantalla que carga.
+   *
+   * Los cuatro usos —detalle, perfil, historial y búsqueda— son
+   * `<span class="skeleton">` vacíos. Un span es inline: sin `display: block` no
+   * tiene caja propia, `min-height` no se aplica y el esqueleto no se ve aunque
+   * esté en el marcado. Eso es lo que hacía parecer que la pantalla se quedaba sin
+   * datos. La prueba sujeta las dos declaraciones que lo convierten en caja.
+   */
+  test('el esqueleto de carga es una caja, no un span vacío', async () => {
+    const css = await read(SHELL)
+    const inicio = css.indexOf('.skeleton {')
+
+    expect(inicio).toBeGreaterThan(-1)
+
+    const bloque = css.slice(inicio, css.indexOf('}', inicio))
+
+    expect(bloque).toContain('display: block')
+    expect(bloque).toContain('inline-size: 100%')
+  })
+
+  /**
    * Las medidas, salvo las de los `@media`.
    *
    * Un punto de corte **no puede** venir de un token: `var()` no existe dentro de

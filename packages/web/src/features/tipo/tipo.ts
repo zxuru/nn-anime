@@ -13,6 +13,7 @@
  * los favoritos, lo que se está viendo y los resultados que acaban de llegar.
  */
 
+import type { ProviderSummary } from '@nn-anime/core/api'
 import {
   DEFAULT_MEDIA,
   esDeMedia,
@@ -61,14 +62,36 @@ export function pathConTipo(path: string, tipo: MediaFilter): string {
   return partes.length === 0 ? camino : `${camino}?${partes.join('&')}`
 }
 
-/** Lo que sirve cada proveedor cargado, por su id. Sin declararlo, anime. */
-export function useMedias(): ReadonlyMap<string, ProviderMedia> {
-  const { summaries } = useProviders()
+/**
+ * Los proveedores y lo que sirve cada uno, en una sola lectura.
+ *
+ * La home necesita las dos cosas a la vez: el mapa para repartir títulos por
+ * mitad y la lista para saber si la instalación no tiene ninguna fuente. Pedirlas
+ * por separado abriría dos instancias del mismo hook; aquí se comparten.
+ */
+export interface Fuentes {
+  readonly medias: ReadonlyMap<string, ProviderMedia>
+  readonly summaries: readonly ProviderSummary[]
+  /** La lectura terminó. */
+  readonly loaded: boolean
+  /** La lectura falló: la lista vacía no significa «no hay proveedores». */
+  readonly failed: boolean
+}
 
-  return useMemo(
+export function useFuentes(): Fuentes {
+  const { summaries, loaded, failed } = useProviders()
+
+  const medias = useMemo(
     () => new Map(summaries.map((resumen) => [resumen.id, mediaOf(resumen.capabilities)])),
     [summaries],
   )
+
+  return { medias, summaries, loaded, failed }
+}
+
+/** Lo que sirve cada proveedor cargado, por su id. Sin declararlo, anime. */
+export function useMedias(): ReadonlyMap<string, ProviderMedia> {
+  return useFuentes().medias
 }
 
 /** La fuente de un título, que es lo que decide de qué es. */

@@ -4,6 +4,7 @@ import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { ApiError } from '../../api/client'
+import { describirFallo } from '../../api/fallo'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { ContinueRow } from './ContinueRow'
 import { desdeResumen, type PiezaVista } from './descubrir'
@@ -19,6 +20,7 @@ import {
   piezasDeNovedades,
   textoDeRefresco,
 } from './HomePage'
+import { RecommendedRow } from './RecommendedRow'
 import { continuePath, progressPercent, resumeLabel } from './rows'
 import { TopRow } from './TopRow'
 import {
@@ -273,20 +275,31 @@ describe('las filas, cuando una lectura falla', () => {
 })
 
 describe('la home', () => {
-  test('arranca cargando, con esqueletos y con las filas anunciadas', () => {
+  test('arranca cargando: cada fila enseña esqueletos y no su vacío', () => {
     const html = render(<HomePage />)
 
     // La frase no desaparece: se va al texto que sólo lee un lector de pantalla,
     // porque el esqueleto es decoración y no dice qué está pasando.
     expect(html).toContain('Cargando tu inicio')
-    expect(html).toContain('aria-busy="true"')
-    expect(html).toContain('class="esqueleto"')
     expect(html).toContain('solo-lectores')
-    // Y el esqueleto tiene la métrica del mosaico: dos filas de seis carteles, todos
-    // iguales, que es lo que va a llegar. El número va escrito aquí y no se lee de
-    // `ESQUELETOS`: si el componente cambia de idea, la prueba lo tiene que decir.
-    expect(html.match(/class="esq" aria-hidden="true"/g)?.length).toBe(12)
+    expect(html).toContain('aria-busy="true"')
+
+    // Siete filas × seis celdas. El número va escrito aquí y no se lee de
+    // `ESQUELETOS_POR_FILA`: si el componente cambia de idea, la prueba lo dice.
+    expect(html.match(/class="esq" aria-hidden="true"/g)?.length).toBe(42)
     expect(html).not.toContain('esq--')
+
+    // Y lo que no se puede decir mientras se carga: los mensajes de vacío.
+    for (const vacio of [
+      'Nada a medias',
+      'Ningún proveedor activo publica un top',
+      'Ningún proveedor activo publica novedades',
+      'Todavía no has marcado',
+      'Todavía no hay géneros',
+      'Todavía no hay nada que recomendar',
+    ]) {
+      expect(html, vacio).not.toContain(vacio)
+    }
   })
 
   test('el panel de recomendaciones es una fila más', () => {
@@ -332,6 +345,38 @@ describe('la home', () => {
     expect(html).not.toContain('¿Por qué estas recomendaciones?')
     expect(html).not.toContain('class="franja"')
     expect(html).not.toContain('franja__')
+  })
+})
+
+/**
+ * Las filas, con su estado de carga.
+ *
+ * La diferencia importa: mientras la lectura está en vuelo, la fila no puede
+ * decir que no hay nada —eso es una afirmación sobre los datos, no sobre la
+ * espera—. Se mide sobre el marcado de la fila sola, que es lo único que un
+ * `renderToString` puede decidir sin red.
+ */
+describe('las filas mientras cargan', () => {
+  test('con `cargando` no dicen que estén vacías', () => {
+    const html = render(<ContinueRow items={[]} cargando />)
+
+    expect(html).not.toContain('Nada a medias')
+    expect(html.match(/class="esq"/g)?.length).toBe(6)
+    expect(html).toContain('aria-busy="true"')
+  })
+
+  test('sin carga, la fila vacía explica su vacío', () => {
+    expect(render(<ContinueRow items={[]} />)).toContain('Nada a medias')
+    expect(render(<RecommendedRow items={[]} />)).toContain('Todavía no hay nada que recomendar')
+  })
+
+  test('si el motor falló, lo dice en vez de decir que no hay nada', () => {
+    const fallo = describirFallo(new ApiError(500, 'GET /api/recommendations respondió 500'))
+    const html = render(<RecommendedRow items={[]} fallo={fallo} onRetry={() => {}} />)
+
+    expect(html).toContain('Fallo del servidor')
+    expect(html).toContain('Reintentar')
+    expect(html).not.toContain('Todavía no hay nada que recomendar')
   })
 })
 

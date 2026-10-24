@@ -24,12 +24,15 @@ import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 import { anioDe, type DiaDeParrilla, desdeEmision, episodioDe, horaDe } from './descubrir'
+import { SeccionCargando } from './SeccionCargando'
 import { cuentaDeTitulos } from './tramo'
 
 export interface ParrillaRowProps {
   readonly dias: readonly DiaDeParrilla[]
   /** Lo que se dice cuando no hay nada. Cambia de mitad: las películas no tienen parrilla. */
   readonly vacio?: string | undefined
+  /** Si la lectura de esta fila sigue en vuelo. */
+  readonly cargando?: boolean | undefined
 }
 
 /** Cuántos capítulos enseña la parrilla entera. */
@@ -59,6 +62,15 @@ export function metaDeEmision(item: AiringItem): string {
 }
 
 export function ParrillaRow(props: ParrillaRowProps): ReactNode {
+  if (props.cargando === true) {
+    return (
+      <SeccionCargando
+        title={t(DEFAULT_LOCALE, 'home.parrilla')}
+        meta={t(DEFAULT_LOCALE, 'home.parrilla.meta')}
+      />
+    )
+  }
+
   const total = props.dias.reduce((suma, dia) => suma + dia.items.length, 0)
   let restantes = PARRILLA_LIMITE
 

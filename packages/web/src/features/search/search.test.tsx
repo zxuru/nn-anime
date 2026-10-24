@@ -417,6 +417,19 @@ describe('página', () => {
     expect(html).toContain('Buscando')
     expect(html).not.toContain('Nada coincide')
   })
+
+  /**
+   * El hueco entre «Buscando…» y la primera respuesta de proveedores.
+   *
+   * Antes de que `/api/providers` llegue no hay un `pending` por proveedor del que
+   * colgar la rejilla, y la pantalla se quedaba sólo con una frase. La rejilla de
+   * espera existe para que se vea que la búsqueda está trabajando.
+   */
+  test('sin saber qué proveedores hay, la búsqueda ya enseña esqueletos', () => {
+    const html = pagina('/search?q=naruto')
+
+    expect(html.match(/class="skeleton"/g)?.length).toBe(4)
+  })
 })
 
 /**
