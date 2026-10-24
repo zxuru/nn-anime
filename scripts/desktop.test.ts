@@ -21,6 +21,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   HOST_NAME,
@@ -38,6 +39,7 @@ import {
   SUBSYSTEM_WINDOWS,
   subsystemName,
 } from './package/pe'
+import { comprobarOrden, unicoNombre } from './package/unico'
 import { ROOT } from './workspaces'
 
 const SPEC = join(ROOT, 'docs', 'specs', 'SPEC-desktop.md')
@@ -593,5 +595,140 @@ describe('el subsistema PE', () => {
     expect(ci).toContain('scripts/package/pe.ts')
     expect(ci).toContain('nn-anime.exe console')
     expect(ci).toContain('nn-anime-desktop.exe windows')
+  })
+})
+
+/** Un directorio temporal dentro del repositorio, con su padre asegurado. */
+async function tempDir(prefijo: string): Promise<string> {
+  const base = join(ROOT, '.tmp')
+  await mkdir(base, { recursive: true })
+
+  return await mkdtemp(join(base, prefijo))
+}
+
+/** El bloque de un paso de un workflow, desde su `- name:` hasta el siguiente. */
+function paso(texto: string, nombre: string): string {
+  const inicio = texto.indexOf(`- name: ${nombre}`)
+  expect(inicio, nombre).toBeGreaterThan(-1)
+
+  const siguiente = texto.indexOf('\n      - name:', inicio + 1)
+
+  return texto.slice(inicio, siguiente === -1 ? undefined : siguiente)
+}
+
+describe('el archivo único y la release', () => {
+  test('el nombre es el que se descarga', () => {
+    expect(unicoNombre('1.2.3')).toBe('nn-anime-1.2.3-windows-x64.exe')
+  })
+
+  test('un anfitrión más viejo que el servidor se rechaza', async () => {
+    // Es el fallo silencioso que el orden de la release evita: copiar un anfitrión
+    // compilado antes que el servidor deja dentro el de ayer, o ninguno.
+    const dir = await tempDir('unico-')
+
+    try {
+      const servidor = join(dir, 'nn-anime.exe')
+      const anfitrion = join(dir, 'nn-anime-desktop.exe')
+
+      await writeFile(servidor, 'servidor')
+      await writeFile(anfitrion, 'anfitrion')
+
+      const viejo = new Date(Date.now() - 60_000)
+      const nuevo = new Date(Date.now() + 60_000)
+
+      await utimes(anfitrion, viejo, viejo)
+      await utimes(servidor, nuevo, nuevo)
+
+      await expect(comprobarOrden(anfitrion, servidor)).rejects.toThrow(/más viejo/)
+
+      await utimes(anfitrion, nuevo, nuevo)
+      await expect(comprobarOrden(anfitrion, servidor)).resolves.toBeUndefined()
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  test('la release compila servidor, anfitrión, único e instalador en ese orden', async () => {
+    // Si el anfitrión se compila antes que el servidor, `build.rs` no lo mete
+    // dentro y el `.exe` arranca sin interfaz. El orden es el contrato.
+    const release = await leer(join(ROOT, '.github', 'workflows', 'release.yml'))
+    const nombres = [
+      'Compilar y probar el ejecutable',
+      'Firmar el servidor de Windows',
+      'Compilar el anfitrión',
+      'Firmar el anfitrión de Windows',
+      'Ejecutable único (Windows)',
+      'Armar el instalador',
+    ]
+    const indices = nombres.map((nombre) => {
+      const indice = release.indexOf(`- name: ${nombre}`)
+      expect(indice, nombre).toBeGreaterThan(-1)
+      return indice
+    })
+
+    expect(indices).toEqual([...indices].sort((a, b) => a - b))
+  })
+
+  test('el único se construye sólo en Windows y se mide su PE', async () => {
+    const release = await leer(join(ROOT, '.github', 'workflows', 'release.yml'))
+
+    expect(paso(release, 'Ejecutable único (Windows)')).toContain("if: runner.os == 'Windows'")
+    expect(release).toContain('bun run package:unico')
+    // El archivo que se descarga, no sólo el anfitrión que se compila.
+    expect(release).toMatch(/nn-anime-\*-windows-x64\.exe/)
+    expect(paso(release, 'Comprobar el subsistema de los ejecutables (Windows)')).toContain(
+      'scripts/package/pe.ts',
+    )
+  })
+
+  test('el CI recorre la misma cadena y deja el único descargable', async () => {
+    const ci = await leer(join(ROOT, '.github', 'workflows', 'ci.yml'))
+    const nombres = [
+      'Compilar y probar el ejecutable',
+      'Compilar el anfitrión',
+      'Ejecutable único (Windows)',
+      'Armar el instalador',
+    ]
+    const indices = nombres.map((nombre) => {
+      const indice = ci.indexOf(`- name: ${nombre}`)
+      expect(indice, nombre).toBeGreaterThan(-1)
+      return indice
+    })
+
+    expect(indices).toEqual([...indices].sort((a, b) => a - b))
+    expect(paso(ci, 'Ejecutable único (Windows)')).toContain("if: runner.os == 'Windows'")
+  })
+
+  test('un solo workflow publica: el publicador repetido ya no existe', async () => {
+    // Dos workflows subiendo al mismo tag fue la carrera que dejó esta release a
+    // medias. `release.yml` es el único que puede tocar una release.
+    const workflows = join(ROOT, '.github', 'workflows')
+
+    expect(await Bun.file(join(workflows, 'desktop.yml')).exists()).toBe(false)
+
+    for (const nombre of await Array.fromAsync(new Bun.Glob('*.yml').scan({ cwd: workflows }))) {
+      const texto = await leer(join(workflows, nombre))
+      const publica = /gh release (create|upload|edit)/.test(texto)
+
+      expect(publica, nombre).toBe(nombre === 'release.yml')
+    }
+  })
+
+  test('la prueba del instalador espera el archivo único y la bandeja', async () => {
+    const script = await leer(join(ROOT, 'packaging', 'windows', 'probar-instalador.ps1'))
+
+    // Un solo ejecutable: si vuelve el servidor suelto, el instalador deja de ser
+    // el archivo único que se publica y esto lo dice.
+    expect(script).toContain("'nn-anime-desktop.exe', 'nn-anime.ico'")
+    expect(script).not.toContain("'nn-anime.exe', 'nn-anime-desktop.exe'")
+
+    // Los datos del anfitrión viven todos bajo `%LOCALAPPDATA%\nn-anime`.
+    expect(script).toContain("Join-Path $env:LOCALAPPDATA 'nn-anime'")
+    expect(script).not.toContain("Join-Path $env:APPDATA 'nn-anime'")
+
+    // El servidor se extrae del binario; y la X oculta en la bandeja, no apaga.
+    expect(script).toContain('nn-anime\\bin')
+    expect(script).toContain('IsWindowVisible')
+    expect(script).toContain('la ventana quedó oculta')
   })
 })

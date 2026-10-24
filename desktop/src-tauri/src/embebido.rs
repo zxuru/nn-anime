@@ -102,7 +102,8 @@ pub fn estado(raiz: &Path) -> Vec<String> {
         format!(
             "extraído:        {}",
             match fs::metadata(&destino) {
-                Ok(meta) if coincide(&destino) => format!("sí, {} bytes, hash correcto", meta.len()),
+                Ok(meta) if coincide(&destino) =>
+                    format!("sí, {} bytes, hash correcto", meta.len()),
                 Ok(meta) => format!("sí, {} bytes, hash DISTINTO", meta.len()),
                 Err(_) => "no".to_string(),
             }

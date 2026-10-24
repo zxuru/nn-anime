@@ -66,7 +66,9 @@ export async function unico(options: { out?: string } = {}): Promise<string> {
   const anfitrion = hostBinary('windows', 'x64')
 
   if (!(await Bun.file(servidorCrudo).exists())) {
-    throw new Error(`no hay servidor en ${servidorCrudo}: ejecuta antes \`bun run package --skip-installer\``)
+    throw new Error(
+      `no hay servidor en ${servidorCrudo}: ejecuta antes \`bun run package --skip-installer\``,
+    )
   }
 
   if (!(await Bun.file(anfitrion).exists())) {
@@ -92,7 +94,9 @@ if (import.meta.main) {
     const tamano = (await stat(archivo)).size
 
     process.stdout.write(`único: ${archivo}\n`)
-    process.stdout.write(`  ${tamano.toLocaleString('es-ES')} bytes (${(tamano / 1024 / 1024).toFixed(1)} MB)\n`)
+    process.stdout.write(
+      `  ${tamano.toLocaleString('es-ES')} bytes (${(tamano / 1024 / 1024).toFixed(1)} MB)\n`,
+    )
     process.stdout.write(`  manifiesto: ${MANIFEST}\n`)
     process.stdout.write(`  crate:      ${CRATE_DIR}\n`)
   } catch (error) {

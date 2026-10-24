@@ -51,9 +51,8 @@ Unicode true
 
 !define APP_NAME "nn-anime"
 !define APP_EXE "nn-anime.exe"
-; El anfitrión de ventana. Vive **al lado** del servidor y no dentro: incrustarlo
-; duplicaría los 93,8 MB del ejecutable por plataforma, y así la consola sigue
-; existiendo para quien quiera `nn-anime "naruto"` desde una terminal.
+; El anfitrión de ventana, que es **el único ejecutable que se instala**: lleva el
+; servidor dentro y lo extrae a la carpeta de datos la primera vez que arranca.
 !define APP_HOST "nn-anime-desktop.exe"
 !define APP_ICO "nn-anime.ico"
 !define UNINSTALLER "Desinstalar nn-anime.exe"
@@ -121,20 +120,19 @@ Section "${APP_NAME}" SecApp
   ; que haya que conservar al lado.
   File "${SOURCE}\${APP_HOST}"
 
-  ; El icono lo lleva el instalador porque el ejecutable no puede: `--windows-icon`
-  ; de Bun 1.4.3 produce un `.exe` que Windows rechaza —medido—, así que el icono
-  ; lo usan los accesos y «Agregar o quitar programas» en lugar del propio
-  ; programa. Cuando Bun lo arregle, se pone ahí y este archivo se queda igual.
+  ; El icono lo lleva el instalador para los accesos y «Agregar o quitar
+  ; programas». El ejecutable del anfitrión ya tiene el suyo, pero el `.ico`
+  ; instalado es el que usan los `.lnk` y la entrada de desinstalación.
   !if "${ICON}" != ""
     File /oname=${APP_ICO} "${ICON}"
   !endif
 
   WriteUninstaller "$INSTDIR\${UNINSTALLER}"
 
-  ; El acceso abre **la ventana**, no la consola: el anfitrión lanza el servidor,
-  ; lee su dirección y abre la ventana en ella, y al cerrarla le pide el cierre y
-  ; lo apaga. La consola sigue existiendo en el PATH del usuario para quien la
-  ; quiera; lo que ya no aparece es una ventana negra al pulsar el acceso.
+  ; El acceso abre **la ventana**: el anfitrión extrae el servidor, lee su
+  ; dirección y abre la ventana en ella. La X oculta en la bandeja y «Salir» le
+  ; pide el cierre y lo apaga. La consola ya no se instala: el servidor viaja
+  ; dentro del anfitrión y se extrae a la carpeta de datos.
   CreateDirectory "$SMPROGRAMS\${APP_NAME}"
   CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "${ACCESO_EXE}" "" "${ACCESO_ICONO}" 0
   CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "${ACCESO_EXE}" "" "${ACCESO_ICONO}" 0

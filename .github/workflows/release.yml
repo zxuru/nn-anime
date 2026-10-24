@@ -154,9 +154,10 @@ jobs:
       - name: Construir la interfaz
         run: bun run build
 
-      # El anfitrión de ventana, antes que nada: el instalador lo mete al lado del
-      # servidor y `bun run package` se niega a armar uno sin él, porque sin
-      # anfitrión el acceso del desktop abre una consola.
+      # El orden es parte del contrato del archivo único: `build.rs` embebe el
+      # servidor **al compilar el anfitrión**, así que el servidor tiene que existir
+      # —y estar firmado, si hay certificado— antes. Al revés, el `.exe` saldría con
+      # el servidor de ayer o sin ninguno y arrancaría mintiendo.
       - name: Rust al día
         run: rustup update stable --no-self-update
 
@@ -176,19 +177,13 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      # El anfitrión del **objetivo de esta vuelta**, que no siempre es el de la
-      # máquina: `macos-latest` es arm64 y de ahí salen los dos `.dmg`. El triple
-      # de Rust lo resuelve `desktop:build`, y la comprobación de que el binario
-      # es del objetivo lo hace el propio paso.
-      - name: Compilar el anfitrión
-        run: bun run desktop:build --target=${{ matrix.target }}
-
-      # Primero el ejecutable, y **sin** instalador: en Windows el `.exe` tiene que estar firmado
-      # antes de que NSIS lo meta dentro, así que los dos pasos están separados por la firma.
+      # 1) El servidor, y **sin** instalador. En Windows se firma aquí, antes de
+      #    que el anfitrión lo embeba; si se firmara después, el `.exe` único
+      #    llevaría dentro un servidor sin firmar.
       - name: Compilar y probar el ejecutable
         run: bun run package --skip-installer --target=${{ matrix.target }}
 
-      # --- Windows: firma condicional -------------------------------------
+      # --- Windows: firma condicional, servidor primero --------------------
       - name: Preparar el certificado de Windows
         if: runner.os == 'Windows' && env.FIRMAR_WINDOWS == 'true'
         shell: pwsh
@@ -202,7 +197,7 @@ jobs:
           "PFX_PATH=$ruta" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Output "certificado de Windows preparado en $ruta"
 
-      - name: Firmar los ejecutables de Windows
+      - name: Firmar el servidor de Windows
         if: runner.os == 'Windows' && env.FIRMAR_WINDOWS == 'true'
         shell: pwsh
         env:
@@ -212,27 +207,56 @@ jobs:
             Sort-Object FullName -Descending | Select-Object -First 1
           if (-not $signtool) { throw 'no se encontró signtool.exe (Windows SDK)' }
 
-          # Son **dos**, y el segundo es el que importa: el acceso del escritorio
-          # abre el anfitrión, así que firmar sólo el servidor dejaría el aviso de
-          # SmartScreen justo en el ejecutable que se lanza al pulsar el acceso.
-          # El anfitrión se firma donde lo deja `cargo`, antes de que el paso del
-          # instalador lo copie al lado del servidor.
-          $rutas = @(
-            'build\package\windows-x64\nn-anime.exe',
-            'desktop\src-tauri\target\x86_64-pc-windows-msvc\release\nn-anime-desktop.exe'
-          )
+          # El servidor se firma **antes** de que el anfitrión lo embeba: `include_bytes!`
+          # copia los bytes tal cual, así que un servidor firmado después no llegaría
+          # firmado al `.exe` único.
+          $ruta = 'build\package\windows-x64\nn-anime.exe'
+          if (-not (Test-Path $ruta)) { throw "no está el servidor que hay que firmar: $ruta" }
 
-          foreach ($ruta in $rutas) {
-            if (-not (Test-Path $ruta)) { throw "no está el ejecutable que hay que firmar: $ruta" }
+          & $signtool.FullName sign /f "$env:PFX_PATH" /p "$env:PFX_PASSWORD" /fd SHA256 `
+            /tr http://timestamp.digicert.com /td SHA256 $ruta
+          if ($LASTEXITCODE -ne 0) { throw "signtool falló con $LASTEXITCODE en $ruta" }
 
-            & $signtool.FullName sign /f "$env:PFX_PATH" /p "$env:PFX_PASSWORD" /fd SHA256 `
-              /tr http://timestamp.digicert.com /td SHA256 $ruta
-            if ($LASTEXITCODE -ne 0) { throw "signtool falló con $LASTEXITCODE en $ruta" }
+          & $signtool.FullName verify /pa $ruta
+          Write-Output 'servidor de Windows firmado'
 
-            & $signtool.FullName verify /pa $ruta
-          }
+      # 2) El anfitrión del **objetivo de esta vuelta**, que no siempre es el de la
+      #    máquina: `macos-latest` es arm64 y de ahí salen los dos `.dmg`. El triple
+      #    de Rust lo resuelve `desktop:build`, y la comprobación de que el binario
+      #    es del objetivo lo hace el propio paso. En Windows va **después** del
+      #    servidor porque `build.rs` lo embebe al compilar.
+      - name: Compilar el anfitrión
+        run: bun run desktop:build --target=${{ matrix.target }}
 
-          Write-Output 'ejecutables de Windows firmados'
+      - name: Firmar el anfitrión de Windows
+        if: runner.os == 'Windows' && env.FIRMAR_WINDOWS == 'true'
+        shell: pwsh
+        env:
+          PFX_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $signtool) { throw 'no se encontró signtool.exe (Windows SDK)' }
+
+          # El acceso del escritorio abre el anfitrión, así que firmar sólo el
+          # servidor dejaría el aviso de SmartScreen justo en el ejecutable que se
+          # lanza al pulsar el acceso. Y es el que se copia al `.exe` único: los dos
+          # heredan la firma de este paso.
+          $ruta = 'desktop\src-tauri\target\x86_64-pc-windows-msvc\release\nn-anime-desktop.exe'
+          if (-not (Test-Path $ruta)) { throw "no está el anfitrión que hay que firmar: $ruta" }
+
+          & $signtool.FullName sign /f "$env:PFX_PATH" /p "$env:PFX_PASSWORD" /fd SHA256 `
+            /tr http://timestamp.digicert.com /td SHA256 $ruta
+          if ($LASTEXITCODE -ne 0) { throw "signtool falló con $LASTEXITCODE en $ruta" }
+
+          & $signtool.FullName verify /pa $ruta
+          Write-Output 'anfitrión de Windows firmado'
+
+      # 3) El archivo que se descarga. `package:unico` comprueba que el anfitrión
+      #    sea más nuevo que el servidor: si no, copiaría un `.exe` con el de ayer.
+      - name: Ejecutable único (Windows)
+        if: runner.os == 'Windows'
+        run: bun run package:unico
 
       # --- macOS: firma y notarización condicionales ----------------------
       - name: Preparar el certificado de macOS
@@ -293,11 +317,13 @@ jobs:
         run: bun run package --only-installer --target=${{ matrix.target }}
 
       # El instalador, probado **antes** de subirlo: instalarlo en silencio, mirar
-      # que deja los dos ejecutables, sus accesos y su entrada en «Agregar o quitar
-      # programas», abrirlo, comprobar que la ventana aparece y que al cerrarla no
-      # queda nada vivo, y desinstalarlo. Es lo que `docs/release.md` declaraba sin
-      # probar, y por eso va aquí y no en un trabajo aparte: no se publica un
-      # instalador que nadie ha ejecutado.
+      # que deja **un solo ejecutable** —el anfitrión—, sus accesos y su entrada en
+      # «Agregar o quitar programas», abrirlo, comprobar que la ventana aparece, que
+      # el servidor se extrajo a `%LOCALAPPDATA%\nn-anime\bin` y escucha sólo en
+      # loopback, y desinstalarlo. La X se comprueba ocultando en la bandeja; la
+      # salida ordenada por «Salir» no se automatiza. Es lo que `docs/release.md`
+      # declaraba sin probar, y por eso va aquí: no se publica un instalador que
+      # nadie ha ejecutado.
       - name: Comprobar el subsistema de los ejecutables (Windows)
         if: runner.os == 'Windows'
         # `shell: pwsh` y barras normales por el mismo motivo que en `ci.yml`:
@@ -308,12 +334,19 @@ jobs:
           bun run scripts/package/pe.ts build/package/windows-x64/nn-anime.exe console
           bun run scripts/package/pe.ts build/package/windows-x64/nn-anime-desktop.exe windows
 
+          # Y el archivo único: mismo subsistema `windows` que el anfitrión, porque
+          # es su copia. Si el nombre del artefacto cambia, esto falla aquí y no en
+          # la página de descargas.
+          $unico = Get-ChildItem -Path release -Filter 'nn-anime-*-windows-x64.exe' | Select-Object -First 1
+          if (-not $unico) { throw 'no hay .exe único en release/' }
+          bun run scripts/package/pe.ts "$($unico.FullName)" windows
+
       - name: Probar el instalador (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: pwsh -NoProfile -File packaging/windows/probar-instalador.ps1 -Release release
 
-      - name: Subir los instaladores
+      - name: Subir los instaladores y el archivo único
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: instaladores-${{ matrix.target }}

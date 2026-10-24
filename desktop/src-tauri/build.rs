@@ -14,7 +14,8 @@ use std::path::PathBuf;
 use sha2::{Digest, Sha256};
 
 fn main() {
-    let manifiesto = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
+    let manifiesto =
+        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let salida = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR")).join("embebido.rs");
 
     // La ruta se puede forzar con `NN_ANIME_SERVIDOR`, que es lo que usará el

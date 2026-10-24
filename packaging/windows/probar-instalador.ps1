@@ -16,13 +16,17 @@
 #
 # Se comprueba lo que un usuario notaría, en el orden en que lo notaría:
 #   1. Se instala en silencio, sin permisos de administrador.
-#   2. Quedan los dos ejecutables y el icono.
+#   2. Queda **un solo ejecutable** —el anfitrión, que lleva el servidor dentro— y el
+#      icono. Ya no hay un `nn-anime.exe` que conservar al lado.
 #   3. Hay entrada en «Agregar o quitar programas».
-#   4. Los dos accesos existen y abren el **anfitrión**, no la consola.
-#   5. Al abrirlo aparece una ventana, el servidor escucha **sólo en loopback** y al
-#      cerrar la ventana no queda ningún proceso vivo.
+#   4. Los dos accesos existen y abren el **anfitrión**.
+#   5. Al abrirlo aparece una ventana, el servidor se extrae a
+#      `%LOCALAPPDATA%\nn-anime\bin\<versión>` y escucha **sólo en loopback**. Al
+#      cerrar la ventana la aplicación **se oculta en la bandeja** (no se apaga):
+#      la salida ordenada es «Salir», que no se automatiza aquí; la limpieza final
+#      mata los procesos y exige que no quede ninguno.
 #   6. Al desinstalar se van los archivos y las claves, y **los datos del usuario se
-#      quedan** —la base incluida, que vive en `%LOCALAPPDATA%`, no en `%APPDATA%`—.
+#      quedan** —la base incluida, que vive en `%LOCALAPPDATA%\nn-anime`—.
 #
 # Uso: pwsh -NoProfile -File packaging/windows/probar-instalador.ps1 -Release release
 
@@ -79,13 +83,10 @@ $destino = Join-Path $raizTemp 'nn-anime-instalado'
 
 $clave = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\nn-anime'
 
-# Los dos directorios del usuario, y **no son lo mismo**: la configuración va a
-# `%APPDATA%` y los datos —la base de datos entre ellos— a `%LOCALAPPDATA%`. Mirar
-# sólo el primero dejaría la base fuera de la comprobación.
-$datos = @(
-  (Join-Path $env:APPDATA 'nn-anime'),
-  (Join-Path $env:LOCALAPPDATA 'nn-anime')
-)
+# El anfitrión fija los tres directorios bajo una sola raíz —datos, configuración y
+# caché—, así que `%APPDATA%` ya no se toca: todo vive en `%LOCALAPPDATA%\nn-anime`.
+# Mirar dos directorios daría por bueno uno que la aplicación ya no usa.
+$datos = @(Join-Path $env:LOCALAPPDATA 'nn-anime')
 
 Remove-Item -Recurse -Force $destino -ErrorAction SilentlyContinue
 
@@ -102,14 +103,16 @@ $proceso = Start-Process -FilePath 'cmd.exe' `
   -Wait -PassThru -WindowStyle Hidden
 if ($proceso.ExitCode -ne 0) { throw "el instalador salió con $($proceso.ExitCode)" }
 
-# 2. Los archivos: los dos ejecutables, porque el acceso abre el anfitrión y el
-#    anfitrión necesita al servidor a su lado. Esta comprobación es además la que
-#    impide que una release publique **en silencio** un instalador sin ventana: si el
-#    anfitrión no viajó dentro, aquí se para.
-foreach ($archivo in 'nn-anime.exe', 'nn-anime-desktop.exe', 'nn-anime.ico') {
+# 2. Los archivos: **un solo ejecutable**, el anfitrión, que lleva el servidor
+#    dentro. Si alguien volviera a meter el servidor suelto, el instalador dejaría
+#    de ser el archivo único que se publica, y aquí se para.
+foreach ($archivo in 'nn-anime-desktop.exe', 'nn-anime.ico') {
   if (-not (Test-Path (Join-Path $destino $archivo))) { throw "no se instaló $archivo" }
 }
-Paso 'los dos ejecutables y el icono están'
+if (Test-Path (Join-Path $destino 'nn-anime.exe')) {
+  throw 'el instalador dejó un nn-anime.exe suelto: el servidor tiene que viajar dentro del anfitrión'
+}
+Paso 'el anfitrión y el icono están, y no hay un segundo ejecutable'
 
 # 3. La entrada de «Agregar o quitar programas».
 if (-not (Test-Path $clave)) { throw 'no hay entrada en Agregar o quitar programas' }
@@ -134,7 +137,8 @@ foreach ($acceso in $accesos) {
   Paso "acceso $(Split-Path -Leaf $acceso) -> $(Split-Path -Leaf $apunta)"
 }
 
-# 5. Abrirlo: ventana, servidor escuchando sólo en loopback, y cierre limpio.
+# 5. Abrirlo: ventana, servidor extraído del `.exe` único, sólo en loopback, y la X
+#    ocultando en la bandeja (la salida ordenada, «Salir», no se automatiza).
 Paso 'abriendo el anfitrión instalado'
 $anfitrion = Start-Process -FilePath (Join-Path $destino 'nn-anime-desktop.exe') -PassThru
 
@@ -158,6 +162,23 @@ Paso 'la ventana se abrió'
 $servidores = @(Get-Process -Name 'nn-anime' -ErrorAction SilentlyContinue)
 if ($servidores.Count -ne 1) { throw "se esperaba un servidor y hay $($servidores.Count)" }
 
+# La prueba de que el servidor viaja **dentro** del `.exe`: el proceso que corre
+# sale de la carpeta de datos, no de la carpeta de instalación. Si el anfitrión se
+# hubiera construido antes que el servidor, aquí no habría nada extraído y la
+# ventana habría enseñado el aviso de fallo.
+$rutaServidor = $servidores[0].Path
+$raizBin = Join-Path $env:LOCALAPPDATA 'nn-anime\bin'
+
+if (-not $rutaServidor -or -not (Test-Path -LiteralPath $rutaServidor)) {
+  throw "no se puede leer la ruta del servidor en ejecución: '$rutaServidor'"
+}
+
+$padre = Split-Path (Split-Path $rutaServidor -Parent) -Parent
+if ([IO.Path]::GetFullPath($padre) -ne [IO.Path]::GetFullPath($raizBin)) {
+  throw "el servidor corre desde $rutaServidor y no desde $raizBin (no se extrajo del .exe)"
+}
+Paso "el servidor embebido se extrajo en $rutaServidor"
+
 $escuchas = @(Get-NetTCPConnection -OwningProcess $servidores[0].Id -State Listen -ErrorAction SilentlyContinue)
 if ($escuchas.Count -lt 1) { throw 'el servidor no está escuchando' }
 
@@ -169,24 +190,65 @@ $fuera = @($escuchas | Where-Object { $_.LocalAddress -notin $permitidas })
 if ($fuera.Count -gt 0) { throw "el servidor escucha fuera de loopback: $($fuera[0].LocalAddress)" }
 Paso "el servidor escucha en $($escuchas[0].LocalAddress):$($escuchas[0].LocalPort)"
 
-# Cerrar la ventana es la forma normal de salir: tiene que apagar el servidor.
+# La X **oculta** en la bandeja; no cierra. Es el comportamiento del `.exe` que se
+# publica, y por eso se mide aquí en vez de exigir el que decía el README viejo.
 if (-not $anfitrion.CloseMainWindow()) { throw 'no se pudo cerrar la ventana del anfitrión' }
-Start-Sleep -Seconds 5
+Start-Sleep -Seconds 3
+$anfitrion.Refresh()
+
+if ($anfitrion.HasExited) {
+  throw 'la X cerró la aplicación: se esperaba que la ocultara en la bandeja'
+}
+
+$handle = $anfitrion.MainWindowHandle
+$visible = $false
+if ($handle -ne 0) {
+  if (-not ('NnAnimeVentana' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class NnAnimeVentana
+{
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+}
+'@
+  }
+
+  $visible = [NnAnimeVentana]::IsWindowVisible($handle)
+}
+
+if ($visible) { throw 'la ventana sigue visible después de cerrarla' }
+Paso 'la ventana quedó oculta y la aplicación sigue viva en la bandeja'
+
+# La salida ordenada es «Salir» del menú de la bandeja, y no se automatiza aquí. Se
+# mata el anfitrión y, si el servidor quedó vivo —Windows todavía no tiene el Job
+# Object de T155—, también el servidor. Lo que se exige es que la limpieza deje cero
+# procesos, no que la X los deje: eso es lo que hace «Salir», y no se finge medirlo.
+$anfitrion | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 1
+
+$servidoresVivos = @(Get-Process -Name 'nn-anime' -ErrorAction SilentlyContinue)
+if ($servidoresVivos.Count -gt 0) {
+  $servidoresVivos | Stop-Process -Force -ErrorAction SilentlyContinue
+  Start-Sleep -Seconds 1
+}
 
 $vivos = @(Get-Process -Name 'nn-anime', 'nn-anime-desktop' -ErrorAction SilentlyContinue)
-
 if ($vivos.Count -ne 0) {
   # `Stop-Process` y no `.Kill()`: si uno ya murió entre la captura y aquí, `.Kill()`
-  # lanzaría y taparía el mensaje que de verdad importa, que es el `throw` de abajo.
+  # lanzaría y taparía el mensaje que de verdad importa.
   $vivos | Stop-Process -Force -ErrorAction SilentlyContinue
-  throw "al cerrar la ventana quedaron $($vivos.Count) procesos vivos"
+  throw "quedaron $($vivos.Count) procesos vivos después de la limpieza"
 }
-Paso 'al cerrar la ventana no quedó ningún proceso'
+Paso 'la limpieza no dejó ningún proceso'
 
 # 6. Los datos del usuario, **sembrados antes de desinstalar**. No basta con mirar si
 #    el directorio existía antes: en un runner limpio no existe —lo crea la aplicación
 #    al arrancar, no el instalador—, así que la comprobación pasaría sin medir nada.
-#    Se siembra un centinela en los DOS directorios y se exige que siga ahí.
+#    Se siembra un centinela en la raíz y se exige que siga ahí.
 foreach ($directorio in $datos) {
   if (-not (Test-Path $directorio)) { throw "la aplicación no creó $directorio" }
 
@@ -216,8 +278,11 @@ if ($proceso.ExitCode -ne 0) {
   Write-Output "  (el desinstalador salió con $($proceso.ExitCode); se juzga por el efecto)"
 }
 
-foreach ($archivo in 'nn-anime.exe', 'nn-anime-desktop.exe') {
+foreach ($archivo in 'nn-anime-desktop.exe', 'nn-anime.ico') {
   if (Test-Path (Join-Path $destino $archivo)) { throw "el desinstalador dejó $archivo" }
+}
+if (Test-Path (Join-Path $destino 'nn-anime.exe')) {
+  throw 'el desinstalador dejó un nn-anime.exe suelto'
 }
 if (Test-Path $clave) { throw 'el desinstalador dejó la entrada del registro' }
 Paso 'el desinstalador se llevó los archivos y las claves'

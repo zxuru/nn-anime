@@ -162,9 +162,10 @@ jobs:
         if: runner.os == 'macOS'
         run: df -h
 
-      # El anfitrión de ventana, **antes** del paquete: el instalador lo mete al
-      # lado del servidor y `bun run package` se niega a armar uno sin él, porque
-      # sin anfitrión el acceso del escritorio abre una consola.
+      # El orden es parte del contrato del `.exe` único: `build.rs` embebe el
+      # servidor **al compilar el anfitrión**, así que el servidor va primero. Al
+      # revés, el instalador de Windows —que ya sólo instala el anfitrión— saldría
+      # sin servidor dentro y la ventana enseñaría el aviso de fallo.
       - name: Rust al día
         run: rustup update stable --no-self-update
 
@@ -184,13 +185,55 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
+      # 1) El servidor, y **sin** instalador: lo arranca de verdad —interfaz,
+      #    recursos, token de arranque y base migrada— y lo deja donde `build.rs`
+      #    lo lee al compilar el anfitrión.
+      - name: Compilar y probar el ejecutable
+        run: bun run package --skip-installer
+
+      # 2) El anfitrión, con el servidor embebido.
       - name: Compilar el anfitrión
         run: bun run desktop:build
 
-      # Compila el ejecutable de esta plataforma, lo arranca de verdad —interfaz, recursos, token de
-      # arranque y base migrada— y arma su instalador.
-      - name: Empaquetar, probar y armar el instalador
-        run: bun run package
+      # 3) El archivo único que se descarga. `package:unico` comprueba que el
+      #    anfitrión sea más nuevo que el servidor antes de copiarlo.
+      - name: Ejecutable único (Windows)
+        if: runner.os == 'Windows'
+        run: bun run package:unico
+
+      # 4) El instalador, ya con el anfitrión y el servidor en su sitio.
+      - name: Armar el instalador
+        run: bun run package --only-installer
+
+      # El sandbox donde se compiló esto en desarrollo etiquetaba los binarios como
+      # `Low Mandatory Level`, y eso hacía que la aplicación no pudiera escribir en
+      # el perfil ni crear el perfil de WebView2. Un binario de release no puede
+      # salir así, y aquí se comprueba en vez de confiar.
+      - name: Comprobar etiqueta de integridad y ACL (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archivos = Get-ChildItem release -Filter 'nn-anime-*.exe'
+          if ($archivos.Count -eq 0) { throw 'no hay binarios en release/' }
+
+          foreach ($archivo in $archivos) {
+            $acl = icacls $archivo.FullName
+            Write-Host "== $($archivo.Name)"
+
+            if ($acl -match 'Low Mandatory Level') {
+              throw "$($archivo.Name) lleva la etiqueta Low: no podrá escribir en el perfil del usuario."
+            }
+
+            if ($acl -match 'DENY') {
+              throw "$($archivo.Name) tiene una regla DENY en la ACL."
+            }
+
+            # La integridad tiene que ser Medium o superior. `icacls` no imprime la
+            # etiqueta cuando es Medium heredada, así que se acepta su ausencia.
+            if ($acl -match 'Mandatory Label') {
+              Write-Host ($acl | Select-String 'Mandatory Label')
+            }
+          }
 
       # El instalador queda descargable desde la página del workflow, sin que nadie compile en su
       # máquina. Sin firmar: un push no tiene los certificados, y el README explica los avisos que
@@ -225,9 +268,17 @@ jobs:
           bun run scripts/package/pe.ts build/package/windows-x64/nn-anime.exe console
           bun run scripts/package/pe.ts build/package/windows-x64/nn-anime-desktop.exe windows
 
+          # El archivo único es una copia del anfitrión, así que declara el mismo
+          # subsistema `windows`. Es la medición de «sin consola» sobre el archivo
+          # que se descarga, no sobre el que se compila.
+          $unico = Get-ChildItem -Path release -Filter 'nn-anime-*-windows-x64.exe' | Select-Object -First 1
+          if (-not $unico) { throw 'no hay .exe único en release/' }
+          bun run scripts/package/pe.ts "$($unico.FullName)" windows
+
       # Ejecutar el instalador de verdad, que es lo que `docs/release.md` declaraba
-      # sin probar. Va **después** de dejar los artefactos subidos: si falla, se
-      # pueden mirar sin volver a compilar.
+      # sin probar: un solo ejecutable, el servidor extraído del `.exe` único y la
+      # ventana ocultándose en la bandeja. Va **después** de dejar los artefactos
+      # subidos: si falla, se pueden mirar sin volver a compilar.
       - name: Probar el instalador (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
