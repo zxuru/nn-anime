@@ -152,6 +152,35 @@ describe('lo que enseña la sección', () => {
     expect(html).toContain('No hay ningún repositorio instalado.')
   })
 
+  /**
+   * El repositorio recomendado, escrito en el campo.
+   *
+   * La primera vez no hay ninguno, y la dirección se deriva de la lista vacía en
+   * vez de esperar a un efecto: así el campo ya está escrito en el primer render
+   * con los repositorios cargados y no se pisa lo que el usuario teclee después.
+   */
+  test('sin repositorios, el campo trae el recomendado', () => {
+    const html = render(
+      <ProviderRepos
+        state="ready"
+        repos={[]}
+        error={undefined}
+        install={async () => {}}
+        select={async () => {}}
+        remove={async () => {}}
+      />,
+    )
+
+    expect(html).toContain('value="https://github.com/zxuru/nn-anime-plugins"')
+    expect(html).toContain('El repositorio recomendado es')
+  })
+
+  test('con un repositorio, el campo no se rellena solo', () => {
+    const html = pintar()
+
+    expect(html).not.toContain('value="https://github.com/zxuru/nn-anime-plugins"')
+  })
+
   test('el aviso de que activar ejecuta código está en la sección, no sólo arriba', () => {
     expect(pintar()).toContain('ejecuta el código del repositorio sin sandbox')
   })

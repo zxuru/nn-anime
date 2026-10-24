@@ -25,6 +25,16 @@
  */
 
 /**
+ * El repositorio que la aplicación propone como punto de partida.
+ *
+ * Vive aquí, y no en la web y el CLI por separado, porque los dos lo nombran en
+ * el primer arranque: una sola cadena evita que la recomendación de la consola y
+ * la de la pantalla se desincronicen. No se instala ni se activa solo; el flujo
+ * de dos pasos de Ajustes es el que decide qué código se ejecuta.
+ */
+export const RECOMMENDED_PROVIDER_REPO = 'https://github.com/zxuru/nn-anime-plugins'
+
+/**
  * Lo máximo que puede medir una dirección normalizada.
  *
  * No es una regla del formato sino la suma de los cuatro topes de abajo —39, 100,

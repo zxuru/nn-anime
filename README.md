@@ -159,6 +159,10 @@ nada. Para que encuentre algo hay que copiar un plugin, y eso se cuenta en
 [la guía de plugins](docs/providers.md). Sin plugins no hay búsqueda, ni catálogo, ni
 recomendaciones: sólo la interfaz y el motor.
 
+La primera vez, **Ajustes ya trae escrito el repositorio recomendado**
+—[nn-anime-plugins](https://github.com/zxuru/nn-anime-plugins)—: se añade, se miran sus archivos y se
+marcan los que se quieran. Añadirlo no ejecuta nada; marcar un proveedor es lo que ejecuta su código.
+
 Si tienes `mpv` instalado, la aplicación lo detecta al arrancar y ofrece reproducir en él además de
 en el navegador. No hace falta para nada.
 

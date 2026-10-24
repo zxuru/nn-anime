@@ -215,6 +215,47 @@
   font-size: var(--text-md);
 }
 
+/*
+ * El aviso del primer arranque.
+ *
+ * Va en el canal de la vitrina —la caja de la home va a sangre— y antes de la
+ * marquesina: en una instalación nueva no hay destacado y la marquesina de
+ * reserva mide 62 dvh, así que un aviso debajo quedaría fuera de la primera
+ * pantalla. El borde de acento lo separa del resto sin añadir un color nuevo.
+ */
+.primer-arranque {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-inline: var(--vitrina-margen);
+  margin-block: var(--seccion-aire) var(--space-5);
+  padding: var(--space-5);
+  border: var(--border-width-strong) solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+.primer-arranque p {
+  margin: 0;
+}
+
+.primer-arranque__titulo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 800;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
+}
+
+.primer-arranque__url {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
 .shell__main h1 {
   font-family: var(--font-display);
   font-size: var(--text-3xl);

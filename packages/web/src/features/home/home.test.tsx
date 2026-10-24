@@ -20,6 +20,7 @@ import {
   piezasDeNovedades,
   textoDeRefresco,
 } from './HomePage'
+import { esPrimerArranque, PrimerArranque } from './PrimerArranque'
 import { RecommendedRow } from './RecommendedRow'
 import { continuePath, progressPercent, resumeLabel } from './rows'
 import { TopRow } from './TopRow'
@@ -377,6 +378,30 @@ describe('las filas mientras cargan', () => {
     expect(html).toContain('Fallo del servidor')
     expect(html).toContain('Reintentar')
     expect(html).not.toContain('Todavía no hay nada que recomendar')
+  })
+})
+
+/**
+ * El primer arranque.
+ *
+ * La decisión es una función pura y el aviso un componente: así se miden los
+ * cuatro casos de la lista —cargando, fallida, vacía y con proveedores— sin
+ * montar la home entera ni esperar a una petición.
+ */
+describe('el primer arranque', () => {
+  test('sólo cuando la lista se leyó, no falló y está vacía', () => {
+    expect(esPrimerArranque({ loaded: false, failed: false, total: 0 })).toBe(false)
+    expect(esPrimerArranque({ loaded: true, failed: true, total: 0 })).toBe(false)
+    expect(esPrimerArranque({ loaded: true, failed: false, total: 0 })).toBe(true)
+    expect(esPrimerArranque({ loaded: true, failed: false, total: 1 })).toBe(false)
+  })
+
+  test('el aviso nombra el repositorio recomendado y lleva a Ajustes', () => {
+    const html = render(<PrimerArranque />)
+
+    expect(html).toContain('https://github.com/zxuru/nn-anime-plugins')
+    expect(html).toContain('href="/settings"')
+    expect(html).toContain('sin sandbox')
   })
 })
 

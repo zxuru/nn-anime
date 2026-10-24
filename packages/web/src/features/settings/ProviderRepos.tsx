@@ -26,6 +26,7 @@
 
 import type { ProviderRepoCandidate, ProviderRepoView } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { RECOMMENDED_PROVIDER_REPO } from '@nn-anime/core/repos'
 import { type ReactNode, useState } from 'react'
 import { describirFallo } from '../../api/fallo'
 import { resumenDeFallo } from '../../components/ErrorNotice'
@@ -109,7 +110,16 @@ function CandidateRow(props: {
 }
 
 export function ProviderRepos(props: ProviderReposData): ReactNode {
-  const [url, setUrl] = useState('')
+  /*
+    La dirección que se enseña no es un `useState` con el recomendado de valor
+    inicial: el hook de repositorios monta en `loading`, así que el estado nacería
+    vacío y no se volvería a inicializar. Se deriva de lo que el servidor dijo.
+    `editado` manda en cuanto el usuario toca el campo, y limpiarlo deja el campo
+    vacío en vez de resucitar la recomendación.
+  */
+  const [editado, setEditado] = useState<string | undefined>(undefined)
+  const sinRepos = props.state === 'ready' && props.repos.length === 0
+  const valor = editado ?? (sinRepos ? RECOMMENDED_PROVIDER_REPO : '')
   const [draft, setDraft] = useState<Readonly<Record<string, readonly string[]>>>({})
   const [ocupado, setOcupado] = useState<string>('')
   const [aviso, setAviso] = useState<string>('')
@@ -146,12 +156,12 @@ export function ProviderRepos(props: ProviderReposData): ReactNode {
 
   function onInstall(event: { preventDefault: () => void }): void {
     event.preventDefault()
-    const destino = url.trim()
+    const destino = valor.trim()
     if (destino === '') return
 
     intentar('install', async () => {
       await props.install(destino)
-      setUrl('')
+      setEditado('')
       setAviso(t(DEFAULT_LOCALE, 'settings.repos.installed'))
     })
   }
@@ -171,10 +181,17 @@ export function ProviderRepos(props: ProviderReposData): ReactNode {
             className="field__input"
             id="repo-url"
             type="text"
-            value={url}
-            onChange={(event) => setUrl(event.target.value)}
+            value={valor}
+            onChange={(event) => setEditado(event.target.value)}
           />
           <span className="field__hint">{t(DEFAULT_LOCALE, 'settings.repos.urlHint')}</span>
+          {sinRepos ? (
+            <span className="field__hint">
+              {t(DEFAULT_LOCALE, 'settings.repos.recommended', {
+                url: RECOMMENDED_PROVIDER_REPO,
+              })}
+            </span>
+          ) : null}
         </div>
         <div className="settings__actions">
           <button className="button button--primary" type="submit" disabled={ocupado !== ''}>

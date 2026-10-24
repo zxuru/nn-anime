@@ -34,7 +34,7 @@ import {
   fuenteDeVisionado,
   sinFuenteQueSirva,
   tipoFromPath,
-  useMedias,
+  useFuentes,
 } from '../tipo/tipo'
 import { ContinueRow } from './ContinueRow'
 import {
@@ -52,6 +52,7 @@ import { FeaturedHero, type FeaturedItem } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
 import { GenreRow, generosConCuenta } from './GenreRow'
 import { ParrillaRow } from './ParrillaRow'
+import { esPrimerArranque, PrimerArranque } from './PrimerArranque'
 import { RecommendedRow } from './RecommendedRow'
 import { Ticker } from './Ticker'
 import { TopRow } from './TopRow'
@@ -217,9 +218,17 @@ export function textoDeRefresco(
 export function HomePage(props: HomePageProps): ReactNode {
   const path = usePath()
   const tipo = tipoFromPath(path)
-  const medias = useMedias()
+  const fuentes = useFuentes()
+  const medias = fuentes.medias
   const filas = useHomeRows(tipo)
   const cargandoFilas = filas.loading
+  // La lista vacía sólo es «no hay proveedores» si la lectura terminó bien: el
+  // aviso del primer arranque no puede apoyarse en una lectura que falló.
+  const primerArranque = esPrimerArranque({
+    loaded: fuentes.loaded,
+    failed: fuentes.failed,
+    total: fuentes.summaries.length,
+  })
   const recomendaciones = useRecommendations({
     media: tipo,
     ...(props.query === undefined ? {} : { query: props.query }),
@@ -288,6 +297,13 @@ export function HomePage(props: HomePageProps): ReactNode {
           {t(DEFAULT_LOCALE, 'home.loading')}
         </p>
       ) : null}
+
+      {/*
+        El aviso del primer arranque va antes de la marquesina: la de reserva mide
+        62 dvh, y un aviso debajo de ella quedaría fuera de la primera pantalla,
+        que es justo donde tiene que leerse.
+      */}
+      {primerArranque ? <PrimerArranque /> : null}
 
       {/*
         La marquesina lleva dentro la marca de refresco y la cinta: las tres cosas
