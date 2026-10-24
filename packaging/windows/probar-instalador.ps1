@@ -142,8 +142,13 @@ foreach ($acceso in $accesos) {
 Paso 'abriendo el anfitrión instalado'
 $anfitrion = Start-Process -FilePath (Join-Path $destino 'nn-anime-desktop.exe') -PassThru
 
+# El archivo único **extrae** 98 MB antes de lanzar el servidor, y la ventana de la
+# bandeja puede dar un `MainWindowHandle` antes de que la aplicación exista. Se
+# espera a las dos cosas, no a la primera: mirar el servidor a los 0,5 s de ver un
+# handle era medir la extracción, no el arranque.
+$servidores = @()
 $ventana = $false
-for ($intento = 0; $intento -lt 60 -and -not $ventana; $intento++) {
+for ($intento = 0; $intento -lt 60 -and -not ($servidores.Count -eq 1 -and $ventana); $intento++) {
   Start-Sleep -Seconds 1
   $anfitrion.Refresh()
 
@@ -153,13 +158,13 @@ for ($intento = 0; $intento -lt 60 -and -not $ventana; $intento++) {
     throw "el anfitrión terminó solo. Registro:`n$cola"
   }
 
+  $servidores = @(Get-Process -Name 'nn-anime' -ErrorAction SilentlyContinue)
   $ventana = $anfitrion.MainWindowHandle -ne 0
 }
 
-if (-not $ventana) { throw 'el anfitrión no abrió ninguna ventana en 60 s' }
-Paso 'la ventana se abrió'
-
-$servidores = @(Get-Process -Name 'nn-anime' -ErrorAction SilentlyContinue)
+if ($servidores.Count -eq 1 -and $ventana) {
+  Paso "la ventana se abrió: '$($anfitrion.MainWindowTitle)'"
+}
 
 if ($servidores.Count -ne 1) {
   # Sin el registro, este fallo no dice **por qué**: el anfitrión abre el aviso de
@@ -183,6 +188,10 @@ if ($servidores.Count -ne 1) {
   }
 
   throw "se esperaba un servidor y hay $($servidores.Count). Registro:`n$cola`nExtraídos:`n$extraidos"
+}
+
+if (-not $ventana) {
+  throw 'el servidor arrancó, pero el anfitrión no abrió ninguna ventana en 60 s'
 }
 
 # La prueba de que el servidor viaja **dentro** del `.exe`: el proceso que corre
