@@ -478,3 +478,15 @@ describe('la acción compuesta de las herramientas', () => {
     }
   })
 })
+
+describe('el smoke del ejecutable', () => {
+  test('crea el temporal antes de mkdtemp', async () => {
+    // La release no corre `bun test`, que es lo que creaba `.tmp` de rebote en el
+    // CI. Sin este `mkdir`, `mkdtemp` falla con ENOENT en un runner limpio y el
+    // ejecutable no se llega a probar.
+    const smoke = await Bun.file(join(ROOT, 'scripts', 'package', 'smoke.ts')).text()
+
+    expect(smoke).toContain('await mkdir(base, { recursive: true })')
+    expect(smoke).toContain("mkdtemp(join(base, 'package-smoke-'))")
+  })
+})
