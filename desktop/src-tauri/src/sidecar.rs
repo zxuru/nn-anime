@@ -41,6 +41,18 @@ pub const SHUTDOWN_LINE: &str = "shutdown\n";
 /// El nombre del servidor, hermano del anfitrión.
 const SIDECAR_NAME: &str = "nn-anime";
 
+/// El servidor que viaja **al lado** del anfitrión.
+///
+/// Es la forma de macOS y Linux, donde el anfitrión no lo lleva dentro: el `.app`,
+/// el `.deb`, el `.rpm` y el AppImage instalan los dos ejecutables juntos. Sin este
+/// camino, el anfitrión buscaría un servidor embebido que en esas plataformas está
+/// vacío y la ventana enseñaría el aviso de fallo.
+pub fn sibling_path() -> Option<PathBuf> {
+    let dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+
+    Some(dir.join(format!("{SIDECAR_NAME}{}", std::env::consts::EXE_SUFFIX)))
+}
+
 /// La variable con la que el CLI mueve su caché. Se respeta para que el registro
 /// del anfitrión caiga donde caen los datos, y no en un directorio inventado.
 pub const CACHE_DIR_ENV: &str = "NN_ANIME_CACHE_DIR";

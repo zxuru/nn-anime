@@ -193,22 +193,40 @@ fn main() {
 /// Extrae el servidor, lo lanza, lee su dirección y abre la ventana —o el
 /// navegador, con `--navegador`.
 fn arrancar(handle: AppHandle, raiz: entorno::Raiz, navegador: bool) {
-    let ruta = match embebido::preparar(&raiz.ruta) {
-        Ok(ruta) => ruta,
-        Err(error) => {
-            avisar_fallo(
-                &handle,
-                &raiz,
-                &format!(
-                    "no se pudo extraer el servidor en {}: {error}",
-                    raiz.ruta.display()
-                ),
-            );
-            return;
+    // Windows: el servidor viaja dentro y se extrae a la raíz de datos. macOS y
+    // Linux: viaja al lado del anfitrión, dentro del paquete. La rama se elige por
+    // lo que **se compiló dentro**, no por el sistema: un anfitrión sin servidor
+    // embebido no debe intentar extraer cero bytes y ejecutarlos.
+    let ruta = if embebido::hay_servidor() {
+        match embebido::preparar(&raiz.ruta) {
+            Ok(ruta) => ruta,
+            Err(error) => {
+                avisar_fallo(
+                    &handle,
+                    &raiz,
+                    &format!(
+                        "no se pudo extraer el servidor en {}: {error}",
+                        raiz.ruta.display()
+                    ),
+                );
+                return;
+            }
+        }
+    } else {
+        match sidecar::sibling_path() {
+            Some(ruta) if ruta.exists() => ruta,
+            _ => {
+                avisar_fallo(
+                    &handle,
+                    &raiz,
+                    "el anfitrión no lleva el servidor dentro y no lo encontró a su lado",
+                );
+                return;
+            }
         }
     };
 
-    registrar(&format!("servidor extraído en {}", ruta.display()));
+    registrar(&format!("servidor listo en {}", ruta.display()));
 
     let servidor = match sidecar::start(&ruta) {
         Ok(servidor) => servidor,

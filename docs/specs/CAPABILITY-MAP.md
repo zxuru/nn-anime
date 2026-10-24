@@ -15,7 +15,7 @@ Cada módulo tiene su `SPEC-<module-id>.md` en `docs/specs/`, junto a este mapa.
 | `media-proxy` | Proxy de bytes y HLS con headers de upstream, reescritura de playlists, handoff y control de mpv | `core`, `provider-core` | `packages/media-proxy` |
 | `recsys` | Motor de recomendación explicable sobre señales locales | `core`, `catalog-store` | `packages/recsys` |
 | `web-ui` | SPA: home, búsqueda, detalle, reproductor web, panel de recomendaciones | `core`, los 5 anteriores vía HTTP | `packages/web` |
-| `desktop` | Anfitrión de ventana: lanza el servidor que ya existe, abre una ventana con la interfaz y lo cierra con ella | `cli-launcher` | `desktop/` (**fuera de `packages/`**) |
+| `desktop` | Anfitrión de ventana: en Windows extrae y lanza el servidor embebido; en macOS y Linux lanza el que viaja a su lado. Abre la ventana y cierra el servidor al salir | `cli-launcher` | `desktop/` (**fuera de `packages/`**) |
 
 Módulo auxiliar no listado como capacidad de producto:
 

@@ -12,8 +12,8 @@ Convenciones (Commands, Project Structure, Code Style, Testing Strategy, Boundar
 ## Objective
 
 Que nn-anime se abra en **su ventana**, con su icono, **sin terminal**, encima del empaquetado que ya
-existe (`scripts/package.ts`: ejecutable autocontenido e instaladores de las tres plataformas). Hoy lo
-instalado abre una consola, y lo dice su propio `.nsi`:
+existe (`scripts/package.ts`: ejecutable autocontenido e instaladores de las tres plataformas). Cuando
+se escribió este spec, lo instalado abría una consola, y lo decía su propio `.nsi`:
 
 > El acceso abre el ejecutable, que es una aplicación de consola: la ventana que aparece **es** la
 > aplicación mientras vive, y cerrarla la apaga.
@@ -21,10 +21,13 @@ instalado abre una consola, y lo dice su propio `.nsi`:
 Éxito significa, en las tres plataformas:
 
 1. El acceso del escritorio abre una **ventana** con la aplicación dentro, y no una consola.
-2. Cerrar la ventana **apaga el servidor**: no queda ningún proceso vivo.
+2. **«Salir» apaga el servidor** y no queda ningún proceso vivo; **la X oculta la ventana** en la
+   bandeja y la aplicación sigue disponible desde el icono.
 3. Un segundo lanzamiento **enfoca la ventana que ya está**, en vez de abrir un segundo servidor.
 4. Un enlace externo de la interfaz abre el navegador del sistema, no se lleva la ventana.
-5. Si el anfitrión muere de golpe, el servidor **no queda huérfano** donde el sistema lo permita.
+5. Si el anfitrión muere de golpe, el servidor **no queda huérfano** donde el sistema lo permita
+   (Linux); en Windows el Job Object sigue pendiente y se declara como riesgo.
+6. En **Windows** el entregable es **un solo archivo** que se ejecuta sin instalar nada.
 
 ## Contrato
 
@@ -33,21 +36,32 @@ entero en `packages/`. El anfitrión se llama **`nn-anime-desktop`** (`nn-anime-
 Windows) porque tiene que convivir en el mismo directorio con **`nn-anime`**, que sigue siendo el
 servidor de consola.
 
-**1. Lanza el ejecutable que ya existe, como hermano.**
+**1. Lanza el servidor y abre la ventana.**
+
+En **Windows** el servidor **viaja dentro** del anfitrión, que es el único archivo que se descarga.
+Al arrancar, `embebido::preparar` lo extrae a `<raíz>\bin\<versión>\nn-anime.exe`, comprueba el
+SHA-256 que `build.rs` calculó al compilar (un archivo a medias, viejo o manipulado no se ejecuta) y
+lo lanza con `--no-open`. La raíz es `%LOCALAPPDATA%\nn-anime`, o la carpeta del `.exe` si hay un
+`portable.txt` al lado. Así un solo archivo basta y no hay dos que se puedan separar.
+
+En **macOS y Linux**, mientras el archivo único siga siendo de Windows, el servidor viaja al lado del
+anfitrión, dentro del `.app`, del `.deb`, del `.rpm` o del AppImage, y se lanza desde el mismo
+directorio (`Contents/MacOS`, `/usr/lib/nn-anime`). La raíz de datos es
+`~/.local/share/nn-anime` —o `XDG_DATA_HOME`—, no el directorio del ejecutable: un `.deb` vive en
+`/usr/lib` y un AppImage está montado en sólo lectura.
 
 ```
-<directorio del anfitrión>/nn-anime(.exe) --no-open
+<ruta del servidor> --no-open
 ```
 
 - **No se le pasa `--port`**: el CLI ya sabe caer a un puerto libre y lo dice en su línea de arranque
   (paso 7 del spec del CLI). Fijarlo sería añadir una forma de fallar que no es del programa.
 - **No se le pasa `--data-dir` ni `--config-dir`**: las resuelve el propio CLI. Es una decisión, no
   un descuido: si el anfitrión las fijara, la ventana y `bun run start` usarían **bases distintas** y
-  el usuario vería dos aplicaciones.
+  el usuario vería dos aplicaciones. El anfitrión fija las variables `NN_ANIME_*` con la raíz que ya
+  eligió, que es otra cosa y se declara en `entorno.rs`.
 - **No se le pasa `--lang`**: el idioma es del usuario, no del anfitrión.
-- La ruta del hermano sale del **directorio del propio anfitrión**, no de una variable: los dos se
-  instalan juntos ($INSTDIR, `Contents/MacOS`, `/usr/lib/nn-anime`).
-- En Windows se lanza con **`CREATE_NO_WINDOW`**: el hermano es un binario de consola y sin eso asoma
+- En Windows se lanza con **`CREATE_NO_WINDOW`**: el servidor es un binario de consola y sin eso asoma
   la consola negra que este módulo existe para quitar.
 
 **2. Lee su dirección de la línea legible por máquina, y **no la escribe en disco**.**
@@ -123,48 +137,55 @@ desktop/
 │  └─ src/
 │     ├─ main.rs              arranque, ventana, cierre, instancia única
 │     ├─ sidecar.rs           spawn, drenaje de stdout, análisis de la línea, cierre
+│     ├─ embebido.rs          extrae y verifica el servidor que viaja dentro
+│     ├─ entorno.rs           raíz de datos, modo portable e integridad
+│     ├─ tray.rs              icono de la bandeja y sus tres opciones
 │     └─ boot_line.rs         el espejo del esquema de `core`
 └─ stub/index.html            lo que la ventana enseña si el servidor no arranca, y
                               el `frontendDist` que `tauri build` exige. No se llama
                               `dist/` porque `.gitignore` ignora ese nombre
 ```
 
-**Cómo se empaqueta: el binario vive al lado, no dentro.**
+**Cómo se empaqueta: dentro en Windows, al lado en macOS y Linux.**
 
-**No se usa `externalBin`.** El instalador que ya existe instala el ejecutable de consola; el
-anfitrión se instala **junto a él** (mismo `$INSTDIR`, un `.app` con dos ejecutables, un AppImage con
-los dos) y lo lanza como **hermano**. Tres motivos:
+En **Windows** el entregable es **un solo `.exe`**. `build.rs` mete el servidor dentro del anfitrión
+con `include_bytes!` y guarda su SHA-256; `scripts/package/unico.ts` copia el anfitrión con el nombre
+que se descarga. El instalador NSIS instala **sólo ese anfitrión**. No se usa `externalBin` de Tauri:
+no hace falta, porque el binario que se embebe es el del servidor, no el del anfitrión.
 
-1. **No se duplica el motor.** `externalBin` incrustaría una segunda copia del ejecutable: 93,8 MB
-   más por plataforma. Al lado, el anfitrión son unos pocos megabytes.
-2. **La consola no desaparece para quien la quiere.** `nn-anime "naruto"` desde una terminal sigue
-   funcionando; el acceso del escritorio es el que apunta a la ventana.
-3. **El empaquetado probado se conserva.** `scripts/package.ts`, `packaging/` (NSIS por usuario con
-   accesos, AppImage + `.deb` + `.rpm`, `.app` + `.dmg`), `release-please`, los `SHA256SUMS` y la
-   matriz del CI siguen siendo el camino. Lo que se añade es **un paso más por plataforma**.
+En **macOS y Linux** se conserva la estructura de dos ejecutables (el servidor y el anfitrión) dentro
+del `.app`, del AppImage, del `.deb` y del `.rpm`. El anfitrión los lanza desde su mismo directorio.
+Así el empaquetado probado de `scripts/package.ts` y `packaging/` sigue siendo el camino y lo único que
+cambia en Windows es que el servidor ya no viaja suelto.
 
 `tauri build` produce el binario del anfitrión, `scripts/package/desktop.ts` lo prepara y el
-instalador de siempre lo mete en el mismo directorio que el servidor.
+instalador de siempre lo mete en el mismo directorio que el servidor. En Windows, el orden es
+**servidor → firmar servidor → anfitrión (lo embebe) → firmar anfitrión → único → instalador**; el
+orden inverso produce un `.exe` sin interfaz y por eso `package:unico` y `package` lo comprueban.
 
 ## Success Criteria
 
 Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
 
 - [ ] Instalar en Windows y abrir desde el menú Inicio deja **ventana e icono, sin consola**. Se mide
-      en el CI: instalación silenciosa, el `.lnk` apunta al anfitrión, y la cabecera PE del anfitrión
-      declara subsistema **WINDOWS (2)** mientras la del servidor declara **CONSOLE (3)**.
-- [ ] Cerrar la ventana termina el servidor **con 0** en menos de un segundo. Medido por T134 sobre
-      el ejecutable: 17 ms.
+      en el CI: instalación silenciosa, el `.lnk` apunta al anfitrión, la cabecera PE del anfitrión y
+      la del **archivo único** declaran **WINDOWS (2)** mientras la del servidor declara **CONSOLE (3)**.
+- [ ] **El archivo único basta.** Al ejecutarlo, el servidor se extrae a
+      `%LOCALAPPDATA%\nn-anime\bin\<versión>\nn-anime.exe` y la ventana carga la interfaz. Se mide en
+      el CI: el proceso `nn-anime` corre desde esa ruta y la ventana existe.
+- [ ] **«Salir» termina el servidor con 0** en menos de un segundo (medido por T134 sobre el
+      ejecutable: 17 ms). **La X oculta en la bandeja** y no apaga la aplicación.
 - [ ] Un segundo lanzamiento enfoca la ventana existente y **no** arranca un segundo servidor. Se
       mide contando procesos y puertos de escucha.
-- [ ] Matar el anfitrión desde el administrador de tareas **no** deja el servidor vivo en Windows
-      (Job Object) ni en Linux (`PR_SET_PDEATHSIG`).
+- [ ] Matar el anfitrión desde el administrador de tareas **no** deja el servidor vivo en Linux
+      (`PR_SET_PDEATHSIG`). **En Windows el Job Object está pendiente** (T155) y se declara como
+      riesgo residual.
 - [ ] El enlace de AniList abre el navegador del sistema y la ventana sigue donde estaba.
 - [ ] Sin `mpv`, la reproducción dentro de la ventana funciona en Windows (WebView2). **En Linux se
       mide antes de prometerlo**: WebKitGTK no es Chromium.
-- [ ] **Si el servidor no arranca, la ventana lo dice.** Se mide quitando el servidor de al lado del
-      anfitrión y abriéndolo: tiene que aparecer la página del aviso, con el motivo en el registro. Es
-      el fallo más probable de todos y el único que, sin esto, no enseñaría **nada**.
+- [ ] **Si el servidor no arranca, la ventana lo dice.** Se mide compilando el anfitrión sin servidor
+      o con el hash del extraído roto: tiene que aparecer la página del aviso, con el motivo en el
+      registro. Es el fallo más probable de todos y el único que, sin esto, no enseñaría **nada**.
 - [ ] El token de arranque **no aparece en ningún archivo** del disco del usuario.
 - [ ] El listón entero sigue verde, y `bun run build`, `bun test` y `bun run lint` **no** miran el
       árbol de Rust: vive fuera de `packages/` y no toca `scripts/workspaces.test.ts`. El árbol de
@@ -176,7 +197,7 @@ Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
 **Always**
 
 - La ventana carga el origen local; el sidecar se lanza sin puerto y sin rutas de datos.
-- Todo proceso que se lanza se registra y se cierra: al cerrar la ventana **no queda nada vivo**.
+- Todo proceso que se lanza se registra y se cierra: al salir de la aplicación **no queda nada vivo**.
 - El token de arranque no se guarda en ningún sitio: vive en la URL que se le da a la ventana, en
   memoria.
 - `stdout` del sidecar se drena siempre, aunque no haya nada que leer.
@@ -203,16 +224,20 @@ Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
    de los códecs del sistema en Linux, y de WKWebView en macOS. En Windows la evidencia del e2e
    transfiere, porque WebView2 es Chromium y `packages/web/e2e/player.e2e.ts` ya lo prueba. **En
    Linux se mide antes de prometer Linux**; si no va, la ficha lo dice y manda a `mpv`.
-2. **macOS sin `PR_SET_PDEATHSIG`**: si el anfitrión muere de golpe, el servidor puede quedar vivo.
+2. **Windows y macOS sin seguro de muerte brusca**: en Windows el Job Object está pendiente (T155) y
+   macOS no tiene `PR_SET_PDEATHSIG`. Si el anfitrión muere de golpe, el servidor puede quedar vivo.
    Se mitiga con el cierre explícito y se declara aquí.
-3. **Rust entra en el repositorio.** El anfitrión se queda en estas cinco responsabilidades; si
-   crece, deja de ser un envoltorio y habrá que decirlo.
-4. **Firma.** Sin certificados, el instalador del anfitrión hereda los avisos de SmartScreen y
-   Gatekeeper que ya tiene el de la consola. Es una decisión de dinero, no de código.
+3. **Extraer el servidor a disco.** Un `.exe` único no puede ejecutar el servidor desde memoria sin
+   escribirlo; se extrae a `<raíz>\bin\<versión>` y se verifica con el SHA-256 antes de lanzarlo. Un
+   disco lleno o sin permisos deja el aviso de fallo, no una ventana muda.
+4. **Rust entra en el repositorio.** El anfitrión se queda en estas responsabilidades; si crece, deja
+   de ser un envoltorio y habrá que decirlo.
+5. **Firma.** Sin certificados, el archivo único y el instalador heredan los avisos de SmartScreen y
+   Gatekeeper. Es una decisión de dinero, no de código.
 
 ## Open Questions
 
 1. **¿La ventana recuerda tamaño y posición?** `tauri-plugin-window-state` lo resuelve, y es un plugin
    más; hoy el CLI no recuerda nada de eso.
-2. **¿Un icono de bandeja para parar el servidor?** Hoy el servidor se para cerrando la ventana. La
-   bandeja es otra superficie y otro plugin: no entra sin pedirlo.
+2. **¿Archivo único también en macOS y Linux?** Hoy sólo Windows lo tiene; en las otras plataformas el
+   anfitrión y el servidor viajan juntos dentro del paquete. Hacerlo allí es otra tarea.

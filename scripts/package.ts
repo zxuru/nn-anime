@@ -27,10 +27,11 @@
 import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { type BinarySpec, buildBinary, missingAssets, TARGETS } from './package/binary'
-import { stageDesktop } from './package/desktop'
+import { hostBinary, stageDesktop } from './package/desktop'
 import { linuxAppImage, linuxPackages } from './package/linux'
 import { macDmg } from './package/macos'
 import { smoke } from './package/smoke'
+import { comprobarOrden } from './package/unico'
 import { windowsInstaller } from './package/windows'
 import { isRecord, ROOT } from './workspaces'
 
@@ -225,6 +226,26 @@ export async function packageApp(options: PackageOptions = {}): Promise<Packaged
 
       smoked = checks.every((item) => item.ok)
       if (!smoked) throw new Error('el ejecutable no pasó sus comprobaciones')
+    }
+  }
+
+  // El instalador de Windows ya instala **sólo** el anfitrión, y el anfitrión lleva
+  // el servidor dentro: si se compiló antes que el servidor, el `.exe` que se
+  // entregaría arranca sin interfaz. Se comprueba aquí, donde se puede decir qué
+  // comando falta, en vez de descubrirlo al ejecutar el instalador.
+  //
+  // `--only-installer` no pasa por aquí a propósito: su anfitrión ya se firmó en el
+  // orden bueno y `comprobarOrden` sólo repetiría una comprobación que ya se hizo.
+  if (
+    spec.platform === 'windows' &&
+    options.onlyInstaller !== true &&
+    options.skipInstaller !== true &&
+    options.skipDesktop !== true
+  ) {
+    const anfitrion = hostBinary('windows', spec.arch)
+
+    if (await Bun.file(anfitrion).exists()) {
+      await comprobarOrden(anfitrion, binary)
     }
   }
 

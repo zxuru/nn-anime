@@ -183,7 +183,18 @@ export async function buildDesktop(options: BuildDesktopOptions = {}): Promise<s
     await run(['rustup', 'target', 'add', triple])
   }
 
-  await run(['cargo', 'build', '--release', '--target', triple, '--manifest-path', MANIFEST])
+  // `--locked`: el `Cargo.lock` está versionado y la release tiene que usar
+  // exactamente ese árbol, no el que resuelva cargo ese día.
+  await run([
+    'cargo',
+    'build',
+    '--release',
+    '--locked',
+    '--target',
+    triple,
+    '--manifest-path',
+    MANIFEST,
+  ])
 
   const binario = hostBinary(platform, arch)
 
@@ -205,6 +216,7 @@ export async function checkDesktop(): Promise<void> {
   await run([
     'cargo',
     'clippy',
+    '--locked',
     '--manifest-path',
     MANIFEST,
     '--all-targets',
@@ -212,7 +224,7 @@ export async function checkDesktop(): Promise<void> {
     '-D',
     'warnings',
   ])
-  await run(['cargo', 'test', '--manifest-path', MANIFEST])
+  await run(['cargo', 'test', '--locked', '--manifest-path', MANIFEST])
 }
 
 /**
