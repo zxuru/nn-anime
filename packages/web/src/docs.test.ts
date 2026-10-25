@@ -103,3 +103,35 @@ describe('la guía de plugins', () => {
     }
   })
 })
+
+describe('la guía de Docker', () => {
+  test('los comandos que cita existen', async () => {
+    const manifiesto = JSON.parse(await leer('package.json')) as {
+      scripts: Record<string, string>
+    }
+
+    for (const comando of comandos(await leer('docs/docker.md'))) {
+      expect(Object.keys(manifiesto.scripts), comando).toContain(comando)
+    }
+  })
+
+  test('los documentos y archivos que enlaza existen', async () => {
+    const texto = await leer('docs/docker.md')
+
+    for (const coincidencia of texto.matchAll(/\]\(([^)]+\.(?:md|example))\)/g)) {
+      const ruta = coincidencia[1] ?? ''
+      const desdeDocs = ruta.startsWith('../') ? ruta.slice(3) : `docs/${ruta}`
+      const existe = await Bun.file(`${RAIZ}${desdeDocs}`).exists()
+
+      expect(existe, ruta).toBe(true)
+    }
+  })
+
+  test('avisa de no exponer sin token y de los plugins sin sandbox', async () => {
+    const texto = await leer('docs/docker.md')
+
+    expect(texto).toContain('No expongas el puerto a Internet sin `NN_ANIME_TOKEN`')
+    expect(texto).toContain('sin sandbox')
+    expect(texto).toContain('Una sola réplica por volumen')
+  })
+})

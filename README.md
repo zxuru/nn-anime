@@ -193,6 +193,25 @@ con `EPERM` y las pruebas lo declaran en lugar de fingir que midieron.
 No hay ningún proveedor instalado de fábrica. Hasta que copies uno —ver
 [la guía de plugins](docs/providers.md)— la aplicación arranca, se ve y no encuentra nada.
 
+## Docker y servidor
+
+Además del uso local, nn-anime se puede desplegar como contenedor en un servidor, un NAS o una LAN:
+
+```bash
+docker build -t nn-anime:local .
+docker run -d -p 127.0.0.1:8080:8080 \
+  -e NN_ANIME_TOKEN="$(openssl rand -base64 32)" \
+  -v nn-anime-data:/data nn-anime:local
+```
+
+La imagen escucha en `0.0.0.0:8080`, guarda todo en `/data` y **no incluye ningún plugin**. Fuera de
+loopback exige `NN_ANIME_TOKEN`: sin él, el arranque se niega. Con token, la interfaz y la API piden
+la cookie que se consigue en `/login`; `/healthz` es lo único público.
+
+**No la expongas a Internet sin token y sin TLS delante.** Los plugins se ejecutan sin sandbox, y
+SQLite admite **una sola réplica por volumen**. La guía completa —variables, volúmenes, cómo
+instalar plugins, Caddy y actualización— está en [docs/docker.md](docs/docker.md).
+
 ## Comandos
 
 | Comando | Qué hace |
@@ -253,8 +272,10 @@ Linux y macOS se respetan `XDG_DATA_HOME`, `XDG_CONFIG_HOME` y `XDG_CACHE_HOME`;
 respetando para quien las tenga puestas.
 
 Las variables de entorno que lee la aplicación están inventariadas en `.env.example`, sin ningún valor
-real. Ninguna es obligatoria y ninguna lleva un secreto: los directorios se pueden cambiar por ahí, y
-también `NN_ANIME_LANG` para el idioma. Copiar el archivo a `.env` es opcional; Bun lo carga solo.
+real. En el uso local ninguna es obligatoria y ninguna lleva un secreto: los directorios se pueden
+cambiar por ahí, y también `NN_ANIME_LANG` para el idioma. En modo servidor, `NN_ANIME_TOKEN` **es
+obligatorio fuera de loopback y es un secreto**: no se escribe en `.env.example`, se pone en el
+entorno del despliegue o en un `.env` local. Copiar el archivo a `.env` es opcional; Bun lo carga solo.
 
 ## Aviso de seguridad: los plugins se ejecutan sin sandbox
 
@@ -331,6 +352,7 @@ instalan igual, con las advertencias del sistema que cuenta la sección de insta
 | Documento | Qué cuenta |
 |---|---|
 | [docs/providers.md](docs/providers.md) | Cómo escribir un plugin, con un ejemplo comentado |
+| [docs/docker.md](docs/docker.md) | Docker, NAS y LAN: variables, volúmenes, plugins, Caddy y actualización |
 | [docs/release.md](docs/release.md) | Cómo se publica: secretos de firma, ajustes del repositorio y qué queda por probar |
 | [SECURITY.md](SECURITY.md) | Modelo de amenaza, mitigaciones y riesgos residuales |
 | [docs/a11y.md](docs/a11y.md) | Qué se comprueba de accesibilidad y qué no |

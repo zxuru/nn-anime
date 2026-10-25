@@ -29,6 +29,14 @@ prueba que lo sostiene.
 | Un valor de cabecera inyecta argumentos en `mpv` | Nombre validado con `^[A-Za-z0-9-]+$`, valor sin caracteres de control, argumentos en array y `--no-config` | T29, T29a |
 | Una URL de video se filtra al cliente | Tickets opacos en memoria: el cliente nunca ve la dirección del upstream | T25 |
 | Una petición sin cookie lee el video | Sólo bajo `/stream/:ticket`, y con un ticket vivo: es la credencial que `mpv` sí puede presentar, porque no tiene cookie. 192 bits de CSPRNG, 600 s y tope de 500; no abre `/api/*` ni otra ruta | T73 |
+| Un cliente remoto entra sin credencial en modo servidor | `NN_ANIME_TOKEN` fijo, cookie `HttpOnly; SameSite=Strict` —y `Secure` con origen https—, comparación en tiempo constante. Fuera de loopback sin token el arranque se niega | T168 |
+| El token de servidor acaba en una URL, un `Referer` o un log | No viaja en la URL: se pide una vez en `/login` y se guarda en la cookie. El arranque no lo imprime ni lo registra | T168 |
+| La salud pública cuenta algo | `/healthz` devuelve sólo `{"status":"ok"}`: ni versión, ni rutas, ni proveedores | T168 |
+| Un `Origin` ajeno muta datos en modo servidor | Guard de `Origin` por origen público exacto o mismo `Host`; en local sigue siendo sólo `http://127.0.0.1:PUERTO` | T168 |
+| Un cliente autenticado usa el servidor para lanzar un reproductor | En modo restringido no se registran `/api/play/mpv*` y Ajustes informa `mpv.available: false` | T168 |
+| Un cliente autenticado añade o activa plugins en un servidor | `NN_ANIME_LOCKED=1` no registra `POST /api/providers` ni las mutaciones de repositorios; sólo deja leer la lista | T168 |
+| `NN_ANIME_ALLOW_LOOPBACK` se queda puesta en un servidor | El arranque se niega si el host no es loopback | T168 |
+| La imagen incluye un proveedor por accidente | La etapa de runtime copia sólo los paquetes de la aplicación; el fixture de pruebas no se copia | T168 |
 | Un log guarda una credencial o una URL de video | Claves sensibles redactadas, `ticket` incluido | T25 |
 | Una dirección de repositorio lleva al servidor a la red local o a un host ajeno | Lista blanca de **hosts de GitHub** comprobada en **cada salto**, dentro del `fetch` que usa la revalidación de destinos: un host permitido que redirige fuera de GitHub se corta antes de pedir nada | T100 |
 | La consulta de metadatos a AniList lleva al servidor a otro sitio, o la usa para saturar a un tercero | Lista blanca de **hosts de AniList** —`graphql.anilist.co` para la API y su CDN para las imágenes— comprobada en cada salto, y **presupuesto**: una petición cada dos segundos, en fila india, con `Retry-After` obedecido en un 429 y una sola repetición. La imagen se pide **por referencia**, nunca por una dirección que venga del cliente | T121 |
@@ -82,6 +90,54 @@ prueba que lo sostiene.
    cuántas consultas paga la primera carga. Lo que sí hace: con el ajuste apagado no pide, no guarda y
    no sirve nada marcado, y de lo marcado conserva **un booleano por referencia** —nunca la portada, la
    sinopsis ni el identificador de la obra—.
+8. **Un token, un usuario.** El modo servidor no tiene cuentas: todos los clientes que conozcan el
+   token comparten historial, favoritos, plan y ajustes. No hay forma de saber quién hizo qué, y
+   revocar a una persona es cambiar el token a todas. Es el modelo de una instalación doméstica, no
+   el de un servicio multiusuario; está dicho en [docs/docker.md](docs/docker.md).
+9. **La salud es pública a propósito.** `/healthz` no pide token porque un contenedor tiene que poder
+   comprobarse a sí mismo, y devuelve sólo que el proceso responde. Un escaneo de puertos puede
+   saber que hay un nn-anime; no puede saber qué versión, qué proveedores ni qué rutas.
+10. **Sin `NN_ANIME_PUBLIC_ORIGIN`, el guard de `Host` acepta cualquier nombre.** En una LAN no se
+    puede saber con qué nombre llegarán los clientes, y la credencial que protege los datos es la
+    cookie `SameSite=Strict`, no el nombre. Un DNS rebinding puede alcanzar el puerto, pero sin
+    cookie no lee ni muta nada. Fijar el origen público cierra esa puerta a los nombres que no sean
+    el suyo.
+11. **El token vive en el entorno del contenedor.** `docker inspect` lo enseña a quien pueda hablar
+    con el demonio, y un `docker run -e` lo deja en el historial del shell. Usa un `.env` con
+    permisos o el secreto del orquestador; no hay `NN_ANIME_TOKEN_FILE` en esta versión.
+12. **HTTP en la LAN no cifra el token ni la cookie.** El formulario de login manda el token en el
+    cuerpo, y sin TLS lo ve cualquiera en el camino. Para servir fuera de la propia máquina, pon un
+    reverse proxy con HTTPS y define `NN_ANIME_PUBLIC_ORIGIN=https://…`: además marca la cookie
+    `Secure`.
+13. **SQLite es un solo escritor.** Una réplica por volumen. Dos contenedores sobre el mismo `/data`
+    no se reparten el trabajo: se pelean por el archivo y acaban en `SQLITE_BUSY`.
+14. **El contenedor no es un sandbox para los plugins.** Acota el sistema de archivos a lo que el
+    contenedor ve, pero el plugin sigue en el mismo proceso que el servidor, puede leer `/data`,
+    hablar con la red y usar el `fetch` global. `NN_ANIME_LOCKED=1` no cambia eso.
+15. **El modo restringido no aísla lo que ya está cargado.** Quita las superficies para añadir,
+    activar o descargar plugins y para lanzar `mpv`; los plugins que ya estaban en el directorio se
+    siguen ejecutando con los mismos permisos. La lista se decide en el servidor, no desde la
+    interfaz.
+
+## Modo servidor
+
+El despliegue en contenedor no relaja el modelo de amenaza: lo cambia de sitio. Las decisiones que
+lo sostienen son cuatro:
+
+- **Sin token no hay servidor.** `NN_ANIME_HOST` fuera de loopback —o un `NN_ANIME_PUBLIC_ORIGIN` que
+  no sea loopback— exige `NN_ANIME_TOKEN`. El arranque se niega con un mensaje que dice qué falta, y
+  un token de menos de 16 caracteres tampoco pasa.
+- **La cookie es la puerta.** La interfaz, la API, `/SECURITY.md` y los estáticos piden la cookie
+  que se obtiene en `/login`. El token no viaja en ninguna URL. `/healthz` y el propio formulario son
+  las dos únicas excepciones, y el ticket de `/stream/:ticket` sigue siendo la credencial de `mpv`.
+- **El `Origin` se comprueba contra el host real.** En local sigue siendo sólo
+  `http://127.0.0.1:PUERTO`; en un servidor, el origen público declarado o el mismo `Host` de la
+  petición. Un `Origin` ausente o `null` en un método que muta se rechaza igual que antes.
+- **`NN_ANIME_LOCKED=1` es para quien decide los plugins en el servidor.** Desaparecen el alta de
+  proveedores, la descarga y selección de repositorios y las rutas de `mpv`; los plugins ya montados
+  se cargan. No es un sandbox y no sustituye a revisar lo que se instala.
+
+La guía de despliegue, con Caddy y los volúmenes, está en [docs/docker.md](docs/docker.md).
 
 ## Qué no hace esta aplicación
 

@@ -379,3 +379,21 @@ empaquetado: el mismo commit en `main` pasa, y la rama de rediseño de la interf
 Se arregla dando a cada archivo su propio servidor o su propio estado, y eso es un cambio de las
 pruebas, no del empaquetado. Queda aquí anotado para que un `e2e` en rojo no parezca un fallo de la
 release.
+
+## La imagen de contenedor
+
+`release.yml` publica también `ghcr.io/zxuru/nn-anime` con la versión de la release y `latest`, para
+`linux/amd64` y `linux/arm64`. Es el mismo workflow y el mismo tag: no hay un segundo publicador que
+compita por la release. El trabajo `docker` no crea ni edita una release de GitHub; sólo empuja a
+GHCR, y el trabajo `publicar` depende de él para que una release no anuncie una imagen que no existe.
+
+- **Permisos:** el trabajo pide `packages: write`. El `GITHUB_TOKEN` del repositorio basta; no hay un
+  secreto nuevo que configurar.
+- **Primera publicación:** el paquete aparece en la página del repositorio y su visibilidad se ajusta
+  una vez en GitHub Packages. Si quieres que sea público, se cambia ahí; no depende del workflow.
+- **Sin publicar:** `Actions → Release → Run workflow` con «publish» sin marcar construye la imagen
+  multi-arquitectura y no la sube. Es la forma de probar el Dockerfile sin gastar un tag.
+- **En cada PR:** `ci.yml` construye la imagen sólo para `linux/amd64` y la arranca contra `/healthz`,
+  el 401 y el login. No publica nada.
+
+La guía para quien despliega está en [docker.md](docker.md).
