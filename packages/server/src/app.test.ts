@@ -230,6 +230,79 @@ describe('origin-guard', () => {
   })
 })
 
+describe('modo servidor: Host y Origin declarados', () => {
+  const NETWORK = {
+    extraHosts: ['nas.local:7717'],
+    allowAnyHost: false,
+    extraOrigins: ['https://nas.local'],
+    sameOrigin: true,
+  } as const
+
+  test('acepta el host declarado además del loopback', async () => {
+    const response = await app({ network: NETWORK }).request('http://nas.local:7717/api/health', {
+      headers: GOOD_COOKIE,
+    })
+
+    expect(response.status).toBe(200)
+  })
+
+  test('sigue rechazando un host que no está en la lista', async () => {
+    const response = await app({ network: NETWORK }).request(
+      'http://evil.example:7717/api/health',
+      { headers: GOOD_COOKIE },
+    )
+
+    expect(response.status).toBe(403)
+  })
+
+  test('sin origen público se acepta cualquier Host, pero la cabecera y la URL tienen que coincidir', async () => {
+    const target = app({
+      network: { extraHosts: [], allowAnyHost: true, extraOrigins: [], sameOrigin: true },
+    })
+
+    expect(
+      (await target.request('http://cualquiera.example:7717/api/health', { headers: GOOD_COOKIE }))
+        .status,
+    ).toBe(200)
+
+    // Mismo escenario con una cabecera fabricada que no coincide con la URL.
+    expect(
+      (
+        await target.request(`${BASE}/api/health`, {
+          headers: { ...GOOD_COOKIE, host: 'otro.example' },
+        })
+      ).status,
+    ).toBe(403)
+  })
+
+  test('un origen exacto declarado pasa el guard aunque el Host sea loopback', async () => {
+    const response = await app({ network: NETWORK }).request(`${BASE}/api/health`, {
+      method: 'POST',
+      headers: { ...GOOD_COOKIE, origin: 'https://nas.local' },
+    })
+
+    expect(response.status).not.toBe(403)
+  })
+
+  test('un origen con el mismo host de la petición pasa', async () => {
+    const response = await app({ network: NETWORK }).request('http://nas.local:7717/api/health', {
+      method: 'POST',
+      headers: { ...GOOD_COOKIE, host: 'nas.local:7717', origin: 'http://nas.local:7717' },
+    })
+
+    expect(response.status).not.toBe(403)
+  })
+
+  test('un origen ajeno sigue siendo 403', async () => {
+    const response = await app({ network: NETWORK }).request(`${BASE}/api/health`, {
+      method: 'POST',
+      headers: { ...GOOD_COOKIE, origin: 'https://evil.example' },
+    })
+
+    expect(response.status).toBe(403)
+  })
+})
+
 describe('GET /api/health', () => {
   test('informa versión, puerto, mpv y proveedores', async () => {
     const response = await app({ mpvAvailable: true, version: '2.3.4' }).request(
@@ -267,7 +340,10 @@ describe('tabla de rutas', () => {
    * dependen del contenedor —las de metadatos y las de repositorios— no existirían
    * y la tabla diría que todo está cubierto sin haberlas mirado.
    */
-  async function conRutas<T>(body: (target: Hono) => Promise<T>): Promise<T> {
+  async function conRutas<T>(
+    body: (target: Hono) => Promise<T>,
+    options: { readonly locked?: boolean } = {},
+  ): Promise<T> {
     const dir = await mkdtemp(join(tmpdir(), 'nn-anime-rutas-'))
     const db = openDb(join(dir, 'nn-anime.db'))
     runMigrations(db)
@@ -278,6 +354,7 @@ describe('tabla de rutas', () => {
         app({
           container,
           providersDir: join(dir, 'providers'),
+          locked: options.locked ?? false,
           paths: {
             dataDir: dir,
             configDir: dir,
@@ -321,6 +398,40 @@ describe('tabla de rutas', () => {
       // `/api/`, esta prueba es la que lo dice.
       expect(rutas.map((route) => route.method).sort()).toEqual(['DELETE', 'GET', 'PATCH', 'POST'])
     })
+  })
+
+  test('en modo restringido no se registran las mutaciones de plugins', async () => {
+    await conRutas(
+      async (target) => {
+        const rutas = protectedRoutes(target)
+
+        expect(
+          rutas
+            .filter((route) => route.path === '/api/provider-repos')
+            .map((route) => route.method)
+            .sort(),
+        ).toEqual(['GET'])
+        expect(
+          rutas.some((route) => route.path === '/api/providers' && route.method !== 'GET'),
+        ).toBe(false)
+        expect(rutas.some((route) => route.path.startsWith('/api/play/mpv'))).toBe(false)
+      },
+      { locked: true },
+    )
+  })
+
+  test('en modo restringido la salud y la lista de repositorios siguen accesibles', async () => {
+    await conRutas(
+      async (target) => {
+        expect(
+          (await target.request(`${BASE}/api/provider-repos`, { headers: GOOD_COOKIE })).status,
+        ).toBe(200)
+
+        const settings = await target.request(`${BASE}/api/settings`, { headers: GOOD_COOKIE })
+        expect(((await settings.json()) as { locked: boolean }).locked).toBe(true)
+      },
+      { locked: true },
+    )
   })
 
   test('toda ruta protegida exige sesión', async () => {

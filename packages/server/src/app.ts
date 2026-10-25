@@ -15,19 +15,20 @@
  * inalcanzable.
  */
 
-import type { ConfigPaths } from '@nn-anime/core'
-import { healthResponseSchema, type Logger } from '@nn-anime/core'
+import { AppError, type ConfigPaths, healthResponseSchema, type Logger } from '@nn-anime/core'
 import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
 import type { LoadReport } from '@nn-anime/provider-sdk'
 import { Hono } from 'hono'
 import { type AniListCatalog, createAniListCatalog } from './anilist/catalog'
 import { anilistOfflineFromEnv, createAniListClient } from './anilist/client'
+import { registerLogin } from './auth'
 import { bootstrapHandler } from './bootstrap'
 import type { ServerContainer } from './container'
 import { hostGuard } from './middleware/host-guard'
 import { originGuard } from './middleware/origin-guard'
 import { securityHeaders } from './middleware/security-headers'
 import { sessionGuard } from './middleware/session-guard'
+import { tokenGuard } from './middleware/token-guard'
 import { PROTECTED_PREFIXES } from './paths'
 import { createProviderHub } from './provider-hub'
 import { acotarAProveedoresActivos } from './provider-scope'
@@ -52,17 +53,44 @@ import { registerStreamRoutes } from './routes/stream'
 import { registerSubtitlesRoute } from './routes/subtitles'
 import { registerWatchRoutes } from './routes/watch'
 import { registerWatchedTitlesRoutes } from './routes/watched-titles'
-import type { Session } from './session'
+import { createTokenSession, type Session } from './session'
 
 /** Puerto conocido en el momento de montar la aplicación, o función que lo lee. */
 export type PortSource = number | (() => number)
+
+/**
+ * Lo que el modo servidor añade al guard de `Host` y al de `Origin`.
+ *
+ * Lo calcula el arranque a partir de `NN_ANIME_HOST` y `NN_ANIME_PUBLIC_ORIGIN`;
+ * el servidor no lee variables de entorno para decidir a quién acepta.
+ */
+export interface NetworkPolicy {
+  readonly extraHosts: readonly string[]
+  readonly allowAnyHost: boolean
+  readonly extraOrigins: readonly string[]
+  readonly sameOrigin: boolean
+}
 
 /** Reexportado para no obligar a nadie a saber de qué archivo sale. */
 export type { ProviderSummary } from '@nn-anime/core'
 
 export interface AppOptions {
   readonly port: PortSource
-  readonly session: Session
+  /**
+   * La sesión local. En modo token se ignora: la construye `auth` a partir del
+   * token fijo, para que no pueda haber dos valores distintos.
+   */
+  readonly session?: Session
+  /**
+   * Modo servidor: token fijo en lugar del canje de un solo uso.
+   *
+   * Sin `auth`, el comportamiento es el de siempre.
+   */
+  readonly auth?: { readonly token: string; readonly secureCookie: boolean }
+  /** Hosts y orígenes extra del modo servidor. */
+  readonly network?: NetworkPolicy
+  /** Modo restringido: no se pueden añadir ni activar plugins desde la API. */
+  readonly locked?: boolean
   /** Token de un solo uso que el CLI pone en la URL de arranque. */
   readonly bootToken: string
   /** Ruta local a la que ir tras canjear el token. Por defecto, `/`. */
@@ -155,6 +183,21 @@ export function createApp(options: AppOptions): Hono {
   const app = new Hono()
   const getPort = (): number => resolvePort(options.port)
 
+  // En modo token la sesión sale del token fijo, no de una cookie efímera: que
+  // haya un solo valor posible evita que el guard y el formulario de login
+  // miren cosas distintas.
+  const session =
+    options.auth === undefined ? options.session : createTokenSession(options.auth.token)
+
+  if (session === undefined) {
+    throw new AppError({
+      code: 'internal',
+      message: 'createApp necesita una sesión o un token',
+      scope: 'server',
+      op: 'createApp',
+    })
+  }
+
   // Primero las cabeceras: se escriben después de `next()`, así que llegan
   // también a las respuestas que cortan los guards.
   app.use('*', securityHeaders())
@@ -163,28 +206,62 @@ export function createApp(options: AppOptions): Hono {
   // arranque no es una excepción, y un guard que se salta una ruta deja de ser
   // un guard. No lee cookies ni estado, así que montarlo sobre `'*'` no cuesta
   // nada: sólo la comprobación.
-  app.use('*', hostGuard(getPort))
+  app.use(
+    '*',
+    hostGuard(getPort, {
+      ...(options.network === undefined ? {} : { extraHosts: options.network.extraHosts }),
+      ...(options.network === undefined ? {} : { allowAny: options.network.allowAnyHost }),
+    }),
+  )
+
+  // La salud no lleva credencial y no lleva datos: es lo que un contenedor
+  // necesita para saber si el proceso responde. Va fuera de `/api/` para no
+  // heredar el guard de sesión, y el guard de token la salta por nombre.
+  app.get('/healthz', (c) => {
+    c.header('cache-control', 'no-store')
+
+    return c.json({ status: 'ok' })
+  })
+
+  // El modo servidor protege **todo**, estáticos incluidos; el modo local sigue
+  // protegiendo sólo la API y el stream. Ver `token-guard.ts`.
+  if (options.auth !== undefined) {
+    app.use(
+      '*',
+      tokenGuard(session, {
+        ...(options.container === undefined ? {} : { tickets: options.container.tickets }),
+      }),
+    )
+    registerLogin(app, { session, secureCookie: options.auth.secureCookie })
+  }
 
   // El guard de sesión recibe el almacén de tickets: la URL del proxy es la
   // credencial que mpv sí puede presentar, porque no tiene cookie. Ver
   // `session-guard.ts`.
   const guards = [
-    originGuard(getPort),
-    sessionGuard(options.session, { tickets: options.container?.tickets }),
+    originGuard(getPort, {
+      ...(options.network === undefined ? {} : { extraOrigins: options.network.extraOrigins }),
+      ...(options.network === undefined ? {} : { sameOrigin: options.network.sameOrigin }),
+    }),
+    sessionGuard(session, { tickets: options.container?.tickets }),
   ]
   for (const prefix of PROTECTED_PREFIXES) {
     app.use(`${prefix}*`, ...guards)
   }
 
-  app.use(
-    '/',
-    bootstrapHandler({
-      bootToken: options.bootToken,
-      session: options.session,
-      ...(options.redirectTo === undefined ? {} : { redirectTo: options.redirectTo }),
-      ...(options.bootstrapClock === undefined ? {} : { now: options.bootstrapClock }),
-    }),
-  )
+  // El canje de un solo uso es del modo local. En modo token el token no viaja
+  // en la URL: `/` lo sirve la interfaz y el guard de token ya pidió la cookie.
+  if (options.auth === undefined) {
+    app.use(
+      '/',
+      bootstrapHandler({
+        bootToken: options.bootToken,
+        session,
+        ...(options.redirectTo === undefined ? {} : { redirectTo: options.redirectTo }),
+        ...(options.bootstrapClock === undefined ? {} : { now: options.bootstrapClock }),
+      }),
+    )
+  }
 
   // El registro es vivo: las rutas que vienen debajo reciben estas referencias y
   // las leen al atender, así que un alta desde Ajustes se ve sin reiniciar. Ver
@@ -234,7 +311,10 @@ export function createApp(options: AppOptions): Hono {
   )
 
   registerProvidersRoute(app, { plugins })
-  if (options.providersDir !== undefined) {
+  // En modo restringido el alta de un plugin declarativo no existe: escribir un
+  // archivo en el directorio de configuración es una superficie de ejecución de
+  // código, y el servidor no la ofrece.
+  if (!options.locked && options.providersDir !== undefined) {
     registerProviderRoute(app, { hub, directory: options.providersDir })
   }
   // Las rutas de metadatos necesitan el store: sin contenedor no se registran,
@@ -310,10 +390,14 @@ export function createApp(options: AppOptions): Hono {
     registerSettingsRoute(app, {
       container,
       plugins,
+      locked: options.locked ?? false,
       ...(options.paths === undefined ? {} : { paths: options.paths }),
       ...(options.mpvVersion === undefined ? {} : { mpvVersion: options.mpvVersion }),
     })
-    registerPlayRoutes(app, routeOptions)
+    // Lanzar un reproductor en el servidor no es una operación de un modo
+    // restringido: cualquier cliente con el token podría hacerlo, y no hay
+    // pantalla ni altavoz que lo justifique.
+    if (!options.locked) registerPlayRoutes(app, routeOptions)
   }
 
   // Los repositorios necesitan las tres cosas: el store donde vive la ficha —
@@ -325,6 +409,7 @@ export function createApp(options: AppOptions): Hono {
       container,
       hub,
       dataDir: options.paths.dataDir,
+      locked: options.locked ?? false,
       ...(options.githubFetchImpl === undefined ? {} : { fetchImpl: options.githubFetchImpl }),
       ...(options.githubResolver === undefined ? {} : { resolver: options.githubResolver }),
       ...(options.githubClock === undefined ? {} : { now: options.githubClock }),

@@ -731,6 +731,14 @@ export const settingsResponseSchema = z.strictObject({
    * a AniList, qué se guarda y qué se sirve.
    */
   adultContent: z.boolean(),
+  /**
+   * Si esta instalación corre en modo restringido.
+   *
+   * No es un ajuste que el usuario cambie: lo fija `NN_ANIME_LOCKED` al
+   * desplegar. La interfaz lo lee para no ofrecer botones que la API no
+   * registra. Por defecto `false`, que es el modo local de siempre.
+   */
+  locked: z.boolean().default(false),
   paths: z.strictObject({
     data: z.string().min(1),
     config: z.string().min(1),

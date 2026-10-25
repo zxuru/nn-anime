@@ -84,6 +84,13 @@ export function SettingsPage(): ReactNode {
 
       {aviso}
 
+      {data.locked ? (
+        <aside className="settings__warning">
+          <h2>{t(DEFAULT_LOCALE, 'settings.locked.title')}</h2>
+          <p>{t(DEFAULT_LOCALE, 'settings.locked.body')}</p>
+        </aside>
+      ) : null}
+
       <section>
         <h2>{t(DEFAULT_LOCALE, 'settings.providers')}</h2>
         <ProviderList
@@ -94,15 +101,19 @@ export function SettingsPage(): ReactNode {
       </section>
 
       {/* Los repositorios van justo debajo de la lista de proveedores: es otra
-          forma de llenarla, y la lista de arriba es donde se ve el resultado. */}
-      <ProviderRepos {...repos} />
+          forma de llenarla, y la lista de arriba es donde se ve el resultado.
+          En modo restringido no se ofrecen: escribir un plugin o marcar un
+          archivo es ejecutar código, y la API tampoco registra esas rutas. */}
+      {data.locked ? null : <ProviderRepos {...repos} />}
 
       {/* El alta va después de la lista: primero se ve qué hay, y el formulario
           está justo debajo de lo que va a cambiar. */}
-      <section>
-        <h2>{t(DEFAULT_LOCALE, 'settings.register.title')}</h2>
-        <RegisterProvider register={register} />
-      </section>
+      {data.locked ? null : (
+        <section>
+          <h2>{t(DEFAULT_LOCALE, 'settings.register.title')}</h2>
+          <RegisterProvider register={register} />
+        </section>
+      )}
 
       <section>
         <h2>{t(DEFAULT_LOCALE, 'settings.paths')}</h2>

@@ -44,7 +44,10 @@ export interface SessionStore {
 }
 
 export interface Session extends SessionStore {
-  /** Valor de la cookie. Sólo lo lee el canje de arranque, para emitirla. */
+  /**
+   * Valor de la cookie. Lo leen el canje de arranque y el formulario de login
+   * del modo servidor, que son los dos sitios que la emiten.
+   */
   readonly value: string
 }
 
@@ -55,6 +58,22 @@ export function createSession(): Session {
     cookieName: SESSION_COOKIE,
     value,
     matches: (candidate) => safeEqual(candidate, value),
+  }
+}
+
+/**
+ * La sesión del modo servidor: el token fijo que eligió quien despliega.
+ *
+ * No es un token de un solo uso ni uno efímero: es la credencial de la
+ * instalación y vive hasta que cambie la variable y se reinicie. Se guarda en
+ * una cookie `HttpOnly` igual que la sesión local, y se compara con la misma
+ * primitiva de tiempo constante.
+ */
+export function createTokenSession(token: string): Session {
+  return {
+    cookieName: SESSION_COOKIE,
+    value: token,
+    matches: (candidate) => safeEqual(candidate, token),
   }
 }
 

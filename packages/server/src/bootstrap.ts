@@ -29,7 +29,7 @@ export const BOOT_TTL_MS = 5 * 60 * 1000
  * cliente. Aun así se valida: una redirección a `//evil.example` es una URL
  * absoluta disfrazada de ruta, y un open redirect no tiene excusa.
  */
-function safeRedirect(target: string | undefined): string {
+export function safeRedirect(target: string | undefined): string {
   if (target === undefined || target === '') return DEFAULT_REDIRECT
   if (!target.startsWith('/')) return DEFAULT_REDIRECT
   if (target.startsWith('//')) return DEFAULT_REDIRECT
