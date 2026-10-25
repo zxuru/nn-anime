@@ -36,6 +36,13 @@ import type { CliOptions } from './args'
 import { t } from './i18n'
 import type { Lifecycle } from './lifecycle'
 import type { CliIO } from './run'
+import {
+  DEFAULT_HOST,
+  DEFAULT_SERVER_ENV,
+  isLoopbackHost,
+  networkPolicy,
+  type ServerEnvironment,
+} from './server-env'
 import { applySettings } from './settings'
 
 /** Puerto por defecto del spec. */
@@ -91,6 +98,21 @@ export type LoadPlugins = (directory: string, files: readonly string[]) => Promi
 export type OpenContainer = (config: ConfigPaths) => ServerContainer | undefined
 
 export interface ListenOptions {
+  /** Interfaz de escucha. Por defecto la del modo local. */
+  readonly host?: string | undefined
+  /** Token fijo del modo servidor, si lo hay. */
+  readonly auth?: { readonly token: string; readonly secureCookie: boolean } | undefined
+  /** Hosts y orígenes que añade el modo servidor. */
+  readonly network?:
+    | {
+        readonly extraHosts: readonly string[]
+        readonly allowAnyHost: boolean
+        readonly extraOrigins: readonly string[]
+        readonly sameOrigin: boolean
+      }
+    | undefined
+  /** Modo restringido: sin alta de proveedores ni rutas de mpv. */
+  readonly locked?: boolean | undefined
   /** Rutas en uso, para la página de ajustes. */
   readonly paths?: ConfigPaths | undefined
   /** Versión de mpv detectada al arrancar, si la hay. */
@@ -222,6 +244,13 @@ export interface BootDeps {
   readonly locale: Locale
   readonly lifecycle: Lifecycle
   readonly env: ConfigEnvironment
+  /**
+   * El entorno del modo servidor.
+   *
+   * Es opcional para que las pruebas del arranque local sigan montando sólo lo
+   * que les importa; sin él se usa el arranque de siempre.
+   */
+  readonly server?: ServerEnvironment | undefined
   readonly migrate: Migrate
   readonly readSettings: ReadSettings
   readonly listen: Listen
@@ -296,6 +325,7 @@ export interface BootResult {
 
 export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<BootResult> {
   const { io, locale } = deps
+  const server = deps.server ?? DEFAULT_SERVER_ENV
 
   let config: ConfigPaths
   try {
@@ -335,7 +365,10 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     return { code: 1, url: undefined, port: undefined }
   }
 
-  const options = applySettings(rawOptions, settings.value)
+  const options = applySettings(rawOptions, settings.value, {
+    port: server.port,
+    noOpen: server.noOpen,
+  })
 
   // El orden de aquí abajo es una decisión y no una casualidad: **migrar, abrir
   // la base, leer qué repositorios están habilitados y sólo entonces cargar los
@@ -382,9 +415,27 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
   const bootToken = deps.createBootToken()
 
   const requestedPort = options.port ?? DEFAULT_PORT
+
+  // El modo local puro no pasa política de red: el guard se queda exactamente
+  // como estaba. Se pasa en cuanto hay host propio, origen público o token.
+  const network =
+    server.host === DEFAULT_HOST && server.publicOrigin === undefined
+      ? undefined
+      : networkPolicy({
+          host: server.host,
+          port: requestedPort,
+          publicOrigin: server.publicOrigin,
+        })
+
+  const auth =
+    server.token === undefined
+      ? undefined
+      : { token: server.token, secureCookie: server.secureCookie }
+
   const outcome = deps.listen(requestedPort, {
     session,
     bootToken,
+    host: server.host,
     version: deps.version,
     webRoot: deps.webRoot,
     redirectTo: redirectTarget(options.query, options.providers),
@@ -393,15 +444,27 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     // Las rutas las tiene `boot`, que es quien llamó a `loadConfig`.
     paths: config,
     providersDir: config.providersDir,
+    locked: server.locked,
+    ...(auth === undefined ? {} : { auth }),
+    ...(network === undefined ? {} : { network }),
     ...(deps.mpvVersion === undefined ? {} : { mpvVersion: deps.mpvVersion }),
     ...(deps.allowLoopback === undefined ? {} : { allowLoopback: deps.allowLoopback }),
     ...(container === undefined ? {} : { container }),
   })
 
   if (!outcome.ok) {
+    // En desarrollo, el mensaje habla del proxy de Vite; en un servidor, del
+    // puerto que fija el despliegue. El mismo texto para los dos casos manda a
+    // mirar el sitio equivocado.
+    const fixedPort =
+      server.port !== undefined || server.publicOrigin !== undefined || !isLoopbackHost(server.host)
+
     io.err(
       outcome.kind === 'port-busy'
-        ? t(locale, 'cli.port.busyBlocked', { port: requestedPort, detail: outcome.detail })
+        ? t(locale, fixedPort ? 'cli.port.busyFixed' : 'cli.port.busyBlocked', {
+            port: requestedPort,
+            detail: outcome.detail,
+          })
         : t(locale, 'cli.server.failed', { detail: outcome.detail }),
     )
     return { code: 1, url: undefined, port: undefined }
@@ -411,11 +474,21 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     io.out(t(locale, 'cli.port.busy', { port: outcome.fellBackFrom, chosen: outcome.server.port }))
   }
 
-  const origin = deps.publicOrigin ?? outcome.server.url
-  const url = `${origin}/?${BOOT_PARAM}=${bootToken}`
+  const origin = deps.publicOrigin ?? server.publicOrigin ?? outcome.server.url
+  const loginUrl = `${origin}/login`
+  // En modo token no hay `?boot=`: el token fijo no viaja en una URL, y la
+  // dirección impresa no lleva ningún secreto. En local, la de siempre.
+  const url = server.token === undefined ? `${origin}/?${BOOT_PARAM}=${bootToken}` : `${origin}/`
 
   // Paso 8 del arranque del spec: la URL y la lista de proveedores activos.
   io.out(t(locale, 'cli.url', { url }))
+  if (server.token !== undefined) {
+    io.out(t(locale, 'cli.server.login', { url: loginUrl }))
+    if (server.publicOrigin === undefined && !isLoopbackHost(server.host)) {
+      io.err(t(locale, 'cli.env.publicOriginHint'))
+    }
+  }
+  if (server.locked) io.out(t(locale, 'cli.server.locked'))
   // Y la misma dirección en la línea que lee un programa. Va aquí, con la humana,
   // porque las dos dicen lo mismo: el formato vive en `core` y lo consume el
   // `smoke` del paquete, que es quien arranca el ejecutable y necesita saber dónde
@@ -428,8 +501,9 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
   deps.lifecycle.onShutdown(() => outcome.server.stop())
 
   if (options.open) {
-    const opened = await deps.openUrl(url)
-    if (!opened) io.err(t(locale, 'cli.open.failed', { url }))
+    const target = server.token === undefined ? url : loginUrl
+    const opened = await deps.openUrl(target)
+    if (!opened) io.err(t(locale, 'cli.open.failed', { url: target }))
   }
 
   return { code: 0, url, port: outcome.server.port }

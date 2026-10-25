@@ -27,6 +27,7 @@ import {
 } from './boot'
 import { createLifecycle } from './lifecycle'
 import type { CliIO } from './run'
+import { DEFAULT_SERVER_ENV } from './server-env'
 
 const BOOT_TOKEN = 'token-de-arranque'
 
@@ -223,6 +224,99 @@ describe('arranque correcto', () => {
       await boot(options(), depsFor(target, home))
 
       expect(target.requestedPorts).toEqual([DEFAULT_PORT])
+    })
+  })
+
+  test('el puerto del entorno gana sobre el del archivo', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({ port: 8080 })
+
+      await boot(
+        options(),
+        depsFor(target, home, {
+          server: { ...DEFAULT_SERVER_ENV, port: 8080 },
+        }),
+      )
+
+      expect(target.requestedPorts).toEqual([8080])
+    })
+  })
+
+  test('NN_ANIME_NO_OPEN no abre el navegador', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+
+      await boot(
+        options(),
+        depsFor(target, home, {
+          server: { ...DEFAULT_SERVER_ENV, noOpen: true },
+        }),
+      )
+
+      expect(target.opened).toEqual([])
+    })
+  })
+
+  test('en modo token no se imprime el canje y se abre el formulario de login', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({ port: 8080 })
+      const server = {
+        ...DEFAULT_SERVER_ENV,
+        host: '0.0.0.0',
+        port: 8080,
+        token: 'token-de-servidor',
+        publicOrigin: 'https://nn.example.com',
+        secureCookie: true,
+      }
+
+      const result = await boot(options(), depsFor(target, home, { server }))
+
+      expect(result.url).toBe('https://nn.example.com/')
+      expect(target.out.join('\n')).not.toContain('?boot=')
+      expect(target.out.join('\n')).toContain('https://nn.example.com/login')
+      expect(target.opened).toEqual(['https://nn.example.com/login'])
+      expect(target.seenOptions[0]?.host).toBe('0.0.0.0')
+      expect(target.seenOptions[0]?.auth).toEqual({
+        token: 'token-de-servidor',
+        secureCookie: true,
+      })
+      expect(target.seenOptions[0]?.network?.extraHosts).toContain('nn.example.com')
+    })
+  })
+
+  test('el modo restringido se anuncia y llega al servidor', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+
+      await boot(
+        options(),
+        depsFor(target, home, {
+          server: { ...DEFAULT_SERVER_ENV, locked: true },
+        }),
+      )
+
+      expect(target.seenOptions[0]?.locked).toBe(true)
+      expect(target.out.join('\n')).toContain('Modo restringido')
+    })
+  })
+
+  test('sin origen público en un host no loopback avisa de la cookie sin Secure', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({ port: 8080 })
+
+      await boot(
+        options(),
+        depsFor(target, home, {
+          server: {
+            ...DEFAULT_SERVER_ENV,
+            host: '0.0.0.0',
+            port: 8080,
+            token: 'token-de-servidor',
+          },
+        }),
+      )
+
+      expect(target.err.join('\n')).toContain('NN_ANIME_PUBLIC_ORIGIN')
     })
   })
 })

@@ -30,6 +30,7 @@ import { createLifecycle, waitForClose } from './lifecycle'
 import { openInBrowser } from './open-browser'
 import { resolveResources } from './resources'
 import { type CliIO, run } from './run'
+import { serverEnvironment } from './server-env'
 import { createStarter } from './start'
 
 const io: CliIO = {
@@ -104,12 +105,26 @@ const migrate: Migrate = async (config) => {
 const envLang = process.env.NN_ANIME_LANG
 
 /**
+ * El entorno del modo servidor, resuelto una sola vez.
+ *
+ * Un valor inválido no se corrige aquí: se pasa a `createStarter`, que lo dice
+ * con el idioma ya resuelto y sale con 1 sin migrar ni abrir un socket.
+ */
+const serverEnv = serverEnvironment(process.env)
+
+/**
  * Si hay mpv, se mira **una vez** al arrancar.
  *
  * Mirarlo en cada petición es un `stat` por reproducción, y el resultado no
  * cambia mientras el proceso vive. El arranque puede esperar; una petición, no.
+ *
+ * En modo restringido ni se busca: un servidor no debe ofrecer lanzar un
+ * reproductor local a quien tenga el token.
  */
-const mpvDisponible = await hasMpv(async (binario) => Bun.which(binario) ?? undefined)
+const mpvDisponible =
+  serverEnv.ok && serverEnv.value.locked
+    ? false
+    : await hasMpv(async (binario) => Bun.which(binario) ?? undefined)
 
 /**
  * La versión de mpv, para poder enseñarla en los ajustes.
@@ -158,6 +173,7 @@ const code = await run(Bun.argv.slice(2), {
     version,
     envLang,
     env: configEnvironment(process.env),
+    serverEnv,
     publicOrigin: process.env.NN_ANIME_DEV_ORIGIN,
     webRoot: resources.webRoot,
     listen: listenOnFreePort,
