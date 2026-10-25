@@ -108,6 +108,54 @@ jobs:
       - name: Pruebas
         run: bun test
 
+  # La imagen de contenedor. No crea una release: publica en GHCR y nada más, y `publicar`
+  # depende de este trabajo para que la release no anuncie una imagen que no existe todavía.
+  #
+  # Multi-arquitectura porque el NAS y el servidor pueden ser arm64, y la imagen de Bun existe
+  # para las dos. Con `publish` sin marcar se construye igual, sin subir nada: es la forma de
+  # probar la cadena sin gastar un tag.
+  docker:
+    needs: comprobar
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Preparar QEMU para arm64
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+        with:
+          platforms: arm64
+
+      - name: Preparar Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Entrar en GHCR
+        if: needs.comprobar.outputs.publicar == 'true'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construir y publicar
+        uses: docker/build-push-action@1104d471370f9806843c095c1db02b5a90c5f8b6 # v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ needs.comprobar.outputs.publicar == 'true' }}
+          tags: |
+            ghcr.io/zxuru/nn-anime:${{ needs.comprobar.outputs.version }}
+            ghcr.io/zxuru/nn-anime:latest
+          labels: |
+            org.opencontainers.image.version=${{ needs.comprobar.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   # Un instalador por plataforma. La firma va aquí dentro y es **condicional**: si el secreto no
   # está, el paso se salta y el instalador sale sin firmar, con las advertencias normales del
   # sistema. Una build que falla porque falta un certificado es una build que nadie puede hacer.
@@ -360,7 +408,7 @@ jobs:
   # no en cada plataforma: tres `SHA256SUMS.txt` con el mismo nombre en la misma release dejarían el
   # que sobreviviera hablando sólo de una.
   publicar:
-    needs: [comprobar, instaladores]
+    needs: [comprobar, instaladores, docker]
     if: needs.comprobar.outputs.publicar == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20

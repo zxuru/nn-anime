@@ -1,0 +1,44 @@
+# Ejemplo de despliegue de nn-anime en un servidor o NAS.
+#
+# El puerto se publica **sólo en loopback** para que un reverse proxy —Caddy,
+# nginx, Traefik— sea el que hable con el exterior y ponga TLS. Para entrar
+# desde la LAN sin proxy, cambia la primera mitad a `8080:8080` o a la IP del
+# servidor, y sé consciente de que el token viaja sin cifrar.
+#
+# Genera el token una vez y guárdalo fuera del repositorio:
+#
+#   openssl rand -base64 32
+#
+# `docker compose` lo lee de este entorno o del `.env` que esté junto a este
+# archivo. Sin token, el arranque se niega: no hay un valor por defecto.
+
+services:
+  nn-anime:
+    image: ghcr.io/zxuru/nn-anime:latest
+    # Para construir la imagen desde este mismo directorio:
+    # build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # La base, la configuración, los plugins y la caché viven aquí. Un solo
+      # contenedor por volumen: SQLite no admite dos escritores.
+      - nn-anime-data:/data
+    environment:
+      NN_ANIME_HOST: 0.0.0.0
+      NN_ANIME_PORT: "8080"
+      NN_ANIME_NO_OPEN: "1"
+      # Obligatorio. El `:?` hace que `docker compose up` falle con un mensaje
+      # claro si falta, en vez de arrancar un servidor abierto.
+      NN_ANIME_TOKEN: ${NN_ANIME_TOKEN:?define NN_ANIME_TOKEN antes de docker compose up}
+      # Detrás de Caddy con HTTPS, descomenta y pon tu dominio. Marca la cookie
+      # `Secure` y fija el Host y el Origin admitidos.
+      # NN_ANIME_PUBLIC_ORIGIN: https://nn.example.com
+      # Modo restringido: sin alta de plugins ni gestión de repositorios desde
+      # la interfaz. Los plugins ya montados se siguen cargando.
+      # NN_ANIME_LOCKED: "1"
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  nn-anime-data:
