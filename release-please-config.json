@@ -9,6 +9,8 @@
       "bump-minor-pre-major": true,
       "draft": true,
       "force-tag-creation": true,
+      "pull-request-header": " ",
+      "pull-request-footer": " ",
       "extra-files": [
         {
           "type": "json",

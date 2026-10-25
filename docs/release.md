@@ -47,6 +47,19 @@ ajuste del repositorio que hace falta; el resto es cosa de los secretos, que son
   esto, el tag no existiría, `release.yml` no se dispararía nunca y la release se quedaría en borrador
   para siempre.
 
+### El cuerpo del PR de release
+
+El PR que mantiene `release-please` es el `CHANGELOG.md` y nada más. La cabecera y el pie de ese
+cuerpo se deciden con `pull-request-header` y `pull-request-footer` en `release-please-config.json`,
+y los dos van con **un espacio**, no con la cadena vacía: release-please hace
+`header || DEFAULT_HEADER`, así que un valor vacío devuelve su cabecera («🤖 I have created a
+release *beep boop*») y su pie («This PR was generated with [Release Please]…»). Un espacio es lo
+único que deja el cuerpo en blanco; el `---` que release-please pone entre la cabecera y las notas
+sigue ahí, como separador.
+
+Esto sólo cambia el PR. Las notas de la release en GitHub son la sección de notas del cuerpo, sin
+cabecera ni pie, así que la release publicada no cambia al quitar el pie.
+
 ### La versión, en un solo sitio
 
 La raíz manda. `bun run version:check` falla si alguno de los nueve paquetes se desvió, y

@@ -14,6 +14,12 @@ name: Release Please
 #  - `draft`: la release nace en borrador para que nadie vea una release a la que todavía le faltan
 #    los instaladores.
 #
+# El **cuerpo** del PR tampoco se escribe aquí: `pull-request-header` y `pull-request-footer` están
+# en el JSON, los dos con un espacio. Con la cadena vacía no vale, porque release-please hace
+# `header || DEFAULT_HEADER` y vuelve a su cabecera «:robot: I have created a release *beep* *boop*»
+# y a su pie «This PR was generated with Release Please». Un espacio es lo único que deja el PR en el
+# CHANGELOG y nada más. Está explicado en `docs/release.md`.
+#
 # **Requiere un ajuste del repositorio**: en Settings → Actions → General → Workflow permissions hay
 # que marcar «Allow GitHub Actions to create and approve pull requests». Sin eso, `GITHUB_TOKEN` no
 # puede abrir el PR de release y este workflow falla. Está dicho en `docs/release.md`.
