@@ -422,9 +422,13 @@ jobs:
         with:
           bun-version: 1.4.3
 
+      # Sólo los instaladores. El trabajo `docker` deja en el run un artefacto
+      # `.dockerbuild` de buildx que no es parte de la release; bajarlo con
+      # `pattern` evita que acabe en la página de descargas y en los checksums.
       - name: Bajar los artefactos
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
+          pattern: instaladores-*
           path: release
           merge-multiple: true
 
