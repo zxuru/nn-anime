@@ -55,6 +55,14 @@ export interface ProviderReposRouteOptions {
   readonly hub: ProviderHub
   /** Raíz de la carpeta de datos: ahí se descargan los repositorios. */
   readonly dataDir: string
+  /**
+   * Modo restringido: sólo se registra el `GET`.
+   *
+   * La lista sigue siendo legible —es lo que hay instalado—, pero descargar,
+   * marcar archivos o quitar un repositorio es ejecutar código de terceros y no
+   * se ofrece desde un servidor.
+   */
+  readonly locked?: boolean | undefined
   /** `fetch` inyectable: las pruebas no salen a la red. */
   readonly fetchImpl?: FetchLike | undefined
   /** Resolutor inyectable: las pruebas no resuelven nombres de verdad. */
@@ -113,6 +121,8 @@ export function registerProviderReposRoutes(app: Hono, options: ProviderReposRou
 
     return c.json(providerReposResponseSchema.parse({ repos }))
   })
+
+  if (options.locked === true) return
 
   app.post('/api/provider-repos', async (c) => {
     const crudo = await readJson(c)

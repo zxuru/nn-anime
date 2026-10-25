@@ -42,8 +42,6 @@ import {
   type PluginFetch,
   type PluginFetchCall,
   type PluginFetchFactory,
-  type PluginRequest,
-  type PluginResponse,
 } from '@nn-anime/core'
 import {
   addressRule,

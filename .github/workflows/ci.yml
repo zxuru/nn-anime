@@ -74,6 +74,53 @@ jobs:
       - name: Pruebas
         run: bun test
 
+  # La imagen se construye y se arranca en cada push y en cada PR. El resto de
+  # trabajos ejecuta el código con Bun, no el Dockerfile: un `COPY` que falta o
+  # un `USER` que no existe se descubrirían el día de la release, que es el peor
+  # día. No se publica nada desde aquí.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Construir la imagen
+        run: docker build -t nn-anime:ci .
+
+      # Arrancarla y pedirle las tres cosas que importan: salud sin credencial,
+      # 401 sin token y la interfaz con la cookie del login.
+      - name: Arrancar y comprobar salud, 401 y login
+        run: |
+          set -euo pipefail
+          TOKEN="token-de-prueba-$(date +%s)"
+          docker run -d --name nn-anime-ci -p 127.0.0.1:18080:8080 \
+            -e NN_ANIME_TOKEN="$TOKEN" nn-anime:ci
+          # Si algo falla, el registro del contenedor es lo que dice por qué;
+          # borrarlo sin leerlo deja un «curl: (7)» y ninguna causa.
+          trap 'docker logs nn-anime-ci 2>&1 || true; docker inspect --format "{{.State.Status}} exit={{.State.ExitCode}}" nn-anime-ci 2>&1 || true; docker rm -f nn-anime-ci >/dev/null 2>&1 || true' EXIT
+
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:18080/healthz >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+
+          curl -fsS http://127.0.0.1:18080/healthz | grep -q '"status":"ok"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/)" = "401"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/api/health)" = "401"
+          curl -fsS http://127.0.0.1:18080/login | grep -q 'name="token"'
+
+          curl -s -D /tmp/cabeceras -o /dev/null -X POST -d "token=$TOKEN" \
+            http://127.0.0.1:18080/login
+          grep -qi 'set-cookie: nn_session=' /tmp/cabeceras
+          curl -fsS -b "nn_session=$TOKEN" http://127.0.0.1:18080/ | grep -q 'id="root"'
+
+          docker logs nn-anime-ci
+
+      - name: Validar el compose de ejemplo
+        env:
+          NN_ANIME_TOKEN: token-de-prueba
+        run: docker compose config -q
+
   # El e2e vive aparte: necesita Chromium y un servidor, y tarda lo que tarda. Que falle aquí no
   # debe tapar que los tipos o las pruebas unitarias están rojos, y al revés.
   e2e:

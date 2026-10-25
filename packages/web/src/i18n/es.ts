@@ -236,6 +236,9 @@ export const messages: Messages = {
   'settings.security.close': 'Cerrar',
   'settings.security.raw': 'Ver SECURITY.md entero',
   'settings.security.loading': 'Cargando el aviso de seguridad…',
+  'settings.locked.title': 'Servidor en modo restringido',
+  'settings.locked.body':
+    'Esta instalación no añade ni activa plugins desde la interfaz. Los que ya estén instalados siguen funcionando; para cambiar la lista, hazlo en el servidor y reinicia.',
   'settings.providers': 'Proveedores',
   'settings.providers.empty': 'No hay ningún proveedor instalado.',
   'settings.provider.active': 'activo',

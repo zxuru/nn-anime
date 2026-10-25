@@ -73,6 +73,8 @@ export async function adultContentOf(
 export interface SettingsRouteOptions {
   readonly container: ServerContainer
   readonly plugins: PluginReport
+  /** Modo restringido: la interfaz oculta las superficies de plugins. */
+  readonly locked?: boolean | undefined
   /** Rutas en uso. Las conoce el arranque, que es quien las calculó. */
   readonly paths?: ConfigPaths | undefined
   readonly mpvAvailable?: boolean | undefined
@@ -132,10 +134,15 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
         theme,
         providerPriority,
         adultContent,
+        locked: options.locked ?? false,
         paths: pathsOf(options.paths),
         mpv: {
-          available: options.container.mpv.available,
-          ...(options.mpvVersion === undefined ? {} : { version: options.mpvVersion }),
+          // En modo restringido las rutas de mpv no se registran: decir que hay
+          // reproductor sería ofrecer un botón que contesta 404.
+          available: options.locked === true ? false : options.container.mpv.available,
+          ...(options.locked === true || options.mpvVersion === undefined
+            ? {}
+            : { version: options.mpvVersion }),
         },
         providers: [...activos, ...rechazados],
       }),

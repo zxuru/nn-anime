@@ -66,6 +66,39 @@ describe('la bandera gana sobre el archivo', () => {
   })
 })
 
+describe('el entorno se coloca entre la bandera y el archivo', () => {
+  test('el puerto del entorno gana sobre el archivo', () => {
+    expect(applySettings(options(), { port: 9999 }, { port: 8080 }).port).toBe(8080)
+  })
+
+  test('el puerto de la bandera gana sobre el entorno', () => {
+    expect(applySettings(options(['--port', '7070']), { port: 9999 }, { port: 8080 }).port).toBe(
+      7070,
+    )
+  })
+
+  test('sin archivo, el entorno también se aplica', () => {
+    const applied = applySettings(options(), undefined, { port: 8080 })
+
+    expect(applied.port).toBe(8080)
+    expect(applied.openSpecified).toBe(true)
+  })
+
+  test('NN_ANIME_NO_OPEN gana sobre un open verdadero del archivo', () => {
+    expect(applySettings(options(), { open: true }, { noOpen: true }).open).toBe(false)
+  })
+
+  test('--no-open gana sobre el entorno abierto', () => {
+    expect(applySettings(options(['--no-open']), { open: true }, { noOpen: false }).open).toBe(
+      false,
+    )
+  })
+
+  test('sin no-open del entorno vale el archivo', () => {
+    expect(applySettings(options(), { open: false }, { noOpen: false }).open).toBe(false)
+  })
+})
+
 describe('idempotencia', () => {
   test('aplicar dos veces da lo mismo', () => {
     const settings = { port: 9999, open: false, providers: ['uno'], lang: 'en', verbose: true }

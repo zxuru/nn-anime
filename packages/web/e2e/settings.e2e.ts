@@ -27,8 +27,13 @@ test.describe('el aviso de seguridad', () => {
     await expect(dialogo.getByText('Riesgo residual, en texto claro')).toBeVisible()
     await expect(dialogo.getByRole('table')).toBeVisible()
     // El texto entra en elementos, no como markdown en crudo: el riesgo residual
-    // es un elemento de lista y la amenaza una celda de la tabla.
-    await expect(dialogo.getByRole('listitem').filter({ hasText: 'DNS rebinding' })).toBeVisible()
+    // es un elemento de lista y la amenaza una celda de la tabla. El documento
+    // puede nombrar el rebinding en más de un riesgo residual —hoy lo hace en el
+    // 2 y en el 10—, así que se comprueba que hay al menos uno visible, no que
+    // sea el único.
+    await expect(
+      dialogo.getByRole('listitem').filter({ hasText: 'DNS rebinding' }).first(),
+    ).toBeVisible()
     await expect(dialogo.getByRole('cell', { name: /Un plugin lee o escribe/ })).toBeVisible()
 
     await dialogo.getByRole('button', { name: 'Cerrar' }).click()

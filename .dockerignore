@@ -1,0 +1,49 @@
+# Lo que no entra en el contexto de la imagen.
+#
+# Se queda fuera todo lo que no hace falta para construir la interfaz ni para
+# ejecutar el servidor: dependencias locales, historial, escritorio, artefactos
+# de empaquetado y pruebas. `SECURITY.md` sí entra: Vite lo emite dentro de
+# `packages/web/dist` y la pantalla de Ajustes lo sirve.
+
+node_modules
+**/node_modules
+.git
+.gitignore
+.githooks
+.github
+.agents
+.claude
+.vscode
+.idea
+
+desktop
+release
+build
+coverage
+playwright-report
+test-results
+.bun-cache
+.data
+.tmp
+.worktrees
+
+# El build de la interfaz se genera dentro de la imagen; uno viejo en el
+# contexto sólo puede colarse.
+packages/web/dist
+packages/*/fixtures
+
+# Pruebas y arneses: no los necesita ni Vite ni el servidor.
+tests
+**/e2e
+**/*.test.ts
+**/*.test.tsx
+**/__fixtures__
+playwright.config.ts
+
+# Documentación que no se sirve y secretos que no se construyen.
+docs
+tasks
+*.log
+debug.log
+.env
+.env.*

@@ -2606,10 +2606,6 @@
   letter-spacing: var(--tracking-label);
 }
 
-.settings__advanced[open] summary {
-  margin-bottom: var(--space-3);
-}
-
 .settings__actions {
   display: flex;
   gap: var(--space-3);
@@ -2750,6 +2746,13 @@
 
 .panel__details summary {
   cursor: pointer;
+}
+
+/* Va después de `.panel__details summary` y no antes: su especificidad es mayor
+   (clase + atributo + elemento) y colocarla antes dejaba un aviso de
+   especificidad descendente. */
+.settings__advanced[open] summary {
+  margin-bottom: var(--space-3);
 }
 
 /*
@@ -3445,12 +3448,6 @@
   overflow: clip;
   container-type: inline-size;
   box-shadow: var(--cartel-marco);
-}
-
-/* El campo del cartel y el de la carátula: el mismo reparto por posición que las
-   piezas, fijado a mano porque son campos sueltos y no celdas de un mosaico. */
-.cartel .pz__arte {
-  --campo: var(--cover-c);
 }
 
 /* El cartel y la carátula son campos grandes: el recurso se mide con su
@@ -4463,4 +4460,17 @@
   .cinta__carro {
     animation: none;
   }
+}
+
+/*
+ * El campo del cartel y el de la carátula: el mismo reparto por posición que las
+ * piezas, fijado a mano porque son campos sueltos y no celdas de un mosaico.
+ *
+ * Vive al final del archivo a propósito: es un selector más específico que los
+ * `.pz__*` que lo preceden y ponerlo antes disparaba el aviso de especificidad
+ * descendente. La propiedad que fija es una custom property, así que el orden
+ * no cambia qué valor gana.
+ */
+.cartel .pz__arte {
+  --campo: var(--cover-c);
 }
