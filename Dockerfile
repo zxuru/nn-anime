@@ -63,13 +63,18 @@ ENV NODE_ENV=production \
 
 COPY --from=runtime-deps /app/node_modules ./node_modules
 COPY package.json ./
-COPY packages/core ./packages/core
-COPY packages/catalog-store ./packages/catalog-store
-COPY packages/media-proxy ./packages/media-proxy
-COPY packages/provider-sdk ./packages/provider-sdk
-COPY packages/recsys ./packages/recsys
-COPY packages/server ./packages/server
-COPY packages/cli ./packages/cli
+# Cada paquete se copia **desde la etapa de dependencias**, no desde el
+# contexto: Bun deja las dependencias de cada workspace en su propio
+# `node_modules` (hono y zod viven en `packages/server/node_modules`), y copiar
+# sólo el `node_modules` de la raíz dejaba al servidor sin ellas. El contexto no
+# las tiene porque `.dockerignore` las excluye.
+COPY --from=runtime-deps /app/packages/core ./packages/core
+COPY --from=runtime-deps /app/packages/catalog-store ./packages/catalog-store
+COPY --from=runtime-deps /app/packages/media-proxy ./packages/media-proxy
+COPY --from=runtime-deps /app/packages/provider-sdk ./packages/provider-sdk
+COPY --from=runtime-deps /app/packages/recsys ./packages/recsys
+COPY --from=runtime-deps /app/packages/server ./packages/server
+COPY --from=runtime-deps /app/packages/cli ./packages/cli
 COPY packages/web/package.json ./packages/web/package.json
 COPY --from=build /app/packages/web/dist ./packages/web/dist
 

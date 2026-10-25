@@ -95,7 +95,9 @@ jobs:
           TOKEN="token-de-prueba-$(date +%s)"
           docker run -d --name nn-anime-ci -p 127.0.0.1:18080:8080 \
             -e NN_ANIME_TOKEN="$TOKEN" nn-anime:ci
-          trap 'docker rm -f nn-anime-ci >/dev/null 2>&1 || true' EXIT
+          # Si algo falla, el registro del contenedor es lo que dice por qué;
+          # borrarlo sin leerlo deja un «curl: (7)» y ninguna causa.
+          trap 'docker logs nn-anime-ci 2>&1 || true; docker inspect --format "{{.State.Status}} exit={{.State.ExitCode}}" nn-anime-ci 2>&1 || true; docker rm -f nn-anime-ci >/dev/null 2>&1 || true' EXIT
 
           for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:18080/healthz >/dev/null 2>&1; then break; fi
