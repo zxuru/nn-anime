@@ -191,6 +191,10 @@ describe('M4 · el origen en métodos que mutan', () => {
 })
 
 describe('M5 · las cabeceras de seguridad', () => {
+  // Veintiuna peticiones con su migración y su contenedor por medio. En los
+  // runners de Windows y en los trabajos de empaquetado, con la máquina
+  // cargada, el plazo por defecto de 5 s se ha agotado sin que ninguna
+  // aserción fallara; 20 s deja margen sin cambiar lo que se mide.
   test('toda respuesta lleva CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options`', async () => {
     await conCiclo(async ({ pedir }) => {
       for (const [metodo, ruta] of [...RUTAS_PROTEGIDAS, ...RUTAS_MUTANTES]) {
@@ -204,7 +208,7 @@ describe('M5 · las cabeceras de seguridad', () => {
         expect(respuesta.headers.get('x-frame-options')).toBeTruthy()
       }
     })
-  })
+  }, 20_000)
 
   test('ninguna respuesta abre CORS', async () => {
     await conCiclo(async ({ pedir }) => {
@@ -214,7 +218,7 @@ describe('M5 · las cabeceras de seguridad', () => {
         expect(respuesta.headers.get('access-control-allow-origin'), ruta).toBeNull()
       }
     })
-  })
+  }, 20_000)
 
   test('la CSP no permite guiones en línea ni marcos ajenos', async () => {
     await conCiclo(async ({ pedir }) => {
