@@ -7,6 +7,13 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.3.1](https://github.com/zxuru/nn-anime/compare/v0.3.0...v0.3.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **web:** declarar los módulos CSS para TypeScript 7 (T169) ([1fb5878](https://github.com/zxuru/nn-anime/commit/1fb5878d3db8a6efda3dce49180034f2a0efeb68))
+
 ## [0.3.0](https://github.com/zxuru/nn-anime/compare/v0.2.0...v0.3.0) (2026-10-25)
 
 

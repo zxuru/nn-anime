@@ -2111,7 +2111,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "nn-anime-desktop"
-version = "0.3.0" # x-release-please-version
+version = "0.3.1" # x-release-please-version
 dependencies = [
  "libc",
  "serde",
