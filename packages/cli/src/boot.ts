@@ -474,7 +474,13 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     io.out(t(locale, 'cli.port.busy', { port: outcome.fellBackFrom, chosen: outcome.server.port }))
   }
 
-  const origin = deps.publicOrigin ?? server.publicOrigin ?? outcome.server.url
+  // En desarrollo manda el origen de Vite; en modo token, el origen público
+  // declarado. Mezclarlos dejaría un servidor imprimiendo la dirección del
+  // proxy de desarrollo si las dos variables estuvieran puestas.
+  const origin =
+    server.token === undefined
+      ? (deps.publicOrigin ?? outcome.server.url)
+      : (server.publicOrigin ?? outcome.server.url)
   const loginUrl = `${origin}/login`
   // En modo token no hay `?boot=`: el token fijo no viaja en una URL, y la
   // dirección impresa no lleva ningún secreto. En local, la de siempre.
