@@ -57,6 +57,13 @@ pondría el PR de release en rojo. Si algún día se añade un paquete a `packag
 también ahí: hay una prueba (`scripts/package.test.ts`) que compara las dos listas y falla si no
 coinciden.
 
+`desktop/src-tauri/Cargo.lock` viaja en la misma lista, pero con el actualizador `generic`: la línea
+de la versión del paquete `nn-anime-desktop` lleva el comentario `x-release-please-version`, que es
+lo que le dice a release-please qué número reemplazar. Hace falta porque `desktop:build` compila con
+`--locked`: si el lock se queda en la versión anterior, `cargo` se niega a actualizarlo y **los
+cuatro instaladores fallan antes de compilar**. Pasó al publicar `0.3.0`; la anotación y la entrada
+de la lista son la corrección.
+
 `bun.lock` guarda la versión de cada workspace y **release-please no lo toca**. Comprobado: mover esas
 versiones no rompe `bun install --frozen-lockfile`, así que no hace falta regenerarlo en la release.
 
@@ -264,7 +271,9 @@ propósito—: `bun run desktop:check` (formato, `clippy` con `-D warnings` y su
 el trabajo `desktop` del CI en las tres plataformas.
 
 `desktop/src-tauri/Cargo.lock` **está versionado**. Si alguna vez falta, se genera en una máquina con
-red y se commitea; sin él la resolución de dependencias no es reproducible:
+red y se commitea; sin él la resolución de dependencias no es reproducible. La versión del paquete
+`nn-anime-desktop` en ese archivo lleva `# x-release-please-version` en la misma línea para que el
+PR de release la actualice junto con el resto; no quites ese comentario:
 
 ```bash
 cargo generate-lockfile --manifest-path desktop/src-tauri/Cargo.toml
