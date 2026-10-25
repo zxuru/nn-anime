@@ -7,6 +7,14 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.3.1](https://github.com/zxuru/nn-anime/compare/v0.3.0...v0.3.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **release:** bajar sólo los instaladores (T170) ([b14bdda](https://github.com/zxuru/nn-anime/commit/b14bdda81bfe43c66de7423fecafed472f4acf21))
+* **release:** no publicar el artefacto de buildx (T170) ([e873a3e](https://github.com/zxuru/nn-anime/commit/e873a3e9816aab2429d7aa50befca789d782dc4c))
+
 ## [0.3.0](https://github.com/zxuru/nn-anime/compare/v0.2.0...v0.3.0) (2026-10-25)
 
 
