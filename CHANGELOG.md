@@ -7,6 +7,24 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.3.0](https://github.com/zxuru/nn-anime/compare/v0.2.0...v0.3.0) (2026-10-25)
+
+
+### Features
+
+* **cli:** host, puerto y modo servidor por entorno (T168) ([c1b79b3](https://github.com/zxuru/nn-anime/commit/c1b79b3634e9bf724edba12bb0dc6ce388645a5f))
+* **docker:** desplegar nn-anime como contenedor y en modo servidor (T168) ([6b64376](https://github.com/zxuru/nn-anime/commit/6b6437608dcc68a7878304538a46b11d456ba177))
+* **docker:** imagen, compose y publicación multi-arquitectura (T168) ([d6b2fc0](https://github.com/zxuru/nn-anime/commit/d6b2fc046c47908e981ab1e29721ad1c4b554579))
+* **server:** token fijo, login, healthz y modo restringido (T168) ([c9adf5a](https://github.com/zxuru/nn-anime/commit/c9adf5a1152cd4d5a37fdba4d9a3388bf0c07553))
+
+
+### Bug Fixes
+
+* **cli:** declarar la dependencia de media-proxy (T168) ([75c0274](https://github.com/zxuru/nn-anime/commit/75c027491508c1008a992a055bb2d498cb383884))
+* **cli:** preferir el origen público en modo token (T168) ([32e6cbe](https://github.com/zxuru/nn-anime/commit/32e6cbed00246f8a38f2e5faa760deefcdf9f15f))
+* **docker:** copiar las dependencias por paquete al runtime (T168) ([ceeb6b7](https://github.com/zxuru/nn-anime/commit/ceeb6b7e90cac0cf4e974a41129b2913b1285b90))
+* **lint:** quitar imports sin uso y ordenar dos selectores (T168) ([a07d574](https://github.com/zxuru/nn-anime/commit/a07d574ec3ee1362c0cff8101590a70931c4dee2))
+
 ## [0.2.0](https://github.com/zxuru/nn-anime/compare/v0.1.0...v0.2.0) (2026-10-24)
 
 
