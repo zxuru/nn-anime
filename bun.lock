@@ -19,7 +19,7 @@
     },
     "packages/catalog-store": {
       "name": "@nn-anime/catalog-store",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
         "zod": "^4",
@@ -27,34 +27,35 @@
     },
     "packages/cli": {
       "name": "@nn-anime/cli",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "bin": {
         "nn-anime": "./bin/nn-anime",
       },
       "dependencies": {
         "@nn-anime/catalog-store": "workspace:*",
         "@nn-anime/core": "workspace:*",
+        "@nn-anime/media-proxy": "workspace:*",
         "@nn-anime/provider-sdk": "workspace:*",
         "@nn-anime/server": "workspace:*",
       },
     },
     "packages/core": {
       "name": "@nn-anime/core",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "zod": "^4",
       },
     },
     "packages/media-proxy": {
       "name": "@nn-anime/media-proxy",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
       },
     },
     "packages/provider-sdk": {
       "name": "@nn-anime/provider-sdk",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
         "zod": "^4",
@@ -62,7 +63,7 @@
     },
     "packages/providers-fixture": {
       "name": "@nn-anime/providers-fixture",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
         "@nn-anime/provider-sdk": "workspace:*",
@@ -71,14 +72,14 @@
     },
     "packages/recsys": {
       "name": "@nn-anime/recsys",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
       },
     },
     "packages/server": {
       "name": "@nn-anime/server",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@nn-anime/catalog-store": "workspace:*",
         "@nn-anime/core": "workspace:*",
@@ -94,7 +95,7 @@
     },
     "packages/web": {
       "name": "@nn-anime/web",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
         "hls.js": "^1.7.3",
