@@ -59,6 +59,10 @@
           "type": "toml",
           "path": "desktop/src-tauri/Cargo.toml",
           "jsonpath": "$.package.version"
+        },
+        {
+          "type": "generic",
+          "path": "desktop/src-tauri/Cargo.lock"
         }
       ]
     }

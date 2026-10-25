@@ -108,6 +108,29 @@ describe('la lista de manifiestos de release-please', () => {
     expect(cargo?.jsonpath).toBe('$.package.version')
   })
 
+  test('el Cargo.lock del anfitrión se actualiza y lleva la anotación', async () => {
+    const config = (await Bun.file(join(ROOT, 'release-please-config.json')).json()) as {
+      packages?: Record<
+        string,
+        { 'extra-files'?: readonly { path: string; type?: string; jsonpath?: string }[] }
+      >
+    }
+
+    const lock = (config.packages?.['.']?.['extra-files'] ?? []).find(
+      (entrada) => entrada.path === 'desktop/src-tauri/Cargo.lock',
+    )
+
+    // `desktop:build` compila con `--locked`: un lock atrasado no se corrige
+    // solo y tumba los cuatro instaladores antes de compilar. El actualizador
+    // genérico necesita la anotación para saber qué línea tocar.
+    expect(lock?.type).toBe('generic')
+
+    const root = (await Bun.file(join(ROOT, 'package.json')).json()) as { version: string }
+    const texto = await Bun.file(join(ROOT, 'desktop/src-tauri/Cargo.lock')).text()
+
+    expect(texto).toContain(`version = "${root.version}" # x-release-please-version`)
+  })
+
   test('el manifiesto de release-please arranca en la versión del repositorio', async () => {
     const manifest = (await Bun.file(join(ROOT, '.release-please-manifest.json')).json()) as Record<
       string,
