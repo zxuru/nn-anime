@@ -7,6 +7,15 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.3.2](https://github.com/zxuru/nn-anime/compare/v0.3.1...v0.3.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **ci,release:** el listón de main y la release por id (T172) ([d917f59](https://github.com/zxuru/nn-anime/commit/d917f599139adfcd0db0a73f3907348949d61a8e))
+* **ci:** el listón de main con Biome 2.6 (T172) ([36ebecf](https://github.com/zxuru/nn-anime/commit/36ebecff261083f88bd162f89d432731270391f7))
+* **release:** disparar y publicar la release por id (T172) ([3188e4f](https://github.com/zxuru/nn-anime/commit/3188e4f6c442d3e8cdc10e0b41a6f765d9b072da))
+
 ## [0.3.1](https://github.com/zxuru/nn-anime/compare/v0.3.0...v0.3.1) (2026-10-25)
 
 
