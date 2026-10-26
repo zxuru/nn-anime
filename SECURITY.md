@@ -118,6 +118,18 @@ prueba que lo sostiene.
     activar o descargar plugins y para lanzar `mpv`; los plugins que ya estaban en el directorio se
     siguen ejecutando con los mismos permisos. La lista se decide en el servidor, no desde la
     interfaz.
+16. **Cuatro avisos de Rust en la ventana propia, que no dependen de este repositorio.** El anfitrión
+    de `desktop/` arrastra `glib 0.18.5` —RUSTSEC-2024-0429, `Iterator`/`DoubleEndedIterator`
+    insondables sobre `Variant`—, `proc-macro-error 1.0.4` y, por el plugin de instancia única,
+    `zbus_names 4.3.5` y `zvariant 5.15.1` (los tres, «sin mantener»). Ninguno se arregla desde acá:
+    los dos primeros llegan por `gtk 0.18.2`, que es lo que fijan `tao`, `muda`, `tray-icon` y
+    `tauri 2.12.5` —la última versión publicada—, y el arreglo de `glib` es la 0.20, un salto mayor
+    que gtk todavía no da; los otros dos llegan por `zbus 5` dentro de
+    `tauri-plugin-single-instance 2.5.4`, también la última. Entran cuando upstream mueva su cadena:
+    `cargo update` corre en cada actualización y Dependabot vigila `desktop/src-tauri/Cargo.toml`, así
+    que el PR que lo traiga aparece solo. Riesgo real hoy: bajo —los tres «sin mantener» no describen
+    una vulnerabilidad explotable, y el de `glib` vive en iteradores de `Variant` que este código no
+    usa—, pero está declarado y no escondido.
 
 ## Modo servidor
 

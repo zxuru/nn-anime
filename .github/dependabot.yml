@@ -53,3 +53,56 @@ updates:
       acciones:
         patterns:
           - '*'
+
+  # El anfitrión de la ventana: Rust y Tauri, que viven fuera del monorepo a propósito
+  # (ver docs/specs/SPEC-desktop.md). Es el único árbol de este repositorio con
+  # `Cargo.lock`, y el que arrastra la cadena de GTK —la que hoy deja los avisos que
+  # declara el riesgo residual 16 de SECURITY.md—. Este es el PR que los trae solos el
+  # día que upstream mueva `gtk`, `tauri` o `tauri-plugin-single-instance`.
+  - package-ecosystem: cargo
+    directory: /desktop/src-tauri
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(desktop)'
+    groups:
+      # Un PR por grupo: la cadena de Tauri se mueve en bloque o no se mueve, y
+      # veinte PRs de una línea no los mira nadie.
+      tauri:
+        patterns:
+          - 'tauri'
+          - 'tauri-*'
+          - 'tao'
+          - 'wry'
+          - 'muda'
+          - 'tray-icon'
+      gtk:
+        patterns:
+          - 'glib*'
+          - 'gtk*'
+          - 'gdk*'
+          - 'atk*'
+          - 'cairo*'
+          - 'gdk-pixbuf*'
+          - 'webkit2gtk*'
+          - 'libappindicator'
+      resto:
+        patterns:
+          - '*'
+        exclude-patterns:
+          - 'tauri'
+          - 'tauri-*'
+          - 'tao'
+          - 'wry'
+          - 'muda'
+          - 'tray-icon'
+          - 'glib*'
+          - 'gtk*'
+          - 'gdk*'
+          - 'atk*'
+          - 'cairo*'
+          - 'gdk-pixbuf*'
+          - 'webkit2gtk*'
+          - 'libappindicator'
