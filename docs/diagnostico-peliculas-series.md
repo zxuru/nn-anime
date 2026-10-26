@@ -59,7 +59,7 @@ No hace falta rehacerlo; la fase 0 lo da por bueno salvo que una tarea diga lo c
 | Una película sin ninguna parte lo dice y no deja un botón muerto | `detail.e2e.ts` «una película sin ninguna parte lo dice…» |
 | La reproducción de una película abre el reproductor con su única parte | `detail.e2e.ts`, mismo caso; `player.e2e.ts` reproduce un archivo local |
 | La banda de temporadas se pinta y pide la temporada al servidor | `detail.e2e.ts` «un título con temporadas» (con la respuesta simulada) |
-| El fixturo trae una película (`el-jardin-de-hierro`) y la conformidad la acepta | `providers-fixture/fixtures/catalogo.json` |
+| El fixture trae una película (`el-jardin-de-hierro`) y la conformidad la acepta | `providers-fixture/fixtures/catalogo.json` |
 
 ## Hallazgos
 
