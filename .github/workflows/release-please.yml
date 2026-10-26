@@ -4,13 +4,17 @@ name: Release Please
 #
 # Abre un PR de release con el `CHANGELOG.md` escrito y la versión subida en los diez `package.json`.
 # Mientras ese PR no se fusione, no pasa nada más. Al fusionarlo, `release-please` crea el tag
-# `vX.Y.Z` y deja la release **en borrador**; el tag es lo que dispara `.github/workflows/release.yml`,
-# que compila los instaladores y publica.
+# `vX.Y.Z` y deja la release **en borrador**.
 #
-# Las dos opciones que hacen que eso funcione están en `release-please-config.json` y no aquí:
+# **El tag no dispara `release.yml` por sí solo.** Lo crea esta acción con el `GITHUB_TOKEN`, y
+# GitHub no inicia workflows por eventos de ese token. Por eso el último paso lanza `release.yml`
+# a mano con `workflow_dispatch` —que sí está exento— sobre el tag recién creado. Sin ese paso, la
+# release se queda en borrador; pasó con la 0.3.1.
 #
-#  - `force-tag-creation`: GitHub no crea el tag de una release en borrador hasta que se publica, así
-#    que sin esto el tag no existiría y `release.yml` no se dispararía nunca.
+# Las dos opciones de `release-please-config.json` que hacen falta siguen siendo las mismas:
+#
+#  - `force-tag-creation`: el tag tiene que existir antes de que se lance `release.yml`; sin esto
+#    GitHub no lo crea hasta que la release se publica, y el dispatch no tendría ref.
 #  - `draft`: la release nace en borrador para que nadie vea una release a la que todavía le faltan
 #    los instaladores.
 #
@@ -32,6 +36,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # Para lanzar `release.yml` con `gh workflow run` desde el paso final.
+  actions: write
 
 concurrency:
   group: release-please-${{ github.ref }}
@@ -43,6 +49,20 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      # `release_created` sólo es «true» en el push que fusiona el PR de release. En los demás,
+      # este paso no hace nada. El `--ref` es el tag que acaba de crear la acción; `release.yml`
+      # lo usa como `github.ref_type=tag`, así que valida `version:check` y publica.
+      - name: Lanzar la release del tag recién creado
+        if: steps.release.outputs.release_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          gh workflow run release.yml --ref "$TAG" -f publish=true
+          echo "release.yml lanzado para $TAG"
