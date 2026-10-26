@@ -16,6 +16,7 @@ import type {
   candidateSchema,
   episodeSchema,
   feedEntrySchema,
+  mediaTypeSchema,
   modeSchema,
   providerCapabilitiesSchema,
   providerRefSchema,
@@ -41,6 +42,8 @@ export type DeepReadonly<T> = T extends (infer U)[]
 export type Mode = z.infer<typeof modeSchema>
 export type StreamMode = z.infer<typeof streamModeSchema>
 export type TitleKind = z.infer<typeof titleKindSchema>
+/** Qué es un título: anime, película, serie de acción real o manga. */
+export type MediaType = z.infer<typeof mediaTypeSchema>
 export type AiringStatus = z.infer<typeof airingStatusSchema>
 export type SubtitleFormat = z.infer<typeof subtitleFormatSchema>
 
@@ -109,7 +112,17 @@ export interface WatchRecord {
   readonly id: number
   readonly anime: AnimeSummary
   readonly providerId: string
+  /**
+   * La referencia real del episodio, tal y como la escribió el proveedor.
+   *
+   * Es la identidad, y por eso viene de la fila del episodio y no se reconstruye
+   * con `animeRef#number`: con numeración por temporada esa reconstrucción apunta
+   * a un episodio que no existe. Añadido en T176.
+   */
+  readonly episodeRef: ProviderRef
   readonly episodeNumber: number
+  /** La temporada, si el episodio la declara. */
+  readonly season?: number
   readonly mode: Mode
   readonly positionS: number
   readonly durationS: number

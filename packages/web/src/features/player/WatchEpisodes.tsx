@@ -53,6 +53,8 @@ export interface WatchEpisodesProps {
   readonly actual?: EpisodioActual | undefined
   /** El nombre del título, que es el respaldo del renglón sin nombre propio. */
   readonly animeTitle?: string | undefined
+  /** La temporada de la lista que se está viendo, si la hay. */
+  readonly season?: number | undefined
 }
 
 /** Sólo los episodios de este proveedor: la página puede traer los de otro. */
@@ -65,6 +67,8 @@ export interface RowEpisode {
   readonly value: string
   readonly number: number
   readonly title?: string | undefined
+  /** La temporada, si la fuente la declara. Viaja al enlace del renglón. */
+  readonly season?: number | undefined
 }
 
 export interface EpisodeRowProps {
@@ -131,6 +135,7 @@ export function EpisodeRow(props: EpisodeRowProps): ReactNode {
     mode: props.mode,
     anime: props.titleRef,
     n: episode.number,
+    ...(episode.season === undefined ? {} : { s: episode.season }),
   })
 
   return props.current ? (
@@ -159,7 +164,10 @@ export function WatchEpisodes(props: WatchEpisodesProps): ReactNode {
     setCargando(true)
     setFallo(false)
 
-    void loadEpisodesPage(props.providerId, props.titleRef, { page: pagina }).then(
+    void loadEpisodesPage(props.providerId, props.titleRef, {
+      page: pagina,
+      ...(props.season === undefined ? {} : { season: props.season }),
+    }).then(
       (salida) => {
         if (!vivo) return
 
@@ -179,7 +187,7 @@ export function WatchEpisodes(props: WatchEpisodesProps): ReactNode {
     return () => {
       vivo = false
     }
-  }, [props.providerId, props.titleRef, pagina])
+  }, [props.providerId, props.titleRef, pagina, props.season])
 
   /**
    * La fila del episodio que se está viendo, a la vista.
@@ -228,6 +236,7 @@ export function WatchEpisodes(props: WatchEpisodesProps): ReactNode {
           value: props.currentRef,
           number: props.actual.number,
           title: props.actual.title,
+          ...(props.season === undefined ? {} : { season: props.season }),
         }
 
   if (episodios.length === 0 && suelto === undefined && !cargando && !fallo) return null
@@ -246,6 +255,7 @@ export function WatchEpisodes(props: WatchEpisodesProps): ReactNode {
                 value: episodio.ref.value,
                 number: episodio.number,
                 title: episodio.title,
+                ...(episodio.season === undefined ? {} : { season: episodio.season }),
               },
               episodio.ref.value === props.currentRef,
             )}

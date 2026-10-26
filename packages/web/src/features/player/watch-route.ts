@@ -62,6 +62,14 @@ export interface WatchPathOptions {
    * él no se supone nada: una dirección escrita a mano no inventa un número.
    */
   readonly n?: number
+  /**
+   * La temporada del episodio, cuando quien escribe la dirección la conoce.
+   *
+   * El número por sí solo no identifica un episodio en una serie que numera por
+   * temporada: `?s=2&n=1` es el primero de la segunda, y sin `s` los vecinos y el
+   * salto buscan en la temporada equivocada.
+   */
+  readonly s?: number
 }
 
 /**
@@ -89,6 +97,9 @@ export function watchPath(providerId: string, ref: string, options: WatchPathOpt
   // mala antes de mandarla.
   if (options.n !== undefined && Number.isFinite(options.n) && options.n > 0) {
     consulta.set('n', String(options.n))
+  }
+  if (options.s !== undefined && Number.isInteger(options.s) && options.s > 0) {
+    consulta.set('s', String(options.s))
   }
 
   const query = consulta.toString()
@@ -149,6 +160,22 @@ export function startAtFromPath(path: string): number | undefined {
  * eso la ausencia de `?n=` **no** se sustituye por el número que se pueda deducir
  * de la referencia: sin él, la pantalla se comporta como si no hubiera vecinos.
  */
+/**
+ * La temporada que la dirección trae escrita, si la trae.
+ *
+ * Un entero positivo o nada: una dirección escrita a mano no puede pedir la
+ * temporada `0` ni `1.5`, y sin temporada la pantalla se comporta como antes.
+ */
+export function seasonFromPath(path: string): number | undefined {
+  const consulta = path.split('?')[1] ?? ''
+  const crudo = new URLSearchParams(consulta).get('s')
+  if (crudo === null || crudo.trim() === '') return undefined
+
+  const temporada = Number(crudo)
+
+  return Number.isInteger(temporada) && temporada > 0 ? temporada : undefined
+}
+
 export function numberFromPath(path: string): number | undefined {
   const consulta = path.split('?')[1] ?? ''
   const crudo = new URLSearchParams(consulta).get('n')

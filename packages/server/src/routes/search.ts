@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Ruta `/api/search`: búsqueda incremental por SSE.
  *
  * El cuerpo de cada evento es el schema compartido de `core`, validado antes de
@@ -13,12 +13,14 @@
  */
 
 import {
+  DEFAULT_MEDIA,
   errorResponseSchema,
   hasGenreToken,
   mediaOf,
   ok,
   type ProviderError,
   type ProviderMedia,
+  pasaElFiltro,
   puedeServir,
   type Result,
   type SearchResult,
@@ -249,8 +251,37 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
           ).catch(() => undefined)
 
     return streamSSE(c, async (stream) => {
+      const medias = new Map(
+        selected.map((provider) => [provider.id, mediaOf(provider.capabilities)]),
+      )
+
+      /**
+       * El tipo se filtra también sobre los resultados.
+       *
+       * Filtrar sólo los proveedores no basta para una fuente `both`: sus títulos
+       * de anime llegarían a la pestaña de películas y la interfaz los escondería
+       * después, con el gasto hecho y los recuentos mintiendo. `mediaType` manda
+       * sobre el `kind`, así que una serie declarada por una fuente mixta entra.
+       */
+      const conMedia = (event: SearchEvent): SearchEvent => {
+        const media = parsed.data.media
+        if (media === undefined || media === 'both' || event.type !== 'results') return event
+
+        return {
+          ...event,
+          results: event.results.filter((resultado) =>
+            pasaElFiltro(
+              media,
+              medias.get(resultado.ref.providerId) ?? DEFAULT_MEDIA,
+              resultado.kind,
+              resultado.mediaType,
+            ),
+          ),
+        }
+      }
+
       const escribir = async (event: SearchEvent): Promise<void> => {
-        const payload = searchEventSchema.parse(event)
+        const payload = searchEventSchema.parse(conMedia(event))
         await stream.writeSSE({ event: payload.type, data: JSON.stringify(payload) })
       }
 

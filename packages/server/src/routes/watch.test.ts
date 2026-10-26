@@ -331,6 +331,63 @@ describe('GET /api/watch/recent', () => {
     })
   })
 
+  test('dos temporadas con el mismo número son dos tarjetas y conservan su referencia', async () => {
+    await conApp(async ({ pedir, db }) => {
+      // El proveedor de la serie es el fixture: el contenedor acota las lecturas
+      // locales a los proveedores activos, y una serie de un proveedor que no
+      // está cargado no saldría. Lo que se mide aquí es la proyección del
+      // visionado, no el alcance.
+      db.exec(
+        "INSERT INTO anime (provider_id, provider_ref, title, fetched_at, ttl_s) VALUES ('fixture', 'serie/uno', 'Serie Uno', 0, 0)",
+      )
+      const anime = db
+        .query('SELECT id FROM anime WHERE provider_id = ? AND provider_ref = ?')
+        .get('fixture', 'serie/uno') as { id: number } | null
+      if (anime === null) throw new Error('no se pudo crear el anime de la prueba')
+
+      db.exec(
+        `INSERT INTO episode (anime_id, provider_ref, number, season, mode, fetched_at, ttl_s) VALUES
+           (${anime.id}, 'serie/uno/temporada/1#1', 1, 1, 'sub', 0, 0),
+           (${anime.id}, 'serie/uno/temporada/2#1', 1, 2, 'sub', 0, 0)`,
+      )
+
+      for (const [temporada, posicion] of [
+        [1, 100],
+        [2, 200],
+      ] as const) {
+        const respuesta = await alta(pedir, {
+          animeRef: { providerId: 'fixture', value: 'serie/uno' },
+          episodeRef: { providerId: 'fixture', value: `serie/uno/temporada/${temporada}#1` },
+          mode: 'sub',
+        })
+        expect(respuesta.status).toBe(201)
+        const { id } = (await respuesta.json()) as { id: number }
+        const avance = await pedir(`/api/watch/${id}`, {
+          method: 'PATCH',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ positionS: posicion, durationS: 1440 }),
+        })
+        expect(avance.status).toBe(204)
+      }
+
+      const cuerpo = (await (await pedir('/api/watch/recent')).json()) as {
+        items: { season?: number; episodeRef: { value: string }; positionS: number }[]
+      }
+
+      // Dos episodios distintos, no uno: la clave es la referencia, no
+      // `animeRef + número`. Y la referencia es la real, no una reconstruida.
+      expect(cuerpo.items).toHaveLength(2)
+      expect(
+        cuerpo.items
+          .map((item) => [item.season, item.episodeRef.value, item.positionS] as const)
+          .sort((a, b) => (a[0] ?? 0) - (b[0] ?? 0)),
+      ).toEqual([
+        [1, 'serie/uno/temporada/1#1', 100],
+        [2, 'serie/uno/temporada/2#1', 200],
+      ])
+    })
+  })
+
   test('un episodio terminado no resucita por una fila vieja a medias', async () => {
     await conApp(async ({ pedir }) => {
       const vieja = (await (await alta(pedir)).json()) as { id: number }

@@ -6,11 +6,18 @@ import { episodeNumberPath, episodesPath } from '../detail/useDetail'
 import { loadWatchNeighbours, shouldLoadNeighbours } from './WatchPage'
 
 /** Un episodio del fixture, con lo mínimo que exige el schema. */
-function episodio(number: number): Episode {
+function episodio(number: number, season?: number): Episode {
   return {
-    ref: { providerId: 'fixture', value: `aurora-nocturna#${number}` },
+    ref: {
+      providerId: 'fixture',
+      value:
+        season === undefined
+          ? `aurora-nocturna#${number}`
+          : `aurora-nocturna/temporada/${season}#${number}`,
+    },
     animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
     number,
+    ...(season === undefined ? {} : { season }),
     title: `Episodio ${number}`,
     durationS: 1440,
     mode: 'sub',
@@ -74,9 +81,34 @@ function todaListaConPagina(rutas: readonly string[]): boolean {
 function mirar(
   episodeRef: string,
   number: number | undefined,
+  season?: number,
 ): Parameters<typeof loadWatchNeighbours>[0] {
-  return { providerId: 'fixture', titleRef: 'aurora-nocturna', episodeRef, number }
+  return {
+    providerId: 'fixture',
+    titleRef: 'aurora-nocturna',
+    episodeRef,
+    number,
+    ...(season === undefined ? {} : { season }),
+  }
 }
+
+describe('los vecinos de una serie con temporadas', () => {
+  test('la página se pide con su temporada y el vecino la conserva', async () => {
+    const uno = episodio(1, 2)
+    const dos = episodio(2, 2)
+    const ruta = episodesPath('fixture', 'aurora-nocturna', { page: 1, season: 2 })
+    const { rutas, deps } = servidor(new Map([[ruta, pagina([uno, dos], { total: 2 })]]))
+
+    const salida = await loadWatchNeighbours(mirar(uno.ref.value, 1, 2), { deps })
+
+    // Sin `season` en la lectura, la página sería la de todas las temporadas y el
+    // vecino podría ser el de otra.
+    expect(rutas).toEqual([ruta])
+    expect(salida.next?.ref.value).toBe(dos.ref.value)
+    expect(salida.next?.season).toBe(2)
+    expect(salida.position?.number).toBe(1)
+  })
+})
 
 describe('los vecinos con el número en la dirección', () => {
   /**

@@ -423,6 +423,8 @@ export const continueWatchingItemSchema = z.strictObject({
   coverUrl: httpUrlSchema.optional(),
   episodeRef: providerRefSchema,
   episodeNumber: z.number().int().nonnegative(),
+  /** La temporada, si la fuente la declara. Es lo que distingue T1E1 de T2E1. */
+  season: z.number().int().positive().optional(),
   mode: modeSchema,
   positionS: z.number().nonnegative(),
   durationS: z.number().nonnegative(),

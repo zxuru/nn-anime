@@ -96,6 +96,11 @@ describe('la fila de continuar viendo', () => {
     expect(continuePath(item({ mode: 'dub' }))).toContain('mode=dub')
   })
 
+  test('la temporada viaja con el episodio, para reanudar el correcto', () => {
+    // Sin `s`, el episodio 1 de una serie de tres temporadas no dice cuál.
+    expect(continuePath(item({ season: 2 }))).toContain('s=2')
+  })
+
   test('sin posición no se inventa un segundo: se empieza por el principio', () => {
     expect(continuePath(item({ positionS: 0 }))).toBe(
       '/watch/fixture/aurora-nocturna%233?mode=sub&anime=aurora-nocturna',

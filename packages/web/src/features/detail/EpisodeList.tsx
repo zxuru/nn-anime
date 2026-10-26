@@ -98,6 +98,9 @@ function rutaDe(episode: Episode, mode: PlayMode | undefined): string {
     // El número va escrito porque quien lo conoce es esta lista: el reproductor
     // lo lee para pedir los vecinos sin la lista entera.
     n: episode.number,
+    // Y la temporada, si el episodio la declara: sin ella el número no identifica
+    // nada en una serie que numera por temporada.
+    ...(episode.season === undefined ? {} : { s: episode.season }),
   })
 }
 
@@ -213,7 +216,7 @@ export function EpisodeRows(props: EpisodeRowsProps): ReactNode {
           return (
             <li
               key={`${episode.ref.providerId}:${episode.ref.value}`}
-              id={`episodio-${episode.number}`}
+              id={`episodio-${episode.season ?? ''}-${episode.number}`}
             >
               <Link
                 className={marca?.tipo === 'visto' ? 'episode episode--visto' : 'episode'}
@@ -491,8 +494,8 @@ export function MovieAction(props: {
  */
 type Solicitud =
   | { readonly tipo: 'pagina'; readonly page: number; readonly season?: number }
-  | { readonly tipo: 'numero'; readonly number: number }
-  | { readonly tipo: 'ultimo' }
+  | { readonly tipo: 'numero'; readonly number: number; readonly season?: number }
+  | { readonly tipo: 'ultimo'; readonly season?: number }
 
 /**
  * Los mandos sólo cuando sirven de algo.
@@ -608,7 +611,7 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
       // plugin real contesta 502 con el motivo cuando el episodio no existe —no
       // puede construir un 404—, así que ese texto se enseña tal cual en vez de
       // contarlo como un proveedor caído.
-      void loadEpisodeByNumber(providerId, ref, number).then((salida) => {
+      void loadEpisodeByNumber(providerId, ref, number, {}, solicitud.season).then((salida) => {
         if (!vivo) return
 
         if (salida.kind === 'found') abrir(salida.episode)
@@ -618,7 +621,7 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
     }
 
     if (solicitud.tipo === 'ultimo') {
-      void loadLatestEpisode(providerId, ref).then((salida) => {
+      void loadLatestEpisode(providerId, ref, {}, solicitud.season).then((salida) => {
         if (!vivo) return
 
         if (salida.kind === 'found') abrir(salida.episode)
@@ -682,8 +685,19 @@ export function EpisodeList(props: EpisodeListProps): ReactNode {
               ...(activa === undefined ? {} : { season: activa }),
             })
           }
-          onJump={(number) => setSolicitud({ tipo: 'numero', number })}
-          onLatest={() => setSolicitud({ tipo: 'ultimo' })}
+          onJump={(number) =>
+            setSolicitud({
+              tipo: 'numero',
+              number,
+              ...(activa === undefined ? {} : { season: activa }),
+            })
+          }
+          onLatest={() =>
+            setSolicitud({
+              tipo: 'ultimo',
+              ...(activa === undefined ? {} : { season: activa }),
+            })
+          }
         />
       ) : null}
 

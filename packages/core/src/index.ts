@@ -170,7 +170,7 @@ export {
   type LoadConfigOptions,
   loadConfig,
 } from './config'
-export { episodeSeasonOf, episodeSeasons } from './episodes'
+export { episodeSeasonOf, episodeSeasons, seasonOf } from './episodes'
 export {
   AppError,
   type AppErrorOptions,
@@ -219,6 +219,7 @@ export {
   esDeMedia,
   type MediaFilter,
   mediaOf,
+  mediaTypeOf,
   type ProviderMedia,
   pasaElFiltro,
   puedeServir,
@@ -234,6 +235,7 @@ export {
   type DeepReadonly,
   type Episode,
   type FeedEntry,
+  type MediaType,
   type MigrationReport,
   type Mode,
   normalizeQuery,
@@ -286,6 +288,7 @@ export {
   episodeSchema,
   feedEntrySchema,
   httpUrlSchema,
+  mediaTypeSchema,
   modeSchema,
   providerCapabilitiesSchema,
   providerMediaSchema,
