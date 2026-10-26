@@ -33,9 +33,9 @@ import {
   buscar,
   destacados,
   detalle,
+  episodioDeReferencia,
   episodios,
   novedades,
-  numeroDeEpisodio,
   porRef,
   streams,
 } from './data'
@@ -234,17 +234,16 @@ export function createFixtureProvider(options: FixtureOptions = {}): FixtureProv
         throw errorDeFallo(fallo, 'resolveStream', `el episodio ${request.episodeRef.value}`)
       }
 
-      const [refTitulo] = request.episodeRef.value.split('#')
-      const numero = numeroDeEpisodio(request.episodeRef.value)
-      const titulo = refTitulo === undefined ? undefined : porRef(refTitulo)
+      const episodio = episodioDeReferencia(request.episodeRef.value)
+      const titulo = episodio === undefined ? undefined : porRef(episodio.tituloRef)
 
-      if (titulo === undefined || numero === undefined) {
+      if (episodio === undefined || titulo === undefined) {
         throw errorDeFallo('http404', 'resolveStream', `el episodio ${request.episodeRef.value}`)
       }
 
       const modo: StreamMode = request.mode
 
-      return streams(titulo, numero, modo)
+      return streams(titulo, episodio.numero, modo, episodio.season)
     },
 
     async getTrending(callOptions) {

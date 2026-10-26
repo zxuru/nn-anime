@@ -32,6 +32,15 @@ const tituloSchema = z.strictObject({
   kind: z.enum(['tv', 'movie', 'ova', 'ona', 'special']),
   status: z.enum(['airing', 'finished', 'upcoming', 'unknown']),
   episodeCount: z.number().int().nonnegative(),
+  /**
+   * Los episodios de cada temporada, si el título las tiene.
+   *
+   * `episodeCount` sigue siendo el total; esta lista es la que hace que el
+   * fixture numere **por temporada** —1..N en cada una— y no de forma absoluta,
+   * que es el caso que el modelo tiene que soportar. Sin ella, el título se
+   * numera como siempre.
+   */
+  seasons: z.array(z.number().int().positive()).min(2).optional(),
   genres: z.array(z.string().min(1)),
   studios: z.array(z.string().min(1)),
   popularity: z.number().min(0).max(1),
@@ -127,12 +136,36 @@ export function detalle(titulo: TituloFixture): AnimeDetail {
   }
 }
 
-function refEpisodio(titulo: TituloFixture, numero: number) {
-  return { providerId: 'fixture', value: `${titulo.ref}#${numero}` }
+function refEpisodio(titulo: TituloFixture, numero: number, season?: number) {
+  const sufijo = season === undefined ? String(numero) : `t${season}e${numero}`
+
+  return { providerId: 'fixture', value: `${titulo.ref}#${sufijo}` }
 }
 
 export function episodios(titulo: TituloFixture): readonly Episode[] {
   const lista: Episode[] = []
+
+  if (titulo.seasons !== undefined) {
+    for (const [indice, cuantos] of titulo.seasons.entries()) {
+      const temporada = indice + 1
+      for (let numero = 1; numero <= cuantos; numero++) {
+        lista.push({
+          ref: refEpisodio(titulo, numero, temporada),
+          animeRef: { providerId: 'fixture', value: titulo.ref },
+          number: numero,
+          season: temporada,
+          // Sin el marcador `T2 E1` a propósito: la temporada es un dato del
+          // episodio y el modelo no debe depender de leerla del título.
+          title: `Episodio ${numero} · Temporada ${temporada}`,
+          durationS: 1440,
+          mode: 'sub',
+        })
+      }
+    }
+
+    return lista
+  }
+
   for (let numero = 1; numero <= titulo.episodeCount; numero++) {
     lista.push({
       ref: refEpisodio(titulo, numero),
@@ -147,13 +180,37 @@ export function episodios(titulo: TituloFixture): readonly Episode[] {
   return lista
 }
 
-/** El número de episodio que lleva una referencia, o `undefined` si no lo lleva. */
-export function numeroDeEpisodio(valor: string): number | undefined {
-  const partes = valor.split('#')
-  const numero = Number(partes[1])
-  if (partes.length !== 2 || !Number.isInteger(numero) || numero < 1) return undefined
+/** Un episodio desglosado de su referencia, que puede llevar temporada. */
+export interface EpisodioDeReferencia {
+  readonly tituloRef: string
+  readonly numero: number
+  readonly season?: number
+}
 
-  return numero
+/**
+ * El título, el número y la temporada que lleva una referencia de episodio.
+ *
+ * Dos formas: `titulo#3` para una lista sin temporadas y `titulo#t2e1` para una
+ * que numera por temporada. Es opaca para el contrato; el fixture la lee porque
+ * es quien la escribe.
+ */
+export function episodioDeReferencia(valor: string): EpisodioDeReferencia | undefined {
+  const [tituloRef, resto] = valor.split('#')
+  if (tituloRef === undefined || resto === undefined || tituloRef === '') return undefined
+
+  const conTemporada = /^t(\d+)e(\d+)$/.exec(resto)
+  if (conTemporada !== null) {
+    const season = Number(conTemporada[1])
+    const numero = Number(conTemporada[2])
+    if (season < 1 || numero < 1) return undefined
+
+    return { tituloRef, numero, season }
+  }
+
+  const numero = Number(resto)
+  if (!Number.isInteger(numero) || numero < 1) return undefined
+
+  return { tituloRef, numero }
 }
 
 function pistas(titulo: TituloFixture, numero: number): readonly SubtitleTrack[] {
@@ -176,14 +233,19 @@ export function streams(
   titulo: TituloFixture,
   numero: number,
   modo: StreamMode,
+  season?: number,
 ): readonly StreamSource[] {
   const fuentes: StreamSource[] = []
+  // La ruta de una serie con temporadas lleva la temporada delante: dos episodios
+  // con el mismo número en temporadas distintas no pueden compartir URL.
+  const tramo =
+    season === undefined ? `${titulo.ref}/${numero}` : `${titulo.ref}/temporada/${season}/${numero}`
 
   for (const tipo of titulo.streams) {
     const url =
       tipo === 'hls'
-        ? `${FIXTURE_ORIGIN}/${titulo.ref}/${numero}/${modo}/master.m3u8`
-        : `${FIXTURE_ORIGIN}/${titulo.ref}/${numero}/${modo}.mp4`
+        ? `${FIXTURE_ORIGIN}/${tramo}/${modo}/master.m3u8`
+        : `${FIXTURE_ORIGIN}/${tramo}/${modo}.mp4`
 
     fuentes.push({
       url,

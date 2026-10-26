@@ -36,4 +36,18 @@ test.describe('un proveedor que falla', () => {
     // El nombre del proveedor es su nombre visible, no su identificador.
     await expect(error).toContainText('Proveedor de prueba')
   })
+
+  test('el fallo se anuncia también en la pestaña de películas', async ({ page }) => {
+    await entrar(page)
+    await esperarApp(page)
+
+    // El mismo proveedor que falla, mirado desde la otra mitad: el tipo no puede
+    // dejar la pantalla sin explicación ni saltarse el error del proveedor.
+    await page.goto('/search?tipo=movies')
+    await page.getByLabel('Buscar por título').fill('aurora')
+
+    const error = page.locator('.search__error').first()
+    await expect(error).toBeVisible({ timeout: 10_000 })
+    await expect(error).toContainText('Proveedor de prueba')
+  })
 })

@@ -797,6 +797,49 @@ test.describe('un título con temporadas', () => {
     await expect(page.locator('.episodes li')).toHaveCount(5, { timeout: 15_000 })
     await expect(page.locator('.episodes__seasons')).toHaveCount(0)
   })
+
+  /**
+   * La serie del fixture que numera **por temporada**, no de forma absoluta.
+   *
+   * Es el caso que el modelo viejo no podía representar: tres temporadas de tres
+   * episodios, cada una con su 1..3. Se mide el camino entero —banda, lista,
+   * enlace al reproductor y flecha siguiente— porque el fallo no estaba en una
+   * pieza: estaba en que el número no identificaba la temporada.
+   */
+  test('la serie multi-temporada se navega por temporada y no cruza de una a otra', async ({
+    page,
+  }) => {
+    await entrar(page)
+    await page.goto('/anime/fixture/tres-temporadas')
+
+    const banda = page.getByRole('list', { name: 'Temporadas' })
+    await expect(banda.getByRole('button', { name: /Temporada 1/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+      { timeout: 15_000 },
+    )
+
+    // La primera temporada tiene tres, no nueve: el total es el de la temporada.
+    await expect(page.locator('.episodes li')).toHaveCount(3)
+    await expect(page.locator('.episodes li').first()).toContainText('Episodio 1 de 3')
+
+    await banda.getByRole('button', { name: /Temporada 2/ }).click()
+    await expect(page.locator('.episodes li')).toHaveCount(3)
+
+    const primero = page.locator('.episodes li a').first()
+    await expect(primero).toHaveAttribute('href', /s=2/)
+    await expect(primero).toContainText('Episodio 1')
+
+    await primero.click()
+    await expect(page).toHaveURL(/s=2/)
+    await expect(page.locator('video')).toBeVisible({ timeout: 15_000 })
+
+    // El siguiente sigue en la temporada 2; con el número como identidad, la
+    // flecha abría el 2 de la temporada 1.
+    const siguiente = page.getByRole('link', { name: 'Episodio siguiente' })
+    await expect(siguiente).toHaveAttribute('href', /s=2/)
+    await expect(siguiente).toHaveAttribute('href', /n=2/)
+  })
 })
 
 /**
