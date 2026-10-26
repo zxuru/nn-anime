@@ -16,6 +16,7 @@ import type {
   candidateSchema,
   episodeSchema,
   feedEntrySchema,
+  mediaTypeSchema,
   modeSchema,
   providerCapabilitiesSchema,
   providerRefSchema,
@@ -41,6 +42,8 @@ export type DeepReadonly<T> = T extends (infer U)[]
 export type Mode = z.infer<typeof modeSchema>
 export type StreamMode = z.infer<typeof streamModeSchema>
 export type TitleKind = z.infer<typeof titleKindSchema>
+/** Qué es un título: anime, película, serie de acción real o manga. */
+export type MediaType = z.infer<typeof mediaTypeSchema>
 export type AiringStatus = z.infer<typeof airingStatusSchema>
 export type SubtitleFormat = z.infer<typeof subtitleFormatSchema>
 

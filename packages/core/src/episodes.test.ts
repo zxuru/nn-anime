@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { episodeSeasonOf, episodeSeasons } from './episodes'
+import { episodeSeasonOf, episodeSeasons, seasonOf } from './episodes'
 
 describe('episodeSeasonOf', () => {
   test('lee la temporada del marcador que escriben las fuentes', () => {
@@ -39,6 +39,23 @@ describe('episodeSeasonOf', () => {
     expect(episodeSeasonOf('1x02 Ruptura')).toBeUndefined()
     // Y un título que empieza por `T` sin ser marcador no cuenta.
     expect(episodeSeasonOf('Tokyo Ghoul')).toBeUndefined()
+  })
+})
+
+describe('seasonOf: la explícita gana al marcador', () => {
+  test('con `season`, el título no manda', () => {
+    // Mutar el `??` por el marcador devuelve 3 y la prueba cae: el dato de la
+    // fuente no se corrige con una heurística sobre su texto.
+    expect(seasonOf({ season: 2, title: 'T3 E1 · Algo' })).toBe(2)
+  })
+
+  test('sin `season`, se lee el marcador', () => {
+    expect(seasonOf({ title: 'T3 E1 · Algo' })).toBe(3)
+  })
+
+  test('sin ninguna de las dos no hay temporada', () => {
+    expect(seasonOf({ title: 'Episodio 4' })).toBeUndefined()
+    expect(seasonOf({})).toBeUndefined()
   })
 })
 
@@ -92,5 +109,26 @@ describe('episodeSeasons', () => {
 
   test('una lista vacía no tiene temporadas', () => {
     expect(episodeSeasons([])).toBeUndefined()
+  })
+
+  test('agrupa por `season` explícita aunque el título no la marque', () => {
+    // Es el caso de un plugin que numera por temporada y no escribe `T2 E1`: la
+    // temporada es un dato, no un adorno del título.
+    expect(
+      episodeSeasons([
+        { season: 1, title: 'Episodio 1' },
+        { season: 1, title: 'Episodio 2' },
+        { season: 2, title: 'Episodio 1' },
+      ]),
+    ).toEqual([
+      { season: 1, count: 2 },
+      { season: 2, count: 1 },
+    ])
+  })
+
+  test('si a uno le falta la temporada, no se agrupa aunque los demás la traigan', () => {
+    expect(
+      episodeSeasons([{ season: 1, title: 'Episodio 1' }, { title: 'Episodio 2' }, { season: 2 }]),
+    ).toBeUndefined()
   })
 })

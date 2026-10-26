@@ -47,6 +47,20 @@ export function episodeSeasonOf(title: string | undefined): number | undefined {
 }
 
 /**
+ * La temporada de un episodio: la que declara, o la que lleva en el título.
+ *
+ * La explícita gana porque es el dato de la fuente y no una heurística sobre su
+ * texto. El marcador `T<n> E<m>` queda para los plugins que ya existían, que no
+ * mandan `season`. `undefined` significa «no se sabe», nunca «temporada 1».
+ */
+export function seasonOf(episode: {
+  readonly season?: number | undefined
+  readonly title?: string | undefined
+}): number | undefined {
+  return episode.season ?? episodeSeasonOf(episode.title)
+}
+
+/**
  * Las temporadas de una lista de episodios, con cuántos tiene cada una.
  *
  * Se cuentan **todos** los episodios de cada temporada, estén donde estén en la
@@ -56,20 +70,23 @@ export function episodeSeasonOf(title: string | undefined): number | undefined {
  *
  * `undefined` cuando la lista no se puede agrupar, y las tres razones importan:
  *
- * 1. Algún episodio sin marcador. Agrupar esconde lo que no tiene temporada, y
- *    una temporada que se lleve por delante a los episodios que no la declaran
- *    es peor que no agrupar.
+ * 1. Algún episodio sin temporada. Agrupar esconde lo que no la tiene, y una
+ *    temporada que se lleve por delante a los episodios que no la declaran es
+ *    peor que no agrupar.
  * 2. Una sola temporada. Con una no hay nada que elegir: el selector sería una
  *    fila de un botón y la lista, la de siempre.
  * 3. Una lista vacía no tiene temporadas que contar.
  */
 export function episodeSeasons(
-  episodes: readonly { readonly title?: string | undefined }[],
+  episodes: readonly {
+    readonly season?: number | undefined
+    readonly title?: string | undefined
+  }[],
 ): readonly EpisodeSeason[] | undefined {
   const cuenta = new Map<number, number>()
 
   for (const episode of episodes) {
-    const season = episodeSeasonOf(episode.title)
+    const season = seasonOf(episode)
     if (season === undefined) return undefined
 
     cuenta.set(season, (cuenta.get(season) ?? 0) + 1)

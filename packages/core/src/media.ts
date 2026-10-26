@@ -14,7 +14,7 @@
  */
 
 import type { z } from 'zod'
-import type { ProviderCapabilities, TitleKind } from './models'
+import type { MediaType, ProviderCapabilities, TitleKind } from './models'
 import type { providerMediaSchema } from './schema'
 
 export type ProviderMedia = z.infer<typeof providerMediaSchema>
@@ -37,21 +37,47 @@ export function mediaOf(capabilities: Pick<ProviderCapabilities, 'media'>): Prov
 }
 
 /**
+ * Qué es un título, a partir de lo que declara la fuente y de su `kind`.
+ *
+ * Es la única regla de clasificación: la usan el reparto de la interfaz y el
+ * filtro del servidor. El `mediaType` explícito gana porque una fuente `both`
+ * puede mezclar anime y series de acción real, y su `kind` no lo distingue.
+ *
+ * Un título sin `kind` ni `mediaType` cuenta como anime, que es el mismo defecto
+ * que el proveedor sin `media`: los plugins que ya existen son de anime.
+ */
+export function mediaTypeOf(
+  item: { readonly kind?: TitleKind; readonly mediaType?: MediaType },
+  proveedor: ProviderMedia,
+): MediaType {
+  if (item.mediaType !== undefined) return item.mediaType
+
+  if (proveedor === 'movies') return item.kind === 'movie' ? 'movie' : 'series'
+
+  // `both` reparte por el `kind`, y lo que no es película sigue siendo anime: es
+  // la compatibilidad con las fuentes mixtas que ya existen.
+  if (proveedor === 'both') return item.kind === 'movie' ? 'movie' : 'anime'
+
+  return 'anime'
+}
+
+/**
  * Si un título entra en la mitad pedida.
  *
- * Un proveedor de las dos cosas reparte por el `kind`, y ahí está la razón de que
- * el `kind` opcional del contrato se lea: sin él, todo lo que publica una fuente
- * mixta caería del lado del anime. Un título sin `kind` declarado cuenta como
- * anime, que es el mismo defecto que el proveedor sin `media`.
+ * La mitad es anime contra lo demás: `movie` y `series` van a películas, `anime`
+ * a anime y `manga` no entra en ninguna de las dos (su pestaña es 2.7). El
+ * `mediaType` explícito se pasa cuando se conoce; sin él se deduce con
+ * `mediaTypeOf`.
  */
 export function esDeMedia(
   filtro: MediaFilter,
   proveedor: ProviderMedia,
   kind: TitleKind | undefined,
+  mediaType?: MediaType,
 ): boolean {
-  if (proveedor === 'both') return (kind === 'movie') === (filtro === 'movies')
+  const tipo = mediaType ?? mediaTypeOf({ ...(kind === undefined ? {} : { kind }) }, proveedor)
 
-  return proveedor === filtro
+  return filtro === 'movies' ? tipo === 'movie' || tipo === 'series' : tipo === 'anime'
 }
 
 /**
@@ -80,8 +106,9 @@ export function pasaElFiltro(
   filtro: ProviderMedia | undefined,
   proveedor: ProviderMedia,
   kind: TitleKind | undefined,
+  mediaType?: MediaType,
 ): boolean {
   if (filtro === undefined || filtro === 'both') return true
 
-  return esDeMedia(filtro, proveedor, kind)
+  return esDeMedia(filtro, proveedor, kind, mediaType)
 }

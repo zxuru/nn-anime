@@ -550,4 +550,82 @@ describe('media: qué sirve un proveedor', () => {
       )
     }
   })
+
+  test('las capacidades de temporada y de tipo por título son opcionales', () => {
+    // Un manifiesto viejo sigue cargando: es la compatibilidad que no se puede
+    // romper por un dato que sólo usa la fuente que lo necesita.
+    const viejo = providerCapabilitiesSchema.safeParse({
+      search: true,
+      sub: true,
+      dub: false,
+      trending: false,
+    })
+    expect(viejo.success).toBe(true)
+    if (viejo.success) {
+      expect(viejo.data.seasons).toBeUndefined()
+      expect(viejo.data.mediaPerTitle).toBeUndefined()
+    }
+
+    const nuevo = providerCapabilitiesSchema.safeParse({
+      search: true,
+      sub: true,
+      dub: false,
+      trending: false,
+      seasons: true,
+      mediaPerTitle: true,
+    })
+    expect(nuevo.success).toBe(true)
+    if (nuevo.success) {
+      expect(nuevo.data.seasons).toBe(true)
+      expect(nuevo.data.mediaPerTitle).toBe(true)
+    }
+  })
+})
+
+describe('mediaType y temporada en el contrato', () => {
+  test('un título puede declarar que es una serie', () => {
+    const result = searchResultSchema.safeParse({
+      ref: REF,
+      title: 'Una serie',
+      kind: 'tv',
+      mediaType: 'series',
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.mediaType).toBe('series')
+  })
+
+  test('un mediaType fuera del vocabulario se rechaza', () => {
+    const result = searchResultSchema.safeParse({
+      ref: REF,
+      title: 'Algo',
+      mediaType: 'documental',
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join('.')).join(' | ')).toContain(
+        'mediaType',
+      )
+    }
+  })
+
+  test('el episodio acepta una temporada positiva y sólo eso', () => {
+    const base = { ref: REF, animeRef: REF, number: 2, mode: 'sub' as const }
+
+    const conTemporada = episodeSchema.safeParse({ ...base, season: 3 })
+    expect(conTemporada.success).toBe(true)
+    if (conTemporada.success) expect(conTemporada.data.season).toBe(3)
+
+    for (const season of [0, -1, 1.5, '2']) {
+      expect(episodeSchema.safeParse({ ...base, season }).success, String(season)).toBe(false)
+    }
+  })
+
+  test('sin temporada el episodio sigue siendo válido', () => {
+    // Es el contrato de siempre: `number` es la etiqueta de la fuente.
+    const result = episodeSchema.safeParse({ ref: REF, animeRef: REF, number: 12, mode: 'sub' })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.season).toBeUndefined()
+  })
 })

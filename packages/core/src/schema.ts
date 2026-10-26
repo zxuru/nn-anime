@@ -143,11 +143,38 @@ export const providerCapabilitiesSchema = z.strictObject({
   episodePages: z.boolean().optional(),
   /** Qué sirve. Ausente es `anime`; la regla vive en `mediaOf`. */
   media: providerMediaSchema.optional(),
+  /**
+   * El proveedor numera por temporada y devuelve `season` en cada episodio.
+   *
+   * Opcional y sin defecto, por el mismo motivo que `episodePages`: con un valor
+   * por defecto el campo sería obligatorio en el tipo inferido y rompería a todos
+   * los plugins publicados. Ausente significa «numera como siempre»: el número es
+   * la etiqueta de la fuente y la temporada, si la hay, se lee del título.
+   */
+  seasons: z.boolean().optional(),
+  /**
+   * El proveedor dice qué es cada título (`mediaType`), no sólo qué sirve.
+   *
+   * Hace falta para una fuente `both` que mezcla anime y series de acción real:
+   * sin este dato un `tv` suyo cae del lado del anime. Un plugin que lo manda
+   * declara esta capacidad; una app vieja lo rechaza al cargar, en vez de aceptarlo
+   * y fallar en cada respuesta.
+   */
+  mediaPerTitle: z.boolean().optional(),
 })
 
 export const modeSchema = z.enum(['sub', 'dub', 'raw'])
 export const streamModeSchema = z.enum(['sub', 'dub'])
 export const titleKindSchema = z.enum(['tv', 'movie', 'ova', 'ona', 'special'])
+/**
+ * Qué es un título para esta aplicación.
+ *
+ * No es lo mismo que `kind`, que es el formato que publica la fuente: `series` es
+ * una serie de acción real y `movie` una película, mientras que `kind: 'tv'` puede
+ * ser una serie de anime o una de acción real. `manga` queda reservado para la fase
+ * 2A; hoy ningún proveedor puede producirlo.
+ */
+export const mediaTypeSchema = z.enum(['anime', 'movie', 'series', 'manga'])
 export const airingStatusSchema = z.enum(['airing', 'finished', 'upcoming', 'unknown'])
 export const subtitleFormatSchema = z.enum(['vtt', 'srt', 'ass'])
 export const streamKindSchema = z.enum(['hls', 'file'])
@@ -193,6 +220,13 @@ export const searchResultSchema = z.strictObject({
   coverUrl: httpUrlSchema.optional(),
   year: z.number().int().optional(),
   kind: titleKindSchema.optional(),
+  /**
+   * Qué es el título, cuando la fuente lo sabe y no basta con `kind`.
+   *
+   * Opcional y sin defecto. Ausente se deduce con `mediaTypeOf` a partir de lo que
+   * sirve el proveedor y del `kind`, que es lo que hacían las fuentes de antes.
+   */
+  mediaType: mediaTypeSchema.optional(),
 })
 
 /**
@@ -313,6 +347,14 @@ export const episodeSchema = z.strictObject({
    * fuente, y un hueco en la numeración no se rellena.
    */
   number: z.number().nonnegative(),
+  /**
+   * La temporada de la fuente, base 1, cuando numera por temporada.
+   *
+   * Presente, `number` es el ordinal **dentro de la temporada**. Ausente, `number`
+   * es la etiqueta de siempre y la temporada se lee del título (`T2 E1`). No se
+   * asume 1: una lista sin temporadas no las tiene. Añadido en T176.
+   */
+  season: z.number().int().positive().optional(),
   title: z.string().min(1).optional(),
   durationS: z.number().nonnegative().optional(),
   mode: modeSchema,
