@@ -7,6 +7,7 @@ import {
   neighbourEpisodes,
   numberFromPath,
   PLAY_MODES,
+  seasonFromPath,
   startAtFromPath,
   watchPath,
 } from './watch-route'
@@ -58,6 +59,17 @@ describe('la ruta del reproductor', () => {
     )
   })
 
+  test('la temporada viaja cuando quien escribe la dirección la conoce', () => {
+    expect(watchPath('fixture', 'serie/uno/temporada/2#1', { n: 1, s: 2 })).toBe(
+      '/watch/fixture/serie%2Funo%2Ftemporada%2F2%231?n=1&s=2',
+    )
+  })
+
+  test('una temporada imposible no se escribe', () => {
+    expect(watchPath('fixture', 'x', { s: 0 })).toBe('/watch/fixture/x')
+    expect(watchPath('fixture', 'x', { s: 1.5 })).toBe('/watch/fixture/x')
+  })
+
   test('un número imposible no se escribe: no se manda una petición que se sabe mala', () => {
     expect(watchPath('fixture', 'aurora-nocturna#3', { n: 0 })).toBe(
       '/watch/fixture/aurora-nocturna%233',
@@ -68,6 +80,19 @@ describe('la ruta del reproductor', () => {
     expect(watchPath('fixture', 'aurora-nocturna#3', { n: Number.NaN })).toBe(
       '/watch/fixture/aurora-nocturna%233',
     )
+  })
+})
+
+describe('la temporada que la dirección trae escrita', () => {
+  test('la lee de la consulta, junto al número', () => {
+    expect(seasonFromPath('/watch/fixture/x?n=1&s=2')).toBe(2)
+  })
+
+  test('sin ella, o con un valor que no es una temporada, no hay temporada', () => {
+    expect(seasonFromPath('/watch/fixture/x?n=1')).toBeUndefined()
+    expect(seasonFromPath('/watch/fixture/x?s=0')).toBeUndefined()
+    expect(seasonFromPath('/watch/fixture/x?s=1.5')).toBeUndefined()
+    expect(seasonFromPath('/watch/fixture/x?s=')).toBeUndefined()
   })
 })
 

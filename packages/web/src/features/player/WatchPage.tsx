@@ -82,6 +82,7 @@ import {
   type EpisodeRef,
   modeFromPath,
   numberFromPath,
+  seasonFromPath,
   startAtFromPath,
   type WatchPathOptions,
   watchPath,
@@ -104,6 +105,8 @@ const SEGUNDOS_DEL_SIGUIENTE = 5
 export interface WatchNeighbour {
   readonly ref: EpisodeRef
   readonly number: number
+  /** La temporada, si el episodio la declara. Viaja al enlace del vecino. */
+  readonly season?: number
 }
 
 /** Dónde está el episodio que se ve, con lo que el proveedor haya dicho. */
@@ -131,6 +134,8 @@ export interface NeighbourLookup {
   readonly episodeRef: string
   /** El número que la dirección trae escrito, si lo trae. */
   readonly number: number | undefined
+  /** La temporada que la dirección trae escrita, si la trae. */
+  readonly season?: number
 }
 
 /**
@@ -145,7 +150,13 @@ export function shouldLoadNeighbours(estado: Estado): boolean {
 }
 
 function aVecino(episode: Episode | undefined): WatchNeighbour | undefined {
-  return episode === undefined ? undefined : { ref: episode.ref, number: episode.number }
+  if (episode === undefined) return undefined
+
+  return {
+    ref: episode.ref,
+    number: episode.number,
+    ...(episode.season === undefined ? {} : { season: episode.season }),
+  }
 }
 
 /**
@@ -178,6 +189,7 @@ async function neighboursInPage(
   providerId: string,
   titleRef: string,
   reads: EpisodeReads,
+  season?: number,
 ): Promise<{
   readonly previous: WatchNeighbour | undefined
   readonly next: WatchNeighbour | undefined
@@ -187,7 +199,12 @@ async function neighboursInPage(
   let total = pagina.total
 
   if (siguiente === undefined && pagina.hasMore) {
-    const segunda = await loadEpisodesPage(providerId, titleRef, { page: 2 }, reads)
+    const segunda = await loadEpisodesPage(
+      providerId,
+      titleRef,
+      { page: 2, ...(season === undefined ? {} : { season }) },
+      reads,
+    )
     siguiente = delProveedor(segunda.episodes, providerId)[0]
     total = segunda.total ?? total
   }
@@ -209,12 +226,20 @@ async function neighboursWithNumber(
   episodeRef: string,
   number: number,
   reads: EpisodeReads,
+  season?: number,
 ): Promise<WatchNeighbours> {
-  const pagina = await loadEpisodesPage(providerId, titleRef, { page: 1 }, reads).catch(
-    () => undefined,
-  )
+  const pagina = await loadEpisodesPage(
+    providerId,
+    titleRef,
+    { page: 1, ...(season === undefined ? {} : { season }) },
+    reads,
+  ).catch(() => undefined)
   const propios = pagina === undefined ? [] : delProveedor(pagina.episodes, providerId)
   const actual = propios.find((episode) => episode.ref.value === episodeRef)
+
+  // La temporada puede no venir en la dirección —un enlace viejo— y sí en el
+  // episodio: se toma la suya para no pedir la temporada 1 de una serie en la 3.
+  const suya = actual?.season ?? season
 
   if (pagina !== undefined && actual !== undefined) {
     const indice = propios.indexOf(actual)
@@ -225,6 +250,7 @@ async function neighboursWithNumber(
       providerId,
       titleRef,
       reads,
+      suya,
     )
 
     return {
@@ -239,8 +265,10 @@ async function neighboursWithNumber(
   }
 
   const [anterior, siguiente] = await Promise.all([
-    number > 1 ? loadEpisodeByNumber(providerId, titleRef, number - 1, reads) : undefined,
-    loadEpisodeByNumber(providerId, titleRef, number + 1, reads),
+    number > 1
+      ? loadEpisodeByNumber(providerId, titleRef, number - 1, reads, suya)
+      : undefined,
+    loadEpisodeByNumber(providerId, titleRef, number + 1, reads, suya),
   ])
 
   return {
@@ -269,13 +297,18 @@ export async function loadWatchNeighbours(
   lookup: NeighbourLookup,
   reads: EpisodeReads = {},
 ): Promise<WatchNeighbours> {
-  const { providerId, titleRef, episodeRef, number } = lookup
+  const { providerId, titleRef, episodeRef, number, season } = lookup
 
   if (number !== undefined) {
-    return neighboursWithNumber(providerId, titleRef, episodeRef, number, reads)
+    return neighboursWithNumber(providerId, titleRef, episodeRef, number, reads, season)
   }
 
-  const pagina = await loadEpisodesPage(providerId, titleRef, { page: 1 }, reads)
+  const pagina = await loadEpisodesPage(
+    providerId,
+    titleRef,
+    { page: 1, ...(season === undefined ? {} : { season }) },
+    reads,
+  )
   const propios = delProveedor(pagina.episodes, providerId)
   const actual = propios.find((episode) => episode.ref.value === episodeRef)
 
@@ -289,6 +322,7 @@ export async function loadWatchNeighbours(
     providerId,
     titleRef,
     reads,
+    actual.season ?? season,
   )
 
   return {
@@ -425,6 +459,9 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   // El número que la dirección trae escrito. Es lo que decide si se piden dos
   // vecinos puntuales o la primera página; sin él no se deduce nada.
   const numero = numberFromPath(path)
+  // La temporada, cuando la ficha la escribió. Sin ella, los vecinos buscan en la
+  // lista entera y pueden caer en otra temporada.
+  const temporada = seasonFromPath(path)
 
   /**
    * Los vecinos, cuando la pantalla ya está pintada.
@@ -444,6 +481,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       titleRef: animeRef.value,
       episodeRef: props.ref,
       number: numero,
+      ...(temporada === undefined ? {} : { season: temporada }),
     }).then(
       (salida) => {
         if (vivo) setVecinos(salida)
@@ -456,7 +494,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     return () => {
       vivo = false
     }
-  }, [props.providerId, props.ref, animeRef.value, numero, estado])
+  }, [props.providerId, props.ref, animeRef.value, numero, temporada, estado])
 
   // El nombre del título, que es lo que la pestaña necesita para distinguirse de
   // las demás. Si falla, la reproducción no se entera: se pierde el nombre, no el
@@ -606,6 +644,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       : watchPath(props.providerId, siguiente.ref.value, {
           ...opcionesDePaso,
           n: siguiente.number,
+          ...(siguiente.season === undefined ? {} : { s: siguiente.season }),
         })
 
   const alTerminar = useCallback(() => {
@@ -776,6 +815,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
           to={watchPath(props.providerId, vecinos.next.ref.value, {
             ...opcionesDePaso,
             n: vecinos.next.number,
+            ...(vecinos.next.season === undefined ? {} : { s: vecinos.next.season }),
           })}
         >
           {t(DEFAULT_LOCALE, 'player.next')}
@@ -817,6 +857,9 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         currentRef={props.ref}
         mode={modo}
         actual={posicionEpisodio}
+        // La temporada de la dirección, para que la fila del episodio suelto y
+        // sus enlaces no pierdan la temporada que se está viendo.
+        season={temporada}
         // El nombre del título, que es el respaldo del renglón cuando el
         // proveedor no nombra sus episodios: esta columna no tiene al lado el
         // encabezado de la pantalla, así que un renglón con sólo el número no

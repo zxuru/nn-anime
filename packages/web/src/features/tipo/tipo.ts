@@ -22,7 +22,7 @@ import {
   type ProviderMedia,
   puedeServir,
 } from '@nn-anime/core/media'
-import type { ProviderRef, TitleKind } from '@nn-anime/core/models'
+import type { MediaType, ProviderRef, TitleKind } from '@nn-anime/core/models'
 import { useMemo } from 'react'
 import { useProviders } from '../search/useSearchStream'
 
@@ -98,6 +98,8 @@ export function useMedias(): ReadonlyMap<string, ProviderMedia> {
 export interface FuenteDeTitulo {
   readonly providerId: string
   readonly kind?: TitleKind | undefined
+  /** Lo que la fuente declara del título, cuando no basta con su `kind`. */
+  readonly mediaType?: MediaType | undefined
 }
 
 /**
@@ -111,10 +113,12 @@ export interface FuenteDeTitulo {
 export function fuenteDeResumen(item: {
   readonly ref: ProviderRef
   readonly kind?: TitleKind | undefined
+  readonly mediaType?: MediaType | undefined
 }): FuenteDeTitulo {
   return {
     providerId: item.ref.providerId,
     ...(item.kind === undefined ? {} : { kind: item.kind }),
+    ...(item.mediaType === undefined ? {} : { mediaType: item.mediaType }),
   }
 }
 
@@ -135,7 +139,12 @@ export function esDelTipo(
   medias: ReadonlyMap<string, ProviderMedia>,
   fuente: FuenteDeTitulo,
 ): boolean {
-  return esDeMedia(tipo, medias.get(fuente.providerId) ?? DEFAULT_MEDIA, fuente.kind)
+  return esDeMedia(
+    tipo,
+    medias.get(fuente.providerId) ?? DEFAULT_MEDIA,
+    fuente.kind,
+    fuente.mediaType,
+  )
 }
 
 /**

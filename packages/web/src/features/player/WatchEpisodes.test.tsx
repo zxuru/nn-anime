@@ -58,6 +58,21 @@ describe('el renglón de un episodio sin nombre', () => {
   })
 })
 
+describe('la temporada del renglón', () => {
+  test('viaja al enlace para que el episodio no se busque en otra', () => {
+    const html = renglon({
+      episode: {
+        value: 'sousou-no-frieren-2nd-season/temporada/2#1',
+        number: 1,
+        season: 2,
+      },
+    })
+
+    expect(html).toContain('n=1')
+    expect(html).toContain('s=2')
+  })
+})
+
 describe('el renglón de un episodio con nombre', () => {
   test('manda el del episodio, no el del título', () => {
     const html = renglon({

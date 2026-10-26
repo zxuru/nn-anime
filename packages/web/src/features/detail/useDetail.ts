@@ -143,17 +143,28 @@ export function episodesPath(providerId: string, ref: string, query: EpisodesQue
 }
 
 /** La ruta de un episodio por su número. Admite decimales. */
-export function episodeNumberPath(providerId: string, ref: string, number: number): string {
+export function episodeNumberPath(
+  providerId: string,
+  ref: string,
+  number: number,
+  season?: number,
+): string {
   const base = `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/episodes`
+  const temporada = season === undefined ? '' : `?season=${season}`
 
-  return `${base}/number/${number}`
+  return `${base}/number/${number}${temporada}`
 }
 
-/** La ruta del último episodio del título. */
-export function latestEpisodePath(providerId: string, ref: string): string {
+/** La ruta del último episodio del título, o de una temporada suya. */
+export function latestEpisodePath(
+  providerId: string,
+  ref: string,
+  season?: number,
+): string {
   const base = `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/episodes`
+  const temporada = season === undefined ? '' : `?season=${season}`
 
-  return `${base}/latest`
+  return `${base}/latest${temporada}`
 }
 
 /** Una página de episodios, tal y como la sirve el servidor. */
@@ -212,17 +223,19 @@ export function loadEpisodeByNumber(
   ref: string,
   number: number,
   reads: EpisodeReads = {},
+  season?: number,
 ): Promise<EpisodeLookup> {
-  return loadSingleEpisode(episodeNumberPath(providerId, ref, number), reads)
+  return loadSingleEpisode(episodeNumberPath(providerId, ref, number, season), reads)
 }
 
-/** El último episodio del título, o por qué no se pudo dar. */
+/** El último episodio del título, o de una temporada suya. */
 export function loadLatestEpisode(
   providerId: string,
   ref: string,
   reads: EpisodeReads = {},
+  season?: number,
 ): Promise<EpisodeLookup> {
-  return loadSingleEpisode(latestEpisodePath(providerId, ref), reads)
+  return loadSingleEpisode(latestEpisodePath(providerId, ref, season), reads)
 }
 
 /**
