@@ -84,7 +84,10 @@ export function unaPorEpisodio(filas: readonly WatchRecord[]): readonly Continue
     const ratio = watchedRatio(fila.positionS, fila.durationS)
     // El modo no entra en la clave: el episodio es el mismo se vea como se vea,
     // y la tarjeta se abre en el modo de la fila que gane.
-    const clave = `${fila.providerId}\u0000${fila.anime.ref.value}\u0000${fila.episodeNumber}`
+    // La clave es la referencia del episodio y no `animeRef + número`: con
+    // numeración por temporada, T1E1 y T2E1 comparten las dos cosas y se
+    // quedaban en una sola tarjeta.
+    const clave = `${fila.providerId}\u0000${fila.episodeRef.value}`
     const previo = porEpisodio.get(clave)
 
     if (previo === undefined || ratio > previo.ratio) porEpisodio.set(clave, { fila, ratio })
@@ -113,13 +116,12 @@ export function historyItems(filas: readonly WatchRecord[]): readonly WatchHisto
     animeRef: fila.anime.ref,
     title: fila.anime.title,
     ...(fila.anime.coverUrl === undefined ? {} : { coverUrl: fila.anime.coverUrl }),
-    // La convención de la referencia de un episodio: el número detrás de la
-    // almohadilla. Es la misma que arma la fila de «continuar viendo».
-    episodeRef: {
-      providerId: fila.providerId,
-      value: `${fila.anime.ref.value}#${fila.episodeNumber}`,
-    },
+    // La referencia real del episodio, leída de su fila y no reconstruida: con
+    // numeración por temporada, `animeRef#number` apunta a un episodio que el
+    // proveedor no tiene.
+    episodeRef: fila.episodeRef,
     episodeNumber: fila.episodeNumber,
+    ...(fila.season === undefined ? {} : { season: fila.season }),
     mode: fila.mode,
     positionS: fila.positionS,
     durationS: fila.durationS,
@@ -168,11 +170,9 @@ export function registerWatchRoutes(app: Hono, options: WatchRouteOptions): void
         animeRef: fila.anime.ref,
         title: fila.anime.title,
         ...(fila.anime.coverUrl === undefined ? {} : { coverUrl: fila.anime.coverUrl }),
-        episodeRef: {
-          providerId: fila.providerId,
-          value: `${fila.anime.ref.value}#${fila.episodeNumber}`,
-        },
+        episodeRef: fila.episodeRef,
         episodeNumber: fila.episodeNumber,
+        ...(fila.season === undefined ? {} : { season: fila.season }),
         mode: fila.mode,
         positionS: fila.positionS,
         durationS: fila.durationS,

@@ -46,8 +46,11 @@ const DEFAULT_TIMEOUT_MS = 8000
  * pero el criterio tiene que ser el mismo en las dos rutas para que la interfaz
  * no trate de forma distinta dos fallos iguales.
  */
-export function statusForEpisodes(error: ProviderError): 404 | 502 {
-  return error.context.estado === 404 ? 404 : 502
+export function statusForEpisodes(error: ProviderError): 404 | 409 | 502 {
+  if (error.context.estado === 404) return 404
+  if (error.context.estado === 409) return 409
+
+  return 502
 }
 
 /**
@@ -186,10 +189,26 @@ export function registerEpisodesRoute(app: Hono, options: EpisodesRouteOptions):
       return errorJson(c, 404, `no hay ningún proveedor llamado ${providerId}`)
     }
 
+    const season = parseSeason(c.req.query('season'))
+    if (!season.ok) {
+      return errorJson(c, 400, season.error)
+    }
+
+    // Una fuente que pagina no puede decir cuál es la última de una temporada: su
+    // lista no se lee entera. Es el mismo 400 explicable que la página.
+    if (season.value !== undefined && provider.capabilities.episodePages === true) {
+      return errorJson(
+        c,
+        400,
+        `la fuente ${providerId} pagina sus episodios: no se puede pedir una temporada suya`,
+      )
+    }
+
     const resultado = await options.container.getLatestEpisode(
       provider,
       { providerId, value: ref },
       callOptionsOf(c, options.timeoutMs),
+      season.value,
     )
 
     if (!resultado.ok) {
@@ -213,11 +232,25 @@ export function registerEpisodesRoute(app: Hono, options: EpisodesRouteOptions):
       return errorJson(c, 400, numero.error)
     }
 
+    const season = parseSeason(c.req.query('season'))
+    if (!season.ok) {
+      return errorJson(c, 400, season.error)
+    }
+
+    if (season.value !== undefined && provider.capabilities.episodePages === true) {
+      return errorJson(
+        c,
+        400,
+        `la fuente ${providerId} pagina sus episodios: no se puede pedir una temporada suya`,
+      )
+    }
+
     const resultado = await options.container.getEpisode(
       provider,
       { providerId, value: ref },
       numero.value,
       callOptionsOf(c, options.timeoutMs),
+      season.value,
     )
 
     if (!resultado.ok) {
@@ -229,7 +262,7 @@ export function registerEpisodesRoute(app: Hono, options: EpisodesRouteOptions):
 }
 
 /** El cuerpo de error de las tres rutas: una forma, un sitio. */
-function errorJson(c: Context, status: 400 | 404 | 502, message: string): Response {
+function errorJson(c: Context, status: 400 | 404 | 409 | 502, message: string): Response {
   return c.json(errorResponseSchema.parse({ error: message }), status)
 }
 

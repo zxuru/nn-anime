@@ -338,6 +338,66 @@ describe('GET /api/search como SSE', () => {
     expect([...ids].sort()).toEqual(['mixta', 'pelis'])
   })
 
+  test('el tipo se filtra también sobre los resultados, no sólo sobre las fuentes', async () => {
+    const eventos = await readSse(
+      await app(SOLO_FIXTURE).request(`${BASE}/api/search?q=&media=movies`, { headers: GOOD }),
+    )
+    const resultados = eventos.find((evento) => evento.event === 'results')
+    const data = JSON.parse(resultados?.data ?? '{}') as {
+      results: readonly { title: string; kind?: string }[]
+    }
+
+    // El fixture es `both` y su catálogo trae series de anime: sin filtrar los
+    // resultados llegarían a la pestaña de películas y la interfaz las escondería
+    // después, con el gasto hecho.
+    expect(data.results.map((resultado) => resultado.title)).toEqual(['El Jardín de Hierro'])
+  })
+
+  test('una serie declarada por una fuente mixta entra en películas', async () => {
+    const mixta = providerFrom({
+      id: 'mixta',
+      capabilities: {
+        search: true,
+        sub: true,
+        dub: false,
+        trending: false,
+        feed: false,
+        media: 'both',
+        mediaPerTitle: true,
+      },
+      search: async () => [
+        {
+          ref: { providerId: 'mixta', value: 'una-serie' },
+          title: 'Una serie de acción real',
+          kind: 'tv',
+          mediaType: 'series',
+        },
+      ],
+    })
+    const report: PluginReport = { active: [{ provider: mixta, file: '/p/m.ts' }], rejected: [] }
+
+    const enPeliculas = await readSse(
+      await app(report).request(`${BASE}/api/search?q=serie&media=movies`, { headers: GOOD }),
+    )
+    const enAnime = await readSse(
+      await app(report).request(`${BASE}/api/search?q=serie&media=anime`, { headers: GOOD }),
+    )
+
+    const titulosEn = (eventos: readonly { event: string; data: string }[]): string[] =>
+      eventos
+        .filter((evento) => evento.event === 'results')
+        .flatMap(
+          (evento) =>
+            (JSON.parse(evento.data) as { results: readonly { title: string }[] }).results,
+        )
+        .map((resultado) => resultado.title)
+
+    expect(titulosEn(enPeliculas)).toEqual(['Una serie de acción real'])
+    // La misma fuente no entra en la otra mitad para ese título: el `kind: 'tv'`
+    // ya no lo arrastra al anime.
+    expect(titulosEn(enAnime)).toEqual([])
+  })
+
   test('sin `media` se pregunta a todas, que es lo de siempre', async () => {
     const report: PluginReport = {
       active: [

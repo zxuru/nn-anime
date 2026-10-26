@@ -30,7 +30,6 @@ import {
   type AnimeDetail,
   type Episode,
   type EpisodeSeason,
-  episodeSeasonOf,
   episodeSeasons,
   err,
   normalizeQuery,
@@ -39,6 +38,7 @@ import {
   type ProviderRef,
   type Result,
   type SearchResult,
+  seasonOf,
 } from '@nn-anime/core'
 import {
   createMpvPlayer,
@@ -184,12 +184,20 @@ export interface ServerContainer {
     ref: ProviderRef,
     number: number,
     callOptions: CallOptions,
+    season?: number,
   ): Promise<Result<Episode, ProviderError>>
-  /** El último episodio del título, con el proveedor o desde la lista cacheada. */
+  /**
+   * El último episodio del título, con el proveedor o desde la lista cacheada.
+   *
+   * Con `season`, el último de esa temporada. Sin ella, el último de la temporada
+   * más alta y no el número más alto del título: con numeración por temporada,
+   * ese número vive en la temporada 1.
+   */
   getLatestEpisode(
     provider: Provider,
     ref: ProviderRef,
     callOptions: CallOptions,
+    season?: number,
   ): Promise<Result<Episode, ProviderError>>
   /** Resultados de un proveedor, con caché y refresco por detrás si toca. */
   searchProvider(
@@ -448,9 +456,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
         })
       }
 
-      const temporada = completa.filter(
-        (episodio) => episodeSeasonOf(episodio.title) === request.season,
-      )
+      const temporada = completa.filter((episodio) => seasonOf(episodio) === request.season)
       if (temporada.length === 0) {
         // La temporada pedida no está: 404 como el episodio suelto que no
         // existe, y por el mismo camino —el `estado` del contexto es el que ya
@@ -467,11 +473,10 @@ export function createContainer(options: ContainerOptions): ServerContainer {
       }
 
       return ok({
-        // El `total` sigue siendo el del título, no el de la temporada: la fila
-        // numera «Episodio 12 de 91», que es la etiqueta de la fuente y lo que
-        // dice el reproductor. Lo que se recorta es la página, que ahora es la
-        // de esta temporada.
-        value: sliceEpisodesPage(temporada, request.page, completa.length),
+        // El total es el de **la temporada** cuando se pidió una: con numeración
+        // por temporada, «Episodio 2 de 9» mezclaba la etiqueta de la fuente con
+        // el total del título entero. Sin temporada, sigue siendo el del título.
+        value: sliceEpisodesPage(temporada, request.page),
         source: lista.value.source,
         ...(seasons === undefined ? {} : { seasons }),
       })
@@ -486,6 +491,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     ref: ProviderRef,
     number: number,
     callOptions: CallOptions,
+    season?: number,
   ): Promise<Result<Episode, ProviderError>> => {
     try {
       if (provider.capabilities.episodePages === true) {
@@ -495,8 +501,27 @@ export function createContainer(options: ContainerOptions): ServerContainer {
       const lista = await loadEpisodes(provider, ref, callOptions)
       if (!lista.ok) return lista
 
-      const encontrado = lista.value.value.find((episodio) => episodio.number === number)
-      if (encontrado === undefined) return err(episodeNotFound(provider, ref, number))
+      // Con temporada, el número se busca **dentro de ella**. Sin temporada, el
+      // número puede existir en varias: devolver la primera sería abrir un
+      // episodio que nadie pidió, así que se dice que hace falta elegir.
+      const candidatos = lista.value.value.filter(
+        (episodio) => episodio.number === number && (season === undefined || seasonOf(episodio) === season),
+      )
+      const [encontrado] = candidatos
+      if (encontrado === undefined) return err(episodeNotFound(provider, ref, number, season))
+
+      if (season === undefined) {
+        const temporadas = [
+          ...new Set(
+            candidatos
+              .map((episodio) => seasonOf(episodio))
+              .filter((temporada): temporada is number => temporada !== undefined),
+          ),
+        ]
+        if (temporadas.length > 1) {
+          return err(episodeAmbiguous(provider, ref, number, temporadas))
+        }
+      }
 
       return ok(encontrado)
     } catch (cause) {
@@ -509,6 +534,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     provider: Provider,
     ref: ProviderRef,
     callOptions: CallOptions,
+    season?: number,
   ): Promise<Result<Episode, ProviderError>> => {
     try {
       if (provider.capabilities.episodePages === true) {
@@ -518,15 +544,34 @@ export function createContainer(options: ContainerOptions): ServerContainer {
       const lista = await loadEpisodes(provider, ref, callOptions)
       if (!lista.ok) return lista
 
-      // «El mayor número de la lista», no el último de la lista: una fuente
-      // puede servir los episodios en cualquier orden y el último del título es
-      // el que numera más alto.
+      const candidatos =
+        season === undefined
+          ? lista.value.value
+          : lista.value.value.filter((episodio) => seasonOf(episodio) === season)
+
+      if (candidatos.length === 0) return err(episodesEmpty(provider, ref, season))
+
+      // El último es el de la temporada más alta y, dentro de ella, el número más
+      // alto. Sin temporadas, esto es el máximo número de siempre. No se toma el
+      // último de la lista porque una fuente puede servirla en cualquier orden.
       let ultimo: Episode | undefined
-      for (const episodio of lista.value.value) {
-        if (ultimo === undefined || episodio.number > ultimo.number) ultimo = episodio
+      for (const episodio of candidatos) {
+        if (ultimo === undefined) {
+          ultimo = episodio
+          continue
+        }
+
+        const temporada = seasonOf(episodio) ?? 0
+        const temporadaUltima = seasonOf(ultimo) ?? 0
+        if (
+          temporada > temporadaUltima ||
+          (temporada === temporadaUltima && episodio.number > ultimo.number)
+        ) {
+          ultimo = episodio
+        }
       }
 
-      if (ultimo === undefined) return err(episodesEmpty(provider, ref))
+      if (ultimo === undefined) return err(episodesEmpty(provider, ref, season))
 
       return ok(ultimo)
     } catch (cause) {
@@ -695,19 +740,53 @@ function sliceEpisodesPage(
  * estado HTTP: inventar aquí un código nuevo obligaría a la ruta a distinguir un
  * fallo del proveedor de un hueco de numeración, y los dos son «no está».
  */
-function episodeNotFound(provider: Provider, ref: ProviderRef, number: number): ProviderError {
+function episodeNotFound(
+  provider: Provider,
+  ref: ProviderRef,
+  number: number,
+  season?: number,
+): ProviderError {
+  const donde = season === undefined ? '' : ` en la temporada ${season}`
+
   return new ProviderError({
-    message: `el título ${ref.value} de ${provider.id} no tiene ningún episodio con el número ${number}`,
+    message: `el título ${ref.value} de ${provider.id} no tiene ningún episodio con el número ${number}${donde}`,
     scope: provider.id,
     op: 'getEpisode',
     context: { estado: 404 },
   })
 }
 
-/** Un título sin episodios no tiene último: 404 con el motivo, no un hueco. */
-function episodesEmpty(provider: Provider, ref: ProviderRef): ProviderError {
+/**
+ * El número existe en varias temporadas y no se pidió ninguna.
+ *
+ * Es un 409 y no el primero de la lista: con numeración por temporada, «el
+ * episodio 2» no identifica nada, y abrir el de la temporada 1 mientras se ve la
+ * 3 es reproducir el episodio equivocado.
+ */
+function episodeAmbiguous(
+  provider: Provider,
+  ref: ProviderRef,
+  number: number,
+  seasons: readonly number[],
+): ProviderError {
   return new ProviderError({
-    message: `el título ${ref.value} de ${provider.id} no tiene episodios`,
+    message: `el título ${ref.value} de ${provider.id} tiene el episodio ${number} en varias temporadas (${seasons.join(', ')}); indica ?season=`,
+    scope: provider.id,
+    op: 'getEpisode',
+    context: { estado: 409, temporadas: seasons.join(',') },
+  })
+}
+
+/** Un título sin episodios no tiene último: 404 con el motivo, no un hueco. */
+function episodesEmpty(
+  provider: Provider,
+  ref: ProviderRef,
+  season?: number,
+): ProviderError {
+  const donde = season === undefined ? '' : ` en la temporada ${season}`
+
+  return new ProviderError({
+    message: `el título ${ref.value} de ${provider.id} no tiene episodios${donde}`,
     scope: provider.id,
     op: 'getLatestEpisode',
     context: { estado: 404 },

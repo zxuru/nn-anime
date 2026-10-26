@@ -81,6 +81,29 @@ function marcada(providerId: string, temporadas: readonly number[]): readonly Ep
   return lista
 }
 
+/**
+ * Una lista con temporadas **explícitas**, numerada por temporada.
+ *
+ * Es el caso real de una fuente como PelisPlusHD: cada temporada empieza en 1 y
+ * la temporada es un dato del episodio, no un marcador del título. `temporadas`
+ * son los episodios de cada una —`[3, 3, 3]` son tres temporadas de tres—.
+ */
+function porTemporada(providerId: string, temporadas: readonly number[]): readonly Episode[] {
+  return temporadas.flatMap((cuantos, indice) =>
+    Array.from({ length: cuantos }, (_, posicion) => ({
+      ref: {
+        providerId,
+        value: `${REF}/temporada/${indice + 1}#${posicion + 1}`,
+      },
+      animeRef: { providerId, value: REF },
+      number: posicion + 1,
+      season: indice + 1,
+      title: `Episodio ${posicion + 1}`,
+      mode: 'sub' as const,
+    })),
+  )
+}
+
 function contador(): { cuentas: Map<string, number>; suma: (metodo: string) => void } {
   const cuentas = new Map<string, number>()
 
@@ -359,7 +382,7 @@ describe('las temporadas de un título', () => {
     })
   })
 
-  test('pedir una temporada devuelve sus episodios y numera contra el título', async () => {
+  test('pedir una temporada devuelve sus episodios y su total, no el del título', async () => {
     const { provider, cuentas } = crearSimple(marcada('simple', [110, 40]))
 
     await conApp(provider, async (pedir) => {
@@ -370,9 +393,9 @@ describe('las temporadas de un título', () => {
       expect(cuerpo.episodes.length).toBe(40)
       expect(cuerpo.episodes[0]?.number).toBe(111)
       expect(cuerpo.episodes[0]?.title).toBe('T2 E1 · Algo')
-      // El total es el del título: la fila numera «Episodio 111 de 150», que es
-      // la etiqueta de la fuente y lo que enseña el reproductor.
-      expect(cuerpo.total).toBe(150)
+      // El total es el de la temporada: con numeración por temporada, mezclar
+      // «Episodio 111» con «de 150» no dice nada que el usuario pueda usar.
+      expect(cuerpo.total).toBe(40)
       expect(cuerpo.page).toBe(1)
       expect(cuerpo.hasMore).toBe(false)
       expect(cuerpo.seasons).toEqual([
@@ -381,6 +404,26 @@ describe('las temporadas de un título', () => {
       ])
       // Y la lista entera sigue pidiéndose una sola vez.
       expect(cuentas.get('getEpisodes')).toBe(1)
+    })
+  })
+
+  test('una fuente que numera por temporada agrupa sin mirar el título', async () => {
+    const { provider } = crearSimple(porTemporada('simple', [3, 3, 3]))
+
+    await conApp(provider, async (pedir) => {
+      const cuerpo = episodesResponseSchema.parse(
+        (await pedir(`/api/anime/simple/${REF}/episodes?season=2`)).body,
+      )
+
+      expect(cuerpo.seasons).toEqual([
+        { season: 1, count: 3 },
+        { season: 2, count: 3 },
+        { season: 3, count: 3 },
+      ])
+      expect(cuerpo.episodes.map((episodio) => episodio.number)).toEqual([1, 2, 3])
+      expect(cuerpo.episodes.map((episodio) => episodio.season)).toEqual([2, 2, 2])
+      // El total es el de la temporada, no el de las tres.
+      expect(cuerpo.total).toBe(3)
     })
   })
 
@@ -489,6 +532,46 @@ describe('GET /api/anime/:providerId/:ref/episodes/latest', () => {
     })
   })
 
+  test('con temporadas, el último es el de la última, no el número más alto', async () => {
+    // Tres temporadas de tres: el número más alto del título es 3, y está en las
+    // tres. El «último» es T3E3; elegir por número devuelve T1E3.
+    const { provider } = crearSimple(porTemporada('simple', [3, 3, 3]))
+
+    await conApp(provider, async (pedir) => {
+      const respuesta = await pedir(`/api/anime/simple/${REF}/episodes/latest`)
+      const cuerpo = episodeResponseSchema.parse(respuesta.body)
+
+      expect(cuerpo.episode.season).toBe(3)
+      expect(cuerpo.episode.number).toBe(3)
+      expect(cuerpo.episode.ref.value).toBe(`${REF}/temporada/3#3`)
+    })
+  })
+
+  test('con `?season=`, el último es el de esa temporada', async () => {
+    const { provider } = crearSimple(porTemporada('simple', [3, 3, 3]))
+
+    await conApp(provider, async (pedir) => {
+      const cuerpo = episodeResponseSchema.parse(
+        (await pedir(`/api/anime/simple/${REF}/episodes/latest?season=1`)).body,
+      )
+
+      expect(cuerpo.episode.season).toBe(1)
+      expect(cuerpo.episode.ref.value).toBe(`${REF}/temporada/1#3`)
+    })
+  })
+
+  test('una fuente paginada no puede dar el último de una temporada', async () => {
+    const { provider, cuentas } = crearPaginado(porTemporada('paginado', [3, 3]))
+
+    await conApp(provider, async (pedir) => {
+      const respuesta = await pedir(`/api/anime/paginado/${REF}/episodes/latest?season=1`)
+
+      expect(respuesta.status).toBe(400)
+      expect(JSON.stringify(respuesta.body)).toContain('temporada')
+      expect(cuentas.get('getLatestEpisode')).toBeUndefined()
+    })
+  })
+
   test('con un proveedor paginado lo pide a él, sin traer la lista', async () => {
     const { provider, cuentas } = crearPaginado(lista('paginado', 6))
 
@@ -526,6 +609,46 @@ describe('GET /api/anime/:providerId/:ref/episodes/number/:n', () => {
 
       expect(respuesta.status).toBe(404)
       expect(JSON.stringify(respuesta.body)).toContain('999')
+    })
+  })
+
+  test('con `?season=`, el número se busca dentro de la temporada', async () => {
+    const { provider } = crearSimple(porTemporada('simple', [3, 3, 3]))
+
+    await conApp(provider, async (pedir) => {
+      const cuerpo = episodeResponseSchema.parse(
+        (await pedir(`/api/anime/simple/${REF}/episodes/number/2?season=2`)).body,
+      )
+
+      expect(cuerpo.episode.season).toBe(2)
+      expect(cuerpo.episode.ref.value).toBe(`${REF}/temporada/2#2`)
+    })
+  })
+
+  test('sin temporada, un número que está en varias es 409 y dice cuáles', async () => {
+    const { provider } = crearSimple(porTemporada('simple', [3, 3, 3]))
+
+    await conApp(provider, async (pedir) => {
+      const respuesta = await pedir(`/api/anime/simple/${REF}/episodes/number/2`)
+
+      // Abrir el de la T1 mientras se ve la T3 es reproducir el episodio
+      // equivocado; el mensaje dice qué temporadas hay y que se pida `?season=`.
+      expect(respuesta.status).toBe(409)
+      expect(JSON.stringify(respuesta.body)).toContain('season')
+      expect(JSON.stringify(respuesta.body)).toContain('1')
+      expect(JSON.stringify(respuesta.body)).toContain('3')
+    })
+  })
+
+  test('una fuente paginada no puede buscar dentro de una temporada', async () => {
+    const { provider, cuentas } = crearPaginado(porTemporada('paginado', [3, 3]))
+
+    await conApp(provider, async (pedir) => {
+      const respuesta = await pedir(`/api/anime/paginado/${REF}/episodes/number/2?season=2`)
+
+      expect(respuesta.status).toBe(400)
+      expect(JSON.stringify(respuesta.body)).toContain('temporada')
+      expect(cuentas.get('getEpisode')).toBeUndefined()
     })
   })
 
