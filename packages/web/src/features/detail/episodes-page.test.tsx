@@ -9,6 +9,7 @@ import {
   conMandos,
   EpisodeList,
   EpisodePager,
+  EpisodeRows,
   MovieAction,
   pageAfter,
   parteUnicaDe,
@@ -335,6 +336,35 @@ describe('la temporada, en la ruta', () => {
     expect(episodesPath('cuevana3', 'serie/rick-y-morty-1p1v6', { page: 1, season: 3 })).toBe(
       '/api/anime/cuevana3/serie%2Frick-y-morty-1p1v6/episodes?page=1&season=3',
     )
+  })
+
+  test('el salto y el último llevan la temporada, para no buscar en la equivocada', () => {
+    expect(episodeNumberPath('fixture', 'aurora-nocturna', 2, 3)).toBe(
+      '/api/anime/fixture/aurora-nocturna/episodes/number/2?season=3',
+    )
+    expect(latestEpisodePath('fixture', 'aurora-nocturna', 3)).toBe(
+      '/api/anime/fixture/aurora-nocturna/episodes/latest?season=3',
+    )
+    // Sin temporada la ruta es la de siempre: la lista entera no la inventa.
+    expect(episodeNumberPath('fixture', 'aurora-nocturna', 2)).toBe(
+      '/api/anime/fixture/aurora-nocturna/episodes/number/2',
+    )
+  })
+
+  test('dos temporadas con el mismo número no comparten identificador ni enlace', () => {
+    const html = render(
+      <EpisodeRows
+        episodes={[
+          { ...episodio(1), season: 1, ref: { providerId: 'fixture', value: 'serie/1#1' } },
+          { ...episodio(1), season: 2, ref: { providerId: 'fixture', value: 'serie/2#1' } },
+        ]}
+        mode="sub"
+      />,
+    )
+
+    expect(html).toContain('id="episodio-1-1"')
+    expect(html).toContain('id="episodio-2-1"')
+    expect(html).toContain('s=2')
   })
 
   test('la lectura de una temporada pide su página con la temporada y lee su índice', async () => {

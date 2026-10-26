@@ -42,6 +42,9 @@ export function continuePath(item: ContinueWatchingItem): string {
     // El título va escrito y no deducido: la fila lo trae en `animeRef`, y con
     // jkanime —que numera `slug/12`— deducirlo pedía la ficha del episodio.
     anime: item.animeRef.value,
+    // La temporada, si la fuente la declara: sin ella, «el episodio 1» de una
+    // serie de tres temporadas no dice cuál.
+    ...(item.season === undefined ? {} : { s: item.season }),
   })
 }
 
