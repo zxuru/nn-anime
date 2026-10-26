@@ -39,7 +39,7 @@
     "icon": "bun run scripts/icon.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2",
+    "@biomejs/biome": "^2.6.3",
     "@nn-anime/catalog-store": "workspace:*",
     "@nn-anime/core": "workspace:*",
     "@nn-anime/media-proxy": "workspace:*",
@@ -48,6 +48,6 @@
     "@nn-anime/server": "workspace:*",
     "@playwright/test": "^1.64.1",
     "@types/bun": "^1.4.4",
-    "typescript": "^7.0"
+    "typescript": "^7.0.2"
   }
 }
