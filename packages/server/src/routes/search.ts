@@ -18,9 +18,9 @@ import {
   hasGenreToken,
   mediaOf,
   ok,
-  pasaElFiltro,
   type ProviderError,
   type ProviderMedia,
+  pasaElFiltro,
   puedeServir,
   type Result,
   type SearchResult,
@@ -251,7 +251,9 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
           ).catch(() => undefined)
 
     return streamSSE(c, async (stream) => {
-      const medias = new Map(selected.map((provider) => [provider.id, mediaOf(provider.capabilities)]))
+      const medias = new Map(
+        selected.map((provider) => [provider.id, mediaOf(provider.capabilities)]),
+      )
 
       /**
        * El tipo se filtra también sobre los resultados.

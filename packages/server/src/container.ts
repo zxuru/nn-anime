@@ -505,7 +505,8 @@ export function createContainer(options: ContainerOptions): ServerContainer {
       // número puede existir en varias: devolver la primera sería abrir un
       // episodio que nadie pidió, así que se dice que hace falta elegir.
       const candidatos = lista.value.value.filter(
-        (episodio) => episodio.number === number && (season === undefined || seasonOf(episodio) === season),
+        (episodio) =>
+          episodio.number === number && (season === undefined || seasonOf(episodio) === season),
       )
       const [encontrado] = candidatos
       if (encontrado === undefined) return err(episodeNotFound(provider, ref, number, season))
@@ -778,11 +779,7 @@ function episodeAmbiguous(
 }
 
 /** Un título sin episodios no tiene último: 404 con el motivo, no un hueco. */
-function episodesEmpty(
-  provider: Provider,
-  ref: ProviderRef,
-  season?: number,
-): ProviderError {
+function episodesEmpty(provider: Provider, ref: ProviderRef, season?: number): ProviderError {
   const donde = season === undefined ? '' : ` en la temporada ${season}`
 
   return new ProviderError({

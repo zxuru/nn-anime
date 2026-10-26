@@ -764,10 +764,7 @@ describe('la temporada y la referencia real del episodio', () => {
   test('dos temporadas con el mismo número no colapsan al continuar viendo', async () => {
     await withStore((store) => {
       store.anime.write(SERIE, anime(SERIE, 'Serie Uno', 2024))
-      store.episodios.write(SERIE, [
-        episodioDeTemporada(1, 1),
-        episodioDeTemporada(2, 1),
-      ])
+      store.episodios.write(SERIE, [episodioDeTemporada(1, 1), episodioDeTemporada(2, 1)])
 
       const primera = store.watch.recordWatch({
         ...visionado(SERIE, 1, new Date(1_000)),

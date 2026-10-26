@@ -265,9 +265,7 @@ async function neighboursWithNumber(
   }
 
   const [anterior, siguiente] = await Promise.all([
-    number > 1
-      ? loadEpisodeByNumber(providerId, titleRef, number - 1, reads, suya)
-      : undefined,
+    number > 1 ? loadEpisodeByNumber(providerId, titleRef, number - 1, reads, suya) : undefined,
     loadEpisodeByNumber(providerId, titleRef, number + 1, reads, suya),
   ])
 

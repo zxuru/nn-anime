@@ -10,7 +10,10 @@ function episodio(number: number, season?: number): Episode {
   return {
     ref: {
       providerId: 'fixture',
-      value: season === undefined ? `aurora-nocturna#${number}` : `aurora-nocturna/temporada/${season}#${number}`,
+      value:
+        season === undefined
+          ? `aurora-nocturna#${number}`
+          : `aurora-nocturna/temporada/${season}#${number}`,
     },
     animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
     number,
@@ -94,9 +97,7 @@ describe('los vecinos de una serie con temporadas', () => {
     const uno = episodio(1, 2)
     const dos = episodio(2, 2)
     const ruta = episodesPath('fixture', 'aurora-nocturna', { page: 1, season: 2 })
-    const { rutas, deps } = servidor(
-      new Map([[ruta, pagina([uno, dos], { total: 2 })]]),
-    )
+    const { rutas, deps } = servidor(new Map([[ruta, pagina([uno, dos], { total: 2 })]]))
 
     const salida = await loadWatchNeighbours(mirar(uno.ref.value, 1, 2), { deps })
 

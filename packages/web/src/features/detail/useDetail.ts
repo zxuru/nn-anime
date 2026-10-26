@@ -156,11 +156,7 @@ export function episodeNumberPath(
 }
 
 /** La ruta del último episodio del título, o de una temporada suya. */
-export function latestEpisodePath(
-  providerId: string,
-  ref: string,
-  season?: number,
-): string {
+export function latestEpisodePath(providerId: string, ref: string, season?: number): string {
   const base = `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/episodes`
   const temporada = season === undefined ? '' : `?season=${season}`
 
