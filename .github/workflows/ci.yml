@@ -1,11 +1,31 @@
 name: CI
 
-# El listón, en cada push. Sin esto, las mitigaciones de `tests/seguridad.test.ts` y la auditoría
+# El listón, en cada PR. Sin esto, las mitigaciones de `tests/seguridad.test.ts` y la auditoría
 # limpia de dependencias son una promesa del último que las miró, no una condición de entrada.
 #
-# La versión de Bun está fijada a propósito: `bun.lock` es la fuente de verdad de las dependencias,
-# y una versión distinta del gestor puede resolverlas de otra forma. Si se sube aquí, que se suba
-# también `engines.bun` en `package.json`, en el mismo commit.
+# Cuatro decisiones de forma, y por qué:
+#
+#  1. **No hay `push` de ramas.** Antes, `push: branches: ['**']` y `pull_request` disparaban los
+#     dos el workflow: cada empujón a una rama con PR abierto ejecutaba el CI entero **dos veces**
+#     (el `push` con `refs/heads/rama` y el `pull_request` con `refs/pull/N/merge`, que son grupos
+#     de concurrencia distintos, así que ninguno cancelaba al otro). Era el gasto más grande de
+#     todos, y no medía nada nuevo.
+#  2. **`main` no corre aquí.** Lo que llega a `main` ya pasó estos trabajos en su PR: con branch
+#     protection («Require status checks» y «Require branches to be up to date») repetirlos es
+#     pagar dos veces por la misma medición. De `main` se encargan `release-please.yml` (abre el PR
+#     de versión) y `release.yml` (el tag: instaladores e imagen).
+#  3. **El filtro de rutas no está en `on:`.** Un workflow que no se dispara por `paths` deja sus
+#     checks en «Pending» para siempre y bloquea el merge. El filtro vive en el trabajo `cambios`,
+#     que publica qué se tocó; los demás se saltan con `if:`, y un trabajo saltado **por condición**
+#     cuenta como «Success» para branch protection. `cambios` publica además la lista de sistemas
+#     de cada matriz: `matrix` no se puede usar en un `if` de job, y quien lo intenta deja el
+#     workflow sin cargar.
+#  4. **`merge_group` existe** para que la merge queue (si se enciende) pueda medir la cola con este
+#     mismo workflow en vez de dejar los checks en «Expected».
+#
+# La versión de Bun está fijada a propósito y en un solo sitio (`env.BUN_VERSION`): `bun.lock` es la
+# fuente de verdad de las dependencias, y una versión distinta del gestor puede resolverlas de otra
+# forma. Si se sube aquí, que se suba también `engines.bun` en `package.json`, en el mismo commit.
 #
 # Las acciones de terceros van fijadas **por SHA de commit**, no por etiqueta: una etiqueta se puede
 # mover, y quien pueda moverla puede ejecutar lo que quiera en este repositorio con el token del
@@ -13,18 +33,143 @@ name: CI
 # proponer una actualización.
 
 on:
-  push:
-    branches: ['**']
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
 
+# `cancel-in-progress` sólo en PR: un empujón nuevo a la misma PR deja obsoleta la corrida anterior,
+# pero una corrida de la cola de merge no se cancela a media firma.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  BUN_VERSION: '1.4.3'
 
 jobs:
+  # Qué se tocó. Reemplaza a `paths:` en `on:` por el motivo 3 de la cabecera: publica booleanos y
+  # los trabajos caros se saltan con `if:`. Es barato (un `git diff`) y va primero para que nadie
+  # espere por él.
+  #
+  # Nota de seguridad del propio diseño: si este trabajo fallara, los que dependen de él se saltan y
+  # un trabajo saltado cuenta como «Success». Por eso `cambios` va en la lista de required checks:
+  # un fallo suyo bloquea el merge en vez de abrir un hueco.
+  cambios:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      codigo: ${{ steps.clasificar.outputs.codigo }}
+      packaging: ${{ steps.clasificar.outputs.packaging }}
+      desktop: ${{ steps.clasificar.outputs.desktop }}
+      empaquetado: ${{ steps.clasificar.outputs.empaquetado }}
+      desktop_os: ${{ steps.clasificar.outputs.desktop_os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # El `git diff` necesita el commit base, y en un PR el checkout trae el commit de fusión.
+          fetch-depth: 0
+
+      - name: Clasificar los archivos cambiados
+        id: clasificar
+        env:
+          # En un PR, la punta de la rama base; en la cola de merge, la base temporal de la cola.
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          # Devuelve macOS a la matriz de `desktop` sin tocar el YAML.
+          CI_MACOS_EN_PR: ${{ vars.CI_MACOS_EN_PR }}
+        run: |
+          set -euo pipefail
+
+          archivos=''
+          if [ -n "${BASE:-}" ] && git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            archivos="$(git diff --name-only "${BASE}...HEAD" 2>/dev/null || true)"
+          fi
+
+          # Sin base comparable (rama nueva, force-push, primer empujón) se asume que cambió todo.
+          # El error cae del lado de correr de más, no de correr de menos.
+          if [ -z "$archivos" ]; then
+            echo 'sin base con la que comparar: se asume que cambió todo' >&2
+            archivos="$(git ls-files)"
+          fi
+
+          # Código: algo que no sea documentación. `SECURITY.md` cuenta como **código**:
+          # `vite.config.ts` lo lee y lo emite como recurso de `dist`, así que un cambio suyo puede
+          # romper el build de la interfaz.
+          #
+          # `grep` con heredoc y no con tubería: con `pipefail`, un `grep -q` que acierta cierra la
+          # tubería antes de tiempo y el `printf` muere con SIGPIPE (141), lo que daría «no cambió
+          # nada» justo cuando sí cambió.
+          if grep -Eqv '^(docs/|.*\.md$)' <<< "$archivos" || grep -Eq '^SECURITY\.md$' <<< "$archivos"; then
+            codigo=true
+          else
+            codigo=false
+          fi
+
+          # Empaquetado: lo que decide el instalador —el servidor, el anfitrión de ventana, las
+          # plantillas de NSIS/nfpm/dmg— y las dependencias que compilan todo eso.
+          if grep -Eq '^(scripts/package/|packaging/|desktop/|package\.json$|bun\.lock$)' <<< "$archivos"; then
+            packaging=true
+          else
+            packaging=false
+          fi
+
+          # Árbol de Rust. `packages/web/` **no** entra: `tauri.conf.json` sirve un stub y
+          # `build.rs` embebe el binario del servidor, no el paquete de Vite.
+          if grep -Eq '^(desktop/|packaging/icons/)' <<< "$archivos"; then
+            desktop=true
+          else
+            desktop=false
+          fi
+
+          # La lista de sistemas de cada matriz se decide aquí. Un `if` de job no puede
+          # usar `matrix` (sólo github, inputs, needs y vars), y un workflow que lo intenta
+          # no llega a cargarse: GitHub lo rechaza con «workflow file issue». El `if` del
+          # job mira sólo `needs`; la matriz se construye con `fromJSON` de estas listas.
+          if [ "$packaging" = true ]; then
+            empaquetado='["ubuntu-latest","windows-latest"]'
+          else
+            empaquetado='["ubuntu-latest"]'
+          fi
+
+          # No vacía: si el job se salta por su `if`, GitHub no tiene que expandir `[]`.
+          if [ "$desktop" = true ]; then
+            if [ "${CI_MACOS_EN_PR:-false}" = true ]; then
+              desktop_os='["ubuntu-latest","windows-latest","macos-latest"]'
+            else
+              desktop_os='["ubuntu-latest","windows-latest"]'
+            fi
+          else
+            desktop_os='["ubuntu-latest"]'
+          fi
+
+          {
+            echo "codigo=$codigo"
+            echo "packaging=$packaging"
+            echo "desktop=$desktop"
+            echo "empaquetado=$empaquetado"
+            echo "desktop_os=$desktop_os"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo '### Qué cambió'
+            echo
+            echo "- código: \`$codigo\` · empaquetado: \`$packaging\` · Rust: \`$desktop\`"
+            echo
+            echo '<details><summary>Archivos</summary>'
+            echo
+            echo '```'
+            # `awk` y no `printf … | head`: con `pipefail`, un `head` que corta la tubería deja al
+            # `printf` con SIGPIPE (141) y el paso entero falla por un PR grande.
+            awk 'NR <= 100' <<< "$archivos"
+            echo '```'
+            echo
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # El listón que no depende de la plataforma. Corre **siempre**, también en un PR que sólo toca
+  # documentación: `packages/web/src/docs.test.ts` comprueba que lo que los `.md` dicen de
+  # `package.json` y del README es verdad, así que un cambio de docs también puede romperlo.
   calidad:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -33,7 +178,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.3
+          bun-version: ${{ env.BUN_VERSION }}
 
       # `restore-keys` sin el hash deja una caché anterior cuando `bun.lock` cambia: no acierta
       # del todo, pero ahorra la descarga de lo que no se movió.
@@ -74,18 +219,75 @@ jobs:
       - name: Pruebas
         run: bun test
 
-  # La imagen se construye y se arranca en cada push y en cada PR. El resto de
+  # Las pruebas en Windows, solas y no dentro del empaquetado.
+  #
+  # El repositorio tiene caminos que dependen del sistema —las rutas de los datos, los enlaces
+  # simbólicos de Windows— y probarlos en un solo sistema es probar la mitad. Antes esto vivía
+  # dentro del trabajo `empaquetado` de Windows, que además compilaba Rust y armaba el instalador:
+  # tres minutos de pruebas costaban cuarenta de compilación. Aquí cuestan tres, en paralelo.
+  #
+  # macOS no está: sus rutas son las de Linux (`~` y `$XDG_*`) y lo que macOS tiene de propio —el
+  # `.dmg`, `codesign`— se mide en `release.yml`, que es donde se arma. Para recuperarlo, añadir
+  # `macos-latest` a la matriz.
+  pruebas-windows:
+    needs: cambios
+    if: needs.cambios.outputs.codigo == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Caché de Bun
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Instalar
+        run: bun install --frozen-lockfile
+
+      - name: Instalar el gancho de pre-commit
+        run: bun run hooks:instalar
+
+      - name: Pruebas
+        run: bun test
+
+  # La imagen se construye y se arranca en cada PR que toca código. El resto de
   # trabajos ejecuta el código con Bun, no el Dockerfile: un `COPY` que falta o
   # un `USER` que no existe se descubrirían el día de la release, que es el peor
   # día. No se publica nada desde aquí.
+  #
+  # Las capas se cachean en la caché de Actions (`type=gha`) con un `scope` propio. El `scope` no es
+  # cosmético: `release.yml` construye la misma imagen multi-arquitectura y escribe en otro `scope`,
+  # así que sin separarlos las dos builds se pisan el índice y ninguna acierta.
   docker:
+    needs: cambios
+    if: needs.cambios.outputs.codigo == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Preparar Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # `load: true` y no `push`: la imagen tiene que existir en el `docker` local para poder
+      # arrancarla. `ignore-error` en `cache-to` porque en un PR desde un fork la caché es de sólo
+      # lectura y un fallo al escribirla no debe tumbar la comprobación.
       - name: Construir la imagen
-        run: docker build -t nn-anime:ci .
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v6
+        with:
+          context: .
+          file: ./Dockerfile
+          load: true
+          tags: nn-anime:ci
+          cache-from: type=gha,scope=nn-anime-ci
+          cache-to: type=gha,mode=max,scope=nn-anime-ci,ignore-error=true
 
       # Arrancarla y pedirle las tres cosas que importan: salud sin credencial,
       # 401 sin token y la interfaz con la cookie del login.
@@ -123,7 +325,17 @@ jobs:
 
   # El e2e vive aparte: necesita Chromium y un servidor, y tarda lo que tarda. Que falle aquí no
   # debe tapar que los tipos o las pruebas unitarias están rojos, y al revés.
+  #
+  # En dos mitades (`--shard`) para que el reloj del trabajo sea la mitad. Los dos proyectos de
+  # `playwright.config.ts` son `setup` y `chromium`, y el `setup` corre entero en cada mitad: es un
+  # archivo, y su estado —el token de arranque ya canjeado— es lo que la otra mitad necesita.
   e2e:
+    needs: cambios
+    if: needs.cambios.outputs.codigo == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -131,7 +343,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.3
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Caché de Bun
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -140,40 +352,132 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
 
+      # Los navegadores son ~150 MB que se descargan de un CDN en cada corrida. La clave lleva el
+      # hash de `bun.lock` porque `@playwright/test` está fijado ahí: cuando sube la versión, el
+      # navegador de la caché deja de valer y hay que bajar el de la nueva.
+      - name: Caché de Playwright
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-ms-playwright-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-ms-playwright-
+
+      - name: Instalar
+        run: bun install --frozen-lockfile
+
+      # Con la caché puesta esto no descarga nada: comprueba que el navegador de la versión que
+      # toca está y sigue el resto del camino igual.
+      - name: Instalar Chromium
+        run: bun run e2e:install
+
+      # `bun run` pasa los argumentos de después del script al comando del script, así que esto
+      # acaba en `playwright test --grep-invert … --shard=N/2` sin necesidad de un script nuevo.
+      - name: Extremo a extremo (mitad ${{ matrix.shard }} de ${{ strategy.job-total }})
+        run: bun run e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+
+      # Los rastros de Playwright (`trace: 'retain-on-failure'`) son lo único que explica un fallo
+      # que no se reproduce en local. Sin esto se borran con el runner.
+      - name: Dejar los rastros si falla
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-rastros-${{ matrix.shard }}
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # El camino del proveedor que falla. Va en su propio trabajo porque es un archivo y un puerto
+  # distintos: dentro de la corrida principal retrasaba a las dos mitades sin compartir nada con
+  # ellas.
+  e2e-fallo:
+    needs: cambios
+    if: needs.cambios.outputs.codigo == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Caché de Bun
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Caché de Playwright
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-ms-playwright-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-ms-playwright-
+
       - name: Instalar
         run: bun install --frozen-lockfile
 
       - name: Instalar Chromium
         run: bun run e2e:install
 
-      - name: Extremo a extremo
-        run: bun run e2e:todo
+      - name: Extremo a extremo con el proveedor caído
+        run: bun run e2e:fallo
 
-  # El empaquetado, en las tres plataformas, **en cada push**. No es una repetición del trabajo de
-  # calidad: lo que se comprueba aquí es el ejecutable y su instalador, que es lo que recibe quien
-  # instala la aplicación. Un `bun build --compile` sale verde y produce un programa que arranca sin
-  # interfaz y sin migraciones —pasó—, y eso sólo lo ve quien lo ejecuta.
+      - name: Dejar los rastros si falla
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-rastros-fallo
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # El empaquetado. Qué corre en cada vuelta:
   #
-  # Se arma el instalador entero y no sólo el ejecutable por dos motivos. El primero: quien mantiene
-  # esto no tiene por qué tener NSIS, `nfpm` ni un Mac a mano — **compila GitHub**. El segundo: un
-  # error en el script de NSIS o en el `.dmg` se descubre en el push que lo introdujo, y no el día de
-  # la release, que es el peor día para descubrirlo.
+  #  - **Linux, siempre que cambie código**: el build de verificación rápido. Compila el ejecutable
+  #    del servidor y lo **arranca** (`scripts/package/smoke.ts`): interfaz, recursos, token de
+  #    arranque y base migrada. Es la medición que ningún otro trabajo hace —un `bun build
+  #    --compile` puede salir verde y producir un programa que arranca sin interfaz ni migraciones,
+  #    y pasó—.
+  #  - **Linux, cuando se toca el empaquetado**: además, el instalador entero (`.deb`, `.rpm`,
+  #    AppImage). Es lo que descubre un `nfpm.yaml` roto el día que se rompe.
+  #  - **Windows, sólo cuando se toca el empaquetado o el árbol de Rust**: la cadena completa con su
+  #    instalador de NSIS, su archivo único y su prueba de instalación real.
+  #
+  # **Por qué Windows sigue en la PR.** Lo que mide no se puede medir en Linux: el campo `Subsystem`
+  # de la cabecera PE (que es lo que decide si el ejecutable abre consola), la etiqueta de
+  # integridad de la ACL, el `.exe` único con el servidor embebido por `build.rs`, y el instalador
+  # ejecutado de verdad —instalado en silencio, abierto, servidor extraído, desinstalado—. Los tres
+  # primeros fallaron alguna vez en este repositorio y ninguno se ve desde otro sistema. Lo que
+  # cambia no es que se mida, sino **cuándo**: en la PR que toca el empaquetado, no en las que sólo
+  # cambian una ruta del servidor. La release (`release.yml`) lo vuelve a medir en el tag, así que
+  # el día que se publica tampoco se confía.
+  #
+  # macOS no está: sus instaladores (dos `.dmg`, `codesign`, notarización) salen en `release.yml`,
+  # que es donde se firman. Añadirlo aquí costaba 10× minutos de runner para medir lo mismo.
   empaquetado:
+    needs: cambios
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # Linux siempre que cambie código; Windows sólo si se toca el empaquetado o el
+        # árbol de Rust. La lista la decide `cambios`; `matrix` no vale en un `if` de job.
+        os: ${{ fromJSON(needs.cambios.outputs.empaquetado) }}
     runs-on: ${{ matrix.os }}
-    # 45 y no 30: este trabajo compila ahora **también el árbol de Rust** —una
-    # compilación de Tauri en frío—, además del ejecutable, el instalador y su
-    # prueba. El trabajo `desktop`, que sólo compila el anfitrión, ya presupuesta 45.
+    # 45 y no 30: la vuelta de Windows compila el árbol de Rust —una compilación de Tauri en
+    # frío—, además del ejecutable, el instalador y su prueba.
     timeout-minutes: 45
+    if: needs.cambios.outputs.codigo == 'true' || needs.cambios.outputs.packaging == 'true'
+    env:
+      # Verdadero cuando hay que armar el instalador y no sólo el ejecutable.
+      COMPLETO: ${{ needs.cambios.outputs.packaging == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.3
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Caché de Bun
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -188,23 +492,20 @@ jobs:
       - name: Instalar el gancho de pre-commit
         run: bun run hooks:instalar
 
-      # Las pruebas también aquí y no sólo en Linux: el repositorio tiene caminos que dependen del
-      # sistema —las rutas de los datos, los enlaces simbólicos de Windows— y probarlos en un solo
-      # sistema es probar la mitad.
-      - name: Pruebas
-        run: bun test
-
+      # `scripts/package.ts` se niega a compilar sin el paquete de la interfaz: sin él el ejecutable
+      # arranca, contesta 404 en `/` y quien lo instaló cree que la aplicación está rota.
       - name: Construir la interfaz
         run: bun run build
 
       # NSIS en Windows, `nfpm` y `appimagetool` en Linux, con sus hashes comprobados. En macOS no
       # hace falta nada: `hdiutil` viene con el sistema.
       - name: Preparar las herramientas de empaquetado
+        if: env.COMPLETO == 'true'
         uses: ./.github/actions/herramientas
 
       # Si `hdiutil` se queda sin sitio, este número dice cuánto había. Sin él, el fallo es «No space
-      # left on device» y no se sabe de qué volumen: los runners de macOS traen la imagen cargada de
-      # herramientas y el espacio libre no es el que uno supondría.
+      # left on device» y no se sabe de qué volumen. Sólo actúa si algún día se añade macOS a la
+      # matriz.
       - name: Espacio en disco (macOS)
         if: runner.os == 'macOS'
         run: df -h
@@ -214,32 +515,36 @@ jobs:
       # revés, el instalador de Windows —que ya sólo instala el anfitrión— saldría
       # sin servidor dentro y la ventana enseñaría el aviso de fallo.
       - name: Rust al día
+        if: env.COMPLETO == 'true'
         run: rustup update stable --no-self-update
 
       - name: Dependencias del webview (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && env.COMPLETO == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf
 
-      - name: Caché de cargo
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # `Swatinem/rust-cache` en vez de `actions/cache` sobre `target/`: el directorio de Tauri pesa
+      # varios GB y `actions/cache` lo guarda entero con una clave que cambia cuando cambia
+      # `Cargo.lock`; este poda lo que no acelera nada, separa registro de artefactos y no falla el
+      # trabajo cuando la caché pasa del límite.
+      - name: Caché de Rust
+        if: env.COMPLETO == 'true'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            desktop/src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+          workspaces: desktop/src-tauri -> target
+          # La vuelta de Windows y la de Linux no comparten artefactos.
+          key: ${{ matrix.os }}
 
       # 1) El servidor, y **sin** instalador: lo arranca de verdad —interfaz,
       #    recursos, token de arranque y base migrada— y lo deja donde `build.rs`
-      #    lo lee al compilar el anfitrión.
+      #    lo lee al compilar el anfitrión. Es el build de verificación de la PR.
       - name: Compilar y probar el ejecutable
         run: bun run package --skip-installer
 
       # 2) El anfitrión, con el servidor embebido.
       - name: Compilar el anfitrión
+        if: env.COMPLETO == 'true'
         run: bun run desktop:build
 
       # 3) El archivo único que se descarga. `package:unico` comprueba que el
@@ -250,6 +555,7 @@ jobs:
 
       # 4) El instalador, ya con el anfitrión y el servidor en su sitio.
       - name: Armar el instalador
+        if: env.COMPLETO == 'true'
         run: bun run package --only-installer
 
       # El sandbox donde se compiló esto en desarrollo etiquetaba los binarios como
@@ -340,23 +646,32 @@ jobs:
   # Se compila además de pasar las pruebas: el fallo que importa aquí es de enlace
   # y de configuración —`tauri.conf.json`, las dependencias del webview de Linux—,
   # y ése no lo ve `cargo test`.
+  #
+  # Se filtra por rutas porque sus dos entradas son `desktop/` y los iconos: ni el
+  # servidor ni el paquete de Vite entran en esta compilación (`build.rs` embebe el
+  # binario del servidor y `tauri.conf.json` sirve un stub).
   desktop:
+    needs: cambios
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # macOS fuera por defecto: sus minutos se cuentan por diez y el árbol de Rust es el
+        # mismo. `CI_MACOS_EN_PR=true` lo devuelve desde `cambios`, que es quien puede leer
+        # `vars` y construir la matriz.
+        os: ${{ fromJSON(needs.cambios.outputs.desktop_os) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
+    if: needs.cambios.outputs.desktop == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.3
+          bun-version: ${{ env.BUN_VERSION }}
 
       # El `rustup` que ya traen las imágenes de los tres runners, actualizado en
-      # vez de una acción de terceros: una acción más es un SHA más que auditar, y
-      # `tauri-plugin-single-instance` sólo pide Rust >= 1.90.
+      # vez de una acción de terceros: `tauri-plugin-single-instance` sólo pide Rust >= 1.90, y
+      # las imágenes vienen por delante.
       - name: Rust al día
         run: rustup update stable --no-self-update
 
@@ -369,15 +684,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf
 
-      - name: Caché de cargo
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Caché de Rust
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            desktop/src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+          workspaces: desktop/src-tauri -> target
 
       # `desktop:check` es `cargo fmt --check`, `cargo clippy -D warnings` y
       # `cargo test`. El script y no los tres comandos sueltos: el listón vive en
