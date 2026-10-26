@@ -263,19 +263,19 @@ caso de proveedor en fallo— no es cosmética: **es la que convierte F1 y F2 en
 | **0.5** | Añadir al fixture una serie de dos o tres temporadas con numeración por temporada y referencias por temporada; un caso de proveedor que falla en `resolveStream` para ese tipo. Es lo que hace fallar F1/F2 antes de arreglarlos. |
 | **0.6** | Parcial: `SourcePicker` existe en la ficha y el e2e mide que ofrece la otra fuente; **no** hay cambio automático cuando la fuente activa falla en el reproductor, ni conserva la posición. |
 
-## Decisión pendiente: D1
+## Decisión D1
 
-No se toma. Opciones, con lo que el código permite hoy:
+**Decidida el 2026-10-26: clave opcional de TMDB en Ajustes, con el plugin como respaldo.** La
+implementa 0.3; la clave no se devuelve en `GET /api/settings`, TMDB entra en la lista blanca y su
+salida se declara en `SECURITY.md`. Sin clave, la ficha se queda con lo que dé el plugin.
+
+Las tres opciones que se barajaron, para que la decisión se lea con su coste:
 
 | Opción | Coste | Qué respeta |
 |---|---|---|
 | Sólo lo que entregue el plugin | Bajo | «Sin cuentas» al pie de la letra; la ficha depende de la calidad del plugin |
 | TMDB con clave del usuario en Ajustes | Medio; clave en `settings`, nueva salida de red y lista blanca | Mantiene «sin cuentas» pero añade una superficie que `SECURITY.md` debe declarar |
 | Respaldo en el plugin + caché local de lo recibido | Bajo-medio | Nada nuevo que abrir; no mejora un plugin pobre |
-
-La recomendación inicial del roadmap es la segunda, con la primera como respaldo. **No se
-implementa hasta que el humano decida**, porque cambia la superficie de red y los términos de un
-tercero.
 
 ## Criterios de aceptación de 0.1
 
