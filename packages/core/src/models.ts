@@ -112,7 +112,17 @@ export interface WatchRecord {
   readonly id: number
   readonly anime: AnimeSummary
   readonly providerId: string
+  /**
+   * La referencia real del episodio, tal y como la escribió el proveedor.
+   *
+   * Es la identidad, y por eso viene de la fila del episodio y no se reconstruye
+   * con `animeRef#number`: con numeración por temporada esa reconstrucción apunta
+   * a un episodio que no existe. Añadido en T176.
+   */
+  readonly episodeRef: ProviderRef
   readonly episodeNumber: number
+  /** La temporada, si el episodio la declara. */
+  readonly season?: number
   readonly mode: Mode
   readonly positionS: number
   readonly durationS: number

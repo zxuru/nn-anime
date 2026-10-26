@@ -718,3 +718,86 @@ describe('todo sobrevive a cerrar y reabrir', () => {
     })
   })
 })
+
+const SERIE: ProviderRef = { providerId: 'series', value: 'serie/uno' }
+
+/** Un episodio de una serie que numera por temporada. */
+function episodioDeTemporada(temporada: number, numero: number): Episode {
+  const ref = { providerId: SERIE.providerId, value: `serie/uno/temporada/${temporada}#${numero}` }
+
+  return {
+    ref,
+    animeRef: { providerId: SERIE.providerId, value: `serie/uno/temporada/${temporada}` },
+    number: numero,
+    season: temporada,
+    title: `Episodio ${numero}`,
+    mode: 'sub',
+  }
+}
+
+describe('la temporada y la referencia real del episodio', () => {
+  test('la temporada se guarda y se lee; sin ella la fila sigue valiendo', async () => {
+    await withStore((store) => {
+      store.anime.write(SERIE, anime(SERIE, 'Serie Uno', 2024))
+      store.episodios.write(SERIE, [
+        episodioDeTemporada(1, 1),
+        episodioDeTemporada(1, 2),
+        episodioDeTemporada(2, 1),
+        episodioDeTemporada(2, 2),
+      ])
+
+      const leidos = store.episodios.read(SERIE)
+      expect(leidos?.value.map((episode) => [episode.season, episode.number])).toEqual([
+        [1, 1],
+        [1, 2],
+        [2, 1],
+        [2, 2],
+      ])
+
+      // Y el caso viejo: una fila sin temporada no se convierte en temporada 1.
+      store.episodios.write(AURORA, [episodio(AURORA, 1)])
+      const viejos = store.episodios.read(AURORA)
+      expect(viejos?.value[0]?.season).toBeUndefined()
+    })
+  })
+
+  test('dos temporadas con el mismo número no colapsan al continuar viendo', async () => {
+    await withStore((store) => {
+      store.anime.write(SERIE, anime(SERIE, 'Serie Uno', 2024))
+      store.episodios.write(SERIE, [
+        episodioDeTemporada(1, 1),
+        episodioDeTemporada(2, 1),
+      ])
+
+      const primera = store.watch.recordWatch({
+        ...visionado(SERIE, 1, new Date(1_000)),
+        episodeRef: { providerId: 'series', value: 'serie/uno/temporada/1#1' },
+      })
+      const segunda = store.watch.recordWatch({
+        ...visionado(SERIE, 1, new Date(2_000)),
+        episodeRef: { providerId: 'series', value: 'serie/uno/temporada/2#1' },
+      })
+      store.watch.updateWatchPosition(primera, 100, 1440)
+      store.watch.updateWatchPosition(segunda, 200, 1440)
+
+      const filas = store.watch.listRecentlyWatched(10)
+      expect(filas).toHaveLength(2)
+
+      const porTemporada = filas
+        .map((fila) => ({
+          season: fila.season,
+          ref: fila.episodeRef.value,
+          estado: fila.positionS,
+        }))
+        .sort((a, b) => (a.season ?? 0) - (b.season ?? 0))
+
+      // La referencia es la del episodio, no `animeRef#number`: con ella el
+      // reproductor vuelve al episodio correcto. Mutar la proyección para
+      // reconstruirla hace fallar esta comparación.
+      expect(porTemporada).toEqual([
+        { season: 1, ref: 'serie/uno/temporada/1#1', estado: 100 },
+        { season: 2, ref: 'serie/uno/temporada/2#1', estado: 200 },
+      ])
+    })
+  })
+})

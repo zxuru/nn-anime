@@ -34,6 +34,8 @@ interface WatchRow {
   readonly started_at: number
   readonly finished: number
   readonly episode_number: number
+  readonly episode_provider_ref: string
+  readonly episode_season: number | null
   readonly anime_provider: string
   readonly anime_ref: string
   readonly title: string
@@ -87,7 +89,9 @@ function toRecord(row: WatchRow): WatchRecord {
       ...(kind === undefined ? {} : { kind }),
     },
     providerId: row.provider_id,
+    episodeRef: { providerId: row.provider_id, value: row.episode_provider_ref },
     episodeNumber: row.episode_number,
+    ...(row.episode_season === null ? {} : { season: row.episode_season }),
     mode: mode.data,
     positionS: row.position_s,
     durationS: row.duration_s,
@@ -112,6 +116,8 @@ const WATCH_SELECT = `SELECT w.id AS id, w.provider_id AS provider_id, w.mode AS
                              w.position_s AS position_s, w.duration_s AS duration_s,
                              w.started_at AS started_at, w.finished AS finished,
                              e.number AS episode_number,
+                             e.provider_ref AS episode_provider_ref,
+                             e.season AS episode_season,
                              a.provider_id AS anime_provider, a.provider_ref AS anime_ref,
                              a.title AS title, a.cover_url AS cover_url, a.year AS year,
                              a.raw_json AS raw_json

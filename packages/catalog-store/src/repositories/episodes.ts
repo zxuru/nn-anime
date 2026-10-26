@@ -36,6 +36,7 @@ interface EpisodeRow {
   readonly fetched_at: number
   readonly ttl_s: number
   readonly number: number
+  readonly season: number | null
   readonly title: string | null
   readonly duration_s: number | null
   readonly mode: string
@@ -46,6 +47,7 @@ function parseEpisode(row: EpisodeRow, anime: ProviderRef): Episode {
     ref: { providerId: anime.providerId, value: row.provider_ref },
     animeRef: anime,
     number: row.number,
+    ...(row.season === null ? {} : { season: row.season }),
     ...(row.title === null ? {} : { title: row.title }),
     ...(row.duration_s === null ? {} : { durationS: row.duration_s }),
     mode: row.mode,
@@ -80,8 +82,8 @@ export function replaceEpisodes(
   db.query('DELETE FROM episode WHERE anime_id = ?').run(animeId)
 
   const insert = db.query(
-    `INSERT INTO episode (anime_id, provider_ref, number, title, duration_s, mode, fetched_at, ttl_s)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO episode (anime_id, provider_ref, number, season, title, duration_s, mode, fetched_at, ttl_s)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
 
   for (const episode of episodes) {
@@ -89,6 +91,7 @@ export function replaceEpisodes(
       animeId,
       episode.ref.value,
       episode.number,
+      episode.season ?? null,
       episode.title ?? null,
       episode.durationS ?? null,
       episode.mode,
@@ -151,8 +154,13 @@ export function createEpisodesRepository(db: Database, ttlS: number = TTL_SECOND
        FROM anime WHERE provider_id = ? AND provider_ref = ?`,
   )
 
+  // Con temporadas, el orden es el de la fuente: temporada y después número. Los
+  // episodios sin temporada van al final para no intercalarse con una que sí se
+  // declaró. Sin ninguna temporada, esto ordena por número, como siempre.
   const episodesSelect = db.query<EpisodeRow, [number]>(
-    'SELECT provider_ref, number, title, duration_s, mode, fetched_at, ttl_s FROM episode WHERE anime_id = ? ORDER BY number',
+    `SELECT provider_ref, number, season, title, duration_s, mode, fetched_at, ttl_s
+       FROM episode WHERE anime_id = ?
+      ORDER BY season IS NULL, season, number`,
   )
 
   return {

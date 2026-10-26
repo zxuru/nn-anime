@@ -274,6 +274,31 @@ describe('migración inicial', () => {
     })
   })
 
+  test('la temporada del episodio se añade sin tocar las filas que ya estaban', async () => {
+    await withDb((db) => {
+      // Una base con las migraciones anteriores y una fila escrita por el código
+      // de antes: la columna nueva tiene que entrar sin perderla ni inventarle una
+      // temporada que la fuente no declaró.
+      runMigrations(
+        db,
+        listMigrations().filter((migration) => migration.version <= 12),
+      )
+      db.exec(
+        "INSERT INTO anime (provider_id, provider_ref, title, fetched_at, ttl_s) VALUES ('p', 'x', 'X', 0, 0)",
+      )
+      db.exec(
+        "INSERT INTO episode (anime_id, provider_ref, number, title, mode, fetched_at, ttl_s) VALUES (1, 'x#1', 1, 'Episodio 1', 'sub', 0, 0)",
+      )
+
+      const informe = runMigrations(db)
+
+      expect(informe.applied).toEqual([13])
+      expect(columnNames(db, 'episode')).toContain('season')
+      const fila = db.query('SELECT number, season FROM episode WHERE provider_ref = ?').get('x#1')
+      expect(fila).toEqual({ number: 1, season: null })
+    })
+  })
+
   test('las claves foráneas se hacen cumplir, no sólo se declaran', async () => {
     await withDb((db) => {
       runMigrations(db)
