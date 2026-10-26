@@ -151,7 +151,7 @@ alcance de 0.2.
 **Una sola columna nueva, nullable, sin reescribir filas:**
 
 ```sql
--- 0012-temporadas.sql
+-- 0013-temporadas.sql
 ALTER TABLE episode ADD COLUMN season INTEGER;
 ```
 
@@ -165,8 +165,8 @@ ALTER TABLE episode ADD COLUMN season INTEGER;
 - `episode_number` sigue en la tabla y en el contrato del historial como etiqueta, no como clave.
 - Índice nuevo, opcional: `episode_por_temporada (anime_id, season, number)`.
 
-La migración se prueba con una base creada con `0001`–`0011`, se escriben episodios sin `season`,
-se aplica `0012` y se leen: los mismos episodios, con `season` nula y la temporada del título. Es
+La migración se prueba con una base creada con `0001`–`0012`, se escriben episodios sin `season`,
+se aplica `0013` y se leen: los mismos episodios, con `season` nula y la temporada del título. Es
 la prueba de «sin pérdida de datos» del criterio de aceptación.
 
 ## 5. `web`: lo mínimo para no romper la navegación
@@ -284,7 +284,7 @@ D2–D5 siguen abiertas. Esta propuesta no las toca.
       anime y el vocabulario no cambia.
 - [ ] `Episode.season` y `capabilities.seasons` existen; una fuente sin ellos se comporta como hoy.
 - [ ] `searchResultSchema.mediaType` y `capabilities.mediaPerTitle` existen y están probados.
-- [ ] Migración `0012` sobre una base con datos: sin pérdida, con prueba.
+- [ ] Migración `0013` sobre una base con datos: sin pérdida, con prueba.
 - [ ] `/episodes`, `/episodes/latest` y `/episodes/number/:n` usan temporada y referencia; el 409
       está probado.
 - [ ] «Continuar viendo» e historial devuelven la referencia real y no colapsan temporadas.
