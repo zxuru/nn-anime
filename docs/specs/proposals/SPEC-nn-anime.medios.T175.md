@@ -293,4 +293,4 @@ D2–D5 siguen abiertas. Esta propuesta no las toca.
 - [x] «Continuar viendo» e historial devuelven la referencia real y no colapsan temporadas.
 - [x] La búsqueda filtra resultados por tipo cuando lo conoce.
 - [x] La interfaz pasa `season` y no usa el número como identidad.
-- [ ] El fixture multi-temporada y su caso de fallo son 0.5 (T179), no esta tarea.
+- [x] El fixture multi-temporada y su caso de fallo son 0.5 (T179), no esta tarea.
