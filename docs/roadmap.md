@@ -166,11 +166,11 @@ URLs de streams.
 - **Empaquetado:** comprobar que el ejecutable único de Windows, los instaladores y el anfitrión
   Tauri siguen compilando tras cada fase.
 
-## 6. Decisiones abiertas (el agente no decide, pregunta)
+## 6. Decisiones (las abiertas no las decide el agente: pregunta)
 
-| ID | Decisión | Opciones | Recomendación inicial |
-|----|----------|----------|-----------------------|
-| D1 | Metadatos de películas y series | TMDB con clave del propio usuario en Ajustes, o solo lo que entregue el plugin | Clave opcional del usuario + respaldo en el plugin, para no romper «sin cuentas» |
+| ID | Decisión | Opciones | Estado o recomendación |
+|----|----------|----------|------------------------|
+| D1 | Metadatos de películas y series | TMDB con clave del propio usuario en Ajustes, o solo lo que entregue el plugin | **Decidida el 2026-10-26: clave opcional de TMDB en Ajustes, con el plugin como respaldo.** La clave no se devuelve en `GET /api/settings`; TMDB entra en la lista blanca y en `SECURITY.md` |
 | D2 | Formato de descarga HLS | Guardar playlist y segmentos y servirlos desde el proxy local, o remux a MP4 con ffmpeg opcional | Empezar con segmentos locales (sin dependencias nuevas); ffmpeg opcional después |
 | D3 | Transporte de watch party remoto | WebRTC con señalización manual (copiar y pegar un código), relay autohospedable opcional, o túnel del propio usuario | WebRTC con señalización manual: respeta «sin servidor central» |
 | D4 | Orden entre manga y watch party | Manga primero o watch party primero | Manga primero, por riesgo y por reutilizar el motor de descargas |

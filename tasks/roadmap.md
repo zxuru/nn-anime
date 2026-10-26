@@ -1,6 +1,7 @@
 # Plan de tareas: roadmap post-v0.3.1
 
-Origen: `docs/roadmap.md` · Estado: **fase 0 abierta, 0.1 cerrada** · 2026-10-26.
+Origen: `docs/roadmap.md` · Estado: **fase 0 abierta, 0.1 cerrada, spec de 0.2 entregada** ·
+2026-10-26.
 Diagnóstico que reordena la fase 0: `docs/diagnostico-peliculas-series.md`.
 
 Rige el **Definition of Done** de `tasks/plan.md`: `typecheck`, `lint` y `bun test` en verde,
@@ -16,11 +17,12 @@ lo que ordena.
 | Roadmap | Task | Estado | Depende de |
 |---|---|---|---|
 | 0.1 Diagnóstico | **T174** | hecho | — |
-| 0.2 Modelo de medios y temporadas | T175 | pendiente | T174 |
-| 0.3 Metadatos de no-anime | T176 | **bloqueada por D1** | T174 |
-| 0.4 Reproductor de película y serie | T177 | pendiente | T175 |
-| 0.5 Fixture multi-temporada y caso de fallo | T178 | pendiente | T175 |
-| 0.6 Selector de fuente con alternativa | T179 | pendiente | T174 (parcial: el selector de la ficha ya existe) |
+| 0.2 Modelo de medios y temporadas · spec | **T175** | hecho: propuesta entregada, pendiente de aprobación | T174 |
+| 0.2 Modelo de medios y temporadas · código | T176 | pendiente, bloqueada por la aprobación de T175 | T175 |
+| 0.3 Metadatos de no-anime | T177 | pendiente; D1 decidida | T174 |
+| 0.4 Reproductor de película y serie | T178 | pendiente | T176 |
+| 0.5 Fixture multi-temporada y caso de fallo | T179 | pendiente | T176 |
+| 0.6 Selector de fuente con alternativa | T180 | pendiente | T174 (parcial: el selector de la ficha ya existe) |
 | Fase 1 Descargas | sin abrir | — | 0.5 |
 | Fase 2A Manga | sin abrir | — | 0.5 |
 | Fase 2B Descarga de manga | sin abrir | — | 1.x, 2A |
@@ -43,22 +45,24 @@ episodio** y la fuente de metadatos:
   viendo», y quita la etiqueta de episodio a la película.
 - **0.6** ya tiene el selector en la ficha; falta el cambio automático al fallar la fuente activa.
 
-## Decisiones que no se toman aquí
+## Decisiones
 
-- **D1** (metadatos): bloquea 0.3. Opciones y consecuencias en el diagnóstico, sección «Decisión
-  pendiente: D1».
+- **D1** (metadatos): **decidida el 2026-10-26** — clave opcional de TMDB en Ajustes, con el plugin
+  como respaldo. La implementa 0.3 (T177); la clave no se devuelve en `GET /api/settings` y TMDB
+  entra en la lista blanca y en `SECURITY.md`.
 - **D2** (formato de descarga HLS) y **D5** (formato de manga): bloquean sus specs, no la fase 0.
 - **D3** (transporte de watch party): bloquea 3.4, no el MVP LAN.
 
-## Specs que hay que escribir antes de codificar
+## Specs
 
-| Task | Spec | Por qué |
+| Task | Spec | Estado |
 |---|---|---|
-| T175 | `docs/specs/proposals/SPEC-nn-anime.medios.md` | Cambia el modelo de `core` y la lectura de `catalog-store`: es evento de versión mayor del contrato de plugin |
-| T176 | `docs/specs/proposals/SPEC-nn-anime.metadatos.md` | Sólo después de D1; abre una salida de red nueva |
-| T177 | — | Es interfaz y rutas existentes; el criterio es el e2e |
-| T178 | — | Es fixture y pruebas; no cambia contrato |
-| T179 | — | Es interfaz; no cambia contrato |
+| T175 (0.2) | `docs/specs/proposals/SPEC-nn-anime.medios.T175.md` | **propuesta entregada**, pendiente de aprobación |
+| T176 (0.2, código) | la de T175, una vez aprobada | — |
+| T177 (0.3) | `docs/specs/proposals/SPEC-nn-anime.metadatos.md` | por escribir; D1 ya decidida |
+| T178 (0.4) | — | Es interfaz y rutas existentes; el criterio es el e2e |
+| T179 (0.5) | — | Es fixture y pruebas; no cambia contrato |
+| T180 (0.6) | — | Es interfaz; no cambia contrato |
 
 ## Lo que este plan no incluye
 
