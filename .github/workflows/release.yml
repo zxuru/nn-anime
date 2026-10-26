@@ -460,29 +460,73 @@ jobs:
 
           # El cuerpo del changelog sale del `CHANGELOG.md` que escribió `release-please`: la
           # sección de esta versión, ni una línea más.
-          notas=()
           if [ -f CHANGELOG.md ]; then
             awk -v v="$VERSION" '
               $0 ~ "^## \\[" v "\\]" { dentro = 1; next }
               dentro && /^## \[/ { dentro = 0 }
               dentro { print }
             ' CHANGELOG.md > "$RUNNER_TEMP/notas.md"
+          fi
 
+          # Resolver el release **por id**, nunca por tag. `GET /releases/tags/$TAG` no devuelve
+          # borradores, y por eso el `gh release create` de antes creaba un segundo release con el
+          # mismo tag: los assets iban a uno y `gh release edit` publicaba el otro. Pasó con la 0.3.1.
+          listar() {
+            gh api --paginate "repos/$REPO/releases?per_page=100" \
+              --jq ".[] | select(.tag_name == \"$TAG\" and .draft == $1) | .id"
+          }
+          primera() { awk 'NR == 1 { print; exit }' <<< "$1"; }
+
+          publicado="$(primera "$(listar false)")"
+          if [ -n "$publicado" ]; then
+            echo "ya hay una release publicada para $TAG (id $publicado): no se toca" >&2
+            exit 1
+          fi
+
+          borrador="$(primera "$(listar true)")"
+          if [ -z "$borrador" ]; then
+            cuerpo="$RUNNER_TEMP/cuerpo.json"
             if [ -s "$RUNNER_TEMP/notas.md" ]; then
-              notas=(--notes-file "$RUNNER_TEMP/notas.md")
+              jq -n --arg tag "$TAG" --rawfile body "$RUNNER_TEMP/notas.md" \
+                '{tag_name: $tag, name: $tag, draft: true, body: $body}' > "$cuerpo"
+            else
+              jq -n --arg tag "$TAG" '{tag_name: $tag, name: $tag, draft: true, body: ""}' > "$cuerpo"
             fi
+            borrador="$(gh api --method POST "repos/$REPO/releases" --input "$cuerpo" --jq .id)"
+            echo "borrador creado: $borrador"
           fi
 
-          # Borrador **primero**: si algo se corta a mitad, no queda una release pública con la
-          # mitad de los instaladores. `release-please` ya deja una en borrador para este tag; si
-          # el tag se empujó a mano, no hay ninguna y se crea.
-          if gh api "repos/$REPO/releases/tags/$TAG" >/dev/null 2>&1; then
-            echo "ya hay una release para $TAG: se le añaden los artefactos"
-            gh release upload "$TAG" release/* --clobber
-          else
-            gh release create "$TAG" --verify-tag --draft --title "$TAG" \
-              ${notas[@]+"${notas[@]}"} release/*
+          # Un reintento sobre el mismo borrador no debe chocar con los assets del intento anterior.
+          for id in $(gh api --paginate "repos/$REPO/releases/$borrador/assets?per_page=100" --jq '.[].id'); do
+            gh api --method DELETE "repos/$REPO/releases/assets/$id" >/dev/null
+          done
+
+          # Subir al id del borrador, no al tag: `gh release upload "$TAG"` vuelve a caer en el
+          # endpoint que no ve borradores y crearía otro release.
+          upload_url="$(gh api "repos/$REPO/releases/$borrador" --jq .upload_url)"
+          upload_url="${upload_url%\{*}"
+          for f in release/*; do
+            [ -f "$f" ] || continue
+            echo "subiendo $(basename "$f")"
+            gh api --method POST "$upload_url?name=$(basename "$f")" \
+              -H "Content-Type: application/octet-stream" --input "$f" >/dev/null
+          done
+
+          gh api --method PATCH "repos/$REPO/releases/$borrador" \
+            -F draft=false -F make_latest=true >/dev/null
+
+          # Publicar sin comprobar qué quedó publicado es lo que dejó la 0.3.1 vacía y en verde.
+          esperados="$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')"
+          subidos="$(gh api "repos/$REPO/releases/$borrador" --jq '.assets | length')"
+          sigue_borrador="$(gh api "repos/$REPO/releases/$borrador" --jq '.draft')"
+
+          if [ "$subidos" != "$esperados" ]; then
+            echo "se esperaban $esperados assets y hay $subidos en $TAG" >&2
+            exit 1
+          fi
+          if [ "$sigue_borrador" != "false" ]; then
+            echo "$TAG sigue en borrador" >&2
+            exit 1
           fi
 
-          gh release edit "$TAG" --draft=false --latest
-          echo "publicada: $TAG"
+          echo "publicada: $TAG (id $borrador, $subidos assets)"
