@@ -3,6 +3,9 @@
 **Task T175 (roadmap 0.2).** Sobre `d917f59`. Origen: `docs/roadmap.md` y el diagnóstico
 `docs/diagnostico-peliculas-series.md` (hallazgos F1–F4, F8 y F10).
 
+**Estado:** implementado en T176 (commits `48ffbda`, `718d577`, `ea391d6`, `f5c8072`, `9a91ded`).
+La migración es la `0013` y la propuesta no sube la versión del contrato.
+
 Toca tres contratos y por eso va en una propuesta: **`SPEC-provider-core`** (el episodio y la
 capacidad), **`SPEC-catalog-store`** (la migración y la lectura del visionado) y **`SPEC-web-ui`**
 (la navegación por temporada). Ninguno se edita aquí: los integra su dueño.
@@ -280,14 +283,14 @@ D2–D5 siguen abiertas. Esta propuesta no las toca.
 
 ## Criterios de aceptación de 0.2
 
-- [ ] `MediaType` y `mediaTypeOf` existen en `core`; `capabilities.media` ausente sigue siendo
+- [x] `MediaType` y `mediaTypeOf` existen en `core`; `capabilities.media` ausente sigue siendo
       anime y el vocabulario no cambia.
-- [ ] `Episode.season` y `capabilities.seasons` existen; una fuente sin ellos se comporta como hoy.
-- [ ] `searchResultSchema.mediaType` y `capabilities.mediaPerTitle` existen y están probados.
-- [ ] Migración `0013` sobre una base con datos: sin pérdida, con prueba.
-- [ ] `/episodes`, `/episodes/latest` y `/episodes/number/:n` usan temporada y referencia; el 409
+- [x] `Episode.season` y `capabilities.seasons` existen; una fuente sin ellos se comporta como hoy.
+- [x] `searchResultSchema.mediaType` y `capabilities.mediaPerTitle` existen y están probados.
+- [x] Migración `0013` sobre una base con datos: sin pérdida, con prueba.
+- [x] `/episodes`, `/episodes/latest` y `/episodes/number/:n` usan temporada y referencia; el 409
       está probado.
-- [ ] «Continuar viendo» e historial devuelven la referencia real y no colapsan temporadas.
-- [ ] La búsqueda filtra resultados por tipo cuando lo conoce.
-- [ ] La interfaz pasa `season` y no usa el número como identidad.
-- [ ] El fixture multi-temporada y su caso de fallo son 0.5 (T178), no esta tarea.
+- [x] «Continuar viendo» e historial devuelven la referencia real y no colapsan temporadas.
+- [x] La búsqueda filtra resultados por tipo cuando lo conoce.
+- [x] La interfaz pasa `season` y no usa el número como identidad.
+- [ ] El fixture multi-temporada y su caso de fallo son 0.5 (T179), no esta tarea.
