@@ -93,6 +93,43 @@ describe('métodos del proveedor', () => {
     expect(lista[0]?.animeRef.value).toBe('aurora-nocturna')
   })
 
+  test('una serie con temporadas numera por temporada y no de forma absoluta', async () => {
+    const proveedor = createFixtureProvider()
+    const lista = await proveedor.getEpisodes(
+      { providerId: FIXTURE_PROVIDER_ID, value: 'tres-temporadas' },
+      opciones(),
+    )
+
+    expect(lista).toHaveLength(9)
+    expect(lista.map((episode) => [episode.season, episode.number])).toEqual([
+      [1, 1],
+      [1, 2],
+      [1, 3],
+      [2, 1],
+      [2, 2],
+      [2, 3],
+      [3, 1],
+      [3, 2],
+      [3, 3],
+    ])
+    // La referencia es única aunque el número se repita: es lo que identifica al
+    // episodio, y sin temporada los vecinos buscarían en la lista equivocada.
+    expect(lista[3]?.ref.value).toBe('tres-temporadas#t2e1')
+  })
+
+  test('el stream de una serie con temporadas lleva su temporada en la ruta', async () => {
+    const proveedor = createFixtureProvider()
+    const fuentes = await proveedor.resolveStream(
+      {
+        episodeRef: { providerId: FIXTURE_PROVIDER_ID, value: 'tres-temporadas#t2e1' },
+        mode: 'sub',
+      },
+      opciones(),
+    )
+
+    expect(fuentes[0]?.url).toContain('tres-temporadas/temporada/2/1/sub/master.m3u8')
+  })
+
   test('un título sin episodios devuelve una lista vacía, no un error', async () => {
     const proveedor = createFixtureProvider()
     const lista = await proveedor.getEpisodes(

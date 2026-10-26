@@ -163,6 +163,21 @@
       "synopsis": "Un relojero puede devolver una hora de vida, pero cobra la suya en años."
     },
     {
+      "ref": "tres-temporadas",
+      "title": "Serie de Tres Temporadas",
+      "year": 2024,
+      "kind": "tv",
+      "status": "finished",
+      "episodeCount": 9,
+      "seasons": [3, 3, 3],
+      "genres": ["Drama", "Misterio"],
+      "studios": ["Taller Norte"],
+      "popularity": 0.81,
+      "streams": ["hls"],
+      "subs": ["vtt"],
+      "synopsis": "Tres temporadas de tres episodios para medir que el número no identifica la temporada."
+    },
+    {
       "ref": "selva-de-hormigon",
       "title": "Selva de Hormigón",
       "titleAlt": "Concrete Jungle",
