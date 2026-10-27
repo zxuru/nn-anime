@@ -87,7 +87,7 @@ Un proveedor es un objeto con:
 | `id` | Identificador corto, en minúsculas y con guiones. Es el que aparece en las rutas |
 | `name` | Nombre visible |
 | `apiVersion` | Versión del contrato. Hoy `1` |
-| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending`, `feed`, `episodePages` —y, con `media`, qué sirve: `anime`, `movies` o `both` |
+| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending`, `feed`, `episodePages`, `download` —y, con `media`, qué sirve: `anime`, `movies` o `both` |
 | `search(query, options)` | Busca títulos |
 | `getAnime(ref, options)` | Detalle de un título |
 | `getEpisodes(ref, options)` | Lista de episodios |
@@ -100,6 +100,11 @@ Un proveedor es un objeto con:
 
 Los tres últimos van juntos y con `capabilities.episodePages: true`: declarar la capacidad sin los
 métodos, o tener los métodos sin declararla, se rechaza al cargar el plugin nombrando lo que falta.
+
+`capabilities.download: true` declara que la fuente permite descargar sus episodios. **Ausente es
+no**: sin la capacidad, la interfaz no ofrece el botón. El motor de descargas usa el mismo
+`resolveStream` que la reproducción y no añade ningún método al contrato; la capacidad sólo dice si
+el sitio lo permite.
 
 `capabilities.media` dice **qué sirve** el plugin, que es otra cosa que lo que sabe hacer: la interfaz
 divide la home y la búsqueda con un conmutador entre anime y películas, y cada título cae en una mitad

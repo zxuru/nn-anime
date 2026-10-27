@@ -17,6 +17,21 @@ function opciones(ms = 50): CallOptions {
 
 const REF_AURORA = { providerId: FIXTURE_PROVIDER_ID, value: 'aurora-nocturna' }
 
+describe('la capacidad de descarga', () => {
+  test('sin pedirla no se declara: el botón no se ofrece', () => {
+    expect(createFixtureProvider().capabilities.download).toBeUndefined()
+  })
+
+  test('pedida, viaja en las capacidades', () => {
+    expect(createFixtureProvider({ download: true }).capabilities.download).toBe(true)
+  })
+
+  test('el entorno puede encenderla para el arnés', () => {
+    expect(fixtureOptionsFromEnv({})).not.toHaveProperty('download')
+    expect(fixtureOptionsFromEnv({ NN_ANIME_FIXTURE_DOWNLOAD: '1' })).toEqual({ download: true })
+  })
+})
+
 describe('catálogo', () => {
   test('tiene al menos doce títulos', () => {
     expect(CATALOGO.length).toBeGreaterThanOrEqual(12)
