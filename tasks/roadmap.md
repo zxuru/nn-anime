@@ -1,6 +1,6 @@
 # Plan de tareas: roadmap post-v0.3.1
 
-Origen: `docs/roadmap.md` · Estado: **fase 0 abierta; 0.1–0.5 cerradas; 0.6 siguiente** ·
+Origen: `docs/roadmap.md` · Estado: **fase 0 cerrada; fase 1 abierta, spec 1.1 siguiente** ·
 2026-10-26.
 Diagnóstico que reordena la fase 0: `docs/diagnostico-peliculas-series.md`.
 
@@ -22,8 +22,8 @@ lo que ordena.
 | 0.3 Metadatos de no-anime | **T177** | hecho; D1 decidida | T174 |
 | 0.4 Reproductor de película y serie | **T178** | hecho | T176 |
 | 0.5 Fixture multi-temporada y caso de fallo | **T179** | hecho | T176 |
-| 0.6 Selector de fuente con alternativa | T180 | **siguiente** | T174 (parcial: el selector de la ficha ya existe) |
-| Fase 1 Descargas | sin abrir | — | 0.5 |
+| 0.6 Selector de fuente con alternativa | **T180** | hecho | T174 |
+| Fase 1 Descargas | T181 | **spec 1.1 siguiente**; D2 pendiente | 0.5 |
 | Fase 2A Manga | sin abrir | — | 0.5 |
 | Fase 2B Descarga de manga | sin abrir | — | 1.x, 2A |
 | Fase 3 Watch party | sin abrir | — | 0.5 (idealmente 1.x) |
