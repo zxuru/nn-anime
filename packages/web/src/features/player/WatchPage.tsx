@@ -73,6 +73,7 @@ import {
   olvidarProgreso,
   reanudarEn,
 } from './storage'
+import { SourceFallback } from './SourceFallback'
 import { type SubtitleCandidate, toSafeTracks, tracksFromSource } from './subtitle-tracks'
 import { useMpvHandoff } from './useMpvHandoff'
 import { useWatchEvents } from './useWatchEvents'
@@ -991,6 +992,13 @@ export function WatchPage(props: WatchPageProps): ReactNode {
           <div className="watch__main">
             {encabezado}
             <ErrorNotice fallo={error ?? FALLO_SIN_CAUSA} onRetry={recargar} />
+            <SourceFallback
+              providerId={props.providerId}
+              titleRef={animeRef.value}
+              number={numero}
+              mode={modo}
+              positionS={posicion ?? 0}
+            />
             {filaDeMandos(false)}
           </div>
           {listaDeEpisodios}

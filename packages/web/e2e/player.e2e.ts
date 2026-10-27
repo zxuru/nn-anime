@@ -1528,4 +1528,54 @@ test.describe('el modo compatible', () => {
       )
       .toBeGreaterThan(0)
   })
+
+  /**
+   * La fuente activa falla y hay otra con el mismo episodio.
+   *
+   * Se mide con la red interceptada porque el arnés tiene un solo proveedor: lo
+   * que se prueba es el mecanismo de la pantalla —la lista, el enlace y la
+   * posición—, no el resolver de un plugin concreto.
+   */
+  test('si la fuente falla, ofrece otra y conserva la posición', async ({ page }) => {
+    await entrar(page)
+
+    await page.route('**/api/stream/resolve', async (ruta) => {
+      await ruta.fulfill({ status: 502, json: { error: 'la fuente no responde' } })
+    })
+    await page.route('**/api/anime/fixture/aurora-nocturna/sources', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          items: [
+            {
+              ref: { providerId: 'otra', value: 'aurora-nocturna' },
+              title: 'Aurora Nocturna',
+            },
+          ],
+        },
+      })
+    })
+    await page.route('**/api/anime/otra/**/episodes/number/3', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          episode: {
+            ref: { providerId: 'otra', value: 'aurora-nocturna#3' },
+            animeRef: { providerId: 'otra', value: 'aurora-nocturna' },
+            number: 3,
+            mode: 'sub',
+          },
+        },
+      })
+    })
+
+    await page.goto(
+      '/watch/fixture/aurora-nocturna%233?mode=sub&anime=aurora-nocturna&n=3&at=120',
+    )
+
+    const enlace = page.getByRole('link', { name: 'Ver en otra' })
+    await expect(enlace).toBeVisible({ timeout: 15_000 })
+    await expect(enlace).toHaveAttribute('href', /n=3/)
+    // La posición viaja: cambiar de fuente no empieza el episodio desde cero.
+    await expect(enlace).toHaveAttribute('href', /at=120/)
+    await expect(enlace).toHaveAttribute('href', /aurora-nocturna%233/)
+  })
 })

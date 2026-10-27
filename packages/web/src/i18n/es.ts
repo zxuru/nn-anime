@@ -381,6 +381,12 @@ export const messages: Messages = {
   'player.backToDetail': 'Volver a la ficha',
   'player.previousEpisode': 'Episodio anterior',
   'player.nextEpisode': 'Episodio siguiente',
+  // Cuando la fuente activa no resuelve: otras fuentes con el mismo episodio y la
+  // posición en el enlace, para no empezar de cero.
+  'player.fallback.title': 'Otras fuentes',
+  'player.fallback.body':
+    'Esta fuente no ha dado el episodio. Puedes probar con otra; se abre en el mismo punto.',
+  'player.fallback.source': 'Ver en {name}',
   // El rótulo corto de las flechas, que ahora van en una fila compacta bajo el
   // video. El nombre largo sigue existiendo como `title` y como nombre accesible:
   // «Anterior» a secas depende de un contexto que el ojo tiene delante.
