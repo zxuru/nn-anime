@@ -24,8 +24,8 @@ lo que ordena.
 | 0.5 Fixture multi-temporada y caso de fallo | **T179** | hecho | T176 |
 | 0.6 Selector de fuente con alternativa | **T180** | hecho | T174 |
 | 1.1 Descargas · spec | **T181** | hecho; D2 decidida | 0.5 |
-| 1.2 Descargas · contrato | T182 | **siguiente** | T181 |
-| 1.3 Descargas · motor | T183 | pendiente | T182 |
+| 1.2 Descargas · contrato | **T182** | hecho | T181 |
+| 1.3 Descargas · motor | T183 | **siguiente** | T182 |
 | 1.4 Descargas · interfaz | T184 | pendiente | T183 |
 | 1.5 Descargas · reproducción local | T185 | pendiente | T183, T184 |
 | 1.6 Descargas · escritorio | T186 | pendiente | T184 |

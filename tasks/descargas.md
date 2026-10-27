@@ -22,8 +22,8 @@ tope de cinco archivos de implementación por task y commit atómico que cita el
 | Roadmap | Task | Estado | Depende de |
 |---|---|---|---|
 | 1.1 Spec | **T181** | hecho: propuesta entregada | — |
-| 1.2 Contrato: `capabilities.download` + fixture | T182 | pendiente | T181 |
-| 1.3 Motor de descargas (cola, pausa, reanudar, ffmpeg/segmentos) | T183 | pendiente | T182 |
+| 1.2 Contrato: `capabilities.download` + fixture | **T182** | hecho | T181 |
+| 1.3 Motor de descargas (cola, pausa, reanudar, ffmpeg/segmentos) | T183 | **siguiente** | T182 |
 | 1.4 Interfaz: botón, página Descargas, progreso | T184 | pendiente | T183 |
 | 1.5 Reproducción local y sin red | T185 | pendiente | T183, T184 |
 | 1.6 Escritorio: selector de carpeta y aviso | T186 | pendiente | T184 |
