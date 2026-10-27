@@ -46,6 +46,12 @@ no esté en pantalla. La ficha además se enriquece con su sinopsis, sus género
 cuando la obra está emparejada, y `NN_ANIME_ANILIST_OFFLINE=1` apaga esa salida (lo usa el arnés de
 pruebas, que no puede depender de un tercero).
 
+**Las películas y series de acción real no están en AniList.** Para completar su sinopsis, sus
+géneros y su año cuando el plugin no los trae, **Ajustes** acepta una clave opcional de TMDB: se
+guarda en la base local, no se devuelve nunca al navegador y sólo se usa contra
+`api.themoviedb.org`. Sin clave, la ficha se queda con lo que publique la fuente, que es como
+funcionaba antes. TMDB no aporta la portada: la de la ficha sigue siendo la del plugin.
+
 ## Instalación (para usuarios)
 
 **No hace falta instalar nada más**: ni Node, ni Bun, ni Python. El instalador trae dentro el
