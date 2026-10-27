@@ -45,6 +45,7 @@ const TABLAS_POSTERIORES = [
   'adult_ref',
   'watched_title',
   'plan_to_watch',
+  'download',
 ]
 
 /** Las versiones que hay hoy, para no fijar números que crecen con cada migración. */
@@ -292,7 +293,7 @@ describe('migración inicial', () => {
 
       const informe = runMigrations(db)
 
-      expect(informe.applied).toEqual([13])
+      expect(informe.applied).toEqual([13, 14])
       expect(columnNames(db, 'episode')).toContain('season')
       const fila = db.query('SELECT number, season FROM episode WHERE provider_ref = ?').get('x#1')
       expect(fila).toEqual({ number: 1, season: null })
