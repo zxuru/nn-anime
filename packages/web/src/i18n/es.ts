@@ -347,6 +347,21 @@ export const messages: Messages = {
    */
   'settings.adult.help':
     'Enseña también lo que AniList marca para adultos. No comprueba la edad de nadie, y sólo alcanza a lo que las fuentes publican: lo que no se puede comprobar se enseña igual.',
+  // TMDB: la única fuente de metadatos de no-anime y la única clave que el
+  // usuario escribe. La clave no vuelve del servidor; la pantalla sólo dice si hay.
+  'settings.tmdb': 'Metadatos de películas y series',
+  'settings.tmdb.body':
+    'AniList sólo cubre anime y manga. Con una clave de TMDB, las fichas de películas y series completan sinopsis, géneros y año cuando el plugin no los trae. Sin clave se usa sólo lo que publique el plugin.',
+  'settings.tmdb.configured': 'Hay una clave guardada. No se vuelve a mostrar.',
+  'settings.tmdb.notConfigured': 'No hay ninguna clave guardada.',
+  'settings.tmdb.key': 'Clave de la API de TMDB',
+  'settings.tmdb.placeholder': '32 caracteres hexadecimales',
+  'settings.tmdb.hint':
+    'Se guarda en la base local y no se devuelve al navegador. Se usa sólo para consultar api.themoviedb.org.',
+  'settings.tmdb.save': 'Guardar clave',
+  'settings.tmdb.clear': 'Quitar clave',
+  'settings.tmdb.saved': 'Guardado.',
+  'settings.tmdb.error': 'No se pudo guardar: {message}',
   'reco.title': 'Recomendado para ti',
   'reco.loading': 'Buscando qué recomendarte…',
   'reco.empty': 'Todavía no hay nada que recomendar. Busca algo y vuelve.',

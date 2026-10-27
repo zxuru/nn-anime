@@ -29,6 +29,15 @@ export interface Settings {
   readonly setAdultContent: (adultContent: boolean) => void
   /** Guarda el orden de preferencia de proveedores, del primero al último. */
   readonly setProviderPriority: (order: readonly string[]) => void
+  /**
+   * Guarda o borra la clave de TMDB.
+   *
+   * Devuelve una promesa y no es optimista: la clave no se puede pintar —no se
+   * devuelve—, así que lo único que cambia es «configurada», y enseñarlo antes de
+   * que el servidor conteste sería afirmar que se guardó cuando puede que no.
+   * `null` la borra.
+   */
+  readonly setTmdbKey: (key: string | null) => Promise<void>
   /** Registra un proveedor y refresca la lista. Lanza si no se pudo. */
   readonly register: (draft: unknown) => Promise<ProviderSummary>
   /**
@@ -171,6 +180,25 @@ export function useSettings(): Settings {
     [data?.providerPriority],
   )
 
+  const setTmdbKey = useCallback(
+    async (key: string | null): Promise<void> => {
+      const previo = data?.tmdb.configured ?? false
+      const configurada = key !== null
+
+      setData((actual) => (actual === undefined ? actual : { ...actual, tmdb: { configured: configurada } }))
+
+      try {
+        await apiPatch('/api/settings', { tmdbApiKey: key })
+      } catch (cause) {
+        setData((actual) =>
+          actual === undefined ? actual : { ...actual, tmdb: { configured: previo } },
+        )
+        throw cause
+      }
+    },
+    [data?.tmdb.configured],
+  )
+
   const register = useCallback(async (draft: unknown): Promise<ProviderSummary> => {
     // Aquí no hay escritura optimista, y es a propósito: esto no pinta una lista,
     // escribe un archivo. Enseñar «guardado» antes de que el servidor conteste
@@ -197,5 +225,15 @@ export function useSettings(): Settings {
     return salida.provider
   }, [])
 
-  return { state, data, error, setTheme, setProviderPriority, setAdultContent, register, refresh }
+  return {
+    state,
+    data,
+    error,
+    setTheme,
+    setProviderPriority,
+    setAdultContent,
+    setTmdbKey,
+    register,
+    refresh,
+  }
 }
