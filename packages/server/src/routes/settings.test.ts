@@ -68,6 +68,64 @@ async function conApp<T>(
   }
 }
 
+describe('la clave de TMDB', () => {
+  const CLAVE = '0123456789abcdef0123456789abcdef'
+
+  test('nace sin configurar y se puede guardar sin que vuelva en la respuesta', async () => {
+    await conApp(async ({ pedir }) => {
+      const antes = settingsResponseSchema.parse(await (await pedir('/api/settings')).json())
+      expect(antes.tmdb.configured).toBe(false)
+
+      const guardar = await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ tmdbApiKey: CLAVE }),
+      })
+      expect(guardar.status).toBe(204)
+
+      const respuesta = await pedir('/api/settings')
+      const texto = await respuesta.text()
+      const despues = settingsResponseSchema.parse(JSON.parse(texto))
+
+      expect(despues.tmdb.configured).toBe(true)
+      // La clave no viaja al navegador: la respuesta sólo dice si hay una.
+      expect(texto).not.toContain(CLAVE)
+    })
+  })
+
+  test('`null` la borra', async () => {
+    await conApp(async ({ pedir }) => {
+      await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ tmdbApiKey: CLAVE }),
+      })
+      await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ tmdbApiKey: null }),
+      })
+
+      const salida = settingsResponseSchema.parse(await (await pedir('/api/settings')).json())
+      expect(salida.tmdb.configured).toBe(false)
+    })
+  })
+
+  test('una clave con una forma que no es la de TMDB es 400', async () => {
+    await conApp(async ({ pedir }) => {
+      for (const tmdbApiKey of ['', 'no-es-una-clave', '0123456789abcdef']) {
+        const respuesta = await pedir('/api/settings', {
+          method: 'PATCH',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ tmdbApiKey }),
+        })
+
+        expect(respuesta.status, tmdbApiKey).toBe(400)
+      }
+    })
+  })
+})
+
 describe('GET /api/settings', () => {
   test('devuelve el tema, las rutas, mpv y los proveedores', async () => {
     await conApp(async ({ pedir }) => {

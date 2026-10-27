@@ -820,6 +820,20 @@
 }
 
 /*
+ * La atribución de TMDB.
+ *
+ * Cruza las dos columnas: es una nota de la ficha entera, no de la prosa ni de los
+ * datos, y en una sola columna quedaría pegada a un lado como si hablara sólo de
+ * esa mitad.
+ */
+.detail__source {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+}
+
+/*
  * Las etiquetas de la ficha: los géneros y los estudios.
  *
  * Son enlaces y se ven como tales **en reposo**, no sólo con el puntero encima: el

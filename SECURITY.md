@@ -40,6 +40,7 @@ prueba que lo sostiene.
 | Un log guarda una credencial o una URL de video | Claves sensibles redactadas, `ticket` incluido | T25 |
 | Una dirección de repositorio lleva al servidor a la red local o a un host ajeno | Lista blanca de **hosts de GitHub** comprobada en **cada salto**, dentro del `fetch` que usa la revalidación de destinos: un host permitido que redirige fuera de GitHub se corta antes de pedir nada | T100 |
 | La consulta de metadatos a AniList lleva al servidor a otro sitio, o la usa para saturar a un tercero | Lista blanca de **hosts de AniList** —`graphql.anilist.co` para la API y su CDN para las imágenes— comprobada en cada salto, y **presupuesto**: una petición cada dos segundos, en fila india, con `Retry-After` obedecido en un 429 y una sola repetición. La imagen se pide **por referencia**, nunca por una dirección que venga del cliente | T121 |
+| La clave de TMDB del usuario sale del equipo, o una ruta de metadatos se convierte en un proxy | La URL se compone con una base constante (`api.themoviedb.org`); no hay ninguna dirección que venga del cliente ni del plugin. La clave viaja sólo en esa consulta, **no se registra**, **no se devuelve** en `GET /api/settings` y **no se guarda en la caché**. Sin clave no hay petición. La imagen de TMDB no se pide: la ficha usa la portada del plugin | T177 |
 | Una ruta del árbol de GitHub escribe fuera del repositorio (`..`, absoluta, unidad de Windows) | Cada ruta se valida segmento a segmento y se confina contra el directorio de destino; el árbol truncado, las rutas hostiles y los archivos que no caben se rechazan o se saltan, y nada se escribe fuera | T100 |
 | Un repositorio enorme llena el disco o la memoria | 400 archivos, 512 KiB por archivo y 8 MiB en total; la descarga va a un directorio temporal y se mueve al final, así que un fallo a mitad no reemplaza lo que había | T100 |
 | Activar un archivo ejecuta otro que el usuario no marcó | **No se mitiga, se declara.** Ver el riesgo residual 6 | T101 |
@@ -118,6 +119,12 @@ prueba que lo sostiene.
     activar o descargar plugins y para lanzar `mpv`; los plugins que ya estaban en el directorio se
     siguen ejecutando con los mismos permisos. La lista se decide en el servidor, no desde la
     interfaz.
+16. **La clave de TMDB es un secreto del usuario y vive en la base local en claro.** Quien pueda leer
+    `nn-anime.db` —el propio usuario, un plugin sin sandbox o un programa con sus permisos— la lee.
+    No se cifra porque el servidor tendría que guardar la llave de cifrado en el mismo sitio, que es
+    seguridad de teatro. Se mitiga lo que sí se puede: no se devuelve por HTTP, no se registra y sólo
+    se usa contra `api.themoviedb.org`. Quien no quiera ese riesgo no pone clave: la ficha se queda
+    con lo que publique el plugin.
 
 ## Modo servidor
 

@@ -49,6 +49,16 @@ export const PROVIDER_PRIORITY_KEY = 'providerPriority'
  */
 export const ADULT_CONTENT_KEY = 'adultContent'
 
+/**
+ * Clave de la API de TMDB, si el usuario la puso.
+ *
+ * Se guarda tal cual en la tabla de ajustes y **no se devuelve** en
+ * `GET /api/settings`: la interfaz sólo sabe si hay una. `tmdbKeyOf` es la única
+ * lectura, para que la ruta de metadatos y la de ajustes no discrepen sobre qué
+ * significa «configurada».
+ */
+export const TMDB_KEY = 'tmdbApiKey'
+
 const themeSchema = z.enum(['dark', 'light', 'system'])
 const DEFAULT_THEME = 'system' as const
 const prioritySchema = z.array(z.string().min(1)).max(64)
@@ -68,6 +78,21 @@ export async function adultContentOf(
   store: Pick<ServerContainer['store'], 'getSetting'>,
 ): Promise<boolean> {
   return await store.getSetting(ADULT_CONTENT_KEY, adultContentSchema, DEFAULT_ADULT_CONTENT)
+}
+
+/**
+ * La clave de TMDB configurada, o `undefined` si no hay.
+ *
+ * Una cadena en blanco cuenta como no configurada: borrar la clave escribe `''`
+ * y no una fila inexistente, porque el almacén no tiene «borrar un ajuste».
+ */
+export async function tmdbKeyOf(
+  store: Pick<ServerContainer['store'], 'getSetting'>,
+): Promise<string | undefined> {
+  const clave = await store.getSetting(TMDB_KEY, z.string(), '')
+  const limpia = clave.trim()
+
+  return limpia === '' ? undefined : limpia
 }
 
 export interface SettingsRouteOptions {
@@ -103,6 +128,7 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
       adultContentSchema,
       DEFAULT_ADULT_CONTENT,
     )
+    const tmdbConfigured = (await tmdbKeyOf(options.container.store)) !== undefined
 
     const activos = options.plugins.active.map((entrada) => ({
       id: entrada.provider.id,
@@ -145,6 +171,7 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
             : { version: options.mpvVersion }),
         },
         providers: [...activos, ...rechazados],
+        tmdb: { configured: tmdbConfigured },
       }),
     )
   })
@@ -180,6 +207,11 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
 
     if (parsed.data.adultContent !== undefined) {
       await options.container.store.setSetting(ADULT_CONTENT_KEY, parsed.data.adultContent)
+    }
+
+    if (parsed.data.tmdbApiKey !== undefined) {
+      // `null` borra: se escribe vacío y `tmdbKeyOf` lo lee como ausente.
+      await options.container.store.setSetting(TMDB_KEY, parsed.data.tmdbApiKey ?? '')
     }
 
     return c.body(null, 204)

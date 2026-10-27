@@ -23,13 +23,23 @@ import { ProviderRepos } from './ProviderRepos'
 import { RegisterProvider } from './RegisterProvider'
 import { SecurityNoticeDialog } from './SecurityNotice'
 import { ThemeToggle } from './ThemeToggle'
+import { TmdbSettings } from './TmdbSettings'
 import { useProviderRepos } from './useProviderRepos'
 import { useSecurityNotice } from './useSecurityNotice'
 import { useSettings } from './useSettings'
 
 export function SettingsPage(): ReactNode {
-  const { state, data, error, setTheme, setProviderPriority, setAdultContent, register, refresh } =
-    useSettings()
+  const {
+    state,
+    data,
+    error,
+    setTheme,
+    setProviderPriority,
+    setAdultContent,
+    setTmdbKey,
+    register,
+    refresh,
+  } = useSettings()
   const repos = useProviderRepos(refresh)
   const [noticeOpen, setNoticeOpen] = useState(false)
   const notice = useSecurityNotice(noticeOpen)
@@ -114,6 +124,11 @@ export function SettingsPage(): ReactNode {
           <RegisterProvider register={register} />
         </section>
       )}
+
+      {/* La clave de TMDB es la única salida de red que el usuario configura a
+          mano; va después de los proveedores porque es el respaldo de lo que
+          ellos no publican. */}
+      <TmdbSettings configured={data.tmdb.configured} onSave={setTmdbKey} />
 
       <section>
         <h2>{t(DEFAULT_LOCALE, 'settings.paths')}</h2>
