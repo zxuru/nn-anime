@@ -79,32 +79,22 @@ export function SourceFallback(props: SourceFallbackProps): ReactNode {
     const controlador = new AbortController()
 
     void Promise.all([
-      apiGet(
-        sourcesPath(props.providerId, props.titleRef),
-        sourcesResponseSchema,
-        { signal: controlador.signal },
-      ).catch(() => ({ items: [] })),
+      apiGet(sourcesPath(props.providerId, props.titleRef), sourcesResponseSchema, {
+        signal: controlador.signal,
+      }).catch(() => ({ items: [] })),
       apiGet('/api/providers', providersResponseSchema, {
         signal: controlador.signal,
       }).catch(() => ({ providers: [] })),
     ]).then(async ([fuentes, proveedores]) => {
       if (controlador.signal.aborted) return
 
-      const nombres = new Map(
-        proveedores.providers.map((provider) => [provider.id, provider.name]),
-      )
-      const otras = fuentes.items.filter(
-        (fuente) => fuente.ref.providerId !== props.providerId,
-      )
+      const nombres = new Map(proveedores.providers.map((provider) => [provider.id, provider.name]))
+      const otras = fuentes.items.filter((fuente) => fuente.ref.providerId !== props.providerId)
 
       const resueltas = await Promise.all(
         otras.map(async (fuente) => {
           const episodio = await apiGet(
-            episodeNumberPath(
-              fuente.ref.providerId,
-              fuente.ref.value,
-              props.number ?? 0,
-            ),
+            episodeNumberPath(fuente.ref.providerId, fuente.ref.value, props.number ?? 0),
             episodeResponseSchema,
             { signal: controlador.signal },
           ).catch(() => undefined)

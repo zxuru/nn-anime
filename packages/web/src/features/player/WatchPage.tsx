@@ -63,6 +63,7 @@ import {
 import { coverPath } from '../search/ResultCard'
 import { AudioModeSwitch } from './AudioModeSwitch'
 import { Player } from './Player'
+import { SourceFallback } from './SourceFallback'
 import {
   almacenLocal,
   claveDeProgreso,
@@ -73,7 +74,6 @@ import {
   olvidarProgreso,
   reanudarEn,
 } from './storage'
-import { SourceFallback } from './SourceFallback'
 import { type SubtitleCandidate, toSafeTracks, tracksFromSource } from './subtitle-tracks'
 import { useMpvHandoff } from './useMpvHandoff'
 import { useWatchEvents } from './useWatchEvents'

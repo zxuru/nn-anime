@@ -1567,9 +1567,7 @@ test.describe('el modo compatible', () => {
       })
     })
 
-    await page.goto(
-      '/watch/fixture/aurora-nocturna%233?mode=sub&anime=aurora-nocturna&n=3&at=120',
-    )
+    await page.goto('/watch/fixture/aurora-nocturna%233?mode=sub&anime=aurora-nocturna&n=3&at=120')
 
     const enlace = page.getByRole('link', { name: 'Ver en otra' })
     await expect(enlace).toBeVisible({ timeout: 15_000 })
