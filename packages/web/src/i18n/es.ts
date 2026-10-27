@@ -496,6 +496,8 @@ export const messages: Messages = {
   'detail.enrichment.next': 'Próximo capítulo: {episode} · {when}',
   'detail.enrichment.site': 'Ver la ficha en AniList',
   'detail.genres': 'Géneros',
+  // Atribución del dato cuando la sinopsis, los géneros o el año vienen de TMDB.
+  'detail.tmdb': 'Sinopsis, géneros y año: TMDB.',
   'detail.studios': 'Estudios',
   // A dónde lleva pulsar una etiqueta de la ficha: el nombre solo no lo dice, y
   // sin decirlo el enlace pide un clic a ciegas.

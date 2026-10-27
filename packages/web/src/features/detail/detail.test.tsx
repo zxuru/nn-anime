@@ -1335,6 +1335,31 @@ describe('la lectura en dos pistas', () => {
     expect(html).toContain('title="Ver los títulos de Estudio Cobre"')
   })
 
+  test('lo que TMDB completa se lee y se atribuye', () => {
+    const html = render(
+      <Lectura
+        detail={{ ...detalle, synopsis: undefined, genres: [] }}
+        enrichment={null}
+        metadata={{
+          source: 'tmdb',
+          synopsis: 'Una sinopsis de TMDB.',
+          genres: ['Drama'],
+          year: 2020,
+        }}
+      />,
+    )
+
+    expect(html).toContain('Una sinopsis de TMDB.')
+    expect(html).toContain('Drama')
+    expect(html).toContain('Sinopsis, géneros y año: TMDB.')
+  })
+
+  test('sin metadatos de TMDB no se atribuye nada', () => {
+    const html = render(<Lectura detail={detalle} enrichment={null} metadata={null} />)
+
+    expect(html).not.toContain('TMDB')
+  })
+
   test('sin sinopsis ni datos, la lectura no deja dos pistas vacías', () => {
     // Ni sinopsis, ni géneros, ni estudios, ni emparejamiento: no hay nada que
     // leer arriba, y un bloque vacío entre la cabecera y los episodios no dice

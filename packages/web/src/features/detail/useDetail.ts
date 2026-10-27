@@ -36,6 +36,7 @@ import type {
   AniListRelatedItem,
   Enrichment,
   EpisodesResponse,
+  TmdbMetadata,
   WatchedEpisodePayload,
 } from '@nn-anime/core/api'
 import {
@@ -49,6 +50,7 @@ import {
   providersResponseSchema,
   relatedResponseSchema,
   sourcesResponseSchema,
+  tmdbMetadataResponseSchema,
   watchedResponseSchema,
   watchedTitlesResponseSchema,
 } from '@nn-anime/core/api'
@@ -290,6 +292,13 @@ export interface DetailData {
    */
   readonly enrichment: Enrichment | null | undefined
   /**
+   * Lo que TMDB sabe de una película o serie, si hay clave configurada.
+   *
+   * `null` y `undefined` se pintan igual —la ficha sin nada nuevo—, y la ficha
+   * nunca depende de esta lectura: un tercero sin clave o caído no la tumba.
+   */
+  readonly metadata: TmdbMetadata | null | undefined
+  /**
    * Lo que AniList relaciona con esta obra: secuelas, precuelas, películas.
    *
    * Es la única lectura que **no** viene con la ficha: llega por su cuenta, sin
@@ -364,6 +373,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
   const [sources, setSources] = useState<readonly AnimeSummary[]>([])
   const [watched, setWatched] = useState<readonly WatchedEpisodePayload[]>([])
   const [enrichment, setEnrichment] = useState<Enrichment | null | undefined>(undefined)
+  const [metadata, setMetadata] = useState<TmdbMetadata | null | undefined>(undefined)
   const [anilistRelated, setAnilistRelated] = useState<readonly AniListRelatedItem[]>([])
   const [capabilities, setCapabilities] = useState<ProviderCapabilities | undefined>(undefined)
   const [providerNames, setProviderNames] = useState<ReadonlyMap<string, string>>(new Map())
@@ -411,8 +421,15 @@ export function useDetail(providerId: string, ref: string): DetailData {
         enrichmentResponseSchema,
         opciones,
       ).catch(() => ({ enrichment: null })),
+      // Los metadatos de TMDB tampoco pueden tumbar la ficha: la ruta devuelve
+      // `null` sin clave y, si el tercero falla, se queda en lo que dio el plugin.
+      apiGet(
+        `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/metadata`,
+        tmdbMetadataResponseSchema,
+        opciones,
+      ).catch(() => ({ metadata: null })),
     ]).then(
-      ([detalle, hermanos, franquicia, fuentes, vistos, proveedores, enriquecido]) => {
+      ([detalle, hermanos, franquicia, fuentes, vistos, proveedores, enriquecido, metadatos]) => {
         if (controller.signal.aborted) return
 
         setDetail(detalle)
@@ -421,6 +438,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
         setSources(fuentes.items)
         setWatched(vistos.episodes)
         setEnrichment(enriquecido.enrichment)
+        setMetadata(metadatos.metadata)
         setCapabilities(
           proveedores.providers.find((provider) => provider.id === providerId)?.capabilities,
         )
@@ -468,6 +486,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
     watched,
     capabilities,
     enrichment,
+    metadata,
     anilistRelated,
     providerNames,
     state,
