@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import type { EpisodesResponse } from '@nn-anime/core/api'
 import type { Episode } from '@nn-anime/core/models'
 import type { RequestDeps } from '../../api/client'
-import { episodeNumberPath, episodesPath } from '../detail/useDetail'
+import { episodeNumberPath, episodesPath, latestEpisodePath } from '../detail/useDetail'
 import { loadWatchNeighbours, shouldLoadNeighbours } from './WatchPage'
 
 /** Un episodio del fixture, con lo mínimo que exige el schema. */
@@ -27,13 +27,14 @@ function episodio(number: number, season?: number): Episode {
 /** Una página servida, con lo que no venga en el cuerpo por defecto. */
 function pagina(
   episodes: readonly Episode[],
-  extras: Partial<Pick<EpisodesResponse, 'page' | 'hasMore' | 'total'>> = {},
+  extras: Partial<Pick<EpisodesResponse, 'page' | 'hasMore' | 'total' | 'seasons'>> = {},
 ): EpisodesResponse {
   return {
     episodes: [...episodes],
     page: extras.page ?? 1,
     hasMore: extras.hasMore ?? false,
     ...(extras.total === undefined ? {} : { total: extras.total }),
+    ...(extras.seasons === undefined ? {} : { seasons: extras.seasons }),
   }
 }
 
@@ -107,6 +108,59 @@ describe('los vecinos de una serie con temporadas', () => {
     expect(salida.next?.ref.value).toBe(dos.ref.value)
     expect(salida.next?.season).toBe(2)
     expect(salida.position?.number).toBe(1)
+  })
+
+  test('el último de una temporada tiene como siguiente el primero de la otra', async () => {
+    const temporadas = [
+      { season: 1, count: 3 },
+      { season: 2, count: 3 },
+      { season: 3, count: 3 },
+    ]
+    const segunda = [episodio(1, 2), episodio(2, 2), episodio(3, 2)]
+    const tercera = episodio(1, 3)
+    const { rutas, deps } = servidor(
+      new Map<string, unknown>([
+        [
+          episodesPath('fixture', 'aurora-nocturna', { page: 1, season: 2 }),
+          pagina(segunda, { seasons: temporadas, total: 3 }),
+        ],
+        [
+          episodesPath('fixture', 'aurora-nocturna', { page: 1, season: 3 }),
+          pagina([tercera], { seasons: temporadas, total: 3 }),
+        ],
+      ]),
+    )
+
+    const salida = await loadWatchNeighbours(mirar(segunda[2]?.ref.value ?? '', 3, 2), { deps })
+
+    // Sin el cruce, la flecha siguiente se apagaba al final de la temporada 2 y
+    // la serie parecía terminar ahí.
+    expect(salida.next?.season).toBe(3)
+    expect(salida.next?.ref.value).toBe(tercera.ref.value)
+    expect(rutas).toContain(episodesPath('fixture', 'aurora-nocturna', { page: 1, season: 3 }))
+  })
+
+  test('el primero de una temporada tiene como anterior el último de la otra', async () => {
+    const temporadas = [
+      { season: 1, count: 3 },
+      { season: 2, count: 3 },
+    ]
+    const segunda = [episodio(1, 2), episodio(2, 2), episodio(3, 2)]
+    const ultimaPrimera = episodio(3, 1)
+    const { deps } = servidor(
+      new Map<string, unknown>([
+        [
+          episodesPath('fixture', 'aurora-nocturna', { page: 1, season: 2 }),
+          pagina(segunda, { seasons: temporadas, total: 3 }),
+        ],
+        [latestEpisodePath('fixture', 'aurora-nocturna', 1), { episode: ultimaPrimera }],
+      ]),
+    )
+
+    const salida = await loadWatchNeighbours(mirar(segunda[0]?.ref.value ?? '', 1, 2), { deps })
+
+    expect(salida.previous?.season).toBe(1)
+    expect(salida.previous?.ref.value).toBe(ultimaPrimera.ref.value)
   })
 })
 
