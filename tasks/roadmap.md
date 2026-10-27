@@ -26,8 +26,8 @@ lo que ordena.
 | 1.1 Descargas · spec | **T181** | hecho; D2 decidida | 0.5 |
 | 1.2 Descargas · contrato | **T182** | hecho | T181 |
 | 1.3a Descargas · cola persistente | **T183** | hecho | T182 |
-| 1.3b Descargas · descarga directa | T183b | **siguiente** | T183 |
-| 1.3c Descargas · HLS/ffmpeg | T183c | pendiente | T183b |
+| 1.3b Descargas · descarga directa | **T183b** | hecho | T183 |
+| 1.3c Descargas · HLS/ffmpeg | T183c | **siguiente** | T183b |
 | 1.3d Descargas · rutas y guardias | T183d | pendiente | T183c |
 | 1.4 Descargas · interfaz | T184 | pendiente | T183d |
 | 1.5 Descargas · reproducción local | T185 | pendiente | T183d, T184 |
