@@ -664,6 +664,27 @@ export const enrichmentResponseSchema = z.strictObject({
   enrichment: enrichmentSchema.nullable(),
 })
 
+/**
+ * Los metadatos de una película o serie que no vienen de AniList.
+ *
+ * Es una forma propia y no un `enrichment` recortado: TMDB no publica nota de
+ * AniList, ni su ficha, ni el siguiente capítulo, y fingir esos campos vacíos haría
+ * que la interfaz tuviera que distinguir «no hay» de «no aplica». La portada no
+ * viaja aquí: la de TMDB exigiría otro proxy de imágenes y la ficha ya tiene la del
+ * plugin.
+ */
+export const tmdbMetadataSchema = z.strictObject({
+  source: z.literal('tmdb'),
+  synopsis: z.string().min(1).optional(),
+  genres: z.array(z.string().min(1)),
+  year: z.number().int().optional(),
+})
+
+/** Lo que TMDB sabe de una ficha. `null` es «no hay con qué», no un error. */
+export const tmdbMetadataResponseSchema = z.strictObject({
+  metadata: tmdbMetadataSchema.nullable(),
+})
+
 /** Las referencias que la vitrina quiere emparejar de una vez. */
 export const enrichmentBatchRequestSchema = z.strictObject({
   refs: z.array(providerRefSchema).min(1).max(24),
@@ -962,6 +983,7 @@ export type DiscoverResponse = z.infer<typeof discoverResponseSchema>
 export type AiringItem = z.infer<typeof airingItemSchema>
 export type AiringResponse = z.infer<typeof airingResponseSchema>
 export type Enrichment = z.infer<typeof enrichmentSchema>
+export type TmdbMetadata = z.infer<typeof tmdbMetadataSchema>
 export type EnrichmentResponse = z.infer<typeof enrichmentResponseSchema>
 export type EnrichmentBatchRequest = z.infer<typeof enrichmentBatchRequestSchema>
 export type EnrichmentBatchItem = z.infer<typeof enrichmentBatchItemSchema>

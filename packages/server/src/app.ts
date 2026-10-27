@@ -35,6 +35,8 @@ import { acotarAProveedoresActivos } from './provider-scope'
 import { enabledProviderFiles } from './repo-store'
 import { registerAniListRoutes } from './routes/anilist'
 import { registerAnimeRoutes } from './routes/anime'
+import { registerTmdbRoute } from './routes/tmdb'
+import type { TmdbFetch } from './tmdb/client'
 import { registerCoverRoute } from './routes/cover'
 import { registerDetailRoutes } from './routes/detail'
 import { registerFeedRoute, registerRecentRoute } from './routes/discovery'
@@ -154,6 +156,14 @@ export interface AppOptions {
   readonly anilistFetchImpl?: FetchLike
   readonly anilistResolver?: Resolver
   readonly anilistClock?: () => number
+  /**
+   * El cliente de TMDB.
+   *
+   * Sólo `fetch` y reloj: la dirección se compone con una base constante y no hay
+   * ninguna URL del usuario que resolver, así que no hay resolutor que inyectar.
+   */
+  readonly tmdbFetchImpl?: TmdbFetch
+  readonly tmdbClock?: () => number
   /**
    * Sin salida a AniList, para el arnés de pruebas.
    *
@@ -333,6 +343,12 @@ export function createApp(options: AppOptions): Hono {
     }
 
     registerAnimeRoutes(app, routeOptions)
+    registerTmdbRoute(app, {
+      providers: hub.providers,
+      container,
+      ...(options.tmdbFetchImpl === undefined ? {} : { fetchImpl: options.tmdbFetchImpl }),
+      ...(options.tmdbClock === undefined ? {} : { now: options.tmdbClock }),
+    })
     registerDetailRoutes(app, routeOptions)
     registerEpisodesRoute(app, routeOptions)
     registerFavoritesRoutes(app, { container })
