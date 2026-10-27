@@ -60,6 +60,14 @@ export interface FixtureOptions {
   readonly latencyMs?: number
   /** Fallo por método. Lo que no esté aquí se comporta bien. */
   readonly failures?: Partial<Record<ProviderMethod, FixtureFailure>>
+  /**
+   * Si la fuente admite descarga.
+   *
+   * Ausente es no, que es el defecto del contrato. El arnés lo enciende para la
+   * prueba de descargas; el resto de las pruebas se quedan con una fuente que no
+   * ofrece el botón.
+   */
+  readonly download?: boolean
 }
 
 export interface FixtureCalls {
@@ -192,6 +200,7 @@ export function createFixtureProvider(options: FixtureOptions = {}): FixtureProv
       // es el único proveedor del repositorio que puede medir las dos pestañas del
       // conmutador —y el reparto por `kind` dentro de una fuente mixta— sin red.
       media: options.media ?? 'both',
+      ...(options.download === true ? { download: true } : {}),
     },
     calls,
 
@@ -279,8 +288,9 @@ function esFallo(valor: string): valor is FixtureFailure {
 /**
  * Opciones leídas del entorno, para el arranque manual y el e2e.
  *
- * `NN_ANIME_FIXTURE_LATENCY_MS` y `NN_ANIME_FIXTURE_FAIL` (`search=500`,
- * `resolveStream=timeout`). Se leen aquí y no dentro del proveedor para que éste
+ * `NN_ANIME_FIXTURE_LATENCY_MS`, `NN_ANIME_FIXTURE_FAIL` (`search=500`,
+ * `resolveStream=timeout`) y `NN_ANIME_FIXTURE_DOWNLOAD=1`, que declara la fuente
+ * descargable para el e2e. Se leen aquí y no dentro del proveedor para que éste
  * siga siendo inyectable y no dependa de variables globales.
  */
 export function fixtureOptionsFromEnv(env: Record<string, string | undefined>): FixtureOptions {
@@ -297,6 +307,7 @@ export function fixtureOptionsFromEnv(env: Record<string, string | undefined>): 
   return {
     ...(Number.isFinite(latencia) && latencia > 0 ? { latencyMs: latencia } : {}),
     ...(Object.keys(fallos).length === 0 ? {} : { failures: fallos }),
+    ...(env.NN_ANIME_FIXTURE_DOWNLOAD === '1' ? { download: true } : {}),
   }
 }
 

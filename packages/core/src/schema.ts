@@ -161,6 +161,15 @@ export const providerCapabilitiesSchema = z.strictObject({
    * y fallar en cada respuesta.
    */
   mediaPerTitle: z.boolean().optional(),
+  /**
+   * El proveedor permite descargar sus episodios para verlos sin conexión.
+   *
+   * Opcional y **ausente es no**: el botón de descarga no se ofrece si el plugin
+   * no lo declara. No se sube la versión del contrato por una capacidad que no
+   * cambia ninguna respuesta; una app vieja rechaza el manifiesto al cargar si el
+   * plugin la declara, que es el rechazo honesto.
+   */
+  download: z.boolean().optional(),
 })
 
 export const modeSchema = z.enum(['sub', 'dub', 'raw'])

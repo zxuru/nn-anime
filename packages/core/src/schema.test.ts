@@ -580,6 +580,27 @@ describe('media: qué sirve un proveedor', () => {
       expect(nuevo.data.mediaPerTitle).toBe(true)
     }
   })
+
+  test('`download` es opcional: ausente es no, y declarada se lee', () => {
+    const sin = providerCapabilitiesSchema.safeParse({
+      search: true,
+      sub: true,
+      dub: false,
+      trending: false,
+    })
+    expect(sin.success).toBe(true)
+    if (sin.success) expect(sin.data.download).toBeUndefined()
+
+    const con = providerCapabilitiesSchema.safeParse({
+      search: true,
+      sub: true,
+      dub: false,
+      trending: false,
+      download: true,
+    })
+    expect(con.success).toBe(true)
+    if (con.success) expect(con.data.download).toBe(true)
+  })
 })
 
 describe('mediaType y temporada en el contrato', () => {
