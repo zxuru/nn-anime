@@ -33,6 +33,12 @@ export {
   systemResolver,
 } from './destination-guard'
 export {
+  downloadFile,
+  type FileDownloadInput,
+  type FileDownloadResult,
+  MAX_FILE_BYTES,
+} from './download/file'
+export {
   createPlaylistCache,
   defaultKeyPath,
   defaultSegPath,
