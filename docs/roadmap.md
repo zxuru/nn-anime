@@ -171,7 +171,7 @@ URLs de streams.
 | ID | Decisión | Opciones | Estado o recomendación |
 |----|----------|----------|------------------------|
 | D1 | Metadatos de películas y series | TMDB con clave del propio usuario en Ajustes, o solo lo que entregue el plugin | **Decidida el 2026-10-26: clave opcional de TMDB en Ajustes, con el plugin como respaldo.** La clave no se devuelve en `GET /api/settings`; TMDB entra en la lista blanca y en `SECURITY.md` |
-| D2 | Formato de descarga HLS | Guardar playlist y segmentos y servirlos desde el proxy local, o remux a MP4 con ffmpeg opcional | Empezar con segmentos locales (sin dependencias nuevas); ffmpeg opcional después |
+| D2 | Formato de descarga HLS | Guardar playlist y segmentos y servirlos desde el proxy local, o remux a MP4 con ffmpeg opcional | **Decidida el 2026-10-26: MP4 primero.** Copia directa para fuentes `file`; remux con ffmpeg para HLS; si no hay ffmpeg, segmentos locales reproducibles sólo en la aplicación. El usuario quiere poder abrir lo descargado fuera de nn-anime |
 | D3 | Transporte de watch party remoto | WebRTC con señalización manual (copiar y pegar un código), relay autohospedable opcional, o túnel del propio usuario | WebRTC con señalización manual: respeta «sin servidor central» |
 | D4 | Orden entre manga y watch party | Manga primero o watch party primero | Manga primero, por riesgo y por reutilizar el motor de descargas |
 | D5 | Formato de manga offline | CBZ (zip de imágenes, opcionalmente con `ComicInfo.xml`) o carpeta de imágenes | CBZ: un archivo por capítulo, interoperable con otros lectores |
