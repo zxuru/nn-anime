@@ -14,7 +14,7 @@
  * queda con lo que publicó el plugin, que es lo que hacía antes de existir esto.
  */
 
-import { type TmdbMetadata, normalizeQuery } from '@nn-anime/core'
+import { normalizeQuery, type TmdbMetadata } from '@nn-anime/core'
 import { z } from 'zod'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
@@ -190,7 +190,9 @@ export function createTmdbClient(options: TmdbClientOptions = {}): TmdbClient {
       const elegido =
         parsed.data.results.find((resultado) => {
           const nombreResultado = nombre(resultado)
-          return nombreResultado !== undefined && nombresBuscados.has(normalizeQuery(nombreResultado))
+          return (
+            nombreResultado !== undefined && nombresBuscados.has(normalizeQuery(nombreResultado))
+          )
         }) ?? parsed.data.results[0]
 
       if (elegido === undefined) {
@@ -199,10 +201,7 @@ export function createTmdbClient(options: TmdbClientOptions = {}): TmdbClient {
       }
 
       const anio =
-        yearOf(elegido.release_date) ??
-        yearOf(elegido.first_air_date) ??
-        input.year ??
-        undefined
+        yearOf(elegido.release_date) ?? yearOf(elegido.first_air_date) ?? input.year ?? undefined
       const sinopsis = elegido.overview?.trim()
       const valor: TmdbMetadata = {
         source: 'tmdb',

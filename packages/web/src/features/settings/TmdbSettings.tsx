@@ -92,11 +92,20 @@ export function TmdbSettings(props: TmdbSettingsProps): ReactNode {
         </label>
 
         <div className="settings__actions">
-          <button type="submit" className="button button--primary" disabled={ocupado || clave === ''}>
+          <button
+            type="submit"
+            className="button button--primary"
+            disabled={ocupado || clave === ''}
+          >
             {t(DEFAULT_LOCALE, 'settings.tmdb.save')}
           </button>
           {props.configured ? (
-            <button type="button" className="button" disabled={ocupado} onClick={() => void borrar()}>
+            <button
+              type="button"
+              className="button"
+              disabled={ocupado}
+              onClick={() => void borrar()}
+            >
               {t(DEFAULT_LOCALE, 'settings.tmdb.clear')}
             </button>
           ) : null}

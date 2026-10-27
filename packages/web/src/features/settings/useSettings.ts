@@ -185,7 +185,9 @@ export function useSettings(): Settings {
       const previo = data?.tmdb.configured ?? false
       const configurada = key !== null
 
-      setData((actual) => (actual === undefined ? actual : { ...actual, tmdb: { configured: configurada } }))
+      setData((actual) =>
+        actual === undefined ? actual : { ...actual, tmdb: { configured: configurada } },
+      )
 
       try {
         await apiPatch('/api/settings', { tmdbApiKey: key })

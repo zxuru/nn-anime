@@ -173,7 +173,12 @@ describe('GET /api/anime/:providerId/:ref/metadata', () => {
       {
         respuesta: () =>
           conResultados([
-            { title: 'El Jardín de Hierro', overview: 'Una.', genre_ids: [18], release_date: '2020-01-01' },
+            {
+              title: 'El Jardín de Hierro',
+              overview: 'Una.',
+              genre_ids: [18],
+              release_date: '2020-01-01',
+            },
           ]),
       },
     )
