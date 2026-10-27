@@ -1,7 +1,7 @@
 # Plan de tareas: roadmap post-v0.3.1
 
-Origen: `docs/roadmap.md` · Estado: **fase 0 cerrada; fase 1 abierta, spec 1.1 siguiente** ·
-2026-10-26.
+Origen: `docs/roadmap.md` · Estado: **fase 0 cerrada; fase 1 abierta, spec 1.1 hecha; motor
+siguiente** · 2026-10-26.
 Diagnóstico que reordena la fase 0: `docs/diagnostico-peliculas-series.md`.
 
 Rige el **Definition of Done** de `tasks/plan.md`: `typecheck`, `lint` y `bun test` en verde,
@@ -23,7 +23,13 @@ lo que ordena.
 | 0.4 Reproductor de película y serie | **T178** | hecho | T176 |
 | 0.5 Fixture multi-temporada y caso de fallo | **T179** | hecho | T176 |
 | 0.6 Selector de fuente con alternativa | **T180** | hecho | T174 |
-| Fase 1 Descargas | T181 | **spec 1.1 siguiente**; D2 pendiente | 0.5 |
+| 1.1 Descargas · spec | **T181** | hecho; D2 decidida | 0.5 |
+| 1.2 Descargas · contrato | T182 | **siguiente** | T181 |
+| 1.3 Descargas · motor | T183 | pendiente | T182 |
+| 1.4 Descargas · interfaz | T184 | pendiente | T183 |
+| 1.5 Descargas · reproducción local | T185 | pendiente | T183, T184 |
+| 1.6 Descargas · escritorio | T186 | pendiente | T184 |
+| 1.7 Descargas · espacio | T187 | pendiente | T183, T184 |
 | Fase 2A Manga | sin abrir | — | 0.5 |
 | Fase 2B Descarga de manga | sin abrir | — | 1.x, 2A |
 | Fase 3 Watch party | sin abrir | — | 0.5 (idealmente 1.x) |
