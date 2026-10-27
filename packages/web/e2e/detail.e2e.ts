@@ -642,6 +642,12 @@ test.describe('de la búsqueda al detalle', () => {
     await verla.click()
     await expect(page).toHaveURL(/\/watch\/fixture\/el-jardin-de-hierro%231\?mode=sub/)
     await expect(page.locator('video')).toBeVisible({ timeout: 15_000 })
+
+    // Y el reproductor tampoco la trata como un episodio: ni «Episodio 1 de 1»,
+    // ni flechas de vecino, ni la columna de capítulos.
+    await expect(page.locator('.watch__episode')).toHaveText('Película', { timeout: 15_000 })
+    await expect(page.getByRole('link', { name: 'Episodio siguiente' })).toHaveCount(0)
+    await expect(page.locator('.watch__aside')).toHaveCount(0)
   })
 
   test('una película sin ninguna parte lo dice, y no deja un botón que no lleva a nada', async ({
@@ -839,6 +845,29 @@ test.describe('un título con temporadas', () => {
     const siguiente = page.getByRole('link', { name: 'Episodio siguiente' })
     await expect(siguiente).toHaveAttribute('href', /s=2/)
     await expect(siguiente).toHaveAttribute('href', /n=2/)
+  })
+
+  test('al terminar una temporada, la flecha siguiente abre la temporada de al lado', async ({
+    page,
+  }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/tres-temporadas%23t2e3?mode=sub&anime=tres-temporadas&n=3&s=2')
+    await expect(page.locator('video')).toBeVisible({ timeout: 15_000 })
+
+    // T2E3 es la última de su temporada: la serie sigue en T3E1 y la flecha no
+    // puede apagarse ahí.
+    const siguiente = page.getByRole('link', { name: 'Episodio siguiente' })
+    await expect(siguiente).toHaveAttribute('href', /s=3/)
+    await expect(siguiente).toHaveAttribute('href', /n=1/)
+
+    await siguiente.click()
+    await expect(page).toHaveURL(/s=3/)
+
+    // Y la vuelta: la primera de la temporada 3 tiene por anterior la última de
+    // la 2, no una flecha apagada.
+    const anterior = page.getByRole('link', { name: 'Episodio anterior' })
+    await expect(anterior).toHaveAttribute('href', /s=2/)
+    await expect(anterior).toHaveAttribute('href', /n=3/)
   })
 })
 

@@ -39,7 +39,7 @@ import {
   streamResolveResponseSchema,
 } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { Episode } from '@nn-anime/core/models'
+import type { Episode, TitleKind } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet, apiPostJson } from '../../api/client'
@@ -58,6 +58,7 @@ import {
   type EpisodeReads,
   loadEpisodeByNumber,
   loadEpisodesPage,
+  loadLatestEpisode,
 } from '../detail/useDetail'
 import { coverPath } from '../search/ResultCard'
 import { AudioModeSwitch } from './AudioModeSwitch'
@@ -220,6 +221,42 @@ async function neighboursInPage(
  * —un «de 26» que el proveedor no dio es peor que no decir de cuántos—, así que
  * sin total la pantalla se queda en «Episodio 2» como antes.
  */
+/**
+ * El vecino que está en la temporada de al lado.
+ *
+ * Al terminar la última parte de una temporada, la flecha siguiente no puede
+ * apagarse: la serie continúa en la siguiente. El primero de la temporada que
+ * viene (o el último de la anterior) se pide con la temporada delante, que es lo
+ * que el servidor necesita para no devolver el de otra.
+ */
+async function neighbourInOtherSeason(
+  direction: 'previous' | 'next',
+  providerId: string,
+  titleRef: string,
+  season: number,
+  seasons: readonly { readonly season: number }[],
+  reads: EpisodeReads,
+): Promise<WatchNeighbour | undefined> {
+  const indice = seasons.findIndex((temporada) => temporada.season === season)
+  if (indice === -1) return undefined
+
+  const destino = seasons[indice + (direction === 'next' ? 1 : -1)]
+  if (destino === undefined) return undefined
+
+  if (direction === 'previous') {
+    return aVecino(hallado(await loadLatestEpisode(providerId, titleRef, reads, destino.season)))
+  }
+
+  const pagina = await loadEpisodesPage(
+    providerId,
+    titleRef,
+    { page: 1, season: destino.season },
+    reads,
+  )
+
+  return aVecino(delProveedor(pagina.episodes, providerId)[0])
+}
+
 async function neighboursWithNumber(
   providerId: string,
   titleRef: string,
@@ -243,7 +280,7 @@ async function neighboursWithNumber(
 
   if (pagina !== undefined && actual !== undefined) {
     const indice = propios.indexOf(actual)
-    const { previous, next, total } = await neighboursInPage(
+    const enPagina = await neighboursInPage(
       propios,
       indice,
       pagina,
@@ -252,6 +289,34 @@ async function neighboursWithNumber(
       reads,
       suya,
     )
+    let { previous, next } = enPagina
+    const { total } = enPagina
+
+    // El primero y el último de una temporada tienen vecino en la de al lado: la
+    // serie no termina en el borde de la temporada.
+    if (suya !== undefined && pagina.seasons !== undefined) {
+      if (previous === undefined) {
+        previous = await neighbourInOtherSeason(
+          'previous',
+          providerId,
+          titleRef,
+          suya,
+          pagina.seasons,
+          reads,
+        )
+      }
+
+      if (next === undefined) {
+        next = await neighbourInOtherSeason(
+          'next',
+          providerId,
+          titleRef,
+          suya,
+          pagina.seasons,
+          reads,
+        )
+      }
+    }
 
     return {
       previous,
@@ -313,7 +378,7 @@ export async function loadWatchNeighbours(
   if (actual === undefined) return { previous: undefined, next: undefined, position: undefined }
 
   const indice = propios.indexOf(actual)
-  const { previous, next, total } = await neighboursInPage(
+  const enPagina = await neighboursInPage(
     propios,
     indice,
     pagina,
@@ -322,6 +387,26 @@ export async function loadWatchNeighbours(
     reads,
     actual.season ?? season,
   )
+  let { previous, next } = enPagina
+  const { total } = enPagina
+  const suya = actual.season ?? season
+
+  if (suya !== undefined && pagina.seasons !== undefined) {
+    if (previous === undefined) {
+      previous = await neighbourInOtherSeason(
+        'previous',
+        providerId,
+        titleRef,
+        suya,
+        pagina.seasons,
+        reads,
+      )
+    }
+
+    if (next === undefined) {
+      next = await neighbourInOtherSeason('next', providerId, titleRef, suya, pagina.seasons, reads)
+    }
+  }
 
   return {
     previous,
@@ -448,6 +533,14 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   // del episodio, así que sin esta petición la pantalla no sabe cómo se llama lo
   // que está reproduciendo y la pestaña sólo puede decir «Ep. 3».
   const [tituloAnime, setTituloAnime] = useState<string | undefined>(undefined)
+  /**
+   * El formato del título, que es lo que decide si esto es una película.
+   *
+   * La ficha lo sabe y la pantalla de reproducción no lo recibía: una película se
+   * anunciaba como «Episodio 1 de 1» y conservaba los mandos de una serie. Se lee
+   * del detalle que la pantalla ya pide para el nombre, sin una segunda petición.
+   */
+  const [tipo, setTipo] = useState<TitleKind | undefined>(undefined)
   // La portada del título, si el proveedor dio una. No se pasa la dirección del
   // proveedor —que puede ser de fuera y la CSP no la admitiría—: se pide al
   // proxy, que es el único que habla con el upstream. Sin portada no se inventa
@@ -508,6 +601,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         if (!vivo) return
 
         setTituloAnime(detalle.title)
+        setTipo(detalle.kind)
         setPortada(
           detalle.coverUrl === undefined ? undefined : coverPath(props.providerId, animeRef.value),
         )
@@ -675,6 +769,9 @@ export function WatchPage(props: WatchPageProps): ReactNode {
    * así que repetirlo daría un «Episodio 3 de 12 · Episodio 3». Cuando el nombre ya
    * dice lo mismo que la etiqueta, no se pinta.
    */
+  /** Una película no tiene episodios: ni etiqueta, ni flechas, ni lista. */
+  const esPelicula = tipo === 'movie'
+
   const tituloEpisodio = posicionEpisodio?.title?.trim() ?? ''
   const tituloUtil =
     tituloEpisodio === '' ||
@@ -691,7 +788,9 @@ export function WatchPage(props: WatchPageProps): ReactNode {
    * reproduciendo y la etiqueta se queda sin número: el episodio es un adorno del
    * título, no al revés.
    */
-  const etiquetaEpisodio = episodeLabel(posicionEpisodio?.number, tituloUtil)
+  const etiquetaEpisodio = esPelicula
+    ? undefined
+    : episodeLabel(posicionEpisodio?.number, tituloUtil)
 
   /**
    * La línea del episodio, con el número una sola vez.
@@ -700,8 +799,9 @@ export function WatchPage(props: WatchPageProps): ReactNode {
    * las flechas— y el número se leía dos veces. Ahora es una línea: el episodio,
    * de cuántos es —si el proveedor lo dijo— y su título, si lo trae.
    */
-  const lineaEpisodio =
-    posicionEpisodio === undefined
+  const lineaEpisodio = esPelicula
+    ? t(DEFAULT_LOCALE, 'detail.movie')
+    : posicionEpisodio === undefined
       ? etiquetaEpisodio
       : composeTitle([
           posicionEpisodio.total === undefined
@@ -770,7 +870,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
    * número viaja también, para que la pantalla que se abra no tenga que pedir la
    * lista entera para saber cuáles son **sus** vecinos.
    */
-  const pasos = (
+  const pasos = esPelicula ? null : (
     <div className="watch__steps">
       {vecinos?.previous === undefined ? (
         <span
@@ -789,6 +889,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
           to={watchPath(props.providerId, vecinos.previous.ref.value, {
             ...opcionesDePaso,
             n: vecinos.previous.number,
+            ...(vecinos.previous.season === undefined ? {} : { s: vecinos.previous.season }),
           })}
         >
           <EpisodeArrow towards="previous" />
@@ -832,7 +933,10 @@ export function WatchPage(props: WatchPageProps): ReactNode {
    * cuando no hay fuente.
    */
   const filaDeMandos = (conAudio: boolean): ReactNode => (
-    <nav className="watch__nav" aria-label={t(DEFAULT_LOCALE, 'player.episodes')}>
+    <nav
+      className="watch__nav"
+      aria-label={t(DEFAULT_LOCALE, esPelicula ? 'player.audio' : 'player.episodes')}
+    >
       {pasos}
       {conAudio ? <AudioModeSwitch mode={modo} onMode={setModo} /> : null}
     </nav>
@@ -847,7 +951,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
    * ella misma, de cien en cien: esta pantalla no descarga la lista entera para
    * pintarla, que es lo que T92 vino a quitar.
    */
-  const listaDeEpisodios = (
+  const listaDeEpisodios = esPelicula ? null : (
     <aside className="watch__aside">
       <WatchEpisodes
         providerId={props.providerId}
