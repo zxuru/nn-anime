@@ -44,6 +44,12 @@ import { pruneOrphans } from './prune'
 import { type AdultRepository, createAdultRepository } from './repositories/adult'
 import { type AniListRepository, createAniListRepository } from './repositories/anilist'
 import { type CandidateRow, createAnimeRepository } from './repositories/anime'
+import {
+  createDownloadRepository,
+  type DownloadPatch,
+  type DownloadRecord,
+  type NewDownload,
+} from './repositories/download'
 import { createEpisodePageRepository, type StoredEpisodePage } from './repositories/episode-page'
 import { createEpisodesRepository } from './repositories/episodes'
 import { createFavoritesRepository } from './repositories/favorites'
@@ -271,6 +277,18 @@ export interface CatalogStore {
    */
   setPlanToWatch(ref: ProviderRef, value: boolean): Promise<void>
   listPlanToWatch(): Promise<readonly PlanToWatchTitle[]>
+  /**
+   * La cola de descargas.
+   *
+   * El alta es idempotente por episodio: pedir dos veces lo mismo devuelve la
+   * misma fila. El motor es quien mueve el estado; aquí sólo se persiste.
+   */
+  createDownload(input: NewDownload): Promise<DownloadRecord>
+  listDownloads(limit?: number): Promise<readonly DownloadRecord[]>
+  updateDownload(id: number, patch: DownloadPatch): Promise<DownloadRecord | undefined>
+  removeDownload(id: number): Promise<DownloadRecord | undefined>
+  /** Al arrancar: las que quedaron «downloading» vuelven a la cola. */
+  requeueInterruptedDownloads(): Promise<number>
   recordSearch(query: string, providerId: string, hits: number): Promise<void>
   listRecentSearches(limit: number): Promise<readonly SearchRecord[]>
 
@@ -312,6 +330,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     readonly watched: ReturnType<typeof createWatchedEpisodesRepository>
     readonly watchedTitles: ReturnType<typeof createWatchedTitlesRepository>
     readonly planToWatch: ReturnType<typeof createPlanToWatchRepository>
+    readonly downloads: ReturnType<typeof createDownloadRepository>
   }
 
   let repos: Repos | undefined
@@ -335,6 +354,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       watched: createWatchedEpisodesRepository(db),
       watchedTitles: createWatchedTitlesRepository(db),
       planToWatch: createPlanToWatchRepository(db),
+      downloads: createDownloadRepository(db, ahora),
     })
 
   return {
@@ -481,6 +501,21 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async listPlanToWatch() {
       return of().planToWatch.listPlanToWatch()
+    },
+    async createDownload(input) {
+      return queue.run(() => of().downloads.create(input))
+    },
+    async listDownloads(limit = 100) {
+      return of().downloads.list(limit)
+    },
+    async updateDownload(id, patch) {
+      return queue.run(() => of().downloads.update(id, patch))
+    },
+    async removeDownload(id) {
+      return queue.run(() => of().downloads.remove(id))
+    },
+    async requeueInterruptedDownloads() {
+      return queue.run(() => of().downloads.requeueInterrupted())
     },
     async recordSearch(query, providerId, hits) {
       await queue.run(() => of().history.recordSearch(query, providerId, hits))

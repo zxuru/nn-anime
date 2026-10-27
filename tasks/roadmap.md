@@ -25,11 +25,14 @@ lo que ordena.
 | 0.6 Selector de fuente con alternativa | **T180** | hecho | T174 |
 | 1.1 Descargas · spec | **T181** | hecho; D2 decidida | 0.5 |
 | 1.2 Descargas · contrato | **T182** | hecho | T181 |
-| 1.3 Descargas · motor | T183 | **siguiente** | T182 |
-| 1.4 Descargas · interfaz | T184 | pendiente | T183 |
-| 1.5 Descargas · reproducción local | T185 | pendiente | T183, T184 |
+| 1.3a Descargas · cola persistente | **T183** | hecho | T182 |
+| 1.3b Descargas · descarga directa | T183b | **siguiente** | T183 |
+| 1.3c Descargas · HLS/ffmpeg | T183c | pendiente | T183b |
+| 1.3d Descargas · rutas y guardias | T183d | pendiente | T183c |
+| 1.4 Descargas · interfaz | T184 | pendiente | T183d |
+| 1.5 Descargas · reproducción local | T185 | pendiente | T183d, T184 |
 | 1.6 Descargas · escritorio | T186 | pendiente | T184 |
-| 1.7 Descargas · espacio | T187 | pendiente | T183, T184 |
+| 1.7 Descargas · espacio | T187 | pendiente | T183d, T184 |
 | Fase 2A Manga | sin abrir | — | 0.5 |
 | Fase 2B Descarga de manga | sin abrir | — | 1.x, 2A |
 | Fase 3 Watch party | sin abrir | — | 0.5 (idealmente 1.x) |

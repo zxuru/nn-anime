@@ -38,6 +38,17 @@ export {
 } from './repositories/anilist'
 export { type AnimeRepository, type AnimeStore, createAnimeRepository } from './repositories/anime'
 export {
+  createDownloadRepository,
+  type DownloadKind,
+  type DownloadPatch,
+  type DownloadRecord,
+  type DownloadStatus,
+  type DownloadStore,
+  downloadKindSchema,
+  downloadStatusSchema,
+  type NewDownload,
+} from './repositories/download'
+export {
   createEpisodePageRepository,
   type EpisodePageRepository,
   type StoredEpisodePage,
