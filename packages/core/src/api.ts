@@ -760,6 +760,18 @@ export const settingsResponseSchema = z.strictObject({
       reason: z.string().optional(),
     }),
   ),
+  /**
+   * La fuente de metadatos de no-anime, si está configurada.
+   *
+   * **La clave no viaja nunca en esta respuesta**: la interfaz sólo necesita saber
+   * si hay una para enseñar «configurada» y no volver a pedirla. Devolverla sería
+   * poner un secreto del usuario en una respuesta que el navegador guarda.
+   */
+  tmdb: z
+    .strictObject({
+      configured: z.boolean(),
+    })
+    .default({ configured: false }),
 })
 
 /**
@@ -775,12 +787,25 @@ export const settingsPatchSchema = z
     theme: z.enum(['dark', 'light', 'system']).optional(),
     providerPriority: providerPrioritySchema.optional(),
     adultContent: z.boolean().optional(),
+    /**
+     * La clave de TMDB, o `null` para quitarla.
+     *
+     * Se valida la forma de una clave v3 —32 hexadecimales— para no guardar una
+     * cadena que después falle en cada petición sin decir por qué. `null` la
+     * borra; ausente deja la que hubiera.
+     */
+    tmdbApiKey: z
+      .string()
+      .regex(/^[a-f0-9]{32}$/i, 'la clave de TMDB son 32 caracteres hexadecimales')
+      .nullable()
+      .optional(),
   })
   .refine(
     (parche) =>
       parche.theme !== undefined ||
       parche.providerPriority !== undefined ||
-      parche.adultContent !== undefined,
+      parche.adultContent !== undefined ||
+      parche.tmdbApiKey !== undefined,
     'el parche no cambia ningún ajuste',
   )
 
