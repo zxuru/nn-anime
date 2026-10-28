@@ -2,17 +2,17 @@
  * La página de Descargas.
  *
  * Muestra lo que hay en la cola y deja pausar, reanudar o borrar. El archivo se
- * pide por el id: la interfaz nunca ve una ruta del disco. Una descarga de
- * segmentos —sin ffmpeg— no ofrece «abrir»: se reproducirá desde la aplicación,
- * y decirlo es mejor que un enlace que descarga una carpeta.
+ * pide por el id: la interfaz no arma rutas de archivo. Lo único que se escribe
+ * a mano es **la carpeta de destino**, que es un ajuste y no una ruta de nada
+ * descargado. Una descarga de segmentos —sin ffmpeg— no ofrece «abrir»: se
+ * reproducirá desde la aplicación, y decirlo es mejor que un enlace que
+ * descarga una carpeta.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
-import { useState } from 'react'
-import { apiPatch } from '../../api/client'
 import { t } from '../../i18n'
-import { elegirCarpetaDescargas, hayEscritorio } from './desktop'
+import { DownloadFolder } from './DownloadFolder'
 import { type Descarga, useDownloads } from './useDownloads'
 
 const LOCALE = DEFAULT_LOCALE
@@ -102,21 +102,8 @@ function Fila(props: {
 }
 
 export function DownloadsPage(): ReactNode {
-  const { items, space, loading, error, pause, resume, remove, cleanup, refresh } = useDownloads()
+  const { items, space, loading, error, pause, resume, remove, cleanup, setDir } = useDownloads()
   const completas = items.filter((item) => item.status === 'complete').length
-  const [errorCarpeta, setErrorCarpeta] = useState<string | undefined>()
-
-  const cambiarCarpeta = async (): Promise<void> => {
-    try {
-      const elegida = await elegirCarpetaDescargas()
-      if (elegida === undefined) return
-      await apiPatch('/api/downloads/dir', { path: elegida })
-      await refresh()
-      setErrorCarpeta(undefined)
-    } catch (cause) {
-      setErrorCarpeta(cause instanceof Error ? cause.message : String(cause))
-    }
-  }
 
   return (
     <section className="downloads">
@@ -128,19 +115,9 @@ export function DownloadsPage(): ReactNode {
             total: bytes(space.totalBytes),
             used: bytes(space.downloadsBytes),
           })}
-          <span className="downloads__path">{space.path}</span>
         </p>
       )}
-      {hayEscritorio() ? (
-        <button type="button" onClick={() => void cambiarCarpeta()}>
-          {t(LOCALE, 'downloads.chooseFolder')}
-        </button>
-      ) : null}
-      {errorCarpeta === undefined ? null : (
-        <p className="downloads__error" role="alert">
-          {errorCarpeta}
-        </p>
-      )}
+      <DownloadFolder current={space?.path} onSave={setDir} />
       {completas === 0 ? null : (
         <button type="button" onClick={() => void cleanup()}>
           {t(LOCALE, 'downloads.cleanup', { count: String(completas) })}

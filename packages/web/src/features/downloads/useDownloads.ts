@@ -18,7 +18,7 @@ import {
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ProviderRef } from '@nn-anime/core/models'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { apiGet, apiPostJson, send } from '../../api/client'
+import { apiGet, apiPatch, apiPostJson, send } from '../../api/client'
 import { t } from '../../i18n'
 
 const POLL_MS = 2_000
@@ -39,6 +39,8 @@ export interface DownloadsState {
   readonly pause: (id: number) => Promise<void>
   readonly resume: (id: number) => Promise<void>
   readonly remove: (id: number) => Promise<void>
+  /** Cambia la carpeta de destino. Lanza si el servidor la rechaza. */
+  readonly setDir: (path: string) => Promise<void>
   /** Borra de una vez todas las descargas completas. */
   readonly cleanup: () => Promise<number>
 }
@@ -136,6 +138,14 @@ export function useDownloads(): DownloadsState {
     [refresh],
   )
 
+  const setDir = useCallback(
+    async (path: string) => {
+      await apiPatch('/api/downloads/dir', { path })
+      await refresh()
+    },
+    [refresh],
+  )
+
   const cleanup = useCallback(async () => {
     const respuesta = await apiPostJson(
       '/api/downloads/cleanup',
@@ -157,6 +167,7 @@ export function useDownloads(): DownloadsState {
     pause: (id) => accion(`/api/downloads/${id}/pause`, 'POST'),
     resume: (id) => accion(`/api/downloads/${id}/resume`, 'POST'),
     remove: (id) => accion(`/api/downloads/${id}`, 'DELETE'),
+    setDir,
     cleanup,
   }
 }
