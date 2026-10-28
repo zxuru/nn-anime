@@ -284,6 +284,7 @@ export interface CatalogStore {
    * misma fila. El motor es quien mueve el estado; aquí sólo se persiste.
    */
   createDownload(input: NewDownload): Promise<DownloadRecord>
+  getDownload(id: number): Promise<DownloadRecord | undefined>
   listDownloads(limit?: number): Promise<readonly DownloadRecord[]>
   updateDownload(id: number, patch: DownloadPatch): Promise<DownloadRecord | undefined>
   removeDownload(id: number): Promise<DownloadRecord | undefined>
@@ -504,6 +505,9 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async createDownload(input) {
       return queue.run(() => of().downloads.create(input))
+    },
+    async getDownload(id) {
+      return of().downloads.get(id)
     },
     async listDownloads(limit = 100) {
       return of().downloads.list(limit)
