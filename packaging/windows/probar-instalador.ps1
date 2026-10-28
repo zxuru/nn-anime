@@ -1,38 +1,33 @@
 # Probar el instalador de Windows de verdad.
 #
-# Lo que `docs/release.md` declaraba sin probar: nadie había **ejecutado** el
-# instalador. En la máquina donde se escribió el `.nsi` no se puede juzgar del todo,
-# y **el motivo está medido**: el sandbox del agente deniega las escrituras fuera del
-# espacio de trabajo, y eso incluye el registro —`HKCU` vive en `NTUSER.DAT`— y el
-# escritorio. Medido con `reg.exe add`, que usa la misma API que NSIS: «Acceso
-# denegado». Y NSIS **se calla** los dos fallos, así que el efecto no aparece y
-# parece que el `.nsi` está mal cuando no lo está.
+# Desde T189 el instalador de Windows **no** lo escribe este repositorio: lo arma
+# `tauri-bundler` (`bun run desktop:installer`) a partir de `tauri.conf.json`. Eso
+# trae tres cosas que este guion tiene que saber y el anterior no:
 #
-# Lo que sí funciona ahí, y también está medido: instalar los archivos. Con `cmd /c`
-# el instalador sale con 0 y deja los dos ejecutables en el destino. Por eso el guion
-# empieza comprobando si el entorno deja escribir en el registro y en el escritorio
-# **antes** de juzgar nada: sin eso, el paso reportaría un fallo del instalador que en
-# realidad es del entorno.
+#   - Instala en `%LOCALAPPDATA%\nn-anime`, la misma carpeta que la aplicación usa
+#     para sus datos. El desinstalador borra **los archivos que instaló** y deja el
+#     resto; por eso el centinela de los datos se comprueba después de desinstalar.
+#   - El desinstalador se llama `uninstall.exe`, no «Desinstalar nn-anime.exe».
+#   - En modo silencioso (`/S`) crea los dos accesos, porque la página final —la
+#     que tiene la casilla del acceso de escritorio— no llega a verse.
 #
-# Se comprueba lo que un usuario notaría, en el orden en que lo notaría:
+# Lo que se comprueba es lo que un usuario notaría, en el orden en que lo notaría:
 #   1. Se instala en silencio, sin permisos de administrador.
-#   2. Queda **un solo ejecutable** —el anfitrión, que lleva el servidor dentro— y el
-#      icono. Ya no hay un `nn-anime.exe` que conservar al lado.
+#   2. Queda **un solo ejecutable** —el anfitrión, que lleva el servidor dentro—.
 #   3. Hay entrada en «Agregar o quitar programas».
 #   4. Los dos accesos existen y abren el **anfitrión**.
 #   5. Al abrirlo aparece una ventana, el servidor se extrae a
 #      `%LOCALAPPDATA%\nn-anime\bin\<versión>` y escucha **sólo en loopback**. Al
-#      cerrar la ventana la aplicación **se oculta en la bandeja** (no se apaga):
-#      la salida ordenada es «Salir», que no se automatiza aquí; la limpieza final
-#      mata los procesos y exige que no quede ninguno.
-#   6. Al desinstalar se van los archivos y las claves, y **los datos del usuario se
-#      quedan** —la base incluida, que vive en `%LOCALAPPDATA%\nn-anime`—.
+#      cerrar la ventana la aplicación **se oculta en la bandeja** (no se apaga).
+#   6. Al desinstalar se van el ejecutable, el desinstalador y las claves, y **los
+#      datos del usuario se quedan** —la base incluida—.
 #
-# Uso: pwsh -NoProfile -File packaging/windows/probar-instalador.ps1 -Release release
+# Uso: pwsh -NoProfile -File packaging/windows/probar-instalador.ps1
+#      pwsh -NoProfile -File packaging/windows/probar-instalador.ps1 -Bundle <carpeta>
 
 [CmdletBinding()]
 param(
-  [string] $Release = 'release'
+  [string] $Bundle = 'desktop/src-tauri/target/release/bundle/nsis'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -49,7 +44,7 @@ Write-Output "  sesion: SESSIONNAME='$env:SESSIONNAME' interactivo=$([Environmen
 # Y la comprobación que de verdad importa antes de empezar: **¿deja este entorno
 # escribir donde el instalador tiene que escribir?** Si el registro o el escritorio no
 # son escribibles, las comprobaciones 3 y 4 no pueden pasar nunca, y decir «no hay
-# entrada en Agregar o quitar programas» culparía al `.nsi` de una restricción del
+# entrada en Agregar o quitar programas» culparía al instalador de una restricción del
 # entorno. Se para aquí y se dice cuál de las dos cosas falta.
 $escritorio = [Environment]::GetFolderPath('Desktop')
 $sondaClave = 'HKCU:\Software\nn-anime-sonda-entorno'
@@ -71,48 +66,45 @@ try {
 
 Paso 'el entorno deja escribir en el registro y en el escritorio'
 
-$setup = Get-ChildItem -Path $Release -Filter 'nn-anime-*-setup.exe' -ErrorAction SilentlyContinue |
+$setup = Get-ChildItem -Path $Bundle -Filter '*-setup.exe' -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending |
   Select-Object -First 1
 
-if (-not $setup) { throw "no hay instalador en $Release" }
+if (-not $setup) { throw "no hay instalador en $Bundle" }
 
-# Fuera de un runner `RUNNER_TEMP` no existe, y `Join-Path $null` daría un error que
-# no habla de lo que falta.
-$raizTemp = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
-$destino = Join-Path $raizTemp 'nn-anime-instalado'
-
+# El instalador de Tauri, en modo `currentUser`, instala aquí. Es también la raíz de
+# datos de la aplicación: el desinstalador borra lo suyo y deja lo demás.
+$destino = Join-Path $env:LOCALAPPDATA 'nn-anime'
+$uninstaller = Join-Path $destino 'uninstall.exe'
 $clave = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\nn-anime'
 
-# El anfitrión fija los tres directorios bajo una sola raíz —datos, configuración y
-# caché—, así que `%APPDATA%` ya no se toca: todo vive en `%LOCALAPPDATA%\nn-anime`.
-# Mirar dos directorios daría por bueno uno que la aplicación ya no usa.
-$datos = @(Join-Path $env:LOCALAPPDATA 'nn-anime')
-
+# Los restos de una ejecución anterior harían que la instalación «funcionara» sin
+# haber instalado nada.
+Get-Process -Name 'nn-anime-desktop' -ErrorAction SilentlyContinue | Stop-Process -Force
 Remove-Item -Recurse -Force $destino -ErrorAction SilentlyContinue
 
-# 1. En silencio y **sin UAC**: el `.nsi` declara `RequestExecutionLevel user`. `/D`
-#    fija el destino, tiene que ir el último y sin comillas.
+# 1. En silencio y **sin UAC** (`RequestExecutionLevel user` en la plantilla de Tauri).
 #
 #    Se lanza con `cmd /c` y **no** con `Start-Process -FilePath <setup>`: medido aquí,
 #    `Start-Process` sobre el `.exe` del instalador se queda colgado y **no llega a
 #    crear el destino**, mientras que el mismo instalador con `cmd /c` termina con 0
 #    y deja los archivos dentro.
-Paso "instalando en $destino"
+Paso "instalando $($setup.Name) en $destino"
 $proceso = Start-Process -FilePath 'cmd.exe' `
-  -ArgumentList '/c', "`"$($setup.FullName)`" /S /D=$destino" `
+  -ArgumentList '/c', "`"$($setup.FullName)`" /S" `
   -Wait -PassThru -WindowStyle Hidden
 if ($proceso.ExitCode -ne 0) { throw "el instalador salió con $($proceso.ExitCode)" }
 
-# 2. Los archivos: **un solo ejecutable**, el anfitrión, que lleva el servidor
-#    dentro. Si alguien volviera a meter el servidor suelto, el instalador dejaría
-#    de ser el archivo único que se publica, y aquí se para.
-foreach ($archivo in 'nn-anime-desktop.exe', 'nn-anime.ico') {
-  if (-not (Test-Path (Join-Path $destino $archivo))) { throw "no se instaló $archivo" }
+# 2. Los archivos: **un solo ejecutable**, el anfitrión, que lleva el servidor dentro.
+#    Si alguien volviera a meter el servidor suelto, el instalador dejaría de ser el
+#    archivo único que se publica, y aquí se para.
+if (-not (Test-Path (Join-Path $destino 'nn-anime-desktop.exe'))) {
+  throw 'no se instaló nn-anime-desktop.exe'
 }
 if (Test-Path (Join-Path $destino 'nn-anime.exe')) {
   throw 'el instalador dejó un nn-anime.exe suelto: el servidor tiene que viajar dentro del anfitrión'
 }
-Paso 'el anfitrión y el icono están, y no hay un segundo ejecutable'
+Paso 'el anfitrión está y no hay un segundo ejecutable'
 
 # 3. La entrada de «Agregar o quitar programas».
 if (-not (Test-Path $clave)) { throw 'no hay entrada en Agregar o quitar programas' }
@@ -121,11 +113,12 @@ $entrada = Get-ItemProperty $clave
 if ($entrada.DisplayName -ne 'nn-anime') { throw "la entrada dice «$($entrada.DisplayName)»" }
 Paso "entrada de desinstalación: $($entrada.DisplayName) $($entrada.DisplayVersion)"
 
-# 4. Los accesos, y **a qué apuntan**. Es lo que quita la consola de la experiencia.
+# 4. Los accesos, y **a qué apuntan**. En modo silencioso los crea la sección de
+#    instalación porque la página final no se ve.
 $shell = New-Object -ComObject WScript.Shell
 $accesos = @(
   (Join-Path ([Environment]::GetFolderPath('Desktop')) 'nn-anime.lnk'),
-  (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\nn-anime\nn-anime.lnk')
+  (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\nn-anime.lnk')
 )
 
 foreach ($acceso in $accesos) {
@@ -142,7 +135,7 @@ foreach ($acceso in $accesos) {
 Paso 'abriendo el anfitrión instalado'
 $anfitrion = Start-Process -FilePath (Join-Path $destino 'nn-anime-desktop.exe') -PassThru
 
-# El archivo único **extrae** 98 MB antes de lanzar el servidor, y la ventana de la
+# El archivo único **extrae** ~98 MB antes de lanzar el servidor, y la ventana de la
 # bandeja puede dar un `MainWindowHandle` antes de que la aplicación exista. Se
 # espera a las dos cosas, no a la primera: mirar el servidor a los 0,5 s de ver un
 # handle era medir la extracción, no el arranque.
@@ -311,56 +304,38 @@ if ($vivos.Count -ne 0) {
 Paso 'la limpieza no dejó ningún proceso'
 
 # 6. Los datos del usuario, **sembrados antes de desinstalar**. No basta con mirar si
-#    el directorio existía antes: en un runner limpio no existe —lo crea la aplicación
-#    al arrancar, no el instalador—, así que la comprobación pasaría sin medir nada.
-#    Se siembra un centinela en la raíz y se exige que siga ahí.
-foreach ($directorio in $datos) {
-  if (-not (Test-Path $directorio)) { throw "la aplicación no creó $directorio" }
-
-  Set-Content -Path (Join-Path $directorio 'no-borrar.txt') -Value 'sonda' -Encoding ascii
-}
+#    el directorio existía antes: en un runner limpio lo crea la aplicación al
+#    arrancar, no el instalador. Se siembra un centinela en la raíz y se exige que
+#    siga ahí después de desinstalar.
+$centinela = Join-Path $destino 'no-borrar.txt'
+Set-Content -Path $centinela -Value 'sonda' -Encoding ascii
 Paso 'los datos del usuario están y llevan su centinela'
 
-# Desinstalar: se van los archivos y las claves; los centinelas se quedan.
-$desinstalador = Join-Path $destino 'Desinstalar nn-anime.exe'
-if (-not (Test-Path $desinstalador)) { throw 'no hay desinstalador' }
-
-# `_?=<carpeta>` le dice al desinstalador dónde está instalado. Medido aquí: sin él
-# —y con la clave del registro ausente, que es lo que pasa cuando el entorno no deja
-# escribirla— el desinstalador **sale con 0 y no borra nada**; con él borra el
-# directorio entero.
-#
-# Y **no se exige código de salida**: medido, con `_?=` termina con **1** después de
-# haber borrado todo. El código no mide la desinstalación —NSIS relanza el
-# desinstalador desde una copia temporal, así que el proceso que se espera no es el
-# que hace el trabajo—, y por eso lo que se juzga es el **efecto**, que es lo que le
-# importa a quien desinstala.
+# Desinstalar. El desinstalador de Tauri copia el proceso a un temporal y borra el
+# de la carpeta, así que se espera a que desaparezca el ejecutable en vez de a un
+# código de salida que mide al proceso equivocado.
 $proceso = Start-Process -FilePath 'cmd.exe' `
-  -ArgumentList '/c', "`"$desinstalador`" /S _?=$destino" `
+  -ArgumentList '/c', "`"$uninstaller`" /S" `
   -Wait -PassThru -WindowStyle Hidden
 
-if ($proceso.ExitCode -ne 0) {
-  Write-Output "  (el desinstalador salió con $($proceso.ExitCode); se juzga por el efecto)"
+for ($intento = 0; $intento -lt 30 -and (Test-Path $uninstaller); $intento++) {
+  Start-Sleep -Milliseconds 500
 }
 
-foreach ($archivo in 'nn-anime-desktop.exe', 'nn-anime.ico') {
-  if (Test-Path (Join-Path $destino $archivo)) { throw "el desinstalador dejó $archivo" }
+if (Test-Path (Join-Path $destino 'nn-anime-desktop.exe')) {
+  throw 'el desinstalador dejó nn-anime-desktop.exe'
 }
+if (Test-Path $uninstaller) { throw 'el desinstalador dejó uninstall.exe' }
 if (Test-Path (Join-Path $destino 'nn-anime.exe')) {
   throw 'el desinstalador dejó un nn-anime.exe suelto'
 }
 if (Test-Path $clave) { throw 'el desinstalador dejó la entrada del registro' }
 Paso 'el desinstalador se llevó los archivos y las claves'
 
-foreach ($directorio in $datos) {
-  $centinela = Join-Path $directorio 'no-borrar.txt'
-
-  if (-not (Test-Path $centinela)) {
-    throw "el desinstalador borró los datos del usuario en ${directorio}: desinstalar no es pedir que se pierdan"
-  }
-
-  Remove-Item $centinela -Force -ErrorAction SilentlyContinue
+if (-not (Test-Path $centinela)) {
+  throw "el desinstalador borró los datos del usuario en $destino: desinstalar no es pedir que se pierdan"
 }
+Remove-Item $centinela -Force -ErrorAction SilentlyContinue
 Paso 'los datos del usuario, con su base, siguen donde estaban'
 
 Write-Output 'el instalador instala, crea los accesos, abre la ventana y desinstala'

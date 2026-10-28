@@ -139,6 +139,15 @@ prueba que lo sostiene.
     que el PR que lo traiga aparece solo. Riesgo real hoy: bajo —los tres «sin mantener» no describen
     una vulnerabilidad explotable, y el de `glib` vive en iteradores de `Variant` que este código no
     usa—, pero está declarado y no escondido.
+18. **La ventana de actualizaciones es la única superficie de IPC del anfitrión.** La interfaz
+    principal sigue con cero permisos: es una webview remota (`http://127.0.0.1`) y no puede invocar
+    nada. La ventana de actualizaciones es una página empaquetada, con su propia capability y sólo
+    `core:default`, `updater:default` y `process:allow-restart`; no tiene shell, ni archivos, ni
+    red propia. Lo que decide si un instalador se ejecuta es la **firma minisign** del artefacto con
+    la clave privada del updater, que no está en el repositorio, y `requireSignedVersion` ata esa
+    firma a la versión anunciada. `latest.json` no va firmado: quien pueda escribir en la release
+    podría anunciar una versión distinta, pero no fabricar un instalador aceptado. El updater está
+    activo sólo en Windows; el modo portable no descarga ni instala.
 
 ## Modo servidor
 

@@ -3,7 +3,9 @@ description: Lo que cada sistema necesita para armar su instalador, sin que haga
 
 # Las tres plataformas necesitan algo que no viene en la imagen de GitHub:
 #
-#  - Windows: NSIS (`makensis`), que suele estar pero no siempre en el `PATH`.
+#  - Windows: nada desde T189. El NSIS lo descarga `tauri-bundler` al armar el
+#    instalador, con su versión fijada en Tauri; el `makensis` del sistema era para
+#    el `.nsi` escrito a mano, que ya no existe.
 #  - Linux: `nfpm` (los `.deb` y `.rpm`) y `appimagetool` (el AppImage).
 #  - macOS: nada. `hdiutil` y `codesign` vienen con el sistema.
 #
@@ -18,37 +20,6 @@ description: Lo que cada sistema necesita para armar su instalador, sin que haga
 runs:
   using: composite
   steps:
-    - name: NSIS (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        $exe = $null
-
-        $encontrado = Get-Command makensis -ErrorAction SilentlyContinue
-        if ($encontrado) { $exe = $encontrado.Source }
-
-        if (-not $exe) {
-          $candidatos = @(
-            "${env:ProgramFiles(x86)}\NSIS\makensis.exe",
-            "$env:ProgramFiles\NSIS\makensis.exe"
-          )
-          $exe = $candidatos | Where-Object { Test-Path $_ } | Select-Object -First 1
-        }
-
-        if (-not $exe) {
-          Write-Output 'makensis no está en la imagen: se instala con Chocolatey'
-          choco install nsis --no-progress -y
-          $exe = Get-ChildItem "${env:ProgramFiles(x86)}\NSIS\makensis.exe" -ErrorAction SilentlyContinue |
-            Select-Object -First 1 -ExpandProperty FullName
-        }
-
-        if (-not $exe) { throw 'no se pudo preparar NSIS (makensis)' }
-
-        # A `GITHUB_PATH` para que los pasos siguientes lo encuentren sin buscar.
-        Split-Path $exe | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-        & $exe -VERSION
-        Write-Output "NSIS listo: $exe"
-
     - name: nfpm y appimagetool (Linux)
       if: runner.os == 'Linux'
       shell: bash

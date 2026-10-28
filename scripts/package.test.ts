@@ -201,13 +201,14 @@ describe('el nombre de los objetivos', () => {
     expect(TARGETS['linux-x64']?.platform).toBe(hostPlatform('linux'))
   })
 
-  test('el nombre del instalador dice la versión, el sistema y la arquitectura', () => {
-    expect(installerName('1.2.3', TARGETS['windows-x64'] as never)).toBe(
-      'nn-anime-1.2.3-windows-x64-setup.exe',
-    )
+  test('el nombre del .dmg dice la versión, el sistema y la arquitectura', () => {
     expect(installerName('1.2.3', TARGETS['darwin-arm64'] as never)).toBe(
       'nn-anime-1.2.3-macos-arm64.dmg',
     )
+
+    // El de Windows lo compone `tauri-bundler` (`nn-anime_1.2.3_x64-setup.exe`) y no
+    // se puede recomponer aquí: pedirlo es un error, no un nombre.
+    expect(() => installerName('1.2.3', TARGETS['windows-x64'] as never)).toThrow(/tauri-bundler/)
   })
 })
 

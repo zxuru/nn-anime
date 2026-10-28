@@ -415,7 +415,9 @@ T153 ── T154 ── T155 ── T156 ─┬─ T157 ── T160 ─┐
 
 ## Fuera de este plan
 
-- Auto-actualización: sigue sin haber, y `docs/release.md` ya lo declara como decisión.
+- Auto-actualización: **desde T189 la hay en Windows** (ventana propia, `latest.json` y NSIS de
+  tauri-bundler). En macOS y Linux sigue sin haber porque sus instaladores no publican bundles del
+  updater; ver `docs/release.md`.
 - MSI en Windows: NSIS cubre los dos papeles.
 - Linux arm64 y Windows arm64: cada objetivo es una release que hay que poder probar.
 - Icono de bandeja y memoria de tamaño y posición de la ventana: otra superficie y otro plugin.

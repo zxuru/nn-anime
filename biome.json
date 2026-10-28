@@ -7,7 +7,14 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!desktop", "!**/*.md", "!**/*.yml", "!**/*.yaml"]
+    "includes": [
+      "**",
+      "!desktop/src-tauri",
+      "!desktop/ui/actualizacion.js",
+      "!**/*.md",
+      "!**/*.yml",
+      "!**/*.yaml"
+    ]
   },
   "formatter": {
     "enabled": true,

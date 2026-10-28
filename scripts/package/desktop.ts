@@ -178,6 +178,8 @@ export async function buildDesktop(options: BuildDesktopOptions = {}): Promise<s
     )
   }
 
+  await construirInterfaz()
+
   const platform = spec?.platform ?? platformName()
   const arch = spec?.arch ?? process.arch
   const triple = rustTriple(platform, arch)
@@ -220,12 +222,25 @@ export async function buildDesktop(options: BuildDesktopOptions = {}): Promise<s
 }
 
 /**
+ * Compila la ventana de actualizaciones de `desktop/ui/` a su JavaScript.
+ *
+ * Va **antes** de cualquier `cargo` porque `tauri-build` embebe `frontendDist` al
+ * compilar: sin este paso, la ventana de actualizaciones abriría en blanco y el
+ * fallo aparecería sólo al ejecutarla. Se llama desde `buildDesktop` y
+ * `checkDesktop`, que son las dos puertas por las que se compila el árbol.
+ */
+async function construirInterfaz(): Promise<void> {
+  await run([process.execPath, 'run', 'desktop:ui'])
+}
+
+/**
  * El listón del árbol de Rust.
  *
  * Existe porque `bun test` no mira ni una línea de Rust: sin este comando, el
  * módulo sería el único del repositorio sin nadie que lo midiera.
  */
 export async function checkDesktop(): Promise<void> {
+  await construirInterfaz()
   await run(['cargo', 'fmt', '--manifest-path', MANIFEST, '--', '--check'])
   await run([
     'cargo',

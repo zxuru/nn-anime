@@ -14,8 +14,19 @@
 //! no abra consola: sin él, el acceso del escritorio volvería a enseñar la ventana
 //! negra que este módulo viene a quitar. El servidor **sí** es un binario de
 //! consola, y por eso se lanza con `CREATE_NO_WINDOW` (ver `sidecar.rs`).
+//!
+//! **La única ventana con IPC es la de actualizaciones** (`actualizacion.rs`). La
+//! principal sigue sin poder invocar ni un comando, que es el contrato de
+//! `capabilities/default.json`; la de actualizaciones tiene su propia capability
+//! con `updater:default` y `process:allow-restart`, nada más.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+// La ventana de actualizaciones sólo tiene sentido en Windows mientras la release
+// no publique bundles firmados para macOS y Linux: el updater busca
+// `darwin-*`/`linux-*` en `latest.json` y no los hay, así que allí la ventana sólo
+// podría enseñar un error. Cuando esos instaladores se migren, el `cfg` se cae.
+#[cfg(windows)]
+mod actualizacion;
 mod boot_line;
 mod browser;
 mod embebido;
@@ -146,6 +157,18 @@ fn main() {
             // menú tiene que volver a decir «Ocultar».
             tray::actualizar(app);
         }))
+        // El updater y el proceso, para la ventana de actualizaciones. Se
+        // registran antes de crear ninguna ventana: sus comandos tienen que estar
+        // ahí cuando la página cargue, que es cuando comprueba si hay novedades.
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        // El único comando de la aplicación: la ventana de actualizaciones escribe
+        // en el registro del anfitrión. La principal no puede invocarlo porque no
+        // tiene ninguna capability.
+        .invoke_handler(tauri::generate_handler![
+            #[cfg(windows)]
+            actualizacion::registrar_actualizacion
+        ])
         // La X **oculta**, no cierra. Sin esto, cerrar la única ventana termina el
         // proceso y se lleva el servidor por delante: quien cierra espera seguir
         // teniéndolo en la bandeja, no apagar la aplicación sin querer.
@@ -155,7 +178,18 @@ fn main() {
         // estado, que sólo existe cuando el hermano está vivo.
         .on_window_event(|ventana, evento| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = evento {
-                if ventana.app_handle().try_state::<Estado>().is_some() {
+                // La ventana de actualizaciones se **oculta**, no se destruye: el
+                // menú de la bandeja tiene que poder volver a enseñarla sin
+                // recrear el webview ni perder lo que estaba diciendo.
+                #[cfg(windows)]
+                if ventana.label() == actualizacion::ETIQUETA {
+                    api.prevent_close();
+                    let _ = ventana.hide();
+                    return;
+                }
+
+                if ventana.label() == LABEL && ventana.app_handle().try_state::<Estado>().is_some()
+                {
                     api.prevent_close();
                     let _ = ventana.hide();
                     tray::actualizar(ventana.app_handle());
@@ -168,6 +202,22 @@ fn main() {
             // ninguna señal de que la aplicación esté viva. Si se creara junto a la
             // ventana, el hueco seguiría pareciendo «no pasa nada».
             tray::crear(app.handle())?;
+
+            // La ventana de actualizaciones, oculta desde ya: comprueba al cargar
+            // y cada tres horas, y sólo se enseña cuando hay una versión nueva o
+            // cuando se pide desde la bandeja. Un fallo al crearla no puede
+            // impedir que arranque la aplicación; se registra y se sigue.
+            #[cfg(windows)]
+            {
+                let perfil_actualizaciones = raiz.webview().join("actualizacion");
+                if let Err(error) =
+                    actualizacion::crear(app.handle(), raiz.portable, perfil_actualizaciones)
+                {
+                    registrar(&format!(
+                        "no se pudo crear la ventana de actualizaciones: {error}"
+                    ));
+                }
+            }
 
             let handle = app.handle().clone();
 

@@ -61,7 +61,7 @@ programa entero —la interfaz, el servidor y la base de datos—, y todos está
 | Sistema | Archivo |
 |---|---|
 | Windows x64, **un solo archivo** | `nn-anime-X.Y.Z-windows-x64.exe` |
-| Windows x64, instalador | `nn-anime-X.Y.Z-windows-x64-setup.exe` |
+| Windows x64, instalador | `nn-anime_X.Y.Z_x64-setup.exe` |
 | macOS, chip de Apple | `nn-anime-X.Y.Z-macos-arm64.dmg` |
 | macOS, Intel | `nn-anime-X.Y.Z-macos-x64.dmg` |
 | Linux x64 | `nn-anime-X.Y.Z-linux-x64.AppImage`, `.deb` o `.rpm` |
@@ -100,9 +100,18 @@ sirve para comprobar que llegó entero.
 ### Windows: instalador
 
 Ejecuta el `…-setup.exe` y sigue el asistente. Se instala **sólo para tu usuario** —no pide permisos
-de administrador— en `%LOCALAPPDATA%\Programs\nn-anime`, y deja un acceso en el menú Inicio y otro en
-el escritorio. Instala **el mismo archivo único**: no hay un segundo `nn-anime.exe` de consola al
-lado.
+de administrador— en `%LOCALAPPDATA%\nn-anime`, y deja un acceso en el menú Inicio y otro en el
+escritorio. Instala **el mismo archivo único**: no hay un segundo `nn-anime.exe` de consola al lado.
+
+### Actualizaciones
+
+La aplicación comprueba si hay una versión nueva **al arrancar y cada tres horas**, y también cuando
+pulsas **Buscar actualizaciones** en el icono de la bandeja (en Windows; macOS y Linux todavía no
+publican bundles del updater). Si hay una, la ventana de actualizaciones enseña el número de versión y
+las notas; al aceptar descarga el instalador con barra de progreso, lo verifica con la clave pública
+que va dentro del binario y lo instala. En el **archivo único portable** no se instala nada: esa copia
+sólo anuncia la versión nueva y enlaza a la release, porque un `.exe` suelto no tiene instalador que
+reemplazar.
 
 Al abrirlo desde el menú Inicio o desde el escritorio aparece **su ventana**, con la interfaz dentro:
 no hay ninguna consola de por medio. **La X la oculta en la bandeja**; «Salir» cierra la aplicación y
@@ -235,10 +244,12 @@ instalar plugins, Caddy y actualización— está en [docs/docker.md](docs/docke
 | `bun run db:prune` | Limpia lo viejo |
 | `bun run coverage:gate` | Cobertura por paquete, con su umbral |
 | `bun run captura` | Vuelve a hacer la captura de este README |
-| `bun run package` | Compila el ejecutable de esta plataforma, lo prueba y arma su instalador |
+| `bun run package` | Compila el ejecutable de esta plataforma; en macOS y Linux arma además su instalador (en Windows el instalador es `desktop:installer`) |
 | `bun run package:unico` | Deja el archivo único de Windows en `release/`; el anfitrión tiene que ser más nuevo que el servidor |
 | `bun run package:smoke` | Arranca un ejecutable ya compilado y le pregunta si sirve la interfaz |
-| `bun run desktop:build` | Compila el anfitrión de ventana; `--target=darwin-x64` lo compila cruzado |
+| `bun run desktop:build` | Compila el anfitrión de ventana (y antes su ventana de actualizaciones); `--target=darwin-x64` lo compila cruzado |
+| `bun run desktop:ui` | Compila `desktop/ui/actualizacion.ts` al JavaScript que viaja dentro del binario |
+| `bun run desktop:installer` | Arma el instalador NSIS de Windows con `tauri-bundler`; `--updater` añade `.sig` y `latest.json` |
 | `bun run desktop:check` | El listón del árbol de Rust: formato, `clippy` y sus pruebas |
 | `bun run version:check` | Comprueba que los diez `package.json` dicen la misma versión |
 | `bun run version:set` | Sube la versión en los diez `package.json` de una vez |
@@ -254,9 +265,9 @@ eso está declarado en `engines`—; para **usar** la aplicación instalada, no 
 Y desde `desktop/` se compila el **anfitrión de ventana**, que es lo que hace que el acceso abra una
 ventana y no una consola. En Windows el instalador ya instala **sólo ese anfitrión**, así que el orden
 importa: primero el servidor (`bun run package --skip-installer`), después el anfitrión
-(`bun run desktop:build`), después el instalador (`bun run package --only-installer`) y, si se quiere
-el archivo único, `bun run package:unico`. `bun run package` a secas comprueba que el anfitrión no sea
-más viejo que el servidor y se niega a armar un instalador que arrancaría sin interfaz.
+(`bun run desktop:build`), después el instalador (`bun run desktop:installer`, que compila la ventana de
+actualizaciones y usa el NSIS de `tauri-bundler`) y, si se quiere el archivo único, `bun run
+package:unico`. En macOS y Linux el instalador sigue saliendo de `bun run package --only-installer`.
 
 ## Dónde vive cada cosa
 

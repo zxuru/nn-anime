@@ -33,10 +33,17 @@
     "package:smoke": "bun run scripts/package/smoke.ts",
     "desktop:check": "bun run scripts/package/desktop.ts check",
     "desktop:build": "bun run scripts/package/desktop.ts build",
+    "desktop:ui": "bun build desktop/ui/actualizacion.ts --outfile desktop/ui/actualizacion.js --target browser --format esm --minify",
+    "desktop:installer": "bun run scripts/package/instalador-tauri.ts",
     "version:check": "bun run scripts/version.ts check",
     "version:sync": "bun run scripts/version.ts sync",
     "version:set": "bun run scripts/version.ts set",
     "icon": "bun run scripts/icon.ts"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-process": "^2",
+    "@tauri-apps/plugin-updater": "^2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.3",
@@ -47,6 +54,7 @@
     "@nn-anime/providers-fixture": "workspace:*",
     "@nn-anime/server": "workspace:*",
     "@playwright/test": "^1.64.1",
+    "@tauri-apps/cli": "^2",
     "@types/bun": "^1.4.4",
     "typescript": "^7.0.2"
   }

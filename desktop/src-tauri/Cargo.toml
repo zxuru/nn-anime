@@ -42,6 +42,16 @@ serde_json = "1"
 # El servidor extraído se verifica contra el hash que calculó `build.rs`.
 sha2 = "0.11"
 
+# Auto-actualización, **sólo en escritorio**. `tauri-plugin-updater` comprueba
+# `latest.json`, verifica la firma del instalador y lo ejecuta; el plugin de
+# proceso aporta `relaunch()`, que en macOS y Linux hay que llamar después de
+# instalar. Van con `target` y no en `[dependencies]` porque la documentación del
+# plugin lo pide así. La sección no se puede fusionar con las de `cfg(windows)` y
+# `cfg(linux)` de abajo: son tres predicados distintos.
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+
 [target.'cfg(windows)'.dependencies]
 # **Pendiente, y no hecho.** El Job Object es el único seguro que existe en Windows
 # —ahí no hay `PR_SET_PDEATHSIG`— y **no está escrito**: `guards.rs` sólo pone
