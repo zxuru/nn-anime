@@ -196,6 +196,26 @@ describe('tokens de diseño', () => {
   })
 
   /**
+   * La imagen del reproductor no lleva contorno.
+   *
+   * El borde de 2 px se leía como una línea blanca pegada a todo el contenido
+   * —en el tema oscuro `--color-border` es casi blanco— y separaba la imagen del
+   * fondo de la página como si fuera una caja. El lienzo del modo compatible
+   * comparte caja con el video, así que si él conservara el borde el contorno
+   * volvería al encenderlo.
+   */
+  test('la imagen del reproductor no lleva contorno', async () => {
+    const css = await read(SHELL)
+
+    for (const selector of ['.player__video', '.player__canvas']) {
+      const cuerpo = new RegExp(`${selector}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? ''
+
+      expect(cuerpo, `falta ${selector} en shell.css`).not.toBe('')
+      expect(cuerpo, `${selector} lleva borde`).not.toContain('border:')
+    }
+  })
+
+  /**
    * El renglón de un relacionado no se parte.
    *
    * El año y la insignia son unidades cortas —«Año 2025», «Temporada 2»— y la

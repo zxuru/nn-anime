@@ -1288,12 +1288,16 @@
  * medidos—, así que el marco quedaba más alto que la imagen que contiene y la
  * cuenta del alto disponible salía corta por ese hueco. En bloque, el marco mide
  * exactamente el video.
+ *
+ * Sin borde: el marco es la imagen. Un contorno de 2 px la separaba del fondo
+ * como si fuera una caja y, en el tema oscuro, se leía como una línea blanca
+ * pegada a todo el contenido. El fondo se queda para que la caja no sea un hueco
+ * antes del primer fotograma.
  */
 .player__video {
   display: block;
   width: 100%;
   aspect-ratio: var(--video-ratio);
-  border: var(--border-width-strong) solid var(--color-border);
   background: var(--color-surface-raised);
 }
 
@@ -1302,10 +1306,10 @@
  *
  * `object-fit: contain` es lo que hace que el fotograma se vea como lo vería el
  * `<video>` —con sus franjas si la relación no es la del marco— y no estirado.
- * Lleva el mismo borde y el mismo fondo que el video, y no por copiar: con
- * `border-box` la caja del lienzo coincide píxel a píxel con la del elemento, así
- * que el borde que se ve es el suyo y el fotograma cae justo donde caía. El
- * fondo evita que, mientras el lienzo no tenga imagen, se vea un hueco.
+ * Comparte caja y fondo con el video, y tampoco lleva borde: lo que se ve encima
+ * tiene que caer justo donde caía el fotograma, sin un contorno propio que
+ * delatara la capa. El fondo evita que, mientras el lienzo no tenga imagen, se
+ * vea un hueco.
  */
 .player__canvas {
   position: absolute;
@@ -1313,7 +1317,6 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  border: var(--border-width-strong) solid var(--color-border);
   background: var(--color-surface-raised);
   pointer-events: none;
 }
