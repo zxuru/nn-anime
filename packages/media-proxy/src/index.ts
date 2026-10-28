@@ -39,6 +39,13 @@ export {
   MAX_FILE_BYTES,
 } from './download/file'
 export {
+  downloadHls,
+  type HlsDownloadInput,
+  type HlsDownloadResult,
+  type RemuxFn,
+  readLocalPlaylist,
+} from './download/hls-download'
+export {
   createPlaylistCache,
   defaultKeyPath,
   defaultSegPath,

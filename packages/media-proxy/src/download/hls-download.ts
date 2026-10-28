@@ -1,0 +1,239 @@
+/**
+ * La descarga de un HLS: segmentos, playlist local y, si se puede, un MP4.
+ *
+ * Se guarda **primero** el material tal cual —segmentos y una playlist con rutas
+ * relativas— y después se ofrece el remux. Así el respaldo sin ffmpeg no es un
+ * camino aparte: es el mismo resultado sin el último paso.
+ *
+ * Lo que no se hace:
+ *
+ * - **No se descifra HLS con `#EXT-X-KEY`.** Una clave AES exige implementar el
+ *   descifrado o dejar que ffmpeg lo haga con red, y las dos cosas son otra tarea.
+ *   Se rechaza con el motivo en vez de bajar basura cifrada que no se reproduce.
+ * - **No se confía en las URLs del manifiesto.** Cada una se resuelve contra la
+ *   playlist y el motor (T183d) es quien comprueba el destino antes de pedirla.
+ * - **No se recodifica.** El remux copia los códecs; si ffmpeg falta, quedan los
+ *   segmentos.
+ */
+
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import type { FetchLike } from '../byte-proxy'
+import { downloadFile } from './file'
+
+const MAX_PLAYLIST_TEXT = 2 * 1024 * 1024
+
+/** Lo que el motor inyecta para remezclar. En las pruebas es un doble. */
+export type RemuxFn = (
+  playlistPath: string,
+  outputPath: string,
+  signal: AbortSignal,
+) => Promise<void>
+
+export interface HlsDownloadInput {
+  readonly playlistUrl: string
+  /** Directorio donde viven los segmentos y la playlist local. */
+  readonly dir: string
+  readonly mp4Path?: string | undefined
+  readonly headers?: Readonly<Record<string, string>> | undefined
+  readonly signal: AbortSignal
+  readonly fetchImpl?: FetchLike | undefined
+  readonly remux?: RemuxFn | undefined
+  readonly onProgress?: ((bytes: number) => void) | undefined
+}
+
+export interface HlsDownloadResult {
+  /** `hls` si se remezcló a MP4; `segments` si se quedó en la playlist local. */
+  readonly kind: 'hls' | 'segments'
+  readonly path: string
+  readonly segments: number
+  readonly bytes: number
+}
+
+async function textoDe(
+  url: string,
+  input: HlsDownloadInput,
+): Promise<{ texto: string; urlFinal: string }> {
+  const fetchImpl: FetchLike = input.fetchImpl ?? ((destino, init) => fetch(destino, init))
+  const respuesta = await fetchImpl(url, {
+    headers: { ...input.headers },
+    signal: input.signal,
+  })
+
+  if (!respuesta.ok) throw new Error(`la playlist respondió ${respuesta.status}`)
+
+  const texto = await respuesta.text()
+  if (texto.length > MAX_PLAYLIST_TEXT) throw new Error('la playlist es demasiado grande')
+  if (!texto.trimStart().startsWith('#EXTM3U')) throw new Error('la playlist no es un HLS')
+
+  return { texto, urlFinal: url }
+}
+
+/**
+ * Del master a la variante con más ancho de banda.
+ *
+ * Es la misma elección que hace el reproductor cuando no hay preferencia: bajar
+ * todas las variantes sería multiplicar el tamaño por el número de calidades.
+ */
+function varianteElegida(texto: string, base: string): { url: string } | undefined {
+  const lineas = texto.split(/\r?\n/)
+  let mejor: { url: string; bandwidth: number } | undefined
+
+  for (let indice = 0; indice < lineas.length; indice += 1) {
+    const linea = lineas[indice]?.trim() ?? ''
+    if (!linea.startsWith('#EXT-X-STREAM-INF')) continue
+
+    const ancho = /BANDWIDTH=(\d+)/.exec(linea)?.[1]
+    const uri = lineas.slice(indice + 1).find((candidata) => {
+      const limpia = candidata.trim()
+      return limpia !== '' && !limpia.startsWith('#')
+    })
+
+    if (ancho === undefined || uri === undefined) continue
+
+    const banda = Number(ancho)
+    if (mejor === undefined || banda > mejor.bandwidth) {
+      mejor = { url: new URL(uri.trim(), base).toString(), bandwidth: banda }
+    }
+  }
+
+  return mejor === undefined ? undefined : { url: mejor.url }
+}
+
+function extensionDe(url: string): string {
+  const encontrada = /\.([a-z0-9]{1,5})(?:[?#]|$)/i.exec(new URL(url).pathname)?.[1]
+
+  return (encontrada ?? 'ts').toLowerCase()
+}
+
+/**
+ * Reescribe la playlist con nombres locales y descarga lo que nombra.
+ *
+ * `#EXT-X-KEY` con un método que no sea `NONE` se rechaza: sin descifrado, el
+ * archivo no se podría reproducir y el usuario tendría una descarga rota que
+ * parece completa.
+ */
+async function descargarSegmentos(
+  texto: string,
+  base: string,
+  input: HlsDownloadInput,
+  fetchImpl: FetchLike,
+): Promise<{ lineas: string[]; segmentos: number; bytes: number }> {
+  const lineas: string[] = []
+  let segmentos = 0
+  let bytes = 0
+  let iniciales = 0
+
+  for (const cruda of texto.split(/\r?\n/)) {
+    const linea = cruda.trimEnd()
+
+    if (linea.startsWith('#EXT-X-KEY')) {
+      const metodo = /METHOD=([^,\s]+)/.exec(linea)?.[1]?.toUpperCase()
+      if (metodo !== undefined && metodo !== 'NONE') {
+        throw new Error(`el HLS está cifrado (${metodo}) y no se puede descargar`)
+      }
+      lineas.push(linea)
+      continue
+    }
+
+    if (linea.startsWith('#EXT-X-MAP')) {
+      const uri = /URI="([^"]+)"/.exec(linea)?.[1]
+      if (uri === undefined) {
+        lineas.push(linea)
+        continue
+      }
+
+      const url = new URL(uri, base).toString()
+      const nombre = `init-${String(iniciales).padStart(5, '0')}.${extensionDe(url)}`
+      iniciales += 1
+
+      const bajado = await downloadFile({
+        url,
+        filePath: join(input.dir, nombre),
+        ...(input.headers === undefined ? {} : { headers: input.headers }),
+        signal: input.signal,
+        fetchImpl,
+      })
+      bytes += bajado.bytes
+      lineas.push(linea.replace(`URI="${uri}"`, `URI="${nombre}"`))
+      continue
+    }
+
+    if (linea === '' || linea.startsWith('#')) {
+      lineas.push(linea)
+      continue
+    }
+
+    // Una línea que no es etiqueta es una URI de segmento.
+    const url = new URL(linea, base).toString()
+    const nombre = `segmento-${String(segmentos).padStart(5, '0')}.${extensionDe(url)}`
+    segmentos += 1
+
+    const bajado = await downloadFile({
+      url,
+      filePath: join(input.dir, nombre),
+      ...(input.headers === undefined ? {} : { headers: input.headers }),
+      signal: input.signal,
+      fetchImpl,
+      ...(input.onProgress === undefined
+        ? {}
+        : { onProgress: (total) => input.onProgress?.(bytes + total) }),
+    })
+    bytes += bajado.bytes
+    lineas.push(nombre)
+  }
+
+  if (segmentos === 0) throw new Error('la playlist no tiene ningún segmento')
+  if (!lineas.includes('#EXT-X-ENDLIST')) lineas.push('#EXT-X-ENDLIST')
+
+  return { lineas, segmentos, bytes }
+}
+
+/**
+ * Baja un HLS completo y devuelve dónde quedó.
+ *
+ * Si hay `remux`, el MP4 es el resultado y los segmentos se borran después: el
+ * usuario quería un archivo, no un directorio. Si el remux falla, los segmentos
+ * se quedan para reintentar sin volver a bajar todo.
+ */
+export async function downloadHls(input: HlsDownloadInput): Promise<HlsDownloadResult> {
+  await mkdir(input.dir, { recursive: true })
+  const fetchImpl: FetchLike = input.fetchImpl ?? ((url, init) => fetch(url, init))
+
+  const primera = await textoDe(input.playlistUrl, input)
+  const master = primera.texto.includes('#EXT-X-STREAM-INF')
+  const elegida = master ? varianteElegida(primera.texto, primera.urlFinal) : undefined
+  if (master && elegida === undefined) throw new Error('el master no tiene ninguna variante')
+
+  const media =
+    elegida === undefined
+      ? primera
+      : await textoDe(elegida.url, { ...input, playlistUrl: elegida.url })
+
+  const { lineas, segmentos, bytes } = await descargarSegmentos(
+    media.texto,
+    media.urlFinal,
+    input,
+    fetchImpl,
+  )
+
+  const playlistLocal = join(input.dir, 'index.m3u8')
+  await writeFile(playlistLocal, `${lineas.join('\n')}\n`, 'utf8')
+
+  if (input.remux === undefined) {
+    return { kind: 'segments', path: playlistLocal, segments: segmentos, bytes }
+  }
+
+  const mp4 = input.mp4Path ?? `${input.dir}.mp4`
+  await input.remux(playlistLocal, mp4, input.signal)
+
+  // El MP4 ya existe: los segmentos eran el andamio, no el resultado.
+  await rm(input.dir, { recursive: true, force: true })
+
+  return { kind: 'hls', path: mp4, segments: segmentos, bytes }
+}
+
+/** Lee la playlist local que dejó una descarga de segmentos. */
+export async function readLocalPlaylist(playlistPath: string): Promise<string> {
+  return await readFile(playlistPath, 'utf8')
+}
