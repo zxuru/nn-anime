@@ -57,6 +57,11 @@ jobs:
       # `release_created` sólo es «true» en el push que fusiona el PR de release. En los demás,
       # este paso no hace nada. El `--ref` es el tag que acaba de crear la acción; `release.yml`
       # lo usa como `github.ref_type=tag`, así que valida `version:check` y publica.
+      #
+      # `--repo` no es adorno: sin él, `gh workflow run` resuelve el repositorio corriendo `git` en
+      # el directorio de trabajo, y este job no hace checkout —no hay `.git`—, así que moría con
+      # «fatal: not a git repository» y la release se quedaba en borrador. Pasó con la 0.3.2 y la
+      # 0.3.3. El `GITHUB_REPOSITORY` lo pone el runner: no hay nada que configurar.
       - name: Lanzar la release del tag recién creado
         if: steps.release.outputs.release_created == 'true'
         env:
@@ -64,5 +69,5 @@ jobs:
           TAG: ${{ steps.release.outputs.tag_name }}
         run: |
           set -euo pipefail
-          gh workflow run release.yml --ref "$TAG" -f publish=true
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG" -f publish=true
           echo "release.yml lanzado para $TAG"
