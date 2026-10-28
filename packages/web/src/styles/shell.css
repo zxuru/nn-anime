@@ -4645,9 +4645,13 @@
 }
 
 .picker__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
   width: 100%;
   padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid transparent;
+  border: 0;
   background: none;
   color: var(--color-text);
   font: inherit;
@@ -4657,8 +4661,27 @@
   cursor: pointer;
 }
 
-/* Sólo color: el borde ya está ahí con el mismo ancho, así que no salta nada. */
+/*
+ * La cuña dice «esto se abre», y se dibuja en vez de escribirse: un `content`
+ * con texto entra en el nombre accesible de la fila y el lector de pantalla
+ * anunciaría «Anime ›». Sin ella, la lista es un montón de palabras y el hover
+ * sólo aparece al acertar.
+ */
+.picker__item::after {
+  content: "";
+  flex: none;
+  inline-size: var(--space-2);
+  block-size: var(--space-2);
+  border-inline-end: var(--border-width-strong) solid var(--color-text-dim);
+  border-block-end: var(--border-width-strong) solid var(--color-text-dim);
+  rotate: -45deg;
+}
+
+/* Sólo fondo y color: la fila no cambia de alto ni de sitio. */
 .picker__item:hover {
-  border-color: var(--color-border);
   background: var(--color-surface);
+}
+
+.picker__item:hover::after {
+  border-color: var(--color-text);
 }
