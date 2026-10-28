@@ -60,6 +60,7 @@ import {
   loadEpisodesPage,
   loadLatestEpisode,
 } from '../detail/useDetail'
+import { DownloadButton } from '../downloads/DownloadButton'
 import { coverPath } from '../search/ResultCard'
 import { AudioModeSwitch } from './AudioModeSwitch'
 import { Player } from './Player'
@@ -848,6 +849,12 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       </Link>
       <h1>{tituloAnime ?? t(DEFAULT_LOCALE, 'title.loading')}</h1>
       {lineaEpisodio === undefined ? null : <p className="watch__episode">{lineaEpisodio}</p>}
+      {/* El botón no ocupa una fila propia: la sala se mide contra la ventana y
+          un bloque más debajo del encabezado empujaba la página 71 px. Va
+          anclado al encabezado, que ya tiene el alto. */}
+      <div className="watch__download">
+        <DownloadButton providerId={props.providerId} animeRef={animeRef} episodeRef={episodeRef} />
+      </div>
     </header>
   )
 

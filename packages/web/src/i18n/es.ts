@@ -13,7 +13,27 @@ export const messages: Messages = {
   'nav.home': 'Inicio',
   'nav.search': 'Buscar',
   'nav.profile': 'Perfil',
+  'nav.downloads': 'Descargas',
   'nav.settings': 'Ajustes',
+
+  'downloads.title': 'Descargas',
+  'downloads.empty': 'No hay ninguna descarga. Abre un episodio y pulsa «Descargar».',
+  'downloads.loading': 'Leyendo la cola…',
+  'downloads.status.queued': 'En cola',
+  'downloads.status.downloading': 'Descargando',
+  'downloads.status.paused': 'En pausa',
+  'downloads.status.complete': 'Completa',
+  'downloads.status.failed': 'Falló',
+  'downloads.status.cancelled': 'Cancelada',
+  'downloads.pause': 'Pausar',
+  'downloads.resume': 'Reanudar',
+  'downloads.delete': 'Borrar',
+  'downloads.open': 'Abrir archivo',
+  'downloads.segments': 'Descargada como segmentos: se reproduce desde la aplicación.',
+  'downloads.download': 'Descargar',
+  'downloads.queued': 'En cola',
+  'downloads.saving': 'Enviando…',
+  'downloads.notAllowed': 'Esta fuente no permite descargar.',
 
   /*
    * El Perfil y su Historial.

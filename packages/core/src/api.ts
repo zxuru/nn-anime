@@ -509,6 +509,8 @@ export const downloadItemSchema = z.strictObject({
   updatedAt: z.string().min(1),
 })
 
+export type DownloadItem = z.infer<typeof downloadItemSchema>
+
 export const downloadsResponseSchema = z.strictObject({
   items: z.array(downloadItemSchema),
 })

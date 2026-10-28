@@ -15,6 +15,19 @@ import { defineConfig, devices } from '@playwright/test'
 
 const PUERTO = Number(process.env.NN_ANIME_E2E_PORT ?? '7801')
 
+/**
+ * El arnés sirve una fuente descargable.
+ *
+ * Sin esto, el botón de descarga no aparece —la capacidad ausente es no— y el
+ * e2e no podría medir ni su presencia. El motor no se ejercita aquí: pulsar el
+ * botón bajaría de verdad, y la red del fixture no existe.
+ */
+const ENTORNO: Record<string, string> = {}
+for (const [clave, valor] of Object.entries(process.env)) {
+  if (valor !== undefined) ENTORNO[clave] = valor
+}
+ENTORNO.NN_ANIME_FIXTURE_DOWNLOAD = '1'
+
 export default defineConfig({
   testDir: 'packages/web/e2e',
   // `.e2e.ts` y no `.spec.ts`: `bun test` recoge los `.spec.ts` de todo el
@@ -51,6 +64,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'bun run scripts/e2e-server.ts',
+    env: ENTORNO,
     url: `http://127.0.0.1:${PUERTO}/api/health`,
     reuseExistingServer: false,
     timeout: 30_000,
