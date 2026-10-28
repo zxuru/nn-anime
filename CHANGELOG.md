@@ -7,6 +7,13 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.3.3](https://github.com/zxuru/nn-anime/compare/v0.3.2...v0.3.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **desktop:** devolver la anotación de release-please al Cargo.lock ([5388e54](https://github.com/zxuru/nn-anime/commit/5388e541b821787cc38d4e5eaf6267ec09e85576))
+
 ## [0.3.2](https://github.com/zxuru/nn-anime/compare/v0.3.1...v0.3.2) (2026-10-26)
 
 

@@ -1,6 +1,6 @@
 [package]
 name = "nn-anime-desktop"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 # `tauri-plugin-single-instance` (T156) exige Rust >= 1.90. El anfitrión no usa
 # nada más nuevo que eso, y declararlo hace que el fallo salga al compilar y no
