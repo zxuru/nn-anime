@@ -31,8 +31,8 @@ tope de cinco archivos de implementación por task y commit atómico que cita el
 | 1.3f Rutas HTTP (`POST/GET/pause/resume/delete/file`) | **T183f** | hecho | T183e |
 | 1.4 Interfaz: botón, página Descargas, progreso | **T184** | hecho | T183f |
 | 1.5 Reproducción local y sin red | **T185** | hecho | T183f, T184 |
-| 1.6 Escritorio: selector de carpeta y aviso | T186 | **siguiente** | T184 |
-| 1.7 Gestión de espacio y borrado | T187 | pendiente | T183f, T184 |
+| 1.6 Escritorio: selector de carpeta y aviso | T186 | **siguiente**; pendiente de decisión | T184 |
+| 1.7 Gestión de espacio y borrado | **T187** | hecho | T183f, T184 |
 
 ## Orden y cortes
 
