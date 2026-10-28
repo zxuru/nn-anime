@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
+import { type CatalogStore, openDb, runMigrations } from '@nn-anime/catalog-store'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
 import { createApp, createContainer } from '../index'
 
@@ -29,7 +29,11 @@ async function esperar(condicion: () => Promise<boolean>, ms = 5_000): Promise<v
 }
 
 async function conApp<T>(
-  body: (pedir: (ruta: string, init?: RequestInit) => Promise<Response>) => Promise<T>,
+  body: (
+    pedir: (ruta: string, init?: RequestInit) => Promise<Response>,
+    store: CatalogStore,
+    dir: string,
+  ) => Promise<T>,
   opciones: { readonly download?: boolean } = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-rutas-descargas-'))
@@ -60,6 +64,8 @@ async function conApp<T>(
     return await body(
       async (ruta, init) =>
         await Promise.resolve(servidor.request(`${BASE}${ruta}`, init ?? { headers: GOOD })),
+      container.store,
+      dir,
     )
   } finally {
     await container.close().catch(() => {})
@@ -147,6 +153,48 @@ describe('las rutas de descargas', () => {
       expect(
         (await pedir('/api/downloads/999/pause', { method: 'POST', headers: GOOD })).status,
       ).toBe(404)
+    })
+  })
+
+  test('una descarga de segmentos se sirve como playlist local y sus segmentos', async () => {
+    await conApp(async (pedir, store, dir) => {
+      const relativa = 'fixture/aurora-nocturna/Episodio-9/index.m3u8'
+      const carpeta = join(dir, 'downloads', 'fixture', 'aurora-nocturna', 'Episodio-9')
+      await mkdir(carpeta, { recursive: true })
+      await writeFile(
+        join(carpeta, 'index.m3u8'),
+        '#EXTM3U\n#EXTINF:4,\nsegmento-00000.ts\n#EXT-X-ENDLIST\n',
+        'utf8',
+      )
+      await writeFile(join(carpeta, 'segmento-00000.ts'), 'TS')
+
+      const fila = await store.createDownload({
+        providerId: 'fixture',
+        providerRef: 'aurora-nocturna',
+        episodeRef: 'aurora-nocturna#9',
+        title: 'Aurora Nocturna',
+        episodeLabel: 'Episodio 9',
+        kind: 'segments',
+      })
+      await store.updateDownload(fila.id, {
+        status: 'complete',
+        path: relativa,
+        bytes: 2,
+      })
+
+      const playlist = await pedir(`/api/downloads/${fila.id}/file`)
+      expect(playlist.status).toBe(200)
+      expect(playlist.headers.get('content-type')).toBe('application/vnd.apple.mpegurl')
+      const texto = await playlist.text()
+      expect(texto).toContain(`/api/downloads/${fila.id}/segment/segmento-00000.ts`)
+      expect(texto).not.toContain('\nsegmento-00000.ts')
+
+      const segmento = await pedir(`/api/downloads/${fila.id}/segment/segmento-00000.ts`)
+      expect(segmento.status).toBe(200)
+      expect(await segmento.text()).toBe('TS')
+
+      // Un nombre que intenta subir no llega al archivo.
+      expect((await pedir(`/api/downloads/${fila.id}/segment/../index.m3u8`)).status).toBe(404)
     })
   })
 })

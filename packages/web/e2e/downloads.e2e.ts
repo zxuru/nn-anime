@@ -28,4 +28,43 @@ test.describe('las descargas', () => {
       timeout: 10_000,
     })
   })
+
+  test('con una copia completa, el reproductor no pide el stream al proveedor', async ({
+    page,
+  }) => {
+    await entrar(page)
+
+    await page.route('**/api/downloads', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          items: [
+            {
+              id: 1,
+              providerId: 'fixture',
+              animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+              episodeRef: { providerId: 'fixture', value: 'aurora-nocturna#1' },
+              title: 'Aurora Nocturna',
+              episodeLabel: 'Episodio 1',
+              kind: 'file',
+              status: 'complete',
+              bytes: 3,
+              createdAt: '2026-01-01T00:00:00.000Z',
+              updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+          ],
+        },
+      })
+    })
+
+    // Si el reproductor pidiera el stream, esto lo delataría.
+    await page.route('**/api/stream/resolve', async (ruta) => {
+      await ruta.fulfill({ status: 502, json: { error: 'no debería pedirse' } })
+    })
+
+    await page.goto('/watch/fixture/aurora-nocturna%231?mode=sub&anime=aurora-nocturna&n=1')
+
+    await expect(page.locator('video')).toHaveAttribute('src', '/api/downloads/1/file', {
+      timeout: 10_000,
+    })
+  })
 })
