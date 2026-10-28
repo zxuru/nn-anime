@@ -18,11 +18,13 @@ import {
   downloadStartRequestSchema,
   downloadStartResponseSchema,
   downloadsDirRequestSchema,
+  downloadsDirsSchema,
   downloadsSpaceSchema,
 } from '@nn-anime/core'
 import { insideRoot } from '@nn-anime/media-proxy'
 import type { Provider } from '@nn-anime/provider-sdk'
 import type { Context, Hono } from 'hono'
+import { listarCarpetas } from '../downloads/dirs'
 import type { DownloadQueue } from '../downloads/queue'
 import { findProvider } from './anime'
 
@@ -51,7 +53,7 @@ function item(row: DownloadRecord) {
   }
 }
 
-function errorJson(c: Context, status: 400 | 404 | 409 | 416, message: string) {
+function errorJson(c: Context, status: 400 | 403 | 404 | 409 | 416, message: string) {
   return c.json({ error: message }, status)
 }
 
@@ -143,6 +145,27 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
         downloadsBytes: ocupado,
       }),
     )
+  })
+
+  /**
+   * Las carpetas de una ruta, para el selector de destino.
+   *
+   * Sin `path` se lista la raíz de descargas, que es donde el selector abre. Un
+   * 403 y no un 500 cuando la carpeta existe pero no se deja leer: es lo que la
+   * pantalla necesita para decir «esa no» sin romper el diálogo.
+   */
+  app.get('/api/downloads/dirs', async (c) => {
+    const pedida = c.req.query('path') ?? options.queue.root()
+    const resultado = await listarCarpetas(pedida)
+
+    if (!resultado.ok) {
+      const estado =
+        resultado.motivo === 'invalida' ? 400 : resultado.motivo === 'sin-permiso' ? 403 : 404
+
+      return errorJson(c, estado, resultado.detalle)
+    }
+
+    return c.json(downloadsDirsSchema.parse(resultado.listado))
   })
 
   app.patch('/api/downloads/dir', async (c) => {
