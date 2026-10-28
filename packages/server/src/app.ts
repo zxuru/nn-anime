@@ -15,6 +15,7 @@
  * inalcanzable.
  */
 
+import { mkdir, statfs } from 'node:fs/promises'
 import { join } from 'node:path'
 import { AppError, type ConfigPaths, healthResponseSchema, type Logger } from '@nn-anime/core'
 import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
@@ -404,6 +405,13 @@ export function createApp(options: AppOptions): Hono {
         ...(options.downloadConcurrency === undefined
           ? {}
           : { concurrency: options.downloadConcurrency }),
+        freeBytes: async () => {
+          // La carpeta puede no existir todavía: el espacio se mide en el disco
+          // que la va a contener, no en una ruta que aún no está.
+          await mkdir(downloadsRoot, { recursive: true })
+          const espacio = await statfs(downloadsRoot)
+          return espacio.bavail * espacio.bsize
+        },
       })
 
       // Arrancar no bloquea el montaje de la app; si falla, las filas quedan en

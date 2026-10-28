@@ -34,6 +34,8 @@ export const messages: Messages = {
   'downloads.queued': 'En cola',
   'downloads.saving': 'Enviando…',
   'downloads.notAllowed': 'Esta fuente no permite descargar.',
+  'downloads.space': 'Libre: {free} de {total}. Las descargas ocupan {used}.',
+  'downloads.cleanup': 'Borrar completadas ({count})',
 
   /*
    * El Perfil y su Historial.

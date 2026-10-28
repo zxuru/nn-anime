@@ -9,8 +9,11 @@
 
 import {
   type DownloadItem,
+  type DownloadsSpace,
+  downloadCleanupResponseSchema,
   downloadStartResponseSchema,
   downloadsResponseSchema,
+  downloadsSpaceSchema,
 } from '@nn-anime/core/api'
 import type { ProviderRef } from '@nn-anime/core/models'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -22,6 +25,7 @@ export type Descarga = DownloadItem
 
 export interface DownloadsState {
   readonly items: readonly Descarga[]
+  readonly space: DownloadsSpace | undefined
   readonly loading: boolean
   readonly error: string | undefined
   readonly refresh: () => Promise<void>
@@ -33,6 +37,8 @@ export interface DownloadsState {
   readonly pause: (id: number) => Promise<void>
   readonly resume: (id: number) => Promise<void>
   readonly remove: (id: number) => Promise<void>
+  /** Borra de una vez todas las descargas completas. */
+  readonly cleanup: () => Promise<number>
 }
 
 async function pedirLista(): Promise<readonly Descarga[]> {
@@ -43,15 +49,20 @@ async function pedirLista(): Promise<readonly Descarga[]> {
 
 export function useDownloads(): DownloadsState {
   const [items, setItems] = useState<readonly Descarga[]>([])
+  const [space, setSpace] = useState<DownloadsSpace | undefined>()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | undefined>()
   const vivo = useRef(true)
 
   const refresh = useCallback(async () => {
     try {
-      const lista = await pedirLista()
+      const [lista, espacio] = await Promise.all([
+        pedirLista(),
+        apiGet('/api/downloads/space', downloadsSpaceSchema).catch(() => undefined),
+      ])
       if (!vivo.current) return
       setItems(lista)
+      setSpace(espacio)
       setError(undefined)
     } catch (cause) {
       if (!vivo.current) return
@@ -100,8 +111,20 @@ export function useDownloads(): DownloadsState {
     [refresh],
   )
 
+  const cleanup = useCallback(async () => {
+    const respuesta = await apiPostJson(
+      '/api/downloads/cleanup',
+      undefined,
+      downloadCleanupResponseSchema,
+    )
+    await refresh()
+
+    return respuesta.removed
+  }, [refresh])
+
   return {
     items,
+    space,
     loading,
     error,
     refresh,
@@ -109,5 +132,6 @@ export function useDownloads(): DownloadsState {
     pause: (id) => accion(`/api/downloads/${id}/pause`, 'POST'),
     resume: (id) => accion(`/api/downloads/${id}/resume`, 'POST'),
     remove: (id) => accion(`/api/downloads/${id}`, 'DELETE'),
+    cleanup,
   }
 }
