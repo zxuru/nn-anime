@@ -153,8 +153,15 @@ jobs:
           labels: |
             org.opencontainers.image.version=${{ needs.comprobar.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # `scope` propio, y la caché del CI de la PR como segunda fuente: las capas que ya
+          # construyó el trabajo `docker` de `ci.yml` —el `bun install` de la imagen, sobre
+          # todo— se reaprovechan aquí, y las de la release (multi-arquitectura) no ensucian
+          # las suyas. `type=gha` sin `scope` comparte un único espacio por repositorio y las
+          # dos builds se pisan el índice.
+          cache-from: |
+            type=gha,scope=nn-anime-release
+            type=gha,scope=nn-anime-ci
+          cache-to: type=gha,mode=max,scope=nn-anime-release
 
   # Un instalador por plataforma. La firma va aquí dentro y es **condicional**: si el secreto no
   # está, el paso se salta y el instalador sale sin firmar, con las advertencias normales del
@@ -215,15 +222,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf
 
-      - name: Caché de cargo
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # `Swatinem/rust-cache` y no `actions/cache` sobre `target/`: el directorio de Tauri pesa
+      # varios GB, `actions/cache` lo sube entero y su clave cambia con `Cargo.lock`, así que cada
+      # subida de dependencia empezaba en frío. Este poda lo que no acelera la compilación y separa
+      # registro de artefactos.
+      #
+      # `key` con el objetivo porque las dos vueltas de macOS compilan triples distintos sobre el
+      # mismo `target/`: sin separarlas se pisan la caché (la segunda guarda falla en silencio y la
+      # siguiente vuelta recompila).
+      - name: Caché de Rust
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            desktop/src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+          workspaces: desktop/src-tauri -> target
+          key: ${{ matrix.target }}
 
       # 1) El servidor, y **sin** instalador. En Windows se firma aquí, antes de
       #    que el anfitrión lo embeba; si se firmara después, el `.exe` único
