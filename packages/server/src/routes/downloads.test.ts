@@ -183,6 +183,29 @@ describe('las rutas de descargas', () => {
     })
   })
 
+  test('la carpeta de descargas se cambia con una ruta absoluta', async () => {
+    await conApp(async (pedir, _store, dir) => {
+      const nueva = join(dir, 'otra-carpeta')
+      const cambio = await pedir('/api/downloads/dir', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ path: nueva }),
+      })
+      expect(cambio.status).toBe(200)
+
+      const espacio = await pedir('/api/downloads/space')
+      const datos = (await espacio.json()) as { path: string }
+      expect(datos.path).toBe(nueva)
+
+      const relativa = await pedir('/api/downloads/dir', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ path: 'carpeta-relativa' }),
+      })
+      expect(relativa.status).toBe(400)
+    })
+  })
+
   test('un id que no existe es 404', async () => {
     await conApp(async (pedir) => {
       expect((await pedir('/api/downloads/999/file')).status).toBe(404)

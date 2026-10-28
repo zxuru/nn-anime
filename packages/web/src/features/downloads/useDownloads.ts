@@ -15,9 +15,11 @@ import {
   downloadsResponseSchema,
   downloadsSpaceSchema,
 } from '@nn-anime/core/api'
+import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ProviderRef } from '@nn-anime/core/models'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet, apiPostJson, send } from '../../api/client'
+import { t } from '../../i18n'
 
 const POLL_MS = 2_000
 
@@ -82,6 +84,29 @@ export function useDownloads(): DownloadsState {
   }, [refresh])
 
   const activas = items.some((item) => item.status === 'queued' || item.status === 'downloading')
+
+  /**
+   * El aviso de «ya está», sin abrir otra superficie.
+   *
+   * Se usa la notificación del navegador —el webview del escritorio la soporta—
+   * y sólo si el permiso ya se concedió. Pedirlo aquí, sin un gesto, lo dejaría
+   * denegado para siempre; lo pide el botón de descargar, que sí es un gesto.
+   */
+  const anteriores = useRef(new Map<number, string>())
+  useEffect(() => {
+    const vistas = anteriores.current
+    for (const item of items) {
+      const antes = vistas.get(item.id)
+      if (antes !== undefined && antes !== 'complete' && item.status === 'complete') {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification(t(DEFAULT_LOCALE, 'downloads.notifyTitle'), {
+            body: t(DEFAULT_LOCALE, 'downloads.notifyBody', { title: item.title }),
+          })
+        }
+      }
+      vistas.set(item.id, item.status)
+    }
+  }, [items])
 
   useEffect(() => {
     if (!activas) return undefined

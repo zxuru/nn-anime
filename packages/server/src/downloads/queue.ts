@@ -63,6 +63,10 @@ export interface DownloadQueue {
   remove(id: number): Promise<DownloadRecord | undefined>
   /** Cuántas hay en vuelo. Para las pruebas y la interfaz. */
   active(): number
+  /** La raíz actual; el escritorio puede cambiarla en caliente. */
+  root(): string
+  /** Cambia la raíz. No se admite con descargas en vuelo. */
+  setRoot(root: string): void
   close(): Promise<void>
 }
 
@@ -76,6 +80,7 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
   const activas = new Map<number, Promise<void>>()
   const pendientes: number[] = []
   const controladores = new Map<number, AbortController>()
+  let raiz = options.root
   let cerrada = false
 
   const estaPausadaOCancelada = async (id: number): Promise<boolean> => {
@@ -100,7 +105,7 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
 
       let ultimoAviso = 0
       const resultado = await downloadTask({
-        root: options.root,
+        root: raiz,
         task: {
           providerId: fila.providerId,
           providerRef: fila.providerRef,
@@ -209,8 +214,8 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
       controladores.get(id)?.abort()
 
       if (fila.path !== undefined) {
-        const absoluta = resolve(options.root, fila.path)
-        if (insideRoot(options.root, absoluta)) {
+        const absoluta = resolve(raiz, fila.path)
+        if (insideRoot(raiz, absoluta)) {
           if (fila.kind === 'segments') {
             await rm(dirname(absoluta), { recursive: true, force: true })
           } else {
@@ -225,6 +230,17 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
 
     active() {
       return activas.size
+    },
+
+    root() {
+      return raiz
+    },
+
+    setRoot(nueva: string) {
+      if (activas.size > 0) {
+        throw new Error('no se puede cambiar la carpeta con descargas en vuelo')
+      }
+      raiz = nueva
     },
 
     async close() {

@@ -9,7 +9,10 @@
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
+import { useState } from 'react'
+import { apiPatch } from '../../api/client'
 import { t } from '../../i18n'
+import { elegirCarpetaDescargas, hayEscritorio } from './desktop'
 import { type Descarga, useDownloads } from './useDownloads'
 
 const LOCALE = DEFAULT_LOCALE
@@ -99,8 +102,21 @@ function Fila(props: {
 }
 
 export function DownloadsPage(): ReactNode {
-  const { items, space, loading, error, pause, resume, remove, cleanup } = useDownloads()
+  const { items, space, loading, error, pause, resume, remove, cleanup, refresh } = useDownloads()
   const completas = items.filter((item) => item.status === 'complete').length
+  const [errorCarpeta, setErrorCarpeta] = useState<string | undefined>()
+
+  const cambiarCarpeta = async (): Promise<void> => {
+    try {
+      const elegida = await elegirCarpetaDescargas()
+      if (elegida === undefined) return
+      await apiPatch('/api/downloads/dir', { path: elegida })
+      await refresh()
+      setErrorCarpeta(undefined)
+    } catch (cause) {
+      setErrorCarpeta(cause instanceof Error ? cause.message : String(cause))
+    }
+  }
 
   return (
     <section className="downloads">
@@ -112,6 +128,17 @@ export function DownloadsPage(): ReactNode {
             total: bytes(space.totalBytes),
             used: bytes(space.downloadsBytes),
           })}
+          <span className="downloads__path">{space.path}</span>
+        </p>
+      )}
+      {hayEscritorio() ? (
+        <button type="button" onClick={() => void cambiarCarpeta()}>
+          {t(LOCALE, 'downloads.chooseFolder')}
+        </button>
+      ) : null}
+      {errorCarpeta === undefined ? null : (
+        <p className="downloads__error" role="alert">
+          {errorCarpeta}
         </p>
       )}
       {completas === 0 ? null : (
