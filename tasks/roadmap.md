@@ -30,8 +30,8 @@ lo que ordena.
 | 1.3c Descargas · HLS/ffmpeg | **T183c** | hecho | T183b |
 | 1.3d Descargas · orquestador | **T183d** | hecho | T183c |
 | 1.3e Descargas · cola con concurrencia | **T183e** | hecho | T183d |
-| 1.3f Descargas · rutas HTTP | T183f | **siguiente** | T183e |
-| 1.4 Descargas · interfaz | T184 | pendiente | T183f |
+| 1.3f Descargas · rutas HTTP | **T183f** | hecho | T183e |
+| 1.4 Descargas · interfaz | T184 | **siguiente** | T183f |
 | 1.5 Descargas · reproducción local | T185 | pendiente | T183f, T184 |
 | 1.6 Descargas · escritorio | T186 | pendiente | T184 |
 | 1.7 Descargas · espacio | T187 | pendiente | T183f, T184 |
