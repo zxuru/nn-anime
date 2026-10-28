@@ -32,8 +32,8 @@ lo que ordena.
 | 1.3e Descargas · cola con concurrencia | **T183e** | hecho | T183d |
 | 1.3f Descargas · rutas HTTP | **T183f** | hecho | T183e |
 | 1.4 Descargas · interfaz | **T184** | hecho | T183f |
-| 1.5 Descargas · reproducción local | T185 | **siguiente** | T183f, T184 |
-| 1.6 Descargas · escritorio | T186 | pendiente | T184 |
+| 1.5 Descargas · reproducción local | **T185** | hecho | T183f, T184 |
+| 1.6 Descargas · escritorio | T186 | **siguiente** | T184 |
 | 1.7 Descargas · espacio | T187 | pendiente | T183f, T184 |
 | Fase 2A Manga | sin abrir | — | 0.5 |
 | Fase 2B Descarga de manga | sin abrir | — | 1.x, 2A |
