@@ -7,6 +7,22 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.4.0](https://github.com/zxuru/nn-anime/compare/v0.3.3...v0.4.0) (2026-10-28)
+
+
+### Features
+
+* **desktop:** el selector de carpeta de descargas (T186) ([96e71f8](https://github.com/zxuru/nn-anime/commit/96e71f8fef54acae9c9b874d6868786a6994ff75))
+* **server:** el espacio y el borrado de descargas (T187) ([e6f6fc7](https://github.com/zxuru/nn-anime/commit/e6f6fc7580d55dc28eb0cad64e574379ea15eefa))
+* **web:** la copia local manda en el reproductor (T185) ([abbe85e](https://github.com/zxuru/nn-anime/commit/abbe85e7619cccb72fd5cfd96ba71eea8f5c9dbc))
+
+
+### Bug Fixes
+
+* **desktop:** el lock fusionado recupera windows-sys 0.59 (T186) ([7c23e37](https://github.com/zxuru/nn-anime/commit/7c23e3717852e161845918b528b89727f02e30e7))
+* **release:** el dispatch le dice el repositorio a gh (T172) ([7aec184](https://github.com/zxuru/nn-anime/commit/7aec1849d4aff507603d4f9c652f3f9830084713))
+* **web:** el reproductor sin contorno blanco (T188) ([8c1c332](https://github.com/zxuru/nn-anime/commit/8c1c332d9625e372753f9bbecd0f0bca47d8b121))
+
 ## [0.3.3](https://github.com/zxuru/nn-anime/compare/v0.3.2...v0.3.3) (2026-10-26)
 
 
