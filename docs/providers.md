@@ -101,10 +101,10 @@ Un proveedor es un objeto con:
 Los tres últimos van juntos y con `capabilities.episodePages: true`: declarar la capacidad sin los
 métodos, o tener los métodos sin declararla, se rechaza al cargar el plugin nombrando lo que falta.
 
-`capabilities.download: true` declara que la fuente permite descargar sus episodios. **Ausente es
-no**: sin la capacidad, la interfaz no ofrece el botón. El motor de descargas usa el mismo
-`resolveStream` que la reproducción y no añade ningún método al contrato; la capacidad sólo dice si
-el sitio lo permite.
+`capabilities.download` **se acepta y se ignora**. Descargar no es un permiso que conceda la fuente:
+la aplicación resuelve el mismo stream que la reproducción —un archivo directo o un HLS— y lo baja a
+la carpeta de descargas, así que el botón se ofrece en todas las fuentes. El campo queda para que un
+manifiesto que ya lo declare siga cargando; un plugin nuevo no lo necesita.
 
 `capabilities.media` dice **qué sirve** el plugin, que es otra cosa que lo que sabe hacer: la interfaz
 divide la home y la búsqueda con un conmutador entre anime y películas, y cada título cae en una mitad

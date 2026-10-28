@@ -15,7 +15,9 @@ tope de cinco archivos de implementación por task y commit atómico que cita el
 - **D3** (transporte de watch party) y **D5** (formato de manga) siguen abiertas y no bloquean esta
   fase.
 - La capacidad `downloads` entra como enmienda de `CAPABILITY-MAP`; la aprueba el humano con esta
-  spec. `download` es una capacidad **opcional** del plugin; ausente es no.
+  spec. `download` nació como capacidad **opcional** del plugin, **ausente es no**; T190 la dejó
+  aceptada y sin efecto: descargar lo hace la aplicación resolviendo el stream, así que la fuente no
+  concede ningún permiso.
 
 ## Tareas
 
@@ -33,6 +35,7 @@ tope de cinco archivos de implementación por task y commit atómico que cita el
 | 1.5 Reproducción local y sin red | **T185** | hecho | T183f, T184 |
 | 1.6 Escritorio: selector de carpeta y aviso | **T186** | hecho | T184 |
 | 1.7 Gestión de espacio y borrado | **T187** | hecho | T183f, T184 |
+| Enmienda: descargar sin permiso de la fuente | **T190** | hecho | T184 |
 
 ## Orden y cortes
 
