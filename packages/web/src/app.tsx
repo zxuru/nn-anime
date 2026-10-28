@@ -9,6 +9,7 @@
 import { DEFAULT_LOCALE, type Locale } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
 import { DetailPage } from './features/detail/DetailPage'
+import { DownloadsPage } from './features/downloads/DownloadsPage'
 import { HomePage } from './features/home/HomePage'
 import { WatchPage } from './features/player/WatchPage'
 import { HistoryPage } from './features/profile/HistoryPage'
@@ -87,6 +88,7 @@ function Shell(props: {
               usuario, y ahí no hay dos mitades que partir —como en Ajustes—. Lo que
               sí enseña es lo de las dos, porque sus listas son de las dos. */}
           <Link to="/profile">{t(LOCALE, 'nav.profile')}</Link>
+          <Link to="/downloads">{t(LOCALE, 'nav.downloads')}</Link>
           <Link to="/settings">{t(LOCALE, 'nav.settings')}</Link>
         </nav>
         {props.tipo === true ? <ConmutadorTipo /> : null}
@@ -131,6 +133,8 @@ function screenFor(route: RouteMatch, path: string): ReactNode {
       return <ProfilePage />
     case 'history':
       return <HistoryPage />
+    case 'downloads':
+      return <DownloadsPage />
     case 'not-found':
       return (
         <section>

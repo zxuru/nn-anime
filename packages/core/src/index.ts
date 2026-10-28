@@ -45,6 +45,7 @@ export {
   continueWatchingResponseSchema,
   type DiscoverItem,
   type DiscoverResponse,
+  type DownloadItem,
   discoverItemSchema,
   discoverResponseSchema,
   downloadItemSchema,

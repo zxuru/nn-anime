@@ -25,6 +25,7 @@ export type RouteName =
   | 'settings'
   | 'profile'
   | 'history'
+  | 'downloads'
   | 'not-found'
 
 export interface RouteMatch {
@@ -48,6 +49,7 @@ const PATTERNS: readonly RoutePattern[] = [
   // que el orden entre patrones de distinta longitud no decide nada.
   { name: 'profile', segments: ['profile'] },
   { name: 'history', segments: ['history'] },
+  { name: 'downloads', segments: ['downloads'] },
   { name: 'settings', segments: ['settings'] },
 ]
 
