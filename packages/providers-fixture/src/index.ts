@@ -289,9 +289,11 @@ function esFallo(valor: string): valor is FixtureFailure {
  * Opciones leídas del entorno, para el arranque manual y el e2e.
  *
  * `NN_ANIME_FIXTURE_LATENCY_MS`, `NN_ANIME_FIXTURE_FAIL` (`search=500`,
- * `resolveStream=timeout`) y `NN_ANIME_FIXTURE_DOWNLOAD=1`, que declara la fuente
- * descargable para el e2e. Se leen aquí y no dentro del proveedor para que éste
- * siga siendo inyectable y no dependa de variables globales.
+ * `resolveStream=timeout`) y `NN_ANIME_FIXTURE_DOWNLOAD=1`, que declara la
+ * capacidad `download`: se acepta y no cambia nada —la descarga la hace la
+ * aplicación—, y sirve para probar que un manifiesto que la declara sigue
+ * cargando. Se leen aquí y no dentro del proveedor para que éste siga siendo
+ * inyectable y no dependa de variables globales.
  */
 export function fixtureOptionsFromEnv(env: Record<string, string | undefined>): FixtureOptions {
   const latencia = Number(env.NN_ANIME_FIXTURE_LATENCY_MS ?? '0')

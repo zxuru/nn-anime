@@ -16,17 +16,17 @@ import { defineConfig, devices } from '@playwright/test'
 const PUERTO = Number(process.env.NN_ANIME_E2E_PORT ?? '7801')
 
 /**
- * El arnés sirve una fuente descargable.
+ * El arnés sirve una fuente **sin** `capabilities.download`, a propósito.
  *
- * Sin esto, el botón de descarga no aparece —la capacidad ausente es no— y el
- * e2e no podría medir ni su presencia. El motor no se ejercita aquí: pulsar el
- * botón bajaría de verdad, y la red del fixture no existe.
+ * Es lo que hay que medir: el botón de descarga no depende de que el plugin
+ * declare nada, porque lo que se descarga lo baja la aplicación resolviendo el
+ * stream. El motor no se ejercita aquí: pulsar el botón bajaría de verdad, y la
+ * red del fixture no existe.
  */
 const ENTORNO: Record<string, string> = {}
 for (const [clave, valor] of Object.entries(process.env)) {
   if (valor !== undefined) ENTORNO[clave] = valor
 }
-ENTORNO.NN_ANIME_FIXTURE_DOWNLOAD = '1'
 
 export default defineConfig({
   testDir: 'packages/web/e2e',

@@ -110,8 +110,8 @@ GET    /api/downloads/events     → SSE de progreso (opcional; la lista ya se p
 
 ## La interfaz
 
-- Botón «Descargar» en la ficha (por episodio) y en el reproductor, sólo si el proveedor declara
-  `capabilities.download`.
+- Botón «Descargar» en la ficha (por episodio) y en el reproductor, **sin condición**: la descarga la
+  hace la aplicación resolviendo el stream, no la fuente (enmienda de T190).
 - Página **Descargas**: cola, progreso, pausa/reanudar, cancelar, borrar, «abrir carpeta».
 - Marca de «descargado» en la ficha y en la lista de episodios.
 - El reproductor **prefiere la copia local**: si el episodio está descargado, resuelve
@@ -127,16 +127,17 @@ GET    /api/downloads/events     → SSE de progreso (opcional; la lista ya se p
 | Una descarga llena el disco | Comprobación de espacio antes y durante; tope por archivo y por cola; el error dice cuánto falta |
 | ffmpeg recibe una ruta o una opción inyectada | Sin shell, argumentos en array, rutas generadas por el servidor |
 | Las cabeceras del upstream quedan en disco | Viven en memoria, como en el proxy; no se guardan |
-| DRM o contenido que la fuente no permite descargar | El plugin declara `download`; si no lo declara, no hay botón. No se intenta romper DRM |
+| DRM o contenido cifrado | No se intenta romper DRM: el motor baja lo que la fuente sirve y un manifiesto cifrado falla con el error del motor. La fuente no declara ningún permiso (enmienda de T190) |
 
 Riesgo residual: quien pueda escribir en la carpeta de descargas puede sustituir un archivo; es la
 misma confianza que el resto de los datos locales. Se declara.
 
 ## Contrato de plugin
 
-`providerCapabilitiesSchema.download: z.boolean().optional()`. Ausente es **no**: el botón no se
-ofrece. No se sube `PROVIDER_API_VERSION`; es una capacidad opcional y una app vieja rechaza el
-manifiesto al cargar si el plugin la declara, que es el rechazo honesto.
+`providerCapabilitiesSchema.download: z.boolean().optional()`, **aceptada y sin efecto** (enmienda de
+T190). Descargar no es un permiso de la fuente: el servidor resuelve el stream y lo baja él, así que
+el botón no consulta la capacidad. El campo se conserva porque el schema es estricto y quitarlo
+rechazaría al cargar los manifiestos que ya lo declaran; no se sube `PROVIDER_API_VERSION`.
 
 ## Qué queda fuera
 
@@ -159,6 +160,9 @@ manifiesto al cargar si el plugin la declara, que es el rechazo honesto.
 6. **1.6 (T186):** Tauri: selector de carpeta y aviso al terminar; Windows medido, macOS/Linux
    documentados.
 7. **1.7 (T187):** borrar y límites de espacio; el borrado limpia archivos y filas.
+8. **T190 (enmienda):** la descarga deja de pedir permiso. Sin `capabilities.download` de por medio,
+   el alta responde 201 y el botón nace habilitado en una fuente que no la declara; el fallo se lee
+   en el `title` del botón. Medido con la prueba de la ruta, la del componente y el e2e.
 
 ## Criterios de aceptación de la fase 1
 

@@ -1,17 +1,23 @@
 /**
  * El botón de descargar de un episodio.
  *
- * Sólo aparece si la fuente declara `capabilities.download`; una fuente que no
- * lo declara no ofrece un botón que va a contestar 400. La capacidad se pide una
- * vez por montaje y no se cachea más: es barata y cambia al recargar plugins.
+ * No le pregunta nada a la fuente. Descargar no es un permiso que ella conceda:
+ * lo hace la aplicación, que resuelve el mismo stream que la reproducción —un
+ * archivo directo o un HLS— y lo baja a la carpeta de descargas. Por eso el botón
+ * está siempre que hay episodio, declare lo que declare el plugin.
+ *
+ * Lo que falle se cuenta en el `title` del botón —el tooltip del navegador— y no
+ * en un párrafo al lado: el botón vive anclado al encabezado del reproductor y un
+ * texto de error ahí empujaba la sala, que se mide contra el alto de la ventana.
+ * Para quien no ve el tooltip, el mismo texto va en un `solo-lectores`.
  */
 
-import { downloadStartResponseSchema, providersResponseSchema } from '@nn-anime/core/api'
+import { downloadStartResponseSchema } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ProviderRef } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
-import { apiGet, apiPostJson } from '../../api/client'
+import { useState } from 'react'
+import { apiPostJson } from '../../api/client'
 import { t } from '../../i18n'
 
 const LOCALE = DEFAULT_LOCALE
@@ -22,32 +28,52 @@ export interface DownloadButtonProps {
   readonly episodeRef: ProviderRef
 }
 
-type Estado = 'comprobando' | 'listo' | 'guardando' | 'hecho' | 'error'
+type Estado = 'listo' | 'guardando' | 'hecho' | 'error'
+
+export interface BotonDeDescargaProps {
+  readonly estado: Estado
+  readonly mensaje?: string | undefined
+  readonly onDescargar: () => void
+}
+
+/**
+ * El botón sin estado ni red, para poder medirlo en cualquier estado.
+ *
+ * Un fallo no lo deshabilita: volver a pulsar es el reintento, y el motivo espera
+ * en el tooltip. Sólo se cierra mientras guarda —para no pedir dos veces— y una
+ * vez en cola, porque la descarga ya está apuntada.
+ */
+export function BotonDeDescarga(props: BotonDeDescargaProps): ReactNode {
+  const etiqueta =
+    props.estado === 'hecho'
+      ? t(LOCALE, 'downloads.queued')
+      : props.estado === 'guardando'
+        ? t(LOCALE, 'downloads.saving')
+        : t(LOCALE, 'downloads.download')
+
+  return (
+    <div className="downloads__button">
+      <button
+        type="button"
+        className="button"
+        title={props.mensaje}
+        disabled={props.estado === 'guardando' || props.estado === 'hecho'}
+        onClick={props.onDescargar}
+      >
+        {etiqueta}
+      </button>
+      {props.mensaje === undefined ? null : (
+        <span className="solo-lectores" role="alert">
+          {props.mensaje}
+        </span>
+      )}
+    </div>
+  )
+}
 
 export function DownloadButton(props: DownloadButtonProps): ReactNode {
-  const [estado, setEstado] = useState<Estado>('comprobando')
+  const [estado, setEstado] = useState<Estado>('listo')
   const [mensaje, setMensaje] = useState<string | undefined>()
-
-  useEffect(() => {
-    let vivo = true
-
-    void apiGet('/api/providers', providersResponseSchema)
-      .then((respuesta) => {
-        if (!vivo) return
-        const fuente = respuesta.providers.find((item) => item.id === props.providerId)
-        setEstado(fuente?.capabilities.download === true ? 'listo' : 'error')
-        if (fuente?.capabilities.download !== true) setMensaje(t(LOCALE, 'downloads.notAllowed'))
-      })
-      .catch(() => {
-        if (vivo) setEstado('error')
-      })
-
-    return () => {
-      vivo = false
-    }
-  }, [props.providerId])
-
-  if (estado === 'comprobando' || (estado === 'error' && mensaje === undefined)) return null
 
   const descargar = async (): Promise<void> => {
     setEstado('guardando')
@@ -75,20 +101,10 @@ export function DownloadButton(props: DownloadButtonProps): ReactNode {
   }
 
   return (
-    <div className="downloads__button">
-      <button
-        type="button"
-        className="button"
-        disabled={estado === 'guardando' || estado === 'hecho' || estado === 'error'}
-        onClick={() => void descargar()}
-      >
-        {estado === 'hecho'
-          ? t(LOCALE, 'downloads.queued')
-          : estado === 'guardando'
-            ? t(LOCALE, 'downloads.saving')
-            : t(LOCALE, 'downloads.download')}
-      </button>
-      {mensaje === undefined ? null : <span className="downloads__error">{mensaje}</span>}
-    </div>
+    <BotonDeDescarga
+      estado={estado}
+      {...(mensaje === undefined ? {} : { mensaje })}
+      onDescargar={() => void descargar()}
+    />
   )
 }

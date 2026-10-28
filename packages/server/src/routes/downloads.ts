@@ -5,7 +5,8 @@
  * el archivo. Dos cosas que no se delegan:
  *
  * - **El cliente no decide qué bajar.** Manda una referencia; el servidor
- *   resuelve el stream y comprueba que la fuente declare `capabilities.download`.
+ *   resuelve el stream —el mismo de la reproducción— y lo baja él. La fuente no
+ *   autoriza nada: descargar es trabajo del motor, no una capacidad del plugin.
  * - **El archivo se sirve por id.** La ruta que se abre sale de la fila, no de la
  *   petición, y se comprueba que esté dentro de la raíz de descargas.
  */
@@ -101,9 +102,6 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
 
     const provider = findProvider(options.providers, parsed.data.providerId)
     if (provider === undefined) return errorJson(c, 404, 'no hay ningún proveedor con ese id')
-    if (provider.capabilities.download !== true) {
-      return errorJson(c, 400, `la fuente ${provider.id} no declara que se pueda descargar`)
-    }
 
     const detalle = await options.store.readAnime(parsed.data.animeRef)
     const titulo = detalle?.value.title ?? parsed.data.animeRef.value
