@@ -473,6 +473,55 @@ export const watchHistoryResponseSchema = z.strictObject({
   hasMore: z.boolean(),
 })
 
+/** En qué punto está una descarga. */
+export const downloadStatusSchema = z.enum([
+  'queued',
+  'downloading',
+  'paused',
+  'complete',
+  'failed',
+  'cancelled',
+])
+
+/** Qué quedó en disco: un archivo único o los segmentos de un HLS sin ffmpeg. */
+export const downloadKindSchema = z.enum(['file', 'hls', 'segments'])
+
+/**
+ * Una descarga tal y como la ve la interfaz.
+ *
+ * No lleva la ruta absoluta: la interfaz pide el archivo por su id y el servidor
+ * decide qué disco toca. `bytes` y `totalBytes` son progreso, no una promesa de
+ * tamaño final.
+ */
+export const downloadItemSchema = z.strictObject({
+  id: z.number().int().positive(),
+  providerId: z.string().min(1),
+  animeRef: providerRefSchema,
+  episodeRef: providerRefSchema,
+  title: z.string().min(1),
+  episodeLabel: z.string().min(1),
+  kind: downloadKindSchema,
+  status: downloadStatusSchema,
+  bytes: z.number().int().nonnegative(),
+  totalBytes: z.number().int().nonnegative().optional(),
+  error: z.string().optional(),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+})
+
+export const downloadsResponseSchema = z.strictObject({
+  items: z.array(downloadItemSchema),
+})
+
+/** El alta de una descarga. El servidor resuelve el stream, no el cliente. */
+export const downloadStartRequestSchema = z.strictObject({
+  providerId: z.string().min(1),
+  animeRef: providerRefSchema,
+  episodeRef: providerRefSchema,
+})
+
+export const downloadStartResponseSchema = z.strictObject({ id: z.number().int().positive() })
+
 /**
  * El Perfil: las listas del usuario en una sola respuesta.
  *
