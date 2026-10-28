@@ -97,3 +97,11 @@ Cada criterio de aceptación se marca **con la medición que lo sostiene**, no c
 - Los textos de interfaz van en `packages/web/src/i18n/es.ts`; los de `recsys`, en su propio i18n.
   Nada de cadenas sueltas en los componentes.
 - Los comentarios explican **por qué**, no qué. En español, como el resto del repositorio.
+
+## Frontend: diseño y movimiento
+
+Revisar o mejorar la interfaz de `packages/web` se hace con la skill de proyecto
+`.agents/skills/frontend-nn-anime/SKILL.md`: fija el orden de carga (`impeccable` →
+`make-interfaces-feel-better` → `transitions-dev`, y `gsap-*` el día que haya GSAP) y las reglas de
+movimiento del repo. Esa skill se versiona; las de terceros viven en `.agents/skills/` **sin
+versionar**, así que no vienen con un clon nuevo.

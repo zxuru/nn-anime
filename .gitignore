@@ -73,12 +73,14 @@ test-results/
 .worktrees/
 
 # Skills de terceros instaladas en local por la herramienta: no son del
-# repositorio. La skill propia, `.agents/skills/agente-worktree/`, sí se
-# versiona, y el `!` la rescata del comodín anterior.
+# repositorio. Las dos skills propias —`agente-worktree`, que explica el flujo
+# de worktrees, y `frontend-nn-anime`, que fija qué skills de diseño usar— sí se
+# versionan, y el `!` las rescata del comodín anterior.
 .claude/
 skills-lock.json
 .agents/skills/*
 !.agents/skills/agente-worktree/
+!.agents/skills/frontend-nn-anime/
 
 # Editores y sistema operativo
 .vscode/
