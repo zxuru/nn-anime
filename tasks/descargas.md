@@ -36,6 +36,7 @@ tope de cinco archivos de implementación por task y commit atómico que cita el
 | 1.6 Escritorio: selector de carpeta y aviso | **T186** | hecho | T184 |
 | 1.7 Gestión de espacio y borrado | **T187** | hecho | T183f, T184 |
 | Enmienda: descargar sin permiso de la fuente | **T190** | hecho | T184 |
+| Enmienda: la carpeta se elige también en el navegador | **T191** | hecho | T184 |
 
 ## Orden y cortes
 
@@ -54,6 +55,8 @@ tope de cinco archivos de implementación por task y commit atómico que cita el
 4. **T186** necesita el anfitrión Tauri; el selector de carpeta es del anfitrión, no del servidor.
    En el navegador la carpeta es un ajuste de texto y el botón «abrir carpeta» no existe.
 5. **T187** cierra la fase: borrar, límites y el informe de lo que no se pudo medir.
+6. **T191** cierra el hueco que dejó T186: el ajuste de texto de la carpeta. No toca el servidor —
+   `PATCH /api/downloads/dir` ya validaba la ruta—, sólo la pantalla que lo escribe.
 
 ## Lo que no se hace en esta fase
 

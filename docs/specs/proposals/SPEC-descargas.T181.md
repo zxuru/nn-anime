@@ -112,11 +112,15 @@ GET    /api/downloads/events     → SSE de progreso (opcional; la lista ya se p
 
 - Botón «Descargar» en la ficha (por episodio) y en el reproductor, **sin condición**: la descarga la
   hace la aplicación resolviendo el stream, no la fuente (enmienda de T190).
-- Página **Descargas**: cola, progreso, pausa/reanudar, cancelar, borrar, «abrir carpeta».
+- Página **Descargas**: cola, progreso, pausa/reanudar, cancelar, borrar, «abrir carpeta» y **la
+  carpeta de destino**: un campo donde se escribe la ruta y se guarda, más el diálogo nativo cuando
+  hay anfitrión de escritorio (T186 y T191).
 - Marca de «descargado» en la ficha y en la lista de episodios.
 - El reproductor **prefiere la copia local**: si el episodio está descargado, resuelve
   `/api/downloads/:id/file` antes de pedir el stream al proveedor. Sin red, funciona.
-- Ajustes: carpeta de descargas (por defecto `<dataDir>/downloads`), concurrencia y límite de espacio.
+- Ajustes: carpeta de descargas (por defecto `<dataDir>/downloads`), concurrencia y límite de
+  espacio. La carpeta se elige en la propia página **Descargas** y no en Ajustes (T186, T191): es
+  allí donde se ve el espacio libre de esa carpeta.
 
 ## Seguridad (se añade a `SECURITY.md`)
 
@@ -163,6 +167,11 @@ rechazaría al cargar los manifiestos que ya lo declaran; no se sube `PROVIDER_A
 8. **T190 (enmienda):** la descarga deja de pedir permiso. Sin `capabilities.download` de por medio,
    el alta responde 201 y el botón nace habilitado en una fuente que no la declara; el fallo se lee
    en el `title` del botón. Medido con la prueba de la ruta, la del componente y el e2e.
+9. **T191 (enmienda):** la carpeta se elige también sin anfitrión. `DownloadFolder` enseña la ruta
+   que anuncia el servidor y la guarda contra el `PATCH /api/downloads/dir` que ya existía; el
+   diálogo nativo sigue pintándose sólo con `__TAURI_INTERNALS__`. Medido mutando el valor del
+   campo, el guardián del anfitrión y la llamada del hook —cada uno hace fallar su prueba— y con un
+   e2e que escribe una ruta y comprueba el cuerpo del `PATCH`.
 
 ## Criterios de aceptación de la fase 1
 
