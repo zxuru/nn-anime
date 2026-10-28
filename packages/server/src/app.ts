@@ -15,6 +15,7 @@
  * inalcanzable.
  */
 
+import { join } from 'node:path'
 import { AppError, type ConfigPaths, healthResponseSchema, type Logger } from '@nn-anime/core'
 import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
 import type { LoadReport } from '@nn-anime/provider-sdk'
@@ -24,6 +25,7 @@ import { anilistOfflineFromEnv, createAniListClient } from './anilist/client'
 import { registerLogin } from './auth'
 import { bootstrapHandler } from './bootstrap'
 import type { ServerContainer } from './container'
+import { createDownloadQueue } from './downloads/queue'
 import { hostGuard } from './middleware/host-guard'
 import { originGuard } from './middleware/origin-guard'
 import { securityHeaders } from './middleware/security-headers'
@@ -34,10 +36,11 @@ import { createProviderHub } from './provider-hub'
 import { acotarAProveedoresActivos } from './provider-scope'
 import { enabledProviderFiles } from './repo-store'
 import { registerAniListRoutes } from './routes/anilist'
-import { registerAnimeRoutes } from './routes/anime'
+import { findProvider, registerAnimeRoutes } from './routes/anime'
 import { registerCoverRoute } from './routes/cover'
 import { registerDetailRoutes } from './routes/detail'
 import { registerFeedRoute, registerRecentRoute } from './routes/discovery'
+import { registerDownloadsRoute } from './routes/downloads'
 import { registerEpisodesRoute } from './routes/episodes'
 import { registerFavoritesRoutes } from './routes/favorites'
 import { registerPlanToWatchRoutes } from './routes/plan-to-watch'
@@ -136,6 +139,17 @@ export interface AppOptions {
   readonly streamResolver?: Resolver
   /** Rutas en uso, para la página de ajustes. Las calcula el arranque. */
   readonly paths?: ConfigPaths
+  /**
+   * Dónde se guardan las descargas. Por defecto, `<dataDir>/downloads`.
+   *
+   * Sin este dato y sin `paths` no se montan las rutas de descargas: una app que
+   * no sabe dónde escribir no debe ofrecer un botón que va a fallar.
+   */
+  readonly downloadsDir?: string
+  /** `fetch` del motor de descargas; en pruebas, sin red. */
+  readonly downloadFetchImpl?: FetchLike
+  /** Cuántas descargas a la vez. Dos por defecto. */
+  readonly downloadConcurrency?: number
   /** Versión de mpv detectada al arrancar, si la hay. */
   readonly mpvVersion?: string
   /**
@@ -349,6 +363,60 @@ export function createApp(options: AppOptions): Hono {
       ...(options.tmdbFetchImpl === undefined ? {} : { fetchImpl: options.tmdbFetchImpl }),
       ...(options.tmdbClock === undefined ? {} : { now: options.tmdbClock }),
     })
+
+    const downloadsRoot =
+      options.downloadsDir ??
+      (options.paths === undefined ? undefined : join(options.paths.dataDir, 'downloads'))
+
+    if (downloadsRoot !== undefined) {
+      const queue = createDownloadQueue({
+        store: {
+          get: (id) => container.store.getDownload(id),
+          list: (limit) => container.store.listDownloads(limit),
+          update: (id, patch) => container.store.updateDownload(id, patch),
+          remove: (id) => container.store.removeDownload(id),
+          requeueInterrupted: () => container.store.requeueInterruptedDownloads(),
+        },
+        root: downloadsRoot,
+        resolve: async (providerId, episodeRef, signal) => {
+          const provider = findProvider(hub.providers, providerId)
+          if (provider === undefined) return undefined
+
+          const resultado = await container.resolveStream(
+            provider,
+            { episodeRef: { providerId, value: episodeRef }, mode: 'sub' },
+            { signal, timeoutMs: 15_000 },
+          )
+          if (!resultado.ok) return undefined
+
+          const primera = resultado.value.value[0]
+          if (primera === undefined) return undefined
+
+          return {
+            url: primera.url,
+            kind: primera.kind,
+            ...(primera.headers === undefined ? {} : { headers: primera.headers }),
+          }
+        },
+        ...(options.downloadFetchImpl === undefined
+          ? {}
+          : { fetchImpl: options.downloadFetchImpl }),
+        ...(options.downloadConcurrency === undefined
+          ? {}
+          : { concurrency: options.downloadConcurrency }),
+      })
+
+      // Arrancar no bloquea el montaje de la app; si falla, las filas quedan en
+      // cola y se pueden reintentar desde la interfaz.
+      void queue.start().catch(() => undefined)
+
+      registerDownloadsRoute(app, {
+        queue,
+        store: container.store,
+        providers: hub.providers,
+        root: downloadsRoot,
+      })
+    }
     registerDetailRoutes(app, routeOptions)
     registerEpisodesRoute(app, routeOptions)
     registerFavoritesRoutes(app, { container })

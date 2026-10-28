@@ -18,7 +18,7 @@
 import { rm } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import type { DownloadPatch, DownloadRecord, DownloadStatus } from '@nn-anime/catalog-store'
-import { downloadTask, findFfmpeg, insideRoot, type FetchLike } from '@nn-anime/media-proxy'
+import { downloadTask, type FetchLike, findFfmpeg, insideRoot } from '@nn-anime/media-proxy'
 
 /** Lo mínimo del almacén que la cola necesita. */
 export interface DownloadStorePort {
