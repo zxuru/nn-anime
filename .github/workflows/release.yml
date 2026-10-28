@@ -455,6 +455,21 @@ jobs:
         if: runner.os == 'Windows'
         run: bun run package:unico
 
+      # El `.exe` único no pasa por el instalador: la copia portable se reemplaza
+      # a sí misma, así que su firma minisign viaja en `latest.json` y la verifica
+      # el anfitrión antes de tocar el archivo. La clave es la misma del updater.
+      - name: Firmar el archivo único para el updater (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          $unico = Get-ChildItem release -Filter 'nn-anime-*-windows-x64.exe' | Select-Object -First 1
+          if (-not $unico) { throw 'no hay archivo único que firmar' }
+          bun tauri signer sign --app-version ${{ needs.comprobar.outputs.version }} $unico.FullName
+          if (-not (Test-Path "$($unico.FullName).sig")) { throw 'no se generó la firma del .exe único' }
+
       # El instalador, probado **antes** de subirlo: instalarlo en silencio, mirar
       # que deja **un solo ejecutable** —el anfitrión—, sus accesos y su entrada en
       # «Agregar o quitar programas», abrirlo, comprobar que la ventana aparece, que
@@ -591,6 +606,42 @@ jobs:
           # intento anterior. Se borran **sólo los que este job vuelve a subir**:
           # el instalador de Windows, su `.sig` y `latest.json` los puso
           # `tauri-action` en este mismo borrador y son la mitad del updater.
+          #
+          # `latest.json` se toca antes que nada: hay que añadirle la entrada del
+          # portable (URL del `.exe` único + su firma) y volver a subirlo. Sin
+          # ella, la copia portable no encuentra qué descargar.
+          # Subir al id del borrador, no al tag: `gh release upload "$TAG"` vuelve a caer en el
+          # endpoint que no ve borradores y crearía otro release.
+          upload_url="$(gh api "repos/$REPO/releases/$borrador" --jq .upload_url)"
+          upload_url="${upload_url%\{*}"
+
+          latest_id="$(gh api --paginate "repos/$REPO/releases/$borrador/assets?per_page=100" \
+            --jq '.[] | select(.name == "latest.json") | .id' | head -n 1)"
+          if [ -z "$latest_id" ]; then
+            echo "tauri-action no subió latest.json a $TAG" >&2
+            exit 1
+          fi
+
+          unico="$(find release -maxdepth 1 -type f -name 'nn-anime-*-windows-x64.exe' | head -n 1)"
+          if [ -z "$unico" ]; then
+            echo 'no hay .exe único en release/ para la entrada portable' >&2
+            exit 1
+          fi
+          if [ ! -f "$unico.sig" ]; then
+            echo 'no hay .sig del .exe único: falta firmarlo' >&2
+            exit 1
+          fi
+
+          gh api "repos/$REPO/releases/assets/$latest_id" \
+            -H 'Accept: application/octet-stream' > "$RUNNER_TEMP/latest.json"
+          url="https://github.com/$REPO/releases/download/$TAG/$(basename "$unico")"
+          bun run scripts/package/portable-manifest.ts \
+            "$RUNNER_TEMP/latest.json" "$unico.sig" "$url"
+
+          gh api --method DELETE "repos/$REPO/releases/assets/$latest_id" >/dev/null
+          gh api --method POST "$upload_url?name=latest.json" \
+            -H "Content-Type: application/json" --input "$RUNNER_TEMP/latest.json" >/dev/null
+
           for f in release/*; do
             [ -f "$f" ] || continue
             nombre="$(basename "$f")"
@@ -599,10 +650,6 @@ jobs:
             if [ -n "$id" ]; then gh api --method DELETE "repos/$REPO/releases/assets/$id" >/dev/null; fi
           done
 
-          # Subir al id del borrador, no al tag: `gh release upload "$TAG"` vuelve a caer en el
-          # endpoint que no ve borradores y crearía otro release.
-          upload_url="$(gh api "repos/$REPO/releases/$borrador" --jq .upload_url)"
-          upload_url="${upload_url%\{*}"
           for f in release/*; do
             [ -f "$f" ] || continue
             echo "subiendo $(basename "$f")"
@@ -647,9 +694,13 @@ jobs:
               --jq '.[] | select(.name == "latest.json") | .id')"
             gh api "repos/$REPO/releases/assets/$id" -H 'Accept: application/octet-stream' \
               > "$RUNNER_TEMP/latest.json"
-            jq -e '.platforms["windows-x86_64"].url and .platforms["windows-x86_64"].signature' \
-              "$RUNNER_TEMP/latest.json" >/dev/null ||
-              { echo "latest.json no anuncia windows-x86_64 con url y firma" >&2; fallos=1; }
+            jq -e '
+              .platforms["windows-x86_64"].url and
+              .platforms["windows-x86_64"].signature and
+              .platforms["windows-x86_64-portable"].url and
+              .platforms["windows-x86_64-portable"].signature
+            ' "$RUNNER_TEMP/latest.json" >/dev/null ||
+              { echo "latest.json no anuncia windows-x86_64 y windows-x86_64-portable con url y firma" >&2; fallos=1; }
           fi
 
           if [ "$sigue_borrador" != "false" ]; then

@@ -97,6 +97,12 @@ impl Opciones {
 }
 
 fn main() {
+    // Si este proceso es el que arranca la versión nueva de un reemplazo portable,
+    // lo primero es esperar a que el viejo muera: si no, el plugin de instancia
+    // única vería al viejo, enfocaría su ventana y terminaría éste.
+    #[cfg(windows)]
+    actualizacion::esperar_reemplazo();
+
     // Lo primero: dónde viven los datos. La comprobación es una escritura real y
     // se hace una sola vez; de ahí sale también el perfil de WebView2, para que
     // nada quede fuera de la carpeta de la aplicación.
@@ -139,8 +145,28 @@ fn main() {
         diagnostico(&raiz);
     }
 
+    // `instalada` no es `raiz.portable`: la primera dice cómo se entregó el
+    // binario (lo instaló el NSIS o es un `.exe` suelto) y la segunda dónde van los
+    // datos. El updater necesita la primera para elegir el destino.
+    #[cfg(windows)]
+    let instalada = entorno::instalada();
+
+    let actualizador = tauri_plugin_updater::Builder::new();
+    #[cfg(windows)]
+    let actualizador = if instalada {
+        actualizador
+    } else {
+        actualizador.target("windows-x86_64-portable")
+    };
+
     let app = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![elegir_carpeta_descargas])
+        .invoke_handler(tauri::generate_handler![
+            elegir_carpeta_descargas,
+            #[cfg(windows)]
+            actualizacion::registrar_actualizacion,
+            #[cfg(windows)]
+            actualizacion::instalar_portable
+        ])
         // El primero que se registra, y tiene que ser así: el plugin decide si
         // este proceso es el dueño de la aplicación **antes** de que se cree
         // ninguna ventana. Un segundo lanzamiento no arranca otro servidor;
@@ -161,14 +187,7 @@ fn main() {
         // registran antes de crear ninguna ventana: sus comandos tienen que estar
         // ahí cuando la página cargue, que es cuando comprueba si hay novedades.
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        // El único comando de la aplicación: la ventana de actualizaciones escribe
-        // en el registro del anfitrión. La principal no puede invocarlo porque no
-        // tiene ninguna capability.
-        .invoke_handler(tauri::generate_handler![
-            #[cfg(windows)]
-            actualizacion::registrar_actualizacion
-        ])
+        .plugin(actualizador.build())
         // La X **oculta**, no cierra. Sin esto, cerrar la única ventana termina el
         // proceso y se lleva el servidor por delante: quien cierra espera seguir
         // teniéndolo en la bandeja, no apagar la aplicación sin querer.
@@ -211,7 +230,7 @@ fn main() {
             {
                 let perfil_actualizaciones = raiz.webview().join("actualizacion");
                 if let Err(error) =
-                    actualizacion::crear(app.handle(), raiz.portable, perfil_actualizaciones)
+                    actualizacion::crear(app.handle(), instalada, perfil_actualizaciones)
                 {
                     registrar(&format!(
                         "no se pudo crear la ventana de actualizaciones: {error}"

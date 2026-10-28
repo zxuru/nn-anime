@@ -357,10 +357,16 @@ y se actualizan la URL y el hash en `.github/actions/herramientas/action.yml`, l
   `releases/latest/download/latest.json` al arrancar y cada tres horas, y el menú de la bandeja tiene
   «Buscar actualizaciones». El instalador NSIS lo firma `tauri-bundler` con la clave del updater y
   `tauri-action` escribe el `latest.json`; sin `WINDOWS_CERT_THUMBPRINT` el instalador sale sin firmar
-  de código, pero el `.sig` del updater y la verificación de la descarga no dependen de eso. El
-  **archivo único portable** no se actualiza solo: avisa y enlaza a la release. En **macOS y Linux**
-  todavía no hay: sus instaladores no publican bundles del updater (`darwin-*`/`linux-*`), así que el
-  menú no aparece allí. Migrarlos es pasar esos instaladores a `tauri-bundler` y publicar sus `.sig`.
+  de código, pero el `.sig` del updater y la verificación de la descarga no dependen de eso.
+  - **Copia instalada:** descarga el NSIS, verifica la firma y lo ejecuta.
+  - **Copia portable (el `.exe` único):** `publicar` firma el archivo único con la misma clave y le
+    añade a `latest.json` la entrada `windows-x86_64-portable` con su URL y su firma. La aplicación
+    descarga ese `.exe`, verifica la firma minisign, aparta el que está corriendo, pone el nuevo y lo
+    arranca; el nuevo espera a que el viejo muera y borra el `.viejo`. Si el medio es de sólo lectura
+    o el reemplazo falla, se revierte y se enseña el enlace.
+  - **macOS y Linux:** todavía no hay: sus instaladores no publican bundles del updater
+    (`darwin-*`/`linux-*`), así que el menú no aparece allí. Migrarlos es pasar esos instaladores a
+    `tauri-bundler` y publicar sus `.sig`.
 - **MSI en Windows: no hay.** El requisito era «`.exe` (NSIS) y/o `.msi`», y el NSIS cubre los dos
   papeles: instala, deja accesos, se desinstala y aparece en «Agregar o quitar programas». Un MSI
   pediría WiX y una instalación por máquina que necesitaría administrador para un programa que vive

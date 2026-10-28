@@ -108,10 +108,11 @@ escritorio. Instala **el mismo archivo único**: no hay un segundo `nn-anime.exe
 La aplicación comprueba si hay una versión nueva **al arrancar y cada tres horas**, y también cuando
 pulsas **Buscar actualizaciones** en el icono de la bandeja (en Windows; macOS y Linux todavía no
 publican bundles del updater). Si hay una, la ventana de actualizaciones enseña el número de versión y
-las notas; al aceptar descarga el instalador con barra de progreso, lo verifica con la clave pública
-que va dentro del binario y lo instala. En el **archivo único portable** no se instala nada: esa copia
-sólo anuncia la versión nueva y enlaza a la release, porque un `.exe` suelto no tiene instalador que
-reemplazar.
+las notas. En la **copia instalada** descarga el instalador NSIS, lo verifica y lo ejecuta. En el
+**archivo único portable** —con o sin `portable.txt`— descarga el `.exe` nuevo, verifica su firma
+minisign y se reemplaza **en sitio**: aparta el que está corriendo, pone el nuevo, arranca la versión
+nueva y borra el viejo. Si el medio es de sólo lectura o el reemplazo falla, se queda el aviso con el
+enlace a la release.
 
 Al abrirlo desde el menú Inicio o desde el escritorio aparece **su ventana**, con la interfaz dentro:
 no hay ninguna consola de por medio. **La X la oculta en la bandeja**; «Salir» cierra la aplicación y

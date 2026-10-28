@@ -2323,8 +2323,12 @@ dependencies = [
 name = "nn-anime-desktop"
 version = "0.4.0" # x-release-please-version
 dependencies = [
+ "base64 0.23.1",
  "libc",
+ "minisign-verify",
+ "reqwest",
  "rfd",
+ "rustls",
  "serde",
  "serde_json",
  "sha2 0.11.1",

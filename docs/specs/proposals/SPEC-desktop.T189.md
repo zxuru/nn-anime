@@ -23,12 +23,19 @@ acepta tal cual.
    `tauri-action` (`tagName`, `releaseDraft: true`), que es lo único que produce el `.sig` y el
    `latest.json` con la clave del updater. macOS y Linux siguen con `scripts/package.ts`.
 
-4. **El updater está activo sólo en Windows.** `latest.json` anuncia `windows-x86_64` y
-   `windows-x86_64-nsis`; no hay bundles `darwin-*`/`linux-*`, así que allí el menú y la ventana no
-   existen (`#[cfg(windows)]`). Cuando esos instaladores se migren, se cae el `cfg`.
+4. **El updater está activo sólo en Windows.** `latest.json` anuncia `windows-x86_64`,
+   `windows-x86_64-nsis` y `windows-x86_64-portable`; no hay bundles `darwin-*`/`linux-*`, así que
+   allí el menú y la ventana no existen (`#[cfg(windows)]`). Cuando esos instaladores se migren, se
+   cae el `cfg`.
 
-5. **El modo portable no instala.** Sólo anuncia la versión nueva y enlaza a la release, porque un
-   `.exe` suelto no tiene instalador que reemplazar.
+5. **La copia portable se reemplaza en sitio.** El `.exe` único (con o sin `portable.txt`) descarga
+   `windows-x86_64-portable` de `latest.json`, verifica su firma minisign y su versión, aparta el
+   `.exe` que está corriendo con un `rename`, pone el nuevo, lo arranca con `--reemplazo-pid` y sale;
+   el nuevo espera a que el viejo muera y borra el `.viejo`. Si el medio es de sólo lectura o el
+   reemplazo falla, se restaura el original y la ventana enseña el enlace. **No** se pregunta por
+   `portable.txt` para esto: eso decide dónde van los datos, y un `.exe` suelto sin ese archivo guarda
+   la base en el perfil igual que el instalado. La marca es `entorno::instalada()`, que mira la
+   entrada de desinstalación (`InstallLocation` o el `InstallDir` del `.nsi` viejo).
 
 ## Lo que no cambia
 

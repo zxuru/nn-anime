@@ -197,6 +197,169 @@ fn probar_escritura(dir: &std::path::Path) -> std::io::Result<()> {
     Ok(())
 }
 
+/// `true` si esta copia la instaló un instalador de nn-anime.
+///
+/// **No se pregunta por `portable.txt`.** Ese archivo decide dónde van los datos;
+/// un `.exe` suelto sin él guarda la base en el perfil, igual que el instalado, y
+/// confundir las dos cosas haría que la copia portable intentara ejecutar el NSIS
+/// (que instala) en vez de reemplazarse a sí misma. La marca es la entrada de
+/// desinstalación y su carpeta: si apunta a la carpeta de este ejecutable, está
+/// instalado.
+///
+/// Se miran las dos claves que han escrito los instaladores de este proyecto:
+/// `InstallLocation` (el NSIS de Tauri, desde T189) e `InstallDir` (el `.nsi`
+/// escrito a mano de las releases anteriores). Sin la segunda, una 0.3.1 instalada
+/// pasaría a tratarse como portable y perdería su desinstalador.
+#[cfg(windows)]
+pub fn instalada() -> bool {
+    let Some(carpeta) = registro::carpeta_instalada() else {
+        return false;
+    };
+
+    let Some(directorio) = std::env::current_exe()
+        .ok()
+        .and_then(|ruta| ruta.parent().map(std::path::Path::to_path_buf))
+    else {
+        return false;
+    };
+
+    misma_carpeta(&carpeta, &directorio)
+}
+
+#[cfg(not(windows))]
+pub fn instalada() -> bool {
+    false
+}
+
+/// Compara la carpeta que dice el registro con la del ejecutable.
+///
+/// El registro la guarda entre comillas y puede acabar en barra; la comparación
+/// no distingue mayúsculas porque Windows tampoco. Es pura para que la prueba no
+/// dependa de un registro de verdad.
+pub fn misma_carpeta(registro: &str, ejecutable: &std::path::Path) -> bool {
+    let registrada = registro
+        .trim()
+        .trim_matches('"')
+        .trim_end_matches(['\\', '/']);
+    let actual = ejecutable.to_string_lossy();
+    let actual = actual.trim_end_matches(['\\', '/']);
+
+    !registrada.is_empty() && registrada.eq_ignore_ascii_case(actual)
+}
+
+#[cfg(windows)]
+mod registro {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Foundation::ERROR_SUCCESS;
+    use windows_sys::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_SZ};
+
+    fn a_wide(texto: &str) -> Vec<u16> {
+        OsStr::new(texto)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect()
+    }
+
+    /// Lee un `REG_SZ` de `HKCU`; `None` si la clave o el valor no están.
+    fn leer(clave: &str, valor: &str) -> Option<String> {
+        let clave = a_wide(clave);
+        let valor = a_wide(valor);
+        let mut tamano = 0u32;
+
+        // SAFETY: las cadenas van terminadas en cero; con `pvdata` nulo la llamada
+        // sólo mide y `pcbdata` apunta a un `u32` válido.
+        let estado = unsafe {
+            RegGetValueW(
+                HKEY_CURRENT_USER,
+                clave.as_ptr(),
+                valor.as_ptr(),
+                RRF_RT_REG_SZ,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                &mut tamano,
+            )
+        };
+
+        if estado != ERROR_SUCCESS || tamano == 0 {
+            return None;
+        }
+
+        let mut buffer = vec![0u16; (tamano as usize / 2) + 1];
+
+        // SAFETY: el buffer tiene al menos lo que midió la llamada anterior y
+        // `pcbdata` vuelve a apuntar a un `u32` válido.
+        let estado = unsafe {
+            RegGetValueW(
+                HKEY_CURRENT_USER,
+                clave.as_ptr(),
+                valor.as_ptr(),
+                RRF_RT_REG_SZ,
+                std::ptr::null_mut(),
+                buffer.as_mut_ptr().cast(),
+                &mut tamano,
+            )
+        };
+
+        if estado != ERROR_SUCCESS {
+            return None;
+        }
+
+        let texto: String = String::from_utf16_lossy(&buffer);
+        let texto = texto.trim_end_matches('\0').to_string();
+
+        if texto.is_empty() {
+            None
+        } else {
+            Some(texto)
+        }
+    }
+
+    /// La carpeta que dejó cualquiera de los dos instaladores.
+    pub fn carpeta_instalada() -> Option<String> {
+        leer(
+            r"Software\Microsoft\Windows\CurrentVersion\Uninstall\nn-anime",
+            "InstallLocation",
+        )
+        .or_else(|| leer(r"Software\nn-anime", "InstallDir"))
+    }
+}
+
+#[cfg(test)]
+mod pruebas_instalada {
+    use super::misma_carpeta;
+    use std::path::Path;
+
+    #[test]
+    fn la_carpeta_del_registro_se_compara_sin_comillas_ni_barra() {
+        assert!(misma_carpeta(
+            "\"C:\\Users\\ana\\nn-anime\"",
+            Path::new("C:\\Users\\ana\\nn-anime")
+        ));
+        assert!(misma_carpeta(
+            "C:\\Users\\ana\\nn-anime\\",
+            Path::new("C:\\Users\\ana\\nn-anime")
+        ));
+        assert!(misma_carpeta(
+            "c:\\users\\ana\\nn-anime",
+            Path::new("C:\\Users\\Ana\\nn-anime")
+        ));
+    }
+
+    #[test]
+    fn otra_carpeta_o_una_vacia_no_es_una_instalacion() {
+        assert!(!misma_carpeta(
+            "C:\\Users\\ana\\nn-anime",
+            Path::new("D:\\portable\\nn-anime")
+        ));
+        assert!(!misma_carpeta("", Path::new("C:\\Users\\ana\\nn-anime")));
+        assert!(!misma_carpeta(
+            "\"\"",
+            Path::new("C:\\Users\\ana\\nn-anime")
+        ));
+    }
+}
+
 /// Registra el usuario y el nivel de integridad del proceso.
 ///
 /// Ya **no decide** si se arranca: quién puede guardar datos lo decide

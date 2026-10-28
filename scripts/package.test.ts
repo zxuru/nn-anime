@@ -4,6 +4,7 @@ import { basename, join } from 'node:path'
 import { assertReleaseFiles, hostPlatform, hostTarget, installerName } from './package'
 import { dottedVersion, EMBEDDED_DIRECTORIES, TARGETS } from './package/binary'
 import { artifactsIn, hashOf, writeChecksums } from './package/checksums'
+import { agregarPortable } from './package/portable-manifest'
 import { render, template } from './package/render'
 import { listWorkspaces, ROOT } from './workspaces'
 
@@ -220,6 +221,30 @@ describe('la versión de cuatro números', () => {
   test('un preestreno se recorta en vez de inventarse el cuarto número', () => {
     expect(dottedVersion('1.2.3-rc.1')).toBe('1.2.3.0')
     expect(dottedVersion('2.0.0+build.5')).toBe('2.0.0.0')
+  })
+})
+
+describe('la entrada del portable en latest.json', () => {
+  test('añade windows-x86_64-portable y deja intacto el instalador', () => {
+    const latest = {
+      version: '1.2.3',
+      platforms: {
+        'windows-x86_64': { url: 'https://x/nsis', signature: 'firma-nsis' },
+      },
+    }
+
+    const resultado = agregarPortable(latest, 'firma-portable', 'https://x/portable')
+
+    expect(resultado.version).toBe('1.2.3')
+    expect(resultado.platforms).toEqual({
+      'windows-x86_64': { url: 'https://x/nsis', signature: 'firma-nsis' },
+      'windows-x86_64-portable': { url: 'https://x/portable', signature: 'firma-portable' },
+    })
+  })
+
+  test('sin platforms o sin firma se rechaza, en vez de publicar un manifiesto roto', () => {
+    expect(() => agregarPortable({ version: '1.2.3' }, 'firma', 'url')).toThrow(/platforms/)
+    expect(() => agregarPortable({ version: '1.2.3', platforms: {} }, '', 'url')).toThrow(/faltan/)
   })
 })
 
