@@ -4616,3 +4616,49 @@
   align-items: center;
   gap: var(--space-2);
 }
+
+/*
+ * El selector de carpeta. El cromo del diálogo es el del aviso de seguridad
+ * —`.notice`—; aquí sólo va lo que es una lista de carpetas.
+ */
+.picker__path {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.picker__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.picker__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.picker__item {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid transparent;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-align: start;
+  cursor: pointer;
+}
+
+/* Sólo color: el borde ya está ahí con el mismo ancho, así que no salta nada. */
+.picker__item:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}

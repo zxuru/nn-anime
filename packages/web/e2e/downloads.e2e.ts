@@ -22,9 +22,9 @@ test.describe('las descargas', () => {
       page.getByText('No hay ninguna descarga. Abre un episodio y pulsa «Descargar».'),
     ).toBeVisible()
     await expect(page.getByText(/Libre: .+ de .+\. Las descargas ocupan .+\./)).toBeVisible()
-    // En el navegador no hay anfitrión: el selector nativo no se ofrece, pero la
-    // carpeta sí se puede escribir a mano.
-    await expect(page.getByRole('button', { name: 'Elegir carpeta…' })).toHaveCount(0)
+    // Sin anfitrión no hay diálogo del sistema, pero el botón está: abre el
+    // explorador que sirve la aplicación. Y la ruta se sigue pudiendo escribir.
+    await expect(page.getByRole('button', { name: 'Elegir carpeta…' })).toBeVisible()
     await expect(page.getByLabel('Se guardan en')).toHaveValue(/.+/)
   })
 
@@ -52,6 +52,52 @@ test.describe('las descargas', () => {
     await page.getByRole('button', { name: 'Guardar carpeta' }).click()
 
     await expect.poll(() => cuerpo).toBe(JSON.stringify({ path: 'D:\\Anime\\nn-anime' }))
+    await expect(page.getByText('Carpeta cambiada.')).toBeVisible()
+  })
+
+  /**
+   * El explorador de carpetas: navegar con el ratón y elegir, sin escribir nada.
+   *
+   * El listado va interceptado para que el recorrido no dependa del disco de la
+   * máquina que corre el e2e —y para poder afirmar una ruta concreta—; que el
+   * servidor liste de verdad lo mide `packages/server/src/routes/downloads.test.ts`.
+   * Lo que se mide aquí es el gesto completo: abrir, entrar en una carpeta,
+   * elegirla y que la ruta que viaja sea la que se está viendo.
+   */
+  test('el explorador navega y elige la carpeta sin escribir la ruta', async ({ page }) => {
+    let cuerpo: string | undefined
+
+    await page.route('**/api/downloads/dir', async (ruta) => {
+      cuerpo = ruta.request().postData() ?? ''
+      await ruta.fulfill({ json: { path: 'C:\\Videos\\Anime' } })
+    })
+
+    // El árbol de mentira se ancla en la carpeta que pide el diálogo —abre en la
+    // actual, no en una raíz fija—, para no depender de dónde descarga el e2e.
+    await page.route('**/api/downloads/dirs**', async (ruta) => {
+      const pedida = new URL(ruta.request().url()).searchParams.get('path') ?? 'C:\\Videos'
+      const dentro = pedida.endsWith('Anime')
+
+      await ruta.fulfill({
+        json: {
+          path: pedida,
+          parent: dentro ? pedida.slice(0, pedida.length - 'Anime'.length - 1) : null,
+          dirs: dentro ? [] : [{ name: 'Anime', path: `${pedida}\\Anime` }],
+          volumes: [],
+        },
+      })
+    })
+
+    await entrar(page)
+    await page.getByRole('link', { name: 'Descargas' }).click()
+    await page.getByRole('button', { name: 'Elegir carpeta…' }).click()
+
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.getByRole('button', { name: 'Anime' }).click()
+    await page.getByRole('button', { name: 'Usar esta carpeta' }).click()
+
+    // La ruta que viaja es la que se está viendo: la elegida, no la de partida.
+    await expect.poll(() => cuerpo ?? '').toMatch(/Anime"\}$/)
     await expect(page.getByText('Carpeta cambiada.')).toBeVisible()
   })
 
