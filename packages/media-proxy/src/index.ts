@@ -33,6 +33,22 @@ export {
   systemResolver,
 } from './destination-guard'
 export {
+  createFfmpegRemux,
+  type DownloadEngineInput,
+  type DownloadOutcome,
+  type DownloadPaths,
+  type DownloadStream,
+  type DownloadTaskInput,
+  downloadPaths,
+  downloadTask,
+  findFfmpeg,
+  guardedFetch,
+  insideRoot,
+  MIN_FREE_BYTES,
+  type ResolveDownloadStream,
+  safeSegment,
+} from './download/engine'
+export {
   downloadFile,
   type FileDownloadInput,
   type FileDownloadResult,
