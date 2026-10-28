@@ -23,13 +23,22 @@ test.describe('las descargas', () => {
     await expect(page.getByRole('button', { name: 'Elegir carpeta…' })).toHaveCount(0)
   })
 
-  test('una fuente que declara la capacidad ofrece el botón', async ({ page }) => {
+  /**
+   * El botón no espera a que la fuente declare nada.
+   *
+   * El fixture del arnés no declara `capabilities.download` y aun así el botón
+   * tiene que estar habilitado: la descarga la hace la aplicación resolviendo el
+   * stream, no la fuente. Con la comprobación vieja quedaba deshabilitado, con el
+   * texto de error al lado.
+   */
+  test('el botón está habilitado aunque la fuente no declare la capacidad', async ({ page }) => {
     await entrar(page)
     await page.goto('/watch/fixture/aurora-nocturna')
 
-    await expect(page.getByRole('button', { name: 'Descargar' })).toBeVisible({
+    await expect(page.getByRole('button', { name: 'Descargar' })).toBeEnabled({
       timeout: 10_000,
     })
+    await expect(page.getByText('Esta fuente no permite descargar.')).toHaveCount(0)
   })
 
   test('con una copia completa, el reproductor no pide el stream al proveedor', async ({

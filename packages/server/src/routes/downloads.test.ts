@@ -109,7 +109,7 @@ describe('las rutas de descargas', () => {
     })
   })
 
-  test('una fuente sin `download` no se puede descargar', async () => {
+  test('una fuente sin `download` descarga igual: lo baja la aplicación', async () => {
     await conApp(
       async (pedir) => {
         const alta = await pedir('/api/downloads', {
@@ -117,7 +117,18 @@ describe('las rutas de descargas', () => {
           headers: JSON_HEADERS,
           body: JSON.stringify(ALTA),
         })
-        expect(alta.status).toBe(400)
+        expect(alta.status).toBe(201)
+        const { id } = (await alta.json()) as { id: number }
+
+        await esperar(async () => {
+          const lista = await pedir('/api/downloads')
+          const cuerpo = (await lista.json()) as { items: { id: number; status: string }[] }
+          return cuerpo.items.find((item) => item.id === id)?.status === 'complete'
+        })
+
+        const archivo = await pedir(`/api/downloads/${id}/file`)
+        expect(archivo.status).toBe(200)
+        expect(await archivo.text()).toBe('MP4')
       },
       { download: false },
     )

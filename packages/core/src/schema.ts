@@ -162,12 +162,11 @@ export const providerCapabilitiesSchema = z.strictObject({
    */
   mediaPerTitle: z.boolean().optional(),
   /**
-   * El proveedor permite descargar sus episodios para verlos sin conexión.
-   *
-   * Opcional y **ausente es no**: el botón de descarga no se ofrece si el plugin
-   * no lo declara. No se sube la versión del contrato por una capacidad que no
-   * cambia ninguna respuesta; una app vieja rechaza el manifiesto al cargar si el
-   * plugin la declara, que es el rechazo honesto.
+   * **Se acepta y no hace nada.** Descargar no es un permiso de la fuente: la
+   * aplicación resuelve `resolveStream` y baja el stream ella misma, así que
+   * ningún botón pregunta por esta capacidad. Se conserva porque el schema es
+   * estricto y quitarla rechazaría al cargar los manifiestos que ya la declaran;
+   * un plugin nuevo no la necesita.
    */
   download: z.boolean().optional(),
 })
