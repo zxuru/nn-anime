@@ -147,6 +147,42 @@ describe('las rutas de descargas', () => {
     })
   })
 
+  test('el espacio se informa y las completadas se borran de una vez', async () => {
+    await conApp(async (pedir) => {
+      const alta = await pedir('/api/downloads', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify(ALTA),
+      })
+      const { id } = (await alta.json()) as { id: number }
+
+      await esperar(async () => {
+        const lista = await pedir('/api/downloads')
+        const cuerpo = (await lista.json()) as { items: { id: number; status: string }[] }
+        return cuerpo.items.find((item) => item.id === id)?.status === 'complete'
+      })
+
+      const espacio = await pedir('/api/downloads/space')
+      expect(espacio.status).toBe(200)
+      const datos = (await espacio.json()) as {
+        freeBytes: number
+        totalBytes: number
+        downloadsBytes: number
+      }
+      expect(datos.totalBytes).toBeGreaterThan(0)
+      expect(datos.freeBytes).toBeGreaterThanOrEqual(0)
+      expect(datos.downloadsBytes).toBe(3)
+
+      const limpieza = await pedir('/api/downloads/cleanup', { method: 'POST', headers: GOOD })
+      expect(limpieza.status).toBe(200)
+      expect(await limpieza.json()).toEqual({ removed: 1 })
+
+      const lista = await pedir('/api/downloads')
+      const cuerpo = (await lista.json()) as { items: unknown[] }
+      expect(cuerpo.items).toEqual([])
+    })
+  })
+
   test('un id que no existe es 404', async () => {
     await conApp(async (pedir) => {
       expect((await pedir('/api/downloads/999/file')).status).toBe(404)

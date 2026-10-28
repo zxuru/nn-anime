@@ -4602,6 +4602,12 @@
   font-size: var(--font-size-sm);
 }
 
+.downloads__space {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
 .downloads__button {
   display: flex;
   align-items: center;

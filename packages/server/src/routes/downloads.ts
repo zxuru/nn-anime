@@ -10,10 +10,14 @@
  *   petición, y se comprueba que esté dentro de la raíz de descargas.
  */
 
-import { stat } from 'node:fs/promises'
+import { mkdir, stat, statfs } from 'node:fs/promises'
 import { dirname, isAbsolute, resolve } from 'node:path'
 import type { CatalogStore, DownloadRecord } from '@nn-anime/catalog-store'
-import { downloadStartRequestSchema, downloadStartResponseSchema } from '@nn-anime/core'
+import {
+  downloadStartRequestSchema,
+  downloadStartResponseSchema,
+  downloadsSpaceSchema,
+} from '@nn-anime/core'
 import { insideRoot } from '@nn-anime/media-proxy'
 import type { Provider } from '@nn-anime/provider-sdk'
 import type { Context, Hono } from 'hono'
@@ -121,6 +125,32 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
     const filas = await store.listDownloads(200)
 
     return c.json({ items: filas.map(item) })
+  })
+
+  app.get('/api/downloads/space', async (c) => {
+    await mkdir(options.root, { recursive: true }).catch(() => undefined)
+    const espacio = await statfs(options.root).catch(() => undefined)
+    const filas = await store.listDownloads(500)
+    const ocupado = filas
+      .filter((fila) => fila.status === 'complete')
+      .reduce((total, fila) => total + fila.bytes, 0)
+
+    return c.json(
+      downloadsSpaceSchema.parse({
+        freeBytes: espacio === undefined ? 0 : espacio.bavail * espacio.bsize,
+        totalBytes: espacio === undefined ? 0 : espacio.blocks * espacio.bsize,
+        downloadsBytes: ocupado,
+      }),
+    )
+  })
+
+  app.post('/api/downloads/cleanup', async (c) => {
+    const filas = await store.listDownloads(500)
+    const completas = filas.filter((fila) => fila.status === 'complete')
+
+    for (const fila of completas) await options.queue.remove(fila.id)
+
+    return c.json({ removed: completas.length })
   })
 
   app.post('/api/downloads/:id/pause', async (c) => {

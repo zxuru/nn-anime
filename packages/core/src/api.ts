@@ -524,6 +524,21 @@ export const downloadStartRequestSchema = z.strictObject({
 
 export const downloadStartResponseSchema = z.strictObject({ id: z.number().int().positive() })
 
+/** El espacio del disco donde viven las descargas. */
+export const downloadsSpaceSchema = z.strictObject({
+  freeBytes: z.number().int().nonnegative(),
+  totalBytes: z.number().int().nonnegative(),
+  /** Lo que ocupan las descargas completas, sumado de la cola. */
+  downloadsBytes: z.number().int().nonnegative(),
+})
+
+export type DownloadsSpace = z.infer<typeof downloadsSpaceSchema>
+
+/** Cuántas descargas completas se borraron de una vez. */
+export const downloadCleanupResponseSchema = z.strictObject({
+  removed: z.number().int().nonnegative(),
+})
+
 /**
  * El Perfil: las listas del usuario en una sola respuesta.
  *

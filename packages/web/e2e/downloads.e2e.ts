@@ -18,6 +18,7 @@ test.describe('las descargas', () => {
     await expect(
       page.getByText('No hay ninguna descarga. Abre un episodio y pulsa «Descargar».'),
     ).toBeVisible()
+    await expect(page.getByText(/^Libre: .+ de .+\. Las descargas ocupan .+\.$/)).toBeVisible()
   })
 
   test('una fuente que declara la capacidad ofrece el botón', async ({ page }) => {

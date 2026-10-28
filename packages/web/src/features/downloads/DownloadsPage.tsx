@@ -99,11 +99,26 @@ function Fila(props: {
 }
 
 export function DownloadsPage(): ReactNode {
-  const { items, loading, error, pause, resume, remove } = useDownloads()
+  const { items, space, loading, error, pause, resume, remove, cleanup } = useDownloads()
+  const completas = items.filter((item) => item.status === 'complete').length
 
   return (
     <section className="downloads">
       <h1>{t(LOCALE, 'downloads.title')}</h1>
+      {space === undefined ? null : (
+        <p className="downloads__space">
+          {t(LOCALE, 'downloads.space', {
+            free: bytes(space.freeBytes),
+            total: bytes(space.totalBytes),
+            used: bytes(space.downloadsBytes),
+          })}
+        </p>
+      )}
+      {completas === 0 ? null : (
+        <button type="button" onClick={() => void cleanup()}>
+          {t(LOCALE, 'downloads.cleanup', { count: String(completas) })}
+        </button>
+      )}
       {error === undefined ? null : (
         <p className="downloads__error" role="alert">
           {error}
