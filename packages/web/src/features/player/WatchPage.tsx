@@ -35,6 +35,7 @@
 
 import {
   animeResponseSchema,
+  downloadsResponseSchema,
   type EpisodesResponse,
   streamResolveResponseSchema,
 } from '@nn-anime/core/api'
@@ -631,13 +632,47 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   const resolver = useCallback(() => {
     const controlador = new AbortController()
 
-    void apiPostJson(
-      '/api/stream/resolve',
-      { episodeRef: { providerId: props.providerId, value: props.ref }, mode: modo },
-      streamResolveResponseSchema,
-      { signal: controlador.signal },
-    ).then(
-      (salida) => {
+    const ejecutar = async (): Promise<void> => {
+      try {
+        /*
+         * La copia local manda.
+         *
+         * Se busca sólo para el modo `sub` porque la fila de descarga todavía no
+         * guarda el modo: servir un `sub` cuando se pidió `dub` sería peor que
+         * volver a la red. El día que la fila lo guarde, esta condición se cae.
+         */
+        if (modo === 'sub') {
+          const lista = await apiGet('/api/downloads', downloadsResponseSchema, {
+            signal: controlador.signal,
+          }).catch(() => undefined)
+
+          if (controlador.signal.aborted) return
+
+          const local = lista?.items.find(
+            (item) =>
+              item.status === 'complete' &&
+              item.providerId === props.providerId &&
+              item.episodeRef.value === props.ref,
+          )
+
+          if (local !== undefined) {
+            setFuente({
+              url: `/api/downloads/${local.id}/file`,
+              kind: local.kind === 'segments' ? 'hls' : 'file',
+            })
+            setEstado('ready')
+
+            return
+          }
+        }
+
+        const salida = await apiPostJson(
+          '/api/stream/resolve',
+          { episodeRef: { providerId: props.providerId, value: props.ref }, mode: modo },
+          streamResolveResponseSchema,
+          { signal: controlador.signal },
+        )
+
         if (controlador.signal.aborted) return
 
         const primera = salida.sources[0]
@@ -658,14 +693,15 @@ export function WatchPage(props: WatchPageProps): ReactNode {
             : { subtitles: primera.subtitles as readonly SubtitleCandidate[] }),
         })
         setEstado('ready')
-      },
-      (cause: unknown) => {
+      } catch (cause) {
         if (controlador.signal.aborted) return
 
         setError(describirFallo(cause))
         setEstado('error')
-      },
-    )
+      }
+    }
+
+    void ejecutar()
 
     return controlador
   }, [props.providerId, props.ref, modo])

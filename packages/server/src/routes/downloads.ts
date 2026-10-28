@@ -11,7 +11,7 @@
  */
 
 import { stat } from 'node:fs/promises'
-import { isAbsolute, resolve } from 'node:path'
+import { dirname, isAbsolute, resolve } from 'node:path'
 import type { CatalogStore, DownloadRecord } from '@nn-anime/catalog-store'
 import { downloadStartRequestSchema, downloadStartResponseSchema } from '@nn-anime/core'
 import { insideRoot } from '@nn-anime/media-proxy'
@@ -160,14 +160,35 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
     const fila = await store.getDownload(id)
     if (fila === undefined) return errorJson(c, 404, 'esa descarga no existe')
     if (fila.status !== 'complete') return errorJson(c, 409, 'la descarga todavía no está completa')
-    if (fila.kind === 'segments') {
-      return errorJson(c, 409, 'esta descarga son segmentos y se reproduce desde la aplicación')
-    }
     if (fila.path === undefined) return errorJson(c, 409, 'la descarga no tiene archivo')
 
     const absoluta = resolve(options.root, fila.path)
     if (isAbsolute(fila.path) || !insideRoot(options.root, absoluta)) {
       return errorJson(c, 409, 'la ruta de la descarga no es válida')
+    }
+
+    if (fila.kind === 'segments') {
+      const playlist = await Bun.file(absoluta)
+        .text()
+        .catch(() => undefined)
+      if (playlist === undefined) return errorJson(c, 404, 'la playlist de la descarga no está')
+
+      // La playlist local nombra sus segmentos; se sirven por su propia ruta para
+      // que el reproductor no pueda pedir un archivo que no sea de esta descarga.
+      const reescrita = playlist
+        .split(/\r?\n/)
+        .map((linea) => {
+          const limpia = linea.trim()
+          if (limpia === '' || limpia.startsWith('#')) return linea
+
+          return `/api/downloads/${id}/segment/${encodeURIComponent(limpia)}`
+        })
+        .join('\n')
+
+      c.header('content-type', 'application/vnd.apple.mpegurl')
+      c.header('cache-control', 'no-store')
+
+      return c.body(`${reescrita}\n`)
     }
 
     const info = await stat(absoluta).catch(() => undefined)
@@ -189,5 +210,35 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
     if (rango !== undefined) c.header('content-range', `bytes ${inicio}-${fin}/${info.size}`)
 
     return c.body(cuerpo.stream(), rango === undefined ? 200 : 206)
+  })
+
+  app.get('/api/downloads/:id/segment/:name', async (c) => {
+    const id = Number(c.req.param('id'))
+    if (!Number.isInteger(id) || id <= 0) return errorJson(c, 400, 'ese identificador no es válido')
+
+    const fila = await store.getDownload(id)
+    if (fila === undefined || fila.kind !== 'segments' || fila.path === undefined) {
+      return errorJson(c, 404, 'esa descarga no tiene segmentos')
+    }
+
+    const nombre = c.req.param('name')
+    if (!/^(segmento|init)-\d{5}\.[a-z0-9]{1,5}$/i.test(nombre)) {
+      return errorJson(c, 404, 'ese segmento no existe')
+    }
+
+    const playlist = resolve(options.root, fila.path)
+    const segmento = resolve(dirname(playlist), nombre)
+    if (dirname(segmento) !== dirname(playlist) || !insideRoot(options.root, segmento)) {
+      return errorJson(c, 404, 'ese segmento no existe')
+    }
+
+    const archivo = Bun.file(segmento)
+    const info = await archivo.stat().catch(() => undefined)
+    if (info === undefined || !info.isFile()) return errorJson(c, 404, 'ese segmento no está')
+
+    c.header('content-type', nombre.endsWith('.mp4') ? 'video/mp4' : 'video/mp2t')
+    c.header('content-length', String(info.size))
+
+    return c.body(archivo.stream())
   })
 }
