@@ -37,6 +37,8 @@ tope de cinco archivos de implementación por task y commit atómico que cita el
 | 1.7 Gestión de espacio y borrado | **T187** | hecho | T183f, T184 |
 | Enmienda: descargar sin permiso de la fuente | **T190** | hecho | T184 |
 | Enmienda: la carpeta se elige también en el navegador | **T191** | hecho | T184 |
+| Enmienda: el listado de carpetas para el selector | **T192** | hecho | T184 |
+| Enmienda: el explorador de carpetas en la interfaz | **T193** | hecho | T192 |
 
 ## Orden y cortes
 
@@ -57,6 +59,9 @@ tope de cinco archivos de implementación por task y commit atómico que cita el
 5. **T187** cierra la fase: borrar, límites y el informe de lo que no se pudo medir.
 6. **T191** cierra el hueco que dejó T186: el ajuste de texto de la carpeta. No toca el servidor —
    `PATCH /api/downloads/dir` ya validaba la ruta—, sólo la pantalla que lo escribe.
+7. **T192 y T193** cambian el escribir por el pulsar. El servidor gana una lectura nueva —nombres de
+   carpeta, no contenido— que va declarada en `SECURITY.md`; la interfaz gana un diálogo que navega
+   con ella. Van en ese orden porque la pantalla no se puede probar sin la ruta.
 
 ## Lo que no se hace en esta fase
 

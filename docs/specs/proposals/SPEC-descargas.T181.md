@@ -101,20 +101,26 @@ POST   /api/downloads/:id/resume
 DELETE /api/downloads/:id        → borra archivo y fila
 GET    /api/downloads/:id/file   → sirve el MP4 o la playlist local, con rangos y ticket
 GET    /api/downloads/events     → SSE de progreso (opcional; la lista ya se puede refrescar)
+GET    /api/downloads/dirs?path= → las carpetas de una ruta, para el selector (T192)
+PATCH  /api/downloads/dir        { path } → cambia la carpeta de destino
 ```
 
 - `GET /:id/file` exige sesión y sirve **sólo** rutas de la tabla, nunca una ruta del cliente.
 - Un archivo completo se sirve con `Range`; un episodio en curso no se sirve.
 - El alta comprueba que el episodio esté en la base (la ficha se abrió antes) y que el proveedor
   exista. Si no, 404.
+- `GET /dirs` devuelve **nombres de carpeta**, nunca contenido de archivo, con un tope de 500
+  entradas; sin `path` lista la raíz de descargas. Un 403 distingue «existe pero no se deja leer» de
+  un 404, porque el selector tiene que poder decirlo.
 
 ## La interfaz
 
 - Botón «Descargar» en la ficha (por episodio) y en el reproductor, **sin condición**: la descarga la
   hace la aplicación resolviendo el stream, no la fuente (enmienda de T190).
 - Página **Descargas**: cola, progreso, pausa/reanudar, cancelar, borrar, «abrir carpeta» y **la
-  carpeta de destino**: un campo donde se escribe la ruta y se guarda, más el diálogo nativo cuando
-  hay anfitrión de escritorio (T186 y T191).
+  carpeta de destino**: un campo donde se escribe la ruta y se guarda, y «Elegir carpeta…», que abre
+  el diálogo del sistema en el escritorio y un explorador de carpetas en el navegador (T186, T191 y
+  T193). El explorador navega con `GET /dirs` y no necesita escribir nada.
 - Marca de «descargado» en la ficha y en la lista de episodios.
 - El reproductor **prefiere la copia local**: si el episodio está descargado, resuelve
   `/api/downloads/:id/file` antes de pedir el stream al proveedor. Sin red, funciona.
@@ -132,9 +138,13 @@ GET    /api/downloads/events     → SSE de progreso (opcional; la lista ya se p
 | ffmpeg recibe una ruta o una opción inyectada | Sin shell, argumentos en array, rutas generadas por el servidor |
 | Las cabeceras del upstream quedan en disco | Viven en memoria, como en el proxy; no se guardan |
 | DRM o contenido cifrado | No se intenta romper DRM: el motor baja lo que la fuente sirve y un manifiesto cifrado falla con el error del motor. La fuente no declara ningún permiso (enmienda de T190) |
+| El selector enumera el disco a petición de la interfaz | `GET /dirs` devuelve nombres de carpeta, nunca contenido de archivo, con tope de 500 entradas; los guardianes de sesión, `Origin` y `Host` de `/api/` son los mismos que para el resto (T192) |
 
 Riesgo residual: quien pueda escribir en la carpeta de descargas puede sustituir un archivo; es la
-misma confianza que el resto de los datos locales. Se declara.
+misma confianza que el resto de los datos locales. Se declara. **Segundo riesgo residual (T192):**
+quien tenga la sesión abierta puede enumerar los directorios del equipo por `/api/downloads/dirs`;
+no lee archivos, pero ve qué carpetas hay y cómo se llaman. No se mitiga más porque el selector sin
+esa lectura no existe, y la sesión ya es la credencial de una aplicación local.
 
 ## Contrato de plugin
 
@@ -172,6 +182,11 @@ rechazaría al cargar los manifiestos que ya lo declaran; no se sube `PROVIDER_A
    diálogo nativo sigue pintándose sólo con `__TAURI_INTERNALS__`. Medido mutando el valor del
    campo, el guardián del anfitrión y la llamada del hook —cada uno hace fallar su prueba— y con un
    e2e que escribe una ruta y comprueba el cuerpo del `PATCH`.
+10. **T192 y T193 (enmienda):** la carpeta se elige con el ratón. `GET /api/downloads/dirs` lista
+    carpetas —nombres, tope de 500, 403 para la que no se deja leer— y `DirectoryPicker` navega con
+    eso dentro de un `<dialog>` nativo: entrar, subir y «Usar esta carpeta». Medido mutando el filtro
+    de carpetas, el tope y las unidades del listado, y con un e2e que abre, entra y elige sin
+    escribir la ruta.
 
 ## Criterios de aceptación de la fase 1
 
