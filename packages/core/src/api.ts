@@ -539,7 +539,27 @@ export const downloadsDirRequestSchema = z.strictObject({
   path: z.string().min(1).max(4096),
 })
 
+/**
+ * El listado de carpetas del selector de destino.
+ *
+ * El navegador no puede abrir el diálogo de carpetas del sistema, así que el
+ * selector navega con esto: nombres de carpeta y la ruta de cada una. No hay
+ * contenido de archivo en la respuesta; lo único que vuelve al servidor es la
+ * ruta elegida.
+ */
+export const downloadsDirsSchema = z.strictObject({
+  /** La carpeta listada, ya resuelta. */
+  path: z.string().min(1),
+  /** La carpeta de arriba, o `null` si ya es una raíz (`C:\`, `/`). */
+  parent: z.string().min(1).nullable(),
+  dirs: z.array(z.strictObject({ name: z.string().min(1), path: z.string().min(1) })),
+  /** En Windows y en una raíz: las unidades a las que se puede saltar. */
+  volumes: z.array(z.string().min(1)),
+})
+
 export type DownloadsSpace = z.infer<typeof downloadsSpaceSchema>
+
+export type DownloadsDirs = z.infer<typeof downloadsDirsSchema>
 
 /** Cuántas descargas completas se borraron de una vez. */
 export const downloadCleanupResponseSchema = z.strictObject({

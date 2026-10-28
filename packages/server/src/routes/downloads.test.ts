@@ -217,6 +217,49 @@ describe('las rutas de descargas', () => {
     })
   })
 
+  test('el listado de carpetas arranca en la raíz de descargas', async () => {
+    await conApp(async (pedir, _store, dir) => {
+      const raiz = join(dir, 'downloads')
+      await mkdir(join(raiz, 'Series'), { recursive: true })
+      await writeFile(join(raiz, 'suelto.txt'), 'no soy una carpeta')
+
+      const listado = await pedir('/api/downloads/dirs')
+      expect(listado.status).toBe(200)
+
+      const cuerpo = (await listado.json()) as {
+        path: string
+        parent: string | null
+        dirs: { name: string; path: string }[]
+      }
+      expect(cuerpo.path).toBe(raiz)
+      // Sólo carpetas: el archivo suelto no entra en la lista.
+      expect(cuerpo.dirs).toEqual([{ name: 'Series', path: join(raiz, 'Series') }])
+      expect(cuerpo.parent).toBe(dir)
+    })
+  })
+
+  test('el listado se navega con ?path= y distingue lo inválido de lo que no existe', async () => {
+    await conApp(async (pedir, _store, dir) => {
+      const raiz = join(dir, 'downloads')
+      const series = join(raiz, 'Series')
+      await mkdir(join(series, 'Temporada 1'), { recursive: true })
+
+      const dentro = await pedir(`/api/downloads/dirs?path=${encodeURIComponent(series)}`)
+      expect(dentro.status).toBe(200)
+      const cuerpo = (await dentro.json()) as { dirs: { name: string; path: string }[] }
+      // La carpeta con espacio en el nombre vuelve entera: la ruta viaja codificada.
+      expect(cuerpo.dirs).toEqual([{ name: 'Temporada 1', path: join(series, 'Temporada 1') }])
+
+      const relativa = await pedir(`/api/downloads/dirs?path=${encodeURIComponent('carpetas')}`)
+      expect(relativa.status).toBe(400)
+
+      const ausente = await pedir(
+        `/api/downloads/dirs?path=${encodeURIComponent(join(dir, 'no-existe'))}`,
+      )
+      expect(ausente.status).toBe(404)
+    })
+  })
+
   test('un id que no existe es 404', async () => {
     await conApp(async (pedir) => {
       expect((await pedir('/api/downloads/999/file')).status).toBe(404)
