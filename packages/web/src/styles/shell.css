@@ -4611,10 +4611,6 @@
   font-size: var(--font-size-sm);
 }
 
-.downloads__path {
-  overflow-wrap: anywhere;
-}
-
 .downloads__button {
   display: flex;
   align-items: center;
