@@ -26,11 +26,12 @@ tope de cinco archivos de implementación por task y commit atómico que cita el
 | 1.3a Cola persistente (tabla y repositorio) | **T183** | hecho | T182 |
 | 1.3b Descarga directa `file` con reanudación | **T183b** | hecho | T183 |
 | 1.3c HLS con ffmpeg y respaldo de segmentos | **T183c** | hecho | T183b |
-| 1.3d Rutas HTTP y guardias (host, ruta, espacio, cancelación) | T183d | **siguiente** | T183c |
-| 1.4 Interfaz: botón, página Descargas, progreso | T184 | pendiente | T183d |
-| 1.5 Reproducción local y sin red | T185 | pendiente | T183d, T184 |
+| 1.3d Orquestador (ruta, host, espacio, ffmpeg) | **T183d** | hecho | T183c |
+| 1.3e Rutas HTTP y cola con concurrencia | T183e | **siguiente** | T183d |
+| 1.4 Interfaz: botón, página Descargas, progreso | T184 | pendiente | T183e |
+| 1.5 Reproducción local y sin red | T185 | pendiente | T183e, T184 |
 | 1.6 Escritorio: selector de carpeta y aviso | T186 | pendiente | T184 |
-| 1.7 Gestión de espacio y borrado | T187 | pendiente | T183d, T184 |
+| 1.7 Gestión de espacio y borrado | T187 | pendiente | T183e, T184 |
 
 ## Orden y cortes
 

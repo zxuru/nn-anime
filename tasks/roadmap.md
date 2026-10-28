@@ -28,11 +28,12 @@ lo que ordena.
 | 1.3a Descargas · cola persistente | **T183** | hecho | T182 |
 | 1.3b Descargas · descarga directa | **T183b** | hecho | T183 |
 | 1.3c Descargas · HLS/ffmpeg | **T183c** | hecho | T183b |
-| 1.3d Descargas · rutas y guardias | T183d | **siguiente** | T183c |
-| 1.4 Descargas · interfaz | T184 | pendiente | T183d |
-| 1.5 Descargas · reproducción local | T185 | pendiente | T183d, T184 |
+| 1.3d Descargas · orquestador | **T183d** | hecho | T183c |
+| 1.3e Descargas · rutas y cola | T183e | **siguiente** | T183d |
+| 1.4 Descargas · interfaz | T184 | pendiente | T183e |
+| 1.5 Descargas · reproducción local | T185 | pendiente | T183e, T184 |
 | 1.6 Descargas · escritorio | T186 | pendiente | T184 |
-| 1.7 Descargas · espacio | T187 | pendiente | T183d, T184 |
+| 1.7 Descargas · espacio | T187 | pendiente | T183e, T184 |
 | Fase 2A Manga | sin abrir | — | 0.5 |
 | Fase 2B Descarga de manga | sin abrir | — | 1.x, 2A |
 | Fase 3 Watch party | sin abrir | — | 0.5 (idealmente 1.x) |
