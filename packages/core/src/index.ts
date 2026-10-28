@@ -55,6 +55,7 @@ export {
   downloadStartRequestSchema,
   downloadStartResponseSchema,
   downloadStatusSchema,
+  downloadsDirRequestSchema,
   downloadsResponseSchema,
   downloadsSpaceSchema,
   type Enrichment,

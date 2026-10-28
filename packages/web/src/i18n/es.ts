@@ -35,7 +35,10 @@ export const messages: Messages = {
   'downloads.saving': 'Enviando…',
   'downloads.notAllowed': 'Esta fuente no permite descargar.',
   'downloads.space': 'Libre: {free} de {total}. Las descargas ocupan {used}.',
+  'downloads.chooseFolder': 'Elegir carpeta…',
   'downloads.cleanup': 'Borrar completadas ({count})',
+  'downloads.notifyTitle': 'Descarga completa',
+  'downloads.notifyBody': '{title} ya está descargado.',
 
   /*
    * El Perfil y su Historial.

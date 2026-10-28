@@ -16,6 +16,7 @@ import type { CatalogStore, DownloadRecord } from '@nn-anime/catalog-store'
 import {
   downloadStartRequestSchema,
   downloadStartResponseSchema,
+  downloadsDirRequestSchema,
   downloadsSpaceSchema,
 } from '@nn-anime/core'
 import { insideRoot } from '@nn-anime/media-proxy'
@@ -128,8 +129,9 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
   })
 
   app.get('/api/downloads/space', async (c) => {
-    await mkdir(options.root, { recursive: true }).catch(() => undefined)
-    const espacio = await statfs(options.root).catch(() => undefined)
+    const raiz = options.queue.root()
+    await mkdir(raiz, { recursive: true }).catch(() => undefined)
+    const espacio = await statfs(raiz).catch(() => undefined)
     const filas = await store.listDownloads(500)
     const ocupado = filas
       .filter((fila) => fila.status === 'complete')
@@ -137,11 +139,42 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
 
     return c.json(
       downloadsSpaceSchema.parse({
+        path: raiz,
         freeBytes: espacio === undefined ? 0 : espacio.bavail * espacio.bsize,
         totalBytes: espacio === undefined ? 0 : espacio.blocks * espacio.bsize,
         downloadsBytes: ocupado,
       }),
     )
+  })
+
+  app.patch('/api/downloads/dir', async (c) => {
+    let crudo: unknown
+    try {
+      crudo = await c.req.json()
+    } catch {
+      return c.json({ error: 'el cuerpo no es JSON válido' }, 400)
+    }
+
+    const parsed = downloadsDirRequestSchema.safeParse(crudo)
+    if (!parsed.success) return c.json({ error: 'la carpeta no es válida' }, 400)
+    const tieneControl = [...parsed.data.path].some((letra) => letra.charCodeAt(0) < 0x20)
+    if (!isAbsolute(parsed.data.path) || tieneControl) {
+      return c.json({ error: 'la carpeta tiene que ser una ruta absoluta' }, 400)
+    }
+
+    try {
+      options.queue.setRoot(parsed.data.path)
+    } catch (cause) {
+      return c.json(
+        { error: cause instanceof Error ? cause.message : 'no se pudo cambiar la carpeta' },
+        409,
+      )
+    }
+
+    await mkdir(parsed.data.path, { recursive: true })
+    await store.setSetting('downloadsDir', parsed.data.path)
+
+    return c.json(parsed.data)
   })
 
   app.post('/api/downloads/cleanup', async (c) => {
@@ -192,8 +225,9 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
     if (fila.status !== 'complete') return errorJson(c, 409, 'la descarga todavía no está completa')
     if (fila.path === undefined) return errorJson(c, 409, 'la descarga no tiene archivo')
 
-    const absoluta = resolve(options.root, fila.path)
-    if (isAbsolute(fila.path) || !insideRoot(options.root, absoluta)) {
+    const raiz = options.queue.root()
+    const absoluta = resolve(raiz, fila.path)
+    if (isAbsolute(fila.path) || !insideRoot(raiz, absoluta)) {
       return errorJson(c, 409, 'la ruta de la descarga no es válida')
     }
 
@@ -256,9 +290,10 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
       return errorJson(c, 404, 'ese segmento no existe')
     }
 
-    const playlist = resolve(options.root, fila.path)
+    const raiz = options.queue.root()
+    const playlist = resolve(raiz, fila.path)
     const segmento = resolve(dirname(playlist), nombre)
-    if (dirname(segmento) !== dirname(playlist) || !insideRoot(options.root, segmento)) {
+    if (dirname(segmento) !== dirname(playlist) || !insideRoot(raiz, segmento)) {
       return errorJson(c, 404, 'ese segmento no existe')
     }
 

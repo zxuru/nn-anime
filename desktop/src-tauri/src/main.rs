@@ -33,6 +33,19 @@ use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 /// La etiqueta de la única ventana.
 const LABEL: &str = "main";
 
+/// Abre el diálogo nativo y devuelve la carpeta elegida.
+///
+/// Es el único comando de la aplicación. No lee ni escribe nada: la ruta vuelve
+/// al webview y es el servidor quien la valida y la guarda. Un diálogo cancelado
+/// es `None`, no un error.
+#[tauri::command]
+fn elegir_carpeta_descargas() -> Option<String> {
+    rfd::FileDialog::new()
+        .set_title("Carpeta de descargas de nn-anime")
+        .pick_folder()
+        .map(|ruta| ruta.to_string_lossy().into_owned())
+}
+
 const TITULO: &str = "nn-anime";
 const ANCHO: f64 = 1280.0;
 const ALTO: f64 = 800.0;
@@ -116,6 +129,7 @@ fn main() {
     }
 
     let app = tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![elegir_carpeta_descargas])
         // El primero que se registra, y tiene que ser así: el plugin decide si
         // este proceso es el dueño de la aplicación **antes** de que se cree
         // ninguna ventana. Un segundo lanzamiento no arranca otro servidor;

@@ -119,11 +119,12 @@ uno deja al otro sirviendo.
 **un** enlace así (`packages/web/src/features/detail/DetailPage.tsx`, a AniList) y el `SECURITY.md`
 del proyecto no cambia por esto.
 
-**Sin IPC.** Tauri concede capacidades a los orígenes de la aplicación; para uno remoto hace falta
-declararlo (`remote`), y aquí **no se declara nada**: `capabilities/default.json` queda vacío y el
-webview no puede invocar ningún comando, así que no hay superficie que auditar. El shell se lanza con
-`std::process::Command` desde Rust, no con el plugin de shell. Lo que se pierde —updater, bandeja,
-diálogos nativos al alcance de la interfaz— no se usa en esta aplicación.
+**Un solo comando IPC, de sólo lectura.** `capabilities/default.json` sigue sin permisos de plugins
+ni de shell, y el shell se lanza con `std::process::Command` desde Rust. La única puerta que se abre
+es `elegir_carpeta_descargas` (T186): abre el diálogo nativo de `rfd` y devuelve una ruta o `null`;
+no lee, no escribe y no recibe rutas del cliente. El servidor comprueba que sea absoluta y la guarda
+como raíz de descargas; una ruta relativa o con caracteres de control es 400. El resto de lo que se
+pierde —updater, bandeja desde la interfaz, fs— sigue fuera.
 
 ## Estructura del módulo
 
@@ -133,7 +134,7 @@ desktop/
 │  ├─ Cargo.toml              tauri, tauri-plugin-single-instance; versiones fijadas
 │  ├─ Cargo.lock              versionado: sin él la release no es reproducible
 │  ├─ tauri.conf.json         ventana, icono, `frontendDist` de relleno
-│  ├─ capabilities/default.json   vacío a propósito (sin IPC)
+│  ├─ capabilities/default.json   sin permisos de plugins; el comando de carpeta es de la app
 │  └─ src/
 │     ├─ main.rs              arranque, ventana, cierre, instancia única
 │     ├─ sidecar.rs           spawn, drenaje de stdout, análisis de la línea, cierre
@@ -205,8 +206,8 @@ Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
 **Ask first**
 
 - Cambiar el paquete de empaquetado (jubilar `scripts/package.ts` o `packaging/`).
-- Añadir cualquier capacidad de Tauri al webview (IPC, opener, fs): es abrir una puerta que hoy no
-  existe.
+- Añadir cualquier capacidad de Tauri al webview (opener, fs) o un segundo comando IPC: la puerta
+  que hoy existe es una y de sólo lectura.
 - Meter la interfaz dentro de Tauri como recursos (`frontendDist` / `tauri://`).
 
 **Never**

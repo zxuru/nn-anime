@@ -21,6 +21,7 @@ import { AppError, type ConfigPaths, healthResponseSchema, type Logger } from '@
 import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
 import type { LoadReport } from '@nn-anime/provider-sdk'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { type AniListCatalog, createAniListCatalog } from './anilist/catalog'
 import { anilistOfflineFromEnv, createAniListClient } from './anilist/client'
 import { registerLogin } from './auth'
@@ -408,15 +409,28 @@ export function createApp(options: AppOptions): Hono {
         freeBytes: async () => {
           // La carpeta puede no existir todavía: el espacio se mide en el disco
           // que la va a contener, no en una ruta que aún no está.
-          await mkdir(downloadsRoot, { recursive: true })
-          const espacio = await statfs(downloadsRoot)
+          const raiz = queue.root()
+          await mkdir(raiz, { recursive: true })
+          const espacio = await statfs(raiz)
           return espacio.bavail * espacio.bsize
         },
       })
 
-      // Arrancar no bloquea el montaje de la app; si falla, las filas quedan en
-      // cola y se pueden reintentar desde la interfaz.
-      void queue.start().catch(() => undefined)
+      // La carpeta guardada se aplica antes de arrancar. Si no hay ninguna, se
+      // queda la del arranque; el escritorio la cambia con `PATCH /dir`.
+      void (async () => {
+        try {
+          const guardada = await container.store.getSetting(
+            'downloadsDir',
+            z.string(),
+            downloadsRoot,
+          )
+          if (guardada !== downloadsRoot) queue.setRoot(guardada)
+        } catch {
+          // Una carpeta guardada ilegible no impide arrancar: se usa la de siempre.
+        }
+        await queue.start()
+      })().catch(() => undefined)
 
       registerDownloadsRoute(app, {
         queue,

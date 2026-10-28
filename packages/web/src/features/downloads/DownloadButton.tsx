@@ -62,6 +62,11 @@ export function DownloadButton(props: DownloadButtonProps): ReactNode {
         },
         downloadStartResponseSchema,
       )
+      // El clic es el gesto que el navegador exige para pedir el permiso; si ya
+      // está decidido, no se vuelve a preguntar.
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        void Notification.requestPermission()
+      }
       setEstado('hecho')
     } catch (cause) {
       setEstado('error')

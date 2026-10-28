@@ -4603,9 +4603,16 @@
 }
 
 .downloads__space {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
+}
+
+.downloads__path {
+  overflow-wrap: anywhere;
 }
 
 .downloads__button {

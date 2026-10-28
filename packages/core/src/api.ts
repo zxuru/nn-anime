@@ -526,10 +526,17 @@ export const downloadStartResponseSchema = z.strictObject({ id: z.number().int()
 
 /** El espacio del disco donde viven las descargas. */
 export const downloadsSpaceSchema = z.strictObject({
+  /** La carpeta que se está usando. */
+  path: z.string().min(1),
   freeBytes: z.number().int().nonnegative(),
   totalBytes: z.number().int().nonnegative(),
   /** Lo que ocupan las descargas completas, sumado de la cola. */
   downloadsBytes: z.number().int().nonnegative(),
+})
+
+/** La carpeta que elige el escritorio. */
+export const downloadsDirRequestSchema = z.strictObject({
+  path: z.string().min(1).max(4096),
 })
 
 export type DownloadsSpace = z.infer<typeof downloadsSpaceSchema>

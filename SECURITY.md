@@ -33,6 +33,7 @@ prueba que lo sostiene.
 | El token de servidor acaba en una URL, un `Referer` o un log | No viaja en la URL: se pide una vez en `/login` y se guarda en la cookie. El arranque no lo imprime ni lo registra | T168 |
 | La salud pública cuenta algo | `/healthz` devuelve sólo `{"status":"ok"}`: ni versión, ni rutas, ni proveedores | T168 |
 | Un `Origin` ajeno muta datos en modo servidor | Guard de `Origin` por origen público exacto o mismo `Host`; en local sigue siendo sólo `http://127.0.0.1:PUERTO` | T168 |
+| Un webview comprometido usa el anfitrión para leer o escribir archivos | Un único comando IPC, `elegir_carpeta_descargas`: sólo abre el diálogo nativo y devuelve la ruta; no lee ni escribe. El servidor exige ruta absoluta y sin caracteres de control antes de guardarla | T186 |
 | Un cliente autenticado usa el servidor para lanzar un reproductor | En modo restringido no se registran `/api/play/mpv*` y Ajustes informa `mpv.available: false` | T168 |
 | Un cliente autenticado añade o activa plugins en un servidor | `NN_ANIME_LOCKED=1` no registra `POST /api/providers` ni las mutaciones de repositorios; sólo deja leer la lista | T168 |
 | `NN_ANIME_ALLOW_LOOPBACK` se queda puesta en un servidor | El arranque se niega si el host no es loopback | T168 |

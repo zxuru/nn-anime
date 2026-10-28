@@ -33,6 +33,10 @@ tauri = { version = "2", features = ["tray-icon", "image-png"] }
 # Instancia única. Sin él, dos lanzamientos conviven sobre la misma base sin decir
 # nada y cerrar uno deja al otro sirviendo. Exige Rust >= 1.90.
 tauri-plugin-single-instance = "2"
+# El diálogo nativo de carpeta. Es la única superficie que se abre en el
+# anfitrión: un comando que devuelve una ruta y nada más. Sin `rfd` habría que
+# empaquetar el plugin de diálogo, que añade más comandos de los que hacen falta.
+rfd = "0.15"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # El servidor extraído se verifica contra el hash que calculó `build.rs`.

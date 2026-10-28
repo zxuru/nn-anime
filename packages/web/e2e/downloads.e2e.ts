@@ -18,7 +18,9 @@ test.describe('las descargas', () => {
     await expect(
       page.getByText('No hay ninguna descarga. Abre un episodio y pulsa «Descargar».'),
     ).toBeVisible()
-    await expect(page.getByText(/^Libre: .+ de .+\. Las descargas ocupan .+\.$/)).toBeVisible()
+    await expect(page.getByText(/Libre: .+ de .+\. Las descargas ocupan .+\./)).toBeVisible()
+    // En el navegador no hay anfitrión: el selector nativo no se ofrece.
+    await expect(page.getByRole('button', { name: 'Elegir carpeta…' })).toHaveCount(0)
   })
 
   test('una fuente que declara la capacidad ofrece el botón', async ({ page }) => {
