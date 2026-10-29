@@ -7,6 +7,18 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.6.0](https://github.com/zxuru/nn-anime/compare/v0.5.0...v0.6.0) (2026-10-29)
+
+
+### Features
+
+* **web:** la biblioteca con la cola y el reproductor local (T196) ([d4ea0d4](https://github.com/zxuru/nn-anime/commit/d4ea0d41e8f9e7e9c7b8e07ff6cd1e8521f0336c))
+
+
+### Bug Fixes
+
+* **desktop:** el listón de Linux no marca código muerto del updater (release 0.6.0) ([a4b3501](https://github.com/zxuru/nn-anime/commit/a4b35012ff914459e724d8f331e1d9081f7d3796))
+
 ## [0.5.0](https://github.com/zxuru/nn-anime/compare/v0.4.0...v0.5.0) (2026-10-29)
 
 
