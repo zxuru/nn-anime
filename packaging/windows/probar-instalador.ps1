@@ -333,7 +333,7 @@ if (Test-Path $clave) { throw 'el desinstalador dejó la entrada del registro' }
 Paso 'el desinstalador se llevó los archivos y las claves'
 
 if (-not (Test-Path $centinela)) {
-  throw "el desinstalador borró los datos del usuario en $destino: desinstalar no es pedir que se pierdan"
+  throw "el desinstalador borró los datos del usuario en ${destino}: desinstalar no es pedir que se pierdan"
 }
 Remove-Item $centinela -Force -ErrorAction SilentlyContinue
 Paso 'los datos del usuario, con su base, siguen donde estaban'
