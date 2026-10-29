@@ -231,7 +231,11 @@ La vitrina es una rejilla de **12 columnas** por tramo: la nota ocupa las dos pr
 la altura de la cabecera más 1.25rem— y el cuerpo las diez restantes. El cuerpo es un **mosaico de
 seis columnas** de carteles 2:3, con el hueco `clamp(0.5rem, 1.1vw, 1rem)` entre piezas y el canal de
 página `clamp(1rem, 4vw, 3.5rem)` a los lados. El aire entre tramos es `clamp(2.5rem, 6vw, 5rem)` y no
-crece: el sistema gasta el alto en piezas, no en separación.
+crece: el sistema gasta el alto en piezas, no en separación. **El descanso sigue a la masa**: un tramo
+que sólo es un renglón —el vacío, explicado— descansa la mitad
+(`clamp(1.25rem, 3vw, 2.5rem)`) y se lee como una línea, con su titular y su explicación seguidos y no
+partidos entre la canaleta y el cuerpo. El aire tiene **un solo dueño** por contenedor: el margen del
+tramo en la vitrina, el `gap` de la caja en Perfil e Historial.
 
 La **marquesina** va a sangre, mide `min(62dvh, 44rem)`, se reparte en `1fr / 0.58fr` (columna de
 texto y cartel) y su titular es el cuerpo de cartel del sistema. La **cinta** de lo más visto corre

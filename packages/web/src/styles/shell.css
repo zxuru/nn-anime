@@ -273,7 +273,9 @@
   align-items: flex-start;
   gap: var(--space-2);
   margin-inline: var(--vitrina-margen);
-  margin-block: var(--seccion-aire) var(--space-5);
+  /* El aire de arriba lo pone el hermano anterior (`.home > * + *`); el de abajo,
+     el del siguiente. Un margen propio aquí se sumaba al del tramo. */
+  margin-block: 0 var(--space-5);
   padding: var(--space-5);
   border: var(--border-width-strong) solid var(--color-accent);
   border-radius: var(--radius-md);
@@ -2676,10 +2678,12 @@
   padding-left: var(--space-4);
 }
 
+/* El aire entre tramos no va aquí: lo pone `.home > * + *`, más abajo, porque el
+   descanso de un tramo vacío no es el de uno lleno y un `gap` no distingue. Estuvo
+   en los dos sitios a la vez —este `gap` y el margen del tramo— y sumaba. */
 .home {
   display: flex;
   flex-direction: column;
-  gap: var(--space-7);
 }
 
 /*
@@ -3433,10 +3437,10 @@
 }
 
 /* El aviso de un fallo, dentro de la vitrina: el canal de la página, como las
-   secciones, que la caja a sangre no le deja ninguno. */
+   secciones, que la caja a sangre no le deja ninguno. El aire de arriba lo pone
+   el hermano anterior, como en cualquier tramo. */
 .home .fallo {
   margin-inline: var(--vitrina-margen);
-  margin-block-start: var(--seccion-aire);
 }
 
 /* Un fallo dentro de una sección ya está en el canal de la sección: no lleva
@@ -3839,7 +3843,77 @@
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: var(--vitrina-hueco);
   padding-inline: var(--vitrina-margen);
+  /* El descanso del tramo es suyo. Estuvo también en el `gap` de `.home` y los
+     dos se sumaban —128 px a 1600 donde el token dice 80, 88 a 390 donde dice
+     40—: el aire dejaba de encogerse con la ventana porque un `gap` no acepta
+     excepciones. Aquí es el único dueño, y la vitrina sólo pone lo que no es
+     tramo (más abajo). */
   margin-block-start: var(--seccion-aire);
+}
+
+/* En la vitrina, lo que no es un tramo —un aviso, la marquesina— se separa con el
+   mismo aire. Los tramos no entran aquí: el suyo lo pone la regla de arriba, y si
+   entraran se sumarían otra vez. */
+.home > * + *:not(.seccion) {
+  margin-block-start: var(--seccion-aire);
+}
+
+/*
+ * Un tramo que sólo es un renglón descansa menos.
+ *
+ * Sin piezas, el tramo se explica en una línea —eso ya estaba— pero seguía
+ * pidiendo el aire de un muro de carteles: en una instalación recién abierta, tres
+ * de los siete tramos no tenían nada y cada uno se llevaba el descanso de un tramo
+ * lleno para decirlo. El descanso sigue a la masa: lo que no tiene nada que
+ * separar no separa tanto.
+ */
+.home > * + .seccion:has(.tramo-vacio),
+.home > .seccion:has(.tramo-vacio) + * {
+  margin-block-start: var(--seccion-aire-tenue);
+}
+
+/* Y después de la marquesina el descanso es el de siempre, aunque el tramo que
+   venga sea un renglón: ahí el que cambia de registro es el otro —una banda a
+   sangre que acaba de llenar la pantalla— y el hueco corto la dejaba pegada a la
+   lista. Va después de la regla de arriba, que pesa lo mismo. */
+.home > .marquesina + .seccion {
+  margin-block-start: var(--seccion-aire);
+}
+
+/*
+ * Un tramo sin piezas no es una rejilla: es un renglón.
+ *
+ * Con la nota al margen, el titular quedaba en la canaleta y su explicación en la
+ * columna del cuerpo, a la misma altura y a doscientos píxeles —«Parrilla» a la
+ * izquierda, «No hay capítulos anunciados» a la derecha y la línea de datos en
+ * medio—: dos textos que nadie lee como uno. Sin piezas que repartir, la nota
+ * vuelve a ser un renglón —titular y línea de datos juntos, la explicación debajo—
+ * y ocupa el ancho entero, que es la forma que ya tiene por debajo de 1400. En
+ * columna y a todo el ancho serían tres renglones apilados contra el borde
+ * izquierdo de una pantalla vacía. */
+.seccion:has(.tramo-vacio) .seccion__nota {
+  grid-column: 1 / -1;
+  position: static;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+}
+
+.seccion:has(.tramo-vacio) .seccion__cuerpo {
+  grid-column: 1 / -1;
+}
+
+/* Y el renglón del vacío va pegado a su nota: es la misma frase en dos tiempos.
+   Con el hueco de piezas —el que separa dos carteles— quedaba a 45 px de su
+   titular, más lejos que el tramo siguiente: la separación de dentro pesaba más
+   que la de fuera. */
+.seccion:has(.tramo-vacio) {
+  row-gap: var(--space-1);
+}
+
+.seccion:has(.tramo-vacio) .tramo-vacio {
+  padding-block-start: 0;
 }
 
 .seccion__nota {
@@ -4749,6 +4823,13 @@
   display: grid;
   gap: var(--seccion-aire);
   padding-block-end: var(--space-7);
+}
+
+/* Y el tramo no vuelve a pedir su descanso: aquí lo pone la rejilla, como en la
+   vitrina lo pone la `.seccion`. Era el mismo aire dos veces. */
+.perfil > .seccion,
+.historial > .seccion {
+  margin-block-start: 0;
 }
 
 /* El enlace al Historial y la vuelta al Perfil van alineados con las secciones. */

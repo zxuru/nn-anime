@@ -535,6 +535,15 @@
   --genero-cuenta-letra: -0.01em;
   --buscador-campo: clamp(1.35rem, 4vw, 2.25rem);
   --seccion-aire: clamp(2.5rem, 6vw, 5rem);
+  /**
+   * El descanso de un tramo que sólo es un renglón.
+   *
+   * Un tramo sin piezas se explica en una línea, y separarlo como se separa un
+   * muro de carteles dejaba media pantalla en aire cuando la instalación está
+   * recién abierta. La mitad del aire normal: lo que no tiene masa no separa
+   * tanto.
+   */
+  --seccion-aire-tenue: clamp(1.25rem, 3vw, 2.5rem);
 
   /** El mando redondo que abre el asomo de una pieza. */
   --pieza-mando: var(--control-size);
