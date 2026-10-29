@@ -193,6 +193,24 @@ describe('la lista, por páginas', () => {
     expect(conMandos(pagina([], { page: 1, hasMore: false, total: 12 }))).toBe(false)
   })
 
+  /**
+   * La barra se lee en un renglón.
+   *
+   * Con los rótulos largos y el alto completo, siete mandos no cabían y el último
+   * episodio caía a una segunda fila. Las flechas enseñan la palabra corta y se
+   * anuncian con la larga: lo que se ve y lo que oye un lector de pantalla no
+   * tienen por qué medir lo mismo.
+   */
+  test('los mandos van juntos y las flechas dicen lo suyo por dentro', () => {
+    const html = pager({ page: 2, hasMore: true })
+
+    expect(html).toContain('episodes__pager')
+    expect(html).toContain('>Anterior<')
+    expect(html).toContain('>Siguiente<')
+    expect(html).toContain('aria-label="Página anterior"')
+    expect(html).toContain('aria-label="Página siguiente"')
+  })
+
   test('con más páginas, o con una larga, los mandos están', () => {
     expect(conMandos(pagina([], { page: 2, hasMore: false }))).toBe(true)
     expect(conMandos(pagina([], { page: 1, hasMore: true }))).toBe(true)

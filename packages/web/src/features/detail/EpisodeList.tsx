@@ -339,6 +339,12 @@ export interface EpisodePagerProps {
  * lee como una aplicación rota. El número de página se ve: sin él, «siguiente» no
  * dice a dónde va.
  *
+ * La barra va en **un renglón**: el grupo de páginas a la izquierda, el salto a la
+ * derecha y el último episodio al final. Los botones son un escalón más bajos que
+ * el de la ficha y las flechas enseñan la palabra corta —«Anterior», «Siguiente»—
+ * mientras el nombre accesible sigue diciendo «Página anterior»: con los rótulos
+ * largos y el alto completo, siete mandos no cabían y la barra ocupaba dos filas.
+ *
  * El salto es un formulario para que la tecla Intro funcione sin JavaScript de
  * más, y admite decimales porque hay fuentes que numeran `7.5`.
  */
@@ -347,29 +353,31 @@ export function EpisodePager(props: EpisodePagerProps): ReactNode {
 
   return (
     <div className="episodes__windows">
-      <button
-        type="button"
-        className="button"
-        aria-label={t(DEFAULT_LOCALE, 'detail.page.previous')}
-        disabled={props.page === 1}
-        onClick={() => props.onPage(-1)}
-      >
-        {t(DEFAULT_LOCALE, 'detail.page.previous')}
-      </button>
+      <div className="episodes__pager">
+        <button
+          type="button"
+          className="button"
+          aria-label={t(DEFAULT_LOCALE, 'detail.page.previous')}
+          disabled={props.page === 1}
+          onClick={() => props.onPage(-1)}
+        >
+          {t(DEFAULT_LOCALE, 'detail.page.previousShort')}
+        </button>
 
-      <span className="episodes__range">
-        {t(DEFAULT_LOCALE, 'detail.page.label', { page: props.page })}
-      </span>
+        <span className="episodes__range">
+          {t(DEFAULT_LOCALE, 'detail.page.label', { page: props.page })}
+        </span>
 
-      <button
-        type="button"
-        className="button"
-        aria-label={t(DEFAULT_LOCALE, 'detail.page.next')}
-        disabled={!props.hasMore}
-        onClick={() => props.onPage(1)}
-      >
-        {t(DEFAULT_LOCALE, 'detail.page.next')}
-      </button>
+        <button
+          type="button"
+          className="button"
+          aria-label={t(DEFAULT_LOCALE, 'detail.page.next')}
+          disabled={!props.hasMore}
+          onClick={() => props.onPage(1)}
+        >
+          {t(DEFAULT_LOCALE, 'detail.page.nextShort')}
+        </button>
+      </div>
 
       <form
         className="episodes__jump"

@@ -443,6 +443,7 @@ export function createApp(options: AppOptions): Hono {
       registerDownloadsRoute(app, {
         queue,
         store: container.store,
+        container,
         providers: hub.providers,
         root: downloadsRoot,
         ...(options.downloadRemux === undefined ? {} : { remux: options.downloadRemux }),

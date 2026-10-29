@@ -37,6 +37,7 @@ import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
 import { PlanToWatchButton } from './PlanToWatchButton'
 import { SagaRail } from './SagaRail'
+import { SeriesDownloadButton } from './SeriesDownloadButton'
 import { SourcePicker } from './SourcePicker'
 import {
   chosenMode,
@@ -378,6 +379,58 @@ function Etiquetas(props: {
   )
 }
 
+/**
+ * El selector de modo, o nada cuando no hay nada que elegir.
+ *
+ * Con un solo modo la ficha mostraba dos botones, uno de ellos apagado con su
+ * explicación: un mando que no manda. El modo sigue viajando con cada episodio
+ * porque lo elige `chosenMode` sin preguntar; lo que desaparece es la pregunta.
+ * Sin capacidades —el proveedor no las declaró— tampoco hay elección.
+ */
+export function ModePicker(props: {
+  readonly modos: readonly PlayMode[]
+  readonly modo: PlayMode | undefined
+  readonly onPick: (mode: PlayMode) => void
+}): ReactNode {
+  if (props.modos.length <= 1) return null
+
+  return (
+    <section data-tour={ANCLAS.fichaModos}>
+      <h2>{t(DEFAULT_LOCALE, 'detail.modes')}</h2>
+      <ul className="modes">
+        {PLAY_MODES.map((candidato) => {
+          const disponible = props.modos.includes(candidato)
+          const clave = candidato === 'sub' ? 'detail.mode.sub' : 'detail.mode.dub'
+
+          return (
+            <li className="mode" key={candidato}>
+              <button
+                type="button"
+                className="button"
+                // El marcado es el modo que se va a reproducir, y se dice con
+                // `aria-pressed` —lo que ya lee el resto de la interfaz— y no
+                // sólo con el color.
+                aria-pressed={props.modo === candidato}
+                disabled={!disponible}
+                onClick={() => props.onPick(candidato)}
+              >
+                {t(DEFAULT_LOCALE, clave)}
+              </button>
+              {disponible ? null : (
+                <span className="card__meta">
+                  {t(DEFAULT_LOCALE, 'detail.modeUnavailable', {
+                    mode: t(DEFAULT_LOCALE, clave),
+                  })}
+                </span>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
 export function DetailPage(props: DetailPageProps): ReactNode {
   const {
     detail,
@@ -514,39 +567,21 @@ export function DetailPage(props: DetailPageProps): ReactNode {
             />
           </div>
 
-          <section data-tour={ANCLAS.fichaModos}>
-            <h2>{t(DEFAULT_LOCALE, 'detail.modes')}</h2>
-            <ul className="modes">
-              {PLAY_MODES.map((candidato) => {
-                const disponible = modos.includes(candidato)
-                const clave = candidato === 'sub' ? 'detail.mode.sub' : 'detail.mode.dub'
-
-                return (
-                  <li className="mode" key={candidato}>
-                    <button
-                      type="button"
-                      className="button"
-                      // El marcado es el modo que se va a reproducir, y se dice con
-                      // `aria-pressed` —lo que ya lee el resto de la interfaz— y no
-                      // sólo con el color.
-                      aria-pressed={modo === candidato}
-                      disabled={!disponible}
-                      onClick={() => setPreferido(candidato)}
-                    >
-                      {t(DEFAULT_LOCALE, clave)}
-                    </button>
-                    {disponible ? null : (
-                      <span className="card__meta">
-                        {t(DEFAULT_LOCALE, 'detail.modeUnavailable', {
-                          mode: t(DEFAULT_LOCALE, clave),
-                        })}
-                      </span>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
+          {/* La serie entera como objetivo de descarga. Va debajo de las marcas
+              porque es la misma clase de gesto —decidir qué hacer con la obra— y
+              no una preferencia de reproducción. */}
+          <section>
+            <h2>{t(DEFAULT_LOCALE, 'detail.download.title')}</h2>
+            <SeriesDownloadButton
+              providerId={props.providerId}
+              animeRef={{ providerId: props.providerId, value: props.ref }}
+              movie={esPelicula}
+            />
           </section>
+
+          {/* Con un solo modo no hay nada que elegir: el componente no pinta la
+              sección. El modo sigue viajando con cada episodio. */}
+          <ModePicker modos={modos} modo={modo} onPick={setPreferido} />
 
           {/* Dónde verlo, al lado de cómo: son las dos preguntas que se contestan
             antes de darle a reproducir. Sin otras fuentes no pinta nada. */}

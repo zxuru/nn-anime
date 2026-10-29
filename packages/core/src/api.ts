@@ -524,6 +524,34 @@ export const downloadStartRequestSchema = z.strictObject({
 
 export const downloadStartResponseSchema = z.strictObject({ id: z.number().int().positive() })
 
+/**
+ * El alta de una descarga de **toda la serie**.
+ *
+ * No lleva episodios: el cliente no decide qué se baja ni cuáles existen. Manda
+ * el título y el servidor lee su lista de episodios, la recorre página a página
+ * y apunta uno por uno. Como el alta suelta, es idempotente por episodio:
+ * volver a apuntar la serie no duplica lo que ya estaba.
+ */
+export const downloadSeriesRequestSchema = z.strictObject({
+  providerId: z.string().min(1),
+  animeRef: providerRefSchema,
+})
+
+/**
+ * Lo que quedó apuntado al pedir la serie entera.
+ *
+ * Los tres números se cuentan sobre la lista que el proveedor dio **ahora**: no
+ * son una promesa de cuántos capítulos tendrá la serie mañana. `pending` incluye
+ * lo que ya está bajando, no sólo lo que espera turno.
+ */
+export const downloadSeriesResponseSchema = z.strictObject({
+  episodes: z.number().int().nonnegative(),
+  pending: z.number().int().nonnegative(),
+  complete: z.number().int().nonnegative(),
+})
+
+export type DownloadSeriesResponse = z.infer<typeof downloadSeriesResponseSchema>
+
 /** El espacio del disco donde viven las descargas. */
 export const downloadsSpaceSchema = z.strictObject({
   /** La carpeta que se está usando. */

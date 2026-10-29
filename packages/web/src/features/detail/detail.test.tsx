@@ -21,6 +21,7 @@ import {
   fondoDe,
   generos,
   Lectura,
+  ModePicker,
   seccionesDe,
   sinopsis,
 } from './DetailPage'
@@ -89,6 +90,35 @@ describe('modos disponibles', () => {
     expect(modesFor(capacidades())).toEqual(['sub'])
     expect(modesFor(capacidades({ dub: true }))).toEqual(['sub', 'dub'])
     expect(modesFor(capacidades({ sub: false, dub: true }))).toEqual(['dub'])
+  })
+})
+
+/**
+ * El selector de modo sólo se pinta cuando hay algo que elegir.
+ *
+ * Una fuente que sólo ofrece subtitulado enseñaba dos botones —uno apagado con
+ * su explicación— y el bloque entero era una pregunta sin respuesta posible. Lo
+ * que se mide aquí es el componente que decide: con uno o ninguno, no hay
+ * sección; con dos, sí.
+ */
+describe('el selector de modos', () => {
+  function selector(modos: readonly ('sub' | 'dub')[]): string {
+    return render(<ModePicker modos={modos} modo={modos[0]} onPick={() => {}} />)
+  }
+
+  test('con un solo modo no se pinta', () => {
+    expect(selector(['sub'])).toBe('')
+    expect(selector(['dub'])).toBe('')
+    expect(selector([])).toBe('')
+  })
+
+  test('con dos modos se pintan y el elegido va marcado', () => {
+    const html = selector(['sub', 'dub'])
+
+    expect(html).toContain('Modos disponibles')
+    expect(html).toContain('aria-pressed="true"')
+    expect(html).toContain('subtitulado')
+    expect(html).toContain('doblado')
   })
 })
 
