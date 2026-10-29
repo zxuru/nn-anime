@@ -22,11 +22,12 @@ import {
   downloadsDirsSchema,
   downloadsSpaceSchema,
 } from '@nn-anime/core'
-import { insideRoot } from '@nn-anime/media-proxy'
+import { createFfmpegRemux, findFfmpeg, insideRoot, type RemuxFn } from '@nn-anime/media-proxy'
 import type { Provider } from '@nn-anime/provider-sdk'
 import type { Context, Hono } from 'hono'
 import { listarCarpetas } from '../downloads/dirs'
 import type { DownloadQueue } from '../downloads/queue'
+import { remuxSegments } from '../downloads/remux'
 import { findProvider } from './anime'
 
 /**
@@ -45,6 +46,8 @@ function esPlaylist(fila: DownloadRecord): boolean {
 export interface DownloadsRouteOptions {
   readonly queue: DownloadQueue
   readonly store: CatalogStore
+  /** El remezclador de ffmpeg; en pruebas, uno que no lanza procesos. */
+  readonly remux?: RemuxFn | undefined
   readonly providers: readonly Provider[]
   readonly root: string
 }
@@ -67,7 +70,7 @@ function item(row: DownloadRecord) {
   }
 }
 
-function errorJson(c: Context, status: 400 | 403 | 404 | 409 | 416, message: string) {
+function errorJson(c: Context, status: 400 | 403 | 404 | 409 | 416 | 500, message: string) {
   return c.json({ error: message }, status)
 }
 
@@ -102,6 +105,14 @@ export function parseFileRange(
 
 export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions): void {
   const store = options.store
+  /**
+   * Las conversiones en vuelo, por id.
+   *
+   * Un segundo «convertir» sobre la misma descarga lanzaría un segundo ffmpeg
+   * leyendo los mismos segmentos y escribiendo el mismo MP4: se contesta 409 en
+   * vez de dejar que se pisen.
+   */
+  const convirtiendo = new Set<number>()
 
   app.post('/api/downloads', async (c) => {
     let crudo: unknown
@@ -358,5 +369,75 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
     c.header('content-length', String(info.size))
 
     return c.body(archivo.stream())
+  })
+
+  /**
+   * Pasar a MP4 una descarga que quedó en segmentos.
+   *
+   * Es el botón que arregla lo que ya está en disco: los segmentos son el
+   * episodio entero, así que convertirlos no vuelve a pedir nada a la red. Se
+   * hace en la misma petición —un remux copia códecs, no recodifica: segundos,
+   * no minutos— y la respuesta es la fila ya actualizada, para que la interfaz
+   * cambie el reproductor sin volver a preguntar.
+   *
+   * Sin ffmpeg se contesta 409 con el motivo en vez de un 500: no es un fallo de
+   * la aplicación, es una pieza que este equipo no tiene.
+   */
+  app.post('/api/downloads/:id/remux', async (c) => {
+    const id = Number(c.req.param('id'))
+    if (!Number.isInteger(id) || id <= 0) return errorJson(c, 400, 'ese identificador no es válido')
+
+    const fila = await store.getDownload(id)
+    if (fila === undefined) return errorJson(c, 404, 'esa descarga no existe')
+    if (fila.status !== 'complete') return errorJson(c, 409, 'la descarga todavía no está completa')
+    if (fila.path === undefined || !esPlaylist(fila)) {
+      return errorJson(c, 409, 'esa descarga ya es un archivo')
+    }
+
+    // Se busca en cada petición, no al arrancar: instalar ffmpeg y volver a
+    // pulsar el botón tiene que funcionar sin reiniciar la aplicación.
+    const ffmpeg = findFfmpeg()
+    const remux = options.remux ?? (ffmpeg === undefined ? undefined : createFfmpegRemux(ffmpeg))
+    if (remux === undefined) {
+      return errorJson(
+        c,
+        409,
+        'no se encontró ffmpeg: instálalo o deja ffmpeg junto a la aplicación',
+      )
+    }
+
+    if (convirtiendo.has(id)) return errorJson(c, 409, 'esa descarga ya se está convirtiendo')
+
+    const raiz = options.queue.root()
+    const playlist = resolve(raiz, fila.path)
+    if (isAbsolute(fila.path) || !insideRoot(raiz, playlist)) {
+      return errorJson(c, 409, 'la ruta de la descarga no es válida')
+    }
+
+    convirtiendo.add(id)
+
+    try {
+      const resultado = await remuxSegments({
+        root: raiz,
+        playlist,
+        remux,
+        signal: c.req.raw.signal,
+      })
+
+      const actualizada = await store.updateDownload(id, {
+        kind: 'file',
+        path: resultado.relPath,
+        bytes: resultado.bytes,
+      })
+      if (actualizada === undefined) return errorJson(c, 404, 'esa descarga no existe')
+
+      return c.json(downloadItemSchema.parse(item(actualizada)))
+    } catch (cause) {
+      const mensaje = cause instanceof Error ? cause.message : String(cause)
+
+      return errorJson(c, 500, `no se pudo convertir: ${mensaje}`)
+    } finally {
+      convirtiendo.delete(id)
+    }
   })
 }

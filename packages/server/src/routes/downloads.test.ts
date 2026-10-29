@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type CatalogStore, openDb, runMigrations } from '@nn-anime/catalog-store'
+import type { RemuxFn } from '@nn-anime/media-proxy'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
 import { createApp, createContainer } from '../index'
 
@@ -34,7 +35,7 @@ async function conApp<T>(
     store: CatalogStore,
     dir: string,
   ) => Promise<T>,
-  opciones: { readonly download?: boolean } = {},
+  opciones: { readonly download?: boolean; readonly remux?: RemuxFn } = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'nn-anime-rutas-descargas-'))
   const db = openDb(join(dir, 'nn-anime.db'))
@@ -57,6 +58,7 @@ async function conApp<T>(
       downloadsDir: join(dir, 'downloads'),
       downloadConcurrency: 1,
       downloadFetchImpl: async () => new Response('MP4'),
+      ...(opciones.remux === undefined ? {} : { downloadRemux: opciones.remux }),
       streamFetchImpl: async () => new Response('MP4'),
       streamResolver: async () => ['93.184.216.34'],
     })
@@ -380,5 +382,75 @@ describe('las rutas de descargas', () => {
       expect(segmento.status).toBe(200)
       expect(await segmento.text()).toBe('TS')
     })
+  })
+
+  /**
+   * El botón que arregla una descarga que ya está en disco.
+   *
+   * Sin red: el doble de remezclador escribe el MP4, como haría ffmpeg. Lo que se
+   * mide es la fila —pasa a `file`, con la ruta del MP4— y que la ruta de servido
+   * deje de contestar con la playlist.
+   */
+  test('convertir a MP4 cambia la fila y sirve el archivo como vídeo', async () => {
+    const remux: RemuxFn = async (_playlist, salida) => {
+      await writeFile(salida, 'MP4-convertido')
+    }
+
+    await conApp(
+      async (pedir, store, dir) => {
+        const relativa = 'fixture/aurora-nocturna/Episodio-11/index.m3u8'
+        const carpeta = join(dir, 'downloads', 'fixture', 'aurora-nocturna', 'Episodio-11')
+        await mkdir(carpeta, { recursive: true })
+        await writeFile(
+          join(carpeta, 'index.m3u8'),
+          '#EXTM3U\n#EXTINF:4,\nsegmento-00000.ts\n#EXT-X-ENDLIST\n',
+          'utf8',
+        )
+        await writeFile(join(carpeta, 'segmento-00000.ts'), 'TS')
+
+        const fila = await store.createDownload({
+          providerId: 'fixture',
+          providerRef: 'aurora-nocturna',
+          episodeRef: 'aurora-nocturna#11',
+          title: 'Aurora Nocturna',
+          episodeLabel: 'Episodio 11',
+          kind: 'segments',
+        })
+        await store.updateDownload(fila.id, { status: 'complete', path: relativa, bytes: 2 })
+
+        const conversion = await pedir(`/api/downloads/${fila.id}/remux`, {
+          method: 'POST',
+          headers: GOOD,
+        })
+        expect(conversion.status).toBe(200)
+
+        const convertida = (await conversion.json()) as { kind: string; bytes: number }
+        expect(convertida.kind).toBe('file')
+        expect(convertida.bytes).toBe('MP4-convertido'.length)
+
+        // El MP4 quedó al lado de la carpeta, con su nombre.
+        const mp4 = join(dir, 'downloads', 'fixture', 'aurora-nocturna', 'Episodio-11.mp4')
+        expect(await Bun.file(mp4).text()).toBe('MP4-convertido')
+
+        // El archivo se sirve como vídeo, ya no como manifiesto.
+        const archivo = await pedir(`/api/downloads/${fila.id}/file`)
+        expect(archivo.status).toBe(200)
+        expect(archivo.headers.get('content-type')).toBe('video/mp4')
+        expect(await archivo.text()).toBe('MP4-convertido')
+
+        // Y los segmentos se fueron con la carpeta.
+        expect((await pedir(`/api/downloads/${fila.id}/segment/segmento-00000.ts`)).status).toBe(
+          404,
+        )
+
+        // Convertir lo que ya es un MP4 se rechaza, no se vuelve a convertir.
+        const otra = await pedir(`/api/downloads/${fila.id}/remux`, {
+          method: 'POST',
+          headers: GOOD,
+        })
+        expect(otra.status).toBe(409)
+      },
+      { remux },
+    )
   })
 })
