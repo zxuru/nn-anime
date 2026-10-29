@@ -212,7 +212,11 @@ export function App(): ReactNode {
   return (
     <Shell
       ancha={route.name === 'home'}
-      sinTope={route.name === 'watch'}
+      // Las dos pantallas de reproducción se miden contra la ventana: el video
+      // crece hasta el alto disponible y un tope de 1200 px le dejaría a los
+      // lados un margen que no gasta nada. En la biblioteca era además el motivo
+      // de que los mandos del reproductor cayeran por debajo del pliegue.
+      sinTope={route.name === 'watch' || route.name === 'library-player'}
       ficha={route.name === 'detail'}
       tipo={route.name === 'home' || route.name === 'search'}
     >

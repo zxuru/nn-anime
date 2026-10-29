@@ -39,6 +39,16 @@ export const VOLUME_STEP = 0.1
  */
 export const CLICK_DELAY_MS = 250
 
+/**
+ * Lo que se espera antes de pasar solo al episodio siguiente.
+ *
+ * La cuenta atrás existe para poder pararla: cinco segundos es lo que se tarda
+ * en decidir que sí, y lo bastante corto para que encadenar capítulos no se
+ * sienta como una espera. Vive aquí y no en una pantalla porque las dos
+ * —la reproducción y la biblioteca— encadenan igual.
+ */
+export const SEGUNDOS_DEL_SIGUIENTE = 5
+
 export interface KeyLike {
   readonly key: string
   /** `tagName` del elemento con el foco, en mayúsculas. */

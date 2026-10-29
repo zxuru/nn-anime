@@ -65,6 +65,7 @@ import { DownloadButton } from '../downloads/DownloadButton'
 import { ANCLAS } from '../guia/guia'
 import { coverPath } from '../search/ResultCard'
 import { AudioModeSwitch } from './AudioModeSwitch'
+import { SEGUNDOS_DEL_SIGUIENTE } from './controls'
 import { Player } from './Player'
 import { SourceFallback } from './SourceFallback'
 import {
@@ -102,9 +103,6 @@ type Estado = 'loading' | 'ready' | 'error'
 
 /** Cada cuánto se apunta por dónde va, como mucho. */
 const GUARDADO_MS = 5000
-
-/** Los segundos que se espera antes de pasar solo al episodio siguiente. */
-const SEGUNDOS_DEL_SIGUIENTE = 5
 
 /** Un vecino, con lo que hace falta para enlazarlo: a dónde va y con qué número. */
 export interface WatchNeighbour {

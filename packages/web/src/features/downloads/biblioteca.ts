@@ -60,6 +60,39 @@ export function ordenarActivas(items: readonly Descarga[]): readonly Descarga[] 
   return [...items].sort((uno, otro) => PESO_ESTADO[uno.status] - PESO_ESTADO[otro.status])
 }
 
+/** Dónde está un episodio en su serie y quiénes son sus vecinos. */
+export interface VecinosDeLaSerie {
+  /** La posición del episodio en la lista, o `-1` si no está. */
+  readonly indice: number
+  readonly anterior?: Descarga
+  readonly siguiente?: Descarga
+}
+
+/**
+ * Los vecinos de un episodio dentro de lo descargado.
+ *
+ * El reproductor de la biblioteca es de un episodio, pero la serie no: con los
+ * vecinos se puede pasar al anterior y al siguiente sin volver a la estantería.
+ * La lista llega en el orden de `agruparBiblioteca` —el de descarga, que en una
+ * serie apuntada entera es el de los capítulos—, así que aquí sólo se busca.
+ *
+ * Un episodio que no está en la lista no inventa vecinos: devuelve `-1` y la
+ * pantalla se queda sin flechas en vez de mandar a un capítulo que no se ve.
+ */
+export function vecinosDe(episodios: readonly Descarga[], id: number): VecinosDeLaSerie {
+  const indice = episodios.findIndex((episodio) => episodio.id === id)
+  if (indice < 0) return { indice: -1 }
+
+  const anterior = episodios[indice - 1]
+  const siguiente = episodios[indice + 1]
+
+  return {
+    indice,
+    ...(anterior === undefined ? {} : { anterior }),
+    ...(siguiente === undefined ? {} : { siguiente }),
+  }
+}
+
 /**
  * Agrupa las descargas completas por título.
  *
