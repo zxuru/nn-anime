@@ -643,14 +643,20 @@ test.describe('el reproductor', () => {
     const menu = page.locator('.player__menu')
 
     await expect(abrir).toHaveAttribute('aria-expanded', 'false')
-    await expect(menu).toHaveCount(0)
+    // El menú sigue en el documento para poder animar la salida; lo que se mide
+    // es que cerrado no se ve y no está en el árbol accesible: `inert` y
+    // `aria-hidden` lo sacan de los dos.
+    await expect(menu).toBeHidden()
+    await expect(menu).toHaveAttribute('aria-hidden', 'true')
+    await expect(page.getByRole('dialog', { name: 'Ajustes' })).toHaveCount(0)
 
     await abrir.click()
     await expect(menu).toBeVisible()
     await expect(abrir).toHaveAttribute('aria-expanded', 'true')
 
     await page.keyboard.press('Escape')
-    await expect(menu).toHaveCount(0)
+    await expect(menu).toBeHidden()
+    await expect(menu).toHaveAttribute('aria-hidden', 'true')
     // El foco vuelve al mando que lo abrió: sin eso, quien navega con el teclado
     // se queda en el `body` y tiene que empezar la página desde arriba.
     await expect(abrir).toBeFocused()
@@ -658,7 +664,7 @@ test.describe('el reproductor', () => {
     await abrir.click()
     await expect(menu).toBeVisible()
     await page.locator('video').click({ position: { x: 40, y: 40 }, force: true })
-    await expect(menu).toHaveCount(0)
+    await expect(menu).toBeHidden()
   })
 
   /**
@@ -1338,12 +1344,14 @@ test.describe('la ventana estrecha', () => {
     await expect(page.getByRole('button', { name: 'Retroceder 10 segundos' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Adelantar 10 segundos' })).toHaveCount(0)
     // En la fila tampoco hay ni barra ni botón de volumen: el grupo entero se mudó.
-    await expect(page.locator('.player__buttons .player__slider')).toHaveCount(0)
-    await expect(page.locator('.player__menu .player__slider')).toHaveCount(0)
+    await expect(page.locator('.player__volume')).toHaveCount(0)
+    // El del menú existe desde el principio —la salida se anima—, pero cerrado no
+    // se ve: el grupo sólo cuenta cuando está a la vista.
+    const menu = page.locator('.player__menu')
+    await expect(menu).toBeHidden()
 
     await page.getByRole('button', { name: 'Ajustes' }).click()
-
-    const menu = page.locator('.player__menu')
+    await expect(menu).toBeVisible()
     await expect(menu.locator('.player__slider')).toHaveCount(1)
     await expect(menu.getByRole('button', { name: 'Silenciar' })).toHaveCount(1)
 
@@ -1415,7 +1423,9 @@ test.describe('la ventana estrecha', () => {
     const pasos = page.locator('.watch__steps a, .watch__steps span')
     const primero = await pasos.nth(0).boundingBox()
     const segundo = await pasos.nth(1).boundingBox()
-    const audio = await page.locator('.audio-switch').boundingBox()
+    // El de la fila, no el del menú: desde que el menú vive en el documento hay
+    // dos `audio-switch` y el que se mide aquí es el de `.watch__nav`.
+    const audio = await page.locator('.watch__nav .audio-switch').boundingBox()
     const fila = await page.locator('.watch__steps').boundingBox()
 
     // Las dos mitades, iguales y en la misma fila.
@@ -1443,11 +1453,16 @@ test.describe('la ventana estrecha', () => {
     const boton = page.getByRole('button', { name: 'Ajustes' })
     await boton.click()
 
-    const menu = await page.locator('.player__menu').boundingBox()
+    // La entrada se anima y arranca con el menú escalado: se mide con la
+    // transición terminada o el ancho es el del fotograma intermedio.
+    const menu = page.locator('.player__menu')
+    await expect(menu).toHaveCSS('transform', 'none')
+
+    const caja = await menu.boundingBox()
     const ancla = await boton.boundingBox()
 
-    expect(menu?.width ?? 0).toBeCloseTo(240, 0)
-    expect((menu?.y ?? 0) + (menu?.height ?? 0)).toBeLessThanOrEqual(ancla?.y ?? 0)
+    expect(caja?.width ?? 0).toBeCloseTo(240, 0)
+    expect((caja?.y ?? 0) + (caja?.height ?? 0)).toBeLessThanOrEqual(ancla?.y ?? 0)
   })
 
   /**
