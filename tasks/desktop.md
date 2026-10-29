@@ -24,11 +24,18 @@ funcione sin que nadie sepa usar una terminal ni tenga Bun instalado. El reparto
 | T160b | hecho (**insertada**: la causa de los accesos y el registro, medida) | `tasks/done/T160b.md` |
 | T161 | **pendiente: necesita un Linux de verdad** | — |
 | T162 | hecho | `tasks/done/T162.md` |
+| T189 | hecho; el camino publicado **no ejecutado** (necesita la release) — integrado en `fae9029` | `tasks/done/T189.md` |
 
 **Lo que ninguna casilla de este plan puede decir, y hay que leer en los cierres:** el árbol de Rust
-**no se ha compilado ni una vez**, porque el entorno donde se escribió no tiene HTTPS y `cargo` no
-alcanza crates.io. Las pruebas de Rust están escritas y **sin correr**. El trabajo `desktop` del CI es
-quien las corre, y esa es la primera cosa que hay que mirar en el primer push.
+**no se ha compilado ni una vez**: el entorno donde se escribió el plan no alcanzaba crates.io y las
+pruebas de Rust están escritas **sin correr**. El trabajo `desktop` del CI es quien las corre, y esa
+es la primera cosa que hay que mirar en el primer push.
+
+Lo que sí cambió al integrar T189, medido en el árbol de integración: `cargo` **sí** alcanza
+crates.io desde aquí —`cargo metadata --locked` actualizó el índice y descargó veinte cajas—, así que
+la falta de red ya no es la razón para no compilar; lo que sigue faltando es el servidor empaquetado
+que `build.rs` embebe. `cargo fmt --check` y `cargo metadata --locked` sobre el lock fusionado salen
+en 0.
 
 ## Lo que sí se ha **ejecutado** aquí, para no confundirlo con lo que sólo se leyó
 
