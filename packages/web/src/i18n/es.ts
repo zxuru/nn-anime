@@ -684,46 +684,136 @@ export const messages: Messages = {
   'detail.seasons': 'Temporadas',
 
   /*
-    La guía de primeros pasos y los avisos de novedad. Los textos viven aquí y no
-    en `guia.ts` para que el catálogo siga siendo la única lista de lo que se lee
-    en pantalla. El progreso usa las marcas de driver.js —dobles llaves— porque
-    las sustituye él; `translate` sin parámetros las deja intactas.
+    La guía: un recorrido por pantalla y los avisos de novedad. Los textos viven
+    aquí y no en `guia.ts` para que el catálogo siga siendo la única lista de lo
+    que se lee en pantalla. El progreso usa las marcas de driver.js —dobles
+    llaves— porque las sustituye él; `translate` sin parámetros las deja
+    intactas.
   */
-  'guia.abrir': 'Abrir la guía',
+  'guia.abrirPantalla': 'Ver el tutorial de {pantalla}',
   'guia.cerrar': 'Cerrar la guía',
   'guia.siguiente': 'Siguiente',
   'guia.anterior': 'Anterior',
   'guia.listo': 'Listo',
   'guia.entendido': 'Entendido',
   'guia.progreso': '{{current}} de {{total}}',
-  'guia.paso.bienvenida.titulo': 'La casa, en seis paradas',
-  'guia.paso.bienvenida.cuerpo':
-    'Lo justo para saber dónde está todo. Puedes salir cuando quieras y repetirla desde Ajustes.',
-  'guia.paso.cabecera.titulo': 'Aquí te mueves',
-  'guia.paso.cabecera.cuerpo':
-    'Inicio, Buscar, Perfil, Biblioteca y Ajustes. Cada destino conserva la mitad que estabas mirando.',
-  'guia.paso.buscar.titulo': 'Buscar',
-  'guia.paso.buscar.cuerpo':
-    'Consulta tus proveedores y AniList a la vez. Lo que encuentres se abre en su ficha.',
-  'guia.paso.tipo.titulo': 'Anime o películas',
-  'guia.paso.tipo.cuerpo':
+
+  // El nombre de cada sección, para el «?» y para la lista de Ajustes.
+  'guia.recorrido.inicio': 'Inicio',
+  'guia.recorrido.buscar': 'Buscar',
+  'guia.recorrido.biblioteca': 'Biblioteca',
+  'guia.recorrido.perfil': 'Perfil',
+  'guia.recorrido.historial': 'Historial',
+  'guia.recorrido.ajustes': 'Ajustes',
+  'guia.recorrido.ficha': 'Ficha',
+  'guia.recorrido.reproductor': 'Reproductor',
+
+  'guia.inicio.bienvenida.titulo': 'Bienvenido a nn-anime',
+  'guia.inicio.bienvenida.cuerpo':
+    'Cada pantalla tiene su tutorial; éste es el de Inicio. El «?» de la cabecera repite el de donde estés.',
+  'guia.inicio.cabecera.titulo': 'Aquí te mueves',
+  'guia.inicio.cabecera.cuerpo':
+    'Inicio, Buscar, Perfil, Biblioteca y Ajustes. Cada destino tiene su propio tutorial.',
+  'guia.inicio.tipo.titulo': 'Anime o películas',
+  'guia.inicio.tipo.cuerpo':
     'El conmutador cambia de mitad: la vitrina, la búsqueda y el motor lo respetan.',
-  'guia.paso.destacado.titulo': 'La vitrina',
-  'guia.paso.destacado.cuerpo':
-    'El motor elige el destacado con lo que buscas y ves. Debajo, «Continuar viendo» retoma donde lo dejaste.',
-  'guia.paso.biblioteca.titulo': 'Tu biblioteca',
-  'guia.paso.biblioteca.cuerpo':
-    'Lo que descargas se queda en tu equipo y se reproduce desde aquí, sin pedirle nada a la red.',
-  'guia.paso.ajustes.titulo': 'Los proveedores, en Ajustes',
-  'guia.paso.ajustes.cuerpo':
-    'Sin un proveedor no hay nada que ver. Aquí se registran y se ordenan; también se cambia el tema.',
+  'guia.inicio.destacado.titulo': 'La vitrina',
+  'guia.inicio.destacado.cuerpo': 'El motor elige el destacado con lo que buscas y ves.',
+  'guia.inicio.continuar.titulo': 'Retoma donde lo dejaste',
+  'guia.inicio.continuar.cuerpo':
+    '«Continuar viendo» guarda el minuto de cada episodio. Aparece cuando hay algo a medias.',
+  'guia.inicio.recomendado.titulo': 'Recomendado para ti',
+  'guia.inicio.recomendado.cuerpo':
+    'Cada pieza lleva su nota y su motivo: la razón se lee sin abrir la ficha.',
+
+  'guia.buscar.bienvenida.titulo': 'Buscar',
+  'guia.buscar.bienvenida.cuerpo':
+    'Una consulta, todos tus proveedores y AniList. Los resultados llegan según contestan.',
+  'guia.buscar.campo.titulo': 'El campo',
+  'guia.buscar.campo.cuerpo':
+    'Escribe un título. El tipo de la cabecera decide en qué mitad se busca.',
+  'guia.buscar.estado.titulo': 'Qué llegó',
+  'guia.buscar.estado.cuerpo':
+    'Esta línea dice cuántos resultados hay y de cuántos proveedores, sin contar dos veces el mismo título.',
+
+  'guia.biblioteca.bienvenida.titulo': 'Tu biblioteca',
+  'guia.biblioteca.bienvenida.cuerpo':
+    'Lo que descargas vive aquí, en tu equipo, y se reproduce sin red.',
+  'guia.biblioteca.resumen.titulo': 'El resumen',
+  'guia.biblioteca.resumen.cuerpo':
+    'Cuántos títulos, cuántos episodios y cuánto ocupan. Se cuenta de la base, no de una copia.',
+  'guia.biblioteca.coleccion.titulo': 'La estantería',
+  'guia.biblioteca.coleccion.cuerpo':
+    'Cada serie con sus episodios. Elige una para ver el detalle y borrar lo que ya no quieras.',
+  'guia.biblioteca.ajustes.titulo': 'El espacio y la carpeta',
+  'guia.biblioteca.ajustes.cuerpo':
+    'Aquí se ve el disco libre y se cambia la carpeta de descargas.',
+
+  'guia.perfil.bienvenida.titulo': 'Tu perfil',
+  'guia.perfil.bienvenida.cuerpo':
+    'Tus listas y tu historial. No hay cuentas: es lo que este equipo guarda de ti.',
+  'guia.perfil.listas.titulo': 'Tus listas',
+  'guia.perfil.listas.cuerpo':
+    'Favoritos, ya vistos y lo que quieres ver. Se marcan desde la ficha de cada título.',
+  'guia.perfil.historial.titulo': 'El historial',
+  'guia.perfil.historial.cuerpo':
+    'Lo último que reprodujiste, en orden. «Ver todo» abre el historial completo por páginas.',
+
+  'guia.historial.bienvenida.titulo': 'El historial',
+  'guia.historial.bienvenida.cuerpo':
+    'Cada visionado, con su episodio y su minuto. Es la materia con la que el motor recomienda.',
+  'guia.historial.lista.titulo': 'Lo que viste',
+  'guia.historial.lista.cuerpo': 'Una fila por visionado, la más reciente primero.',
+  'guia.historial.paginas.titulo': 'Las páginas',
+  'guia.historial.paginas.cuerpo': 'El historial se pagina: cada página pide sólo lo que enseña.',
+
+  'guia.ajustesRecorrido.bienvenida.titulo': 'Ajustes',
+  'guia.ajustesRecorrido.bienvenida.cuerpo':
+    'Lo que hace funcionar la aplicación: proveedores, tema y esta guía.',
+  'guia.ajustesRecorrido.proveedores.titulo': 'Los proveedores',
+  'guia.ajustesRecorrido.proveedores.cuerpo':
+    'Sin un proveedor no hay nada que ver. Aquí se registran, se activan y se ordenan.',
+  'guia.ajustesRecorrido.tema.titulo': 'El tema',
+  'guia.ajustesRecorrido.tema.cuerpo':
+    'Oscuro, claro o el del sistema. El cambio se aplica a toda la aplicación.',
+  'guia.ajustesRecorrido.guia.titulo': 'La guía',
+  'guia.ajustesRecorrido.guia.cuerpo':
+    'Desde aquí se repite cualquier tutorial y se devuelven a la lista los avisos descartados.',
+
+  'guia.ficha.bienvenida.titulo': 'La ficha',
+  'guia.ficha.bienvenida.cuerpo':
+    'Todo lo de una obra en una pantalla: qué es, dónde verla y cómo.',
+  'guia.ficha.acciones.titulo': 'Guarda, marca, apunta',
+  'guia.ficha.acciones.cuerpo':
+    'Favorito, ya visto y quiero ver. Tres listas independientes, con estado inmediato.',
+  'guia.ficha.modos.titulo': 'Sub o doblado',
+  'guia.ficha.modos.cuerpo':
+    'El modo con el que se reproduce. Si una fuente no lo tiene, se dice en el botón.',
+  'guia.ficha.episodios.titulo': 'Los episodios',
+  'guia.ficha.episodios.cuerpo':
+    'La lista completa, por temporadas. Al elegir uno se abre el reproductor.',
+
+  'guia.reproductor.bienvenida.titulo': 'El reproductor',
+  'guia.reproductor.bienvenida.cuerpo':
+    'El video manda. Los mandos están debajo y la lista de episodios al lado.',
+  'guia.reproductor.video.titulo': 'El video',
+  'guia.reproductor.video.cuerpo':
+    'Se reproduce en la página o en mpv, si está instalado. El progreso se guarda solo.',
+  'guia.reproductor.mandos.titulo': 'El episodio de al lado',
+  'guia.reproductor.mandos.cuerpo':
+    'Las flechas saltan al anterior o al siguiente sin volver a la ficha; a la derecha se cambia el audio.',
+  'guia.reproductor.episodios.titulo': 'La lista, al lado',
+  'guia.reproductor.episodios.cuerpo':
+    'Cambia de episodio sin salir de la reproducción. La lista pide sus páginas sola.',
+
   'guia.aviso.biblioteca.titulo': 'Nuevo: descargas',
   'guia.aviso.biblioteca.cuerpo':
     'Manda un episodio a la biblioteca y se queda en tu equipo. Se reproduce desde ahí, sin red.',
+
   'guia.ajustes.titulo': 'Guía',
   'guia.ajustes.cuerpo':
-    'La bienvenida explica lo básico. Los avisos salen una vez cuando una función es nueva, y no vuelven.',
-  'guia.ajustes.ver': 'Ver la bienvenida',
+    'Cada pantalla tiene su tutorial y sale solo la primera vez. Repítelo aquí o con el «?» de la cabecera.',
+  'guia.ajustes.secciones': 'Repetir un tutorial',
   'guia.ajustes.avisos': 'Mostrar los avisos otra vez',
 
   'notFound.title': 'Esa ruta no existe',

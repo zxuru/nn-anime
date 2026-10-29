@@ -155,6 +155,8 @@ export interface PlayerProps {
   readonly onEnded?: (() => void) | undefined
   /** Segundo en el que empezar, al reanudar o al cambiar de modo. */
   readonly startAtS?: number | undefined
+  /** El ancla de la guía: el reproductor es una parada del recorrido. */
+  readonly dataTour?: string | undefined
 }
 
 /**
@@ -578,7 +580,7 @@ export function Player(props: PlayerProps): ReactNode {
     : t(DEFAULT_LOCALE, 'player.fullscreen')
 
   return (
-    <section className="player">
+    <section className="player" data-tour={props.dataTour}>
       {/* El escenario: el video con sus capas dentro del marco, y los mandos.
           El marco es lo que mide el video, y por eso el botón grande, la espera y
           el lienzo del modo compatible se centran en **la imagen** y no en la caja

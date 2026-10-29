@@ -1,9 +1,13 @@
 /**
- * La guía de primeros pasos y los avisos de novedad.
+ * La guía de la aplicación: un recorrido por pantalla y los avisos de novedad.
  *
- * Dos piezas con la misma materia —un ancla en el marcado y dos claves de
- * texto— y distinto peso: la bienvenida es un recorrido que se ve una vez y se
- * puede repetir; el aviso es una señal pequeña sobre una función nueva, que se
+ * Cada sección tiene el suyo —Inicio, Buscar, Biblioteca, Perfil, Historial,
+ * Ajustes, la ficha y el reproductor— y sale la primera vez que se entra en
+ * ella. El «?» de la cabecera repite el de la pantalla en la que estás; Ajustes
+ * los lista todos. Así una pantalla nueva no hereda el tutorial de otra: se
+ * añade su recorrido aquí y sus anclas en el marcado.
+ *
+ * Los avisos son otra cosa: un faro sobre una función recién publicada, que se
  * descarta y no vuelve.
  *
  * Aquí no hay DOM ni driver.js: sólo datos y el estado de lo visto, para poder
@@ -14,12 +18,41 @@ import type { RouteName } from '../../router'
 
 /** El ancla que un paso busca en el marcado: `data-tour="…"`. */
 export const ANCLAS = {
+  // La cabecera, común a todas las pantallas.
   cabecera: 'cabecera',
   buscar: 'buscar',
-  tipo: 'tipo',
-  destacado: 'destacado',
   biblioteca: 'biblioteca',
   ajustes: 'ajustes',
+  tipo: 'tipo',
+  // Inicio.
+  destacado: 'destacado',
+  continuar: 'continuar',
+  recomendado: 'recomendado',
+  // Buscar.
+  buscadorCampo: 'buscador-campo',
+  buscadorEstado: 'buscador-estado',
+  // Biblioteca.
+  bibliotecaResumen: 'biblioteca-resumen',
+  bibliotecaColeccion: 'biblioteca-coleccion',
+  bibliotecaAjustes: 'biblioteca-ajustes',
+  // Perfil.
+  perfilListas: 'perfil-listas',
+  perfilHistorial: 'perfil-historial',
+  // Historial.
+  historialLista: 'historial-lista',
+  historialPaginas: 'historial-paginas',
+  // Ajustes.
+  ajustesProveedores: 'ajustes-proveedores',
+  ajustesTema: 'ajustes-tema',
+  ajustesGuia: 'ajustes-guia',
+  // Ficha.
+  fichaAcciones: 'ficha-acciones',
+  fichaModos: 'ficha-modos',
+  fichaEpisodios: 'ficha-episodios',
+  // Reproductor.
+  reproductorVideo: 'reproductor-video',
+  reproductorMandos: 'reproductor-mandos',
+  reproductorEpisodios: 'reproductor-episodios',
 } as const
 
 export type Lado = 'top' | 'right' | 'bottom' | 'left'
@@ -27,20 +60,27 @@ export type Alineacion = 'start' | 'center' | 'end'
 
 export interface PasoGuia {
   readonly id: string
-  /** Sin ancla, el paso va centrado: sirve para abrir y cerrar el recorrido. */
+  /** Sin ancla, el paso va centrado: sirve para abrir el recorrido. */
   readonly ancla?: string
   readonly titulo: string
   readonly cuerpo: string
   readonly lado?: Lado
   readonly alineacion?: Alineacion
-  /**
-   * Las pantallas donde el paso tiene sentido.
-   *
-   * Sin esto, el paso del destacado se abriría centrado en Ajustes —el ancla no
-   * existe allí— y el contador diría «3 de 7» para un recorrido de seis. Se
-   * filtra antes de arrancar, no se salta a mitad.
-   */
-  readonly rutas?: readonly RouteName[]
+}
+
+/**
+ * El recorrido de una pantalla.
+ *
+ * `rutas` y no `ruta`: la biblioteca conserva la dirección vieja (`/downloads`)
+ * y las dos abren la misma pantalla, así que el mismo recorrido sirve para las
+ * dos.
+ */
+export interface Recorrido {
+  readonly id: string
+  /** El nombre de la sección, para el «?» y para la lista de Ajustes. */
+  readonly titulo: string
+  readonly rutas: readonly RouteName[]
+  readonly pasos: readonly PasoGuia[]
 }
 
 export interface AvisoGuia {
@@ -53,69 +93,278 @@ export interface AvisoGuia {
   readonly rutas?: readonly RouteName[]
 }
 
-/**
- * El recorrido de bienvenida, en orden.
- *
- * Son seis paradas después de la portada: la cabecera, la búsqueda, la mitad que
- * se mira, la vitrina, la biblioteca y los ajustes. Lo que no está aquí —la
- * ficha, el reproductor, el historial— se aprende usándolo, y un recorrido de
- * doce pasos no se termina.
- */
-export const PASOS: readonly PasoGuia[] = [
+const INICIO: readonly PasoGuia[] = [
   {
     id: 'bienvenida',
-    titulo: 'guia.paso.bienvenida.titulo',
-    cuerpo: 'guia.paso.bienvenida.cuerpo',
+    titulo: 'guia.inicio.bienvenida.titulo',
+    cuerpo: 'guia.inicio.bienvenida.cuerpo',
   },
   {
     id: 'cabecera',
     ancla: ANCLAS.cabecera,
-    titulo: 'guia.paso.cabecera.titulo',
-    cuerpo: 'guia.paso.cabecera.cuerpo',
+    titulo: 'guia.inicio.cabecera.titulo',
+    cuerpo: 'guia.inicio.cabecera.cuerpo',
     lado: 'bottom',
     alineacion: 'center',
-  },
-  {
-    id: 'buscar',
-    ancla: ANCLAS.buscar,
-    titulo: 'guia.paso.buscar.titulo',
-    cuerpo: 'guia.paso.buscar.cuerpo',
-    lado: 'bottom',
-    alineacion: 'start',
   },
   {
     id: 'tipo',
     ancla: ANCLAS.tipo,
-    titulo: 'guia.paso.tipo.titulo',
-    cuerpo: 'guia.paso.tipo.cuerpo',
+    titulo: 'guia.inicio.tipo.titulo',
+    cuerpo: 'guia.inicio.tipo.cuerpo',
     lado: 'bottom',
     alineacion: 'end',
-    rutas: ['home', 'search'],
   },
   {
     id: 'destacado',
     ancla: ANCLAS.destacado,
-    titulo: 'guia.paso.destacado.titulo',
-    cuerpo: 'guia.paso.destacado.cuerpo',
+    titulo: 'guia.inicio.destacado.titulo',
+    cuerpo: 'guia.inicio.destacado.cuerpo',
     lado: 'bottom',
     alineacion: 'center',
-    rutas: ['home'],
   },
   {
-    id: 'biblioteca',
-    ancla: ANCLAS.biblioteca,
-    titulo: 'guia.paso.biblioteca.titulo',
-    cuerpo: 'guia.paso.biblioteca.cuerpo',
+    id: 'continuar',
+    ancla: ANCLAS.continuar,
+    titulo: 'guia.inicio.continuar.titulo',
+    cuerpo: 'guia.inicio.continuar.cuerpo',
+    lado: 'top',
+    alineacion: 'center',
+  },
+  {
+    id: 'recomendado',
+    ancla: ANCLAS.recomendado,
+    titulo: 'guia.inicio.recomendado.titulo',
+    cuerpo: 'guia.inicio.recomendado.cuerpo',
+    lado: 'top',
+    alineacion: 'center',
+  },
+]
+
+const BUSCAR: readonly PasoGuia[] = [
+  {
+    id: 'bienvenida',
+    titulo: 'guia.buscar.bienvenida.titulo',
+    cuerpo: 'guia.buscar.bienvenida.cuerpo',
+  },
+  {
+    id: 'campo',
+    ancla: ANCLAS.buscadorCampo,
+    titulo: 'guia.buscar.campo.titulo',
+    cuerpo: 'guia.buscar.campo.cuerpo',
     lado: 'bottom',
+    alineacion: 'start',
+  },
+  {
+    id: 'estado',
+    ancla: ANCLAS.buscadorEstado,
+    titulo: 'guia.buscar.estado.titulo',
+    cuerpo: 'guia.buscar.estado.cuerpo',
+    lado: 'bottom',
+    alineacion: 'start',
+  },
+]
+
+const BIBLIOTECA: readonly PasoGuia[] = [
+  {
+    id: 'bienvenida',
+    titulo: 'guia.biblioteca.bienvenida.titulo',
+    cuerpo: 'guia.biblioteca.bienvenida.cuerpo',
+  },
+  {
+    id: 'resumen',
+    ancla: ANCLAS.bibliotecaResumen,
+    titulo: 'guia.biblioteca.resumen.titulo',
+    cuerpo: 'guia.biblioteca.resumen.cuerpo',
+    lado: 'bottom',
+    alineacion: 'start',
+  },
+  {
+    id: 'coleccion',
+    ancla: ANCLAS.bibliotecaColeccion,
+    titulo: 'guia.biblioteca.coleccion.titulo',
+    cuerpo: 'guia.biblioteca.coleccion.cuerpo',
+    lado: 'top',
     alineacion: 'center',
   },
   {
     id: 'ajustes',
-    ancla: ANCLAS.ajustes,
-    titulo: 'guia.paso.ajustes.titulo',
-    cuerpo: 'guia.paso.ajustes.cuerpo',
+    ancla: ANCLAS.bibliotecaAjustes,
+    titulo: 'guia.biblioteca.ajustes.titulo',
+    cuerpo: 'guia.biblioteca.ajustes.cuerpo',
+    lado: 'top',
+    alineacion: 'start',
+  },
+]
+
+const PERFIL: readonly PasoGuia[] = [
+  {
+    id: 'bienvenida',
+    titulo: 'guia.perfil.bienvenida.titulo',
+    cuerpo: 'guia.perfil.bienvenida.cuerpo',
+  },
+  {
+    id: 'listas',
+    ancla: ANCLAS.perfilListas,
+    titulo: 'guia.perfil.listas.titulo',
+    cuerpo: 'guia.perfil.listas.cuerpo',
     lado: 'bottom',
-    alineacion: 'end',
+    alineacion: 'center',
+  },
+  {
+    id: 'historial',
+    ancla: ANCLAS.perfilHistorial,
+    titulo: 'guia.perfil.historial.titulo',
+    cuerpo: 'guia.perfil.historial.cuerpo',
+    lado: 'top',
+    alineacion: 'center',
+  },
+]
+
+const HISTORIAL: readonly PasoGuia[] = [
+  {
+    id: 'bienvenida',
+    titulo: 'guia.historial.bienvenida.titulo',
+    cuerpo: 'guia.historial.bienvenida.cuerpo',
+  },
+  {
+    id: 'lista',
+    ancla: ANCLAS.historialLista,
+    titulo: 'guia.historial.lista.titulo',
+    cuerpo: 'guia.historial.lista.cuerpo',
+    lado: 'bottom',
+    alineacion: 'center',
+  },
+  {
+    id: 'paginas',
+    ancla: ANCLAS.historialPaginas,
+    titulo: 'guia.historial.paginas.titulo',
+    cuerpo: 'guia.historial.paginas.cuerpo',
+    lado: 'top',
+    alineacion: 'center',
+  },
+]
+
+const AJUSTES: readonly PasoGuia[] = [
+  {
+    id: 'bienvenida',
+    titulo: 'guia.ajustesRecorrido.bienvenida.titulo',
+    cuerpo: 'guia.ajustesRecorrido.bienvenida.cuerpo',
+  },
+  {
+    id: 'proveedores',
+    ancla: ANCLAS.ajustesProveedores,
+    titulo: 'guia.ajustesRecorrido.proveedores.titulo',
+    cuerpo: 'guia.ajustesRecorrido.proveedores.cuerpo',
+    lado: 'bottom',
+    alineacion: 'start',
+  },
+  {
+    id: 'tema',
+    ancla: ANCLAS.ajustesTema,
+    titulo: 'guia.ajustesRecorrido.tema.titulo',
+    cuerpo: 'guia.ajustesRecorrido.tema.cuerpo',
+    lado: 'top',
+    alineacion: 'start',
+  },
+  {
+    id: 'guia',
+    ancla: ANCLAS.ajustesGuia,
+    titulo: 'guia.ajustesRecorrido.guia.titulo',
+    cuerpo: 'guia.ajustesRecorrido.guia.cuerpo',
+    lado: 'top',
+    alineacion: 'start',
+  },
+]
+
+const FICHA: readonly PasoGuia[] = [
+  {
+    id: 'bienvenida',
+    titulo: 'guia.ficha.bienvenida.titulo',
+    cuerpo: 'guia.ficha.bienvenida.cuerpo',
+  },
+  {
+    id: 'acciones',
+    ancla: ANCLAS.fichaAcciones,
+    titulo: 'guia.ficha.acciones.titulo',
+    cuerpo: 'guia.ficha.acciones.cuerpo',
+    lado: 'right',
+    alineacion: 'start',
+  },
+  {
+    id: 'modos',
+    ancla: ANCLAS.fichaModos,
+    titulo: 'guia.ficha.modos.titulo',
+    cuerpo: 'guia.ficha.modos.cuerpo',
+    lado: 'right',
+    alineacion: 'start',
+  },
+  {
+    id: 'episodios',
+    ancla: ANCLAS.fichaEpisodios,
+    titulo: 'guia.ficha.episodios.titulo',
+    cuerpo: 'guia.ficha.episodios.cuerpo',
+    lado: 'top',
+    alineacion: 'center',
+  },
+]
+
+const REPRODUCTOR: readonly PasoGuia[] = [
+  {
+    id: 'bienvenida',
+    titulo: 'guia.reproductor.bienvenida.titulo',
+    cuerpo: 'guia.reproductor.bienvenida.cuerpo',
+  },
+  {
+    id: 'video',
+    ancla: ANCLAS.reproductorVideo,
+    titulo: 'guia.reproductor.video.titulo',
+    cuerpo: 'guia.reproductor.video.cuerpo',
+    lado: 'bottom',
+    alineacion: 'center',
+  },
+  {
+    id: 'mandos',
+    ancla: ANCLAS.reproductorMandos,
+    titulo: 'guia.reproductor.mandos.titulo',
+    cuerpo: 'guia.reproductor.mandos.cuerpo',
+    lado: 'bottom',
+    alineacion: 'center',
+  },
+  {
+    id: 'episodios',
+    ancla: ANCLAS.reproductorEpisodios,
+    titulo: 'guia.reproductor.episodios.titulo',
+    cuerpo: 'guia.reproductor.episodios.cuerpo',
+    lado: 'left',
+    alineacion: 'start',
+  },
+]
+
+/**
+ * Los recorridos, en el orden en que se leen.
+ *
+ * Un recorrido por pantalla, no por destino del menú: la ficha y el reproductor
+ * también tienen el suyo. El de la biblioteca cubre la dirección vieja.
+ */
+export const RECORRIDOS: readonly Recorrido[] = [
+  { id: 'inicio', titulo: 'guia.recorrido.inicio', rutas: ['home'], pasos: INICIO },
+  { id: 'buscar', titulo: 'guia.recorrido.buscar', rutas: ['search'], pasos: BUSCAR },
+  {
+    id: 'biblioteca',
+    titulo: 'guia.recorrido.biblioteca',
+    rutas: ['library', 'downloads'],
+    pasos: BIBLIOTECA,
+  },
+  { id: 'perfil', titulo: 'guia.recorrido.perfil', rutas: ['profile'], pasos: PERFIL },
+  { id: 'historial', titulo: 'guia.recorrido.historial', rutas: ['history'], pasos: HISTORIAL },
+  { id: 'ajustes', titulo: 'guia.recorrido.ajustes', rutas: ['settings'], pasos: AJUSTES },
+  { id: 'ficha', titulo: 'guia.recorrido.ficha', rutas: ['detail'], pasos: FICHA },
+  {
+    id: 'reproductor',
+    titulo: 'guia.recorrido.reproductor',
+    rutas: ['watch'],
+    pasos: REPRODUCTOR,
   },
 ]
 
@@ -144,14 +393,20 @@ export function selectorDeAncla(ancla: string): string {
   return `[data-tour="${ancla}"]`
 }
 
-/** Los pasos que esta pantalla puede enseñar, en orden. */
-export function pasosPara(ruta: RouteName): readonly PasoGuia[] {
-  return PASOS.filter((paso) => paso.rutas === undefined || paso.rutas.includes(ruta))
+/** El recorrido de una pantalla, si lo tiene. */
+export function recorridoDeRuta(ruta: RouteName): Recorrido | undefined {
+  return RECORRIDOS.find((recorrido) => recorrido.rutas.includes(ruta))
 }
 
 export interface EstadoGuia {
-  /** Si la bienvenida ya se vio. Cerrarla también cuenta: se puede repetir. */
-  readonly bienvenida: boolean
+  /**
+   * Los ids de los recorridos que esta instalación ya vio.
+   *
+   * Cerrar el recorrido también cuenta: se puede repetir desde Ajustes o con el
+   * «?». Un recorrido nuevo —otra pantalla, o una pantalla que antes no tenía—
+   * no está aquí y por eso sale solo.
+   */
+  readonly recorridos: readonly string[]
   /**
    * Los ids de los avisos que esta instalación ya conoce.
    *
@@ -162,36 +417,53 @@ export interface EstadoGuia {
   readonly vistos: readonly string[]
 }
 
-/** La clave y la versión del almacén. Cambiar la forma pide subir la versión. */
+/**
+ * La clave y la versión del almacén.
+ *
+ * La 2 cambió `bienvenida: boolean` por `recorridos: string[]`; la 1 se migra
+ * en `normalizarEstado` para no perder lo que el usuario ya había visto.
+ */
 export const CLAVE_GUIA = 'nn-anime.guia'
-export const VERSION_GUIA = 1
+export const VERSION_GUIA = 2
 
 /** El estado de una instalación que abre la aplicación por primera vez. */
 export function estadoInicial(avisos: readonly AvisoGuia[] = AVISOS): EstadoGuia {
-  return { bienvenida: false, vistos: avisos.map((aviso) => aviso.id) }
+  return { recorridos: [], vistos: avisos.map((aviso) => aviso.id) }
 }
 
 function esRegistro(valor: unknown): valor is Record<string, unknown> {
   return typeof valor === 'object' && valor !== null && !Array.isArray(valor)
 }
 
+function listaDeTextos(valor: unknown): readonly string[] {
+  if (!Array.isArray(valor)) return []
+
+  return [...new Set(valor.filter((id): id is string => typeof id === 'string'))]
+}
+
 /**
  * Convierte lo que haya en el almacén en un estado utilizable.
  *
  * Un JSON de otra versión, un valor a medias o basura no rompen la aplicación:
- * se vuelve al estado inicial. Es un archivo del navegador, no un contrato.
+ * se vuelve al estado inicial. Es un archivo del navegador, no un contrato. La
+ * única excepción es la versión 1, que se migra: su `bienvenida` era el
+ * recorrido de Inicio.
  */
 export function normalizarEstado(
   crudo: unknown,
   avisos: readonly AvisoGuia[] = AVISOS,
 ): EstadoGuia {
-  if (!esRegistro(crudo) || crudo.v !== VERSION_GUIA) return estadoInicial(avisos)
+  if (!esRegistro(crudo)) return estadoInicial(avisos)
 
-  const vistos = Array.isArray(crudo.vistos)
-    ? crudo.vistos.filter((id): id is string => typeof id === 'string')
-    : []
+  const vistos = listaDeTextos(crudo.vistos)
 
-  return { bienvenida: crudo.bienvenida === true, vistos: [...new Set(vistos)] }
+  if (crudo.v === 1) {
+    return { recorridos: crudo.bienvenida === true ? ['inicio'] : [], vistos }
+  }
+
+  if (crudo.v !== VERSION_GUIA) return estadoInicial(avisos)
+
+  return { recorridos: listaDeTextos(crudo.recorridos), vistos }
 }
 
 type Lectura = Pick<Storage, 'getItem'>
@@ -213,7 +485,7 @@ export function leerEstado(almacen: Lectura | undefined): EstadoGuia {
  * Guarda el estado.
  *
  * Un almacén lleno o prohibido —modo privado— no puede impedir que la guía
- * funcione: se pierde la memoria y la bienvenida vuelve a salir en la sesión
+ * funcione: se pierde la memoria y los recorridos vuelven a salir en la sesión
  * siguiente, que es un fallo menor comparado con romper la aplicación.
  */
 export function guardarEstado(almacen: Escritura | undefined, estado: EstadoGuia): void {
@@ -222,16 +494,31 @@ export function guardarEstado(almacen: Escritura | undefined, estado: EstadoGuia
   try {
     almacen.setItem(
       CLAVE_GUIA,
-      JSON.stringify({ v: VERSION_GUIA, bienvenida: estado.bienvenida, vistos: estado.vistos }),
+      JSON.stringify({
+        v: VERSION_GUIA,
+        recorridos: estado.recorridos,
+        vistos: estado.vistos,
+      }),
     )
   } catch {
     return
   }
 }
 
-/** La bienvenida, vista. */
-export function conBienvenida(estado: EstadoGuia): EstadoGuia {
-  return estado.bienvenida ? estado : { ...estado, bienvenida: true }
+/** El recorrido `id`, visto. */
+export function conRecorrido(estado: EstadoGuia, id: string): EstadoGuia {
+  return estado.recorridos.includes(id)
+    ? estado
+    : { ...estado, recorridos: [...estado.recorridos, id] }
+}
+
+/** El recorrido de esta pantalla, si aún no se vio. */
+export function recorridoPendiente(estado: EstadoGuia, ruta: RouteName): Recorrido | undefined {
+  const recorrido = recorridoDeRuta(ruta)
+
+  return recorrido !== undefined && !estado.recorridos.includes(recorrido.id)
+    ? recorrido
+    : undefined
 }
 
 /** Un aviso, descartado. */

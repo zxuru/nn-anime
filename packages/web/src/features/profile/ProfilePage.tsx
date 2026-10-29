@@ -28,6 +28,7 @@ import { SectionHeader } from '../../components/SectionHeader'
 import { TramoVacio } from '../../components/TramoVacio'
 import { t } from '../../i18n'
 import { Link } from '../../router'
+import { ANCLAS } from '../guia/guia'
 import { continuePath, progressPercent, remainingLabel, resumeLabel } from '../home/rows'
 import { cuentaDeTitulos } from '../home/tramo'
 import { useProfile } from './useProfile'
@@ -49,9 +50,10 @@ function Seccion(props: {
   readonly meta: string
   readonly vacio: string
   readonly items: readonly AnimeSummary[]
+  readonly dataTour?: string
 }): ReactNode {
   return (
-    <section className="seccion">
+    <section className="seccion" data-tour={props.dataTour}>
       <SectionHeader
         title={props.titulo}
         meta={props.meta}
@@ -155,6 +157,7 @@ export function ProfilePage(): ReactNode {
         meta={t(DEFAULT_LOCALE, 'profile.favorites.meta')}
         vacio={t(DEFAULT_LOCALE, 'profile.favorites.empty')}
         items={data.favorites}
+        dataTour={ANCLAS.perfilListas}
       />
 
       <Seccion
@@ -171,7 +174,7 @@ export function ProfilePage(): ReactNode {
         items={data.planToWatch}
       />
 
-      <section className="seccion">
+      <section className="seccion" data-tour={ANCLAS.perfilHistorial}>
         <SectionHeader
           title={t(DEFAULT_LOCALE, 'profile.history')}
           meta={t(DEFAULT_LOCALE, 'profile.history.meta')}

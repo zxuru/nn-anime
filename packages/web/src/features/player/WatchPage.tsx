@@ -62,6 +62,7 @@ import {
   loadLatestEpisode,
 } from '../detail/useDetail'
 import { DownloadButton } from '../downloads/DownloadButton'
+import { ANCLAS } from '../guia/guia'
 import { coverPath } from '../search/ResultCard'
 import { AudioModeSwitch } from './AudioModeSwitch'
 import { Player } from './Player'
@@ -980,6 +981,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     <nav
       className="watch__nav"
       aria-label={t(DEFAULT_LOCALE, esPelicula ? 'player.audio' : 'player.episodes')}
+      data-tour={ANCLAS.reproductorMandos}
     >
       {pasos}
       {conAudio ? <AudioModeSwitch mode={modo} onMode={setModo} /> : null}
@@ -996,7 +998,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
    * pintarla, que es lo que T92 vino a quitar.
    */
   const listaDeEpisodios = esPelicula ? null : (
-    <aside className="watch__aside">
+    <aside className="watch__aside" data-tour={ANCLAS.reproductorEpisodios}>
       <WatchEpisodes
         providerId={props.providerId}
         titleRef={animeValue}
@@ -1071,6 +1073,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
           <Player
             url={fuente.url}
             kind={fuente.kind}
+            dataTour={ANCLAS.reproductorVideo}
             // El nombre del título, y no la referencia del episodio: `title` es la
             // etiqueta que lee un lector de pantalla y `aurora-nocturna#3` no es
             // cómo se llama nada. Sin nombre, `Player` pone la suya.

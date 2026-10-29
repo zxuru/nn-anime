@@ -30,6 +30,7 @@ import { t } from '../../i18n'
 import { detailTitleParts, useDocumentTitle } from '../../lib/document-title'
 import { isSafeUrl } from '../../lib/safe-url'
 import { Link } from '../../router'
+import { ANCLAS } from '../guia/guia'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
 import { searchPath } from '../search/SearchPage'
 import { EpisodeList } from './EpisodeList'
@@ -499,7 +500,7 @@ export function DetailPage(props: DetailPageProps): ReactNode {
               —`aria-pressed`, estado inmediato y vuelta atrás si el servidor falla— y
               se leen como grupo. Son tres y no un mando con tres estados porque son
               tres listas independientes del usuario: ninguna escribe en las otras. */}
-          <div className="detail__actions">
+          <div className="detail__actions" data-tour={ANCLAS.fichaAcciones}>
             <FavoriteButton
               value={favorite.value}
               busy={favorite.busy}
@@ -513,7 +514,7 @@ export function DetailPage(props: DetailPageProps): ReactNode {
             />
           </div>
 
-          <section>
+          <section data-tour={ANCLAS.fichaModos}>
             <h2>{t(DEFAULT_LOCALE, 'detail.modes')}</h2>
             <ul className="modes">
               {PLAY_MODES.map((candidato) => {
@@ -578,7 +579,7 @@ export function DetailPage(props: DetailPageProps): ReactNode {
             episodios a lo ancho de las dos, que es donde la lista se lee mejor. */}
           <Lectura detail={completa} enrichment={enrichment} metadata={metadata} />
 
-          <section>
+          <section data-tour={ANCLAS.fichaEpisodios}>
             {/* Una película se titula por lo que es. Dejarle «Episodios» encima del
               botón que la abre era el mismo error que numerar su única parte. */}
             <h2>{t(DEFAULT_LOCALE, esPelicula ? 'detail.movie' : 'detail.episodes')}</h2>

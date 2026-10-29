@@ -5,9 +5,10 @@
  * así que aquí sólo se le dan los pasos, el tema y los textos. El estado de lo
  * visto no vive en este archivo: `estado.ts` lo guarda y avisa.
  *
- * El recorrido se abre a mano desde la cabecera y desde Ajustes, y sale solo la
- * primera vez. Los avisos de novedad son faros de la misma librería (`hints`):
- * un punto que late sobre la función nueva y un diálogo que se descarta.
+ * Cada pantalla tiene su recorrido y sale sola la primera vez que se entra. El
+ * «?» de la cabecera repite el de la pantalla en la que estás. Los avisos de
+ * novedad son faros de la misma librería (`hints`): un punto que late sobre la
+ * función nueva y un diálogo que se descarta.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
@@ -16,8 +17,14 @@ import { type Hints, hints } from 'driver.js/hints'
 import { useEffect, useSyncExternalStore } from 'react'
 import { t } from '../../i18n'
 import { type RouteName, useRoute } from '../../router'
-import { descartarAviso, estadoActual, marcarBienvenida, suscribir } from './estado'
-import { avisosPendientes, type PasoGuia, pasosPara, selectorDeAncla } from './guia'
+import { descartarAviso, estadoActual, marcarRecorrido, suscribir } from './estado'
+import {
+  avisosPendientes,
+  type PasoGuia,
+  RECORRIDOS,
+  recorridoPendiente,
+  selectorDeAncla,
+} from './guia'
 
 /** El recorrido vivo, si hay uno. driver.js sólo admite uno a la vez. */
 let tour: Driver | undefined
@@ -45,20 +52,22 @@ function pasoDeDriver(paso: PasoGuia): DriveStep {
 }
 
 /**
- * Abre la bienvenida desde el principio.
+ * Abre el recorrido `id` desde el principio.
  *
- * `ruta` filtra los pasos que esa pantalla no puede enseñar, para que el
- * contador diga la verdad. Quien la abre desde Ajustes no ve el paso de la
- * vitrina, y no por eso el recorrido queda cojo.
+ * Cerrarlo —con la ✕, con Escape o pasando el último paso— lo da por visto: se
+ * puede repetir desde Ajustes o con el «?», y no vuelve a salir solo.
  */
-export function abrirBienvenida(ruta: RouteName): void {
+export function abrirRecorrido(id: string): void {
   if (typeof document === 'undefined') return
+
+  const recorrido = RECORRIDOS.find((candidato) => candidato.id === id)
+  if (recorrido === undefined) return
 
   tour?.destroy()
   const quieto = prefiereQuieto()
 
   tour = driver({
-    steps: pasosPara(ruta).map(pasoDeDriver),
+    steps: recorrido.pasos.map(pasoDeDriver),
     // El velo de la casa, sin animación cuando el sistema pide quietud. La
     // duración corta es la de `--transition-normal`: un tutorial no es un
     // espectáculo.
@@ -81,7 +90,7 @@ export function abrirBienvenida(ruta: RouteName): void {
     doneBtnText: t(DEFAULT_LOCALE, 'guia.listo'),
     closeBtnLabel: t(DEFAULT_LOCALE, 'guia.cerrar'),
     // Un paso cuyo ancla no llegó a tiempo no se queda centrado hablando de algo
-    // que no está: se salta. La espera cubre la carga de la vitrina.
+    // que no está: se salta. La espera cubre la carga de la pantalla.
     skipMissingElement: true,
     waitForElement: 2500,
     onPopoverRender: (popover) => {
@@ -102,7 +111,7 @@ export function abrirBienvenida(ruta: RouteName): void {
       })
     },
     onDestroyed: () => {
-      marcarBienvenida()
+      marcarRecorrido(recorrido.id)
     },
   })
 
@@ -110,7 +119,7 @@ export function abrirBienvenida(ruta: RouteName): void {
 }
 
 /**
- * La guía de la aplicación: el recorrido de la primera vez y los faros de lo
+ * La guía de la aplicación: el recorrido de la pantalla y los faros de lo
  * nuevo. Se llama una sola vez, en la raíz.
  */
 export function useGuia(): void {
@@ -118,12 +127,13 @@ export function useGuia(): void {
   const ruta = useRoute().name
 
   /*
-    La bienvenida sale sola una vez, con la pantalla ya pintada. Sin el retardo
-    el popover se abre sobre esqueletos y el paso del destacado no encuentra su
-    ancla; con él, la vitrina ya está.
+    El recorrido de la pantalla sale solo la primera vez, con la pantalla ya
+    pintada. Sin el retardo el popover se abre sobre esqueletos y los pasos que
+    apuntan al contenido no encuentran su ancla; con él, la pantalla ya está.
   */
   useEffect(() => {
-    if (estado.bienvenida) return
+    const pendiente = recorridoPendiente(estado, ruta)
+    if (pendiente === undefined) return
 
     const id = window.setTimeout(() => {
       // Un diálogo abierto —el aviso de seguridad— manda: la guía espera a la
@@ -131,17 +141,17 @@ export function useGuia(): void {
       if (document.querySelector('dialog[open]') !== null) return
       if (document.body.classList.contains('driver-active')) return
 
-      abrirBienvenida(ruta)
+      abrirRecorrido(pendiente.id)
     }, 900)
 
     return () => {
       window.clearTimeout(id)
     }
-  }, [estado.bienvenida, ruta])
+  }, [estado, ruta])
 
   /*
     Los faros de lo nuevo. Se montan un poco después que la pantalla para no
-    competir con la bienvenida ni con la carga, y se rehacen al cambiar de ruta:
+    competir con el recorrido ni con la carga, y se rehacen al cambiar de ruta:
     un aviso del inicio no tiene por qué latir en Ajustes.
   */
   useEffect(() => {
