@@ -18,6 +18,7 @@ import { type ReactNode, useState } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
+import { ANCLAS } from '../guia/guia'
 import { SeccionGuia } from '../guia/SeccionGuia'
 import { ProviderList } from './ProviderList'
 import { ProviderRepos } from './ProviderRepos'
@@ -102,7 +103,7 @@ export function SettingsPage(): ReactNode {
         </aside>
       ) : null}
 
-      <section>
+      <section data-tour={ANCLAS.ajustesProveedores}>
         <h2>{t(DEFAULT_LOCALE, 'settings.providers')}</h2>
         <ProviderList
           providers={data.providers}
@@ -152,7 +153,7 @@ export function SettingsPage(): ReactNode {
         </p>
       </section>
 
-      <section>
+      <section data-tour={ANCLAS.ajustesTema}>
         <h2>{t(DEFAULT_LOCALE, 'settings.theme')}</h2>
         <ThemeToggle value={data.theme} onChange={setTheme} />
       </section>

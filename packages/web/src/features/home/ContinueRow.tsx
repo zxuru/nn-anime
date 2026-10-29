@@ -22,6 +22,7 @@ import { Pieza, recursoDe } from '../../components/Pieza'
 import { SectionHeader } from '../../components/SectionHeader'
 import { TramoVacio } from '../../components/TramoVacio'
 import { t } from '../../i18n'
+import { ANCLAS } from '../guia/guia'
 import { continuePath, progressPercent, remainingLabel, resumeLabel } from './rows'
 import { SeccionCargando } from './SeccionCargando'
 import { cuentaDeTitulos } from './tramo'
@@ -43,7 +44,7 @@ export function ContinueRow(props: ContinueRowProps): ReactNode {
   }
 
   return (
-    <section className="seccion">
+    <section className="seccion" data-tour={ANCLAS.continuar}>
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.continue')}
         meta={t(DEFAULT_LOCALE, 'home.continue.meta')}

@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'
 import { Link } from '../../router'
+import { ANCLAS } from '../guia/guia'
 import { IconoReproducir } from '../player/icons'
 import {
   agruparBiblioteca,
@@ -334,7 +335,7 @@ export function LibraryPage(): ReactNode {
 
   return (
     <section className="library">
-      <header className="library__head">
+      <header className="library__head" data-tour={ANCLAS.bibliotecaResumen}>
         <h1>{t(LOCALE, 'library.title')}</h1>
         <p className="library__lede">
           {series.length === 0
@@ -376,7 +377,11 @@ export function LibraryPage(): ReactNode {
         </section>
       )}
 
-      <section className="library__zone" aria-labelledby="library-collection-title">
+      <section
+        className="library__zone"
+        aria-labelledby="library-collection-title"
+        data-tour={ANCLAS.bibliotecaColeccion}
+      >
         <div className="library__zone-head">
           <h2 id="library-collection-title">{t(LOCALE, 'library.collection')}</h2>
           <span className="library__count">
@@ -417,7 +422,7 @@ export function LibraryPage(): ReactNode {
         )}
       </section>
 
-      <details className="library__settings">
+      <details className="library__settings" data-tour={ANCLAS.bibliotecaAjustes}>
         <summary className="library__settings-summary">{t(LOCALE, 'library.settings')}</summary>
         <div className="library__settings-body">
           {space === undefined ? null : (

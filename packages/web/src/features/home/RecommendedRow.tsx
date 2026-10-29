@@ -35,6 +35,7 @@ import { Pieza, recursoDe } from '../../components/Pieza'
 import { SectionHeader } from '../../components/SectionHeader'
 import { TramoVacio } from '../../components/TramoVacio'
 import { t } from '../../i18n'
+import { ANCLAS } from '../guia/guia'
 import { SeccionCargando } from './SeccionCargando'
 import { cuentaDeTitulos } from './tramo'
 
@@ -92,7 +93,7 @@ export function RecommendedRow(props: RecommendedRowProps): ReactNode {
   }
 
   return (
-    <section className="seccion">
+    <section className="seccion" data-tour={ANCLAS.recomendado}>
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.recommended')}
         meta={t(DEFAULT_LOCALE, 'home.recommended.meta')}

@@ -1,17 +1,18 @@
 /**
  * El estado de la guía, fuera de React.
  *
- * La guía la leen dos sitios que no se hablan —la cabecera, que la abre, y
- * Ajustes, que la repite— y el recorrido automático vive en la raíz. Un estado
- * de módulo con suscripción evita pasar callbacks por media aplicación y deja
- * `useSyncExternalStore` hacer el resto.
+ * La guía la leen tres sitios que no se hablan —la cabecera, que repite el
+ * recorrido de la pantalla; Ajustes, que los lista todos; y el recorrido
+ * automático, que vive en la raíz—. Un estado de módulo con suscripción evita
+ * pasar callbacks por media aplicación y deja `useSyncExternalStore` hacer el
+ * resto.
  *
  * La memoria es del navegador: `localStorage`, sin servidor y sin cuentas, como
  * el resto de lo que la aplicación guarda.
  */
 
 import {
-  conBienvenida,
+  conRecorrido,
   type EstadoGuia,
   guardarEstado,
   leerEstado,
@@ -35,7 +36,8 @@ function almacen(): Storage | undefined {
  *
  * La primera lectura siembra la línea base y la guarda en el acto: si no se
  * guardara, un aviso publicado después volvería a sembrarse como «ya conocido»
- * en la sesión siguiente y no saldría nunca.
+ * en la sesión siguiente y no saldría nunca. Guardar siempre la primera vez
+ * también normaliza un valor viejo o corrupto.
  *
  * El objeto se cachea para que `useSyncExternalStore` reciba siempre la misma
  * referencia mientras no haya cambios; devolver uno nuevo en cada lectura es un
@@ -46,8 +48,6 @@ export function estadoActual(): EstadoGuia {
 
   const deposito = almacen()
   cache = leerEstado(deposito)
-  // Se guarda la primera vez aunque no hubiera nada: normaliza un valor viejo o
-  // corrupto y deja sembrada la línea base de los avisos.
   guardarEstado(deposito, cache)
 
   return cache
@@ -62,8 +62,8 @@ export function suscribir(oyente: () => void): () => void {
 }
 
 function publicar(siguiente: EstadoGuia): void {
-  // Repetir «visto» —cerrar la guía dos veces— no cambia nada y no tiene por qué
-  // reescribir el almacén ni despertar a los oyentes.
+  // Repetir «visto» —cerrar el recorrido dos veces— no cambia nada y no tiene
+  // por qué reescribir el almacén ni despertar a los oyentes.
   if (siguiente === cache) return
 
   cache = siguiente
@@ -72,9 +72,9 @@ function publicar(siguiente: EstadoGuia): void {
   for (const oyente of [...oyentes]) oyente()
 }
 
-/** La bienvenida ya se vio. */
-export function marcarBienvenida(): void {
-  publicar(conBienvenida(estadoActual()))
+/** El recorrido `id` ya se vio. */
+export function marcarRecorrido(id: string): void {
+  publicar(conRecorrido(estadoActual(), id))
 }
 
 /** El aviso `id` no vuelve a salir. */

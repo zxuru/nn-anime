@@ -24,6 +24,7 @@ import { Mosaico } from '../../components/Mosaico'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 import { Link, useNavigate, usePath } from '../../router'
+import { ANCLAS } from '../guia/guia'
 import { cuentaDeTitulos } from '../home/tramo'
 import { PiezaDeHistorial } from './ProfilePage'
 import { pageOfPath, useHistoryPage } from './useProfile'
@@ -82,7 +83,7 @@ export function HistoryPage(props: HistoryPageProps): ReactNode {
         <Link to="/profile">{t(DEFAULT_LOCALE, 'history.back')}</Link>
       </p>
 
-      <section className="seccion">
+      <section className="seccion" data-tour={ANCLAS.historialLista}>
         <SectionHeader
           title={t(DEFAULT_LOCALE, 'history.section')}
           meta={t(DEFAULT_LOCALE, 'history.meta')}
@@ -109,7 +110,11 @@ export function HistoryPage(props: HistoryPageProps): ReactNode {
       {/* Sin una sola fila no hay nada que paginar: los mandos dirían «página 1 de 1»
           sobre un historial que no existe. */}
       {sinNada ? null : (
-        <nav className="historial__pagina" aria-label={t(DEFAULT_LOCALE, 'history.pages')}>
+        <nav
+          className="historial__pagina"
+          aria-label={t(DEFAULT_LOCALE, 'history.pages')}
+          data-tour={ANCLAS.historialPaginas}
+        >
           <button
             type="button"
             className="button"

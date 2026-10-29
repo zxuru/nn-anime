@@ -26,6 +26,7 @@ import { resumenDeFallo } from '../../components/ErrorNotice'
 import { Grid, GridItem } from '../../components/Grid'
 import { t } from '../../i18n'
 import { useNavigate, usePath } from '../../router'
+import { ANCLAS } from '../guia/guia'
 import {
   enElTipo,
   fuenteDeResumen,
@@ -260,7 +261,7 @@ export function SearchPage(props: SearchPageProps): ReactNode {
     <section>
       <h1>{t(DEFAULT_LOCALE, 'search.title')}</h1>
 
-      <div className="search__field">
+      <div className="search__field" data-tour={ANCLAS.buscadorCampo}>
         <label className="search__label" htmlFor="search-term">
           {t(DEFAULT_LOCALE, 'search.field')}
         </label>
@@ -275,7 +276,7 @@ export function SearchPage(props: SearchPageProps): ReactNode {
         />
       </div>
 
-      <p className="search__status" aria-live="polite">
+      <p className="search__status" aria-live="polite" data-tour={ANCLAS.buscadorEstado}>
         {announce(visibles, active, providersLoaded, soloCatalogo)}
       </p>
 

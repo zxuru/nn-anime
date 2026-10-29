@@ -1,5 +1,5 @@
 import { test as setup } from '@playwright/test'
-import { AVISOS, CLAVE_GUIA, VERSION_GUIA } from '../src/features/guia/guia'
+import { AVISOS, CLAVE_GUIA, RECORRIDOS, VERSION_GUIA } from '../src/features/guia/guia'
 import { BASE, bootToken, RUTA_ESTADO } from './fixtures'
 
 /**
@@ -20,11 +20,12 @@ setup('canjear el token de arranque y guardar la sesión', async ({ page }) => {
   await page.waitForLoadState('networkidle')
 
   /*
-    La bienvenida sale sola la primera vez y tapa la pantalla. En el arnés se da
-    por vista —su propia prueba la borra para verla—: sin esto, cada prueba de la
-    suite empezaría con un popover encima y ningún clic llegaría a su destino.
-    Los avisos también se dan por vistos: un faro latiendo en la cabecera taparía
-    el enlace que varias pruebas pulsan.
+    Los recorridos salen solos la primera vez que se entra en cada pantalla y
+    tapan lo que hay debajo. En el arnés se dan por vistos —la prueba de la guía
+    los borra para verlos—: sin esto, cada prueba de la suite empezaría con un
+    popover encima y ningún clic llegaría a su destino. Los avisos también se dan
+    por vistos: un faro latiendo en la cabecera taparía el enlace que varias
+    pruebas pulsan.
   */
   await page.evaluate(
     ({ clave, estado }) => {
@@ -34,7 +35,7 @@ setup('canjear el token de arranque y guardar la sesión', async ({ page }) => {
       clave: CLAVE_GUIA,
       estado: {
         v: VERSION_GUIA,
-        bienvenida: true,
+        recorridos: RECORRIDOS.map((recorrido) => recorrido.id),
         vistos: AVISOS.map((aviso) => aviso.id),
       },
     },
