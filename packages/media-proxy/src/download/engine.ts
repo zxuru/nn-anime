@@ -197,6 +197,8 @@ export async function downloadTask(input: DownloadEngineInput): Promise<Download
     signal: input.signal,
     fetchImpl: fetchSeguro,
     ...(remux === undefined ? {} : { remux }),
+    // Convertir no puede tumbar una descarga que ya está entera en disco.
+    remuxOpcional: true,
     ...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
   })
 

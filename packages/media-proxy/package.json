@@ -11,6 +11,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@nn-anime/core": "workspace:*"
+    "@nn-anime/core": "workspace:*",
+    "mux.js": "^6.3.0"
   }
 }

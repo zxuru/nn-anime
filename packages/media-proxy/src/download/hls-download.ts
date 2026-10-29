@@ -40,6 +40,15 @@ export interface HlsDownloadInput {
   readonly fetchImpl?: FetchLike | undefined
   readonly remux?: RemuxFn | undefined
   /**
+   * Si un remux fallido no debe tumbar la descarga.
+   *
+   * Convertir es un extra: si el MP4 no sale, lo bajado sigue siendo el episodio
+   * y se puede reintentar después sin volver a la red. La descarga automática lo
+   * pone a `true`; la conversión que pide el usuario, no, porque ahí el fallo es
+   * la respuesta.
+   */
+  readonly remuxOpcional?: boolean | undefined
+  /**
    * Lo bajado y el total estimado.
    *
    * El segundo puede faltar: sin duraciones en la playlist no hay con qué
@@ -302,7 +311,17 @@ export async function downloadHls(input: HlsDownloadInput): Promise<HlsDownloadR
   }
 
   const mp4 = input.mp4Path ?? `${input.dir}.mp4`
-  await input.remux(playlistLocal, mp4, input.signal)
+  try {
+    await input.remux(playlistLocal, mp4, input.signal)
+  } catch (cause) {
+    if (input.remuxOpcional !== true) throw cause
+
+    // Un MP4 a medias con el nombre bueno parece una descarga rota. Se borra y
+    // el resultado se declara como lo que es: segmentos.
+    await rm(mp4, { force: true })
+
+    return { kind: 'segments', path: playlistLocal, segments: segmentos, bytes }
+  }
 
   // El MP4 ya existe: los segmentos eran el andamio, no el resultado.
   await rm(input.dir, { recursive: true, force: true })

@@ -62,6 +62,11 @@ export {
   readLocalPlaylist,
 } from './download/hls-download'
 export {
+  createMuxRemux,
+  type MuxRemuxOptions,
+  segmentosDePlaylist,
+} from './download/mux-remux'
+export {
   createPlaylistCache,
   defaultKeyPath,
   defaultSegPath,
