@@ -17,6 +17,11 @@ release/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
 
+# El JavaScript de la ventana de actualizaciones lo produce `bun run desktop:ui` a
+# partir de `actualizacion.ts`, y `tauri build` lo embebe en el binario. Se
+# regenera en cada build y en el CI; versionarlo sería dejar dos fuentes de verdad.
+desktop/ui/actualizacion.js
+
 # Secretos: nunca dentro del repo. `.env.example` sí, con marcadores.
 .env
 .env.*

@@ -32,7 +32,6 @@ import { linuxAppImage, linuxPackages } from './package/linux'
 import { macDmg } from './package/macos'
 import { smoke } from './package/smoke'
 import { comprobarOrden } from './package/unico'
-import { windowsInstaller } from './package/windows'
 import { isRecord, ROOT } from './workspaces'
 
 /** El ejecutable compilado, y el instalador, viven aquí. Lo ignorado es `build/`. */
@@ -141,10 +140,21 @@ export async function checkAssets(): Promise<void> {
   }
 }
 
-/** El nombre del instalador: `nn-anime-1.2.3-windows-x64-setup.exe`. */
+/**
+ * El nombre del `.dmg` de macOS.
+ *
+ * El de Windows lo pone `tauri-bundler` (`nn-anime_<versión>_x64-setup.exe`) y no
+ * se puede componer aquí: desde T189 el instalador de Windows es de Tauri. Pedirlo
+ * para Windows es un error, no un nombre.
+ */
 export function installerName(version: string, spec: BinarySpec): string {
-  const base = `nn-anime-${version}-${spec.platform}-${spec.arch}`
-  return spec.platform === 'windows' ? `${base}-setup.exe` : `${base}.dmg`
+  if (spec.platform === 'windows') {
+    throw new Error(
+      'el instalador de Windows lo arma tauri-bundler: usa `bun run desktop:installer`',
+    )
+  }
+
+  return `nn-anime-${version}-${spec.platform}-${spec.arch}.dmg`
 }
 
 /**
@@ -306,13 +316,14 @@ async function buildInstaller(build: InstallerBuild): Promise<readonly string[]>
 
   switch (spec.platform) {
     case 'windows':
-      return [
-        await windowsInstaller({
-          version,
-          sourceDir: dirname(binary),
-          outfile: join(RELEASE_DIR, installerName(version, spec)),
-        }),
-      ]
+      // El instalador de Windows ya no se arma aquí: lo hace `tauri-bundler`, que
+      // es el único que sabe generar el `.sig` y el `latest.json` que el updater
+      // necesita. Se dice el comando en vez de devolver una lista vacía, que
+      // parecería un empaquetado correcto sin instalador.
+      throw new Error(
+        'el instalador de Windows lo arma `bun run desktop:installer` (tauri-bundler); ' +
+          'usa `bun run package --skip-installer` para el servidor',
+      )
 
     case 'macos':
       return [

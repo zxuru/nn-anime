@@ -14,8 +14,19 @@
 //! no abra consola: sin él, el acceso del escritorio volvería a enseñar la ventana
 //! negra que este módulo viene a quitar. El servidor **sí** es un binario de
 //! consola, y por eso se lanza con `CREATE_NO_WINDOW` (ver `sidecar.rs`).
+//!
+//! **La única ventana con IPC es la de actualizaciones** (`actualizacion.rs`). La
+//! principal sigue sin poder invocar ni un comando, que es el contrato de
+//! `capabilities/default.json`; la de actualizaciones tiene su propia capability
+//! con `updater:default` y `process:allow-restart`, nada más.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+// La ventana de actualizaciones sólo tiene sentido en Windows mientras la release
+// no publique bundles firmados para macOS y Linux: el updater busca
+// `darwin-*`/`linux-*` en `latest.json` y no los hay, así que allí la ventana sólo
+// podría enseñar un error. Cuando esos instaladores se migren, el `cfg` se cae.
+#[cfg(windows)]
+mod actualizacion;
 mod boot_line;
 mod browser;
 mod embebido;
@@ -86,6 +97,12 @@ impl Opciones {
 }
 
 fn main() {
+    // Si este proceso es el que arranca la versión nueva de un reemplazo portable,
+    // lo primero es esperar a que el viejo muera: si no, el plugin de instancia
+    // única vería al viejo, enfocaría su ventana y terminaría éste.
+    #[cfg(windows)]
+    actualizacion::esperar_reemplazo();
+
     // Lo primero: dónde viven los datos. La comprobación es una escritura real y
     // se hace una sola vez; de ahí sale también el perfil de WebView2, para que
     // nada quede fuera de la carpeta de la aplicación.
@@ -128,8 +145,28 @@ fn main() {
         diagnostico(&raiz);
     }
 
+    // `instalada` no es `raiz.portable`: la primera dice cómo se entregó el
+    // binario (lo instaló el NSIS o es un `.exe` suelto) y la segunda dónde van los
+    // datos. El updater necesita la primera para elegir el destino.
+    #[cfg(windows)]
+    let instalada = entorno::instalada();
+
+    let actualizador = tauri_plugin_updater::Builder::new();
+    #[cfg(windows)]
+    let actualizador = if instalada {
+        actualizador
+    } else {
+        actualizador.target("windows-x86_64-portable")
+    };
+
     let app = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![elegir_carpeta_descargas])
+        .invoke_handler(tauri::generate_handler![
+            elegir_carpeta_descargas,
+            #[cfg(windows)]
+            actualizacion::registrar_actualizacion,
+            #[cfg(windows)]
+            actualizacion::instalar_portable
+        ])
         // El primero que se registra, y tiene que ser así: el plugin decide si
         // este proceso es el dueño de la aplicación **antes** de que se cree
         // ninguna ventana. Un segundo lanzamiento no arranca otro servidor;
@@ -146,6 +183,11 @@ fn main() {
             // menú tiene que volver a decir «Ocultar».
             tray::actualizar(app);
         }))
+        // El updater y el proceso, para la ventana de actualizaciones. Se
+        // registran antes de crear ninguna ventana: sus comandos tienen que estar
+        // ahí cuando la página cargue, que es cuando comprueba si hay novedades.
+        .plugin(tauri_plugin_process::init())
+        .plugin(actualizador.build())
         // La X **oculta**, no cierra. Sin esto, cerrar la única ventana termina el
         // proceso y se lleva el servidor por delante: quien cierra espera seguir
         // teniéndolo en la bandeja, no apagar la aplicación sin querer.
@@ -155,7 +197,18 @@ fn main() {
         // estado, que sólo existe cuando el hermano está vivo.
         .on_window_event(|ventana, evento| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = evento {
-                if ventana.app_handle().try_state::<Estado>().is_some() {
+                // La ventana de actualizaciones se **oculta**, no se destruye: el
+                // menú de la bandeja tiene que poder volver a enseñarla sin
+                // recrear el webview ni perder lo que estaba diciendo.
+                #[cfg(windows)]
+                if ventana.label() == actualizacion::ETIQUETA {
+                    api.prevent_close();
+                    let _ = ventana.hide();
+                    return;
+                }
+
+                if ventana.label() == LABEL && ventana.app_handle().try_state::<Estado>().is_some()
+                {
                     api.prevent_close();
                     let _ = ventana.hide();
                     tray::actualizar(ventana.app_handle());
@@ -168,6 +221,22 @@ fn main() {
             // ninguna señal de que la aplicación esté viva. Si se creara junto a la
             // ventana, el hueco seguiría pareciendo «no pasa nada».
             tray::crear(app.handle())?;
+
+            // La ventana de actualizaciones, oculta desde ya: comprueba al cargar
+            // y cada tres horas, y sólo se enseña cuando hay una versión nueva o
+            // cuando se pide desde la bandeja. Un fallo al crearla no puede
+            // impedir que arranque la aplicación; se registra y se sigue.
+            #[cfg(windows)]
+            {
+                let perfil_actualizaciones = raiz.webview().join("actualizacion");
+                if let Err(error) =
+                    actualizacion::crear(app.handle(), instalada, perfil_actualizaciones)
+                {
+                    registrar(&format!(
+                        "no se pudo crear la ventana de actualizaciones: {error}"
+                    ));
+                }
+            }
 
             let handle = app.handle().clone();
 

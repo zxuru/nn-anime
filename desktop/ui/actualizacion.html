@@ -1,0 +1,144 @@
+<!doctype html>
+<!--
+  La ventana de actualizaciones.
+
+  Es la única página de la aplicación que corre dentro del webview de Tauri y
+  habla con Rust: por eso la capability `actualizacion` le concede `updater:default`
+  y `process:allow-restart`, y nada más. La interfaz principal se sirve por HTTP y
+  sigue sin poder invocar ni un comando.
+
+  Sin recursos externos: esta ventana también tiene que funcionar sin red, que es
+  justo el caso en el que el updater falla y hay que contarlo.
+-->
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>nn-anime — actualización</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fondo: #f7f7f5;
+        --texto: #1d1d1f;
+        --tenue: #5f5f66;
+        --borde: #d8d8d2;
+        --acento: #7a4bff;
+        --error: #b42318;
+        --barra: #7a4bff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fondo: #17171b;
+          --texto: #f2f2f4;
+          --tenue: #a7a7b0;
+          --borde: #34343c;
+          --acento: #a98bff;
+          --error: #ff8d84;
+          --barra: #a98bff;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--fondo);
+        color: var(--texto);
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+      }
+      .tarjeta {
+        width: 100%;
+        max-width: 34rem;
+      }
+      h1 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0 0 0.35rem;
+      }
+      .version {
+        color: var(--tenue);
+        font-size: 0.85rem;
+        margin: 0 0 1.25rem;
+      }
+      #estado {
+        margin: 0 0 0.75rem;
+      }
+      .detalle {
+        color: var(--tenue);
+        font-size: 0.9rem;
+        margin: 0 0 1rem;
+        max-height: 8rem;
+        overflow: auto;
+        white-space: pre-line;
+      }
+      progress {
+        display: block;
+        width: 100%;
+        height: 0.5rem;
+        margin: 0.5rem 0 1rem;
+        accent-color: var(--barra);
+      }
+      .acciones {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        align-items: center;
+      }
+      button,
+      .enlace {
+        font: inherit;
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.9rem;
+        cursor: pointer;
+        border: 1px solid var(--borde);
+        background: transparent;
+        color: var(--texto);
+        text-decoration: none;
+      }
+      button.principal {
+        background: var(--acento);
+        border-color: var(--acento);
+        color: #fff;
+      }
+      button:focus-visible,
+      .enlace:focus-visible {
+        outline: 2px solid var(--acento);
+        outline-offset: 2px;
+      }
+      [hidden] {
+        display: none;
+      }
+      .error {
+        color: var(--error);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="tarjeta">
+      <h1>nn-anime</h1>
+      <p class="version" id="version"></p>
+      <p id="estado" role="status" aria-live="polite">Comprobando actualizaciones…</p>
+      <p class="detalle" id="detalle" hidden></p>
+      <progress id="progreso" max="100" hidden></progress>
+      <div class="acciones">
+        <button class="principal" id="instalar" type="button" hidden>Actualizar ahora</button>
+        <button id="luego" type="button" hidden>Ahora no</button>
+        <button id="reintentar" type="button" hidden>Reintentar</button>
+        <a class="enlace" id="release" href="https://github.com/zxuru/nn-anime/releases" hidden>
+          Abrir la release
+        </a>
+      </div>
+    </main>
+    <script type="module" src="./actualizacion.js"></script>
+  </body>
+</html>

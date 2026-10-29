@@ -1,9 +1,10 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "nn-anime",
+  "mainBinaryName": "nn-anime-desktop",
   "identifier": "io.github.zxuru.nn-anime",
   "build": {
-    "frontendDist": "../stub",
+    "frontendDist": "../ui",
     "beforeBuildCommand": "",
     "beforeDevCommand": ""
   },
@@ -15,12 +16,38 @@
     }
   },
   "bundle": {
-    "active": false,
-    "targets": [],
+    "active": true,
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "../../packaging/icons/icon.ico",
       "../../packaging/icons/icon.icns",
       "../../packaging/icons/icon-256.png"
-    ]
+    ],
+    "publisher": "nn-anime",
+    "copyright": "nn-anime",
+    "category": "Utility",
+    "shortDescription": "nn-anime",
+    "longDescription": "nn-anime: catálogo, proveedores y reproductor en una aplicación de escritorio.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Spanish"],
+        "displayLanguageSelector": false,
+        "installerIcon": "../../packaging/icons/icon-setup.ico"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE2RDYyNEFEQTg1NUVGOEMKUldTTTcxV29yU1RXRmg1YXFkRXZOMWVhYXJ6eVdpSWk4Y1dBWFdXZ0FUQjg3cCtMSkNvV1hRaHMK",
+      "endpoints": [
+        "https://github.com/zxuru/nn-anime/releases/latest/download/latest.json"
+      ],
+      "requireSignedVersion": true,
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

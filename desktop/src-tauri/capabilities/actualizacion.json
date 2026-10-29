@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "actualizacion",
+  "description": "La única ventana con IPC. Es una página empaquetada (frontendDist), no la interfaz del servidor, y sólo tiene lo que necesita: comprobar/descargar/instalar actualizaciones y relanzar la aplicación. `core:default` aporta los eventos (para que la bandeja pida una comprobación) y las operaciones de ventana (mostrarse, ocultarse y cerrarse). No hay comandos de shell, ni de archivos, ni de proceso más allá de `restart`.",
+  "windows": ["actualizacion"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+    "updater:default",
+    "process:allow-restart"
+  ]
+}

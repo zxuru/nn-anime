@@ -15,9 +15,15 @@ main ──► release-please ──► PR de release ──► merge ──► 
                                   release.yml (el tag lo dispara)
                                   ├── comprobar: listón + tag == package.json
                                   ├── instaladores: servidor → anfitrión → .exe único
-                                  │                (windows), y los paquetes de macos×2 y linux
+                                  │                (windows), los paquetes de macos×2 y linux,
+                                  │                y el NSIS + .sig + latest.json con tauri-action
                                   └── publicar: SHA256SUMS + subir al borrador + publicar
 ```
+
+`tauri-action` sube el instalador de Windows, su `.sig` y `latest.json` **directamente al borrador**
+con `tagName`, y `publicar` añade los demás artefactos sin borrarlos. El paso final comprueba que
+`latest.json` anuncia `windows-x86_64` con url y firma antes de publicar: una release sin eso se ve
+bien y deja a todos los clientes sin actualizar.
 
 | Workflow | Cuándo | Qué hace |
 |---|---|---|
@@ -82,9 +88,11 @@ versiones no rompe `bun install --frozen-lockfile`, así que no hace falta regen
 
 ## Secretos
 
-Todos son **opcionales**. Sin ninguno, las builds salen sin firmar y se instalan igual, con las
-advertencias del sistema que explica la sección de instalación del README. Los pasos de firma se
-activan solos si el secreto existe; si no, se saltan sin fallar.
+Los de **firma de código** son opcionales: sin ellos, las builds salen sin firmar y se instalan
+igual, con las advertencias del sistema que explica la sección de instalación del README. El del
+**updater** no lo es: sin él `tauri build` no puede firmar los artefactos y la release sale sin
+`latest.json`; los clientes se quedarían sin actualizaciones. Los pasos se activan solos si el
+secreto existe.
 
 ### Windows
 
@@ -133,10 +141,29 @@ clave privada.
 Sin los cinco, el `.app` y el `.dmg` salen **sin firmar y sin notarizar**, y quien los descargue verá
 el aviso de «desarrollador no identificado».
 
+### Actualizaciones (obligatorio)
+
+| Secreto | Qué es |
+|---|---|
+| `TAURI_SIGNING_PRIVATE_KEY` | El **contenido** de la clave privada que generó `bun tauri signer generate` |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | La contraseña con la que se generó esa clave |
+
+La clave privada **nunca** se versiona: `.gitignore` ya tapa `*.key` y los pasos del workflow sólo la
+leen del secreto. La **pública** va en `plugins.updater.pubkey` de `desktop/src-tauri/tauri.conf.json`
+y es lo que verifica cada cliente que la descarga viene de aquí. Si se pierde la privada no se pueden
+publicar actualizaciones para quien ya tiene la aplicación instalada: hay que guardarla.
+
+El comando, con la clave fuera del repositorio:
+
+```bash
+bun tauri signer generate -w ~/.tauri/nn-anime.key
+```
+
+`tauri-action` firma el instalador NSIS y escribe `latest.json` en la release con ese secreto. Sin él,
+el paso de Windows falla en vez de publicar un instalador que nadie podrá actualizar.
+
 ### Lo que no hay
 
-- **Clave del updater.** No hay auto-actualización, así que no hay clave que configurar. Ver «lo que
-  falta» más abajo.
 - **Firma GPG de los paquetes de Linux.** El `.deb` y el `.rpm` no van firmados. `apt` lo admitirá con
   un aviso; quien quiera comprobarlos tiene el `SHA256SUMS.txt`.
 
@@ -149,16 +176,17 @@ instalador** en las tres plataformas, y los deja descargables en la página del 
 | Artefacto | Qué lleva |
 |---|---|
 | `nn-anime-ubuntu-latest` | El ejecutable de Linux, el `.AppImage`, el `.deb` y el `.rpm` |
-| `nn-anime-windows-latest` | El **archivo único** `nn-anime-<v>-windows-x64.exe` y su instalador `…-setup.exe` |
+| `nn-anime-windows-latest` | El **archivo único** `nn-anime-<v>-windows-x64.exe` y el instalador NSIS de Tauri `nn-anime_<v>_x64-setup.exe` |
 | `nn-anime-macos-latest` | El ejecutable de macOS y el `.dmg` de esa arquitectura |
 
 Las herramientas que no vienen en la imagen de GitHub las prepara
-`.github/actions/herramientas`: NSIS en Windows —y si no estuviera, lo instala—, y `nfpm` y
-`appimagetool` en Linux, **fijados por versión y por SHA256**. macOS no necesita nada: `hdiutil` y
-`codesign` vienen con el sistema.
+`.github/actions/herramientas`: `nfpm` y `appimagetool` en Linux, **fijados por versión y por SHA256**.
+Windows ya no necesita nada: el NSIS lo descarga `tauri-bundler` con la versión que fija Tauri, porque
+el `.nsi` escrito a mano desapareció con T189. macOS no necesita nada: `hdiutil` y `codesign` vienen
+con el sistema.
 
-Por eso el instalador se arma también en cada push y no sólo en la release: un error en el script de
-NSIS o en el `.dmg` aparece en el push que lo introdujo, que es cuando se arregla en un minuto, y no
+Por eso el instalador se arma también en cada push y no sólo en la release: un error en el empaquetado
+de NSIS o en el `.dmg` aparece en el push que lo introdujo, que es cuando se arregla en un minuto, y no
 el día de la release.
 
 Si quieres construir en tu máquina de todos modos:
@@ -167,9 +195,13 @@ Si quieres construir en tu máquina de todos modos:
 bun run build                        # la interfaz, que viaja dentro del servidor
 bun run package --skip-installer     # el servidor, y lo arranca para probarlo
 bun run desktop:build                # el anfitrión, con el servidor embebido (Windows)
-bun run package --only-installer     # el instalador, con el anfitrión ya compilado
+bun run desktop:installer            # el instalador NSIS de Windows, con tauri-bundler
+bun run desktop:installer --updater  # el mismo, con .sig y latest.json (necesita la clave)
 bun run package:unico                # el archivo único (Windows)
 ```
+
+En macOS y Linux el instalador sigue siendo `bun run package --only-installer`; en Windows ese
+comando ya no existe y dice que use `desktop:installer`.
 
 El orden **no es opcional en Windows**: `desktop/build.rs` embebe el servidor al compilar el anfitrión,
 así que el servidor va primero. Si se compila al revés, `package:unico` falla con «el anfitrión es más
@@ -247,9 +279,11 @@ renombrar, así que mover `packages/web/dist` rompería el ejecutable sin que na
 
 ## El anfitrión de ventana, y su toolchain
 
-El anfitrión (`nn-anime-desktop`, en `desktop/src-tauri`) se compila con `cargo` y **no** con el CLI de
-Tauri: `tauri-build` lee `tauri.conf.json` en el guion de compilación, así que `cargo build --release`
-produce el binario entero y el empaquetado sigue siendo el de siempre.
+El anfitrión (`nn-anime-desktop`, en `desktop/src-tauri`) se compila con `cargo`; `tauri-build` lee
+`tauri.conf.json` en el guion de compilación, así que `cargo build --release` produce el binario
+entero. En **Windows**, además, `bun run desktop:installer` invoca el CLI de Tauri para que
+`tauri-bundler` arme el instalador NSIS: es lo único que genera el `.sig` y el `latest.json` que el
+updater necesita. macOS y Linux siguen con `scripts/package.ts`.
 
 En Windows el instalador instala **sólo el anfitrión**, que lleva el servidor dentro; en macOS y Linux
 viajan los dos ejecutables, como hasta ahora. El orden de compilación es un contrato:
@@ -257,14 +291,19 @@ viajan los dos ejecutables, como hasta ahora. El orden de compilación es un con
 ```bash
 bun run build                                   # la interfaz, que va dentro del servidor
 bun run package --skip-installer                # el servidor, primero
-bun run desktop:build                           # el anfitrión, con el servidor dentro (Windows)
-bun run package --only-installer                # el instalador
+bun run desktop:build                           # el anfitrión, con el servidor dentro
+bun run desktop:installer                       # el instalador NSIS de Windows (tauri-bundler)
+bun run package --only-installer                # el instalador de macOS o Linux
 bun run package:unico                           # el archivo único (Windows)
 ```
 
-`bun run package` a secas comprueba que el anfitrión no sea más viejo que el servidor y se niega a
-armar un instalador que arrancaría sin interfaz. `--skip-desktop` sigue existiendo para compilar sin
-el árbol de Rust, pero sin anfitrión no hay instalador que se pueda publicar.
+`bun run desktop:installer` compila antes `desktop/ui/actualizacion.ts`: la ventana de
+actualizaciones viaja en `frontendDist` y `tauri build` la embebe al compilar. `--updater` añade los
+artefactos firmados del updater y exige `TAURI_SIGNING_PRIVATE_KEY`; el CI compila sin él.
+
+`bun run package` a secas ya no arma el instalador de Windows —lo dice y señala `desktop:installer`—
+y en macOS y Linux sigue comprobando que el anfitrión no sea más viejo que el servidor. `--skip-desktop`
+sigue existiendo para compilar sin el árbol de Rust, pero sin anfitrión no hay instalador publicable.
 
 Para la compilación cruzada —la matriz arma el `.dmg` de Intel desde un Mac arm64— se le dice el
 objetivo, y el triple de Rust lo resuelve el propio comando:
@@ -314,12 +353,20 @@ y se actualizan la URL y el hash en `.github/actions/herramientas/action.yml`, l
 
 ## Lo que falta, y por qué
 
-- **Auto-actualización: no hay.** Y no es un olvido. El updater de Tauri y `electron-updater` no
-  existen aquí, y NSIS no trae uno propio; con este método de empaquetado, la aplicación no tiene
-  forma de reemplazarse a sí misma sin código nuevo. Lo que haría falta: una ruta que consulte la API
-  de Releases al arrancar, compare con `--version`, avise en Ajustes y, al aceptar, descargue el
-  instalador y lo ejecute. Es una función de la aplicación, no del empaquetado, y por eso no está:
-  el reparto se hizo sin tocar la lógica.
+- **Auto-actualización: sí, en Windows.** La aplicación consulta
+  `releases/latest/download/latest.json` al arrancar y cada tres horas, y el menú de la bandeja tiene
+  «Buscar actualizaciones». El instalador NSIS lo firma `tauri-bundler` con la clave del updater y
+  `tauri-action` escribe el `latest.json`; sin `WINDOWS_CERT_THUMBPRINT` el instalador sale sin firmar
+  de código, pero el `.sig` del updater y la verificación de la descarga no dependen de eso.
+  - **Copia instalada:** descarga el NSIS, verifica la firma y lo ejecuta.
+  - **Copia portable (el `.exe` único):** `publicar` firma el archivo único con la misma clave y le
+    añade a `latest.json` la entrada `windows-x86_64-portable` con su URL y su firma. La aplicación
+    descarga ese `.exe`, verifica la firma minisign, aparta el que está corriendo, pone el nuevo y lo
+    arranca; el nuevo espera a que el viejo muera y borra el `.viejo`. Si el medio es de sólo lectura
+    o el reemplazo falla, se revierte y se enseña el enlace.
+  - **macOS y Linux:** todavía no hay: sus instaladores no publican bundles del updater
+    (`darwin-*`/`linux-*`), así que el menú no aparece allí. Migrarlos es pasar esos instaladores a
+    `tauri-bundler` y publicar sus `.sig`.
 - **MSI en Windows: no hay.** El requisito era «`.exe` (NSIS) y/o `.msi`», y el NSIS cubre los dos
   papeles: instala, deja accesos, se desinstala y aparece en «Agregar o quitar programas». Un MSI
   pediría WiX y una instalación por máquina que necesitaría administrador para un programa que vive

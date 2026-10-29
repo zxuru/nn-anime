@@ -183,7 +183,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     permissions:
-      contents: read
+      # El job de Windows sube el instalador y `latest.json` a la release con
+      # `tauri-action`; los demás sólo dejan artefactos del workflow.
+      contents: write
     env:
       # `secrets` no está disponible en el `if` de un paso de forma fiable; el `env` del job sí, y
       # a partir de ahí la decisión es una comparación de cadenas.
@@ -248,12 +250,22 @@ jobs:
         shell: pwsh
         env:
           PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          PFX_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
         run: |
           # Se escribe a un archivo temporal y se borra al final. El contenido del certificado y su
           # contraseña no se imprimen nunca: lo que se enseña es que existe.
           $ruta = Join-Path $env:RUNNER_TEMP 'nn-anime.pfx'
           [IO.File]::WriteAllBytes($ruta, [Convert]::FromBase64String($env:PFX_BASE64))
           "PFX_PATH=$ruta" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+          # Además se importa al almacén del usuario: es lo que permite que
+          # `tauri-bundler` firme el anfitrión y el instalador por huella, sin un
+          # `signCommand` que tendría que llevar rutas y contraseñas en el repositorio.
+          $segura = ConvertTo-SecureString -String $env:PFX_PASSWORD -AsPlainText -Force
+          $certificado = Import-PfxCertificate -FilePath $ruta `
+            -CertStoreLocation Cert:\CurrentUser\My -Password $segura
+          "WINDOWS_CERT_THUMBPRINT=$($certificado.Thumbprint)" |
+            Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Output "certificado de Windows preparado en $ruta"
 
       - name: Firmar el servidor de Windows
@@ -311,12 +323,6 @@ jobs:
           & $signtool.FullName verify /pa $ruta
           Write-Output 'anfitrión de Windows firmado'
 
-      # 3) El archivo que se descarga. `package:unico` comprueba que el anfitrión
-      #    sea más nuevo que el servidor: si no, copiaría un `.exe` con el de ayer.
-      - name: Ejecutable único (Windows)
-        if: runner.os == 'Windows'
-        run: bun run package:unico
-
       # --- macOS: firma y notarización condicionales ----------------------
       - name: Preparar el certificado de macOS
         if: runner.os == 'macOS' && env.FIRMAR_MACOS == 'true'
@@ -352,7 +358,12 @@ jobs:
       - name: Limpiar el certificado de Windows
         if: always() && runner.os == 'Windows' && env.FIRMAR_WINDOWS == 'true'
         shell: pwsh
-        run: Remove-Item -Force "$env:PFX_PATH" -ErrorAction SilentlyContinue
+        run: |
+          Remove-Item -Force "$env:PFX_PATH" -ErrorAction SilentlyContinue
+          if ($env:WINDOWS_CERT_THUMBPRINT) {
+            $ruta = "Cert:\CurrentUser\My\$env:WINDOWS_CERT_THUMBPRINT"
+            if (Test-Path $ruta) { Remove-Item $ruta -Force -ErrorAction SilentlyContinue }
+          }
 
       # --- Linux: las herramientas de empaquetado -------------------------
       # NSIS en Windows, `nfpm` y `appimagetool` en Linux, con sus hashes comprobados. La misma
@@ -367,13 +378,97 @@ jobs:
         run: df -h
 
       # --- El instalador, ya con el ejecutable firmado --------------------
+      # macOS y Linux siguen con `scripts/package.ts`. Windows no: desde T189 su
+      # instalador lo arma `tauri-bundler`, que es lo único que genera el `.sig` y
+      # el `latest.json` que el updater necesita.
       - name: Armar el instalador
+        if: runner.os != 'Windows'
         env:
           # Vacíos si no hay certificado, y entonces `macos.ts` no firma ni notariza.
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bun run package --only-installer --target=${{ matrix.target }}
+
+      # `tauri build` embebe `frontendDist` al compilar: la ventana de
+      # actualizaciones tiene que existir antes, o el instalador llevaría una
+      # ventana en blanco.
+      - name: Construir la ventana de actualizaciones (Windows)
+        if: runner.os == 'Windows'
+        run: bun run desktop:ui
+
+      # La firma del instalador va por huella: se importa el certificado (paso
+      # anterior) y se le pasa a tauri-bundler en un `--config` temporal. Así no
+      # hay rutas ni contraseñas en el repositorio, y una huella vacía —sin
+      # certificado— deja el instalador sin firmar como antes.
+      - name: Configurar la firma del instalador (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ruta = Join-Path $env:RUNNER_TEMP 'tauri-firma.json'
+          $windows = @{}
+          if ($env:WINDOWS_CERT_THUMBPRINT) {
+            $windows = @{
+              certificateThumbprint = $env:WINDOWS_CERT_THUMBPRINT
+              digestAlgorithm = 'sha256'
+              timestampUrl = 'http://timestamp.digicert.com'
+            }
+          }
+          @{ bundle = @{ windows = $windows } } |
+            ConvertTo-Json -Depth 4 |
+            ForEach-Object { [IO.File]::WriteAllText($ruta, $_, (New-Object System.Text.UTF8Encoding($false))) }
+          Write-Output "configuración de firma en $ruta"
+
+      # La release ya existe: la creó `release-please` en borrador con este tag.
+      # `tagName` y no sólo `releaseId`: sin tag, las URLs de `latest.json` apuntan
+      # a `releases/latest/download/` y se rompen en cuanto hay una release que no
+      # lleva bundles del updater —que es justo el caso de las de macOS—.
+      - name: Armar el instalador (Windows) y subirlo
+        if: runner.os == 'Windows'
+        uses: tauri-apps/tauri-action@944946e3e4cac6603d1fe8f514171e9ecd3c78aa # v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # `build.rs` se para si no encuentra el servidor; un instalador sin
+          # interfaz arranca y parece un fallo del instalador.
+          NN_ANIME_EXIGIR_SERVIDOR: '1'
+        with:
+          tagName: ${{ needs.comprobar.outputs.tag }}
+          releaseDraft: true
+          # `desktop/` es la raíz del proyecto Tauri (`src-tauri` vive dentro).
+          projectPath: desktop
+          tauriScript: bun tauri
+          # `--target` deja el binario en el directorio del triple, que es donde lo
+          # busca `package:unico`; `--config` añade la huella del certificado.
+          args: --target x86_64-pc-windows-msvc --config ${{ runner.temp }}/tauri-firma.json
+          # El NSIS es el que usa el updater en Windows, y `latest.json` lleva
+          # `windows-x86_64` y `windows-x86_64-nsis`.
+          updaterJsonPreferNsis: true
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
+
+      # El archivo único va **después** de tauri-action: es el bundler el que
+      # recompila y firma el anfitrión (por huella), y el portable tiene que
+      # llevarse esa copia y no la de antes.
+      - name: Ejecutable único (Windows)
+        if: runner.os == 'Windows'
+        run: bun run package:unico
+
+      # El `.exe` único no pasa por el instalador: la copia portable se reemplaza
+      # a sí misma, así que su firma minisign viaja en `latest.json` y la verifica
+      # el anfitrión antes de tocar el archivo. La clave es la misma del updater.
+      - name: Firmar el archivo único para el updater (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          $unico = Get-ChildItem release -Filter 'nn-anime-*-windows-x64.exe' | Select-Object -First 1
+          if (-not $unico) { throw 'no hay archivo único que firmar' }
+          bun tauri signer sign --app-version ${{ needs.comprobar.outputs.version }} $unico.FullName
+          if (-not (Test-Path "$($unico.FullName).sig")) { throw 'no se generó la firma del .exe único' }
 
       # El instalador, probado **antes** de subirlo: instalarlo en silencio, mirar
       # que deja **un solo ejecutable** —el anfitrión—, sus accesos y su entrada en
@@ -391,7 +486,7 @@ jobs:
         shell: pwsh
         run: |
           bun run scripts/package/pe.ts build/package/windows-x64/nn-anime.exe console
-          bun run scripts/package/pe.ts build/package/windows-x64/nn-anime-desktop.exe windows
+          bun run scripts/package/pe.ts desktop/src-tauri/target/x86_64-pc-windows-msvc/release/nn-anime-desktop.exe windows
 
           # Y el archivo único: mismo subsistema `windows` que el anfitrión, porque
           # es su copia. Si el nombre del artefacto cambia, esto falla aquí y no en
@@ -403,7 +498,7 @@ jobs:
       - name: Probar el instalador (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: pwsh -NoProfile -File packaging/windows/probar-instalador.ps1 -Release release
+        run: pwsh -NoProfile -File packaging/windows/probar-instalador.ps1 -Bundle desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis
 
       - name: Subir los instaladores y el archivo único
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -507,15 +602,54 @@ jobs:
             echo "borrador creado: $borrador"
           fi
 
-          # Un reintento sobre el mismo borrador no debe chocar con los assets del intento anterior.
-          for id in $(gh api --paginate "repos/$REPO/releases/$borrador/assets?per_page=100" --jq '.[].id'); do
-            gh api --method DELETE "repos/$REPO/releases/assets/$id" >/dev/null
-          done
-
+          # Un reintento sobre el mismo borrador no debe chocar con los assets del
+          # intento anterior. Se borran **sólo los que este job vuelve a subir**:
+          # el instalador de Windows, su `.sig` y `latest.json` los puso
+          # `tauri-action` en este mismo borrador y son la mitad del updater.
+          #
+          # `latest.json` se toca antes que nada: hay que añadirle la entrada del
+          # portable (URL del `.exe` único + su firma) y volver a subirlo. Sin
+          # ella, la copia portable no encuentra qué descargar.
           # Subir al id del borrador, no al tag: `gh release upload "$TAG"` vuelve a caer en el
           # endpoint que no ve borradores y crearía otro release.
           upload_url="$(gh api "repos/$REPO/releases/$borrador" --jq .upload_url)"
           upload_url="${upload_url%\{*}"
+
+          latest_id="$(gh api --paginate "repos/$REPO/releases/$borrador/assets?per_page=100" \
+            --jq '.[] | select(.name == "latest.json") | .id' | head -n 1)"
+          if [ -z "$latest_id" ]; then
+            echo "tauri-action no subió latest.json a $TAG" >&2
+            exit 1
+          fi
+
+          unico="$(find release -maxdepth 1 -type f -name 'nn-anime-*-windows-x64.exe' | head -n 1)"
+          if [ -z "$unico" ]; then
+            echo 'no hay .exe único en release/ para la entrada portable' >&2
+            exit 1
+          fi
+          if [ ! -f "$unico.sig" ]; then
+            echo 'no hay .sig del .exe único: falta firmarlo' >&2
+            exit 1
+          fi
+
+          gh api "repos/$REPO/releases/assets/$latest_id" \
+            -H 'Accept: application/octet-stream' > "$RUNNER_TEMP/latest.json"
+          url="https://github.com/$REPO/releases/download/$TAG/$(basename "$unico")"
+          bun run scripts/package/portable-manifest.ts \
+            "$RUNNER_TEMP/latest.json" "$unico.sig" "$url"
+
+          gh api --method DELETE "repos/$REPO/releases/assets/$latest_id" >/dev/null
+          gh api --method POST "$upload_url?name=latest.json" \
+            -H "Content-Type: application/json" --input "$RUNNER_TEMP/latest.json" >/dev/null
+
+          for f in release/*; do
+            [ -f "$f" ] || continue
+            nombre="$(basename "$f")"
+            id="$(gh api --paginate "repos/$REPO/releases/$borrador/assets?per_page=100" \
+              --jq ".[] | select(.name == \"$nombre\") | .id" | head -n 1)"
+            if [ -n "$id" ]; then gh api --method DELETE "repos/$REPO/releases/assets/$id" >/dev/null; fi
+          done
+
           for f in release/*; do
             [ -f "$f" ] || continue
             echo "subiendo $(basename "$f")"
@@ -527,17 +661,56 @@ jobs:
             -F draft=false -F make_latest=true >/dev/null
 
           # Publicar sin comprobar qué quedó publicado es lo que dejó la 0.3.1 vacía y en verde.
-          esperados="$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')"
-          subidos="$(gh api "repos/$REPO/releases/$borrador" --jq '.assets | length')"
+          # Desde T189 el updater depende de dos assets que sube otro job: `latest.json` y el
+          # `.sig` del instalador de Windows. Si faltan, la release se ve bien y todos los
+          # clientes se quedan sin actualizar; por eso se comprueban aquí, no en el cliente.
           sigue_borrador="$(gh api "repos/$REPO/releases/$borrador" --jq '.draft')"
+          nombres="$(gh api --paginate "repos/$REPO/releases/$borrador/assets?per_page=100" --jq '.[].name')"
 
-          if [ "$subidos" != "$esperados" ]; then
-            echo "se esperaban $esperados assets y hay $subidos en $TAG" >&2
-            exit 1
+          fallos=0
+          for f in release/*; do
+            [ -f "$f" ] || continue
+            nombre="$(basename "$f")"
+            if ! grep -Fxq "$nombre" <<< "$nombres"; then
+              echo "falta $nombre en $TAG" >&2
+              fallos=1
+            fi
+          done
+
+          if ! grep -Fxq 'latest.json' <<< "$nombres"; then
+            echo "falta latest.json en $TAG: /releases/latest/download/latest.json dará 404" >&2
+            fallos=1
           fi
+
+          if ! grep -q '\.sig$' <<< "$nombres"; then
+            echo "no hay ningún .sig en $TAG: el updater rechazaría la descarga" >&2
+            fallos=1
+          fi
+
+          # El `latest.json` tiene que anunciar windows-x86_64 con url y firma; es lo que
+          # consulta la aplicación y lo que el paso 6 de la tarea comprueba con curl.
+          if grep -Fxq 'latest.json' <<< "$nombres"; then
+            id="$(gh api "repos/$REPO/releases/$borrador/assets?per_page=100" \
+              --jq '.[] | select(.name == "latest.json") | .id')"
+            gh api "repos/$REPO/releases/assets/$id" -H 'Accept: application/octet-stream' \
+              > "$RUNNER_TEMP/latest.json"
+            jq -e '
+              .platforms["windows-x86_64"].url and
+              .platforms["windows-x86_64"].signature and
+              .platforms["windows-x86_64-portable"].url and
+              .platforms["windows-x86_64-portable"].signature
+            ' "$RUNNER_TEMP/latest.json" >/dev/null ||
+              { echo "latest.json no anuncia windows-x86_64 y windows-x86_64-portable con url y firma" >&2; fallos=1; }
+          fi
+
           if [ "$sigue_borrador" != "false" ]; then
             echo "$TAG sigue en borrador" >&2
+            fallos=1
+          fi
+
+          if [ "$fallos" -ne 0 ]; then
+            echo "la release quedó incompleta y no se da por publicada" >&2
             exit 1
           fi
 
-          echo "publicada: $TAG (id $borrador, $subidos assets)"
+          echo "publicada: $TAG (id $borrador, $(wc -l <<< "$nombres" | tr -d ' ') assets)"

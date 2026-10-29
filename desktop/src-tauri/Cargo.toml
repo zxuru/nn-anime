@@ -42,6 +42,16 @@ serde_json = "1"
 # El servidor extraído se verifica contra el hash que calculó `build.rs`.
 sha2 = "0.11"
 
+# Auto-actualización, **sólo en escritorio**. `tauri-plugin-updater` comprueba
+# `latest.json`, verifica la firma del instalador y lo ejecuta; el plugin de
+# proceso aporta `relaunch()`, que en macOS y Linux hay que llamar después de
+# instalar. Van con `target` y no en `[dependencies]` porque la documentación del
+# plugin lo pide así. La sección no se puede fusionar con las de `cfg(windows)` y
+# `cfg(linux)` de abajo: son tres predicados distintos.
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+
 [target.'cfg(windows)'.dependencies]
 # **Pendiente, y no hecho.** El Job Object es el único seguro que existe en Windows
 # —ahí no hay `PR_SET_PDEATHSIG`— y **no está escrito**: `guards.rs` sólo pone
@@ -59,7 +69,26 @@ windows-sys = { version = "0.61", features = [
   "Win32_Security",
   # `MessageBoxW`: el único aviso que funciona sin webview ni archivos.
   "Win32_UI_WindowsAndMessaging",
+  # La entrada de desinstalación: distingue una copia instalada de un `.exe` suelto
+  # sin depender de `portable.txt`, que habla de dónde van los datos y no de cómo se
+  # entregó el binario.
+  "Win32_System_Registry",
+  # `SYNCHRONIZE`, el derecho con el que se espera a que muera el proceso viejo en
+  # un reemplazo portable.
+  "Win32_Storage_FileSystem",
 ] }
+# La descarga del `.exe` portable, su firma y el reemplazo en sitio. `reqwest` y
+# `minisign-verify` ya vienen con `tauri-plugin-updater`; aquí se declaran porque
+# se usan directamente y Cargo exige nombrarlos. El backend TLS es el mismo que el
+# del plugin (`rustls` sin proveedor + `ring`), para no tener dos almacenes de
+# certificados en el mismo binario.
+base64 = "0.23"
+minisign-verify = "0.3"
+reqwest = { version = "0.13", default-features = false, features = [
+  "rustls-no-provider",
+  "stream",
+] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2"

@@ -47,7 +47,7 @@ const PROPUESTA = join(ROOT, 'docs', 'specs', 'proposals', 'SPEC-desktop.T135.md
 const MAPA = join(ROOT, 'docs', 'specs', 'CAPABILITY-MAP.md')
 const BIOME = join(ROOT, 'biome.json')
 const GITIGNORE = join(ROOT, '.gitignore')
-const STUB = join(ROOT, 'desktop', 'stub', 'index.html')
+const STUB = join(ROOT, 'desktop', 'ui', 'index.html')
 
 async function leer(ruta: string): Promise<string> {
   return await Bun.file(ruta).text()
@@ -80,7 +80,10 @@ describe('el contrato del módulo desktop', () => {
 
     // Biome nombra la carpeta sin comodín: `!desktop/**` lo rechaza con «use
     // `!desktop`», así que la guarda fija la forma que la herramienta acepta.
-    expect(biome.files?.includes ?? []).toContain('!desktop')
+    // Ya no se excluye `desktop/` entero: `desktop/ui` es TypeScript de la ventana
+    // de actualizaciones y tiene que pasar el mismo listón que el resto.
+    expect(biome.files?.includes ?? []).toContain('!desktop/src-tauri')
+    expect(biome.files?.includes ?? []).not.toContain('!desktop')
   })
 
   test('lo que compila cargo no se versiona, y el lock sí', async () => {
@@ -151,16 +154,18 @@ describe('el anfitrión de ventana', () => {
     const config = JSON.parse(await leer(join(CRATE, 'tauri.conf.json'))) as {
       build: { frontendDist: string }
       app: { windows: readonly unknown[] }
-      bundle: { active: boolean }
+      bundle: { active: boolean; targets: readonly string[] }
     }
 
     // Sin ventanas declaradas: la URL y el tamaño los pone `main.rs`, que es quien
     // sabe en qué puerto escucha el servidor. El puerto no se puede fijar antes.
     expect(config.app.windows).toHaveLength(0)
 
-    // Y el empaquetado de Tauri está apagado: los instaladores los sigue armando
-    // `scripts/package.ts`, que es el que está probado.
-    expect(config.bundle.active).toBe(false)
+    // El empaquetado de Tauri está encendido desde T189, pero **sólo** para el
+    // NSIS de Windows: es el que genera el `.sig` y el `latest.json` del updater.
+    // macOS y Linux siguen armándose con `scripts/package.ts`.
+    expect(config.bundle.active).toBe(true)
+    expect(config.bundle.targets).toEqual(['nsis'])
 
     const relleno = join(CRATE, config.build.frontendDist, 'index.html')
     expect(await Bun.file(relleno).exists()).toBe(true)
@@ -210,7 +215,7 @@ describe('el anfitrión de ventana', () => {
     // subsistema `windows`, así que no hay consola donde leerlo y quien abre el acceso
     // no vería ni ventana ni mensaje.
     const main = await leer(join(CRATE, 'src', 'main.rs'))
-    const aviso = await leer(join(ROOT, 'desktop', 'stub', 'index.html'))
+    const aviso = await leer(join(ROOT, 'desktop', 'ui', 'index.html'))
 
     // Se cuentan las **llamadas**, no la definición: `toContain('avisar_fallo')` lo
     // satisface la propia `fn avisar_fallo`, así que borrar las dos llamadas —o sea,
@@ -423,25 +428,26 @@ describe('el anfitrión de ventana', () => {
     expect(icono).toBeLessThan(hilo)
   })
 
-  test('el instalador de Windows lleva la ventana y el acceso la abre', async () => {
-    // Es lo que quita la consola de la experiencia de quien instala. Se comprueba
-    // sobre el `.nsi` **y se dice por qué**: `makensis` no está en esta máquina,
-    // así que el instalador no se puede compilar aquí. Lo que se fija es que la
-    // receta instale los dos ejecutables y que los accesos abran el anfitrión.
-    const nsi = await leer(join(ROOT, 'packaging', 'windows', 'nn-anime.nsi'))
+  test('el instalador de Windows lo arma tauri-bundler, no un .nsi a mano', async () => {
+    // Desde T189 el instalador de Windows no se escribe en este repositorio: lo
+    // genera Tauri, que es lo único que produce el `.sig` y el `latest.json` que el
+    // updater necesita. Si alguien devolviera el `.nsi`, volveríamos a un instalador
+    // que el updater no sabe actualizar.
+    expect(await Bun.file(join(ROOT, 'packaging', 'windows', 'nn-anime.nsi')).exists()).toBe(false)
 
-    expect(nsi).toContain('nn-anime-desktop.exe')
-    // Los dos se instalan y los dos se borran al desinstalar. Se busca con una
-    // expresión regular y no con una cadena porque el texto que se compara lleva
-    // llaves de NSIS (`${...}`), y escribirlas dentro de una cadena dispara
-    // `noTemplateCurlyInString`: son literales del script, no plantillas.
-    expect(nsi).toMatch(/File "\$\{SOURCE\}\\\$\{APP_HOST\}"/)
-    expect(nsi).toMatch(/Delete "\$INSTDIR\\\$\{APP_HOST\}"/)
-    // Y los dos accesos abren el anfitrión, no el servidor de consola.
-    expect(nsi).toMatch(/"\$\{ACCESO_EXE\}"/)
-    expect(nsi).not.toMatch(
-      /CreateShortCut "\$DESKTOP\\\$\{APP_NAME\}\.lnk" "\$INSTDIR\\\$\{APP_EXE\}"/,
-    )
+    const conf = await leer(join(CRATE, 'tauri.conf.json'))
+
+    // El binario que se instala no se llama como el producto: el nombre lo fija
+    // `[[bin]]` en `Cargo.toml` y `mainBinaryName` es el contrato con el bundler.
+    expect(conf).toContain('"mainBinaryName": "nn-anime-desktop"')
+    expect(conf).toContain('"targets": ["nsis"]')
+    expect(conf).toContain('"createUpdaterArtifacts": true')
+    expect(conf).toContain('"installMode": "currentUser"')
+    // El updater descarga e instala sin preguntar: `passive` es la ventana con
+    // barra de progreso, no el asistente.
+    expect(conf).toContain('"installMode": "passive"')
+    expect(conf).toContain('https://github.com/zxuru/nn-anime/releases/latest/download/latest.json')
+    expect(conf).toContain('"pubkey"')
   })
 
   test('el CI compila y mide el árbol de Rust', async () => {
@@ -677,15 +683,18 @@ describe('el archivo único y la release', () => {
 
   test('la release compila servidor, anfitrión, único e instalador en ese orden', async () => {
     // Si el anfitrión se compila antes que el servidor, `build.rs` no lo mete
-    // dentro y el `.exe` arranca sin interfaz. El orden es el contrato.
+    // dentro y el `.exe` arranca sin interfaz. El orden es el contrato. En Windows,
+    // además, el `package:unico` va **después** de `tauri-action`: es el bundler el
+    // que recompila y firma el anfitrión, y el portable tiene que ser esa copia.
     const release = await leer(join(ROOT, '.github', 'workflows', 'release.yml'))
     const nombres = [
       'Compilar y probar el ejecutable',
       'Firmar el servidor de Windows',
       'Compilar el anfitrión',
       'Firmar el anfitrión de Windows',
-      'Ejecutable único (Windows)',
       'Armar el instalador',
+      'Armar el instalador (Windows) y subirlo',
+      'Ejecutable único (Windows)',
     ]
     const indices = nombres.map((nombre) => {
       const indice = release.indexOf(`- name: ${nombre}`)
@@ -715,6 +724,7 @@ describe('el archivo único y la release', () => {
       'Compilar el anfitrión',
       'Ejecutable único (Windows)',
       'Armar el instalador',
+      'Armar el instalador (Windows)',
     ]
     const indices = nombres.map((nombre) => {
       const indice = ci.indexOf(`- name: ${nombre}`)
@@ -745,11 +755,16 @@ describe('el archivo único y la release', () => {
     const script = await leer(join(ROOT, 'packaging', 'windows', 'probar-instalador.ps1'))
 
     // Un solo ejecutable: si vuelve el servidor suelto, el instalador deja de ser
-    // el archivo único que se publica y esto lo dice.
-    expect(script).toContain("'nn-anime-desktop.exe', 'nn-anime.ico'")
+    // el archivo único que se publica y esto lo dice. El instalador de Tauri no
+    // instala un `.ico` aparte; el icono va dentro del `.exe`.
+    expect(script).toContain("'nn-anime-desktop.exe'")
+    expect(script).toContain("'uninstall.exe'")
     expect(script).not.toContain("'nn-anime.exe', 'nn-anime-desktop.exe'")
 
-    // Los datos del anfitrión viven todos bajo `%LOCALAPPDATA%\nn-anime`.
+    // Los datos del anfitrión viven todos bajo `%LOCALAPPDATA%\nn-anime`, que con
+    // el instalador de Tauri es también el directorio de instalación. El
+    // desinstalador borra lo suyo y deja el resto; por eso el centinela va en la
+    // raíz y se comprueba después.
     expect(script).toContain("Join-Path $env:LOCALAPPDATA 'nn-anime'")
     expect(script).not.toContain("Join-Path $env:APPDATA 'nn-anime'")
 

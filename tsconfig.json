@@ -1,5 +1,11 @@
 {
   "extends": "./tsconfig.base.json",
-  "include": ["packages/*/src/**/*", "packages/*/e2e/**/*", "scripts/**/*", "tests/**/*"],
+  "include": [
+    "packages/*/src/**/*",
+    "packages/*/e2e/**/*",
+    "scripts/**/*",
+    "tests/**/*",
+    "desktop/ui/**/*.ts"
+  ],
   "exclude": ["node_modules", "packages/web/dist", "packages/web/e2e"]
 }
