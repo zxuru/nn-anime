@@ -39,7 +39,15 @@ export interface HlsDownloadInput {
   readonly signal: AbortSignal
   readonly fetchImpl?: FetchLike | undefined
   readonly remux?: RemuxFn | undefined
-  readonly onProgress?: ((bytes: number) => void) | undefined
+  /**
+   * Lo bajado y el total estimado.
+   *
+   * El segundo puede faltar: sin duraciones en la playlist no hay con qué
+   * repartir lo descargado y prometer un total sería inventarlo. Cuando aparece,
+   * es una proyección del bitrate medido en los segmentos ya bajados, no el
+   * tamaño final.
+   */
+  readonly onProgress?: ((bytes: number, totalBytes: number | undefined) => void) | undefined
 }
 
 export interface HlsDownloadResult {
@@ -107,6 +115,34 @@ function extensionDe(url: string): string {
 }
 
 /**
+ * La duración que declara un `#EXTINF`, en segundos.
+ *
+ * Es lo único que la playlist dice del tamaño del episodio: cuánto dura. Con eso
+ * y lo que pesan los segmentos ya bajados se puede proyectar el total, que es lo
+ * que la barra necesita para no quedarse girando. Un valor que no es un número
+ * positivo no cuenta.
+ */
+export function duracionDeExtinf(linea: string): number | undefined {
+  const valor = /^#EXTINF:\s*([0-9]+(?:\.[0-9]+)?)/.exec(linea.trim())?.[1]
+  if (valor === undefined) return undefined
+
+  const segundos = Number(valor)
+
+  return Number.isFinite(segundos) && segundos > 0 ? segundos : undefined
+}
+
+/** Cuánto dura la playlist entera: la suma de sus `#EXTINF`. */
+export function duracionDePlaylist(texto: string): number {
+  let total = 0
+
+  for (const linea of texto.split(/\r?\n/)) {
+    total += duracionDeExtinf(linea) ?? 0
+  }
+
+  return total
+}
+
+/**
  * Reescribe la playlist con nombres locales y descarga lo que nombra.
  *
  * `#EXT-X-KEY` con un método que no sea `NONE` se rechaza: sin descifrado, el
@@ -120,9 +156,35 @@ async function descargarSegmentos(
   fetchImpl: FetchLike,
 ): Promise<{ lineas: string[]; segmentos: number; bytes: number }> {
   const lineas: string[] = []
+  const duracionTotal = duracionDePlaylist(texto)
   let segmentos = 0
-  let bytes = 0
   let iniciales = 0
+  let bytes = 0
+  let bytesIniciales = 0
+  let duracionHecha = 0
+  let duracionPendiente = 0
+
+  /**
+   * El total que se enseña mientras se baja, medido con lo que ya se bajó.
+   *
+   * El HLS no publica el peso del episodio, pero sí su duración: lo que pesó la
+   * parte descargada, repartido por los segundos que dura, da un bitrate medido
+   * con el que se proyecta el resto. Los bytes del `#EXT-X-MAP` no se reparten
+   * por duración —no duran nada y se pagan una vez—, así que van aparte. Al
+   * terminar, el total deja de ser proyección: es lo que hay en disco.
+   */
+  const estimarTotal = (hecha: number, bajados: number): number | undefined => {
+    if (duracionTotal <= 0 || hecha <= 0) return undefined
+    if (hecha >= duracionTotal) return Math.round(bajados)
+
+    const bytesPorSegundo = (bajados - bytesIniciales) / hecha
+
+    return Math.round(bytesIniciales + bytesPorSegundo * duracionTotal)
+  }
+
+  const avisar = (hecha: number, bajados: number): void => {
+    input.onProgress?.(bajados, estimarTotal(hecha, bajados))
+  }
 
   for (const cruda of texto.split(/\r?\n/)) {
     const linea = cruda.trimEnd()
@@ -155,9 +217,13 @@ async function descargarSegmentos(
         fetchImpl,
       })
       bytes += bajado.bytes
+      bytesIniciales += bajado.bytes
       lineas.push(linea.replace(`URI="${uri}"`, `URI="${nombre}"`))
       continue
     }
+
+    const duracion = duracionDeExtinf(linea)
+    if (duracion !== undefined) duracionPendiente = duracion
 
     if (linea === '' || linea.startsWith('#')) {
       lineas.push(linea)
@@ -177,10 +243,21 @@ async function descargarSegmentos(
       fetchImpl,
       ...(input.onProgress === undefined
         ? {}
-        : { onProgress: (total) => input.onProgress?.(bytes + total) }),
+        : {
+            onProgress: (parcial, tamano) => {
+              // Mientras baja un segmento se le atribuye la parte de su duración
+              // que ya entró: así el porcentaje avanza dentro del segmento y no
+              // a saltos de cuatro segundos.
+              const cuota = tamano !== undefined && tamano > 0 ? parcial / tamano : 0
+              avisar(duracionHecha + duracionPendiente * cuota, bytes + parcial)
+            },
+          }),
     })
     bytes += bajado.bytes
+    duracionHecha += duracionPendiente
+    duracionPendiente = 0
     lineas.push(nombre)
+    avisar(duracionHecha, bytes)
   }
 
   if (segmentos === 0) throw new Error('la playlist no tiene ningún segmento')

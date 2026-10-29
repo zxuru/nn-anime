@@ -140,6 +140,31 @@ describe('la descarga de una tarea', () => {
     })
   })
 
+  test('un HLS informa el total estimado y lo cierra con los bytes del archivo', async () => {
+    await conRaiz(async (root) => {
+      const totales: (number | undefined)[] = []
+
+      const salida = await downloadTask({
+        root,
+        task: TAREA,
+        signal: new AbortController().signal,
+        resolve: async () => ({ url: 'https://fixture.invalid/master.m3u8', kind: 'hls' }),
+        fetchImpl: servidor({
+          'https://fixture.invalid/master.m3u8': HLS.master,
+          'https://fixture.invalid/media.m3u8': HLS.media,
+          'https://fixture.invalid/a.ts': 'AAAA',
+          'https://fixture.invalid/b.ts': 'BBBB',
+        }),
+        onProgress: (_bytes, totalBytes) => totales.push(totalBytes),
+      })
+
+      // Mientras baja hay una proyección: sin ella la barra no tendría cifra.
+      expect(totales.some((total) => total !== undefined)).toBe(true)
+      // Al terminar, el total es el archivo, no la proyección.
+      expect(salida.totalBytes).toBe(salida.bytes)
+    })
+  })
+
   test('un stream a loopback se corta antes de pedirlo', async () => {
     await conRaiz(async (root) => {
       let pedido = false

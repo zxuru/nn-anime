@@ -167,3 +167,66 @@ seg0.ts
     })
   })
 })
+
+/**
+ * Las dos mitades de un progreso que dice la verdad: mientras baja, el total es
+ * una proyección por duración; al terminar, es lo que quedó en disco.
+ */
+const DESIGUAL = `#EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-MAP:URI="init.mp4"
+#EXTINF:4,
+corto.ts
+#EXTINF:4,
+largo.ts
+#EXT-X-ENDLIST
+`
+
+describe('el progreso de un HLS', () => {
+  test('estima el total con la duración y lo cierra con los bytes reales', async () => {
+    await conDirectorio(async (dir) => {
+      const avisos: { bytes: number; total: number | undefined }[] = []
+
+      const resultado = await downloadHls({
+        playlistUrl: 'https://fixture.invalid/desigual.m3u8',
+        dir: join(dir, 'episodio'),
+        signal: new AbortController().signal,
+        fetchImpl: servidor({
+          'https://fixture.invalid/desigual.m3u8': DESIGUAL,
+          'https://fixture.invalid/init.mp4': 'INIT',
+          'https://fixture.invalid/corto.ts': 'AA',
+          'https://fixture.invalid/largo.ts': 'BBBBBB',
+        }),
+        onProgress: (bytes, totalBytes) => avisos.push({ bytes, total: totalBytes }),
+      })
+
+      // A mitad de duración pesó 2 de los 6 bytes de segmentos: la proyección
+      // —4 del init más 2 por cada mitad— da 8, que no es lo bajado.
+      expect(avisos.some((aviso) => aviso.bytes === 6 && aviso.total === 8)).toBe(true)
+      // Al terminar ya no hay proyección: el total es el archivo real.
+      expect(resultado.bytes).toBe(12)
+      expect(avisos.at(-1)).toEqual({ bytes: 12, total: 12 })
+    })
+  })
+
+  test('sin duraciones no inventa un total', async () => {
+    await conDirectorio(async (dir) => {
+      const avisos: (number | undefined)[] = []
+
+      await downloadHls({
+        playlistUrl: 'https://fixture.invalid/muda.m3u8',
+        dir: join(dir, 'episodio'),
+        signal: new AbortController().signal,
+        fetchImpl: servidor({
+          'https://fixture.invalid/muda.m3u8': '#EXTM3U\nuno.ts\ndos.ts\n#EXT-X-ENDLIST\n',
+          'https://fixture.invalid/uno.ts': 'AAA',
+          'https://fixture.invalid/dos.ts': 'BBB',
+        }),
+        onProgress: (_bytes, totalBytes) => avisos.push(totalBytes),
+      })
+
+      expect(avisos.length).toBeGreaterThan(0)
+      expect(avisos.every((total) => total === undefined)).toBe(true)
+    })
+  })
+})

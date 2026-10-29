@@ -26,6 +26,7 @@ import {
   type Descarga,
   estaActiva,
   estimarRestante,
+  faltanBytes,
   formatearBytes,
   formatearEspera,
   porcentaje,
@@ -96,18 +97,38 @@ function useVelocidades(items: readonly Descarga[]): ReadonlyMap<number, number>
   return velocidades
 }
 
-/** Lo que se lee debajo de la barra: avance, velocidad y lo que falta. */
-function datos(item: Descarga, velocidad: number | undefined): string {
+/**
+ * Lo que se lee debajo de la barra: lo que lleva, lo que falta, la velocidad y
+ * el tiempo.
+ *
+ * «Llevas» y «faltan» se dicen con palabras y no sólo con una razón de bytes: la
+ * pregunta que la fila contesta es cuánto queda, y una cifra suelta entre dos
+ * tamaños obliga a restar. El porcentaje va primero porque es lo que se mira de
+ * reojo.
+ */
+export function datos(item: Descarga, velocidad: number | undefined): string {
   const avance = porcentaje(item)
-  const partes = [
-    item.totalBytes === undefined || avance === undefined
-      ? t(LOCALE, 'library.progressUnknown', { done: formatearBytes(item.bytes) })
-      : t(LOCALE, 'library.progress', {
-          percent: avance,
-          done: formatearBytes(item.bytes),
-          total: formatearBytes(item.totalBytes),
-        }),
-  ]
+  const partes: string[] = []
+
+  if (avance !== undefined) {
+    partes.push(t(LOCALE, 'library.percent', { percent: avance }))
+  }
+
+  if (item.totalBytes === undefined || avance === undefined) {
+    partes.push(t(LOCALE, 'library.progressUnknown', { done: formatearBytes(item.bytes) }))
+  } else {
+    partes.push(
+      t(LOCALE, 'library.progress', {
+        done: formatearBytes(item.bytes),
+        total: formatearBytes(item.totalBytes),
+      }),
+    )
+
+    const falta = faltanBytes(item)
+    if (falta !== undefined) {
+      partes.push(t(LOCALE, 'library.remaining', { left: formatearBytes(falta) }))
+    }
+  }
 
   if (velocidad !== undefined) {
     partes.push(t(LOCALE, 'library.speed', { speed: formatearBytes(velocidad) }))
