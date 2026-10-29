@@ -17,8 +17,8 @@ import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
-import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
+import { TramoVacio } from '../../components/TramoVacio'
 import { t } from '../../i18n'
 import type { PiezaVista } from './descubrir'
 import { SeccionCargando } from './SeccionCargando'
@@ -55,7 +55,7 @@ export function FeedRow(props: FeedRowProps): ReactNode {
       <div className="seccion__cuerpo">
         <Mosaico>
           {props.items.length === 0 ? (
-            <PiezaVacia texto={props.vacio ?? t(DEFAULT_LOCALE, 'home.feed.empty')} />
+            <TramoVacio texto={props.vacio ?? t(DEFAULT_LOCALE, 'home.feed.empty')} />
           ) : (
             props.items.map((item, indice) => (
               <Pieza

@@ -174,6 +174,30 @@ describe('tokens de diseño', () => {
   })
 
   /**
+   * La nota de un tramo no vive al margen donde no cabe.
+   *
+   * La canaleta es de dos columnas; por debajo de 1400 una sola mide ~84 px a 1280
+   * y el titular —hasta 1,75 rem— no cabe dentro: se cortaba bajo el primer cartel
+   * y «Recomendado para ti» se leía «Recomen». Lo que se sujeta es el
+   * emparejamiento, que es lo que se rompió: en la misma consulta en la que el
+   * mosaico aprieta a cuatro columnas, la nota vuelve a ser cabecera del tramo. La
+   * prueba no mide el ancho de la columna —eso pide navegador—, mide que no se
+   * vuelva a estrechar sin devolver la nota a su sitio.
+   */
+  test('la nota deja de ir al margen cuando el mosaico se aprieta', async () => {
+    const css = await read(SHELL)
+    const bloque = /@media \(max-width: 1400px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
+
+    expect(bloque, 'falta el bloque de 1400').toContain('.mosaico')
+    expect(bloque, 'la nota sigue al margen con el mosaico apretado').toContain('.seccion {')
+    expect(bloque).toContain('display: block')
+    expect(bloque).toContain('position: static')
+
+    // Y la canaleta estrecha no vuelve por su cuenta en ninguna otra consulta.
+    expect(css).not.toContain('--vitrina-canaleta: 1')
+  })
+
+  /**
    * El botón de reproducir no cambia de ancho al cambiar de estado.
    *
    * Es lo que se mide: «Reproducir» y «Pausa» no ocupan lo mismo, y el botón

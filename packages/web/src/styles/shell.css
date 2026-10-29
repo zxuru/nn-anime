@@ -3692,6 +3692,38 @@
   container-type: inline-size;
 }
 
+/* El tramo sin nada: un renglón, no un cartel.
+ *
+ * Un vacío con la forma de una pieza ocupaba el alto de un cartel —389 px a
+ * 1280— para decir «no hay nada», y tres de ellos seguidos convertían la home en
+ * una pantalla de huecos. Como renglón explica lo mismo sin pedir el sitio de lo
+ * que falta, y el titular de la nota sigue siendo el único encabezado del tramo:
+ * el vacío no inventa un nivel más. */
+.tramo-vacio {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding-block: var(--space-3);
+  max-inline-size: var(--measure);
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+}
+
+.tramo-vacio__titulo {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* El cuerpo repite el tono apagado del renglón aunque lo herede: si mañana el
+   vacío se pinta sobre otra superficie, la mitad que explica no se vuelve blanca
+   por accidente. */
+.tramo-vacio__cuerpo {
+  color: var(--color-text-dim);
+}
+
 .nota__titulo {
   font-family: var(--font-display);
   font-size: var(--nota-titulo);
@@ -3942,19 +3974,6 @@
   border-radius: var(--radius-full);
 }
 
-/* Puntuación del motor a la vista en la pieza recomendada. */
-.pz__punto {
-  position: relative;
-  z-index: 2;
-  padding: 0 var(--pieza-pie-lado) var(--pieza-pie-lado);
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--arte-punto);
-}
-
 /* El botón que abre el asomo. Invisible hasta que hay puntero encima o foco
    dentro: ocupa su sitio siempre —los 44 px del dedo— pero no ensucia la
    vitrina. En táctil se ve siempre, porque no hay puntero que lo descubra. */
@@ -4060,34 +4079,6 @@
 .pz--apagada .pz__arte,
 .pz--apagada .pz__campo {
   filter: saturate(0.32) brightness(0.9);
-}
-
-/* La pieza fantasma: el fallo de un proveedor ocupa su hueco, rayado y sin
-   degradado, para que el hueco se vea y se explique. */
-.pz--fantasma {
-  background: var(--color-surface);
-  background-image: repeating-linear-gradient(
-    135deg,
-    var(--color-rule) 0 var(--border-width),
-    transparent var(--border-width) var(--space-3)
-  );
-  border-style: dashed;
-  color: var(--color-text);
-  place-content: center;
-  align-content: center;
-  text-align: center;
-}
-
-.pz--fantasma .pz__pie {
-  padding-inline: var(--space-4);
-}
-
-.pz--fantasma .pz__titulo {
-  font-size: var(--pieza-titulo-ancha);
-}
-
-.pz--fantasma .pz__meta {
-  color: var(--color-danger);
 }
 
 /* Pieza que es un mando (el «Mostrar más» del top): ocupa su hueco y se lee
@@ -4297,30 +4288,18 @@
 
 /* --- 14. Adaptación. Recompone, no encoge. ----------------------------- */
 
-/* 1100–1400 : mosaico de 4 columnas; la nota a la mitad. */
+/* ≤1400 : mosaico de 4 columnas y **la nota deja de vivir al margen**.
+ *
+ * La canaleta es de dos columnas, y por debajo de 1400 una sola mide ~84 px a
+ * 1280: el titular, a cuerpo de nota (hasta 1,75 rem), no cabe y se cortaba bajo
+ * el primer cartel —«Recomen|dado para ti»—, que es peor que no tener margen. El
+ * umbral que aprieta la rejilla es el mismo que devuelve la nota a cabecera del
+ * tramo: es el ancho a partir del cual ya no hay sitio para la retícula editorial
+ * y sus cuatro carteles a la vez. El corte va con el del mosaico y no con el de
+ * 1100 a propósito: la nota no puede vivir en una columna más estrecha que ella. */
 @media (max-width: 1400px) {
-  :root {
-    --vitrina-canaleta: 1;
-  }
-
   .mosaico {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-/* 820–1100 : mosaico de 3 columnas; la nota pasa a cabecera de sección; la
-   marquesina a un solo bloque con el cartel detrás, atenuado. */
-@media (max-width: 1100px) {
-  /*
-   * La ficha: la sinopsis y los datos vuelven a una sola pista.
-   *
-   * A este ancho la columna de lectura mide menos que la medida de la sinopsis
-   * —la caja menos la barra lateral y los dos huecos—, así que las dos pistas se
-   * quedan sin sitio y la de datos se apilaría en una tira de tres caracteres. Se
-   * apilan, que es como se leían antes de tenerlas.
-   */
-  .detail__lectura--dos {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .seccion {
@@ -4338,6 +4317,22 @@
 
   .seccion__nota .nota__cuenta {
     margin-inline-start: auto;
+  }
+}
+
+/* 820–1100 : mosaico de 3 columnas; la marquesina a un solo bloque con el cartel
+   detrás, atenuado. La nota ya es cabecera desde 1400. */
+@media (max-width: 1100px) {
+  /*
+   * La ficha: la sinopsis y los datos vuelven a una sola pista.
+   *
+   * A este ancho la columna de lectura mide menos que la medida de la sinopsis
+   * —la caja menos la barra lateral y los dos huecos—, así que las dos pistas se
+   * quedan sin sitio y la de datos se apilaría en una tira de tres caracteres. Se
+   * apilan, que es como se leían antes de tenerlas.
+   */
+  .detail__lectura--dos {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .seccion__cuerpo {

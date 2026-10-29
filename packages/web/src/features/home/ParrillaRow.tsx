@@ -20,8 +20,8 @@ import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
-import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
+import { TramoVacio } from '../../components/TramoVacio'
 import { t } from '../../i18n'
 import { anioDe, type DiaDeParrilla, desdeEmision, episodioDe, horaDe } from './descubrir'
 import { SeccionCargando } from './SeccionCargando'
@@ -85,7 +85,7 @@ export function ParrillaRow(props: ParrillaRowProps): ReactNode {
       <div className="seccion__cuerpo">
         {total === 0 ? (
           <Mosaico>
-            <PiezaVacia texto={props.vacio ?? t(DEFAULT_LOCALE, 'home.parrilla.empty')} />
+            <TramoVacio texto={props.vacio ?? t(DEFAULT_LOCALE, 'home.parrilla.empty')} />
           </Mosaico>
         ) : (
           props.dias.map((dia) => {

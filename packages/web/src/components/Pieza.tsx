@@ -3,15 +3,15 @@
  *
  * Es la unidad del mosaico: arte dibujado —el campo de degradado que le toca por
  * posición más un recurso propio—, el pie con lo que se sepa del título y, en las
- * que lo llevan, el puesto del top, lo que se retoma y la puntuación del motor.
+ * que lo llevan, el puesto del top y lo que se retoma.
  *
  * **Todas pesan lo mismo**: un cartel de una columna, con la proporción de una
  * portada (2:3). El tamaño decía la jerarquía mientras el mosaico fue ancho, pero
  * una pieza de dos columnas dejaba tres títulos a la vista con un hueco al lado y
  * once en una fila de dos; la rejilla apretada enseña seis veces más títulos por
  * fila y no deja huecos. Lo que distingue una pieza de otra fila es lo que lleva
- * dentro —el puesto, la puntuación, la barra de lo que se retoma— y el orden de los
- * tramos, no el ancho.
+ * dentro —el puesto, la barra de lo que se retoma— y el orden de los tramos, no el
+ * ancho.
  *
  * **El cuerpo de la pieza es un enlace de verdad** —el arte y el pie— y lo que se
  * pulsa vive fuera de él: el botón «i», que abre la hoja, y los dos mandos del
@@ -93,23 +93,6 @@ const CAMPO_DE_ARTE: Record<RecursoPieza, string> = {
   caja: 'pz__campo pz__campo--caja',
 }
 
-/**
- * Un vacío, en dos renglones.
- *
- * La vitrina explica un vacío con la forma de una pieza fantasma: un titular y su
- * cuerpo, como en las que sí traen algo. Los textos del catálogo ya vienen en una
- * frase —«Nada a medias. Lo que empieces aparecerá aquí.»— y el primer punto es el
- * corte natural entre el titular y el cuerpo. Un vacío de una sola frase se queda
- * con el titular y sin cuerpo: un hueco con un guion es peor que un hueco.
- */
-export function tituloYCuerpo(texto: string): { readonly title: string; readonly body?: string } {
-  const corte = texto.indexOf('. ')
-
-  if (corte === -1) return { title: texto }
-
-  return { title: texto.slice(0, corte), body: texto.slice(corte + 2) }
-}
-
 export interface PiezaProps {
   /** La referencia local, cuando la pieza es de una ficha. */
   readonly providerId?: string | undefined
@@ -131,8 +114,6 @@ export interface PiezaProps {
   readonly resto?: string | undefined
   readonly progreso?: number | undefined
   readonly progresoEtiqueta?: string | undefined
-  /** La puntuación del motor, cuando ha podido calcularse. */
-  readonly puntuacion?: number | undefined
   /** El sello de origen y de otras fuentes, en Buscar. */
   readonly sello?: readonly string[] | undefined
   /** Lo que cuenta la pieza: sinopsis y motivo, en el asomo y en la hoja. */
@@ -211,12 +192,6 @@ export function Pieza(props: PiezaProps): ReactNode {
                 aria-label={props.progresoEtiqueta ?? props.title}
               />
             )}
-          </span>
-        )}
-
-        {props.puntuacion === undefined ? null : (
-          <span className="pz__punto">
-            {t(DEFAULT_LOCALE, 'reco.score', { score: props.puntuacion.toFixed(3) })}
           </span>
         )}
       </Link>

@@ -24,8 +24,8 @@ import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
-import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
+import { TramoVacio } from '../../components/TramoVacio'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { continuePath, progressPercent, remainingLabel, resumeLabel } from '../home/rows'
@@ -61,7 +61,7 @@ function Seccion(props: {
       <div className="seccion__cuerpo">
         <Mosaico>
           {props.items.length === 0 ? (
-            <PiezaVacia texto={props.vacio} />
+            <TramoVacio texto={props.vacio} />
           ) : (
             props.items.map((item, indice) => (
               <Pieza
@@ -185,7 +185,7 @@ export function ProfilePage(): ReactNode {
             {historial.items.length === 0 ? (
               // El vacío del historial no lleva enlace: sin nada reproducido no hay
               // nada que ver «todo», y ofrecerlo llevaría a una pantalla vacía.
-              <PiezaVacia texto={t(DEFAULT_LOCALE, 'profile.history.empty')} />
+              <TramoVacio texto={t(DEFAULT_LOCALE, 'profile.history.empty')} />
             ) : (
               historial.items.map((item, indice) => (
                 // La clave es la fila del visionado y no la referencia: el mismo

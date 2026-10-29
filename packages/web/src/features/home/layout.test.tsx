@@ -3,9 +3,9 @@ import type { RecommendationResponse } from '@nn-anime/core/api'
 import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
-import { arteDibujado, Pieza, RECURSOS, recursoDe, tituloYCuerpo } from '../../components/Pieza'
-import { PiezaVacia } from '../../components/PiezaVacia'
+import { arteDibujado, Pieza, RECURSOS, recursoDe } from '../../components/Pieza'
 import { SectionHeader } from '../../components/SectionHeader'
+import { TramoVacio, tituloYCuerpo } from '../../components/TramoVacio'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { desdeResumen, type PiezaVista } from './descubrir'
 import { featuredMeta, pieDelCartel } from './FeaturedHero'
@@ -168,16 +168,19 @@ describe('la pieza de la vitrina', () => {
     )
   })
 
-  test('la puntuación del motor se lee en la pieza', () => {
-    const html = render(
-      <Pieza providerId="f" ref="x" title="X" to="/anime/f/x" puntuacion={0.92} />,
-    )
+  /*
+   * La puntuación del motor ya no se pinta en la pieza.
+   *
+   * Era el número con el que el motor ordena —tres decimales sin escala, y hasta
+   * «0.000» recomendado—, no información con la que el usuario decida qué ver. La
+   * propiedad se retiró de `Pieza`, así que el compilador ya impide pasarla; lo que
+   * esta prueba sujeta es que la home no vuelva a enseñarla por otra vía.
+   */
+  test('la pieza no enseña la puntuación del motor', () => {
+    const html = render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" />)
 
-    expect(html).toContain('pz__punto')
-    expect(html).toContain('0.920')
-    expect(render(<Pieza providerId="f" ref="x" title="X" to="/anime/f/x" />)).not.toContain(
-      'pz__punto',
-    )
+    expect(html).not.toContain('pz__punto')
+    expect(html).not.toContain('Puntuación')
   })
 
   test('con progreso, la barra lleva su etiqueta accesible', () => {
@@ -286,18 +289,20 @@ describe('el vacío de un tramo', () => {
     })
   })
 
-  test('ocupa el hueco con la forma y el borde de una pieza', () => {
-    const html = render(<PiezaVacia texto="Nada a medias. Lo que empieces aparecerá aquí." />)
+  test('un vacío es un renglón y no ocupa el hueco de una pieza', () => {
+    const html = render(<TramoVacio texto="Nada a medias. Lo que empieces aparecerá aquí." />)
 
-    expect(html).toContain('pz--fantasma')
+    expect(html).toContain('tramo-vacio')
+    expect(html).not.toContain('pz')
     expect(html).toContain('Nada a medias')
     expect(html).toContain('Lo que empieces aparecerá aquí.')
   })
 
-  test('una fila vacía se explica con una pieza, no con una caja de texto', () => {
+  test('una fila vacía se explica con un renglón, no con un cartel', () => {
     const html = render(<TopRow items={[]} />)
 
-    expect(html).toContain('pz--fantasma')
+    expect(html).toContain('tramo-vacio')
+    expect(html).not.toContain('pz--fantasma')
     expect(html).toContain('Ningún proveedor activo publica un top')
   })
 })

@@ -315,6 +315,21 @@ describe('la home', () => {
   })
 
   /**
+   * La puntuación del motor no se enseña en la home.
+   *
+   * El motor devuelve `score` en cada recomendación y la pieza lo pintaba con tres
+   * decimales —«Puntuación: 0.000» entre recomendaciones—: es el número con el que
+   * ordena, no algo con lo que el usuario decida qué ver. La propiedad se retiró de
+   * `Pieza`; esto mide que la home no la reintroduzca por otra vía.
+   */
+  test('la puntuación del motor no se enseña', () => {
+    const html = render(<HomePage />)
+
+    expect(html).not.toContain('Puntuación')
+    expect(html).not.toContain('pz__punto')
+  })
+
+  /**
    * El orden de las filas.
    *
    * «Continuar viendo» va la primera: es lo único de la página que pide una
@@ -336,8 +351,8 @@ describe('la home', () => {
    * La franja que explicaba el motor se retiró de la home.
    *
    * Ocupaba el ancho del tramo para decir lo que ya dicen la nota —«Lo que el motor
-   * cree que va contigo»— y cada pieza, con su puntuación a la vista. Se mide para
-   * que no vuelva por su cuenta con el panel del motor colgando de la composición.
+   * cree que va contigo»—. Se mide para que no vuelva por su cuenta con el panel del
+   * motor colgando de la composición.
    *
    * Se nombran las clases de la franja (`franja`, `franja__*`) y no la palabra
    * «franja»: cuando el conmutador de tipo tenía una franja propia encima de la
