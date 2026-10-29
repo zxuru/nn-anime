@@ -14,11 +14,50 @@ export const messages: Messages = {
   'nav.home': 'Inicio',
   'nav.search': 'Buscar',
   'nav.profile': 'Perfil',
-  'nav.downloads': 'Descargas',
+  'nav.library': 'Biblioteca',
   'nav.settings': 'Ajustes',
 
-  'downloads.title': 'Descargas',
-  'downloads.empty': 'No hay ninguna descarga. Abre un episodio y pulsa «Descargar».',
+  /*
+   * La biblioteca y su zona de descargas.
+   *
+   * «Biblioteca» y no «Descargas»: la pantalla enseña una colección —lo que ya
+   * se puede ver— y la cola es una parte de ella. Los textos de la cola siguen
+   * con el prefijo `downloads.*` porque son los del motor y el botón del
+   * episodio; aquí sólo vive lo que es de la pantalla nueva.
+   */
+  'library.title': 'Biblioteca',
+  'library.summary': '{titles} títulos · {episodes} episodios · {size}',
+  'library.summaryEmpty': 'Lo que descargues se queda aquí, listo para ver sin conexión.',
+  'library.downloads': 'Descargas',
+  'library.collection': 'Tu biblioteca',
+  'library.activeCount': '{count} en curso',
+  'library.titles': '{count} títulos',
+  'library.seriesMeta': '{episodes} episodios · {size}',
+  'library.progress': '{percent} % · {done} de {total}',
+  'library.progressUnknown': '{done} descargados',
+  'library.progressLabel': 'Descarga de {episode}',
+  'library.percent': '{percent} %',
+  'library.speed': '{speed}/s',
+  'library.eta': 'quedan {time}',
+  'library.pauseEpisode': 'Pausar {episode}',
+  'library.resumeEpisode': 'Reanudar {episode}',
+  'library.removeEpisode': 'Borrar {episode}',
+  'library.playEpisode': 'Ver {episode}',
+  'library.empty.title': 'Tu biblioteca está vacía.',
+  'library.empty.body':
+    'Descarga un episodio desde el reproductor y aparecerá aquí, listo para ver sin conexión.',
+  'library.empty.action': 'Buscar algo que ver',
+  'library.empty.pending': 'Cuando termine la descarga, el episodio aparecerá aquí.',
+  'library.settings': 'Carpeta y espacio',
+  'library.downloaded': 'Descargado',
+  'library.playerTitle': 'Reproductor',
+  'library.player.back': 'Biblioteca',
+  'library.player.loading': 'Leyendo la descarga…',
+  'library.player.invalid': 'Esa descarga no existe.',
+  'library.player.notReady': 'La descarga todavía no está completa.',
+  'library.player.error': 'No se pudo abrir la descarga: {message}',
+  'library.player.offline': 'Se reproduce desde el archivo descargado; no hace falta el proveedor.',
+
   'downloads.loading': 'Leyendo la cola…',
   'downloads.status.queued': 'En cola',
   'downloads.status.downloading': 'Descargando',
@@ -29,8 +68,6 @@ export const messages: Messages = {
   'downloads.pause': 'Pausar',
   'downloads.resume': 'Reanudar',
   'downloads.delete': 'Borrar',
-  'downloads.open': 'Abrir archivo',
-  'downloads.segments': 'Descargada como segmentos: se reproduce desde la aplicación.',
   'downloads.download': 'Descargar',
   'downloads.queued': 'En cola',
   'downloads.saving': 'Enviando…',

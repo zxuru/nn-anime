@@ -64,6 +64,20 @@ describe('App: pantallas', () => {
     expect(html).toContain('Cargando el video')
     expect(html).not.toContain('Aquí irá')
   })
+
+  test('la biblioteca tiene su pantalla y arranca leyendo la cola', () => {
+    const html = render('/library')
+
+    expect(html).toContain('Tu biblioteca')
+    expect(html).toContain('Leyendo la cola')
+  })
+
+  test('el reproductor de una descarga arranca leyendo el archivo', () => {
+    const html = render('/library/7')
+
+    expect(html).toContain('Reproductor')
+    expect(html).toContain('Leyendo la descarga')
+  })
 })
 
 describe('App: cabecera', () => {
@@ -77,7 +91,7 @@ describe('App: cabecera', () => {
     expect(html).toContain('href="/"')
     expect(html).toContain('href="/search"')
     expect(html).toContain('href="/profile"')
-    expect(html).toContain('href="/downloads"')
+    expect(html).toContain('href="/library"')
     expect(html).toContain('href="/settings"')
   })
 

@@ -260,6 +260,34 @@ describe('las rutas de descargas', () => {
     })
   })
 
+  test('una descarga se lee por su id, y un id que no existe es 404', async () => {
+    await conApp(async (pedir, store) => {
+      const fila = await store.createDownload({
+        providerId: 'fixture',
+        providerRef: 'aurora-nocturna',
+        episodeRef: 'aurora-nocturna#2',
+        title: 'Aurora Nocturna',
+        episodeLabel: 'Episodio 2',
+        kind: 'file',
+      })
+      await store.updateDownload(fila.id, { status: 'complete', path: 'aurora.mp4', bytes: 3 })
+
+      const respuesta = await pedir(`/api/downloads/${fila.id}`)
+      expect(respuesta.status).toBe(200)
+      expect(await respuesta.json()).toEqual(
+        expect.objectContaining({
+          id: fila.id,
+          status: 'complete',
+          title: 'Aurora Nocturna',
+          bytes: 3,
+        }),
+      )
+
+      expect((await pedir('/api/downloads/999')).status).toBe(404)
+      expect((await pedir('/api/downloads/no-es-un-id')).status).toBe(400)
+    })
+  })
+
   test('un id que no existe es 404', async () => {
     await conApp(async (pedir) => {
       expect((await pedir('/api/downloads/999/file')).status).toBe(404)

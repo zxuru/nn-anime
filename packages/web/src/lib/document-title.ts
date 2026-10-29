@@ -90,6 +90,14 @@ export function routeTitleParts(name: RouteName, path: string): readonly string[
       return [t(DEFAULT_LOCALE, 'profile.title')]
     case 'history':
       return [t(DEFAULT_LOCALE, 'history.title')]
+    case 'library':
+    case 'downloads':
+      return [t(DEFAULT_LOCALE, 'library.title')]
+    // El reproductor de una descarga conoce el título en un efecto, como la
+    // pantalla de reproducción; aquí queda el nombre de la pantalla y el suyo no
+    // se pisa desde la aplicación.
+    case 'library-player':
+      return [t(DEFAULT_LOCALE, 'library.playerTitle')]
     case 'not-found':
       return [t(DEFAULT_LOCALE, 'notFound.title')]
     default:

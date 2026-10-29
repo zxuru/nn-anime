@@ -34,6 +34,13 @@ describe('matchRoute', () => {
     })
   })
 
+  test('reconoce la biblioteca, su reproductor y la dirección vieja', () => {
+    expect(matchRoute('/library')).toEqual({ name: 'library', params: {} })
+    expect(matchRoute('/library/7')).toEqual({ name: 'library-player', params: { id: '7' } })
+    // El alias conserva los marcadores de la versión anterior.
+    expect(matchRoute('/downloads')).toEqual({ name: 'downloads', params: {} })
+  })
+
   test('descodifica los parámetros con caracteres escapados', () => {
     const match = matchRoute('/anime/fuente/titulo%20con%20espacios')
 
@@ -73,6 +80,11 @@ describe('buildPath', () => {
   test('construye las dos rutas del usuario: el perfil y su historial', () => {
     expect(buildPath('profile')).toBe('/profile')
     expect(buildPath('history')).toBe('/history')
+  })
+
+  test('construye la biblioteca y el reproductor de una descarga', () => {
+    expect(buildPath('library')).toBe('/library')
+    expect(buildPath('library-player', { id: '7' })).toBe('/library/7')
   })
 
   test('construye una ruta con parámetros', () => {

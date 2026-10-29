@@ -9,7 +9,8 @@
 import { DEFAULT_LOCALE, type Locale } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
 import { DetailPage } from './features/detail/DetailPage'
-import { DownloadsPage } from './features/downloads/DownloadsPage'
+import { LibraryPage } from './features/downloads/LibraryPage'
+import { LibraryPlayerPage } from './features/downloads/LibraryPlayerPage'
 import { HomePage } from './features/home/HomePage'
 import { WatchPage } from './features/player/WatchPage'
 import { HistoryPage } from './features/profile/HistoryPage'
@@ -109,8 +110,13 @@ function Shell(props: {
           <Link to="/profile" ariaCurrent={route.name === 'profile' ? 'page' : undefined}>
             {t(LOCALE, 'nav.profile')}
           </Link>
-          <Link to="/downloads" ariaCurrent={route.name === 'downloads' ? 'page' : undefined}>
-            {t(LOCALE, 'nav.downloads')}
+          <Link
+            to="/library"
+            ariaCurrent={
+              route.name === 'library' || route.name === 'downloads' ? 'page' : undefined
+            }
+          >
+            {t(LOCALE, 'nav.library')}
           </Link>
           <Link to="/settings" ariaCurrent={route.name === 'settings' ? 'page' : undefined}>
             {t(LOCALE, 'nav.settings')}
@@ -160,8 +166,13 @@ function screenFor(route: RouteMatch, path: string): ReactNode {
       return <ProfilePage />
     case 'history':
       return <HistoryPage />
+    case 'library':
+    // La dirección vieja sigue abriendo la misma pantalla: un marcador de la
+    // versión anterior no tiene por qué dejar de funcionar.
     case 'downloads':
-      return <DownloadsPage />
+      return <LibraryPage />
+    case 'library-player':
+      return <LibraryPlayerPage key={route.params.id ?? ''} id={route.params.id ?? ''} />
     case 'not-found':
       return (
         <section>

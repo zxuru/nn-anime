@@ -2,9 +2,10 @@
  * La lista de descargas y sus acciones.
  *
  * La página no habla con la API a mano: pide el estado y ejecuta acciones contra
- * este hook. Mientras hay algo en cola o bajando, se refresca cada dos segundos;
- * cuando todo está quieto, se para. Sin eso, una descarga completa dejaría una
- * petición cada dos segundos para siempre.
+ * este hook. Mientras hay algo en cola o bajando, se refresca cada segundo; la
+ * cola escribe el contador cada medio segundo, así que un intervalo más largo
+ * dejaba la barra a saltos. Cuando todo está quieto, se para: sin eso, una
+ * descarga completa dejaría una petición cada segundo para siempre.
  */
 
 import {
@@ -21,7 +22,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet, apiPatch, apiPostJson, send } from '../../api/client'
 import { t } from '../../i18n'
 
-const POLL_MS = 2_000
+const POLL_MS = 1_000
 
 export type Descarga = DownloadItem
 
