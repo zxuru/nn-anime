@@ -3,14 +3,7 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { FetchLike } from '../byte-proxy'
-import {
-  downloadPaths,
-  downloadTask,
-  findFfmpeg,
-  insideRoot,
-  MIN_FREE_BYTES,
-  safeSegment,
-} from './engine'
+import { downloadPaths, downloadTask, insideRoot, MIN_FREE_BYTES, safeSegment } from './engine'
 
 const TAREA = {
   providerId: 'fixture',
@@ -211,12 +204,5 @@ describe('la descarga de una tarea', () => {
         }),
       ).rejects.toThrow('no dio ningún stream')
     })
-  })
-})
-
-describe('la detección de ffmpeg', () => {
-  test('devuelve la ruta si está y undefined si no', () => {
-    expect(findFfmpeg(() => '/usr/bin/ffmpeg')).toBe('/usr/bin/ffmpeg')
-    expect(findFfmpeg(() => null)).toBeUndefined()
   })
 })
