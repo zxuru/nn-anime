@@ -9,6 +9,7 @@ import type { Messages } from '@nn-anime/core/i18n'
 
 export const messages: Messages = {
   'app.name': 'nn-anime',
+  'nav.skip': 'Saltar al contenido',
 
   'nav.home': 'Inicio',
   'nav.search': 'Buscar',

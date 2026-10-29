@@ -775,3 +775,114 @@ describe('la ficha a sangre', () => {
     )
   })
 })
+
+/**
+ * Movimiento y superficies.
+ *
+ * El movimiento de la casa no se mide mirando una animación, sino las reglas que
+ * la hacen posible: que los tokens existan, que la hoja sea un diálogo nativo y
+ * no un `div` con `aria-modal`, que el menú cerrado no sea una parada de foco y
+ * que el asomo oculto no esté en el orden de tabulación. Son los fallos que no
+ * rompen ninguna prueba de componente y sólo se ven con el teclado delante.
+ */
+describe('movimiento y superficies', () => {
+  test('los tokens de entrada y salida están definidos', async () => {
+    const tokens = await read(TOKENS)
+
+    for (const token of [
+      '--transition-slow',
+      '--ease-exit',
+      '--motion-rise',
+      '--motion-blur',
+      '--motion-scale',
+      '--skeleton-pulse',
+    ]) {
+      expect(tokens, `falta ${token} en tokens.css`).toContain(`${token}:`)
+    }
+  })
+
+  test('el esqueleto de la home late con el mismo pulso, y se apaga', async () => {
+    const css = await read(SHELL)
+    const skeleton = /\.skeleton\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+    const esq = /\.esq\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+
+    expect(skeleton).toContain('var(--skeleton-pulse)')
+    expect(esq).toContain('var(--skeleton-pulse)')
+
+    // El `animation: none` tiene que ir después de `.esq` o no lo apaga: el
+    // bloque de movimiento reducido vive al final del archivo.
+    const reducido = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce)'))
+    expect(reducido).toContain('.esq')
+    expect(reducido).toContain('.player__tooltip')
+  })
+
+  test('la hoja es un diálogo nativo, no un div con aria-modal', async () => {
+    const panel = (await read(`${ROOT}components/PanelPieza.tsx`)).replace(/\/\*[\s\S]*?\*\//g, '')
+
+    expect(panel).toContain('<dialog')
+    expect(panel).toContain('showModal()')
+    expect(panel).not.toContain('aria-modal')
+    expect(panel).not.toContain('role="dialog"')
+    // El fondo nativo no bloquea el desplazamiento: el componente lo hace.
+    expect(panel).toContain('document.body.style.overflow')
+    expect(panel).toContain('cerrar.current?.focus()')
+  })
+
+  test('el menú del reproductor se queda montado para poder salir', async () => {
+    const player = await read(`${ROOT}features/player/Player.tsx`)
+    const css = await read(SHELL)
+
+    expect(player).toContain('data-abierto={menu}')
+    expect(player).toContain('inert={!menu}')
+    expect(player).toContain('aria-hidden={!menu}')
+    expect(css).toContain('.player__menu[data-abierto="true"]')
+    expect(css).toMatch(/\.player__menu\s*\{[^}]*visibility: hidden/s)
+  })
+
+  test('el asomo oculto no es una parada de tabulación', async () => {
+    const css = await read(SHELL)
+    const asomo = /\.pz__asomo\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+
+    expect(asomo).toContain('visibility: hidden')
+    expect(css).toMatch(/\.pz:hover \.pz__asomo[\s\S]*?visibility: visible/)
+  })
+
+  test('la cabecera marca el destino y ofrece el salto al contenido', async () => {
+    const css = await read(SHELL)
+
+    expect(css).toContain('.shell__nav a[aria-current="page"]')
+    expect(css).toContain('.shell__saltar')
+    expect(css).toContain('.shell__saltar:focus-visible')
+  })
+
+  test('el botón de contorno de la marquesina no depende del tema', async () => {
+    const css = await read(SHELL)
+
+    expect(css).toContain('.marquesina .acciones .button:not(')
+    expect(css).not.toContain('.marquesina[data-tinta="oscura"] .acciones')
+  })
+
+  /**
+   * Ningún `var()` de la hoja que no esté definido.
+   *
+   * `var(--color-muted)` no da error: el navegador descarta la declaración y el
+   * texto se queda con el color heredado. Así vivieron tres reglas de Descargas
+   * hasta que alguien miró la pantalla. Esta prueba convierte el token
+   * inexistente en un fallo.
+   */
+  test('todo var() de la hoja de estructura está definido', async () => {
+    const css = await read(SHELL)
+    const tokens = await read(TOKENS)
+    const definidos = new Set(
+      [...`${tokens}\n${css}`.matchAll(/--([\w-]+)\s*:/g)].map((match) => match[1] ?? ''),
+    )
+
+    const usados = [...css.matchAll(/var\(--([\w-]+)/g)].map((match) => match[1] ?? '')
+
+    expect(usados.length).toBeGreaterThan(0)
+
+    for (const nombre of usados) {
+      expect(definidos, `--${nombre} se usa en shell.css y no está definido`).toContain(nombre)
+    }
+  })
+})

@@ -331,11 +331,12 @@ describe('el modo compatible', () => {
    * El interruptor vive en el menú de ajustes.
    *
    * Estaba en la fila de mandos, con el mismo peso que reproducir: una opción
-   * técnica que se toca una vez al lado de lo que se toca cada minuto. Como el
-   * menú empieza cerrado, en el primer render sólo está su mando; el interruptor
-   * se comprueba en el código, y encenderlo de verdad lo mide el e2e.
+   * técnica que se toca una vez al lado de lo que se toca cada minuto. El menú
+   * sigue en el documento cerrado —es lo que permite animar la salida—, pero
+   * `inert` y `aria-hidden` lo dejan fuera del foco y de la lectura; encenderlo
+   * de verdad lo mide el e2e.
    */
-  test('empieza apagado y vive en el menú de ajustes', async () => {
+  test('empieza apagado y vive en el menú de ajustes, cerrado e inerte', async () => {
     const html = render(<Player url="/stream/abc" kind="file" />)
 
     // El camino normal es el del navegador; el lienzo sólo aparece cuando la
@@ -343,9 +344,11 @@ describe('el modo compatible', () => {
     expect(html).not.toContain('<canvas')
     expect(html).toContain('aria-expanded="false"')
     expect(html).toContain('aria-label="Ajustes"')
-    // Y como el menú empieza cerrado, el interruptor no está en el documento: no
-    // hay forma de encenderlo sin abrirlo.
-    expect(html).not.toContain('Modo compatible')
+    // El menú cerrado no se alcanza: ni foco, ni lector de pantalla.
+    expect(html).toContain('data-abierto="false"')
+    expect(html).toContain('inert=""')
+    expect(html).toContain('aria-hidden="true"')
+    expect(html).toContain('Modo compatible')
 
     const fuente = await readFile(`${ROOT}Player.tsx`, 'utf8')
 

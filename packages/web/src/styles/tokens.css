@@ -74,6 +74,13 @@
 }
 
 :root {
+  /*
+   * La superficie nativa —barras de desplazamiento, campos, menús del
+   * navegador— sigue al tema. Sin esto, el tema oscuro deja los controles
+   * nativos en claro y la página parece a medio vestir.
+   */
+  color-scheme: dark;
+
   /* Color, tema oscuro por defecto: es una sala a oscuras y el arte manda. */
   --color-bg: #08080a;
   --color-surface: #0e0e13;
@@ -194,8 +201,27 @@
   --focus-ring-offset: 2px;
   --transition-fast: 120ms;
   --transition-normal: 200ms;
+  /**
+   * La entrada de una superficie que ocupa la pantalla —la hoja, el diálogo—.
+   * La salida no tiene token propio: va con `--transition-fast`, porque lo que
+   * se va no se hace esperar.
+   */
+  --transition-slow: 320ms;
   /** La curva del asomo y de lo que crece al abrirse: arranca rápido y frena. */
   --ease-piece: cubic-bezier(0.22, 0.61, 0.36, 1);
+  /** La curva de salida: acelera y se va, sin rebote; no compite con la entrada. */
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  /** Lo que sube una superficie al entrar, y lo que se desenfoca al cruzar. */
+  --motion-rise: 6px;
+  --motion-blur: 2px;
+  /** La escala de un diálogo en su primer fotograma. */
+  --motion-scale: 0.97;
+  /**
+   * El latido de los esqueletos de pantalla: el pulso que dice que algo está en
+   * camino. Lento a propósito: a 200 ms parecía un parpadeo, no una espera. Se
+   * apaga entero con `prefers-reduced-motion`, más abajo.
+   */
+  --skeleton-pulse: 900ms;
   /* La entrada de la home: un fundido corto y un escalón por fila. El paso es
      pequeño a propósito —seis filas entran en menos de medio segundo— porque un
      escalón largo convierte la carga en una cola. */
@@ -496,6 +522,7 @@
   --genero-linea: 1.12;
   --genero-cuenta-alto: -0.15em;
   --genero-cuenta-lado: -0.6em;
+  --genero-cuenta-letra: -0.01em;
   --buscador-campo: clamp(1.35rem, 4vw, 2.25rem);
   --seccion-aire: clamp(2.5rem, 6vw, 5rem);
 
@@ -711,6 +738,7 @@
 }
 
 [data-theme="light"] {
+  color-scheme: light;
   --color-bg: #f2ede3;
   --color-surface: #fbf8f2;
   --color-surface-raised: #ffffff;
@@ -742,6 +770,8 @@
   :root {
     --transition-fast: 0ms;
     --transition-normal: 0ms;
+    --transition-slow: 0ms;
+    --skeleton-pulse: 0ms;
     /* A cero y no «sin animación»: quien la use sigue entrando, pero de golpe. */
     --entrada-duracion: 0ms;
     --entrada-paso: 0ms;

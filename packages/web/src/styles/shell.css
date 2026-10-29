@@ -8,14 +8,42 @@
  * estar definidos en algún sitio. Una clase usada y no definida es una
  * referencia muerta, y hay un test que lo impide.
  *
- * La lengua visual —bordes gruesos, sombras duras desplazadas, radios cero,
- * etiquetas monoespaciadas en mayúsculas— está explicada en `tokens.css`.
+ * La lengua visual —marco de un píxel, radios pequeños y elevación por tono— está explicada en
+ * `tokens.css`. La tarjeta vieja (`.card`) conserva el marco grueso y la sombra dura mientras
+ * Buscar y el panel no se porten a la vitrina: es deuda declarada, no una segunda regla.
  */
 
 .shell {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+}
+
+/*
+ * El enlace de salto: la primera parada del tabulador, invisible hasta que se
+ * enfoca. Sin él, cada pantalla empieza con cinco destinos de cabecera antes del
+ * contenido, en una aplicación que se usa sobre todo con el teclado.
+ */
+.shell__saltar {
+  position: absolute;
+  z-index: 1;
+  inset-block-start: var(--space-1);
+  inset-inline-start: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-width-strong) solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.shell__saltar:focus-visible {
+  clip-path: none;
 }
 
 .shell__header {
@@ -69,6 +97,9 @@
 }
 
 .shell__nav a {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--control-size);
   color: var(--color-text-dim);
   text-decoration: none;
   font-family: var(--font-mono);
@@ -84,6 +115,19 @@
 }
 
 .shell__nav a:hover {
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent);
+}
+
+/*
+ * El destino actual.
+ *
+ * La cabecera no decía dónde estabas: cinco destinos con el mismo tono y el
+ * mismo filete vacío. `aria-current` lo dice a quien no ve la pantalla, y este
+ * filete de acento lo dice a quien sí. Usa la transición de la casa; el estado
+ * no añade movimiento propio.
+ */
+.shell__nav a[aria-current="page"] {
   color: var(--color-text);
   border-bottom-color: var(--color-accent);
 }
@@ -427,7 +471,7 @@
   border: var(--border-width-strong) solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface-raised);
-  animation: latido var(--transition-normal) infinite alternate;
+  animation: latido var(--skeleton-pulse) ease-in-out infinite alternate;
 }
 
 /*
@@ -531,6 +575,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .skeleton,
+  .esq,
   .home > *,
   .row__list > li,
   .player__bar::after {
@@ -1592,7 +1637,16 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   transform: translateX(-50%);
+  transform-origin: bottom center;
+  animation: tooltip-entra var(--transition-fast) var(--ease-piece);
   pointer-events: none;
+}
+
+@keyframes tooltip-entra {
+  from {
+    opacity: 0;
+    scale: 0.98;
+  }
 }
 
 .player__range {
@@ -1794,6 +1848,32 @@
   background: var(--color-surface);
   color: var(--color-text);
   box-shadow: var(--shadow-hard);
+  transform-origin: bottom right;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(var(--space-1)) scale(var(--motion-scale));
+  pointer-events: none;
+  transition:
+    opacity var(--transition-fast) var(--ease-piece),
+    transform var(--transition-fast) var(--ease-piece),
+    visibility 0s linear var(--transition-fast);
+}
+
+/*
+ * El menú crece desde su botón y se va por donde vino. La entrada es más lenta
+ * que la salida: abrir es una decisión y cerrar, una corrección. `visibility`
+ * con retardo en la salida mantiene el menú pintado mientras se desvanece; en
+ * la entrada no se transiciona, así que aparece en el mismo fotograma que el
+ * clic. `inert` en el componente lo saca del foco cuando está cerrado.
+ */
+.player__menu[data-abierto="true"] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  pointer-events: auto;
+  transition:
+    opacity var(--transition-normal) var(--ease-piece),
+    transform var(--transition-normal) var(--ease-piece);
 }
 
 .player__menu-block {
@@ -1934,6 +2014,63 @@
 
 .player__dialog-close {
   margin-top: var(--space-4);
+}
+
+/*
+ * La entrada y la salida de los diálogos nativos.
+ *
+ * `<dialog>` con `showModal` no tenía movimiento: aparecía y desaparecía de
+ * golpe sobre un fondo que tampoco cambiaba. La superficie entra con la escala
+ * corta y la subida de la casa, y se va con la curva de salida; el fondo se
+ * enciende y se apaga con ella. `allow-discrete` es lo que deja que `display` y
+ * `overlay` esperen al final de la transición en vez de cortarla: sin eso, el
+ * cierre se ve como un corte aunque la opacidad tenga duración.
+ */
+.notice,
+.player__dialog {
+  opacity: 0;
+  transform: translateY(var(--motion-rise)) scale(var(--motion-scale));
+  transition:
+    opacity var(--transition-fast) var(--ease-piece),
+    transform var(--transition-fast) var(--ease-piece),
+    display var(--transition-fast) allow-discrete,
+    overlay var(--transition-fast) allow-discrete;
+}
+
+.notice[open],
+.player__dialog[open] {
+  opacity: 1;
+  transform: none;
+}
+
+@starting-style {
+  .notice[open],
+  .player__dialog[open] {
+    opacity: 0;
+    transform: translateY(var(--motion-rise)) scale(var(--motion-scale));
+  }
+}
+
+.notice::backdrop,
+.player__dialog::backdrop {
+  background: var(--overlay);
+  opacity: 0;
+  transition:
+    opacity var(--transition-fast) var(--ease-piece),
+    display var(--transition-fast) allow-discrete,
+    overlay var(--transition-fast) allow-discrete;
+}
+
+.notice[open]::backdrop,
+.player__dialog[open]::backdrop {
+  opacity: 1;
+}
+
+@starting-style {
+  .notice[open]::backdrop,
+  .player__dialog[open]::backdrop {
+    opacity: 0;
+  }
 }
 
 /* La pantalla de reproducción no se selecciona.
@@ -3477,26 +3614,21 @@
 }
 
 /*
- * El mando de contorno, cuando la marquesina se da la vuelta.
+ * El mando de contorno, sobre el campo.
  *
- * Su borde y su letra salen del tema —crema—, y sobre el velo claro de un banner
- * claro eso es un mando que no se ve: el borde se pierde en el campo y la letra
- * con él. El de acento no entra en la regla: lleva su relleno naranja y su letra
- * oscura, y se lee sobre los dos campos.
- *
- * El puntero también cambia: el mando del tema se rellena con la superficie
- * elevada —oscura— y sobre un campo claro eso dejaría la letra oscura sobre
- * oscuro. Encendido se pinta como el de acento, que es lo que ya hace el mando
- * cuando está activo.
+ * Su borde y su letra salen del tema —crema en oscuro, casi negro en claro— y
+ * sobre el campo de la marquesina eso es un mando que desaparece en uno de los
+ * dos temas: en claro, el botón de favoritos quedaba negro sobre el degradado
+ * granate. El mando toma la tinta de la marquesina —que ya se da la vuelta con
+ * el banner— en vez de la del tema. El de acento no entra en la regla: lleva su
+ * relleno naranja y su letra oscura, y se lee sobre los dos campos.
  */
-.marquesina[data-tinta="oscura"] .acciones .button:not(.button--primary, [aria-pressed="true"]) {
+.marquesina .acciones .button:not(.button--primary, [aria-pressed="true"]) {
   border-color: var(--marquesina-tinta);
   color: var(--marquesina-tinta);
 }
 
-.marquesina[data-tinta="oscura"]
-  .acciones
-  .button:not(.button--primary, [aria-pressed="true"]):hover:not(:disabled) {
+.marquesina .acciones .button:not(.button--primary, [aria-pressed="true"]):hover:not(:disabled) {
   background: var(--color-accent);
   border-color: var(--color-accent);
   color: var(--color-accent-contrast);
@@ -3666,6 +3798,9 @@
   border: var(--border-width) solid var(--color-rule);
   border-radius: var(--radius-md);
   background: var(--color-skeleton);
+  /* La misma espera que el esqueleto de pantalla, con la métrica de la pieza:
+     antes la home cargaba con huecos inmóviles y el resto latía. */
+  animation: latido var(--skeleton-pulse) ease-in-out infinite alternate;
 }
 
 /* --- 6. Sección, nota al margen y mosaico ------------------------------ */
@@ -3802,6 +3937,13 @@
   align-content: end;
   text-align: start;
   transition: border-color var(--transition-fast);
+}
+
+.pz__arte,
+.pz__campo {
+  /* El campo se aviva con el puntero; sin esta transición el cambio de saturación
+     era un salto seco en cada pieza. */
+  transition: filter var(--transition-normal) var(--ease-piece);
 }
 
 .pz__arte {
@@ -4038,14 +4180,32 @@
   background: var(--color-surface-raised);
   border-block-start: var(--border-width) solid var(--color-rule);
   opacity: 0;
+  visibility: hidden;
+  filter: blur(var(--motion-blur));
   pointer-events: none;
-  transition: opacity var(--transition-normal) var(--ease-piece);
+  transition:
+    opacity var(--transition-normal) var(--ease-piece),
+    filter var(--transition-normal) var(--ease-piece),
+    visibility 0s linear var(--transition-normal);
 }
 
+/*
+ * El asomo se revela con un cruce de opacidad y desenfoque, no con un salto.
+ * `visibility` va en la transición de salida con retardo —el contenido tiene que
+ * seguir pintado mientras se desvanece— y se quita de la de entrada para que
+ * aparezca en el mismo fotograma que el foco. Es lo que lo saca del orden de
+ * tabulación cuando está oculto: dos mandos invisibles por pieza eran dos
+ * paradas de teclado que no llevaban a ninguna parte.
+ */
 .pz:hover .pz__asomo,
 .pz:focus-within .pz__asomo {
   opacity: 1;
+  visibility: visible;
+  filter: blur(0);
   pointer-events: auto;
+  transition:
+    opacity var(--transition-normal) var(--ease-piece),
+    filter var(--transition-normal) var(--ease-piece);
 }
 
 .pz__sinopsis {
@@ -4221,17 +4381,52 @@
 }
 
 /* --- 13. La hoja: el asomo de la pieza en táctil y para teclado --------
-   No se llama `panel` porque el panel del motor ya usa ese nombre. */
+   No se llama `panel` porque el panel del motor ya usa ese nombre.
+
+   Es un `<dialog>` nativo y no un `div` con `role="dialog"`: la hoja vive dentro
+   de la pieza, que es un contenedor de consulta, y el diálogo modal se pinta en
+   la capa superior. Eso resuelve de una vez el recorte del contenedor, el velo
+   que se quedaba por debajo de la cabecera pegado, la trampa de foco y el
+   bloqueo del fondo; aquí sólo queda la superficie y su movimiento. */
 .hoja {
   position: fixed;
   inset: 0;
-  z-index: 8;
+  margin: 0;
+  padding: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  max-inline-size: none;
+  max-block-size: none;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  overflow: clip;
+  transition:
+    display var(--transition-fast) allow-discrete,
+    overlay var(--transition-fast) allow-discrete;
 }
 
-.hoja__fondo {
-  position: absolute;
-  inset: 0;
+.hoja[open] {
+  display: block;
+}
+
+.hoja::backdrop {
   background: var(--overlay);
+  opacity: 0;
+  transition:
+    opacity var(--transition-fast) var(--ease-piece),
+    display var(--transition-fast) allow-discrete,
+    overlay var(--transition-fast) allow-discrete;
+}
+
+.hoja[open]::backdrop {
+  opacity: 1;
+}
+
+@starting-style {
+  .hoja[open]::backdrop {
+    opacity: 0;
+  }
 }
 
 .hoja__caja {
@@ -4248,6 +4443,32 @@
   border-block-start: var(--border-width) solid var(--color-rule);
   border-start-start-radius: var(--radius-md);
   border-start-end-radius: var(--radius-md);
+  opacity: 0;
+  translate: 0 100%;
+  transition:
+    translate var(--transition-fast) var(--ease-exit),
+    opacity var(--transition-fast) var(--ease-exit);
+}
+
+/*
+ * La hoja sube desde el borde inferior y baja al cerrarse. La entrada es más
+ * larga que la salida: el gesto que abre pide contexto y el que cierra pide
+ * volver. El `@starting-style` es lo que da un fotograma de partida a la caja
+ * cuando el diálogo pasa de `display: none` a la capa superior.
+ */
+.hoja[open] .hoja__caja {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    translate var(--transition-slow) var(--ease-piece),
+    opacity var(--transition-slow) var(--ease-piece);
+}
+
+@starting-style {
+  .hoja[open] .hoja__caja {
+    opacity: 0;
+    translate: 0 100%;
+  }
 }
 
 .hoja__asa {
@@ -4515,7 +4736,9 @@
 
 /* --- 16. Movimiento reducido y otros entornos -------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  .cinta__carro {
+  .cinta__carro,
+  .esq,
+  .player__tooltip {
     animation: none;
   }
 }
@@ -4572,9 +4795,9 @@
 }
 
 .downloads__state {
-  color: var(--color-muted);
+  color: var(--color-text-dim);
   font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 .downloads__error {
@@ -4593,17 +4816,17 @@
 }
 
 .downloads__note {
-  color: var(--color-muted);
-  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
 }
 
 .downloads__space {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  color: var(--color-muted);
+  color: var(--color-text-dim);
   font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 .downloads__button {

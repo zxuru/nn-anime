@@ -847,136 +847,137 @@ export function Player(props: PlayerProps): ReactNode {
                 <IconoAjustes />
               </button>
 
-              {menu ? (
-                <div
-                  className="player__menu"
-                  ref={cajaAjustes}
-                  // Un diálogo no modal: se abre encima del video sin dejar de
-                  // verlo, y por eso no lleva `aria-modal` ni encierra el foco.
-                  role="dialog"
-                  aria-label={t(DEFAULT_LOCALE, 'player.settings')}
+              <div
+                className="player__menu"
+                ref={cajaAjustes}
+                data-abierto={menu}
+                // Un diálogo no modal: se abre encima del video sin dejar de
+                // verlo, y por eso no lleva `aria-modal` ni encierra el foco.
+                // Cerrado sigue en el documento para poder animar la salida;
+                // `inert` y `aria-hidden` lo sacan del foco y del árbol accesible.
+                role="dialog"
+                aria-label={t(DEFAULT_LOCALE, 'player.settings')}
+                aria-hidden={!menu}
+                inert={!menu}
+              >
+                {props.mode === undefined || props.onMode === undefined ? null : (
+                  <div className="player__menu-block">
+                    <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.audio')}</p>
+                    <AudioModeSwitch mode={props.mode} onMode={props.onMode} />
+                  </div>
+                )}
+
+                {props.onMpv === undefined ? null : (
+                  <button
+                    type="button"
+                    className="button player__menu-action"
+                    onClick={props.onMpv}
+                  >
+                    {t(DEFAULT_LOCALE, 'player.mpv')}
+                  </button>
+                )}
+
+                {/* El volumen, cuando en la fila no cabe.
+                    Es el mismo grupo de la barra —botón y barra juntos, el
+                    mismo estado—, pero aquí dentro no hace falta esconder la
+                    barra tras el puntero: el menú ya es «donde se toca una vez».
+                    Sólo hay uno de los dos grupos en el documento: dos mandos con
+                    el mismo nombre accesible son un nombre ambiguo. */}
+                {estrecho ? (
+                  <div className="player__menu-block">
+                    <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.volume')}</p>
+                    <div className="player__menu-volume">
+                      <button
+                        type="button"
+                        className="button player__control"
+                        aria-label={rotuloSilencio}
+                        title={rotuloSilencio}
+                        aria-keyshortcuts="M"
+                        onClick={() => act('mute')}
+                      >
+                        {state.muted ? <IconoSilencio /> : <IconoVolumen />}
+                      </button>
+                      <input
+                        className="player__range player__slider"
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={volumePercent(state.volume)}
+                        aria-label={t(DEFAULT_LOCALE, 'player.volume')}
+                        onChange={(evento) =>
+                          setVolume(volumeFromPercent(Number(evento.target.value)))
+                        }
+                      />
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* El modo compatible, como interruptor. La sonda lo enciende
+                    sola cuando ve el fallo, pero una sonda que mira un
+                    fotograma puede no verlo: quien está mirando la pantalla en
+                    negro lo enciende aquí. `aria-pressed` dice si está
+                    encendido, y el texto no cambia con el estado para que se
+                    lea como un interruptor y no como una acción. */}
+                <button
+                  type="button"
+                  className="button player__menu-action"
+                  aria-pressed={pintando}
+                  onClick={alternar}
                 >
-                  {props.mode === undefined || props.onMode === undefined ? null : (
-                    <div className="player__menu-block">
-                      <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.audio')}</p>
-                      <AudioModeSwitch mode={props.mode} onMode={props.onMode} />
-                    </div>
-                  )}
+                  {t(DEFAULT_LOCALE, 'player.compat')}
+                </button>
 
-                  {props.onMpv === undefined ? null : (
-                    <button
-                      type="button"
-                      className="button player__menu-action"
-                      onClick={props.onMpv}
-                    >
-                      {t(DEFAULT_LOCALE, 'player.mpv')}
-                    </button>
-                  )}
+                {opcionesSubtitulos.length === 0 ? null : (
+                  <div className="player__menu-block">
+                    <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.tracks.pick')}</p>
+                    <ul className="player__menu-list">
+                      {opcionesSubtitulos.map((opcion) => (
+                        <li key={opcion.key}>
+                          <button
+                            type="button"
+                            className="button player__menu-choice"
+                            aria-pressed={opcion.pressed}
+                            onClick={() => elegirSubtitulos(opcion.choice)}
+                          >
+                            {opcion.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
-                  {/* El volumen, cuando en la fila no cabe.
-                      Es el mismo grupo de la barra —botón y barra juntos, el
-                      mismo estado—, pero aquí dentro no hace falta esconder la
-                      barra tras el puntero: el menú ya es «donde se toca una vez».
-                      Sólo hay uno de los dos grupos en el documento: dos mandos con
-                      el mismo nombre accesible son un nombre ambiguo. */}
-                  {estrecho ? (
-                    <div className="player__menu-block">
-                      <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.volume')}</p>
-                      <div className="player__menu-volume">
-                        <button
-                          type="button"
-                          className="button player__control"
-                          aria-label={rotuloSilencio}
-                          title={rotuloSilencio}
-                          aria-keyshortcuts="M"
-                          onClick={() => act('mute')}
-                        >
-                          {state.muted ? <IconoSilencio /> : <IconoVolumen />}
-                        </button>
-                        <input
-                          className="player__range player__slider"
-                          type="range"
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={volumePercent(state.volume)}
-                          aria-label={t(DEFAULT_LOCALE, 'player.volume')}
-                          onChange={(evento) =>
-                            setVolume(volumeFromPercent(Number(evento.target.value)))
-                          }
-                        />
-                      </div>
-                    </div>
-                  ) : null}
+                {props.onAutoplay === undefined ? null : (
+                  <label className="player__menu-switch">
+                    {/* La casilla nativa sigue siendo la que guarda el estado y
+                        la que se anuncia; el dibujo de interruptor lo pone el
+                        tirador de al lado, que va `aria-hidden` para que el
+                        nombre del mando siga siendo sólo el texto. */}
+                    <span className="player__switch-box">
+                      <input
+                        type="checkbox"
+                        className="player__switch"
+                        checked={props.autoplay ?? true}
+                        onChange={(evento) => props.onAutoplay?.(evento.target.checked)}
+                      />
+                      <span className="player__switch-knob" aria-hidden="true" />
+                    </span>
+                    {t(DEFAULT_LOCALE, 'player.autoplay')}
+                  </label>
+                )}
 
-                  {/* El modo compatible, como interruptor. La sonda lo enciende
-                      sola cuando ve el fallo, pero una sonda que mira un
-                      fotograma puede no verlo: quien está mirando la pantalla en
-                      negro lo enciende aquí. `aria-pressed` dice si está
-                      encendido, y el texto no cambia con el estado para que se
-                      lea como un interruptor y no como una acción. */}
-                  <button
-                    type="button"
-                    className="button player__menu-action"
-                    aria-pressed={pintando}
-                    onClick={alternar}
-                  >
-                    {t(DEFAULT_LOCALE, 'player.compat')}
-                  </button>
-
-                  {opcionesSubtitulos.length === 0 ? null : (
-                    <div className="player__menu-block">
-                      <p className="player__menu-title">
-                        {t(DEFAULT_LOCALE, 'player.tracks.pick')}
-                      </p>
-                      <ul className="player__menu-list">
-                        {opcionesSubtitulos.map((opcion) => (
-                          <li key={opcion.key}>
-                            <button
-                              type="button"
-                              className="button player__menu-choice"
-                              aria-pressed={opcion.pressed}
-                              onClick={() => elegirSubtitulos(opcion.choice)}
-                            >
-                              {opcion.label}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {props.onAutoplay === undefined ? null : (
-                    <label className="player__menu-switch">
-                      {/* La casilla nativa sigue siendo la que guarda el estado y
-                          la que se anuncia; el dibujo de interruptor lo pone el
-                          tirador de al lado, que va `aria-hidden` para que el
-                          nombre del mando siga siendo sólo el texto. */}
-                      <span className="player__switch-box">
-                        <input
-                          type="checkbox"
-                          className="player__switch"
-                          checked={props.autoplay ?? true}
-                          onChange={(evento) => props.onAutoplay?.(evento.target.checked)}
-                        />
-                        <span className="player__switch-knob" aria-hidden="true" />
-                      </span>
-                      {t(DEFAULT_LOCALE, 'player.autoplay')}
-                    </label>
-                  )}
-
-                  <button
-                    type="button"
-                    className="button player__menu-action"
-                    onClick={() => {
-                      setMenu(false)
-                      setAtajos(true)
-                    }}
-                  >
-                    {t(DEFAULT_LOCALE, 'player.keys.open')}
-                  </button>
-                </div>
-              ) : null}
+                <button
+                  type="button"
+                  className="button player__menu-action"
+                  onClick={() => {
+                    setMenu(false)
+                    setAtajos(true)
+                  }}
+                >
+                  {t(DEFAULT_LOCALE, 'player.keys.open')}
+                </button>
+              </div>
             </div>
 
             <button
