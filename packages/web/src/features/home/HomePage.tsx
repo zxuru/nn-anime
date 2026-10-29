@@ -244,7 +244,21 @@ export function HomePage(props: HomePageProps): ReactNode {
   // de la home —repetía lo que ya enseñan Novedades y el top, y en una instalación
   // sin feed era la misma lista— y el destacado sigue teniendo con qué llenarse
   // cuando no hay nada más.
-  const destacado = featuredOf(items, filas.feed, filas.recent)
+  /*
+    El motor manda sobre el destacado, y **mientras no ha contestado la primera
+    vez no se pinta un destacado de reserva**: el del feed se sustituía en cuanto
+    llegaba la recomendación, y eso costaba la cadena de detalle del título que se
+    iba a descartar (ficha, episodios y enriquecimiento) y una marquesina que
+    cambiaba de titular bajo el puntero. Medido en T195: 0,039 de CLS y el LCP
+    esperando a la cadena del titular definitivo.
+
+    La reserva sigue en pie donde de verdad hace falta: cuando el motor falla o
+    contesta sin nada, que es el caso para el que existe `featuredOf`. Y el motor
+    contesta **sin retardo** en la vitrina —no hay teclas que colapsar—, así que
+    esa espera es la de una petición y no la del debounce de la búsqueda.
+  */
+  const motorPendiente = recomendaciones.state === 'loading' && recomendaciones.data === undefined
+  const destacado = motorPendiente ? undefined : featuredOf(items, filas.feed, filas.recent)
   const top = piezasDelTop(filas)
   const novedades = piezasDeNovedades(filas)
   const dias = agruparPorDia(filas.parrilla, new Date())

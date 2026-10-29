@@ -6,7 +6,7 @@ import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { Panel } from './Panel'
 import { ReasonBadge } from './ReasonBadge'
-import { DEBOUNCE_MS, recommendationsPath } from './useRecommendations'
+import { DEBOUNCE_MS, recommendationsPath, retardoDeConsulta } from './useRecommendations'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
 
@@ -44,6 +44,28 @@ describe('la dirección de la petición', () => {
 
   test('el retardo es el del spec', () => {
     expect(DEBOUNCE_MS).toBe(400)
+  })
+
+  /**
+   * El retardo sólo existe para colapsar lo que se escribe.
+   *
+   * Sin consulta no hay teclas que esperar, y esperar de todos modos retrasaba la
+   * marquesina: el destacado salía del feed y se cambiaba por la recomendación a
+   * los 400 ms, con dos cadenas de detalle y un salto de maquetación. Las tres
+   * ramas se fijan aquí porque la regla vive en una función pura y no dentro del
+   * efecto, que no se puede medir sin temporizador.
+   */
+  test('sin consulta no se espera nada', () => {
+    expect(retardoDeConsulta(undefined, undefined)).toBe(0)
+    expect(retardoDeConsulta('   ', undefined)).toBe(0)
+  })
+
+  test('con consulta se espera el del spec', () => {
+    expect(retardoDeConsulta('mecha', undefined)).toBe(DEBOUNCE_MS)
+  })
+
+  test('un retardo explícito manda sobre la regla', () => {
+    expect(retardoDeConsulta(undefined, 5)).toBe(5)
   })
 })
 
