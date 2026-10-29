@@ -972,6 +972,37 @@
 }
 
 /*
+ * El bloque de descarga de la ficha.
+ *
+ * Apuntar la serie entera no es un botón del grupo de marcas: tiene su estado y
+ * su enlace a la biblioteca, y en la barra lateral eso se lee como una sección.
+ * El botón ocupa el ancho de la barra porque es una acción y su rótulo es largo;
+ * pegado al borde izquierdo dejaría media columna en negro.
+ */
+.detail__download {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.detail__download .button {
+  align-self: stretch;
+}
+
+.detail__download-link {
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+.detail__download-link:hover {
+  text-decoration: underline;
+}
+
+/*
  * Los botones.
  *
  * Marco grueso y tipografía monoespaciada en mayúsculas, como las etiquetas del
@@ -1191,15 +1222,39 @@
  * ventana en la que se está, las dos flechas y el salto a un número. Va pegada
  * arriba y con el mismo borde que las filas, para que se lea como parte de la
  * lista y no como un adorno suelto.
+ *
+ * La banda es compacta a propósito: siete mandos a la altura del botón de la
+ * ficha no caben en el ancho de la columna y la barra se partía en dos renglones,
+ * con el último episodio colgando debajo. El alto y el relleno bajan un escalón,
+ * las flechas enseñan su palabra corta y el hueco entre grupos se aprieta: con
+ * el relleno de antes, a 1024 el ancho se quedaba a cinco píxeles de caber.
  */
 .episodes__windows {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2);
   border: var(--border-width-strong) solid var(--color-border);
   background: var(--color-surface);
+}
+
+.episodes__windows .button {
+  min-block-size: var(--control-size-compact);
+  padding-inline: var(--space-3);
+}
+
+/* El campo del salto sigue la altura de los mandos de la barra. */
+.episodes__windows .field__input {
+  min-block-size: var(--control-size-compact);
+}
+
+/* La paginación en su grupo: la página entre las dos flechas, que es lo que
+   describe, y sin el hueco de un mando más entre ellas. */
+.episodes__pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .episodes__range {
@@ -1214,7 +1269,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 
 /* El campo del salto es más estrecho que los demás: un número de cuatro cifras no

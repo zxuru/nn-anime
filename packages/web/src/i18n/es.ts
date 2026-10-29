@@ -606,6 +606,11 @@ export const messages: Messages = {
   // nombre accesible: son botones con texto, no iconos.
   'detail.page.previous': 'Página anterior',
   'detail.page.next': 'Página siguiente',
+  // El botón enseña la palabra corta y se anuncia con la larga: «Anterior» solo
+  // cabe en un renglón con los demás mandos, y «Página anterior» sigue siendo lo
+  // que oye quien no ve el botón.
+  'detail.page.previousShort': 'Anterior',
+  'detail.page.nextShort': 'Siguiente',
   'detail.page.label': 'Página {page}',
   'detail.latest': 'Último episodio',
   'detail.latest.error': 'No se pudo abrir el último episodio.',
@@ -619,7 +624,10 @@ export const messages: Messages = {
   'detail.window.previous': 'Anteriores',
   'detail.window.next': 'Siguientes',
   'detail.window.range': 'Episodios {from}–{to}',
-  'detail.window.jump': 'Ir al episodio',
+  // «Episodio» y no «Ir al episodio»: el campo va en la barra de mandos y el
+  // rótulo largo empujaba el último episodio a un segundo renglón. El botón de
+  // al lado ya dice «Ir», así que el gesto se lee igual.
+  'detail.window.jump': 'Episodio',
   'detail.window.go': 'Ir',
   'detail.window.watched': '{seen} de {total} vistos',
   'detail.mode.sub': 'subtitulado',
@@ -627,6 +635,18 @@ export const messages: Messages = {
   'detail.mode.raw': 'original',
   'detail.modes': 'Modos disponibles',
   'detail.modeUnavailable': 'Este proveedor no ofrece {mode}.',
+  // La serie entera como objetivo de descarga. La respuesta cuenta capítulos
+  // sobre la lista que el proveedor dio ahora; el texto no promete el futuro.
+  'detail.download.title': 'Descargas',
+  'detail.download.series': 'Descargar la serie',
+  'detail.download.movie': 'Descargar la película',
+  'detail.download.sending': 'Apuntando los capítulos…',
+  'detail.download.queued': '{pending} de {episodes} capítulos en cola. Se descargan en orden.',
+  'detail.download.done': 'Ya está descargada.',
+  'detail.download.empty': 'Este título no tiene capítulos que descargar.',
+  'detail.download.partial': '{complete} de {episodes} capítulos descargados.',
+  'detail.download.failed': 'No se pudo apuntar la serie: {message}',
+  'detail.download.library': 'Ver la biblioteca',
   'detail.sources': 'También en',
   'detail.sourcesItem': '{title} en {provider}',
   'detail.noEpisodes': 'Este título no tiene episodios todavía.',

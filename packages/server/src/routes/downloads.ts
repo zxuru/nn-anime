@@ -16,11 +16,18 @@ import { dirname, isAbsolute, resolve } from 'node:path'
 import type { CatalogStore, DownloadRecord } from '@nn-anime/catalog-store'
 import {
   downloadItemSchema,
+  downloadSeriesRequestSchema,
+  downloadSeriesResponseSchema,
   downloadStartRequestSchema,
   downloadStartResponseSchema,
   downloadsDirRequestSchema,
   downloadsDirsSchema,
   downloadsSpaceSchema,
+  type Episode,
+  ok,
+  type ProviderError,
+  type ProviderRef,
+  type Result,
 } from '@nn-anime/core'
 import {
   createFfmpegRemux,
@@ -29,12 +36,14 @@ import {
   insideRoot,
   type RemuxFn,
 } from '@nn-anime/media-proxy'
-import type { Provider } from '@nn-anime/provider-sdk'
+import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
 import type { Context, Hono } from 'hono'
+import type { ServerContainer } from '../container'
 import { listarCarpetas } from '../downloads/dirs'
 import type { DownloadQueue } from '../downloads/queue'
 import { remuxSegments } from '../downloads/remux'
 import { findProvider } from './anime'
+import { statusForEpisodes } from './episodes'
 
 /**
  * ¿Lo que quedó en disco es una playlist local?
@@ -52,10 +61,85 @@ function esPlaylist(fila: DownloadRecord): boolean {
 export interface DownloadsRouteOptions {
   readonly queue: DownloadQueue
   readonly store: CatalogStore
+  readonly container: ServerContainer
   /** El remezclador de ffmpeg; en pruebas, uno que no lanza procesos. */
   readonly remux?: RemuxFn | undefined
   readonly providers: readonly Provider[]
   readonly root: string
+}
+
+/**
+ * Cuántas páginas de episodios se leen como mucho al apuntar una serie.
+ *
+ * Es el tope de una fuente que conteste «hay más» para siempre: sin él, una
+ * respuesta hostil dejaría el alta pidiendo páginas sin fin. Cien páginas son
+ * diez mil capítulos, más de los que tiene cualquier serie conocida.
+ */
+export const MAX_SERIES_PAGES = 100
+
+/** Lo que tarda como mucho cada página al apuntar una serie, en milisegundos. */
+const SERIES_TIMEOUT_MS = 8_000
+
+/**
+ * La lista entera de episodios de un título, página a página.
+ *
+ * El selector de la ficha pide una página porque pinta una; apuntar la serie
+ * necesita todas, y el servidor las recorre con el mismo lector que ya sabe
+ * trocear la lista de un plugin que no pagina. Un episodio repetido entre dos
+ * páginas —una fuente que solapa su paginación— cuenta una vez: la identidad es
+ * la referencia del episodio, no su posición.
+ *
+ * Se ordena por temporada y número antes de devolverla: apuntar una serie es
+ * bajarla desde el primer capítulo, no en el orden en que la fuente la publicó.
+ */
+export async function leerSerie(
+  container: Pick<ServerContainer, 'getEpisodesPage'>,
+  provider: Provider,
+  ref: ProviderRef,
+  callOptions: CallOptions,
+): Promise<Result<readonly Episode[], ProviderError>> {
+  const vistos = new Set<string>()
+  const episodios: Episode[] = []
+
+  for (let page = 1; page <= MAX_SERIES_PAGES; page += 1) {
+    const resultado = await container.getEpisodesPage(provider, ref, { page }, callOptions)
+    if (!resultado.ok) return resultado
+
+    const pagina = resultado.value.value
+    let nuevos = 0
+    for (const episodio of pagina.episodes) {
+      const clave = `${episodio.ref.providerId}:${episodio.ref.value}`
+      if (vistos.has(clave)) continue
+
+      vistos.add(clave)
+      episodios.push(episodio)
+      nuevos += 1
+    }
+
+    // Una página sin nada nuevo no puede tener una siguiente: si la tuviera,
+    // volver a pedirla daría el mismo vacío hasta agotar el tope.
+    if (!pagina.hasMore || nuevos === 0) break
+  }
+
+  episodios.sort((uno, otro) => {
+    const temporada = (uno.season ?? 0) - (otro.season ?? 0)
+
+    return temporada === 0 ? uno.number - otro.number : temporada
+  })
+
+  return ok(episodios)
+}
+
+/**
+ * El nombre con el que la descarga y la biblioteca hablan de un capítulo.
+ *
+ * Lleva la temporada cuando la fuente la declara: una serie de tres temporadas
+ * numera `1..3` en cada una, y «Episodio 1» a secas no distingue tres archivos.
+ */
+export function etiquetaDeEpisodio(episode: Episode): string {
+  return episode.season === undefined
+    ? `Episodio ${episode.number}`
+    : `Temporada ${episode.season} · Episodio ${episode.number}`
 }
 
 function item(row: DownloadRecord) {
@@ -76,7 +160,7 @@ function item(row: DownloadRecord) {
   }
 }
 
-function errorJson(c: Context, status: 400 | 403 | 404 | 409 | 416 | 500, message: string) {
+function errorJson(c: Context, status: 400 | 403 | 404 | 409 | 416 | 500 | 502, message: string) {
   return c.json({ error: message }, status)
 }
 
@@ -151,6 +235,76 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
     if (fila.status === 'queued') options.queue.add(fila.id)
 
     return c.json(downloadStartResponseSchema.parse({ id: fila.id }), 201)
+  })
+
+  /**
+   * Apuntar la serie entera.
+   *
+   * El cliente manda el título y nada más: el servidor lee sus episodios, los
+   * ordena y crea una fila por capítulo con el mismo alta idempotente del botón
+   * suelto. Lo que ya estaba pedido no se duplica y lo que ya está completo no se
+   * vuelve a bajar; lo que quedó en cola se engancha a la cola otra vez —`add` lo
+   * ignora si ya estaba— porque una fila en cola tras un reinicio también es
+   * trabajo pendiente.
+   *
+   * El tope de páginas vive en `leerSerie`: una fuente que diga «hay más» para
+   * siempre no puede dejar esta petición abierta.
+   */
+  app.post('/api/downloads/series', async (c) => {
+    let crudo: unknown
+    try {
+      crudo = await c.req.json()
+    } catch {
+      return c.json({ error: 'el cuerpo no es JSON válido' }, 400)
+    }
+
+    const parsed = downloadSeriesRequestSchema.safeParse(crudo)
+    if (!parsed.success) {
+      return c.json({ error: `petición inválida: ${parsed.error.message}` }, 400)
+    }
+
+    const provider = findProvider(options.providers, parsed.data.providerId)
+    if (provider === undefined) return errorJson(c, 404, 'no hay ningún proveedor con ese id')
+
+    const ref = parsed.data.animeRef
+    const lista = await leerSerie(options.container, provider, ref, {
+      signal: c.req.raw.signal,
+      timeoutMs: SERIES_TIMEOUT_MS,
+    })
+    if (!lista.ok) return errorJson(c, statusForEpisodes(lista.error), lista.error.message)
+
+    const detalle = await store.readAnime(ref)
+    const titulo = detalle?.value.title ?? ref.value
+    let pending = 0
+    let complete = 0
+
+    for (const episodio of lista.value) {
+      const fila = await store.createDownload({
+        providerId: provider.id,
+        providerRef: ref.value,
+        episodeRef: episodio.ref.value,
+        title: titulo,
+        episodeLabel: etiquetaDeEpisodio(episodio),
+        kind: 'file',
+      })
+
+      if (fila.status === 'queued') {
+        options.queue.add(fila.id)
+        pending += 1
+      } else if (fila.status === 'downloading') {
+        pending += 1
+      } else if (fila.status === 'complete') {
+        complete += 1
+      }
+    }
+
+    return c.json(
+      downloadSeriesResponseSchema.parse({
+        episodes: lista.value.length,
+        pending,
+        complete,
+      }),
+    )
   })
 
   app.get('/api/downloads', async (c) => {

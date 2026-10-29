@@ -3,9 +3,12 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type CatalogStore, openDb, runMigrations } from '@nn-anime/catalog-store'
+import { type Episode, ok } from '@nn-anime/core'
 import type { RemuxFn } from '@nn-anime/media-proxy'
 import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import type { ServerContainer } from '../container'
 import { createApp, createContainer } from '../index'
+import { etiquetaDeEpisodio, leerSerie } from './downloads'
 
 const PORT = 7733
 const SESSION_COOKIE = 'nn_session'
@@ -452,5 +455,145 @@ describe('las rutas de descargas', () => {
       },
       { remux },
     )
+  })
+})
+
+/** Un episodio de la serie inventada, con la temporada que se le pase. */
+function episodio(numero: number, temporada?: number): Episode {
+  return {
+    ref: {
+      providerId: 'fixture',
+      value: temporada === undefined ? `serie#${numero}` : `serie#t${temporada}e${numero}`,
+    },
+    animeRef: { providerId: 'fixture', value: 'serie' },
+    number: numero,
+    ...(temporada === undefined ? {} : { season: temporada }),
+    mode: 'sub',
+  }
+}
+
+describe('la lectura de una serie entera', () => {
+  /**
+   * Las páginas se recorren hasta que el proveedor dice que no queda nada, sin
+   * contar dos veces el episodio que una fuente solapa entre páginas y sin
+   * fiarse del orden en que llega: apuntar la serie es bajarla del 1 en adelante.
+   *
+   * La página 3 viene vacía con `hasMore` encendido a propósito: una fuente que
+   * miente así no puede dejar el alta pidiendo páginas hasta el tope.
+   */
+  test('recorre las páginas, deduplica y ordena por temporada y número', async () => {
+    const paginas = new Map<number, readonly Episode[]>([
+      [1, [episodio(3), episodio(1)]],
+      [2, [episodio(2), episodio(1)]],
+      [3, []],
+      [4, [episodio(99)]],
+    ])
+    const pedidas: number[] = []
+    const contenedor: Pick<ServerContainer, 'getEpisodesPage'> = {
+      getEpisodesPage: async (_provider, _ref, request) => {
+        pedidas.push(request.page)
+
+        return ok({
+          value: {
+            episodes: paginas.get(request.page) ?? [],
+            page: request.page,
+            hasMore: request.page < 4,
+          },
+          source: 'miss',
+        })
+      },
+    }
+
+    const lista = await leerSerie(
+      contenedor,
+      createFixtureProvider(),
+      { providerId: 'fixture', value: 'serie' },
+      {
+        signal: new AbortController().signal,
+        timeoutMs: 1_000,
+      },
+    )
+
+    expect(lista.ok).toBe(true)
+    if (!lista.ok) return
+
+    expect(lista.value.map((uno) => uno.number)).toEqual([1, 2, 3])
+    // La página vacía corta la lectura: la 4 no se llega a pedir.
+    expect(pedidas).toEqual([1, 2, 3])
+  })
+
+  test('la etiqueta distingue la temporada cuando la fuente la declara', () => {
+    expect(etiquetaDeEpisodio(episodio(5))).toBe('Episodio 5')
+    expect(etiquetaDeEpisodio(episodio(2, 3))).toBe('Temporada 3 · Episodio 2')
+  })
+})
+
+describe('apuntar la serie entera', () => {
+  const SERIE = {
+    providerId: 'fixture',
+    animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+  }
+
+  /**
+   * Una petición apunta todos los capítulos y la cola los baja uno a uno. El
+   * segundo intento no duplica nada: las filas que ya están completas siguen
+   * siendo las mismas y no vuelven a la cola.
+   */
+  test('apunta un capítulo por episodio y no repite lo ya descargado', async () => {
+    await conApp(async (pedir) => {
+      const alta = await pedir('/api/downloads/series', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify(SERIE),
+      })
+      expect(alta.status).toBe(200)
+      expect(await alta.json()).toEqual({ episodes: 12, pending: 12, complete: 0 })
+
+      await esperar(async () => {
+        const lista = await pedir('/api/downloads')
+        const cuerpo = (await lista.json()) as { items: { status: string }[] }
+
+        return (
+          cuerpo.items.length === 12 && cuerpo.items.every((item) => item.status === 'complete')
+        )
+      })
+
+      const lista = await pedir('/api/downloads')
+      const cuerpo = (await lista.json()) as {
+        items: { episodeLabel: string; title: string; status: string }[]
+      }
+      expect(cuerpo.items).toHaveLength(12)
+      expect(cuerpo.items.map((item) => item.episodeLabel).sort()).toEqual(
+        Array.from({ length: 12 }, (_, indice) => `Episodio ${indice + 1}`).sort(),
+      )
+      // El título de la ficha es el de todas las filas, no la referencia.
+      expect(new Set(cuerpo.items.map((item) => item.title))).toEqual(new Set(['Aurora Nocturna']))
+
+      const otra = await pedir('/api/downloads/series', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify(SERIE),
+      })
+      expect(otra.status).toBe(200)
+      expect(await otra.json()).toEqual({ episodes: 12, pending: 0, complete: 12 })
+    })
+  })
+
+  test('un proveedor que no existe es 404 y un cuerpo sin título es 400', async () => {
+    await conApp(async (pedir) => {
+      const ajeno = await pedir('/api/downloads/series', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ ...SERIE, providerId: 'no-existe' }),
+      })
+      expect(ajeno.status).toBe(404)
+
+      const incompleto = await pedir('/api/downloads/series', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ providerId: 'fixture' }),
+      })
+      expect(incompleto.status).toBe(400)
+    })
   })
 })
