@@ -163,6 +163,27 @@
   --text-xl: 1.5rem;
   --text-2xl: 2.25rem;
   --text-3xl: 3.5rem;
+  /**
+   * El cuerpo mínimo de un campo de texto.
+   *
+   * No es una preferencia de escala: por debajo de 16 px, Safari en iOS hace
+   * **zoom** al enfocar un campo y deja la página ampliada y descentrada al
+   * cerrar el teclado. Los campos de Ajustes y de Buscar estaban a 13 px —el
+   * cuerpo heredado de la monoespaciada—, así que en un teléfono cada vez que se
+   * escribía una ruta la pantalla se iba de sitio. En ventana ancha el cuerpo
+   * sigue siendo el suyo; este token es el suelo del táctil.
+   */
+  --text-field: 1rem;
+  /**
+   * El titular de una pantalla —Buscar, Ajustes, Descargas—, que sí encoge.
+   *
+   * Estaba fijo en `--text-3xl` y a 320 px «DESCARGAS» no cabe: la palabra mide
+   * más que la columna, el navegador no la parte por ningún sitio y la pantalla
+   * entera se desplaza 27 px a la derecha. Es el cuerpo de cartel medido contra el
+   * ancho —como el de la marquesina y el del buscador— y no contra una ventana de
+   * escritorio.
+   */
+  --titulo-pantalla: clamp(2rem, 9vw, 3.5rem);
   /** El número del top: enorme y sin relleno, como en el diseño. */
   --text-number: 7rem;
   --number-stroke: 3px;
@@ -258,6 +279,15 @@
    * apaisado, y a todo lo ancho de la ficha mediría media pantalla.
    */
   --detail-banner-alto: 16rem;
+  /**
+   * La portada de la ficha cuando el cuerpo deja de tener barra lateral.
+   *
+   * En una ventana ancha la portada ocupa la columna de al lado —hasta 17 rem— y
+   * la sinopsis se lee a su derecha. Debajo del punto de corte no hay dos pistas
+   * que repartir: la portada se queda en un cartel pequeño y los mandos van a su
+   * lado, en el mismo renglón, para no gastar media pantalla antes del texto.
+   */
+  --detail-cover-angosto: 8rem;
   --thumb-width: 3rem;
   /** Ancho de la barra de progreso de un episodio en la ficha. */
   --progress-width: 6rem;
@@ -356,6 +386,16 @@
   --bp-desk: 1100px;
   --bp-mid: 820px;
   --bp-narrow: 560px;
+  /**
+   * Donde la ficha deja de repartirse en barra lateral y cuerpo.
+   *
+   * El corte no es el del mosaico porque mide otra cosa: la barra pide hasta
+   * 17 rem y el hueco 2 más, y la fila de un episodio —cifra, título y las marcas
+   * de la derecha— no baja de 274 px. Por debajo de ~640 las dos columnas no
+   * caben y la de texto se quedaba con 22 px: medido en el navegador, la ficha
+   * desbordaba 82 px a 560 y 252 a 390. En 700 las dos siguen cabiendo con aire.
+   */
+  --bp-aside: 700px;
   /** El mando estrecho y su hueco: 40 px y 6 px, para que quepan en una fila. */
   --control-size-compact: 2.5rem;
   --gap-compact: 6px;

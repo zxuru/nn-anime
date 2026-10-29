@@ -1387,19 +1387,24 @@ test.describe('la ventana estrecha', () => {
 
     const logo = page.locator('.shell__brand')
     const medidas = await logo.evaluate((elemento) => {
-      const caja = elemento.getBoundingClientRect()
       const estilo = getComputedStyle(elemento)
+      // Los renglones se cuentan, no se deducen del alto: la marca mide 44 px por
+      // el objetivo táctil —`--control-size`— y el alto ya no dice cuántas líneas
+      // hay. Un `Range` sobre el contenido devuelve una caja por renglón.
+      const rango = document.createRange()
+      rango.selectNodeContents(elemento)
 
       return {
-        alto: caja.height,
-        tipo: Number.parseFloat(estilo.fontSize),
+        renglones: rango.getClientRects().length,
         blancos: estilo.whiteSpace,
+        tactil: elemento.getBoundingClientRect().height >= 44,
       }
     })
 
     expect(medidas.blancos).toBe('nowrap')
-    // Un renglón y no dos: el doble del tipo ya sería dos líneas.
-    expect(medidas.alto).toBeLessThan(medidas.tipo * 2)
+    expect(medidas.renglones).toBe(1)
+    // Y la marca es un destino que se pulsa: mide el alto de un mando.
+    expect(medidas.tactil).toBe(true)
   })
 
   test('en 360 px los pasos van a partes iguales y el audio debajo a lo ancho', async ({
