@@ -293,10 +293,47 @@ describe('migración inicial', () => {
 
       const informe = runMigrations(db)
 
-      expect(informe.applied).toEqual([13, 14])
+      expect(informe.applied).toEqual(VERSIONES.filter((version) => version > 12))
       expect(columnNames(db, 'episode')).toContain('season')
       const fila = db.query('SELECT number, season FROM episode WHERE provider_ref = ?').get('x#1')
       expect(fila).toEqual({ number: 1, season: null })
+    })
+  })
+
+  /**
+   * La descarga que quedó en segmentos y se grabó como archivo.
+   *
+   * El caso real: sin ffmpeg, el motor deja playlist y segmentos, pero la fila
+   * conservaba el `kind` del alta. Servida como MP4, el reproductor recibía el
+   * texto del manifiesto. La migración tiene que arreglar lo ya grabado sin tocar
+   * los MP4 ni las filas que todavía no tienen ruta.
+   */
+  test('la descarga vieja con playlist dentro se marca como segmentos', async () => {
+    await withDb((db) => {
+      runMigrations(
+        db,
+        listMigrations().filter((migration) => migration.version <= 14),
+      )
+      const insertar = db.query(
+        `INSERT INTO download
+           (provider_id, provider_ref, episode_ref, title, episode_label, kind, status, path, created_at, updated_at)
+         VALUES ('p', 'r', ?, 'T', 'E', 'file', 'complete', ?, 0, 0)`,
+      )
+      insertar.run('e#1', 'p/T/Episodio-1/index.m3u8')
+      insertar.run('e#2', 'p/T/Episodio-2.mp4')
+      insertar.run('e#3', null)
+
+      const informe = runMigrations(db)
+
+      expect(informe.applied).toContain(15)
+      const kinds = db
+        .query('SELECT episode_ref, kind FROM download ORDER BY episode_ref')
+        .all() as { episode_ref: string; kind: string }[]
+      expect(kinds).toEqual([
+        { episode_ref: 'e#1', kind: 'segments' },
+        { episode_ref: 'e#2', kind: 'file' },
+        { episode_ref: 'e#3', kind: 'file' },
+      ])
     })
   })
 

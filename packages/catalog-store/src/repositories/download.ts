@@ -56,6 +56,16 @@ export interface NewDownload {
 
 export interface DownloadPatch {
   readonly status?: DownloadStatus
+  /**
+   * Qué quedó en disco, cuando el motor ya lo sabe.
+   *
+   * El alta no puede saberlo: se crea antes de resolver el stream, así que hasta
+   * que la descarga termina no hay forma de distinguir un MP4 de una carpeta de
+   * segmentos. Si esto no se pudiera escribir, una descarga de HLS sin ffmpeg se
+   * quedaría diciendo «file» con una playlist dentro, y la interfaz pediría un
+   * vídeo que en realidad es texto.
+   */
+  readonly kind?: DownloadKind
   readonly path?: string
   readonly bytes?: number
   readonly totalBytes?: number
@@ -183,6 +193,10 @@ export function createDownloadRepository(db: Database, now: () => number = Date.
       if (patch.status !== undefined) {
         campos.push('status = ?')
         valores.push(patch.status)
+      }
+      if (patch.kind !== undefined) {
+        campos.push('kind = ?')
+        valores.push(patch.kind)
       }
       if (patch.path !== undefined) {
         campos.push('path = ?')

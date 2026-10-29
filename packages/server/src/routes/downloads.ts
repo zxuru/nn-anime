@@ -29,6 +29,19 @@ import { listarCarpetas } from '../downloads/dirs'
 import type { DownloadQueue } from '../downloads/queue'
 import { findProvider } from './anime'
 
+/**
+ * ¿Lo que quedó en disco es una playlist local?
+ *
+ * Manda la ruta, no el `kind`. La fila dice lo que el motor grabó al terminar,
+ * pero una base de una versión anterior tiene filas con `kind` 'file' y una
+ * playlist dentro —el `update` no escribía la columna— y servirlas como MP4 le
+ * daba al reproductor el texto del manifiesto con `video/mp4`. El sufijo delata
+ * el caso sin ambigüedad y no depende de que la fila se haya corregido.
+ */
+function esPlaylist(fila: DownloadRecord): boolean {
+  return fila.kind === 'segments' || (fila.path ?? '').toLowerCase().endsWith('.m3u8')
+}
+
 export interface DownloadsRouteOptions {
   readonly queue: DownloadQueue
   readonly store: CatalogStore
@@ -271,7 +284,7 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
       return errorJson(c, 409, 'la ruta de la descarga no es válida')
     }
 
-    if (fila.kind === 'segments') {
+    if (esPlaylist(fila)) {
       const playlist = await Bun.file(absoluta)
         .text()
         .catch(() => undefined)
@@ -321,7 +334,7 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
     if (!Number.isInteger(id) || id <= 0) return errorJson(c, 400, 'ese identificador no es válido')
 
     const fila = await store.getDownload(id)
-    if (fila === undefined || fila.kind !== 'segments' || fila.path === undefined) {
+    if (fila === undefined || fila.path === undefined || !esPlaylist(fila)) {
       return errorJson(c, 404, 'esa descarga no tiene segmentos')
     }
 

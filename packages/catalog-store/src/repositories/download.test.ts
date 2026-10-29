@@ -85,6 +85,25 @@ describe('la cola de descargas', () => {
     })
   })
 
+  test('el modo de la descarga se corrige cuando el motor ya sabe qué quedó', async () => {
+    await conBase((db) => {
+      const repo = createDownloadRepository(db)
+      // El alta no puede saberlo: nace en 'file' antes de resolver el stream.
+      const fila = repo.create({ ...ALTA, kind: 'file' })
+      expect(fila.kind).toBe('file')
+
+      const segmentos = repo.update(fila.id, {
+        status: 'complete',
+        kind: 'segments',
+        path: 'fixture/aurora-nocturna/1/index.m3u8',
+      })
+
+      expect(segmentos?.kind).toBe('segments')
+      // Y se lee igual de la base: el `update` escribe la columna, no la finge.
+      expect(repo.get(fila.id)?.kind).toBe('segments')
+    })
+  })
+
   test('borrar devuelve lo que había y la deja fuera de la lista', async () => {
     await conBase((db) => {
       const repo = createDownloadRepository(db)
