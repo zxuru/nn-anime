@@ -39,6 +39,28 @@ export function estaActiva(item: Descarga): boolean {
 }
 
 /**
+ * El orden de la cola: primero lo que se está bajando.
+ *
+ * La lista llega del servidor por fecha de alta, que es el orden en que se
+ * apuntó y no el que importa mientras se mira. Lo que está gastando la conexión
+ * son las filas `downloading`, y son las que se quieren tener arriba; después,
+ * lo que espera turno, lo pausado y lo que falló. `sort` es estable, así que
+ * dentro de un mismo estado se conserva el orden de llegada.
+ */
+const PESO_ESTADO: Readonly<Record<Descarga['status'], number>> = {
+  downloading: 0,
+  queued: 1,
+  paused: 2,
+  failed: 3,
+  complete: 4,
+  cancelled: 5,
+}
+
+export function ordenarActivas(items: readonly Descarga[]): readonly Descarga[] {
+  return [...items].sort((uno, otro) => PESO_ESTADO[uno.status] - PESO_ESTADO[otro.status])
+}
+
+/**
  * Agrupa las descargas completas por título.
  *
  * La clave es la referencia del título y no su nombre: dos temporadas del mismo

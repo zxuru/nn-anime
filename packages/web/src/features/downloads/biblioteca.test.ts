@@ -8,6 +8,7 @@ import {
   faltanBytes,
   formatearBytes,
   formatearEspera,
+  ordenarActivas,
   porcentaje,
 } from './biblioteca'
 
@@ -157,5 +158,48 @@ describe('qué es una descarga activa', () => {
   test('lo completo y lo cancelado no', () => {
     expect(estaActiva(descarga({ status: 'complete' }))).toBe(false)
     expect(estaActiva(descarga({ status: 'cancelled' }))).toBe(false)
+  })
+})
+
+describe('el orden de la cola', () => {
+  /**
+   * Lo que se está bajando va primero.
+   *
+   * La lista llega del servidor por fecha de alta, que es el orden en que se
+   * apuntó: con una serie entera apuntada, lo que gasta la conexión quedaba
+   * enterrado entre cientos de filas en cola. Lo que se mira de reojo es lo que
+   * avanza.
+   */
+  test('lo que se está bajando va delante, y lo que falló al final', () => {
+    const items = [
+      descarga({ id: 1, status: 'failed' }),
+      descarga({ id: 2, status: 'queued' }),
+      descarga({ id: 3, status: 'downloading' }),
+      descarga({ id: 4, status: 'paused' }),
+    ]
+
+    expect(ordenarActivas(items).map((item) => item.id)).toEqual([3, 2, 4, 1])
+  })
+
+  test('dentro del mismo estado se conserva el orden de llegada', () => {
+    const items = [
+      descarga({ id: 1, status: 'downloading' }),
+      descarga({ id: 2, status: 'downloading' }),
+      descarga({ id: 3, status: 'queued' }),
+      descarga({ id: 4, status: 'queued' }),
+    ]
+
+    expect(ordenarActivas(items).map((item) => item.id)).toEqual([1, 2, 3, 4])
+  })
+
+  test('ordena una copia: la lista que recibe no se toca', () => {
+    const items = [
+      descarga({ id: 1, status: 'queued' }),
+      descarga({ id: 2, status: 'downloading' }),
+    ]
+
+    ordenarActivas(items)
+
+    expect(items.map((item) => item.id)).toEqual([1, 2])
   })
 })

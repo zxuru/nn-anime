@@ -213,4 +213,54 @@ test.describe('la biblioteca', () => {
       timeout: 10_000,
     })
   })
+
+  /**
+   * La cola, cerrada por defecto y con lo que avanza delante.
+   *
+   * Con una serie entera apuntada la cola son cientos de filas y empujaba la
+   * estantería fuera de la pantalla. Ahora se abre y se cierra desde su
+   * cabecera, y al abrirla lo que se está bajando va primero: es lo único que
+   * hay que mirar de reojo mientras se busca qué ver.
+   */
+  test('la cola se abre y pone delante lo que se está bajando', async ({ page }) => {
+    const fila = (id: number, status: string) => ({
+      id,
+      providerId: 'fixture',
+      animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+      episodeRef: { providerId: 'fixture', value: `aurora-nocturna#${id}` },
+      title: 'Aurora Nocturna',
+      episodeLabel: `Episodio ${id}`,
+      kind: 'file',
+      status,
+      bytes: 0,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    })
+
+    await page.route('**/api/downloads', async (ruta) => {
+      if (ruta.request().method() !== 'GET') return ruta.continue()
+
+      // El orden que da el servidor: el alta más nueva primero.
+      await ruta.fulfill({
+        json: { items: [fila(1, 'queued'), fila(2, 'downloading'), fila(3, 'failed')] },
+      })
+    })
+
+    await entrar(page)
+    await page.getByRole('link', { name: 'Biblioteca', exact: true }).click()
+
+    await expect(page.getByRole('heading', { name: 'Descargas' })).toBeVisible()
+    await expect(page.getByText('3 en curso')).toBeVisible()
+    // Cerrada: la cola no ocupa sitio y la estantería queda a la vista.
+    await expect(page.getByText('Episodio 2')).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Ver descargas' }).click()
+    await expect(page.getByText('Episodio 2')).toBeVisible()
+
+    const etiquetas = await page.locator('.library__download-episode').allTextContents()
+    expect(etiquetas).toEqual(['Episodio 2', 'Episodio 1', 'Episodio 3'])
+
+    await page.getByRole('button', { name: 'Ocultar descargas' }).click()
+    await expect(page.getByText('Episodio 2')).toHaveCount(0)
+  })
 })
