@@ -25,6 +25,13 @@ export type RouteName =
   | 'settings'
   | 'profile'
   | 'history'
+  | 'library'
+  | 'library-player'
+  /**
+   * La dirección vieja de la biblioteca. Se conserva como alias para que un
+   * marcador o un enlace de una versión anterior no acabe en «esa ruta no
+   * existe»; la navegación ya no la usa.
+   */
   | 'downloads'
   | 'not-found'
 
@@ -49,6 +56,10 @@ const PATTERNS: readonly RoutePattern[] = [
   // que el orden entre patrones de distinta longitud no decide nada.
   { name: 'profile', segments: ['profile'] },
   { name: 'history', segments: ['history'] },
+  { name: 'library', segments: ['library'] },
+  { name: 'library-player', segments: ['library', ':id'] },
+  // Alias de la dirección vieja: misma pantalla, otra ruta. Va después de
+  // `library` para que construir la ruta nueva no devuelva la vieja.
   { name: 'downloads', segments: ['downloads'] },
   { name: 'settings', segments: ['settings'] },
 ]

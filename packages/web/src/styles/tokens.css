@@ -794,6 +794,21 @@
   --pieza-mando-borde: rgb(245 240 230 / 55%);
   /** El relleno del asomo cuando aparece encima del arte del reproductor. */
   --sobre-video-banda: rgb(0 0 0 / 78%);
+
+  /*
+   * La biblioteca.
+   *
+   * La estantería usa la proporción de portada de la casa y un mínimo que deja
+   * dos carteles en un teléfono y cuatro en la columna de al lado del panel. La
+   * barra de una descarga es fina: es un dato, no el contenido de la fila.
+   */
+  --library-serie-min: 8.5rem;
+  --library-bar-height: 0.4rem;
+  --library-bar-indeterminate: 38%;
+  --library-barrido: 1.4s;
+  --library-barrido-fin: 280%;
+  --library-icon: 1.1rem;
+  --library-episode-icon: 2.75rem;
 }
 
 [data-theme="light"] {

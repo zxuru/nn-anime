@@ -15,6 +15,7 @@ import { mkdir, stat, statfs } from 'node:fs/promises'
 import { dirname, isAbsolute, resolve } from 'node:path'
 import type { CatalogStore, DownloadRecord } from '@nn-anime/catalog-store'
 import {
+  downloadItemSchema,
   downloadStartRequestSchema,
   downloadStartResponseSchema,
   downloadsDirRequestSchema,
@@ -166,6 +167,24 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
     }
 
     return c.json(downloadsDirsSchema.parse(resultado.listado))
+  })
+
+  /**
+   * Una descarga por su id.
+   *
+   * La pantalla de la biblioteca abre un episodio con su id en la dirección y no
+   * con el estado de la lista: recargar o guardar ese enlace tiene que abrir lo
+   * mismo. Aquí sólo se dice qué es y en qué punto está; el archivo lo sirve la
+   * ruta de siempre.
+   */
+  app.get('/api/downloads/:id', async (c) => {
+    const id = Number(c.req.param('id'))
+    if (!Number.isInteger(id) || id <= 0) return errorJson(c, 400, 'ese identificador no es válido')
+
+    const fila = await store.getDownload(id)
+    if (fila === undefined) return errorJson(c, 404, 'esa descarga no existe')
+
+    return c.json(downloadItemSchema.parse(item(fila)))
   })
 
   app.patch('/api/downloads/dir', async (c) => {

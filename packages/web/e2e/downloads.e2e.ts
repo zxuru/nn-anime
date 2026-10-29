@@ -2,25 +2,25 @@ import { expect, test } from '@playwright/test'
 import { entrar } from './fixtures'
 
 /**
- * La página de Descargas, sin nada descargado.
+ * La biblioteca, sin nada descargado.
  *
  * El e2e del motor necesita una fuente que descargue y una red de mentira; aquí
  * sólo se mide la pantalla: que exista, que la navegación lleve, que el vacío se
  * explique en vez de dejar una lista en blanco y que la carpeta de destino se
- * pueda cambiar sin el anfitrión de escritorio.
+ * pueda cambiar sin el anfitrión de escritorio. Los ajustes de la carpeta viven
+ * dentro de un desplegable: la biblioteca enseña la colección, no la
+ * configuración.
  */
-test.describe('las descargas', () => {
-  test('la navegación lleva a Descargas y el vacío se explica', async ({ page }) => {
+test.describe('la biblioteca', () => {
+  test('la navegación lleva a Biblioteca y el vacío se explica', async ({ page }) => {
     await entrar(page)
-    await page.getByRole('link', { name: 'Descargas' }).click()
+    await page.getByRole('link', { name: 'Biblioteca', exact: true }).click()
 
-    await expect(page).toHaveURL(/\/downloads$/)
-    // `level: 1` y no sólo el nombre: el encabezado de la carpeta también dice
-    // «descargas» y `getByRole` compara por subcadena.
-    await expect(page.getByRole('heading', { level: 1, name: 'Descargas' })).toBeVisible()
-    await expect(
-      page.getByText('No hay ninguna descarga. Abre un episodio y pulsa «Descargar».'),
-    ).toBeVisible()
+    await expect(page).toHaveURL(/\/library$/)
+    await expect(page.getByRole('heading', { level: 1, name: 'Biblioteca' })).toBeVisible()
+    await expect(page.getByText('Tu biblioteca está vacía.')).toBeVisible()
+
+    await page.getByText('Carpeta y espacio').click()
     await expect(page.getByText(/Libre: .+ de .+\. Las descargas ocupan .+\./)).toBeVisible()
     // Sin anfitrión no hay diálogo del sistema, pero el botón está: abre el
     // explorador que sirve la aplicación. Y la ruta se sigue pudiendo escribir.
@@ -46,7 +46,8 @@ test.describe('las descargas', () => {
     })
 
     await entrar(page)
-    await page.getByRole('link', { name: 'Descargas' }).click()
+    await page.getByRole('link', { name: 'Biblioteca', exact: true }).click()
+    await page.getByText('Carpeta y espacio').click()
 
     await page.getByLabel('Se guardan en').fill('D:\\Anime\\nn-anime')
     await page.getByRole('button', { name: 'Guardar carpeta' }).click()
@@ -89,7 +90,8 @@ test.describe('las descargas', () => {
     })
 
     await entrar(page)
-    await page.getByRole('link', { name: 'Descargas' }).click()
+    await page.getByRole('link', { name: 'Biblioteca', exact: true }).click()
+    await page.getByText('Carpeta y espacio').click()
     await page.getByRole('button', { name: 'Elegir carpeta…' }).click()
 
     await expect(page.getByRole('dialog')).toBeVisible()
@@ -117,6 +119,60 @@ test.describe('las descargas', () => {
       timeout: 10_000,
     })
     await expect(page.getByText('Esta fuente no permite descargar.')).toHaveCount(0)
+  })
+
+  /**
+   * La estantería y su reproductor.
+   *
+   * Una descarga completa tiene que aparecer agrupada y abrirse en su propia
+   * pantalla. El elemento se sirve por su id, así que la prueba intercepta la
+   * ficha y el archivo no hace falta: lo que se mide es que el enlace lleve a
+   * `/library/:id` y que el `<video>` apunte a la ruta de la descarga.
+   */
+  test('una descarga completa aparece en la biblioteca y abre su reproductor', async ({ page }) => {
+    const item = {
+      id: 1,
+      providerId: 'fixture',
+      animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+      episodeRef: { providerId: 'fixture', value: 'aurora-nocturna#1' },
+      title: 'Aurora Nocturna',
+      episodeLabel: 'Episodio 1',
+      kind: 'file',
+      status: 'complete',
+      bytes: 3,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }
+
+    await page.route('**/api/downloads/space', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          path: 'C:\\Descargas',
+          freeBytes: 1,
+          totalBytes: 2,
+          downloadsBytes: 3,
+        },
+      })
+    })
+    await page.route('**/api/downloads/1', async (ruta) => {
+      await ruta.fulfill({ json: item })
+    })
+    await page.route('**/api/downloads', async (ruta) => {
+      if (ruta.request().method() !== 'GET') return ruta.continue()
+
+      await ruta.fulfill({ json: { items: [item] } })
+    })
+
+    await entrar(page)
+    await page.getByRole('link', { name: 'Biblioteca', exact: true }).click()
+
+    await expect(page.getByText('Aurora Nocturna').first()).toBeVisible()
+    await page.getByRole('link', { name: /Episodio 1/ }).click()
+
+    await expect(page).toHaveURL(/\/library\/1$/)
+    await expect(page.locator('video')).toHaveAttribute('src', '/api/downloads/1/file', {
+      timeout: 10_000,
+    })
   })
 
   test('con una copia completa, el reproductor no pide el stream al proveedor', async ({

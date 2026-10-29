@@ -37,7 +37,7 @@ export function DownloadFolder(props: DownloadFolderProps): ReactNode {
 
   // Mientras nadie escriba, el campo enseña lo que dice el servidor. Un valor
   // atado a `current` borraría lo tecleado en cada refresco de la cola, y la cola
-  // se refresca cada dos segundos mientras algo se está bajando.
+  // se refresca cada segundo mientras algo se está bajando.
   const valor = escrita ?? props.current ?? ''
   const ocupado = estado === 'saving'
 
