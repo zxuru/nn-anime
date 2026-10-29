@@ -19,6 +19,8 @@ import { rm } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import type { DownloadPatch, DownloadRecord, DownloadStatus } from '@nn-anime/catalog-store'
 import {
+  createFfmpegRemux,
+  createMuxRemux,
   downloadTask,
   type FetchLike,
   findFfmpeg,
@@ -92,6 +94,18 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
   const concurrency = Math.max(1, options.concurrency ?? DEFAULT_CONCURRENCY)
   const now = options.now ?? Date.now
   const ffmpegPath = options.ffmpegPath ?? findFfmpeg()
+  /**
+   * Con qué se convierte un HLS a MP4.
+   *
+   * ffmpeg primero si está: lleva años de casos raros dentro y copia los códecs
+   * sin tocar nada. Si no, `mux.js`: hace el mismo remux en JavaScript, sin
+   * binario que instalar y sin ochenta megas de dependencia.
+   */
+  const remux: RemuxFn | null =
+    options.remux === null
+      ? null
+      : (options.remux ??
+        (ffmpegPath === undefined ? createMuxRemux() : createFfmpegRemux(ffmpegPath)))
   const activas = new Map<number, Promise<void>>()
   const pendientes: number[] = []
   const controladores = new Map<number, AbortController>()
@@ -131,13 +145,10 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
         resolve: async () => stream,
         signal,
         ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
-        ...(options.remux === null
-          ? {}
-          : options.remux === undefined
-            ? ffmpegPath === undefined
-              ? {}
-              : { ffmpegPath }
-            : { remux: options.remux }),
+        // El remezclador: `null` apaga la conversión, una función manda, ffmpeg
+        // gana si está —copia los códecs con años de casos raros detrás— y si no,
+        // `mux.js` hace el mismo trabajo sin binario que instalar.
+        ...(remux === null ? {} : { remux }),
         ...(options.freeBytes === undefined ? {} : { freeBytes: options.freeBytes }),
         onProgress: (bytes, totalBytes) => {
           const instante = now()

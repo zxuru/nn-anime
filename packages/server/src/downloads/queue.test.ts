@@ -165,6 +165,35 @@ describe('la cola de descargas', () => {
     })
   })
 
+  /**
+   * Una conversión que falla no tumba la descarga.
+   *
+   * Sin `remux` inyectado, la cola usa `mux.js`, y el HLS de esta prueba es una
+   * playlist con un «segmento» que no es MPEG-TS: el remux va a fallar seguro.
+   * Lo que se mide es que ese fallo deja la fila completa **en segmentos** y no
+   * en `failed`: lo descargado está entero y se puede convertir luego.
+   */
+  test('si la conversión falla, la descarga termina igual en segmentos', async () => {
+    await conRaiz(async (root) => {
+      const store = memoria([fila(1)])
+      const cola = createDownloadQueue({
+        store,
+        root,
+        concurrency: 1,
+        fetchImpl: HLS_FETCH,
+        resolve: async () => ({ url: 'https://fixture.invalid/v/master.m3u8', kind: 'hls' }),
+      })
+
+      await cola.start()
+      await esperar(async () => (await store.get(1))?.status === 'complete')
+
+      const final = await store.get(1)
+      expect(final?.status).toBe('complete')
+      expect(final?.kind).toBe('segments')
+      expect(final?.path ?? '').toEndWith('index.m3u8')
+    })
+  })
+
   test('no pasa de la concurrencia configurada', async () => {
     await conRaiz(async (root) => {
       const store = memoria([fila(1), fila(2)])
