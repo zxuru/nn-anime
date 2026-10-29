@@ -1,0 +1,397 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-28T23:59:00-03:00",
+  "title": "Design System: nn-anime",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "neutral",
+        "displayName": "Tinta de la sala",
+        "canonical": "#08080a",
+        "tonalRamp": [
+          "color-mix(in oklab, #08080a 85%, #ffffff)",
+          "color-mix(in oklab, #08080a 70%, #ffffff)",
+          "color-mix(in oklab, #08080a 45%, #ffffff)",
+          "color-mix(in oklab, #08080a 22%, #ffffff)",
+          "#08080a",
+          "color-mix(in oklab, #08080a 88%, #000000)",
+          "color-mix(in oklab, #08080a 76%, #000000)",
+          "color-mix(in oklab, #08080a 62%, #000000)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Superficie",
+        "canonical": "#0e0e13",
+        "tonalRamp": [
+          "color-mix(in oklab, #0e0e13 85%, #ffffff)",
+          "color-mix(in oklab, #0e0e13 70%, #ffffff)",
+          "color-mix(in oklab, #0e0e13 45%, #ffffff)",
+          "color-mix(in oklab, #0e0e13 22%, #ffffff)",
+          "#0e0e13",
+          "color-mix(in oklab, #0e0e13 88%, #000000)",
+          "color-mix(in oklab, #0e0e13 76%, #000000)",
+          "color-mix(in oklab, #0e0e13 62%, #000000)"
+        ]
+      },
+      "cream": {
+        "role": "neutral",
+        "displayName": "Crema",
+        "canonical": "#f5f0e6",
+        "tonalRamp": [
+          "color-mix(in oklab, #f5f0e6 85%, #000000)",
+          "color-mix(in oklab, #f5f0e6 70%, #000000)",
+          "color-mix(in oklab, #f5f0e6 45%, #000000)",
+          "color-mix(in oklab, #f5f0e6 22%, #000000)",
+          "#f5f0e6",
+          "color-mix(in oklab, #f5f0e6 88%, #ffffff)",
+          "color-mix(in oklab, #f5f0e6 76%, #ffffff)",
+          "color-mix(in oklab, #f5f0e6 62%, #ffffff)"
+        ]
+      },
+      "ash": {
+        "role": "neutral",
+        "displayName": "Ceniza",
+        "canonical": "#a8a094",
+        "tonalRamp": [
+          "color-mix(in oklab, #a8a094 85%, #000000)",
+          "color-mix(in oklab, #a8a094 70%, #000000)",
+          "color-mix(in oklab, #a8a094 45%, #000000)",
+          "color-mix(in oklab, #a8a094 22%, #000000)",
+          "#a8a094",
+          "color-mix(in oklab, #a8a094 88%, #ffffff)",
+          "color-mix(in oklab, #a8a094 76%, #ffffff)",
+          "color-mix(in oklab, #a8a094 62%, #ffffff)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Papel",
+        "canonical": "#f2ede3",
+        "tonalRamp": [
+          "color-mix(in oklab, #f2ede3 85%, #000000)",
+          "color-mix(in oklab, #f2ede3 70%, #000000)",
+          "color-mix(in oklab, #f2ede3 45%, #000000)",
+          "color-mix(in oklab, #f2ede3 22%, #000000)",
+          "#f2ede3",
+          "color-mix(in oklab, #f2ede3 88%, #ffffff)",
+          "color-mix(in oklab, #f2ede3 76%, #ffffff)",
+          "color-mix(in oklab, #f2ede3 62%, #ffffff)"
+        ]
+      },
+      "carbon": {
+        "role": "neutral",
+        "displayName": "Carbón",
+        "canonical": "#14120f",
+        "tonalRamp": [
+          "color-mix(in oklab, #14120f 85%, #ffffff)",
+          "color-mix(in oklab, #14120f 70%, #ffffff)",
+          "color-mix(in oklab, #14120f 45%, #ffffff)",
+          "color-mix(in oklab, #14120f 22%, #ffffff)",
+          "#14120f",
+          "color-mix(in oklab, #14120f 88%, #000000)",
+          "color-mix(in oklab, #14120f 76%, #000000)",
+          "color-mix(in oklab, #14120f 62%, #000000)"
+        ]
+      },
+      "coral": {
+        "role": "primary",
+        "displayName": "Coral",
+        "canonical": "#ff5c35",
+        "tonalRamp": [
+          "color-mix(in oklab, #ff5c35 85%, #000000)",
+          "color-mix(in oklab, #ff5c35 70%, #000000)",
+          "color-mix(in oklab, #ff5c35 45%, #000000)",
+          "color-mix(in oklab, #ff5c35 22%, #000000)",
+          "#ff5c35",
+          "color-mix(in oklab, #ff5c35 88%, #ffffff)",
+          "color-mix(in oklab, #ff5c35 76%, #ffffff)",
+          "color-mix(in oklab, #ff5c35 62%, #ffffff)"
+        ]
+      },
+      "coral-deep": {
+        "role": "primary",
+        "displayName": "Coral profundo",
+        "canonical": "#e8451f",
+        "tonalRamp": [
+          "color-mix(in oklab, #e8451f 85%, #000000)",
+          "color-mix(in oklab, #e8451f 70%, #000000)",
+          "color-mix(in oklab, #e8451f 45%, #000000)",
+          "color-mix(in oklab, #e8451f 22%, #000000)",
+          "#e8451f",
+          "color-mix(in oklab, #e8451f 88%, #ffffff)",
+          "color-mix(in oklab, #e8451f 76%, #ffffff)",
+          "color-mix(in oklab, #e8451f 62%, #ffffff)"
+        ]
+      },
+      "coral-ember": {
+        "role": "primary",
+        "displayName": "Coral ascua",
+        "canonical": "#c02f10",
+        "tonalRamp": [
+          "color-mix(in oklab, #c02f10 85%, #000000)",
+          "color-mix(in oklab, #c02f10 70%, #000000)",
+          "color-mix(in oklab, #c02f10 45%, #000000)",
+          "color-mix(in oklab, #c02f10 22%, #000000)",
+          "#c02f10",
+          "color-mix(in oklab, #c02f10 88%, #ffffff)",
+          "color-mix(in oklab, #c02f10 76%, #ffffff)",
+          "color-mix(in oklab, #c02f10 62%, #ffffff)"
+        ]
+      },
+      "coral-ember-deep": {
+        "role": "primary",
+        "displayName": "Coral ascua profundo",
+        "canonical": "#a32512",
+        "tonalRamp": [
+          "color-mix(in oklab, #a32512 85%, #000000)",
+          "color-mix(in oklab, #a32512 70%, #000000)",
+          "color-mix(in oklab, #a32512 45%, #000000)",
+          "color-mix(in oklab, #a32512 22%, #000000)",
+          "#a32512",
+          "color-mix(in oklab, #a32512 88%, #ffffff)",
+          "color-mix(in oklab, #a32512 76%, #ffffff)",
+          "color-mix(in oklab, #a32512 62%, #ffffff)"
+        ]
+      },
+      "mint": { "role": "neutral", "displayName": "Menta (éxito, oscuro)", "canonical": "#63d9a0" },
+      "moss": { "role": "neutral", "displayName": "Musgo (éxito, claro)", "canonical": "#1d6b3f" },
+      "salmon": {
+        "role": "neutral",
+        "displayName": "Salmón (error, oscuro)",
+        "canonical": "#ff8a80"
+      },
+      "brick": {
+        "role": "neutral",
+        "displayName": "Ladrillo (error, claro)",
+        "canonical": "#a32222"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Titular de marquesina",
+        "purpose": "Sólo el titular de la marquesina; tres renglones como máximo."
+      },
+      "headline": {
+        "displayName": "Titular de tramo",
+        "purpose": "La nota al margen o la cabecera de un tramo."
+      },
+      "title": {
+        "displayName": "Título de pieza",
+        "purpose": "El título de un cartel, medido en cqi contra la pieza."
+      },
+      "body": {
+        "displayName": "Texto",
+        "purpose": "Sinopsis, ajustes y estados; medida topada a 60ch."
+      },
+      "label": {
+        "displayName": "Rótulo",
+        "purpose": "Mandos, navegación, metadatos y cuentas: el registro del dato."
+      },
+      "buscador": {
+        "displayName": "Campo de búsqueda",
+        "purpose": "El campo es un titular: buscar es la primera acción del producto."
+      }
+    },
+    "shadows": [
+      {
+        "name": "pressed",
+        "value": "4px 4px 0 var(--color-border)",
+        "purpose": "Mando activo o primario: la sombra por defecto del sistema."
+      },
+      {
+        "name": "hard",
+        "value": "6px 6px 0 var(--color-border)",
+        "purpose": "Superficie destacada; en claro la sombra va en negro porque el acento sobre crema no se distingue."
+      },
+      {
+        "name": "floating",
+        "value": "0 8px 24px rgb(0 0 0 / 45%)",
+        "purpose": "Sólo la hoja y los diálogos, que viven en la capa superior sin marco."
+      },
+      {
+        "name": "contact",
+        "value": "0 1px 2px rgb(0 0 0 / 40%)",
+        "purpose": "Sombra mínima de un control sobre otro."
+      },
+      {
+        "name": "on-art",
+        "value": "0 2px 18px rgb(8 8 10 / 55%)",
+        "purpose": "El texto de una pieza, para que se lea sobre cualquier portada."
+      }
+    ],
+    "motion": [
+      {
+        "name": "fast",
+        "value": "120ms",
+        "purpose": "Cambios de color, borde y opacidad de un mando."
+      },
+      { "name": "normal", "value": "200ms", "purpose": "El asomo y la píldora del conmutador." },
+      {
+        "name": "slow",
+        "value": "320ms",
+        "purpose": "La entrada de una superficie que ocupa la pantalla; la salida va en fast."
+      },
+      {
+        "name": "ease-piece",
+        "value": "cubic-bezier(0.22, 0.61, 0.36, 1)",
+        "purpose": "La curva de entrada: arranca rápido y frena."
+      },
+      {
+        "name": "ease-exit",
+        "value": "cubic-bezier(0.4, 0, 1, 1)",
+        "purpose": "La curva de salida: acelera y se va, sin rebote."
+      },
+      {
+        "name": "entrada",
+        "value": "220ms, paso de 60ms, ease-out",
+        "purpose": "La entrada escalonada de la home."
+      },
+      {
+        "name": "skeleton-pulse",
+        "value": "900ms",
+        "purpose": "El latido de la espera; lento a propósito."
+      }
+    ],
+    "breakpoints": [
+      { "name": "wide", "value": "1400px" },
+      { "name": "desk", "value": "1100px" },
+      { "name": "mid", "value": "820px" },
+      { "name": "narrow", "value": "560px" },
+      { "name": "mobile", "value": "600px" },
+      { "name": "compact", "value": "480px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Mando primario",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "La acción que se gana el sitio: reproducir. Coral, esquina viva, sombra dura.",
+      "html": "<button class=\"ds-btn-primary\">Reproducir el episodio 1</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; min-height: 3.5rem; padding: 0 1rem; border: 2px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-contrast); font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; box-shadow: 4px 4px 0 var(--color-border); cursor: pointer; transition: background 120ms, color 120ms; } .ds-btn-primary:hover { background: var(--color-accent-strong); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Mando de la casa",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "El mando por defecto: transparente, borde crema de 2 px, esquina viva.",
+      "html": "<button class=\"ds-btn\">Añadir a favoritos</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 3.5rem; padding: 0 1rem; border: 2px solid var(--color-border); background: transparent; color: var(--color-text); font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; cursor: pointer; transition: background 120ms, border-color 120ms; } .ds-btn:hover { background: var(--color-surface-raised); } .ds-btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Pieza",
+      "kind": "card",
+      "refersTo": "pieza",
+      "description": "El cartel 2:3: arte recortado por el marco, pie con título y una línea de datos.",
+      "html": "<a class=\"ds-pz\" href=\"#\"><span class=\"ds-pz__arte\"></span><span class=\"ds-pz__velo\"></span><span class=\"ds-pz__pie\"><span class=\"ds-pz__titulo\">Mar de Cristal</span><span class=\"ds-pz__meta\">Año 2023</span></span></a>",
+      "css": ".ds-pz { position: relative; display: grid; align-content: end; aspect-ratio: 2 / 3; width: 11rem; overflow: clip; border: 1px solid rgb(245 240 230 / 14%); border-radius: 10px; background: var(--color-surface); color: #f5f0e6; text-decoration: none; transition: border-color 120ms; } .ds-pz__arte { position: absolute; inset: 0; background-image: linear-gradient(122deg, #ff5c35 4%, #3a2470 96%); } .ds-pz__velo { position: absolute; inset: 0; background: linear-gradient(to top, rgb(8 8 10 / 88%) 0%, rgb(8 8 10 / 62%) 34%, rgb(8 8 10 / 0%) 78%); } .ds-pz__pie { position: relative; display: grid; gap: 0.25rem; padding: 0.7rem 0.85rem 0.85rem; } .ds-pz__titulo { font-family: var(--font-display, Nunito, system-ui, sans-serif); font-size: 1.1rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.01em; } .ds-pz__meta { font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: rgb(245 240 230 / 84%); } .ds-pz:hover { border-color: rgb(245 240 230 / 45%); } .ds-pz:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Destino de navegación",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Rótulo monoespaciado; el destino actual se marca con tinta y filete coral, no sólo con color.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav__a\" href=\"#\">Inicio</a><a class=\"ds-nav__a\" href=\"#\" aria-current=\"page\">Buscar</a></nav>",
+      "css": ".ds-nav { display: flex; gap: 1.5rem; } .ds-nav__a { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0.25rem 0; border-bottom: 2px solid transparent; color: var(--color-text-dim, #a8a094); font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; text-decoration: none; transition: color 120ms, border-color 120ms; } .ds-nav__a:hover { color: var(--color-text, #f5f0e6); border-bottom-color: var(--color-accent, #ff5c35); } .ds-nav__a[aria-current=\"page\"] { color: var(--color-text, #f5f0e6); border-bottom-color: var(--color-accent, #ff5c35); } .ds-nav__a:focus-visible { outline: 2px solid var(--color-accent, #ff5c35); outline-offset: 2px; }"
+    },
+    {
+      "name": "Conmutador de tipo",
+      "kind": "chip",
+      "refersTo": "conmutador",
+      "description": "Dos mitades iguales con una píldora coral que se desliza con transform.",
+      "html": "<div class=\"ds-conm\"><span class=\"ds-conm__op\">Anime</span><span class=\"ds-conm__op\" aria-current=\"page\">Películas</span></div>",
+      "css": ".ds-conm { position: relative; display: grid; grid-template-columns: 1fr 1fr; width: 12rem; padding: 1px; border: 1px solid rgb(245 240 230 / 45%); border-radius: 999px; } .ds-conm::before { content: \"\"; position: absolute; inset-block: 1px; inset-inline-start: 1px; width: calc(50% - 1px); border-radius: 999px; background: var(--color-accent, #ff5c35); transition: transform 200ms cubic-bezier(0.22, 0.61, 0.36, 1); } .ds-conm[data-tipo=\"movies\"]::before { transform: translateX(100%); } .ds-conm__op { position: relative; display: flex; align-items: center; justify-content: center; min-height: 2.75rem; padding: 0 1rem; border-radius: 999px; color: var(--color-text-dim, #a8a094); font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; } .ds-conm__op[aria-current=\"page\"] { color: var(--color-accent-contrast, #08080a); }"
+    },
+    {
+      "name": "Buscador",
+      "kind": "input",
+      "refersTo": "buscador",
+      "description": "No es una caja: campo transparente con filete inferior de 2 px y cuerpo de titular.",
+      "html": "<label class=\"ds-buscador\"><span class=\"ds-buscador__rotulo\">Buscar</span><input class=\"ds-buscador__campo\" placeholder=\"Anime, película, dorama…\" /></label>",
+      "css": ".ds-buscador { display: grid; gap: 0.5rem; width: 100%; } .ds-buscador__rotulo { font-family: var(--font-sans, Nunito, system-ui, sans-serif); font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--color-text-dim, #a8a094); } .ds-buscador__campo { width: 100%; min-height: clamp(3.25rem, 8vw, 4.5rem); padding-inline: 1rem; border: 0; border-bottom: 2px solid var(--color-text, #f5f0e6); border-radius: 0; background: transparent; color: var(--color-text, #f5f0e6); font-family: var(--font-display, Nunito, system-ui, sans-serif); font-size: clamp(1.35rem, 4vw, 2.25rem); font-weight: 300; letter-spacing: -0.03em; } .ds-buscador__campo::placeholder { color: var(--color-text-dim, #a8a094); } .ds-buscador__campo:focus-visible { outline: 2px solid var(--color-accent, #ff5c35); outline-offset: 2px; }"
+    },
+    {
+      "name": "Hoja",
+      "kind": "custom",
+      "refersTo": "hoja",
+      "description": "El asomo cuando no cabe: diálogo nativo anclado abajo, radio 14 px arriba y asa.",
+      "html": "<div class=\"ds-hoja\"><span class=\"ds-hoja__asa\"></span><p class=\"ds-hoja__titulo\">Mar de Cristal</p><p class=\"ds-hoja__cuerpo\">Sinopsis, motivo de la recomendación y acciones, dentro de la hoja.</p></div>",
+      "css": ".ds-hoja { display: grid; gap: 0.75rem; width: 22rem; padding: 1rem clamp(1rem, 4vw, 2rem) 2rem; border-top-left-radius: 10px; border-top-right-radius: 10px; background: var(--color-surface-raised, #14141b); color: var(--color-text, #f5f0e6); box-shadow: 0 8px 24px rgb(0 0 0 / 45%); } .ds-hoja__asa { justify-self: center; width: 2.5rem; height: 0.3rem; border-radius: 999px; background: rgb(245 240 230 / 45%); } .ds-hoja__titulo { margin: 0; font-family: var(--font-display, Nunito, system-ui, sans-serif); font-size: clamp(1.4rem, 5vw, 2rem); font-weight: 700; letter-spacing: -0.01em; } .ds-hoja__cuerpo { margin: 0; color: var(--color-text-dim, #a8a094); font-size: 0.9375rem; line-height: 1.45; }"
+    },
+    {
+      "name": "Tramo vacío",
+      "kind": "custom",
+      "description": "El vacío de un tramo en un renglón: título en 600 y cuerpo en ceniza. No tiene forma de cartel.",
+      "html": "<p class=\"ds-vacio\"><span class=\"ds-vacio__titulo\">Nada a medias</span><span class=\"ds-vacio__cuerpo\">Lo que empieces aparecerá aquí.</span></p>",
+      "css": ".ds-vacio { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; max-width: 60ch; margin: 0; padding: 0.75rem 0; color: var(--color-text-dim, #a8a094); font-size: 0.8125rem; } .ds-vacio__titulo { color: var(--color-text, #f5f0e6); font-weight: 600; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "La vitrina a oscuras",
+    "overview": "El sistema nace de una escena de uso, no de una preferencia: alguien sentado, de noche, con la luz apagada y una portada delante. El fondo es casi negro —#08080a, no gris— para que el arte sea lo único que brilla, y el arte está dibujado: seis campos de degradado más un recurso propio por pieza para que doce piezas no parezcan la misma. Cuando el catálogo no trae portada, no hay un hueco gris: hay una lámina. La densidad es editorial: la vitrina reparte seis columnas de cartel y una canaleta de nota al margen que acompaña al tramo, como el sumario de una revista. Y el sistema es quieto: el puntero enciende el borde y destapa el asomo, pero nada cambia de tamaño ni de sitio.",
+    "keyCharacteristics": [
+      "Fondo #08080a; la tinta clara es crema #f5f0e6, nunca blanco puro.",
+      "Un solo acento: coral #ff5c35, en menos del 10 % de cualquier pantalla.",
+      "El arte se dibuja con degradados y pseudo-elementos; un hueco vacío es una lámina, no un gris.",
+      "Elevación por tono y por marco duro; sin desenfoques decorativos.",
+      "Esquinas: vivas en los mandos, 10 px en la pieza, píldora en los carriles.",
+      "Movimiento de 120 / 200 / 320 ms con una sola curva de entrada y una de salida, apagado por prefers-reduced-motion."
+    ],
+    "rules": [
+      {
+        "name": "The Two Inks Rule",
+        "body": "Sobre una pieza, el texto es crema en los dos temas. Lo que hay debajo es arte oscuro, no el fondo de la aplicación.",
+        "section": "colors"
+      },
+      {
+        "name": "The Measured Contrast Rule",
+        "body": "Ningún par de color se afirma de memoria: a11y.test.ts calcula cada combinación y falla por debajo de 4.5:1 en texto y 3:1 en partes de componente.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Voice Rule",
+        "body": "El coral no es decoración: es el sitio donde se puede pulsar o donde el sistema señala. Bordes de arte, divisiones y metadatos no llevan acento nunca.",
+        "section": "colors"
+      },
+      {
+        "name": "The Weight-Not-Family Rule",
+        "body": "No entra una segunda familia para diferenciar un titular: la diferencia se hace con peso, cuerpo e interletrado.",
+        "section": "typography"
+      },
+      {
+        "name": "The Datum In Mono Rule",
+        "body": "Lo que es un número o una etiqueta de sistema va en monoespaciada, mayúsculas y 0.12em de interletrado. Lo que se lee como una frase, no.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "En reposo no hay sombra difusa. Si una superficie necesita separarse y no se puede separar por tono ni por borde, el problema es la composición.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Blur Is Motion Rule",
+        "body": "El único desenfoque del sistema es el del asomo al entrar (2px a 0); es movimiento, no profundidad.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do declarar el movimiento con --transition-fast, --transition-normal y --ease-piece, y heredar el apagado de prefers-reduced-motion.",
+      "Do medir un par de colores nuevo en a11y.test.ts antes de usarlo.",
+      "Do dibujar el arte con los seis campos y un recurso por pieza, con cqi para que escale con la pieza.",
+      "Do poner toda clase nueva en tokens.css o shell.css, y toda medida nueva en tokens.css.",
+      "Do dar a cada tramo una nota que diga por qué existe además de qué contiene.",
+      "Do mantener los mandos en 44 px o más y el rótulo en monoespaciada de 0.12em."
+    ],
+    "donts": [
+      "Don't cambiar la geometría de una pieza al pasar el puntero: nada de escala, elevación ni desplazamiento.",
+      "Don't usar el coral como decoración ni como segunda voz.",
+      "Don't poner blanco puro ni negro puro: la tinta es crema y el fondo es #08080a.",
+      "Don't introducir una familia tipográfica que no viaje en el repositorio.",
+      "Don't usar gris intermedio para un borde de control: o regla al 14 %, o control al 45 %.",
+      "Don't añadir sombras difusas para separar superficies.",
+      "Don't aclarar el arte en el tema claro: la pieza se ve igual en los dos temas.",
+      "Don't inventar cifras ni señales sociales en los textos de la interfaz."
+    ]
+  }
+}
