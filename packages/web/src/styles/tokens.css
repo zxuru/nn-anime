@@ -459,6 +459,16 @@
   --header-height: 3.5rem;
   --measure-wide: 60rem;
   --measure: 60ch;
+  /**
+   * El ancho del popover de la guía.
+   *
+   * driver.js trae 250–300 px fijos; la casa usa una medida que no parte el
+   * texto en renglones de tres palabras y que en un teléfono cabe con su
+   * margen. Son tokens y no números sueltos porque `shell.css` no admite
+   * medidas literales.
+   */
+  --guia-ancho-min: 17rem;
+  --guia-ancho-max: 22rem;
   /** La capa del encabezado pegajoso. El contenido va debajo y no puede
       empatarle: una insignia de tarjeta es un elemento flex, y un `z-index`
       distinto de `auto` en un elemento flex crea contexto de apilado aunque su

@@ -29,6 +29,7 @@ import type { ReactNode } from 'react'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import { usePath } from '../../router'
+import { ANCLAS } from '../guia/guia'
 import { useRecommendations } from '../recommendations/useRecommendations'
 import {
   enElTipo,
@@ -330,7 +331,7 @@ export function HomePage(props: HomePageProps): ReactNode {
         Es `role="status"` para que se anuncie sin robar el foco.
       */}
       {destacado === undefined ? (
-        <section className="marquesina marquesina--suelta">
+        <section className="marquesina marquesina--suelta" data-tour={ANCLAS.destacado}>
           {refresco === undefined ? null : (
             <p className="marca-refresco" role="status">
               {refresco}

@@ -194,7 +194,9 @@ describe('App: el conmutador de tipo en la cabecera', () => {
    * «no sale» de las pantallas donde no toca sin haber mirado nada.
    */
   function cabecera(path: string): string {
-    const trozo = /<header class="shell__header">([\s\S]*?)<\/header>/.exec(render(path))
+    // Los atributos de la cabecera cambian —hoy lleva el ancla de la guía— y
+    // esta prueba mira su contenido, no su lista de atributos.
+    const trozo = /<header class="shell__header"[^>]*>([\s\S]*?)<\/header>/.exec(render(path))
     if (trozo === null) throw new Error(`la cabecera no está en el marcado de ${path}`)
 
     return trozo[1] ?? ''

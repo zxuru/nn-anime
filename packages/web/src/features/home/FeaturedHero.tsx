@@ -38,6 +38,7 @@ import { t } from '../../i18n'
 import { Link } from '../../router'
 import { FavoriteButton } from '../detail/FavoriteButton'
 import { useFavorite } from '../detail/useDetail'
+import { ANCLAS } from '../guia/guia'
 import { Ticker } from './Ticker'
 import { useBannerDeLaMarquesina } from './tinta'
 import { useFeatured } from './useFeatured'
@@ -96,7 +97,12 @@ export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
   const meta = featuredMeta({ ...props.item, tags }, detail?.episodeCount)
 
   return (
-    <section className="marquesina" aria-labelledby="hero-title" data-tinta={bannerMedido?.tinta}>
+    <section
+      className="marquesina"
+      aria-labelledby="hero-title"
+      data-tinta={bannerMedido?.tinta}
+      data-tour={ANCLAS.destacado}
+    >
       <span className="marquesina__campo" aria-hidden="true">
         {/* La dirección sale del gancho ya comprobada —es una ruta local de AniList
             y no una de fuera—: aquí sólo se pinta lo que él devuelve. */}
