@@ -30,6 +30,7 @@ import {
   faltanBytes,
   formatearBytes,
   formatearEspera,
+  ordenarActivas,
   porcentaje,
   type SerieBiblioteca,
 } from './biblioteca'
@@ -320,9 +321,17 @@ function DetalleSerie(props: {
 export function LibraryPage(): ReactNode {
   const { items, space, loading, error, pause, resume, remove, cleanup, setDir } = useDownloads()
   const velocidades = useVelocidades(items)
-  const activas = items.filter(estaActiva)
+  const activas = ordenarActivas(items.filter(estaActiva))
   const series = agruparBiblioteca(items)
   const [seleccion, setSeleccion] = useState<string | undefined>(undefined)
+  /**
+   * Si la cola está desplegada.
+   *
+   * Empieza cerrada: la cola es lo que cambia, pero la estantería es lo que se
+   * viene a ver, y una serie entera apuntada son cientos de filas que empujan la
+   * colección fuera de la pantalla. La cabecera sigue diciendo cuántas hay.
+   */
+  const [colaAbierta, setColaAbierta] = useState(false)
 
   // Si la serie elegida desaparece —se borró su último episodio—, manda la
   // primera de la estantería: una selección que ya no existe dejaría el panel
@@ -358,22 +367,42 @@ export function LibraryPage(): ReactNode {
         <section className="library__zone" aria-labelledby="library-downloads-title">
           <div className="library__zone-head">
             <h2 id="library-downloads-title">{t(LOCALE, 'library.downloads')}</h2>
-            <span className="library__count">
-              {t(LOCALE, 'library.activeCount', { count: activas.length })}
-            </span>
+            <div className="library__zone-tools">
+              <span className="library__count">
+                {t(LOCALE, 'library.activeCount', { count: activas.length })}
+              </span>
+              <button
+                type="button"
+                className="button library__toggle"
+                aria-expanded={colaAbierta}
+                aria-controls="library-downloads-list"
+                onClick={() => setColaAbierta(!colaAbierta)}
+              >
+                {t(LOCALE, colaAbierta ? 'library.downloads.hide' : 'library.downloads.show')}
+              </button>
+            </div>
           </div>
-          <ul className="library__downloads">
-            {activas.map((item) => (
-              <FilaDescarga
-                key={item.id}
-                item={item}
-                velocidad={velocidades.get(item.id)}
-                onPause={pause}
-                onResume={resume}
-                onRemove={remove}
-              />
-            ))}
-          </ul>
+
+          {/* El envoltorio existe aunque esté cerrada: `aria-controls` apunta a
+              un id que tiene que estar en el documento, no a uno que aparece al
+              desplegar. La lista no se pinta cerrada, así que mil filas dormidas
+              tampoco se construyen. */}
+          <div id="library-downloads-list">
+            {colaAbierta ? (
+              <ul className="library__downloads">
+                {activas.map((item) => (
+                  <FilaDescarga
+                    key={item.id}
+                    item={item}
+                    velocidad={velocidades.get(item.id)}
+                    onPause={pause}
+                    onResume={resume}
+                    onRemove={remove}
+                  />
+                ))}
+              </ul>
+            ) : null}
+          </div>
         </section>
       )}
 

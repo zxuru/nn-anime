@@ -5340,6 +5340,24 @@
 }
 
 /*
+ * La cuenta y el mando de abrir la cola, juntos al borde derecho.
+ *
+ * La cabecera reparte con `space-between`, así que sin esta caja el botón se
+ * quedaría solo en el centro. El mando es compacto: es la cabecera de una zona,
+ * no la acción de la pantalla.
+ */
+.library__zone-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.library__toggle {
+  min-block-size: var(--control-size-compact);
+  padding-inline: var(--space-3);
+}
+
+/*
  * La cola. Cada fila es un trabajo con su avance; el borde de la fila fallida
  * cambia de color, pero la fila no se mueve ni se eleva.
  */

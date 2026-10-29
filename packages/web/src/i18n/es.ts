@@ -29,6 +29,10 @@ export const messages: Messages = {
   'library.summary': '{titles} títulos · {episodes} episodios · {size}',
   'library.summaryEmpty': 'Lo que descargues se queda aquí, listo para ver sin conexión.',
   'library.downloads': 'Descargas',
+  // La cola se abre y se cierra. El rótulo dice el gesto y no el estado: con
+  // «Ver descargas» se entiende que ahora no se ven; «Ocultar» cuando sí.
+  'library.downloads.show': 'Ver descargas',
+  'library.downloads.hide': 'Ocultar descargas',
   'library.collection': 'Tu biblioteca',
   'library.activeCount': '{count} en curso',
   'library.titles': '{count} títulos',
