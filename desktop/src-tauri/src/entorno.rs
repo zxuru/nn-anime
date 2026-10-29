@@ -227,6 +227,7 @@ pub fn instalada() -> bool {
 }
 
 #[cfg(not(windows))]
+#[allow(dead_code)] // En Linux no hay updater de escritorio que pregunte por la instalación.
 pub fn instalada() -> bool {
     false
 }
@@ -236,6 +237,9 @@ pub fn instalada() -> bool {
 /// El registro la guarda entre comillas y puede acabar en barra; la comparación
 /// no distingue mayúsculas porque Windows tampoco. Es pura para que la prueba no
 /// dependa de un registro de verdad.
+///
+/// En Linux sólo la usan las pruebas: el binario no tiene updater que la llame.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn misma_carpeta(registro: &str, ejecutable: &std::path::Path) -> bool {
     let registrada = registro
         .trim()
