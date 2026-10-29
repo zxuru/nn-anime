@@ -338,4 +338,47 @@ describe('las rutas de descargas', () => {
       expect((await pedir(`/api/downloads/${fila.id}/segment/../index.m3u8`)).status).toBe(404)
     })
   })
+
+  /**
+   * La fila que dice «archivo» y tiene una playlist dentro.
+   *
+   * Es lo que quedó grabado en las bases anteriores: el alta nace en 'file' y el
+   * `update` no escribía el `kind`, así que una descarga sin ffmpeg se servía con
+   * `content-type: video/mp4` y el cuerpo del manifiesto, y el reproductor no
+   * abría nada. La ruta tiene que mirar el sufijo del archivo, no sólo la
+   * columna.
+   */
+  test('una fila con kind file y una playlist dentro se sirve igual como HLS', async () => {
+    await conApp(async (pedir, store, dir) => {
+      const relativa = 'fixture/aurora-nocturna/Episodio-10/index.m3u8'
+      const carpeta = join(dir, 'downloads', 'fixture', 'aurora-nocturna', 'Episodio-10')
+      await mkdir(carpeta, { recursive: true })
+      await writeFile(
+        join(carpeta, 'index.m3u8'),
+        '#EXTM3U\n#EXTINF:4,\nsegmento-00000.ts\n#EXT-X-ENDLIST\n',
+        'utf8',
+      )
+      await writeFile(join(carpeta, 'segmento-00000.ts'), 'TS')
+
+      const fila = await store.createDownload({
+        providerId: 'fixture',
+        providerRef: 'aurora-nocturna',
+        episodeRef: 'aurora-nocturna#10',
+        title: 'Aurora Nocturna',
+        episodeLabel: 'Episodio 10',
+        kind: 'file',
+      })
+      await store.updateDownload(fila.id, { status: 'complete', path: relativa, bytes: 2 })
+
+      const playlist = await pedir(`/api/downloads/${fila.id}/file`)
+      expect(playlist.status).toBe(200)
+      expect(playlist.headers.get('content-type')).toBe('application/vnd.apple.mpegurl')
+      expect(await playlist.text()).toContain(`/api/downloads/${fila.id}/segment/segmento-00000.ts`)
+
+      // Y sus segmentos se sirven: sin esto la playlist reescrita daría 404.
+      const segmento = await pedir(`/api/downloads/${fila.id}/segment/segmento-00000.ts`)
+      expect(segmento.status).toBe(200)
+      expect(await segmento.text()).toBe('TS')
+    })
+  })
 })

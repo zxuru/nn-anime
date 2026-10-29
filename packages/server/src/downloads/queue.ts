@@ -18,7 +18,13 @@
 import { rm } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import type { DownloadPatch, DownloadRecord, DownloadStatus } from '@nn-anime/catalog-store'
-import { downloadTask, type FetchLike, findFfmpeg, insideRoot } from '@nn-anime/media-proxy'
+import {
+  downloadTask,
+  type FetchLike,
+  findFfmpeg,
+  insideRoot,
+  type RemuxFn,
+} from '@nn-anime/media-proxy'
 
 /** Lo mínimo del almacén que la cola necesita. */
 export interface DownloadStorePort {
@@ -47,6 +53,15 @@ export interface DownloadQueueOptions {
   readonly root: string
   readonly fetchImpl?: FetchLike | undefined
   readonly ffmpegPath?: string | undefined
+  /**
+   * Fuerza el remezclador, o lo apaga con `null`.
+   *
+   * `undefined` deja que decida la detección de ffmpeg. `null` es el caso que
+   * interesa medir —y el de un equipo sin ffmpeg—: el HLS se queda en segmentos
+   * aunque haya un binario a mano, así que el desenlace no depende de la máquina
+   * donde corran las pruebas.
+   */
+  readonly remux?: RemuxFn | null | undefined
   readonly concurrency?: number | undefined
   readonly freeBytes?: (() => Promise<number>) | undefined
   readonly now?: (() => number) | undefined
@@ -116,7 +131,13 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
         resolve: async () => stream,
         signal,
         ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
-        ...(ffmpegPath === undefined ? {} : { ffmpegPath }),
+        ...(options.remux === null
+          ? {}
+          : options.remux === undefined
+            ? ffmpegPath === undefined
+              ? {}
+              : { ffmpegPath }
+            : { remux: options.remux }),
         ...(options.freeBytes === undefined ? {} : { freeBytes: options.freeBytes }),
         onProgress: (bytes, totalBytes) => {
           const instante = now()
@@ -134,7 +155,11 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
         path: resultado.relPath,
         bytes: resultado.bytes,
         ...(resultado.totalBytes === undefined ? {} : { totalBytes: resultado.totalBytes }),
-        ...(resultado.kind === 'segments' ? { kind: 'segments' as const } : {}),
+        // Se escribe siempre, no sólo cuando hay segmentos: una fila que venía
+        // de un intento anterior con otro desenlace tiene que decir lo que hay
+        // ahora en disco. Un MP4 remezclado y una descarga directa son `file`;
+        // sólo la carpeta con playlist local es `segments`.
+        kind: resultado.kind === 'segments' ? 'segments' : 'file',
         error: null,
       })
     } catch (cause) {

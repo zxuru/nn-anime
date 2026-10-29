@@ -45,6 +45,7 @@ function memoria(iniciales: readonly DownloadRecord[]): DownloadStorePort & {
       const siguiente: DownloadRecord = {
         ...actual,
         ...(patch.status === undefined ? {} : { status: patch.status }),
+        ...(patch.kind === undefined ? {} : { kind: patch.kind }),
         ...(patch.path === undefined ? {} : { path: patch.path }),
         ...(patch.bytes === undefined ? {} : { bytes: patch.bytes }),
         ...(patch.totalBytes === undefined ? {} : { totalBytes: patch.totalBytes }),
@@ -77,6 +78,19 @@ function memoria(iniciales: readonly DownloadRecord[]): DownloadStorePort & {
 
 const FETCH: FetchLike = async (url) =>
   url.endsWith('.mp4') ? new Response('MP4') : new Response('no', { status: 404 })
+
+/** Un HLS mínimo: playlist maestra que apunta a una de segmentos con uno solo. */
+const HLS_FETCH: FetchLike = async (url) => {
+  if (url.endsWith('/master.m3u8')) {
+    return new Response('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nmedia.m3u8\n')
+  }
+  if (url.endsWith('/media.m3u8')) {
+    return new Response('#EXTM3U\n#EXTINF:4,\nsegmento.ts\n#EXT-X-ENDLIST\n')
+  }
+  if (url.endsWith('/segmento.ts')) return new Response('TS')
+
+  return new Response('no', { status: 404 })
+}
 
 async function esperar(condicion: () => Promise<boolean>, ms = 5_000): Promise<void> {
   const fin = Date.now() + ms
@@ -117,6 +131,37 @@ describe('la cola de descargas', () => {
       expect(final?.bytes).toBe(3)
       expect(final?.path ?? '').not.toContain('..')
       expect(await readFile(join(root, final?.path ?? ''), 'utf8')).toBe('MP4')
+    })
+  })
+
+  /**
+   * El desenlace sin MP4 tiene que llegar a la fila.
+   *
+   * El motor devuelve `kind: 'segments'` cuando no hubo remux, y hasta ahora ese
+   * dato se perdía en el `update`: la fila decía «file» con una playlist dentro.
+   * `remux: null` fija el caso —no depende de que la máquina tenga ffmpeg— y la
+   * fila tiene que decir lo mismo que el disco.
+   */
+  test('un HLS sin ffmpeg se guarda como segmentos, no como archivo', async () => {
+    await conRaiz(async (root) => {
+      const store = memoria([fila(1)])
+      const cola = createDownloadQueue({
+        store,
+        root,
+        concurrency: 1,
+        fetchImpl: HLS_FETCH,
+        remux: null,
+        resolve: async () => ({ url: 'https://fixture.invalid/v/master.m3u8', kind: 'hls' }),
+      })
+
+      await cola.start()
+      await esperar(async () => (await store.get(1))?.status === 'complete')
+
+      const final = await store.get(1)
+      expect(final?.kind).toBe('segments')
+      expect(final?.path ?? '').toEndWith('index.m3u8')
+      // Los segmentos están en disco: la playlist y el trozo que nombra.
+      expect(await readFile(join(root, final?.path ?? ''), 'utf8')).toContain('segmento-00000.ts')
     })
   })
 
