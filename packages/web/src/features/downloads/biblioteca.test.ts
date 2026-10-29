@@ -5,6 +5,7 @@ import {
   calcularVelocidad,
   estaActiva,
   estimarRestante,
+  faltanBytes,
   formatearBytes,
   formatearEspera,
   porcentaje,
@@ -117,6 +118,16 @@ describe('el avance de una descarga', () => {
     expect(estimarRestante(undefined, 400, 100)).toBeUndefined()
     expect(estimarRestante(1_000, 400, undefined)).toBeUndefined()
     expect(estimarRestante(1_000, 1_000, 100)).toBeUndefined()
+  })
+
+  test('lo que falta en bytes sólo existe si hay total y aún no se llegó', () => {
+    expect(faltanBytes(descarga({ bytes: 400, totalBytes: 1_000 }))).toBe(600)
+    // Sin total no hay resta que hacer.
+    expect(faltanBytes(descarga({ bytes: 400, totalBytes: undefined }))).toBeUndefined()
+    expect(faltanBytes(descarga({ bytes: 400, totalBytes: 0 }))).toBeUndefined()
+    // La proyección del HLS puede quedarse corta: no se anuncia un cero.
+    expect(faltanBytes(descarga({ bytes: 1_000, totalBytes: 1_000 }))).toBeUndefined()
+    expect(faltanBytes(descarga({ bytes: 1_200, totalBytes: 1_000 }))).toBeUndefined()
   })
 })
 

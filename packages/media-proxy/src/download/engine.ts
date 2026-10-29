@@ -235,9 +235,7 @@ export async function downloadTask(input: DownloadEngineInput): Promise<Download
     signal: input.signal,
     fetchImpl: fetchSeguro,
     ...(remux === undefined ? {} : { remux }),
-    ...(input.onProgress === undefined
-      ? {}
-      : { onProgress: (bytes) => input.onProgress?.(bytes, undefined) }),
+    ...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
   })
 
   return {
@@ -245,6 +243,10 @@ export async function downloadTask(input: DownloadEngineInput): Promise<Download
     path: hls.path,
     relPath: relative(root, hls.path),
     bytes: hls.bytes,
+    // Al terminar, el total deja de ser la proyección de la playlist: es lo que
+    // quedó en disco. Así la fila cerrada dice cien por cien y no noventa y
+    // siete.
+    totalBytes: hls.bytes,
     segments: hls.segments,
   }
 }

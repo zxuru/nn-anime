@@ -92,6 +92,22 @@ export function porcentaje(item: Descarga): number | undefined {
   return Math.min(100, Math.max(0, Math.round((item.bytes / item.totalBytes) * 100)))
 }
 
+/**
+ * Lo que falta para completar la descarga, en bytes.
+ *
+ * El total de un HLS es una proyección mientras baja, así que puede quedarse
+ * corto y «faltar» cero antes de terminar: en ese caso no hay cifra que enseñar
+ * —la fila sigue diciendo «descargando»— en vez de un cero que promete un final
+ * que no llegó.
+ */
+export function faltanBytes(item: Descarga): number | undefined {
+  if (item.totalBytes === undefined || item.totalBytes <= 0) return undefined
+
+  const falta = item.totalBytes - item.bytes
+
+  return falta > 0 ? falta : undefined
+}
+
 /** Un tamaño en la unidad que le toca, con coma decimal como el resto de la casa. */
 export function formatearBytes(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return '0 B'
