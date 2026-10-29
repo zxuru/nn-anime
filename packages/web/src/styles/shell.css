@@ -5826,6 +5826,35 @@
   font-size: var(--text-sm);
 }
 
+/*
+ * El aviso de «esto quedó en segmentos» y su botón.
+ *
+ * Van en una fila que se apila cuando no cabe: el texto explica por qué no hay
+ * un archivo y el botón es la salida, así que tienen que leerse juntos.
+ */
+.library-player__remux {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-control-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.library-player__remux .library-player__note {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.library-player__remux-error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
 .library-player__error {
   display: flex;
   flex-direction: column;

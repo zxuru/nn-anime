@@ -15,7 +15,7 @@ import { downloadItemSchema } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import { apiGet } from '../../api/client'
+import { apiGet, apiPostJson } from '../../api/client'
 import { describirFallo } from '../../api/fallo'
 import { t } from '../../i18n'
 import { Link } from '../../router'
@@ -27,14 +27,74 @@ const LOCALE = DEFAULT_LOCALE
 
 type Estado = 'loading' | 'ready' | 'error'
 
+/**
+ * El aviso de «esto quedó en segmentos» y su botón.
+ *
+ * Exportado para poder medirlo sin montar la pantalla entera: la página pide la
+ * descarga en un efecto y un render a texto no lo ejecuta. Lo que se mide aquí
+ * es que el texto dice la verdad y que el botón no se puede pulsar dos veces.
+ */
+export function AvisoDeConversion(props: {
+  readonly convirtiendo: boolean
+  readonly onConvertir: () => void
+}): ReactNode {
+  return (
+    <div className="library-player__remux">
+      <p className="library-player__note">{t(LOCALE, 'library.player.segments')}</p>
+      <button
+        type="button"
+        className="button"
+        onClick={props.onConvertir}
+        aria-busy={props.convirtiendo}
+        disabled={props.convirtiendo}
+      >
+        {props.convirtiendo
+          ? t(LOCALE, 'library.player.converting')
+          : t(LOCALE, 'library.player.convert')}
+      </button>
+    </div>
+  )
+}
+
 export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
   const id = Number(props.id)
   const valido = Number.isInteger(id) && id > 0
   const [item, setItem] = useState<Descarga | undefined>()
   const [estado, setEstado] = useState<Estado>(valido ? 'loading' : 'error')
+  const [convirtiendo, setConvirtiendo] = useState(false)
+  const [falloConversion, setFalloConversion] = useState<string | undefined>()
   const [error, setError] = useState<string | undefined>(
     valido ? undefined : t(LOCALE, 'library.player.invalid'),
   )
+
+  /**
+   * Pasar a MP4 lo que quedó en segmentos.
+   *
+   * La petición devuelve la fila ya actualizada, así que la pantalla cambia de
+   * reproductor —de hls.js a `<video>`— con el dato del servidor y sin volver a
+   * preguntar. El MP4 se escribe al lado de la carpeta: la dirección no cambia,
+   * cambia lo que hay detrás.
+   */
+  const convertir = async (): Promise<void> => {
+    if (item === undefined || convirtiendo) return
+
+    setConvirtiendo(true)
+    setFalloConversion(undefined)
+
+    try {
+      const actualizada = await apiPostJson(
+        `/api/downloads/${item.id}/remux`,
+        undefined,
+        downloadItemSchema,
+      )
+      setItem(actualizada)
+    } catch (cause) {
+      const fallo = describirFallo(cause)
+      setFalloConversion(fallo.detalle ?? fallo.tecnico)
+    } finally {
+      setConvirtiendo(false)
+    }
+  }
 
   useEffect(() => {
     if (!valido) return undefined
@@ -103,12 +163,29 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
 
       {estado === 'ready' && item !== undefined ? (
         <>
+          {/*
+            La `key` lleva el modo: al convertir, la misma dirección pasa de
+            servir un manifiesto a servir un MP4, y el `<video>` tiene que
+            montarse otra vez para leerlo con el otro reproductor.
+          */}
           <Player
+            key={`${item.id}-${item.kind}`}
             url={`/api/downloads/${item.id}/file`}
             kind={item.kind === 'segments' ? 'hls' : 'file'}
             title={`${item.title} · ${item.episodeLabel}`}
             poster={coverPath(item.providerId, item.animeRef.value)}
           />
+
+          {item.kind === 'segments' ? (
+            <AvisoDeConversion convirtiendo={convirtiendo} onConvertir={() => void convertir()} />
+          ) : null}
+
+          {falloConversion === undefined ? null : (
+            <p className="library-player__remux-error" role="alert">
+              {t(LOCALE, 'library.player.convertError', { message: falloConversion })}
+            </p>
+          )}
+
           <p className="library-player__note">{t(LOCALE, 'library.player.offline')}</p>
         </>
       ) : null}
