@@ -292,6 +292,7 @@
   font-weight: 800;
   line-height: var(--leading-tight);
   letter-spacing: var(--tracking-display);
+  text-wrap: balance;
 }
 
 .primer-arranque__url {
@@ -308,6 +309,10 @@
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
   margin: 0 0 var(--space-4);
+  /* Un titular de pantalla que baja a dos renglones los reparte parejos: con el
+     corte por defecto, «Continuar viendo» dejaba la segunda línea en una palabra
+     y el bloque se leía como dos titulares. */
+  text-wrap: balance;
 }
 
 /*
@@ -627,11 +632,13 @@
   font-family: var(--font-display);
   font-size: var(--text-xl);
   letter-spacing: var(--tracking-display);
+  text-wrap: balance;
 }
 
 .fallo__body {
   margin: 0;
   color: var(--color-text);
+  text-wrap: pretty;
 }
 
 .fallo__detail {
@@ -764,7 +771,10 @@
   );
 }
 
-/* El titular de la ficha vive en la banda y no en la columna de lectura. */
+/* El titular de la ficha vive en la banda y no en la columna de lectura.
+ *
+ * Es el nombre de una obra, que suele ser largo y puede llevar subtítulo: a dos
+ * o tres renglones, sin `balance` el corte dejaba una palabra sola abajo. */
 .detail__banner h1 {
   font-family: var(--font-display);
   font-size: var(--text-2xl);
@@ -772,6 +782,7 @@
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
   margin: 0;
+  text-wrap: balance;
 }
 
 /*
@@ -862,6 +873,7 @@
 
 .detail__synopsis {
   max-width: var(--measure);
+  text-wrap: pretty;
 }
 
 /*
@@ -1805,6 +1817,7 @@
   max-width: var(--measure);
   color: var(--color-text-dim);
   font-size: var(--text-sm);
+  text-wrap: pretty;
 }
 
 /* El reloj va sobre el degradado, y el degradado es negro en los dos temas: con
@@ -2242,6 +2255,7 @@
   margin: 0;
   color: var(--color-text-dim);
   font-size: var(--text-sm);
+  text-wrap: pretty;
 }
 
 .watch__list-more {
@@ -2864,6 +2878,7 @@
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
   margin: 0;
+  text-wrap: balance;
 }
 
 /*
@@ -3003,6 +3018,7 @@
 .notice__title {
   margin: 0;
   font-size: var(--text-lg);
+  text-wrap: balance;
 }
 
 .notice__close {
@@ -3027,6 +3043,7 @@
 .notice__body h3 {
   margin: var(--space-5) 0 var(--space-2);
   font-size: var(--text-lg);
+  text-wrap: balance;
 }
 
 .notice__body h3:first-child {
@@ -3039,9 +3056,20 @@
   font-size: var(--text-md);
 }
 
+/*
+ * La prosa del documento, a su medida.
+ *
+ * El cuerpo del diálogo mide 48 rem, así que un párrafo corría a ochenta
+ * caracteres: la línea se sigue sin querer y se pierde el renglón. Se topa a
+ * `--measure`, que es la medida de lectura del sistema —el `.empty` de la carga ya
+ * la llevaba y la prosa larga no—. La tabla no se toca: un dato se compara a lo
+ * ancho, y una tabla recortada a la medida se vuelve ilegible.
+ */
 .notice__body p {
+  max-inline-size: var(--measure);
   margin: 0 0 var(--space-3);
   line-height: var(--leading-normal);
+  text-wrap: pretty;
 }
 
 .notice__body ul,
@@ -3051,8 +3079,10 @@
 }
 
 .notice__body li {
+  max-inline-size: var(--measure);
   margin-bottom: var(--space-2);
   line-height: var(--leading-normal);
+  text-wrap: pretty;
 }
 
 .notice__body code {
@@ -3845,6 +3875,7 @@
   max-inline-size: var(--measure);
   color: var(--color-text-dim);
   font-size: var(--text-sm);
+  text-wrap: pretty;
 }
 
 .tramo-vacio__titulo {
@@ -4211,7 +4242,7 @@
 .pz__sinopsis {
   color: var(--color-text);
   font-size: var(--pieza-sinopsis);
-  line-height: 1.35;
+  line-height: var(--leading-dense);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -4369,6 +4400,7 @@
   border-block-end: var(--border-width) solid var(--color-rule);
   color: var(--color-text-dim);
   font-size: var(--text-md);
+  text-wrap: pretty;
 }
 
 .aviso-vacio {
@@ -4378,6 +4410,7 @@
   border-radius: var(--radius-md);
   color: var(--color-text-dim);
   font-size: var(--text-md);
+  text-wrap: pretty;
 }
 
 /* --- 13. La hoja: el asomo de la pieza en táctil y para teclado --------
@@ -4485,6 +4518,7 @@
   font-size: var(--hoja-titulo);
   font-weight: 600;
   letter-spacing: var(--tracking-display);
+  text-wrap: balance;
 }
 
 .hoja__cuerpo {
@@ -4497,6 +4531,10 @@
   -webkit-line-clamp: unset;
   color: var(--color-text);
   font-size: var(--text-md);
+  /* Aquí la sinopsis no va recortada: es prosa entera en una hoja que se lee, así
+     que la interlínea vuelve a la de la prosa y no a la densa del asomo. */
+  line-height: var(--leading-normal);
+  text-wrap: pretty;
 }
 
 .hoja__cuerpo .pz__motivo {

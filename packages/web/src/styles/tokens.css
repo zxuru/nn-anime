@@ -169,6 +169,16 @@
   --leading-tight: 1.05;
   --leading-normal: 1.45;
   /**
+   * La interlínea del texto denso: el cuerpo del asomo, que se lee a tres
+   * renglones dentro de una pieza y no en una columna de lectura.
+   *
+   * No sirve `--leading-normal`: a 15 px y recortado a tres renglones, abría el
+   * asomo más de lo que la pieza puede dar antes de tapar el arte. Tampoco
+   * `--leading-tight`, que es la del titular. Es un papel propio y por eso tiene
+   * su token: la hoja de estructura no escribe números sueltos.
+   */
+  --leading-dense: 1.35;
+  /**
    * Un renglón de texto, con su interlínea, medido con el cuerpo de letra de quien
    * lo use.
    *
