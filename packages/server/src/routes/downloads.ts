@@ -22,7 +22,13 @@ import {
   downloadsDirsSchema,
   downloadsSpaceSchema,
 } from '@nn-anime/core'
-import { createFfmpegRemux, findFfmpeg, insideRoot, type RemuxFn } from '@nn-anime/media-proxy'
+import {
+  createFfmpegRemux,
+  createMuxRemux,
+  findFfmpeg,
+  insideRoot,
+  type RemuxFn,
+} from '@nn-anime/media-proxy'
 import type { Provider } from '@nn-anime/provider-sdk'
 import type { Context, Hono } from 'hono'
 import { listarCarpetas } from '../downloads/dirs'
@@ -394,17 +400,12 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
       return errorJson(c, 409, 'esa descarga ya es un archivo')
     }
 
-    // Se busca en cada petición, no al arrancar: instalar ffmpeg y volver a
-    // pulsar el botón tiene que funcionar sin reiniciar la aplicación.
+    // ffmpeg se busca en cada petición, no al arrancar: si el usuario lo instala,
+    // el siguiente «convertir» lo usa sin reiniciar. Si no está, `mux.js` hace el
+    // remux en JavaScript: no hay un caso «no se puede convertir».
     const ffmpeg = findFfmpeg()
-    const remux = options.remux ?? (ffmpeg === undefined ? undefined : createFfmpegRemux(ffmpeg))
-    if (remux === undefined) {
-      return errorJson(
-        c,
-        409,
-        'no se encontró ffmpeg: instálalo o deja ffmpeg junto a la aplicación',
-      )
-    }
+    const remux =
+      options.remux ?? (ffmpeg === undefined ? createMuxRemux() : createFfmpegRemux(ffmpeg))
 
     if (convirtiendo.has(id)) return errorJson(c, 409, 'esa descarga ya se está convirtiendo')
 
