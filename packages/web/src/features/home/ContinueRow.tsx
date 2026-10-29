@@ -19,8 +19,8 @@ import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
-import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
+import { TramoVacio } from '../../components/TramoVacio'
 import { t } from '../../i18n'
 import { continuePath, progressPercent, remainingLabel, resumeLabel } from './rows'
 import { SeccionCargando } from './SeccionCargando'
@@ -53,7 +53,7 @@ export function ContinueRow(props: ContinueRowProps): ReactNode {
       <div className="seccion__cuerpo">
         <Mosaico>
           {props.items.length === 0 ? (
-            <PiezaVacia texto={t(DEFAULT_LOCALE, 'home.continue.empty')} />
+            <TramoVacio texto={t(DEFAULT_LOCALE, 'home.continue.empty')} />
           ) : (
             props.items.map((item, indice) => {
               const restante = remainingLabel(item)

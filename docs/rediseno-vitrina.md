@@ -17,8 +17,8 @@ lleva a `packages/web` y en qué orden, sin cambiar lo que el artefacto promete.
 | Arte | Portada del proveedor, con relleno de degradado | El arte se dibuja: seis campos de degradado, más saturados, más un recurso por pieza |
 | Puntero encima | — | La pieza se enciende. **No cambia de tamaño ni de sitio** (ver «Movimiento») |
 | Nota de un tramo | Titular y etiqueta | Tres renglones: titular, etiqueta y **cuenta** («3 títulos», «10 títulos · y 5 más») |
-| Motor | Panel plegado al final de la home | Tramo propio, con la puntuación en cada pieza y el motivo en su asomo y su hoja |
-| Piezas sin nada que contar | Caja de texto vacía | Pieza fantasma: ocupa el hueco de una pieza, rayada y explicada |
+| Motor | Panel plegado al final de la home | Tramo propio, con el motivo en el asomo y en la hoja. La puntuación numérica se retiró después (ver «La crítica de la home») |
+| Piezas sin nada que contar | Caja de texto vacía | Renglón explicado (`tramo-vacio`): dice lo mismo sin pedir el hueco de un cartel |
 
 Lo que **no** cambia: los datos y su origen, las rutas, los textos del catálogo de i18n, los estados
 obligatorios (vacío, carga, fallo), el foco visible y el movimiento reducido. Un rediseño de la
@@ -199,4 +199,24 @@ delante, en la captura de la home.
   rejilla de seis columnas que en la banda del móvil. Su mínimo es el que hace pasar el 4.5:1 sobre
   el peor arte posible —el blanco—, medido en `a11y.test.ts`; el velo cuelga de la pieza numerada y
   de nadie más, así que el arte de las demás se sigue enseñando entero.
+
+## La crítica de la home
+
+Tres cambios de un pase de crítica de diseño, cada uno con la medición que lo sostiene:
+
+- **La nota deja de ir al margen a ≤1400.** Una canaleta de una columna mide ~84 px a 1280 y el
+  titular —hasta 1,75 rem— no cabe dentro: se cortaba bajo el primer cartel y «Recomendado para ti»
+  se leía «Recomen». Ahora, en la misma consulta en la que el mosaico aprieta a cuatro columnas, la
+  nota vuelve a ser cabecera del tramo. `styles.test.ts` sujeta ese emparejamiento: no se puede
+  apretar la rejilla sin devolver la nota a su sitio.
+- **La puntuación del motor sale de la pieza.** `Pieza.tsx` la pintaba con `toFixed(3)` y la home
+  llegaba a recomendar títulos a «0.000». Es el orden con el que el motor elige, no algo con lo que
+  el usuario decida qué ver; el detalle del motor sigue en `features/recommendations/Panel.tsx`.
+- **El vacío es un renglón.** Ocupaba el hueco de un cartel —259×389 a 1280— y tres seguidos
+  convertían la home en una pantalla de huecos. `PiezaVacia` se retiró; `TramoVacio` dice lo mismo
+  en una línea.
+
+Lo que **no** se pudo medir en ese pase: ni el navegador (el sandbox no deja lanzarlo) ni el detector
+de la skill (su motor no está instalado). Las capturas de `docs/` siguen siendo del 2026-10-15 y no
+enseñan Perfil ni Descargas: hay que volver a hacerlas con `bun run captura` contra el arnés.
 

@@ -44,11 +44,11 @@ test.describe('el Perfil', () => {
     const seccion = page.locator('.seccion', { hasText: 'Quiero ver' })
 
     /*
-      Lo que se comprueba es que **no hay tarjetas**: el vacío se pinta con la forma de
-      una pieza —`pz--fantasma`—, así que contar `.pz` daría uno y no mide nada. Y el
-      texto nombra el botón, que es lo que un hueco sin explicación no hace.
+      Lo que se comprueba es que **no hay tarjetas**: el vacío se dice en un renglón
+      —`tramo-vacio`—, así que contar `.pz` mide justo lo que se busca. Y el texto
+      nombra el botón, que es lo que un hueco sin explicación no hace.
     */
-    await expect(seccion.locator('.pz:not(.pz--fantasma)')).toHaveCount(0)
+    await expect(seccion.locator('.pz')).toHaveCount(0)
     await expect(seccion).toContainText('Quiero verla')
   })
 })

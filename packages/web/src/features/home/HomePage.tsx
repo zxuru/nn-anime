@@ -11,13 +11,15 @@
  * qué es cada título; las dos que son listas del usuario se filtran aquí, con los
  * proveedores que ya están cargados.
  *
- * Lo que el diseño trae y aquí no está, porque no hay datos para ello: la
- * **parrilla semanal** de estrenos y la fila de **episodios nuevos**. Las dos
- * necesitan una fecha de emisión por episodio, y los proveedores no la dan. Se
- * pone lo que sí se sabe en vez de inventar fechas.
+ * La **parrilla semanal** y la fila de **episodios nuevos** llegaron con AniList
+ * (T121): las dos necesitan una fecha de emisión por episodio, y el feed de un
+ * proveedor no la da. Sin AniList, esas filas vuelven a lo que había —el feed— en
+ * vez de quedarse sin contenido que enseñar.
  *
  * Cada fila se explica cuando está vacía en vez de esconderse: una fila que
- * desaparece sin más deja al usuario sin saber si la función existe.
+ * desaparece sin más deja al usuario sin saber si la función existe. El vacío va en
+ * un renglón y no en una pieza fantasma: con la forma de un cartel pesaba lo mismo
+ * que un título y una home sin datos se leía como una pantalla rota.
  */
 
 import type { AiringItem, FeedItem, RecommendationResponse } from '@nn-anime/core/api'

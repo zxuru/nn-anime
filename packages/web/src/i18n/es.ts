@@ -406,7 +406,6 @@ export const messages: Messages = {
   'reco.personalized': 'Ordenado por lo que has visto y buscado.',
   'reco.showScore': 'Ver el detalle',
   'reco.hideScore': 'Ocultar el detalle',
-  'reco.score': 'Puntuación: {score}',
   'player.label': 'Reproductor de video',
   'player.tracks': 'Subtítulos disponibles: {count}.',
   // El nombre del grupo de los dos modos de audio. Antes era «Modo», que no decía

@@ -701,7 +701,6 @@
   --arte-corte: rgb(8 8 10 / 45%);
   --arte-corte-grosor: 2px;
   --arte-circulo-borde: inset 0 0 0 2px rgb(245 240 230 / 30%);
-  --arte-punto: rgb(245 240 230 / 90%);
   --pieza-barra-fondo: rgb(245 240 230 / 32%);
   --pieza-sombra-texto: 0 2px 18px rgb(8 8 10 / 55%);
   /** El mando redondo del asomo, sobre cualquier arte. */

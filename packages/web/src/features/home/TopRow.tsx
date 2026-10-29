@@ -27,8 +27,8 @@ import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import { type ReactNode, useState } from 'react'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
-import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
+import { TramoVacio } from '../../components/TramoVacio'
 import { t } from '../../i18n'
 import type { PiezaVista } from './descubrir'
 import { SeccionCargando } from './SeccionCargando'
@@ -93,7 +93,7 @@ export function TopRow(props: TopRowProps): ReactNode {
       <div className="seccion__cuerpo">
         <Mosaico>
           {props.items.length === 0 ? (
-            <PiezaVacia texto={t(DEFAULT_LOCALE, 'home.top.empty')} />
+            <TramoVacio texto={t(DEFAULT_LOCALE, 'home.top.empty')} />
           ) : (
             visibles.map((item, indice) => (
               <Pieza

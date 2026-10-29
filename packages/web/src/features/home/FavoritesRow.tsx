@@ -15,8 +15,8 @@ import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
-import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
+import { TramoVacio } from '../../components/TramoVacio'
 import { t } from '../../i18n'
 import { SeccionCargando } from './SeccionCargando'
 import { cuentaDeTitulos } from './tramo'
@@ -48,7 +48,7 @@ export function FavoritesRow(props: FavoritesRowProps): ReactNode {
       <div className="seccion__cuerpo">
         <Mosaico>
           {props.items.length === 0 ? (
-            <PiezaVacia texto={t(DEFAULT_LOCALE, 'home.favorites.empty')} />
+            <TramoVacio texto={t(DEFAULT_LOCALE, 'home.favorites.empty')} />
           ) : (
             props.items.map((item, indice) => (
               <Pieza

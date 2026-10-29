@@ -3,9 +3,15 @@
  *
  * Va segundo, justo detrás de lo que se retoma, porque es la única fila que
  * **no** está en el catálogo por lo que ha publicado la fuente ni por lo que el
- * usuario guardó: está porque el motor cree que va con él. Y se enseña entera:
- * puntuación y motivo viajan en la pieza —en el asomo y en la hoja—, así que la
- * razón de cada recomendación se lee sin abrir nada.
+ * usuario guardó: está porque el motor cree que va con él. Y se enseña entera: el
+ * motivo viaja en la pieza —en el asomo y en la hoja—, así que la razón de cada
+ * recomendación se lee sin abrir nada.
+ *
+ * La **puntuación** se retiró de la pieza: era el número con el que el motor
+ * ordena, no algo con lo que el usuario decida qué ver, y tres decimales sin escala
+ * («0.300», y hasta «0.000» recomendado) decían más del motor que de la obra. El
+ * detalle del motor sigue en `features/recommendations/Panel.tsx`, con sus pruebas,
+ * a la espera del sitio donde vuelva a leerse.
  *
  * El tramo abría con la **franja de motivos** —el titular «Lo que el motor ha
  * elegido» y, dentro, el desplegable del detalle del score—. Se retiró: repetía lo
@@ -26,8 +32,8 @@ import type { Fallo } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
-import { PiezaVacia } from '../../components/PiezaVacia'
 import { SectionHeader } from '../../components/SectionHeader'
+import { TramoVacio } from '../../components/TramoVacio'
 import { t } from '../../i18n'
 import { SeccionCargando } from './SeccionCargando'
 import { cuentaDeTitulos } from './tramo'
@@ -96,7 +102,7 @@ export function RecommendedRow(props: RecommendedRowProps): ReactNode {
       <div className="seccion__cuerpo">
         {props.items.length === 0 ? (
           props.fallo === undefined ? (
-            <PiezaVacia texto={t(DEFAULT_LOCALE, 'reco.empty')} />
+            <TramoVacio texto={t(DEFAULT_LOCALE, 'reco.empty')} />
           ) : (
             <ErrorNotice fallo={props.fallo} onRetry={props.onRetry} />
           )
@@ -115,7 +121,6 @@ export function RecommendedRow(props: RecommendedRowProps): ReactNode {
                 recurso={recursoDe(indice)}
                 year={item.year}
                 meta={metaDeRecomendacion(item)}
-                puntuacion={item.score}
                 motivo={item.reason.text}
               />
             ))}
