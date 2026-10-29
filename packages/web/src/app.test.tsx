@@ -71,12 +71,53 @@ describe('App: cabecera', () => {
     expect(render('/')).toContain('nn-anime')
   })
 
-  test('los tres enlaces de navegación son enlaces reales', () => {
+  test('los cinco destinos de navegación son enlaces reales', () => {
     const html = render('/')
 
     expect(html).toContain('href="/"')
     expect(html).toContain('href="/search"')
+    expect(html).toContain('href="/profile"')
+    expect(html).toContain('href="/downloads"')
     expect(html).toContain('href="/settings"')
+  })
+
+  /**
+   * El destino actual se marca en la navegación.
+   *
+   * Sin `aria-current`, una cabecera de cinco destinos no dice dónde estás ni a
+   * la vista ni para un lector de pantalla. La marca es una y sólo una: dos
+   * destinos encendidos serían dos respuestas distintas a la misma pregunta.
+   */
+  test('marca el destino actual con aria-current', () => {
+    const inicio = navegacion('/')
+    expect(inicio).toMatch(/aria-current="page"[^>]*>\s*Inicio/)
+    expect(inicio.match(/aria-current="page"/g)).toHaveLength(1)
+
+    const busqueda = navegacion('/search')
+    expect(busqueda).toMatch(/aria-current="page"[^>]*>\s*Buscar/)
+    expect(busqueda.match(/aria-current="page"/g)).toHaveLength(1)
+
+    // La ficha y el reproductor no son destinos de la cabecera: en ellos no se
+    // enciende ninguno, porque volver a Inicio es un destino y no el estado.
+    expect(navegacion('/anime/fuente/titulo-1')).not.toContain('aria-current="page"')
+  })
+
+  /**
+   * El enlace de salto y su destino.
+   *
+   * Es la primera parada del tabulador y apunta al `main`, que tiene que poder
+   * recibir el foco para que el salto no se quede en un desplazamiento sin
+   * foco. Se mide en el marcado porque es lo único que un `renderToString`
+   * puede sujetar de una interacción de teclado.
+   */
+  test('la primera parada salta al contenido', () => {
+    const html = render('/')
+
+    expect(html).toContain('class="shell__saltar"')
+    expect(html).toContain('href="#contenido"')
+    expect(html).toContain('Saltar al contenido')
+    expect(html).toContain('id="contenido"')
+    expect(html).toContain('tabindex="-1"')
   })
 
   /**

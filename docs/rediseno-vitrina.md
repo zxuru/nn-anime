@@ -217,6 +217,7 @@ Tres cambios de un pase de crítica de diseño, cada uno con la medición que lo
   en una línea.
 
 Lo que **no** se pudo medir en ese pase: ni el navegador (el sandbox no deja lanzarlo) ni el detector
-de la skill (su motor no está instalado). Las capturas de `docs/` siguen siendo del 2026-10-15 y no
-enseñan Perfil ni Descargas: hay que volver a hacerlas con `bun run captura` contra el arnés.
+de la skill (su motor no está instalado). Las capturas de `docs/` ya están al día: se regeneraron el
+2026-10-28 contra el arnés, con Perfil y Descargas en la cabecera. La revisión completa del frontend y
+el pase de movimiento están en `docs/revision-frontend.md`.
 

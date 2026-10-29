@@ -74,6 +74,13 @@
 }
 
 :root {
+  /*
+   * La superficie nativa —barras de desplazamiento, campos, menús del
+   * navegador— sigue al tema. Sin esto, el tema oscuro deja los controles
+   * nativos en claro y la página parece a medio vestir.
+   */
+  color-scheme: dark;
+
   /* Color, tema oscuro por defecto: es una sala a oscuras y el arte manda. */
   --color-bg: #08080a;
   --color-surface: #0e0e13;
@@ -156,11 +163,42 @@
   --text-xl: 1.5rem;
   --text-2xl: 2.25rem;
   --text-3xl: 3.5rem;
+  /**
+   * El cuerpo mínimo de un campo de texto.
+   *
+   * No es una preferencia de escala: por debajo de 16 px, Safari en iOS hace
+   * **zoom** al enfocar un campo y deja la página ampliada y descentrada al
+   * cerrar el teclado. Los campos de Ajustes y de Buscar estaban a 13 px —el
+   * cuerpo heredado de la monoespaciada—, así que en un teléfono cada vez que se
+   * escribía una ruta la pantalla se iba de sitio. En ventana ancha el cuerpo
+   * sigue siendo el suyo; este token es el suelo del táctil.
+   */
+  --text-field: 1rem;
+  /**
+   * El titular de una pantalla —Buscar, Ajustes, Descargas—, que sí encoge.
+   *
+   * Estaba fijo en `--text-3xl` y a 320 px «DESCARGAS» no cabe: la palabra mide
+   * más que la columna, el navegador no la parte por ningún sitio y la pantalla
+   * entera se desplaza 27 px a la derecha. Es el cuerpo de cartel medido contra el
+   * ancho —como el de la marquesina y el del buscador— y no contra una ventana de
+   * escritorio.
+   */
+  --titulo-pantalla: clamp(2rem, 9vw, 3.5rem);
   /** El número del top: enorme y sin relleno, como en el diseño. */
   --text-number: 7rem;
   --number-stroke: 3px;
   --leading-tight: 1.05;
   --leading-normal: 1.45;
+  /**
+   * La interlínea del texto denso: el cuerpo del asomo, que se lee a tres
+   * renglones dentro de una pieza y no en una columna de lectura.
+   *
+   * No sirve `--leading-normal`: a 15 px y recortado a tres renglones, abría el
+   * asomo más de lo que la pieza puede dar antes de tapar el arte. Tampoco
+   * `--leading-tight`, que es la del titular. Es un papel propio y por eso tiene
+   * su token: la hoja de estructura no escribe números sueltos.
+   */
+  --leading-dense: 1.35;
   /**
    * Un renglón de texto, con su interlínea, medido con el cuerpo de letra de quien
    * lo use.
@@ -194,8 +232,27 @@
   --focus-ring-offset: 2px;
   --transition-fast: 120ms;
   --transition-normal: 200ms;
+  /**
+   * La entrada de una superficie que ocupa la pantalla —la hoja, el diálogo—.
+   * La salida no tiene token propio: va con `--transition-fast`, porque lo que
+   * se va no se hace esperar.
+   */
+  --transition-slow: 320ms;
   /** La curva del asomo y de lo que crece al abrirse: arranca rápido y frena. */
   --ease-piece: cubic-bezier(0.22, 0.61, 0.36, 1);
+  /** La curva de salida: acelera y se va, sin rebote; no compite con la entrada. */
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  /** Lo que sube una superficie al entrar, y lo que se desenfoca al cruzar. */
+  --motion-rise: 6px;
+  --motion-blur: 2px;
+  /** La escala de un diálogo en su primer fotograma. */
+  --motion-scale: 0.97;
+  /**
+   * El latido de los esqueletos de pantalla: el pulso que dice que algo está en
+   * camino. Lento a propósito: a 200 ms parecía un parpadeo, no una espera. Se
+   * apaga entero con `prefers-reduced-motion`, más abajo.
+   */
+  --skeleton-pulse: 900ms;
   /* La entrada de la home: un fundido corto y un escalón por fila. El paso es
      pequeño a propósito —seis filas entran en menos de medio segundo— porque un
      escalón largo convierte la carga en una cola. */
@@ -222,6 +279,15 @@
    * apaisado, y a todo lo ancho de la ficha mediría media pantalla.
    */
   --detail-banner-alto: 16rem;
+  /**
+   * La portada de la ficha cuando el cuerpo deja de tener barra lateral.
+   *
+   * En una ventana ancha la portada ocupa la columna de al lado —hasta 17 rem— y
+   * la sinopsis se lee a su derecha. Debajo del punto de corte no hay dos pistas
+   * que repartir: la portada se queda en un cartel pequeño y los mandos van a su
+   * lado, en el mismo renglón, para no gastar media pantalla antes del texto.
+   */
+  --detail-cover-angosto: 8rem;
   --thumb-width: 3rem;
   /** Ancho de la barra de progreso de un episodio en la ficha. */
   --progress-width: 6rem;
@@ -320,6 +386,16 @@
   --bp-desk: 1100px;
   --bp-mid: 820px;
   --bp-narrow: 560px;
+  /**
+   * Donde la ficha deja de repartirse en barra lateral y cuerpo.
+   *
+   * El corte no es el del mosaico porque mide otra cosa: la barra pide hasta
+   * 17 rem y el hueco 2 más, y la fila de un episodio —cifra, título y las marcas
+   * de la derecha— no baja de 274 px. Por debajo de ~640 las dos columnas no
+   * caben y la de texto se quedaba con 22 px: medido en el navegador, la ficha
+   * desbordaba 82 px a 560 y 252 a 390. En 700 las dos siguen cabiendo con aire.
+   */
+  --bp-aside: 700px;
   /** El mando estrecho y su hueco: 40 px y 6 px, para que quepan en una fila. */
   --control-size-compact: 2.5rem;
   --gap-compact: 6px;
@@ -496,8 +572,18 @@
   --genero-linea: 1.12;
   --genero-cuenta-alto: -0.15em;
   --genero-cuenta-lado: -0.6em;
+  --genero-cuenta-letra: -0.01em;
   --buscador-campo: clamp(1.35rem, 4vw, 2.25rem);
   --seccion-aire: clamp(2.5rem, 6vw, 5rem);
+  /**
+   * El descanso de un tramo que sólo es un renglón.
+   *
+   * Un tramo sin piezas se explica en una línea, y separarlo como se separa un
+   * muro de carteles dejaba media pantalla en aire cuando la instalación está
+   * recién abierta. La mitad del aire normal: lo que no tiene masa no separa
+   * tanto.
+   */
+  --seccion-aire-tenue: clamp(1.25rem, 3vw, 2.5rem);
 
   /** El mando redondo que abre el asomo de una pieza. */
   --pieza-mando: var(--control-size);
@@ -711,6 +797,7 @@
 }
 
 [data-theme="light"] {
+  color-scheme: light;
   --color-bg: #f2ede3;
   --color-surface: #fbf8f2;
   --color-surface-raised: #ffffff;
@@ -742,6 +829,8 @@
   :root {
     --transition-fast: 0ms;
     --transition-normal: 0ms;
+    --transition-slow: 0ms;
+    --skeleton-pulse: 0ms;
     /* A cero y no «sin animación»: quien la use sigue entrando, pero de golpe. */
     --entrada-duracion: 0ms;
     --entrada-paso: 0ms;

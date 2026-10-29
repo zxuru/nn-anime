@@ -73,27 +73,54 @@ function Shell(props: {
     mitades que partir.
   */
   const path = usePath()
+  const route = useRoute()
   const tipo = tipoFromPath(path)
 
   return (
     <div className="shell">
       <header className="shell__header">
+        {/*
+          La primera parada del tabulador. Sin ella, cada pantalla empieza con
+          los cinco destinos de la cabecera antes del contenido; con ella, quien
+          navega con teclado salta al `main` con una pulsación.
+        */}
+        <a className="shell__saltar" href="#contenido">
+          {t(LOCALE, 'nav.skip')}
+        </a>
         <Link to="/" className="shell__brand">
           {t(LOCALE, 'app.name')}
         </Link>
         <nav className="shell__nav">
-          <Link to={pathConTipo('/', tipo)}>{t(LOCALE, 'nav.home')}</Link>
-          <Link to={pathConTipo('/search', tipo)}>{t(LOCALE, 'nav.search')}</Link>
+          <Link
+            to={pathConTipo('/', tipo)}
+            ariaCurrent={route.name === 'home' ? 'page' : undefined}
+          >
+            {t(LOCALE, 'nav.home')}
+          </Link>
+          <Link
+            to={pathConTipo('/search', tipo)}
+            ariaCurrent={route.name === 'search' ? 'page' : undefined}
+          >
+            {t(LOCALE, 'nav.search')}
+          </Link>
           {/* El Perfil tampoco conserva la mitad que se mira: es el estado del
               usuario, y ahí no hay dos mitades que partir —como en Ajustes—. Lo que
               sí enseña es lo de las dos, porque sus listas son de las dos. */}
-          <Link to="/profile">{t(LOCALE, 'nav.profile')}</Link>
-          <Link to="/downloads">{t(LOCALE, 'nav.downloads')}</Link>
-          <Link to="/settings">{t(LOCALE, 'nav.settings')}</Link>
+          <Link to="/profile" ariaCurrent={route.name === 'profile' ? 'page' : undefined}>
+            {t(LOCALE, 'nav.profile')}
+          </Link>
+          <Link to="/downloads" ariaCurrent={route.name === 'downloads' ? 'page' : undefined}>
+            {t(LOCALE, 'nav.downloads')}
+          </Link>
+          <Link to="/settings" ariaCurrent={route.name === 'settings' ? 'page' : undefined}>
+            {t(LOCALE, 'nav.settings')}
+          </Link>
         </nav>
         {props.tipo === true ? <ConmutadorTipo /> : null}
       </header>
-      <main className={caja.join(' ')}>{props.children}</main>
+      <main className={caja.join(' ')} id="contenido" tabIndex={-1}>
+        {props.children}
+      </main>
     </div>
   )
 }
