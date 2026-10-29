@@ -7,6 +7,34 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.5.0](https://github.com/zxuru/nn-anime/compare/v0.4.0...v0.5.0) (2026-10-29)
+
+
+### Features
+
+* **desktop:** auto-actualización con el updater de Tauri (T189) ([3e73a2a](https://github.com/zxuru/nn-anime/commit/3e73a2a8319af11fef60cc98939ea936f062d6a7))
+* **desktop:** la copia portable se actualiza en sitio (T189) ([4a15cae](https://github.com/zxuru/nn-anime/commit/4a15caec682ceaa90565c659d088836a72b6830c))
+* **server:** el listado de carpetas del selector (T192) ([0fd2dfc](https://github.com/zxuru/nn-anime/commit/0fd2dfc77bf0ddbf348800e9580c7fe79d986c95))
+* **web:** descargar sin permiso de la fuente y el fallo en un tooltip (T190) ([e696834](https://github.com/zxuru/nn-anime/commit/e6968340db6d2f270ea5e4f552a098f5473cb307))
+* **web:** el explorador de carpetas del selector (T193) ([6df0e20](https://github.com/zxuru/nn-anime/commit/6df0e205d784b53cee56692284084a37efc1241f))
+* **web:** la carpeta de descargas se elige escribiendo la ruta (T191) ([837e98a](https://github.com/zxuru/nn-anime/commit/837e98aa1352e7dedc28cbd45a50b009c8f70945))
+* **web:** la medida de la prosa y el corte de los titulares ([da694ee](https://github.com/zxuru/nn-anime/commit/da694eece5074acc638f4bba524562fa11d9c89b))
+* **web:** mover el frontend por estado y marcar el destino actual ([6954518](https://github.com/zxuru/nn-anime/commit/6954518c6abf203fdfd5892832475a6fe8792de3))
+
+
+### Bug Fixes
+
+* **web:** el aire de la vitrina sigue a la masa y el tramo vacío es un renglón ([bf127c2](https://github.com/zxuru/nn-anime/commit/bf127c20eed8c8962f2f924f390f0b0888619eb4))
+* **web:** la interfaz se adapta al teléfono, no sólo se encoge ([89ba62d](https://github.com/zxuru/nn-anime/commit/89ba62d000228350943ec9ac85cf90a9e8cfef04))
+* **web:** la nota del tramo, la puntuación de la pieza y el vacío de la home ([71009bc](https://github.com/zxuru/nn-anime/commit/71009bce12babe87636373482c70cad3b79c2dd7))
+* **web:** las carpetas del selector se leen como filas (T193) ([27f8ed2](https://github.com/zxuru/nn-anime/commit/27f8ed2c4dd4fd031728535ef0158d019ed600e5))
+* **web:** las pruebas del menú miden el menú que queda en el documento ([4d0faf6](https://github.com/zxuru/nn-anime/commit/4d0faf650969a85f764626ee5f90f522667f1cd0))
+
+
+### Performance Improvements
+
+* **web:** la marquesina se pinta una vez y su cartel no espera a las miniaturas (T195) ([7502c7b](https://github.com/zxuru/nn-anime/commit/7502c7b6b7c2febcecc8e3f8b4a28d97c78955da))
+
 ## [0.4.0](https://github.com/zxuru/nn-anime/compare/v0.3.3...v0.4.0) (2026-10-28)
 
 
