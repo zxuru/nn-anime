@@ -263,4 +263,76 @@ test.describe('la biblioteca', () => {
     await page.getByRole('button', { name: 'Ocultar descargas' }).click()
     await expect(page.getByText('Episodio 2')).toHaveCount(0)
   })
+
+  /**
+   * La serie entera, en el reproductor.
+   *
+   * Antes el reproductor de una descarga era un episodio y nada más: para ver el
+   * siguiente había que volver a la estantería. Ahora trae a sus hermanas, las
+   * marca y deja pasar de una a otra sin salir de la pantalla.
+   */
+  test('el reproductor encadena los episodios descargados de la serie', async ({ page }) => {
+    const item = (id: number) => ({
+      id,
+      providerId: 'fixture',
+      animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+      episodeRef: { providerId: 'fixture', value: `aurora-nocturna#${id}` },
+      title: 'Aurora Nocturna',
+      episodeLabel: `Episodio ${id}`,
+      kind: 'file',
+      status: 'complete',
+      bytes: 3,
+      createdAt: `2026-01-0${id}T00:00:00.000Z`,
+      updatedAt: `2026-01-0${id}T00:00:00.000Z`,
+    })
+    const items = [item(1), item(2), item(3)]
+
+    await page.route('**/api/downloads', async (ruta) => {
+      if (ruta.request().method() !== 'GET') return ruta.continue()
+
+      await ruta.fulfill({ json: { items } })
+    })
+
+    await page.route(/\/api\/downloads\/\d+$/, async (ruta) => {
+      const id = Number(new URL(ruta.request().url()).pathname.split('/').pop())
+      await ruta.fulfill({ json: items.find((candidato) => candidato.id === id) ?? items[0] })
+    })
+
+    // El archivo no hace falta para medir la navegación: el `<video>` se queda
+    // sin fuente y la pantalla sigue teniendo su lista y sus flechas.
+    await page.route('**/api/downloads/*/file', async (ruta) => {
+      await ruta.fulfill({ status: 200, contentType: 'audio/wav', body: '' })
+    })
+
+    await entrar(page)
+    await page.goto('/library/1')
+
+    await expect(page.getByRole('heading', { name: 'Episodios descargados' })).toBeVisible()
+
+    const lista = page.locator('.watch__list-item')
+    await expect(lista).toHaveCount(3)
+    await expect(lista.nth(0)).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByText('1 de 3')).toBeVisible()
+
+    // Al terminar, la tarjeta del siguiente aparece y se puede parar. El evento
+    // se dispara a mano: el archivo del arnés no se reproduce hasta el final.
+    await page.locator('.player__video').evaluate((video) => {
+      video.dispatchEvent(new Event('ended'))
+    })
+    await expect(page.getByText(/Siguiente episodio en/)).toBeVisible()
+    await page.getByRole('button', { name: 'Cancelar' }).click()
+    await expect(page.getByText(/Siguiente episodio en/)).toHaveCount(0)
+
+    await page.getByRole('link', { name: 'Siguiente: Episodio 2' }).click()
+    await expect(page).toHaveURL(/\/library\/2$/)
+    await expect(page.getByText('2 de 3')).toBeVisible()
+    await expect(page.locator('.watch__list-item[aria-current="page"]')).toContainText('Episodio 2')
+
+    await page.getByRole('link', { name: 'Anterior: Episodio 1' }).click()
+    await expect(page).toHaveURL(/\/library\/1$/)
+
+    // La lista también lleva: el tercero se abre desde ella.
+    await page.getByRole('link', { name: 'Episodio 3' }).click()
+    await expect(page).toHaveURL(/\/library\/3$/)
+  })
 })

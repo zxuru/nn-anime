@@ -10,6 +10,7 @@ import {
   formatearEspera,
   ordenarActivas,
   porcentaje,
+  vecinosDe,
 } from './biblioteca'
 
 /**
@@ -201,5 +202,54 @@ describe('el orden de la cola', () => {
     ordenarActivas(items)
 
     expect(items.map((item) => item.id)).toEqual([1, 2])
+  })
+})
+
+describe('los vecinos de un episodio descargado', () => {
+  const serie = [descarga({ id: 1 }), descarga({ id: 2 }), descarga({ id: 3 })]
+
+  /**
+   * El reproductor de la biblioteca es de un episodio, pero la serie no: con los
+   * vecinos se pasa al anterior y al siguiente sin volver a la estantería.
+   */
+  test('el del medio tiene a los dos lados', () => {
+    const vecinos = vecinosDe(serie, 2)
+
+    expect(vecinos.indice).toBe(1)
+    expect(vecinos.anterior?.id).toBe(1)
+    expect(vecinos.siguiente?.id).toBe(3)
+  })
+
+  test('el primero no tiene anterior y el último no tiene siguiente', () => {
+    const primero = vecinosDe(serie, 1)
+    const ultimo = vecinosDe(serie, 3)
+
+    expect(primero.indice).toBe(0)
+    expect(primero.anterior).toBeUndefined()
+    expect(primero.siguiente?.id).toBe(2)
+
+    expect(ultimo.indice).toBe(2)
+    expect(ultimo.anterior?.id).toBe(2)
+    expect(ultimo.siguiente).toBeUndefined()
+  })
+
+  /**
+   * Un episodio que la lista no trae no inventa vecinos: la pantalla se queda
+   * sin flechas en vez de mandar a un capítulo que no está descargado.
+   */
+  test('el que no está en la lista no tiene vecinos', () => {
+    const vecinos = vecinosDe(serie, 99)
+
+    expect(vecinos.indice).toBe(-1)
+    expect(vecinos.anterior).toBeUndefined()
+    expect(vecinos.siguiente).toBeUndefined()
+  })
+
+  test('con un solo episodio no hay a dónde ir', () => {
+    const vecinos = vecinosDe([descarga({ id: 7 })], 7)
+
+    expect(vecinos.indice).toBe(0)
+    expect(vecinos.anterior).toBeUndefined()
+    expect(vecinos.siguiente).toBeUndefined()
   })
 })

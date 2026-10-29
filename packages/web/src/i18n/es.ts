@@ -67,6 +67,16 @@ export const messages: Messages = {
   'library.player.convert': 'Convertir a MP4',
   'library.player.converting': 'Convirtiendo…',
   'library.player.convertError': 'No se pudo convertir: {message}',
+  // La serie descargada, en la misma pantalla: la lista de la derecha y las
+  // flechas de al lado. El episodio se llama por su etiqueta, que ya trae el
+  // número y, cuando la fuente la declara, la temporada.
+  'library.player.episodes': 'Episodios descargados',
+  'library.player.steps': 'Cambiar de episodio',
+  'library.player.previous': 'Anterior',
+  'library.player.next': 'Siguiente',
+  'library.player.previousLabel': 'Anterior: {episode}',
+  'library.player.nextLabel': 'Siguiente: {episode}',
+  'library.player.position': '{index} de {total}',
 
   'downloads.loading': 'Leyendo la cola…',
   'downloads.status.queued': 'En cola',
