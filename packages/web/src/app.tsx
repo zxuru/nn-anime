@@ -11,6 +11,9 @@ import type { ReactNode } from 'react'
 import { DetailPage } from './features/detail/DetailPage'
 import { LibraryPage } from './features/downloads/LibraryPage'
 import { LibraryPlayerPage } from './features/downloads/LibraryPlayerPage'
+import { BotonGuia } from './features/guia/BotonGuia'
+import { ANCLAS } from './features/guia/guia'
+import { useGuia } from './features/guia/useGuia'
 import { HomePage } from './features/home/HomePage'
 import { WatchPage } from './features/player/WatchPage'
 import { HistoryPage } from './features/profile/HistoryPage'
@@ -79,7 +82,7 @@ function Shell(props: {
 
   return (
     <div className="shell">
-      <header className="shell__header">
+      <header className="shell__header" data-tour={ANCLAS.cabecera}>
         {/*
           La primera parada del tabulador. Sin ella, cada pantalla empieza con
           los cinco destinos de la cabecera antes del contenido; con ella, quien
@@ -100,6 +103,7 @@ function Shell(props: {
           </Link>
           <Link
             to={pathConTipo('/search', tipo)}
+            dataTour={ANCLAS.buscar}
             ariaCurrent={route.name === 'search' ? 'page' : undefined}
           >
             {t(LOCALE, 'nav.search')}
@@ -112,17 +116,23 @@ function Shell(props: {
           </Link>
           <Link
             to="/library"
+            dataTour={ANCLAS.biblioteca}
             ariaCurrent={
               route.name === 'library' || route.name === 'downloads' ? 'page' : undefined
             }
           >
             {t(LOCALE, 'nav.library')}
           </Link>
-          <Link to="/settings" ariaCurrent={route.name === 'settings' ? 'page' : undefined}>
+          <Link
+            to="/settings"
+            dataTour={ANCLAS.ajustes}
+            ariaCurrent={route.name === 'settings' ? 'page' : undefined}
+          >
             {t(LOCALE, 'nav.settings')}
           </Link>
         </nav>
         {props.tipo === true ? <ConmutadorTipo /> : null}
+        <BotonGuia />
       </header>
       <main className={caja.join(' ')} id="contenido" tabIndex={-1}>
         {props.children}
@@ -187,6 +197,8 @@ function screenFor(route: RouteMatch, path: string): ReactNode {
 export function App(): ReactNode {
   // El tema se aplica aquí: es de la aplicación entera, no de una pantalla.
   useAppTheme()
+  // La guía también: el recorrido de la primera vez y los faros de lo nuevo.
+  useGuia()
 
   const route = useRoute()
   const path = usePath()

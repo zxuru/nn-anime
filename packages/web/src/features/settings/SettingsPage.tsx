@@ -18,6 +18,7 @@ import { type ReactNode, useState } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
+import { SeccionGuia } from '../guia/SeccionGuia'
 import { ProviderList } from './ProviderList'
 import { ProviderRepos } from './ProviderRepos'
 import { RegisterProvider } from './RegisterProvider'
@@ -185,6 +186,9 @@ export function SettingsPage(): ReactNode {
         </fieldset>
         <p>{t(DEFAULT_LOCALE, 'settings.adult.help')}</p>
       </section>
+
+      {/* La guía va al final: no configura nada, sólo repite lo que ya se vio. */}
+      <SeccionGuia />
     </section>
   )
 }

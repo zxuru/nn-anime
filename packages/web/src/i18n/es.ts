@@ -683,6 +683,49 @@ export const messages: Messages = {
   'detail.season.count': '{count} episodios',
   'detail.seasons': 'Temporadas',
 
+  /*
+    La guía de primeros pasos y los avisos de novedad. Los textos viven aquí y no
+    en `guia.ts` para que el catálogo siga siendo la única lista de lo que se lee
+    en pantalla. El progreso usa las marcas de driver.js —dobles llaves— porque
+    las sustituye él; `translate` sin parámetros las deja intactas.
+  */
+  'guia.abrir': 'Abrir la guía',
+  'guia.cerrar': 'Cerrar la guía',
+  'guia.siguiente': 'Siguiente',
+  'guia.anterior': 'Anterior',
+  'guia.listo': 'Listo',
+  'guia.entendido': 'Entendido',
+  'guia.progreso': '{{current}} de {{total}}',
+  'guia.paso.bienvenida.titulo': 'La casa, en seis paradas',
+  'guia.paso.bienvenida.cuerpo':
+    'Lo justo para saber dónde está todo. Puedes salir cuando quieras y repetirla desde Ajustes.',
+  'guia.paso.cabecera.titulo': 'Aquí te mueves',
+  'guia.paso.cabecera.cuerpo':
+    'Inicio, Buscar, Perfil, Biblioteca y Ajustes. Cada destino conserva la mitad que estabas mirando.',
+  'guia.paso.buscar.titulo': 'Buscar',
+  'guia.paso.buscar.cuerpo':
+    'Consulta tus proveedores y AniList a la vez. Lo que encuentres se abre en su ficha.',
+  'guia.paso.tipo.titulo': 'Anime o películas',
+  'guia.paso.tipo.cuerpo':
+    'El conmutador cambia de mitad: la vitrina, la búsqueda y el motor lo respetan.',
+  'guia.paso.destacado.titulo': 'La vitrina',
+  'guia.paso.destacado.cuerpo':
+    'El motor elige el destacado con lo que buscas y ves. Debajo, «Continuar viendo» retoma donde lo dejaste.',
+  'guia.paso.biblioteca.titulo': 'Tu biblioteca',
+  'guia.paso.biblioteca.cuerpo':
+    'Lo que descargas se queda en tu equipo y se reproduce desde aquí, sin pedirle nada a la red.',
+  'guia.paso.ajustes.titulo': 'Los proveedores, en Ajustes',
+  'guia.paso.ajustes.cuerpo':
+    'Sin un proveedor no hay nada que ver. Aquí se registran y se ordenan; también se cambia el tema.',
+  'guia.aviso.biblioteca.titulo': 'Nuevo: descargas',
+  'guia.aviso.biblioteca.cuerpo':
+    'Manda un episodio a la biblioteca y se queda en tu equipo. Se reproduce desde ahí, sin red.',
+  'guia.ajustes.titulo': 'Guía',
+  'guia.ajustes.cuerpo':
+    'La bienvenida explica lo básico. Los avisos salen una vez cuando una función es nueva, y no vuelven.',
+  'guia.ajustes.ver': 'Ver la bienvenida',
+  'guia.ajustes.avisos': 'Mostrar los avisos otra vez',
+
   'notFound.title': 'Esa ruta no existe',
   'notFound.body': 'La dirección {path} no corresponde a ninguna pantalla.',
   'notFound.back': 'Volver al inicio',

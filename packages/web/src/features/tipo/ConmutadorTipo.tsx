@@ -21,6 +21,7 @@ import type { MediaFilter } from '@nn-anime/core/media'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 import { Link, usePath } from '../../router'
+import { ANCLAS } from '../guia/guia'
 import { pathConTipo, tipoFromPath } from './tipo'
 
 /** Las dos mitades, en el orden en que se enseñan. Anime primero: es la casa. */
@@ -36,7 +37,12 @@ export function ConmutadorTipo(): ReactNode {
   const actual = tipoFromPath(path)
 
   return (
-    <nav className="conmutador" data-tipo={actual} aria-label={t(DEFAULT_LOCALE, 'media.switch')}>
+    <nav
+      className="conmutador"
+      data-tipo={actual}
+      data-tour={ANCLAS.tipo}
+      aria-label={t(DEFAULT_LOCALE, 'media.switch')}
+    >
       {OPCIONES.map((opcion) => (
         <Link
           key={opcion}

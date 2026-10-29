@@ -280,6 +280,14 @@ export interface LinkProps {
    */
   readonly onMouseEnter?: () => void
   readonly onMouseLeave?: () => void
+  /**
+   * El ancla de la guía.
+   *
+   * Un paso de driver.js busca `[data-tour="…"]`, y este enlace es el destino
+   * que la bienvenida señala. Va como prop y no como atributo suelto porque
+   * `LinkProps` no declara atributos arbitrarios y TypeScript los rechazaría.
+   */
+  readonly dataTour?: string
 }
 
 /**
@@ -298,6 +306,7 @@ export function Link(props: LinkProps): ReactNode {
       title={props.title}
       aria-label={props.ariaLabel}
       aria-current={props.ariaCurrent}
+      data-tour={props.dataTour}
       onMouseEnter={props.onMouseEnter}
       onMouseLeave={props.onMouseLeave}
       onClick={(event) => {

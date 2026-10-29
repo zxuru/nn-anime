@@ -1,4 +1,5 @@
 import { test as setup } from '@playwright/test'
+import { AVISOS, CLAVE_GUIA, VERSION_GUIA } from '../src/features/guia/guia'
 import { BASE, bootToken, RUTA_ESTADO } from './fixtures'
 
 /**
@@ -17,6 +18,27 @@ import { BASE, bootToken, RUTA_ESTADO } from './fixtures'
 setup('canjear el token de arranque y guardar la sesión', async ({ page }) => {
   await page.goto(`${BASE}/?boot=${await bootToken()}`)
   await page.waitForLoadState('networkidle')
+
+  /*
+    La bienvenida sale sola la primera vez y tapa la pantalla. En el arnés se da
+    por vista —su propia prueba la borra para verla—: sin esto, cada prueba de la
+    suite empezaría con un popover encima y ningún clic llegaría a su destino.
+    Los avisos también se dan por vistos: un faro latiendo en la cabecera taparía
+    el enlace que varias pruebas pulsan.
+  */
+  await page.evaluate(
+    ({ clave, estado }) => {
+      localStorage.setItem(clave, JSON.stringify(estado))
+    },
+    {
+      clave: CLAVE_GUIA,
+      estado: {
+        v: VERSION_GUIA,
+        bienvenida: true,
+        vistos: AVISOS.map((aviso) => aviso.id),
+      },
+    },
+  )
 
   await page.context().storageState({ path: RUTA_ESTADO })
 })
