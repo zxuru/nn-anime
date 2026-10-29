@@ -18,7 +18,7 @@
 import { mkdir, statfs } from 'node:fs/promises'
 import { join } from 'node:path'
 import { AppError, type ConfigPaths, healthResponseSchema, type Logger } from '@nn-anime/core'
-import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
+import type { FetchLike, RemuxFn, Resolver } from '@nn-anime/media-proxy'
 import type { LoadReport } from '@nn-anime/provider-sdk'
 import { Hono } from 'hono'
 import { z } from 'zod'
@@ -152,6 +152,14 @@ export interface AppOptions {
   readonly downloadFetchImpl?: FetchLike
   /** Cuántas descargas a la vez. Dos por defecto. */
   readonly downloadConcurrency?: number
+  /**
+   * El remezclador de una descarga ya completa; en pruebas, un doble.
+   *
+   * Sin esto, convertir una descarga en segmentos usa ffmpeg —si está— o
+   * contesta 409. La costura existe para poder medir la conversión sin que la
+   * prueba dependa de que la máquina tenga ffmpeg.
+   */
+  readonly downloadRemux?: RemuxFn
   /** Versión de mpv detectada al arrancar, si la hay. */
   readonly mpvVersion?: string
   /**
@@ -437,6 +445,7 @@ export function createApp(options: AppOptions): Hono {
         store: container.store,
         providers: hub.providers,
         root: downloadsRoot,
+        ...(options.downloadRemux === undefined ? {} : { remux: options.downloadRemux }),
       })
     }
     registerDetailRoutes(app, routeOptions)

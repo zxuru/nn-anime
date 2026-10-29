@@ -58,6 +58,11 @@ export const messages: Messages = {
   'library.player.notReady': 'La descarga todavía no está completa.',
   'library.player.error': 'No se pudo abrir la descarga: {message}',
   'library.player.offline': 'Se reproduce desde el archivo descargado; no hace falta el proveedor.',
+  'library.player.segments':
+    'Se guardó como segmentos, no como MP4: se ve aquí, pero fuera de la aplicación no hay un archivo que abrir.',
+  'library.player.convert': 'Convertir a MP4',
+  'library.player.converting': 'Convirtiendo…',
+  'library.player.convertError': 'No se pudo convertir: {message}',
 
   'downloads.loading': 'Leyendo la cola…',
   'downloads.status.queued': 'En cola',

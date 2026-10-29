@@ -19,6 +19,7 @@ import { createHash } from 'node:crypto'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import type { FetchLike } from '../byte-proxy'
 import { checkDestination } from '../destination-guard'
+import { createFfmpegRemux, locateFfmpeg } from './ffmpeg'
 import { downloadFile } from './file'
 import { downloadHls, type RemuxFn } from './hls-download'
 
@@ -129,57 +130,18 @@ export function guardedFetch(fetchImpl: FetchLike = (url, init) => fetch(url, in
   }
 }
 
-/** ffmpeg en el PATH, si está. Inyectable para las pruebas. */
-export function findFfmpeg(
-  which: (command: string) => string | null = (command) => Bun.which(command),
-): string | undefined {
-  return which('ffmpeg') ?? undefined
-}
-
 /**
- * El remux real: copia los códecs a MP4 sin recodificar.
+ * ffmpeg al alcance, si hay.
  *
- * Sin shell y con argumentos en array. La playlist local no tiene ninguna URL de
- * red, así que ffmpeg no sale a ningún sitio; el `protocol_whitelist` lo deja
- * escrito por si el archivo cambiara.
+ * La búsqueda —entorno, junto al ejecutable, instaladores y `PATH`— vive en
+ * `ffmpeg.ts`, porque la conversión de una descarga ya hecha hace la misma
+ * pregunta y tiene que recibir la misma respuesta.
  */
-export function createFfmpegRemux(ffmpegPath: string): RemuxFn {
-  return async (playlistPath, outputPath, signal) => {
-    const proceso = Bun.spawn(
-      [
-        ffmpegPath,
-        '-y',
-        '-loglevel',
-        'error',
-        '-protocol_whitelist',
-        'file',
-        '-i',
-        playlistPath,
-        '-c',
-        'copy',
-        '-movflags',
-        '+faststart',
-        outputPath,
-      ],
-      { stdout: 'ignore', stderr: 'pipe' },
-    )
-
-    const abortar = (): void => {
-      proceso.kill()
-    }
-    signal.addEventListener('abort', abortar, { once: true })
-
-    try {
-      const codigo = await proceso.exited
-      if (codigo !== 0) {
-        const error = await new Response(proceso.stderr).text()
-        throw new Error(`ffmpeg falló (${codigo}): ${error.slice(-400)}`)
-      }
-    } finally {
-      signal.removeEventListener('abort', abortar)
-    }
-  }
+export function findFfmpeg(): string | undefined {
+  return locateFfmpeg()
 }
+
+export { createFfmpegRemux }
 
 /**
  * Baja una tarea y devuelve qué quedó.
