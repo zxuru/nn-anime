@@ -101,7 +101,15 @@ export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
         {/* La dirección sale del gancho ya comprobada —es una ruta local de AniList
             y no una de fuera—: aquí sólo se pinta lo que él devuelve. */}
         {bannerMedido === undefined ? null : (
-          <img className="marquesina__banner" src={bannerMedido.src} alt="" />
+          // El banner es el fondo de la primera pantalla: se pide con prioridad
+          // alta y se decodifica fuera del hilo de la pintura, como el cartel.
+          <img
+            className="marquesina__banner"
+            src={bannerMedido.src}
+            alt=""
+            fetchPriority="high"
+            decoding="async"
+          />
         )}
       </span>
       <span className="marquesina__capa" aria-hidden="true" />
@@ -175,6 +183,7 @@ export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
             providerId={props.item.ref.providerId}
             ref={props.item.ref.value}
             className="pz__campo"
+            prioridad
           >
             <span className="pz__letra" aria-hidden="true">
               {props.item.title.slice(0, 1)}

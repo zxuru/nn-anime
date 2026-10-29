@@ -24,6 +24,29 @@ import { createScheduler } from './scheduler'
 /** Retardo antes de pedir, del spec. */
 export const DEBOUNCE_MS = 400
 
+/**
+ * El retardo que toca según haya consulta o no.
+ *
+ * Con consulta, los 400 ms del spec: es lo que colapsa las teclas de una
+ * búsqueda y cancela lo que quedó viejo. **Sin consulta —la vitrina— no hay nada
+ * que colapsar**, y el retardo sólo retrasaba la marquesina: el destacado salía
+ * primero con lo que hubiera en el feed y se sustituía por la recomendación
+ * cuando ya se estaba mirando. Medido en T195, eso costaba una segunda cadena de
+ * detalle (ficha, episodios y enriquecimiento del título de reserva) y un salto
+ * de maquetación de 0,039 que el CLS contaba entero.
+ *
+ * Un retardo explícito manda sobre la regla: es el que inyectan las pruebas.
+ */
+export function retardoDeConsulta(
+  query: string | undefined,
+  debounceMs: number | undefined,
+): number {
+  if (debounceMs !== undefined) return debounceMs
+  if (query === undefined || query.trim() === '') return 0
+
+  return DEBOUNCE_MS
+}
+
 export type PanelState = 'loading' | 'ready' | 'error'
 
 export interface Recommendations {
@@ -65,7 +88,7 @@ export function useRecommendations(options: UseRecommendationsOptions = {}): Rec
   // El planificador se crea una vez y se reutiliza: si se creara en cada
   // efecto, no habría nada que cancelar entre una clave y la siguiente.
   const planificador = useRef<ReturnType<typeof createScheduler> | undefined>(undefined)
-  const retardo = options.debounceMs ?? DEBOUNCE_MS
+  const retardo = retardoDeConsulta(options.query, options.debounceMs)
   const ruta = recommendationsPath(options.query, options.limit ?? 10, options.media)
 
   /**

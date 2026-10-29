@@ -37,6 +37,18 @@ export interface CoverProps {
    * dentro: el navegador, si tiene imagen, no deja hueco para el dibujo.
    */
   readonly children?: ReactNode
+  /**
+   * Si la portada es de las que se ven al abrir, como el cartel de la marquesina.
+   *
+   * Por defecto la portada es diferida: una rejilla de veinte piezas no debe
+   * pedir veinte imágenes que nadie ha mirado todavía. Pero el cartel del
+   * destacado **sí** está en la primera pantalla, y diferirlo lo dejaba fuera del
+   * LCP hasta que el navegador decidiera que tocaba: era el elemento grande de la
+   * vitrina esperando en la cola de las miniaturas. Con esto se pide en cuanto se
+   * pinta y con prioridad alta, que es lo que corresponde a la imagen del
+   * contenido principal.
+   */
+  readonly prioridad?: boolean
 }
 
 /** La ruta de la portada de esta pieza, o nada si no hay de dónde sacarla. */
@@ -64,7 +76,12 @@ export function Cover(props: CoverProps): ReactNode {
       className={props.className ?? 'card__cover'}
       src={ruta}
       alt=""
-      loading="lazy"
+      loading={props.prioridad === true ? 'eager' : 'lazy'}
+      fetchPriority={props.prioridad === true ? 'high' : undefined}
+      // La decodificación se saca del hilo de la pintura: la portada no es el
+      // texto que hay que leer, y con una imagen grande en el mismo hilo el
+      // primer fotograma llega tarde.
+      decoding="async"
       onError={() => setFallo(true)}
     />
   )
