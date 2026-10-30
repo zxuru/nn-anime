@@ -259,9 +259,23 @@ test.describe('la banda a sangre', () => {
     })
   }
 
+  /**
+   * La banda de la ficha **cargada**, no la del esqueleto.
+   *
+   * Las dos comparten la clase y el esqueleto se desmonta en cuanto llega el
+   * núcleo de la ficha (T212), unos milisegundos después de que `toBeVisible` lo
+   * encuentre. Si la medición cae en ese cambio, `evaluate` recibe un nodo
+   * desprendido y su `getBoundingClientRect()` devuelve ceros —no tiene caja—,
+   * así que la prueba fallaba por una carrera y no por la banda. Se espera la
+   * ficha cargada y se mide la suya, que ya no se vuelve a montar.
+   */
+  function bandaCargada(page: import('@playwright/test').Page) {
+    return page.locator('article.detail:not(.detalle-esqueleto) > .detail__banner')
+  }
+
   /** El alto de la banda, ya montada. */
   async function altoDeLaBanda(page: import('@playwright/test').Page): Promise<number> {
-    const banda = page.locator('.detail__banner')
+    const banda = bandaCargada(page)
     await expect(banda).toBeVisible({ timeout: 10_000 })
 
     return banda.evaluate((nodo) => nodo.getBoundingClientRect().height)
@@ -272,7 +286,7 @@ test.describe('la banda a sangre', () => {
     await entrar(page)
     await page.goto('/anime/fixture/aurora-nocturna')
 
-    const banda = page.locator('.detail__banner')
+    const banda = bandaCargada(page)
     await expect(banda).toBeVisible({ timeout: 10_000 })
 
     const medida = await banda.evaluate((nodo) => {
