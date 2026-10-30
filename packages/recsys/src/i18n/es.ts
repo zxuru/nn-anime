@@ -17,7 +17,6 @@ export const es = {
   'reason.covisit': 'Lo suele ver quien ve {seen}.',
   'reason.rediscovery': 'Lo dejaste a medias y ha pasado tiempo: puede que ahora encaje.',
   'reason.trending': 'Está de moda entre quienes usan este catálogo.',
-  'reason.popular': 'Es de lo más visto del proveedor.',
   'reason.fallback': 'Encaja con lo que has visto hasta ahora.',
 } as const
 

@@ -84,7 +84,7 @@ export interface Recommendation {
 
 export interface Reason {
   readonly kind: 'similar-to-watched' | 'shares-tags' | 'same-studio' | 'co-watched'
-    | 'matches-search' | 'popular' | 'cold-start'
+    | 'matches-search' | 'cold-start'
   readonly text: string
   readonly evidence: readonly string[]
 }
@@ -126,6 +126,12 @@ Algoritmo v1, en este orden:
    títulos que dejó una búsqueda en `search_cache`, aunque nadie abriera su ficha: entran sin
    vector y sólo pueden puntuar por popularidad. El motor **no** cambia: quien arma la lista de
    candidatos es la ruta.
+
+La popularidad sólo se escribe como razón en el arranque en frío. En una lista personalizada no
+explica nada que el usuario no sepa ya: «es de lo más visto del proveedor» describe el catálogo, no
+por qué se le enseña ese título a ese usuario. La popularidad **sigue puntuando** —es lo que ordena
+el arranque en frío y lo que desempata catálogos sin señales—; lo que no hace es justificar una
+recomendación. Un candidato sin ninguna señal personal cae en la razón genérica `fallback`.
 
 Determinismo: con el mismo `Signals`, los mismos `candidates`, el mismo `seed` y el mismo
 `now`, la salida es idéntica y en el mismo orden. Ningún desempate depende del orden de

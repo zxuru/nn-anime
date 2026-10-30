@@ -340,10 +340,15 @@ function razonesDe(candidate: Candidate, contexto: ContextoRazones): readonly Re
     })
   }
 
-  if (contexto.popularidadPuntos > 0) {
+  // La popularidad ordena el arranque en frío, pero no explica una recomendación
+  // personalizada: «es de lo más visto del proveedor» describe el catálogo, no por
+  // qué se le enseña ese título a este usuario. Se escribe sólo cuando no hay
+  // historial y la popularidad es lo único que hay que contar; en una lista
+  // personalizada sigue puntuando, pero no se presenta como razón.
+  if (contexto.coldStart && contexto.popularidadPuntos > 0) {
     candidatas.push({
-      kind: contexto.coldStart ? 'trending' : 'popular',
-      key: contexto.coldStart ? 'reason.trending' : 'reason.popular',
+      kind: 'trending',
+      key: 'reason.trending',
       evidence: { weight: contexto.popularidadPuntos * SIGNAL_WEIGHTS.popularity },
       values: {},
     })
