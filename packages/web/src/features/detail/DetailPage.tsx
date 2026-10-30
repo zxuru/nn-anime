@@ -29,12 +29,13 @@ import { t } from '../../i18n'
 import { detailTitleParts, useDocumentTitle } from '../../lib/document-title'
 import { isSafeUrl } from '../../lib/safe-url'
 import { useDelayedFlag } from '../../lib/useDelayedFlag'
-import { Link, useNavigate, useNavigationState } from '../../router'
+import { Link, useNavigate, useNavigationState, usePath } from '../../router'
 import { ANCLAS } from '../guia/guia'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
 import { searchPath } from '../search/SearchPage'
 import { AnimeDetailSkeleton } from './AnimeDetailSkeleton'
 import { DetailError } from './DetailError'
+import { consultaDeLaFicha } from './direccion'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
 import { readDetailNavState } from './nav-state'
@@ -426,6 +427,16 @@ export function ModePicker(props: {
 }
 
 export function DetailPage(props: DetailPageProps): ReactNode {
+  /*
+    La búsqueda de la que viene la ficha, si viene de una.
+
+    Viaja en la dirección de la pantalla y se reenvía a la lectura del detalle:
+    es lo que el servidor anota en `search_history`, la señal con la que el motor
+    recomienda lo que el usuario está buscando. Una ficha abierta por su dirección
+    —un marcador, una pestaña nueva de una tarjeta de la vitrina— no trae consulta
+    y no inventa ninguna.
+  */
+  const consulta = consultaDeLaFicha(usePath())
   const {
     detail,
     related,
@@ -440,7 +451,7 @@ export function DetailPage(props: DetailPageProps): ReactNode {
     state,
     error,
     reload,
-  } = useDetail(props.providerId, props.ref)
+  } = useDetail(props.providerId, props.ref, consulta)
 
   /**
    * Lo que la tarjeta de origen ya sabía de esta ficha.

@@ -554,10 +554,14 @@ export function createPrefetcher(options: PrefetchOptions): Prefetcher {
  * salir del puntero, pero pasar por encima de una tarjeta es intención de abrirla:
  * la lectura sirve para la navegación aunque el puntero siga de largo, y una
  * promesa abortada dejaría la ficha con la precarga rota en vez de con el dato.
+ *
+ * `consulta` es la búsqueda que está en la casilla: viaja en la precarga para que
+ * el servidor anote el rastro con el que el motor recomienda. Sin ella, la
+ * precarga deja la ficha caliente pero no cuenta qué se estaba buscando.
  */
-export function createDefaultPrefetcher(): Prefetcher {
+export function createDefaultPrefetcher(consulta?: string): Prefetcher {
   return createPrefetcher({
-    fetchDetail: (providerId, ref) => prefetchDetail(providerId, ref),
+    fetchDetail: (providerId, ref) => prefetchDetail(providerId, ref, consulta),
   })
 }
 

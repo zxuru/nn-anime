@@ -130,6 +130,14 @@ export interface PiezaProps {
   /** Lo que cuenta la pieza: sinopsis y motivo, en el asomo y en la hoja. */
   readonly sinopsis?: string | undefined
   readonly motivo?: string | undefined
+  /**
+   * La búsqueda de la que viene la pieza, si viene de una.
+   *
+   * Viaja en la precarga de la ficha para que el servidor anote la búsqueda: es
+   * la señal con la que el motor recomienda lo que se está buscando. La vitrina no
+   * la pasa; la búsqueda, sí.
+   */
+  readonly consulta?: string | undefined
   /** A dónde lleva «Reproducir», si se conoce el episodio. */
   readonly reproducir?: string | undefined
   /** Una pieza de favoritos, apagada: no compite con lo que no se ha empezado. */
@@ -167,6 +175,7 @@ export function Pieza(props: PiezaProps): ReactNode {
   const prefetch = useDetailPrefetch(
     esFicha ? props.providerId : undefined,
     esFicha ? props.ref : undefined,
+    props.consulta,
   )
   // La pieza numerada lleva el velo de su cifra: sobre una portada clara, el crema
   // del puesto no se lee. Va en la clase y no en un estilo suelto para que la hoja

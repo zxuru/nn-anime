@@ -435,8 +435,15 @@ function vistaInicial(clave: string): VistaDetalle {
  *
  * La carga en sí vive en `load-detail.ts` porque la comparten la pantalla y la
  * precarga: aquí sólo se decide cuándo pedirla y qué hacer con lo que llega.
+ *
+ * **La búsqueda viaja con la petición.** `consulta` es la búsqueda de la que viene
+ * la ficha, si viene de una: la lectura del detalle la lleva porque es lo que el
+ * servidor anota en `search_history`, la señal con la que el motor recomienda lo
+ * que el usuario está buscando. Reutilizar una precarga que salió sin ella dejaría
+ * esa búsqueda sin anotar, así que `prefetchPendiente` sólo devuelve la que salió
+ * con la misma consulta.
  */
-export function useDetail(providerId: string, ref: string): DetailData {
+export function useDetail(providerId: string, ref: string, consulta?: string): DetailData {
   const clave = claveDeFicha(providerId, ref)
   const [guardado, setGuardado] = useState<{
     readonly clave: string
@@ -544,7 +551,10 @@ export function useDetail(providerId: string, ref: string): DetailData {
         // falla —o el reloj lo corta— la pantalla se queda con lo viejo en vez de
         // con una tarjeta de error.
         try {
-          const bundle = await loadDetailBundle(providerId, ref, { signal: controller.signal })
+          const bundle = await loadDetailBundle(providerId, ref, {
+            signal: controller.signal,
+            ...(consulta === undefined ? {} : { consulta }),
+          })
           if (!sigue()) return
 
           detailCache.set(clave, bundle)
@@ -559,7 +569,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
       // Sin caché, la precarga en vuelo es exactamente esta lectura: se espera en
       // vez de pedirla dos veces. Una precarga que falló devuelve `undefined` y
       // entonces se pide como siempre.
-      const pendiente = prefetchPendiente(providerId, ref)
+      const pendiente = prefetchPendiente(providerId, ref, consulta)
       const precargado = pendiente === undefined ? undefined : await pendiente
       if (!sigue()) return
 
@@ -571,7 +581,10 @@ export function useDetail(providerId: string, ref: string): DetailData {
       }
 
       try {
-        const bundle = await loadDetailBundle(providerId, ref, { signal: controller.signal })
+        const bundle = await loadDetailBundle(providerId, ref, {
+          signal: controller.signal,
+          ...(consulta === undefined ? {} : { consulta }),
+        })
         if (!sigue()) return
 
         detailCache.set(clave, bundle)
@@ -593,7 +606,7 @@ export function useDetail(providerId: string, ref: string): DetailData {
         timerRef.current = undefined
       }
     })
-  }, [abortar, clave, providerId, ref])
+  }, [abortar, clave, providerId, ref, consulta])
 
   useEffect(() => {
     cargar()

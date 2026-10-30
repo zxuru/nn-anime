@@ -90,10 +90,108 @@ test.describe('la búsqueda', () => {
 
     await expect(page.getByRole('heading', { name: 'En AniList' })).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('En tus fuentes')).toBeVisible()
-    // La que está en una fuente abre su ficha; la que no, la búsqueda de su título.
-    await expect(page.locator('a[href="/anime/fixture/aurora-nocturna"]').first()).toBeVisible()
+    // La que está en una fuente abre su ficha —con la consulta de la búsqueda,
+    // que es el rastro que el motor usa—; la que no, la búsqueda de su título.
+    await expect(
+      page.locator('a[href^="/anime/fixture/aurora-nocturna?q=Estudio"]').first(),
+    ).toBeVisible()
     await expect(page.locator('a[href^="/search?q=Dungeon"]').first()).toBeVisible()
     // Y no se dice que no haya nada: la lista de debajo es lo que hay.
     await expect(page.getByText('Nada coincide')).toHaveCount(0)
+  })
+
+  /**
+   * El rastro de la búsqueda, de punta a punta.
+   *
+   * Es el camino que faltaba y lo que se mide aquí no se puede medir en unitario:
+   * abrir una ficha desde Buscar pone la consulta en la dirección, la petición del
+   * detalle la lleva, el servidor la anota en `search_history` y el motor la usa
+   * al recomendar. Sin él, buscar no cambiaba ninguna recomendación: con el
+   * historial de visionado vacío todos los candidatos puntuaban cero y el
+   * destacado era siempre el mismo por el desempate.
+   *
+   * Se busca un título que ninguna otra prueba de la pasada abre ni reproduce
+   * —«Reloj de Arena»—: la base del arnés es una sola para todo el recorrido y un
+   * título ya visto queda fuera de las recomendaciones.
+   */
+  test('la ficha abierta desde una búsqueda deja el rastro y el motor recomienda por ella', async ({
+    page,
+  }) => {
+    await entrar(page)
+    await esperarApp(page)
+
+    // La petición que deja el rastro: el detalle, con la consulta. Se espera
+    // antes de pulsar para no perderse la respuesta.
+    const rastro = page.waitForResponse((respuesta) => {
+      const url = new URL(respuesta.url())
+
+      return (
+        url.pathname === '/api/anime/fixture/reloj-de-arena' &&
+        url.searchParams.get('q') === 'reloj'
+      )
+    })
+
+    await page.goto('/search')
+    await page.getByLabel('Buscar por título').fill('reloj')
+
+    const tarjeta = page.locator('a[href^="/anime/fixture/reloj-de-arena"]').first()
+    await expect(tarjeta).toBeVisible({ timeout: 10_000 })
+    await expect(tarjeta).toHaveAttribute('href', '/anime/fixture/reloj-de-arena?q=reloj')
+
+    await tarjeta.click()
+    await rastro
+    await expect(page).toHaveURL(/\/anime\/fixture\/reloj-de-arena\?q=reloj/)
+
+    /*
+      La reacción del motor, leída de la ruta y no del titular.
+
+      El destacado es el primer puesto del ranking y en la base del arnés —una
+      sola para toda la pasada— las otras pruebas dejan historial de visionado y
+      favoritos: cuál gana el primer puesto depende de ellas. Lo que se mide aquí
+      es que la búsqueda entró como señal y que el título buscado se explica por
+      ella. El `waitForResponse` de arriba ya midió que la petición llevaba la
+      consulta.
+    */
+    const respuesta = await page.request.get('/api/recommendations?limit=20')
+    expect(respuesta.ok()).toBe(true)
+
+    const cuerpo = (await respuesta.json()) as {
+      readonly items: readonly {
+        readonly title: string
+        readonly reason: { readonly kind: string; readonly text: string }
+      }[]
+    }
+    const reloj = cuerpo.items.find((item) => item.title === 'Reloj de Arena')
+
+    expect(reloj?.reason.kind).toBe('matches-search')
+    expect(reloj?.reason.text).toContain('buscaste hace poco')
+  })
+
+  /**
+   * La otra mitad del rastro: la ficha abierta por su dirección, con la consulta
+   * ya puesta.
+   *
+   * Sin tarjeta de por medio no hay precarga que la lleve, así que lo que se mide
+   * aquí es que la pantalla lea la consulta de la dirección y la reenvíe a su
+   * lectura. Es lo que hace que abrir un resultado en una pestaña nueva —el enlace
+   * es un `<a href>` de verdad— también deje el rastro.
+   */
+  test('una ficha abierta por una dirección con consulta reenvía el rastro', async ({ page }) => {
+    await entrar(page)
+    await esperarApp(page)
+
+    const rastro = page.waitForResponse((respuesta) => {
+      const url = new URL(respuesta.url())
+
+      return (
+        url.pathname === '/api/anime/fixture/reloj-de-arena' &&
+        url.searchParams.get('q') === 'reloj'
+      )
+    })
+
+    await page.goto('/anime/fixture/reloj-de-arena?q=reloj')
+    await rastro
+
+    await expect(page.getByRole('heading', { name: 'Reloj de Arena' })).toBeVisible()
   })
 })
