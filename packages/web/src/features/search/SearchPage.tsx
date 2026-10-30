@@ -24,6 +24,7 @@ import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { resumenDeFallo } from '../../components/ErrorNotice'
 import { Grid, GridItem } from '../../components/Grid'
+import { Skeleton } from '../../components/Skeleton'
 import { t } from '../../i18n'
 import { useNavigate, usePath } from '../../router'
 import { ANCLAS } from '../guia/guia'
@@ -319,14 +320,14 @@ export function SearchPage(props: SearchPageProps): ReactNode {
                     <GridItem key={providerId}>
                       {/* Un esqueleto por proveedor pendiente: lo que falta se ve,
                           en lugar de aparecer de golpe cuando responda el último. */}
-                      <span className="skeleton" aria-hidden="true" />
+                      <Skeleton h="var(--skeleton-height)" />
                     </GridItem>
                   ))
                 : ESPERA_KEYS.slice(0, ESQUELETOS_SIN_PROVEEDORES).map((clave) => (
                     <GridItem key={clave}>
                       {/* Todavía no se sabe a quién se le pregunta: la rejilla
                           existe para que la espera se vea. */}
-                      <span className="skeleton" aria-hidden="true" />
+                      <Skeleton h="var(--skeleton-height)" />
                     </GridItem>
                   ))}
             </Grid>

@@ -824,18 +824,26 @@ describe('movimiento y superficies', () => {
     }
   })
 
-  test('el esqueleto de la home late con el mismo pulso, y se apaga', async () => {
+  /**
+   * El esqueleto se desliza con su propio ritmo, y se apaga.
+   *
+   * La animación del esqueleto de la ficha es un degradado que se desplaza, no el
+   * pulso de opacidad de la vitrina: se mide que use su token —1,4 s— y que el
+   * pulso viejo siga siendo el de `.esq`, que no se cambió.
+   */
+  test('el esqueleto se desliza con su propio ritmo, y se apaga', async () => {
     const css = await read(SHELL)
     const skeleton = /\.skeleton\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
     const esq = /\.esq\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
 
-    expect(skeleton).toContain('var(--skeleton-pulse)')
+    expect(skeleton).toContain('var(--skeleton-shimmer)')
     expect(esq).toContain('var(--skeleton-pulse)')
 
     // El `animation: none` tiene que ir después de `.esq` o no lo apaga: el
     // bloque de movimiento reducido vive al final del archivo.
     const reducido = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce)'))
     expect(reducido).toContain('.esq')
+    expect(reducido).toContain('.skeleton')
     expect(reducido).toContain('.player__tooltip')
   })
 

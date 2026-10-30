@@ -18,6 +18,8 @@ import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'
 import { isSafeUrl } from '../../lib/safe-url'
 import { Link } from '../../router'
+import { navStateDeTarjeta } from '../detail/nav-state'
+import { prefetchDetail } from '../detail/prefetch'
 
 export interface ResultCardProps {
   readonly result: SearchResult
@@ -49,14 +51,36 @@ export function ResultCard(props: ResultCardProps): ReactNode {
   // pide al proxy algo que no puede existir, y el hueco se ve igual. La dirección
   // del proveedor no entra en ningún atributo; la imagen sale de `/api/cover`.
   const tienePortada = props.coverRequested ?? isSafeUrl(result.coverUrl)
+  /*
+    Lo que la ficha puede enseñar antes de pedir nada. La portada es la del proxy,
+    no la del proveedor: es la que la tarjeta está enseñando de verdad, y la única
+    que la ficha puede pedir sin exponer una dirección de fuera.
+  */
+  const estado = navStateDeTarjeta({
+    title: result.title,
+    providerId: result.ref.providerId,
+    ref: result.ref.value,
+    poster: tienePortada ? coverPath(result.ref.providerId, result.ref.value) : undefined,
+    year: result.year,
+  })
 
   return (
     <Link
       to={`/anime/${encodeURIComponent(result.ref.providerId)}/${encodeURIComponent(result.ref.value)}`}
       className="card"
       title={result.title}
+      state={estado}
       {...(props.onPreview === undefined ? {} : { onMouseEnter: props.onPreview })}
       {...(props.onPreviewEnd === undefined ? {} : { onMouseLeave: props.onPreviewEnd })}
+      onPointerDown={() => {
+        /*
+          El toque del móvil no pasa por `mouseenter`: el dedo ya está encima
+          cuando se entera, y el resultado tiene que estar camino antes de que se
+          levante. En el ratón no duplica peticiones: el precargador de la búsqueda
+          ya pidió la misma ficha y `prefetchDetail` deduplica lo que está en vuelo.
+        */
+        void prefetchDetail(result.ref.providerId, result.ref.value)
+      }}
     >
       {tienePortada ? (
         <Cover providerId={result.ref.providerId} ref={result.ref.value} className="card__cover" />

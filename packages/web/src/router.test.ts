@@ -173,3 +173,84 @@ describe('createMemoryHistory', () => {
     expect(total).toBe(2)
   })
 })
+
+/**
+ * El estado de navegación y el botón de atrás.
+ *
+ * Es lo que permite abrir una ficha con su título y su portada antes de pedirla,
+ * y el botón «Volver» de la tarjeta de error. Se mide en el historial en memoria
+ * porque es la misma interfaz que usa el navegador: si `push` no guarda el estado
+ * o `back` no lo restaura, la ficha pierde el adelanto y el botón no vuelve.
+ */
+describe('createMemoryHistory: estado y vuelta atrás', () => {
+  test('un push guarda el estado que viaja con la entrada', () => {
+    const history = createMemoryHistory()
+
+    history.push('/anime/fixture/aurora', { title: 'Aurora Nocturna' })
+
+    expect(history.path).toBe('/anime/fixture/aurora')
+    expect(history.state).toEqual({ title: 'Aurora Nocturna' })
+  })
+
+  test('el estado inicial se puede fijar', () => {
+    const history = createMemoryHistory('/anime/f/a', { title: 'A' })
+
+    expect(history.state).toEqual({ title: 'A' })
+  })
+
+  test('replace cambia ruta y estado sin apilar', () => {
+    const history = createMemoryHistory('/search')
+
+    history.replace('/search?q=naruto', { hola: 'mundo' })
+    history.back()
+
+    // No hay entrada anterior: replace no añadió una.
+    expect(history.path).toBe('/search?q=naruto')
+    expect(history.state).toEqual({ hola: 'mundo' })
+  })
+
+  test('back vuelve a la entrada anterior con su estado', () => {
+    const history = createMemoryHistory('/')
+    history.push('/anime/f/a', { title: 'A' })
+
+    history.back()
+
+    expect(history.path).toBe('/')
+  })
+
+  test('volver atrás y empujar descarta la rama que se había abandonado', () => {
+    const history = createMemoryHistory('/')
+    history.push('/anime/f/a', { title: 'A' })
+    history.back()
+    history.push('/anime/f/b', { title: 'B' })
+    history.back()
+
+    expect(history.path).toBe('/')
+  })
+
+  test('back en la primera entrada no hace nada', () => {
+    const history = createMemoryHistory('/')
+    let avisos = 0
+    history.subscribe(() => {
+      avisos += 1
+    })
+
+    history.back()
+
+    expect(history.path).toBe('/')
+    expect(avisos).toBe(0)
+  })
+
+  test('back avisa a quien escucha', () => {
+    const history = createMemoryHistory('/')
+    history.push('/anime/f/a')
+    let avisos = 0
+    history.subscribe(() => {
+      avisos += 1
+    })
+
+    history.back()
+
+    expect(avisos).toBe(1)
+  })
+})

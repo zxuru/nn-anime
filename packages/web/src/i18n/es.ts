@@ -709,6 +709,19 @@ export const messages: Messages = {
   'detail.planToWatch.remove': 'Quitar de quiero ver',
   'detail.loading': 'Cargando la ficha…',
   'detail.notFound': 'Ese título no está en el proveedor.',
+  /*
+   * La carga de la ficha: el aviso de lentitud y la tarjeta de error.
+   *
+   * Son textos de estado, no de la obra: el título del error sólo dice qué pasó y
+   * el cuerpo qué se puede hacer. El nombre del proveedor va aparte porque es el
+   * dato que dice de quién es la culpa —y a quién hay que probar—.
+   */
+  'detail.slow': 'Está tardando más de lo normal…',
+  'detail.error.title': 'No se pudo cargar la ficha',
+  'detail.error.body': 'El proveedor no respondió a tiempo. Puedes reintentar o volver atrás.',
+  'detail.error.provider': 'Proveedor: {provider}',
+  'detail.error.back': 'Volver',
+  'detail.notFound.title': 'No se encontró la ficha',
   'detail.related.year': 'Año {year}',
   // El rail mezcla lo que la base conoce con lo que declara AniList, así que el
   // vacío lo dice de las dos procedencias: «no hay más en el catálogo local» a

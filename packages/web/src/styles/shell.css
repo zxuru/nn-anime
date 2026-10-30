@@ -553,14 +553,31 @@
   font-size: var(--text-sm);
 }
 
+/*
+ * El bloque de un esqueleto de carga.
+ *
+ * Es un degradado que se desliza de izquierda a derecha: el ojo lo lee como
+ * «esto se está llenando», que es lo único que tiene que decir. Antes era un
+ * borde y un pulso de opacidad; el pulso se quedó para los esqueletos de la
+ * vitrina (`.esq`), que son otra pieza.
+ *
+ * `display: block` e `inline-size: 100%` no son adorno: el esqueleto se pinta a
+ * veces sobre un `<span>` —un elemento inline— y sin caja propia ni `min-height`
+ * ni `height` se aplican, así que la pantalla parecía quedarse sin datos.
+ */
 .skeleton {
   display: block;
   inline-size: 100%;
-  min-height: var(--skeleton-height);
-  border: var(--border-width-strong) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-raised);
-  animation: latido var(--skeleton-pulse) ease-in-out infinite alternate;
+  border-radius: var(--radius-sm);
+  background: var(--skeleton-gradient);
+  background-size: 200% 100%;
+  animation: shimmer var(--skeleton-shimmer) linear infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
 }
 
 /*
@@ -569,9 +586,11 @@
  * Es lo que en otros sitios se llama `sr-only`. El esqueleto es decoración
  * —`aria-hidden`—, así que la frase que dice qué está pasando tiene que seguir en
  * el documento para quien no lo ve. `clip-path` y no `display: none`: un texto
- * oculto de verdad no se anuncia.
+ * oculto de verdad no se anuncia. El alias `sr-only` se mantiene porque es el
+ * nombre que usan las guías de accesibilidad y el que busca quien llega nuevo.
  */
-.solo-lectores {
+.solo-lectores,
+.sr-only {
   position: absolute;
   width: var(--oculto-medida);
   height: var(--oculto-medida);
@@ -6874,6 +6893,166 @@ details[open] > .library__settings-summary .library__settings-flecha {
 }
 
 /*
+ * El estado de carga de la ficha.
+ *
+ * La ficha cargada es a sangre: su banda cruza la ventana y la medida del sitio
+ * la recupera `.detail__cuerpo`. El esqueleto reutiliza **exactamente** esas dos
+ * cajas, de ahí que no choque: la cabecera y las columnas miden lo mismo antes y
+ * después de los datos, y el contenido no salta al llegar. Lo que se reserva es
+ * la forma, no una caja gris.
+ *
+ * Antes de los 150 ms no se enseña ningún bloque —`data-visible="false"` los
+ * deja transparentes y sin animación—, así que una respuesta rápida o cacheada
+ * no llega a parpadear; lo que ya se sabe de la tarjeta de origen —el título y la
+ * portada— sí se pinta desde el primer fotograma.
+ */
+.detalle-esqueleto[data-visible="false"] .skeleton {
+  opacity: 0;
+  animation: none;
+}
+
+.detalle-esqueleto__titulo {
+  margin-block: var(--space-1);
+}
+
+.detalle-esqueleto__meta {
+  margin-block: var(--space-1);
+}
+
+/* La portada del esqueleto ocupa la misma caja que `.detail__cover`: el ancho de
+   la barra lateral y la proporción de una portada. No lleva el borde ni la sombra
+   de la carátula real: es un hueco, no una imagen. */
+.detalle-esqueleto__portada {
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: var(--cover-ratio);
+  border-radius: var(--radius-skeleton);
+  object-fit: cover;
+}
+
+/* Los mandos del grupo de marcas, a la altura de un mando de verdad. */
+.detalle-esqueleto__acciones {
+  align-items: center;
+}
+
+.detalle-esqueleto__sinopsis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-inline-size: var(--measure);
+}
+
+/* La sección de episodios: un titular de sección y seis filas de 48 px. */
+.detalle-esqueleto__episodios {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.detalle-esqueleto__episodio {
+  display: flex;
+  flex-direction: column;
+}
+
+/* El aviso de lentitud, bajo el esqueleto y alineado con la medida del sitio. */
+.detalle-esqueleto__aviso {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  max-inline-size: var(--content-max);
+  margin-inline: auto;
+  padding: 0 var(--space-6) var(--space-6);
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+.detalle-esqueleto__aviso-icono {
+  flex: none;
+  color: var(--color-accent);
+}
+
+/*
+ * El contenedor de los estados de la ficha que no ocupan la pantalla entera.
+ *
+ * El error y el «no encontrado» no son la ficha: no tienen banda ni columnas,
+ * pero sí la misma medida y el mismo aire que Biblioteca, Perfil y Ajustes. Sin
+ * esta caja, el aviso salía pegado al borde izquierdo de la ventana, que es
+ * exactamente lo que se veía antes.
+ */
+.detail__estado {
+  inline-size: 100%;
+  max-inline-size: var(--content-max);
+  margin-inline: auto;
+  padding: var(--space-7) var(--space-6);
+}
+
+/* La tarjeta de error: un aviso con su icono, el proveedor y los dos mandos. */
+.detalle-fallo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  max-inline-size: var(--measure);
+  padding: var(--space-5);
+  border: var(--border-width-strong) solid var(--color-danger);
+  background: var(--color-surface);
+}
+
+.detalle-fallo__cabecera {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.detalle-fallo__icono {
+  flex: none;
+  color: var(--color-danger);
+}
+
+.detalle-fallo__titulo {
+  margin: 0;
+  color: var(--color-danger);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  letter-spacing: var(--tracking-display);
+  text-wrap: balance;
+}
+
+.detalle-fallo__cuerpo {
+  margin: 0;
+  color: var(--color-text);
+  text-wrap: pretty;
+}
+
+.detalle-fallo__proveedor {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+.detalle-fallo__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* La ficha pierde la barra lateral: la portada pasa a cartel y los mandos a su
+   lado. El esqueleto sigue la misma rejilla que la ficha cargada. */
+@media (max-width: 700px) {
+  .detalle-esqueleto__portada {
+    grid-column: 1;
+    grid-row: 1;
+  }
+}
+
+/*
  * El movimiento de la barra se apaga con el resto de la casa. Este bloque va al
  * final porque las reglas de la biblioteca están después del bloque general de
  * movimiento reducido; repetir aquí la cinta y el esqueleto es lo que mantiene
@@ -6881,6 +7060,7 @@ details[open] > .library__settings-summary .library__settings-flecha {
  */
 @media (prefers-reduced-motion: reduce) {
   .cinta__carro,
+  .skeleton,
   .esq,
   .player__tooltip,
   .library__bar[data-indeterminate="true"] .library__bar-fill {

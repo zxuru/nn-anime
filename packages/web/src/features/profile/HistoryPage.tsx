@@ -22,6 +22,7 @@ import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { Mosaico } from '../../components/Mosaico'
 import { SectionHeader } from '../../components/SectionHeader'
+import { Skeleton } from '../../components/Skeleton'
 import { t } from '../../i18n'
 import { Link, useNavigate, usePath } from '../../router'
 import { ANCLAS } from '../guia/guia'
@@ -59,7 +60,7 @@ export function HistoryPage(props: HistoryPageProps): ReactNode {
     return (
       <section aria-busy="true">
         <p className="empty">{t(DEFAULT_LOCALE, 'history.loading')}</p>
-        <span className="skeleton" aria-hidden="true" />
+        <Skeleton h="var(--skeleton-height)" />
       </section>
     )
   }

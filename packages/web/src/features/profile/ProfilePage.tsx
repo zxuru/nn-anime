@@ -35,6 +35,7 @@ import { EstadoVacio } from '../../components/EstadoVacio'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
 import { SeccionPagina } from '../../components/SeccionPagina'
+import { Skeleton } from '../../components/Skeleton'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { ANCLAS } from '../guia/guia'
@@ -154,7 +155,7 @@ function Esqueleto(): ReactNode {
   return (
     <section aria-busy="true">
       <p className="empty">{t(DEFAULT_LOCALE, 'profile.loading')}</p>
-      <span className="skeleton" aria-hidden="true" />
+      <Skeleton h="var(--skeleton-height)" />
     </section>
   )
 }

@@ -124,6 +124,9 @@ export function RecommendedRow(props: RecommendedRowProps): ReactNode {
                 to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
                 recurso={recursoDe(indice)}
                 year={item.year}
+                /* Los tags del motor son los géneros: viajan al estado de la ficha
+                   para que el adelanto los pinte sin pedir el detalle. */
+                genres={item.tags}
                 meta={metaDeRecomendacion(item)}
                 motivo={item.reason.text}
               />

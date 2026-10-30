@@ -24,6 +24,8 @@
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import { type ReactNode, useState } from 'react'
+import { navStateDeTarjeta } from '../features/detail/nav-state'
+import { useDetailPrefetch } from '../features/detail/prefetch'
 import { t } from '../i18n'
 import { Link } from '../router'
 import { Cover } from './Cover'
@@ -105,6 +107,15 @@ export interface PiezaProps {
   readonly recurso?: RecursoPieza | undefined
   /** El año, que la cifra usa en voladizo. */
   readonly year?: number | undefined
+  /**
+   * Los géneros, si la tarjeta los conoce.
+   *
+   * No se pintan aquí: viajan al estado de navegación para que la ficha enseñe el
+   * adelanto sin esperar al servidor. La vitrina no los tiene; el motor, sí.
+   */
+  readonly genres?: readonly string[] | undefined
+  /** Cuántos episodios tiene, cuando la tarjeta lo sabe. */
+  readonly episodes?: number | undefined
   /** La línea de datos del pie: géneros, año, episodios. */
   readonly meta?: string | undefined
   /** El puesto del top: la cifra, entera y con su velo debajo. */
@@ -129,6 +140,34 @@ export function Pieza(props: PiezaProps): ReactNode {
   const recurso = props.recurso ?? 'trama'
   const [abierta, setAbierta] = useState(false)
   const hayHoja = props.sinopsis !== undefined || props.motivo !== undefined
+
+  /*
+    El adelanto de la ficha viaja con el enlace: la pantalla de destino pinta el
+    título y la portada que la tarjeta ya tenía delante. Sólo se compone para
+    enlaces a una ficha; una pieza que lleva a la búsqueda no tiene ficha que
+    adelantar, y mandarle un estado de detalle sería mentir sobre el destino.
+  */
+  const esFicha =
+    props.providerId !== undefined && props.ref !== undefined && props.to.startsWith('/anime/')
+  const estado = esFicha
+    ? navStateDeTarjeta({
+        title: props.title,
+        providerId: props.providerId,
+        ref: props.ref,
+        poster: props.portada,
+        year: props.year,
+        genres: props.genres,
+        episodes: props.episodes,
+      })
+    : undefined
+  /*
+    El gancho se llama siempre, haya ficha o no: las reglas de los ganchos no
+    admiten condicionales. Sin referencia, sus manejadores no piden nada.
+  */
+  const prefetch = useDetailPrefetch(
+    esFicha ? props.providerId : undefined,
+    esFicha ? props.ref : undefined,
+  )
   // La pieza numerada lleva el velo de su cifra: sobre una portada clara, el crema
   // del puesto no se lee. Va en la clase y no en un estilo suelto para que la hoja
   // —y no el componente— decida cómo se oscurece.
@@ -138,7 +177,19 @@ export function Pieza(props: PiezaProps): ReactNode {
 
   return (
     <article className={clases}>
-      <Link to={props.to} className="pz__enlace" title={props.title}>
+      <Link
+        to={props.to}
+        className="pz__enlace"
+        title={props.title}
+        state={estado}
+        {...(esFicha
+          ? {
+              onPointerEnter: prefetch.onPointerEnter,
+              onPointerLeave: prefetch.onPointerLeave,
+              onPointerDown: prefetch.onPointerDown,
+            }
+          : {})}
+      >
         <span className="pz__arte" aria-hidden="true">
           <Cover
             {...(props.providerId === undefined ? {} : { providerId: props.providerId })}
