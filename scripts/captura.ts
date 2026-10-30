@@ -1,23 +1,29 @@
 /**
- * Las capturas de la home, para el README: tema oscuro y tema claro.
+ * La captura de la home, para el README: tema oscuro.
  *
- * Se hacen con el arnés del e2e —servidor con el fixture, base temporal y la
+ * Se hace con el arnés del e2e —servidor con el fixture, base temporal y la
  * excepción de loopback— porque una captura hecha a mano envejece sin que nadie
- * se entere: éstas se pueden volver a hacer con un comando.
+ * se entere: ésta se puede volver a hacer con un comando. **El README publica un
+ * solo tema**: el claro existió y se retiró porque duplicaba la imagen sin decir
+ * nada nuevo, y dos capturas de dos megas pesan en el repositorio.
  *
- * **El token de arranque es de un solo uso**, así que las dos capturas se hacen
- * en la misma sesión: la segunda cambia el atributo del tema a mano. Intentarlo
- * con dos navegadores daba una segunda captura en blanco, con un 401, porque el
- * token ya estaba gastado.
+ * **El token de arranque es de un solo uso**: se canjea al abrir la página. Con
+ * un segundo navegador la captura salía en blanco, con un 401, porque el token
+ * ya estaba gastado.
  */
 
 import { mkdir, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { chromium } from '@playwright/test'
+import {
+  AVISOS,
+  CLAVE_GUIA,
+  RECORRIDOS,
+  VERSION_GUIA,
+} from '../packages/web/src/features/guia/guia'
 
 const PORT = Number(process.env.NN_ANIME_E2E_PORT ?? '7801')
 const DESTINO = process.env.NN_ANIME_CAPTURA ?? 'docs/captura.png'
-const DESTINO_CLARO = process.env.NN_ANIME_CAPTURA_CLARO ?? 'docs/captura-claro.png'
 const token = (await readFile('.tmp/e2e-boot-token', 'utf8')).trim()
 
 const navegador = await chromium.launch({ args: ['--mute-audio'] })
@@ -25,6 +31,30 @@ const contexto = await navegador.newContext({
   viewport: { width: 1280, height: 800 },
   colorScheme: 'dark',
 })
+
+// La guía de primera vez y el aviso de lo nuevo, ya vistos: sin esto el
+// recorrido automático tapa el destacado y la captura del README enseña un
+// tutorial en vez de la home. Se siembra el mismo estado que deja la guía al
+// cerrarla, leído de su módulo —clave, versión, recorridos y avisos—, así que
+// un recorrido nuevo no obliga a tocar esta lista.
+const estadoGuia = {
+  v: VERSION_GUIA,
+  recorridos: RECORRIDOS.map((recorrido) => recorrido.id),
+  vistos: AVISOS.map((aviso) => aviso.id),
+}
+await contexto.addInitScript(
+  ([clave, valor]: readonly [string, string]) => {
+    try {
+      localStorage.setItem(clave, valor)
+    } catch {
+      // Sin almacén —modo privado— la guía saldría en la captura. Se dice en la
+      // salida en vez de sacar una imagen con un tutorial encima.
+      console.warn('la captura no pudo sembrar el estado de la guía')
+    }
+  },
+  [CLAVE_GUIA, JSON.stringify(estadoGuia)] as const,
+)
+
 const pagina = await contexto.newPage()
 
 await pagina.goto(`http://127.0.0.1:${PORT}/?boot=${token}`)
@@ -41,19 +71,15 @@ await pagina.goto(`http://127.0.0.1:${PORT}/`)
 await pagina.waitForSelector('.pz__enlace', { timeout: 15_000 }).catch(() => {})
 await pagina.waitForTimeout(1500)
 
-for (const [tema, destino] of [
-  ['dark', DESTINO],
-  ['light', DESTINO_CLARO],
-] as const) {
-  await pagina.evaluate((valor: string) => {
-    document.documentElement.dataset.theme = valor
-  }, tema)
+// La página se captura entera: recortada a la ventana no enseña ni el top ni las
+// filas, que es lo que hay que revisar. El tema se fija a mano porque la captura
+// no puede depender de la preferencia del sistema de quien la saca.
+await pagina.evaluate(() => {
+  document.documentElement.dataset.theme = 'dark'
+})
 
-  await mkdir(dirname(destino), { recursive: true })
-  // Página entera: la captura del rediseño recortada a la ventana no enseñaba
-  // ni el top ni las filas, que es lo que había que revisar.
-  await pagina.screenshot({ path: destino, fullPage: true })
-  console.log(`captura ${tema} en ${destino}`)
-}
+await mkdir(dirname(DESTINO), { recursive: true })
+await pagina.screenshot({ path: DESTINO, fullPage: true })
+console.log(`captura en ${DESTINO}`)
 
 await navegador.close()
