@@ -12,10 +12,24 @@
  * puede, se queda callada: un proveedor caído durante una precarga no es un
  * error que el usuario haya provocado. La pantalla que después abra la ficha
  * encontrará el dato o pedirá el suyo.
+ *
+ * Se precarga **la carga entera**, no sólo el núcleo: el núcleo se guarda en
+ * cuanto llega —para que al pulsar la ficha se pinte sin esperar al proveedor— y
+ * los adornos completan la entrada cuando llegan. La cadena la arma
+ * `cargarFicha`, que respeta el orden que exige el servidor; si la precarga
+ * pidiera los adornos por su cuenta, volvería a abrir la carrera que dejaba la
+ * ficha de una primera visita sin banner.
  */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { claveDeFicha, type DetailBundle, detailCache, loadDetailBundle } from './load-detail'
+import {
+  type CargaDeFicha,
+  cargarFicha,
+  claveDeFicha,
+  type DetailBundle,
+  type DetailCore,
+  detailCache,
+} from './load-detail'
 
 /** Lo que se espera antes de precargar: un cruce de puntero no es intención. */
 export const PREFETCH_DELAY_MS = 100
@@ -30,7 +44,7 @@ export const PREFETCH_DELAY_MS = 100
  * sin la búsqueda cuando la ficha viene de una y hay un rastro que dejar.
  */
 interface PrecargaEnVuelo {
-  readonly promesa: Promise<DetailBundle | undefined>
+  readonly carga: CargaDeFicha
   /** La búsqueda con la que salió la petición; `undefined` es «sin búsqueda». */
   readonly consulta: string | undefined
 }
@@ -38,11 +52,60 @@ interface PrecargaEnVuelo {
 const enVuelo = new Map<string, PrecargaEnVuelo>()
 
 /**
+ * Lanza la carga y la deja en vuelo, guardando lo que llegue en la caché.
+ *
+ * El núcleo se guarda en cuanto llega, aunque los adornos tarden: es lo que hace
+ * que la ficha abierta después se pinte al instante. Los adornos se añaden a la
+ * entrada cuando llegan, conservando lo que ya hubiera de la ficha.
+ */
+function precargar(providerId: string, ref: string, consulta?: string): CargaDeFicha {
+  const clave = claveDeFicha(providerId, ref)
+  const carga = cargarFicha(providerId, ref, consulta === undefined ? {} : { consulta })
+  let nucleoGuardado: DetailCore | undefined
+
+  void carga.nucleo.then(
+    (nucleo) => {
+      nucleoGuardado = nucleo
+      detailCache.set(clave, { ...detailCache.peek(clave)?.value, ...nucleo })
+    },
+    () => undefined,
+  )
+
+  void carga.adornos.then(
+    (adornos) => {
+      // Sin núcleo no hay ficha a la que añadir adornos: el fallo ya lo contará
+      // la pantalla, que es la única que puede decírselo a alguien.
+      if (adornos === undefined || nucleoGuardado === undefined) return
+
+      const previo: DetailBundle | undefined = detailCache.peek(clave)?.value
+      detailCache.set(clave, { ...nucleoGuardado, ...previo, ...adornos })
+    },
+    () => undefined,
+  )
+
+  const entrada: PrecargaEnVuelo = { carga, consulta }
+  enVuelo.set(clave, entrada)
+
+  void carga.adornos
+    .finally(() => {
+      // La entrada se borra cuando termina la carga **entera** —núcleo y
+      // adornos—. Si se borrara al terminar el núcleo, una ficha abierta en ese
+      // hueco no encontraría la precarga y volvería a pedir lo que ya está en el
+      // aire: el núcleo duplicado y los adornos duplicados.
+      if (enVuelo.get(clave) === entrada) enVuelo.delete(clave)
+    })
+    .catch(() => undefined)
+
+  return carga
+}
+
+/**
  * Pide la ficha y la guarda en la caché.
  *
- * Devuelve la promesa para que la pantalla que abra la ficha mientras la precarga
- * está en marcha pueda esperarla en vez de pedir otra vez. Si la caché ya tiene
- * el dato fresco no se lanza ninguna petición.
+ * Si la caché ya tiene el dato fresco no se lanza ninguna petición, y si hay una
+ * precarga en marcha se espera esa en vez de pedir otra. El fallo se traga: no
+ * hay nadie a quien avisar y la pantalla que abra la ficha volverá a intentarlo
+ * por su cuenta.
  *
  * `consulta` es la búsqueda de la que viene la ficha: viaja en la petición porque
  * el servidor anota en `search_history` la que la lleva, y con ella el motor
@@ -52,49 +115,39 @@ export function prefetchDetail(
   providerId: string,
   ref: string,
   consulta?: string,
-): Promise<DetailBundle | undefined> {
+): Promise<DetailCore | undefined> {
   const clave = claveDeFicha(providerId, ref)
   const cacheado = detailCache.get(clave)
   if (cacheado !== undefined) return Promise.resolve(cacheado)
 
   const pendiente = enVuelo.get(clave)
-  if (pendiente !== undefined) return pendiente.promesa
+  if (pendiente !== undefined) return pendiente.carga.nucleo.catch(() => undefined)
 
-  const promesa = loadDetailBundle(providerId, ref, consulta === undefined ? {} : { consulta })
-    .then((bundle) => {
-      detailCache.set(clave, bundle)
-      return bundle
-    })
-    // La precarga falla en silencio: no hay nadie a quien avisar y la pantalla
-    // que abra la ficha volverá a intentarlo por su cuenta.
-    .catch(() => undefined)
-    .finally(() => {
-      enVuelo.delete(clave)
-    })
-
-  enVuelo.set(clave, { promesa, consulta })
-
-  return promesa
+  return precargar(providerId, ref, consulta).nucleo.catch(() => undefined)
 }
 
 /**
- * La precarga que ya está en marcha para esta ficha, si la hay.
+ * La carga que ya está en marcha para esta ficha, si la hay.
  *
  * Con consulta, sólo se devuelve la que salió con esa misma consulta: una
  * precarga lanzada desde la vitrina no dejó el rastro de la búsqueda y reutilizarla
  * dejaría la ficha abierta desde Buscar sin anotar. En ese caso —raro: la misma
  * ficha precargada desde otra pantalla en el último segundo— la ficha pide la suya.
+ *
+ * Se devuelve la carga entera y no una promesa: la pantalla necesita esperar el
+ * núcleo **y** los adornos, y con la carga en la mano reutiliza los dos sin
+ * volver a pedirlos.
  */
-export function prefetchPendiente(
+export function cargaEnVuelo(
   providerId: string,
   ref: string,
   consulta?: string,
-): Promise<DetailBundle | undefined> | undefined {
+): CargaDeFicha | undefined {
   const entrada = enVuelo.get(claveDeFicha(providerId, ref))
   if (entrada === undefined) return undefined
   if (consulta !== undefined && entrada.consulta !== consulta) return undefined
 
-  return entrada.promesa
+  return entrada.carga
 }
 
 /**

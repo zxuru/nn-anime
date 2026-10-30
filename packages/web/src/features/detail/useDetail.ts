@@ -1,19 +1,21 @@
 /**
  * Datos de la pantalla de detalle.
  *
- * Las ocho lecturas de la ficha —detalle, relacionados, franquicia, fuentes,
- * vistos, proveedores y los dos adornos de terceros— viven ahora en
- * `load-detail.ts`, porque las comparten la pantalla y la precarga de la tarjeta.
- * Siguen yendo en paralelo dentro de ese cargador, que es donde importa: en
- * serie, la pantalla tardaría la suma de las ocho latencias. La novena, las
- * relaciones de AniList, va **aparte y sin esperarla**: su consulta al tercero
- * está espaciada y no puede retrasar la ficha.
+ * Las lecturas de la ficha viven ahora en `load-detail.ts`, porque las comparten
+ * la pantalla y la precarga de la tarjeta. Van en **dos tandas**: primero el
+ * núcleo —detalle, relacionados, franquicia, fuentes, vistos, proveedores— y
+ * después los adornos de terceros —enriquecimiento, metadatos y relaciones de
+ * AniList—. El núcleo va en paralelo porque ninguna de sus lecturas necesita a
+ * las otras; los adornos van después de él porque las tres rutas leen la fila
+ * local que escribe el detalle, y pedirlos a la vez dejaba la ficha fría sin
+ * banner ni relacionados hasta recargar.
  *
  * Lo que este hook decide —y por eso sigue aquí— es **cuándo** pedir la ficha y
  * **qué hacer con lo que llega**: la caché pinta al instante lo que ya se sabía y
  * el refresco va por detrás, la precarga de la tarjeta de origen se aprovecha si
  * está en vuelo, y un reloj duro de veinte segundos convierte una espera eterna
- * en un fallo que se puede contar.
+ * en un fallo que se puede contar. La pantalla pasa a `ready` con el núcleo y los
+ * adornos se colocan cuando llegan, sin que la ficha dependa de un tercero.
  *
  * **Los episodios no están aquí.** La lista se pide por páginas desde el selector
  * (`EpisodeList`), que es quien sabe en qué página va y cuál se está mirando: con
@@ -67,14 +69,15 @@ import { ApiError, apiGet, apiPost, type RequestDeps } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
 import {
+  type CargaDeFicha,
+  cargarFicha,
   claveDeFicha,
   DETAIL_TIMEOUT_MS,
   type DetailBundle,
+  type DetailCore,
   detailCache,
-  loadAnilistRelated,
-  loadDetailBundle,
 } from './load-detail'
-import { prefetchPendiente } from './prefetch'
+import { cargaEnVuelo } from './prefetch'
 
 export type DetailState = 'loading' | 'ready' | 'error'
 
@@ -286,8 +289,9 @@ export interface DetailData {
   /**
    * Lo que AniList relaciona con esta obra: secuelas, precuelas, películas.
    *
-   * Es la única lectura que **no** viene con la ficha: llega por su cuenta, sin
-   * bloquearla. Lista vacía significa «no hay nada que enseñar» —sin
+   * Llega con los adornos, **después** del núcleo y sin bloquearlo; también se
+   * guarda en la caché de la ficha, así que una segunda visita la pinta al
+   * instante. Lista vacía significa «no hay nada que enseñar» —sin
    * emparejamiento, sin relaciones o sin respuesta del tercero— y la sección no se
    * pinta: una fila vacía sobre un dato que no es de la aplicación sólo dice que
    * algo falló.
@@ -381,7 +385,14 @@ const VISTA_VACIA: VistaDetalle = {
   error: undefined,
 }
 
-/** La vista de una ficha ya leída: todos sus campos a la vez, en `ready`. */
+/**
+ * La vista de una ficha ya leída: todos sus campos a la vez, en `ready`.
+ *
+ * Vale tanto para la entrada de la caché completa como para el núcleo recién
+ * leído —al que todavía le faltan los adornos—. Un adorno que no está (`undefined`)
+ * se pinta igual que «no hay nada nuevo», que es lo que hacía antes: la banda del
+ * banner existe con o sin imagen y la sección de AniList no se pinta.
+ */
 function vistaDeBundle(bundle: DetailBundle): VistaDetalle {
   return {
     detail: bundle.detail,
@@ -392,9 +403,7 @@ function vistaDeBundle(bundle: DetailBundle): VistaDetalle {
     capabilities: bundle.capabilities,
     enrichment: bundle.enrichment,
     metadata: bundle.metadata,
-    // Las relaciones de AniList no viajan en el bundle: llegan aparte y las
-    // coloca su propia lectura.
-    anilistRelated: [],
+    anilistRelated: bundle.anilistRelated ?? [],
     providerNames: bundle.providerNames,
     state: 'ready',
     error: undefined,
@@ -417,7 +426,7 @@ function vistaInicial(clave: string): VistaDetalle {
 /**
  * Los datos de la ficha, con caché, precarga y un reloj.
  *
- * Tres decisiones que se ven en la pantalla:
+ * Cuatro decisiones que se ven en la pantalla:
  *
  * 1. **La caché pinta primero.** Con dato —aunque esté caducado— la pantalla
  *    entra en `ready` desde el primer render y el refresco va por detrás: una
@@ -429,9 +438,16 @@ function vistaInicial(clave: string): VistaDetalle {
  *    vive aquí y aborta el controlador. El fallo llega como `AbortError` y
  *    `describirFallo` lo cuenta como `lento`; el 404 del servidor, en cambio,
  *    llega como `ApiError` y se cuenta como `noExiste`.
- * 3. **La precarga se aprovecha.** Si la tarjeta de origen ya lanzó la lectura,
- *    se espera esa promesa en vez de pedir la ficha otra vez; si falló, se pide
- *    como siempre.
+ * 3. **La ficha no espera a los terceros.** El núcleo —detalle y lecturas
+ *    locales— es lo único que hace falta para pintarla; el enriquecimiento, los
+ *    metadatos y las relaciones de AniList llegan después y se colocan cuando
+ *    llegan. Además de ser más rápido, es lo que hace que la ficha fría tenga
+ *    banner y relacionados: esas lecturas leen la fila local que escribe el
+ *    detalle, así que pedirlas a la vez que él las dejaba sin fila y la sección
+ *    no aparecía hasta recargar.
+ * 4. **La precarga se aprovecha.** Si la tarjeta de origen ya lanzó la carga, se
+ *    espera esa en vez de pedir la ficha otra vez; si falló, se pide como
+ *    siempre.
  *
  * La carga en sí vive en `load-detail.ts` porque la comparten la pantalla y la
  * precarga: aquí sólo se decide cuándo pedirla y qué hacer con lo que llega.
@@ -440,8 +456,8 @@ function vistaInicial(clave: string): VistaDetalle {
  * la ficha, si viene de una: la lectura del detalle la lleva porque es lo que el
  * servidor anota en `search_history`, la señal con la que el motor recomienda lo
  * que el usuario está buscando. Reutilizar una precarga que salió sin ella dejaría
- * esa búsqueda sin anotar, así que `prefetchPendiente` sólo devuelve la que salió
- * con la misma consulta.
+ * esa búsqueda sin anotar, así que `cargaEnVuelo` sólo devuelve la que salió con
+ * la misma consulta.
  */
 export function useDetail(providerId: string, ref: string, consulta?: string): DetailData {
   const clave = claveDeFicha(providerId, ref)
@@ -504,19 +520,23 @@ export function useDetail(providerId: string, ref: string, consulta?: string): D
     const sigue = () => intentoRef.current === intento && (!controller.signal.aborted || vencido)
 
     /**
-     * Pinta una vista y conserva las relaciones de AniList de la misma ficha.
+     * Apaga el reloj de la ficha.
      *
-     * Van aparte y pueden llegar antes que el resto: si el bundle llegara después
-     * y pisara la lista, la sección desaparecería sola.
+     * El reloj es del **núcleo**, no de la pantalla: cuando la ficha ya se puede
+     * pintar —o falló— deja de tener sentido, y los adornos que llegan después
+     * llevan su propio límite por petición. Sin esto, la consulta espaciada a
+     * AniList podía agotar el reloj de una ficha ya pintada y abortar adornos que
+     * estaban en camino.
      */
+    const pararReloj = () => {
+      if (timerRef.current !== timer) return
+
+      clearTimeout(timer)
+      timerRef.current = undefined
+    }
+
     const fijar = (siguiente: VistaDetalle) => {
-      setGuardado((prev) => ({
-        clave,
-        vista: {
-          ...siguiente,
-          anilistRelated: prev.clave === clave ? prev.vista.anilistRelated : [],
-        },
-      }))
+      setGuardado({ clave, vista: siguiente })
     }
 
     const cacheado = detailCache.peek(clave)
@@ -524,88 +544,88 @@ export function useDetail(providerId: string, ref: string, consulta?: string): D
     // el esqueleto de la ficha ocupa el sitio.
     fijar(cacheado === undefined ? VISTA_VACIA : vistaDeBundle(cacheado.value))
 
-    /**
-     * Las relaciones de AniList, aparte y sin `await`.
-     *
-     * Su consulta al tercero está espaciada —una cada dos segundos— y la ficha no
-     * tiene por qué esperarla: la sección aparece cuando llega, y si no llega, la
-     * ficha sigue igual. El fallo se traga a propósito: un tercero caído no es un
-     * fallo de esta pantalla.
-     */
-    void loadAnilistRelated(providerId, ref, { signal: controller.signal }).then(
-      (relacionadas) => {
-        if (!sigue()) return
+    // La carga de la tarjeta de origen, si está en vuelo, es esta misma: se
+    // reutiliza para no pedir el detalle dos veces.
+    const propia = (): CargaDeFicha =>
+      cargarFicha(providerId, ref, {
+        signal: controller.signal,
+        ...(consulta === undefined ? {} : { consulta }),
+      })
 
-        setGuardado((prev) =>
-          prev.clave === clave
-            ? { clave, vista: { ...prev.vista, anilistRelated: relacionadas } }
-            : prev,
-        )
-      },
-      () => undefined,
-    )
+    const precargada = cargaEnVuelo(providerId, ref, consulta)
+    let carga = precargada ?? propia()
 
     void (async () => {
-      if (cacheado !== undefined) {
-        // Stale-while-revalidate: lo que se ve ya es la ficha. Si el refresco
-        // falla —o el reloj lo corta— la pantalla se queda con lo viejo en vez de
-        // con una tarjeta de error.
-        try {
-          const bundle = await loadDetailBundle(providerId, ref, {
-            signal: controller.signal,
-            ...(consulta === undefined ? {} : { consulta }),
-          })
-          if (!sigue()) return
-
-          detailCache.set(clave, bundle)
-          fijar(vistaDeBundle(bundle))
-        } catch {
-          // El dato viejo sigue siendo lo que hay.
-        }
-
-        return
-      }
-
-      // Sin caché, la precarga en vuelo es exactamente esta lectura: se espera en
-      // vez de pedirla dos veces. Una precarga que falló devuelve `undefined` y
-      // entonces se pide como siempre.
-      const pendiente = prefetchPendiente(providerId, ref, consulta)
-      const precargado = pendiente === undefined ? undefined : await pendiente
-      if (!sigue()) return
-
-      if (precargado !== undefined) {
-        detailCache.set(clave, precargado)
-        fijar(vistaDeBundle(precargado))
-
-        return
-      }
+      let nucleo: DetailCore
 
       try {
-        const bundle = await loadDetailBundle(providerId, ref, {
-          signal: controller.signal,
-          ...(consulta === undefined ? {} : { consulta }),
-        })
-        if (!sigue()) return
-
-        detailCache.set(clave, bundle)
-        fijar(vistaDeBundle(bundle))
+        nucleo = await carga.nucleo
       } catch (cause) {
-        if (!sigue()) return
+        if (!sigue()) {
+          pararReloj()
 
-        // El 404 y el reloj agotado se cuentan distinto porque son dos pantallas
-        // distintas: «no existe, no reintentes» frente a «no respondió, prueba
-        // otra vez».
-        fijar({ ...VISTA_VACIA, state: 'error', error: describirFallo(cause) })
+          return
+        }
+
+        /*
+          Una precarga que falló no es el fallo de la ficha: se pide la propia,
+          igual que si no hubiera habido precarga. Sólo cuando la precarga falló,
+          queda tiempo y la petición no está abortada; con el reloj vencido,
+          reintentar sería alargar la espera que el reloj existe para cortar.
+        */
+        const reintentable = precargada !== undefined && !vencido && !controller.signal.aborted
+        if (!reintentable) {
+          pararReloj()
+          // Con dato viejo en pantalla, un fallo no se cuenta: no hay nada que el
+          // usuario haya provocado. Sin dato, es la tarjeta de error, y el 404 y
+          // el reloj agotado se cuentan distinto porque son dos pantallas
+          // distintas: «no existe, no reintentes» frente a «no respondió, prueba
+          // otra vez».
+          if (cacheado === undefined) {
+            fijar({ ...VISTA_VACIA, state: 'error', error: describirFallo(cause) })
+          }
+
+          return
+        }
+
+        carga = propia()
+
+        try {
+          nucleo = await carga.nucleo
+        } catch (segundo) {
+          pararReloj()
+          if (!sigue()) return
+
+          if (cacheado === undefined) {
+            fijar({ ...VISTA_VACIA, state: 'error', error: describirFallo(segundo) })
+          }
+
+          return
+        }
       }
-    })().finally(() => {
-      // El reloj es de la ficha y no de la pantalla: cuando la carga termina, se
-      // apaga. El `finally` comprueba que sigue siendo el de este intento, porque
-      // un reintento pudo sustituirlo mientras tanto.
-      if (timerRef.current === timer) {
-        clearTimeout(timer)
-        timerRef.current = undefined
-      }
-    })
+
+      pararReloj()
+      if (!sigue()) return
+
+      // El núcleo sobre lo que ya se sabía: si la caché tenía adornos, siguen en
+      // pantalla hasta que lleguen los nuevos, en vez de desaparecer y volver. Se
+      // relee la caché al escribir y no se usa la copia de antes del `await`: en
+      // medio pudo completarla la precarga, y pisarla con la foto vieja dejaría la
+      // ficha sin banner aunque ya estuviera en la caché.
+      const conNucleo: DetailBundle = { ...detailCache.peek(clave)?.value, ...nucleo }
+      detailCache.set(clave, conNucleo)
+      fijar(vistaDeBundle(conNucleo))
+
+      // Los adornos, ya con la fila local escrita en el servidor. La cadena la
+      // arma `cargarFicha`, así que la precarga y la pantalla comparten la misma
+      // lectura y no se piden dos veces.
+      const adornos = await carga.adornos
+      if (adornos === undefined || !sigue()) return
+
+      const completa: DetailBundle = { ...conNucleo, ...adornos }
+      detailCache.set(clave, completa)
+      fijar(vistaDeBundle(completa))
+    })()
   }, [abortar, clave, providerId, ref, consulta])
 
   useEffect(() => {

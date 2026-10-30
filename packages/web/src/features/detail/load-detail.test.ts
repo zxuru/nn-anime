@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import type { RequestDeps } from '../../api/client'
-import { loadDetailBundle } from './load-detail'
+import { loadDetailCore } from './load-detail'
 
 /**
- * Las lecturas de la ficha, por su dirección, sin red.
+ * Las lecturas del núcleo de la ficha, por su dirección, sin red.
  *
  * La que importa aquí es la del detalle: es la única que lleva la consulta de la
  * búsqueda de la que viene la ficha, y es lo que el servidor anota para que el
@@ -21,7 +21,7 @@ function lecturas(options: { readonly consulta?: string } = {}): {
 
   return {
     pedidas,
-    promesa: loadDetailBundle('fixture', 'aurora-nocturna', {
+    promesa: loadDetailCore('fixture', 'aurora-nocturna', {
       deps: { fetch },
       ...(options.consulta === undefined ? {} : { consulta: options.consulta }),
     }),
@@ -64,5 +64,24 @@ describe('la lectura del detalle', () => {
     expect(pedidas.filter((ruta) => ruta.includes('?q='))).toEqual([
       '/api/anime/fixture/aurora-nocturna?q=aurora',
     ])
+  })
+
+  /**
+   * El núcleo no pregunta por los adornos.
+   *
+   * No es una preferencia de estilo: las tres rutas de adorno leen la fila local
+   * del anime, que escribe **esta** lectura. Si viajan en la misma tanda piden
+   * antes de que la fila exista y la ficha fría se queda sin banner y sin
+   * relacionados. La prueba que mide el efecto completo está en `carga-ficha.test.ts`;
+   * ésta sujeta la separación en el cargador, que es donde se rompería sin ruido.
+   */
+  test('el núcleo no pide enriquecimiento, metadatos ni relaciones de AniList', async () => {
+    const { pedidas, promesa } = lecturas()
+
+    await expect(promesa).rejects.toThrow()
+
+    expect(pedidas.some((ruta) => ruta.endsWith('/enrichment'))).toBe(false)
+    expect(pedidas.some((ruta) => ruta.endsWith('/metadata'))).toBe(false)
+    expect(pedidas.some((ruta) => ruta.endsWith('/anilist-related'))).toBe(false)
   })
 })
