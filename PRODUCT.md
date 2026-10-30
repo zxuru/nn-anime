@@ -136,9 +136,8 @@ de esa señalización. Ninguna de las dos fases está abierta.
 
 ## Evidence on Hand
 
-- `docs/captura.png` y `docs/captura-claro.png`: la home real en tema oscuro y claro, sacadas del
-  arnés de e2e con el plugin de ejemplo. Las portadas son degradados porque el fixture apunta a
-  `fixture.invalid`, que no existe.
+- `docs/captura.png`: la home real en tema oscuro, sacada del arnés de e2e con el plugin de
+  ejemplo. Las portadas son degradados porque el fixture apunta a `fixture.invalid`, que no existe.
 - `packages/providers-fixture`: doce títulos inventados. No hay contenido, ni proveedores reales, ni
   datos de terceros en el repositorio.
 - `README.md`, `SECURITY.md`, `docs/*.md`, `docs/specs/*` y `tasks/*`: comportamiento, riesgo

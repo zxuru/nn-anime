@@ -4,58 +4,52 @@ Ver anime desde el navegador, con una interfaz que se lanza desde la terminal �
 aprende de lo que ves para recomendarte. Todo local: **no hay servidor central, ni cuentas, ni
 telemetría.**
 
-![La pantalla de inicio en tema oscuro: la cinta de lo más visto, el cartel de destacado, el top de la fuente y las filas](docs/captura.png)
+![La pantalla de inicio en tema oscuro: la cinta de lo más visto, el cartel de destacado, recomendados, el top numerado, la parrilla y las novedades](docs/captura.png)
 
-![La misma pantalla en tema claro](docs/captura-claro.png)
+> La captura sale del arnés de pruebas —el plugin de ejemplo, con doce títulos inventados y
+> direcciones `fixture.invalid`—, así que las portadas son los degradados del diseño y no carátulas
+> reales. Se rehace con `bun run captura` y el servidor del e2e levantado. **Se publica un solo
+> tema, el oscuro**; el de la aplicación sigue al del sistema y se cambia en **Ajustes**.
 
-> Las capturas son del arnés de pruebas, con el plugin de ejemplo y sus datos inventados. Las portadas
-> son los degradados del diseño porque el fixture apunta a `fixture.invalid`, que no existe. Se pueden
-> volver a hacer con `bun run captura` y el servidor del e2e levantado: el comando saca las dos, en
-> tema oscuro y claro.
+## Qué hace
 
-El tema por defecto es el del sistema; se cambia en **Ajustes** y queda guardado.
-
-La home sigue el orden del diseño: cinta de lo más visto, cartel de destacado —con el botón que
-reproduce el primer episodio y el de favoritos—, **top** —el ranking de AniList cuando su API
-contesta y el de la fuente cuando no, numerado del uno al N y con «Mostrar más»—, **parrilla** de
-estrenos —los capítulos de los próximos días, agrupados por día—, **novedades** —los episodios recién
-emitidos, o el feed de la fuente—, continuar viendo, favoritos y los géneros del catálogo. Todas las piezas del mosaico son **carteles del mismo tamaño** —una columna, con la
-proporción de una portada—, así que una fila pone seis títulos a la vista y no deja huecos. El motivo
-de cada recomendación viaja con su pieza: se lee en el asomo, al pasar el puntero, y en la hoja que
-abre el botón «i».
-
-«Novedades» existe para que la primera pantalla no dependa de que hayas buscado antes: se llena con
-lo que publica tu proveedor si declara `feed`. Lo que la aplicación ya conoce —lo que buscaste y lo
-que abriste— también es la reserva del destacado: sin nada que recomendar, sale de ahí en vez de
-dejar la página con un titular. Pintaba una fila propia, «último añadido», y se retiró: repetía lo
-que las novedades y el top ya enseñaban.
-
-La home y la búsqueda se parten en dos con el **conmutador de tipo**: anime a un lado y películas al
-otro —con las series y los doramas, que van por el mismo camino—. La elección queda en la dirección
-(`?tipo=movies`), así que se puede recargar y compartir, y cada proveedor dice en su manifiesto qué
-sirve (`capabilities.media`, ausente es anime): **Ajustes** lo enseña junto a cada fuente. Un plugin que
-sirva las dos cosas declara `both` y su catálogo se reparte por el tipo de cada título. Si no hay
-ninguna fuente de esa mitad, la pantalla lo dice en vez de quedarse en blanco.
-
-**La parrilla y los episodios recién emitidos salen de la API pública de AniList**, que es la única
-fuente consultada con fecha de emisión por episodio: un feed da la fecha de **publicación del título**,
-que no es lo mismo. Se consulta `graphql.anilist.co` directamente, con lista blanca de hosts, un
-presupuesto de una petición cada dos segundos y caché con TTL en la base local; sus términos —gratuita
-para uso no comercial, sin `hoarding` ni usarla como almacenamiento— se respetan no pidiendo nada que
-no esté en pantalla. La ficha además se enriquece con su sinopsis, sus géneros, su nota y su portada
-cuando la obra está emparejada, y `NN_ANIME_ANILIST_OFFLINE=1` apaga esa salida (lo usa el arnés de
-pruebas, que no puede depender de un tercero).
-
-**Las películas y series de acción real no están en AniList.** Para completar su sinopsis, sus
-géneros y su año cuando el plugin no los trae, **Ajustes** acepta una clave opcional de TMDB: se
-guarda en la base local, no se devuelve nunca al navegador y sólo se usa contra
-`api.themoviedb.org`. Sin clave, la ficha se queda con lo que publique la fuente, que es como
-funcionaba antes. TMDB no aporta la portada: la de la ficha sigue siendo la del plugin.
+- **La home**, como una cartelera: cinta de lo más visto, cartel de destacado —con el botón que
+  reproduce el primer episodio y el de favoritos—, **top** —el ranking de AniList cuando su API
+  contesta y el de la fuente cuando no, numerado y con «Mostrar más»—, **parrilla** de estrenos de
+  los próximos días, **novedades** —los episodios recién emitidos, o el feed de la fuente—, continuar
+  viendo, favoritos y los géneros del catálogo. Todas las piezas son **carteles del mismo tamaño**,
+  así que una fila pone seis títulos a la vista y no deja huecos. El motivo de cada recomendación
+  viaja con su pieza: se lee en el asomo, al pasar el puntero, y en la hoja que abre el botón «i».
+- **Anime a un lado y películas, series y doramas al otro**, con un conmutador que queda en la
+  dirección (`?tipo=movies`), así que se puede recargar y compartir. Cada plugin declara en su
+  manifiesto qué sirve (`capabilities.media`, ausente es anime): **Ajustes** lo enseña junto a cada
+  fuente, y uno que sirva las dos cosas declara `both` y su catálogo se reparte por tipo. Si no hay
+  ninguna fuente de esa mitad, la pantalla lo dice en vez de quedarse en blanco.
+- **La parrilla y los episodios recién emitidos salen de la API pública de AniList**, la única fuente
+  consultada con fecha de emisión por episodio —un feed da la fecha de **publicación del título**, que
+  no es lo mismo—. Se consulta `graphql.anilist.co` directamente, con lista blanca de hosts, un
+  presupuesto de una petición cada dos segundos y caché con TTL en la base local; sus términos se
+  respetan no pidiendo nada que no esté en pantalla. La ficha se enriquece con su sinopsis, sus
+  géneros, su nota y su portada cuando la obra está emparejada, y `NN_ANIME_ANILIST_OFFLINE=1` apaga
+  esa salida (lo usa el arnés de pruebas, que no puede depender de un tercero).
+- **TMDB, opcional, para las películas y las series de acción real**, que no están en AniList: una
+  clave en **Ajustes** completa su sinopsis, sus géneros y su año. Se guarda en la base local, no se
+  devuelve nunca al navegador y sólo se usa contra `api.themoviedb.org`. Sin clave, la ficha se queda
+  con lo que publique la fuente. La portada siempre es la del plugin.
+- **Recomendaciones explicables**: el motor sólo mira señales locales —lo que buscaste, lo que
+  abriste, lo que puntuaste— y cada sugerencia lleva su motivo. Las **novedades** existen para que la
+  primera pantalla no dependa de que hayas buscado antes; cuando no hay nada que recomendar, el
+  destacado sale de lo que la aplicación ya conoce en vez de quedarse con un titular.
+- **Descargas y biblioteca**: lo que descargas se queda en el equipo y se ve sin pedirle nada al
+  proveedor ni a la red —la cola mientras baja, agrupado por título cuando está completo, con el
+  espacio que ocupa y un reproductor local para cada episodio—. Mientras exista, la copia local manda
+  en el reproductor. La carpeta se elige en **Ajustes**; sin `ffmpeg`, la remezcla la hace `mux.js`
+  dentro de la aplicación.
 
 ## Instalación (para usuarios)
 
 **No hace falta instalar nada más**: ni Node, ni Bun, ni Python. El instalador trae dentro el
-programa entero —la interfaz, el servidor y la base de datos—, y todos están en
+programa entero —la interfaz, el servidor y la base de datos—, y todo está en
 [la página de Releases](https://github.com/zxuru/nn-anime/releases).
 
 | Sistema | Archivo |
@@ -83,25 +77,27 @@ del ejecutable: entonces todo se guarda ahí (`bin`, `config`, `cache`, `webview
 
 Dos banderas, por si hacen falta:
 
-- `nn-anime-X.Y.Z-windows-x64.exe --diagnostico` escribe un informe con las rutas, la versión y el
-  estado del servidor embebido, y lo enseña en un diálogo.
-- `nn-anime-X.Y.Z-windows-x64.exe --navegador` abre la interfaz en el navegador del sistema en vez de
-  en la ventana.
-
-**La X oculta la ventana en la bandeja**; para cerrar del todo, pulsa **Salir** en el icono de la
-bandeja. Entonces el servidor se apaga y no queda ningún proceso vivo. Mientras la ventana está
-oculta, el icono sigue ahí para volver a abrirla.
-
-Windows avisará de que el programa viene de un **desarrollador no verificado** mientras la release no
-esté firmada. En «Más información» del aviso hay un «Ejecutar de todas formas»; el aviso es de que
-nadie ha pagado un certificado, no de que el archivo esté mal. El `SHA256SUMS.txt` de la release
-sirve para comprobar que llegó entero.
+- `--diagnostico` escribe un informe con las rutas, la versión y el estado del servidor embebido, y lo
+  enseña en un diálogo.
+- `--navegador` abre la interfaz en el navegador del sistema en vez de en la ventana.
 
 ### Windows: instalador
 
 Ejecuta el `…-setup.exe` y sigue el asistente. Se instala **sólo para tu usuario** —no pide permisos
 de administrador— en `%LOCALAPPDATA%\nn-anime`, y deja un acceso en el menú Inicio y otro en el
 escritorio. Instala **el mismo archivo único**: no hay un segundo `nn-anime.exe` de consola al lado.
+
+### La ventana y la bandeja
+
+Al abrirlo desde el menú Inicio, desde el escritorio o como archivo único aparece **su ventana**, con
+la interfaz dentro: no hay ninguna consola de por medio. **La X la oculta en la bandeja**; «Salir»
+cierra la aplicación, apaga el servidor y no deja ningún proceso vivo. Mientras la ventana está
+oculta, el icono sigue ahí para volver a abrirla.
+
+Windows avisará de que el programa viene de un **desarrollador no verificado** mientras la release no
+esté firmada. En «Más información» del aviso está «Ejecutar de todas formas»: el aviso es de que nadie
+ha pagado un certificado, no de que el archivo esté mal. El `SHA256SUMS.txt` de la release sirve para
+comprobar que llegó entero.
 
 ### Actualizaciones
 
@@ -114,17 +110,8 @@ minisign y se reemplaza **en sitio**: aparta el que está corriendo, pone el nue
 nueva y borra el viejo. Si el medio es de sólo lectura o el reemplazo falla, se queda el aviso con el
 enlace a la release.
 
-Al abrirlo desde el menú Inicio o desde el escritorio aparece **su ventana**, con la interfaz dentro:
-no hay ninguna consola de por medio. **La X la oculta en la bandeja**; «Salir» cierra la aplicación y
-apaga el servidor, y no queda ningún proceso vivo.
-
 Desinstalar desde «Agregar o quitar programas» **no borra tus datos**: la base, los ajustes y los
 plugins viven en `%LOCALAPPDATA%\nn-anime` y se quedan donde están.
-
-Windows avisará de que el programa viene de un **desarrollador no verificado** mientras la release no
-esté firmada. En «Más información» del aviso hay un «Ejecutar de todas formas»; el aviso es de que
-nadie ha pagado un certificado, no de que el archivo esté mal. El `SHA256SUMS.txt` de la release
-sirve para comprobar que llegó entero.
 
 ### macOS
 
@@ -140,9 +127,8 @@ abrir porque proviene de un desarrollador no identificado». Para abrirla:
 - Si esa opción no aparece: **Ajustes del Sistema → Privacidad y seguridad** y, abajo, **«Abrir de
   todos modos»**.
 
-La aplicación abre **su propia ventana**, con la interfaz dentro, y deja su icono en el Dock. **La X
-oculta la ventana en la bandeja**; «Salir» cierra la aplicación. El icono del Dock sigue estando para
-volver a ella.
+La aplicación abre **su propia ventana**, con la interfaz dentro, y deja su icono en el Dock. La
+ventana y la bandeja funcionan como en Windows: **la X la oculta** y «Salir» la cierra.
 
 ### Linux
 
@@ -153,10 +139,9 @@ volver a ella.
   el PATH y un acceso en el menú de aplicaciones.
 - **`.rpm`** (Fedora, RHEL): `sudo dnf install ./nn-anime-X.Y.Z-linux-x64.rpm`.
 
-El acceso del menú abre **la ventana**, sin ninguna terminal de por medio. **La X la oculta en la
-bandeja**; «Salir» cierra la aplicación. El lanzador de consola sigue en el `PATH` (`nn-anime`) para
-quien lo quiera, y el AppImage hace las dos cosas: sin argumentos abre la ventana y con ellos ejecuta
-la consola.
+El acceso del menú abre **la ventana**, sin ninguna terminal de por medio, y la bandeja funciona como
+en Windows. El lanzador de consola sigue en el `PATH` (`nn-anime`) para quien lo quiera; el AppImage
+hace las dos cosas: sin argumentos abre la ventana y con ellos ejecuta la consola.
 
 ### Comprobar la descarga
 
@@ -172,15 +157,15 @@ En Windows, `certutil -hashfile <archivo> SHA256` y se compara a ojo.
 
 **No hay ningún proveedor instalado de fábrica**, así que la aplicación arranca, se ve y no encuentra
 nada. Para que encuentre algo hay que copiar un plugin, y eso se cuenta en
-[la guía de plugins](docs/providers.md). Sin plugins no hay búsqueda, ni catálogo, ni
-recomendaciones: sólo la interfaz y el motor.
+[la guía de plugins](docs/providers.md): sin plugins no hay búsqueda, ni catálogo, ni recomendaciones,
+sólo la interfaz y el motor.
 
 La primera vez, **Ajustes ya trae escrito el repositorio recomendado**
 —[nn-anime-plugins](https://github.com/zxuru/nn-anime-plugins)—: se añade, se miran sus archivos y se
 marcan los que se quieran. Añadirlo no ejecuta nada; marcar un proveedor es lo que ejecuta su código.
 
-Si tienes `mpv` instalado, la aplicación lo detecta al arrancar y ofrece reproducir en él además de
-en el navegador. No hace falta para nada.
+Si tienes `mpv` instalado, la aplicación lo detecta al arrancar y ofrece reproducir en él además de en
+el navegador. No hace falta para nada.
 
 ## Arrancar
 
@@ -205,9 +190,6 @@ directo en `main`, y hay una prueba que comprueba que está puesto.
 van a `%LOCALAPPDATA%` y la configuración a `%APPDATA%` en lugar de a las rutas de XDG. Y dos pruebas
 que crean enlaces simbólicos necesitan el **modo desarrollador** activado: sin él Windows las rechaza
 con `EPERM` y las pruebas lo declaran en lugar de fingir que midieron.
-
-No hay ningún proveedor instalado de fábrica. Hasta que copies uno —ver
-[la guía de plugins](docs/providers.md)— la aplicación arranca, se ve y no encuentra nada.
 
 ## Docker y servidor
 
@@ -256,19 +238,11 @@ instalar plugins, Caddy y actualización— está en [docs/docker.md](docs/docke
 | `bun run version:set` | Sube la versión en los diez `package.json` de una vez |
 | `bun run icon` | Vuelve a generar el icono (PNG, ICO e ICNS) desde código |
 
-**Qué produce `bun run build`:** la interfaz. El servidor y el CLI **se ejecutan desde el código fuente
-con Bun** para desarrollar, y `bun run package` es lo que los convierte en un programa instalable: un
-ejecutable por plataforma que lleva dentro el runtime, la interfaz y las migraciones, envuelto en un
-instalador. En Windows, `bun run package:unico` copia el anfitrión —que lleva el servidor dentro— como
-**un solo archivo** que se descarga y se ejecuta. Para desarrollar hace falta Bun en la máquina —y por
-eso está declarado en `engines`—; para **usar** la aplicación instalada, no hace falta nada.
-
-Y desde `desktop/` se compila el **anfitrión de ventana**, que es lo que hace que el acceso abra una
-ventana y no una consola. En Windows el instalador ya instala **sólo ese anfitrión**, así que el orden
-importa: primero el servidor (`bun run package --skip-installer`), después el anfitrión
-(`bun run desktop:build`), después el instalador (`bun run desktop:installer`, que compila la ventana de
-actualizaciones y usa el NSIS de `tauri-bundler`) y, si se quiere el archivo único, `bun run
-package:unico`. En macOS y Linux el instalador sigue saliendo de `bun run package --only-installer`.
+**Qué produce `bun run build`:** la interfaz. El servidor y el CLI **se ejecutan desde el código
+fuente con Bun** para desarrollar, y `bun run package` es lo que los convierte en un programa
+instalable: un ejecutable por plataforma que lleva dentro el runtime, la interfaz y las migraciones,
+envuelto en un instalador. Para desarrollar hace falta Bun en la máquina —y por eso está declarado en
+`engines`—; para **usar** la aplicación instalada, no hace falta nada.
 
 ## Dónde vive cada cosa
 
@@ -279,21 +253,19 @@ package:unico`. En macOS y Linux el instalador sigue saliendo de `bun run packag
 | Tus plugins | `~/.config/nn-anime/providers/` | `%APPDATA%\nn-anime\providers\` |
 | Repositorios de proveedores descargados | `~/.local/share/nn-anime/repos/` | `%LOCALAPPDATA%\nn-anime\repos\` |
 | Caché | `~/.cache/nn-anime/` | `%LOCALAPPDATA%\nn-anime\cache\` |
+| Descargas (por defecto) | `~/.local/share/nn-anime/downloads/` | `%LOCALAPPDATA%\nn-anime\downloads\` |
 
 La tabla es la del **CLI** (`bun run start`). La **ventana** fija los tres directorios bajo una sola
 raíz: `%LOCALAPPDATA%\nn-anime` en Windows y `~/.local/share/nn-anime` —o `XDG_DATA_HOME`— en macOS y
-Linux, con `config`, `cache`, `bin` (el servidor) y `webview` dentro. En modo portable
-(`portable.txt`) esa raíz es la carpeta del `.exe`. Las rutas exactas en uso se ven en **Ajustes**,
-dentro de la aplicación. En
-Linux y macOS se respetan `XDG_DATA_HOME`, `XDG_CONFIG_HOME` y `XDG_CACHE_HOME`; en Windows mandan
-`%LOCALAPPDATA%` y `%APPDATA%` —colgando de `USERPROFILE` si faltan—, y las `XDG_*` se siguen
-respetando para quien las tenga puestas.
+Linux, con `config`, `cache`, `bin` (el servidor) y `webview` dentro. En modo portable (`portable.txt`)
+esa raíz es la carpeta del `.exe`. Las rutas exactas en uso se ven en **Ajustes**, dentro de la
+aplicación.
 
 Las variables de entorno que lee la aplicación están inventariadas en `.env.example`, sin ningún valor
 real. En el uso local ninguna es obligatoria y ninguna lleva un secreto: los directorios se pueden
 cambiar por ahí, y también `NN_ANIME_LANG` para el idioma. En modo servidor, `NN_ANIME_TOKEN` **es
-obligatorio fuera de loopback y es un secreto**: no se escribe en `.env.example`, se pone en el
-entorno del despliegue o en un `.env` local. Copiar el archivo a `.env` es opcional; Bun lo carga solo.
+obligatorio fuera de loopback y es un secreto**: no se escribe en `.env.example`, se pone en el entorno
+del despliegue o en un `.env` local. Copiar el archivo a `.env` es opcional; Bun lo carga solo.
 
 ## Aviso de seguridad: los plugins se ejecutan sin sandbox
 
@@ -304,11 +276,12 @@ hay sandbox, y no lo habrá en v1: el proceso que carga el plugin es el mismo qu
 - La aplicación lo dice **en la pantalla de Ajustes**, no sólo aquí.
 - El detalle está en [SECURITY.md](SECURITY.md), con el modelo de amenaza y los riesgos residuales.
 
-En **Ajustes** hay además una sección para traer los proveedores de un repositorio de GitHub: se pega la
-dirección, se mira qué trae y se marca cuáles se activan. Instalar **no ejecuta nada** —el repositorio se
-descarga y sus archivos se leen, no se importan—; marcar una casilla es el momento en que ese código se
-ejecuta, con el mismo aviso de arriba delante. El repositorio entero queda en `repos/` y los archivos
-marcados se cargan desde ahí, así que un proveedor que importe un archivo hermano sigue funcionando.
+En **Ajustes** hay además una sección para traer los proveedores de un repositorio de GitHub: se pega
+la dirección, se mira qué trae y se marca cuáles se activan. Instalar **no ejecuta nada** —el
+repositorio se descarga y sus archivos se leen, no se importan—; marcar una casilla es el momento en
+que ese código se ejecuta, con el mismo aviso de arriba delante. El repositorio entero queda en
+`repos/` y los archivos marcados se cargan desde ahí, así que un proveedor que importe un archivo
+hermano sigue funcionando.
 
 ## Este repositorio no incluye scrapers
 
@@ -328,11 +301,50 @@ Los proveedores que escribimos para sitios reales no viven aquí, viven en su pr
 `~/.config/nn-anime/providers/` y la aplicación los carga al arrancar. La separación es deliberada: es
 lo que permite que este repositorio siga sin incluir un solo scraper.
 
+## Cómo está hecho: el stack
+
+Todo es **Bun** y **TypeScript**, en un monorepo de nueve paquetes. Cada fila de la tabla es una
+dependencia que se declara en algún `package.json` del repositorio, no una intención:
+
+| Capa | Qué se usa |
+|---|---|
+| Runtime y ejecutables | **Bun 1.4+** para correr, probar y compilar; `bun build --compile` deja un ejecutable autocontenido por plataforma, con el runtime, el servidor, SQLite y la interfaz dentro |
+| Lenguaje | **TypeScript 7** en modo `strict`, con `noUncheckedIndexedAccess`; sin `any` implícito ni `@ts-ignore` |
+| Interfaz | **React 19** y **Vite 8**; CSS propio con tokens, Nunito autoalojada —sin CDN—, `hls.js` para HLS, `mux.js` para remezclar a MP4 sin ffmpeg, `driver.js` para la guía y `lucide-react` para los iconos |
+| Servidor | **Hono 4** sobre Bun; API HTTP y eventos SSE, token de arranque de un solo uso y proxy con lista blanca de destinos |
+| Datos | **SQLite con `bun:sqlite`**: una base local con migraciones, metadatos con TTL, favoritos, historial, progreso y ajustes. **zod 4** valida en las fronteras |
+| Vídeo | Proxy de bytes y HLS con reescritura de playlists y tickets opacos; `mpv` opcional, detectado al arrancar |
+| Recomendación | Motor propio en `recsys` —afinidad, covisitas y MMR— que devuelve el motivo junto a cada sugerencia |
+| Escritorio | **Tauri 2** con **Rust**, en `desktop/`: lanza el lanzador como proceso hermano, abre la ventana en su dirección y lo cierra al salir |
+| Calidad | `tsc --noEmit`, **Biome 2** para estilo y formato, **`bun test`** sin red y **Playwright** para el e2e, con umbral de cobertura por paquete |
+| Publicación | **release-please** sobre Conventional Commits y **GitHub Actions**; instaladores con NSIS (`tauri-bundler`), `.dmg`, AppImage, `.deb` y `.rpm`; firma minisign y `SHA256SUMS.txt` |
+
+Los paquetes de `packages/`, y para qué existe cada uno:
+
+- `core` — tipos, esquemas, errores, configuración y resultado tipado; sin dependencias
+- `provider-sdk` — el contrato de plugin y su prueba de conformidad
+- `providers-fixture` — el plugin de ejemplo, con datos inventados
+- `catalog-store` — la base de datos y sus repositorios
+- `media-proxy` — el proxy de bytes y HLS, los tickets opacos y el control de `mpv`
+- `recsys` — el motor de recomendación
+- `server` — la API, composición HTTP de los módulos
+- `web` — la interfaz
+- `cli` — el lanzador
+
+Una regla que el stack respeta: **la interfaz no importa código del servidor**, sólo consume su
+superficie HTTP, igual que la ventana de escritorio. Por eso el frontend se puede abrir en un
+navegador cualquiera y la ventana sólo añade el anfitrión.
+
+Y fuera de `packages/`, en `desktop/`, vive el **anfitrión de ventana** —Rust y Tauri—. Está fuera del
+monorepo a propósito: así `tsc`, `bun test` y Biome no miran un árbol que no es suyo. Tiene su propio
+listón en `bun run desktop:check`, que corre el CI, y su contrato está en
+[docs/specs/SPEC-desktop.md](docs/specs/SPEC-desktop.md).
+
 ## Cómo publicar una release (para mantenedores)
 
-La versión vive **en un solo sitio**: `package.json` de la raíz. Los otros nueve manifiestos la copian,
-y `bun run version:check` falla si alguno se desvió —lo que impide publicar un binario que dice una
-versión y unos instaladores que dicen otra—.
+La versión vive **en un solo sitio**: `package.json` de la raíz. Los otros nueve manifiestos la
+copian, y `bun run version:check` falla si alguno se desvió —lo que impide publicar un binario que
+dice una versión y unos instaladores que dicen otra—.
 
 1. **Deja que el PR de release se abra solo.** `release-please` lee los Conventional Commits
    (`feat:`, `fix:`…) que ya se escriben en `main`, y mantiene un PR con el `CHANGELOG.md` escrito y
@@ -342,28 +354,22 @@ versión y unos instaladores que dicen otra—.
 3. **El resto lo hace el workflow.** El tag dispara `.github/workflows/release.yml`, que pasa el
    listón (tipos, estilo, auditoría y pruebas), compila **el archivo único de Windows** y los
    instaladores de Windows, macOS y Linux, calcula el `SHA256SUMS.txt`, sube todo al borrador y **lo
-   publica**. Es el único workflow que publica: `desktop.yml` ya no existe, para que no haya dos
-   publicadores compitiendo por el mismo tag.
+   publica**. Es el único workflow que publica.
 
-No hay que tocar nada a mano. **La primera vez sí**: no hay ningún tag del que partir, así que
+No hay que tocar nada a mano, **salvo la primera vez**: no hay ningún tag del que partir, así que
 `v0.1.0` se crea a mano (`git tag -a v0.1.0 -m "nn-anime 0.1.0" && git push origin v0.1.0`) y desde
-ahí `release-please` lleva el resto. Si hace falta lanzarlo sin publicar —para probar la cadena de
-empaquetado— está **Actions → Release → Run workflow** con «publish» sin marcar: compila todo y deja
-los artefactos en el resumen del propio workflow, sin gastar un número de versión.
+ahí `release-please` lleva el resto. Para probar la cadena de empaquetado sin publicar está
+**Actions → Release → Run workflow** con «publish» sin marcar: compila todo y deja los artefactos en
+el resumen del workflow, sin gastar un número de versión. Si hay que subir la versión a mano —un
+`hotfix` sin commits que lo justifiquen—: `bun run version:set 0.2.1`, commit, y el tag `v0.2.1` a
+mano.
 
-**Compila GitHub, no tu máquina.** Cada push compila el ejecutable, el archivo único y el instalador en
-las tres plataformas y los deja descargables en «Artifacts» del workflow, para que no haga falta tener
-NSIS, `nfpm` ni un Mac a mano. Las herramientas que no vienen en la imagen las prepara
-`.github/actions/herramientas`, con sus versiones y sus SHA256 en un solo sitio. El detalle está en
-[la guía de publicación](docs/release.md).
-
-Si hay que subir la versión a mano —un `hotfix` sin commits que lo justifiquen—:
-`bun run version:set 0.2.1`, commit, y el tag `v0.2.1` a mano. El resto es igual.
-
-**Lo que hay que configurar una vez:** los secretos de firma están en
-[la guía de publicación](docs/release.md), junto con el ajuste del repositorio que necesita
-`release-please` para poder abrir su PR. Sin ningún secreto, las releases salen **sin firmar** y se
-instalan igual, con las advertencias del sistema que cuenta la sección de instalación.
+**Compila GitHub, no tu máquina.** Cada push compila el ejecutable, el archivo único y el instalador
+en las tres plataformas y los deja descargables en «Artifacts», para que no haga falta tener NSIS,
+`nfpm` ni un Mac a mano. El detalle —secretos de firma, el ajuste que necesita `release-please` y qué
+queda por probar— está en [la guía de publicación](docs/release.md). Sin ningún secreto, las releases
+salen **sin firmar** y se instalan igual, con las advertencias del sistema que cuenta la sección de
+instalación.
 
 ## Documentación
 
@@ -379,24 +385,3 @@ instalan igual, con las advertencias del sistema que cuenta la sección de insta
 | [docs/specs/CAPABILITY-MAP.md](docs/specs/CAPABILITY-MAP.md) | Qué módulo hace qué |
 | [docs/estudio-busqueda-ani-cli-mx.md](docs/estudio-busqueda-ani-cli-mx.md) | Cómo busca ani-cli-mx —anime y películas—, en qué se diferencia de nn-anime y la receta para los plugins |
 | [docs/estudio-tauri.md](docs/estudio-tauri.md) | La ventana propia encima de lo que ya se empaqueta: qué falta, qué se midió y en qué orden |
-
-## Cómo está hecho
-
-Bun y TypeScript en todo el proyecto, React en la interfaz, `bun:sqlite` para los datos y Hono para el
-servidor. Los paquetes viven en `packages/`:
-
-- `core` — tipos, esquemas y errores compartidos
-- `provider-sdk` — el contrato de plugin y su prueba de conformidad
-- `providers-fixture` — el plugin de ejemplo, con datos inventados
-- `catalog-store` — la base de datos y sus repositorios
-- `media-proxy` — el proxy de bytes y HLS, los tickets opacos y el control de `mpv`
-- `recsys` — el motor de recomendación
-- `server` — la API
-- `web` — la interfaz
-- `cli` — el lanzador
-
-Y fuera de `packages/`, en `desktop/`, vive el **anfitrión de ventana** —Rust y Tauri—: lanza el
-lanzador como hermano, lee su dirección, abre la ventana en ella y lo cierra cuando la ventana se
-cierra. Está fuera del monorepo a propósito: así `tsc`, `bun test` y biome no miran un árbol que no es
-suyo, y tiene su propio listón en `bun run desktop:check`, que corre el CI. Su contrato está en
-[docs/specs/SPEC-desktop.md](docs/specs/SPEC-desktop.md).
