@@ -36,15 +36,27 @@ telemetría.**
   clave en **Ajustes** completa su sinopsis, sus géneros y su año. Se guarda en la base local, no se
   devuelve nunca al navegador y sólo se usa contra `api.themoviedb.org`. Sin clave, la ficha se queda
   con lo que publique la fuente. La portada siempre es la del plugin.
+- **La ficha** reserva su misma forma mientras carga y pinta desde el primer fotograma lo que la
+  tarjeta ya sabía —título, portada, metadatos—, así que no hay salto de altura ni un «cargando» que
+  se lo coma. Si el proveedor falla, la tarjeta de error dice qué pasó, de quién es la culpa y ofrece
+  **Reintentar**; si la obra no está, lo dice con esas palabras. La primera vez que se abre una obra
+  —sin caché— llega también con su banda, sus relaciones y los datos de AniList, sin recargar.
 - **Recomendaciones explicables**: el motor sólo mira señales locales —lo que buscaste, lo que
   abriste, lo que puntuaste— y cada sugerencia lleva su motivo. Las **novedades** existen para que la
   primera pantalla no dependa de que hayas buscado antes; cuando no hay nada que recomendar, el
   destacado sale de lo que la aplicación ya conoce en vez de quedarse con un titular.
 - **Descargas y biblioteca**: lo que descargas se queda en el equipo y se ve sin pedirle nada al
-  proveedor ni a la red —la cola mientras baja, agrupado por título cuando está completo, con el
-  espacio que ocupa y un reproductor local para cada episodio—. Mientras exista, la copia local manda
-  en el reproductor. La carpeta se elige en **Ajustes**; sin `ffmpeg`, la remezcla la hace `mux.js`
-  dentro de la aplicación.
+  proveedor ni a la red —la cola delante, colapsable y con su avance, el total estimado y el tiempo
+  que queda—. Se agrupa por título cuando está completo, dice el espacio que ocupa y su reproductor
+  encadena los episodios descargados; desde la ficha se apunta la serie entera a la cola. Mientras
+  exista, la copia local manda en el reproductor. Si una descarga quedó en segmentos, se dice ahí
+  mismo y se pasa a MP4 sin volver a bajar nada, con `ffmpeg` si está y `mux.js` dentro de la
+  aplicación si no. La carpeta se elige en **Ajustes**.
+- **La guía de primeros pasos** sale sola la primera vez que se entra en cada pantalla: un recorrido
+  que señala cada parte y avisos que marcan lo que acaba de llegar. El «?» de la cabecera repite el
+  de la pantalla en la que estés, **Ajustes** los lista todos y devuelve los avisos descartados. En
+  el móvil la navegación se muda a una **barra inferior**, y la biblioteca, el perfil y los ajustes
+  comparten el juego de iconos del resto.
 
 ## Instalación (para usuarios)
 
@@ -163,6 +175,9 @@ sólo la interfaz y el motor.
 La primera vez, **Ajustes ya trae escrito el repositorio recomendado**
 —[nn-anime-plugins](https://github.com/zxuru/nn-anime-plugins)—: se añade, se miran sus archivos y se
 marcan los que se quieran. Añadirlo no ejecuta nada; marcar un proveedor es lo que ejecuta su código.
+
+Esa primera vez, **la guía** acompaña pantalla por pantalla y se puede saltar en cualquier momento;
+**Ajustes** la repite cuando haga falta.
 
 Si tienes `mpv` instalado, la aplicación lo detecta al arrancar y ofrece reproducir en él además de en
 el navegador. No hace falta para nada.
