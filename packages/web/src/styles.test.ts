@@ -198,6 +198,29 @@ describe('tokens de diseño', () => {
   })
 
   /**
+   * La navegación se muda a una barra fija en la pantalla estrecha.
+   *
+   * El salto no se puede medir sin navegador, pero sí lo que lo decide: que la
+   * cabecera de destinos se esconda, que la barra sea fija y que el contenido
+   * aparte su alto. Sin la reserva, el último renglón de cada pantalla quedaba
+   * debajo de la barra y ninguna prueba de componente se enteraba. Y la etiqueta
+   * corta sólo sustituye a la larga cuando hay dos versiones: sin `short`, la
+   * completa se queda, porque es el nombre del mando.
+   */
+  test('la navegación se muda a una barra fija en la pantalla estrecha', async () => {
+    const css = await read(SHELL)
+    const bloque = /@media \(max-width: 640px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
+
+    expect(bloque, 'falta el bloque de 640').not.toBe('')
+    expect(bloque).toMatch(/\.shell__nav\s*\{[^}]*display:\s*none/)
+    expect(bloque).toMatch(/\.barra\s*\{[^}]*position:\s*fixed/)
+    expect(bloque).toContain('env(safe-area-inset-bottom)')
+    expect(bloque).toContain('var(--barra-alto)')
+    expect(bloque).toContain('.icon-label--con-corto .icon-label__largo')
+    expect(bloque).toMatch(/\.shell__main\s*\{[^}]*padding-block-end/)
+  })
+
+  /**
    * El botón de reproducir no cambia de ancho al cambiar de estado.
    *
    * Es lo que se mide: «Reproducir» y «Pausa» no ocupan lo mismo, y el botón

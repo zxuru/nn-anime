@@ -39,9 +39,31 @@ function prefiereQuieto(): boolean {
   )
 }
 
+/**
+ * El elemento de un ancla que de verdad se está viendo.
+ *
+ * La navegación se pinta dos veces —la cabecera y la barra del móvil— y una de
+ * las dos está escondida por la hoja. driver.js busca la primera del documento y
+ * en un teléfono ésa es la que no se ve, así que el paso señalaba al vacío. Se
+ * recorre la lista y se devuelve la primera visible; si no hay ninguna, la
+ * primera, que es lo que hacía antes.
+ */
+function elementoDeAncla(ancla: string): Element {
+  const selector = selectorDeAncla(ancla)
+  const candidatos = document.querySelectorAll(selector)
+
+  for (const candidato of candidatos) {
+    if (candidato instanceof HTMLElement && candidato.offsetParent !== null) return candidato
+  }
+
+  return candidatos[0] ?? document.body
+}
+
 function pasoDeDriver(paso: PasoGuia): DriveStep {
+  const ancla = paso.ancla
+
   return {
-    ...(paso.ancla === undefined ? {} : { element: selectorDeAncla(paso.ancla) }),
+    ...(ancla === undefined ? {} : { element: () => elementoDeAncla(ancla) }),
     popover: {
       title: t(DEFAULT_LOCALE, paso.titulo),
       description: t(DEFAULT_LOCALE, paso.cuerpo),

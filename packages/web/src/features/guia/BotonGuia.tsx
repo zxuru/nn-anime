@@ -6,11 +6,17 @@
  * Por eso es un botón y no un enlace, y por eso lleva el nombre accesible
  * escrito: el signo solo no se lee.
  *
+ * El signo es el `CircleHelp` de lucide y no una «?» de la tipografía: un
+ * carácter suelto cambiaba de forma y de peso con la familia —cada sistema
+ * resolvía la suya— y al lado de los demás dibujos se leía como texto, no como
+ * un mando.
+ *
  * En una pantalla sin recorrido —la dirección que no existe— no se pinta: un
  * botón que no abre nada es peor que su ausencia.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { CircleHelp } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 import { useRoute } from '../../router'
@@ -34,7 +40,7 @@ export function BotonGuia(): ReactNode {
       title={etiqueta}
       onClick={() => abrirRecorrido(recorrido.id)}
     >
-      <span aria-hidden="true">?</span>
+      <CircleHelp size={18} strokeWidth={2} aria-hidden="true" focusable="false" />
     </button>
   )
 }

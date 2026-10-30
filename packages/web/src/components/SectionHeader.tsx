@@ -7,9 +7,11 @@
  * como una cuadrícula suelta.
  *
  * El texto llega ya traducido y no como clave: este componente no sabe de filas,
- * sólo de titulares.
+ * sólo de titulares. El dibujo es opcional y decorativo —`aria-hidden`—: el
+ * titular ya dice de qué va el tramo, y un dibujo con nombre propio lo repetiría.
  */
 
+import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 export interface SectionHeaderProps {
@@ -18,12 +20,27 @@ export interface SectionHeaderProps {
   readonly meta?: string | undefined
   /** La cuenta del tramo, arriba del todo. Sin ella, no se pinta. */
   readonly cuenta?: string | undefined
+  /** El dibujo del tramo, si lo tiene. */
+  readonly icon?: LucideIcon | undefined
 }
 
 export function SectionHeader(props: SectionHeaderProps): ReactNode {
+  const Icono = props.icon
+
   return (
     <header className="seccion__nota">
-      <h2 className="nota__titulo">{props.title}</h2>
+      <h2 className="nota__titulo">
+        {Icono === undefined ? null : (
+          <Icono
+            className="nota__icono"
+            size={18}
+            strokeWidth={2}
+            aria-hidden="true"
+            focusable="false"
+          />
+        )}
+        <span className="nota__texto">{props.title}</span>
+      </h2>
       {props.meta === undefined ? null : <p className="nota__meta">{props.meta}</p>}
       {props.cuenta === undefined ? null : <p className="nota__cuenta">{props.cuenta}</p>}
     </header>

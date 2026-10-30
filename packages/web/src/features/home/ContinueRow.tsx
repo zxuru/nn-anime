@@ -16,6 +16,7 @@
 
 import type { ContinueWatchingItem } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { History } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
@@ -39,6 +40,7 @@ export function ContinueRow(props: ContinueRowProps): ReactNode {
       <SeccionCargando
         title={t(DEFAULT_LOCALE, 'home.continue')}
         meta={t(DEFAULT_LOCALE, 'home.continue.meta')}
+        icon={History}
       />
     )
   }
@@ -48,6 +50,7 @@ export function ContinueRow(props: ContinueRowProps): ReactNode {
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.continue')}
         meta={t(DEFAULT_LOCALE, 'home.continue.meta')}
+        icon={History}
         {...(props.items.length === 0 ? {} : { cuenta: cuentaDeTitulos(props.items.length) })}
       />
 

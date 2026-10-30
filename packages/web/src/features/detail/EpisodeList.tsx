@@ -40,7 +40,9 @@
 import type { EpisodeSeason, EpisodesResponse, WatchedEpisodePayload } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { Episode } from '@nn-anime/core/models'
+import { Play } from 'lucide-react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { IconLabel } from '../../components/IconLabel'
 import { t } from '../../i18n'
 import { Link, useNavigate } from '../../router'
 import { type PlayMode, watchPath } from '../player/watch-route'
@@ -482,7 +484,7 @@ export function MovieAction(props: {
 }): ReactNode {
   return (
     <Link className="button button--primary" to={rutaDe(props.episode, props.mode)}>
-      {t(DEFAULT_LOCALE, 'detail.movie.watch')}
+      <IconLabel icon={Play} label={t(DEFAULT_LOCALE, 'detail.movie.watch')} />
     </Link>
   )
 }

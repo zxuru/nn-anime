@@ -28,6 +28,9 @@ describe('el conmutador de tipo', () => {
     expect(html).toContain('href="/?tipo=movies"')
     expect(html).toContain('Anime')
     expect(html).toContain('Películas')
+    // Cada mitad lleva su dibujo —la televisión y la claqueta—: en el móvil el
+    // rótulo se recorta y el dibujo es lo que queda a la vista.
+    expect(html.match(/<svg/g)).toHaveLength(2)
   })
 
   test('sin parámetro, la mitad marcada es anime', () => {
@@ -36,14 +39,16 @@ describe('el conmutador de tipo', () => {
     // Una sola vez: dos `aria-current` en el mismo grupo dirían que las dos son la
     // pantalla actual.
     expect(html.match(/aria-current="page"/g)?.length).toBe(1)
-    expect(html.indexOf('aria-current="page"')).toBeLessThan(html.indexOf('Anime</a>'))
+    // El rótulo va dentro de un `span` desde que la mitad lleva dibujo: se busca
+    // el texto, no la forma del marcado anterior.
+    expect(html.indexOf('aria-current="page"')).toBeLessThan(html.indexOf('>Anime<'))
   })
 
   test('con `tipo=movies`, la marcada es películas', () => {
     const html = render('/?tipo=movies')
 
     expect(html.match(/aria-current="page"/g)?.length).toBe(1)
-    expect(html.indexOf('aria-current="page"')).toBeLessThan(html.indexOf('Películas</a>'))
+    expect(html.indexOf('aria-current="page"')).toBeLessThan(html.indexOf('>Películas<'))
   })
 
   test('desde la búsqueda conserva la consulta y el filtro de proveedores', () => {

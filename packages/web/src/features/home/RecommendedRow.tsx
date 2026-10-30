@@ -27,6 +27,7 @@
 
 import type { RecommendationResponse } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { Sparkles } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { Fallo } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
@@ -88,6 +89,7 @@ export function RecommendedRow(props: RecommendedRowProps): ReactNode {
       <SeccionCargando
         title={t(DEFAULT_LOCALE, 'home.recommended')}
         meta={t(DEFAULT_LOCALE, 'home.recommended.meta')}
+        icon={Sparkles}
       />
     )
   }
@@ -97,6 +99,7 @@ export function RecommendedRow(props: RecommendedRowProps): ReactNode {
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.recommended')}
         meta={t(DEFAULT_LOCALE, 'home.recommended.meta')}
+        icon={Sparkles}
         {...(props.items.length === 0 ? {} : { cuenta: cuentaDeTitulos(props.items.length) })}
       />
 

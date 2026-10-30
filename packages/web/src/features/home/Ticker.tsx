@@ -27,6 +27,7 @@
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { AnimeSummary } from '@nn-anime/core/models'
+import { Flame } from 'lucide-react'
 import { Fragment, type ReactNode, type RefObject, useEffect, useRef } from 'react'
 import { t } from '../../i18n'
 import { Link } from '../../router'
@@ -112,7 +113,12 @@ export function Ticker(props: TickerProps): ReactNode {
 
   return (
     <aside className="cinta" aria-label={t(DEFAULT_LOCALE, 'home.ticker')}>
-      <p className="cinta__rotulo">{t(DEFAULT_LOCALE, 'home.ticker')}</p>
+      <p className="cinta__rotulo">
+        {/* La llama dice «esto es lo que está ardiendo ahora» sin una palabra
+            más; el rótulo sigue diciéndolo con letras para quien no la vea. */}
+        <Flame size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+        {t(DEFAULT_LOCALE, 'home.ticker')}
+      </p>
 
       <div className="cinta__pista">
         <div className="cinta__carro" ref={carro}>

@@ -8,6 +8,8 @@
 
 import { DEFAULT_LOCALE, type Locale } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
+import { BarraInferior } from './components/BarraInferior'
+import { IconLabel } from './components/IconLabel'
 import { DetailPage } from './features/detail/DetailPage'
 import { LibraryPage } from './features/downloads/LibraryPage'
 import { LibraryPlayerPage } from './features/downloads/LibraryPlayerPage'
@@ -22,9 +24,10 @@ import { SearchPage } from './features/search/SearchPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { useAppTheme } from './features/settings/useSettings'
 import { ConmutadorTipo } from './features/tipo/ConmutadorTipo'
-import { pathConTipo, tipoFromPath } from './features/tipo/tipo'
+import { tipoFromPath } from './features/tipo/tipo'
 import { t } from './i18n'
 import { routeTitleParts, useDocumentTitle } from './lib/document-title'
+import { destinoDeNav, esNavActual, NAV_ITEMS } from './nav'
 import { Link, type RouteMatch, usePath, useRoute } from './router'
 
 const LOCALE: Locale = DEFAULT_LOCALE
@@ -94,42 +97,21 @@ function Shell(props: {
         <Link to="/" className="shell__brand">
           {t(LOCALE, 'app.name')}
         </Link>
-        <nav className="shell__nav">
-          <Link
-            to={pathConTipo('/', tipo)}
-            ariaCurrent={route.name === 'home' ? 'page' : undefined}
-          >
-            {t(LOCALE, 'nav.home')}
-          </Link>
-          <Link
-            to={pathConTipo('/search', tipo)}
-            dataTour={ANCLAS.buscar}
-            ariaCurrent={route.name === 'search' ? 'page' : undefined}
-          >
-            {t(LOCALE, 'nav.search')}
-          </Link>
-          {/* El Perfil tampoco conserva la mitad que se mira: es el estado del
-              usuario, y ahí no hay dos mitades que partir —como en Ajustes—. Lo que
-              sí enseña es lo de las dos, porque sus listas son de las dos. */}
-          <Link to="/profile" ariaCurrent={route.name === 'profile' ? 'page' : undefined}>
-            {t(LOCALE, 'nav.profile')}
-          </Link>
-          <Link
-            to="/library"
-            dataTour={ANCLAS.biblioteca}
-            ariaCurrent={
-              route.name === 'library' || route.name === 'downloads' ? 'page' : undefined
-            }
-          >
-            {t(LOCALE, 'nav.library')}
-          </Link>
-          <Link
-            to="/settings"
-            dataTour={ANCLAS.ajustes}
-            ariaCurrent={route.name === 'settings' ? 'page' : undefined}
-          >
-            {t(LOCALE, 'nav.settings')}
-          </Link>
+        <nav className="shell__nav" aria-label={t(LOCALE, 'nav.primary')}>
+          {NAV_ITEMS.map((item) => {
+            const actual = esNavActual(item, route.name)
+
+            return (
+              <Link
+                key={item.to}
+                to={destinoDeNav(item, tipo)}
+                ariaCurrent={actual ? 'page' : undefined}
+                {...(item.tour === undefined ? {} : { dataTour: item.tour })}
+              >
+                <IconLabel icon={item.icon} label={t(LOCALE, item.label)} />
+              </Link>
+            )
+          })}
         </nav>
         {props.tipo === true ? <ConmutadorTipo /> : null}
         <BotonGuia />
@@ -137,6 +119,13 @@ function Shell(props: {
       <main className={caja.join(' ')} id="contenido" tabIndex={-1}>
         {props.children}
       </main>
+      {/*
+        La barra del móvil se pinta siempre y la hoja decide si se ve: la consulta
+        de ancho no existe en JavaScript y el conmutador de tipo sí —lo lee con
+        `matchMedia`—, así que esconderla aquí obligaría a duplicar el punto de
+        corte en los dos sitios.
+      */}
+      <BarraInferior />
     </div>
   )
 }

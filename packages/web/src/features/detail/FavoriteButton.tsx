@@ -6,9 +6,16 @@
  * eso es exactamente lo que significa `aria-pressed`. El estado cambia al
  * instante y se revierte si el servidor falla, así que el botón nunca miente
  * durante más de lo que tarda la petición.
+ *
+ * El corazón **se rellena** cuando el título está guardado: el color solo no
+ * basta —hay quien no distingue el acento del gris—, y el relleno dice el estado
+ * sin depender del tono. El nombre accesible lo lleva el `aria-label`, que es
+ * además el texto visible en escritorio: en una pantalla estrecha el botón se
+ * queda con el dibujo y el rótulo se recorta, no se borra.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { Heart } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 
@@ -19,17 +26,28 @@ export interface FavoriteButtonProps {
 }
 
 export function FavoriteButton(props: FavoriteButtonProps): ReactNode {
+  const etiqueta = t(DEFAULT_LOCALE, props.value ? 'detail.favorite.remove' : 'detail.favorite.add')
+
   return (
     <button
       type="button"
-      className="button"
+      className="button button--icono"
+      aria-label={etiqueta}
+      title={etiqueta}
       aria-pressed={props.value}
       {...(props.busy === true ? { disabled: true } : {})}
       onClick={props.onToggle}
     >
-      {props.value
-        ? t(DEFAULT_LOCALE, 'detail.favorite.remove')
-        : t(DEFAULT_LOCALE, 'detail.favorite.add')}
+      <Heart
+        size={18}
+        strokeWidth={props.value ? 2.5 : 2}
+        // `currentColor` y no un color propio: el dibujo hereda la tinta del
+        // botón, que cambia de tema y de estado con él.
+        fill={props.value ? 'currentColor' : 'none'}
+        aria-hidden="true"
+        focusable="false"
+      />
+      <span className="button__texto">{etiqueta}</span>
     </button>
   )
 }
