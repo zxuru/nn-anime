@@ -27,8 +27,8 @@ function recomendacion(titulo: string, tags: readonly string[] = []): Recommenda
     title: titulo,
     score: 0.5,
     tags: [...tags],
-    reason: { kind: 'popular', text: 'Es de lo más visto.' },
-    reasons: [{ kind: 'popular', text: 'Es de lo más visto.' }],
+    reason: { kind: 'same-genre', text: 'Comparte acción con lo que sueles ver.' },
+    reasons: [{ kind: 'same-genre', text: 'Comparte acción con lo que sueles ver.' }],
   }
 }
 

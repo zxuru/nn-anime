@@ -69,8 +69,8 @@ function recomendacion(titulo: string): RecommendationResponse {
     title: titulo,
     score: 0.5,
     tags: ['Acción'],
-    reason: { kind: 'popular', text: 'Es de lo más visto.' },
-    reasons: [{ kind: 'popular', text: 'Es de lo más visto.' }],
+    reason: { kind: 'same-genre', text: 'Comparte acción con lo que sueles ver.' },
+    reasons: [{ kind: 'same-genre', text: 'Comparte acción con lo que sueles ver.' }],
   }
 }
 
@@ -193,7 +193,7 @@ describe('el destacado con reservas', () => {
     const destacado = featuredOf([recomendacion('Del motor')], [], [])
 
     expect(destacado?.title).toBe('Del motor')
-    expect(destacado?.reason?.text).toBe('Es de lo más visto.')
+    expect(destacado?.reason?.text).toBe('Comparte acción con lo que sueles ver.')
   })
 
   test('sin recomendaciones, sale del feed', () => {

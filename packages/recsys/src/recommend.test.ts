@@ -95,6 +95,23 @@ describe('la fachada', () => {
     expect(salida.items[0]?.reason.kind).toBe('trending')
   })
 
+  test('con historial, la popularidad no se cuenta como razón', () => {
+    const salida = recommend(señales(), CORPUS, { now: AHORA, limit: 5 })
+    const romance = salida.items.find((entrada) => entrada.candidate.title === 'Romance')
+
+    // `Romance` no comparte nada con el historial: su única señal es la
+    // popularidad. «Es de lo más visto del proveedor» describe el catálogo y no
+    // responde a por qué se le enseña a este usuario, así que no se escribe: queda
+    // la razón genérica. La popularidad sigue sumando en la puntuación.
+    expect(romance?.components.popularity).toBeGreaterThan(0)
+    expect(romance?.reason.kind).toBe('fallback')
+
+    for (const entrada of salida.items) {
+      expect(entrada.reason.text).not.toContain('proveedor')
+      expect(entrada.reasons.some((razon) => razon.kind === 'trending')).toBe(false)
+    }
+  })
+
   test('con historial, `coldStart` es falso', () => {
     expect(recommend(señales(), CORPUS, { now: AHORA }).coldStart).toBe(false)
   })

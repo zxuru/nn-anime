@@ -46,17 +46,17 @@ describe('catálogo de razones', () => {
 describe('razones de un candidato', () => {
   test('se ordenan por peso: se enseña la que más mandó', () => {
     const razones = buildReasons([
-      razon('popular', 'reason.popular', 0.2),
+      razon('trending', 'reason.trending', 0.2),
       razon('matches-search', 'reason.matches-search', 0.9, { term: 'mecha' }),
     ])
 
     expect(razones[0]?.kind).toBe('matches-search')
-    expect(razones[1]?.kind).toBe('popular')
+    expect(razones[1]?.kind).toBe('trending')
   })
 
   test('una señal con peso cero no explica nada y no aparece', () => {
     const razones = buildReasons([
-      razon('popular', 'reason.popular', 0),
+      razon('trending', 'reason.trending', 0),
       razon('covisit', 'reason.covisit', 0.5, { seen: 'otro' }),
     ])
 
@@ -77,7 +77,7 @@ describe('razones de un candidato', () => {
 
   test('la razón principal es la de más peso', () => {
     const razones = buildReasons([
-      razon('a', 'reason.popular', 0.1),
+      razon('a', 'reason.rediscovery', 0.1),
       razon('b', 'reason.trending', 0.8),
     ])
 
