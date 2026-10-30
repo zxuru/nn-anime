@@ -132,8 +132,20 @@ export function abrirRecorrido(id: string): void {
         popover.wrapper.focus({ preventScroll: true })
       })
     },
-    onDestroyed: () => {
+    /*
+      Cerrar el recorrido lo da por visto, también si se cierra a media
+      transición entre pasos.
+
+      No basta `onDestroyed`: driver.js sólo lo llama si ya había un paso
+      «activo», y ese paso se fija al terminar la animación de 200 ms. Cerrando
+      con `Escape` —o con la ✕— nada más salir el popover, el recorrido se
+      destruía sin llegar a marcarse y volvía a salir en la visita siguiente.
+      `onDestroyStarted` corre antes de esa comprobación; la librería espera que
+      quien lo implementa destruya el recorrido, así que se destruye aquí.
+    */
+    onDestroyStarted: () => {
       marcarRecorrido(recorrido.id)
+      tour?.destroy()
     },
   })
 

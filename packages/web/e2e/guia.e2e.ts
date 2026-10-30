@@ -39,6 +39,38 @@ test.describe('la guía de la aplicación', () => {
     await expect(page.locator(POPOVER)).toHaveCount(0)
   })
 
+  test('cerrarlo nada más salir también lo da por visto', async ({ page }) => {
+    await page.goto(`${BASE}/`)
+    await page.evaluate((clave) => localStorage.removeItem(clave), CLAVE_GUIA)
+    // Sin esperar a `load`: el recorrido sale 900 ms después de montar, y aquí
+    // hay que llegar antes para poder cerrarlo en su primera transición.
+    await page.reload({ waitUntil: 'domcontentloaded' })
+
+    /*
+      El cierre se pide en cuanto el popover entra en el documento. El
+      observador corre como microtarea, antes del fotograma en el que driver.js
+      da el paso por «activo»: cerrando sin esperar la animación, la prueba no
+      depende de los tiempos. Esa ventana era justo la que dejaba el recorrido
+      sin marcar, y por eso volvía a salir en la visita siguiente.
+    */
+    await page.evaluate(() => {
+      const observador = new MutationObserver(() => {
+        if (document.querySelector('.driver-popover.nn-guia') === null) return
+
+        observador.disconnect()
+        window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', bubbles: true }))
+      })
+
+      observador.observe(document.documentElement, { childList: true, subtree: true })
+    })
+
+    // No llega a verse: el observador lo cierra en el instante en que aparece.
+    await expect(page.locator(POPOVER)).toHaveCount(0)
+    await expect
+      .poll(() => page.evaluate((clave) => localStorage.getItem(clave), CLAVE_GUIA))
+      .toContain('"inicio"')
+  })
+
   test('cada pantalla estrena el suyo: Buscar y Biblioteca', async ({ page }) => {
     await page.goto(`${BASE}/search`)
     await page.evaluate(
