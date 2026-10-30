@@ -241,6 +241,53 @@ describe('tarjeta', () => {
   })
 })
 
+/**
+ * El rastro de la búsqueda.
+ *
+ * El servidor anota en `search_history` la búsqueda que trae a una ficha, pero
+ * sólo si la petición la lleva. Sin esto, `search_history` se quedaba vacía y el
+ * motor no cambiaba con lo que se buscaba: con el historial de visionado vacío,
+ * todos los candidatos puntuaban cero y el orden lo decidía sólo el desempate.
+ */
+describe('el rastro de la búsqueda', () => {
+  const PIEZA_DE_ANILIST: DiscoverItem = {
+    anilistId: 101922,
+    title: 'Kimetsu no Yaiba',
+    cover: '/api/anilist/image/cover/101922',
+    adult: false,
+    year: 2019,
+    format: 'TV',
+  }
+
+  test('la tarjeta lleva la consulta en la dirección de la ficha', () => {
+    const html = render(<ResultCard result={resultado('mio', 't1', 'Uno')} consulta="aurora" />)
+
+    expect(html).toContain('href="/anime/mio/t1?q=aurora"')
+  })
+
+  test('sin consulta la ficha se abre como siempre', () => {
+    const html = render(<ResultCard result={resultado('mio', 't1', 'Uno')} />)
+
+    expect(html).not.toContain('?q=')
+  })
+
+  test('la tarjeta del catálogo también lo deja, y sólo si abre una ficha', () => {
+    const conFicha = render(
+      <AniListCard
+        item={{ ...PIEZA_DE_ANILIST, ref: { providerId: 'jkanime', value: 'kimetsu' } }}
+        consulta="kimetsu"
+      />,
+    )
+
+    expect(conFicha).toContain('href="/anime/jkanime/kimetsu?q=kimetsu"')
+    // La que no está en ninguna fuente lleva a la búsqueda de su título, que ya
+    // trae su propia consulta: pegarle otra dejaría dos `q` en la misma dirección.
+    expect(render(<AniListCard item={PIEZA_DE_ANILIST} consulta="kimetsu" />)).toContain(
+      'href="/search?q=Kimetsu%20no%20Yaiba"',
+    )
+  })
+})
+
 describe('rejilla y estado vacío', () => {
   test('lista los resultados en una lista con nombre accesible', () => {
     const html = render(
@@ -253,7 +300,7 @@ describe('rejilla y estado vacío', () => {
 
     expect(html).toContain('<ul class="grid" aria-label="Resultados"')
     expect(html.match(/<li class="grid__item"/g)).toHaveLength(2)
-    expect(html).toContain('href="/anime/otro/t2"')
+    expect(html).toContain('href="/anime/otro/t2?q=uno"')
   })
 
   test('dos proveedores con la misma obra pintan una tarjeta, con la otra fuente enlazada', () => {
@@ -278,8 +325,11 @@ describe('rejilla y estado vacío', () => {
     // se reportó. La mutación que quite la agrupación de `ResultGrid` deja esto
     // en rojo con dos.
     expect(html.match(/<li class="grid__item"/g)).toHaveLength(1)
-    expect(html).toContain('href="/anime/jkanime/kimetsu"')
-    expect(html).toContain('href="/anime/animeav1/kimetsu-no-yaiba"')
+    // Las dos direcciones —la de la tarjeta y la de «También en»— dejan el
+    // rastro de la búsqueda: abrir la ficha desde cualquiera de las dos es lo
+    // mismo para el motor.
+    expect(html).toContain('href="/anime/jkanime/kimetsu?q=kimetsu"')
+    expect(html).toContain('href="/anime/animeav1/kimetsu-no-yaiba?q=kimetsu"')
     expect(html).toContain('También en')
     expect(html).toContain('>ANIMEAV1</a>')
   })
@@ -315,7 +365,7 @@ describe('rejilla y estado vacío', () => {
     const carta = html.indexOf('<a ')
     const enlace = html.slice(carta, html.indexOf('</a>', carta))
 
-    expect(enlace).toContain('href="/anime/animeav1/kimetsu-no-yaiba"')
+    expect(enlace).toContain('href="/anime/animeav1/kimetsu-no-yaiba?q=kimetsu"')
     expect(html).toContain('También en')
     expect(html).toContain('>jkanime</a>')
   })
@@ -458,7 +508,9 @@ describe('lo que AniList tiene del término', () => {
       />,
     )
 
-    expect(html).toContain('href="/anime/jkanime/shingeki"')
+    // La consulta viaja con la ficha para que el servidor deje el rastro que el
+    // motor usa: sin ella, buscar no cambiaba ninguna recomendación.
+    expect(html).toContain('href="/anime/jkanime/shingeki?q=Action"')
     expect(html).toContain('En AniList')
     expect(html).toContain('En tus fuentes')
   })

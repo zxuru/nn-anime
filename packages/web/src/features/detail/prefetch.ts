@@ -24,9 +24,18 @@ export const PREFETCH_DELAY_MS = 100
  * Las precargas en vuelo, por clave.
  *
  * Sin este mapa, el puntero que entra y sale dos veces lanzaría dos peticiones
- * para la misma ficha; con él, la segunda espera a la primera.
+ * para la misma ficha; con él, la segunda espera a la primera. La clave no lleva
+ * la consulta —el contenido de la ficha es el mismo venga de donde venga—, así
+ * que se guarda al lado: es lo que permite no reutilizar una precarga que salió
+ * sin la búsqueda cuando la ficha viene de una y hay un rastro que dejar.
  */
-const enVuelo = new Map<string, Promise<DetailBundle | undefined>>()
+interface PrecargaEnVuelo {
+  readonly promesa: Promise<DetailBundle | undefined>
+  /** La búsqueda con la que salió la petición; `undefined` es «sin búsqueda». */
+  readonly consulta: string | undefined
+}
+
+const enVuelo = new Map<string, PrecargaEnVuelo>()
 
 /**
  * Pide la ficha y la guarda en la caché.
@@ -34,16 +43,24 @@ const enVuelo = new Map<string, Promise<DetailBundle | undefined>>()
  * Devuelve la promesa para que la pantalla que abra la ficha mientras la precarga
  * está en marcha pueda esperarla en vez de pedir otra vez. Si la caché ya tiene
  * el dato fresco no se lanza ninguna petición.
+ *
+ * `consulta` es la búsqueda de la que viene la ficha: viaja en la petición porque
+ * el servidor anota en `search_history` la que la lleva, y con ella el motor
+ * recomienda lo que el usuario está buscando.
  */
-export function prefetchDetail(providerId: string, ref: string): Promise<DetailBundle | undefined> {
+export function prefetchDetail(
+  providerId: string,
+  ref: string,
+  consulta?: string,
+): Promise<DetailBundle | undefined> {
   const clave = claveDeFicha(providerId, ref)
   const cacheado = detailCache.get(clave)
   if (cacheado !== undefined) return Promise.resolve(cacheado)
 
   const pendiente = enVuelo.get(clave)
-  if (pendiente !== undefined) return pendiente
+  if (pendiente !== undefined) return pendiente.promesa
 
-  const promesa = loadDetailBundle(providerId, ref)
+  const promesa = loadDetailBundle(providerId, ref, consulta === undefined ? {} : { consulta })
     .then((bundle) => {
       detailCache.set(clave, bundle)
       return bundle
@@ -55,17 +72,29 @@ export function prefetchDetail(providerId: string, ref: string): Promise<DetailB
       enVuelo.delete(clave)
     })
 
-  enVuelo.set(clave, promesa)
+  enVuelo.set(clave, { promesa, consulta })
 
   return promesa
 }
 
-/** La precarga que ya está en marcha para esta ficha, si la hay. */
+/**
+ * La precarga que ya está en marcha para esta ficha, si la hay.
+ *
+ * Con consulta, sólo se devuelve la que salió con esa misma consulta: una
+ * precarga lanzada desde la vitrina no dejó el rastro de la búsqueda y reutilizarla
+ * dejaría la ficha abierta desde Buscar sin anotar. En ese caso —raro: la misma
+ * ficha precargada desde otra pantalla en el último segundo— la ficha pide la suya.
+ */
 export function prefetchPendiente(
   providerId: string,
   ref: string,
+  consulta?: string,
 ): Promise<DetailBundle | undefined> | undefined {
-  return enVuelo.get(claveDeFicha(providerId, ref))
+  const entrada = enVuelo.get(claveDeFicha(providerId, ref))
+  if (entrada === undefined) return undefined
+  if (consulta !== undefined && entrada.consulta !== consulta) return undefined
+
+  return entrada.promesa
 }
 
 /**
@@ -94,6 +123,7 @@ export interface DetailPrefetchHandlers {
 export function useDetailPrefetch(
   providerId: string | undefined,
   ref: string | undefined,
+  consulta?: string,
 ): DetailPrefetchHandlers {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -114,7 +144,7 @@ export function useDetailPrefetch(
         cancelar()
         timer.current = setTimeout(() => {
           timer.current = undefined
-          void prefetchDetail(providerId, ref)
+          void prefetchDetail(providerId, ref, consulta)
         }, PREFETCH_DELAY_MS)
       },
       onPointerLeave: cancelar,
@@ -122,9 +152,9 @@ export function useDetailPrefetch(
         if (providerId === undefined || ref === undefined) return
 
         cancelar()
-        void prefetchDetail(providerId, ref)
+        void prefetchDetail(providerId, ref, consulta)
       },
     }),
-    [providerId, ref, cancelar],
+    [providerId, ref, consulta, cancelar],
   )
 }

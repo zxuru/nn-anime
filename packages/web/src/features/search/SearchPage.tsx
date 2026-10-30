@@ -215,7 +215,16 @@ export function SearchPage(props: SearchPageProps): ReactNode {
   // La preferencia decide cuál de las fuentes da la tarjeta. Llega después que
   // los resultados —es otra petición— y la rejilla se vuelve a ordenar sola.
   const prioridad = useProviderPriority()
-  const prefetch = useMemo(() => props.prefetcher ?? createDefaultPrefetcher(), [props.prefetcher])
+  /*
+    La consulta aplicada viaja en la precarga: es lo que deja el rastro de la
+    búsqueda cuando el puntero se para sobre una tarjeta, antes de abrirla. Al
+    cambiar de consulta se rehace el precargador —y con él su tope de precargas—,
+    que es lo que se quiere: lo que cuenta es lo que se está buscando ahora.
+  */
+  const prefetch = useMemo(
+    () => props.prefetcher ?? createDefaultPrefetcher(aplicado),
+    [props.prefetcher, aplicado],
+  )
   const medias = useMedias()
 
   /*

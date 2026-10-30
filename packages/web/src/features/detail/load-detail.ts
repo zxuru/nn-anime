@@ -41,6 +41,7 @@ import {
 import type { AnimeDetail, AnimeSummary, ProviderCapabilities } from '@nn-anime/core/models'
 import { apiGet, type RequestDeps } from '../../api/client'
 import { DetailCache, detailCacheKey } from '../../api/detail-cache'
+import { conLaConsulta } from './direccion'
 import { anilistRelatedPath, relatedPath, sourcesPath } from './paths'
 
 /** El tiempo límite de la ficha: veinte segundos, el que declara el contrato. */
@@ -62,6 +63,15 @@ export interface DetailBundle {
 
 export interface DetailLoadOptions {
   readonly signal?: AbortSignal
+  /**
+   * La búsqueda de la que viene la ficha, si viene de una.
+   *
+   * Sólo la petición del detalle la lleva: es lo que el servidor anota en
+   * `search_history`, la señal con la que el motor recomienda lo que el usuario
+   * está buscando. Las otras lecturas de la ficha no la necesitan y pedírsela al
+   * proveedor no cambiaría nada.
+   */
+  readonly consulta?: string | undefined
   /** Se inyecta en los tests; en producción, el `fetch` del navegador. */
   readonly deps?: RequestDeps
 }
@@ -88,7 +98,14 @@ export async function loadDetailBundle(
   ref: string,
   options: DetailLoadOptions = {},
 ): Promise<DetailBundle> {
-  const ruta = `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}`
+  /*
+    La consulta sólo viaja en la lectura del detalle: es la que el servidor anota
+    como rastro de la búsqueda. Las subrutas —vistos, enriquecimiento, metadatos—
+    se componen sobre la **base** y no sobre esa dirección: con la consulta dentro,
+    el sufijo caía detrás del `?` y la ruta pedida dejaba de existir.
+  */
+  const base = `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}`
+  const ruta = conLaConsulta(base, options.consulta)
   const deps = options.deps
   const opts = opciones(options)
 
@@ -98,15 +115,15 @@ export async function loadDetailBundle(
       apiGet(relatedPath(providerId, ref), relatedResponseSchema, opts, deps),
       apiGet(relatedPath(providerId, ref, 'franchise'), relatedResponseSchema, opts, deps),
       apiGet(sourcesPath(providerId, ref), sourcesResponseSchema, opts, deps),
-      apiGet(`${ruta}/watched`, watchedResponseSchema, opts, deps),
+      apiGet(`${base}/watched`, watchedResponseSchema, opts, deps),
       apiGet('/api/providers', providersResponseSchema, opts, deps),
       // El enriquecimiento **no puede tumbar la ficha**: su fallo se queda en «no
       // hay nada nuevo».
-      apiGet(`${ruta}/enrichment`, enrichmentResponseSchema, opts, deps).catch(() => ({
+      apiGet(`${base}/enrichment`, enrichmentResponseSchema, opts, deps).catch(() => ({
         enrichment: null,
       })),
       // Los metadatos de TMDB tampoco: sin clave la ruta ya devuelve `null`.
-      apiGet(`${ruta}/metadata`, tmdbMetadataResponseSchema, opts, deps).catch(() => ({
+      apiGet(`${base}/metadata`, tmdbMetadataResponseSchema, opts, deps).catch(() => ({
         metadata: null,
       })),
     ])

@@ -24,13 +24,19 @@ import { Fragment, type ReactNode } from 'react'
 import { Grid, GridItem } from '../../components/Grid'
 import { t } from '../../i18n'
 import { Link } from '../../router'
+import { conLaConsulta, rutaDeFicha } from '../detail/direccion'
 import { navStateDeTarjeta } from '../detail/nav-state'
 import { ResultCard } from './ResultCard'
 import { alternativas, groupResults } from './useSearchStream'
 
 export interface ResultGridProps {
   readonly results: readonly SearchResult[]
-  /** La consulta que produjo estos resultados, para el texto del estado vacío. */
+  /**
+   * La consulta que produjo estos resultados.
+   *
+   * Va en el texto del estado vacío y, además, en la dirección de cada ficha: es
+   * el rastro que el servidor anota para que el motor recomiende lo que se busca.
+   */
   readonly query: string
   /**
    * Si la búsqueda ya cerró **con respuesta**: lo que hay es todo lo que va a
@@ -60,9 +66,9 @@ export interface ResultGridProps {
   readonly onPreviewEnd?: () => void
 }
 
-/** La ruta de la ficha de un resultado, con la referencia codificada. */
-function detailPath(result: SearchResult): string {
-  return `/anime/${encodeURIComponent(result.ref.providerId)}/${encodeURIComponent(result.ref.value)}`
+/** La ruta de la ficha de un resultado, con la consulta que la trajo. */
+function detailPath(result: SearchResult, consulta: string): string {
+  return conLaConsulta(rutaDeFicha(result.ref.providerId, result.ref.value), consulta)
 }
 
 export function ResultGrid(props: ResultGridProps): ReactNode {
@@ -98,6 +104,7 @@ export function ResultGrid(props: ResultGridProps): ReactNode {
           <GridItem key={grupo.key}>
             <ResultCard
               result={primero}
+              consulta={props.query}
               {...(etiqueta === undefined ? {} : { providerLabel: etiqueta })}
               {...(props.onPreview === undefined
                 ? {}
@@ -126,7 +133,7 @@ export function ResultGrid(props: ResultGridProps): ReactNode {
                     <Fragment key={`${otro.ref.providerId}:${otro.ref.value}`}>
                       {indice === 0 ? null : ', '}
                       <Link
-                        to={detailPath(otro)}
+                        to={detailPath(otro, props.query)}
                         state={estado}
                         title={t(DEFAULT_LOCALE, 'search.alsoInItem', {
                           title: otro.title,

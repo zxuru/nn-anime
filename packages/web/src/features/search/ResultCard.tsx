@@ -18,6 +18,7 @@ import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'
 import { isSafeUrl } from '../../lib/safe-url'
 import { Link } from '../../router'
+import { conLaConsulta, rutaDeFicha } from '../detail/direccion'
 import { navStateDeTarjeta } from '../detail/nav-state'
 import { prefetchDetail } from '../detail/prefetch'
 
@@ -26,6 +27,14 @@ export interface ResultCardProps {
   /** Nombre del proveedor, si se conoce. Si no, se muestra su id. */
   readonly providerLabel?: string
   readonly coverRequested?: boolean
+  /**
+   * La búsqueda que produjo esta tarjeta.
+   *
+   * Viaja en la dirección de la ficha y en su precarga para que el servidor la
+   * anote: es el rastro que el motor usa para recomendar lo que se busca. Sin
+   * ella —una tarjeta fuera de la búsqueda— la ficha se abre como siempre.
+   */
+  readonly consulta?: string | undefined
   readonly onPreview?: () => void
   readonly onPreviewEnd?: () => void
 }
@@ -66,7 +75,7 @@ export function ResultCard(props: ResultCardProps): ReactNode {
 
   return (
     <Link
-      to={`/anime/${encodeURIComponent(result.ref.providerId)}/${encodeURIComponent(result.ref.value)}`}
+      to={conLaConsulta(rutaDeFicha(result.ref.providerId, result.ref.value), props.consulta)}
       className="card"
       title={result.title}
       state={estado}
@@ -78,8 +87,10 @@ export function ResultCard(props: ResultCardProps): ReactNode {
           cuando se entera, y el resultado tiene que estar camino antes de que se
           levante. En el ratón no duplica peticiones: el precargador de la búsqueda
           ya pidió la misma ficha y `prefetchDetail` deduplica lo que está en vuelo.
+          La consulta va también aquí: es la petición que deja el rastro de la
+          búsqueda, y una precarga sin ella no lo dejaría.
         */
-        void prefetchDetail(result.ref.providerId, result.ref.value)
+        void prefetchDetail(result.ref.providerId, result.ref.value, props.consulta)
       }}
     >
       {tienePortada ? (

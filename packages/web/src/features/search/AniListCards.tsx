@@ -1,4 +1,4 @@
-﻿/**
+/**
  * La lista de AniList pintada como los resultados de la página.
  *
  * Una búsqueda con género —`#aventura`— no la entiende ninguna fuente: buscan el texto
@@ -22,10 +22,18 @@ import { Cover } from '../../components/Cover'
 import { Grid, GridItem } from '../../components/Grid'
 import { t } from '../../i18n'
 import { Link } from '../../router'
+import { conLaConsulta } from '../detail/direccion'
 import { destinoDe, metaDeDescubrir } from '../home/descubrir'
 
 export interface AniListCardProps {
   readonly item: DiscoverItem
+  /**
+   * La consulta que produjo la lista, si la hay.
+   *
+   * Sólo viaja cuando el destino es una ficha: es el rastro que el servidor anota
+   * para que el motor recomiende lo que se busca.
+   */
+  readonly consulta?: string | undefined
 }
 
 export function AniListCard(props: AniListCardProps): ReactNode {
@@ -33,7 +41,7 @@ export function AniListCard(props: AniListCardProps): ReactNode {
   const meta = metaDeDescubrir(item)
 
   return (
-    <Link to={destinoDe(item)} className="card" title={item.title}>
+    <Link to={conLaConsulta(destinoDe(item), props.consulta)} className="card" title={item.title}>
       <Cover src={item.cover} className="card__cover" />
       <span className="card__title">{item.title}</span>
       {meta === undefined ? null : <span className="card__meta">{meta}</span>}
@@ -62,7 +70,7 @@ export function AniListCards(props: AniListCardsProps): ReactNode {
     <Grid label={t(DEFAULT_LOCALE, 'search.results')}>
       {props.items.map((item) => (
         <GridItem key={`anilist:${item.anilistId}`}>
-          <AniListCard item={item} />
+          <AniListCard item={item} consulta={props.query} />
         </GridItem>
       ))}
     </Grid>

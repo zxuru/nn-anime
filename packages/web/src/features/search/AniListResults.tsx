@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Lo que AniList tiene de este término, en la página de búsqueda.
  *
  * Es la mitad que ninguna fuente puede contestar: los proveedores buscan por
@@ -25,12 +25,20 @@ import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
+import { conLaConsulta } from '../detail/direccion'
 import { desdeDescubrir } from '../home/descubrir'
 import { cuentaDeTitulos } from '../home/tramo'
 
 export interface AniListResultsProps {
   readonly items: readonly DiscoverItem[]
-  /** La consulta que produjo la lista, para la nota del tramo. */
+  /**
+   * La consulta que produjo la lista.
+   *
+   * Va en la nota del tramo y, además, en la dirección de las piezas que abren una
+   * ficha: es el rastro que el servidor anota para que el motor recomiende lo que
+   * se busca. Las que no están en ninguna fuente llevan a la búsqueda de su título
+   * y ya traen su propia consulta.
+   */
   readonly query: string
 }
 
@@ -57,7 +65,8 @@ export function AniListResults(props: AniListResultsProps): ReactNode {
                 {...(pieza.ref === undefined ? {} : { ref: pieza.ref })}
                 {...(pieza.portada === undefined ? {} : { portada: pieza.portada })}
                 title={pieza.title}
-                to={pieza.to}
+                to={conLaConsulta(pieza.to, props.query)}
+                consulta={props.query}
                 {...(pieza.year === undefined ? {} : { year: pieza.year })}
                 {...(pieza.meta === undefined ? {} : { meta: pieza.meta })}
                 recurso={recursoDe(indice)}
