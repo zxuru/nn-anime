@@ -550,7 +550,7 @@ test.describe('de la búsqueda al detalle', () => {
     await expect(page.locator('.episodes li').first()).toContainText('Episodio 101')
     expect(paginas).toEqual([1, 2])
 
-    await page.getByLabel('Ir al episodio').fill('1180')
+    await page.getByLabel('Episodio', { exact: true }).fill('1180')
     await page.getByRole('button', { name: 'Ir', exact: true }).click()
 
     // El salto lleva al episodio, y la pantalla dice de cuántos es el título con la
