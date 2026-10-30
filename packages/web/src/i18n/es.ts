@@ -31,6 +31,21 @@ export const messages: Messages = {
   'library.title': 'Biblioteca',
   'library.summary': '{titles} títulos · {episodes} episodios · {size}',
   'library.summaryEmpty': 'Lo que descargues se queda aquí, listo para ver sin conexión.',
+  // Las tres cifras de la cabecera. El número va aparte y la etiqueta se esconde
+  // en el móvil: el dibujo y la cifra bastan cuando no cabe la palabra.
+  'library.stat.titles': 'títulos',
+  'library.stat.episodes': 'episodios',
+  'library.stat.size': 'en disco',
+  'library.delete.title': '¿Eliminar la descarga?',
+  'library.delete.body':
+    'Se borrará «{episode}» del equipo. Para volver a verlo habrá que descargarlo otra vez.',
+  'library.delete.confirm': 'Eliminar',
+  'library.delete.cancel': 'Cancelar',
+  'library.cleanup.title': '¿Borrar las descargas completadas?',
+  'library.cleanup.body':
+    'Se borrarán {count} archivos y se liberarán {size}. Las descargas a medias no se tocan.',
+  'library.cleanup.confirm': 'Borrar completadas',
+  'library.space.label': 'Espacio ocupado por las descargas',
   'library.downloads': 'Descargas',
   // La cola se abre y se cierra. El rótulo dice el gesto y no el estado: con
   // «Ver descargas» se entiende que ahora no se ven; «Ocultar» cuando sí.
@@ -90,7 +105,6 @@ export const messages: Messages = {
   'downloads.status.cancelled': 'Cancelada',
   'downloads.pause': 'Pausar',
   'downloads.resume': 'Reanudar',
-  'downloads.delete': 'Borrar',
   'downloads.download': 'Descargar',
   'downloads.queued': 'En cola',
   'downloads.saving': 'Enviando…',
@@ -101,6 +115,8 @@ export const messages: Messages = {
   'downloads.folder.hint': 'Ruta absoluta del equipo. Si la carpeta no existe, se crea.',
   'downloads.folder.save': 'Guardar carpeta',
   'downloads.folder.saved': 'Carpeta cambiada.',
+  'downloads.folder.copy': 'Copiar la ruta',
+  'downloads.folder.copied': 'Ruta copiada al portapapeles.',
   'downloads.folder.error': 'No se pudo cambiar la carpeta: {message}',
   'downloads.picker.title': 'Elegir carpeta',
   'downloads.picker.close': 'Cerrar',
@@ -125,20 +141,23 @@ export const messages: Messages = {
   'profile.loading': 'Cargando tu perfil…',
   'profile.favorites': 'Favoritos',
   'profile.favorites.meta': 'Lo que has guardado',
-  'profile.favorites.empty':
-    'Todavía no has marcado ninguno. La estrella está en la ficha de cada título.',
+  'profile.favorites.empty.title': 'Todavía no has marcado ninguno',
+  'profile.favorites.empty': 'Pulsa la estrella de la ficha de cada título y aparecerá aquí.',
   'profile.watched': 'Ya vistos',
   'profile.watched.meta': 'Lo que has marcado como visto',
-  'profile.watched.empty':
-    'Todavía no has marcado nada. El botón «Marcar como visto» está en la ficha.',
+  'profile.watched.empty.title': 'Todavía no has marcado nada',
+  'profile.watched.empty': 'El botón «Marcar como visto» está en la ficha.',
   'profile.planToWatch': 'Quiero ver',
   'profile.planToWatch.meta': 'Lo que has dejado pendiente',
-  'profile.planToWatch.empty':
-    'Todavía no has dejado nada pendiente. El botón «Quiero verla» está en la ficha.',
+  'profile.planToWatch.empty.title': 'Todavía no has dejado nada pendiente',
+  'profile.planToWatch.empty': 'El botón «Quiero verla» está en la ficha.',
   'profile.history': 'Historial',
   'profile.history.meta': 'Lo que has reproducido',
-  'profile.history.empty': 'Todavía no has reproducido nada. Lo que veas aparecerá aquí.',
+  'profile.history.empty.title': 'Todavía no has reproducido nada',
+  'profile.history.empty': 'Lo que veas aparecerá aquí, con el punto en el que lo dejaste.',
   'profile.history.all': 'Ver todo el historial',
+  // En una pantalla estrecha la cabecera no cabe entera: el enlace se acorta.
+  'profile.history.allShort': 'Ver todo',
 
   'history.title': 'Historial',
   'history.loading': 'Cargando el historial…',
@@ -349,8 +368,6 @@ export const messages: Messages = {
     'Cuando la misma obra está en varios, la tarjeta de la búsqueda lleva al primero de la lista. El orden se guarda solo.',
   'settings.priority.up': 'Subir {provider}',
   'settings.priority.down': 'Bajar {provider}',
-  'settings.priority.moveUp': 'Subir',
-  'settings.priority.moveDown': 'Bajar',
   'settings.cap.search': 'búsqueda',
   'settings.cap.sub': 'subtitulado',
   'settings.cap.dub': 'doblado',
@@ -400,7 +417,7 @@ export const messages: Messages = {
     'Pega la dirección de un repositorio público de GitHub. Se descarga, se miran sus archivos y eliges cuáles se activan: hasta que no marques uno, no se ejecuta nada.',
   'settings.repos.url': 'Dirección del repositorio',
   'settings.repos.urlHint': 'github.com/usuario/repo, con rama y carpeta si hacen falta',
-  'settings.repos.recommended': 'El repositorio recomendado es {url}; ya viene escrito.',
+  'settings.repos.useDefault': 'Usar proveedor predeterminado',
   'settings.repos.install': 'Añadir o actualizar',
   'settings.repos.installing': 'Descargando…',
   'settings.repos.installed': 'Repositorio descargado: marca qué proveedores se activan.',

@@ -12,6 +12,7 @@
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { Copy, Folder, FolderOpen, Save } from 'lucide-react'
 import { type FormEvent, type ReactNode, useState } from 'react'
 import { describirFallo } from '../../api/fallo'
 import { t } from '../../i18n'
@@ -34,6 +35,7 @@ export function DownloadFolder(props: DownloadFolderProps): ReactNode {
   const [estado, setEstado] = useState<Estado>('idle')
   const [mensaje, setMensaje] = useState<string | undefined>(undefined)
   const [selector, setSelector] = useState(false)
+  const [copiada, setCopiada] = useState(false)
 
   // Mientras nadie escriba, el campo enseña lo que dice el servidor. Un valor
   // atado a `current` borraría lo tecleado en cada refresco de la cola, y la cola
@@ -110,6 +112,23 @@ export function DownloadFolder(props: DownloadFolderProps): ReactNode {
     await elegirNativo()
   }
 
+  /**
+   * Copia la ruta al portapapeles.
+   *
+   * Es lo que hace falta para pegarla en el explorador o en un mensaje; el campo
+   * de texto ya se puede seleccionar, pero en un teléfono la ruta se sale del
+   * ancho y seleccionarla a mano es pelearse con el cursor.
+   */
+  const copiar = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(valor)
+      setCopiada(true)
+      setTimeout(() => setCopiada(false), 2000)
+    } catch {
+      // Sin permiso de portapapeles no se inventa un estado: el campo sigue ahí.
+    }
+  }
+
   return (
     <section>
       <h2>{t(LOCALE, 'downloads.folder.title')}</h2>
@@ -118,38 +137,59 @@ export function DownloadFolder(props: DownloadFolderProps): ReactNode {
           <label className="field__label" htmlFor="downloads-folder">
             {t(LOCALE, 'downloads.folder.label')}
           </label>
-          <input
-            id="downloads-folder"
-            className="field__input"
-            type="text"
-            autoComplete="off"
-            spellCheck={false}
-            aria-describedby="downloads-folder-hint"
-            value={valor}
-            onChange={(event) => {
-              setEscrita(event.target.value)
-              setEstado('idle')
-            }}
-          />
+          <div className="field__caja">
+            <Folder
+              className="field__icono"
+              size={18}
+              strokeWidth={2}
+              aria-hidden="true"
+              focusable="false"
+            />
+            <input
+              id="downloads-folder"
+              className="field__input"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              aria-describedby="downloads-folder-hint"
+              value={valor}
+              onChange={(event) => {
+                setEscrita(event.target.value)
+                setEstado('idle')
+                setCopiada(false)
+              }}
+            />
+            <button
+              type="button"
+              className="field__accion"
+              aria-label={t(LOCALE, 'downloads.folder.copy')}
+              title={t(LOCALE, 'downloads.folder.copy')}
+              onClick={() => void copiar()}
+            >
+              <Copy size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+            </button>
+          </div>
           <span className="field__hint" id="downloads-folder-hint">
-            {t(LOCALE, 'downloads.folder.hint')}
+            {copiada ? t(LOCALE, 'downloads.folder.copied') : t(LOCALE, 'downloads.folder.hint')}
           </span>
         </div>
 
         <div className="settings__actions">
           <button
             type="submit"
-            className="button button--primary"
+            className="button button--primary button--con-icono"
             disabled={ocupado || valor.trim() === ''}
           >
+            <Save size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
             {t(LOCALE, 'downloads.folder.save')}
           </button>
           <button
             type="button"
-            className="button"
+            className="button button--con-icono"
             disabled={ocupado}
             onClick={() => void abrirSelector()}
           >
+            <FolderOpen size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
             {t(LOCALE, 'downloads.chooseFolder')}
           </button>
         </div>

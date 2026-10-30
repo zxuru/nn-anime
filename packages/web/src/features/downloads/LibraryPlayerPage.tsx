@@ -20,6 +20,7 @@
 
 import { downloadItemSchema, downloadsResponseSchema } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { ChevronLeft, ChevronRight, CircleCheck, Info, Play } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import { apiGet, apiPostJson } from '../../api/client'
@@ -211,8 +212,13 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
   return (
     <section className="library-player">
       <header className="library-player__head">
-        <Link className="library-player__back" to="/library">
-          {t(LOCALE, 'library.player.back')}
+        <Link
+          className="library-player__back"
+          to="/library"
+          ariaLabel={t(LOCALE, 'library.player.back')}
+        >
+          <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" focusable="false" />
+          <span className="library-player__back-texto">{t(LOCALE, 'library.player.back')}</span>
         </Link>
         <div className="library-player__titles">
           <h1>{item?.title ?? t(LOCALE, 'library.playerTitle')}</h1>
@@ -220,7 +226,10 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
             <p className="library-player__episode">{item.episodeLabel}</p>
           )}
         </div>
-        <span className="library-player__badge">{t(LOCALE, 'library.downloaded')}</span>
+        <span className="library-player__badge" title={t(LOCALE, 'library.downloaded')}>
+          <CircleCheck size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+          <span className="library-player__badge-texto">{t(LOCALE, 'library.downloaded')}</span>
+        </span>
       </header>
 
       {estado === 'loading' ? (
@@ -265,12 +274,15 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
             {episodios.length <= 1 ? null : (
               <nav className="library-player__steps" aria-label={t(LOCALE, 'library.player.steps')}>
                 {anterior === undefined ? (
-                  <button type="button" className="button" disabled>
-                    {t(LOCALE, 'library.player.previous')}
+                  <button type="button" className="button button--con-icono" disabled>
+                    <ChevronLeft size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+                    <span className="library-player__paso-texto">
+                      {t(LOCALE, 'library.player.previous')}
+                    </span>
                   </button>
                 ) : (
                   <Link
-                    className="button"
+                    className="button button--con-icono"
                     to={`/library/${anterior.id}`}
                     ariaLabel={t(LOCALE, 'library.player.previousLabel', {
                       episode: anterior.episodeLabel,
@@ -279,7 +291,10 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
                       episode: anterior.episodeLabel,
                     })}
                   >
-                    {t(LOCALE, 'library.player.previous')}
+                    <ChevronLeft size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+                    <span className="library-player__paso-texto">
+                      {t(LOCALE, 'library.player.previous')}
+                    </span>
                   </Link>
                 )}
 
@@ -291,12 +306,15 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
                 </span>
 
                 {siguiente === undefined ? (
-                  <button type="button" className="button" disabled>
-                    {t(LOCALE, 'library.player.next')}
+                  <button type="button" className="button button--con-icono" disabled>
+                    <span className="library-player__paso-texto">
+                      {t(LOCALE, 'library.player.next')}
+                    </span>
+                    <ChevronRight size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
                   </button>
                 ) : (
                   <Link
-                    className="button"
+                    className="button button--con-icono"
                     to={`/library/${siguiente.id}`}
                     ariaLabel={t(LOCALE, 'library.player.nextLabel', {
                       episode: siguiente.episodeLabel,
@@ -305,7 +323,10 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
                       episode: siguiente.episodeLabel,
                     })}
                   >
-                    {t(LOCALE, 'library.player.next')}
+                    <span className="library-player__paso-texto">
+                      {t(LOCALE, 'library.player.next')}
+                    </span>
+                    <ChevronRight size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
                   </Link>
                 )}
               </nav>
@@ -335,7 +356,10 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
               </p>
             )}
 
-            <p className="library-player__note">{t(LOCALE, 'library.player.offline')}</p>
+            <p className="library-player__note">
+              <Info size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+              {t(LOCALE, 'library.player.offline')}
+            </p>
           </div>
 
           <aside className="watch__aside">
@@ -349,6 +373,16 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
                     ariaCurrent={episodio.id === item.id ? 'page' : undefined}
                     title={episodio.episodeLabel}
                   >
+                    {episodio.id === item.id ? (
+                      <Play
+                        className="watch__list-icon"
+                        size={14}
+                        strokeWidth={2}
+                        fill="currentColor"
+                        aria-hidden="true"
+                        focusable="false"
+                      />
+                    ) : null}
                     <span className="watch__list-title">{episodio.episodeLabel}</span>
                   </Link>
                 </li>
