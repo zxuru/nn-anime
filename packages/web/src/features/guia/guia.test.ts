@@ -53,6 +53,13 @@ async function marcado(): Promise<string> {
     partes.push(await Bun.file(`${ROOT}${relativa}`).text())
   }
 
+  /*
+   * La navegación no es un `.tsx`: sus anclas llegan al marcado por `data-tour`
+   * desde `nav.ts`, la lista que comparten la cabecera y la barra del móvil. Sin
+   * este archivo, las anclas de los cinco destinos se leerían como perdidas.
+   */
+  partes.push(await Bun.file(`${ROOT}nav.ts`).text())
+
   return partes.join('\n')
 }
 

@@ -468,14 +468,16 @@ describe('los géneros', () => {
 })
 
 describe('la línea del destacado', () => {
-  test('junta géneros, año y episodios', () => {
+  test('junta géneros y año', () => {
     const item = { ...recomendacion('x', ['Acción', 'Fantasía']), year: 2019 }
 
-    expect(featuredMeta(item, 12)).toBe('Acción · Fantasía · 2019 · 12 ep.')
+    // La cifra de episodios ya no va en esta cadena: lleva su propio dibujo y se
+    // pinta aparte, para que «12 ep.» no sea un número suelto.
+    expect(featuredMeta(item)).toBe('Acción · Fantasía · 2019')
   })
 
-  test('con lo que haya: sin año ni episodios no deja huecos', () => {
-    expect(featuredMeta(recomendacion('x', ['Acción']), undefined)).toBe('Acción')
+  test('con lo que haya: sin año no deja huecos', () => {
+    expect(featuredMeta(recomendacion('x', ['Acción']))).toBe('Acción')
   })
 
   /** El pie del cartel: el título y el año, como en la vitrina impresa. */

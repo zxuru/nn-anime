@@ -16,6 +16,9 @@ export const messages: Messages = {
   'nav.profile': 'Perfil',
   'nav.library': 'Biblioteca',
   'nav.settings': 'Ajustes',
+  // El nombre del grupo de navegación: hay dos —cabecera y barra del móvil— y
+  // cada una necesita el suyo para que el lector de pantalla las distinga.
+  'nav.primary': 'Navegación principal',
 
   /*
    * La biblioteca y su zona de descargas.
@@ -277,6 +280,9 @@ export const messages: Messages = {
   'home.ticker': 'Lo más visto ahora',
   'home.featured.tag': 'Destacado',
   'home.featured.play': 'Reproducir el episodio {number}',
+  // La versión corta del mando, la que cabe junto al dibujo en un teléfono.
+  'home.featured.playShort': 'Ep. {number}',
+  'home.featured.episodes': '{count} ep.',
   'home.top': 'Top',
   'home.top.meta': 'El orden de la fuente',
   'home.top.meta.anilist': 'El ranking de AniList',

@@ -376,6 +376,14 @@
   --bp-mobile: 600px;
   --bp-compact: 480px;
   /**
+   * Donde la navegación se muda de la cabecera a la barra inferior.
+   *
+   * No coincide con `--bp-mobile` a propósito: la barra necesita sitio para
+   * cinco destinos con su etiqueta —cinco columnas de 44 px como mínimo— y a
+   * 640 px caben con aire. Con 600 el quinto destino se quedaba en 39 px.
+   */
+  --bp-nav: 640px;
+  /**
    * Los cuatro anchos donde el mosaico se recompone.
    *
    * De 6 columnas a 4, a 3, a 2 y a 1: la vitrina recompone, no encoge. Los
@@ -476,6 +484,17 @@
       dibujaban **encima** de la barra al desplazarse. Con el mismo valor gana el
       que va después en el documento, y ése es el contenido. */
   --layer-header: 10;
+
+  /**
+   * La capa de la barra inferior del móvil.
+   *
+   * Va debajo de la cabecera —que sigue mandando cuando las dos están a la
+   * vista— y por encima del contenido. Su alto lo reserva la caja de la
+   * pantalla: sin la reserva, el último renglón de cada pantalla quedaba tapado
+   * y no había forma de llegar a él.
+   */
+  --layer-barra: 9;
+  --barra-alto: 3.75rem;
 
   /* ---------------------------------------------------------------------
      La vitrina: la composición de la pantalla de inicio.

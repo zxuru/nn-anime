@@ -104,16 +104,41 @@ describe('App: cabecera', () => {
    */
   test('marca el destino actual con aria-current', () => {
     const inicio = navegacion('/')
-    expect(inicio).toMatch(/aria-current="page"[^>]*>\s*Inicio/)
+    const actualInicio = enlaceActual(inicio)
+    // El texto del destino y su dibujo, dentro del enlace encendido: la marca
+    // es una y sólo una, pero cada destino lleva las dos cosas.
+    expect(actualInicio).toContain('>Inicio<')
+    expect(actualInicio).toContain('<svg')
     expect(inicio.match(/aria-current="page"/g)).toHaveLength(1)
 
     const busqueda = navegacion('/search')
-    expect(busqueda).toMatch(/aria-current="page"[^>]*>\s*Buscar/)
+    expect(enlaceActual(busqueda)).toContain('>Buscar<')
     expect(busqueda.match(/aria-current="page"/g)).toHaveLength(1)
 
     // La ficha y el reproductor no son destinos de la cabecera: en ellos no se
     // enciende ninguno, porque volver a Inicio es un destino y no el estado.
     expect(navegacion('/anime/fuente/titulo-1')).not.toContain('aria-current="page"')
+  })
+
+  /**
+   * La barra del móvil pinta los mismos cinco destinos.
+   *
+   * En una pantalla estrecha la cabecera se queda sin ellos —su hoja los
+   * esconde— y la barra es la única navegación: si la lista se separara de la de
+   * arriba, una pantalla podría quedarse sin salida. Se comprueba que los cinco
+   * están, que el actual se enciende y que cada uno tiene su dibujo.
+   */
+  test('la barra inferior repite los cinco destinos, con dibujo', () => {
+    const html = render('/')
+    const barra = /<nav class="barra"[^>]*>([\s\S]*?)<\/nav>/.exec(html)?.[1] ?? ''
+
+    expect(barra, 'falta la barra inferior en el marcado').not.toBe('')
+    expect(barra.match(/<a /g)).toHaveLength(5)
+    expect(barra.match(/<svg/g)).toHaveLength(5)
+    expect(barra).toContain('aria-current="page"')
+    for (const destino of ['Inicio', 'Buscar', 'Perfil', 'Biblioteca', 'Ajustes']) {
+      expect(barra).toContain(destino)
+    }
   })
 
   /**
@@ -142,10 +167,15 @@ describe('App: cabecera', () => {
    * distinguiría su enlace del de «Inicio».
    */
   function navegacion(path: string): string {
-    const trozo = /<nav class="shell__nav">([\s\S]*?)<\/nav>/.exec(render(path))
+    const trozo = /<nav class="shell__nav"[^>]*>([\s\S]*?)<\/nav>/.exec(render(path))
     if (trozo === null) throw new Error(`la navegación no está en el marcado de ${path}`)
 
     return trozo[1] ?? ''
+  }
+
+  /** El cuerpo del enlace que lleva `aria-current="page"`, si lo hay. */
+  function enlaceActual(nav: string): string {
+    return /<a [^>]*aria-current="page"[^>]*>([\s\S]*?)<\/a>/.exec(nav)?.[1] ?? ''
   }
 
   /**

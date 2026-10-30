@@ -13,6 +13,7 @@
  * espera vive una sola vez en la pantalla, para el lector de pantalla.
  */
 
+import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'
 import { SectionHeader } from '../../components/SectionHeader'
@@ -36,6 +37,8 @@ export interface SeccionCargandoProps {
   readonly meta?: string | undefined
   /** Cuántas celdas. Por defecto, una fila completa del mosaico. */
   readonly celdas?: number
+  /** El dibujo del tramo: el mismo que llevará la fila cuando cargue. */
+  readonly icon?: LucideIcon | undefined
 }
 
 export function SeccionCargando(props: SeccionCargandoProps): ReactNode {
@@ -46,6 +49,7 @@ export function SeccionCargando(props: SeccionCargandoProps): ReactNode {
       <SectionHeader
         title={props.title}
         {...(props.meta === undefined ? {} : { meta: props.meta })}
+        {...(props.icon === undefined ? {} : { icon: props.icon })}
       />
 
       <div className="seccion__cuerpo">
