@@ -54,6 +54,7 @@ import {
   watchTitleParts,
 } from '../../lib/document-title'
 import { buildPath, Link, useNavigate, usePath } from '../../router'
+import { navStateDeTarjeta } from '../detail/nav-state'
 import {
   type EpisodeLookup,
   type EpisodeReads,
@@ -854,6 +855,22 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   // episodio va. Es lo que distingue dos pestañas de la misma aplicación.
   useDocumentTitle(watchTitleParts(tituloAnime, etiquetaEpisodio))
 
+  /*
+    El regreso a la ficha puede adelantar lo que el reproductor ya sabe: el título
+    del anime y, si llegó, su portada. Sin título —la petición del encabezado
+    todavía no ha contestado— no hay estado, y la ficha espera al servidor como
+    cuando se entra por una URL directa.
+  */
+  const estadoFicha =
+    tituloAnime === undefined
+      ? undefined
+      : navStateDeTarjeta({
+          title: tituloAnime,
+          providerId: props.providerId,
+          ref: animeRef.value,
+          poster: portada,
+        })
+
   /**
    * El encabezado de la pantalla.
    *
@@ -879,6 +896,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       <Link
         className="watch__back"
         to={buildPath('detail', { providerId: props.providerId, ref: animeRef.value })}
+        state={estadoFicha}
       >
         {t(DEFAULT_LOCALE, 'player.backToDetail')}
       </Link>

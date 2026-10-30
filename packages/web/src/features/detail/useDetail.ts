@@ -1,11 +1,19 @@
 /**
  * Datos de la pantalla de detalle.
  *
- * Seis peticiones en paralelo —detalle, relacionados, franquicia, fuentes, vistos
- * y capacidades del proveedor— porque ninguna necesita a las otras: en serie, la
- * pantalla tardaría la suma de las seis latencias sin ninguna razón. La séptima,
- * las relaciones de AniList, va **aparte y sin esperarla**: su consulta al tercero
+ * Las ocho lecturas de la ficha —detalle, relacionados, franquicia, fuentes,
+ * vistos, proveedores y los dos adornos de terceros— viven ahora en
+ * `load-detail.ts`, porque las comparten la pantalla y la precarga de la tarjeta.
+ * Siguen yendo en paralelo dentro de ese cargador, que es donde importa: en
+ * serie, la pantalla tardaría la suma de las ocho latencias. La novena, las
+ * relaciones de AniList, va **aparte y sin esperarla**: su consulta al tercero
  * está espaciada y no puede retrasar la ficha.
+ *
+ * Lo que este hook decide —y por eso sigue aquí— es **cuándo** pedir la ficha y
+ * **qué hacer con lo que llega**: la caché pinta al instante lo que ya se sabía y
+ * el refresco va por detrás, la precarga de la tarjeta de origen se aprovecha si
+ * está en vuelo, y un reloj duro de veinte segundos convierte una espera eterna
+ * en un fallo que se puede contar.
  *
  * **Los episodios no están aquí.** La lista se pide por páginas desde el selector
  * (`EpisodeList`), que es quien sabe en qué página va y cuál se está mirando: con
@@ -40,18 +48,10 @@ import type {
   WatchedEpisodePayload,
 } from '@nn-anime/core/api'
 import {
-  anilistRelatedResponseSchema,
-  animeResponseSchema,
-  enrichmentResponseSchema,
   episodeResponseSchema,
   episodesResponseSchema,
   favoritesResponseSchema,
   planToWatchResponseSchema,
-  providersResponseSchema,
-  relatedResponseSchema,
-  sourcesResponseSchema,
-  tmdbMetadataResponseSchema,
-  watchedResponseSchema,
   watchedTitlesResponseSchema,
 } from '@nn-anime/core/api'
 import type {
@@ -66,41 +66,26 @@ import type { z } from 'zod'
 import { ApiError, apiGet, apiPost, type RequestDeps } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
+import {
+  claveDeFicha,
+  DETAIL_TIMEOUT_MS,
+  type DetailBundle,
+  detailCache,
+  loadAnilistRelated,
+  loadDetailBundle,
+} from './load-detail'
+import { prefetchPendiente } from './prefetch'
 
 export type DetailState = 'loading' | 'ready' | 'error'
 
 /**
- * La ruta de los hermanos, con su alcance.
+ * Las rutas de la ficha viven en `paths.ts` y se reexportan desde aquí.
  *
- * El alcance por defecto no se escribe: una dirección sin `scope` es la de
- * siempre, y escribirla daría dos claves de caché para la misma lectura.
+ * Hay consumidores que las importan de este módulo desde antes de que existiera
+ * `paths.ts` —el reproductor, el selector de episodios y sus pruebas—; mantener
+ * la puerta evita que dos sitios pidan rutas distintas para la misma ficha.
  */
-export function relatedPath(
-  providerId: string,
-  ref: string,
-  scope: 'saga' | 'franchise' = 'saga',
-): string {
-  const base = `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/related`
-
-  return scope === 'saga' ? base : `${base}?scope=${scope}`
-}
-
-/** La ruta de las otras fuentes de la misma obra. */
-export function sourcesPath(providerId: string, ref: string): string {
-  return `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/sources`
-}
-
-/**
- * La ruta de lo que AniList relaciona con esta obra.
- *
- * Es una lectura **de tercero** y va aparte de las demás: el cliente de AniList
- * espacia sus consultas dos segundos, así que esperarla junto al resto de la
- * ficha le sumaría esa espera a la pantalla entera. Aquí se pide y se pinta
- * cuando llegue; sin ella, la ficha es la misma.
- */
-export function anilistRelatedPath(providerId: string, ref: string): string {
-  return `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/anilist-related`
-}
+export { anilistRelatedPath, relatedPath, sourcesPath } from './paths'
 
 /**
  * Las lecturas de episodios, con lo que un test puede sustituir.
@@ -366,132 +351,273 @@ export function watchedPercent(ratio: number): number {
   return Math.min(Math.round(ratio * 100), 100)
 }
 
+/**
+ * La vista de una ficha: todo lo que pinta la pantalla, en un solo objeto.
+ *
+ * Va junta y no en un `useState` por campo porque una ficha se pinta entera de
+ * golpe: con estados sueltos, la respuesta vieja de una ficha podía mezclar su
+ * título con los episodios de la siguiente al navegar rápido entre las dos.
+ */
+type VistaDetalle = Omit<DetailData, 'reload'>
+
+/**
+ * Lo que se pinta mientras no hay nada que enseñar.
+ *
+ * Es una constante de módulo y no un objeto por render: la identidad estable es
+ * lo que permite reutilizarla como estado inicial sin provocar un render de más.
+ */
+const VISTA_VACIA: VistaDetalle = {
+  detail: undefined,
+  related: [],
+  franchise: [],
+  sources: [],
+  watched: [],
+  capabilities: undefined,
+  enrichment: undefined,
+  metadata: undefined,
+  anilistRelated: [],
+  providerNames: new Map(),
+  state: 'loading',
+  error: undefined,
+}
+
+/** La vista de una ficha ya leída: todos sus campos a la vez, en `ready`. */
+function vistaDeBundle(bundle: DetailBundle): VistaDetalle {
+  return {
+    detail: bundle.detail,
+    related: bundle.related,
+    franchise: bundle.franchise,
+    sources: bundle.sources,
+    watched: bundle.watched,
+    capabilities: bundle.capabilities,
+    enrichment: bundle.enrichment,
+    metadata: bundle.metadata,
+    // Las relaciones de AniList no viajan en el bundle: llegan aparte y las
+    // coloca su propia lectura.
+    anilistRelated: [],
+    providerNames: bundle.providerNames,
+    state: 'ready',
+    error: undefined,
+  }
+}
+
+/**
+ * Con qué se arranca una ficha: lo que la caché ya sepa, o el estado de carga.
+ *
+ * `peek` devuelve también lo caducado, y eso es deliberado: enseñar la ficha de
+ * hace seis minutos mientras se revalida es mejor que un esqueleto, que es lo
+ * que hace el stale-while-revalidate.
+ */
+function vistaInicial(clave: string): VistaDetalle {
+  const cacheado = detailCache.peek(clave)
+
+  return cacheado === undefined ? VISTA_VACIA : vistaDeBundle(cacheado.value)
+}
+
+/**
+ * Los datos de la ficha, con caché, precarga y un reloj.
+ *
+ * Tres decisiones que se ven en la pantalla:
+ *
+ * 1. **La caché pinta primero.** Con dato —aunque esté caducado— la pantalla
+ *    entra en `ready` desde el primer render y el refresco va por detrás: una
+ *    segunda visita enseña el contenido al instante y se revalida sin que se
+ *    note. Si el refresco falla, se queda lo que ya se veía y no aparece un
+ *    error: no hay nada que el usuario haya provocado.
+ * 2. **Un reloj duro de veinte segundos.** Con señal propia, el cliente no pone
+ *    su propio tiempo límite (`signalFor` la sustituye), así que el temporizador
+ *    vive aquí y aborta el controlador. El fallo llega como `AbortError` y
+ *    `describirFallo` lo cuenta como `lento`; el 404 del servidor, en cambio,
+ *    llega como `ApiError` y se cuenta como `noExiste`.
+ * 3. **La precarga se aprovecha.** Si la tarjeta de origen ya lanzó la lectura,
+ *    se espera esa promesa en vez de pedir la ficha otra vez; si falló, se pide
+ *    como siempre.
+ *
+ * La carga en sí vive en `load-detail.ts` porque la comparten la pantalla y la
+ * precarga: aquí sólo se decide cuándo pedirla y qué hacer con lo que llega.
+ */
 export function useDetail(providerId: string, ref: string): DetailData {
-  const [detail, setDetail] = useState<AnimeDetail | undefined>(undefined)
-  const [related, setRelated] = useState<readonly AnimeSummary[]>([])
-  const [franchise, setFranchise] = useState<readonly AnimeSummary[]>([])
-  const [sources, setSources] = useState<readonly AnimeSummary[]>([])
-  const [watched, setWatched] = useState<readonly WatchedEpisodePayload[]>([])
-  const [enrichment, setEnrichment] = useState<Enrichment | null | undefined>(undefined)
-  const [metadata, setMetadata] = useState<TmdbMetadata | null | undefined>(undefined)
-  const [anilistRelated, setAnilistRelated] = useState<readonly AniListRelatedItem[]>([])
-  const [capabilities, setCapabilities] = useState<ProviderCapabilities | undefined>(undefined)
-  const [providerNames, setProviderNames] = useState<ReadonlyMap<string, string>>(new Map())
-  const [state, setState] = useState<DetailState>('loading')
-  const [error, setError] = useState<Fallo | undefined>(undefined)
+  const clave = claveDeFicha(providerId, ref)
+  const [guardado, setGuardado] = useState<{
+    readonly clave: string
+    readonly vista: VistaDetalle
+  }>(() => ({ clave, vista: vistaInicial(clave) }))
   const controllerRef = useRef<AbortController | undefined>(undefined)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  /**
+   * El número de intento.
+   *
+   * Cada carga se queda con el suyo y sólo pinta si sigue siendo el vigente. Sin
+   * esto, una respuesta lenta de la ficha anterior podía llegar después de la
+   * nueva y pisarla: es el estado cruzado que se ve al navegar rápido.
+   */
+  const intentoRef = useRef(0)
 
   /**
-   * La carga, en una función que se puede volver a llamar.
+   * La vista que toca pintar.
    *
-   * Con un contador de intentos, el efecto tendría una dependencia que no usa y
-   * el linter lo señala con razón. Así el reintento ejecuta exactamente lo mismo
-   * que el primer intento, y la petición anterior se aborta al empezar la nueva.
+   * Si la clave no es la guardada —la pantalla cambió de ficha y el efecto aún no
+   * ha corrido— se deriva de la caché en vez de heredar la vista anterior: así no
+   * se ve ni un fotograma con el título de la ficha que se acaba de dejar. Leer
+   * la caché aquí es intencionado; su `peek` no pide nada a la red.
    */
-  const load = useCallback(() => {
+  const vista = guardado.clave === clave ? guardado.vista : vistaInicial(clave)
+
+  const abortar = useCallback(() => {
+    // Invalida lo que esté en vuelo: cualquier respuesta que llegue después de
+    // este punto es de una ficha o de un intento que ya no se está mirando.
+    intentoRef.current += 1
+
+    if (timerRef.current !== undefined) {
+      clearTimeout(timerRef.current)
+      timerRef.current = undefined
+    }
+
     controllerRef.current?.abort()
+    controllerRef.current = undefined
+  }, [])
+
+  const cargar = useCallback(() => {
+    abortar()
+
+    const intento = intentoRef.current
     const controller = new AbortController()
     controllerRef.current = controller
-    const opciones = { signal: controller.signal }
 
-    setState('loading')
-    setError(undefined)
-    setAnilistRelated([])
+    // El reloj del intento. `vencido` es lo que distingue «tardó demasiado» de
+    // «se desmontó o cambió la ficha»: en el primer caso hay que enseñar el
+    // error, en el segundo no se pinta nada.
+    let vencido = false
+    const timer = setTimeout(() => {
+      vencido = true
+      controller.abort()
+    }, DETAIL_TIMEOUT_MS)
+    timerRef.current = timer
 
-    void Promise.all([
-      apiGet(
-        `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}`,
-        animeResponseSchema,
-        opciones,
-      ),
-      apiGet(relatedPath(providerId, ref), relatedResponseSchema, opciones),
-      apiGet(relatedPath(providerId, ref, 'franchise'), relatedResponseSchema, opciones),
-      apiGet(sourcesPath(providerId, ref), sourcesResponseSchema, opciones),
-      apiGet(
-        `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/watched`,
-        watchedResponseSchema,
-        opciones,
-      ),
-      apiGet('/api/providers', providersResponseSchema, opciones),
-      // El enriquecimiento **no puede tumbar la ficha**: es un adorno de una
-      // lectura que depende de un tercero, así que su fallo se queda en «no hay
-      // nada nuevo» en vez de en la pantalla de error.
-      apiGet(
-        `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/enrichment`,
-        enrichmentResponseSchema,
-        opciones,
-      ).catch(() => ({ enrichment: null })),
-      // Los metadatos de TMDB tampoco pueden tumbar la ficha: la ruta devuelve
-      // `null` sin clave y, si el tercero falla, se queda en lo que dio el plugin.
-      apiGet(
-        `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}/metadata`,
-        tmdbMetadataResponseSchema,
-        opciones,
-      ).catch(() => ({ metadata: null })),
-    ]).then(
-      ([detalle, hermanos, franquicia, fuentes, vistos, proveedores, enriquecido, metadatos]) => {
-        if (controller.signal.aborted) return
+    const sigue = () => intentoRef.current === intento && (!controller.signal.aborted || vencido)
 
-        setDetail(detalle)
-        setRelated(hermanos.items)
-        setFranchise(franquicia.items)
-        setSources(fuentes.items)
-        setWatched(vistos.episodes)
-        setEnrichment(enriquecido.enrichment)
-        setMetadata(metadatos.metadata)
-        setCapabilities(
-          proveedores.providers.find((provider) => provider.id === providerId)?.capabilities,
-        )
-        setProviderNames(
-          new Map(proveedores.providers.map((provider) => [provider.id, provider.name])),
-        )
-        setState('ready')
-      },
-      (cause: unknown) => {
-        if (controller.signal.aborted) return
+    /**
+     * Pinta una vista y conserva las relaciones de AniList de la misma ficha.
+     *
+     * Van aparte y pueden llegar antes que el resto: si el bundle llegara después
+     * y pisara la lista, la sección desaparecería sola.
+     */
+    const fijar = (siguiente: VistaDetalle) => {
+      setGuardado((prev) => ({
+        clave,
+        vista: {
+          ...siguiente,
+          anilistRelated: prev.clave === clave ? prev.vista.anilistRelated : [],
+        },
+      }))
+    }
 
-        setError(describirFallo(cause))
-        setState('error')
-      },
-    )
+    const cacheado = detailCache.peek(clave)
+    // Con caché se pinta al instante; sin ella, la pantalla entra en `loading` y
+    // el esqueleto de la ficha ocupa el sitio.
+    fijar(cacheado === undefined ? VISTA_VACIA : vistaDeBundle(cacheado.value))
 
     /**
      * Las relaciones de AniList, aparte y sin `await`.
      *
-     * Van fuera de la tanda anterior porque su consulta al tercero está espaciada
-     * —una cada dos segundos— y la ficha no tiene por qué esperarla: la sección
-     * aparece cuando llega, y si no llega, la ficha sigue igual. El fallo se traga
-     * a propósito: un tercero caído no es un fallo de esta pantalla.
+     * Su consulta al tercero está espaciada —una cada dos segundos— y la ficha no
+     * tiene por qué esperarla: la sección aparece cuando llega, y si no llega, la
+     * ficha sigue igual. El fallo se traga a propósito: un tercero caído no es un
+     * fallo de esta pantalla.
      */
-    void apiGet(anilistRelatedPath(providerId, ref), anilistRelatedResponseSchema, opciones)
-      .then((relacionadas) => {
-        if (controller.signal.aborted) return
+    void loadAnilistRelated(providerId, ref, { signal: controller.signal }).then(
+      (relacionadas) => {
+        if (!sigue()) return
 
-        setAnilistRelated(relacionadas.items)
-      })
-      .catch(() => undefined)
-  }, [providerId, ref])
+        setGuardado((prev) =>
+          prev.clave === clave
+            ? { clave, vista: { ...prev.vista, anilistRelated: relacionadas } }
+            : prev,
+        )
+      },
+      () => undefined,
+    )
+
+    void (async () => {
+      if (cacheado !== undefined) {
+        // Stale-while-revalidate: lo que se ve ya es la ficha. Si el refresco
+        // falla —o el reloj lo corta— la pantalla se queda con lo viejo en vez de
+        // con una tarjeta de error.
+        try {
+          const bundle = await loadDetailBundle(providerId, ref, { signal: controller.signal })
+          if (!sigue()) return
+
+          detailCache.set(clave, bundle)
+          fijar(vistaDeBundle(bundle))
+        } catch {
+          // El dato viejo sigue siendo lo que hay.
+        }
+
+        return
+      }
+
+      // Sin caché, la precarga en vuelo es exactamente esta lectura: se espera en
+      // vez de pedirla dos veces. Una precarga que falló devuelve `undefined` y
+      // entonces se pide como siempre.
+      const pendiente = prefetchPendiente(providerId, ref)
+      const precargado = pendiente === undefined ? undefined : await pendiente
+      if (!sigue()) return
+
+      if (precargado !== undefined) {
+        detailCache.set(clave, precargado)
+        fijar(vistaDeBundle(precargado))
+
+        return
+      }
+
+      try {
+        const bundle = await loadDetailBundle(providerId, ref, { signal: controller.signal })
+        if (!sigue()) return
+
+        detailCache.set(clave, bundle)
+        fijar(vistaDeBundle(bundle))
+      } catch (cause) {
+        if (!sigue()) return
+
+        // El 404 y el reloj agotado se cuentan distinto porque son dos pantallas
+        // distintas: «no existe, no reintentes» frente a «no respondió, prueba
+        // otra vez».
+        fijar({ ...VISTA_VACIA, state: 'error', error: describirFallo(cause) })
+      }
+    })().finally(() => {
+      // El reloj es de la ficha y no de la pantalla: cuando la carga termina, se
+      // apaga. El `finally` comprueba que sigue siendo el de este intento, porque
+      // un reintento pudo sustituirlo mientras tanto.
+      if (timerRef.current === timer) {
+        clearTimeout(timer)
+        timerRef.current = undefined
+      }
+    })
+  }, [abortar, clave, providerId, ref])
 
   useEffect(() => {
-    load()
+    cargar()
 
-    return () => controllerRef.current?.abort()
-  }, [load])
+    // Al desmontar o cambiar de ficha se aborta y se limpia el temporizador: no
+    // queda ninguna respuesta ni ningún reloj apuntando a una pantalla que ya no
+    // está.
+    return abortar
+  }, [cargar, abortar])
 
   return {
-    detail,
-    related,
-    franchise,
-    sources,
-    watched,
-    capabilities,
-    enrichment,
-    metadata,
-    anilistRelated,
-    providerNames,
-    state,
-    error,
-    reload: load,
+    detail: vista.detail,
+    related: vista.related,
+    franchise: vista.franchise,
+    sources: vista.sources,
+    watched: vista.watched,
+    capabilities: vista.capabilities,
+    enrichment: vista.enrichment,
+    metadata: vista.metadata,
+    anilistRelated: vista.anilistRelated,
+    providerNames: vista.providerNames,
+    state: vista.state,
+    error: vista.error,
+    reload: cargar,
   }
 }
 

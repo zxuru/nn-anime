@@ -39,6 +39,8 @@ import { IconLabel } from '../../components/IconLabel'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { FavoriteButton } from '../detail/FavoriteButton'
+import { navStateDeTarjeta } from '../detail/nav-state'
+import { useDetailPrefetch } from '../detail/prefetch'
 import { useFavorite } from '../detail/useDetail'
 import { ANCLAS } from '../guia/guia'
 import { Ticker } from './Ticker'
@@ -97,6 +99,26 @@ export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
   const tags = props.item.tags.length > 0 ? props.item.tags : (detail?.genres ?? [])
   const meta = featuredMeta({ ...props.item, tags })
   const episodios = detail?.episodeCount
+
+  /*
+    El cartel ya conoce el título, el año y los géneros, así que la ficha puede
+    pintarlos antes de pedir nada. La portada no hace falta pasarla: el estado la
+    deriva de la referencia, que es la misma que pinta el `Cover` de al lado.
+  */
+  const estadoCartel = navStateDeTarjeta({
+    title: props.item.title,
+    providerId: props.item.ref.providerId,
+    ref: props.item.ref.value,
+    year: props.item.year,
+    genres: tags,
+    episodes: episodios,
+  })
+  /*
+    Pasar el puntero por el cartel es la intención más clara que hay en la home:
+    se precarga su ficha con el mismo gancho que las tarjetas, y el toque del móvil
+    la pide al instante.
+  */
+  const prefetch = useDetailPrefetch(props.item.ref.providerId, props.item.ref.value)
 
   return (
     <section
@@ -212,6 +234,10 @@ export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
         to={`/anime/${encodeURIComponent(props.item.ref.providerId)}/${encodeURIComponent(props.item.ref.value)}`}
         className="cartel"
         title={props.item.title}
+        state={estadoCartel}
+        onPointerEnter={prefetch.onPointerEnter}
+        onPointerLeave={prefetch.onPointerLeave}
+        onPointerDown={prefetch.onPointerDown}
       >
         <span className="pz__arte" aria-hidden="true">
           <Cover

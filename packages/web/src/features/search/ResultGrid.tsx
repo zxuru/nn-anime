@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Resultados de la búsqueda, o su ausencia explicada.
  *
  * Una tarjeta por **obra**, no por proveedor: dos fuentes que devuelven el mismo
@@ -24,6 +24,7 @@ import { Fragment, type ReactNode } from 'react'
 import { Grid, GridItem } from '../../components/Grid'
 import { t } from '../../i18n'
 import { Link } from '../../router'
+import { navStateDeTarjeta } from '../detail/nav-state'
 import { ResultCard } from './ResultCard'
 import { alternativas, groupResults } from './useSearchStream'
 
@@ -109,12 +110,24 @@ export function ResultGrid(props: ResultGridProps): ReactNode {
                 {otros.map((otro, indice) => {
                   const nombre = props.providerLabels?.get(otro.ref.providerId)
                   const visible = nombre ?? otro.ref.providerId
+                  /*
+                    La fuente alternativa también conoce el título: sin el estado,
+                    abrir su ficha desde aquí pintaba la espera de una URL directa,
+                    con el nombre que ya estaba a la vista.
+                  */
+                  const estado = navStateDeTarjeta({
+                    title: otro.title,
+                    providerId: otro.ref.providerId,
+                    ref: otro.ref.value,
+                    year: otro.year,
+                  })
 
                   return (
                     <Fragment key={`${otro.ref.providerId}:${otro.ref.value}`}>
                       {indice === 0 ? null : ', '}
                       <Link
                         to={detailPath(otro)}
+                        state={estado}
                         title={t(DEFAULT_LOCALE, 'search.alsoInItem', {
                           title: otro.title,
                           provider: visible,

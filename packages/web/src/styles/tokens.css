@@ -113,8 +113,23 @@
    */
   --color-rule: rgb(245 240 230 / 14%);
   --color-control-border: rgb(245 240 230 / 45%);
-  /** El hueco de una pieza que aún no tiene arte, cuando el catálogo carga. */
-  --color-skeleton: #1a1a22;
+  /**
+   * El hueco de una pieza que aún no tiene arte, cuando el catálogo carga.
+   *
+   * Es la base del degradado que se desliza en los esqueletos. Va un escalón más
+   * claro que el fondo de la página y el brillo otro más: sobre negro, un bloque
+   * del mismo color que el fondo no se ve, y el usuario no sabe si la pantalla
+   * está cargando o vacía.
+   */
+  --color-skeleton: #14151b;
+  --color-skeleton-shine: #1d1f27;
+  /** El degradado del esqueleto, con sus tres paradas: base, brillo y base. */
+  --skeleton-gradient: linear-gradient(
+    90deg,
+    var(--color-skeleton) 25%,
+    var(--color-skeleton-shine) 50%,
+    var(--color-skeleton) 75%
+  );
 
   /* El velo del diálogo y su ancho. Ninguno de los dos es un color de texto, así
      que no entran en los pares de contraste que se miden. */
@@ -146,6 +161,8 @@
   --radius-sm: 3px;
   --radius-md: 10px;
   --radius-lg: 14px;
+  /** El radio del bloque de esqueleto: 12 px, ni pastilla ni esquina viva. */
+  --radius-skeleton: 12px;
   /** El botón redondo de una pieza: un círculo, no una caja. */
   --radius-full: 999px;
 
@@ -253,6 +270,17 @@
    * apaga entero con `prefers-reduced-motion`, más abajo.
    */
   --skeleton-pulse: 900ms;
+  /**
+   * Lo que tarda el brillo del esqueleto en cruzar el bloque.
+   *
+   * Es la animación del estado de carga de la ficha: más lenta que el pulso de
+   * los esqueletos viejos porque un degradado que se desliza a 900 ms parece
+   * nervioso, y una espera de veinte segundos con algo nervioso cansa.
+   */
+  --skeleton-shimmer: 1.4s;
+  /** El alto de una fila de episodios: es la forma que el esqueleto reserva. */
+  --episode-row-height: 3rem;
+  /** Cuántas líneas de sinopsis reserva el esqueleto de la ficha. */
   /* La entrada de la home: un fundido corto y un escalón por fila. El paso es
      pequeño a propósito —seis filas entran en menos de medio segundo— porque un
      escalón largo convierte la carga en una cola. */
@@ -860,6 +888,7 @@
   --color-rule: rgb(20 18 15 / 14%);
   --color-control-border: rgb(20 18 15 / 55%);
   --color-skeleton: #ded7c9;
+  --color-skeleton-shine: #ece6da;
   --shadow-1: 0 1px 2px rgb(12 12 16 / 12%);
   --shadow-2: 0 8px 24px rgb(12 12 16 / 18%);
   /* En claro la sombra dura va en negro: el acento sobre crema no se distingue. */
@@ -875,6 +904,7 @@
     --transition-normal: 0ms;
     --transition-slow: 0ms;
     --skeleton-pulse: 0ms;
+    --skeleton-shimmer: 0ms;
     /* A cero y no «sin animación»: quien la use sigue entrando, pero de golpe. */
     --entrada-duracion: 0ms;
     --entrada-paso: 0ms;

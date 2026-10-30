@@ -27,6 +27,7 @@ import type { ReactNode } from 'react'
 import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'
 import { Link } from '../../router'
+import { navStateDeTarjeta } from './nav-state'
 import type { FilaDeSaga } from './saga'
 
 export interface RelatedListProps {
@@ -104,6 +105,19 @@ export function RelatedList(props: RelatedListProps): ReactNode {
             </span>
           </>
         )
+        /*
+          La fila ya sabe el título —y la portada, cuando la tiene—: la ficha de
+          destino lo pinta antes de que llegue el servidor. La fila que no está en
+          la base lleva a la búsqueda de su título, y ese estado es el mismo que
+          necesita la ficha si alguien la añade después.
+        */
+        const estado = navStateDeTarjeta({
+          title: item.title,
+          providerId: item.providerId,
+          ref: item.ref,
+          poster: item.portada,
+          year: item.year,
+        })
 
         return (
           <li key={item.clave}>
@@ -116,7 +130,7 @@ export function RelatedList(props: RelatedListProps): ReactNode {
                 {contenido}
               </span>
             ) : (
-              <Link className="related__item" to={item.to} title={item.title}>
+              <Link className="related__item" to={item.to} state={estado} title={item.title}>
                 {contenido}
               </Link>
             )}

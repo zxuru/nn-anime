@@ -25,16 +25,19 @@ import type { AnimeDetail } from '@nn-anime/core/models'
 import { Fragment, type ReactNode, useState } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { Cover } from '../../components/Cover'
-import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import { detailTitleParts, useDocumentTitle } from '../../lib/document-title'
 import { isSafeUrl } from '../../lib/safe-url'
-import { Link } from '../../router'
+import { useDelayedFlag } from '../../lib/useDelayedFlag'
+import { Link, useNavigate, useNavigationState } from '../../router'
 import { ANCLAS } from '../guia/guia'
 import { PLAY_MODES, type PlayMode } from '../player/watch-route'
 import { searchPath } from '../search/SearchPage'
+import { AnimeDetailSkeleton } from './AnimeDetailSkeleton'
+import { DetailError } from './DetailError'
 import { EpisodeList } from './EpisodeList'
 import { FavoriteButton } from './FavoriteButton'
+import { readDetailNavState } from './nav-state'
 import { PlanToWatchButton } from './PlanToWatchButton'
 import { SagaRail } from './SagaRail'
 import { SeriesDownloadButton } from './SeriesDownloadButton'
@@ -219,15 +222,6 @@ export function seccionesDe(enriquecido: Enrichment | null | undefined): ReactNo
       >
         {t(DEFAULT_LOCALE, 'detail.enrichment.site')}
       </a>
-    </section>
-  )
-}
-
-function Skeletons(): ReactNode {
-  return (
-    <section aria-busy="true">
-      <p className="empty">{t(DEFAULT_LOCALE, 'detail.loading')}</p>
-      <span className="skeleton" aria-hidden="true" />
     </section>
   )
 }
@@ -447,6 +441,18 @@ export function DetailPage(props: DetailPageProps): ReactNode {
     error,
     reload,
   } = useDetail(props.providerId, props.ref)
+
+  /**
+   * Lo que la tarjeta de origen ya sabía de esta ficha.
+   *
+   * Llega en el estado de navegación y se valida aquí: puede venir de una
+   * extensión, de una entrada vieja del historial o de otra versión de la
+   * aplicación. Lo que no valida se descarta y la ficha espera al servidor como
+   * una URL directa.
+   */
+  const navegacion = readDetailNavState(useNavigationState())
+  const navigate = useNavigate()
+
   const favorite = useFavorite({ providerId: props.providerId, value: props.ref })
   /**
    * La marca de «ya visto», hermana del favorito.
@@ -472,18 +478,46 @@ export function DetailPage(props: DetailPageProps): ReactNode {
    */
   const [preferido, setPreferido] = useState<PlayMode | undefined>(undefined)
 
+  /**
+   * Los dos relojes del estado de carga.
+   *
+   * El esqueleto no sale antes de 150 ms —una ficha que responde en 40 ms no
+   * puede parpadear— y el aviso de lentitud no sale antes de ocho segundos: es
+   * entonces cuando la espera ya es un dato que merece contarse. No hay un
+   * `Loader2` girando entre medias a propósito: el protagonista es la ficha, no
+   * la rueda, y el aviso de lentitud ya lleva su icono cuando toca.
+   */
+  const cargando = state === 'loading'
+  const mostrarEsqueleto = useDelayedFlag(cargando, 150)
+  const lento = useDelayedFlag(cargando, 8000)
+
   // Cuatro fichas abiertas a la vez eran cuatro pestañas con el mismo nombre. El
   // título de la pestaña se pone antes de los estados tempranos, que si no la
   // pantalla cargando y la que falló compartirían el nombre de la aplicación.
   useDocumentTitle(detailTitleParts(state, detail))
 
-  if (state === 'loading') return <Skeletons />
+  if (cargando) {
+    return <AnimeDetailSkeleton optimistic={navegacion} visible={mostrarEsqueleto} lento={lento} />
+  }
 
   if (state === 'error') {
-    return <ErrorNotice fallo={error ?? FALLO_SIN_CAUSA} onRetry={reload} />
+    return (
+      <DetailError
+        fallo={error ?? FALLO_SIN_CAUSA}
+        providerName={providerNames.get(props.providerId) ?? props.providerId}
+        // Un 404 no se arregla repitiendo la lectura: el proveedor no tiene esa
+        // referencia y volver a pedirla da el mismo 404.
+        onRetry={error?.clase === 'noExiste' ? undefined : reload}
+        onBack={() => navigate.back()}
+      />
+    )
   }
 
   if (detail === undefined) {
+    // Salvavidas: con `state === 'ready'` el bundle siempre trae detalle, pero el
+    // tipo del hook no puede prometerlo sin volverse una unión en cada pantalla.
+    // Si algún día se rompe esa invariante, se dice que no está en vez de romper
+    // el render con un `undefined`.
     return (
       <section>
         <p className="empty">{t(DEFAULT_LOCALE, 'detail.notFound')}</p>

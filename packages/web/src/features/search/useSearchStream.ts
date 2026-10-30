@@ -26,6 +26,7 @@ import { ApiError } from '../../api/client'
 import { createDedupe } from '../../api/dedupe'
 import { describirFallo, type Fallo } from '../../api/fallo'
 import { readEventStream, searchRequestPath } from '../../api/stream-events'
+import { prefetchDetail } from '../detail/prefetch'
 
 export interface ProviderIssue {
   readonly providerId: string
@@ -541,19 +542,23 @@ export function createPrefetcher(options: PrefetchOptions): Prefetcher {
   }
 }
 
-/** Una precarga que pide el detalle de verdad. Hasta T23 la ruta devuelve 404. */
-async function fetchDetail(providerId: string, ref: string, signal: AbortSignal): Promise<unknown> {
-  const response = await fetch(
-    `/api/anime/${encodeURIComponent(providerId)}/${encodeURIComponent(ref)}`,
-    { credentials: 'same-origin', headers: { accept: 'application/json' }, signal },
-  )
-
-  return response.ok ? response.json() : undefined
-}
-
-/** La precarga de producción, con la ruta de detalle real. */
+/**
+ * La precarga de producción: la misma que calienta la ficha.
+ *
+ * Antes hacía su propio `fetch` del detalle y calentaba una caché que la ficha no
+ * miraba: al abrir la tarjeta se pedía todo otra vez. Ahora delega en
+ * `prefetchDetail`, que escribe en la caché compartida, deduplica lo que está en
+ * vuelo y espera 100 ms antes de disparar.
+ *
+ * El `signal` no se usa, y es a propósito. El precargador cancelaba su petición al
+ * salir del puntero, pero pasar por encima de una tarjeta es intención de abrirla:
+ * la lectura sirve para la navegación aunque el puntero siga de largo, y una
+ * promesa abortada dejaría la ficha con la precarga rota en vez de con el dato.
+ */
 export function createDefaultPrefetcher(): Prefetcher {
-  return createPrefetcher({ fetchDetail })
+  return createPrefetcher({
+    fetchDetail: (providerId, ref) => prefetchDetail(providerId, ref),
+  })
 }
 
 export function useSearchStream(

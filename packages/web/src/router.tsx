@@ -120,13 +120,30 @@ export function buildPath(name: RouteName, params: Readonly<Record<string, strin
 export interface History {
   /** Ruta actual, con la consulta incluida. */
   readonly path: string
-  push(to: string): void
-  replace(to: string): void
+  /**
+   * Lo que viaja con la entrada actual, si algo viaja.
+   *
+   * Es lo que permite pintar la ficha antes de pedirla: la tarjeta de origen ya
+   * conoce el título y la portada, y los deja aquí al navegar. Es `unknown` a
+   * propósito —una entrada de historial es un sitio donde cualquiera puede haber
+   * escrito cualquier cosa— y quien la use la valida antes de pintarla.
+   */
+  readonly state: unknown
+  push(to: string, state?: unknown): void
+  replace(to: string, state?: unknown): void
+  /** Vuelve a la entrada anterior. Sin historial detrás, no hace nada. */
+  back(): void
   subscribe(listener: () => void): () => void
 }
 
-export function createMemoryHistory(initial = '/'): History {
-  let current = initial
+interface Entrada {
+  readonly path: string
+  readonly state: unknown
+}
+
+export function createMemoryHistory(initial = '/', initialState?: unknown): History {
+  const entradas: Entrada[] = [{ path: initial, state: initialState }]
+  let actual = 0
   const listeners = new Set<() => void>()
 
   const notify = (): void => {
@@ -135,14 +152,27 @@ export function createMemoryHistory(initial = '/'): History {
 
   return {
     get path(): string {
-      return current
+      return entradas[actual]?.path ?? initial
     },
-    push(to: string): void {
-      current = to
+    get state(): unknown {
+      return entradas[actual]?.state
+    },
+    push(to: string, state?: unknown): void {
+      // Lo que quedaba delante deja de existir: empujar después de ir atrás
+      // descarta la rama, como el historial del navegador.
+      entradas.splice(actual + 1)
+      entradas.push({ path: to, state })
+      actual = entradas.length - 1
       notify()
     },
-    replace(to: string): void {
-      current = to
+    replace(to: string, state?: unknown): void {
+      entradas[actual] = { path: to, state }
+      notify()
+    },
+    back(): void {
+      if (actual === 0) return
+
+      actual -= 1
       notify()
     },
     subscribe(listener: () => void): () => void {
@@ -168,13 +198,19 @@ export function createBrowserHistory(): History {
     get path(): string {
       return `${window.location.pathname}${window.location.search}`
     },
-    push(to: string): void {
-      window.history.pushState(null, '', to)
+    get state(): unknown {
+      return window.history.state
+    },
+    push(to: string, state?: unknown): void {
+      window.history.pushState(state ?? null, '', to)
       notify()
     },
-    replace(to: string): void {
-      window.history.replaceState(null, '', to)
+    replace(to: string, state?: unknown): void {
+      window.history.replaceState(state ?? null, '', to)
       notify()
+    },
+    back(): void {
+      window.history.back()
     },
     subscribe(listener: () => void): () => void {
       listeners.add(listener)
@@ -220,8 +256,9 @@ export function usePath(): string {
 }
 
 export interface Navigate {
-  push(to: string): void
-  replace(to: string): void
+  push(to: string, state?: unknown): void
+  replace(to: string, state?: unknown): void
+  back(): void
 }
 
 /**
@@ -236,10 +273,29 @@ export function useNavigate(): Navigate {
 
   return useMemo(
     () => ({
-      push: (to: string) => history.push(to),
-      replace: (to: string) => history.replace(to),
+      push: (to: string, state?: unknown) => history.push(to, state),
+      replace: (to: string, state?: unknown) => history.replace(to, state),
+      back: () => history.back(),
     }),
     [history],
+  )
+}
+
+/**
+ * Los datos que viajan con la entrada actual.
+ *
+ * Se leen del historial y se validan en el componente que los usa: aquí no se
+ * sabe qué forma tiene la ficha, y quien navega puede haber dejado cualquier
+ * cosa. Es reactivo porque la entrada cambia con el botón de atrás.
+ */
+export function useNavigationState(): unknown {
+  const history = useHistory()
+  const readState = useCallback(() => history.state, [history])
+
+  return useSyncExternalStore(
+    useCallback((listener: () => void) => history.subscribe(listener), [history]),
+    readState,
+    readState,
   )
 }
 
@@ -272,14 +328,28 @@ export interface LinkProps {
   readonly ariaCurrent?: 'page' | undefined
   readonly onNavigate?: () => void
   /**
+   * Lo que viaja con la entrada al navegar.
+   *
+   * La tarjeta de origen deja aquí lo que ya sabe de la ficha —título y portada—
+   * para que la pantalla de destino la pinte antes de pedirla. No sustituye a
+   * los datos del servidor: es un adelanto. Va como `unknown` y lo valida quien
+   * lo lee.
+   */
+  readonly state?: unknown
+  /**
    * Sucesos del puntero.
    *
    * Existen para la precarga del detalle: al pasar por encima de una tarjeta se
    * pide su ficha, y al salir se cancela. La navegación por teclado no los
-   * necesita, y por eso no se usa el foco para lo mismo.
+   * necesita, y por eso no se usa el foco para lo mismo. Los `onPointer*` son los
+   * que usa la precarga nueva —también cubren el dedo en el móvil—; los de ratón
+   * se conservan porque la búsqueda ya los usaba con su propio precargador.
    */
   readonly onMouseEnter?: () => void
   readonly onMouseLeave?: () => void
+  readonly onPointerEnter?: () => void
+  readonly onPointerLeave?: () => void
+  readonly onPointerDown?: () => void
   /**
    * El ancla de la guía.
    *
@@ -309,13 +379,16 @@ export function Link(props: LinkProps): ReactNode {
       data-tour={props.dataTour}
       onMouseEnter={props.onMouseEnter}
       onMouseLeave={props.onMouseLeave}
+      onPointerEnter={props.onPointerEnter}
+      onPointerLeave={props.onPointerLeave}
+      onPointerDown={props.onPointerDown}
       onClick={(event) => {
         if (event.defaultPrevented) return
         if (event.button !== 0) return
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
 
         event.preventDefault()
-        history.push(props.to)
+        history.push(props.to, props.state)
         props.onNavigate?.()
       }}
     >

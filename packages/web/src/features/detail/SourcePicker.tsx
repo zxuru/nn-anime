@@ -20,6 +20,7 @@ import type { AnimeSummary } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 import { Link } from '../../router'
+import { navStateDeTarjeta } from './nav-state'
 
 export interface SourcePickerProps {
   /** Las otras fuentes, tal y como las devolvió `/sources`. */
@@ -46,12 +47,24 @@ export function SourcePicker(props: SourcePickerProps): ReactNode {
       <ul className="modes">
         {otras.map((item) => {
           const nombre = props.providerLabels.get(item.ref.providerId) ?? item.ref.providerId
+          /*
+            La obra es la misma que se está leyendo: la otra ficha puede pintar el
+            título sin esperar al servidor. La portada no va aquí porque el enlace
+            sólo muestra el nombre del proveedor; el estado la deriva de la
+            referencia si hace falta.
+          */
+          const estado = navStateDeTarjeta({
+            title: item.title,
+            providerId: item.ref.providerId,
+            ref: item.ref.value,
+          })
 
           return (
             <li className="mode" key={`${item.ref.providerId}:${item.ref.value}`}>
               <Link
                 className="button"
                 to={`/anime/${encodeURIComponent(item.ref.providerId)}/${encodeURIComponent(item.ref.value)}`}
+                state={estado}
                 title={t(DEFAULT_LOCALE, 'detail.sourcesItem', {
                   title: item.title,
                   provider: nombre,
