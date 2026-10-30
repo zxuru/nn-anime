@@ -8,10 +8,11 @@
  * hace la pantalla de detalle.
  *
  * La cuarta —el **banner** de AniList, para el campo de la marquesina— va por su
- * cuenta y no retrasa nada: es adorno de la vitrina, viaja en el enriquecimiento y
- * una obra sin emparejar no lo tiene. Si se pidiera con las otras dos, un tercero
- * lento dejaría la ficha —y con ella la sinopsis y el botón— esperando por una
- * imagen.
+ * cuenta: **después** del detalle y sin que nadie la espere. El orden es del
+ * servidor, no de la prisa: su ruta lee la fila local del anime para emparejar con
+ * AniList, y esa fila la escribe el detalle. Pedirla a la vez la dejaba vacía en
+ * la primera carga de la home, así que el banner no aparecía hasta recargar. Como
+ * tampoco se espera, un tercero lento no retrasa la sinopsis ni el botón.
  *
  * Si algo de eso falla, el destacado se pinta con lo que haya: el título y la
  * portada bastan para que la home no se quede sin su primera fila.
@@ -74,22 +75,27 @@ export function useFeatured(
         detail: detalle.status === 'fulfilled' ? detalle.value : undefined,
         firstEpisode: episodios.status === 'fulfilled' ? episodios.value.episodes[0] : undefined,
       }))
-    })
 
-    /*
-      El banner, aparte. Un fallo aquí no se cuenta —ni se dice—: es un adorno de
-      la vitrina y la marquesina ya tiene su degradado. Y sin emparejamiento, el
-      enriquecimiento llega a `null` en vez de fallar, que es el caso normal de una
-      obra que AniList no conoce.
-    */
-    void apiGet(`${ruta}/enrichment`, enrichmentResponseSchema, opciones).then(
-      (enriquecido) => {
-        if (vivo) setEstado((previo) => ({ ...previo, banner: enriquecido.enrichment?.banner }))
-      },
-      () => {
-        // Sin banner: la marquesina se queda con el campo de siempre.
-      },
-    )
+      /*
+        El banner, **después del detalle**. Su ruta lee la fila local del anime
+        para emparejar con AniList, y esa fila la escribe el detalle: pedirlo a la
+        vez —como se hacía— lo dejaba vacío en la primera carga de la home, y la
+        marquesina se quedaba con su degradado hasta recargar. Un fallo aquí no se
+        cuenta —ni se dice—: es un adorno de la vitrina y la marquesina ya tiene su
+        degradado. Sin emparejamiento, el enriquecimiento llega a `null` en vez de
+        fallar, que es el caso normal de una obra que AniList no conoce.
+      */
+      if (detalle.status !== 'fulfilled') return
+
+      void apiGet(`${ruta}/enrichment`, enrichmentResponseSchema, opciones).then(
+        (enriquecido) => {
+          if (vivo) setEstado((previo) => ({ ...previo, banner: enriquecido.enrichment?.banner }))
+        },
+        () => {
+          // Sin banner: la marquesina se queda con el campo de siempre.
+        },
+      )
+    })
 
     return () => {
       vivo = false
