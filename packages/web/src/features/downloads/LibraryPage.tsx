@@ -14,13 +14,14 @@
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { ChevronRight, Film, HardDrive, Library, ListVideo, Play, Trash2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
+import { Confirmacion } from '../../components/Confirmacion'
 import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { ANCLAS } from '../guia/guia'
-import { IconoReproducir } from '../player/icons'
 import {
   agruparBiblioteca,
   calcularVelocidad,
@@ -144,21 +145,23 @@ export function datos(item: Descarga, velocidad: number | undefined): string {
   return partes.join(' · ')
 }
 
-/** El dibujo de la papelera. Es de la casa: trazo recto y `currentColor`. */
-function IconoBorrar(): ReactNode {
-  return (
-    <svg className="library__remove-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M4 7h16v2H4Zm3 3h10l-1 10H8Zm2-6h6v2H9Z" />
-    </svg>
-  )
-}
+/**
+ * Lo que se está a punto de borrar.
+ *
+ * Una descarga de la cola o de la estantería, o todas las completadas de una vez.
+ * Las dos cosas son destructivas y las dos pasan por la misma confirmación: lo que
+ * cambia es el texto, no el gesto.
+ */
+type Borrado =
+  | { readonly tipo: 'descarga'; readonly id: number; readonly etiqueta: string }
+  | { readonly tipo: 'completadas'; readonly count: number; readonly bytes: number }
 
 function FilaDescarga(props: {
   readonly item: Descarga
   readonly velocidad: number | undefined
   readonly onPause: (id: number) => Promise<void>
   readonly onResume: (id: number) => Promise<void>
-  readonly onRemove: (id: number) => Promise<void>
+  readonly onBorrar: () => void
 }): ReactNode {
   const { item } = props
   const avance = porcentaje(item)
@@ -218,11 +221,12 @@ function FilaDescarga(props: {
           ) : null}
           <button
             type="button"
-            className="button"
+            className="button button--icono"
             aria-label={t(LOCALE, 'library.removeEpisode', { episode: item.episodeLabel })}
-            onClick={() => void props.onRemove(item.id)}
+            title={t(LOCALE, 'library.removeEpisode', { episode: item.episodeLabel })}
+            onClick={props.onBorrar}
           >
-            {t(LOCALE, 'downloads.delete')}
+            <Trash2 size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
           </button>
         </div>
       </div>
@@ -255,6 +259,7 @@ function TarjetaSerie(props: {
         <span className="library__cover-box">
           <Cover providerId={serie.providerId} ref={serie.animeRef} className="library__cover" />
           <span className="library__serie-count" aria-hidden="true">
+            <ListVideo size={12} strokeWidth={2} />
             {serie.episodes.length}
           </span>
         </span>
@@ -272,7 +277,7 @@ function TarjetaSerie(props: {
 
 function DetalleSerie(props: {
   readonly serie: SerieBiblioteca
-  readonly onRemove: (id: number) => Promise<void>
+  readonly onPedirBorrado: (episodio: Descarga) => void
 }): ReactNode {
   const { serie } = props
 
@@ -297,7 +302,7 @@ function DetalleSerie(props: {
               title={t(LOCALE, 'library.playEpisode', { episode: episodio.episodeLabel })}
             >
               <span className="library__episode-icon" aria-hidden="true">
-                <IconoReproducir className="library__play-icon" />
+                <Play size={18} strokeWidth={2} fill="currentColor" />
               </span>
               <span className="library__episode-label">{episodio.episodeLabel}</span>
               <span className="library__episode-size">{formatearBytes(episodio.bytes)}</span>
@@ -307,9 +312,9 @@ function DetalleSerie(props: {
               className="library__episode-remove"
               aria-label={t(LOCALE, 'library.removeEpisode', { episode: episodio.episodeLabel })}
               title={t(LOCALE, 'library.removeEpisode', { episode: episodio.episodeLabel })}
-              onClick={() => void props.onRemove(episodio.id)}
+              onClick={() => props.onPedirBorrado(episodio)}
             >
-              <IconoBorrar />
+              <Trash2 size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
             </button>
           </li>
         ))}
@@ -332,6 +337,8 @@ export function LibraryPage(): ReactNode {
    * colección fuera de la pantalla. La cabecera sigue diciendo cuántas hay.
    */
   const [colaAbierta, setColaAbierta] = useState(false)
+  /** Lo que espera confirmación para borrarse. */
+  const [borrado, setBorrado] = useState<Borrado | undefined>(undefined)
 
   // Si la serie elegida desaparece —se borró su último episodio—, manda la
   // primera de la estantería: una selección que ya no existe dejaría el panel
@@ -339,22 +346,65 @@ export function LibraryPage(): ReactNode {
   const activa = series.find((serie) => serie.key === seleccion) ?? series[0]
 
   const completas = items.filter((item) => item.status === 'complete').length
+  const bytesCompletas = items
+    .filter((item) => item.status === 'complete')
+    .reduce((total, item) => total + item.bytes, 0)
   const totalEpisodios = series.reduce((total, serie) => total + serie.episodes.length, 0)
   const totalBytes = series.reduce((total, serie) => total + serie.bytes, 0)
+  const ocupado =
+    space === undefined || space.totalBytes <= 0
+      ? 0
+      : Math.min(100, Math.round((space.downloadsBytes / space.totalBytes) * 100))
+
+  const textoBorrado =
+    borrado === undefined
+      ? undefined
+      : borrado.tipo === 'descarga'
+        ? {
+            titulo: t(LOCALE, 'library.delete.title'),
+            cuerpo: t(LOCALE, 'library.delete.body', { episode: borrado.etiqueta }),
+            confirmar: t(LOCALE, 'library.delete.confirm'),
+          }
+        : {
+            titulo: t(LOCALE, 'library.cleanup.title'),
+            cuerpo: t(LOCALE, 'library.cleanup.body', {
+              count: borrado.count,
+              size: formatearBytes(borrado.bytes),
+            }),
+            confirmar: t(LOCALE, 'library.cleanup.confirm'),
+          }
 
   return (
-    <section className="library">
+    <section className="pagina library">
       <header className="library__head" data-tour={ANCLAS.bibliotecaResumen}>
         <h1>{t(LOCALE, 'library.title')}</h1>
-        <p className="library__lede">
-          {series.length === 0
-            ? t(LOCALE, 'library.summaryEmpty')
-            : t(LOCALE, 'library.summary', {
-                titles: series.length,
-                episodes: totalEpisodios,
-                size: formatearBytes(totalBytes),
-              })}
-        </p>
+        {series.length === 0 ? (
+          <p className="library__lede">{t(LOCALE, 'library.summaryEmpty')}</p>
+        ) : (
+          /*
+           * Tres cifras con su dibujo en lugar de una frase: el espacio, los
+           * episodios y los títulos son la misma pregunta —cuánto tengo— y en un
+           * teléfono la frase se partía en dos renglones. La etiqueta se esconde
+           * donde no cabe; el número y el dibujo dicen lo mismo.
+           */
+          <ul className="library__stats">
+            <li className="library__stat">
+              <Library size={18} strokeWidth={2} aria-hidden="true" focusable="false" />
+              <strong className="library__stat-valor">{series.length}</strong>
+              <span className="library__stat-etiqueta">{t(LOCALE, 'library.stat.titles')}</span>
+            </li>
+            <li className="library__stat">
+              <Film size={18} strokeWidth={2} aria-hidden="true" focusable="false" />
+              <strong className="library__stat-valor">{totalEpisodios}</strong>
+              <span className="library__stat-etiqueta">{t(LOCALE, 'library.stat.episodes')}</span>
+            </li>
+            <li className="library__stat">
+              <HardDrive size={18} strokeWidth={2} aria-hidden="true" focusable="false" />
+              <strong className="library__stat-valor">{formatearBytes(totalBytes)}</strong>
+              <span className="library__stat-etiqueta">{t(LOCALE, 'library.stat.size')}</span>
+            </li>
+          </ul>
+        )}
       </header>
 
       {error === undefined ? null : (
@@ -397,7 +447,13 @@ export function LibraryPage(): ReactNode {
                     velocidad={velocidades.get(item.id)}
                     onPause={pause}
                     onResume={resume}
-                    onRemove={remove}
+                    onBorrar={() =>
+                      setBorrado({
+                        tipo: 'descarga',
+                        id: item.id,
+                        etiqueta: item.episodeLabel,
+                      })
+                    }
                   />
                 ))}
               </ul>
@@ -446,31 +502,87 @@ export function LibraryPage(): ReactNode {
                 />
               ))}
             </ul>
-            {activa === undefined ? null : <DetalleSerie serie={activa} onRemove={remove} />}
+            {activa === undefined ? null : (
+              <DetalleSerie
+                serie={activa}
+                onPedirBorrado={(episodio) =>
+                  setBorrado({
+                    tipo: 'descarga',
+                    id: episodio.id,
+                    etiqueta: episodio.episodeLabel,
+                  })
+                }
+              />
+            )}
           </div>
         )}
       </section>
 
       <details className="library__settings" data-tour={ANCLAS.bibliotecaAjustes}>
-        <summary className="library__settings-summary">{t(LOCALE, 'library.settings')}</summary>
+        <summary className="library__settings-summary">
+          <ChevronRight
+            className="library__settings-flecha"
+            size={18}
+            strokeWidth={2}
+            aria-hidden="true"
+            focusable="false"
+          />
+          <HardDrive size={18} strokeWidth={2} aria-hidden="true" focusable="false" />
+          {t(LOCALE, 'library.settings')}
+        </summary>
         <div className="library__settings-body">
           {space === undefined ? null : (
-            <p className="library__space">
-              {t(LOCALE, 'downloads.space', {
-                free: formatearBytes(space.freeBytes),
-                total: formatearBytes(space.totalBytes),
-                used: formatearBytes(space.downloadsBytes),
-              })}
-            </p>
+            <div className="library__space">
+              <div
+                className="library__space-barra"
+                role="progressbar"
+                aria-label={t(LOCALE, 'library.space.label')}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={ocupado}
+              >
+                <span className="library__space-fill" style={{ inlineSize: `${ocupado}%` }} />
+              </div>
+              <p className="library__space-texto">
+                {t(LOCALE, 'downloads.space', {
+                  free: formatearBytes(space.freeBytes),
+                  total: formatearBytes(space.totalBytes),
+                  used: formatearBytes(space.downloadsBytes),
+                })}
+              </p>
+            </div>
           )}
           <DownloadFolder current={space?.path} onSave={setDir} />
           {completas === 0 ? null : (
-            <button type="button" className="button" onClick={() => void cleanup()}>
+            <button
+              type="button"
+              className="button button--destructivo"
+              onClick={() =>
+                setBorrado({ tipo: 'completadas', count: completas, bytes: bytesCompletas })
+              }
+            >
+              <Trash2 size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
               {t(LOCALE, 'downloads.cleanup', { count: String(completas) })}
             </button>
           )}
         </div>
       </details>
+
+      {textoBorrado === undefined ? null : (
+        <Confirmacion
+          open
+          titulo={textoBorrado.titulo}
+          cuerpo={textoBorrado.cuerpo}
+          confirmar={textoBorrado.confirmar}
+          cancelar={t(LOCALE, 'library.delete.cancel')}
+          onCerrar={() => setBorrado(undefined)}
+          onConfirmar={() => {
+            if (borrado === undefined) return
+            if (borrado.tipo === 'completadas') void cleanup()
+            else void remove(borrado.id)
+          }}
+        />
+      )}
     </section>
   )
 }

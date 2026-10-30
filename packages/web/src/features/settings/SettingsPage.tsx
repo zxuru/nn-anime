@@ -14,6 +14,7 @@
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { ExternalLink, TriangleAlert } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
@@ -57,7 +58,7 @@ export function SettingsPage(): ReactNode {
 
   if (state === 'loading') {
     return (
-      <section className="settings" aria-busy="true">
+      <section className="pagina settings" aria-busy="true">
         <h1>{t(DEFAULT_LOCALE, 'settings.title')}</h1>
         <p className="empty">{t(DEFAULT_LOCALE, 'settings.loading')}</p>
       </section>
@@ -66,7 +67,7 @@ export function SettingsPage(): ReactNode {
 
   if (state === 'error' || data === undefined) {
     return (
-      <section className="settings">
+      <section className="pagina settings">
         <h1>{t(DEFAULT_LOCALE, 'settings.title')}</h1>
         <ErrorNotice fallo={error ?? FALLO_SIN_CAUSA} />
       </section>
@@ -74,22 +75,26 @@ export function SettingsPage(): ReactNode {
   }
 
   return (
-    <section className="settings">
+    <section className="pagina settings">
       <h1>{t(DEFAULT_LOCALE, 'settings.title')}</h1>
 
       {/* El aviso va primero a propósito: es lo que hay que leer antes de copiar
           un plugin, no después. */}
       <aside className="settings__warning">
-        <h2>{t(DEFAULT_LOCALE, 'settings.security.title')}</h2>
+        <h2 className="settings__warning-title">
+          <TriangleAlert size={18} strokeWidth={2} aria-hidden="true" focusable="false" />
+          {t(DEFAULT_LOCALE, 'settings.security.title')}
+        </h2>
         <p>{t(DEFAULT_LOCALE, 'settings.security.body')}</p>
         <p>
           <button
             type="button"
-            className="settings__link"
+            className="settings__link settings__link--icono"
             aria-haspopup="dialog"
             onClick={() => setNoticeOpen(true)}
           >
             {t(DEFAULT_LOCALE, 'settings.security.open')}
+            <ExternalLink size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
           </button>
         </p>
       </aside>

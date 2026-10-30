@@ -7,15 +7,17 @@
  * instante y se revierte si el servidor falla, así que el botón nunca miente
  * durante más de lo que tarda la petición.
  *
- * El corazón **se rellena** cuando el título está guardado: el color solo no
+ * La estrella **se rellena** cuando el título está guardado: el color solo no
  * basta —hay quien no distingue el acento del gris—, y el relleno dice el estado
- * sin depender del tono. El nombre accesible lo lleva el `aria-label`, que es
- * además el texto visible en escritorio: en una pantalla estrecha el botón se
- * queda con el dibujo y el rótulo se recorta, no se borra.
+ * sin depender del tono. Es una estrella y no un corazón porque los textos de la
+ * aplicación ya la nombran así («la estrella está en la ficha»). El nombre
+ * accesible lo lleva el `aria-label`, que es además el texto visible en
+ * escritorio: en una pantalla estrecha el botón se queda con el dibujo y el
+ * rótulo se recorta, no se borra.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import { Heart } from 'lucide-react'
+import { Star } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 
@@ -38,7 +40,7 @@ export function FavoriteButton(props: FavoriteButtonProps): ReactNode {
       {...(props.busy === true ? { disabled: true } : {})}
       onClick={props.onToggle}
     >
-      <Heart
+      <Star
         size={18}
         strokeWidth={props.value ? 2.5 : 2}
         // `currentColor` y no un color propio: el dibujo hereda la tinta del

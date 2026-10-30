@@ -172,7 +172,10 @@ describe('lo que enseña la sección', () => {
     )
 
     expect(html).toContain('value="https://github.com/zxuru/nn-anime-plugins"')
-    expect(html).toContain('El repositorio recomendado es')
+    // La sugerencia es un botón que rellena el campo, no un texto que hay que
+    // copiar a mano: el nombre del botón y la dirección que escribe.
+    expect(html).toContain('Usar proveedor predeterminado')
+    expect(html).toContain('settings__sugerencia-url')
   })
 
   test('con un repositorio, el campo no se rellena solo', () => {

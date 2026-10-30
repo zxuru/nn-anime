@@ -27,7 +27,9 @@
 import type { ProviderRepoCandidate, ProviderRepoView } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import { RECOMMENDED_PROVIDER_REPO } from '@nn-anime/core/repos'
+import { Download, Plus, RefreshCw, Save, Trash2 } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
+import { SiGithub } from 'react-icons/si'
 import { describirFallo } from '../../api/fallo'
 import { resumenDeFallo } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
@@ -175,6 +177,7 @@ export function ProviderRepos(props: ProviderReposData): ReactNode {
       <form className="settings__form" onSubmit={onInstall}>
         <div className="field">
           <label className="field__label" htmlFor="repo-url">
+            <SiGithub className="field__marca" size={16} aria-hidden="true" focusable="false" />
             {t(DEFAULT_LOCALE, 'settings.repos.url')}
           </label>
           <input
@@ -186,15 +189,33 @@ export function ProviderRepos(props: ProviderReposData): ReactNode {
           />
           <span className="field__hint">{t(DEFAULT_LOCALE, 'settings.repos.urlHint')}</span>
           {sinRepos ? (
-            <span className="field__hint">
-              {t(DEFAULT_LOCALE, 'settings.repos.recommended', {
-                url: RECOMMENDED_PROVIDER_REPO,
-              })}
-            </span>
+            /*
+             * La dirección recomendada deja de ser un texto que hay que copiar a
+             * mano: es un botón que la escribe. El texto de al lado la enseña
+             * entera, para que se sepa qué se va a descargar antes de pulsar.
+             */
+            <button
+              type="button"
+              className="settings__sugerencia"
+              onClick={() => setEditado(RECOMMENDED_PROVIDER_REPO)}
+            >
+              <Download size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+              {t(DEFAULT_LOCALE, 'settings.repos.useDefault')}
+              <code className="settings__sugerencia-url">{RECOMMENDED_PROVIDER_REPO}</code>
+            </button>
           ) : null}
         </div>
         <div className="settings__actions">
-          <button className="button button--primary" type="submit" disabled={ocupado !== ''}>
+          <button
+            className="button button--primary button--con-icono"
+            type="submit"
+            disabled={ocupado !== ''}
+          >
+            {ocupado === 'install' ? (
+              <RefreshCw size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+            ) : (
+              <Plus size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+            )}
             {ocupado === 'install'
               ? t(DEFAULT_LOCALE, 'settings.repos.installing')
               : t(DEFAULT_LOCALE, 'settings.repos.install')}
@@ -262,7 +283,7 @@ export function ProviderRepos(props: ProviderReposData): ReactNode {
             <div className="settings__actions">
               <button
                 type="button"
-                className="button"
+                className="button button--con-icono"
                 disabled={!cambiado || ocupado !== ''}
                 title={cambiado ? undefined : t(DEFAULT_LOCALE, 'settings.repos.unchanged')}
                 onClick={() => {
@@ -273,6 +294,7 @@ export function ProviderRepos(props: ProviderReposData): ReactNode {
                   })
                 }}
               >
+                <Save size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
                 {ocupado === repo.url
                   ? t(DEFAULT_LOCALE, 'settings.repos.saving')
                   : t(DEFAULT_LOCALE, 'settings.repos.save')}
@@ -280,7 +302,7 @@ export function ProviderRepos(props: ProviderReposData): ReactNode {
 
               <button
                 type="button"
-                className="settings__link"
+                className="settings__link settings__link--icono"
                 disabled={ocupado !== ''}
                 onClick={() => {
                   intentar(repo.url, async () => {
@@ -288,12 +310,13 @@ export function ProviderRepos(props: ProviderReposData): ReactNode {
                   })
                 }}
               >
+                <RefreshCw size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
                 {t(DEFAULT_LOCALE, 'settings.repos.update')}
               </button>
 
               <button
                 type="button"
-                className="settings__link"
+                className="settings__link settings__link--icono settings__link--peligro"
                 disabled={ocupado !== ''}
                 onClick={() => {
                   const pregunta = t(DEFAULT_LOCALE, 'settings.repos.removeConfirm', {
@@ -307,6 +330,7 @@ export function ProviderRepos(props: ProviderReposData): ReactNode {
                   })
                 }}
               >
+                <Trash2 size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
                 {t(DEFAULT_LOCALE, 'settings.repos.remove')}
               </button>
             </div>

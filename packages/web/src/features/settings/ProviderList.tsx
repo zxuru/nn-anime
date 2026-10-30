@@ -10,11 +10,30 @@
  * lista que la tenga—, así que se cambia con dos botones y no arrastrando: el
  * orden tiene que poder cambiarse con teclado. Un rechazado no se mueve ni se
  * marca como preferido: no ofrece nada que elegir.
+ *
+ * **Las capacidades son iconos, no una lista de palabras.** Cinco palabras
+ * separadas por puntos ocupaban un renglón entero y se leían como una frase; el
+ * dibujo dice lo mismo de un vistazo y el `aria-label` conserva el nombre para
+ * quien no lo ve. Los badges llevan su icono por la misma razón: «ANIME»,
+ * «ACTIVO» y «PREFERIDO» se distinguen por la forma además de por el texto.
  */
 
 import type { SettingsResponse } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import { mediaOf } from '@nn-anime/core/media'
+import {
+  Bell,
+  Captions,
+  ChevronDown,
+  ChevronUp,
+  CircleCheck,
+  CircleOff,
+  Languages,
+  Search,
+  Star,
+  TrendingUp,
+  Tv,
+} from 'lucide-react'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 
@@ -45,17 +64,27 @@ export function mediaLabel(provider: Provider): string {
   )
 }
 
-/** Las capacidades, en texto. */
-function capabilitiesOf(provider: Provider): string {
-  const activas: string[] = []
-  if (provider.capabilities.search) activas.push(t(DEFAULT_LOCALE, 'settings.cap.search'))
-  if (provider.capabilities.sub) activas.push(t(DEFAULT_LOCALE, 'settings.cap.sub'))
-  if (provider.capabilities.dub) activas.push(t(DEFAULT_LOCALE, 'settings.cap.dub'))
-  if (provider.capabilities.trending) activas.push(t(DEFAULT_LOCALE, 'settings.cap.trending'))
-  if (provider.capabilities.feed) activas.push(t(DEFAULT_LOCALE, 'settings.cap.feed'))
-
-  return activas.length === 0 ? t(DEFAULT_LOCALE, 'settings.cap.none') : activas.join(' · ')
-}
+/**
+ * Las cinco capacidades, cada una con su dibujo y su clave de texto.
+ *
+ * El orden es el del contrato: primero lo que se puede buscar, después lo que se
+ * puede oír y al final lo que se publica sin preguntar.
+ */
+const CAPACIDADES = [
+  {
+    clave: 'settings.cap.search',
+    icono: Search,
+    activa: (c: Provider['capabilities']) => c.search,
+  },
+  { clave: 'settings.cap.sub', icono: Captions, activa: (c: Provider['capabilities']) => c.sub },
+  { clave: 'settings.cap.dub', icono: Languages, activa: (c: Provider['capabilities']) => c.dub },
+  {
+    clave: 'settings.cap.trending',
+    icono: TrendingUp,
+    activa: (c: Provider['capabilities']) => c.trending,
+  },
+  { clave: 'settings.cap.feed', icono: Bell, activa: (c: Provider['capabilities']) => c.feed },
+] as const
 
 /**
  * Los proveedores en el orden que se enseña: primero los activos según la
@@ -93,6 +122,71 @@ export function moved(order: readonly string[], desde: number, hasta: number): r
   return copia
 }
 
+/** Los badges de un proveedor, cada uno con su dibujo. */
+function Badges(props: { readonly provider: Provider; readonly preferido: boolean }): ReactNode {
+  const activo = props.provider.status === 'active'
+  const IconoEstado = activo ? CircleCheck : CircleOff
+
+  return (
+    <>
+      {activo ? (
+        <span className="badge">
+          <Tv size={12} strokeWidth={2} aria-hidden="true" focusable="false" />
+          {mediaLabel(props.provider)}
+        </span>
+      ) : null}
+      <span className="badge">
+        <IconoEstado size={12} strokeWidth={2} aria-hidden="true" focusable="false" />
+        {activo
+          ? t(DEFAULT_LOCALE, 'settings.provider.active')
+          : t(DEFAULT_LOCALE, 'settings.provider.rejected')}
+      </span>
+      {props.preferido ? (
+        <span className="badge">
+          <Star size={12} strokeWidth={2} aria-hidden="true" focusable="false" />
+          {t(DEFAULT_LOCALE, 'settings.provider.preferred')}
+        </span>
+      ) : null}
+    </>
+  )
+}
+
+/**
+ * Las capacidades activas, en iconos.
+ *
+ * Cada una lleva su nombre en el `aria-label` y en el `title`; el `role="img"` es
+ * lo que hace que un lector de pantalla lo anuncie como una cosa con nombre y no
+ * como un dibujo suelto.
+ */
+function Capabilities(props: { readonly capabilities: Provider['capabilities'] }): ReactNode {
+  const activas = CAPACIDADES.filter((capacidad) => capacidad.activa(props.capabilities))
+
+  if (activas.length === 0) {
+    return <span className="card__meta">{t(DEFAULT_LOCALE, 'settings.cap.none')}</span>
+  }
+
+  return (
+    <span className="settings__caps">
+      {activas.map((capacidad) => {
+        const etiqueta = t(DEFAULT_LOCALE, capacidad.clave)
+        const Icono = capacidad.icono
+
+        return (
+          <span
+            key={capacidad.clave}
+            className="settings__cap"
+            role="img"
+            aria-label={etiqueta}
+            title={etiqueta}
+          >
+            <Icono size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
 export function ProviderList(props: ProviderListProps): ReactNode {
   if (props.providers.length === 0) {
     return <p className="empty">{t(DEFAULT_LOCALE, 'settings.providers.empty')}</p>
@@ -118,44 +212,38 @@ export function ProviderList(props: ProviderListProps): ReactNode {
                   rechazado no se sabe qué sirve —no declaró nada que valga— y
                   enseñar el defecto del contrato sería inventarle una capacidad, que
                   es lo que el motivo del rechazo ya evita. */}
-              {provider.status === 'active' ? (
-                <span className="badge">{mediaLabel(provider)}</span>
-              ) : null}
-              <span className="badge">
-                {provider.status === 'active'
-                  ? t(DEFAULT_LOCALE, 'settings.provider.active')
-                  : t(DEFAULT_LOCALE, 'settings.provider.rejected')}
-              </span>
-              {puesto === 0 ? (
-                <span className="badge">{t(DEFAULT_LOCALE, 'settings.provider.preferred')}</span>
-              ) : null}
-              <span className="card__meta">{capabilitiesOf(provider)}</span>
+              <Badges provider={provider} preferido={puesto === 0} />
+              {/* También en un rechazado: «sin capacidades» es justo lo que
+                  explica por qué no sirve, y esconderlo dejaba el motivo solo. */}
+              <Capabilities capabilities={provider.capabilities} />
               {provider.reason === undefined ? null : (
                 <span className="search__error">{provider.reason}</span>
               )}
               {puesto === -1 || !reordenable ? null : (
-                <span>
+                <span className="settings__order">
                   <button
                     type="button"
-                    className="settings__link"
+                    className="settings__order-boton"
                     disabled={puesto === 0}
                     aria-label={t(DEFAULT_LOCALE, 'settings.priority.up', {
                       provider: provider.name,
                     })}
+                    title={t(DEFAULT_LOCALE, 'settings.priority.up', { provider: provider.name })}
                     onClick={() => props.onReorder?.(moved(activos, puesto, puesto - 1))}
                   >
-                    {t(DEFAULT_LOCALE, 'settings.priority.moveUp')}
+                    <ChevronUp size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
                   </button>
                   <button
                     type="button"
-                    className="settings__link"
+                    className="settings__order-boton"
                     disabled={puesto === activos.length - 1}
                     aria-label={t(DEFAULT_LOCALE, 'settings.priority.down', {
                       provider: provider.name,
                     })}
+                    title={t(DEFAULT_LOCALE, 'settings.priority.down', { provider: provider.name })}
                     onClick={() => props.onReorder?.(moved(activos, puesto, puesto + 1))}
                   >
-                    {t(DEFAULT_LOCALE, 'settings.priority.moveDown')}
+                    <ChevronDown size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
                   </button>
                 </span>
               )}

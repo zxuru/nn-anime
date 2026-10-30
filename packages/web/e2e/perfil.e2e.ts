@@ -31,7 +31,7 @@ test.describe('el Perfil', () => {
     await expect(page).toHaveURL(/\/profile$/)
     // Las cuatro secciones, por su titular: favoritos, vistos, pendientes e historial.
     for (const titulo of ['Favoritos', 'Ya vistos', 'Quiero ver', 'Historial']) {
-      await expect(page.locator('.nota__titulo', { hasText: titulo })).toBeVisible()
+      await expect(page.locator('.pagina__titulo', { hasText: titulo })).toBeVisible()
     }
   })
 
@@ -41,7 +41,7 @@ test.describe('el Perfil', () => {
 
     // El vacío de «Quiero ver» dice dónde se marca: un «no hay nada» a secas deja al
     // usuario buscando el botón por toda la aplicación.
-    const seccion = page.locator('.seccion', { hasText: 'Quiero ver' })
+    const seccion = page.locator('.pagina__seccion', { hasText: 'Quiero ver' })
 
     /*
       Lo que se comprueba es que **no hay tarjetas**: el vacío se dice en un renglón
@@ -92,7 +92,7 @@ test.describe('quiero ver, de la ficha al Perfil', () => {
     // Y en el Perfil, que es donde se concentra: la sección lo enseña por su título.
     await page.goto('/profile')
 
-    const seccion = page.locator('.seccion', { hasText: 'Quiero ver' })
+    const seccion = page.locator('.pagina__seccion', { hasText: 'Quiero ver' })
 
     await expect(seccion.locator('.pz__titulo', { hasText: 'Aurora Nocturna' })).toBeVisible()
 
@@ -140,7 +140,7 @@ test.describe('el Historial, desde el Perfil', () => {
 
     await page.goto('/profile')
 
-    const enlace = page.locator('.perfil__enlace a', { hasText: 'Ver todo el historial' })
+    const enlace = page.locator('.pagina__ver', { hasText: 'Ver todo el historial' })
 
     await expect(enlace).toBeVisible()
     await enlace.click()
@@ -167,10 +167,10 @@ test.describe('el Historial, desde el Perfil', () => {
 /**
  * La disposición, que es lo que ninguna prueba de marcado ve.
  *
- * Las dos pantallas usan la misma rejilla de secciones que la vitrina, y esa rejilla
- * tiene su propio margen lateral dentro de una caja que ya tiene relleno: dos anchos
- * que se suman y pueden sacar una barra horizontal. Una pantalla con desplazamiento
- * lateral en un teléfono se lee fatal, y se mide a 360 px, que es donde se rompe.
+ * Las dos pantallas comparten el contenedor de página, y su margen lateral lo pone
+ * la caja de la aplicación. Lo que se mide es que no se sume otro: una pantalla con
+ * desplazamiento lateral en un teléfono se lee fatal, y se mide a 360 px, que es
+ * donde se rompe.
  */
 test.describe('la disposición de las dos pantallas', () => {
   test('en 360 px el Perfil no tiene desplazamiento horizontal', async ({ page }) => {
@@ -178,7 +178,7 @@ test.describe('la disposición de las dos pantallas', () => {
     await entrar(page)
     await page.goto('/profile')
 
-    await expect(page.locator('.nota__titulo', { hasText: 'Favoritos' })).toBeVisible()
+    await expect(page.locator('.pagina__titulo', { hasText: 'Favoritos' })).toBeVisible()
 
     const desborde = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

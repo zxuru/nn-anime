@@ -6,26 +6,35 @@
  * «¿qué he hecho yo aquí?», y por eso no enseña nada que el usuario no haya marcado
  * o reproducido: el catálogo tiene la vitrina y la búsqueda.
  *
- * **Cada sección vacía se explica, no se esconde.** Esconderla deja al usuario con
- * una página que cambia de forma sin motivo y sin saber que existe una función que
- * no está usando; el vacío dice **dónde** se marca, que es lo que un botón de
- * «no hay nada» nunca cuenta.
+ * **La página es una lista de secciones, no un tramo de la vitrina.** Antes usaba
+ * la rejilla de la home —titular al margen, cuerpo desplazado—, y de ahí salían
+ * las dos cosas que se veían mal: el título de la página no caía en el mismo eje
+ * que las secciones y el enlace al historial se quedaba en una columna estrecha,
+ * partido en una palabra por línea. Aquí todas las secciones comparten el mismo
+ * contenedor y la misma cabecera: título y dibujo a la izquierda, cuenta y enlace
+ * a la derecha.
+ *
+ * **Cada sección vacía se explica en una tarjeta, no se esconde.** Esconderla deja
+ * al usuario con una página que cambia de forma sin motivo y sin saber que existe
+ * una función que no está usando; el vacío dice **dónde** se marca, que es lo que
+ * un botón de «no hay nada» nunca cuenta.
  *
  * El historial va **recortado** y con un enlace a su pantalla: aquí es un resumen y
- * quien pagina es `HistoryPage`. El enlace sólo se pinta cuando queda algo detrás
- * —lo dice `hasMore`— o cuando ya hay algo que ver.
+ * quien pagina es `HistoryPage`. Sus tarjetas son las mismas que las de la home
+ * —`Pieza`, con barra de progreso y episodio—, no una miniatura aparte.
  */
 
 import type { WatchHistoryItem } from '@nn-anime/core/api'
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { AnimeSummary } from '@nn-anime/core/models'
+import { ArrowRight, Bookmark, CircleCheck, History, type LucideIcon, Star } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
+import { EstadoVacio } from '../../components/EstadoVacio'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
-import { SectionHeader } from '../../components/SectionHeader'
-import { TramoVacio } from '../../components/TramoVacio'
+import { SeccionPagina } from '../../components/SeccionPagina'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { ANCLAS } from '../guia/guia'
@@ -41,50 +50,52 @@ function fichaDe(summary: AnimeSummary): string {
 /**
  * Una sección de tarjetas.
  *
- * Las tres marcas del usuario se pintan igual —título, cuenta, rejilla y su vacío—,
- * así que la mecánica vive una sola vez y lo que cambia es el texto. Con tres copias,
- * la tercera se olvidaría de la cuenta o del estado vacío.
+ * Las tres marcas del usuario se pintan igual —título, cuenta, rejilla y su
+ * vacío—, así que la mecánica vive una sola vez y lo que cambia es el texto. Con
+ * tres copias, la tercera se olvidaría de la cuenta o del estado vacío.
  */
-function Seccion(props: {
+function SeccionResumen(props: {
   readonly titulo: string
+  readonly icono: LucideIcon
   readonly meta: string
-  readonly vacio: string
+  readonly vacioTitulo: string
+  readonly vacioAyuda: string
   readonly items: readonly AnimeSummary[]
   readonly dataTour?: string
 }): ReactNode {
-  return (
-    <section className="seccion" data-tour={props.dataTour}>
-      <SectionHeader
-        title={props.titulo}
-        meta={props.meta}
-        {...(props.items.length === 0 ? {} : { cuenta: cuentaDeTitulos(props.items.length) })}
-      />
+  const vacia = props.items.length === 0
 
-      <div className="seccion__cuerpo">
-        <Mosaico>
-          {props.items.length === 0 ? (
-            <TramoVacio texto={props.vacio} />
-          ) : (
-            props.items.map((item, indice) => (
-              <Pieza
-                key={`${item.ref.providerId}:${item.ref.value}`}
-                providerId={item.ref.providerId}
-                ref={item.ref.value}
-                title={item.title}
-                to={fichaDe(item)}
-                recurso={recursoDe(indice)}
-                meta={
-                  item.year === undefined
-                    ? undefined
-                    : t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year })
-                }
-                apagada
-              />
-            ))
-          )}
+  return (
+    <SeccionPagina
+      titulo={props.titulo}
+      icono={props.icono}
+      meta={props.meta}
+      cuenta={cuentaDeTitulos(props.items.length)}
+      {...(props.dataTour === undefined ? {} : { dataTour: props.dataTour })}
+    >
+      {vacia ? (
+        <EstadoVacio icono={props.icono} titulo={props.vacioTitulo} ayuda={props.vacioAyuda} />
+      ) : (
+        <Mosaico className="mosaico--carrusel">
+          {props.items.map((item, indice) => (
+            <Pieza
+              key={`${item.ref.providerId}:${item.ref.value}`}
+              providerId={item.ref.providerId}
+              ref={item.ref.value}
+              title={item.title}
+              to={fichaDe(item)}
+              recurso={recursoDe(indice)}
+              meta={
+                item.year === undefined
+                  ? undefined
+                  : t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year })
+              }
+              apagada
+            />
+          ))}
         </Mosaico>
-      </div>
-    </section>
+      )}
+    </SeccionPagina>
   )
 }
 
@@ -126,6 +137,19 @@ export function PiezaDeHistorial(props: {
   )
 }
 
+/** El enlace al historial: texto que se acorta y la flecha al final. */
+function VerTodo(): ReactNode {
+  const largo = t(DEFAULT_LOCALE, 'profile.history.all')
+
+  return (
+    <Link className="pagina__ver" to="/history" ariaLabel={largo}>
+      <span className="pagina__ver-largo">{largo}</span>
+      <span className="pagina__ver-corto">{t(DEFAULT_LOCALE, 'profile.history.allShort')}</span>
+      <ArrowRight size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+    </Link>
+  )
+}
+
 function Esqueleto(): ReactNode {
   return (
     <section aria-busy="true">
@@ -149,62 +173,63 @@ export function ProfilePage(): ReactNode {
   const historial = data.history
 
   return (
-    <article className="perfil">
+    <article className="pagina perfil">
       <h1>{t(DEFAULT_LOCALE, 'profile.title')}</h1>
 
-      <Seccion
+      <SeccionResumen
         titulo={t(DEFAULT_LOCALE, 'profile.favorites')}
+        icono={Star}
         meta={t(DEFAULT_LOCALE, 'profile.favorites.meta')}
-        vacio={t(DEFAULT_LOCALE, 'profile.favorites.empty')}
+        vacioTitulo={t(DEFAULT_LOCALE, 'profile.favorites.empty.title')}
+        vacioAyuda={t(DEFAULT_LOCALE, 'profile.favorites.empty')}
         items={data.favorites}
         dataTour={ANCLAS.perfilListas}
       />
 
-      <Seccion
+      <SeccionResumen
         titulo={t(DEFAULT_LOCALE, 'profile.watched')}
+        icono={CircleCheck}
         meta={t(DEFAULT_LOCALE, 'profile.watched.meta')}
-        vacio={t(DEFAULT_LOCALE, 'profile.watched.empty')}
+        vacioTitulo={t(DEFAULT_LOCALE, 'profile.watched.empty.title')}
+        vacioAyuda={t(DEFAULT_LOCALE, 'profile.watched.empty')}
         items={data.watched}
       />
 
-      <Seccion
+      <SeccionResumen
         titulo={t(DEFAULT_LOCALE, 'profile.planToWatch')}
+        icono={Bookmark}
         meta={t(DEFAULT_LOCALE, 'profile.planToWatch.meta')}
-        vacio={t(DEFAULT_LOCALE, 'profile.planToWatch.empty')}
+        vacioTitulo={t(DEFAULT_LOCALE, 'profile.planToWatch.empty.title')}
+        vacioAyuda={t(DEFAULT_LOCALE, 'profile.planToWatch.empty')}
         items={data.planToWatch}
       />
 
-      <section className="seccion" data-tour={ANCLAS.perfilHistorial}>
-        <SectionHeader
-          title={t(DEFAULT_LOCALE, 'profile.history')}
-          meta={t(DEFAULT_LOCALE, 'profile.history.meta')}
-          {...(historial.items.length === 0
-            ? {}
-            : { cuenta: cuentaDeTitulos(historial.items.length) })}
-        />
-
-        <div className="seccion__cuerpo">
-          <Mosaico>
-            {historial.items.length === 0 ? (
-              // El vacío del historial no lleva enlace: sin nada reproducido no hay
-              // nada que ver «todo», y ofrecerlo llevaría a una pantalla vacía.
-              <TramoVacio texto={t(DEFAULT_LOCALE, 'profile.history.empty')} />
-            ) : (
-              historial.items.map((item, indice) => (
-                // La clave es la fila del visionado y no la referencia: el mismo
-                // episodio puede salir dos veces, porque el historial no agrupa.
-                <PiezaDeHistorial key={item.id} item={item} indice={indice} />
-              ))
-            )}
+      <SeccionPagina
+        titulo={t(DEFAULT_LOCALE, 'profile.history')}
+        icono={History}
+        meta={t(DEFAULT_LOCALE, 'profile.history.meta')}
+        cuenta={cuentaDeTitulos(historial.items.length)}
+        {...(historial.items.length === 0 ? {} : { accion: <VerTodo /> })}
+        dataTour={ANCLAS.perfilHistorial}
+      >
+        {historial.items.length === 0 ? (
+          // El vacío del historial no lleva enlace: sin nada reproducido no hay
+          // nada que ver «todo», y ofrecerlo llevaría a una pantalla vacía.
+          <EstadoVacio
+            icono={History}
+            titulo={t(DEFAULT_LOCALE, 'profile.history.empty.title')}
+            ayuda={t(DEFAULT_LOCALE, 'profile.history.empty')}
+          />
+        ) : (
+          <Mosaico className="mosaico--carrusel">
+            {historial.items.map((item, indice) => (
+              // La clave es la fila del visionado y no la referencia: el mismo
+              // episodio puede salir dos veces, porque el historial no agrupa.
+              <PiezaDeHistorial key={item.id} item={item} indice={indice} />
+            ))}
           </Mosaico>
-        </div>
-
-        {historial.items.length === 0 ? null : (
-          <p className="perfil__enlace">
-            <Link to="/history">{t(DEFAULT_LOCALE, 'profile.history.all')}</Link>
-          </p>
         )}
-      </section>
+      </SeccionPagina>
     </article>
   )
 }

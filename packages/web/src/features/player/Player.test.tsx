@@ -252,8 +252,13 @@ describe('el reproductor', () => {
   test('la URL que recibe es la del proxy, no una del upstream', () => {
     const html = render(<Player url="/stream/abc" kind="file" />)
 
-    expect(html).not.toContain('http://')
-    expect(html).not.toContain('https://')
+    // Desde que los mandos son de lucide, cada `<svg>` trae su `xmlns`: es el
+    // único http(s) que puede aparecer. Se quita y se mira el resto —una
+    // dirección del proveedor en el medio seguiría haciendo fallar la prueba—.
+    const sinEspacioDeNombres = html.replaceAll('http://www.w3.org/2000/svg', '')
+
+    expect(sinEspacioDeNombres).not.toContain('http://')
+    expect(sinEspacioDeNombres).not.toContain('https://')
   })
 
   test('la biblioteca se carga de forma diferida, no en el paquete inicial', async () => {
