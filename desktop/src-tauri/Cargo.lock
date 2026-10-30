@@ -2321,7 +2321,7 @@ dependencies = [
 
 [[package]]
 name = "nn-anime-desktop"
-version = "0.6.0" # x-release-please-version
+version = "0.7.0" # x-release-please-version
 dependencies = [
  "base64 0.23.1",
  "libc",

@@ -7,6 +7,36 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.7.0](https://github.com/zxuru/nn-anime/compare/v0.6.0...v0.7.0) (2026-10-30)
+
+
+### Features
+
+* **media-proxy:** buscar ffmpeg donde esta de verdad (T200) ([ef237ed](https://github.com/zxuru/nn-anime/commit/ef237ed409a3260d54e60c47f72ac037f8ae4ebe))
+* **media-proxy:** el progreso del HLS con total estimado (T198) ([393bb39](https://github.com/zxuru/nn-anime/commit/393bb39f96ea5f856dc0ddc05d7555d2c3c35c70))
+* **media-proxy:** el remux a MP4 sin ffmpeg, con mux.js (T202) ([339a631](https://github.com/zxuru/nn-anime/commit/339a6311e23c3593f0a50798b55329fe44c1f6fd))
+* **recsys:** la popularidad no explica una recomendación (T209) ([e34f5b8](https://github.com/zxuru/nn-anime/commit/e34f5b8398f0f7fa9b4c49c116682fc4d4688aeb))
+* **server:** apuntar la serie entera desde la ficha (T204) ([9d5b161](https://github.com/zxuru/nn-anime/commit/9d5b16158e0fe40f4c9c96281960749c669fe004))
+* **server:** convertir con mux.js cuando no hay ffmpeg (T202) ([3325f9d](https://github.com/zxuru/nn-anime/commit/3325f9d74672626262bc6b58004e92e6301b1196))
+* **server:** convertir en MP4 una descarga en segmentos (T200) ([2e3f300](https://github.com/zxuru/nn-anime/commit/2e3f3005e2c2e0e0e0be4c68e20206c82e56d8be))
+* **web:** el aviso y el boton de convertir a MP4 (T200) ([01de69c](https://github.com/zxuru/nn-anime/commit/01de69c07e4c9bc30a48dc633e83fd2b58d3fb1a))
+* **web:** iconos y arreglos visuales en biblioteca, perfil y ajustes (T208) ([91a7655](https://github.com/zxuru/nn-anime/commit/91a765509f661e5bec7a82a4ec5549ea1368ec76))
+* **web:** la carga de la ficha con esqueleto, adelanto y estados de error (T210) ([6a126a1](https://github.com/zxuru/nn-anime/commit/6a126a1223139ccc10f6f2079a6ec9bebe80ee2b))
+* **web:** la cola de descargas, delante y colapsable (T205) ([1ad13fc](https://github.com/zxuru/nn-anime/commit/1ad13fc9d725f04881fb19207342a291beef729c))
+* **web:** la guía de primeros pasos y los avisos de novedad (T201) ([bc7e4d1](https://github.com/zxuru/nn-anime/commit/bc7e4d18e51024160cc9ccc43e958852114871f7))
+* **web:** la librería de iconos y la barra del móvil (T207) ([509b676](https://github.com/zxuru/nn-anime/commit/509b676c8ca4679442927ee390283a13721b94b0))
+* **web:** la serie entera en el reproductor de la biblioteca (T206) ([02fbfa9](https://github.com/zxuru/nn-anime/commit/02fbfa9d443cc9d26501060833f6e604ec3f90fa))
+* **web:** un recorrido por pantalla en la guía (T203) ([1d88a56](https://github.com/zxuru/nn-anime/commit/1d88a5659eec73d5b10d7639f1d6fec916672247))
+
+
+### Bug Fixes
+
+* **e2e:** la banda se mide en la ficha cargada, no en el esqueleto ([de51746](https://github.com/zxuru/nn-anime/commit/de517463151b0eaa03ee835c56215d3cdf99e67e))
+* **server:** la descarga sin ffmpeg se reproduce y dice que es segmentos (T199) ([f0606a8](https://github.com/zxuru/nn-anime/commit/f0606a8a9271265c54e3862c1400651caa19ccf1))
+* **web:** el cierre de la guía deja memoria y el salto busca su rótulo (T213) ([00cd535](https://github.com/zxuru/nn-anime/commit/00cd535aac52139410f317cbe5c8186a61eff737))
+* **web:** la búsqueda que abre una ficha deja el rastro (T211) ([e5eff5b](https://github.com/zxuru/nn-anime/commit/e5eff5b8b35cf24ed1973cb76808d839cbe98902))
+* **web:** la ficha fría carga sus adornos sin recargar (T212) ([1fbec92](https://github.com/zxuru/nn-anime/commit/1fbec926bb28e6245bccf89f029d6136047c141e))
+
 ## [0.6.0](https://github.com/zxuru/nn-anime/compare/v0.5.0...v0.6.0) (2026-10-29)
 
 
