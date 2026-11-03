@@ -171,6 +171,26 @@ lo sostienen son cuatro:
 
 La guía de despliegue, con Caddy y los volúmenes, está en [docs/docker.md](docs/docker.md).
 
+## Watch party (fase 3, previsto; no implementado)
+
+Esta sección describe una superficie que **todavía no existe**. El contrato propuesto está en
+[docs/specs/SPEC-watch-party.md](docs/specs/SPEC-watch-party.md) y no se escribe código hasta que el
+humano lo apruebe y abra la fase 3. Se deja aquí para que el modelo de amenaza no llegue después que
+el código.
+
+- **Qué abrirá:** una sala en la instancia del anfitrión, sólo si la función está habilitada
+  (`NN_ANIME_PARTY`), con una credencial de sala independiente de la sesión de la app. El token del
+  modo servidor no sirve como credencial de invitado y la credencial de invitado no abre `/api/*`.
+- **Qué no hará:** no comparte vídeo, ni tickets del proxy, ni URLs de stream; no hay cuentas, ni
+  servidor central, ni telemetría; la sala vive en memoria y no se escribe en SQLite ni en un log.
+- **Riesgo residual que se declarará al implementarlo:** la IP de los pares es visible en el modo
+  P2P; en LAN sin TLS el código y el estado viajan sin cifrar; el código de sala es una credencial
+  bearer sin identidad; sin TURN no hay garantía de conexión directa; la deriva depende del reloj del
+  anfitrión; el rate limit es de la sala, no global.
+- **Cambio de texto pendiente:** «No descarga torrents ni usa protocolos de pares» dejará de ser
+  cierto cuando exista el modo P2P. La frase pasará a: «No descarga torrents. El watch party P2P sólo
+  sincroniza estado de reproducción entre pares; no comparte vídeo ni archivos.»
+
 ## Qué no hace esta aplicación
 
 - No descarga torrents ni usa protocolos de pares.
