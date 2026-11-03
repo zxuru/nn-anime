@@ -886,6 +886,84 @@ export const messages: Messages = {
   'guia.ajustes.secciones': 'Repetir un tutorial',
   'guia.ajustes.avisos': 'Mostrar los avisos otra vez',
 
+  /*
+   * La sala de visionado.
+   *
+   * Sólo se comparte estado: qué se ve y por dónde va. Los textos no prometen
+   * vídeo compartido y lo dejan dicho en el aviso de privacidad, que es la
+   * promesa que la sala no puede romper. El tono es el del resto: directo, sin
+   * vender nada.
+   */
+  'party.open': 'Ver juntos',
+  'party.bar.title': 'En sala',
+  'party.bar.movie': 'Película',
+  'party.bar.episode': 'Episodio {episode}',
+  'party.bar.episodeSeason': 'Temporada {season} · Episodio {episode}',
+  'party.bar.hostControls': 'El anfitrión controla la reproducción.',
+  'party.bar.sync.ok': 'Sincronizado',
+  'party.bar.sync.adjusting': 'Ajustando',
+  'party.bar.sync.drift': 'Desincronizado',
+  'party.bar.sync.unknown': 'Midiendo…',
+  'party.bar.drift': '{seconds} s de desfase',
+  'party.bar.connecting': 'Conectando con la sala…',
+  'party.bar.hostReady': 'Coordinando la sala.',
+  'party.bar.guestReady': 'Conectado a la sala.',
+  'party.bar.error': 'Sin conexión con la sala.',
+  'party.bar.closed': 'Sala cerrada.',
+  'party.panel.title': 'Sala de visionado',
+  'party.panel.close': 'Cerrar',
+  'party.panel.tab.host': 'Crear sala',
+  'party.panel.tab.guest': 'Unirse',
+  'party.panel.hostIntro':
+    'Abre una sala en esta instancia y pasa el código a quien vaya a verla contigo.',
+  'party.panel.hostWarning':
+    'Esto abre un puerto en tu red local mientras dure la sala. Sin TLS, el código viaja sin cifrar. Cierra la sala al terminar.',
+  'party.panel.privacy':
+    'Sólo se comparte qué se está viendo y por dónde va: nunca el vídeo, el ticket ni la dirección de la fuente. Cada uno reproduce desde su instancia.',
+  'party.panel.noMedia':
+    'Para abrir una sala hay que estar viendo un episodio. Espera a que cargue y vuelve a abrir este panel.',
+  'party.panel.create': 'Crear sala',
+  'party.panel.creating': 'Creando…',
+  'party.panel.joinIntro': 'Escribe la dirección del anfitrión y el código que te dio.',
+  'party.panel.address': 'Dirección del anfitrión',
+  'party.panel.addressHint': '192.168.1.5:7717',
+  'party.panel.code': 'Código de la sala',
+  'party.panel.codeHint': 'XXXX-XXXX-XXXX-XXXX',
+  'party.panel.name': 'Tu nombre',
+  'party.panel.nameHint': 'Cómo te verán en la sala',
+  'party.panel.join': 'Unirse',
+  'party.panel.joining': 'Entrando…',
+  'party.panel.roomCode': 'Código',
+  'party.panel.copy': 'Copiar',
+  'party.panel.copyCode': 'Copiar el código',
+  'party.panel.copyUrl': 'Copiar la dirección {url}',
+  'party.panel.copied': 'Copiado.',
+  'party.panel.copyFailed': 'No se pudo copiar. Selecciona el texto a mano.',
+  'party.panel.addresses': 'Direcciones para invitar',
+  'party.panel.noUrls':
+    'No se pudieron leer las direcciones de esta instancia. Usa la que aparece en la barra del navegador.',
+  'party.panel.roster': 'En la sala',
+  'party.panel.leave': 'Salir de la sala',
+  'party.panel.closeRoom': 'Cerrar la sala',
+  'party.roster.ready': 'listo',
+  'party.roster.buffering': 'almacenando',
+  'party.roster.waiting': 'conectando',
+  'party.error.address': 'La dirección del anfitrión no vale. Escribe algo como 192.168.1.5:7717.',
+  'party.error.code': 'El código no vale: son dieciséis caracteres, en grupos de cuatro.',
+  'party.error.name': 'Escribe un nombre para que te vean en la sala.',
+  'party.error.unauthorized':
+    'La sesión de este navegador no vale. Entra por la dirección de arranque.',
+  'party.error.notFound': 'Esa sala no existe o el código no es el suyo.',
+  'party.error.full': 'La sala está llena.',
+  'party.error.rateLimited': 'Demasiados intentos. Espera un minuto y vuelve a probar.',
+  'party.error.hostUnreachable':
+    'No se pudo hablar con el anfitrión. Comprueba que siga abierto y en la misma red.',
+  'party.error.network': 'No se pudo hablar con el servidor local.',
+  'party.error.shape': 'El servidor contestó algo que la interfaz no entiende.',
+  'party.error.server': 'El servidor no pudo completar la operación.',
+  'party.error.roomClosed': 'La sala se cerró.',
+  'party.error.generic': 'Algo falló en la sala.',
+
   'notFound.title': 'Esa ruta no existe',
   'notFound.body': 'La dirección {path} no corresponde a ninguna pantalla.',
   'notFound.back': 'Volver al inicio',

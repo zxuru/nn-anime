@@ -33,6 +33,8 @@ import { originGuard } from './middleware/origin-guard'
 import { securityHeaders } from './middleware/security-headers'
 import { sessionGuard } from './middleware/session-guard'
 import { tokenGuard } from './middleware/token-guard'
+import { type PartyFetch, registerRemotePartyRoutes } from './party/remote'
+import { registerPartyRoutes } from './party/routes'
 import { PROTECTED_PREFIXES } from './paths'
 import { createProviderHub } from './provider-hub'
 import { acotarAProveedoresActivos } from './provider-scope'
@@ -81,6 +83,18 @@ export interface NetworkPolicy {
 /** Reexportado para no obligar a nadie a saber de qué archivo sale. */
 export type { ProviderSummary } from '@nn-anime/core'
 
+/** Configuración del watch party. Apagado salvo que el arranque lo encienda. */
+export interface PartyOptions {
+  readonly enabled: boolean
+  /** Reloj monótono del coordinador; en pruebas, de mentira. */
+  readonly now?: () => number
+  readonly ttlMs?: number
+  /** Direcciones que se enseñan al anfitrión; en pruebas, fijas. */
+  readonly urls?: (port: number) => string[]
+  /** `fetch` que usa el invitado para hablar con el anfitrión; inyectable. */
+  readonly fetchImpl?: PartyFetch
+}
+
 export interface AppOptions {
   readonly port: PortSource
   /**
@@ -100,6 +114,11 @@ export interface AppOptions {
   readonly locked?: boolean
   /** Token de un solo uso que el CLI pone en la URL de arranque. */
   readonly bootToken: string
+  /**
+   * Watch party. Apagado por defecto: sin `NN_ANIME_PARTY=1` las rutas de sala
+   * no existen y una petición a ellas es un 404, no un 401.
+   */
+  readonly party?: PartyOptions
   /** Ruta local a la que ir tras canjear el token. Por defecto, `/`. */
   readonly redirectTo?: string
   readonly version: string
@@ -257,6 +276,21 @@ export function createApp(options: AppOptions): Hono {
     return c.json({ status: 'ok' })
   })
 
+  // La sala se monta **antes** que los guards de `/api/*` a propósito: su
+  // credencial es la de la sala, no la cookie de la aplicación, y sus rutas
+  // traen su propio guard y su propio CORS. El guard de `Host`, las cabeceras de
+  // seguridad y el tope de cuerpo sí la cubren, porque van sobre `*` o los pone
+  // Bun antes del manejador.
+  if (options.party?.enabled === true) {
+    registerPartyRoutes(app, {
+      session,
+      getPort,
+      ...(options.party.now === undefined ? {} : { now: options.party.now }),
+      ...(options.party.ttlMs === undefined ? {} : { ttlMs: options.party.ttlMs }),
+      ...(options.party.urls === undefined ? {} : { urls: options.party.urls }),
+    })
+  }
+
   // El modo servidor protege **todo**, estáticos incluidos; el modo local sigue
   // protegiendo sólo la API y el stream. Ver `token-guard.ts`.
   if (options.auth !== undefined) {
@@ -295,6 +329,15 @@ export function createApp(options: AppOptions): Hono {
         ...(options.bootstrapClock === undefined ? {} : { now: options.bootstrapClock }),
       }),
     )
+  }
+
+  // La pestaña del invitado habla con su **propio** servidor, que es quien sale
+  // a la sala del anfitrión. Estas rutas sí llevan el guard de sesión normal, y
+  // van después de él por eso.
+  if (options.party?.enabled === true) {
+    registerRemotePartyRoutes(app, {
+      ...(options.party.fetchImpl === undefined ? {} : { fetchImpl: options.party.fetchImpl }),
+    })
   }
 
   // El registro es vivo: las rutas que vienen debajo reciben estas referencias y

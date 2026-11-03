@@ -1,9 +1,9 @@
 # Especificación · `watch-party`: sala de visionado sincronizada
 
 **Estado:** propuesta de contrato para la tarea **3.1** de `docs/roadmap.md`, pedida por el humano.
-No es todavía un contrato vigente: el humano la aprueba, la devuelve o la descarta, y **no se escribe
-código** hasta que la apruebe y abra la fase 3. La fase 3 sigue sin abrir y la decisión **D3**
-(transporte remoto) sigue abierta; este documento propone cómo cerrarla con una medición.
+La primera entrega está implementada en la rama `feat/watch-party`; falta la revisión humana y la
+aprobación de la enmienda de `CAPABILITY-MAP.md`. La decisión **D3** (transporte remoto) sigue
+abierta: el modo P2P no está implementado.
 
 **Módulo nuevo:** `watch-party`. **Depende de:** `core` (protocolo y máquina de estados), `server`
 (coordinador LAN), `web-ui` (interfaz y transporte P2P), `catalog-store` (sólo lectura, para
@@ -15,6 +15,20 @@ edita el mapa todavía):
 | Module id | Responsabilidad | Depende de | Cuándo |
 |---|---|---|---|
 | `watch-party` | Salas de visionado sincronizado: protocolo de estado, coordinador LAN (SSE) y transporte P2P WebRTC con señalización manual. Nunca comparte vídeo, tickets ni URLs | `core`, `server`, `web-ui`, `catalog-store` (lectura) | fase 3, después de aprobar este spec |
+
+## 0. Nota de implementación
+
+La primera entrega cambia una pieza del diseño original: **la pestaña del invitado no habla con el
+servidor del anfitrión**. Lo hace el servidor de su propia instancia, que recibe el token de sala y
+habla con el anfitrión; la pestaña sólo consume su mismo origen. El motivo es concreto: el CSP del
+proyecto es `connect-src 'self'`, y abrirlo a la LAN —o añadir CORS con credenciales— habría
+debilitado una mitigación de XSS para una función experimental. Con el relevo en el servidor no hay
+CORS nuevo, ni cookies de terceros, ni token en el navegador.
+
+Implementado: protocolo y corrección de deriva en `core` (3.2), coordinador LAN y credencial de sala
+(3.3), interfaz de sala (3.5) y el invitado desde su servidor. Pendiente: el modo P2P de 3.4
+(decisión D3), la coincidencia de contenido (3.6), «esperar a todos» y el control compartido. Las
+secciones 6, 7.1 y 11 se leen con esa corrección.
 
 ## 1. Qué es y qué no es
 
@@ -144,22 +158,23 @@ Reglas:
 - **Crear:** el anfitrión, desde su sesión local, pide una sala. El servidor genera `roomId` (128
   bits, base32) y `code` (80 bits, base32 de 16 caracteres en grupos de 4). `roomId` no es secreto
   (viaja en la ruta); `code` sí.
-- **Unirse (LAN):** el invitado, desde **su** instancia, introduce `host:port` y el `code`. Su
-  navegador hace `POST /api/party/rooms/:roomId/join` al anfitrión y recibe un **token bearer** de 32
-  bytes. El servidor guarda sólo su SHA-256 en memoria.
+- **Unirse (LAN):** el invitado, desde **su** instancia, introduce `host:port` y el `code`. El
+  **servidor** de su instancia hace `POST /api/party/join` al del anfitrión, recibe un token de 32
+  bytes y lo guarda en memoria; el anfitrión guarda su SHA-256. La pestaña del invitado nunca ve el
+  token: habla con su propio servidor, que le reenvía el estado.
 - **Credencial separada de la sesión de la app.** El token del modo servidor **no** sirve como
   credencial de invitado y el token de invitado **no** abre `/api/*`. Sin separación, invitar a
-  alguien sería darle el historial, los ajustes y las descargas del anfitrión. `partyGuard` es un
-  guard aparte, montado sólo bajo `/api/party/*`; `sessionGuard` y `tokenGuard` siguen cubriendo el
-  resto. La tabla de rutas protegidas se amplía para que ninguna ruta nueva escape.
-- **El token no es ambient auth.** Viaja en `Authorization: Bearer`, nunca en una cookie (evita las
-  cookies de terceros y el CSRF), nunca en una URL (evita historial y `Referer`) y vive sólo en
-  memoria de la pestaña: recargar obliga a volver a entrar con el código.
-- **CORS acotado.** Las rutas de invitado responden a preflight sólo para orígenes loopback
-  (`http://127.0.0.1:*`, `http://localhost:*`) y sólo con `authorization` y `content-type`; sin
-  `Access-Control-Allow-Credentials`. El motivo es que la página del invitado vive en **su** localhost
-  y la sala en otro origen; sin CORS no hay sala, y abrirlo con credencial de cabecera no da autoridad
-  ambiental a nadie.
+  alguien sería darle el historial, los ajustes y las descargas del anfitrión. Las rutas del
+  anfitrión y del servidor invitado se montan antes de los guards de `/api/*` con su propio guard;
+  `sessionGuard` y `tokenGuard` siguen cubriendo el resto. La tabla de rutas protegidas se amplía
+  para que ninguna ruta nueva escape.
+- **Sin token en el navegador.** El token de sala viaja en `Authorization: Bearer` entre servidores,
+  nunca en una cookie de la pestaña ni en una URL. Las rutas que usa la pestaña del invitado
+  (`/api/party/remote/*`) son de su mismo origen y usan su sesión local normal.
+- **Sin CORS y sin tocar el CSP.** La pestaña no cruza orígenes: el servidor del invitado es el que
+  conecta con el anfitrión (SSE y JSON). No hay preflight, ni `connect-src` relajado, ni cookies de
+  terceros. La dirección que teclea el usuario se normaliza a un origen HTTP sin credenciales ni
+  ruta, y el cliente saliente no sigue redirecciones.
 - **Caducidad:** 4 h por defecto (máximo 12 h, configurable), 8 participantes y 4 salas por
   instancia. La sala se cierra al salir el anfitrión o al caducar; los invitados reciben `closed`.
 - **Opt-in:** las rutas de sala no se registran si la función no está habilitada
@@ -174,9 +189,9 @@ Reglas:
 ### 7.1 LAN (MVP, 3.3)
 
 - El coordinador es la instancia del anfitrión. El navegador del anfitrión publica `state` con su
-  sesión (mismo origen); el del invitado se suscribe con `Authorization: Bearer` y `fetch` en
-  streaming (no `EventSource`, que no admite cabeceras), que es el mismo patrón que ya usa la
-  búsqueda incremental.
+  sesión (mismo origen); el **servidor** del invitado se suscribe con `Authorization: Bearer` y
+  `fetch` en streaming, y reemite los eventos por SSE a su propia pestaña. La pestaña nunca sale de
+  su origen.
 - El anfitrión se suscribe al mismo flujo con su sesión, no con el token de invitado, para recibir
   los reportes del roster.
 - El coordinador guarda el último `state` y el roster para el que llega tarde; `welcome` lo entrega.
@@ -184,9 +199,9 @@ Reglas:
   la sala: se le corta.
 - Límites: 1 conexión SSE por participante, 8 por sala; al cerrar la pestaña se libera por el
   `AbortSignal`.
-- Alcance de red: es una conexión navegador→servidor en la LAN. Si el navegador del invitado no
-  puede hablar con el servidor del anfitrión (CORS, Private Network Access o firewall), la sala lo
-  dice con el motivo; no se cae a otro transporte en silencio.
+- Alcance de red: la pestaña del invitado no necesita CORS, ni Private Network Access, ni TLS: el
+  salto a la LAN lo da su servidor. Si el servidor del invitado no alcanza al del anfitrión, la
+  pestaña lo dice con el motivo; no se cae a otro transporte en silencio.
 
 ### 7.2 P2P con señalización manual (3.4, D3)
 
@@ -289,29 +304,41 @@ sesión de la app.
 
 | Método | Ruta | Credencial | Qué hace |
 |---|---|---|---|
-| `POST` | `/api/party/rooms` | sesión | Crea la sala; devuelve `{ roomId, code, expiresAt }` |
-| `DELETE` | `/api/party/rooms/:roomId` | sesión | Cierra la sala y avisa a los invitados |
-| `POST` | `/api/party/rooms/:roomId/state` | sesión | Publica el estado autoritativo; el servidor sella `atMs` y lo reparte |
-| `POST` | `/api/party/rooms/:roomId/join` | código | `{ code, displayName? }` → `{ token, snapshot, roster }`; 5/min por IP |
-| `GET` | `/api/party/rooms/:roomId/events` | bearer | SSE en streaming con `fetch`: `welcome`, `state`, `roster`, `ping` |
+| `POST` | `/api/party/rooms` | sesión del anfitrión | Crea la sala; devuelve `{ roomId, code, expiresAt }` |
+| `DELETE` | `/api/party/rooms/:roomId` | sesión del anfitrión | Cierra la sala y avisa a los invitados |
+| `POST` | `/api/party/rooms/:roomId/state` | sesión del anfitrión | Publica el estado autoritativo; el servidor sella `atMs` y lo reparte |
+| `POST` | `/api/party/join` | ninguna (servidor a servidor) | `{ code, name }` → `{ roomId, token, expiresAt, state, roster }`; 20 intentos/min por instancia |
+| `GET` | `/api/party/rooms/:roomId` | bearer o sesión | Snapshot y roster para reincorporarse |
+| `GET` | `/api/party/rooms/:roomId/events` | bearer o sesión | SSE: `welcome`, `state`, `roster`, `ping`, `closed` |
 | `POST` | `/api/party/rooms/:roomId/report` | bearer | `{ positionS, paused, buffering, ready }` del invitado |
-| `POST` | `/api/party/rooms/:roomId/sync` | bearer | `{ t0 }` → `{ t0, t1 }`; el desfase se calcula con la mediana |
-| `POST` | `/api/party/rooms/:roomId/leave` | bearer | Sale de la sala |
-| `GET` | `/api/party/rooms/:roomId` | bearer | Snapshot y roster para reincorporarse |
+| `POST` | `/api/party/rooms/:roomId/sync` | bearer | `{ t0 }` → `{ t0, t1, t2 }`; el desfase se calcula con la mediana |
+| `POST` | `/api/party/rooms/:roomId/leave` | bearer | El servidor del invitado se va de la sala |
+| `GET` | `/api/party/info` | sesión del anfitrión | `{ port, urls }` con las direcciones de la LAN |
+| `GET` | `/api/party/rooms` | sesión del anfitrión | Las salas abiertas y sus participantes |
+| `POST` | `/api/party/remote/join` | sesión del invitado | `{ baseUrl, code, name }` → snapshot; su servidor habla con el anfitrión |
+| `GET` | `/api/party/remote` | sesión del invitado | Snapshot del enlace, para reincorporarse |
+| `GET` | `/api/party/remote/events` | sesión del invitado | SSE del relevo, ya en el mismo origen |
+| `POST` | `/api/party/remote/report` | sesión del invitado | Reenvía `{ positionS, paused, buffering, ready }` |
+| `POST` | `/api/party/remote/sync` | sesión del invitado | Reenvía `{ t0 }` y devuelve el reloj del anfitrión |
+| `POST` | `/api/party/remote/leave` | sesión del invitado | Corta el enlace y avisa al anfitrión |
 
-- El servidor responde `404` uniforme a sala inexistente o código erróneo, y `429` cuando se corta el
-  rate limit. No distingue «no existe» de «no autorizado».
-- CORS: `Access-Control-Allow-Origin` se refleja sólo para orígenes loopback; `Allow-Headers:
-  authorization, content-type`; sin credenciales.
+- La sala responde `404` uniforme a sala inexistente o código erróneo, `409` cuando está llena y
+  `429` cuando se corta el límite. No distingue «no existe» de «no autorizado» donde eso filtraría
+  información.
+- No hay CORS: la primera tabla la habla el servidor del invitado, y la segunda su propia pestaña en
+  el mismo origen. El CSP sigue en `connect-src 'self'`.
 - El ticket de `/stream/:ticket` no cambia: la sala nunca lo usa, y el invitado reproduce desde su
   propia instancia.
 
 ## 12. Límites, almacenamiento y limpieza
 
-- 8 participantes, 4 salas por instancia, 4 h de vida (12 h máximo), 4 KiB por mensaje, 20
-  mensajes/s por sala y 5/s por invitado, 8 conexiones SSE por sala.
-- Todo en memoria: `Map` de salas con `createdAt`, `expiresAt`, `lastState`, roster y tokens
-  (hasheados). Un temporizador de barrido cada 60 s cierra las caducadas y avisa con `closed`.
+- 8 participantes, 4 salas por instancia, 4 h de vida (12 h máximo), 4 KiB por mensaje, 10
+  mensajes/s por participante y 20 intentos de entrada por minuto y por instancia. El límite de
+  entrada es por instancia y no por IP: el adaptador HTTP actual no expone una dirección remota
+  fiable.
+- Todo en memoria: `Map` de salas con `expiresAt`, el último estado, el roster y los tokens
+  (hasheados). La caducidad se comprueba antes de cada operación y cierra las salas vencidas con
+  `closed`; no hay temporizador propio.
 - Sin SQLite, sin archivos, sin logs de sala. Los códigos no se pueden recuperar tras un reinicio.
 - El cierre por `SIGTERM` avisa a las salas y corta las conexiones; no hay estado que guardar.
 
@@ -320,10 +347,10 @@ sesión de la app.
 - **Unidad (`core`)**: validación zod de cada mensaje, `seq` monótono, descarte de viejos, máquina de
   estados y corrección de deriva con reloj y latencia simulados; 100 trayectorias con |Δ| final
   ≤ 0,5 s. Se mide mutando: quitar la corrección de velocidad o el salto hace fallar las pruebas.
-- **Servidor**: tabla de rutas protegidas ampliada (ninguna ruta de `/api/party` sin guard); token de
-  invitado rechazado en `/api/settings`, `/api/watch`, `/api/downloads`, `/stream`; 404 uniforme;
-  TTL; sala llena; rate limit; SSE que se corta al lento; CORS que no acepta orígenes ajenos;
-  serialización sin `http`, `/stream/` ni `ticket`.
+- **Servidor**: rutas de la sala con su propio guard; token de invitado rechazado en `/api/health`
+  y en el resto de `/api/*`; 404 uniforme; TTL; sala llena; límite de intentos; límite por
+  participante; SSE que entrega `welcome` y reenvía `state`; serialización sin `http`, `/stream/` ni
+  `ticket`; relevo del invitado con `fetch` inyectado (sin red en las pruebas).
 - **Web**: adaptador del reproductor (posición real del `<video>`), UI de sala con dos contextos de
   navegador simulados, i18n sin cadenas sueltas, `aria-live`.
 - **P2P**: prueba de ida y vuelta del códec de señalización con un SDP de fixture (comprimir,

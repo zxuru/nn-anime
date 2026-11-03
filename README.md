@@ -57,6 +57,11 @@ telemetría.**
   de la pantalla en la que estés, **Ajustes** los lista todos y devuelve los avisos descartados. En
   el móvil la navegación se muda a una **barra inferior**, y la biblioteca, el perfil y los ajustes
   comparten el juego de iconos del resto.
+- **Watch party (experimental, apagado por defecto)**: una sala donde varias instancias reproducen
+  el mismo episodio a la vez, cada una desde su fuente. Se sincroniza **sólo el estado** —posición,
+  pausa y velocidad—, nunca el vídeo. Se enciende con `NN_ANIME_PARTY=1`; el anfitrión necesita el
+  modo servidor para que la sala se alcance por LAN, y el invitado entra desde su propia instancia.
+  Sin servidor central, sin cuentas y sin persistencia.
 
 ## Instalación (para usuarios)
 
@@ -225,6 +230,29 @@ la cookie que se consigue en `/login`; `/healthz` es lo único público.
 SQLite admite **una sola réplica por volumen**. La guía completa —variables, volúmenes, cómo
 instalar plugins, Caddy y actualización— está en [docs/docker.md](docs/docker.md).
 
+## Watch party (experimental)
+
+La sala sincroniza **sólo el estado de reproducción** entre instancias: qué episodio, en qué segundo,
+pausado o no. El vídeo no viaja; cada participante lo reproduce desde sus proveedores o sus descargas.
+Está apagada por defecto.
+
+**Anfitrión:** escucha en la LAN y enciende la función.
+
+```bash
+export NN_ANIME_TOKEN="$(openssl rand -base64 32)"
+NN_ANIME_HOST=0.0.0.0 NN_ANIME_PARTY=1 bun run start
+```
+
+Abre el episodio, pulsa **Ver juntos** y comparte el código de 16 caracteres y una de las direcciones
+que enseña el panel. **Invitado:** arranca su propia instancia con `NN_ANIME_PARTY=1`, abre el mismo
+episodio, pulsa **Unirse** y escribe la dirección del anfitrión y el código. Su servidor habla con el
+del anfitrión; su pestaña no cruza orígenes y no recibe la sesión del anfitrión.
+
+Ocho participantes por sala, cuatro horas de vida, sin persistencia ni servidor central. En LAN sin
+TLS el código y el estado viajan sin cifrar: úsalo en una red de confianza, no en Internet. La guía
+completa, los límites y lo que falta (WebRTC P2P, coincidencia de contenido) están en
+[docs/watch-party.md](docs/watch-party.md).
+
 ## Comandos
 
 | Comando | Qué hace |
@@ -392,6 +420,7 @@ instalación.
 |---|---|
 | [docs/providers.md](docs/providers.md) | Cómo escribir un plugin, con un ejemplo comentado |
 | [docs/docker.md](docs/docker.md) | Docker, NAS y LAN: variables, volúmenes, plugins, Caddy y actualización |
+| [docs/watch-party.md](docs/watch-party.md) | La sala de visionado: cómo se enciende, límites, seguridad y lo que falta |
 | [docs/release.md](docs/release.md) | Cómo se publica: secretos de firma, ajustes del repositorio y qué queda por probar |
 | [SECURITY.md](SECURITY.md) | Modelo de amenaza, mitigaciones y riesgos residuales |
 | [docs/a11y.md](docs/a11y.md) | Qué se comprueba de accesibilidad y qué no |

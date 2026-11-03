@@ -153,6 +153,15 @@ export interface PlayerProps {
    * segundo y el final se parecen, y de aquí sale la tarjeta del siguiente.
    */
   readonly onEnded?: (() => void) | undefined
+  /**
+   * El `<video>` montado, o `null` al desmontarlo.
+   *
+   * Lo pide la sala: para sincronizar hace falta el elemento de verdad —su
+   * `currentTime`, su `paused` y su `playbackRate`— y la pantalla no tiene otra
+   * forma de llegar a él. No sustituye a `videoRef`: el reproductor sigue siendo
+   * su dueño y esto sólo se lo presta a quien lo monta.
+   */
+  readonly onVideoElement?: ((elemento: HTMLVideoElement | null) => void) | undefined
   /** Segundo en el que empezar, al reanudar o al cambiar de modo. */
   readonly startAtS?: number | undefined
   /** El ancla de la guía: el reproductor es una parada del recorrido. */
@@ -221,10 +230,22 @@ export function Player(props: PlayerProps): ReactNode {
    */
   const [elemento, setElemento] = useState<HTMLVideoElement | null>(null)
   const { pintando, alternar, canvasRef } = useCompatPaint({ video: elemento, url: props.url })
+  /**
+   * El aviso del elemento, en una referencia.
+   *
+   * Si quien monta el reproductor pasa una función nueva en cada render, el
+   * `ref` cambiaría de identidad y React lo volvería a llamar con `null` y con
+   * el elemento en cada vuelta —desmontando y montando la referencia del video—.
+   * Con la referencia, el callback del ref es estable y el aviso siempre es el
+   * último.
+   */
+  const avisoElemento = useRef(props.onVideoElement)
+  avisoElemento.current = props.onVideoElement
   const refVideo = useCallback(
     (nodo: HTMLVideoElement | null) => {
       videoRef(nodo)
       setElemento(nodo)
+      avisoElemento.current?.(nodo)
     },
     [videoRef],
   )

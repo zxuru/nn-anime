@@ -120,6 +120,7 @@ export {
   type AppOptions,
   createApp,
   type NetworkPolicy,
+  type PartyOptions,
   type ProviderSummary,
 } from './app'
 export { BOOT_PARAM, safeRedirect } from './bootstrap'
