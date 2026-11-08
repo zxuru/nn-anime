@@ -1502,6 +1502,24 @@
 }
 
 /*
+ * El marco, a pantalla completa.
+ *
+ * La pantalla completa se pide sobre el marco y no sobre el `<video>`: el botón
+ * de saltar vive dentro del marco, y una pantalla completa sobre el elemento de
+ * video lo dejaría fuera de la imagen —justo donde hace más falta—. Aquí se
+ * estira el marco a la pantalla y el video se ajusta sin deformarse; el fondo
+ * del tema rellena las franjas que dejen las proporciones.
+ */
+.player__frame:fullscreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 100%;
+  block-size: 100%;
+  background: var(--color-bg);
+}
+
+/*
  * El video, en bloque.
  *
  * `display: block` no es cosmético: un elemento reemplazado en línea se apoya en
@@ -1520,6 +1538,21 @@
   width: 100%;
   aspect-ratio: var(--video-ratio);
   background: var(--color-surface-raised);
+}
+
+/*
+ * El video dentro del marco a pantalla completa.
+ *
+ * Es la otra mitad del bloque de arriba: el marco ocupa la pantalla y el video se
+ * estira a su caja sin deformarse. Va **después** de la regla base del video para
+ * que el orden del archivo no deje una especificidad descendente que el lint
+ * marca —y que en la práctica impediría que este ajuste ganara—.
+ */
+.player__frame:fullscreen .player__video {
+  inline-size: 100%;
+  block-size: 100%;
+  aspect-ratio: auto;
+  object-fit: contain;
 }
 
 /*
@@ -1665,6 +1698,58 @@
   fill: var(--color-accent);
 }
 
+/*
+ * El botón de saltar, dentro del marco.
+ *
+ * Va dentro del marco y no en la banda de mandos por dos motivos: los mandos se
+ * esconden solos mientras reproduce —y el botón es justo lo que se busca
+ * entonces— y el marco es lo que se pone a pantalla completa, así que aquí se ve
+ * en las dos. Se apoya en el borde inferior derecho, por encima de la banda para
+ * no quedar debajo de los mandos.
+ *
+ * La entrada es un movimiento corto y con los tokens de la casa: `--transition-*`
+ * se apaga solo con `prefers-reduced-motion`, así que el botón aparece de golpe
+ * para quien pidió que no se moviera nada.
+ */
+.player__skip {
+  position: absolute;
+  inset-block-end: calc(var(--control-size) + var(--space-4));
+  inset-inline-end: var(--space-4);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-size);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-hard-accent);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  animation: player-saltar var(--transition-normal) var(--ease-piece);
+}
+
+.player__skip:hover {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+@keyframes player-saltar {
+  from {
+    opacity: 0;
+    translate: 0 var(--space-1);
+  }
+
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
 /* Los dibujos de los mandos, con el color del mando que los contiene.
    El relleno no se toca: los de lucide son de trazo y sólo reproducir y pausar
    piden silueta, que la pone su propio componente. */
@@ -1799,6 +1884,21 @@
   inset-block: 0;
   inset-inline-start: 0;
   background: var(--color-accent);
+}
+
+/*
+ * Los intervalos saltables, marcados en el carril.
+ *
+ * Dicen dónde está el opening antes de llegar a él, en el acento de la casa y
+ * por encima de lo reproducido. Van dentro del carril —que ya es
+ * `aria-hidden`— porque son contexto visual, no un dato que se anuncie: lo que
+ * se anuncia es el botón cuando se llega.
+ */
+.player__skip-marker {
+  position: absolute;
+  inset-block: 0;
+  background: var(--color-accent);
+  opacity: 0.55;
 }
 
 /* El globo del tiempo, encima del carril. */
@@ -7063,6 +7163,7 @@ details[open] > .library__settings-summary .library__settings-flecha {
   .skeleton,
   .esq,
   .player__tooltip,
+  .player__skip,
   .library__bar[data-indeterminate="true"] .library__bar-fill {
     animation: none;
   }

@@ -38,6 +38,20 @@ describe('qué tecla hace qué', () => {
     expect(keyAction({ key: 'f' })).toBe('fullscreen')
   })
 
+  /**
+   * `s` salta el intervalo que se esté viendo.
+   *
+   * No choca con ninguna de las teclas que ya tenía el reproductor: espacio,
+   * enter, `k`, `m`, `f` y las flechas siguen haciendo lo suyo.
+   */
+  test('`s` es saltar, y no se lleva por delante ningún otro atajo', () => {
+    expect(keyAction({ key: 's' })).toBe('skip')
+
+    for (const tecla of [' ', 'Enter', 'k', 'm', 'f', 'ArrowLeft', 'ArrowRight', 'ArrowUp']) {
+      expect(keyAction({ key: tecla }), tecla).not.toBe('skip')
+    }
+  })
+
   test('una tecla que no es del reproductor no hace nada', () => {
     expect(keyAction({ key: 'q' })).toBeUndefined()
     expect(keyAction({ key: 'Tab' })).toBeUndefined()

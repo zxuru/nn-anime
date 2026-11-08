@@ -18,6 +18,15 @@ export type PlayerAction =
   | 'volume-down'
   | 'mute'
   | 'fullscreen'
+  /**
+   * Saltar el intervalo que se está reproduciendo —intro, ending o resumen—.
+   *
+   * La acción no sabe a dónde se salta: el destino lo decide la pantalla, que es
+   * la que tiene el margen elegido y los intervalos del episodio. Aquí sólo se
+   * reconoce la tecla; quien la recibe es `Player`, que llama al mismo salto que
+   * el botón.
+   */
+  | 'skip'
 
 /** Segundos que salta cada flecha. */
 export const SEEK_STEP_S = 10
@@ -103,6 +112,11 @@ export function keyAction(event: KeyLike): PlayerAction | undefined {
       return 'mute'
     case 'f':
       return 'fullscreen'
+    // `s` de «saltar». No choca con ninguna de las anteriores —espacio, enter,
+    // `k`, `m`, `f` y las flechas— y es la inicial de la acción en las dos
+    // lenguas que importan aquí, así que no hay que memorizar una tecla rara.
+    case 's':
+      return 'skip'
     default:
       return undefined
   }

@@ -25,6 +25,7 @@ import { ProviderList } from './ProviderList'
 import { ProviderRepos } from './ProviderRepos'
 import { RegisterProvider } from './RegisterProvider'
 import { SecurityNoticeDialog } from './SecurityNotice'
+import { SkipSettings } from './SkipSettings'
 import { ThemeToggle } from './ThemeToggle'
 import { TmdbSettings } from './TmdbSettings'
 import { useProviderRepos } from './useProviderRepos'
@@ -157,6 +158,11 @@ export function SettingsPage(): ReactNode {
             : t(DEFAULT_LOCALE, 'settings.mpv.no')}
         </p>
       </section>
+
+      {/* Los saltos van con el reproductor: es lo que se ajusta de cómo se ve un
+          episodio, como el reproductor externo, y no una preferencia del motor
+          que se guarde en el servidor. */}
+      <SkipSettings />
 
       <section data-tour={ANCLAS.ajustesTema}>
         <h2>{t(DEFAULT_LOCALE, 'settings.theme')}</h2>

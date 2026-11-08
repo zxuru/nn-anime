@@ -89,21 +89,48 @@ test.describe('el favorito', () => {
      * contra la lista guardada en ese mismo momento vale con cualquiera de los dos
      * desenlaces y no depende del orden del motor ni de lo que hagan otras pruebas
      * de la pasada, que comparten base.
+     *
+     * La lectura va **en bucle** y no una sola vez: el botón nace en «no está» y
+     * pinta el estado del servidor cuando llega la petición que lo lee, así que
+     * una lectura única puede caer en medio de esa carrera. Con la pasada
+     * completa caía —la primera prueba de favoritos deja el corpus del motor
+     * caliente y cambia el orden de las peticiones—; en aislado no. Se espera a
+     * que el par (enlace del cartel, estado del botón) cuadre con la lista.
      */
-    const estado = await Promise.all([
-      page.locator('.marquesina a.cartel').getAttribute('href'),
-      page.locator('.marquesina .acciones button').getAttribute('aria-pressed'),
-      page.locator('.marquesina .acciones button').innerText(),
-      page.evaluate(async () => {
-        const respuesta = await fetch('/api/favorites')
-        const datos = (await respuesta.json()) as {
-          favorites: readonly { ref: { providerId: string; value: string } }[]
-        }
-        return datos.favorites.map((f) => `/anime/${f.ref.providerId}/${f.ref.value}`)
-      }),
-    ])
+    const leerCartel = async (): Promise<{
+      readonly enlace: string | null
+      readonly marcado: string | null
+      readonly etiqueta: string
+      readonly guardados: readonly string[]
+    }> => {
+      const [enlace, marcado, etiqueta, guardados] = await Promise.all([
+        page.locator('.marquesina a.cartel').getAttribute('href'),
+        page.locator('.marquesina .acciones button').getAttribute('aria-pressed'),
+        page.locator('.marquesina .acciones button').innerText(),
+        page.evaluate(async () => {
+          const respuesta = await fetch('/api/favorites')
+          const datos = (await respuesta.json()) as {
+            favorites: readonly { ref: { providerId: string; value: string } }[]
+          }
+          return datos.favorites.map((f) => `/anime/${f.ref.providerId}/${f.ref.value}`)
+        }),
+      ])
 
-    const [enlace, marcado, etiqueta, guardados] = estado
+      return { enlace, marcado, etiqueta, guardados }
+    }
+
+    await expect
+      .poll(
+        async () => {
+          const { enlace, marcado, guardados } = await leerCartel()
+
+          return guardados.includes(enlace ?? '') === (marcado === 'true')
+        },
+        { message: 'el cartel no termina de reflejar la lista guardada' },
+      )
+      .toBe(true)
+
+    const { enlace, marcado, etiqueta, guardados } = await leerCartel()
     const espera = guardados.includes(enlace ?? '')
 
     expect(marcado, `el cartel ${enlace} y lo guardado ${guardados.join(', ')}`).toBe(

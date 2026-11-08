@@ -18,6 +18,7 @@
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import type { SkipInterval } from '@nn-anime/core/schema'
 import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
@@ -103,6 +104,22 @@ function useAnchoHasta(ancho: number): boolean {
   return cumple
 }
 
+/**
+ * El salto que se ofrece ahora mismo.
+ *
+ * La pantalla decide **cuál** y **a dónde**: es la que tiene los intervalos del
+ * episodio, la posición y el margen elegido. El reproductor sólo pinta el botón
+ * dentro del marco, lo dispara con la tecla y avisa cuando se salta.
+ */
+export interface PlayerSkip {
+  /** La clave del intervalo, que es como la pantalla recuerda que ya se saltó. */
+  readonly key: string
+  /** La clave i18n de la etiqueta: «Saltar intro», «Saltar ending»… */
+  readonly labelKey: string
+  /** El segundo al que se salta. */
+  readonly destinoS: number
+}
+
 export interface PlayerProps {
   /** URL del proxy: el ticket, nunca la del upstream. */
   readonly url: string
@@ -147,6 +164,39 @@ export interface PlayerProps {
   readonly onPause?: (() => void) | undefined
   readonly onProgress?: ((positionS: number, durationS: number) => void) | undefined
   /**
+   * La duración del medio, cuando el elemento la conoce.
+   *
+   * Se reenvía tal cual a `usePlayer`, que la saca de `loadedmetadata`. La
+   * pantalla la necesita para pedir los intervalos saltables sin bloquear la
+   * reproducción.
+   */
+  readonly onDuration?: ((durationS: number) => void) | undefined
+  /**
+   * El intervalo saltable que se ofrece ahora.
+   *
+   * Sin esto —o con los ajustes por defecto, que no saltan solos— no hay botón:
+   * la pantalla lo deja vacío cuando no hay intervalo, cuando el usuario ya salió
+   * de él tras saltar o cuando no hay datos del episodio.
+   */
+  readonly skip?: PlayerSkip | undefined
+  /** Se salta: manual con el botón o con `S`, o automático si el ajuste está activo. */
+  readonly onSkip?: ((destinoS: number, clave: string) => void) | undefined
+  /**
+   * ¿Se salta solo? Es una preferencia de la pantalla; aquí sólo se ejecuta.
+   *
+   * El salto automático ocurre **una sola vez por intervalo y episodio**: la
+   * clave del intervalo lleva las dos cosas, así que volver a entrar en él a
+   * mano no dispara otro salto.
+   */
+  readonly autoSkip?: boolean | undefined
+  /**
+   * Los intervalos del episodio, para marcarlos en la barra de progreso.
+   *
+   * Es información de contexto —dónde está el opening en el capítulo— y sólo se
+   * pinta cuando hay datos: sin ellos la barra queda exactamente como estaba.
+   */
+  readonly intervals?: readonly SkipInterval[] | undefined
+  /**
    * El episodio llegó al final.
    *
    * Sale del evento del elemento y no de la posición: una pausa en el último
@@ -176,6 +226,7 @@ const ATAJOS: readonly { readonly teclas: readonly string[]; readonly hace: stri
   { teclas: ['player.key.up', 'player.key.down'], hace: 'player.key.volume' },
   { teclas: ['player.key.m'], hace: 'player.key.mute' },
   { teclas: ['player.key.f'], hace: 'player.key.fullscreen' },
+  { teclas: ['player.key.s'], hace: 'player.key.skip' },
 ]
 
 /** Lo que ocupa una parte del total, en por ciento, sin salirse de la barra. */
@@ -198,6 +249,17 @@ function punteroFino(): boolean {
 }
 
 export function Player(props: PlayerProps): ReactNode {
+  /**
+   * El marco del reproductor.
+   *
+   * Es la caja que mide el video y la que contiene sus capas —el botón grande,
+   * la espera y el botón de saltar—, así que es la que se pone a pantalla
+   * completa: pedirla sobre el `<video>` dejaría el botón de saltar fuera de la
+   * pantalla, y es justo donde hace más falta.
+   */
+  const marco = useRef<HTMLDivElement | null>(null)
+  const objetivoPantalla = useCallback(() => marco.current, [])
+
   // Los avisos de reproducción, pausa y avance salen de los eventos del propio
   // elemento, no del render: llamarlos al pintar los dispararía en cada vuelta.
   const { state, videoRef, act, seekTo, setVolume, hlsTracks, pickHlsTrack } = usePlayer({
@@ -206,10 +268,13 @@ export function Player(props: PlayerProps): ReactNode {
     ...(props.onPlay === undefined ? {} : { onPlay: props.onPlay }),
     ...(props.onPause === undefined ? {} : { onPause: props.onPause }),
     ...(props.onProgress === undefined ? {} : { onProgress: props.onProgress }),
+    ...(props.onDuration === undefined ? {} : { onDuration: props.onDuration }),
     ...(props.onEnded === undefined ? {} : { onEnded: props.onEnded }),
     ...(props.startAtS === undefined ? {} : { startAtS: props.startAtS }),
+    fullscreenTarget: objetivoPantalla,
   })
   const pistas = props.tracks ?? []
+  const intervalos = props.intervals ?? []
 
   /**
    * El mismo elemento, para el modo compatible.
@@ -366,14 +431,18 @@ export function Player(props: PlayerProps): ReactNode {
   /**
    * Si se está a pantalla completa, que es lo que decide el dibujo del mando.
    *
-   * El botón tiene que decir a dónde lleva, y el mismo gesto entra y sale: sin
-   * escuchar el cambio del navegador —que también ocurre al salir con `Esc`—, el
-   * dibujo se quedaría diciendo «entrar» dentro de la pantalla completa.
+   * Se compara con el marco y no con «hay algo a pantalla completa»: el
+   * reproductor ya no pide la pantalla sobre el `<video>` sino sobre su marco, y
+   * el día que otro elemento de la página la pida, el mando no puede decir que
+   * el video está a pantalla completa. El botón tiene que decir a dónde lleva, y
+   * el mismo gesto entra y sale: sin escuchar el cambio del navegador —que
+   * también ocurre al salir con `Esc`—, el dibujo se quedaría diciendo «entrar»
+   * dentro de la pantalla completa.
    */
   const [completa, setCompleta] = useState(false)
 
   useEffect(() => {
-    const alCambiar = (): void => setCompleta(document.fullscreenElement !== null)
+    const alCambiar = (): void => setCompleta(document.fullscreenElement === marco.current)
 
     document.addEventListener('fullscreenchange', alCambiar)
 
@@ -506,6 +575,47 @@ export function Player(props: PlayerProps): ReactNode {
     [act, cancelarClic],
   )
 
+  /**
+   * Los intervalos que ya se saltaron en esta visita.
+   *
+   * La clave lleva el episodio y los dos extremos, así que volver a entrar en el
+   * intervalo —con la barra o con la flecha— no dispara otro salto automático.
+   * Se anota **cualquier** salto, no sólo el automático: si alguien saltó a mano,
+   * el automático no tiene por qué volver a decidir por él.
+   */
+  const saltados = useRef(new Set<string>())
+
+  /**
+   * El salto, en una sola función.
+   *
+   * Es la que comparten el botón, la tecla `S` y el salto automático: el destino
+   * lo decide la pantalla —que tiene el margen y los intervalos— y aquí sólo se
+   * mueve el elemento y se avisa para que se apunte el progreso. Tener tres
+   * caminos distintos sería tener tres formas de saltar que se separan.
+   */
+  const saltar = useCallback(() => {
+    const salto = props.skip
+    if (salto === undefined) return
+
+    saltados.current.add(salto.key)
+    seekTo(salto.destinoS)
+    props.onSkip?.(salto.destinoS, salto.key)
+  }, [props.skip, props.onSkip, seekTo])
+
+  /**
+   * El salto automático, una sola vez por intervalo y episodio.
+   *
+   * El conjunto vive en una referencia porque no se pinta: es memoria de lo ya
+   * hecho. El botón sigue ofreciéndose al volver a entrar —eso permite saltar a
+   * mano—, pero la reproducción no se mueve sola otra vez.
+   */
+  useEffect(() => {
+    if (props.autoSkip !== true || props.skip === undefined) return
+    if (saltados.current.has(props.skip.key)) return
+
+    saltar()
+  }, [props.autoSkip, props.skip, saltar])
+
   // El teclado se escucha en la ventana: el foco puede estar en el propio video
   // o en la página, y obligar a enfocar el reproductor para usar las flechas es
   // una molestia que no hace falta. `keyAction` decide cuándo no hacer nada.
@@ -543,13 +653,23 @@ export function Player(props: PlayerProps): ReactNode {
       // sería esconderle lo que hace.
       reiniciarMandos()
       evento.preventDefault()
+
+      // El salto no es una acción del elemento —`act` sólo tiene el video, y un
+      // `currentTime` sin destino no es un salto—: lo resuelve la misma función
+      // que el botón.
+      if (accion === 'skip') {
+        saltar()
+
+        return
+      }
+
       act(accion)
     }
 
     window.addEventListener('keydown', alPulsar)
 
     return () => window.removeEventListener('keydown', alPulsar)
-  }, [act, reiniciarMandos])
+  }, [act, reiniciarMandos, saltar])
 
   /** El tiempo que está debajo del puntero, si está sobre la barra. */
   const alMoverPuntero = useCallback(
@@ -592,7 +712,7 @@ export function Player(props: PlayerProps): ReactNode {
         onPointerMove={reiniciarMandos}
         onPointerDown={reiniciarMandos}
       >
-        <div className="player__frame">
+        <div className="player__frame" ref={marco}>
           <video
             ref={refVideo}
             className="player__video"
@@ -670,6 +790,17 @@ export function Player(props: PlayerProps): ReactNode {
               </p>
             </div>
           )}
+
+          {/* El botón de saltar, dentro del marco.
+              Va aquí y no en la banda de mandos por dos razones: los mandos se
+              esconden solos mientras reproduce —y el botón es justo lo que se
+              busca entonces— y el marco es lo que se pone a pantalla completa,
+              así que el botón también se ve ahí. No hay botón sin intervalo. */}
+          {props.skip === undefined ? null : (
+            <button type="button" className="player__skip" aria-keyshortcuts="S" onClick={saltar}>
+              {t(DEFAULT_LOCALE, props.skip.labelKey)}
+            </button>
+          )}
         </div>
 
         {/* Los mandos: la barra de progreso y su fila de botones.
@@ -699,6 +830,20 @@ export function Player(props: PlayerProps): ReactNode {
                 className="player__played"
                 style={{ width: `${porcentaje(posicion, duracion)}%` }}
               />
+              {/* Los intervalos saltables, marcados en el carril: dicen dónde
+                  está el opening antes de llegar a él. Sólo se pintan con datos
+                  —sin ellos la barra queda exactamente como estaba— y van por
+                  debajo del `input`, que es quien recibe el gesto. */}
+              {intervalos.map((intervalo) => (
+                <span
+                  key={`${intervalo.type}-${intervalo.start}-${intervalo.end}`}
+                  className="player__skip-marker"
+                  style={{
+                    insetInlineStart: `${porcentaje(intervalo.start, duracion)}%`,
+                    inlineSize: `${porcentaje(intervalo.end - intervalo.start, duracion)}%`,
+                  }}
+                />
+              ))}
             </span>
 
             {/* Una barra de progreso de verdad, y un `<input type="range">`: se

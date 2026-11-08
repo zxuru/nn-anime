@@ -70,17 +70,27 @@ import { SEGUNDOS_DEL_SIGUIENTE } from './controls'
 import { Player } from './Player'
 import { SourceFallback } from './SourceFallback'
 import {
+  claveDeIntervalo,
+  destinoDeSalto,
+  etiquetaDeSalto,
+  intervaloActivo,
+  numeroDeEpisodio,
+} from './skip'
+import {
   almacenLocal,
   claveDeProgreso,
   guardarAutoplay,
   guardarProgreso,
   leerAutoplay,
+  leerMargenSalto,
   leerProgreso,
+  leerSaltoAuto,
   olvidarProgreso,
   reanudarEn,
 } from './storage'
 import { type SubtitleCandidate, toSafeTracks, tracksFromSource } from './subtitle-tracks'
 import { useMpvHandoff } from './useMpvHandoff'
+import { useSkipTimes } from './useSkipTimes'
 import { useWatchEvents } from './useWatchEvents'
 import { WatchEpisodes } from './WatchEpisodes'
 import {
@@ -502,6 +512,26 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     guardarAutoplay(almacenLocal(), valor)
   }, [])
 
+  /**
+   * Los ajustes de los saltos, leídos al montar.
+   *
+   * Viven en `/settings` y se guardan en el almacén del navegador; esta pantalla
+   * los lee una vez por episodio, que es lo que dura una visita. Cambiarlos en
+   * otra pestaña no se refleja aquí, y no hace falta: la preferencia se aplica la
+   * próxima vez que se abre el reproductor.
+   */
+  const [saltoAuto] = useState(() => leerSaltoAuto(almacenLocal()))
+  const [margen] = useState(() => leerMargenSalto(almacenLocal()))
+
+  /**
+   * La duración del episodio, en segundos; cero mientras no se sepa.
+   *
+   * Sale de `loadedmetadata`. Es lo que se manda al servidor para pedir los
+   * intervalos saltables, y por eso su lectura no puede esperar al primer avance
+   * del reloj: el video ya sabe cuánto dura antes de sonar.
+   */
+  const [duracion, setDuracion] = useState(0)
+
   // El registro del visionado: alta al reproducir de verdad, avance cada 15 s y
   // al pausar, y la posición final al desmontar o cerrar la pestaña.
   //
@@ -537,6 +567,15 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   // que está reproduciendo y la pestaña sólo puede decir «Ep. 3».
   const [tituloAnime, setTituloAnime] = useState<string | undefined>(undefined)
   /**
+   * La ficha del título ya respondió —bien o mal—.
+   *
+   * No es un dato para pintar: es el permiso para pedir el enriquecimiento. Esa
+   * ruta lee de la base local y sólo contesta cuando la ficha está cacheada, y la
+   * cachea esta misma lectura del detalle. Pedirla en paralelo devolvía `null` y
+   * el episodio se quedaba sin saltos por una carrera, no porque no los tuviera.
+   */
+  const [fichaLista, setFichaLista] = useState(false)
+  /**
    * El formato del título, que es lo que decide si esto es una película.
    *
    * La ficha lo sabe y la pantalla de reproducción no lo recibía: una película se
@@ -556,6 +595,80 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   // La temporada, cuando la ficha la escribió. Sin ella, los vecinos buscan en la
   // lista entera y pueden caer en otra temporada.
   const temporada = seasonFromPath(path)
+
+  /**
+   * El número de episodio con el que se piden los saltos.
+   *
+   * Manda el que la dirección trae en `?n=`, que lo escribió la ficha. Sin él
+   * —una dirección escrita a mano— queda el de la referencia, que en los
+   * proveedores de esta aplicación numera de dos formas. Sin número no se piden
+   * saltos: el contrato los pide por episodio y adivinarlo sería pedir los de
+   * otro capítulo.
+   */
+  const episodio = numero ?? numeroDeEpisodio(props.ref)
+
+  // Los intervalos saltables del episodio. Se piden cuando se conocen la ficha
+  // del título —que es la que cachea el enriquecimiento— y la duración, y nunca
+  // bloquean la reproducción: si no llegan, no hay botón y todo sigue igual.
+  const intervalosSaltables = useSkipTimes({
+    providerId: props.providerId,
+    animeRef: animeRef.value,
+    episodeRef: props.ref,
+    episodio,
+    fichaLista,
+    durationS: duracion,
+  })
+
+  /**
+   * La clave del episodio para recordar los intervalos ya saltados.
+   *
+   * Lleva la referencia además del intervalo porque el mismo `op` de 5 a 20 s
+   * está en todos los capítulos: sin el episodio, el segundo capítulo no
+   * ofrecería su intro por culpa del primero.
+   */
+  const claveDelEpisodio = `${props.providerId}:${props.ref}`
+
+  /**
+   * El intervalo que ya se saltó en esta visita, si hay uno.
+   *
+   * Se guarda la clave y no un booleano: el botón vuelve a ofrecerse cuando se
+   * sale del intervalo y se entra de nuevo —eso es lo que se decidió al pulsar—
+   * y las claves del resto de intervalos no se tocan.
+   */
+  const [saltado, setSaltado] = useState<string | undefined>(undefined)
+
+  /**
+   * Lo que se ofrece ahora mismo, si hay algo que ofrecer.
+   *
+   * Tres condiciones: que la posición esté dentro de un intervalo, que ese
+   * intervalo no se acabe de saltar y que la posición se conozca. Sin
+   * intervalos —lista vacía, sin ficha, sin red— no hay nada, y la pantalla
+   * queda exactamente como estaba.
+   */
+  const intervaloEnCurso = intervaloActivo(intervalosSaltables, posicion)
+  const claveEnCurso =
+    intervaloEnCurso === undefined
+      ? undefined
+      : claveDeIntervalo(claveDelEpisodio, intervaloEnCurso)
+  const saltoVisible =
+    intervaloEnCurso === undefined || claveEnCurso === undefined || claveEnCurso === saltado
+      ? undefined
+      : {
+          key: claveEnCurso,
+          labelKey: etiquetaDeSalto(intervaloEnCurso.type),
+          // Con la duración real el destino se recorta a ella: hay intervalos
+          // que el servidor publica más allá del final del archivo.
+          destinoS: destinoDeSalto(intervaloEnCurso, margen, duracion),
+        }
+
+  // Al salir del intervalo, la marca de «ya saltado» se borra: si se vuelve a
+  // entrar, el botón vuelve a ofrecerse. Se borra con la clave y no con un
+  // temporizador porque lo que la retira es el hecho de haber salido.
+  useEffect(() => {
+    if (claveEnCurso === undefined || claveEnCurso === saltado) return
+
+    setSaltado(undefined)
+  }, [claveEnCurso, saltado])
 
   /**
    * Los vecinos, cuando la pantalla ya está pintada.
@@ -608,8 +721,16 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         setPortada(
           detalle.coverUrl === undefined ? undefined : coverPath(props.providerId, animeRef.value),
         )
+        setFichaLista(true)
       },
-      () => undefined,
+      () => {
+        if (!vivo) return
+
+        // Aunque la ficha falle, el permiso se da: preguntar por el
+        // enriquecimiento una vez es barato y no hay bucle —si contesta que no,
+        // el hook no vuelve a preguntar.
+        setFichaLista(true)
+      },
     )
 
     return () => {
@@ -756,6 +877,31 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       if (durationS > 0) guardarProgreso(almacenLocal(), claveProgreso, { positionS, durationS })
     }
   }, [claveProgreso])
+
+  /**
+   * El salto, manual o automático.
+   *
+   * Lo que la pantalla aporta al salto es el **registro**: el reproductor mueve
+   * el elemento, pero apuntar por dónde va y contarlo al servidor es de aquí. Se
+   * guarda en el acto y sin esperar al turno del guardado periódico: después de
+   * saltar, la posición que vale es la de destino, y cuatro segundos de reloj
+   * viejo dejarían la reanudación donde no es.
+   */
+  const alSaltar = useCallback(
+    (destinoS: number, clave: string) => {
+      setSaltado(clave)
+
+      // La duración puede no haber pasado todavía por `onProgress` —el salto
+      // automático ocurre en cuanto `loadedmetadata` la conoce—, y guardar un
+      // progreso con duración cero lo apuntaría como «visto al 0 %». El estado
+      // de la pantalla ya la tiene en ese momento; el de la referencia manda
+      // cuando existe, que es la posición viva.
+      const durationS = viva.current.durationS > 0 ? viva.current.durationS : duracion
+      anotarProgreso(destinoS, durationS, true)
+      visionado.onProgress(destinoS, durationS)
+    },
+    [anotarProgreso, duracion, visionado.onProgress],
+  )
 
   /**
    * El episodio siguiente, cuando el actual termina.
@@ -1122,6 +1268,18 @@ export function WatchPage(props: WatchPageProps): ReactNode {
               visionado.onProgress(positionS, durationS)
               anotarProgreso(positionS, durationS, false)
             }}
+            // La duración, en cuanto `loadedmetadata` la conoce: con ella se
+            // piden los intervalos saltables. No bloquea nada de lo de arriba.
+            onDuration={setDuracion}
+            // El salto que se ofrece ahora y lo que hay que hacer al pulsarlo.
+            // Sin intervalo no hay botón; con el ajuste apagado —que es el de
+            // fábrica— tampoco salta solo.
+            skip={saltoVisible}
+            autoSkip={saltoAuto}
+            onSkip={alSaltar}
+            // Los intervalos, para marcarlos en la barra de progreso. Sin datos
+            // la lista está vacía y la barra queda como estaba.
+            intervals={intervalosSaltables}
           />
 
           {filaDeMandos(true)}
