@@ -3,7 +3,13 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AnimeDetail, Episode, ProviderRef, WatchEventInput } from '@nn-anime/core'
+import type {
+  AniListEntry,
+  AnimeDetail,
+  Episode,
+  ProviderRef,
+  WatchEventInput,
+} from '@nn-anime/core'
 import { z } from 'zod'
 import { TTL_SECONDS } from './cache-policy'
 import { openDb } from './db'
@@ -13,6 +19,24 @@ import { createWriteQueue } from './write-queue'
 
 const AURORA: ProviderRef = { providerId: 'fixture', value: 'aurora-nocturna' }
 const MAR: ProviderRef = { providerId: 'fixture', value: 'mar-de-cristal' }
+
+/**
+ * Una obra de AniList con lo que el schema exige y su id de MAL.
+ *
+ * Es la forma que deja `toEntry` en el servidor —el `malId` siempre presente—,
+ * y basta para lo que mide la fachada: que la vuelta de AniList a MAL y la caché
+ * de saltos se lean donde se escriben.
+ */
+const ENTRADA: AniListEntry = {
+  id: 101922,
+  names: { romaji: 'Kimetsu no Yaiba' },
+  adult: false,
+  genres: ['Action'],
+  studios: ['ufotable'],
+  coverUrl: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx101922.jpg',
+  siteUrl: 'https://anilist.co/anime/101922',
+  malId: 38000,
+}
 
 function detalle(ref: ProviderRef): AnimeDetail {
   return {
@@ -151,6 +175,51 @@ describe('lecturas y escrituras', () => {
       expect(
         await store.readStream({ providerId: 'fixture', value: 'aurora-nocturna#1' }, 'sub'),
       ).toBeNull()
+    })
+  })
+
+  /**
+   * Las dos lecturas que añade T60 para el reproductor.
+   *
+   * Van por la fachada y no sólo por el repositorio porque es lo que va a usar la
+   * ruta de los saltos: la vuelta de AniList a MAL y la caché de intervalos, con
+   * el mismo reloj y la misma cola que el resto.
+   */
+  test('los saltos y la vuelta a MAL, de punta a punta por la fachada', async () => {
+    await withStore(async ({ store }) => {
+      expect(await store.readMalId(101922)).toBeUndefined()
+      expect(await store.readSkipTimes('38000:1:1440')).toBeNull()
+
+      await store.writeAniListMedia('kimetsu|2019', ENTRADA)
+      await store.writeSkipTimes(
+        '38000:1:1440',
+        [{ type: 'op', start: 90, end: 180 }],
+        TTL_SECONDS.aniskip,
+      )
+
+      expect(await store.readMalId(101922)).toBe(38000)
+
+      const hit = await store.readSkipTimes('38000:1:1440')
+      expect(hit?.value).toEqual([{ type: 'op', start: 90, end: 180 }])
+      expect(hit?.ttlS).toBe(TTL_SECONDS.aniskip)
+      // Otra duración del mismo episodio es otra pregunta y no la contesta esta
+      // fila: la clave la compone el servidor con la longitud redondeada.
+      expect(await store.readSkipTimes('38000:1:1441')).toBeNull()
+    })
+  })
+
+  test('la escritura de los saltos pasa por la cola, como las demás', async () => {
+    await withStore(async ({ store, queue }) => {
+      let pasadas = 0
+      const original = queue.run.bind(queue)
+      queue.run = <T>(tarea: () => T | Promise<T>): Promise<T> => {
+        pasadas += 1
+        return original(tarea)
+      }
+
+      await store.writeSkipTimes('38000:1:1440', [], TTL_SECONDS.aniskipMiss)
+
+      expect(pasadas).toBe(1)
     })
   })
 

@@ -50,6 +50,23 @@ export const TTL_SECONDS = {
   // como el ranking. Un estudio estrena como mucho una vez por temporada y su
   // lista cambia cuando se anuncia la obra, no cada día. La añade T138.
   anilistSearch: 21600,
+  // Los intervalos saltable de un episodio, de AniSkip: un mes. Una vez que la
+  // comunidad los publica no cambian —son los segundos en los que empieza y acaba
+  // la intro de un capítulo que ya se emitió—, y cada consulta es una petición a
+  // un servicio gratuito que se sostiene con donaciones. La añade T60.
+  aniskip: 2592000,
+  // «Este episodio no tiene intervalos» —o AniSkip no conoce la obra—: seis
+  // horas. No es un dato definitivo como el emparejamiento: los intervalos se
+  // publican cuando alguien los mide, así que un episodio recién emitido puede
+  // pasar de «no hay» a «hay» el mismo día, y una espera de un mes dejaría el
+  // botón apagado toda la temporada. Seis horas es lo que se tarda en volver a
+  // preguntar sin gastar el presupuesto del servicio.
+  aniskipMiss: 21600,
+  // La consulta falló o la respuesta no se entendió: quince minutos. Un fallo de
+  // red se reintenta solo en cuanto el usuario vuelve a abrir el episodio, pero no
+  // en cada carga: el cuarto de hora es lo que distingue un corte pasajero de un
+  // servicio caído sin machacarlo mientras tanto. La añade T60.
+  aniskipError: 900,
 } as const
 
 export type CacheResource = keyof typeof TTL_SECONDS

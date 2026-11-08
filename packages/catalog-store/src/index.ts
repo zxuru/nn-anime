@@ -79,6 +79,7 @@ export {
   type SearchHistoryStore,
 } from './repositories/search-history'
 export { createSettingsRepository, type SettingsStore } from './repositories/settings'
+export { createSkipTimesRepository, type SkipTimesRepository } from './repositories/skip-times'
 export {
   chooseSource,
   createStreamRepository,

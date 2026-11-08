@@ -109,6 +109,14 @@ describe('política de caché', () => {
       // estudio o de un género, lo que hay cambia cuando se anuncia una obra, no
       // cada día.
       anilistSearch: 21600,
+      // Las de AniSkip las añade T60, y no miden lo mismo: un mes los intervalos
+      // de un episodio ya publicados —no cambian—, seis horas el «no hay» —los
+      // publica la comunidad y un capítulo recién emitido puede pasar de no tener a
+      // tener el mismo día— y quince minutos un fallo, para reintentar sin
+      // machacar un servicio que se sostiene con donaciones.
+      aniskip: 2592000,
+      aniskipMiss: 21600,
+      aniskipError: 900,
     })
   })
 

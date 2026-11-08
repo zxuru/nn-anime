@@ -46,6 +46,7 @@ const TABLAS_POSTERIORES = [
   'watched_title',
   'plan_to_watch',
   'download',
+  'aniskip_cache',
 ]
 
 /** Las versiones que hay hoy, para no fijar números que crecen con cada migración. */
@@ -563,5 +564,53 @@ describe('propiedad de SQLite', () => {
 
     expect(culpables.filter((path) => !path.startsWith('packages/catalog-store/'))).toEqual([])
     expect(culpables.length).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * Las dos columnas que añade T60.
+ *
+ * Se mide en el esquema y no en el repositorio lo que es de la migración: que
+ * `anilist_media` tenga la vuelta a MAL y que el índice exista. Sin el índice, la
+ * consulta «qué MAL es este id de AniList» funciona —las pruebas del repositorio
+ * pasarían— pero recorre la caché entera del usuario en cada petición de saltos,
+ * que es justo lo que la columna venía a evitar.
+ */
+describe('la vuelta de AniList a MAL', () => {
+  test('el emparejamiento guarda los dos ids y su índice', async () => {
+    await withDb((db) => {
+      runMigrations(db)
+
+      expect(columnNames(db, 'anilist_media')).toEqual([
+        'title_key',
+        'media_json',
+        'fetched_at',
+        'ttl_s',
+        'anilist_id',
+        'mal_id',
+      ])
+
+      const indices = db
+        .query("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'anilist_media'")
+        .all()
+
+      expect(indices.map((row) => String((row as { name: unknown }).name))).toContain(
+        'anilist_media_por_anilist',
+      )
+    })
+  })
+
+  test('la caché de saltos tiene la forma que el repositorio lee', async () => {
+    await withDb((db) => {
+      runMigrations(db)
+
+      expect(columnNames(db, 'aniskip_cache')).toEqual([
+        'cache_key',
+        'intervals_json',
+        'found',
+        'fetched_at',
+        'ttl_s',
+      ])
+    })
   })
 })
