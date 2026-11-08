@@ -54,6 +54,7 @@ import { registerRecommendationsRoute, registerTrendingRoute } from './routes/re
 import { registerProviderRoute } from './routes/register-provider'
 import { registerSearchRoute } from './routes/search'
 import { registerSettingsRoute } from './routes/settings'
+import { registerSkipTimesRoute } from './routes/skip-times'
 import { registerStreamRoutes } from './routes/stream'
 import { registerSubtitlesRoute } from './routes/subtitles'
 import { registerTmdbRoute } from './routes/tmdb'
@@ -188,6 +189,23 @@ export interface AppOptions {
    */
   readonly tmdbFetchImpl?: TmdbFetch
   readonly tmdbClock?: () => number
+  /**
+   * El cliente de AniSkip.
+   *
+   * Misma pareja que el de AniList —`fetch` y resolutor— porque es el mismo
+   * problema: un tercero al que se sale con lista blanca, en pruebas sin red y
+   * sin resolución real de nombres.
+   */
+  readonly aniskipFetchImpl?: FetchLike
+  readonly aniskipResolver?: Resolver
+  /**
+   * Sin salida a AniSkip, para el arnés de pruebas.
+   *
+   * Por defecto lo dice el entorno (`NN_ANIME_ANISKIP_OFFLINE`). El reproductor
+   * pide los saltos en cuanto conoce la duración, y una prueba que sale a
+   * internet es una prueba que se rompe sola.
+   */
+  readonly aniskipOffline?: boolean
   /**
    * Sin salida a AniList, para el arnés de pruebas.
    *
@@ -496,6 +514,14 @@ export function createApp(options: AppOptions): Hono {
     })
     registerStreamRoutes(app, { ...routeOptions, ...proxyOptions })
     registerSubtitlesRoute(app, { container, ...proxyOptions })
+    // Los saltos son otra salida a un tercero, con su propio `fetch` y su propio
+    // resolutor: una prueba que inyecta el de AniList no está sirviendo éste.
+    registerSkipTimesRoute(app, {
+      container,
+      ...(options.aniskipFetchImpl === undefined ? {} : { fetchImpl: options.aniskipFetchImpl }),
+      ...(options.aniskipResolver === undefined ? {} : { resolver: options.aniskipResolver }),
+      ...(options.aniskipOffline === undefined ? {} : { offline: options.aniskipOffline }),
+    })
     registerWatchRoutes(app, { container })
     registerRecommendationsRoute(app, { ...routeOptions, catalog })
     registerTrendingRoute(app, { ...routeOptions, catalog })
