@@ -578,6 +578,10 @@ export const messages: Messages = {
   // perdió lo visto.
   'player.buffering': 'Almacenando en búfer…',
   'player.error': 'No se pudo reproducir: {message}',
+  // El gesto que vuelve a intentarlo desde el segundo donde se quedó. No se
+  // llama «Recargar»: recargar la página perdería la posición y el episodio
+  // empezaría otra vez.
+  'player.retry': 'Reintentar',
   // El proveedor contestó, pero sin ninguna fuente para ese episodio. No es un
   // fallo de red y no se cuenta como tal: es que ese sitio no tiene el episodio.
   'player.noSource': 'el proveedor no dio ninguna fuente para este episodio',

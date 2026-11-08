@@ -168,6 +168,14 @@ export interface PlayerProps {
   readonly onVideoElement?: ((elemento: HTMLVideoElement | null) => void) | undefined
   /** Segundo en el que empezar, al reanudar o al cambiar de modo. */
   readonly startAtS?: number | undefined
+  /**
+   * Pide una fuente nueva para el mismo episodio y devuelve su URL.
+   *
+   * La pantalla es quien sabe resolver el stream —y saltarse su caché—; el
+   * reproductor sólo la llama cuando la URL que tiene dejó de valer. Sin esto,
+   * un 403 de la firma caducada se queda en un aviso y una reproducción parada.
+   */
+  readonly renovarFuente?: (() => Promise<string | undefined>) | undefined
   /** El ancla de la guía: el reproductor es una parada del recorrido. */
   readonly dataTour?: string | undefined
 }
@@ -214,7 +222,7 @@ function punteroFino(): boolean {
 export function Player(props: PlayerProps): ReactNode {
   // Los avisos de reproducción, pausa y avance salen de los eventos del propio
   // elemento, no del render: llamarlos al pintar los dispararía en cada vuelta.
-  const { state, videoRef, act, seekTo, setVolume, hlsTracks, pickHlsTrack } = usePlayer({
+  const { state, videoRef, act, seekTo, setVolume, hlsTracks, pickHlsTrack, retry } = usePlayer({
     url: props.url,
     kind: props.kind,
     ...(props.onPlay === undefined ? {} : { onPlay: props.onPlay }),
@@ -222,6 +230,7 @@ export function Player(props: PlayerProps): ReactNode {
     ...(props.onProgress === undefined ? {} : { onProgress: props.onProgress }),
     ...(props.onEnded === undefined ? {} : { onEnded: props.onEnded }),
     ...(props.startAtS === undefined ? {} : { startAtS: props.startAtS }),
+    ...(props.renovarFuente === undefined ? {} : { renovarFuente: props.renovarFuente }),
   })
   const pistas = props.tracks ?? []
 
@@ -1117,9 +1126,20 @@ export function Player(props: PlayerProps): ReactNode {
       {pintando ? <p className="player__note">{t(DEFAULT_LOCALE, 'player.compat.on')}</p> : null}
 
       {state.error === undefined ? null : (
-        <p className="search__error">
-          {t(DEFAULT_LOCALE, 'player.error', { message: state.error })}
-        </p>
+        <div className="player__error">
+          <p className="search__error">
+            {t(DEFAULT_LOCALE, 'player.error', { message: state.error })}
+          </p>
+          {/* El reintento reanuda en el mismo segundo: no recarga la página ni
+              vuelve a empezar el episodio. Sólo se ofrece cuando hay algo que
+              reintentar —red o media—, porque un botón que no hace nada es peor
+              que no tenerlo. */}
+          {state.retryable ? (
+            <button type="button" className="button player__retry" onClick={retry}>
+              {t(DEFAULT_LOCALE, 'player.retry')}
+            </button>
+          ) : null}
+        </div>
       )}
 
       {/* El estado, para quien no ve la pantalla: el párrafo está fuera del flujo

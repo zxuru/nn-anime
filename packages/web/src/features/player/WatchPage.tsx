@@ -734,6 +734,39 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     resolver()
   }, [resolver])
 
+  /**
+   * Pide una fuente nueva saltándose la caché del servidor.
+   *
+   * Es la renovación transparente de una URL firmada o de un ticket caducado: la
+   * firma del upstream y el ticket del proxy viven un tiempo acotado, y cuando
+   * se agotan los segmentos empiezan a contestar 403/410. Volver a resolver con
+   * `refresh` emite un ticket nuevo con una URL firmada nueva.
+   *
+   * **No se escribe en `fuente`**: cambiar `source.url` volvería a montar el
+   * medio y perdería justo la posición que la recuperación conserva. La URL nueva
+   * la usa hls.js por dentro; si de verdad cambia el episodio o el modo, el
+   * efecto de la fuente se encarga por su cuenta.
+   */
+  const renovarFuente = useCallback(async (): Promise<string | undefined> => {
+    try {
+      const salida = await apiPostJson(
+        '/api/stream/resolve',
+        {
+          episodeRef: { providerId: props.providerId, value: props.ref },
+          mode: modo,
+          refresh: true,
+        },
+        streamResolveResponseSchema,
+      )
+
+      return salida.sources[0]?.url
+    } catch {
+      // Un fallo al renovar no se cuenta aquí: el reproductor está en medio de
+      // una recuperación y su manejador decide si se agota o se reintenta.
+      return undefined
+    }
+  }, [props.providerId, props.ref, modo])
+
   const posicionEpisodio = vecinos?.position
 
   /** Dónde se apunta el progreso de este episodio. */
@@ -1190,6 +1223,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
               anotarProgreso(positionS, durationS, false)
             }}
             onVideoElement={setElementoVideo}
+            renovarFuente={renovarFuente}
           />
 
           {filaDeMandos(true)}

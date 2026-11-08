@@ -22,6 +22,7 @@ import {
   VOLUME_STEP,
   volumeBy,
 } from './controls'
+import { crearRecuperadorDeHls, diagnosticarHls, type FalloDeReproduccion } from './player-errors'
 import { type HlsSubtitleTrack, hlsSubtitleTracks } from './subtitle-menu'
 
 /** Una pista que el reproductor puede pintar. */
@@ -38,6 +39,15 @@ export interface PlayerState {
   readonly volume: number
   readonly muted: boolean
   readonly error: string | undefined
+  /**
+   * ¿Se puede ofrecer «Reintentar» con este fallo?
+   *
+   * Un error de red o de media se arregla pidiendo otra vez —o con otra fuente—
+   * y el botón tiene sentido. Un navegador que no sabe reproducir HLS o una
+   * fuente que no existe no se arreglan repitiendo, y un botón que no hace nada
+   * es peor que no tenerlo.
+   */
+  readonly retryable: boolean
   /**
    * Todavía no hay ni un fotograma: ni metadatos ni imagen.
    *
@@ -100,6 +110,13 @@ export interface PlayerHandle {
   readonly hlsTracks: readonly HlsSubtitleTrack[]
   /** Enciende la pista del manifiesto con ese índice, o las apaga con `-1`. */
   readonly pickHlsTrack: (id: number) => void
+  /**
+   * Vuelve a intentarlo desde el segundo en el que se quedó.
+   *
+   * Es el gesto del botón «Reintentar»: pide una fuente nueva y, si no la hay,
+   * arranca otra vez con la misma, sin perder la posición.
+   */
+  readonly retry: () => void
 }
 
 /**
@@ -159,19 +176,44 @@ export interface HlsHandle {
    * `TYPE=SUBTITLES`), no un `<track>`: la sirve hls.js y se elige por índice.
    */
   readonly elegirSubtitulo: (id: number) => void
+  /**
+   * El reintento manual: pide fuente nueva y reanuda donde se quedó.
+   *
+   * Devuelve `false` si la instancia ya no está viva. Lo que salga mal después
+   * vuelve por `alFallar`, así que quien llama no tiene que distinguir motivos.
+   */
+  readonly reintentar: () => Promise<boolean>
 }
 
 export interface AttachHlsOptions {
   readonly video: HTMLVideoElement
   readonly url: string
   /**
-   * Un error **fatal** de la biblioteca.
+   * Un error **fatal** que ya no se puede recuperar.
    *
    * Hace falta un oído: hls.js no lanza, avisa, y el elemento no dispara `error`
-   * cuando lo que falla es el Media Source. Sin esto, un corte de red o un códec
-   * que el navegador no decodifica se quedan en una pantalla negra sin decir nada.
+   * cuando lo que falla es el Media Source. Pero no se avisa del primer fallo:
+   * antes se reintenta y se pide fuente nueva, y sólo cuando no queda nada que
+   * probar se cuenta. `reintentable` dice si el botón «Reintentar» tiene algo
+   * que hacer.
    */
-  readonly alFallar?: ((detalle: string) => void) | undefined
+  readonly alFallar?: ((fallo: FalloDeReproduccion) => void) | undefined
+  /**
+   * La reproducción se recuperó sola.
+   *
+   * Sirve para quitar el aviso que dejó un fallo anterior cuando el reintento
+   * —automático o del usuario— sale bien.
+   */
+  readonly alRecuperar?: (() => void) | undefined
+  /**
+   * Pide una fuente nueva para el mismo episodio y devuelve su URL.
+   *
+   * Es lo que convierte una URL firmada caducada o un ticket vencido en una
+   * pausa invisible en vez de un error: el servidor vuelve a resolver el stream
+   * saltándose su caché y devuelve un ticket nuevo. Sin esto no hay renovación
+   * posible y el fallo se agota en el acto.
+   */
+  readonly renovarFuente?: (() => Promise<string | undefined>) | undefined
   /**
    * ¿Sigue vivo el efecto que pidió el montaje?
    *
@@ -199,11 +241,16 @@ export interface AttachHlsOptions {
 
 export async function attachHls(options: AttachHlsOptions): Promise<HlsHandle | { error: string }> {
   const sigueVivo = options.sigueVivo ?? (() => true)
+  const sinMedio: HlsHandle = {
+    destroy: () => {},
+    elegirSubtitulo: () => {},
+    reintentar: async () => false,
+  }
 
   try {
     const { default: Hls } = await import('hls.js')
 
-    if (!sigueVivo()) return { destroy: () => {}, elegirSubtitulo: () => {} }
+    if (!sigueVivo()) return sinMedio
 
     if (!Hls.isSupported()) {
       // Safari reproduce HLS sin ayuda; si tampoco puede, se dice.
@@ -217,10 +264,57 @@ export async function attachHls(options: AttachHlsOptions): Promise<HlsHandle | 
       // que distinguir dos formas de lo mismo.
       options.video.src = options.url
 
-      return { destroy: () => options.video.removeAttribute('src'), elegirSubtitulo: () => {} }
+      return { ...sinMedio, destroy: () => options.video.removeAttribute('src') }
     }
 
-    const hls = new Hls({ enableWorker: true })
+    /*
+     * Reintentos más generosos que los de fábrica, y acotados.
+     *
+     * Un segmento que tarda o una conexión que se corta un instante son lo
+     * normal en estos sitios: los valores por defecto de hls.js se rinden antes
+     * de que el proxy termine de traer el trozo. Se suben los tiempos de espera
+     * y el número de reintentos, pero se dejan **finitos**: un upstream caído no
+     * puede convertirse en un bucle infinito de peticiones.
+     */
+    const hls = new Hls({
+      enableWorker: true,
+      fragLoadPolicy: {
+        default: {
+          maxTimeToFirstByteMs: 20_000,
+          maxLoadTimeMs: 120_000,
+          timeoutRetry: {
+            maxNumRetry: 4,
+            retryDelayMs: 500,
+            maxRetryDelayMs: 8_000,
+            backoff: 'linear',
+          },
+          errorRetry: {
+            maxNumRetry: 6,
+            retryDelayMs: 1_000,
+            maxRetryDelayMs: 10_000,
+            backoff: 'linear',
+          },
+        },
+      },
+      manifestLoadPolicy: {
+        default: {
+          maxTimeToFirstByteMs: 20_000,
+          maxLoadTimeMs: 120_000,
+          timeoutRetry: {
+            maxNumRetry: 4,
+            retryDelayMs: 500,
+            maxRetryDelayMs: 8_000,
+            backoff: 'linear',
+          },
+          errorRetry: {
+            maxNumRetry: 4,
+            retryDelayMs: 1_000,
+            maxRetryDelayMs: 10_000,
+            backoff: 'linear',
+          },
+        },
+      },
+    })
 
     const publicarPistas = (): void => {
       options.alDescubrirPistas?.(hlsSubtitleTracks(hls.subtitleTracks))
@@ -231,16 +325,53 @@ export async function attachHls(options: AttachHlsOptions): Promise<HlsHandle | 
     // publican las pistas de una lista bajo demanda.
     hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, publicarPistas)
 
+    /*
+     * El oído de los errores.
+     *
+     * El diagnóstico —detalle, si es fatal, código HTTP, URL del proxy y número
+     * de fragmento— se registra **sólo en desarrollo**: es lo que hace falta para
+     * saber si un `fragLoadError` a los tres minutos es un 403 de la firma, un
+     * 410 del ticket o una red caída. En producción no se escribe nada.
+     *
+     * La decisión de qué hacer la lleva el recuperador: reintentos acotados,
+     * `recoverMediaError()` para la media y renovación de la fuente cuando la URL
+     * ya no vale. El aviso al usuario sólo llega cuando se agota.
+     */
+    const recuperador = crearRecuperadorDeHls({
+      medio: {
+        loadSource: (url) => hls.loadSource(url),
+        startLoad: (posicion) => hls.startLoad(posicion),
+        recoverMediaError: () => hls.recoverMediaError(),
+        swapAudioCodec: () => hls.swapAudioCodec(),
+        unaVezListo: (escucha) => hls.once(Hls.Events.MANIFEST_PARSED, escucha),
+      },
+      video: options.video,
+      ...(options.renovarFuente === undefined ? {} : { renovarFuente: options.renovarFuente }),
+      alFallar: (fallo) => options.alFallar?.(fallo),
+      alRecuperar: () => options.alRecuperar?.(),
+    })
+
     hls.on(Hls.Events.ERROR, (_evento, datos) => {
-      // Los no fatales se reintentan por dentro: avisar de ellos sería llenar la
-      // pantalla de avisos que se arreglan solos.
-      if (datos.fatal) options.alFallar?.(datos.details)
+      if (import.meta.env.DEV) {
+        // Temporal: el diagnóstico que pidió el informe del fallo. Con `DEV`
+        // fuera del bundle de producción.
+        console.warn('[hls] error', diagnosticarHls(datos))
+      }
+
+      recuperador.alError(datos)
     })
 
     hls.loadSource(options.url)
     hls.attachMedia(options.video)
 
-    return { destroy: () => hls.destroy(), elegirSubtitulo: (id) => (hls.subtitleTrack = id) }
+    return {
+      destroy: () => {
+        recuperador.destruir()
+        hls.destroy()
+      },
+      elegirSubtitulo: (id) => (hls.subtitleTrack = id),
+      reintentar: () => recuperador.reintentar(),
+    }
   } catch (cause) {
     return { error: cause instanceof Error ? cause.message : String(cause) }
   }
@@ -255,6 +386,14 @@ export interface UsePlayerOptions {
   readonly onProgress?: ((positionS: number, durationS: number) => void) | undefined
   /** Segundo en el que empezar. Sirve para reanudar y para cambiar de modo. */
   readonly startAtS?: number | undefined
+  /**
+   * Pide una fuente nueva para el mismo episodio y devuelve su URL.
+   *
+   * Es la renovación transparente: cuando el upstream contesta 403/410 —la
+   * firma o el ticket caducaron— se pide otra fuente sin tocar la posición y la
+   * reproducción sigue donde iba.
+   */
+  readonly renovarFuente?: (() => Promise<string | undefined>) | undefined
   /**
    * El episodio llegó al final.
    *
@@ -273,6 +412,7 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     volume: 1,
     muted: false,
     error: undefined,
+    retryable: false,
     loading: true,
     buffering: false,
     bufferedS: 0,
@@ -327,6 +467,15 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
   const reanudarEn = useRef(source.startAtS)
   reanudarEn.current = source.startAtS
 
+  /**
+   * La renovación de la fuente, en una referencia por el mismo motivo que los
+   * avisos: la función que pasa quien monta el reproductor puede cambiar de
+   * identidad en cada render, y con ella en las dependencias del efecto el medio
+   * se volvería a montar.
+   */
+  const renovar = useRef(source.renovarFuente)
+  renovar.current = source.renovarFuente
+
   const videoRef = useCallback((nuevo: HTMLVideoElement | null) => {
     elemento.current = nuevo
   }, [])
@@ -347,6 +496,7 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
         buffering: false,
         bufferedS: 0,
         error: undefined,
+        retryable: false,
       }),
     )
     // Y las pistas del manifiesto también son de la fuente: las de la anterior no
@@ -357,16 +507,32 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
       void attachHls({
         video,
         url: source.url,
-        alFallar: (detalle) => {
+        alFallar: (fallo) => {
           if (!vivo) return
 
           setState((previo) =>
             anunciar(previo, {
-              error: `hls.js se detuvo: ${detalle}`,
+              error: `hls.js se detuvo: ${fallo.mensaje}`,
+              retryable: fallo.reintentable,
               loading: false,
               buffering: false,
             }),
           )
+        },
+        alRecuperar: () => {
+          if (!vivo) return
+
+          // Se recuperó sola: el aviso de un fallo anterior —o el del reintento
+          // que acaba de salir bien— sobra, y lo que toca es la espera de datos.
+          setState((previo) =>
+            anunciar(previo, { error: undefined, retryable: false, buffering: true }),
+          )
+        },
+        renovarFuente: async () => {
+          const pedir = renovar.current
+          if (pedir === undefined) return undefined
+
+          return await pedir()
         },
         sigueVivo: () => vivo,
         alDescubrirPistas: (pistas) => {
@@ -466,6 +632,7 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
       setState((previo) =>
         anunciar(previo, {
           error: 'no se pudo cargar el video',
+          retryable: false,
           loading: false,
           buffering: false,
         }),
@@ -615,5 +782,23 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     hls.current?.elegirSubtitulo(id)
   }, [])
 
-  return { state, videoRef, act, seekTo, setVolume, toggle, hlsTracks, pickHlsTrack }
+  /**
+   * El botón «Reintentar».
+   *
+   * No re-monta el medio —eso perdería la posición—: la misma instancia de
+   * hls.js vuelve a pedir fuente y arranca en el segundo donde se quedó. El
+   * aviso se quita al momento para que el gesto se note; si vuelve a fallar,
+   * `alFallar` lo devuelve con su motivo.
+   */
+  const retry = useCallback(() => {
+    const medio = hls.current
+    if (medio === undefined) return
+
+    setState((previo) =>
+      anunciar(previo, { error: undefined, retryable: false, loading: true, buffering: true }),
+    )
+    void medio.reintentar()
+  }, [])
+
+  return { state, videoRef, act, seekTo, setVolume, toggle, hlsTracks, pickHlsTrack, retry }
 }

@@ -164,6 +164,23 @@ function passthroughHeaders(upstream: Headers, forceType?: string): Headers {
 }
 
 /**
+ * El origen de un referer, o `undefined` si no es una URL con host.
+ *
+ * Se descarta lo que no tenga origen —una ruta relativa, un `mailto:`— en vez de
+ * mandar un `Origin: null`: ese valor no es un origen y algún CDN lo rechaza
+ * como si la petición viniera de un documento opaco.
+ */
+function originOf(referer: string): string | undefined {
+  try {
+    const url = new URL(referer)
+
+    return url.origin === 'null' ? undefined : url.origin
+  } catch {
+    return undefined
+  }
+}
+
+/**
  * Pide al upstream y devuelve la respuesta ya lista para el cliente.
  *
  * El cuerpo se conecta con `pipeTo` y no se copia: cuando el cliente corta, el
@@ -238,6 +255,16 @@ export async function proxyBytes(request: ByteProxyRequest): Promise<Response> {
   // proveedor porque no depende del sitio, sino de que la petición sale del proxy
   // y no de una pestaña.
   cabeceras.set('sec-fetch-site', 'same-origin')
+  // Algunos CDN exigen `Origin` **además** de `Referer` para servir el segmento,
+  // y el proveedor sólo declara el referer de su ficha. Se deriva el origen de
+  // ese referer, que es lo que mandaría un navegador al pedir un recurso del
+  // mismo sitio. Un `Origin` que el proveedor ya haya declarado no se pisa: si
+  // lo puso, sabe más que esta deducción.
+  const referer = cabeceras.get('referer')
+  if (referer !== null && cabeceras.get('origin') === null) {
+    const origen = originOf(referer)
+    if (origen !== undefined) cabeceras.set('origin', origen)
+  }
   if (range.range !== undefined) cabeceras.set('range', range.range)
 
   // La salida pasa por la lista blanca de destinos, salto a salto: una

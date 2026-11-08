@@ -372,6 +372,15 @@ export const streamRequestSchema = z.strictObject({
   episodeRef: providerRefSchema,
   mode: streamModeSchema,
   preferredQuality: z.string().min(1).optional(),
+  /**
+   * Pide una fuente nueva aunque haya una fila en `stream_cache`.
+   *
+   * Lo manda el cliente cuando el enlace firmado que tenía ya no vale —los
+   * tickets del proxy viven 600 s, como la fila— y volver a resolver sin esto
+   * devolvería durante ese rato exactamente la dirección que caducó. Es
+   * opcional para no romper a quien resuelve de siempre.
+   */
+  refresh: z.boolean().optional(),
 })
 
 export const watchEventInputSchema = z.strictObject({

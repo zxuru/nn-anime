@@ -427,6 +427,27 @@ describe('modos', () => {
     expect(streamRequestSchema.safeParse({ episodeRef: REF, mode: 'sub' }).success).toBe(true)
     expect(streamRequestSchema.safeParse({ episodeRef: REF, mode: 'raw' }).success).toBe(false)
   })
+
+  test('streamRequestSchema admite el refresco forzado y sigue siendo estricto', () => {
+    // `refresh` es lo que manda el reproductor cuando la fuente firmada caducó:
+    // sin el campo en el schema estricto, la petición se rechazaría con 400 y el
+    // cliente no tendría forma de pedir un enlace nuevo antes del TTL.
+    const forzado = streamRequestSchema.safeParse({
+      episodeRef: REF,
+      mode: 'sub',
+      refresh: true,
+    })
+
+    expect(forzado.success).toBe(true)
+    if (forzado.success) expect(forzado.data.refresh).toBe(true)
+
+    // Opcional: resolver de siempre no lo lleva, y un valor que no es booleano
+    // no se cuela.
+    expect(streamRequestSchema.safeParse({ episodeRef: REF, mode: 'sub' }).success).toBe(true)
+    expect(
+      streamRequestSchema.safeParse({ episodeRef: REF, mode: 'sub', refresh: 'si' }).success,
+    ).toBe(false)
+  })
 })
 
 describe('episodeSchema: el número', () => {

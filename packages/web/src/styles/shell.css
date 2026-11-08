@@ -2056,6 +2056,26 @@ body.player-extendido {
   text-wrap: pretty;
 }
 
+/* El fallo de reproducción y su reintento.
+ *
+ * El aviso y el botón son una sola cosa —qué pasó y qué se puede hacer—, así que
+ * van en la misma fila y no uno debajo del otro. El botón reanuda en el mismo
+ * segundo; no es una recarga. */
+.player__error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.player__error .search__error {
+  margin: 0;
+}
+
+.player__retry {
+  min-height: var(--space-7);
+}
+
 /* El reloj va sobre el degradado, y el degradado es negro en los dos temas: con
    el gris del tema —que está pensado para el fondo de la página— se quedaba por
    debajo del contraste que exige el spec. */
