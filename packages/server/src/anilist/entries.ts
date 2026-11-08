@@ -101,6 +101,11 @@ export const mediaSchema = z.object({
     })
     .nullable()
     .optional(),
+  /**
+   * El id de MyAnimeList. Es la clave de AniSkip: sin él no hay intervalos que
+   * saltar, y `null` —que AniList lo publica— significa «no hay», no «no se pidió».
+   */
+  idMal: z.number().int().positive().nullable().optional(),
   episodes: z.number().int().nullable().optional(),
   duration: z.number().int().nullable().optional(),
   averageScore: z.number().int().nullable().optional(),
@@ -303,6 +308,10 @@ export function toEntry(media: z.infer<typeof mediaSchema>): AniListEntry | unde
     ...(statusOf(media.status) === undefined ? {} : { status: statusOf(media.status) }),
     ...(yearOf(media) === undefined ? {} : { year: yearOf(media) }),
     adult: media.isAdult,
+    // Siempre presente en lo que se escribe ahora, incluido `null`: el
+    // reproductor distingue «no hay MAL» de «la caché es vieja» por la presencia
+    // del campo, y una entrada nueva sin él volvería a preguntarse para siempre.
+    malId: media.idMal ?? null,
     ...(media.episodes === null || media.episodes === undefined
       ? {}
       : { episodes: media.episodes }),

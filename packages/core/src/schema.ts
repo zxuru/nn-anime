@@ -308,7 +308,38 @@ export const anilistEntrySchema = z.strictObject({
       airingAt: z.iso.datetime(),
     })
     .optional(),
+  /**
+   * El id de la obra en MyAnimeList, si AniList lo conoce.
+   *
+   * Tres estados y no dos, a propósito:
+   *
+   * - **Ausente**: la entrada es de una caché escrita antes de que este campo
+   *   existiera. No se sabe si hay MAL o no, así que el emparejamiento se vuelve
+   *   a pedir una vez en lugar de dar los saltos por perdidos.
+   * - `null`: se preguntó y AniList dijo que esa obra no tiene ficha de MAL. No
+   *   hay saltos y no se vuelve a preguntar.
+   * - Un número: la clave con la que se le piden los saltos a AniSkip.
+   */
+  malId: z.number().int().positive().nullable().optional(),
 })
+
+/**
+ * Un intervalo saltable de un episodio, ya normalizado.
+ *
+ * Es la forma que sale del servidor y la que consume el reproductor: la API de
+ * AniSkip habla de `skipType` y de `interval.startTime`, y esa traducción —con
+ * `mixed-op`/`mixed-ed` incluidos— se hace una sola vez, en el servidor, para que
+ * la interfaz no tenga que conocer el vocabulario de un tercero.
+ */
+export const skipIntervalSchema = z.strictObject({
+  type: z.enum(['op', 'ed', 'recap']),
+  /** Segundo en el que empieza el intervalo, dentro del episodio. */
+  start: z.number().nonnegative(),
+  /** Segundo en el que termina. Siempre mayor que `start`. */
+  end: z.number().nonnegative(),
+})
+
+export type SkipInterval = z.infer<typeof skipIntervalSchema>
 
 /**
  * Un capítulo de la parrilla, o un estreno, si la fecha se sabe con día.
