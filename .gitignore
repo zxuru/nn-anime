@@ -84,14 +84,16 @@ test-results/
 tareas/
 
 # Skills de terceros instaladas en local por la herramienta: no son del
-# repositorio. Las dos skills propias —`agente-worktree`, que explica el flujo
-# de worktrees, y `frontend-nn-anime`, que fija qué skills de diseño usar— sí se
+# repositorio. Las tres skills propias —`agente-worktree`, que explica el flujo
+# de worktrees; `frontend-nn-anime`, que fija qué skills de diseño usar; y
+# `tablero-kanban`, que hace obligatorio mantener el tablero local— sí se
 # versionan, y el `!` las rescata del comodín anterior.
 .claude/
 skills-lock.json
 .agents/skills/*
 !.agents/skills/agente-worktree/
 !.agents/skills/frontend-nn-anime/
+!.agents/skills/tablero-kanban/
 
 # Editores y sistema operativo
 .vscode/
