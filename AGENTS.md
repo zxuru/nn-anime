@@ -22,6 +22,13 @@ pierde o que se mezcla.
 El detalle del listón, con sus ocho puntos, está en el **Definition of Done** de
 `tasks/plan.md`; esta sección es la parte que se olvida cuando nadie la repite.
 
+## Tablero de tareas local
+
+`tareas/` es un vault de Obsidian **local** (en `.gitignore`) con el tablero Kanban en
+`tareas/Tablero.md`. Al empezar una tarea, muévela a *En desarrollo*; al terminarla, a
+*Completado*; las tareas nuevas van a *Pendiente*. Nada de `tareas/` se commitea: el tablero no se
+migra ni se rellena con historial anterior.
+
 ## Varios agentes a la vez
 
 Un solo directorio es un solo índice y un solo `tasks/todo.md`. Dos agentes trabajando ahí se

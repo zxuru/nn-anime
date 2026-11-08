@@ -77,6 +77,12 @@ test-results/
 # workspace, y en .gitignore para que bun test y biome no recorran la copia
 .worktrees/
 
+# Tablero Kanban local: `tareas/` es un vault de Obsidian con el plugin Kanban,
+# su configuración y las notas de detalle. Vive sólo en la máquina de cada uno
+# —las tareas del proyecto que sí se versionan están en `tasks/`—, así que no se
+# commitea nada de ahí ni se migra dentro del historial.
+tareas/
+
 # Skills de terceros instaladas en local por la herramienta: no son del
 # repositorio. Las dos skills propias —`agente-worktree`, que explica el flujo
 # de worktrees, y `frontend-nn-anime`, que fija qué skills de diseño usar— sí se
