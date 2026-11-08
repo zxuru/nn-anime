@@ -22,6 +22,37 @@ pub const INTEGRIDAD_BAJA: u32 = 0x1000;
 
 const TITULO_AVISO: &str = "nn-anime";
 
+/// El nombre de la carpeta de datos en Windows.
+///
+/// **No es `nn-anime`**: con el instalador de Tauri en modo `currentUser`, la
+/// carpeta de instalación es `%LOCALAPPDATA%\nn-anime` (el nombre del producto), y
+/// los datos no pueden vivir dentro de la carpeta que el instalador y la
+/// actualización reemplazan. Van en una hermana, `%LOCALAPPDATA%\nn-anime-data`,
+/// que el instalador ni conoce ni toca.
+pub const NOMBRE_DATOS: &str = "nn-anime-data";
+
+/// El nombre de la carpeta de instalación (el `productName` del bundle).
+const NOMBRE_INSTALACION: &str = "nn-anime";
+
+/// Lo que se mueve de una instalación anterior, que guardaba los datos dentro de
+/// la carpeta de instalación.
+///
+/// Es una lista cerrada y no «todo lo que no sea un `.exe`»: un barrido copiaría
+/// binarios, accesos o restos del desinstalador a la carpeta de datos.
+const DATOS_HEREDADOS: &[&str] = &[
+    "nn-anime.db",
+    "nn-anime.db-wal",
+    "nn-anime.db-shm",
+    "backups",
+    "config",
+    "cache",
+    "webview",
+    "bin",
+    "registro.log",
+    "desktop.log",
+    "diagnostico.txt",
+];
+
 /// El nombre de la etiqueta de integridad, para el registro.
 pub fn nombre_nivel(rid: u32) -> &'static str {
     match rid {
@@ -54,11 +85,17 @@ impl Raiz {
 /// El orden es una decisión, no una casualidad:
 ///
 /// 1. **`portable.txt` junto al ejecutable**: modo portable explícito. Quien lo
-///    crea sabe lo que hace y no se le discute.
-/// 2. **`%LOCALAPPDATA%\nn-anime`**: lo normal. Los datos sobreviven a borrar el
-///    `.exe` y no ensucian la carpeta donde se copió.
-/// 3. **La carpeta del ejecutable**: sólo si el perfil no se deja escribir. Sirve
-///    para una USB o un equipo con el perfil bloqueado.
+///    crea sabe lo que hace y no se le discute; sus datos viajan con el `.exe`,
+///    y el reemplazo del ejecutable **no toca** esos archivos.
+/// 2. **`%LOCALAPPDATA%\nn-anime-data`**: lo normal. Es **hermana** de la carpeta
+///    de instalación (`%LOCALAPPDATA%\nn-anime`), no su hija: el instalador y la
+///    actualización reemplazan su carpeta, y los datos no pueden estar ahí.
+///    Sobreviven a borrar el `.exe`, a reinstalar y a actualizar.
+/// 3. **La raíz XDG del usuario** en macOS y Linux, por el mismo motivo.
+///
+/// **No hay un tercer camino en el directorio del ejecutable.** Una caída
+/// silenciosa ahí metía la base en la carpeta que el instalador y la
+/// actualización portable reemplazan, que es exactamente donde no puede estar.
 ///
 /// La comprobación es **una escritura de verdad**, no una mirada a los permisos:
 /// es lo único que responde a la pregunta que importa. Se hace una vez al
@@ -88,12 +125,19 @@ pub fn preparar_raiz() -> Raiz {
 
     let mut intentos: Vec<String> = Vec::new();
 
-    // 2. El perfil del usuario en Windows.
+    // 2. El perfil del usuario en Windows. La carpeta de datos es **hermana** de
+    //    la de instalación (`%LOCALAPPDATA%\nn-anime-data` frente a
+    //    `%LOCALAPPDATA%\nn-anime`), para que el instalador y la actualización no
+    //    compartan carpeta con la base. Las instalaciones anteriores guardaban los
+    //    datos dentro de la carpeta de instalación: se trasladan una sola vez.
+    #[cfg(windows)]
     if let Some(perfil) = std::env::var_os("LOCALAPPDATA") {
-        let ruta = std::path::PathBuf::from(perfil).join("nn-anime");
+        let perfil = std::path::PathBuf::from(perfil);
+        let ruta = perfil.join(NOMBRE_DATOS);
 
         match probar_escritura(&ruta) {
             Ok(()) => {
+                migrar_datos_heredados(&perfil.join(NOMBRE_INSTALACION), &ruta);
                 let raiz = Raiz {
                     ruta,
                     portable: false,
@@ -140,24 +184,12 @@ pub fn preparar_raiz() -> Raiz {
         }
     }
 
-    // 3. Al lado del ejecutable.
-    if let Some(dir) = &exe_dir {
-        match probar_escritura(dir) {
-            Ok(()) => {
-                let raiz = Raiz {
-                    ruta: dir.clone(),
-                    portable: true,
-                };
-
-                fijar(&raiz);
-
-                return raiz;
-            }
-            Err(error) => intentos.push(format!("{}: {error}", dir.display())),
-        }
-    }
-
-    // 4. Ninguna.
+    // 3. Nada más. Los datos **no** caen al directorio del ejecutable: es la
+    //    carpeta del programa instalado o de la copia portable, y ahí el
+    //    instalador y el reemplazo del `.exe` sí borran y escriben. Un fallo de
+    //    escritura en el perfil se cuenta con el diálogo nativo y se sale; es
+    //    mejor que arrancar con la base en un sitio que la próxima actualización
+    //    puede llevarse por delante.
     let detalle = intentos.join("\n");
 
     crate::registrar(&format!("sin ubicación escribible:\n{detalle}"));
@@ -167,8 +199,9 @@ pub fn preparar_raiz() -> Raiz {
         &format!(
             "nn-anime no puede guardar sus datos y no puede arrancar.\n\n\
              Se probaron estas ubicaciones:\n{detalle}\n\n\
-             Copia el programa a una carpeta donde puedas escribir, o revisa los \
-             permisos de tu carpeta de usuario."
+             nn-anime no guarda nada junto al ejecutable: revisa los permisos de tu \
+             carpeta de usuario o crea portable.txt junto al programa si de verdad \
+             quieres que los datos viajen con él."
         ),
     );
 
@@ -195,6 +228,97 @@ fn probar_escritura(dir: &std::path::Path) -> std::io::Result<()> {
     std::fs::remove_file(&prueba)?;
 
     Ok(())
+}
+
+/// Traslada los datos de una instalación anterior, que los guardaba dentro de la
+/// carpeta de instalación.
+///
+/// Se hace **una sola vez** y sin tocar nada si la carpeta nueva ya tiene base:
+/// una actualización futura no vuelve a mover nada, y si el traslado se corta a
+/// medias el siguiente arranque lo retoma (la base sigue en el origen). El
+/// `rename` es barato y atómico; si un archivo está bloqueado se registra y se
+/// sigue, porque perder el arranque por una caché bloqueada sería peor que
+/// volver a intentarlo.
+///
+/// La lista de lo que se mueve es cerrada (`DATOS_HEREDADOS`): un barrido se
+/// llevaría ejecutables y restos del desinstalador.
+#[cfg(windows)]
+fn migrar_datos_heredados(instalacion: &std::path::Path, datos: &std::path::Path) {
+    let base_vieja = instalacion.join("nn-anime.db");
+
+    if datos.join("nn-anime.db").exists() || !base_vieja.exists() {
+        return;
+    }
+
+    if let Err(error) = std::fs::create_dir_all(datos) {
+        crate::registrar(&format!(
+            "no se pudo preparar la carpeta de datos para migrar: {error}"
+        ));
+        return;
+    }
+
+    let mut movidos = 0u32;
+
+    for nombre in DATOS_HEREDADOS {
+        let origen = instalacion.join(nombre);
+        if !origen.exists() {
+            continue;
+        }
+
+        let destino = datos.join(nombre);
+        if destino.exists() {
+            continue;
+        }
+
+        match std::fs::rename(&origen, &destino) {
+            Ok(()) => movidos += 1,
+            Err(error) => crate::registrar(&format!(
+                "no se pudo mover {origen:?} a {destino:?}: {error}; se reintentará en el próximo arranque"
+            )),
+        }
+    }
+
+    /*
+     * Si la base no llegó a su sitio, **no se arranca**: la aplicación abriría
+     * una base nueva, vacía, y el usuario vería su historial desaparecido aunque
+     * los datos siguieran en la carpeta antigua. Es peor que no arrancar y decirlo.
+     */
+    if !datos.join("nn-anime.db").exists() && base_vieja.exists() {
+        let mensaje = format!(
+            "nn-anime encontró datos de una instalación anterior en {} pero no pudo \
+             trasladarlos a {}.\n\n\
+             La base y el historial siguen en la carpeta antigua, intactos. Revisa los \
+             permisos de tu carpeta de usuario y vuelve a abrir nn-anime.",
+            instalacion.display(),
+            datos.display()
+        );
+
+        crate::registrar(&mensaje);
+        nativo::aviso(TITULO_AVISO, &mensaje);
+        std::process::exit(1);
+    }
+
+    crate::registrar(&format!(
+        "datos de una instalación anterior trasladados fuera de la carpeta de instalación ({movidos} entradas)"
+    ));
+}
+
+/// `true` si `ruta` está dentro de `padre`. Pura, para poder probarla.
+///
+/// Windows no distingue mayúsculas y una comparación de cadenas diría que
+/// `C:\x\nn-anime2` está dentro de `C:\x\nn-anime`; por eso se compara
+/// componente a componente.
+#[cfg(test)]
+pub fn dentro_de(ruta: &std::path::Path, padre: &std::path::Path) -> bool {
+    let normalizar = |p: &std::path::Path| {
+        p.components()
+            .map(|c| c.as_os_str().to_string_lossy().to_lowercase())
+            .collect::<Vec<_>>()
+    };
+    let de = normalizar(ruta);
+    let en = normalizar(padre);
+
+    de.len() > en.len() && de.starts_with(&en)
 }
 
 /// `true` si esta copia la instaló un instalador de nn-anime.
@@ -579,5 +703,36 @@ mod nativo {
 
     pub fn aviso(titulo: &str, mensaje: &str) {
         eprintln!("{titulo}: {mensaje}");
+    }
+}
+
+#[cfg(test)]
+mod pruebas_datos {
+    use super::{dentro_de, NOMBRE_DATOS, NOMBRE_INSTALACION};
+    use std::path::Path;
+
+    /// La carpeta de datos no puede estar dentro de la de instalación: es lo que
+    /// el instalador reemplaza al actualizar y lo que borra al desinstalar.
+    #[test]
+    fn la_carpeta_de_datos_es_hermana_de_la_de_instalacion() {
+        assert_ne!(NOMBRE_DATOS, NOMBRE_INSTALACION);
+        assert!(!dentro_de(
+            Path::new("C:\\Users\\ana\\AppData\\Local\\nn-anime-data"),
+            Path::new("C:\\Users\\ana\\AppData\\Local\\nn-anime")
+        ));
+        assert!(dentro_de(
+            Path::new("C:\\Users\\ana\\AppData\\Local\\nn-anime\\datos"),
+            Path::new("C:\\Users\\ana\\AppData\\Local\\nn-anime")
+        ));
+        // La comparación no se deja engañar por un prefijo de cadena.
+        assert!(!dentro_de(
+            Path::new("C:\\x\\nn-anime2"),
+            Path::new("C:\\x\\nn-anime")
+        ));
+        // Ni por las mayúsculas, que Windows no distingue.
+        assert!(dentro_de(
+            Path::new("C:\\X\\NN-ANIME\\config"),
+            Path::new("c:\\x\\nn-anime")
+        ));
     }
 }

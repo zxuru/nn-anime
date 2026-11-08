@@ -14,9 +14,9 @@ import { existsSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import {
   listMigrations,
+  migrateDatabase,
   openDb,
   pruneOrphans,
-  runMigrations,
   shouldPrune,
 } from '@nn-anime/catalog-store'
 import { createLogger, DEFAULT_LOCALE, readSettings, t } from '@nn-anime/core'
@@ -61,26 +61,65 @@ const resources = resolveResources({
 /**
  * Migrar al arrancar, y limpiar si la base se ha hecho grande.
  *
- * El runner es el mismo que el de `bun run db:migrate`: uno distinto sería una
- * forma silenciosa de tener dos esquemas. Y la comprobación de tamaño es la del
- * store (`shouldPrune`), no un número escrito aquí.
+ * Se llama a `migrateDatabase`, no a `runMigrations`: la copia de seguridad y la
+ * restauración necesitan cerrar y reabrir la conexión, y el runner sólo recibe
+ * una abierta. El motor deja una copia en `dataDir/backups` antes de tocar nada
+ * y, si una migración falla, restaura la anterior.
+ *
+ * **Una migración fallida no impide arrancar**, y es deliberado: el requisito es
+ * que la actualización nunca deje la aplicación sin datos. La base se queda en
+ * la versión anterior, con todo lo que había, y el aviso dice que la
+ * actualización no se pudo aplicar. Seguir con un esquema viejo es peor que
+ * restaurar y contarlo, pero mejor que no arrancar y dejar al usuario sin
+ * acceso a sus datos.
  *
  * El directorio de migraciones se resuelve fuera porque dentro del binario los
  * `.sql` no están donde el runner los busca por defecto. Sin directorio —el caso
  * de `bun run start`— el runner usa el suyo, que es el camino de siempre.
  */
 const migrate: Migrate = async (config) => {
+  let resultado: ReturnType<typeof migrateDatabase>
+
+  try {
+    resultado = migrateDatabase({
+      dbPath: config.dbPath,
+      ...(resources.migrationsDir === undefined
+        ? {}
+        : { migrations: listMigrations(resources.migrationsDir) }),
+    })
+  } catch (error) {
+    // `migrateDatabase` devuelve los fallos esperados; lo que llega aquí es un
+    // fallo al abrir o al copiar que ni siquiera permite decidir.
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+      path: config.dbPath,
+    }
+  }
+
+  if (!resultado.ok) {
+    if (resultado.restored) {
+      // Con la copia restaurada los datos están a salvo: se arranca con la
+      // versión anterior y se dice qué pasó. Devolver un fallo aquí dejaría al
+      // usuario sin aplicación por una migración que ya se revirtió.
+      return {
+        ok: true,
+        note: t(DEFAULT_LOCALE, 'cli.migration.restored', {
+          version: String(resultado.version ?? 0),
+          message: resultado.message,
+        }),
+      }
+    }
+
+    return { ok: false, message: resultado.message, path: config.dbPath }
+  }
+
   let db: ReturnType<typeof openDb> | undefined
 
   try {
-    db = openDb(config.dbPath)
-    runMigrations(
-      db,
-      resources.migrationsDir === undefined ? undefined : listMigrations(resources.migrationsDir),
-    )
-
     const info = await stat(config.dbPath).catch(() => undefined)
     if (info !== undefined && shouldPrune(info.size)) {
+      db = openDb(config.dbPath)
       const informe = pruneOrphans(db)
       const filas = Object.values(informe.deleted).reduce((suma, total) => suma + total, 0)
 

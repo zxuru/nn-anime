@@ -88,7 +88,8 @@ deja accesos: el mismo archivo lleva dentro la interfaz, el servidor y la base. 
 ventana, con la aplicación dentro y sin ninguna consola de por medio.
 
 Por defecto los datos —la base, los ajustes, los plugins y el perfil del webview— van a
-`%LOCALAPPDATA%\nn-anime`, así que sobreviven a mover o borrar el `.exe`. Si prefieres que viajen con
+`%LOCALAPPDATA%\nn-anime-data`, **fuera** de la carpeta de instalación (`%LOCALAPPDATA%\nn-anime`), así
+que sobreviven a mover o borrar el `.exe`, a reinstalar y a actualizar. Si prefieres que viajen con
 él —una memoria USB, una carpeta portátil—, crea un archivo vacío llamado `portable.txt` **al lado**
 del ejecutable: entonces todo se guarda ahí (`bin`, `config`, `cache`, `webview` y la base).
 
@@ -128,7 +129,8 @@ nueva y borra el viejo. Si el medio es de sólo lectura o el reemplazo falla, se
 enlace a la release.
 
 Desinstalar desde «Agregar o quitar programas» **no borra tus datos**: la base, los ajustes y los
-plugins viven en `%LOCALAPPDATA%\nn-anime` y se quedan donde están.
+plugins viven en `%LOCALAPPDATA%\nn-anime-data` —fuera de la carpeta de instalación— y se quedan donde
+están.
 
 ### macOS
 
@@ -291,7 +293,8 @@ envuelto en un instalador. Para desarrollar hace falta Bun en la máquina —y p
 
 | Qué | Linux y macOS | Windows |
 |---|---|---|
-| Datos y base de datos | `~/.local/share/nn-anime/` | `%LOCALAPPDATA%\nn-anime\` |
+| Datos y base de datos | `~/.local/share/nn-anime/` | `%LOCALAPPDATA%\nn-anime\` (CLI) · `%LOCALAPPDATA%\nn-anime-data\` (ventana instalada) |
+| Copias de seguridad | `~/.local/share/nn-anime/backups/` | `%LOCALAPPDATA%\nn-anime\backups\` · `%LOCALAPPDATA%\nn-anime-data\backups\` |
 | Configuración | `~/.config/nn-anime/` | `%APPDATA%\nn-anime\` |
 | Tus plugins | `~/.config/nn-anime/providers/` | `%APPDATA%\nn-anime\providers\` |
 | Repositorios de proveedores descargados | `~/.local/share/nn-anime/repos/` | `%LOCALAPPDATA%\nn-anime\repos\` |
@@ -299,10 +302,12 @@ envuelto en un instalador. Para desarrollar hace falta Bun en la máquina —y p
 | Descargas (por defecto) | `~/.local/share/nn-anime/downloads/` | `%LOCALAPPDATA%\nn-anime\downloads\` |
 
 La tabla es la del **CLI** (`bun run start`). La **ventana** fija los tres directorios bajo una sola
-raíz: `%LOCALAPPDATA%\nn-anime` en Windows y `~/.local/share/nn-anime` —o `XDG_DATA_HOME`— en macOS y
-Linux, con `config`, `cache`, `bin` (el servidor) y `webview` dentro. En modo portable (`portable.txt`)
-esa raíz es la carpeta del `.exe`. Las rutas exactas en uso se ven en **Ajustes**, dentro de la
-aplicación.
+raíz: `%LOCALAPPDATA%\nn-anime-data` en Windows —hermana de la carpeta de instalación, para que el
+instalador y la actualización no compartan sitio con la base— y `~/.local/share/nn-anime` —o
+`XDG_DATA_HOME`— en macOS y Linux, con `config`, `cache`, `bin` (el servidor), `webview` y `backups`
+dentro. Las instalaciones anteriores de Windows guardaban los datos dentro de `%LOCALAPPDATA%\nn-anime`
+y se trasladan una sola vez al arrancar. En modo portable (`portable.txt`) esa raíz es la carpeta del
+`.exe`. Las rutas exactas en uso se ven en **Ajustes**, dentro de la aplicación.
 
 Las variables de entorno que lee la aplicación están inventariadas en `.env.example`, sin ningún valor
 real. En el uso local ninguna es obligatoria y ninguna lleva un secreto: los directorios se pueden

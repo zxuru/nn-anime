@@ -406,6 +406,15 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     let reanudado = false
 
     const alTiempo = (): void => {
+      /*
+       * Antes de reanudar, el elemento puede avisar de un `timeupdate` en el
+       * segundo cero —justo después de `loadedmetadata` y antes del salto—.
+       * Informar de esa posición escribiría 0 encima del sitio donde se dejó y
+       * la reanudación se perdería en el mismo arranque. Se ignora hasta que el
+       * salto se haya hecho.
+       */
+      if (!reanudado && destino > 0 && video.currentTime + 1 < destino) return
+
       setState((previo) => ({
         ...previo,
         positionS: video.currentTime,
@@ -476,10 +485,14 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
      * Es una de las cuatro cosas que se anuncian —empezar, parar, buscar y
      * terminar—, y la única que necesita la posición en ese momento: la del
      * estado es la del último `timeupdate`, que mientras se arrastra no es
-     * ninguna.
+     * ninguna. También se avisa al registro del visionado: el salto tiene que
+     * quedar guardado aunque se cierre justo después, y un `timeupdate` puede
+     * tardar hasta un cuarto de segundo en llegar.
      */
-    const alBuscar = (): void =>
+    const alBuscar = (): void => {
       setState((previo) => anunciar(previo, { buffering: false, positionS: video.currentTime }))
+      avisos.current.onProgress?.(video.currentTime, video.duration)
+    }
     /** El final del episodio: deja de sonar, se cuenta y se avisa a la pantalla. */
     const alTerminar = (): void => {
       setState((previo) => anunciar(previo, { playing: false, buffering: false }))
@@ -565,6 +578,11 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
         if (document.fullscreenElement === null) void video.requestFullscreen?.()
         else void document.exitFullscreen?.()
 
+        return
+      case 'extended':
+        // El modo extendido lo resuelve la pantalla con un atributo y CSS: no
+        // toca el elemento ni el medio, así que aquí no hay nada que hacer. El
+        // caso se deja explícito para que el `switch` cubra todas las acciones.
         return
     }
   }, [])

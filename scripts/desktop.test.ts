@@ -365,11 +365,15 @@ describe('el anfitrión de ventana', () => {
   test('los datos van al perfil del usuario, con respaldo y modo portable explícito', async () => {
     const entorno = await leer(join(CRATE, 'src', 'entorno.rs'))
 
-    // `%LOCALAPPDATA%\nn-anime` primero: los datos sobreviven a borrar el `.exe` y
-    // no ensucian la carpeta donde se copió.
+    // `%LOCALAPPDATA%` primero, y la carpeta de datos es **hermana** de la de
+    // instalación (`nn-anime-data` frente a `nn-anime`): el instalador reemplaza
+    // su carpeta y los datos no pueden estar dentro.
     expect(entorno).toContain('LOCALAPPDATA')
-    expect(entorno).toContain('join("nn-anime")')
-    // Y en macOS y Linux, la raíz XDG del usuario: sin ella caería al directorio
+    expect(entorno).toContain('NOMBRE_DATOS')
+    expect(entorno).toContain('nn-anime-data')
+    // Y los datos de una instalación anterior se trasladan una vez.
+    expect(entorno).toContain('migrar_datos_heredados')
+    // En macOS y Linux, la raíz XDG del usuario: sin ella caería al directorio
     // del ejecutable, que en un `.deb` es de root y en un AppImage no se escribe.
     expect(entorno).toContain('XDG_DATA_HOME')
     expect(entorno).toContain('HOME')
@@ -383,6 +387,19 @@ describe('el anfitrión de ventana', () => {
 
     // Y la prueba de escritura es de verdad, no una mirada a los permisos.
     expect(entorno).toContain('probar_escritura')
+  })
+
+  test('los datos no caen en el directorio del ejecutable', async () => {
+    const entorno = await leer(join(CRATE, 'src', 'entorno.rs'))
+
+    // El respaldo silencioso al lado del `.exe` metía la base en la carpeta que
+    // el instalador y la actualización portable reemplazan. Se retiró: si el
+    // perfil no es escribible, se avisa y se sale.
+    expect(entorno).not.toContain('probar_escritura(dir)')
+    expect(entorno).toContain('no guarda nada junto al ejecutable')
+
+    // El único camino junto al ejecutable es el portable **explícito**.
+    expect(entorno).toContain('portable.txt')
   })
 
   test('el entregable es un solo archivo, con el servidor dentro', async () => {
@@ -761,12 +778,15 @@ describe('el archivo único y la release', () => {
     expect(script).toContain("'uninstall.exe'")
     expect(script).not.toContain("'nn-anime.exe', 'nn-anime-desktop.exe'")
 
-    // Los datos del anfitrión viven todos bajo `%LOCALAPPDATA%\nn-anime`, que con
-    // el instalador de Tauri es también el directorio de instalación. El
-    // desinstalador borra lo suyo y deja el resto; por eso el centinela va en la
-    // raíz y se comprueba después.
+    // La instalación es `%LOCALAPPDATA%\nn-anime` y los datos viven en su
+    // hermana `%LOCALAPPDATA%\nn-anime-data`. El desinstalador borra lo suyo y no
+    // puede llevarse la base; el guion lo comprueba después de desinstalar.
     expect(script).toContain("Join-Path $env:LOCALAPPDATA 'nn-anime'")
+    expect(script).toContain("Join-Path $env:LOCALAPPDATA 'nn-anime-data'")
     expect(script).not.toContain("Join-Path $env:APPDATA 'nn-anime'")
+    // Y exige que la base haya nacido fuera de la carpeta de instalación.
+    expect(script).toContain("Join-Path $datos 'nn-anime.db'")
+    expect(script).toContain("Join-Path $destino 'nn-anime.db'")
 
     // El servidor se extrae del binario; y la X oculta en la bandeja, no apaga.
     expect(script).toContain('nn-anime\\bin')

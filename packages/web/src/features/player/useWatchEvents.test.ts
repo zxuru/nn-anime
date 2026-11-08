@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { MIN_DELTA_S, shouldSendUpdate, UPDATE_INTERVAL_MS, updateBody } from './useWatchEvents'
 
 describe('cuándo se manda el avance', () => {
-  test('cada quince segundos', () => {
-    expect(UPDATE_INTERVAL_MS).toBe(15_000)
+  test('cada cinco segundos', () => {
+    expect(UPDATE_INTERVAL_MS).toBe(5_000)
     expect(
       shouldSendUpdate({
         now: UPDATE_INTERVAL_MS,

@@ -73,9 +73,10 @@ Lo que un vecino no puede copiar sin mentir:
   episodios recién emitidos salen de la API pública de AniList, la única fuente con fecha por
   episodio; las películas y series se completan con una clave opcional de TMDB que se guarda en la
   base local y nunca se devuelve al navegador.
-- **Dónde viven los datos.** Rutas XDG en Linux y macOS, `%LOCALAPPDATA%` y `%APPDATA%` en Windows,
-  una sola raíz en la ventana, y `portable.txt` para llevar todo junto en Windows. Las rutas en uso
-  se ven en **Ajustes**.
+- **Dónde viven los datos.** Rutas XDG en Linux y macOS; en Windows, `%LOCALAPPDATA%\nn-anime-data`
+  para la ventana instalada —fuera de la carpeta de instalación, que el instalador reemplaza— y
+  `%LOCALAPPDATA%`/`%APPDATA%` para el CLI. `portable.txt` lleva todo junto en Windows si se elige.
+  Las rutas en uso se ven en **Ajustes**.
 - **Cómo se trabaja el repositorio.** Una tarea por worktree y por rama, `tasks/plan.md` y
   `tasks/todo.md` como fuentes de verdad, Definition of Done de ocho puntos y commit atómico que
   cita el task. `typecheck`, `lint` y `test` en verde antes de cerrar. Los textos de interfaz pasan

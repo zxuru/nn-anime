@@ -500,6 +500,53 @@ describe('migración que falla', () => {
   })
 })
 
+/**
+ * El runner no puede ser un `db.exec` en bucle: estas tres comprobaciones son
+ * las que convierten una migración mal escrita en un error que nombra el archivo
+ * en vez de una base a medio migrar.
+ */
+describe('endurecimiento del runner', () => {
+  test('un archivo que maneja transacciones se rechaza antes de ejecutarse', async () => {
+    await withDb((db) => {
+      const conBegin: readonly MigrationFile[] = [
+        {
+          version: 1,
+          name: 'con-begin',
+          file: '/m/0001-con-begin.sql',
+          sql: 'BEGIN; CREATE TABLE uno (a INTEGER); COMMIT;',
+        },
+      ]
+
+      expect(() => runMigrations(db, conBegin)).toThrow(/control de transacciones/)
+      expect(tableNames(db)).not.toContain('uno')
+    })
+  })
+
+  test('no se toca una base más nueva que las migraciones conocidas', async () => {
+    await withDb((db) => {
+      runMigrations(db)
+
+      expect(() =>
+        runMigrations(
+          db,
+          listMigrations().filter((migration) => migration.version < ULTIMA),
+        ),
+      ).toThrow(/más nueva/)
+      expect(schemaVersion(db)).toBe(ULTIMA)
+    })
+  })
+
+  test('una versión que no es un entero positivo se rechaza', async () => {
+    await withDb((db) => {
+      const invalida: readonly MigrationFile[] = [
+        { version: 0, name: 'cero', file: '/m/0000-cero.sql', sql: 'SELECT 1;' },
+      ]
+
+      expect(() => runMigrations(db, invalida)).toThrow(/entero positivo/)
+    })
+  })
+})
+
 describe('archivos de migración', () => {
   test('encuentra la inicial con su versión', () => {
     const migraciones = listMigrations()
@@ -514,13 +561,26 @@ describe('archivos de migración', () => {
     const dir = await mkdtemp(join(tmpdir(), 'nn-anime-mig-'))
 
     try {
-      await Bun.write(join(dir, '0009-nueva.sql'), 'CREATE TABLE nueva (a INTEGER)')
+      await Bun.write(join(dir, '0001-nueva.sql'), 'CREATE TABLE nueva (a INTEGER)')
       await Bun.write(join(dir, 'notas.txt'), 'no soy una migración')
       await Bun.write(join(dir, 'runner.ts'), '// tampoco')
 
       const encontradas = listMigrations(dir)
 
-      expect(encontradas.map((migration) => migration.version)).toEqual([9])
+      expect(encontradas.map((migration) => migration.version)).toEqual([1])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  test('un hueco en la numeración se rechaza en vez de aplicarse a ciegas', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-mig-'))
+
+    try {
+      await Bun.write(join(dir, '0001-una.sql'), 'SELECT 1')
+      await Bun.write(join(dir, '0003-tres.sql'), 'SELECT 1')
+
+      expect(() => listMigrations(dir)).toThrow(/sin huecos/)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
