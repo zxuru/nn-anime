@@ -465,6 +465,19 @@ export const messages: Messages = {
    */
   'settings.adult.help':
     'Enseña también lo que AniList marca para adultos. No comprueba la edad de nadie, y sólo alcanza a lo que las fuentes publican: lo que no se puede comprobar se enseña igual.',
+  /**
+   * El modo extendido del reproductor.
+   *
+   * Es una preferencia del navegador y no del servidor, como la reproducción
+   * automática: no viaja a ninguna parte. El texto dice qué hace y qué no
+   * —llena la ventana, no entra en pantalla completa— porque las dos cosas se
+   * confunden y la diferencia importa en el escritorio.
+   */
+  'settings.extended': 'Modo extendido',
+  'settings.extended.body':
+    'El reproductor ocupa toda la ventana, sin pedir la pantalla completa ni cambiar el tamaño de la ventana de la aplicación. Se enciende con el mando del reproductor o con la tecla T.',
+  'settings.extended.off': 'Ventana normal',
+  'settings.extended.on': 'Abrir extendido',
   // TMDB: la única fuente de metadatos de no-anime y la única clave que el
   // usuario escribe. La clave no vuelve del servidor; la pantalla sólo dice si hay.
   'settings.tmdb': 'Metadatos de películas y series',
@@ -540,6 +553,11 @@ export const messages: Messages = {
   'player.unmute': 'Activar sonido',
   'player.fullscreen': 'Pantalla completa',
   'player.fullscreen.exit': 'Salir de pantalla completa',
+  // El modo extendido: llena la ventana de la aplicación sin pedir la pantalla
+  // completa del sistema. El nombre lo dice tal cual porque «maximizar» ya
+  // significa otra cosa en la ventana de escritorio.
+  'player.extended': 'Modo extendido',
+  'player.extended.exit': 'Salir del modo extendido',
   'player.seek': 'Posición del video',
   'player.mpv': 'Ver en mpv',
   'player.mpv.opened': 'Se abrió en el reproductor externo.',
@@ -590,6 +608,7 @@ export const messages: Messages = {
   'player.key.volume': 'Bajar o subir el volumen',
   'player.key.mute': 'Silenciar',
   'player.key.fullscreen': 'Pantalla completa',
+  'player.key.extended': 'Modo extendido',
   'player.key.space': 'Espacio',
   'player.key.enter': 'Enter',
   'player.key.k': 'K',
@@ -599,6 +618,7 @@ export const messages: Messages = {
   'player.key.down': '↓',
   'player.key.m': 'M',
   'player.key.f': 'F',
+  'player.key.t': 'T',
   'player.attribution': 'Reproducción HLS con hls.js (licencia Apache 2.0).',
   /**
    * La marca del contenido para adultos.
@@ -765,6 +785,10 @@ export const messages: Messages = {
   'guia.siguiente': 'Siguiente',
   'guia.anterior': 'Anterior',
   'guia.listo': 'Listo',
+  // El mando que corta el recorrido sin recorrer los pasos que quedan. Dice
+  // «tutorial» y no «guía» porque lo que se omite es este recorrido, no la guía
+  // entera: para eso está «Omitir todos los tutoriales» en Ajustes.
+  'guia.omitir': 'Omitir tutorial',
   'guia.entendido': 'Entendido',
   'guia.progreso': '{{current}} de {{total}}',
 
@@ -884,6 +908,19 @@ export const messages: Messages = {
   'guia.ajustes.cuerpo':
     'Cada pantalla tiene su tutorial y sale solo la primera vez. Repítelo aquí o con el «?» de la cabecera.',
   'guia.ajustes.secciones': 'Repetir un tutorial',
+  // El interruptor global. «Tutoriales» nombra el grupo; los dos botones son el
+  // estado, con `aria-pressed`, como el tema y el contenido para adultos.
+  'guia.ajustes.interruptor': 'Tutoriales',
+  'guia.ajustes.mostrar': 'Mostrar tutoriales',
+  'guia.ajustes.ocultar': 'Ocultar tutoriales',
+  'guia.ajustes.interruptor.ayuda':
+    'Con los tutoriales ocultos no sale ninguno, tampoco en una pantalla nueva. Los que ya viste no se pierden: se repiten desde la lista de arriba.',
+  'guia.ajustes.omitirTodos': 'Omitir todos los tutoriales',
+  'guia.ajustes.reiniciar': 'Reiniciar tutoriales',
+  'guia.ajustes.omitir.ayuda':
+    'Los da todos por vistos sin preguntar: no se borra nada y se pueden repetir desde esta misma lista.',
+  'guia.ajustes.reiniciar.ayuda':
+    'Vuelven a salir todos, como en la primera visita. Los avisos ya descartados no vuelven: para ésos está el botón de abajo.',
   'guia.ajustes.avisos': 'Mostrar los avisos otra vez',
 
   /*

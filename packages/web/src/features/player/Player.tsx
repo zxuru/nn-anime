@@ -32,17 +32,21 @@ import {
   volumeFromPercent,
   volumePercent,
 } from './controls'
+import { guardarExtendido, leerExtendido } from './extendido'
 import {
   IconoAdelante,
   IconoAjustes,
   IconoAtras,
+  IconoExtendido,
   IconoPantallaCompleta,
   IconoPausar,
   IconoReproducir,
+  IconoSalirExtendido,
   IconoSalirPantallaCompleta,
   IconoSilencio,
   IconoVolumen,
 } from './icons'
+import { almacenLocal } from './storage'
 import { type SubtitleChoice, subtitleAction, subtitleOptions } from './subtitle-menu'
 import { isProxyPath } from './subtitle-tracks'
 import { useCompatPaint } from './useCompatPaint'
@@ -185,6 +189,7 @@ const ATAJOS: readonly { readonly teclas: readonly string[]; readonly hace: stri
   { teclas: ['player.key.up', 'player.key.down'], hace: 'player.key.volume' },
   { teclas: ['player.key.m'], hace: 'player.key.mute' },
   { teclas: ['player.key.f'], hace: 'player.key.fullscreen' },
+  { teclas: ['player.key.t'], hace: 'player.key.extended' },
 ]
 
 /** Lo que ocupa una parte del total, en por ciento, sin salirse de la barra. */
@@ -402,6 +407,44 @@ export function Player(props: PlayerProps): ReactNode {
   }, [])
 
   /**
+   * El modo extendido: el reproductor llena la ventana sin pantalla completa.
+   *
+   * No es la Fullscreen API ni una orden a Tauri: es un atributo en el
+   * contenedor y CSS. Por eso no interrumpe nada —el `<video>` y `hls.js` son
+   * los mismos nodos— y por eso respeta el tamaño de la ventana: al
+   * redimensionarla o maximizarla, el `inset: 0` la sigue sin recalcular nada.
+   *
+   * Arranca con la preferencia guardada, que es la que Ajustes deja puesta para
+   * las próximas veces. Se guarda en cada cambio, igual que la reproducción
+   * automática: quien apaga y enciende el modo está eligiendo cómo quiere que
+   * abra el reproductor.
+   */
+  const [extendido, setExtendido] = useState(() => leerExtendido(almacenLocal()))
+
+  useEffect(() => {
+    guardarExtendido(almacenLocal(), extendido)
+  }, [extendido])
+
+  // Mientras ocupa la ventana entera, la página de debajo no se desplaza: un
+  // `position: fixed` no impide el desplazamiento del documento, y el gesto de
+  // rueda en el borde del video movía el contenido que no se ve. La clase va en
+  // el `body` y se retira al salir —o al desmontar la pantalla, que es lo que
+  // pasa al cambiar de episodio—.
+  useEffect(() => {
+    if (!extendido) return
+
+    document.body.classList.add('player-extendido')
+
+    return () => {
+      document.body.classList.remove('player-extendido')
+    }
+  }, [extendido])
+
+  const alternarExtendido = useCallback(() => {
+    setExtendido((valor) => !valor)
+  }, [])
+
+  /**
    * Los mandos a la vista, y cuándo se esconden.
    *
    * Sólo se esconden mientras reproduce: en pausa no hay nada que quitar de
@@ -555,6 +598,31 @@ export function Player(props: PlayerProps): ReactNode {
       // no puede pausar el video que hay detrás del velo.
       if (dialogoAtajos.current?.open === true) return
 
+      /*
+        Escape sale del modo extendido, y sólo de eso.
+
+        Si el menú de ajustes está abierto, ese Escape es suyo: su manejador
+        escucha antes —en el documento, no en la ventana— y cierra el menú. Con
+        la pantalla completa real puesta, el navegador es quien la abandona: el
+        modo extendido se queda y el siguiente Escape es el que lo quita. Así un
+        solo gesto no cierra dos cosas a la vez.
+      */
+      if (evento.key === 'Escape') {
+        if (menu) return
+        // Un diálogo modal abierto —la ayuda, la sala, el aviso de seguridad— o
+        // un tutorial en curso gastan su propio Escape. El modo extendido espera
+        // a la siguiente pulsación: un gesto no cierra dos cosas.
+        if (document.querySelector('dialog[open]') !== null) return
+        if (document.body.classList.contains('driver-active')) return
+        if (document.fullscreenElement !== null) return
+        if (!extendido) return
+
+        evento.preventDefault()
+        alternarExtendido()
+
+        return
+      }
+
       const accion = keyAction(objetivo)
 
       if (accion === undefined) return
@@ -564,13 +632,22 @@ export function Player(props: PlayerProps): ReactNode {
       // sería esconderle lo que hace.
       reiniciarMandos()
       evento.preventDefault()
+
+      // El modo extendido no es una acción del elemento de video: la resuelve
+      // la pantalla y no `act`.
+      if (accion === 'extended') {
+        alternarExtendido()
+
+        return
+      }
+
       act(accion)
     }
 
     window.addEventListener('keydown', alPulsar)
 
     return () => window.removeEventListener('keydown', alPulsar)
-  }, [act, reiniciarMandos])
+  }, [act, alternarExtendido, extendido, menu, reiniciarMandos])
 
   /** El tiempo que está debajo del puntero, si está sobre la barra. */
   const alMoverPuntero = useCallback(
@@ -599,9 +676,12 @@ export function Player(props: PlayerProps): ReactNode {
   const rotuloPantalla = completa
     ? t(DEFAULT_LOCALE, 'player.fullscreen.exit')
     : t(DEFAULT_LOCALE, 'player.fullscreen')
+  const rotuloExtendido = extendido
+    ? t(DEFAULT_LOCALE, 'player.extended.exit')
+    : t(DEFAULT_LOCALE, 'player.extended')
 
   return (
-    <section className="player" data-tour={props.dataTour}>
+    <section className="player" data-tour={props.dataTour} data-extendido={extendido}>
       {/* El escenario: el video con sus capas dentro del marco, y los mandos.
           El marco es lo que mide el video, y por eso el botón grande, la espera y
           el lienzo del modo compatible se centran en **la imagen** y no en la caja
@@ -1002,6 +1082,21 @@ export function Player(props: PlayerProps): ReactNode {
                 </button>
               </div>
             </div>
+
+            {/* El modo extendido: llena la ventana sin pedir la pantalla
+                completa. Va junto al mando de pantalla completa porque son la
+                misma familia —ver más grande— y el dibujo de las flechas los
+                distingue: uno recoge el marco del sistema, el otro lo llena. */}
+            <button
+              type="button"
+              className="button player__control"
+              aria-label={rotuloExtendido}
+              title={rotuloExtendido}
+              aria-keyshortcuts="T"
+              onClick={alternarExtendido}
+            >
+              {extendido ? <IconoSalirExtendido /> : <IconoExtendido />}
+            </button>
 
             <button
               type="button"

@@ -1543,6 +1543,65 @@
 }
 
 /*
+ * El modo extendido: el reproductor llena la ventana, sin pantalla completa.
+ *
+ * No pide la Fullscreen API ni cambia el tamaño de la ventana de Tauri: es un
+ * `position: fixed` que sale del flujo y cubre el viewport. Por eso respeta el
+ * tamaño que la ventana tenga en cada momento —redimensionarla o maximizarla no
+ * obliga a recalcular nada, el `inset: 0` la sigue— y por eso no interrumpe la
+ * reproducción: el `<video>` y la instancia de `hls.js` son los mismos nodos, y
+ * lo único que cambia es el atributo que enciende esto.
+ *
+ * La capa viene de un token y no escrita aquí: la prueba de la hoja exige que
+ * todo `z-index` numérico de la estructura quede por debajo de la cabecera, y
+ * esta capa tiene que quedar por encima de ella. El número vive en `tokens.css`.
+ */
+.player[data-extendido="true"] {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-extendido);
+  justify-content: center;
+  background: var(--color-bg);
+}
+
+/*
+ * El escenario reparte el alto: el marco del video se lleva el que sobra y los
+ * mandos se quedan en el borde inferior. En una ventana estrecha los mandos van
+ * debajo del video —como siempre— y el marco conserva su hueco.
+ */
+.player[data-extendido="true"] .player__stage {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  justify-content: center;
+}
+
+.player[data-extendido="true"] .player__frame {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+/*
+ * La imagen, en `contain`: el marco es la ventana y el fotograma se ajusta sin
+ * deformarse, con franjas si la relación de aspecto no es la misma. El alto se
+ * le da al elemento y no a la caja, que es lo que `object-fit` espera.
+ */
+.player[data-extendido="true"] .player__video,
+.player[data-extendido="true"] .player__canvas {
+  inline-size: 100%;
+  block-size: 100%;
+  aspect-ratio: auto;
+  object-fit: contain;
+  background: var(--color-bg);
+}
+
+/* La página de debajo no se desplaza mientras el reproductor ocupa la ventana. */
+body.player-extendido {
+  overflow: hidden;
+}
+
+/*
  * La espera, encima del video.
  *
  * Antes era un párrafo debajo de los controles y no se veía: quien está
@@ -1718,6 +1777,18 @@
 .player__stage:focus-within .player__controls {
   opacity: 1;
   pointer-events: auto;
+}
+
+/*
+ * En modo extendido los mandos se esconden también en la ventana estrecha.
+ *
+ * En el flujo, debajo del video, no tapan nada y la hoja los deja siempre a la
+ * vista; aquí sí se superponen a la imagen, así que la inactividad tiene que
+ * poder quitarlos. La regla es más específica que la del `@media` a propósito.
+ */
+.player[data-extendido="true"] .player__controls[data-oculto="true"] {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .player__buttons {
@@ -6252,6 +6323,35 @@
 .nn-guia .driver-popover-next-btn:hover,
 .nn-guia-aviso .driver-popover-next-btn:hover {
   background: var(--color-accent-strong);
+}
+
+/*
+ * «Omitir tutorial», en el pie del recorrido.
+ *
+ * El pie de driver.js es una fila con el progreso a un lado y los mandos al
+ * otro. El botón de omitir va en un renglón propio y a lo ancho —`order` lo deja
+ * después de «Siguiente»— para que en un teléfono no empuje los mandos fuera del
+ * popover y para que el objetivo táctil pase de los 44 px (`--control-size`)
+ * sin tapar nada. En escritorio también va abajo: es una salida, no compite con
+ * el botón que hace avanzar el tutorial.
+ */
+.nn-guia .driver-popover-footer {
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
+}
+
+.nn-guia .nn-guia__omitir {
+  order: 1;
+  flex-basis: 100%;
+  min-block-size: var(--control-size);
+  padding-inline: var(--space-4);
+  color: var(--color-text-dim);
+  text-align: center;
+}
+
+.nn-guia .nn-guia__omitir:hover,
+.nn-guia .nn-guia__omitir:focus-visible {
+  color: var(--color-text);
 }
 
 .nn-guia .driver-popover-close-btn,

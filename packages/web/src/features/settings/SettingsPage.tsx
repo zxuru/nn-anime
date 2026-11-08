@@ -21,6 +21,8 @@ import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import { ANCLAS } from '../guia/guia'
 import { SeccionGuia } from '../guia/SeccionGuia'
+import { guardarExtendido, leerExtendido } from '../player/extendido'
+import { almacenLocal } from '../player/storage'
 import { ProviderList } from './ProviderList'
 import { ProviderRepos } from './ProviderRepos'
 import { RegisterProvider } from './RegisterProvider'
@@ -46,6 +48,19 @@ export function SettingsPage(): ReactNode {
   const repos = useProviderRepos(refresh)
   const [noticeOpen, setNoticeOpen] = useState(false)
   const notice = useSecurityNotice(noticeOpen)
+
+  /**
+   * El modo extendido, que es preferencia del navegador y no del servidor.
+   *
+   * Como la reproducción automática: no viaja a ninguna parte y el reproductor
+   * la lee al montarse. Aquí sólo se deja escrita para la próxima vez; la
+   * pantalla de reproducción ya abierta no cambia por tocar esto.
+   */
+  const [extendido, setExtendido] = useState(() => leerExtendido(almacenLocal()))
+  const preferirExtendido = (valor: boolean): void => {
+    setExtendido(valor)
+    guardarExtendido(almacenLocal(), valor)
+  }
 
   const aviso = (
     <SecurityNoticeDialog
@@ -191,6 +206,37 @@ export function SettingsPage(): ReactNode {
           </button>
         </fieldset>
         <p>{t(DEFAULT_LOCALE, 'settings.adult.help')}</p>
+      </section>
+
+      {/*
+        El modo extendido del reproductor.
+
+        Reutiliza el contenedor de botones del tema, igual que el contenido para
+        adultos: es una fila de botones con estado —`aria-pressed`— y la regla no
+        habla del tema. El texto de debajo dice lo que el nombre no dice: llena
+        la ventana y **no** entra en la pantalla completa del sistema.
+      */}
+      <section>
+        <h2>{t(DEFAULT_LOCALE, 'settings.extended')}</h2>
+        <fieldset className="settings__theme" aria-label={t(DEFAULT_LOCALE, 'settings.extended')}>
+          <button
+            type="button"
+            className="button"
+            aria-pressed={!extendido}
+            onClick={() => preferirExtendido(false)}
+          >
+            {t(DEFAULT_LOCALE, 'settings.extended.off')}
+          </button>
+          <button
+            type="button"
+            className="button"
+            aria-pressed={extendido}
+            onClick={() => preferirExtendido(true)}
+          >
+            {t(DEFAULT_LOCALE, 'settings.extended.on')}
+          </button>
+        </fieldset>
+        <p>{t(DEFAULT_LOCALE, 'settings.extended.body')}</p>
       </section>
 
       {/* La guía va al final: no configura nada, sólo repite lo que ya se vio. */}

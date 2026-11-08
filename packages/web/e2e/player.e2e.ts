@@ -1597,3 +1597,240 @@ test.describe('el modo compatible', () => {
     await expect(enlace).toHaveAttribute('href', /aurora-nocturna%233/)
   })
 })
+
+/**
+ * El modo extendido.
+ *
+ * Lo que se mide aquí no se puede medir sin navegador: que el contenedor mida
+ * exactamente la ventana —y la siga midiendo al redimensionarla—, que no se pida
+ * la pantalla completa, que la reproducción siga y que el `<video>` sea el mismo
+ * nodo, que Escape no cierre dos cosas a la vez y que la preferencia se recuerde.
+ */
+test.describe('el modo extendido', () => {
+  /** Entra en la pantalla de reproducción con el video ya resuelto. */
+  async function verEpisodio(page: Page): Promise<void> {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+  }
+
+  /** Espera a que el modo esté puesto también en el `body`, que es lo que
+      quita el desplazamiento del documento y, con él, la barra de scroll. */
+  async function esperarExtendido(page: Page): Promise<void> {
+    await expect(page.locator('body')).toHaveClass(/player-extendido/)
+  }
+
+  /** La caja del reproductor y la ventana, medidas en la misma lectura. */
+  async function cajaDelReproductor(
+    page: Page,
+  ): Promise<{ x: number; y: number; width: number; height: number; ventana: number[] }> {
+    return await page.evaluate(() => {
+      const caja = document.querySelector('.player')?.getBoundingClientRect()
+
+      return {
+        x: caja?.x ?? -1,
+        y: caja?.y ?? -1,
+        width: caja?.width ?? -1,
+        height: caja?.height ?? -1,
+        ventana: [window.innerWidth, window.innerHeight],
+      }
+    })
+  }
+
+  test('llena la ventana sin pedir la pantalla completa, y se sale con el botón', async ({
+    page,
+  }) => {
+    await verEpisodio(page)
+
+    const seccion = page.locator('.player')
+    await expect(seccion).toHaveAttribute('data-extendido', 'false')
+    expect(await page.evaluate(() => document.fullscreenElement === null)).toBe(true)
+
+    await page.getByRole('button', { name: 'Modo extendido' }).click()
+    await expect(seccion).toHaveAttribute('data-extendido', 'true')
+    await esperarExtendido(page)
+
+    // Ni la Fullscreen API ni la ventana de Tauri: sólo el atributo.
+    expect(await page.evaluate(() => document.fullscreenElement === null)).toBe(true)
+
+    const caja = await cajaDelReproductor(page)
+    expect(caja.x).toBe(0)
+    expect(caja.y).toBe(0)
+    expect(caja.width).toBe(caja.ventana[0])
+    expect(caja.height).toBe(caja.ventana[1])
+
+    await page.getByRole('button', { name: 'Salir del modo extendido' }).click()
+    await expect(seccion).toHaveAttribute('data-extendido', 'false')
+    expect(await page.evaluate(() => document.fullscreenElement === null)).toBe(true)
+  })
+
+  test('se enciende y se apaga con T, y Escape también lo quita', async ({ page }) => {
+    await verEpisodio(page)
+
+    const seccion = page.locator('.player')
+
+    await page.keyboard.press('t')
+    await expect(seccion).toHaveAttribute('data-extendido', 'true')
+
+    await page.keyboard.press('t')
+    await expect(seccion).toHaveAttribute('data-extendido', 'false')
+
+    await page.keyboard.press('t')
+    await expect(seccion).toHaveAttribute('data-extendido', 'true')
+
+    await page.keyboard.press('Escape')
+    await expect(seccion).toHaveAttribute('data-extendido', 'false')
+  })
+
+  test('Escape con el menú de ajustes abierto cierra el menú y no el modo', async ({ page }) => {
+    await verEpisodio(page)
+
+    const seccion = page.locator('.player')
+    await page.keyboard.press('t')
+    await expect(seccion).toHaveAttribute('data-extendido', 'true')
+
+    await page.getByRole('button', { name: 'Ajustes' }).click()
+    const menu = page.locator('.player__menu')
+    await expect(menu).toBeVisible()
+
+    await page.keyboard.press('Escape')
+    await expect(menu).toBeHidden()
+    await expect(seccion).toHaveAttribute('data-extendido', 'true')
+
+    await page.keyboard.press('Escape')
+    await expect(seccion).toHaveAttribute('data-extendido', 'false')
+  })
+
+  test('no interrumpe la reproducción ni remonta el video', async ({ page }) => {
+    await verEpisodio(page)
+
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+
+    const video = page.locator('video')
+    await expect
+      .poll(async () => await video.evaluate((elemento: HTMLVideoElement) => elemento.paused))
+      .toBe(false)
+
+    // La marca vive en el nodo: si el componente se remontara al entrar, el
+    // `<video>` sería otro y la marca habría desaparecido.
+    await video.evaluate((elemento) => elemento.setAttribute('data-sonda', 'viva'))
+    const antes = await video.evaluate((elemento: HTMLVideoElement) => elemento.currentTime)
+
+    await page.keyboard.press('t')
+    await page.waitForTimeout(1200)
+
+    expect(await video.getAttribute('data-sonda')).toBe('viva')
+    expect(await video.evaluate((elemento: HTMLVideoElement) => elemento.paused)).toBe(false)
+    expect(
+      await video.evaluate((elemento: HTMLVideoElement) => elemento.currentTime),
+    ).toBeGreaterThan(antes)
+  })
+
+  test('sigue midiendo la ventana cuando se redimensiona, y la imagen no se deforma', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1366, height: 768 })
+    await verEpisodio(page)
+
+    await page.getByRole('button', { name: 'Modo extendido' }).click()
+    await esperarExtendido(page)
+
+    let caja = await cajaDelReproductor(page)
+    expect(caja.width).toBe(1366)
+    expect(caja.height).toBe(768)
+
+    // «Maximizar» mientras se está dentro: la ventana nueva manda, sin salir ni
+    // recalcular nada a mano.
+    await page.setViewportSize({ width: 1920, height: 1080 })
+
+    caja = await cajaDelReproductor(page)
+    expect(caja.width).toBe(1920)
+    expect(caja.height).toBe(1080)
+
+    expect(
+      await page.locator('video').evaluate((elemento) => getComputedStyle(elemento).objectFit),
+    ).toBe('contain')
+  })
+
+  test('los mandos se esconden solos y vuelven con el puntero', async ({ page }) => {
+    await verEpisodio(page)
+
+    await page.keyboard.press('t')
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+
+    await page.evaluate(() => {
+      const activo = document.activeElement
+      if (activo instanceof HTMLElement) activo.blur()
+    })
+
+    const mandos = page.locator('.player__controls')
+    await expect(mandos).toHaveCSS('opacity', '0', { timeout: 15_000 })
+
+    await page.locator('.player__stage').hover()
+    await expect(mandos).toHaveCSS('opacity', '1')
+  })
+
+  test('la preferencia se recuerda y se configura en Ajustes', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/settings')
+
+    await page.getByRole('button', { name: 'Abrir extendido' }).click()
+    expect(await page.evaluate(() => localStorage.getItem('nn-anime:extendido'))).toBe('si')
+
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+    await expect(page.locator('.player')).toHaveAttribute('data-extendido', 'true', {
+      timeout: 10_000,
+    })
+
+    await page.goto('/settings')
+    await page.getByRole('button', { name: 'Ventana normal' }).click()
+    expect(await page.evaluate(() => localStorage.getItem('nn-anime:extendido'))).toBe('no')
+  })
+
+  test('en un teléfono llena la ventana y no desborda', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 640 })
+    await verEpisodio(page)
+
+    await page.getByRole('button', { name: 'Modo extendido' }).click()
+    await esperarExtendido(page)
+
+    const caja = await cajaDelReproductor(page)
+    expect(caja.width).toBe(360)
+    expect(caja.height).toBe(640)
+
+    const desborde = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+    expect(desborde).toBeLessThanOrEqual(0)
+
+    await expect(page.locator('video')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Salir del modo extendido' })).toBeVisible()
+  })
+
+  test('convive con la pantalla completa real: al salir de ella queda el modo', async ({
+    page,
+  }) => {
+    await verEpisodio(page)
+
+    const seccion = page.locator('.player')
+    await page.keyboard.press('t')
+    await expect(seccion).toHaveAttribute('data-extendido', 'true')
+
+    const video = page.locator('video')
+    await video.dblclick()
+    await expect
+      .poll(async () => await page.evaluate(() => document.fullscreenElement !== null))
+      .toBe(true)
+    await expect(seccion).toHaveAttribute('data-extendido', 'true')
+
+    // Escape sale de la pantalla completa; el modo extendido sigue puesto y el
+    // siguiente Escape es el que lo apaga.
+    await page.keyboard.press('Escape')
+    await expect
+      .poll(async () => await page.evaluate(() => document.fullscreenElement === null))
+      .toBe(true)
+    await expect(seccion).toHaveAttribute('data-extendido', 'true')
+  })
+})
