@@ -719,7 +719,21 @@ mod nativo {
 #[cfg(test)]
 mod pruebas_datos {
     use super::{dentro_de, NOMBRE_DATOS, NOMBRE_INSTALACION};
-    use std::path::Path;
+    use std::path::PathBuf;
+
+    /// La misma ruta con el separador de la plataforma que compila la prueba.
+    ///
+    /// El binario sólo corre en Windows —de ahí las rutas con `\`—, pero
+    /// `cargo test` también se ejecuta en Linux en el CI, y `Path::components`
+    /// no parte por `\` fuera de Windows: con la cadena tal cual, la prueba medía
+    /// el separador y no la contención que dice medir.
+    fn ruta(texto: &str) -> PathBuf {
+        if cfg!(windows) {
+            PathBuf::from(texto)
+        } else {
+            PathBuf::from(texto.replace('\\', "/"))
+        }
+    }
 
     /// La carpeta de datos no puede estar dentro de la de instalación: es lo que
     /// el instalador reemplaza al actualizar y lo que borra al desinstalar.
@@ -727,22 +741,23 @@ mod pruebas_datos {
     fn la_carpeta_de_datos_es_hermana_de_la_de_instalacion() {
         assert_ne!(NOMBRE_DATOS, NOMBRE_INSTALACION);
         assert!(!dentro_de(
-            Path::new("C:\\Users\\ana\\AppData\\Local\\nn-anime-data"),
-            Path::new("C:\\Users\\ana\\AppData\\Local\\nn-anime")
+            ruta("C:\\Users\\ana\\AppData\\Local\\nn-anime-data").as_path(),
+            ruta("C:\\Users\\ana\\AppData\\Local\\nn-anime").as_path()
         ));
         assert!(dentro_de(
-            Path::new("C:\\Users\\ana\\AppData\\Local\\nn-anime\\datos"),
-            Path::new("C:\\Users\\ana\\AppData\\Local\\nn-anime")
+            ruta("C:\\Users\\ana\\AppData\\Local\\nn-anime\\datos").as_path(),
+            ruta("C:\\Users\\ana\\AppData\\Local\\nn-anime").as_path()
         ));
         // La comparación no se deja engañar por un prefijo de cadena.
         assert!(!dentro_de(
-            Path::new("C:\\x\\nn-anime2"),
-            Path::new("C:\\x\\nn-anime")
+            ruta("C:\\x\\nn-anime2").as_path(),
+            ruta("C:\\x\\nn-anime").as_path()
         ));
-        // Ni por las mayúsculas, que Windows no distingue.
+        // Ni por las mayúsculas: la normalización las baja, que es lo que hacen
+        // los datos del instalador en Windows.
         assert!(dentro_de(
-            Path::new("C:\\X\\NN-ANIME\\config"),
-            Path::new("c:\\x\\nn-anime")
+            ruta("C:\\X\\NN-ANIME\\config").as_path(),
+            ruta("c:\\x\\nn-anime").as_path()
         ));
     }
 }
