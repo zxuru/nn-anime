@@ -89,6 +89,8 @@ tareas/
 # `tablero-kanban`, que hace obligatorio mantener el tablero local— sí se
 # versionan, y el `!` las rescata del comodín anterior.
 .claude/
+.codex/
+.grok/
 skills-lock.json
 .agents/skills/*
 !.agents/skills/agente-worktree/
@@ -98,6 +100,7 @@ skills-lock.json
 # Editores y sistema operativo
 .vscode/
 .idea/
+.obsidian/
 *.swp
 .DS_Store
 Thumbs.db
