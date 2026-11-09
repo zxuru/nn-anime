@@ -46,14 +46,14 @@
     "@tauri-apps/plugin-updater": "^2"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.4",
+    "@biomejs/biome": "^2.6.5",
     "@nn-anime/catalog-store": "workspace:*",
     "@nn-anime/core": "workspace:*",
     "@nn-anime/media-proxy": "workspace:*",
     "@nn-anime/provider-sdk": "workspace:*",
     "@nn-anime/providers-fixture": "workspace:*",
     "@nn-anime/server": "workspace:*",
-    "@playwright/test": "^1.64.1",
+    "@playwright/test": "^1.65.0",
     "@tauri-apps/cli": "^2",
     "@types/bun": "^1.4.4",
     "typescript": "^7.0.2"
