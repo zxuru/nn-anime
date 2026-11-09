@@ -46,7 +46,7 @@
     "@tauri-apps/plugin-updater": "^2"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.3",
+    "@biomejs/biome": "^2.6.4",
     "@nn-anime/catalog-store": "workspace:*",
     "@nn-anime/core": "workspace:*",
     "@nn-anime/media-proxy": "workspace:*",
