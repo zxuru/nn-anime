@@ -369,6 +369,11 @@ export function Player(props: PlayerProps): ReactNode {
     const alPulsar = (evento: KeyboardEvent): void => {
       if (evento.key !== 'Escape') return
 
+      // El gesto es del menú y se queda aquí: sin cortar la propagación, el
+      // mismo Escape llegaba al oído de la ventana y apagaba además el modo
+      // extendido, que es justo lo que este manejador existe para evitar.
+      evento.stopPropagation()
+
       setMenu(false)
       botonAjustes.current?.focus()
     }
