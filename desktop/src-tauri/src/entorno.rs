@@ -29,9 +29,15 @@ const TITULO_AVISO: &str = "nn-anime";
 /// los datos no pueden vivir dentro de la carpeta que el instalador y la
 /// actualización reemplazan. Van en una hermana, `%LOCALAPPDATA%\nn-anime-data`,
 /// que el instalador ni conoce ni toca.
+///
+/// `cfg(any(windows, test))`: fuera de Windows sólo lo usa la prueba que compara
+/// los dos nombres; en el binario de Linux no existe y así `clippy -D warnings`
+/// no lo marca como código muerto.
+#[cfg(any(windows, test))]
 pub const NOMBRE_DATOS: &str = "nn-anime-data";
 
 /// El nombre de la carpeta de instalación (el `productName` del bundle).
+#[cfg(any(windows, test))]
 const NOMBRE_INSTALACION: &str = "nn-anime";
 
 /// Lo que se mueve de una instalación anterior, que guardaba los datos dentro de
@@ -39,6 +45,10 @@ const NOMBRE_INSTALACION: &str = "nn-anime";
 ///
 /// Es una lista cerrada y no «todo lo que no sea un `.exe`»: un barrido copiaría
 /// binarios, accesos o restos del desinstalador a la carpeta de datos.
+///
+/// Sólo lo lee la migración de Windows: en Linux no existe y no hay código
+/// muerto que marcar.
+#[cfg(windows)]
 const DATOS_HEREDADOS: &[&str] = &[
     "nn-anime.db",
     "nn-anime.db-wal",
