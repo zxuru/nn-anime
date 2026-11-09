@@ -99,6 +99,10 @@ async function arrancarServidor(options: {
         NN_ANIME_CONFIG_DIR: options.configDir,
         NN_ANIME_CACHE_DIR: options.cacheDir,
         NN_ANIME_MIGRATIONS_DIR: options.migracionesDir,
+        // La interfaz que sirve este servidor es la del e2e: así el test no
+        // depende de que alguien haya ejecutado `bun run build` antes (el CI del
+        // e2e no lo hace) y el episodio se reproduce en el Chromium del arnés.
+        NN_ANIME_WEB_DIR: join(RAIZ, '.tmp', 'e2e-dist'),
         // El proxy sólo sirve el archivo local del arnés con esta excepción.
         NN_ANIME_ALLOW_LOOPBACK: '1',
         // Sin salida a AniList: la home la pide y una prueba que depende de
@@ -153,7 +157,11 @@ async function entrarEn(page: Page, bootUrl: string): Promise<void> {
  * paquete. Por eso el directorio de configuración va en `.tmp/` y no en `%TEMP%`.
  */
 async function prepararPlugin(configDir: string): Promise<void> {
-  const destino = join(configDir, 'nn-anime', 'providers')
+  // `NN_ANIME_CONFIG_DIR` es el directorio de configuración de la aplicación, no
+  // su padre: el cargador mira `providers` justo dentro. Escribir en
+  // `configDir/nn-anime/providers` dejaba al servidor sin proveedores y el
+  // reproductor contestaba «no hay ningún proveedor llamado fixture».
+  const destino = join(configDir, 'providers')
   await mkdir(destino, { recursive: true })
   await writeFile(
     join(destino, 'fixture.ts'),
@@ -193,6 +201,17 @@ test.describe('persistencia entre versiones', () => {
     await prepararPlugin(configDir)
     await copiarMigraciones(migracionesV1)
     await copiarMigraciones(migracionesV2)
+
+    // El `setup` da los recorridos por vistos en el origen del arnés (7801), pero
+    // los dos servidores de esta prueba viven en 7811 y 7812: sin apagar también
+    // ahí los tutoriales, el del reproductor sale encima y su velo se traga los
+    // clics de los mandos.
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'nn-anime.guia',
+        JSON.stringify({ v: 3, recorridos: [], vistos: [], tutorialsDisabled: true }),
+      )
+    })
 
     let v1: Servidor | undefined
     let v2: Servidor | undefined
