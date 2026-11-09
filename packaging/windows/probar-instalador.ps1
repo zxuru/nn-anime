@@ -316,7 +316,7 @@ Paso 'la limpieza no dejó ningún proceso'
 #    la carpeta de instalación: si estuviera ahí, la próxima actualización la
 #    tendría en la carpeta que reemplaza.
 if (-not (Test-Path (Join-Path $datos 'nn-anime.db'))) {
-  throw "la base no está en $datos: los datos no viven fuera de la carpeta de instalación"
+  throw "la base no está en $($datos): los datos no viven fuera de la carpeta de instalación"
 }
 if (Test-Path (Join-Path $destino 'nn-anime.db')) {
   throw "la base está dentro de la carpeta de instalación ($destino)"
