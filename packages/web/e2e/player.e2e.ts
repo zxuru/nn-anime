@@ -897,16 +897,26 @@ test.describe('el reproductor', () => {
     await page.waitForTimeout(1500)
     await page.getByRole('button', { name: 'Pausar' }).click()
 
-    const recientes = async (): Promise<{ items: { durationS: number; positionS: number }[] }> =>
+    interface Reciente {
+      durationS: number
+      positionS: number
+      episodeRef: { providerId: string; value: string }
+    }
+
+    const recientes = async (): Promise<{ items: Reciente[] }> =>
       (await (await page.request.get('/api/watch/recent')).json()) as {
-        items: { durationS: number; positionS: number }[]
+        items: Reciente[]
       }
 
     await expect
       .poll(async () => (await recientes()).items.length, { timeout: 10_000 })
       .toBeGreaterThan(0)
 
-    const items = (await recientes()).items
+    // Otras pruebas del mismo archivo dejan su visionado en la base compartida
+    // del arnés; «sin duplicarse» se mide sobre el episodio que abre este test.
+    const items = (await recientes()).items.filter(
+      (reciente) => reciente.episodeRef.value === 'aurora-nocturna#1',
+    )
     const item = items[0]
 
     expect(items).toHaveLength(1)
@@ -922,7 +932,10 @@ test.describe('el reproductor', () => {
     expect((await page.locator('.nota__titulo').allTextContents())[0]).toBe('Continuar viendo')
 
     const fila = page.locator('.seccion').filter({ hasText: 'Continuar viendo' })
-    await expect(fila.locator('progress')).toBeVisible()
+    // `.first()`: la base compartida del arnés puede tener más de un episodio a
+    // medias de otras pruebas del archivo; lo que se mide es que la pieza lleva
+    // su barra y su título.
+    await expect(fila.locator('progress').first()).toBeVisible()
     await expect(fila.locator('.pz__titulo').first()).toHaveText('Aurora Nocturna')
 
     // Y la pieza continúa el episodio: el enlace lleva el segundo y el video
@@ -1017,9 +1030,14 @@ test.describe('la lista, el progreso y el siguiente', () => {
     await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
     await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
 
-    await expect
-      .poll(async () => await video.evaluate((elemento: HTMLVideoElement) => elemento.currentTime))
-      .toBeGreaterThan(19)
+    // Al reanudar se retroceden unos segundos para tener contexto —lo fija
+    // `RETROCESO_REANUDAR_S` en `storage.ts`—, así que lo que se mide es que
+    // vuelve cerca de la posición guardada y no al segundo cero.
+    const tiempoReanudado = async (): Promise<number> =>
+      await video.evaluate((elemento: HTMLVideoElement) => elemento.currentTime)
+
+    await expect.poll(tiempoReanudado, { timeout: 10_000 }).toBeGreaterThan(progreso.positionS - 4)
+    expect(await tiempoReanudado()).toBeLessThan(progreso.positionS + 1)
   })
 
   /**
@@ -1825,9 +1843,14 @@ test.describe('el modo extendido', () => {
       .toBe(true)
     await expect(seccion).toHaveAttribute('data-extendido', 'true')
 
-    // Escape sale de la pantalla completa; el modo extendido sigue puesto y el
-    // siguiente Escape es el que lo apaga.
-    await page.keyboard.press('Escape')
+    // Escape sale de la pantalla completa en el navegador de escritorio, pero en
+    // el Chromium sin pantalla esa salida la resuelve el «chrome» del navegador y
+    // no llega como evento de página. Se pide por la API, que emite el mismo
+    // `fullscreenchange` que ve la aplicación: lo que importa medir es que salir
+    // de la pantalla completa no quita el modo extendido.
+    await page.evaluate(async () => {
+      await document.exitFullscreen()
+    })
     await expect
       .poll(async () => await page.evaluate(() => document.fullscreenElement === null))
       .toBe(true)
