@@ -20,6 +20,25 @@
 /** El prefijo de todo lo que escribe esta aplicación. */
 const PREFIJO = 'nn-anime:'
 
+/**
+ * El sufijo de la escritura en curso.
+ *
+ * `localStorage.setItem` es atómico por clave, pero un cierre brusco entre
+ * escribir el temporal y escribir el definitivo dejaría el progreso anterior (o
+ * ninguno). Con las dos claves, el lector puede recuperar el temporal: el dato
+ * nuevo está entero en una de las dos o no está en ninguna, nunca a medias.
+ */
+const SUFIJO_TEMPORAL = ':tmp'
+
+/**
+ * Segundos que se retrocede al reanudar.
+ *
+ * Reanudar exactamente donde se pausó hace que el primer fotograma sea el mismo
+ * que se dejó, sin contexto. Tres segundos atrás es lo que hace cualquier
+ * reproductor: se reconoce la escena y no se pierde nada.
+ */
+export const RETROCESO_REANUDAR_S = 3
+
 /** Lo que hace falta de `localStorage`, para poder pasar uno de mentira. */
 export interface Almacen {
   getItem(clave: string): string | null
@@ -65,7 +84,14 @@ export function claveDeProgreso(providerId: string, episodeRef: string): string 
 /** La clave de la preferencia de reproducción automática. */
 export const CLAVE_AUTOPLAY = `${PREFIJO}autoplay`
 
-/** Guarda por dónde va. Un fallo del almacén no rompe la reproducción. */
+/**
+ * Guarda por dónde va. Un fallo del almacén no rompe la reproducción.
+ *
+ * Se escribe dos veces: primero el temporal y después el definitivo. Si el
+ * navegador muere entre las dos, el lector encuentra el temporal y lo recupera;
+ * si el almacén está lleno y la segunda escritura falla, la clave buena conserva
+ * la posición anterior en vez de quedar con un valor a medias.
+ */
 export function guardarProgreso(
   almacen: Almacen | undefined,
   clave: string,
@@ -74,10 +100,40 @@ export function guardarProgreso(
   if (almacen === undefined) return
   if (!Number.isFinite(progreso.positionS) || !Number.isFinite(progreso.durationS)) return
 
+  const texto = JSON.stringify(progreso)
+  const temporal = `${clave}${SUFIJO_TEMPORAL}`
+
   try {
-    almacen.setItem(clave, JSON.stringify(progreso))
+    almacen.setItem(temporal, texto)
+    almacen.setItem(clave, texto)
+    almacen.removeItem(temporal)
   } catch {
-    // Sin sitio para apuntarlo, la reproducción sigue igual.
+    // Sin sitio para apuntarlo, la reproducción sigue igual. El temporal se
+    // intenta limpiar, y si tampoco se puede, el lector lo ignorará cuando el
+    // definitivo ya sea válido.
+    try {
+      almacen.removeItem(temporal)
+    } catch {
+      // Nada que hacer: el almacén no está disponible.
+    }
+  }
+}
+
+/** Convierte el texto guardado en un progreso, si de verdad lo es. */
+function interpretar(crudo: string | null): Progreso | undefined {
+  if (crudo === null) return undefined
+
+  try {
+    const datos: unknown = JSON.parse(crudo)
+    if (!esObjeto(datos)) return undefined
+
+    const { positionS, durationS } = datos
+    if (typeof positionS !== 'number' || typeof durationS !== 'number') return undefined
+    if (!Number.isFinite(positionS) || !Number.isFinite(durationS)) return undefined
+
+    return { positionS, durationS }
+  } catch {
+    return undefined
   }
 }
 
@@ -86,22 +142,29 @@ export function guardarProgreso(
  *
  * Un JSON que no es el que se escribió —una versión vieja, una mano ajena— no se
  * interpreta: se devuelve nada y se empieza por el principio, que es lo que haría
- * alguien que no tuviera el dato.
+ * alguien que no tuviera el dato. Si el definitivo no sirve pero el temporal sí,
+ * se recupera el temporal: es el caso de un cierre entre las dos escrituras.
  */
 export function leerProgreso(almacen: Almacen | undefined, clave: string): Progreso | undefined {
   if (almacen === undefined) return undefined
 
   try {
-    const crudo = almacen.getItem(clave)
-    if (crudo === null) return undefined
+    const definitivo = interpretar(almacen.getItem(clave))
+    if (definitivo !== undefined) return definitivo
 
-    const datos: unknown = JSON.parse(crudo)
-    if (!esObjeto(datos)) return undefined
+    const temporal = interpretar(almacen.getItem(`${clave}${SUFIJO_TEMPORAL}`))
+    if (temporal === undefined) return undefined
 
-    const { positionS, durationS } = datos
-    if (typeof positionS !== 'number' || typeof durationS !== 'number') return undefined
+    // El temporal era bueno: se asciende para no volver a depender de él.
+    try {
+      almacen.setItem(clave, JSON.stringify(temporal))
+      almacen.removeItem(`${clave}${SUFIJO_TEMPORAL}`)
+    } catch {
+      // Recuperado para esta lectura; si no se puede ascender, se vuelve a
+      // intentar en la siguiente.
+    }
 
-    return { positionS, durationS }
+    return temporal
   } catch {
     return undefined
   }
@@ -113,19 +176,26 @@ export function olvidarProgreso(almacen: Almacen | undefined, clave: string): vo
 
   try {
     almacen.removeItem(clave)
+    almacen.removeItem(`${clave}${SUFIJO_TEMPORAL}`)
   } catch {
     // Igual que arriba: no hay nada que hacer y no es un fallo de la pantalla.
   }
 }
 
-/** El segundo en el que hay que seguir, o nada si no toca reanudar. */
+/**
+ * El segundo en el que hay que seguir, o nada si no toca reanudar.
+ *
+ * Se retrocede `RETROCESO_REANUDAR_S` para tener contexto, pero nunca por debajo
+ * del mínimo: el retroceso no puede convertir en reanudable un episodio que se
+ * cerró a los doce segundos.
+ */
 export function reanudarEn(progreso: Progreso | undefined): number | undefined {
   if (progreso === undefined) return undefined
   if (progreso.durationS <= 0) return undefined
   if (progreso.positionS <= MINIMO_S) return undefined
   if (progreso.positionS / progreso.durationS >= PROPORCION_MAXIMA) return undefined
 
-  return Math.floor(progreso.positionS)
+  return Math.max(Math.floor(progreso.positionS) - RETROCESO_REANUDAR_S, Math.ceil(MINIMO_S))
 }
 
 /**

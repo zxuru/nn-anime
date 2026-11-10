@@ -45,6 +45,9 @@ prueba que lo sostiene.
 | La clave de TMDB del usuario sale del equipo, o una ruta de metadatos se convierte en un proxy | La URL se compone con una base constante (`api.themoviedb.org`); no hay ninguna dirección que venga del cliente ni del plugin. La clave viaja sólo en esa consulta, **no se registra**, **no se devuelve** en `GET /api/settings` y **no se guarda en la caché**. Sin clave no hay petición. La imagen de TMDB no se pide: la ficha usa la portada del plugin | T177 |
 | Una ruta del árbol de GitHub escribe fuera del repositorio (`..`, absoluta, unidad de Windows) | Cada ruta se valida segmento a segmento y se confina contra el directorio de destino; el árbol truncado, las rutas hostiles y los archivos que no caben se rechazan o se saltan, y nada se escribe fuera | T100 |
 | Un repositorio enorme llena el disco o la memoria | 400 archivos, 512 KiB por archivo y 8 MiB en total; la descarga va a un directorio temporal y se mueve al final, así que un fallo a mitad no reemplaza lo que había | T100 |
+| Un invitado de watch party usa la sala para leer la biblioteca del anfitrión | Las rutas de la sala se montan antes del guard de sesión pero con su propio guard: el anfitrión se autentica con su cookie, el servidor del invitado con un token de sala de 256 bits, y la pestaña del invitado sólo habla con su propio origen. Un token de sala no abre `/api/*`, y hay una prueba que lo recorre | watch-party |
+| El servidor del invitado conecta con una dirección hostil | La dirección se normaliza a un origen HTTP sin credenciales ni ruta; sólo se componen las rutas fijas de la sala, sin redirecciones (`redirect: 'error'`), con plazo de 5 s y respuestas JSON acotadas. No es un proxy de contenido | watch-party |
+| Un invitado inunda la sala o prueba códigos por fuerza bruta | Código de 80 bits, 20 intentos/min por instancia, 8 participantes, 10 mensajes/s por participante, 4 KiB por mensaje y caducidad de la sala | watch-party |
 | Activar un archivo ejecuta otro que el usuario no marcó | **No se mitiga, se declara.** Ver el riesgo residual 6 | T101 |
 
 ## Riesgo residual, en texto claro
@@ -66,11 +69,12 @@ prueba que lo sostiene.
    publicados y avisar desde el cargador al que no la use, que es trabajo de la fase siguiente.
 3. **Los sitios de terceros pueden cambiar.** Un proveedor puede empezar a servir otra cosa, o dejar de
    servir: la aplicación lo dice con un error claro, no lo esconde.
-4. **No hay limitador de tasa en ninguna ruta.** Es deliberado: la aplicación escucha en `127.0.0.1`,
-   la sirve un solo proceso para un solo usuario, y un contador en memoria no protege de nada que el
-   guard de `Host` y la cookie de sesión no cierren antes. Un limitador compartido tendría sentido el
-   día que esto se sirva a más de una persona, y ese día habrá que añadirlo con su almacén, no con un
-   `Map` por proceso.
+4. **No hay limitador de tasa global.** La aplicación escucha en `127.0.0.1`, la sirve un solo
+   proceso para un solo usuario, y un contador en memoria no protege de nada que el guard de `Host` y
+   la cookie de sesión no cierren antes. La excepción es la sala de watch party, que sí tiene sus
+   topes porque abre una credencial a la LAN. Un limitador compartido tendría sentido el día que esto
+   se sirva a más de una persona, y ese día habrá que añadirlo con su almacén, no con un `Map` por
+   proceso.
 5. **La excepción de loopback del proxy, si alguien la pone.** `NN_ANIME_ALLOW_LOOPBACK=1` abre
    loopback y redes privadas en la lista blanca de destinos. Existe para el arnés de pruebas, se anuncia
    en el registro al arrancar y **desactiva la mitigación de SSRF** para esas direcciones mientras esté
@@ -170,6 +174,28 @@ lo sostienen son cuatro:
   se cargan. No es un sandbox y no sustituye a revisar lo que se instala.
 
 La guía de despliegue, con Caddy y los volúmenes, está en [docs/docker.md](docs/docker.md).
+
+## Watch party (experimental, con `NN_ANIME_PARTY=1`)
+
+La sala está **apagada por defecto**: sin `NN_ANIME_PARTY=1` no se registra ninguna ruta
+`/api/party/*` y una petición a ellas es un 404. El contrato y los límites están en
+[docs/watch-party.md](docs/watch-party.md) y en [SPEC-watch-party.md](docs/specs/SPEC-watch-party.md).
+
+- **Qué abre:** una sala en la instancia del anfitrión y un enlace saliente desde el servidor del
+  invitado. El anfitrión usa su cookie de sesión; el servidor del invitado usa un token de sala de
+  256 bits que se guarda hasheado en memoria. La pestaña del invitado habla con **su** servidor, no
+  con el del anfitrión: no hay CORS nuevo, ni cookies de terceros, ni `connect-src` relajado, y el
+  token no llega al navegador.
+- **Qué no hace:** no comparte vídeo, ni tickets del proxy, ni URLs de stream; no hay cuentas, ni
+  servidor central, ni telemetría; la sala vive en memoria y no se escribe en SQLite ni en un log.
+- **Riesgo residual declarado:** la IP de cada servidor es visible para el otro participante; en LAN
+  sin TLS el código y el estado viajan sin cifrar; el código de sala es una credencial bearer sin
+  identidad; la deriva depende del reloj del anfitrión; y el límite de intentos es por instancia, no
+  por IP, porque el adaptador HTTP actual no expone una dirección remota fiable.
+- **P2P pendiente:** el transporte WebRTC de la decisión D3 no está implementado. Mientras no exista,
+  «No descarga torrents ni usa protocolos de pares» sigue siendo cierto; cuando exista, la frase
+  pasará a: «No descarga torrents. El watch party P2P sólo sincroniza estado de reproducción entre
+  pares; no comparte vídeo ni archivos.»
 
 ## Qué no hace esta aplicación
 

@@ -465,6 +465,19 @@ export const messages: Messages = {
    */
   'settings.adult.help':
     'Enseña también lo que AniList marca para adultos. No comprueba la edad de nadie, y sólo alcanza a lo que las fuentes publican: lo que no se puede comprobar se enseña igual.',
+  /**
+   * El modo extendido del reproductor.
+   *
+   * Es una preferencia del navegador y no del servidor, como la reproducción
+   * automática: no viaja a ninguna parte. El texto dice qué hace y qué no
+   * —llena la ventana, no entra en pantalla completa— porque las dos cosas se
+   * confunden y la diferencia importa en el escritorio.
+   */
+  'settings.extended': 'Modo extendido',
+  'settings.extended.body':
+    'El reproductor ocupa toda la ventana, sin pedir la pantalla completa ni cambiar el tamaño de la ventana de la aplicación. Se enciende con el mando del reproductor o con la tecla T.',
+  'settings.extended.off': 'Ventana normal',
+  'settings.extended.on': 'Abrir extendido',
   // TMDB: la única fuente de metadatos de no-anime y la única clave que el
   // usuario escribe. La clave no vuelve del servidor; la pantalla sólo dice si hay.
   'settings.tmdb': 'Metadatos de películas y series',
@@ -540,6 +553,11 @@ export const messages: Messages = {
   'player.unmute': 'Activar sonido',
   'player.fullscreen': 'Pantalla completa',
   'player.fullscreen.exit': 'Salir de pantalla completa',
+  // El modo extendido: llena la ventana de la aplicación sin pedir la pantalla
+  // completa del sistema. El nombre lo dice tal cual porque «maximizar» ya
+  // significa otra cosa en la ventana de escritorio.
+  'player.extended': 'Modo extendido',
+  'player.extended.exit': 'Salir del modo extendido',
   'player.seek': 'Posición del video',
   'player.mpv': 'Ver en mpv',
   'player.mpv.opened': 'Se abrió en el reproductor externo.',
@@ -560,6 +578,10 @@ export const messages: Messages = {
   // perdió lo visto.
   'player.buffering': 'Almacenando en búfer…',
   'player.error': 'No se pudo reproducir: {message}',
+  // El gesto que vuelve a intentarlo desde el segundo donde se quedó. No se
+  // llama «Recargar»: recargar la página perdería la posición y el episodio
+  // empezaría otra vez.
+  'player.retry': 'Reintentar',
   // El proveedor contestó, pero sin ninguna fuente para ese episodio. No es un
   // fallo de red y no se cuenta como tal: es que ese sitio no tiene el episodio.
   'player.noSource': 'el proveedor no dio ninguna fuente para este episodio',
@@ -590,6 +612,7 @@ export const messages: Messages = {
   'player.key.volume': 'Bajar o subir el volumen',
   'player.key.mute': 'Silenciar',
   'player.key.fullscreen': 'Pantalla completa',
+  'player.key.extended': 'Modo extendido',
   'player.key.space': 'Espacio',
   'player.key.enter': 'Enter',
   'player.key.k': 'K',
@@ -599,6 +622,7 @@ export const messages: Messages = {
   'player.key.down': '↓',
   'player.key.m': 'M',
   'player.key.f': 'F',
+  'player.key.t': 'T',
   'player.attribution': 'Reproducción HLS con hls.js (licencia Apache 2.0).',
   /**
    * La marca del contenido para adultos.
@@ -765,6 +789,10 @@ export const messages: Messages = {
   'guia.siguiente': 'Siguiente',
   'guia.anterior': 'Anterior',
   'guia.listo': 'Listo',
+  // El mando que corta el recorrido sin recorrer los pasos que quedan. Dice
+  // «tutorial» y no «guía» porque lo que se omite es este recorrido, no la guía
+  // entera: para eso está «Omitir todos los tutoriales» en Ajustes.
+  'guia.omitir': 'Omitir tutorial',
   'guia.entendido': 'Entendido',
   'guia.progreso': '{{current}} de {{total}}',
 
@@ -884,7 +912,98 @@ export const messages: Messages = {
   'guia.ajustes.cuerpo':
     'Cada pantalla tiene su tutorial y sale solo la primera vez. Repítelo aquí o con el «?» de la cabecera.',
   'guia.ajustes.secciones': 'Repetir un tutorial',
+  // El interruptor global. «Tutoriales» nombra el grupo; los dos botones son el
+  // estado, con `aria-pressed`, como el tema y el contenido para adultos.
+  'guia.ajustes.interruptor': 'Tutoriales',
+  'guia.ajustes.mostrar': 'Mostrar tutoriales',
+  'guia.ajustes.ocultar': 'Ocultar tutoriales',
+  'guia.ajustes.interruptor.ayuda':
+    'Con los tutoriales ocultos no sale ninguno, tampoco en una pantalla nueva. Los que ya viste no se pierden: se repiten desde la lista de arriba.',
+  'guia.ajustes.omitirTodos': 'Omitir todos los tutoriales',
+  'guia.ajustes.reiniciar': 'Reiniciar tutoriales',
+  'guia.ajustes.omitir.ayuda':
+    'Los da todos por vistos sin preguntar: no se borra nada y se pueden repetir desde esta misma lista.',
+  'guia.ajustes.reiniciar.ayuda':
+    'Vuelven a salir todos, como en la primera visita. Los avisos ya descartados no vuelven: para ésos está el botón de abajo.',
   'guia.ajustes.avisos': 'Mostrar los avisos otra vez',
+
+  /*
+   * La sala de visionado.
+   *
+   * Sólo se comparte estado: qué se ve y por dónde va. Los textos no prometen
+   * vídeo compartido y lo dejan dicho en el aviso de privacidad, que es la
+   * promesa que la sala no puede romper. El tono es el del resto: directo, sin
+   * vender nada.
+   */
+  'party.open': 'Ver juntos',
+  'party.bar.title': 'En sala',
+  'party.bar.movie': 'Película',
+  'party.bar.episode': 'Episodio {episode}',
+  'party.bar.episodeSeason': 'Temporada {season} · Episodio {episode}',
+  'party.bar.hostControls': 'El anfitrión controla la reproducción.',
+  'party.bar.sync.ok': 'Sincronizado',
+  'party.bar.sync.adjusting': 'Ajustando',
+  'party.bar.sync.drift': 'Desincronizado',
+  'party.bar.sync.unknown': 'Midiendo…',
+  'party.bar.drift': '{seconds} s de desfase',
+  'party.bar.connecting': 'Conectando con la sala…',
+  'party.bar.hostReady': 'Coordinando la sala.',
+  'party.bar.guestReady': 'Conectado a la sala.',
+  'party.bar.error': 'Sin conexión con la sala.',
+  'party.bar.closed': 'Sala cerrada.',
+  'party.panel.title': 'Sala de visionado',
+  'party.panel.close': 'Cerrar',
+  'party.panel.tab.host': 'Crear sala',
+  'party.panel.tab.guest': 'Unirse',
+  'party.panel.hostIntro':
+    'Abre una sala en esta instancia y pasa el código a quien vaya a verla contigo.',
+  'party.panel.hostWarning':
+    'Esto abre un puerto en tu red local mientras dure la sala. Sin TLS, el código viaja sin cifrar. Cierra la sala al terminar.',
+  'party.panel.privacy':
+    'Sólo se comparte qué se está viendo y por dónde va: nunca el vídeo, el ticket ni la dirección de la fuente. Cada uno reproduce desde su instancia.',
+  'party.panel.noMedia':
+    'Para abrir una sala hay que estar viendo un episodio. Espera a que cargue y vuelve a abrir este panel.',
+  'party.panel.create': 'Crear sala',
+  'party.panel.creating': 'Creando…',
+  'party.panel.joinIntro': 'Escribe la dirección del anfitrión y el código que te dio.',
+  'party.panel.address': 'Dirección del anfitrión',
+  'party.panel.addressHint': '192.168.1.5:7717',
+  'party.panel.code': 'Código de la sala',
+  'party.panel.codeHint': 'XXXX-XXXX-XXXX-XXXX',
+  'party.panel.name': 'Tu nombre',
+  'party.panel.nameHint': 'Cómo te verán en la sala',
+  'party.panel.join': 'Unirse',
+  'party.panel.joining': 'Entrando…',
+  'party.panel.roomCode': 'Código',
+  'party.panel.copy': 'Copiar',
+  'party.panel.copyCode': 'Copiar el código',
+  'party.panel.copyUrl': 'Copiar la dirección {url}',
+  'party.panel.copied': 'Copiado.',
+  'party.panel.copyFailed': 'No se pudo copiar. Selecciona el texto a mano.',
+  'party.panel.addresses': 'Direcciones para invitar',
+  'party.panel.noUrls':
+    'No se pudieron leer las direcciones de esta instancia. Usa la que aparece en la barra del navegador.',
+  'party.panel.roster': 'En la sala',
+  'party.panel.leave': 'Salir de la sala',
+  'party.panel.closeRoom': 'Cerrar la sala',
+  'party.roster.ready': 'listo',
+  'party.roster.buffering': 'almacenando',
+  'party.roster.waiting': 'conectando',
+  'party.error.address': 'La dirección del anfitrión no vale. Escribe algo como 192.168.1.5:7717.',
+  'party.error.code': 'El código no vale: son dieciséis caracteres, en grupos de cuatro.',
+  'party.error.name': 'Escribe un nombre para que te vean en la sala.',
+  'party.error.unauthorized':
+    'La sesión de este navegador no vale. Entra por la dirección de arranque.',
+  'party.error.notFound': 'Esa sala no existe o el código no es el suyo.',
+  'party.error.full': 'La sala está llena.',
+  'party.error.rateLimited': 'Demasiados intentos. Espera un minuto y vuelve a probar.',
+  'party.error.hostUnreachable':
+    'No se pudo hablar con el anfitrión. Comprueba que siga abierto y en la misma red.',
+  'party.error.network': 'No se pudo hablar con el servidor local.',
+  'party.error.shape': 'El servidor contestó algo que la interfaz no entiende.',
+  'party.error.server': 'El servidor no pudo completar la operación.',
+  'party.error.roomClosed': 'La sala se cerró.',
+  'party.error.generic': 'Algo falló en la sala.',
 
   'notFound.title': 'Esa ruta no existe',
   'notFound.body': 'La dirección {path} no corresponde a ninguna pantalla.',

@@ -18,6 +18,15 @@ export type PlayerAction =
   | 'volume-down'
   | 'mute'
   | 'fullscreen'
+  /**
+   * Llena la ventana sin pedir la pantalla completa del sistema.
+   *
+   * Es una acción de la pantalla y no del elemento `<video>`: no toca ni el
+   * medio ni `hls.js`, sólo la clase del contenedor. Se declara aquí, con las
+   * demás, para que el atajo y su ayuda se prueben con las mismas funciones
+   * puras que el resto.
+   */
+  | 'extended'
 
 /** Segundos que salta cada flecha. */
 export const SEEK_STEP_S = 10
@@ -103,6 +112,13 @@ export function keyAction(event: KeyLike): PlayerAction | undefined {
       return 'mute'
     case 'f':
       return 'fullscreen'
+    // `T` de «todo el ancho», elegida porque no choca con ningún atajo del
+    // reproductor —espacio, enter, k, flechas, m, f y ?— ni con los del
+    // navegador que se usan a diario. Mayúscula y minúscula son la misma tecla
+    // con y sin Bloq Mayús, y las dos tienen que funcionar.
+    case 't':
+    case 'T':
+      return 'extended'
     default:
       return undefined
   }

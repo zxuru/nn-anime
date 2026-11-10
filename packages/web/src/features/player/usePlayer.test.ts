@@ -63,6 +63,13 @@ describe('el montaje del medio', () => {
     })
 
     expect('destroy' in resultado).toBe(true)
-    if ('destroy' in resultado) expect(typeof resultado.elegirSubtitulo).toBe('function')
+    if ('destroy' in resultado) {
+      expect(typeof resultado.elegirSubtitulo).toBe('function')
+      // El reintento también existe en las dos ramas: quien monta el
+      // reproductor no tiene que distinguir si hay hls.js o no para pintar el
+      // botón; sin instancia, el reintento no hace nada y devuelve `false`.
+      expect(typeof resultado.reintentar).toBe('function')
+      expect(await resultado.reintentar()).toBe(false)
+    }
   })
 })

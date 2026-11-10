@@ -219,6 +219,14 @@ jobs:
       - name: Pruebas
         run: bun test
 
+      # El esquema sólo cambia por migración. Este paso falla si se editó una
+      # migración ya publicada, si hay una sin registrar, si falta la copia de
+      # seguridad de una migración o si alguien declara tablas en el código de
+      # producción. La regla está en docs/persistencia.md y su lógica pura en
+      # scripts/migraciones.ts.
+      - name: Migraciones
+        run: bun run scripts/migraciones.ts
+
   # Las pruebas en Windows, solas y no dentro del empaquetado.
   #
   # El repositorio tiene caminos que dependen del sistema —las rutas de los datos, los enlaces

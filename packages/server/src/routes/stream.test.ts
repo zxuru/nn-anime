@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations } from '@nn-anime/catalog-store'
 import { streamResolveResponseSchema } from '@nn-anime/core'
-import { createPlaylistCache, type PlaylistCache } from '@nn-anime/media-proxy'
+import { createPlaylistCache, type PlaylistCache, type TicketStore } from '@nn-anime/media-proxy'
 import { createFixtureProvider, type FixtureFailure } from '@nn-anime/providers-fixture'
 import { createApp, createContainer } from '../index'
 import { ticketPath } from './stream'
@@ -49,6 +49,21 @@ interface OpcionesDeApp {
   readonly alServirPlaylist?: (() => void) | undefined
   /** Caché de playlists propia, con su reloj, para probar la caducidad. */
   readonly playlists?: PlaylistCache | undefined
+  /**
+   * Estado con el que responde el upstream de mentira al servir bytes.
+   *
+   * Sirve para medir que el proxy no transforma un 403 del CDN en otra cosa: el
+   * cliente lo necesita tal cual para distinguir «el enlace caducó» de un fallo
+   * nuestro.
+   */
+  readonly estadoUpstream?: number
+  /**
+   * Almacén de tickets propio.
+   *
+   * Se inyecta para fijar la caducidad sin esperar diez minutos y para medir el
+   * mapeo de la ruta cuando el almacén dice «vencido».
+   */
+  readonly tickets?: TicketStore | undefined
 }
 
 async function conApp<T>(
@@ -114,7 +129,7 @@ async function conApp<T>(
     })
 
     return new Response(cuerpo, {
-      status: 206,
+      status: opciones.estadoUpstream ?? 206,
       headers: {
         'content-type': 'video/mp4',
         'content-range': 'bytes 0-1023/4096',
@@ -126,6 +141,7 @@ async function conApp<T>(
   const container = createContainer({
     db,
     ...(opciones.playlists === undefined ? {} : { playlists: opciones.playlists }),
+    ...(opciones.tickets === undefined ? {} : { tickets: opciones.tickets }),
   })
   const proveedor = createFixtureProvider(
     opciones.fallo === undefined ? {} : { failures: { resolveStream: opciones.fallo } },
@@ -293,6 +309,123 @@ describe('POST /api/stream/resolve', () => {
 
       expect(respuesta.status).toBe(401)
     })
+  })
+})
+
+/**
+ * El refresco forzado de la fuente.
+ *
+ * Un enlace de stream caduca por fuera —el ticket del CDN—, así que la fila de
+ * `stream_cache` puede ser exactamente lo que ya no sirve. `refresh: true` pide
+ * una resolución nueva sin esperar al TTL: es lo que deja al reproductor
+ * recuperarse de un `fragLoadError` en vez de pararse hasta los 600 s.
+ */
+describe('refresco forzado del stream', () => {
+  const CON_REFRESCO = { ...PETICION, refresh: true }
+
+  /**
+   * Abre la ficha del título.
+   *
+   * Sin la fila del episodio no hay clave foránea y la escritura de la caché de
+   * streams falla: el flujo real es ver la ficha y luego darle a reproducir.
+   */
+  async function abrirFicha(pedir: Contexto['pedir']): Promise<void> {
+    await pedir('/api/anime/fixture/aurora-nocturna/episodes')
+  }
+
+  test('sin refresh, la segunda petición no llega al proveedor', async () => {
+    await conApp(async ({ pedir, proveedor }) => {
+      await abrirFicha(pedir)
+
+      const primera = await resolver(pedir)
+      const segunda = await resolver(pedir)
+
+      expect(primera.respuesta.headers.get('x-cache')).toBe('miss')
+      expect(segunda.respuesta.headers.get('x-cache')).toBe('hit')
+      expect(proveedor.calls.count('resolveStream')).toBe(1)
+    })
+  })
+
+  test('con refresh vuelve al proveedor y emite un ticket nuevo', async () => {
+    await conApp(async ({ pedir, proveedor }) => {
+      await abrirFicha(pedir)
+
+      const primera = await resolver(pedir)
+      const refrescada = await resolver(pedir, CON_REFRESCO)
+      const ticketPrimero = streamResolveResponseSchema.parse(primera.cuerpo).sources[0]?.url ?? ''
+      const ticketNuevo = streamResolveResponseSchema.parse(refrescada.cuerpo).sources[0]?.url ?? ''
+
+      // Sin el bypass, la segunda saldría de la caché y el cliente seguiría con
+      // el enlace caducado: es el fallo que esta prueba mide.
+      expect(refrescada.respuesta.headers.get('x-cache')).toBe('miss')
+      expect(proveedor.calls.count('resolveStream')).toBe(2)
+      expect(ticketNuevo).toStartWith('/stream/')
+      expect(ticketNuevo).not.toBe(ticketPrimero)
+    })
+  })
+
+  test('la fila escrita por el refresh es la que sirve la caché', async () => {
+    await conApp(async ({ pedir, proveedor }) => {
+      await abrirFicha(pedir)
+
+      await resolver(pedir)
+      await resolver(pedir, CON_REFRESCO)
+      const despues = await resolver(pedir)
+
+      // Un refresh no deja la caché apagada ni escribe en otra clave: la
+      // siguiente petición normal vuelve a ser un acierto, y sin proveedor.
+      expect(despues.respuesta.headers.get('x-cache')).toBe('hit')
+      expect(proveedor.calls.count('resolveStream')).toBe(2)
+    })
+  })
+
+  test('un 403 del upstream llega al cliente como 403', async () => {
+    await conApp(
+      async ({ pedir, upstream }) => {
+        const { cuerpo } = await resolver(pedir)
+        const ticket = streamResolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
+        const antes = upstream.llamadas
+
+        const respuesta = await pedir(ticket, { headers: GOOD })
+
+        // El cliente distingue caducidad de fallo nuestro por el estado: si el
+        // proxy lo convirtiera en 200 o en 502, hls.js no sabría que la fuente
+        // que tiene que renovar es ésa.
+        expect(respuesta.status).toBe(403)
+        expect(upstream.llamadas).toBe(antes + 1)
+      },
+      { estadoUpstream: 403 },
+    )
+  })
+
+  test('un ticket vencido responde 410', async () => {
+    // El guard de sesión consulta el ticket antes que la ruta y, con el almacén
+    // real, borra la entrada vencida al hacerlo: la ruta la vería como
+    // desconocida y contestaría 404. Aquí se sustituye el almacén por uno que
+    // siempre dice «vencido», que es lo que mide el mapeo de la ruta.
+    const vencido: TicketStore = {
+      issue: () => 'ticket-vencido',
+      resolve: () => ({ ok: false, kind: 'expired' }),
+      size: () => 0,
+      prune: () => 0,
+    }
+
+    await conApp(
+      async ({ pedir, upstream }) => {
+        const { cuerpo } = await resolver(pedir)
+        const ticket = streamResolveResponseSchema.parse(cuerpo).sources[0]?.url ?? ''
+
+        expect(ticket).toBe('/stream/ticket-vencido')
+
+        const respuesta = await pedir(ticket, { headers: GOOD })
+
+        // 410 y no 404: la diferencia entre «existió y ya no» y «nunca existió»
+        // es la que deja al reproductor saber que tiene que renovar la fuente.
+        expect(respuesta.status).toBe(410)
+        expect(upstream.llamadas).toBe(0)
+      },
+      { tickets: vencido },
+    )
   })
 })
 

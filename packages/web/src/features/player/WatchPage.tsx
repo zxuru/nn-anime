@@ -64,6 +64,10 @@ import {
 } from '../detail/useDetail'
 import { DownloadButton } from '../downloads/DownloadButton'
 import { ANCLAS } from '../guia/guia'
+import { buildPartyMedia } from '../party/media'
+import { PartyBar } from '../party/PartyBar'
+import { PartyPanel } from '../party/PartyPanel'
+import { useParty } from '../party/useParty'
 import { coverPath } from '../search/ResultCard'
 import { AudioModeSwitch } from './AudioModeSwitch'
 import { SEGUNDOS_DEL_SIGUIENTE } from './controls'
@@ -550,6 +554,18 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   // ninguna: el `<video>` se queda con su fondo, que es lo que había antes.
   const [portada, setPortada] = useState<string | undefined>(undefined)
 
+  /**
+   * El elemento de video y el panel de la sala.
+   *
+   * La sala necesita el `<video>` de verdad —posición, pausa y velocidad— y la
+   * pantalla no tiene otra forma de llegar a él que la prop nueva del
+   * reproductor. El panel se monta sólo cuando está abierto; al cerrarlo, el
+   * foco vuelve a su botón, que es de esta pantalla.
+   */
+  const [elementoVideo, setElementoVideo] = useState<HTMLVideoElement | null>(null)
+  const [panelSala, setPanelSala] = useState(false)
+  const botonSala = useRef<HTMLButtonElement | null>(null)
+
   // El número que la dirección trae escrito. Es lo que decide si se piden dos
   // vecinos puntuales o la primera página; sin él no se deduce nada.
   const numero = numberFromPath(path)
@@ -718,6 +734,39 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     resolver()
   }, [resolver])
 
+  /**
+   * Pide una fuente nueva saltándose la caché del servidor.
+   *
+   * Es la renovación transparente de una URL firmada o de un ticket caducado: la
+   * firma del upstream y el ticket del proxy viven un tiempo acotado, y cuando
+   * se agotan los segmentos empiezan a contestar 403/410. Volver a resolver con
+   * `refresh` emite un ticket nuevo con una URL firmada nueva.
+   *
+   * **No se escribe en `fuente`**: cambiar `source.url` volvería a montar el
+   * medio y perdería justo la posición que la recuperación conserva. La URL nueva
+   * la usa hls.js por dentro; si de verdad cambia el episodio o el modo, el
+   * efecto de la fuente se encarga por su cuenta.
+   */
+  const renovarFuente = useCallback(async (): Promise<string | undefined> => {
+    try {
+      const salida = await apiPostJson(
+        '/api/stream/resolve',
+        {
+          episodeRef: { providerId: props.providerId, value: props.ref },
+          mode: modo,
+          refresh: true,
+        },
+        streamResolveResponseSchema,
+      )
+
+      return salida.sources[0]?.url
+    } catch {
+      // Un fallo al renovar no se cuenta aquí: el reproductor está en medio de
+      // una recuperación y su manejador decide si se agota o se reintenta.
+      return undefined
+    }
+  }, [props.providerId, props.ref, modo])
+
   const posicionEpisodio = vecinos?.position
 
   /** Dónde se apunta el progreso de este episodio. */
@@ -851,6 +900,34 @@ export function WatchPage(props: WatchPageProps): ReactNode {
           tituloUtil,
         ])
 
+  /**
+   * Lo que esta instancia está viendo, en la forma pequeña que viaja en la sala.
+   *
+   * Se construye en cada render y no se memoriza: la duración llega tarde —el
+   * `<video>` la sabe cuando carga los metadatos— y una copia guardada se
+   * quedaría sin ella para siempre. Lo que se publica es la diferencia: la sala
+   * sólo republica cuando esta forma cambia.
+   */
+  const mediaDeLaSala = buildPartyMedia({
+    title: tituloAnime,
+    kind: esPelicula ? 'movie' : 'episode',
+    ...(esPelicula || posicionEpisodio === undefined ? {} : { episode: posicionEpisodio.number }),
+    ...(esPelicula || temporada === undefined ? {} : { season: temporada }),
+    ...(tituloUtil === undefined ? {} : { episodeTitle: tituloUtil }),
+    ...(viva.current.durationS > 0 ? { durationS: viva.current.durationS } : {}),
+  })
+
+  const party = useParty({ video: elementoVideo, media: mediaDeLaSala })
+
+  const cerrarPanelSala = useCallback(() => {
+    setPanelSala(false)
+    botonSala.current?.focus()
+  }, [])
+
+  const panelDeSala = panelSala ? (
+    <PartyPanel party={party} canHost={mediaDeLaSala !== undefined} onClose={cerrarPanelSala} />
+  ) : null
+
   // La pestaña y el encabezado dicen lo mismo: el nombre del título y por qué
   // episodio va. Es lo que distingue dos pestañas de la misma aplicación.
   useDocumentTitle(watchTitleParts(tituloAnime, etiquetaEpisodio))
@@ -902,11 +979,28 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       </Link>
       <h1>{tituloAnime ?? t(DEFAULT_LOCALE, 'title.loading')}</h1>
       {lineaEpisodio === undefined ? null : <p className="watch__episode">{lineaEpisodio}</p>}
-      {/* El botón no ocupa una fila propia: la sala se mide contra la ventana y
-          un bloque más debajo del encabezado empujaba la página 71 px. Va
-          anclado al encabezado, que ya tiene el alto. */}
-      <div className="watch__download">
-        <DownloadButton providerId={props.providerId} animeRef={animeRef} episodeRef={episodeRef} />
+      {/* «Ver juntos» y la descarga van anclados al encabezado, en una fila:
+          la sala se mide contra la ventana y un bloque más debajo empujaba la
+          página. El botón abre el panel de la sala; la descarga es la misma de
+          siempre. */}
+      <div className="watch__actions">
+        <button
+          type="button"
+          ref={botonSala}
+          className="button watch__party"
+          aria-haspopup="dialog"
+          aria-expanded={panelSala}
+          onClick={() => setPanelSala(true)}
+        >
+          {t(DEFAULT_LOCALE, 'party.open')}
+        </button>
+        <div className="watch__download">
+          <DownloadButton
+            providerId={props.providerId}
+            animeRef={animeRef}
+            episodeRef={episodeRef}
+          />
+        </div>
       </div>
     </header>
   )
@@ -1039,7 +1133,9 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         <div className="watch__layout">
           <div className="watch__main">
             {encabezado}
+            {party.phase === 'idle' ? null : <PartyBar party={party} />}
             <p className="empty">{t(DEFAULT_LOCALE, 'player.loading')}</p>
+            {panelDeSala}
           </div>
         </div>
       </section>
@@ -1052,6 +1148,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         <div className="watch__layout">
           <div className="watch__main">
             {encabezado}
+            {party.phase === 'idle' ? null : <PartyBar party={party} />}
             <ErrorNotice fallo={error ?? FALLO_SIN_CAUSA} onRetry={recargar} />
             <SourceFallback
               providerId={props.providerId}
@@ -1061,6 +1158,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
               positionS={posicion ?? 0}
             />
             {filaDeMandos(false)}
+            {panelDeSala}
           </div>
           {listaDeEpisodios}
         </div>
@@ -1075,6 +1173,8 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       <div className="watch__layout">
         <div className="watch__main">
           {encabezado}
+
+          {party.phase === 'idle' ? null : <PartyBar party={party} />}
 
           {mpv.estado.kind === 'abierto' ? (
             <p className="watch__episode">{t(DEFAULT_LOCALE, 'player.mpv.opened')}</p>
@@ -1122,6 +1222,8 @@ export function WatchPage(props: WatchPageProps): ReactNode {
               visionado.onProgress(positionS, durationS)
               anotarProgreso(positionS, durationS, false)
             }}
+            onVideoElement={setElementoVideo}
+            renovarFuente={renovarFuente}
           />
 
           {filaDeMandos(true)}
@@ -1139,6 +1241,8 @@ export function WatchPage(props: WatchPageProps): ReactNode {
               </button>
             </div>
           )}
+
+          {panelDeSala}
         </div>
 
         {listaDeEpisodios}

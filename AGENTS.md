@@ -22,6 +22,17 @@ pierde o que se mezcla.
 El detalle del listón, con sus ocho puntos, está en el **Definition of Done** de
 `tasks/plan.md`; esta sección es la parte que se olvida cuando nadie la repite.
 
+## Tablero de tareas local
+
+Cada tarea deja su tarjeta en el tablero `tareas/Tablero.md`, un vault de Obsidian **local** (en
+`.gitignore`). **Al empezar, la tarjeta va a *En desarrollo*; al terminar, a *Completado*; lo que
+aparezca por el camino, a *Pendiente*.** Ninguna tarea se da por terminada sin su tarjeta en
+*Completado*.
+
+La skill `tablero-kanban` (`.agents/skills/tablero-kanban/SKILL.md`, la descubre DSH sola) fija el
+formato de la tarjeta y de la nota de detalle. El tablero es un espejo para ver cómo va todo, no la
+fuente de verdad —esa sigue siendo `tasks/`— y no se commitea nada de `tareas/`.
+
 ## Varios agentes a la vez
 
 Un solo directorio es un solo índice y un solo `tasks/todo.md`. Dos agentes trabajando ahí se

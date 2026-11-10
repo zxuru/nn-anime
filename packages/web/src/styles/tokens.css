@@ -524,6 +524,17 @@
   --layer-barra: 9;
   --barra-alto: 3.75rem;
 
+  /**
+   * La capa del modo extendido del reproductor.
+   *
+   * Tiene que quedar por encima de la cabecera y de la barra del móvil: cuando
+   * se enciende, lo único que se ve es la imagen. Va en un token y no escrita en
+   * `shell.css` porque la prueba de la hoja exige que todo `z-index` numérico de
+   * la estructura quede por debajo de la cabecera; con `var()` la capa es la
+   * única que decide, y el número vive en un solo sitio.
+   */
+  --layer-extendido: 30;
+
   /* ---------------------------------------------------------------------
      La vitrina: la composición de la pantalla de inicio.
      ---------------------------------------------------------------------

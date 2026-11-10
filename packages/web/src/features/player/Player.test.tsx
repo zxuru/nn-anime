@@ -40,6 +40,7 @@ describe('el reproductor', () => {
       'Retroceder 10 segundos',
       'Adelantar 10 segundos',
       'Silenciar',
+      'Modo extendido',
       'Pantalla completa',
     ]) {
       expect(html, texto).toContain(`aria-label="${texto}"`)

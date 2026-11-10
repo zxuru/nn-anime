@@ -38,6 +38,40 @@ describe('qué tecla hace qué', () => {
     expect(keyAction({ key: 'f' })).toBe('fullscreen')
   })
 
+  test('`t` enciende y apaga el modo extendido, en las dos cajas', () => {
+    expect(keyAction({ key: 't' })).toBe('extended')
+    // Con Bloq Mayús o con Shift, `event.key` llega en mayúscula: la tecla es la
+    // misma y el atajo tiene que responder igual.
+    expect(keyAction({ key: 'T' })).toBe('extended')
+  })
+
+  /**
+   * `T` no puede pisar otro atajo.
+   *
+   * El reproductor se queda con la tecla y llama a `preventDefault`: si dos
+   * acciones compartieran tecla, una de las dos desaparecería sin que nadie se
+   * enterara. Se comprueba que las demás siguen diciendo lo suyo.
+   */
+  test('`t` no choca con ningún otro atajo del reproductor', () => {
+    const otras = [
+      [' ', 'toggle'],
+      ['Enter', 'toggle'],
+      ['k', 'toggle'],
+      ['ArrowRight', 'forward'],
+      ['ArrowLeft', 'back'],
+      ['ArrowUp', 'volume-up'],
+      ['ArrowDown', 'volume-down'],
+      ['m', 'mute'],
+      ['f', 'fullscreen'],
+    ] as const
+
+    for (const [key, accion] of otras) {
+      expect(keyAction({ key }), key).toBe(accion)
+    }
+
+    expect(keyAction({ key: 't' })).toBe('extended')
+  })
+
   test('una tecla que no es del reproductor no hace nada', () => {
     expect(keyAction({ key: 'q' })).toBeUndefined()
     expect(keyAction({ key: 'Tab' })).toBeUndefined()

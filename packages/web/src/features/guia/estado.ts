@@ -13,9 +13,12 @@
 
 import {
   conRecorrido,
+  conTutorialesDeshabilitados,
   type EstadoGuia,
   guardarEstado,
   leerEstado,
+  omitirTodos,
+  reiniciarRecorridos,
   sinAviso,
   sinAvisos,
 } from './guia'
@@ -85,4 +88,30 @@ export function descartarAviso(id: string): void {
 /** Devuelve a la lista los avisos publicados: se pueden repasar desde Ajustes. */
 export function restablecerAvisos(): void {
   publicar(sinAvisos(estadoActual()))
+}
+
+/**
+ * El interruptor de Ajustes: encendido, los tutoriales salen; apagado, ninguno.
+ *
+ * Sólo mueve el interruptor. Apagarlo no marca nada como visto —los que no
+ * salieron siguen pendientes a la espera de que se encienda— y encenderlo no
+ * repite los que ya se vieron. «Reiniciar tutoriales» es el botón que devuelve
+ * todos, y por eso está al lado y con nombre propio.
+ */
+export function mostrarTutoriales(): void {
+  publicar(conTutorialesDeshabilitados(estadoActual(), false))
+}
+
+export function ocultarTutoriales(): void {
+  publicar(conTutorialesDeshabilitados(estadoActual(), true))
+}
+
+/** «Omitir todos los tutoriales»: los da por vistos y apaga el interruptor. */
+export function omitirTodosLosTutoriales(): void {
+  publicar(omitirTodos(estadoActual()))
+}
+
+/** «Reiniciar tutoriales»: todos pendientes otra vez y encendidos. */
+export function reiniciarTutoriales(): void {
+  publicar(reiniciarRecorridos(estadoActual()))
 }

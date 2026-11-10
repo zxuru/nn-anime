@@ -26,6 +26,19 @@ const config = join(import.meta.dir, '..', '.tmp', 'e2e-config')
 const providers = join(config, 'nn-anime', 'providers')
 await mkdir(providers, { recursive: true })
 
+/**
+ * El paquete de la interfaz que se sirve aquí lleva el `hls.js` falso.
+ *
+ * El Chromium de Playwright no decodifica H.264 ni AAC: un HLS real no se puede
+ * ver ahí. El e2e sustituye el transporte por un módulo que imita la API de
+ * hls.js y reproduce el WAV del arnés —ver `packages/web/e2e/hls-falso.ts`—, y
+ * para eso el alias de Vite tiene que estar puesto **cuando se construye**. Por
+ * eso la variable se fija aquí, en el proceso que lanza la construcción, y no en
+ * el archivo de la prueba.
+ */
+const HLS_FALSO = process.env.NN_ANIME_E2E_HLS ?? 'falso'
+process.env.NN_ANIME_E2E_HLS = HLS_FALSO
+
 /** El plugin: el fixture del repositorio, con su modo de fallo por variable. */
 /**
  * Un archivo de audio local, para que el reproductor tenga qué reproducir.
@@ -165,13 +178,23 @@ const base = createFixtureProvider(
 // loopback.
 const medios = process.env.NN_ANIME_E2E_MEDIA
 
+// El episodio marcador. Sólo éste se declara HLS: es el que monta el transporte
+// falso para probar la recuperación de un fragmento. El resto sigue siendo un
+// archivo progresivo para no cambiar el camino que ya prueban los demás e2e.
+const EPISODIO_HLS = 'aurora-nocturna#7'
+
 const proveedor =
   medios === undefined || medios === ''
     ? base
     : {
         ...base,
-        async resolveStream() {
-          return [{ url: medios, kind: 'file' }]
+        async resolveStream(request) {
+          return [
+            {
+              url: medios,
+              kind: request.episodeRef.value === EPISODIO_HLS ? 'hls' : 'file',
+            },
+          ]
         },
       }
 
@@ -180,44 +203,90 @@ export default proveedor
 await writeFile(join(providers, 'fixture.ts'), plugin)
 
 /**
- * El paquete de la interfaz, al día.
+ * El paquete de la interfaz del e2e, en su **propio** directorio.
  *
- * El servidor sirve `packages/web/dist`, y si está viejo el e2e prueba una
- * versión anterior de la aplicación: me pasó —las filas de la home no aparecían
- * porque el paquete era de antes de escribirlas— y el fallo parecía de la
- * aplicación. Se comprueba la fecha y se construye si hace falta.
+ * No se usa `packages/web/dist` a propósito: ese paquete es el que sirve la
+ * aplicación de verdad (`bun run start`), y el del e2e lleva el alias de hls.js
+ * al módulo falso. Mezclarlos dejaría la aplicación real con el transporte de
+ * mentira, sin HLS. El servidor sirve este directorio con `NN_ANIME_WEB_DIR`, que
+ * tiene prioridad sobre la ruta de siempre —ver `packages/cli/src/resources.ts`—.
  */
 const raiz = join(import.meta.dir, '..')
-const dist = join(raiz, 'packages', 'web', 'dist', 'index.html')
+const web = join(raiz, 'packages', 'web')
+const dist = join(raiz, '.tmp', 'e2e-dist')
+const indice = join(dist, 'index.html')
 
+/**
+ * El paquete del e2e, al día.
+ *
+ * Si está viejo el e2e prueba una versión anterior de la aplicación: me pasó
+ * —las filas de la home no aparecían porque el paquete era de antes de
+ * escribirlas— y el fallo parecía de la aplicación. Se comprueba la fecha y se
+ * construye si hace falta.
+ */
 async function paqueteAlDia(): Promise<boolean> {
-  const indice = Bun.file(dist)
-  if (!(await indice.exists())) return false
+  const construido = Bun.file(indice)
+  if (!(await construido.exists())) return false
 
-  const construido = indice.lastModified
+  const fecha = construido.lastModified
   const glob = new Bun.Glob('**/*.{ts,tsx,css}')
 
-  for await (const relativo of glob.scan({ cwd: join(raiz, 'packages', 'web', 'src') })) {
-    const archivo = Bun.file(join(raiz, 'packages', 'web', 'src', relativo))
-    if (archivo.lastModified > construido) return false
+  for await (const relativo of glob.scan({ cwd: join(web, 'src') })) {
+    if (Bun.file(join(web, 'src', relativo)).lastModified > fecha) return false
   }
 
-  // La configuración de Vite también decide qué lleva el paquete: emite el aviso
-  // de seguridad, que `/settings` enlaza. Sin mirarla, un cambio suyo dejaría el
-  // e2e probando un build viejo.
-  const configuracion = Bun.file(join(raiz, 'packages', 'web', 'vite.config.ts'))
-  if (configuracion.lastModified > construido) return false
+  // El módulo falso entra en el paquete aunque no viva en `src`, así que un
+  // cambio suyo también deja el paquete viejo. Y la configuración de Vite decide
+  // qué lleva —el alias— además de emitir el aviso de seguridad que `/settings`
+  // enlaza.
+  for (const ruta of [join(web, 'e2e', 'hls-falso.ts'), join(web, 'vite.config.ts')]) {
+    if (Bun.file(ruta).lastModified > fecha) return false
+  }
 
   return true
 }
 
+/**
+ * Construye la interfaz del e2e en `.tmp/e2e-dist`.
+ *
+ * Se construye el paquete de la web directamente y no con `scripts/build.ts`:
+ * aquél deja el resultado en `packages/web/dist`, que es lo que sirve la
+ * aplicación de verdad, y este lleva el transporte de mentira. El entorno del
+ * hijo se pasa explícito porque con `env` no se hereda solo: es así como Vite se
+ * entera de que este build es el del e2e y monta el alias.
+ *
+ * Se intenta primero el empaquetado normal de la configuración. En el sandbox de
+ * algunos agentes ese empaquetado llama a `exec('net use')` —la solución de Vite
+ * para las rutas de red de Windows— y el proceso no puede crear tuberías, así
+ * que falla con EPERM; ahí se reintenta con el cargador nativo de la
+ * configuración, que no empaqueta nada. En una máquina normal el primer intento
+ * basta y el reintento no llega a usarse.
+ */
+async function construir(): Promise<boolean> {
+  const argumentos = ['build', '--outDir', dist, '--emptyOutDir']
+  const entorno = { ...process.env, NN_ANIME_E2E_HLS: HLS_FALSO }
+
+  for (const extra of [[], ['--configLoader', 'native']]) {
+    const construccion = Bun.spawn(['bun', 'x', 'vite', ...argumentos, ...extra], {
+      cwd: web,
+      env: entorno,
+      stdout: 'inherit',
+      stderr: 'inherit',
+    })
+
+    if ((await construccion.exited) === 0) return true
+  }
+
+  return false
+}
+
 if (!(await paqueteAlDia())) {
-  console.log('el paquete de la interfaz está viejo: se construye antes de probar')
-  const construccion = Bun.spawn(['bun', 'run', join(raiz, 'scripts', 'build.ts')], {
-    stdout: 'inherit',
-    stderr: 'inherit',
-  })
-  await construccion.exited
+  console.log('el paquete del e2e está viejo: se construye en .tmp/e2e-dist antes de probar')
+
+  if (!(await construir())) {
+    console.error('no se pudo construir la interfaz del e2e')
+    process.exit(1)
+  }
 }
 
 const puerto = process.env.NN_ANIME_E2E_PORT ?? '7801'
@@ -245,6 +314,10 @@ const servidor = Bun.spawn(
       // que un AniList caído, que es el camino que hay que poder probar.
       NN_ANIME_ANILIST_OFFLINE: '1',
       NN_ANIME_E2E_MEDIA: `http://127.0.0.1:${puertoMedios}/tono.wav`,
+      // La interfaz que se sirve es la del e2e —con el hls falso—, no la que
+      // `packages/web/dist` guarda para la aplicación de verdad. El CLI le da
+      // prioridad a esta variable sobre su ruta por defecto.
+      NN_ANIME_WEB_DIR: dist,
     },
     stdout: 'pipe',
     stderr: 'inherit',

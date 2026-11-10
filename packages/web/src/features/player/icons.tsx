@@ -14,6 +14,7 @@
  */
 
 import {
+  Expand,
   Maximize,
   Minimize,
   Pause,
@@ -21,6 +22,7 @@ import {
   RotateCcw,
   RotateCw,
   Settings,
+  Shrink,
   Volume2,
   VolumeX,
 } from 'lucide-react'
@@ -104,6 +106,39 @@ export function IconoVolumen(props: GlifoProps): ReactNode {
 export function IconoSilencio(props: GlifoProps): ReactNode {
   return (
     <VolumeX
+      className={props.className ?? 'player__icon'}
+      size={SIZE}
+      strokeWidth={2}
+      aria-hidden="true"
+      focusable="false"
+    />
+  )
+}
+
+/*
+ * El modo extendido.
+ *
+ * No es la pantalla completa —las esquinas de `Maximize` ya significan eso—,
+ * así que el dibujo es otro: la flecha que se abre hacia el marco. Entrar y
+ * salir llevan el mismo par de dibujos que la pantalla completa para que el
+ * mando se lea igual en los dos casos.
+ */
+export function IconoExtendido(props: GlifoProps): ReactNode {
+  return (
+    <Expand
+      className={props.className ?? 'player__icon'}
+      size={SIZE}
+      strokeWidth={2}
+      aria-hidden="true"
+      focusable="false"
+    />
+  )
+}
+
+/** La flecha que se recoge: salir del modo extendido. */
+export function IconoSalirExtendido(props: GlifoProps): ReactNode {
+  return (
+    <Shrink
       className={props.className ?? 'player__icon'}
       size={SIZE}
       strokeWidth={2}

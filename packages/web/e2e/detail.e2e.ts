@@ -317,18 +317,49 @@ test.describe('la banda a sangre', () => {
     await entrar(page)
     await page.goto('/anime/fixture/aurora-nocturna')
     await expect(page.locator('.episodes li').first()).toBeVisible({ timeout: 15_000 })
-
-    const alineacion = await page.evaluate(() => {
-      const x = (selector: string): number =>
-        document.querySelector(selector)?.getBoundingClientRect().x ?? -1
-
-      return {
-        titular: x('.detail__banner h1'),
-        primeraColumna: x('.detail__aside'),
-        cajaDeLaBanda: x('.detail__banner-caja'),
-        cuerpo: x('.detail__cuerpo'),
-      }
+    // El titular y su banda llegan con la ficha cargada, no con el esqueleto:
+    // medirlos antes deja la prueba en manos de esa carrera (T212).
+    await expect(page.locator('article.detail:not(.detalle-esqueleto)')).toBeVisible({
+      timeout: 15_000,
     })
+    await expect(page.locator('.detail__banner h1')).toBeVisible({ timeout: 15_000 })
+
+    const leerAlineacion = async (): Promise<{
+      titular: number
+      primeraColumna: number
+      cajaDeLaBanda: number
+      cuerpo: number
+    }> =>
+      await page.evaluate(() => {
+        const x = (selector: string): number =>
+          document.querySelector(selector)?.getBoundingClientRect().x ?? -1
+
+        return {
+          titular: x('.detail__banner h1'),
+          primeraColumna: x('.detail__aside'),
+          cajaDeLaBanda: x('.detail__banner-caja'),
+          cuerpo: x('.detail__cuerpo'),
+        }
+      })
+
+    // Se pregunta hasta que la alineación está asentada: la banda entra con el
+    // enriquecimiento y puede reacomodarse en el render siguiente.
+    await expect
+      .poll(
+        async () => {
+          const alineacion = await leerAlineacion()
+
+          return (
+            alineacion.titular === alineacion.primeraColumna &&
+            alineacion.titular > 0 &&
+            alineacion.cajaDeLaBanda === alineacion.cuerpo
+          )
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true)
+
+    const alineacion = await leerAlineacion()
 
     // El titular empieza donde la columna: es la medida del sitio, no el borde.
     expect(alineacion.titular).toBe(alineacion.primeraColumna)

@@ -96,6 +96,22 @@ impl Opciones {
     }
 }
 
+/// El evento con el que la página guarda la posición del visionado.
+///
+/// Es un `CustomEvent` del propio DOM y no un evento de Tauri: la ventana
+/// principal **no tiene ni un permiso de IPC** (`capabilities/default.json`), así
+/// que no puede escuchar eventos del anfitrión. `eval` es del lado de Rust y no
+/// necesita permisos; sólo despacha un evento que el gancho del reproductor ya
+/// escucha, y no lleva ningún dato dentro. Un fallo al evaluarlo se ignora: es
+/// mejor ocultar la ventana que impedir el cierre por no poder avisar.
+pub(crate) fn pedir_guardado(app: &AppHandle) {
+    let Some(ventana) = app.get_webview_window(LABEL) else {
+        return;
+    };
+
+    let _ = ventana.eval("window.dispatchEvent(new Event('nn-anime:ocultar-ventana'));");
+}
+
 fn main() {
     // Si este proceso es el que arranca la versión nueva de un reemplazo portable,
     // lo primero es esperar a que el viejo muera: si no, el plugin de instancia
@@ -209,6 +225,11 @@ fn main() {
 
                 if ventana.label() == LABEL && ventana.app_handle().try_state::<Estado>().is_some()
                 {
+                    // La X oculta, y antes de ocultar se pide el guardado: la
+                    // página deja de verse pero sigue viva, así que este es el
+                    // último momento en el que su reloj y su `fetch` corren con
+                    // normalidad.
+                    pedir_guardado(ventana.app_handle());
                     api.prevent_close();
                     let _ = ventana.hide();
                     tray::actualizar(ventana.app_handle());
@@ -266,8 +287,19 @@ fn main() {
 
     // `ExitRequested` llega cuando se cierra la última ventana, que es el momento
     // de apagar el servidor **con orden**: se le pide el cierre y se le espera.
+    //
+    // Antes de cerrar el servidor se avisa a la página para que guarde la última
+    // posición: el `PATCH` va al servidor hermano y tiene que llegar antes de
+    // que éste se apague. La espera corta es deliberada y sólo ocurre al salir;
+    // sin ella, el cierre ordenado podía adelantar al guardado y perderse los
+    // últimos segundos del episodio.
     app.run(|handle, evento| {
         if let RunEvent::ExitRequested { .. } = evento {
+            if handle.get_webview_window(LABEL).is_some() {
+                pedir_guardado(handle);
+                std::thread::sleep(std::time::Duration::from_millis(250));
+            }
+
             cerrar_servidor(handle);
         }
     });

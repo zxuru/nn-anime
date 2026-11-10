@@ -151,6 +151,9 @@ fn alternar_ventana(app: &AppHandle) {
         // texto puede haberse quedado viejo si la ventana se restauró desde la
         // barra de tareas.
         if ventana.is_visible().unwrap_or(false) {
+            // Ocultar deja el webview vivo pero invisible: antes de que deje de
+            // verse, la página guarda la posición del visionado.
+            crate::pedir_guardado(app);
             let _ = ventana.hide();
         } else {
             let _ = ventana.unminimize();

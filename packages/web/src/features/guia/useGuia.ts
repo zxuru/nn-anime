@@ -74,6 +74,19 @@ function pasoDeDriver(paso: PasoGuia): DriveStep {
 }
 
 /**
+ * Cierra el recorrido y lo da por visto.
+ *
+ * Es el mismo camino para la ✕, para Escape, para el clic fuera y para «Omitir
+ * tutorial»: omitir no es «cerrar sin marcarlo», es no pasar por los pasos que
+ * quedan. Un solo sitio para las cuatro salidas evita que una de ellas se olvide
+ * de marcar y el tutorial vuelva a salir en la visita siguiente.
+ */
+function cerrarRecorrido(id: string): void {
+  marcarRecorrido(id)
+  tour?.destroy()
+}
+
+/**
  * Abre el recorrido `id` desde el principio.
  *
  * Cerrarlo —con la ✕, con Escape o pasando el último paso— lo da por visto: se
@@ -101,10 +114,12 @@ export function abrirRecorrido(id: string): void {
     stageRadius: 10,
     popoverClass: 'nn-guia',
     smoothScroll: true,
-    // Un clic fuera no cierra el tutorial: se cierra con la ✕ o con Escape, que
-    // son acciones deliberadas. Perder el hilo por rozar el fondo no enseña.
+    // Las tres salidas que no son «siguiente»: la ✕, Escape —que driver.js ya
+    // trae con `allowClose`— y el clic fuera. Antes el clic fuera no hacía nada;
+    // rozar el fondo se sentía como que la capa estaba atascada. Cerrar cuenta
+    // como verlo, así que no se pierde nada: se puede repetir con el «?».
     allowClose: true,
-    overlayClickBehavior: 'none',
+    overlayClickBehavior: 'close',
     showProgress: true,
     progressText: t(DEFAULT_LOCALE, 'guia.progreso'),
     nextBtnText: t(DEFAULT_LOCALE, 'guia.siguiente'),
@@ -119,6 +134,25 @@ export function abrirRecorrido(id: string): void {
       // El popover ya es `role="dialog"`; `aria-modal` lo completa: el foco no
       // sale de él mientras el recorrido está abierto (driver.js lo atrapa).
       popover.wrapper.setAttribute('aria-modal', 'true')
+
+      /*
+        «Omitir tutorial» en cada paso, también en el primero: quien ya sabe lo
+        que hay no tiene que recorrer seis pantallas para quitárselo de encima,
+        y quien se cansó a la tercera tampoco. driver.js pinta el popover fuera
+        de React y vuelve a crear su DOM en cada paso, así que un botón añadido
+        aquí aparece siempre y no se acumula.
+
+        Va en el pie y en su propia línea —lo coloca la hoja— para no empujar a
+        «Siguiente» ni hacerse pequeño en un teléfono.
+      */
+      const omitir = document.createElement('button')
+      omitir.type = 'button'
+      omitir.className = 'driver-popover-footer-btn nn-guia__omitir'
+      omitir.textContent = t(DEFAULT_LOCALE, 'guia.omitir')
+      omitir.addEventListener('click', () => {
+        cerrarRecorrido(recorrido.id)
+      })
+      popover.footer.append(omitir)
 
       /*
         driver.js enfoca el primer mando —la ✕— al abrir cada paso. En un
@@ -144,8 +178,7 @@ export function abrirRecorrido(id: string): void {
       quien lo implementa destruya el recorrido, así que se destruye aquí.
     */
     onDestroyStarted: () => {
-      marcarRecorrido(recorrido.id)
-      tour?.destroy()
+      cerrarRecorrido(recorrido.id)
     },
   })
 

@@ -9,6 +9,7 @@ import {
   leerAutoplay,
   leerProgreso,
   olvidarProgreso,
+  RETROCESO_REANUDAR_S,
   reanudarEn,
 } from './storage'
 
@@ -95,6 +96,68 @@ describe('el progreso de un episodio', () => {
 
     expect(leerProgreso(almacen, clave)).toBeUndefined()
   })
+
+  test('la escritura es atómica: no deja el temporal detrás', () => {
+    const almacen = almacenFalso()
+    const clave = claveDeProgreso('fixture', 'aurora-nocturna#3')
+
+    guardarProgreso(almacen, clave, { positionS: 42, durationS: 600 })
+
+    expect(almacen.datos.has(`${clave}:tmp`)).toBe(false)
+    expect(almacen.datos.get(clave)).toBe('{"positionS":42,"durationS":600}')
+  })
+
+  test('si la segunda escritura falla, la posición anterior no se pierde', () => {
+    const datos = new Map<string, string>()
+    const clave = claveDeProgreso('fixture', 'aurora-nocturna#3')
+    let escrituras = 0
+
+    const almacen: Almacen = {
+      getItem: (nombre) => datos.get(nombre) ?? null,
+      setItem: (nombre, valor) => {
+        // La primera escritura —el temporal— pasa; la segunda —la definitiva—
+        // falla como si el almacén se hubiera llenado.
+        if (nombre === clave) {
+          escrituras++
+          if (escrituras > 1) throw new Error('cuota')
+        }
+
+        datos.set(nombre, valor)
+      },
+      removeItem: (nombre) => void datos.delete(nombre),
+    }
+
+    guardarProgreso(almacen, clave, { positionS: 42, durationS: 600 })
+    expect(leerProgreso(almacen, clave)).toEqual({ positionS: 42, durationS: 600 })
+
+    guardarProgreso(almacen, clave, { positionS: 99, durationS: 600 })
+
+    // El 42 sigue en la clave buena: el 99 no llegó a escribirse a medias.
+    expect(datos.get(clave)).toBe('{"positionS":42,"durationS":600}')
+    expect(datos.has(`${clave}:tmp`)).toBe(false)
+  })
+
+  test('un cierre entre las dos escrituras se recupera del temporal', () => {
+    const clave = claveDeProgreso('fixture', 'aurora-nocturna#3')
+    const almacen = almacenFalso({
+      [`${clave}:tmp`]: '{"positionS":77,"durationS":600}',
+    })
+
+    expect(leerProgreso(almacen, clave)).toEqual({ positionS: 77, durationS: 600 })
+    // Y el temporal bueno se asciende para no depender de él.
+    expect(almacen.datos.get(clave)).toBe('{"positionS":77,"durationS":600}')
+    expect(almacen.datos.has(`${clave}:tmp`)).toBe(false)
+  })
+
+  test('un temporal corrupto no se interpreta y no tapa el bueno', () => {
+    const clave = claveDeProgreso('fixture', 'aurora-nocturna#3')
+    const almacen = almacenFalso({
+      [clave]: '{"positionS":12,"durationS":600}',
+      [`${clave}:tmp`]: 'no es json',
+    })
+
+    expect(leerProgreso(almacen, clave)).toEqual({ positionS: 12, durationS: 600 })
+  })
 })
 
 describe('cuándo se reanuda', () => {
@@ -106,9 +169,16 @@ describe('cuándo se reanuda', () => {
    * lo que toca es el siguiente. Reanudar en cualquiera de los dos casos es
    * empezar por donde no es.
    */
-  test('en medio, sí', () => {
-    expect(reanudarEn({ positionS: 42, durationS: 600 })).toBe(42)
-    expect(reanudarEn({ positionS: 560, durationS: 600 })).toBe(560)
+  test('en medio, sí, y con tres segundos de contexto', () => {
+    expect(RETROCESO_REANUDAR_S).toBe(3)
+    expect(reanudarEn({ positionS: 42, durationS: 600 })).toBe(39)
+    expect(reanudarEn({ positionS: 560, durationS: 600 })).toBe(557)
+  })
+
+  test('el retroceso no convierte en reanudable un episodio recién abierto', () => {
+    // Doce segundos sí se reanudan; el retroceso no puede bajar del mínimo.
+    expect(reanudarEn({ positionS: 12, durationS: 600 })).toBe(10)
+    expect(RETROCESO_REANUDAR_S).toBeLessThan(10)
   })
 
   test('por debajo de diez segundos, no', () => {

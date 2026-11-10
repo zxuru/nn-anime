@@ -89,28 +89,58 @@ test.describe('el favorito', () => {
      * contra la lista guardada en ese mismo momento vale con cualquiera de los dos
      * desenlaces y no depende del orden del motor ni de lo que hagan otras pruebas
      * de la pasada, que comparten base.
+     *
+     * La marquesina pinta su botón antes de que llegue la lista de favoritos:
+     * leerla nada más recargar medía esa carrera, no el estado guardado. Se
+     * pregunta hasta que el botón concuerda con lo que hay guardado.
      */
-    const estado = await Promise.all([
-      page.locator('.marquesina a.cartel').getAttribute('href'),
-      page.locator('.marquesina .acciones button').getAttribute('aria-pressed'),
-      page.locator('.marquesina .acciones button').innerText(),
-      page.evaluate(async () => {
-        const respuesta = await fetch('/api/favorites')
-        const datos = (await respuesta.json()) as {
-          favorites: readonly { ref: { providerId: string; value: string } }[]
-        }
-        return datos.favorites.map((f) => `/anime/${f.ref.providerId}/${f.ref.value}`)
-      }),
-    ])
+    interface EstadoDelCartel {
+      readonly enlace: string | null
+      readonly marcado: string | null
+      readonly etiqueta: string
+      readonly guardados: readonly string[]
+    }
 
-    const [enlace, marcado, etiqueta, guardados] = estado
-    const espera = guardados.includes(enlace ?? '')
+    const leerEstadoDelCartel = async (): Promise<EstadoDelCartel> => {
+      const [enlace, marcado, etiqueta, guardados] = await Promise.all([
+        page.locator('.marquesina a.cartel').getAttribute('href'),
+        page.locator('.marquesina .acciones button').getAttribute('aria-pressed'),
+        page.locator('.marquesina .acciones button').innerText(),
+        page.evaluate(async () => {
+          const respuesta = await fetch('/api/favorites')
+          const datos = (await respuesta.json()) as {
+            favorites: readonly { ref: { providerId: string; value: string } }[]
+          }
+          return datos.favorites.map((f) => `/anime/${f.ref.providerId}/${f.ref.value}`)
+        }),
+      ])
 
-    expect(marcado, `el cartel ${enlace} y lo guardado ${guardados.join(', ')}`).toBe(
-      espera ? 'true' : 'false',
-    )
+      return { enlace, marcado, etiqueta, guardados }
+    }
+
+    await expect
+      .poll(
+        async () => {
+          const estado = await leerEstadoDelCartel()
+          const espera = estado.guardados.includes(estado.enlace ?? '')
+
+          return estado.marcado === (espera ? 'true' : 'false')
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true)
+
+    const estado = await leerEstadoDelCartel()
+    const espera = estado.guardados.includes(estado.enlace ?? '')
+
+    expect(
+      estado.marcado,
+      `el cartel ${estado.enlace ?? ''} y lo guardado ${estado.guardados.join(', ')}`,
+    ).toBe(espera ? 'true' : 'false')
     // El texto se pinta en mayúsculas por CSS, así que se compara sin caja.
-    expect(etiqueta.toLowerCase()).toBe(espera ? 'quitar de favoritos' : 'añadir a favoritos')
+    expect(estado.etiqueta.toLowerCase()).toBe(
+      espera ? 'quitar de favoritos' : 'añadir a favoritos',
+    )
 
     /*
      * Y la banda de favoritos enseña lo guardado: su lista sale de la misma
