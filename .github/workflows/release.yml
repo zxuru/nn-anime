@@ -208,6 +208,49 @@ jobs:
       - name: Instalar
         run: bun install --frozen-lockfile
 
+      # `tauri-action` resuelve la release por tag. Al republicar la 0.8.0 su log
+      # dijo «Looking for a draft release with tag v0.8.0…» y no encontró ninguna,
+      # así que intentó crear un release nuevo y falló con «"releaseName" not set
+      # but required to create release»: el borrador existía, pero su listado no lo
+      # veía. El trabajo `publicar` resuelve el borrador **por id** con `gh api`, y
+      # eso sí funciona; aquí se hace lo mismo y se le pasa a la acción como
+      # `releaseId`, que se salta el listado por completo.
+      #
+      # Va antes de compilar a propósito: si no hay borrador, el trabajo falla en
+      # segundos y no después de quince minutos de Rust.
+      - name: Resolver el borrador de la release (Windows)
+        if: runner.os == 'Windows'
+        # `bash` y no el `pwsh` por defecto de Windows: el filtro va con `jq` y
+        # `awk`, que ya están en el runner. Se declara el intérprete para que
+        # actionlint analice el paso como bash y no como PowerShell.
+        shell: bash
+        id: borrador
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.comprobar.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          listar() {
+            gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq ".[] | select(.tag_name == \"$TAG\" and .draft == $1) | .id"
+          }
+          primera() { awk 'NR == 1 { print; exit }' <<< "$1"; }
+
+          if [ -n "$(primera "$(listar false)")" ]; then
+            echo "ya hay una release publicada para $TAG: no se toca" >&2
+            exit 1
+          fi
+
+          id="$(primera "$(listar true)")"
+          if [ -z "$id" ]; then
+            echo "no hay borrador para $TAG: lo tiene que crear release-please" >&2
+            exit 1
+          fi
+
+          echo "borrador de $TAG: $id"
+          echo "releaseId=$id" >> "$GITHUB_OUTPUT"
+
       - name: Construir la interfaz
         run: bun run build
 
@@ -435,6 +478,10 @@ jobs:
           NN_ANIME_EXIGIR_SERVIDOR: '1'
         with:
           tagName: ${{ needs.comprobar.outputs.tag }}
+          # El borrador llega resuelto por id desde el paso anterior: así la acción
+          # no depende de que su listado de borradores lo encuentre. `tagName` se
+          # queda porque también nombra los assets y las URLs del updater.
+          releaseId: ${{ steps.borrador.outputs.releaseId }}
           releaseDraft: true
           # `desktop/` es la raíz del proyecto Tauri (`src-tauri` vive dentro).
           projectPath: desktop

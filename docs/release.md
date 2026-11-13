@@ -282,6 +282,30 @@ tardaba entre 0,6 y 3 s por consulta en vez de milisegundos y, en el runner, roz
   tercero, la prueba le pasa un `fetch` falso o apaga el tercero. Un test que depende de la latencia
   de AniList tumba una release de forma no reproducible.
 
+### `tauri-action` y el borrador que no encuentra
+
+La `0.8.0` se atascó dos veces, y la segunda no era del listón. `tauri-action` resuelve la
+release **por tag** listando los borradores del repositorio, y en ese run el listado no vio el
+borrador que `release-please` había creado. El log lo dice literalmente:
+
+```
+Looking for a draft release with tag v0.8.0...
+"releaseName" not set but required to create release.
+Couldn't find release with tag v0.8.0. Creating one.
+##[error]Release not found or created.
+```
+
+El mismo commit de la acción había publicado la `0.7.0` sin problema («Found draft release…
+on the release list»): el bump de dependabot sólo cambió el pin de la etiqueta anotada `v1` a su
+commit, el mismo código. La diferencia fue que el listado del token del workflow no devolvió el
+borrador, y con `releaseDraft: true` la acción no acepta encontrarlo publicado: intenta crear otro
+release para el mismo tag y falla.
+
+El arreglo no depende del listado de la acción: un paso del trabajo `instaladores` resuelve el
+borrador **por id** con el mismo `gh api` que ya usa `publicar` y se lo pasa a la acción como
+`releaseId`, que se salta la búsqueda por tag. El paso va antes de compilar, así que si el borrador
+no aparece el run falla en segundos y no después de quince minutos de Rust.
+
 ### Recuperar el borrador
 
 Con el arreglo en `main` y el listón verde:
