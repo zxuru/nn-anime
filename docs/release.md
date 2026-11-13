@@ -250,6 +250,59 @@ El tag dispara `release.yml` y publica la release con el cuerpo de `CHANGELOG.md
 y `release.yml` lo publica. Si `release-please` abre un PR antes de que se empuje `v0.1.0`, se cierra:
 el siguiente run recalcula desde el tag.
 
+## Cuando la release se queda en borrador
+
+Un borrador con el tag creado y **cero assets** significa que `release.yml` arrancó y no pasó del
+primer trabajo: `comprobar` corta la cadena y `instaladores`, `docker` y `publicar` quedan saltados.
+Pasó con la `0.8.0`.
+
+El diagnóstico empieza por el run del tag, no por la release:
+
+```bash
+gh run list --workflow=release.yml --limit 5
+gh run view <id> --json jobs --jq '.jobs[] | {name, conclusion}'
+```
+
+Si el que falla es `comprobar`, el responsable es el listón —tipos, estilo, `bun audit` o
+`bun test`—, no el empaquetado. **El tag no se mueve nunca** salvo que la release no se haya
+publicado jamás: un borrador sin assets, sin descargas y sin clientes que lo hayan visto sí se puede
+re-apuntar al commit corregido; una release publicada no.
+
+### El listón no puede depender de la red
+
+La `0.8.0` se atascó porque un test salía a internet. `createApp` monta el catálogo de AniList en
+línea salvo que se le diga lo contrario, y la búsqueda retiene el `done` del SSE hasta que la
+búsqueda cruzada contesta o vence `ANILIST_CROSS_TIMEOUT_MS` (3 s). El test de la caché de búsqueda
+tardaba entre 0,6 y 3 s por consulta en vez de milisegundos y, en el runner, rozó el plazo de 5 s de
+`bun test`:
+
+- Medido en local, la misma petición tarda **1-5 ms con `anilistOffline: true`** y **650-2000 ms
+  sin él**. El arreglo fue pasar `anilistOffline: true` en los `createApp` de esos tests.
+- La regla: **ninguna prueba de `comprobar` sale a la red**. Si una ruta puede hablar con un
+  tercero, la prueba le pasa un `fetch` falso o apaga el tercero. Un test que depende de la latencia
+  de AniList tumba una release de forma no reproducible.
+
+### Recuperar el borrador
+
+Con el arreglo en `main` y el listón verde:
+
+```bash
+# 1. El borrador pasa a apuntar al commit corregido (sólo si nunca se publicó).
+gh api -X PATCH repos/zxuru/nn-anime/releases/<id> -f target_commitish=<sha>
+
+# 2. El tag se mueve al mismo commit y su push dispara release.yml.
+git tag -f v0.8.0 <sha>
+git push origin refs/tags/v0.8.0 --force
+```
+
+El push del tag es lo que lanza el workflow —un tag creado con `GITHUB_TOKEN` no dispara nada—, así
+que `release.yml` corre con `github.ref_type=tag`, valida `version:check` contra los diez
+`package.json` y publica. Lo que queda por comprobar es lo mismo de siempre: que la release no siga
+en borrador, que estén todos los assets y que `latest.json` anuncie `windows-x86_64` y
+`windows-x86_64-portable` con url y firma. El propio trabajo `publicar` lo verifica antes de dar la
+release por publicada; si algo falta, el run sale en rojo y la release se queda en borrador, que es
+el estado honesto.
+
 ## Qué hay dentro del ejecutable
 
 Un solo archivo por plataforma, compilado con `bun build --compile`, que lleva dentro:
