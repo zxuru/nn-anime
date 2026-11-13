@@ -19,8 +19,8 @@
  *   bun run scripts/agente.ts estado
  */
 
-import { existsSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, rmSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 
 const RAIZ = resolve(dirname(Bun.fileURLToPath(import.meta.url)), '..')
 const RAMA_BASE = 'main'
@@ -74,13 +74,32 @@ interface Salida {
   readonly err: string
 }
 
+/**
+ * Ejecuta git y devuelve su salida, **sin tuberías**.
+ *
+ * `Bun.spawnSync` con `stdout: 'pipe'` muere con `EPERM` en el sandbox de escritura de este
+ * entorno: no deja crear la tubería con la que se captura al hijo. Redirigir a archivos dentro de
+ * `.tmp/` y leerlos después captura lo mismo sin tubería, y también funciona fuera del sandbox.
+ */
 function git(args: readonly string[], cwd: string): Salida {
-  const proceso = Bun.spawnSync(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' })
+  const temporal = mkdtempSync(join(RAIZ, '.tmp', 'agente-git-'))
+  const rutaOut = join(temporal, 'out')
+  const rutaErr = join(temporal, 'err')
+  const out = openSync(rutaOut, 'w')
+  const err = openSync(rutaErr, 'w')
 
-  return {
-    code: proceso.exitCode,
-    out: proceso.stdout.toString().trim(),
-    err: proceso.stderr.toString().trim(),
+  try {
+    const proceso = Bun.spawnSync(['git', ...args], { cwd, stdout: out, stderr: err })
+
+    return {
+      code: proceso.exitCode,
+      out: readFileSync(rutaOut, 'utf8').trim(),
+      err: readFileSync(rutaErr, 'utf8').trim(),
+    }
+  } finally {
+    closeSync(out)
+    closeSync(err)
+    rmSync(temporal, { recursive: true, force: true })
   }
 }
 
