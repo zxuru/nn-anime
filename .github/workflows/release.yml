@@ -208,16 +208,15 @@ jobs:
       - name: Instalar
         run: bun install --frozen-lockfile
 
-      # `tauri-action` resuelve la release por tag. Al republicar la 0.8.0 su log
-      # dijo «Looking for a draft release with tag v0.8.0…» y no encontró ninguna,
-      # así que intentó crear un release nuevo y falló con «"releaseName" not set
-      # but required to create release»: el borrador existía, pero su listado no lo
-      # veía. El trabajo `publicar` resuelve el borrador **por id** con `gh api`, y
-      # eso sí funciona; aquí se hace lo mismo y se le pasa a la acción como
-      # `releaseId`, que se salta el listado por completo.
+      # `tauri-action` resuelve la release por tag y, si no la encuentra, intenta
+      # crear otra: al republicar la 0.8.0 el borrador estaba **desvinculado** —el
+      # tag se había movido y GitHub pasó a llamarlo `untagged-<sha>`—, así que la
+      # acción murió con «Release not found or created». Aquí el borrador se
+      # resuelve **por id**, lo mismo que hace `publicar`, y se le pasa como
+      # `releaseId`, que se salta la búsqueda por tag.
       #
-      # Va antes de compilar a propósito: si no hay borrador, el trabajo falla en
-      # segundos y no después de quince minutos de Rust.
+      # Va antes de compilar a propósito: si el borrador no aparece, el trabajo
+      # falla en segundos y no después de quince minutos de Rust.
       - name: Resolver el borrador de la release (Windows)
         if: runner.os == 'Windows'
         # `bash` y no el `pwsh` por defecto de Windows: el filtro va con `jq` y

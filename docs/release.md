@@ -264,9 +264,14 @@ gh run view <id> --json jobs --jq '.jobs[] | {name, conclusion}'
 ```
 
 Si el que falla es `comprobar`, el responsable es el listón —tipos, estilo, `bun audit` o
-`bun test`—, no el empaquetado. **El tag no se mueve nunca** salvo que la release no se haya
-publicado jamás: un borrador sin assets, sin descargas y sin clientes que lo hayan visto sí se puede
-re-apuntar al commit corregido; una release publicada no.
+`bun test`—, no el empaquetado. Lo primero es **volver a lanzar lo que falló**, que no toca nada:
+
+```bash
+gh run rerun <id> --failed
+```
+
+Y el tag, mejor no moverlo: **mover el tag de un borrador lo desvincula** (ver abajo) y crea un
+segundo problema encima del primero.
 
 ### El listón no puede depender de la red
 
@@ -282,50 +287,63 @@ tardaba entre 0,6 y 3 s por consulta en vez de milisegundos y, en el runner, roz
   tercero, la prueba le pasa un `fetch` falso o apaga el tercero. Un test que depende de la latencia
   de AniList tumba una release de forma no reproducible.
 
-### `tauri-action` y el borrador que no encuentra
+### Mover el tag desvincula el borrador
 
-La `0.8.0` se atascó dos veces, y la segunda no era del listón. `tauri-action` resuelve la
-release **por tag** listando los borradores del repositorio, y en ese run el listado no vio el
-borrador que `release-please` había creado. El log lo dice literalmente:
+La `0.8.0` se atascó, se arregló el test, y al re-apuntar el tag `v0.8.0` al commit corregido
+apareció un segundo fallo, ya en Windows: `tauri-action` decía «Looking for a draft release with tag
+v0.8.0…» y no la encontraba, intentaba crear otro release y moría en `"releaseName" not set but
+required to create release` y `##[error]Release not found or created.`.
+
+El mismo commit de la acción había publicado la `0.7.0` sin problema («Found draft release… on the
+release list»): el bump de dependabot sólo cambió el pin de la etiqueta anotada `v1` a su commit, el
+mismo código. Lo que cambió fue **el tag**: al moverlo, GitHub desvinculó el borrador y le puso
+nombre de tag `untagged-<sha>`. El listado de releases **sí devuelve borradores**; lo que no
+devolvía era una release con `tag_name == "v0.8.0"`. Una sonda con el token del workflow lo enseñó
+tal cual:
 
 ```
-Looking for a draft release with tag v0.8.0...
-"releaseName" not set but required to create release.
-Couldn't find release with tag v0.8.0. Creating one.
-##[error]Release not found or created.
+441048948   untagged-a92afb0a6a8114e6d1cb   true     ← el borrador, con el tag perdido
+429459086   v0.7.0                          false
 ```
 
-El mismo commit de la acción había publicado la `0.7.0` sin problema («Found draft release…
-on the release list»): el bump de dependabot sólo cambió el pin de la etiqueta anotada `v1` a su
-commit, el mismo código. La diferencia fue que el listado del token del workflow no devolvió el
-borrador, y con `releaseDraft: true` la acción no acepta encontrarlo publicado: intenta crear otro
-release para el mismo tag y falla.
+Con `releaseDraft: true` la acción no acepta encontrarlo publicado: con el listado vacío intenta
+crear otro release para el mismo tag y falla. Se arregla **re-enlazándolo**, que sí puede hacerse
+por id aunque el tag no aparezca:
 
-El arreglo no depende del listado de la acción: un paso del trabajo `instaladores` resuelve el
-borrador **por id** con el mismo `gh api` que ya usa `publicar` y se lo pasa a la acción como
-`releaseId`, que se salta la búsqueda por tag. El paso va antes de compilar, así que si el borrador
-no aparece el run falla en segundos y no después de quince minutos de Rust.
+```bash
+gh api -X PATCH repos/zxuru/nn-anime/releases/<id> \
+  -f tag_name=vX.Y.Z -f target_commitish=<sha>
+```
+
+Y para que esa clase de fallo se vea antes, el trabajo `instaladores` resuelve el borrador **por
+id** con el mismo `gh api` que usa `publicar` y se lo pasa a la acción como `releaseId`, que se
+salta la búsqueda por tag; el paso va antes de compilar, así que si no hay borrador el run falla en
+segundos y no después de quince minutos de Rust.
 
 ### Recuperar el borrador
 
 Con el arreglo en `main` y el listón verde:
 
 ```bash
-# 1. El borrador pasa a apuntar al commit corregido (sólo si nunca se publicó).
-gh api -X PATCH repos/zxuru/nn-anime/releases/<id> -f target_commitish=<sha>
+# 1. Si el borrador se desvinculó al mover el tag, se vuelve a enlazar por id.
+gh api "repos/zxuru/nn-anime/releases?per_page=100" \
+  --jq '.[] | select(.draft) | [.id, .tag_name] | @tsv'
+gh api -X PATCH repos/zxuru/nn-anime/releases/<id> \
+  -f tag_name=vX.Y.Z -f target_commitish=<sha>
 
-# 2. El tag se mueve al mismo commit y su push dispara release.yml.
-git tag -f v0.8.0 <sha>
-git push origin refs/tags/v0.8.0 --force
+# 2. Y se relanza la release: lo que falló, o el run entero.
+gh run rerun <id> --failed
 ```
 
-El push del tag es lo que lanza el workflow —un tag creado con `GITHUB_TOKEN` no dispara nada—, así
-que `release.yml` corre con `github.ref_type=tag`, valida `version:check` contra los diez
-`package.json` y publica. Lo que queda por comprobar es lo mismo de siempre: que la release no siga
-en borrador, que estén todos los assets y que `latest.json` anuncie `windows-x86_64` y
-`windows-x86_64-portable` con url y firma. El propio trabajo `publicar` lo verifica antes de dar la
-release por publicada; si algo falta, el run sale en rojo y la release se queda en borrador, que es
-el estado honesto.
+Mover el tag **también dispara `release.yml`** —un tag creado con `GITHUB_TOKEN` no dispara nada—,
+pero cuesta el paso 1 otra vez y una release en vuelo; si hay un run que sólo falló en un trabajo,
+`gh run rerun --failed` es lo barato. Con una release ya publicada no se toca ni el tag ni el
+borrador: se lanza una versión nueva.
+
+Lo que queda por comprobar es lo mismo de siempre: que la release no siga en borrador, que estén
+todos los assets y que `latest.json` anuncie `windows-x86_64` y `windows-x86_64-portable` con url y
+firma. El propio trabajo `publicar` lo verifica antes de dar la release por publicada; si algo falta,
+el run sale en rojo y la release se queda en borrador, que es el estado honesto.
 
 ## Qué hay dentro del ejecutable
 
