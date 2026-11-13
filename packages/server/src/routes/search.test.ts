@@ -504,6 +504,13 @@ describe('con caché de resultados', () => {
         version: '0.1.0',
         plugins: { active: [{ provider: proveedor, file: '/plugins/fixture.ts' }], rejected: [] },
         container,
+        // Lo que se mide aquí es la caché de resultados, no la búsqueda cruzada de
+        // AniList. Con el catálogo en línea, `createApp` monta el cliente de verdad y
+        // cada `pedir` retiene el `done` del SSE hasta que la cruzada contesta o vence
+        // `ANILIST_CROSS_TIMEOUT_MS` (3 s): medido, 0,65-2 s por consulta de red real
+        // contra 1-5 ms con el catálogo apagado. En un runner lento eso rozó el plazo
+        // de 5 s de `bun test` y fue lo que dejó en borrador la release 0.8.0.
+        anilistOffline: true,
       })
 
       const pedir = async (query: string): Promise<readonly string[]> => {
@@ -598,6 +605,9 @@ describe('con caché de resultados', () => {
         version: '0.1.0',
         plugins: { active: [{ provider: proveedor, file: '/plugins/fixture.ts' }], rejected: [] },
         container: createContainer({ db }),
+        // La caché que se mide es la de la base; la cruzada de AniList no pinta nada
+        // aquí y sólo añadiría hasta tres segundos de red por búsqueda.
+        anilistOffline: true,
       })
 
     const buscar = async (
@@ -646,6 +656,9 @@ describe('con caché de resultados', () => {
         version: '0.1.0',
         plugins: { active: [{ provider: roto, file: '/plugins/roto.ts' }], rejected: [] },
         container: createContainer({ db }),
+        // Un proveedor que falla se mide sin la cruzada de AniList de por medio: lo que
+        // se comprueba es que la caché no escribe nada, no que el tercero conteste.
+        anilistOffline: true,
       })
 
       const respuesta = await servidor.request(`${BASE}/api/search?q=aurora`, { headers: GOOD })
