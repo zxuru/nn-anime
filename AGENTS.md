@@ -61,6 +61,11 @@ bun run scripts/agente.ts abandonar T60 --si   # destructivo: tira la rama sin i
   mira los archivos del repositorio.
 - El reclamo es un ref: `update-ref` lo crea sólo si no existe, así que el segundo agente recibe
   error en vez de empezar un task ajeno. Lo libera `cerrar`, no el agente por su cuenta.
+- **Con sandbox de escritura (Windows con DSH) hay tres cosas que no funcionan y tienen rodeo**, sin
+  pedir aprobaciones: el `ssh` de Git se sustituye por el nativo de Windows, la captura de salida de
+  un hijo va por archivos en `.tmp/` (ya lo hacen `scripts/agente.ts` y `scripts/git-hooks.ts`) y el
+  `bun install` del worktree no termina, así que se trabaja en una rama de la raíz y se integra con
+  `--no-ff`. Está en la skill `agente-worktree`, sección «Sandbox de escritura».
 - **Un solo escritor por archivo compartido.** `tasks/todo.md` y `tasks/plan.md` los toca el
   integrador. El agente deja `tasks/done/T60.md` —el formato está en `tasks/done/README.md`— y el
   integrador lo pega.

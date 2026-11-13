@@ -1,6 +1,14 @@
 import { afterAll, describe, expect, test } from 'bun:test'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import {
+  closeSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { join, resolve } from 'node:path'
 import { type Contexto, decidir, main } from './git-hooks'
 
 /**
@@ -14,15 +22,79 @@ import { type Contexto, decidir, main } from './git-hooks'
 const RAIZ = resolve(import.meta.dir, '..')
 const BASE = `${RAIZ}/.tmp/gancho`
 
-function git(args: readonly string[], cwd: string): { code: number; out: string; err: string } {
-  const proceso = Bun.spawnSync(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' })
+/**
+ * git sin tuberías.
+ *
+ * El sandbox de escritura de este entorno no deja capturar la salida de un hijo: `Bun.spawnSync`
+ * con `stdout: 'pipe'` muere con `EPERM`. Se redirige a archivos dentro de `.tmp/` y se leen
+ * después, que mide lo mismo y también funciona fuera del sandbox.
+ */
+function ejecutar(
+  args: readonly string[],
+  cwd: string,
+  extra: Record<string, string> = {},
+): { code: number; out: string; err: string } {
+  mkdirSync(`${RAIZ}/.tmp`, { recursive: true })
+  const temporal = mkdtempSync(`${RAIZ}/.tmp/hook-git-`)
+  const rutaOut = join(temporal, 'out')
+  const rutaErr = join(temporal, 'err')
+  const out = openSync(rutaOut, 'w')
+  const err = openSync(rutaErr, 'w')
 
-  return {
-    code: proceso.exitCode,
-    out: proceso.stdout.toString().trim(),
-    err: proceso.stderr.toString().trim(),
+  try {
+    const proceso = Bun.spawnSync(['git', ...args], {
+      cwd,
+      stdout: out,
+      stderr: err,
+      env: { ...process.env, ...extra },
+    })
+
+    return {
+      code: proceso.exitCode,
+      out: readFileSync(rutaOut, 'utf8').trim(),
+      err: readFileSync(rutaErr, 'utf8').trim(),
+    }
+  } finally {
+    closeSync(out)
+    closeSync(err)
+    rmSync(temporal, { recursive: true, force: true })
   }
 }
+
+function git(args: readonly string[], cwd: string): { code: number; out: string; err: string } {
+  return ejecutar(args, cwd)
+}
+
+/**
+ * ¿Puede git ejecutar un gancho en esta máquina?
+ *
+ * No es una lista de plataformas: es la cosa misma. En el sandbox de escritura de Windows, git
+ * arranca el `#!/usr/bin/env bun` del gancho con el `env.exe` de MSYS, y el sandbox no le deja
+ * crear su tubería de señales: el commit muere con un fatal de `env.exe` y no con el mensaje del
+ * gancho. Se mide con un gancho trivial que tiene que dejar pasar el commit. Donde la respuesta es
+ * verdadera —CI y cualquier Windows sin ese sandbox—, las pruebas de integración corren enteras.
+ */
+function puedeEjecutarGanchos(): boolean {
+  const raiz = `${BASE}/capacidad`
+  const repo = `${raiz}/repo`
+  const ganchos = `${raiz}/ganchos`
+
+  rmSync(raiz, { recursive: true, force: true })
+  mkdirSync(repo, { recursive: true })
+  mkdirSync(ganchos, { recursive: true })
+  writeFileSync(`${ganchos}/pre-commit`, '#!/bin/sh\nexit 0\n')
+  git(['init', '-b', 'main'], repo)
+  git(['config', 'user.email', 'nn-anime@localhost'], repo)
+  git(['config', 'user.name', 'nn-anime'], repo)
+  git(['config', 'core.hooksPath', ganchos], repo)
+  writeFileSync(`${repo}/README.md`, '# prueba\n')
+  git(['add', 'README.md'], repo)
+
+  return git(['commit', '-m', 'base'], repo).code === 0
+}
+
+/** Las de integración con git; se saltan sólo donde el gancho no puede ejecutarse. */
+const testDeGancho = test.skipIf(!puedeEjecutarGanchos())
 
 function repoConGancho(nombre: string): string {
   const repo = `${BASE}/${nombre}/repo`
@@ -100,7 +172,7 @@ describe('el gancho instalado', () => {
     expect(git(['config', 'core.hooksPath'], RAIZ).out).toBe('.githooks')
   })
 
-  test('git frena el commit en main y lo permite con la variable del integrador', () => {
+  testDeGancho('git frena el commit en main y lo permite con la variable del integrador', () => {
     const repo = repoConGancho('frena')
 
     writeFileSync(`${repo}/cover.ts`, 'export const cover = 1\n')
@@ -110,16 +182,13 @@ describe('el gancho instalado', () => {
     expect(frenado.code).not.toBe(0)
     expect(frenado.err).toContain('abrir T60')
 
-    const proceso = Bun.spawnSync(['git', 'commit', '-m', 'feat: la carátula (T60)'], {
-      cwd: repo,
-      stdout: 'pipe',
-      stderr: 'pipe',
-      env: { ...process.env, NN_ANIME_INTEGRADOR: '1' },
+    const proceso = ejecutar(['commit', '-m', 'feat: la carátula (T60)'], repo, {
+      NN_ANIME_INTEGRADOR: '1',
     })
-    expect(proceso.exitCode).toBe(0)
+    expect(proceso.code).toBe(0)
   })
 
-  test('dentro de un worktree el commit pasa sin la variable', () => {
+  testDeGancho('dentro de un worktree el commit pasa sin la variable', () => {
     const repo = repoConGancho('worktree')
 
     git(['worktree', 'add', `${BASE}/worktree/rama`, '-b', 'tarea/T62'], repo)

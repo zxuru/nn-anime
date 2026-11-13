@@ -1,6 +1,15 @@
 import { afterAll, describe, expect, test } from 'bun:test'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { join, resolve } from 'node:path'
 import {
   abandonar,
   abrir,
@@ -24,22 +33,52 @@ import {
 const RAIZ = resolve(import.meta.dir, '..')
 const BASE = `${RAIZ}/.tmp/agente`
 
-function correr(args: readonly string[], cwd: string): string {
-  const proceso = Bun.spawnSync(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' })
+/**
+ * git sin tuberías.
+ *
+ * El sandbox de escritura de este entorno no deja capturar la salida de un hijo: `Bun.spawnSync`
+ * con `stdout: 'pipe'` muere con `EPERM`. Se redirige a archivos dentro de `.tmp/` y se leen
+ * después, que mide lo mismo y también funciona fuera del sandbox.
+ */
+function ejecutar(
+  args: readonly string[],
+  cwd: string,
+): { code: number; out: string; err: string } {
+  mkdirSync(`${RAIZ}/.tmp`, { recursive: true })
+  const temporal = mkdtempSync(`${RAIZ}/.tmp/git-test-`)
+  const rutaOut = join(temporal, 'out')
+  const rutaErr = join(temporal, 'err')
+  const out = openSync(rutaOut, 'w')
+  const err = openSync(rutaErr, 'w')
 
-  if (proceso.exitCode !== 0) {
-    throw new Error(`git ${args.join(' ')}: ${proceso.stderr.toString()}`)
+  try {
+    const proceso = Bun.spawnSync(['git', ...args], { cwd, stdout: out, stderr: err })
+
+    return {
+      code: proceso.exitCode,
+      out: readFileSync(rutaOut, 'utf8').trim(),
+      err: readFileSync(rutaErr, 'utf8').trim(),
+    }
+  } finally {
+    closeSync(out)
+    closeSync(err)
+    rmSync(temporal, { recursive: true, force: true })
+  }
+}
+
+function correr(args: readonly string[], cwd: string): string {
+  const salida = ejecutar(args, cwd)
+
+  if (salida.code !== 0) {
+    throw new Error(`git ${args.join(' ')}: ${salida.err}`)
   }
 
-  return proceso.stdout.toString().trim()
+  return salida.out
 }
 
 /** `show-ref --verify` sale con 1 cuando el ref no existe; aquí eso es la respuesta. */
 function existeRef(repo: string, ref: string): boolean {
-  return (
-    Bun.spawnSync(['git', 'show-ref', '--verify', ref], { cwd: repo, stderr: 'ignore' })
-      .exitCode === 0
-  )
+  return ejecutar(['show-ref', '--verify', ref], repo).code === 0
 }
 
 /** Bajo `.tmp/agente/<nombre>/repo` para que el worktree caiga dentro de `.tmp/`. */
@@ -90,9 +129,7 @@ describe('los nombres derivados del id', () => {
   })
 
   test('el repositorio ignora .worktrees, así que la copia no entra en git', () => {
-    expect(
-      Bun.spawnSync(['git', 'check-ignore', '-q', '.worktrees/T60'], { cwd: RAIZ }).exitCode,
-    ).toBe(0)
+    expect(ejecutar(['check-ignore', '-q', '.worktrees/T60'], RAIZ).code).toBe(0)
   })
 
   test('el reclamo es un ref, no un archivo del árbol', () => {
@@ -115,24 +152,33 @@ describe('puertoDe', () => {
 })
 
 describe('el ciclo de un agente', () => {
-  test('abre worktree, integra el commit y libera el reclamo', () => {
-    const repo = repoDePrueba('ciclo')
-    const ruta = abrir('T99', repo)
-    const rama = nombreRama('T99')
+  // El ciclo entero son quince procesos de git: con el plazo por defecto de 5 s, en un Windows
+  // con el sandbox de escritura roza el límite y la prueba muere a mitad. El plazo es para el
+  // reloj de la máquina, no para el código.
+  const PLAZO_MS = 30_000
 
-    expect(existsSync(`${ruta}/.git`)).toBe(true)
-    expect(correr(['rev-parse', '--abbrev-ref', 'HEAD'], ruta)).toBe(rama)
+  test(
+    'abre worktree, integra el commit y libera el reclamo',
+    () => {
+      const repo = repoDePrueba('ciclo')
+      const ruta = abrir('T99', repo)
+      const rama = nombreRama('T99')
 
-    writeFileSync(`${ruta}/cover.ts`, 'export const cover = 1\n')
-    correr(['add', 'cover.ts'], ruta)
-    correr(['commit', '-m', 'feat: la carátula (T99)'], ruta)
+      expect(existsSync(`${ruta}/.git`)).toBe(true)
+      expect(correr(['rev-parse', '--abbrev-ref', 'HEAD'], ruta)).toBe(rama)
 
-    cerrar('T99', repo)
+      writeFileSync(`${ruta}/cover.ts`, 'export const cover = 1\n')
+      correr(['add', 'cover.ts'], ruta)
+      correr(['commit', '-m', 'feat: la carátula (T99)'], ruta)
 
-    expect(existsSync(`${ruta}`)).toBe(false)
-    expect(existsSync(`${repo}/cover.ts`)).toBe(true)
-    expect(existeRef(repo, nombreClaim('T99'))).toBe(false)
-  })
+      cerrar('T99', repo)
+
+      expect(existsSync(`${ruta}`)).toBe(false)
+      expect(existsSync(`${repo}/cover.ts`)).toBe(true)
+      expect(existeRef(repo, nombreClaim('T99'))).toBe(false)
+    },
+    PLAZO_MS,
+  )
 
   test('el segundo agente no puede reclamar el mismo task', () => {
     const repo = repoDePrueba('reclamo')
