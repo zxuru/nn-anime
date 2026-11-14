@@ -1,9 +1,22 @@
 # Especificación · `watch-party`: sala de visionado sincronizada
 
-**Estado:** propuesta de contrato para la tarea **3.1** de `docs/roadmap.md`, pedida por el humano.
-La primera entrega está implementada en la rama `feat/watch-party`; falta la revisión humana y la
-aprobación de la enmienda de `CAPABILITY-MAP.md`. La decisión **D3** (transporte remoto) sigue
-abierta: el modo P2P no está implementado.
+**Estado:** **contrato canónico del módulo `watch-party`** · el humano lo pidió por escrito —es la
+tarea **3.1** del `docs/roadmap.md`, que escribió él— y la primera entrega lo implementa, se midió y
+salió publicada en la 0.8.0 · **en vigor es lo que esa primera entrega implementa**: el protocolo
+y la corrección de deriva (3.2), el coordinador LAN y la credencial de sala (3.3), la interfaz de
+sala (3.5) y el invitado desde su servidor · **siguen siendo propuesta** el modo P2P (3.4, decisión
+**D3**, que sigue abierta), la coincidencia de contenido (3.6), «esperar a todos», el control
+compartido y el chat (3.7) · y **sigue pendiente de aprobación humana** la revisión de este
+documento y la enmienda a `CAPABILITY-MAP.md` (que T219 escribe).
+
+> **Por qué sigue en la carpeta canónica.** `docs/specs/SPEC-*.md` es el contrato de un módulo. Éste
+> es el contrato de un módulo que existe y está en producción —`packages/core/src/party.ts`,
+> `packages/server/src/party/` y `packages/web/src/features/party/`—, y tanto `SECURITY.md` como
+> `docs/roadmap.md` lo enlazan como tal. En `proposals/` viviría el contrato de una sala que la
+> gente tiene delante sin saber si la cumple; y cambiarlo ya no podría ser un cambio cualquiera,
+> porque tocar un contrato canónico es un evento de versión mayor. Se queda; lo que cambia en T220
+> es el encabezado, que decía «propuesta de contrato» para un contrato que el código lleva
+> aplicando desde la 0.8.0.
 
 **Módulo nuevo:** `watch-party`. **Depende de:** `core` (protocolo y máquina de estados), `server`
 (coordinador LAN), `web-ui` (interfaz y transporte P2P), `catalog-store` (sólo lectura, para

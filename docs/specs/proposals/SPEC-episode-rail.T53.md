@@ -1,7 +1,21 @@
-# Spec: episode-rail (carrusel de últimos episodios)
+# SPEC-episode-rail.T53 — la tira de los últimos episodios
 
-Estado: **propuesta · pendiente de aprobación humana** · 2026-10-12 · decisiones del humano ya
-tomadas: **A** (la fila la publica el plugin) y **sin contador de comentarios**.
+**Estado:** propuesta, sin integrar. La escribió T53; la integran los dueños de
+`docs/specs/SPEC-web-ui.md`, `docs/specs/SPEC-provider-core.md` y `docs/specs/SPEC-catalog-store.md`,
+que anotan la aprobación y borran este archivo.
+
+> **Por qué vive en `proposals/` y no en la carpeta canónica.** `docs/specs/SPEC-*.md` es el
+> contrato de un módulo, y un contrato se reconoce por el código que lo sigue, no por lo que
+> promete el encabezado. Este documento **no crea un módulo** —extiende `web-ui`,
+> `provider-core` y `catalog-store`— y **nada de él está implementado**: no hay `FeedEpisode` en
+> el contrato del plugin, ni `GET /api/feed/episodes`, ni `filterEpisodeEntries`, ni
+> `formatRelativeTime`, ni `EpisodeRail`, ni una clave suya en `es.ts`. En `docs/specs/` un lector
+> lo tomaba por un contrato aprobado; T220 lo sacó de ahí con `git mv`, para que el historial lo
+> siga, y de paso le puso el nombre que le toca.
+
+Las dos decisiones del humano ya están tomadas (2026-10-12): **A** (la fila la publica el plugin)
+y **sin contador de comentarios**. Falta el resto de la aprobación.
+
 Esta entrega **no crea un módulo**: extiende contratos y paquetes ya aprobados. No toca
 `docs/specs/CAPABILITY-MAP.md` ni su build order.
 
