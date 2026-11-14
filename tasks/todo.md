@@ -2687,6 +2687,67 @@ temporal), con sus códigos de salida.
 
 ---
 
+## Fase 5 — Deuda técnica y de proceso (T218–T247)
+
+Lote abierto el 2026-11-14 a partir del análisis del estado del repositorio. **El detalle completo
+—criterios de aceptación, archivos de cada dueño, oleadas y reparto para agentes en paralelo— está
+en [`tasks/deuda.md`](deuda.md).** Aquí va el índice.
+
+Ids reservados en este lote porque las tareas se reparten entre varios agentes a la vez y
+`scripts/agente.ts abrir <id>` necesita un id que reclamar. Un id que no se abra se libera.
+
+### Oleada 1 — sin choques: se abren todas a la vez
+
+| # | Tarea | Depende de | Tamaño |
+|---|---|---|---|
+| T218 | `docs/roadmap.md` dice «fase 0 abierta»; el código va por la 0.8.0 | — | S |
+| T219 | `CAPABILITY-MAP.md` no registra `downloads` ni `watch-party` | — | S |
+| T220 | Tres specs-propuesta conviven en la carpeta canónica | — | S |
+| T221 | `docs/v1-report.md` mide la v1, no el árbol de hoy | — | S |
+| T222 | `tasks/` tiene planes viejos que ya no dicen la verdad | — | S |
+| T223 | 77 worktrees restos y ningún comando para podarlos | — | M |
+| T224 | El gate de cobertura no corre en el CI | — | S |
+| T225 | `server` y `web` no tienen umbral de cobertura | — | M |
+| T226 | `shell.css` es un monolito de 7 584 líneas | — | L |
+| T227 | `WatchPage.tsx` (1 252 l.) y `Player.tsx` (1 214 l.) | — | L |
+| T228 | `VirtualGrid.tsx` no lo usa nadie | — | S |
+| T229 | `AniListResults` y `AniListCards` son el mismo componente dos veces | — | S |
+| T230 | `/api/settings` se lee dos veces en la misma pantalla | — | M |
+| T231 | El botón «Probar con {proveedor}» no se pinta (TODO T210) | — | S |
+| T232 | El servidor queda vivo si el anfitrión muere (T155) | — | M |
+| T233 | Dos comentarios del código dicen lo contrario de lo que hay | — | S |
+| T234 | La Fase 2A arranca por un spec que no existe | — | L |
+
+### Oleada 2 — dependen de la 1 porque tocan una ruta ya tomada
+
+| # | Tarea | Depende de | Tamaño |
+|---|---|---|---|
+| T235 | `cargo audit` / `cargo deny`: el lado Rust no se audita | T224 | S |
+| T236 | La deuda visual medida del `shell.css` | T226 | M |
+| T237 | El CSS muerto y la cabecera de la lengua vieja | T226 | S |
+| T238 | `--font-mono: "Space Mono"` no se sirve | T226 | S |
+| T239 | El primer fotograma del tema, el `description` y el pie | T230 | S |
+| T240 | El panel del motor no está montado en ninguna parte | T229 | M |
+
+### Oleada 3 — decisiones del humano (el agente no las puede tomar)
+
+| # | Tarea | Depende de | Tamaño |
+|---|---|---|---|
+| T241 | El claim huérfano `refs/claims/T60` y la rama `tarea/T60` | decisión humana | M |
+| T242 | La rama `rediseno/escritorio`: integrar, recuperar la idea o abandonar | decisión humana | M |
+| T243 | El updater fuera de Windows | decisión humana | M |
+| T244 | Publicar sin `TAURI_SIGNING_PRIVATE_KEY` | decisión humana | S |
+| T245 | La firma condicional y los 9 secretos | decisión humana | S |
+
+### Oleada 4 — del integrador (tocan `tasks/todo.md` o `tasks/plan.md`)
+
+| # | Tarea | Depende de | Tamaño |
+|---|---|---|---|
+| T246 | `tasks/roadmap.md` y los 22 criterios de aceptación sin marcar | T218 | M |
+| T247 | Los 179 fragmentos de `tasks/done/` | T246 | S |
+
+---
+
 ## Resumen de dependencias
 
 Raíz común: `T1 → T2 → T3 → T4`.
@@ -2775,3 +2836,27 @@ de punta a punta.
 **T8a no estaba en la tabla.** Se añadió al auditarla: la tabla original era parcial —sólo listaba
 las dependencias que cruzaban de fase— y no lo decía, así que un lector podía creer que eran
 todas. Ahora está generada desde los bloques y es completa.
+
+### Fase 5 — Deuda (T218–T247)
+
+No cuelga de la v1: es un lote independiente, abierto el 2026-11-14. Sus dependencias son **por
+ruta**, no por fase —dos tareas que tocan el mismo archivo van en el mismo agente y en serie—:
+
+```
+Oleada 1 (17 tareas, sin dependencias entre sí)
+  ├─ T235 ── T224            (mismo .github/workflows/ci.yml)
+  ├─ T236 ─┐
+  ├─ T237 ─┼─ T226           (mismo packages/web/src/styles/)
+  ├─ T238 ─┘
+  ├─ T239 ── T230            (mismo app.tsx, vía el proveedor de ajustes)
+  └─ T240 ── T229            (el panel usa el componente unificado)
+
+Oleada 3 (5 tareas) — dependen de una decisión humana, no de otra tarea
+  T241 · T242 · T243 · T244 · T245
+
+Oleada 4 (2 tareas) — del integrador, y en serie entre sí
+  T246 ── T218               (los dos documentos tienen que decir lo mismo)
+  T247 ── T246               (los dos tocan tasks/todo.md)
+```
+
+La tabla de rutas y el reparto por agente están en [`tasks/deuda.md`](deuda.md).
