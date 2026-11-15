@@ -1,5 +1,9 @@
 # Mejoras pendientes del scraper (post-análisis Scrapling)
 
+> **Estado:** **abierto** — ninguna de estas tareas está aprobada ni empezada. La decisión de no
+> migrar a Scrapling sigue viva, y la condición para reabrirla está al final del archivo.
+
+
 Origen: [`docs/analisis-migracion-scrapling.md`](../docs/analisis-migracion-scrapling.md) — análisis
 del 2026-11-08 sobre si migrar los proveedores a Scrapling. **Estado: pendiente de abrir**; ninguna de
 estas tareas está aprobada ni empezada.

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 /**
@@ -101,6 +101,46 @@ describe('la guía de plugins', () => {
       const existe = await Bun.file(`${RAIZ}${desdeDocs}`).exists()
 
       expect(existe, ruta).toBe(true)
+    }
+  })
+})
+
+describe('los planes de `tasks/`', () => {
+  /**
+   * Los planes que no son el índice ni el plan maestro.
+   *
+   * `todo.md` y `plan.md` los escribe una sola mano —la del integrador— y
+   * `roadmap.md` y `discovery.md` son los índices. Los demás son planes sueltos:
+   * cada uno dice qué se pidió, con qué condición y en qué quedó.
+   */
+  const EXCLUIDOS = ['todo.md', 'plan.md', 'roadmap.md', 'discovery.md']
+
+  /** Los planes sueltos de `tasks/`. */
+  function planes(): readonly string[] {
+    return readdirSync(`${RAIZ}tasks`)
+      .filter((archivo) => archivo.endsWith('.md') && !EXCLUIDOS.includes(archivo))
+      .sort()
+  }
+
+  test('cada uno dice en qué estado está, en las primeras líneas', async () => {
+    for (const plan of planes()) {
+      const texto = await leer(`tasks/${plan}`)
+      const cabecera = texto.split('\n').slice(0, 12).join('\n')
+
+      // Un plan sin estado es un plan del que nadie sabe si lo que dice sigue
+      // siendo cierto: se lee y no se sabe si hay que seguirlo.
+      expect(cabecera, plan).toMatch(/\*\*Estado:\*\* \*\*(cerrado|abierto|caducado)\*\*/)
+    }
+  })
+
+  test('los planes de descubrimiento están indexados', async () => {
+    const indice = await leer('tasks/discovery.md')
+    const sueltos = planes().filter((plan) => plan.startsWith('discovery-'))
+
+    expect(sueltos.length).toBeGreaterThan(0)
+
+    for (const plan of sueltos) {
+      expect(indice, plan).toContain(`](${plan})`)
     }
   })
 })

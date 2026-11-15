@@ -1,7 +1,12 @@
 # Plan de tareas: descargas (fase 1)
 
-Spec: `docs/specs/proposals/SPEC-descargas.T181.md` · Estado: **spec escrita, código sin abrir** ·
-2026-10-26.
+> **Estado:** **cerrado** — la fase 1 está implementada y en producción desde la **0.4**: sus
+> tareas (T181–T187 y T190–T193) están medidas y sus cierres en [`tasks/done/`](done/). El
+> «código sin abrir» que decía este archivo era falso, y está corregido.
+
+
+Spec: `docs/specs/proposals/SPEC-descargas.T181.md` · Estado: **spec escrita y aprobada** (D2) ·
+2026-10-26. **El código de esta fase está en producción desde la 0.4.**
 
 Rige el **Definition of Done** de `tasks/plan.md`: `typecheck`, `lint` y `bun test` en verde,
 criterios marcados y medidos, sin `any` ni `@ts-ignore` ni `as` para silenciar, sin tests saltados,

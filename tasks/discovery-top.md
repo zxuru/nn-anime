@@ -1,5 +1,9 @@
 # Descubrimiento: el top de la fuente
 
+> **Estado:** **cerrado** — T57 y T63 están medidas. Son anteriores al formato de fragmentos: su
+> cierre está en los commits que este archivo cita (`b864077` y `370c98e`).
+
+
 Commits: T57 `b864077` · T63 `370c98e`.
 
 Verificación medida sobre ese commit, con el árbol que comparte otra sesión: `bun run typecheck` 0 ·

@@ -1,5 +1,9 @@
 # Proveedores desde un repositorio de GitHub
 
+> **Estado:** **cerrado** — T98–T106 están medidas. El estado final, con los commits, está al
+> final del archivo, y los cierres en [`tasks/done/`](done/).
+
+
 Origen: hoy un proveedor entra de tres maneras —copiar un archivo a mano al directorio de plugins, el
 formulario declarativo de Ajustes, o el fixture del repositorio— y ninguna sirve para lo que pidió el
 usuario: **traer los proveedores de un repositorio y elegir cuáles se activan de cada uno**. Un repo

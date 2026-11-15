@@ -1,5 +1,9 @@
 # Descubrimiento: la misma obra en varias fuentes
 
+> **Estado:** **cerrado** — T74–T76 están medidas y «También en» está en producción. Los
+> cierres están en [`tasks/done/`](done/).
+
+
 Origen: con la home delante, «Último añadido» pinta **la misma obra una vez por proveedor** —en la
 captura, «Super no Ura de Yani Suu Futari» tres veces y «Yani Neko» dos—, y la ficha de un título no
 dice que esa obra esté también en otra fuente. El usuario pidió lo segundo con estas palabras: «si

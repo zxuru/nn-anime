@@ -1,12 +1,16 @@
 # Plan de tareas: el filtro de contenido para adultos
 
+> **Estado:** **cerrado** — T128a–T128j están medidas y el filtro está en producción. Los
+> cierres están en [`tasks/done/`](done/).
+
+
 Origen: lo pedido con estas palabras — «para los animes veamos el tema de un filtro +18 ya que hay
 contenido no apto para siempre». Y la condición con la que se aprueba: **que afecte también a lo que
 aparece en Novedades**.
 
 Specs: `docs/specs/proposals/SPEC-discovery.T128.md`, `SPEC-web-ui.T128.md` y
-`SPEC-catalog-store.T128.md` — los tres pendientes de integrar. Estado: **propuesta, sin
-implementar**.
+`SPEC-catalog-store.T128.md` — los tres propuestos, los tres **implementados** (T128a–T128j). Estado:
+**implementado y medido**.
 
 Rige el **Definition of Done** de `tasks/plan.md`: `typecheck`, `lint` y `bun test` en verde,
 criterios medidos mutando la implementación, sin `any` ni `@ts-ignore` ni `as` para silenciar, sin
