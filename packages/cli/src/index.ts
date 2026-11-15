@@ -5,9 +5,10 @@
  * Cablea el arranque real: base de datos, sesión, servidor en `127.0.0.1`,
  * apertura del navegador y cierre ordenado ante una señal.
  *
- * La migración es un marcador que devuelve éxito. La implementación real llega
- * en T16 con `catalog-store`; el contrato ya está aquí para que el código de
- * salida 3 esté verificado desde ahora.
+ * La migración es la de verdad —la aplica `catalog-store`, con su copia de
+ * seguridad antes de tocar nada— y una que falla **no impide arrancar**: la base
+ * se queda en la versión anterior, con lo que tenía, y el aviso lo dice. El
+ * motivo está en `migrate`, más abajo.
  */
 
 import { existsSync } from 'node:fs'
