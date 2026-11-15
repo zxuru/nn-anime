@@ -16,7 +16,7 @@ import { type Driver, type DriveStep, driver } from 'driver.js'
 import { type Hints, hints } from 'driver.js/hints'
 import { useEffect, useSyncExternalStore } from 'react'
 import { t } from '../../i18n'
-import { type RouteName, useRoute } from '../../router'
+import { useRoute } from '../../router'
 import { descartarAviso, estadoActual, marcarRecorrido, suscribir } from './estado'
 import {
   avisosPendientes,

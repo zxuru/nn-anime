@@ -606,9 +606,7 @@ describe('las tarjetas del catálogo', () => {
   }
 
   test('la tarjeta es la de los resultados, con su portada local y su pie', () => {
-    const html = render(
-      <AniListResults items={[PIEZA]} query="" presentacion="rejilla" done />,
-    )
+    const html = render(<AniListResults items={[PIEZA]} query="" presentacion="rejilla" done />)
 
     expect(html).toContain('class="card"')
     expect(html).toContain('card__cover')
@@ -739,9 +737,7 @@ describe('la lista del catálogo es una sola', () => {
 
   test('el vacío lo dice la rejilla, y sólo cuando la búsqueda ha cerrado', () => {
     // La sección de debajo no afirma nada: un hueco que no explica nada.
-    expect(
-      render(<AniListResults items={[]} query="#aventura" presentacion="seccion" />),
-    ).toBe('')
+    expect(render(<AniListResults items={[]} query="#aventura" presentacion="seccion" />)).toBe('')
 
     // La rejilla es la respuesta entera de esa búsqueda: su vacío se dice…
     expect(
