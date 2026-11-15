@@ -150,6 +150,33 @@ con la mitad de la capacidad ya en producción.
  * existen, los contratos que cita existen, y una capacidad no puede estar a la
  * vez en el grafo y en la lista de lo que falta por aprobar.
  */
+describe('el informe de la v1', () => {
+  test('dice que queda congelado y a dónde está el estado vigente', async () => {
+    const texto = await leer('docs/v1-report.md')
+
+    // El informe dice «la v1» y lleva las cifras de la v1: si alguien las
+    // actualiza, el documento miente dos veces —sobre cuándo y sobre cuánto— y
+    // quien lo cite llevará la cifra equivocada a una presentación.
+    expect(texto).toContain('queda congelado')
+    expect(texto).toContain('no se actualizan')
+
+    // Y el que quiera el estado de hoy tiene que saber dónde está.
+    expect(texto).toContain('tasks/roadmap.md')
+    expect(texto).toContain('tasks/deuda.md')
+  })
+
+  test('conserva los seis casos de método', async () => {
+    const texto = await leer('docs/v1-report.md')
+    const casos = texto.slice(texto.indexOf('## Hallazgos de método'))
+
+    // La sección que explica el patrón de fallo más repetido del proyecto no
+    // caduca: es historia, y quitarla sería borrar lo que se aprendió.
+    for (const tarea of ['T29', 'T39', 'T42', 'T44', 'T46', 'T47']) {
+      expect(casos, tarea).toContain(tarea)
+    }
+  })
+})
+
 describe('el mapa de capacidades', () => {
   const MAPA = 'docs/specs/CAPABILITY-MAP.md'
 
