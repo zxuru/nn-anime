@@ -1,8 +1,22 @@
 # Spec: anime-detail (la ficha: relacionados, hueco, modos y vistos)
 
-Estado: **propuesta · pendiente de aprobación humana** · 2026-10-12 · decisiones del humano ya
-tomadas: **heurística local del catálogo** para los relacionados, **visto automático al 90 % o al
-llegar al final**, y **dos columnas con barra lateral** para la ficha.
+Estado: **aprobada e implementada** · 2026-10-12 · el humano ya había tomado las decisiones que
+enumera este encabezado —**heurística local del catálogo** para los relacionados, **visto automático
+al 90 % o al llegar al final**, y **dos columnas con barra lateral** para la ficha— y las
+ampliaciones de abajo quedaron **aprobadas** el 2026-10-13 (T64-T66) y el 2026-10-15 (T124 y T131).
+T58-T62, T64-T66, T124 y T131 cerrados y medidos.
+
+> **Por qué sigue en la carpeta canónica.** `docs/specs/SPEC-*.md` es el contrato de un módulo, y
+> cambiarlo es un evento de versión mayor. Éste lo es: el código lo sigue —
+> `packages/core/src/titles.ts`, `packages/catalog-store/src/repositories/related.ts`,
+> `packages/catalog-store/src/repositories/watched-episodes.ts`,
+> `packages/server/src/routes/detail.ts` y `packages/web/src/features/detail/`— y es el destino de
+> nueve propuestas que esperan integración —`SPEC-anime-detail.T108.md`, `.T124.md`, `.T127.md`,
+> `.T130.md`, `.T145.md`, `.fuentes.md`, `.pelicula.md`, `.temporadas.md` y
+> `.temporadas-en-la-lista.md`, todas en `docs/specs/proposals/`—. Si este documento se moviera a
+> `proposals/`, esas nueve se quedarían sin destino y la carpeta canónica perdería el contrato de
+> una entrega que está en producción. Se queda; lo que cambia en T220 es el encabezado, que decía
+> «propuesta» cuando el contrato llevaba meses aprobado e implementado.
 
 Ampliación aprobada el 2026-10-13 (T64-T66): los relacionados emparejan por **título de saga**,
 **cruzan proveedores** y leen también los listados cacheados; y la búsqueda pinta **una tarjeta por
