@@ -1,5 +1,9 @@
 # Plan de tareas: la ventana propia (Tauri) y la primera release
 
+> **Estado:** **cerrado** — la ventana propia y las releases están en producción. El cierre de
+> cada tarea está en la tabla de más abajo y en [`tasks/done/`](done/).
+
+
 Spec: `docs/specs/SPEC-desktop.md` · Estado: **aprobado** por el humano el 2026-10-16
 Origen: la petición de que la aplicación sea instalable o portable, se descargue fácilmente y
 funcione sin que nadie sepa usar una terminal ni tenga Bun instalado. El reparto ya existe

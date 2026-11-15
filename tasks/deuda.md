@@ -1,5 +1,9 @@
 # Deuda técnica y de proceso (análisis del 2026-11-14)
 
+> **Estado:** **abierto** — es el lote de deuda que salió del análisis del 2026-11-14, y se está
+> cerrando tarea a tarea: cada una tiene su fragmento de cierre en [`tasks/done/`](done/) y su
+> reparto, su oleada y su orden, más abajo.
+
 Origen: análisis del estado actual del repositorio, hecho con cuatro subagentes (backend, frontend,
 escritorio/CI, estado del proyecto) más mediciones propias ejecutadas en la raíz:
 

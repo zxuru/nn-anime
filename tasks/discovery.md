@@ -15,6 +15,24 @@ tope de cinco archivos de implementación por task y commit atómico que cita el
 
 Siete tareas: T48, T48a, T49, T49a, T50, T51 y T52. Ninguna toca `recsys` ni `media-proxy`.
 
+## Los planes de descubrimiento
+
+Ocho planes más viven en esta carpeta, sueltos y sin índice. Esta tabla los junta: cada uno dice
+qué cubre, en qué estado está y qué tareas lo cerraron. **Todos están cerrados**: el trabajo de
+descubrimiento de la v1 está en producción.
+
+| Plan | Qué cubre | Estado | Tareas |
+|---|---|---|---|
+| [`discovery.md`](discovery.md) | el arranque en frío: «Novedades», «Último añadido» y el destacado | cerrado | T48–T52 |
+| [`discovery-adultos.md`](discovery-adultos.md) | el filtro de contenido para adultos, también en «Novedades» | cerrado | T128a–T128j |
+| [`discovery-controles.md`](discovery-controles.md) | los mandos del reproductor: volumen, clic y doble clic | cerrado | T80 |
+| [`discovery-detail.md`](discovery-detail.md) | la ficha: relacionados, hueco, modos y vistos | cerrado | T58–T62 |
+| [`discovery-fuentes.md`](discovery-fuentes.md) | la misma obra en varias fuentes, y «También en» | cerrado | T74–T76 |
+| [`discovery-identidad.md`](discovery-identidad.md) | la misma obra con dos nombres | cerrado | T78, T79 |
+| [`discovery-imagen-gpu.md`](discovery-imagen-gpu.md) | la imagen que la GPU no pinta | cerrado | T77 |
+| [`discovery-temporadas.md`](discovery-temporadas.md) | temporadas, franquicia y listas largas | cerrado | T68–T72 |
+| [`discovery-top.md`](discovery-top.md) | el top de la fuente | cerrado | T57, T63 |
+
 ## Architecture Decisions
 
 1. **La capacidad es `feed`, no «rss», y vive en el plugin.** La fuente y su formato los conoce

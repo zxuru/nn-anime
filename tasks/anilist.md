@@ -1,5 +1,10 @@
 # Metadatos e imágenes desde AniList, y la parrilla de estrenos
 
+> **Estado:** **cerrado** — T121, en sus tres partes, está medido y en producción; su cierre
+> está en [`tasks/done/T121.md`](done/T121.md). El plan se queda como historia: qué se pidió y
+> con qué condición.
+
+
 Origen: lo pedido con estas palabras — «aquellos como recomendados, el top, las novedades, así como
 también varios datos de las fichas en cada anime, se rellenen utilizando datos desde estas API
 (anilist.co, anichart.net) […] de ser posible también poder recolectar mejores imágenes […] agrega

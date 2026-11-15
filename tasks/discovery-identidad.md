@@ -1,5 +1,9 @@
 # Descubrimiento: la misma obra con dos nombres
 
+> **Estado:** **cerrado** — T78 y T79 están medidas. Los cierres están en
+> [`tasks/done/`](done/).
+
+
 Origen: con la búsqueda de «danmachi» delante, la misma obra sale **dos veces** y con dos nombres
 —«Danmachi» en `jkanime`, «Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka» en `animeav1`—
 y las dos fichas enseñan secciones de relacionados distintas. Con las palabras de quien lo reportó:
