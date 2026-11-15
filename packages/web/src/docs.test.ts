@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 /**
@@ -133,5 +134,78 @@ describe('la guía de Docker', () => {
     expect(texto).toContain('No expongas el puerto a Internet sin `NN_ANIME_TOKEN`')
     expect(texto).toContain('sin sandbox')
     expect(texto).toContain('Una sola réplica por volumen')
+  })
+})
+
+/**
+ * El mapa de capacidades.
+ *
+ * El mapa se declara «la única fuente de verdad sobre qué módulos existen», así
+ * que cuando se queda viejo no falla: nada lo comprueba. Lo que falló aquí fue
+ * peor que viejo: `downloads` estaba en «Enmiendas pendientes de aprobación» —
+«no se escribe su spec ni su código hasta que el humano apruebe la enmienda»—
+con la mitad de la capacidad ya en producción.
+ *
+ * Estas pruebas miran el documento **contra el árbol**: los paquetes que cita
+ * existen, los contratos que cita existen, y una capacidad no puede estar a la
+ * vez en el grafo y en la lista de lo que falta por aprobar.
+ */
+describe('el mapa de capacidades', () => {
+  const MAPA = 'docs/specs/CAPABILITY-MAP.md'
+
+  /** Las filas de una tabla del mapa: `| `a` | b | c |`. */
+  async function filas(seccion: string): Promise<readonly string[][]> {
+    const texto = await leer(MAPA)
+    const desde = texto.indexOf(`## ${seccion}`)
+
+    expect(desde, `el mapa no tiene la sección «${seccion}»`).toBeGreaterThan(-1)
+
+    const cuerpo = texto.slice(desde).split('\n## ')[0] ?? ''
+    const filas: string[][] = []
+
+    for (const linea of cuerpo.split('\n')) {
+      if (!linea.startsWith('| `')) continue
+      filas.push(
+        linea
+          .split('|')
+          .slice(1, -1)
+          .map((celda) => celda.trim()),
+      )
+    }
+
+    return filas
+  }
+
+  test('ninguna capacidad está a la vez en el grafo y en lo que falta por aprobar', async () => {
+    const enElGrafo = new Set((await filas('Módulos')).map((fila) => fila[0] ?? ''))
+    const pendientes = await filas('Enmiendas pendientes de aprobación')
+
+    for (const fila of pendientes) {
+      expect(enElGrafo.has(fila[0] ?? ''), fila[0]).toBe(false)
+    }
+  })
+
+  test('los paquetes que cita el grafo existen', async () => {
+    for (const fila of await filas('Módulos')) {
+      for (const paquete of (fila[3] ?? '').matchAll(/`([^`]+)`/g)) {
+        const ruta = paquete[1] ?? ''
+        // `desktop/` vive fuera del monorepo, pero también tiene que estar. Un
+        // paquete es un directorio, y `Bun.file` no los ve.
+        const existe = existsSync(`${RAIZ}${ruta}`)
+
+        expect(existe, ruta).toBe(true)
+      }
+    }
+  })
+
+  test('los contratos que cita existen, estén donde estén', async () => {
+    const texto = await leer(MAPA)
+
+    for (const coincidencia of texto.matchAll(/\]\(([^)]+\.md)\)/g)) {
+      const ruta = coincidencia[1] ?? ''
+      const existe = await Bun.file(`${RAIZ}docs/specs/${ruta}`).exists()
+
+      expect(existe, ruta).toBe(true)
+    }
   })
 })
