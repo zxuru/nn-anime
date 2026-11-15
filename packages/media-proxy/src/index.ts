@@ -3,8 +3,10 @@
  *
  * El módulo que se interpone entre el navegador y los sitios de video: emite
  * tickets opacos para que el cliente nunca vea una URL del upstream, y proxya
- * bytes, playlists y subtítulos. Hoy expone el almacén de tickets; el proxy de
- * bytes llega en T26.
+ * bytes, playlists y subtítulos. Aquí vive también lo que rodea al proxy: el
+ * almacén de tickets, la guarda de destinos —la lista blanca de direcciones y la
+ * comprobación de la redirección—, las descargas a disco con su remux, el
+ * reproductor de `mpv` y las cabeceras que se dejan pasar hacia el navegador.
  */
 
 export {

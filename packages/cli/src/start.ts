@@ -88,7 +88,7 @@ export function createStarter(deps: StartDeps): (options: CliOptions) => Promise
 
     // La espera se registra antes de arrancar nada. Registrarla después deja una
     // ventana en la que un Ctrl+C usa la acción por defecto y se salta el cierre
-    // ordenado: hoy no habría daño, pero en T29 dejaría un mpv vivo.
+    // ordenado: con `mpv` en juego, un cierre saltado deja el reproductor vivo.
     const closing = deps.waitForClose()
 
     const result = await deps.boot(options, {
