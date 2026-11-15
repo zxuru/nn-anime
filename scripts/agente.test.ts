@@ -15,6 +15,7 @@ import {
   abrir,
   cerrar,
   idDeTask,
+  limpiar,
   nombreClaim,
   nombreRama,
   puertoDe,
@@ -229,4 +230,120 @@ describe('el ciclo de un agente', () => {
     expect(existsSync(ruta)).toBe(false)
     expect(correr(['branch', '--list', nombreRama('T96')], repo)).toBe('')
   })
+})
+
+/**
+ * Podar los restos.
+ *
+ * Un resto es un directorio de `.worktrees/` que git no tiene registrado: la sesión que
+ * lo usó terminó y nadie lo podó. Lo que no se puede perder es lo que está sin integrar
+ * o sin commitear, así que la prueba mide las dos cosas: que se borra lo que no tiene
+ * nada dentro y que no se toca lo que sí.
+ */
+describe('limpiar', () => {
+  const PLAZO_MS = 30_000
+
+  /** Un directorio suelto en `.worktrees/`: git no lo tiene registrado. */
+  function resto(repo: string, id: string): string {
+    const ruta = rutaWorktree(repo, id)
+    mkdirSync(`${ruta}/node_modules`, { recursive: true })
+
+    return ruta
+  }
+
+  test(
+    'borra el directorio suelto y deja el worktree registrado',
+    () => {
+      const repo = repoDePrueba('limpiar')
+      const registrado = abrir('T99', repo)
+      const suelto = resto(repo, 'T98')
+      // Su rama ya está integrada: no hay trabajo sin integrar que perder.
+      correr(['branch', nombreRama('T98'), 'main'], repo)
+
+      const resumen = limpiar(true, repo)
+
+      expect(existsSync(suelto)).toBe(false)
+      expect(existsSync(registrado)).toBe(true)
+      expect(resumen.borrados).toEqual(['T98'])
+      expect(resumen.conservados).toEqual([])
+    },
+    PLAZO_MS,
+  )
+
+  test(
+    'sin --si dice qué va a borrar y no borra nada',
+    () => {
+      const repo = repoDePrueba('simular')
+      const suelto = resto(repo, 'T97')
+
+      const resumen = limpiar(false, repo)
+
+      expect(existsSync(suelto)).toBe(true)
+      expect(resumen.borrados).toEqual([])
+      expect(
+        resumen.juicios.filter((juicio) => juicio.borrar).map((juicio) => juicio.nombre),
+      ).toEqual(['T97'])
+    },
+    PLAZO_MS,
+  )
+
+  test(
+    'no borra un directorio con cambios sin commitear',
+    () => {
+      const repo = repoDePrueba('cambios')
+      const suelto = resto(repo, 'T96')
+      correr(['branch', nombreRama('T96'), 'main'], repo)
+      // Un archivo que su rama no tiene: trabajo a medias, que no se tira.
+      writeFileSync(`${suelto}/pendiente.ts`, 'export const pendiente = 1\n')
+
+      const resumen = limpiar(true, repo)
+
+      expect(existsSync(suelto)).toBe(true)
+      expect(resumen.borrados).toEqual([])
+      expect(resumen.conservados[0]?.cambios).toEqual(['sin versionar: pendiente.ts'])
+    },
+    PLAZO_MS,
+  )
+
+  test(
+    'no borra una rama sin integrar',
+    () => {
+      const repo = repoDePrueba('sin-integrar')
+      const suelto = resto(repo, 'T95')
+      // Una rama con un commit que nadie ha integrado en main.
+      correr(['checkout', '-b', nombreRama('T95')], repo)
+      writeFileSync(`${repo}/nuevo.ts`, 'export const nuevo = 1\n')
+      correr(['add', 'nuevo.ts'], repo)
+      correr(['commit', '-m', 'feat: lo nuevo (T95)'], repo)
+      correr(['checkout', 'main'], repo)
+
+      const resumen = limpiar(true, repo)
+
+      expect(existsSync(suelto)).toBe(true)
+      expect(resumen.borrados).toEqual([])
+      expect(resumen.conservados[0]?.motivo).toMatch(/no está integrada/)
+    },
+    PLAZO_MS,
+  )
+
+  test(
+    'borra un worktree al que le quitaron los metadatos de git si su rama está integrada',
+    () => {
+      const repo = repoDePrueba('sin-metadatos')
+      const ruta = abrir('T94', repo)
+      writeFileSync(`${ruta}/cover.ts`, 'export const cover = 1\n')
+      correr(['add', 'cover.ts'], ruta)
+      correr(['commit', '-m', 'feat: la carátula (T94)'], ruta)
+      correr(['merge', '--no-ff', '-m', 'merge: integrar T94 (tarea/T94)', nombreRama('T94')], repo)
+      // Git deja de reconocerlo, pero el directorio con su checkout se queda.
+      rmSync(`${repo}/.git/worktrees/T94`, { recursive: true, force: true })
+      expect(correr(['worktree', 'list'], repo)).not.toContain('T94')
+
+      const resumen = limpiar(true, repo)
+
+      expect(existsSync(ruta)).toBe(false)
+      expect(resumen.borrados).toEqual(['T94'])
+    },
+    PLAZO_MS,
+  )
 })
