@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, test } from 'bun:test'
 import {
   closeSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   openSync,
@@ -9,7 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { type Contexto, decidir, main } from './git-hooks'
+import { type Contexto, decidir, directorioTemporal, main } from './git-hooks'
 
 /**
  * El gancho, medido.
@@ -124,6 +125,28 @@ const base: Contexto = {
   reclamado: true,
   archivos: [],
 }
+
+/**
+ * El temporal del gancho.
+ *
+ * El gancho captura la salida de `git` en un archivo dentro de `.tmp/`, y
+ * `mkdtempSync` no crea el padre. En un clon recién hecho —o en un worktree
+ * recién abierto— `.tmp/` no estaba, el gancho moría con un `ENOENT` antes de
+ * mirar el commit, y el commit se caía con un error que no hablaba del gancho.
+ */
+describe('el temporal del gancho', () => {
+  test('se crea aunque `.tmp/` no exista', () => {
+    const raiz = mkdtempSync(`${BASE}/temporal-`)
+    rmSync(join(raiz, '.tmp'), { recursive: true, force: true })
+
+    const temporal = directorioTemporal(raiz)
+
+    expect(existsSync(temporal)).toBe(true)
+    expect(existsSync(join(raiz, '.tmp'))).toBe(true)
+
+    rmSync(raiz, { recursive: true, force: true })
+  })
+})
 
 describe('decidir', () => {
   test('frena el commit directo en main', () => {
