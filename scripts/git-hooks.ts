@@ -11,7 +11,7 @@
  * cárcel.
  */
 
-import { closeSync, mkdtempSync, openSync, readFileSync, rmSync } from 'node:fs'
+import { closeSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 
 /** La misma rama que integra `scripts/agente.ts`. */
@@ -91,6 +91,20 @@ export function decidir(contexto: Contexto): Veredicto {
 }
 
 /**
+ * El directorio temporal del gancho.
+ *
+ * `mkdtempSync` no crea el padre: en un clon recién hecho —o en un worktree
+ * recién abierto— `.tmp/` no existe y el gancho se moría con un `ENOENT` antes
+ * de mirar el commit. El error no tenía nada que ver con lo que el gancho
+ * comprueba, y el commit se caía sin explicación.
+ */
+export function directorioTemporal(raiz: string): string {
+  mkdirSync(join(raiz, '.tmp'), { recursive: true })
+
+  return mkdtempSync(join(raiz, '.tmp', 'hook-git-'))
+}
+
+/**
  * Ejecuta git y devuelve su salida, **sin tuberías**.
  *
  * `Bun.spawnSync` con `stdout: 'pipe'` muere con `EPERM` en el sandbox de escritura de este
@@ -99,7 +113,7 @@ export function decidir(contexto: Contexto): Veredicto {
  */
 export function git(args: readonly string[], cwd: string): string {
   const raiz = resolve(dirname(Bun.fileURLToPath(import.meta.url)), '..')
-  const temporal = mkdtempSync(join(raiz, '.tmp', 'hook-git-'))
+  const temporal = directorioTemporal(raiz)
   const rutaOut = join(temporal, 'out')
   const rutaErr = join(temporal, 'err')
   const out = openSync(rutaOut, 'w')
