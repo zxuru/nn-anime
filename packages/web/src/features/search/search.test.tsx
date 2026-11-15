@@ -6,7 +6,6 @@ import { renderToString } from 'react-dom/server'
 import { describirFallo } from '../../api/fallo'
 import { Grid, GridItem } from '../../components/Grid'
 import { createMemoryHistory, HistoryProvider } from '../../router'
-import { AniListCard, AniListCards } from './AniListCards'
 import { AniListResults } from './AniListResults'
 import { ResultCard } from './ResultCard'
 import { ResultGrid } from './ResultGrid'
@@ -273,18 +272,22 @@ describe('el rastro de la búsqueda', () => {
 
   test('la tarjeta del catálogo también lo deja, y sólo si abre una ficha', () => {
     const conFicha = render(
-      <AniListCard
-        item={{ ...PIEZA_DE_ANILIST, ref: { providerId: 'jkanime', value: 'kimetsu' } }}
-        consulta="kimetsu"
+      <AniListResults
+        items={[{ ...PIEZA_DE_ANILIST, ref: { providerId: 'jkanime', value: 'kimetsu' } }]}
+        query="kimetsu"
+        presentacion="rejilla"
+        done
       />,
     )
 
     expect(conFicha).toContain('href="/anime/jkanime/kimetsu?q=kimetsu"')
     // La que no está en ninguna fuente lleva a la búsqueda de su título, que ya
     // trae su propia consulta: pegarle otra dejaría dos `q` en la misma dirección.
-    expect(render(<AniListCard item={PIEZA_DE_ANILIST} consulta="kimetsu" />)).toContain(
-      'href="/search?q=Kimetsu%20no%20Yaiba"',
-    )
+    expect(
+      render(
+        <AniListResults items={[PIEZA_DE_ANILIST]} query="kimetsu" presentacion="rejilla" done />,
+      ),
+    ).toContain('href="/search?q=Kimetsu%20no%20Yaiba"')
   })
 })
 
@@ -505,6 +508,7 @@ describe('lo que AniList tiene del término', () => {
       <AniListResults
         items={[{ ...DE_ANILIST, ref: { providerId: 'jkanime', value: 'shingeki' } }]}
         query="Action"
+        presentacion="seccion"
       />,
     )
 
@@ -516,7 +520,9 @@ describe('lo que AniList tiene del término', () => {
   })
 
   test('una que ninguna fuente tiene lleva a la búsqueda de su título, y sin sello', () => {
-    const html = render(<AniListResults items={[DE_ANILIST]} query="Action" />)
+    const html = render(
+      <AniListResults items={[DE_ANILIST]} query="Action" presentacion="seccion" />,
+    )
 
     // La salida honesta: no hay ficha que abrir, así que se busca el título.
     expect(html).toContain(`href="${searchPath('Shingeki no Kyojin')}"`)
@@ -533,6 +539,7 @@ describe('lo que AniList tiene del término', () => {
           { ...DE_ANILIST, anilistId: 20, title: 'Naruto', ref: { providerId: 'mio', value: 'n' } },
         ]}
         query="Action"
+        presentacion="seccion"
       />,
     )
 
@@ -540,7 +547,7 @@ describe('lo que AniList tiene del término', () => {
   })
 
   test('sin nada de AniList no se pinta la sección', () => {
-    expect(render(<AniListResults items={[]} query="Action" />)).toBe('')
+    expect(render(<AniListResults items={[]} query="Action" presentacion="seccion" />)).toBe('')
   })
 
   test('el estado guarda la lista y la sustituye cuando llega la del término siguiente', () => {
@@ -599,7 +606,9 @@ describe('las tarjetas del catálogo', () => {
   }
 
   test('la tarjeta es la de los resultados, con su portada local y su pie', () => {
-    const html = render(<AniListCard item={PIEZA} />)
+    const html = render(
+      <AniListResults items={[PIEZA]} query="" presentacion="rejilla" done />,
+    )
 
     expect(html).toContain('class="card"')
     expect(html).toContain('card__cover')
@@ -612,7 +621,12 @@ describe('las tarjetas del catálogo', () => {
 
   test('no lleva sello: el enlace ya dice lo que hay', () => {
     const conFicha = render(
-      <AniListCard item={{ ...PIEZA, ref: { providerId: 'jkanime', value: 'kimetsu' } }} />,
+      <AniListResults
+        items={[{ ...PIEZA, ref: { providerId: 'jkanime', value: 'kimetsu' } }]}
+        query=""
+        presentacion="rejilla"
+        done
+      />,
     )
 
     expect(conFicha).not.toContain('badge')
@@ -622,13 +636,24 @@ describe('las tarjetas del catálogo', () => {
 
   test('una obra que la base conoce abre su ficha; la que no, la búsqueda de su título', () => {
     expect(
-      render(<AniListCard item={{ ...PIEZA, ref: { providerId: 'jkanime', value: 'kimetsu' } }} />),
+      render(
+        <AniListResults
+          items={[{ ...PIEZA, ref: { providerId: 'jkanime', value: 'kimetsu' } }]}
+          query=""
+          presentacion="rejilla"
+          done
+        />,
+      ),
     ).toContain('href="/anime/jkanime/kimetsu"')
-    expect(render(<AniListCard item={PIEZA} />)).toContain('href="/search?q=Kimetsu%20no%20Yaiba"')
+    expect(
+      render(<AniListResults items={[PIEZA]} query="" presentacion="rejilla" done />),
+    ).toContain('href="/search?q=Kimetsu%20no%20Yaiba"')
   })
 
   test('la rejilla usa la lista de resultados de la página, no el mosaico', () => {
-    const html = render(<AniListCards items={[PIEZA]} query="#aventura" done />)
+    const html = render(
+      <AniListResults items={[PIEZA]} query="#aventura" presentacion="rejilla" done />,
+    )
 
     expect(html).toContain('class="grid"')
     expect(html).not.toContain('mosaico')
@@ -636,9 +661,96 @@ describe('las tarjetas del catálogo', () => {
   })
 
   test('sin nada y con la búsqueda cerrada lo dice; mientras busca, no', () => {
-    expect(render(<AniListCards items={[]} query="#aventura" done={false} />)).toBe('')
-    expect(render(<AniListCards items={[]} query="#aventura" done />)).toContain(
-      'Nada en el catálogo coincide',
+    expect(
+      render(<AniListResults items={[]} query="#aventura" presentacion="rejilla" done={false} />),
+    ).toBe('')
+    expect(
+      render(<AniListResults items={[]} query="#aventura" presentacion="rejilla" done />),
+    ).toContain('Nada en el catálogo coincide')
+  })
+})
+
+/**
+ * La lista del catálogo es **una sola**.
+ *
+ * Hay dos maneras de pintarla —la sección que va debajo de los resultados y la
+ * rejilla que ocupa su sitio cuando la búsqueda es del catálogo— y lo que cambia
+ * entre las dos es el diseño, nunca la regla: la misma obra va al mismo sitio en
+ * las dos. Si el destino estuviera escrito dos veces, una acabaría diciendo una
+ * cosa y la otra otra, y nadie se enteraría hasta que una de las dos se quedara
+ * vieja. Esto es lo que mide que no sea así.
+ */
+describe('la lista del catálogo es una sola', () => {
+  const PIEZA: DiscoverItem = {
+    anilistId: 101922,
+    title: 'Kimetsu no Yaiba',
+    cover: '/api/anilist/image/cover/101922',
+    adult: false,
+    year: 2019,
+    format: 'TV',
+  }
+
+  const CON_FICHA: DiscoverItem = {
+    ...PIEZA,
+    ref: { providerId: 'jkanime', value: 'kimetsu' },
+  }
+
+  /** Los destinos de una lista, en el orden en que se pintan. */
+  function destinos(html: string): readonly string[] {
+    return [...html.matchAll(/href="([^"]*)"/g)].map((coincidencia) => coincidencia[1] ?? '')
+  }
+
+  test('las dos presentaciones llevan la obra al mismo sitio', () => {
+    const seccion = render(
+      <AniListResults items={[PIEZA, CON_FICHA]} query="kimetsu" presentacion="seccion" />,
     )
+    const rejilla = render(
+      <AniListResults items={[PIEZA, CON_FICHA]} query="kimetsu" presentacion="rejilla" done />,
+    )
+
+    expect(destinos(rejilla)).toEqual(destinos(seccion))
+    // Y la comparación no está mirando una lista vacía.
+    expect(destinos(rejilla)).toEqual([
+      '/search?q=Kimetsu%20no%20Yaiba',
+      '/anime/jkanime/kimetsu?q=kimetsu',
+    ])
+  })
+
+  test('cada presentación habla con su diseño, y no con el de la otra', () => {
+    const seccion = render(
+      <AniListResults items={[CON_FICHA]} query="kimetsu" presentacion="seccion" />,
+    )
+    const rejilla = render(
+      <AniListResults items={[CON_FICHA]} query="kimetsu" presentacion="rejilla" done />,
+    )
+
+    // La sección es la de la vitrina: mosaico, nota y sello de lo que ya está en
+    // las fuentes del usuario.
+    expect(seccion).toContain('class="mosaico"')
+    expect(seccion).toContain('En AniList')
+    expect(seccion).toContain('En tus fuentes')
+
+    // La rejilla es la de la página: tarjetas, sin la sección y sin sello.
+    expect(rejilla).toContain('class="grid"')
+    expect(rejilla).not.toContain('mosaico')
+    expect(rejilla).not.toContain('En AniList')
+    expect(rejilla).not.toContain('En tus fuentes')
+  })
+
+  test('el vacío lo dice la rejilla, y sólo cuando la búsqueda ha cerrado', () => {
+    // La sección de debajo no afirma nada: un hueco que no explica nada.
+    expect(
+      render(<AniListResults items={[]} query="#aventura" presentacion="seccion" />),
+    ).toBe('')
+
+    // La rejilla es la respuesta entera de esa búsqueda: su vacío se dice…
+    expect(
+      render(<AniListResults items={[]} query="#aventura" presentacion="rejilla" done={false} />),
+    ).toBe('')
+
+    // …pero sólo cuando ya se sabe que no hay nada.
+    expect(
+      render(<AniListResults items={[]} query="#aventura" presentacion="rejilla" done />),
+    ).toContain('Nada en el catálogo coincide')
   })
 })
