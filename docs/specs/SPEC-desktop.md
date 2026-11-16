@@ -12,8 +12,9 @@ Convenciones (Commands, Project Structure, Code Style, Testing Strategy, Boundar
 ## Objective
 
 Que nn-anime se abra en **su ventana**, con su icono, **sin terminal**, encima del empaquetado que ya
-existe (`scripts/package.ts`: ejecutable autocontenido e instaladores de las tres plataformas). Cuando
-se escribió este spec, lo instalado abría una consola, y lo decía su propio `.nsi`:
+existe (`scripts/package.ts`: ejecutable autocontenido y artefactos portables de las tres
+plataformas). Cuando se escribió este spec, la copia instalada abría una consola, y lo decía su propio
+`.nsi`:
 
 > El acceso abre el ejecutable, que es una aplicación de consola: la ventana que aparece **es** la
 > aplicación mientras vive, y cerrarla la apaga.
@@ -45,10 +46,9 @@ lo lanza con `--no-open`. La raíz es `%LOCALAPPDATA%\nn-anime`, o la carpeta de
 `portable.txt` al lado. Así un solo archivo basta y no hay dos que se puedan separar.
 
 En **macOS y Linux**, mientras el archivo único siga siendo de Windows, el servidor viaja al lado del
-anfitrión, dentro del `.app`, del `.deb`, del `.rpm` o del AppImage, y se lanza desde el mismo
-directorio (`Contents/MacOS`, `/usr/lib/nn-anime`). La raíz de datos es
-`~/.local/share/nn-anime` —o `XDG_DATA_HOME`—, no el directorio del ejecutable: un `.deb` vive en
-`/usr/lib` y un AppImage está montado en sólo lectura.
+anfitrión, dentro del `.app` (comprimido en un `.zip`) o del AppImage, y se lanza desde el mismo
+directorio (`Contents/MacOS`, `usr/bin`). La raíz de datos es `~/.local/share/nn-anime` —o
+`XDG_DATA_HOME`—, no el directorio del ejecutable: un AppImage está montado en sólo lectura.
 
 ```
 <ruta del servidor> --no-open
@@ -156,28 +156,27 @@ desktop/
 
 En **Windows** el entregable es **un solo `.exe`**. `build.rs` mete el servidor dentro del anfitrión
 con `include_bytes!` y guarda su SHA-256; `scripts/package/unico.ts` copia el anfitrión con el nombre
-que se descarga. El instalador NSIS instala **sólo ese anfitrión**. No se usa `externalBin` de Tauri:
-no hace falta, porque el binario que se embebe es el del servidor, no el del anfitrión.
+que se descarga. No hay instalador: el `.exe` se ejecuta desde donde se descargue. No se usa
+`externalBin` de Tauri: no hace falta, porque el binario que se embebe es el del servidor, no el del
+anfitrión.
 
 En **macOS y Linux** se conserva la estructura de dos ejecutables (el servidor y el anfitrión) dentro
-del `.app`, del AppImage, del `.deb` y del `.rpm`. El anfitrión los lanza desde su mismo directorio.
-Así el empaquetado probado de `scripts/package.ts` y `packaging/` sigue siendo el camino y lo único que
-cambia en Windows es que el servidor ya no viaja suelto.
+del `.app` (comprimido en un `.zip`) y del AppImage. El anfitrión los lanza desde su mismo directorio.
+Así el empaquetado probado de `scripts/package.ts` y `packaging/` sigue siendo el camino.
 
-`tauri build` produce el binario del anfitrión, `scripts/package/desktop.ts` lo prepara y el
-instalador de siempre lo mete en el mismo directorio que el servidor. En Windows, el orden es
-**servidor → firmar servidor → anfitrión (lo embebe) → firmar anfitrión → único → instalador**; el
+`cargo build` produce el binario del anfitrión y `scripts/package/desktop.ts` lo prepara. En Windows,
+el orden es **servidor → firmar servidor → anfitrión (lo embebe) → firmar anfitrión → único**; el
 orden inverso produce un `.exe` sin interfaz y por eso `package:unico` y `package` lo comprueban.
 
 ## Success Criteria
 
 Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
 
-- [ ] Instalar en Windows y abrir desde el menú Inicio deja **ventana e icono, sin consola**. Se mide
-      en el CI: instalación silenciosa, el `.lnk` apunta al anfitrión, la cabecera PE del anfitrión y
-      la del **archivo único** declaran **WINDOWS (2)** mientras la del servidor declara **CONSOLE (3)**.
+- [ ] Ejecutar el archivo único de Windows deja **ventana e icono, sin consola**. Se mide en el CI:
+      la cabecera PE del anfitrión y la del **archivo único** declaran **WINDOWS (2)** mientras la del
+      servidor declara **CONSOLE (3)**.
 - [ ] **El archivo único basta.** Al ejecutarlo, el servidor se extrae a
-      `%LOCALAPPDATA%\nn-anime\bin\<versión>\nn-anime.exe` y la ventana carga la interfaz. Se mide en
+      `%LOCALAPPDATA%\nn-anime-data\bin\<versión>\nn-anime.exe` y la ventana carga la interfaz. Se mide en
       el CI: el proceso `nn-anime` corre desde esa ruta y la ventana existe.
 - [ ] **«Salir» termina el servidor con 0** en menos de un segundo (medido por T134 sobre el
       ejecutable: 17 ms). **La X oculta en la bandeja** y no apaga la aplicación.
@@ -244,12 +243,12 @@ Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
    disco lleno o sin permisos deja el aviso de fallo, no una ventana muda.
 4. **Rust entra en el repositorio.** El anfitrión se queda en estas responsabilidades; si crece, deja
    de ser un envoltorio y habrá que decirlo.
-5. **Firma.** Sin certificados, el archivo único y el instalador heredan los avisos de SmartScreen y
-   Gatekeeper. Es una decisión de dinero, no de código.
+5. **Firma.** Sin certificados, el archivo único y el `.zip` de macOS heredan los avisos de
+   SmartScreen y Gatekeeper. Es una decisión de dinero, no de código.
 
 ## Open Questions
 
 1. **¿La ventana recuerda tamaño y posición?** `tauri-plugin-window-state` lo resuelve, y es un plugin
    más; hoy el CLI no recuerda nada de eso.
 2. **¿Archivo único también en macOS y Linux?** Hoy sólo Windows lo tiene; en las otras plataformas el
-   anfitrión y el servidor viajan juntos dentro del paquete. Hacerlo allí es otra tarea.
+   anfitrión y el servidor viajan juntos dentro del `.zip` o del AppImage. Hacerlo allí es otra tarea.

@@ -32,7 +32,7 @@ async function tempDir(prefijo: string): Promise<string> {
  *
  * Hay diez manifiestos que tienen que decir lo mismo y un tag que tiene que
  * coincidir con ellos. Cuando no coinciden no falla nada: se publica un binario
- * que dice una versión y un instalador que dice otra, y eso se descubre cuando un
+ * que dice una versión y un artefacto que dice otra, y eso se descubre cuando un
  * usuario compara el `--version` con el nombre del archivo.
  *
  * La última prueba mira el repositorio de verdad: es la que convierte «hay que

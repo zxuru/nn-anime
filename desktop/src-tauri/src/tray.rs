@@ -25,8 +25,8 @@ pub const ID_TRAY: &str = "bandeja";
 
 const ID_ABRIR: &str = "abrir";
 const ID_ALTERNAR: &str = "alternar";
-// Sólo en Windows: es la única plataforma con instalador que el updater sabe
-// reemplazar en esta release (ver el `cfg` de `mod actualizacion` en `main.rs`).
+// Sólo en Windows: es la única plataforma que publica `latest.json` en esta
+// release (ver el `cfg` de `mod actualizacion` en `main.rs`).
 #[cfg(windows)]
 const ID_ACTUALIZACIONES: &str = "actualizaciones";
 const ID_SALIR: &str = "salir";
@@ -36,10 +36,10 @@ const NOMBRE: &str = "nn-anime";
 
 /// El icono viaja **dentro** del binario.
 ///
-/// Con `include_bytes!` y no con una ruta: instalado, el programa vive en
-/// `%LOCALAPPDATA%\Programs\nn-anime` y la carpeta `packaging/icons` no existe.
-/// Un icono que se lee del disco al arrancar sería un icono que falta en la
-/// máquina de quien lo instaló, y sólo ahí.
+/// Con `include_bytes!` y no con una ruta: el programa puede ejecutarse desde
+/// cualquier carpeta y la `packaging/icons` del repositorio no viaja con él. Un
+/// icono que se lee del disco al arrancar sería un icono que falta en la máquina
+/// de quien lo descargó, y sólo ahí.
 const ICONO: &[u8] = include_bytes!("../../../packaging/icons/icon-32.png");
 
 /// Lo que el menú necesita recordar entre pulsaciones.

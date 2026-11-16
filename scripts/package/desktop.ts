@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 /**
- * El anfitrión de ventana: compilarlo, comprobarlo y dejarlo donde el instalador
- * lo espera.
+ * El anfitrión de ventana: compilarlo, comprobarlo y dejarlo junto al servidor que
+ * lo usa.
  *
  * **No se usa el CLI de Tauri.** `tauri-build` lee `tauri.conf.json` en el guion
  * de compilación y genera el contexto, así que `cargo build --release` produce el
  * binario entero. Eso deja el empaquetado donde ya estaba —`scripts/package.ts` y
- * `packaging/`, los que producen los instaladores probados— y añade un paso, en
+ * `packaging/`, los que producen los artefactos probados— y añade un paso, en
  * vez de estrenar una segunda cadena de empaquetado que habría que volver a
  * verificar en las tres plataformas.
  *
@@ -56,8 +56,8 @@ export function platformName(platform: string = process.platform): string {
  * El triple de Rust de un objetivo.
  *
  * Existe porque el empaquetado **no** puede dar por hecho que compila para la
- * máquina en la que corre: `macos-latest` es arm64 y de ahí salen los dos `.dmg`,
- * el de Apple Silicon y el de Intel. Sin el triple, el `.dmg` de Intel llevaría
+ * máquina en la que corre: `macos-latest` es arm64 y de ahí salen los dos `.zip`,
+ * el de Apple Silicon y el de Intel. Sin el triple, el `.zip` de Intel llevaría
  * dentro un anfitrión arm64 —un ejecutable que no arranca— y se descubriría al
  * instalarlo.
  */
@@ -201,7 +201,7 @@ export async function buildDesktop(options: BuildDesktopOptions = {}): Promise<s
   // `NN_ANIME_EXIGIR_SERVIDOR`: en Windows, cuando lo compila el empaquetado,
   // `build.rs` **falla** si no encuentra el servidor en vez de generar un
   // anfitrión vacío. Un `.exe` sin servidor dentro arranca, enseña el aviso de
-  // fallo y parece un problema del instalador; el fallo tiene que estar aquí, con
+  // fallo y parece un problema del paquete; el fallo tiene que estar aquí, con
   // la ruta delante. En macOS y Linux no se exige: allí el servidor viaja al lado.
   // El trabajo `desktop` del CI pasa `sinServidor`: compila para medir el árbol de
   // Rust, no para entregar.
@@ -257,7 +257,7 @@ export async function checkDesktop(): Promise<void> {
 }
 
 /**
- * Copia el anfitrión al directorio donde el instalador lo recoge.
+ * Copia el anfitrión al directorio donde lo recoge el artefacto portable.
  *
  * Se copia y no se compila ahí porque `cargo` escribe en su `target/`, que está
  * ignorado: el directorio de trabajo del paquete tiene que quedarse con los dos
@@ -269,7 +269,7 @@ export async function stageDesktop(
   arch: string = process.arch,
 ): Promise<string> {
   // El binario del objetivo, y no el de esta máquina: en la matriz de la release
-  // `macos-latest` arma los dos `.dmg` y cada uno tiene que llevarse el suyo. Si
+  // `macos-latest` arma los dos `.zip` y cada uno tiene que llevarse el suyo. Si
   // no está, es que no se compiló para ese objetivo, y se dice cuál falta.
   const origen = hostBinary(platform, arch)
 

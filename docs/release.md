@@ -6,7 +6,7 @@ probarlo todo sin publicar, y **qué no está probado** todavía.
 El resumen para el día a día está en el [README](../README.md#cómo-publicar-una-release-para-mantenedores).
 Aquí está el detalle.
 
-## El camino, de un commit a un instalador
+## El camino, de un commit a un artefacto portable
 
 ```
 main ──► release-please ──► PR de release ──► merge ──► tag vX.Y.Z + release EN BORRADOR
@@ -14,22 +14,23 @@ main ──► release-please ──► PR de release ──► merge ──► 
                                                               ▼
                                   release.yml (el tag lo dispara)
                                   ├── comprobar: listón + tag == package.json
-                                  ├── instaladores: servidor → anfitrión → .exe único
-                                  │                (windows), los paquetes de macos×2 y linux,
-                                  │                y el NSIS + .sig + latest.json con tauri-action
-                                  └── publicar: SHA256SUMS + subir al borrador + publicar
+                                  ├── portables: servidor → anfitrión → .exe único + .sig + latest.json
+                                  │              (windows), .zip del .app (macos×2) o AppImage (linux)
+                                  └── publicar: SHA256SUMS + subir y publicar
 ```
 
-`tauri-action` sube el instalador de Windows, su `.sig` y `latest.json` **directamente al borrador**
-con `tagName`, y `publicar` añade los demás artefactos sin borrarlos. El paso final comprueba que
-`latest.json` anuncia `windows-x86_64` con url y firma antes de publicar: una release sin eso se ve
-bien y deja a todos los clientes sin actualizar.
+No hay `tauri-action`: cada plataforma compila su artefacto y lo sube como artefacto del workflow. El
+trabajo de Windows firma el `.exe` con `bun tauri signer` y escribe el `.sig` y el `latest.json` del
+updater; `publicar` junta todos los artefactos, calcula el `SHA256SUMS.txt`, los sube al borrador y lo
+publica. Antes de publicar comprueba que `latest.json` anuncia `windows-x86_64` y
+`windows-x86_64-portable` con url y firma: una release sin eso se ve bien y deja a todos los clientes
+sin actualizar.
 
 | Workflow | Cuándo | Qué hace |
 |---|---|---|
 | `ci.yml` | Cada push y cada PR | Tipos, estilo, pruebas, e2e, y el empaquetado en matriz con el ejecutable arrancado y el `.exe` único de Windows |
 | `release-please.yml` | Push a `main` | Mantiene el PR de release: `CHANGELOG.md` y la versión de los diez `package.json` |
-| `release.yml` | Push de un tag `v*.*.*`, o a mano | Compila el archivo único y los instaladores, y publica la release. **Es el único publicador** |
+| `release.yml` | Push de un tag `v*.*.*`, o a mano | Compila el archivo único y los artefactos portables, y publica la release. **Es el único publicador** |
 
 `desktop.yml` ya no existe. Nació para construir y publicar el `.exe` único por su cuenta y competía
 con `release.yml` por el mismo tag; ahora `ci.yml` lo construye en cada push y `release.yml` es el
@@ -48,7 +49,7 @@ ajuste del repositorio que hace falta; el resto es cosa de los secretos, que son
 `release-please-config.json` tiene `draft: true` y `force-tag-creation: true`, y las dos hacen falta:
 
 - **`draft`**: la release se crea en borrador, así nadie ve una release a la que todavía le faltan
-  los instaladores. El workflow la publica cuando ya están los de las tres plataformas.
+  los artefactos. El workflow la publica cuando ya están los de las tres plataformas.
 - **`force-tag-creation`**: GitHub no crea el tag de una release en borrador hasta que se publica. Sin
   esto, el tag no existiría, `release.yml` no se dispararía nunca y la release se quedaría en borrador
   para siempre.
@@ -80,19 +81,19 @@ coinciden.
 de la versión del paquete `nn-anime-desktop` lleva el comentario `x-release-please-version`, que es
 lo que le dice a release-please qué número reemplazar. Hace falta porque `desktop:build` compila con
 `--locked`: si el lock se queda en la versión anterior, `cargo` se niega a actualizarlo y **los
-cuatro instaladores fallan antes de compilar**. Pasó al publicar `0.3.0`; la anotación y la entrada
-de la lista son la corrección.
+cuatro artefactos fallan antes de compilar**. Pasó al publicar `0.3.0`; la anotación y la entrada de
+la lista son la corrección.
 
 `bun.lock` guarda la versión de cada workspace y **release-please no lo toca**. Comprobado: mover esas
 versiones no rompe `bun install --frozen-lockfile`, así que no hace falta regenerarlo en la release.
 
 ## Secretos
 
-Los de **firma de código** son opcionales: sin ellos, las builds salen sin firmar y se instalan
+Los de **firma de código** son opcionales: sin ellos, las builds salen sin firmar y se ejecutan
 igual, con las advertencias del sistema que explica la sección de instalación del README. El del
-**updater** no lo es: sin él `tauri build` no puede firmar los artefactos y la release sale sin
-`latest.json`; los clientes se quedarían sin actualizaciones. Los pasos se activan solos si el
-secreto existe.
+**updater** no lo es: sin él no se puede firmar el `.exe` ni escribir `latest.json`, y la release
+falla en vez de publicar un cliente que no se puede actualizar. Los pasos de firma de código se
+activan solos si el secreto existe.
 
 ### Windows
 
@@ -138,8 +139,8 @@ El base64 del `.p12` se saca igual que el del `.pfx`. El certificado se genera e
 desarrollador de Apple (Certificates → Developer ID Application) y se exporta desde el Llavero con su
 clave privada.
 
-Sin los cinco, el `.app` y el `.dmg` salen **sin firmar y sin notarizar**, y quien los descargue verá
-el aviso de «desarrollador no identificado».
+Sin los cinco, el `.zip` del `.app` sale **sin firmar y sin notarizar**, y quien lo descargue verá el
+aviso de «desarrollador no identificado».
 
 ### Actualizaciones (obligatorio)
 
@@ -159,81 +160,62 @@ El comando, con la clave fuera del repositorio:
 bun tauri signer generate -w ~/.tauri/nn-anime.key
 ```
 
-`tauri-action` firma el instalador NSIS y escribe `latest.json` en la release con ese secreto. Sin él,
-el paso de Windows falla en vez de publicar un instalador que nadie podrá actualizar.
+`bun tauri signer sign` firma el `.exe` único con ese secreto, y `scripts/package/portable-manifest.ts`
+escribe `latest.json` a partir de la firma. Sin él, el paso de Windows falla en vez de publicar un
+`.exe` que nadie podrá actualizar.
 
 ### Lo que no hay
 
-- **Firma GPG de los paquetes de Linux.** El `.deb` y el `.rpm` no van firmados. `apt` lo admitirá con
-  un aviso; quien quiera comprobarlos tiene el `SHA256SUMS.txt`.
+- **Firma GPG de los artefactos de Linux.** El AppImage no va firmado. Quien quiera comprobarlo tiene
+  el `SHA256SUMS.txt`.
 
 ## Compila GitHub, no tú
 
-**No hace falta tener NSIS, `nfpm` ni un Mac a mano.** Cada push compila el ejecutable **y su
-instalador** en las tres plataformas, y los deja descargables en la página del workflow, en
-«Artifacts» (7 días):
+**No hace falta un Mac ni ninguna herramienta de empaquetado a mano.** Cada push compila el
+ejecutable y su artefacto portable en las plataformas que toca, y los deja descargables en la página
+del workflow, en «Artifacts» (7 días):
 
 | Artefacto | Qué lleva |
 |---|---|
-| `nn-anime-ubuntu-latest` | El ejecutable de Linux, el `.AppImage`, el `.deb` y el `.rpm` |
-| `nn-anime-windows-latest` | El **archivo único** `nn-anime-<v>-windows-x64.exe` y el instalador NSIS de Tauri `nn-anime_<v>_x64-setup.exe` |
-| `nn-anime-macos-latest` | El ejecutable de macOS y el `.dmg` de esa arquitectura |
+| `nn-anime-ubuntu-latest` | El ejecutable de Linux y, si cambió el empaquetado, el AppImage |
+| `nn-anime-windows-latest` | El **archivo único** `nn-anime-<v>-windows-x64.exe` |
+| `nn-anime-macos-*` | El `.zip` del `.app` (sólo en `release.yml`; el CI no lo compila) |
 
-Las herramientas que no vienen en la imagen de GitHub las prepara
-`.github/actions/herramientas`: `nfpm` y `appimagetool` en Linux, **fijados por versión y por SHA256**.
-Windows ya no necesita nada: el NSIS lo descarga `tauri-bundler` con la versión que fija Tauri, porque
-el `.nsi` escrito a mano desapareció con T189. macOS no necesita nada: `hdiutil` y `codesign` vienen
-con el sistema.
+Sólo `appimagetool` no viene en la imagen de GitHub: lo prepara `.github/actions/herramientas`,
+fijado **por versión y por SHA256**. Windows y macOS no necesitan nada: la copia del `.exe` y la
+firma las hace `bun tauri signer`, y `ditto`, `codesign` y `xcrun` vienen con macOS.
 
-Por eso el instalador se arma también en cada push y no sólo en la release: un error en el empaquetado
-de NSIS o en el `.dmg` aparece en el push que lo introdujo, que es cuando se arregla en un minuto, y no
-el día de la release.
+Por eso el artefacto se arma también en cada push y no sólo en la release: un error en el `AppRun` o
+en la compilación del anfitrión aparece en el push que lo introdujo, que es cuando se arregla en un
+minuto, y no el día de la release.
 
 Si quieres construir en tu máquina de todos modos:
 
 ```bash
 bun run build                        # la interfaz, que viaja dentro del servidor
-bun run package --skip-installer     # el servidor, y lo arranca para probarlo
+bun run package --solo-ejecutable    # el servidor, y lo arranca para probarlo
 bun run desktop:build                # el anfitrión, con el servidor embebido (Windows)
-bun run desktop:installer            # el instalador NSIS de Windows, con tauri-bundler
-bun run desktop:installer --updater  # el mismo, con .sig y latest.json (necesita la clave)
 bun run package:unico                # el archivo único (Windows)
+bun run package --solo-artefacto     # el AppImage o el .zip, con el anfitrión ya compilado
 ```
 
-En macOS y Linux el instalador sigue siendo `bun run package --only-installer`; en Windows ese
-comando ya no existe y dice que use `desktop:installer`.
-
-El orden **no es opcional en Windows**: `desktop/build.rs` embebe el servidor al compilar el anfitrión,
-así que el servidor va primero. Si se compila al revés, `package:unico` falla con «el anfitrión es más
-viejo que el servidor», y `bun run package` a secas también se niega a armar el instalador. Además,
-`desktop:build` pasa `NN_ANIME_EXIGIR_SERVIDOR=1` en Windows: `build.rs` **se para** si no encuentra
-el servidor, en vez de compilar un anfitrión vacío que arrancaría y enseñaría el aviso de fallo. Es
-preferible un error ahí que un `.exe` que arranca sin interfaz. El único sitio que compila sin
-servidor es el trabajo `desktop` del CI, con `desktop:build --sin-servidor`: mide el árbol de Rust y
-no entrega nada.
+El orden **no es opcional en Windows**: `desktop/build.rs` embebe el servidor al compilar el
+anfitrión, así que el servidor va primero. Si se compila al revés, `package:unico` falla con «el
+anfitrión es más viejo que el servidor». Además, `desktop:build` pasa `NN_ANIME_EXIGIR_SERVIDOR=1` en
+Windows: `build.rs` **se para** si no encuentra el servidor, en vez de compilar un anfitrión vacío que
+arrancaría y enseñaría el aviso de fallo. Es preferible un error ahí que un `.exe` que arranca sin
+interfaz. El único sitio que compila sin servidor es el trabajo `desktop` del CI, con
+`desktop:build --sin-servidor`: mide el árbol de Rust y no entrega nada.
 
 `bun run package` **se niega a compilar** si falta el build de la interfaz: un ejecutable sin interfaz
 arranca, contesta 404 en `/` y parece que la aplicación está rota.
 
-**En Windows hace falta `makensis`, y no hace falta instalarlo.** NSIS tiene distribución portátil:
-se baja el `.zip` de `nsis.sourceforge.io`, se descomprime donde sea y se pone su carpeta en el
-`PATH` para ese comando. Medido: con NSIS 3.11 portable, `bun run package` compila el instalador sin
-tocar el sistema (`choco install nsis -y` también vale, pero pide permisos y deja el programa
-instalado). Sin `makensis` en el `PATH`, `bun run package` falla y lo dice con el nombre del que
-falta.
-
-**Y `makensis` necesita un temporal escribible.** Medido el 2026-10-16, compilando sólo el
-instalador con `--only-installer`: con la excepción de acceso del agente concedida murió con
-`Internal compiler error #12345: error creating mmap the size of 115163022`, y sin ella compiló (dos
-veces, con el temporal por defecto y con `TMP`/`TEMP` dentro del workspace). Si aparece ese error,
-apunta `TMP` y `TEMP` a una carpeta que exista y se pueda escribir.
-
 ## Probar sin publicar
 
-**Actions → Release → Run workflow**, con «publish» sin marcar. Compila el archivo único y los
-instaladores de las cuatro plataformas y los deja como artefactos del workflow (7 días), sin crear ni
-tocar ninguna release. Es la forma de recorrer el camino entero sin gastar un número de versión — y de
-tener los cuatro instaladores, incluidos los dos `.dmg`, sin un Mac.
+**Actions → Release → Run workflow**, con «publish» sin marcar. Compila el archivo único, los dos
+`.zip` de macOS y el AppImage, y los deja como artefactos del workflow (7 días), sin crear ni tocar
+ninguna release. Es la forma de recorrer el camino entero sin gastar un número de versión — y de
+tener los dos `.zip` de macOS sin un Mac.
 
 ## La primera release
 
@@ -253,7 +235,7 @@ el siguiente run recalcula desde el tag.
 ## Cuando la release se queda en borrador
 
 Un borrador con el tag creado y **cero assets** significa que `release.yml` arrancó y no pasó del
-primer trabajo: `comprobar` corta la cadena y `instaladores`, `docker` y `publicar` quedan saltados.
+primer trabajo: `comprobar` corta la cadena y `portables`, `docker` y `publicar` quedan saltados.
 Pasó con la `0.8.0`.
 
 El diagnóstico empieza por el run del tag, no por la release:
@@ -315,10 +297,9 @@ gh api -X PATCH repos/zxuru/nn-anime/releases/<id> \
   -f tag_name=vX.Y.Z -f target_commitish=<sha>
 ```
 
-Y para que esa clase de fallo se vea antes, el trabajo `instaladores` resuelve el borrador **por
-id** con el mismo `gh api` que usa `publicar` y se lo pasa a la acción como `releaseId`, que se
-salta la búsqueda por tag; el paso va antes de compilar, así que si no hay borrador el run falla en
-segundos y no después de quince minutos de Rust.
+Ya no hay `tauri-action` que dependa de encontrar el borrador: los trabajos `portables` sólo suben
+artefactos del workflow, y `publicar` resuelve el borrador **por id** con `gh api`. Si no existe, lo
+crea; si ya hay uno publicado para el tag, falla en vez de tocar una release publicada.
 
 ### Recuperar el borrador
 
@@ -360,11 +341,11 @@ servidor a `<raíz>\bin\<versión>\nn-anime.exe`, comprueba el hash y lo lanza. 
 al lado que se pueda perder ni una carpeta que haya que mantener intacta.
 
 En **macOS y Linux**, mientras el archivo único siga siendo sólo de Windows, el anfitrión viaja **al
-lado** del servidor dentro del `.dmg`, del `.deb`, del `.rpm` y del AppImage. `main.rs` lo detecta
+lado** del servidor dentro del `.app` (comprimido en un `.zip`) y del AppImage. `main.rs` lo detecta
 porque `build.rs` compiló un servidor embebido vacío y usa `sidecar::sibling_path`; la ventana no
-intenta extraer cero bytes. Los datos de esos paquetes van a `~/.local/share/nn-anime` —o
-`XDG_DATA_HOME`—, no al directorio del ejecutable, que en un `.deb` es de root y en un AppImage está
-montado en sólo lectura.
+intenta extraer cero bytes. Los datos de esos artefactos van a `~/.local/share/nn-anime` —o
+`XDG_DATA_HOME`—, no al directorio del ejecutable, que dentro de un AppImage está montado en sólo
+lectura.
 
 `packages/cli/src/resources.ts` los resuelve en este orden: variable de entorno
 (`NN_ANIME_WEB_DIR`, `NN_ANIME_MIGRATIONS_DIR`), recurso incrustado y árbol de fuentes. Los dos
@@ -376,31 +357,29 @@ renombrar, así que mover `packages/web/dist` rompería el ejecutable sin que na
 
 El anfitrión (`nn-anime-desktop`, en `desktop/src-tauri`) se compila con `cargo`; `tauri-build` lee
 `tauri.conf.json` en el guion de compilación, así que `cargo build --release` produce el binario
-entero. En **Windows**, además, `bun run desktop:installer` invoca el CLI de Tauri para que
-`tauri-bundler` arme el instalador NSIS: es lo único que genera el `.sig` y el `latest.json` que el
-updater necesita. macOS y Linux siguen con `scripts/package.ts`.
+entero. En **Windows**, `package:unico` copia ese anfitrión —que lleva el servidor dentro— con el
+nombre que se descarga; la firma minisign y `latest.json` los arma el workflow con `bun tauri signer`
+y `scripts/package/portable-manifest.ts`. macOS y Linux usan `scripts/package.ts` para el `.zip` del
+`.app` y para el AppImage.
 
-En Windows el instalador instala **sólo el anfitrión**, que lleva el servidor dentro; en macOS y Linux
-viajan los dos ejecutables, como hasta ahora. El orden de compilación es un contrato:
+En Windows el `.exe` lleva el servidor dentro; en macOS y Linux viajan los dos ejecutables. El orden de
+compilación es un contrato:
 
 ```bash
-bun run build                                   # la interfaz, que va dentro del servidor
-bun run package --skip-installer                # el servidor, primero
-bun run desktop:build                           # el anfitrión, con el servidor dentro
-bun run desktop:installer                       # el instalador NSIS de Windows (tauri-bundler)
-bun run package --only-installer                # el instalador de macOS o Linux
-bun run package:unico                           # el archivo único (Windows)
+bun run build                        # la interfaz, que va dentro del servidor
+bun run package --solo-ejecutable    # el servidor, primero
+bun run desktop:build                # el anfitrión, con el servidor dentro
+bun run package:unico                # el archivo único (Windows)
+bun run package --solo-artefacto     # el AppImage o el .zip (macOS y Linux)
 ```
 
-`bun run desktop:installer` compila antes `desktop/ui/actualizacion.ts`: la ventana de
-actualizaciones viaja en `frontendDist` y `tauri build` la embebe al compilar. `--updater` añade los
-artefactos firmados del updater y exige `TAURI_SIGNING_PRIVATE_KEY`; el CI compila sin él.
+`desktop:build` compila antes `desktop/ui/actualizacion.ts`: la ventana de actualizaciones viaja en
+`frontendDist` y `tauri-build` la embebe al compilar.
 
-`bun run package` a secas ya no arma el instalador de Windows —lo dice y señala `desktop:installer`—
-y en macOS y Linux sigue comprobando que el anfitrión no sea más viejo que el servidor. `--skip-desktop`
-sigue existiendo para compilar sin el árbol de Rust, pero sin anfitrión no hay instalador publicable.
+`bun run package` a secas en Windows sólo compila el servidor y dice que el archivo único lo arma
+`package:unico`; en macOS y Linux comprueba que el anfitrión no sea más viejo que el servidor.
 
-Para la compilación cruzada —la matriz arma el `.dmg` de Intel desde un Mac arm64— se le dice el
+Para la compilación cruzada —la matriz arma el `.zip` de Intel desde un Mac arm64— se le dice el
 objetivo, y el triple de Rust lo resuelve el propio comando:
 
 ```bash
@@ -430,18 +409,18 @@ La firma de Windows va **por partes**: primero el servidor, después el anfitri�
 los bytes tal cual, así que un servidor firmado después de compilar el anfitrión no llegaría firmado al
 `.exe` único. El anfitrión es el que se descarga, así que su firma es la que ve SmartScreen.
 
-## Las herramientas de Linux
+## La herramienta de Linux
 
-`nfpm` (los `.deb` y `.rpm`) y `appimagetool` (el AppImage) no vienen en la imagen de GitHub. Los
-prepara `.github/actions/herramientas` —la misma acción compuesta para el CI y para la release— y los
-descarga fijados **por versión y por SHA256**, porque la versión sola no basta: un archivo publicado
-se puede reemplazar.
+`appimagetool`, que produce el AppImage, no viene en la imagen de GitHub. Lo prepara
+`.github/actions/herramientas` —la misma acción compuesta para el CI y para la release— y lo descarga
+fijado **por versión y por SHA256**, porque la versión sola no basta: un archivo publicado se puede
+reemplazar.
 
 Para subir de versión:
 
 ```bash
-gh release download vX.Y.Z --repo goreleaser/nfpm --pattern "nfpm_X.Y.Z_Linux_x86_64.tar.gz"
-sha256sum nfpm_X.Y.Z_Linux_x86_64.tar.gz
+gh release download vX.Y.Z --repo AppImage/appimagetool --pattern "appimagetool-x86_64.AppImage"
+sha256sum appimagetool-x86_64.AppImage
 ```
 
 y se actualizan la URL y el hash en `.github/actions/herramientas/action.yml`, los dos a la vez.
@@ -450,30 +429,23 @@ y se actualizan la URL y el hash en `.github/actions/herramientas/action.yml`, l
 
 - **Auto-actualización: sí, en Windows.** La aplicación consulta
   `releases/latest/download/latest.json` **una vez, al arrancar**, y el menú de la bandeja tiene
-  «Buscar actualizaciones». No descarga ni instala nada hasta que se acepta en la ventana. El
-  instalador NSIS lo firma `tauri-bundler` con la clave del updater y
-  `tauri-action` escribe el `latest.json`; sin `WINDOWS_CERT_THUMBPRINT` el instalador sale sin firmar
-  de código, pero el `.sig` del updater y la verificación de la descarga no dependen de eso.
-  - **Las dos formas de entrega —la instalada y el `.exe` único— se auto-reemplazan.** `publicar`
-    firma el archivo único con la misma clave y le añade a `latest.json` la entrada
-    `windows-x86_64-portable` con su URL y su firma. La aplicación descarga ese `.exe`, verifica la
-    firma minisign, aparta el que está corriendo, pone el nuevo y lo arranca; el nuevo espera a que el
-    viejo muera y borra el `.viejo`. Si el medio es de sólo lectura o el reemplazo falla, se revierte
-    y se enseña el enlace.
-  - **Reserva de la copia instalada:** si la release no trae `windows-x86_64-portable`, descarga el
-    NSIS, verifica la firma y lo ejecuta. La portable, sin esa entrada, se queda con el enlace.
-  - **macOS y Linux:** todavía no hay: sus instaladores no publican bundles del updater
-    (`darwin-*`/`linux-*`), así que el menú no aparece allí. Migrarlos es pasar esos instaladores a
-    `tauri-bundler` y publicar sus `.sig`.
-- **MSI en Windows: no hay.** El requisito era «`.exe` (NSIS) y/o `.msi`», y el NSIS cubre los dos
-  papeles: instala, deja accesos, se desinstala y aparece en «Agregar o quitar programas». Un MSI
-  pediría WiX y una instalación por máquina que necesitaría administrador para un programa que vive
-  en `%LOCALAPPDATA%`.
+  «Buscar actualizaciones». No descarga nada hasta que se acepta en la ventana. El workflow firma el
+  `.exe` único con `bun tauri signer` y escribe el `latest.json` con
+  `scripts/package/portable-manifest.ts`; sin `WINDOWS_CERT_THUMBPRINT` el `.exe` sale sin firmar de
+  código, pero el `.sig` del updater y la verificación de la descarga no dependen de eso.
+  - **El `.exe` único se auto-reemplaza.** La aplicación descarga ese `.exe`, verifica la firma
+    minisign, aparta el que está corriendo, pone el nuevo y lo arranca; el nuevo espera a que el viejo
+    muera y borra el `.viejo`. Si el medio es de sólo lectura o el reemplazo falla, se revierte y se
+    enseña el enlace.
+  - **Sin instaladores no hay reserva.** Si la release no trae `windows-x86_64-portable`, no hay nada
+    que descargar: la ventana lo dice y deja el enlace a la release.
+  - **macOS y Linux:** todavía no hay: `latest.json` sólo anuncia Windows, así que el menú no aparece
+    allí. Añadirlo es publicar sus entradas (`darwin-*`/`linux-*`) con su firma.
 - **Linux arm64 y Windows arm64: no se publican.** Bun los compila y añadirlos es una línea por
   plataforma, pero cada objetivo es una release que hay que poder probar.
-- **El desinstalador no borra los datos.** `%LOCALAPPDATA%\nn-anime` —la base, los ajustes, los
-  plugins, el servidor extraído y el perfil del webview— se queda. Desinstalar el programa no es pedir
-  que se pierda eso.
+- **Los datos no viajan en el ejecutable.** `%LOCALAPPDATA%\nn-anime-data` —la base, los ajustes, los
+  plugins, el servidor extraído y el perfil del webview— se queda al mover, borrar o actualizar el
+  `.exe`.
 
 ### Una que no era de Bun
 
@@ -499,11 +471,6 @@ Medido en la máquina donde se preparó esto:
   arranque y **aplica las siete migraciones** (`schema_version = 7`).
 - Las seis comprobaciones de `smoke.ts` en verde sobre el ejecutable empaquetado.
 - `actionlint` con `shellcheck` sobre los tres workflows, sin avisos.
-- Las dependencias del `.deb` y el `.rpm` no se suponen: se leyeron los `DT_NEEDED` del ejecutable de
-  Linux —`libc.so.6`, `libm`, `libdl`, `libpthread`, todas de libc6— y su versión mínima de símbolos
-  versionados, `GLIBC_2.17`, que es lo que declara el paquete. **El anfitrión añadió dos más**,
-  `libwebkit2gtk-4.1-0` y `libgtk-3-0`, que son las que documenta Tauri y que **no** se han medido
-  aquí: no hay un Linux donde leer sus `DT_NEEDED`.
 - **El subsistema PE de los binarios de Windows**, leído de su cabecera con
   `bun run scripts/package/pe.ts <ruta> <windows|console>`: el servidor empaquetado declara `console`
   (3); el anfitrión y **el archivo único** declaran `windows` (2). Es la medición de «sin consola» que
@@ -513,28 +480,19 @@ Medido en la máquina donde se preparó esto:
 Verificado **por el CI**, que es donde se comprueba lo que no se puede comprobar aquí:
 
 - El listón entero en Linux, macOS y Windows, y **las pruebas en los tres sistemas**.
-- **Windows**: el archivo único y el instalador, y `probar-instalador.ps1` ejecutándolo de verdad:
-  un solo ejecutable, el servidor extraído en `%LOCALAPPDATA%\nn-anime\bin\<versión>`, la ventana
-  abierta, el loopback, la X ocultando en la bandeja y la desinstalación. La salida ordenada por
-  «Salir» **no** se automatiza: el script lo dice y no finge medirla.
-- **Linux**: el AppImage, el `.deb` y el `.rpm`, construidos con `nfpm` y `appimagetool`.
-- **macOS**: el `.app` y el `.dmg`, con `hdiutil`.
-
-Y verificado **en local, el 2026-10-16**, con NSIS 3.11 portable:
-
-- **El instalador de Windows (NSIS) compila.** `bun run package` producía
-  `release/nn-anime-0.1.0-windows-x64-setup.exe`: **33,24 MB**, un ejecutable de Windows válido, con
-  `ProductName=nn-anime`, `FileVersion=0.1.0` y la descripción «Instalador de nn-anime» dentro —o
-  sea, con los defines del `.nsi` bien cableados—, y sin un solo aviso de `makensis`.
+- **Windows**: el archivo único, su etiqueta de integridad y su ACL. El `.exe` es una copia del
+  anfitrión, así que la firma de código y el subsistema PE se miden sobre el archivo que se descarga.
+- **Linux**: el AppImage, construido con `appimagetool`.
+- **macOS**: el `.app` comprimido en `.zip`, con `ditto`.
 
 Lo que sigue sin estar comprobado, y lo dirá el siguiente push o una release con secretos:
 
-- **La firma de código y la notarización**: sin certificados, los pasos se saltan. Que `signtool` y
-  `codesign` reciban lo que esperan no se ha podido ejecutar.
-- **El cierre ordenado por «Salir»**: la bandeja es una interfaz nativa y la prueba del instalador no
-  la automatiza. Se mide a mano al aceptar una release.
+- **La firma de código y la notarización**: sin certificados, los pasos se saltan. Que `signtool`,
+  `codesign` y `notarytool` reciban lo que esperan no se ha podido ejecutar.
+- **El cierre ordenado por «Salir»**: la bandeja es una interfaz nativa y no se automatiza. Se mide a
+  mano al aceptar una release.
 - **La ventana en macOS y Linux**: T161 sigue pendiente; el archivo único es sólo de Windows y estas
-  plataformas conservan sus instaladores.
+  plataformas entregan el `.zip` y el AppImage.
 
 ### El e2e falla, y no es de este cambio
 

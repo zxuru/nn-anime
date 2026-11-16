@@ -18,13 +18,13 @@
 //! **La única ventana con IPC es la de actualizaciones** (`actualizacion.rs`). La
 //! principal sigue sin poder invocar ni un comando, que es el contrato de
 //! `capabilities/default.json`; la de actualizaciones tiene su propia capability
-//! con `updater:default` y `process:allow-restart`, nada más.
+//! con `updater:default`, nada más.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 // La ventana de actualizaciones sólo tiene sentido en Windows mientras la release
-// no publique bundles firmados para macOS y Linux: el updater busca
-// `darwin-*`/`linux-*` en `latest.json` y no los hay, así que allí la ventana sólo
-// podría enseñar un error. Cuando esos instaladores se migren, el `cfg` se cae.
+// no publique entradas del updater para macOS y Linux: `latest.json` sólo anuncia
+// `windows-x86_64`, así que allí la ventana sólo podría enseñar un error. Cuando
+// esas plataformas publiquen su manifiesto, el `cfg` se cae.
 #[cfg(windows)]
 mod actualizacion;
 mod boot_line;
@@ -161,16 +161,9 @@ fn main() {
         diagnostico(&raiz);
     }
 
-    // `instalada` no es `raiz.portable`: la primera dice cómo se entregó el
-    // binario (lo instaló el NSIS o es un `.exe` suelto) y la segunda dónde van los
-    // datos. La ventana usa la primera para elegir la reserva NSIS si la release no
-    // trae el ejecutable portable.
-    #[cfg(windows)]
-    let instalada = entorno::instalada();
-
     // Sin `target`: `check()` resuelve la entrada `windows-x86_64`, que la release
-    // publica siempre, y su `rawJson` trae también la portable, que es la que se usa
-    // para reemplazar en sitio en las dos formas de entrega.
+    // publica apuntando al `.exe` portable, y su `rawJson` trae también la entrada
+    // `windows-x86_64-portable`, que es la que se usa para reemplazar en sitio.
     let actualizador = tauri_plugin_updater::Builder::new();
 
     let app = tauri::Builder::default()
@@ -197,10 +190,9 @@ fn main() {
             // menú tiene que volver a decir «Ocultar».
             tray::actualizar(app);
         }))
-        // El updater y el proceso, para la ventana de actualizaciones. Se
-        // registran antes de crear ninguna ventana: sus comandos tienen que estar
-        // ahí cuando la página cargue, que es cuando comprueba si hay novedades.
-        .plugin(tauri_plugin_process::init())
+        // El updater, para la ventana de actualizaciones. Se registra antes de
+        // crear ninguna ventana: sus comandos tienen que estar ahí cuando la
+        // página cargue, que es cuando comprueba si hay novedades.
         .plugin(actualizador.build())
         // La X **oculta**, no cierra. Sin esto, cerrar la única ventana termina el
         // proceso y se lleva el servidor por delante: quien cierra espera seguir
@@ -248,9 +240,7 @@ fn main() {
             #[cfg(windows)]
             {
                 let perfil_actualizaciones = raiz.webview().join("actualizacion");
-                if let Err(error) =
-                    actualizacion::crear(app.handle(), instalada, perfil_actualizaciones)
-                {
+                if let Err(error) = actualizacion::crear(app.handle(), perfil_actualizaciones) {
                     registrar(&format!(
                         "no se pudo crear la ventana de actualizaciones: {error}"
                     ));

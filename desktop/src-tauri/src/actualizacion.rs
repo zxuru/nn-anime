@@ -4,27 +4,24 @@
 //! el servidor y la capability `default` no le concede ni un permiso. Esta
 //! ventana es distinta a propósito: es una página empaquetada (`WebviewUrl::App`)
 //! y es la única con IPC, con los permisos mínimos para lo que hace —
-//! `updater:default`, `process:allow-restart` y las operaciones de ventana que
-//! usa—, de modo que la superficie que hay que auditar sigue siendo una y pequeña.
+//! `updater:default` y las operaciones de ventana que usa—, de modo que la
+//! superficie que hay que auditar sigue siendo una y pequeña.
 //!
 //! Vive **oculta** desde el arranque. La comprobación de novedades la hace la
 //! propia página **una sola vez, al cargar**; esta ventana sólo se enseña cuando
 //! hay algo que contar. El menú de la bandeja la vuelve a enseñar y le pide otra
 //! comprobación con el evento `buscar-actualizaciones`.
 //!
-//! **Las dos formas de entrega se actualizan reemplazando el `.exe`.** No hay
-//! instalador que ejecutar: se descarga el `.exe` portable, se verifica su firma
-//! minisign y se reemplaza el ejecutable **en marcha**. Windows deja renombrar un
-//! `.exe` en ejecución aunque no deja borrarlo. Se aparta el actual como
-//! `.viejo`, se pone el nuevo en su sitio, se arranca el nuevo con
-//! `--reemplazo-pid` y el viejo sale. El nuevo espera a que el viejo muera —para
-//! no chocar con la instancia única— y borra el `.viejo`.
+//! **La entrega se actualiza reemplazando el `.exe`.** No hay instalador que
+//! ejecutar: se descarga el `.exe` portable, se verifica su firma minisign y se
+//! reemplaza el ejecutable **en marcha**. Windows deja renombrar un `.exe` en
+//! ejecución aunque no deja borrarlo. Se aparta el actual como `.viejo`, se pone
+//! el nuevo en su sitio, se arranca el nuevo con `--reemplazo-pid` y el viejo
+//! sale. El nuevo espera a que el viejo muera —para no chocar con la instancia
+//! única— y borra el `.viejo`.
 //!
-//! La copia **instalada** conserva una reserva: si la release no publicó
-//! `windows-x86_64-portable`, el plugin descarga el NSIS, lo verifica y lo
-//! ejecuta. Lo que decide esa reserva no es `portable.txt` (eso habla de dónde
-//! van los datos) sino `entorno::instalada()`, que mira la entrada de
-//! desinstalación.
+//! Si la release no publicó `windows-x86_64-portable`, no hay nada que descargar:
+//! la ventana lo dice y deja el enlace a la release.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -45,7 +42,6 @@ const REPOSITORIO: &str = "zxuru/nn-anime";
 
 /// Lo que la página necesita saber y no puede deducir sola.
 struct Contexto {
-    instalada: bool,
     version: String,
     /// La base de las releases, sin versión: la página le añade `/tag/vX.Y.Z` de
     /// la versión que anuncia el updater, no la que está corriendo.
@@ -77,7 +73,7 @@ pub struct Progreso {
 /// Un fallo aquí **no** puede impedir que arranque la aplicación: la ventana de
 /// actualizaciones es una comodidad, no el producto. `main.rs` registra el error
 /// y sigue.
-pub fn crear(app: &AppHandle, instalada: bool, perfil: PathBuf) -> tauri::Result<()> {
+pub fn crear(app: &AppHandle, perfil: PathBuf) -> tauri::Result<()> {
     let version = env!("CARGO_PKG_VERSION").to_string();
     let pubkey = app
         .config()
@@ -90,7 +86,6 @@ pub fn crear(app: &AppHandle, instalada: bool, perfil: PathBuf) -> tauri::Result
         .to_string();
 
     app.manage(Contexto {
-        instalada,
         releases: format!("https://github.com/{REPOSITORIO}/releases"),
         version,
         pubkey,
@@ -138,9 +133,9 @@ pub fn registrar_actualizacion(mensaje: String) {
 
 /// Sustituye el `.exe` que está corriendo por otro ya verificado.
 ///
-/// Es el comando de la copia **portable**: no hay instalador que ejecutar. La
-/// firma se verifica antes de tocar nada; si el reemplazo falla, se restaura el
-/// original y se devuelve el motivo para que la ventana enseñe el enlace.
+/// No hay instalador que ejecutar. La firma se verifica antes de tocar nada; si
+/// el reemplazo falla, se restaura el original y se devuelve el motivo para que
+/// la ventana enseñe el enlace.
 #[tauri::command]
 pub async fn instalar_portable(
     app: AppHandle,
@@ -244,13 +239,13 @@ fn construir(app: &AppHandle, visible: bool) -> tauri::Result<()> {
         return Ok(());
     };
 
-    // La página no puede leer `instalada`, la versión ni la URL de la release sin
-    // IPC, y un comando más sería un permiso más. Se inyecta como un objeto
-    // congelado en el arranque del webview; `{:?}` produce un literal de cadena
-    // válido en JavaScript para los textos que se le pasan.
+    // La página no puede leer la versión ni la URL de la release sin IPC, y un
+    // comando más sería un permiso más. Se inyecta como un objeto congelado en el
+    // arranque del webview; `{:?}` produce un literal de cadena válido en
+    // JavaScript para los textos que se le pasan.
     let guion = format!(
-        "globalThis.__NN_ACTUALIZACION = Object.freeze({{ instalada: {}, version: {:?}, releases: {:?} }});",
-        contexto.instalada, contexto.version, contexto.releases
+        "globalThis.__NN_ACTUALIZACION = Object.freeze({{ version: {:?}, releases: {:?} }});",
+        contexto.version, contexto.releases
     );
 
     let ventana =

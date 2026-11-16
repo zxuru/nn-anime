@@ -1,12 +1,11 @@
 #!/usr/bin/env bun
-
 /**
- * El paquete y el `.dmg` de macOS.
+ * El paquete portable de macOS: un `.app` dentro de un `.zip`.
  *
- * Se usa `hdiutil`, que viene con macOS, en vez de `create-dmg`: lo único que
- * aporta el segundo es el fondo de la ventana, y a cambio añade una dependencia
- * de Homebrew a la cadena de publicación. El enlace a `/Applications` —que es lo
- * que de verdad hace falta para arrastrar la aplicación— se crea aquí.
+ * No hay instalador ni imagen de disco: se descarga el `.zip`, se descomprime y
+ * la aplicación se ejecuta desde donde quede. Es el mismo `.app` que antes viajaba
+ * dentro del `.dmg`, sin el contenedor que sólo servía para arrastrarlo a
+ * Aplicaciones.
  *
  * La firma es **condicional**: si no hay identidad en el entorno, el `.app` sale
  * sin firmar. Un ejecutable sin firmar de un desarrollador sin notarizar arranca
@@ -16,7 +15,7 @@
  */
 
 import { existsSync } from 'node:fs'
-import { chmod, copyFile, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { chmod, copyFile, mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { ROOT } from '../workspaces'
 import { dottedVersion } from './binary'
@@ -33,19 +32,18 @@ export interface MacOptions {
   readonly version: string
   /** El ejecutable ya compilado. */
   readonly binary: string
-  /** Dónde queda el `.dmg`: es lo único que se publica. */
+  /** Dónde queda el `.zip`: es lo único que se publica. */
   readonly releaseDir: string
   /**
    * Dónde se arma el `.app`.
    *
    * **Fuera de `releaseDir`, y no es un detalle de orden**: `gh release upload
-   * release/*` no sabe subir un directorio, y el `.app` es uno. Con él ahí, la
-   * release habría fallado al final, con los instaladores de las tres
-   * plataformas ya compilados. Sólo el `.dmg` viaja.
+   * release/*` no sabe subir un directorio, y el `.app` es uno. Sólo el `.zip`
+   * viaja.
    */
   readonly workDir: string
-  /** Nombre del `.dmg`, sin directorio. */
-  readonly dmgName: string
+  /** Nombre del `.zip`, sin directorio. */
+  readonly zipName: string
   /** `true` para no firmar aunque haya identidad. Sólo lo usan las pruebas. */
   readonly unsigned?: boolean
 }
@@ -76,6 +74,11 @@ export async function sign(path: string, cwd: string): Promise<boolean> {
   return true
 }
 
+export interface MacBundleResult {
+  readonly app: string
+  readonly signed: boolean
+}
+
 /**
  * Arma `nn-anime.app`.
  *
@@ -93,7 +96,7 @@ export async function sign(path: string, cwd: string): Promise<boolean> {
  * del servidor gracias a `--asset`, y tener una copia fuera sería una segunda
  * fuente que se desincroniza.
  */
-export async function macBundle(options: MacOptions): Promise<string> {
+export async function macBundle(options: MacOptions): Promise<MacBundleResult> {
   const app = join(options.workDir, 'nn-anime.app')
   const macos = join(app, 'Contents', 'MacOS')
 
@@ -106,7 +109,7 @@ export async function macBundle(options: MacOptions): Promise<string> {
   // El anfitrión lo deja `stageDesktop` al lado del servidor, en el directorio de
   // trabajo del paquete. Si no está, `CFBundleExecutable` nombraría un archivo que
   // no existe y macOS no abriría nada: se dice aquí y no en el Mac de quien lo
-  // instala.
+  // descarga.
   const anfitrion = join(dirname(options.binary), HOST_NAME)
 
   if (!existsSync(anfitrion)) {
@@ -129,99 +132,78 @@ export async function macBundle(options: MacOptions): Promise<string> {
     await copyFile(ICON, join(app, 'Contents', 'Resources', 'icon.icns'))
   }
 
-  if (options.unsigned !== true) await sign(app, options.workDir)
+  const signed = options.unsigned === true ? false : await sign(app, options.workDir)
 
-  return app
+  return { app, signed }
 }
 
-export interface DmgResult {
-  readonly dmg: string
+export interface ZipResult {
+  readonly zip: string
   readonly signed: boolean
   readonly notarized: boolean
 }
 
 /**
- * Mete el `.app` en un `.dmg`, y lo firma y notariza si hay con qué.
+ * Comprime el `.app` en el `.zip` que se publica, y lo firma y notariza si hay con qué.
  *
  * La notarización no falla la publicación cuando no hay credenciales —no todo el
  * mundo tiene cuenta de desarrollador—, pero tampoco se calla: devuelve qué hizo
  * y el workflow lo deja escrito en el resumen, que es donde se lee.
+ *
+ * `notarytool` no acepta un `.app` suelto: se le manda el `.zip`, y el ticket se
+ * grapa al `.app` antes de volver a comprimirlo. Si se grapara al `.zip`, Gatekeeper
+ * no lo encontraría al descomprimir.
  */
-export async function macDmg(options: MacOptions): Promise<DmgResult> {
-  const imagen = join(options.workDir, 'nn-anime-rw.dmg')
-  const montaje = join(options.workDir, 'montaje')
-  const dmg = join(options.releaseDir, options.dmgName)
+export async function macZip(options: MacOptions): Promise<ZipResult> {
+  const { app, signed } = await macBundle(options)
+  const zip = join(options.releaseDir, options.zipName)
+  const temporal = join(options.workDir, 'nn-anime.zip')
 
-  await rm(imagen, { force: true })
-  await rm(dmg, { force: true })
-  await rm(montaje, { recursive: true, force: true })
-  await mkdir(montaje, { recursive: true })
+  await rm(zip, { force: true })
+  await rm(temporal, { force: true })
 
-  // El tamaño se dice **explícitamente** en vez de dejar que hdiutil lo adivine
-  // con `-srcfolder`. Medido en la primera ejecución del CI: con `-srcfolder` el
-  // cálculo salió mal —`hdiutil: create failed - No space left on device` y
-  // después un volumen demasiado pequeño hasta para la propia aplicación—. Con un
-  // tamaño fijo no hay nada que calcular, y lo que sobre se recorta al convertir
-  // a UDZO, que es donde se comprime de verdad.
-  await run(
-    [
-      'hdiutil',
-      'create',
-      '-size',
-      imageSize(options.binary),
-      '-volname',
-      'nn-anime',
-      '-ov',
-      imagen,
-    ],
-    options.workDir,
-  )
+  await comprimir(app, temporal, options.workDir)
 
-  await run(
-    ['hdiutil', 'attach', imagen, '-mountpoint', montaje, '-nobrowse', '-noautoopen'],
-    options.workDir,
-  )
+  let notarized = false
 
-  try {
-    // El `.app` se arma **dentro de la imagen montada**. Así no hay una copia de
-    // 70 MB en el disco de trabajo, y el enlace a `/Applications` —que es el que
-    // deja arrastrar la aplicación— se crea donde tiene que verse y no en el
-    // árbol del que hdiutil saca el tamaño.
-    await macBundle({ ...options, workDir: montaje })
-    await symlink('/Applications', join(montaje, 'Applications'))
-  } finally {
-    // `-force` porque el volumen acaba de recibir un `.app` de 70 MB y el
-    // desmontaje normal a veces lo encuentra ocupado.
-    await run(['hdiutil', 'detach', montaje, '-force'], options.workDir)
+  if (signed && hayCredenciales()) {
+    notarized = await notarize(temporal, options.workDir)
+
+    if (notarized) {
+      // `stapler` grapa el ticket al `.app`: sin esto, la comprobación de
+      // Gatekeeper necesitaría red en la máquina de quien lo descarga.
+      await run(['xcrun', 'stapler', 'staple', app], options.workDir)
+      await rm(temporal, { force: true })
+      await comprimir(app, temporal, options.workDir)
+    }
   }
 
-  await run(['hdiutil', 'convert', imagen, '-format', 'UDZO', '-ov', '-o', dmg], options.workDir)
+  // Copia y no `rename`: `workDir` y `releaseDir` pueden acabar en volúmenes
+  // distintos, y el rename sería un `EXDEV`. El temporal se borra siempre.
+  await copyFile(temporal, zip)
+  await rm(temporal, { force: true })
 
-  await rm(imagen, { force: true })
-  await rm(montaje, { recursive: true, force: true })
-
-  const firmado = options.unsigned === true ? false : await sign(dmg, options.releaseDir)
-  const notarized = firmado && (await notarize(dmg, options.releaseDir))
-
-  return { dmg, signed: firmado, notarized }
+  return { zip, signed, notarized }
 }
 
-/**
- * El tamaño de la imagen temporal, en la forma que entiende `hdiutil`.
- *
- * Tres veces lo que ocupa el ejecutable, con un suelo de 150 MB: el `.app` es el
- * ejecutable, su `Info.plist` y un icono, así que el margen sobra y una versión
- * que crezca no rompe la release por dos megabytes. Lo que no se use no viaja: el
- * `.dmg` que se publica es el resultado de comprimir, no la imagen.
- */
-export function imageSize(binary: string): string {
-  const mb = Math.ceil(Bun.file(binary).size / (1024 * 1024))
-
-  return `${Math.max(150, mb * 3)}m`
+/** `ditto` y no `zip`: conserva los permisos y los recursos del `.app`. */
+async function comprimir(app: string, destino: string, cwd: string): Promise<void> {
+  await run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', app, destino], cwd)
 }
 
-/** Envía el `.dmg` a notarizar y grapa el ticket. `false` si no hay credenciales. */
-async function notarize(dmg: string, cwd: string): Promise<boolean> {
+function hayCredenciales(): boolean {
+  return (
+    process.env.APPLE_ID !== undefined &&
+    process.env.APPLE_ID !== '' &&
+    process.env.APPLE_APP_SPECIFIC_PASSWORD !== undefined &&
+    process.env.APPLE_APP_SPECIFIC_PASSWORD !== '' &&
+    process.env.APPLE_TEAM_ID !== undefined &&
+    process.env.APPLE_TEAM_ID !== ''
+  )
+}
+
+/** Envía el `.zip` a notarizar. `false` si no hay credenciales. */
+async function notarize(zip: string, cwd: string): Promise<boolean> {
   const appleId = process.env.APPLE_ID
   const password = process.env.APPLE_APP_SPECIFIC_PASSWORD
   const teamId = process.env.APPLE_TEAM_ID
@@ -233,7 +215,7 @@ async function notarize(dmg: string, cwd: string): Promise<boolean> {
       'xcrun',
       'notarytool',
       'submit',
-      dmg,
+      zip,
       '--apple-id',
       appleId,
       '--password',
@@ -244,10 +226,6 @@ async function notarize(dmg: string, cwd: string): Promise<boolean> {
     ],
     cwd,
   )
-
-  // `staple` grapa el ticket al archivo: sin esto, la comprobación de Gatekeeper
-  // necesitaría red en la máquina de quien lo instala.
-  await run(['xcrun', 'stapler', 'staple', dmg], cwd)
 
   return true
 }

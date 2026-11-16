@@ -144,7 +144,7 @@ describe('el anfitrión de ventana', () => {
     const sidecar = await leer(join(CRATE, 'src', 'sidecar.rs'))
 
     // Los dos tienen que convivir en el mismo directorio: si se llamaran igual,
-    // el instalador no podría llevar los dos.
+    // el artefacto no podría llevar los dos.
     expect(HOST_NAME).not.toBe(SERVER_NAME)
     expect(manifiesto).toContain(`name = "${HOST_NAME}"`)
     expect(sidecar).toContain(`const SIDECAR_NAME: &str = "${SERVER_NAME}"`)
@@ -154,18 +154,18 @@ describe('el anfitrión de ventana', () => {
     const config = JSON.parse(await leer(join(CRATE, 'tauri.conf.json'))) as {
       build: { frontendDist: string }
       app: { windows: readonly unknown[] }
-      bundle: { active: boolean; targets: readonly string[] }
+      bundle: { active: boolean; targets?: readonly string[] }
     }
 
     // Sin ventanas declaradas: la URL y el tamaño los pone `main.rs`, que es quien
     // sabe en qué puerto escucha el servidor. El puerto no se puede fijar antes.
     expect(config.app.windows).toHaveLength(0)
 
-    // El empaquetado de Tauri está encendido desde T189, pero **sólo** para el
-    // NSIS de Windows: es el que genera el `.sig` y el `latest.json` del updater.
-    // macOS y Linux siguen armándose con `scripts/package.ts`.
-    expect(config.bundle.active).toBe(true)
-    expect(config.bundle.targets).toEqual(['nsis'])
+    // El empaquetado de Tauri está apagado: no hay instalador que armar. La
+    // entrega es el `.exe` portable de `package:unico`, el `.zip` de macOS y el
+    // AppImage de Linux, todos con `scripts/package.ts`.
+    expect(config.bundle.active).toBe(false)
+    expect(config.bundle.targets).toBeUndefined()
 
     const relleno = join(CRATE, config.build.frontendDist, 'index.html')
     expect(await Bun.file(relleno).exists()).toBe(true)
@@ -262,7 +262,7 @@ describe('el anfitrión de ventana', () => {
 
     // Sin `tray-icon` el módulo ni siquiera compila; sin `image-png` no se puede
     // meter el icono dentro del binario y habría que leerlo del disco, donde no
-    // está en la máquina de quien instaló el programa.
+    // está en la máquina de quien descargó el programa.
     expect(manifiesto).toContain('"tray-icon"')
     expect(manifiesto).toContain('"image-png"')
     expect(main).toContain('mod tray;')
@@ -320,8 +320,8 @@ describe('el anfitrión de ventana', () => {
     const sidecar = await leer(join(CRATE, 'src', 'sidecar.rs'))
     const main = await leer(join(CRATE, 'src', 'main.rs'))
 
-    // Allí el anfitrión no lleva el servidor dentro: el `.app`, el `.deb`, el
-    // `.rpm` y el AppImage instalan los dos juntos. Sin esta rama, `embebido`
+    // Allí el anfitrión no lleva el servidor dentro: el `.app` y el AppImage
+    // entregan los dos juntos. Sin esta rama, `embebido`
     // escribiría cero bytes, los ejecutaría y la ventana enseñaría el aviso.
     expect(sidecar).toContain('pub fn sibling_path')
     expect(main).toContain('embebido::hay_servidor()')
@@ -365,16 +365,16 @@ describe('el anfitrión de ventana', () => {
   test('los datos van al perfil del usuario, con respaldo y modo portable explícito', async () => {
     const entorno = await leer(join(CRATE, 'src', 'entorno.rs'))
 
-    // `%LOCALAPPDATA%` primero, y la carpeta de datos es **hermana** de la de
-    // instalación (`nn-anime-data` frente a `nn-anime`): el instalador reemplaza
-    // su carpeta y los datos no pueden estar dentro.
+    // `%LOCALAPPDATA%` primero, y la carpeta de datos es **hermana** de la que
+    // usaban las versiones instaladas (`nn-anime-data` frente a `nn-anime`): la
+    // actualización reemplaza el ejecutable y los datos no pueden estar dentro.
     expect(entorno).toContain('LOCALAPPDATA')
     expect(entorno).toContain('NOMBRE_DATOS')
     expect(entorno).toContain('nn-anime-data')
     // Y los datos de una instalación anterior se trasladan una vez.
     expect(entorno).toContain('migrar_datos_heredados')
     // En macOS y Linux, la raíz XDG del usuario: sin ella caería al directorio
-    // del ejecutable, que en un `.deb` es de root y en un AppImage no se escribe.
+    // del ejecutable, que dentro de un AppImage está montado en sólo lectura.
     expect(entorno).toContain('XDG_DATA_HOME')
     expect(entorno).toContain('HOME')
     expect(entorno).toContain('NN_ANIME_DATA_DIR')
@@ -393,8 +393,8 @@ describe('el anfitrión de ventana', () => {
     const entorno = await leer(join(CRATE, 'src', 'entorno.rs'))
 
     // El respaldo silencioso al lado del `.exe` metía la base en la carpeta que
-    // el instalador y la actualización portable reemplazan. Se retiró: si el
-    // perfil no es escribible, se avisa y se sale.
+    // la actualización portable reemplaza. Se retiró: si el perfil no es
+    // escribible, se avisa y se sale.
     expect(entorno).not.toContain('probar_escritura(dir)')
     expect(entorno).toContain('no guarda nada junto al ejecutable')
 
@@ -417,7 +417,7 @@ describe('el anfitrión de ventana', () => {
 
     // Y el empaquetado **exige** el servidor en Windows: sin esta variable,
     // `build.rs` compila un anfitrión vacío que arranca y enseña el aviso de fallo,
-    // y el fallo aparece en el instalador en vez de en la compilación.
+    // y el fallo aparece en el paquete en vez de en la compilación.
     expect(build).toContain('NN_ANIME_EXIGIR_SERVIDOR')
     expect(desktop).toContain('NN_ANIME_EXIGIR_SERVIDOR')
     expect(desktop).toContain("platform === 'windows'")
@@ -445,24 +445,24 @@ describe('el anfitrión de ventana', () => {
     expect(icono).toBeLessThan(hilo)
   })
 
-  test('el instalador de Windows lo arma tauri-bundler, no un .nsi a mano', async () => {
-    // Desde T189 el instalador de Windows no se escribe en este repositorio: lo
-    // genera Tauri, que es lo único que produce el `.sig` y el `latest.json` que el
-    // updater necesita. Si alguien devolviera el `.nsi`, volveríamos a un instalador
-    // que el updater no sabe actualizar.
+  test('no queda ningún instalador ni configuración de empaquetado de Tauri', async () => {
+    // La entrega es portable en las tres plataformas. Si alguien devolviera el
+    // NSIS, el `.nsi` o los targets del bundler, volvería a publicarse un
+    // instalador que ya no se prueba ni se documenta.
     expect(await Bun.file(join(ROOT, 'packaging', 'windows', 'nn-anime.nsi')).exists()).toBe(false)
+    expect(
+      await Bun.file(join(ROOT, 'packaging', 'windows', 'probar-instalador.ps1')).exists(),
+    ).toBe(false)
 
     const conf = await leer(join(CRATE, 'tauri.conf.json'))
 
-    // El binario que se instala no se llama como el producto: el nombre lo fija
-    // `[[bin]]` en `Cargo.toml` y `mainBinaryName` es el contrato con el bundler.
-    expect(conf).toContain('"mainBinaryName": "nn-anime-desktop"')
-    expect(conf).toContain('"targets": ["nsis"]')
-    expect(conf).toContain('"createUpdaterArtifacts": true')
-    expect(conf).toContain('"installMode": "currentUser"')
-    // El updater descarga e instala sin preguntar: `passive` es la ventana con
-    // barra de progreso, no el asistente.
-    expect(conf).toContain('"installMode": "passive"')
+    expect(conf).not.toContain('"nsis"')
+    expect(conf).not.toContain('"targets"')
+    expect(conf).not.toContain('"createUpdaterArtifacts"')
+    expect(conf).not.toContain('"installMode"')
+    expect(conf).not.toContain('"installerIcon"')
+
+    // El updater sigue: lo que ya no hay es un instalador que ejecutar.
     expect(conf).toContain('https://github.com/zxuru/nn-anime/releases/latest/download/latest.json')
     expect(conf).toContain('"pubkey"')
   })
@@ -544,7 +544,7 @@ describe('la compilación cruzada del anfitrión', () => {
 
   test('el binario sale del directorio del triple, no de `target/release`', () => {
     // `cargo build --target` escribe en `target/<triple>/release`. Buscar en
-    // `target/release` encontraría el binario de la máquina, y en el `.dmg` de
+    // `target/release` encontraría el binario de la máquina, y en el `.zip` de
     // Intel eso es un anfitrión arm64: un ejecutable que no arranca.
     expect(hostBinary('macos', 'x64')).toContain(join('target', 'x86_64-apple-darwin', 'release'))
     expect(hostBinary('macos', 'arm64')).toContain(
@@ -561,7 +561,7 @@ describe('la compilación cruzada del anfitrión', () => {
 
   test('la release pide el anfitrión del objetivo de su vuelta', async () => {
     // Sin `--target`, las dos vueltas de macOS compilarían el anfitrión de la
-    // máquina y el `.dmg` de Intel llevaría el de Apple Silicon.
+    // máquina y el `.zip` de Intel llevaría el de Apple Silicon.
     const release = await leer(join(ROOT, '.github', 'workflows', 'release.yml'))
 
     // Expresión regular y no cadena: el texto lleva una expresión de Actions
@@ -585,15 +585,22 @@ describe('el paquete de macOS', () => {
     expect(ejecutable).toBe(HOST_NAME)
   })
 
-  test('los dos ejecutables viajan dentro del `.app`', async () => {
+  test('los dos ejecutables viajan dentro del `.app`, que se publica como `.zip`', async () => {
     const macos = await leer(join(ROOT, 'scripts', 'package', 'macos.ts'))
 
     // El servidor y el anfitrión, en el mismo `Contents/MacOS`: el anfitrión
     // busca al servidor por su nombre en su propio directorio.
     expect(macos).toContain("join(macos, 'nn-anime')")
     expect(macos).toContain('join(macos, HOST_NAME)')
-    // Y si el anfitrión no está, se para aquí y no en el Mac de quien instala.
+    // Y si el anfitrión no está, se para aquí y no en el Mac de quien descarga.
     expect(macos).toContain('no hay anfitrión junto al servidor')
+
+    // La entrega es un `.zip`, no un `.dmg`: `ditto` conserva los permisos del
+    // `.app` y no hace falta montar una imagen.
+    expect(macos).toContain('export async function macZip')
+    expect(macos).toContain('ditto')
+    expect(macos).not.toContain('hdiutil')
+    expect(macos).not.toContain('macDmg')
   })
 })
 
@@ -610,18 +617,13 @@ describe('el paquete de Linux', () => {
     expect(desktop).not.toMatch(/^Terminal=true$/m)
   })
 
-  test('el `.deb` y el `.rpm` llevan los dos ejecutables, sus enlaces y el webview', async () => {
-    const nfpm = await leer(join(ROOT, 'packaging', 'linux', 'nfpm.yaml'))
+  test('ya no hay paquetes `.deb` ni `.rpm`', async () => {
+    expect(await Bun.file(join(ROOT, 'packaging', 'linux', 'nfpm.yaml')).exists()).toBe(false)
 
-    expect(nfpm).toContain('__HOST__')
-    expect(nfpm).toContain('/usr/lib/nn-anime/nn-anime-desktop')
-    // Los dos en el PATH: el `.desktop` invoca `nn-anime-desktop` a secas y la
-    // consola sigue siendo invocable a mano.
-    expect(nfpm).toContain('dst: /usr/bin/nn-anime-desktop')
-    expect(nfpm).toContain('dst: /usr/bin/nn-anime')
-    // El anfitrión necesita el webview; el servidor sólo necesitaba libc6.
-    expect(nfpm).toContain('libwebkit2gtk-4.1-0')
-    expect(nfpm).toContain('webkit2gtk4.1')
+    const linux = await leer(join(ROOT, 'scripts', 'package', 'linux.ts'))
+
+    expect(linux).not.toContain('linuxPackages')
+    expect(linux).not.toContain('nfpm')
   })
 
   test('el AppImage abre la ventana sin argumentos y la consola con ellos', async () => {
@@ -744,20 +746,21 @@ describe('el archivo único y la release', () => {
     }
   })
 
-  test('la release compila servidor, anfitrión, único e instalador en ese orden', async () => {
+  test('la release compila servidor, anfitrión, portable y manifiesto en ese orden', async () => {
     // Si el anfitrión se compila antes que el servidor, `build.rs` no lo mete
-    // dentro y el `.exe` arranca sin interfaz. El orden es el contrato. En Windows,
-    // además, el `package:unico` va **después** de `tauri-action`: es el bundler el
-    // que recompila y firma el anfitrión, y el portable tiene que ser esa copia.
+    // dentro y el `.exe` arranca sin interfaz. El orden es el contrato. En Windows
+    // el archivo único se copia **después** de firmar el anfitrión, y su firma y
+    // `latest.json` van después de la copia.
     const release = await leer(join(ROOT, '.github', 'workflows', 'release.yml'))
     const nombres = [
       'Compilar y probar el ejecutable',
       'Firmar el servidor de Windows',
       'Compilar el anfitrión',
       'Firmar el anfitrión de Windows',
-      'Armar el instalador',
-      'Armar el instalador (Windows) y subirlo',
+      'Armar el artefacto portable',
       'Ejecutable único (Windows)',
+      'Firmar el archivo único para el updater (Windows)',
+      'Escribir latest.json (Windows)',
     ]
     const indices = nombres.map((nombre) => {
       const indice = release.indexOf(`- name: ${nombre}`)
@@ -786,8 +789,7 @@ describe('el archivo único y la release', () => {
       'Compilar y probar el ejecutable',
       'Compilar el anfitrión',
       'Ejecutable único (Windows)',
-      'Armar el instalador',
-      'Armar el instalador (Windows)',
+      'Armar el artefacto portable',
     ]
     const indices = nombres.map((nombre) => {
       const indice = ci.indexOf(`- name: ${nombre}`)
@@ -814,36 +816,17 @@ describe('el archivo único y la release', () => {
     }
   })
 
-  test('la prueba del instalador espera el archivo único y la bandeja', async () => {
-    const script = await leer(join(ROOT, 'packaging', 'windows', 'probar-instalador.ps1'))
+  test('la prueba del instalador ya no existe y no se invoca desde ningún workflow', async () => {
+    expect(
+      await Bun.file(join(ROOT, 'packaging', 'windows', 'probar-instalador.ps1')).exists(),
+    ).toBe(false)
 
-    // Un solo ejecutable: si vuelve el servidor suelto, el instalador deja de ser
-    // el archivo único que se publica y esto lo dice. El instalador de Tauri no
-    // instala un `.ico` aparte; el icono va dentro del `.exe`.
-    expect(script).toContain("'nn-anime-desktop.exe'")
-    expect(script).toContain("'uninstall.exe'")
-    expect(script).not.toContain("'nn-anime.exe', 'nn-anime-desktop.exe'")
+    const release = await leer(join(ROOT, '.github', 'workflows', 'release.yml'))
+    const ci = await leer(join(ROOT, '.github', 'workflows', 'ci.yml'))
 
-    // La instalación es `%LOCALAPPDATA%\nn-anime` y los datos viven en su
-    // hermana `%LOCALAPPDATA%\nn-anime-data`. El desinstalador borra lo suyo y no
-    // puede llevarse la base; el guion lo comprueba después de desinstalar.
-    expect(script).toContain("Join-Path $env:LOCALAPPDATA 'nn-anime'")
-    expect(script).toContain("Join-Path $env:LOCALAPPDATA 'nn-anime-data'")
-    expect(script).not.toContain("Join-Path $env:APPDATA 'nn-anime'")
-    // Y exige que la base haya nacido fuera de la carpeta de instalación.
-    expect(script).toContain("Join-Path $datos 'nn-anime.db'")
-    expect(script).toContain("Join-Path $destino 'nn-anime.db'")
-
-    // El servidor se extrae del binario; y la X oculta en la bandeja, no apaga.
-    expect(script).toContain('nn-anime\\bin')
-    expect(script).toContain('IsWindowVisible')
-    expect(script).toContain('la ventana quedó oculta')
-
-    // El `.exe` extrae 98 MB antes de lanzar el servidor: la prueba espera al
-    // servidor **y** a la ventana, no al primer handle de la bandeja. Y la
-    // visibilidad se mide sobre el handle de la aplicación, que se guarda antes
-    // de cerrarla: después, `MainWindowHandle` puede ser el de la bandeja.
-    expect(script).toContain('$servidores.Count -eq 1 -and $ventana')
-    expect(script).toContain('$handleVentana')
+    expect(release).not.toContain('probar-instalador.ps1')
+    expect(ci).not.toContain('probar-instalador.ps1')
+    expect(ci).not.toContain('desktop:installer')
+    expect(release).not.toContain('desktop:installer')
   })
 })

@@ -43,10 +43,10 @@ const SIDECAR_NAME: &str = "nn-anime";
 
 /// El servidor que viaja **al lado** del anfitrión.
 ///
-/// Es la forma de macOS y Linux, donde el anfitrión no lo lleva dentro: el `.app`,
-/// el `.deb`, el `.rpm` y el AppImage instalan los dos ejecutables juntos. Sin este
-/// camino, el anfitrión buscaría un servidor embebido que en esas plataformas está
-/// vacío y la ventana enseñaría el aviso de fallo.
+/// Es la forma de macOS y Linux, donde el anfitrión no lo lleva dentro: el `.app`
+/// y el AppImage entregan los dos ejecutables juntos. Sin este camino, el
+/// anfitrión buscaría un servidor embebido que en esas plataformas está vacío y la
+/// ventana enseñaría el aviso de fallo.
 pub fn sibling_path() -> Option<PathBuf> {
     let dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
 

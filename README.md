@@ -65,21 +65,19 @@ telemetría.**
 
 ## Instalación (para usuarios)
 
-**No hace falta instalar nada más**: ni Node, ni Bun, ni Python. El instalador trae dentro el
+**No hace falta instalar nada más**: ni Node, ni Bun, ni Python. Cada descarga trae dentro el
 programa entero —la interfaz, el servidor y la base de datos—, y todo está en
 [la página de Releases](https://github.com/zxuru/nn-anime/releases).
 
 | Sistema | Archivo |
 |---|---|
-| Windows x64, **un solo archivo** | `nn-anime-X.Y.Z-windows-x64.exe` |
-| Windows x64, instalador | `nn-anime_X.Y.Z_x64-setup.exe` |
-| macOS, chip de Apple | `nn-anime-X.Y.Z-macos-arm64.dmg` |
-| macOS, Intel | `nn-anime-X.Y.Z-macos-x64.dmg` |
-| Linux x64 | `nn-anime-X.Y.Z-linux-x64.AppImage`, `.deb` o `.rpm` |
+| Windows x64 | `nn-anime-X.Y.Z-windows-x64.exe` |
+| macOS, chip de Apple | `nn-anime-X.Y.Z-macos-arm64.zip` |
+| macOS, Intel | `nn-anime-X.Y.Z-macos-x64.zip` |
+| Linux x64 | `nn-anime-X.Y.Z-linux-x64.AppImage` |
 
-El `.exe` **sin** `setup` es el archivo único: se descarga, se ejecuta y ya está, sin instalar nada.
-El `setup` es el instalador clásico, con sus accesos y su desinstalador. Los dos abren la misma
-aplicación.
+Todas las entregas son portables: se descargan, se ejecutan y ya está. Ninguna instala nada, deja
+accesos ni escribe un desinstalador.
 
 ### Windows: un solo archivo
 
@@ -88,10 +86,10 @@ deja accesos: el mismo archivo lleva dentro la interfaz, el servidor y la base. 
 ventana, con la aplicación dentro y sin ninguna consola de por medio.
 
 Por defecto los datos —la base, los ajustes, los plugins y el perfil del webview— van a
-`%LOCALAPPDATA%\nn-anime-data`, **fuera** de la carpeta de instalación (`%LOCALAPPDATA%\nn-anime`), así
-que sobreviven a mover o borrar el `.exe`, a reinstalar y a actualizar. Si prefieres que viajen con
-él —una memoria USB, una carpeta portátil—, crea un archivo vacío llamado `portable.txt` **al lado**
-del ejecutable: entonces todo se guarda ahí (`bin`, `config`, `cache`, `webview` y la base).
+`%LOCALAPPDATA%\nn-anime-data`, **fuera** de la carpeta del `.exe`, así que sobreviven a moverlo,
+borrarlo o actualizarlo. Si prefieres que viajen con él —una memoria USB, una carpeta portátil—, crea
+un archivo vacío llamado `portable.txt` **al lado** del ejecutable: entonces todo se guarda ahí (`bin`,
+`config`, `cache`, `webview` y la base).
 
 Dos banderas, por si hacen falta:
 
@@ -99,18 +97,11 @@ Dos banderas, por si hacen falta:
   enseña en un diálogo.
 - `--navegador` abre la interfaz en el navegador del sistema en vez de en la ventana.
 
-### Windows: instalador
-
-Ejecuta el `…-setup.exe` y sigue el asistente. Se instala **sólo para tu usuario** —no pide permisos
-de administrador— en `%LOCALAPPDATA%\nn-anime`, y deja un acceso en el menú Inicio y otro en el
-escritorio. Instala **el mismo archivo único**: no hay un segundo `nn-anime.exe` de consola al lado.
-
 ### La ventana y la bandeja
 
-Al abrirlo desde el menú Inicio, desde el escritorio o como archivo único aparece **su ventana**, con
-la interfaz dentro: no hay ninguna consola de por medio. **La X la oculta en la bandeja**; «Salir»
-cierra la aplicación, apaga el servidor y no deja ningún proceso vivo. Mientras la ventana está
-oculta, el icono sigue ahí para volver a abrirla.
+Al abrir el ejecutable aparece **su ventana**, con la interfaz dentro: no hay ninguna consola de por
+medio. **La X la oculta en la bandeja**; «Salir» cierra la aplicación, apaga el servidor y no deja
+ningún proceso vivo. Mientras la ventana está oculta, el icono sigue ahí para volver a abrirla.
 
 Windows avisará de que el programa viene de un **desarrollador no verificado** mientras la release no
 esté firmada. En «Más información» del aviso está «Ejecutar de todas formas»: el aviso es de que nadie
@@ -121,23 +112,22 @@ comprobar que llegó entero.
 
 La aplicación comprueba si hay una versión nueva **una vez, al arrancar**, y también cuando
 pulsas **Buscar actualizaciones** en el icono de la bandeja (en Windows; macOS y Linux todavía no
-publican bundles del updater). Si hay una, la ventana de actualizaciones enseña el número de versión y
-las notas. No descarga ni instala nada hasta que pulsas **Actualizar ahora**. Al aceptar, **las dos
-formas de entrega** —la copia instalada y el archivo único portable, con o sin `portable.txt`—
-descargan el `.exe` nuevo, verifican su firma minisign y lo reemplazan **en sitio**: apartan el que
-está corriendo, ponen el nuevo, arrancan la versión nueva y borran el viejo. Si la release no trae ese
-`.exe` portable firmado, la copia instalada recurre al instalador NSIS. Si el medio es de sólo lectura
-o el reemplazo falla, se queda el aviso con el enlace a la release.
+publican un manifiesto del updater). Si hay una, la ventana de actualizaciones enseña el número de
+versión y las notas. No descarga nada hasta que pulsas **Actualizar ahora**. Al aceptar, descarga el
+`.exe` nuevo, verifica su firma minisign y lo reemplaza **en sitio**: aparta el que está corriendo,
+pone el nuevo, arranca la versión nueva y borra el viejo. Si la release no trae ese `.exe` firmado, se
+queda el aviso con el enlace a la release. Si el medio es de sólo lectura o el reemplazo falla, pasa
+lo mismo.
 
-Desinstalar desde «Agregar o quitar programas» **no borra tus datos**: la base, los ajustes y los
-plugins viven en `%LOCALAPPDATA%\nn-anime-data` —fuera de la carpeta de instalación— y se quedan donde
-están.
+Tus datos nunca viajan dentro del `.exe`: la base, los ajustes y los plugins viven en
+`%LOCALAPPDATA%\nn-anime-data` —o en la carpeta del ejecutable si hay un `portable.txt`—, así que
+mover, borrar o actualizar el archivo no los toca.
 
 ### macOS
 
-Abre el `.dmg` y arrastra **nn-anime** a la carpeta Aplicaciones. Hay un `.dmg` por arquitectura:
-`arm64` para los Mac con chip de Apple y `x64` para los Intel. Cuál es el tuyo se ve en el menú
-Apple → «Acerca de este Mac».
+Descomprime el `.zip` y mueve **nn-anime** a la carpeta que quieras —Aplicaciones o cualquier otra—.
+Hay un `.zip` por arquitectura: `arm64` para los Mac con chip de Apple y `x64` para los Intel. Cuál es
+el tuyo se ve en el menú Apple → «Acerca de este Mac».
 
 Mientras la release no esté firmada ni notarizada, macOS la frena la primera vez con «no se puede
 abrir porque proviene de un desarrollador no identificado». Para abrirla:
@@ -152,16 +142,12 @@ ventana y la bandeja funcionan como en Windows: **la X la oculta** y «Salir» l
 
 ### Linux
 
-- **AppImage**: descárgalo, dale permiso de ejecución y lánzalo.
-  `chmod +x nn-anime-X.Y.Z-linux-x64.AppImage && ./nn-anime-X.Y.Z-linux-x64.AppImage`. No instala
-  nada ni toca el sistema.
-- **`.deb`** (Debian, Ubuntu): `sudo apt install ./nn-anime-X.Y.Z-linux-x64.deb`. Deja `nn-anime` en
-  el PATH y un acceso en el menú de aplicaciones.
-- **`.rpm`** (Fedora, RHEL): `sudo dnf install ./nn-anime-X.Y.Z-linux-x64.rpm`.
+Descarga el **AppImage**, dale permiso de ejecución y lánzalo:
+`chmod +x nn-anime-X.Y.Z-linux-x64.AppImage && ./nn-anime-X.Y.Z-linux-x64.AppImage`. No instala nada
+ni toca el sistema.
 
-El acceso del menú abre **la ventana**, sin ninguna terminal de por medio, y la bandeja funciona como
-en Windows. El lanzador de consola sigue en el `PATH` (`nn-anime`) para quien lo quiera; el AppImage
-hace las dos cosas: sin argumentos abre la ventana y con ellos ejecuta la consola.
+Sin argumentos abre **la ventana**, sin ninguna terminal de por medio, y la bandeja funciona como en
+Windows. Con argumentos ejecuta la consola; el `AppImage` hace las dos cosas.
 
 ### Comprobar la descarga
 
@@ -273,12 +259,11 @@ completa, los límites y lo que falta (WebRTC P2P, coincidencia de contenido) es
 | `bun run db:prune` | Limpia lo viejo |
 | `bun run coverage:gate` | Cobertura por paquete, con su umbral |
 | `bun run captura` | Vuelve a hacer la captura de este README |
-| `bun run package` | Compila el ejecutable de esta plataforma; en macOS y Linux arma además su instalador (en Windows el instalador es `desktop:installer`) |
-| `bun run package:unico` | Deja el archivo único de Windows en `release/`; el anfitrión tiene que ser más nuevo que el servidor |
+| `bun run package` | Compila el ejecutable de esta plataforma; en macOS y Linux arma además su artefacto portable (`.zip` o AppImage). En Windows el portable es `package:unico` |
+| `bun run package:unico` | Deja el `.exe` portable de Windows en `release/`; el anfitrión tiene que ser más nuevo que el servidor |
 | `bun run package:smoke` | Arranca un ejecutable ya compilado y le pregunta si sirve la interfaz |
 | `bun run desktop:build` | Compila el anfitrión de ventana (y antes su ventana de actualizaciones); `--target=darwin-x64` lo compila cruzado |
 | `bun run desktop:ui` | Compila `desktop/ui/actualizacion.ts` al JavaScript que viaja dentro del binario |
-| `bun run desktop:installer` | Arma el instalador NSIS de Windows con `tauri-bundler`; `--updater` añade `.sig` y `latest.json` |
 | `bun run desktop:check` | El listón del árbol de Rust: formato, `clippy` y sus pruebas |
 | `bun run version:check` | Comprueba que los diez `package.json` dicen la misma versión |
 | `bun run version:set` | Sube la versión en los diez `package.json` de una vez |
@@ -286,15 +271,15 @@ completa, los límites y lo que falta (WebRTC P2P, coincidencia de contenido) es
 
 **Qué produce `bun run build`:** la interfaz. El servidor y el CLI **se ejecutan desde el código
 fuente con Bun** para desarrollar, y `bun run package` es lo que los convierte en un programa
-instalable: un ejecutable por plataforma que lleva dentro el runtime, la interfaz y las migraciones,
-envuelto en un instalador. Para desarrollar hace falta Bun en la máquina —y por eso está declarado en
-`engines`—; para **usar** la aplicación instalada, no hace falta nada.
+portable: un ejecutable por plataforma que lleva dentro el runtime, la interfaz y las migraciones.
+Para desarrollar hace falta Bun en la máquina —y por eso está declarado en `engines`—; para **usar**
+la aplicación descargada, no hace falta nada.
 
 ## Dónde vive cada cosa
 
 | Qué | Linux y macOS | Windows |
 |---|---|---|
-| Datos y base de datos | `~/.local/share/nn-anime/` | `%LOCALAPPDATA%\nn-anime\` (CLI) · `%LOCALAPPDATA%\nn-anime-data\` (ventana instalada) |
+| Datos y base de datos | `~/.local/share/nn-anime/` | `%LOCALAPPDATA%\nn-anime\` (CLI) · `%LOCALAPPDATA%\nn-anime-data\` (ventana) |
 | Copias de seguridad | `~/.local/share/nn-anime/backups/` | `%LOCALAPPDATA%\nn-anime\backups\` · `%LOCALAPPDATA%\nn-anime-data\backups\` |
 | Configuración | `~/.config/nn-anime/` | `%APPDATA%\nn-anime\` |
 | Tus plugins | `~/.config/nn-anime/providers/` | `%APPDATA%\nn-anime\providers\` |
@@ -303,8 +288,8 @@ envuelto en un instalador. Para desarrollar hace falta Bun en la máquina —y p
 | Descargas (por defecto) | `~/.local/share/nn-anime/downloads/` | `%LOCALAPPDATA%\nn-anime\downloads\` |
 
 La tabla es la del **CLI** (`bun run start`). La **ventana** fija los tres directorios bajo una sola
-raíz: `%LOCALAPPDATA%\nn-anime-data` en Windows —hermana de la carpeta de instalación, para que el
-instalador y la actualización no compartan sitio con la base— y `~/.local/share/nn-anime` —o
+raíz: `%LOCALAPPDATA%\nn-anime-data` en Windows —hermana de la carpeta que usaban las versiones
+instaladas, para que la actualización no comparta sitio con la base— y `~/.local/share/nn-anime` —o
 `XDG_DATA_HOME`— en macOS y Linux, con `config`, `cache`, `bin` (el servidor), `webview` y `backups`
 dentro. Las instalaciones anteriores de Windows guardaban los datos dentro de `%LOCALAPPDATA%\nn-anime`
 y se trasladan una sola vez al arrancar. En modo portable (`portable.txt`) esa raíz es la carpeta del
@@ -366,7 +351,7 @@ dependencia que se declara en algún `package.json` del repositorio, no una inte
 | Recomendación | Motor propio en `recsys` —afinidad, covisitas y MMR— que devuelve el motivo junto a cada sugerencia |
 | Escritorio | **Tauri 2** con **Rust**, en `desktop/`: lanza el lanzador como proceso hermano, abre la ventana en su dirección y lo cierra al salir |
 | Calidad | `tsc --noEmit`, **Biome 2** para estilo y formato, **`bun test`** sin red y **Playwright** para el e2e, con umbral de cobertura por paquete |
-| Publicación | **release-please** sobre Conventional Commits y **GitHub Actions**; instaladores con NSIS (`tauri-bundler`), `.dmg`, AppImage, `.deb` y `.rpm`; firma minisign y `SHA256SUMS.txt` |
+| Publicación | **release-please** sobre Conventional Commits y **GitHub Actions**; artefactos portables —`.exe` único, `.zip` del `.app` y AppImage—; firma minisign y `SHA256SUMS.txt` |
 
 Los paquetes de `packages/`, y para qué existe cada uno:
 
@@ -393,7 +378,7 @@ listón en `bun run desktop:check`, que corre el CI, y su contrato está en
 
 La versión vive **en un solo sitio**: `package.json` de la raíz. Los otros nueve manifiestos la
 copian, y `bun run version:check` falla si alguno se desvió —lo que impide publicar un binario que
-dice una versión y unos instaladores que dicen otra—.
+dice una versión y unos artefactos que dicen otra—.
 
 1. **Deja que el PR de release se abra solo.** `release-please` lee los Conventional Commits
    (`feat:`, `fix:`…) que ya se escriben en `main`, y mantiene un PR con el `CHANGELOG.md` escrito y
@@ -401,8 +386,8 @@ dice una versión y unos instaladores que dicen otra—.
 2. **Fusiona ese PR.** Al fusionarlo, `release-please` crea el tag `vX.Y.Z` y deja la release **en
    borrador**, con el changelog como cuerpo.
 3. **El resto lo hace el workflow.** El tag dispara `.github/workflows/release.yml`, que pasa el
-   listón (tipos, estilo, auditoría y pruebas), compila **el archivo único de Windows** y los
-   instaladores de Windows, macOS y Linux, calcula el `SHA256SUMS.txt`, sube todo al borrador y **lo
+   listón (tipos, estilo, auditoría y pruebas), compila **el `.exe` único de Windows**, los dos `.zip`
+   de macOS y el AppImage de Linux, calcula el `SHA256SUMS.txt`, sube todo al borrador y **lo
    publica**. Es el único workflow que publica.
 
 No hay que tocar nada a mano, **salvo la primera vez**: no hay ningún tag del que partir, así que
@@ -413,12 +398,12 @@ el resumen del workflow, sin gastar un número de versión. Si hay que subir la 
 `hotfix` sin commits que lo justifiquen—: `bun run version:set 0.2.1`, commit, y el tag `v0.2.1` a
 mano.
 
-**Compila GitHub, no tu máquina.** Cada push compila el ejecutable, el archivo único y el instalador
-en las tres plataformas y los deja descargables en «Artifacts», para que no haga falta tener NSIS,
-`nfpm` ni un Mac a mano. El detalle —secretos de firma, el ajuste que necesita `release-please` y qué
-queda por probar— está en [la guía de publicación](docs/release.md). Sin ningún secreto, las releases
-salen **sin firmar** y se instalan igual, con las advertencias del sistema que cuenta la sección de
-instalación.
+**Compila GitHub, no tu máquina.** Cada push compila el ejecutable y sus artefactos portables en las
+tres plataformas y los deja descargables en «Artifacts», para que no haga falta un Mac ni ninguna
+herramienta de empaquetado a mano. El detalle —secretos de firma, el ajuste que necesita
+`release-please` y qué queda por probar— está en [la guía de publicación](docs/release.md). Sin
+ningún secreto, las releases salen **sin firmar** y se ejecutan igual, con las advertencias del
+sistema que cuenta la sección de instalación.
 
 ## Documentación
 

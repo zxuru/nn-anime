@@ -16,6 +16,11 @@ El plan de ejecución y los cierres de cada tarea están en `tasks/desktop.md`.
 >    ya no aplica: el que cierra el servidor ahora es el anfitrión, y el servidor de consola sigue
 >    instalado al lado para quien lo quiera.
 
+> **Nota posterior (T251).** Este estudio describe el empaquetado de su fecha. Desde T251 no hay
+> instaladores: sólo se publican el `.exe` único de Windows, el `.zip` del `.app` de macOS y el
+> AppImage de Linux. Las menciones a NSIS, `.dmg`, `.deb`, `.rpm`, `nfpm` y `desktop:installer` son
+> históricas.
+
 > **Corrección de la primera versión de este estudio.** La primera versión proponía hacer el
 > empaquetado desde cero: una bandera `--web-root`, un ejecutable autocontenido y unos instaladores.
 > **Ya está hecho**, en la rama `ci/instalables-y-releases` (también en `origin`), **fusionada en

@@ -39,11 +39,10 @@ export const EMBEDDED_DIRECTORIES: readonly string[] = [
  * fallo que era **de este repositorio y no de Bun**: el generador del `.ico`
  * escribía el tamaño y la posición de cada entrada en big-endian, y el formato
  * `.ico` los quiere en little-endian. Con los números del revés, el inyector de
- * recursos de Bun escribía un ejecutable de **2,66 GB** que Windows rechazaba, y
- * `makensis` abortaba con «invalid icon file size».
+ * recursos de Bun escribía un ejecutable de **2,66 GB** que Windows rechazaba.
  *
- * Los dos síntomas se fueron al arreglar la endianness en `scripts/icon.ts`, y
- * hay una prueba que lee el directorio del `.ico` para que no vuelva.
+ * El síntoma se fue al arreglar la endianness en `scripts/icon.ts`, y hay una
+ * prueba que lee el directorio del `.ico` para que no vuelva.
  */
 export const WINDOWS_ICON = join(ROOT, 'packaging', 'icons', 'icon.ico')
 
@@ -53,9 +52,9 @@ export interface BinarySpec {
   /**
    * Cómo se llama la plataforma en el nombre del artefacto.
    *
-   * Es una unión y no una cadena para que el `switch` que arma el instalador sea
-   * exhaustivo: con una cadena, añadir una plataforma y olvidar su instalador
-   * compila igual y publica un ejecutable sin nada que lo instale.
+   * Es una unión y no una cadena para que el `switch` que arma el artefacto sea
+   * exhaustivo: con una cadena, añadir una plataforma y olvidar su formato
+   * compila igual y publica un ejecutable sin nada que lo entregue.
    */
   readonly platform: 'windows' | 'macos' | 'linux'
   readonly arch: string
@@ -68,8 +67,8 @@ export interface BinarySpec {
  *
  * Windows sólo x64 y Linux sólo x64 por ahora: son los objetivos que alguien ha
  * pedido. `bun-linux-arm64` y `bun-windows-arm64` existen y añadirlos es una
- * línea aquí más un `.deb` y un AppImage más, pero cada uno es una release que
- * hay que poder probar, y publicar algo que nadie instala es deuda.
+ * línea aquí más un AppImage y un `.exe` más, pero cada uno es una release que
+ * hay que poder probar, y publicar algo que nadie usa es deuda.
  */
 export const TARGETS: Readonly<Record<string, BinarySpec>> = {
   'windows-x64': { target: 'bun-windows-x64', platform: 'windows', arch: 'x64', extension: '.exe' },

@@ -1,40 +1,42 @@
 #!/usr/bin/env bun
 /**
- * Empaqueta nn-anime.
+ * Empaqueta nn-anime para entrega **portable**.
  *
- * Un ejecutable autocontenido por plataforma y su instalador. Lo que salga de
- * aquí es lo que se sube a la release, y por eso los tres pasos que importan no
- * se pueden saltar sin decirlo:
+ * Un ejecutable autocontenido por plataforma y, cuando la plataforma lo permite,
+ * su artefacto portable: el AppImage en Linux y el `.app` comprimido en macOS.
+ * El de Windows no se arma aquí: es el archivo único que produce
+ * `bun run package:unico` después de compilar el anfitrión. Lo que salga de aquí
+ * es lo que se sube a la release, y por eso los tres pasos que importan no se
+ * pueden saltar sin decirlo:
  *
  * 1. **El build de la interfaz tiene que existir.** Sin él, el ejecutable sale
- *    igual y sale sin interfaz: arranca, contesta 404 en `/` y quien lo instaló
+ *    igual y sale sin interfaz: arranca, contesta 404 en `/` y quien lo ejecuta
  *    cree que la aplicación está rota. Se comprueba antes de compilar.
  * 2. **El ejecutable se prueba de verdad** (`smoke.ts`) cuando es el de esta
  *    plataforma. Un binario de otra no se puede ejecutar aquí, y entonces se dice
  *    en lugar de fingir que se probó.
- * 3. **El instalador se arma con la herramienta de su sistema**, y si falta, el
- *    error dice cuál es y cómo se instala.
+ * 3. **El artefacto portable necesita al anfitrión al lado**, y si falta se
+ *    dice cuál es el comando que lo compila.
  *
  * Uso:
  *   bun run package                       # la plataforma en la que corre
  *   bun run package --target=darwin-arm64  # sólo el binario, para otra
  *   bun run package --skip-smoke           # sin probar el ejecutable
- *   bun run package --skip-installer       # sólo el ejecutable
- *   bun run package --only-installer       # el instalador, con el ejecutable ya hecho
- *   bun run package --skip-desktop         # sin la ventana (el acceso abre consola)
+ *   bun run package --solo-ejecutable      # sólo el servidor, sin artefacto
+ *   bun run package --solo-artefacto       # el artefacto, con el ejecutable ya hecho
  */
 
 import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { type BinarySpec, buildBinary, missingAssets, TARGETS } from './package/binary'
 import { hostBinary, stageDesktop } from './package/desktop'
-import { linuxAppImage, linuxPackages } from './package/linux'
-import { macDmg } from './package/macos'
+import { linuxAppImage } from './package/linux'
+import { macZip } from './package/macos'
 import { smoke } from './package/smoke'
 import { comprobarOrden } from './package/unico'
 import { isRecord, ROOT } from './workspaces'
 
-/** El ejecutable compilado, y el instalador, viven aquí. Lo ignorado es `build/`. */
+/** El ejecutable compilado, y el artefacto, viven aquí. Lo ignorado es `build/`. */
 export const BUILD_DIR = join(ROOT, 'build', 'package')
 export const RELEASE_DIR = join(ROOT, 'release')
 
@@ -42,24 +44,17 @@ export interface PackageOptions {
   /** Clave de `TARGETS`. Por defecto, la plataforma en la que corre. */
   readonly target?: string
   readonly skipSmoke?: boolean
-  readonly skipInstaller?: boolean
+  /** Detiene el empaquetado después del ejecutable del servidor. */
+  readonly soloEjecutable?: boolean
   /**
-   * Arma el instalador con el ejecutable que ya está compilado.
+   * Arma el artefacto portable con el ejecutable y el anfitrión ya compilados.
    *
    * Existe por la firma de Windows: el `.exe` tiene que estar firmado **antes**
-   * de que NSIS lo meta dentro del instalador, y entre esos dos pasos el
-   * workflow firma. Sin esto habría que recompilar el binario para nada.
+   * de que se empaquete, y entre esos dos pasos el workflow firma. Sin esto
+   * habría que recompilar el binario para nada. En macOS y Linux también evita
+   * recompilar lo que ya se probó.
    */
-  readonly onlyInstaller?: boolean
-  /**
-   * No prepara el anfitrión de ventana junto al servidor.
-   *
-   * Existe para poder compilar un instalador sin el árbol de Rust —que necesita
-   * red y un compilador de Rust—, y **no** es el camino de la release: sin
-   * anfitrión, el acceso del escritorio abre una consola, que es justo lo que este
-   * trabajo viene a quitar. Se dice en voz alta al usarlo.
-   */
-  readonly skipDesktop?: boolean
+  readonly soloArtefacto?: boolean
 }
 
 /**
@@ -72,10 +67,10 @@ export interface PackageOptions {
  *
  * Se separa de `hostTarget` porque son dos preguntas distintas: **ejecutar** un
  * binario necesita la misma máquina exacta —un `arm64` no corre en un `x64`—,
- * pero **armar** el instalador sólo necesita el mismo sistema. Un `macos-latest`
- * es arm64 y desde ahí se arman los dos `.dmg`, el de Apple Silicon y el de
- * Intel: son dos compilaciones cruzadas y un `hdiutil`, y separarlos en dos
- * runners sería pagar dos máquinas por lo que hace una.
+ * pero **armar** un artefacto portable sólo necesita el mismo sistema. Un
+ * `macos-latest` es arm64 y desde ahí se arman los dos `.zip`, el de Apple
+ * Silicon y el de Intel: son dos compilaciones cruzadas y un `ditto`, y separarlos
+ * en dos runners sería pagar dos máquinas por lo que hace una.
  */
 export function hostPlatform(
   platform: string = process.platform,
@@ -84,8 +79,8 @@ export function hostPlatform(
   if (platform === 'darwin') return 'macos'
   if (platform === 'linux') return 'linux'
 
-  // Un sistema sin instalador no devuelve el nombre de otro: devolver `linux`
-  // por descarte haría que un FreeBSD intentara armar un `.deb`.
+  // Un sistema sin artefacto portable no devuelve el nombre de otro: devolver
+  // `linux` por descarte haría que un FreeBSD intentara armar un AppImage.
   return undefined
 }
 
@@ -141,20 +136,21 @@ export async function checkAssets(): Promise<void> {
 }
 
 /**
- * El nombre del `.dmg` de macOS.
+ * El nombre del artefacto portable que se descarga.
  *
- * El de Windows lo pone `tauri-bundler` (`nn-anime_<versión>_x64-setup.exe`) y no
- * se puede componer aquí: desde T189 el instalador de Windows es de Tauri. Pedirlo
- * para Windows es un error, no un nombre.
+ * Windows es el archivo único (`.exe`), macOS un `.zip` con el `.app` y Linux el
+ * AppImage. No se compone aquí el de Windows: `package:unico` lo copia del
+ * anfitrión, y pedirlo desde este módulo sería un nombre que no produce.
  */
-export function installerName(version: string, spec: BinarySpec): string {
-  if (spec.platform === 'windows') {
-    throw new Error(
-      'el instalador de Windows lo arma tauri-bundler: usa `bun run desktop:installer`',
-    )
+export function portableName(version: string, spec: BinarySpec): string {
+  switch (spec.platform) {
+    case 'windows':
+      return `nn-anime-${version}-windows-${spec.arch}.exe`
+    case 'macos':
+      return `nn-anime-${version}-macos-${spec.arch}.zip`
+    case 'linux':
+      return `nn-anime-${version}-linux-${spec.arch}.AppImage`
   }
-
-  return `nn-anime-${version}-${spec.platform}-${spec.arch}.dmg`
 }
 
 /**
@@ -162,9 +158,9 @@ export function installerName(version: string, spec: BinarySpec): string {
  *
  * `gh release upload release/*` no sabe subir un directorio. El `.app` de macOS se
  * armaba justo ahí, así que la release habría fallado **al final**, con los
- * instaladores de las tres plataformas ya compilados y el gasto hecho. El `.app`
- * se arma ahora en el directorio de trabajo —sólo viaja dentro del `.dmg`— y esto
- * es la red que lo sujetaría si alguien volviera a dejarlo caer.
+ * artefactos de las tres plataformas ya compilados y el gasto hecho. El `.app` se
+ * arma ahora en el directorio de trabajo —sólo viaja dentro del `.zip`— y esto es
+ * la red que lo sujetaría si alguien volviera a dejarlo caer.
  */
 export async function assertReleaseFiles(directory: string): Promise<readonly string[]> {
   const nombres: string[] = []
@@ -210,7 +206,7 @@ export async function packageApp(options: PackageOptions = {}): Promise<Packaged
   const binary = join(stage, `nn-anime${spec.extension}`)
   let smoked = false
 
-  if (options.onlyInstaller === true) {
+  if (options.soloArtefacto === true) {
     if (!(await Bun.file(binary).exists())) {
       throw new Error(`no hay ejecutable que empaquetar en ${binary}: compílalo antes`)
     }
@@ -239,18 +235,14 @@ export async function packageApp(options: PackageOptions = {}): Promise<Packaged
     }
   }
 
-  // El instalador de Windows ya instala **sólo** el anfitrión, y el anfitrión lleva
-  // el servidor dentro: si se compiló antes que el servidor, el `.exe` que se
-  // entregaría arranca sin interfaz. Se comprueba aquí, donde se puede decir qué
-  // comando falta, en vez de descubrirlo al ejecutar el instalador.
-  //
-  // `--only-installer` no pasa por aquí a propósito: su anfitrión ya se firmó en el
-  // orden bueno y `comprobarOrden` sólo repetiría una comprobación que ya se hizo.
+  // El archivo único de Windows lleva el servidor **embebido**, así que el
+  // anfitrión tiene que haberse compilado después del servidor. Se comprueba aquí,
+  // donde se puede decir qué comando falta, en vez de descubrirlo al ejecutar el
+  // `.exe` que se descargó.
   if (
     spec.platform === 'windows' &&
-    options.onlyInstaller !== true &&
-    options.skipInstaller !== true &&
-    options.skipDesktop !== true
+    options.soloArtefacto !== true &&
+    options.soloEjecutable !== true
   ) {
     const anfitrion = hostBinary('windows', spec.arch)
 
@@ -260,42 +252,50 @@ export async function packageApp(options: PackageOptions = {}): Promise<Packaged
   }
 
   const artifacts: string[] = []
-  const puedeArmarElInstalador = spec.platform === hostPlatform()
 
-  if (options.skipInstaller !== true) {
-    if (!puedeArmarElInstalador) {
-      process.stdout.write(
-        `el instalador de ${spec.platform} no se puede armar desde ${process.platform}: sólo el ejecutable\n`,
-      )
-    } else {
-      process.stdout.write('armando el instalador…\n')
-
-      // El anfitrión va **al lado** del servidor, en el mismo directorio: es lo
-      // que hace que el acceso del escritorio abra una ventana y no una consola.
-      // Si falta, se para: un instalador que abre una consola es exactamente lo
-      // que este trabajo existe para no publicar.
-      if (options.skipDesktop === true) {
-        process.stdout.write(
-          '  aviso: --skip-desktop, el instalador NO llevará la ventana y el acceso abrirá una consola\n',
-        )
-      } else {
-        const anfitrion = await stageDesktop(dirname(binary), spec.platform, spec.arch)
-        process.stdout.write(`  anfitrión:  ${anfitrion}\n`)
-      }
-
-      artifacts.push(...(await buildInstaller({ spec, version, binary, stage })))
-
-      // Antes de dar el trabajo por bueno: lo que hay en `release/` tiene que poder
-      // subirse tal cual.
-      const enLaRelease = await assertReleaseFiles(RELEASE_DIR)
-      process.stdout.write(`release/: ${enLaRelease.join(', ')}\n`)
-    }
+  if (options.soloEjecutable === true) {
+    return { target, binary, artifacts, smoked }
   }
+
+  if (spec.platform === 'windows') {
+    if (options.soloArtefacto === true) {
+      throw new Error(
+        'el archivo único de Windows lo arma `bun run package:unico` después de `bun run desktop:build`',
+      )
+    }
+
+    process.stdout.write(
+      'el archivo único de Windows lo arma `bun run package:unico` después de `bun run desktop:build`\n',
+    )
+
+    return { target, binary, artifacts, smoked }
+  }
+
+  if (spec.platform !== hostPlatform()) {
+    process.stdout.write(
+      `el artefacto portable de ${spec.platform} no se puede armar desde ${process.platform}: sólo el ejecutable\n`,
+    )
+
+    return { target, binary, artifacts, smoked }
+  }
+
+  // El anfitrión va **al lado** del servidor, en el mismo directorio: es lo que
+  // hace que el `.app` y el AppImage abran una ventana y no una consola. Si falta,
+  // `stageDesktop` lo dice con el comando que lo compila.
+  const anfitrion = await stageDesktop(dirname(binary), spec.platform, spec.arch)
+  process.stdout.write(`  anfitrión:  ${anfitrion}\n`)
+
+  artifacts.push(...(await buildPortable({ spec, version, binary, stage })))
+
+  // Antes de dar el trabajo por bueno: lo que hay en `release/` tiene que poder
+  // subirse tal cual.
+  const enLaRelease = await assertReleaseFiles(RELEASE_DIR)
+  process.stdout.write(`release/: ${enLaRelease.join(', ')}\n`)
 
   return { target, binary, artifacts, smoked }
 }
 
-interface InstallerBuild {
+interface PortableBuild {
   readonly spec: BinarySpec
   readonly version: string
   readonly binary: string
@@ -304,65 +304,51 @@ interface InstallerBuild {
 }
 
 /**
- * El instalador de esta plataforma.
+ * El artefacto portable de esta plataforma.
  *
- * Devuelve **una lista** porque Linux produce tres —AppImage, `.deb` y `.rpm`— y
- * el resto uno. Devolver una cadena con saltos de línea para que cupieran todos
- * habría dejado el caso de Linux como el raro y el de Windows como el normal, que
- * es justo al revés de lo que pasa.
+ * Devuelve **una lista** porque un día puede haber más de uno —un `.app` y su
+ * `.zip`, por ejemplo— y quien lo llama no tiene por qué saberlo. Windows queda
+ * fuera a propósito: su archivo único se arma con el anfitrión, no aquí.
  */
-async function buildInstaller(build: InstallerBuild): Promise<readonly string[]> {
+async function buildPortable(build: PortableBuild): Promise<readonly string[]> {
   const { spec, version, binary, stage } = build
 
   switch (spec.platform) {
     case 'windows':
-      // El instalador de Windows ya no se arma aquí: lo hace `tauri-bundler`, que
-      // es el único que sabe generar el `.sig` y el `latest.json` que el updater
-      // necesita. Se dice el comando en vez de devolver una lista vacía, que
-      // parecería un empaquetado correcto sin instalador.
       throw new Error(
-        'el instalador de Windows lo arma `bun run desktop:installer` (tauri-bundler); ' +
-          'usa `bun run package --skip-installer` para el servidor',
+        'el archivo único de Windows lo arma `bun run package:unico` (con `desktop:build` hecho)',
       )
 
     case 'macos':
       return [
         (
-          await macDmg({
+          await macZip({
             version,
             binary,
             releaseDir: RELEASE_DIR,
             workDir: stage,
-            dmgName: installerName(version, spec),
+            zipName: portableName(version, spec),
           })
-        ).dmg,
+        ).zip,
       ]
 
     case 'linux': {
-      // Las herramientas las descarga el workflow con su SHA256 comprobado. Sin
-      // ellas no hay paquete, y el error dice de cuál se trata.
-      const nfpm = process.env.NFPM_PATH
+      // La herramienta la descarga el workflow con su SHA256 comprobado. Sin ella
+      // no hay AppImage, y el error dice de cuál se trata.
       const appimagetool = process.env.APPIMAGETOOL_PATH
 
-      if (nfpm === undefined || nfpm === '') {
-        throw new Error('falta NFPM_PATH: el workflow lo descarga y lo comprueba con su SHA256')
-      }
       if (appimagetool === undefined || appimagetool === '') {
         throw new Error(
           'falta APPIMAGETOOL_PATH: el workflow lo descarga y lo comprueba con su SHA256',
         )
       }
 
-      const paquetes = await linuxPackages(
-        { version, binary, releaseDir: RELEASE_DIR, workDir: stage, arch: spec.arch },
-        nfpm,
-      )
-      const appimage = await linuxAppImage(
-        { version, binary, releaseDir: RELEASE_DIR, workDir: stage, arch: spec.arch },
-        appimagetool,
-      )
-
-      return [...paquetes, appimage]
+      return [
+        await linuxAppImage(
+          { version, binary, releaseDir: RELEASE_DIR, workDir: stage, arch: spec.arch },
+          appimagetool,
+        ),
+      ]
     }
   }
 }
@@ -376,9 +362,8 @@ if (import.meta.main) {
     const resultado = await packageApp({
       ...(flag('target') === undefined ? {} : { target: flag('target') }),
       skipSmoke: argv.includes('--skip-smoke'),
-      skipInstaller: argv.includes('--skip-installer'),
-      onlyInstaller: argv.includes('--only-installer'),
-      skipDesktop: argv.includes('--skip-desktop'),
+      soloEjecutable: argv.includes('--solo-ejecutable'),
+      soloArtefacto: argv.includes('--solo-artefacto'),
     })
 
     process.stdout.write(`\nobjetivo ${resultado.target}\n`)

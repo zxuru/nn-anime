@@ -60,8 +60,8 @@ Lo que hay hoy:
   [`docs/watch-party.md`](watch-party.md) y la sección 4.
 - **Manga no está.** No hay spec, ni contrato de plugin, ni lector. `mediaType: 'manga'` está
   reservado en el modelo, pero no hay nada detrás.
-- Distribución: Windows (exe único e instalador), macOS, Linux; ventana de escritorio con Tauri
-  (`desktop/`).
+- Distribución portable: `.exe` único en Windows, `.zip` del `.app` en macOS y AppImage en Linux;
+  ventana de escritorio con Tauri (`desktop/`).
 - Arquitectura: monorepo Bun + TypeScript, React, Hono, `bun:sqlite`. Paquetes: `core`,
   `provider-sdk`, `providers-fixture`, `catalog-store`, `media-proxy`, `recsys`, `server`, `web`,
   `cli`.
@@ -248,8 +248,8 @@ URLs de streams.
   de plugin versionado con notas de migración para quien escribe plugins.
 - **Accesibilidad:** `docs/a11y.md` al día con lector y reproductor.
 - **Idiomas:** cualquier texto nuevo pasa por el mecanismo de idioma existente (`NN_ANIME_LANG`).
-- **Empaquetado:** comprobar que el ejecutable único de Windows, los instaladores y el anfitrión
-  Tauri siguen compilando tras cada fase.
+- **Empaquetado:** comprobar que el ejecutable único de Windows, los artefactos portables y el
+  anfitrión Tauri siguen compilando tras cada fase.
 
 ## 6. Decisiones (las abiertas no las decide el agente: pregunta)
 

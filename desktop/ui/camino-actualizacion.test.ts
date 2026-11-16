@@ -1,32 +1,29 @@
 import { describe, expect, test } from 'bun:test'
-import { camino, entradaPortable } from './camino-actualizacion'
+import { entradaPortable } from './camino-actualizacion'
 
 const portable = {
   platforms: {
-    'windows-x86_64': { url: 'https://x/instalador', signature: 'firma-nsis' },
+    'windows-x86_64': { url: 'https://x/portable', signature: 'firma-portable' },
     'windows-x86_64-portable': { url: 'https://x/portable', signature: 'firma-portable' },
   },
 }
 
-const soloNsis = {
+const sinPortable = {
   platforms: {
-    'windows-x86_64': { url: 'https://x/instalador', signature: 'firma-nsis' },
+    'windows-x86_64': { url: 'https://x/otro', signature: 'firma-otra' },
   },
 }
 
-describe('el camino de la actualización', () => {
-  test('las dos formas de entrega se auto-reemplazan', () => {
-    // Si alguien volviera a mandar la copia instalada al NSIS, esta prueba falla.
-    expect(camino(true, portable)).toBe('portable')
-    expect(camino(false, portable)).toBe('portable')
+describe('la entrada portable de la actualización', () => {
+  test('se lee la URL y la firma del ejecutable portable', () => {
+    expect(entradaPortable(portable)).toEqual({
+      url: 'https://x/portable',
+      signature: 'firma-portable',
+    })
   })
 
-  test('la copia instalada cae al NSIS si la release no trae el portable', () => {
-    expect(camino(true, soloNsis)).toBe('nsis')
-  })
-
-  test('la copia portable no inventa un instalador que no puede ejecutar', () => {
-    expect(camino(false, soloNsis)).toBe('ninguno')
+  test('una release sin la entrada portable no inventa una descarga', () => {
+    expect(entradaPortable(sinPortable)).toBeNull()
   })
 
   test('una entrada portable a medias no cuenta como entrada', () => {
