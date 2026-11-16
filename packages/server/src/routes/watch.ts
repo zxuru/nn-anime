@@ -96,7 +96,7 @@ export function unaPorEpisodio(filas: readonly WatchRecord[]): readonly Continue
   return [...porEpisodio.values()]
 }
 
-/** Cuántas filas trae una página del historial. */
+/** Cuántas tarjetas trae una página del historial: una por episodio. */
 export const HISTORY_PAGE_SIZE = 50
 
 /**
@@ -188,8 +188,10 @@ export function registerWatchRoutes(app: Hono, options: WatchRouteOptions): void
    *
    * Va en la misma ruta base que «continuar viendo» y no en `/api/watch/:id`
    * porque comparte el recurso: son dos lecturas de `watch_event` y la dirección lo
-   * dice. Lo que **no** comparte es el recorte —aquí nada se descarta y nada se
-   * agrupa— ni la lectura del almacén, que es otra a propósito.
+   * dice. Lo que **no** comparte es el recorte —aquí nada se descarta— ni el
+   * agrupado: un episodio es una tarjeta, la de su reproducción más reciente, para
+   * que volver a abrirlo no llene la rejilla de duplicados; «continuar viendo» se
+   * queda además con la que más avanzó.
    *
    * La página se valida con el mismo analizador que la lista de episodios: una
    * página inventada es un 400 con el motivo, y una convención de páginas distinta
