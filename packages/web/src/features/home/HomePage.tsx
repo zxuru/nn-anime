@@ -360,10 +360,10 @@ export function HomePage(props: HomePageProps): ReactNode {
       <ContinueRow items={continuar} cargando={cargandoFilas} />
 
       {/*
-        El motor va segundo y con su tramo entero: la puntuación y el motivo viajan
-        en cada pieza, así que la razón de una recomendación se lee sin abrir el
-        detalle. La franja que explicaba el motor se retiró: ocupaba el ancho del
-        tramo para decir lo que ya dice la nota y la pieza.
+        El motor va segundo y con su tramo entero: el motivo viaja en cada pieza,
+        así que la razón de una recomendación se lee sin abrir el detalle. La
+        puntuación no se enseña y la franja que explicaba el motor se retiró:
+        ocupaba el ancho del tramo para decir lo que ya dice la nota y la pieza.
       */}
       <RecommendedRow
         items={items}
