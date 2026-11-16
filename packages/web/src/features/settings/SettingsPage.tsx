@@ -6,6 +6,12 @@
  * esta página, un plugin roto es un misterio y una ruta de datos es un dato que
  * nadie encuentra.
  *
+ * La página está partida en seis secciones y un índice las recorre. Antes era una
+ * lista plana: para llegar al tema había que pasar por proveedores, repositorios,
+ * alta, TMDB, rutas, mpv y saltos. Las secciones y sus nombres viven en
+ * `secciones.ts`; el índice y los `id` salen de la misma lista, así que un enlace
+ * no puede quedar apuntando a una sección que ya no existe.
+ *
  * El aviso de seguridad no es decorativo y va **en la página**, no sólo en el
  * documento: un plugin se ejecuta sin sandbox con los permisos del usuario, y eso
  * hay que decirlo donde se instalan plugins, no a un clic de distancia. El
@@ -23,11 +29,13 @@ import { ANCLAS } from '../guia/guia'
 import { SeccionGuia } from '../guia/SeccionGuia'
 import { guardarExtendido, leerExtendido } from '../player/extendido'
 import { almacenLocal } from '../player/storage'
+import { IndiceAjustes, useSeccionActiva } from './IndiceAjustes'
 import { ProviderList } from './ProviderList'
 import { ProviderRepos } from './ProviderRepos'
 import { RegisterProvider } from './RegisterProvider'
 import { SecurityNoticeDialog } from './SecurityNotice'
 import { SkipSettings } from './SkipSettings'
+import { SECCIONES } from './secciones'
 import { ThemeToggle } from './ThemeToggle'
 import { TmdbSettings } from './TmdbSettings'
 import { useProviderRepos } from './useProviderRepos'
@@ -50,6 +58,9 @@ export function SettingsPage(): ReactNode {
   const repos = useProviderRepos(refresh)
   const [noticeOpen, setNoticeOpen] = useState(false)
   const notice = useSecurityNotice(noticeOpen)
+  // La sección que se está leyendo. Sin observador se queda sin marcar; el índice
+  // sigue navegando igual. Sólo hay secciones que observar cuando los datos están.
+  const activa = useSeccionActiva(data !== undefined)
 
   /**
    * El modo extendido, que es preferencia del navegador y no del servidor.
@@ -125,170 +136,259 @@ export function SettingsPage(): ReactNode {
         </aside>
       ) : null}
 
-      <section data-tour={ANCLAS.ajustesProveedores}>
-        <h2>{t(DEFAULT_LOCALE, 'settings.providers')}</h2>
-        <ProviderList
-          providers={data.providers}
-          priority={data.providerPriority}
-          onReorder={setProviderPriority}
-        />
-      </section>
+      <div className="settings__cuerpo">
+        <IndiceAjustes activa={activa} />
 
-      {/* Los repositorios van justo debajo de la lista de proveedores: es otra
-          forma de llenarla, y la lista de arriba es donde se ve el resultado.
-          En modo restringido no se ofrecen: escribir un plugin o marcar un
-          archivo es ejecutar código, y la API tampoco registra esas rutas. */}
-      {data.locked ? null : <ProviderRepos {...repos} />}
-
-      {/* El alta va después de la lista: primero se ve qué hay, y el formulario
-          está justo debajo de lo que va a cambiar. */}
-      {data.locked ? null : (
-        <section>
-          <h2>{t(DEFAULT_LOCALE, 'settings.register.title')}</h2>
-          <RegisterProvider register={register} />
-        </section>
-      )}
-
-      {/* La clave de TMDB es la única salida de red que el usuario configura a
-          mano; va después de los proveedores porque es el respaldo de lo que
-          ellos no publican. */}
-      <TmdbSettings configured={data.tmdb.configured} onSave={setTmdbKey} />
-
-      <section>
-        <h2>{t(DEFAULT_LOCALE, 'settings.paths')}</h2>
-        <dl className="settings__paths">
-          <dt>{t(DEFAULT_LOCALE, 'settings.paths.data')}</dt>
-          <dd>{data.paths.data}</dd>
-          <dt>{t(DEFAULT_LOCALE, 'settings.paths.config')}</dt>
-          <dd>{data.paths.config}</dd>
-          <dt>{t(DEFAULT_LOCALE, 'settings.paths.cache')}</dt>
-          <dd>{data.paths.cache}</dd>
-        </dl>
-      </section>
-
-      <section>
-        <h2>{t(DEFAULT_LOCALE, 'settings.mpv')}</h2>
-        <p>
-          {data.mpv.available
-            ? t(DEFAULT_LOCALE, 'settings.mpv.yes', { version: data.mpv.version ?? '?' })
-            : t(DEFAULT_LOCALE, 'settings.mpv.no')}
-        </p>
-      </section>
-
-      {/* Los saltos van con el reproductor: es lo que se ajusta de cómo se ve un
-          episodio, como el reproductor externo, y no una preferencia del motor
-          que se guarde en el servidor. */}
-      <SkipSettings />
-
-      <section data-tour={ANCLAS.ajustesTema}>
-        <h2>{t(DEFAULT_LOCALE, 'settings.theme')}</h2>
-        <ThemeToggle value={data.theme} onChange={setTheme} />
-      </section>
-
-      {/*
-        El interruptor del contenido para adultos.
-
-        Reutiliza el contenedor de botones del tema: es una fila de botones con estado
-        —`aria-pressed`— y nada de la regla habla del tema. Una clase nueva sería la
-        misma regla de CSS escrita dos veces para el mismo dibujo.
-      */}
-      <section>
-        <h2>{t(DEFAULT_LOCALE, 'settings.adult')}</h2>
-        <fieldset className="settings__theme" aria-label={t(DEFAULT_LOCALE, 'settings.adult')}>
-          <button
-            type="button"
-            className="button"
-            aria-pressed={!data.adultContent}
-            onClick={() => setAdultContent(false)}
+        <div className="settings__secciones">
+          {/*
+            Fuentes: lo que hace que haya algo que ver. Los proveedores van primero
+            porque son la lista de la que todo depende; los repositorios y el alta
+            son otras dos formas de llenarla, y TMDB es el respaldo de los
+            metadatos que ellos no publican.
+          */}
+          <section
+            className="settings__seccion"
+            id={SECCIONES.fuentes.id}
+            aria-labelledby={`${SECCIONES.fuentes.id}-titulo`}
           >
-            {t(DEFAULT_LOCALE, 'settings.adult.hide')}
-          </button>
-          <button
-            type="button"
-            className="button"
-            aria-pressed={data.adultContent}
-            onClick={() => setAdultContent(true)}
+            <h2 id={`${SECCIONES.fuentes.id}-titulo`}>
+              {t(DEFAULT_LOCALE, SECCIONES.fuentes.titulo)}
+            </h2>
+
+            <section data-tour={ANCLAS.ajustesProveedores}>
+              <h3>{t(DEFAULT_LOCALE, 'settings.providers')}</h3>
+              <ProviderList
+                providers={data.providers}
+                priority={data.providerPriority}
+                onReorder={setProviderPriority}
+              />
+            </section>
+
+            {/* Los repositorios van justo debajo de la lista de proveedores: es otra
+                forma de llenarla, y la lista de arriba es donde se ve el resultado.
+                En modo restringido no se ofrecen: escribir un plugin o marcar un
+                archivo es ejecutar código, y la API tampoco registra esas rutas. */}
+            {data.locked ? null : <ProviderRepos {...repos} />}
+
+            {/* El alta va después de la lista: primero se ve qué hay, y el
+                formulario está justo debajo de lo que va a cambiar. */}
+            {data.locked ? null : (
+              <section>
+                <h3>{t(DEFAULT_LOCALE, 'settings.register.title')}</h3>
+                <RegisterProvider register={register} />
+              </section>
+            )}
+
+            {/* La clave de TMDB es la única salida de red que el usuario configura a
+                mano; va después de los proveedores porque es el respaldo de lo que
+                ellos no publican. */}
+            <TmdbSettings configured={data.tmdb.configured} onSave={setTmdbKey} />
+          </section>
+
+          {/*
+            Reproducción: cómo se ve un episodio. El reproductor externo, los saltos
+            de intro y ending y el modo extendido. No son preferencias del motor que
+            se guarden en el servidor: las dos últimas viven en el navegador.
+          */}
+          <section
+            className="settings__seccion"
+            id={SECCIONES.reproduccion.id}
+            aria-labelledby={`${SECCIONES.reproduccion.id}-titulo`}
           >
-            {t(DEFAULT_LOCALE, 'settings.adult.show')}
-          </button>
-        </fieldset>
-        <p>{t(DEFAULT_LOCALE, 'settings.adult.help')}</p>
-      </section>
+            <h2 id={`${SECCIONES.reproduccion.id}-titulo`}>
+              {t(DEFAULT_LOCALE, SECCIONES.reproduccion.titulo)}
+            </h2>
 
-      {/*
-        La presencia de Discord.
+            <section>
+              <h3>{t(DEFAULT_LOCALE, 'settings.mpv')}</h3>
+              <p>
+                {data.mpv.available
+                  ? t(DEFAULT_LOCALE, 'settings.mpv.yes', { version: data.mpv.version ?? '?' })
+                  : t(DEFAULT_LOCALE, 'settings.mpv.no')}
+              </p>
+            </section>
 
-        Reutiliza el contenedor de botones del tema, como el contenido para
-        adultos: una fila con estado y ninguna regla nueva. Va aquí, junto a los
-        otros ajustes de privacidad, y no con el reproductor: lo que decide es qué
-        se publica fuera de la aplicación.
-      */}
-      {data.locked ? null : (
-        <section>
-          <h2>{t(DEFAULT_LOCALE, 'settings.discord')}</h2>
-          <fieldset className="settings__theme" aria-label={t(DEFAULT_LOCALE, 'settings.discord')}>
-            {(
-              [
-                ['off', 'settings.discord.off'],
-                ['discreto', 'settings.discord.discreto'],
-                ['completo', 'settings.discord.completo'],
-              ] as const
-            ).map(([modo, etiqueta]) => (
-              <button
-                key={modo}
-                type="button"
-                className="button"
-                aria-pressed={data.discordPresence === modo}
-                onClick={() => setDiscordPresence(modo)}
+            <SkipSettings />
+
+            {/*
+              El modo extendido del reproductor.
+
+              Reutiliza el contenedor de botones del tema, igual que el contenido
+              para adultos: es una fila de botones con estado —`aria-pressed`— y la
+              regla no habla del tema. El texto de debajo dice lo que el nombre no
+              dice: llena la ventana y **no** entra en la pantalla completa del
+              sistema.
+            */}
+            <section>
+              <h3>{t(DEFAULT_LOCALE, 'settings.extended')}</h3>
+              <fieldset
+                className="settings__theme"
+                aria-label={t(DEFAULT_LOCALE, 'settings.extended')}
               >
-                {t(DEFAULT_LOCALE, etiqueta)}
-              </button>
-            ))}
-          </fieldset>
-          <p>{t(DEFAULT_LOCALE, 'settings.discord.help')}</p>
-          {data.discordPresence === 'off' ? null : (
-            <p>
-              {data.discord.connected
-                ? t(DEFAULT_LOCALE, 'settings.discord.connected')
-                : t(DEFAULT_LOCALE, 'settings.discord.disconnected')}
-            </p>
-          )}
-        </section>
-      )}
+                <button
+                  type="button"
+                  className="button"
+                  aria-pressed={!extendido}
+                  onClick={() => preferirExtendido(false)}
+                >
+                  {t(DEFAULT_LOCALE, 'settings.extended.off')}
+                </button>
+                <button
+                  type="button"
+                  className="button"
+                  aria-pressed={extendido}
+                  onClick={() => preferirExtendido(true)}
+                >
+                  {t(DEFAULT_LOCALE, 'settings.extended.on')}
+                </button>
+              </fieldset>
+              <p>{t(DEFAULT_LOCALE, 'settings.extended.body')}</p>
+            </section>
+          </section>
 
-      {/*
-        El modo extendido del reproductor.
-
-        Reutiliza el contenedor de botones del tema, igual que el contenido para
-        adultos: es una fila de botones con estado —`aria-pressed`— y la regla no
-        habla del tema. El texto de debajo dice lo que el nombre no dice: llena
-        la ventana y **no** entra en la pantalla completa del sistema.
-      */}
-      <section>
-        <h2>{t(DEFAULT_LOCALE, 'settings.extended')}</h2>
-        <fieldset className="settings__theme" aria-label={t(DEFAULT_LOCALE, 'settings.extended')}>
-          <button
-            type="button"
-            className="button"
-            aria-pressed={!extendido}
-            onClick={() => preferirExtendido(false)}
+          {/* Apariencia: sólo el tema, pero es lo primero que se busca cuando algo
+              se ve mal y no debe quedar enterrado entre los mandos del reproductor. */}
+          <section
+            className="settings__seccion"
+            id={SECCIONES.apariencia.id}
+            aria-labelledby={`${SECCIONES.apariencia.id}-titulo`}
           >
-            {t(DEFAULT_LOCALE, 'settings.extended.off')}
-          </button>
-          <button
-            type="button"
-            className="button"
-            aria-pressed={extendido}
-            onClick={() => preferirExtendido(true)}
-          >
-            {t(DEFAULT_LOCALE, 'settings.extended.on')}
-          </button>
-        </fieldset>
-        <p>{t(DEFAULT_LOCALE, 'settings.extended.body')}</p>
-      </section>
+            <h2 id={`${SECCIONES.apariencia.id}-titulo`}>
+              {t(DEFAULT_LOCALE, SECCIONES.apariencia.titulo)}
+            </h2>
 
-      {/* La guía va al final: no configura nada, sólo repite lo que ya se vio. */}
-      <SeccionGuia />
+            <section data-tour={ANCLAS.ajustesTema}>
+              <h3>{t(DEFAULT_LOCALE, 'settings.theme')}</h3>
+              <ThemeToggle value={data.theme} onChange={setTheme} />
+            </section>
+          </section>
+
+          {/*
+            Privacidad y contenido: lo que se guarda para uno y lo que se publica
+            fuera. Van juntos porque las dos decisiones son sobre la mirada de los
+            demás, no sobre la aplicación.
+
+            El contenido para adultos reutiliza el contenedor de botones del tema: es
+            una fila de botones con estado —`aria-pressed`— y nada de la regla habla
+            del tema. Una clase nueva sería la misma regla de CSS escrita dos veces
+            para el mismo dibujo.
+          */}
+          <section
+            className="settings__seccion"
+            id={SECCIONES.privacidad.id}
+            aria-labelledby={`${SECCIONES.privacidad.id}-titulo`}
+          >
+            <h2 id={`${SECCIONES.privacidad.id}-titulo`}>
+              {t(DEFAULT_LOCALE, SECCIONES.privacidad.titulo)}
+            </h2>
+
+            <section>
+              <h3>{t(DEFAULT_LOCALE, 'settings.adult')}</h3>
+              <fieldset
+                className="settings__theme"
+                aria-label={t(DEFAULT_LOCALE, 'settings.adult')}
+              >
+                <button
+                  type="button"
+                  className="button"
+                  aria-pressed={!data.adultContent}
+                  onClick={() => setAdultContent(false)}
+                >
+                  {t(DEFAULT_LOCALE, 'settings.adult.hide')}
+                </button>
+                <button
+                  type="button"
+                  className="button"
+                  aria-pressed={data.adultContent}
+                  onClick={() => setAdultContent(true)}
+                >
+                  {t(DEFAULT_LOCALE, 'settings.adult.show')}
+                </button>
+              </fieldset>
+              <p>{t(DEFAULT_LOCALE, 'settings.adult.help')}</p>
+            </section>
+
+            {/*
+              La presencia de Discord.
+
+              Reutiliza el contenedor de botones del tema, como el contenido para
+              adultos: una fila con estado y ninguna regla nueva. Va aquí, junto a los
+              otros ajustes de privacidad, y no con el reproductor: lo que decide es qué
+              se publica fuera de la aplicación.
+            */}
+            {data.locked ? null : (
+              <section>
+                <h3>{t(DEFAULT_LOCALE, 'settings.discord')}</h3>
+                <fieldset
+                  className="settings__theme"
+                  aria-label={t(DEFAULT_LOCALE, 'settings.discord')}
+                >
+                  {(
+                    [
+                      ['off', 'settings.discord.off'],
+                      ['discreto', 'settings.discord.discreto'],
+                      ['completo', 'settings.discord.completo'],
+                    ] as const
+                  ).map(([modo, etiqueta]) => (
+                    <button
+                      key={modo}
+                      type="button"
+                      className="button"
+                      aria-pressed={data.discordPresence === modo}
+                      onClick={() => setDiscordPresence(modo)}
+                    >
+                      {t(DEFAULT_LOCALE, etiqueta)}
+                    </button>
+                  ))}
+                </fieldset>
+                <p>{t(DEFAULT_LOCALE, 'settings.discord.help')}</p>
+                {data.discordPresence === 'off' ? null : (
+                  <p>
+                    {data.discord.connected
+                      ? t(DEFAULT_LOCALE, 'settings.discord.connected')
+                      : t(DEFAULT_LOCALE, 'settings.discord.disconnected')}
+                  </p>
+                )}
+              </section>
+            )}
+          </section>
+
+          {/* Sistema: las rutas del disco. Es lo último que se toca y lo primero que
+              se busca cuando algo no aparece. */}
+          <section
+            className="settings__seccion"
+            id={SECCIONES.sistema.id}
+            aria-labelledby={`${SECCIONES.sistema.id}-titulo`}
+          >
+            <h2 id={`${SECCIONES.sistema.id}-titulo`}>
+              {t(DEFAULT_LOCALE, SECCIONES.sistema.titulo)}
+            </h2>
+
+            <section>
+              <h3>{t(DEFAULT_LOCALE, 'settings.paths')}</h3>
+              <dl className="settings__paths">
+                <dt>{t(DEFAULT_LOCALE, 'settings.paths.data')}</dt>
+                <dd>{data.paths.data}</dd>
+                <dt>{t(DEFAULT_LOCALE, 'settings.paths.config')}</dt>
+                <dd>{data.paths.config}</dd>
+                <dt>{t(DEFAULT_LOCALE, 'settings.paths.cache')}</dt>
+                <dd>{data.paths.cache}</dd>
+              </dl>
+            </section>
+          </section>
+
+          {/* La guía va al final: no configura nada, sólo repite lo que ya se vio.
+              Su propio `<h2>` es el título de la sección; el índice la llama «Guía»
+              con la misma clave. */}
+          <section
+            className="settings__seccion"
+            id={SECCIONES.guia.id}
+            aria-label={t(DEFAULT_LOCALE, SECCIONES.guia.titulo)}
+          >
+            <SeccionGuia />
+          </section>
+        </div>
+      </div>
     </section>
   )
 }

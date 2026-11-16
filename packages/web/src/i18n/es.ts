@@ -351,6 +351,16 @@ export const messages: Messages = {
   'home.resume': 'Seguir en {time}',
   'settings.title': 'Ajustes',
   'settings.loading': 'Cargando los ajustes…',
+  // El índice de la página. «Secciones» es la etiqueta visible; el `aria-label`
+  // dice de qué son, porque el índice no es una navegación de la aplicación.
+  'settings.index': 'Secciones de los ajustes',
+  'settings.index.title': 'Secciones',
+  'settings.section.fuentes': 'Fuentes',
+  'settings.section.reproduccion': 'Reproducción',
+  'settings.section.apariencia': 'Apariencia',
+  'settings.section.privacidad': 'Privacidad y contenido',
+  'settings.section.sistema': 'Sistema',
+  'settings.section.guia': 'Guía',
   'settings.security.title': 'Antes de copiar un plugin, lee esto',
   'settings.security.body':
     'Los plugins se ejecutan sin sandbox, con tus permisos. Un plugin puede leer y escribir lo mismo que tú. Cópialos sólo si sabes de dónde vienen.',
