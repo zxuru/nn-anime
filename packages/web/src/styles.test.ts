@@ -971,3 +971,88 @@ describe('movimiento y superficies', () => {
     }
   })
 })
+
+/**
+ * La deuda visual que la revisión midió.
+ *
+ * Los cinco fallos de `docs/revision-frontend.md` (10 a 14) se ven en el
+ * navegador, pero lo que los decide está escrito: el mosaico abre tantas pistas
+ * como piezas lleva, la banda sin banner tiene su alto, la fila de un episodio no
+ * lleva la sombra de una tarjeta, la cinta funde sus dos bordes y la barra del
+ * móvil no recorta «Biblioteca». Las medidas y las capturas están en
+ * `tasks/done/T236.md`; aquí se sujeta la regla que las produjo.
+ */
+describe('la deuda visual del shell', () => {
+  /** El cuerpo de una regla, por su selector exacto. */
+  async function reglaDe(selector: string): Promise<string> {
+    const css = await estructura()
+    const desde = css.indexOf(`${selector} {`)
+    if (desde === -1) return ''
+
+    return css.slice(desde, css.indexOf('}', desde))
+  }
+
+  test('el mosaico se compone para el número de piezas y no se estira', async () => {
+    const css = await estructura()
+    const mosaico = await reglaDe('.mosaico')
+
+    expect(mosaico, 'falta la composición por número de piezas').toMatch(
+      /repeat\(\s*min\(var\(--mosaico-piezas, 6\), 6\)/,
+    )
+    // El tope de la pista: una fila de cuatro no llega a la columna de cuatro y
+    // una pieza sola no se convierte en un cartel de pantalla entera.
+    expect(mosaico).toContain('--mosaico-pieza-max')
+    expect(mosaico).toContain('justify-content: center')
+    // Y el seis fijo que dejaba el tercio derecho vacío no vuelve por su cuenta.
+    expect(css).not.toContain('repeat(6,')
+
+    // El vacío de un tramo no es una pieza: no se le compone la pista de una.
+    expect(css).toContain('.mosaico:has(> .tramo-vacio)')
+
+    // Cada punto de corte recompone con su tope: 4, 3, 2 y 5 —el teléfono
+    // tumbado—, además del 6 de la rejilla ancha.
+    const topes = [...css.matchAll(/repeat\(\s*min\(var\(--mosaico-piezas, 6\), (\d)\)/g)].map(
+      (coincidencia) => coincidencia[1] ?? '',
+    )
+
+    expect(topes.sort()).toEqual(['2', '3', '4', '5', '6'])
+  })
+
+  test('la banda de la ficha baja cuando no hay banner', async () => {
+    const banda = await reglaDe('.detail__banner--sin-fondo')
+
+    expect(banda, 'falta el alto condicional de la banda').not.toBe('')
+    expect(banda).toContain('min-block-size: var(--detail-banner-alto-sin-fondo)')
+    expect(await read(TOKENS)).toContain('--detail-banner-alto-sin-fondo: 10rem')
+  })
+
+  test('la fila de un episodio no lleva la sombra de una tarjeta', async () => {
+    const episodio = await reglaDe('.episode')
+
+    expect(episodio, 'falta la fila del episodio').not.toBe('')
+    expect(episodio).not.toContain('box-shadow')
+    // El realce de tono sí: el fondo sube al pasar el puntero.
+    const realce =
+      /\.episode:hover,\s*\.episode:focus-visible\s*\{([^}]*)\}/.exec(await estructura())?.[1] ?? ''
+    expect(realce).toContain('background')
+  })
+
+  test('la cinta funde sus dos bordes', async () => {
+    const pista = await reglaDe('.cinta__pista')
+
+    expect(pista, 'falta la pista de la cinta').not.toBe('')
+    expect(pista).toContain('mask-image: linear-gradient')
+    expect(pista).toContain('transparent 0')
+    expect(pista).toContain('transparent 100%')
+    expect(pista).toContain('var(--cinta-fundido)')
+    expect(await read(TOKENS)).toContain('--cinta-fundido: 2rem')
+  })
+
+  test('la barra del móvil no recorta la etiqueta más larga', async () => {
+    const css = await estructura()
+
+    // «Biblioteca» mide 67 px a 11 px de mono; un quinto de 320 son 64 y la
+    // etiqueta se salía de su celda. La pista no baja de su contenido.
+    expect(css).toContain('repeat(5, minmax(max-content, 1fr))')
+  })
+})

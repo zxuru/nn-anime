@@ -1666,7 +1666,11 @@ details[open] > .library__settings-summary .library__settings-flecha {
     inset-block-end: 0;
     inset-inline: 0;
     z-index: var(--layer-barra);
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    /* Cinco pistas, pero ninguna más estrecha que su etiqueta: a 320 px
+       «Biblioteca» mide 67 px y en un quinto de 64 se salía de su celda y se
+       pegaba a «Ajustes». `max-content` como mínimo deja que las cinco se
+       repartan el sobrante sin recortar ninguna. */
+    grid-template-columns: repeat(5, minmax(max-content, 1fr));
     padding-block-end: env(safe-area-inset-bottom);
     border-block-start: var(--border-width-strong) solid var(--color-border);
     background: var(--color-bg);
@@ -1729,6 +1733,9 @@ details[open] > .library__settings-summary .library__settings-flecha {
     grid-template-columns: none;
     grid-auto-flow: column;
     grid-auto-columns: 45%;
+    /* La fila compuesta se centra; el carrusel no: su contenido se desplaza y
+       centrarlo dejaría el primer cartel a la izquierda de la caja. */
+    justify-content: start;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     padding-block-end: var(--space-2);
