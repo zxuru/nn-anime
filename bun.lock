@@ -25,7 +25,7 @@
     },
     "packages/catalog-store": {
       "name": "@nn-anime/catalog-store",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
         "zod": "^4",
@@ -33,7 +33,7 @@
     },
     "packages/cli": {
       "name": "@nn-anime/cli",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "bin": {
         "nn-anime": "./bin/nn-anime",
       },
@@ -47,14 +47,14 @@
     },
     "packages/core": {
       "name": "@nn-anime/core",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "dependencies": {
         "zod": "^4",
       },
     },
     "packages/media-proxy": {
       "name": "@nn-anime/media-proxy",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
         "mux.js": "^6.3.0",
@@ -62,7 +62,7 @@
     },
     "packages/provider-sdk": {
       "name": "@nn-anime/provider-sdk",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
         "zod": "^4",
@@ -70,7 +70,7 @@
     },
     "packages/providers-fixture": {
       "name": "@nn-anime/providers-fixture",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
         "@nn-anime/provider-sdk": "workspace:*",
@@ -79,14 +79,14 @@
     },
     "packages/recsys": {
       "name": "@nn-anime/recsys",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
       },
     },
     "packages/server": {
       "name": "@nn-anime/server",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "dependencies": {
         "@nn-anime/catalog-store": "workspace:*",
         "@nn-anime/core": "workspace:*",
@@ -102,10 +102,10 @@
     },
     "packages/web": {
       "name": "@nn-anime/web",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "dependencies": {
         "@nn-anime/core": "workspace:*",
-        "driver.js": "^1.10.2",
+        "driver.js": "^1.12.1",
         "hls.js": "^1.7.4",
         "lucide-react": "^1.69.0",
         "react": "^19",
@@ -288,7 +288,7 @@
 
     "dom-walk": ["dom-walk@0.1.2", "", {}, "sha512-6QvTW9mrGeIegrFXdtQi9pk7O/nSK6lSdXW2eqUspN5LWD7UTji2Fqw5V2YLjBpHEoU9Xl/eUWNpDeZvoyOv2w=="],
 
-    "driver.js": ["driver.js@1.10.2", "", {}, "sha512-L/EMTriJPAmg+5kIFmrjzt3TI+1NblhHOV/UZkfpgU/uxhSflGheynMBxk5oImDSy6seAEkIl6MzNOc0zdoKtg=="],
+    "driver.js": ["driver.js@1.12.1", "", {}, "sha512-upBRqQW+bz+yfH7ee1gjWBaq0ue7i2343f2U3WzIUc3bhs5hwb2jz86cuB8gArRh3nfNp77CLNgkUtArTYTKFA=="],
 
     "fdir": ["fdir@6.5.0", "", { "peerDependencies": { "picomatch": "^3 || ^4" }, "optionalPeers": ["picomatch"] }, "sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg=="],
 
