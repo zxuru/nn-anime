@@ -1,8 +1,8 @@
 /**
- * Datos del panel de recomendaciones.
+ * Datos del motor de recomendaciones.
  *
- * El panel se refresca con lo que el usuario busca, y ahí hay dos decisiones que
- * se ven en el código:
+ * Lo consume la vitrina —el tramo «Recomendado para ti»— y se refresca con lo
+ * que el usuario busca, y ahí hay dos decisiones que se ven en el código:
  *
  * 1. **Retardo de 400 ms.** Cada tecla no puede ser una petición: escribir
  *    «mecha» serían cinco, y cuatro de ellas ya no sirven cuando llega la
@@ -54,8 +54,6 @@ export interface Recommendations {
   readonly data: RecommendationsResponse | undefined
   readonly error: Fallo | undefined
   readonly reload: () => void
-  readonly showComponents: boolean
-  readonly toggleComponents: () => void
 }
 
 export interface UseRecommendationsOptions {
@@ -84,7 +82,6 @@ export function useRecommendations(options: UseRecommendationsOptions = {}): Rec
   const [data, setData] = useState<RecommendationsResponse | undefined>(undefined)
   const [state, setState] = useState<PanelState>('loading')
   const [error, setError] = useState<Fallo | undefined>(undefined)
-  const [showComponents, setShowComponents] = useState(false)
   // El planificador se crea una vez y se reutiliza: si se creara en cada
   // efecto, no habría nada que cancelar entre una clave y la siguiente.
   const planificador = useRef<ReturnType<typeof createScheduler> | undefined>(undefined)
@@ -137,7 +134,5 @@ export function useRecommendations(options: UseRecommendationsOptions = {}): Rec
     data,
     error,
     reload,
-    showComponents,
-    toggleComponents: () => setShowComponents((valor) => !valor),
   }
 }
