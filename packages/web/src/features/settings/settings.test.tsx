@@ -249,6 +249,26 @@ describe('el alta de un proveedor', () => {
   })
 })
 
+/**
+ * La jerarquía de títulos.
+ *
+ * Los tres bloques que llevan su propio título dentro de un grupo de Ajustes lo
+ * declaran como `h3`: el `h2` es del grupo, y repetirlo dentro dejaba a los tres
+ * hermanos del grupo en el árbol del lector de pantalla. Se mide sobre la fuente
+ * porque los tres componentes se dibujan con datos y estado propios; lo que
+ * importa aquí es el nivel, no su contenido.
+ */
+describe('los títulos de los bloques', () => {
+  test('los que viven dentro de un grupo usan h3, no h2', async () => {
+    for (const archivo of ['ProviderRepos.tsx', 'TmdbSettings.tsx', 'SkipSettings.tsx']) {
+      const fuente = await readFile(`${ROOT}${archivo}`, 'utf8')
+
+      expect(fuente, `${archivo} conserva un h2`).not.toContain('<h2>')
+      expect(fuente, `${archivo} no declara su título como h3`).toContain('<h3>')
+    }
+  })
+})
+
 describe('la página', () => {
   test('arranca cargando y no depende de la red en el primer render', () => {
     const html = render(<SettingsPage />)

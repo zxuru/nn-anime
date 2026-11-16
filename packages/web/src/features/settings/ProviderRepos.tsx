@@ -170,7 +170,7 @@ export function ProviderRepos(props: ProviderReposData): ReactNode {
 
   return (
     <section>
-      <h2>{t(DEFAULT_LOCALE, 'settings.repos')}</h2>
+      <h3>{t(DEFAULT_LOCALE, 'settings.repos')}</h3>
       <p className="field__hint">{t(DEFAULT_LOCALE, 'settings.repos.body')}</p>
       <p className="search__error">{t(DEFAULT_LOCALE, 'settings.repos.warning')}</p>
 
