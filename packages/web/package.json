@@ -5,7 +5,7 @@
   "type": "module",
   "dependencies": {
     "@rona/core": "workspace:*",
-    "driver.js": "^1.12.1",
+    "driver.js": "^1.14.0",
     "hls.js": "^1.7.4",
     "lucide-react": "^1.72.0",
     "react": "^19",
