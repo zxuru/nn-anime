@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **214 fragmentos indexados**; 182 se identifican
+quedan identificadas aquí. **218 fragmentos indexados**; 186 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
@@ -219,6 +219,7 @@ sólo en este índice y su contenido vive en la historia.
 | T232 | T232 — El servidor queda vivo si el anfitrión muere (T155) | fix(desktop): el servidor no sobrevive a la muerte del anfitrión (T232). | — | `tasks/todo.md` |
 | T233 | T233 — los comentarios que ya no dicen la verdad | docs(cli): los comentarios que ya no dicen la verdad (T233). | bun run typecheck 0 errores · bun run lint 0 errores (37 avisos y 1 info, los de la línea base) · bun test **3647 pasan, 0 fallan** (215 ficheros) · los dos vigilantes nuevos, packages/cli/src/stale-comments.test.ts y p… | `tasks/todo.md` |
 | T234 | T234 — la Fase 2A arranca por un spec que no existe | docs(spec): el contrato de manga de la fase 2A (T234). | — | `tasks/todo.md` |
+| T235 | T235 — auditar las dependencias Rust en el CI | `ci: auditar las dependencias Rust (T235)`. | cargo-deny 0.21.0 `check` **exit 0** (avisos, prohibiciones, licencias y fuentes) · mutaciones en rojo: sin `Zlib` licencias FAILED (4), sin RUSTSEC-2026-0372 avisos FAILED (1), `async-executor` 1.14.0 retirada (1), paso del workflow quitado 3 pruebas (1) · `bun test` 3908 pasan, 0 fallan · `bun run typecheck` 0 · `bun run lint` 0 (32 avisos de la línea base) · `cargo metadata --locked` 0. | este índice |
 | T236 | T236 — la deuda visual medida del shell | fix(web): la deuda visual medida del shell (T236). | bun run typecheck y bun run lint en verde · bun test packages/web 1211 pasan (0 fallan) · bun test packages/web/src/a11y.test.ts 22 pasan. Medido en el navegador contra el arnés del e2e (Chromium 1.65, 1440×900 y 320×80… | `tasks/todo.md` |
 | T237 | T237 — el CSS muerto y la cabecera de la lengua vieja | refactor(web): borrar el CSS muerto y su escalón (T237). | bun run typecheck y bun run lint en verde · bun test packages/web 1204 pasan (0 fallan) · bun test packages/web/src/styles.test.ts 40 pasan. | `tasks/todo.md` |
 | T238 | T238 — --font-mono: "Space Mono" no se sirve | feat(web): servir Space Mono desde el repo (T238). | bun run typecheck y bun run lint en verde · bun test packages/web 1203 pasan (0 fallan). Medido en el navegador (Chromium del e2e, 1440×900, tema oscuro): | `tasks/todo.md` |
