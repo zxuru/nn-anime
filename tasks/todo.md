@@ -2733,7 +2733,7 @@ Ids reservados en este lote porque las tareas se reparten entre varios agentes a
 | T237 | El CSS muerto y la cabecera de la lengua vieja | T226 | S |
 | T238 | `--font-mono: "Space Mono"` no se sirve | T226 | S |
 | T239 | El primer fotograma del tema, el `description` y el pie | T230 | S |
-| T240 | El panel del motor no está montado en ninguna parte | T229 | M |
+| T240 | El panel del motor quedó muerto al retirar la puntuación | T229 | M |
 
 ### Oleada 3 — decisiones del humano (el agente no las puede tomar)
 
@@ -2855,7 +2855,7 @@ Oleada 1 (17 tareas, sin dependencias entre sí)
   ├─ T237 ─┼─ T226           (mismo packages/web/src/styles/)
   ├─ T238 ─┘
   ├─ T239 ── T230            (mismo app.tsx, vía el proveedor de ajustes)
-  └─ T240 ── T229            (el panel usa el componente unificado)
+  └─ T240 ── T229            (el panel muerto se retira; T229 unificó las tarjetas)
 
 Oleada 3 (5 tareas) — dependen de una decisión humana, no de otra tarea
   T241 · T242 · T243 · T244 · T245

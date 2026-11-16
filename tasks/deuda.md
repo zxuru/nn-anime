@@ -427,7 +427,7 @@ Un solo agente cada una, y **en serie** con la de su ruta.
 | **T237** | El CSS muerto y la cabecera de la lengua vieja | T226 | `packages/web/src/styles/` |
 | **T238** | `--font-mono: "Space Mono"` no se sirve | T226 | `packages/web/src/styles/tokens.css`, `fonts/` |
 | **T239** | El primer fotograma del tema, el `description` y el pie | T230 | `packages/web/index.html`, `packages/web/src/main.tsx` |
-| **T240** | El panel del motor no está montado en ninguna parte | T229 | `packages/web/src/features/recommendations/` |
+| **T240** | El panel del motor quedó muerto al retirar la puntuación | T229 | `packages/web/src/features/recommendations/` |
 
 ### T235 — `cargo audit` / `cargo deny`: el lado Rust no se audita
 
@@ -533,24 +533,27 @@ aplicación (hallazgo 20). Es el punto 3 de «Lo que sigue, en orden».
 
 ---
 
-### T240 — El panel del motor no está montado en ninguna parte
+### T240 — El panel del motor quedó muerto al retirar la puntuación
 
-**Descripción:** `features/recommendations/Panel.tsx` **no está montado en ninguna parte** de la
-interfaz. Sus dos hijos (`ReasonBadge`, `ScoreDetail`) sólo se usan desde ahí. El propio
-`RecommendedRow.tsx:13-25` lo admite: «el detalle del motor sigue en `Panel.tsx`, con sus pruebas,
-**a la espera** del sitio donde vuelva a leerse». El requisito del producto —«cada sugerencia lleva
-su motivo y su puntuación; se puede leer sin abrir nada»— se cumple a medias: el motivo sí se ve
-al pasar el puntero, pero el detalle completo no se puede abrir.
+**Descripción:** `features/recommendations/Panel.tsx` **no está montado en ninguna parte**: sólo lo
+importa su prueba. Sus dos hijos (`ReasonBadge`, `ScoreDetail`) sólo se usan desde ahí. La pieza dejó
+de mostrar la puntuación a propósito (`71009bc`, «la puntuación del motor sale de la pieza»):
+`docs/rediseno-vitrina.md` ya no la promete, pero `PRODUCT.md:58` sigue diciendo que cada sugerencia
+lleva su puntuación. Montar el panel para recuperar el score contradice esa decisión, así que la
+salida lógica es retirarlo y alinear el producto. El motivo de cada recomendación ya se lee en la
+pieza sin abrir nada.
 
 **Aceptación:**
-- [ ] El panel se monta donde le toca y se abre desde la pieza (el botón «i» que ya existe), o se
-      borra con su código muerto.
-- [ ] Si se monta: la puntuación y el motivo completo se leen sin abrir nada, como pide
-      `PRODUCT.md`.
-- [ ] Si se borra: `useRecommendations` y sus pruebas siguen en verde y no queda la referencia en
-      el texto del propio `RecommendedRow.tsx`.
+- [ ] Se retira `Panel.tsx`, `ScoreDetail.tsx` y `ReasonBadge.tsx` con sus pruebas, o se decide un
+      sitio real donde montarlos y se justifica por qué vuelve la puntuación.
+- [ ] `PRODUCT.md` y el texto de `RecommendedRow.tsx` dejan de prometer una puntuación que la pieza
+      no muestra.
+- [ ] `useRecommendations` y sus pruebas siguen en verde; no queda CSS muerto de `.panel*`,
+      `.reason` ni `.score`, ni claves `reco.*` sin usar.
+- [ ] Si se retira, `bun test packages/web` y `bun run lint` quedan en verde.
 
-**Archivos:** `packages/web/src/features/recommendations/`. **Tamaño:** M. **Depende de:** T229.
+**Archivos:** `packages/web/src/features/recommendations/`, `packages/web/src/i18n/es.ts`,
+`packages/web/src/styles/`, `PRODUCT.md`. **Tamaño:** M. **Depende de:** T229.
 
 ---
 
@@ -634,15 +637,23 @@ esos instaladores.
 **Descripción:** si falta la clave de firma minisign, **no se publica nada**: el job `publicar`
 aborta. Los binarios se compilan bien, el `SHA256SUMS.txt` sale, y aun así no hay release. El
 updater de Windows necesita la firma para reemplazar el ejecutable, así que separar «publicar» de
-«firmar» tiene un coste real: larelease sale sin la firma que el auto-actualizador exige.
+«firmar» tiene un coste real: la release sale sin la firma que el auto-actualizador exige.
+
+**Decidido (2026-11-16):** la publicación sigue bloqueada sin la clave. Un `.exe` que el updater no
+puede reemplazar es peor que una release que no sale, y `docs/release.md:92-96` ya lo dice. El job
+`publicar` avisa con `::warning::` cuando falta el secreto, y su comprobación final exige
+`latest.json`, un `.sig` y las dos entradas de Windows antes de quitar el borrador.
 
 **Aceptación:**
-- [ ] Se decide el comportamiento y se escribe: o la publicación sigue bloqueada sin la clave (y
-      el motivo se dice en el log), o sale sin firma y el updater lo dice al usuario.
-- [ ] Lo que se decida está escrito en `docs/release.md` y en el propio workflow, no sólo en la
+- [x] Se decide el comportamiento y se escribe: la publicación sigue bloqueada sin la clave, y el
+      motivo se dice en el log del job que publica.
+- [x] Lo que se decide está escrito en `docs/release.md` y en el propio workflow, no sólo en la
       cabeza de nadie.
-- [ ] La comprobación final del release (`latest.json`, un `.sig`, las dos entradas de Windows)
+- [x] La comprobación final del release (`latest.json`, un `.sig`, las dos entradas de Windows)
       sigue requisitos del job que publica.
+
+**Cierre:** `chore(release): decir por qué falta la clave del updater (T244)` ·
+`tasks/done/T244.md`.
 
 **Archivos:** `.github/workflows/release.yml`, `docs/release.md`. **Tamaño:** S.
 **Depende de:** decisión humana.
