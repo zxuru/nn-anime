@@ -476,6 +476,22 @@ export const messages: Messages = {
   'settings.adult.help':
     'Enseña también lo que AniList marca para adultos. No comprueba la edad de nadie, y sólo alcanza a lo que las fuentes publican: lo que no se puede comprobar se enseña igual.',
   /**
+   * La presencia de Discord.
+   *
+   * El aviso dice qué sale y qué no: la discreta publica que hay algo en marcha
+   * —sin título ni episodio— y la completa añade el título. Un título marcado
+   * para adultos no sale en ninguna de las dos, y el ajuste nace apagado.
+   */
+  'settings.discord': 'Presencia en Discord',
+  'settings.discord.off': 'Apagada',
+  'settings.discord.discreto': 'Discreta',
+  'settings.discord.completo': 'Completa',
+  'settings.discord.help':
+    'Publica en tu perfil de Discord que estás viendo algo en RoNa. La discreta no enseña el título ni el episodio; la completa sí. Un título marcado para adultos no se publica nunca.',
+  'settings.discord.connected': 'Conectado a Discord.',
+  'settings.discord.disconnected':
+    'Se conectará al reproducir; Discord tiene que estar abierto en esta máquina.',
+  /**
    * El modo extendido del reproductor.
    *
    * Es una preferencia del navegador y no del servidor, como la reproducción

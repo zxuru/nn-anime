@@ -50,6 +50,7 @@ prueba que lo sostiene.
 | El servidor del invitado conecta con una dirección hostil | La dirección se normaliza a un origen HTTP sin credenciales ni ruta; sólo se componen las rutas fijas de la sala, sin redirecciones (`redirect: 'error'`), con plazo de 5 s y respuestas JSON acotadas. No es un proxy de contenido | watch-party |
 | Un invitado inunda la sala o prueba códigos por fuerza bruta | Código de 80 bits, 20 intentos/min por instancia, 8 participantes, 10 mensajes/s por participante, 4 KiB por mensaje y caducidad de la sala | watch-party |
 | Activar un archivo ejecuta otro que el usuario no marcó | **No se mitiga, se declara.** Ver el riesgo residual 6 | T101 |
+| La presencia de Discord publica lo que se está viendo | Ajuste opt-in, apagado por defecto; el modo discreto no publica título ni episodio; un título marcado para adultos no se publica nunca; el título lo resuelve el servidor, no el cliente; sin OAuth, sin token y sin `client_secret`; la única salida es el IPC local de Discord | T253 |
 
 ## Riesgo residual, en texto claro
 
@@ -167,6 +168,11 @@ prueba que lo sostiene.
     heredó al nacer, que puede o no matarlo al cerrarse; el anfitrión lo escribe en su registro y
     sigue. El caso normal —el acceso del escritorio— y el de un job ajeno anidable, que es lo que hay
     en Windows 8 y siguientes, están cerrados y medidos.
+20. **La presencia de Discord es una decisión del usuario, y Discord la ve.** Con el ajuste encendido,
+    lo que se publica —el título en modo completo, el tiempo en los dos— queda visible para quien
+    pueda ver tu perfil y forma parte de la actividad que Discord guarda. El modo discreto y el filtro
+    de adultos reducen lo que se cuenta, pero no lo hacen privado: el ajuste es el único control. El
+    servidor no manda credenciales ni el historial, sólo la actividad elegida.
 
 ## Modo servidor
 

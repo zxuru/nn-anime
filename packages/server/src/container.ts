@@ -67,6 +67,7 @@ import {
   setPluginFetchFactory,
 } from '@rona/provider-sdk'
 import { type CacheOutcome, readThrough } from './cache-read'
+import { createPresenceService, type PresenceService } from './presence/service'
 
 /**
  * Cuántas entradas de un feed se guardan y se sirven, como mucho.
@@ -137,6 +138,8 @@ export interface ServerContainer {
   readonly playlists: PlaylistCache
   /** Reproductor externo. Si no hay mpv, `play` dice que no está. */
   readonly mpv: MpvPlayer
+  /** La presencia de Discord: el único proceso que habla con su IPC. */
+  readonly presence: PresenceService
   /** Resuelve el stream de un episodio, con la caché de URL corta. */
   resolveStream(
     provider: Provider,
@@ -236,6 +239,8 @@ export interface ContainerOptions {
   readonly mpvAvailable?: boolean
   /** Lanzador de mpv, inyectable: una prueba no abre ventanas. */
   readonly spawnMpv?: SpawnMpv
+  /** Servicio de presencia, inyectable: una prueba no habla con Discord. */
+  readonly presence?: PresenceService
   /**
    * Reloj inyectable.
    *
@@ -248,6 +253,7 @@ export interface ContainerOptions {
 export function createContainer(options: ContainerOptions): ServerContainer {
   const queue = options.queue ?? createWriteQueue()
   const revalidator = options.revalidator ?? createRevalidator({ concurrency: 2 })
+  const presence = options.presence ?? createPresenceService()
   const resource: RevalidateResource = 'search'
 
   // El store comparte la cola y el revalidador: con uno distinto en cada sitio,
@@ -667,6 +673,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     tickets,
     playlists,
     mpv,
+    presence,
     getAnime: loadAnime,
     getEpisodes: loadEpisodes,
     getEpisodesPage: loadEpisodesPage,
@@ -711,6 +718,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     },
 
     async close() {
+      await presence.close()
       await store.close()
     },
   }
