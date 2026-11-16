@@ -21,7 +21,12 @@
  */
 
 import type { ConfigPaths } from '@rona/core'
-import { errorResponseSchema, settingsPatchSchema, settingsResponseSchema } from '@rona/core'
+import {
+  discordPresenceSchema,
+  errorResponseSchema,
+  settingsPatchSchema,
+  settingsResponseSchema,
+} from '@rona/core'
 import type { Hono } from 'hono'
 import { z } from 'zod'
 import type { ServerContainer } from '../container'
@@ -48,6 +53,28 @@ export const PROVIDER_PRIORITY_KEY = 'providerPriority'
  * y qué sirve, y un ajuste que sólo lee la interfaz no puede cambiar nada de eso.
  */
 export const ADULT_CONTENT_KEY = 'adultContent'
+
+/**
+ * Clave de la presencia de Discord.
+ *
+ * Nace apagada. El ajuste decide qué se publica y el servidor lo relee en cada
+ * foto del visionado, así que encenderlo o apagarlo se nota sin reiniciar.
+ */
+export const DISCORD_PRESENCE_KEY = 'discordPresence'
+
+/** Apagada: no se publica nada hasta que el usuario lo encienda. */
+const DEFAULT_DISCORD_PRESENCE = 'off' as const
+
+/** La presencia configurada, con el valor por defecto si no hay fila. */
+export async function discordPresenceOf(
+  store: Pick<ServerContainer['store'], 'getSetting'>,
+): Promise<'off' | 'discreto' | 'completo'> {
+  return await store.getSetting(
+    DISCORD_PRESENCE_KEY,
+    discordPresenceSchema,
+    DEFAULT_DISCORD_PRESENCE,
+  )
+}
 
 /**
  * Clave de la API de TMDB, si el usuario la puso.
@@ -128,6 +155,7 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
       adultContentSchema,
       DEFAULT_ADULT_CONTENT,
     )
+    const discordPresence = await discordPresenceOf(options.container.store)
     const tmdbConfigured = (await tmdbKeyOf(options.container.store)) !== undefined
 
     const activos = options.plugins.active.map((entrada) => ({
@@ -160,6 +188,8 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
         theme,
         providerPriority,
         adultContent,
+        discordPresence,
+        discord: { connected: options.container.presence.connected() },
         locked: options.locked ?? false,
         paths: pathsOf(options.paths),
         mpv: {
@@ -207,6 +237,14 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
 
     if (parsed.data.adultContent !== undefined) {
       await options.container.store.setSetting(ADULT_CONTENT_KEY, parsed.data.adultContent)
+    }
+
+    if (parsed.data.discordPresence !== undefined) {
+      await options.container.store.setSetting(DISCORD_PRESENCE_KEY, parsed.data.discordPresence)
+
+      // Apagarla retira lo que estuviera publicado ahora mismo; no se espera al
+      // siguiente aviso del reproductor.
+      if (parsed.data.discordPresence === 'off') options.container.presence.clear()
     }
 
     if (parsed.data.tmdbApiKey !== undefined) {

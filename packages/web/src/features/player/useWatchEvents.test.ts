@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { MIN_DELTA_S, shouldSendUpdate, UPDATE_INTERVAL_MS, updateBody } from './useWatchEvents'
+import {
+  MIN_DELTA_S,
+  presenceBody,
+  shouldSendUpdate,
+  UPDATE_INTERVAL_MS,
+  updateBody,
+} from './useWatchEvents'
 
 describe('cuándo se manda el avance', () => {
   test('cada cinco segundos', () => {
@@ -67,5 +73,26 @@ describe('el cuerpo del avance', () => {
   test('sin duración conocida manda cero, no un número inventado', () => {
     expect(updateBody(5, Number.NaN)).toEqual({ positionS: 5, durationS: 0 })
     expect(updateBody(5, 0)).toEqual({ positionS: 5, durationS: 0 })
+  })
+})
+
+describe('la foto de presencia', () => {
+  test('no lleva el título y redondea como el avance', () => {
+    expect(presenceBody({ providerId: 'f', value: 'x' }, 3, 12.7, 1440.9, false)).toEqual({
+      animeRef: { providerId: 'f', value: 'x' },
+      episodeNumber: 3,
+      positionS: 12,
+      durationS: 1440,
+      paused: false,
+    })
+  })
+
+  test('sin episodio no manda un cero que no dice nada', () => {
+    expect(presenceBody({ providerId: 'f', value: 'x' }, undefined, -1, 0, true)).toEqual({
+      animeRef: { providerId: 'f', value: 'x' },
+      positionS: 0,
+      durationS: 0,
+      paused: true,
+    })
   })
 })

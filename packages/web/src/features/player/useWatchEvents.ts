@@ -35,6 +35,15 @@ import { apiPostJson } from '../../api/client'
  */
 export const UPDATE_INTERVAL_MS = 5_000
 
+/**
+ * Cada cuánto se refresca la presencia de Discord.
+ *
+ * Discord admite cinco actualizaciones cada veinte segundos; quince segundos
+ * deja margen y no gasta la cuota. El reloj de la actividad lo lleva Discord, así
+ * que entre foto y foto la barra sigue avanzando sola.
+ */
+export const PRESENCE_INTERVAL_MS = 15_000
+
 /** Diferencia mínima para considerar que la posición cambió de verdad. */
 export const MIN_DELTA_S = 1
 
@@ -49,6 +58,8 @@ export interface WatchEventsOptions {
   readonly animeRef: { readonly providerId: string; readonly value: string }
   readonly episodeRef: { readonly providerId: string; readonly value: string }
   readonly mode: string
+  /** El número de episodio, si la dirección o la referencia lo traen. */
+  readonly episodeNumber?: number | undefined
   /** Posición desde la que se empieza, si se reanuda. */
   readonly startAtS?: number | undefined
 }
@@ -100,6 +111,40 @@ export function updateBody(
   }
 }
 
+export interface PresenceBody {
+  readonly animeRef: { readonly providerId: string; readonly value: string }
+  readonly episodeNumber?: number
+  readonly positionS: number
+  readonly durationS: number
+  readonly paused: boolean
+}
+
+/**
+ * La foto que se manda al servidor para Discord.
+ *
+ * No lleva el título: lo resuelve el servidor desde `animeRef` y lo cruza con la
+ * marca de adultos. El número de episodio sólo viaja si se conoce y es positivo;
+ * un cero no dice nada y el servidor lo omitiría igual.
+ */
+export function presenceBody(
+  animeRef: PresenceBody['animeRef'],
+  episodeNumber: number | undefined,
+  positionS: number,
+  durationS: number,
+  paused: boolean,
+): PresenceBody {
+  const cuerpo = updateBody(positionS, durationS)
+
+  return {
+    animeRef,
+    ...(episodeNumber === undefined || episodeNumber <= 0
+      ? {}
+      : { episodeNumber: Math.floor(episodeNumber) }),
+    ...cuerpo,
+    paused,
+  }
+}
+
 export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
   const [watchId, setWatchId] = useState<number | undefined>(undefined)
   /**
@@ -124,6 +169,56 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
    * de llegada sea el orden de captura.
    */
   const cola = useRef<Promise<void>>(Promise.resolve())
+  /**
+   * La última foto publicada en Discord.
+   *
+   * `at` frena los envíos para no gastar las cinco actualizaciones que Discord
+   * admite cada veinte segundos; `duracion` detecta el paso de «aún no sé cuánto
+   * dura» a «ya lo sé», que es cuando la barra de progreso puede aparecer.
+   */
+  const presencia = useRef({ at: 0, duracion: 0 })
+  const pausado = useRef(false)
+  /** Al desmontar se deja de publicar: el `DELETE` llega después. */
+  const cerrado = useRef(false)
+
+  const mandarPresencia = useCallback(
+    (paused: boolean, forzar = false): void => {
+      if (cerrado.current) return
+
+      const ahora = Date.now()
+      const cambioDuracion = vivo.current.durationS > 0 && presencia.current.duracion === 0
+
+      if (!forzar && !cambioDuracion && ahora - presencia.current.at < PRESENCE_INTERVAL_MS) {
+        return
+      }
+
+      presencia.current = {
+        at: ahora,
+        duracion:
+          Number.isFinite(vivo.current.durationS) && vivo.current.durationS > 0
+            ? Math.floor(vivo.current.durationS)
+            : 0,
+      }
+
+      const cuerpo = presenceBody(
+        options.animeRef,
+        options.episodeNumber,
+        vivo.current.positionS,
+        vivo.current.durationS,
+        paused,
+      )
+
+      // Sin `keepalive`: es un aviso de estado, no el guardado final. Que no
+      // llegue no puede romper la reproducción ni la pausa.
+      void fetch('/api/presence', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(cuerpo),
+      }).catch(() => {})
+    },
+    [options.animeRef, options.episodeNumber],
+  )
 
   const mandar = useCallback((positionS: number, durationS: number, keepalive: boolean): void => {
     const cuerpo = updateBody(positionS, durationS)
@@ -159,6 +254,11 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
     (positionS: number, durationS: number, force: boolean, keepalive = false): void => {
       vivo.current = { positionS, durationS }
 
+      // La presencia no depende de que el alta del visionado haya llegado: si el
+      // `POST /api/watch` falló, el historial se pierde pero Discord puede seguir
+      // diciendo qué se está viendo.
+      mandarPresencia(pausado.current)
+
       const id = abierto.current
       if (id === undefined) return
 
@@ -178,7 +278,7 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
       enviado.current = { at: ahora, positionS }
       mandar(positionS, durationS, keepalive)
     },
-    [mandar],
+    [mandar, mandarPresencia],
   )
 
   const flush = useCallback((): void => {
@@ -187,6 +287,12 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
 
   const abrir = useCallback(() => {
     reproduciendo.current = true
+    pausado.current = false
+
+    // Se publica ya, sin esperar al alta del historial: la presencia no necesita
+    // una fila en la base.
+    mandarPresencia(false, true)
+
     if (abierto.current !== undefined) return
 
     void apiPostJson(
@@ -216,7 +322,14 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
         // «continuar viendo», que es una comodidad y no la reproducción.
       },
     )
-  }, [options.animeRef, options.episodeRef, options.mode, options.startAtS, registrar])
+  }, [
+    options.animeRef,
+    options.episodeRef,
+    options.mode,
+    options.startAtS,
+    registrar,
+    mandarPresencia,
+  ])
 
   // El turno periódico. Se crea una vez y no depende de la posición: lee la
   // referencia viva, así que no se recrea en cada aviso del elemento.
@@ -232,23 +345,32 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
   }, [registrar])
 
   // Los tres avisos de que la página se va o deja de verse. `pagehide` y
-  // `beforeunload` cubren el navegador; la visibilidad cubre la bandeja del
-  // anfitrión y el cambio de pestaña, que no descargan la página.
+  // `beforeunload` cubren el navegador y **retiran** la presencia; la visibilidad
+  // y la bandeja del anfitrión sólo guardan la posición: la página sigue viva y
+  // el episodio puede seguir sonando.
   useEffect(() => {
-    const alCerrar = (): void => flush()
+    const alCerrar = (): void => {
+      flush()
+      void fetch('/api/presence', {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        keepalive: true,
+      }).catch(() => {})
+    }
+    const alOcultar = (): void => flush()
     const alCambiarVisibilidad = (): void => {
       if (document.visibilityState === 'hidden') flush()
     }
 
     window.addEventListener('pagehide', alCerrar)
     window.addEventListener('beforeunload', alCerrar)
-    window.addEventListener(EVENTO_OCULTAR_VENTANA, alCerrar)
+    window.addEventListener(EVENTO_OCULTAR_VENTANA, alOcultar)
     document.addEventListener('visibilitychange', alCambiarVisibilidad)
 
     return () => {
       window.removeEventListener('pagehide', alCerrar)
       window.removeEventListener('beforeunload', alCerrar)
-      window.removeEventListener(EVENTO_OCULTAR_VENTANA, alCerrar)
+      window.removeEventListener(EVENTO_OCULTAR_VENTANA, alOcultar)
       document.removeEventListener('visibilitychange', alCambiarVisibilidad)
     }
   }, [flush])
@@ -257,8 +379,14 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
   // final. Es el último momento en el que la fila y la posición viven juntas.
   useEffect(() => {
     return () => {
+      cerrado.current = true
       reproduciendo.current = false
       flush()
+      void fetch('/api/presence', {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        keepalive: true,
+      }).catch(() => {})
     }
   }, [flush])
 
@@ -266,7 +394,9 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
     watchId,
     onPlay: abrir,
     onPause: () => {
+      pausado.current = true
       reproduciendo.current = false
+      mandarPresencia(true, true)
       flush()
     },
     onProgress: (positionS, durationS) => registrar(positionS, durationS, false),

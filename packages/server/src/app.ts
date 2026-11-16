@@ -49,6 +49,7 @@ import { registerEpisodesRoute } from './routes/episodes'
 import { registerFavoritesRoutes } from './routes/favorites'
 import { registerPlanToWatchRoutes } from './routes/plan-to-watch'
 import { registerPlayRoutes } from './routes/play'
+import { registerPresenceRoutes } from './routes/presence'
 import { registerProfileRoutes } from './routes/profile'
 import { registerProviderReposRoutes } from './routes/provider-repos'
 import { type PluginReport, registerProvidersRoute, summarizePlugins } from './routes/providers'
@@ -579,6 +580,10 @@ export function createApp(options: AppOptions): Hono {
       ...(options.paths === undefined ? {} : { paths: options.paths }),
       ...(options.mpvVersion === undefined ? {} : { mpvVersion: options.mpvVersion }),
     })
+    // La presencia se registra también en modo restringido para que el
+    // reproductor no reciba un 404 al mandar su foto; la ruta no publica nada y
+    // la interfaz esconde el ajuste.
+    registerPresenceRoutes(app, { container, locked: options.locked ?? false })
     // Lanzar un reproductor en el servidor no es una operación de un modo
     // restringido: cualquier cliente con el token podría hacerlo, y no hay
     // pantalla ni altavoz que lo justifique.

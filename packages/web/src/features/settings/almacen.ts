@@ -198,6 +198,25 @@ export function fijarContenidoAdultos(adultContent: boolean): void {
 }
 
 /**
+ * La presencia de Discord, optimista.
+ *
+ * Encenderla no publica nada hasta que el reproductor mande su primera foto; el
+ * ajuste sólo decide qué se hará con ella. Apagarla retira lo que hubiera, y eso
+ * lo hace el servidor al recibir el `PATCH`.
+ */
+export function fijarPresenciaDiscord(discordPresence: SettingsResponse['discordPresence']): void {
+  const previo = cache.data?.discordPresence
+
+  actualizar((actual) => ({ ...actual, discordPresence }))
+
+  void apiPatch('/api/settings', { discordPresence }, {}, deps).catch(() => {
+    if (previo === undefined) return
+
+    actualizar((actual) => ({ ...actual, discordPresence: previo }))
+  })
+}
+
+/**
  * El orden de proveedores, también optimista.
  *
  * Subir un proveedor se ve al instante y se deshace si el servidor falla. Un

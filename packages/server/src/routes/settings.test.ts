@@ -5,7 +5,10 @@ import { join } from 'node:path'
 import { openDb, runMigrations } from '@rona/catalog-store'
 import { settingsResponseSchema } from '@rona/core'
 import { createFixtureProvider } from '@rona/providers-fixture'
+import { detalle, porRef } from '@rona/providers-fixture/data'
 import { createApp, createContainer } from '../index'
+import type { PresenceSnapshot } from '../presence/activity'
+import type { PresenceService } from '../presence/service'
 
 const PORT = 7717
 const SESSION_COOKIE = 'nn_session'
@@ -17,16 +20,26 @@ const JSON_HEADERS = { ...GOOD, 'content-type': 'application/json' }
 interface Contexto {
   readonly pedir: (ruta: string, init?: RequestInit) => Promise<Response>
   readonly db: ReturnType<typeof openDb>
+  readonly store: ReturnType<typeof createContainer>['store']
 }
 
 async function conApp<T>(
   body: (contexto: Contexto) => Promise<T>,
-  opciones: { readonly mpvAvailable?: boolean; readonly mpvVersion?: string } = {},
+  opciones: {
+    readonly mpvAvailable?: boolean
+    readonly mpvVersion?: string
+    readonly presence?: PresenceService
+    readonly locked?: boolean
+  } = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'rona-ajustes-'))
   const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
-  const container = createContainer({ db, mpvAvailable: opciones.mpvAvailable ?? false })
+  const container = createContainer({
+    db,
+    mpvAvailable: opciones.mpvAvailable ?? false,
+    ...(opciones.presence === undefined ? {} : { presence: opciones.presence }),
+  })
   const proveedor = createFixtureProvider()
 
   try {
@@ -55,12 +68,14 @@ async function conApp<T>(
         configFile: '/config/rona.json',
       },
       ...(opciones.mpvVersion === undefined ? {} : { mpvVersion: opciones.mpvVersion }),
+      ...(opciones.locked === undefined ? {} : { locked: opciones.locked }),
     })
 
     return await body({
       pedir: async (ruta, init) =>
         await Promise.resolve(servidor.request(`${BASE}${ruta}`, init ?? { headers: GOOD })),
       db,
+      store: container.store,
     })
   } finally {
     await container.close().catch(() => {})
@@ -384,5 +399,163 @@ describe('PATCH /api/settings', () => {
 
       expect(respuesta.status).toBe(400)
     })
+  })
+})
+
+function presenciaFalsa(conectado = true): {
+  readonly service: PresenceService
+  readonly fotos: readonly PresenceSnapshot[]
+  readonly limpiezas: () => number
+} {
+  const fotos: PresenceSnapshot[] = []
+  let limpiezas = 0
+
+  return {
+    service: {
+      update: (foto) => {
+        fotos.push(foto)
+      },
+      clear: () => {
+        limpiezas += 1
+      },
+      connected: () => conectado,
+      close: async () => {},
+    },
+    fotos,
+    limpiezas: () => limpiezas,
+  }
+}
+
+const REF = { providerId: 'fixture', value: 'aurora-nocturna' } as const
+
+async function sembrar(store: Contexto['store']): Promise<string> {
+  const titulo = porRef(REF.value)
+  if (titulo === undefined) throw new Error('el fixture no tiene aurora-nocturna')
+
+  await store.writeAnime(REF, detalle(titulo))
+
+  return titulo.title
+}
+
+async function ajustar(pedir: Contexto['pedir'], discordPresence: string): Promise<void> {
+  await pedir('/api/settings', {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ discordPresence }),
+  })
+}
+
+async function publicar(pedir: Contexto['pedir']): Promise<Response> {
+  return await pedir('/api/presence', {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({
+      animeRef: REF,
+      episodeNumber: 2,
+      positionS: 30,
+      durationS: 1_200,
+      paused: false,
+    }),
+  })
+}
+
+describe('la presencia de Discord', () => {
+  test('nace apagada y sin conexión', async () => {
+    await conApp(async ({ pedir }) => {
+      const salida = settingsResponseSchema.parse(await (await pedir('/api/settings')).json())
+
+      expect(salida.discordPresence).toBe('off')
+      expect(salida.discord.connected).toBe(false)
+    })
+  })
+
+  test('la foto resuelve el título en el servidor y respeta el modo', async () => {
+    const falso = presenciaFalsa()
+
+    await conApp(
+      async ({ pedir, store }) => {
+        const titulo = await sembrar(store)
+        await ajustar(pedir, 'completo')
+        const respuesta = await publicar(pedir)
+
+        expect(respuesta.status).toBe(204)
+        expect(falso.fotos[0]).toMatchObject({
+          mode: 'completo',
+          title: titulo,
+          episodeNumber: 2,
+          positionS: 30,
+          durationS: 1_200,
+          paused: false,
+        })
+
+        const salida = settingsResponseSchema.parse(await (await pedir('/api/settings')).json())
+        expect(salida.discordPresence).toBe('completo')
+        expect(salida.discord.connected).toBe(true)
+      },
+      { presence: falso.service },
+    )
+  })
+
+  test('un título marcado para adultos no se publica aunque el modo sea completo', async () => {
+    const falso = presenciaFalsa()
+
+    await conApp(
+      async ({ pedir, store }) => {
+        await sembrar(store)
+        await store.markAdult(REF)
+        await ajustar(pedir, 'completo')
+        await publicar(pedir)
+
+        expect(falso.fotos[0]?.title).toBeNull()
+      },
+      { presence: falso.service },
+    )
+  })
+
+  test('apagada no publica y retira lo que hubiera', async () => {
+    const falso = presenciaFalsa()
+
+    await conApp(
+      async ({ pedir }) => {
+        await ajustar(pedir, 'off')
+        await publicar(pedir)
+
+        expect(falso.fotos).toHaveLength(0)
+        expect(falso.limpiezas()).toBeGreaterThan(0)
+      },
+      { presence: falso.service },
+    )
+  })
+
+  test('una foto inválida es 400 y no toca el servicio', async () => {
+    const falso = presenciaFalsa()
+
+    await conApp(
+      async ({ pedir }) => {
+        const respuesta = await pedir('/api/presence', {
+          method: 'PUT',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ animeRef: REF }),
+        })
+
+        expect(respuesta.status).toBe(400)
+        expect(falso.fotos).toHaveLength(0)
+      },
+      { presence: falso.service },
+    )
+  })
+
+  test('en modo restringido no se publica nada', async () => {
+    const falso = presenciaFalsa()
+
+    await conApp(
+      async ({ pedir }) => {
+        const respuesta = await publicar(pedir)
+
+        expect(respuesta.status).toBe(204)
+        expect(falso.fotos).toHaveLength(0)
+      },
+      { presence: falso.service, locked: true },
+    )
   })
 })

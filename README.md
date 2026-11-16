@@ -200,6 +200,23 @@ van a `%LOCALAPPDATA%` y la configuración a `%APPDATA%` en lugar de a las rutas
 que crean enlaces simbólicos necesitan el **modo desarrollador** activado: sin él Windows las rechaza
 con `EPERM` y las pruebas lo declaran en lugar de fingir que midieron.
 
+## Presencia en Discord (opcional)
+
+RoNa puede publicar en tu perfil de Discord que estás viendo algo, con la app «RoNa»
+(`Application ID` `1571721886742876321`). Está **apagada por defecto** y se enciende en **Ajustes →
+Presencia en Discord**:
+
+| Modo | Qué publica |
+|---|---|
+| Apagada | Nada. Es el valor inicial. |
+| Discreta | «Viendo en RoNa» y el tiempo; ni título ni episodio. |
+| Completa | El título y el número de episodio. |
+
+Un título marcado para adultos no se publica en ningún modo: el servidor lo resuelve, lo cruza con
+la marca local y manda el texto genérico. No hay OAuth, ni token, ni `client_secret`: el servidor
+habla con el IPC local del cliente de Discord y sólo manda la actividad. Para que salga el icono,
+sube `packaging/icons/icon-1024.png` al portal de Discord con la clave `rona`.
+
 ## Docker y servidor
 
 Además del uso local, RoNa se puede desplegar como contenedor en un servidor, un NAS o una LAN:

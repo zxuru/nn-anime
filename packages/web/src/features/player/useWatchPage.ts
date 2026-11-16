@@ -378,6 +378,7 @@ export function useWatchPage(options: WatchPageOptions): WatchPageHandle {
   const visionado = useWatchEvents({
     animeRef,
     episodeRef,
+    episodeNumber: episodio,
     mode: fuente.modo,
     startAtS: posicion,
   })

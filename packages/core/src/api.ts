@@ -865,6 +865,9 @@ export const anilistRelatedResponseSchema = z.strictObject({
  */
 const providerPrioritySchema = z.array(z.string().min(1)).max(64)
 
+/** Los tres estados de la presencia de Discord. */
+export const discordPresenceSchema = z.enum(['off', 'discreto', 'completo'])
+
 /** Ajustes que la interfaz puede leer y, en parte, cambiar. */
 export const settingsResponseSchema = z.strictObject({
   theme: z.enum(['dark', 'light', 'system']),
@@ -876,6 +879,21 @@ export const settingsResponseSchema = z.strictObject({
    * a AniList, qué se guarda y qué se sirve.
    */
   adultContent: z.boolean(),
+  /**
+   * La presencia de Discord.
+   *
+   * `off` por defecto: publicar lo que alguien ve es una decisión suya y no un
+   * valor que venga puesto. `discreto` enseña que hay algo en marcha, sin título
+   * ni episodio; `completo` añade el título. Un título marcado para adultos no se
+   * publica en ninguno de los dos.
+   */
+  discordPresence: discordPresenceSchema.default('off'),
+  /** Si el proceso ya habló con Discord en esta ejecución. */
+  discord: z
+    .strictObject({
+      connected: z.boolean(),
+    })
+    .default({ connected: false }),
   /**
    * Si esta instalación corre en modo restringido.
    *
@@ -930,6 +948,7 @@ export const settingsPatchSchema = z
     theme: z.enum(['dark', 'light', 'system']).optional(),
     providerPriority: providerPrioritySchema.optional(),
     adultContent: z.boolean().optional(),
+    discordPresence: discordPresenceSchema.optional(),
     /**
      * La clave de TMDB, o `null` para quitarla.
      *
@@ -948,9 +967,26 @@ export const settingsPatchSchema = z
       parche.theme !== undefined ||
       parche.providerPriority !== undefined ||
       parche.adultContent !== undefined ||
+      parche.discordPresence !== undefined ||
       parche.tmdbApiKey !== undefined,
     'el parche no cambia ningún ajuste',
   )
+
+/**
+ * Una foto del visionado que el reproductor manda al servidor.
+ *
+ * El título **no** viaja aquí: lo resuelve el servidor desde `animeRef` y lo
+ * cruza con la marca de adultos. El número de episodio sí viene del cliente —es
+ * un entero acotado—, porque el reproductor ya lo tiene y la alternativa sería
+ * una lectura de la caché de episodios por cada aviso.
+ */
+export const presenceUpdateSchema = z.strictObject({
+  animeRef: providerRefSchema,
+  episodeNumber: z.number().int().min(0).max(10_000).optional(),
+  positionS: z.number().finite().min(0).max(86_400),
+  durationS: z.number().finite().min(0).max(86_400),
+  paused: z.boolean(),
+})
 
 /**
  * Los intervalos que se pueden saltar en un episodio.

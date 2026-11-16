@@ -42,6 +42,7 @@ export function SettingsPage(): ReactNode {
     setTheme,
     setProviderPriority,
     setAdultContent,
+    setDiscordPresence,
     setTmdbKey,
     register,
     refresh,
@@ -213,6 +214,47 @@ export function SettingsPage(): ReactNode {
         </fieldset>
         <p>{t(DEFAULT_LOCALE, 'settings.adult.help')}</p>
       </section>
+
+      {/*
+        La presencia de Discord.
+
+        Reutiliza el contenedor de botones del tema, como el contenido para
+        adultos: una fila con estado y ninguna regla nueva. Va aquí, junto a los
+        otros ajustes de privacidad, y no con el reproductor: lo que decide es qué
+        se publica fuera de la aplicación.
+      */}
+      {data.locked ? null : (
+        <section>
+          <h2>{t(DEFAULT_LOCALE, 'settings.discord')}</h2>
+          <fieldset className="settings__theme" aria-label={t(DEFAULT_LOCALE, 'settings.discord')}>
+            {(
+              [
+                ['off', 'settings.discord.off'],
+                ['discreto', 'settings.discord.discreto'],
+                ['completo', 'settings.discord.completo'],
+              ] as const
+            ).map(([modo, etiqueta]) => (
+              <button
+                key={modo}
+                type="button"
+                className="button"
+                aria-pressed={data.discordPresence === modo}
+                onClick={() => setDiscordPresence(modo)}
+              >
+                {t(DEFAULT_LOCALE, etiqueta)}
+              </button>
+            ))}
+          </fieldset>
+          <p>{t(DEFAULT_LOCALE, 'settings.discord.help')}</p>
+          {data.discordPresence === 'off' ? null : (
+            <p>
+              {data.discord.connected
+                ? t(DEFAULT_LOCALE, 'settings.discord.connected')
+                : t(DEFAULT_LOCALE, 'settings.discord.disconnected')}
+            </p>
+          )}
+        </section>
+      )}
 
       {/*
         El modo extendido del reproductor.

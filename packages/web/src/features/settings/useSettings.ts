@@ -7,7 +7,7 @@
  * `cargarAjustes`, y la segunda encuentra la lectura hecha.
  */
 
-import type { ProviderSummary } from '@rona/core/api'
+import type { ProviderSummary, SettingsResponse } from '@rona/core/api'
 import { useEffect, useSyncExternalStore } from 'react'
 import {
   type Ajustes,
@@ -15,6 +15,7 @@ import {
   estadoAjustes,
   fijarClaveTmdb,
   fijarContenidoAdultos,
+  fijarPresenciaDiscord,
   fijarPrioridadProveedores,
   fijarTema,
   recargarAjustes,
@@ -35,6 +36,8 @@ export interface Settings extends Ajustes {
    * guarda y qué se sirve, así que la interfaz sólo lo refleja.
    */
   readonly setAdultContent: (adultContent: boolean) => void
+  /** Publica o retira la presencia de Discord; el servidor decide qué enseña. */
+  readonly setDiscordPresence: (mode: SettingsResponse['discordPresence']) => void
   /** Guarda el orden de preferencia de proveedores, del primero al último. */
   readonly setProviderPriority: (order: readonly string[]) => void
   /**
@@ -94,6 +97,7 @@ export function useSettings(): Settings {
     setTheme: fijarTema,
     setProviderPriority: fijarPrioridadProveedores,
     setAdultContent: fijarContenidoAdultos,
+    setDiscordPresence: fijarPresenciaDiscord,
     setTmdbKey: fijarClaveTmdb,
     register: registrarProveedor,
     refresh: recargarAjustes,
