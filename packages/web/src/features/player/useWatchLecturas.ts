@@ -254,6 +254,15 @@ export interface WatchTituloHandle {
    * que había antes.
    */
   readonly portada: string | undefined
+  /**
+   * La ficha del título ya respondió —bien o mal—.
+   *
+   * No es un dato para pintar: es el permiso para pedir el enriquecimiento. Esa
+   * ruta lee de la base local y sólo contesta cuando la ficha está cacheada, y la
+   * cachea esta misma lectura del detalle. Pedirla en paralelo devolvía `null` y
+   * el episodio se quedaba sin saltos por una carrera, no porque no los tuviera.
+   */
+  readonly fichaLista: boolean
 }
 
 /**
@@ -265,6 +274,15 @@ export function useWatchTitulo(options: WatchTituloOptions): WatchTituloHandle {
   const [tituloAnime, setTituloAnime] = useState<string | undefined>(undefined)
   const [tipo, setTipo] = useState<TitleKind | undefined>(undefined)
   const [portada, setPortada] = useState<string | undefined>(undefined)
+
+  /**
+   * Si la ficha ya contestó, bien o mal.
+   *
+   * La respuesta se pide una vez por título y esta marca no se vuelve a bajar: es
+   * el permiso para preguntar por el enriquecimiento, que lee de la caché que
+   * llena esta misma lectura. Da igual cómo conteste; lo que importa es el orden.
+   */
+  const [fichaLista, setFichaLista] = useState(false)
 
   useEffect(() => {
     let vivo = true
@@ -283,8 +301,16 @@ export function useWatchTitulo(options: WatchTituloOptions): WatchTituloHandle {
             ? undefined
             : coverPath(options.providerId, options.animeValue),
         )
+        setFichaLista(true)
       },
-      () => undefined,
+      () => {
+        if (!vivo) return
+
+        // Aunque la ficha falle, el permiso se da: preguntar por el
+        // enriquecimiento una vez es barato y no hay bucle —si contesta que no,
+        // el hook no vuelve a preguntar.
+        setFichaLista(true)
+      },
     )
 
     return () => {
@@ -292,5 +318,5 @@ export function useWatchTitulo(options: WatchTituloOptions): WatchTituloHandle {
     }
   }, [options.providerId, options.animeValue])
 
-  return { tituloAnime, tipo, portada }
+  return { tituloAnime, tipo, portada, fichaLista }
 }

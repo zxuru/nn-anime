@@ -43,18 +43,37 @@ interface ImageRow {
   readonly url: string
 }
 
+interface MalRow {
+  readonly mal_id: number | null
+}
+
 export interface AniListRepository {
   /** El emparejamiento guardado. `value: null` es «se buscó y no hay». */
   readMedia(titleKey: string, now?: number): CacheHit<AniListEntry | null> | null
   /**
-   * Guarda el emparejamiento **con sus direcciones de imagen**.
+   * Guarda el emparejamiento **con sus direcciones de imagen** y con los dos ids.
    *
-   * Las dos cosas van juntas porque la ficha pide la imagen por el id de esta
+   * Las tres cosas van juntas porque la ficha pide la imagen por el id de esta
    * fila: guardar la obra y no sus direcciones deja la portada y el banner en un
    * 404 que el navegador pinta como una imagen rota. `null` —«se buscó y no
-   * hay»— no tiene imágenes que guardar.
+   * hay»— no tiene imágenes ni ids que guardar.
+   *
+   * `anilist_id` y `mal_id` se escriben en la misma sentencia para que la vuelta
+   * de AniList a MAL exista en cuanto el emparejamiento se guarda: la ruta de los
+   * saltos no puede esperar a que alguien vuelva a leer el JSON.
    */
   writeMedia(titleKey: string, media: AniListEntry | null, now?: number): void
+  /**
+   * El id de MyAnimeList de una obra, por su id de AniList.
+   *
+   * Es la vuelta que la ruta de los saltos necesita: recibe un id de AniList —el
+   * único que conoce el reproductor— y AniSkip se pide por el de MAL. `undefined`
+   * significa «no hay con qué»: ni fila para ese id, ni `mal_id` en ella —AniList
+   * dice que la obra no tiene ficha de MAL—. Los dos casos se tratan igual porque
+   * ninguno tiene saltos que pedir; lo que hay que distinguir es «no hay» de «hay»,
+   * y eso lo dice el número.
+   */
+  readMalId(anilistId: number): number | undefined
   readList<T>(key: string, schema: z.ZodType<T>, now?: number): CacheHit<readonly T[]> | null
   writeList<T>(key: string, items: readonly T[], ttlS: number, now?: number): void
   readImage(mediaId: number, kind: AniListImageKind): string | undefined
@@ -74,12 +93,17 @@ export function createAniListRepository(db: Database): AniListRepository {
     'SELECT title_key, media_json, fetched_at, ttl_s FROM anilist_media WHERE title_key = ?',
   )
   const upsertMedia = db.query(
-    `INSERT INTO anilist_media (title_key, media_json, fetched_at, ttl_s)
-     VALUES (?, ?, ?, ?)
+    `INSERT INTO anilist_media (title_key, media_json, anilist_id, mal_id, fetched_at, ttl_s)
+     VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT (title_key) DO UPDATE SET
        media_json = excluded.media_json,
+       anilist_id = excluded.anilist_id,
+       mal_id     = excluded.mal_id,
        fetched_at = excluded.fetched_at,
        ttl_s      = excluded.ttl_s`,
+  )
+  const selectMalId = db.query<MalRow, [number]>(
+    'SELECT mal_id FROM anilist_media WHERE anilist_id = ?',
   )
   const selectList = db.query<ListRow, [string]>(
     'SELECT query_key, payload_json, fetched_at, ttl_s FROM anilist_list_cache WHERE query_key = ?',
@@ -139,12 +163,32 @@ export function createAniListRepository(db: Database): AniListRepository {
     writeMedia(titleKey, media, now = Date.now()) {
       const ttlS = media === null ? TTL_SECONDS.anilistMiss : TTL_SECONDS.anilistMedia
 
-      upsertMedia.run(titleKey, media === null ? null : JSON.stringify(media), now, ttlS)
+      // Los ids se escriben siempre, con `null` cuando no hay obra: una fila que
+      // pasa a «se buscó y no hay» no puede conservar el id del emparejamiento
+      // anterior, o la ruta de los saltos seguiría dando los intervalos de una
+      // obra que ya no es la de este título.
+      upsertMedia.run(
+        titleKey,
+        media === null ? null : JSON.stringify(media),
+        media === null ? null : media.id,
+        media === null ? null : (media.malId ?? null),
+        now,
+        ttlS,
+      )
 
       // El emparejamiento y sus imágenes, en la misma escritura: quien sirve la
       // ficha resuelve el banner contra `anilist_image` por el id de esta fila, y
       // guardar sólo una de las dos mitades dejaba la ficha sin imagen.
       if (media !== null) guardarImagenes(media)
+    },
+
+    readMalId(anilistId) {
+      // Sin fila y con `mal_id` nulo dan lo mismo a quien pregunta —no hay saltos
+      // que pedir—, así que la lectura no los separa: `undefined` es «no hay con
+      // qué», y el número es la clave con la que se le pregunta a AniSkip.
+      const fila = selectMalId.get(anilistId)
+
+      return fila === null || fila.mal_id === null ? undefined : fila.mal_id
     },
 
     readList<T>(key: string, schema: z.ZodType<T>, now = Date.now()) {

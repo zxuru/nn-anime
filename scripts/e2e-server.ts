@@ -313,6 +313,10 @@ const servidor = Bun.spawn(
       // que sale a internet se rompe sola. Con esto, sus rutas contestan lo mismo
       // que un AniList caído, que es el camino que hay que poder probar.
       NN_ANIME_ANILIST_OFFLINE: '1',
+      // Y sin salida a AniSkip: el reproductor pide los saltos en cuanto conoce la
+      // duración, y el arnés no puede depender de un tercero. Las pruebas de los
+      // saltos interceptan la respuesta en el navegador; esto cierra la otra mitad.
+      NN_ANIME_ANISKIP_OFFLINE: '1',
       NN_ANIME_E2E_MEDIA: `http://127.0.0.1:${puertoMedios}/tono.wav`,
       // La interfaz que se sirve es la del e2e —con el hls falso—, no la que
       // `packages/web/dist` guarda para la aplicación de verdad. El CLI le da

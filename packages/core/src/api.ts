@@ -35,6 +35,7 @@ import {
   providerMediaSchema,
   providerRefSchema,
   searchResultSchema,
+  skipIntervalSchema,
   streamRequestSchema,
   subtitleFormatSchema,
   titleKindSchema,
@@ -951,10 +952,20 @@ export const settingsPatchSchema = z
     'el parche no cambia ningún ajuste',
   )
 
-/** Detalle de un título. Es el mismo schema del dominio, no una copia. */
-export const animeResponseSchema = animeDetailSchema
-
 /**
+ * Los intervalos que se pueden saltar en un episodio.
+ *
+ * La lista va **vacía** cuando no hay datos, cuando la obra no tiene ficha de MAL
+ * o cuando AniSkip no contesta: el reproductor no distingue los tres casos y no
+ * tiene por qué. Lo que sí distingue es una lista con intervalos, y ésos ya vienen
+ * normalizados por el servidor.
+ */
+export const skipTimesResponseSchema = z.array(skipIntervalSchema)
+
+export type SkipTimesResponse = z.infer<typeof skipTimesResponseSchema>
+
+/** Detalle de un título. Es el mismo schema del dominio, no una copia. */
+export const animeResponseSchema = animeDetailSchema /**
  * Una temporada de un título, tal como la ve el selector.
  *
  * `count` es cuántos episodios tiene: sin el número, el botón de la temporada no

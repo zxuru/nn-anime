@@ -384,6 +384,16 @@ export interface UsePlayerOptions {
   readonly onPlay?: (() => void) | undefined
   readonly onPause?: (() => void) | undefined
   readonly onProgress?: ((positionS: number, durationS: number) => void) | undefined
+  /**
+   * La duración del medio, cuando el elemento la conoce.
+   *
+   * Sale de `loadedmetadata` —y de `durationchange`—, que es el primer momento en
+   * que el elemento sabe cuánto dura. La pantalla la necesita para pedir los
+   * intervalos saltables: el servidor los filtra con ella, y sin duración no hay
+   * nada que pedir. Llega varias veces si el medio la corrige; quien la recibe
+   * decide si ya la tenía.
+   */
+  readonly onDuration?: ((durationS: number) => void) | undefined
   /** Segundo en el que empezar. Sirve para reanudar y para cambiar de modo. */
   readonly startAtS?: number | undefined
   /**
@@ -402,6 +412,15 @@ export interface UsePlayerOptions {
    * sale la tarjeta del episodio siguiente.
    */
   readonly onEnded?: (() => void) | undefined
+  /**
+   * El elemento sobre el que se pide la pantalla completa.
+   *
+   * **No es el `<video>`**: el botón de saltar y los carteles que van encima del
+   * video son hermanos suyos dentro del marco, y una pantalla completa sobre el
+   * elemento de video los dejaría fuera de la pantalla. Se pide sobre el marco,
+   * que es la caja que contiene la imagen y sus capas. Por defecto, el video.
+   */
+  readonly fullscreenTarget?: (() => HTMLElement | null) | undefined
 }
 
 export function usePlayer(source: UsePlayerOptions): PlayerHandle {
@@ -445,14 +464,26 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     onPlay: source.onPlay,
     onPause: source.onPause,
     onProgress: source.onProgress,
+    onDuration: source.onDuration,
     onEnded: source.onEnded,
   })
   avisos.current = {
     onPlay: source.onPlay,
     onPause: source.onPause,
     onProgress: source.onProgress,
+    onDuration: source.onDuration,
     onEnded: source.onEnded,
   }
+
+  /**
+   * El elemento que ocupa la pantalla completa, en una referencia.
+   *
+   * Quien monta el reproductor lo sabe —el marco contiene el video y el botón de
+   * saltar—, y esta función no: se lee en el momento del gesto para no volver a
+   * montar el medio cada vez que el componente se vuelve a pintar.
+   */
+  const objetivoPantalla = useRef(source.fullscreenTarget)
+  objetivoPantalla.current = source.fullscreenTarget
 
   /**
    * El segundo en el que reanudar, en una referencia por el mismo motivo.
@@ -610,6 +641,13 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
         }),
       )
 
+      // Al saber la duración se la contamos a la pantalla: es lo que necesita
+      // para pedir los intervalos saltables. No se espera a que empiece a sonar:
+      // `loadedmetadata` ya la conoce y `timeupdate` puede tardar.
+      if (Number.isFinite(video.duration) && video.duration > 0) {
+        avisos.current.onDuration?.(video.duration)
+      }
+
       // Reanudar: al saber la duración, se salta a donde se dejó. Se hace aquí y
       // no al montar porque el elemento todavía no admite un `currentTime` que no
       // conoce.
@@ -737,14 +775,25 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
         setState((previo) => ({ ...previo, muted: video.muted }))
 
         return
-      case 'fullscreen':
+      case 'fullscreen': {
+        // La pantalla completa se pide sobre el marco y no sobre el `<video>`:
+        // el botón de saltar y los carteles de encima son hermanos del video, y
+        // una pantalla completa sobre el elemento los dejaría fuera.
+        const objetivo = objetivoPantalla.current?.() ?? video
+
         // El mismo gesto entra y sale: sin la vuelta, el doble clic dentro de la
         // pantalla completa no la quitaría, y el botón tampoco. `requestFullscreen`
         // sobre un elemento que ya está a pantalla completa no hace nada, así que
         // sin esto el mando se quedaba muerto justo donde más se usa.
-        if (document.fullscreenElement === null) void video.requestFullscreen?.()
+        if (document.fullscreenElement === null) void objetivo.requestFullscreen?.()
         else void document.exitFullscreen?.()
 
+        return
+      }
+      case 'skip':
+        // El salto lo ejecuta la pantalla, que sabe a dónde lleva cada intervalo.
+        // `act` sólo puede tocar el elemento, y un `currentTime` sin destino no
+        // es un salto: es una tecla que no hace nada.
         return
       case 'extended':
         // El modo extendido lo resuelve la pantalla con un atributo y CSS: no

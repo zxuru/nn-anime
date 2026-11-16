@@ -449,6 +449,16 @@ export const messages: Messages = {
   'settings.mpv': 'Reproductor externo',
   'settings.mpv.yes': 'mpv disponible, versión {version}.',
   'settings.mpv.no': 'No se encontró mpv: se reproduce en el navegador.',
+  // Los saltos de intro y ending: una preferencia de quien mira, guardada en el
+  // navegador como la reproducción automática. El automático nace apagado.
+  'settings.skip.title': 'Saltos de intro y ending',
+  'settings.skip.body':
+    'Cuando el episodio tiene los datos, en el reproductor aparece un botón para saltar la intro, el ending o el resumen. Apagado por defecto: el salto automático decide por ti, y además sólo ocurre una vez por intervalo y episodio.',
+  'settings.skip.auto': 'Saltar automáticamente la intro y el ending',
+  'settings.skip.margin': 'Margen antes del final',
+  'settings.skip.marginOption': '{seconds} s',
+  'settings.skip.marginHint':
+    'Cuántos segundos antes del final se deja el salto. Con 0 se salta justo al terminar el intervalo.',
   'settings.theme': 'Tema',
   'settings.theme.system': 'El del sistema',
   'settings.theme.dark': 'Oscuro',
@@ -604,6 +614,11 @@ export const messages: Messages = {
   'player.tracks.sinNombre': 'Subtítulos del video',
   // El episodio siguiente, que empieza solo si nadie lo para.
   'player.autoplay': 'Reproducción automática',
+  // El botón de saltar, uno por tipo de intervalo. Son acciones y no estados:
+  // el que se ofrece es el que toca en ese momento del episodio.
+  'player.skip.op': 'Saltar intro',
+  'player.skip.ed': 'Saltar ending',
+  'player.skip.recap': 'Saltar resumen',
   'player.next.in': 'Siguiente episodio en {seconds} s',
   'player.next.now': 'Reproducir ahora',
   'player.next.cancel': 'Cancelar',
@@ -612,10 +627,12 @@ export const messages: Messages = {
   'player.key.volume': 'Bajar o subir el volumen',
   'player.key.mute': 'Silenciar',
   'player.key.fullscreen': 'Pantalla completa',
+  'player.key.skip': 'Saltar intro u ending',
   'player.key.extended': 'Modo extendido',
   'player.key.space': 'Espacio',
   'player.key.enter': 'Enter',
   'player.key.k': 'K',
+  'player.key.s': 'S',
   'player.key.left': '←',
   'player.key.right': '→',
   'player.key.up': '↑',

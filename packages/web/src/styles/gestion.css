@@ -1955,6 +1955,7 @@ details[open] > .library__settings-summary .library__settings-flecha {
   .skeleton,
   .esq,
   .player__tooltip,
+  .player__skip,
   .library__bar[data-indeterminate="true"] .library__bar-fill {
     animation: none;
   }

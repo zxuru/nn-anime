@@ -18,13 +18,17 @@
  * ancho de la ventana en `usePlayerMandos`; el arrastre de la barra en
  * `usePlayerBarra`; los subtítulos en `usePlayerSubtitulos`; y el teclado en
  * `usePlayerTeclado`, con sus decisiones puras en `player-teclas` y `controls`.
- * El marcado se reparte entre `PlayerFrame` —el video y sus capas— y
- * `PlayerButtons` —la fila de mandos—, y este archivo compone y elige qué se ve,
- * igual que `WatchPage`.
+ * Lo que se salta —el intervalo, el destino y el margen— lo decide la pantalla;
+ * aquí sólo se ejecuta y se recuerda qué intervalos ya se saltaron, que es
+ * memoria de la visita y no estado que se pinte. El marcado se reparte entre
+ * `PlayerFrame` —el video y sus capas—, `PlayerSkip` —el botón de saltar—,
+ * `PlayerSeekBar` —el carril con sus marcas— y `PlayerButtons` —la fila de
+ * mandos—, y este archivo compone y elige qué se ve, igual que `WatchPage`.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
 import type { ReactNode } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { t } from '../../i18n'
 import { AudioModeSwitch } from './AudioModeSwitch'
 import { needsHls, volumeFromPercent, volumePercent } from './controls'
@@ -34,6 +38,7 @@ import { PlayerErrorNotice } from './PlayerErrorNotice'
 import { PlayerFrame } from './PlayerFrame'
 import { PlayerSeekBar } from './PlayerSeekBar'
 import { PlayerShortcuts } from './PlayerShortcuts'
+import { PlayerSkipButton } from './PlayerSkip'
 import type { PlayerProps } from './player-props'
 import { useCompatPaint } from './useCompatPaint'
 import { usePlayer } from './usePlayer'
@@ -45,9 +50,20 @@ import { usePlayerMandos } from './usePlayerMandos'
 import { usePlayerSubtitulos } from './usePlayerSubtitulos'
 import { usePlayerTeclado } from './usePlayerTeclado'
 
-export type { PlayerProps } from './player-props'
+export type { PlayerProps, PlayerSkip } from './player-props'
 
 export function Player(props: PlayerProps): ReactNode {
+  /**
+   * El marco del reproductor.
+   *
+   * Es la caja que mide el video y la que contiene sus capas —el botón grande,
+   * la espera y el botón de saltar—, así que es la que se pone a pantalla
+   * completa: pedirla sobre el `<video>` dejaría el botón de saltar fuera de la
+   * pantalla, y es justo donde hace más falta.
+   */
+  const marco = useRef<HTMLDivElement | null>(null)
+  const objetivoPantalla = useCallback(() => marco.current, [])
+
   // Los avisos de reproducción, pausa y avance salen de los eventos del propio
   // elemento, no del render: llamarlos al pintar los dispararía en cada vuelta.
   const { state, videoRef, act, seekTo, setVolume, hlsTracks, pickHlsTrack, retry } = usePlayer({
@@ -56,11 +72,14 @@ export function Player(props: PlayerProps): ReactNode {
     ...(props.onPlay === undefined ? {} : { onPlay: props.onPlay }),
     ...(props.onPause === undefined ? {} : { onPause: props.onPause }),
     ...(props.onProgress === undefined ? {} : { onProgress: props.onProgress }),
+    ...(props.onDuration === undefined ? {} : { onDuration: props.onDuration }),
     ...(props.onEnded === undefined ? {} : { onEnded: props.onEnded }),
     ...(props.startAtS === undefined ? {} : { startAtS: props.startAtS }),
     ...(props.renovarFuente === undefined ? {} : { renovarFuente: props.renovarFuente }),
+    fullscreenTarget: objetivoPantalla,
   })
   const pistas = props.tracks ?? []
+  const intervalos = props.intervals ?? []
 
   // El elemento, sus gestos y el aviso a quien monta el reproductor —la sala—.
   const { elemento, refVideo, alClic, alDobleClic } = usePlayerGestos({
@@ -86,7 +105,7 @@ export function Player(props: PlayerProps): ReactNode {
     cajaAjustes,
     dialogoAtajos,
     completa,
-  } = usePlayerAjustes()
+  } = usePlayerAjustes(marco)
   const extendido = usePlayerExtendido()
   const mandos = usePlayerMandos(state.playing)
   const barra = usePlayerBarra({
@@ -103,8 +122,50 @@ export function Player(props: PlayerProps): ReactNode {
     sinNombre: t(DEFAULT_LOCALE, 'player.tracks.sinNombre'),
   })
 
+  /**
+   * Los intervalos que ya se saltaron en esta visita.
+   *
+   * La clave lleva el episodio y los dos extremos, así que volver a entrar en el
+   * intervalo —con la barra o con la flecha— no dispara otro salto automático.
+   * Se anota **cualquier** salto, no sólo el automático: si alguien saltó a mano,
+   * el automático no tiene por qué volver a decidir por él.
+   */
+  const saltados = useRef(new Set<string>())
+
+  /**
+   * El salto, en una sola función.
+   *
+   * Es la que comparten el botón, la tecla `S` y el salto automático: el destino
+   * lo decide la pantalla —que tiene el margen y los intervalos— y aquí sólo se
+   * mueve el elemento y se avisa para que se apunte el progreso. Tener tres
+   * caminos distintos sería tener tres formas de saltar que se separan.
+   */
+  const saltar = useCallback(() => {
+    const salto = props.skip
+    if (salto === undefined) return
+
+    saltados.current.add(salto.key)
+    seekTo(salto.destinoS)
+    props.onSkip?.(salto.destinoS, salto.key)
+  }, [props.skip, props.onSkip, seekTo])
+
+  /**
+   * El salto automático, una sola vez por intervalo y episodio.
+   *
+   * El conjunto vive en una referencia porque no se pinta: es memoria de lo ya
+   * hecho. El botón sigue ofreciéndose al volver a entrar —eso permite saltar a
+   * mano—, pero la reproducción no se mueve sola otra vez.
+   */
+  useEffect(() => {
+    if (props.autoSkip !== true || props.skip === undefined) return
+    if (saltados.current.has(props.skip.key)) return
+
+    saltar()
+  }, [props.autoSkip, props.skip, saltar])
+
   usePlayerTeclado({
     act,
+    saltar,
     alternarExtendido: extendido.alternar,
     extendido: extendido.extendido,
     menu,
@@ -311,6 +372,7 @@ export function Player(props: PlayerProps): ReactNode {
       >
         <PlayerFrame
           refVideo={refVideo}
+          marco={marco}
           onClick={alClic}
           onDoubleClick={alDobleClic}
           poster={props.poster}
@@ -331,6 +393,11 @@ export function Player(props: PlayerProps): ReactNode {
               </span>
             </div>
           ) : null}
+
+          {/* El botón de saltar, dentro del marco: es la caja que se pone a
+              pantalla completa, así que aquí también se ve ahí. Sin intervalo no
+              se pinta nada y la pantalla queda como estaba. */}
+          <PlayerSkipButton skip={props.skip} onSaltar={saltar} />
         </PlayerFrame>
 
         {/* Los mandos: la barra de progreso y su fila de botones.
@@ -347,6 +414,7 @@ export function Player(props: PlayerProps): ReactNode {
             duracion={barra.duracion}
             bufferedS={state.bufferedS}
             sobreBarra={barra.sobreBarra}
+            intervalos={intervalos}
             onArrastrar={barra.arrastrar}
             onSoltar={barra.soltar}
             onMoverPuntero={barra.moverPuntero}

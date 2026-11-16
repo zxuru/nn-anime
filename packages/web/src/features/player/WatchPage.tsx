@@ -102,6 +102,11 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     party,
     mediaDeLaSala,
     visionado,
+    saltoAuto,
+    setDuracion,
+    saltoVisible,
+    intervalosSaltables,
+    alSaltar,
     mpv,
     recargar,
     renovarFuente,
@@ -396,6 +401,18 @@ export function WatchPage(props: WatchPageProps): ReactNode {
             }}
             onVideoElement={setElementoVideo}
             renovarFuente={renovarFuente}
+            // La duración, en cuanto `loadedmetadata` la conoce: con ella se
+            // piden los intervalos saltables. No bloquea nada de lo de arriba.
+            onDuration={setDuracion}
+            // El salto que se ofrece ahora y lo que hay que hacer al pulsarlo.
+            // Sin intervalo no hay botón; con el ajuste apagado —que es el de
+            // fábrica— tampoco salta solo.
+            skip={saltoVisible}
+            autoSkip={saltoAuto}
+            onSkip={alSaltar}
+            // Los intervalos, para marcarlos en la barra de progreso. Sin datos
+            // la lista está vacía y la barra queda como estaba.
+            intervals={intervalosSaltables}
           />
 
           {filaDeMandos(true)}

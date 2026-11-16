@@ -32,6 +32,7 @@ function filtroDeAdultos(adultAllowed: boolean): string {
 /** Lo que se pide de una obra. */
 export const MEDIA_FIELDS = `
   id
+  idMal
   title { romaji english native }
   synonyms
   format

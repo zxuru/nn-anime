@@ -30,6 +30,7 @@ import type {
   PruneReport,
   SearchRecord,
   SearchResult,
+  SkipInterval,
   StreamMode,
   StreamRequest,
   StreamSource,
@@ -60,6 +61,7 @@ import { createRelatedRepository, type RelatedScope } from './repositories/relat
 import { createSearchRepository } from './repositories/search'
 import { createSearchHistoryRepository } from './repositories/search-history'
 import { createSettingsRepository } from './repositories/settings'
+import { createSkipTimesRepository, type SkipTimesRepository } from './repositories/skip-times'
 import { createStreamRepository } from './repositories/stream'
 import { createTrendingRepository } from './repositories/trending'
 import { createWatchRepository } from './repositories/watch'
@@ -199,6 +201,33 @@ export interface CatalogStore {
   /** La dirección de una imagen ya cacheada. No descubre imágenes nuevas. */
   readAniListImage(mediaId: number, kind: AniListImageKind): Promise<string | undefined>
 
+  /**
+   * El id de MyAnimeList de una obra de AniList, por su id de AniList.
+   *
+   * La vuelta que necesita la ruta de los saltos: el reproductor conoce el id de
+   * AniList y AniSkip se pide por el de MAL. `undefined` es «no hay con qué» —sin
+   * fila, o con la obra emparejada pero sin ficha de MAL—, y las dos cosas se
+   * tratan igual: no hay intervalos que dar.
+   */
+  readMalId(anilistId: number): Promise<number | undefined>
+  /**
+   * Los intervalos saltables cacheados de un episodio, o `null` si no se preguntó.
+   *
+   * La clave la compone el servidor —`malId:episodio:duración`— y la lista vacía
+   * con fila es una respuesta: «se preguntó y ese episodio no tiene intervalos».
+   * La diferencia con `null` es la que evita preguntar en cada carga lo que ya se
+   * sabe.
+   */
+  readSkipTimes(key: string): Promise<CacheHit<readonly SkipInterval[]> | null>
+  /**
+   * Guarda los intervalos con el TTL que decidió el servidor.
+   *
+   * El TTL viene de fuera porque quien pregunta —y por tanto quien sabe si la
+   * respuesta fue un acierto, un «no hay» o un fallo— es el servicio de saltos, y
+   * las tres cosas se guardan con vidas distintas en la misma tabla.
+   */
+  writeSkipTimes(key: string, intervals: readonly SkipInterval[], ttlS: number): Promise<void>
+
   readStream(episodeRef: ProviderRef, mode: StreamMode): Promise<StreamSource | null>
   writeStream(request: StreamRequest, sources: readonly StreamSource[]): Promise<void>
   invalidateStream(episodeRef: ProviderRef, mode: StreamMode): Promise<number>
@@ -319,6 +348,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     readonly episodes: ReturnType<typeof createEpisodesRepository>
     readonly episodePages: ReturnType<typeof createEpisodePageRepository>
     readonly search: ReturnType<typeof createSearchRepository>
+    readonly skipTimes: SkipTimesRepository
     readonly streams: ReturnType<typeof createStreamRepository>
     readonly watch: ReturnType<typeof createWatchRepository>
     readonly favorites: ReturnType<typeof createFavoritesRepository>
@@ -343,6 +373,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       episodes: createEpisodesRepository(db),
       episodePages: createEpisodePageRepository(db),
       search: createSearchRepository(db),
+      skipTimes: createSkipTimesRepository(db),
       streams: createStreamRepository(db),
       watch: createWatchRepository(db),
       favorites: createFavoritesRepository(db),
@@ -449,6 +480,16 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async readAniListImage(mediaId, kind) {
       return of().anilist.readImage(mediaId, kind)
+    },
+
+    async readMalId(anilistId) {
+      return of().anilist.readMalId(anilistId)
+    },
+    async readSkipTimes(key) {
+      return of().skipTimes.read(key, ahora())
+    },
+    async writeSkipTimes(key, intervals, ttlS) {
+      await queue.run(() => of().skipTimes.write(key, intervals, ttlS, ahora()))
     },
 
     async readStream(episodeRef, mode) {

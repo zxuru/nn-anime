@@ -8,8 +8,25 @@
  * setenta líneas de documentación de propiedades.
  */
 
+import type { SkipInterval } from '@nn-anime/core/schema'
 import type { SafeTrack } from './usePlayer'
 import type { PlayMode } from './watch-route'
+
+/**
+ * El salto que se ofrece ahora mismo.
+ *
+ * La pantalla decide **cuál** y **a dónde**: es la que tiene los intervalos del
+ * episodio, la posición y el margen elegido. El reproductor sólo pinta el botón
+ * dentro del marco, lo dispara con la tecla y avisa cuando se salta.
+ */
+export interface PlayerSkip {
+  /** La clave del intervalo, que es como la pantalla recuerda que ya se saltó. */
+  readonly key: string
+  /** La clave i18n de la etiqueta: «Saltar intro», «Saltar ending»… */
+  readonly labelKey: string
+  /** El segundo al que se salta. */
+  readonly destinoS: number
+}
 
 export interface PlayerProps {
   /** URL del proxy: el ticket, nunca la del upstream. */
@@ -54,6 +71,39 @@ export interface PlayerProps {
   readonly onPlay?: (() => void) | undefined
   readonly onPause?: (() => void) | undefined
   readonly onProgress?: ((positionS: number, durationS: number) => void) | undefined
+  /**
+   * La duración del medio, cuando el elemento la conoce.
+   *
+   * Se reenvía tal cual a `usePlayer`, que la saca de `loadedmetadata`. La
+   * pantalla la necesita para pedir los intervalos saltables sin bloquear la
+   * reproducción.
+   */
+  readonly onDuration?: ((durationS: number) => void) | undefined
+  /**
+   * El intervalo saltable que se ofrece ahora.
+   *
+   * Sin esto —o con los ajustes por defecto, que no saltan solos— no hay botón:
+   * la pantalla lo deja vacío cuando no hay intervalo, cuando el usuario ya salió
+   * de él tras saltar o cuando no hay datos del episodio.
+   */
+  readonly skip?: PlayerSkip | undefined
+  /** Se salta: manual con el botón o con `S`, o automático si el ajuste está activo. */
+  readonly onSkip?: ((destinoS: number, clave: string) => void) | undefined
+  /**
+   * ¿Se salta solo? Es una preferencia de la pantalla; aquí sólo se ejecuta.
+   *
+   * El salto automático ocurre **una sola vez por intervalo y episodio**: la
+   * clave del intervalo lleva las dos cosas, así que volver a entrar en él a
+   * mano no dispara otro salto.
+   */
+  readonly autoSkip?: boolean | undefined
+  /**
+   * Los intervalos del episodio, para marcarlos en la barra de progreso.
+   *
+   * Es información de contexto —dónde está el opening en el capítulo— y sólo se
+   * pinta cuando hay datos: sin ellos la barra queda exactamente como estaba.
+   */
+  readonly intervals?: readonly SkipInterval[] | undefined
   /**
    * El episodio llegó al final.
    *

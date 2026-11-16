@@ -132,7 +132,7 @@ describe('el reproductor', () => {
     // una línea de texto corrido y no se leían como teclas.
     expect(html).toContain('<kbd')
 
-    for (const tecla of ['Espacio', 'Enter', 'K', '←', '→', '↑', '↓', 'M', 'F']) {
+    for (const tecla of ['Espacio', 'Enter', 'K', '←', '→', '↑', '↓', 'M', 'F', 'S']) {
       expect(html, tecla).toContain(`>${tecla}</kbd>`)
     }
 
@@ -143,6 +143,7 @@ describe('el reproductor', () => {
       'Bajar o subir el volumen',
       'Silenciar',
       'Pantalla completa',
+      'Saltar intro u ending',
     ]) {
       expect(html, hace).toContain(hace)
     }
@@ -279,6 +280,66 @@ describe('el reproductor', () => {
     // el medio y la reproducción se quedaba en el segundo cero: cargaba, decía
     // la duración y no reproducía. Lo cubre además el e2e del reproductor.
     expect(dependencias).toBe('}, [source.kind, source.url])')
+  })
+})
+
+describe('los saltos', () => {
+  /** El salto que la pantalla calcula: clave del intervalo, etiqueta y destino. */
+  const SALTO = {
+    key: 'fixture:aurora-nocturna#3|op|5|20',
+    labelKey: 'player.skip.op',
+    destinoS: 20,
+  }
+
+  /**
+   * El botón, dentro del marco y con su nombre.
+   *
+   * `aria-keyshortcuts` no es adorno: dice que `S` lo dispara, y el botón lleva
+   * texto porque un mando sin nombre no se puede pulsar con un lector de
+   * pantalla. Sin intervalo no hay botón: la pantalla queda como estaba.
+   */
+  test('el botón se pinta con su etiqueta y su atajo, y sin intervalo no existe', () => {
+    const html = render(<Player url="/stream/abc" kind="file" skip={SALTO} onSkip={() => {}} />)
+
+    expect(html).toContain('player__skip')
+    expect(html).toContain('Saltar intro')
+    expect(html).toContain('aria-keyshortcuts="S"')
+    // Dentro del marco, que es lo que se pone a pantalla completa.
+    expect(html.indexOf('player__frame')).toBeLessThan(html.indexOf('player__skip'))
+
+    expect(render(<Player url="/stream/abc" kind="file" />)).not.toContain('player__skip')
+  })
+
+  /**
+   * Las marcas de los intervalos en la barra: contexto de dónde está el opening.
+   *
+   * Sólo se pintan con datos. Sin ellos la barra queda exactamente como estaba
+   * —la lista vacía es el caso normal, no la excepción—.
+   */
+  test('los intervalos se marcan en la barra, y sin datos no hay marcas', () => {
+    const conDatos = render(
+      <Player url="/stream/abc" kind="file" intervals={[{ type: 'op', start: 5, end: 20 }]} />,
+    )
+
+    expect(conDatos.match(/player__skip-marker/g)?.length).toBe(1)
+    expect(render(<Player url="/stream/abc" kind="file" />)).not.toContain('player__skip-marker')
+    expect(render(<Player url="/stream/abc" kind="file" intervals={[]} />)).not.toContain(
+      'player__skip-marker',
+    )
+  })
+
+  /**
+   * La pantalla completa se pide sobre el marco.
+   *
+   * Lo mide el e2e —el botón se ve y salta dentro de la pantalla completa—, y
+   * aquí se sujeta el contrato: `usePlayer` acepta el objetivo y `Player` le pasa
+   * el marco, no el video.
+   */
+  test('la pantalla completa se pide sobre el marco, no sobre el `<video>`', async () => {
+    const fuente = await readFile(`${ROOT}Player.tsx`, 'utf8')
+
+    expect(fuente).toContain('fullscreenTarget: objetivoPantalla')
+    expect(fuente).toContain('const objetivoPantalla = useCallback(() => marco.current, [])')
   })
 })
 

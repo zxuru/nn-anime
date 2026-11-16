@@ -15,12 +15,20 @@
  * último porque dice qué se está esperando y nada lo tapa.
  */
 
-import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
+import type { ReactNode, PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import { isProxyPath } from './subtitle-tracks'
 import type { SafeTrack } from './usePlayer'
 
 export interface PlayerFrameProps {
   readonly refVideo: (nodo: HTMLVideoElement | null) => void
+  /**
+   * El marco, para quien necesite el elemento: la pantalla completa y la Sala.
+   *
+   * La pantalla completa se pide sobre esta caja y no sobre el `<video>` porque
+   * las capas de encima —el botón de saltar, el cartel de la espera— son sus
+   * hermanas, y sobre el video se quedarían fuera de la pantalla.
+   */
+  readonly marco?: RefObject<HTMLDivElement | null> | undefined
   readonly onClick: () => void
   readonly onDoubleClick: (evento: ReactPointerEvent<HTMLVideoElement>) => void
   readonly poster: string | undefined
@@ -36,7 +44,7 @@ export interface PlayerFrameProps {
 
 export function PlayerFrame(props: PlayerFrameProps): ReactNode {
   return (
-    <div className="player__frame">
+    <div className="player__frame" ref={props.marco}>
       <video
         ref={props.refVideo}
         className="player__video"

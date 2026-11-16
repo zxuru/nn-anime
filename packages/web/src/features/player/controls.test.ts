@@ -38,6 +38,20 @@ describe('qué tecla hace qué', () => {
     expect(keyAction({ key: 'f' })).toBe('fullscreen')
   })
 
+  /**
+   * `s` salta el intervalo que se esté viendo.
+   *
+   * No choca con ninguna de las teclas que ya tenía el reproductor: espacio,
+   * enter, `k`, `m`, `f`, `t` y las flechas siguen haciendo lo suyo.
+   */
+  test('`s` es saltar, y no se lleva por delante ningún otro atajo', () => {
+    expect(keyAction({ key: 's' })).toBe('skip')
+
+    for (const tecla of [' ', 'Enter', 'k', 'm', 'f', 't', 'ArrowLeft', 'ArrowRight', 'ArrowUp']) {
+      expect(keyAction({ key: tecla }), tecla).not.toBe('skip')
+    }
+  })
+
   test('`t` enciende y apaga el modo extendido, en las dos cajas', () => {
     expect(keyAction({ key: 't' })).toBe('extended')
     // Con Bloq Mayús o con Shift, `event.key` llega en mayúscula: la tecla es la
@@ -63,6 +77,7 @@ describe('qué tecla hace qué', () => {
       ['ArrowDown', 'volume-down'],
       ['m', 'mute'],
       ['f', 'fullscreen'],
+      ['s', 'skip'],
     ] as const
 
     for (const [key, accion] of otras) {

@@ -17,6 +17,8 @@ import { duenoDelEscape } from './player-teclas'
 
 export interface TecladoOpciones {
   readonly act: (accion: PlayerAction) => void
+  /** El salto lo resuelve la pantalla: `act` sólo puede tocar el elemento. */
+  readonly saltar: () => void
   readonly alternarExtendido: () => void
   readonly extendido: boolean
   readonly menu: boolean
@@ -28,8 +30,16 @@ export interface TecladoOpciones {
 }
 
 export function usePlayerTeclado(opciones: TecladoOpciones): void {
-  const { act, alternarExtendido, extendido, menu, ayudaAbierta, abrirAyuda, despertarMandos } =
-    opciones
+  const {
+    act,
+    saltar,
+    alternarExtendido,
+    extendido,
+    menu,
+    ayudaAbierta,
+    abrirAyuda,
+    despertarMandos,
+  } = opciones
 
   useEffect(() => {
     const alPulsar = (evento: KeyboardEvent): void => {
@@ -91,6 +101,15 @@ export function usePlayerTeclado(opciones: TecladoOpciones): void {
       despertarMandos()
       evento.preventDefault()
 
+      // El salto no es una acción del elemento —`act` sólo tiene el video, y un
+      // `currentTime` sin destino no es un salto—: lo resuelve la misma función
+      // que el botón.
+      if (accion === 'skip') {
+        saltar()
+
+        return
+      }
+
       // El modo extendido no es una acción del elemento de video: la resuelve
       // la pantalla y no `act`.
       if (accion === 'extended') {
@@ -105,5 +124,5 @@ export function usePlayerTeclado(opciones: TecladoOpciones): void {
     window.addEventListener('keydown', alPulsar)
 
     return () => window.removeEventListener('keydown', alPulsar)
-  }, [act, alternarExtendido, extendido, menu, ayudaAbierta, abrirAyuda, despertarMandos])
+  }, [act, saltar, alternarExtendido, extendido, menu, ayudaAbierta, abrirAyuda, despertarMandos])
 }

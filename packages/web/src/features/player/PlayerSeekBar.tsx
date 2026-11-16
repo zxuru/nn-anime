@@ -12,6 +12,7 @@
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import type { SkipInterval } from '@nn-anime/core/schema'
 import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
 import { t } from '../../i18n'
 import { formatTime, spokenTime } from './controls'
@@ -35,6 +36,14 @@ export interface PlayerSeekBarProps {
   readonly bufferedS: number
   /** El segundo bajo el puntero, si está sobre la barra. */
   readonly sobreBarra: number | undefined
+  /**
+   * Los intervalos saltables del episodio, si se conocen.
+   *
+   * Se marcan en el carril como contexto —dónde está el opening antes de llegar a
+   * él— y sólo se pintan con datos: sin ellos la barra queda exactamente como
+   * estaba.
+   */
+  readonly intervalos?: readonly SkipInterval[] | undefined
   /** Se arrastra: el dedo manda y el salto se pide en el acto. */
   readonly onArrastrar: (segundos: number) => void
   /** Se suelta el pulgar, o se sale con el teclado. */
@@ -59,6 +68,19 @@ export function PlayerSeekBar(props: PlayerSeekBarProps): ReactNode {
           className="player__played"
           style={{ width: `${porcentaje(props.posicion, props.duracion)}%` }}
         />
+        {/* Los intervalos saltables, marcados en el carril: dicen dónde está el
+            opening antes de llegar a él. Van por debajo del `input`, que es quien
+            recibe el gesto. */}
+        {(props.intervalos ?? []).map((intervalo) => (
+          <span
+            key={`${intervalo.type}-${intervalo.start}-${intervalo.end}`}
+            className="player__skip-marker"
+            style={{
+              insetInlineStart: `${porcentaje(intervalo.start, props.duracion)}%`,
+              inlineSize: `${porcentaje(intervalo.end - intervalo.start, props.duracion)}%`,
+            }}
+          />
+        ))}
       </span>
 
       {/* Una barra de progreso de verdad, y un `<input type="range">`: se

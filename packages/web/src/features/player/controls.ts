@@ -19,6 +19,15 @@ export type PlayerAction =
   | 'mute'
   | 'fullscreen'
   /**
+   * Saltar el intervalo que se está reproduciendo —intro, ending o resumen—.
+   *
+   * La acción no sabe a dónde se salta: el destino lo decide la pantalla, que es
+   * la que tiene el margen elegido y los intervalos del episodio. Aquí sólo se
+   * reconoce la tecla; quien la recibe es `Player`, que llama al mismo salto que
+   * el botón.
+   */
+  | 'skip'
+  /**
    * Llena la ventana sin pedir la pantalla completa del sistema.
    *
    * Es una acción de la pantalla y no del elemento `<video>`: no toca ni el
@@ -112,8 +121,13 @@ export function keyAction(event: KeyLike): PlayerAction | undefined {
       return 'mute'
     case 'f':
       return 'fullscreen'
+    // `s` de «saltar». No choca con ninguna de las anteriores —espacio, enter,
+    // `k`, `m`, `f` y las flechas— y es la inicial de la acción en las dos
+    // lenguas que importan aquí, así que no hay que memorizar una tecla rara.
+    case 's':
+      return 'skip'
     // `T` de «todo el ancho», elegida porque no choca con ningún atajo del
-    // reproductor —espacio, enter, k, flechas, m, f y ?— ni con los del
+    // reproductor —espacio, enter, k, flechas, m, f, s y ?— ni con los del
     // navegador que se usan a diario. Mayúscula y minúscula son la misma tecla
     // con y sin Bloq Mayús, y las dos tienen que funcionar.
     case 't':

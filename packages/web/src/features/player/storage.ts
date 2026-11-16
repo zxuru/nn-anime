@@ -17,6 +17,8 @@
  * anterior— y no en el camino de en medio.
  */
 
+import { MARGEN_MAXIMO_S, MARGEN_MINIMO_S, margenValido } from './skip'
+
 /** El prefijo de todo lo que escribe esta aplicación. */
 const PREFIJO = 'nn-anime:'
 
@@ -221,5 +223,74 @@ export function guardarAutoplay(almacen: Almacen | undefined, valor: boolean): v
     almacen.setItem(CLAVE_AUTOPLAY, valor ? 'si' : 'no')
   } catch {
     // Sin sitio para apuntarlo, la preferencia vale para esta visita.
+  }
+}
+
+/** La clave de la preferencia de salto automático. */
+export const CLAVE_SALTO_AUTO = `${PREFIJO}skipAuto`
+
+/** La clave del margen de los saltos, en segundos. */
+export const CLAVE_MARGEN_SALTO = `${PREFIJO}skipMargin`
+
+/**
+ * ¿Se saltan solos la intro y el ending? Por defecto, **no**.
+ *
+ * Es lo contrario que la reproducción automática: encadenar episodios se espera
+ * de una serie, pero saltarse un trozo del capítulo sin que nadie lo pida es
+ * decidir por quien está mirando. Sólo se enciende si se guardó un «sí»; lo que
+ * no está guardado es lo que nunca se eligió.
+ */
+export function leerSaltoAuto(almacen: Almacen | undefined): boolean {
+  if (almacen === undefined) return false
+
+  try {
+    return almacen.getItem(CLAVE_SALTO_AUTO) === 'si'
+  } catch {
+    return false
+  }
+}
+
+export function guardarSaltoAuto(almacen: Almacen | undefined, valor: boolean): void {
+  if (almacen === undefined) return
+
+  try {
+    almacen.setItem(CLAVE_SALTO_AUTO, valor ? 'si' : 'no')
+  } catch {
+    // Igual que arriba: sin sitio, la preferencia vale para esta visita.
+  }
+}
+
+/**
+ * Cuántos segundos antes del final se salta. Por defecto, cero.
+ *
+ * Se guarda como número entero y se lee con validación: un valor que no está
+ * entre 0 y 5 —de una versión anterior, o escrito a mano— no se interpreta, que
+ * es lo mismo que no haberlo elegido nunca.
+ */
+export function leerMargenSalto(almacen: Almacen | undefined): number {
+  if (almacen === undefined) return MARGEN_MINIMO_S
+
+  try {
+    const crudo = almacen.getItem(CLAVE_MARGEN_SALTO)
+    if (crudo === null) return MARGEN_MINIMO_S
+
+    const valor = Number(crudo)
+    if (!Number.isInteger(valor)) return MARGEN_MINIMO_S
+    if (valor < MARGEN_MINIMO_S || valor > MARGEN_MAXIMO_S) return MARGEN_MINIMO_S
+
+    return valor
+  } catch {
+    return MARGEN_MINIMO_S
+  }
+}
+
+export function guardarMargenSalto(almacen: Almacen | undefined, margenS: number): void {
+  if (almacen === undefined) return
+  if (!Number.isFinite(margenS)) return
+
+  try {
+    almacen.setItem(CLAVE_MARGEN_SALTO, String(margenValido(margenS)))
+  } catch {
+    // Sin sitio para apuntarlo, el margen vale para esta visita.
   }
 }

@@ -260,11 +260,20 @@ describe('el relleno de las imágenes ya emparejadas', () => {
     await withDb((db) => {
       emparejar(db, entrada())
 
-      const repo = createAniListRepository(db)
-      expect(repo.readImage(101922, 'banner')).toBeUndefined()
+      // Antes del relleno no hay ninguna dirección guardada: la escribía sólo la
+      // caché de listas, y esta fila la escribió el código viejo del emparejamiento.
+      const antes = db
+        .query<{ filas: number }, []>('SELECT COUNT(*) AS filas FROM anilist_image')
+        .get()
+      expect(antes?.filas).toBe(0)
 
       // Lo que hace el arranque de la aplicación al abrir una base ya usada.
       runMigrations(db)
+
+      // El repositorio se crea **después** de migrar, que es lo que hace la
+      // fachada: prepara sus sentencias al construirse y las columnas nuevas de
+      // T60 no existen en la base de antes.
+      const repo = createAniListRepository(db)
 
       expect(repo.readImage(101922, 'cover')).toBe(entrada().coverUrl)
       expect(repo.readImage(101922, 'banner')).toBe(entrada().bannerUrl)
@@ -290,5 +299,93 @@ describe('el relleno de las imágenes ya emparejadas', () => {
       expect(repo.readImage(101922, 'banner')).toBeUndefined()
       expect(filas?.filas).toBe(1)
     }, ANTES)
+  })
+})
+
+/**
+ * La vuelta de AniList a MAL.
+ *
+ * La ruta de los saltos recibe el id de AniList —es el único que el reproductor
+ * conoce— y AniSkip se pide por el de MyAnimeList. Ese mapeo se guarda al mismo
+ * tiempo que el emparejamiento; sin él, cada petición de intervalos tendría que
+ * parsear el JSON de la obra.
+ */
+describe('el id de MAL del emparejamiento', () => {
+  /** El id real de MAL de Kimetsu no Yaiba, para no inventar un número bonito. */
+  const MAL = 38000
+
+  test('lo escrito con malId se lee por el id de AniList', async () => {
+    await withDb((db) => {
+      const repo = createAniListRepository(db)
+      repo.writeMedia('kimetsu', entrada({ malId: MAL }), 1_000)
+
+      expect(repo.readMalId(101922)).toBe(MAL)
+    })
+  })
+
+  test('una obra sin ficha de MAL y un id que no está dan lo mismo: no hay', async () => {
+    await withDb((db) => {
+      const repo = createAniListRepository(db)
+      repo.writeMedia('sin-mal', entrada({ id: 999, malId: null }), 1_000)
+
+      // `null` es «se preguntó y AniList dijo que no hay»; el id sin fila es «no
+      // se ha buscado». A quien pide saltos no le cambia nada: no hay con qué.
+      expect(repo.readMalId(999)).toBeUndefined()
+      expect(repo.readMalId(123456)).toBeUndefined()
+    })
+  })
+
+  test('regrabar el «no hay» borra el mapeo anterior del título', async () => {
+    await withDb((db) => {
+      const repo = createAniListRepository(db)
+      repo.writeMedia('kimetsu', entrada({ malId: MAL }), 1_000)
+      expect(repo.readMalId(101922)).toBe(MAL)
+
+      // Lo mismo que el servidor hace cuando la caché caduca y la búsqueda no
+      // encuentra nada: la fila pasa a «no hay» y no puede seguir sirviendo los
+      // intervalos de la obra que ya no es la de este título.
+      repo.writeMedia('kimetsu', null, 2_000)
+
+      expect(repo.readMalId(101922)).toBeUndefined()
+    })
+  })
+
+  test('la fila legacy recupera el id de AniList, y el de MAL sigue sin saberse', async () => {
+    const MIGRACION = listMigrations().find((migration) => migration.name === 'anilist-mal')
+    expect(MIGRACION, 'falta la migración del id de MAL').toBeDefined()
+
+    /** La base como estaba antes de la columna: sin `anilist_id` ni `mal_id`. */
+    const ANTES_DE_MAL = (MIGRACION?.version ?? 0) - 1
+
+    await withDb((db) => {
+      // Una fila escrita por la versión anterior: el JSON del emparejamiento y
+      // nada más. La obra se emparejó y su `malId` no viajaba en el JSON.
+      db.query(
+        'INSERT INTO anilist_media (title_key, media_json, fetched_at, ttl_s) VALUES (?, ?, ?, ?)',
+      ).run('kimetsu', JSON.stringify(entrada()), 1_000, TTL_SECONDS.anilistMedia)
+      db.query(
+        'INSERT INTO anilist_media (title_key, media_json, fetched_at, ttl_s) VALUES (?, ?, ?, ?)',
+      ).run('sin-equivalente', null, 1_000, TTL_SECONDS.anilistMiss)
+
+      runMigrations(db)
+
+      const fila = db
+        .query<{ anilist_id: number | null; mal_id: number | null }, [string]>(
+          'SELECT anilist_id, mal_id FROM anilist_media WHERE title_key = ?',
+        )
+        .get('kimetsu')
+      // El id de AniList se copia del JSON para que la vuelta funcione ya; el de
+      // MAL no se inventa: esa fila es justo la que el servidor vuelve a pedir.
+      expect(fila).toEqual({ anilist_id: 101922, mal_id: null })
+
+      const vacia = db
+        .query<{ anilist_id: number | null; mal_id: number | null }, [string]>(
+          'SELECT anilist_id, mal_id FROM anilist_media WHERE title_key = ?',
+        )
+        .get('sin-equivalente')
+      expect(vacia).toEqual({ anilist_id: null, mal_id: null })
+
+      expect(createAniListRepository(db).readMalId(101922)).toBeUndefined()
+    }, ANTES_DE_MAL)
   })
 })

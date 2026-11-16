@@ -794,13 +794,27 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
     return encontrados
   }
 
+  /**
+   * ¿La entrada guardada sirve para pedir saltos?
+   *
+   * Una fila escrita antes de que existiera `malId` no trae el campo: no se puede
+   * distinguir «AniList no tiene ficha de MAL» de «nadie preguntó». Se vuelve a
+   * pedir **una vez** —y la caché vieja queda de respaldo si la petición falla— en
+   * vez de dar por vacíos los saltos de una obra que sí los tiene.
+   */
+  function conMalId(media: AniListEntry | null): boolean {
+    return media === null || media.malId !== undefined
+  }
+
   async function match(
     request: AniListMatchRequest,
     adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<Result<AniListEntry | null, AppError>> {
     const guardado = await leerSinRomper(() => store.readAniListMedia(request.key))
-    if (guardado !== null && !guardado.stale) return ok(guardado.value)
+    if (guardado !== null && !guardado.stale && conMalId(guardado.value)) {
+      return ok(guardado.value)
+    }
 
     const enCurso = enVueloEmparejamiento.get(request.key)
     if (enCurso !== undefined) return enCurso
@@ -839,7 +853,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
 
       vistos.add(request.key)
       const guardado = await leerSinRomper(() => store.readAniListMedia(request.key))
-      if (guardado !== null && !guardado.stale) {
+      if (guardado !== null && !guardado.stale && conMalId(guardado.value)) {
         encontrados.set(request.key, guardado.value)
         continue
       }

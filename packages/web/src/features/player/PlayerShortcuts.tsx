@@ -32,6 +32,7 @@ const ATAJOS: readonly { readonly teclas: readonly string[]; readonly hace: stri
   { teclas: ['player.key.m'], hace: 'player.key.mute' },
   { teclas: ['player.key.f'], hace: 'player.key.fullscreen' },
   { teclas: ['player.key.t'], hace: 'player.key.extended' },
+  { teclas: ['player.key.s'], hace: 'player.key.skip' },
 ]
 
 export interface PlayerShortcutsProps {

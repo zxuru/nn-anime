@@ -3,11 +3,17 @@ import {
   type Almacen,
   almacenLocal,
   CLAVE_AUTOPLAY,
+  CLAVE_MARGEN_SALTO,
+  CLAVE_SALTO_AUTO,
   claveDeProgreso,
   guardarAutoplay,
+  guardarMargenSalto,
   guardarProgreso,
+  guardarSaltoAuto,
   leerAutoplay,
+  leerMargenSalto,
   leerProgreso,
+  leerSaltoAuto,
   olvidarProgreso,
   RETROCESO_REANUDAR_S,
   reanudarEn,
@@ -226,5 +232,69 @@ describe('el almacén del navegador', () => {
     const almacen = almacenLocal()
 
     expect(almacen === undefined || typeof almacen.getItem === 'function').toBe(true)
+  })
+})
+
+describe('el salto automático', () => {
+  test('por defecto, no: saltarse un trozo no se hace sin que nadie lo pida', () => {
+    expect(leerSaltoAuto(almacenFalso())).toBe(false)
+    expect(leerSaltoAuto(undefined)).toBe(false)
+    expect(leerSaltoAuto(almacenRoto)).toBe(false)
+  })
+
+  test('lo que se enciende se recuerda, y se vuelve a apagar', () => {
+    const almacen = almacenFalso()
+
+    guardarSaltoAuto(almacen, true)
+    expect(leerSaltoAuto(almacen)).toBe(true)
+
+    guardarSaltoAuto(almacen, false)
+    expect(leerSaltoAuto(almacen)).toBe(false)
+  })
+
+  test('un valor que no es el que se escribió se lee como apagado', () => {
+    expect(leerSaltoAuto(almacenFalso({ [CLAVE_SALTO_AUTO]: 'quizá' }))).toBe(false)
+    expect(leerSaltoAuto(almacenFalso({ [CLAVE_SALTO_AUTO]: 'no' }))).toBe(false)
+  })
+
+  test('la clave lleva el prefijo de la aplicación', () => {
+    expect(CLAVE_SALTO_AUTO.startsWith('nn-anime:')).toBe(true)
+    expect(CLAVE_MARGEN_SALTO.startsWith('nn-anime:')).toBe(true)
+  })
+})
+
+describe('el margen de los saltos', () => {
+  test('por defecto, cero: el salto cae justo al terminar el intervalo', () => {
+    expect(leerMargenSalto(almacenFalso())).toBe(0)
+    expect(leerMargenSalto(undefined)).toBe(0)
+    expect(leerMargenSalto(almacenRoto)).toBe(0)
+  })
+
+  test('se guarda entero y se lee lo mismo', () => {
+    const almacen = almacenFalso()
+
+    guardarMargenSalto(almacen, 3)
+    expect(leerMargenSalto(almacen)).toBe(3)
+
+    // Lo que llega fuera de rango se recorta: el almacén guarda lo que la
+    // aplicación acepta, no lo que pidió un deslizador desbocado.
+    guardarMargenSalto(almacen, 9)
+    expect(leerMargenSalto(almacen)).toBe(5)
+
+    guardarMargenSalto(almacen, -2)
+    expect(leerMargenSalto(almacen)).toBe(0)
+  })
+
+  test('un valor guardado que no es un margen no se interpreta', () => {
+    for (const crudo of ['quizá', '2.5', '9', '-1', '', 'null']) {
+      expect(leerMargenSalto(almacenFalso({ [CLAVE_MARGEN_SALTO]: crudo })), crudo).toBe(0)
+    }
+  })
+
+  test('un margen que no es número no se guarda', () => {
+    const almacen = almacenFalso()
+
+    guardarMargenSalto(almacen, Number.NaN)
+    expect(almacen.datos.has(CLAVE_MARGEN_SALTO)).toBe(false)
   })
 })
