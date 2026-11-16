@@ -4,9 +4,11 @@ import { fileURLToPath } from 'node:url'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'
+import { IndiceAjustes, primeraVisible } from './IndiceAjustes'
 import { moved, ProviderList, providersByPriority } from './ProviderList'
 import { RegisterProvider } from './RegisterProvider'
 import { SettingsPage } from './SettingsPage'
+import { SECCIONES_AJUSTES } from './secciones'
 import { resolvedTheme, ThemeToggle, themeAttribute } from './ThemeToggle'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
@@ -246,6 +248,52 @@ describe('el alta de un proveedor', () => {
     expect(html).toContain('<option value="anime" selected')
     expect(html).toContain('<option value="movies"')
     expect(html).toContain('<option value="both"')
+  })
+})
+
+/**
+ * El índice y la decisión de qué sección está activa.
+ *
+ * El índice se dibuja sin datos del servidor, así que se puede medir entero con
+ * `renderToString`. Lo que no se puede medir sin navegador es el observador: de él
+ * se prueba la función pura —la que decide— y el e2e se encarga del resto.
+ */
+describe('el índice de Ajustes', () => {
+  test('un enlace por sección, a su ancla y en el mismo orden', () => {
+    const html = render(<IndiceAjustes />)
+
+    expect(html).toContain('aria-label="Secciones de los ajustes"')
+    expect(html).toContain('Secciones')
+
+    // Los ids son únicos: dos secciones con el mismo `id` harían que el segundo
+    // enlace llevara siempre a la primera.
+    const ids = SECCIONES_AJUSTES.map((seccion) => seccion.id)
+    expect(new Set(ids).size).toBe(ids.length)
+
+    const posiciones = ids.map((id) => html.indexOf(`href="#${id}"`))
+    expect(posiciones.every((posicion) => posicion >= 0)).toBe(true)
+    expect(posiciones).toEqual([...posiciones].sort((a, b) => a - b))
+  })
+
+  test('la sección activa se marca una sola vez, y la suya', () => {
+    const html = render(<IndiceAjustes activa="reproduccion" />)
+
+    expect((html.match(/aria-current="location"/g) ?? []).length).toBe(1)
+    expect(html).toMatch(/aria-current="location"[^>]*>Reproducción/)
+  })
+
+  test('sin sección activa no se marca ninguna', () => {
+    expect(render(<IndiceAjustes />)).not.toContain('aria-current')
+  })
+})
+
+describe('la sección que se está viendo', () => {
+  test('manda la primera en el orden del documento', () => {
+    expect(primeraVisible(['fuentes', 'sistema'], new Set(['sistema']))).toBe('sistema')
+    // Las dos a la vez: se está leyendo el final de una y el principio de la otra,
+    // así que la de arriba es la que cuenta.
+    expect(primeraVisible(['fuentes', 'sistema'], new Set(['fuentes', 'sistema']))).toBe('fuentes')
+    expect(primeraVisible(['fuentes'], new Set())).toBeUndefined()
   })
 })
 
