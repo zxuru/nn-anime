@@ -13,6 +13,12 @@ da la tabla de dependencias del final.
 
 Fuera de este plan: `downloads` (v1.5) y `metadata-enrichment` (sin aprobar).
 
+Los cierres de las tareas que ya no viven en este documento —las de la v1, T56–T217, y las de los
+lotes de deuda— están identificados en `tasks/done/INDICE.md`: asunto, commit y verificación. No se
+pegan aquí para no convertir el todo en un archivo; el índice es la puerta de entrada y la historia
+de git guarda el fragmento completo. Este documento sigue siendo la fuente de verdad del plan
+vigente.
+
 ---
 
 ## Fase 0 — Fundación
