@@ -255,7 +255,7 @@ describe('el anfitrión de ventana', () => {
     expect(main).toContain('tauri_plugin_single_instance::init')
   })
 
-  test('el icono de la bandeja se crea y su menú tiene tres opciones', async () => {
+  test('el icono de la bandeja se crea y su menú tiene cuatro opciones', async () => {
     const manifiesto = await leer(MANIFEST)
     const main = await leer(join(CRATE, 'src', 'main.rs'))
     const tray = await leer(join(CRATE, 'src', 'tray.rs'))
@@ -271,13 +271,20 @@ describe('el anfitrión de ventana', () => {
     expect(tray).toContain('include_bytes!')
     expect(await Bun.file(join(ROOT, 'packaging', 'icons', 'icon-32.png')).exists()).toBe(true)
 
-    // Tres opciones y ni una más: el menú de la bandeja se lee de un vistazo o
+    // Cuatro opciones y ni una más: el menú de la bandeja se lee de un vistazo o
     // deja de usarse. Se comparan los ids en orden, que es el orden del menú.
-    const opciones = [...tray.matchAll(/MenuItem::with_id\(app, ID_([A-Z]+)/g)].map(
+    //
+    // `\s*` porque `rustfmt` parte en varias líneas la opción de actualizaciones,
+    // y con la coincidencia pegada la prueba no la veía: es la clase de
+    // comprobación que pasa con el código roto. La de actualizaciones tiene que
+    // estar en **todas** las plataformas (T243): es la única puerta a la ventana
+    // que explica el límite del updater fuera de Windows.
+    const opciones = [...tray.matchAll(/MenuItem::with_id\(\s*app,\s*ID_([A-Z]+)/g)].map(
       (coincidencia) => coincidencia[1],
     )
 
-    expect(opciones).toEqual(['ABRIR', 'ALTERNAR', 'SALIR'])
+    expect(opciones).toEqual(['ABRIR', 'ALTERNAR', 'ACTUALIZACIONES', 'SALIR'])
+    expect(tray).not.toContain('#[cfg(windows)]\nconst ID_ACTUALIZACIONES')
   })
 
   test('cerrar la ventana la oculta, y sólo «Salir» termina la aplicación', async () => {
@@ -476,6 +483,35 @@ describe('el anfitrión de ventana', () => {
     expect(ui).toContain('await comprobar(false)')
     expect(ui).not.toContain('setInterval')
     expect(ui).not.toContain('INTERVALO_MS')
+  })
+
+  test('fuera de Windows la ventana cuenta el límite y no consulta el updater (T243)', async () => {
+    // Que el módulo **compile** en macOS y Linux lo mide el trabajo `desktop` del
+    // CI, que ejecuta `desktop:check` en las tres plataformas; aquí se fija la
+    // condición que hace que la ventana no llame a `check()` donde no hay
+    // manifiesto. Sin ella, el plugin pediría una entrada `darwin-*`/`linux-*`
+    // que la release no publica y el usuario vería un fallo de red por un límite.
+    const ui = await leer(join(ROOT, 'desktop', 'ui', 'actualizacion.ts'))
+    const html = await leer(join(ROOT, 'desktop', 'ui', 'actualizacion.html'))
+    const rust = await leer(join(CRATE, 'src', 'actualizacion.rs'))
+    const main = await leer(join(CRATE, 'src', 'main.rs'))
+
+    // Rust decide una sola vez, por compilación, y se lo dice a la página.
+    expect(rust).toContain('pub const AUTOMATICA: bool = cfg!(windows);')
+    expect(rust).toContain('automatica: {}')
+    expect(html).toContain('id="soporte"')
+
+    // La página no comprueba novedades si no está soportado, ni deja instalar.
+    expect(ui).toContain('const automatica = contexto?.automatica === true')
+    expect(ui).toMatch(
+      /if \(!automatica\) \{\s*await mostrarSinActualizacionAutomatica\(false\)\s*return/,
+    )
+    expect(ui).toMatch(/if \(actual === null \|\| !automatica\) return/)
+
+    // La ventana existe en las tres plataformas; el reemplazo del `.exe`, no.
+    expect(main).toContain('\nmod actualizacion;')
+    expect(main).toContain('actualizacion::registrar_actualizacion')
+    expect(main).toMatch(/#\[cfg\(windows\)\]\s*actualizacion::instalar_portable/)
   })
 
   test('el CI compila y mide el árbol de Rust', async () => {

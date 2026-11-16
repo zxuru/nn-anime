@@ -12,6 +12,13 @@
 //! hay algo que contar. El menú de la bandeja la vuelve a enseñar y le pide otra
 //! comprobación con el evento `buscar-actualizaciones`.
 //!
+//! **Existe en las tres plataformas, pero la actualización automática sólo está
+//! en Windows.** `latest.json` anuncia las entradas `windows-*` y no hay
+//! `darwin-*`/`linux-*`, así que en macOS y Linux la página no llama a `check()`
+//! —lo sabe por el contexto que le pasa Rust— y cuenta el límite con el enlace a
+//! la release para descargar la versión nueva a mano. El módulo se compila en
+//! todas: lo que se queda en Windows es el reemplazo del ejecutable.
+//!
 //! **La entrega se actualiza reemplazando el `.exe`.** No hay instalador que
 //! ejecutar: se descarga el `.exe` portable, se verifica su firma minisign y se
 //! reemplaza el ejecutable **en marcha**. Windows deja renombrar un `.exe` en
@@ -23,17 +30,33 @@
 //! Si la release no publicó `windows-x86_64-portable`, no hay nada que descargar:
 //! la ventana lo dice y deja el enlace a la release.
 
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+
+// Lo que sólo usa el camino de Windows. Allí `base64`, `minisign-verify`,
+// `reqwest` y `windows-sys` sí se declaran; en macOS y Linux no, y estas `use`
+// serían las primeras en romper la compilación.
+#[cfg(windows)]
+use std::io::Write;
+#[cfg(windows)]
+use std::path::Path;
+#[cfg(windows)]
+use tauri::ipc::Channel;
 
 /// La etiqueta de la ventana. Es también la que usa su capability.
 pub const ETIQUETA: &str = "actualizacion";
 
 /// El evento con el que la bandeja pide una comprobación manual.
 pub const EVENTO_BUSCAR: &str = "buscar-actualizaciones";
+
+/// Si esta compilación puede actualizarse sola.
+///
+/// Hoy sólo Windows: `latest.json` anuncia las entradas `windows-*` y no hay
+/// `darwin-*` ni `linux-*`. Donde esto es falso la página **no** llama a
+/// `check()` —el plugin buscaría una entrada que no existe y el usuario vería un
+/// fallo de red en lugar del límite—; enseña el límite y enlaza a la release.
+pub const AUTOMATICA: bool = cfg!(windows);
 
 /// El repositorio del que salen las releases. El endpoint del updater está en
 /// `tauri.conf.json` y apunta al mismo sitio; aquí sólo se construye el enlace
@@ -46,14 +69,22 @@ struct Contexto {
     /// La base de las releases, sin versión: la página le añade `/tag/vX.Y.Z` de
     /// la versión que anuncia el updater, no la que está corriendo.
     releases: String,
+    /// Si la actualización automática existe en esta compilación. La página no
+    /// comprueba novedades donde es falso.
+    automatica: bool,
     /// Lo que verifica el `.exe` portable. Se lee del `tauri.conf.json`, que es
     /// la única copia de la clave pública.
+    ///
+    /// Sólo se usa al reemplazar el ejecutable, que es de Windows: sin el `cfg`
+    /// el campo sobraría en macOS y Linux y `clippy -D warnings` lo diría.
+    #[cfg(windows)]
     pubkey: String,
     /// El perfil de WebView2 de esta ventana, dentro de la carpeta de datos.
     perfil: PathBuf,
 }
 
 /// Lo que la página manda cuando acepta una actualización portable.
+#[cfg(windows)]
 #[derive(Debug, serde::Deserialize)]
 pub struct DatosPortable {
     pub url: String,
@@ -62,6 +93,7 @@ pub struct DatosPortable {
 }
 
 /// El progreso de la descarga, para la barra de la ventana.
+#[cfg(windows)]
 #[derive(Clone, serde::Serialize)]
 pub struct Progreso {
     pub descargado: u64,
@@ -75,6 +107,10 @@ pub struct Progreso {
 /// y sigue.
 pub fn crear(app: &AppHandle, perfil: PathBuf) -> tauri::Result<()> {
     let version = env!("CARGO_PKG_VERSION").to_string();
+
+    // La clave pública sólo la usa el reemplazo del ejecutable, que existe en
+    // Windows: en el resto de plataformas no se lee ni se guarda.
+    #[cfg(windows)]
     let pubkey = app
         .config()
         .plugins
@@ -88,6 +124,8 @@ pub fn crear(app: &AppHandle, perfil: PathBuf) -> tauri::Result<()> {
     app.manage(Contexto {
         releases: format!("https://github.com/{REPOSITORIO}/releases"),
         version,
+        automatica: AUTOMATICA,
+        #[cfg(windows)]
         pubkey,
         perfil,
     });
@@ -136,6 +174,10 @@ pub fn registrar_actualizacion(mensaje: String) {
 /// No hay instalador que ejecutar. La firma se verifica antes de tocar nada; si
 /// el reemplazo falla, se restaura el original y se devuelve el motivo para que
 /// la ventana enseñe el enlace.
+///
+/// Sólo Windows: en macOS y Linux el comando no se registra, porque no hay `.exe`
+/// portable que reemplazar.
+#[cfg(windows)]
 #[tauri::command]
 pub async fn instalar_portable(
     app: AppHandle,
@@ -244,8 +286,8 @@ fn construir(app: &AppHandle, visible: bool) -> tauri::Result<()> {
     // arranque del webview; `{:?}` produce un literal de cadena válido en
     // JavaScript para los textos que se le pasan.
     let guion = format!(
-        "globalThis.__NN_ACTUALIZACION = Object.freeze({{ version: {:?}, releases: {:?} }});",
-        contexto.version, contexto.releases
+        "globalThis.__NN_ACTUALIZACION = Object.freeze({{ version: {:?}, releases: {:?}, automatica: {} }});",
+        contexto.version, contexto.releases, contexto.automatica
     );
 
     let ventana =
@@ -295,6 +337,7 @@ fn construir(app: &AppHandle, visible: bool) -> tauri::Result<()> {
 
 /// El nombre del archivo a medio descargar: junto al `.exe`, para que el
 /// reemplazo sea un `rename` en el mismo volumen y no una copia entre discos.
+#[cfg(windows)]
 fn temporal_de(exe: &Path) -> PathBuf {
     let nombre = exe
         .file_name()
@@ -310,6 +353,7 @@ fn temporal_de(exe: &Path) -> PathBuf {
 /// sobrescribirlo. Por eso el orden es renombrar → poner → arrancar el nuevo.
 /// Si el segundo paso falla, el primero se deshace: el usuario se queda con la
 /// versión que tenía.
+#[cfg(windows)]
 fn reemplazar(exe: &Path, nuevo: &Path) -> Result<PathBuf, String> {
     let nombre = exe
         .file_name()
@@ -344,6 +388,7 @@ fn reemplazar(exe: &Path, nuevo: &Path) -> Result<PathBuf, String> {
 /// La firma también llega en base64, con el comentario de confianza dentro; ahí
 /// está la versión, y compararla es lo que impide que un `latest.json` manipulado
 /// instale un binario viejo y firmado.
+#[cfg(windows)]
 fn verificar(
     archivo: &Path,
     firma_base64: &str,
@@ -394,6 +439,7 @@ fn verificar(
 }
 
 /// La versión que va en el comentario de confianza de la firma.
+#[cfg(windows)]
 fn version_firmada(firma: &str) -> Option<&str> {
     firma
         .lines()
@@ -411,6 +457,7 @@ fn version_firmada(firma: &str) -> Option<&str> {
 /// ventana y termine el nuevo antes de empezar. Se llama al principio de `main`,
 /// antes de preparar la raíz de datos: el servidor viejo tiene que haber muerto
 /// para que el nuevo no se pelee por la base.
+#[cfg(windows)]
 pub fn esperar_reemplazo() {
     let Some(pid) = argumento("--reemplazo-pid").and_then(|valor| valor.parse::<u32>().ok()) else {
         return;
@@ -421,6 +468,7 @@ pub fn esperar_reemplazo() {
 }
 
 /// Lee `--nombre valor` de la línea de comandos.
+#[cfg(windows)]
 fn argumento(nombre: &str) -> Option<String> {
     let mut args = std::env::args();
 
@@ -433,6 +481,7 @@ fn argumento(nombre: &str) -> Option<String> {
     None
 }
 
+#[cfg(windows)]
 fn esperar_a(pid: u32) {
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::Storage::FileSystem::SYNCHRONIZE;
@@ -460,6 +509,7 @@ fn esperar_a(pid: u32) {
 /// El `.viejo` sigue existiendo hasta que el proceso viejo muere, así que esto se
 /// llama **después** de esperarlo. Un `.nuevo` suelto es una descarga que no
 /// llegó a reemplazar nada.
+#[cfg(windows)]
 fn limpiar_viejos() {
     let Ok(exe) = std::env::current_exe() else {
         return;
@@ -481,7 +531,10 @@ fn limpiar_viejos() {
     }
 }
 
-#[cfg(test)]
+// Las dos piezas que se prueban aquí son del camino de Windows: `reemplazar`
+// renombra el `.exe` en marcha y `version_firmada` lee la firma que sólo verifica
+// ese camino. En macOS y Linux no se compilan y el módulo no tiene nada que medir.
+#[cfg(all(test, windows))]
 mod pruebas {
     use super::{reemplazar, version_firmada};
     use std::path::PathBuf;

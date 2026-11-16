@@ -111,13 +111,14 @@ comprobar que llegó entero.
 ### Actualizaciones
 
 La aplicación comprueba si hay una versión nueva **una vez, al arrancar**, y también cuando
-pulsas **Buscar actualizaciones** en el icono de la bandeja (en Windows; macOS y Linux todavía no
-publican un manifiesto del updater). Si hay una, la ventana de actualizaciones enseña el número de
-versión y las notas. No descarga nada hasta que pulsas **Actualizar ahora**. Al aceptar, descarga el
-`.exe` nuevo, verifica su firma minisign y lo reemplaza **en sitio**: aparta el que está corriendo,
-pone el nuevo, arranca la versión nueva y borra el viejo. Si la release no trae ese `.exe` firmado, se
-queda el aviso con el enlace a la release. Si el medio es de sólo lectura o el reemplazo falla, pasa
-lo mismo.
+pulsas **Buscar actualizaciones** en el icono de la bandeja. **Sólo en Windows**: es la única
+plataforma que publica un manifiesto del updater (`latest.json`). En macOS y Linux la misma ventana
+existe y lo dice, con el enlace a la release para descargar la versión nueva a mano. Si hay una
+versión nueva, la ventana de actualizaciones enseña el número de versión y las notas. No descarga
+nada hasta que pulsas **Actualizar ahora**. Al aceptar, descarga el `.exe` nuevo, verifica su firma
+minisign y lo reemplaza **en sitio**: aparta el que está corriendo, pone el nuevo, arranca la versión
+nueva y borra el viejo. Si la release no trae ese `.exe` firmado, se queda el aviso con el enlace a
+la release. Si el medio es de sólo lectura o el reemplazo falla, pasa lo mismo.
 
 Tus datos nunca viajan dentro del `.exe`: la base, los ajustes y los plugins viven en
 `%LOCALAPPDATA%\rona-data` —o en la carpeta del ejecutable si hay un `portable.txt`—, así que

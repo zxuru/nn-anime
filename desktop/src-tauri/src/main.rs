@@ -21,11 +21,12 @@
 //! con `updater:default`, nada más.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// La ventana de actualizaciones sólo tiene sentido en Windows mientras la release
-// no publique entradas del updater para macOS y Linux: `latest.json` sólo anuncia
-// `windows-x86_64`, así que allí la ventana sólo podría enseñar un error. Cuando
-// esas plataformas publiquen su manifiesto, el `cfg` se cae.
-#[cfg(windows)]
+// La ventana de actualizaciones existe en las tres plataformas; lo que sólo hay
+// en Windows es la actualización automática: `latest.json` anuncia `windows-*` y
+// nada más. El módulo compila en todas, y el reemplazo del `.exe`, que es lo que
+// no compila fuera de Windows, queda detrás de su `cfg`. La página sabe si hay
+// manifiesto por el contexto que le pasa Rust y no llama a `check()` donde no lo
+// hay: así el límite se ve en la aplicación y no en un `cfg` que nadie lee.
 mod actualizacion;
 mod boot_line;
 mod browser;
@@ -161,16 +162,19 @@ fn main() {
         diagnostico(&raiz);
     }
 
-    // Sin `target`: `check()` resuelve la entrada `windows-x86_64`, que la release
-    // publica apuntando al `.exe` portable, y su `rawJson` trae también la entrada
-    // `windows-x86_64-portable`, que es la que se usa para reemplazar en sitio.
+    // Sin `target`: en Windows `check()` resuelve la entrada `windows-x86_64`, que
+    // la release publica apuntando al `.exe` portable, y su `rawJson` trae también
+    // la entrada `windows-x86_64-portable`, que es la que se usa para reemplazar en
+    // sitio. En macOS y Linux el plugin queda registrado pero la página no lo usa:
+    // no hay manifiesto que consultar y el contexto se lo dice.
     let actualizador = tauri_plugin_updater::Builder::new();
 
     let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             elegir_carpeta_descargas,
-            #[cfg(windows)]
             actualizacion::registrar_actualizacion,
+            // El reemplazo del `.exe` es de Windows: fuera de allí no hay portable
+            // que descargar y el comando no existe.
             #[cfg(windows)]
             actualizacion::instalar_portable
         ])
@@ -206,7 +210,6 @@ fn main() {
                 // La ventana de actualizaciones se **oculta**, no se destruye: el
                 // menú de la bandeja tiene que poder volver a enseñarla sin
                 // recrear el webview ni perder lo que estaba diciendo.
-                #[cfg(windows)]
                 if ventana.label() == actualizacion::ETIQUETA {
                     api.prevent_close();
                     let _ = ventana.hide();
@@ -236,15 +239,13 @@ fn main() {
             // La ventana de actualizaciones, oculta desde ya: comprueba una sola vez, al
             // cargar, y sólo se enseña cuando hay una versión nueva o cuando se pide
             // desde la bandeja. Un fallo al crearla no puede impedir que arranque la
-            // aplicación; se registra y se sigue.
-            #[cfg(windows)]
-            {
-                let perfil_actualizaciones = raiz.webview().join("actualizacion");
-                if let Err(error) = actualizacion::crear(app.handle(), perfil_actualizaciones) {
-                    registrar(&format!(
-                        "no se pudo crear la ventana de actualizaciones: {error}"
-                    ));
-                }
+            // aplicación; se registra y se sigue. Existe también en macOS y Linux: allí
+            // cuenta que la actualización automática no está disponible.
+            let perfil_actualizaciones = raiz.webview().join("actualizacion");
+            if let Err(error) = actualizacion::crear(app.handle(), perfil_actualizaciones) {
+                registrar(&format!(
+                    "no se pudo crear la ventana de actualizaciones: {error}"
+                ));
             }
 
             let handle = app.handle().clone();

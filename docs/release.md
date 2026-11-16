@@ -456,8 +456,12 @@ y se actualizan la URL y el hash en `.github/actions/herramientas/action.yml`, l
     enseña el enlace.
   - **Sin instaladores no hay reserva.** Si la release no trae `windows-x86_64-portable`, no hay nada
     que descargar: la ventana lo dice y deja el enlace a la release.
-  - **macOS y Linux:** todavía no hay: `latest.json` sólo anuncia Windows, así que el menú no aparece
-    allí. Añadirlo es publicar sus entradas (`darwin-*`/`linux-*`) con su firma.
+  - **macOS y Linux no tienen actualización automática, y la ventana lo dice.** `latest.json` sólo
+    anuncia `windows-*`, así que allí no se consulta el updater (`check()` no se llama): la ventana
+    de actualizaciones existe, se abre desde «Buscar actualizaciones» y cuenta el límite con el
+    enlace a la release para descargar el `.zip` o el AppImage a mano. Publicar sus entradas
+    (`darwin-*`/`linux-*`) con firma es el cambio que la activaría; sin ellas, un manifiesto las
+    anunciaría y la descarga no existiría.
 - **Linux arm64 y Windows arm64: no se publican.** Bun los compila y añadirlos es una línea por
   plataforma, pero cada objetivo es una release que hay que poder probar.
 - **Los datos no viajan en el ejecutable.** `%LOCALAPPDATA%\rona-data` —la base, los ajustes, los
@@ -509,7 +513,9 @@ Lo que sigue sin estar comprobado, y lo dirá el siguiente push o una release co
 - **El cierre ordenado por «Salir»**: la bandeja es una interfaz nativa y no se automatiza. Se mide a
   mano al aceptar una release.
 - **La ventana en macOS y Linux**: T161 sigue pendiente; el archivo único es sólo de Windows y estas
-  plataformas entregan el `.zip` y el AppImage.
+  plataformas entregan el `.zip` y el AppImage. La ventana de actualizaciones se compila y se crea
+  allí, pero lo que enseña —que no hay actualización automática y el enlace a la release— no se ha
+  ejecutado en un Mac ni en un Linux desde este repositorio.
 
 ### El e2e falla, y no es de este cambio
 

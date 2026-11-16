@@ -25,9 +25,9 @@ pub const ID_TRAY: &str = "bandeja";
 
 const ID_ABRIR: &str = "abrir";
 const ID_ALTERNAR: &str = "alternar";
-// Sólo en Windows: es la única plataforma que publica `latest.json` en esta
-// release (ver el `cfg` de `mod actualizacion` en `main.rs`).
-#[cfg(windows)]
+// En todas las plataformas: en Windows comprueba novedades; en macOS y Linux abre
+// la ventana que dice que la actualización automática no está disponible y enlaza
+// a la release. Sin esta opción, esa ventana existiría y nadie podría abrirla.
 const ID_ACTUALIZACIONES: &str = "actualizaciones";
 const ID_SALIR: &str = "salir";
 
@@ -57,7 +57,6 @@ pub fn crear(app: &AppHandle) -> tauri::Result<()> {
     // aparezca, `actualizar` lo pone en «Ocultar».
     let abrir = MenuItem::with_id(app, ID_ABRIR, format!("Abrir {NOMBRE}"), true, None::<&str>)?;
     let alternar = MenuItem::with_id(app, ID_ALTERNAR, "Mostrar ventana", true, None::<&str>)?;
-    #[cfg(windows)]
     let actualizaciones = MenuItem::with_id(
         app,
         ID_ACTUALIZACIONES,
@@ -68,10 +67,7 @@ pub fn crear(app: &AppHandle) -> tauri::Result<()> {
     let salir = MenuItem::with_id(app, ID_SALIR, "Salir", true, None::<&str>)?;
 
     // Sin separadores: son cuatro opciones y el menú tiene que quedar corto.
-    #[cfg(windows)]
     let menu = Menu::with_items(app, &[&abrir, &alternar, &actualizaciones, &salir])?;
-    #[cfg(not(windows))]
-    let menu = Menu::with_items(app, &[&abrir, &alternar, &salir])?;
 
     TrayIconBuilder::with_id(ID_TRAY)
         .icon(Image::from_bytes(ICONO)?)
@@ -83,7 +79,6 @@ pub fn crear(app: &AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, evento| match evento.id().as_ref() {
             ID_ABRIR => mostrar(app),
             ID_ALTERNAR => alternar_ventana(app),
-            #[cfg(windows)]
             ID_ACTUALIZACIONES => crate::actualizacion::mostrar(app),
             ID_SALIR => terminar(app),
             _ => {}
