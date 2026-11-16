@@ -15,6 +15,7 @@ import { renderToString } from 'react-dom/server'
 import type { Fallo } from '../../api/fallo'
 import { t } from '../../i18n'
 import { createMemoryHistory, HistoryProvider } from '../../router'
+import { DetailError } from './DetailError'
 import {
   BandaBanner,
   DetailPage,
@@ -27,7 +28,6 @@ import {
   sinopsis,
 } from './DetailPage'
 import { EpisodeRows } from './EpisodeList'
-import { DetailError } from './DetailError'
 import { watchedInWindow, windowAt, windowCount, windowForNumber } from './episode-window'
 import { FavoriteButton } from './FavoriteButton'
 import { PlanToWatchButton } from './PlanToWatchButton'
@@ -1166,7 +1166,8 @@ describe('probar la obra en otra fuente', () => {
   })
 })
 
-describe('las otras fuentes de la misma obra', () => {  const OTRA: AnimeSummary = {
+describe('las otras fuentes de la misma obra', () => {
+  const OTRA: AnimeSummary = {
     ref: { providerId: 'animeav1', value: 'aurora-nocturna' },
     title: 'Aurora Nocturna',
     year: 2019,

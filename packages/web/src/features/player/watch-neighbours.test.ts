@@ -3,7 +3,7 @@ import type { EpisodesResponse } from '@nn-anime/core/api'
 import type { Episode } from '@nn-anime/core/models'
 import type { RequestDeps } from '../../api/client'
 import { episodeNumberPath, episodesPath, latestEpisodePath } from '../detail/useDetail'
-import { loadWatchNeighbours, shouldLoadNeighbours } from './WatchPage'
+import { loadWatchNeighbours, shouldLoadNeighbours } from './watch-neighbours'
 
 /** Un episodio del fixture, con lo mínimo que exige el schema. */
 function episodio(number: number, season?: number): Episode {
