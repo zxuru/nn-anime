@@ -216,26 +216,38 @@ export function createWatchRepository(db: Database) {
     },
 
     /**
-     * El historial, por páginas.
+     * El historial, por páginas: **un episodio, un renglón**.
      *
-     * Es la misma consulta que `listRecentlyWatched` con un desplazamiento, y va
-     * aparte **a propósito**: aquélla alimenta la fila «continuar viendo» y es
-     * señal de afinidad del motor, así que no se le puede cambiar la semántica
-     * —ni el tope, ni el orden, ni el troceado— para servir una pantalla nueva.
-     * Aquí no se agrupa por episodio ni se descarta lo terminado: el historial
-     * cuenta **lo que pasó**, y que un episodio se reprodujera dos veces son dos
-     * renglones, no uno.
+     * La pantalla es una rejilla de tarjetas, y repetir la misma obra porque se
+     * volvió a abrir el episodio llenaba la rejilla de duplicados. Se queda la
+     * reproducción **más reciente** de cada episodio, que es la que dice cuándo se
+     * vio por última vez; el resto de episodios de la obra siguen apareciendo.
+     *
+     * Se agrupa en la consulta y no después de leer la página: con el recorte
+     * hecho, dos páginas podrían enseñar el mismo episodio —su fila más nueva en
+     * una y una vieja en la otra— y una página llena de duplicados llegaría corta.
+     *
+     * Lo terminado **no** se descarta: al contrario que «continuar viendo», el
+     * historial cuenta lo que pasó, no lo que queda por terminar.
      *
      * El desplazamiento y no un cursor porque el orden es por fecha de inicio y el
      * historial se escribe por detrás: una página que se desplaza sola mientras se
      * mira es peor que un salto entre páginas, y el usuario está mirando lo que ya
-     * tiene delante.
+     * tiene delante. El `id` desempata: dos altas en el mismo milisegundo, sin él,
+     * podían repetirse o perderse entre páginas.
      */
     listWatchHistory(limit: number, offset: number): readonly WatchRecord[] {
       const rows = db
         .query<WatchRow, [number, number]>(
           `${WATCH_SELECT}
-            ORDER BY w.started_at DESC
+            WHERE w.id = (
+              SELECT w2.id
+                FROM watch_event w2
+               WHERE w2.episode_id = w.episode_id
+               ORDER BY w2.started_at DESC, w2.id DESC
+               LIMIT 1
+            )
+            ORDER BY w.started_at DESC, w.id DESC
             LIMIT ? OFFSET ?`,
         )
         .all(limit, offset)

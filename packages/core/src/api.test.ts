@@ -489,7 +489,7 @@ describe('watchHistoryResponseSchema', () => {
     ).toBe(false)
   })
 
-  test('exige el identificador de la fila: el historial no agrupa y puede repetir episodio', () => {
+  test('exige el identificador de la fila: dos episodios de la misma obra comparten tarjeta', () => {
     const { id: _id, ...sinId } = VISIONADO
 
     expect(
