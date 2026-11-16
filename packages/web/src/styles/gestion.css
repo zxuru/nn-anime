@@ -1146,6 +1146,27 @@
   color: var(--color-text);
 }
 
+/*
+ * «Ya conozco cómo funciona», la salida de todos los tutoriales.
+ *
+ * Es la segunda línea del pie y sólo sale en el primer paso. Va en el acento para
+ * no leerse como un «cerrar» más: lo que decide es sobre todos los recorridos, no
+ * sobre el que está abierto.
+ */
+.nn-guia .nn-guia__omitir-todos {
+  order: 2;
+  flex-basis: 100%;
+  min-block-size: var(--control-size);
+  padding-inline: var(--space-4);
+  color: var(--color-accent);
+  text-align: center;
+}
+
+.nn-guia .nn-guia__omitir-todos:hover,
+.nn-guia .nn-guia__omitir-todos:focus-visible {
+  color: var(--color-accent-strong);
+}
+
 .nn-guia .driver-popover-close-btn,
 .nn-guia-aviso .driver-popover-close-btn {
   color: var(--color-text-dim);

@@ -17,7 +17,13 @@ import { type Hints, hints } from 'driver.js/hints'
 import { useEffect, useSyncExternalStore } from 'react'
 import { t } from '../../i18n'
 import { useRoute } from '../../router'
-import { descartarAviso, estadoActual, marcarRecorrido, suscribir } from './estado'
+import {
+  descartarAviso,
+  estadoActual,
+  marcarRecorrido,
+  omitirTodosLosTutoriales,
+  suscribir,
+} from './estado'
 import {
   avisosPendientes,
   type PasoGuia,
@@ -130,7 +136,7 @@ export function abrirRecorrido(id: string): void {
     // que no está: se salta. La espera cubre la carga de la pantalla.
     skipMissingElement: true,
     waitForElement: 2500,
-    onPopoverRender: (popover) => {
+    onPopoverRender: (popover, opciones) => {
       // El popover ya es `role="dialog"`; `aria-modal` lo completa: el foco no
       // sale de él mientras el recorrido está abierto (driver.js lo atrapa).
       popover.wrapper.setAttribute('aria-modal', 'true')
@@ -153,6 +159,31 @@ export function abrirRecorrido(id: string): void {
         cerrarRecorrido(recorrido.id)
       })
       popover.footer.append(omitir)
+
+      /*
+        «Ya conozco cómo funciona», sólo en el primer paso.
+
+        La salida de arriba es de este recorrido; ésta apaga todos, también los de
+        las pantallas que aún no se han abierto, y deja el mismo estado que el botón
+        de Ajustes. Quien llega sabiendo lo pulsa una vez y no ve otro tutorial; por
+        eso no sale en los pasos siguientes: repetido en cada uno, parecería parte
+        del recorrido y no una salida global.
+
+        Va después de «Omitir tutorial» —`order` lo coloca la hoja— para leerlo como
+        lo que es: la decisión sobre todos, no el paso de este.
+      */
+      if (opciones.state.activeIndex === 0) {
+        const omitirTodos = document.createElement('button')
+        omitirTodos.type = 'button'
+        omitirTodos.className = 'driver-popover-footer-btn nn-guia__omitir-todos'
+        omitirTodos.textContent = t(DEFAULT_LOCALE, 'guia.omitirTodos')
+        omitirTodos.title = t(DEFAULT_LOCALE, 'guia.omitirTodos.ayuda')
+        omitirTodos.addEventListener('click', () => {
+          omitirTodosLosTutoriales()
+          tour?.destroy()
+        })
+        popover.footer.append(omitirTodos)
+      }
 
       /*
         driver.js enfoca el primer mando —la ✕— al abrir cada paso. En un
