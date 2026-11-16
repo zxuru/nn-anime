@@ -121,6 +121,14 @@
       .error {
         color: var(--error);
       }
+      .nota {
+        color: var(--tenue);
+        font-size: 0.8rem;
+        line-height: 1.45;
+        margin: 1.25rem 0 0;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--borde);
+      }
     </style>
   </head>
   <body>
@@ -138,6 +146,18 @@
           Abrir la release
         </a>
       </div>
+      <!--
+        La firma de código es condicional: sin certificados la release se publica igual y el sistema
+        avisa. Se dice aquí, en la ventana que anuncia la actualización, para que nadie se entere sólo
+        al ejecutar el archivo. No se promete nada más: la firma del updater es otra y sí es
+        obligatoria, porque sin ella el `.exe` no se podría reemplazar.
+      -->
+      <p class="nota" id="firma">
+        Esta release puede no estar firmada con un certificado de código: Windows avisará de un
+        «desarrollador no verificado» y macOS, la primera vez, la pondrá en cuarentena con un aviso
+        de «desarrollador no identificado». El aviso es de que nadie ha pagado un certificado, no de
+        que el archivo esté mal. La actualización se verifica igualmente con la firma del updater.
+      </p>
     </main>
     <script type="module" src="./actualizacion.js"></script>
   </body>

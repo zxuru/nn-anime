@@ -251,7 +251,7 @@ fn construir(app: &AppHandle, visible: bool) -> tauri::Result<()> {
     let ventana =
         WebviewWindowBuilder::new(app, ETIQUETA, WebviewUrl::App("actualizacion.html".into()))
             .title("RoNa — actualización")
-            .inner_size(560.0, 430.0)
+            .inner_size(560.0, 480.0)
             .resizable(false)
             .minimizable(false)
             .maximizable(false)

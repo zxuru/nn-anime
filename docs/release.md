@@ -140,7 +140,8 @@ desarrollador de Apple (Certificates → Developer ID Application) y se exporta 
 clave privada.
 
 Sin los cinco, el `.zip` del `.app` sale **sin firmar y sin notarizar**, y quien lo descargue verá el
-aviso de «desarrollador no identificado».
+aviso de «desarrollador no identificado» y la aplicación quedará en cuarentena: los pasos para abrirla
+están en el README, y son los mismos que repite la ventana de actualizaciones.
 
 ### Actualizaciones (obligatorio)
 
@@ -163,6 +164,22 @@ bun tauri signer generate -w ~/.tauri/RoNa.key
 `bun tauri signer sign` firma el `.exe` único con ese secreto, y `scripts/package/portable-manifest.ts`
 escribe `latest.json` a partir de la firma. Sin él, el paso de Windows falla en vez de publicar un
 `.exe` que nadie podrá actualizar.
+
+### Qué ve quien descarga una release sin firmar
+
+La firma de código es condicional y la del updater no: sin los certificados la release **se publica
+igualmente, sin firmar**, y el sistema enseña su aviso. Esto es lo que se encuentra quien descarga:
+
+| Plataforma | Qué publica | Qué aviso ve |
+|---|---|---|
+| Windows | El `.exe` único | SmartScreen: «desarrollador no verificado». Se abre en «Más información → Ejecutar de todas formas» |
+| macOS | El `.zip` del `.app` | Gatekeeper, la primera vez: «desarrollador no identificado» y cuarentena. Botón derecho → Abrir, o Ajustes del Sistema → Privacidad y seguridad |
+| Linux | El AppImage | No va firmado; se comprueba con el `SHA256SUMS.txt` |
+
+El aviso es de que nadie ha pagado un certificado, no de que el archivo esté mal, y no cambia lo que
+se descarga: la firma minisign del updater se verifica igual y es la que impide reemplazar el
+ejecutable por uno que no venga de esta release. La ventana de actualizaciones repite esta nota, para
+que no aparezca por primera vez al ejecutar el archivo descargado.
 
 ### Lo que no hay
 
@@ -431,7 +448,7 @@ y se actualizan la URL y el hash en `.github/actions/herramientas/action.yml`, l
   `releases/latest/download/latest.json` **una vez, al arrancar**, y el menú de la bandeja tiene
   «Buscar actualizaciones». No descarga nada hasta que se acepta en la ventana. El workflow firma el
   `.exe` único con `bun tauri signer` y escribe el `latest.json` con
-  `scripts/package/portable-manifest.ts`; sin `WINDOWS_CERT_THUMBPRINT` el `.exe` sale sin firmar de
+  `scripts/package/portable-manifest.ts`; sin `WINDOWS_CERT_PFX_BASE64` el `.exe` sale sin firmar de
   código, pero el `.sig` del updater y la verificación de la descarga no dependen de eso.
   - **El `.exe` único se auto-reemplaza.** La aplicación descarga ese `.exe`, verifica la firma
     minisign, aparta el que está corriendo, pone el nuevo y lo arranca; el nuevo espera a que el viejo

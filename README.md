@@ -123,6 +123,12 @@ Tus datos nunca viajan dentro del `.exe`: la base, los ajustes y los plugins viv
 `%LOCALAPPDATA%\rona-data` —o en la carpeta del ejecutable si hay un `portable.txt`—, así que
 mover, borrar o actualizar el archivo no los toca.
 
+**La release puede salir sin firma de código.** Los certificados de Windows y macOS son opcionales:
+sin ellos la release se publica igualmente, sin firmar, y el sistema avisa —«desarrollador no
+verificado» en Windows y la cuarentena de Gatekeeper en macOS, con los pasos de las secciones de
+abajo—. La ventana de actualizaciones lo dice en su nota. Eso no toca la firma del updater, que es
+otra y sí es obligatoria: es la que impide instalar un ejecutable que no venga de esta release.
+
 ### macOS
 
 Descomprime el `.zip` y mueve **RoNa** a la carpeta que quieras —Aplicaciones o cualquier otra—.
