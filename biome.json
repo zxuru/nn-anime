@@ -54,7 +54,10 @@
   },
   "overrides": [
     {
-      "includes": ["packages/web/src/features/player/Player.tsx"],
+      "includes": [
+        "packages/web/src/features/player/Player.tsx",
+        "packages/web/src/features/player/PlayerFrame.tsx"
+      ],
       "linter": {
         "rules": {
           "a11y": {

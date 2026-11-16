@@ -39,6 +39,17 @@ export function leerExtendido(almacen: Almacen | undefined): boolean {
   }
 }
 
+/**
+ * El modo extendido con el gesto que lo enciende y lo apaga.
+ *
+ * Es el mismo mando para las dos direcciones —el botón, la tecla `T` y el
+ * `Escape`—, y por eso la vuelta está escrita una sola vez en vez de repetir un
+ * `!valor` en tres sitios que después se desincronizan.
+ */
+export function alternarExtendido(actual: boolean): boolean {
+  return !actual
+}
+
 /** Guarda la preferencia. Sin sitio para apuntarla, vale para esta visita. */
 export function guardarExtendido(almacen: Almacen | undefined, valor: boolean): void {
   if (almacen === undefined) return
