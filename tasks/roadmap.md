@@ -1,7 +1,7 @@
 # Plan de tareas: roadmap post-v0.3.1
 
-Origen: `docs/roadmap.md` · Estado: **fases 0 y 1 cerradas; fase 2A (manga) siguiente** ·
-2026-10-26.
+Origen: `docs/roadmap.md` · Estado: **fases 0 y 1 cerradas; modo LAN de la fase 3 publicado en la
+0.8.0; fase 2A (manga) con spec escrita y sin abrir** · actualizado el 2026-11-16.
 Diagnóstico que reordena la fase 0: `docs/diagnostico-peliculas-series.md`.
 
 Rige el **Definition of Done** de `tasks/plan.md`: `typecheck`, `lint` y `bun test` en verde,
@@ -35,9 +35,9 @@ lo que ordena.
 | 1.5 Descargas · reproducción local | **T185** | hecho | T183f, T184 |
 | 1.6 Descargas · escritorio | **T186** | hecho | T184 |
 | 1.7 Descargas · espacio | **T187** | hecho | T183f, T184 |
-| Fase 2A Manga | sin abrir | — | 0.5 |
+| Fase 2A Manga | spec escrita: `docs/specs/SPEC-manga.md` (T234) | — | 0.5 |
 | Fase 2B Descarga de manga | sin abrir | — | 1.x, 2A |
-| Fase 3 Watch party | sin abrir | — | 0.5 (idealmente 1.x) |
+| Fase 3 Watch party | **modo LAN implementado y publicado en la 0.8.0**; faltan 3.4, 3.6 y 3.7 | — | 0.5 (idealmente 1.x) |
 
 **El orden dentro de la fase 0 cambia tras el diagnóstico.** El roadmap ponía 0.2 antes que 0.5;
 el diagnóstico muestra que **0.5 es la que hace fallar 0.2**: sin un fixture con numeración por
@@ -68,14 +68,29 @@ episodio** y la fuente de metadatos:
 
 | Task | Spec | Estado |
 |---|---|---|
-| T175 (0.2) | `docs/specs/proposals/SPEC-nn-anime.medios.T175.md` | **propuesta entregada**, pendiente de aprobación |
-| T176 (0.2, código) | la de T175, una vez aprobada | — |
-| T177 (0.3) | `docs/specs/proposals/SPEC-nn-anime.metadatos.md` | por escribir; D1 ya decidida |
+| T175 (0.2) | `docs/specs/proposals/SPEC-nn-anime.medios.T175.md` | **aprobada e implementada por T176** |
+| T176 (0.2, código) | la de T175, una vez aprobada | hecho |
+| T177 (0.3) | `docs/specs/proposals/SPEC-nn-anime.metadatos.T177.md` | **aprobada e implementada** (D1 decidida) |
 | T178 (0.4) | — | Es interfaz y rutas existentes; el criterio es el e2e |
 | T179 (0.5) | — | Es fixture y pruebas; no cambia contrato |
 | T180 (0.6) | — | Es interfaz; no cambia contrato |
 
+## Fase 3: Watch party — estado real
+
+El modo LAN está **implementado y publicado en la 0.8.0**, apagado por defecto: sin `RONA_PARTY=1`
+no se registra ninguna ruta `/api/party/*`. El contrato y el modelo de amenaza están en
+[`docs/specs/SPEC-watch-party.md`](../docs/specs/SPEC-watch-party.md), el uso en
+[`docs/watch-party.md`](../docs/watch-party.md) y los riesgos residuales en `SECURITY.md`.
+
+Lo que hay: protocolo y tipos en `packages/core/src/party.ts`, sala LAN en memoria con relevo del
+invitado, estado por SSE, interfaz de sala y 17 rutas en `packages/server/src/party/`.
+
+Lo que queda: **3.4** WebRTC P2P (decisión D3 abierta), **3.6** coincidencia de contenido por
+identificador común (AniList) y **3.7** chat y reacciones; de la 3.5, «esperar a todos» y el control
+compartido. El detalle y las prioridades están en [`docs/roadmap.md`](../docs/roadmap.md), sección 4.
+
 ## Lo que este plan no incluye
 
-Las fases 1, 2A, 2B y 3 no tienen tasks abiertas. Se abrirán con su propia spec, como pide el
-roadmap, y con las decisiones D2–D5 resueltas. Este documento sólo sostiene la fase 0.
+Las fases 2A, 2B y el resto de la fase 3 no tienen tasks abiertas en este documento. Se abrirán con
+su propia spec, como pide el roadmap, y con las decisiones D3–D5 resueltas. La fase 3 en modo LAN ya
+está implementada; lo que falta de ella se cierra con las tareas 3.4, 3.6 y 3.7 de `docs/roadmap.md`.
