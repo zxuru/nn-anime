@@ -119,14 +119,15 @@ comprobar que llegó entero.
 
 ### Actualizaciones
 
-La aplicación comprueba si hay una versión nueva **al arrancar y cada tres horas**, y también cuando
+La aplicación comprueba si hay una versión nueva **una vez, al arrancar**, y también cuando
 pulsas **Buscar actualizaciones** en el icono de la bandeja (en Windows; macOS y Linux todavía no
 publican bundles del updater). Si hay una, la ventana de actualizaciones enseña el número de versión y
-las notas. En la **copia instalada** descarga el instalador NSIS, lo verifica y lo ejecuta. En el
-**archivo único portable** —con o sin `portable.txt`— descarga el `.exe` nuevo, verifica su firma
-minisign y se reemplaza **en sitio**: aparta el que está corriendo, pone el nuevo, arranca la versión
-nueva y borra el viejo. Si el medio es de sólo lectura o el reemplazo falla, se queda el aviso con el
-enlace a la release.
+las notas. No descarga ni instala nada hasta que pulsas **Actualizar ahora**. Al aceptar, **las dos
+formas de entrega** —la copia instalada y el archivo único portable, con o sin `portable.txt`—
+descargan el `.exe` nuevo, verifican su firma minisign y lo reemplazan **en sitio**: apartan el que
+está corriendo, ponen el nuevo, arrancan la versión nueva y borran el viejo. Si la release no trae ese
+`.exe` portable firmado, la copia instalada recurre al instalador NSIS. Si el medio es de sólo lectura
+o el reemplazo falla, se queda el aviso con el enlace a la release.
 
 Desinstalar desde «Agregar o quitar programas» **no borra tus datos**: la base, los ajustes y los
 plugins viven en `%LOCALAPPDATA%\nn-anime-data` —fuera de la carpeta de instalación— y se quedan donde

@@ -150,10 +150,12 @@ prueba que lo sostiene.
     `core:default`, `updater:default`, `process:allow-restart` y las operaciones de ventana que usa;
     no tiene shell, ni archivos, ni red propia. Lo que decide si un instalador se ejecuta es la
     **firma minisign** del artefacto con la clave privada del updater, que no está en el repositorio,
-    y `requireSignedVersion` ata esa firma a la versión anunciada. La copia **portable** no ejecuta
-    instaladores: descarga el `.exe` firmado y lo reemplaza en sitio (renombrar el que corre, poner el
-    nuevo, arrancarlo), pero **verifica esa misma firma antes de tocar nada** y, si falla, restaura el
-    original. `latest.json` no va firmado: quien pueda escribir en la release podría anunciar una
+    y `requireSignedVersion` ata esa firma a la versión anunciada. Las dos formas de entrega —la
+    instalada y la portable— no ejecutan instaladores en el camino normal: descargan el `.exe`
+    firmado y lo reemplazan en sitio (renombrar el que corre, poner el nuevo, arrancarlo), pero
+    **verifican esa misma firma antes de tocar nada** y, si falla, restauran el original. La copia
+    instalada sólo cae al NSIS si la release no trae la entrada portable. `latest.json` no va
+    firmado: quien pueda escribir en la release podría anunciar una
     versión distinta, pero no fabricar un binario aceptado. El updater está activo sólo en Windows.
 19. **En macOS no hay seguro de muerte brusca del servidor, y en Windows depende de que el anfitrión
     no viva ya dentro de un job ajeno.** Lo primero no es un descuido: macOS no tiene

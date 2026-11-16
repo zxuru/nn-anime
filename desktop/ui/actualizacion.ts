@@ -1,14 +1,16 @@
 // La lógica de la ventana de actualizaciones.
 //
-// Comprueba al cargar y cada tres horas, y también cuando el menú de la bandeja
-// emite `buscar-actualizaciones`. Si hay versión nueva, la enseña; si el usuario
-// acepta, se actualiza de la forma que corresponda:
+// Comprueba una sola vez, al cargar, y otra cuando el menú de la bandeja emite
+// `buscar-actualizaciones`. Si hay versión nueva, la enseña; si el usuario
+// acepta, se actualiza:
 //
-// - **Instalada** (el NSIS): `downloadAndInstall()` del plugin y `relaunch()`.
-// - **Portable** (el `.exe` único): el plugin no puede ejecutar un instalador que
-//   no existe, así que se manda a Rust la URL y la firma de
-//   `windows-x86_64-portable`; Rust descarga, verifica y reemplaza el `.exe` en
-//   marcha. Si falla, se enseña el enlace a la release.
+// - **Las dos formas de entrega** —la copia instalada y el `.exe` único— mandan
+//   a Rust la URL y la firma de `windows-x86_64-portable`; Rust descarga,
+//   verifica y reemplaza el `.exe` en marcha. Si falla, se enseña el enlace a la
+//   release.
+// - **Reserva de la copia instalada**: si la release no trae esa entrada, el
+//   plugin descarga el NSIS, lo verifica y lo ejecuta con `downloadAndInstall()`
+//   y `relaunch()`.
 //
 // Los errores no rompen nada: se cuentan en la página (cuando la comprobación la
 // pidió el usuario) y se escriben en el registro del anfitrión con el comando
@@ -19,6 +21,8 @@ import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { check, type DownloadEvent, type Update } from '@tauri-apps/plugin-updater'
+
+import { camino, entradaPortable } from './camino-actualizacion'
 
 interface Contexto {
   readonly instalada: boolean
@@ -32,12 +36,6 @@ interface ProgresoPortable {
   readonly total: number | null
 }
 
-/** La entrada del manifiesto que corresponde a la copia portable. */
-interface EntradaPortable {
-  readonly url: string
-  readonly signature: string
-}
-
 declare global {
   interface Window {
     __NN_ACTUALIZACION?: Contexto
@@ -45,9 +43,7 @@ declare global {
 }
 
 const EVENTO_BUSCAR = 'buscar-actualizaciones'
-const INTERVALO_MS = 3 * 60 * 60 * 1000
 const TIEMPO_LIMITE_MS = 30_000
-const CLAVE_PORTABLE = 'windows-x86_64-portable'
 
 const contexto: Contexto | undefined = window.__NN_ACTUALIZACION
 
@@ -71,27 +67,6 @@ function elemento<T extends HTMLElement>(id: string, tipo: new () => T): T {
   }
 
   return encontrado
-}
-
-function esRecord(valor: unknown): valor is Record<string, unknown> {
-  return typeof valor === 'object' && valor !== null && !Array.isArray(valor)
-}
-
-/** Saca la URL y la firma del `.exe` portable de lo que devolvió `check()`. */
-function entradaPortable(rawJson: Record<string, unknown>): EntradaPortable | null {
-  const platforms = rawJson.platforms
-
-  if (!esRecord(platforms)) return null
-
-  const entrada = platforms[CLAVE_PORTABLE]
-
-  if (!esRecord(entrada)) return null
-
-  const { url, signature } = entrada
-
-  if (typeof url !== 'string' || typeof signature !== 'string') return null
-
-  return { url, signature }
 }
 
 function mensajeDe(error: unknown): string {
@@ -203,7 +178,7 @@ async function comprobar(manual: boolean): Promise<void> {
   }
 }
 
-/** La copia instalada: el plugin descarga el NSIS, lo verifica y lo ejecuta. */
+/** La reserva de la copia instalada: el plugin descarga el NSIS, lo verifica y lo ejecuta. */
 async function instalarAhora(): Promise<void> {
   if (actual === null || enCurso) return
 
@@ -266,8 +241,8 @@ async function instalarAhora(): Promise<void> {
   }
 }
 
-/** La copia portable: Rust descarga, verifica y reemplaza el `.exe` en marcha. */
-async function instalarPortable(): Promise<void> {
+/** Las dos formas de entrega: Rust descarga, verifica y reemplaza el `.exe` en marcha. */
+async function instalarEnSitio(): Promise<void> {
   if (actual === null || enCurso) return
 
   const entrada = entradaPortable(actual.rawJson)
@@ -275,7 +250,7 @@ async function instalarPortable(): Promise<void> {
   if (entrada === null) {
     const mensaje = 'La release no trae un ejecutable portable firmado.'
     registrar(mensaje)
-    texto('Esta actualización no se puede aplicar a la copia portable.', true)
+    texto('Esta actualización no se puede aplicar: falta el ejecutable portable firmado.', true)
     detalle.textContent = mensaje
     detalle.hidden = false
     mostrarEnlace(actual.version)
@@ -310,9 +285,9 @@ async function instalarPortable(): Promise<void> {
     texto('Reiniciando…')
   } catch (error) {
     const mensaje = mensajeDe(error)
-    registrar(`error al actualizar la copia portable: ${mensaje}`)
+    registrar(`error al actualizar en sitio: ${mensaje}`)
 
-    texto('No se pudo actualizar la copia portable.', true)
+    texto('No se pudo actualizar en sitio.', true)
     detalle.textContent = mensaje
     detalle.hidden = false
     progreso.hidden = true
@@ -336,11 +311,19 @@ async function cerrarAviso(): Promise<void> {
 }
 
 function actualizar(): void {
-  if (contexto !== undefined && !contexto.instalada) {
-    void instalarPortable()
-  } else {
+  if (actual === null) return
+
+  // El auto-reemplazo sirve para las dos formas de entrega. Sólo la copia
+  // instalada puede caer al NSIS cuando la release no publicó el portable.
+  if (camino(contexto?.instalada ?? false, actual.rawJson) === 'nsis') {
     void instalarAhora()
+
+    return
   }
+
+  // `ninguno` también entra aquí: `instalarEnSitio` enseña el motivo y el enlace
+  // cuando falta el ejecutable portable firmado.
+  void instalarEnSitio()
 }
 
 instalar.addEventListener('click', actualizar)
@@ -375,9 +358,3 @@ async function iniciar(): Promise<void> {
 }
 
 void iniciar()
-
-// Cada pocas horas, no en cada arranque de la ventana: el updater consulta GitHub
-// y no hay razón para pedirle más de lo necesario.
-setInterval(() => {
-  if (!enCurso && actual === null) void comprobar(false)
-}, INTERVALO_MS)

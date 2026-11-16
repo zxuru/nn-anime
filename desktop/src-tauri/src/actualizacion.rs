@@ -8,24 +8,23 @@
 //! usa—, de modo que la superficie que hay que auditar sigue siendo una y pequeña.
 //!
 //! Vive **oculta** desde el arranque. La comprobación de novedades la hace la
-//! propia página al cargar y cada tres horas; esta ventana sólo se enseña cuando
+//! propia página **una sola vez, al cargar**; esta ventana sólo se enseña cuando
 //! hay algo que contar. El menú de la bandeja la vuelve a enseñar y le pide otra
 //! comprobación con el evento `buscar-actualizaciones`.
 //!
-//! **Dos formas de entregar la aplicación, dos formas de actualizarla:**
+//! **Las dos formas de entrega se actualizan reemplazando el `.exe`.** No hay
+//! instalador que ejecutar: se descarga el `.exe` portable, se verifica su firma
+//! minisign y se reemplaza el ejecutable **en marcha**. Windows deja renombrar un
+//! `.exe` en ejecución aunque no deja borrarlo. Se aparta el actual como
+//! `.viejo`, se pone el nuevo en su sitio, se arranca el nuevo con
+//! `--reemplazo-pid` y el viejo sale. El nuevo espera a que el viejo muera —para
+//! no chocar con la instancia única— y borra el `.viejo`.
 //!
-//! - **Instalada** (el NSIS de Tauri): el plugin descarga el instalador, verifica
-//!   la firma y lo ejecuta; el instalador reemplaza el binario.
-//! - **Portable** (el `.exe` único, con o sin `portable.txt`): no hay instalador
-//!   que ejecutar, así que se descarga el `.exe` nuevo, se verifica su firma
-//!   minisign y se reemplaza el ejecutable **en marcha**: Windows deja renombrar
-//!   un `.exe` en ejecución aunque no deja borrarlo. Se aparta el actual como
-//!   `.viejo`, se pone el nuevo en su sitio, se arranca el nuevo con
-//!   `--reemplazo-pid` y el viejo sale. El nuevo espera a que el viejo muera
-//!   —para no chocar con la instancia única— y borra el `.viejo`.
-//!
-//! Lo que decide no es `portable.txt` (eso habla de dónde van los datos) sino
-//! `entorno::instalada()`, que mira la entrada de desinstalación.
+//! La copia **instalada** conserva una reserva: si la release no publicó
+//! `windows-x86_64-portable`, el plugin descarga el NSIS, lo verifica y lo
+//! ejecuta. Lo que decide esa reserva no es `portable.txt` (eso habla de dónde
+//! van los datos) sino `entorno::instalada()`, que mira la entrada de
+//! desinstalación.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};

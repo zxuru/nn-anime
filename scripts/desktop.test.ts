@@ -467,6 +467,17 @@ describe('el anfitrión de ventana', () => {
     expect(conf).toContain('"pubkey"')
   })
 
+  test('la consulta de actualizaciones es una sola vez, al cargar', async () => {
+    // La ventana se crea oculta y comprueba al cargar. Volver a poner un
+    // temporizador la convertiría otra vez en una consulta periódica a GitHub, que
+    // es justo lo que este cambio retira.
+    const ui = await leer(join(ROOT, 'desktop', 'ui', 'actualizacion.ts'))
+
+    expect(ui).toContain('await comprobar(false)')
+    expect(ui).not.toContain('setInterval')
+    expect(ui).not.toContain('INTERVALO_MS')
+  })
+
   test('el CI compila y mide el árbol de Rust', async () => {
     // Esta es la guarda que más importa del archivo. El anfitrión vive fuera de
     // `packages/`, así que `tsc`, `bun test` y biome no ven una línea suya: si
