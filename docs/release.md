@@ -140,7 +140,8 @@ desarrollador de Apple (Certificates → Developer ID Application) y se exporta 
 clave privada.
 
 Sin los cinco, el `.zip` del `.app` sale **sin firmar y sin notarizar**, y quien lo descargue verá el
-aviso de «desarrollador no identificado».
+aviso de «desarrollador no identificado» y la aplicación quedará en cuarentena: los pasos para abrirla
+están en el README, y son los mismos que repite la ventana de actualizaciones.
 
 ### Actualizaciones (obligatorio)
 
@@ -163,6 +164,22 @@ bun tauri signer generate -w ~/.tauri/RoNa.key
 `bun tauri signer sign` firma el `.exe` único con ese secreto, y `scripts/package/portable-manifest.ts`
 escribe `latest.json` a partir de la firma. Sin él, el paso de Windows falla en vez de publicar un
 `.exe` que nadie podrá actualizar.
+
+### Qué ve quien descarga una release sin firmar
+
+La firma de código es condicional y la del updater no: sin los certificados la release **se publica
+igualmente, sin firmar**, y el sistema enseña su aviso. Esto es lo que se encuentra quien descarga:
+
+| Plataforma | Qué publica | Qué aviso ve |
+|---|---|---|
+| Windows | El `.exe` único | SmartScreen: «desarrollador no verificado». Se abre en «Más información → Ejecutar de todas formas» |
+| macOS | El `.zip` del `.app` | Gatekeeper, la primera vez: «desarrollador no identificado» y cuarentena. Botón derecho → Abrir, o Ajustes del Sistema → Privacidad y seguridad |
+| Linux | El AppImage | No va firmado; se comprueba con el `SHA256SUMS.txt` |
+
+El aviso es de que nadie ha pagado un certificado, no de que el archivo esté mal, y no cambia lo que
+se descarga: la firma minisign del updater se verifica igual y es la que impide reemplazar el
+ejecutable por uno que no venga de esta release. La ventana de actualizaciones repite esta nota, para
+que no aparezca por primera vez al ejecutar el archivo descargado.
 
 ### Lo que no hay
 
@@ -431,7 +448,7 @@ y se actualizan la URL y el hash en `.github/actions/herramientas/action.yml`, l
   `releases/latest/download/latest.json` **una vez, al arrancar**, y el menú de la bandeja tiene
   «Buscar actualizaciones». No descarga nada hasta que se acepta en la ventana. El workflow firma el
   `.exe` único con `bun tauri signer` y escribe el `latest.json` con
-  `scripts/package/portable-manifest.ts`; sin `WINDOWS_CERT_THUMBPRINT` el `.exe` sale sin firmar de
+  `scripts/package/portable-manifest.ts`; sin `WINDOWS_CERT_PFX_BASE64` el `.exe` sale sin firmar de
   código, pero el `.sig` del updater y la verificación de la descarga no dependen de eso.
   - **El `.exe` único se auto-reemplaza.** La aplicación descarga ese `.exe`, verifica la firma
     minisign, aparta el que está corriendo, pone el nuevo y lo arranca; el nuevo espera a que el viejo
@@ -439,8 +456,12 @@ y se actualizan la URL y el hash en `.github/actions/herramientas/action.yml`, l
     enseña el enlace.
   - **Sin instaladores no hay reserva.** Si la release no trae `windows-x86_64-portable`, no hay nada
     que descargar: la ventana lo dice y deja el enlace a la release.
-  - **macOS y Linux:** todavía no hay: `latest.json` sólo anuncia Windows, así que el menú no aparece
-    allí. Añadirlo es publicar sus entradas (`darwin-*`/`linux-*`) con su firma.
+  - **macOS y Linux no tienen actualización automática, y la ventana lo dice.** `latest.json` sólo
+    anuncia `windows-*`, así que allí no se consulta el updater (`check()` no se llama): la ventana
+    de actualizaciones existe, se abre desde «Buscar actualizaciones» y cuenta el límite con el
+    enlace a la release para descargar el `.zip` o el AppImage a mano. Publicar sus entradas
+    (`darwin-*`/`linux-*`) con firma es el cambio que la activaría; sin ellas, un manifiesto las
+    anunciaría y la descarga no existiría.
 - **Linux arm64 y Windows arm64: no se publican.** Bun los compila y añadirlos es una línea por
   plataforma, pero cada objetivo es una release que hay que poder probar.
 - **Los datos no viajan en el ejecutable.** `%LOCALAPPDATA%\rona-data` —la base, los ajustes, los
@@ -492,7 +513,9 @@ Lo que sigue sin estar comprobado, y lo dirá el siguiente push o una release co
 - **El cierre ordenado por «Salir»**: la bandeja es una interfaz nativa y no se automatiza. Se mide a
   mano al aceptar una release.
 - **La ventana en macOS y Linux**: T161 sigue pendiente; el archivo único es sólo de Windows y estas
-  plataformas entregan el `.zip` y el AppImage.
+  plataformas entregan el `.zip` y el AppImage. La ventana de actualizaciones se compila y se crea
+  allí, pero lo que enseña —que no hay actualización automática y el enlace a la release— no se ha
+  ejecutado en un Mac ni en un Linux desde este repositorio.
 
 ### El e2e falla, y no es de este cambio
 

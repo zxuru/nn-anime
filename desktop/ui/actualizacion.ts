@@ -9,6 +9,9 @@
 //   enlace a la release.
 // - Si la release no trae esa entrada, no hay nada que descargar: se dice y se
 //   deja el enlace.
+// - Fuera de Windows no hay manifiesto del updater y la ventana existe para
+//   decirlo: no se llama a `check()` y se enlaza a la release para descargar la
+//   versión nueva a mano. Lo decide `contexto.automatica`, que viene de Rust.
 //
 // Los errores no rompen nada: se cuentan en la página (cuando la comprobación la
 // pidió el usuario) y se escriben en el registro del anfitrión con el comando
@@ -24,6 +27,8 @@ import { entradaPortable } from './camino-actualizacion'
 interface Contexto {
   readonly version: string
   readonly releases: string
+  /** Si esta compilación puede comprobar e instalar actualizaciones. */
+  readonly automatica: boolean
 }
 
 /** Lo que Rust manda por el canal mientras descarga el `.exe` portable. */
@@ -43,8 +48,13 @@ const TIEMPO_LIMITE_MS = 30_000
 
 const contexto: Contexto | undefined = window.__NN_ACTUALIZACION
 
+// Se fija aquí, fuera de las funciones, para no repetir la comprobación en cada
+// cierre y porque una compilación no cambia de plataforma mientras corre.
+const automatica = contexto?.automatica === true
+
 const version = elemento('version', HTMLParagraphElement)
 const estado = elemento('estado', HTMLParagraphElement)
+const soporte = elemento('soporte', HTMLParagraphElement)
 const detalle = elemento('detalle', HTMLParagraphElement)
 const progreso = elemento('progreso', HTMLProgressElement)
 const instalar = elemento('instalar', HTMLButtonElement)
@@ -92,6 +102,30 @@ function mostrarEnlace(versionNueva: string): void {
 
   release.href = `${contexto.releases}/tag/v${versionNueva}`
   release.hidden = false
+}
+
+/**
+ * Lo que se enseña donde no hay manifiesto del updater.
+ *
+ * No se llama a `check()`: en macOS y Linux el plugin buscaría una entrada
+ * `darwin-*`/`linux-*` que la release no publica, y el error de la búsqueda se
+ * leería como una avería de red. Se dice el límite y se deja la descarga manual.
+ */
+async function mostrarSinActualizacionAutomatica(manual: boolean): Promise<void> {
+  if (contexto === undefined) return
+
+  texto('La actualización automática sólo está disponible en Windows.')
+  soporte.textContent =
+    'La release no publica un manifiesto del updater para este sistema, así que la aplicación ' +
+    'no puede actualizarse sola. Descarga la versión nueva desde la release y sustituye estos ' +
+    'archivos a mano; tus datos no se tocan.'
+  soporte.hidden = false
+
+  release.textContent = 'Descargar desde la release'
+  release.href = `${contexto.releases}/latest`
+  release.hidden = false
+
+  if (manual) await mostrarVentana()
 }
 
 async function mostrarVentana(): Promise<void> {
@@ -244,7 +278,7 @@ async function cerrarAviso(): Promise<void> {
 }
 
 function actualizar(): void {
-  if (actual === null) return
+  if (actual === null || !automatica) return
 
   // `instalarEnSitio` enseña el motivo y el enlace cuando falta el ejecutable
   // portable firmado; no hay otra forma de entrega a la que caer.
@@ -271,11 +305,24 @@ async function iniciar(): Promise<void> {
     return
   }
 
-  version.textContent = `Versión portable: v${contexto.version}`
+  version.textContent = automatica
+    ? `Versión portable: v${contexto.version}`
+    : `Versión: v${contexto.version}`
 
   await listen(EVENTO_BUSCAR, () => {
-    void comprobar(true)
+    if (automatica) {
+      void comprobar(true)
+    } else {
+      void mostrarSinActualizacionAutomatica(true)
+    }
   })
+
+  // En macOS y Linux no hay manifiesto que consultar: se cuenta el límite y no se
+  // toca el updater, que devolvería el error de una entrada que no existe.
+  if (!automatica) {
+    await mostrarSinActualizacionAutomatica(false)
+    return
+  }
 
   await comprobar(false)
 }
