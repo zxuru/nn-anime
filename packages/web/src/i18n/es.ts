@@ -259,6 +259,8 @@ export const messages: Messages = {
   'home.firstRun.warning':
     'Añadirlo no ejecuta nada. Activar un proveedor sí, y sin sandbox: revisa lo que marcas.',
   'home.firstRun.action': 'Abrir Ajustes',
+  'home.firstRun.tutorialsOff':
+    'Tutoriales desactivados. Puedes volver a verlos cuando quieras desde Ajustes.',
 
   'search.title': 'Buscar',
   'search.field': 'Buscar por título',
@@ -349,6 +351,16 @@ export const messages: Messages = {
   'home.resume': 'Seguir en {time}',
   'settings.title': 'Ajustes',
   'settings.loading': 'Cargando los ajustes…',
+  // El índice de la página. «Secciones» es la etiqueta visible; el `aria-label`
+  // dice de qué son, porque el índice no es una navegación de la aplicación.
+  'settings.index': 'Secciones de los ajustes',
+  'settings.index.title': 'Secciones',
+  'settings.section.fuentes': 'Fuentes',
+  'settings.section.reproduccion': 'Reproducción',
+  'settings.section.apariencia': 'Apariencia',
+  'settings.section.privacidad': 'Privacidad y contenido',
+  'settings.section.sistema': 'Sistema',
+  'settings.section.guia': 'Guía',
   'settings.security.title': 'Antes de copiar un plugin, lee esto',
   'settings.security.body':
     'Los plugins se ejecutan sin sandbox, con tus permisos. Un plugin puede leer y escribir lo mismo que tú. Cópialos sólo si sabes de dónde vienen.',
@@ -833,6 +845,11 @@ export const messages: Messages = {
   // «tutorial» y no «guía» porque lo que se omite es este recorrido, no la guía
   // entera: para eso está «Omitir todos los tutoriales» en Ajustes.
   'guia.omitir': 'Omitir tutorial',
+  // La otra salida: no este recorrido, todos. Va en el primer paso y en el aviso
+  // de primer arranque, con las mismas palabras en los dos sitios.
+  'guia.omitirTodos': 'Ya conozco cómo funciona',
+  'guia.omitirTodos.ayuda':
+    'Omite todos los tutoriales, también los de las pantallas que aún no has abierto.',
   'guia.entendido': 'Entendido',
   'guia.progreso': '{{current}} de {{total}}',
 

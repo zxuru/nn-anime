@@ -85,7 +85,7 @@ test.describe('la guía de la aplicación', () => {
 
     const popover = page.locator(POPOVER)
     await expect(popover).toBeVisible({ timeout: 15_000 })
-    await expect(popover).toContainText('Bienvenido a rona')
+    await expect(popover).toContainText('Bienvenido a RoNa')
     await expect(popover).toContainText('1 de 6')
 
     await page.locator('.driver-popover-next-btn').click()
@@ -189,7 +189,7 @@ test.describe('la guía de la aplicación', () => {
 
     await expect(page).toHaveURL(`${BASE}/`)
     await expect(page.locator(POPOVER)).toBeVisible({ timeout: 10_000 })
-    await expect(page.locator(POPOVER)).toContainText('Bienvenido a rona')
+    await expect(page.locator(POPOVER)).toContainText('Bienvenido a RoNa')
   })
 
   test('«Omitir tutorial» sale en cada paso y cierra el recorrido', async ({ page }) => {
@@ -224,6 +224,55 @@ test.describe('la guía de la aplicación', () => {
     await page.reload()
     await page.waitForTimeout(2000)
     await expect(page.locator(POPOVER)).toHaveCount(0)
+  })
+
+  /**
+   * La salida de todos, desde el propio tutorial.
+   *
+   * El botón de Ajustes ya la tenía y también está probado; lo que se mide aquí es
+   * que se pueda tomar en el primer paso —el momento en el que uno decide que no
+   * necesita el recorrido— y que la decisión alcance a las pantallas que aún no se
+   * abrieron y a los avisos, que son la otra capa de la guía.
+   */
+  test('«Ya conozco cómo funciona» omite todos los recorridos desde el primer paso', async ({
+    page,
+  }) => {
+    await page.goto(`${BASE}/`)
+    await page.evaluate((clave) => localStorage.removeItem(clave), CLAVE_GUIA)
+    await page.reload()
+
+    const popover = page.locator(POPOVER)
+    const omitirTodos = page.getByRole('button', { name: 'Ya conozco cómo funciona' })
+
+    await expect(popover).toBeVisible({ timeout: 15_000 })
+    await expect(popover).toContainText('1 de 6')
+    await expect(omitirTodos).toBeVisible()
+
+    // El mismo objetivo táctil que «Omitir tutorial»: comparten el pie.
+    const caja = await omitirTodos.boundingBox()
+    if (caja === null) throw new Error('el botón de omitir todos no tiene caja')
+    expect(caja.height).toBeGreaterThanOrEqual(44)
+
+    // En el segundo paso ya no está: es la decisión sobre todos, no un mando que
+    // acompañe al recorrido.
+    await page.locator('.driver-popover-next-btn').click()
+    await expect(popover).toContainText('2 de 6')
+    await expect(omitirTodos).toHaveCount(0)
+
+    // Se vuelve a la primera de una carga limpia —no se cerró nada— y se pulsa.
+    await page.reload()
+    await expect(popover).toBeVisible({ timeout: 15_000 })
+    await page.getByRole('button', { name: 'Ya conozco cómo funciona' }).click()
+
+    await expect(page.locator('.driver-overlay')).toHaveCount(0)
+    await expect.poll(async () => (await estadoGuardado(page))?.tutorialsDisabled).toBe(true)
+    expect((await estadoGuardado(page))?.recorridos).toEqual(expect.arrayContaining(TODOS))
+
+    // La decisión es global: Buscar no estrena su recorrido ni su faro.
+    await page.goto(`${BASE}/search`)
+    await page.waitForTimeout(2500)
+    await expect(page.locator(POPOVER)).toHaveCount(0)
+    await expect(page.locator('.driver-hint')).toHaveCount(0)
   })
 
   test('el clic fuera del popover cierra y lo da por visto', async ({ page }) => {

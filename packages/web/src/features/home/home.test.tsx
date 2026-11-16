@@ -423,6 +423,20 @@ describe('el primer arranque', () => {
     expect(html).toContain('href="/settings"')
     expect(html).toContain('sin sandbox')
   })
+
+  /**
+   * La salida de los tutoriales, donde se topa quien ya sabe.
+   *
+   * Es la misma frase que el primer paso de cada recorrido; el estado del
+   * navegador es el que decide si se ofrece o se explica cómo volver. En este
+   * render no hay almacén, así que la guía está encendida y el botón sale.
+   */
+  test('ofrece saltar los tutoriales sin salir del aviso', () => {
+    const html = render(<PrimerArranque />)
+
+    expect(html).toContain('Ya conozco cómo funciona')
+    expect(html).not.toContain('Tutoriales desactivados')
+  })
 })
 
 /**

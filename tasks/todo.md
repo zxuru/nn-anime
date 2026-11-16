@@ -2754,6 +2754,116 @@ Ids reservados en este lote porque las tareas se reparten entre varios agentes a
 
 ---
 
+## Lote — Ajustes y tutoriales (T254–T256)
+
+Abierto el 2026-11-16 a petición del humano: poder saltarse todos los tutoriales desde el propio
+tutorial, y dejar de tener Ajustes como una lista plana. T254 es independiente; T255 prepara los
+títulos que T256 agrupa, así que las dos van en ese orden.
+
+### T254 — «Ya conozco cómo funciona»: omitir todos los tutoriales desde el tutorial
+
+**Descripción:** «Omitir todos los tutoriales» sólo existe al final de Ajustes, y el popover de
+cada recorrido sólo ofrece «Omitir tutorial», que da por visto el recorrido actual. Añadir en el
+primer paso de cualquier recorrido un mando que apague todos —también los futuros— y devuelva el
+mismo estado que el botón de Ajustes, y ofrecer el mismo salto en el aviso de primer arranque.
+
+**Aceptación:**
+- [x] El primer paso de cada recorrido muestra «Ya conozco cómo funciona»; pulsarlo cierra el
+      tutorial, marca todos los recorridos como vistos, deja `tutorialsDisabled: true` y ningún
+      faro de novedad vuelve a latir.
+- [x] Los pasos que no son el primero no lo muestran y conservan «Omitir tutorial».
+- [x] El aviso de primer arranque ofrece el mismo salto y, con los tutoriales apagados, dice cómo
+      volver a verlos.
+- [x] `guia.e2e.ts` mide el recorrido completo y el estado guardado, y Buscar no estrena tutorial
+      ni faro después de pulsarlo.
+- [x] El mando mide al menos `--control-size` de alto y el popover sigue siendo modal.
+
+**Verificación:** `bun run typecheck` 0 · `bun run lint` 0 errores (32 avisos y 1 info, los de la
+línea base) · `bun test` **3940 pasan, 0 fallan** (241 ficheros) · `guia.e2e.ts` **12 pasan, 0
+fallan**, incluida la nueva: el botón mide 44 px de alto, desaparece en el paso 2, deja
+`tutorialsDisabled: true` con los ocho recorridos y Buscar no estrena tutorial ni faro. Mutación:
+no mirar `activeIndex` hace fallar la prueba del segundo paso; quitar el `omitirTodos` del clic
+deja el estado encendido y hace fallar la del estado guardado.
+
+**Estado:** hecho.
+
+**Depende de:** ninguno.
+
+**Archivos:** `packages/web/src/features/guia/useGuia.ts`,
+`packages/web/src/features/home/PrimerArranque.tsx`, `packages/web/src/i18n/es.ts`,
+`packages/web/src/styles/{gestion,base}.css` y sus pruebas (`home.test.tsx`, `guia.e2e.ts`).
+
+**Tamaño:** S.
+
+---
+
+### T255 — Los subtítulos de Ajustes, en su nivel
+
+**Descripción:** `ProviderRepos`, `TmdbSettings` y `SkipSettings` pintan su título como `<h2>`.
+Cuando Ajustes se agrupe en secciones con su propio `<h2>`, esos tres serán hermanos del grupo y el
+lector de pantalla perderá la relación. Bajan a `<h3>`: es el nivel que les toca dentro de un grupo.
+
+**Aceptación:**
+- [x] Los tres componentes declaran su título como `<h3>` y los textos son los mismos.
+- [x] `bun test packages/web/src/features/settings` en verde.
+- [x] `bun run typecheck` y `bun run lint` en verde.
+
+**Verificación:** `bun test packages/web/src/features/settings` **95 pasan, 0 fallan** (7
+ficheros) · `bun run typecheck` 0 · `bun run lint` 0 errores. La prueba nueva lee las tres fuentes
+y exige `<h3>` sin `<h2>`: devolver cualquiera de los tres a `h2` la pone en rojo.
+
+**Estado:** hecho.
+
+**Depende de:** ninguno.
+
+**Archivos:** `packages/web/src/features/settings/{ProviderRepos,TmdbSettings,SkipSettings}.tsx`.
+
+**Tamaño:** S.
+
+---
+
+### T256 — Ajustes en secciones, con índice
+
+**Descripción:** Ajustes es una lista plana de doce bloques. Agruparlos en seis secciones —Fuentes,
+Reproducción, Apariencia, Privacidad y contenido, Sistema y Guía— y anteponer un índice que se
+queda pegado en escritorio y se desplaza en horizontal en móvil, con la sección visible marcada.
+
+**Aceptación:**
+- [x] La página declara seis secciones con id estable y un `<nav>` con un enlace por sección; todo
+      enlace resuelve a una sección existente y ningún id se repite.
+- [x] Con 820 px o más, el índice va en una columna a la izquierda y se queda pegado al desplazar;
+      por debajo, una fila desplazable arriba.
+- [x] La sección visible se marca con `aria-current="location"` y un filete de acento; sin
+      `IntersectionObserver` la página sigue navegando y no rompe.
+- [x] El desplazamiento deja el título debajo de la cabecera pegajosa y con movimiento reducido no
+      anima.
+- [x] Los tres anclajes del tutorial (`ajustes-proveedores`, `ajustes-tema`, `ajustes-guia`) siguen
+      existiendo y su recorrido sigue saliendo.
+- [x] `settings.e2e.ts` pulsa cada enlace, comprueba que la sección entra en pantalla y que el
+      índice no desborda a 390 px.
+- [x] `bun run typecheck`, `bun run lint` y `bun test` en verde.
+
+**Verificación:** `bun run typecheck` 0 · `bun run lint` 0 errores (32 avisos y 1 info, los de la
+línea base) · `bun test` **3940 pasan, 0 fallan** · `settings.e2e.ts` **5 pasan, 0 fallan**: los
+seis enlaces llevan a su sección, la dejan en pantalla y la marcan, y a 390 px la página no
+desborda (`scrollWidth - clientWidth ≤ 0`) mientras la fila sí se desplaza. `guia.e2e.ts` **12
+pasan**: los tres anclajes del recorrido de Ajustes siguen vivos. Medido en el navegador a 1280:
+el enlace activo mide 2 px de filete a la izquierda y el resto 0; capturas en
+`.tmp/ajustes-{escritorio,movil}.png`. Mutación: quitar `data !== undefined` del `useSeccionActiva`
+deja el índice sin marca y pone en rojo la prueba que la exige.
+
+**Estado:** hecho.
+
+**Depende de:** T255.
+
+**Archivos:** `packages/web/src/features/settings/{secciones.ts,IndiceAjustes.tsx,SettingsPage.tsx}`,
+`packages/web/src/i18n/es.ts`, `packages/web/src/styles/gestion.css` y sus pruebas
+(`settings.test.tsx`, `settings.e2e.ts`).
+
+**Tamaño:** M.
+
+---
+
 ## Resumen de dependencias
 
 Raíz común: `T1 → T2 → T3 → T4`.

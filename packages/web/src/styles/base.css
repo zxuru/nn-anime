@@ -379,6 +379,20 @@
   overflow-wrap: anywhere;
 }
 
+/*
+ * Los dos mandos del primer arranque: abrir Ajustes y saltar los tutoriales.
+ *
+ * Van en su propia caja y no uno detrás de otro a secas: al ser un bloque de
+ * botones, el aire entre ellos no depende del renglón ni del tamaño del texto.
+ */
+.primer-arranque__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-block-start: var(--space-2);
+}
+
 .shell__main h1 {
   font-family: var(--font-display);
   /* Medido contra el ancho y no fijo: a 320 px «DESCARGAS» no cabía en la columna

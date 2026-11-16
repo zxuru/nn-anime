@@ -66,7 +66,7 @@ export function TmdbSettings(props: TmdbSettingsProps): ReactNode {
 
   return (
     <section>
-      <h2>{t(DEFAULT_LOCALE, 'settings.tmdb')}</h2>
+      <h3>{t(DEFAULT_LOCALE, 'settings.tmdb')}</h3>
       <form className="settings__form" onSubmit={guardar}>
         <p className="field__hint">{t(DEFAULT_LOCALE, 'settings.tmdb.body')}</p>
         <p className="field__hint">
