@@ -93,7 +93,9 @@ Los de **firma de código** son opcionales: sin ellos, las builds salen sin firm
 igual, con las advertencias del sistema que explica la sección de instalación del README. El del
 **updater** no lo es: sin él no se puede firmar el `.exe` ni escribir `latest.json`, y la release
 falla en vez de publicar un cliente que no se puede actualizar. Los pasos de firma de código se
-activan solos si el secreto existe.
+activan solos si el secreto existe. Cuando falta la clave, el job `publicar` deja un `::warning::`
+con el nombre del secreto antes de comprobar los assets: el borrador que se queda sin publicar no
+es un fallo de compilación.
 
 ### Windows
 

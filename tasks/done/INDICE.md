@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **213 fragmentos indexados**; 182 se identifican
+quedan identificadas aquí. **214 fragmentos indexados**; 182 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
@@ -225,6 +225,7 @@ sólo en este índice y su contenido vive en la historia.
 | T241 | T241 — el merge de T60 sobre la partición del reproductor | merge: integrar AniSkip (T60) sobre el reproductor partido (T241). | bun run typecheck 0 errores → bun run lint 0 errores (32 avisos, los de la línea base: noReactStringRefs en pruebas y el innerText de favorites.e2e.ts) → bun test packages/web/src/features/player **287 pasan, 0 fallan**… | `tasks/todo.md` |
 | T242 | T242 — la rama rediseno/escritorio, descartada | no hay commit de código: la decisión es el borrado de la rama, y queda aquí escrito. | — | `tasks/todo.md` |
 | T243 | T243 — el updater fuera de Windows | feat(desktop): el límite del updater, visible fuera de Windows (T243). | bun run desktop:ui compila (9 módulos) · bun run typecheck exit 0 · bun run lint exit 0 (0 errores; 32 avisos previos) · bun test desktop/ui scripts/desktop.test.ts packages/web/src/docs.test.ts **72 pasan, 0 fallan** (… | `tasks/todo.md` |
+| T244 | T244 — decir por qué falta la clave del updater | chore(release): decir por qué falta la clave del updater (T244). | bun run typecheck exit 0 · bun run lint exit 0 (32 avisos de la línea base) · bun test scripts/done-index.test.ts packages/web/src/docs.test.ts **22 pasan, 0 fallan**. El job `publicar` avisa con `::warning::` si falta `TAURI_SIGNING_PRIVATE_KEY` y mantiene la comprobación de `latest.json`, `.sig` y las dos entradas de Windows. | `tasks/todo.md` |
 | T245 | T245 — la firma condicional y los 9 secretos | docs(release): la firma condicional y sus avisos (T245). | bun run typecheck exit 0 · bun run lint exit 0 (0 errores; los 32 avisos son los que ya había) · bun test desktop/ui 3 pasan, 0 fallan · cargo fmt --check exit 0. | `tasks/todo.md` |
 | T247 | T247 — los fragmentos de tasks/done/ | docs(tasks): indexar y podar los fragmentos de cierre (T247). | tasks/done/ antes: **212** fragmentos T*.md (576 686 bytes). Después: **2** (T60-cobertura.md y T247.md), más README e INDICE. INDICE.md: **212 filas**, ninguna repetida; las 212 tareas aparecen una sola vez. Las 22 que… | `tasks/todo.md` |
 | T248 | T248 — el gancho pre-commit no moría por falta de .tmp/ | fix(repo): el gancho crea su temporal aunque .tmp/ no exista (T248). | bun run typecheck 0 errores · bun run lint 0 errores (37 avisos y 1 info, los de la línea base) · bun test scripts/git-hooks.test.ts **12 pasan, 0 fallan**. | este índice |
