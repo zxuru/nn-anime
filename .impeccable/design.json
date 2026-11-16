@@ -379,7 +379,7 @@
       "Do declarar el movimiento con --transition-fast, --transition-normal y --ease-piece, y heredar el apagado de prefers-reduced-motion.",
       "Do medir un par de colores nuevo en a11y.test.ts antes de usarlo.",
       "Do dibujar el arte con los seis campos y un recurso por pieza, con cqi para que escale con la pieza.",
-      "Do poner toda clase nueva en tokens.css o shell.css, y toda medida nueva en tokens.css.",
+      "Do poner toda clase nueva en tokens.css o en la hoja de estructura que le toque (base, obra, vitrina o gestion), y toda medida nueva en tokens.css.",
       "Do dar a cada tramo una nota que diga por qué existe además de qué contiene.",
       "Do mantener los mandos en 44 px o más y el rótulo en monoespaciada de 0.12em."
     ],
