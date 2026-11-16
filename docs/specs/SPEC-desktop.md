@@ -8,6 +8,15 @@ Convenciones (Commands, Project Structure, Code Style, Testing Strategy, Boundar
 > **Origen.** Nace de `docs/specs/proposals/SPEC-desktop.T135.md`, aprobado por el humano el
 > 2026-10-16 junto al plan `tasks/desktop.md`. Se corrige aquí un punto de la propuesta —la salida
 > del hijo, ver «Contrato 2»— porque contradecía el *Never* de `SPEC-cli-launcher.md`.
+>
+> **Revisión.** 2026-11-16, aprobada por el humano al encargar el cierre de **T259**. T243 dejó la
+> bandeja con **cuatro** opciones y la ventana de actualizaciones disponible en las tres
+> plataformas, y este documento seguía diciendo «tres opciones» y no listaba `actualizacion.rs`.
+> Se alinea el spec con el código —no al revés— y, en la misma pasada, se corrigen las otras
+> afirmaciones que ya no eran ciertas: la superficie de IPC (son dos, una por ventana), el árbol de
+> módulos (`browser.rs` y `desktop/ui/`, que sustituyó a `stub/`), y las rutas de datos
+> (`%LOCALAPPDATA%\rona-data` y `~/.local/share/rona`, según `entorno.rs`). El resto del contrato no
+> cambia.
 
 ## Objective
 
@@ -42,12 +51,12 @@ servidor de consola.
 En **Windows** el servidor **viaja dentro** del anfitrión, que es el único archivo que se descarga.
 Al arrancar, `embebido::preparar` lo extrae a `<raíz>\bin\<versión>\rona.exe`, comprueba el
 SHA-256 que `build.rs` calculó al compilar (un archivo a medias, viejo o manipulado no se ejecuta) y
-lo lanza con `--no-open`. La raíz es `%LOCALAPPDATA%\RoNa`, o la carpeta del `.exe` si hay un
+lo lanza con `--no-open`. La raíz es `%LOCALAPPDATA%\rona-data`, o la carpeta del `.exe` si hay un
 `portable.txt` al lado. Así un solo archivo basta y no hay dos que se puedan separar.
 
 En **macOS y Linux**, mientras el archivo único siga siendo de Windows, el servidor viaja al lado del
 anfitrión, dentro del `.app` (comprimido en un `.zip`) o del AppImage, y se lanza desde el mismo
-directorio (`Contents/MacOS`, `usr/bin`). La raíz de datos es `~/.local/share/RoNa` —o
+directorio (`Contents/MacOS`, `usr/bin`). La raíz de datos es `~/.local/share/rona` —o
 `XDG_DATA_HOME`—, no el directorio del ejecutable: un AppImage está montado en sólo lectura.
 
 ```
@@ -121,35 +130,68 @@ uno deja al otro sirviendo.
 **5. Un enlace externo no se lleva la ventana.** `on_navigation`: lo que no sea
 `http://127.0.0.1:<puerto>` se abre en el navegador del sistema y se cancela la navegación. Hoy hay
 **un** enlace así (`packages/web/src/features/detail/DetailPage.tsx`, a AniList) y el `SECURITY.md`
-del proyecto no cambia por esto.
+del proyecto no cambia por esto. La ventana de actualizaciones aplica la misma regla a sus enlaces
+—la release— con su propio `on_navigation`.
 
-**Un solo comando IPC, de sólo lectura.** `capabilities/default.json` sigue sin permisos de plugins
-ni de shell, y el shell se lanza con `std::process::Command` desde Rust. La única puerta que se abre
-es `elegir_carpeta_descargas` (T186): abre el diálogo nativo de `rfd` y devuelve una ruta o `null`;
-no lee, no escribe y no recibe rutas del cliente. El servidor comprueba que sea absoluta y la guarda
-como raíz de descargas; una ruta relativa o con caracteres de control es 400. El resto de lo que se
-pierde —updater, bandeja desde la interfaz, fs— sigue fuera.
+**La bandeja, y sus cuatro opciones.** `tray.rs` crea el icono al arrancar, **antes** que la
+ventana, porque mientras el servidor no anuncia su dirección el anfitrión no tiene ninguna otra señal
+de vida. El menú se abre con el botón derecho y tiene cuatro entradas y ninguna más, en este orden:
+
+| Opción | Qué hace |
+|---|---|
+| **Abrir RoNa** | Restaura la ventana si está minimizada, la enseña y le da el foco. Siempre la enseña; no alterna. |
+| **Mostrar ventana** / **Ocultar ventana** | Alterna según la visibilidad **real** en ese momento, no según el último texto. Al ocultar pide primero el guardado de la posición del visionado. El texto se reescribe cada vez que cambia la visibilidad, también cuando la ventana la crea `main.rs`. |
+| **Buscar actualizaciones** | `actualizacion::mostrar`: enseña la ventana de actualizaciones, la trae al frente y le pide una comprobación con el evento `buscar-actualizaciones`. Está en **las tres plataformas**: en Windows comprueba de verdad; en macOS y Linux la ventana dice que la actualización automática sólo está en Windows y enlaza a la release. |
+| **Salir** | Quita el icono y termina con `app.exit(0)`. Pasa por `ExitRequested`, que cierra el servidor con orden. Es la única salida: la X oculta. |
+
+El clic izquierdo sobre el icono enseña la ventana, igual que «Abrir RoNa». La X de la ventana
+principal la oculta en vez de cerrarla; la de la ventana de actualizaciones también la oculta, para
+que el menú pueda volver a enseñarla sin recrear el webview.
+
+**Dos superficies de IPC, una por ventana.** La ventana principal tiene **un solo comando**,
+`elegir_carpeta_descargas` (T186): abre el diálogo nativo de `rfd` y devuelve una ruta o `null`; no
+lee, no escribe y no recibe rutas del cliente. El servidor comprueba que sea absoluta y la guarda
+como raíz de descargas; una ruta relativa o con caracteres de control es 400. `capabilities/default.json`
+sigue sin permisos de plugins ni de shell: la bandeja se construye desde Rust y el shell se lanza con
+`std::process::Command`, así que la interfaz no gana ninguna puerta.
+
+La **ventana de actualizaciones** es la única con IPC de plugin. Carga una página empaquetada
+(`desktop/ui/actualizacion.html`, con `WebviewUrl::App`), no la interfaz del servidor, y tiene su
+propia capability —`capabilities/actualizacion.json`— con `updater:default` y las tres operaciones de
+ventana que usa: mostrarse, ocultarse y enfocarse. Sus comandos son dos: `registrar_actualizacion`,
+que escribe una línea recortada en el registro del anfitrión, e `instalar_portable`, que se registra
+**sólo en Windows** y es quien descarga, verifica la firma y reemplaza el `.exe`. La bandeja desde la
+interfaz y `fs` siguen fuera.
 
 ## Estructura del módulo
 
 ```
 desktop/
 ├─ src-tauri/
-│  ├─ Cargo.toml              tauri, tauri-plugin-single-instance; versiones fijadas
+│  ├─ Cargo.toml              tauri (tray-icon, image-png), single-instance y updater;
+│  │                          rfd; el reemplazo del `.exe`, sólo en Windows
 │  ├─ Cargo.lock              versionado: sin él la release no es reproducible
-│  ├─ tauri.conf.json         ventana, icono, `frontendDist` de relleno
-│  ├─ capabilities/default.json   sin permisos de plugins; el comando de carpeta es de la app
+│  ├─ tauri.conf.json         ventana, icono, `frontendDist` (`../ui`) y endpoint del updater
+│  ├─ capabilities/
+│  │  ├─ default.json         la ventana principal: sin permisos de plugins
+│  │  └─ actualizacion.json   la ventana de actualizaciones: `updater:default` y ventana
 │  └─ src/
 │     ├─ main.rs              arranque, ventana, cierre, instancia única
 │     ├─ sidecar.rs           spawn, drenaje de stdout, análisis de la línea, cierre
 │     ├─ embebido.rs          extrae y verifica el servidor que viaja dentro
 │     ├─ entorno.rs           raíz de datos, modo portable e integridad
 │     ├─ guards.rs            el seguro del sistema contra la muerte brusca
-│     ├─ tray.rs              icono de la bandeja y sus tres opciones
+│     ├─ tray.rs              icono de la bandeja y sus cuatro opciones
+│     ├─ actualizacion.rs     la ventana de actualizaciones; el reemplazo del `.exe`, sólo
+│     │                       en Windows (descarga, firma, `.viejo`, `--reemplazo-pid`)
+│     ├─ browser.rs           abre un enlace externo en el navegador del sistema
 │     └─ boot_line.rs         el espejo del esquema de `core`
-└─ stub/index.html            lo que la ventana enseña si el servidor no arranca, y
-                              el `frontendDist` que `tauri build` exige. No se llama
-                              `dist/` porque `.gitignore` ignora ese nombre
+└─ ui/                        el `frontendDist` de `tauri.conf.json`
+   ├─ index.html              el aviso si el servidor no arranca; no se llama `dist/` porque
+   │                          `.gitignore` ignora ese nombre
+   ├─ actualizacion.html      la ventana de actualizaciones, la única con IPC
+   ├─ actualizacion.ts        comprueba, cuenta el límite fuera de Windows y pide el reemplazo
+   └─ camino-actualizacion.ts elige la entrada portable de `latest.json`
 ```
 
 **Cómo se empaqueta: dentro en Windows, al lado en macOS y Linux.**
@@ -180,6 +222,11 @@ Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
       el CI: el proceso `rona` corre desde esa ruta y la ventana existe.
 - [ ] **«Salir» termina el servidor con 0** en menos de un segundo (medido por T134 sobre el
       ejecutable: 17 ms). **La X oculta en la bandeja** y no apaga la aplicación.
+- [ ] **La bandeja tiene cuatro opciones** —Abrir, Mostrar/Ocultar, Buscar actualizaciones y
+      Salir— y «Buscar actualizaciones» abre la ventana de actualizaciones en las tres plataformas.
+      Fuera de Windows esa ventana dice que la actualización automática sólo está allí y enlaza a la
+      release: no se llama a `check()`. Se mide en `bun test scripts/desktop.test.ts`, que fija los
+      ids del menú en orden, `AUTOMATICA` y el `cfg` de `instalar_portable`.
 - [ ] Un segundo lanzamiento enfoca la ventana existente y **no** arranca un segundo servidor. Se
       mide contando procesos y puertos de escucha.
 - [ ] Matar el anfitrión desde el administrador de tareas **no** deja el servidor vivo: en Windows lo
@@ -211,8 +258,10 @@ Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
 **Ask first**
 
 - Cambiar el paquete de empaquetado (jubilar `scripts/package.ts` o `packaging/`).
-- Añadir cualquier capacidad de Tauri al webview (opener, fs) o un segundo comando IPC: la puerta
-  que hoy existe es una y de sólo lectura.
+- Añadir una capacidad de Tauri a la ventana principal (opener, fs) o un segundo comando IPC en
+  ella: su única puerta es `elegir_carpeta_descargas`, de sólo lectura. La ventana de actualizaciones
+  tiene su propia capability (`updater:default` y las operaciones de ventana) y no crece sin
+  decirlo.
 - Meter la interfaz dentro de Tauri como recursos (`frontendDist` / `tauri://`).
 
 **Never**
