@@ -593,8 +593,8 @@ describe('tokens de diseño', () => {
    *
    * Lo que se mide es el camino entero: cada `src` de un `@font-face` de la hoja
    * existe en el disco y es un woff2 de verdad —los cuatro primeros bytes—, y la
-   * familia que empieza las pilas de texto y de titulares es la que declara el
-   * `@font-face`. Cambiar el nombre en un sitio y no en el otro —el error que
+   * familia que empieza las pilas de texto, de titulares y de datos es la que declara
+   * el `@font-face`. Cambiar el nombre en un sitio y no en el otro —el error que
    * dejaría la aplicación sin su letra— falla aquí.
    */
   test('la letra que nombran los tokens es la que se carga', async () => {
@@ -636,7 +636,7 @@ describe('tokens de diseño', () => {
       expect(firma, `${fuente} no es un woff2`).toBe('wOF2')
     }
 
-    for (const pila of ['--font-sans', '--font-display']) {
+    for (const pila of ['--font-sans', '--font-display', '--font-mono']) {
       // Si la pila no está en la hoja, la cadena vacía no figura entre las familias
       // declaradas y la comprobación de abajo falla nombrando el token que falta.
       const familia = new RegExp(`${pila}:\\s*"([^"]+)"`).exec(css)?.[1] ?? ''
