@@ -455,13 +455,18 @@ vacío con cuatro títulos (11), la banda de la ficha mide 16 rem y queda vacía
 la cinta arranca con el primer título cortado porque la pista no tiene fundido de borde (14).
 
 **Aceptación:**
-- [ ] Los cinco tienen arreglo **medido**, no a ojo: la captura antes y después, en el ancho donde
-      se veía el fallo.
-- [ ] El mosaico se compone para el número de piezas que hay (o se declara la excepción).
-- [ ] La banda de la ficha tiene alto condicional cuando no hay banner.
-- [ ] La cinta lleva `mask-image` en los dos bordes.
-- [ ] Las capturas de `docs/` se regeneran con `bun run captura`.
-- [ ] `a11y.test.ts` sigue en verde: el contraste de la cinta sobre el banner se midió antes.
+- [x] Los cinco tienen arreglo **medido**, no a ojo: la captura antes y después, en el ancho donde
+      se veía el fallo. Cabecera 320: pistas 61/61/61/75/61 · mosaico: 373 px de hueco → 0 · banda:
+      256 → 198 px · episodio: sin sombra, realce de tono · cinta: fundido de 32 px.
+- [x] El mosaico se compone para el número de piezas que hay (o se declara la excepción). Compone de
+      1 a 6; con más de seis la última fila queda incompleta y se declara.
+- [x] La banda de la ficha tiene alto condicional cuando no hay banner.
+- [x] La cinta lleva `mask-image` en los dos bordes.
+- [x] Las capturas de `docs/` se regeneran con `bun run captura`.
+- [x] `a11y.test.ts` sigue en verde: el contraste de la cinta sobre el banner se midió antes.
+
+**Cierre:** `fix(web): la deuda visual medida del shell (T236)` · `tasks/done/T236.md` (indexado en
+`tasks/done/INDICE.md`).
 
 **Archivos:** `packages/web/src/styles/`. **Tamaño:** M. **Depende de:** T226.
 
@@ -475,11 +480,13 @@ referencia en el marcado**. Su cabecera describe una versión anterior de la hoj
 cero). Es el hallazgo 16 de la revisión, y el bloque está «Parcial» desde entonces.
 
 **Aceptación:**
-- [ ] Cada clase sin referencia se **borra**, con una comprobación que lo compruebe: una regla sin
-      selector en el marcado es código muerto.
-- [ ] La cabecera describe la hoja que hay.
-- [ ] Los selectores que sí se usan pero con reglas que no aplican (el escalón de `.row__list > li`)
+- [x] Cada clase sin referencia se **borra**, con una comprobación que lo compruebe: una regla sin
+      selector en el marcado es código muerto. `styles.test.ts` falla si vuelven.
+- [x] La cabecera describe la hoja que hay.
+- [x] Los selectores que sí se usan pero con reglas que no aplican (el escalón de `.row__list > li`)
       se quitan o se arreglan.
+
+**Cierre:** `refactor(web): borrar el CSS muerto y su escalón (T237)` · `tasks/done/T237.md`.
 
 **Archivos:** `packages/web/src/styles/`. **Tamaño:** S. **Depende de:** T226.
 
@@ -493,11 +500,14 @@ monoespaciada del sistema: **la interfaz cambia de voz según la máquina**. Es 
 punto 2 de «Lo que sigue, en orden».
 
 **Aceptación:**
-- [ ] Se decide y se aplica: o la familia entra en `packages/web/src/styles/fonts/` con su licencia
+- [x] Se decide y se aplica: o la familia entra en `packages/web/src/styles/fonts/` con su licencia
       (como Nunito), o el token se retira y el registro usa la familia del sistema **de forma
-      explícita**.
-- [ ] Si entra, la CSP sigue sirviéndola desde el repo (nunca de un CDN) y la licencia va con ella.
-- [ ] El registro de datos se ve igual en dos máquinas distintas.
+      explícita**. Entra: cuatro `.woff2` y `OFL-space-mono.txt`.
+- [x] Si entra, la CSP sigue sirviéndola desde el repo (nunca de un CDN) y la licencia va con ella.
+- [x] El registro de datos se ve igual en dos máquinas distintas. «0123456789» a 16 px: 97,92 px con
+      Space Mono frente a 80 px con la mono del sistema.
+
+**Cierre:** `feat(web): servir Space Mono desde el repo (T238)` · `tasks/done/T238.md`.
 
 **Archivos:** `packages/web/src/styles/tokens.css`, `packages/web/src/styles/fonts/`.
 **Tamaño:** S. **Depende de:** T226.
@@ -602,12 +612,17 @@ hay. En macOS y Linux la aplicación se queda atrás sin avisar, aunque el `rele
 esos instaladores.
 
 **Aceptación:**
-- [ ] Se decide: publicar los bundles de macOS y Linux en `latest.json` (y que el actualizador
+- [x] Se decide: publicar los bundles de macOS y Linux en `latest.json` (y que el actualizador
       funcione), o dejar el límite **declarado** en el README, en `docs/release.md` y en el
-      diálogo de actualizaciones.
-- [ ] Si se publica: el `.dmg`, el `.AppImage`, el `.deb` y el `.rpm` llevan firma minisign y su
-      entrada en `latest.json`, con la comprobación que hoy sólo hace Windows.
-- [ ] Si no se publica: la nota es explícita en la ventana de actualizaciones, no un silencio.
+      diálogo de actualizaciones. **Decidido: límite declarado.**
+- [x] Si se publica: el `.dmg`, el `.AppImage`, el `.deb` y el `.rpm` llevan firma minisign y su
+      entrada en `latest.json`, con la comprobación que hoy sólo hace Windows. **No aplica: se
+      decidió no publicar.**
+- [x] Si no se publica: la nota es explícita en la ventana de actualizaciones, no un silencio. La
+      ventana existe ya en macOS y Linux, dice el límite y enlaza a la release.
+
+**Cierre:** `feat(desktop): el límite del updater, visible fuera de Windows (T243)` ·
+`tasks/done/T243.md`.
 
 **Archivos:** `desktop/src-tauri/src/actualizacion.rs`, `scripts/package/portable-manifest.ts`,
 `.github/workflows/release.yml`. **Tamaño:** M. **Depende de:** decisión humana.
@@ -643,12 +658,15 @@ avisa de «desarrollador no verificado» y macOS frena la primera vez. El propio
 decisión de dinero, no de código».
 
 **Aceptación:**
-- [ ] Está escrito qué se publica **sin** firma, para qué plataformas y qué aviso ve el usuario.
-- [ ] El README, `docs/release.md` y el diálogo de actualizaciones dicen lo mismo y no se
+- [x] Está escrito qué se publica **sin** firma, para qué plataformas y qué aviso ve el usuario.
+      Tabla en `docs/release.md` y nota en la ventana de actualizaciones.
+- [x] El README, `docs/release.md` y el diálogo de actualizaciones dicen lo mismo y no se
       contradicen.
-- [ ] La detección del secreto es robusta: el propio código admite que «`secrets` no está
+- [x] La detección del secreto es robusta: el propio código admite que «`secrets` no está
       disponible en el `if` de un paso de forma fiable» (`release.yml:190-193`) y se resuelve con
-      una forma que no dependa de esa suposición.
+      una forma que no dependa de esa suposición. El job compara en su `env` desde `release.yml:189`.
+
+**Cierre:** `docs(release): la firma condicional y sus avisos (T245)` · `tasks/done/T245.md`.
 
 **Archivos:** `docs/release.md`, `README.md`, `.github/workflows/release.yml`.
 **Tamaño:** S. **Depende de:** decisión humana.
@@ -690,11 +708,15 @@ el integrador pega el bloque en `tasks/todo.md`, lo anota y **borra el fragmento
 commit**. Nadie lo ha hecho: el directorio crece sin parar y ya no es un índice, es un archivo.
 
 **Aceptación:**
-- [ ] Cada fragmento está **pegado en `tasks/todo.md`** o identificado en un índice; el README se
-      cumple.
-- [ ] Los que son el cierre de una tarea ya cerrada hace tiempo y no aportan nada, se archivan
-      (fuera del árbol de trabajo) en vez de borrarse sin más.
-- [ ] `tasks/done/` queda con lo que sirve para algo.
+- [x] Cada fragmento está **pegado en `tasks/todo.md`** o identificado en un índice; el README se
+      cumple. `tasks/done/INDICE.md`: 213 filas con id, título, commit y verificación.
+- [x] Los que son el cierre de una tarea ya cerrada hace tiempo y no aportan nada, se archivan
+      (fuera del árbol de trabajo) en vez de borrarse sin más. 211 retirados; su contenido queda en
+      la historia de git y el índice dice con qué commit.
+- [x] `tasks/done/` queda con lo que sirve para algo: README, INDICE, el informe de medición de
+      AniSkip y este cierre. `scripts/done-index.test.ts` impide que vuelva a crecer sin índice.
+
+**Cierre:** `docs(tasks): indexar y podar los fragmentos de cierre (T247)` · `tasks/done/T247.md`.
 
 **Archivos:** `tasks/done/`, `tasks/todo.md`. **Tamaño:** S. **Depende de:** T246 (los dos tocan
 `tasks/todo.md`).
