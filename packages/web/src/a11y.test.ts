@@ -15,6 +15,27 @@ import { UMBRAL_DE_TINTA } from './features/home/tinta'
 
 const TOKENS = fileURLToPath(new URL('./styles/tokens.css', import.meta.url))
 const SHELL = fileURLToPath(new URL('./styles/shell.css', import.meta.url))
+const ESTILOS = fileURLToPath(new URL('./styles/', import.meta.url))
+
+/**
+ * La estructura entera, en orden de cascada.
+ *
+ * `shell.css` es la entrada y no lleva reglas: importa una hoja por
+ * responsabilidad. Varias pruebas de aquí buscan el último bloque de movimiento
+ * reducido, así que hay que leer las hojas en el mismo orden en que las carga el
+ * empaquetador y no sólo la entrada.
+ */
+async function estructura(): Promise<string> {
+  const entrada = await Bun.file(SHELL).text()
+  const hojas = [...entrada.matchAll(/@import\s+"([^"]+\.css)"/g)].map(
+    (coincidencia) => coincidencia[1] ?? '',
+  )
+  const partes = await Promise.all(
+    hojas.map((hoja) => Bun.file(`${ESTILOS}${hoja.replace(/^\.\//, '')}`).text()),
+  )
+
+  return partes.join('\n')
+}
 
 /** La raíz del paquete, para recorrer los componentes. */
 const ROOT_DIR = fileURLToPath(new URL('.', import.meta.url))
@@ -429,7 +450,7 @@ describe('la tinta de la marquesina sobre el banner', () => {
  */
 describe('la marquesina sin destacado', () => {
   test('usa la tinta del tema, no la crema del campo', async () => {
-    const css = await Bun.file(SHELL).text()
+    const css = await estructura()
     const bloque = /\.marquesina--suelta\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
 
     expect(bloque).toContain('--marquesina-tinta: var(--color-text)')
@@ -511,7 +532,7 @@ describe('la cifra del top sobre la portada', () => {
 
 describe('foco visible', () => {
   test('hay una regla de `:focus-visible` con un anillo del tema', async () => {
-    const css = await Bun.file(SHELL).text()
+    const css = await estructura()
 
     expect(css).toContain(':focus-visible')
     expect(css).toContain('outline: var(--focus-ring-width) solid var(--color-accent)')
@@ -526,7 +547,7 @@ describe('foco visible', () => {
   })
 
   test('se dibuja con `:focus-visible`, no con `:focus`', async () => {
-    const css = await Bun.file(SHELL).text()
+    const css = await estructura()
 
     // `:focus` a secas dibujaría el anillo también al hacer clic con el ratón.
     expect(css).not.toMatch(/(^|[^-\w]):focus\s*\{/)
@@ -543,7 +564,7 @@ describe('movimiento reducido', () => {
   })
 
   test('el esqueleto deja de latir', async () => {
-    const css = await Bun.file(SHELL).text()
+    const css = await estructura()
     const bloque = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'))
 
     expect(bloque).toContain('.skeleton')
@@ -562,7 +583,7 @@ describe('movimiento reducido', () => {
    * desde la última aparición del `@media`.
    */
   test('la entrada y la cinta dejan de moverse', async () => {
-    const css = await Bun.file(SHELL).text()
+    const css = await estructura()
     const bloques = css.split('@media (prefers-reduced-motion: reduce)')
     const ultimo = bloques[bloques.length - 1] ?? ''
 

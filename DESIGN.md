@@ -376,8 +376,10 @@ sin fuente va en un recuadro de acento con su explicación y su arreglo.
 - **Do** medir un par de colores nuevo en `a11y.test.ts` antes de usarlo.
 - **Do** dibujar el arte con los seis campos (`--cover-a` a `--cover-f`) y un recurso por pieza, con
   `cqi` para que escale con la pieza y no con la ventana.
-- **Do** poner toda clase nueva en `tokens.css` o `shell.css`, y toda medida nueva en `tokens.css`: la
-  hoja de estructura no admite números sueltos y hay una prueba que lo impide.
+- **Do** poner toda clase nueva en `tokens.css` o en la hoja de `packages/web/src/styles/` que le
+  toque —`base`, `obra`, `vitrina` o `gestion`, que son las que importa `shell.css`—, y toda medida
+  nueva en `tokens.css`: las hojas de estructura no admiten números sueltos y hay una prueba que lo
+  impide.
 - **Do** dar a cada tramo una nota que diga **por qué existe** además de qué contiene.
 - **Do** mantener los mandos en 44 px o más y el rótulo en monoespaciada de 0.12em.
 
