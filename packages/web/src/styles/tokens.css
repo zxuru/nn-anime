@@ -41,7 +41,8 @@
  * también vive en el repositorio. Antes el token la nombraba y no había ni `@font-face` ni archivo:
  * la familia caía a la monoespaciada de cada máquina y la interfaz cambiaba de voz según dónde se
  * abriera. Son cuatro estáticos —400 y 700 por subconjunto— porque la familia no es variable. La
- * licencia de las dos va junto a los archivos, con un nombre por familia para no confundirlas.
+ * licencia de Space Mono va junto a sus archivos con su nombre, `OFL-space-mono.txt`; la de Nunito
+ * sigue en `OFL.txt`.
  */
 
 /*
