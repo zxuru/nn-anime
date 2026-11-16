@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **225 fragmentos indexados**; 191 se identifican
+quedan identificadas aquí. **226 fragmentos indexados**; 192 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
@@ -245,3 +245,4 @@ sólo en este índice y su contenido vive en la historia.
 | T240 | T240 — el panel del motor quedó muerto al retirar la puntuación | refactor(web): retirar el panel muerto del motor (T240). | `bun test packages/web` **1214 pasan, 0 fallan** · typecheck 0 · lint 0 errores. Se retiran `Panel.tsx`, `ReasonBadge.tsx` y `ScoreDetail.tsx` con sus pruebas, y el CSS `.panel*`/`.reason`/`.score` y las claves `reco.*` sin uso. Mutaciones: devolver `reco.showScore` o una regla `.score` pone en rojo la guarda. | este índice |
 | T264 | T264 — el historial, una tarjeta por episodio | fix(catalog-store): una tarjeta por episodio en el historial (T264). | `bun test packages/catalog-store` 347 pasan · `bun test packages/core` 411 pasan · `bun test packages/server` 857 pasan · `bun test packages/web` 1230 pasan · typecheck 0 · lint 0 (32 avisos previos). Mutaciones: quitar el `WHERE` que agrupa hace fallar la prueba del repositorio y la de la ruta; invertir el `ORDER BY` de la subconsulta deja la posición vieja. | este índice |
 | T265 | T265 — la licencia de hls.js fuera del modo extendido | fix(web): la licencia de hls.js sale del modo extendido (T265). | `bun test packages/web` 1230 pasan, 0 fallan · typecheck 0 · lint 0 (32 avisos previos) · `playwright test player.e2e.ts --grep atribución` 2 pasan, 0 fallan. Mutación: cambiar `display: none` por `display: block` hace fallar `toBeHidden()`. | este índice |
+| T246 | T246 — `tasks/roadmap.md` y los 22 criterios de aceptación | docs(tasks): el roadmap y las 22 casillas de T246 (T246). | 22 casillas: las medidas con evidencia quedan marcadas; las cinco sin navegador pasan a T260–T263 y el checkout limpio a T266. Checkout limpio de `2f21203`: `bun install` 0 · `bun run build` 0 · `bun test` **3981 pasan, 0 fallan** · `bun run e2e` **163 pasan, 7 fallan** (los siete, en T266). Las 7 revisiones humanas quedan con fecha 2026-11-16 y veredicto. | `tasks/deuda.md` |
