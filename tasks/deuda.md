@@ -652,7 +652,7 @@ puede reemplazar es peor que una release que no sale, y `docs/release.md:92-96` 
 - [x] La comprobación final del release (`latest.json`, un `.sig`, las dos entradas de Windows)
       sigue requisitos del job que publica.
 
-**Cierre:** `chore(release): decir por qué falta la clave del updater (T244)` ·
+**Cierre:** `chore(release): cerrar T244 y reencuadrar T240 (T244, T240)` ·
 `tasks/done/T244.md`.
 
 **Archivos:** `.github/workflows/release.yml`, `docs/release.md`. **Tamaño:** S.
