@@ -224,8 +224,8 @@ export function ProfilePage(): ReactNode {
         ) : (
           <Mosaico className="mosaico--carrusel">
             {historial.items.map((item, indice) => (
-              // La clave es la fila del visionado y no la referencia: el mismo
-              // episodio puede salir dos veces, porque el historial no agrupa.
+              // El servidor ya deja un renglón por episodio —el de su reproducción
+              // más reciente—, así que la clave es la fila del visionado.
               <PiezaDeHistorial key={item.id} item={item} indice={indice} />
             ))}
           </Mosaico>

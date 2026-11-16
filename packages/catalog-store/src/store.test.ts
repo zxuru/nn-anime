@@ -57,10 +57,10 @@ function episodios(ref: ProviderRef): readonly Episode[] {
   }))
 }
 
-function visionado(ref: ProviderRef): WatchEventInput {
+function visionado(ref: ProviderRef, numero = 1): WatchEventInput {
   return {
     animeRef: ref,
-    episodeRef: { providerId: 'fixture', value: `${ref.value}#1` },
+    episodeRef: { providerId: 'fixture', value: `${ref.value}#${numero}` },
     mode: 'sub',
     positionS: 0,
     durationS: 1440,
@@ -241,21 +241,24 @@ describe('lecturas y escrituras', () => {
   test('la marca de quiero ver y el historial paginado, por la fachada', async () => {
     await withStore(async ({ store }) => {
       await store.writeAnimeWithEpisodes(AURORA, detalle(AURORA), episodios(AURORA))
-      for (let indice = 0; indice < 3; indice++) await store.recordWatch(visionado(AURORA))
+      // Dos episodios distintos: el historial enseña uno por episodio, que es lo
+      // que trocea. Tres altas del mismo darían una sola fila.
+      await store.recordWatch(visionado(AURORA, 1))
+      await store.recordWatch(visionado(AURORA, 2))
       await store.setPlanToWatch(AURORA, true)
 
       expect((await store.listPlanToWatch())[0]?.title).toBe('Título aurora-nocturna')
-      expect((await store.listWatchHistory(2, 0))[0]?.anime.title).toBe('Título aurora-nocturna')
+      expect((await store.listWatchHistory(1, 0))[0]?.episodeNumber).toBe(2)
 
       // El troceado es de verdad: la segunda página trae la fila que queda.
-      expect(await store.listWatchHistory(2, 0)).toHaveLength(2)
-      expect(await store.listWatchHistory(2, 2)).toHaveLength(1)
+      expect(await store.listWatchHistory(1, 0)).toHaveLength(1)
+      expect(await store.listWatchHistory(1, 1)).toHaveLength(1)
 
       await store.setPlanToWatch(AURORA, false)
 
       expect(await store.listPlanToWatch()).toEqual([])
       // Y quitarla de pendientes no ha tocado el historial.
-      expect(await store.listWatchHistory(10, 0)).toHaveLength(3)
+      expect(await store.listWatchHistory(10, 0)).toHaveLength(2)
     })
   })
 

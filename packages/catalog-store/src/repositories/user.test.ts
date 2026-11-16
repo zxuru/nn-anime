@@ -235,16 +235,44 @@ describe('historial de visionado', () => {
   /**
    * El historial paginado del Perfil.
    *
-   * Va aparte de `listRecentlyWatched` —que alimenta «continuar viendo» y es señal
-   * del motor— y por eso lo que se comprueba aquí, además del troceado, es que la
-   * lectura de siempre **no cambia**: son dos preguntas distintas sobre la misma
-   * tabla, y la nueva no puede alterar la vieja.
+   * Un episodio, un renglón: volver a abrir el mismo episodio no llena la rejilla
+   * de tarjetas repetidas, y los episodios distintos de la misma obra siguen
+   * contando. Va aparte de `listRecentlyWatched` —que alimenta «continuar viendo»
+   * y es señal del motor— y por eso lo que se comprueba aquí, además del troceado,
+   * es que la lectura de siempre **no cambia**: son dos preguntas distintas sobre
+   * la misma tabla, y la nueva no puede alterar la vieja.
    */
   describe('el historial, por páginas', () => {
-    test('recorre todas las filas sin solapar ni perder ninguna', async () => {
+    test('un episodio, un renglón: se queda su reproducción más reciente', async () => {
       await withStore((store) => {
-        // Cinco visionados sobre los dos episodios que siembra el envoltorio: lo
-        // que se trocea son las filas del historial, no los episodios.
+        const vieja = store.watch.recordWatch(visionado(AURORA, 1, new Date(1_000_000)))
+        store.watch.updateWatchPosition(vieja, 100, 1440)
+        const nueva = store.watch.recordWatch(visionado(AURORA, 1, new Date(2_000_000)))
+        store.watch.updateWatchPosition(nueva, 400, 1440)
+
+        const historial = store.watch.listWatchHistory(10, 0)
+
+        expect(historial).toHaveLength(1)
+        expect(historial[0]?.id).toBe(nueva)
+        expect(historial[0]?.positionS).toBe(400)
+      })
+    })
+
+    test('los episodios distintos de la misma obra siguen contando', async () => {
+      await withStore((store) => {
+        store.watch.recordWatch(visionado(AURORA, 1, new Date(1_000_000)))
+        store.watch.recordWatch(visionado(AURORA, 2, new Date(2_000_000)))
+
+        expect(store.watch.listWatchHistory(10, 0).map((fila) => fila.episodeNumber)).toEqual([
+          2, 1,
+        ])
+      })
+    })
+
+    test('recorre todas las páginas sin solapar ni perder ningún episodio', async () => {
+      await withStore((store) => {
+        // Cinco reproducciones sobre los dos episodios que siembra el envoltorio:
+        // lo que se trocea es un renglón por episodio, no una fila por alta.
         const ids: number[] = []
         for (let indice = 0; indice < 5; indice++) {
           ids.push(
@@ -254,14 +282,14 @@ describe('historial de visionado', () => {
           )
         }
 
-        const primera = store.watch.listWatchHistory(2, 0)
-        const segunda = store.watch.listWatchHistory(2, 2)
-        const tercera = store.watch.listWatchHistory(2, 4)
+        const primera = store.watch.listWatchHistory(1, 0)
+        const segunda = store.watch.listWatchHistory(1, 1)
+        const tercera = store.watch.listWatchHistory(1, 2)
 
-        // De la más reciente a la más antigua, y las cinco exactamente una vez: sin
-        // el desplazamiento, la segunda página repetiría las dos primeras.
+        // El renglón de cada episodio es su alta más reciente —la 5 para el 1 y la
+        // 4 para el 2— y las páginas no lo repiten.
         expect([...primera, ...segunda, ...tercera].map((fila) => fila.id)).toEqual(
-          [...ids].reverse(),
+          ids.slice(-2).reverse(),
         )
       })
     })
@@ -274,17 +302,15 @@ describe('historial de visionado', () => {
       })
     })
 
-    test('no descarta lo terminado ni agrupa por episodio: cuenta lo que pasó', async () => {
+    test('no descarta lo terminado: el historial cuenta lo que pasó', async () => {
       await withStore((store) => {
-        const primera = store.watch.recordWatch(visionado(AURORA, 1, new Date(1_000_000)))
-        store.watch.updateWatchPosition(primera, 1440, 1440)
-        // La misma obra y el mismo episodio, otra vez: son dos renglones.
-        store.watch.recordWatch(visionado(AURORA, 1, new Date(2_000_000)))
+        const unica = store.watch.recordWatch(visionado(AURORA, 1, new Date(1_000_000)))
+        store.watch.updateWatchPosition(unica, 1440, 1440)
 
         const historial = store.watch.listWatchHistory(10, 0)
 
-        expect(historial).toHaveLength(2)
-        expect(historial.some((fila) => fila.finished)).toBe(true)
+        expect(historial).toHaveLength(1)
+        expect(historial[0]?.finished).toBe(true)
       })
     })
 
@@ -309,7 +335,8 @@ describe('historial de visionado', () => {
         const contador = contarConsultas(store.db)
         const lista = createWatchRepository(contador.db).listWatchHistory(5, 0)
 
-        expect(lista).toHaveLength(5)
+        // Un episodio, un renglón: cinco altas de la misma entrega no son cinco.
+        expect(lista).toHaveLength(1)
         expect(lista[0]?.anime.title).toBe('Aurora Nocturna')
         expect(contador.llamadas()).toBe(1)
       })

@@ -99,8 +99,8 @@ export function HistoryPage(props: HistoryPageProps): ReactNode {
           ) : (
             <Mosaico>
               {data.items.map((item, indice) => (
-                // La clave es la fila del visionado: el historial no agrupa, así que
-                // el mismo episodio puede salir dos veces en la misma página.
+                // Un renglón por episodio: el servidor ya se ha quedado con la
+                // reproducción más reciente de cada uno.
                 <PiezaDeHistorial key={item.id} item={item} indice={indice} />
               ))}
             </Mosaico>

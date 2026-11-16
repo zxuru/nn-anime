@@ -450,10 +450,11 @@ export const watchHistoryItemSchema = continueWatchingItemSchema.extend({
   /**
    * La fila de visionado, que es lo que identifica un renglón del historial.
    *
-   * Hace falta y por eso está, aunque «continuar viendo» no lo lleve: esa fila se
-   * agrupa por episodio, así que cada episodio sale una vez. El historial **no
-   * agrupa** —el mismo episodio reproducido dos veces son dos renglones— y sin un
-   * identificador propio la lista no tiene con qué distinguir dos filas idénticas.
+   * Hace falta y por eso está, aunque «continuar viendo» no lo lleve: esa fila es
+   * una tarjeta por episodio y el historial también, pero dos episodios distintos
+   * de la misma obra comparten título y portada, y sin un identificador propio la
+   * lista no tendría con qué distinguir sus tarjetas. Es el de la reproducción que
+   * se quedó, la más reciente.
    */
   id: z.number().int().positive(),
   finished: z.boolean(),
