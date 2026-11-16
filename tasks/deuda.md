@@ -262,6 +262,11 @@ planteado; el problema es la hoja de reglas.
 
 ### T227 — `WatchPage.tsx` (1 252 l.) y `Player.tsx` (1 214 l.)
 
+**Hecho en parte, y la tarea se dividió:** `WatchPage.tsx` está partido (401 líneas, con
+`useWatchPage`, `useWatchLecturas` y `watch-neighbours`) y `Player.tsx` pasa a **T227b**, porque
+1 094 líneas de máquina de HLS no caben en el mismo corte sin romper un reproductor que funciona.
+El criterio de la tarea ya preveía dividirla.
+
 **Descripción:** los dos componentes más grandes del frontend. `WatchPage.tsx` tiene 14 `useState`,
 8 `useCallback` y 6 `useEffect`, y **es un solo `export function`** con unas 800 líneas. `Player.tsx`
 tiene 11 `useState`, 11 `useEffect` y 7 `useRef`. Partirlos no es cosmetía: son la razón de que
