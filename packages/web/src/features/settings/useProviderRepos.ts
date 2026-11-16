@@ -1,9 +1,9 @@
 /**
  * Los datos de la sección de repositorios.
  *
- * Se lee al montar y **no** desde `useSettings`: ese hook lo usa el tema en toda
- * la aplicación, así que colgar de él una lectura de repositorios sería pedir la
- * lista de repositorios en cada pantalla.
+ * Se lee al montar y **no** desde `useSettings`: ese hook lo lee la raíz para el
+ * tema y lo lee esta pantalla, así que colgar de él una lectura de repositorios
+ * sería pedir la lista de repositorios en cada pantalla.
  *
  * Después de cada cambio se relee la lista y se avisa a quien corresponda:
  * activar o quitar carga o descarga proveedores, y la lista de proveedores de

@@ -257,6 +257,34 @@ describe('la página', () => {
     expect(html).toContain('aria-busy="true"')
   })
 
+  /**
+   * La lectura, en un solo sitio.
+   *
+   * Es el otro lado de la cuenta de peticiones de `almacen.test.ts`: aquella
+   * prueba mide que el almacén no repita la lectura, y ésta que la página no
+   * pueda volver a pedirla por su cuenta. Si alguien reañade un `useSettings`
+   * con su propia lectura en la página —el defecto que T230 cierra—, las dos se
+   * ponen rojas: la de allí porque el servidor ve dos peticiones, la de aquí
+   * porque la página nombra la ruta.
+   */
+  test('los ajustes se leen de un solo sitio: el almacén', async () => {
+    const pagina = await readFile(`${ROOT}SettingsPage.tsx`, 'utf8')
+    const raiz = await readFile(fileURLToPath(new URL('../../app.tsx', import.meta.url)), 'utf8')
+    const gancho = await readFile(`${ROOT}useSettings.ts`, 'utf8')
+    const almacen = await readFile(`${ROOT}almacen.ts`, 'utf8')
+
+    // La raíz, que aplica el tema, y la página consumen el mismo gancho.
+    expect(raiz).toContain('useAppTheme')
+    expect(pagina).toContain('useSettings')
+    expect(gancho).toContain('useSyncExternalStore')
+
+    // Y la lectura sólo existe en el almacén: ni la página ni el gancho
+    // importan siquiera el cliente HTTP.
+    expect(pagina).not.toContain('apiGet')
+    expect(gancho).not.toContain('apiGet')
+    expect(almacen).toContain("apiGet('/api/settings'")
+  })
+
   test('el aviso de seguridad está en la página y abre el documento', async () => {
     const fuente = await readFile(`${ROOT}SettingsPage.tsx`, 'utf8')
 
