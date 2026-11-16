@@ -436,12 +436,16 @@ en ningún workflow**. Dependabot actualiza `cargo`, pero nadie mira los avisos.
 escritorio carga plugins y descarga binarios: una vulnerabilidad transitiva en Tauri no sale sola.
 
 **Aceptación:**
-- [ ] El CI corre `cargo audit` (o `cargo deny`) y **falla** ante un aviso de nivel error.
-- [ ] Si hay avisos today que no se pueden arreglar, se listan en un archivo de excepciones con el
+- [x] El CI corre `cargo audit` (o `cargo deny`) y **falla** ante un aviso de nivel error.
+- [x] Si hay avisos today que no se pueden arreglar, se listan en un archivo de excepciones con el
       motivo, en vez de dejar el job en rojo o apagarlo.
-- [ ] `cargo deny` incluye la política de licencias si procede.
+- [x] `cargo deny` incluye la política de licencias si procede.
 
-**Archivos:** `.github/workflows/ci.yml`. **Tamaño:** S. **Depende de:** T224 (mismo fichero).
+**Cierre:** `ci: auditar las dependencias Rust (T235)` · `tasks/done/T235.md` (indexado en
+`tasks/done/INDICE.md`). `deny.toml` con cuatro excepciones de avisos, lista blanca de licencias,
+sólo crates.io y el job `auditoria-rust` fijado por SHA en `.github/workflows/ci.yml`.
+
+**Archivos:** `.github/workflows/ci.yml`, `desktop/src-tauri/deny.toml`, `desktop/src-tauri/Cargo.lock`, `scripts/ci.test.ts`. **Tamaño:** S. **Depende de:** T224 (mismo fichero).
 
 ---
 
@@ -522,13 +526,20 @@ claro sobre un sistema oscuro ve un destello negro, y los controles nativos no s
 aplicación (hallazgo 20). Es el punto 3 de «Lo que sigue, en orden».
 
 **Aceptación:**
-- [ ] El tema está en el HTML de arranque, antes del primer pintado: sin destello en los dos
+- [x] El tema está en el HTML de arranque, antes del primer pintado: sin destello en los dos
       sentidos (claro y oscuro).
-- [ ] `color-scheme` sigue a los dos temas.
-- [ ] El HTML lleva `description` y `theme-color`, y la aplicación su pie.
-- [ ] Se mide: la captura del primer fotograma en tema claro sobre sistema oscuro no sale negra.
+- [x] `color-scheme` sigue a los dos temas.
+- [x] El HTML lleva `description` y `theme-color`, y la aplicación su pie.
+- [x] Se mide: la captura del primer fotograma en tema claro sobre sistema oscuro no sale negra.
 
-**Archivos:** `packages/web/index.html`, `packages/web/src/main.tsx`.
+**Cierre:** `feat(web): el tema antes del primer pintado, description y pie (T239)` ·
+`tasks/done/T239.md` (indexado en `tasks/done/INDICE.md`). Screencast CDP con sistema oscuro y tema
+claro guardado: 26 fotogramas `#f2ede3`, ninguno negro; el control sin arranque temprano sí da
+`#08080a`.
+
+**Archivos:** `packages/web/index.html`, `packages/web/public/theme-boot.js`,
+`packages/web/src/features/settings/{tema-arranque,useSettings}.ts`, `packages/web/src/{app,app.test}.tsx`,
+`packages/web/src/arranque-tema.test.ts`, `packages/web/src/i18n/es.ts` y los estilos del pie.
 **Tamaño:** S. **Depende de:** T230 (mismo `app.tsx`, vía el proveedor de ajustes).
 
 ---
@@ -544,13 +555,17 @@ salida lógica es retirarlo y alinear el producto. El motivo de cada recomendaci
 pieza sin abrir nada.
 
 **Aceptación:**
-- [ ] Se retira `Panel.tsx`, `ScoreDetail.tsx` y `ReasonBadge.tsx` con sus pruebas, o se decide un
+- [x] Se retira `Panel.tsx`, `ScoreDetail.tsx` y `ReasonBadge.tsx` con sus pruebas, o se decide un
       sitio real donde montarlos y se justifica por qué vuelve la puntuación.
-- [ ] `PRODUCT.md` y el texto de `RecommendedRow.tsx` dejan de prometer una puntuación que la pieza
+- [x] `PRODUCT.md` y el texto de `RecommendedRow.tsx` dejan de prometer una puntuación que la pieza
       no muestra.
-- [ ] `useRecommendations` y sus pruebas siguen en verde; no queda CSS muerto de `.panel*`,
+- [x] `useRecommendations` y sus pruebas siguen en verde; no queda CSS muerto de `.panel*`,
       `.reason` ni `.score`, ni claves `reco.*` sin usar.
-- [ ] Si se retira, `bun test packages/web` y `bun run lint` quedan en verde.
+- [x] Si se retira, `bun test packages/web` y `bun run lint` quedan en verde.
+
+**Cierre:** `refactor(web): retirar el panel muerto del motor (T240)` · `tasks/done/T240.md`
+(indexado en `tasks/done/INDICE.md`). Se retiran los tres componentes con sus pruebas, el CSS muerto
+y las claves `reco.*`; `PRODUCT.md` y `RecommendedRow` dejan de prometer la puntuación.
 
 **Archivos:** `packages/web/src/features/recommendations/`, `packages/web/src/i18n/es.ts`,
 `packages/web/src/styles/`, `PRODUCT.md`. **Tamaño:** M. **Depende de:** T229.
