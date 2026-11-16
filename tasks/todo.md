@@ -2754,6 +2754,102 @@ Ids reservados en este lote porque las tareas se reparten entre varios agentes a
 
 ---
 
+## Lote — Ajustes y tutoriales (T254–T256)
+
+Abierto el 2026-11-16 a petición del humano: poder saltarse todos los tutoriales desde el propio
+tutorial, y dejar de tener Ajustes como una lista plana. T254 es independiente; T255 prepara los
+títulos que T256 agrupa, así que las dos van en ese orden.
+
+### T254 — «Ya conozco cómo funciona»: omitir todos los tutoriales desde el tutorial
+
+**Descripción:** «Omitir todos los tutoriales» sólo existe al final de Ajustes, y el popover de
+cada recorrido sólo ofrece «Omitir tutorial», que da por visto el recorrido actual. Añadir en el
+primer paso de cualquier recorrido un mando que apague todos —también los futuros— y devuelva el
+mismo estado que el botón de Ajustes, y ofrecer el mismo salto en el aviso de primer arranque.
+
+**Aceptación:**
+- [ ] El primer paso de cada recorrido muestra «Ya conozco cómo funciona»; pulsarlo cierra el
+      tutorial, marca todos los recorridos como vistos, deja `tutorialsDisabled: true` y ningún
+      faro de novedad vuelve a latir.
+- [ ] Los pasos que no son el primero no lo muestran y conservan «Omitir tutorial».
+- [ ] El aviso de primer arranque ofrece el mismo salto y, con los tutoriales apagados, dice cómo
+      volver a verlos.
+- [ ] `guia.e2e.ts` mide el recorrido completo y el estado guardado, y Buscar no estrena tutorial
+      ni faro después de pulsarlo.
+- [ ] El mando mide al menos `--control-size` de alto y el popover sigue siendo modal.
+
+**Verificación:** pendiente.
+
+**Estado:** en curso.
+
+**Depende de:** ninguno.
+
+**Archivos:** `packages/web/src/features/guia/useGuia.ts`,
+`packages/web/src/features/home/PrimerArranque.tsx`, `packages/web/src/i18n/es.ts`,
+`packages/web/src/styles/{gestion,base}.css` y sus pruebas (`home.test.tsx`, `guia.e2e.ts`).
+
+**Tamaño:** S.
+
+---
+
+### T255 — Los subtítulos de Ajustes, en su nivel
+
+**Descripción:** `ProviderRepos`, `TmdbSettings` y `SkipSettings` pintan su título como `<h2>`.
+Cuando Ajustes se agrupe en secciones con su propio `<h2>`, esos tres serán hermanos del grupo y el
+lector de pantalla perderá la relación. Bajan a `<h3>`: es el nivel que les toca dentro de un grupo.
+
+**Aceptación:**
+- [ ] Los tres componentes declaran su título como `<h3>` y los textos son los mismos.
+- [ ] `bun test packages/web/src/features/settings` en verde.
+- [ ] `bun run typecheck` y `bun run lint` en verde.
+
+**Verificación:** pendiente.
+
+**Estado:** pendiente.
+
+**Depende de:** ninguno.
+
+**Archivos:** `packages/web/src/features/settings/{ProviderRepos,TmdbSettings,SkipSettings}.tsx`.
+
+**Tamaño:** S.
+
+---
+
+### T256 — Ajustes en secciones, con índice
+
+**Descripción:** Ajustes es una lista plana de doce bloques. Agruparlos en seis secciones —Fuentes,
+Reproducción, Apariencia, Privacidad y contenido, Sistema y Guía— y anteponer un índice que se
+queda pegado en escritorio y se desplaza en horizontal en móvil, con la sección visible marcada.
+
+**Aceptación:**
+- [ ] La página declara seis secciones con id estable y un `<nav>` con un enlace por sección; todo
+      enlace resuelve a una sección existente y ningún id se repite.
+- [ ] Con 820 px o más, el índice va en una columna a la izquierda y se queda pegado al desplazar;
+      por debajo, una fila desplazable arriba.
+- [ ] La sección visible se marca con `aria-current="location"` y un filete de acento; sin
+      `IntersectionObserver` la página sigue navegando y no rompe.
+- [ ] El desplazamiento deja el título debajo de la cabecera pegajosa y con movimiento reducido no
+      anima.
+- [ ] Los tres anclajes del tutorial (`ajustes-proveedores`, `ajustes-tema`, `ajustes-guia`) siguen
+      existiendo y su recorrido sigue saliendo.
+- [ ] `settings.e2e.ts` pulsa cada enlace, comprueba que la sección entra en pantalla y que el
+      índice no desborda a 390 px.
+- [ ] `bun run typecheck`, `bun run lint` y `bun test` en verde.
+
+**Verificación:** pendiente.
+
+**Estado:** pendiente.
+
+**Depende de:** T255.
+
+**Archivos:** `packages/web/src/features/settings/{secciones.ts,IndiceAjustes.tsx,SettingsPage.tsx}`,
+`packages/web/src/i18n/es.ts`, `packages/web/src/styles/gestion.css` y sus pruebas
+(`settings.test.tsx`, `settings.e2e.ts`).
+
+**Tamaño:** M.
+
+---
+
 ## Resumen de dependencias
 
 Raíz común: `T1 → T2 → T3 → T4`.

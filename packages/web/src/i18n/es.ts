@@ -259,6 +259,8 @@ export const messages: Messages = {
   'home.firstRun.warning':
     'Añadirlo no ejecuta nada. Activar un proveedor sí, y sin sandbox: revisa lo que marcas.',
   'home.firstRun.action': 'Abrir Ajustes',
+  'home.firstRun.tutorialsOff':
+    'Tutoriales desactivados. Puedes volver a verlos cuando quieras desde Ajustes.',
 
   'search.title': 'Buscar',
   'search.field': 'Buscar por título',
@@ -833,6 +835,11 @@ export const messages: Messages = {
   // «tutorial» y no «guía» porque lo que se omite es este recorrido, no la guía
   // entera: para eso está «Omitir todos los tutoriales» en Ajustes.
   'guia.omitir': 'Omitir tutorial',
+  // La otra salida: no este recorrido, todos. Va en el primer paso y en el aviso
+  // de primer arranque, con las mismas palabras en los dos sitios.
+  'guia.omitirTodos': 'Ya conozco cómo funciona',
+  'guia.omitirTodos.ayuda':
+    'Omite todos los tutoriales, también los de las pantallas que aún no has abierto.',
   'guia.entendido': 'Entendido',
   'guia.progreso': '{{current}} de {{total}}',
 

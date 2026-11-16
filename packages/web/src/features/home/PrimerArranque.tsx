@@ -12,6 +12,10 @@
  * aplicación, y la advertencia de que un plugin corre sin sandbox va aquí, que es
  * donde se lee antes de decidir.
  *
+ * Ofrece también la salida de los tutoriales: es la primera pantalla que ve una
+ * instalación nueva y quien ya sabe usar RoNa no debería tener que esperar al
+ * popover para decir que no. El mismo botón que el primer paso de cada recorrido.
+ *
  * `esPrimerArranque` es una función pura y separada del componente para poder
  * probar la decisión sin DOM: la lista vacía sólo significa «no hay proveedores»
  * cuando la lectura terminó **y no falló**.
@@ -19,9 +23,10 @@
 
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { RECOMMENDED_PROVIDER_REPO } from '@rona/core/repos'
-import type { ReactNode } from 'react'
+import { type ReactNode, useSyncExternalStore } from 'react'
 import { t } from '../../i18n'
 import { Link } from '../../router'
+import { estadoActual, omitirTodosLosTutoriales, suscribir } from '../guia/estado'
 
 export interface EstadoDeFuentes {
   /** La lectura de proveedores terminó. */
@@ -37,6 +42,10 @@ export function esPrimerArranque(estado: EstadoDeFuentes): boolean {
 }
 
 export function PrimerArranque(): ReactNode {
+  // El estado de la guía es del navegador y vive fuera de React: el botón de
+  // omitir escribe ahí y este aviso se entera por la suscripción, sin copia local.
+  const estado = useSyncExternalStore(suscribir, estadoActual, estadoActual)
+
   return (
     <aside className="primer-arranque" aria-labelledby="primer-arranque-title">
       <h2 className="primer-arranque__titulo" id="primer-arranque-title">
@@ -59,9 +68,24 @@ export function PrimerArranque(): ReactNode {
 
       <p className="field__hint">{t(DEFAULT_LOCALE, 'home.firstRun.warning')}</p>
 
-      <Link to="/settings" className="button button--primary">
-        {t(DEFAULT_LOCALE, 'home.firstRun.action')}
-      </Link>
+      <div className="primer-arranque__acciones">
+        <Link to="/settings" className="button button--primary">
+          {t(DEFAULT_LOCALE, 'home.firstRun.action')}
+        </Link>
+
+        {/* La misma salida que el primer paso de los recorridos. Con los
+            tutoriales ya apagados no se ofrece otra vez: se dice dónde se
+            vuelven a encender. */}
+        {estado.tutorialsDisabled ? null : (
+          <button type="button" className="button" onClick={omitirTodosLosTutoriales}>
+            {t(DEFAULT_LOCALE, 'guia.omitirTodos')}
+          </button>
+        )}
+      </div>
+
+      {estado.tutorialsDisabled ? (
+        <p className="field__hint">{t(DEFAULT_LOCALE, 'home.firstRun.tutorialsOff')}</p>
+      ) : null}
     </aside>
   )
 }
