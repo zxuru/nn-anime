@@ -29,11 +29,11 @@
  *    siempre: año, número de temporada del título, y el título.
  */
 
-import type { AniListRelatedItem } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import { namesOf, sameWork, type WorkNames } from '@nn-anime/core/identity'
-import type { AnimeSummary, ProviderRef } from '@nn-anime/core/models'
-import { seasonNumberOf } from '@nn-anime/core/titles'
+import type { AniListRelatedItem } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import { namesOf, sameWork, type WorkNames } from '@rona/core/identity'
+import type { AnimeSummary, ProviderRef } from '@rona/core/models'
+import { seasonNumberOf } from '@rona/core/titles'
 import { t } from '../../i18n'
 import { destinoDe, fichaPath } from '../home/descubrir'
 import { claveDeRelacion } from './relacion'

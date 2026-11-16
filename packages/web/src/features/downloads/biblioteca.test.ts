@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { DownloadItem } from '@nn-anime/core/api'
+import type { DownloadItem } from '@rona/core/api'
 import {
   agruparBiblioteca,
   calcularVelocidad,

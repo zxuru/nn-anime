@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# nn-anime como contenedor.
+# rona como contenedor.
 #
 # Tres etapas y no dos: las dependencias de producción se instalan en una
 # aparte para que la imagen final no lleve Vite, Playwright, Biome ni TypeScript.
@@ -10,7 +10,7 @@
 #
 # La imagen **no incluye ningún proveedor**: el fixture del repositorio es una
 # dependencia de desarrollo y no se copia. Los plugins se instalan desde Ajustes
-# o se montan en `/data/config/nn-anime/providers/`.
+# o se montan en `/data/config/rona/providers/`.
 
 ARG BUN_VERSION=1.4.3
 
@@ -45,18 +45,18 @@ FROM oven/bun:${BUN_VERSION}-slim AS runtime
 
 WORKDIR /app
 
-LABEL org.opencontainers.image.title="nn-anime" \
-      org.opencontainers.image.description="Interfaz y servidor de nn-anime para LAN/NAS" \
-      org.opencontainers.image.source="https://github.com/zxuru/nn-anime" \
+LABEL org.opencontainers.image.title="RoNa" \
+      org.opencontainers.image.description="Interfaz y servidor de RoNa para LAN/NAS" \
+      org.opencontainers.image.source="https://github.com/zxuru/rona" \
       org.opencontainers.image.licenses="MIT"
 
 # El contenedor es un servidor: escucha en todas las interfaces, no abre
 # navegador y guarda todo bajo `/data` con la convención XDG que ya usa la
 # aplicación. Sin `HOME`, que en el contenedor puede no existir.
 ENV NODE_ENV=production \
-    NN_ANIME_HOST=0.0.0.0 \
-    NN_ANIME_PORT=8080 \
-    NN_ANIME_NO_OPEN=1 \
+    RONA_HOST=0.0.0.0 \
+    RONA_PORT=8080 \
+    RONA_NO_OPEN=1 \
     XDG_DATA_HOME=/data \
     XDG_CONFIG_HOME=/data/config \
     XDG_CACHE_HOME=/data/cache
@@ -90,8 +90,8 @@ USER bun
 
 # La salud no pide credencial y no cuenta nada: sólo dice que el proceso
 # responde. El puerto y el host salen del entorno para que cambiar
-# `NN_ANIME_PORT` no deje el healthcheck mirando a otro sitio.
+# `RONA_PORT` no deje el healthcheck mirando a otro sitio.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD ["bun", "-e", "const port = process.env.NN_ANIME_PORT ?? '8080'; const raw = process.env.NN_ANIME_HOST; const host = !raw || raw === '0.0.0.0' || raw === '::' ? '127.0.0.1' : raw.includes(':') ? `[${raw}]` : raw; fetch(`http://${host}:${port}/healthz`).then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+  CMD ["bun", "-e", "const port = process.env.RONA_PORT ?? '8080'; const raw = process.env.RONA_HOST; const host = !raw || raw === '0.0.0.0' || raw === '::' ? '127.0.0.1' : raw.includes(':') ? `[${raw}]` : raw; fetch(`http://${host}:${port}/healthz`).then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
 
 ENTRYPOINT ["bun", "run", "packages/cli/src/index.ts"]

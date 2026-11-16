@@ -119,7 +119,7 @@ describe('el documento de verdad', () => {
     // que se comprueba contra el total de caracteres.
     const dentro = JSON.stringify(blocks)
     for (const trozo of [
-      'Seguridad de nn-anime',
+      'Seguridad de RoNa',
       'Modelo de amenaza',
       'Riesgo residual, en texto claro',
       'Qué no hace esta aplicación',

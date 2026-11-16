@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import type { EpisodesResponse } from '@nn-anime/core/api'
-import type { Episode } from '@nn-anime/core/models'
+import type { EpisodesResponse } from '@rona/core/api'
+import type { Episode } from '@rona/core/models'
 import type { RequestDeps } from '../../api/client'
 import { episodeNumberPath, episodesPath, latestEpisodePath } from '../detail/useDetail'
 import { loadWatchNeighbours, shouldLoadNeighbours } from './watch-neighbours'

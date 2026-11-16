@@ -12,7 +12,7 @@
  * como cancelada y nadie miraría el reloj.
  */
 
-import { ProviderError } from '@nn-anime/core'
+import { ProviderError } from '@rona/core'
 import { PROVIDER_API_VERSION, type ProviderMethod } from './types'
 
 export type ProviderFailureKind =

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
+import { openDb, runMigrations } from '@rona/catalog-store'
 import type { Hono } from 'hono'
 import { type AppOptions, createApp } from './app'
 import { LOGIN_PATH } from './auth'
@@ -155,8 +155,8 @@ describe('el formulario de login', () => {
 
 describe('el ticket del proxy sigue siendo credencial sin cookie', () => {
   test('un ticket vivo pasa el guard; uno inventado no', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-auth-'))
-    const db = openDb(join(dir, 'nn-anime.db'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-auth-'))
+    const db = openDb(join(dir, 'rona.db'))
     runMigrations(db)
     const container = createContainer({ db })
 

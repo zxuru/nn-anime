@@ -14,8 +14,8 @@
  * mes, y no cachear nada convertiría cada reproducción en una petición al tercero.
  */
 
-import { TTL_SECONDS } from '@nn-anime/catalog-store'
-import type { CacheHit, SkipInterval } from '@nn-anime/core'
+import { TTL_SECONDS } from '@rona/catalog-store'
+import type { CacheHit, SkipInterval } from '@rona/core'
 import type { AniSkipClient } from './client'
 import { normalizeSkipTimes } from './normalize'
 

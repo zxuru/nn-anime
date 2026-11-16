@@ -10,8 +10,8 @@ import { describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import type { ProviderRepoRecord } from '@nn-anime/core'
+import { openDb, runMigrations } from '@rona/catalog-store'
+import type { ProviderRepoRecord } from '@rona/core'
 import { createContainer, type ServerContainer } from './container'
 import {
   candidatesOf,
@@ -46,8 +46,8 @@ interface Contexto {
 }
 
 async function conStore<T>(body: (contexto: Contexto) => Promise<T>): Promise<T> {
-  const dataDir = await mkdtemp(join(tmpdir(), 'nn-anime-repo-store-'))
-  const db = openDb(join(dataDir, 'nn-anime.db'))
+  const dataDir = await mkdtemp(join(tmpdir(), 'rona-repo-store-'))
+  const db = openDb(join(dataDir, 'rona.db'))
   runMigrations(db)
   const container = createContainer({ db })
 

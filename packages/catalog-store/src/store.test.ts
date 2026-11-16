@@ -3,13 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type {
-  AniListEntry,
-  AnimeDetail,
-  Episode,
-  ProviderRef,
-  WatchEventInput,
-} from '@nn-anime/core'
+import type { AniListEntry, AnimeDetail, Episode, ProviderRef, WatchEventInput } from '@rona/core'
 import { z } from 'zod'
 import { TTL_SECONDS } from './cache-policy'
 import { openDb } from './db'
@@ -90,8 +84,8 @@ async function withStore<T>(
     dir: string
   }) => Promise<T> | T,
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-fachada-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-fachada-'))
+  const db = openDb(join(dir, 'rona.db'))
   const queue = createWriteQueue()
   const store = createCatalogStore(db, { queue })
 
@@ -320,8 +314,8 @@ describe('un solo escritor', () => {
 
 describe('cierre', () => {
   test('cierra la revalidación, vacía la cola y cierra la base', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-fachada-'))
-    const db = openDb(join(dir, 'nn-anime.db'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-fachada-'))
+    const db = openDb(join(dir, 'rona.db'))
     const queue = createWriteQueue()
     const revalidator = createRevalidator()
     const store = createCatalogStore(db, { queue, revalidator })
@@ -343,8 +337,8 @@ describe('cierre', () => {
   })
 
   test('después de cerrar, escribir falla en vez de tocar una base cerrada', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-fachada-'))
-    const db = openDb(join(dir, 'nn-anime.db'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-fachada-'))
+    const db = openDb(join(dir, 'rona.db'))
     const store = createCatalogStore(db)
 
     try {
@@ -359,8 +353,8 @@ describe('cierre', () => {
   })
 
   test('lo que quedaba en la cola se escribe antes de cerrar', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-fachada-'))
-    const db = openDb(join(dir, 'nn-anime.db'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-fachada-'))
+    const db = openDb(join(dir, 'rona.db'))
     const store = createCatalogStore(db)
 
     try {
@@ -376,7 +370,7 @@ describe('cierre', () => {
       await store.close()
       await Promise.all(pendientes.map((promesa) => promesa.catch(() => {})))
 
-      const reabierta = openDb(join(dir, 'nn-anime.db'))
+      const reabierta = openDb(join(dir, 'rona.db'))
 
       try {
         const fila = reabierta.query('SELECT COUNT(*) AS total FROM setting').get() as {
@@ -422,8 +416,8 @@ describe('mantenimiento desde la fachada', () => {
   })
 
   test('los avisos de revalidación se leen desde el mismo sitio', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-fachada-'))
-    const db = openDb(join(dir, 'nn-anime.db'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-fachada-'))
+    const db = openDb(join(dir, 'rona.db'))
     const store = createCatalogStore(db)
 
     try {

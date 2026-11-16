@@ -17,7 +17,7 @@
  */
 
 import { inflateRawSync } from 'node:zlib'
-import { AppError, UpstreamError } from '@nn-anime/core'
+import { AppError, UpstreamError } from '@rona/core'
 
 /** Tope de una pista de subtítulos, del spec. */
 export const MAX_SUBTITLE_BYTES = 5 * 1024 * 1024

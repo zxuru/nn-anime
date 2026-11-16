@@ -495,14 +495,14 @@ test.describe('de la búsqueda al detalle', () => {
     await entrar(page)
 
     await page.goto('/anime/fixture/aurora-nocturna')
-    await expect(page).toHaveTitle('Aurora Nocturna · nn-anime', { timeout: 15_000 })
+    await expect(page).toHaveTitle('Aurora Nocturna · rona', { timeout: 15_000 })
 
     const otra = await context.newPage()
     await otra.goto('/anime/fixture/mar-de-cristal')
-    await expect(otra).toHaveTitle('Mar de Cristal · nn-anime', { timeout: 15_000 })
+    await expect(otra).toHaveTitle('Mar de Cristal · rona', { timeout: 15_000 })
 
     // La primera sigue con el suyo: la segunda no lo pisó.
-    await expect(page).toHaveTitle('Aurora Nocturna · nn-anime')
+    await expect(page).toHaveTitle('Aurora Nocturna · rona')
 
     await otra.close()
   })

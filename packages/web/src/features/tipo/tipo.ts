@@ -13,7 +13,7 @@
  * los favoritos, lo que se está viendo y los resultados que acaban de llegar.
  */
 
-import type { ProviderSummary } from '@nn-anime/core/api'
+import type { ProviderSummary } from '@rona/core/api'
 import {
   DEFAULT_MEDIA,
   esDeMedia,
@@ -21,8 +21,8 @@ import {
   mediaOf,
   type ProviderMedia,
   puedeServir,
-} from '@nn-anime/core/media'
-import type { MediaType, ProviderRef, TitleKind } from '@nn-anime/core/models'
+} from '@rona/core/media'
+import type { MediaType, ProviderRef, TitleKind } from '@rona/core/models'
 import { useMemo } from 'react'
 import { useProviders } from '../search/useSearchStream'
 

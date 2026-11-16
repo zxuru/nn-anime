@@ -1,5 +1,5 @@
 /**
- * Superficie pública de `@nn-anime/recsys`.
+ * Superficie pública de `@rona/recsys`.
  *
  * El motor de recomendación: afinidad, co-visita, señal de búsqueda, filtros,
  * diversidad y razones. La puerta es `recommend()`; lo demás se exporta para

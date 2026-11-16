@@ -13,7 +13,7 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import { type CacheHit, type FeedEntry, feedEntrySchema, StoreError } from '@nn-anime/core'
+import { type CacheHit, type FeedEntry, feedEntrySchema, StoreError } from '@rona/core'
 import { cacheHit, TTL_SECONDS } from '../cache-policy'
 
 interface FeedRow {

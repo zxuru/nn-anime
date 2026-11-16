@@ -9,7 +9,7 @@
  * idioma que falta. Hoy sólo hay catálogo en español, así que el análisis
  * funcionaría; mañana no.
  *
- * El formato es `NN_ANIME_BOOT {"port":N,"url":"…"}`, con el prefijo literal
+ * El formato es `RONA_BOOT {"port":N,"url":"…"}`, con el prefijo literal
  * —nunca traducido— y el resto JSON en **una sola línea**. El esquema vive aquí y
  * no en cada lector: el mismo archivo que la escribe la lee, y por eso los dos no
  * se pueden separar.
@@ -23,7 +23,7 @@ import { z } from 'zod'
 import { httpUrlSchema } from './schema'
 
 /** El prefijo literal. No se traduce y no cambia. */
-export const BOOT_LINE_PREFIX = 'NN_ANIME_BOOT'
+export const BOOT_LINE_PREFIX = 'RONA_BOOT'
 
 export const bootLineSchema = z.object({
   /** Puerto real de escucha. Es lo único de esta línea que es seguro registrar. */

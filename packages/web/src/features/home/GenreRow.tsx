@@ -10,7 +10,7 @@
  * otra, con la línea por debajo. Se lee al pasear la vista, no al leer.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'

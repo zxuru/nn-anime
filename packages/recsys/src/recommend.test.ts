@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Candidate } from '@nn-anime/core'
+import type { Candidate } from '@rona/core'
 import { type RecommendSignals, recommend, SIGNAL_WEIGHTS, tieBreak } from './recommend'
 
 const AHORA = new Date('2026-01-31T00:00:00Z')

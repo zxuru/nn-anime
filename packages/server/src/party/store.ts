@@ -28,7 +28,7 @@ import {
   type PartyRoomSummary,
   type PartyState,
   roomCodeFromBytes,
-} from '@nn-anime/core'
+} from '@rona/core'
 
 /** Por qué no se pudo abrir una sala nueva. */
 export type PartyCreateFailure = 'too-many-rooms'

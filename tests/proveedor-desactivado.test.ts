@@ -18,7 +18,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import type { StoreConnection } from '@nn-anime/catalog-store'
+import type { StoreConnection } from '@rona/catalog-store'
 import {
   continueWatchingResponseSchema,
   favoritesResponseSchema,
@@ -26,9 +26,9 @@ import {
   recommendationsResponseSchema,
   relatedResponseSchema,
   sourcesResponseSchema,
-} from '@nn-anime/core'
-import type { Provider } from '@nn-anime/provider-sdk'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
+} from '@rona/core'
+import type { Provider } from '@rona/provider-sdk'
+import { createFixtureProvider } from '@rona/providers-fixture'
 import { type Ciclo, conCiclo } from './fixtures'
 
 /** El proveedor que se desmarca en Ajustes. Sus filas siguen en la base. */

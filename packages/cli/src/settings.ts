@@ -3,7 +3,7 @@
  *
  * La precedencia la fija el spec: **las banderas ganan sobre el archivo**. El
  * entorno se coloca en medio: lo que el despliegue fija por variable
- * (`NN_ANIME_PORT`, `NN_ANIME_NO_OPEN`) no lo pisa un `config.json` que viaja en
+ * (`RONA_PORT`, `RONA_NO_OPEN`) no lo pisa un `config.json` que viaja en
  * el volumen, y una bandera explícita sigue ganando sobre los dos.
  *
  * `open` es el único caso con matiz: su ausencia y su valor por defecto son
@@ -12,7 +12,7 @@
  * respetar y un `--no-open` no podría ganarle a un `"open": true`.
  */
 
-import type { Settings } from '@nn-anime/core'
+import type { Settings } from '@rona/core'
 import type { CliOptions } from './args'
 
 /** Lo que el entorno fija y compite con el archivo. */

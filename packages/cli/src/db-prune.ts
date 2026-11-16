@@ -11,15 +11,15 @@
  * de dejar que borre datos ajenos.
  */
 
-import { openDb, pruneOrphans } from '@nn-anime/catalog-store'
-import type { PruneReport } from '@nn-anime/core'
+import { openDb, pruneOrphans } from '@rona/catalog-store'
+import type { PruneReport } from '@rona/core'
 import {
   type ConfigEnvironment,
   DEFAULT_LOCALE,
   ensureDirs,
   type Locale,
   loadConfig,
-} from '@nn-anime/core'
+} from '@rona/core'
 import type { MigrationTarget } from './db-migrate'
 import { configEnvironment } from './env'
 import { t } from './i18n'

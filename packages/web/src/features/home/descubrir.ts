@@ -17,9 +17,9 @@
  * aplicación tiene un solo idioma declarado (`DEFAULT_LOCALE`).
  */
 
-import type { AiringItem, DiscoverItem } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { AnimeSummary, ProviderRef } from '@nn-anime/core/models'
+import type { AiringItem, DiscoverItem } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { AnimeSummary, ProviderRef } from '@rona/core/models'
 import { t } from '../../i18n'
 import { searchPath } from '../search/SearchPage'
 

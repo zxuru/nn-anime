@@ -36,7 +36,7 @@ function appWithAssets(webRoot: string, extraRoutes?: (app: Hono) => void): Hono
 }
 
 async function withAssets<T>(body: (root: string) => Promise<T>): Promise<T> {
-  const root = await mkdtemp(join(tmpdir(), 'nn-anime-web-'))
+  const root = await mkdtemp(join(tmpdir(), 'rona-web-'))
 
   try {
     await writeFile(join(root, 'index.html'), '<!doctype html><div id="root"></div>')
@@ -192,7 +192,7 @@ describe('servido de la interfaz', () => {
 
   test('un enlace simbólico que apunta fuera no se sirve', async () => {
     await withAssets(async (root) => {
-      const fuera = join(root, '..', 'secreto-nn-anime.txt')
+      const fuera = join(root, '..', 'secreto-rona.txt')
       await writeFile(fuera, 'no deberías verme')
 
       try {
@@ -222,7 +222,7 @@ describe('servido de la interfaz', () => {
   })
 
   test('sin build en disco, deja pasar al resto de la aplicación', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'nn-anime-vacio-'))
+    const root = await mkdtemp(join(tmpdir(), 'rona-vacio-'))
 
     try {
       const response = await appWithAssets(root).request(`${BASE}/no-existe`)

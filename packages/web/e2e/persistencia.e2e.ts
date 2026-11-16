@@ -8,7 +8,7 @@
  * mismo `dataDir` y comprueba que el contenido y el segundo siguen ahí.
  *
  * Que el mecanismo sea real es el punto: el directorio de migraciones se inyecta
- * con `NN_ANIME_MIGRATIONS_DIR` —la variable que ya usa el binario compilado—,
+ * con `RONA_MIGRATIONS_DIR` —la variable que ya usa el binario compilado—,
  * el segundo servidor aplica la migración 16 de prueba y el `dataDir` es el
  * mismo. No hay ninguna tabla ni fila creada a mano: lo que se mira lo escribió
  * el reproductor por la API.
@@ -31,7 +31,7 @@ const PUERTO_V1 = 7811
 const PUERTO_V2 = 7812
 
 /** El servicio de medios del arnés: un WAV de un minuto que ya levanta el e2e. */
-const PUERTO_MEDIOS = Number(process.env.NN_ANIME_E2E_MEDIA_PORT ?? '7902')
+const PUERTO_MEDIOS = Number(process.env.RONA_E2E_MEDIA_PORT ?? '7902')
 const MEDIA = `http://127.0.0.1:${PUERTO_MEDIOS}/tono.wav`
 
 interface Servidor {
@@ -41,7 +41,7 @@ interface Servidor {
   detener(): Promise<void>
 }
 
-/** Espera la línea `NN_ANIME_BOOT` y la convierte en una URL con token. */
+/** Espera la línea `RONA_BOOT` y la convierte en una URL con token. */
 function esperarArranque(
   proceso: ChildProcessWithoutNullStreams,
   base: string,
@@ -95,21 +95,21 @@ async function arrancarServidor(options: {
       cwd: RAIZ,
       env: {
         ...process.env,
-        NN_ANIME_DATA_DIR: options.dataDir,
-        NN_ANIME_CONFIG_DIR: options.configDir,
-        NN_ANIME_CACHE_DIR: options.cacheDir,
-        NN_ANIME_MIGRATIONS_DIR: options.migracionesDir,
+        RONA_DATA_DIR: options.dataDir,
+        RONA_CONFIG_DIR: options.configDir,
+        RONA_CACHE_DIR: options.cacheDir,
+        RONA_MIGRATIONS_DIR: options.migracionesDir,
         // La interfaz que sirve este servidor es la del e2e: así el test no
         // depende de que alguien haya ejecutado `bun run build` antes (el CI del
         // e2e no lo hace) y el episodio se reproduce en el Chromium del arnés.
-        NN_ANIME_WEB_DIR: join(RAIZ, '.tmp', 'e2e-dist'),
+        RONA_WEB_DIR: join(RAIZ, '.tmp', 'e2e-dist'),
         // El proxy sólo sirve el archivo local del arnés con esta excepción.
-        NN_ANIME_ALLOW_LOOPBACK: '1',
+        RONA_ALLOW_LOOPBACK: '1',
         // Sin salida a AniList: la home la pide y una prueba que depende de
         // internet se rompe sola.
-        NN_ANIME_ANILIST_OFFLINE: '1',
+        RONA_ANILIST_OFFLINE: '1',
         // La fuente que devuelve el plugin del arnés.
-        NN_ANIME_E2E_MEDIA: MEDIA,
+        RONA_E2E_MEDIA: MEDIA,
       },
       stdio: ['pipe', 'pipe', 'pipe'],
     },
@@ -153,22 +153,22 @@ async function entrarEn(page: Page, bootUrl: string): Promise<void> {
  * Prepara el plugin del proveedor de fixture.
  *
  * El archivo **tiene que vivir dentro del repositorio**: carga con un `import`
- * normal de `@nn-anime/providers-fixture`, y desde un temporal no resolvería el
+ * normal de `@rona/providers-fixture`, y desde un temporal no resolvería el
  * paquete. Por eso el directorio de configuración va en `.tmp/` y no en `%TEMP%`.
  */
 async function prepararPlugin(configDir: string): Promise<void> {
-  // `NN_ANIME_CONFIG_DIR` es el directorio de configuración de la aplicación, no
+  // `RONA_CONFIG_DIR` es el directorio de configuración de la aplicación, no
   // su padre: el cargador mira `providers` justo dentro. Escribir en
-  // `configDir/nn-anime/providers` dejaba al servidor sin proveedores y el
+  // `configDir/rona/providers` dejaba al servidor sin proveedores y el
   // reproductor contestaba «no hay ningún proveedor llamado fixture».
   const destino = join(configDir, 'providers')
   await mkdir(destino, { recursive: true })
   await writeFile(
     join(destino, 'fixture.ts'),
-    `import { createFixtureProvider } from '@nn-anime/providers-fixture'
+    `import { createFixtureProvider } from '@rona/providers-fixture'
 
 const base = createFixtureProvider()
-const medios = process.env.NN_ANIME_E2E_MEDIA
+const medios = process.env.RONA_E2E_MEDIA
 
 export default {
   ...base,
@@ -190,7 +190,7 @@ test.describe('persistencia entre versiones', () => {
   test('el contenido y el segundo sobreviven a una actualización de esquema', async ({ page }) => {
     test.setTimeout(180_000)
 
-    const temporal = await mkdtemp(join(tmpdir(), 'nn-anime-e2e-persistencia-'))
+    const temporal = await mkdtemp(join(tmpdir(), 'rona-e2e-persistencia-'))
     const dataDir = join(temporal, 'data')
     const configDir = join(RAIZ, '.tmp', 'persistencia-e2e')
     const cacheDir = join(temporal, 'cache')
@@ -208,7 +208,7 @@ test.describe('persistencia entre versiones', () => {
     // clics de los mandos.
     await page.addInitScript(() => {
       localStorage.setItem(
-        'nn-anime.guia',
+        'rona.guia',
         JSON.stringify({ v: 3, recorridos: [], vistos: [], tutorialsDisabled: true }),
       )
     })
@@ -305,7 +305,7 @@ test.describe('persistencia entre versiones', () => {
       // propiedad del almacén siga viendo un solo dueño de SQLite.
       const version = spawnSync(
         'bun',
-        ['run', join(RAIZ, 'scripts', 'leer-version-esquema.ts'), join(dataDir, 'nn-anime.db')],
+        ['run', join(RAIZ, 'scripts', 'leer-version-esquema.ts'), join(dataDir, 'rona.db')],
         { cwd: RAIZ, encoding: 'utf8' },
       )
       expect(version.status).toBe(0)

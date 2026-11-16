@@ -15,8 +15,8 @@
  * y lo que el usuario reconoce es el nombre que la fuente declara.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { AnimeSummary } from '@nn-anime/core/models'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { AnimeSummary } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 import { Link } from '../../router'

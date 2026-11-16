@@ -205,16 +205,16 @@ describe('el nombre de los objetivos', () => {
 
   test('el nombre del artefacto dice la versión, el sistema y la arquitectura', () => {
     expect(portableName('1.2.3', TARGETS['darwin-arm64'] as never)).toBe(
-      'nn-anime-1.2.3-macos-arm64.zip',
+      'rona-1.2.3-macos-arm64.zip',
     )
     expect(portableName('1.2.3', TARGETS['linux-x64'] as never)).toBe(
-      'nn-anime-1.2.3-linux-x64.AppImage',
+      'rona-1.2.3-linux-x64.AppImage',
     )
     // El de Windows es el archivo único, con el mismo nombre que copia
     // `package:unico`; si los dos se separan, la release publica un nombre y el
     // actualizador busca otro.
     expect(portableName('1.2.3', TARGETS['windows-x64'] as never)).toBe(
-      'nn-anime-1.2.3-windows-x64.exe',
+      'rona-1.2.3-windows-x64.exe',
     )
     // Y el nombre que copia `package:unico` es el mismo: si se separan, la release
     // publica un archivo y `latest.json` anuncia otro.
@@ -319,13 +319,13 @@ describe('los checksums', () => {
 
 describe('las plantillas de los artefactos', () => {
   test('sustituye los marcadores', () => {
-    expect(render('nn-anime __VERSION__ (__ARCH__)', { VERSION: '1.2.3', ARCH: 'amd64' })).toBe(
-      'nn-anime 1.2.3 (amd64)',
+    expect(render('rona __VERSION__ (__ARCH__)', { VERSION: '1.2.3', ARCH: 'amd64' })).toBe(
+      'rona 1.2.3 (amd64)',
     )
   })
 
   test('un marcador sin valor es un error y no un texto absurdo dentro del artefacto', () => {
-    expect(() => render('nn-anime __VERSION__ __ARCH__', { VERSION: '1.2.3' })).toThrow(/__ARCH__/)
+    expect(() => render('rona __VERSION__ __ARCH__', { VERSION: '1.2.3' })).toThrow(/__ARCH__/)
   })
 
   test('el Info.plist del repositorio se rellena y no declara la aplicación como agente', async () => {
@@ -334,8 +334,8 @@ describe('las plantillas de los artefactos', () => {
       BUNDLE_VERSION: '1.2.3.0',
     })
 
-    expect(texto).toContain('<string>io.github.zxuru.nn-anime</string>')
-    expect(texto).toContain('<string>nn-anime</string>')
+    expect(texto).toContain('<string>io.github.zxuru.rona</string>')
+    expect(texto).toContain('<string>rona</string>')
     expect(texto).toContain('<string>1.2.3.0</string>')
     // `LSUIElement` convertiría la aplicación en un agente sin icono en el Dock,
     // y el Dock es lo único desde donde se puede cerrar: no es una aplicación de
@@ -350,8 +350,8 @@ describe('lo que se publica', () => {
     const dir = await tempDir('release-')
 
     try {
-      await writeFile(join(dir, 'nn-anime-1.2.3-windows-x64.exe'), 'portable')
-      await mkdir(join(dir, 'nn-anime.app'), { recursive: true })
+      await writeFile(join(dir, 'rona-1.2.3-windows-x64.exe'), 'portable')
+      await mkdir(join(dir, 'rona.app'), { recursive: true })
 
       // `gh release upload release/*` no sabe subir un directorio, y el `.app` de
       // macOS se armaba justo ahí: la release habría fallado al final, con los
@@ -366,14 +366,14 @@ describe('lo que se publica', () => {
     const dir = await tempDir('release-')
 
     try {
-      await writeFile(join(dir, 'nn-anime-1.2.3-macos-arm64.zip'), 'comprimido')
+      await writeFile(join(dir, 'rona-1.2.3-macos-arm64.zip'), 'comprimido')
       await writeFile(join(dir, 'SHA256SUMS.txt'), 'hashes')
 
       // Ordenado en la prueba y no en la función: `readdir` no promete orden, y
       // exigirlo ahí sería pedirle a una lectura del disco algo que no da.
       expect([...(await assertReleaseFiles(dir))].sort()).toEqual([
         'SHA256SUMS.txt',
-        'nn-anime-1.2.3-macos-arm64.zip',
+        'rona-1.2.3-macos-arm64.zip',
       ])
     } finally {
       await rm(dir, { recursive: true, force: true })

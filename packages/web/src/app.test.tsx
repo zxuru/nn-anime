@@ -82,7 +82,7 @@ describe('App: pantallas', () => {
 
 describe('App: cabecera', () => {
   test('muestra el nombre de la aplicación desde el catálogo', () => {
-    expect(render('/')).toContain('nn-anime')
+    expect(render('/')).toContain('RoNa')
   })
 
   test('los cinco destinos de navegación son enlaces reales', () => {

@@ -7,7 +7,7 @@
 
 Module id: `web-ui` · Depende de: la superficie HTTP de `provider-core`, `catalog-store`,
 `media-proxy` y `recsys` · Paquete: `packages/web`
-Convenciones heredadas de `SPEC-nn-anime.md`.
+Convenciones heredadas de `SPEC-rona.md`.
 
 ## Objective
 

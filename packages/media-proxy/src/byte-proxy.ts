@@ -27,7 +27,7 @@
  * cerrado también en esta ruta.
  */
 
-import { AppError } from '@nn-anime/core'
+import { AppError } from '@rona/core'
 import { fetchAllowed, type Resolver } from './destination-guard'
 import { createPinnedFetch } from './pinned-fetch'
 import { sanitizeHeaders } from './response-headers'

@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { chmod, mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { ensureDirs, loadConfig } from './config'
+import { ensureDirs, LEGACY_APP_DIR_NAME, loadConfig } from './config'
 import { AppError } from './errors'
 
 const HOME = '/home/prueba'
@@ -13,7 +13,7 @@ const HOME = '/home/prueba'
  *
  * Las expectativas se arman con `join` y no con literales. El código usa el
  * `join` de la máquina y no el de la plataforma inyectada, así que en Windows
- * `join('/home/prueba', '.config', 'nn-anime')` es `\home\prueba\.config\nn-anime`
+ * `join('/home/prueba', '.config', 'rona')` es `\home\prueba\.config\rona`
  * y un literal con `/` no mediría lo que el código hace. Lo que se mide es la
  * convención —qué raíz y qué subdirectorio—, no el separador.
  */
@@ -27,9 +27,9 @@ describe('loadConfig: precedencia', () => {
   test('sin nada configurado, usa los valores por defecto bajo HOME', () => {
     const config = loadConfig({ env: { HOME }, platform: LINUX })
 
-    expect(config.dataDir).toBe(join(HOME, '.local', 'share', 'nn-anime'))
-    expect(config.configDir).toBe(join(HOME, '.config', 'nn-anime'))
-    expect(config.cacheDir).toBe(join(HOME, '.cache', 'nn-anime'))
+    expect(config.dataDir).toBe(join(HOME, '.local', 'share', 'rona'))
+    expect(config.configDir).toBe(join(HOME, '.config', 'rona'))
+    expect(config.cacheDir).toBe(join(HOME, '.cache', 'rona'))
   })
 
   test('en Windows usa LOCALAPPDATA y APPDATA, que es donde el sistema dice que van', () => {
@@ -42,10 +42,10 @@ describe('loadConfig: precedencia', () => {
       platform: WINDOWS,
     })
 
-    expect(config.dataDir).toBe(join('C:\\Users\\ana\\AppData\\Local', 'nn-anime'))
-    expect(config.configDir).toBe(join('C:\\Users\\ana\\AppData\\Roaming', 'nn-anime'))
+    expect(config.dataDir).toBe(join('C:\\Users\\ana\\AppData\\Local', 'rona'))
+    expect(config.configDir).toBe(join('C:\\Users\\ana\\AppData\\Roaming', 'rona'))
     // La caché es desechable y local a la máquina: no viaja con el perfil.
-    expect(config.cacheDir).toBe(join('C:\\Users\\ana\\AppData\\Local', 'nn-anime', 'cache'))
+    expect(config.cacheDir).toBe(join('C:\\Users\\ana\\AppData\\Local', 'rona', 'cache'))
   })
 
   test('en Windows, sin %APPDATA% ni %LOCALAPPDATA%, cuelgan de USERPROFILE', () => {
@@ -54,14 +54,14 @@ describe('loadConfig: precedencia', () => {
     // define `HOME` ahí y no quedaba ningún directorio que resolver.
     const config = loadConfig({ env: { USERPROFILE: 'C:\\Users\\ana' }, platform: WINDOWS })
 
-    expect(config.dataDir).toBe(join('C:\\Users\\ana', 'AppData', 'Local', 'nn-anime'))
-    expect(config.configDir).toBe(join('C:\\Users\\ana', 'AppData', 'Roaming', 'nn-anime'))
+    expect(config.dataDir).toBe(join('C:\\Users\\ana', 'AppData', 'Local', 'rona'))
+    expect(config.configDir).toBe(join('C:\\Users\\ana', 'AppData', 'Roaming', 'rona'))
   })
 
   test('HOME gana a USERPROFILE cuando están las dos', () => {
     const config = loadConfig({ env: { HOME, USERPROFILE: 'C:\\Users\\ana' }, platform: LINUX })
 
-    expect(config.dataDir).toBe(join(HOME, '.local', 'share', 'nn-anime'))
+    expect(config.dataDir).toBe(join(HOME, '.local', 'share', 'rona'))
   })
 
   test('XDG_* gana a los valores por defecto', () => {
@@ -75,9 +75,9 @@ describe('loadConfig: precedencia', () => {
       platform: LINUX,
     })
 
-    expect(config.dataDir).toBe(join('/xdg/datos', 'nn-anime'))
-    expect(config.configDir).toBe(join('/xdg/conf', 'nn-anime'))
-    expect(config.cacheDir).toBe(join('/xdg/cache', 'nn-anime'))
+    expect(config.dataDir).toBe(join('/xdg/datos', 'rona'))
+    expect(config.configDir).toBe(join('/xdg/conf', 'rona'))
+    expect(config.cacheDir).toBe(join('/xdg/cache', 'rona'))
   })
 
   test('XDG_* también gana en Windows, para quien las tenga puestas', () => {
@@ -86,17 +86,17 @@ describe('loadConfig: precedencia', () => {
       platform: WINDOWS,
     })
 
-    expect(config.dataDir).toBe(join('/xdg/datos', 'nn-anime'))
+    expect(config.dataDir).toBe(join('/xdg/datos', 'rona'))
   })
 
-  test('NN_ANIME_* gana a XDG_*', () => {
+  test('RONA_* gana a XDG_*', () => {
     const config = loadConfig({
       env: {
         HOME,
         XDG_DATA_HOME: '/xdg/datos',
-        NN_ANIME_DATA_DIR: '/propio/datos',
-        NN_ANIME_CONFIG_DIR: '/propio/conf',
-        NN_ANIME_CACHE_DIR: '/propio/cache',
+        RONA_DATA_DIR: '/propio/datos',
+        RONA_CONFIG_DIR: '/propio/conf',
+        RONA_CACHE_DIR: '/propio/cache',
       },
       platform: LINUX,
     })
@@ -111,7 +111,7 @@ describe('loadConfig: precedencia', () => {
       env: {
         HOME,
         XDG_DATA_HOME: '/xdg/datos',
-        NN_ANIME_DATA_DIR: '/propio/datos',
+        RONA_DATA_DIR: '/propio/datos',
       },
       overrides: { dataDir: '/override/datos', configDir: '/override/conf' },
       platform: LINUX,
@@ -119,7 +119,7 @@ describe('loadConfig: precedencia', () => {
 
     expect(config.dataDir).toBe('/override/datos')
     expect(config.configDir).toBe('/override/conf')
-    expect(config.cacheDir).toBe(join(HOME, '.cache', 'nn-anime'))
+    expect(config.cacheDir).toBe(join(HOME, '.cache', 'rona'))
   })
 })
 
@@ -132,7 +132,7 @@ describe('loadConfig: rutas derivadas', () => {
     })
 
     expect(config.providersDir).toBe(join('/conf', 'providers'))
-    expect(config.dbPath).toBe(join('/datos', 'nn-anime.db'))
+    expect(config.dbPath).toBe(join('/datos', 'rona.db'))
     expect(config.configFile).toBe(join('/conf', 'config.json'))
   })
 
@@ -177,12 +177,12 @@ describe('loadConfig: rutas derivadas', () => {
 
   test('ignora variables de entorno vacías o con sólo espacios', () => {
     const config = loadConfig({
-      env: { HOME, XDG_DATA_HOME: '   ', NN_ANIME_CONFIG_DIR: '' },
+      env: { HOME, XDG_DATA_HOME: '   ', RONA_CONFIG_DIR: '' },
       platform: LINUX,
     })
 
-    expect(config.dataDir).toBe(join(HOME, '.local', 'share', 'nn-anime'))
-    expect(config.configDir).toBe(join(HOME, '.config', 'nn-anime'))
+    expect(config.dataDir).toBe(join(HOME, '.local', 'share', 'rona'))
+    expect(config.configDir).toBe(join(HOME, '.config', 'rona'))
   })
 })
 
@@ -212,7 +212,7 @@ describe('loadConfig: HOME ausente', () => {
 
 describe('ensureDirs', () => {
   test('crea los directorios y devuelve las rutas, en orden', async () => {
-    const base = await mkdtemp(join(tmpdir(), 'nn-anime-config-'))
+    const base = await mkdtemp(join(tmpdir(), 'rona-config-'))
 
     try {
       const config = loadConfig({ env: { HOME: base }, platform: LINUX })
@@ -234,7 +234,7 @@ describe('ensureDirs', () => {
   })
 
   test('si un directorio no se puede preparar, el error dice cuál y por qué', async () => {
-    const base = await mkdtemp(join(tmpdir(), 'nn-anime-config-'))
+    const base = await mkdtemp(join(tmpdir(), 'rona-config-'))
 
     try {
       // Un archivo donde tiene que ir el directorio de datos: `mkdir` falla con
@@ -263,7 +263,7 @@ describe('ensureDirs', () => {
   })
 
   test('deja los directorios sin permisos de más', async () => {
-    const base = await mkdtemp(join(tmpdir(), 'nn-anime-config-'))
+    const base = await mkdtemp(join(tmpdir(), 'rona-config-'))
 
     try {
       const config = loadConfig({ env: { HOME: base }, platform: LINUX })
@@ -285,7 +285,7 @@ describe('ensureDirs', () => {
   })
 
   test('es idempotente: llamarla dos veces no falla', async () => {
-    const base = await mkdtemp(join(tmpdir(), 'nn-anime-config-'))
+    const base = await mkdtemp(join(tmpdir(), 'rona-config-'))
 
     try {
       const config = loadConfig({ env: { HOME: base }, platform: LINUX })
@@ -299,8 +299,62 @@ describe('ensureDirs', () => {
     }
   })
 
+  /**
+   * El nombre del producto cambió y con él la carpeta y la base. Sin traslado,
+   * el primer arranque abriría una base vacía y el historial parecería perdido;
+   * la prueba lo mide con el contenido, no con la existencia.
+   */
+  test('traslada la carpeta y la base del nombre anterior', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'rona-config-'))
+
+    try {
+      const config = loadConfig({ env: { HOME: base }, platform: LINUX })
+      const viejo = join(dirname(config.dataDir), LEGACY_APP_DIR_NAME)
+
+      await mkdir(viejo, { recursive: true })
+      await writeFile(join(viejo, 'nn-anime.db'), 'historial')
+
+      await ensureDirs(config)
+
+      expect(await readFile(config.dbPath, 'utf8')).toBe('historial')
+      expect(
+        await stat(viejo).then(
+          () => true,
+          () => false,
+        ),
+      ).toBe(false)
+
+      // La segunda llamada no vuelve a mover nada ni pisa la base.
+      await ensureDirs(config)
+      expect(await readFile(config.dbPath, 'utf8')).toBe('historial')
+    } finally {
+      await rm(base, { recursive: true, force: true })
+    }
+  })
+
+  test('si la carpeta nueva ya existe, no se mezcla con la anterior', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'rona-config-'))
+
+    try {
+      const config = loadConfig({ env: { HOME: base }, platform: LINUX })
+      const viejo = join(dirname(config.dataDir), LEGACY_APP_DIR_NAME)
+
+      await mkdir(config.dataDir, { recursive: true })
+      await writeFile(config.dbPath, 'nueva')
+      await mkdir(viejo, { recursive: true })
+      await writeFile(join(viejo, 'nn-anime.db'), 'vieja')
+
+      await ensureDirs(config)
+
+      expect(await readFile(config.dbPath, 'utf8')).toBe('nueva')
+      expect(await readFile(join(viejo, 'nn-anime.db'), 'utf8')).toBe('vieja')
+    } finally {
+      await rm(base, { recursive: true, force: true })
+    }
+  })
+
   test('endurece un directorio que ya existía con permisos más laxos', async () => {
-    const base = await mkdtemp(join(tmpdir(), 'nn-anime-config-'))
+    const base = await mkdtemp(join(tmpdir(), 'rona-config-'))
 
     try {
       const config = loadConfig({ env: { HOME: base }, platform: LINUX })
@@ -330,8 +384,8 @@ describe('ensureDirs', () => {
   })
 
   test('no crea nada fuera de la raíz indicada', async () => {
-    const base = await mkdtemp(join(tmpdir(), 'nn-anime-config-'))
-    const other = await mkdtemp(join(tmpdir(), 'nn-anime-otro-'))
+    const base = await mkdtemp(join(tmpdir(), 'rona-config-'))
+    const other = await mkdtemp(join(tmpdir(), 'rona-otro-'))
 
     try {
       const config = loadConfig({ env: { HOME: base }, platform: LINUX })

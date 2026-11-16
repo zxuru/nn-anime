@@ -9,7 +9,7 @@
 import type { Messages } from '../i18n'
 
 export const messages: Messages = {
-  'app.name': 'nn-anime',
+  'app.name': 'rona',
   'error.config.missingHome':
     'No se pudo determinar el directorio del usuario: no hay HOME ni USERPROFILE, y no se indicó ruta para {dirs}.',
 }

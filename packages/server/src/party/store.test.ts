@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { PARTY_MAX_PARTICIPANTS } from '@nn-anime/core'
+import { PARTY_MAX_PARTICIPANTS } from '@rona/core'
 import { PartyStore } from './store'
 
 /** Reloj de mentira: cada prueba decide cuándo pasa el tiempo. */

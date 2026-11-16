@@ -6,7 +6,7 @@
 
 
 Module id: `media-proxy` · Depende de: `core`, `provider-core` · Paquete: `packages/media-proxy`
-Convenciones heredadas de `SPEC-nn-anime.md`.
+Convenciones heredadas de `SPEC-rona.md`.
 
 ## Objective
 

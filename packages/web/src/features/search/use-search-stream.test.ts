@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import type { ProviderSummary, SearchEventPayload } from '@nn-anime/core/api'
-import type { SearchResult } from '@nn-anime/core/models'
+import type { ProviderSummary, SearchEventPayload } from '@rona/core/api'
+import type { SearchResult } from '@rona/core/models'
 import { ApiError } from '../../api/client'
 import {
   activeProviderIds,

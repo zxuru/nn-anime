@@ -13,7 +13,7 @@
  * salió.
  */
 
-import { err, type MessageParams, ok, type Result } from '@nn-anime/core'
+import { err, type MessageParams, ok, type Result } from '@rona/core'
 
 /** Interfaz por defecto. La misma de siempre: el modo local no cambia. */
 export const DEFAULT_HOST = '127.0.0.1'
@@ -33,14 +33,14 @@ export interface ServerEnvironment {
   readonly publicOrigin: string | undefined
   readonly secureCookie: boolean
   readonly locked: boolean
-  /** Watch party. Apagado salvo que `NN_ANIME_PARTY` lo encienda. */
+  /** Watch party. Apagado salvo que `RONA_PARTY` lo encienda. */
   readonly party: boolean
 }
 
 /**
  * La política de red que recibe el servidor.
  *
- * Es estructural y no importa el tipo de `@nn-anime/server`: este módulo es
+ * Es estructural y no importa el tipo de `@rona/server`: este módulo es
  * puro y sus pruebas no tienen por qué cargar Hono. El servidor acepta la misma
  * forma, y TypeScript la comprueba al pasarla.
  */
@@ -85,7 +85,7 @@ function usable(value: string | undefined): string | undefined {
   return trimmed === '' ? undefined : trimmed
 }
 
-/** Mismo criterio que `NN_ANIME_ALLOW_LOOPBACK` y `NN_ANIME_ANILIST_OFFLINE`. */
+/** Mismo criterio que `RONA_ALLOW_LOOPBACK` y `RONA_ANILIST_OFFLINE`. */
 function flag(value: string | undefined): boolean {
   return value === '1' || value === 'true'
 }
@@ -101,7 +101,7 @@ function normalizeHost(raw: string): string | undefined {
 
   // `localhost` no es lo mismo que `127.0.0.1` para las cookies, y el guard de
   // Host del modo local rechaza el nombre. Se normaliza aquí para que escribir
-  // `NN_ANIME_HOST=localhost` no deje un servidor que no se puede abrir.
+  // `RONA_HOST=localhost` no deje un servidor que no se puede abrir.
   return lower === 'localhost' ? DEFAULT_HOST : lower
 }
 
@@ -168,7 +168,7 @@ function parseOrigin(raw: string | undefined): string | undefined {
  * Si no hay origen público y el host no es loopback, no se puede saber con qué
  * nombre llegarán los clientes (la IP de la LAN, un nombre mDNS, el que use el
  * NAS), así que se acepta cualquiera: la cookie de sesión es la puerta y sin
- * ella no se lee nada. Fijar `NN_ANIME_PUBLIC_ORIGIN` cierra esa puerta a los
+ * ella no se lee nada. Fijar `RONA_PUBLIC_ORIGIN` cierra esa puerta a los
  * nombres que no sean el suyo.
  */
 export function networkPolicy(input: {
@@ -203,13 +203,13 @@ export function networkPolicy(input: {
 export function serverEnvironment(
   env: Readonly<Record<string, string | undefined>>,
 ): ServerEnvResult {
-  const rawHost = usable(env.NN_ANIME_HOST)
+  const rawHost = usable(env.RONA_HOST)
   const host = rawHost === undefined ? DEFAULT_HOST : normalizeHost(rawHost)
   if (host === undefined) {
     return err({ key: 'cli.env.invalidHost', params: { value: rawHost ?? '' } })
   }
 
-  const parsedPort = parsePort(env.NN_ANIME_PORT)
+  const parsedPort = parsePort(env.RONA_PORT)
   if (!parsedPort.ok) {
     return err({
       key: 'cli.env.invalidPort',
@@ -217,13 +217,13 @@ export function serverEnvironment(
     })
   }
 
-  const rawOrigin = usable(env.NN_ANIME_PUBLIC_ORIGIN)
+  const rawOrigin = usable(env.RONA_PUBLIC_ORIGIN)
   const publicOrigin = parseOrigin(rawOrigin)
   if (rawOrigin !== undefined && publicOrigin === undefined) {
     return err({ key: 'cli.env.invalidOrigin', params: { value: rawOrigin } })
   }
 
-  const token = usable(env.NN_ANIME_TOKEN)
+  const token = usable(env.RONA_TOKEN)
   const originHost = publicOrigin === undefined ? undefined : new URL(publicOrigin).hostname
   const outsideLoopback =
     !isLoopbackHost(host) || (originHost !== undefined && !isLoopbackHost(originHost))
@@ -242,11 +242,11 @@ export function serverEnvironment(
   return ok({
     host,
     port: parsedPort.value,
-    noOpen: flag(env.NN_ANIME_NO_OPEN),
+    noOpen: flag(env.RONA_NO_OPEN),
     token,
     publicOrigin,
     secureCookie: publicOrigin?.startsWith('https://') ?? false,
-    locked: flag(env.NN_ANIME_LOCKED),
-    party: flag(env.NN_ANIME_PARTY),
+    locked: flag(env.RONA_LOCKED),
+    party: flag(env.RONA_PARTY),
   })
 }

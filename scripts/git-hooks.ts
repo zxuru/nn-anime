@@ -6,7 +6,7 @@
  * ejecuta. Frena el commit directo en `main`, que es el gesto que mezcla el trabajo de dos
  * sesiones y hace desaparecer la mitad de `tasks/todo.md`.
  *
- * El integrador tiene salida con `NN_ANIME_INTEGRADOR=1`, y `cerrar` pasa porque el merge lleva
+ * El integrador tiene salida con `RONA_INTEGRADOR=1`, y `cerrar` pasa porque el merge lleva
  * `MERGE_HEAD`. Un `--no-verify` sigue existiendo: un gancho es un aviso que se ejecuta, no una
  * cárcel.
  */
@@ -82,7 +82,7 @@ export function decidir(contexto: Contexto): Veredicto {
       '',
       ...pistas.flatMap((pista) => [pista, '']),
       'Si esto es tuyo como integrador (fragmento de cierre, plan, merge):',
-      `  NN_ANIME_INTEGRADOR=1 git commit …`,
+      `  RONA_INTEGRADOR=1 git commit …`,
       '',
       'Para saltarte el gancho, y decirlo en el mensaje:',
       '  git commit --no-verify …',
@@ -138,7 +138,7 @@ function contexto(cwd: string): Contexto {
     rama,
     // `MERGE_HEAD` sólo existe a mitad de un merge: es la firma inequívoca de la integración.
     fusion: git(['rev-parse', '-q', '--verify', 'MERGE_HEAD'], cwd) !== '',
-    integrador: process.env.NN_ANIME_INTEGRADOR === '1',
+    integrador: process.env.RONA_INTEGRADOR === '1',
     reclamado:
       tarea !== undefined && git(['show-ref', '--verify', `refs/claims/${tarea}`], cwd) !== '',
     archivos: git(['diff', '--cached', '--name-only'], cwd)

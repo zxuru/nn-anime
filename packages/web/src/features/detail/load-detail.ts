@@ -37,7 +37,7 @@ import type {
   Enrichment,
   TmdbMetadata,
   WatchedEpisodePayload,
-} from '@nn-anime/core/api'
+} from '@rona/core/api'
 import {
   anilistRelatedResponseSchema,
   animeResponseSchema,
@@ -47,8 +47,8 @@ import {
   sourcesResponseSchema,
   tmdbMetadataResponseSchema,
   watchedResponseSchema,
-} from '@nn-anime/core/api'
-import type { AnimeDetail, AnimeSummary, ProviderCapabilities } from '@nn-anime/core/models'
+} from '@rona/core/api'
+import type { AnimeDetail, AnimeSummary, ProviderCapabilities } from '@rona/core/models'
 import { apiGet, type RequestDeps } from '../../api/client'
 import { DetailCache, detailCacheKey } from '../../api/detail-cache'
 import { conLaConsulta } from './direccion'

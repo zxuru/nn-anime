@@ -24,8 +24,8 @@
  * que hace es no repetir una consulta que ya se hizo.
  */
 
-import { AppError } from '@nn-anime/core'
-import { type FetchLike, fetchAllowed, type Resolver } from '@nn-anime/media-proxy'
+import { AppError } from '@rona/core'
+import { type FetchLike, fetchAllowed, type Resolver } from '@rona/media-proxy'
 import { z } from 'zod'
 
 /** El único host de la API. */
@@ -66,7 +66,7 @@ export const MAX_RETRY_AFTER_MS = 60_000
  * No es una excepción de seguridad —no abre ningún destino, cierra uno— y en un
  * arranque normal no se pone.
  */
-export const ANILIST_OFFLINE_ENV = 'NN_ANIME_ANILIST_OFFLINE'
+export const ANILIST_OFFLINE_ENV = 'RONA_ANILIST_OFFLINE'
 
 export function anilistOfflineFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
@@ -77,7 +77,7 @@ export function anilistOfflineFromEnv(
 }
 
 /** Cómo se identifica esta aplicación, como pide la cortesía de la API. */
-const USER_AGENT = 'nn-anime/0.1 (AniList API; UNOFFICIAL)'
+const USER_AGENT = 'RoNa/0.1 (AniList API; UNOFFICIAL)'
 
 /** El sobre de GraphQL, validado antes de mirar los datos. */
 const envelopeSchema = z.object({

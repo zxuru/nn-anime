@@ -6,7 +6,7 @@
  * desde el catálogo.
  */
 
-import { DEFAULT_LOCALE, type Locale } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE, type Locale } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { BarraInferior } from './components/BarraInferior'
 import { IconLabel } from './components/IconLabel'

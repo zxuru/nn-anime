@@ -20,8 +20,8 @@
  *    tiene el título.
  */
 
-import type { ConfigPaths } from '@nn-anime/core'
-import { errorResponseSchema, settingsPatchSchema, settingsResponseSchema } from '@nn-anime/core'
+import type { ConfigPaths } from '@rona/core'
+import { errorResponseSchema, settingsPatchSchema, settingsResponseSchema } from '@rona/core'
 import type { Hono } from 'hono'
 import { z } from 'zod'
 import type { ServerContainer } from '../container'

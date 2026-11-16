@@ -24,8 +24,8 @@ import {
   errorResponseSchema,
   normalizeQuery,
   type ProviderError,
-} from '@nn-anime/core'
-import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
+} from '@rona/core'
+import type { CallOptions, Provider } from '@rona/provider-sdk'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
 

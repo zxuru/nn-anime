@@ -20,7 +20,7 @@
  *    en un log es una URL de video en un log.
  */
 
-import { AppError } from '@nn-anime/core'
+import { AppError } from '@rona/core'
 
 /** Entradas vivas a la vez. */
 export const DEFAULT_CAPACITY = 500

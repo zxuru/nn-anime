@@ -32,7 +32,7 @@ const ID_ACTUALIZACIONES: &str = "actualizaciones";
 const ID_SALIR: &str = "salir";
 
 /// El nombre que enseñan el tooltip y la primera opción del menú.
-const NOMBRE: &str = "nn-anime";
+const NOMBRE: &str = "RoNa";
 
 /// El icono viaja **dentro** del binario.
 ///

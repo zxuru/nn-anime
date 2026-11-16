@@ -20,7 +20,7 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import { type ProviderRef, StoreError } from '@nn-anime/core'
+import { type ProviderRef, StoreError } from '@rona/core'
 
 /**
  * Recursos que se revalidan en segundo plano.

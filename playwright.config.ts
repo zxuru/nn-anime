@@ -13,7 +13,7 @@
 
 import { defineConfig, devices } from '@playwright/test'
 
-const PUERTO = Number(process.env.NN_ANIME_E2E_PORT ?? '7801')
+const PUERTO = Number(process.env.RONA_E2E_PORT ?? '7801')
 
 /**
  * El arnés sirve una fuente **sin** `capabilities.download`, a propósito.

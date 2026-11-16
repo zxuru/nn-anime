@@ -12,7 +12,7 @@
  * cero y la fila no servía para continuar nada.
  */
 
-import type { ContinueWatchingItem } from '@nn-anime/core/api'
+import type { ContinueWatchingItem } from '@rona/core/api'
 import { isPlayMode, watchPath } from '../player/watch-route'
 
 /** La posición, en texto corto. */

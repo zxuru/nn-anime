@@ -12,7 +12,7 @@
  * quien está mirando.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { type ReactNode, useCallback, useState } from 'react'
 import { t } from '../../i18n'
 import { MARGEN_MAXIMO_S } from '../player/skip'

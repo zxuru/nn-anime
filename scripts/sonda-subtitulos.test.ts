@@ -120,14 +120,14 @@ describe('las etiquetas que se imprimen en crudo', () => {
 describe('las opciones de la línea de órdenes', () => {
   test('en Windows los plugins viven bajo LOCALAPPDATA', () => {
     expect(dirDeRepos({ LOCALAPPDATA: 'C:\\Users\\ana\\AppData\\Local' })).toBe(
-      join('C:\\Users\\ana\\AppData\\Local', 'nn-anime', 'repos'),
+      join('C:\\Users\\ana\\AppData\\Local', 'rona', 'repos'),
     )
   })
 
   test('fuera de Windows, bajo XDG_DATA_HOME o el directorio personal', () => {
-    expect(dirDeRepos({ XDG_DATA_HOME: '/datos' })).toBe(join('/datos', 'nn-anime', 'repos'))
+    expect(dirDeRepos({ XDG_DATA_HOME: '/datos' })).toBe(join('/datos', 'rona', 'repos'))
     expect(dirDeRepos({ HOME: '/home/ana' })).toBe(
-      join('/home/ana', '.local', 'share', 'nn-anime', 'repos'),
+      join('/home/ana', '.local', 'share', 'rona', 'repos'),
     )
   })
 
@@ -164,7 +164,7 @@ describe('las opciones de la línea de órdenes', () => {
 
 describe('encontrar el plugin instalado', () => {
   test('busca por nombre hasta cierta hondura y no más', async () => {
-    const raiz = await mkdtemp(join(tmpdir(), 'nn-anime-sonda-'))
+    const raiz = await mkdtemp(join(tmpdir(), 'rona-sonda-'))
 
     try {
       const fondo = join(raiz, 'a', 'b', 'c', 'd', 'e')
@@ -182,6 +182,6 @@ describe('encontrar el plugin instalado', () => {
   })
 
   test('un directorio que no existe devuelve nada y no lanza', async () => {
-    expect(await buscarArchivos(join(tmpdir(), 'nn-anime-no-existe-jamas'), 'x.ts')).toEqual([])
+    expect(await buscarArchivos(join(tmpdir(), 'rona-no-existe-jamas'), 'x.ts')).toEqual([])
   })
 })

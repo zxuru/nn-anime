@@ -11,7 +11,7 @@
  * función nueva y un diálogo que se descarta.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { type Driver, type DriveStep, driver } from 'driver.js'
 import { type Hints, hints } from 'driver.js/hints'
 import { useEffect, useSyncExternalStore } from 'react'

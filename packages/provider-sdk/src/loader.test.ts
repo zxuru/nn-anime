@@ -37,7 +37,7 @@ async function withRepo<T>(
   files: Readonly<Record<string, string>>,
   body: (directory: string) => Promise<T>,
 ): Promise<T> {
-  const directory = await mkdtemp(join(tmpdir(), 'nn-anime-repo-'))
+  const directory = await mkdtemp(join(tmpdir(), 'rona-repo-'))
 
   try {
     for (const [name, content] of Object.entries(files)) {
@@ -181,7 +181,7 @@ describe('aislamiento de fallos', () => {
 
 describe('el directorio', () => {
   test('uno que no existe no es un error: es un arranque sin plugins', async () => {
-    const missing = join(tmpdir(), 'nn-anime-no-existe-jamas')
+    const missing = join(tmpdir(), 'rona-no-existe-jamas')
     const report = await loadProviders({ directory: missing })
 
     expect(report.active).toEqual([])
@@ -234,7 +234,7 @@ describe('el directorio', () => {
 
   test('se lee el directorio que se pasa, no el del usuario', async () => {
     // Si el loader tuviera un directorio por defecto, éste aparecería.
-    const ajeno = await mkdtemp(join(tmpdir(), 'nn-anime-xdg-'))
+    const ajeno = await mkdtemp(join(tmpdir(), 'rona-xdg-'))
     await copyFile(join(FIXTURES, 'bueno.ts'), join(ajeno, 'bueno.ts'))
 
     try {

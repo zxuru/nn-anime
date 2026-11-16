@@ -2,9 +2,9 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import type { AnimeDetail, ProviderRef } from '@nn-anime/core'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import { openDb, runMigrations } from '@rona/catalog-store'
+import type { AnimeDetail, ProviderRef } from '@rona/core'
+import { createFixtureProvider } from '@rona/providers-fixture'
 import { createApp, createContainer } from '../index'
 
 const PORT = 7718
@@ -35,8 +35,8 @@ interface Contexto {
 }
 
 async function conApp<T>(body: (contexto: Contexto) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-detail-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-detail-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const container = createContainer({ db })
   const proveedor = createFixtureProvider()
@@ -154,8 +154,8 @@ describe('GET /api/anime/:providerId/:ref/related', () => {
   })
 
   test('no llama al proveedor: con la lista de plugins vacía sigue contestando', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-detail-sin-'))
-    const db = openDb(join(dir, 'nn-anime.db'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-detail-sin-'))
+    const db = openDb(join(dir, 'rona.db'))
     runMigrations(db)
     const container = createContainer({ db })
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { providerDraftSchema } from '@nn-anime/core/api'
+import { providerDraftSchema } from '@rona/core/api'
 import { EMPTY_FORM, type ProviderForm, toProviderDraft } from './draft'
 
 function form(overrides: Partial<ProviderForm> = {}): ProviderForm {

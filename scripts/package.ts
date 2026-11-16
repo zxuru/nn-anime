@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Empaqueta nn-anime para entrega **portable**.
+ * Empaqueta rona para entrega **portable**.
  *
  * Un ejecutable autocontenido por plataforma y, cuando la plataforma lo permite,
  * su artefacto portable: el AppImage en Linux y el `.app` comprimido en macOS.
@@ -145,11 +145,11 @@ export async function checkAssets(): Promise<void> {
 export function portableName(version: string, spec: BinarySpec): string {
   switch (spec.platform) {
     case 'windows':
-      return `nn-anime-${version}-windows-${spec.arch}.exe`
+      return `rona-${version}-windows-${spec.arch}.exe`
     case 'macos':
-      return `nn-anime-${version}-macos-${spec.arch}.zip`
+      return `rona-${version}-macos-${spec.arch}.zip`
     case 'linux':
-      return `nn-anime-${version}-linux-${spec.arch}.AppImage`
+      return `rona-${version}-linux-${spec.arch}.AppImage`
   }
 }
 
@@ -203,7 +203,7 @@ export async function packageApp(options: PackageOptions = {}): Promise<Packaged
   await mkdir(RELEASE_DIR, { recursive: true })
 
   const stage = join(BUILD_DIR, target)
-  const binary = join(stage, `nn-anime${spec.extension}`)
+  const binary = join(stage, `rona${spec.extension}`)
   let smoked = false
 
   if (options.soloArtefacto === true) {

@@ -23,7 +23,7 @@ import {
   type SearchResult,
   StoreError,
   titleKindSchema,
-} from '@nn-anime/core'
+} from '@rona/core'
 import { cacheHit, TTL_SECONDS } from '../cache-policy'
 import { animeIdOf, markEpisodesFetched, replaceEpisodes } from './episodes'
 

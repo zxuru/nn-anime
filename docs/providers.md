@@ -1,7 +1,7 @@
 # Escribir un plugin de proveedor
 
 Un plugin es **un archivo `.ts`** que exporta por defecto un objeto que cumple el contrato. Se copia a
-`~/.config/nn-anime/providers/` y la aplicación lo carga al arrancar.
+`~/.config/rona/providers/` y la aplicación lo carga al arrancar.
 
 Los proveedores de sitios reales que escribimos viven en su propio repositorio,
 [nn-anime-plugins](https://github.com/zxuru/nn-anime-plugins), y de ahí se copian a esa misma carpeta.
@@ -60,7 +60,7 @@ está.
 
 Si el sitio es una API JSON —una dirección, unas rutas y unos nombres de campo— no hace falta
 escribir el archivo. En **Ajustes** hay un formulario: se rellena, se guarda, y el plugin queda escrito
-en `~/.config/nn-anime/providers/<id>.ts` y **activo al instante, sin reiniciar**.
+en `~/.config/rona/providers/<id>.ts` y **activo al instante, sin reiniciar**.
 
 | Campo | Qué es |
 |---|---|
@@ -123,8 +123,8 @@ Este plugin devuelve datos inventados. **No incluye ningún scraper**: la parte 
 es tuya, y este ejemplo no la enseña a propósito.
 
 ```ts
-// mi-proveedor.ts — se copia a ~/.config/nn-anime/providers/
-import type { Provider } from '@nn-anime/provider-sdk'
+// mi-proveedor.ts — se copia a ~/.config/rona/providers/
+import type { Provider } from '@rona/provider-sdk'
 
 const BASE = 'https://mi-sitio.example'
 
@@ -370,7 +370,7 @@ bun test packages/providers-fixture   # el ejemplo, como referencia
 Y desde código:
 
 ```ts
-import { assertConforms, inspectConformance } from '@nn-anime/provider-sdk'
+import { assertConforms, inspectConformance } from '@rona/provider-sdk'
 
 const resultado = assertConforms(miProveedor)
 if (!resultado.ok) {

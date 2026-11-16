@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { ProviderError } from '@nn-anime/core'
+import { ProviderError } from '@rona/core'
 import {
   apiVersionMismatch,
   classifyThrow,

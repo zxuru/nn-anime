@@ -12,9 +12,9 @@
  * Para quien no ve el tooltip, el mismo texto va en un `solo-lectores`.
  */
 
-import { downloadStartResponseSchema } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { ProviderRef } from '@nn-anime/core/models'
+import { downloadStartResponseSchema } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { ProviderRef } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { apiPostJson } from '../../api/client'

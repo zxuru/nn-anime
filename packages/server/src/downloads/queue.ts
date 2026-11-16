@@ -17,7 +17,7 @@
 
 import { rm } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import type { DownloadPatch, DownloadRecord, DownloadStatus } from '@nn-anime/catalog-store'
+import type { DownloadPatch, DownloadRecord, DownloadStatus } from '@rona/catalog-store'
 import {
   createFfmpegRemux,
   createMuxRemux,
@@ -26,7 +26,7 @@ import {
   findFfmpeg,
   insideRoot,
   type RemuxFn,
-} from '@nn-anime/media-proxy'
+} from '@rona/media-proxy'
 
 /** Lo mínimo del almacén que la cola necesita. */
 export interface DownloadStorePort {

@@ -25,8 +25,8 @@
  * leerla; con movimiento reducido no se mueve nada.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { AnimeSummary } from '@nn-anime/core/models'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { AnimeSummary } from '@rona/core/models'
 import { Flame } from 'lucide-react'
 import { Fragment, type ReactNode, type RefObject, useEffect, useRef } from 'react'
 import { t } from '../../i18n'

@@ -6,7 +6,7 @@
 
 
 Module id: `catalog-store` · Depende de: `core` · Paquete: `packages/catalog-store`
-Convenciones heredadas de `SPEC-nn-anime.md`. El modelo de datos completo vive allí; este
+Convenciones heredadas de `SPEC-rona.md`. El modelo de datos completo vive allí; este
 documento define la API de repositorio y la política de caché.
 
 ## Objective
@@ -119,7 +119,7 @@ bueno por un fallo de red.
 90 días, y todo `stream_cache` vencido hace más de 1 día. Es la única reducción de disco y se
 ofrece como comando manual y como tarea al arrancar si la base supera 200 MB.
 
-Esquema, migraciones y TTL: ver Data Model en `SPEC-nn-anime.md`. Las migraciones son archivos
+Esquema, migraciones y TTL: ver Data Model en `SPEC-rona.md`. Las migraciones son archivos
 `NNNN-nombre.sql` numerados, aplicados en una transacción, registrados en `schema_version`.
 
 ## Estructura del módulo

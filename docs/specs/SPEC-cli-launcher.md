@@ -7,7 +7,7 @@
 
 Module id: `cli-launcher` · Depende de: `core`, `server` · Paquete: `packages/cli`
 Convenciones (Commands, Project Structure, Code Style, Testing Strategy, Boundaries):
-heredadas de `SPEC-nn-anime.md`. Este documento define sólo lo propio del módulo.
+heredadas de `SPEC-rona.md`. Este documento define sólo lo propio del módulo.
 
 ## Objective
 
@@ -16,9 +16,9 @@ viendo contenido. Sin pasos manuales, sin configuración previa, sin terminal in
 
 Éxito significa:
 
-1. `nn-anime` ejecuta migraciones, levanta el server en `127.0.0.1` en un puerto libre y abre
+1. `rona` ejecuta migraciones, levanta el server en `127.0.0.1` en un puerto libre y abre
    el navegador en una URL con token, en menos de 2 s en un equipo ya instalado.
-2. `nn-anime "shingeki"` abre directamente el resultado de búsqueda de ese término.
+2. `RoNa "shingeki"` abre directamente el resultado de búsqueda de ese término.
 3. Ctrl+C cierra el server, mata el mpv hijo si lo hay y deja la base consistente.
 4. Si el puerto está ocupado, elige otro y lo informa. Nunca falla por puerto ocupado.
 5. Si `mpv` no está instalado, la app arranca igual y el reproductor web sigue funcionando.
@@ -28,7 +28,7 @@ viendo contenido. Sin pasos manuales, sin configuración previa, sin terminal in
 Interfaz de línea de comandos. Es la única superficie pública del módulo.
 
 ```
-nn-anime [query] [flags]
+RoNa [query] [flags]
 
 Argumentos:
   query                 texto opcional; si existe, abre /search?q=<query>
@@ -36,10 +36,10 @@ Argumentos:
 Flags:
   -p, --port <n>        puerto fijo. Por defecto: 7717, y si está ocupado, uno libre del SO
       --no-open         no abrir el navegador; imprime la URL
-      --data-dir <p>    sobrescribe $XDG_DATA_HOME/nn-anime
-      --config-dir <p>  sobrescribe $XDG_CONFIG_HOME/nn-anime
+      --data-dir <p>    sobrescribe $XDG_DATA_HOME/RoNa
+      --config-dir <p>  sobrescribe $XDG_CONFIG_HOME/RoNa
       --provider <id>   restringe la búsqueda a un proveedor. Repetible
-      --lang <code>     idioma de los mensajes del CLI. Por defecto `es`, o `NN_ANIME_LANG`
+      --lang <code>     idioma de los mensajes del CLI. Por defecto `es`, o `RONA_LANG`
   -v, --verbose         nivel de log debug
   -h, --help
       --version
@@ -73,7 +73,7 @@ Comportamiento de arranque, en orden estricto:
 
 ```
 packages/cli/
-├─ bin/nn-anime              shim ejecutable (#!/usr/bin/env bun)
+├─ bin/RoNa              shim ejecutable (#!/usr/bin/env bun)
 ├─ src/index.ts              parseo de flags y orquestación
 ├─ src/args.ts               parser de flags, sin dependencias externas
 ├─ src/open-browser.ts       apertura por SO, con fallback a imprimir la URL
@@ -94,7 +94,7 @@ Estado a `579 tests`: **trece verificados, tres pendientes por diseño.**
       además caduca a los cinco minutos.
 - [x] Ninguna respuesta del server carece de las cabeceras de seguridad del spec de proyecto.
       **Verificado** en siete familias de respuesta y en la tabla completa de rutas.
-- [x] `nn-anime --port 7717` con 7717 ocupado arranca en otro puerto y lo informa. **Verificado** en
+- [x] `RoNa --port 7717` con 7717 ocupado arranca en otro puerto y lo informa. **Verificado** en
       vivo: «El puerto 7717 estaba ocupado; se usa el 38109». En desarrollo falla en su lugar, a
       propósito: el proxy apunta a un puerto fijo.
 - [x] `config.json` se carga si existe y las banderas ganan sobre él. **Verificado** en vivo: con
@@ -105,11 +105,11 @@ Estado a `579 tests`: **trece verificados, tres pendientes por diseño.**
       uno que lanza al importarse dan `Proveedores activos: mio` y el rechazo con el archivo y la
       causa; sin plugins lo dice con la ruta donde copiarlos; dos con el mismo `id` dejan el primero
       y reportan el segundo.
-- [x] `nn-anime "naruto"` abre `/search?q=naruto`. **Verificado** en vivo con
-      `nn-anime naruto shippuden` → `Location: /search?q=naruto%20shippuden`.
-- [x] `nn-anime --help` sale con código 0 y no arranca el server. **Verificado** por test, con el
+- [x] `RoNa "naruto"` abre `/search?q=naruto`. **Verificado** en vivo con
+      `RoNa naruto shippuden` → `Location: /search?q=naruto%20shippuden`.
+- [x] `RoNa --help` sale con código 0 y no arranca el server. **Verificado** por test, con el
       arranque inyectado para poder afirmar que no se llama.
-- [x] `nn-anime --port abc` sale con código 2. **Verificado**.
+- [x] `RoNa --port abc` sale con código 2. **Verificado**.
 - [ ] Ctrl+C durante la reproducción en mpv deja el proceso mpv muerto: se verifica con `pgrep`.
       → **T29**, cuando exista el reproductor. El cierre ordenado ya está y mata a los hijos
       registrados, pero todavía no hay ningún hijo que matar.
@@ -124,7 +124,7 @@ Estado a `579 tests`: **trece verificados, tres pendientes por diseño.**
       nada fuera de las rutas dadas, que es de **T46**.
 - [ ] `package.json` del CLI declara `bin`, `files` y `publishConfig`; `bun pm pack` produce un
       tarball instalable, sin publicarlo. **Parcial**: `bin` está declarado y el shim funciona
-      (`nn-anime 0.1.0`), y `bun pm pack` sale con 0. Falta `files` y `publishConfig` en **T46**, y
+      (`RoNa 0.1.0`), y `bun pm pack` sale con 0. Falta `files` y `publishConfig` en **T46**, y
       hay dos cosas que hay que resolver antes de publicar de verdad, descubiertas al ejecutarlo:
       el paquete **incluye los tests** (no hay `files` que los excluya) y las dependencias son
       `workspace:*`, que npm no sabe resolver —`bun publish` sí las reescribe—.
@@ -171,6 +171,6 @@ rutas llegan de las banderas y del entorno.
 
 ## Open Questions
 
-1. ¿Se quiere además un modo terminal puro, tipo `nn-anime --list`, para listar resultados sin
+1. ¿Se quiere además un modo terminal puro, tipo `RoNa --list`, para listar resultados sin
    navegador? ani-cli lo hace con un menú interactivo. No está en v1.
 2. ¿El binario debe quedar en el `PATH` vía `bun link`, o basta `bun run start` en desarrollo?

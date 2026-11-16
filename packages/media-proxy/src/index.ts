@@ -1,5 +1,5 @@
 /**
- * Superficie pública de `@nn-anime/media-proxy`.
+ * Superficie pública de `@rona/media-proxy`.
  *
  * El módulo que se interpone entre el navegador y los sitios de video: emite
  * tickets opacos para que el cliente nunca vea una URL del upstream, y proxya

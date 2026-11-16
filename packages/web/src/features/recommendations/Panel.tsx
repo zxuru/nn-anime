@@ -10,8 +10,8 @@
  * refresca con lo que el usuario busca ahora, no sólo con lo que vio.
  */
 
-import type { RecommendationResponse } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import type { RecommendationResponse } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { Cover } from '../../components/Cover'

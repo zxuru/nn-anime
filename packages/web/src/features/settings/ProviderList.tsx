@@ -18,9 +18,9 @@
  * «ACTIVO» y «PREFERIDO» se distinguen por la forma además de por el texto.
  */
 
-import type { SettingsResponse } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import { mediaOf } from '@nn-anime/core/media'
+import type { SettingsResponse } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import { mediaOf } from '@rona/core/media'
 import {
   Bell,
   Captions,

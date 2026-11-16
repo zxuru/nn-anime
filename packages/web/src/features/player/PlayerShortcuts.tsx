@@ -11,7 +11,7 @@
  * estado de si está abierto.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode, RefObject } from 'react'
 import { t } from '../../i18n'
 

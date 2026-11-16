@@ -7,7 +7,7 @@
  * nadie lo note.
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import type { PluginFetch, PluginFetchCall } from '@nn-anime/core'
+import type { PluginFetch, PluginFetchCall } from '@rona/core'
 import { search } from './call'
 import { pluginFetchFor, setPluginFetchFactory } from './network'
 import type { CallOptions, Provider } from './types'

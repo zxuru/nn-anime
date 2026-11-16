@@ -26,8 +26,8 @@ import {
   type SearchResult,
   searchEventSchema,
   searchQuerySchema,
-} from '@nn-anime/core'
-import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
+} from '@rona/core'
+import type { CallOptions, Provider } from '@rona/provider-sdk'
 import type { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import type { AniListCatalog } from '../anilist/catalog'

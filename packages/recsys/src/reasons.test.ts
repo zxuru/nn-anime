@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { Candidate } from '@nn-anime/core'
+import type { Candidate } from '@rona/core'
 import { es, t } from './i18n/es'
 import { DEFAULT_LAMBDA, mmr, type RankedCandidate, similarity } from './mmr'
 import { buildReasons, mainReason, type ReasonCandidate } from './reasons'

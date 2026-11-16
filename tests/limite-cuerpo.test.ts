@@ -9,14 +9,14 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { openDb } from '@nn-anime/catalog-store'
+import { openDb } from '@rona/catalog-store'
 import {
   createContainer,
   createSession,
   MAX_REQUEST_BODY_BYTES,
   SESSION_COOKIE,
   startServer,
-} from '@nn-anime/server'
+} from '@rona/server'
 
 describe('el cuerpo de una petición tiene tope', () => {
   test(`un cuerpo de más de ${MAX_REQUEST_BODY_BYTES} bytes no se lee`, async () => {

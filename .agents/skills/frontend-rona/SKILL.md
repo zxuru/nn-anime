@@ -1,9 +1,9 @@
 ---
-name: frontend-nn-anime
-description: Revisar o mejorar la interfaz de nn-anime (packages/web) con las skills de diseño, tipografía y movimiento. Úsala cuando pidan revisar, pulir, auditar, rediseñar o animar el frontend, y antes de editar un componente, los estilos o el movimiento de la app.
+name: frontend-rona
+description: Revisar o mejorar la interfaz de RoNa (packages/web) con las skills de diseño, tipografía y movimiento. Úsala cuando pidan revisar, pulir, auditar, rediseñar o animar el frontend, y antes de editar un componente, los estilos o el movimiento de la app.
 ---
 
-# Frontend de nn-anime
+# Frontend de RoNa
 
 React 19 + Vite 8, sin framework de estilos: `packages/web/src/styles/tokens.css` para los tokens y,
 detrás, la estructura partida por responsabilidad —`base.css`, `obra.css`, `vitrina.css` y

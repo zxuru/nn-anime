@@ -24,8 +24,8 @@ import {
   type StoreConnection,
   type StoredEpisodePage,
   type WriteQueue,
-} from '@nn-anime/catalog-store'
-import type { FeedEntry, StreamRequest, StreamSource } from '@nn-anime/core'
+} from '@rona/catalog-store'
+import type { FeedEntry, StreamRequest, StreamSource } from '@rona/core'
 import {
   type AnimeDetail,
   type Episode,
@@ -39,7 +39,7 @@ import {
   type Result,
   type SearchResult,
   seasonOf,
-} from '@nn-anime/core'
+} from '@rona/core'
 import {
   createMpvPlayer,
   createPlaylistCache,
@@ -51,7 +51,7 @@ import {
   type SpawnMpv,
   spawnMpvProcess,
   type TicketStore,
-} from '@nn-anime/media-proxy'
+} from '@rona/media-proxy'
 import {
   type CallOptions,
   getAnime as fetchAnime,
@@ -65,7 +65,7 @@ import {
   type Provider,
   search as searchProvider,
   setPluginFetchFactory,
-} from '@nn-anime/provider-sdk'
+} from '@rona/provider-sdk'
 import { type CacheOutcome, readThrough } from './cache-read'
 
 /**
@@ -272,7 +272,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
   /*
    * La capacidad de red de los plugins, registrada una vez por contenedor.
    *
-   * `createPluginFetch` lee `NN_ANIME_ALLOW_LOOPBACK` por su cuenta —la misma
+   * `createPluginFetch` lee `RONA_ALLOW_LOOPBACK` por su cuenta —la misma
    * variable que el proxy, y el aviso de arranque del CLI ya cubre las dos—, así
    * que aquí no hay nada que pasarle: la fábrica se construye en cada llamada, con
    * el `signal` y el `timeoutMs` de quien la pidió.

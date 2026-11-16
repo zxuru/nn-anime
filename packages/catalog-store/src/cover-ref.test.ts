@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { ProviderRef, SearchResult } from '@nn-anime/core'
+import type { ProviderRef, SearchResult } from '@rona/core'
 import { findCoverUrl } from './cover-ref'
 import { openDb } from './db'
 import { runMigrations } from './migrations/runner'
@@ -42,8 +42,8 @@ function cerrarBase(db: Database): void {
 }
 
 async function withDb<T>(body: (db: Database) => T): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-portada-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-portada-'))
+  const db = openDb(join(dir, 'rona.db'))
 
   try {
     runMigrations(db)

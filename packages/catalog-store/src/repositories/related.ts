@@ -41,7 +41,7 @@ import {
   titleKindSchema,
   type WorkItem,
   type WorkNames,
-} from '@nn-anime/core'
+} from '@rona/core'
 
 /**
  * Con qué se emparejan los candidatos.

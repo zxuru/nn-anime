@@ -8,7 +8,7 @@
  * 1. **No destruyen datos.** Un `DROP TABLE` o un `DELETE FROM` en una migración
  *    borra lo que el usuario tenía y no hay vuelta atrás desde la aplicación. Si
  *    de verdad hace falta una excepción, el archivo lo declara con
- *    `-- nn-anime: destructiva-ok: <motivo>` y el revisor lo ve en el diff. Sin
+ *    `-- rona: destructiva-ok: <motivo>` y el revisor lo ve en el diff. Sin
  *    la marca, la comprobación falla; con ella, queda escrito por qué.
  * 2. **No manejan transacciones.** El runner ya envuelve cada archivo en una, y
  *    un `BEGIN`/`COMMIT` dentro la anidaría o la cerraría a la mitad.
@@ -21,7 +21,7 @@
 import { type MigrationFile, sinComentarios, transactionControl } from './runner'
 
 /** El comentario que permite una migración destructiva, con su motivo. */
-export const DESTRUCTIVE_MARKER = 'nn-anime: destructiva-ok:'
+export const DESTRUCTIVE_MARKER = 'rona: destructiva-ok:'
 
 /**
  * Lo que se considera destructivo.

@@ -13,7 +13,7 @@ import {
 } from './migrations/runner'
 
 /**
- * Las nueve tablas del Data Model de `docs/specs/SPEC-nn-anime.md`.
+ * Las nueve tablas del Data Model de `docs/specs/SPEC-rona.md`.
  *
  * Están escritas aquí a mano y no leídas del SQL a propósito: si el test las
  * sacara del esquema, comprobaría que el esquema es igual a sí mismo. La tarea
@@ -67,8 +67,8 @@ function cerrarBase(db: Database): void {
 }
 
 async function withDb<T>(body: (db: Database, path: string) => Promise<T> | T): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-store-'))
-  const path = join(dir, 'nn-anime.db')
+  const dir = await mkdtemp(join(tmpdir(), 'rona-store-'))
+  const path = join(dir, 'rona.db')
   const db = openDb(path)
 
   try {
@@ -125,7 +125,7 @@ describe('apertura de la base', () => {
   })
 
   test('crea la base si no existe', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-store-'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-store-'))
     const db = openDb(join(dir, 'nueva.db'))
 
     try {
@@ -142,7 +142,7 @@ describe('apertura de la base', () => {
     await withDb(async (_db, path) => {
       const archivos = await readdir(join(path, '..'))
 
-      expect(archivos.some((name) => name.includes('nn-anime.db'))).toBe(true)
+      expect(archivos.some((name) => name.includes('rona.db'))).toBe(true)
     })
   })
 
@@ -415,8 +415,8 @@ describe('segunda ejecución', () => {
   })
 
   test('cerrar y reabrir no vuelve a aplicar nada', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-store-'))
-    const path = join(dir, 'nn-anime.db')
+    const dir = await mkdtemp(join(tmpdir(), 'rona-store-'))
+    const path = join(dir, 'rona.db')
     const abiertas: Database[] = []
 
     try {
@@ -559,7 +559,7 @@ describe('archivos de migración', () => {
   })
 
   test('ignora lo que no tiene nombre de migración', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-mig-'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-mig-'))
 
     try {
       await Bun.write(join(dir, '0001-nueva.sql'), 'CREATE TABLE nueva (a INTEGER)')
@@ -575,7 +575,7 @@ describe('archivos de migración', () => {
   })
 
   test('un hueco en la numeración se rechaza en vez de aplicarse a ciegas', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-mig-'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-mig-'))
 
     try {
       await Bun.write(join(dir, '0001-una.sql'), 'SELECT 1')
@@ -588,7 +588,7 @@ describe('archivos de migración', () => {
   })
 
   test('dos migraciones con la misma versión se rechazan', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-mig-'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-mig-'))
 
     try {
       await Bun.write(join(dir, '0001-una.sql'), 'SELECT 1')

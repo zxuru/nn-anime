@@ -275,7 +275,7 @@ mod pruebas {
     /// Así que se reejecuta a sí misma una vez —sólo una— como anfitrión: un
     /// proceso que llama a [`before_spawn`]/[`after_spawn`] con el código que se
     /// entrega, lanza al «servidor» y se queda esperando a que lo maten.
-    const ROL: &str = "NN_ANIME_PRUEBA_MUERTE";
+    const ROL: &str = "RONA_PRUEBA_MUERTE";
 
     const ANFITRION: &str = "anfitrion";
 

@@ -12,19 +12,14 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import {
-  type CatalogStore,
-  openDb,
-  runMigrations,
-  type StoreConnection,
-} from '@nn-anime/catalog-store'
+import { type CatalogStore, openDb, runMigrations, type StoreConnection } from '@rona/catalog-store'
 import type {
   AiringResponse,
   AniListRelatedResponse,
   DiscoverResponse,
   EnrichmentResponse,
-} from '@nn-anime/core'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
+} from '@rona/core'
+import { createFixtureProvider } from '@rona/providers-fixture'
 import { type FakeAniList, fakeAniList, type RawMediaFixture } from '../__fixtures__/anilist'
 import { createApp, createContainer } from '../index'
 
@@ -68,8 +63,8 @@ async function conApp<T>(
   fixture: Parameters<typeof fakeAniList>[0],
   body: (contexto: Contexto) => Promise<T>,
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-anilist-rutas-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-anilist-rutas-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
 
   const fake = fakeAniList(fixture)

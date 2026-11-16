@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 import { expect, type Page } from '@playwright/test'
 
 /** El puerto del servidor del e2e. */
-export const PORT = Number(process.env.NN_ANIME_E2E_PORT ?? '7801')
+export const PORT = Number(process.env.RONA_E2E_PORT ?? '7801')
 export const BASE = `http://127.0.0.1:${PORT}`
 
 const RUTA_TOKEN = fileURLToPath(new URL('../../../.tmp/e2e-boot-token', import.meta.url))

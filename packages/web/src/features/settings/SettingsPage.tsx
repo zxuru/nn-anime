@@ -13,7 +13,7 @@
  * una sola fuente para lo que se lee en el repo y lo que se lee en la pantalla.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { ExternalLink, TriangleAlert } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'

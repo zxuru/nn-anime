@@ -10,7 +10,7 @@
  * «Ya vistos» del Perfil, y así el botón y la lista hablan el mismo idioma.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { CircleCheck } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'

@@ -2,7 +2,7 @@
  * Configuración del proceso: rutas de datos, configuración y caché.
  *
  * Precedencia, de mayor a menor: overrides de línea de comandos, variables
- * `NN_ANIME_*`, variables `XDG_*`, valores por defecto de la plataforma.
+ * `RONA_*`, variables `XDG_*`, valores por defecto de la plataforma.
  *
  * Los valores por defecto **no son los de XDG a secas**: XDG es la convención de
  * Linux y en Windows no existe. Bun no define `HOME` en Windows —sólo
@@ -16,13 +16,16 @@
  * tocar el sistema de archivos.
  */
 
-import { chmod, mkdir } from 'node:fs/promises'
+import { access, chmod, mkdir, rename } from 'node:fs/promises'
 import { isAbsolute, join, parse, resolve } from 'node:path'
 import { AppError } from './errors'
 import { DEFAULT_LOCALE, t } from './i18n'
 
 /** Nombre del directorio de la aplicación dentro de cada raíz del sistema. */
-export const APP_DIR_NAME = 'nn-anime'
+export const APP_DIR_NAME = 'rona'
+
+/** El nombre del directorio que usaba la versión anterior. */
+export const LEGACY_APP_DIR_NAME = 'nn-anime'
 
 export interface ConfigPaths {
   readonly dataDir: string
@@ -45,10 +48,10 @@ export interface ConfigEnvironment {
   readonly XDG_DATA_HOME?: string | undefined
   readonly XDG_CONFIG_HOME?: string | undefined
   readonly XDG_CACHE_HOME?: string | undefined
-  readonly NN_ANIME_DATA_DIR?: string | undefined
-  readonly NN_ANIME_CONFIG_DIR?: string | undefined
-  readonly NN_ANIME_CACHE_DIR?: string | undefined
-  readonly NN_ANIME_LANG?: string | undefined
+  readonly RONA_DATA_DIR?: string | undefined
+  readonly RONA_CONFIG_DIR?: string | undefined
+  readonly RONA_CACHE_DIR?: string | undefined
+  readonly RONA_LANG?: string | undefined
 }
 
 export interface ConfigOverrides {
@@ -170,21 +173,21 @@ export function loadConfig(options: LoadConfigOptions = {}): ConfigPaths {
 
   const dataDir = resolveDir({
     override: overrides.dataDir,
-    fromEnv: env.NN_ANIME_DATA_DIR,
+    fromEnv: env.RONA_DATA_DIR,
     xdgRoot: env.XDG_DATA_HOME,
     fallback: roots.data,
   })
 
   const configDir = resolveDir({
     override: overrides.configDir,
-    fromEnv: env.NN_ANIME_CONFIG_DIR,
+    fromEnv: env.RONA_CONFIG_DIR,
     xdgRoot: env.XDG_CONFIG_HOME,
     fallback: roots.config,
   })
 
   const cacheDir = resolveDir({
     override: overrides.cacheDir,
-    fromEnv: env.NN_ANIME_CACHE_DIR,
+    fromEnv: env.RONA_CACHE_DIR,
     xdgRoot: env.XDG_CACHE_HOME,
     fallback: roots.cache,
   })
@@ -211,7 +214,7 @@ export function loadConfig(options: LoadConfigOptions = {}): ConfigPaths {
     configDir,
     cacheDir,
     providersDir: join(configDir, 'providers'),
-    dbPath: join(dataDir, 'nn-anime.db'),
+    dbPath: join(dataDir, 'rona.db'),
     configFile: join(configDir, 'config.json'),
   }
 }
@@ -232,7 +235,86 @@ export function loadConfig(options: LoadConfigOptions = {}): ConfigPaths {
  * directorio queda escribible por su dueño; quién más puede entrar lo decide la
  * ACL que hereda de `%LOCALAPPDATA%`, que ya es del usuario.
  */
+/** Los sufijos de la base: el archivo y sus compañeros de WAL. */
+const DB_SUFFIXES = ['', '-wal', '-shm'] as const
+
+async function existe(ruta: string): Promise<boolean> {
+  try {
+    await access(ruta)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * La ruta hermana con el nombre anterior, o `undefined` si `dir` no es una de
+ * las carpetas del producto.
+ *
+ * Sólo se toca el último segmento —o el penúltimo, para `cache` en Windows—:
+ * buscar el nombre en cualquier posición renombraría una carpeta del usuario que
+ * se llamara igual, y eso sería un desastre.
+ */
+function hermanaAnterior(dir: string): string | undefined {
+  const separador = dir.includes('\\') ? '\\' : '/'
+  const partes = dir.split(/[\\/]/)
+  const ultimo = partes.at(-1)
+
+  if (ultimo === APP_DIR_NAME) {
+    return [...partes.slice(0, -1), LEGACY_APP_DIR_NAME].join(separador)
+  }
+
+  if (ultimo === 'cache' && partes.at(-2) === APP_DIR_NAME) {
+    return [...partes.slice(0, -2), LEGACY_APP_DIR_NAME, 'cache'].join(separador)
+  }
+
+  return undefined
+}
+
+/**
+ * Traslada una sola vez lo que quedó con el nombre anterior.
+ *
+ * Sin esto, el primer arranque con «RoNa» abriría una base vacía y el historial
+ * parecería perdido. Se hace **antes** de crear las carpetas: si la nueva ya
+ * existe, no se mezcla nada —manda la nueva—; y si el traslado falla, se lanza
+ * para no arrancar con una base vacía sin decirlo.
+ *
+ * La base también cambia de nombre (`nn-anime.db` → `rona.db`) dentro de la
+ * carpeta de datos, que es el caso de Docker, donde el directorio se monta y no
+ * se renombra.
+ */
+export async function migrateLegacyDirs(config: ConfigPaths): Promise<void> {
+  for (const nuevo of [config.dataDir, config.configDir, config.cacheDir]) {
+    const viejo = hermanaAnterior(nuevo)
+    if (viejo === undefined || (await existe(nuevo)) || !(await existe(viejo))) continue
+
+    try {
+      await rename(viejo, nuevo)
+    } catch (error) {
+      throw new AppError({
+        code: 'config',
+        message: `no se pudo trasladar ${viejo} a ${nuevo}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        context: { viejo, nuevo },
+        scope: 'config',
+        op: 'migrateLegacyDirs',
+      })
+    }
+  }
+
+  for (const sufijo of DB_SUFFIXES) {
+    const vieja = join(config.dataDir, `nn-anime.db${sufijo}`)
+    const nueva = join(config.dataDir, `rona.db${sufijo}`)
+
+    if ((await existe(nueva)) || !(await existe(vieja))) continue
+    await rename(vieja, nueva)
+  }
+}
+
 export async function ensureDirs(config: ConfigPaths): Promise<readonly string[]> {
+  await migrateLegacyDirs(config)
+
   const dirs = [config.dataDir, config.configDir, config.cacheDir, config.providersDir]
 
   const fallos: string[] = []

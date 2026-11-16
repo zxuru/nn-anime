@@ -17,8 +17,8 @@
  * acaba de cambiar debajo de él.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { AnimeSummary } from '@nn-anime/core/models'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { AnimeSummary } from '@rona/core/models'
 import { ChevronLeft, RefreshCw, TriangleAlert } from 'lucide-react'
 import { type ReactNode, useEffect, useRef } from 'react'
 import type { Fallo } from '../../api/fallo'

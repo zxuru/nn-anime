@@ -12,8 +12,8 @@
  * o está el Perfil o está en error y se puede reintentar.
  */
 
-import type { ProfileResponse, WatchHistoryResponse } from '@nn-anime/core/api'
-import { profileResponseSchema, watchHistoryResponseSchema } from '@nn-anime/core/api'
+import type { ProfileResponse, WatchHistoryResponse } from '@rona/core/api'
+import { profileResponseSchema, watchHistoryResponseSchema } from '@rona/core/api'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'

@@ -7,7 +7,7 @@
  * `cargarAjustes`, y la segunda encuentra la lectura hecha.
  */
 
-import type { ProviderSummary } from '@nn-anime/core/api'
+import type { ProviderSummary } from '@rona/core/api'
 import { useEffect, useSyncExternalStore } from 'react'
 import {
   type Ajustes,

@@ -13,8 +13,8 @@
  * El 400 queda para lo que sí es una petición mal escrita: parámetros inválidos.
  */
 
-import { errorResponseSchema, skipTimesResponseSchema } from '@nn-anime/core'
-import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
+import { errorResponseSchema, skipTimesResponseSchema } from '@rona/core'
+import type { FetchLike, Resolver } from '@rona/media-proxy'
 import type { Hono } from 'hono'
 import { type AniSkipClient, aniskipOfflineFromEnv, createAniSkipClient } from '../aniskip/client'
 import { createSkipTimesService } from '../aniskip/service'

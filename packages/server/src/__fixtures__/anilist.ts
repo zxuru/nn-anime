@@ -15,7 +15,7 @@
  * permite comprobar que la caché evita la segunda y que el lote va en una sola.
  */
 
-import type { FetchLike } from '@nn-anime/media-proxy'
+import type { FetchLike } from '@rona/media-proxy'
 import { ANILIST_IMAGE_HOSTS } from '../anilist/client'
 
 /** Una obra cruda de AniList, con lo que la aplicación lee. */

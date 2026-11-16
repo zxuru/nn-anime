@@ -17,7 +17,7 @@ pierde o que se mezcla.
   primero lo pendiente como su propio commit, y lo dice el mensaje.
 - Antes de commitear: `bun run typecheck`, `bun run lint` y `bun test` en verde en los paquetes
   tocados. Si algo está en rojo, se arregla o se declara en el mensaje del commit; no se calla.
-- El autor es `nn-anime <nn-anime@localhost>` (configuración local del repositorio).
+- El autor es `RoNa <RoNa@localhost>` (configuración local del repositorio).
 
 El detalle del listón, con sus ocho puntos, está en el **Definition of Done** de
 `tasks/plan.md`; esta sección es la parte que se olvida cuando nadie la repite.
@@ -48,7 +48,7 @@ bun run scripts/agente.ts abandonar T60 --si   # destructivo: tira la rama sin i
 - El worktree vive en `.worktrees/T60`, dentro del repo y en `.gitignore`: el sandbox de escritura
   de un agente se limita al workspace, así que un directorio hermano no se puede crear. Anidado no
   estorba: `bun test` y biome respetan lo ignorado (medido con una sonda que no se ejecutó).
-- Cada worktree necesita su `bun install`, su base de datos (`NN_ANIME_DATA_DIR=<worktree>/.data/`)
+- Cada worktree necesita su `bun install`, su base de datos (`RONA_DATA_DIR=<worktree>/.data/`)
   y su puerto (`--port`, 9000 más el número del task). Sin eso, dos agentes comparten el SQLite y
   aparece un `SQLITE_BUSY` que no es un fallo del código.
 - **La caché de bun, dentro del workspace y bajo un directorio ignorado.** En un worktree,
@@ -83,7 +83,7 @@ bun run scripts/agente.ts abandonar T60 --si   # destructivo: tira la rama sin i
    empezar. Cualquier herramienta que soporte skills lee la misma ruta.
 2. **El gancho `pre-commit`, en `.githooks/pre-commit`.** No se lee: se ejecuta. Frena el commit
    directo en `main` y nombra el archivo compartido o el spec que se está tocando. El merge de
-   `cerrar` pasa, porque lleva `MERGE_HEAD`. El integrador pasa con `NN_ANIME_INTEGRADOR=1`.
+   `cerrar` pasa, porque lleva `MERGE_HEAD`. El integrador pasa con `RONA_INTEGRADOR=1`.
    Se instala una vez por clon con `bun run hooks:instalar`; sin eso el gancho existe y no corre.
 
 ## Fuentes de verdad
@@ -117,7 +117,7 @@ Cada criterio de aceptación se marca **con la medición que lo sostiene**, no c
 ## Frontend: diseño y movimiento
 
 Revisar o mejorar la interfaz de `packages/web` se hace con la skill de proyecto
-`.agents/skills/frontend-nn-anime/SKILL.md`: fija el orden de carga (`impeccable` →
+`.agents/skills/frontend-rona/SKILL.md`: fija el orden de carga (`impeccable` →
 `make-interfaces-feel-better` → `transitions-dev`, y `gsap-*` el día que haya GSAP) y las reglas de
 movimiento del repo. Esa skill se versiona; las de terceros viven en `.agents/skills/` **sin
 versionar**, así que no vienen con un clon nuevo.

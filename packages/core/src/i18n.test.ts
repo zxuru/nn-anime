@@ -30,7 +30,7 @@ describe('resolveLocale', () => {
 
 describe('t', () => {
   test('devuelve el texto del catálogo', () => {
-    expect(t('es', 'app.name')).toBe('nn-anime')
+    expect(t('es', 'app.name')).toBe('rona')
   })
 
   test('interpola un parámetro', () => {
@@ -95,6 +95,6 @@ describe('catálogo español', () => {
 
   test('las claves de los mensajes son estables y están en español', () => {
     expect(Object.keys(es).length).toBeGreaterThan(0)
-    expect(es['app.name']).toBe('nn-anime')
+    expect(es['app.name']).toBe('rona')
   })
 })

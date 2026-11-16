@@ -13,7 +13,7 @@ import { listarCarpetas } from './dirs'
  */
 
 async function conArbol<T>(body: (raiz: string) => Promise<T>): Promise<T> {
-  const raiz = await mkdtemp(join(tmpdir(), 'nn-anime-dirs-'))
+  const raiz = await mkdtemp(join(tmpdir(), 'rona-dirs-'))
 
   try {
     return await body(raiz)

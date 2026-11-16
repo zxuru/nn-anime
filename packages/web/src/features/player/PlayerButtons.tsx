@@ -13,7 +13,7 @@
  * —abierto, el foco, la caja— en el reproductor, y esta fila sólo le da sitio.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 import { formatTime, type PlayerAction, volumeFromPercent, volumePercent } from './controls'

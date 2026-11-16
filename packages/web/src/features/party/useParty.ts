@@ -31,7 +31,7 @@ import {
   partyClockOffset,
   partyCorrection,
   partyTargetPositionS,
-} from '@nn-anime/core/party'
+} from '@rona/core/party'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, ApiShapeError } from '../../api/client'
 import {

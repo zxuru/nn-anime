@@ -18,7 +18,7 @@
  * borde de un teléfono con gestos.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { tipoFromPath } from '../features/tipo/tipo'
 import { t } from '../i18n'

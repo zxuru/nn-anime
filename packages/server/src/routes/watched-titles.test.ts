@@ -2,9 +2,9 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import { watchedTitlesResponseSchema } from '@nn-anime/core'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import { openDb, runMigrations } from '@rona/catalog-store'
+import { watchedTitlesResponseSchema } from '@rona/core'
+import { createFixtureProvider } from '@rona/providers-fixture'
 import { createApp, createContainer } from '../index'
 
 const PORT = 7718
@@ -22,8 +22,8 @@ async function conApp<T>(
     db: ReturnType<typeof openDb>
   }) => Promise<T>,
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-vistos-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-vistos-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const container = createContainer({ db })
   const proveedor = createFixtureProvider()

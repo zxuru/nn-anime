@@ -15,7 +15,7 @@
 use serde::Deserialize;
 
 /// El prefijo literal. No se traduce y no cambia.
-pub const BOOT_LINE_PREFIX: &str = "NN_ANIME_BOOT";
+pub const BOOT_LINE_PREFIX: &str = "RONA_BOOT";
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct BootLine {
@@ -58,7 +58,7 @@ pub fn parse(texto: &str) -> Result<BootLine, BootLineError> {
         let linea = linea.strip_suffix('\r').unwrap_or(linea);
 
         // Una sola constante para el prefijo: el espacio se quita aparte, así no
-        // hay dos literales que puedan desviarse. `NN_ANIME_BOOT{…}` sin espacio
+        // hay dos literales que puedan desviarse. `RONA_BOOT{…}` sin espacio
         // se trata como si no estuviera, igual que el `startsWith` de TypeScript.
         let Some(resto) = linea.strip_prefix(BOOT_LINE_PREFIX) else {
             continue;
@@ -107,7 +107,7 @@ fn interpretar(json: &str) -> Result<BootLine, BootLineError> {
 mod tests {
     use super::*;
 
-    const BUENA: &str = r#"NN_ANIME_BOOT {"port":41235,"url":"http://127.0.0.1:41235/?boot=abc"}"#;
+    const BUENA: &str = r#"RONA_BOOT {"port":41235,"url":"http://127.0.0.1:41235/?boot=abc"}"#;
 
     #[test]
     fn lee_la_linea_buena() {
@@ -121,7 +121,7 @@ mod tests {
     fn la_encuentra_entre_las_demas_lineas_del_cli() {
         // El orden real de `boot.ts`: la humana, la de máquina y los proveedores.
         let salida = format!(
-            "nn-anime escuchando en http://127.0.0.1:1/?boot=x\n{BUENA}\nProveedores activos: ninguno\n"
+            "rona escuchando en http://127.0.0.1:1/?boot=x\n{BUENA}\nProveedores activos: ninguno\n"
         );
 
         assert_eq!(parse(&salida).expect("debería leerla").port, 41235);
@@ -148,17 +148,17 @@ mod tests {
         // El fallo que este archivo existe para no cometer: seguir buscando y
         // arrancar con otra dirección, o no decir nada.
         assert!(matches!(
-            parse(r#"NN_ANIME_BOOT {"port":41235,"#),
+            parse(r#"RONA_BOOT {"port":41235,"#),
             Err(BootLineError::Malformed(_))
         ));
     }
 
     #[test]
     fn sin_el_espacio_no_es_la_linea() {
-        // `NN_ANIME_BOOT{...}` no lleva el separador, así que no es la línea: se
+        // `RONA_BOOT{...}` no lleva el separador, así que no es la línea: se
         // trata como si no estuviera, igual que el `startsWith` de TypeScript.
         assert_eq!(
-            parse(r#"NN_ANIME_BOOT{"port":1,"url":"http://127.0.0.1:1/"}"#),
+            parse(r#"RONA_BOOT{"port":1,"url":"http://127.0.0.1:1/"}"#),
             Err(BootLineError::Missing)
         );
     }
@@ -166,11 +166,11 @@ mod tests {
     #[test]
     fn rechaza_el_puerto_cero_y_el_que_no_cabe() {
         assert!(matches!(
-            parse(r#"NN_ANIME_BOOT {"port":0,"url":"http://127.0.0.1:1/"}"#),
+            parse(r#"RONA_BOOT {"port":0,"url":"http://127.0.0.1:1/"}"#),
             Err(BootLineError::Malformed(_))
         ));
         assert!(matches!(
-            parse(r#"NN_ANIME_BOOT {"port":70000,"url":"http://127.0.0.1:1/"}"#),
+            parse(r#"RONA_BOOT {"port":70000,"url":"http://127.0.0.1:1/"}"#),
             Err(BootLineError::Malformed(_))
         ));
     }
@@ -178,25 +178,25 @@ mod tests {
     #[test]
     fn rechaza_los_esquemas_que_no_son_http() {
         assert!(matches!(
-            parse(r#"NN_ANIME_BOOT {"port":1,"url":"javascript:alert(1)"}"#),
+            parse(r#"RONA_BOOT {"port":1,"url":"javascript:alert(1)"}"#),
             Err(BootLineError::Malformed(_))
         ));
         assert!(matches!(
-            parse(r#"NN_ANIME_BOOT {"port":1,"url":"file:///etc/passwd"}"#),
+            parse(r#"RONA_BOOT {"port":1,"url":"file:///etc/passwd"}"#),
             Err(BootLineError::Malformed(_))
         ));
         // https sí: la lista blanca es de esquemas, no de loopback.
-        assert!(parse(r#"NN_ANIME_BOOT {"port":1,"url":"https://127.0.0.1:1/"}"#).is_ok());
+        assert!(parse(r#"RONA_BOOT {"port":1,"url":"https://127.0.0.1:1/"}"#).is_ok());
     }
 
     #[test]
     fn exige_las_dos_claves() {
         assert!(matches!(
-            parse(r#"NN_ANIME_BOOT {"port":41235}"#),
+            parse(r#"RONA_BOOT {"port":41235}"#),
             Err(BootLineError::Malformed(_))
         ));
         assert!(matches!(
-            parse(r#"NN_ANIME_BOOT {"url":"http://127.0.0.1:1/"}"#),
+            parse(r#"RONA_BOOT {"url":"http://127.0.0.1:1/"}"#),
             Err(BootLineError::Malformed(_))
         ));
     }

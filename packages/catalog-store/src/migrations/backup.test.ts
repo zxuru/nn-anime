@@ -38,10 +38,10 @@ function cerrar(db: Database): void {
 async function conBase<T>(
   body: (db: Database, dir: string, path: string) => Promise<T> | T,
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-backup-'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-backup-'))
 
   try {
-    const path = join(dir, 'nn-anime.db')
+    const path = join(dir, 'rona.db')
     const db = openDb(path)
     runMigrations(db)
 
@@ -120,7 +120,7 @@ describe('la copia antes de migrar', () => {
       })
 
       expect(copia?.path.endsWith(`-v${String(ULTIMA).padStart(4, '0')}.db`)).toBe(true)
-      expect(copia?.path).toContain('nn-anime-backup-20261108T032000123Z')
+      expect(copia?.path).toContain('rona-backup-20261108T032000123Z')
       expect(stampOf(new Date('2026-11-08T03:20:00.123Z'))).toBe('20261108T032000123Z')
     })
   })
@@ -163,7 +163,7 @@ describe('la copia antes de migrar', () => {
 
       const archivos = await readdir(join(dir, 'backups'))
       expect(archivos.some((nombre) => nombre.endsWith('.tmp'))).toBe(false)
-      expect(archivos.some((nombre) => nombre.startsWith('.nn-anime-backup-'))).toBe(false)
+      expect(archivos.some((nombre) => nombre.startsWith('.rona-backup-'))).toBe(false)
     })
   })
 
@@ -223,10 +223,10 @@ describe('la restauración', () => {
   })
 
   test('una copia que no es una base válida no pasa la comprobación', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-backup-'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-backup-'))
 
     try {
-      const basura = join(dir, 'nn-anime-backup-20260101T000000000Z-v0015.db')
+      const basura = join(dir, 'rona-backup-20260101T000000000Z-v0015.db')
       await writeFile(basura, 'esto no es sqlite')
 
       expect(() => verifyDatabase(basura)).toThrow()

@@ -13,7 +13,7 @@
  * compilador del autor, que es para lo que existe el paquete de tipos.
  */
 
-import { err, ok, type ProviderError, type Result } from '@nn-anime/core'
+import { err, ok, type ProviderError, type Result } from '@rona/core'
 import { providerFailure } from './errors'
 import { readProviderId, validateProvider } from './registry'
 import {

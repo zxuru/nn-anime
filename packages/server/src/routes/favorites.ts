@@ -11,7 +11,7 @@
  * error: un botón que se pulsa dos veces es lo normal.
  */
 
-import { errorResponseSchema, favoriteRequestSchema, favoritesResponseSchema } from '@nn-anime/core'
+import { errorResponseSchema, favoriteRequestSchema, favoritesResponseSchema } from '@rona/core'
 import type { Hono } from 'hono'
 import { sinMarcadas } from '../adultos'
 import type { ServerContainer } from '../container'

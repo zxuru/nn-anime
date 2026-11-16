@@ -21,7 +21,7 @@ import {
   anilistEntrySchema,
   type CacheHit,
   StoreError,
-} from '@nn-anime/core'
+} from '@rona/core'
 import type { z } from 'zod'
 import { cacheHit, TTL_SECONDS } from '../cache-policy'
 

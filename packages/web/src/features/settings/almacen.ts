@@ -23,8 +23,8 @@
  * un bucle de renderizado.
  */
 
-import type { ProviderSummary, SettingsResponse } from '@nn-anime/core/api'
-import { providerRegisterResponseSchema, settingsResponseSchema } from '@nn-anime/core/api'
+import type { ProviderSummary, SettingsResponse } from '@rona/core/api'
+import { providerRegisterResponseSchema, settingsResponseSchema } from '@rona/core/api'
 import { apiGet, apiPatch, apiPostJson, type RequestDeps } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'
 

@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AnimeDetail, Episode, ProviderRef, WatchEventInput } from '@nn-anime/core'
+import type { AnimeDetail, Episode, ProviderRef, WatchEventInput } from '@rona/core'
 import { z } from 'zod'
 import { openDb } from './db'
 import { runMigrations } from './migrations/runner'
@@ -77,8 +77,8 @@ function cerrarBase(db: Database): void {
 }
 
 async function withStore<T>(body: (store: Store) => Promise<T> | T): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-prune-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-prune-'))
+  const db = openDb(join(dir, 'rona.db'))
 
   try {
     runMigrations(db)
@@ -184,8 +184,8 @@ describe('umbral de tamaño', () => {
   })
 
   test('con la base de verdad, el tamaño se mide en disco', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-prune-'))
-    const path = join(dir, 'nn-anime.db')
+    const dir = await mkdtemp(join(tmpdir(), 'rona-prune-'))
+    const path = join(dir, 'rona.db')
     const db = openDb(path)
 
     try {

@@ -12,7 +12,7 @@
  * quien decide no ofrecerlo en la web es el reproductor, no este módulo.
  */
 
-import { AppError, errorResponseSchema } from '@nn-anime/core'
+import { AppError, errorResponseSchema } from '@rona/core'
 import {
   decodeSubtitle,
   extractFirstSubtitle,
@@ -25,7 +25,7 @@ import {
   subtitleKind,
   subtitleRarUnsupported,
   subtitleTooLarge,
-} from '@nn-anime/media-proxy'
+} from '@rona/media-proxy'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
 
@@ -71,7 +71,7 @@ export function registerSubtitlesRoute(app: Hono, options: SubtitlesRouteOptions
 
     // Un `ass` no se convierte: se reenvía tal cual, con sus bytes.
     if (tipo === 'ass') {
-      const { proxyBytes } = await import('@nn-anime/media-proxy')
+      const { proxyBytes } = await import('@rona/media-proxy')
 
       return await proxyBytes({
         url: salida.contents.url,
@@ -168,7 +168,7 @@ async function fetchTrack(
   | { readonly ok: true; readonly bytes: Uint8Array }
   | { readonly ok: false; readonly response: Response }
 > {
-  const { fetchAllowed } = await import('@nn-anime/media-proxy')
+  const { fetchAllowed } = await import('@rona/media-proxy')
 
   try {
     const upstream = await fetchAllowed({

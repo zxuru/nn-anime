@@ -32,8 +32,8 @@ import {
   providerRepoResponseSchema,
   providerRepoSelectionSchema,
   providerReposResponseSchema,
-} from '@nn-anime/core'
-import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
+} from '@rona/core'
+import type { FetchLike, Resolver } from '@rona/media-proxy'
 import type { Context, Hono } from 'hono'
 import type { ServerContainer } from '../container'
 import { downloadGithubRepo } from '../github'

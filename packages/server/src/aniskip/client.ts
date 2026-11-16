@@ -25,8 +25,8 @@
  * superficie que este archivo existe para cerrar.
  */
 
-import { AppError } from '@nn-anime/core'
-import { type FetchLike, fetchAllowed, type Resolver } from '@nn-anime/media-proxy'
+import { AppError } from '@rona/core'
+import { type FetchLike, fetchAllowed, type Resolver } from '@rona/media-proxy'
 import { aniskipResponseSchema } from './normalize'
 
 /** El único host de AniSkip. */
@@ -59,7 +59,7 @@ export const ANISKIP_SKIP_TYPES: readonly string[] = ['op', 'ed', 'recap', 'mixe
  * No es una excepción de seguridad —no abre ningún destino, cierra uno— y en un
  * arranque normal no se pone.
  */
-export const ANISKIP_OFFLINE_ENV = 'NN_ANIME_ANISKIP_OFFLINE'
+export const ANISKIP_OFFLINE_ENV = 'RONA_ANISKIP_OFFLINE'
 
 export function aniskipOfflineFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
@@ -70,7 +70,7 @@ export function aniskipOfflineFromEnv(
 }
 
 /** Cómo se identifica esta aplicación, como pide la cortesía de la API. */
-const USER_AGENT = 'nn-anime/0.1 (AniSkip API; UNOFFICIAL)'
+const USER_AGENT = 'RoNa/0.1 (AniSkip API; UNOFFICIAL)'
 
 /** Lo que hay que pedirle a AniSkip para un episodio. */
 export interface AniSkipQuery {

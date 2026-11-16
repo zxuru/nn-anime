@@ -11,7 +11,7 @@
  * mensaje que vuelve de allí ya dice qué falla.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { Copy, Folder, FolderOpen, Save } from 'lucide-react'
 import { type FormEvent, type ReactNode, useState } from 'react'
 import { describirFallo } from '../../api/fallo'

@@ -14,7 +14,7 @@
  * queda con lo que publicó el plugin, que es lo que hacía antes de existir esto.
  */
 
-import { normalizeQuery, type TmdbMetadata } from '@nn-anime/core'
+import { normalizeQuery, type TmdbMetadata } from '@rona/core'
 import { z } from 'zod'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'

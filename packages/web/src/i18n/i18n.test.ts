@@ -29,7 +29,7 @@ describe('catálogo de la interfaz', () => {
   })
 
   test('las claves propias ganan sobre las de core', () => {
-    expect(CATALOGS.es['app.name']).toBe('nn-anime')
+    expect(CATALOGS.es['app.name']).toBe('RoNa')
   })
 
   test('interpola los parámetros', () => {

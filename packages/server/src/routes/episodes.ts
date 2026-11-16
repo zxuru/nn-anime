@@ -24,8 +24,8 @@ import {
   ok,
   type ProviderError,
   type Result,
-} from '@nn-anime/core'
-import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
+} from '@rona/core'
+import type { CallOptions, Provider } from '@rona/provider-sdk'
 import type { Context, Hono } from 'hono'
 import type { ServerContainer } from '../container'
 import { findProvider } from './anime'

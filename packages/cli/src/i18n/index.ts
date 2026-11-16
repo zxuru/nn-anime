@@ -13,7 +13,7 @@ import {
   type MessageParams,
   type Messages,
   translate,
-} from '@nn-anime/core'
+} from '@rona/core'
 import { messages as es } from './es'
 
 export const CATALOGS: Readonly<Record<Locale, Messages>> = {

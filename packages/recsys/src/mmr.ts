@@ -15,7 +15,7 @@
  * siempre. El 0,7 es del spec.
  */
 
-import type { Candidate } from '@nn-anime/core'
+import type { Candidate } from '@rona/core'
 import { candidateFeatures } from './affinity'
 
 /** Cuánto manda la relevancia frente a la diversidad. */

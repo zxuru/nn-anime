@@ -18,14 +18,14 @@ function esperado(...segmentos: readonly string[]): string {
 
 describe('dirOfModule', () => {
   test('devuelve una ruta del sistema de archivos, sin codificar', () => {
-    expect(dirOfModule(`${RAIZ_URL}home/prueba/nn-anime/scripts/dev.ts`)).toBe(
-      esperado('home', 'prueba', 'nn-anime'),
+    expect(dirOfModule(`${RAIZ_URL}home/prueba/rona/scripts/dev.ts`)).toBe(
+      esperado('home', 'prueba', 'rona'),
     )
   })
 
   test('descodifica los espacios en lugar de dejar %20', () => {
-    expect(dirOfModule(`${RAIZ_URL}home/ana/mis%20proyectos/nn-anime/scripts/dev.ts`)).toBe(
-      esperado('home', 'ana', 'mis proyectos', 'nn-anime'),
+    expect(dirOfModule(`${RAIZ_URL}home/ana/mis%20proyectos/rona/scripts/dev.ts`)).toBe(
+      esperado('home', 'ana', 'mis proyectos', 'rona'),
     )
   })
 
@@ -53,7 +53,7 @@ describe('isRecord', () => {
 
 describe('scriptOf', () => {
   const workspace = {
-    name: '@nn-anime/demo',
+    name: '@rona/demo',
     dir: '/tmp/demo',
     manifest: { scripts: { dev: 'bun --watch src/index.ts' } },
   }
@@ -90,7 +90,7 @@ describe('listWorkspaces', () => {
         'recsys',
         'server',
         'web',
-      ].map((name) => `@nn-anime/${name}`),
+      ].map((name) => `@rona/${name}`),
     )
   })
 

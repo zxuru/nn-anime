@@ -36,7 +36,7 @@ import {
   rmSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { StoreError } from '@nn-anime/core'
+import { StoreError } from '@rona/core'
 
 /** Cuántas copias se conservan por defecto. */
 export const BACKUP_RETENTION = 5
@@ -45,16 +45,16 @@ export const BACKUP_RETENTION = 5
 export const BACKUP_DIR_NAME = 'backups'
 
 /**
- * Una copia: `nn-anime-backup-AAAAMMDDTHHMMSSmmmZ-vNNNN.db`.
+ * Una copia: `rona-backup-AAAAMMDDTHHMMSSmmmZ-vNNNN.db`.
  *
  * El formato se ordena como texto de la más vieja a la más nueva, que es lo que
  * permite rotar sin abrir ninguna. La versión va al final para leerla sin
  * analizar la fecha.
  */
-const BACKUP_NAME = /^nn-anime-backup-(\d{8}T\d{9}Z)-v(\d{4,})\.db$/
+const BACKUP_NAME = /^rona-backup-(\d{8}T\d{9}Z)-v(\d{4,})\.db$/
 
 /** El prefijo que se usa para el archivo temporal de una copia. */
-const TEMPORARY_PREFIX = '.nn-anime-backup-'
+const TEMPORARY_PREFIX = '.rona-backup-'
 
 export interface BackupFile {
   readonly path: string
@@ -221,7 +221,7 @@ export function backupDatabase(
   const ahora = (options.now ?? (() => new Date()))()
   const version = versionOf(db)
   const stamp = stampOf(ahora)
-  const destino = join(dir, `nn-anime-backup-${stamp}-v${padVersion(version)}.db`)
+  const destino = join(dir, `rona-backup-${stamp}-v${padVersion(version)}.db`)
   const temporal = join(dir, `${TEMPORARY_PREFIX}${process.pid}-${stamp}.tmp`)
 
   // `VACUUM INTO` no puede correr dentro de una transacción y escribe una base

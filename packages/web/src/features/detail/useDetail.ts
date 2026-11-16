@@ -48,7 +48,7 @@ import type {
   EpisodesResponse,
   TmdbMetadata,
   WatchedEpisodePayload,
-} from '@nn-anime/core/api'
+} from '@rona/core/api'
 import {
   episodeResponseSchema,
   episodesResponseSchema,
@@ -56,14 +56,14 @@ import {
   planToWatchResponseSchema,
   providersResponseSchema,
   watchedTitlesResponseSchema,
-} from '@nn-anime/core/api'
+} from '@rona/core/api'
 import type {
   AnimeDetail,
   AnimeSummary,
   Episode,
   ProviderCapabilities,
   ProviderRef,
-} from '@nn-anime/core/models'
+} from '@rona/core/models'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { z } from 'zod'
 import { ApiError, apiGet, apiPost, type RequestDeps } from '../../api/client'

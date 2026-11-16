@@ -1,6 +1,6 @@
 # Publicar una release
 
-Cómo sale una versión de nn-anime: qué hace cada workflow, qué secretos hay que configurar, cómo
+Cómo sale una versión de rona: qué hace cada workflow, qué secretos hay que configurar, cómo
 probarlo todo sin publicar, y **qué no está probado** todavía.
 
 El resumen para el día a día está en el [README](../README.md#cómo-publicar-una-release-para-mantenedores).
@@ -78,7 +78,7 @@ también ahí: hay una prueba (`scripts/package.test.ts`) que compara las dos li
 coinciden.
 
 `desktop/src-tauri/Cargo.lock` viaja en la misma lista, pero con el actualizador `generic`: la línea
-de la versión del paquete `nn-anime-desktop` lleva el comentario `x-release-please-version`, que es
+de la versión del paquete `rona-desktop` lleva el comentario `x-release-please-version`, que es
 lo que le dice a release-please qué número reemplazar. Hace falta porque `desktop:build` compila con
 `--locked`: si el lock se queda en la versión anterior, `cargo` se niega a actualizarlo y **los
 cuatro artefactos fallan antes de compilar**. Pasó al publicar `0.3.0`; la anotación y la entrada de
@@ -157,7 +157,7 @@ publicar actualizaciones para quien ya tiene la aplicación instalada: hay que g
 El comando, con la clave fuera del repositorio:
 
 ```bash
-bun tauri signer generate -w ~/.tauri/nn-anime.key
+bun tauri signer generate -w ~/.tauri/RoNa.key
 ```
 
 `bun tauri signer sign` firma el `.exe` único con ese secreto, y `scripts/package/portable-manifest.ts`
@@ -177,9 +177,9 @@ del workflow, en «Artifacts» (7 días):
 
 | Artefacto | Qué lleva |
 |---|---|
-| `nn-anime-ubuntu-latest` | El ejecutable de Linux y, si cambió el empaquetado, el AppImage |
-| `nn-anime-windows-latest` | El **archivo único** `nn-anime-<v>-windows-x64.exe` |
-| `nn-anime-macos-*` | El `.zip` del `.app` (sólo en `release.yml`; el CI no lo compila) |
+| `rona-ubuntu-latest` | El ejecutable de Linux y, si cambió el empaquetado, el AppImage |
+| `rona-windows-latest` | El **archivo único** `rona-<v>-windows-x64.exe` |
+| `rona-macos-*` | El `.zip` del `.app` (sólo en `release.yml`; el CI no lo compila) |
 
 Sólo `appimagetool` no viene en la imagen de GitHub: lo prepara `.github/actions/herramientas`,
 fijado **por versión y por SHA256**. Windows y macOS no necesitan nada: la copia del `.exe` y la
@@ -201,7 +201,7 @@ bun run package --solo-artefacto     # el AppImage o el .zip, con el anfitrión 
 
 El orden **no es opcional en Windows**: `desktop/build.rs` embebe el servidor al compilar el
 anfitrión, así que el servidor va primero. Si se compila al revés, `package:unico` falla con «el
-anfitrión es más viejo que el servidor». Además, `desktop:build` pasa `NN_ANIME_EXIGIR_SERVIDOR=1` en
+anfitrión es más viejo que el servidor». Además, `desktop:build` pasa `RONA_EXIGIR_SERVIDOR=1` en
 Windows: `build.rs` **se para** si no encuentra el servidor, en vez de compilar un anfitrión vacío que
 arrancaría y enseñaría el aviso de fallo. Es preferible un error ahí que un `.exe` que arranca sin
 interfaz. El único sitio que compila sin servidor es el trabajo `desktop` del CI, con
@@ -223,7 +223,7 @@ El mecanismo de `release-please` necesita un tag del que partir, y hoy no hay ni
 versión se corta a mano, **después** de que `main` tenga el trabajo y el CI esté verde:
 
 ```bash
-git tag -a v0.1.0 -m "nn-anime 0.1.0"
+git tag -a v0.1.0 -m "RoNa 0.1.0"
 git push origin v0.1.0
 ```
 
@@ -293,7 +293,7 @@ crear otro release para el mismo tag y falla. Se arregla **re-enlazándolo**, qu
 por id aunque el tag no aparezca:
 
 ```bash
-gh api -X PATCH repos/zxuru/nn-anime/releases/<id> \
+gh api -X PATCH repos/zxuru/rona/releases/<id> \
   -f tag_name=vX.Y.Z -f target_commitish=<sha>
 ```
 
@@ -307,9 +307,9 @@ Con el arreglo en `main` y el listón verde:
 
 ```bash
 # 1. Si el borrador se desvinculó al mover el tag, se vuelve a enlazar por id.
-gh api "repos/zxuru/nn-anime/releases?per_page=100" \
+gh api "repos/zxuru/rona/releases?per_page=100" \
   --jq '.[] | select(.draft) | [.id, .tag_name] | @tsv'
-gh api -X PATCH repos/zxuru/nn-anime/releases/<id> \
+gh api -X PATCH repos/zxuru/rona/releases/<id> \
   -f tag_name=vX.Y.Z -f target_commitish=<sha>
 
 # 2. Y se relanza la release: lo que falló, o el run entero.
@@ -335,27 +335,27 @@ Un solo archivo por plataforma, compilado con `bun build --compile`, que lleva d
 - los archivos `.sql` de las migraciones, incrustados igual.
 
 En **Windows** hay un paso más y es el que entrega el archivo único: el anfitrión de ventana
-(`nn-anime-desktop.exe`, Rust) se compila con `build.rs`, que **incrusta el servidor** con
+(`rona-desktop.exe`, Rust) se compila con `build.rs`, que **incrusta el servidor** con
 `include_bytes!` y guarda su SHA-256. El `.exe` que se descarga es ese anfitrión: al arrancar extrae el
-servidor a `<raíz>\bin\<versión>\nn-anime.exe`, comprueba el hash y lo lanza. No hay un `nn-anime.exe`
+servidor a `<raíz>\bin\<versión>\rona.exe`, comprueba el hash y lo lanza. No hay un `rona.exe`
 al lado que se pueda perder ni una carpeta que haya que mantener intacta.
 
 En **macOS y Linux**, mientras el archivo único siga siendo sólo de Windows, el anfitrión viaja **al
 lado** del servidor dentro del `.app` (comprimido en un `.zip`) y del AppImage. `main.rs` lo detecta
 porque `build.rs` compiló un servidor embebido vacío y usa `sidecar::sibling_path`; la ventana no
-intenta extraer cero bytes. Los datos de esos artefactos van a `~/.local/share/nn-anime` —o
+intenta extraer cero bytes. Los datos de esos artefactos van a `~/.local/share/RoNa` —o
 `XDG_DATA_HOME`—, no al directorio del ejecutable, que dentro de un AppImage está montado en sólo
 lectura.
 
 `packages/cli/src/resources.ts` los resuelve en este orden: variable de entorno
-(`NN_ANIME_WEB_DIR`, `NN_ANIME_MIGRATIONS_DIR`), recurso incrustado y árbol de fuentes. Los dos
+(`RONA_WEB_DIR`, `RONA_MIGRATIONS_DIR`), recurso incrustado y árbol de fuentes. Los dos
 nombres con los que se incrustan —`dist` y `migrations`— son un contrato entre
 `scripts/package/binary.ts` y ese archivo, y hay una prueba que los compara: `--asset` no sabe
 renombrar, así que mover `packages/web/dist` rompería el ejecutable sin que nada más avisara.
 
 ## El anfitrión de ventana, y su toolchain
 
-El anfitrión (`nn-anime-desktop`, en `desktop/src-tauri`) se compila con `cargo`; `tauri-build` lee
+El anfitrión (`rona-desktop`, en `desktop/src-tauri`) se compila con `cargo`; `tauri-build` lee
 `tauri.conf.json` en el guion de compilación, así que `cargo build --release` produce el binario
 entero. En **Windows**, `package:unico` copia ese anfitrión —que lleva el servidor dentro— con el
 nombre que se descarga; la firma minisign y `latest.json` los arma el workflow con `bun tauri signer`
@@ -398,7 +398,7 @@ el trabajo `desktop` del CI en las tres plataformas.
 
 `desktop/src-tauri/Cargo.lock` **está versionado**. Si alguna vez falta, se genera en una máquina con
 red y se commitea; sin él la resolución de dependencias no es reproducible. La versión del paquete
-`nn-anime-desktop` en ese archivo lleva `# x-release-please-version` en la misma línea para que el
+`rona-desktop` en ese archivo lleva `# x-release-please-version` en la misma línea para que el
 PR de release la actualice junto con el resto; no quites ese comentario:
 
 ```bash
@@ -443,7 +443,7 @@ y se actualizan la URL y el hash en `.github/actions/herramientas/action.yml`, l
     allí. Añadirlo es publicar sus entradas (`darwin-*`/`linux-*`) con su firma.
 - **Linux arm64 y Windows arm64: no se publican.** Bun los compila y añadirlos es una línea por
   plataforma, pero cada objetivo es una release que hay que poder probar.
-- **Los datos no viajan en el ejecutable.** `%LOCALAPPDATA%\nn-anime-data` —la base, los ajustes, los
+- **Los datos no viajan en el ejecutable.** `%LOCALAPPDATA%\rona-data` —la base, los ajustes, los
   plugins, el servidor extraído y el perfil del webview— se queda al mover, borrar o actualizar el
   `.exe`.
 
@@ -507,7 +507,7 @@ release.
 
 ## La imagen de contenedor
 
-`release.yml` publica también `ghcr.io/zxuru/nn-anime` con la versión de la release y `latest`, para
+`release.yml` publica también `ghcr.io/zxuru/rona` con la versión de la release y `latest`, para
 `linux/amd64` y `linux/arm64`. Es el mismo workflow y el mismo tag: no hay un segundo publicador que
 compita por la release. El trabajo `docker` no crea ni edita una release de GitHub; sólo empuja a
 GHCR, y el trabajo `publicar` depende de él para que una release no anuncie una imagen que no existe.

@@ -11,9 +11,9 @@
  * nombres del roster— son datos, no interfaz, y se pintan como texto plano.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { PartyParticipant } from '@nn-anime/core/party'
-import { formatRoomCode, PARTY_MAX_NAME_LENGTH } from '@nn-anime/core/party'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { PartyParticipant } from '@rona/core/party'
+import { formatRoomCode, PARTY_MAX_NAME_LENGTH } from '@rona/core/party'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'

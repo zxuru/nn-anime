@@ -10,7 +10,7 @@ import {
   type StreamRequest,
   type StreamSource,
   toPublicStreamSource,
-} from '@nn-anime/core'
+} from '@rona/core'
 import { TTL_SECONDS } from '../cache-policy'
 import { openDb } from '../db'
 import { runMigrations } from '../migrations/runner'
@@ -65,8 +65,8 @@ function cerrarBase(db: Database): void {
 
 /** Base temporal con el anime y el episodio ya escritos. */
 async function withStore<T>(body: (db: Database, path: string) => Promise<T> | T): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-stream-'))
-  const path = join(dir, 'nn-anime.db')
+  const dir = await mkdtemp(join(tmpdir(), 'rona-stream-'))
+  const path = join(dir, 'rona.db')
   const db = openDb(path)
 
   try {

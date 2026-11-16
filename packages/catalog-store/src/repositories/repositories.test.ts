@@ -3,8 +3,8 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AnimeDetail, Episode, FeedEntry, ProviderRef, SearchResult } from '@nn-anime/core'
-import { StoreError } from '@nn-anime/core'
+import type { AnimeDetail, Episode, FeedEntry, ProviderRef, SearchResult } from '@rona/core'
+import { StoreError } from '@rona/core'
 import { cacheHit, isStale, TTL_SECONDS } from '../cache-policy'
 import { openDb } from '../db'
 import { runMigrations } from '../migrations/runner'
@@ -60,8 +60,8 @@ function cerrarBase(db: Database): void {
 
 /** Base en directorio temporal: ningún test toca `$XDG_DATA_HOME`. */
 async function withStore<T>(body: (db: Database) => Promise<T> | T): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-repo-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-repo-'))
+  const db = openDb(join(dir, 'rona.db'))
 
   try {
     runMigrations(db)

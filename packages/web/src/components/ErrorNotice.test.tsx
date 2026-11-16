@@ -23,7 +23,7 @@ describe('el aviso de un fallo', () => {
     const html = render(new ApiError(502, 'GET /api/anime/jkanime/mashle-2nd-season respondió 502'))
 
     expect(html).toContain('El proveedor no responde')
-    expect(html).toContain('nn-anime está bien')
+    expect(html).toContain('RoNa está bien')
     // El mensaje crudo sigue ahí, para copiarlo: lo que no hace es ser el titular.
     expect(html).toContain('GET /api/anime/jkanime/mashle-2nd-season respondió 502')
     expect(html).toContain('Detalles técnicos')

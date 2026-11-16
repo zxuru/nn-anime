@@ -3,9 +3,9 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import { MAX_SUBTITLE_BYTES } from '@nn-anime/media-proxy'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import { openDb, runMigrations } from '@rona/catalog-store'
+import { MAX_SUBTITLE_BYTES } from '@rona/media-proxy'
+import { createFixtureProvider } from '@rona/providers-fixture'
 import { createApp, createContainer } from '../index'
 import { subtitlesPath } from './subtitles'
 
@@ -25,8 +25,8 @@ async function conApp<T>(
   body: (contexto: Contexto) => Promise<T>,
   opciones: { readonly cuerpo?: Uint8Array; readonly tipo?: string } = {},
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-subs-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-subs-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const container = createContainer({ db })
   const proveedor = createFixtureProvider()

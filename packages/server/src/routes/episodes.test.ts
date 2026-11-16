@@ -13,14 +13,14 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
+import { openDb, runMigrations } from '@rona/catalog-store'
 import {
   type Episode,
   episodeResponseSchema,
   episodesResponseSchema,
   ProviderError,
-} from '@nn-anime/core'
-import type { Provider } from '@nn-anime/provider-sdk'
+} from '@rona/core'
+import type { Provider } from '@rona/provider-sdk'
 import { createApp, createContainer } from '../index'
 
 const PORT = 7718
@@ -219,8 +219,8 @@ function crearSimple(episodios: readonly Episode[]): Falso {
 }
 
 async function conApp<T>(provider: Provider, body: (pedir: Pedir) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-episodios-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-episodios-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const container = createContainer({ db })
 

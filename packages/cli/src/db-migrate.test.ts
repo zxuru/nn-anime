@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { listMigrations, openDb, runMigrations } from '@nn-anime/catalog-store'
-import { loadConfig } from '@nn-anime/core'
+import { listMigrations, openDb, runMigrations } from '@rona/catalog-store'
+import { loadConfig } from '@rona/core'
 import { type MigrationTarget, migrate } from './db-migrate'
 import type { CliIO } from './run'
 
@@ -21,7 +21,7 @@ function salida(): Salida {
 }
 
 async function withHome<T>(body: (home: string) => Promise<T> | T): Promise<T> {
-  const home = await mkdtemp(join(tmpdir(), 'nn-anime-migrate-'))
+  const home = await mkdtemp(join(tmpdir(), 'rona-migrate-'))
 
   try {
     return await body(home)
@@ -67,7 +67,7 @@ describe('db:migrate', () => {
       // la prueba es que la base cae en el directorio de datos y no en el de
       // trabajo.
       const { dataDir } = loadConfig({ env: { HOME: home } })
-      const stats = await stat(join(dataDir, 'nn-anime.db'))
+      const stats = await stat(join(dataDir, 'rona.db'))
 
       expect(stats.isFile()).toBe(true)
     })

@@ -5,7 +5,7 @@ pausado o no y a qué velocidad. Nunca viaja el vídeo, ni un ticket del proxy, 
 Cada participante reproduce el episodio desde su propia instancia y con sus propios proveedores o
 descargas.
 
-Está **apagada por defecto** y es experimental. Se enciende con `NN_ANIME_PARTY=1`; sin esa variable
+Está **apagada por defecto** y es experimental. Se enciende con `RONA_PARTY=1`; sin esa variable
 las rutas de sala ni siquiera existen (una petición a ellas es un 404).
 
 ## Cómo se usa
@@ -13,12 +13,12 @@ las rutas de sala ni siquiera existen (una petición a ellas es un 404).
 ### Anfitrión
 
 El anfitrión tiene que escuchar en la red local: en modo local el servidor sólo atiende `127.0.0.1`,
-así que un invitado no puede llegar. Con el modo servidor ya existe la puerta (`NN_ANIME_TOKEN`), y
+así que un invitado no puede llegar. Con el modo servidor ya existe la puerta (`RONA_TOKEN`), y
 la sala se cuelga de ella:
 
 ```bash
-export NN_ANIME_TOKEN="$(openssl rand -base64 32)"
-NN_ANIME_HOST=0.0.0.0 NN_ANIME_PARTY=1 bun run start
+export RONA_TOKEN="$(openssl rand -base64 32)"
+RONA_HOST=0.0.0.0 RONA_PARTY=1 bun run start
 ```
 
 1. Entra con el token en la pantalla de acceso.
@@ -34,7 +34,7 @@ El invitado no abre la interfaz del anfitrión: abre **la suya** y deja que su s
 del anfitrión. Así no se comparte la sesión de la aplicación del anfitrión (su historial, sus ajustes,
 sus descargas) y no hay que abrir CORS ni relajar el CSP.
 
-1. Arranca su propia instancia con la función encendida: `NN_ANIME_PARTY=1 bun run start`.
+1. Arranca su propia instancia con la función encendida: `RONA_PARTY=1 bun run start`.
 2. Abre el mismo episodio que el anfitrión (la sala no resuelve el contenido por ti todavía; ver
    «Lo que falta»).
 3. Pulsa **Unirse**, escribe la dirección del anfitrión, el código y un nombre.
@@ -93,7 +93,7 @@ por minuto no acercan la fuerza bruta a nada.
 | El invitado desde su propio servidor (SSE y reenvío) | `packages/server/src/party/remote.ts` |
 | Interfaz, hook del reproductor y cliente | `packages/web/src/features/party/` |
 
-`NN_ANIME_PARTY=1` llega al servidor desde el entorno; ver `packages/cli/src/server-env.ts`.
+`RONA_PARTY=1` llega al servidor desde el entorno; ver `packages/cli/src/server-env.ts`.
 
 ```bash
 bun test packages/core/src/party.test.ts packages/server/src/party

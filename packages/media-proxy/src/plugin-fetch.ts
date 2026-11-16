@@ -42,7 +42,7 @@ import {
   type PluginFetch,
   type PluginFetchCall,
   type PluginFetchFactory,
-} from '@nn-anime/core'
+} from '@rona/core'
 import {
   addressRule,
   allowLoopbackFromEnv,

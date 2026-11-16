@@ -354,7 +354,7 @@ test.describe('el reproductor', () => {
     await entrar(page)
     await page.goto('/watch/fixture/aurora-nocturna%233')
 
-    await expect(page).toHaveTitle('Aurora Nocturna · Episodio 3 · nn-anime', { timeout: 15_000 })
+    await expect(page).toHaveTitle('Aurora Nocturna · Episodio 3 · rona', { timeout: 15_000 })
     await expect(page.getByRole('heading', { level: 1, name: 'Aurora Nocturna' })).toBeVisible()
     // El episodio, en una sola línea: el número, el lugar que ocupa de cuántos.
     await expect(page.locator('.watch__episode')).toHaveText('Episodio 3 de 12')
@@ -966,7 +966,7 @@ test.describe('el reproductor', () => {
  */
 test.describe('la lista, el progreso y el siguiente', () => {
   /** La clave con la que la pantalla apunta por dónde va el episodio 3. */
-  const CLAVE = 'nn-anime:progreso:fixture:aurora-nocturna#3'
+  const CLAVE = 'rona:progreso:fixture:aurora-nocturna#3'
 
   test('la lista marca el episodio actual y cambia de episodio', async ({ page }) => {
     await entrar(page)
@@ -1061,7 +1061,7 @@ test.describe('la lista, el progreso y el siguiente', () => {
         ([clave, segundos]) => {
           localStorage.setItem(clave ?? '', JSON.stringify({ positionS: segundos, durationS: 60 }))
         },
-        [`nn-anime:progreso:fixture:${episodio}`, positionS] as const,
+        [`rona:progreso:fixture:${episodio}`, positionS] as const,
       )
 
       await page.reload()
@@ -1121,7 +1121,7 @@ test.describe('la lista, el progreso y el siguiente', () => {
     await expect(casilla).toBeChecked()
     await casilla.uncheck()
 
-    expect(await page.evaluate(() => localStorage.getItem('nn-anime:autoplay'))).toBe('no')
+    expect(await page.evaluate(() => localStorage.getItem('rona:autoplay'))).toBe('no')
 
     await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Silenciar' }).click()
@@ -1795,7 +1795,7 @@ test.describe('el modo extendido', () => {
     await page.goto('/settings')
 
     await page.getByRole('button', { name: 'Abrir extendido' }).click()
-    expect(await page.evaluate(() => localStorage.getItem('nn-anime:extendido'))).toBe('si')
+    expect(await page.evaluate(() => localStorage.getItem('rona:extendido'))).toBe('si')
 
     await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
     await expect(page.locator('.player')).toHaveAttribute('data-extendido', 'true', {
@@ -1804,7 +1804,7 @@ test.describe('el modo extendido', () => {
 
     await page.goto('/settings')
     await page.getByRole('button', { name: 'Ventana normal' }).click()
-    expect(await page.evaluate(() => localStorage.getItem('nn-anime:extendido'))).toBe('no')
+    expect(await page.evaluate(() => localStorage.getItem('rona:extendido'))).toBe('no')
   })
 
   test('en un teléfono llena la ventana y no desborda', async ({ page }) => {

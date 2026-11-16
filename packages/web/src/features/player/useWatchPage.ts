@@ -17,9 +17,9 @@
  * —el stream y la ficha del título— viven en `useWatchLecturas`.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { PartyMedia } from '@nn-anime/core/party'
-import type { SkipInterval } from '@nn-anime/core/schema'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { PartyMedia } from '@rona/core/party'
+import type { SkipInterval } from '@rona/core/schema'
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import {

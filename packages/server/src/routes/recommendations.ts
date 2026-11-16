@@ -18,7 +18,7 @@
  *    motor sin motivo.
  */
 
-import type { Candidate, SearchResult } from '@nn-anime/core'
+import type { Candidate, SearchResult } from '@rona/core'
 import {
   errorResponseSchema,
   mediaOf,
@@ -27,9 +27,9 @@ import {
   recommendationsResponseSchema,
   trendingResponseSchema,
   uniqueByWork,
-} from '@nn-anime/core'
-import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
-import { recommend } from '@nn-anime/recsys'
+} from '@rona/core'
+import type { CallOptions, Provider } from '@rona/provider-sdk'
+import { recommend } from '@rona/recsys'
 import type { Hono } from 'hono'
 import { adultosDeLaFila, TOPE_DE_VERIFICACION } from '../adultos'
 import type { AniListCatalog } from '../anilist/catalog'

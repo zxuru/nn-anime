@@ -16,7 +16,7 @@
  * rótulo se recorta, no se borra.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { Star } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'

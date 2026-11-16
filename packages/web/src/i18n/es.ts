@@ -5,10 +5,10 @@
  * error de revisión: impide añadir un idioma sin tocar el componente.
  */
 
-import type { Messages } from '@nn-anime/core/i18n'
+import type { Messages } from '@rona/core/i18n'
 
 export const messages: Messages = {
-  'app.name': 'nn-anime',
+  'app.name': 'RoNa',
   'nav.skip': 'Saltar al contenido',
 
   'nav.home': 'Inicio',
@@ -194,9 +194,9 @@ export const messages: Messages = {
    */
   'error.retry': 'Reintentar',
   'error.technical': 'Detalles técnicos',
-  'error.title.sinConexion': 'Sin conexión con nn-anime',
+  'error.title.sinConexion': 'Sin conexión con RoNa',
   'error.body.sinConexion':
-    'El navegador no pudo hablar con el servidor. Comprueba que nn-anime siga abierto y vuelve a intentarlo.',
+    'El navegador no pudo hablar con el servidor. Comprueba que RoNa siga abierto y vuelve a intentarlo.',
   'error.summary.sinConexion': 'sin conexión con el servidor',
   'error.title.lento': 'El servidor tardó demasiado',
   'error.body.lento':
@@ -212,11 +212,11 @@ export const messages: Messages = {
   'error.summary.noExiste': 'el proveedor no conoce esa referencia',
   'error.title.proveedor': 'El proveedor no responde',
   'error.body.proveedor':
-    'nn-anime está bien: es el sitio de origen el que falló o no contestó. Reintenta en un momento.',
+    'RoNa está bien: es el sitio de origen el que falló o no contestó. Reintenta en un momento.',
   'error.summary.proveedor': 'el proveedor no respondió',
   'error.title.servidor': 'Fallo del servidor',
   'error.body.servidor':
-    'nn-anime no pudo completar la operación. Reintenta; si sigue igual, los detalles técnicos dicen dónde mirar.',
+    'RoNa no pudo completar la operación. Reintenta; si sigue igual, los detalles técnicos dicen dónde mirar.',
   'error.summary.servidor': 'el servidor falló',
   'error.title.peticion': 'La petición no valía',
   'error.body.peticion':
@@ -254,7 +254,7 @@ export const messages: Messages = {
    */
   'home.firstRun.title': 'Todavía no hay ningún proveedor',
   'home.firstRun.body':
-    'nn-anime no incluye scrapers. Añade un repositorio de proveedores en Ajustes: se descarga, se miran sus archivos y eliges cuáles se activan.',
+    'RoNa no incluye scrapers. Añade un repositorio de proveedores en Ajustes: se descarga, se miran sus archivos y eliges cuáles se activan.',
   'home.firstRun.repo': 'Repositorio recomendado:',
   'home.firstRun.warning':
     'Añadirlo no ejecuta nada. Activar un proveedor sí, y sin sandbox: revisa lo que marcas.',
@@ -376,7 +376,7 @@ export const messages: Messages = {
   'settings.cap.none': 'sin capacidades',
   'settings.register.title': 'Registrar un proveedor',
   'settings.register.body':
-    'Rellena la dirección del sitio y sus rutas. nn-anime escribe el plugin, lo carga y lo deja activo al guardar, sin reiniciar.',
+    'Rellena la dirección del sitio y sus rutas. RoNa escribe el plugin, lo carga y lo deja activo al guardar, sin reiniciar.',
   'settings.register.identity': 'Quién es',
   'settings.register.id': 'Identificador',
   'settings.register.idHint': 'minúsculas y guiones; será el nombre del archivo',
@@ -830,7 +830,7 @@ export const messages: Messages = {
   'guia.recorrido.ficha': 'Ficha',
   'guia.recorrido.reproductor': 'Reproductor',
 
-  'guia.inicio.bienvenida.titulo': 'Bienvenido a nn-anime',
+  'guia.inicio.bienvenida.titulo': 'Bienvenido a RoNa',
   'guia.inicio.bienvenida.cuerpo':
     'Cada pantalla tiene su tutorial; éste es el de Inicio. El «?» de la cabecera repite el de donde estés.',
   'guia.inicio.cabecera.titulo': 'Aquí te mueves',

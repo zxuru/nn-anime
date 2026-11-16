@@ -14,7 +14,7 @@
  * el error se le devuelve sólo a quien lo pidió.
  */
 
-import { StoreError } from '@nn-anime/core'
+import { StoreError } from '@rona/core'
 
 export interface WriteQueue {
   /** Encola un trabajo y devuelve su resultado. */

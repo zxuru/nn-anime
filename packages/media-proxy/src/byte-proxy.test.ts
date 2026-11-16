@@ -214,7 +214,7 @@ describe('reenvío de bytes', () => {
 
     await proxy({
       url: ARCHIVO,
-      headers: { Referer: 'https://sitio.example', 'User-Agent': 'nn-anime' },
+      headers: { Referer: 'https://sitio.example', 'User-Agent': 'rona' },
       fetchImpl: async (input: string, init: RequestInit) => {
         const cabeceras = new Headers(init.headers)
         for (const nombre of ['referer', 'user-agent']) {
@@ -224,7 +224,7 @@ describe('reenvío de bytes', () => {
       },
     })
 
-    expect(enviadas).toEqual({ referer: 'https://sitio.example', 'user-agent': 'nn-anime' })
+    expect(enviadas).toEqual({ referer: 'https://sitio.example', 'user-agent': 'rona' })
   })
 
   test('sólo pasan las cabeceras de la lista blanca', async () => {

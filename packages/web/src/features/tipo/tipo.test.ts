@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import type { MediaFilter, ProviderMedia } from '@nn-anime/core/media'
-import type { AnimeSummary } from '@nn-anime/core/models'
+import type { MediaFilter, ProviderMedia } from '@rona/core/media'
+import type { AnimeSummary } from '@rona/core/models'
 import {
   enElTipo,
   esDelTipo,

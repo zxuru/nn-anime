@@ -11,7 +11,7 @@
  * use falla cerrado y lo dice, en vez de salir por el `fetch` global sin que nadie
  * lo note.
  */
-import type { PluginFetch, PluginFetchCall, PluginFetchFactory } from '@nn-anime/core'
+import type { PluginFetch, PluginFetchCall, PluginFetchFactory } from '@rona/core'
 
 let fabrica: PluginFetchFactory | undefined
 

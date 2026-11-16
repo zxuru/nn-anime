@@ -28,7 +28,7 @@ pub fn hay_servidor() -> bool {
     !SERVIDOR.is_empty()
 }
 
-/// Dónde tiene que quedar el servidor: `<raíz>\bin\<versión>\nn-anime.exe`.
+/// Dónde tiene que quedar el servidor: `<raíz>\bin\<versión>\rona.exe`.
 ///
 /// La ruta la decide `sidecar`, que es quien sabe cómo se llama el servidor. La
 /// versión va en ella a propósito: una actualización deja la anterior intacta

@@ -11,8 +11,8 @@
  * quedó —un archivo del repositorio puede estar rechazado— y no lo que se pidió.
  */
 
-import type { ProviderRepoView } from '@nn-anime/core/api'
-import { providerReposResponseSchema } from '@nn-anime/core/api'
+import type { ProviderRepoView } from '@rona/core/api'
+import { providerReposResponseSchema } from '@rona/core/api'
 import { useCallback, useEffect, useState } from 'react'
 import { apiGet, send } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'

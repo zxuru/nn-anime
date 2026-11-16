@@ -26,7 +26,7 @@
  * segmentos que ya no existe.
  */
 
-import { AppError } from '@nn-anime/core'
+import { AppError } from '@rona/core'
 
 /** Tope de una playlist, del spec. */
 export const MAX_PLAYLIST_BYTES = 4 * 1024 * 1024

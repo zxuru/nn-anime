@@ -18,8 +18,8 @@
  *    copia su informe.
  */
 
-import type { LoadReport, Provider } from '@nn-anime/provider-sdk'
-import { loadProviders } from '@nn-anime/provider-sdk'
+import type { LoadReport, Provider } from '@rona/provider-sdk'
+import { loadProviders } from '@rona/provider-sdk'
 import type { PluginReport } from './routes/providers'
 
 export interface ProviderHub {

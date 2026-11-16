@@ -26,7 +26,7 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import { feedEntrySchema, type ProviderRef } from '@nn-anime/core'
+import { feedEntrySchema, type ProviderRef } from '@rona/core'
 
 /** Los listados cacheados de un proveedor: búsquedas, tendencias y novedades. */
 const LISTADOS = `

@@ -18,14 +18,14 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, readdir, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
+import { openDb, runMigrations } from '@rona/catalog-store'
 import {
   type ProviderRepoView,
   providerRepoResponseSchema,
   providerReposResponseSchema,
   providersResponseSchema,
-} from '@nn-anime/core'
-import type { Resolver } from '@nn-anime/media-proxy'
+} from '@rona/core'
+import type { Resolver } from '@rona/media-proxy'
 import { fakeGithub, type GithubFixture, type TreeEntry } from '../__fixtures__/github'
 import { type AppOptions, createApp } from '../app'
 import { createContainer } from '../container'
@@ -102,9 +102,9 @@ async function conApp<T>(
   body: (contexto: Contexto) => Promise<T>,
   overrides: Partial<AppOptions> = {},
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-repos-'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-repos-'))
   const providersDir = join(dir, 'providers')
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const container = createContainer({ db })
   const fake = fakeGithub(github)
@@ -123,8 +123,8 @@ async function conApp<T>(
         configDir: dir,
         cacheDir: join(dir, 'cache'),
         providersDir,
-        dbPath: join(dir, 'nn-anime.db'),
-        configFile: join(dir, 'nn-anime.json'),
+        dbPath: join(dir, 'rona.db'),
+        configFile: join(dir, 'rona.json'),
       },
       githubFetchImpl: fake.impl,
       githubResolver: RESOLVER,

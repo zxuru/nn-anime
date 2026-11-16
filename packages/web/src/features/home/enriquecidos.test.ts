@@ -8,8 +8,8 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import type { EnrichmentBatchResponse } from '@nn-anime/core/api'
-import type { ProviderRef } from '@nn-anime/core/models'
+import type { EnrichmentBatchResponse } from '@rona/core/api'
+import type { ProviderRef } from '@rona/core/models'
 import {
   claveDeRef,
   firmaDeRefs,

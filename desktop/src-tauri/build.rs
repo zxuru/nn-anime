@@ -18,10 +18,10 @@ fn main() {
         PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let salida = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR")).join("embebido.rs");
 
-    // La ruta se puede forzar con `NN_ANIME_SERVIDOR`, que es lo que usará el
+    // La ruta se puede forzar con `RONA_SERVIDOR`, que es lo que usará el
     // empaquetado cuando compile para otro objetivo. Por defecto, la que deja
     // `bun run package` en el repositorio.
-    let servidor = std::env::var_os("NN_ANIME_SERVIDOR").map_or_else(
+    let servidor = std::env::var_os("RONA_SERVIDOR").map_or_else(
         || {
             manifiesto
                 .join("..")
@@ -29,13 +29,13 @@ fn main() {
                 .join("build")
                 .join("package")
                 .join("windows-x64")
-                .join("nn-anime.exe")
+                .join("rona.exe")
         },
         PathBuf::from,
     );
 
-    println!("cargo:rerun-if-env-changed=NN_ANIME_SERVIDOR");
-    println!("cargo:rerun-if-env-changed=NN_ANIME_EXIGIR_SERVIDOR");
+    println!("cargo:rerun-if-env-changed=RONA_SERVIDOR");
+    println!("cargo:rerun-if-env-changed=RONA_EXIGIR_SERVIDOR");
     println!("cargo:rerun-if-changed={}", servidor.display());
 
     let codigo = match std::fs::read(&servidor) {
@@ -54,7 +54,7 @@ fn main() {
             )
         }
         Err(error) => {
-            if std::env::var_os("NN_ANIME_EXIGIR_SERVIDOR").is_some() {
+            if std::env::var_os("RONA_EXIGIR_SERVIDOR").is_some() {
                 panic!(
                     "no hay servidor en {}: el empaquetado no puede compilar el anfitrión sin él ({error})",
                     servidor.display()

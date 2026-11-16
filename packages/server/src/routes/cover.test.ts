@@ -2,10 +2,10 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import type { FeedEntry, SearchResult } from '@nn-anime/core'
-import { MAX_COVER_BYTES, RASTER_TYPES } from '@nn-anime/media-proxy'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import { openDb, runMigrations } from '@rona/catalog-store'
+import type { FeedEntry, SearchResult } from '@rona/core'
+import { MAX_COVER_BYTES, RASTER_TYPES } from '@rona/media-proxy'
+import { createFixtureProvider } from '@rona/providers-fixture'
 import { createApp, createContainer } from '../index'
 import { COVER_MAX_AGE_S, coverEtag } from './cover'
 
@@ -34,8 +34,8 @@ async function conApp<T>(
     readonly feed?: readonly FeedEntry[]
   } = {},
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-portada-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-portada-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const upstream = { llamadas: 0 }
   const tamano = opciones.tamano ?? 1024

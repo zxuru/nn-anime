@@ -43,7 +43,7 @@ async function conDescarga<T>(
   body: (rutas: { playlist: string; salida: string }) => Promise<T>,
   segmentos: readonly string[] = ['segmento-00000.ts', 'segmento-00001.ts'],
 ): Promise<T> {
-  const root = await mkdtemp(join(tmpdir(), 'nn-anime-mux-'))
+  const root = await mkdtemp(join(tmpdir(), 'rona-mux-'))
 
   try {
     const carpeta = join(root, 'Episodio-1')

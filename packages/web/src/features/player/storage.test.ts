@@ -55,9 +55,9 @@ const almacenRoto: Almacen = {
 describe('el progreso de un episodio', () => {
   test('la clave lleva el prefijo de la aplicación y las dos referencias', () => {
     expect(claveDeProgreso('fixture', 'aurora-nocturna#3')).toBe(
-      'nn-anime:progreso:fixture:aurora-nocturna#3',
+      'rona:progreso:fixture:aurora-nocturna#3',
     )
-    expect(CLAVE_AUTOPLAY.startsWith('nn-anime:')).toBe(true)
+    expect(CLAVE_AUTOPLAY.startsWith('rona:')).toBe(true)
   })
 
   test('se guarda y se lee lo mismo', () => {
@@ -258,8 +258,8 @@ describe('el salto automático', () => {
   })
 
   test('la clave lleva el prefijo de la aplicación', () => {
-    expect(CLAVE_SALTO_AUTO.startsWith('nn-anime:')).toBe(true)
-    expect(CLAVE_MARGEN_SALTO.startsWith('nn-anime:')).toBe(true)
+    expect(CLAVE_SALTO_AUTO.startsWith('rona:')).toBe(true)
+    expect(CLAVE_MARGEN_SALTO.startsWith('rona:')).toBe(true)
   })
 })
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { PARTY_PROTOCOL_VERSION, type PartyEvent } from '@nn-anime/core/party'
+import { PARTY_PROTOCOL_VERSION, type PartyEvent } from '@rona/core/party'
 import { ApiError, ApiShapeError } from '../../api/client'
 import {
   createPartyEventParser,

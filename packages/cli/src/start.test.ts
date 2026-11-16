@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { createLogger, type LogEntry } from '@nn-anime/core'
-import { createSession } from '@nn-anime/server'
+import { createLogger, type LogEntry } from '@rona/core'
+import { createSession } from '@rona/server'
 import { parseArgs } from './args'
 import type { BootDeps, BootResult, Listen } from './boot'
 import { type ClosingReason, createLifecycle } from './lifecycle'
@@ -226,7 +226,7 @@ describe('entorno del modo servidor', () => {
     expect(await createStarter(target.deps)(options())).toBe(1)
     expect(boots).toBe(0)
     expect(target.order).toEqual([])
-    expect(errors[0]).toContain('NN_ANIME_TOKEN')
+    expect(errors[0]).toContain('RONA_TOKEN')
   })
 
   test('ALLOW_LOOPBACK no se admite con un host que no es loopback', async () => {

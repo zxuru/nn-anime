@@ -15,7 +15,7 @@
  * que emitiría hls.js de verdad —`networkError`, `fragLoadError`, fatal— y el
  * código de la aplicación corre sin enterarse de que el transporte es de mentira.
  *
- * Se activa con el alias de `vite.config.ts` cuando `NN_ANIME_E2E_HLS === 'falso'`.
+ * Se activa con el alias de `vite.config.ts` cuando `RONA_E2E_HLS === 'falso'`.
  * El paquete de producción no lo incluye: fuera del e2e, `hls.js` es el de npm.
  *
  * Lo que **no** imita: el manifiesto, los segmentos, las pistas de subtítulos ni

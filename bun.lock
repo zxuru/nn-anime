@@ -3,107 +3,107 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "nn-anime",
+      "name": "rona",
       "dependencies": {
         "@tauri-apps/api": "^2",
         "@tauri-apps/plugin-updater": "^2",
       },
       "devDependencies": {
         "@biomejs/biome": "^2.6.5",
-        "@nn-anime/catalog-store": "workspace:*",
-        "@nn-anime/core": "workspace:*",
-        "@nn-anime/media-proxy": "workspace:*",
-        "@nn-anime/provider-sdk": "workspace:*",
-        "@nn-anime/providers-fixture": "workspace:*",
-        "@nn-anime/server": "workspace:*",
         "@playwright/test": "^1.65.0",
+        "@rona/catalog-store": "workspace:*",
+        "@rona/core": "workspace:*",
+        "@rona/media-proxy": "workspace:*",
+        "@rona/provider-sdk": "workspace:*",
+        "@rona/providers-fixture": "workspace:*",
+        "@rona/server": "workspace:*",
         "@tauri-apps/cli": "^2",
         "@types/bun": "^1.4.4",
         "typescript": "^7.0.2",
       },
     },
     "packages/catalog-store": {
-      "name": "@nn-anime/catalog-store",
+      "name": "@rona/catalog-store",
       "version": "0.8.0",
       "dependencies": {
-        "@nn-anime/core": "workspace:*",
+        "@rona/core": "workspace:*",
         "zod": "^4",
       },
     },
     "packages/cli": {
-      "name": "@nn-anime/cli",
+      "name": "@rona/cli",
       "version": "0.8.0",
       "bin": {
-        "nn-anime": "./bin/nn-anime",
+        "rona": "./bin/rona",
       },
       "dependencies": {
-        "@nn-anime/catalog-store": "workspace:*",
-        "@nn-anime/core": "workspace:*",
-        "@nn-anime/media-proxy": "workspace:*",
-        "@nn-anime/provider-sdk": "workspace:*",
-        "@nn-anime/server": "workspace:*",
+        "@rona/catalog-store": "workspace:*",
+        "@rona/core": "workspace:*",
+        "@rona/media-proxy": "workspace:*",
+        "@rona/provider-sdk": "workspace:*",
+        "@rona/server": "workspace:*",
       },
     },
     "packages/core": {
-      "name": "@nn-anime/core",
+      "name": "@rona/core",
       "version": "0.8.0",
       "dependencies": {
         "zod": "^4",
       },
     },
     "packages/media-proxy": {
-      "name": "@nn-anime/media-proxy",
+      "name": "@rona/media-proxy",
       "version": "0.8.0",
       "dependencies": {
-        "@nn-anime/core": "workspace:*",
+        "@rona/core": "workspace:*",
         "mux.js": "^6.3.0",
       },
     },
     "packages/provider-sdk": {
-      "name": "@nn-anime/provider-sdk",
+      "name": "@rona/provider-sdk",
       "version": "0.8.0",
       "dependencies": {
-        "@nn-anime/core": "workspace:*",
+        "@rona/core": "workspace:*",
         "zod": "^4",
       },
     },
     "packages/providers-fixture": {
-      "name": "@nn-anime/providers-fixture",
+      "name": "@rona/providers-fixture",
       "version": "0.8.0",
       "dependencies": {
-        "@nn-anime/core": "workspace:*",
-        "@nn-anime/provider-sdk": "workspace:*",
+        "@rona/core": "workspace:*",
+        "@rona/provider-sdk": "workspace:*",
         "zod": "^4",
       },
     },
     "packages/recsys": {
-      "name": "@nn-anime/recsys",
+      "name": "@rona/recsys",
       "version": "0.8.0",
       "dependencies": {
-        "@nn-anime/core": "workspace:*",
+        "@rona/core": "workspace:*",
       },
     },
     "packages/server": {
-      "name": "@nn-anime/server",
+      "name": "@rona/server",
       "version": "0.8.0",
       "dependencies": {
-        "@nn-anime/catalog-store": "workspace:*",
-        "@nn-anime/core": "workspace:*",
-        "@nn-anime/media-proxy": "workspace:*",
-        "@nn-anime/provider-sdk": "workspace:*",
-        "@nn-anime/recsys": "workspace:*",
+        "@rona/catalog-store": "workspace:*",
+        "@rona/core": "workspace:*",
+        "@rona/media-proxy": "workspace:*",
+        "@rona/provider-sdk": "workspace:*",
+        "@rona/recsys": "workspace:*",
         "hono": "^4",
         "zod": "^4",
       },
       "devDependencies": {
-        "@nn-anime/providers-fixture": "workspace:*",
+        "@rona/providers-fixture": "workspace:*",
       },
     },
     "packages/web": {
-      "name": "@nn-anime/web",
+      "name": "@rona/web",
       "version": "0.8.0",
       "dependencies": {
-        "@nn-anime/core": "workspace:*",
+        "@rona/core": "workspace:*",
         "driver.js": "^1.10.2",
         "hls.js": "^1.7.4",
         "lucide-react": "^1.69.0",
@@ -145,24 +145,6 @@
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.6.5", "", { "os": "win32", "cpu": "x64" }, "sha512-07LaCeN9vvmbAAMOMsUjMfL5UbsCDkvVeyMJIgwNRc0xYqhizBGkjVzx05LYEwCXl2AiHcdzqVPR4IOYAsI1QQ=="],
 
-    "@nn-anime/catalog-store": ["@nn-anime/catalog-store@workspace:packages/catalog-store"],
-
-    "@nn-anime/cli": ["@nn-anime/cli@workspace:packages/cli"],
-
-    "@nn-anime/core": ["@nn-anime/core@workspace:packages/core"],
-
-    "@nn-anime/media-proxy": ["@nn-anime/media-proxy@workspace:packages/media-proxy"],
-
-    "@nn-anime/provider-sdk": ["@nn-anime/provider-sdk@workspace:packages/provider-sdk"],
-
-    "@nn-anime/providers-fixture": ["@nn-anime/providers-fixture@workspace:packages/providers-fixture"],
-
-    "@nn-anime/recsys": ["@nn-anime/recsys@workspace:packages/recsys"],
-
-    "@nn-anime/server": ["@nn-anime/server@workspace:packages/server"],
-
-    "@nn-anime/web": ["@nn-anime/web@workspace:packages/web"],
-
     "@oxc-project/types": ["@oxc-project/types@0.156.0", "", {}, "sha512-1Duyg48TdJNdyhEB8Xn1L36bT9Pv6GUtlKjHxOys8xkaF/rQq3XJE+bAurSK/AgIz5mGFsb77cn9Pb20+WCScw=="],
 
     "@playwright/test": ["@playwright/test@1.65.0", "", { "dependencies": { "playwright": "1.65.0" }, "bin": { "playwright": "cli.js" } }, "sha512-iGURLGuKDLakSEl7Pgfv8h7f+XLT+V861Wfhz0zlEl5nyFuKUopdkFBPKqTllTUp06aOwPuH8iuUEb3yp3MpbQ=="],
@@ -198,6 +180,24 @@
     "@rolldown/binding-win32-x64-msvc": ["@rolldown/binding-win32-x64-msvc@1.2.16", "", { "os": "win32", "cpu": "x64" }, "sha512-1lv1KvX0Z871zfk7vw+dnXMMnHNyDwMzWG8Kv3HxDXMOhzCX4SHc7HK319fInP0i+0p9D8brkfzL7pJOaGl+tw=="],
 
     "@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.1", "", {}, "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw=="],
+
+    "@rona/catalog-store": ["@rona/catalog-store@workspace:packages/catalog-store"],
+
+    "@rona/cli": ["@rona/cli@workspace:packages/cli"],
+
+    "@rona/core": ["@rona/core@workspace:packages/core"],
+
+    "@rona/media-proxy": ["@rona/media-proxy@workspace:packages/media-proxy"],
+
+    "@rona/provider-sdk": ["@rona/provider-sdk@workspace:packages/provider-sdk"],
+
+    "@rona/providers-fixture": ["@rona/providers-fixture@workspace:packages/providers-fixture"],
+
+    "@rona/recsys": ["@rona/recsys@workspace:packages/recsys"],
+
+    "@rona/server": ["@rona/server@workspace:packages/server"],
+
+    "@rona/web": ["@rona/web@workspace:packages/web"],
 
     "@tauri-apps/api": ["@tauri-apps/api@2.12.4", "", {}, "sha512-pVmfis+4zT8H0Qhp3xPZx9Ju7kpzvA6rr/PSJPyuwfvucTQ8sVt61NYU9KMkK703UFlYadFmjKA4HhybOtN0gg=="],
 

@@ -2,10 +2,10 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import { streamResolveResponseSchema } from '@nn-anime/core'
-import { createPlaylistCache, type PlaylistCache, type TicketStore } from '@nn-anime/media-proxy'
-import { createFixtureProvider, type FixtureFailure } from '@nn-anime/providers-fixture'
+import { openDb, runMigrations } from '@rona/catalog-store'
+import { streamResolveResponseSchema } from '@rona/core'
+import { createPlaylistCache, type PlaylistCache, type TicketStore } from '@rona/media-proxy'
+import { createFixtureProvider, type FixtureFailure } from '@rona/providers-fixture'
 import { createApp, createContainer } from '../index'
 import { ticketPath } from './stream'
 
@@ -70,8 +70,8 @@ async function conApp<T>(
   body: (contexto: Contexto) => Promise<T>,
   opciones: OpcionesDeApp = {},
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-stream-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-stream-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const upstream = {
     llamadas: 0,

@@ -24,9 +24,9 @@
  * —lo que enseña y lo que ofrece— sin montar la red.
  */
 
-import type { ProviderRepoCandidate, ProviderRepoView } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import { RECOMMENDED_PROVIDER_REPO } from '@nn-anime/core/repos'
+import type { ProviderRepoCandidate, ProviderRepoView } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import { RECOMMENDED_PROVIDER_REPO } from '@rona/core/repos'
 import { Download, Plus, RefreshCw, Save, Trash2 } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { SiGithub } from 'react-icons/si'

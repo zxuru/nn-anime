@@ -1,4 +1,4 @@
-# Capability Map: nn-anime
+# Capability Map: RoNa
 
 Estado: **aprobado** por el humano el 2026-10-10 · Gate Fase 0 superado · **enmiendas de
 `downloads` y `watch-party` incorporadas el 2026-11-15** (T219), con lo que el código ya traía.
@@ -30,7 +30,7 @@ Módulo auxiliar no listado como capacidad de producto:
 ### `watch-party` es experimental
 
 La sala es real y está en producción desde la 0.8.0, pero **está apagada por defecto**: sin
-`NN_ANIME_PARTY=1` no se registra ninguna ruta `/api/party/*` —17 las cuenta el árbol—. Lo que hay
+`RONA_PARTY=1` no se registra ninguna ruta `/api/party/*` —17 las cuenta el árbol—. Lo que hay
 es el **modo LAN**: el invitado habla desde su propio servidor y el anfitrión le releva. Lo que
 **no** hay es el modo P2P —la decisión **D3** sigue abierta—, ni la coincidencia de contenido, ni el
 chat. Su contrato es `SPEC-watch-party.md`; su modelo de amenaza, `SECURITY.md`.

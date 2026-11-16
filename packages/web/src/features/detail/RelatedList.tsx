@@ -22,7 +22,7 @@
  * normal.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'

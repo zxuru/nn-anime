@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import type { RecommendationResponse } from '@nn-anime/core/api'
-import type { AnimeSummary } from '@nn-anime/core/models'
+import type { RecommendationResponse } from '@rona/core/api'
+import type { AnimeSummary } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { arteDibujado, Pieza, RECURSOS, recursoDe } from '../../components/Pieza'

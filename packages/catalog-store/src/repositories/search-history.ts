@@ -13,7 +13,7 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import { type SearchRecord, StoreError } from '@nn-anime/core'
+import { type SearchRecord, StoreError } from '@rona/core'
 
 interface SearchHistoryRow {
   readonly query: string

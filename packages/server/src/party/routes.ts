@@ -21,7 +21,7 @@ import {
   partyJoinRequestSchema,
   partyReportSchema,
   partySyncRequestSchema,
-} from '@nn-anime/core'
+} from '@rona/core'
 import type { Context, Hono } from 'hono'
 import type { z } from 'zod'
 import { readCookie } from '../cookies'

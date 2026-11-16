@@ -21,7 +21,7 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import { type CacheHit, type SkipInterval, StoreError, skipIntervalSchema } from '@nn-anime/core'
+import { type CacheHit, type SkipInterval, StoreError, skipIntervalSchema } from '@rona/core'
 import { z } from 'zod'
 import { cacheHit } from '../cache-policy'
 

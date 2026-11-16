@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { streamResolveResponseSchema } from '@nn-anime/core'
+import { streamResolveResponseSchema } from '@rona/core'
 import {
   animeResponseSchema,
   episodesResponseSchema,
   providersResponseSchema,
-} from '@nn-anime/core/api'
+} from '@rona/core/api'
 import { conCiclo, filas, JSON_HEADERS } from './fixtures'
 
 const REF = 'aurora-nocturna'

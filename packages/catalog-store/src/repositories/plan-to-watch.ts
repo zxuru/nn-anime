@@ -18,7 +18,7 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import { type AnimeSummary, type ProviderRef, StoreError, titleKindSchema } from '@nn-anime/core'
+import { type AnimeSummary, type ProviderRef, StoreError, titleKindSchema } from '@rona/core'
 import { animeIdOf } from './episodes'
 
 /** Un título pendiente, con la fecha en que se marcó. */

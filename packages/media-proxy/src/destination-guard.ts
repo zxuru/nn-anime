@@ -30,7 +30,7 @@
  */
 
 import { lookup } from 'node:dns/promises'
-import { AppError } from '@nn-anime/core'
+import { AppError } from '@rona/core'
 
 export type DestinationRule =
   | 'scheme'
@@ -58,7 +58,7 @@ export type DestinationOutcome =
  * Sólo afecta a loopback y a redes privadas: la metadata de nube se sigue
  * rechazando aunque esté puesta.
  */
-export const ALLOW_LOOPBACK_ENV = 'NN_ANIME_ALLOW_LOOPBACK'
+export const ALLOW_LOOPBACK_ENV = 'RONA_ALLOW_LOOPBACK'
 
 export interface GuardOptions {
   /**

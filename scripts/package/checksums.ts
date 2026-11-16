@@ -45,7 +45,7 @@ export async function writeChecksums(files: readonly string[], output: string): 
   }
 
   const cabecera = [
-    '# SHA256 de los archivos de esta release de nn-anime.',
+    '# SHA256 de los archivos de esta release de rona.',
     '#',
     '# Comprobar:  sha256sum -c SHA256SUMS.txt',
     '#',

@@ -7,7 +7,7 @@
  * que no sabe reproducir HLS o una fuente que no existe no se arreglan repitiendo.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 

@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
+import type { FetchLike, Resolver } from '@rona/media-proxy'
 import { z } from 'zod'
 import { createAniListClient, retryAfterMs } from './client'
 

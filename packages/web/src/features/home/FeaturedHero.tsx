@@ -30,8 +30,8 @@
  * la medida está: así el campo no enseña nunca la letra del color equivocado.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { AnimeSummary, ProviderRef } from '@nn-anime/core/models'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { AnimeSummary, ProviderRef } from '@rona/core/models'
 import { Layers, Play } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Cover } from '../../components/Cover'

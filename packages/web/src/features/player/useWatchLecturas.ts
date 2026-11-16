@@ -20,9 +20,9 @@ import {
   animeResponseSchema,
   downloadsResponseSchema,
   streamResolveResponseSchema,
-} from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { TitleKind } from '@nn-anime/core/models'
+} from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { TitleKind } from '@rona/core/models'
 import { useCallback, useEffect, useState } from 'react'
 import { apiGet, apiPostJson } from '../../api/client'
 import { describirFallo, type Fallo, falloSinFuente } from '../../api/fallo'

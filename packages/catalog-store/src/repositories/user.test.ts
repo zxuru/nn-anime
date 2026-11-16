@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AnimeDetail, Episode, ProviderRef, WatchEventInput } from '@nn-anime/core'
+import type { AnimeDetail, Episode, ProviderRef, WatchEventInput } from '@rona/core'
 import { openDb } from '../db'
 import { runMigrations } from '../migrations/runner'
 import { createAnimeRepository } from './anime'
@@ -95,8 +95,8 @@ function cerrarBase(db: Database): void {
 
 /** Base temporal con dos títulos y sus episodios ya dentro. */
 async function withStore<T>(body: (store: Store) => Promise<T> | T): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-usuario-'))
-  const path = join(dir, 'nn-anime.db')
+  const dir = await mkdtemp(join(tmpdir(), 'rona-usuario-'))
+  const path = join(dir, 'rona.db')
   const db = openDb(path)
 
   try {
@@ -660,8 +660,8 @@ describe('búsquedas recientes', () => {
 
 describe('todo sobrevive a cerrar y reabrir', () => {
   test('historial, favoritos, vistos y búsquedas siguen ahí después', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-usuario-'))
-    const path = join(dir, 'nn-anime.db')
+    const dir = await mkdtemp(join(tmpdir(), 'rona-usuario-'))
+    const path = join(dir, 'rona.db')
     const abiertas: Database[] = []
 
     try {

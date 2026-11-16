@@ -10,7 +10,7 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import { StoreError } from '@nn-anime/core'
+import { StoreError } from '@rona/core'
 import { z } from 'zod'
 
 export const downloadStatusSchema = z.enum([

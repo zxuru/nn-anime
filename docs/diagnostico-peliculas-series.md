@@ -40,7 +40,7 @@ Todo lo de abajo se midió sin red salvo donde se dice.
 | Línea base e2e | `bun run e2e` | **105 pasan, 0 fallan** (2.9 min) |
 | Rutas HTTP de película y serie | Sonda con `conCiclo` de `tests/fixtures.ts` contra el fixture y un proveedor sintético de tres temporadas | Los resultados se citan en cada hallazgo |
 | Modelo de temporadas | Lectura de `packages/core/src/episodes.ts`, `packages/server/src/container.ts` y `packages/web/src/features/player/WatchPage.tsx` | F3–F6 |
-| Fuente real | `docs/estudio-busqueda-ani-cli-mx.md` (medición del 12/10/2026) y `%LOCALAPPDATA%\nn-anime` | F9 |
+| Fuente real | `docs/estudio-busqueda-ani-cli-mx.md` (medición del 12/10/2026) y `%LOCALAPPDATA%\RoNa` | F9 |
 
 La sonda vive fuera del repositorio (`.tmp/probe.ts`) porque **un diagnóstico no deja una prueba en
 rojo**: lo que deja es la reproducción escrita. El proveedor sintético declara
@@ -228,7 +228,7 @@ fuente sigue declarando su mitad y se acepta la limitación. Va con 0.2.
 El plugin `pelisplushd` de `nn-anime-plugins` está escrito y conforma, pero **sus dominios ya no
 existen** (medido el 12/10/2026 en `docs/estudio-busqueda-ani-cli-mx.md:2125-2147`): los tres
 `.mx/.bz/.to` no conectan, `.net` redirige a una página de retirada y `.com` está en venta. En este
-entorno no hay ningún plugin instalado (`%LOCALAPPDATA%\nn-anime` no tiene `plugins/`). El e2e usa
+entorno no hay ningún plugin instalado (`%LOCALAPPDATA%\RoNa` no tiene `plugins/`). El e2e usa
 el fixture, no un sitio.
 
 Consecuencia honesta: **no se puede aceptar «películas y series funcionan tan bien como el anime»

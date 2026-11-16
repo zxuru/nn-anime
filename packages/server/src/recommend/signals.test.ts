@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { filterCandidate, indexWatchState, type WatchState } from '@nn-anime/recsys'
+import { filterCandidate, indexWatchState, type WatchState } from '@rona/recsys'
 import { refKey, watchStateFrom, watchStateWithMarks } from './signals'
 
 const DIA = 24 * 60 * 60 * 1000

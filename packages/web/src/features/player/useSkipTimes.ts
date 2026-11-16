@@ -22,8 +22,8 @@
  * quien está mirando.
  */
 
-import { enrichmentResponseSchema, skipTimesResponseSchema } from '@nn-anime/core/api'
-import type { SkipInterval } from '@nn-anime/core/schema'
+import { enrichmentResponseSchema, skipTimesResponseSchema } from '@rona/core/api'
+import type { SkipInterval } from '@rona/core/schema'
 import { useEffect, useRef, useState } from 'react'
 import { apiGet, type RequestDeps } from '../../api/client'
 

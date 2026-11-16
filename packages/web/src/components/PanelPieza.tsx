@@ -16,7 +16,7 @@
  * hacia abajo y el fondo. Y con `Escape`, que es lo que hace todo el mundo.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { type ReactNode, useEffect, useRef } from 'react'
 import { t } from '../i18n'
 import { Link } from '../router'

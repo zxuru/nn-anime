@@ -12,9 +12,9 @@
  * falta repetirlo aquí con las mismas palabras.
  */
 
-import type { ProviderSummary } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { ProviderMedia } from '@nn-anime/core/media'
+import type { ProviderSummary } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { ProviderMedia } from '@rona/core/media'
 import { type ReactNode, useState } from 'react'
 import { describirFallo } from '../../api/fallo'
 import { resumenDeFallo } from '../../components/ErrorNotice'

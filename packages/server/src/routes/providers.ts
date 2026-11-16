@@ -11,8 +11,8 @@
  * proveedor y el CLI no tiene que saber la forma de la respuesta.
  */
 
-import { type ProviderSummary, providersResponseSchema } from '@nn-anime/core'
-import type { Provider } from '@nn-anime/provider-sdk'
+import { type ProviderSummary, providersResponseSchema } from '@rona/core'
+import type { Provider } from '@rona/provider-sdk'
 import type { Hono } from 'hono'
 
 /**

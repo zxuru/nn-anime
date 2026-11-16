@@ -11,8 +11,8 @@
  * sin convertir la página en un lector que no deja oír nada.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { PartyMedia } from '@nn-anime/core/party'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { PartyMedia } from '@rona/core/party'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 import type { PartyHandle, PartySync } from './useParty'

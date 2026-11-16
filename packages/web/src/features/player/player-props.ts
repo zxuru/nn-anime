@@ -8,7 +8,7 @@
  * setenta líneas de documentación de propiedades.
  */
 
-import type { SkipInterval } from '@nn-anime/core/schema'
+import type { SkipInterval } from '@rona/core/schema'
 import type { SafeTrack } from './usePlayer'
 import type { PlayMode } from './watch-route'
 

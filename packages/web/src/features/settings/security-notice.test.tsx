@@ -30,7 +30,7 @@ describe('el documento, en elementos', () => {
   test('traduce títulos, párrafos, listas y la tabla', async () => {
     const html = render(<SecurityNotice markdown={await documento()} />)
 
-    expect(html).toContain('<h3>Seguridad de nn-anime</h3>')
+    expect(html).toContain('<h3>Seguridad de RoNa</h3>')
     expect(html).toContain('Riesgo residual, en texto claro')
     expect(html).toContain('<table')
     expect(html).toContain('scope="col"')

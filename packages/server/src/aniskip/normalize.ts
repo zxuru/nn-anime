@@ -13,7 +13,7 @@
  * se deduplica por la terna completa.
  */
 
-import { type SkipInterval, skipIntervalSchema } from '@nn-anime/core'
+import { type SkipInterval, skipIntervalSchema } from '@rona/core'
 import { z } from 'zod'
 
 /**

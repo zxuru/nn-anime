@@ -1,4 +1,4 @@
-# Spec: nn-anime (proyecto)
+# Spec: RoNa (proyecto)
 
 Estado: borrador para aprobación · 2026-10-10 · Gate: `docs/specs/CAPABILITY-MAP.md` aprobado.
 
@@ -15,7 +15,7 @@ ni cuentas.
 
 Éxito significa:
 
-1. `nn-anime` arranca en menos de 2 s, abre el navegador en `http://127.0.0.1:<puerto>` y
+1. `rona` arranca en menos de 2 s, abre el navegador en `http://127.0.0.1:<puerto>` y
    muestra contenido útil sin ningún paso manual.
 2. El usuario busca un anime, ve el detalle, elige episodio y modo sub o dub, y lo reproduce
    dentro de la página o lo lanza a mpv.
@@ -62,13 +62,13 @@ bun run db:migrate              # aplicar migraciones pendientes (idempotente)
 ## Project Structure
 
 ```
-nn-anime/
+rona/
 ├─ README.md                      arranque, comandos y mapa de documentación
 ├─ SECURITY.md                    modelo de amenaza y riesgos residuales
 ├─ docs/
 │  ├─ specs/                      specs del proyecto y de módulo
 │  │  ├─ CAPABILITY-MAP.md        mapa aprobado de módulos
-│  │  ├─ SPEC-nn-anime.md         este documento
+│  │  ├─ SPEC-rona.md         este documento
 │  │  └─ SPEC-<module-id>.md      un spec por módulo
 │  ├─ providers.md                guía para escribir un plugin
 │  ├─ a11y.md                     qué se comprueba de accesibilidad
@@ -89,7 +89,7 @@ nn-anime/
 │  ├─ recsys/                     motor de recomendación, funciones puras
 │  ├─ server/                     app Hono, rutas, SSE, composición
 │  ├─ web/                        SPA React (index.html + src/)
-│  ├─ cli/                        binario `nn-anime`
+│  ├─ cli/                        binario `rona`
 │  └─ providers-fixture/          proveedor de prueba sobre datos propios
 └─ tests/                         integración entre paquetes
 ```
@@ -97,10 +97,10 @@ nn-anime/
 Rutas de datos en tiempo de ejecución, nunca dentro del repo:
 
 ```
-$XDG_CONFIG_HOME/nn-anime/providers/     plugins del usuario (*.ts, *.js, *.mjs)
-$XDG_CONFIG_HOME/nn-anime/config.json    ajustes de proceso
-$XDG_DATA_HOME/nn-anime/nn-anime.db      base SQLite
-$XDG_CACHE_HOME/nn-anime/                caché desechable (playlists HLS, miniaturas)
+$XDG_CONFIG_HOME/rona/providers/     plugins del usuario (*.ts, *.js, *.mjs)
+$XDG_CONFIG_HOME/rona/config.json    ajustes de proceso
+$XDG_DATA_HOME/rona/rona.db      base SQLite
+$XDG_CACHE_HOME/rona/                caché desechable (playlists HLS, miniaturas)
 ```
 
 ## Code Style

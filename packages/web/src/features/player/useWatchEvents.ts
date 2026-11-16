@@ -14,7 +14,7 @@
  *   de Tauri**, con `keepalive` donde el navegador lo admite. Sin eso, cerrar
  *   pierde los últimos segundos, que son justo los que hacen que reanudar sirva
  *   de algo. El anfitrión de escritorio avisa con el evento
- *   `nn-anime:ocultar-ventana` antes de esconder la ventana en la bandeja: la
+ *   `rona:ocultar-ventana` antes de esconder la ventana en la bandeja: la
  *   página sigue viva pero ya no se ve, y es el último momento seguro.
  *
  * Los envíos se **serializan** en una cola: dos `PATCH` a la vez pueden llegar
@@ -23,7 +23,7 @@
  * un `fetch` de mentira.
  */
 
-import { watchStartResponseSchema } from '@nn-anime/core/api'
+import { watchStartResponseSchema } from '@rona/core/api'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiPostJson } from '../../api/client'
 
@@ -43,7 +43,7 @@ export const MIN_DELTA_S = 1
  * ventana. Es un `CustomEvent` de la propia página: no hay IPC ni permisos de
  * Tauri de por medio.
  */
-export const EVENTO_OCULTAR_VENTANA = 'nn-anime:ocultar-ventana'
+export const EVENTO_OCULTAR_VENTANA = 'rona:ocultar-ventana'
 
 export interface WatchEventsOptions {
   readonly animeRef: { readonly providerId: string; readonly value: string }

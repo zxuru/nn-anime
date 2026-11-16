@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { PartyEvent } from '@nn-anime/core'
+import type { PartyEvent } from '@rona/core'
 import { createApp } from '../index'
 
 const PORT = 7717

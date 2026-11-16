@@ -18,8 +18,8 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import { isFinished, modeSchema, type ProviderRef, StoreError, watchedRatio } from '@nn-anime/core'
-import type { WatchedEpisode } from '@nn-anime/core/models'
+import { isFinished, modeSchema, type ProviderRef, StoreError, watchedRatio } from '@rona/core'
+import type { WatchedEpisode } from '@rona/core/models'
 
 interface WatchedRow {
   readonly number: number

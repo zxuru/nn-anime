@@ -54,7 +54,7 @@ Lo que un vecino no puede copiar sin mentir:
   publicable y la separación es deliberada, no un pendiente.
 - **Todo ocurre en el equipo.** En uso local el servidor escucha en `127.0.0.1` y exige token de
   arranque; no hay cuentas ni telemetría, y los datos viven en un SQLite del usuario. El contenedor,
-  que sí escucha en la red, exige `NN_ANIME_TOKEN` y deja público sólo `/healthz`.
+  que sí escucha en la red, exige `RONA_TOKEN` y deja público sólo `/healthz`.
 - **La recomendación se explica.** Cada sugerencia lleva su motivo y su puntuación; se puede leer
   sin abrir nada, y la ficha repite el porqué. No hay caja negra.
 - **Se comporta como `ani-cli` en el arranque.** Un comando levanta servidor e interfaz y abre la
@@ -62,18 +62,18 @@ Lo que un vecino no puede copiar sin mentir:
 
 ## Operating Context
 
-- **Cómo se usa.** `nn-anime` desde la terminal, el ejecutable instalado —una ventana propia de
+- **Cómo se usa.** `rona` desde la terminal, el ejecutable instalado —una ventana propia de
   Tauri, en `desktop/`, que envuelve la misma interfaz web—, el archivo único de Windows o el
   contenedor Docker. En todos, la interfaz es la misma SPA.
 - **Las fuentes se instalan a mano.** La aplicación no trae ningún proveedor de fábrica. Se copian
-  plugins a `~/.config/nn-anime/providers/` o se añade un repositorio de GitHub desde **Ajustes**:
+  plugins a `~/.config/rona/providers/` o se añade un repositorio de GitHub desde **Ajustes**:
   primero se miran los archivos, después se marcan. Marcar una casilla es el momento en que ese
   código se ejecuta.
 - **Qué hay instalado, si hay algo.** `mpv` se detecta al arrancar y es opcional. La parrilla y los
   episodios recién emitidos salen de la API pública de AniList, la única fuente con fecha por
   episodio; las películas y series se completan con una clave opcional de TMDB que se guarda en la
   base local y nunca se devuelve al navegador.
-- **Dónde viven los datos.** Rutas XDG en Linux y macOS; en Windows, `%LOCALAPPDATA%\nn-anime-data`
+- **Dónde viven los datos.** Rutas XDG en Linux y macOS; en Windows, `%LOCALAPPDATA%\rona-data`
   para la ventana —fuera de la carpeta del `.exe`, que la actualización reemplaza— y
   `%LOCALAPPDATA%`/`%APPDATA%` para el CLI. `portable.txt` lleva todo junto en Windows si se elige.
   Las rutas en uso se ven en **Ajustes**.
@@ -96,7 +96,7 @@ plataformas.
 
 - **Local primero:** sin servidor central, sin cuentas, sin telemetría. En uso local el servidor
   escucha sólo en `127.0.0.1` y exige token de arranque; el contenedor es la excepción declarada y
-  exige `NN_ANIME_TOKEN`. Cualquier otra función que abra la red es opt-in, avisa en la interfaz y
+  exige `RONA_TOKEN`. Cualquier otra función que abra la red es opt-in, avisa en la interfaz y
   tiene su modelo de amenaza en `SECURITY.md`.
 - **Sin scrapers, torrents, protocolos de pares ni alojamiento de contenido aquí.** El núcleo sólo
   define contratos y motores genéricos.
@@ -108,7 +108,7 @@ plataformas.
   y `hls.js`. Ninguna dependencia nueva fuera de la tabla de Tech Stack del spec sin pasar por el
   límite «Ask first». El movimiento es CSS, con los tokens de la casa; GSAP no es dependencia.
 - **AniList se respeta:** lista blanca de hosts, una petición cada dos segundos, caché con TTL y
-  `NN_ANIME_ANILIST_OFFLINE=1` para las pruebas.
+  `RONA_ANILIST_OFFLINE=1` para las pruebas.
 - **Compatibilidad del contrato de plugin:** `capabilities.media` ausente significa anime.
 - **Idioma:** hoy la interfaz es sólo español y todo texto nuevo pasa por
   `packages/web/src/i18n/es.ts`; el inglés está planificado, no construido. Los identificadores y
@@ -117,7 +117,7 @@ plataformas.
 
 **Decisiones tomadas:** D1, clave opcional de TMDB con el plugin como respaldo. D2, descarga en MP4
 primero (copia directa para `file`, remux con `ffmpeg` para HLS, segmentos locales si no hay
-`ffmpeg`), para que lo descargado se pueda abrir fuera de nn-anime.
+`ffmpeg`), para que lo descargado se pueda abrir fuera de RoNa.
 
 **Sin decidir, y por eso no se implementa sin preguntar:** el lector de manga (fase 2A; el tipo
 `manga` ya está en el modelo, y la propuesta es CBZ para lo descargado), el watch party (fase 3; la
@@ -126,7 +126,7 @@ de esa señalización. Ninguna de las dos fases está abierta.
 
 ## Brand Commitments
 
-- **Nombre:** nn-anime, `zxuru/nn-anime`, paquetes `@nn-anime/*`, binario `nn-anime`.
+- **Nombre:** RoNa, `zxuru/rona`, paquetes `@rona/*`, binario `rona`.
 - **Voz:** español directo, sin superlativos ni lenguaje de marketing. Los documentos dicen lo que
   falla, lo que no se midió y lo que se retiró, con el motivo. Un cambio que se descarta se explica
   en vez de borrarse en silencio.

@@ -11,7 +11,7 @@
  * que es lo que sabe, y aquí se decide dónde se suelta la reproducción.
  */
 
-import type { SkipInterval } from '@nn-anime/core/schema'
+import type { SkipInterval } from '@rona/core/schema'
 
 /** El margen máximo, en segundos. Más que eso dejaría el salto dentro del propio intervalo. */
 export const MARGEN_MAXIMO_S = 5

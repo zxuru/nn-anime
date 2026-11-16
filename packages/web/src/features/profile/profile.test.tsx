@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import type { WatchHistoryItem } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import type { WatchHistoryItem } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { t } from '../../i18n'

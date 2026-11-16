@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { Candidate } from '@nn-anime/core'
+import type { Candidate } from '@rona/core'
 import {
   BARELY_STARTED_RATIO,
   FINISHED_RATIO,

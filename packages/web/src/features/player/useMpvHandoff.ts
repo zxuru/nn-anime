@@ -11,7 +11,7 @@
  * `mpv/events`, y la pantalla no lo necesita para nada: la ventana la abre mpv.
  */
 
-import { mpvPlayResponseSchema } from '@nn-anime/core/api'
+import { mpvPlayResponseSchema } from '@rona/core/api'
 import { useCallback, useState } from 'react'
 import { apiPostJson } from '../../api/client'
 import { describirFallo } from '../../api/fallo'

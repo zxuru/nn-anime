@@ -37,7 +37,7 @@ import type {
   WatchEventInput,
   WatchedEpisode,
   WatchRecord,
-} from '@nn-anime/core'
+} from '@rona/core'
 import type { z } from 'zod'
 import { findCoverUrl } from './cover-ref'
 import { runMigrations } from './migrations/runner'

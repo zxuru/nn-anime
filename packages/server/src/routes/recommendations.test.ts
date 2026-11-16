@@ -2,14 +2,14 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
+import { openDb, runMigrations } from '@rona/catalog-store'
 import {
   recommendationsResponseSchema,
   type SearchResult,
   trendingResponseSchema,
-} from '@nn-anime/core'
-import { createRegistry, type Provider } from '@nn-anime/provider-sdk'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
+} from '@rona/core'
+import { createRegistry, type Provider } from '@rona/provider-sdk'
+import { createFixtureProvider } from '@rona/providers-fixture'
 import { fakeAniList } from '../__fixtures__/anilist'
 import { createApp, createContainer } from '../index'
 import { clampLimit, MAX_LIMIT } from './recommendations'
@@ -73,8 +73,8 @@ async function conApp<T>(
     readonly anilist?: Parameters<typeof fakeAniList>[0]
   } = {},
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-recs-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-recs-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const container = createContainer({ db })
   const proveedor = createFixtureProvider()

@@ -366,20 +366,20 @@ describe('el anfitrión de ventana', () => {
     const entorno = await leer(join(CRATE, 'src', 'entorno.rs'))
 
     // `%LOCALAPPDATA%` primero, y la carpeta de datos es **hermana** de la que
-    // usaban las versiones instaladas (`nn-anime-data` frente a `nn-anime`): la
+    // usaban las versiones instaladas (`rona-data` frente a `rona`): la
     // actualización reemplaza el ejecutable y los datos no pueden estar dentro.
     expect(entorno).toContain('LOCALAPPDATA')
     expect(entorno).toContain('NOMBRE_DATOS')
-    expect(entorno).toContain('nn-anime-data')
+    expect(entorno).toContain('rona-data')
     // Y los datos de una instalación anterior se trasladan una vez.
     expect(entorno).toContain('migrar_datos_heredados')
     // En macOS y Linux, la raíz XDG del usuario: sin ella caería al directorio
     // del ejecutable, que dentro de un AppImage está montado en sólo lectura.
     expect(entorno).toContain('XDG_DATA_HOME')
     expect(entorno).toContain('HOME')
-    expect(entorno).toContain('NN_ANIME_DATA_DIR')
-    expect(entorno).toContain('NN_ANIME_CONFIG_DIR')
-    expect(entorno).toContain('NN_ANIME_CACHE_DIR')
+    expect(entorno).toContain('RONA_DATA_DIR')
+    expect(entorno).toContain('RONA_CONFIG_DIR')
+    expect(entorno).toContain('RONA_CACHE_DIR')
 
     // El portable es **explícito**: un archivo, no la presencia de una carpeta que
     // podría crear cualquiera sin saber qué hace.
@@ -418,8 +418,8 @@ describe('el anfitrión de ventana', () => {
     // Y el empaquetado **exige** el servidor en Windows: sin esta variable,
     // `build.rs` compila un anfitrión vacío que arranca y enseña el aviso de fallo,
     // y el fallo aparece en el paquete en vez de en la compilación.
-    expect(build).toContain('NN_ANIME_EXIGIR_SERVIDOR')
-    expect(desktop).toContain('NN_ANIME_EXIGIR_SERVIDOR')
+    expect(build).toContain('RONA_EXIGIR_SERVIDOR')
+    expect(desktop).toContain('RONA_EXIGIR_SERVIDOR')
     expect(desktop).toContain("platform === 'windows'")
 
     // Se escribe en un temporal y se renombra: `rename` es atómico y nadie puede
@@ -449,7 +449,7 @@ describe('el anfitrión de ventana', () => {
     // La entrega es portable en las tres plataformas. Si alguien devolviera el
     // NSIS, el `.nsi` o los targets del bundler, volvería a publicarse un
     // instalador que ya no se prueba ni se documenta.
-    expect(await Bun.file(join(ROOT, 'packaging', 'windows', 'nn-anime.nsi')).exists()).toBe(false)
+    expect(await Bun.file(join(ROOT, 'packaging', 'windows', 'rona.nsi')).exists()).toBe(false)
     expect(
       await Bun.file(join(ROOT, 'packaging', 'windows', 'probar-instalador.ps1')).exists(),
     ).toBe(false)
@@ -463,7 +463,7 @@ describe('el anfitrión de ventana', () => {
     expect(conf).not.toContain('"installerIcon"')
 
     // El updater sigue: lo que ya no hay es un instalador que ejecutar.
-    expect(conf).toContain('https://github.com/zxuru/nn-anime/releases/latest/download/latest.json')
+    expect(conf).toContain('https://github.com/zxuru/rona/releases/latest/download/latest.json')
     expect(conf).toContain('"pubkey"')
   })
 
@@ -550,8 +550,8 @@ describe('la compilación cruzada del anfitrión', () => {
     expect(hostBinary('macos', 'arm64')).toContain(
       join('target', 'aarch64-apple-darwin', 'release'),
     )
-    expect(hostBinary('windows', 'x64').endsWith('nn-anime-desktop.exe')).toBe(true)
-    expect(hostBinary('macos', 'x64').endsWith('nn-anime-desktop')).toBe(true)
+    expect(hostBinary('windows', 'x64').endsWith('rona-desktop.exe')).toBe(true)
+    expect(hostBinary('macos', 'x64').endsWith('rona-desktop')).toBe(true)
   })
 
   test('un objetivo sin triple se rechaza en vez de inventar una ruta', () => {
@@ -569,7 +569,7 @@ describe('la compilación cruzada del anfitrión', () => {
     // `noTemplateCurlyInString`.
     expect(release).toMatch(/bun run desktop:build --target=\$\{\{ matrix\.target \}\}/)
     // Y los dos ejecutables de Windows se firman: el acceso abre el anfitrión.
-    expect(release).toContain('nn-anime-desktop.exe')
+    expect(release).toContain('rona-desktop.exe')
   })
 })
 
@@ -590,7 +590,7 @@ describe('el paquete de macOS', () => {
 
     // El servidor y el anfitrión, en el mismo `Contents/MacOS`: el anfitrión
     // busca al servidor por su nombre en su propio directorio.
-    expect(macos).toContain("join(macos, 'nn-anime')")
+    expect(macos).toContain("join(macos, 'rona')")
     expect(macos).toContain('join(macos, HOST_NAME)')
     // Y si el anfitrión no está, se para aquí y no en el Mac de quien descarga.
     expect(macos).toContain('no hay anfitrión junto al servidor')
@@ -606,9 +606,9 @@ describe('el paquete de macOS', () => {
 
 describe('el paquete de Linux', () => {
   test('el acceso del menú abre la ventana y no pide terminal', async () => {
-    const desktop = await leer(join(ROOT, 'packaging', 'linux', 'nn-anime.desktop'))
+    const desktop = await leer(join(ROOT, 'packaging', 'linux', 'rona.desktop'))
 
-    expect(desktop).toContain('Exec=nn-anime-desktop')
+    expect(desktop).toContain('Exec=rona-desktop')
     // Se ancla a la **línea de la directiva** y no se busca la subcadena en
     // cualquier parte: el comentario del archivo nombra `Terminal=false` para
     // explicar por qué, así que un `toContain` daría por bueno un archivo con
@@ -630,11 +630,11 @@ describe('el paquete de Linux', () => {
     const apprun = await leer(join(ROOT, 'packaging', 'linux', 'AppRun'))
 
     // Sin la primera rama, el doble clic en el AppImage seguiría abriendo una
-    // consola; sin la segunda, `./nn-anime.AppImage "naruto"` dejaría de
+    // consola; sin la segunda, `./rona.AppImage "naruto"` dejaría de
     // funcionar. Las dos cosas a la vez son el trato.
     expect(apprun).toContain('[ "$#" -eq 0 ]')
-    expect(apprun).toContain('exec "$aqui/usr/bin/nn-anime-desktop"')
-    expect(apprun).toContain('exec "$aqui/usr/bin/nn-anime" "$@"')
+    expect(apprun).toContain('exec "$aqui/usr/bin/rona-desktop"')
+    expect(apprun).toContain('exec "$aqui/usr/bin/rona" "$@"')
   })
 })
 
@@ -691,8 +691,8 @@ describe('el subsistema PE', () => {
     const ci = await leer(join(ROOT, '.github', 'workflows', 'ci.yml'))
 
     expect(ci).toContain('scripts/package/pe.ts')
-    expect(ci).toContain('nn-anime.exe console')
-    expect(ci).toContain('nn-anime-desktop.exe windows')
+    expect(ci).toContain('rona.exe console')
+    expect(ci).toContain('rona-desktop.exe windows')
   })
 })
 
@@ -716,7 +716,7 @@ function paso(texto: string, nombre: string): string {
 
 describe('el archivo único y la release', () => {
   test('el nombre es el que se descarga', () => {
-    expect(unicoNombre('1.2.3')).toBe('nn-anime-1.2.3-windows-x64.exe')
+    expect(unicoNombre('1.2.3')).toBe('rona-1.2.3-windows-x64.exe')
   })
 
   test('un anfitrión más viejo que el servidor se rechaza', async () => {
@@ -725,8 +725,8 @@ describe('el archivo único y la release', () => {
     const dir = await tempDir('unico-')
 
     try {
-      const servidor = join(dir, 'nn-anime.exe')
-      const anfitrion = join(dir, 'nn-anime-desktop.exe')
+      const servidor = join(dir, 'rona.exe')
+      const anfitrion = join(dir, 'rona-desktop.exe')
 
       await writeFile(servidor, 'servidor')
       await writeFile(anfitrion, 'anfitrion')
@@ -777,7 +777,7 @@ describe('el archivo único y la release', () => {
     expect(paso(release, 'Ejecutable único (Windows)')).toContain("if: runner.os == 'Windows'")
     expect(release).toContain('bun run package:unico')
     // El archivo que se descarga, no sólo el anfitrión que se compila.
-    expect(release).toMatch(/nn-anime-\*-windows-x64\.exe/)
+    expect(release).toMatch(/rona-\*-windows-x64\.exe/)
     expect(paso(release, 'Comprobar el subsistema de los ejecutables (Windows)')).toContain(
       'scripts/package/pe.ts',
     )

@@ -8,7 +8,7 @@
  * importarlo para esto ejecutaría el CLI.
  */
 
-import type { ConfigEnvironment } from '@nn-anime/core'
+import type { ConfigEnvironment } from '@rona/core'
 
 export function configEnvironment(env: NodeJS.ProcessEnv): ConfigEnvironment {
   return {
@@ -21,9 +21,9 @@ export function configEnvironment(env: NodeJS.ProcessEnv): ConfigEnvironment {
     XDG_DATA_HOME: env.XDG_DATA_HOME,
     XDG_CONFIG_HOME: env.XDG_CONFIG_HOME,
     XDG_CACHE_HOME: env.XDG_CACHE_HOME,
-    NN_ANIME_DATA_DIR: env.NN_ANIME_DATA_DIR,
-    NN_ANIME_CONFIG_DIR: env.NN_ANIME_CONFIG_DIR,
-    NN_ANIME_CACHE_DIR: env.NN_ANIME_CACHE_DIR,
-    NN_ANIME_LANG: env.NN_ANIME_LANG,
+    RONA_DATA_DIR: env.RONA_DATA_DIR,
+    RONA_CONFIG_DIR: env.RONA_CONFIG_DIR,
+    RONA_CACHE_DIR: env.RONA_CACHE_DIR,
+    RONA_LANG: env.RONA_LANG,
   }
 }

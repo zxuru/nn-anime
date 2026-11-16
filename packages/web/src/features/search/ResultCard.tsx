@@ -11,8 +11,8 @@
  * se pide nada: el hueco se ve como hueco en lugar de como una imagen rota.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { SearchResult } from '@nn-anime/core/models'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { SearchResult } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'

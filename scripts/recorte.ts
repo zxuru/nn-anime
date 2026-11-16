@@ -9,9 +9,9 @@ import { mkdir, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { chromium } from '@playwright/test'
 
-const PORT = Number(process.env.NN_ANIME_E2E_PORT ?? '7801')
-const SELECTOR = process.env.NN_ANIME_RECORTE ?? '.section--top'
-const DESTINO = process.env.NN_ANIME_RECORTE_SALIDA ?? 'docs/recorte.png'
+const PORT = Number(process.env.RONA_E2E_PORT ?? '7801')
+const SELECTOR = process.env.RONA_RECORTE ?? '.section--top'
+const DESTINO = process.env.RONA_RECORTE_SALIDA ?? 'docs/recorte.png'
 const token = (await readFile('.tmp/e2e-boot-token', 'utf8')).trim()
 
 const navegador = await chromium.launch({ args: ['--mute-audio'] })

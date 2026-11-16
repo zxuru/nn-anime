@@ -153,7 +153,7 @@ export function abrir(id: string, raiz: string = RAIZ): string {
       `  Rama      ${rama}`,
       `  Reclamo   ${claim}`,
       `  Puerto    ${puerto}`,
-      `  Datos     NN_ANIME_DATA_DIR=${ruta}/.data/`,
+      `  Datos     RONA_DATA_DIR=${ruta}/.data/`,
       '',
       'Siguiente:',
       `  cd ${ruta} && bun install`,

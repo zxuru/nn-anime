@@ -24,9 +24,9 @@
  * —`Pieza`, con barra de progreso y episodio—, no una miniatura aparte.
  */
 
-import type { WatchHistoryItem } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { AnimeSummary } from '@nn-anime/core/models'
+import type { WatchHistoryItem } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { AnimeSummary } from '@rona/core/models'
 import { ArrowRight, Bookmark, CircleCheck, History, type LucideIcon, Star } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'

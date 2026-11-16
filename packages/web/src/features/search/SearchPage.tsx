@@ -19,8 +19,8 @@
  * la búsqueda terminó.
  */
 
-import { hasGenreToken } from '@nn-anime/core/anilist-search'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { hasGenreToken } from '@rona/core/anilist-search'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { resumenDeFallo } from '../../components/ErrorNotice'
 import { Grid, GridItem } from '../../components/Grid'

@@ -52,6 +52,6 @@ test.describe('el aviso de seguridad', () => {
 
     expect(respuesta.status()).toBe(200)
     expect(respuesta.headers()['content-type']).toContain('text/markdown')
-    expect(await respuesta.text()).toContain('# Seguridad de nn-anime')
+    expect(await respuesta.text()).toContain('# Seguridad de rona')
   })
 })

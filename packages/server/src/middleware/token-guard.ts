@@ -18,7 +18,7 @@
  * guard de sesión local.
  */
 
-import type { TicketStore } from '@nn-anime/media-proxy'
+import type { TicketStore } from '@rona/media-proxy'
 import type { MiddlewareHandler } from 'hono'
 import { LOGIN_PATH, renderLoginPage } from '../auth'
 import { readCookie } from '../cookies'

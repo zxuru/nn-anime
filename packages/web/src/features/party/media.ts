@@ -13,7 +13,7 @@ import {
   PARTY_MAX_TITLE_LENGTH,
   type PartyMedia,
   partyMediaSchema,
-} from '@nn-anime/core/party'
+} from '@rona/core/party'
 
 export interface WatchMediaInput {
   readonly title: string | undefined

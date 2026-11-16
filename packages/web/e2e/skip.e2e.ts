@@ -193,7 +193,7 @@ test.describe('los saltos', () => {
     page,
   }) => {
     await page.addInitScript(() => {
-      localStorage.setItem('nn-anime:skipAuto', 'si')
+      localStorage.setItem('rona:skipAuto', 'si')
     })
     await interceptar(page, INTERVALOS)
 

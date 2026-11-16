@@ -1,5 +1,5 @@
 {
-  "name": "@nn-anime/server",
+  "name": "@rona/server",
   "version": "0.8.0",
   "private": true,
   "type": "module",
@@ -7,18 +7,18 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@nn-anime/core": "workspace:*",
+    "@rona/core": "workspace:*",
     "hono": "^4",
-    "@nn-anime/provider-sdk": "workspace:*",
-    "@nn-anime/catalog-store": "workspace:*",
-    "@nn-anime/media-proxy": "workspace:*",
+    "@rona/provider-sdk": "workspace:*",
+    "@rona/catalog-store": "workspace:*",
+    "@rona/media-proxy": "workspace:*",
     "zod": "^4",
-    "@nn-anime/recsys": "workspace:*"
+    "@rona/recsys": "workspace:*"
   },
   "scripts": {
     "test": "bun test"
   },
   "devDependencies": {
-    "@nn-anime/providers-fixture": "workspace:*"
+    "@rona/providers-fixture": "workspace:*"
   }
 }

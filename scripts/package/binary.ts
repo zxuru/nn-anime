@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * El ejecutable autocontenido de nn-anime.
+ * El ejecutable autocontenido de rona.
  *
  * `bun build --compile` mete el runtime, el servidor, SQLite y la interfaz en un
  * solo archivo nativo, y `--asset` añade lo que el código lee del disco en
@@ -118,10 +118,10 @@ export function buildArgs(options: BuildBinaryOptions): readonly string[] {
   if (options.metadata !== false && options.spec.platform === 'windows') {
     args.push(
       `--windows-version=${dottedVersion(options.version)}`,
-      '--windows-title=nn-anime',
+      '--windows-title=RoNa',
       '--windows-description=Ver anime desde el navegador, con una interfaz que arranca en 127.0.0.1',
-      '--windows-publisher=nn-anime',
-      '--windows-copyright=nn-anime',
+      '--windows-publisher=RoNa',
+      '--windows-copyright=RoNa',
     )
 
     // El icono, dentro del ejecutable. Sin él, la ventana de la consola y la barra

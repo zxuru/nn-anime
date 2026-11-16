@@ -1,5 +1,5 @@
 [package]
-name = "nn-anime-desktop"
+name = "rona-desktop"
 version = "0.8.0"
 edition = "2021"
 # `tauri-plugin-single-instance` (T156) exige Rust >= 1.90. El anfitrión no usa
@@ -9,10 +9,10 @@ rust-version = "1.90"
 publish = false
 
 # Sin `[lib]`: es un binario de ventana y nada más. El nombre tiene que ser
-# `nn-anime-desktop` porque el servidor, que viaja **al lado**, ya se llama
-# `nn-anime`; los dos conviven en el mismo directorio.
+# `rona-desktop` porque el servidor, que viaja **al lado**, ya se llama
+# `rona`; los dos conviven en el mismo directorio.
 [[bin]]
-name = "nn-anime-desktop"
+name = "rona-desktop"
 path = "src/main.rs"
 
 [build-dependencies]

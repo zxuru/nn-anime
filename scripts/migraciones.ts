@@ -30,7 +30,7 @@ import type { Dirent } from 'node:fs'
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, posix } from 'node:path'
-import { migrationsIssues } from '@nn-anime/catalog-store'
+import { migrationsIssues } from '@rona/catalog-store'
 import { ROOT } from './workspaces'
 
 /** Dónde viven las migraciones y el bloqueo. */

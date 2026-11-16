@@ -23,8 +23,8 @@
  * depende de nada del reproductor.
  */
 
-import type { EpisodesResponse } from '@nn-anime/core/api'
-import type { Episode } from '@nn-anime/core/models'
+import type { EpisodesResponse } from '@rona/core/api'
+import type { Episode } from '@rona/core/models'
 import { useEffect, useState } from 'react'
 import {
   type EpisodeLookup,
