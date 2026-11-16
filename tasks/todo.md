@@ -2768,19 +2768,24 @@ primer paso de cualquier recorrido un mando que apague todos —también los fut
 mismo estado que el botón de Ajustes, y ofrecer el mismo salto en el aviso de primer arranque.
 
 **Aceptación:**
-- [ ] El primer paso de cada recorrido muestra «Ya conozco cómo funciona»; pulsarlo cierra el
+- [x] El primer paso de cada recorrido muestra «Ya conozco cómo funciona»; pulsarlo cierra el
       tutorial, marca todos los recorridos como vistos, deja `tutorialsDisabled: true` y ningún
       faro de novedad vuelve a latir.
-- [ ] Los pasos que no son el primero no lo muestran y conservan «Omitir tutorial».
-- [ ] El aviso de primer arranque ofrece el mismo salto y, con los tutoriales apagados, dice cómo
+- [x] Los pasos que no son el primero no lo muestran y conservan «Omitir tutorial».
+- [x] El aviso de primer arranque ofrece el mismo salto y, con los tutoriales apagados, dice cómo
       volver a verlos.
-- [ ] `guia.e2e.ts` mide el recorrido completo y el estado guardado, y Buscar no estrena tutorial
+- [x] `guia.e2e.ts` mide el recorrido completo y el estado guardado, y Buscar no estrena tutorial
       ni faro después de pulsarlo.
-- [ ] El mando mide al menos `--control-size` de alto y el popover sigue siendo modal.
+- [x] El mando mide al menos `--control-size` de alto y el popover sigue siendo modal.
 
-**Verificación:** pendiente.
+**Verificación:** `bun run typecheck` 0 · `bun run lint` 0 errores (32 avisos y 1 info, los de la
+línea base) · `bun test` **3940 pasan, 0 fallan** (241 ficheros) · `guia.e2e.ts` **12 pasan, 0
+fallan**, incluida la nueva: el botón mide 44 px de alto, desaparece en el paso 2, deja
+`tutorialsDisabled: true` con los ocho recorridos y Buscar no estrena tutorial ni faro. Mutación:
+no mirar `activeIndex` hace fallar la prueba del segundo paso; quitar el `omitirTodos` del clic
+deja el estado encendido y hace fallar la del estado guardado.
 
-**Estado:** en curso.
+**Estado:** hecho.
 
 **Depende de:** ninguno.
 
@@ -2799,13 +2804,15 @@ Cuando Ajustes se agrupe en secciones con su propio `<h2>`, esos tres serán her
 lector de pantalla perderá la relación. Bajan a `<h3>`: es el nivel que les toca dentro de un grupo.
 
 **Aceptación:**
-- [ ] Los tres componentes declaran su título como `<h3>` y los textos son los mismos.
-- [ ] `bun test packages/web/src/features/settings` en verde.
-- [ ] `bun run typecheck` y `bun run lint` en verde.
+- [x] Los tres componentes declaran su título como `<h3>` y los textos son los mismos.
+- [x] `bun test packages/web/src/features/settings` en verde.
+- [x] `bun run typecheck` y `bun run lint` en verde.
 
-**Verificación:** pendiente.
+**Verificación:** `bun test packages/web/src/features/settings` **95 pasan, 0 fallan** (7
+ficheros) · `bun run typecheck` 0 · `bun run lint` 0 errores. La prueba nueva lee las tres fuentes
+y exige `<h3>` sin `<h2>`: devolver cualquiera de los tres a `h2` la pone en rojo.
 
-**Estado:** pendiente.
+**Estado:** hecho.
 
 **Depende de:** ninguno.
 
@@ -2822,23 +2829,30 @@ Reproducción, Apariencia, Privacidad y contenido, Sistema y Guía— y antepone
 queda pegado en escritorio y se desplaza en horizontal en móvil, con la sección visible marcada.
 
 **Aceptación:**
-- [ ] La página declara seis secciones con id estable y un `<nav>` con un enlace por sección; todo
+- [x] La página declara seis secciones con id estable y un `<nav>` con un enlace por sección; todo
       enlace resuelve a una sección existente y ningún id se repite.
-- [ ] Con 820 px o más, el índice va en una columna a la izquierda y se queda pegado al desplazar;
+- [x] Con 820 px o más, el índice va en una columna a la izquierda y se queda pegado al desplazar;
       por debajo, una fila desplazable arriba.
-- [ ] La sección visible se marca con `aria-current="location"` y un filete de acento; sin
+- [x] La sección visible se marca con `aria-current="location"` y un filete de acento; sin
       `IntersectionObserver` la página sigue navegando y no rompe.
-- [ ] El desplazamiento deja el título debajo de la cabecera pegajosa y con movimiento reducido no
+- [x] El desplazamiento deja el título debajo de la cabecera pegajosa y con movimiento reducido no
       anima.
-- [ ] Los tres anclajes del tutorial (`ajustes-proveedores`, `ajustes-tema`, `ajustes-guia`) siguen
+- [x] Los tres anclajes del tutorial (`ajustes-proveedores`, `ajustes-tema`, `ajustes-guia`) siguen
       existiendo y su recorrido sigue saliendo.
-- [ ] `settings.e2e.ts` pulsa cada enlace, comprueba que la sección entra en pantalla y que el
+- [x] `settings.e2e.ts` pulsa cada enlace, comprueba que la sección entra en pantalla y que el
       índice no desborda a 390 px.
-- [ ] `bun run typecheck`, `bun run lint` y `bun test` en verde.
+- [x] `bun run typecheck`, `bun run lint` y `bun test` en verde.
 
-**Verificación:** pendiente.
+**Verificación:** `bun run typecheck` 0 · `bun run lint` 0 errores (32 avisos y 1 info, los de la
+línea base) · `bun test` **3940 pasan, 0 fallan** · `settings.e2e.ts` **5 pasan, 0 fallan**: los
+seis enlaces llevan a su sección, la dejan en pantalla y la marcan, y a 390 px la página no
+desborda (`scrollWidth - clientWidth ≤ 0`) mientras la fila sí se desplaza. `guia.e2e.ts` **12
+pasan**: los tres anclajes del recorrido de Ajustes siguen vivos. Medido en el navegador a 1280:
+el enlace activo mide 2 px de filete a la izquierda y el resto 0; capturas en
+`.tmp/ajustes-{escritorio,movil}.png`. Mutación: quitar `data !== undefined` del `useSeccionActiva`
+deja el índice sin marca y pone en rojo la prueba que la exige.
 
-**Estado:** pendiente.
+**Estado:** hecho.
 
 **Depende de:** T255.
 
