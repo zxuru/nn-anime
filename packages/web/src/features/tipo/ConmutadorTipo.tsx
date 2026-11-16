@@ -17,7 +17,7 @@
  */
 
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
-import type { MediaFilter } from '@rona/core/media'
+import type { MediaHalf } from '@rona/core/media'
 import { Clapperboard, type LucideIcon, Tv } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { IconLabel } from '../../components/IconLabel'
@@ -27,7 +27,7 @@ import { ANCLAS } from '../guia/guia'
 import { pathConTipo, tipoFromPath } from './tipo'
 
 /** Las dos mitades, en el orden en que se enseñan. Anime primero: es la casa. */
-export const OPCIONES: readonly MediaFilter[] = ['anime', 'movies']
+export const OPCIONES: readonly MediaHalf[] = ['anime', 'movies']
 
 /**
  * El dibujo de cada mitad.
@@ -36,10 +36,10 @@ export const OPCIONES: readonly MediaFilter[] = ['anime', 'movies']
  * dibujos que el cine y la televisión llevan décadas usando para decirse, y en
  * una pantalla estrecha —donde el rótulo se recorta— son lo único que queda.
  */
-const ICONO: Readonly<Record<MediaFilter, LucideIcon>> = { anime: Tv, movies: Clapperboard }
+const ICONO: Readonly<Record<MediaHalf, LucideIcon>> = { anime: Tv, movies: Clapperboard }
 
 /** La clave de i18n de cada mitad. */
-export function claveDeTipo(tipo: MediaFilter): 'media.anime' | 'media.movies' {
+export function claveDeTipo(tipo: MediaHalf): 'media.anime' | 'media.movies' {
   return tipo === 'anime' ? 'media.anime' : 'media.movies'
 }
 

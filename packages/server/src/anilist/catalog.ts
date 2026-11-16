@@ -34,7 +34,7 @@ import {
   kindOfFormat,
   type LocalWork,
   type Logger,
-  type MediaFilter,
+  type MediaHalf,
   namesOf,
   normalizeQuery,
   ok,
@@ -168,7 +168,7 @@ export interface AniListCatalog {
    * anterior hasta que venza el TTL haría que pareciera roto media hora.
    */
   top(
-    media: MediaFilter,
+    media: MediaHalf,
     adultAllowed: boolean,
     signal?: AbortSignal | undefined,
   ): Promise<Result<readonly AniListEntry[], AppError>>
@@ -193,7 +193,7 @@ export interface AniListCatalog {
     signal?: AbortSignal | undefined,
   ): Promise<Result<readonly AniListEntry[], AppError>>
   airing(
-    media: MediaFilter,
+    media: MediaHalf,
     days: number,
     signal?: AbortSignal | undefined,
   ): Promise<Result<readonly AniListAiringEntry[], AppError>>
@@ -203,7 +203,7 @@ export interface AniListCatalog {
    * dos estados y el descarte lo hace la ruta. La de películas sí lleva el eje.
    */
   recent(
-    media: MediaFilter,
+    media: MediaHalf,
     adultAllowed: boolean,
     signal?: AbortSignal | undefined,
   ): Promise<Result<readonly AniListAiringEntry[], AppError>>
@@ -523,7 +523,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
     items.map((item) => item.media)
 
   async function top(
-    media: MediaFilter,
+    media: MediaHalf,
     adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListEntry[], AppError>> {
@@ -616,7 +616,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
   }
 
   async function airing(
-    media: MediaFilter,
+    media: MediaHalf,
     days: number,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListAiringEntry[], AppError>> {
@@ -667,7 +667,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
   }
 
   async function recent(
-    media: MediaFilter,
+    media: MediaHalf,
     adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListAiringEntry[], AppError>> {

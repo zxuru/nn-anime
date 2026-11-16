@@ -42,7 +42,7 @@ import {
   recentResponseSchema,
   trendingResponseSchema,
 } from '@rona/core/api'
-import type { MediaFilter } from '@rona/core/media'
+import type { MediaHalf } from '@rona/core/media'
 import { useEffect, useRef, useState } from 'react'
 import { ApiError, apiGet } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'
@@ -256,7 +256,7 @@ export function combineRows(resultados: RowResults, ahora: Date = new Date()): H
  * sin un DOM: un `useEffect` no corre en `renderToString`, así que la única forma
  * de medir que el tipo viaja es leer las direcciones que se piden.
  */
-export function rutasDeTipo(tipo: MediaFilter): {
+export function rutasDeTipo(tipo: MediaHalf): {
   readonly trending: string
   readonly feed: string
   readonly recent: string
@@ -286,7 +286,7 @@ export function rutasDeTipo(tipo: MediaFilter): {
  * vuelven a lo de la fuente —el top al ranking del proveedor y las novedades a su
  * feed—, que es la razón de que las dos lecturas sigan aquí.
  */
-async function leerLasFilas(signal: AbortSignal, tipo: MediaFilter): Promise<RowResults> {
+async function leerLasFilas(signal: AbortSignal, tipo: MediaHalf): Promise<RowResults> {
   const opciones = { signal }
   const rutas = rutasDeTipo(tipo)
   const [continueWatching, favorites, trending, feed, recent, descubrir, parrilla, emisiones] =
@@ -304,7 +304,7 @@ async function leerLasFilas(signal: AbortSignal, tipo: MediaFilter): Promise<Row
   return { continueWatching, favorites, trending, feed, recent, descubrir, parrilla, emisiones }
 }
 
-export function useHomeRows(tipo: MediaFilter): HomeRows {
+export function useHomeRows(tipo: MediaHalf): HomeRows {
   const [filas, setFilas] = useState<HomeRows>(VACIO)
   // El reloj de los intentos vive en un `ref`: no se pinta, y meterlo en el
   // estado volvería a montar el efecto en cada relectura.

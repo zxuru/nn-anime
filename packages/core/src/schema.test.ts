@@ -1,13 +1,17 @@
 import { describe, expect, test } from 'bun:test'
 import { z } from 'zod'
+import { continueWatchingItemSchema, recommendationSchema } from './api'
 import { type PublicStreamSource, toPublicStreamSource } from './models'
 import {
   anilistEntrySchema,
   animeDetailSchema,
+  animeSummarySchema,
   cacheHitSchema,
   candidateSchema,
   episodeSchema,
   feedEntrySchema,
+  mediaFamilySchema,
+  mediaFormatSchema,
   providerCapabilitiesSchema,
   providerRefSchema,
   searchResultSchema,
@@ -669,5 +673,143 @@ describe('mediaType y temporada en el contrato', () => {
     const result = episodeSchema.safeParse({ ref: REF, animeRef: REF, number: 12, mode: 'sub' })
     expect(result.success).toBe(true)
     if (result.success) expect(result.data.season).toBeUndefined()
+  })
+})
+
+/** Una forma de cada schema que lleva `family` y `format`, con lo mínimo válido. */
+const FORMAS_CON_FAMILIA: readonly {
+  readonly nombre: string
+  readonly schema: SafeParser
+  readonly base: Readonly<Record<string, unknown>>
+}[] = [
+  { nombre: 'searchResultSchema', schema: searchResultSchema, base: { ref: REF, title: 'T' } },
+  {
+    nombre: 'animeDetailSchema',
+    schema: animeDetailSchema,
+    base: { ref: REF, title: 'T', genres: [], studios: [] },
+  },
+  { nombre: 'animeSummarySchema', schema: animeSummarySchema, base: { ref: REF, title: 'T' } },
+  {
+    nombre: 'candidateSchema',
+    schema: candidateSchema,
+    base: { ref: REF, title: 'T', tags: [], studios: [] },
+  },
+  {
+    nombre: 'recommendationSchema',
+    schema: recommendationSchema,
+    base: {
+      ref: REF,
+      title: 'T',
+      score: 0.5,
+      tags: [],
+      reason: { kind: 'cold-start', text: 'popularidad' },
+      reasons: [],
+    },
+  },
+  {
+    nombre: 'continueWatchingItemSchema',
+    schema: continueWatchingItemSchema,
+    base: {
+      animeRef: REF,
+      title: 'T',
+      episodeRef: REF,
+      episodeNumber: 1,
+      mode: 'sub',
+      positionS: 0,
+      durationS: 1440,
+      ratio: 0.5,
+      watchedAt: '2026-11-16T12:00:00.000Z',
+    },
+  },
+]
+
+describe('familia y formato en las formas que viajan', () => {
+  test('los vocabularios aceptan lo suyo y rechazan lo inventado', () => {
+    for (const familia of ['anime', 'animation', 'live']) {
+      expect(mediaFamilySchema.safeParse(familia).success, familia).toBe(true)
+    }
+    expect(mediaFamilySchema.safeParse('documental').success).toBe(false)
+
+    for (const formato of ['series', 'movie']) {
+      expect(mediaFormatSchema.safeParse(formato).success, formato).toBe(true)
+    }
+    expect(mediaFormatSchema.safeParse('miniserie').success).toBe(false)
+  })
+
+  for (const forma of FORMAS_CON_FAMILIA) {
+    test(`${forma.nombre} acepta family y format declarados`, () => {
+      const result = forma.schema.safeParse({
+        ...forma.base,
+        family: 'anime',
+        format: 'movie',
+      })
+
+      expect(result.success).toBe(true)
+    })
+
+    test(`${forma.nombre} sigue aceptando la forma vieja, sin los dos campos`, () => {
+      // La compatibilidad que no se puede romper: una fila o un plugin escritos
+      // antes de T257a no llevan los campos y tienen que seguir valiendo.
+      expect(forma.schema.safeParse(forma.base).success).toBe(true)
+    })
+
+    test(`${forma.nombre} rechaza una familia fuera del vocabulario nombrando el campo`, () => {
+      const result = forma.schema.safeParse({ ...forma.base, family: 'documental' })
+
+      expect(result.success).toBe(false)
+      if (!result.success) expect(result.error.message).toContain('family')
+    })
+  }
+})
+
+describe('capabilities.families: qué familias declara un proveedor', () => {
+  const BASE = { search: true, sub: true, dub: false, trending: false }
+
+  test('un manifiesto sin familias sigue conformando', () => {
+    const result = providerCapabilitiesSchema.safeParse(BASE)
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.families).toBeUndefined()
+      expect(result.data.media).toBeUndefined()
+    }
+  })
+
+  test('se acepta y convive con `media`, que queda como legado', () => {
+    const result = providerCapabilitiesSchema.safeParse({
+      ...BASE,
+      families: ['anime', 'live'],
+      media: 'both',
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.families).toEqual(['anime', 'live'])
+      expect(result.data.media).toBe('both')
+    }
+  })
+
+  test('un array vacío o con repetidos se rechaza nombrando el campo', () => {
+    for (const families of [[], ['anime', 'anime']]) {
+      const result = providerCapabilitiesSchema.safeParse({ ...BASE, families })
+
+      expect(result.success, JSON.stringify(families)).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues.map((issue) => issue.path.join('.')).join(' | ')).toContain(
+          'families',
+        )
+      }
+    }
+  })
+
+  test('una familia fuera del vocabulario se rechaza', () => {
+    const result = providerCapabilitiesSchema.safeParse({ ...BASE, families: ['documental'] })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join('.')).join(' | ')).toContain(
+        'families',
+      )
+    }
   })
 })

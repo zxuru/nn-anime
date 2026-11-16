@@ -27,7 +27,7 @@ import type {
   AniListRelation,
   DiscoverItem,
   Enrichment,
-  MediaFilter,
+  MediaHalf,
   ProviderRef,
 } from '@rona/core'
 import {
@@ -222,7 +222,7 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
    * aplicación—. Con `both`, nada: el descubrimiento vive partido en dos y no
    * tiene una mitad «todo»; un 400 lo dice en vez de elegir una por su cuenta.
    */
-  const mitad = (raw: string | undefined): MediaFilter | undefined => {
+  const mitad = (raw: string | undefined): MediaHalf | undefined => {
     const pedido = mediaFrom(raw)
     if (!pedido.ok) return undefined
     if (pedido.media === undefined) return 'anime'
