@@ -745,6 +745,13 @@ export const messages: Messages = {
   'detail.error.body': 'El proveedor no respondió a tiempo. Puedes reintentar o volver atrás.',
   'detail.error.provider': 'Proveedor: {provider}',
   'detail.error.back': 'Volver',
+  /*
+   * El botón que sale cuando la obra no está en el proveedor que se pidió, pero
+   * sí en otro. El nombre del proveedor va dentro porque el botón **es** la
+   * elección de la fuente: «Probar con jkanime» no dice nada, «Probar con
+   * AnimeAV1» sí.
+   */
+  'detail.error.tryOther': 'Probar con {provider}',
   'detail.notFound.title': 'No se encontró la ficha',
   'detail.related.year': 'Año {year}',
   // El rail mezcla lo que la base conoce con lo que declara AniList, así que el

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { RequestDeps } from '../../api/client'
-import { loadDetailCore } from './load-detail'
+import { loadDetailCore, loadSources } from './load-detail'
 
 /**
  * Las lecturas del núcleo de la ficha, por su dirección, sin red.
@@ -83,5 +83,26 @@ describe('la lectura del detalle', () => {
     expect(pedidas.some((ruta) => ruta.endsWith('/enrichment'))).toBe(false)
     expect(pedidas.some((ruta) => ruta.endsWith('/metadata'))).toBe(false)
     expect(pedidas.some((ruta) => ruta.endsWith('/anilist-related'))).toBe(false)
+  })
+
+  /**
+   * Las fuentes se pueden leer **solas**.
+   *
+   * Es lo que necesita la ficha que falló: su núcleo no llegó, así que la lista de
+   * fuentes no está, y sin una lectura aparte el aviso de error no tendría dónde
+   * ofrecer «Probar con {proveedor}».
+   */
+  test('las fuentes se leen solas, por su ruta', async () => {
+    const pedidas: string[] = []
+    const fetch: RequestDeps['fetch'] = async (input) => {
+      pedidas.push(input)
+      throw new Error('sin red')
+    }
+
+    await expect(loadSources('fixture', 'aurora-nocturna', { deps: { fetch } })).rejects.toThrow()
+
+    // Una sola lectura, y la de las fuentes: la ficha que falló ya no pide el
+    // detalle otra vez para averiguarlo.
+    expect(pedidas).toEqual(['/api/anime/fixture/aurora-nocturna/sources'])
   })
 })
