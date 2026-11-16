@@ -25,8 +25,8 @@ se escribió este spec, lo instalado abría una consola, y lo decía su propio `
    bandeja y la aplicación sigue disponible desde el icono.
 3. Un segundo lanzamiento **enfoca la ventana que ya está**, en vez de abrir un segundo servidor.
 4. Un enlace externo de la interfaz abre el navegador del sistema, no se lleva la ventana.
-5. Si el anfitrión muere de golpe, el servidor **no queda huérfano** donde el sistema lo permita
-   (Linux); en Windows el Job Object sigue pendiente y se declara como riesgo.
+5. Si el anfitrión muere de golpe, el servidor **no queda huérfano**: en Windows lo mata el Job
+   Object y en Linux `PR_SET_PDEATHSIG`. macOS no tiene equivalente y se declara (riesgo 2).
 6. En **Windows** el entregable es **un solo archivo** que se ejecuta sin instalar nada.
 
 ## Contrato
@@ -107,8 +107,12 @@ Al cerrarse la ventana: escribe `shutdown\n` en la entrada estándar del hijo, e
 sale, lo mata. Medido por T134 sobre el ejecutable empaquetado: **sale con 0 en 17 ms**.
 
 El seguro contra la muerte brusca del anfitrión es del sistema operativo, no del CLI: **Job Object**
-con `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` en Windows y **`PR_SET_PDEATHSIG`** en Linux. macOS no tiene
-equivalente: es un riesgo residual que se declara.
+con `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` en Windows —el hijo se asigna al job justo después de
+lanzarlo, que es cuando Windows lo admite— y **`PR_SET_PDEATHSIG`** en Linux. Al anfitrión no le hace
+falta ejecutar nada al morir: el kernel cierra sus handles y con ellos el job. macOS no tiene
+equivalente: es un riesgo residual que se declara. **Medido por T232**: `cargo test` mata un
+anfitrión de verdad —`TerminateProcess` en Windows, `SIGKILL` en Linux— y exige que el hijo
+desaparezca.
 
 **4. Instancia única.** `tauri-plugin-single-instance` (exige **Rust ≥ 1.90**), que además enfoca la
 ventana existente. Sin esto, dos lanzamientos conviven sobre la misma base sin decir nada y cerrar
@@ -140,6 +144,7 @@ desktop/
 │     ├─ sidecar.rs           spawn, drenaje de stdout, análisis de la línea, cierre
 │     ├─ embebido.rs          extrae y verifica el servidor que viaja dentro
 │     ├─ entorno.rs           raíz de datos, modo portable e integridad
+│     ├─ guards.rs            el seguro del sistema contra la muerte brusca
 │     ├─ tray.rs              icono de la bandeja y sus tres opciones
 │     └─ boot_line.rs         el espejo del esquema de `core`
 └─ stub/index.html            lo que la ventana enseña si el servidor no arranca, y
@@ -178,9 +183,10 @@ Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
       ejecutable: 17 ms). **La X oculta en la bandeja** y no apaga la aplicación.
 - [ ] Un segundo lanzamiento enfoca la ventana existente y **no** arranca un segundo servidor. Se
       mide contando procesos y puertos de escucha.
-- [ ] Matar el anfitrión desde el administrador de tareas **no** deja el servidor vivo en Linux
-      (`PR_SET_PDEATHSIG`). **En Windows el Job Object está pendiente** (T155) y se declara como
-      riesgo residual.
+- [ ] Matar el anfitrión desde el administrador de tareas **no** deja el servidor vivo: en Windows lo
+      mata el Job Object y en Linux `PR_SET_PDEATHSIG`. Se mide en `cargo test` desde T232, que mata
+      un anfitrión de verdad y comprueba que el hijo desaparece. **macOS es la excepción declarada**
+      (riesgo 2).
 - [ ] El enlace de AniList abre el navegador del sistema y la ventana sigue donde estaba.
 - [ ] Sin `mpv`, la reproducción dentro de la ventana funciona en Windows (WebView2). **En Linux se
       mide antes de prometerlo**: WebKitGTK no es Chromium.
@@ -225,9 +231,14 @@ Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
    de los códecs del sistema en Linux, y de WKWebView en macOS. En Windows la evidencia del e2e
    transfiere, porque WebView2 es Chromium y `packages/web/e2e/player.e2e.ts` ya lo prueba. **En
    Linux se mide antes de prometer Linux**; si no va, la ficha lo dice y manda a `mpv`.
-2. **Windows y macOS sin seguro de muerte brusca**: en Windows el Job Object está pendiente (T155) y
-   macOS no tiene `PR_SET_PDEATHSIG`. Si el anfitrión muere de golpe, el servidor puede quedar vivo.
-   Se mitiga con el cierre explícito y se declara aquí.
+2. **macOS sin seguro de muerte brusca**: no hay `PR_SET_PDEATHSIG` ni nada que el anfitrión pueda
+   poner para sí mismo, y las dos vías que quedan —observar al padre con `kqueue` o cerrar el
+   servidor al ver el fin de su entrada— viven en el CLI, no en este módulo. Si el anfitrión muere de
+   golpe, el servidor puede quedar vivo; se mitiga con el cierre explícito y se declara aquí y en
+   `SECURITY.md`. En Windows queda un caso menor: si Windows deniega la asignación al job —un job
+   ajeno con restricciones de interfaz, o un sistema anterior a Windows 8—, el servidor queda bajo el
+   job que heredó y el anfitrión lo escribe en su registro. El caso normal —el acceso del escritorio—
+   está cerrado.
 3. **Extraer el servidor a disco.** Un `.exe` único no puede ejecutar el servidor desde memoria sin
    escribirlo; se extrae a `<raíz>\bin\<versión>` y se verifica con el SHA-256 antes de lanzarlo. Un
    disco lleno o sin permisos deja el aviso de fallo, no una ventana muda.

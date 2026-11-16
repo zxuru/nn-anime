@@ -481,6 +481,41 @@ describe('el anfitrión de ventana', () => {
     // servidor. El `empaquetado` sí lo exige.
     expect(ci).toContain('bun run desktop:build --sin-servidor')
   })
+
+  test('el servidor va en un Job Object y el sidecar lo mete ahí (T232)', async () => {
+    // El seguro contra la muerte brusca del anfitrión es FFI de Windows y sólo lo
+    // mide `cargo test`. Aquí se comprueba que **sigue llamándose**: sin la
+    // asignación en `sidecar.rs`, el job existiría y no protegería a nadie, y
+    // desde TypeScript no se ve. Borrar cualquiera de estas piezas pone la prueba
+    // en rojo.
+    const guards = await leer(join(CRATE, 'src', 'guards.rs'))
+    const sidecar = await leer(join(CRATE, 'src', 'sidecar.rs'))
+    const manifiesto = await leer(join(CRATE, 'Cargo.toml'))
+
+    expect(guards).toContain('JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE')
+    expect(guards).toContain('AssignProcessToJobObject')
+    // La característica sin la cual `CreateJobObjectW` ni siquiera existe en
+    // `windows-sys`: el crate la tiene por el testigo del proceso, y aquí se fija
+    // para que nadie la quite creyendo que sólo sirve para eso.
+    expect(manifiesto).toContain('Win32_System_JobObjects')
+    expect(manifiesto).toContain('Win32_Security')
+
+    expect(sidecar).toContain('guards::before_spawn(&mut command)')
+    expect(sidecar).toContain('guards::after_spawn(&child)')
+  })
+
+  test('la prueba que mide la muerte del anfitrión existe (T232)', async () => {
+    // La comprobación de verdad es un `cargo test`: mata un anfitrión con
+    // `TerminateProcess`/`SIGKILL` y exige que el hijo desaparezca. Esta guarda no
+    // la mide —eso lo hace el CI—, pero impide que se borre sin que nadie lo note,
+    // que es el modo en que una prueba deja de existir sin dejar rastro.
+    const guards = await leer(join(CRATE, 'src', 'guards.rs'))
+
+    expect(guards).toContain('fn el_servidor_no_sobrevive_al_anfitrion')
+    expect(guards).toContain('#[cfg(all(test, any(windows, target_os = "linux")))]')
+    // macOS queda fuera porque no hay mecanismo, y esa excepción se escribe.
+    expect(guards).toContain('macOS: no hay equivalente')
+  })
 })
 
 describe('la compilación cruzada del anfitrión', () => {
