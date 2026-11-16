@@ -870,6 +870,19 @@ body.player-extendido {
 }
 
 /*
+ * La atribución de hls.js no se queda en el modo extendido.
+ *
+ * Ese modo es para ver el contenido, y las notas viven fuera del marco: la
+ * licencia, que está siempre, le quitaba alto a la imagen. Sigue en la pantalla
+ * normal —que es donde se lee—, en el código y en la traducción, que es lo que
+ * Apache 2.0 pide conservar. Las demás notas no se tocan: cuentan algo de esta
+ * reproducción y sólo aparecen cuando pasa.
+ */
+.player[data-extendido="true"] .player__attribution {
+  display: none;
+}
+
+/*
  * La espera, encima del video.
  *
  * Antes era un párrafo debajo de los controles y no se veía: quien está
