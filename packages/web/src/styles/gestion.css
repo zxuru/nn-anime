@@ -1895,6 +1895,15 @@ details[open] > .library__settings-summary .library__settings-flecha {
   }
 
   /*
+   * El pie también reserva la barra: el `padding` del `main` deja libre el final
+   * del contenido, pero el pie va después y sin esta reserva la barra fija le
+   * tapaba el renglón.
+   */
+  .shell__footer-nota {
+    padding-block-end: calc(var(--barra-alto) + var(--space-6) + env(safe-area-inset-bottom));
+  }
+
+  /*
    * --- Las páginas de lista en el móvil ---------------------------------
    *
    * Mismo contenedor, menos aire y lo que no cabe se acorta o se va al carril

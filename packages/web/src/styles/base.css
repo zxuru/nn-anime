@@ -217,6 +217,29 @@
 }
 
 /*
+ * El pie de la aplicación.
+ *
+ * Va fuera del `main` y después de él: es una nota de la aplicación entera, no
+ * del contenido de la pantalla. El `flex: 1` del `main` lo empuja al fondo
+ * cuando la pantalla es corta, y el filete de arriba lo separa del último
+ * renglón sin tapar nada. En el móvil la barra de navegación es fija y se
+ * comería el texto: allí reserva su alto, como ya hace el contenido.
+ */
+.shell__footer {
+  inline-size: 100%;
+  border-block-start: var(--border-width) solid var(--color-rule);
+}
+
+.shell__footer-nota {
+  max-inline-size: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-6);
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+/*
  * El conmutador de tipo.
  *
  * Es un mando y no un destino: la mitad que se mira cambia lo que enseña la
