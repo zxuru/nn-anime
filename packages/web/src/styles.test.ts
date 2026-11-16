@@ -133,6 +133,11 @@ describe('referencias entre marcado y estilos', () => {
       'section__meta',
       'poster__cover',
       'row__list',
+      // El panel del motor se retiró con sus dos hijos (T240): sus reglas seguían
+      // aquí sin que ningún componente las alcanzara.
+      'panel',
+      'reason',
+      'score',
     ]) {
       expect(css, `.${muerta} volvió a la hoja y ningún componente la usa`).not.toContain(
         `.${muerta}`,

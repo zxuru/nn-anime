@@ -1,20 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import type { ReactNode } from 'react'
-import { renderToString } from 'react-dom/server'
-import { createMemoryHistory, HistoryProvider } from '../../router'
-import { Panel } from './Panel'
-import { ReasonBadge } from './ReasonBadge'
 import { DEBOUNCE_MS, recommendationsPath, retardoDeConsulta } from './useRecommendations'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
-
-function render(node: ReactNode): string {
-  return renderToString(
-    <HistoryProvider history={createMemoryHistory('/')}>{node}</HistoryProvider>,
-  )
-}
 
 describe('la dirección de la petición', () => {
   test('lleva el límite siempre', () => {
@@ -70,35 +59,20 @@ describe('la dirección de la petición', () => {
 })
 
 describe('la razón de una tarjeta', () => {
-  test('se enseña la principal, y las demás en el `title`', () => {
-    const html = render(<ReasonBadge text="Comparte acción contigo." others={['Está de moda.']} />)
+  test('el motivo lo escribe el motor y la pieza lo pinta sin componerlo', async () => {
+    // El motivo ya no tiene un componente propio: viaja en `Pieza` como texto.
+    // Lo que se sujeta es que la fila lo pasa tal cual, sin inventar una segunda
+    // redacción que acabaría diciendo otra cosa.
+    const fila = await readFile(`${ROOT}../home/RecommendedRow.tsx`, 'utf8')
 
-    expect(html).toContain('Comparte acción contigo.')
-    expect(html).toContain('title="Comparte acción contigo. · Está de moda."')
-  })
-
-  test('sin más razones, el `title` es la principal', () => {
-    const html = render(<ReasonBadge text="Coincide con «mecha»." />)
-
-    expect(html).toContain('title="Coincide con «mecha»."')
+    expect(fila).toContain('motivo={item.reason.text}')
   })
 })
 
-describe('el panel', () => {
-  test('mientras carga lo dice y no deja la página en blanco', () => {
-    const html = render(<Panel />)
-
-    expect(html).toContain('Buscando qué recomendarte')
-    expect(html).toContain('aria-busy="true"')
-  })
-
-  test('el texto sale del catálogo, no incrustado', () => {
-    expect(render(<Panel />)).toContain('Recomendado para ti')
-  })
-
-  test('el panel usa el planificador, que es donde vive el retardo', async () => {
+describe('el gancho', () => {
+  test('usa el planificador, que es donde vive el retardo', async () => {
     // El retardo y la cancelación se prueban en `scheduler.test.ts`, con relojes
-    // de mentira. Aquí sólo se comprueba que el panel los usa: una comprobación
+    // de mentira. Aquí sólo se comprueba que el gancho los usa: una comprobación
     // por texto de que «hay un setTimeout» sobrevivia a quitar el retardo, y por
     // eso el código se separó.
     const fuente = await readFile(`${ROOT}useRecommendations.ts`, 'utf8')

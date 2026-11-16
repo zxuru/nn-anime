@@ -7,17 +7,14 @@
  * motivo viaja en la pieza —en el asomo y en la hoja—, así que la razón de cada
  * recomendación se lee sin abrir nada.
  *
- * La **puntuación** se retiró de la pieza: era el número con el que el motor
- * ordena, no algo con lo que el usuario decida qué ver, y tres decimales sin escala
- * («0.300», y hasta «0.000» recomendado) decían más del motor que de la obra. El
- * detalle del motor sigue en `features/recommendations/Panel.tsx`, con sus pruebas,
- * a la espera del sitio donde vuelva a leerse.
+ * La **puntuación** no se enseña: era el número con el que el motor ordena, no algo
+ * con lo que el usuario decida qué ver, y tres decimales sin escala («0.300», y
+ * hasta «0.000» recomendado) decían más del motor que de la obra. El motivo, que es
+ * lo que sí se puede leer y usar, viaja en la pieza.
  *
  * El tramo abría con la **franja de motivos** —el titular «Lo que el motor ha
  * elegido» y, dentro, el desplegable del detalle del score—. Se retiró: repetía lo
- * que ya dice la nota del tramo y metía una caja dentro del mosaico. El panel del
- * motor sigue en `features/recommendations/Panel.tsx`, con sus pruebas, a la espera
- * del sitio donde vuelva a leerse.
+ * que ya dice la nota del tramo y metía una caja dentro del mosaico.
  *
  * Todas las piezas pesan lo mismo —un cartel de una columna—: en un tramo de tres
  * títulos nadie es más importante que nadie, y hacer uno grande sería inventarse una

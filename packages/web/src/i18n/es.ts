@@ -534,13 +534,7 @@ export const messages: Messages = {
   'settings.tmdb.clear': 'Quitar clave',
   'settings.tmdb.saved': 'Guardado.',
   'settings.tmdb.error': 'No se pudo guardar: {message}',
-  'reco.title': 'Recomendado para ti',
-  'reco.loading': 'Buscando qué recomendarte…',
   'reco.empty': 'Todavía no hay nada que recomendar. Busca algo y vuelve.',
-  'reco.coldStart': 'Sin historial todavía: esto es lo más popular del catálogo.',
-  'reco.personalized': 'Ordenado por lo que has visto y buscado.',
-  'reco.showScore': 'Ver el detalle',
-  'reco.hideScore': 'Ocultar el detalle',
   'player.label': 'Reproductor de video',
   'player.tracks': 'Subtítulos disponibles: {count}.',
   // El nombre del grupo de los dos modos de audio. Antes era «Modo», que no decía

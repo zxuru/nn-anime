@@ -55,8 +55,8 @@ Lo que un vecino no puede copiar sin mentir:
 - **Todo ocurre en el equipo.** En uso local el servidor escucha en `127.0.0.1` y exige token de
   arranque; no hay cuentas ni telemetría, y los datos viven en un SQLite del usuario. El contenedor,
   que sí escucha en la red, exige `RONA_TOKEN` y deja público sólo `/healthz`.
-- **La recomendación se explica.** Cada sugerencia lleva su motivo y su puntuación; se puede leer
-  sin abrir nada, y la ficha repite el porqué. No hay caja negra.
+- **La recomendación se explica.** Cada sugerencia lleva su motivo, que se puede leer en la propia
+  pieza —en el asomo y en la hoja— sin abrir nada. No hay caja negra.
 - **Se comporta como `ani-cli` en el arranque.** Un comando levanta servidor e interfaz y abre la
   página. La diferencia con `ani-cli` es que hay interfaz gráfica, catálogo y motor propio.
 

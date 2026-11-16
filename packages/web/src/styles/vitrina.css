@@ -202,16 +202,6 @@
   font-size: var(--text-sm);
 }
 
-.panel h2 {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 800;
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
-  margin: 0;
-  text-wrap: balance;
-}
-
 /*
  * El foco, visible.
  *
@@ -274,22 +264,12 @@
   color: var(--color-accent-contrast);
 }
 
-/* El desplegable del detalle del motor. */
-.panel__details {
-  border-top: var(--border-width-strong) solid var(--color-border);
-  padding-top: var(--space-4);
-}
-
-.panel__details summary {
-  cursor: pointer;
-}
-
-/* Va después de `.panel__details summary` y no antes: su especificidad es mayor
-   (clase + atributo + elemento) y colocarla antes dejaba un aviso de
-   especificidad descendente. */
+/* El resumen de la sección avanzada de Ajustes se separa de su contenido. */
 .settings__advanced[open] summary {
   margin-bottom: var(--space-3);
 }
+
+/*
 
 /*
  * El documento de seguridad, dentro de la aplicación.
