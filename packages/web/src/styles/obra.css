@@ -39,8 +39,11 @@
  * dos temas sin declarar dos degradados.
  *
  * La banda existe **con o sin** banner: es la cabecera de la ficha, así que la
- * pantalla no cambia de forma cuando el emparejamiento con AniList llega —ni
- * cuando no llega—.
+ * pantalla no pierde su cabecera cuando el emparejamiento con AniList llega —ni
+ * cuando no llega—. El alto sí es condicional: los 16 rem son la franja de una
+ * imagen apaisada, y sin imagen el titular flotaba sobre un hueco negro de 256 px.
+ * Con la clase `--sin-fondo` la banda baja al alto de su contenido; el aire de
+ * arriba y abajo y la alineación del titular no cambian.
  *
  * Y cruza la ventana entera, **sin marco y sin margen con la cabecera**: era una
  * tarjeta dentro de la caja de la pantalla, y el borde y el aire que la separaban
@@ -58,6 +61,10 @@
   min-block-size: var(--detail-banner-alto);
   padding-block: var(--space-6);
   overflow: clip;
+}
+
+.detail__banner--sin-fondo {
+  min-block-size: var(--detail-banner-alto-sin-fondo);
 }
 
 /*
@@ -590,9 +597,11 @@
 /*
  * La fila de un episodio.
  *
- * Es un enlace, así que no hereda el subrayado ni el color del navegador, y
- * lleva el mismo realce que las tarjetas: borde de acento y el bloque que se
- * levanta. Una fila que no reacciona al puntero no se lee como pulsable.
+ * Es un enlace, así que no hereda el subrayado ni el color del navegador. Lleva
+ * un **realce de tono** al pasar el puntero o al enfocarla: sube el fondo y el
+ * borde se enciende. Antes llevaba la sombra dura coral de las tarjetas, y con
+ * doce filas seguidas la lista entera parecía seleccionada —una sombra es la
+ * marca de una pieza, no la de un renglón—.
  */
 .episode {
   display: flex;
@@ -609,10 +618,9 @@
   background: var(--color-surface);
   color: var(--color-text);
   text-decoration: none;
-  box-shadow: var(--shadow-hard-sm);
   transition:
     border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
+    background-color var(--transition-fast),
     transform var(--transition-fast);
 }
 

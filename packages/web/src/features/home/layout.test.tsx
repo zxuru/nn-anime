@@ -3,6 +3,7 @@ import type { RecommendationResponse } from '@rona/core/api'
 import type { AnimeSummary } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
+import { Mosaico } from '../../components/Mosaico'
 import { arteDibujado, Pieza, RECURSOS, recursoDe } from '../../components/Pieza'
 import { SectionHeader } from '../../components/SectionHeader'
 import { TramoVacio, tituloYCuerpo } from '../../components/TramoVacio'
@@ -35,6 +36,30 @@ function recomendacion(titulo: string, tags: readonly string[] = []): Recommenda
 function resumen(titulo: string): AnimeSummary {
   return { ref: { providerId: 'fixture', value: titulo }, title: titulo }
 }
+
+/**
+ * El mosaico se compone para el número de piezas.
+ *
+ * La hoja usa `--mosaico-piezas` para abrir tantas pistas como piezas hay: con
+ * seis pistas fijas, una fila de cuatro títulos dejaba el tercio derecho vacío.
+ * El valor lo declara el contenedor, y `Children.toArray` no cuenta los `null` de
+ * una condición —una fila de cuatro con un quinto hijo condicional no es de cinco—.
+ */
+describe('el mosaico', () => {
+  test('declara cuántas piezas lleva para que la fila se componga', () => {
+    const html = render(
+      <Mosaico>
+        <span />
+        <span />
+        <span />
+        <span />
+        {null}
+      </Mosaico>,
+    )
+
+    expect(html).toContain('--mosaico-piezas:4')
+  })
+})
 
 describe('la nota de una sección', () => {
   test('lleva su titular y su etiqueta', () => {

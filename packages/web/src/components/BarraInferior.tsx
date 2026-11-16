@@ -7,10 +7,11 @@
  * encendida sea la misma en las dos formas y no puedan discrepar.
  *
  * Cada destino lleva su dibujo y su etiqueta diminuta debajo: el dibujo solo no
- * dice «Biblioteca» ni «Perfil» a quien no lo ha visto antes, y la etiqueta de
- * once píxeles cabe en una quinta parte de cualquier teléfono. El icono activo
- * engorda el trazo en vez de cambiar de color a secas, para que el estado no
- * dependa sólo del tono.
+ * dice «Biblioteca» ni «Perfil» a quien no lo ha visto antes. La etiqueta de once
+ * píxeles no cabe en un quinto exacto de un teléfono de 320 —«Biblioteca» mide 67
+ * px y la quinta parte 64—, así que las pistas tienen su ancho como mínimo y se
+ * reparten el sobrante. El icono activo engorda el trazo en vez de cambiar de
+ * color a secas, para que el estado no dependa sólo del tono.
  *
  * La barra va **fija** y el contenido reserva su alto: sin esa reserva, lo
  * último de cada pantalla queda debajo y no hay forma de leerlo ni de pulsarlo.

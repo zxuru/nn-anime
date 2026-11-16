@@ -109,8 +109,11 @@ const BANNER_PATH = /^\/api\/anilist\/image\/banner\/[1-9]\d*$/
  * y la ficha se lee igual.
  *
  * La banda se pinta **con o sin** banner: es la cabecera de la ficha, así que la
- * pantalla no cambia de forma cuando el emparejamiento con AniList llega tarde o
- * no llega.
+ * pantalla no pierde su cabecera cuando el emparejamiento con AniList llega tarde
+ * o no llega. Lo que cambia es el alto: sin imagen, la franja de 16 rem es un
+ * hueco negro y la banda baja a lo que mide su contenido (`--detail-banner-alto-sin-fondo`).
+ * El aire de arriba y abajo sigue siendo el mismo, así que el titular no se mueve
+ * de su sitio; sólo se va el vacío de la imagen que no hay.
  *
  * El contenido va en su propia caja porque la banda cruza la ventana entera: sin
  * ella, en una pantalla de 2560 px el nombre quedaría a 32 px del borde y la
@@ -124,7 +127,11 @@ export function BandaBanner(props: {
   const { detail, fondo } = props
 
   return (
-    <header className="detail__banner">
+    <header
+      className={
+        fondo === undefined ? 'detail__banner detail__banner--sin-fondo' : 'detail__banner'
+      }
+    >
       {/* El `url()` se compone con `JSON.stringify` para que la ruta quede entre
           comillas y no pueda cerrar el valor: el estilo entra por CSSOM —esto no
           es HTML—, pero tampoco es un sitio donde dejar pasar texto ajeno. */}

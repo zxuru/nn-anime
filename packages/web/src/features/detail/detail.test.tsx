@@ -1565,9 +1565,18 @@ describe('la banda del banner', () => {
   test('sin banner la banda sigue: es la cabecera, no el adorno', () => {
     const html = render(<BandaBanner detail={detalle} />)
 
-    expect(html).toContain('class="detail__banner"')
+    // La banda sigue y con la clase que la baja al alto de su contenido: sin
+    // imagen, los 16 rem de la franja son un hueco negro.
+    expect(html).toContain('class="detail__banner detail__banner--sin-fondo"')
     expect(html).toContain('<h1>Aurora Nocturna</h1>')
     expect(html).not.toContain('detail__banner-fondo')
+  })
+
+  test('con banner la banda conserva el alto de la franja', () => {
+    const html = render(<BandaBanner detail={detalle} fondo="/api/anilist/image/banner/555" />)
+
+    expect(html).toContain('class="detail__banner"')
+    expect(html).not.toContain('detail__banner--sin-fondo')
   })
 
   /**
