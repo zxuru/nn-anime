@@ -44,7 +44,7 @@
     "@tauri-apps/plugin-updater": "^2"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.5",
+    "@biomejs/biome": "^2.6.7",
     "@rona/catalog-store": "workspace:*",
     "@rona/core": "workspace:*",
     "@rona/media-proxy": "workspace:*",
