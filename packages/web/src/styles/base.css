@@ -629,7 +629,7 @@
 }
 
 /*
- * Las filas de la home entran escalonadas, y las tarjetas de cada fila también.
+ * Los tramos de la home entran escalonados.
  *
  * Van aquí arriba, junto a su `@media` de movimiento reducido, y no en el bloque
  * de `.home`: la supresión de la animación tiene la **misma especificidad** que
@@ -660,31 +660,10 @@
   animation-delay: calc(var(--entrada-paso) * 5);
 }
 
-.row__list > li {
-  animation: entrada var(--entrada-duracion) var(--entrada-curva) backwards;
-}
-
-.row__list > li:nth-child(2) {
-  animation-delay: var(--entrada-paso);
-}
-
-.row__list > li:nth-child(3) {
-  animation-delay: calc(var(--entrada-paso) * 2);
-}
-
-.row__list > li:nth-child(4) {
-  animation-delay: calc(var(--entrada-paso) * 3);
-}
-
-.row__list > li:nth-child(n + 5) {
-  animation-delay: calc(var(--entrada-paso) * 4);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .skeleton,
   .esq,
   .home > *,
-  .row__list > li,
   .player__bar::after {
     animation: none;
   }

@@ -112,6 +112,36 @@ describe('referencias entre marcado y estilos', () => {
       }
     }
   })
+
+  /**
+   * Una clase que el marcado no tiene no vuelve a la hoja.
+   *
+   * `.buscador*`, `.home__refresco`, `.section__meta`, `.poster__cover` y
+   * `.row__list` sobrevivieron a la home y a la ficha que las usaban: una regla que
+   * no alcanza a ningún elemento no da error, ocupa la hoja y vuelve a parecer
+   * viva en la siguiente revisión. Se comprueba aquí porque el camino general —de
+   * la clase usada a la definida— no ve la dirección contraria. Los comentarios se
+   * quitan antes de mirar: la historia de una clase retirada se puede contar sin que
+   * la regla exista.
+   */
+  test('una clase que el marcado ya no tiene no vuelve a la hoja', async () => {
+    const css = (await estructura()).replace(/\/\*[\s\S]*?\*\//g, '')
+
+    for (const muerta of [
+      'buscador',
+      'home__refresco',
+      'section__meta',
+      'poster__cover',
+      'row__list',
+    ]) {
+      expect(css, `.${muerta} volvió a la hoja y ningún componente la usa`).not.toContain(
+        `.${muerta}`,
+      )
+    }
+
+    // Y sus tokens, que sólo existían para esas reglas.
+    expect(await read(TOKENS)).not.toContain('--buscador-')
+  })
 })
 
 describe('tokens de diseño', () => {
