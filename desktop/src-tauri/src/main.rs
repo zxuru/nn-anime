@@ -163,17 +163,15 @@ fn main() {
 
     // `instalada` no es `raiz.portable`: la primera dice cómo se entregó el
     // binario (lo instaló el NSIS o es un `.exe` suelto) y la segunda dónde van los
-    // datos. El updater necesita la primera para elegir el destino.
+    // datos. La ventana usa la primera para elegir la reserva NSIS si la release no
+    // trae el ejecutable portable.
     #[cfg(windows)]
     let instalada = entorno::instalada();
 
+    // Sin `target`: `check()` resuelve la entrada `windows-x86_64`, que la release
+    // publica siempre, y su `rawJson` trae también la portable, que es la que se usa
+    // para reemplazar en sitio en las dos formas de entrega.
     let actualizador = tauri_plugin_updater::Builder::new();
-    #[cfg(windows)]
-    let actualizador = if instalada {
-        actualizador
-    } else {
-        actualizador.target("windows-x86_64-portable")
-    };
 
     let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -243,10 +241,10 @@ fn main() {
             // ventana, el hueco seguiría pareciendo «no pasa nada».
             tray::crear(app.handle())?;
 
-            // La ventana de actualizaciones, oculta desde ya: comprueba al cargar
-            // y cada tres horas, y sólo se enseña cuando hay una versión nueva o
-            // cuando se pide desde la bandeja. Un fallo al crearla no puede
-            // impedir que arranque la aplicación; se registra y se sigue.
+            // La ventana de actualizaciones, oculta desde ya: comprueba una sola vez, al
+            // cargar, y sólo se enseña cuando hay una versión nueva o cuando se pide
+            // desde la bandeja. Un fallo al crearla no puede impedir que arranque la
+            // aplicación; se registra y se sigue.
             #[cfg(windows)]
             {
                 let perfil_actualizaciones = raiz.webview().join("actualizacion");
