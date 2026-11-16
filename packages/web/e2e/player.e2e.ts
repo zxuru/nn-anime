@@ -1682,6 +1682,30 @@ test.describe('el modo extendido', () => {
     expect(await page.evaluate(() => document.fullscreenElement === null)).toBe(true)
   })
 
+  /**
+   * La licencia de hls.js no se queda en la pantalla extendida.
+   *
+   * Ese modo es para ver el contenido, y la nota vive fuera del marco: le
+   * quitaba alto a la imagen. Se conserva en la pantalla normal, que es donde se
+   * lee. El episodio 7 del arnés es el único que se declara HLS, así que es el
+   * que monta la atribución.
+   */
+  test('la atribución de hls.js no se queda en la pantalla extendida', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%237')
+
+    const aviso = page.locator('.player__attribution')
+    await expect(aviso).toBeVisible({ timeout: 10_000 })
+
+    await page.keyboard.press('t')
+    await expect(page.locator('.player')).toHaveAttribute('data-extendido', 'true')
+    await expect(aviso).toBeHidden()
+
+    await page.keyboard.press('t')
+    await expect(page.locator('.player')).toHaveAttribute('data-extendido', 'false')
+    await expect(aviso).toBeVisible()
+  })
+
   test('se enciende y se apaga con T, y Escape también lo quita', async ({ page }) => {
     await verEpisodio(page)
 

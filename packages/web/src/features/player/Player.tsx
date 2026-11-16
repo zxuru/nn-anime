@@ -468,9 +468,13 @@ export function Player(props: PlayerProps): ReactNode {
       )}
 
       {/* La atribución sólo aparece cuando se usa la biblioteca: hls.js es
-          Apache 2.0 y su licencia pide conservar el aviso. */}
+          Apache 2.0 y su licencia pide conservar el aviso. Lleva clase propia
+          porque el modo extendido la esconde: ahí la pantalla es para el
+          contenido, y la nota, fuera del marco, le quitaba alto a la imagen. */}
       {needsHls(props.kind) ? (
-        <p className="player__note">{t(DEFAULT_LOCALE, 'player.attribution')}</p>
+        <p className="player__note player__attribution">
+          {t(DEFAULT_LOCALE, 'player.attribution')}
+        </p>
       ) : null}
 
       {/* La ayuda del teclado, en un diálogo y no siempre a la vista: el
