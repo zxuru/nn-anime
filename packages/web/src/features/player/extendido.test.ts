@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { CLAVE_EXTENDIDO, guardarExtendido, leerExtendido } from './extendido'
+import { alternarExtendido, CLAVE_EXTENDIDO, guardarExtendido, leerExtendido } from './extendido'
 import type { Almacen } from './storage'
 
 /**
@@ -73,5 +73,17 @@ describe('la preferencia del modo extendido', () => {
   test('un almacén roto no rompe el reproductor', () => {
     expect(leerExtendido(almacenRoto)).toBe(false)
     expect(() => guardarExtendido(almacenRoto, true)).not.toThrow()
+  })
+
+  /**
+   * El mismo gesto enciende y apaga.
+   *
+   * Lo usan el botón, la tecla `T` y el `Escape`, así que si la vuelta no está
+   * —o no vuelve nada— el modo se queda encendido y no hay forma de salir de él
+   * sin recargar la página.
+   */
+  test('el gesto del modo extendido lo enciende y lo apaga', () => {
+    expect(alternarExtendido(false)).toBe(true)
+    expect(alternarExtendido(true)).toBe(false)
   })
 })
