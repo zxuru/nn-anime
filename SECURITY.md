@@ -35,6 +35,7 @@ prueba que lo sostiene.
 | Un `Origin` ajeno muta datos en modo servidor | Guard de `Origin` por origen público exacto o mismo `Host`; en local sigue siendo sólo `http://127.0.0.1:PUERTO` | T168 |
 | Un webview comprometido usa el anfitrión para leer o escribir archivos | Un único comando IPC, `elegir_carpeta_descargas`: sólo abre el diálogo nativo y devuelve la ruta; no lee ni escribe. El servidor exige ruta absoluta y sin caracteres de control antes de guardarla | T186 |
 | El selector de carpeta enumera el disco a petición de la interfaz | `GET /api/downloads/dirs` devuelve **nombres de carpeta** de una ruta absoluta, nunca contenido de archivo, con tope de 500 entradas; los guardianes de sesión, `Origin` y `Host` de `/api/` son los mismos que para el resto. Queda el riesgo residual de que quien tenga la sesión abierta vea qué carpetas hay y cómo se llaman: el selector sin esa lectura no existe | T192 |
+| Matar el anfitrión de la ventana deja el servidor vivo, ocupando el puerto y la cookie | El tutor es el **sistema operativo**, no el anfitrión: en Windows el servidor va en un Job Object con `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` y en Linux lleva `PR_SET_PDEATHSIG`. Al anfitrión no le hace falta ejecutar nada al morir: el kernel cierra sus handles y el job se lleva lo que quede dentro. En macOS no hay equivalente y se declara en el riesgo residual 19 | T232 |
 | Un cliente autenticado usa el servidor para lanzar un reproductor | En modo restringido no se registran `/api/play/mpv*` y Ajustes informa `mpv.available: false` | T168 |
 | Un cliente autenticado añade o activa plugins en un servidor | `NN_ANIME_LOCKED=1` no registra `POST /api/providers` ni las mutaciones de repositorios; sólo deja leer la lista | T168 |
 | `NN_ANIME_ALLOW_LOOPBACK` se queda puesta en un servidor | El arranque se niega si el host no es loopback | T168 |
@@ -154,6 +155,18 @@ prueba que lo sostiene.
     nuevo, arrancarlo), pero **verifica esa misma firma antes de tocar nada** y, si falla, restaura el
     original. `latest.json` no va firmado: quien pueda escribir en la release podría anunciar una
     versión distinta, pero no fabricar un binario aceptado. El updater está activo sólo en Windows.
+19. **En macOS no hay seguro de muerte brusca del servidor, y en Windows depende de que el anfitrión
+    no viva ya dentro de un job ajeno.** Lo primero no es un descuido: macOS no tiene
+    `PR_SET_PDEATHSIG`, y las dos alternativas se quedan fuera de este módulo —`kqueue`/`EVFILT_PROC`
+    hay que observarlo desde el proceso que sobrevive, o sea desde el CLI, y cerrar al ver el fin de
+    la entrada estándar rompería el arranque de los guiones de empaquetado, que lanzan el servidor
+    con la entrada cerrada—. Mientras siga así, un `kill -9` del anfitrión en macOS puede dejar el
+    `nn-anime` vivo con el puerto y la cookie hasta que alguien lo cierre a mano. Lo segundo es del
+    sistema: si Windows deniega la asignación al job —un job ajeno con restricciones de interfaz, o un
+    sistema anterior a Windows 8, donde no hay anidamiento—, el servidor se queda bajo el job que
+    heredó al nacer, que puede o no matarlo al cerrarse; el anfitrión lo escribe en su registro y
+    sigue. El caso normal —el acceso del escritorio— y el de un job ajeno anidable, que es lo que hay
+    en Windows 8 y siguientes, están cerrados y medidos.
 
 ## Modo servidor
 

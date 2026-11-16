@@ -53,13 +53,10 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 
 [target.'cfg(windows)'.dependencies]
-# **Pendiente, y no hecho.** El Job Object es el único seguro que existe en Windows
-# —ahí no hay `PR_SET_PDEATHSIG`— y **no está escrito**: `guards.rs` sólo pone
-# `PR_SET_PDEATHSIG` en Linux y no hace nada en el resto. La dependencia y sus
-# características están puestas para cuando se escriba, y están aquí y no en un
-# commit futuro porque son justo las que hay que activar. Mientras tanto, en Windows
-# un `kill` seco del anfitrión deja el servidor vivo: es el riesgo residual que
-# declara `SPEC-desktop.md`, y lo cuenta `tasks/done/T155.md`.
+# El **Job Object** es el único seguro de muerte brusca que existe en Windows —ahí
+# no hay `PR_SET_PDEATHSIG`—: `guards.rs` crea un job con
+# `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` y mete al servidor dentro, así que el kernel
+# lo mata cuando el anfitrión muere y cierra sus handles (T232).
 windows-sys = { version = "0.61", features = [
   "Win32_Foundation",
   "Win32_System_JobObjects",
