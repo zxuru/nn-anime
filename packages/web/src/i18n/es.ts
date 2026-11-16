@@ -9,6 +9,9 @@ import type { Messages } from '@rona/core/i18n'
 
 export const messages: Messages = {
   'app.name': 'RoNa',
+  // La promesa del producto en una línea, al pie de todas las pantallas.
+  'app.footer':
+    'Todo se queda en tu equipo: tu historial, tus ajustes y tus descargas. Sin cuentas ni telemetría.',
   'nav.skip': 'Saltar al contenido',
 
   'nav.home': 'Inicio',

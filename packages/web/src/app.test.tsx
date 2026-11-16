@@ -29,6 +29,21 @@ describe('App: pantallas', () => {
     expect(html).not.toContain('Aquí irán')
   })
 
+  /**
+   * El pie es de la aplicación entera. Va en el `Shell` y no en cada pantalla,
+   * así que una ruta nueva lo hereda; y su texto sale del catálogo, como todo lo
+   * que se lee. La prueba lo mira en dos rutas distintas para que no dependa de
+   * la pantalla que se pinte.
+   */
+  test('todas las pantallas llevan el pie de la aplicación', () => {
+    for (const path of ['/', '/settings']) {
+      const html = render(path)
+
+      expect(html).toContain('<footer class="shell__footer">')
+      expect(html).toContain('Sin cuentas ni telemetría')
+    }
+  })
+
   test('la búsqueda tiene su propia pantalla, con su campo y su estado vacío', () => {
     const html = render('/search')
 
