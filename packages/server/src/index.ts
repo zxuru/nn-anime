@@ -93,6 +93,13 @@ export function startServer(options: StartOptions): RunningServer {
     // `c.req.json()` los acumula en memoria antes de validar nada: cada ruta que
     // lee cuerpo es una vía para pedir cientos de megabytes.
     maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
+    // El plazo de Bun es de inactividad y por defecto son 10 s: con el proxy
+    // sirviendo cuerpos de streaming, un segmento que tarda en llegar se cortaba
+    // y el navegador lo veía como un error de red (el «Bun.serve() timed out a
+    // request after 10 seconds» del log de escritorio). 255 s es el máximo que
+    // admite Bun; el vigilante real de inactividad es el del proxy (30 s), que
+    // rearma con cada trozo y sí distingue «lento» de «colgado».
+    idleTimeout: 255,
     fetch: served.fetch,
   })
 
@@ -120,6 +127,7 @@ export {
   type AppOptions,
   createApp,
   type NetworkPolicy,
+  type PartyOptions,
   type ProviderSummary,
 } from './app'
 export { BOOT_PARAM, safeRedirect } from './bootstrap'

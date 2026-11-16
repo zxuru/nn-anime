@@ -1,6 +1,10 @@
 # Plan de tareas: temporadas, franquicia y listas largas
 
-Spec: `docs/specs/proposals/SPEC-anime-detail.temporadas.md` · Estado: **en curso** · 2026-10-11.
+> **Estado:** **cerrado** — T68–T72 están medidas. Los cierres están en
+> [`tasks/done/`](done/).
+
+
+Spec: `docs/specs/proposals/SPEC-anime-detail.temporadas.md` · Estado: **hecho** · 2026-10-11.
 
 Decisiones del humano tomadas el 2026-10-11: rail de dos niveles (saga y después franquicia),
 listas largas por ventanas y salto —sin arcos—, y los plugins rellenan `year` en la búsqueda.

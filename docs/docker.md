@@ -61,6 +61,7 @@ docker compose up -d
 | `NN_ANIME_TOKEN` | sin definir | Token fijo del modo servidor. **Obligatorio** si el host o el origen público no son loopback. Mínimo 16 caracteres; usa 32 aleatorios. |
 | `NN_ANIME_PUBLIC_ORIGIN` | sin definir | Origen canónico, por ejemplo `https://nn.example.com`. Fija el `Host`/`Origin` admitidos y marca la cookie `Secure` si es https. |
 | `NN_ANIME_LOCKED` | sin definir | `1` o `true`: modo restringido. Sin alta de plugins, sin repositorios y sin `mpv`. |
+| `NN_ANIME_PARTY` | sin definir | `1` o `true`: enciende las salas de watch party. Apagado, las rutas `/api/party/*` no existen. |
 | `XDG_DATA_HOME` | — | La imagen lo pone en `/data`. |
 | `XDG_CONFIG_HOME` | — | La imagen lo pone en `/data/config`. |
 | `XDG_CACHE_HOME` | — | La imagen lo pone en `/data/cache`. |

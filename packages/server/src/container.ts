@@ -287,6 +287,13 @@ export function createContainer(options: ContainerOptions): ServerContainer {
    * streams devuelve `null` en cuanto pasa el TTL, así que sólo hay acierto o
    * fallo, y refrescar por detrás no tiene sentido: nadie espera un enlace que
    * ya no vale.
+   *
+   * `request.refresh` es la excepción explícita: el cliente dice que la fuente
+   * firmada que tiene ya no vale y pide una nueva. La fila cacheada es
+   * precisamente lo que no sirve —el ticket del proxy caduca con ella—, así que
+   * se salta la lectura y se re-resuelve; la escritura reemplaza la fila vieja
+   * por la nueva. Es un `miss` y no un `hit`: lo que se devuelve no salió de la
+   * caché.
    */
   const loadStream = async (
     provider: Provider,
@@ -294,8 +301,10 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     callOptions: CallOptions,
   ): Promise<Result<CacheOutcome<readonly StreamSource[]>, ProviderError>> => {
     try {
-      const cached = await store.readStream(request.episodeRef, request.mode)
-      if (cached !== null) return ok({ value: [cached], source: 'hit' })
+      if (request.refresh !== true) {
+        const cached = await store.readStream(request.episodeRef, request.mode)
+        if (cached !== null) return ok({ value: [cached], source: 'hit' })
+      }
 
       const resultado = await fetchStream(provider, request, callOptions)
       if (!resultado.ok) return err(resultado.error)

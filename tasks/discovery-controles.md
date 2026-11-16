@@ -1,5 +1,9 @@
 # Plan de tareas: los mandos del reproductor
 
+> **Estado:** **cerrado** — T80 está medida; su cierre está en
+> [`tasks/done/T80.md`](done/T80.md).
+
+
 Spec: `docs/specs/SPEC-web-ui.md` (reproductor) · Estado: hecho · 2026-10-11.
 
 Rige el **Definition of Done** de `tasks/plan.md`: `typecheck`, `lint` y `bun test` en verde,

@@ -7,6 +7,20 @@ import { defineConfig, type Plugin } from 'vite'
 const API_ORIGIN = process.env.NN_ANIME_API_ORIGIN ?? 'http://127.0.0.1:7717'
 
 /**
+ * ¿Se construye el paquete del e2e?
+ *
+ * El Chromium de Playwright no decodifica H.264 ni AAC, así que un HLS de verdad
+ * no se puede reproducir ahí. El e2e sustituye el **transporte** —hls.js— por un
+ * módulo que imita su API y sirve el WAV del arnés como medio real. Ver
+ * `e2e/hls-falso.ts`.
+ *
+ * El alias sólo se monta con la variable puesta, y la variable la pone
+ * `scripts/e2e-server.ts` al construir: el paquete de producción sigue usando el
+ * `hls.js` de npm, que es el que tiene que decodificar los códecs de verdad.
+ */
+const HLS_FALSO = process.env.NN_ANIME_E2E_HLS === 'falso'
+
+/**
  * Sirve el aviso de seguridad en `/SECURITY.md`, que es lo que enlaza `/settings`.
  *
  * El documento vive en la raíz del repo, fuera del build de la interfaz. Sin
@@ -66,6 +80,17 @@ function strictProxy() {
 
 export default defineConfig({
   plugins: [react(), securityDoc()],
+  ...(HLS_FALSO
+    ? {
+        resolve: {
+          alias: {
+            // Alias exacto: sólo sustituye la importación de `hls.js` que hace
+            // `usePlayer`, que es la única que existe en el paquete.
+            'hls.js': fileURLToPath(new URL('./e2e/hls-falso.ts', import.meta.url)),
+          },
+        },
+      }
+    : {}),
   server: {
     port: 5173,
     // Sólo IPv4 en loopback. El valor por defecto de Vite escucha en `localhost`,

@@ -170,6 +170,25 @@ jobs:
   # El listón que no depende de la plataforma. Corre **siempre**, también en un PR que sólo toca
   # documentación: `packages/web/src/docs.test.ts` comprueba que lo que los `.md` dicen de
   # `package.json` y del README es verdad, así que un cambio de docs también puede romperlo.
+  #
+  # Aquí vive también la **puerta de cobertura**, y **sustituye** a `bun test` en vez de
+  # acompañarlo. El motivo es que `scripts/coverage-gate.ts` lanza su propio
+  # `bun test --coverage` y lee el `lcov` que produce: no hay forma de que le DONE un
+  # `bun test` ya hecho. O se mide una vez con el gate, o se mide dos veces. Medido en este
+  # repositorio —3 645 pruebas, máquina cargada—: `bun test` 134 s y `bun test --coverage`
+  # 97 s. La instrumentación no cuesta más que la prueba, así que el gate no alarga el
+  # trabajo: lo sustituye.
+  #
+  # Lo que el gate añade es lo que el objetivo del 80 % no miraba: **qué archivos mide la
+  # medición**. `bun test --coverage` sólo ve los archivos que algún test carga, así que un
+  # porcentaje alto puede convivir con puntos de entrada sin una sola prueba. El gate
+  # imprime los que no ve, y esa lista es lo que un revisor tiene que mirar.
+  #
+  # Y lo que el gate no rompe: **el informe de fallos sigue en el log**. La puerta
+  # lanza el `bun test` y pasa su salida a la **salida de error** —el informe entero:
+  # prueba, aserción y traza—, que el log del job enseña siempre. Un job en rojo sin
+  # una sola línea de diagnóstico obliga a volver a correrlo en local para entender
+  # qué pasó, y eso es un coste que el gate no puede pagar.
   calidad:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -216,8 +235,75 @@ jobs:
       - name: Estilo y formato
         run: bun run lint
 
-      - name: Pruebas
-        run: bun test
+      # La guarda de la puerta. Antes de medir, se comprueba que **la puerta sigue siendo
+      # la puerta**: si alguien la quita de este workflow, el trabajo se pondría en verde sin
+      # medir nada y la cobertura podría bajar a cero sin que nadie se entere —que es
+      # exactamente lo que pasó antes de que este trabajo existiera—.
+      #
+      # Lee el workflow **en disco**, que es el mismo archivo que se está ejecutando, con
+      # `Bun.YAML.parse`: el mismo lector que usa `scripts/package.test.ts` para los otros
+      # workflows. Falla si el gate ha desaparecido y también si alguien lo ha puesto en modo
+      # «no importa si falla» (`continue-on-error`), que es la forma sutil de desactivarlo
+      # sin borrar nada.
+      #
+      # **El patrón es el comando, no la palabra**: este mismo paso menciona el nombre de la
+      # puerta, así que buscarla por su nombre la encontraría siempre y no miraría nada. Lo
+      # que se busca es el paso que la **ejecuta**.
+      #
+      # Vive aquí y no en un archivo de `scripts/` porque `scripts/coverage-gate.ts` es de
+      # otro dueño y este trabajo no puede tocarlo. La misma comprobación, esta vez en el
+      # repositorio, está en `scripts/ci.test.ts`: sin el paso de este workflow, esa prueba
+      # es la única que queda, y sin esa prueba, este paso es el único.
+      - name: El gate de cobertura sigue en este workflow
+        run: |
+          set -euo pipefail
+          NN_ANIME_WORKFLOW='.github/workflows/ci.yml' bun -e '
+          const archivo = process.env.NN_ANIME_WORKFLOW ?? ".github/workflows/ci.yml"
+          // El comando que ejecuta la puerta, no su nombre: este paso también lo
+          // menciona, y buscarla por la palabra la encontraría siempre.
+          const esGate = (texto) => /bun run (coverage:gate|scripts\/coverage-gate\.ts)/.test(texto)
+          const yaml = Bun.YAML.parse(await Bun.file(archivo).text())
+          const trabajos = Object.entries(yaml.jobs ?? {})
+          const conGate = trabajos.filter(([, trabajo]) =>
+            (trabajo.steps ?? []).some((paso) => esGate(String(paso.run ?? ""))),
+          )
+          if (conGate.length === 0) {
+            console.error("::error::" + archivo + " ya no llama al gate de cobertura")
+            process.exit(1)
+          }
+          for (const [nombre, trabajo] of conGate) {
+            const paso = (trabajo.steps ?? []).find((p) => esGate(String(p.run ?? "")))
+            if (paso["continue-on-error"] === true || trabajo["continue-on-error"] === true) {
+              console.error("::error::el gate del trabajo " + nombre + " va con continue-on-error: no falla")
+              process.exit(1)
+            }
+          }
+          console.log("gate de cobertura presente en: " + conGate.map(([n]) => n).join(", "))
+          '
+
+      # La puerta de cobertura. Sale con 1 cuando un paquete medido baja del objetivo, así
+      # que el trabajo se pone en rojo: el objetivo deja de ser una aspiración.
+      #
+      # `tee` deja la salida del gate —el porcentaje por paquete y **los archivos que la
+      # medición no ve**— en el log del job y en el resumen del PR. El resumen es donde se
+      # mira sin abrir el log entero, y esa lista de archivos sin medir es justo lo que hay
+      # que mirar en una PR.
+      #
+      # `set -euo pipefail` y no sólo el `-e` que trae GitHub: sin `pipefail`, una tubería
+      # devuelve el estado de su último comando —`tee`, que sale con 0—, y el gate podría
+      # fallar sin que el trabajo se enterara.
+      - name: Pruebas y puerta de cobertura
+        run: |
+          set -euo pipefail
+          bun run coverage:gate | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # El esquema sólo cambia por migración. Este paso falla si se editó una
+      # migración ya publicada, si hay una sin registrar, si falta la copia de
+      # seguridad de una migración o si alguien declara tablas en el código de
+      # producción. La regla está en docs/persistencia.md y su lógica pura en
+      # scripts/migraciones.ts.
+      - name: Migraciones
+        run: bun run scripts/migraciones.ts
 
   # Las pruebas en Windows, solas y no dentro del empaquetado.
   #

@@ -113,6 +113,8 @@ export interface ListenOptions {
     | undefined
   /** Modo restringido: sin alta de proveedores ni rutas de mpv. */
   readonly locked?: boolean | undefined
+  /** Watch party. Apagado salvo que el entorno lo encienda. */
+  readonly party?: { readonly enabled: boolean } | undefined
   /** Rutas en uso, para la página de ajustes. */
   readonly paths?: ConfigPaths | undefined
   /** Versión de mpv detectada al arrancar, si la hay. */
@@ -445,6 +447,7 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     paths: config,
     providersDir: config.providersDir,
     locked: server.locked,
+    party: { enabled: server.party },
     ...(auth === undefined ? {} : { auth }),
     ...(network === undefined ? {} : { network }),
     ...(deps.mpvVersion === undefined ? {} : { mpvVersion: deps.mpvVersion }),

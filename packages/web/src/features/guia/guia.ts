@@ -415,20 +415,31 @@ export interface EstadoGuia {
    * tiene un id que no está aquí y por eso sale.
    */
   readonly vistos: readonly string[]
+  /**
+   * El interruptor global: con `true` no sale ningún tutorial.
+   *
+   * No es una lista de ids vistos, sino una decisión sobre el futuro: bloquear
+   * un recorrido concreto dejaría salir los que se añadan mañana, y quien apaga
+   * los tutoriales no quiere que la pantalla nueva le reciba con uno. Los
+   * recorridos repetibles siguen abriéndose a mano desde Ajustes o el «?».
+   */
+  readonly tutorialsDisabled: boolean
 }
 
 /**
  * La clave y la versión del almacén.
  *
- * La 2 cambió `bienvenida: boolean` por `recorridos: string[]`; la 1 se migra
- * en `normalizarEstado` para no perder lo que el usuario ya había visto.
+ * La 2 cambió `bienvenida: boolean` por `recorridos: string[]`; la 3 añadió el
+ * interruptor global `tutorialsDisabled`. Las dos anteriores se migran en
+ * `normalizarEstado` para no perder lo que el usuario ya había visto: una
+ * versión nueva no es una excusa para volver a enseñarle todo.
  */
 export const CLAVE_GUIA = 'nn-anime.guia'
-export const VERSION_GUIA = 2
+export const VERSION_GUIA = 3
 
 /** El estado de una instalación que abre la aplicación por primera vez. */
 export function estadoInicial(avisos: readonly AvisoGuia[] = AVISOS): EstadoGuia {
-  return { recorridos: [], vistos: avisos.map((aviso) => aviso.id) }
+  return { recorridos: [], vistos: avisos.map((aviso) => aviso.id), tutorialsDisabled: false }
 }
 
 function esRegistro(valor: unknown): valor is Record<string, unknown> {
@@ -445,9 +456,11 @@ function listaDeTextos(valor: unknown): readonly string[] {
  * Convierte lo que haya en el almacén en un estado utilizable.
  *
  * Un JSON de otra versión, un valor a medias o basura no rompen la aplicación:
- * se vuelve al estado inicial. Es un archivo del navegador, no un contrato. La
- * única excepción es la versión 1, que se migra: su `bienvenida` era el
- * recorrido de Inicio.
+ * se vuelve al estado inicial. Es un archivo del navegador, no un contrato. Las
+ * excepciones son las versiones anteriores, que se migran en vez de tirarse: la
+ * 1 tenía `bienvenida` en lugar de `recorridos` y la 2 no tenía el interruptor
+ * global. Perder lo visto al actualizar la aplicación sería castigar al usuario
+ * por actualizar.
  */
 export function normalizarEstado(
   crudo: unknown,
@@ -457,13 +470,29 @@ export function normalizarEstado(
 
   const vistos = listaDeTextos(crudo.vistos)
 
+  // v1: `bienvenida` era el recorrido de Inicio y no había interruptor.
   if (crudo.v === 1) {
-    return { recorridos: crudo.bienvenida === true ? ['inicio'] : [], vistos }
+    return {
+      recorridos: crudo.bienvenida === true ? ['inicio'] : [],
+      vistos,
+      tutorialsDisabled: false,
+    }
+  }
+
+  // v2: ya guardaba `recorridos`, pero los tutoriales no se podían apagar.
+  if (crudo.v === 2) {
+    return { recorridos: listaDeTextos(crudo.recorridos), vistos, tutorialsDisabled: false }
   }
 
   if (crudo.v !== VERSION_GUIA) return estadoInicial(avisos)
 
-  return { recorridos: listaDeTextos(crudo.recorridos), vistos }
+  return {
+    recorridos: listaDeTextos(crudo.recorridos),
+    vistos,
+    // Un estado de la versión 3 sin el campo —el que siembra el arnés del e2e, o
+    // uno escrito a mano— está encendido: apagarlos es una decisión explícita.
+    tutorialsDisabled: crudo.tutorialsDisabled === true,
+  }
 }
 
 type Lectura = Pick<Storage, 'getItem'>
@@ -498,6 +527,7 @@ export function guardarEstado(almacen: Escritura | undefined, estado: EstadoGuia
         v: VERSION_GUIA,
         recorridos: estado.recorridos,
         vistos: estado.vistos,
+        tutorialsDisabled: estado.tutorialsDisabled,
       }),
     )
   } catch {
@@ -512,8 +542,62 @@ export function conRecorrido(estado: EstadoGuia, id: string): EstadoGuia {
     : { ...estado, recorridos: [...estado.recorridos, id] }
 }
 
-/** El recorrido de esta pantalla, si aún no se vio. */
+/**
+ * El interruptor global de los tutoriales.
+ *
+ * Encenderlo no devuelve los ya vistos: sólo deja de bloquear los que estaban
+ * pendientes. Volver a verlo todo es `reiniciarRecorridos`, que es una acción
+ * distinta y se ofrece aparte.
+ */
+export function conTutorialesDeshabilitados(
+  estado: EstadoGuia,
+  deshabilitados: boolean,
+): EstadoGuia {
+  return estado.tutorialsDisabled === deshabilitados
+    ? estado
+    : { ...estado, tutorialsDisabled: deshabilitados }
+}
+
+/**
+ * «Omitir todos los tutoriales»: los da por vistos y apaga el interruptor.
+ *
+ * Las dos cosas, y no sólo el interruptor: así el estado dice la verdad —esta
+ * instalación ya no debe ningún tutorial— y encender el interruptor más tarde no
+ * hace reaparecer de golpe los que nunca salieron. Para eso está el reinicio.
+ */
+export function omitirTodos(
+  estado: EstadoGuia,
+  recorridos: readonly Recorrido[] = RECORRIDOS,
+): EstadoGuia {
+  const ids = new Set([...estado.recorridos, ...recorridos.map((recorrido) => recorrido.id)])
+
+  return { ...estado, recorridos: [...ids], tutorialsDisabled: true }
+}
+
+/**
+ * «Reiniciar tutoriales»: vuelven a salir todos, como en la primera visita.
+ *
+ * Se vacía `recorridos` y se enciende el interruptor; los avisos **no** se
+ * tocan. Un aviso es el faro de una novedad, no un tutorial, y tiene su propio
+ * botón («Mostrar los avisos otra vez»). Devolverlos aquí duplicaría esa acción
+ * y volvería a anunciar como nuevo algo que el usuario ya leyó.
+ */
+export function reiniciarRecorridos(estado: EstadoGuia): EstadoGuia {
+  return { ...estado, recorridos: [], tutorialsDisabled: false }
+}
+
+/**
+ * El recorrido de esta pantalla, si aún no se vio.
+ *
+ * El interruptor global manda sobre la lista y sobre el futuro: con los
+ * tutoriales apagados no hay pendiente en ninguna ruta, tampoco en una que se
+ * añada mañana. No se consulta en `abrirRecorrido` a propósito: repetir un
+ * tutorial a mano desde el «?» o desde Ajustes es una petición explícita y sigue
+ * funcionando con los tutoriales apagados.
+ */
 export function recorridoPendiente(estado: EstadoGuia, ruta: RouteName): Recorrido | undefined {
+  if (estado.tutorialsDisabled) return undefined
+
   const recorrido = recorridoDeRuta(ruta)
 
   return recorrido !== undefined && !estado.recorridos.includes(recorrido.id)
@@ -533,12 +617,20 @@ export function sinAvisos(estado: EstadoGuia, avisos: readonly AvisoGuia[] = AVI
   return { ...estado, vistos: estado.vistos.filter((id) => !ids.has(id)) }
 }
 
-/** Los avisos que esta pantalla puede enseñar y esta instalación no vio. */
+/**
+ * Los avisos que esta pantalla puede enseñar y esta instalación no vio.
+ *
+ * Con los tutoriales apagados no sale ninguno: el faro también es un tutorial
+ * —una capa con su botón— y quien pidió que no le enseñen nada no quiere que le
+ * siga latiendo un punto en la cabecera.
+ */
 export function avisosPendientes(
   estado: EstadoGuia,
   ruta: RouteName,
   avisos: readonly AvisoGuia[] = AVISOS,
 ): readonly AvisoGuia[] {
+  if (estado.tutorialsDisabled) return []
+
   return avisos.filter(
     (aviso) =>
       !estado.vistos.includes(aviso.id) &&

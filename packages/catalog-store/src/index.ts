@@ -17,11 +17,43 @@ export { type CacheResource, cacheHit, isStale, TTL_SECONDS } from './cache-poli
 export { findCoverUrl } from './cover-ref'
 export { BUSY_TIMEOUT_MS, openDb, type StoreConnection } from './db'
 export {
+  BACKUP_DIR_NAME,
+  BACKUP_RETENTION,
+  type BackupFile,
+  type BackupOptions,
+  type BackupResult,
+  backupDatabase,
+  backupDirOf,
+  listBackups,
+  restoreBackup,
+  stampOf,
+  type VerifiedDatabase,
+  verifyDatabase,
+} from './migrations/backup'
+export {
+  type MigrateDatabaseOptions,
+  type MigrateDatabaseOutcome,
+  type MigrateFailure,
+  type MigrateSuccess,
+  migrateDatabase,
+} from './migrations/migrate'
+export {
+  DESTRUCTIVE_MARKER,
+  declaresDestructive,
+  destructiveStatements,
+  type MigrationIssue,
+  type MigrationIssueKind,
+  migrationIssues,
+  migrationsIssues,
+} from './migrations/policy'
+export {
   listMigrations,
   type MigrationFile,
   type MigrationReport,
   runMigrations,
   schemaVersion,
+  sinComentarios,
+  transactionControl,
 } from './migrations/runner'
 export {
   PRUNE_AFTER_DAYS,

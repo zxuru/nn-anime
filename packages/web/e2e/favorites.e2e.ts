@@ -90,19 +90,18 @@ test.describe('el favorito', () => {
      * desenlaces y no depende del orden del motor ni de lo que hagan otras pruebas
      * de la pasada, que comparten base.
      *
-     * La lectura va **en bucle** y no una sola vez: el botón nace en «no está» y
-     * pinta el estado del servidor cuando llega la petición que lo lee, así que
-     * una lectura única puede caer en medio de esa carrera. Con la pasada
-     * completa caía —la primera prueba de favoritos deja el corpus del motor
-     * caliente y cambia el orden de las peticiones—; en aislado no. Se espera a
-     * que el par (enlace del cartel, estado del botón) cuadre con la lista.
+     * La marquesina pinta su botón antes de que llegue la lista de favoritos:
+     * leerla nada más recargar medía esa carrera, no el estado guardado. Se
+     * pregunta hasta que el botón concuerda con lo que hay guardado.
      */
-    const leerCartel = async (): Promise<{
+    interface EstadoDelCartel {
       readonly enlace: string | null
       readonly marcado: string | null
       readonly etiqueta: string
       readonly guardados: readonly string[]
-    }> => {
+    }
+
+    const leerEstadoDelCartel = async (): Promise<EstadoDelCartel> => {
       const [enlace, marcado, etiqueta, guardados] = await Promise.all([
         page.locator('.marquesina a.cartel').getAttribute('href'),
         page.locator('.marquesina .acciones button').getAttribute('aria-pressed'),
@@ -122,22 +121,26 @@ test.describe('el favorito', () => {
     await expect
       .poll(
         async () => {
-          const { enlace, marcado, guardados } = await leerCartel()
+          const estado = await leerEstadoDelCartel()
+          const espera = estado.guardados.includes(estado.enlace ?? '')
 
-          return guardados.includes(enlace ?? '') === (marcado === 'true')
+          return estado.marcado === (espera ? 'true' : 'false')
         },
-        { message: 'el cartel no termina de reflejar la lista guardada' },
+        { timeout: 10_000 },
       )
       .toBe(true)
 
-    const { enlace, marcado, etiqueta, guardados } = await leerCartel()
-    const espera = guardados.includes(enlace ?? '')
+    const estado = await leerEstadoDelCartel()
+    const espera = estado.guardados.includes(estado.enlace ?? '')
 
-    expect(marcado, `el cartel ${enlace} y lo guardado ${guardados.join(', ')}`).toBe(
-      espera ? 'true' : 'false',
-    )
+    expect(
+      estado.marcado,
+      `el cartel ${estado.enlace ?? ''} y lo guardado ${estado.guardados.join(', ')}`,
+    ).toBe(espera ? 'true' : 'false')
     // El texto se pinta en mayúsculas por CSS, así que se compara sin caja.
-    expect(etiqueta.toLowerCase()).toBe(espera ? 'quitar de favoritos' : 'añadir a favoritos')
+    expect(estado.etiqueta.toLowerCase()).toBe(
+      espera ? 'quitar de favoritos' : 'añadir a favoritos',
+    )
 
     /*
      * Y la banda de favoritos enseña lo guardado: su lista sale de la misma

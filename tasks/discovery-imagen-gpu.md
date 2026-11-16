@@ -1,6 +1,10 @@
 # Plan de tareas: la imagen que la GPU no pinta
 
-Spec: `docs/specs/SPEC-web-ui.md` (reproductor) · Estado: en curso · 2026-10-11.
+> **Estado:** **cerrado** — T77 está medida; su cierre está en
+> [`tasks/done/T77.md`](done/T77.md).
+
+
+Spec: `docs/specs/SPEC-web-ui.md` (reproductor) · Estado: **hecho** · 2026-10-11.
 
 Rige el **Definition of Done** de `tasks/plan.md`: `typecheck`, `lint` y `bun test` en verde,
 criterios medidos mutando la implementación, sin `any` ni `@ts-ignore` ni `as` para silenciar, tope

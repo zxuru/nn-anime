@@ -1,9 +1,25 @@
 # Informe de v1
 
+> **Este documento es el cierre de la v1 y queda congelado como histórico.** Sus cifras —1450
+> pruebas, 74 ficheros unitarios y 5 de e2e, la cobertura de aquel momento— son las de entonces y
+> **no se actualizan**: un informe que dice «la v1» y lleva los números de hoy miente dos veces.
+>
+> **El estado vigente** del repositorio está en [`tasks/roadmap.md`](../tasks/roadmap.md) y
+> [`tasks/deuda.md`](../tasks/deuda.md), y las cifras de hoy se miden con `bun test` y
+> `bun run coverage:gate`. El historial completo, una tarea por una, está en los fragmentos de
+> `tasks/done/`.
+>
+> Lo que este documento dice **del código** —dónde está cada cosa y qué se comprobó— se leyó en su
+> día: esas rutas han seguido moviéndose. Lo que **no caduca** es el método: los seis casos de
+> comprobaciones que no medían lo que decían, al final.
+
 Cierre de la v1 de nn-anime: qué está cumplido, qué se difirió con qué motivo, qué falla y qué
 hallazgos quedan abiertos. Los números están medidos, no estimados.
 
 ## Números
+
+**Los de la v1, congelados.** Mídelos otra vez si los quieres de hoy: `bun test`,
+`bun run coverage:gate`.
 
 | Qué | Valor | Cómo se mide |
 |---|---|---|

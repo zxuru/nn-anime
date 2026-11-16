@@ -100,6 +100,13 @@ describe('interruptores', () => {
     expect(value({ NN_ANIME_LOCKED: 'true' }).locked).toBe(true)
     expect(value({ NN_ANIME_LOCKED: '0' }).locked).toBe(false)
   })
+
+  test('NN_ANIME_PARTY está apagado por defecto y acepta 1 y true', () => {
+    expect(value({}).party).toBe(false)
+    expect(value({ NN_ANIME_PARTY: '1' }).party).toBe(true)
+    expect(value({ NN_ANIME_PARTY: 'true' }).party).toBe(true)
+    expect(value({ NN_ANIME_PARTY: '0' }).party).toBe(false)
+  })
 })
 
 describe('token', () => {

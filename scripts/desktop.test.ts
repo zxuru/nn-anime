@@ -365,11 +365,15 @@ describe('el anfitrión de ventana', () => {
   test('los datos van al perfil del usuario, con respaldo y modo portable explícito', async () => {
     const entorno = await leer(join(CRATE, 'src', 'entorno.rs'))
 
-    // `%LOCALAPPDATA%\nn-anime` primero: los datos sobreviven a borrar el `.exe` y
-    // no ensucian la carpeta donde se copió.
+    // `%LOCALAPPDATA%` primero, y la carpeta de datos es **hermana** de la de
+    // instalación (`nn-anime-data` frente a `nn-anime`): el instalador reemplaza
+    // su carpeta y los datos no pueden estar dentro.
     expect(entorno).toContain('LOCALAPPDATA')
-    expect(entorno).toContain('join("nn-anime")')
-    // Y en macOS y Linux, la raíz XDG del usuario: sin ella caería al directorio
+    expect(entorno).toContain('NOMBRE_DATOS')
+    expect(entorno).toContain('nn-anime-data')
+    // Y los datos de una instalación anterior se trasladan una vez.
+    expect(entorno).toContain('migrar_datos_heredados')
+    // En macOS y Linux, la raíz XDG del usuario: sin ella caería al directorio
     // del ejecutable, que en un `.deb` es de root y en un AppImage no se escribe.
     expect(entorno).toContain('XDG_DATA_HOME')
     expect(entorno).toContain('HOME')
@@ -383,6 +387,19 @@ describe('el anfitrión de ventana', () => {
 
     // Y la prueba de escritura es de verdad, no una mirada a los permisos.
     expect(entorno).toContain('probar_escritura')
+  })
+
+  test('los datos no caen en el directorio del ejecutable', async () => {
+    const entorno = await leer(join(CRATE, 'src', 'entorno.rs'))
+
+    // El respaldo silencioso al lado del `.exe` metía la base en la carpeta que
+    // el instalador y la actualización portable reemplazan. Se retiró: si el
+    // perfil no es escribible, se avisa y se sale.
+    expect(entorno).not.toContain('probar_escritura(dir)')
+    expect(entorno).toContain('no guarda nada junto al ejecutable')
+
+    // El único camino junto al ejecutable es el portable **explícito**.
+    expect(entorno).toContain('portable.txt')
   })
 
   test('el entregable es un solo archivo, con el servidor dentro', async () => {
@@ -463,6 +480,41 @@ describe('el anfitrión de ventana', () => {
     // El trabajo `desktop` mide el árbol de Rust, no empaqueta: compila sin
     // servidor. El `empaquetado` sí lo exige.
     expect(ci).toContain('bun run desktop:build --sin-servidor')
+  })
+
+  test('el servidor va en un Job Object y el sidecar lo mete ahí (T232)', async () => {
+    // El seguro contra la muerte brusca del anfitrión es FFI de Windows y sólo lo
+    // mide `cargo test`. Aquí se comprueba que **sigue llamándose**: sin la
+    // asignación en `sidecar.rs`, el job existiría y no protegería a nadie, y
+    // desde TypeScript no se ve. Borrar cualquiera de estas piezas pone la prueba
+    // en rojo.
+    const guards = await leer(join(CRATE, 'src', 'guards.rs'))
+    const sidecar = await leer(join(CRATE, 'src', 'sidecar.rs'))
+    const manifiesto = await leer(join(CRATE, 'Cargo.toml'))
+
+    expect(guards).toContain('JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE')
+    expect(guards).toContain('AssignProcessToJobObject')
+    // La característica sin la cual `CreateJobObjectW` ni siquiera existe en
+    // `windows-sys`: el crate la tiene por el testigo del proceso, y aquí se fija
+    // para que nadie la quite creyendo que sólo sirve para eso.
+    expect(manifiesto).toContain('Win32_System_JobObjects')
+    expect(manifiesto).toContain('Win32_Security')
+
+    expect(sidecar).toContain('guards::before_spawn(&mut command)')
+    expect(sidecar).toContain('guards::after_spawn(&child)')
+  })
+
+  test('la prueba que mide la muerte del anfitrión existe (T232)', async () => {
+    // La comprobación de verdad es un `cargo test`: mata un anfitrión con
+    // `TerminateProcess`/`SIGKILL` y exige que el hijo desaparezca. Esta guarda no
+    // la mide —eso lo hace el CI—, pero impide que se borre sin que nadie lo note,
+    // que es el modo en que una prueba deja de existir sin dejar rastro.
+    const guards = await leer(join(CRATE, 'src', 'guards.rs'))
+
+    expect(guards).toContain('fn el_servidor_no_sobrevive_al_anfitrion')
+    expect(guards).toContain('#[cfg(all(test, any(windows, target_os = "linux")))]')
+    // macOS queda fuera porque no hay mecanismo, y esa excepción se escribe.
+    expect(guards).toContain('macOS: no hay equivalente')
   })
 })
 
@@ -761,12 +813,15 @@ describe('el archivo único y la release', () => {
     expect(script).toContain("'uninstall.exe'")
     expect(script).not.toContain("'nn-anime.exe', 'nn-anime-desktop.exe'")
 
-    // Los datos del anfitrión viven todos bajo `%LOCALAPPDATA%\nn-anime`, que con
-    // el instalador de Tauri es también el directorio de instalación. El
-    // desinstalador borra lo suyo y deja el resto; por eso el centinela va en la
-    // raíz y se comprueba después.
+    // La instalación es `%LOCALAPPDATA%\nn-anime` y los datos viven en su
+    // hermana `%LOCALAPPDATA%\nn-anime-data`. El desinstalador borra lo suyo y no
+    // puede llevarse la base; el guion lo comprueba después de desinstalar.
     expect(script).toContain("Join-Path $env:LOCALAPPDATA 'nn-anime'")
+    expect(script).toContain("Join-Path $env:LOCALAPPDATA 'nn-anime-data'")
     expect(script).not.toContain("Join-Path $env:APPDATA 'nn-anime'")
+    // Y exige que la base haya nacido fuera de la carpeta de instalación.
+    expect(script).toContain("Join-Path $datos 'nn-anime.db'")
+    expect(script).toContain("Join-Path $destino 'nn-anime.db'")
 
     // El servidor se extrae del binario; y la X oculta en la bandeja, no apaga.
     expect(script).toContain('nn-anime\\bin')

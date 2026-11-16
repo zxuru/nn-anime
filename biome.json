@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.5/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -54,7 +54,10 @@
   },
   "overrides": [
     {
-      "includes": ["packages/web/src/features/player/Player.tsx"],
+      "includes": [
+        "packages/web/src/features/player/Player.tsx",
+        "packages/web/src/features/player/PlayerFrame.tsx"
+      ],
       "linter": {
         "rules": {
           "a11y": {

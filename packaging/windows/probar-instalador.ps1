@@ -4,9 +4,10 @@
 # `tauri-bundler` (`bun run desktop:installer`) a partir de `tauri.conf.json`. Eso
 # trae tres cosas que este guion tiene que saber y el anterior no:
 #
-#   - Instala en `%LOCALAPPDATA%\nn-anime`, la misma carpeta que la aplicación usa
-#     para sus datos. El desinstalador borra **los archivos que instaló** y deja el
-#     resto; por eso el centinela de los datos se comprueba después de desinstalar.
+#   - Instala en `%LOCALAPPDATA%\nn-anime`, y los datos viven **fuera** de esa
+#     carpeta, en `%LOCALAPPDATA%\nn-anime-data`: el desinstalador borra lo que
+#     instaló sin poder llevarse la base. La prueba siembra un centinela en la
+#     carpeta de datos y lo comprueba después de desinstalar.
 #   - El desinstalador se llama `uninstall.exe`, no «Desinstalar nn-anime.exe».
 #   - En modo silencioso (`/S`) crea los dos accesos, porque la página final —la
 #     que tiene la casilla del acceso de escritorio— no llega a verse.
@@ -72,9 +73,12 @@ $setup = Get-ChildItem -Path $Bundle -Filter '*-setup.exe' -ErrorAction Silently
 
 if (-not $setup) { throw "no hay instalador en $Bundle" }
 
-# El instalador de Tauri, en modo `currentUser`, instala aquí. Es también la raíz de
-# datos de la aplicación: el desinstalador borra lo suyo y deja lo demás.
+# El instalador de Tauri, en modo `currentUser`, instala aquí. La carpeta de
+# datos es **su hermana** (`nn-anime-data`), nunca su hija: si compartieran
+# carpeta, el instalador y el desinstalador estarían escribiendo donde vive la
+# base del usuario.
 $destino = Join-Path $env:LOCALAPPDATA 'nn-anime'
+$datos = Join-Path $env:LOCALAPPDATA 'nn-anime-data'
 $uninstaller = Join-Path $destino 'uninstall.exe'
 $clave = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\nn-anime'
 
@@ -82,6 +86,7 @@ $clave = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\nn-anime'
 # haber instalado nada.
 Get-Process -Name 'nn-anime-desktop' -ErrorAction SilentlyContinue | Stop-Process -Force
 Remove-Item -Recurse -Force $destino -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force $datos -ErrorAction SilentlyContinue
 
 # 1. En silencio y **sin UAC** (`RequestExecutionLevel user` en la plantilla de Tauri).
 #
@@ -169,7 +174,7 @@ if ($servidores.Count -ne 1) {
   # Sin el registro, este fallo no dice **por qué**: el anfitrión abre el aviso de
   # fallo y la ventana aparece igual. Se vuelca lo que escribió antes de salir y lo
   # que quedó extraído; es la diferencia entre «no arrancó» y «no hay servidor».
-  $registro = Join-Path $env:LOCALAPPDATA 'nn-anime\cache\desktop.log'
+  $registro = Join-Path $datos 'cache\desktop.log'
   if (-not (Test-Path $registro)) { $registro = Join-Path $destino 'desktop.log' }
 
   $cola = if (Test-Path $registro) {
@@ -178,7 +183,7 @@ if ($servidores.Count -ne 1) {
     '(sin registro)'
   }
 
-  $raizBin = Join-Path $env:LOCALAPPDATA 'nn-anime\bin'
+  $raizBin = Join-Path $datos 'bin'
   $extraidos = if (Test-Path $raizBin) {
     @(Get-ChildItem $raizBin -Recurse -Filter 'nn-anime.exe' |
       ForEach-Object { "$($_.FullName) ($($_.Length) bytes)" }) -join "`n"
@@ -198,7 +203,7 @@ if (-not $ventana) {
 # hubiera construido antes que el servidor, aquí no habría nada extraído y la
 # ventana habría enseñado el aviso de fallo.
 $rutaServidor = $servidores[0].Path
-$raizBin = Join-Path $env:LOCALAPPDATA 'nn-anime\bin'
+$raizBin = Join-Path $datos 'bin'
 
 if (-not $rutaServidor -or -not (Test-Path -LiteralPath $rutaServidor)) {
   throw "no se puede leer la ruta del servidor en ejecución: '$rutaServidor'"
@@ -305,11 +310,20 @@ Paso 'la limpieza no dejó ningún proceso'
 
 # 6. Los datos del usuario, **sembrados antes de desinstalar**. No basta con mirar si
 #    el directorio existía antes: en un runner limpio lo crea la aplicación al
-#    arrancar, no el instalador. Se siembra un centinela en la raíz y se exige que
-#    siga ahí después de desinstalar.
-$centinela = Join-Path $destino 'no-borrar.txt'
+#    arrancar, no el instalador. Se siembra un centinela en la carpeta de datos
+#    —fuera de la de instalación— y se exige que siga ahí después de desinstalar.
+#    Además, la base tiene que haber nacido en `nn-anime-data` y **no** dentro de
+#    la carpeta de instalación: si estuviera ahí, la próxima actualización la
+#    tendría en la carpeta que reemplaza.
+if (-not (Test-Path (Join-Path $datos 'nn-anime.db'))) {
+  throw "la base no está en $($datos): los datos no viven fuera de la carpeta de instalación"
+}
+if (Test-Path (Join-Path $destino 'nn-anime.db')) {
+  throw "la base está dentro de la carpeta de instalación ($destino)"
+}
+$centinela = Join-Path $datos 'no-borrar.txt'
 Set-Content -Path $centinela -Value 'sonda' -Encoding ascii
-Paso 'los datos del usuario están y llevan su centinela'
+Paso 'los datos del usuario están fuera de la carpeta de instalación y llevan su centinela'
 
 # Desinstalar. El desinstalador de Tauri copia el proceso a un temporal y borra el
 # de la carpeta, así que se espera a que desaparezca el ejecutable en vez de a un
@@ -333,9 +347,12 @@ if (Test-Path $clave) { throw 'el desinstalador dejó la entrada del registro' }
 Paso 'el desinstalador se llevó los archivos y las claves'
 
 if (-not (Test-Path $centinela)) {
-  throw "el desinstalador borró los datos del usuario en ${destino}: desinstalar no es pedir que se pierdan"
+  throw "el desinstalador borró los datos del usuario en ${datos}: desinstalar no es pedir que se pierdan"
+}
+if (-not (Test-Path (Join-Path $datos 'nn-anime.db'))) {
+  throw "el desinstalador borró la base del usuario en $datos"
 }
 Remove-Item $centinela -Force -ErrorAction SilentlyContinue
-Paso 'los datos del usuario, con su base, siguen donde estaban'
+Paso 'los datos del usuario, con su base, siguen fuera de la instalación'
 
 Write-Output 'el instalador instala, crea los accesos, abre la ventana y desinstala'

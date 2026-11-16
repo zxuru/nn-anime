@@ -5,9 +5,10 @@ description: Revisar o mejorar la interfaz de nn-anime (packages/web) con las sk
 
 # Frontend de nn-anime
 
-React 19 + Vite 8, sin framework de estilos: dos hojas, `packages/web/src/styles/tokens.css` y
-`shell.css`, y clases planas en el marcado. Todo trabajo de diseño pasa por las skills de abajo, y
-el resultado se mide mirando la app renderizada, no sólo el CSS.
+React 19 + Vite 8, sin framework de estilos: `packages/web/src/styles/tokens.css` para los tokens y,
+detrás, la estructura partida por responsabilidad —`base.css`, `obra.css`, `vitrina.css` y
+`gestion.css`, que importa `shell.css`— con clases planas en el marcado. Todo trabajo de diseño pasa
+por las skills de abajo, y el resultado se mide mirando la app renderizada, no sólo el CSS.
 
 Los componentes llevan nombre en español (`Pieza`, `Mosaico`, `PanelPieza`, `SectionHeader`):
 traduce el vocabulario de las skills al del repo antes de tocar nada.
@@ -32,9 +33,10 @@ existen (hoy no hay) y lee siempre `reference/craft-floor.md` justo antes de edi
 - **El movimiento usa los tokens, y así se apaga solo.** `tokens.css` ya pone `--transition-*` y
   `--entrada-*` a `0ms` bajo `prefers-reduced-motion: reduce`; una animación con esos tokens hereda
   el apagado. Un `@keyframes` propio lleva su propio `0ms` en esa media query.
-- **Cada clase nueva se define en `tokens.css` o `shell.css`.** `styles.test.ts` recorre el marcado
-  y falla cuando una clase usada no está definida en ninguna de las dos: es la red que caza el
-  estilo muerto.
+- **Cada clase nueva se define en `tokens.css` o en la hoja de estructura que le toque** —`base`,
+  `obra`, `vitrina` o `gestion`, las que importa `shell.css`—. `styles.test.ts` recorre el marcado
+  y falla cuando una clase usada no está definida en ninguna de ellas: es la red que caza el estilo
+  muerto.
 - **Texto de interfaz en `packages/web/src/i18n/es.ts`**, nunca en el componente.
 - **GSAP no es dependencia todavía.** Las skills `gsap-core`, `gsap-timeline`, `gsap-scrolltrigger`,
   `gsap-react`, `gsap-plugins`, `gsap-utils`, `gsap-performance` y `gsap-frameworks` son la

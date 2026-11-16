@@ -7,6 +7,29 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.8.0](https://github.com/zxuru/nn-anime/compare/v0.7.0...v0.8.0) (2026-11-10)
+
+
+### Features
+
+* **catalog-store:** persistencia entre versiones con copias y restauración ([2b30723](https://github.com/zxuru/nn-anime/commit/2b30723bd35508739f4b6f9c101d6d90a6cfd543))
+* **watch-party:** sala de visionado LAN con relevo del invitado (fase 3) ([926deab](https://github.com/zxuru/nn-anime/commit/926deab737971f6c21258f1f5feeb9c31c7ca243))
+* **web:** omitir tutoriales y modo extendido del reproductor ([6bfb12f](https://github.com/zxuru/nn-anime/commit/6bfb12f98e33845d3ebf1b8fc423697f6c9cc586))
+
+
+### Bug Fixes
+
+* **desktop:** la prueba de carpetas usa el separador de su plataforma ([11337d6](https://github.com/zxuru/nn-anime/commit/11337d6368999a424ad6c0eee7321bfe9b3368b8))
+* **desktop:** las constantes de datos solo existen donde se usan ([bb91649](https://github.com/zxuru/nn-anime/commit/bb91649dca163163c24b2a22a48aefb2083e033d))
+* **e2e:** el cartel de favoritos espera a la lista guardada ([4cb0d28](https://github.com/zxuru/nn-anime/commit/4cb0d2807b80793dae92565993561f0f59a1e7b6))
+* **e2e:** la banda mide su titular cuando la ficha ya cargo ([b34cabc](https://github.com/zxuru/nn-anime/commit/b34cabcc3fe2eab88d53114a27534c1ea4191e8f))
+* **e2e:** la persistencia monta el plugin y la interfaz donde toca ([e33fdfb](https://github.com/zxuru/nn-anime/commit/e33fdfbcdde1a113d46a53b19ec6d95fbc4962d8))
+* **e2e:** los e2e del reproductor miden el comportamiento nuevo ([645d476](https://github.com/zxuru/nn-anime/commit/645d47674ad618376ca240dec93a1a8ab8e352dc))
+* **packaging:** el aviso del instalador interpola bien la ruta de datos ([55508b5](https://github.com/zxuru/nn-anime/commit/55508b5c6ad773785df691b6ede6aa4a8fe2889c))
+* **player:** el Escape del menu cierra el menu y no el modo extendido ([70c7e62](https://github.com/zxuru/nn-anime/commit/70c7e628cc802fca2ee8ccd4d4b5fdaa789c871d))
+* **player:** recuperar fragLoadError con reintentos, media y renovacion de fuente ([c4ca082](https://github.com/zxuru/nn-anime/commit/c4ca082459f182bc224531823a89e6eae5aaf810))
+* **release:** la version del Cargo.lock vuelve a llevar la anotacion ([3a39524](https://github.com/zxuru/nn-anime/commit/3a395245ace566c74520c364fc6811649e287316))
+
 ## [0.7.0](https://github.com/zxuru/nn-anime/compare/v0.6.0...v0.7.0) (2026-10-30)
 
 

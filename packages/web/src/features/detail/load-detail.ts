@@ -122,6 +122,32 @@ function baseDe(providerId: string, ref: string): string {
 }
 
 /**
+ * Las otras fuentes de una obra, leídas **solas**.
+ *
+ * El núcleo de la ficha lee las fuentes junto a lo demás, pero cuando la ficha
+ * **falla** ese núcleo no llega: el aviso de error es lo único que se pinta. Sin
+ * esta lectura aparte, el error no puede ofrecer las fuentes donde la obra sí
+ * está, que es justo lo que el botón «Probar con {proveedor}» necesita.
+ *
+ * Es una lectura local —la base, no la red del proveedor— y por eso puede
+ * responder a una referencia que el proveedor ya no tiene.
+ */
+export async function loadSources(
+  providerId: string,
+  ref: string,
+  options: DetailLoadOptions = {},
+): Promise<readonly AnimeSummary[]> {
+  const respuesta = await apiGet(
+    sourcesPath(providerId, ref),
+    sourcesResponseSchema,
+    opciones(options),
+    options.deps,
+  )
+
+  return respuesta.items
+}
+
+/**
  * El primer tiempo: todo lo que la ficha sabe sin terceros.
  *
  * **El detalle va primero.** Relacionados, franquicia y fuentes leen la fila

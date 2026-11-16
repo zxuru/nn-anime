@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
 const TOKENS = fileURLToPath(new URL('./styles/tokens.css', import.meta.url))
 const SHELL = fileURLToPath(new URL('./styles/shell.css', import.meta.url))
+const ESTILOS = fileURLToPath(new URL('./styles/', import.meta.url))
 
 async function read(path: string): Promise<string> {
   const file = Bun.file(path)
@@ -33,7 +34,30 @@ async function readIfExists(path: string): Promise<string> {
 }
 
 async function stylesheets(): Promise<string> {
-  return `${await readIfExists(TOKENS)}\n${await readIfExists(SHELL)}`
+  return `${await readIfExists(TOKENS)}\n${await estructura()}`
+}
+
+/**
+ * La estructura entera, en orden de cascada.
+ *
+ * `shell.css` es la entrada y no lleva reglas: importa una hoja por
+ * responsabilidad. Leer sólo la entrada dejaría fuera todas las reglas, así que se
+ * recorre el mismo camino que el empaquetador —la entrada, y cada `@import` en su
+ * orden—. El orden importa aquí dentro: varias pruebas dependen de él, como el
+ * último bloque de movimiento reducido o el `@media` que apaga el asomo.
+ */
+async function estructura(): Promise<string> {
+  const entrada = await read(SHELL)
+  const hojas = [...entrada.matchAll(/@import\s+"([^"]+\.css)"/g)].map(
+    (coincidencia) => coincidencia[1] ?? '',
+  )
+
+  expect(hojas.length, 'la entrada de los estilos no importa ninguna hoja').toBeGreaterThan(0)
+
+  const partes: string[] = []
+  for (const hoja of hojas) partes.push(await read(`${ESTILOS}${hoja.replace(/^\.\//, '')}`))
+
+  return partes.join('\n')
 }
 
 async function classesUsedIn(relative: string): Promise<readonly string[]> {
@@ -100,7 +124,7 @@ describe('tokens de diseño', () => {
   })
 
   test('la hoja de estructura no usa valores literales de color', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
 
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
     expect(css).not.toMatch(/\brgb\(/)
@@ -116,7 +140,7 @@ describe('tokens de diseño', () => {
    * datos. La prueba sujeta las dos declaraciones que lo convierten en caja.
    */
   test('el esqueleto de carga es una caja, no un span vacío', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
     const inicio = css.indexOf('.skeleton {')
 
     expect(inicio).toBeGreaterThan(-1)
@@ -136,7 +160,7 @@ describe('tokens de diseño', () => {
    * sirve—. El ancho de las consultas se comprueba aparte, contra `tokens.css`.
    */
   test('la hoja de estructura no usa medidas literales en las declaraciones', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
 
     // Cualquier `12px`, `1.5rem`, `-0.01em` o `60ch` que no venga de un token, ya
     // sin los preludios: `@media (max-width: 600px)`, `@keyframes latido`…
@@ -163,7 +187,7 @@ describe('tokens de diseño', () => {
     expect(declarados.size, 'faltan tokens --bp-* en tokens.css').toBeGreaterThan(0)
 
     const usados = [
-      ...(await read(SHELL)).matchAll(/@media[^{]*\((?:max|min)-width:\s*(\d+px)\)/g),
+      ...(await estructura()).matchAll(/@media[^{]*\((?:max|min)-width:\s*(\d+px)\)/g),
     ].map((match) => match[1])
 
     expect(usados.length, 'no hay ninguna consulta de ancho que comprobar').toBeGreaterThan(0)
@@ -185,7 +209,7 @@ describe('tokens de diseño', () => {
    * vuelva a estrechar sin devolver la nota a su sitio.
    */
   test('la nota deja de ir al margen cuando el mosaico se aprieta', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
     const bloque = /@media \(max-width: 1400px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
 
     expect(bloque, 'falta el bloque de 1400').toContain('.mosaico')
@@ -208,7 +232,7 @@ describe('tokens de diseño', () => {
    * completa se queda, porque es el nombre del mando.
    */
   test('la navegación se muda a una barra fija en la pantalla estrecha', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
     const bloque = /@media \(max-width: 640px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
 
     expect(bloque, 'falta el bloque de 640').not.toBe('')
@@ -231,7 +255,7 @@ describe('tokens de diseño', () => {
    * que se mueve al cambiar de estado— sigue siendo el mismo.
    */
   test('el mando mide lo que el token, no lo que dice su nombre', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
 
     const mando = /\.player__control\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
     expect(mando).toContain('min-width: var(--control-size)')
@@ -252,12 +276,12 @@ describe('tokens de diseño', () => {
    * volvería al encenderlo.
    */
   test('la imagen del reproductor no lleva contorno', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
 
     for (const selector of ['.player__video', '.player__canvas']) {
       const cuerpo = new RegExp(`${selector}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? ''
 
-      expect(cuerpo, `falta ${selector} en shell.css`).not.toBe('')
+      expect(cuerpo, `falta ${selector} en la estructura`).not.toBe('')
       expect(cuerpo, `${selector} lleva borde`).not.toContain('border:')
     }
   })
@@ -272,7 +296,7 @@ describe('tokens de diseño', () => {
    * se pinta entero o partido según estas declaraciones—, así que se mide aquí.
    */
   test('el año y la insignia de un relacionado no se parten', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
 
     /** El cuerpo de una regla, por su selector exacto. */
     const regla = (selector: string): string => {
@@ -284,7 +308,7 @@ describe('tokens de diseño', () => {
 
     // El título arriba y los datos debajo: dos renglones y no uno compartido.
     const cuerpo = regla('.related__body')
-    expect(cuerpo, 'falta .related__body en shell.css').toContain('display: flex')
+    expect(cuerpo, 'falta .related__body en la estructura').toContain('display: flex')
     expect(cuerpo).toContain('flex-direction: column')
 
     // Los datos, en fila y con vuelta: dos insignias caben, o baja la que no.
@@ -308,10 +332,10 @@ describe('tokens de diseño', () => {
    * claro. Eso no se puede medir sin navegador, pero lo que lo decide, sí.
    */
   test('el velo de la banda acaba en el fondo del tema', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
     const desde = css.indexOf('.detail__banner-fondo::after {')
 
-    expect(desde, 'falta el velo de la banda en shell.css').toBeGreaterThan(-1)
+    expect(desde, 'falta el velo de la banda en la estructura').toBeGreaterThan(-1)
 
     const velo = css.slice(desde, css.indexOf('}', desde))
 
@@ -335,7 +359,7 @@ describe('tokens de diseño', () => {
 
     expect(capa, 'falta --layer-header en tokens.css').toBeDefined()
 
-    const capasDelContenido = [...(await read(SHELL)).matchAll(/z-index:\s*(\d+)/g)].map((match) =>
+    const capasDelContenido = [...(await estructura()).matchAll(/z-index:\s*(\d+)/g)].map((match) =>
       Number(match[1]),
     )
 
@@ -357,7 +381,7 @@ describe('tokens de diseño', () => {
    * ve: el fallo no rompe ninguna otra prueba y sólo aparece con el ratón encima.
    */
   test('ninguna regla de hover de la composición cambia geometría', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
 
     // Las propiedades que reflotan, mueven o redimensionan. Un color, un fondo,
     // un filtro, una opacidad o el pausado de una animación no están aquí.
@@ -407,7 +431,7 @@ describe('tokens de diseño', () => {
 
   /** Y el movimiento —lo que además de cambiar de sitio, se ve moverse— tampoco. */
   test('ninguna regla de hover mueve nada con `transform` ni cambia de fila', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
     const reglas = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
 
     for (const regla of reglas) {
@@ -430,7 +454,7 @@ describe('tokens de diseño', () => {
    * ancha que alta— y dejaba tres títulos por fila con un hueco al lado.
    */
   test('la pieza del mosaico es un cartel y ninguna fila declara tamaños', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
     const cuerpo = /\.pz\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
 
     expect(cuerpo, 'falta la proporción de la pieza en .pz').toContain(
@@ -455,7 +479,7 @@ describe('tokens de diseño', () => {
    * mucho: ahí sigue apagado.
    */
   test('el asomo sólo se apaga en la banda del móvil', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
     const apagados = [...css.matchAll(/[^{}]*\.pz__asomo[^{}]*\{[^}]*display:\s*none[^}]*\}/g)]
 
     expect(apagados).toHaveLength(1)
@@ -474,7 +498,7 @@ describe('tokens de diseño', () => {
    * pantalla.
    */
   test('los recursos de arte de la pieza están definidos', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
 
     for (const recurso of ['trama', 'mitad', 'circulo', 'caja']) {
       expect(css, `falta el recurso ${recurso}`).toContain(`.pz__campo--${recurso}`)
@@ -495,7 +519,7 @@ describe('tokens de diseño', () => {
    * arte no se mide sin navegador. Aquí se mide de quién cuelga.
    */
   test('el velo del puesto cuelga de la pieza numerada', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
     // Sin comentarios: el selector de una regla se lee desde el cierre de la
     // anterior, y el comentario que la explica viaja con él.
     const sinComentarios = css.replace(/\/\*[\s\S]*?\*\//g, '')
@@ -520,7 +544,7 @@ describe('tokens de diseño', () => {
    * seis, dos piezas contiguas vuelven a repetir degradado.
    */
   test('los seis campos de arte se reparten por posición', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
     const tokens = await read(TOKENS)
 
     for (const campo of ['a', 'b', 'c', 'd', 'e', 'f']) {
@@ -547,10 +571,10 @@ describe('tokens de diseño', () => {
    * puede medir sin un navegador; se mide la regla que lo decide, que es una.
    */
   test('el enlace de la pieza cubre el hueco entero', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
     const enlace = /\.pz__enlace\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
 
-    expect(enlace, 'falta .pz__enlace en shell.css').not.toBe('')
+    expect(enlace, 'falta .pz__enlace en la estructura').not.toBe('')
     expect(enlace).toContain('position: absolute')
     expect(enlace).toContain('inset: 0')
     // Y no vuelve el `block-size: 100%`, que no resolvía nada: contra una fila de
@@ -644,7 +668,7 @@ describe('tokens de diseño', () => {
 describe('la cabecera y el conmutador de tipo', () => {
   /** El cuerpo de una regla, por su selector exacto. */
   async function reglaDe(selector: string): Promise<string> {
-    const css = await read(SHELL)
+    const css = await estructura()
     const desde = css.indexOf(`${selector} {`)
     if (desde === -1) return ''
 
@@ -747,7 +771,7 @@ describe('la cabecera y el conmutador de tipo', () => {
 describe('la ficha a sangre', () => {
   /** El cuerpo de una regla, por su selector exacto. */
   async function regla(selector: string): Promise<string> {
-    const css = await read(SHELL)
+    const css = await estructura()
     const desde = css.indexOf(`${selector} {`)
     if (desde === -1) return ''
 
@@ -757,7 +781,7 @@ describe('la ficha a sangre', () => {
   test('la caja de la pantalla no tiene tope de ancho ni relleno', async () => {
     const caja = await regla('.shell__main--ficha')
 
-    expect(caja, 'falta .shell__main--ficha en shell.css').not.toBe('')
+    expect(caja, 'falta .shell__main--ficha en la estructura').not.toBe('')
     // A sangre: la banda tiene que llegar a los dos bordes de la ventana.
     expect(caja).toContain('max-inline-size: none')
     // Y sin relleno: el aire es lo que separaba la banda de la cabecera.
@@ -779,7 +803,7 @@ describe('la ficha a sangre', () => {
     for (const selector of ['.detail__banner-caja', '.detail__cuerpo']) {
       const caja = await regla(selector)
 
-      expect(caja, `falta ${selector} en shell.css`).not.toBe('')
+      expect(caja, `falta ${selector} en la estructura`).not.toBe('')
       expect(caja).toContain('max-inline-size: var(--content-max)')
       expect(caja).toContain('margin-inline: auto')
     }
@@ -832,7 +856,7 @@ describe('movimiento y superficies', () => {
    * pulso viejo siga siendo el de `.esq`, que no se cambió.
    */
   test('el esqueleto se desliza con su propio ritmo, y se apaga', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
     const skeleton = /\.skeleton\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
     const esq = /\.esq\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
 
@@ -861,7 +885,7 @@ describe('movimiento y superficies', () => {
 
   test('el menú del reproductor se queda montado para poder salir', async () => {
     const player = await read(`${ROOT}features/player/Player.tsx`)
-    const css = await read(SHELL)
+    const css = await estructura()
 
     expect(player).toContain('data-abierto={menu}')
     expect(player).toContain('inert={!menu}')
@@ -871,7 +895,7 @@ describe('movimiento y superficies', () => {
   })
 
   test('el asomo oculto no es una parada de tabulación', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
     const asomo = /\.pz__asomo\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
 
     expect(asomo).toContain('visibility: hidden')
@@ -879,7 +903,7 @@ describe('movimiento y superficies', () => {
   })
 
   test('la cabecera marca el destino y ofrece el salto al contenido', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
 
     expect(css).toContain('.shell__nav a[aria-current="page"]')
     expect(css).toContain('.shell__saltar')
@@ -887,7 +911,7 @@ describe('movimiento y superficies', () => {
   })
 
   test('el botón de contorno de la marquesina no depende del tema', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
 
     expect(css).toContain('.marquesina .acciones .button:not(')
     expect(css).not.toContain('.marquesina[data-tinta="oscura"] .acciones')
@@ -902,7 +926,7 @@ describe('movimiento y superficies', () => {
    * inexistente en un fallo.
    */
   test('todo var() de la hoja de estructura está definido', async () => {
-    const css = await read(SHELL)
+    const css = await estructura()
     const tokens = await read(TOKENS)
     const definidos = new Set(
       [...`${tokens}\n${css}`.matchAll(/--([\w-]+)\s*:/g)].map((match) => match[1] ?? ''),
@@ -913,7 +937,7 @@ describe('movimiento y superficies', () => {
     expect(usados.length).toBeGreaterThan(0)
 
     for (const nombre of usados) {
-      expect(definidos, `--${nombre} se usa en shell.css y no está definido`).toContain(nombre)
+      expect(definidos, `--${nombre} se usa en la estructura y no está definido`).toContain(nombre)
     }
   })
 })

@@ -67,6 +67,8 @@ Entorno (para el modo servidor):
   // Con la ruta absoluta y el error concreto, que es lo que hace falta cuando el
   // fallo llega a un registro y ya no hay consola donde preguntar.
   'cli.migration.failedPath': 'No se pudo preparar la base de datos en {path}: {message}',
+  'cli.migration.restored':
+    'La actualización no se pudo aplicar ({message}). Se restauró la copia anterior y la base sigue en la versión {version}, con tus datos: la aplicación arranca con ellos.',
   'cli.dirs.failed': 'No se pudieron preparar los directorios de la aplicación: {message}',
   'cli.prune.atStartup':
     'La base superaba el tamaño previsto: se limpiaron {rows} filas de datos viejos.',
@@ -81,6 +83,7 @@ Entorno (para el modo servidor):
   'cli.migrate.applied': 'Migraciones aplicadas: {versions}. Versión del esquema: {version}.',
   'cli.migrate.none': 'No hay migraciones pendientes. Versión del esquema: {version}.',
   'cli.migrate.failed': 'No se pudo preparar la base de datos: {message}',
+  'cli.migrate.backup': 'Copia de la base anterior en {path}',
 
   'cli.prune.total': 'Limpieza terminada: {total} filas.',
   'cli.prune.table': '  {table}: {rows}',

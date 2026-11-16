@@ -250,6 +250,101 @@ El tag dispara `release.yml` y publica la release con el cuerpo de `CHANGELOG.md
 y `release.yml` lo publica. Si `release-please` abre un PR antes de que se empuje `v0.1.0`, se cierra:
 el siguiente run recalcula desde el tag.
 
+## Cuando la release se queda en borrador
+
+Un borrador con el tag creado y **cero assets** significa que `release.yml` arrancó y no pasó del
+primer trabajo: `comprobar` corta la cadena y `instaladores`, `docker` y `publicar` quedan saltados.
+Pasó con la `0.8.0`.
+
+El diagnóstico empieza por el run del tag, no por la release:
+
+```bash
+gh run list --workflow=release.yml --limit 5
+gh run view <id> --json jobs --jq '.jobs[] | {name, conclusion}'
+```
+
+Si el que falla es `comprobar`, el responsable es el listón —tipos, estilo, `bun audit` o
+`bun test`—, no el empaquetado. Lo primero es **volver a lanzar lo que falló**, que no toca nada:
+
+```bash
+gh run rerun <id> --failed
+```
+
+Y el tag, mejor no moverlo: **mover el tag de un borrador lo desvincula** (ver abajo) y crea un
+segundo problema encima del primero.
+
+### El listón no puede depender de la red
+
+La `0.8.0` se atascó porque un test salía a internet. `createApp` monta el catálogo de AniList en
+línea salvo que se le diga lo contrario, y la búsqueda retiene el `done` del SSE hasta que la
+búsqueda cruzada contesta o vence `ANILIST_CROSS_TIMEOUT_MS` (3 s). El test de la caché de búsqueda
+tardaba entre 0,6 y 3 s por consulta en vez de milisegundos y, en el runner, rozó el plazo de 5 s de
+`bun test`:
+
+- Medido en local, la misma petición tarda **1-5 ms con `anilistOffline: true`** y **650-2000 ms
+  sin él**. El arreglo fue pasar `anilistOffline: true` en los `createApp` de esos tests.
+- La regla: **ninguna prueba de `comprobar` sale a la red**. Si una ruta puede hablar con un
+  tercero, la prueba le pasa un `fetch` falso o apaga el tercero. Un test que depende de la latencia
+  de AniList tumba una release de forma no reproducible.
+
+### Mover el tag desvincula el borrador
+
+La `0.8.0` se atascó, se arregló el test, y al re-apuntar el tag `v0.8.0` al commit corregido
+apareció un segundo fallo, ya en Windows: `tauri-action` decía «Looking for a draft release with tag
+v0.8.0…» y no la encontraba, intentaba crear otro release y moría en `"releaseName" not set but
+required to create release` y `##[error]Release not found or created.`.
+
+El mismo commit de la acción había publicado la `0.7.0` sin problema («Found draft release… on the
+release list»): el bump de dependabot sólo cambió el pin de la etiqueta anotada `v1` a su commit, el
+mismo código. Lo que cambió fue **el tag**: al moverlo, GitHub desvinculó el borrador y le puso
+nombre de tag `untagged-<sha>`. El listado de releases **sí devuelve borradores**; lo que no
+devolvía era una release con `tag_name == "v0.8.0"`. Una sonda con el token del workflow lo enseñó
+tal cual:
+
+```
+441048948   untagged-a92afb0a6a8114e6d1cb   true     ← el borrador, con el tag perdido
+429459086   v0.7.0                          false
+```
+
+Con `releaseDraft: true` la acción no acepta encontrarlo publicado: con el listado vacío intenta
+crear otro release para el mismo tag y falla. Se arregla **re-enlazándolo**, que sí puede hacerse
+por id aunque el tag no aparezca:
+
+```bash
+gh api -X PATCH repos/zxuru/nn-anime/releases/<id> \
+  -f tag_name=vX.Y.Z -f target_commitish=<sha>
+```
+
+Y para que esa clase de fallo se vea antes, el trabajo `instaladores` resuelve el borrador **por
+id** con el mismo `gh api` que usa `publicar` y se lo pasa a la acción como `releaseId`, que se
+salta la búsqueda por tag; el paso va antes de compilar, así que si no hay borrador el run falla en
+segundos y no después de quince minutos de Rust.
+
+### Recuperar el borrador
+
+Con el arreglo en `main` y el listón verde:
+
+```bash
+# 1. Si el borrador se desvinculó al mover el tag, se vuelve a enlazar por id.
+gh api "repos/zxuru/nn-anime/releases?per_page=100" \
+  --jq '.[] | select(.draft) | [.id, .tag_name] | @tsv'
+gh api -X PATCH repos/zxuru/nn-anime/releases/<id> \
+  -f tag_name=vX.Y.Z -f target_commitish=<sha>
+
+# 2. Y se relanza la release: lo que falló, o el run entero.
+gh run rerun <id> --failed
+```
+
+Mover el tag **también dispara `release.yml`** —un tag creado con `GITHUB_TOKEN` no dispara nada—,
+pero cuesta el paso 1 otra vez y una release en vuelo; si hay un run que sólo falló en un trabajo,
+`gh run rerun --failed` es lo barato. Con una release ya publicada no se toca ni el tag ni el
+borrador: se lanza una versión nueva.
+
+Lo que queda por comprobar es lo mismo de siempre: que la release no siga en borrador, que estén
+todos los assets y que `latest.json` anuncie `windows-x86_64` y `windows-x86_64-portable` con url y
+firma. El propio trabajo `publicar` lo verifica antes de dar la release por publicada; si algo falta,
+el run sale en rojo y la release se queda en borrador, que es el estado honesto.
+
 ## Qué hay dentro del ejecutable
 
 Un solo archivo por plataforma, compilado con `bun build --compile`, que lleva dentro:

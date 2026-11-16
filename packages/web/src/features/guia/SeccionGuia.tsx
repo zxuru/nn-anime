@@ -3,15 +3,27 @@
  *
  * Es el índice de los recorridos: cada sección con su botón, que lleva a esa
  * pantalla y abre su tutorial. La ficha y el reproductor no están: dependen de
- * un título concreto y su «?» vive en su propia pantalla. Debajo, el botón que
- * devuelve a la lista los avisos descartados.
+ * un título concreto y su «?» vive en su propia pantalla.
+ *
+ * Debajo vive lo que decide sobre todos a la vez: el interruptor que los apaga
+ * sin marcar nada, «Omitir todos» —que sí los da por vistos— y «Reiniciar», que
+ * los devuelve a pendientes. Y al final el botón que devuelve a la lista los
+ * avisos descartados, que son otra cosa y por eso tienen el suyo.
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { ReactNode } from 'react'
+import { type ReactNode, useSyncExternalStore } from 'react'
 import { t } from '../../i18n'
 import { type RouteName, useNavigate } from '../../router'
-import { restablecerAvisos } from './estado'
+import {
+  estadoActual,
+  mostrarTutoriales,
+  ocultarTutoriales,
+  omitirTodosLosTutoriales,
+  reiniciarTutoriales,
+  restablecerAvisos,
+  suscribir,
+} from './estado'
 import { ANCLAS, RECORRIDOS, type Recorrido } from './guia'
 import { abrirRecorrido } from './useGuia'
 
@@ -36,7 +48,12 @@ function rutaDe(recorrido: Recorrido): string | undefined {
 
 export function SeccionGuia(): ReactNode {
   const navigate = useNavigate()
+  // El interruptor y los botones escriben en el estado de módulo; aquí se lee
+  // con `useSyncExternalStore` para que la pantalla refleje el cambio en el acto,
+  // sin recargar ni guardar copia local de lo que ya vive en `estado.ts`.
+  const estado = useSyncExternalStore(suscribir, estadoActual, estadoActual)
   const repetibles = RECORRIDOS.filter((recorrido) => rutaDe(recorrido) !== undefined)
+  const encendidos = !estado.tutorialsDisabled
 
   return (
     <section data-tour={ANCLAS.ajustesGuia}>
@@ -64,6 +81,55 @@ export function SeccionGuia(): ReactNode {
           </button>
         ))}
       </fieldset>
+
+      {/*
+        El interruptor global, con la misma fila de botones con estado que el
+        tema y el contenido para adultos: `aria-pressed` dice cuál está activo y
+        el teclado no necesita nada más. Dos botones y no una casilla porque el
+        resto de la página ya se lee así.
+
+        Apagado no es «omitido»: los tutoriales no vistos siguen pendientes y
+        vuelven cuando se enciende. Para devolverlos todos está «Reiniciar».
+      */}
+      <fieldset
+        className="guia__acciones"
+        aria-label={t(DEFAULT_LOCALE, 'guia.ajustes.interruptor')}
+      >
+        <button
+          type="button"
+          className="button"
+          aria-pressed={encendidos}
+          onClick={mostrarTutoriales}
+        >
+          {t(DEFAULT_LOCALE, 'guia.ajustes.mostrar')}
+        </button>
+        <button
+          type="button"
+          className="button"
+          aria-pressed={!encendidos}
+          onClick={ocultarTutoriales}
+        >
+          {t(DEFAULT_LOCALE, 'guia.ajustes.ocultar')}
+        </button>
+      </fieldset>
+      <p>{t(DEFAULT_LOCALE, 'guia.ajustes.interruptor.ayuda')}</p>
+
+      {/*
+        Omitir todos no pide confirmación: no borra nada —los recorridos se
+        pueden repetir desde la lista de arriba— y una confirmación sobre algo
+        reversible es un clic extra para quien ya decidió. Reiniciar hace lo
+        contrario y tampoco la pide por lo mismo.
+      */}
+      <div className="guia__acciones">
+        <button type="button" className="button" onClick={omitirTodosLosTutoriales}>
+          {t(DEFAULT_LOCALE, 'guia.ajustes.omitirTodos')}
+        </button>
+        <button type="button" className="button" onClick={reiniciarTutoriales}>
+          {t(DEFAULT_LOCALE, 'guia.ajustes.reiniciar')}
+        </button>
+      </div>
+      <p>{t(DEFAULT_LOCALE, 'guia.ajustes.omitir.ayuda')}</p>
+      <p>{t(DEFAULT_LOCALE, 'guia.ajustes.reiniciar.ayuda')}</p>
 
       <p>
         <button type="button" className="button" onClick={restablecerAvisos}>

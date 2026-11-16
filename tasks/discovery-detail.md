@@ -1,5 +1,10 @@
 # Plan de tareas: la ficha de un anime (relacionados, hueco, modos y vistos)
 
+> **Estado:** **cerrado** — T58–T62 están medidas y la ficha está en producción. Son tareas
+> anteriores al formato de fragmentos, así que su cierre está en los commits que este archivo
+> cita, no en `tasks/done/`.
+
+
 Spec: `docs/specs/SPEC-anime-detail.md` · Estado: **implementado y medido** · 2026-10-12
 Commits: T58 `4e68ff2`, T59 `7b587f0`, T60 `1ec44cd`, T61 `382cbdb`, T62 `a18acea`.
 

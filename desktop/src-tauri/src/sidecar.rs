@@ -314,13 +314,23 @@ pub fn start(ruta: &Path) -> Result<Sidecar, SidecarError> {
         command.creation_flags(CREATE_NO_WINDOW);
     }
 
-    // El seguro del sistema, antes de lanzarlo: en Linux marca al hijo para que
-    // muera con el anfitrión. En Windows hoy no hace nada (ver `guards.rs`).
+    // El seguro del sistema, en cuanto el proceso existe: en Linux marca al hijo
+    // antes de lanzarlo (`PR_SET_PDEATHSIG`) y en Windows lo mete en el Job Object
+    // aquí, que es cuando Windows lo admite. Se hace **antes** de leer nada del
+    // hijo: cada milisegundo que se tarde es un milisegundo en el que un `kill`
+    // seco del anfitrión dejaría al servidor vivo.
     crate::guards::before_spawn(&mut command);
 
     let mut child = command
         .spawn()
         .map_err(|error| SidecarError::Spawn(error.to_string()))?;
+
+    if let Err(error) = crate::guards::after_spawn(&child) {
+        // Sin seguro el servidor sigue en pie y la aplicación funciona: matar el
+        // arranque por no poder ponerlo sería peor. Se cuenta, que es lo único que
+        // se puede hacer, y queda en el registro para quien lo investigue.
+        crate::registrar(&format!("servidor sin seguro de muerte brusca: {error}"));
+    }
 
     let stdout = child
         .stdout

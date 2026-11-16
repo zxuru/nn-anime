@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { existsSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 /**
@@ -104,6 +105,46 @@ describe('la guía de plugins', () => {
   })
 })
 
+describe('los planes de `tasks/`', () => {
+  /**
+   * Los planes que no son el índice ni el plan maestro.
+   *
+   * `todo.md` y `plan.md` los escribe una sola mano —la del integrador— y
+   * `roadmap.md` y `discovery.md` son los índices. Los demás son planes sueltos:
+   * cada uno dice qué se pidió, con qué condición y en qué quedó.
+   */
+  const EXCLUIDOS = ['todo.md', 'plan.md', 'roadmap.md', 'discovery.md']
+
+  /** Los planes sueltos de `tasks/`. */
+  function planes(): readonly string[] {
+    return readdirSync(`${RAIZ}tasks`)
+      .filter((archivo) => archivo.endsWith('.md') && !EXCLUIDOS.includes(archivo))
+      .sort()
+  }
+
+  test('cada uno dice en qué estado está, en las primeras líneas', async () => {
+    for (const plan of planes()) {
+      const texto = await leer(`tasks/${plan}`)
+      const cabecera = texto.split('\n').slice(0, 12).join('\n')
+
+      // Un plan sin estado es un plan del que nadie sabe si lo que dice sigue
+      // siendo cierto: se lee y no se sabe si hay que seguirlo.
+      expect(cabecera, plan).toMatch(/\*\*Estado:\*\* \*\*(cerrado|abierto|caducado)\*\*/)
+    }
+  })
+
+  test('los planes de descubrimiento están indexados', async () => {
+    const indice = await leer('tasks/discovery.md')
+    const sueltos = planes().filter((plan) => plan.startsWith('discovery-'))
+
+    expect(sueltos.length).toBeGreaterThan(0)
+
+    for (const plan of sueltos) {
+      expect(indice, plan).toContain(`](${plan})`)
+    }
+  })
+})
+
 describe('la guía de Docker', () => {
   test('los comandos que cita existen', async () => {
     const manifiesto = JSON.parse(await leer('package.json')) as {
@@ -133,5 +174,105 @@ describe('la guía de Docker', () => {
     expect(texto).toContain('No expongas el puerto a Internet sin `NN_ANIME_TOKEN`')
     expect(texto).toContain('sin sandbox')
     expect(texto).toContain('Una sola réplica por volumen')
+  })
+})
+
+/**
+ * El mapa de capacidades.
+ *
+ * El mapa se declara «la única fuente de verdad sobre qué módulos existen», así
+ * que cuando se queda viejo no falla: nada lo comprueba. Lo que falló aquí fue
+ * peor que viejo: `downloads` estaba en «Enmiendas pendientes de aprobación» —
+«no se escribe su spec ni su código hasta que el humano apruebe la enmienda»—
+con la mitad de la capacidad ya en producción.
+ *
+ * Estas pruebas miran el documento **contra el árbol**: los paquetes que cita
+ * existen, los contratos que cita existen, y una capacidad no puede estar a la
+ * vez en el grafo y en la lista de lo que falta por aprobar.
+ */
+describe('el informe de la v1', () => {
+  test('dice que queda congelado y a dónde está el estado vigente', async () => {
+    const texto = await leer('docs/v1-report.md')
+
+    // El informe dice «la v1» y lleva las cifras de la v1: si alguien las
+    // actualiza, el documento miente dos veces —sobre cuándo y sobre cuánto— y
+    // quien lo cite llevará la cifra equivocada a una presentación.
+    expect(texto).toContain('queda congelado')
+    expect(texto).toContain('no se actualizan')
+
+    // Y el que quiera el estado de hoy tiene que saber dónde está.
+    expect(texto).toContain('tasks/roadmap.md')
+    expect(texto).toContain('tasks/deuda.md')
+  })
+
+  test('conserva los seis casos de método', async () => {
+    const texto = await leer('docs/v1-report.md')
+    const casos = texto.slice(texto.indexOf('## Hallazgos de método'))
+
+    // La sección que explica el patrón de fallo más repetido del proyecto no
+    // caduca: es historia, y quitarla sería borrar lo que se aprendió.
+    for (const tarea of ['T29', 'T39', 'T42', 'T44', 'T46', 'T47']) {
+      expect(casos, tarea).toContain(tarea)
+    }
+  })
+})
+
+describe('el mapa de capacidades', () => {
+  const MAPA = 'docs/specs/CAPABILITY-MAP.md'
+
+  /** Las filas de una tabla del mapa: `| `a` | b | c |`. */
+  async function filas(seccion: string): Promise<readonly string[][]> {
+    const texto = await leer(MAPA)
+    const desde = texto.indexOf(`## ${seccion}`)
+
+    expect(desde, `el mapa no tiene la sección «${seccion}»`).toBeGreaterThan(-1)
+
+    const cuerpo = texto.slice(desde).split('\n## ')[0] ?? ''
+    const filas: string[][] = []
+
+    for (const linea of cuerpo.split('\n')) {
+      if (!linea.startsWith('| `')) continue
+      filas.push(
+        linea
+          .split('|')
+          .slice(1, -1)
+          .map((celda) => celda.trim()),
+      )
+    }
+
+    return filas
+  }
+
+  test('ninguna capacidad está a la vez en el grafo y en lo que falta por aprobar', async () => {
+    const enElGrafo = new Set((await filas('Módulos')).map((fila) => fila[0] ?? ''))
+    const pendientes = await filas('Enmiendas pendientes de aprobación')
+
+    for (const fila of pendientes) {
+      expect(enElGrafo.has(fila[0] ?? ''), fila[0]).toBe(false)
+    }
+  })
+
+  test('los paquetes que cita el grafo existen', async () => {
+    for (const fila of await filas('Módulos')) {
+      for (const paquete of (fila[3] ?? '').matchAll(/`([^`]+)`/g)) {
+        const ruta = paquete[1] ?? ''
+        // `desktop/` vive fuera del monorepo, pero también tiene que estar. Un
+        // paquete es un directorio, y `Bun.file` no los ve.
+        const existe = existsSync(`${RAIZ}${ruta}`)
+
+        expect(existe, ruta).toBe(true)
+      }
+    }
+  })
+
+  test('los contratos que cita existen, estén donde estén', async () => {
+    const texto = await leer(MAPA)
+
+    for (const coincidencia of texto.matchAll(/\]\(([^)]+\.md)\)/g)) {
+      const ruta = coincidencia[1] ?? ''
+      const existe = await Bun.file(`${RAIZ}docs/specs/${ruta}`).exists()
+
+      expect(existe, ruta).toBe(true)
+    }
   })
 })

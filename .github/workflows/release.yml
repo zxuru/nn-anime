@@ -134,7 +134,7 @@ jobs:
 
       - name: Entrar en GHCR
         if: needs.comprobar.outputs.publicar == 'true'
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -207,6 +207,48 @@ jobs:
 
       - name: Instalar
         run: bun install --frozen-lockfile
+
+      # `tauri-action` resuelve la release por tag y, si no la encuentra, intenta
+      # crear otra: al republicar la 0.8.0 el borrador estaba **desvinculado** —el
+      # tag se había movido y GitHub pasó a llamarlo `untagged-<sha>`—, así que la
+      # acción murió con «Release not found or created». Aquí el borrador se
+      # resuelve **por id**, lo mismo que hace `publicar`, y se le pasa como
+      # `releaseId`, que se salta la búsqueda por tag.
+      #
+      # Va antes de compilar a propósito: si el borrador no aparece, el trabajo
+      # falla en segundos y no después de quince minutos de Rust.
+      - name: Resolver el borrador de la release (Windows)
+        if: runner.os == 'Windows'
+        # `bash` y no el `pwsh` por defecto de Windows: el filtro va con `jq` y
+        # `awk`, que ya están en el runner. Se declara el intérprete para que
+        # actionlint analice el paso como bash y no como PowerShell.
+        shell: bash
+        id: borrador
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.comprobar.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          listar() {
+            gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq ".[] | select(.tag_name == \"$TAG\" and .draft == $1) | .id"
+          }
+          primera() { awk 'NR == 1 { print; exit }' <<< "$1"; }
+
+          if [ -n "$(primera "$(listar false)")" ]; then
+            echo "ya hay una release publicada para $TAG: no se toca" >&2
+            exit 1
+          fi
+
+          id="$(primera "$(listar true)")"
+          if [ -z "$id" ]; then
+            echo "no hay borrador para $TAG: lo tiene que crear release-please" >&2
+            exit 1
+          fi
+
+          echo "borrador de $TAG: $id"
+          echo "releaseId=$id" >> "$GITHUB_OUTPUT"
 
       - name: Construir la interfaz
         run: bun run build
@@ -425,7 +467,7 @@ jobs:
       # lleva bundles del updater —que es justo el caso de las de macOS—.
       - name: Armar el instalador (Windows) y subirlo
         if: runner.os == 'Windows'
-        uses: tauri-apps/tauri-action@944946e3e4cac6603d1fe8f514171e9ecd3c78aa # v1
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -435,6 +477,10 @@ jobs:
           NN_ANIME_EXIGIR_SERVIDOR: '1'
         with:
           tagName: ${{ needs.comprobar.outputs.tag }}
+          # El borrador llega resuelto por id desde el paso anterior: así la acción
+          # no depende de que su listado de borradores lo encuentre. `tagName` se
+          # queda porque también nombra los assets y las URLs del updater.
+          releaseId: ${{ steps.borrador.outputs.releaseId }}
           releaseDraft: true
           # `desktop/` es la raíz del proyecto Tauri (`src-tauri` vive dentro).
           projectPath: desktop

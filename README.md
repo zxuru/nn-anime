@@ -57,6 +57,11 @@ telemetría.**
   de la pantalla en la que estés, **Ajustes** los lista todos y devuelve los avisos descartados. En
   el móvil la navegación se muda a una **barra inferior**, y la biblioteca, el perfil y los ajustes
   comparten el juego de iconos del resto.
+- **Watch party (experimental, apagado por defecto)**: una sala donde varias instancias reproducen
+  el mismo episodio a la vez, cada una desde su fuente. Se sincroniza **sólo el estado** —posición,
+  pausa y velocidad—, nunca el vídeo. Se enciende con `NN_ANIME_PARTY=1`; el anfitrión necesita el
+  modo servidor para que la sala se alcance por LAN, y el invitado entra desde su propia instancia.
+  Sin servidor central, sin cuentas y sin persistencia.
 
 ## Instalación (para usuarios)
 
@@ -83,7 +88,8 @@ deja accesos: el mismo archivo lleva dentro la interfaz, el servidor y la base. 
 ventana, con la aplicación dentro y sin ninguna consola de por medio.
 
 Por defecto los datos —la base, los ajustes, los plugins y el perfil del webview— van a
-`%LOCALAPPDATA%\nn-anime`, así que sobreviven a mover o borrar el `.exe`. Si prefieres que viajen con
+`%LOCALAPPDATA%\nn-anime-data`, **fuera** de la carpeta de instalación (`%LOCALAPPDATA%\nn-anime`), así
+que sobreviven a mover o borrar el `.exe`, a reinstalar y a actualizar. Si prefieres que viajen con
 él —una memoria USB, una carpeta portátil—, crea un archivo vacío llamado `portable.txt` **al lado**
 del ejecutable: entonces todo se guarda ahí (`bin`, `config`, `cache`, `webview` y la base).
 
@@ -123,7 +129,8 @@ nueva y borra el viejo. Si el medio es de sólo lectura o el reemplazo falla, se
 enlace a la release.
 
 Desinstalar desde «Agregar o quitar programas» **no borra tus datos**: la base, los ajustes y los
-plugins viven en `%LOCALAPPDATA%\nn-anime` y se quedan donde están.
+plugins viven en `%LOCALAPPDATA%\nn-anime-data` —fuera de la carpeta de instalación— y se quedan donde
+están.
 
 ### macOS
 
@@ -225,6 +232,29 @@ la cookie que se consigue en `/login`; `/healthz` es lo único público.
 SQLite admite **una sola réplica por volumen**. La guía completa —variables, volúmenes, cómo
 instalar plugins, Caddy y actualización— está en [docs/docker.md](docs/docker.md).
 
+## Watch party (experimental)
+
+La sala sincroniza **sólo el estado de reproducción** entre instancias: qué episodio, en qué segundo,
+pausado o no. El vídeo no viaja; cada participante lo reproduce desde sus proveedores o sus descargas.
+Está apagada por defecto.
+
+**Anfitrión:** escucha en la LAN y enciende la función.
+
+```bash
+export NN_ANIME_TOKEN="$(openssl rand -base64 32)"
+NN_ANIME_HOST=0.0.0.0 NN_ANIME_PARTY=1 bun run start
+```
+
+Abre el episodio, pulsa **Ver juntos** y comparte el código de 16 caracteres y una de las direcciones
+que enseña el panel. **Invitado:** arranca su propia instancia con `NN_ANIME_PARTY=1`, abre el mismo
+episodio, pulsa **Unirse** y escribe la dirección del anfitrión y el código. Su servidor habla con el
+del anfitrión; su pestaña no cruza orígenes y no recibe la sesión del anfitrión.
+
+Ocho participantes por sala, cuatro horas de vida, sin persistencia ni servidor central. En LAN sin
+TLS el código y el estado viajan sin cifrar: úsalo en una red de confianza, no en Internet. La guía
+completa, los límites y lo que falta (WebRTC P2P, coincidencia de contenido) están en
+[docs/watch-party.md](docs/watch-party.md).
+
 ## Comandos
 
 | Comando | Qué hace |
@@ -263,7 +293,8 @@ envuelto en un instalador. Para desarrollar hace falta Bun en la máquina —y p
 
 | Qué | Linux y macOS | Windows |
 |---|---|---|
-| Datos y base de datos | `~/.local/share/nn-anime/` | `%LOCALAPPDATA%\nn-anime\` |
+| Datos y base de datos | `~/.local/share/nn-anime/` | `%LOCALAPPDATA%\nn-anime\` (CLI) · `%LOCALAPPDATA%\nn-anime-data\` (ventana instalada) |
+| Copias de seguridad | `~/.local/share/nn-anime/backups/` | `%LOCALAPPDATA%\nn-anime\backups\` · `%LOCALAPPDATA%\nn-anime-data\backups\` |
 | Configuración | `~/.config/nn-anime/` | `%APPDATA%\nn-anime\` |
 | Tus plugins | `~/.config/nn-anime/providers/` | `%APPDATA%\nn-anime\providers\` |
 | Repositorios de proveedores descargados | `~/.local/share/nn-anime/repos/` | `%LOCALAPPDATA%\nn-anime\repos\` |
@@ -271,10 +302,12 @@ envuelto en un instalador. Para desarrollar hace falta Bun en la máquina —y p
 | Descargas (por defecto) | `~/.local/share/nn-anime/downloads/` | `%LOCALAPPDATA%\nn-anime\downloads\` |
 
 La tabla es la del **CLI** (`bun run start`). La **ventana** fija los tres directorios bajo una sola
-raíz: `%LOCALAPPDATA%\nn-anime` en Windows y `~/.local/share/nn-anime` —o `XDG_DATA_HOME`— en macOS y
-Linux, con `config`, `cache`, `bin` (el servidor) y `webview` dentro. En modo portable (`portable.txt`)
-esa raíz es la carpeta del `.exe`. Las rutas exactas en uso se ven en **Ajustes**, dentro de la
-aplicación.
+raíz: `%LOCALAPPDATA%\nn-anime-data` en Windows —hermana de la carpeta de instalación, para que el
+instalador y la actualización no compartan sitio con la base— y `~/.local/share/nn-anime` —o
+`XDG_DATA_HOME`— en macOS y Linux, con `config`, `cache`, `bin` (el servidor), `webview` y `backups`
+dentro. Las instalaciones anteriores de Windows guardaban los datos dentro de `%LOCALAPPDATA%\nn-anime`
+y se trasladan una sola vez al arrancar. En modo portable (`portable.txt`) esa raíz es la carpeta del
+`.exe`. Las rutas exactas en uso se ven en **Ajustes**, dentro de la aplicación.
 
 Las variables de entorno que lee la aplicación están inventariadas en `.env.example`, sin ningún valor
 real. En el uso local ninguna es obligatoria y ninguna lleva un secreto: los directorios se pueden
@@ -392,6 +425,7 @@ instalación.
 |---|---|
 | [docs/providers.md](docs/providers.md) | Cómo escribir un plugin, con un ejemplo comentado |
 | [docs/docker.md](docs/docker.md) | Docker, NAS y LAN: variables, volúmenes, plugins, Caddy y actualización |
+| [docs/watch-party.md](docs/watch-party.md) | La sala de visionado: cómo se enciende, límites, seguridad y lo que falta |
 | [docs/release.md](docs/release.md) | Cómo se publica: secretos de firma, ajustes del repositorio y qué queda por probar |
 | [SECURITY.md](SECURITY.md) | Modelo de amenaza, mitigaciones y riesgos residuales |
 | [docs/a11y.md](docs/a11y.md) | Qué se comprueba de accesibilidad y qué no |

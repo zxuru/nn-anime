@@ -1,0 +1,20 @@
+{
+  "version": 15,
+  "archivos": {
+    "0001-initial.sql": "sha256:d090a243a5612435683347fb9d988b69dc424c7df7ffd04f08aa666537d5c94a",
+    "0002-search-cache.sql": "sha256:4854bcf26f6d52e7a0f43277d0cf48c0df1c7ce20db5434cfcd5b8f15f0e65df",
+    "0003-revalidate-error.sql": "sha256:f48bac6600e643f4e6296adf055d773927c1fe3f5647f04090cf041b3073130c",
+    "0004-episodes-fetched.sql": "sha256:18df8fba9a01ee37a0074b812f48609c0586a654d31bdfb0a9194480bc1fb2a0",
+    "0005-trending-cache.sql": "sha256:97201460ecc43e29afd75cdfff24fe379a723dd169f0302a25f7d8a03ff1a5aa",
+    "0006-feed-cache.sql": "sha256:219d527be81210e5da936b10d28bfb0555ba602c77816c714cd8c253c3bdd8ee",
+    "0007-episode-page.sql": "sha256:123e9b0f2a13870938af7609bccd3f02c10743098a354a45b83bdf43711d5c3c",
+    "0008-anilist.sql": "sha256:9d909c0ac619733cbd378f5b098a2cc6f66088b6f09dc2d69af2a953b13e9198",
+    "0009-anilist-image-relleno.sql": "sha256:d92b760037037eaee91bb5a5a8e5fd7f27a829b360bb63660763701ee87dae5b",
+    "0010-adulto.sql": "sha256:bb497cef02fd7c422b379367e6dc033d029e7125e20ca31056ab0b6edeb95f37",
+    "0011-visto.sql": "sha256:994ab00015b69b4d958ea15a6ad9bd6c706976f2e87ffb14f456708b9c4744c4",
+    "0012-quiero-ver.sql": "sha256:3e13960a715bf25989c6a56257c75b6e0cd579da55b963c92ba7c1425fca63fe",
+    "0013-temporadas.sql": "sha256:583b5b4621292d3d969797310e7b9ed5653cc0a006fcb9d9595d9abcfab1ad13",
+    "0014-descargas.sql": "sha256:bdcabf44bb0a50bdbd83941032fe691c224a57d41f26f0b33e0f74929d020fe6",
+    "0015-descarga-en-segmentos.sql": "sha256:d3a0343371ba8a579bf1294fabb466feef788d44abc591f28b772f727315ac9a"
+  }
+}

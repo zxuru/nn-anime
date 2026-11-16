@@ -33,6 +33,8 @@ export interface ServerEnvironment {
   readonly publicOrigin: string | undefined
   readonly secureCookie: boolean
   readonly locked: boolean
+  /** Watch party. Apagado salvo que `NN_ANIME_PARTY` lo encienda. */
+  readonly party: boolean
 }
 
 /**
@@ -73,6 +75,7 @@ export const DEFAULT_SERVER_ENV: ServerEnvironment = {
   publicOrigin: undefined,
   secureCookie: false,
   locked: false,
+  party: false,
 }
 
 function usable(value: string | undefined): string | undefined {
@@ -244,5 +247,6 @@ export function serverEnvironment(
     publicOrigin,
     secureCookie: publicOrigin?.startsWith('https://') ?? false,
     locked: flag(env.NN_ANIME_LOCKED),
+    party: flag(env.NN_ANIME_PARTY),
   })
 }

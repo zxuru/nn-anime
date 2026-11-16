@@ -42,14 +42,49 @@ describe('qué tecla hace qué', () => {
    * `s` salta el intervalo que se esté viendo.
    *
    * No choca con ninguna de las teclas que ya tenía el reproductor: espacio,
-   * enter, `k`, `m`, `f` y las flechas siguen haciendo lo suyo.
+   * enter, `k`, `m`, `f`, `t` y las flechas siguen haciendo lo suyo.
    */
   test('`s` es saltar, y no se lleva por delante ningún otro atajo', () => {
     expect(keyAction({ key: 's' })).toBe('skip')
 
-    for (const tecla of [' ', 'Enter', 'k', 'm', 'f', 'ArrowLeft', 'ArrowRight', 'ArrowUp']) {
+    for (const tecla of [' ', 'Enter', 'k', 'm', 'f', 't', 'ArrowLeft', 'ArrowRight', 'ArrowUp']) {
       expect(keyAction({ key: tecla }), tecla).not.toBe('skip')
     }
+  })
+
+  test('`t` enciende y apaga el modo extendido, en las dos cajas', () => {
+    expect(keyAction({ key: 't' })).toBe('extended')
+    // Con Bloq Mayús o con Shift, `event.key` llega en mayúscula: la tecla es la
+    // misma y el atajo tiene que responder igual.
+    expect(keyAction({ key: 'T' })).toBe('extended')
+  })
+
+  /**
+   * `T` no puede pisar otro atajo.
+   *
+   * El reproductor se queda con la tecla y llama a `preventDefault`: si dos
+   * acciones compartieran tecla, una de las dos desaparecería sin que nadie se
+   * enterara. Se comprueba que las demás siguen diciendo lo suyo.
+   */
+  test('`t` no choca con ningún otro atajo del reproductor', () => {
+    const otras = [
+      [' ', 'toggle'],
+      ['Enter', 'toggle'],
+      ['k', 'toggle'],
+      ['ArrowRight', 'forward'],
+      ['ArrowLeft', 'back'],
+      ['ArrowUp', 'volume-up'],
+      ['ArrowDown', 'volume-down'],
+      ['m', 'mute'],
+      ['f', 'fullscreen'],
+      ['s', 'skip'],
+    ] as const
+
+    for (const [key, accion] of otras) {
+      expect(keyAction({ key }), key).toBe(accion)
+    }
+
+    expect(keyAction({ key: 't' })).toBe('extended')
   })
 
   test('una tecla que no es del reproductor no hace nada', () => {

@@ -174,6 +174,40 @@ describe('reenvío de bytes', () => {
     expect(vistos).toEqual(['same-origin'])
   })
 
+  test('deriva el Origin del referer que declaró el proveedor', async () => {
+    const vistos: (string | null)[] = []
+    const fake = upstream()
+
+    // El proveedor declara el `Referer` de su ficha, no el `Origin`: hay CDN que
+    // exigen las dos cabeceras y contestan 403 si falta el origen.
+    await proxy({
+      url: ARCHIVO,
+      headers: { Referer: 'https://cdn.example/ficha/aurora#1' },
+      fetchImpl: async (input: string, init: RequestInit) => {
+        vistos.push(new Headers(init.headers).get('origin'))
+        return fake.fetchImpl(input, init)
+      },
+    })
+
+    expect(vistos).toEqual(['https://cdn.example'])
+  })
+
+  test('un Origin explícito del proveedor no se pisa con el del referer', async () => {
+    const vistos: (string | null)[] = []
+    const fake = upstream()
+
+    await proxy({
+      url: ARCHIVO,
+      headers: { Referer: 'https://cdn.example/ficha/1', Origin: 'https://otro.example' },
+      fetchImpl: async (input: string, init: RequestInit) => {
+        vistos.push(new Headers(init.headers).get('origin'))
+        return fake.fetchImpl(input, init)
+      },
+    })
+
+    expect(vistos).toEqual(['https://otro.example'])
+  })
+
   test('los headers del proveedor viajan al upstream', async () => {
     const enviadas: Record<string, string> = {}
     const fake = upstream()

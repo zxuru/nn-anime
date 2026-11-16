@@ -36,7 +36,6 @@ import {
   tipoFromPath,
   useMedias,
 } from '../tipo/tipo'
-import { AniListCards } from './AniListCards'
 import { AniListResults } from './AniListResults'
 import { ResultGrid } from './ResultGrid'
 import {
@@ -319,7 +318,12 @@ export function SearchPage(props: SearchPageProps): ReactNode {
         página es la de siempre y la lista del catálogo va debajo, aparte.
       */}
       {soloCatalogo ? (
-        <AniListCards items={visibles.anilist} query={aplicado} done={resuelta(visibles)} />
+        <AniListResults
+          items={visibles.anilist}
+          query={aplicado}
+          presentacion="rejilla"
+          done={resuelta(visibles)}
+        />
       ) : (
         <>
           {state.pending.length > 0 || esperandoProveedores ? (
@@ -360,7 +364,7 @@ export function SearchPage(props: SearchPageProps): ReactNode {
             fuentes. Es lo que responde cuando lo local se queda corto, que es justo el
             caso de una búsqueda por género o por estudio.
           */}
-          <AniListResults items={visibles.anilist} query={aplicado} />
+          <AniListResults items={visibles.anilist} query={aplicado} presentacion="seccion" />
         </>
       )}
     </section>
