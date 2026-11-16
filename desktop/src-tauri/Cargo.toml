@@ -9,7 +9,7 @@ rust-version = "1.90"
 publish = false
 
 # Sin `[lib]`: es un binario de ventana y nada más. El nombre tiene que ser
-# `nn-anime-desktop` porque el servidor, que se instala **al lado**, ya se llama
+# `nn-anime-desktop` porque el servidor, que viaja **al lado**, ya se llama
 # `nn-anime`; los dos conviven en el mismo directorio.
 [[bin]]
 name = "nn-anime-desktop"
@@ -28,7 +28,7 @@ sha2 = "0.11"
 # sigue viva cuando la ventana está oculta. `image-png`: lo que hace falta para
 # meter el icono **dentro** del binario (`Image::from_bytes`); sin esa
 # característica habría que leerlo del disco al arrancar y no existiría en la
-# máquina de quien instaló el programa.
+# máquina de quien descargó el programa.
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 # Instancia única. Sin él, dos lanzamientos conviven sobre la misma base sin decir
 # nada y cerrar uno deja al otro sirviendo. Exige Rust >= 1.90.
@@ -43,14 +43,13 @@ serde_json = "1"
 sha2 = "0.11"
 
 # Auto-actualización, **sólo en escritorio**. `tauri-plugin-updater` comprueba
-# `latest.json`, verifica la firma del instalador y lo ejecuta; el plugin de
-# proceso aporta `relaunch()`, que en macOS y Linux hay que llamar después de
-# instalar. Van con `target` y no en `[dependencies]` porque la documentación del
-# plugin lo pide así. La sección no se puede fusionar con las de `cfg(windows)` y
-# `cfg(linux)` de abajo: son tres predicados distintos.
+# `latest.json` y verifica la firma del `.exe` portable; el reemplazo en sitio lo
+# hace el comando `instalar_portable` de `actualizacion.rs`. Va con `target` y no
+# en `[dependencies]` porque la documentación del plugin lo pide así. La sección
+# no se puede fusionar con las de `cfg(windows)` y `cfg(linux)` de abajo: son tres
+# predicados distintos.
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-updater = "2"
-tauri-plugin-process = "2"
 
 [target.'cfg(windows)'.dependencies]
 # El **Job Object** es el único seguro de muerte brusca que existe en Windows —ahí
@@ -66,10 +65,6 @@ windows-sys = { version = "0.61", features = [
   "Win32_Security",
   # `MessageBoxW`: el único aviso que funciona sin webview ni archivos.
   "Win32_UI_WindowsAndMessaging",
-  # La entrada de desinstalación: distingue una copia instalada de un `.exe` suelto
-  # sin depender de `portable.txt`, que habla de dónde van los datos y no de cómo se
-  # entregó el binario.
-  "Win32_System_Registry",
   # `SYNCHRONIZE`, el derecho con el que se espera a que muera el proceso viejo en
   # un reemplazo portable.
   "Win32_Storage_FileSystem",

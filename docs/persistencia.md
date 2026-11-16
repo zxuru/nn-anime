@@ -1,15 +1,15 @@
 # Persistencia entre versiones
 
-**Qué garantiza este documento:** que actualizar nn-anime —instalador NSIS, copia
-portable, `bun run start` o el binario compilado— **no pierde** el progreso, el
-historial, las listas del usuario ni los ajustes, y que cualquier cambio de
-esquema futuro pasa por una migración con copia de seguridad. Lo que dice aquí
-se mide en `bun test` y en `bun run e2e`; no es una promesa de diseño.
+**Qué garantiza este documento:** que actualizar nn-anime —el `.exe` portable, el
+`.zip` de macOS, el AppImage, `bun run start` o el binario compilado— **no pierde**
+el progreso, el historial, las listas del usuario ni los ajustes, y que cualquier
+cambio de esquema futuro pasa por una migración con copia de seguridad. Lo que dice
+aquí se mide en `bun test` y en `bun run e2e`; no es una promesa de diseño.
 
 ## 1. Inventario: qué dato vive dónde
 
-Todo lo del usuario vive en el directorio de **datos locales**. En la ventana instalada de Windows
-es `%LOCALAPPDATA%\nn-anime-data`, **hermana** de la carpeta de instalación
+Todo lo del usuario vive en el directorio de **datos locales**. En la ventana de Windows es
+`%LOCALAPPDATA%\nn-anime-data`, **hermana** de la carpeta que usaban las versiones instaladas
 (`%LOCALAPPDATA%\nn-anime`); el CLI usa `%LOCALAPPDATA%\nn-anime` porque no se instala. En POSIX es
 `~/.local/share/nn-anime` y la configuración `~/.config/nn-anime`. `NN_ANIME_DATA_DIR` mueve la raíz.
 Nunca está en la carpeta del ejecutable.
@@ -37,23 +37,17 @@ Los datos **no** se guardan junto al ejecutable. La única excepción es el modo
 quien crea `portable.txt` al lado del `.exe` elige que todo viaje con el programa; y ni en ese caso el
 reemplazo del ejecutable borra los datos, porque sólo se renombra el `.exe`. El respaldo silencioso al
 directorio del ejecutable y la carpeta de datos dentro de la instalación se **retiraron**
-(`desktop/src-tauri/src/entorno.rs`): el instalador de Tauri en modo `currentUser` instala en
-`%LOCALAPPDATA%\nn-anime` y los datos van a `%LOCALAPPDATA%\nn-anime-data`. Una instalación anterior,
-que guardaba los datos dentro de la carpeta de instalación, los traslada una sola vez al arrancar.
+(`desktop/src-tauri/src/entorno.rs`): la ventana guarda en `%LOCALAPPDATA%\nn-anime-data`. Una
+instalación anterior, que guardaba los datos dentro de la carpeta del programa
+(`%LOCALAPPDATA%\nn-anime`), los traslada una sola vez al arrancar.
 
-### Cómo se comprueba que el instalador y el portable no tocan los datos
+### Cómo se comprueba que la actualización no toca los datos
 
-- El NSIS de Tauri instala **por usuario** (`installMode: currentUser`,
-  `%LOCALAPPDATA%\nn-anime`) y no contiene ninguna ruta de datos: la base la crea el programa al
-  arrancar, en `%LOCALAPPDATA%\nn-anime-data`.
-- La copia portable actualiza **sólo el `.exe`** (renombrar → escribir → borrar el viejo):
+- La actualización reemplaza **sólo el `.exe`** (renombrar → escribir → borrar el viejo):
   `desktop/src-tauri/src/actualizacion.rs`.
-- `packaging/windows/probar-instalador.ps1` (lo ejecuta el CI en Windows) comprueba, con el
-  instalador de verdad, que la base nace en `%LOCALAPPDATA%\nn-anime-data` y **no** en la carpeta de
-  instalación, y que sigue ahí después de desinstalar.
 - `scripts/desktop.test.ts` comprueba en cada `bun test` que el anfitrión no tiene un camino de datos
-  hacia el directorio del ejecutable, que la carpeta de datos es hermana de la de instalación y que el
-  modo portable es explícito.
+  hacia el directorio del ejecutable, que la carpeta de datos es hermana de la que usaban las
+  versiones instaladas y que el modo portable es explícito.
 - `packages/core/src/config.test.ts` fija las rutas por plataforma y que `NN_ANIME_DATA_DIR` manda.
 
 ## 2. Regla: todo cambio de esquema requiere migración y test de migración

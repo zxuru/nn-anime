@@ -319,9 +319,8 @@ export function encodeIco(images: readonly IconImage[]): Uint8Array {
         new Uint8Array([32, 0]), // bits por píxel
         // En **little-endian**, como todo el `.ico`. Con big-endian —el orden
         // natural de un PNG o un ICNS, que es de donde vino la confusión— el
-        // tamaño y la posición se leen al revés: `makensis` contesta «invalid icon
-        // file size» y el inyector de recursos de Bun escribía un ejecutable de
-        // 2,66 GB. Los dos salieron de aquí.
+        // tamaño y la posición se leen al revés: el inyector de recursos de Bun
+        // escribía un ejecutable de 2,66 GB. Salió de aquí.
         le32(datos.byteLength),
         le32(offset),
       ]),
@@ -369,14 +368,6 @@ export function encodeIcns(images: readonly IconImage[]): Uint8Array {
 /** Los tamaños que se generan, de menor a mayor. */
 export const SIZES: readonly number[] = [16, 32, 48, 64, 128, 256, 512, 1024]
 
-/**
- * El nombre del `.ico` del instalador de Windows.
- *
- * Aparte del otro porque NSIS no admite la entrada de 256 px: la escribe como un
- * cero y aborta con «invalid icon file size». Ver `main`.
- */
-export const SETUP_ICON_NAME = 'icon-setup.ico'
-
 async function main(): Promise<void> {
   await mkdir(ICONS, { recursive: true })
 
@@ -397,26 +388,10 @@ async function main(): Promise<void> {
 
   await Bun.write(join(ICONS, 'icon.ico'), encodeIco(images.filter((image) => image.size <= 256)))
 
-  // El `.ico` del instalador, sin la entrada de 256.
-  //
-  // No es lo que fallaba —lo que fallaba era la endianness del directorio, ver
-  // `le32`—, pero se queda así a propósito: NSIS nunca ha manejado bien el tamaño
-  // de 256, que no cabe en el byte del directorio y se escribe como un cero, y con
-  // el icono del instalador no se juega a adivinar. Los cuatro tamaños clásicos
-  // son los que usa cualquier asistente.
-  //
-  // El `.ico` completo se sigue instalando como archivo: de ahí lo cogen el
-  // explorador, los accesos y «Agregar o quitar programas».
-  await Bun.write(
-    join(ICONS, SETUP_ICON_NAME),
-    encodeIco(images.filter((image) => image.size <= 64)),
-  )
-
   await Bun.write(join(ICONS, 'icon.icns'), encodeIcns(images))
 
   process.stdout.write(`iconos escritos en ${ICONS}\n`)
   process.stdout.write(`  tamaños: ${SIZES.join(', ')}\n`)
-  process.stdout.write(`  instalador de Windows: ${SETUP_ICON_NAME}\n`)
 }
 
 if (import.meta.main) {

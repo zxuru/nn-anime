@@ -5,7 +5,7 @@
  * Hay diez `package.json` en este repositorio —la raíz y los nueve paquetes— y
  * hasta ahora los diez decían `0.1.0` por acuerdo, no por construcción. Una
  * release que sube uno y se olvida de otro publica un binario que dice una
- * versión y unos instaladores que dicen otra, y eso no se nota hasta que alguien
+ * versión y unos artefactos que dicen otra, y eso no se nota hasta que alguien
  * compara el `--version` con el nombre del archivo.
  *
  * La raíz manda. `sync` copia su versión a los paquetes, `check` falla si alguno

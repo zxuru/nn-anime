@@ -1,67 +1,73 @@
 #!/usr/bin/env bun
 /**
- * Añade la entrada del `.exe` portable a `latest.json`.
+ * Escribe el `latest.json` que consulta el auto-actualizador.
  *
- * `tauri-action` escribe el manifiesto con el instalador NSIS, que es lo que usa
- * la copia instalada. La copia portable no ejecuta instaladores: se reemplaza a
- * sí misma, así que necesita su propia entrada, `windows-x86_64-portable`, con la
- * URL del archivo único y la firma minisign que `publicar` ya tiene en `release/`.
+ * Antes lo escribía `tauri-action` a partir del instalador NSIS. Ya no hay
+ * instalador: la única entrega de Windows es el `.exe` portable, que se reemplaza
+ * a sí mismo, así que el manifiesto se arma aquí con la URL y la firma minisign de
+ * ese archivo.
  *
- * Se hace aquí y no en `tauri-action` porque el `.exe` único lo sube `publicar`
- * (el trabajo de Windows sólo lo compila y lo firma), y el manifiesto se puede
- * modificar en el borrador antes de publicarlo.
+ * Se anuncian **dos** entradas con el mismo `.exe`: `windows-x86_64` es la que
+ * resuelve `check()` al preguntar por la plataforma, y `windows-x86_64-portable`
+ * es la que lee la ventana para saber qué descargar. Las dos apuntan al portable
+ * porque no hay ningún otro binario que ofrecer.
  *
  * Uso:
- *   bun run scripts/package/portable-manifest.ts <latest.json> <firma.sig> <url>
+ *   bun run scripts/package/portable-manifest.ts <versión> <firma.sig> <url> <salida>
  */
 
 import { readFile, writeFile } from 'node:fs/promises'
-import { isRecord } from '../workspaces'
 
-/** La clave que busca el anfitrión portable (`tauri.conf.json` + `actualizacion.rs`). */
+/** La clave que busca el anfitrión portable (`actualizacion.rs`). */
 export const CLAVE_PORTABLE = 'windows-x86_64-portable'
 
+/** La clave que resuelve `check()` en Windows. */
+export const CLAVE_PLATAFORMA = 'windows-x86_64'
+
 /**
- * Devuelve el manifiesto con la entrada del portable.
+ * Devuelve el manifiesto con las dos entradas de Windows apuntando al portable.
  *
- * No toca las demás plataformas: el instalador de Windows y los bundles de
- * macOS/Linux siguen como los dejó `tauri-action`.
+ * `pubDate` se puede pasar para que la prueba no dependa del reloj; el CLI usa la
+ * hora actual en UTC.
  */
-export function agregarPortable(
-  latest: unknown,
+export function manifiestoPortable(
+  version: string,
   firma: string,
   url: string,
+  pubDate: string,
 ): Record<string, unknown> {
-  if (!isRecord(latest) || !isRecord(latest.platforms)) {
-    throw new Error('latest.json no tiene un objeto platforms')
+  if (version === '' || firma === '' || url === '') {
+    throw new Error('faltan la versión, la firma o la URL del .exe portable')
   }
 
-  if (firma === '' || url === '') {
-    throw new Error('faltan la firma o la URL del .exe portable')
-  }
+  const entrada = { signature: firma.trim(), url }
 
   return {
-    ...latest,
+    version,
+    pub_date: pubDate,
     platforms: {
-      ...latest.platforms,
-      [CLAVE_PORTABLE]: { signature: firma, url },
+      [CLAVE_PLATAFORMA]: entrada,
+      [CLAVE_PORTABLE]: entrada,
     },
   }
 }
 
 if (import.meta.main) {
-  const [ruta, firmaRuta, url] = Bun.argv.slice(2)
+  const [version, firmaRuta, url, salida] = Bun.argv.slice(2)
 
-  if (ruta === undefined || firmaRuta === undefined || url === undefined) {
-    process.stderr.write('uso: portable-manifest.ts <latest.json> <firma.sig> <url>\n')
+  if (version === undefined || firmaRuta === undefined || url === undefined) {
+    process.stderr.write(
+      'uso: portable-manifest.ts <versión> <firma.sig> <url> [salida=release/latest.json]\n',
+    )
     process.exitCode = 2
   } else {
     try {
-      const latest: unknown = JSON.parse(await readFile(ruta, 'utf8'))
       const firma = await readFile(firmaRuta, 'utf8')
+      const manifiesto = manifiestoPortable(version, firma, url, new Date().toISOString())
+      const destino = salida ?? 'release/latest.json'
 
-      await writeFile(ruta, `${JSON.stringify(agregarPortable(latest, firma, url), null, 2)}\n`)
-      process.stdout.write(`${CLAVE_PORTABLE} -> ${url}\n`)
+      await writeFile(destino, `${JSON.stringify(manifiesto, null, 2)}\n`)
+      process.stdout.write(`${destino}: ${CLAVE_PLATAFORMA} y ${CLAVE_PORTABLE} -> ${url}\n`)
     } catch (error) {
       process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)
       process.exitCode = 1

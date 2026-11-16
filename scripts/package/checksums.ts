@@ -2,7 +2,7 @@
 /**
  * Los checksums de lo que se publica.
  *
- * Quien descarga un instalador de la página de releases no tiene forma de saber
+ * Quien descarga un artefacto de la página de releases no tiene forma de saber
  * que el archivo llegó entero, y «lo descargué de GitHub» es una respuesta que
  * no se puede comprobar. Con `SHA256SUMS.txt` sí:
  *
@@ -31,7 +31,7 @@ export async function hashOf(path: string): Promise<string> {
 /**
  * Escribe el archivo de checksums y devuelve cuántos puso.
  *
- * Falla si un archivo pesa cero: un instalador vacío produce un hash
+ * Falla si un archivo pesa cero: un artefacto vacío produce un hash
  * perfectamente válido y un release roto, y el hash no lo delata.
  */
 export async function writeChecksums(files: readonly string[], output: string): Promise<number> {
@@ -39,7 +39,7 @@ export async function writeChecksums(files: readonly string[], output: string): 
 
   for (const file of [...files].sort()) {
     const tamano = Bun.file(file).size
-    if (tamano === 0) throw new Error(`${file} está vacío: no se publica un instalador de 0 bytes`)
+    if (tamano === 0) throw new Error(`${file} está vacío: no se publica un artefacto de 0 bytes`)
 
     lineas.push(`${await hashOf(file)}  ${basename(file)}`)
   }

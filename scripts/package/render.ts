@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 /**
- * Plantillas de los instaladores.
+ * Plantillas de los artefactos.
  *
  * Los archivos de `packaging/` son plantillas y no configuración generada: se
  * leen, se sustituyen unos pocos marcadores y se escriben en un temporal. La
- * alternativa —pasar los valores por línea de comandos— no vale para todos: NSIS
- * los admite como `!define`, pero `nfpm` y un `Info.plist` no, y tener tres
- * mecanismos para lo mismo esconde cuál está mal cuando uno falla.
+ * alternativa —pasar los valores por línea de comandos— no vale para todos: un
+ * `Info.plist` no los admite, y tener dos mecanismos para lo mismo esconde cuál
+ * está mal cuando uno falla.
  */
 
 import { join } from 'node:path'

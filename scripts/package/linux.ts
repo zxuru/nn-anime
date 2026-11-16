@@ -1,29 +1,23 @@
 #!/usr/bin/env bun
 /**
- * Los paquetes de Linux: AppImage, `.deb` y `.rpm`.
+ * El artefacto portable de Linux: el AppImage.
  *
- * Tres formatos porque son tres usuarios distintos: el AppImage no se instala
- * —se descarga, se le da permiso de ejecución y se lanza, y sirve para probar sin
- * tocar el sistema—, y el `.deb` y el `.rpm` cubren Debian/Ubuntu y Fedora/RHEL,
- * que es donde se instala de verdad.
+ * Un solo archivo que no se instala: se descarga, se le da permiso de ejecución y
+ * se lanza. No toca el sistema y no necesita un gestor de paquetes, que es lo que
+ * lo hace portable entre distribuciones.
  *
- * El `.deb` y el `.rpm` salen del **mismo** `nfpm.yaml`: dos descripciones del
- * mismo paquete serían dos sitios donde olvidarse de subir la versión.
- *
- * La herramienta `nfpm` y `appimagetool` no vienen con la imagen de GitHub; las
- * descarga el workflow **con su SHA256 comprobado**, y aquí sólo se usan. Se
- * pasan como rutas y no se buscan para que el fallo, si falta una, hable de la
- * ruta que falta.
+ * `appimagetool` no viene con la imagen de GitHub; lo descarga el workflow **con
+ * su SHA256 comprobado**, y aquí sólo se usa. Se pasa como ruta y no se busca para
+ * que el fallo, si falta, hable de la ruta que falta.
  */
 
 import { existsSync } from 'node:fs'
-import { chmod, copyFile, mkdir, rm, writeFile } from 'node:fs/promises'
+import { chmod, copyFile, mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { ROOT } from '../workspaces'
 import { hostFileName } from './desktop'
-import { render, template } from './render'
 
-/** El icono de 512 px, que es el que quieren el AppImage y hicolor. */
+/** El icono de 512 px, que es el que quiere el AppImage. */
 export const ICON = join(ROOT, 'packaging', 'icons', 'icon-512.png')
 
 export const DESKTOP = join(ROOT, 'packaging', 'linux', 'nn-anime.desktop')
@@ -38,18 +32,11 @@ export const DESKTOP = join(ROOT, 'packaging', 'linux', 'nn-anime.desktop')
  */
 export const APPRUN = join(ROOT, 'packaging', 'linux', 'AppRun')
 
-/** nfpm nombra las arquitecturas como Debian. */
-export function nfpmArch(arch: string): string {
-  return arch === 'x64' ? 'amd64' : arch === 'arm64' ? 'arm64' : arch
-}
-
 /**
  * El anfitrión de ventana, que `stageDesktop` deja **al lado** del servidor.
  *
- * Se comprueba aquí y no se deja a `nfpm`: un `src` que no existe da un error de
- * la herramienta que habla de una ruta, y lo que hay que decir es que falta la
- * ventana y por qué. Y en el AppImage, sin esta comprobación, el paquete saldría
- * con un `AppRun` que apunta a un ejecutable que no está.
+ * Se comprueba aquí y no se deja a `appimagetool`: sin esta comprobación, el
+ * paquete saldría con un `AppRun` que apunta a un ejecutable que no está.
  */
 export function hostBeside(binary: string): string {
   const host = join(dirname(binary), hostFileName('linux'))
@@ -70,13 +57,12 @@ export interface LinuxOptions {
   readonly version: string
   /** El ejecutable ya compilado. */
   readonly binary: string
-  /** Dónde quedan los paquetes: es lo que se publica. */
+  /** Dónde queda el AppImage: es lo que se publica. */
   readonly releaseDir: string
   /**
-   * Dónde se trabaja: el `nfpm.yaml` generado y el AppDir.
+   * Dónde se trabaja: el AppDir.
    *
-   * Va aparte de `releaseDir` porque lo de ahí no se publica. Un `nfpm.yaml` con
-   * la versión dentro acabó en la release en la primera prueba, y el AppDir es un
+   * Va aparte de `releaseDir` porque lo de ahí no se publica: el AppDir es un
    * árbol entero de directorios.
    */
   readonly workDir: string
@@ -98,54 +84,6 @@ async function run(
 
   const code = await proceso.exited
   if (code !== 0) throw new Error(`\`${argv[0]} ${argv.slice(1).join(' ')}\` falló con ${code}`)
-}
-
-/**
- * El `.deb` y el `.rpm`, con nfpm.
- *
- * La configuración se **genera** sustituyendo marcadores en lugar de dejar que
- * nfpm lea variables de entorno: una versión que no se sustituye por lo que sea
- * da un paquete con la versión equivocada y no un error, y eso no se descubre
- * hasta que alguien compara el `.deb` con la release.
- */
-export async function linuxPackages(
-  options: LinuxOptions,
-  nfpm: string,
-): Promise<readonly string[]> {
-  const configPath = join(options.workDir, 'nfpm.yaml')
-  const arch = nfpmArch(options.arch)
-
-  await writeFile(
-    configPath,
-    render(await template('linux/nfpm.yaml'), {
-      ARCH: arch,
-      VERSION: options.version,
-      BINARY: options.binary,
-      HOST: hostBeside(options.binary),
-      DESKTOP: DESKTOP,
-      ICON: ICON,
-    }),
-  )
-
-  const salidas: string[] = []
-
-  for (const [packager, extension] of [
-    ['deb', 'deb'],
-    ['rpm', 'rpm'],
-  ] as const) {
-    const target = join(
-      options.releaseDir,
-      `nn-anime-${options.version}-linux-${options.arch}.${extension}`,
-    )
-
-    await run(
-      [nfpm, 'package', '--config', configPath, '--packager', packager, '--target', target],
-      options.workDir,
-    )
-    salidas.push(target)
-  }
-
-  return salidas
 }
 
 /**

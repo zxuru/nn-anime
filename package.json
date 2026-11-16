@@ -34,7 +34,6 @@
     "desktop:check": "bun run scripts/package/desktop.ts check",
     "desktop:build": "bun run scripts/package/desktop.ts build",
     "desktop:ui": "bun build desktop/ui/actualizacion.ts --outfile desktop/ui/actualizacion.js --target browser --format esm --minify",
-    "desktop:installer": "bun run scripts/package/instalador-tauri.ts",
     "version:check": "bun run scripts/version.ts check",
     "version:sync": "bun run scripts/version.ts sync",
     "version:set": "bun run scripts/version.ts set",
@@ -42,7 +41,6 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-process": "^2",
     "@tauri-apps/plugin-updater": "^2"
   },
   "devDependencies": {

@@ -16,7 +16,7 @@ name: Release Please
 #  - `force-tag-creation`: el tag tiene que existir antes de que se lance `release.yml`; sin esto
 #    GitHub no lo crea hasta que la release se publica, y el dispatch no tendría ref.
 #  - `draft`: la release nace en borrador para que nadie vea una release a la que todavía le faltan
-#    los instaladores.
+#    los artefactos.
 #
 # El **cuerpo** del PR tampoco se escribe aquí: `pull-request-header` y `pull-request-footer` están
 # en el JSON, los dos con un espacio. Con la cadena vacía no vale, porque release-please hace

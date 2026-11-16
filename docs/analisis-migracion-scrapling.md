@@ -5,6 +5,8 @@ Análisis de la migración del scraping actual a [Scrapling](https://github.com/
 Los números del PoC se midieron en un directorio temporal fuera del repositorio y se borraron al terminar.
 
 Fecha: 8 de noviembre de 2026. Versión de Scrapling verificada: **0.5.1** (2026-11-04).
+Los tamaños de instalador que cita el análisis son de una release anterior a T251; desde entonces sólo
+se publican portables (`.exe` único, `.zip` del `.app` y AppImage), no instaladores.
 
 ---
 

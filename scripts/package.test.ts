@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
-import { assertReleaseFiles, hostPlatform, hostTarget, installerName } from './package'
+import { assertReleaseFiles, hostPlatform, hostTarget, portableName } from './package'
 import { dottedVersion, EMBEDDED_DIRECTORIES, TARGETS } from './package/binary'
 import { artifactsIn, hashOf, writeChecksums } from './package/checksums'
-import { agregarPortable } from './package/portable-manifest'
+import { manifiestoPortable } from './package/portable-manifest'
 import { render, template } from './package/render'
+import { unicoNombre } from './package/unico'
 import { listWorkspaces, ROOT } from './workspaces'
 
 /**
@@ -122,7 +123,7 @@ describe('la lista de manifiestos de release-please', () => {
     )
 
     // `desktop:build` compila con `--locked`: un lock atrasado no se corrige
-    // solo y tumba los cuatro instaladores antes de compilar. El actualizador
+    // solo y tumba los cuatro artefactos antes de compilar. El actualizador
     // genérico necesita la anotación para saber qué línea tocar.
     expect(lock?.type).toBe('generic')
 
@@ -181,13 +182,13 @@ describe('el nombre de los objetivos', () => {
     expect(hostTarget('freebsd', 'x64')).toBeUndefined()
   })
 
-  test('armar el instalador sólo pide el mismo sistema, no la misma arquitectura', () => {
-    // Es lo que permite que un `macos-latest` (arm64) arme también el `.dmg` de
+  test('armar el artefacto portable sólo pide el mismo sistema, no la misma arquitectura', () => {
+    // Es lo que permite que un `macos-latest` (arm64) arme también el `.zip` de
     // Intel, y por qué `hostPlatform` está separado de `hostTarget`.
     //
     // Y son dos nombres distintos para el mismo sistema: la clave de `TARGETS`
     // dice `darwin` —como Bun— y el archivo que se descarga dice `macos` —como lo
-    // busca quien lo descarga—. Confundirlos deja a macOS sin instalador, y sin
+    // busca quien lo descarga—. Confundirlos deja a macOS sin artefacto, y sin
     // que nada avise: simplemente no se arma.
     expect(hostTarget('darwin', 'arm64')).toBe('darwin-arm64')
     expect(hostPlatform('darwin')).toBe('macos')
@@ -202,14 +203,22 @@ describe('el nombre de los objetivos', () => {
     expect(TARGETS['linux-x64']?.platform).toBe(hostPlatform('linux'))
   })
 
-  test('el nombre del .dmg dice la versión, el sistema y la arquitectura', () => {
-    expect(installerName('1.2.3', TARGETS['darwin-arm64'] as never)).toBe(
-      'nn-anime-1.2.3-macos-arm64.dmg',
+  test('el nombre del artefacto dice la versión, el sistema y la arquitectura', () => {
+    expect(portableName('1.2.3', TARGETS['darwin-arm64'] as never)).toBe(
+      'nn-anime-1.2.3-macos-arm64.zip',
     )
-
-    // El de Windows lo compone `tauri-bundler` (`nn-anime_1.2.3_x64-setup.exe`) y no
-    // se puede recomponer aquí: pedirlo es un error, no un nombre.
-    expect(() => installerName('1.2.3', TARGETS['windows-x64'] as never)).toThrow(/tauri-bundler/)
+    expect(portableName('1.2.3', TARGETS['linux-x64'] as never)).toBe(
+      'nn-anime-1.2.3-linux-x64.AppImage',
+    )
+    // El de Windows es el archivo único, con el mismo nombre que copia
+    // `package:unico`; si los dos se separan, la release publica un nombre y el
+    // actualizador busca otro.
+    expect(portableName('1.2.3', TARGETS['windows-x64'] as never)).toBe(
+      'nn-anime-1.2.3-windows-x64.exe',
+    )
+    // Y el nombre que copia `package:unico` es el mismo: si se separan, la release
+    // publica un archivo y `latest.json` anuncia otro.
+    expect(portableName('1.2.3', TARGETS['windows-x64'] as never)).toBe(unicoNombre('1.2.3'))
   })
 })
 
@@ -224,27 +233,27 @@ describe('la versión de cuatro números', () => {
   })
 })
 
-describe('la entrada del portable en latest.json', () => {
-  test('añade windows-x86_64-portable y deja intacto el instalador', () => {
-    const latest = {
-      version: '1.2.3',
-      platforms: {
-        'windows-x86_64': { url: 'https://x/nsis', signature: 'firma-nsis' },
-      },
-    }
-
-    const resultado = agregarPortable(latest, 'firma-portable', 'https://x/portable')
+describe('el manifiesto latest.json', () => {
+  test('las dos entradas de Windows apuntan al mismo .exe portable', () => {
+    const resultado = manifiestoPortable(
+      '1.2.3',
+      'firma-portable\n',
+      'https://x/portable',
+      '2026-01-02T03:04:05.000Z',
+    )
 
     expect(resultado.version).toBe('1.2.3')
+    expect(resultado.pub_date).toBe('2026-01-02T03:04:05.000Z')
     expect(resultado.platforms).toEqual({
-      'windows-x86_64': { url: 'https://x/nsis', signature: 'firma-nsis' },
+      'windows-x86_64': { url: 'https://x/portable', signature: 'firma-portable' },
       'windows-x86_64-portable': { url: 'https://x/portable', signature: 'firma-portable' },
     })
   })
 
-  test('sin platforms o sin firma se rechaza, en vez de publicar un manifiesto roto', () => {
-    expect(() => agregarPortable({ version: '1.2.3' }, 'firma', 'url')).toThrow(/platforms/)
-    expect(() => agregarPortable({ version: '1.2.3', platforms: {} }, '', 'url')).toThrow(/faltan/)
+  test('sin versión, firma o URL se rechaza, en vez de publicar un manifiesto roto', () => {
+    expect(() => manifiestoPortable('', 'firma', 'url', 'fecha')).toThrow(/faltan/)
+    expect(() => manifiestoPortable('1.2.3', '', 'url', 'fecha')).toThrow(/faltan/)
+    expect(() => manifiestoPortable('1.2.3', 'firma', '', 'fecha')).toThrow(/faltan/)
   })
 })
 
@@ -308,66 +317,15 @@ describe('los checksums', () => {
   })
 })
 
-describe('las plantillas de los instaladores', () => {
+describe('las plantillas de los artefactos', () => {
   test('sustituye los marcadores', () => {
     expect(render('nn-anime __VERSION__ (__ARCH__)', { VERSION: '1.2.3', ARCH: 'amd64' })).toBe(
       'nn-anime 1.2.3 (amd64)',
     )
   })
 
-  test('un marcador sin valor es un error y no un texto absurdo dentro del instalador', () => {
+  test('un marcador sin valor es un error y no un texto absurdo dentro del artefacto', () => {
     expect(() => render('nn-anime __VERSION__ __ARCH__', { VERSION: '1.2.3' })).toThrow(/__ARCH__/)
-  })
-
-  test('el nfpm.yaml del repositorio se rellena y queda con sus dependencias', async () => {
-    // `render` falla si queda un marcador sin valor, así que llegar hasta aquí ya
-    // comprueba que la plantilla y quien la rellena dicen lo mismo.
-    const texto = render(await template('linux/nfpm.yaml'), {
-      ARCH: 'amd64',
-      VERSION: '1.2.3',
-      BINARY: '/tmp/nn-anime',
-      HOST: '/tmp/nn-anime-desktop',
-      DESKTOP: '/tmp/nn-anime.desktop',
-      ICON: '/tmp/icon.png',
-    })
-
-    const yaml = Bun.YAML.parse(texto) as {
-      name: string
-      arch: string
-      version: string
-      contents: readonly { dst: string; type?: string }[]
-      overrides: Record<string, { depends?: readonly string[] }>
-    }
-
-    expect(yaml.name).toBe('nn-anime')
-    expect(yaml.arch).toBe('amd64')
-    expect(yaml.version).toBe('1.2.3')
-
-    // Los nombres cambian entre los dos formatos. `libc6` es lo que **mide** el
-    // servidor —`GLIBC_2.17`, leída de sus símbolos versionados—; el webview y GTK
-    // los añade el anfitrión y son las dos que documenta Tauri para Linux, sin
-    // medir aquí: no hay un Linux donde leer sus `DT_NEEDED`. Se dice, para que no
-    // parezca que las cuatro salieron del binario.
-    expect(yaml.overrides.deb?.depends).toEqual([
-      'libc6 (>= 2.17)',
-      'libwebkit2gtk-4.1-0',
-      'libgtk-3-0',
-    ])
-    expect(yaml.overrides.rpm?.depends).toEqual(['glibc >= 2.17', 'webkit2gtk4.1', 'gtk3'])
-
-    // Los dos ejecutables a `/usr/lib` —el anfitrión **al lado** del servidor,
-    // porque lo busca por su nombre en su propio directorio—, sus dos enlaces en
-    // `/usr/bin`, y el acceso y el icono donde los busca el escritorio.
-    expect(yaml.contents.map((entrada) => entrada.dst)).toEqual([
-      '/usr/lib/nn-anime/nn-anime',
-      '/usr/lib/nn-anime/nn-anime-desktop',
-      '/usr/bin/nn-anime',
-      '/usr/bin/nn-anime-desktop',
-      '/usr/share/applications/nn-anime.desktop',
-      '/usr/share/icons/hicolor/512x512/apps/nn-anime.png',
-    ])
-    expect(yaml.contents[2]?.type).toBe('symlink')
-    expect(yaml.contents[3]?.type).toBe('symlink')
   })
 
   test('el Info.plist del repositorio se rellena y no declara la aplicación como agente', async () => {
@@ -392,12 +350,12 @@ describe('lo que se publica', () => {
     const dir = await tempDir('release-')
 
     try {
-      await writeFile(join(dir, 'nn-anime-1.2.3-windows-x64-setup.exe'), 'instalador')
+      await writeFile(join(dir, 'nn-anime-1.2.3-windows-x64.exe'), 'portable')
       await mkdir(join(dir, 'nn-anime.app'), { recursive: true })
 
       // `gh release upload release/*` no sabe subir un directorio, y el `.app` de
       // macOS se armaba justo ahí: la release habría fallado al final, con los
-      // instaladores de las tres plataformas ya compilados.
+      // artefactos de las tres plataformas ya compilados.
       await expect(assertReleaseFiles(dir)).rejects.toThrow(/no es un archivo/)
     } finally {
       await rm(dir, { recursive: true, force: true })
@@ -408,14 +366,14 @@ describe('lo que se publica', () => {
     const dir = await tempDir('release-')
 
     try {
-      await writeFile(join(dir, 'nn-anime-1.2.3-macos-arm64.dmg'), 'disco')
+      await writeFile(join(dir, 'nn-anime-1.2.3-macos-arm64.zip'), 'comprimido')
       await writeFile(join(dir, 'SHA256SUMS.txt'), 'hashes')
 
       // Ordenado en la prueba y no en la función: `readdir` no promete orden, y
       // exigirlo ahí sería pedirle a una lectura del disco algo que no da.
       expect([...(await assertReleaseFiles(dir))].sort()).toEqual([
         'SHA256SUMS.txt',
-        'nn-anime-1.2.3-macos-arm64.dmg',
+        'nn-anime-1.2.3-macos-arm64.zip',
       ])
     } finally {
       await rm(dir, { recursive: true, force: true })
@@ -423,32 +381,13 @@ describe('lo que se publica', () => {
   })
 })
 
-describe('el icono del instalador de Windows', () => {
-  /** Los anchos que declara el directorio de un `.ico`. Un cero significa 256. */
-  async function anchos(nombre: string): Promise<readonly number[]> {
+describe('el icono de Windows', () => {
+  test('el `.ico` del ejecutable lleva el de 256, que es el que enseña el explorador', async () => {
     const bytes = new Uint8Array(
-      await Bun.file(join(ROOT, 'packaging', 'icons', nombre)).arrayBuffer(),
+      await Bun.file(join(ROOT, 'packaging', 'icons', 'icon.ico')).arrayBuffer(),
     )
     const entradas = bytes[4] ?? 0
-
-    return Array.from({ length: entradas }, (_, i) => bytes[6 + i * 16] ?? 0)
-  }
-
-  test('el del asistente se queda en los tamaños clásicos', async () => {
-    const tamanos = await anchos('icon-setup.ico')
-
-    // NSIS nunca ha manejado bien el tamaño de 256, que no cabe en el byte del
-    // directorio y se escribe como un cero. El instalador que falló en el CI no
-    // falló por esto —falló por la endianness del directorio, ver `icon.ts`—, pero
-    // el icono del asistente se queda en los cuatro tamaños de siempre: aquí no se
-    // juega a adivinar.
-    expect(tamanos.length).toBeGreaterThan(0)
-    expect(tamanos).not.toContain(0)
-    expect(Math.max(...tamanos)).toBeLessThanOrEqual(64)
-  })
-
-  test('el que se instala sí lleva el de 256, que es el que enseña el explorador', async () => {
-    const tamanos = await anchos('icon.ico')
+    const tamanos = Array.from({ length: entradas }, (_, i) => bytes[6 + i * 16] ?? 0)
 
     expect(tamanos).toContain(0)
   })
@@ -456,31 +395,28 @@ describe('el icono del instalador de Windows', () => {
   test('el directorio del .ico va en little-endian, que es lo que costó dos fallos', async () => {
     // Esto es lo que estaba mal: el tamaño y la posición de cada entrada se
     // escribían en big-endian, y con los números del revés el inyector de recursos
-    // de Bun producía un ejecutable de 2,66 GB y `makensis` contestaba «invalid
-    // icon file size».
-    for (const nombre of ['icon.ico', 'icon-setup.ico']) {
-      const bytes = new Uint8Array(
-        await Bun.file(join(ROOT, 'packaging', 'icons', nombre)).arrayBuffer(),
-      )
-      const entradas = bytes[4] ?? 0
-      let esperado = 6 + entradas * 16
+    // de Bun producía un ejecutable de 2,66 GB.
+    const bytes = new Uint8Array(
+      await Bun.file(join(ROOT, 'packaging', 'icons', 'icon.ico')).arrayBuffer(),
+    )
+    const entradas = bytes[4] ?? 0
+    let esperado = 6 + entradas * 16
 
-      for (let i = 0; i < entradas; i++) {
-        const e = 6 + i * 16
-        const bytes32 = (o: number): number =>
-          ((bytes[o] ?? 0) |
-            ((bytes[o + 1] ?? 0) << 8) |
-            ((bytes[o + 2] ?? 0) << 16) |
-            ((bytes[o + 3] ?? 0) << 24)) >>>
-          0
+    for (let i = 0; i < entradas; i++) {
+      const e = 6 + i * 16
+      const bytes32 = (o: number): number =>
+        ((bytes[o] ?? 0) |
+          ((bytes[o + 1] ?? 0) << 8) |
+          ((bytes[o + 2] ?? 0) << 16) |
+          ((bytes[o + 3] ?? 0) << 24)) >>>
+        0
 
-        expect(bytes32(e + 12), `${nombre}, entrada ${i}: posición`).toBe(esperado)
-        esperado += bytes32(e + 8)
-      }
-
-      // Y las entradas llenan el archivo justo: sin huecos ni sobras.
-      expect(esperado, `${nombre}: el directorio no llena el archivo`).toBe(bytes.byteLength)
+      expect(bytes32(e + 12), `entrada ${i}: posición`).toBe(esperado)
+      esperado += bytes32(e + 8)
     }
+
+    // Y las entradas llenan el archivo justo: sin huecos ni sobras.
+    expect(esperado, 'el directorio no llena el archivo').toBe(bytes.byteLength)
   })
 })
 

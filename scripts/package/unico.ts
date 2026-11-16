@@ -67,7 +67,7 @@ export async function unico(options: { out?: string } = {}): Promise<string> {
 
   if (!(await Bun.file(servidorCrudo).exists())) {
     throw new Error(
-      `no hay servidor en ${servidorCrudo}: ejecuta antes \`bun run package --skip-installer\``,
+      `no hay servidor en ${servidorCrudo}: ejecuta antes \`bun run package --solo-ejecutable\``,
     )
   }
 

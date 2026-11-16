@@ -4,13 +4,11 @@
 // `buscar-actualizaciones`. Si hay versión nueva, la enseña; si el usuario
 // acepta, se actualiza:
 //
-// - **Las dos formas de entrega** —la copia instalada y el `.exe` único— mandan
-//   a Rust la URL y la firma de `windows-x86_64-portable`; Rust descarga,
-//   verifica y reemplaza el `.exe` en marcha. Si falla, se enseña el enlace a la
-//   release.
-// - **Reserva de la copia instalada**: si la release no trae esa entrada, el
-//   plugin descarga el NSIS, lo verifica y lo ejecuta con `downloadAndInstall()`
-//   y `relaunch()`.
+// - La página manda a Rust la URL y la firma de `windows-x86_64-portable`; Rust
+//   descarga, verifica y reemplaza el `.exe` en marcha. Si falla, se enseña el
+//   enlace a la release.
+// - Si la release no trae esa entrada, no hay nada que descargar: se dice y se
+//   deja el enlace.
 //
 // Los errores no rompen nada: se cuentan en la página (cuando la comprobación la
 // pidió el usuario) y se escriben en el registro del anfitrión con el comando
@@ -19,13 +17,11 @@
 import { Channel, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { relaunch } from '@tauri-apps/plugin-process'
-import { check, type DownloadEvent, type Update } from '@tauri-apps/plugin-updater'
+import { check, type Update } from '@tauri-apps/plugin-updater'
 
-import { camino, entradaPortable } from './camino-actualizacion'
+import { entradaPortable } from './camino-actualizacion'
 
 interface Contexto {
-  readonly instalada: boolean
   readonly version: string
   readonly releases: string
 }
@@ -145,7 +141,7 @@ async function comprobar(manual: boolean): Promise<void> {
 
     actual = encontrada
     registrar(
-      `hay una versión nueva: ${encontrada.version} (instalada ${encontrada.currentVersion})`,
+      `hay una versión nueva: ${encontrada.version} (en marcha ${encontrada.currentVersion})`,
     )
 
     texto(`Hay una versión nueva: v${encontrada.version}.`)
@@ -178,70 +174,7 @@ async function comprobar(manual: boolean): Promise<void> {
   }
 }
 
-/** La reserva de la copia instalada: el plugin descarga el NSIS, lo verifica y lo ejecuta. */
-async function instalarAhora(): Promise<void> {
-  if (actual === null || enCurso) return
-
-  enCurso = true
-  limpiarAcciones()
-  texto(`Descargando la v${actual.version}…`)
-
-  let descargado = 0
-  let total: number | undefined
-  progreso.hidden = false
-  progreso.removeAttribute('value')
-
-  try {
-    await actual.downloadAndInstall((evento: DownloadEvent) => {
-      switch (evento.event) {
-        case 'Started':
-          total = evento.data.contentLength
-
-          if (total !== undefined && total > 0) {
-            progreso.max = total
-            progreso.value = 0
-          }
-
-          break
-
-        case 'Progress':
-          descargado += evento.data.chunkLength
-
-          if (total !== undefined && total > 0) {
-            progreso.value = descargado
-            texto(`Descargando… ${Math.round((descargado / total) * 100)} %`)
-          }
-
-          break
-
-        case 'Finished':
-          texto('Instalando…')
-          break
-      }
-    })
-
-    registrar(`instalada la ${actual.version}; reiniciando la aplicación`)
-    texto('Actualización instalada. Reiniciando…')
-
-    // En Windows el updater cierra la aplicación antes de llegar aquí; en macOS y
-    // Linux el binario ya está reemplazado y hay que relanzarlo para estrenarlo.
-    await relaunch()
-  } catch (error) {
-    const mensaje = mensajeDe(error)
-    registrar(`error al descargar o instalar la ${actual.version}: ${mensaje}`)
-
-    texto('No se pudo instalar la actualización.', true)
-    detalle.textContent = mensaje
-    detalle.hidden = false
-    progreso.hidden = true
-    reintentar.hidden = false
-    luego.hidden = false
-  } finally {
-    enCurso = false
-  }
-}
-
-/** Las dos formas de entrega: Rust descarga, verifica y reemplaza el `.exe` en marcha. */
+/** La única entrega: Rust descarga, verifica y reemplaza el `.exe` en marcha. */
 async function instalarEnSitio(): Promise<void> {
   if (actual === null || enCurso) return
 
@@ -313,16 +246,8 @@ async function cerrarAviso(): Promise<void> {
 function actualizar(): void {
   if (actual === null) return
 
-  // El auto-reemplazo sirve para las dos formas de entrega. Sólo la copia
-  // instalada puede caer al NSIS cuando la release no publicó el portable.
-  if (camino(contexto?.instalada ?? false, actual.rawJson) === 'nsis') {
-    void instalarAhora()
-
-    return
-  }
-
-  // `ninguno` también entra aquí: `instalarEnSitio` enseña el motivo y el enlace
-  // cuando falta el ejecutable portable firmado.
+  // `instalarEnSitio` enseña el motivo y el enlace cuando falta el ejecutable
+  // portable firmado; no hay otra forma de entrega a la que caer.
   void instalarEnSitio()
 }
 
@@ -346,9 +271,7 @@ async function iniciar(): Promise<void> {
     return
   }
 
-  version.textContent = contexto.instalada
-    ? `Versión instalada: v${contexto.version}`
-    : `Versión portable: v${contexto.version}`
+  version.textContent = `Versión portable: v${contexto.version}`
 
   await listen(EVENTO_BUSCAR, () => {
     void comprobar(true)

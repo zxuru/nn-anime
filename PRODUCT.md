@@ -74,7 +74,7 @@ Lo que un vecino no puede copiar sin mentir:
   episodio; las películas y series se completan con una clave opcional de TMDB que se guarda en la
   base local y nunca se devuelve al navegador.
 - **Dónde viven los datos.** Rutas XDG en Linux y macOS; en Windows, `%LOCALAPPDATA%\nn-anime-data`
-  para la ventana instalada —fuera de la carpeta de instalación, que el instalador reemplaza— y
+  para la ventana —fuera de la carpeta del `.exe`, que la actualización reemplaza— y
   `%LOCALAPPDATA%`/`%APPDATA%` para el CLI. `portable.txt` lleva todo junto en Windows si se elige.
   Las rutas en uso se ven en **Ajustes**.
 - **Cómo se trabaja el repositorio.** Una tarea por worktree y por rama, `tasks/plan.md` y
