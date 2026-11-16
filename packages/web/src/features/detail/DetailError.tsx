@@ -18,16 +18,29 @@
  */
 
 import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import type { AnimeSummary } from '@nn-anime/core/models'
 import { ChevronLeft, RefreshCw, TriangleAlert } from 'lucide-react'
 import { type ReactNode, useEffect, useRef } from 'react'
 import type { Fallo } from '../../api/fallo'
 import { t } from '../../i18n'
+import { Link } from '../../router'
 import { CARGA } from './carga-textos'
+import { rutaDeFicha } from './direccion'
 
 export interface DetailErrorProps {
   readonly fallo: Fallo
   /** El nombre con el que el proveedor se anuncia; sin él, su id. */
   readonly providerName: string
+  /**
+   * Las fuentes donde esta obra **sí** está.
+   *
+   * Viene de una lectura aparte: el núcleo de la ficha falló, así que su lista de
+   * fuentes no llegó. Con esta lista, el error puede ofrecer «Probar con
+   * {proveedor}»; sin ella, no ofrece nada.
+   */
+  readonly alternativas?: readonly AnimeSummary[]
+  /** El nombre con el que se anuncia cada proveedor, por su id. */
+  readonly providerNames?: ReadonlyMap<string, string>
   /** Sin reintento, el fallo es de los que no se arreglan repitiendo la lectura. */
   readonly onRetry?: (() => void) | undefined
   readonly onBack: () => void
@@ -36,6 +49,7 @@ export interface DetailErrorProps {
 export function DetailError(props: DetailErrorProps): ReactNode {
   const { fallo, providerName, onRetry } = props
   const es404 = fallo.clase === 'noExiste'
+  const alternativas = props.alternativas ?? []
 
   /**
    * El botón que recibe el foco al montar: Reintentar si lo hay, Volver si no.
@@ -79,14 +93,34 @@ export function DetailError(props: DetailErrorProps): ReactNode {
         </p>
 
         {/*
-          TODO(T210): el botón «Probar con {proveedor}», cuando la obra está en
-          otra fuente, no se pinta. El fallo sólo trae su clase y el mensaje del
-          error: las fuentes de la obra son parte del bundle de la ficha, que es
-          justo lo que aquí no llegó. Ofrecerlas exigiría una lectura aparte que
-          hoy nadie tiene, así que se deja para cuando el hook exponga las fuentes
-          conocidas de una ficha fallida.
+          El botón «Probar con {proveedor}»: la obra no está en el proveedor que
+          se pidió, pero puede estar en otro. Las fuentes de la obra son parte
+          del bundle de la ficha, que es justo lo que aquí no llegó, así que se
+          leen **aparte** cuando la carga falla —la base local, no el
+          proveedor— y sólo se ofrece lo que se sabe: sin alternativas, no hay
+          botón.
+
+          Es un **enlace de verdad**, no un botón que navega por JavaScript: se
+          puede abrir en otra pestaña, se puede copiar, y funciona sin la
+          aplicación cargada. Lo que se pinta como un botón es el estilo.
         */}
         <div className="detalle-fallo__acciones">
+          {/* Sin alternativas no se pinta nada: la lista vacía no deja hueco. */}
+          {alternativas.map((alternativa) => {
+            const nombre =
+              props.providerNames?.get(alternativa.ref.providerId) ?? alternativa.ref.providerId
+
+            return (
+              <Link
+                key={`${alternativa.ref.providerId}:${alternativa.ref.value}`}
+                to={rutaDeFicha(alternativa.ref.providerId, alternativa.ref.value)}
+                className="button"
+              >
+                {t(DEFAULT_LOCALE, 'detail.error.tryOther', { provider: nombre })}
+              </Link>
+            )
+          })}
+
           {onRetry === undefined ? null : (
             <button
               type="button"

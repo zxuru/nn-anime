@@ -54,6 +54,7 @@ import {
   episodesResponseSchema,
   favoritesResponseSchema,
   planToWatchResponseSchema,
+  providersResponseSchema,
   watchedTitlesResponseSchema,
 } from '@nn-anime/core/api'
 import type {
@@ -76,6 +77,7 @@ import {
   type DetailBundle,
   type DetailCore,
   detailCache,
+  loadSources,
 } from './load-detail'
 import { cargaEnVuelo } from './prefetch'
 
@@ -264,6 +266,18 @@ export interface DetailData {
    */
   readonly sources: readonly AnimeSummary[]
   /**
+   * Las fuentes donde **esta** obra sí está, cuando la ficha que se pidió falló.
+   *
+   * Es la lista que necesita el botón «Probar con {proveedor}»: la obra no está
+   * en el proveedor que se pidió, pero puede estar en otro, y la única forma de
+   * saberlo es leer las fuentes —la base local— **aparte**, porque el núcleo de la
+   * la ficha falló y no llegó nada.
+   *
+   * Vacía significa «no lo sabemos» o «no está en ninguna»: en los dos casos no
+   * se ofrece nada, que es lo honesto.
+   */
+  readonly alternativas: readonly AnimeSummary[]
+  /**
    * Qué episodios ya se vieron y por dónde iba cada uno.
    *
    * Es por número de episodio, no por par episodio y modo: verlo en subtitulado
@@ -375,6 +389,7 @@ const VISTA_VACIA: VistaDetalle = {
   related: [],
   franchise: [],
   sources: [],
+  alternativas: [],
   watched: [],
   capabilities: undefined,
   enrichment: undefined,
@@ -399,6 +414,9 @@ function vistaDeBundle(bundle: DetailBundle): VistaDetalle {
     related: bundle.related,
     franchise: bundle.franchise,
     sources: bundle.sources,
+    // Las alternativas son de la ficha **fallida**: una ficha que se pintó no
+    // las necesita, porque el «También en» ya enseña las fuentes.
+    alternativas: [],
     watched: bundle.watched,
     capabilities: bundle.capabilities,
     enrichment: bundle.enrichment,
@@ -539,6 +557,43 @@ export function useDetail(providerId: string, ref: string, consulta?: string): D
       setGuardado({ clave, vista: siguiente })
     }
 
+    /**
+     * Las fuentes donde la obra **sí** está, cuando la ficha que se pidió falló.
+     *
+     * Se leen **aparte** del núcleo, porque el núcleo no llegó: es la única forma
+     * de que el aviso de error ofrezca «Probar con {proveedor}». Es una lectura
+     * local —la base, no el proveedor—, así que contesta incluso de una
+     * referencia que el proveedor ya no tiene.
+     *
+     * Si la lectura falla, el error se queda como estaba: sin alternativas no se
+     * ofrece nada, y no se inventa ninguna.
+     */
+    const leerAlternativas = (seccion: VistaDetalle) => {
+      void (async () => {
+        try {
+          const [items, proveedores] = await Promise.all([
+            loadSources(providerId, ref, { signal: controller.signal }),
+            apiGet('/api/providers', providersResponseSchema, { signal: controller.signal }),
+          ])
+
+          if (!sigue()) return
+
+          fijar({
+            ...seccion,
+            alternativas: items,
+            // Los nombres de los proveedores llegan con las alternativas: sin
+            // ellos, el botón diría «Probar con jkanime» en vez del nombre que el
+            // proveedor se anuncia.
+            providerNames: new Map(
+              proveedores.providers.map((provider) => [provider.id, provider.name] as const),
+            ),
+          })
+        } catch {
+          // Sin fuentes conocidas no se ofrece nada: el error queda como estaba.
+        }
+      })()
+    }
+
     const cacheado = detailCache.peek(clave)
     // Con caché se pinta al instante; sin ella, la pantalla entra en `loading` y
     // el esqueleto de la ficha ocupa el sitio.
@@ -582,7 +637,13 @@ export function useDetail(providerId: string, ref: string, consulta?: string): D
           // distintas: «no existe, no reintentes» frente a «no respondió, prueba
           // otra vez».
           if (cacheado === undefined) {
-            fijar({ ...VISTA_VACIA, state: 'error', error: describirFallo(cause) })
+            const seccion: VistaDetalle = {
+              ...VISTA_VACIA,
+              state: 'error',
+              error: describirFallo(cause),
+            }
+            fijar(seccion)
+            leerAlternativas(seccion)
           }
 
           return
@@ -597,7 +658,13 @@ export function useDetail(providerId: string, ref: string, consulta?: string): D
           if (!sigue()) return
 
           if (cacheado === undefined) {
-            fijar({ ...VISTA_VACIA, state: 'error', error: describirFallo(segundo) })
+            const seccion: VistaDetalle = {
+              ...VISTA_VACIA,
+              state: 'error',
+              error: describirFallo(segundo),
+            }
+            fijar(seccion)
+            leerAlternativas(seccion)
           }
 
           return
@@ -642,6 +709,7 @@ export function useDetail(providerId: string, ref: string, consulta?: string): D
     related: vista.related,
     franchise: vista.franchise,
     sources: vista.sources,
+    alternativas: vista.alternativas,
     watched: vista.watched,
     capabilities: vista.capabilities,
     enrichment: vista.enrichment,

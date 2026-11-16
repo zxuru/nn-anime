@@ -12,6 +12,7 @@ import type {
 } from '@nn-anime/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
+import type { Fallo } from '../../api/fallo'
 import { t } from '../../i18n'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import {
@@ -26,6 +27,7 @@ import {
   sinopsis,
 } from './DetailPage'
 import { EpisodeRows } from './EpisodeList'
+import { DetailError } from './DetailError'
 import { watchedInWindow, windowAt, windowCount, windowForNumber } from './episode-window'
 import { FavoriteButton } from './FavoriteButton'
 import { PlanToWatchButton } from './PlanToWatchButton'
@@ -1090,8 +1092,81 @@ describe('la marca de adultos en la ficha', () => {
   })
 })
 
-describe('las otras fuentes de la misma obra', () => {
+/**
+ * «Probar con {proveedor}», en la tarjeta de error.
+ *
+ * La obra no está en el proveedor que se pidió, pero puede estar en otro. Las
+ * fuentes de la obra son parte del bundle de la ficha, y ese bundle es lo que no
+ * llegó: por eso el hook las lee **aparte** cuando la carga falla, y por eso este
+ * aviso puede ofrecer el botón. Lo que se mide aquí es lo que ve quien está
+ * delante del error: que haya dónde probar, con qué nombre y a dónde lleva; y que
+ * **no** se ofrezca nada cuando no hay otra fuente.
+ */
+describe('probar la obra en otra fuente', () => {
+  const FALLO: Fallo = {
+    clase: 'noExiste',
+    estado: 404,
+    detalle: undefined,
+    tecnico: 'GET /api/anime/fixture/aurora-nocturna respondió 404',
+  }
+
   const OTRA: AnimeSummary = {
+    ref: { providerId: 'animeav1', value: 'aurora-nocturna' },
+    title: 'Aurora Nocturna',
+    year: 2019,
+  }
+
+  function aviso(alternativas: readonly AnimeSummary[]): string {
+    return render(
+      <DetailError
+        fallo={FALLO}
+        providerName="Fixture"
+        alternativas={alternativas}
+        providerNames={new Map([['animeav1', 'AnimeAV1']])}
+        onBack={() => undefined}
+      />,
+    )
+  }
+
+  test('con otra fuente ofrece probar en ella, con su nombre', () => {
+    const html = aviso([OTRA])
+
+    expect(html).toContain('Probar con AnimeAV1')
+  })
+
+  test('el enlace lleva a la ficha de esa fuente, no a la que falló', () => {
+    const html = aviso([OTRA])
+
+    // Un enlace de verdad: se puede abrir en otra pestaña y copiar, y el
+    // enrutador lo intercepta sólo para no recargar.
+    expect(html).toContain('href="/anime/animeav1/aurora-nocturna"')
+    expect(html).not.toContain('href="/anime/fixture/aurora-nocturna"')
+  })
+
+  test('sin otra fuente no se ofrece nada: no hay dónde probar', () => {
+    const html = aviso([])
+
+    // Ni el texto ni un hueco: una obra que no está en ninguna fuente no tiene
+    // a qué proveedor mandarla.
+    expect(html).not.toContain('Probar con')
+  })
+
+  test('el nombre lo pone el proveedor; sin él, su id y no un hueco', () => {
+    const html = render(
+      <DetailError
+        fallo={FALLO}
+        providerName="Fixture"
+        alternativas={[OTRA]}
+        providerNames={new Map()}
+        onBack={() => undefined}
+      />,
+    )
+
+    expect(html).toContain('Probar con animeav1')
+  })
+})
+
+describe('las otras fuentes de la misma obra', () => {  const OTRA: AnimeSummary = {
     ref: { providerId: 'animeav1', value: 'aurora-nocturna' },
     title: 'Aurora Nocturna',
     year: 2019,

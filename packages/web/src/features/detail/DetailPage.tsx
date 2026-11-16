@@ -442,6 +442,7 @@ export function DetailPage(props: DetailPageProps): ReactNode {
     related,
     franchise,
     sources,
+    alternativas,
     watched,
     capabilities,
     enrichment,
@@ -519,6 +520,10 @@ export function DetailPage(props: DetailPageProps): ReactNode {
         // Un 404 no se arregla repitiendo la lectura: el proveedor no tiene esa
         // referencia y volver a pedirla da el mismo 404.
         onRetry={error?.clase === 'noExiste' ? undefined : reload}
+        // Las fuentes donde la obra sí está, que se leen aparte porque el núcleo
+        // de la ficha no llegó: sin ellas no hay dónde probar.
+        alternativas={alternativas}
+        providerNames={providerNames}
         onBack={() => navigate.back()}
       />
     )
