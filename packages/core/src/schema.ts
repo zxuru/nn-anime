@@ -111,6 +111,20 @@ function hasCredentials(value: string): boolean {
 export const providerMediaSchema = z.enum(['anime', 'movies', 'both'])
 
 /**
+ * La familia de una obra: de qué está hecha.
+ *
+ * Es el eje que reparte las pestañas —Anime, Animación y Acción real— y no dice
+ * nada del formato: una película de anime es `family: 'anime'` con
+ * `format: 'movie'`. `animation` es la animación que **no** es anime —series y
+ * películas occidentales— y `live` la imagen real. `manga` no entra en ninguno de
+ * los dos ejes: es un soporte y conserva su `mediaType`.
+ */
+export const mediaFamilySchema = z.enum(['anime', 'animation', 'live'])
+
+/** Cómo está contada una obra: una serie o una película. */
+export const mediaFormatSchema = z.enum(['series', 'movie'])
+
+/**
  * Lo que un proveedor dice saber hacer.
  *
  * Vive aquí y no en `provider-sdk` porque también cruza el HTTP: la interfaz
@@ -141,6 +155,28 @@ export const providerCapabilitiesSchema = z.strictObject({
    * episodios. Quien la necesita la comprueba con `=== true`. Añadido en T86.
    */
   episodePages: z.boolean().optional(),
+  /**
+   * Qué sirve, como conjunto de familias.
+   *
+   * Aditiva sobre `media`, que no sabe decir «anime y acción real pero no
+   * animación occidental»: es un caso real y una sola palabra no lo describe. Si
+   * está, **gana** sobre `media` (lo resuelve `familiesOf`), y las dos pueden
+   * convivir en el mismo manifiesto. Opcional y sin defecto por el mismo motivo
+   * que `episodePages`: el schema es estricto y lo leen los plugins ya instalados.
+   * Un array vacío o con repetidos se rechaza: no describe un conjunto que nadie
+   * pueda filtrar. Añadida en T257a; no sube `apiVersion`, porque una app vieja la
+   * rechaza al cargar —el gate que ya usan `seasons` y `episodePages`—.
+   */
+  families: z
+    .array(mediaFamilySchema)
+    .min(1, { message: 'un proveedor sirve al menos una familia' })
+    .refine((familias) => new Set(familias).size === familias.length, {
+      message: 'las familias no se repiten',
+    })
+    // Inmutable como el resto de las capacidades: el tipo que cruza el contrato
+    // es `DeepReadonly` y un array mutable no se le puede asignar.
+    .readonly()
+    .optional(),
   /** Qué sirve. Ausente es `anime`; la regla vive en `mediaOf`. */
   media: providerMediaSchema.optional(),
   /**
@@ -229,10 +265,23 @@ export const searchResultSchema = z.strictObject({
   year: z.number().int().optional(),
   kind: titleKindSchema.optional(),
   /**
+   * De qué está hecha la obra, cuando la fuente lo sabe.
+   *
+   * Opcional y aditiva: ausente se deduce con `familyOf` a partir de `mediaType`,
+   * del `kind` y de las familias que sirve el proveedor, que es lo que hacían las
+   * fuentes de antes. Declarada, manda: es lo que separa una película de anime de
+   * una de imagen real en una fuente mixta. Añadida en T257a.
+   */
+  family: mediaFamilySchema.optional(),
+  /** Cómo está contada, cuando la fuente lo sabe. Ausente se deduce con `formatOf`. */
+  format: mediaFormatSchema.optional(),
+  /**
    * Qué es el título, cuando la fuente lo sabe y no basta con `kind`.
    *
-   * Opcional y sin defecto. Ausente se deduce con `mediaTypeOf` a partir de lo que
-   * sirve el proveedor y del `kind`, que es lo que hacían las fuentes de antes.
+   * Opcional y sin defecto. **Se conserva por compatibilidad**: hay manifiestos y
+   * filas guardadas que lo usan, así que se sigue leyendo siempre y se deja de
+   * escribir en lo nuevo. Para clasificar, la regla es `familyOf`/`formatOf`;
+   * `mediaTypeOf` es la lectura vieja y se retira con la interfaz de dos pestañas.
    */
   mediaType: mediaTypeSchema.optional(),
 })
@@ -372,6 +421,16 @@ export const animeSummarySchema = z.strictObject({
   coverUrl: httpUrlSchema.optional(),
   year: z.number().int().optional(),
   kind: titleKindSchema.optional(),
+  /**
+   * Familia y formato del título guardado.
+   *
+   * Los lleva porque una lista —favoritos, continuar viendo, lo último añadido— se
+   * reparte por familia y formato sin abrir la ficha, y una fuente mixta no se
+   * distingue por `kind`: su `tv` puede ser anime o acción real. Opcionales: las
+   * filas escritas antes de T257a se clasifican con la regla de compatibilidad.
+   */
+  family: mediaFamilySchema.optional(),
+  format: mediaFormatSchema.optional(),
 })
 
 export const episodeSchema = z.strictObject({
@@ -437,6 +496,15 @@ export const candidateSchema = z.strictObject({
    * fuente que no lo declara no deja de valer, y sin él cuenta como anime.
    */
   kind: titleKindSchema.optional(),
+  /**
+   * Familia y formato del candidato.
+   *
+   * El motor filtra por familia y formato antes de puntuar, y un candidato de una
+   * fuente mixta no se puede repartir por `kind`. Opcionales, como `kind`: sin
+   * ellos cae la regla de compatibilidad. Añadidos en T257a.
+   */
+  family: mediaFamilySchema.optional(),
+  format: mediaFormatSchema.optional(),
   studios: z.array(z.string().min(1)),
   /** Popularidad normalizada dentro del proveedor, de 0 a 1. */
   popularity: z.number().min(0).max(1).optional(),

@@ -20,7 +20,7 @@ import {
   ok,
   type ProviderError,
   type ProviderMedia,
-  pasaElFiltro,
+  pasaElFiltroDeMedia,
   puedeServir,
   type Result,
   type SearchResult,
@@ -270,7 +270,7 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
         return {
           ...event,
           results: event.results.filter((resultado) =>
-            pasaElFiltro(
+            pasaElFiltroDeMedia(
               media,
               medias.get(resultado.ref.providerId) ?? DEFAULT_MEDIA,
               resultado.kind,

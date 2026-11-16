@@ -30,6 +30,8 @@ import {
   animeSummarySchema,
   episodeSchema,
   httpUrlSchema,
+  mediaFamilySchema,
+  mediaFormatSchema,
   modeSchema,
   providerCapabilitiesSchema,
   providerMediaSchema,
@@ -390,6 +392,9 @@ export const recommendationSchema = z.strictObject({
   coverUrl: httpUrlSchema.optional(),
   year: z.number().int().optional(),
   kind: titleKindSchema.optional(),
+  /** Familia y formato del candidato: el motor filtra por ellos antes de puntuar. */
+  family: mediaFamilySchema.optional(),
+  format: mediaFormatSchema.optional(),
   score: z.number(),
   /**
    * Los géneros del título.
@@ -422,6 +427,15 @@ export const continueWatchingItemSchema = z.strictObject({
   animeRef: providerRefSchema,
   title: z.string().min(1),
   coverUrl: httpUrlSchema.optional(),
+  /**
+   * Familia y formato, para repartir lo empezado por pestaña y filtro.
+   *
+   * Sin ellos, lo visto a medias de una fuente mixta cae siempre del lado del
+   * anime: la fila no lleva ni `kind` con el que deducirlo. Opcionales porque una
+   * fila vieja no los tiene. Añadidos en T257a.
+   */
+  family: mediaFamilySchema.optional(),
+  format: mediaFormatSchema.optional(),
   episodeRef: providerRefSchema,
   episodeNumber: z.number().int().nonnegative(),
   /** La temporada, si la fuente la declara. Es lo que distingue T1E1 de T2E1. */

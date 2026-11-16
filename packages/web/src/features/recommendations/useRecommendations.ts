@@ -15,7 +15,7 @@
 
 import type { RecommendationsResponse } from '@rona/core/api'
 import { recommendationsResponseSchema } from '@rona/core/api'
-import type { MediaFilter } from '@rona/core/media'
+import type { MediaHalf } from '@rona/core/media'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'
@@ -61,7 +61,7 @@ export interface UseRecommendationsOptions {
   readonly query?: string | undefined
   readonly limit?: number
   /** La mitad que se mira: el motor filtra sus candidatos antes de puntuar. */
-  readonly media?: MediaFilter | undefined
+  readonly media?: MediaHalf | undefined
   /** Retardo inyectable: una prueba no espera 400 ms. */
   readonly debounceMs?: number
 }
@@ -69,7 +69,7 @@ export interface UseRecommendationsOptions {
 export function recommendationsPath(
   query: string | undefined,
   limit: number,
-  media: MediaFilter | undefined = undefined,
+  media: MediaHalf | undefined = undefined,
 ): string {
   const parametros = new URLSearchParams({ limit: String(limit) })
   if (query !== undefined && query.trim() !== '') parametros.set('q', query.trim())

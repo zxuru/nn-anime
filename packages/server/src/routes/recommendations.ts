@@ -22,7 +22,7 @@ import type { Candidate, SearchResult } from '@rona/core'
 import {
   errorResponseSchema,
   mediaOf,
-  pasaElFiltro,
+  pasaElFiltroDeMedia,
   puedeServir,
   recommendationsResponseSchema,
   trendingResponseSchema,
@@ -137,7 +137,7 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
         // El filtro va **después de la caché**: lo que se guarda es la lista de la
         // fuente, y cada pestaña se queda con su mitad al leerla.
         return lectura.value.value.filter((resultado) =>
-          pasaElFiltro(pedido.media, mediaOf(provider.capabilities), resultado.kind),
+          pasaElFiltroDeMedia(pedido.media, mediaOf(provider.capabilities), resultado.kind),
         )
       }),
     )
@@ -227,7 +227,7 @@ export function registerRecommendationsRoute(
         conTendencias.map(async (provider) => {
           const media = mediaOf(provider.capabilities)
           const suyos = (lista: readonly SearchResult[]): readonly SearchResult[] =>
-            lista.filter((resultado) => pasaElFiltro(pedido.media, media, resultado.kind))
+            lista.filter((resultado) => pasaElFiltroDeMedia(pedido.media, media, resultado.kind))
 
           const cacheado = await options.container.store.readTrending(provider.id)
           if (cacheado !== null) return suyos(cacheado.value)
