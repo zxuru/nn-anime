@@ -717,13 +717,20 @@ el propio documento marca «**no medido**» o «**pendiente**» (por ejemplo T22
 sirve desde la base con 0 llamadas a proveedores, **medido**» — sin marcar).
 
 **Aceptación:**
-- [ ] `tasks/roadmap.md` refleja la fase 3 como implementada, con lo que queda.
-- [ ] Cada una de las 22 casillas está **medida y marcada**, o **convertida en una tarea nueva** de
+- [x] `tasks/roadmap.md` refleja la fase 3 como implementada, con lo que queda.
+- [x] Cada una de las 22 casillas está **medida y marcada**, o **convertida en una tarea nueva** de
       este plan con su id: una casilla sin marcar que nadie va a medir no es deuda viva, es ruido.
-- [ ] Las revisiones humanas llevan su fecha y su veredicto.
+- [x] Las revisiones humanas llevan su fecha y su veredicto: **2026-11-16, sin objeciones**.
 
-**Archivos:** `tasks/roadmap.md`, `tasks/todo.md`. **Tamaño:** M. **Depende de:** T218 (para que los
-dos documentos digan lo mismo).
+**Cierre:** `docs(tasks): el roadmap y las 22 casillas de T246 (T246)` · commit `2f21203`. 22
+casillas revisadas: las que tenían evidencia (`search.e2e`, `failure.e2e`, `detail.e2e`,
+`anime.test.ts`, `db-migrate.test.ts`, `SPEC-rona`) quedan marcadas; las cinco que no se podían medir
+sin navegador pasan a **T260–T263**; la verificación en clon limpio (`bun install` 0, `bun run build`
+0, `bun test` **3981 pasan, 0 fallan**, `bun run e2e` **163 pasan, 7 fallan**) pasa a **T266**, sin
+marcar la casilla.
+
+**Archivos:** `tasks/roadmap.md`, `tasks/todo.md`, `tasks/deuda.md`, `tasks/done/INDICE.md`.
+**Tamaño:** M. **Depende de:** T218.
 
 ---
 

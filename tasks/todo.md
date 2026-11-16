@@ -2691,7 +2691,10 @@ temporal), con sus códigos de salida.
 - [x] Todos los criterios de éxito del spec de proyecto verificados y marcados. **Medido**:
       `docs/specs/SPEC-rona.md` los tiene todos en `[x]` con su evidencia, incluidas las tendencias
       cacheadas y el guard de `Host` sólo para `127.0.0.1`.
-- [ ] `bun install && bun run build && bun test && bun run e2e` limpio en checkout nuevo.
+- [ ] `bun install && bun run build && bun test && bun run e2e` limpio en checkout nuevo. **Medido en
+      un checkout limpio de `2f21203`** (worktree detach, `bun install` 0, `bun run build` 0,
+      `bun test` **3981 pasan, 0 fallan**): el e2e da **163 pasan y 7 fallan**. **Convertido en
+      T266**, con la lista de los siete y su causa medida; no se marca el criterio.
 - [x] Revisión humana y decisión sobre v1.5 (`downloads`). **Revisada por el humano el 2026-11-16,
       sin objeciones.** v1.5 (descargas) ya está implementada y publicada en la 0.8.0.
 
@@ -3031,6 +3034,39 @@ web sigue» no está escrito: hace falta arrancar el servidor del e2e con mpv si
 **Archivos:** `packages/web/e2e/`, `packages/web/e2e/fixtures.ts`.
 **Tamaño:** S.
 
+### T266 — Cerrar los siete fallos del e2e en checkout limpio
+
+**Descripción:** medido en un worktree detach de `2f21203` con `bun install`, `bun run build` y
+`bun test` en verde (3981 pasan), `bun run e2e` da **163 pasan y 7 fallan**. Son fallos que el árbol
+de trabajo no enseñaba porque tenía cambios sin commitear de otra sesión:
+
+1. `carga-ficha` · «una respuesta lenta enseña el esqueleto y luego la ficha, sin saltar»: la
+   portada se desplaza 96 px en vertical al llegar los datos; el tope es 2.
+2. `carga-ficha` · «un 500 explica el fallo…»: la prueba espera «Proveedor: fixture» y la interfaz
+   dice «Proveedor de prueba». Decidir si manda el nombre visible o el id, y alinear la prueba.
+3. `detail` · «con banner y sin banner la banda mide lo mismo»: 197,67 px sin banner frente a 256
+   con banner. La banda condicional de T236 cambió el alto; la prueba no se actualizó.
+4. `detail` · «cada ficha abierta se distingue en el nombre de su pestaña»: espera «· rona» y la
+   aplicación pone «· RoNa» desde el rename (T252).
+5. `persistencia` · «el contenido y el segundo sobreviven a una actualización de esquema»: no
+   encuentra `.shell__brand` a los 20 s; distinguir si es una carrera del arranque o un fallo real.
+6. `player` · «la pestaña y el encabezado nombran el título y el episodio»: mismo «rona»/«RoNa».
+7. `player` · «la sala se lleva el alto de una ventana grande»: 65 px de desborde vertical; hay un
+   cambio de disposición sin commitear en el árbol que lo corrige, y esta tarea lo fija con su
+   medición.
+
+**Aceptación:**
+- [ ] Cada uno de los siete está arreglado o declarado con su motivo, y el e2e completo pasa en un
+      checkout limpio.
+- [ ] Las expectativas de nombre (`RoNa`) y de nombre visible del proveedor se alinean con el
+      contrato, no al revés.
+- [ ] Se mide mutando lo que se arregle: devolver la causa deja el caso en rojo.
+- [ ] `bun install`, `bun run build`, `bun test` y `bun run e2e` quedan en 0 en el checkout limpio.
+
+**Depende de:** T43, T239, T252.
+**Archivos:** `packages/web/e2e/`, y el CSS del pie/lista si el desborde de 65 px lo exige.
+**Tamaño:** M.
+
 ---
 
 ## Resumen de dependencias
@@ -3150,4 +3186,5 @@ La tabla de rutas y el reparto por agente están en [`tasks/deuda.md`](deuda.md)
 
 T257 (aprobación de la propuesta) → T257a (contrato en `core`); las fases 2–4 se abren como tasks
 propios. T258 y T259 no cuelgan de la v1: nacen de tarjetas del tablero. T260, T261 y T262 dependen
-de T43 (el e2e), y T263 de T44. T246 es quien convierte las casillas sin medir en estos ids.
+de T43 (el e2e), y T263 de T44. T266 nace de la medición de T246 en checkout limpio y depende de
+T43, T239 y T252. T246 es quien convierte las casillas sin medir en estos ids.
