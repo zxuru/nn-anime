@@ -126,6 +126,14 @@ function Shell(props: {
         corte en los dos sitios.
       */}
       <BarraInferior />
+      {/*
+        El pie es de la aplicación y no de una pantalla: la promesa de que todo
+        se queda en el equipo vale igual en la vitrina que en Ajustes, y una
+        pantalla nueva lo hereda sin repetirlo.
+      */}
+      <footer className="shell__footer">
+        <p className="shell__footer-nota">{t(LOCALE, 'app.footer')}</p>
+      </footer>
     </div>
   )
 }

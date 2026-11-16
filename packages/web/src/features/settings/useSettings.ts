@@ -24,6 +24,7 @@ import {
   suscribirAjustes,
 } from './almacen'
 import { themeAttribute } from './ThemeToggle'
+import { guardarTemaPreferido } from './tema-arranque'
 
 export type { SettingsState }
 
@@ -63,15 +64,30 @@ export interface Settings extends Ajustes {
  *
  * Se aplica desde la raíz y no desde la pantalla de ajustes: el tema es de la
  * aplicación entera, y quien entra directo a la búsqueda tiene que verlo igual.
+ *
+ * `public/theme-boot.js` ya dejó puesto el tema antes del primer pintado con la
+ * preferencia de `localStorage`. Aquí manda el servidor: el efecto reescribe el
+ * atributo y `color-scheme` —el script lo dejó en el `style` del documento, y
+ * sin reescribirlo el tema viejo ganaría por orden de cascada— y guarda el valor
+ * leído para el próximo arranque. Mientras no hay datos no se toca nada: lo que
+ * pintó el arranque ya respeta el sistema, y adelantarse a la respuesta sería
+ * cambiarlo dos veces.
  */
 export function useAppTheme(): void {
   const { data } = useSettings()
 
   useEffect(() => {
+    const tema = data?.theme
+    if (tema === undefined) return
+
     const prefiereClaro =
       typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: light)').matches
+    const resuelto = themeAttribute(tema, prefiereClaro)
+    const raiz = document.documentElement
 
-    document.documentElement.dataset.theme = themeAttribute(data?.theme ?? 'system', prefiereClaro)
+    raiz.dataset.theme = resuelto
+    raiz.style.colorScheme = resuelto
+    guardarTemaPreferido(tema)
   }, [data?.theme])
 }
 
