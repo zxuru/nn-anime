@@ -15,7 +15,7 @@ import {
   mediaOf,
   type ProviderMedia,
   type ProviderRef,
-  pasaElFiltro,
+  pasaElFiltroDeMedia,
   providerMediaSchema,
   type TitleKind,
 } from '@rona/core'
@@ -70,6 +70,6 @@ export function enMedia<T extends ConTipo>(
   medias: ReadonlyMap<string, ProviderMedia>,
 ): readonly T[] {
   return items.filter((item) =>
-    pasaElFiltro(media, medias.get(item.ref.providerId) ?? DEFAULT_MEDIA, item.kind),
+    pasaElFiltroDeMedia(media, medias.get(item.ref.providerId) ?? DEFAULT_MEDIA, item.kind),
   )
 }

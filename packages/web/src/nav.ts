@@ -15,7 +15,7 @@
  * entero al paquete.
  */
 
-import type { MediaFilter } from '@rona/core/media'
+import type { MediaHalf } from '@rona/core/media'
 import { Home, Library, type LucideIcon, Search, Settings, User } from 'lucide-react'
 import { ANCLAS } from './features/guia/guia'
 import { pathConTipo } from './features/tipo/tipo'
@@ -65,7 +65,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
 ]
 
 /** La dirección de un destino, con la mitad que se está mirando cuando la lleva. */
-export function destinoDeNav(item: NavItem, tipo: MediaFilter): string {
+export function destinoDeNav(item: NavItem, tipo: MediaHalf): string {
   return item.conservaTipo === true ? pathConTipo(item.to, tipo) : item.to
 }
 

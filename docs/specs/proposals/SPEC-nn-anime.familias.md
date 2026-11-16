@@ -4,7 +4,10 @@
 película de anime no tiene un sitio claro, una serie de animación occidental no está catalogada y
 «Películas» promete un formato cuando lo que separa es otra cosa.
 
-**Estado:** propuesta. No hay código: toca cuatro contratos y los integra su dueño.
+**Estado:** **aprobada el 2026-11-16.** La fase 1 —el contrato en `core` y los cuatro specs— se
+integró en T257a (commit `feat(core): familias de contenido y formato en el contrato (T257a)`). Las
+fases 2–4 siguen abiertas, y este archivo se conserva como registro de la aprobación hasta que se
+cierren.
 
 Toca **`SPEC-provider-core`** (la capacidad y el tipo por título), **`SPEC-discovery`**,
 **`SPEC-recsys`** y **`SPEC-web-ui`** (la navegación). `SPEC-catalog-store` no cambia de forma: los
@@ -369,6 +372,22 @@ Cada punto se marca con la mutación que lo hace fallar, como pide el DoD.
   formato pasa a ser un filtro, «Series animadas» y «Series y películas» quedan como descripción y
   los rótulos son «Anime · Animación · Acción real». Si prefiere los suyos en el rótulo, es un
   cambio de i18n, no de contrato.
+
+## 10. Aprobación y fases
+
+Aprobada por el humano el **2026-11-16**, con una condición: se hace **una fase por task** y cada una
+con su commit. El estado a día de hoy:
+
+| Fase | Qué | Estado |
+|---|---|---|
+| 1 | Contrato en `core`: vocabulario, `familiesOf`, `familyOf`, `formatOf`, `pasaElFiltro`, `capabilities.families`, campos opcionales y specs | **hecha** (T257a) |
+| 2 | Servidor: rutas `family`/`format`, alias `media`, AniList por formato, `catalog-store` leyendo `raw_json`, `recsys` con los campos | pendiente |
+| 3 | Interfaz: tres pestañas, filtro de formato, dirección, i18n, alta de proveedor | pendiente |
+| 4 | Fixture y e2e: película de anime, serie de animación occidental y serie de imagen real | pendiente |
+
+La fase 1 es **aditiva y opcional**: ningún consumidor publicado deja de compilar ni de conformar.
+`mediaType` se conserva; `media` se conserva; `apiVersion` sigue en `'1'`. Las fases 2–4 están
+descritas arriba y no se implementaron en T257a.
 
 ## Criterios de aceptación
 

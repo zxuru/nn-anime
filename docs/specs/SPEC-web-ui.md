@@ -71,6 +71,9 @@ GET  /api/settings    PATCH /api/settings
 GET  /api/cover/:providerId/:ref     portada, servida por el proxy
 ```
 
+Las lecturas aceptan además `family` y `format` opcionales por familia y formato —enmienda T257a,
+fase 2 del servidor—: el contrato está en `core` y las rutas todavía no los leen.
+
 Rutas de la SPA, todas del lado del cliente salvo la primera:
 
 ```
@@ -140,6 +143,40 @@ Accesibilidad, mínimos verificables:
 Estado de la UI: servidor como fuente de verdad, estado local sólo para lo efímero (consulta
 actual, panel abierto, preferencia de tema). Sin librería de estado global en v1.
 
+### Enmienda aprobada (T257a): tres pestañas por familia y un filtro de formato
+
+> Aprobada el 2026-11-16 con `docs/specs/proposals/SPEC-nn-anime.familias.md`. **El contrato de
+> `core` está integrado en T257a; esta sección es la fase 3 y la interfaz todavía no la implementa.**
+
+La partición deja de ser «Anime contra Películas» —que mezclaba una familia con un formato— y pasa a
+dos ejes, los mismos que fija `core`:
+
+- **El conmutador tiene tres enlaces**: `Anime` · `Animación` · `Acción real`, con `aria-current` y
+  la familia en la dirección (`?tipo=anime|animation|live`).
+- **Debajo, un filtro de formato**: `Todo` · `Series` · `Películas`, en la dirección
+  (`?formato=series|movie`; ausente es `Todo`). Se pinta siempre en las tres pestañas: es una
+  consulta válida aunque una familia no tenga películas, y esconderlo según los resultados haría que
+  apareciera y desapareciera al cambiar de familia.
+- **Los rótulos dicen la familia** y los nombres largos quedan como descripción: Anime —«Series y
+  películas de anime»—, Animación —«Series animadas que no son anime»—, Acción real —«Series y
+  películas con personas»—. Los textos viven en `packages/web/src/i18n/es.ts`
+  (`media.anime|animation|live`, `media.format.all|series|movie`).
+- **`?tipo=movies` no rompe**: se lee como `live` —el sucesor natural de «Películas»— y la
+  navegación reescribe la dirección. Es una ruptura menor y declarada: no hay una familia que
+  signifique «todo lo que no es anime», porque ésa era la confusión.
+- **Las filas de AniList sólo se piden en Anime.** En las otras dos familias no se pintan: no hay
+  dato de AniList que las llene y una fila vacía permanente se lee como un fallo.
+- `enElTipo` se parte en `enLaFamilia` y `enElFormato`; `useMedias` pasa a `useFamilias`, con el
+  mapeo de `media` heredado en un solo sitio. `pathConTipo` conserva familia y formato al cambiar de
+  pestaña; el formato sólo se queda en las pantallas que listan (home y búsqueda).
+- **El alta de proveedor** cambia el desplegable de `media` por tres casillas que escriben
+  `families`; al editar un plugin viejo salen marcadas sus familias heredadas, y `ProviderList`
+  pinta las declaradas.
+
+Pendiente en la fase 3: todo lo de esta sección. En T257a no se toca ningún componente, ni la
+dirección, ni el i18n. La fase 4 añade al fixture la película de anime, la serie de animación
+occidental y la serie de imagen real, y el e2e que comprueba que un título no sale en dos pestañas.
+
 ## Estructura del módulo
 
 ```
@@ -193,6 +230,14 @@ packages/web/
 - [ ] Un título de proveedor con `javascript:` como URL de portada se renderiza como texto plano
       y no produce ningún `href` ni `src` ejecutable.
 - [ ] Ninguna petición de la SPA sale hacia un origen externo: el e2e falla si detecta una.
+- [x] `core` expone la clasificación que usará la navegación —`familyOf`, `formatOf`,
+      `MediaFilter`— y una película de anime (`family: 'anime'`, `format: 'movie'`) pasa el filtro
+      de Anime con formato Películas y no el de Acción real. **Medido en T257a**: invertir la
+      precedencia de `family` hace fallar la prueba.
+- [ ] El conmutador tiene tres enlaces, el filtro de formato escribe `?formato=` y `?tipo=movies`
+      abre Acción real y se reescribe (fase 3).
+- [ ] El e2e comprueba que un título no sale en dos pestañas y que la película de anime sale en
+      Anime con el filtro «Películas» (fase 4).
 
 ## Boundaries
 

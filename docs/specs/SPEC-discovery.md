@@ -7,6 +7,10 @@ que este documento proponía **se aplicaron** el 2026-10-11 y están marcadas al
 Módulos que toca: `provider-sdk` (contrato), `catalog-store` (caché del feed y de lo reciente),
 `server` (rutas y candidatos), `web` (dos filas y el destacado). `recsys` **no se toca**.
 
+**Enmienda aprobada el 2026-11-16** (`docs/specs/proposals/SPEC-nn-anime.familias.md`): familia y
+formato en las lecturas. El contrato de `core` está integrado en T257a; las rutas son la fase 2 y
+todavía no existen.
+
 ## Objective
 
 Que la primera pantalla tenga contenido sin que el usuario haya buscado nada, por dos caminos:
@@ -142,6 +146,36 @@ y la fila de novedades ya salen del feed.
   validación del JSON cacheado y `StoreError` si no cumple.
 - `listRecentSummaries(limit)` en `repositories/anime.ts`: la lectura de la unión, con el SQL que
   ya conoce `fetched_at` de las dos tablas.
+
+## Enmienda aprobada (T257a): familia y formato en las lecturas
+
+> Aprobada el 2026-11-16 con `docs/specs/proposals/SPEC-nn-anime.familias.md`. **Contrato en `core`
+> desde T257a; las rutas de esta enmienda son la fase 2 y todavía no existen.** Lo que ya está en el
+> código de este cambio son los campos opcionales de las formas que viajan.
+
+Las lecturas de descubrimiento aceptan dos parámetros **opcionales y aditivos**, por los dos ejes de
+clasificación que fija `core`: familia (`anime` · `animation` · `live`) y formato (`series` ·
+`movie`).
+
+```
+GET /api/feed?family=&format=
+GET /api/catalog/recent?family=&format=
+```
+
+- **`media` sigue aceptándose como alias**: `anime` → `families=['anime']`, `movies` →
+  `families=['animation','live']`, `both` → sin filtro. Se traduce en `routes/media.ts` y no se
+  propaga.
+- **El filtro del proveedor va antes de preguntar y el del título después de la caché**, igual que
+  hoy. A una fuente que no sirve una familia no se le pide, y a una mixta sí: el reparto por título
+  se hace después.
+- **Un valor fuera del vocabulario es 400** con el valor delante y las opciones.
+- **`recent` no necesita migración**: `family` y `format` se leen de `raw_json` y de
+  `results_json` (`json_extract`), y una fila vieja se clasifica con la regla de compatibilidad de
+  `familyOf`.
+- Las formas del contrato (`feedItemSchema`, `recentResponseSchema` y todo lo que lleva
+  `animeSummarySchema`) ganan `family` y `format` opcionales en `core` (T257a). **Lo pendiente en la
+  fase 2** es extraerlos en las cinco lecturas que arman un `AnimeSummary` —favoritos, vistos, quiero
+  ver, historial y relacionados— con **un helper único**, en vez de repetir el `kindOf` cinco veces.
 
 ## Success Criteria
 

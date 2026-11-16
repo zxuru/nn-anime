@@ -19,7 +19,7 @@ import {
   settingsResponseSchema,
 } from '@rona/core/api'
 import { groupByWork } from '@rona/core/identity'
-import { DEFAULT_MEDIA, type MediaFilter, mediaOf, puedeServir } from '@rona/core/media'
+import { DEFAULT_MEDIA, type MediaHalf, mediaOf, puedeServir } from '@rona/core/media'
 import type { SearchResult } from '@rona/core/models'
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../../api/client'
@@ -225,7 +225,7 @@ export function activeProviderIds(summaries: readonly ProviderSummary[]): readon
 export function proveedoresSeleccionados(
   summaries: readonly ProviderSummary[],
   filter: readonly string[],
-  media: MediaFilter,
+  media: MediaHalf,
 ): readonly string[] {
   const medias = new Map(summaries.map((uno) => [uno.id, mediaOf(uno.capabilities)]))
 
@@ -569,7 +569,7 @@ export function useSearchStream(
   query: string,
   filter: readonly string[],
   /** La mitad que se está mirando. Filtrar aquí no basta: ver `searchRequestPath`. */
-  media: MediaFilter = 'anime',
+  media: MediaHalf = 'anime',
   /** Inyectable en los tests; en producción, el distribuidor de siempre. */
   hub: SearchHub = HUB,
 ): SearchStreamResult {

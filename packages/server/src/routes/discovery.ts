@@ -33,7 +33,7 @@ import {
   errorResponseSchema,
   feedResponseSchema,
   mediaOf,
-  pasaElFiltro,
+  pasaElFiltroDeMedia,
   puedeServir,
   recentResponseSchema,
   uniqueByWork,
@@ -147,7 +147,7 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
         // El filtro va después de la caché, como en tendencias: se guarda lo que
         // publica la fuente y cada pestaña se queda con su mitad al leerlo.
         return lectura.value.value.filter((entrada) =>
-          pasaElFiltro(pedido.media, mediaOf(provider.capabilities), entrada.kind),
+          pasaElFiltroDeMedia(pedido.media, mediaOf(provider.capabilities), entrada.kind),
         )
       }),
     )
