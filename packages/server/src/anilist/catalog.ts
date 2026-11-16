@@ -20,8 +20,8 @@
  * cliente deja de gastarse dos veces en lo mismo.
  */
 
-import type { CatalogStore } from '@nn-anime/catalog-store'
-import { TTL_SECONDS } from '@nn-anime/catalog-store'
+import type { CatalogStore } from '@rona/catalog-store'
+import { TTL_SECONDS } from '@rona/catalog-store'
 import {
   type AniListAiringEntry,
   type AniListEntry,
@@ -43,7 +43,7 @@ import {
   pickAniListMatch,
   type Result,
   sameAniListWork,
-} from '@nn-anime/core'
+} from '@rona/core'
 import type { z } from 'zod'
 import type { AniListClient, AniListOutcome } from './client'
 import {

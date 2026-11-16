@@ -38,7 +38,7 @@ pub const EVENTO_BUSCAR: &str = "buscar-actualizaciones";
 /// El repositorio del que salen las releases. El endpoint del updater está en
 /// `tauri.conf.json` y apunta al mismo sitio; aquí sólo se construye el enlace
 /// que se enseña cuando una actualización falla.
-const REPOSITORIO: &str = "zxuru/nn-anime";
+const REPOSITORIO: &str = "zxuru/rona";
 
 /// Lo que la página necesita saber y no puede deducir sola.
 struct Contexto {
@@ -154,7 +154,7 @@ pub async fn instalar_portable(
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let cliente = reqwest::Client::builder()
-        .user_agent(concat!("nn-anime-desktop/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("rona-desktop/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|error| format!("no se pudo preparar la descarga: {error}"))?;
 
@@ -250,7 +250,7 @@ fn construir(app: &AppHandle, visible: bool) -> tauri::Result<()> {
 
     let ventana =
         WebviewWindowBuilder::new(app, ETIQUETA, WebviewUrl::App("actualizacion.html".into()))
-            .title("nn-anime — actualización")
+            .title("RoNa — actualización")
             .inner_size(560.0, 430.0)
             .resizable(false)
             .minimizable(false)
@@ -299,7 +299,7 @@ fn temporal_de(exe: &Path) -> PathBuf {
     let nombre = exe
         .file_name()
         .map(|nombre| nombre.to_string_lossy().to_string())
-        .unwrap_or_else(|| "nn-anime.exe".to_string());
+        .unwrap_or_else(|| "rona.exe".to_string());
 
     exe.with_file_name(format!(".{nombre}.nuevo"))
 }
@@ -491,8 +491,7 @@ mod pruebas {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|tiempo| tiempo.as_nanos())
             .unwrap_or(0);
-        let ruta =
-            std::env::temp_dir().join(format!("nn-anime-prueba-{}-{unico}", std::process::id()));
+        let ruta = std::env::temp_dir().join(format!("rona-prueba-{}-{unico}", std::process::id()));
 
         std::fs::create_dir_all(&ruta).expect("directorio de prueba");
 
@@ -502,8 +501,8 @@ mod pruebas {
     #[test]
     fn el_reemplazo_deja_el_nuevo_en_su_sitio_y_el_viejo_aparte() {
         let dir = directorio();
-        let exe = dir.join("nn-anime.exe");
-        let nuevo = dir.join(".nn-anime.exe.nuevo");
+        let exe = dir.join("rona.exe");
+        let nuevo = dir.join(".rona.exe.nuevo");
         std::fs::write(&exe, b"viejo").expect("exe");
         std::fs::write(&nuevo, b"nuevo").expect("nuevo");
 
@@ -519,7 +518,7 @@ mod pruebas {
     #[test]
     fn si_el_nuevo_no_esta_se_restaura_el_viejo() {
         let dir = directorio();
-        let exe = dir.join("nn-anime.exe");
+        let exe = dir.join("rona.exe");
         std::fs::write(&exe, b"viejo").expect("exe");
 
         let resultado = reemplazar(&exe, &dir.join("no-existe.exe"));

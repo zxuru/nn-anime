@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { createRegistry, type Provider } from '@nn-anime/provider-sdk'
-import { createFixtureProvider, fixtureProvider } from '@nn-anime/providers-fixture'
+import { createRegistry, type Provider } from '@rona/provider-sdk'
+import { createFixtureProvider, fixtureProvider } from '@rona/providers-fixture'
 import {
   mergeEvents,
   normalizeQuery,

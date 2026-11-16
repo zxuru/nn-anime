@@ -28,7 +28,7 @@ import {
   partyReportSchema,
   partySyncReplySchema,
   partySyncRequestSchema,
-} from '@nn-anime/core'
+} from '@rona/core'
 import type { Hono } from 'hono'
 
 /** `fetch` inyectable: las pruebas no salen a la red. */

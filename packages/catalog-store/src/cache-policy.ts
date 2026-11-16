@@ -11,7 +11,7 @@
  * la hora a la que se ejecuta, no la lógica.
  */
 
-import type { CacheHit } from '@nn-anime/core'
+import type { CacheHit } from '@rona/core'
 
 /** Segundos de vida por recurso, de la tabla del spec. */
 export const TTL_SECONDS = {

@@ -18,7 +18,7 @@
  * compila.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import type { ClaseDeFallo, Fallo } from '../api/fallo'
 import { t } from '../i18n'

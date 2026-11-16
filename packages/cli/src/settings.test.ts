@@ -84,7 +84,7 @@ describe('el entorno se coloca entre la bandera y el archivo', () => {
     expect(applied.openSpecified).toBe(true)
   })
 
-  test('NN_ANIME_NO_OPEN gana sobre un open verdadero del archivo', () => {
+  test('RONA_NO_OPEN gana sobre un open verdadero del archivo', () => {
     expect(applySettings(options(), { open: true }, { noOpen: true }).open).toBe(false)
   })
 

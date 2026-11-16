@@ -19,7 +19,7 @@ import {
   errorResponseSchema,
   watchedTitleRequestSchema,
   watchedTitlesResponseSchema,
-} from '@nn-anime/core'
+} from '@rona/core'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
 

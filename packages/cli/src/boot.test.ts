@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
+import { openDb, runMigrations } from '@rona/catalog-store'
 import {
   AppError,
   type ConfigPaths,
@@ -10,9 +10,9 @@ import {
   type ProviderError,
   parseBootLine,
   RECOMMENDED_PROVIDER_REPO,
-} from '@nn-anime/core'
-import { type Provider, providerFailure } from '@nn-anime/provider-sdk'
-import { createContainer, type RunningServer, saveRepoRecords } from '@nn-anime/server'
+} from '@rona/core'
+import { type Provider, providerFailure } from '@rona/provider-sdk'
+import { createContainer, type RunningServer, saveRepoRecords } from '@rona/server'
 import { type CliOptions, parseArgs } from './args'
 import {
   boot,
@@ -109,7 +109,7 @@ function harness(outcome: {
 const HEALTHY_MIGRATE: Migrate = async () => ({ ok: true })
 
 async function withTempHome<T>(body: (home: string) => Promise<T>): Promise<T> {
-  const home = await mkdtemp(join(tmpdir(), 'nn-anime-boot-'))
+  const home = await mkdtemp(join(tmpdir(), 'rona-boot-'))
 
   try {
     return await body(home)
@@ -242,7 +242,7 @@ describe('arranque correcto', () => {
     })
   })
 
-  test('NN_ANIME_NO_OPEN no abre el navegador', async () => {
+  test('RONA_NO_OPEN no abre el navegador', async () => {
     await withTempHome(async (home) => {
       const target = harness({})
 
@@ -316,7 +316,7 @@ describe('arranque correcto', () => {
         }),
       )
 
-      expect(target.err.join('\n')).toContain('NN_ANIME_PUBLIC_ORIGIN')
+      expect(target.err.join('\n')).toContain('RONA_PUBLIC_ORIGIN')
     })
   })
 })
@@ -835,7 +835,7 @@ describe('proveedores activos', () => {
       )
 
       expect(seen).toHaveLength(1)
-      expect(seen[0]?.endsWith(join('nn-anime', 'providers'))).toBe(true)
+      expect(seen[0]?.endsWith(join('rona', 'providers'))).toBe(true)
     })
   })
 
@@ -975,7 +975,7 @@ export default provider
 
   test('los archivos habilitados se le pasan al cargador, y salen en la lista', async () => {
     await withTempHome(async (home) => {
-      const dir = await mkdtemp(join(tmpdir(), 'nn-anime-boot-repos-'))
+      const dir = await mkdtemp(join(tmpdir(), 'rona-boot-repos-'))
       const file = join(dir, 'repos', 'zxuru__nn-anime-plugins', STAMP, 'jkanime.ts')
       const target = harness({})
       const lifecycle = createLifecycle()
@@ -1015,7 +1015,7 @@ export default provider
 
   test('un archivo habilitado que ya no está no impide arrancar', async () => {
     await withTempHome(async (home) => {
-      const dir = await mkdtemp(join(tmpdir(), 'nn-anime-boot-repos-'))
+      const dir = await mkdtemp(join(tmpdir(), 'rona-boot-repos-'))
       const target = harness({})
       const lifecycle = createLifecycle()
       let recibidos: readonly string[] | undefined

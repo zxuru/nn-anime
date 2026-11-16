@@ -17,7 +17,7 @@
  * por qué falló.
  */
 
-import type { TicketStore } from '@nn-anime/media-proxy'
+import type { TicketStore } from '@rona/media-proxy'
 import type { MiddlewareHandler } from 'hono'
 import { readCookie } from '../cookies'
 import type { SessionStore } from '../session'

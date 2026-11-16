@@ -11,8 +11,8 @@
  * nadie quiere oír.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { SkipInterval } from '@nn-anime/core/schema'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { SkipInterval } from '@rona/core/schema'
 import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
 import { t } from '../../i18n'
 import { formatTime, spokenTime } from './controls'

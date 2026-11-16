@@ -187,9 +187,9 @@ y la fila de novedades ya salen del feed.
 ## Enmiendas aplicadas a specs aprobados (aprobadas el 2026-10-11)
 
 1. **Las dos rutas viven en `docs/specs/SPEC-web-ui.md`**, que es donde estaba la lista de rutas, y
-   no en `SPEC-nn-anime.md` como decía esta propuesta: su sección «Contrato HTTP» describe las
+   no en `SPEC-rona.md` como decía esta propuesta: su sección «Contrato HTTP» describe las
    formas compartidas, no el catálogo de rutas. Aplicado allí.
-2. `docs/specs/SPEC-nn-anime.md` §Data Model: `feed_cache` como tabla posterior y fila
+2. `docs/specs/SPEC-rona.md` §Data Model: `feed_cache` como tabla posterior y fila
    `feed de novedades | 1800 | caché normal` en la tabla de TTL. Aplicado.
 3. `docs/specs/SPEC-provider-core.md` §Contrato: capacidad `feed` (con valor por defecto `false`),
    `getFeed` opcional y `FeedEntry`. Aplicado.
@@ -197,7 +197,7 @@ y la fila de novedades ya salen del feed.
    `getTrending` y `getFeed`». Estaba escrita en el encabezado de
    `packages/server/src/recommend/signals.ts` —donde se aplicó— y en `docs/specs/SPEC-recsys.md`,
    cuyo punto 7 sobre el arranque en frío se amplió con los candidatos de `search_cache`. No estaba
-   en `SPEC-nn-anime.md`.
+   en `SPEC-rona.md`.
 5. `docs/specs/SPEC-web-ui.md` §Contrato: rutas nuevas y la home descrita como «recomendaciones,
    novedades, último añadido, continuar, favoritos, tendencias y géneros». Aplicado.
 6. `README.md`: la home gana las dos filas y la nota de la parrilla semanal se matiza — el feed da

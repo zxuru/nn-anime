@@ -35,7 +35,7 @@ function servidor(mapa: Readonly<Record<string, string>>): FetchLike {
 }
 
 async function conRaiz<T>(body: (root: string) => Promise<T>): Promise<T> {
-  const root = await mkdtemp(join(tmpdir(), 'nn-anime-motor-'))
+  const root = await mkdtemp(join(tmpdir(), 'rona-motor-'))
 
   try {
     return await body(root)

@@ -6,7 +6,7 @@
 
 
 Module id: `provider-core` · Depende de: `core` · Paquetes: `packages/provider-sdk`, `packages/server`
-Convenciones heredadas de `SPEC-nn-anime.md`. Este documento define el contrato que todos los
+Convenciones heredadas de `SPEC-rona.md`. Este documento define el contrato que todos los
 proveedores deben cumplir.
 
 ## Objective
@@ -17,7 +17,7 @@ sitios sin licencia; publica la interfaz, el loader y un proveedor de prueba.
 
 Éxito significa:
 
-1. Un archivo en `~/.config/nn-anime/providers/` que exporte un `Provider` válido aparece en
+1. Un archivo en `~/.config/rona/providers/` que exporte un `Provider` válido aparece en
    la aplicación sin recompilar y sin tocar el repo.
 2. La búsqueda consulta todos los proveedores activos en paralelo y muestra los resultados
    aunque uno de ellos falle o tarde más de lo permitido.
@@ -186,8 +186,8 @@ export interface SubtitleTrack {
 Forma del archivo de plugin. Módulo ESM, sin build step, cargado con `import()` dinámico:
 
 ```ts
-// ~/.config/nn-anime/providers/ejemplo.ts
-import type { Provider } from 'nn-anime/provider-sdk'
+// ~/.config/rona/providers/ejemplo.ts
+import type { Provider } from '@rona/provider-sdk'
 
 const provider: Provider = {
   id: 'ejemplo',
@@ -336,7 +336,7 @@ propios plugins. El proyecto se verifica de punta a punta con `providers-fixture
 
 ## Open Questions
 
-1. ¿Se publica `nn-anime/provider-sdk` como paquete npm para que los autores de plugins tengan
+1. ¿Se publica `@rona/provider-sdk` como paquete npm para que los autores de plugins tengan
    tipos, o basta una ruta de importación resuelta por el loader? La decisión de distribución del
    proyecto es publicar en npm en v1.5, así que se propone publicarlo.
 2. ¿Hace falta un caché de resolución de streams en disco, o el TTL de 600 s en `catalog-store`

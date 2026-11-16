@@ -1,5 +1,5 @@
 ---
-name: nn-anime
+name: RoNa
 description: La vitrina a oscuras — un catálogo que vive en tu equipo, con el arte dibujado y los mandos medidos.
 colors:
   ink: "#08080a"
@@ -113,7 +113,7 @@ components:
     rounded: "{rounded.md}"
 ---
 
-# Sistema de diseño: nn-anime
+# Sistema de diseño: RoNa
 
 > Los encabezados van en inglés porque el formato DESIGN.md los empareja por nombre exacto y las
 > herramientas que lo leen dependen de esa cadena. La prosa va en español, como el resto del

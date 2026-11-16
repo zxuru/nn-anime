@@ -1,5 +1,5 @@
 /**
- * Superficie pública de `@nn-anime/catalog-store`.
+ * Superficie pública de `@rona/catalog-store`.
  *
  * Este paquete es el único dueño del estado persistente y el único que abre
  * SQLite. Expone la base y las migraciones, los repositorios —que son piezas

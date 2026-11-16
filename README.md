@@ -1,4 +1,4 @@
-# nn-anime
+# RoNa
 
 Ver anime desde el navegador, con una interfaz que se lanza desde la terminal —como `ani-cli`— y que
 aprende de lo que ves para recomendarte. Todo local: **no hay servidor central, ni cuentas, ni
@@ -30,7 +30,7 @@ telemetría.**
   no es lo mismo—. Se consulta `graphql.anilist.co` directamente, con lista blanca de hosts, un
   presupuesto de una petición cada dos segundos y caché con TTL en la base local; sus términos se
   respetan no pidiendo nada que no esté en pantalla. La ficha se enriquece con su sinopsis, sus
-  géneros, su nota y su portada cuando la obra está emparejada, y `NN_ANIME_ANILIST_OFFLINE=1` apaga
+  géneros, su nota y su portada cuando la obra está emparejada, y `RONA_ANILIST_OFFLINE=1` apaga
   esa salida (lo usa el arnés de pruebas, que no puede depender de un tercero).
 - **TMDB, opcional, para las películas y las series de acción real**, que no están en AniList: una
   clave en **Ajustes** completa su sinopsis, sus géneros y su año. Se guarda en la base local, no se
@@ -59,7 +59,7 @@ telemetría.**
   comparten el juego de iconos del resto.
 - **Watch party (experimental, apagado por defecto)**: una sala donde varias instancias reproducen
   el mismo episodio a la vez, cada una desde su fuente. Se sincroniza **sólo el estado** —posición,
-  pausa y velocidad—, nunca el vídeo. Se enciende con `NN_ANIME_PARTY=1`; el anfitrión necesita el
+  pausa y velocidad—, nunca el vídeo. Se enciende con `RONA_PARTY=1`; el anfitrión necesita el
   modo servidor para que la sala se alcance por LAN, y el invitado entra desde su propia instancia.
   Sin servidor central, sin cuentas y sin persistencia.
 
@@ -67,26 +67,26 @@ telemetría.**
 
 **No hace falta instalar nada más**: ni Node, ni Bun, ni Python. Cada descarga trae dentro el
 programa entero —la interfaz, el servidor y la base de datos—, y todo está en
-[la página de Releases](https://github.com/zxuru/nn-anime/releases).
+[la página de Releases](https://github.com/zxuru/rona/releases).
 
 | Sistema | Archivo |
 |---|---|
-| Windows x64 | `nn-anime-X.Y.Z-windows-x64.exe` |
-| macOS, chip de Apple | `nn-anime-X.Y.Z-macos-arm64.zip` |
-| macOS, Intel | `nn-anime-X.Y.Z-macos-x64.zip` |
-| Linux x64 | `nn-anime-X.Y.Z-linux-x64.AppImage` |
+| Windows x64 | `rona-X.Y.Z-windows-x64.exe` |
+| macOS, chip de Apple | `rona-X.Y.Z-macos-arm64.zip` |
+| macOS, Intel | `rona-X.Y.Z-macos-x64.zip` |
+| Linux x64 | `rona-X.Y.Z-linux-x64.AppImage` |
 
 Todas las entregas son portables: se descargan, se ejecutan y ya está. Ninguna instala nada, deja
 accesos ni escribe un desinstalador.
 
 ### Windows: un solo archivo
 
-Descarga `nn-anime-X.Y.Z-windows-x64.exe`, ponlo donde quieras y ejecútalo. **No instala nada** y no
+Descarga `rona-X.Y.Z-windows-x64.exe`, ponlo donde quieras y ejecútalo. **No instala nada** y no
 deja accesos: el mismo archivo lleva dentro la interfaz, el servidor y la base. Al abrirlo aparece su
 ventana, con la aplicación dentro y sin ninguna consola de por medio.
 
 Por defecto los datos —la base, los ajustes, los plugins y el perfil del webview— van a
-`%LOCALAPPDATA%\nn-anime-data`, **fuera** de la carpeta del `.exe`, así que sobreviven a moverlo,
+`%LOCALAPPDATA%\rona-data`, **fuera** de la carpeta del `.exe`, así que sobreviven a moverlo,
 borrarlo o actualizarlo. Si prefieres que viajen con él —una memoria USB, una carpeta portátil—, crea
 un archivo vacío llamado `portable.txt` **al lado** del ejecutable: entonces todo se guarda ahí (`bin`,
 `config`, `cache`, `webview` y la base).
@@ -120,12 +120,12 @@ queda el aviso con el enlace a la release. Si el medio es de sólo lectura o el 
 lo mismo.
 
 Tus datos nunca viajan dentro del `.exe`: la base, los ajustes y los plugins viven en
-`%LOCALAPPDATA%\nn-anime-data` —o en la carpeta del ejecutable si hay un `portable.txt`—, así que
+`%LOCALAPPDATA%\rona-data` —o en la carpeta del ejecutable si hay un `portable.txt`—, así que
 mover, borrar o actualizar el archivo no los toca.
 
 ### macOS
 
-Descomprime el `.zip` y mueve **nn-anime** a la carpeta que quieras —Aplicaciones o cualquier otra—.
+Descomprime el `.zip` y mueve **RoNa** a la carpeta que quieras —Aplicaciones o cualquier otra—.
 Hay un `.zip` por arquitectura: `arm64` para los Mac con chip de Apple y `x64` para los Intel. Cuál es
 el tuyo se ve en el menú Apple → «Acerca de este Mac».
 
@@ -143,7 +143,7 @@ ventana y la bandeja funcionan como en Windows: **la X la oculta** y «Salir» l
 ### Linux
 
 Descarga el **AppImage**, dale permiso de ejecución y lánzalo:
-`chmod +x nn-anime-X.Y.Z-linux-x64.AppImage && ./nn-anime-X.Y.Z-linux-x64.AppImage`. No instala nada
+`chmod +x rona-X.Y.Z-linux-x64.AppImage && ./rona-X.Y.Z-linux-x64.AppImage`. No instala nada
 ni toca el sistema.
 
 Sin argumentos abre **la ventana**, sin ninguna terminal de por medio, y la bandeja funciona como en
@@ -202,17 +202,17 @@ con `EPERM` y las pruebas lo declaran en lugar de fingir que midieron.
 
 ## Docker y servidor
 
-Además del uso local, nn-anime se puede desplegar como contenedor en un servidor, un NAS o una LAN:
+Además del uso local, RoNa se puede desplegar como contenedor en un servidor, un NAS o una LAN:
 
 ```bash
-docker build -t nn-anime:local .
+docker build -t rona:local .
 docker run -d -p 127.0.0.1:8080:8080 \
-  -e NN_ANIME_TOKEN="$(openssl rand -base64 32)" \
-  -v nn-anime-data:/data nn-anime:local
+  -e RONA_TOKEN="$(openssl rand -base64 32)" \
+  -v rona-data:/data rona:local
 ```
 
 La imagen escucha en `0.0.0.0:8080`, guarda todo en `/data` y **no incluye ningún plugin**. Fuera de
-loopback exige `NN_ANIME_TOKEN`: sin él, el arranque se niega. Con token, la interfaz y la API piden
+loopback exige `RONA_TOKEN`: sin él, el arranque se niega. Con token, la interfaz y la API piden
 la cookie que se consigue en `/login`; `/healthz` es lo único público.
 
 **No la expongas a Internet sin token y sin TLS delante.** Los plugins se ejecutan sin sandbox, y
@@ -228,12 +228,12 @@ Está apagada por defecto.
 **Anfitrión:** escucha en la LAN y enciende la función.
 
 ```bash
-export NN_ANIME_TOKEN="$(openssl rand -base64 32)"
-NN_ANIME_HOST=0.0.0.0 NN_ANIME_PARTY=1 bun run start
+export RONA_TOKEN="$(openssl rand -base64 32)"
+RONA_HOST=0.0.0.0 RONA_PARTY=1 bun run start
 ```
 
 Abre el episodio, pulsa **Ver juntos** y comparte el código de 16 caracteres y una de las direcciones
-que enseña el panel. **Invitado:** arranca su propia instancia con `NN_ANIME_PARTY=1`, abre el mismo
+que enseña el panel. **Invitado:** arranca su propia instancia con `RONA_PARTY=1`, abre el mismo
 episodio, pulsa **Unirse** y escribe la dirección del anfitrión y el código. Su servidor habla con el
 del anfitrión; su pestaña no cruza orígenes y no recibe la sesión del anfitrión.
 
@@ -279,25 +279,25 @@ la aplicación descargada, no hace falta nada.
 
 | Qué | Linux y macOS | Windows |
 |---|---|---|
-| Datos y base de datos | `~/.local/share/nn-anime/` | `%LOCALAPPDATA%\nn-anime\` (CLI) · `%LOCALAPPDATA%\nn-anime-data\` (ventana) |
-| Copias de seguridad | `~/.local/share/nn-anime/backups/` | `%LOCALAPPDATA%\nn-anime\backups\` · `%LOCALAPPDATA%\nn-anime-data\backups\` |
-| Configuración | `~/.config/nn-anime/` | `%APPDATA%\nn-anime\` |
-| Tus plugins | `~/.config/nn-anime/providers/` | `%APPDATA%\nn-anime\providers\` |
-| Repositorios de proveedores descargados | `~/.local/share/nn-anime/repos/` | `%LOCALAPPDATA%\nn-anime\repos\` |
-| Caché | `~/.cache/nn-anime/` | `%LOCALAPPDATA%\nn-anime\cache\` |
-| Descargas (por defecto) | `~/.local/share/nn-anime/downloads/` | `%LOCALAPPDATA%\nn-anime\downloads\` |
+| Datos y base de datos | `~/.local/share/rona/` | `%LOCALAPPDATA%\rona\` (CLI) · `%LOCALAPPDATA%\rona-data\` (ventana) |
+| Copias de seguridad | `~/.local/share/rona/backups/` | `%LOCALAPPDATA%\rona\backups\` · `%LOCALAPPDATA%\rona-data\backups\` |
+| Configuración | `~/.config/rona/` | `%APPDATA%\rona\` |
+| Tus plugins | `~/.config/rona/providers/` | `%APPDATA%\rona\providers\` |
+| Repositorios de proveedores descargados | `~/.local/share/rona/repos/` | `%LOCALAPPDATA%\rona\repos\` |
+| Caché | `~/.cache/rona/` | `%LOCALAPPDATA%\rona\cache\` |
+| Descargas (por defecto) | `~/.local/share/rona/downloads/` | `%LOCALAPPDATA%\rona\downloads\` |
 
 La tabla es la del **CLI** (`bun run start`). La **ventana** fija los tres directorios bajo una sola
-raíz: `%LOCALAPPDATA%\nn-anime-data` en Windows —hermana de la carpeta que usaban las versiones
-instaladas, para que la actualización no comparta sitio con la base— y `~/.local/share/nn-anime` —o
+raíz: `%LOCALAPPDATA%\rona-data` en Windows —hermana de la carpeta que usaban las versiones
+instaladas, para que la actualización no comparta sitio con la base— y `~/.local/share/RoNa` —o
 `XDG_DATA_HOME`— en macOS y Linux, con `config`, `cache`, `bin` (el servidor), `webview` y `backups`
-dentro. Las instalaciones anteriores de Windows guardaban los datos dentro de `%LOCALAPPDATA%\nn-anime`
+dentro. Las instalaciones anteriores de Windows guardaban los datos dentro de `%LOCALAPPDATA%\RoNa`
 y se trasladan una sola vez al arrancar. En modo portable (`portable.txt`) esa raíz es la carpeta del
 `.exe`. Las rutas exactas en uso se ven en **Ajustes**, dentro de la aplicación.
 
 Las variables de entorno que lee la aplicación están inventariadas en `.env.example`, sin ningún valor
 real. En el uso local ninguna es obligatoria y ninguna lleva un secreto: los directorios se pueden
-cambiar por ahí, y también `NN_ANIME_LANG` para el idioma. En modo servidor, `NN_ANIME_TOKEN` **es
+cambiar por ahí, y también `RONA_LANG` para el idioma. En modo servidor, `RONA_TOKEN` **es
 obligatorio fuera de loopback y es un secreto**: no se escribe en `.env.example`, se pone en el entorno
 del despliegue o en un `.env` local. Copiar el archivo a `.env` es opcional; Bun lo carga solo.
 
@@ -319,7 +319,7 @@ hermano sigue funcionando.
 
 ## Este repositorio no incluye scrapers
 
-nn-anime **no incluye ningún scraper** de sitios de video, ni torrents, ni protocolos de pares, ni
+RoNa **no incluye ningún scraper** de sitios de video, ni torrents, ni protocolos de pares, ni
 alojamiento de contenido. Lo que hay es:
 
 - Un **contrato de plugin** (`packages/provider-sdk`) que cualquiera puede implementar.
@@ -332,7 +332,7 @@ uno que respete las condiciones del sitio del que salen los datos.
 
 Los proveedores que escribimos para sitios reales no viven aquí, viven en su propio repositorio:
 [nn-anime-plugins](https://github.com/zxuru/nn-anime-plugins). Se copian a
-`~/.config/nn-anime/providers/` y la aplicación los carga al arrancar. La separación es deliberada: es
+`~/.config/rona/providers/` y la aplicación los carga al arrancar. La separación es deliberada: es
 lo que permite que este repositorio siga sin incluir un solo scraper.
 
 ## Cómo está hecho: el stack
@@ -391,7 +391,7 @@ dice una versión y unos artefactos que dicen otra—.
    publica**. Es el único workflow que publica.
 
 No hay que tocar nada a mano, **salvo la primera vez**: no hay ningún tag del que partir, así que
-`v0.1.0` se crea a mano (`git tag -a v0.1.0 -m "nn-anime 0.1.0" && git push origin v0.1.0`) y desde
+`v0.1.0` se crea a mano (`git tag -a v0.1.0 -m "RoNa 0.1.0" && git push origin v0.1.0`) y desde
 ahí `release-please` lleva el resto. Para probar la cadena de empaquetado sin publicar está
 **Actions → Release → Run workflow** con «publish» sin marcar: compila todo y deja los artefactos en
 el resumen del workflow, sin gastar un número de versión. Si hay que subir la versión a mano —un
@@ -416,7 +416,7 @@ sistema que cuenta la sección de instalación.
 | [SECURITY.md](SECURITY.md) | Modelo de amenaza, mitigaciones y riesgos residuales |
 | [docs/a11y.md](docs/a11y.md) | Qué se comprueba de accesibilidad y qué no |
 | [docs/PLAN-B-HLS.md](docs/PLAN-B-HLS.md) | Por qué HLS se queda en v1 |
-| [docs/specs/SPEC-nn-anime.md](docs/specs/SPEC-nn-anime.md) | El spec del proyecto, con las decisiones |
+| [docs/specs/SPEC-rona.md](docs/specs/SPEC-rona.md) | El spec del proyecto, con las decisiones |
 | [docs/specs/CAPABILITY-MAP.md](docs/specs/CAPABILITY-MAP.md) | Qué módulo hace qué |
-| [docs/estudio-busqueda-ani-cli-mx.md](docs/estudio-busqueda-ani-cli-mx.md) | Cómo busca ani-cli-mx —anime y películas—, en qué se diferencia de nn-anime y la receta para los plugins |
+| [docs/estudio-busqueda-ani-cli-mx.md](docs/estudio-busqueda-ani-cli-mx.md) | Cómo busca ani-cli-mx —anime y películas—, en qué se diferencia de RoNa y la receta para los plugins |
 | [docs/estudio-tauri.md](docs/estudio-tauri.md) | La ventana propia encima de lo que ya se empaqueta: qué falta, qué se midió y en qué orden |

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { ProviderRef } from '@nn-anime/core/models'
+import type { ProviderRef } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { BotonDeDescarga, DownloadButton } from './DownloadButton'

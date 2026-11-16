@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 /**
  * Frontera entre la interfaz y `core`.
  *
- * El barril de `@nn-anime/core` reexporta `config.ts` y `settings.ts`, que leen
+ * El barril de `@rona/core` reexporta `config.ts` y `settings.ts`, que leen
  * el sistema de archivos. Importarlo desde un componente no falla en los tests
  * —Bun sí tiene `node:fs`— pero **rompe el build del navegador**, y el error que
  * da habla de `isAbsolute` y de un módulo externo, no de la línea que lo causó.
@@ -43,9 +43,7 @@ describe('importaciones de la interfaz', () => {
 
     for (const file of files) {
       const text = await Bun.file(join(ROOT, file)).text()
-      expect(text, `${file} importa el barril de @nn-anime/core`).not.toMatch(
-        /from '@nn-anime\/core'/,
-      )
+      expect(text, `${file} importa el barril de @rona/core`).not.toMatch(/from '@rona\/core'/)
     }
   })
 
@@ -57,7 +55,7 @@ describe('importaciones de la interfaz', () => {
 
     for (const file of await sourceFiles()) {
       const text = await Bun.file(join(ROOT, file)).text()
-      for (const match of text.matchAll(/from '@nn-anime\/core\/([a-z-]+)'/g)) {
+      for (const match of text.matchAll(/from '@rona\/core\/([a-z-]+)'/g)) {
         const subruta = `./${match[1]}`
         expect(declaradas, `${file} usa ${subruta}`).toContain(subruta)
       }

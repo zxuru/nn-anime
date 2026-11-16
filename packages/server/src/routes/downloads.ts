@@ -13,7 +13,7 @@
 
 import { mkdir, stat, statfs } from 'node:fs/promises'
 import { dirname, isAbsolute, resolve } from 'node:path'
-import type { CatalogStore, DownloadRecord } from '@nn-anime/catalog-store'
+import type { CatalogStore, DownloadRecord } from '@rona/catalog-store'
 import {
   downloadItemSchema,
   downloadSeriesRequestSchema,
@@ -28,15 +28,15 @@ import {
   type ProviderError,
   type ProviderRef,
   type Result,
-} from '@nn-anime/core'
+} from '@rona/core'
 import {
   createFfmpegRemux,
   createMuxRemux,
   findFfmpeg,
   insideRoot,
   type RemuxFn,
-} from '@nn-anime/media-proxy'
-import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
+} from '@rona/media-proxy'
+import type { CallOptions, Provider } from '@rona/provider-sdk'
 import type { Context, Hono } from 'hono'
 import type { ServerContainer } from '../container'
 import { listarCarpetas } from '../downloads/dirs'

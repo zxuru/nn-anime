@@ -1,6 +1,6 @@
 ---
 name: agente-worktree
-description: Un agente por worktree en nn-anime. Use al empezar cualquier task del repositorio, antes de escribir o editar código, y al terminarlo. Use también cuando el commit falle con «commit directo en main», cuando el índice parezca compartido con otra sesión, cuando haya que reclamar un task (T60, T26b), cerrar o integrar una rama, o cuando otro agente trabaje a la vez en el mismo repositorio.
+description: Un agente por worktree en RoNa. Use al empezar cualquier task del repositorio, antes de escribir o editar código, y al terminarlo. Use también cuando el commit falle con «commit directo en main», cuando el índice parezca compartido con otra sesión, cuando haya que reclamar un task (T60, T26b), cerrar o integrar una rama, o cuando otro agente trabaje a la vez en el mismo repositorio.
 ---
 
 # Un agente por worktree
@@ -23,7 +23,7 @@ Trabaja **dentro de `.worktrees/T60`**, no en la raíz del repositorio. Ahí hay
 
 ```bash
 cd .worktrees/T60 && bun install
-NN_ANIME_DATA_DIR=.worktrees/T60/.data bun run start -- --port 9060
+RONA_DATA_DIR=.worktrees/T60/.data bun run start -- --port 9060
 ```
 
 Sin eso, dos agentes comparten la base SQLite y aparece un `SQLITE_BUSY` que no es un fallo del
@@ -44,7 +44,7 @@ Rebasa sobre `main`, hace el merge, borra el worktree y libera el reclamo.
 ## Reglas que el gancho también vigila
 
 - **`main` no se toca a mano.** Un commit directo en `main` lo rechaza `.githooks/pre-commit`. El
-  integrador lo permite con `NN_ANIME_INTEGRADOR=1`.
+  integrador lo permite con `RONA_INTEGRADOR=1`.
 - **Un solo escritor por archivo compartido.** `tasks/todo.md` y `tasks/plan.md` los escribe el
   integrador; el agente deja su fragmento en `tasks/done/`.
 - **Un solo editor por spec.** Mientras un task toca un `docs/specs/SPEC-*.md`, ese spec queda
@@ -67,7 +67,7 @@ tubería de señales. Windows trae uno nativo que sí arranca, y basta apuntarle
 
 ```bash
 git config core.sshCommand 'C:/Windows/System32/OpenSSH/ssh.exe'
-git push --dry-run git@github.com:zxuru/nn-anime.git main:main   # comprueba, no publica nada
+git push --dry-run git@github.com:zxuru/rona.git main:main   # comprueba, no publica nada
 ```
 
 Con eso los `push` —incluidos los que tocan `.github/workflows/`, que por HTTPS exigen el alcance
@@ -96,7 +96,7 @@ integración no puedan.
   falla por lo mismo que `ssh`. En el sandbox se commitea con `--no-verify` y se respeta la regla a
   mano: nada se commitea en `main`. Las dos pruebas de integración de `scripts/git-hooks.test.ts`
   se saltan solas cuando miden que el gancho no puede ejecutarse (en CI corren enteras).
-- **`bun install` en el worktree no termina**: los enlaces simbólicos de los `@nn-anime/*` y de
+- **`bun install` en el worktree no termina**: los enlaces simbólicos de los `@rona/*` y de
   `.bin` los deniega el sandbox. El ciclo alternativo, con un solo agente por repositorio: rama en
   la raíz (`git checkout -b tarea/T60 main`), verificar ahí (`bun run typecheck`, `bun run lint`,
   `bun test`), commitear con la lista de rutas e integrar a `main` con `--no-ff`. El reclamo y la

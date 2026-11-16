@@ -28,13 +28,11 @@ describe('argumentos de mpv', () => {
   test('las cabeceras van en un solo argumento, con el formato del spec', () => {
     const args = argumentos({
       url: 'http://127.0.0.1:7717/stream/abc',
-      headers: { Referer: 'https://sitio.example', 'User-Agent': 'nn-anime' },
+      headers: { Referer: 'https://sitio.example', 'User-Agent': 'rona' },
     })
     const cabeceras = args.find((arg) => arg.startsWith(HEADER_FIELD_FLAG))
 
-    expect(cabeceras).toBe(
-      '--http-header-fields=Referer: https://sitio.example,User-Agent: nn-anime',
-    )
+    expect(cabeceras).toBe('--http-header-fields=Referer: https://sitio.example,User-Agent: rona')
   })
 
   test('sin cabeceras no se añade el argumento', () => {

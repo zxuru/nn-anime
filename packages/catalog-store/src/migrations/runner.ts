@@ -18,7 +18,7 @@
 import type { Database } from 'bun:sqlite'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { StoreError } from '@nn-anime/core'
+import { StoreError } from '@rona/core'
 
 /** Nombre de archivo de una migración: cuatro dígitos, guion y nombre. */
 const MIGRATION_NAME = /^(\d{4})-([a-z0-9-]+)\.sql$/

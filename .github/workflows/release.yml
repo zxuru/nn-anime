@@ -148,8 +148,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: ${{ needs.comprobar.outputs.publicar == 'true' }}
           tags: |
-            ghcr.io/zxuru/nn-anime:${{ needs.comprobar.outputs.version }}
-            ghcr.io/zxuru/nn-anime:latest
+            ghcr.io/zxuru/rona:${{ needs.comprobar.outputs.version }}
+            ghcr.io/zxuru/rona:latest
           labels: |
             org.opencontainers.image.version=${{ needs.comprobar.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -159,9 +159,9 @@ jobs:
           # las suyas. `type=gha` sin `scope` comparte un único espacio por repositorio y las
           # dos builds se pisan el índice.
           cache-from: |
-            type=gha,scope=nn-anime-release
-            type=gha,scope=nn-anime-ci
-          cache-to: type=gha,mode=max,scope=nn-anime-release
+            type=gha,scope=rona-release
+            type=gha,scope=rona-ci
+          cache-to: type=gha,mode=max,scope=rona-release
 
   # Un artefacto portable por plataforma. La firma va aquí dentro y es **condicional**: si el
   # secreto no está, el artefacto sale sin firmar, con las advertencias normales del sistema. Una
@@ -258,7 +258,7 @@ jobs:
         run: |
           # Se escribe a un archivo temporal y se borra al final. El contenido del certificado y su
           # contraseña no se imprimen nunca: lo que se enseña es que existe.
-          $ruta = Join-Path $env:RUNNER_TEMP 'nn-anime.pfx'
+          $ruta = Join-Path $env:RUNNER_TEMP 'rona.pfx'
           [IO.File]::WriteAllBytes($ruta, [Convert]::FromBase64String($env:PFX_BASE64))
           "PFX_PATH=$ruta" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -284,7 +284,7 @@ jobs:
           # El servidor se firma **antes** de que el anfitrión lo embeba: `include_bytes!`
           # copia los bytes tal cual, así que un servidor firmado después no llegaría
           # firmado al `.exe` único.
-          $ruta = 'build\package\windows-x64\nn-anime.exe'
+          $ruta = 'build\package\windows-x64\rona.exe'
           if (-not (Test-Path $ruta)) { throw "no está el servidor que hay que firmar: $ruta" }
 
           & $signtool.FullName sign /f "$env:PFX_PATH" /p "$env:PFX_PASSWORD" /fd SHA256 `
@@ -314,7 +314,7 @@ jobs:
 
           # El `.exe` único es una copia del anfitrión, así que los dos heredan la
           # firma de este paso.
-          $ruta = 'desktop\src-tauri\target\x86_64-pc-windows-msvc\release\nn-anime-desktop.exe'
+          $ruta = 'desktop\src-tauri\target\x86_64-pc-windows-msvc\release\rona-desktop.exe'
           if (-not (Test-Path $ruta)) { throw "no está el anfitrión que hay que firmar: $ruta" }
 
           & $signtool.FullName sign /f "$env:PFX_PATH" /p "$env:PFX_PASSWORD" /fd SHA256 `
@@ -332,7 +332,7 @@ jobs:
           P12_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
         run: |
           set -euo pipefail
-          keychain="$RUNNER_TEMP/nn-anime.keychain"
+          keychain="$RUNNER_TEMP/rona.keychain"
           password="$(uuidgen)"
 
           echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/certificado.p12"
@@ -398,7 +398,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          $unico = Get-ChildItem release -Filter 'nn-anime-*-windows-x64.exe' | Select-Object -First 1
+          $unico = Get-ChildItem release -Filter 'rona-*-windows-x64.exe' | Select-Object -First 1
           if (-not $unico) { throw 'no hay archivo único que firmar' }
           bun tauri signer sign --app-version ${{ needs.comprobar.outputs.version }} $unico.FullName
           if (-not (Test-Path "$($unico.FullName).sig")) { throw 'no se generó la firma del .exe único' }
@@ -410,7 +410,7 @@ jobs:
         if: runner.os == 'Windows' && env.FIRMAR_UPDATER == 'true'
         shell: pwsh
         run: |
-          $unico = Get-ChildItem release -Filter 'nn-anime-*-windows-x64.exe' | Select-Object -First 1
+          $unico = Get-ChildItem release -Filter 'rona-*-windows-x64.exe' | Select-Object -First 1
           if (-not $unico) { throw 'no hay archivo único para latest.json' }
           if (-not (Test-Path "$($unico.FullName).sig")) { throw 'falta la firma del archivo único' }
 
@@ -425,13 +425,13 @@ jobs:
         # `build\package\…` pierde las barras.
         shell: pwsh
         run: |
-          bun run scripts/package/pe.ts build/package/windows-x64/nn-anime.exe console
-          bun run scripts/package/pe.ts desktop/src-tauri/target/x86_64-pc-windows-msvc/release/nn-anime-desktop.exe windows
+          bun run scripts/package/pe.ts build/package/windows-x64/rona.exe console
+          bun run scripts/package/pe.ts desktop/src-tauri/target/x86_64-pc-windows-msvc/release/rona-desktop.exe windows
 
           # Y el archivo único: mismo subsistema `windows` que el anfitrión, porque
           # es su copia. Si el nombre del artefacto cambia, esto falla aquí y no en
           # la página de descargas.
-          $unico = Get-ChildItem -Path release -Filter 'nn-anime-*-windows-x64.exe' | Select-Object -First 1
+          $unico = Get-ChildItem -Path release -Filter 'rona-*-windows-x64.exe' | Select-Object -First 1
           if (-not $unico) { throw 'no hay .exe único en release/' }
           bun run scripts/package/pe.ts "$($unico.FullName)" windows
 
@@ -479,7 +479,7 @@ jobs:
       - name: Enseñar qué se va a publicar
         run: |
           {
-            echo "### nn-anime ${{ needs.comprobar.outputs.version }}"
+            echo "### RoNa ${{ needs.comprobar.outputs.version }}"
             echo
             echo "| Archivo | Tamaño |"
             echo "|---|---|"

@@ -16,8 +16,8 @@
  * cosas distintas.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { MediaFilter } from '@nn-anime/core/media'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { MediaFilter } from '@rona/core/media'
 import { Clapperboard, type LucideIcon, Tv } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { IconLabel } from '../../components/IconLabel'

@@ -12,10 +12,10 @@
  * `capabilities.download` ni nace deshabilitado por lo que declare el plugin.
  */
 
-import type { DownloadSeriesResponse } from '@nn-anime/core/api'
-import { downloadSeriesResponseSchema } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { ProviderRef } from '@nn-anime/core/models'
+import type { DownloadSeriesResponse } from '@rona/core/api'
+import { downloadSeriesResponseSchema } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { ProviderRef } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { apiPostJson } from '../../api/client'

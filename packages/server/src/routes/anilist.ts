@@ -19,7 +19,7 @@
  * cuando no. La interfaz sólo decide qué enlace pintar.
  */
 
-import { refKey } from '@nn-anime/catalog-store'
+import { refKey } from '@rona/catalog-store'
 import type {
   AiringItem,
   AniListEntry,
@@ -29,7 +29,7 @@ import type {
   Enrichment,
   MediaFilter,
   ProviderRef,
-} from '@nn-anime/core'
+} from '@rona/core'
 import {
   airingResponseSchema,
   anilistImagePath,
@@ -40,15 +40,15 @@ import {
   enrichmentResponseSchema,
   errorResponseSchema,
   kindOfFormat,
-} from '@nn-anime/core'
+} from '@rona/core'
 import {
   type FetchLike,
   MAX_COVER_BYTES,
   proxyBytes,
   RASTER_TYPES,
   type Resolver,
-} from '@nn-anime/media-proxy'
-import type { Provider } from '@nn-anime/provider-sdk'
+} from '@rona/media-proxy'
+import type { Provider } from '@rona/provider-sdk'
 import type { Hono } from 'hono'
 import { localWorkOf } from '../adultos'
 import type { AniListCatalog } from '../anilist/catalog'

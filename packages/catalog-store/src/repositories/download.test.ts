@@ -17,8 +17,8 @@ const ALTA: NewDownload = {
 }
 
 async function conBase<T>(body: (db: Database) => T): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-descargas-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-descargas-'))
+  const db = openDb(join(dir, 'rona.db'))
 
   try {
     runMigrations(db)

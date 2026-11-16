@@ -30,7 +30,7 @@ import {
   partyInfoResponseSchema,
   partyRemoteSnapshotSchema,
   partySyncReplySchema,
-} from '@nn-anime/core/party'
+} from '@rona/core/party'
 import type { z } from 'zod'
 import { ApiError, ApiShapeError } from '../../api/client'
 

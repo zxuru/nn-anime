@@ -34,8 +34,8 @@
  * cuando la búsqueda ha cerrado —antes, un vacío no es una conclusión—.
  */
 
-import type { DiscoverItem } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import type { DiscoverItem } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { Cover } from '../../components/Cover'
 import { Grid, GridItem } from '../../components/Grid'

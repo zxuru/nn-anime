@@ -1,4 +1,4 @@
-# Roadmap de nn-anime
+# Roadmap de RoNa
 
 > Documento de origen de la fase siguiente a la v0.3.1. Lo escribió el humano y lo adopta el
 > repositorio aquí. La adaptación al estado **medido** —qué de la fase 0 ya está hecho y qué falla
@@ -16,7 +16,7 @@
 
 ## 0. Cómo usar este documento (instrucciones para el agente)
 
-1. Lee primero `AGENTS.md`, `README.md`, `docs/specs/SPEC-nn-anime.md` y
+1. Lee primero `AGENTS.md`, `README.md`, `docs/specs/SPEC-rona.md` y
    `docs/specs/CAPABILITY-MAP.md`.
 2. Trabaja **una tarea por rama** (hay un gancho que impide commitear en `main`; existe el skill
    `.agents/skills/agente-worktree`). Commits con Conventional Commits (`feat:`, `fix:`, `docs:`…),
@@ -39,7 +39,7 @@
 | Suite de pruebas | **3645 pasan, 0 fallan**, en 213 ficheros | `bun test` en este árbol |
 | Fase 0 (0.1–0.6) | **Cerrada** | 7 fragmentos de cierre en `tasks/done/`: T174–T180 |
 | Fase 1 (1.1–1.7) | **Cerrada** | 12 fragmentos de cierre en `tasks/done/`: T181, T182, T183, T183b–T183f, T184–T187 |
-| Fase 3 (watch party) | **Modo LAN implementado**, publicado en la 0.8.0 | 17 rutas `/api/party/*` en `packages/server/src/party/`; apagada sin `NN_ANIME_PARTY=1` |
+| Fase 3 (watch party) | **Modo LAN implementado**, publicado en la 0.8.0 | 17 rutas `/api/party/*` en `packages/server/src/party/`; apagada sin `RONA_PARTY=1` |
 | Fase 2A (manga) | **Sin abrir**: su primera tarea es un spec que **no existe** | `docs/specs/SPEC-manga.md` no está en el árbol; es la tarea T234 |
 
 Lo que hay hoy:
@@ -56,7 +56,7 @@ Lo que hay hoy:
   descargas, reproducción local, selector de carpeta en el escritorio y gestión de espacio.
 - **Watch party en modo LAN.** Una sala de visionado en la red local donde el invitado habla desde
   su propio servidor, con relevo del invitado. Está **apagada por defecto**: sin
-  `NN_ANIME_PARTY=1` no se registra ninguna ruta `/api/party/*`. Ver
+  `RONA_PARTY=1` no se registra ninguna ruta `/api/party/*`. Ver
   [`docs/watch-party.md`](watch-party.md) y la sección 4.
 - **Manga no está.** No hay spec, ni contrato de plugin, ni lector. `mediaType: 'manga'` está
   reservado en el modelo, pero no hay nada detrás.
@@ -77,12 +77,12 @@ la restricción.
   motores genéricos.
 - **El servidor escucha solo en `127.0.0.1` y exige token de arranque.** Cualquier función que
   abra la red (ver watch party) debe ser opt-in, avisar en la UI y tener su propio modelo de
-  amenaza en `SECURITY.md`. La sala de watch party es el ejemplo: sin `NN_ANIME_PARTY=1` no se
+  amenaza en `SECURITY.md`. La sala de watch party es el ejemplo: sin `RONA_PARTY=1` no se
   registra ninguna ruta `/api/party/*`.
 - **Los plugins se ejecutan sin sandbox**, con los permisos del usuario. No ampliar su superficie
   sin necesidad.
 - **AniList:** respetar sus términos (lista blanca de hosts, 1 petición cada 2 s, caché con TTL, no
-  acaparar datos). `NN_ANIME_ANILIST_OFFLINE=1` debe seguir funcionando en las pruebas.
+  acaparar datos). `RONA_ANILIST_OFFLINE=1` debe seguir funcionando en las pruebas.
 - Compatibilidad hacia atrás del contrato de plugin: `capabilities.media` ausente significa anime.
 
 ## 3. Resumen y prioridades
@@ -193,7 +193,7 @@ descargas de la fase 1 está listo para la 2.8.
 publicada en la 0.8.0**. El contrato y el modelo de amenaza están en
 [`docs/specs/SPEC-watch-party.md`](specs/SPEC-watch-party.md), el uso en
 [`docs/watch-party.md`](watch-party.md) y los riesgos residuales en
-[`SECURITY.md`](../SECURITY.md). La función está **apagada por defecto**: sin `NN_ANIME_PARTY=1` no
+[`SECURITY.md`](../SECURITY.md). La función está **apagada por defecto**: sin `RONA_PARTY=1` no
 se registra ninguna ruta `/api/party/*` y una petición a ellas es un 404.
 
 **Lo que ya hay** (medido en el árbol el 2026-11-14):
@@ -247,7 +247,7 @@ URLs de streams.
 - **Documentación:** README, guía de plugins (`docs/providers.md`) y changelog al día; el contrato
   de plugin versionado con notas de migración para quien escribe plugins.
 - **Accesibilidad:** `docs/a11y.md` al día con lector y reproductor.
-- **Idiomas:** cualquier texto nuevo pasa por el mecanismo de idioma existente (`NN_ANIME_LANG`).
+- **Idiomas:** cualquier texto nuevo pasa por el mecanismo de idioma existente (`RONA_LANG`).
 - **Empaquetado:** comprobar que el ejecutable único de Windows, los artefactos portables y el
   anfitrión Tauri siguen compilando tras cada fase.
 
@@ -256,7 +256,7 @@ URLs de streams.
 | ID | Decisión | Opciones | Estado o recomendación |
 |----|----------|----------|------------------------|
 | D1 | Metadatos de películas y series | TMDB con clave del propio usuario en Ajustes, o solo lo que entregue el plugin | **Decidida el 2026-10-26: clave opcional de TMDB en Ajustes, con el plugin como respaldo.** La clave no se devuelve en `GET /api/settings`; TMDB entra en la lista blanca y en `SECURITY.md` |
-| D2 | Formato de descarga HLS | Guardar playlist y segmentos y servirlos desde el proxy local, o remux a MP4 con ffmpeg opcional | **Decidida el 2026-10-26: MP4 primero.** Copia directa para fuentes `file`; remux con ffmpeg para HLS; si no hay ffmpeg, segmentos locales reproducibles sólo en la aplicación. El usuario quiere poder abrir lo descargado fuera de nn-anime |
+| D2 | Formato de descarga HLS | Guardar playlist y segmentos y servirlos desde el proxy local, o remux a MP4 con ffmpeg opcional | **Decidida el 2026-10-26: MP4 primero.** Copia directa para fuentes `file`; remux con ffmpeg para HLS; si no hay ffmpeg, segmentos locales reproducibles sólo en la aplicación. El usuario quiere poder abrir lo descargado fuera de RoNa |
 | D3 | Transporte de watch party remoto | WebRTC con señalización manual (copiar y pegar un código), relay autohospedable opcional, o túnel del propio usuario | **Abierta.** Recomendación: WebRTC con señalización manual, porque respeta «sin servidor central». Bloquea la 3.4, no el modo LAN |
 | D4 | Orden entre manga y watch party | Manga primero o watch party primero | Manga primero, por riesgo y por reutilizar el motor de descargas |
 | D5 | Formato de manga offline | CBZ (zip de imágenes, opcionalmente con `ComicInfo.xml`) o carpeta de imágenes | CBZ: un archivo por capítulo, interoperable con otros lectores |

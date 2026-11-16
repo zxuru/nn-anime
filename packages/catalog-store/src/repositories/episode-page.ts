@@ -22,7 +22,7 @@ import {
   episodeSchema,
   type ProviderRef,
   StoreError,
-} from '@nn-anime/core'
+} from '@rona/core'
 import { cacheHit, TTL_SECONDS } from '../cache-policy'
 import { animeIdOf } from './episodes'
 

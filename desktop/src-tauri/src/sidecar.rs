@@ -39,7 +39,7 @@ pub const SHUTDOWN_GRACE: Duration = Duration::from_secs(2);
 pub const SHUTDOWN_LINE: &str = "shutdown\n";
 
 /// El nombre del servidor, hermano del anfitrión.
-const SIDECAR_NAME: &str = "nn-anime";
+const SIDECAR_NAME: &str = "rona";
 
 /// El servidor que viaja **al lado** del anfitrión.
 ///
@@ -55,7 +55,7 @@ pub fn sibling_path() -> Option<PathBuf> {
 
 /// La variable con la que el CLI mueve su caché. Se respeta para que el registro
 /// del anfitrión caiga donde caen los datos, y no en un directorio inventado.
-pub const CACHE_DIR_ENV: &str = "NN_ANIME_CACHE_DIR";
+pub const CACHE_DIR_ENV: &str = "RONA_CACHE_DIR";
 
 /// `CREATE_NO_WINDOW` de Win32: el hermano es un binario de consola y sin esto
 /// asoma la consola negra que este módulo existe para quitar.
@@ -137,11 +137,11 @@ impl Sidecar {
     }
 }
 
-/// La ruta del servidor: `<raíz>\bin\<versión>\nn-anime.exe`.
+/// La ruta del servidor: `<raíz>\bin\<versión>\rona.exe`.
 ///
 /// Ya no es un hermano del ejecutable. El servidor viaja **dentro** del
 /// anfitrión y se extrae a la raíz de datos, que en el caso normal es
-/// `%LOCALAPPDATA%\nn-anime`. La versión va en la ruta para que una actualización
+/// `%LOCALAPPDATA%\rona`. La versión va en la ruta para que una actualización
 /// no pise la anterior mientras todavía se está escribiendo.
 pub fn sidecar_path(raiz: &Path) -> PathBuf {
     let sufijo = std::env::consts::EXE_SUFFIX;
@@ -263,13 +263,13 @@ pub fn cache_dir_from(env: impl Fn(&str) -> Option<String>) -> PathBuf {
     #[cfg(windows)]
     {
         if let Some(local) = env("LOCALAPPDATA").filter(|valor| !valor.trim().is_empty()) {
-            return PathBuf::from(local).join("nn-anime").join("cache");
+            return PathBuf::from(local).join("rona").join("cache");
         }
         if let Some(perfil) = env("USERPROFILE").filter(|valor| !valor.trim().is_empty()) {
             return PathBuf::from(perfil)
                 .join("AppData")
                 .join("Local")
-                .join("nn-anime")
+                .join("rona")
                 .join("cache");
         }
     }
@@ -277,16 +277,16 @@ pub fn cache_dir_from(env: impl Fn(&str) -> Option<String>) -> PathBuf {
     #[cfg(not(windows))]
     {
         if let Some(xdg) = env("XDG_CACHE_HOME").filter(|valor| !valor.trim().is_empty()) {
-            return PathBuf::from(xdg).join("nn-anime");
+            return PathBuf::from(xdg).join("rona");
         }
         if let Some(home) = env("HOME").filter(|valor| !valor.trim().is_empty()) {
-            return PathBuf::from(home).join(".cache").join("nn-anime");
+            return PathBuf::from(home).join(".cache").join("rona");
         }
     }
 
     // Sin nada de lo anterior queda el directorio temporal: un registro en el
     // sitio equivocado es mejor que no arrancar por no poder escribir el registro.
-    std::env::temp_dir().join("nn-anime")
+    std::env::temp_dir().join("rona")
 }
 
 /// Lanza el servidor de la ruta indicada, espera su línea de arranque y se queda
@@ -472,9 +472,9 @@ mod tests {
 
     #[test]
     fn el_nombre_del_hermano_es_el_del_servidor() {
-        assert_eq!(SIDECAR_NAME, "nn-anime");
+        assert_eq!(SIDECAR_NAME, "rona");
         // El anfitrión se llama distinto: los dos viven en el mismo directorio.
-        assert_ne!(SIDECAR_NAME, "nn-anime-desktop");
+        assert_ne!(SIDECAR_NAME, "rona-desktop");
     }
 
     #[test]

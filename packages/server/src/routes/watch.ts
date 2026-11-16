@@ -21,7 +21,7 @@ import {
   watchStartRequestSchema,
   watchStartResponseSchema,
   watchUpdateRequestSchema,
-} from '@nn-anime/core'
+} from '@rona/core'
 import type { Hono } from 'hono'
 import { sinMarcadas } from '../adultos'
 import type { ServerContainer } from '../container'

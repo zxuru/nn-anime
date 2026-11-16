@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { ProviderError } from '@nn-anime/core'
-import type { CallOptions } from '@nn-anime/provider-sdk'
+import { ProviderError } from '@rona/core'
+import type { CallOptions } from '@rona/provider-sdk'
 import { CATALOGO, cargarCatalogo, TITULO_CON_REFERER } from './data'
 import {
   createFixtureProvider,
@@ -28,7 +28,7 @@ describe('la capacidad de descarga', () => {
 
   test('el entorno puede encenderla para el arnés', () => {
     expect(fixtureOptionsFromEnv({})).not.toHaveProperty('download')
-    expect(fixtureOptionsFromEnv({ NN_ANIME_FIXTURE_DOWNLOAD: '1' })).toEqual({ download: true })
+    expect(fixtureOptionsFromEnv({ RONA_FIXTURE_DOWNLOAD: '1' })).toEqual({ download: true })
   })
 })
 
@@ -387,8 +387,8 @@ describe('opciones desde el entorno', () => {
   test('lee la latencia y los fallos por método', () => {
     expect(
       fixtureOptionsFromEnv({
-        NN_ANIME_FIXTURE_LATENCY_MS: '25',
-        NN_ANIME_FIXTURE_FAIL: 'search=http500,resolveStream=timeout',
+        RONA_FIXTURE_LATENCY_MS: '25',
+        RONA_FIXTURE_FAIL: 'search=http500,resolveStream=timeout',
       }),
     ).toEqual({
       latencyMs: 25,
@@ -397,10 +397,10 @@ describe('opciones desde el entorno', () => {
   })
 
   test('el feed también se puede forzar desde el entorno', () => {
-    // Sin esto, `NN_ANIME_FIXTURE_FAIL=getFeed=throws` se ignoraba en silencio: la
+    // Sin esto, `RONA_FIXTURE_FAIL=getFeed=throws` se ignoraba en silencio: la
     // lista de métodos del entorno es una segunda lista de métodos del contrato, y
     // es justo donde se olvida el que se añade.
-    expect(fixtureOptionsFromEnv({ NN_ANIME_FIXTURE_FAIL: 'getFeed=throws' })).toEqual({
+    expect(fixtureOptionsFromEnv({ RONA_FIXTURE_FAIL: 'getFeed=throws' })).toEqual({
       failures: { getFeed: 'throws' },
     })
   })
@@ -408,8 +408,8 @@ describe('opciones desde el entorno', () => {
   test('ignora lo que no entiende en lugar de romper el arranque', () => {
     expect(
       fixtureOptionsFromEnv({
-        NN_ANIME_FIXTURE_LATENCY_MS: 'no-es-un-numero',
-        NN_ANIME_FIXTURE_FAIL: 'metodo-que-no-existe=500,search=fallo-que-no-existe,vacio',
+        RONA_FIXTURE_LATENCY_MS: 'no-es-un-numero',
+        RONA_FIXTURE_FAIL: 'metodo-que-no-existe=500,search=fallo-que-no-existe,vacio',
       }),
     ).toEqual({})
   })

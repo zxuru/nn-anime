@@ -37,7 +37,7 @@ const almacenRoto: Almacen = {
 
 describe('la preferencia del modo extendido', () => {
   test('la clave lleva el prefijo de la aplicación', () => {
-    expect(CLAVE_EXTENDIDO.startsWith('nn-anime:')).toBe(true)
+    expect(CLAVE_EXTENDIDO.startsWith('rona:')).toBe(true)
   })
 
   test('sin nada guardado el reproductor abre en ventana normal', () => {

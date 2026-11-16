@@ -21,7 +21,7 @@ import type {
   StreamMode,
   StreamSource,
   SubtitleTrack,
-} from '@nn-anime/core'
+} from '@rona/core'
 import { z } from 'zod'
 
 const tituloSchema = z.strictObject({

@@ -15,7 +15,7 @@
  * entero al paquete.
  */
 
-import type { MediaFilter } from '@nn-anime/core/media'
+import type { MediaFilter } from '@rona/core/media'
 import { Home, Library, type LucideIcon, Search, Settings, User } from 'lucide-react'
 import { ANCLAS } from './features/guia/guia'
 import { pathConTipo } from './features/tipo/tipo'

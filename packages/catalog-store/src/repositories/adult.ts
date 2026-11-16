@@ -13,7 +13,7 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import type { ProviderRef } from '@nn-anime/core'
+import type { ProviderRef } from '@rona/core'
 
 /** Lo que devuelve la lectura: la referencia marcada, en columnas. */
 interface MarkRow {

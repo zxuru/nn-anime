@@ -22,8 +22,8 @@ import {
   animeResponseSchema,
   enrichmentResponseSchema,
   episodesResponseSchema,
-} from '@nn-anime/core/api'
-import type { AnimeDetail, Episode } from '@nn-anime/core/models'
+} from '@rona/core/api'
+import type { AnimeDetail, Episode } from '@rona/core/models'
 import { useEffect, useState } from 'react'
 import { apiGet } from '../../api/client'
 

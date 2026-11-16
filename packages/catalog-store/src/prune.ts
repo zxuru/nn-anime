@@ -31,7 +31,7 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import type { PruneReport } from '@nn-anime/core'
+import type { PruneReport } from '@rona/core'
 
 /** Días sin actividad antes de poder limpiar un detalle. */
 export const PRUNE_AFTER_DAYS = 90

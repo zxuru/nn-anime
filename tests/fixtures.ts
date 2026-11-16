@@ -16,11 +16,11 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations, type StoreConnection } from '@nn-anime/catalog-store'
-import type { Provider } from '@nn-anime/provider-sdk'
-import type { FixtureOptions } from '@nn-anime/providers-fixture'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
-import { createApp, createContainer, type ServerContainer } from '@nn-anime/server'
+import { openDb, runMigrations, type StoreConnection } from '@rona/catalog-store'
+import type { Provider } from '@rona/provider-sdk'
+import type { FixtureOptions } from '@rona/providers-fixture'
+import { createFixtureProvider } from '@rona/providers-fixture'
+import { createApp, createContainer, type ServerContainer } from '@rona/server'
 
 export const PORT = 7717
 export const SESSION_COOKIE = 'nn_session'
@@ -91,8 +91,8 @@ export async function conCiclo<T>(
   body: (ciclo: Ciclo) => Promise<T>,
   options: CicloOptions = {},
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-ciclo-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-ciclo-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
 
   const relojDePrueba = reloj()

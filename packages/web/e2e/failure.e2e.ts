@@ -4,7 +4,7 @@ import { entrar, esperarApp } from './fixtures'
 /**
  * Un proveedor que falla.
  *
- * El plugin del e2e falla en el método que diga `NN_ANIME_E2E_FALLO`, y esta
+ * El plugin del e2e falla en el método que diga `RONA_E2E_FALLO`, y esta
  * prueba comprueba que el fallo **se ve**: la interfaz dice qué pasó en vez de
  * dejar una pantalla en blanco o un esqueleto que no termina nunca.
  *
@@ -13,11 +13,11 @@ import { entrar, esperarApp } from './fixtures'
  * de lo que aporta.
  */
 
-const FALLO = process.env.NN_ANIME_E2E_FALLO ?? ''
+const FALLO = process.env.RONA_E2E_FALLO ?? ''
 
 test.describe('un proveedor que falla', () => {
   // El modo de fallo se elige al arrancar el servidor, así que este archivo se
-  // ejecuta en su propia pasada (`bun run e2e:fallo`), con `NN_ANIME_E2E_FALLO`
+  // ejecuta en su propia pasada (`bun run e2e:fallo`), con `RONA_E2E_FALLO`
   // puesta y en otro puerto. Ejecutarlo sin ella no probaría nada.
   test.skip(FALLO === '', 'el servidor no se levantó en modo fallo')
 

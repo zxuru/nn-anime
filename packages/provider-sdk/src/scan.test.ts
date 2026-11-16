@@ -16,7 +16,7 @@ async function withTree<T>(
   files: Readonly<Record<string, string>>,
   body: (root: string) => Promise<T>,
 ): Promise<T> {
-  const root = await mkdtemp(join(tmpdir(), 'nn-anime-scan-'))
+  const root = await mkdtemp(join(tmpdir(), 'rona-scan-'))
 
   try {
     for (const [name, content] of Object.entries(files)) {
@@ -244,7 +244,7 @@ describe('scanProviderSources: el árbol', () => {
   })
 
   test('un directorio que no existe devuelve una oferta vacía, no un error', async () => {
-    const result = await scanProviderSources(join(tmpdir(), 'nn-anime-no-existe-jamas-scan'))
+    const result = await scanProviderSources(join(tmpdir(), 'rona-no-existe-jamas-scan'))
 
     expect(result.candidates).toEqual([])
     expect(result.ignored).toEqual([])

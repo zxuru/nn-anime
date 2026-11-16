@@ -28,7 +28,7 @@
 import { readdir, stat } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { type Provider, validateProvider } from '@nn-anime/provider-sdk'
+import { type Provider, validateProvider } from '@rona/provider-sdk'
 
 /** El mismo tope que el proxy: una playlist de verdad no llega ni de lejos. */
 const TOPE_BYTES = 4 * 1024 * 1024
@@ -63,12 +63,12 @@ export interface Opciones {
  */
 export function dirDeRepos(entorno: Readonly<Record<string, string | undefined>>): string {
   const local = entorno.LOCALAPPDATA ?? entorno.APPDATA
-  if (local !== undefined && local !== '') return join(local, 'nn-anime', 'repos')
+  if (local !== undefined && local !== '') return join(local, 'rona', 'repos')
 
   const xdg = entorno.XDG_DATA_HOME
-  if (xdg !== undefined && xdg !== '') return join(xdg, 'nn-anime', 'repos')
+  if (xdg !== undefined && xdg !== '') return join(xdg, 'rona', 'repos')
 
-  return join(entorno.HOME ?? entorno.USERPROFILE ?? '.', '.local', 'share', 'nn-anime', 'repos')
+  return join(entorno.HOME ?? entorno.USERPROFILE ?? '.', '.local', 'share', 'rona', 'repos')
 }
 
 /** Un número entero no negativo, o el motivo por el que no lo es. */

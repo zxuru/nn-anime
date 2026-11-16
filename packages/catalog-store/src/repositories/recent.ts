@@ -26,8 +26,8 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import type { AnimeSummary, TitleKind } from '@nn-anime/core'
-import { titleKindSchema } from '@nn-anime/core'
+import type { AnimeSummary, TitleKind } from '@rona/core'
+import { titleKindSchema } from '@rona/core'
 
 interface RecentRow {
   readonly provider_id: string

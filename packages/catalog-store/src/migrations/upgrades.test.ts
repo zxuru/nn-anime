@@ -56,10 +56,10 @@ describe('migrar desde cada versión anterior', () => {
   // viejas, que son las que no se prueban nunca.
   for (const version of VERSIONES.filter((v) => v < ULTIMA)) {
     test(`desde la ${version} hasta la ${ULTIMA}`, async () => {
-      const dir = await mkdtemp(join(tmpdir(), `nn-anime-upgrade-${version}-`))
+      const dir = await mkdtemp(join(tmpdir(), `rona-upgrade-${version}-`))
 
       try {
-        const path = join(dir, 'nn-anime.db')
+        const path = join(dir, 'rona.db')
 
         const vieja = openDb(path)
         let datos: DatosDelUsuario

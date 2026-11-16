@@ -89,8 +89,8 @@ function repoDePrueba(nombre: string): string {
   rmSync(`${BASE}/${nombre}`, { recursive: true, force: true })
   mkdirSync(repo, { recursive: true })
   correr(['init', '-b', 'main'], repo)
-  correr(['config', 'user.email', 'nn-anime@localhost'], repo)
-  correr(['config', 'user.name', 'nn-anime'], repo)
+  correr(['config', 'user.email', 'rona@localhost'], repo)
+  correr(['config', 'user.name', 'rona'], repo)
   writeFileSync(`${repo}/README.md`, '# prueba\n')
   correr(['add', 'README.md'], repo)
   correr(['commit', '-m', 'base'], repo)
@@ -121,12 +121,8 @@ describe('los nombres derivados del id', () => {
   })
 
   test('el worktree vive dentro del repo, en .worktrees', () => {
-    expect(rutaWorktree('/home/ana/code/nn-anime', 'T60')).toBe(
-      '/home/ana/code/nn-anime/.worktrees/T60',
-    )
-    expect(rutaWorktree('/home/ana/code/nn-anime/', 'T60')).toBe(
-      '/home/ana/code/nn-anime/.worktrees/T60',
-    )
+    expect(rutaWorktree('/home/ana/code/rona', 'T60')).toBe('/home/ana/code/rona/.worktrees/T60')
+    expect(rutaWorktree('/home/ana/code/rona/', 'T60')).toBe('/home/ana/code/rona/.worktrees/T60')
   })
 
   test('el repositorio ignora .worktrees, así que la copia no entra en git', () => {

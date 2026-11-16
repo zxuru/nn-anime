@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { createRevalidator } from '@nn-anime/catalog-store'
-import type { CacheHit } from '@nn-anime/core'
+import { createRevalidator } from '@rona/catalog-store'
+import type { CacheHit } from '@rona/core'
 import { type CacheSource, readThrough, summarizeSources } from './cache-read'
 
 interface Estado {

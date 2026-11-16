@@ -18,8 +18,8 @@
  *    llega a tener la portada ni la sinopsis de lo que se quiere esconder.
  */
 
-import { refKey } from '@nn-anime/catalog-store'
-import { type LocalWork, localWork, type ProviderRef } from '@nn-anime/core'
+import { refKey } from '@rona/catalog-store'
+import { type LocalWork, localWork, type ProviderRef } from '@rona/core'
 import { type AniListCatalog, matchKey } from './anilist/catalog'
 import type { ServerContainer } from './container'
 

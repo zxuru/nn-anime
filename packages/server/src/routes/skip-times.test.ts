@@ -12,8 +12,8 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import { anilistEntrySchema, type SkipInterval, skipTimesResponseSchema } from '@nn-anime/core'
+import { openDb, runMigrations } from '@rona/catalog-store'
+import { anilistEntrySchema, type SkipInterval, skipTimesResponseSchema } from '@rona/core'
 import { createApp, createContainer } from '../index'
 
 const PORT = 7721
@@ -83,8 +83,8 @@ async function conApp<T>(
     readonly offline?: boolean
   } = {},
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-skip-times-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-skip-times-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const container = createContainer({ db })
   const llamadas: string[] = []

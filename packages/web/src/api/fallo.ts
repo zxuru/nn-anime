@@ -36,7 +36,7 @@ export type ClaseDeFallo =
   | 'noExiste'
   /** El sitio de origen falló o no contestó: el 502 y sus hermanos. */
   | 'proveedor'
-  /** Fallo del propio nn-anime. */
+  /** Fallo del propio rona. */
   | 'servidor'
   /** La petición no valía: un 4xx que no es ninguno de los de arriba. */
   | 'peticion'
@@ -59,7 +59,7 @@ function claseDeEstado(estado: number): ClaseDeFallo {
   if (estado === 401 || estado === 403) return 'sesion'
   if (estado === 404 || estado === 410) return 'noExiste'
   // 502 y 503 son del proveedor y no del servidor propio: `server` los usa para
-  // decir «el sitio de origen falló», y contarlos como fallo de nn-anime mandaría
+  // decir «el sitio de origen falló», y contarlos como fallo de rona mandaría
   // a mirar los registros equivocados. El 504 es la puerta de enlace que no
   // contestó a tiempo, que es el mismo caso visto desde el otro lado.
   if (estado === 502 || estado === 503 || estado === 504) return 'proveedor'

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { PartyEvent } from '@nn-anime/core'
+import type { PartyEvent } from '@rona/core'
 import { RemoteParty } from './remote'
 
 const TOKEN = 't'.repeat(43)

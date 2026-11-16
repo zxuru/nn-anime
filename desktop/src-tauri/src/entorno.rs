@@ -20,25 +20,28 @@ use std::path::PathBuf;
 /// hacia arriba y la aplicación no puede arrancar.
 pub const INTEGRIDAD_BAJA: u32 = 0x1000;
 
-const TITULO_AVISO: &str = "nn-anime";
+const TITULO_AVISO: &str = "RoNa";
 
 /// El nombre de la carpeta de datos en Windows.
 ///
-/// **No es `nn-anime`**: las versiones instaladas usaban `%LOCALAPPDATA%\nn-anime`
-/// (el nombre del producto), y los datos de esas versiones viven en su hermana
-/// `%LOCALAPPDATA%\nn-anime-data` para no mezclarse con los binarios que el
-/// actualizador reemplaza. Esa separación se conserva porque es la que ya tienen
-/// los usuarios de la versión portable.
+/// Es hermana de la carpeta del producto (`%LOCALAPPDATA%\RoNa`), no su hija:
+/// el actualizador reemplaza el `.exe` y los datos no pueden estar ahí.
 ///
 /// `cfg(any(windows, test))`: fuera de Windows sólo lo usa la prueba que compara
 /// los dos nombres; en el binario de Linux no existe y así `clippy -D warnings`
 /// no lo marca como código muerto.
 #[cfg(any(windows, test))]
-pub const NOMBRE_DATOS: &str = "nn-anime-data";
+pub const NOMBRE_DATOS: &str = "rona-data";
 
-/// El nombre de la carpeta que usaban las versiones instaladas (el `productName`).
+/// La carpeta de datos que usaban las versiones con el nombre anterior.
+///
+/// Sólo se lee para migrarla una vez: sin esto, el primer arranque con el nombre
+/// nuevo abriría una base vacía y el historial parecería perdido.
+pub const NOMBRE_DATOS_LEGADO: &str = "nn-anime-data";
+
+/// La carpeta que usaban las versiones instaladas (el `productName` anterior).
 #[cfg(any(windows, test))]
-const NOMBRE_INSTALACION: &str = "nn-anime";
+const NOMBRE_INSTALACION_LEGADO: &str = "nn-anime";
 
 /// Lo que se mueve de una instalación anterior, que guardaba los datos dentro de
 /// la carpeta de instalación.
@@ -97,8 +100,8 @@ impl Raiz {
 /// 1. **`portable.txt` junto al ejecutable**: modo portable explícito. Quien lo
 ///    crea sabe lo que hace y no se le discute; sus datos viajan con el `.exe`,
 ///    y el reemplazo del ejecutable **no toca** esos archivos.
-/// 2. **`%LOCALAPPDATA%\nn-anime-data`**: lo normal. Es **hermana** de la carpeta
-///    que usaban las versiones instaladas (`%LOCALAPPDATA%\nn-anime`), no su hija:
+/// 2. **`%LOCALAPPDATA%\rona-data`**: lo normal. Es **hermana** de la carpeta
+///    del producto (`%LOCALAPPDATA%\RoNa`), no su hija:
 ///    la actualización reemplaza el `.exe` y los datos no pueden estar ahí.
 ///    Sobreviven a mover o borrar el `.exe` y a actualizar.
 /// 3. **La raíz XDG del usuario** en macOS y Linux, por el mismo motivo.
@@ -122,6 +125,10 @@ pub fn preparar_raiz() -> Raiz {
     // 1. Modo portable explícito.
     if let Some(dir) = &exe_dir {
         if dir.join("portable.txt").is_file() {
+            // Los datos viajan con el `.exe`; si vienen de la versión anterior,
+            // la base se llama distinto y hay que renombrarla en el sitio.
+            renombrar_base(dir);
+
             let raiz = Raiz {
                 ruta: dir.clone(),
                 portable: true,
@@ -136,18 +143,22 @@ pub fn preparar_raiz() -> Raiz {
     let mut intentos: Vec<String> = Vec::new();
 
     // 2. El perfil del usuario en Windows. La carpeta de datos es **hermana** de
-    //    la que usaban las versiones instaladas (`%LOCALAPPDATA%\nn-anime-data`
-    //    frente a `%LOCALAPPDATA%\nn-anime`), para que la actualización no
-    //    comparta carpeta con la base. Las instalaciones anteriores guardaban los
-    //    datos dentro de la carpeta del programa: se trasladan una sola vez.
+    //    la del producto (`%LOCALAPPDATA%\rona-data` frente a
+    //    `%LOCALAPPDATA%\RoNa`), para que la actualización no comparta carpeta con
+    //    la base. Las instalaciones anteriores guardaban los datos dentro de la
+    //    carpeta del programa: se trasladan una sola vez.
     #[cfg(windows)]
     if let Some(perfil) = std::env::var_os("LOCALAPPDATA") {
         let perfil = std::path::PathBuf::from(perfil);
         let ruta = perfil.join(NOMBRE_DATOS);
 
+        // Primero el nombre anterior de la carpeta de datos; si ya hay datos en
+        // el nombre nuevo, esto no toca nada.
+        migrar_datos_del_nombre_anterior(&perfil.join(NOMBRE_DATOS_LEGADO), &ruta);
+
         match probar_escritura(&ruta) {
             Ok(()) => {
-                migrar_datos_heredados(&perfil.join(NOMBRE_INSTALACION), &ruta);
+                migrar_datos_heredados(&perfil.join(NOMBRE_INSTALACION_LEGADO), &ruta);
                 let raiz = Raiz {
                     ruta,
                     portable: false,
@@ -165,7 +176,7 @@ pub fn preparar_raiz() -> Raiz {
     //     ejecutable, que dentro de un AppImage está montado en sólo lectura: la
     //     aplicación no podría guardar nada y saldría con un aviso.
     //     Una sola raíz para datos, configuración y caché, como en Windows; es la
-    //     que el anfitrión fija en `NN_ANIME_*` y la que documenta el README.
+    //     que el anfitrión fija en `RONA_*` y la que documenta el README.
     #[cfg(not(windows))]
     {
         let base = std::env::var_os("XDG_DATA_HOME")
@@ -176,7 +187,11 @@ pub fn preparar_raiz() -> Raiz {
             });
 
         if let Some(base) = base {
-            let ruta = base.join("nn-anime");
+            let ruta = base.join("rona");
+
+            // La carpeta de datos de la versión anterior se traslada entera:
+            // dentro van la base, `config`, `cache` y el perfil del webview.
+            migrar_datos_del_nombre_anterior(&base.join("nn-anime"), &ruta);
 
             match probar_escritura(&ruta) {
                 Ok(()) => {
@@ -206,9 +221,9 @@ pub fn preparar_raiz() -> Raiz {
     nativo::aviso(
         TITULO_AVISO,
         &format!(
-            "nn-anime no puede guardar sus datos y no puede arrancar.\n\n\
+            "RoNa no puede guardar sus datos y no puede arrancar.\n\n\
              Se probaron estas ubicaciones:\n{detalle}\n\n\
-             nn-anime no guarda nada junto al ejecutable: revisa los permisos de tu \
+             RoNa no guarda nada junto al ejecutable: revisa los permisos de tu \
              carpeta de usuario o crea portable.txt junto al programa si de verdad \
              quieres que los datos viajen con él."
         ),
@@ -223,9 +238,9 @@ pub fn preparar_raiz() -> Raiz {
 /// `%APPDATA%` para los ajustes y la caché en otro sitio, y los datos quedarían
 /// repartidos en dos carpetas que nadie relaciona.
 fn fijar(raiz: &Raiz) {
-    std::env::set_var("NN_ANIME_DATA_DIR", &raiz.ruta);
-    std::env::set_var("NN_ANIME_CONFIG_DIR", raiz.ruta.join("config"));
-    std::env::set_var("NN_ANIME_CACHE_DIR", raiz.ruta.join("cache"));
+    std::env::set_var("RONA_DATA_DIR", &raiz.ruta);
+    std::env::set_var("RONA_CONFIG_DIR", raiz.ruta.join("config"));
+    std::env::set_var("RONA_CACHE_DIR", raiz.ruta.join("cache"));
 }
 
 /// Escribe y borra un archivo de prueba. Es la única comprobación que no miente.
@@ -233,7 +248,7 @@ fn probar_escritura(dir: &std::path::Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
 
     let prueba = dir.join(".escritura");
-    std::fs::write(&prueba, b"nn-anime")?;
+    std::fs::write(&prueba, b"RoNa")?;
     std::fs::remove_file(&prueba)?;
 
     Ok(())
@@ -255,7 +270,11 @@ fn probar_escritura(dir: &std::path::Path) -> std::io::Result<()> {
 fn migrar_datos_heredados(instalacion: &std::path::Path, datos: &std::path::Path) {
     let base_vieja = instalacion.join("nn-anime.db");
 
-    if datos.join("nn-anime.db").exists() || !base_vieja.exists() {
+    if datos.join("rona.db").exists() || !base_vieja.exists() {
+        // Si ya hay una base con el nombre nuevo, no hay nada que mover. Si la
+        // carpeta nueva tiene la base antigua de un traslado a medias, se
+        // renombra aquí y el siguiente arranque la encuentra.
+        renombrar_base(datos);
         return;
     }
 
@@ -292,12 +311,14 @@ fn migrar_datos_heredados(instalacion: &std::path::Path, datos: &std::path::Path
      * una base nueva, vacía, y el usuario vería su historial desaparecido aunque
      * los datos siguieran en la carpeta antigua. Es peor que no arrancar y decirlo.
      */
-    if !datos.join("nn-anime.db").exists() && base_vieja.exists() {
+    renombrar_base(datos);
+
+    if !datos.join("rona.db").exists() && base_vieja.exists() {
         let mensaje = format!(
-            "nn-anime encontró datos de una instalación anterior en {} pero no pudo \
+            "RoNa encontró datos de una instalación anterior en {} pero no pudo \
              trasladarlos a {}.\n\n\
              La base y el historial siguen en la carpeta antigua, intactos. Revisa los \
-             permisos de tu carpeta de usuario y vuelve a abrir nn-anime.",
+             permisos de tu carpeta de usuario y vuelve a abrir RoNa.",
             instalacion.display(),
             datos.display()
         );
@@ -312,10 +333,64 @@ fn migrar_datos_heredados(instalacion: &std::path::Path, datos: &std::path::Path
     ));
 }
 
+/// Renombra la carpeta de datos de la versión anterior, si la nueva no existe.
+///
+/// Se llama **antes** de crear la carpeta nueva: si se creara primero, `rename`
+/// fallaría y el primer arranque con el nombre nuevo abriría una base vacía.
+/// Si las dos existen, no se mezcla nada: la nueva manda y la vieja se queda
+/// intacta para que el usuario decida.
+pub fn migrar_datos_del_nombre_anterior(viejo: &std::path::Path, nuevo: &std::path::Path) {
+    if !viejo.join("nn-anime.db").exists() {
+        return;
+    }
+
+    if nuevo.exists() {
+        // Una carpeta vacía de un intento anterior no puede impedir el traslado;
+        // una con datos, sí: no se pisa lo que el usuario ya tenga ahí.
+        let vacia = nuevo
+            .read_dir()
+            .map(|mut entradas| entradas.next().is_none())
+            .unwrap_or(false);
+
+        if !vacia {
+            return;
+        }
+
+        let _ = std::fs::remove_dir(nuevo);
+    }
+
+    match std::fs::rename(viejo, nuevo) {
+        Ok(()) => {
+            renombrar_base(nuevo);
+            crate::registrar("datos de la versión anterior trasladados al nombre nuevo");
+        }
+        Err(error) => crate::registrar(&format!(
+            "no se pudo trasladar la carpeta de datos de {viejo:?} a {nuevo:?}: {error}"
+        )),
+    }
+}
+
+/// Renombra `nn-anime.db` y sus compañeros a `rona.db`, sin pisar nada.
+///
+/// La base cambia de nombre con el producto. Se hace con la aplicación cerrada,
+/// así que no hay ningún proceso con el archivo abierto.
+pub fn renombrar_base(dir: &std::path::Path) {
+    for sufijo in ["", "-wal", "-shm"] {
+        let viejo = dir.join(format!("nn-anime.db{sufijo}"));
+        let nuevo = dir.join(format!("rona.db{sufijo}"));
+
+        if viejo.exists() && !nuevo.exists() {
+            if let Err(error) = std::fs::rename(&viejo, &nuevo) {
+                crate::registrar(&format!("no se pudo renombrar {viejo:?}: {error}"));
+            }
+        }
+    }
+}
+
 /// `true` si `ruta` está dentro de `padre`. Pura, para poder probarla.
 ///
 /// Windows no distingue mayúsculas y una comparación de cadenas diría que
-/// `C:\x\nn-anime2` está dentro de `C:\x\nn-anime`; por eso se compara
+/// `C:\x\rona2` está dentro de `C:\x\rona`; por eso se compara
 /// componente a componente.
 #[cfg(test)]
 pub fn dentro_de(ruta: &std::path::Path, padre: &std::path::Path) -> bool {
@@ -550,7 +625,10 @@ mod nativo {
 
 #[cfg(test)]
 mod pruebas_datos {
-    use super::{dentro_de, NOMBRE_DATOS, NOMBRE_INSTALACION};
+    use super::{
+        dentro_de, migrar_datos_del_nombre_anterior, renombrar_base, NOMBRE_DATOS,
+        NOMBRE_INSTALACION_LEGADO,
+    };
     use std::path::PathBuf;
 
     /// La misma ruta con el separador de la plataforma que compila la prueba.
@@ -571,25 +649,74 @@ mod pruebas_datos {
     /// el actualizador reemplaza al actualizar.
     #[test]
     fn la_carpeta_de_datos_es_hermana_de_la_del_programa() {
-        assert_ne!(NOMBRE_DATOS, NOMBRE_INSTALACION);
+        assert_ne!(NOMBRE_DATOS, NOMBRE_INSTALACION_LEGADO);
         assert!(!dentro_de(
-            ruta("C:\\Users\\ana\\AppData\\Local\\nn-anime-data").as_path(),
-            ruta("C:\\Users\\ana\\AppData\\Local\\nn-anime").as_path()
+            ruta("C:\\Users\\ana\\AppData\\Local\\rona-data").as_path(),
+            ruta("C:\\Users\\ana\\AppData\\Local\\rona").as_path()
         ));
         assert!(dentro_de(
-            ruta("C:\\Users\\ana\\AppData\\Local\\nn-anime\\datos").as_path(),
-            ruta("C:\\Users\\ana\\AppData\\Local\\nn-anime").as_path()
+            ruta("C:\\Users\\ana\\AppData\\Local\\rona\\datos").as_path(),
+            ruta("C:\\Users\\ana\\AppData\\Local\\rona").as_path()
         ));
         // La comparación no se deja engañar por un prefijo de cadena.
         assert!(!dentro_de(
-            ruta("C:\\x\\nn-anime2").as_path(),
-            ruta("C:\\x\\nn-anime").as_path()
+            ruta("C:\\x\\rona2").as_path(),
+            ruta("C:\\x\\rona").as_path()
         ));
         // Ni por las mayúsculas: la normalización las baja, como en las rutas de
         // Windows.
         assert!(dentro_de(
-            ruta("C:\\X\\NN-ANIME\\config").as_path(),
-            ruta("c:\\x\\nn-anime").as_path()
+            ruta("C:\\X\\RONA\\config").as_path(),
+            ruta("c:\\x\\rona").as_path()
         ));
+    }
+
+    /// El nombre anterior de la carpeta de datos se traslada entero y la base
+    /// cambia de nombre: sin esto, el primer arranque con «RoNa» abriría una
+    /// base vacía y el historial parecería perdido.
+    #[test]
+    fn la_carpeta_y_la_base_del_nombre_anterior_se_trasladan() {
+        let raiz = std::env::temp_dir().join(format!("rona-migracion-{}", std::process::id()));
+        let viejo = raiz.join("nn-anime-data");
+        let nuevo = raiz.join("rona-data");
+
+        let _ = std::fs::remove_dir_all(&raiz);
+        std::fs::create_dir_all(&viejo).expect("crear la carpeta vieja");
+        std::fs::write(viejo.join("nn-anime.db"), b"historial").expect("escribir la base");
+
+        migrar_datos_del_nombre_anterior(&viejo, &nuevo);
+
+        assert!(
+            nuevo.join("rona.db").exists(),
+            "la base tiene el nombre nuevo"
+        );
+        assert!(!viejo.exists(), "la carpeta vieja se movió, no se copió");
+        assert_eq!(
+            std::fs::read(nuevo.join("rona.db")).expect("leer la base"),
+            b"historial"
+        );
+
+        let _ = std::fs::remove_dir_all(&raiz);
+    }
+
+    /// El renombrado no pisa una base que ya tenga el nombre nuevo.
+    #[test]
+    fn renombrar_la_base_no_pisa_la_nueva() {
+        let dir = std::env::temp_dir().join(format!("rona-base-{}", std::process::id()));
+
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("crear la carpeta");
+        std::fs::write(dir.join("nn-anime.db"), b"vieja").expect("escribir la vieja");
+        std::fs::write(dir.join("rona.db"), b"nueva").expect("escribir la nueva");
+
+        renombrar_base(&dir);
+
+        assert_eq!(
+            std::fs::read(dir.join("rona.db")).expect("leer la nueva"),
+            b"nueva"
+        );
+        assert!(dir.join("nn-anime.db").exists(), "la vieja no se toca");
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

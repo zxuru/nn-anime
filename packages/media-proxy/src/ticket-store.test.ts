@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { createLogger } from '@nn-anime/core'
+import { createLogger } from '@rona/core'
 import { createTicketStore, DEFAULT_CAPACITY, DEFAULT_TTL_S, ticketError } from './ticket-store'
 
 const URL = 'https://fixture.invalid/aurora/1/sub/master.m3u8'

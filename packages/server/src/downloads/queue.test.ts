@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { DownloadPatch, DownloadRecord, DownloadStatus } from '@nn-anime/catalog-store'
-import type { FetchLike } from '@nn-anime/media-proxy'
+import type { DownloadPatch, DownloadRecord, DownloadStatus } from '@rona/catalog-store'
+import type { FetchLike } from '@rona/media-proxy'
 import { createDownloadQueue, type DownloadStorePort } from './queue'
 
 function fila(id: number, status: DownloadStatus = 'queued'): DownloadRecord {
@@ -102,7 +102,7 @@ async function esperar(condicion: () => Promise<boolean>, ms = 5_000): Promise<v
 }
 
 async function conRaiz<T>(body: (root: string) => Promise<T>): Promise<T> {
-  const root = await mkdtemp(join(tmpdir(), 'nn-anime-cola-'))
+  const root = await mkdtemp(join(tmpdir(), 'rona-cola-'))
 
   try {
     return await body(root)

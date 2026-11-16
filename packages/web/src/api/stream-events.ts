@@ -11,8 +11,8 @@
  * pintar tres pantallas más adelante con un campo en `undefined`.
  */
 
-import { type SearchEventPayload, searchEventSchema } from '@nn-anime/core/api'
-import type { MediaFilter } from '@nn-anime/core/media'
+import { type SearchEventPayload, searchEventSchema } from '@rona/core/api'
+import type { MediaFilter } from '@rona/core/media'
 
 /**
  * Ruta de la búsqueda. El filtro de proveedor se repite, como en el server.

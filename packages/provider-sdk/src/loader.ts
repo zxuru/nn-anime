@@ -21,7 +21,7 @@
 import { readdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { type AppError, ProviderError } from '@nn-anime/core'
+import { type AppError, ProviderError } from '@rona/core'
 import { classifyThrow, namedByFile, providerFailure } from './errors'
 import { createRegistry, type ProviderRegistry } from './registry'
 import type { Provider } from './types'

@@ -14,7 +14,7 @@
  *   navegador. El mensaje lo dice.
  */
 
-import { errorResponseSchema, mpvPlayRequestSchema, mpvPlayResponseSchema } from '@nn-anime/core'
+import { errorResponseSchema, mpvPlayRequestSchema, mpvPlayResponseSchema } from '@rona/core'
 import type { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import type { ServerContainer } from '../container'
@@ -22,7 +22,7 @@ import { findProvider } from './anime'
 import { ticketPath } from './stream'
 
 export interface PlayRouteOptions {
-  readonly providers: readonly import('@nn-anime/provider-sdk').Provider[]
+  readonly providers: readonly import('@rona/provider-sdk').Provider[]
   readonly container: ServerContainer
   readonly timeoutMs?: number
 }

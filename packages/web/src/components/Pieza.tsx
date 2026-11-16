@@ -22,7 +22,7 @@
  * porque debajo hay un degradado oscuro y no el fondo de la aplicación.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { type ReactNode, useState } from 'react'
 import { navStateDeTarjeta } from '../features/detail/nav-state'
 import { useDetailPrefetch } from '../features/detail/prefetch'

@@ -434,7 +434,7 @@ export interface EstadoGuia {
  * `normalizarEstado` para no perder lo que el usuario ya había visto: una
  * versión nueva no es una excusa para volver a enseñarle todo.
  */
-export const CLAVE_GUIA = 'nn-anime.guia'
+export const CLAVE_GUIA = 'rona.guia'
 export const VERSION_GUIA = 3
 
 /** El estado de una instalación que abre la aplicación por primera vez. */

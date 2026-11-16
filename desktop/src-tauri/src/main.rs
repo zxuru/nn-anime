@@ -1,4 +1,4 @@
-//! El anfitrión de ventana de nn-anime.
+//! El anfitrión de ventana de RoNa.
 //!
 //! Cinco responsabilidades y ninguna más: lanzar el servidor que ya existe, leer
 //! su dirección, abrir la ventana en ella, cerrarlo cuando la ventana se cierre y
@@ -52,12 +52,12 @@ const LABEL: &str = "main";
 #[tauri::command]
 fn elegir_carpeta_descargas() -> Option<String> {
     rfd::FileDialog::new()
-        .set_title("Carpeta de descargas de nn-anime")
+        .set_title("Carpeta de descargas de RoNa")
         .pick_folder()
         .map(|ruta| ruta.to_string_lossy().into_owned())
 }
 
-const TITULO: &str = "nn-anime";
+const TITULO: &str = "RoNa";
 const ANCHO: f64 = 1280.0;
 const ALTO: f64 = 800.0;
 const ANCHO_MINIMO: f64 = 900.0;
@@ -109,7 +109,7 @@ pub(crate) fn pedir_guardado(app: &AppHandle) {
         return;
     };
 
-    let _ = ventana.eval("window.dispatchEvent(new Event('nn-anime:ocultar-ventana'));");
+    let _ = ventana.eval("window.dispatchEvent(new Event('rona:ocultar-ventana'));");
 }
 
 fn main() {
@@ -135,7 +135,7 @@ fn main() {
     }
 
     registrar(&format!(
-        "arrancando nn-anime {}; registro en {}",
+        "arrancando RoNa {}; registro en {}",
         embebido::VERSION,
         sidecar::log_path().display()
     ));
@@ -388,7 +388,7 @@ fn arrancar(handle: AppHandle, raiz: entorno::Raiz, navegador: bool) {
             ));
 
             entorno::aviso_nativo(
-                "nn-anime",
+                "RoNa",
                 &format!(
                     "El servidor arrancó, pero no se pudo abrir la ventana.\n\n{error}\n\n\
                      Prueba con --navegador para usarla en el navegador.\n\n\
@@ -450,7 +450,7 @@ fn avisar_fallo(handle: &AppHandle, raiz: &entorno::Raiz, motivo: &str) {
             // escritorio— un diálogo nativo sigue siendo posible, y es lo único
             // que impide que el fallo se quede en silencio.
             entorno::aviso_nativo(
-                "nn-anime",
+                "RoNa",
                 &format!(
                     "No se pudo abrir la ventana ni su aviso.\n\n{error}\n\nEl registro está en:\n{}",
                     sidecar::log_path().display()
@@ -551,7 +551,7 @@ fn diagnostico(raiz: &entorno::Raiz) -> ! {
         .unwrap_or_else(|_| "(no se pudo leer)".to_string());
 
     let mut lineas = vec![
-        format!("nn-anime {}", embebido::VERSION),
+        format!("RoNa {}", embebido::VERSION),
         format!("ejecutable: {}", ejecutable),
         format!(
             "datos:      {} ({})",
@@ -562,7 +562,7 @@ fn diagnostico(raiz: &entorno::Raiz) -> ! {
                 "perfil del usuario"
             }
         ),
-        format!("base:       {}", raiz.ruta.join("nn-anime.db").display()),
+        format!("base:       {}", raiz.ruta.join("rona.db").display()),
         format!("registro:   {}", sidecar::log_path().display()),
         format!("webview:    {}", raiz.webview().display()),
         format!("integridad: {}", entorno::descripcion()),
@@ -581,7 +581,7 @@ fn diagnostico(raiz: &entorno::Raiz) -> ! {
     }
 
     entorno::aviso_nativo(
-        "nn-anime — diagnóstico",
+        "RoNa — diagnóstico",
         &format!("{texto}\n\nGuardado en:\n{}", informe.display()),
     );
 
@@ -594,7 +594,7 @@ fn diagnostico(raiz: &entorno::Raiz) -> ! {
 /// antes de que exista—, así que el registro es el único sitio donde se puede
 /// leer qué pasó. **Nunca se le pasa la URL**: lleva el token.
 fn registrar(mensaje: &str) {
-    let linea = format!("nn-anime-desktop: {mensaje}\n");
+    let linea = format!("rona-desktop: {mensaje}\n");
 
     eprint!("{linea}");
 

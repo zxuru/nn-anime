@@ -38,12 +38,12 @@ export function renderLoginPage(error?: string): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>nn-anime</title>
+    <title>RoNa</title>
   </head>
   <body>
     <main>
-      <h1>nn-anime</h1>
-      <p>Este servidor pide el token de <code>NN_ANIME_TOKEN</code> para entrar.</p>
+      <h1>RoNa</h1>
+      <p>Este servidor pide el token de <code>RONA_TOKEN</code> para entrar.</p>
       <form method="post" action="${LOGIN_PATH}">
         <label for="token">Token</label>
         <input id="token" name="token" type="password" autocomplete="current-password" required autofocus />

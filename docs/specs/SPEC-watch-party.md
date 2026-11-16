@@ -45,7 +45,7 @@ secciones 6, 7.1 y 11 se leen con esa corrección.
 
 ## 1. Qué es y qué no es
 
-Una sala donde varias instancias de nn-anime reproducen el mismo episodio a la vez, cada una desde
+Una sala donde varias instancias de RoNa reproducen el mismo episodio a la vez, cada una desde
 **su propia fuente o su copia descargada**. Se sincroniza **sólo el estado de reproducción**: qué
 título, qué episodio, en qué segundo, pausado o no, a qué velocidad y desde cuándo. Nunca viaja el
 vídeo, ni un ticket del proxy, ni una URL de stream.
@@ -191,7 +191,7 @@ Reglas:
 - **Caducidad:** 4 h por defecto (máximo 12 h, configurable), 8 participantes y 4 salas por
   instancia. La sala se cierra al salir el anfitrión o al caducar; los invitados reciben `closed`.
 - **Opt-in:** las rutas de sala no se registran si la función no está habilitada
-  (`NN_ANIME_PARTY=1` o ajuste equivalente, a decidir al implementar). Sin ella, `/api/party/*` es
+  (`RONA_PARTY=1` o ajuste equivalente, a decidir al implementar). Sin ella, `/api/party/*` es
   404. En modo local el servidor sigue en loopback; para LAN hay que arrancar el modo servidor, que
   ya exige token y es una decisión explícita.
 - **Sin persistencia:** ni SQLite, ni archivo, ni log de salas, códigos, nombres o IPs. Un reinicio
@@ -282,7 +282,7 @@ documenta como ensayo, no como producto, y no se promete en la UI.
 | A1 | Un tercero en la LAN prueba códigos de sala | 80 bits de entropía, TTL, 5 intentos/min por IP, 404 uniforme que no distingue sala inexistente de código erróneo | Quien vea el tráfico HTTP ve el código: LAN de confianza o TLS |
 | A2 | Un invitado usa la sala para leer la biblioteca del anfitrión | `partyGuard` propio, token bearer sólo para `/api/party/*`, allowlist de rutas, prueba de tabla que recorre todas las rutas | Ninguno si la tabla está completa; el anfitrión conserva su app |
 | A3 | CSRF desde una web que el anfitrión tenga abierta | No hay credencial ambiental: el token va en cabecera; `Origin` se sigue comprobando en métodos mutantes | Una web local maliciosa que ya tenga el token (no lo tiene) |
-| A4 | DNS rebinding contra el coordinador | `hostGuard` existente y opt-in de la función; sin `NN_ANIME_PUBLIC_ORIGIN` en LAN el guard acepta cualquier `Host`, pero la credencial de sala sigue | El riesgo 10 ya declarado en `SECURITY.md` |
+| A4 | DNS rebinding contra el coordinador | `hostGuard` existente y opt-in de la función; sin `RONA_PUBLIC_ORIGIN` en LAN el guard acepta cualquier `Host`, pero la credencial de sala sigue | El riesgo 10 ya declarado en `SECURITY.md` |
 | A5 | XSS con el nombre de un participante | Texto plano, 32 caracteres, sin HTML, CSP sin `unsafe-inline` | — |
 | A6 | Agotamiento de la sala | Topes de participantes, salas, mensajes y conexiones SSE; se corta al lento; cierre al que insiste | DoS de red sigue siendo posible; no hay rate limiter global |
 | A7 | Fuga de la fuente del anfitrión | Sólo `mediaId`/temporada/episodio; prueba que serializa y busca `http`, `/stream/`, `ticket` | — |

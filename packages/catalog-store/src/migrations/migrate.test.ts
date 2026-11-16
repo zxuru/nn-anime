@@ -34,10 +34,10 @@ async function conBase<T>(
   body: (dir: string, path: string) => Promise<T> | T,
   hasta: number = ULTIMA,
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-migrate-db-'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-migrate-db-'))
 
   try {
-    const path = join(dir, 'nn-anime.db')
+    const path = join(dir, 'rona.db')
     const db = openDb(path)
 
     try {
@@ -328,17 +328,17 @@ describe('una migración que falla', () => {
 
       const archivos = await readdir(dir)
       expect(archivos.some((nombre) => nombre.includes('.restore-'))).toBe(false)
-      expect(archivos.some((nombre) => nombre === 'nn-anime.db-wal')).toBe(false)
+      expect(archivos.some((nombre) => nombre === 'rona.db-wal')).toBe(false)
     })
   })
 })
 
 describe('la copia de seguridad es obligatoria por defecto', () => {
   test('sin copias configuradas se hace una junto a la base', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-migrate-db-'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-migrate-db-'))
 
     try {
-      const path = join(dir, 'nn-anime.db')
+      const path = join(dir, 'rona.db')
       const db = openDb(path)
       runMigrations(
         db,

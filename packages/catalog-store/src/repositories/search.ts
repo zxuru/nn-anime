@@ -18,7 +18,7 @@ import {
   type SearchResult,
   StoreError,
   searchResultSchema,
-} from '@nn-anime/core'
+} from '@rona/core'
 import { z } from 'zod'
 import { cacheHit, TTL_SECONDS } from '../cache-policy'
 

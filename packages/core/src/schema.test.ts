@@ -303,7 +303,7 @@ describe('streamSourceSchema: validación de headers', () => {
     const result = outcome(streamSourceSchema, {
       url: 'https://ejemplo/master.m3u8',
       kind: 'hls',
-      headers: { Referer: 'https://sitio.example', 'User-Agent': 'nn-anime' },
+      headers: { Referer: 'https://sitio.example', 'User-Agent': 'rona' },
     })
 
     expect(result.success).toBe(true)

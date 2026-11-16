@@ -1,6 +1,6 @@
 # Persistencia entre versiones
 
-**Qué garantiza este documento:** que actualizar nn-anime —el `.exe` portable, el
+**Qué garantiza este documento:** que actualizar RoNa —el `.exe` portable, el
 `.zip` de macOS, el AppImage, `bun run start` o el binario compilado— **no pierde**
 el progreso, el historial, las listas del usuario ni los ajustes, y que cualquier
 cambio de esquema futuro pasa por una migración con copia de seguridad. Lo que dice
@@ -9,26 +9,26 @@ aquí se mide en `bun test` y en `bun run e2e`; no es una promesa de diseño.
 ## 1. Inventario: qué dato vive dónde
 
 Todo lo del usuario vive en el directorio de **datos locales**. En la ventana de Windows es
-`%LOCALAPPDATA%\nn-anime-data`, **hermana** de la carpeta que usaban las versiones instaladas
-(`%LOCALAPPDATA%\nn-anime`); el CLI usa `%LOCALAPPDATA%\nn-anime` porque no se instala. En POSIX es
-`~/.local/share/nn-anime` y la configuración `~/.config/nn-anime`. `NN_ANIME_DATA_DIR` mueve la raíz.
+`%LOCALAPPDATA%\rona-data`, **hermana** de la carpeta que usaban las versiones instaladas
+(`%LOCALAPPDATA%\RoNa`); el CLI usa `%LOCALAPPDATA%\RoNa` porque no se instala. En POSIX es
+`~/.local/share/RoNa` y la configuración `~/.config/RoNa`. `RONA_DATA_DIR` mueve la raíz.
 Nunca está en la carpeta del ejecutable.
 
 | Dato | Dónde | Formato | Sobrevive a actualizar |
 |---|---|---|---|
-| Progreso por episodio/película | `dataDir/nn-anime.db`, tabla `watch_event` (`position_s`, `duration_s`, `finished`, `started_at`) | SQLite | Sí: migraciones aditivas + copia previa |
+| Progreso por episodio/película | `dataDir/rona.db`, tabla `watch_event` (`position_s`, `duration_s`, `finished`, `started_at`) | SQLite | Sí: migraciones aditivas + copia previa |
 | «Continuar viendo» | Derivado de `watch_event` (`GET /api/watch/recent`); no hay almacén aparte | SQLite | Sí |
 | Historial de visionado | `watch_event` (`GET /api/watch/history`) | SQLite | Sí |
 | Último contenido abierto / descubrimiento | `anime`, `search_cache`, `trending_cache`, `feed_cache`, `episode_page` | SQLite | Sí (caché, prescindible) |
 | Marcas de visto / quiero ver / favoritos | `watched_title`, `plan_to_watch`, `favorite` | SQLite | Sí |
 | Historial de búsquedas | `search_history` | SQLite | Sí |
 | Ajustes de la aplicación | `setting` (JSON) y `configDir/config.json` | SQLite + JSON | Sí |
-| Preferencia de reproducción automática y de modo extendido | `localStorage` del webview (`nn-anime:autoplay`, `nn-anime:extendido`) | Cadena | Sí, es del perfil del webview |
-| Progreso local del navegador | `localStorage`, `nn-anime:progreso:<provider>:<ref>` (con `:tmp` para la escritura atómica) | JSON | Sí; es una copia de comodidad, la fuente de verdad es `watch_event` |
+| Preferencia de reproducción automática y de modo extendido | `localStorage` del webview (`rona:autoplay`, `rona:extendido`) | Cadena | Sí, es del perfil del webview |
+| Progreso local del navegador | `localStorage`, `rona:progreso:<provider>:<ref>` (con `:tmp` para la escritura atómica) | JSON | Sí; es una copia de comodidad, la fuente de verdad es `watch_event` |
 | Descargas | fila en `download` (SQLite) + archivos en la carpeta que elige el usuario | SQLite + archivos | Fila sí; los archivos, donde el usuario los puso |
 | Plugins de proveedor | `configDir/providers`, selección en `setting` | TypeScript | Sí |
 | Caché | `cacheDir` | Archivos | Sí, desechable |
-| Copias de seguridad | `dataDir/backups/nn-anime-backup-<fecha>-v<versión>.db` (5 por defecto) | SQLite | Sí |
+| Copias de seguridad | `dataDir/backups/rona-backup-<fecha>-v<versión>.db` (5 por defecto) | SQLite | Sí |
 | Servidor extraído del `.exe` | `dataDir/bin/<versión>/` | Ejecutable | Sí; una actualización deja la anterior intacta |
 | Perfil del webview (Tauri) | `dataDir/webview/` | Directorio de WebView2/WKWebView | Sí |
 | Registro del anfitrión | `dataDir/registro.log` | Texto | Sí |
@@ -37,9 +37,9 @@ Los datos **no** se guardan junto al ejecutable. La única excepción es el modo
 quien crea `portable.txt` al lado del `.exe` elige que todo viaje con el programa; y ni en ese caso el
 reemplazo del ejecutable borra los datos, porque sólo se renombra el `.exe`. El respaldo silencioso al
 directorio del ejecutable y la carpeta de datos dentro de la instalación se **retiraron**
-(`desktop/src-tauri/src/entorno.rs`): la ventana guarda en `%LOCALAPPDATA%\nn-anime-data`. Una
+(`desktop/src-tauri/src/entorno.rs`): la ventana guarda en `%LOCALAPPDATA%\rona-data`. Una
 instalación anterior, que guardaba los datos dentro de la carpeta del programa
-(`%LOCALAPPDATA%\nn-anime`), los traslada una sola vez al arrancar.
+(`%LOCALAPPDATA%\RoNa`), los traslada una sola vez al arrancar.
 
 ### Cómo se comprueba que la actualización no toca los datos
 
@@ -48,7 +48,7 @@ instalación anterior, que guardaba los datos dentro de la carpeta del programa
 - `scripts/desktop.test.ts` comprueba en cada `bun test` que el anfitrión no tiene un camino de datos
   hacia el directorio del ejecutable, que la carpeta de datos es hermana de la que usaban las
   versiones instaladas y que el modo portable es explícito.
-- `packages/core/src/config.test.ts` fija las rutas por plataforma y que `NN_ANIME_DATA_DIR` manda.
+- `packages/core/src/config.test.ts` fija las rutas por plataforma y que `RONA_DATA_DIR` manda.
 
 ## 2. Regla: todo cambio de esquema requiere migración y test de migración
 
@@ -71,7 +71,7 @@ cada archivo y la última versión. `bun run scripts/migraciones.ts` falla si:
   declara sólo en migraciones—;
 - una migración es destructiva (`DROP TABLE/INDEX/VIEW/TRIGGER`,
   `ALTER TABLE … DROP`, `DELETE FROM`, `TRUNCATE`) sin la marca
-  `-- nn-anime: destructiva-ok: <motivo>`;
+  `-- rona: destructiva-ok: <motivo>`;
 - una migración trae `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVEPOINT` (el runner ya
   envuelve cada archivo en su transacción).
 
@@ -117,7 +117,7 @@ volumen sería una copia entre discos.
   servidor **cada 5 s**, y además en pausa, al soltar una búsqueda (`seeked`),
   al cambiar de episodio (desmontaje), con `visibilitychange` (pestaña oculta o
   ventana de Tauri escondida), `pagehide`, `beforeunload` y con el evento
-  `nn-anime:ocultar-ventana`, que el anfitrión despacha desde Rust antes de
+  `rona:ocultar-ventana`, que el anfitrión despacha desde Rust antes de
   ocultar la ventana en la bandeja o de cerrar el servidor al salir. Los avisos
   van en una cola para que dos `PATCH` no lleguen desordenados.
 - `pagehide`/`beforeunload` usan `fetch(..., { keepalive: true })`: sin eso la

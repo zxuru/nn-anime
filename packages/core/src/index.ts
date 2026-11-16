@@ -1,5 +1,5 @@
 /**
- * Superficie pública de `@nn-anime/core`: el kernel sin dependencias que
+ * Superficie pública de `@rona/core`: el kernel sin dependencias que
  * comparten todos los demás paquetes.
  *
  * Este archivo no reexporta el árbol completo del paquete: enumera a mano lo

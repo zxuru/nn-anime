@@ -5,7 +5,7 @@ import { type ClaseDeFallo, describirFallo, falloSinFuente } from './fallo'
 describe('la clase de un fallo', () => {
   test('un 502 del proveedor no se cuenta como fallo del servidor propio', () => {
     // Es la distinción que importa: un 502 lo provoca el sitio de origen, y
-    // mandar a mirar los registros de nn-anime por él es mandar al sitio
+    // mandar a mirar los registros de rona por él es mandar al sitio
     // equivocado.
     const fallo = describirFallo(new ApiError(502, 'GET /api/anime/uno/x respondió 502'))
 

@@ -23,7 +23,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export interface Workspace {
-  /** Nombre completo del paquete, por ejemplo `@nn-anime/core`. */
+  /** Nombre completo del paquete, por ejemplo `@rona/core`. */
   readonly name: string
   /** Ruta absoluta al directorio del paquete, sin barra final. */
   readonly dir: string

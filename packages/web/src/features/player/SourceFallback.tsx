@@ -16,9 +16,9 @@ import {
   episodeResponseSchema,
   providersResponseSchema,
   sourcesResponseSchema,
-} from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { AnimeSummary, Episode } from '@nn-anime/core/models'
+} from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { AnimeSummary, Episode } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { apiGet } from '../../api/client'

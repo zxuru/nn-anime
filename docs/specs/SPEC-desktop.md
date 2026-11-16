@@ -3,7 +3,7 @@
 Module id: `desktop` · Depende de: `cli-launcher` (consume su línea de arranque y su cierre por
 entrada estándar) · Árbol: `desktop/`, **fuera de `packages/`**
 Convenciones (Commands, Project Structure, Code Style, Testing Strategy, Boundaries): heredadas de
-`SPEC-nn-anime.md`. Este documento define sólo lo propio del módulo.
+`SPEC-rona.md`. Este documento define sólo lo propio del módulo.
 
 > **Origen.** Nace de `docs/specs/proposals/SPEC-desktop.T135.md`, aprobado por el humano el
 > 2026-10-16 junto al plan `tasks/desktop.md`. Se corrige aquí un punto de la propuesta —la salida
@@ -11,7 +11,7 @@ Convenciones (Commands, Project Structure, Code Style, Testing Strategy, Boundar
 
 ## Objective
 
-Que nn-anime se abra en **su ventana**, con su icono, **sin terminal**, encima del empaquetado que ya
+Que RoNa se abra en **su ventana**, con su icono, **sin terminal**, encima del empaquetado que ya
 existe (`scripts/package.ts`: ejecutable autocontenido y artefactos portables de las tres
 plataformas). Cuando se escribió este spec, la copia instalada abría una consola, y lo decía su propio
 `.nsi`:
@@ -33,21 +33,21 @@ plataformas). Cuando se escribió este spec, la copia instalada abría una conso
 ## Contrato
 
 **Qué es.** Un anfitrión de ventana. **Cinco** responsabilidades y ninguna más; el producto sigue
-entero en `packages/`. El anfitrión se llama **`nn-anime-desktop`** (`nn-anime-desktop.exe` en
-Windows) porque tiene que convivir en el mismo directorio con **`nn-anime`**, que sigue siendo el
+entero en `packages/`. El anfitrión se llama **`rona-desktop`** (`rona-desktop.exe` en
+Windows) porque tiene que convivir en el mismo directorio con **`rona`**, que sigue siendo el
 servidor de consola.
 
 **1. Lanza el servidor y abre la ventana.**
 
 En **Windows** el servidor **viaja dentro** del anfitrión, que es el único archivo que se descarga.
-Al arrancar, `embebido::preparar` lo extrae a `<raíz>\bin\<versión>\nn-anime.exe`, comprueba el
+Al arrancar, `embebido::preparar` lo extrae a `<raíz>\bin\<versión>\rona.exe`, comprueba el
 SHA-256 que `build.rs` calculó al compilar (un archivo a medias, viejo o manipulado no se ejecuta) y
-lo lanza con `--no-open`. La raíz es `%LOCALAPPDATA%\nn-anime`, o la carpeta del `.exe` si hay un
+lo lanza con `--no-open`. La raíz es `%LOCALAPPDATA%\RoNa`, o la carpeta del `.exe` si hay un
 `portable.txt` al lado. Así un solo archivo basta y no hay dos que se puedan separar.
 
 En **macOS y Linux**, mientras el archivo único siga siendo de Windows, el servidor viaja al lado del
 anfitrión, dentro del `.app` (comprimido en un `.zip`) o del AppImage, y se lanza desde el mismo
-directorio (`Contents/MacOS`, `usr/bin`). La raíz de datos es `~/.local/share/nn-anime` —o
+directorio (`Contents/MacOS`, `usr/bin`). La raíz de datos es `~/.local/share/RoNa` —o
 `XDG_DATA_HOME`—, no el directorio del ejecutable: un AppImage está montado en sólo lectura.
 
 ```
@@ -58,7 +58,7 @@ directorio (`Contents/MacOS`, `usr/bin`). La raíz de datos es `~/.local/share/n
   (paso 7 del spec del CLI). Fijarlo sería añadir una forma de fallar que no es del programa.
 - **No se le pasa `--data-dir` ni `--config-dir`**: las resuelve el propio CLI. Es una decisión, no
   un descuido: si el anfitrión las fijara, la ventana y `bun run start` usarían **bases distintas** y
-  el usuario vería dos aplicaciones. El anfitrión fija las variables `NN_ANIME_*` con la raíz que ya
+  el usuario vería dos aplicaciones. El anfitrión fija las variables `RONA_*` con la raíz que ya
   eligió, que es otra cosa y se declara en `entorno.rs`.
 - **No se le pasa `--lang`**: el idioma es del usuario, no del anfitrión.
 - En Windows se lanza con **`CREATE_NO_WINDOW`**: el servidor es un binario de consola y sin eso asoma
@@ -66,20 +66,20 @@ directorio (`Contents/MacOS`, `usr/bin`). La raíz de datos es `~/.local/share/n
 
 **2. Lee su dirección de la línea legible por máquina, y **no la escribe en disco**.**
 
-`NN_ANIME_BOOT {"port":N,"url":"…"}`, definida en `packages/core/src/boot-line.ts` (formato, esquema
+`RONA_BOOT {"port":N,"url":"…"}`, definida en `packages/core/src/boot-line.ts` (formato, esquema
 y análisis viven juntos). El anfitrión la analiza con un espejo del mismo esquema: prefijo literal +
 JSON en una sola línea.
 
 **La salida del hijo se parte en dos, y no es un detalle:**
 
 - **`stdout` → tubería, drenada por un hilo lector y descartada.** El paso 8 del arranque del CLI
-  escribe en `stdout` la URL **humana** y la línea `NN_ANIME_BOOT`, y **las dos llevan el token**
+  escribe en `stdout` la URL **humana** y la línea `RONA_BOOT`, y **las dos llevan el token**
   (`packages/cli/src/boot.ts`). Escribirlas a un archivo dejaría el token en disco, contra el *Never*
   de `SPEC-cli-launcher.md` («Persistir el token de sesión o el de arranque»). De la tubería sólo se
   extrae la línea, en memoria; el resto se descarta. **La tubería se vacía siempre**: no vaciarla es
   lo que la bloquearía, y eso es un fallo del anfitrión, no del CLI.
 - **`stderr` → archivo** de registro (avisos y errores, sin token):
-  `<caché>/nn-anime/desktop.log`, respetando `NN_ANIME_CACHE_DIR` y las rutas XDG de cada sistema.
+  `<caché>/rona/desktop.log`, respetando `RONA_CACHE_DIR` y las rutas XDG de cada sistema.
 
 **Plazo de arranque: 30 s.** Sin línea —o con la línea rota— la ventana **enseña el motivo**: se abre
 con la página que viaja dentro del binario, que dice que el servidor no arrancó y dónde está el
@@ -176,8 +176,8 @@ Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
       la cabecera PE del anfitrión y la del **archivo único** declaran **WINDOWS (2)** mientras la del
       servidor declara **CONSOLE (3)**.
 - [ ] **El archivo único basta.** Al ejecutarlo, el servidor se extrae a
-      `%LOCALAPPDATA%\nn-anime-data\bin\<versión>\nn-anime.exe` y la ventana carga la interfaz. Se mide en
-      el CI: el proceso `nn-anime` corre desde esa ruta y la ventana existe.
+      `%LOCALAPPDATA%\rona-data\bin\<versión>\rona.exe` y la ventana carga la interfaz. Se mide en
+      el CI: el proceso `rona` corre desde esa ruta y la ventana existe.
 - [ ] **«Salir» termina el servidor con 0** en menos de un segundo (medido por T134 sobre el
       ejecutable: 17 ms). **La X oculta en la bandeja** y no apaga la aplicación.
 - [ ] Un segundo lanzamiento enfoca la ventana existente y **no** arranca un segundo servidor. Se
@@ -221,7 +221,7 @@ Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
 - Escribir en disco la URL de arranque, el token, o el `stdout` del sidecar.
 - Duplicar la base de datos fijando `--data-dir` desde el anfitrión.
 - Tocar SQLite desde Rust: la base es de `catalog-store`.
-- Leer `NN_ANIME_BOOT` analizando la línea **humana**: se traduce, y el análisis se rompería el día
+- Leer `RONA_BOOT` analizando la línea **humana**: se traduce, y el análisis se rompería el día
   que exista el catálogo del idioma que falta.
 
 ## Riesgos

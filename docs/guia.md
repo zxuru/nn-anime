@@ -11,7 +11,7 @@ Dos tutoriales pequeños, con [driver.js](https://github.com/nilbuild/driver.js)
   instalación.
 
 No hay cuentas ni servidor: lo visto se guarda en `localStorage`, bajo
-`nn-anime.guia`. Un almacén prohibido —modo privado— no rompe nada; los
+`RoNa.guia`. Un almacén prohibido —modo privado— no rompe nada; los
 recorridos vuelven a salir en la sesión siguiente.
 
 ## Las piezas

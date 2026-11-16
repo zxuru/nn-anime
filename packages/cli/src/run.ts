@@ -5,7 +5,7 @@
  * verificar que `--help` no arranca nada y que un error de uso sale con 2.
  */
 
-import { resolveLocale } from '@nn-anime/core'
+import { resolveLocale } from '@rona/core'
 import { type CliOptions, parseArgs } from './args'
 import { t } from './i18n'
 
@@ -19,7 +19,7 @@ export interface RunDeps {
   /** Arranca el servidor y devuelve el código de salida final. */
   readonly start: (options: CliOptions) => Promise<number>
   readonly version: string
-  /** Idioma del entorno, `NN_ANIME_LANG`. La bandera `--lang` gana sobre esto. */
+  /** Idioma del entorno, `RONA_LANG`. La bandera `--lang` gana sobre esto. */
   readonly envLang?: string | undefined
 }
 

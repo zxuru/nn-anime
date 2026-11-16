@@ -1,4 +1,4 @@
-# Estudio: la ventana propia de nn-anime
+# Estudio: la ventana propia de RoNa
 
 **Estado:** **implementado** en la rama `tarea/desktop`. Fecha del estudio: 2026-10-16. Task: **T132**.
 El plan de ejecución y los cierres de cada tarea están en `tasks/desktop.md`.
@@ -53,8 +53,8 @@ empaquetado probado (sección 4.4).
 |---|---|
 | `scripts/package.ts` + `scripts/package/*.ts` | Ejecutable autocontenido por plataforma y su instalador |
 | `scripts/package/binary.ts` | `bun build --compile` con `--asset` (interfaz y migraciones) y `--windows-icon` |
-| `packaging/windows/nn-anime.nsi` | Instalador NSIS **por usuario** (sin UAC), accesos en menú de inicio **y escritorio**, desinstalador y entrada en «Agregar o quitar programas» |
-| `packaging/linux/{AppRun,nfpm.yaml,nn-anime.desktop}` | AppImage y paquetes `.deb` / `.rpm` |
+| `packaging/windows/RoNa.nsi` | Instalador NSIS **por usuario** (sin UAC), accesos en menú de inicio **y escritorio**, desinstalador y entrada en «Agregar o quitar programas» |
+| `packaging/linux/{AppRun,nfpm.yaml,RoNa.desktop}` | AppImage y paquetes `.deb` / `.rpm` |
 | `packaging/macos/Info.plist` | `.app` y `.dmg` (x64 y arm64) |
 | `packaging/icons/*` | **El logo existe**: `icon-1024.png`, `.ico`, `.icns`, `icon-setup.ico` para el asistente |
 | `scripts/icon.ts` | El generador del `.ico` (con el fallo de endianness arreglado y una prueba que lo vigila) |
@@ -72,7 +72,7 @@ describe exactamente los dos fallos que hoy he medido con el CLI compilado (secc
    migraciones leía un directorio sin `.sql`, no aplicaba ninguna y **no fallaba**: el síntoma era un
    `no such table` mucho después.
 
-El orden que resuelve es: **variable de entorno (`NN_ANIME_WEB_DIR`, `NN_ANIME_MIGRATIONS_DIR`) →
+El orden que resuelve es: **variable de entorno (`RONA_WEB_DIR`, `RONA_MIGRATIONS_DIR`) →
 recurso incrustado con `--asset` → árbol de fuentes**. Con eso, un ejecutable autocontenido sirve la
 interfaz y aplica las siete migraciones.
 
@@ -157,23 +157,23 @@ Misma base (pre-migrada con el CLI normal), mismo directorio de plugins, mismo p
 | Migraciones en una base nueva | las siete | **ninguna, y el proceso muere** |
 | Canje del token + `GET /api/health` | **200** con el JSON de proveedores | 404 (el canje redirige a `/`, que es 404) |
 | Plugin autocontenido / con `import type` | carga | carga |
-| Plugin que **importa un paquete en tiempo de ejecución** | **carga** (resuelve `@nn-anime/providers-fixture`) | **rechazado: `Cannot find package`** |
+| Plugin que **importa un paquete en tiempo de ejecución** | **carga** (resuelve `@rona/providers-fixture`) | **rechazado: `Cannot find package`** |
 | Plugin que importa algo inexistente | rechazado con su motivo | rechazado con su motivo |
 | Plugin que no cumple el contrato | rechazado con el detalle campo a campo | igual |
 
 De la última fila de plugins sale una conclusión que **ya era cierta sin compilar** y que conviene
 tener escrita: un plugin del directorio del usuario **no resuelve especificadores «bare»**, porque
-desde `~/.config/nn-anime/providers/` no hay `node_modules` que los contenga. Por eso los seis
+desde `~/.config/rona/providers/` no hay `node_modules` que los contenga. Por eso los seis
 proveedores reales de `nn-anime-plugins` usan **sólo `import type`**, y lo dicen en su cabecera:
 
-> Sólo hay `import type`, y el único módulo que se nombra es `@nn-anime/provider-sdk`: los tipos se
+> Sólo hay `import type`, y el único módulo que se nombra es `@rona/provider-sdk`: los tipos se
 > borran al ejecutar, **que es lo que permite cargar este archivo desde el directorio del usuario,
 > donde el paquete no se resuelve**.
 
 Es decir: la convención no es estilo, es **lo que hace viable cargar plugins desde fuera del
 repositorio**, y el binario compilado la respeta. Lo que añade el compilado es un matiz: **ni
 siquiera con `node_modules` delante** resuelve un `import` de valor. Si algún día se quiere que un
-plugin pueda importar `ProviderError` de `@nn-anime/core`, el binario compilado no es el vehículo: el
+plugin pueda importar `ProviderError` de `@rona/core`, el binario compilado no es el vehículo: el
 cargador tendría que inyectarlo. Hoy no hace falta, y está medido que no hace falta.
 
 ### 4.3 Lo que no está medido
@@ -226,7 +226,7 @@ Lo que queda son tres cosas, y las tres están en el contrato del CLI o en el an
 1. **Una línea de arranque legible por máquina.** El anfitrión necesita la URL con el token, y hoy lo
    único que hay es una línea **traducida por i18n** (`packages/cli/src/boot.ts:381`): analizar texto
    traducido es un contrato que se rompe al traducir. Se añade una línea fija, sin traducir:
-   `NN_ANIME_BOOT {"port":41235,"url":"http://127.0.0.1:41235/?boot=…"}`. **Por tubería y no por
+   `RONA_BOOT {"port":41235,"url":"http://127.0.0.1:41235/?boot=…"}`. **Por tubería y no por
    archivo**: un archivo dejaría el token en disco, y «Persistir el token de sesión o el de arranque»
    está en la lista de *Never* del spec del CLI. Detalle en
    `docs/specs/proposals/SPEC-cli-launcher.T132.md`.
@@ -275,7 +275,7 @@ búsqueda). El orden no es negociable en un punto: primero se fusiona lo que exi
 | Id | Qué entra | Cómo se mide |
 |---|---|---|
 | — | **Fusionar `ci/instalables-y-releases`**: **hecho** el 2026-10-16 (`1d752bb`), con el listón verde y el `smoke` del ejecutable en 6/6 (sección 4.4) | Queda que el primer push compile el instalador NSIS, que es lo único que nunca se ha compilado |
-| **T134** | La línea `NN_ANIME_BOOT` y el cierre por `stdin` | La línea aparece **una** vez, sin traducir y nunca en el log, y su JSON valida contra un esquema. Con `shutdown\n` el proceso sale 0, cierra SQLite y mata el hijo registrado. **Mutación**: dejar de escuchar el `stdin` deja el proceso vivo y la prueba falla |
+| **T134** | La línea `RONA_BOOT` y el cierre por `stdin` | La línea aparece **una** vez, sin traducir y nunca en el log, y su JSON valida contra un esquema. Con `shutdown\n` el proceso sale 0, cierra SQLite y mata el hijo registrado. **Mutación**: dejar de escuchar el `stdin` deja el proceso vivo y la prueba falla |
 | **T135** | El anfitrión: ventana, `--no-open`, instancia única, `CREATE_NO_WINDOW`, `on_navigation` | Se abre la ventana con la home; al cerrarla **no queda ningún proceso** (`Get-Process`); un segundo lanzamiento enfoca la ventana existente. **Mutación**: quitar la instancia única abre un segundo servidor sobre la misma base |
 | **T136** | El instalador de Windows con el anfitrión (no el ejecutable a secas) | Instalar en una cuenta limpia: icono, acceso en el escritorio, **ventana sin consola**, búsqueda con el plugin de ejemplo, y al cerrar no queda nada vivo. Sin UAC |
 | **T137** | Linux: AppImage y `.deb` con ventana, **y la medición del HLS de WebKitGTK** | Abre en Ubuntu 22.04 y 24.04; se mide el HLS con y sin `mpv`. Si no va, la ficha lo dice y manda a `mpv` en vez de quedarse en negro |

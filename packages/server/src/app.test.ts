@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
+import { openDb, runMigrations } from '@rona/catalog-store'
 import type { Hono } from 'hono'
 import { type AppOptions, createApp } from './app'
 import { createContainer } from './container'
@@ -344,8 +344,8 @@ describe('tabla de rutas', () => {
     body: (target: Hono) => Promise<T>,
     options: { readonly locked?: boolean } = {},
   ): Promise<T> {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-rutas-'))
-    const db = openDb(join(dir, 'nn-anime.db'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-rutas-'))
+    const db = openDb(join(dir, 'rona.db'))
     runMigrations(db)
     const container = createContainer({ db })
 
@@ -360,8 +360,8 @@ describe('tabla de rutas', () => {
             configDir: dir,
             cacheDir: join(dir, 'cache'),
             providersDir: join(dir, 'providers'),
-            dbPath: join(dir, 'nn-anime.db'),
-            configFile: join(dir, 'nn-anime.json'),
+            dbPath: join(dir, 'rona.db'),
+            configFile: join(dir, 'rona.json'),
           },
         }),
       )

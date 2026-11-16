@@ -17,9 +17,9 @@
 
 import { mkdir, statfs } from 'node:fs/promises'
 import { join } from 'node:path'
-import { AppError, type ConfigPaths, healthResponseSchema, type Logger } from '@nn-anime/core'
-import type { FetchLike, RemuxFn, Resolver } from '@nn-anime/media-proxy'
-import type { LoadReport } from '@nn-anime/provider-sdk'
+import { AppError, type ConfigPaths, healthResponseSchema, type Logger } from '@rona/core'
+import type { FetchLike, RemuxFn, Resolver } from '@rona/media-proxy'
+import type { LoadReport } from '@rona/provider-sdk'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { type AniListCatalog, createAniListCatalog } from './anilist/catalog'
@@ -71,7 +71,7 @@ export type PortSource = number | (() => number)
 /**
  * Lo que el modo servidor añade al guard de `Host` y al de `Origin`.
  *
- * Lo calcula el arranque a partir de `NN_ANIME_HOST` y `NN_ANIME_PUBLIC_ORIGIN`;
+ * Lo calcula el arranque a partir de `RONA_HOST` y `RONA_PUBLIC_ORIGIN`;
  * el servidor no lee variables de entorno para decidir a quién acepta.
  */
 export interface NetworkPolicy {
@@ -82,7 +82,7 @@ export interface NetworkPolicy {
 }
 
 /** Reexportado para no obligar a nadie a saber de qué archivo sale. */
-export type { ProviderSummary } from '@nn-anime/core'
+export type { ProviderSummary } from '@rona/core'
 
 /** Configuración del watch party. Apagado salvo que el arranque lo encienda. */
 export interface PartyOptions {
@@ -116,7 +116,7 @@ export interface AppOptions {
   /** Token de un solo uso que el CLI pone en la URL de arranque. */
   readonly bootToken: string
   /**
-   * Watch party. Apagado por defecto: sin `NN_ANIME_PARTY=1` las rutas de sala
+   * Watch party. Apagado por defecto: sin `RONA_PARTY=1` las rutas de sala
    * no existen y una petición a ellas es un 404, no un 401.
    */
   readonly party?: PartyOptions
@@ -220,7 +220,7 @@ export interface AppOptions {
   /**
    * Sin salida a AniSkip, para el arnés de pruebas.
    *
-   * Por defecto lo dice el entorno (`NN_ANIME_ANISKIP_OFFLINE`). El reproductor
+   * Por defecto lo dice el entorno (`RONA_ANISKIP_OFFLINE`). El reproductor
    * pide los saltos en cuanto conoce la duración, y una prueba que sale a
    * internet es una prueba que se rompe sola.
    */
@@ -228,7 +228,7 @@ export interface AppOptions {
   /**
    * Sin salida a AniList, para el arnés de pruebas.
    *
-   * Por defecto lo dice el entorno (`NN_ANIME_ANILIST_OFFLINE`), que es como lo
+   * Por defecto lo dice el entorno (`RONA_ANILIST_OFFLINE`), que es como lo
    * pone el e2e: la home siempre pide el descubrimiento, y una prueba que sale a
    * internet es una prueba que se rompe sola.
    */

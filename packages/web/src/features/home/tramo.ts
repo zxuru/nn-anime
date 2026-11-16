@@ -12,7 +12,7 @@
  * de la fila.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { t } from '../../i18n'
 
 /** La cuenta de un tramo: «3 títulos», «1 título». */

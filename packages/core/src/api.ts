@@ -879,7 +879,7 @@ export const settingsResponseSchema = z.strictObject({
   /**
    * Si esta instalación corre en modo restringido.
    *
-   * No es un ajuste que el usuario cambie: lo fija `NN_ANIME_LOCKED` al
+   * No es un ajuste que el usuario cambie: lo fija `RONA_LOCKED` al
    * desplegar. La interfaz lo lee para no ofrecer botones que la API no
    * registra. Por defecto `false`, que es el modo local de siempre.
    */

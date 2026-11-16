@@ -12,7 +12,7 @@
  * borrar.
  */
 
-import { err, ok, type ProviderError, type Result } from '@nn-anime/core'
+import { err, ok, type ProviderError, type Result } from '@rona/core'
 import { apiVersionMismatch, duplicateId, invalidShape } from './errors'
 import { providerSchema } from './schema'
 import { PROVIDER_API_VERSION, type Provider } from './types'

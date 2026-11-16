@@ -1,7 +1,7 @@
 /**
  * El aviso del primer arranque.
  *
- * Una instalación nueva no tiene ninguna fuente: nn-anime no incluye scrapers y
+ * Una instalación nueva no tiene ninguna fuente: rona no incluye scrapers y
  * el usuario tiene que añadir un repositorio. Sin este aviso, la vitrina vacía se
  * lee como una aplicación rota; con él, dice qué falta, cuál es el repositorio
  * recomendado y dónde se añade.
@@ -17,8 +17,8 @@
  * cuando la lectura terminó **y no falló**.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import { RECOMMENDED_PROVIDER_REPO } from '@nn-anime/core/repos'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import { RECOMMENDED_PROVIDER_REPO } from '@rona/core/repos'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 import { Link } from '../../router'

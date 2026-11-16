@@ -19,11 +19,11 @@ import {
   openDb,
   pruneOrphans,
   shouldPrune,
-} from '@nn-anime/catalog-store'
-import { createLogger, DEFAULT_LOCALE, readSettings, t } from '@nn-anime/core'
-import { ALLOW_LOOPBACK_ENV, allowLoopbackFromEnv, hasMpv } from '@nn-anime/media-proxy'
-import { loadProviders } from '@nn-anime/provider-sdk'
-import { createBootToken, createContainer, createSession } from '@nn-anime/server'
+} from '@rona/catalog-store'
+import { createLogger, DEFAULT_LOCALE, readSettings, t } from '@rona/core'
+import { ALLOW_LOOPBACK_ENV, allowLoopbackFromEnv, hasMpv } from '@rona/media-proxy'
+import { loadProviders } from '@rona/provider-sdk'
+import { createBootToken, createContainer, createSession } from '@rona/server'
 import { version } from '../package.json'
 import { boot, listenOnFreePort, type Migrate } from './boot'
 import { configEnvironment } from './env'
@@ -142,7 +142,7 @@ const migrate: Migrate = async (config) => {
   }
 }
 
-const envLang = process.env.NN_ANIME_LANG
+const envLang = process.env.RONA_LANG
 
 /**
  * El entorno del modo servidor, resuelto una sola vez.
@@ -214,7 +214,7 @@ const code = await run(Bun.argv.slice(2), {
     envLang,
     env: configEnvironment(process.env),
     serverEnv,
-    publicOrigin: process.env.NN_ANIME_DEV_ORIGIN,
+    publicOrigin: process.env.RONA_DEV_ORIGIN,
     webRoot: resources.webRoot,
     listen: listenOnFreePort,
     migrate,

@@ -7,13 +7,13 @@
  * del anfitrión con el nombre que descarga un usuario.
  *
  * El orden importa y por eso el script lo comprueba: el anfitrión sólo puede
- * embeberse **después** de que exista `nn-anime.exe`, y aquí se verifica que el
+ * embeberse **después** de que exista `rona.exe`, y aquí se verifica que el
  * binario del anfitrión sea más reciente que el del servidor. Si no lo es, el
  * `.exe` que se entregaría lleva un servidor viejo dentro —o ninguno—, y eso es
  * exactamente la clase de fallo silencioso que este proyecto ya ha pagado caro.
  *
  * Uso:
- *   bun run package:unico                 # deja release/nn-anime-<v>-windows-x64.exe
+ *   bun run package:unico                 # deja release/rona-<v>-windows-x64.exe
  *   bun run package:unico --out=otra/ruta # deja el archivo en otra carpeta
  */
 
@@ -22,9 +22,9 @@ import { dirname, join } from 'node:path'
 import { ROOT } from '../workspaces'
 import { CRATE_DIR, hostBinary, MANIFEST } from './desktop'
 
-/** El nombre del archivo que se descarga: `nn-anime-1.2.3-windows-x64.exe`. */
+/** El nombre del archivo que se descarga: `rona-1.2.3-windows-x64.exe`. */
 export function unicoNombre(version: string): string {
-  return `nn-anime-${version}-windows-x64.exe`
+  return `rona-${version}-windows-x64.exe`
 }
 
 /** La versión de la raíz, que es la única que manda. */
@@ -40,7 +40,7 @@ export async function version(): Promise<string> {
 
 /** El servidor que `build.rs` tiene que haber embebido. */
 export function servidor(): string {
-  return join(ROOT, 'build', 'package', 'windows-x64', 'nn-anime.exe')
+  return join(ROOT, 'build', 'package', 'windows-x64', 'rona.exe')
 }
 
 /**

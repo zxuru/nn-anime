@@ -31,7 +31,7 @@ import {
   streamRequestSchema,
   streamResolveResponseSchema,
   toPublicStreamSource,
-} from '@nn-anime/core'
+} from '@rona/core'
 import {
   contentTypeFor,
   type FetchLike,
@@ -42,8 +42,8 @@ import {
   type Resolver,
   resourceKind,
   rewritePlaylist,
-} from '@nn-anime/media-proxy'
-import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
+} from '@rona/media-proxy'
+import type { CallOptions, Provider } from '@rona/provider-sdk'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
 import { findProvider } from './anime'

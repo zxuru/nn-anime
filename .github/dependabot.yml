@@ -38,7 +38,7 @@ updates:
           - 'vite'
           - '@vitejs/*'
         exclude-patterns:
-          - '@nn-anime/*'
+          - '@rona/*'
 
   - package-ecosystem: github-actions
     directory: /

@@ -126,7 +126,7 @@ describe('headers del stream: el mensaje nombra al culpable', () => {
     const source = {
       url: 'https://ejemplo/a.mp4',
       kind: 'file',
-      headers: { Referer: 'https://sitio.example', 'User-Agent': 'nn-anime' },
+      headers: { Referer: 'https://sitio.example', 'User-Agent': 'rona' },
     }
 
     expect(providerStreamSourceSchema.safeParse(source).success).toBe(true)

@@ -3,8 +3,8 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { type ProviderDraft, providerDraftSchema, providerFieldMapSchema } from '@nn-anime/core'
-import { assertConforms, type CallOptions, type Provider } from '@nn-anime/provider-sdk'
+import { type ProviderDraft, providerDraftSchema, providerFieldMapSchema } from '@rona/core'
+import { assertConforms, type CallOptions, type Provider } from '@rona/provider-sdk'
 import { pluginFileName, renderProviderModule } from './provider-template'
 
 /**
@@ -41,7 +41,7 @@ async function withProvider<T>(
   source: string,
   body: (provider: Provider) => Promise<T> | T,
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-plugin-'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-plugin-'))
   const file = join(dir, 'generado.ts')
   await writeFile(file, source)
 

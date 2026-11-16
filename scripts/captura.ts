@@ -22,8 +22,8 @@ import {
   VERSION_GUIA,
 } from '../packages/web/src/features/guia/guia'
 
-const PORT = Number(process.env.NN_ANIME_E2E_PORT ?? '7801')
-const DESTINO = process.env.NN_ANIME_CAPTURA ?? 'docs/captura.png'
+const PORT = Number(process.env.RONA_E2E_PORT ?? '7801')
+const DESTINO = process.env.RONA_CAPTURA ?? 'docs/captura.png'
 const token = (await readFile('.tmp/e2e-boot-token', 'utf8')).trim()
 
 const navegador = await chromium.launch({ args: ['--mute-audio'] })

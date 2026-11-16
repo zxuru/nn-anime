@@ -6,7 +6,7 @@
 
 
 Module id: `recsys` · Depende de: `core`, `catalog-store` · Paquete: `packages/recsys`
-Convenciones heredadas de `SPEC-nn-anime.md`.
+Convenciones heredadas de `SPEC-rona.md`.
 
 ## Objective
 

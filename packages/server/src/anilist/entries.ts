@@ -27,7 +27,7 @@ import {
   kindOfFormat,
   plainText,
   relationOf,
-} from '@nn-anime/core'
+} from '@rona/core'
 import { z } from 'zod'
 import { ANILIST_IMAGE_HOSTS } from './client'
 

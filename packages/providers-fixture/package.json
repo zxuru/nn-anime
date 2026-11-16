@@ -1,5 +1,5 @@
 {
-  "name": "@nn-anime/providers-fixture",
+  "name": "@rona/providers-fixture",
   "version": "0.8.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@nn-anime/core": "workspace:*",
-    "@nn-anime/provider-sdk": "workspace:*",
+    "@rona/core": "workspace:*",
+    "@rona/provider-sdk": "workspace:*",
     "zod": "^4"
   }
 }

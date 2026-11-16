@@ -18,7 +18,7 @@ import {
   anilistAiringEntrySchema,
   anilistEntrySchema,
   StoreError,
-} from '@nn-anime/core'
+} from '@rona/core'
 import { TTL_SECONDS } from '../cache-policy'
 import { openDb } from '../db'
 import { listMigrations, runMigrations } from '../migrations/runner'
@@ -61,8 +61,8 @@ function entrada(overrides: Partial<AniListEntry> = {}): AniListEntry {
  * después lo que falta.
  */
 async function withDb<T>(body: (db: Database) => T, hasta?: number): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-anilist-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-anilist-'))
+  const db = openDb(join(dir, 'rona.db'))
 
   try {
     const migraciones =

@@ -17,10 +17,10 @@
  *    géneros todavía, no desaparezca de la lista.
  */
 
-import type { CatalogStore } from '@nn-anime/catalog-store'
-import type { Candidate, ProviderRef, TitleKind } from '@nn-anime/core'
-import { normalizeQuery, titleKindSchema } from '@nn-anime/core'
-import type { AffinityEvent, CoVisit, SearchSignalRecord, WatchState } from '@nn-anime/recsys'
+import type { CatalogStore } from '@rona/catalog-store'
+import type { Candidate, ProviderRef, TitleKind } from '@rona/core'
+import { normalizeQuery, titleKindSchema } from '@rona/core'
+import type { AffinityEvent, CoVisit, SearchSignalRecord, WatchState } from '@rona/recsys'
 
 /** Cuántos títulos se miran para construir el corpus. */
 export const CORPUS_LIMIT = 500

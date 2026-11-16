@@ -15,14 +15,9 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import {
-  type CatalogStore,
-  openDb,
-  runMigrations,
-  type StoreConnection,
-} from '@nn-anime/catalog-store'
-import type { Provider } from '@nn-anime/provider-sdk'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import { type CatalogStore, openDb, runMigrations, type StoreConnection } from '@rona/catalog-store'
+import type { Provider } from '@rona/provider-sdk'
+import { createFixtureProvider } from '@rona/providers-fixture'
 import { createContainer } from './container'
 import { acotarAlmacen } from './provider-scope'
 
@@ -206,8 +201,8 @@ function sembrar(db: StoreConnection): void {
 }
 
 async function conAlmacen<T>(body: (store: CatalogStore) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-alcance-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-alcance-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const container = createContainer({ db })
   sembrar(db)

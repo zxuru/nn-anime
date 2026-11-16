@@ -22,7 +22,7 @@
  * basura, y el usuario vería un video que no arranca sin saber por qué.
  */
 
-import { AppError } from '@nn-anime/core'
+import { AppError } from '@rona/core'
 
 /** Nombre de cabecera: lo que el spec admite, ni más ni menos. */
 export const HEADER_NAME_RE = /^[A-Za-z0-9-]+$/

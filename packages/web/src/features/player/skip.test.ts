@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { SkipInterval } from '@nn-anime/core/schema'
+import type { SkipInterval } from '@rona/core/schema'
 import {
   claveDeIntervalo,
   dentroDelIntervalo,

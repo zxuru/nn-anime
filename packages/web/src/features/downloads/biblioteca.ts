@@ -10,7 +10,7 @@
  * no es ninguna de las dos: es una fila que ya no existe para quien mira.
  */
 
-import type { DownloadItem } from '@nn-anime/core/api'
+import type { DownloadItem } from '@rona/core/api'
 
 export type Descarga = DownloadItem
 

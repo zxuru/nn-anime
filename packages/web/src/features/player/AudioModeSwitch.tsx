@@ -15,7 +15,7 @@
  * al buscador de textos sin usar, que acabaría borrándolas por parecer huérfanas.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 import { PLAY_MODES, type PlayMode } from './watch-route'

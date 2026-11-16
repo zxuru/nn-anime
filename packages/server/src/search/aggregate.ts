@@ -22,7 +22,7 @@ import {
   type ProviderError,
   type Result,
   type SearchResult,
-} from '@nn-anime/core'
+} from '@rona/core'
 import {
   type CallOptions,
   classifyThrow,
@@ -30,7 +30,7 @@ import {
   type Provider,
   type ProviderFailureKind,
   search as searchProvider,
-} from '@nn-anime/provider-sdk'
+} from '@rona/provider-sdk'
 
 export { normalizeQuery }
 

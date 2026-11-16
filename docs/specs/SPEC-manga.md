@@ -40,7 +40,7 @@ imágenes), `SPEC-catalog-store.md` (repositorios nuevos), `SPEC-web-ui.md` (lec
 
 ## Objective
 
-Que en `nn-anime` se pueda buscar una obra de manga, abrir un capítulo, leerlo con calma y
+Que en `rona` se pueda buscar una obra de manga, abrir un capítulo, leerlo con calma y
 quedarse en la página en la que se estaba, y que ese capítulo se pueda tener en el disco para
 leerlo sin red.
 
@@ -404,7 +404,7 @@ El versionado real está en el **schema**, que es donde el contrato se aplica:
 
 La nota que va a `docs/providers.md` cuando se implemente:
 
-> Tu plugin puede declarar `media: ['anime', 'manga']` a partir de la versión 2A de nn-anime. En
+> Tu plugin puede declarar `media: ['anime', 'manga']` a partir de la versión 2A de RoNa. En
 > una versión anterior **no cargará**: el manifiesto se rechaza al arrancar, con un mensaje que
 > nombra el valor que no se admite. Si sólo sirves anime, no cambies nada: `media: 'anime'` y
 > `apiVersion: '1'` siguen valiendo.
@@ -452,7 +452,7 @@ existente y sus límites». Se reutiliza **el cliente entero**, sin tocarlo:
 | Plazo por consulta | 10 000 ms | `client.ts:50` |
 | Tope del cuerpo | 2 MiB | `client.ts:52` |
 | `Retry-After` obedecido, un reintento como mucho | 60 000 ms de tope | `client.ts:54`, `client.ts:270-285` |
-| Interruptor del arnés | `NN_ANIME_ANILIST_OFFLINE=1` | `client.ts:69` |
+| Interruptor del arnés | `RONA_ANILIST_OFFLINE=1` | `client.ts:69` |
 
 **El presupuesto se reparte, no se amplía.** AniList cuenta las peticiones, no las franjas de
 tipo: el manga usa el mismo presupuesto que el anime, y por eso la caché es lo que hace que la 2A
@@ -511,7 +511,7 @@ portada—, y sólo queda la marca de su referencia en `adult_ref`, que es la de
 
 ### El modo offline
 
-`NN_ANIME_ANILIST_OFFLINE=1` corta el cliente. Con manga, la consecuencia es la misma que en el
+`RONA_ANILIST_OFFLINE=1` corta el cliente. Con manga, la consecuencia es la misma que en el
 resto: **el cliente devuelve el mismo error que devolvería un AniList caído**, las filas vuelven a
 lo que da la fuente y la parrilla se explica. El e2e de la 2A corre con el interruptor puesto, y
 la prueba **cuenta las salidas**: con el interruptor, `calls() === 0`.
@@ -605,7 +605,7 @@ CREATE TABLE read_progress (
 ```
 
 **El número de tablas pasa de 21 a 24**, y hay **dos** listas que se actualizan con la misma
-enmienda: el `Data Model` de `SPEC-nn-anime.md` y el arreglo `TABLAS_POSTERIORES` de
+enmienda: el `Data Model` de `SPEC-rona.md` y el arreglo `TABLAS_POSTERIORES` de
 `packages/catalog-store/src/db.test.ts`, que es la prueba que cuenta las tablas contra una lista
 escrita a mano —si la lista se sacara del esquema, comprobaría que el esquema es igual a sí mismo—.
 La cabecera de `0001-initial.sql` ya avisa de que esa cuenta se desvió una vez.
@@ -742,8 +742,8 @@ ticket no guarda bytes, sólo dice a dónde ir.
 ### La caché en disco
 
 Las páginas se cachean en `<cacheDir>/manga/`, donde `cacheDir` es el de `ConfigPaths`
-(`packages/core/src/config.ts`): `$XDG_CACHE_HOME/nn-anime` en Linux, `%LOCALAPPDATA%\nn-anime\cache`
-en Windows, y `NN_ANIME_CACHE_DIR` lo puede mover. **No se escribe una ruta a mano**: el directorio
+(`packages/core/src/config.ts`): `$XDG_CACHE_HOME/RoNa` en Linux, `%LOCALAPPDATA%\rona\cache`
+en Windows, y `RONA_CACHE_DIR` lo puede mover. **No se escribe una ruta a mano**: el directorio
 ya existe y lo prepara `ensureDirs`.
 
 El nombre del archivo sale de un hash de la dirección (**nunca del nombre de la fuente**: un nombre
@@ -957,7 +957,7 @@ Lo que cambia:
 
 ### El CBZ se escribe en casa
 
-**El ZIP lo escribe la aplicación, sin dependencias nuevas.** `SPEC-nn-anime.md` no tiene una
+**El ZIP lo escribe la aplicación, sin dependencias nuevas.** `SPEC-rona.md` no tiene una
 librería de ZIP en su Tech Stack y añadir una es *Ask first*; pero un ZIP *store* es un formato
 sencillo: cabeceras locales, directorio central y el **CRC-32** de cada entrada. `node:zlib` —que
 Bun implementa— trae `crc32` y `deflateRawSync` (medido en este árbol, ver «Lo que se midió hoy»),
@@ -981,7 +981,7 @@ sin comprimir lo abren igual todos los lectores. Ver D-M4.
 ## Superficie HTTP
 
 Rutas nuevas del servidor. Todas exigen el token de sesión y el `Host` validado, como las demás
-(`SPEC-nn-anime.md`, mitigaciones 1, 2 y 4).
+(`SPEC-rona.md`, mitigaciones 1, 2 y 4).
 
 ```
 GET  /api/manga/:providerId/:ref                       la ficha de la obra
@@ -1033,7 +1033,7 @@ es idempotente: escribir la misma página dos veces deja la misma fila.
 | | | **`media` como conjunto de banderas (`servesAnime`, `servesManga`).** | Rompe todos los plugins publicados: el campo deja de ser un valor y pasa a ser un objeto. |
 | **D-M2** | El proxy de imágenes tiene **su propio** almacén de tickets: 2000 entradas y 1800 s de vida. | **Compartir el almacén de los streams** (500 entradas, 600 s). | Tres capítulos de 60 páginas con la precarga por delante rondan las 180 entradas: con el almacén compartido, leer manga echaría los tickets del vídeo y el vídeo en marcha se quedaría sin él. |
 | **D-M3** | Las páginas se **cachean en disco** en `<cacheDir>/manga/`, con tope de 512 MiB y desalojo LRU. | **Sólo caché HTTP** (la del navegador). | Releer un capítulo volvería a bajar todas sus imágenes, y con una fuente lenta la lectura se para. Es enmienda al *Ask first* de `SPEC-media-proxy.md` («cachear segmentos en disco»), y por eso la pide el humano. |
-| **D-M4** | El CBZ lo escribe la aplicación con `node:zlib`, **sin dependencia nueva**, y con las imágenes **sin comprimir** (método *store*). | **Añadir una librería de ZIP.** | `SPEC-nn-anime.md` no tiene una en su Tech Stack y añadirla es *Ask first*. Una página de manga ya viene comprimida; volver a comprimir gasta CPU para ganar un 1 %. |
+| **D-M4** | El CBZ lo escribe la aplicación con `node:zlib`, **sin dependencia nueva**, y con las imágenes **sin comprimir** (método *store*). | **Añadir una librería de ZIP.** | `SPEC-rona.md` no tiene una en su Tech Stack y añadirla es *Ask first*. Una página de manga ya viene comprimida; volver a comprimir gasta CPU para ganar un 1 %. |
 | **D-M5** | La biblioteca se **reutiliza**: `favorite`, `plan_to_watch` y `watched_title`, con la etiqueta de cada pestaña («quiero leer» en manga, «quiero ver» en anime). Lo único nuevo es `read_progress`. | **Tres tablas nuevas** (`plan_to_read`, `read_title`, y el favorito aparte). | Harían falta seis tablas para tres intenciones, y la separación entre pestañas la hace ya el filtro `esDelTipo`, que existe y funciona. |
 | **D-M6** | Tope de **12 MiB por página** y **512 MiB** de caché en disco. | Reusar el tope de 5 MiB de las portadas. | Una portada es una imagen de 200×300; una página de manga es una lámina escaneada de 1500×2200, y a 5 MiB se rechazaría media hoja. |
 | **D-M7** | El sentido de lectura (RTL/LTR) es un **ajuste de la aplicación**, con RTL por defecto. | Decidirlo por obra, o por el proveedor. | Hay manga en los dos sentidos y el usuario sabe cuál es el suyo. Un valor por obra obligaría a acertarlo en cada ficha y a corregirlo a mano. |
@@ -1076,7 +1076,7 @@ que cita existen.
 | El presupuesto de AniList no cambia | Con un reloj inyectado, dos consultas seguidas quedan a **≥ 2000 ms**; `calls()` cuenta las salidas | Poner `ANILIST_MIN_INTERVAL_MS` a 0 en la prueba: la comprobación de espaciado falla |
 | La consulta de manga usa `type: MANGA` | El AniList falso recibe la consulta con `type: MANGA` y la devuelve | Cambiar `MANGA` por `ANIME`: la consulta falsa no devuelve manga y la prueba falla |
 | El filtro de adultos sigue puesto | Con el interruptor apagado, la consulta lleva `isAdult: false`; una obra marcada no llega a la caché | Quitar `isAdult: false`: la obra marcada llega a la caché y la prueba falla |
-| El modo offline no sale a la red | Con `NN_ANIME_ANILIST_OFFLINE=1`, `calls() === 0` y la ruta devuelve el error de AniList caído | Quitar la comprobación de `offline`: el cliente sale y `calls()` deja de ser 0 |
+| El modo offline no sale a la red | Con `RONA_ANILIST_OFFLINE=1`, `calls() === 0` y la ruta devuelve el error de AniList caído | Quitar la comprobación de `offline`: el cliente sale y `calls()` deja de ser 0 |
 | La caché no mezcla tipos | Una obra con el mismo título buscada como anime y como manga da **dos** entradas distintas | Quitar el tipo de la clave: la segunda búsqueda devuelve la entrada de la primera y la prueba falla |
 | La migración no rompe la caché que hay | Una base v1 con filas de `anilist_media` se migra y **todas** quedan con el prefijo `anime:`; la misma obra buscada después no vuelve a preguntar a AniList | Quitar el `UPDATE` de la migración: las filas viejas no se leen, la búsqueda sale a la red y `calls()` sube |
 
@@ -1146,7 +1146,7 @@ Los de la fase, en una frase cada uno. Todos se apoyan en las mediciones de arri
 - [ ] Un plugin que declara `media: ['anime', 'manga']` carga, y `capabilities.media` sigue
       aceptando los manifiestos que ya existen sin cambios.
 - [ ] La ficha de un manga trae sinopsis, géneros y portada de AniList, y con
-      `NN_ANIME_ANILIST_OFFLINE=1` el proceso **no sale a la red** (`calls() === 0`) y la pantalla
+      `RONA_ANILIST_OFFLINE=1` el proceso **no sale a la red** (`calls() === 0`) y la pantalla
       dice lo que tiene que decir.
 - [ ] Los capítulos de un manga se guardan con su número **real** (los decimales incluidos), y el
       progreso de lectura sobrevive a cerrar y reabrir el proceso.
@@ -1266,7 +1266,7 @@ este documento sobre el estado actual es una suposición.
 | `watched_title` y `plan_to_watch` no escriben en `watch_event` | Sus cabeceras, en `0011-visto.sql` y `0012-quiero-ver.sql` |
 | El esquema tiene **21** tablas | `grep -h "CREATE TABLE" packages/catalog-store/src/migrations/*.sql \| wc -l` → 21 |
 | La última migración es la `0015` | `packages/catalog-store/src/migrations/0015-descarga-en-segmentos.sql` |
-| El cliente de AniList: 2000 ms, 10 s, 2 MiB, tres hosts, `NN_ANIME_ANILIST_OFFLINE` | `packages/server/src/anilist/client.ts:32-69` |
+| El cliente de AniList: 2000 ms, 10 s, 2 MiB, tres hosts, `RONA_ANILIST_OFFLINE` | `packages/server/src/anilist/client.ts:32-69` |
 | Las consultas de AniList usan todas `type: ANIME` | `packages/server/src/anilist/queries.ts`: `topQuery`, `AIRING_QUERY`, `AIRED_QUERY`, `moviesReleasedQuery`, `moviesUpcomingQuery`, `RELATED_QUERY`, `matchQuery`, `crossQuery` |
 | El proxy: tickets de 500 y 600 s | `packages/media-proxy/src/ticket-store.ts:26-29` |
 | El proxy: tope de 5 MiB y tipos ráster | `packages/media-proxy/src/byte-proxy.ts:104-113` |
@@ -1294,7 +1294,7 @@ este documento sobre el estado actual es una suposición.
 
 ### Por qué el fixture no usa la red
 
-`SPEC-nn-anime.md` es explícito: «ningún test puede tocar la red». La fuente de manga del fixture
+`SPEC-rona.md` es explícito: «ningún test puede tocar la red». La fuente de manga del fixture
 sirve **imágenes locales generadas por el propio fixture**, y todo lo que se mide de la 2A se
 mide contra ellas: el SVG que se rechaza, la imagen enorme que da 413, el contador de
 peticiones de la precarga y el destino hostil que el guardián bloquea. Una prueba que dependiera

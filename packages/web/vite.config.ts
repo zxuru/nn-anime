@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 
 /** Puerto del server local. Debe coincidir con `DEFAULT_PORT` del CLI. */
-const API_ORIGIN = process.env.NN_ANIME_API_ORIGIN ?? 'http://127.0.0.1:7717'
+const API_ORIGIN = process.env.RONA_API_ORIGIN ?? 'http://127.0.0.1:7717'
 
 /**
  * ¿Se construye el paquete del e2e?
@@ -18,7 +18,7 @@ const API_ORIGIN = process.env.NN_ANIME_API_ORIGIN ?? 'http://127.0.0.1:7717'
  * `scripts/e2e-server.ts` al construir: el paquete de producción sigue usando el
  * `hls.js` de npm, que es el que tiene que decodificar los códecs de verdad.
  */
-const HLS_FALSO = process.env.NN_ANIME_E2E_HLS === 'falso'
+const HLS_FALSO = process.env.RONA_E2E_HLS === 'falso'
 
 /**
  * Sirve el aviso de seguridad en `/SECURITY.md`, que es lo que enlaza `/settings`.
@@ -37,7 +37,7 @@ function securityDoc(): Plugin {
   const fileName = 'SECURITY.md'
 
   return {
-    name: 'nn-anime:security-doc',
+    name: 'rona:security-doc',
     configureServer(server) {
       server.middlewares.use(`/${fileName}`, (_request, response) => {
         response.setHeader('content-type', 'text/markdown; charset=utf-8')

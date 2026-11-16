@@ -7,7 +7,7 @@
  *
  * El orden de búsqueda no es casual:
  *
- * 1. **`NN_ANIME_FFMPEG`.** Es la salida de quien sabe dónde lo puso.
+ * 1. **`RONA_FFMPEG`.** Es la salida de quien sabe dónde lo puso.
  * 2. **Junto al ejecutable.** Es donde el paquete de escritorio deja el binario
  *    que viaja con la aplicación; si se mira primero, el usuario no tiene que
  *    instalar nada ni tocar el PATH.
@@ -49,7 +49,7 @@ export function ffmpegCandidates(input: {
   const windows = input.platform === 'win32' || input.platform === 'windows'
   const ruta = windows ? win32 : posix
   const candidatos: string[] = []
-  const explicito = input.env.NN_ANIME_FFMPEG?.trim()
+  const explicito = input.env.RONA_FFMPEG?.trim()
   if (explicito !== undefined && explicito !== '') candidatos.push(explicito)
 
   candidatos.push(ruta.join(ruta.dirname(input.executable), nombre))

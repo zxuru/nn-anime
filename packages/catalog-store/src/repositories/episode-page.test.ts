@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AnimeDetail, Episode, ProviderRef } from '@nn-anime/core'
+import type { AnimeDetail, Episode, ProviderRef } from '@rona/core'
 import { TTL_SECONDS } from '../cache-policy'
 import { openDb } from '../db'
 import { runMigrations } from '../migrations/runner'
@@ -38,8 +38,8 @@ function cerrarBase(db: Database): void {
 
 /** Base temporal con el título ya escrito, que es lo que la página necesita. */
 async function withDb<T>(body: (db: Database) => Promise<T> | T): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-episode-page-'))
-  const path = join(dir, 'nn-anime.db')
+  const dir = await mkdtemp(join(tmpdir(), 'rona-episode-page-'))
+  const path = join(dir, 'rona.db')
   const db = openDb(path)
 
   try {

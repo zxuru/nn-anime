@@ -12,9 +12,9 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations, TTL_SECONDS } from '@nn-anime/catalog-store'
-import { type FeedEntry, feedResponseSchema, recentResponseSchema } from '@nn-anime/core'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import { openDb, runMigrations, TTL_SECONDS } from '@rona/catalog-store'
+import { type FeedEntry, feedResponseSchema, recentResponseSchema } from '@rona/core'
+import { createFixtureProvider } from '@rona/providers-fixture'
 import { fakeAniList, type RawMediaFixture } from '../__fixtures__/anilist'
 import { MAX_FEED_ENTRIES } from '../container'
 import { createApp, createContainer } from '../index'
@@ -60,8 +60,8 @@ async function conApp<T>(
     readonly anilist?: Parameters<typeof fakeAniList>[0]
   } = {},
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-discovery-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-discovery-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const container = createContainer({
     db,

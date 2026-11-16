@@ -32,7 +32,7 @@
 import type { Dirent } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative, resolve } from 'node:path'
-import { MAX_REPO_CANDIDATES } from '@nn-anime/core'
+import { MAX_REPO_CANDIDATES } from '@rona/core'
 import { PLUGIN_EXTENSIONS } from './loader'
 
 /** Directorios que no forman parte de lo que el repositorio publica. */

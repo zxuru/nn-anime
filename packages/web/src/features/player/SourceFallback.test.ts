@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { AnimeSummary, Episode } from '@nn-anime/core/models'
+import type { AnimeSummary, Episode } from '@rona/core/models'
 import { rutaDeAlternativa } from './SourceFallback'
 
 const FUENTE: AnimeSummary = {

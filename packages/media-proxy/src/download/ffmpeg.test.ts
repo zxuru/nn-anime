@@ -10,8 +10,8 @@ import { ffmpegCandidates, locateFfmpeg } from './ffmpeg'
  * para la misma prueba.
  */
 
-const WIN = 'C:\\Program Files\\nn-anime\\nn-anime.exe'
-const POSIX = '/opt/nn-anime/nn-anime'
+const WIN = 'C:\\Program Files\\rona\\rona.exe'
+const POSIX = '/opt/rona/rona'
 
 function entorno(datos: Record<string, string | undefined> = {}): Record<string, string> {
   const limpio: Record<string, string> = {}
@@ -35,12 +35,12 @@ describe('la búsqueda de ffmpeg', () => {
     ).toBeUndefined()
   })
 
-  test('`NN_ANIME_FFMPEG` manda sobre lo demás', () => {
+  test('`RONA_FFMPEG` manda sobre lo demás', () => {
     const ruta = '/datos/ffmpeg-custom'
     expect(
       locateFfmpeg({
         platform: 'linux',
-        env: entorno({ NN_ANIME_FFMPEG: ruta }),
+        env: entorno({ RONA_FFMPEG: ruta }),
         executable: POSIX,
         exists: (candidato) => candidato === ruta,
         which: () => '/usr/bin/ffmpeg',
@@ -51,13 +51,13 @@ describe('la búsqueda de ffmpeg', () => {
   test('una ruta del entorno que no existe no se devuelve: se sigue buscando', () => {
     const elegido = locateFfmpeg({
       platform: 'linux',
-      env: entorno({ NN_ANIME_FFMPEG: '/no/existe/ffmpeg' }),
+      env: entorno({ RONA_FFMPEG: '/no/existe/ffmpeg' }),
       executable: POSIX,
-      exists: (candidato) => candidato === '/opt/nn-anime/ffmpeg',
+      exists: (candidato) => candidato === '/opt/rona/ffmpeg',
       which: () => null,
     })
 
-    expect(elegido).toBe('/opt/nn-anime/ffmpeg')
+    expect(elegido).toBe('/opt/rona/ffmpeg')
   })
 
   test('el binario al lado del ejecutable gana al del PATH', () => {
@@ -65,11 +65,11 @@ describe('la búsqueda de ffmpeg', () => {
       locateFfmpeg({
         platform: 'linux',
         env: entorno(),
-        executable: '/opt/nn-anime/nn-anime',
-        exists: (candidato) => candidato === '/opt/nn-anime/ffmpeg',
+        executable: '/opt/rona/rona',
+        exists: (candidato) => candidato === '/opt/rona/ffmpeg',
         which: () => '/usr/bin/ffmpeg',
       }),
-    ).toBe('/opt/nn-anime/ffmpeg')
+    ).toBe('/opt/rona/ffmpeg')
   })
 
   test('en Windows se miran los sitios donde dejan el binario los instaladores', () => {
@@ -91,7 +91,7 @@ describe('la búsqueda de ffmpeg', () => {
     expect(candidatos).toContain('C:\\ProgramData\\chocolatey\\bin\\ffmpeg.exe')
     expect(candidatos).toContain('C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe')
     // Y el que viaja con la aplicación, primero entre los que no son del entorno.
-    expect(candidatos[0]).toBe('C:\\Program Files\\nn-anime\\ffmpeg.exe')
+    expect(candidatos[0]).toBe('C:\\Program Files\\rona\\ffmpeg.exe')
   })
 
   test('el `PATH` es el último recurso', () => {

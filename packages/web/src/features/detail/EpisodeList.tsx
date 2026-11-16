@@ -37,9 +37,9 @@
  * temporada— la lista se lee entera, como siempre.
  */
 
-import type { EpisodeSeason, EpisodesResponse, WatchedEpisodePayload } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { Episode } from '@nn-anime/core/models'
+import type { EpisodeSeason, EpisodesResponse, WatchedEpisodePayload } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { Episode } from '@rona/core/models'
 import { Play } from 'lucide-react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { IconLabel } from '../../components/IconLabel'

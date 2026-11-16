@@ -11,7 +11,7 @@
  * avisos descartados, que son otra cosa y por eso tienen el suyo.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { type ReactNode, useSyncExternalStore } from 'react'
 import { t } from '../../i18n'
 import { type RouteName, useNavigate } from '../../router'

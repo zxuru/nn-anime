@@ -15,7 +15,7 @@
  * botón que no abre nada es peor que su ausencia.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { CircleHelp } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'

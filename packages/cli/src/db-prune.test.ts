@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, pruneOrphans, runMigrations } from '@nn-anime/catalog-store'
-import { loadConfig } from '@nn-anime/core'
+import { openDb, pruneOrphans, runMigrations } from '@rona/catalog-store'
+import { loadConfig } from '@rona/core'
 import { prune } from './db-prune'
 import type { CliIO } from './run'
 
@@ -21,7 +21,7 @@ function salida(): Salida {
 }
 
 async function withHome<T>(body: (home: string) => Promise<T> | T): Promise<T> {
-  const home = await mkdtemp(join(tmpdir(), 'nn-anime-prune-'))
+  const home = await mkdtemp(join(tmpdir(), 'rona-prune-'))
 
   try {
     return await body(home)
@@ -52,7 +52,7 @@ async function baseMigrada(home: string): Promise<void> {
   // el layout por defecto depende de la plataforma.
   const carpeta = loadConfig({ env: { HOME: home } }).dataDir
   await mkdir(carpeta, { recursive: true })
-  const db = openDb(join(carpeta, 'nn-anime.db'))
+  const db = openDb(join(carpeta, 'rona.db'))
   runMigrations(db)
   db.close()
 }

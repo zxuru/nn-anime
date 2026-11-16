@@ -18,10 +18,10 @@
  * que la ficha entera era un callejón sin salida.
  */
 
-import { anilistGenre } from '@nn-anime/core/anilist'
-import type { Enrichment, TmdbMetadata } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { AnimeDetail } from '@nn-anime/core/models'
+import { anilistGenre } from '@rona/core/anilist'
+import type { Enrichment, TmdbMetadata } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { AnimeDetail } from '@rona/core/models'
 import { Fragment, type ReactNode, useState } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { Cover } from '../../components/Cover'

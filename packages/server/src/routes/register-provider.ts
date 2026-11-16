@@ -23,7 +23,7 @@ import {
   errorResponseSchema,
   providerDraftSchema,
   providerRegisterResponseSchema,
-} from '@nn-anime/core'
+} from '@rona/core'
 import type { Hono } from 'hono'
 import type { ProviderHub } from '../provider-hub'
 import { pluginFileName, renderProviderModule } from '../provider-template'

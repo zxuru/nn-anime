@@ -1,20 +1,20 @@
 {
-  "name": "@nn-anime/cli",
+  "name": "@rona/cli",
   "version": "0.8.0",
   "private": true,
   "type": "module",
   "bin": {
-    "nn-anime": "./bin/nn-anime"
+    "rona": "./bin/rona"
   },
   "exports": {
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@nn-anime/core": "workspace:*",
-    "@nn-anime/server": "workspace:*",
-    "@nn-anime/provider-sdk": "workspace:*",
-    "@nn-anime/catalog-store": "workspace:*",
-    "@nn-anime/media-proxy": "workspace:*"
+    "@rona/core": "workspace:*",
+    "@rona/server": "workspace:*",
+    "@rona/provider-sdk": "workspace:*",
+    "@rona/catalog-store": "workspace:*",
+    "@rona/media-proxy": "workspace:*"
   },
   "scripts": {
     "test": "bun test"
@@ -29,7 +29,7 @@
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
-  "description": "Lanzador de nn-anime: sirve la interfaz y la API en 127.0.0.1",
+  "description": "Lanzador de RoNa: sirve la interfaz y la API en 127.0.0.1",
   "license": "MIT",
   "engines": {
     "bun": ">=1.4.0"

@@ -1,7 +1,7 @@
 /**
  * Contrato público de un proveedor de contenido.
  *
- * Los tipos del dominio se **reexportan** desde `@nn-anime/core` en lugar de
+ * Los tipos del dominio se **reexportan** desde `@rona/core` en lugar de
  * escribirse otra vez: son los mismos que valida el almacén y los que consume la
  * interfaz, y dos definiciones de la misma forma acaban divergiendo. Lo que este
  * archivo añade es lo que `core` no puede saber: la forma de un plugin.
@@ -21,7 +21,7 @@ import type {
   SearchResult,
   StreamRequest,
   StreamSource,
-} from '@nn-anime/core'
+} from '@rona/core'
 
 export type {
   AnimeDetail,

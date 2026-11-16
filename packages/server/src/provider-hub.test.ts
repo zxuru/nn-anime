@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { type LoadReport, providerFailure } from '@nn-anime/provider-sdk'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import { type LoadReport, providerFailure } from '@rona/provider-sdk'
+import { createFixtureProvider } from '@rona/providers-fixture'
 import { createProviderHub } from './provider-hub'
 
 const proveedor = createFixtureProvider()

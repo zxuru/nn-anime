@@ -11,13 +11,13 @@
  * Dos reglas que el spec fija y que se cumplen aquí:
  *
  * 1. `--help` y `--version` tienen prioridad. Se resuelven antes que cualquier
- *    otra cosa, así que `nn-anime --port abc --help` muestra la ayuda en lugar
+ *    otra cosa, así que `RoNa --port abc --help` muestra la ayuda en lugar
  *    de quejarse del puerto. La búsqueda se detiene en `--`, para que una
  *    consulta que empiece por guion no dispare la ayuda.
  * 2. Todo error de uso sale con código 2.
  */
 
-import { err, type MessageParams, ok, type Result } from '@nn-anime/core'
+import { err, type MessageParams, ok, type Result } from '@rona/core'
 
 export const MIN_PORT = 1
 export const MAX_PORT = 65535

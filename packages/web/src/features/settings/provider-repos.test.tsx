@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import type { ProviderRepoCandidate, ProviderRepoView } from '@nn-anime/core/api'
+import type { ProviderRepoCandidate, ProviderRepoView } from '@rona/core/api'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import {

@@ -2,10 +2,10 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import { type DiscoverItem, type ProviderSummary, providersResponseSchema } from '@nn-anime/core'
-import { createRegistry, type Provider } from '@nn-anime/provider-sdk'
-import { createFixtureProvider, fixtureProvider } from '@nn-anime/providers-fixture'
+import { openDb, runMigrations } from '@rona/catalog-store'
+import { type DiscoverItem, type ProviderSummary, providersResponseSchema } from '@rona/core'
+import { createRegistry, type Provider } from '@rona/provider-sdk'
+import { createFixtureProvider, fixtureProvider } from '@rona/providers-fixture'
 import { fakeAniList, type RawMediaFixture } from '../__fixtures__/anilist'
 import { createApp, createContainer, type PluginReport } from '../index'
 
@@ -486,8 +486,8 @@ describe('con caché de resultados', () => {
       pedir: (query: string) => Promise<readonly string[]>
     }) => Promise<T>,
   ): Promise<T> {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-busqueda-'))
-    const db = openDb(join(dir, 'nn-anime.db'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-busqueda-'))
+    const db = openDb(join(dir, 'rona.db'))
     runMigrations(db)
     const container = createContainer({ db })
     const proveedor = createFixtureProvider()
@@ -587,8 +587,8 @@ describe('con caché de resultados', () => {
   })
 
   test('una segunda ejecución del proceso sirve desde la base sin llamar al proveedor', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-busqueda-'))
-    const ruta = join(dir, 'nn-anime.db')
+    const dir = await mkdtemp(join(tmpdir(), 'rona-busqueda-'))
+    const ruta = join(dir, 'rona.db')
 
     const servidorCon = (
       db: ReturnType<typeof openDb>,
@@ -911,8 +911,8 @@ describe('la búsqueda cruzada con AniList', () => {
       readonly fake: ReturnType<typeof fakeAniList>
     }) => Promise<T>,
   ): Promise<T> {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-cruzada-'))
-    const db = openDb(join(dir, 'nn-anime.db'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-cruzada-'))
+    const db = openDb(join(dir, 'rona.db'))
     runMigrations(db)
     const container = createContainer({ db })
     const fake = fakeAniList(fixture)

@@ -18,8 +18,8 @@
  * enlace leía ahí su respuesta y se iba con las manos vacías.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { SearchResult } from '@nn-anime/core/models'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { SearchResult } from '@rona/core/models'
 import { Fragment, type ReactNode } from 'react'
 import { Grid, GridItem } from '../../components/Grid'
 import { t } from '../../i18n'

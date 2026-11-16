@@ -15,8 +15,8 @@
  * haya estrenos, y también que AniList no haya contestado.
  */
 
-import type { AiringItem } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import type { AiringItem } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'

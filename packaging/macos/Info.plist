@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  El paquete de nn-anime para macOS.
+  El paquete de rona para macOS.
 
-  `Contents/MacOS` lleva **dos** ejecutables: el servidor (`nn-anime`) y el
-  anfitrión de ventana (`nn-anime-desktop`). El anfitrión lanza al servidor como
+  `Contents/MacOS` lleva **dos** ejecutables: el servidor (`rona`) y el
+  anfitrión de ventana (`rona-desktop`). El anfitrión lanza al servidor como
   hermano, y por eso los dos viven en el mismo directorio. Lo que sí importa:
 
   - `CFBundleExecutable` apunta al **anfitrión**: es lo que hace que abrir la
@@ -20,13 +20,13 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key>
-  <string>nn-anime</string>
+  <string>rona</string>
   <key>CFBundleDisplayName</key>
-  <string>nn-anime</string>
+  <string>rona</string>
   <key>CFBundleIdentifier</key>
-  <string>io.github.zxuru.nn-anime</string>
+  <string>io.github.zxuru.rona</string>
   <key>CFBundleExecutable</key>
-  <string>nn-anime-desktop</string>
+  <string>rona-desktop</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleInfoDictionaryVersion</key>
@@ -44,6 +44,6 @@
   <key>LSApplicationCategoryType</key>
   <string>public.app-category.entertainment</string>
   <key>NSHumanReadableCopyright</key>
-  <string>nn-anime</string>
+  <string>rona</string>
 </dict>
 </plist>

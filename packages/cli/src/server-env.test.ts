@@ -26,10 +26,10 @@ describe('sin variables', () => {
   test('las variables vacías no son una respuesta', () => {
     expect(
       value({
-        NN_ANIME_HOST: '   ',
-        NN_ANIME_PORT: '',
-        NN_ANIME_TOKEN: ' ',
-        NN_ANIME_PUBLIC_ORIGIN: '',
+        RONA_HOST: '   ',
+        RONA_PORT: '',
+        RONA_TOKEN: ' ',
+        RONA_PUBLIC_ORIGIN: '',
       }),
     ).toEqual(DEFAULT_SERVER_ENV)
   })
@@ -41,35 +41,33 @@ describe('sin variables', () => {
 
 describe('host y puerto', () => {
   test('un host válido se conserva en minúsculas', () => {
-    expect(value({ NN_ANIME_HOST: '192.168.1.10', NN_ANIME_TOKEN: TOKEN }).host).toBe(
-      '192.168.1.10',
-    )
+    expect(value({ RONA_HOST: '192.168.1.10', RONA_TOKEN: TOKEN }).host).toBe('192.168.1.10')
   })
 
   test('localhost se normaliza a 127.0.0.1', () => {
-    expect(value({ NN_ANIME_HOST: 'localhost' }).host).toBe('127.0.0.1')
+    expect(value({ RONA_HOST: 'localhost' }).host).toBe('127.0.0.1')
   })
 
   test('un host con esquema, barras o espacios se rechaza', () => {
     for (const host of ['http://127.0.0.1', 'mi host', 'carpeta/host']) {
-      const result = serverEnvironment({ NN_ANIME_HOST: host })
+      const result = serverEnvironment({ RONA_HOST: host })
       expect(result.ok, host).toBe(false)
     }
   })
 
   test('un IPv6 entre corchetes se acepta y se guarda sin corchetes', () => {
-    expect(value({ NN_ANIME_HOST: '[::1]' }).host).toBe('::1')
+    expect(value({ RONA_HOST: '[::1]' }).host).toBe('::1')
   })
 
   test('el puerto se parsea', () => {
-    expect(value({ NN_ANIME_PORT: '8080' }).port).toBe(8080)
-    expect(value({ NN_ANIME_PORT: '1' }).port).toBe(1)
-    expect(value({ NN_ANIME_PORT: '65535' }).port).toBe(65535)
+    expect(value({ RONA_PORT: '8080' }).port).toBe(8080)
+    expect(value({ RONA_PORT: '1' }).port).toBe(1)
+    expect(value({ RONA_PORT: '65535' }).port).toBe(65535)
   })
 
   test('un puerto inválido se rechaza en vez de caer al de siempre', () => {
     for (const port of ['0', '65536', '-1', 'abc', '8080.5']) {
-      const result = serverEnvironment({ NN_ANIME_PORT: port })
+      const result = serverEnvironment({ RONA_PORT: port })
       expect(result.ok, port).toBe(false)
       if (result.ok) continue
 
@@ -79,33 +77,33 @@ describe('host y puerto', () => {
   })
 
   test('un puerto sin dígitos no se confunde con el de por defecto', () => {
-    expect(value({ NN_ANIME_PORT: '  ' }).port).toBeUndefined()
+    expect(value({ RONA_PORT: '  ' }).port).toBeUndefined()
   })
 })
 
 describe('interruptores', () => {
-  test('NN_ANIME_NO_OPEN acepta 1 y true', () => {
-    expect(value({ NN_ANIME_NO_OPEN: '1' }).noOpen).toBe(true)
-    expect(value({ NN_ANIME_NO_OPEN: 'true' }).noOpen).toBe(true)
+  test('RONA_NO_OPEN acepta 1 y true', () => {
+    expect(value({ RONA_NO_OPEN: '1' }).noOpen).toBe(true)
+    expect(value({ RONA_NO_OPEN: 'true' }).noOpen).toBe(true)
   })
 
-  test('NN_ANIME_NO_OPEN no se enciende con otros valores', () => {
+  test('RONA_NO_OPEN no se enciende con otros valores', () => {
     for (const flag of ['0', 'false', 'sí', '']) {
-      expect(value({ NN_ANIME_NO_OPEN: flag }).noOpen, flag).toBe(false)
+      expect(value({ RONA_NO_OPEN: flag }).noOpen, flag).toBe(false)
     }
   })
 
-  test('NN_ANIME_LOCKED acepta 1 y true', () => {
-    expect(value({ NN_ANIME_LOCKED: '1' }).locked).toBe(true)
-    expect(value({ NN_ANIME_LOCKED: 'true' }).locked).toBe(true)
-    expect(value({ NN_ANIME_LOCKED: '0' }).locked).toBe(false)
+  test('RONA_LOCKED acepta 1 y true', () => {
+    expect(value({ RONA_LOCKED: '1' }).locked).toBe(true)
+    expect(value({ RONA_LOCKED: 'true' }).locked).toBe(true)
+    expect(value({ RONA_LOCKED: '0' }).locked).toBe(false)
   })
 
-  test('NN_ANIME_PARTY está apagado por defecto y acepta 1 y true', () => {
+  test('RONA_PARTY está apagado por defecto y acepta 1 y true', () => {
     expect(value({}).party).toBe(false)
-    expect(value({ NN_ANIME_PARTY: '1' }).party).toBe(true)
-    expect(value({ NN_ANIME_PARTY: 'true' }).party).toBe(true)
-    expect(value({ NN_ANIME_PARTY: '0' }).party).toBe(false)
+    expect(value({ RONA_PARTY: '1' }).party).toBe(true)
+    expect(value({ RONA_PARTY: 'true' }).party).toBe(true)
+    expect(value({ RONA_PARTY: '0' }).party).toBe(false)
   })
 })
 
@@ -115,12 +113,12 @@ describe('token', () => {
   })
 
   test('el token se recorta', () => {
-    expect(value({ NN_ANIME_TOKEN: '  un-token-largo  ' }).token).toBe('un-token-largo')
+    expect(value({ RONA_TOKEN: '  un-token-largo  ' }).token).toBe('un-token-largo')
   })
 
   test('fuera de loopback sin token no se arranca', () => {
     for (const host of ['0.0.0.0', '192.168.1.10', '::']) {
-      const result = serverEnvironment({ NN_ANIME_HOST: host })
+      const result = serverEnvironment({ RONA_HOST: host })
       expect(result.ok, host).toBe(false)
       if (result.ok) continue
 
@@ -129,7 +127,7 @@ describe('token', () => {
   })
 
   test('fuera de loopback con token se arranca', () => {
-    const env = value({ NN_ANIME_HOST: '0.0.0.0', NN_ANIME_TOKEN: TOKEN })
+    const env = value({ RONA_HOST: '0.0.0.0', RONA_TOKEN: TOKEN })
 
     expect(env.host).toBe('0.0.0.0')
     expect(env.token).toBe(TOKEN)
@@ -137,8 +135,8 @@ describe('token', () => {
 
   test('fuera de loopback un token corto se rechaza', () => {
     const result = serverEnvironment({
-      NN_ANIME_HOST: '0.0.0.0',
-      NN_ANIME_TOKEN: 'corto',
+      RONA_HOST: '0.0.0.0',
+      RONA_TOKEN: 'corto',
     })
 
     expect(result.ok).toBe(false)
@@ -149,12 +147,12 @@ describe('token', () => {
   })
 
   test('en loopback un token corto no impide el arranque de desarrollo', () => {
-    expect(value({ NN_ANIME_TOKEN: 'corto' }).token).toBe('corto')
+    expect(value({ RONA_TOKEN: 'corto' }).token).toBe('corto')
   })
 
   test('un origen público no loopback también exige token', () => {
     const result = serverEnvironment({
-      NN_ANIME_PUBLIC_ORIGIN: 'https://nn.example.com',
+      RONA_PUBLIC_ORIGIN: 'https://nn.example.com',
     })
 
     expect(result.ok).toBe(false)
@@ -168,9 +166,9 @@ describe('token', () => {
 describe('origen público', () => {
   test('se normaliza y una URL con ruta se queda en el origen', () => {
     const env = value({
-      NN_ANIME_HOST: '0.0.0.0',
-      NN_ANIME_TOKEN: TOKEN,
-      NN_ANIME_PUBLIC_ORIGIN: 'https://nn.example.com/app',
+      RONA_HOST: '0.0.0.0',
+      RONA_TOKEN: TOKEN,
+      RONA_PUBLIC_ORIGIN: 'https://nn.example.com/app',
     })
 
     expect(env.publicOrigin).toBe('https://nn.example.com')
@@ -179,14 +177,14 @@ describe('origen público', () => {
 
   test('https marca la cookie Secure; http no', () => {
     const https = value({
-      NN_ANIME_HOST: '0.0.0.0',
-      NN_ANIME_TOKEN: TOKEN,
-      NN_ANIME_PUBLIC_ORIGIN: 'https://nn.example.com',
+      RONA_HOST: '0.0.0.0',
+      RONA_TOKEN: TOKEN,
+      RONA_PUBLIC_ORIGIN: 'https://nn.example.com',
     })
     const http = value({
-      NN_ANIME_HOST: '0.0.0.0',
-      NN_ANIME_TOKEN: TOKEN,
-      NN_ANIME_PUBLIC_ORIGIN: 'http://192.168.1.10:8080',
+      RONA_HOST: '0.0.0.0',
+      RONA_TOKEN: TOKEN,
+      RONA_PUBLIC_ORIGIN: 'http://192.168.1.10:8080',
     })
 
     expect(https.secureCookie).toBe(true)
@@ -199,7 +197,7 @@ describe('origen público', () => {
       'ftp://nn.example.com',
       'https://usuario:clave@nn.example.com',
     ]) {
-      const result = serverEnvironment({ NN_ANIME_PUBLIC_ORIGIN: origin })
+      const result = serverEnvironment({ RONA_PUBLIC_ORIGIN: origin })
       expect(result.ok, origin).toBe(false)
       if (result.ok) continue
 

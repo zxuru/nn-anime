@@ -22,14 +22,14 @@
  * `encodeURIComponent`; sin escapar, la ruta da 404 (medido con Hono al auditar).
  */
 
-import { errorResponseSchema } from '@nn-anime/core'
+import { errorResponseSchema } from '@rona/core'
 import {
   type FetchLike,
   MAX_COVER_BYTES,
   proxyBytes,
   RASTER_TYPES,
   type Resolver,
-} from '@nn-anime/media-proxy'
+} from '@rona/media-proxy'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
 

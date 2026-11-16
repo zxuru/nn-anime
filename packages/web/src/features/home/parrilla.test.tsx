@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import type { AiringItem, DiscoverItem } from '@nn-anime/core/api'
+import type { AiringItem, DiscoverItem } from '@rona/core/api'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'

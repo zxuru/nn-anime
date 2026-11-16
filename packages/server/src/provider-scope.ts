@@ -32,9 +32,9 @@
  * `PATCH /api/provider-repos` promete que se ve sin reiniciar.
  */
 
-import type { CatalogStore } from '@nn-anime/catalog-store'
-import type { ProviderRef } from '@nn-anime/core'
-import type { Provider } from '@nn-anime/provider-sdk'
+import type { CatalogStore } from '@rona/catalog-store'
+import type { ProviderRef } from '@rona/core'
+import type { Provider } from '@rona/provider-sdk'
 import type { ServerContainer } from './container'
 
 /**

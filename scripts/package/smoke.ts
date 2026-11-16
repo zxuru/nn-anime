@@ -25,8 +25,8 @@
 
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { parseBootLine } from '@nn-anime/core'
-import { BOOT_PARAM } from '@nn-anime/server'
+import { parseBootLine } from '@rona/core'
+import { BOOT_PARAM } from '@rona/server'
 import { isRecord, ROOT } from '../workspaces'
 
 /** Los recursos del build, tal como los nombra el HTML. */
@@ -87,7 +87,7 @@ async function waitForBoot(log: string, timeoutMs: number): Promise<Booted> {
 
     // La línea legible por máquina y no la humana: la humana se traduce, y este
     // smoke se rompería el día que exista el catálogo del idioma que falta. El
-    // formato vive en `@nn-anime/core`, con su análisis y sus pruebas.
+    // formato vive en `@rona/core`, con su análisis y sus pruebas.
     if (boot !== undefined) {
       const token = new URL(boot.url).searchParams.get(BOOT_PARAM)
 
@@ -156,7 +156,7 @@ export async function smoke(options: SmokeOptions): Promise<readonly SmokeCheck[
       join(dir, 'config'),
     ],
     {
-      env: { ...process.env, NN_ANIME_CACHE_DIR: join(dir, 'cache') },
+      env: { ...process.env, RONA_CACHE_DIR: join(dir, 'cache') },
       stdin: 'ignore',
       stdout: Bun.file(log),
       stderr: Bun.file(errores),

@@ -19,8 +19,8 @@
  * queda. Cambiar un dato viejo por ninguno es empeorar.
  */
 
-import type { RevalidateResource, Revalidator } from '@nn-anime/catalog-store'
-import type { CacheHit } from '@nn-anime/core'
+import type { RevalidateResource, Revalidator } from '@rona/catalog-store'
+import type { CacheHit } from '@rona/core'
 
 /** De dónde salió lo que se sirve. Es lo que viaja en `X-Cache`. */
 export type CacheSource = 'hit' | 'miss' | 'stale'

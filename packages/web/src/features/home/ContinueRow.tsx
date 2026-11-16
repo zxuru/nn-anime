@@ -14,8 +14,8 @@
  * progreso, no el tamaño.
  */
 
-import type { ContinueWatchingItem } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import type { ContinueWatchingItem } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { History } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'

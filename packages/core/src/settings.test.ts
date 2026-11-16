@@ -9,7 +9,7 @@ async function withFile<T>(
   content: string | undefined,
   body: (path: string) => Promise<T>,
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-ajustes-'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-ajustes-'))
 
   try {
     const path = join(dir, 'config.json')
@@ -152,7 +152,7 @@ describe('readSettings', () => {
   })
 
   test('un directorio en lugar de un archivo no rompe', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nn-anime-ajustes-'))
+    const dir = await mkdtemp(join(tmpdir(), 'rona-ajustes-'))
 
     try {
       const result = await readSettings(dir)

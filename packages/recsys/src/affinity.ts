@@ -19,7 +19,7 @@
  * de en qué día se ejecute.
  */
 
-import type { Candidate } from '@nn-anime/core'
+import type { Candidate } from '@rona/core'
 
 /** Días que tarda un peso en valer la mitad. */
 export const HALF_LIFE_DAYS = 30

@@ -13,9 +13,9 @@
  *    abortando, no ordenando por tiempo de llegada.
  */
 
-import type { RecommendationsResponse } from '@nn-anime/core/api'
-import { recommendationsResponseSchema } from '@nn-anime/core/api'
-import type { MediaFilter } from '@nn-anime/core/media'
+import type { RecommendationsResponse } from '@rona/core/api'
+import { recommendationsResponseSchema } from '@rona/core/api'
+import type { MediaFilter } from '@rona/core/media'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'

@@ -18,9 +18,9 @@ import {
   runMigrations,
   type StoreConnection,
   TTL_SECONDS,
-} from '@nn-anime/catalog-store'
-import { type AnimeDetail, createLogger, localWork } from '@nn-anime/core'
-import type { Resolver } from '@nn-anime/media-proxy'
+} from '@rona/catalog-store'
+import { type AnimeDetail, createLogger, localWork } from '@rona/core'
+import type { Resolver } from '@rona/media-proxy'
 import { fakeAniList, mediaJson, type RawMediaFixture } from '../__fixtures__/anilist'
 import { type AniListCatalog, createAniListCatalog, matchKey } from './catalog'
 import { createAniListClient } from './client'
@@ -106,8 +106,8 @@ async function conCatalogo(
   fixture: Parameters<typeof fakeAniList>[0],
   body: (contexto: Contexto) => Promise<void>,
 ): Promise<void> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-catalogo-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-catalogo-'))
+  const db = openDb(join(dir, 'rona.db'))
 
   try {
     runMigrations(db)

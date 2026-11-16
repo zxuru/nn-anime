@@ -14,7 +14,7 @@
  */
 
 import { afterEach, describe, expect, test } from 'bun:test'
-import { settingsResponseSchema } from '@nn-anime/core/api'
+import { settingsResponseSchema } from '@rona/core/api'
 import { apiGet, type RequestDeps } from '../../api/client'
 import {
   cargarAjustes,

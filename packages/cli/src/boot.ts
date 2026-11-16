@@ -21,8 +21,8 @@ import {
   RECOMMENDED_PROVIDER_REPO,
   type Result,
   type Settings,
-} from '@nn-anime/core'
-import type { LoadReport } from '@nn-anime/provider-sdk'
+} from '@rona/core'
+import type { LoadReport } from '@rona/provider-sdk'
 import {
   BOOT_PARAM,
   enabledProviderFiles,
@@ -31,7 +31,7 @@ import {
   type ServerContainer,
   type Session,
   startServer,
-} from '@nn-anime/server'
+} from '@rona/server'
 import type { CliOptions } from './args'
 import { t } from './i18n'
 import type { Lifecycle } from './lifecycle'

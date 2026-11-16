@@ -11,7 +11,7 @@
  */
 import { describe, expect, test } from 'bun:test'
 import { gzipSync } from 'node:zlib'
-import type { PluginFetch } from '@nn-anime/core'
+import type { PluginFetch } from '@rona/core'
 import type { Resolver } from './destination-guard'
 import {
   type ConnectTarget,

@@ -13,7 +13,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type SkipInterval, StoreError } from '@nn-anime/core'
+import { type SkipInterval, StoreError } from '@rona/core'
 import { TTL_SECONDS } from '../cache-policy'
 import { openDb } from '../db'
 import { runMigrations } from '../migrations/runner'
@@ -40,8 +40,8 @@ function cerrarBase(db: Database): void {
 }
 
 async function withDb<T>(body: (db: Database) => Promise<T> | T): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-aniskip-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-aniskip-'))
+  const db = openDb(join(dir, 'rona.db'))
 
   try {
     runMigrations(db)

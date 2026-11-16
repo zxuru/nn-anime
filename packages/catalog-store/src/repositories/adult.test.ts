@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AnimeDetail, ProviderRef } from '@nn-anime/core'
+import type { AnimeDetail, ProviderRef } from '@rona/core'
 import { openDb } from '../db'
 import { runMigrations } from '../migrations/runner'
 import { createAdultRepository } from './adult'
@@ -45,8 +45,8 @@ interface Contexto {
 }
 
 async function conBase<T>(body: (contexto: Contexto) => T): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-adulto-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-adulto-'))
+  const db = openDb(join(dir, 'rona.db'))
 
   try {
     runMigrations(db)

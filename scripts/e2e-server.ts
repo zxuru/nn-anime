@@ -19,11 +19,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 // Los datos van a un temporal, pero **el plugin vive dentro del repositorio**:
-// desde `/tmp` no se resuelve `@nn-anime/providers-fixture`, y un plugin que no
+// desde `/tmp` no se resuelve `@rona/providers-fixture`, y un plugin que no
 // se puede importar no prueba nada. Sigue sin tocarse el `$XDG_*` del usuario.
-const dir = await mkdtemp(join(tmpdir(), 'nn-anime-e2e-'))
+const dir = await mkdtemp(join(tmpdir(), 'rona-e2e-'))
 const config = join(import.meta.dir, '..', '.tmp', 'e2e-config')
-const providers = join(config, 'nn-anime', 'providers')
+const providers = join(config, 'rona', 'providers')
 await mkdir(providers, { recursive: true })
 
 /**
@@ -36,8 +36,8 @@ await mkdir(providers, { recursive: true })
  * eso la variable se fija aquí, en el proceso que lanza la construcción, y no en
  * el archivo de la prueba.
  */
-const HLS_FALSO = process.env.NN_ANIME_E2E_HLS ?? 'falso'
-process.env.NN_ANIME_E2E_HLS = HLS_FALSO
+const HLS_FALSO = process.env.RONA_E2E_HLS ?? 'falso'
+process.env.RONA_E2E_HLS = HLS_FALSO
 
 /** El plugin: el fixture del repositorio, con su modo de fallo por variable. */
 /**
@@ -125,7 +125,7 @@ function rangoPedido(
   return { desde, hasta }
 }
 
-const puertoMedios = Number(process.env.NN_ANIME_E2E_MEDIA_PORT ?? '7902')
+const puertoMedios = Number(process.env.RONA_E2E_MEDIA_PORT ?? '7902')
 const medios = Bun.serve({
   port: puertoMedios,
   fetch(request) {
@@ -166,9 +166,9 @@ const medios = Bun.serve({
   },
 })
 
-const plugin = `import { createFixtureProvider } from '@nn-anime/providers-fixture'
+const plugin = `import { createFixtureProvider } from '@rona/providers-fixture'
 
-const fallo = process.env.NN_ANIME_E2E_FALLO
+const fallo = process.env.RONA_E2E_FALLO
 const base = createFixtureProvider(
   fallo === undefined || fallo === '' ? {} : { failures: { [fallo]: 'http500' } },
 )
@@ -176,7 +176,7 @@ const base = createFixtureProvider(
 // El stream apunta al archivo local del arnés: es lo que permite probar el
 // reproductor sin red. El proxy lo acepta porque el e2e abre la excepción de
 // loopback.
-const medios = process.env.NN_ANIME_E2E_MEDIA
+const medios = process.env.RONA_E2E_MEDIA
 
 // El episodio marcador. Sólo éste se declara HLS: es el que monta el transporte
 // falso para probar la recuperación de un fragmento. El resto sigue siendo un
@@ -208,7 +208,7 @@ await writeFile(join(providers, 'fixture.ts'), plugin)
  * No se usa `packages/web/dist` a propósito: ese paquete es el que sirve la
  * aplicación de verdad (`bun run start`), y el del e2e lleva el alias de hls.js
  * al módulo falso. Mezclarlos dejaría la aplicación real con el transporte de
- * mentira, sin HLS. El servidor sirve este directorio con `NN_ANIME_WEB_DIR`, que
+ * mentira, sin HLS. El servidor sirve este directorio con `RONA_WEB_DIR`, que
  * tiene prioridad sobre la ruta de siempre —ver `packages/cli/src/resources.ts`—.
  */
 const raiz = join(import.meta.dir, '..')
@@ -264,7 +264,7 @@ async function paqueteAlDia(): Promise<boolean> {
  */
 async function construir(): Promise<boolean> {
   const argumentos = ['build', '--outDir', dist, '--emptyOutDir']
-  const entorno = { ...process.env, NN_ANIME_E2E_HLS: HLS_FALSO }
+  const entorno = { ...process.env, RONA_E2E_HLS: HLS_FALSO }
 
   for (const extra of [[], ['--configLoader', 'native']]) {
     const construccion = Bun.spawn(['bun', 'x', 'vite', ...argumentos, ...extra], {
@@ -289,7 +289,7 @@ if (!(await paqueteAlDia())) {
   }
 }
 
-const puerto = process.env.NN_ANIME_E2E_PORT ?? '7801'
+const puerto = process.env.RONA_E2E_PORT ?? '7801'
 
 const servidor = Bun.spawn(
   [
@@ -308,20 +308,20 @@ const servidor = Bun.spawn(
       XDG_CACHE_HOME: join(dir, 'cache'),
       // La excepción de loopback: sin ella el proxy rechaza el archivo local, que
       // es exactamente lo que hace en producción.
-      NN_ANIME_ALLOW_LOOPBACK: '1',
+      RONA_ALLOW_LOOPBACK: '1',
       // Sin salida a AniList: la home siempre pide el descubrimiento y una prueba
       // que sale a internet se rompe sola. Con esto, sus rutas contestan lo mismo
       // que un AniList caído, que es el camino que hay que poder probar.
-      NN_ANIME_ANILIST_OFFLINE: '1',
+      RONA_ANILIST_OFFLINE: '1',
       // Y sin salida a AniSkip: el reproductor pide los saltos en cuanto conoce la
       // duración, y el arnés no puede depender de un tercero. Las pruebas de los
       // saltos interceptan la respuesta en el navegador; esto cierra la otra mitad.
-      NN_ANIME_ANISKIP_OFFLINE: '1',
-      NN_ANIME_E2E_MEDIA: `http://127.0.0.1:${puertoMedios}/tono.wav`,
+      RONA_ANISKIP_OFFLINE: '1',
+      RONA_E2E_MEDIA: `http://127.0.0.1:${puertoMedios}/tono.wav`,
       // La interfaz que se sirve es la del e2e —con el hls falso—, no la que
       // `packages/web/dist` guarda para la aplicación de verdad. El CLI le da
       // prioridad a esta variable sobre su ruta por defecto.
-      NN_ANIME_WEB_DIR: dist,
+      RONA_WEB_DIR: dist,
     },
     stdout: 'pipe',
     stderr: 'inherit',

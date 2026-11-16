@@ -1,5 +1,5 @@
 /**
- * Superficie pública de `@nn-anime/provider-sdk`.
+ * Superficie pública de `@rona/provider-sdk`.
  *
  * Este paquete es lo que un autor de plugins importa y lo que el servidor usa
  * para cargarlos. Enumera a mano lo que es contrato público: el día que alguien
@@ -13,7 +13,7 @@
 /*
  * Los tipos de la capacidad de red, reexportados desde `core`.
  *
- * Un plugin sólo puede nombrar `@nn-anime/provider-sdk`: los demás paquetes no le
+ * Un plugin sólo puede nombrar `@rona/provider-sdk`: los demás paquetes no le
  * resuelven desde su directorio. Lo que el contrato usa tiene que salir por aquí.
  */
 export type {
@@ -22,7 +22,7 @@ export type {
   PluginFetchFactory,
   PluginRequest,
   PluginResponse,
-} from '@nn-anime/core'
+} from '@rona/core'
 export {
   getAnime,
   getEpisode,

@@ -257,8 +257,8 @@ jobs:
       - name: El gate de cobertura sigue en este workflow
         run: |
           set -euo pipefail
-          NN_ANIME_WORKFLOW='.github/workflows/ci.yml' bun -e '
-          const archivo = process.env.NN_ANIME_WORKFLOW ?? ".github/workflows/ci.yml"
+          RONA_WORKFLOW='.github/workflows/ci.yml' bun -e '
+          const archivo = process.env.RONA_WORKFLOW ?? ".github/workflows/ci.yml"
           // El comando que ejecuta la puerta, no su nombre: este paso también lo
           // menciona, y buscarla por la palabra la encontraría siempre.
           const esGate = (texto) => /bun run (coverage:gate|scripts\/coverage-gate\.ts)/.test(texto)
@@ -371,9 +371,9 @@ jobs:
           context: .
           file: ./Dockerfile
           load: true
-          tags: nn-anime:ci
-          cache-from: type=gha,scope=nn-anime-ci
-          cache-to: type=gha,mode=max,scope=nn-anime-ci,ignore-error=true
+          tags: rona:ci
+          cache-from: type=gha,scope=rona-ci
+          cache-to: type=gha,mode=max,scope=rona-ci,ignore-error=true
 
       # Arrancarla y pedirle las tres cosas que importan: salud sin credencial,
       # 401 sin token y la interfaz con la cookie del login.
@@ -381,11 +381,11 @@ jobs:
         run: |
           set -euo pipefail
           TOKEN="token-de-prueba-$(date +%s)"
-          docker run -d --name nn-anime-ci -p 127.0.0.1:18080:8080 \
-            -e NN_ANIME_TOKEN="$TOKEN" nn-anime:ci
+          docker run -d --name rona-ci -p 127.0.0.1:18080:8080 \
+            -e RONA_TOKEN="$TOKEN" rona:ci
           # Si algo falla, el registro del contenedor es lo que dice por qué;
           # borrarlo sin leerlo deja un «curl: (7)» y ninguna causa.
-          trap 'docker logs nn-anime-ci 2>&1 || true; docker inspect --format "{{.State.Status}} exit={{.State.ExitCode}}" nn-anime-ci 2>&1 || true; docker rm -f nn-anime-ci >/dev/null 2>&1 || true' EXIT
+          trap 'docker logs rona-ci 2>&1 || true; docker inspect --format "{{.State.Status}} exit={{.State.ExitCode}}" rona-ci 2>&1 || true; docker rm -f rona-ci >/dev/null 2>&1 || true' EXIT
 
           for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:18080/healthz >/dev/null 2>&1; then break; fi
@@ -402,11 +402,11 @@ jobs:
           grep -qi 'set-cookie: nn_session=' /tmp/cabeceras
           curl -fsS -b "nn_session=$TOKEN" http://127.0.0.1:18080/ | grep -q 'id="root"'
 
-          docker logs nn-anime-ci
+          docker logs rona-ci
 
       - name: Validar el compose de ejemplo
         env:
-          NN_ANIME_TOKEN: token-de-prueba
+          RONA_TOKEN: token-de-prueba
         run: docker compose config -q
 
   # El e2e vive aparte: necesita Chromium y un servidor, y tarda lo que tarda. Que falle aquí no
@@ -644,7 +644,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $archivos = Get-ChildItem release -Filter 'nn-anime-*.exe'
+          $archivos = Get-ChildItem release -Filter 'rona-*.exe'
           if ($archivos.Count -eq 0) { throw 'no hay binarios en release/' }
 
           foreach ($archivo in $archivos) {
@@ -672,11 +672,11 @@ jobs:
       - name: Dejar los artefactos descargables
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: nn-anime-${{ matrix.os }}
+          name: rona-${{ matrix.os }}
           path: |
-            build/package/*/nn-anime
-            build/package/*/nn-anime.exe
-            desktop/src-tauri/target/x86_64-pc-windows-msvc/release/nn-anime-desktop.exe
+            build/package/*/rona
+            build/package/*/rona.exe
+            desktop/src-tauri/target/x86_64-pc-windows-msvc/release/rona-desktop.exe
             release/*
           if-no-files-found: error
           retention-days: 7
@@ -695,13 +695,13 @@ jobs:
         # `buildpackage…`. Con barras normales el comando vale en los dos.
         shell: pwsh
         run: |
-          bun run scripts/package/pe.ts build/package/windows-x64/nn-anime.exe console
-          bun run scripts/package/pe.ts desktop/src-tauri/target/x86_64-pc-windows-msvc/release/nn-anime-desktop.exe windows
+          bun run scripts/package/pe.ts build/package/windows-x64/rona.exe console
+          bun run scripts/package/pe.ts desktop/src-tauri/target/x86_64-pc-windows-msvc/release/rona-desktop.exe windows
 
           # El archivo único es una copia del anfitrión, así que declara el mismo
           # subsistema `windows`. Es la medición de «sin consola» sobre el archivo
           # que se descarga, no sobre el que se compila.
-          $unico = Get-ChildItem -Path release -Filter 'nn-anime-*-windows-x64.exe' | Select-Object -First 1
+          $unico = Get-ChildItem -Path release -Filter 'rona-*-windows-x64.exe' | Select-Object -First 1
           if (-not $unico) { throw 'no hay .exe único en release/' }
           bun run scripts/package/pe.ts "$($unico.FullName)" windows
 

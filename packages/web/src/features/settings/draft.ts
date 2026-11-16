@@ -11,8 +11,8 @@
  * son los que usa casi cualquier API.
  */
 
-import type { ProviderDraft } from '@nn-anime/core/api'
-import type { ProviderMedia } from '@nn-anime/core/media'
+import type { ProviderDraft } from '@rona/core/api'
+import type { ProviderMedia } from '@rona/core/media'
 
 /** Los campos de la respuesta que el formulario deja ajustar. */
 export type FieldKey =

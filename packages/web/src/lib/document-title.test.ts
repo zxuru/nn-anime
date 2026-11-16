@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { AnimeDetail } from '@nn-anime/core/models'
+import type { AnimeDetail } from '@rona/core/models'
 import {
   composeTitle,
   detailTitleParts,
@@ -43,8 +43,8 @@ function sinDocumento(): void {
 
 describe('composeTitle', () => {
   test('une las partes con un punto medio', () => {
-    expect(composeTitle(['Aurora Nocturna', 'Episodio 3', 'nn-anime'])).toBe(
-      'Aurora Nocturna · Episodio 3 · nn-anime',
+    expect(composeTitle(['Aurora Nocturna', 'Episodio 3', 'RoNa'])).toBe(
+      'Aurora Nocturna · Episodio 3 · RoNa',
     )
   })
 
@@ -61,11 +61,11 @@ describe('composeTitle', () => {
 
 describe('pageTitle', () => {
   test('añade el nombre de la aplicación al final', () => {
-    expect(pageTitle(['Aurora Nocturna'])).toBe('Aurora Nocturna · nn-anime')
+    expect(pageTitle(['Aurora Nocturna'])).toBe('Aurora Nocturna · RoNa')
   })
 
   test('sin partes queda sólo el nombre de la aplicación', () => {
-    expect(pageTitle([])).toBe('nn-anime')
+    expect(pageTitle([])).toBe('RoNa')
   })
 })
 
@@ -73,26 +73,26 @@ describe('setDocumentTitle', () => {
   test('escribe el título en la pestaña', () => {
     const { leido } = conDocumentoDeMentira()
 
-    setDocumentTitle('Aurora Nocturna · nn-anime')
+    setDocumentTitle('Aurora Nocturna · RoNa')
 
-    expect(leido()).toBe('Aurora Nocturna · nn-anime')
+    expect(leido()).toBe('Aurora Nocturna · RoNa')
     sinDocumento()
   })
 
   test('un título vacío no borra el que había', () => {
     const { leido } = conDocumentoDeMentira()
 
-    setDocumentTitle('Aurora Nocturna · nn-anime')
+    setDocumentTitle('Aurora Nocturna · RoNa')
     setDocumentTitle('')
 
-    expect(leido()).toBe('Aurora Nocturna · nn-anime')
+    expect(leido()).toBe('Aurora Nocturna · RoNa')
     sinDocumento()
   })
 
   test('sin documento —renderizado en servidor— no lanza', () => {
     sinDocumento()
 
-    expect(() => setDocumentTitle('Aurora Nocturna · nn-anime')).not.toThrow()
+    expect(() => setDocumentTitle('Aurora Nocturna · RoNa')).not.toThrow()
   })
 })
 

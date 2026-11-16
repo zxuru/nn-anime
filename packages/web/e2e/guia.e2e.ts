@@ -85,7 +85,7 @@ test.describe('la guía de la aplicación', () => {
 
     const popover = page.locator(POPOVER)
     await expect(popover).toBeVisible({ timeout: 15_000 })
-    await expect(popover).toContainText('Bienvenido a nn-anime')
+    await expect(popover).toContainText('Bienvenido a rona')
     await expect(popover).toContainText('1 de 6')
 
     await page.locator('.driver-popover-next-btn').click()
@@ -189,7 +189,7 @@ test.describe('la guía de la aplicación', () => {
 
     await expect(page).toHaveURL(`${BASE}/`)
     await expect(page.locator(POPOVER)).toBeVisible({ timeout: 10_000 })
-    await expect(page.locator(POPOVER)).toContainText('Bienvenido a nn-anime')
+    await expect(page.locator(POPOVER)).toContainText('Bienvenido a rona')
   })
 
   test('«Omitir tutorial» sale en cada paso y cierra el recorrido', async ({ page }) => {

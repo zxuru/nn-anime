@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { AppError, type CacheHit, type SkipInterval } from '@nn-anime/core'
+import { AppError, type CacheHit, type SkipInterval } from '@rona/core'
 import type { AniSkipClient, AniSkipOutcome, AniSkipQuery } from './client'
 import { createSkipTimesService, skipTimesCacheKey } from './service'
 

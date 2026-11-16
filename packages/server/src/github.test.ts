@@ -11,8 +11,8 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { githubRepoFromUrl } from '@nn-anime/core'
-import type { Resolver } from '@nn-anime/media-proxy'
+import { githubRepoFromUrl } from '@rona/core'
+import type { Resolver } from '@rona/media-proxy'
 import { fakeGithub } from './__fixtures__/github'
 import {
   confine,
@@ -33,7 +33,7 @@ if (LOCATION === undefined) throw new Error('la dirección de la prueba no anali
 
 /** Un directorio temporal, que hace de carpeta de datos. */
 async function withTemp<T>(body: (directory: string) => Promise<T>): Promise<T> {
-  const directory = await mkdtemp(join(tmpdir(), 'nn-anime-github-'))
+  const directory = await mkdtemp(join(tmpdir(), 'rona-github-'))
 
   try {
     return await body(directory)
@@ -76,7 +76,7 @@ describe('las rutas del árbol', () => {
   })
 
   test('confina: una ruta que se sale del destino no tiene archivo', () => {
-    const base = join(tmpdir(), 'nn-anime-destino')
+    const base = join(tmpdir(), 'rona-destino')
 
     expect(confine(base, 'src/a.ts')).toBe(join(base, 'src', 'a.ts'))
     expect(confine(base, '../fuera.ts')).toBeUndefined()

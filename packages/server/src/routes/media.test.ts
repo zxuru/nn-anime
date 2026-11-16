@@ -7,8 +7,8 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import type { ProviderMedia, SearchResult } from '@nn-anime/core'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import type { ProviderMedia, SearchResult } from '@rona/core'
+import { createFixtureProvider } from '@rona/providers-fixture'
 import { type ConTipo, enMedia, mediaFrom, mediaPorProveedor } from './media'
 
 describe('el tipo que llega por la dirección', () => {

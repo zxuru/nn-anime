@@ -22,9 +22,9 @@
  * que un título y una home sin datos se leía como una pantalla rota.
  */
 
-import type { AiringItem, FeedItem, RecommendationResponse } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { AnimeSummary } from '@nn-anime/core/models'
+import type { AiringItem, FeedItem, RecommendationResponse } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { AnimeSummary } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'

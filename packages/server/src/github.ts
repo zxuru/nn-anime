@@ -32,8 +32,8 @@
 
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
-import { AppError, type GithubRepoLocation, MAX_REPO_PATH_LENGTH } from '@nn-anime/core'
-import { type FetchLike, fetchAllowed, type Resolver } from '@nn-anime/media-proxy'
+import { AppError, type GithubRepoLocation, MAX_REPO_PATH_LENGTH } from '@rona/core'
+import { type FetchLike, fetchAllowed, type Resolver } from '@rona/media-proxy'
 import { z } from 'zod'
 
 /** El host de la API. Es el que dice la rama por defecto y el árbol. */
@@ -290,7 +290,7 @@ async function get(
   try {
     response = await fetchAllowed({
       url,
-      headers: { accept: 'application/vnd.github+json', 'user-agent': 'nn-anime' },
+      headers: { accept: 'application/vnd.github+json', 'user-agent': 'rona' },
       signal,
       fetchImpl: guardedFetch(context.fetchImpl),
       ...(context.resolver === undefined ? {} : { resolver: context.resolver }),

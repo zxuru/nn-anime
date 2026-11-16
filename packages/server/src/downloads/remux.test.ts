@@ -2,14 +2,14 @@ import { describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { RemuxFn } from '@nn-anime/media-proxy'
+import type { RemuxFn } from '@rona/media-proxy'
 import { mp4DeCarpeta, remuxSegments } from './remux'
 
 /** Una descarga en segmentos de mentira: playlist, un trozo y su carpeta. */
 async function conDescarga<T>(
   body: (rutas: { root: string; playlist: string }) => Promise<T>,
 ): Promise<T> {
-  const root = await mkdtemp(join(tmpdir(), 'nn-anime-convertir-'))
+  const root = await mkdtemp(join(tmpdir(), 'rona-convertir-'))
 
   try {
     const carpeta = join(root, 'fixture', 'aurora', 'Episodio-1')

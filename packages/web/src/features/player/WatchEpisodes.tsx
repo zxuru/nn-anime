@@ -28,8 +28,8 @@
  * anime, que es lo único que se tiene: un nombre de capítulo no se inventa.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { Episode } from '@nn-anime/core/models'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { Episode } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'

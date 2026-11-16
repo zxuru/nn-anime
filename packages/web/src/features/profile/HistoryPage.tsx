@@ -16,7 +16,7 @@
  * mando apagado sin decir en qué página se está deja al usuario sin saber dónde anda.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'

@@ -2,10 +2,10 @@ import { describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type CatalogStore, openDb, runMigrations } from '@nn-anime/catalog-store'
-import { type Episode, ok } from '@nn-anime/core'
-import type { RemuxFn } from '@nn-anime/media-proxy'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import { type CatalogStore, openDb, runMigrations } from '@rona/catalog-store'
+import { type Episode, ok } from '@rona/core'
+import type { RemuxFn } from '@rona/media-proxy'
+import { createFixtureProvider } from '@rona/providers-fixture'
 import type { ServerContainer } from '../container'
 import { createApp, createContainer } from '../index'
 import { etiquetaDeEpisodio, leerSerie } from './downloads'
@@ -40,8 +40,8 @@ async function conApp<T>(
   ) => Promise<T>,
   opciones: { readonly download?: boolean; readonly remux?: RemuxFn } = {},
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-rutas-descargas-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-rutas-descargas-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const container = createContainer({ db })
   const proveedor = createFixtureProvider({ download: opciones.download ?? true })

@@ -171,7 +171,7 @@ describe('la guía de Docker', () => {
   test('avisa de no exponer sin token y de los plugins sin sandbox', async () => {
     const texto = await leer('docs/docker.md')
 
-    expect(texto).toContain('No expongas el puerto a Internet sin `NN_ANIME_TOKEN`')
+    expect(texto).toContain('No expongas el puerto a Internet sin `RONA_TOKEN`')
     expect(texto).toContain('sin sandbox')
     expect(texto).toContain('Una sola réplica por volumen')
   })

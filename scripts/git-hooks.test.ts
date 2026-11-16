@@ -85,8 +85,8 @@ function puedeEjecutarGanchos(): boolean {
   mkdirSync(ganchos, { recursive: true })
   writeFileSync(`${ganchos}/pre-commit`, '#!/bin/sh\nexit 0\n')
   git(['init', '-b', 'main'], repo)
-  git(['config', 'user.email', 'nn-anime@localhost'], repo)
-  git(['config', 'user.name', 'nn-anime'], repo)
+  git(['config', 'user.email', 'rona@localhost'], repo)
+  git(['config', 'user.name', 'rona'], repo)
   git(['config', 'core.hooksPath', ganchos], repo)
   writeFileSync(`${repo}/README.md`, '# prueba\n')
   git(['add', 'README.md'], repo)
@@ -103,8 +103,8 @@ function repoConGancho(nombre: string): string {
   rmSync(`${BASE}/${nombre}`, { recursive: true, force: true })
   mkdirSync(repo, { recursive: true })
   git(['init', '-b', 'main'], repo)
-  git(['config', 'user.email', 'nn-anime@localhost'], repo)
-  git(['config', 'user.name', 'nn-anime'], repo)
+  git(['config', 'user.email', 'rona@localhost'], repo)
+  git(['config', 'user.name', 'rona'], repo)
   // El gancho del repositorio de verdad, apuntado desde un repositorio de prueba.
   git(['config', 'core.hooksPath', `${RAIZ}/.githooks`], repo)
   writeFileSync(`${repo}/README.md`, '# prueba\n')
@@ -206,7 +206,7 @@ describe('el gancho instalado', () => {
     expect(frenado.err).toContain('abrir T60')
 
     const proceso = ejecutar(['commit', '-m', 'feat: la carátula (T60)'], repo, {
-      NN_ANIME_INTEGRADOR: '1',
+      RONA_INTEGRADOR: '1',
     })
     expect(proceso.code).toBe(0)
   })

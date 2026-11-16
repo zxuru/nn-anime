@@ -28,10 +28,10 @@ export const MANIFEST = join(ROOT, 'desktop', 'src-tauri', 'Cargo.toml')
 export const CRATE_DIR = dirname(MANIFEST)
 
 /** El nombre del anfitrión. **Distinto** del servidor, que se instala al lado. */
-export const HOST_NAME = 'nn-anime-desktop'
+export const HOST_NAME = 'rona-desktop'
 
 /** El nombre del servidor, tal y como lo busca `sidecar.rs`. */
-export const SERVER_NAME = 'nn-anime'
+export const SERVER_NAME = 'rona'
 
 /**
  * El nombre del archivo del anfitrión en una plataforma.
@@ -198,7 +198,7 @@ export async function buildDesktop(options: BuildDesktopOptions = {}): Promise<s
 
   // `--locked`: el `Cargo.lock` está versionado y la release tiene que usar
   // exactamente ese árbol, no el que resuelva cargo ese día.
-  // `NN_ANIME_EXIGIR_SERVIDOR`: en Windows, cuando lo compila el empaquetado,
+  // `RONA_EXIGIR_SERVIDOR`: en Windows, cuando lo compila el empaquetado,
   // `build.rs` **falla** si no encuentra el servidor en vez de generar un
   // anfitrión vacío. Un `.exe` sin servidor dentro arranca, enseña el aviso de
   // fallo y parece un problema del paquete; el fallo tiene que estar aquí, con
@@ -209,7 +209,7 @@ export async function buildDesktop(options: BuildDesktopOptions = {}): Promise<s
 
   await run(
     ['cargo', 'build', '--release', '--locked', '--target', triple, '--manifest-path', MANIFEST],
-    exigir ? { env: { ...process.env, NN_ANIME_EXIGIR_SERVIDOR: '1' } } : {},
+    exigir ? { env: { ...process.env, RONA_EXIGIR_SERVIDOR: '1' } } : {},
   )
 
   const binario = hostBinary(platform, arch)

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { Candidate } from '@nn-anime/core'
+import type { Candidate } from '@rona/core'
 import {
   affinityScore,
   buildAffinity,

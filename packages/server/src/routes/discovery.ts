@@ -27,8 +27,8 @@
  * siempre.
  */
 
-import { refKey } from '@nn-anime/catalog-store'
-import type { FeedResponse } from '@nn-anime/core'
+import { refKey } from '@rona/catalog-store'
+import type { FeedResponse } from '@rona/core'
 import {
   errorResponseSchema,
   feedResponseSchema,
@@ -38,8 +38,8 @@ import {
   recentResponseSchema,
   uniqueByWork,
   type WorkItem,
-} from '@nn-anime/core'
-import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
+} from '@rona/core'
+import type { CallOptions, Provider } from '@rona/provider-sdk'
 import type { Hono } from 'hono'
 import { adultosDeLaFila, MARGEN_DE_VERIFICACION } from '../adultos'
 import type { AniListCatalog } from '../anilist/catalog'

@@ -18,8 +18,8 @@ import {
   pasaElFiltro,
   providerMediaSchema,
   type TitleKind,
-} from '@nn-anime/core'
-import type { Provider } from '@nn-anime/provider-sdk'
+} from '@rona/core'
+import type { Provider } from '@rona/provider-sdk'
 
 /**
  * Lo que pedía la dirección.

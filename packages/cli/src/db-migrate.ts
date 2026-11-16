@@ -20,14 +20,14 @@ import {
   migrateDatabase,
   openDb,
   runMigrations,
-} from '@nn-anime/catalog-store'
+} from '@rona/catalog-store'
 import {
   type ConfigEnvironment,
   DEFAULT_LOCALE,
   ensureDirs,
   type Locale,
   loadConfig,
-} from '@nn-anime/core'
+} from '@rona/core'
 import { configEnvironment } from './env'
 import { t } from './i18n'
 import type { CliIO } from './run'

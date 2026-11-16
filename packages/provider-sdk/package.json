@@ -1,5 +1,5 @@
 {
-  "name": "@nn-anime/provider-sdk",
+  "name": "@rona/provider-sdk",
   "version": "0.8.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "./types": "./src/types.ts"
   },
   "dependencies": {
-    "@nn-anime/core": "workspace:*",
+    "@rona/core": "workspace:*",
     "zod": "^4"
   },
   "scripts": {

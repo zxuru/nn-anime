@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { providersResponseSchema } from '@nn-anime/core'
-import { type LoadReport, providerFailure } from '@nn-anime/provider-sdk'
+import { providersResponseSchema } from '@rona/core'
+import { type LoadReport, providerFailure } from '@rona/provider-sdk'
 import { type AppOptions, createApp } from '../app'
 import { SESSION_COOKIE, type Session } from '../session'
 
@@ -56,7 +56,7 @@ async function conApp<T>(
   body: (contexto: Contexto) => Promise<T>,
   overrides: Partial<AppOptions> = {},
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-alta-'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-alta-'))
 
   try {
     const app = createApp({

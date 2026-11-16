@@ -7,8 +7,8 @@
  * espera de señal se registra **antes** de arrancar el servidor.
  */
 
-import { type ConfigEnvironment, type Locale, type Logger, resolveLocale } from '@nn-anime/core'
-import type { Session } from '@nn-anime/server'
+import { type ConfigEnvironment, type Locale, type Logger, resolveLocale } from '@rona/core'
+import type { Session } from '@rona/server'
 import type { CliOptions } from './args'
 import type {
   BootDeps,
@@ -72,7 +72,7 @@ export function createStarter(deps: StartDeps): (options: CliOptions) => Promise
 
     const server = deps.serverEnv.value
 
-    // `NN_ANIME_ALLOW_LOOPBACK` abre loopback y redes privadas en la lista
+    // `RONA_ALLOW_LOOPBACK` abre loopback y redes privadas en la lista
     // blanca del proxy: es una excepción de desarrollo y en un servidor deja la
     // mitigación de SSRF en el suelo. Ahí se niega, no se avisa.
     if (deps.allowLoopback === true && !isLoopbackHost(server.host)) {

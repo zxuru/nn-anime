@@ -30,7 +30,7 @@ import {
   type SearchResult,
   type StreamRequest,
   type StreamSource,
-} from '@nn-anime/core'
+} from '@rona/core'
 import type { z } from 'zod'
 import { classifyThrow, describeProblems, providerFailure } from './errors'
 import { pluginFetchFor } from './network'

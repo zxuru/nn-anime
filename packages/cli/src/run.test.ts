@@ -42,7 +42,7 @@ describe('--help', () => {
 
     expect(code).toBe(0)
     expect(target.out).toHaveLength(1)
-    expect(target.out[0]).toContain('nn-anime')
+    expect(target.out[0]).toContain('rona')
     expect(target.out[0]).toContain('--no-open')
   })
 
@@ -79,7 +79,7 @@ describe('--version', () => {
     const code = await run(['--version'], target.deps)
 
     expect(code).toBe(0)
-    expect(target.out).toEqual(['nn-anime 9.9.9'])
+    expect(target.out).toEqual(['rona 9.9.9'])
   })
 
   test('no arranca el servidor', async () => {

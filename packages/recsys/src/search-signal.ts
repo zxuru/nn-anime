@@ -12,8 +12,8 @@
  * escribió.
  */
 
-import type { Candidate } from '@nn-anime/core'
-import { normalizeQuery } from '@nn-anime/core'
+import type { Candidate } from '@rona/core'
+import { normalizeQuery } from '@rona/core'
 import { decay } from './affinity'
 
 /** Días que tarda una búsqueda en valer la mitad. */

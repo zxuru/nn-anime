@@ -25,9 +25,9 @@
  *    poder saberlo.
  */
 
-import type { AniListRelatedItem } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { AnimeSummary } from '@nn-anime/core/models'
+import type { AniListRelatedItem } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { AnimeSummary } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 import { RelatedList } from './RelatedList'

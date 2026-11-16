@@ -8,7 +8,7 @@
  * sesión es el mismo que en producción: misma cookie, mismo origen lógico,
  * mismos guards sin relajar.
  *
- * El CLI recibe el origen por `NN_ANIME_DEV_ORIGIN`. Es una comodidad de
+ * El CLI recibe el origen por `RONA_DEV_ORIGIN`. Es una comodidad de
  * arranque, no un permiso: el server sigue validando `Host` y `Origin` igual.
  */
 
@@ -28,7 +28,7 @@ const children = [
       stdin: 'ignore',
       stdout: 'inherit',
       stderr: 'inherit',
-      env: { ...process.env, NN_ANIME_DEV_ORIGIN: WEB_ORIGIN },
+      env: { ...process.env, RONA_DEV_ORIGIN: WEB_ORIGIN },
     }),
   },
   {
@@ -40,7 +40,7 @@ const children = [
         stdin: 'ignore',
         stdout: 'inherit',
         stderr: 'inherit',
-        env: { ...process.env, NN_ANIME_DEV_ORIGIN: WEB_ORIGIN },
+        env: { ...process.env, RONA_DEV_ORIGIN: WEB_ORIGIN },
       },
     ),
   },

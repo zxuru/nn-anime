@@ -32,7 +32,7 @@ import type {
   FeedResponse,
   RecentResponse,
   TrendingResponse,
-} from '@nn-anime/core/api'
+} from '@rona/core/api'
 import {
   airingResponseSchema,
   continueWatchingResponseSchema,
@@ -41,8 +41,8 @@ import {
   feedResponseSchema,
   recentResponseSchema,
   trendingResponseSchema,
-} from '@nn-anime/core/api'
-import type { MediaFilter } from '@nn-anime/core/media'
+} from '@rona/core/api'
+import type { MediaFilter } from '@rona/core/media'
 import { useEffect, useRef, useState } from 'react'
 import { ApiError, apiGet } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'

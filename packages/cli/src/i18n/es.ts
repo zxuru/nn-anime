@@ -5,13 +5,13 @@
  * `i18n/index.ts`. Ningún componente ni ningún mensaje de error cambia.
  */
 
-import type { Messages } from '@nn-anime/core'
+import type { Messages } from '@rona/core'
 
 export const messages: Messages = {
-  'cli.help.body': `nn-anime — ver anime con interfaz, arrancado desde la terminal
+  'cli.help.body': `rona — ver anime con interfaz, arrancado desde la terminal
 
 Uso:
-  nn-anime [consulta] [banderas]
+  rona [consulta] [banderas]
 
 Banderas:
   -p, --port <n>         puerto fijo. Por defecto 7717, o uno libre del sistema
@@ -26,34 +26,34 @@ Banderas:
       --version          versión
 
 Entorno (para el modo servidor):
-  NN_ANIME_HOST          interfaz donde escucha. Por defecto 127.0.0.1
-  NN_ANIME_PORT          puerto. Por defecto 7717
-  NN_ANIME_NO_OPEN=1     no abre el navegador al arrancar
-  NN_ANIME_TOKEN         token fijo; obligatorio fuera de loopback
-  NN_ANIME_PUBLIC_ORIGIN origen público (https://…); marca la cookie Secure
-  NN_ANIME_LOCKED=1      sin alta de plugins ni gestión de repositorios`,
+  RONA_HOST          interfaz donde escucha. Por defecto 127.0.0.1
+  RONA_PORT          puerto. Por defecto 7717
+  RONA_NO_OPEN=1     no abre el navegador al arrancar
+  RONA_TOKEN         token fijo; obligatorio fuera de loopback
+  RONA_PUBLIC_ORIGIN origen público (https://…); marca la cookie Secure
+  RONA_LOCKED=1      sin alta de plugins ni gestión de repositorios`,
 
-  'cli.version': 'nn-anime {version}',
+  'cli.version': 'rona {version}',
 
-  'cli.env.invalidHost': 'NN_ANIME_HOST no es un nombre de host válido: {value}.',
+  'cli.env.invalidHost': 'RONA_HOST no es un nombre de host válido: {value}.',
   'cli.env.invalidPort':
-    'NN_ANIME_PORT no es un puerto válido: {value}. Se espera un entero entre {min} y {max}.',
-  'cli.env.invalidOrigin': 'NN_ANIME_PUBLIC_ORIGIN no es un origen http(s) válido: {value}.',
+    'RONA_PORT no es un puerto válido: {value}. Se espera un entero entre {min} y {max}.',
+  'cli.env.invalidOrigin': 'RONA_PUBLIC_ORIGIN no es un origen http(s) válido: {value}.',
   'cli.env.noTokenOnServer':
-    'Se va a servir en {where}, que no es loopback, y no hay NN_ANIME_TOKEN. Define un token fijo (por ejemplo: openssl rand -base64 32) o vuelve a NN_ANIME_HOST=127.0.0.1.',
+    'Se va a servir en {where}, que no es loopback, y no hay RONA_TOKEN. Define un token fijo (por ejemplo: openssl rand -base64 32) o vuelve a RONA_HOST=127.0.0.1.',
   'cli.env.weakToken':
-    'NN_ANIME_TOKEN es demasiado corto para un servidor: usa al menos {min} caracteres aleatorios.',
+    'RONA_TOKEN es demasiado corto para un servidor: usa al menos {min} caracteres aleatorios.',
   'cli.env.loopbackOnServer':
-    'NN_ANIME_ALLOW_LOOPBACK desactiva la protección SSRF y no se admite con un host que no sea loopback. Quita esa variable.',
+    'RONA_ALLOW_LOOPBACK desactiva la protección SSRF y no se admite con un host que no sea loopback. Quita esa variable.',
   'cli.env.publicOriginHint':
-    'Aviso: sin NN_ANIME_PUBLIC_ORIGIN la cookie no se marca Secure. Si hay HTTPS delante, define el origen público (https://…).',
+    'Aviso: sin RONA_PUBLIC_ORIGIN la cookie no se marca Secure. Si hay HTTPS delante, define el origen público (https://…).',
 
   'cli.usage.unknownFlag': 'Bandera desconocida: {flag}. Usa --help para ver las admitidas.',
   'cli.usage.missingValue': 'La bandera {flag} necesita un valor.',
   'cli.usage.invalidPort': 'Puerto inválido: {value}. Se espera un entero entre {min} y {max}.',
 
   'cli.url': 'Servidor en {url}',
-  'cli.server.login': 'Entra en {url} y pega el token de NN_ANIME_TOKEN.',
+  'cli.server.login': 'Entra en {url} y pega el token de RONA_TOKEN.',
   'cli.server.locked':
     'Modo restringido: no se pueden añadir ni activar plugins desde la interfaz.',
   'cli.port.busy': 'El puerto {port} estaba ocupado; se usa el {chosen}.',
@@ -62,7 +62,7 @@ Entorno (para el modo servidor):
   'cli.port.busyBlocked':
     'El puerto {port} está ocupado y el proxy de desarrollo apunta a él. Libéralo o cambia el origen del proxy. Detalle: {detail}',
   'cli.port.busyFixed':
-    'El puerto {port} está ocupado y este arranque no puede usar otro. Libéralo o cambia NN_ANIME_PORT. Detalle: {detail}',
+    'El puerto {port} está ocupado y este arranque no puede usar otro. Libéralo o cambia RONA_PORT. Detalle: {detail}',
   'cli.migration.failed': 'No se pudo preparar la base de datos: {message}',
   // Con la ruta absoluta y el error concreto, que es lo que hace falta cuando el
   // fallo llega a un registro y ya no hay consola donde preguntar.

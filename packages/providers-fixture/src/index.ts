@@ -27,8 +27,8 @@ import {
   type StreamMode,
   type StreamRequest,
   type StreamSource,
-} from '@nn-anime/core'
-import type { CallOptions, Provider, ProviderMethod } from '@nn-anime/provider-sdk'
+} from '@rona/core'
+import type { CallOptions, Provider, ProviderMethod } from '@rona/provider-sdk'
 import {
   buscar,
   destacados,
@@ -288,18 +288,18 @@ function esFallo(valor: string): valor is FixtureFailure {
 /**
  * Opciones leídas del entorno, para el arranque manual y el e2e.
  *
- * `NN_ANIME_FIXTURE_LATENCY_MS`, `NN_ANIME_FIXTURE_FAIL` (`search=500`,
- * `resolveStream=timeout`) y `NN_ANIME_FIXTURE_DOWNLOAD=1`, que declara la
+ * `RONA_FIXTURE_LATENCY_MS`, `RONA_FIXTURE_FAIL` (`search=500`,
+ * `resolveStream=timeout`) y `RONA_FIXTURE_DOWNLOAD=1`, que declara la
  * capacidad `download`: se acepta y no cambia nada —la descarga la hace la
  * aplicación—, y sirve para probar que un manifiesto que la declara sigue
  * cargando. Se leen aquí y no dentro del proveedor para que éste siga siendo
  * inyectable y no dependa de variables globales.
  */
 export function fixtureOptionsFromEnv(env: Record<string, string | undefined>): FixtureOptions {
-  const latencia = Number(env.NN_ANIME_FIXTURE_LATENCY_MS ?? '0')
+  const latencia = Number(env.RONA_FIXTURE_LATENCY_MS ?? '0')
   const fallos: Partial<Record<ProviderMethod, FixtureFailure>> = {}
 
-  for (const trozo of (env.NN_ANIME_FIXTURE_FAIL ?? '').split(',')) {
+  for (const trozo of (env.RONA_FIXTURE_FAIL ?? '').split(',')) {
     const [metodo, fallo] = trozo.split('=')
     if (metodo === undefined || fallo === undefined || metodo === '') continue
     if (!esMetodo(metodo) || !esFallo(fallo)) continue
@@ -309,7 +309,7 @@ export function fixtureOptionsFromEnv(env: Record<string, string | undefined>): 
   return {
     ...(Number.isFinite(latencia) && latencia > 0 ? { latencyMs: latencia } : {}),
     ...(Object.keys(fallos).length === 0 ? {} : { failures: fallos }),
-    ...(env.NN_ANIME_FIXTURE_DOWNLOAD === '1' ? { download: true } : {}),
+    ...(env.RONA_FIXTURE_DOWNLOAD === '1' ? { download: true } : {}),
   }
 }
 

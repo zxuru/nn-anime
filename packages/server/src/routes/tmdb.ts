@@ -17,8 +17,8 @@ import {
   mediaTypeOf,
   type ProviderRef,
   tmdbMetadataResponseSchema,
-} from '@nn-anime/core'
-import type { CallOptions, Provider } from '@nn-anime/provider-sdk'
+} from '@rona/core'
+import type { CallOptions, Provider } from '@rona/provider-sdk'
 import type { Context, Hono } from 'hono'
 import type { ServerContainer } from '../container'
 import { createTmdbClient, type TmdbFetch } from '../tmdb/client'

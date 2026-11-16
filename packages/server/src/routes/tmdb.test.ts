@@ -2,9 +2,9 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import { tmdbMetadataResponseSchema } from '@nn-anime/core'
-import { createFixtureProvider, FIXTURE_PROVIDER_ID } from '@nn-anime/providers-fixture'
+import { openDb, runMigrations } from '@rona/catalog-store'
+import { tmdbMetadataResponseSchema } from '@rona/core'
+import { createFixtureProvider, FIXTURE_PROVIDER_ID } from '@rona/providers-fixture'
 import { createApp, createContainer } from '../index'
 import { TMDB_KEY } from './settings'
 
@@ -29,8 +29,8 @@ async function conApp<T>(
     readonly respuesta?: () => Response
   } = {},
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-tmdb-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-tmdb-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const container = createContainer({ db })
   const proveedor = createFixtureProvider({ media: opciones.media ?? 'movies' })

@@ -32,10 +32,10 @@
 import { join } from 'node:path'
 
 /** Mueve el build de la interfaz que sirve el servidor. */
-export const WEB_ROOT_ENV = 'NN_ANIME_WEB_DIR'
+export const WEB_ROOT_ENV = 'RONA_WEB_DIR'
 
 /** Mueve el directorio de archivos `.sql` de las migraciones. */
-export const MIGRATIONS_DIR_ENV = 'NN_ANIME_MIGRATIONS_DIR'
+export const MIGRATIONS_DIR_ENV = 'RONA_MIGRATIONS_DIR'
 
 /**
  * Nombres con los que `--asset` incrusta los recursos.

@@ -9,7 +9,7 @@
  *    inyección de argumentos, y el array la hace imposible por construcción.
  * 2. **`--no-config`.** Sin él, mpv lee la configuración del usuario y puede
  *    acabar haciendo algo que este programa no pidió. El reproductor lo lanza
- *    nn-anime, no el usuario.
+ *    rona, no el usuario.
  * 3. **Ningún proceso queda huérfano.** Al cerrar la aplicación se matan todos
  *    los que siguan vivos: un mpv suelto es una ventana que nadie puede cerrar y
  *    una conexión contra un sitio de terceros que sigue abierta.
@@ -19,7 +19,7 @@
  * recibe lo que pase a partir de ahí sin que el proceso se entere.
  */
 
-import { AppError } from '@nn-anime/core'
+import { AppError } from '@rona/core'
 import { type MpvArgsOptions, mpvArgs } from './mpv-args'
 
 export {

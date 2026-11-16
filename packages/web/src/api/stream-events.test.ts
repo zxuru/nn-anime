@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { SearchEventPayload } from '@nn-anime/core/api'
+import type { SearchEventPayload } from '@rona/core/api'
 import {
   createSseParser,
   parseEventText,

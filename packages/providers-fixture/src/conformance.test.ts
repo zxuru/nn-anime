@@ -7,7 +7,7 @@ import {
   getTrending,
   resolveStream,
   search,
-} from '@nn-anime/provider-sdk'
+} from '@rona/provider-sdk'
 import { CATALOGO } from './data'
 import { createFixtureProvider, FIXTURE_PROVIDER_ID, fixtureProvider } from './index'
 

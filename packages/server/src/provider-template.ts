@@ -10,9 +10,9 @@
  * Dos reglas que no son negociables y se ven en el texto generado:
  *
  * 1. **Sin imports en tiempo de ejecución.** Un plugin vive en el directorio de
- *    plugins del usuario —`~/.config/nn-anime/providers/` en Linux y macOS,
- *    `%APPDATA%\nn-anime\providers\` en Windows—, fuera del proyecto, así que
- *    `@nn-anime/provider-sdk` no se puede resolver desde ahí. Lo que se importa
+ *    plugins del usuario —`~/.config/rona/providers/` en Linux y macOS,
+ *    `%APPDATA%\rona\providers\` en Windows—, fuera del proyecto, así que
+ *    `@rona/provider-sdk` no se puede resolver desde ahí. Lo que se importa
  *    es sólo `import type`, que se borra al compilar: por eso el archivo
  *    funciona igual con Bun, con Node o copiado a otra máquina.
  * 2. **Todo lo que viene de fuera va citado.** Los textos se insertan con
@@ -23,7 +23,7 @@
  *    minúsculas, dígitos y guiones.
  */
 
-import type { ProviderDraft } from '@nn-anime/core'
+import type { ProviderDraft } from '@rona/core'
 
 /** El nombre del archivo de un proveedor. La `id` ya es kebab-case. */
 export function pluginFileName(id: string): string {
@@ -88,12 +88,12 @@ export function renderProviderModule(draft: ProviderDraft): string {
   return `/**
  * Proveedor «${commentSafe(draft.name)}» (${draft.id}).
  *
- * Generado desde la página de ajustes de nn-anime a partir de una descripción de
+ * Generado desde la página de ajustes de rona a partir de una descripción de
  * endpoints. Es código normal: se puede leer, copiar y editar. Si se edita a
  * mano, la aplicación no lo vuelve a generar sola.
  */
 
-import type { CallOptions, Provider, SearchResult } from '@nn-anime/provider-sdk'
+import type { CallOptions, Provider, SearchResult } from '@rona/provider-sdk'
 
 ${literals(draft)}
 

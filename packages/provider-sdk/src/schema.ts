@@ -19,7 +19,7 @@ import {
   providerCapabilitiesSchema,
   searchResultSchema,
   streamSourceSchema,
-} from '@nn-anime/core'
+} from '@rona/core'
 import { z } from 'zod'
 import { PROVIDER_API_VERSION, type Provider, type ProviderMethod } from './types'
 

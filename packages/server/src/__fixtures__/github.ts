@@ -12,7 +12,7 @@
  * llega a pedirse.
  */
 
-import type { FetchLike } from '@nn-anime/media-proxy'
+import type { FetchLike } from '@rona/media-proxy'
 import { GITHUB_API_HOST, GITHUB_RAW_HOST } from '../github'
 
 export interface TreeEntry {

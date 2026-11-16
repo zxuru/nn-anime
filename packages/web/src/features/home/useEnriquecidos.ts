@@ -18,9 +18,9 @@
  *    pieza tiene: así el consumidor no tiene que saber de ids de AniList.
  */
 
-import type { EnrichmentBatchResponse } from '@nn-anime/core/api'
-import { enrichmentBatchRequestSchema, enrichmentBatchResponseSchema } from '@nn-anime/core/api'
-import type { ProviderRef } from '@nn-anime/core/models'
+import type { EnrichmentBatchResponse } from '@rona/core/api'
+import { enrichmentBatchRequestSchema, enrichmentBatchResponseSchema } from '@rona/core/api'
+import type { ProviderRef } from '@rona/core/models'
 import { useEffect, useState } from 'react'
 import { apiPostJson } from '../../api/client'
 

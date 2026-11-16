@@ -80,31 +80,31 @@ export interface MacBundleResult {
 }
 
 /**
- * Arma `nn-anime.app`.
+ * Arma `rona.app`.
  *
  * El paquete lleva **dos** ejecutables, y no es un detalle: el servidor
- * (`nn-anime`, que es lo que la aplicación es hoy) y el anfitrión de ventana
- * (`nn-anime-desktop`), que es a quien apunta `CFBundleExecutable` y quien lanza
+ * (`rona`, que es lo que la aplicación es hoy) y el anfitrión de ventana
+ * (`rona-desktop`), que es a quien apunta `CFBundleExecutable` y quien lanza
  * al servidor como hermano. Los dos van en `Contents/MacOS` porque el anfitrión
  * busca al servidor **por su nombre, en su propio directorio**.
  *
- * El `Info.plist` declara `CFBundleExecutable = nn-anime-desktop`: es lo que hace
+ * El `Info.plist` declara `CFBundleExecutable = rona-desktop`: es lo que hace
  * que abrir la aplicación abra la ventana y no una terminal. La consola sigue
- * dentro del paquete, en `Contents/MacOS/nn-anime`, para quien la quiera.
+ * dentro del paquete, en `Contents/MacOS/rona`, para quien la quiera.
  *
  * No hay `Resources` con código: la interfaz y las migraciones viajan **dentro**
  * del servidor gracias a `--asset`, y tener una copia fuera sería una segunda
  * fuente que se desincroniza.
  */
 export async function macBundle(options: MacOptions): Promise<MacBundleResult> {
-  const app = join(options.workDir, 'nn-anime.app')
+  const app = join(options.workDir, 'rona.app')
   const macos = join(app, 'Contents', 'MacOS')
 
   await rm(app, { recursive: true, force: true })
   await mkdir(macos, { recursive: true })
 
-  await copyFile(options.binary, join(macos, 'nn-anime'))
-  await chmod(join(macos, 'nn-anime'), 0o755)
+  await copyFile(options.binary, join(macos, 'rona'))
+  await chmod(join(macos, 'rona'), 0o755)
 
   // El anfitrión lo deja `stageDesktop` al lado del servidor, en el directorio de
   // trabajo del paquete. Si no está, `CFBundleExecutable` nombraría un archivo que
@@ -157,7 +157,7 @@ export interface ZipResult {
 export async function macZip(options: MacOptions): Promise<ZipResult> {
   const { app, signed } = await macBundle(options)
   const zip = join(options.releaseDir, options.zipName)
-  const temporal = join(options.workDir, 'nn-anime.zip')
+  const temporal = join(options.workDir, 'rona.zip')
 
   await rm(zip, { force: true })
   await rm(temporal, { force: true })

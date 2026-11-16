@@ -44,7 +44,7 @@ function mapaCompleto(media: string = MEDIA): Record<string, string> {
 }
 
 async function conDirectorio<T>(body: (dir: string) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-hls-'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-hls-'))
 
   try {
     return await body(dir)

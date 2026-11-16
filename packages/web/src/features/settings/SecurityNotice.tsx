@@ -16,7 +16,7 @@
  * justo el camino por el que se cuelan los modales inaccesibles.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { Fragment, type ReactNode, useEffect, useRef } from 'react'
 import type { Fallo } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'

@@ -20,7 +20,7 @@
 import type { Almacen } from './storage'
 
 /** La clave con la que se guarda si el reproductor abre extendido. */
-export const CLAVE_EXTENDIDO = 'nn-anime:extendido'
+export const CLAVE_EXTENDIDO = 'rona:extendido'
 
 /**
  * ¿El reproductor debe abrirse en modo extendido?

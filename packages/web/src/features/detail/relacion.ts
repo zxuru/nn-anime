@@ -11,7 +11,7 @@
  * queda con la clave en crudo, que es lo que se vería en pantalla si faltara.
  */
 
-import type { AniListRelation } from '@nn-anime/core/anilist'
+import type { AniListRelation } from '@rona/core/anilist'
 
 const CLAVES: Readonly<Record<AniListRelation, string>> = {
   sequel: 'detail.relation.sequel',

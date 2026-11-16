@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import type { FetchLike, Resolver } from '@nn-anime/media-proxy'
+import type { FetchLike, Resolver } from '@rona/media-proxy'
 import {
   ANISKIP_OFFLINE_ENV,
   ANISKIP_TIMEOUT_MS,
@@ -95,7 +95,7 @@ describe('la petición', () => {
 
     await client.fetch({ malId: 16498, episode: 1, length: 1440 })
 
-    expect(peticiones[0]?.headers['user-agent']).toContain('nn-anime')
+    expect(peticiones[0]?.headers['user-agent']).toContain('RoNa')
     expect(peticiones[0]?.headers.accept).toBe('application/json')
   })
 

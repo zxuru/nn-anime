@@ -1,7 +1,7 @@
 /**
  * El título de la pestaña, en un solo sitio.
  *
- * Cuatro fichas abiertas a la vez eran cuatro pestañas que decían «nn-anime»: no
+ * Cuatro fichas abiertas a la vez eran cuatro pestañas que decían «rona»: no
  * había forma de saber cuál era cuál sin abrirlas una a una, y menos de saber por
  * qué episodio iba la que estaba reproduciendo. El título de la pestaña es la
  * única etiqueta que ve quien tiene varias abiertas, así que se compone aquí y
@@ -15,8 +15,8 @@
  * pruebas de marcado siguen funcionando sin un DOM.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { AnimeDetail } from '@nn-anime/core/models'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { AnimeDetail } from '@rona/core/models'
 import { useEffect } from 'react'
 import { t } from '../i18n'
 import type { RouteName } from '../router'

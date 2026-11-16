@@ -1,8 +1,8 @@
 /**
- * Superficie pública de `@nn-anime/server`.
+ * Superficie pública de `@rona/server`.
  */
 
-import { AppError } from '@nn-anime/core'
+import { AppError } from '@rona/core'
 import type { Hono } from 'hono'
 import { type AppOptions, createApp } from './app'
 import { staticAssets } from './static-assets'

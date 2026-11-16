@@ -16,7 +16,7 @@
 
 import { rm, stat } from 'node:fs/promises'
 import { dirname, relative } from 'node:path'
-import { createFfmpegRemux, type RemuxFn } from '@nn-anime/media-proxy'
+import { createFfmpegRemux, type RemuxFn } from '@rona/media-proxy'
 
 export interface RemuxInput {
   /** La raíz de descargas: el MP4 tiene que quedar dentro. */

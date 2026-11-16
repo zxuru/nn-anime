@@ -15,14 +15,14 @@
  * convertirse en una lectura de la tabla entera pintada en una fila.
  */
 
-import type { RelatedScope } from '@nn-anime/catalog-store'
+import type { RelatedScope } from '@rona/catalog-store'
 import {
   errorResponseSchema,
   relatedResponseSchema,
   sourcesResponseSchema,
   watchedResponseSchema,
-} from '@nn-anime/core'
-import type { Provider } from '@nn-anime/provider-sdk'
+} from '@rona/core'
+import type { Provider } from '@rona/provider-sdk'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
 import { findProvider } from './anime'

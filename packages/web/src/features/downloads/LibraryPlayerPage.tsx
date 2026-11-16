@@ -18,8 +18,8 @@
  * se tratan igual que allí: el servidor decide qué sirve y con qué rangos.
  */
 
-import { downloadItemSchema, downloadsResponseSchema } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { downloadItemSchema, downloadsResponseSchema } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { ChevronLeft, ChevronRight, CircleCheck, Info, Play } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useState } from 'react'

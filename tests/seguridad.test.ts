@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { readdir } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { checkDestination } from '@nn-anime/media-proxy'
+import { checkDestination } from '@rona/media-proxy'
 import { conCiclo, GOOD, HOST, JSON_HEADERS } from './fixtures'
 
 /**
@@ -361,7 +361,7 @@ describe('M9 · confinamiento de los archivos servidos', () => {
 
 describe('M10 · inyección hacia mpv', () => {
   test('un valor con salto de línea se rechaza', async () => {
-    const { mpvArgs } = await import('@nn-anime/media-proxy')
+    const { mpvArgs } = await import('@rona/media-proxy')
     const salida = mpvArgs({
       url: 'http://127.0.0.1/stream/abc',
       headers: { Referer: 'https://sitio.example\nX-Inventada: 1' },
@@ -400,7 +400,7 @@ describe('M12 · nada sensible en los registros ni en el disco', () => {
   })
 
   test('el registro no escribe la cookie ni el token', async () => {
-    const { createLogger } = await import('@nn-anime/core')
+    const { createLogger } = await import('@rona/core')
     const lineas: string[] = []
     const logger = createLogger({
       level: 'debug',

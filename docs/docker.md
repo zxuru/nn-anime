@@ -1,10 +1,10 @@
-# nn-anime en Docker
+# RoNa en Docker
 
-Además del uso local, nn-anime se puede desplegar como contenedor en un servidor, un NAS o una LAN.
+Además del uso local, RoNa se puede desplegar como contenedor en un servidor, un NAS o una LAN.
 La imagen sirve **la interfaz y la API en el mismo origen**, igual que `bun run start`, pero escucha
 en `0.0.0.0:8080` dentro del contenedor y guarda todos sus datos en `/data`.
 
-> **No expongas el puerto a Internet sin `NN_ANIME_TOKEN` y sin TLS delante.** Los plugins se
+> **No expongas el puerto a Internet sin `RONA_TOKEN` y sin TLS delante.** Los plugins se
 > ejecutan **sin sandbox** con los permisos del proceso; un despliegue expuesto sin autenticación es
 > un servidor de ejecución de código ajeno. El modelo de amenaza completo está en
 > [SECURITY.md](../SECURITY.md).
@@ -14,7 +14,7 @@ en `0.0.0.0:8080` dentro del contenedor y guarda todos sus datos en `/data`.
 Desde la raíz del repositorio:
 
 ```bash
-docker build -t nn-anime:local .
+docker build -t rona:local .
 ```
 
 La imagen es multi-stage: la primera etapa instala las dependencias y construye la interfaz con
@@ -29,11 +29,11 @@ fixture del repositorio: lo único que lleva es la aplicación.
 ```bash
 TOKEN="$(openssl rand -base64 32)"
 
-docker run -d --name nn-anime \
+docker run -d --name RoNa \
   -p 127.0.0.1:8080:8080 \
-  -e NN_ANIME_TOKEN="$TOKEN" \
-  -v nn-anime-data:/data \
-  nn-anime:local
+  -e RONA_TOKEN="$TOKEN" \
+  -v rona-data:/data \
+  rona:local
 ```
 
 Abre `http://127.0.0.1:8080/login`, pega el token y entra. Sin cookie, la interfaz y la API
@@ -44,10 +44,10 @@ Si quieres entrar desde la LAN sin proxy, publica el puerto en la interfaz que c
 petición del formulario y, sin HTTPS, también lo ve quien esté en la red.
 
 `docker-compose.yml` deja un ejemplo listo: puerto en loopback, volumen nombrado, `restart:
-unless-stopped` y `NN_ANIME_TOKEN` obligatorio. Genera el token y arráncalo con:
+unless-stopped` y `RONA_TOKEN` obligatorio. Genera el token y arráncalo con:
 
 ```bash
-export NN_ANIME_TOKEN="$(openssl rand -base64 32)"
+export RONA_TOKEN="$(openssl rand -base64 32)"
 docker compose up -d
 ```
 
@@ -55,44 +55,44 @@ docker compose up -d
 
 | Variable | Por defecto | Qué hace |
 |---|---|---|
-| `NN_ANIME_HOST` | `127.0.0.1` | Interfaz donde escucha. La imagen usa `0.0.0.0`. |
-| `NN_ANIME_PORT` | `7717` | Puerto. La imagen usa `8080`. La bandera `--port` gana sobre la variable. |
-| `NN_ANIME_NO_OPEN` | sin definir | `1` o `true`: no abre el navegador. La imagen lo pone. |
-| `NN_ANIME_TOKEN` | sin definir | Token fijo del modo servidor. **Obligatorio** si el host o el origen público no son loopback. Mínimo 16 caracteres; usa 32 aleatorios. |
-| `NN_ANIME_PUBLIC_ORIGIN` | sin definir | Origen canónico, por ejemplo `https://nn.example.com`. Fija el `Host`/`Origin` admitidos y marca la cookie `Secure` si es https. |
-| `NN_ANIME_LOCKED` | sin definir | `1` o `true`: modo restringido. Sin alta de plugins, sin repositorios y sin `mpv`. |
-| `NN_ANIME_PARTY` | sin definir | `1` o `true`: enciende las salas de watch party. Apagado, las rutas `/api/party/*` no existen. |
+| `RONA_HOST` | `127.0.0.1` | Interfaz donde escucha. La imagen usa `0.0.0.0`. |
+| `RONA_PORT` | `7717` | Puerto. La imagen usa `8080`. La bandera `--port` gana sobre la variable. |
+| `RONA_NO_OPEN` | sin definir | `1` o `true`: no abre el navegador. La imagen lo pone. |
+| `RONA_TOKEN` | sin definir | Token fijo del modo servidor. **Obligatorio** si el host o el origen público no son loopback. Mínimo 16 caracteres; usa 32 aleatorios. |
+| `RONA_PUBLIC_ORIGIN` | sin definir | Origen canónico, por ejemplo `https://nn.example.com`. Fija el `Host`/`Origin` admitidos y marca la cookie `Secure` si es https. |
+| `RONA_LOCKED` | sin definir | `1` o `true`: modo restringido. Sin alta de plugins, sin repositorios y sin `mpv`. |
+| `RONA_PARTY` | sin definir | `1` o `true`: enciende las salas de watch party. Apagado, las rutas `/api/party/*` no existen. |
 | `XDG_DATA_HOME` | — | La imagen lo pone en `/data`. |
 | `XDG_CONFIG_HOME` | — | La imagen lo pone en `/data/config`. |
 | `XDG_CACHE_HOME` | — | La imagen lo pone en `/data/cache`. |
 
-Las variables de rutas (`NN_ANIME_DATA_DIR`, `NN_ANIME_CONFIG_DIR`, `NN_ANIME_CACHE_DIR`) siguen
+Las variables de rutas (`RONA_DATA_DIR`, `RONA_CONFIG_DIR`, `RONA_CACHE_DIR`) siguen
 funcionando si prefieres fijarlas a mano; el inventario completo está en
 [`.env.example`](../.env.example).
 
-Sin `NN_ANIME_TOKEN`, un arranque con `NN_ANIME_HOST=0.0.0.0` **se niega a empezar**: imprime qué
+Sin `RONA_TOKEN`, un arranque con `RONA_HOST=0.0.0.0` **se niega a empezar**: imprime qué
 falta y sale con 1. El modo local (`127.0.0.1`, sin token) sigue siendo el de siempre, con su token
 de arranque de un solo uso.
 
-`NN_ANIME_ALLOW_LOOPBACK=1` **no** se admite en modo servidor: desactiva la protección SSRF del
+`RONA_ALLOW_LOOPBACK=1` **no** se admite en modo servidor: desactiva la protección SSRF del
 proxy y el arranque lo rechaza.
 
 ## El volumen `/data`
 
 | Qué | Dónde |
 |---|---|
-| Base de datos SQLite | `/data/nn-anime/nn-anime.db` |
-| Configuración | `/data/config/nn-anime/` |
-| Plugins | `/data/config/nn-anime/providers/` |
-| Repositorios de proveedores descargados | `/data/nn-anime/repos/` |
-| Caché | `/data/cache/nn-anime/` |
+| Base de datos SQLite | `/data/rona/rona.db` |
+| Configuración | `/data/config/rona/` |
+| Plugins | `/data/config/rona/providers/` |
+| Repositorios de proveedores descargados | `/data/rona/repos/` |
+| Caché | `/data/cache/rona/` |
 
 El usuario de la imagen es `bun` (uid 1000). Con un volumen nombrado Docker hereda el dueño de la
 imagen y no hay que hacer nada. Con un **bind-mount**, los permisos son tuyos:
 
 ```bash
-sudo mkdir -p /srv/nn-anime
-sudo chown -R 1000:1000 /srv/nn-anime
+sudo mkdir -p /srv/RoNa
+sudo chown -R 1000:1000 /srv/RoNa
 ```
 
 **Una sola réplica por volumen.** SQLite es un archivo con un solo escritor; dos contenedores sobre
@@ -104,21 +104,21 @@ hoy no está soportado.
 La imagen arranca **sin ningún proveedor**: hasta que instales uno, la interfaz se ve y no encuentra
 nada. Hay dos caminos, y los dos son deliberados:
 
-1. **Desde Ajustes**, con `NN_ANIME_LOCKED` sin poner. Pega el repositorio recomendado, mira qué
+1. **Desde Ajustes**, con `RONA_LOCKED` sin poner. Pega el repositorio recomendado, mira qué
    trae y marca los archivos. Descargar no ejecuta nada; marcar un archivo es el momento en que se
-   importa. Queda en `/data/config/nn-anime/providers/` y se carga sin reiniciar.
+   importa. Queda en `/data/config/rona/providers/` y se carga sin reiniciar.
 2. **Montando el directorio** de plugins desde el host. Es lo que conviene en un servidor:
 
    ```yaml
    volumes:
-     - nn-anime-data:/data
-     - ./providers:/data/config/nn-anime/providers:ro
+     - rona-data:/data
+     - ./providers:/data/config/rona/providers:ro
    ```
 
    Los archivos tienen que ser legibles por el uid 1000. El directorio se lee **al arrancar**:
    después de copiar uno, reinicia el contenedor.
 
-Con `NN_ANIME_LOCKED=1` los plugins que ya estén en ese directorio se siguen cargando, pero la API
+Con `RONA_LOCKED=1` los plugins que ya estén en ese directorio se siguen cargando, pero la API
 no ofrece añadir repositorios, escribir un plugin nuevo ni activar/desactivar archivos. El botón de
 `mpv` tampoco existe. Es el modo que tiene sentido si la lista de plugins la decides tú y no quien
 tiene el token.
@@ -141,7 +141,7 @@ nn.example.com {
 Y en el entorno del contenedor:
 
 ```yaml
-NN_ANIME_PUBLIC_ORIGIN: https://nn.example.com
+RONA_PUBLIC_ORIGIN: https://nn.example.com
 ```
 
 Caddy conserva la cabecera `Host`, que es lo que los guards necesitan. Con el origen público puesto,
@@ -149,7 +149,7 @@ el servidor sólo acepta ese `Host` (y `127.0.0.1` para su healthcheck) y marca 
 Sin él, acepta cualquier `Host` y la cookie no lleva `Secure`: úsalo sólo en una LAN de confianza y
 con HTTP.
 
-Si además quieres autenticación delante, Caddy puede ponerla; entonces el token de nn-anime sigue
+Si además quieres autenticación delante, Caddy puede ponerla; entonces el token de RoNa sigue
 siendo la segunda puerta. No hay cuentas por usuario: **un token es un usuario**, y todos comparten
 historial, favoritos y ajustes.
 
@@ -168,8 +168,8 @@ Para una copia consistente, para el contenedor primero:
 
 ```bash
 docker compose stop
-docker run --rm -v nn-anime-data:/data -v "$PWD:/copia" alpine \
-  tar czf /copia/nn-anime-data.tgz -C /data .
+docker run --rm -v rona-data:/data -v "$PWD:/copia" alpine \
+  tar czf /copia/rona-data.tgz -C /data .
 docker compose start
 ```
 
@@ -181,7 +181,7 @@ curl -s http://127.0.0.1:8080/healthz
 ```
 
 El `HEALTHCHECK` de la imagen usa ese endpoint, que no pide token y no cuenta versión, rutas ni
-proveedores. Los registros del contenedor (`docker logs nn-anime`) llevan el puerto y el modo, nunca
+proveedores. Los registros del contenedor (`docker logs RoNa`) llevan el puerto y el modo, nunca
 el token ni la URL de arranque.
 
 ## Lo que este despliegue no hace
@@ -195,6 +195,6 @@ el token ni la URL de arranque.
 
 ## Publicación de la imagen
 
-Cada release publica `ghcr.io/zxuru/nn-anime:<versión>` y `ghcr.io/zxuru/nn-anime:latest`, para
+Cada release publica `ghcr.io/zxuru/rona:<versión>` y `ghcr.io/zxuru/rona:latest`, para
 `linux/amd64` y `linux/arm64`, desde `.github/workflows/release.yml`. Los PRs construyen la imagen
 sin publicarla. El detalle del proceso está en [release.md](release.md).

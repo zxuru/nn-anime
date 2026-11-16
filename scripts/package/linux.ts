@@ -20,7 +20,7 @@ import { hostFileName } from './desktop'
 /** El icono de 512 px, que es el que quiere el AppImage. */
 export const ICON = join(ROOT, 'packaging', 'icons', 'icon-512.png')
 
-export const DESKTOP = join(ROOT, 'packaging', 'linux', 'nn-anime.desktop')
+export const DESKTOP = join(ROOT, 'packaging', 'linux', 'rona.desktop')
 
 /**
  * El lanzador del AppImage.
@@ -95,17 +95,14 @@ async function run(
  * directorio es de sólo lectura y su ruta la dice `$APPDIR`.
  */
 export async function linuxAppImage(options: LinuxOptions, appimagetool: string): Promise<string> {
-  const appDir = join(options.workDir, 'nn-anime.AppDir')
-  const target = join(
-    options.releaseDir,
-    `nn-anime-${options.version}-linux-${options.arch}.AppImage`,
-  )
+  const appDir = join(options.workDir, 'rona.AppDir')
+  const target = join(options.releaseDir, `rona-${options.version}-linux-${options.arch}.AppImage`)
 
   await rm(appDir, { recursive: true, force: true })
   await mkdir(join(appDir, 'usr', 'bin'), { recursive: true })
 
-  await copyFile(options.binary, join(appDir, 'usr', 'bin', 'nn-anime'))
-  await chmod(join(appDir, 'usr', 'bin', 'nn-anime'), 0o755)
+  await copyFile(options.binary, join(appDir, 'usr', 'bin', 'rona'))
+  await chmod(join(appDir, 'usr', 'bin', 'rona'), 0o755)
 
   // El anfitrión, en el mismo `usr/bin`: `AppRun` lo lanza sin argumentos y el
   // servidor con ellos.
@@ -114,11 +111,11 @@ export async function linuxAppImage(options: LinuxOptions, appimagetool: string)
   await copyFile(host, join(appDir, 'usr', 'bin', hostFileName('linux')))
   await chmod(join(appDir, 'usr', 'bin', hostFileName('linux')), 0o755)
 
-  await copyFile(DESKTOP, join(appDir, 'nn-anime.desktop'))
+  await copyFile(DESKTOP, join(appDir, 'rona.desktop'))
   await copyFile(APPRUN, join(appDir, 'AppRun'))
   await chmod(join(appDir, 'AppRun'), 0o755)
 
-  if (await Bun.file(ICON).exists()) await copyFile(ICON, join(appDir, 'nn-anime.png'))
+  if (await Bun.file(ICON).exists()) await copyFile(ICON, join(appDir, 'rona.png'))
 
   // `--appimage-extract-and-run` evita FUSE, que en un runner de CI no está: sin
   // él, `appimagetool` falla al montarse a sí mismo.

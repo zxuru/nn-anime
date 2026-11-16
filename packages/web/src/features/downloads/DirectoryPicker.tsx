@@ -13,8 +13,8 @@
  * camino por el que se cuelan los modales inaccesibles.
  */
 
-import { type DownloadsDirs, downloadsDirsSchema } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { type DownloadsDirs, downloadsDirsSchema } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet } from '../../api/client'
 import { describirFallo } from '../../api/fallo'

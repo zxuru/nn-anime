@@ -20,7 +20,7 @@
 import { MARGEN_MAXIMO_S, MARGEN_MINIMO_S, margenValido } from './skip'
 
 /** El prefijo de todo lo que escribe esta aplicación. */
-const PREFIJO = 'nn-anime:'
+const PREFIJO = 'rona:'
 
 /**
  * El sufijo de la escritura en curso.

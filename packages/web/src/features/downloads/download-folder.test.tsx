@@ -18,9 +18,9 @@ function render(current: string | undefined): string {
 
 describe('la carpeta de descargas', () => {
   test('el campo enseña la carpeta que dice el servidor y se puede escribir', () => {
-    const html = render('D:\\Videos\\nn-anime')
+    const html = render('D:\\Videos\\rona')
 
-    expect(html).toContain('value="D:\\Videos\\nn-anime"')
+    expect(html).toContain('value="D:\\Videos\\rona"')
     expect(html).toContain('Carpeta de descargas')
     expect(html).toContain('Se guardan en')
     expect(html).toContain('Guardar carpeta')

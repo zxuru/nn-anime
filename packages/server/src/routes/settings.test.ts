@@ -2,9 +2,9 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations } from '@nn-anime/catalog-store'
-import { settingsResponseSchema } from '@nn-anime/core'
-import { createFixtureProvider } from '@nn-anime/providers-fixture'
+import { openDb, runMigrations } from '@rona/catalog-store'
+import { settingsResponseSchema } from '@rona/core'
+import { createFixtureProvider } from '@rona/providers-fixture'
 import { createApp, createContainer } from '../index'
 
 const PORT = 7717
@@ -23,8 +23,8 @@ async function conApp<T>(
   body: (contexto: Contexto) => Promise<T>,
   opciones: { readonly mpvAvailable?: boolean; readonly mpvVersion?: string } = {},
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-ajustes-'))
-  const db = openDb(join(dir, 'nn-anime.db'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-ajustes-'))
+  const db = openDb(join(dir, 'rona.db'))
   runMigrations(db)
   const container = createContainer({ db, mpvAvailable: opciones.mpvAvailable ?? false })
   const proveedor = createFixtureProvider()
@@ -51,8 +51,8 @@ async function conApp<T>(
         configDir: '/config',
         cacheDir: '/cache',
         providersDir: '/config/providers',
-        dbPath: '/datos/nn-anime.db',
-        configFile: '/config/nn-anime.json',
+        dbPath: '/datos/rona.db',
+        configFile: '/config/rona.json',
       },
       ...(opciones.mpvVersion === undefined ? {} : { mpvVersion: opciones.mpvVersion }),
     })

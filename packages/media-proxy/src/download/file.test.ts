@@ -25,7 +25,7 @@ function respuesta(
 }
 
 async function conDirectorio<T>(body: (dir: string) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'nn-anime-descarga-'))
+  const dir = await mkdtemp(join(tmpdir(), 'rona-descarga-'))
 
   try {
     return await body(dir)

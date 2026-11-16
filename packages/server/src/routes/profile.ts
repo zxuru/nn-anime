@@ -14,7 +14,7 @@
  * del mismo dato.
  */
 
-import { profileResponseSchema } from '@nn-anime/core'
+import { profileResponseSchema } from '@rona/core'
 import type { Hono } from 'hono'
 import { sinMarcadas } from '../adultos'
 import type { ServerContainer } from '../container'

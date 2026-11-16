@@ -126,7 +126,7 @@ export function migrateDatabase(options: MigrateDatabaseOptions): MigrateDatabas
     if (version > ultima) {
       return {
         ok: false,
-        message: `la base está en la versión ${version} y esta aplicación sólo conoce hasta la ${ultima}; actualiza nn-anime en vez de abrir los datos con una versión anterior`,
+        message: `la base está en la versión ${version} y esta aplicación sólo conoce hasta la ${ultima}; actualiza rona en vez de abrir los datos con una versión anterior`,
         restored: false,
         version,
       }

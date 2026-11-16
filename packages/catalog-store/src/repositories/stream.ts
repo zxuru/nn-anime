@@ -29,7 +29,7 @@ import {
   type StreamSource,
   streamSourceSchema,
   subtitleTrackSchema,
-} from '@nn-anime/core'
+} from '@rona/core'
 import { z } from 'zod'
 import { TTL_SECONDS } from '../cache-policy'
 import { episodeIdOf } from './episodes'

@@ -22,7 +22,7 @@
  * peticiones seguidas con la misma semilla den lo mismo.
  */
 
-import type { Candidate } from '@nn-anime/core'
+import type { Candidate } from '@rona/core'
 import {
   type AffinityEvent,
   type AffinityVector,

@@ -1,6 +1,6 @@
 ---
 name: tablero-kanban
-description: Mantener al día el tablero Kanban local de nn-anime (tareas/Tablero.md). Úsala al empezar cualquier tarea, al terminarla, al apuntar trabajo nuevo, y siempre que pidan «cómo va todo», el estado del proyecto o revisar tareas pendientes. También si el tablero no abre o el plugin Kanban de Obsidian da error.
+description: Mantener al día el tablero Kanban local de RoNa (tareas/Tablero.md). Úsala al empezar cualquier tarea, al terminarla, al apuntar trabajo nuevo, y siempre que pidan «cómo va todo», el estado del proyecto o revisar tareas pendientes. También si el tablero no abre o el plugin Kanban de Obsidian da error.
 ---
 
 # Tablero Kanban local

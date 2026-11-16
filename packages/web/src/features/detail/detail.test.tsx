@@ -1,15 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { ANILIST_RELATIONS } from '@nn-anime/core/anilist'
-import type { AniListRelatedItem, Enrichment, WatchedEpisodePayload } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type {
-  AnimeDetail,
-  AnimeSummary,
-  Episode,
-  ProviderCapabilities,
-} from '@nn-anime/core/models'
+import { ANILIST_RELATIONS } from '@rona/core/anilist'
+import type { AniListRelatedItem, Enrichment, WatchedEpisodePayload } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { AnimeDetail, AnimeSummary, Episode, ProviderCapabilities } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import type { Fallo } from '../../api/fallo'

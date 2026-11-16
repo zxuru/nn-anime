@@ -12,8 +12,8 @@
  * mentir.
  */
 
-import type { RecommendationResponse } from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import type { RecommendationResponse } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
 

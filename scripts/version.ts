@@ -65,7 +65,7 @@ function parseManifest(path: string, raw: string, fallbackName: string): Manifes
 
 /** La raíz primero, y después los paquetes por nombre. */
 export async function readManifests(): Promise<readonly Manifest[]> {
-  const root = parseManifest(ROOT_MANIFEST, await Bun.file(ROOT_MANIFEST).text(), 'nn-anime (raíz)')
+  const root = parseManifest(ROOT_MANIFEST, await Bun.file(ROOT_MANIFEST).text(), 'rona (raíz)')
 
   const workspaces = await listWorkspaces()
   const packages: Manifest[] = []

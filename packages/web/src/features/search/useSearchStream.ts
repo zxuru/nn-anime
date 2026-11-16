@@ -17,10 +17,10 @@ import {
   providersResponseSchema,
   type SearchEventPayload,
   settingsResponseSchema,
-} from '@nn-anime/core/api'
-import { groupByWork } from '@nn-anime/core/identity'
-import { DEFAULT_MEDIA, type MediaFilter, mediaOf, puedeServir } from '@nn-anime/core/media'
-import type { SearchResult } from '@nn-anime/core/models'
+} from '@rona/core/api'
+import { groupByWork } from '@rona/core/identity'
+import { DEFAULT_MEDIA, type MediaFilter, mediaOf, puedeServir } from '@rona/core/media'
+import type { SearchResult } from '@rona/core/models'
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { createDedupe } from '../../api/dedupe'

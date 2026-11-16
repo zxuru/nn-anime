@@ -21,9 +21,9 @@
 
 import { access } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import type { CatalogStore } from '@nn-anime/catalog-store'
-import { type ProviderRepoRecord, providerRepoRecordSchema } from '@nn-anime/core'
-import { type ProviderCandidate, scanProviderSources } from '@nn-anime/provider-sdk'
+import type { CatalogStore } from '@rona/catalog-store'
+import { type ProviderRepoRecord, providerRepoRecordSchema } from '@rona/core'
+import { type ProviderCandidate, scanProviderSources } from '@rona/provider-sdk'
 import { z } from 'zod'
 import { confine } from './github'
 

@@ -15,9 +15,9 @@ import {
   downloadStartResponseSchema,
   downloadsResponseSchema,
   downloadsSpaceSchema,
-} from '@nn-anime/core/api'
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
-import type { ProviderRef } from '@nn-anime/core/models'
+} from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { ProviderRef } from '@rona/core/models'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet, apiPatch, apiPostJson, send } from '../../api/client'
 import { t } from '../../i18n'

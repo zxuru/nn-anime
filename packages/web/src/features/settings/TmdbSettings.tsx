@@ -11,7 +11,7 @@
  * desincronizan.
  */
 
-import { DEFAULT_LOCALE } from '@nn-anime/core/i18n'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { type FormEvent, type ReactNode, useState } from 'react'
 import { describirFallo } from '../../api/fallo'
 import { t } from '../../i18n'

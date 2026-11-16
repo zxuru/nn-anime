@@ -22,7 +22,7 @@ import {
   titleKindSchema,
   type WatchEventInput,
   type WatchRecord,
-} from '@nn-anime/core'
+} from '@rona/core'
 import { animeIdOf, episodeIdOf } from './episodes'
 
 interface WatchRow {

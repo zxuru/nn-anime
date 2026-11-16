@@ -42,17 +42,17 @@ test.describe('la biblioteca', () => {
 
     await page.route('**/api/downloads/dir', async (ruta) => {
       cuerpo = ruta.request().postData() ?? ''
-      await ruta.fulfill({ json: { path: 'D:\\Anime\\nn-anime' } })
+      await ruta.fulfill({ json: { path: 'D:\\Anime\\rona' } })
     })
 
     await entrar(page)
     await page.getByRole('link', { name: 'Biblioteca', exact: true }).click()
     await page.getByText('Carpeta y espacio').click()
 
-    await page.getByLabel('Se guardan en').fill('D:\\Anime\\nn-anime')
+    await page.getByLabel('Se guardan en').fill('D:\\Anime\\rona')
     await page.getByRole('button', { name: 'Guardar carpeta' }).click()
 
-    await expect.poll(() => cuerpo).toBe(JSON.stringify({ path: 'D:\\Anime\\nn-anime' }))
+    await expect.poll(() => cuerpo).toBe(JSON.stringify({ path: 'D:\\Anime\\rona' }))
     await expect(page.getByText('Carpeta cambiada.')).toBeVisible()
   })
 
