@@ -35,6 +35,7 @@ import { adultosDeLaFila, TOPE_DE_VERIFICACION } from '../adultos'
 import type { AniListCatalog } from '../anilist/catalog'
 import type { ServerContainer } from '../container'
 import { gatherSignals, refKey } from '../recommend/signals'
+import { cacheHeader } from './cache-header'
 import { enMedia, mediaFrom, mediaPorProveedor } from './media'
 import { adultContentOf } from './settings'
 
@@ -127,22 +128,30 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
       timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     }
 
-    const resultados = await Promise.all(
+    const lecturas = await Promise.all(
       conTendencias.map(async (provider) => {
         const lectura = await options.container.getTrending(provider, callOptions)
 
         // Un proveedor que no responde a tendencias no puede tumbar la lista.
-        if (!lectura.ok) return []
+        if (!lectura.ok) return { items: [], source: undefined }
 
         // El filtro va **después de la caché**: lo que se guarda es la lista de la
         // fuente, y cada pestaña se queda con su mitad al leerla.
-        return lectura.value.value.filter((resultado) =>
-          pasaElFiltroDeMedia(pedido.media, mediaOf(provider.capabilities), resultado.kind),
-        )
+        return {
+          items: lectura.value.value.filter((resultado) =>
+            pasaElFiltroDeMedia(pedido.media, mediaOf(provider.capabilities), resultado.kind),
+          ),
+          source: lectura.value.source,
+        }
       }),
     )
 
-    const candidatos = sinRepetir(resultados.flat())
+    // La fila mezcla fuentes: el encabezado es el del peor origen, no el de la
+    // primera que contestó.
+    const cache = cacheHeader(
+      lecturas.flatMap((lectura) => (lectura.source === undefined ? [] : [lectura.source])),
+    )
+    const candidatos = sinRepetir(lecturas.flatMap((lectura) => lectura.items))
     const conAdultos = await adultContentOf(options.container.store)
 
     // La fila no tiene tope propio, así que la ventana la pone el tope de verificación:
@@ -164,6 +173,8 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
       ...(resultado.year === undefined ? {} : { year: resultado.year }),
       ...(resultado.kind === undefined ? {} : { kind: resultado.kind }),
     }))
+
+    if (cache !== undefined) c.header('X-Cache', cache)
 
     return c.json(trendingResponseSchema.parse({ items }))
   })

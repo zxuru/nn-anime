@@ -164,15 +164,18 @@ describe('GET /api/feed', () => {
     )
   })
 
-  test('la segunda petición no vuelve a llamar al proveedor', async () => {
+  test('la segunda petición no vuelve a llamar al proveedor y lo dice X-Cache', async () => {
     await conApp(async ({ pedir, proveedor }) => {
-      await pedir('/api/feed')
+      const inicial = await pedir('/api/feed')
       const primera = proveedor.calls.count('getFeed')
 
-      await pedir('/api/feed')
+      const segunda = await pedir('/api/feed')
 
       expect(primera).toBe(1)
       expect(proveedor.calls.count('getFeed')).toBe(1)
+      // La primera fue a la fuente y la segunda salió de la caché.
+      expect(inicial.headers.get('x-cache')).toBe('miss')
+      expect(segunda.headers.get('x-cache')).toBe('hit')
     })
   })
 

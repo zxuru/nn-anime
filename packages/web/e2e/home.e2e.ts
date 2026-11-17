@@ -27,6 +27,57 @@ test.describe('la home', () => {
   })
 
   /**
+   * La primera pintura de la home, con la caché caliente.
+   *
+   * El criterio de T41 pide que la home pinte antes de un segundo cuando lo que
+   * lee ya está en la caché. Se calienta una vez, se recarga y se mide el
+   * `first-contentful-paint` del documento nuevo, no el de la visita anterior.
+   *
+   * `X-Cache` se lee de las dos filas que salen a una fuente —tendencias y
+   * feed—: la de `catalog/recent` es local y no lleva el encabezado. Si alguna
+   * de las dos tuviera que pedir a la fuente, el `hit` de la home sería mentira.
+   */
+  test('pinta antes de un segundo con las filas en caché', async ({ page }) => {
+    await entrar(page)
+    await esperarApp(page)
+    await expect(page.getByRole('heading', { name: 'Top', exact: true })).toBeVisible({
+      timeout: 15_000,
+    })
+    await page.waitForLoadState('networkidle')
+
+    const cache: Record<string, string | null> = {}
+
+    page.on('response', (respuesta) => {
+      const camino = new URL(respuesta.url()).pathname
+
+      if (camino === '/api/trending' || camino === '/api/feed') {
+        cache[camino] = respuesta.headers()['x-cache'] ?? null
+      }
+    })
+
+    await page.reload()
+
+    // La ficha visible no basta: la primera pintura es anterior al contenido, y
+    // el rótulo del top espera a que las filas lleguen.
+    await expect(page.getByRole('heading', { name: 'Top', exact: true })).toBeVisible({
+      timeout: 15_000,
+    })
+    await expect.poll(() => Object.keys(cache).length, { timeout: 10_000 }).toBe(2)
+
+    expect(cache['/api/trending']).toBe('hit')
+    expect(cache['/api/feed']).toBe('hit')
+
+    const primeraPintura = await page.evaluate(() => {
+      const entrada = performance.getEntriesByName('first-contentful-paint')[0]
+
+      return entrada?.startTime ?? Number.POSITIVE_INFINITY
+    })
+
+    expect(primeraPintura).toBeGreaterThan(0)
+    expect(primeraPintura).toBeLessThan(1_000)
+  })
+
+  /**
    * La parrilla de estrenos.
    *
    * El arnés arranca con AniList apagado —una prueba no puede depender de un

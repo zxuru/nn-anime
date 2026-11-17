@@ -207,7 +207,9 @@ packages/web/
 
 ## Success Criteria
 
-- [ ] Con la base ya poblada, la home pinta contenido antes de 1 s y `X-Cache` es `hit`.
+- [x] Con la base ya poblada, la home pinta contenido antes de 1 s y `X-Cache` es `hit`. **Medido en
+      T261**: 108 ms de primera pintura y `hit` en `/api/trending` y `/api/feed`; `catalog/recent` es
+      local y no lleva el encabezado.
 - [ ] Buscar "naruto" muestra resultados parciales sin recargar y sin bloquear la interfaz.
 - [ ] Desconectar un proveedor no deja la grilla en esqueleto para siempre.
 - [ ] Un mp4 de fixture se reproduce en la página y adelantar 30 s funciona.
