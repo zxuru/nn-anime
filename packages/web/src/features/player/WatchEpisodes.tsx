@@ -28,6 +28,7 @@
  * anime, que es lo único que se tiene: un nombre de capítulo no se inventa.
  */
 
+import type { WatchedEpisodePayload } from '@rona/core/api'
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { Episode } from '@rona/core/models'
 import type { ReactNode } from 'react'
@@ -35,8 +36,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { episodeLabel } from '../../lib/document-title'
 import { Link } from '../../router'
-import { loadEpisodesPage } from '../detail/useDetail'
+import { loadEpisodesPage, watchedPercent } from '../detail/useDetail'
 import { type PlayMode, watchPath } from './watch-route'
+import { loadWatched } from './watch-watched'
 
 /** Lo que la pantalla sabe del episodio que se está viendo. */
 export interface EpisodioActual {
@@ -88,6 +90,8 @@ export interface EpisodeRowProps {
   /** Si es el episodio que se está viendo. */
   readonly current: boolean
   readonly episode: RowEpisode
+  /** Lo que se vio de este episodio, si la lectura llegó. */
+  readonly watched?: WatchedEpisodePayload | undefined
 }
 
 /**
@@ -125,10 +129,28 @@ export function EpisodeRow(props: EpisodeRowProps): ReactNode {
   const etiqueta =
     episodeLabel(episode.number, nombre) ??
     t(DEFAULT_LOCALE, 'player.episode', { number: episode.number })
+  /*
+    La marca de lo visto es texto y no sólo color: «Visto» o el porcentaje. Viaja
+    también en el nombre accesible del enlace, porque el texto visible está dentro
+    de un control con `aria-label` y lo que se ve tiene que oírse.
+  */
+  const marca =
+    props.watched?.finished === true
+      ? t(DEFAULT_LOCALE, 'player.episode.watched')
+      : props.watched !== undefined && props.watched.ratio > 0.02
+        ? t(DEFAULT_LOCALE, 'player.episode.progress', {
+            percent: watchedPercent(props.watched.ratio),
+          })
+        : undefined
+  const nombreAccesible =
+    marca === undefined
+      ? etiqueta
+      : t(DEFAULT_LOCALE, 'player.episode.marked', { episode: etiqueta, mark: marca })
   const contenido = (
     <>
       <span className="watch__list-number">{episode.number}</span>
       {nombre === undefined ? null : <span className="watch__list-title">{nombre}</span>}
+      {marca === undefined ? null : <span className="watch__list-mark">{marca}</span>}
     </>
   )
   const destino = watchPath(props.providerId, episode.value, {
@@ -139,11 +161,11 @@ export function EpisodeRow(props: EpisodeRowProps): ReactNode {
   })
 
   return props.current ? (
-    <Link className="watch__list-item" ariaLabel={etiqueta} ariaCurrent="page" to={destino}>
+    <Link className="watch__list-item" ariaLabel={nombreAccesible} ariaCurrent="page" to={destino}>
       {contenido}
     </Link>
   ) : (
-    <Link className="watch__list-item" ariaLabel={etiqueta} to={destino}>
+    <Link className="watch__list-item" ariaLabel={nombreAccesible} to={destino}>
       {contenido}
     </Link>
   )
@@ -156,7 +178,27 @@ export function WatchEpisodes(props: WatchEpisodesProps): ReactNode {
   const [hayMas, setHayMas] = useState(false)
   const [cargando, setCargando] = useState(true)
   const [fallo, setFallo] = useState(false)
+  const [vistos, setVistos] = useState<readonly WatchedEpisodePayload[]>([])
   const cuantos = episodios.length
+
+  /*
+    Lo visto del título, aparte de la página de episodios.
+    Es una lectura que puede fallar sin romper nada: si no contesta, las filas se
+    pintan como siempre. No bloquea la lista ni la reproducción.
+  */
+  useEffect(() => {
+    const control = new AbortController()
+    let vivo = true
+
+    void loadWatched(props.providerId, props.titleRef, control.signal).then((leidos) => {
+      if (vivo) setVistos(leidos)
+    })
+
+    return () => {
+      vivo = false
+      control.abort()
+    }
+  }, [props.providerId, props.titleRef])
 
   useEffect(() => {
     let vivo = true
@@ -224,6 +266,7 @@ export function WatchEpisodes(props: WatchEpisodesProps): ReactNode {
       animeTitle={props.animeTitle}
       current={current}
       episode={episode}
+      watched={vistos.find((visto) => visto.number === episode.number)}
     />
   )
 

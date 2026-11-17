@@ -396,6 +396,13 @@
   /** Ancho máximo de la portada del cartel de destacado. */
   --hero-poster-width: 22rem;
   --video-ratio: 16 / 9;
+  /**
+   * El fondo del marco cuando no hay imagen todavía.
+   *
+   * Oscuro en los dos temas: el video es pantalla y no papel, y el blanco puro
+   * del tema claro convertía el primer fotograma en una lámpara de 1000×562.
+   */
+  --video-plate: #14141b;
   --title-clamp: 2;
   /**
    * La pantalla de reproducción.
@@ -577,7 +584,7 @@
    * subtítulos larga se desplaza por dentro en vez de empujar el menú.
    */
   --menu-width: 15rem;
-  --menu-height: 24rem;
+  --menu-height: 27rem;
   --letter-tight: -0.01em;
   --content-max: 1200px;
   --header-height: 3.5rem;

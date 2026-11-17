@@ -47,6 +47,10 @@ export function usePlayerTeclado(opciones: TecladoOpciones): void {
         key: evento.key,
         tagName: (evento.target as HTMLElement | null)?.tagName,
         isContentEditable: (evento.target as HTMLElement | null)?.isContentEditable,
+        interactive:
+          evento.target instanceof Element &&
+          evento.target.closest('a, button, summary, select, input, textarea, [role="button"]') !==
+            null,
         ctrlKey: evento.ctrlKey,
         metaKey: evento.metaKey,
         altKey: evento.altKey,

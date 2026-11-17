@@ -26,8 +26,10 @@
 
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
+import { useState } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
+import { Skeleton } from '../../components/Skeleton'
 import { t } from '../../i18n'
 import { episodeLabel } from '../../lib/document-title'
 import { buildPath, Link } from '../../router'
@@ -36,7 +38,9 @@ import { ANCLAS } from '../guia/guia'
 import { PartyBar } from '../party/PartyBar'
 import { PartyPanel } from '../party/PartyPanel'
 import { AudioModeSwitch } from './AudioModeSwitch'
+import { formatTime } from './controls'
 import { Player } from './Player'
+import { PlayerPlate } from './PlayerPlate'
 import { SourceFallback } from './SourceFallback'
 import { toSafeTracks, tracksFromSource } from './subtitle-tracks'
 import { useWatchPage } from './useWatchPage'
@@ -119,9 +123,28 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     rutaSiguiente,
     esPelicula,
     lineaEpisodio,
+    etiquetaEpisodio,
+    elementoVideo,
     nombreCompleto,
     estadoFicha,
   } = pagina
+
+  /**
+   * La reanudación, contada.
+   *
+   * El video arranca en el segundo guardado y no lo decía; la promesa del
+   * producto es que al volver está donde lo dejaste, y eso se cuenta o no
+   * existe. Se captura la posición de arranque una vez —la página se remonta
+   * por episodio— y se deja de enseñar en cuanto la reproducción se mueve o se
+   * empieza de cero.
+   */
+  const [reanudaEn] = useState(() => (posicion > 0 ? posicion : undefined))
+  const mostrarReanudar = reanudaEn !== undefined && Math.abs(posicion - reanudaEn) < 0.05
+
+  const empezarDeCero = (): void => {
+    setPosicion(0)
+    if (elementoVideo !== null) elementoVideo.currentTime = 0
+  }
 
   const panelDeSala = panelSala ? (
     <PartyPanel party={party} canHost={mediaDeLaSala !== undefined} onClose={cerrarPanelSala} />
@@ -157,7 +180,20 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         {t(DEFAULT_LOCALE, 'player.backToDetail')}
       </Link>
       <h1>{tituloAnime ?? t(DEFAULT_LOCALE, 'title.loading')}</h1>
-      {lineaEpisodio === undefined ? null : <p className="watch__episode">{lineaEpisodio}</p>}
+      {lineaEpisodio === undefined ? null : (
+        <p className="watch__episode">
+          {lineaEpisodio}
+          {mostrarReanudar ? (
+            <span className="watch__resume">
+              {' · '}
+              {t(DEFAULT_LOCALE, 'player.resume', { time: formatTime(reanudaEn ?? 0) })}{' '}
+              <button type="button" className="watch__restart" onClick={empezarDeCero}>
+                {t(DEFAULT_LOCALE, 'player.resume.restart')}
+              </button>
+            </span>
+          ) : null}
+        </p>
+      )}
       {/* «Ver juntos» y la descarga van anclados al encabezado, en una fila:
           la sala se mide contra la ventana y un bloque más debajo empujaba la
           página. El botón abre el panel de la sala; la descarga es la misma de
@@ -204,7 +240,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
   const opcionesDePaso: WatchPathOptions = { mode: modo, anime: animeValue }
 
   const pasos = esPelicula ? null : (
-    <div className="watch__steps">
+    <nav className="watch__steps" aria-label={t(DEFAULT_LOCALE, 'player.episodes')}>
       {vecinos?.previous === undefined ? (
         <span
           className="watch__nav-off"
@@ -213,6 +249,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         >
           <EpisodeArrow towards="previous" />
           {t(DEFAULT_LOCALE, 'player.previous')}
+          <span className="solo-lectores">{t(DEFAULT_LOCALE, 'player.firstEpisode')}</span>
         </span>
       ) : (
         <Link
@@ -238,6 +275,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
         >
           {t(DEFAULT_LOCALE, 'player.next')}
           <EpisodeArrow towards="next" />
+          <span className="solo-lectores">{t(DEFAULT_LOCALE, 'player.lastEpisode')}</span>
         </span>
       ) : (
         <Link
@@ -254,7 +292,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
           <EpisodeArrow towards="next" />
         </Link>
       )}
-    </div>
+    </nav>
   )
 
   /**
@@ -264,16 +302,16 @@ export function WatchPage(props: WatchPageProps): ReactNode {
    * es lo que se cambia a menudo y por eso no vive dentro del menú de ajustes.
    * En la carga y en el error sólo van las flechas: el modo no resuelve nada
    * cuando no hay fuente.
+   *
+   * El contenedor es un `div` y no un `nav`: el `nav` con nombre es el de las
+   * flechas, y el audio tiene su propio grupo con nombre. Antes el mismo `nav`
+   * se llamaba «Episodios» y contenía el conmutador de audio.
    */
   const filaDeMandos = (conAudio: boolean): ReactNode => (
-    <nav
-      className="watch__nav"
-      aria-label={t(DEFAULT_LOCALE, esPelicula ? 'player.audio' : 'player.episodes')}
-      data-tour={ANCLAS.reproductorMandos}
-    >
+    <div className="watch__nav" data-tour={ANCLAS.reproductorMandos}>
       {pasos}
       {conAudio ? <AudioModeSwitch mode={modo} onMode={cambiarModo} /> : null}
-    </nav>
+    </div>
   )
 
   /**
@@ -366,9 +404,25 @@ export function WatchPage(props: WatchPageProps): ReactNode {
           <div className="watch__main">
             {encabezado}
             {party.phase === 'idle' ? null : <PartyBar party={party} />}
-            <p className="empty">{t(DEFAULT_LOCALE, 'player.loading')}</p>
+            {/* El marco se reserva con su forma y su ancho: sin esto el video y
+                la lista aparecían de golpe al resolver la fuente y la pantalla
+                saltaba. El bloque es decoración; la frase sigue debajo para
+                quien no lo ve. */}
+            <Skeleton h="auto" r={0} className="watch__loading-frame" />
+            <p className="empty" role="status">
+              {t(DEFAULT_LOCALE, 'player.loading')}
+            </p>
             {panelDeSala}
           </div>
+          {esPelicula ? null : (
+            <aside className="watch__aside" aria-hidden="true">
+              <div className="watch__list-skeleton">
+                {[0, 1, 2, 3, 4, 5].map((fila) => (
+                  <Skeleton key={fila} h="2rem" />
+                ))}
+              </div>
+            </aside>
+          )}
         </div>
       </section>
     )
@@ -427,6 +481,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
             // cómo se llama nada. Sin nombre, `Player` pone la suya.
             title={nombreCompleto === '' ? undefined : nombreCompleto}
             poster={portada}
+            plate={<PlayerPlate poster={portada} title={tituloAnime} episode={etiquetaEpisodio} />}
             tracks={pistas}
             // El modo de audio y el reproductor externo son de la pantalla, no
             // del elemento de video: el menú de ajustes del reproductor los

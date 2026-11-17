@@ -94,7 +94,10 @@ export function PlayerSeekBar(props: PlayerSeekBarProps): ReactNode {
         value={props.posicion}
         disabled={props.duracion === 0}
         aria-label={t(DEFAULT_LOCALE, 'player.seek')}
-        aria-valuetext={`${spokenTime(props.posicion)} de ${spokenTime(props.duracion)}`}
+        aria-valuetext={t(DEFAULT_LOCALE, 'player.seek.spoken', {
+          position: spokenTime(props.posicion),
+          duration: spokenTime(props.duracion),
+        })}
         onChange={(evento) => props.onArrastrar(Number(evento.target.value))}
         onPointerUp={props.onSoltar}
         onPointerCancel={props.onSoltar}
