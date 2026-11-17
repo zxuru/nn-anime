@@ -88,9 +88,25 @@ test.describe('el reproductor', () => {
     await entrar(page)
     await page.goto('/settings')
 
-    // En esta máquina mpv está instalado, así que se comprueba la sección, no el
-    // aviso: el caso de «sin mpv» necesita el servidor arrancado sin él.
+    // El arnés arranca el servidor con un `PATH` sin mpv —ver
+    // `scripts/e2e-server.ts`—, así que este es el caso de verdad y no una
+    // sección cualquiera.
     await expect(page.getByRole('heading', { name: 'Reproductor externo' })).toBeVisible()
+    await expect(page.getByText('No se encontró mpv: se reproduce en el navegador.')).toBeVisible()
+
+    // Y el reproductor web sigue: sin mpv no queda una pantalla con el aviso.
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    const video = page.locator('video')
+
+    await expect(video).toHaveAttribute('src', /\/stream\//, { timeout: 15_000 })
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+
+    await expect
+      .poll(async () => await video.evaluate((elemento: HTMLVideoElement) => elemento.paused), {
+        timeout: 10_000,
+      })
+      .toBe(false)
   })
 
   /**

@@ -3041,12 +3041,25 @@ sacado el cursor de la casilla a los 400 ms de teclear.
 web sigue» no está escrito: hace falta arrancar el servidor del e2e con mpv simulado como ausente.
 
 **Aceptación:**
-- [ ] El arnés arranca el servidor con mpv ausente y el caso comprueba el aviso.
-- [ ] El reproductor web sigue funcionando en el mismo caso.
-- [ ] Medido mutando: ocultar el aviso pone la prueba en rojo.
+- [x] El arnés arranca el servidor con mpv ausente y el caso comprueba el aviso.
+- [x] El reproductor web sigue funcionando en el mismo caso.
+- [x] Medido mutando: ocultar el aviso pone la prueba en rojo.
+
+**Verificación:** `player.e2e.ts` «el aviso de mpv aparece cuando no hay reproductor externo»:
+Ajustes enseña «No se encontró mpv: se reproduce en el navegador.» y el reproductor web monta el
+stream y reproduce. `bun test` **4017 pasan, 0 fallan** · e2e completo **172 pasan, 0 fallan** ·
+`bun run typecheck` 0 · `bun run lint` 0 errores. Mutación: pintar siempre la rama de «mpv
+disponible» en `SettingsPage.tsx` deja el caso en rojo en la línea del aviso.
+
+**Decisión que no es obvia:** el arnés no finge una bandera en la aplicación. Arranca el servidor
+con un `PATH` vacío —el binario con su ruta absoluta, `process.execPath`—, y `hasMpv` no encuentra
+nada. Es la ausencia de verdad, la misma que vería un usuario sin mpv, y no requiere una rama de
+prueba en el código de producción.
+
+**Estado:** hecho.
 
 **Depende de:** T44.
-**Archivos:** `packages/web/e2e/`, `packages/web/e2e/fixtures.ts`.
+**Archivos:** `scripts/e2e-server.ts`, `packages/web/e2e/player.e2e.ts`.
 **Tamaño:** S.
 
 ### T266 — Cerrar los siete fallos del e2e en checkout limpio
