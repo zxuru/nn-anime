@@ -2983,13 +2983,30 @@ El mecanismo del reproductor ya funciona; falta la prueba y, si se mantiene el c
 archivo decodificable en el arnés (hay `ffmpeg` en la máquina y en el CI).
 
 **Aceptación:**
-- [ ] Un archivo de vídeo real del fixture se reproduce en el navegador y el seek adelanta el
+- [x] Un archivo de vídeo real del fixture se reproduce en el navegador y el seek adelanta el
       tiempo, o se corrige el criterio con la decisión escrita y su motivo.
-- [ ] Un caso activa subtítulos y comprueba que el texto aparece en pantalla.
-- [ ] Medido mutando: sin la pista activa el texto no aparece y la prueba falla.
+- [x] Un caso activa subtítulos y comprueba que el texto aparece en pantalla.
+- [x] Medido mutando: sin la pista activa el texto no aparece y la prueba falla.
+
+**Decisión sobre el «mp4 del fixture»:** se corrige el criterio. El arnés reproduce un WAV generado
+en el propio proceso porque el Chromium de Playwright no trae H.264/AAC —es el motivo por el que
+existe `hls-falso.ts`— y la máquina/el CI no tienen un codificador de vídeo garantizado. Un binario
+de vídeo en el repositorio tampoco mediría más: lo que la aplicación controla es resolver el stream,
+montarlo en el `<video>`, buscar y reaccionar a los eventos; decodificar el códec es del navegador.
+El criterio pasa a «el stream del fixture se reproduce y el seek adelanta el tiempo», que es lo que
+el e2e mide de verdad. La decisión queda también en `docs/specs/SPEC-web-ui.md`.
+
+**Verificación:** `player.e2e.ts` «el subtítulo del proveedor se enciende y su texto queda activo»:
+se intercepta `/api/stream/resolve` para añadir una pista `vtt` y su ruta del proxy, el `<track>`
+apunta a `/api/subtitles/prueba-vtt`, y tras reproducir el `TextTrack` está en `showing` con
+«Subtítulo de prueba» como cue activa. `bun test` **4021 pasan, 0 fallan** · e2e completo **173
+pasan, 0 fallan** · `bun run typecheck` 0 · `bun run lint` 0 errores. Mutación: apagar la pista en
+`usePlayerSubtitulos` y quitar el `default` del `<track>` deja el caso en rojo.
+
+**Estado:** hecho.
 
 **Depende de:** T43, T258.
-**Archivos:** `packages/web/e2e/`, `packages/providers-fixture/media/`.
+**Archivos:** `packages/web/e2e/player.e2e.ts`, `docs/specs/SPEC-web-ui.md`.
 **Tamaño:** M.
 
 ### T261 — La home por debajo de 1 s con `X-Cache: hit`

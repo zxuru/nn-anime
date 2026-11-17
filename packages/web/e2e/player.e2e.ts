@@ -110,6 +110,70 @@ test.describe('el reproductor', () => {
   })
 
   /**
+   * El subtítulo del proveedor se enciende y su texto queda activo.
+   *
+   * La pista viaja desde `/api/stream/resolve` hasta el `<track>` del video; lo
+   * que se mide aquí es el camino de la aplicación: que la fuente declare una
+   * pista, que el reproductor la monte como ruta del proxy y que el elemento la
+   * tenga en `showing` con la frase del `.vtt` como cue activa.
+   *
+   * La pintura del texto sobre la imagen la hace el navegador y no es DOM: por
+   * eso lo que se comprueba es el estado del `TextTrack`, que es la última pieza
+   * que la aplicación controla.
+   */
+  test('el subtítulo del proveedor se enciende y su texto queda activo', async ({ page }) => {
+    await entrar(page)
+
+    const VTT = 'WEBVTT\n\n00:00:00.000 --> 00:00:20.000\nSubtítulo de prueba\n'
+    const pista = '/api/subtitles/prueba-vtt'
+
+    await page.route('**/api/stream/resolve', async (ruta) => {
+      const respuesta = await ruta.fetch()
+      const cuerpo = (await respuesta.json()) as { sources: readonly Record<string, unknown>[] }
+      const sources = cuerpo.sources.map((fuente, indice) =>
+        indice === 0
+          ? {
+              ...fuente,
+              subtitles: [{ url: pista, lang: 'es', label: 'Español', format: 'vtt' }],
+            }
+          : fuente,
+      )
+
+      await ruta.fulfill({ response: respuesta, json: { sources } })
+    })
+
+    await page.route(`**${pista}`, async (ruta) => {
+      await ruta.fulfill({ body: VTT, contentType: 'text/vtt' })
+    })
+
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    const video = page.locator('video')
+
+    await expect(video).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('track')).toHaveAttribute('src', pista)
+
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await page.waitForTimeout(500)
+
+    await expect
+      .poll(
+        async () =>
+          await video.evaluate((elemento: HTMLVideoElement) => {
+            const texto = elemento.textTracks[0]
+            const cue = texto?.activeCues?.[0]
+
+            return {
+              modo: texto?.mode ?? 'sin-pista',
+              frase: cue instanceof VTTCue ? cue.text : '',
+            }
+          }),
+        { timeout: 10_000 },
+      )
+      .toEqual({ modo: 'showing', frase: 'Subtítulo de prueba' })
+  })
+
+  /**
    * El botón de reproducir mide lo mismo en los dos estados.
    *
    * El botón medía lo que medía su rótulo —y «Pausa» no ocupa lo que
