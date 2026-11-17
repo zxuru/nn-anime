@@ -323,7 +323,9 @@ test.describe('la carga de la ficha', () => {
 
     await expect(fallo).toBeVisible({ timeout: 15_000 })
     await expect(fallo).toContainText('No se pudo cargar la ficha')
-    await expect(fallo).toContainText('Proveedor: fixture')
+    // El nombre visible del proveedor, que es lo que enseña `/api/providers`:
+    // el id `fixture` es de la prueba y no lo que lee el usuario.
+    await expect(fallo).toContainText('Proveedor: Proveedor de prueba')
 
     const reintentar = fallo.getByRole('button', { name: 'Reintentar' })
 
