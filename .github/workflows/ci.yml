@@ -224,8 +224,12 @@ jobs:
       - name: Versión
         run: bun run version:check
 
+      # `bun audit` clasifica por versión y no puede reconocer el parche local que
+      # elimina el patrón vulnerable. La regresión se mide en `bun test`; se omite
+      # sólo este GHSA mientras se use picomatch 4.0.7 parcheado. Retirar al subir
+      # a una versión corregida publicada por upstream.
       - name: Auditoría de dependencias
-        run: bun audit
+        run: bun audit --ignore GHSA-fc5q-39xc-vjpf
 
       - name: Tipos
         run: bun run typecheck
