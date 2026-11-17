@@ -854,17 +854,6 @@
   gap: var(--marquesina-texto-hueco);
 }
 
-/* El rótulo de la marquesina, sobre el campo: lleva su tinta, que se da la vuelta
-   con el banner. El respaldo es para fuera de la marquesina, donde no hay campo. */
-.etiqueta {
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--marquesina-tinta, var(--color-on-overlay));
-}
-
 /* Dos clases a propósito: `.shell__main h1` —la regla de las pantallas de
    lectura— le pone versalitas, 3,5 rem y un margen de bloque, y pesa lo mismo que
    un solo nombre de clase. El titular de la vitrina es el suyo: mayúsculas y

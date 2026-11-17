@@ -75,7 +75,7 @@ export function metaDeRecomendacion(item: RecommendationResponse): string | unde
   const partes: string[] = item.tags.length === 0 ? [] : [item.tags.join(', ')]
 
   if (item.year !== undefined) {
-    partes.push(t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year }))
+    partes.push(t(DEFAULT_LOCALE, 'home.year', { year: item.year }))
   }
 
   return partes.length === 0 ? undefined : partes.join(' · ')

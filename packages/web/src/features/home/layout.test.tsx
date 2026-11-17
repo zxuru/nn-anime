@@ -547,7 +547,7 @@ describe('la línea de datos de una recomendación', () => {
   test('los géneros del vector y el año', () => {
     expect(
       metaDeRecomendacion({ ...recomendacion('x', ['Aventura', 'Fantasía']), year: 2023 }),
-    ).toBe('Aventura, Fantasía · Año 2023')
+    ).toBe('Aventura, Fantasía · 2023')
   })
 
   test('sin tags ni año se queda sin línea, que no es lo mismo que vacía', () => {

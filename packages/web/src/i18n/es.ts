@@ -297,15 +297,16 @@ export const messages: Messages = {
   'search.catalogue.countOne': '1 título en el catálogo.',
   'search.catalogue.empty': 'Nada en el catálogo coincide con «{query}».',
 
-  'home.loading': 'Cargando tu inicio…',
+  'home.loading': 'Cargando Inicio…',
   'home.refreshing': 'Actualizando…',
   'home.refreshedNow': 'Actualizado ahora mismo',
   'home.refreshed': 'Actualizado hace {minutes} min',
   'home.ticker': 'Lo más visto ahora',
-  'home.featured.tag': 'Destacado',
   'home.featured.play': 'Reproducir el episodio {number}',
-  // La versión corta del mando, la que cabe junto al dibujo en un teléfono.
-  'home.featured.playShort': 'Ep. {number}',
+  // La versión corta del mando, la que cabe junto al dibujo en un teléfono. Dice
+  // la acción y no el objeto: «Ep. 1» dejaba el mando sin verbo justo en la acción
+  // principal. El número sigue en el nombre largo, que es el accesible.
+  'home.featured.playShort': 'Reproducir',
   'home.featured.episodes': '{count} ep.',
   'home.top': 'Top',
   'home.top.meta': 'El orden de la fuente',
@@ -318,11 +319,20 @@ export const messages: Messages = {
   'home.favorites.meta': 'Lo que guardaste',
   'home.genres': 'Explorar por género',
   'home.genres.meta': 'Del catálogo que tienes',
-  'home.genres.empty': 'Todavía no hay géneros: aparecen cuando se cachean títulos.',
+  'home.genres.empty': 'Todavía no hay géneros: aparecen cuando abres alguna ficha.',
   'home.recommended': 'Recomendado para ti',
-  'home.recommended.meta': 'Lo que el motor cree que va contigo',
+  'home.recommended.meta': 'Elegido por lo que buscas y ves',
   // Los tres renglones de la nota de un tramo: el titular, la etiqueta y la cuenta.
   'home.count': '{count} títulos',
+  /*
+   * El año de una pieza, sin rótulo.
+   *
+   * En la vitrina el año es un dato de la línea corta —«Aventura, Fantasía · 2023»—
+   * y el titular del hero ya lo dice sin prefijo. «Año 2023» en la misma pantalla
+   * era el mismo dato en dos registros. En la ficha se sigue leyendo «Año 2023»
+   * (`detail.related.year`), que ahí sí es una etiqueta de ficha.
+   */
+  'home.year': '{year}',
   'home.countOne': '1 título',
   'home.countMore': '{count} títulos · y {more} más',
   'home.genres.count': '{count} géneros',
@@ -334,10 +344,10 @@ export const messages: Messages = {
   'home.panel.cerrar': 'Cerrar',
   'home.panel.asa': 'Cerrar el panel',
   'home.continue': 'Continuar viendo',
-  'home.continue.empty': 'Nada a medias. Lo que empieces aparecerá aquí.',
+  'home.continue.empty': 'Nada a medias todavía. Lo que dejes sin terminar aparecerá aquí.',
   'home.favorites': 'Tus favoritos',
   'home.favorites.empty':
-    'Todavía no has marcado ninguno. La estrella está en la ficha de cada título.',
+    'Todavía no has guardado ningún título. La estrella está en la ficha de cada uno.',
   'home.feed': 'Novedades',
   'home.feed.meta': 'Lo último que publica la fuente',
   'home.feed.meta.anilist': 'Episodios recién emitidos',
@@ -345,13 +355,16 @@ export const messages: Messages = {
   'home.feed.empty.anilist': 'AniList no anuncia episodios recién emitidos ahora mismo.',
   'home.parrilla': 'Parrilla',
   'home.parrilla.meta': 'Lo que se emite estos días, según AniList',
-  'home.parrilla.empty': 'No hay capítulos anunciados en los próximos días.',
+  'home.parrilla.empty': 'AniList no anuncia capítulos en los próximos días.',
   'home.parrilla.empty.movies':
     'La parrilla es de series. Los estrenos de películas se anuncian con el año y se ven en Novedades.',
   'home.parrilla.hoy': 'Hoy',
   'home.parrilla.manana': 'Mañana',
   'home.more': 'y {count} más',
-  'home.resume': 'Seguir en {time}',
+  // El nombre accesible de la barra de progreso. Era «Seguir en 14:30», que al
+  // oído puede ser «vuelve dentro de catorce minutos»: dice el progreso y el
+  // minuto en el que está, no una cita.
+  'home.resume': 'Progreso del episodio: {time}',
   'settings.title': 'Ajustes',
   'settings.loading': 'Cargando los ajustes…',
   // El índice de la página. «Secciones» es la etiqueta visible; el `aria-label`
