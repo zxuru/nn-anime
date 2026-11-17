@@ -31,6 +31,8 @@ export interface ParrillaRowProps {
   readonly dias: readonly DiaDeParrilla[]
   /** Lo que se dice cuando no hay nada. Cambia de mitad: las películas no tienen parrilla. */
   readonly vacio?: string | undefined
+  /** Si la lectura de AniList falló y no hay nada que enseñar. */
+  readonly caido?: boolean | undefined
   /** Si la lectura de esta fila sigue en vuelo. */
   readonly cargando?: boolean | undefined
 }
@@ -73,19 +75,32 @@ export function ParrillaRow(props: ParrillaRowProps): ReactNode {
 
   const total = props.dias.reduce((suma, dia) => suma + dia.items.length, 0)
   let restantes = PARRILLA_LIMITE
+  // La fuente no contestó y no hay nada: decirlo es distinto de «no hay
+  // estrenos». Si hay datos, el fallo de una relectura no cambia la nota.
+  const caida = props.caido === true && total === 0
 
   return (
     <section className="seccion">
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.parrilla')}
-        meta={t(DEFAULT_LOCALE, 'home.parrilla.meta')}
+        meta={
+          caida
+            ? t(DEFAULT_LOCALE, 'home.parrilla.meta.offline')
+            : t(DEFAULT_LOCALE, 'home.parrilla.meta')
+        }
         {...(total === 0 ? {} : { cuenta: cuentaDeTitulos(total) })}
       />
 
       <div className="seccion__cuerpo">
         {total === 0 ? (
           <Mosaico>
-            <TramoVacio texto={props.vacio ?? t(DEFAULT_LOCALE, 'home.parrilla.empty')} />
+            <TramoVacio
+              texto={
+                caida
+                  ? t(DEFAULT_LOCALE, 'home.parrilla.empty.offline')
+                  : (props.vacio ?? t(DEFAULT_LOCALE, 'home.parrilla.empty'))
+              }
+            />
           </Mosaico>
         ) : (
           props.dias.map((dia) => {

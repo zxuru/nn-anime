@@ -176,6 +176,13 @@ describe('la fila de la parrilla', () => {
     expect(html).not.toContain('parrilla__dia')
   })
 
+  test('cuando AniList no contesta lo dice, en vez de culpabilizar a la parrilla', () => {
+    const html = render(<ParrillaRow dias={[]} caido />)
+
+    expect(html).toContain('AniList no ha contestado')
+    expect(html).not.toContain('no anuncia capítulos')
+  })
+
   test('la meta de una emisión lleva el episodio y la hora, y sin episodio la hora', () => {
     expect(metaDeEmision(capitulo())).toBe('Ep. 5 · 20:30')
     expect(metaDeEmision(capitulo({ episode: undefined }))).toBe('20:30')
