@@ -8,16 +8,23 @@
  * coordenadas normalizadas, y de ahí salen el PNG maestro, los tamaños pequeños,
  * el `.ico` de Windows y el `.icns` de macOS.
  *
- * La forma sigue la lengua visual de la interfaz (`packages/web/src/styles/tokens.css`):
- * fondo casi negro, borde grueso color crema, **radios cero** y el naranja
- * encendido del acento. Un triángulo de reproducción y nada más: a 16 px, un
- * logotipo con letras es una mancha.
+ * La marca se llama **la R-raposa**: una «R» cuyo ojo es una cabeza de raposa
+ * —orejas de la casa, morro redondo— con un triángulo de reproducción en el
+ * contador y una órbita coral que la rodea. Sigue la lengua visual de la
+ * interfaz (`packages/web/src/styles/tokens.css`): fondo casi negro, crema
+ * cálida, radios de pieza y el coral como único acento. El comentario de
+ * `docs/marca.md` cuenta por qué cada pieza está donde está.
+ *
+ * **El detalle se adapta al tamaño.** A 16 px una órbita, un destello y un
+ * contorno interior son una mancha: por debajo de 48 px se apagan y el
+ * triángulo de reproducción pasa a tinta sobre crema, que es el par de más
+ * contraste de la PALETA. Lo que se ve en la bandeja del sistema es la marca
+ * desnuda, no una miniatura ilegible de la versión grande.
  *
  * No hay dependencias de imagen: el PNG se codifica aquí. Bun trae `deflate`, y
  * el resto —CRC-32, el envoltorio zlib, el contenedor ICO y el ICNS— son formatos
  * cortos y documentados. La alternativa era una dependencia nueva en un
- * repositorio que no tiene ninguna de imagen, para dibujar un cuadrado y un
- * triángulo.
+ * repositorio que no tiene ninguna de imagen, para dibujar una raposa.
  *
  * Uso: `bun run icon`
  */
@@ -28,102 +35,473 @@ import { ROOT } from './workspaces'
 
 const ICONS = join(ROOT, 'packaging', 'icons')
 
-type Rgb = readonly [number, number, number]
+type Rgba = readonly [number, number, number, number]
+type Point = readonly [number, number]
 
-/** Los colores, copiados de los tokens de la interfaz. */
-const BACKGROUND: Rgb = [0x0c, 0x0c, 0x10]
-const BORDER: Rgb = [0xf2, 0xe9, 0xd8]
-const ACCENT: Rgb = [0xff, 0x4a, 0x2e]
+/** Los colores, copiados de `tokens.css`. */
+const INK: Rgba = [0x08, 0x08, 0x0a, 255]
+const PLATE: Rgba = [0x0b, 0x0b, 0x11, 255]
+const PLATE_LIFT: Rgba = [0x1d, 0x15, 0x21, 255]
+const CREAM: Rgba = [0xf5, 0xf0, 0xe6, 255]
+const CORAL: Rgba = [0xff, 0x5c, 0x35, 255]
+const NADA: Rgba = [0, 0, 0, 0]
+
+// --- La geometría, en fracciones del lado -----------------------------------
+//
+// Normalizada y no en píxeles porque el mismo dibujo tiene que salir a 16 y a
+// 1024: con medidas absolutas, la silueta desaparece en los tamaños pequeños.
+// Medido sobre la lámina de la marca, que es de donde salen las proporciones.
+
+/** Lado del rectángulo redondeado que hace de lámina. */
+const PLATE_RADIUS = 0.185
 
 /**
- * El dibujo, en fracciones del lado.
+ * La cabeza: el ojo de la «R» y el morro de la raposa a la vez.
  *
- * Normalizado y no en píxeles porque el mismo dibujo tiene que salir a 16 y a
- * 1024: con medidas absolutas, el borde desaparece en los tamaños pequeños.
- * Medido sobre la captura de la interfaz, que es de donde salen las
- * proporciones.
+ * Va desplazada a la derecha del palo: si la elipse cubriera el palo entero, la
+ * silueta sería una mancha y la «R» desaparecería. La «R» se lee porque el palo
+ * queda fuera, a la izquierda.
  */
-const BORDER_INSET = 0.094
-const BORDER_WIDTH = 0.06
-const TRIANGLE = {
-  left: 0.334,
-  right: 0.726,
-  top: 0.303,
-  bottom: 0.697,
+const HEAD = { cx: 0.545, cy: 0.45, rx: 0.19, ry: 0.22 } as const
+
+/** Las orejas, con la derecha como espejo de la izquierda. */
+const EAR_LEFT: readonly Point[] = [
+  [0.2, 0.37],
+  [0.238, 0.172],
+  [0.408, 0.3],
+]
+
+/** El hueco coral de la oreja: sólo existe cuando el tamaño lo aguanta. */
+const EAR_LEFT_IN: readonly Point[] = [
+  [0.262, 0.342],
+  [0.25, 0.236],
+  [0.366, 0.306],
+]
+
+/** El palo de la «R», que es también el cuello de la raposa. */
+const STEM = { x0: 0.27, x1: 0.405, y0: 0.285, y1: 0.795, r: 0.03 } as const
+
+/** La pierna de la «R», que sale del cuenco hacia la esquina. */
+const LEG: readonly Point[] = [
+  [0.6, 0.515],
+  [0.7, 0.555],
+  [0.83, 0.79],
+  [0.705, 0.79],
+]
+
+/** El triángulo de reproducción, en el contador de la «R». */
+const PLAY: readonly Point[] = [
+  [0.47, 0.345],
+  [0.47, 0.555],
+  [0.655, 0.45],
+]
+
+/**
+ * La órbita coral. Inclinada, con grosor que se afina al subir y dibujada
+ * **detrás** del cuerpo: por delante cruzaba la cara y el contador, y a 64 px
+ * el icono era una raposa con un cinturón.
+ */
+const ORBIT = { cx: 0.5, cy: 0.585, rx: 0.405, ry: 0.135, rot: -0.3 } as const
+
+/** El destello de cuatro puntas. */
+const SPARK = { cx: 0.818, cy: 0.222, rx: 0.066, ry: 0.076 } as const
+
+/**
+ * La marca reducida: la «R» desnuda, sin raposa, sin órbita y sin destello.
+ *
+ * A 16 px la silueta completa es una mancha de crema con un punto: se midió.
+ * Lo que sobrevive es la letra, con el palo y la pierna a dos píxeles y el
+ * contador abierto. Es la misma marca, contada con menos piezas.
+ */
+const MICRO = {
+  stem: { x0: 0.245, x1: 0.375, y0: 0.205, y1: 0.795, r: 0.02 },
+  bowl: { cx: 0.485, cy: 0.375, rx: 0.225, ry: 0.18 },
+  hole: { cx: 0.485, cy: 0.375, rx: 0.1, ry: 0.09 },
+  leg: [
+    [0.455, 0.455],
+    [0.575, 0.455],
+    [0.775, 0.795],
+    [0.635, 0.795],
+  ] as readonly Point[],
 } as const
 
-/** Cuántas muestras por lado y por píxel. Suaviza los bordes sin librerías. */
-const SUPERSAMPLE = 3
-
-function insideSquare(x: number, y: number, from: number, to: number): boolean {
-  return x >= from && x < to && y >= from && y < to
-}
-
 /** Signo del producto vectorial: positivo a un lado de la recta, negativo al otro. */
-function side(x: number, y: number, ax: number, ay: number, bx: number, by: number): number {
-  return (bx - ax) * (y - ay) - (by - ay) * (x - ax)
+function side(x: number, y: number, a: Point, b: Point): number {
+  return (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0])
 }
 
-function insideTriangle(x: number, y: number, size: number): boolean {
-  const ax = TRIANGLE.left * size
-  const ay = TRIANGLE.top * size
-  const bx = TRIANGLE.left * size
-  const by = TRIANGLE.bottom * size
-  const cx = TRIANGLE.right * size
-  const cy = size / 2
+/** Interiores de un polígono convexo, sea cual sea el sentido de sus vértices. */
+function insideConvexPolygon(x: number, y: number, points: readonly Point[]): boolean {
+  const orientacion = signedArea(points) >= 0 ? 1 : -1
 
-  const d1 = side(x, y, ax, ay, bx, by)
-  const d2 = side(x, y, bx, by, cx, cy)
-  const d3 = side(x, y, cx, cy, ax, ay)
-  const negativos = d1 < 0 || d2 < 0 || d3 < 0
-  const positivos = d1 > 0 || d2 > 0 || d3 > 0
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i]
+    const b = points[(i + 1) % points.length]
+    if (a === undefined || b === undefined) continue
+    if (side(x, y, a, b) * orientacion < 0) return false
+  }
 
-  return !(negativos && positivos)
+  return true
 }
 
-function colorAt(x: number, y: number, size: number): Rgb {
-  if (insideTriangle(x, y, size)) return ACCENT
+function distanceToSegment(x: number, y: number, a: Point, b: Point): number {
+  const dx = b[0] - a[0]
+  const dy = b[1] - a[1]
+  const largo = dx * dx + dy * dy
+  const t = largo === 0 ? 0 : Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / largo))
+  const px = a[0] + t * dx
+  const py = a[1] + t * dy
 
-  const fuera = BORDER_INSET * size
-  const dentro = fuera + BORDER_WIDTH * size
-  const enElMarco =
-    insideSquare(x, y, fuera, size - fuera) && !insideSquare(x, y, dentro, size - dentro)
+  return Math.hypot(x - px, y - py)
+}
 
-  return enElMarco ? BORDER : BACKGROUND
+function centroid(points: readonly Point[]): Point {
+  let x = 0
+  let y = 0
+
+  for (const p of points) {
+    x += p[0]
+    y += p[1]
+  }
+
+  return [x / points.length, y / points.length]
+}
+
+/**
+ * El área con signo: dice hacia dónde giran los vértices y, con eso, cuál es el
+ * lado interior de cada arista.
+ */
+function signedArea(points: readonly Point[]): number {
+  let suma = 0
+
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i]
+    const b = points[(i + 1) % points.length]
+    if (a === undefined || b === undefined) continue
+    suma += a[0] * b[1] - b[0] * a[1]
+  }
+
+  return suma / 2
+}
+
+/** El punto donde se cruzan dos rectas dadas por su normal y su término. */
+function intersect(
+  a: { readonly nx: number; readonly ny: number; readonly c: number },
+  b: { readonly nx: number; readonly ny: number; readonly c: number },
+): Point {
+  const det = a.nx * b.ny - a.ny * b.nx
+  if (Math.abs(det) < 1e-9) return [0, 0]
+
+  return [(a.c * b.ny - b.c * a.ny) / det, (a.nx * b.c - b.nx * a.c) / det]
+}
+
+/**
+ * El polígono encogido: cada arista se desplaza `radius` hacia dentro y los
+ * vértices nuevos son los cruces de las aristas desplazadas.
+ *
+ * Encoger escalando sobre el centro —lo que se hacía antes— funciona en un
+ * cuadrado, pero una pierna larga y fina se acorta hasta desaparecer: el
+ * inradio es su mitad de ancho, y escalar por eso mata también la longitud.
+ */
+function erode(points: readonly Point[], radius: number): readonly Point[] {
+  const signo = signedArea(points) >= 0 ? 1 : -1
+  const rectas = points.map((a, i) => {
+    const b = points[(i + 1) % points.length] ?? a
+    const dx = b[0] - a[0]
+    const dy = b[1] - a[1]
+    const largo = Math.hypot(dx, dy) || 1
+    // La normal interior es la de la arista girada un cuarto de vuelta.
+    const nx = (-dy / largo) * signo
+    const ny = (dx / largo) * signo
+
+    return { nx, ny, c: nx * a[0] + ny * a[1] + radius }
+  })
+
+  return rectas.map((recta, i) => {
+    const previa = rectas[(i - 1 + rectas.length) % rectas.length] ?? recta
+
+    return intersect(previa, recta)
+  })
+}
+
+/** El radio máximo que admite el polígono sin que la erosión lo dé la vuelta. */
+function inradius(points: readonly Point[]): number {
+  const interior = erode(points, 0)
+  const [cx, cy] = centroid(interior)
+  let menor = Number.POSITIVE_INFINITY
+
+  for (let i = 0; i < interior.length; i++) {
+    const a = interior[i]
+    const b = interior[(i + 1) % interior.length]
+    if (a === undefined || b === undefined) continue
+    menor = Math.min(menor, distanceToSegment(cx, cy, a, b))
+  }
+
+  return menor
+}
+
+/**
+ * Un polígono con las esquinas redondeadas: su versión encogida, más un disco
+ * del radio pedido alrededor (la suma de Minkowski).
+ */
+function insideRoundedPolygon(
+  x: number,
+  y: number,
+  points: readonly Point[],
+  radius: number,
+): boolean {
+  const r = Math.min(radius, inradius(points) * 0.9)
+  const encogido = erode(points, r)
+
+  if (insideConvexPolygon(x, y, encogido)) return true
+
+  let menor = Number.POSITIVE_INFINITY
+
+  for (let i = 0; i < encogido.length; i++) {
+    const desde = encogido[i]
+    const hasta = encogido[(i + 1) % encogido.length]
+    if (desde === undefined || hasta === undefined) continue
+    menor = Math.min(menor, distanceToSegment(x, y, desde, hasta))
+  }
+
+  return menor <= r
+}
+
+function insideEllipse(
+  x: number,
+  y: number,
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+): boolean {
+  const dx = (x - cx) / rx
+  const dy = (y - cy) / ry
+
+  return dx * dx + dy * dy <= 1
+}
+
+/** Rectángulo redondeado: la distancia al rectángulo encogido, comparada con el radio. */
+function insideRoundedRect(
+  x: number,
+  y: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  radius: number,
+): boolean {
+  const qx = Math.max(x0 + radius, Math.min(x1 - radius, x))
+  const qy = Math.max(y0 + radius, Math.min(y1 - radius, y))
+  const dx = x - qx
+  const dy = y - qy
+
+  return dx * dx + dy * dy <= radius * radius
+}
+
+/** Una superelipse: con exponente menor que uno, el rombo se vuelve destello. */
+function insideSparkle(x: number, y: number): boolean {
+  const dx = Math.abs((x - SPARK.cx) / SPARK.rx)
+  const dy = Math.abs((y - SPARK.cy) / SPARK.ry)
+
+  return dx ** 0.52 + dy ** 0.52 <= 1
+}
+
+/** El aro de la órbita, con grosor que depende del ángulo. */
+function insideOrbit(x: number, y: number): boolean {
+  const cos = Math.cos(ORBIT.rot)
+  const sin = Math.sin(ORBIT.rot)
+  const dx = x - ORBIT.cx
+  const dy = y - ORBIT.cy
+  const rx = dx * cos + dy * sin
+  const ry = -dx * sin + dy * cos
+
+  const theta = Math.atan2(ry / ORBIT.ry, rx / ORBIT.rx)
+  const ex = ORBIT.rx * Math.cos(theta)
+  const ey = ORBIT.ry * Math.sin(theta)
+  const distancia = Math.hypot(rx - ex, ry - ey)
+
+  // Grueso en la bajada izquierda y fino al coronar por la derecha: así la
+  // órbita se lee como un trazo y no como un anillo de planetario.
+  const t = (0.5 - 0.5 * Math.cos(theta)) ** 0.8
+  const grosor = 0.012 + 0.04 * t
+
+  return distancia <= grosor / 2
+}
+
+function mixColor(a: Rgba, b: Rgba, t: number): Rgba {
+  const k = Math.max(0, Math.min(1, t))
+
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * k),
+    Math.round(a[1] + (b[1] - a[1]) * k),
+    Math.round(a[2] + (b[2] - a[2]) * k),
+    Math.round(a[3] + (b[3] - a[3]) * k),
+  ]
+}
+
+/** Lo que se puede permitir el dibujo a cada tamaño. */
+interface Detail {
+  readonly micro: boolean
+  readonly glow: boolean
+  readonly earInner: boolean
+  readonly playPlate: boolean
+  readonly orbit: boolean
+  readonly sparkle: boolean
+}
+
+function detailFor(size: number): Detail {
+  if (size >= 128) {
+    return {
+      micro: false,
+      glow: true,
+      earInner: true,
+      playPlate: true,
+      orbit: true,
+      sparkle: true,
+    }
+  }
+
+  if (size >= 48) {
+    return {
+      micro: false,
+      glow: false,
+      earInner: true,
+      playPlate: true,
+      orbit: true,
+      sparkle: false,
+    }
+  }
+
+  // En la bandeja y el favicon sólo queda la marca desnuda: la «R» gruesa.
+  return {
+    micro: true,
+    glow: false,
+    earInner: false,
+    playPlate: false,
+    orbit: false,
+    sparkle: false,
+  }
+}
+
+function isBody(x: number, y: number): boolean {
+  if (insideEllipse(x, y, HEAD.cx, HEAD.cy, HEAD.rx, HEAD.ry)) return true
+
+  if (insideRoundedPolygon(x, y, EAR_LEFT, 0.024)) return true
+  if (insideRoundedPolygon(x, y, mirror(EAR_LEFT), 0.024)) return true
+
+  if (insideRoundedRect(x, y, STEM.x0, STEM.y0, STEM.x1, STEM.y1, STEM.r)) return true
+
+  return insideRoundedPolygon(x, y, LEG, 0.03)
+}
+
+function mirror(points: readonly Point[]): readonly Point[] {
+  const eje = 0.475
+
+  return points.map(([x, y]) => [eje * 2 - x, y] as Point)
+}
+
+/** El mismo polígono, agrandado o encogido sobre su centro. */
+function scale(points: readonly Point[], factor: number): readonly Point[] {
+  const [cx, cy] = centroid(points)
+
+  return points.map(([x, y]) => [cx + (x - cx) * factor, cy + (y - cy) * factor] as Point)
+}
+
+/** El triángulo de tinta que enmarca el play: un escalón de contorno, no un borde. */
+const PLAY_PLATE = scale(PLAY, 1.22)
+
+function isMicroBody(x: number, y: number): boolean {
+  const { stem, bowl, hole, leg } = MICRO
+
+  if (insideRoundedRect(x, y, stem.x0, stem.y0, stem.x1, stem.y1, stem.r)) return true
+  if (
+    insideEllipse(x, y, bowl.cx, bowl.cy, bowl.rx, bowl.ry) &&
+    !insideEllipse(x, y, hole.cx, hole.cy, hole.rx, hole.ry)
+  ) {
+    return true
+  }
+
+  return insideRoundedPolygon(x, y, leg, 0.02)
+}
+
+function sample(x: number, y: number, detail: Detail): Rgba {
+  if (!insideRoundedRect(x, y, 0, 0, 1, 1, PLATE_RADIUS)) return NADA
+
+  if (detail.micro) return isMicroBody(x, y) ? CREAM : PLATE
+
+  let color: Rgba = PLATE
+
+  if (detail.glow) {
+    const dx = (x - 0.42) / 0.34
+    const dy = (y - 0.36) / 0.34
+    const brillo = Math.exp(-(dx * dx + dy * dy) * 1.9)
+    color = mixColor(PLATE, PLATE_LIFT, brillo)
+  }
+
+  // La órbita va antes del cuerpo: sólo se ve el arco que sale de la silueta,
+  // como el anillo de un planeta. Por delante cruzaba la cara y el contador.
+  if (detail.orbit && insideOrbit(x, y)) color = CORAL
+
+  if (isBody(x, y)) color = CREAM
+
+  if (detail.earInner) {
+    if (insideRoundedPolygon(x, y, EAR_LEFT_IN, 0.012)) color = CORAL
+    if (insideRoundedPolygon(x, y, mirror(EAR_LEFT_IN), 0.012)) color = CORAL
+  }
+
+  // Con sitio, el play lleva su contorno de tinta; sin él, es tinta directa
+  // sobre crema, que es el par que sobrevive a 16 px.
+  if (detail.playPlate && insideRoundedPolygon(x, y, PLAY_PLATE, 0.03)) color = INK
+  if (insideRoundedPolygon(x, y, PLAY, 0.02)) {
+    color = detail.playPlate ? CORAL : INK
+  }
+
+  if (detail.sparkle && insideSparkle(x, y)) color = CREAM
+
+  return color
 }
 
 /**
  * Los píxeles RGBA de un lado, con supermuestreo.
  *
  * Se promedian las muestras de cada píxel en vez de decidir con su centro: sin
- * esto, el borde del triángulo sale escalonado y el icono parece roto en los
- * tamaños grandes.
+ * esto, el borde de la silueta sale escalonado y el icono parece roto en los
+ * tamaños grandes. El muestreo baja con el tamaño porque un píxel de 1024 no
+ * necesita las mismas muestras que uno de 16.
  */
 export function render(size: number): Uint8Array {
   const rgba = new Uint8Array(size * size * 4)
-  const muestras = SUPERSAMPLE * SUPERSAMPLE
-  const paso = 1 / SUPERSAMPLE
+  const detail = detailFor(size)
+  const muestras = size <= 64 ? 4 : size <= 256 ? 3 : 2
+  const total = muestras * muestras
 
   for (let py = 0; py < size; py++) {
     for (let px = 0; px < size; px++) {
       let r = 0
       let g = 0
       let b = 0
+      let a = 0
 
-      for (let sy = 0; sy < SUPERSAMPLE; sy++) {
-        for (let sx = 0; sx < SUPERSAMPLE; sx++) {
-          const [cr, cg, cb] = colorAt(px + (sx + 0.5) * paso, py + (sy + 0.5) * paso, size)
+      for (let sy = 0; sy < muestras; sy++) {
+        for (let sx = 0; sx < muestras; sx++) {
+          const [cr, cg, cb, ca] = sample(
+            (px + (sx + 0.5) / muestras) / size,
+            (py + (sy + 0.5) / muestras) / size,
+            detail,
+          )
           r += cr
           g += cg
           b += cb
+          a += ca
         }
       }
 
       const base = (py * size + px) * 4
-      rgba[base] = Math.round(r / muestras)
-      rgba[base + 1] = Math.round(g / muestras)
-      rgba[base + 2] = Math.round(b / muestras)
-      rgba[base + 3] = 255
+      rgba[base] = Math.round(r / total)
+      rgba[base + 1] = Math.round(g / total)
+      rgba[base + 2] = Math.round(b / total)
+      rgba[base + 3] = Math.round(a / total)
     }
   }
 
