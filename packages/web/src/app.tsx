@@ -110,6 +110,14 @@ function Shell(props: {
     if (caminoAnterior.current === camino) return
 
     caminoAnterior.current = camino
+    /*
+      La pantalla que ya se ha llevado el foco lo conserva. La búsqueda enfoca su
+      campo al abrirse, y este efecto —que corre después, de dentro hacia
+      fuera— le devolvía el foco al `main` y dejaba la casilla sin escribir. Un
+      foco explícito de la pantalla dice más que el de cortesía del armazón.
+    */
+    if (contenido.current?.contains(document.activeElement) === true) return
+
     contenido.current?.focus({ preventScroll: true })
   }, [camino])
 

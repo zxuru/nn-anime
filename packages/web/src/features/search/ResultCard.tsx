@@ -9,6 +9,10 @@
  * La portada no se pide al sitio del proveedor: se pide a `/api/cover`, que es
  * lo que el contrato de la interfaz exige. Y si el resultado no trae portada, no
  * se pide nada: el hueco se ve como hueco en lugar de como una imagen rota.
+ *
+ * **No lleva sello de origen ni lista las demás fuentes.** Lo que se busca es una
+ * obra; el proveedor se elige en su ficha, donde están todas, y un sello por
+ * tarjeta competía con el título sin cambiar la decisión de nadie.
  */
 
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
@@ -24,8 +28,6 @@ import { prefetchDetail } from '../detail/prefetch'
 
 export interface ResultCardProps {
   readonly result: SearchResult
-  /** Nombre del proveedor, si se conoce. Si no, se muestra su id. */
-  readonly providerLabel?: string
   readonly coverRequested?: boolean
   /**
    * La búsqueda que produjo esta tarjeta.
@@ -55,7 +57,6 @@ function meta(result: SearchResult): string {
 
 export function ResultCard(props: ResultCardProps): ReactNode {
   const { result } = props
-  const provider = props.providerLabel ?? result.ref.providerId
   // Una portada con un esquema que no se admite cuenta como «sin portada»: no se
   // pide al proxy algo que no puede existir, y el hueco se ve igual. La dirección
   // del proveedor no entra en ningún atributo; la imagen sale de `/api/cover`.
@@ -100,7 +101,6 @@ export function ResultCard(props: ResultCardProps): ReactNode {
       )}
       <span className="card__title">{result.title}</span>
       {meta(result) === '' ? null : <span className="card__meta">{meta(result)}</span>}
-      <span className="badge">{t(DEFAULT_LOCALE, 'search.provider', { provider })}</span>
     </Link>
   )
 }

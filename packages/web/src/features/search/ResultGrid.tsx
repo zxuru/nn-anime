@@ -3,9 +3,13 @@
  *
  * Una tarjeta por **obra**, no por proveedor: dos fuentes que devuelven el mismo
  * título en el mismo año son la misma ficha, y pintarlas dos veces es contenido
- * repetido. La tarjeta lleva a la primera fuente que respondió; debajo, con
- * «También en», van los demás proveedores como enlaces a **su** ficha, que es lo
- * único que no se puede fusionar: abrir una tarjeta lleva a un sitio concreto.
+ * repetido. La tarjeta lleva a la fuente que prefiere el usuario —el orden de los
+ * ajustes— o, sin preferencia, a la que gana por nombre.
+ *
+ * **La tarjeta no dice de dónde viene ni lista las otras fuentes.** Lo que se
+ * busca es una obra, y todas las fuentes de esa obra se eligen en su ficha, que
+ * es el sitio donde la decisión importa. Un sello y una lista de enlaces por
+ * tarjeta convertían cada resultado en un pequeño índice de proveedores.
  *
  * El estado vacío dice **por qué** está vacío: no es lo mismo una consulta sin
  * coincidencias que una pantalla en la que todavía no se ha buscado nada. Un
@@ -20,14 +24,11 @@
 
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { SearchResult } from '@rona/core/models'
-import { Fragment, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Grid, GridItem } from '../../components/Grid'
 import { t } from '../../i18n'
-import { Link } from '../../router'
-import { conLaConsulta, rutaDeFicha } from '../detail/direccion'
-import { navStateDeTarjeta } from '../detail/nav-state'
 import { ResultCard } from './ResultCard'
-import { alternativas, groupResults } from './useSearchStream'
+import { groupResults } from './useSearchStream'
 
 export interface ResultGridProps {
   readonly results: readonly SearchResult[]
@@ -57,18 +58,11 @@ export interface ResultGridProps {
   readonly hayAniList?: boolean
   /**
    * El orden de preferencia de proveedores, de los ajustes. Decide a qué ficha
-   * lleva la tarjeta cuando la misma obra está en varios; el resto de fuentes
-   * siguen en «También en».
+   * lleva la tarjeta cuando la misma obra está en varios.
    */
   readonly providerPriority?: readonly string[]
-  readonly providerLabels?: ReadonlyMap<string, string>
   readonly onPreview?: (result: SearchResult) => void
   readonly onPreviewEnd?: () => void
-}
-
-/** La ruta de la ficha de un resultado, con la consulta que la trajo. */
-function detailPath(result: SearchResult, consulta: string): string {
-  return conLaConsulta(rutaDeFicha(result.ref.providerId, result.ref.value), consulta)
 }
 
 export function ResultGrid(props: ResultGridProps): ReactNode {
@@ -97,56 +91,16 @@ export function ResultGrid(props: ResultGridProps): ReactNode {
         const primero = grupo.results[0]
         if (primero === undefined) return null
 
-        const etiqueta = props.providerLabels?.get(primero.ref.providerId)
-        const otros = alternativas(grupo, primero.ref.providerId)
-
         return (
           <GridItem key={grupo.key}>
             <ResultCard
               result={primero}
               consulta={props.query}
-              {...(etiqueta === undefined ? {} : { providerLabel: etiqueta })}
               {...(props.onPreview === undefined
                 ? {}
                 : { onPreview: () => props.onPreview?.(primero) })}
               {...(props.onPreviewEnd === undefined ? {} : { onPreviewEnd: props.onPreviewEnd })}
             />
-            {otros.length === 0 ? null : (
-              <p className="card__extra">
-                {t(DEFAULT_LOCALE, 'search.alsoIn')}{' '}
-                {otros.map((otro, indice) => {
-                  const nombre = props.providerLabels?.get(otro.ref.providerId)
-                  const visible = nombre ?? otro.ref.providerId
-                  /*
-                    La fuente alternativa también conoce el título: sin el estado,
-                    abrir su ficha desde aquí pintaba la espera de una URL directa,
-                    con el nombre que ya estaba a la vista.
-                  */
-                  const estado = navStateDeTarjeta({
-                    title: otro.title,
-                    providerId: otro.ref.providerId,
-                    ref: otro.ref.value,
-                    year: otro.year,
-                  })
-
-                  return (
-                    <Fragment key={`${otro.ref.providerId}:${otro.ref.value}`}>
-                      {indice === 0 ? null : ', '}
-                      <Link
-                        to={detailPath(otro, props.query)}
-                        state={estado}
-                        title={t(DEFAULT_LOCALE, 'search.alsoInItem', {
-                          title: otro.title,
-                          provider: visible,
-                        })}
-                      >
-                        {visible}
-                      </Link>
-                    </Fragment>
-                  )
-                })}
-              </p>
-            )}
           </GridItem>
         )
       })}
