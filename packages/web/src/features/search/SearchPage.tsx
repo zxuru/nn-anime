@@ -172,7 +172,10 @@ export function announce(
   const obras = groupResults(state.results).length
   const clave = obras === 1 ? 'search.resultsCountOne' : 'search.resultsCount'
   const fuentes = new Set(state.results.map((result) => result.ref.providerId)).size
-  const recuento = t(DEFAULT_LOCALE, clave, { count: obras, sources: fuentes })
+  const recuento = t(DEFAULT_LOCALE, clave, {
+    count: obras,
+    sources: cuentaDeFuentes(fuentes),
+  })
 
   if (state.anilist.length === 0) return recuento
 

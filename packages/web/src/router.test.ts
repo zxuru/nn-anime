@@ -63,6 +63,10 @@ describe('matchRoute', () => {
     expect(matchRoute('/anime/solo-uno')).toEqual({ name: 'not-found', params: {} })
   })
 
+  test('un parámetro con escape inválido cae a not-found sin lanzar', () => {
+    expect(matchRoute('/watch/fuente/%E0%A4%A')).toEqual({ name: 'not-found', params: {} })
+  })
+
   test('una ruta vacía es la raíz', () => {
     expect(matchRoute('')).toEqual({ name: 'home', params: {} })
   })

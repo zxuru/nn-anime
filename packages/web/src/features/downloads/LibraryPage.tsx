@@ -546,7 +546,7 @@ export function LibraryPage(): ReactNode {
             <div className="library__empty">
               <p className="library__empty-title">{t(LOCALE, 'library.empty.title')}</p>
               <p className="library__empty-body">{t(LOCALE, 'library.empty.body')}</p>
-              <Link className="button button--primary" to="/">
+              <Link className="button button--primary" to="/search">
                 {t(LOCALE, 'library.empty.action')}
               </Link>
             </div>

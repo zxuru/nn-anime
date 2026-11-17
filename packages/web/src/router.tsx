@@ -89,7 +89,13 @@ export function matchRoute(rawPath: string): RouteMatch {
           matched = false
           break
         }
-        params[expected.slice(1)] = decodeURIComponent(actual)
+        try {
+          params[expected.slice(1)] = decodeURIComponent(actual)
+        } catch {
+          // Un escape incompleto no debe tumbar toda la SPA al abrir un marcador
+          // malformado: se trata como cualquier ruta que no existe.
+          return { name: 'not-found', params: {} }
+        }
         continue
       }
 

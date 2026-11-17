@@ -118,6 +118,16 @@ describe('anuncio para lectores de pantalla', () => {
     // tarjeta en pantalla.
     expect(announce(estado, ['uno', 'dos'])).toContain('1 resultado en 2 fuentes')
   })
+
+  test('el anuncio usa singular cuando el resultado viene de una fuente', () => {
+    const estado = {
+      ...initialState([]),
+      results: [resultado('uno', 'a', 'Aurora')],
+      done: true,
+    }
+
+    expect(announce(estado, ['uno'])).toBe('1 resultado en 1 fuente.')
+  })
 })
 
 describe('la línea de estado visible', () => {
