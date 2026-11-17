@@ -2344,3 +2344,31 @@
     filter: saturate(1.12) contrast(1.05);
   }
 }
+
+/*
+ * El esqueleto de un resultado, con la geometría de `.card`.
+ *
+ * La espera tiene que medir lo mismo que la tarjeta que va a llegar —portada 2:3
+ * y dos renglones—, no ser un bloque suelto de 14 rem. Así la fila no crece ni
+ * arrastra el contenido de abajo cuando llegan los datos.
+ */
+.card--esqueleto {
+  pointer-events: none;
+}
+
+.card__cover--esqueleto {
+  border-radius: 0;
+  aspect-ratio: var(--cover-ratio);
+}
+
+.card__linea--titulo {
+  block-size: var(--text-md);
+  margin: var(--space-3) var(--space-3) 0;
+  inline-size: auto;
+}
+
+.card__linea--meta {
+  block-size: var(--text-xs);
+  margin: var(--space-2) var(--space-3) var(--space-3);
+  inline-size: 42%;
+}
