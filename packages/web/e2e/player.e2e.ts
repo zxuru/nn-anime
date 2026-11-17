@@ -734,6 +734,22 @@ test.describe('el reproductor', () => {
     await expect(menu).toBeVisible()
     await expect(abrir).toHaveAttribute('aria-expanded', 'true')
 
+    // El conmutador de audio cabe entero dentro del menú. En fila necesitaba
+    // 235 px en una caja de 198 y «DOBLADO» se cortaba; se apila y se mide que
+    // no quede ni un píxel de desbordamiento horizontal.
+    const medidas = await menu.evaluate((nodo) => ({
+      scrollWidth: nodo.scrollWidth,
+      clientWidth: nodo.clientWidth,
+    }))
+    expect(medidas.scrollWidth).toBe(medidas.clientWidth)
+
+    const cajaMenu = await menu.boundingBox()
+    const cajaAudio = await menu.locator('.audio-switch').boundingBox()
+    expect(cajaAudio).not.toBeNull()
+    expect((cajaAudio?.x ?? 0) + (cajaAudio?.width ?? 0)).toBeLessThanOrEqual(
+      (cajaMenu?.x ?? 0) + (cajaMenu?.width ?? 0),
+    )
+
     await page.keyboard.press('Escape')
     await expect(menu).toBeHidden()
     await expect(menu).toHaveAttribute('aria-hidden', 'true')
@@ -1178,9 +1194,24 @@ test.describe('la lista, el progreso y el siguiente', () => {
     await expect(tarjeta).toBeVisible({ timeout: 15_000 })
     await expect(tarjeta).toContainText('Siguiente episodio en')
 
+    // La tarjeta vive dentro del marco: la decisión del final no puede nacer
+    // fuera de la ventana. Se mide la caja entera, no sólo que exista.
+    const caja = await tarjeta.boundingBox()
+    const altoDeLaVentana = page.viewportSize()?.height ?? 0
+    expect(caja).not.toBeNull()
+    expect(caja?.y ?? -1).toBeGreaterThanOrEqual(0)
+    expect((caja?.y ?? 0) + (caja?.height ?? 0)).toBeLessThanOrEqual(altoDeLaVentana)
+
+    // Y el final se anuncia una vez, no una vez por segundo.
+    await expect(tarjeta.getByRole('status')).toContainText('El episodio terminó')
+
     await tarjeta.getByRole('button', { name: 'Cancelar' }).click()
 
-    await expect(tarjeta).toHaveCount(0)
+    // Cancelar para la cuenta, no borra la salida: la tarjeta sigue sin el
+    // botón de cancelar y conserva «Reproducir ahora».
+    await expect(tarjeta).toBeVisible()
+    await expect(tarjeta.getByRole('button', { name: 'Cancelar' })).toHaveCount(0)
+    await expect(tarjeta.getByRole('link', { name: 'Reproducir ahora' })).toBeVisible()
     await expect(page).toHaveURL(/aurora-nocturna%233/)
   })
 
@@ -1219,7 +1250,15 @@ test.describe('la lista, el progreso y el siguiente', () => {
       )
       .toBe(true)
 
-    await expect(page.locator('.watch__next')).toHaveCount(0)
+    // Apagada, no hay cuenta atrás ni navegación sola; la tarjeta sigue
+    // ofreciendo el siguiente, que es lo que la hace útil. El final del
+    // capítulo no puede quedarse sin salida por una preferencia.
+    const tarjeta = page.locator('.watch__next')
+    await expect(tarjeta).toBeVisible()
+    await expect(tarjeta).toContainText('Episodio terminado')
+    await expect(tarjeta.getByRole('button', { name: 'Cancelar' })).toHaveCount(0)
+    await expect(tarjeta.getByRole('link', { name: 'Reproducir ahora' })).toBeVisible()
+    await expect(page).toHaveURL(/aurora-nocturna%233/)
   })
 })
 
@@ -1322,6 +1361,78 @@ test.describe('la disposición', () => {
     expect(lateral?.y ?? 0).toBeGreaterThanOrEqual(
       (principal?.y ?? 0) + (principal?.height ?? 0) - 1,
     )
+  })
+
+  test('en el teléfono claro, el reloj y el carril se leen sobre el papel', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.emulateMedia({ colorScheme: 'light' })
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 15_000 })
+
+    // En táctil los mandos dejan la banda del video y el fondo es el de la
+    // página. Se mide el par **compuesto**, que es el que se ve: el reloj es un
+    // color opaco y el carril lleva alfa sobre el papel.
+    const medidas = await page.evaluate(() => {
+      type RGB = readonly [number, number, number]
+      const canales = (valor: string): RGB => {
+        const hex = /^#([0-9a-f]{6})$/i.exec(valor.trim())
+        if (hex?.[1] !== undefined) {
+          const digitos = hex[1]
+          const [r, g, b] = [0, 2, 4].map((i) => Number.parseInt(digitos.slice(i, i + 2), 16))
+
+          return [r ?? 0, g ?? 0, b ?? 0]
+        }
+
+        const numeros = (valor.match(/[\d.]+/g) ?? []).map(Number)
+
+        return [numeros[0] ?? 0, numeros[1] ?? 0, numeros[2] ?? 0]
+      }
+      const alfa = (valor: string): number => {
+        if (!valor.startsWith('rgba')) return 1
+
+        return (valor.match(/[\d.]+/g) ?? []).map(Number)[3] ?? 1
+      }
+      const mezcla = (capa: string, fondo: RGB): RGB => {
+        const [r = 0, g = 0, b = 0] = canales(capa)
+        const a = alfa(capa)
+
+        return [r * a + fondo[0] * (1 - a), g * a + fondo[1] * (1 - a), b * a + fondo[2] * (1 - a)]
+      }
+      const luminancia = ([r, g, b]: RGB): number => {
+        const canal = (valor: number): number => {
+          const c = valor / 255
+
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+        }
+
+        return 0.2126 * canal(r) + 0.7152 * canal(g) + 0.0722 * canal(b)
+      }
+      const ratio = (a: RGB, b: RGB): number => {
+        const [alto, bajo] = [luminancia(a), luminancia(b)].sort((x, y) => y - x)
+
+        return ((alto ?? 0) + 0.05) / ((bajo ?? 0) + 0.05)
+      }
+
+      const raiz = getComputedStyle(document.documentElement)
+      const fondo = canales(raiz.getPropertyValue('--color-bg'))
+      const reloj = getComputedStyle(document.querySelector('.player__time') ?? document.body).color
+      const carril = getComputedStyle(
+        document.querySelector('.player__track') ?? document.body,
+      ).backgroundColor
+
+      return {
+        tema: document.documentElement.dataset.theme,
+        reloj: ratio(canales(reloj), fondo),
+        carril: ratio(mezcla(carril, fondo), fondo),
+      }
+    })
+
+    expect(medidas.tema).toBe('light')
+    expect(medidas.reloj).toBeGreaterThanOrEqual(4.5)
+    expect(medidas.carril).toBeGreaterThanOrEqual(3)
   })
 
   /**

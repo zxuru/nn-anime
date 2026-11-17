@@ -199,8 +199,10 @@ export function Player(props: PlayerProps): ReactNode {
       : undefined
 
   // El botón grande de reproducir: en pausa y con el medio ya cargado. Durante la
-  // carga manda el cartel de la espera, que dice qué se está esperando.
-  const enPausa = !state.playing && espera === undefined
+  // carga manda el cartel de la espera, que dice qué se está esperando. Al
+  // terminar, la tarjeta del siguiente ocupa ese sitio: un play sobre un video
+  // que ya acabó no lleva a ninguna parte y tapaba la decisión.
+  const enPausa = !state.playing && espera === undefined && props.nextCard === undefined
 
   const rotuloSilencio = state.muted
     ? t(DEFAULT_LOCALE, 'player.unmute')
@@ -398,6 +400,11 @@ export function Player(props: PlayerProps): ReactNode {
               pantalla completa, así que aquí también se ve ahí. Sin intervalo no
               se pinta nada y la pantalla queda como estaba. */}
           <PlayerSkipButton skip={props.skip} onSaltar={saltar} />
+
+          {/* La tarjeta del siguiente también dentro del marco: al terminar el
+              capítulo, la decisión está donde se mira y no en el pie de la
+              página, que a 1366×768 ya no se ve. */}
+          {props.nextCard}
         </PlayerFrame>
 
         {/* Los mandos: la barra de progreso y su fila de botones.

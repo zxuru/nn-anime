@@ -1881,26 +1881,55 @@ body.player-extendido {
 /*
  * La tarjeta del episodio siguiente.
  *
- * Aparece cuando el episodio termina, con cuenta atrás y dos salidas: seguir
- * ahora o pararla. El marco lleva la sombra del acento porque es lo único que se
- * puede pulsar en ese momento.
+ * Vive **dentro del marco**, no en la columna: aparece cuando el capítulo
+ * termina y es la única decisión de ese momento. En el flujo nacía en y≈850 de
+ * una ventana de 900 y el «Reproducir ahora» quedaba cortado mientras la cuenta
+ * atrás seguía; anclada, la salida está donde se mira y sigue a la vista en
+ * pantalla completa.
+ *
+ * Se apoya por encima de la banda de mandos —el mismo alto que el botón de
+ * saltar— para no taparlos. La sombra dura de acento es la del sistema para lo
+ * que se puede pulsar; el fondo elevado la separa del fotograma.
  */
 .watch__next {
+  position: absolute;
+  inset-inline: var(--space-4);
+  inset-block-end: calc(var(--control-size) * 2 + var(--space-2));
+  z-index: 3;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border: var(--border-width-strong) solid var(--color-border);
   background: var(--color-surface-raised);
   box-shadow: var(--shadow-hard-accent);
 }
 
-.watch__next-text {
+/* El texto y el nombre del siguiente, en una columna que cede el ancho a los
+   mandos. `min-width: 0` deja que el nombre largo se parta en vez de empujar
+   los botones fuera de la tarjeta. */
+.watch__next-info {
+  display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.watch__next-text {
   margin: 0;
   font-size: var(--text-sm);
   font-weight: 700;
+}
+
+.watch__next-name {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /*
@@ -2038,6 +2067,37 @@ body.player-extendido {
 .audio-switch__option[aria-pressed="true"] {
   background: var(--color-accent);
   color: var(--color-accent-contrast);
+}
+
+/*
+ * Dentro del menú, el conmutador se apila.
+ *
+ * El menú deja 198 px útiles y el par «SUBTITULADO | DOBLADO» necesita 235: en
+ * fila, el segundo se cortaba («DOBLAD») y el popover ganaba un eje horizontal
+ * escondido. En columna los dos caben enteros y el conmutador se lee como el
+ * resto de los bloques del menú, que ya son filas. La copia de debajo del video
+ * sigue en fila, que es donde hay ancho para ella.
+ *
+ * Se apilan los botones y **no** se ensancha el menú: a 320 px el popover se
+ * ancla al engranaje y un ancho mayor lo sacaría por el borde izquierdo.
+ */
+.player__menu .audio-switch {
+  flex-direction: column;
+  align-items: stretch;
+  inline-size: 100%;
+}
+
+.player__menu .audio-switch__item {
+  display: block;
+}
+
+.player__menu .audio-switch__option {
+  inline-size: 100%;
+}
+
+.player__menu .audio-switch__item + .audio-switch__item .audio-switch__option {
+  border-top: var(--border-width-strong) solid var(--color-border);
+  border-left: 0;
 }
 
 /*
