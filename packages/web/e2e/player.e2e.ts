@@ -1084,6 +1084,38 @@ test.describe('el reproductor', () => {
       )
       .toBeGreaterThan((item?.positionS ?? 0) - 1)
   })
+
+  /**
+   * La presencia se manda pocas veces y no se borra sola.
+   *
+   * El efecto de desmontaje del registro del visionado llevaba en las
+   * dependencias una función que cambiaba de identidad en cada render: React
+   * ejecutaba la limpieza en cada `timeupdate`, y con ella un
+   * `DELETE /api/presence` y un `PATCH` del visionado. Lo que se mide es lo que
+   * se veía en la pestaña de red: al reproducir tres segundos no puede salir ni
+   * un borrado, y como mucho dos envíos —el de empezar y el de la duración, si
+   * aún no se conocía—.
+   */
+  test('la presencia no se borra sola mientras se reproduce', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const metodos: string[] = []
+    page.on('request', (solicitud) => {
+      if (new URL(solicitud.url()).pathname === '/api/presence') {
+        metodos.push(solicitud.method())
+      }
+    })
+
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await page.waitForTimeout(3000)
+
+    expect(metodos.filter((metodo) => metodo === 'DELETE')).toHaveLength(0)
+    expect(metodos.filter((metodo) => metodo === 'PUT').length).toBeLessThanOrEqual(2)
+  })
 })
 
 /**

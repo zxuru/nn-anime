@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  duracionConocida,
   MIN_DELTA_S,
+  PRESENCE_INTERVAL_MS,
   presenceBody,
+  shouldSendPresence,
   shouldSendUpdate,
   UPDATE_INTERVAL_MS,
   updateBody,
@@ -94,5 +97,67 @@ describe('la foto de presencia', () => {
       durationS: 0,
       paused: true,
     })
+  })
+})
+
+describe('cuándo se manda la foto a Discord', () => {
+  test('cada quince segundos, y no antes', () => {
+    expect(PRESENCE_INTERVAL_MS).toBe(15_000)
+    expect(
+      shouldSendPresence({
+        now: PRESENCE_INTERVAL_MS,
+        lastSentAt: 0,
+        durationS: 1440,
+        lastDurationS: 1440,
+      }),
+    ).toBe(true)
+    expect(
+      shouldSendPresence({
+        now: PRESENCE_INTERVAL_MS - 1,
+        lastSentAt: 0,
+        durationS: 1440,
+        lastDurationS: 1440,
+      }),
+    ).toBe(false)
+  })
+
+  test('al empezar y al pausar se manda siempre', () => {
+    expect(
+      shouldSendPresence({
+        now: 1000,
+        lastSentAt: 999,
+        durationS: 1440,
+        lastDurationS: 1440,
+        force: true,
+      }),
+    ).toBe(true)
+  })
+
+  test('cuando la duración se conoce se manda una vez más', () => {
+    expect(
+      shouldSendPresence({
+        now: 1000,
+        lastSentAt: 999,
+        durationS: 1440,
+        lastDurationS: 0,
+      }),
+    ).toBe(true)
+  })
+
+  /**
+   * La prueba que mide el fallo: un directo trae `Infinity` y la foto se
+   * mandaba una vez por cada `timeupdate`. La duración normalizada es cero, así
+   * que no hay «duración nueva» que anunciar y el pestillo no se abre.
+   */
+  test('una duración que no se puede conocer no abre el pestillo', () => {
+    expect(duracionConocida(Number.POSITIVE_INFINITY)).toBe(0)
+    expect(
+      shouldSendPresence({
+        now: 1000,
+        lastSentAt: 999,
+        durationS: duracionConocida(Number.POSITIVE_INFINITY),
+        lastDurationS: duracionConocida(Number.POSITIVE_INFINITY),
+      }),
+    ).toBe(false)
   })
 })

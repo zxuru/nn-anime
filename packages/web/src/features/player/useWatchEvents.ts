@@ -48,6 +48,38 @@ export const PRESENCE_INTERVAL_MS = 15_000
 export const MIN_DELTA_S = 1
 
 /**
+ * La duración que viaja en el cuerpo, ya normalizada.
+ *
+ * `Infinity` —un directo— y `NaN` no son duraciones conocidas y se mandan como
+ * cero, igual que hacía `updateBody`. Que esta cifra y la que se guarda para
+ * decidir sean la misma importa: comparando la cruda, un `Infinity` dejaba el
+ * pestillo de la presencia abierto y salía una foto por cada `timeupdate`.
+ */
+export function duracionConocida(durationS: number): number {
+  return Number.isFinite(durationS) && durationS > 0 ? Math.floor(durationS) : 0
+}
+
+/**
+ * ¿Toca mandar la foto a Discord?
+ *
+ * Se manda si pasó el intervalo, si la duración acaba de conocerse —es cuando
+ * puede aparecer la barra de progreso— o si se pide. Discord admite cinco
+ * actualizaciones cada veinte segundos; quince deja margen.
+ */
+export function shouldSendPresence(input: {
+  readonly now: number
+  readonly lastSentAt: number
+  readonly durationS: number
+  readonly lastDurationS: number
+  readonly force?: boolean
+}): boolean {
+  if (input.force === true) return true
+  if (input.durationS > 0 && input.lastDurationS === 0) return true
+
+  return input.now - input.lastSentAt >= PRESENCE_INTERVAL_MS
+}
+
+/**
  * El evento con el que el anfitrión de Tauri pide guardar antes de ocultar la
  * ventana. Es un `CustomEvent` de la propia página: no hay IPC ni permisos de
  * Tauri de por medio.
@@ -107,7 +139,7 @@ export function updateBody(
 ): { positionS: number; durationS: number } {
   return {
     positionS: Math.max(0, Math.floor(positionS)),
-    durationS: Number.isFinite(durationS) && durationS > 0 ? Math.floor(durationS) : 0,
+    durationS: duracionConocida(durationS),
   }
 }
 
@@ -180,45 +212,55 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
   const pausado = useRef(false)
   /** Al desmontar se deja de publicar: el `DELETE` llega después. */
   const cerrado = useRef(false)
+  /**
+   * Las opciones vivas.
+   *
+   * Quien llama construye `animeRef` en cada render, así que su identidad cambia
+   * con cada `timeupdate`. Con ella en las dependencias, los avisos se recreaban
+   * en cada vuelta y el efecto de desmontaje ejecutaba su limpieza una y otra
+   * vez. Las referencias y el número de episodio se leen de aquí en el momento
+   * de mandar, que es cuando valen.
+   */
+  const opciones = useRef(options)
+  opciones.current = options
 
-  const mandarPresencia = useCallback(
-    (paused: boolean, forzar = false): void => {
-      if (cerrado.current) return
+  const mandarPresencia = useCallback((paused: boolean, forzar = false): void => {
+    if (cerrado.current) return
 
-      const ahora = Date.now()
-      const cambioDuracion = vivo.current.durationS > 0 && presencia.current.duracion === 0
+    const ahora = Date.now()
+    const duracion = duracionConocida(vivo.current.durationS)
 
-      if (!forzar && !cambioDuracion && ahora - presencia.current.at < PRESENCE_INTERVAL_MS) {
-        return
-      }
+    if (
+      !shouldSendPresence({
+        now: ahora,
+        lastSentAt: presencia.current.at,
+        durationS: duracion,
+        lastDurationS: presencia.current.duracion,
+        force: forzar,
+      })
+    ) {
+      return
+    }
 
-      presencia.current = {
-        at: ahora,
-        duracion:
-          Number.isFinite(vivo.current.durationS) && vivo.current.durationS > 0
-            ? Math.floor(vivo.current.durationS)
-            : 0,
-      }
+    presencia.current = { at: ahora, duracion }
 
-      const cuerpo = presenceBody(
-        options.animeRef,
-        options.episodeNumber,
-        vivo.current.positionS,
-        vivo.current.durationS,
-        paused,
-      )
+    const cuerpo = presenceBody(
+      opciones.current.animeRef,
+      opciones.current.episodeNumber,
+      vivo.current.positionS,
+      vivo.current.durationS,
+      paused,
+    )
 
-      // Sin `keepalive`: es un aviso de estado, no el guardado final. Que no
-      // llegue no puede romper la reproducción ni la pausa.
-      void fetch('/api/presence', {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify(cuerpo),
-      }).catch(() => {})
-    },
-    [options.animeRef, options.episodeNumber],
-  )
+    // Sin `keepalive`: es un aviso de estado, no el guardado final. Que no
+    // llegue no puede romper la reproducción ni la pausa.
+    void fetch('/api/presence', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(cuerpo),
+    }).catch(() => {})
+  }, [])
 
   const mandar = useCallback((positionS: number, durationS: number, keepalive: boolean): void => {
     const cuerpo = updateBody(positionS, durationS)
@@ -285,6 +327,18 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
     registrar(vivo.current.positionS, vivo.current.durationS, true, true)
   }, [registrar])
 
+  /**
+   * El guardado final, en una referencia.
+   *
+   * El efecto de desmontaje no puede llevar en las dependencias una función que
+   * pueda cambiar de identidad: React ejecutaría su limpieza en cada render y
+   * cada `timeupdate` mandaría un `DELETE /api/presence` y un `PATCH` del
+   * visionado, además de apagar la presencia para el resto de la sesión. Se lee
+   * la de ahora al desmontar, que es lo único que hace falta.
+   */
+  const flushVivo = useRef(flush)
+  flushVivo.current = flush
+
   const abrir = useCallback(() => {
     reproduciendo.current = true
     pausado.current = false
@@ -350,16 +404,16 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
   // el episodio puede seguir sonando.
   useEffect(() => {
     const alCerrar = (): void => {
-      flush()
+      flushVivo.current()
       void fetch('/api/presence', {
         method: 'DELETE',
         credentials: 'same-origin',
         keepalive: true,
       }).catch(() => {})
     }
-    const alOcultar = (): void => flush()
+    const alOcultar = (): void => flushVivo.current()
     const alCambiarVisibilidad = (): void => {
-      if (document.visibilityState === 'hidden') flush()
+      if (document.visibilityState === 'hidden') flushVivo.current()
     }
 
     window.addEventListener('pagehide', alCerrar)
@@ -373,22 +427,24 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
       window.removeEventListener(EVENTO_OCULTAR_VENTANA, alOcultar)
       document.removeEventListener('visibilitychange', alCambiarVisibilidad)
     }
-  }, [flush])
+  }, [])
 
   // Al desmontar —cambiar de episodio o salir de la pantalla—, la posición
-  // final. Es el último momento en el que la fila y la posición viven juntas.
+  // final. Es el último momento en el que la fila y la posición viven juntas. Sin
+  // dependencias: la limpieza de este efecto es **el desmontaje**, no una vuelta
+  // más del render, y por eso lee el guardado de una referencia.
   useEffect(() => {
     return () => {
       cerrado.current = true
       reproduciendo.current = false
-      flush()
+      flushVivo.current()
       void fetch('/api/presence', {
         method: 'DELETE',
         credentials: 'same-origin',
         keepalive: true,
       }).catch(() => {})
     }
-  }, [flush])
+  }, [])
 
   return {
     watchId,
