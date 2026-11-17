@@ -2357,9 +2357,9 @@ adivine. Dos intentos: pasar una función desde el CLI era una indirección que 
 - [x] Fila de tendencias desde `getTrending` cuando el proveedor lo soporta.
 - [x] El panel de recomendaciones de T39 integrado como una fila más.
 - [x] Grillas virtualizadas cuando superan 60 elementos.
-- [ ] Con la base poblada la home pinta antes de 1 s con `X-Cache: hit`. **Convertido en T261**:
-      falta la medición de navegador con la pestaña de red. Lo que sí está: las tres lecturas van en
-      paralelo y ninguna fila bloquea a las otras.
+- [x] Con la base poblada la home pinta antes de 1 s con `X-Cache: hit`. **Medido en T261**:
+      **108 ms** de `first-contentful-paint` con `/api/trending` y `/api/feed` en `hit`; las ocho
+      lecturas siguen en paralelo y ninguna fila bloquea a las otras.
 
 **Verificación:** `bun test packages/server packages/web` · 7 pruebas de la ruta de continuar viendo y
 11 de las filas. Medido mutando la implementación: dejando pasar lo terminado fallan 2, sin el umbral
@@ -2999,11 +2999,26 @@ archivo decodificable en el arnés (hay `ffmpeg` en la máquina y en el CI).
 medido en navegador.
 
 **Aceptación:**
-- [ ] La medición existe, con el método y el número (pestaña de red o `PerformanceObserver`).
-- [ ] Si no se cumple, se abre la corrección con su causa, no se marca el criterio.
+- [x] La medición existe, con el método y el número (pestaña de red o `PerformanceObserver`).
+- [x] Si no se cumple, se abre la corrección con su causa, no se marca el criterio.
+
+**Verificación:** `home.e2e.ts` «pinta antes de un segundo con las filas en caché»:
+`PerformanceObserver` a través de `performance.getEntriesByName('first-contentful-paint')`, con una
+carga previa que calienta la caché y una recarga que se mide. **108 ms** de primera pintura, con
+`X-Cache: hit` en `/api/trending` y `/api/feed`. La de `catalog/recent` es local y no lleva el
+encabezado. `bun test` **4021 pasan, 0 fallan** (243 archivos) · e2e completo **173 pasan, 0 fallan**
+· `bun run typecheck` 0 · `bun run lint` 0 errores. Mutación: quitar el `c.header('X-Cache', …)` de
+`/api/trending` deja el caso en rojo en la aserción del `hit`.
+
+**Lo que hubo que arreglar para poder medirlo:** `/api/trending` y `/api/feed` consultaban la caché
+pero no la anunciaban. Ahora responden `X-Cache` con el **peor origen** de sus fuentes —`miss` si
+alguna salió a la red, `stale` si alguna estaba caducada, `hit` sólo si todas salieron frescas—,
+porque una fila que mezcla fuentes no puede anunciar `hit` mientras una de ellas pidió al tercero.
+
+**Estado:** hecho.
 
 **Depende de:** T43.
-**Archivos:** `packages/web/e2e/home.e2e.ts` o el arnés de medición.
+**Archivos:** `packages/web/e2e/home.e2e.ts`, `packages/server/src/routes/{cache-header,cache-header.test,recommendations,discovery,trending.test,discovery.test}.ts`.
 **Tamaño:** S.
 
 ### T262 — El recorrido completo por teclado
