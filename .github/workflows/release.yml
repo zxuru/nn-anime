@@ -97,7 +97,10 @@ jobs:
           echo "Se va a construir la $version ($tag); publicar: $publicar"
 
       - name: Auditar las dependencias
-        run: bun audit
+        # Bun audita por versión y no detecta el parche local que mitiga este ReDoS.
+        # Se omite sólo este GHSA mientras se aplique `patches/picomatch@4.0.7.patch`;
+        # `scripts/picomatch-security.test.ts` mide la regresión.
+        run: bun audit --ignore GHSA-fc5q-39xc-vjpf
 
       - name: Tipos
         run: bun run typecheck
