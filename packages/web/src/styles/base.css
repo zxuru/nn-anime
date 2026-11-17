@@ -102,6 +102,7 @@
    */
   display: inline-flex;
   align-items: center;
+  gap: var(--space-2);
   min-block-size: var(--control-size);
   font-family: var(--font-display);
   font-size: var(--text-lg);
@@ -114,6 +115,13 @@
      cabecera con dos renglones y empuja todo lo de debajo. En una ventana
      estrecha se encoge el tipo, no se parte el nombre. */
   white-space: nowrap;
+}
+
+.shell__brand img {
+  display: block;
+  inline-size: var(--control-size-compact);
+  block-size: var(--control-size-compact);
+  flex: none;
 }
 
 .shell__nav {

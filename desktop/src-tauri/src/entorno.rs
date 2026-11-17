@@ -37,6 +37,7 @@ pub const NOMBRE_DATOS: &str = "rona-data";
 ///
 /// Sólo se lee para migrarla una vez: sin esto, el primer arranque con el nombre
 /// nuevo abriría una base vacía y el historial parecería perdido.
+#[cfg(windows)]
 pub const NOMBRE_DATOS_LEGADO: &str = "nn-anime-data";
 
 /// La carpeta que usaban las versiones instaladas (el `productName` anterior).

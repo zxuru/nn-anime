@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **246 fragmentos indexados**; 205 se identifican
+quedan identificadas aquí. **247 fragmentos indexados**; 206 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
@@ -266,3 +266,4 @@ sólo en este índice y su contenido vive en la historia.
 | T280 | T280 — revisar y corregir fallos de las páginas web | fix(web): corregir rutas y anuncios de páginas (T280). | `bun test packages/web/src/router.test.ts packages/web/src/features/search/search.test.tsx` **95 pasan, 0 fallan** · `bun run typecheck` 0 · `bun run build` 0 · biome de los 6 archivos tocados 0. Los enlaces con un escape incompleto caen en 404 en vez de tumbar la SPA, y la biblioteca anuncia la página que abre. Mutaciones: quitar el `try` de `decodeURIComponent` y devolver el anuncio anterior ponen en rojo su prueba. | este índice |
 | T281 | T281 — el modo desarrollo abre en varios navegadores | feat(dev): el token de arranque sirve para varios navegadores (T281). | `bun test packages/server packages/cli scripts` **1299 pasan, 0 fallan** · `bun run typecheck` 0 · arranque real con `RONA_DEV_ORIGIN`: dos canjes del mismo `?boot=` dan **302** y cada cookie entra en `/api/health` con **200**, un token ajeno da **401**. Con `bootTokenReusable` apagado el segundo canje vuelve a **401**. Mutaciones: ignorar `reusable`, dejar de saltar la caducidad y apagar la bandera en el CLI ponen en rojo su prueba. | este índice |
 | T282 | T282 — la entrada automática del modo desarrollo | feat(dev): la entrada del modo desarrollo no pide token (T282). | `bun test packages/web packages/server packages/core packages/cli scripts` **3047 pasan, 0 fallan** · `bun run typecheck` 0 · `bun run build` 0 (también con `--configLoader native`). Prueba real con server dev en 9072 y Vite en 5174: `/` sin cookie termina en **200** tras `/__dev/boot` → `/?boot=…`, `/perfil?tab=historial` conserva la ruta y una cookie vieja se reemplaza sola; sin `RONA_DEV_ORIGIN`, `/` responde **200 sin redirección**. Mutaciones: `esNavegacion` a `false`, no propagar `next` y registrar la ruta sin el modo desarrollo ponen en rojo su prueba. | este índice |
+| T283 | T283 — alinear la auditoría de la release con el parche de picomatch | fix(release): respetar parche picomatch (T283; auditoría local bloqueada por DNS). | El workflow usa la misma excepción acotada al GHSA que CI; YAML parsea. `bun audit --ignore GHSA-fc5q-39xc-vjpf` no pudo consultar npm por `DNSResolveFailed`; queda pendiente la verificación de GitHub Actions. | este índice |

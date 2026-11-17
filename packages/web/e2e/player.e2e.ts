@@ -1876,9 +1876,10 @@ test.describe('la ventana estrecha', () => {
       const estilo = getComputedStyle(elemento)
       // Los renglones se cuentan, no se deducen del alto: la marca mide 44 px por
       // el objetivo táctil —`--control-size`— y el alto ya no dice cuántas líneas
-      // hay. Un `Range` sobre el contenido devuelve una caja por renglón.
+      // hay. Se mide el nodo de texto: la imagen decorativa tiene su propia caja,
+      // pero no añade otro renglón al nombre de la aplicación.
       const rango = document.createRange()
-      rango.selectNodeContents(elemento)
+      rango.selectNodeContents(elemento.lastChild ?? elemento)
 
       return {
         renglones: rango.getClientRects().length,
