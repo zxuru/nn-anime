@@ -511,9 +511,18 @@
     padding: 0 var(--space-1);
   }
 
+  /* El relleno del mando, con más peso que `.button`: en esta fila el dibujo
+     manda y el hueco sobra. Sin esto el botón heredaba los 16 px del botón
+     general y, con el reloj en una sola línea, los iconos se encogían a 4 px
+     para caber. */
+  .player__buttons .player__control {
+    padding: 0 var(--space-1);
+  }
+
   .player__time {
     color: var(--color-text-dim);
     font-size: var(--text-sm);
+    white-space: nowrap;
   }
 
   /*

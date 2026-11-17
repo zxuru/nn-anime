@@ -142,4 +142,12 @@ export interface PlayerProps {
    * mostrarla; el reproductor sólo le da el sitio.
    */
   readonly nextCard?: ReactNode | undefined
+  /**
+   * La lámina que se ve antes del primer fotograma cuando no hay póster.
+   *
+   * La pantalla decide qué dibuja; el reproductor la pinta dentro del marco y la
+   * retira en cuanto empieza la reproducción o hay una imagen. Sin póster, es lo
+   * único que impide que el estado inicial sea un rectángulo vacío.
+   */
+  readonly plate?: ReactNode | undefined
 }

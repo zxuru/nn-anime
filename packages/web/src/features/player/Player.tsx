@@ -107,7 +107,7 @@ export function Player(props: PlayerProps): ReactNode {
     completa,
   } = usePlayerAjustes(marco)
   const extendido = usePlayerExtendido()
-  const mandos = usePlayerMandos(state.playing)
+  const mandos = usePlayerMandos(state.playing, marco)
   const barra = usePlayerBarra({
     positionS: state.positionS,
     durationS: state.durationS,
@@ -203,6 +203,17 @@ export function Player(props: PlayerProps): ReactNode {
   // terminar, la tarjeta del siguiente ocupa ese sitio: un play sobre un video
   // que ya acabó no lleva a ninguna parte y tapaba la decisión.
   const enPausa = !state.playing && espera === undefined && props.nextCard === undefined
+
+  /**
+   * La lámina, sólo mientras no hay nada que ver.
+   *
+   * Se retira al primer play —y también si el medio ya trae un fotograma o si el
+   * modo compatible está pintando— porque su sitio es el hueco, no la imagen.
+   */
+  const placa =
+    props.plate !== undefined && !state.playing && state.positionS === 0 && !pintando
+      ? props.plate
+      : null
 
   const rotuloSilencio = state.muted
     ? t(DEFAULT_LOCALE, 'player.unmute')
@@ -308,7 +319,7 @@ export function Player(props: PlayerProps): ReactNode {
           {t(DEFAULT_LOCALE, 'player.compat')}
         </button>
 
-        {subtitulos.opciones.length === 0 ? null : (
+        {subtitulos.opciones.length <= 1 ? null : (
           <div className="player__menu-block">
             <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.tracks.pick')}</p>
             <ul className="player__menu-list">
@@ -384,6 +395,10 @@ export function Player(props: PlayerProps): ReactNode {
           canvasRef={canvasRef}
           espera={espera}
         >
+          {/* La lámina va debajo de todo lo que se pulsa: si no hay póster, es
+              lo que se ve en el hueco hasta que el video tiene imagen. */}
+          {placa}
+
           {/* El botón de reproducir, grande y en el centro. Es decoración para el
             ojo —quien no ve la pantalla tiene el mando de la barra, que sí se
             anuncia— y por eso va `aria-hidden` y sin recibir el puntero: el clic

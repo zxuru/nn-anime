@@ -10,6 +10,9 @@
  * alguien escribe en el buscador es un reproductor que rompe la página entera.
  */
 
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import { t } from '../../i18n'
+
 export type PlayerAction =
   | 'toggle'
   | 'forward'
@@ -73,6 +76,15 @@ export interface KeyLike {
   /** `tagName` del elemento con el foco, en mayúsculas. */
   readonly tagName?: string | undefined
   readonly isContentEditable?: boolean | undefined
+  /**
+   * Si el foco está dentro de algo que ya se activa solo.
+   *
+   * Un `button`, un enlace, un `summary` o un `[role="button"]` tienen su propia
+   * respuesta a `Enter` y a `Espacio`. El reproductor escucha en la ventana, así
+   * que sin este dato se comía esas dos teclas y ningún mando se podía activar
+   * con el teclado: ni «Ajustes», ni «Reproducir ahora», ni la lista.
+   */
+  readonly interactive?: boolean | undefined
   readonly ctrlKey?: boolean | undefined
   readonly metaKey?: boolean | undefined
   readonly altKey?: boolean | undefined
@@ -104,6 +116,13 @@ export function isTypingTarget(target: KeyLike | undefined): boolean {
 export function keyAction(event: KeyLike): PlayerAction | undefined {
   if (event.ctrlKey === true || event.metaKey === true || event.altKey === true) return undefined
   if (isTypingTarget(event)) return undefined
+
+  // `Enter` y `Espacio` son la activación de un mando o un enlace. Si el foco
+  // está en uno, la tecla es suya y el reproductor no la toca: en `/watch` eso
+  // dejaba sin teclado «Ajustes», «Reproducir ahora», la vuelta a la ficha y los
+  // doce renglones de la lista. El resto de atajos —`k`, flechas, `m`, `f`— no
+  // activan nada por sí solos y siguen llegando al reproductor.
+  if ((event.key === ' ' || event.key === 'Enter') && event.interactive === true) return undefined
 
   switch (event.key) {
     case ' ':
@@ -208,7 +227,9 @@ export function formatTime(seconds: number): string {
  * porque el nombre de un mando se oye entero cada vez que se toca.
  */
 export function spokenTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return '0 segundos'
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return t(DEFAULT_LOCALE, 'player.spoken.seconds', { count: 0 })
+  }
 
   const total = Math.floor(seconds)
   const horas = Math.floor(total / 3600)
@@ -216,11 +237,27 @@ export function spokenTime(seconds: number): string {
   const segundos = total % 60
   const partes: string[] = []
 
-  if (horas > 0) partes.push(horas === 1 ? '1 hora' : `${horas} horas`)
-  if (minutos > 0) partes.push(minutos === 1 ? '1 minuto' : `${minutos} minutos`)
+  if (horas > 0) {
+    partes.push(
+      t(DEFAULT_LOCALE, horas === 1 ? 'player.spoken.hour' : 'player.spoken.hours', {
+        count: horas,
+      }),
+    )
+  }
+  if (minutos > 0) {
+    partes.push(
+      t(DEFAULT_LOCALE, minutos === 1 ? 'player.spoken.minute' : 'player.spoken.minutes', {
+        count: minutos,
+      }),
+    )
+  }
   // Los segundos van siempre: sin ellos, «2 minutos» para 2:05 se queda corto y
   // el reloj que está al lado diría otra cosa.
-  partes.push(segundos === 1 ? '1 segundo' : `${segundos} segundos`)
+  partes.push(
+    t(DEFAULT_LOCALE, segundos === 1 ? 'player.spoken.second' : 'player.spoken.seconds', {
+      count: segundos,
+    }),
+  )
 
   return partes.join(' ')
 }
@@ -232,12 +269,21 @@ export function announcement(state: {
   readonly durationS: number
   readonly error?: string | undefined
 }): string {
-  if (state.error !== undefined && state.error !== '') return `Error: ${state.error}`
+  if (state.error !== undefined && state.error !== '') {
+    return t(DEFAULT_LOCALE, 'player.announce.error', { message: state.error })
+  }
 
-  const base = state.playing ? 'Reproduciendo' : 'En pausa'
+  const base = t(
+    DEFAULT_LOCALE,
+    state.playing ? 'player.announce.playing' : 'player.announce.paused',
+  )
   if (state.durationS <= 0) return base
 
-  return `${base}, ${formatTime(state.positionS)} de ${formatTime(state.durationS)}`
+  return t(DEFAULT_LOCALE, 'player.announce.time', {
+    state: base,
+    position: formatTime(state.positionS),
+    duration: formatTime(state.durationS),
+  })
 }
 
 /** ¿Hay que usar `hls.js` o basta con el `<video>`? */

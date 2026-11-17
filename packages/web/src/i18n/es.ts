@@ -582,6 +582,9 @@ export const messages: Messages = {
   'player.episodes.error': 'No se pudieron cargar los episodios.',
   // El episodio, para el título de la pestaña y para el encabezado de la pantalla.
   'player.episode': 'Episodio {number}',
+  'player.episode.watched': 'Visto',
+  'player.episode.progress': '{percent} %',
+  'player.episode.marked': '{episode}, {mark}',
   'player.episodeNamed': 'Episodio {number} · {title}',
   'player.mode.sub': 'Subtitulado',
   'player.mode.dub': 'Doblado',
@@ -607,6 +610,19 @@ export const messages: Messages = {
   'player.extended': 'Modo extendido',
   'player.extended.exit': 'Salir del modo extendido',
   'player.seek': 'Posición del video',
+  'player.seek.spoken': '{position} de {duration}',
+  'player.resume': 'Continúa en {time}',
+  'player.resume.restart': 'Empezar de cero',
+  'player.spoken.hour': '1 hora',
+  'player.spoken.hours': '{count} horas',
+  'player.spoken.minute': '1 minuto',
+  'player.spoken.minutes': '{count} minutos',
+  'player.spoken.second': '1 segundo',
+  'player.spoken.seconds': '{count} segundos',
+  'player.announce.playing': 'Reproduciendo',
+  'player.announce.paused': 'En pausa',
+  'player.announce.time': '{state}, {position} de {duration}',
+  'player.announce.error': 'Error: {message}',
   'player.mpv': 'Ver en mpv',
   'player.mpv.opened': 'Se abrió en el reproductor externo.',
   'player.mpv.error': 'No se pudo abrir mpv: {message}',
@@ -624,7 +640,7 @@ export const messages: Messages = {
   // aparte de `player.loading` porque son dos esperas distintas: una al
   // principio y otra a mitad, y decir «cargando» en la segunda parece que se
   // perdió lo visto.
-  'player.buffering': 'Almacenando en búfer…',
+  'player.buffering': 'Cargando en búfer…',
   'player.error': 'No se pudo reproducir: {message}',
   // El gesto que vuelve a intentarlo desde el segundo donde se quedó. No se
   // llama «Recargar»: recargar la página perdería la posición y el episodio
