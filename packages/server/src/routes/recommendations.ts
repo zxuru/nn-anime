@@ -99,6 +99,32 @@ export function sinRepetir(resultados: readonly SearchResult[]): readonly Search
 }
 
 /**
+ * Una candidata por obra, y la que más señales trae.
+ *
+ * El motor recibe una candidata por título cacheado y una por cada puesto de
+ * tendencias. Dos fuentes que publican la misma obra con referencias propias dan
+ * **dos** candidatas —por referencia no se reconocen—, y las dos entraban al
+ * ranking: la fila enseñaba el mismo cartel dos veces y gastaba dos de sus puestos
+ * en una sola obra. Se vio en la home con «Sousou no Frieren» y su segunda
+ * temporada, cada una por duplicado.
+ *
+ * La identidad es el **nombre**, con la temporada dentro (`sameWork`: «Sousou no
+ * Frieren» y «Sousou no Frieren 2nd Season» son dos obras). El año no se exige:
+ * casi ninguna fuente lo devuelve, y con la regla estricta la misma obra se
+ * quedaría duplicada en cuanto una de las dos no lo trae.
+ *
+ * Cuando hay varias copias gana la que más etiquetas tiene: es la que el motor
+ * puede puntuar por afinidad, y quedarse con la copia vacía la dejaría fuera del
+ * ranking aunque el catálogo sí la conozca. El orden de llegada desempata, así que
+ * la lista no cambia entre dos lecturas iguales.
+ */
+export function sinRepetirCandidatos(candidatos: readonly Candidate[]): readonly Candidate[] {
+  const porCompletitud = [...candidatos].sort((uno, otro) => otro.tags.length - uno.tags.length)
+
+  return uniqueByWork(porCompletitud, () => true)
+}
+
+/**
  * Tendencias del proveedor, como fila propia.
  *
  * Va aparte del motor porque es otra cosa: las recomendaciones son para el
@@ -303,7 +329,10 @@ export function registerRecommendationsRoute(
       }
     }
 
-    const salida = recommend(conConsulta, candidatos, { limit: limite, now: ahora })
+    const salida = recommend(conConsulta, sinRepetirCandidatos(candidatos), {
+      limit: limite,
+      now: ahora,
+    })
 
     return c.json(
       recommendationsResponseSchema.parse({
