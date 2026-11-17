@@ -3,7 +3,8 @@
  *
  * Tiene **la métrica exacta del mosaico** —mismas columnas, mismo hueco, misma
  * proporción de pieza—, así que cuando llega el contenido nada salta de sitio: lo
- * que se ve antes y lo que se ve después ocupa el mismo hueco.
+ * que se ve antes y lo que se ve después ocupa el mismo hueco. Las celdas salen de
+ * `EsqueletoMosaico`, que es el mismo que usan las pantallas de lista.
  *
  * Antes esto era un bloque único de doce celdas que sólo se pintaba mientras
  * cargaba el motor de recomendaciones. Las filas seguían pintando su mensaje de
@@ -15,20 +16,11 @@
 
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Mosaico } from '../../components/Mosaico'
+import { EsqueletoMosaico } from '../../components/EsqueletoMosaico'
 import { SectionHeader } from '../../components/SectionHeader'
 
 /** Cuántas celdas pinta una fila: una pantalla de seis columnas. */
 export const ESQUELETOS_POR_FILA = 6
-
-/**
- * Las claves de las celdas.
- *
- * Son nombres fijos y no el índice del bucle: el índice como `key` es lo que
- * Biome rechaza, y aquí no hay estado que conservar por celda, así que el nombre
- * estable es lo correcto.
- */
-const CELDAS = ['uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis'] as const
 
 export interface SeccionCargandoProps {
   /** El titular de la sección, ya traducido: es el mismo que el de la fila real. */
@@ -53,11 +45,7 @@ export function SeccionCargando(props: SeccionCargandoProps): ReactNode {
       />
 
       <div className="seccion__cuerpo">
-        <Mosaico>
-          {CELDAS.slice(0, celdas).map((celda) => (
-            <span key={celda} className="esq" aria-hidden="true" />
-          ))}
-        </Mosaico>
+        <EsqueletoMosaico celdas={celdas} />
       </div>
     </section>
   )

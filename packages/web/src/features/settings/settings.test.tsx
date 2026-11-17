@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
+import { t } from '../../i18n'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { IndiceAjustes, primeraVisible } from './IndiceAjustes'
 import { moved, ProviderList, providersByPriority } from './ProviderList'
@@ -323,6 +325,28 @@ describe('la página', () => {
 
     expect(html).toContain('Cargando los ajustes')
     expect(html).toContain('aria-busy="true"')
+  })
+
+  /**
+   * La espera tiene la forma de la página.
+   *
+   * Eran el titular y una frase sobre una página que después trae el aviso de
+   * seguridad, un índice pegajoso y seis secciones de campos: el índice aparecía de
+   * la nada y todo lo de abajo bajaba. Ahora el aviso y los titulares de sección —lo
+   * que se sabe sin preguntar— se pintan de verdad y los campos tienen su hueco.
+   */
+  test('el esqueleto de Ajustes tiene la forma de Ajustes', () => {
+    const html = render(<SettingsPage />)
+
+    expect(html).toContain('settings__cuerpo')
+    expect(html).toContain('settings__indice')
+    expect(html.match(/class="settings__seccion"/g)?.length).toBe(SECCIONES_AJUSTES.length)
+
+    for (const seccion of SECCIONES_AJUSTES) {
+      expect(html, seccion.id).toContain(t(DEFAULT_LOCALE, seccion.titulo))
+    }
+
+    expect(html).toContain('class="solo-lectores" role="status"')
   })
 
   /**

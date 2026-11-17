@@ -20,9 +20,9 @@ import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
+import { EsqueletoMosaico } from '../../components/EsqueletoMosaico'
 import { Mosaico } from '../../components/Mosaico'
 import { SectionHeader } from '../../components/SectionHeader'
-import { Skeleton } from '../../components/Skeleton'
 import { t } from '../../i18n'
 import { Link, useNavigate, usePath } from '../../router'
 import { ANCLAS } from '../guia/guia'
@@ -57,11 +57,45 @@ export function HistoryPage(props: HistoryPageProps): ReactNode {
   const navigate = useNavigate()
 
   if (state === 'loading') {
+    /*
+     * La espera con la forma de la página:
+     *
+     * Antes eran una barra y «Cargando el historial.» sobre una página que luego
+     * traía un titular, un mosaico de carteles y la paginación. Lo único que no se
+     * puede adelantar es el contenido —las filas y la cuenta—; el resto se sabe sin
+     * preguntar, así que se pinta de verdad y el esqueleto ocupa su hueco exacto.
+     */
     return (
-      <section aria-busy="true">
-        <p className="empty">{t(DEFAULT_LOCALE, 'history.loading')}</p>
-        <Skeleton h="var(--skeleton-height)" />
-      </section>
+      <article className="historial" aria-busy="true">
+        <p className="solo-lectores" role="status">
+          {t(DEFAULT_LOCALE, 'history.loading')}
+        </p>
+        <h1>{t(DEFAULT_LOCALE, 'history.title')}</h1>
+
+        <p className="historial__volver">
+          <Link to="/profile">{t(DEFAULT_LOCALE, 'history.back')}</Link>
+        </p>
+
+        <section className="seccion">
+          <SectionHeader
+            title={t(DEFAULT_LOCALE, 'history.section')}
+            meta={t(DEFAULT_LOCALE, 'history.meta')}
+          />
+          <div className="seccion__cuerpo">
+            <EsqueletoMosaico />
+          </div>
+        </section>
+
+        <nav className="historial__pagina" aria-label={t(DEFAULT_LOCALE, 'history.pages')}>
+          <button type="button" className="button" disabled>
+            {t(DEFAULT_LOCALE, 'history.previous')}
+          </button>
+          <span>{t(DEFAULT_LOCALE, 'history.page', { page })}</span>
+          <button type="button" className="button" disabled>
+            {t(DEFAULT_LOCALE, 'history.next')}
+          </button>
+        </nav>
+      </article>
     )
   }
 
