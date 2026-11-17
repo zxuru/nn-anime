@@ -2,24 +2,26 @@
 /**
  * El icono de la aplicación, generado desde código.
  *
- * Un icono es un archivo binario de tres formatos distintos —PNG, ICO e ICNS— y
- * guardarlo sin más deja el repositorio con tres binarios que nadie puede
- * revisar ni rehacer. Esto lo genera: se describe el dibujo una vez, en
- * coordenadas normalizadas, y de ahí salen el PNG maestro, los tamaños pequeños,
- * el `.ico` de Windows y el `.icns` de macOS.
+ * **El maestro es `packaging/icons/icon.svg`**, el dibujo vectorial de la marca.
+ * Este archivo lo rasteriza a los ocho PNG, al `.ico` de Windows y al `.icns` de
+ * macOS, y añade una variante propia para los tamaños de bandeja. Guardar sólo
+ * los binarios dejaría el repositorio con tres formatos que nadie puede revisar
+ * ni rehacer; guardar sólo el SVG dejaría al empaquetado sin icono, porque ni
+ * Windows ni macOS leen SVG para el ejecutable.
  *
- * La marca se llama **la R-raposa**: una «R» cuyo ojo es una cabeza de raposa
- * —orejas de la casa, morro redondo— con un triángulo de reproducción en el
- * contador y una órbita coral que la rodea. Sigue la lengua visual de la
- * interfaz (`packages/web/src/styles/tokens.css`): fondo casi negro, crema
- * cálida, radios de pieza y el coral como único acento. El comentario de
- * `docs/marca.md` cuenta por qué cada pieza está donde está.
+ * La marca se llama **la R-raposa**: una «R» cuyo cuenco es la cabeza de una
+ * raposa, con el triángulo de reproducción en el contador y una órbita coral que
+ * la rodea. El dibujo padre usa degradados y un resplandor; aquí se rasteriza el
+ * **subconjunto de SVG que el archivo necesita** —rect, circle, polygon, path con
+ * `M L H V C Q S T Z`, `use` y `linearGradient`— y se ignoran los filtros: a
+ * tamaño de icono, un desenfoque de 12 unidades es una mancha de color, no una
+ * luz. Si el SVG estrena una etiqueta o un comando que este archivo no conoce,
+ * **falla con su nombre** en vez de dibujar otra cosa en silencio.
  *
- * **El detalle se adapta al tamaño.** A 16 px una órbita, un destello y un
- * contorno interior son una mancha: por debajo de 48 px se apagan y el
- * triángulo de reproducción pasa a tinta sobre crema, que es el par de más
- * contraste de la PALETA. Lo que se ve en la bandeja del sistema es la marca
- * desnuda, no una miniatura ilegible de la versión grande.
+ * **El detalle se adapta al tamaño.** Por debajo de 48 px la silueta completa se
+ * convierte en una mancha y el coral del play pierde contraste: ahí se dibuja la
+ * «R» desnuda, con el palo y la pierna a dos píxeles. La bandeja del sistema usa
+ * `icon-32.png`, así que ese corte importa de verdad.
  *
  * No hay dependencias de imagen: el PNG se codifica aquí. Bun trae `deflate`, y
  * el resto —CRC-32, el envoltorio zlib, el contenedor ICO y el ICNS— son formatos
@@ -29,91 +31,751 @@
  * Uso: `bun run icon`
  */
 
+import { readFileSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ROOT } from './workspaces'
 
 const ICONS = join(ROOT, 'packaging', 'icons')
+const SVG = join(ICONS, 'icon.svg')
 
-type Rgba = readonly [number, number, number, number]
+type Rgb = readonly [number, number, number]
 type Point = readonly [number, number]
 
-/** Los colores, copiados de `tokens.css`. */
-const INK: Rgba = [0x08, 0x08, 0x0a, 255]
-const PLATE: Rgba = [0x0b, 0x0b, 0x11, 255]
-const PLATE_LIFT: Rgba = [0x1d, 0x15, 0x21, 255]
-const CREAM: Rgba = [0xf5, 0xf0, 0xe6, 255]
-const CORAL: Rgba = [0xff, 0x5c, 0x35, 255]
-const NADA: Rgba = [0, 0, 0, 0]
+// --- El SVG, reducido a lo que este archivo sabe dibujar ---------------------
 
-// --- La geometría, en fracciones del lado -----------------------------------
-//
-// Normalizada y no en píxeles porque el mismo dibujo tiene que salir a 16 y a
-// 1024: con medidas absolutas, la silueta desaparece en los tamaños pequeños.
-// Medido sobre la lámina de la marca, que es de donde salen las proporciones.
+interface Bbox {
+  readonly x0: number
+  readonly y0: number
+  readonly x1: number
+  readonly y1: number
+}
 
-/** Lado del rectángulo redondeado que hace de lámina. */
-const PLATE_RADIUS = 0.185
+interface Stop {
+  readonly offset: number
+  readonly rgb: Rgb
+}
+
+interface Gradient {
+  readonly id: string
+  readonly stops: Stop[]
+  readonly x1: number
+  readonly y1: number
+  readonly x2: number
+  readonly y2: number
+}
+
+type Paint =
+  | { readonly kind: 'solid'; readonly rgb: Rgb; readonly alpha: number }
+  | { readonly kind: 'gradient'; readonly gradient: Gradient; readonly alpha: number }
+
+interface Shape {
+  readonly polylines: readonly (readonly Point[])[]
+  readonly bbox: Bbox
+  readonly paint: Paint
+}
+
+const SUPERMUESTREO = 4
+
+function numero(texto: string | undefined, defecto = 0): number {
+  if (texto === undefined) return defecto
+  const valor = Number.parseFloat(texto)
+
+  return Number.isFinite(valor) ? valor : defecto
+}
+
+function color(texto: string): Rgb {
+  const limpio = texto.trim().replace('#', '')
+
+  if (limpio.length === 3) {
+    const [r, g, b] = limpio.split('')
+
+    return [
+      Number.parseInt(`${r}${r}`, 16),
+      Number.parseInt(`${g}${g}`, 16),
+      Number.parseInt(`${b}${b}`, 16),
+    ]
+  }
+
+  return [
+    Number.parseInt(limpio.slice(0, 2), 16),
+    Number.parseInt(limpio.slice(2, 4), 16),
+    Number.parseInt(limpio.slice(4, 6), 16),
+  ]
+}
+
+function atributos(bloque: string): Record<string, string> {
+  const salida: Record<string, string> = {}
+
+  for (const coincidencia of bloque.matchAll(/([\w:-]+)="([^"]*)"/g)) {
+    const clave = coincidencia[1]
+    if (clave !== undefined) salida[clave] = coincidencia[2] ?? ''
+  }
+
+  return salida
+}
+
+function bboxDe(puntos: readonly Point[]): Bbox {
+  let x0 = Number.POSITIVE_INFINITY
+  let y0 = Number.POSITIVE_INFINITY
+  let x1 = Number.NEGATIVE_INFINITY
+  let y1 = Number.NEGATIVE_INFINITY
+
+  for (const [x, y] of puntos) {
+    x0 = Math.min(x0, x)
+    y0 = Math.min(y0, y)
+    x1 = Math.max(x1, x)
+    y1 = Math.max(y1, y)
+  }
+
+  return { x0, y0, x1, y1 }
+}
 
 /**
- * La cabeza: el ojo de la «R» y el morro de la raposa a la vez.
+ * El `d` de un `path`, convertido en polilíneas.
  *
- * Va desplazada a la derecha del palo: si la elipse cubriera el palo entero, la
- * silueta sería una mancha y la «R» desaparecería. La «R» se lee porque el palo
- * queda fuera, a la izquierda.
+ * Las curvas se aplanan a segmentos fijos: 24 por cúbica y 16 por cuadrática. A
+ * 1024 px, el error de la cuerda no llega al medio píxel, y un aplanado adaptativo
+ * añadiría una cota que nadie va a ajustar.
  */
-const HEAD = { cx: 0.545, cy: 0.45, rx: 0.19, ry: 0.22 } as const
+function aplanar(d: string): Point[][] {
+  const fichas = d.match(/[MmLlHhVvCcSsQqTtAaZz]|-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g) ?? []
+  const subcaminos: Point[][] = []
+  let actual: Point[] = []
+  let x = 0
+  let y = 0
+  let inicioX = 0
+  let inicioY = 0
+  let controlX = 0
+  let controlY = 0
+  let mando = ''
+  let i = 0
 
-/** Las orejas, con la derecha como espejo de la izquierda. */
-const EAR_LEFT: readonly Point[] = [
-  [0.2, 0.37],
-  [0.238, 0.172],
-  [0.408, 0.3],
-]
+  const siguiente = (): number => {
+    const valor = Number(fichas[i] ?? '0')
+    i++
 
-/** El hueco coral de la oreja: sólo existe cuando el tamaño lo aguanta. */
-const EAR_LEFT_IN: readonly Point[] = [
-  [0.262, 0.342],
-  [0.25, 0.236],
-  [0.366, 0.306],
-]
+    return valor
+  }
 
-/** El palo de la «R», que es también el cuello de la raposa. */
-const STEM = { x0: 0.27, x1: 0.405, y0: 0.285, y1: 0.795, r: 0.03 } as const
+  const trazar = (px: number, py: number): void => {
+    actual.push([px, py])
+  }
 
-/** La pierna de la «R», que sale del cuenco hacia la esquina. */
-const LEG: readonly Point[] = [
-  [0.6, 0.515],
-  [0.7, 0.555],
-  [0.83, 0.79],
-  [0.705, 0.79],
-]
+  const cerrar = (): void => {
+    if (actual.length > 0) subcaminos.push(actual)
+    actual = []
+  }
 
-/** El triángulo de reproducción, en el contador de la «R». */
-const PLAY: readonly Point[] = [
-  [0.47, 0.345],
-  [0.47, 0.555],
-  [0.655, 0.45],
-]
+  while (i < fichas.length) {
+    const ficha = fichas[i] ?? ''
+    if (/[A-Za-z]/.test(ficha)) {
+      mando = ficha
+      i++
+    }
+
+    const relativo = mando === mando.toLowerCase()
+    const baseX = relativo ? x : 0
+    const baseY = relativo ? y : 0
+
+    switch (mando.toUpperCase()) {
+      case 'M': {
+        x = baseX + siguiente()
+        y = baseY + siguiente()
+        inicioX = x
+        inicioY = y
+        cerrar()
+        trazar(x, y)
+        // Los pares que siguen a un `M` son `L`, como manda el estándar.
+        mando = relativo ? 'l' : 'L'
+        break
+      }
+      case 'L': {
+        x = baseX + siguiente()
+        y = baseY + siguiente()
+        trazar(x, y)
+        break
+      }
+      case 'H': {
+        x = baseX + siguiente()
+        trazar(x, y)
+        break
+      }
+      case 'V': {
+        y = baseY + siguiente()
+        trazar(x, y)
+        break
+      }
+      case 'C': {
+        const c1x = baseX + siguiente()
+        const c1y = baseY + siguiente()
+        const c2x = baseX + siguiente()
+        const c2y = baseY + siguiente()
+        const fx = baseX + siguiente()
+        const fy = baseY + siguiente()
+        const desdeX = x
+        const desdeY = y
+
+        for (let paso = 1; paso <= 24; paso++) {
+          const t = paso / 24
+          const u = 1 - t
+          trazar(
+            u * u * u * desdeX + 3 * u * u * t * c1x + 3 * u * t * t * c2x + t * t * t * fx,
+            u * u * u * desdeY + 3 * u * u * t * c1y + 3 * u * t * t * c2y + t * t * t * fy,
+          )
+        }
+
+        x = fx
+        y = fy
+        controlX = c2x
+        controlY = c2y
+        break
+      }
+      case 'S': {
+        const c2x = baseX + siguiente()
+        const c2y = baseY + siguiente()
+        const fx = baseX + siguiente()
+        const fy = baseY + siguiente()
+        const c1x = x * 2 - controlX
+        const c1y = y * 2 - controlY
+        const desdeX = x
+        const desdeY = y
+
+        for (let paso = 1; paso <= 24; paso++) {
+          const t = paso / 24
+          const u = 1 - t
+          trazar(
+            u * u * u * desdeX + 3 * u * u * t * c1x + 3 * u * t * t * c2x + t * t * t * fx,
+            u * u * u * desdeY + 3 * u * u * t * c1y + 3 * u * t * t * c2y + t * t * t * fy,
+          )
+        }
+
+        x = fx
+        y = fy
+        controlX = c2x
+        controlY = c2y
+        break
+      }
+      case 'Q': {
+        const qx = baseX + siguiente()
+        const qy = baseY + siguiente()
+        const fx = baseX + siguiente()
+        const fy = baseY + siguiente()
+        const desdeX = x
+        const desdeY = y
+
+        for (let paso = 1; paso <= 16; paso++) {
+          const t = paso / 16
+          const u = 1 - t
+          trazar(
+            u * u * desdeX + 2 * u * t * qx + t * t * fx,
+            u * u * desdeY + 2 * u * t * qy + t * t * fy,
+          )
+        }
+
+        x = fx
+        y = fy
+        controlX = qx
+        controlY = qy
+        break
+      }
+      case 'T': {
+        const fx = baseX + siguiente()
+        const fy = baseY + siguiente()
+        const qx = x * 2 - controlX
+        const qy = y * 2 - controlY
+        const desdeX = x
+        const desdeY = y
+
+        for (let paso = 1; paso <= 16; paso++) {
+          const t = paso / 16
+          const u = 1 - t
+          trazar(
+            u * u * desdeX + 2 * u * t * qx + t * t * fx,
+            u * u * desdeY + 2 * u * t * qy + t * t * fy,
+          )
+        }
+
+        x = fx
+        y = fy
+        controlX = qx
+        controlY = qy
+        break
+      }
+      case 'Z': {
+        if (actual.length > 0) {
+          trazar(inicioX, inicioY)
+          subcaminos.push(actual)
+          actual = []
+        }
+        x = inicioX
+        y = inicioY
+        break
+      }
+      default:
+        throw new Error(`scripts/icon.ts: comando de path no soportado «${mando}»`)
+    }
+  }
+
+  if (actual.length > 0) subcaminos.push(actual)
+
+  return subcaminos
+}
+
+function redondo(x: number, y: number, ancho: number, alto: number, radio: number): Point[] {
+  const r = Math.min(radio, ancho / 2, alto / 2)
+  const puntos: Point[] = []
+
+  const esquina = (cx: number, cy: number, desde: number): void => {
+    for (let paso = 0; paso <= 12; paso++) {
+      const angulo = desde + (paso / 12) * (Math.PI / 2)
+      puntos.push([cx + Math.cos(angulo) * r, cy + Math.sin(angulo) * r])
+    }
+  }
+
+  esquina(x + ancho - r, y + r, -Math.PI / 2)
+  esquina(x + ancho - r, y + alto - r, 0)
+  esquina(x + r, y + alto - r, Math.PI / 2)
+  esquina(x + r, y + r, Math.PI)
+
+  return puntos
+}
+
+function circulo(cx: number, cy: number, r: number): Point[] {
+  const puntos: Point[] = []
+
+  for (let paso = 0; paso < 64; paso++) {
+    const angulo = (paso / 64) * Math.PI * 2
+    puntos.push([cx + Math.cos(angulo) * r, cy + Math.sin(angulo) * r])
+  }
+
+  return puntos
+}
+
+/** El área con signo: dice hacia dónde giran los vértices. */
+function area(puntos: readonly Point[]): number {
+  let suma = 0
+
+  for (let i = 0; i < puntos.length; i++) {
+    const a = puntos[i]
+    const b = puntos[(i + 1) % puntos.length]
+    if (a === undefined || b === undefined) continue
+    suma += a[0] * b[1] - b[0] * a[1]
+  }
+
+  return suma / 2
+}
 
 /**
- * La órbita coral. Inclinada, con grosor que se afina al subir y dibujada
- * **detrás** del cuerpo: por delante cruzaba la cara y el contador, y a 64 px
- * el icono era una raposa con un cinturón.
+ * El contorno de un trazo de unión redonda, como polígono.
+ *
+ * Sólo se usa en los polígonos del play, que son convexos: para un contorno
+ * general haría falta desplazar lados de un polígono cóncavo, y esas aristas ya
+ * se ignoran porque el maestro las dibuja con 3–6 unidades, que no llegan a un
+ * píxel en ningún tamaño.
  */
-const ORBIT = { cx: 0.5, cy: 0.585, rx: 0.405, ry: 0.135, rot: -0.3 } as const
+function contorno(puntos: readonly Point[], grosor: number): Point[] {
+  if (grosor <= 0) return [...puntos]
+  const signo = area(puntos) >= 0 ? 1 : -1
+  const r = grosor / 2
+  const lados = puntos.length
+  const salida: Point[] = []
 
-/** El destello de cuatro puntas. */
-const SPARK = { cx: 0.818, cy: 0.222, rx: 0.066, ry: 0.076 } as const
+  for (let i = 0; i < lados; i++) {
+    const a = puntos[i]
+    const b = puntos[(i + 1) % lados]
+    if (a === undefined || b === undefined) continue
+    const dx = b[0] - a[0]
+    const dy = b[1] - a[1]
+    const largo = Math.hypot(dx, dy) || 1
+    const nx = (dy / largo) * signo
+    const ny = (-dx / largo) * signo
+
+    salida.push([a[0] + nx * r, a[1] + ny * r])
+    salida.push([b[0] + nx * r, b[1] + ny * r])
+  }
+
+  return salida
+}
+
+/**
+ * Un polígono convexo, en cualquier sentido.
+ *
+ * El contorno de un trazo sólo se calcula sobre convexos: desplazar los lados de
+ * un polígono cóncavo puede cruzarlos entre sí, y la estrella de la marca es
+ * cóncava. Su trazo mide 4 unidades sobre 1254, así que ignorarlo no se ve.
+ */
+function esConvexo(puntos: readonly Point[]): boolean {
+  let anterior = 0
+
+  for (let i = 0; i < puntos.length; i++) {
+    const a = puntos[i]
+    const b = puntos[(i + 1) % puntos.length]
+    const c = puntos[(i + 2) % puntos.length]
+    if (a === undefined || b === undefined || c === undefined) continue
+    const cruz = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
+
+    if (cruz === 0) continue
+    if (anterior !== 0 && Math.sign(cruz) !== anterior) return false
+    anterior = Math.sign(cruz)
+  }
+
+  return true
+}
+
+interface Documento {
+  readonly formas: readonly Shape[]
+}
+
+export function leerSvg(texto: string): Documento {
+  const gradientes = new Map<string, Gradient>()
+  const caminos = new Map<string, string>()
+  const pendientes: { tag: string; attrs: Record<string, string> }[] = []
+
+  let dentroDefs = 0
+  let gradiente: Gradient | null = null
+  const cuerpo = texto.replace(/<!--[\s\S]*?-->/g, '')
+
+  for (const etiqueta of cuerpo.matchAll(/<(\/?)([a-zA-Z][\w:-]*)([^>]*?)(\/?)>/g)) {
+    const cierre = etiqueta[1] === '/'
+    const tag = etiqueta[2] ?? ''
+    const attrs = atributos(etiqueta[3] ?? '')
+
+    if (tag === 'defs') {
+      dentroDefs += cierre ? -1 : 1
+      continue
+    }
+
+    if (tag === 'linearGradient') {
+      const id = attrs.id ?? ''
+      gradiente = {
+        id,
+        stops: [],
+        x1: numero(attrs.x1, 0),
+        y1: numero(attrs.y1, 0),
+        x2: numero(attrs.x2, 1),
+        y2: numero(attrs.y2, 0),
+      }
+      gradientes.set(id, gradiente)
+      continue
+    }
+
+    if (tag === 'stop') {
+      if (gradiente !== null) {
+        const offset = (attrs.offset ?? '0').replace('%', '')
+        const proporcion = (attrs.offset ?? '').includes('%') ? 100 : 1
+        gradiente.stops.push({
+          offset: numero(offset) / proporcion,
+          rgb: color(attrs['stop-color'] ?? '#000000'),
+        })
+      }
+      continue
+    }
+
+    if (tag === 'svg' || tag === 'title' || tag === 'metadata') continue
+
+    if (dentroDefs > 0) {
+      if (tag === 'path' && attrs.id !== undefined) caminos.set(attrs.id, attrs.d ?? '')
+      continue
+    }
+
+    if (
+      tag === 'rect' ||
+      tag === 'circle' ||
+      tag === 'polygon' ||
+      tag === 'path' ||
+      tag === 'use'
+    ) {
+      pendientes.push({ tag, attrs })
+      continue
+    }
+
+    throw new Error(`scripts/icon.ts: elemento SVG no soportado «${tag}»`)
+  }
+
+  const formas: Shape[] = []
+
+  for (const { tag, attrs } of pendientes) {
+    const relleno = attrs.fill ?? '#000000'
+    if (relleno === 'none') continue
+
+    const alfa = numero(attrs['fill-opacity'], 1)
+    let paint: Paint
+
+    if (relleno.startsWith('url(')) {
+      const id = relleno.slice(4, -1).replace('#', '')
+      const gradienteHallado = gradientes.get(id)
+      if (gradienteHallado === undefined) {
+        throw new Error(`scripts/icon.ts: gradiente «${id}» sin definir`)
+      }
+      paint = { kind: 'gradient', gradient: gradienteHallado, alpha: alfa }
+    } else {
+      paint = { kind: 'solid', rgb: color(relleno), alpha: alfa }
+    }
+
+    let polilineas: Point[][]
+
+    if (tag === 'rect') {
+      const x = numero(attrs.x)
+      const y = numero(attrs.y)
+      const ancho = numero(attrs.width)
+      const alto = numero(attrs.height)
+      const radio = numero(attrs.rx, 0)
+
+      polilineas = [redondo(x, y, ancho, alto, radio)]
+    } else if (tag === 'circle') {
+      polilineas = [circulo(numero(attrs.cx), numero(attrs.cy), numero(attrs.r))]
+    } else if (tag === 'polygon') {
+      const numeros = (attrs.points ?? '').match(/-?(?:\d+\.?\d*|\.\d+)/g) ?? []
+      const puntos: Point[] = []
+
+      for (let i = 0; i + 1 < numeros.length; i += 2) {
+        puntos.push([numero(numeros[i]), numero(numeros[i + 1])])
+      }
+
+      polilineas = [puntos]
+    } else if (tag === 'path') {
+      polilineas = aplanar(attrs.d ?? '')
+    } else {
+      const referencia = (attrs.href ?? attrs['xlink:href'] ?? '').replace('#', '')
+      const d = caminos.get(referencia)
+      if (d === undefined)
+        throw new Error(`scripts/icon.ts: «use» apunta a «${referencia}», que no existe`)
+      polilineas = aplanar(d)
+    }
+
+    const todos = polilineas.flat()
+    if (todos.length < 3) continue
+
+    // El trazo se convierte en contorno sólo en los polígonos convexos; en el
+    // resto se ignora, y está dicho arriba el porqué.
+    const grosor = numero(attrs['stroke-width'], 0)
+    const contornoAplicado =
+      grosor > 0 && polilineas.length === 1 && esConvexo(todos)
+        ? [contorno(todos, grosor)]
+        : polilineas
+    const finales = contornoAplicado.flat()
+
+    formas.push({
+      polylines: contornoAplicado,
+      bbox: bboxDe(finales),
+      paint,
+    })
+  }
+
+  if (formas.length === 0) throw new Error('scripts/icon.ts: el SVG no tiene formas que dibujar')
+
+  return { formas }
+}
+
+const DOCUMENTO = leerSvg(readFileSync(SVG, 'utf8'))
+
+// --- Rasterizado ------------------------------------------------------------
+
+interface Arista {
+  readonly x1: number
+  readonly y1: number
+  readonly x2: number
+  readonly y2: number
+  readonly direccion: number
+}
+
+function aristasDe(polilineas: readonly (readonly Point[])[], escala: number): Arista[] {
+  const aristas: Arista[] = []
+
+  for (const linea of polilineas) {
+    for (let i = 0; i < linea.length; i++) {
+      const a = linea[i]
+      const b = linea[(i + 1) % linea.length]
+      if (a === undefined || b === undefined) continue
+      const x1 = a[0] * escala
+      const y1 = a[1] * escala
+      const x2 = b[0] * escala
+      const y2 = b[1] * escala
+
+      aristas.push({ x1, y1, x2, y2, direccion: y2 > y1 ? 1 : -1 })
+    }
+  }
+
+  return aristas
+}
+
+function colorEn(paint: Paint, x: number, y: number, bbox: Bbox): Rgb {
+  if (paint.kind === 'solid') return paint.rgb
+
+  const { gradient } = paint
+  const ancho = bbox.x1 - bbox.x0
+  const alto = bbox.y1 - bbox.y0
+  const px1 = bbox.x0 + gradient.x1 * ancho
+  const py1 = bbox.y0 + gradient.y1 * alto
+  const px2 = bbox.x0 + gradient.x2 * ancho
+  const py2 = bbox.y0 + gradient.y2 * alto
+  const dx = px2 - px1
+  const dy = py2 - py1
+  const largo = dx * dx + dy * dy
+
+  const t = largo === 0 ? 0 : Math.max(0, Math.min(1, ((x - px1) * dx + (y - py1) * dy) / largo))
+  const stops = gradient.stops
+  const primero = stops[0]
+  if (primero === undefined) return [0, 0, 0]
+
+  let desde = primero
+  let hasta = primero
+
+  for (const stop of stops) {
+    if (stop.offset <= t) desde = stop
+    if (stop.offset >= t) {
+      hasta = stop
+      break
+    }
+  }
+
+  const tramo = hasta.offset - desde.offset
+  const k = tramo === 0 ? 0 : (t - desde.offset) / tramo
+
+  return [
+    Math.round(desde.rgb[0] + (hasta.rgb[0] - desde.rgb[0]) * k),
+    Math.round(desde.rgb[1] + (hasta.rgb[1] - desde.rgb[1]) * k),
+    Math.round(desde.rgb[2] + (hasta.rgb[2] - desde.rgb[2]) * k),
+  ]
+}
+
+/**
+ * Rellena una forma por barrido de líneas, con la regla de llenado `nonzero`.
+ *
+ * Se pinta sobre una rejilla sobremuestreada y se reduce al final: así los
+ * bordes curvos y las diagonales no salen con dientes de sierra, y el coste cae
+ * en el tamaño grande, que se genera una vez.
+ */
+function pintarForma(
+  buffer: Uint8Array,
+  lado: number,
+  forma: Shape,
+  escala: number,
+  aristas: readonly Arista[],
+): void {
+  const x0 = Math.max(0, Math.floor(forma.bbox.x0 * escala) - 1)
+  const y0 = Math.max(0, Math.floor(forma.bbox.y0 * escala) - 1)
+  const x1 = Math.min(lado - 1, Math.ceil(forma.bbox.x1 * escala) + 1)
+  const y1 = Math.min(lado - 1, Math.ceil(forma.bbox.y1 * escala) + 1)
+
+  for (let py = y0; py <= y1; py++) {
+    const sy = py + 0.5
+    const cortes: { x: number; direccion: number }[] = []
+
+    for (const arista of aristas) {
+      const cruza = (arista.y1 <= sy && arista.y2 > sy) || (arista.y2 <= sy && arista.y1 > sy)
+      if (!cruza) continue
+
+      const t = (sy - arista.y1) / (arista.y2 - arista.y1)
+      cortes.push({ x: arista.x1 + t * (arista.x2 - arista.x1), direccion: arista.direccion })
+    }
+
+    if (cortes.length < 2) continue
+    cortes.sort((a, b) => a.x - b.x)
+
+    let vuelta = 0
+
+    for (let i = 0; i < cortes.length - 1; i++) {
+      const corte = cortes[i]
+      if (corte === undefined) continue
+      vuelta += corte.direccion
+      if (vuelta === 0) continue
+
+      const desde = Math.max(x0, Math.ceil(corte.x - 0.5))
+      const hasta = Math.min(x1, Math.floor((cortes[i + 1]?.x ?? corte.x) - 0.5))
+
+      for (let px = desde; px <= hasta; px++) {
+        const rgb = colorEn(forma.paint, (px + 0.5) / escala, (py + 0.5) / escala, forma.bbox)
+        const alfa = forma.paint.alpha
+        const base = (py * lado + px) * 4
+
+        if (alfa >= 1) {
+          buffer[base] = rgb[0]
+          buffer[base + 1] = rgb[1]
+          buffer[base + 2] = rgb[2]
+          buffer[base + 3] = 255
+        } else {
+          const destino = (buffer[base + 3] ?? 0) / 255
+          const salida = alfa + destino * (1 - alfa)
+          buffer[base] = Math.round(
+            (rgb[0] * alfa + (buffer[base] ?? 0) * destino * (1 - alfa)) / salida,
+          )
+          buffer[base + 1] = Math.round(
+            (rgb[1] * alfa + (buffer[base + 1] ?? 0) * destino * (1 - alfa)) / salida,
+          )
+          buffer[base + 2] = Math.round(
+            (rgb[2] * alfa + (buffer[base + 2] ?? 0) * destino * (1 - alfa)) / salida,
+          )
+          buffer[base + 3] = Math.round(salida * 255)
+        }
+      }
+    }
+  }
+}
+
+/** Reduce la rejilla sobremuestreada, ponderando por alfa para no oscurecer los bordes. */
+function reducir(buffer: Uint8Array, lado: number, size: number, factor: number): Uint8Array {
+  const salida = new Uint8Array(size * size * 4)
+  const muestras = factor * factor
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let r = 0
+      let g = 0
+      let b = 0
+      let a = 0
+
+      for (let sy = 0; sy < factor; sy++) {
+        for (let sx = 0; sx < factor; sx++) {
+          const base = ((y * factor + sy) * lado + x * factor + sx) * 4
+          const alfa = (buffer[base + 3] ?? 0) / 255
+          a += alfa
+          r += (buffer[base] ?? 0) * alfa
+          g += (buffer[base + 1] ?? 0) * alfa
+          b += (buffer[base + 2] ?? 0) * alfa
+        }
+      }
+
+      const base = (y * size + x) * 4
+      const alfa = a / muestras
+
+      salida[base] = a === 0 ? 0 : Math.round(r / a)
+      salida[base + 1] = a === 0 ? 0 : Math.round(g / a)
+      salida[base + 2] = a === 0 ? 0 : Math.round(b / a)
+      salida[base + 3] = Math.round(alfa * 255)
+    }
+  }
+
+  return salida
+}
+
+function rasterizarSvg(size: number): Uint8Array {
+  const factor = size <= 128 ? SUPERMUESTREO : 2
+  const lado = size * factor
+  const escala = lado / 1254
+  const buffer = new Uint8Array(lado * lado * 4)
+
+  for (const forma of DOCUMENTO.formas) {
+    pintarForma(buffer, lado, forma, escala, aristasDe(forma.polylines, escala))
+  }
+
+  return reducir(buffer, lado, size, factor)
+}
+
+// --- La marca micro ---------------------------------------------------------
 
 /**
  * La marca reducida: la «R» desnuda, sin raposa, sin órbita y sin destello.
  *
- * A 16 px la silueta completa es una mancha de crema con un punto: se midió.
- * Lo que sobrevive es la letra, con el palo y la pierna a dos píxeles y el
- * contador abierto. Es la misma marca, contada con menos piezas.
+ * A 16 px la silueta completa es una mancha de crema con un punto: se midió. Lo
+ * que sobrevive es la letra, con el palo y la pierna a dos píxeles y el contador
+ * abierto. Es la misma marca, contada con menos piezas.
  */
 const MICRO = {
+  background: [0x0a, 0x07, 0x0d] as Rgb,
+  cream: [0xfa, 0xe8, 0xda] as Rgb,
+  plateRadius: 0.185,
   stem: { x0: 0.245, x1: 0.375, y0: 0.205, y1: 0.795, r: 0.02 },
   bowl: { cx: 0.485, cy: 0.375, rx: 0.225, ry: 0.18 },
   hole: { cx: 0.485, cy: 0.375, rx: 0.1, ry: 0.09 },
@@ -125,149 +787,24 @@ const MICRO = {
   ] as readonly Point[],
 } as const
 
-/** Signo del producto vectorial: positivo a un lado de la recta, negativo al otro. */
-function side(x: number, y: number, a: Point, b: Point): number {
-  return (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0])
-}
-
-/** Interiores de un polígono convexo, sea cual sea el sentido de sus vértices. */
-function insideConvexPolygon(x: number, y: number, points: readonly Point[]): boolean {
-  const orientacion = signedArea(points) >= 0 ? 1 : -1
-
-  for (let i = 0; i < points.length; i++) {
-    const a = points[i]
-    const b = points[(i + 1) % points.length]
-    if (a === undefined || b === undefined) continue
-    if (side(x, y, a, b) * orientacion < 0) return false
-  }
-
-  return true
-}
-
-function distanceToSegment(x: number, y: number, a: Point, b: Point): number {
-  const dx = b[0] - a[0]
-  const dy = b[1] - a[1]
-  const largo = dx * dx + dy * dy
-  const t = largo === 0 ? 0 : Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / largo))
-  const px = a[0] + t * dx
-  const py = a[1] + t * dy
-
-  return Math.hypot(x - px, y - py)
-}
-
-function centroid(points: readonly Point[]): Point {
-  let x = 0
-  let y = 0
-
-  for (const p of points) {
-    x += p[0]
-    y += p[1]
-  }
-
-  return [x / points.length, y / points.length]
-}
-
-/**
- * El área con signo: dice hacia dónde giran los vértices y, con eso, cuál es el
- * lado interior de cada arista.
- */
-function signedArea(points: readonly Point[]): number {
-  let suma = 0
-
-  for (let i = 0; i < points.length; i++) {
-    const a = points[i]
-    const b = points[(i + 1) % points.length]
-    if (a === undefined || b === undefined) continue
-    suma += a[0] * b[1] - b[0] * a[1]
-  }
-
-  return suma / 2
-}
-
-/** El punto donde se cruzan dos rectas dadas por su normal y su término. */
-function intersect(
-  a: { readonly nx: number; readonly ny: number; readonly c: number },
-  b: { readonly nx: number; readonly ny: number; readonly c: number },
-): Point {
-  const det = a.nx * b.ny - a.ny * b.nx
-  if (Math.abs(det) < 1e-9) return [0, 0]
-
-  return [(a.c * b.ny - b.c * a.ny) / det, (a.nx * b.c - b.nx * a.c) / det]
-}
-
-/**
- * El polígono encogido: cada arista se desplaza `radius` hacia dentro y los
- * vértices nuevos son los cruces de las aristas desplazadas.
- *
- * Encoger escalando sobre el centro —lo que se hacía antes— funciona en un
- * cuadrado, pero una pierna larga y fina se acorta hasta desaparecer: el
- * inradio es su mitad de ancho, y escalar por eso mata también la longitud.
- */
-function erode(points: readonly Point[], radius: number): readonly Point[] {
-  const signo = signedArea(points) >= 0 ? 1 : -1
-  const rectas = points.map((a, i) => {
-    const b = points[(i + 1) % points.length] ?? a
-    const dx = b[0] - a[0]
-    const dy = b[1] - a[1]
-    const largo = Math.hypot(dx, dy) || 1
-    // La normal interior es la de la arista girada un cuarto de vuelta.
-    const nx = (-dy / largo) * signo
-    const ny = (dx / largo) * signo
-
-    return { nx, ny, c: nx * a[0] + ny * a[1] + radius }
-  })
-
-  return rectas.map((recta, i) => {
-    const previa = rectas[(i - 1 + rectas.length) % rectas.length] ?? recta
-
-    return intersect(previa, recta)
-  })
-}
-
-/** El radio máximo que admite el polígono sin que la erosión lo dé la vuelta. */
-function inradius(points: readonly Point[]): number {
-  const interior = erode(points, 0)
-  const [cx, cy] = centroid(interior)
-  let menor = Number.POSITIVE_INFINITY
-
-  for (let i = 0; i < interior.length; i++) {
-    const a = interior[i]
-    const b = interior[(i + 1) % interior.length]
-    if (a === undefined || b === undefined) continue
-    menor = Math.min(menor, distanceToSegment(cx, cy, a, b))
-  }
-
-  return menor
-}
-
-/**
- * Un polígono con las esquinas redondeadas: su versión encogida, más un disco
- * del radio pedido alrededor (la suma de Minkowski).
- */
-function insideRoundedPolygon(
+function dentroDeRectangulo(
   x: number,
   y: number,
-  points: readonly Point[],
-  radius: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  radio: number,
 ): boolean {
-  const r = Math.min(radius, inradius(points) * 0.9)
-  const encogido = erode(points, r)
+  const qx = Math.max(x0 + radio, Math.min(x1 - radio, x))
+  const qy = Math.max(y0 + radio, Math.min(y1 - radio, y))
+  const dx = x - qx
+  const dy = y - qy
 
-  if (insideConvexPolygon(x, y, encogido)) return true
-
-  let menor = Number.POSITIVE_INFINITY
-
-  for (let i = 0; i < encogido.length; i++) {
-    const desde = encogido[i]
-    const hasta = encogido[(i + 1) % encogido.length]
-    if (desde === undefined || hasta === undefined) continue
-    menor = Math.min(menor, distanceToSegment(x, y, desde, hasta))
-  }
-
-  return menor <= r
+  return dx * dx + dy * dy <= radio * radio
 }
 
-function insideEllipse(
+function dentroDeElipse(
   x: number,
   y: number,
   cx: number,
@@ -281,199 +818,38 @@ function insideEllipse(
   return dx * dx + dy * dy <= 1
 }
 
-/** Rectángulo redondeado: la distancia al rectángulo encogido, comparada con el radio. */
-function insideRoundedRect(
-  x: number,
-  y: number,
-  x0: number,
-  y0: number,
-  x1: number,
-  y1: number,
-  radius: number,
-): boolean {
-  const qx = Math.max(x0 + radius, Math.min(x1 - radius, x))
-  const qy = Math.max(y0 + radius, Math.min(y1 - radius, y))
-  const dx = x - qx
-  const dy = y - qy
+/** Interiores de un polígono convexo, sea cual sea el sentido de sus vértices. */
+function dentroDePoligonoConvexo(x: number, y: number, puntos: readonly Point[]): boolean {
+  const signo = area(puntos) >= 0 ? 1 : -1
 
-  return dx * dx + dy * dy <= radius * radius
-}
-
-/** Una superelipse: con exponente menor que uno, el rombo se vuelve destello. */
-function insideSparkle(x: number, y: number): boolean {
-  const dx = Math.abs((x - SPARK.cx) / SPARK.rx)
-  const dy = Math.abs((y - SPARK.cy) / SPARK.ry)
-
-  return dx ** 0.52 + dy ** 0.52 <= 1
-}
-
-/** El aro de la órbita, con grosor que depende del ángulo. */
-function insideOrbit(x: number, y: number): boolean {
-  const cos = Math.cos(ORBIT.rot)
-  const sin = Math.sin(ORBIT.rot)
-  const dx = x - ORBIT.cx
-  const dy = y - ORBIT.cy
-  const rx = dx * cos + dy * sin
-  const ry = -dx * sin + dy * cos
-
-  const theta = Math.atan2(ry / ORBIT.ry, rx / ORBIT.rx)
-  const ex = ORBIT.rx * Math.cos(theta)
-  const ey = ORBIT.ry * Math.sin(theta)
-  const distancia = Math.hypot(rx - ex, ry - ey)
-
-  // Grueso en la bajada izquierda y fino al coronar por la derecha: así la
-  // órbita se lee como un trazo y no como un anillo de planetario.
-  const t = (0.5 - 0.5 * Math.cos(theta)) ** 0.8
-  const grosor = 0.012 + 0.04 * t
-
-  return distancia <= grosor / 2
-}
-
-function mixColor(a: Rgba, b: Rgba, t: number): Rgba {
-  const k = Math.max(0, Math.min(1, t))
-
-  return [
-    Math.round(a[0] + (b[0] - a[0]) * k),
-    Math.round(a[1] + (b[1] - a[1]) * k),
-    Math.round(a[2] + (b[2] - a[2]) * k),
-    Math.round(a[3] + (b[3] - a[3]) * k),
-  ]
-}
-
-/** Lo que se puede permitir el dibujo a cada tamaño. */
-interface Detail {
-  readonly micro: boolean
-  readonly glow: boolean
-  readonly earInner: boolean
-  readonly playPlate: boolean
-  readonly orbit: boolean
-  readonly sparkle: boolean
-}
-
-function detailFor(size: number): Detail {
-  if (size >= 128) {
-    return {
-      micro: false,
-      glow: true,
-      earInner: true,
-      playPlate: true,
-      orbit: true,
-      sparkle: true,
-    }
+  for (let i = 0; i < puntos.length; i++) {
+    const a = puntos[i]
+    const b = puntos[(i + 1) % puntos.length]
+    if (a === undefined || b === undefined) continue
+    const cruz = (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0])
+    if (cruz * signo < 0) return false
   }
 
-  if (size >= 48) {
-    return {
-      micro: false,
-      glow: false,
-      earInner: true,
-      playPlate: true,
-      orbit: true,
-      sparkle: false,
-    }
-  }
-
-  // En la bandeja y el favicon sólo queda la marca desnuda: la «R» gruesa.
-  return {
-    micro: true,
-    glow: false,
-    earInner: false,
-    playPlate: false,
-    orbit: false,
-    sparkle: false,
-  }
+  return true
 }
 
-function isBody(x: number, y: number): boolean {
-  if (insideEllipse(x, y, HEAD.cx, HEAD.cy, HEAD.rx, HEAD.ry)) return true
-
-  if (insideRoundedPolygon(x, y, EAR_LEFT, 0.024)) return true
-  if (insideRoundedPolygon(x, y, mirror(EAR_LEFT), 0.024)) return true
-
-  if (insideRoundedRect(x, y, STEM.x0, STEM.y0, STEM.x1, STEM.y1, STEM.r)) return true
-
-  return insideRoundedPolygon(x, y, LEG, 0.03)
-}
-
-function mirror(points: readonly Point[]): readonly Point[] {
-  const eje = 0.475
-
-  return points.map(([x, y]) => [eje * 2 - x, y] as Point)
-}
-
-/** El mismo polígono, agrandado o encogido sobre su centro. */
-function scale(points: readonly Point[], factor: number): readonly Point[] {
-  const [cx, cy] = centroid(points)
-
-  return points.map(([x, y]) => [cx + (x - cx) * factor, cy + (y - cy) * factor] as Point)
-}
-
-/** El triángulo de tinta que enmarca el play: un escalón de contorno, no un borde. */
-const PLAY_PLATE = scale(PLAY, 1.22)
-
-function isMicroBody(x: number, y: number): boolean {
+function dentroDeLaMicro(x: number, y: number): boolean {
   const { stem, bowl, hole, leg } = MICRO
 
-  if (insideRoundedRect(x, y, stem.x0, stem.y0, stem.x1, stem.y1, stem.r)) return true
+  if (dentroDeRectangulo(x, y, stem.x0, stem.y0, stem.x1, stem.y1, stem.r)) return true
   if (
-    insideEllipse(x, y, bowl.cx, bowl.cy, bowl.rx, bowl.ry) &&
-    !insideEllipse(x, y, hole.cx, hole.cy, hole.rx, hole.ry)
+    dentroDeElipse(x, y, bowl.cx, bowl.cy, bowl.rx, bowl.ry) &&
+    !dentroDeElipse(x, y, hole.cx, hole.cy, hole.rx, hole.ry)
   ) {
     return true
   }
 
-  return insideRoundedPolygon(x, y, leg, 0.02)
+  return dentroDePoligonoConvexo(x, y, leg)
 }
 
-function sample(x: number, y: number, detail: Detail): Rgba {
-  if (!insideRoundedRect(x, y, 0, 0, 1, 1, PLATE_RADIUS)) return NADA
-
-  if (detail.micro) return isMicroBody(x, y) ? CREAM : PLATE
-
-  let color: Rgba = PLATE
-
-  if (detail.glow) {
-    const dx = (x - 0.42) / 0.34
-    const dy = (y - 0.36) / 0.34
-    const brillo = Math.exp(-(dx * dx + dy * dy) * 1.9)
-    color = mixColor(PLATE, PLATE_LIFT, brillo)
-  }
-
-  // La órbita va antes del cuerpo: sólo se ve el arco que sale de la silueta,
-  // como el anillo de un planeta. Por delante cruzaba la cara y el contador.
-  if (detail.orbit && insideOrbit(x, y)) color = CORAL
-
-  if (isBody(x, y)) color = CREAM
-
-  if (detail.earInner) {
-    if (insideRoundedPolygon(x, y, EAR_LEFT_IN, 0.012)) color = CORAL
-    if (insideRoundedPolygon(x, y, mirror(EAR_LEFT_IN), 0.012)) color = CORAL
-  }
-
-  // Con sitio, el play lleva su contorno de tinta; sin él, es tinta directa
-  // sobre crema, que es el par que sobrevive a 16 px.
-  if (detail.playPlate && insideRoundedPolygon(x, y, PLAY_PLATE, 0.03)) color = INK
-  if (insideRoundedPolygon(x, y, PLAY, 0.02)) {
-    color = detail.playPlate ? CORAL : INK
-  }
-
-  if (detail.sparkle && insideSparkle(x, y)) color = CREAM
-
-  return color
-}
-
-/**
- * Los píxeles RGBA de un lado, con supermuestreo.
- *
- * Se promedian las muestras de cada píxel en vez de decidir con su centro: sin
- * esto, el borde de la silueta sale escalonado y el icono parece roto en los
- * tamaños grandes. El muestreo baja con el tamaño porque un píxel de 1024 no
- * necesita las mismas muestras que uno de 16.
- */
-export function render(size: number): Uint8Array {
+function rasterizarMicro(size: number): Uint8Array {
   const rgba = new Uint8Array(size * size * 4)
-  const detail = detailFor(size)
-  const muestras = size <= 64 ? 4 : size <= 256 ? 3 : 2
+  const muestras = 4
   const total = muestras * muestras
 
   for (let py = 0; py < size; py++) {
@@ -481,32 +857,40 @@ export function render(size: number): Uint8Array {
       let r = 0
       let g = 0
       let b = 0
-      let a = 0
+      let dentro = 0
 
       for (let sy = 0; sy < muestras; sy++) {
         for (let sx = 0; sx < muestras; sx++) {
-          const [cr, cg, cb, ca] = sample(
-            (px + (sx + 0.5) / muestras) / size,
-            (py + (sy + 0.5) / muestras) / size,
-            detail,
-          )
-          r += cr
-          g += cg
-          b += cb
-          a += ca
+          const x = (px + (sx + 0.5) / muestras) / size
+          const y = (py + (sy + 0.5) / muestras) / size
+
+          if (!dentroDeRectangulo(x, y, 0, 0, 1, 1, MICRO.plateRadius)) continue
+
+          dentro++
+          const tinta = dentroDeLaMicro(x, y) ? MICRO.cream : MICRO.background
+          r += tinta[0]
+          g += tinta[1]
+          b += tinta[2]
         }
       }
 
       const base = (py * size + px) * 4
-      rgba[base] = Math.round(r / total)
-      rgba[base + 1] = Math.round(g / total)
-      rgba[base + 2] = Math.round(b / total)
-      rgba[base + 3] = Math.round(a / total)
+      rgba[base] = dentro === 0 ? 0 : Math.round(r / dentro)
+      rgba[base + 1] = dentro === 0 ? 0 : Math.round(g / dentro)
+      rgba[base + 2] = dentro === 0 ? 0 : Math.round(b / dentro)
+      rgba[base + 3] = Math.round((dentro / total) * 255)
     }
   }
 
   return rgba
 }
+
+/** Los píxeles RGBA de un lado: el SVG por encima de 32 px, la «R» desnuda por debajo. */
+export function render(size: number): Uint8Array {
+  return size <= 32 ? rasterizarMicro(size) : rasterizarSvg(size)
+}
+
+// --- Los contenedores -------------------------------------------------------
 
 const CRC_TABLE = ((): Uint32Array => {
   const table = new Uint32Array(256)
