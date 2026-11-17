@@ -18,6 +18,10 @@
  * asomo. Un control dentro de otro control no es un control, y la navegación por
  * teclado de la cuadrícula cuenta con el enlace.
  *
+ * **El motivo va en el pie, no en el asomo**: es la razón de que la pieza esté en
+ * la fila del motor, y el producto promete leerla sin abrir nada. En el asomo no
+ * existía para quien va con un dedo.
+ *
  * El arte no cambia con el tema: sobre la pieza el texto es crema en los dos,
  * porque debajo hay un degradado oscuro y no el fondo de la aplicación.
  */
@@ -125,9 +129,9 @@ export interface PiezaProps {
   readonly resto?: string | undefined
   readonly progreso?: number | undefined
   readonly progresoEtiqueta?: string | undefined
-  /** El sello de origen y de otras fuentes, en Buscar. */
+  /** El sello de lo que ya está en tus fuentes, en la búsqueda cruzada. */
   readonly sello?: readonly string[] | undefined
-  /** Lo que cuenta la pieza: sinopsis y motivo, en el asomo y en la hoja. */
+  /** La sinopsis, en el asomo y en la hoja. El motivo va en el pie y en la hoja. */
   readonly sinopsis?: string | undefined
   readonly motivo?: string | undefined
   /**
@@ -233,6 +237,15 @@ export function Pieza(props: PiezaProps): ReactNode {
             {props.title}
           </span>
           {props.meta === undefined ? null : <span className="pz__meta">{props.meta}</span>}
+          {/*
+            El motivo, en el pie y no sólo en el asomo.
+
+            Es la razón de que la pieza esté en la fila del motor y el producto la
+            promete legible «sin abrir nada»; en el asomo no existe para quien va
+            con un dedo, y con el puntero obligaba a pasar por encima para saber
+            por qué. Va después de la línea de datos, como cierra una ficha.
+          */}
+          {props.motivo === undefined ? null : <span className="pz__motivo">{props.motivo}</span>}
         </span>
 
         {props.episodio === undefined && props.progreso === undefined ? null : (
@@ -267,10 +280,14 @@ export function Pieza(props: PiezaProps): ReactNode {
 
       {hayHoja ? (
         <span className="pz__asomo">
+          {/*
+            El asomo lleva la sinopsis y los mandos; el motivo ya está en el pie,
+            donde se lee sin pasar el puntero. Repetirlo aquí era la misma frase
+            dos veces en la misma pieza.
+          */}
           {props.sinopsis === undefined ? null : (
             <span className="pz__sinopsis">{props.sinopsis}</span>
           )}
-          {props.motivo === undefined ? null : <span className="pz__motivo">{props.motivo}</span>}
           <span className="pz__acciones">
             <Link to={props.to} className="button button--primary">
               {t(DEFAULT_LOCALE, 'home.pieza.ficha')}

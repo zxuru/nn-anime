@@ -193,6 +193,59 @@ describe('contraste de la barra de progreso', () => {
 })
 
 /**
+ * Las mismas capas cuando los mandos van sobre la página.
+ *
+ * En un teléfono la banda deja de superponerse al video (ver `vitrina.css`) y
+ * detrás está el fondo del tema. El par crema del degradado quedaba a 1,03:1 en
+ * el claro; estos tokens son los que la media query usa y se miden contra
+ * `--color-bg` en los dos temas.
+ */
+describe('contraste de la barra sobre la página', () => {
+  /** Compone `rgb(r g b / a)` sobre un fondo opaco y devuelve el hexadecimal. */
+  function sobre(color: string, fondo: string): string {
+    const hex = /^#([0-9a-f]{6})\b/i.exec(color.trim())
+    if (hex?.[1] !== undefined) return `#${hex[1]}`
+
+    const numeros = (color.match(/[\d.]+/g) ?? []).map(Number)
+    const [r = 0, g = 0, b = 0] = numeros
+    const alfa = (numeros[3] ?? 100) / 100
+    const canales = (fondo.replace('#', '').match(/../g) ?? []).map((par) =>
+      Number.parseInt(par, 16),
+    )
+    const canal = (indice: number, valor: number): string =>
+      Math.round(valor * alfa + (canales[indice] ?? 0) * (1 - alfa))
+        .toString(16)
+        .padStart(2, '0')
+
+    return `#${canal(0, r)}${canal(1, g)}${canal(2, b)}`
+  }
+
+  test('el carril y el búfer pasan el 3:1 sobre el fondo de cada tema', async () => {
+    const css = await Bun.file(TOKENS).text()
+    const [oscuro = '', claro = ''] = css.split(/\[data-theme=["']light["']\]/)
+
+    for (const [nombre, bloque] of [
+      ['oscuro', oscuro],
+      ['claro', claro],
+    ] as const) {
+      const valor = (token: string): string =>
+        new RegExp(`--${token}:\\s*([^;]+);`).exec(bloque)?.[1]?.trim() ?? ''
+      const fondo = /--color-bg:\s*(#[0-9a-f]{6})/i.exec(bloque)?.[1] ?? ''
+
+      expect(fondo, `${nombre} no define --color-bg`).not.toBe('')
+
+      for (const token of ['seek-track-page', 'seek-buffer-page']) {
+        const capa = valor(token)
+        expect(capa, `${nombre} no define --${token}`).not.toBe('')
+
+        const ratio = contrast(sobre(capa, fondo), fondo)
+        expect(ratio, `--${token} sobre ${fondo} (${nombre})`).toBeGreaterThanOrEqual(3)
+      }
+    }
+  })
+})
+
+/**
  * La lupa de las medidas de color sobre arte.
  *
  * Las usan las dos medidas que componen colores sobre una imagen —el banner de la

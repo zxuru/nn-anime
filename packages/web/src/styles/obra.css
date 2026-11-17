@@ -772,7 +772,96 @@
   display: block;
   width: 100%;
   aspect-ratio: var(--video-ratio);
-  background: var(--color-surface-raised);
+  background: var(--video-plate);
+}
+
+/*
+ * La lámina del primer fotograma.
+ *
+ * Cuando el proveedor no da póster, el hueco se llena con el mismo lenguaje de
+ * las portadas: un campo de degradado, la inicial del título y el episodio en
+ * mono. Es la regla de la casa —«un hueco vacío es una lámina, no un gris»— en
+ * la superficie más grande del producto. Decoración: va `aria-hidden` desde el
+ * componente y no recibe el puntero, así que el clic sigue siendo del video.
+ *
+ * El velo es el de la sala: baja el campo para que el botón y los mandos se lean
+ * sobre él. La letra se mide contra el ancho del marco (`cqi`), no contra la
+ * ventana, y se corta con el `overflow`.
+ */
+.player__plate {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  container-type: inline-size;
+  background-color: var(--video-plate);
+  background-size: cover;
+  /* La lámina es decoración: el clic y el doble clic son del video, que está
+     debajo. Sin esto se comía el gesto que pausa y el que pone pantalla completa. */
+  pointer-events: none;
+}
+
+.player__plate-cover {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+.player__plate-veil {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay);
+}
+
+.player__plate[data-campo="a"] {
+  background-image: var(--cover-a);
+}
+
+.player__plate[data-campo="b"] {
+  background-image: var(--cover-b);
+}
+
+.player__plate[data-campo="c"] {
+  background-image: var(--cover-c);
+}
+
+.player__plate[data-campo="d"] {
+  background-image: var(--cover-d);
+}
+
+.player__plate[data-campo="e"] {
+  background-image: var(--cover-e);
+}
+
+.player__plate[data-campo="f"] {
+  background-image: var(--cover-f);
+}
+
+.player__plate-letter {
+  position: absolute;
+  inset-block-start: var(--arte-letra-alto);
+  inset-inline-start: var(--arte-letra-lado);
+  color: var(--arte-letra);
+  font-family: var(--font-display);
+  font-size: 58cqi;
+  font-weight: 800;
+  line-height: 0.72;
+}
+
+.player__plate-label {
+  position: absolute;
+  inset-block-start: var(--space-4);
+  inset-inline-start: var(--space-4);
+  z-index: 2;
+  color: var(--color-on-overlay);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  opacity: 0.55;
+  text-transform: uppercase;
 }
 
 /*
@@ -867,6 +956,19 @@
 /* La página de debajo no se desplaza mientras el reproductor ocupa la ventana. */
 body.player-extendido {
   overflow: hidden;
+}
+
+/*
+ * La atribución de hls.js no se queda en el modo extendido.
+ *
+ * Ese modo es para ver el contenido, y las notas viven fuera del marco: la
+ * licencia, que está siempre, le quitaba alto a la imagen. Sigue en la pantalla
+ * normal —que es donde se lee—, en el código y en la traducción, que es lo que
+ * Apache 2.0 pide conservar. Las demás notas no se tocan: cuentan algo de esta
+ * reproducción y sólo aparecen cuando pasa.
+ */
+.player[data-extendido="true"] .player__attribution {
+  display: none;
 }
 
 /*
@@ -997,6 +1099,7 @@ body.player-extendido {
    piden silueta, que la pone su propio componente. */
 .player__icon {
   display: block;
+  flex: none;
   width: var(--space-5);
   height: var(--space-5);
 }
@@ -1082,6 +1185,25 @@ body.player-extendido {
   min-width: var(--control-size);
   min-height: var(--control-size);
   padding: 0 var(--space-2);
+}
+
+/*
+ * Los mandos van sobre el video, no sobre la página.
+ *
+ * En el tema claro el botón hereda la tinta del papel —carbón— y sobre el
+ * fotograma oscuro desaparecía. La tinta de encima es la de overlay en los dos
+ * temas, como la del reloj; el hover vuelve a la tinta del tema porque el fondo
+ * que aparece es el de la superficie. El primario no entra: lleva su par de
+ * acento y contraste.
+ */
+.player__controls .button.player__control:not(.button--primary) {
+  border-color: var(--color-on-overlay);
+  color: var(--color-on-overlay);
+}
+
+.player__controls .button.player__control:not(.button--primary):hover {
+  border-color: var(--color-border);
+  color: var(--color-text);
 }
 
 /* El «10» de los saltos, al lado de la flecha: lo que dice cuántos segundos. */
@@ -1419,6 +1541,8 @@ body.player-extendido {
   font-variant-numeric: tabular-nums;
   color: var(--color-on-overlay);
   font-size: var(--text-sm);
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 /*
@@ -1747,7 +1871,13 @@ body.player-extendido {
  * puede leer un token. La lista se desplaza **dentro**: el video se queda donde
  * está mientras se busca el episodio. Y se lleva el alto que le deje la columna
  * del video: al lado, esa columna es la de la pantalla, y la lista enseña tantos
- * episodios como quepan; debajo, manda el tope de siempre.
+ * episodios como quepan.
+ *
+ * El tope de alto va aquí y no en la lista: al lado del reproductor la columna
+ * mide el hueco visible y el `stretch` de la fila ya la deja en su sitio, así
+ * que no recorta nada; debajo del reproductor es lo que impide que mil
+ * episodios estiren la página. `min-block-size: 0` deja que la lista —el hijo
+ * que se desplaza— encoja por debajo de su contenido.
  */
 .watch__aside {
   display: flex;
@@ -1755,7 +1885,9 @@ body.player-extendido {
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
+  min-block-size: 0;
   max-width: var(--watch-episodes-max);
+  max-height: var(--watch-list-height);
 }
 
 .watch__aside-title {
@@ -1768,12 +1900,29 @@ body.player-extendido {
   text-transform: uppercase;
 }
 
+/* El marco reservado mientras se resuelve la fuente: la misma proporción que el
+   video, para que la pantalla no cambie de forma al llegar. */
+.watch__loading-frame {
+  aspect-ratio: var(--video-ratio);
+}
+
+/* La columna de episodios, en su forma de espera. */
+.watch__list-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 /*
  * `flex: 1 1 auto` y `min-block-size: 0` son la pareja que llena la columna: la
  * lista se estira hasta el pie de la pantalla y, si no cabe, se desplaza por
  * dentro en lugar de recortar el último renglón. `min-block-size: 0` no sobra:
  * sin él, un flex item no baja de su tamaño de contenido y el desplazamiento
  * interno no llega a existir.
+ *
+ * Sin `max-height` propio: el tope vive en la columna, que es la que sabe si la
+ * lista va al lado del video —alto del hueco visible— o debajo. Ponerlo aquí
+ * dejaba la lista corta y con barra aunque la columna tuviera sitio de sobra.
  */
 .watch__list {
   display: flex;
@@ -1781,7 +1930,6 @@ body.player-extendido {
   flex-direction: column;
   gap: var(--space-1);
   min-block-size: 0;
-  max-height: var(--watch-list-height);
   margin: 0;
   padding: 0;
   overflow-y: auto;
@@ -1835,9 +1983,26 @@ body.player-extendido {
 }
 
 .watch__list-title {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* La marca de lo visto o lo empezado, en el mismo registro que los números. Es
+   texto y no color: quien no distingue el coral del crema también tiene que
+   saber qué capítulo lleva visto. */
+.watch__list-mark {
+  flex: none;
+  margin-inline-start: auto;
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
 }
 
 /* El estado de la lista y su «ver más»: la columna pide los episodios de cien en
@@ -1857,26 +2022,55 @@ body.player-extendido {
 /*
  * La tarjeta del episodio siguiente.
  *
- * Aparece cuando el episodio termina, con cuenta atrás y dos salidas: seguir
- * ahora o pararla. El marco lleva la sombra del acento porque es lo único que se
- * puede pulsar en ese momento.
+ * Vive **dentro del marco**, no en la columna: aparece cuando el capítulo
+ * termina y es la única decisión de ese momento. En el flujo nacía en y≈850 de
+ * una ventana de 900 y el «Reproducir ahora» quedaba cortado mientras la cuenta
+ * atrás seguía; anclada, la salida está donde se mira y sigue a la vista en
+ * pantalla completa.
+ *
+ * Se apoya por encima de la banda de mandos —el mismo alto que el botón de
+ * saltar— para no taparlos. La sombra dura de acento es la del sistema para lo
+ * que se puede pulsar; el fondo elevado la separa del fotograma.
  */
 .watch__next {
+  position: absolute;
+  inset-inline: var(--space-4);
+  inset-block-end: calc(var(--control-size) * 2 + var(--space-2));
+  z-index: 3;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border: var(--border-width-strong) solid var(--color-border);
   background: var(--color-surface-raised);
-  box-shadow: var(--shadow-hard-accent);
+  box-shadow: var(--shadow-hard);
+}
+
+/* El texto y el nombre del siguiente, en una columna que cede el ancho a los
+   mandos. `min-width: 0` deja que el nombre largo se parta en vez de empujar
+   los botones fuera de la tarjeta. */
+.watch__next-info {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .watch__next-text {
-  flex: 1 1 auto;
   margin: 0;
   font-size: var(--text-sm);
   font-weight: 700;
+}
+
+.watch__next-name {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /*
@@ -1935,6 +2129,32 @@ body.player-extendido {
   font-size: var(--text-sm);
 }
 
+/* La reanudación, en la misma línea del episodio: el dato de dónde se queda
+   forma parte de «por dónde voy», y un renglón nuevo empujaba el video. */
+.watch__resume {
+  color: var(--color-text-dim);
+}
+
+/* «Empezar de cero», un enlace con el acento de lo que se pulsa. */
+.watch__restart {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+  cursor: pointer;
+}
+
+/* El blanco de 44 px, sin cambiar el alto de la línea. */
+.watch__restart::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--space-3) * -1) calc(var(--space-2) * -1);
+}
+
 /*
  * El regreso a la ficha.
  *
@@ -1945,6 +2165,7 @@ body.player-extendido {
  * sin él parecía texto informativo y nadie lo pulsaba.
  */
 .watch__back {
+  position: relative;
   display: inline-block;
   /* Un respiro antes del título: pegado a la línea de base de una display de 48
      px, el enlace se lee como parte del nombre del título y no como un mando. */
@@ -1957,6 +2178,20 @@ body.player-extendido {
   letter-spacing: var(--tracking-label);
   text-decoration: underline;
   text-underline-offset: var(--space-1);
+}
+
+/*
+ * El área que se puede pulsar, sin cambiar el alto del enlace.
+ *
+ * «Volver a la ficha» mide 19 px de alto —es una etiqueta, no una caja— y la
+ * salida de la pantalla no puede quedarse por debajo de los 44 px que el spec
+ * pide a un mando. Se agranda el blanco con un pseudo-elemento en vez de
+ * empujar el título y el video hacia abajo.
+ */
+.watch__back::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--space-3) * -1 - var(--border-width)) calc(var(--space-2) * -1);
 }
 
 .watch__back:hover,
@@ -2014,6 +2249,37 @@ body.player-extendido {
 .audio-switch__option[aria-pressed="true"] {
   background: var(--color-accent);
   color: var(--color-accent-contrast);
+}
+
+/*
+ * Dentro del menú, el conmutador se apila.
+ *
+ * El menú deja 198 px útiles y el par «SUBTITULADO | DOBLADO» necesita 235: en
+ * fila, el segundo se cortaba («DOBLAD») y el popover ganaba un eje horizontal
+ * escondido. En columna los dos caben enteros y el conmutador se lee como el
+ * resto de los bloques del menú, que ya son filas. La copia de debajo del video
+ * sigue en fila, que es donde hay ancho para ella.
+ *
+ * Se apilan los botones y **no** se ensancha el menú: a 320 px el popover se
+ * ancla al engranaje y un ancho mayor lo sacaría por el borde izquierdo.
+ */
+.player__menu .audio-switch {
+  flex-direction: column;
+  align-items: stretch;
+  inline-size: 100%;
+}
+
+.player__menu .audio-switch__item {
+  display: block;
+}
+
+.player__menu .audio-switch__option {
+  inline-size: 100%;
+}
+
+.player__menu .audio-switch__item + .audio-switch__item .audio-switch__option {
+  border-top: var(--border-width-strong) solid var(--color-border);
+  border-left: 0;
 }
 
 /*
@@ -2225,44 +2491,4 @@ body.player-extendido {
   box-shadow: none;
   cursor: not-allowed;
   opacity: 0.6;
-}
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
-.panel__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
-  border-bottom: var(--border-width-strong) solid var(--color-border);
-  padding-bottom: var(--space-3);
-}
-
-.panel__list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.reason {
-  display: block;
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  color: var(--color-text-dim);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: var(--tracking-label);
-}
-
-.score {
-  padding: var(--space-3);
-  border-top: var(--border-width-strong) solid var(--color-border);
-}
-
-.score__reasons {
-  margin: 0;
-  padding-left: var(--space-4);
 }

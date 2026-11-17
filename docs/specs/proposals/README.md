@@ -37,3 +37,12 @@ la escribió T145—. Cuando el cambio no viene de un task, el sufijo es descrip
 Un documento no vive en los dos sitios a la vez: o está en `docs/specs/` y es un contrato, o está en
 `proposals/` y es una propuesta. Integrar una propuesta borra su archivo **en el mismo commit** que
 la aplica.
+
+### Cuando se aprueba por fases
+
+Una propuesta puede aprobarse y aplicarse **en fases** cuando toca varios contratos y cada uno tiene
+su task. En ese caso se queda en `proposals/`, con el estado «aprobada el \<fecha\>» y la tabla de
+fases con lo hecho y lo pendiente, y se borra al integrar la última. Es el caso de
+`SPEC-nn-anime.familias.md`: la fase 1 (el contrato de `core`) está integrada en T257a, y las fases
+2–4 —servidor, interfaz, fixture y e2e— siguen abiertas. Mientras viva aquí, el documento no es el
+contrato: el contrato son los `SPEC-*` que ya llevan la enmienda.

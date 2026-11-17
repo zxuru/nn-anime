@@ -22,6 +22,17 @@ import { join } from 'node:path'
 // desde `/tmp` no se resuelve `@rona/providers-fixture`, y un plugin que no
 // se puede importar no prueba nada. Sigue sin tocarse el `$XDG_*` del usuario.
 const dir = await mkdtemp(join(tmpdir(), 'rona-e2e-'))
+/**
+ * El `PATH` del servidor del e2e, sin mpv.
+ *
+ * `hasMpv` busca el binario en el `PATH`, así que un directorio vacío es un mpv
+ * ausente de verdad: no se finge una bandera en la aplicación. El servidor se
+ * arranca con su ruta absoluta —`process.execPath`— para no necesitar el `PATH`
+ * del padre, y el resto de procesos del arranque no usan ninguno: el navegador
+ * va con `--no-open` y `mpv --version` ni se intenta.
+ */
+const sinMpv = join(dir, 'sin-mpv')
+await mkdir(sinMpv, { recursive: true })
 const config = join(import.meta.dir, '..', '.tmp', 'e2e-config')
 const providers = join(config, 'rona', 'providers')
 await mkdir(providers, { recursive: true })
@@ -293,7 +304,7 @@ const puerto = process.env.RONA_E2E_PORT ?? '7801'
 
 const servidor = Bun.spawn(
   [
-    'bun',
+    process.execPath,
     'run',
     join(import.meta.dir, '..', 'packages', 'cli', 'src', 'index.ts'),
     '--no-open',
@@ -303,6 +314,8 @@ const servidor = Bun.spawn(
   {
     env: {
       ...process.env,
+      // El `PATH` vacío es la ausencia de mpv: es lo que mide el caso del aviso.
+      PATH: sinMpv,
       XDG_CONFIG_HOME: config,
       XDG_DATA_HOME: join(dir, 'data'),
       XDG_CACHE_HOME: join(dir, 'cache'),

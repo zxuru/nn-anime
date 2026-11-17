@@ -49,6 +49,14 @@ export interface WatchNeighbour {
   readonly number: number
   /** La temporada, si el episodio la declara. Viaja al enlace del vecino. */
   readonly season?: number
+  /**
+   * El nombre del episodio, si la lista lo trae.
+   *
+   * Lo usa la tarjeta de «episodio siguiente»: al terminar, decir sólo
+   * «Siguiente» obliga a recordar qué toca. No viaja en la dirección —el
+   * enlace ya lleva el número y la temporada—, sólo se pinta.
+   */
+  readonly title?: string
 }
 
 /** Dónde está el episodio que se ve, con lo que el proveedor haya dicho. */
@@ -98,6 +106,7 @@ function aVecino(episode: Episode | undefined): WatchNeighbour | undefined {
     ref: episode.ref,
     number: episode.number,
     ...(episode.season === undefined ? {} : { season: episode.season }),
+    ...(episode.title === undefined ? {} : { title: episode.title }),
   }
 }
 

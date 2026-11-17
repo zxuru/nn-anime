@@ -396,6 +396,13 @@
   /** Ancho máximo de la portada del cartel de destacado. */
   --hero-poster-width: 22rem;
   --video-ratio: 16 / 9;
+  /**
+   * El fondo del marco cuando no hay imagen todavía.
+   *
+   * Oscuro en los dos temas: el video es pantalla y no papel, y el blanco puro
+   * del tema claro convertía el primer fotograma en una lámpara de 1000×562.
+   */
+  --video-plate: #14141b;
   --title-clamp: 2;
   /**
    * La pantalla de reproducción.
@@ -447,11 +454,16 @@
    *
    * La columna se desplaza por dentro: una serie de mil capítulos no puede
    * empujar hacia abajo lo que hay debajo, y el video tiene que seguir a la vista
-   * mientras se busca el episodio. El tope es el del escenario —la lista nunca es
-   * más alta que el video que tiene al lado— con el suelo de siempre, que es el
-   * que vale cuando la lista cae debajo, en una ventana estrecha.
+   * mientras se busca el episodio.
+   *
+   * El tope es el hueco visible y no una medida fija. Al lado del reproductor la
+   * columna mide justo eso, así que el tope no recorta nada y la lista llena lo
+   * que hay; antes tenía un suelo de 30 rem que en una ventana de 768 dejaba más
+   * de cien píxeles muertos debajo de la lista y, aun así, una barra propia.
+   * Debajo del reproductor —la ventana estrecha— es el único tope que queda: sin
+   * él, mil episodios estirarían la página entera.
    */
-  --watch-list-height: max(30rem, var(--watch-stage-height));
+  --watch-list-height: var(--watch-room-height);
   /** El lado mínimo de un mando: 44 px, el objetivo táctil que pide el spec. */
   --control-size: 2.75rem;
   /**
@@ -553,6 +565,17 @@
   --seek-track: rgb(242 233 216 / 45%);
   --seek-buffer: rgb(242 233 216 / 68%);
   /**
+   * Las mismas capas, pero cuando los mandos van **en la página**.
+   *
+   * En un teléfono la banda de mandos deja de superponerse al video y el fondo
+   * que hay detrás es el de la página, no el degradado negro. Con el par de
+   * arriba, el tema claro dejaba el reloj y el carril a 1,03:1 —crema sobre
+   * papel—. Estos se miden contra `--color-bg` en `a11y.test.ts`; el oscuro
+   * conserva el crema, el claro pasa a tinta.
+   */
+  --seek-track-page: rgb(242 233 216 / 45%);
+  --seek-buffer-page: rgb(242 233 216 / 68%);
+  /**
    * El menú de ajustes del reproductor.
    *
    * 240 px: lo que mide el mando que lo abre más un dedo. Se ancla **encima** del
@@ -561,7 +584,7 @@
    * subtítulos larga se desplaza por dentro en vez de empujar el menú.
    */
   --menu-width: 15rem;
-  --menu-height: 24rem;
+  --menu-height: 27rem;
   --letter-tight: -0.01em;
   --content-max: 1200px;
   --header-height: 3.5rem;
@@ -639,27 +662,27 @@
    * ocuparía la pantalla entera: ahí la pieza vuelve a ser una banda ancha —lo que
    * ya era— y se ven cuatro títulos por pantalla en vez de uno.
    */
-  --pieza-banda: clamp(6rem, 30vw, 9rem);
+  --pieza-banda: clamp(7rem, 33vw, 9.5rem);
   /** Las columnas de la rejilla de 12 que ocupa la nota al margen. */
   --vitrina-canaleta: 2;
-  /**
-   * Cuántas piezas lleva la fila del mosaico.
-   *
-   * El valor por defecto es la rejilla completa; el contenedor lo cambia en línea
-   * al número de hijos reales, y la hoja compone tantas pistas como diga. Un
-   * mosaico sin la propiedad —uno pintado a mano— sigue siendo el de seis.
-   */
-  --mosaico-piezas: 6;
   /** El aire entre el encabezado y la nota al margen pegajosa. */
   --vitrina-nota-aire: 1.25rem;
 
-  /** La marquesina: a sangre, 62 dvh, con el titular en cuerpo de cartel. */
-  --marquesina-alto: min(62dvh, 44rem);
+  /**
+   * La marquesina: a sangre, 58 dvh, con el titular en cuerpo de cartel.
+   *
+   * El alto declarado **es el que se pinta**: el titular bajó de 7,5 a 5,5 rem y
+   * el relleno de abajo se ajustó para que la columna de texto quepa dentro. Con
+   * el titular a 7,5 rem la marquesina medía 772 px sobre 900 —el doble de lo que
+   * decía el token— y empujaba la primera fila de la home por debajo del pliegue:
+   * «Continuar viendo» empezaba en 910 px con 900 de ventana.
+   */
+  --marquesina-alto: min(58dvh, 40rem);
   --marquesina-cols: minmax(0, 1fr) minmax(0, 0.58fr);
   --marquesina-aire: clamp(1rem, 3vw, 3rem);
-  --marquesina-relleno: clamp(1.5rem, 4vw, 4rem) var(--vitrina-margen) clamp(5rem, 10vw, 7rem);
+  --marquesina-relleno: clamp(1.5rem, 4vw, 4rem) var(--vitrina-margen) clamp(4.5rem, 8vw, 6rem);
   --marquesina-texto-hueco: clamp(0.6rem, 1.4vw, 1rem);
-  --marquesina-titulo: clamp(3rem, 9vw, 7.5rem);
+  --marquesina-titulo: clamp(2.75rem, 7vw, 5.5rem);
   /**
    * Los renglones que puede ocupar el titular.
    *
@@ -714,6 +737,14 @@
   --pieza-posicion: clamp(3rem, 14cqi, 6rem);
   --pieza-episodio: clamp(1rem, 3cqi + 0.4rem, 1.35rem);
   --pieza-sinopsis: var(--text-md);
+  /**
+   * El motivo de una recomendación, en la pieza y en el asomo.
+   *
+   * Un paso por encima del rótulo de datos (`--text-xs`): el motivo es una frase
+   * que se lee, no un dato que se consulta, y era la línea menos legible de la
+   * pieza. Va en caja baja, así que necesita cuerpo para sostener el renglón.
+   */
+  --pieza-motivo: var(--text-sm);
   --nota-titulo: clamp(1.25rem, 1.9vw, 1.75rem);
   --genero-nombre: clamp(1.5rem, 5.5vw, 3.25rem);
   /** El recuento del género, en voladizo sobre la esquina de la palabra. */
@@ -808,12 +839,6 @@
     rgb(8 8 10 / 62%) 34%,
     rgb(8 8 10 / 0%) 78%
   );
-  --velo-campo: linear-gradient(
-    200deg,
-    rgb(8 8 10 / 55%) 0%,
-    rgb(8 8 10 / 12%) 55%,
-    rgb(8 8 10 / 62%) 100%
-  );
 
   /**
    * El velo del puesto, que es lo que hace legible la cifra del top.
@@ -865,7 +890,16 @@
   --marquesina-tinta-dato: 88%;
   --marquesina-tinta-prosa: 82%;
   --marquesina-tinta-marca: 80%;
-  --marquesina-tinta-motivo: 74%;
+  /**
+   * El motivo, en el registro de la prosa.
+   *
+   * Estaba al 74 %, que es lo que da la jerarquía de un rótulo; pero el motivo no
+   * es un rótulo, es la frase que explica la recomendación. Sobre el arte del
+   * destacado medía 3,9:1 de media y 3,28:1 en la esquina coral a 390 px —por
+   * debajo del 4,5:1 que pide el spec—: el 74 % era el número que la dejaba corta.
+   * El velo de la marquesina también se reforzó (ver `--velo-campo`).
+   */
+  --marquesina-tinta-motivo: 88%;
   --marquesina-tinta-hueso: 22%;
 
   /**
@@ -922,7 +956,7 @@
   --mando-punto-lado: 3px;
   --mando-cuerpo-alto: 1.15rem;
   --mando-cuerpo-largo: 0.65rem;
-  /** El relleno de un sello de origen, en Buscar. */
+  /** El relleno de un sello, en la vitrina y en la búsqueda cruzada. */
   --sello-relleno: 0.2rem 0.4rem;
   /** El asa del panel inferior, que se arrastra hacia abajo para cerrarlo. */
   --panel-asa-ancho: 2.5rem;
@@ -984,6 +1018,10 @@
   --color-control-border: rgb(20 18 15 / 55%);
   --color-skeleton: #ded7c9;
   --color-skeleton-shine: #ece6da;
+  /* Los mandos en la página, con tinta en vez de crema: sobre papel, el carril
+     del reproductor quedaba invisible. */
+  --seek-track-page: rgb(20 18 15 / 55%);
+  --seek-buffer-page: rgb(20 18 15 / 75%);
   --shadow-1: 0 1px 2px rgb(12 12 16 / 12%);
   --shadow-2: 0 8px 24px rgb(12 12 16 / 18%);
   /* En claro la sombra dura va en negro: el acento sobre crema no se distingue. */

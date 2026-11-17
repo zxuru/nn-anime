@@ -1,6 +1,9 @@
 {
   "lockfileVersion": 2,
   "configVersion": 1,
+  "patchedDependencies": {
+    "picomatch@4.0.7": "patches/picomatch@4.0.7.patch",
+  },
   "workspaces": {
     "": {
       "name": "rona",
@@ -11,6 +14,7 @@
       "devDependencies": {
         "@biomejs/biome": "^2.6.7",
         "@playwright/test": "^1.65.0",
+        "picomatch": "4.0.7",
         "@rona/catalog-store": "workspace:*",
         "@rona/core": "workspace:*",
         "@rona/media-proxy": "workspace:*",

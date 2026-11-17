@@ -1,16 +1,19 @@
 import { describe, expect, test } from 'bun:test'
 import type { ContinueWatchingItem, RecommendationResponse } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { AnimeSummary } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { ApiError } from '../../api/client'
 import { describirFallo } from '../../api/fallo'
+import { t } from '../../i18n'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { ContinueRow } from './ContinueRow'
 import { desdeResumen, type PiezaVista } from './descubrir'
 import { FavoritesRow } from './FavoritesRow'
 import { FeaturedHero } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
+import { GenreRow } from './GenreRow'
 import {
   featuredOf,
   HomePage,
@@ -18,6 +21,7 @@ import {
   minutosDesde,
   piezasDelTop,
   piezasDeNovedades,
+  sinRepetirSiQueda,
   textoDeRefresco,
 } from './HomePage'
 import { esPrimerArranque, PrimerArranque } from './PrimerArranque'
@@ -257,6 +261,51 @@ describe('las filas, cuando una lectura falla', () => {
     expect(filas.feed).toEqual([])
   })
 
+  test('una parrilla caída sin datos se marca como caída; con datos, no', () => {
+    const caida = combineRows({
+      continueWatching: ok({ items: [] }),
+      favorites: ok({ favorites: [] }),
+      trending: ok({ items: [] }),
+      feed: ok({ items: [] }),
+      recent: ok({ items: [] }),
+      descubrir: ok({ items: [] }),
+      parrilla: mal,
+      emisiones: mal,
+    })
+
+    expect(caida.parrilla).toEqual([])
+    expect(caida.parrillaCaida).toBe(true)
+    expect(caida.emisionesCaida).toBe(true)
+
+    const viva = combineRows({
+      continueWatching: ok({ items: [] }),
+      favorites: ok({ favorites: [] }),
+      trending: ok({ items: [] }),
+      feed: ok({ items: [] }),
+      recent: ok({ items: [] }),
+      descubrir: ok({ items: [] }),
+      parrilla: ok({ items: [] }),
+      emisiones: ok({ items: [] }),
+    })
+
+    expect(viva.parrillaCaida).toBe(false)
+    expect(viva.emisionesCaida).toBe(false)
+
+    const apagada = combineRows({
+      continueWatching: ok({ items: [] }),
+      favorites: ok({ favorites: [] }),
+      trending: ok({ items: [] }),
+      feed: ok({ items: [] }),
+      recent: ok({ items: [] }),
+      descubrir: ok({ items: [] }),
+      parrilla: ok({ items: [], unavailable: true }),
+      emisiones: ok({ items: [], unavailable: true }),
+    })
+
+    expect(apagada.parrillaCaida).toBe(true)
+    expect(apagada.emisionesCaida).toBe(true)
+  })
+
   test('sin sesión lo dice, en vez de mandar a mirar el servidor', () => {
     // La cookie es de cada navegador: abrir la misma dirección en otro no hereda
     // la sesión, y las cinco lecturas fallan con 401 a la vez.
@@ -281,19 +330,53 @@ describe('las filas, cuando una lectura falla', () => {
 })
 
 describe('la home', () => {
+  test('un título que ya se ve arriba no se repite en otra fila', () => {
+    const vistos = new Set(['aurora nocturna'])
+    const fila: PiezaVista[] = [
+      { clave: 'a', title: 'Aurora Nocturna', to: '/anime/a' },
+      { clave: 'b', title: 'Mar de Cristal', to: '/anime/b' },
+    ]
+
+    expect(sinRepetirSiQueda(fila, vistos).map((item) => item.title)).toEqual(['Mar de Cristal'])
+  })
+
+  test('si toda la fila estaba arriba se conserva: una fila vacía es peor', () => {
+    const vistos = new Set(['aurora nocturna'])
+    const fila: PiezaVista[] = [{ clave: 'a', title: 'Aurora Nocturna', to: '/anime/a' }]
+
+    expect(sinRepetirSiQueda(fila, vistos)).toEqual(fila)
+  })
+
+  test('la home no pone un buscador propio: se busca en su pantalla', () => {
+    const html = render(<HomePage />)
+
+    expect(html).not.toContain('home__buscador')
+    expect(html).not.toContain('placeholder="Escribe un título…"')
+  })
+
+  test('las novedades caídas dicen que AniList no contestó', () => {
+    const html = render(<FeedRow items={[]} caido />)
+
+    expect(html).toContain('AniList no ha contestado')
+    expect(html).not.toContain('Ningún proveedor activo publica novedades')
+  })
+
   test('arranca cargando: cada fila enseña esqueletos y no su vacío', () => {
     const html = render(<HomePage />)
 
     // La frase no desaparece: se va al texto que sólo lee un lector de pantalla,
     // porque el esqueleto es decoración y no dice qué está pasando.
-    expect(html).toContain('Cargando tu inicio')
+    expect(html).toContain('Cargando Inicio')
     expect(html).toContain('solo-lectores')
     expect(html).toContain('aria-busy="true"')
 
-    // Siete filas × seis celdas. El número va escrito aquí y no se lee de
+    // Seis filas × seis celdas. El número va escrito aquí y no se lee de
     // `ESQUELETOS_POR_FILA`: si el componente cambia de idea, la prueba lo dice.
-    expect(html.match(/class="esq" aria-hidden="true"/g)?.length).toBe(42)
+    // La séptima fila es la banda de géneros, que ya no es un muro de carteles: su
+    // espera tiene la forma de la palabra, y se comprueba aparte.
+    expect(html.match(/class="esq" aria-hidden="true"/g)?.length).toBe(36)
     expect(html).not.toContain('esq--')
+    expect(html).toContain('Cargando los géneros.')
 
     // Y lo que no se puede decir mientras se carga: los mensajes de vacío.
     for (const vacio of [
@@ -345,6 +428,23 @@ describe('la home', () => {
     for (const despues of ['Top', 'Novedades', 'Tus favoritos']) {
       expect(seguir, despues).toBeLessThan(html.indexOf(despues))
     }
+  })
+
+  /**
+   * La banda de géneros carga con la forma de una banda.
+   *
+   * Su esqueleto era el de un tramo de carteles —seis piezas 2:3— y lo que llega es
+   * una fila de palabras grandes: el tramo cambiaba de alto al cargar y movía todo
+   * lo de abajo. La espera tiene ahora el alto de la palabra.
+   */
+  test('los géneros cargan con la forma de la banda', () => {
+    const html = render(<GenreRow genres={[]} cargando />)
+
+    expect(html).toContain('class="generos"')
+    expect(html).toContain(t(DEFAULT_LOCALE, 'home.genres.loading'))
+    // Cuatro barras de palabra, no seis celdas de cartel.
+    expect(html.match(/class="skeleton"/g)?.length).toBe(4)
+    expect(html).not.toContain('class="esq"')
   })
 
   /**
@@ -422,6 +522,20 @@ describe('el primer arranque', () => {
     expect(html).toContain('https://github.com/zxuru/nn-anime-plugins')
     expect(html).toContain('href="/settings"')
     expect(html).toContain('sin sandbox')
+  })
+
+  /**
+   * La salida de los tutoriales, donde se topa quien ya sabe.
+   *
+   * Es la misma frase que el primer paso de cada recorrido; el estado del
+   * navegador es el que decide si se ofrece o se explica cómo volver. En este
+   * render no hay almacén, así que la guía está encendida y el botón sale.
+   */
+  test('ofrece saltar los tutoriales sin salir del aviso', () => {
+    const html = render(<PrimerArranque />)
+
+    expect(html).toContain('Ya conozco cómo funciona')
+    expect(html).not.toContain('Tutoriales desactivados')
   })
 })
 

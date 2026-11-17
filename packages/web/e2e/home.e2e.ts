@@ -27,6 +27,57 @@ test.describe('la home', () => {
   })
 
   /**
+   * La primera pintura de la home, con la caché caliente.
+   *
+   * El criterio de T41 pide que la home pinte antes de un segundo cuando lo que
+   * lee ya está en la caché. Se calienta una vez, se recarga y se mide el
+   * `first-contentful-paint` del documento nuevo, no el de la visita anterior.
+   *
+   * `X-Cache` se lee de las dos filas que salen a una fuente —tendencias y
+   * feed—: la de `catalog/recent` es local y no lleva el encabezado. Si alguna
+   * de las dos tuviera que pedir a la fuente, el `hit` de la home sería mentira.
+   */
+  test('pinta antes de un segundo con las filas en caché', async ({ page }) => {
+    await entrar(page)
+    await esperarApp(page)
+    await expect(page.getByRole('heading', { name: 'Top', exact: true })).toBeVisible({
+      timeout: 15_000,
+    })
+    await page.waitForLoadState('networkidle')
+
+    const cache: Record<string, string | null> = {}
+
+    page.on('response', (respuesta) => {
+      const camino = new URL(respuesta.url()).pathname
+
+      if (camino === '/api/trending' || camino === '/api/feed') {
+        cache[camino] = respuesta.headers()['x-cache'] ?? null
+      }
+    })
+
+    await page.reload()
+
+    // La ficha visible no basta: la primera pintura es anterior al contenido, y
+    // el rótulo del top espera a que las filas lleguen.
+    await expect(page.getByRole('heading', { name: 'Top', exact: true })).toBeVisible({
+      timeout: 15_000,
+    })
+    await expect.poll(() => Object.keys(cache).length, { timeout: 10_000 }).toBe(2)
+
+    expect(cache['/api/trending']).toBe('hit')
+    expect(cache['/api/feed']).toBe('hit')
+
+    const primeraPintura = await page.evaluate(() => {
+      const entrada = performance.getEntriesByName('first-contentful-paint')[0]
+
+      return entrada?.startTime ?? Number.POSITIVE_INFINITY
+    })
+
+    expect(primeraPintura).toBeGreaterThan(0)
+    expect(primeraPintura).toBeLessThan(1_000)
+  })
+
+  /**
    * La parrilla de estrenos.
    *
    * El arnés arranca con AniList apagado —una prueba no puede depender de un
@@ -244,7 +295,52 @@ test.describe('la home', () => {
     await entrar(page)
 
     await expect(page.getByText('Nada a medias')).toBeVisible()
-    await expect(page.getByText('Todavía no has marcado ninguno')).toBeVisible()
+    await expect(page.getByText('Todavía no has guardado ningún título')).toBeVisible()
+  })
+
+  /**
+   * El mando del hero dice lo que hace, también en un teléfono.
+   *
+   * La versión corta era «Ep. 1»: la acción principal de la primera pantalla se
+   * quedaba sin verbo y sólo la salvaba el triángulo. Se mide el texto **visible**
+   * (`innerText`, que respeta lo que recorta la hoja), no el del documento: las dos
+   * versiones del mando viven en el marcado y la larga es la accesible.
+   */
+  test('en un teléfono el mando del hero nombra la acción', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await entrar(page)
+    await esperarApp(page)
+
+    const mando = page.locator('.marquesina .acciones a.button--primary')
+    await expect(mando).toBeVisible()
+
+    const visible = await mando.evaluate((nodo) => nodo.innerText.trim())
+
+    expect(visible).toContain('Reproducir')
+    expect(visible).not.toContain('Ep.')
+  })
+
+  /**
+   * El año de una pieza va sin rótulo.
+   *
+   * «Año 2024» en la pieza y «2024» en el hero era el mismo dato en dos registros,
+   * en la misma pantalla. La línea corta de la vitrina lo lleva desnudo; la ficha
+   * sigue diciendo «Año 2024», que ahí sí es una etiqueta.
+   */
+  test('el año de una pieza no lleva el rótulo «Año»', async ({ page }) => {
+    await entrar(page)
+    await esperarApp(page)
+
+    const novedades = page.locator('.seccion', {
+      has: page.getByRole('heading', { name: 'Novedades' }),
+    })
+
+    const meta = await novedades.locator('.pz__meta').first().innerText()
+
+    expect(meta).toMatch(/\d{4}/)
+    // En minúsculas: la hoja pinta la línea en versalitas y `innerText` devuelve
+    // lo que se ve, no lo que guarda el marcado.
+    expect(meta.toLowerCase()).not.toContain('año')
   })
 
   test('la fuente llena la home sin que nadie haya buscado nada', async ({ page }) => {
@@ -306,6 +402,92 @@ test.describe('la home', () => {
 
     expect(primera.length).toBeGreaterThan(2)
     expect(new Set(cajas.map((caja) => caja.ancho)).size).toBe(1)
+  })
+
+  /**
+   * Todas las filas miden lo mismo.
+   *
+   * El mosaico se componía al número de piezas, así que una fila de cuatro las
+   * engordaba a 264×396 y una de siete las dejaba en 171×256 en la misma pantalla:
+   * el tamaño del cartel dependía de cuántos títulos devolvió la fuente. Se miden
+   * dos tramos distintos y tiene que dar el mismo ancho.
+   */
+  test('las piezas miden lo mismo en todas las filas', async ({ page }) => {
+    // A 1440, que es donde el mosaico ancho declara seis pistas: con el recuento
+    // por fila, la de cuatro daba 264 px y la de siete 171 en la misma pantalla.
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await entrar(page)
+    await esperarApp(page)
+
+    const ancho = async (nombre: string): Promise<number[]> => {
+      const tramo = page.locator('.seccion', {
+        has: page.getByRole('heading', { name: nombre, exact: false }),
+      })
+
+      return tramo
+        .locator('.mosaico .pz:not(.pz--mando)')
+        .evaluateAll((piezas) =>
+          piezas.map((pieza) => Math.round(pieza.getBoundingClientRect().width)),
+        )
+    }
+
+    const recomendado = await ancho('Recomendado para ti')
+    const novedades = await ancho('Novedades')
+
+    expect(recomendado.length).toBeGreaterThan(0)
+    expect(novedades.length).toBeGreaterThan(0)
+
+    const todos = [...recomendado, ...novedades]
+
+    expect(new Set(todos).size, `anchos distintos: ${todos.join(', ')}`).toBe(1)
+  })
+
+  /**
+   * Con algo que retomar, «continuar viendo» va antes de la marquesina.
+   *
+   * La fila existía en el documento y no en la primera pantalla: empezaba en 910 px
+   * sobre una ventana de 900, debajo del destacado. Quien vuelve a seguir un
+   * episodio no debería bajar a buscarlo. Se sirve un visionado a medias por la ruta
+   * —el arnés arranca sin historial— y se mide dónde cae cada bloque.
+   */
+  test('con algo que retomar, «continuar viendo» va antes de la marquesina', async ({ page }) => {
+    await page.route('**/api/watch/recent', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          items: [
+            {
+              animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+              title: 'Aurora Nocturna',
+              episodeRef: { providerId: 'fixture', value: 'aurora-nocturna#3' },
+              episodeNumber: 3,
+              mode: 'sub',
+              positionS: 600,
+              durationS: 1_440,
+              ratio: 0.4167,
+              watchedAt: new Date().toISOString(),
+            },
+          ],
+        },
+      })
+    })
+
+    await entrar(page)
+    await esperarApp(page)
+
+    const seguir = page.locator('.seccion', {
+      has: page.getByRole('heading', { name: 'Continuar viendo' }),
+    })
+
+    await expect(seguir.locator('.pz__titulo')).toHaveText('Aurora Nocturna')
+
+    const [cajaSeguir, cajaHero] = await Promise.all([
+      seguir.boundingBox(),
+      page.locator('.marquesina').boundingBox(),
+    ])
+
+    expect(cajaSeguir?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(cajaHero?.y ?? 0)
+    // Y dentro de la primera pantalla, que es lo que se vino a arreglar.
+    expect(cajaSeguir?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(page.viewportSize()?.height ?? 0)
   })
 
   test('el tema se aplica al documento', async ({ page }) => {
@@ -628,5 +810,27 @@ test.describe('el conmutador de tipo', () => {
     expect((carril?.y ?? 0) + (carril?.height ?? 0)).toBeLessThanOrEqual(
       (cabecera?.y ?? 0) + (cabecera?.height ?? 0),
     )
+  })
+
+  /**
+   * A 1024 el que baja es el conmutador, no el «?».
+   *
+   * Con la cabecera al límite, el último hijo era el botón de la guía y se
+   * quedaba solo en un renglón. El diseño dice que primero se aprieta la marca y
+   * que el conmutador es el que tiene renglón propio; el botón de la guía, además,
+   * sube a los 44 px del sistema.
+   */
+  test('a 1024 el conmutador baja a su renglón y la guía no queda sola', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 800 })
+    await entrar(page)
+
+    const cabecera = await page.locator('.shell__header').boundingBox()
+    const carril = await page.locator('.shell__header .conmutador').boundingBox()
+    const guia = await page.locator('.shell__guia').boundingBox()
+
+    expect(carril?.y ?? 0).toBeGreaterThan(cabecera?.y ?? -1)
+    expect(guia?.y ?? 0).toBeLessThan(carril?.y ?? -1)
+    expect(guia?.width ?? 0).toBeGreaterThanOrEqual(44)
+    expect(guia?.height ?? 0).toBeGreaterThanOrEqual(44)
   })
 })

@@ -131,6 +131,29 @@ export function metaDeNovedad(item: AiringItem): string {
 }
 
 /**
+ * Quita de una fila las obras que ya se ven arriba.
+ *
+ * La home repite el mismo título en recomendaciones, top y novedades porque cada
+ * fila viene de una lectura distinta; con un catálogo pequeño, eso hace que la
+ * página parezca tener menos contenido del que tiene. Se conserva el orden de la
+ * fila y, si **todas** las piezas ya estaban arriba, se devuelve la fila entera:
+ * una fila vacía por deduplicación es una promesa rota, peor que la repetición.
+ */
+export function sinRepetirSiQueda<T extends { readonly title: string }>(
+  items: readonly T[],
+  vistos: ReadonlySet<string>,
+): readonly T[] {
+  const filtrados = items.filter((item) => !vistos.has(tituloNormalizado(item.title)))
+
+  return filtrados.length === 0 ? items : filtrados
+}
+
+/** La clave de una obra para comparar filas: el título normalizado. */
+export function tituloNormalizado(title: string): string {
+  return title.trim().toLowerCase().normalize('NFC').replace(/\s+/g, ' ')
+}
+
+/**
  * Las piezas del top: el de AniList cuando llega, el de la fuente cuando no.
  *
  * Es la vuelta atrás declarada: un tercero caído no deja la fila vacía, la deja
@@ -163,7 +186,7 @@ export function piezasDeNovedades(
   return filas.feed.map((item) => {
     const partes: string[] = []
     if (item.year !== undefined) {
-      partes.push(t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year }))
+      partes.push(t(DEFAULT_LOCALE, 'home.year', { year: item.year }))
     }
 
     // El servidor marca la novedad del feed cuando la verificó, y **sólo** cuando la
@@ -262,6 +285,12 @@ export function HomePage(props: HomePageProps): ReactNode {
   const destacado = motorPendiente ? undefined : featuredOf(items, filas.feed, filas.recent)
   const top = piezasDelTop(filas)
   const novedades = piezasDeNovedades(filas)
+
+  /*
+    Un título, una vez en la pantalla. El destacado y las recomendaciones son lo
+    que el usuario ve primero, así que el top y las novedades ceden ante ellos; si
+    una fila se quedara vacía, `sinRepetirSiQueda` la deja como estaba.
+  */
   const dias = agruparPorDia(filas.parrilla, new Date())
   // Las portadas del motor llegan en lote y son opcionales: sin ellas la pieza
   // enseña la del proveedor.
@@ -281,6 +310,19 @@ export function HomePage(props: HomePageProps): ReactNode {
   */
   const favoritos = enElTipo(filas.favorites, tipo, medias, fuenteDeResumen)
   const continuar = enElTipo(filas.continueWatching, tipo, medias, fuenteDeVisionado)
+
+  /*
+    Un título, una vez en la pantalla. El destacado y las recomendaciones son lo
+    que el usuario ve primero, así que el top y las novedades ceden ante ellos; si
+    una fila se quedara vacía, `sinRepetirSiQueda` la deja como estaba.
+  */
+  const vistos = new Set<string>()
+  for (const item of continuar) vistos.add(tituloNormalizado(item.title))
+  if (destacado !== undefined) vistos.add(tituloNormalizado(destacado.title))
+  for (const item of items) vistos.add(tituloNormalizado(item.title))
+  const topVisible = sinRepetirSiQueda(top, vistos)
+  for (const item of topVisible) vistos.add(tituloNormalizado(item.title))
+  const novedadesVisibles = sinRepetirSiQueda(novedades, vistos)
 
   return (
     <section className="home">
@@ -323,6 +365,21 @@ export function HomePage(props: HomePageProps): ReactNode {
       {primerArranque ? <PrimerArranque /> : null}
 
       {/*
+        «Continuar viendo», cuando hay algo que retomar, **antes de la marquesina**.
+
+        Es la única fila que pide una acción concreta —retomar lo que se dejó a
+        medias— y lo demás es descubrir. Con el destacado delante empezaba en 910 px
+        sobre una ventana de 900: existía, pero no en la primera pantalla. Quien
+        entra a seguir un episodio no debería bajar a buscarlo entre las
+        recomendaciones.
+
+        Sin nada que retomar no sube: su vacío ocuparía el primer renglón de la
+        página, que es justo lo que no debe hacer una instalación nueva. Se queda
+        después del destacado, donde el hueco no cuesta.
+      */}
+      {continuar.length === 0 ? null : <ContinueRow items={continuar} cargando={cargandoFilas} />}
+
+      {/*
         La marquesina lleva dentro la marca de refresco y la cinta: las tres cosas
         son la misma pieza del diseño —el campo a sangre con el cartel, la línea
         pegada al borde inferior y la fecha de la última relectura en la esquina—.
@@ -351,19 +408,15 @@ export function HomePage(props: HomePageProps): ReactNode {
         />
       )}
 
-      {/*
-        «Continuar viendo» va la primera, antes del motor y antes que el top. Es la
-        única fila que pide una acción concreta —retomar lo que se dejó a medias— y
-        lo demás es descubrir: quien entra a seguir un episodio no debería bajarlo
-        a buscar entre las recomendaciones.
-      */}
-      <ContinueRow items={continuar} cargando={cargandoFilas} />
+      {/* Sin nada que retomar, la fila se explica aquí: debajo del destacado y no
+          en el primer renglón de la página. */}
+      {continuar.length === 0 ? <ContinueRow items={continuar} cargando={cargandoFilas} /> : null}
 
       {/*
-        El motor va segundo y con su tramo entero: la puntuación y el motivo viajan
-        en cada pieza, así que la razón de una recomendación se lee sin abrir el
-        detalle. La franja que explicaba el motor se retiró: ocupaba el ancho del
-        tramo para decir lo que ya dice la nota y la pieza.
+        El motor va segundo y con su tramo entero: el motivo viaja en cada pieza,
+        así que la razón de una recomendación se lee sin abrir el detalle. La
+        puntuación no se enseña y la franja que explicaba el motor se retiró:
+        ocupaba el ancho del tramo para decir lo que ya dice la nota y la pieza.
       */}
       <RecommendedRow
         items={items}
@@ -377,7 +430,7 @@ export function HomePage(props: HomePageProps): ReactNode {
           cuando no— **en su orden y con su puesto**: el motor ya tiene su sitio,
           el destacado y su propio tramo. */}
       <TopRow
-        items={top}
+        items={topVisible}
         cargando={cargandoFilas}
         {...(filas.descubrir.length === 0
           ? {}
@@ -390,12 +443,14 @@ export function HomePage(props: HomePageProps): ReactNode {
       <ParrillaRow
         dias={dias}
         cargando={cargandoFilas}
+        caido={filas.parrillaCaida === true}
         {...(tipo === 'movies' ? { vacio: t(DEFAULT_LOCALE, 'home.parrilla.empty.movies') } : {})}
       />
 
       <FeedRow
-        items={novedades}
+        items={novedadesVisibles}
         cargando={cargandoFilas}
+        caido={filas.emisionesCaida === true}
         {...(filas.emisiones.length === 0
           ? { vacio: t(DEFAULT_LOCALE, 'home.feed.empty') }
           : {

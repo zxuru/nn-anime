@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { MediaFilter, ProviderMedia } from '@rona/core/media'
+import type { MediaHalf, ProviderMedia } from '@rona/core/media'
 import type { AnimeSummary } from '@rona/core/models'
 import {
   enElTipo,
@@ -141,7 +141,7 @@ describe('avisar de que no hay fuente para esta mitad', () => {
 
   test('una fuente de las dos cosas sirve las dos', () => {
     const mixta: ReadonlyMap<string, ProviderMedia> = new Map([['mixta', 'both']])
-    const tipos: readonly MediaFilter[] = ['anime', 'movies']
+    const tipos: readonly MediaHalf[] = ['anime', 'movies']
 
     for (const tipo of tipos) expect(sinFuenteQueSirva(mixta, tipo)).toBe(false)
   })

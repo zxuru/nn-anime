@@ -121,7 +121,12 @@ describe('el reproductor', () => {
   })
 
   test('la atribución de hls.js aparece sólo cuando se usa HLS', () => {
-    expect(render(<Player url="/stream/abc" kind="hls" />)).toContain('hls.js')
+    const hls = render(<Player url="/stream/abc" kind="hls" />)
+
+    expect(hls).toContain('hls.js')
+    // La clase propia es de la que cuelga el esconderla en el modo extendido:
+    // sin ella, la nota vuelve a quitarle alto a la imagen.
+    expect(hls).toContain('player__attribution')
     expect(render(<Player url="/stream/abc" kind="file" />)).not.toContain('hls.js')
   })
 

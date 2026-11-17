@@ -1,12 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
+import { t } from '../../i18n'
 import { createMemoryHistory, HistoryProvider } from '../../router'
+import { IndiceAjustes, primeraVisible } from './IndiceAjustes'
 import { moved, ProviderList, providersByPriority } from './ProviderList'
 import { RegisterProvider } from './RegisterProvider'
 import { SettingsPage } from './SettingsPage'
+import { SECCIONES_AJUSTES } from './secciones'
 import { resolvedTheme, ThemeToggle, themeAttribute } from './ThemeToggle'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
@@ -249,12 +253,100 @@ describe('el alta de un proveedor', () => {
   })
 })
 
+/**
+ * El índice y la decisión de qué sección está activa.
+ *
+ * El índice se dibuja sin datos del servidor, así que se puede medir entero con
+ * `renderToString`. Lo que no se puede medir sin navegador es el observador: de él
+ * se prueba la función pura —la que decide— y el e2e se encarga del resto.
+ */
+describe('el índice de Ajustes', () => {
+  test('un enlace por sección, a su ancla y en el mismo orden', () => {
+    const html = render(<IndiceAjustes />)
+
+    expect(html).toContain('aria-label="Secciones de los ajustes"')
+    expect(html).toContain('Secciones')
+
+    // Los ids son únicos: dos secciones con el mismo `id` harían que el segundo
+    // enlace llevara siempre a la primera.
+    const ids = SECCIONES_AJUSTES.map((seccion) => seccion.id)
+    expect(new Set(ids).size).toBe(ids.length)
+
+    const posiciones = ids.map((id) => html.indexOf(`href="#${id}"`))
+    expect(posiciones.every((posicion) => posicion >= 0)).toBe(true)
+    expect(posiciones).toEqual([...posiciones].sort((a, b) => a - b))
+  })
+
+  test('la sección activa se marca una sola vez, y la suya', () => {
+    const html = render(<IndiceAjustes activa="reproduccion" />)
+
+    expect((html.match(/aria-current="location"/g) ?? []).length).toBe(1)
+    expect(html).toMatch(/aria-current="location"[^>]*>Reproducción/)
+  })
+
+  test('sin sección activa no se marca ninguna', () => {
+    expect(render(<IndiceAjustes />)).not.toContain('aria-current')
+  })
+})
+
+describe('la sección que se está viendo', () => {
+  test('manda la primera en el orden del documento', () => {
+    expect(primeraVisible(['fuentes', 'sistema'], new Set(['sistema']))).toBe('sistema')
+    // Las dos a la vez: se está leyendo el final de una y el principio de la otra,
+    // así que la de arriba es la que cuenta.
+    expect(primeraVisible(['fuentes', 'sistema'], new Set(['fuentes', 'sistema']))).toBe('fuentes')
+    expect(primeraVisible(['fuentes'], new Set())).toBeUndefined()
+  })
+})
+
+/**
+ * La jerarquía de títulos.
+ *
+ * Los tres bloques que llevan su propio título dentro de un grupo de Ajustes lo
+ * declaran como `h3`: el `h2` es del grupo, y repetirlo dentro dejaba a los tres
+ * hermanos del grupo en el árbol del lector de pantalla. Se mide sobre la fuente
+ * porque los tres componentes se dibujan con datos y estado propios; lo que
+ * importa aquí es el nivel, no su contenido.
+ */
+describe('los títulos de los bloques', () => {
+  test('los que viven dentro de un grupo usan h3, no h2', async () => {
+    for (const archivo of ['ProviderRepos.tsx', 'TmdbSettings.tsx', 'SkipSettings.tsx']) {
+      const fuente = await readFile(`${ROOT}${archivo}`, 'utf8')
+
+      expect(fuente, `${archivo} conserva un h2`).not.toContain('<h2>')
+      expect(fuente, `${archivo} no declara su título como h3`).toContain('<h3>')
+    }
+  })
+})
+
 describe('la página', () => {
   test('arranca cargando y no depende de la red en el primer render', () => {
     const html = render(<SettingsPage />)
 
     expect(html).toContain('Cargando los ajustes')
     expect(html).toContain('aria-busy="true"')
+  })
+
+  /**
+   * La espera tiene la forma de la página.
+   *
+   * Eran el titular y una frase sobre una página que después trae el aviso de
+   * seguridad, un índice pegajoso y seis secciones de campos: el índice aparecía de
+   * la nada y todo lo de abajo bajaba. Ahora el aviso y los titulares de sección —lo
+   * que se sabe sin preguntar— se pintan de verdad y los campos tienen su hueco.
+   */
+  test('el esqueleto de Ajustes tiene la forma de Ajustes', () => {
+    const html = render(<SettingsPage />)
+
+    expect(html).toContain('settings__cuerpo')
+    expect(html).toContain('settings__indice')
+    expect(html.match(/class="settings__seccion"/g)?.length).toBe(SECCIONES_AJUSTES.length)
+
+    for (const seccion of SECCIONES_AJUSTES) {
+      expect(html, seccion.id).toContain(t(DEFAULT_LOCALE, seccion.titulo))
+    }
+
+    expect(html).toContain('class="solo-lectores" role="status"')
   })
 
   /**

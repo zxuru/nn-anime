@@ -9,6 +9,9 @@ import type { Messages } from '@rona/core/i18n'
 
 export const messages: Messages = {
   'app.name': 'RoNa',
+  // La promesa del producto en una línea, al pie de todas las pantallas.
+  'app.footer':
+    'Todo se queda en tu equipo: tu historial, tus ajustes y tus descargas. Sin cuentas ni telemetría.',
   'nav.skip': 'Saltar al contenido',
 
   'nav.home': 'Inicio',
@@ -259,6 +262,8 @@ export const messages: Messages = {
   'home.firstRun.warning':
     'Añadirlo no ejecuta nada. Activar un proveedor sí, y sin sandbox: revisa lo que marcas.',
   'home.firstRun.action': 'Abrir Ajustes',
+  'home.firstRun.tutorialsOff':
+    'Tutoriales desactivados. Puedes volver a verlos cuando quieras desde Ajustes.',
 
   'search.title': 'Buscar',
   'search.field': 'Buscar por título',
@@ -266,16 +271,20 @@ export const messages: Messages = {
   'search.results': 'Resultados',
   'search.empty': 'Nada coincide con «{query}». Prueba con menos palabras.',
   'search.emptyNoQuery': 'Escribe un título para empezar. Los resultados salen de cada proveedor.',
-  'search.provider': 'Origen: {provider}',
   'search.year': '{year}',
   'search.loading': 'Buscando…',
-  'search.resultsCount': '{count} resultados de {providers} proveedores.',
-  'search.resultsCountOne': '1 resultado de {providers} proveedores.',
+  'search.resultsCount': '{count} resultados en {sources} fuentes.',
+  'search.resultsCountOne': '1 resultado en {sources} fuentes.',
+  'search.status.resultOne': '1 resultado',
+  'search.status.results': '{count} resultados',
+  'search.status.sourceOne': '1 fuente',
+  'search.status.sources': '{count} fuentes',
+  'search.status.searching': 'Buscando en {sources}…',
+  'search.status.partial': '{results} · esperando a {sources}…',
+  'search.status.done': '{results} en {sources}.',
   'search.noProviders': 'No hay ningún proveedor activo para esta búsqueda.',
   'search.providerFailed': '{provider}: {message}',
   'search.failed': 'No se pudo buscar: {message}',
-  'search.alsoIn': 'También en',
-  'search.alsoInItem': '{title} en {provider}',
   // La mitad que las fuentes no pueden contestar: lo que AniList tiene de ese
   // estudio o de ese género. El sello dice cuál de esas obras ya está en una fuente.
   'search.anilist': 'En AniList',
@@ -292,15 +301,16 @@ export const messages: Messages = {
   'search.catalogue.countOne': '1 título en el catálogo.',
   'search.catalogue.empty': 'Nada en el catálogo coincide con «{query}».',
 
-  'home.loading': 'Cargando tu inicio…',
+  'home.loading': 'Cargando Inicio…',
   'home.refreshing': 'Actualizando…',
   'home.refreshedNow': 'Actualizado ahora mismo',
   'home.refreshed': 'Actualizado hace {minutes} min',
-  'home.ticker': 'Lo más visto ahora',
-  'home.featured.tag': 'Destacado',
+  'home.ticker': 'Tendencias de la fuente',
   'home.featured.play': 'Reproducir el episodio {number}',
-  // La versión corta del mando, la que cabe junto al dibujo en un teléfono.
-  'home.featured.playShort': 'Ep. {number}',
+  // La versión corta del mando, la que cabe junto al dibujo en un teléfono. Dice
+  // la acción y no el objeto: «Ep. 1» dejaba el mando sin verbo justo en la acción
+  // principal. El número sigue en el nombre largo, que es el accesible.
+  'home.featured.playShort': 'Reproducir',
   'home.featured.episodes': '{count} ep.',
   'home.top': 'Top',
   'home.top.meta': 'El orden de la fuente',
@@ -313,11 +323,21 @@ export const messages: Messages = {
   'home.favorites.meta': 'Lo que guardaste',
   'home.genres': 'Explorar por género',
   'home.genres.meta': 'Del catálogo que tienes',
-  'home.genres.empty': 'Todavía no hay géneros: aparecen cuando se cachean títulos.',
+  'home.genres.empty': 'Todavía no hay géneros: aparecen cuando abres alguna ficha.',
+  'home.genres.loading': 'Cargando los géneros.',
   'home.recommended': 'Recomendado para ti',
-  'home.recommended.meta': 'Lo que el motor cree que va contigo',
+  'home.recommended.meta': 'Elegido por lo que buscas y ves',
   // Los tres renglones de la nota de un tramo: el titular, la etiqueta y la cuenta.
   'home.count': '{count} títulos',
+  /*
+   * El año de una pieza, sin rótulo.
+   *
+   * En la vitrina el año es un dato de la línea corta —«Aventura, Fantasía · 2023»—
+   * y el titular del hero ya lo dice sin prefijo. «Año 2023» en la misma pantalla
+   * era el mismo dato en dos registros. En la ficha se sigue leyendo «Año 2023»
+   * (`detail.related.year`), que ahí sí es una etiqueta de ficha.
+   */
+  'home.year': '{year}',
   'home.countOne': '1 título',
   'home.countMore': '{count} títulos · y {more} más',
   'home.genres.count': '{count} géneros',
@@ -329,26 +349,43 @@ export const messages: Messages = {
   'home.panel.cerrar': 'Cerrar',
   'home.panel.asa': 'Cerrar el panel',
   'home.continue': 'Continuar viendo',
-  'home.continue.empty': 'Nada a medias. Lo que empieces aparecerá aquí.',
+  'home.continue.empty': 'Nada a medias todavía. Lo que dejes sin terminar aparecerá aquí.',
   'home.favorites': 'Tus favoritos',
   'home.favorites.empty':
-    'Todavía no has marcado ninguno. La estrella está en la ficha de cada título.',
+    'Todavía no has guardado ningún título. La estrella está en la ficha de cada uno.',
   'home.feed': 'Novedades',
   'home.feed.meta': 'Lo último que publica la fuente',
   'home.feed.meta.anilist': 'Episodios recién emitidos',
   'home.feed.empty': 'Ningún proveedor activo publica novedades.',
   'home.feed.empty.anilist': 'AniList no anuncia episodios recién emitidos ahora mismo.',
+  'home.feed.meta.offline': 'Lo último que se sabe; AniList no ha contestado',
+  'home.feed.empty.offline': 'AniList no ha contestado; las novedades volverán solas.',
   'home.parrilla': 'Parrilla',
   'home.parrilla.meta': 'Lo que se emite estos días, según AniList',
-  'home.parrilla.empty': 'No hay capítulos anunciados en los próximos días.',
+  'home.parrilla.meta.offline': 'Lo que se emite estos días; AniList no ha contestado',
+  'home.parrilla.empty': 'AniList no anuncia capítulos en los próximos días.',
+  'home.parrilla.empty.offline': 'AniList no ha contestado; la parrilla volverá sola.',
   'home.parrilla.empty.movies':
     'La parrilla es de series. Los estrenos de películas se anuncian con el año y se ven en Novedades.',
   'home.parrilla.hoy': 'Hoy',
   'home.parrilla.manana': 'Mañana',
   'home.more': 'y {count} más',
-  'home.resume': 'Seguir en {time}',
+  // El nombre accesible de la barra de progreso. Era «Seguir en 14:30», que al
+  // oído puede ser «vuelve dentro de catorce minutos»: dice el progreso y el
+  // minuto en el que está, no una cita.
+  'home.resume': 'Progreso del episodio: {time}',
   'settings.title': 'Ajustes',
   'settings.loading': 'Cargando los ajustes…',
+  // El índice de la página. «Secciones» es la etiqueta visible; el `aria-label`
+  // dice de qué son, porque el índice no es una navegación de la aplicación.
+  'settings.index': 'Secciones de los ajustes',
+  'settings.index.title': 'Secciones',
+  'settings.section.fuentes': 'Fuentes',
+  'settings.section.reproduccion': 'Reproducción',
+  'settings.section.apariencia': 'Apariencia',
+  'settings.section.privacidad': 'Privacidad y contenido',
+  'settings.section.sistema': 'Sistema',
+  'settings.section.guia': 'Guía',
   'settings.security.title': 'Antes de copiar un plugin, lee esto',
   'settings.security.body':
     'Los plugins se ejecutan sin sandbox, con tus permisos. Un plugin puede leer y escribir lo mismo que tú. Cópialos sólo si sabes de dónde vienen.',
@@ -519,13 +556,7 @@ export const messages: Messages = {
   'settings.tmdb.clear': 'Quitar clave',
   'settings.tmdb.saved': 'Guardado.',
   'settings.tmdb.error': 'No se pudo guardar: {message}',
-  'reco.title': 'Recomendado para ti',
-  'reco.loading': 'Buscando qué recomendarte…',
   'reco.empty': 'Todavía no hay nada que recomendar. Busca algo y vuelve.',
-  'reco.coldStart': 'Sin historial todavía: esto es lo más popular del catálogo.',
-  'reco.personalized': 'Ordenado por lo que has visto y buscado.',
-  'reco.showScore': 'Ver el detalle',
-  'reco.hideScore': 'Ocultar el detalle',
   'player.label': 'Reproductor de video',
   'player.tracks': 'Subtítulos disponibles: {count}.',
   // El nombre del grupo de los dos modos de audio. Antes era «Modo», que no decía
@@ -560,6 +591,9 @@ export const messages: Messages = {
   'player.episodes.error': 'No se pudieron cargar los episodios.',
   // El episodio, para el título de la pestaña y para el encabezado de la pantalla.
   'player.episode': 'Episodio {number}',
+  'player.episode.watched': 'Visto',
+  'player.episode.progress': '{percent} %',
+  'player.episode.marked': '{episode}, {mark}',
   'player.episodeNamed': 'Episodio {number} · {title}',
   'player.mode.sub': 'Subtitulado',
   'player.mode.dub': 'Doblado',
@@ -585,6 +619,19 @@ export const messages: Messages = {
   'player.extended': 'Modo extendido',
   'player.extended.exit': 'Salir del modo extendido',
   'player.seek': 'Posición del video',
+  'player.seek.spoken': '{position} de {duration}',
+  'player.resume': 'Continúa en {time}',
+  'player.resume.restart': 'Empezar de cero',
+  'player.spoken.hour': '1 hora',
+  'player.spoken.hours': '{count} horas',
+  'player.spoken.minute': '1 minuto',
+  'player.spoken.minutes': '{count} minutos',
+  'player.spoken.second': '1 segundo',
+  'player.spoken.seconds': '{count} segundos',
+  'player.announce.playing': 'Reproduciendo',
+  'player.announce.paused': 'En pausa',
+  'player.announce.time': '{state}, {position} de {duration}',
+  'player.announce.error': 'Error: {message}',
   'player.mpv': 'Ver en mpv',
   'player.mpv.opened': 'Se abrió en el reproductor externo.',
   'player.mpv.error': 'No se pudo abrir mpv: {message}',
@@ -602,7 +649,7 @@ export const messages: Messages = {
   // aparte de `player.loading` porque son dos esperas distintas: una al
   // principio y otra a mitad, y decir «cargando» en la segunda parece que se
   // perdió lo visto.
-  'player.buffering': 'Almacenando en búfer…',
+  'player.buffering': 'Cargando en búfer…',
   'player.error': 'No se pudo reproducir: {message}',
   // El gesto que vuelve a intentarlo desde el segundo donde se quedó. No se
   // llama «Recargar»: recargar la página perdería la posición y el episodio
@@ -636,6 +683,9 @@ export const messages: Messages = {
   'player.skip.ed': 'Saltar ending',
   'player.skip.recap': 'Saltar resumen',
   'player.next.in': 'Siguiente episodio en {seconds} s',
+  'player.next.ended': 'Episodio terminado.',
+  'player.next.ready': 'El episodio terminó. Siguiente: {episode}.',
+  'player.next.unknown': 'el siguiente episodio',
   'player.next.now': 'Reproducir ahora',
   'player.next.cancel': 'Cancelar',
   'player.key.toggle': 'Pausa y reanudar',
@@ -833,6 +883,11 @@ export const messages: Messages = {
   // «tutorial» y no «guía» porque lo que se omite es este recorrido, no la guía
   // entera: para eso está «Omitir todos los tutoriales» en Ajustes.
   'guia.omitir': 'Omitir tutorial',
+  // La otra salida: no este recorrido, todos. Va en el primer paso y en el aviso
+  // de primer arranque, con las mismas palabras en los dos sitios.
+  'guia.omitirTodos': 'Ya conozco cómo funciona',
+  'guia.omitirTodos.ayuda':
+    'Omite todos los tutoriales, también los de las pantallas que aún no has abierto.',
   'guia.entendido': 'Entendido',
   'guia.progreso': '{{current}} de {{total}}',
 

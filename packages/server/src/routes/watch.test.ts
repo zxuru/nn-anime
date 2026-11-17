@@ -478,9 +478,9 @@ describe('GET /api/watch/recent', () => {
  *
  * Es la lectura que alimenta la pantalla del Historial, a la que se llega desde el
  * Perfil. Lo que se mide aquí, además del troceado, es la diferencia con
- * «continuar viendo»: **nada se descarta** —lo terminado también cuenta— y **nada
- * se agrupa** por episodio, porque el historial cuenta lo que pasó y no lo que
- * queda por terminar.
+ * «continuar viendo»: **nada se descarta** —lo terminado también cuenta— y **un
+ * episodio es un renglón**, con su reproducción más reciente, porque volver a
+ * abrir el mismo episodio no puede llenar la rejilla de tarjetas repetidas.
  */
 describe('GET /api/watch/history', () => {
   /** Registra un visionado y lo deja en el estado pedido. */
@@ -489,13 +489,14 @@ describe('GET /api/watch/history', () => {
     numero: number,
     positionS: number,
     durationS: number,
+    anime = REF,
   ) {
     const alta = await pedir('/api/watch', {
       method: 'POST',
       headers: JSON_HEADERS,
       body: JSON.stringify({
-        animeRef: { providerId: 'fixture', value: REF },
-        episodeRef: { providerId: 'fixture', value: `${REF}#${numero}` },
+        animeRef: { providerId: 'fixture', value: anime },
+        episodeRef: { providerId: 'fixture', value: `${anime}#${numero}` },
         mode: 'sub',
       }),
     })
@@ -526,7 +527,7 @@ describe('GET /api/watch/history', () => {
     })
   })
 
-  test('una fila por visionado, con su episodio, su modo y su proporción', async () => {
+  test('una tarjeta por episodio, con su modo y su proporción', async () => {
     await conApp(async ({ pedir }) => {
       await visionado(pedir, 1, 300, 1440)
 
@@ -557,17 +558,33 @@ describe('GET /api/watch/history', () => {
     })
   })
 
-  test('el mismo episodio dos veces son dos renglones: no se agrupa', async () => {
+  test('el mismo episodio dos veces es una tarjeta: la reproducción más reciente', async () => {
     await conApp(async ({ pedir }) => {
       await visionado(pedir, 1, 100, 1440)
       await visionado(pedir, 1, 200, 1440)
 
       const cuerpo = (await (await pedir('/api/watch/history')).json()) as {
+        items: { episodeNumber: number; positionS: number }[]
+      }
+
+      // Una tarde de reproducciones del mismo episodio no son una tarde de
+      // tarjetas: se queda la última, que es la que dice cuándo se volvió a él.
+      expect(cuerpo.items).toHaveLength(1)
+      expect(cuerpo.items[0]?.episodeNumber).toBe(1)
+      expect(cuerpo.items[0]?.positionS).toBe(200)
+    })
+  })
+
+  test('los episodios distintos de la misma obra siguen siendo tarjetas distintas', async () => {
+    await conApp(async ({ pedir }) => {
+      await visionado(pedir, 1, 100, 1440)
+      await visionado(pedir, 2, 200, 1440)
+
+      const cuerpo = (await (await pedir('/api/watch/history')).json()) as {
         items: { episodeNumber: number }[]
       }
 
-      expect(cuerpo.items).toHaveLength(2)
-      expect(cuerpo.items.map((item) => item.episodeNumber)).toEqual([1, 1])
+      expect(cuerpo.items.map((item) => item.episodeNumber)).toEqual([2, 1])
     })
   })
 
@@ -576,17 +593,30 @@ describe('GET /api/watch/history', () => {
       /*
         Una página llena y una fila más.
 
-        Se reproduce **el mismo episodio** una y otra vez, que es legítimo: el
-        historial no agrupa, así que cada reproducción es un renglón. Con los doce
-        episodios del fixture no habría forma de llenar una página de cincuenta, y
-        sembrar la base a mano probaría el troceado sobre datos que ninguna ruta
-        escribió.
+        Repetir el mismo episodio ya no llena la página: un episodio es un
+        renglón. Hacen falta `HISTORY_PAGE_SIZE + 1` episodios **distintos**, y
+        ninguna de las obras del fixture llega a cincuenta, así que se abren varias
+        fichas y se reproducen por la ruta de verdad, como haría el reproductor.
 
         Cada uno con su posición: es lo que hace única a cada fila para poder
         comprobar que las dos páginas no repiten ninguna.
       */
-      for (let indice = 0; indice < HISTORY_PAGE_SIZE + 1; indice++) {
-        await visionado(pedir, 1, 100 + indice, 1440)
+      const obras = [
+        { ref: 'aurora-nocturna', episodios: 12 },
+        { ref: 'cocina-de-medianoche', episodios: 24 },
+        { ref: 'panaderia-errante', episodios: 26 },
+      ]
+      const refs: { readonly ref: string; readonly numero: number }[] = []
+
+      for (const obra of obras) {
+        await pedir(`/api/anime/fixture/${obra.ref}/episodes`, { headers: GOOD })
+        for (let numero = 1; numero <= obra.episodios; numero++) {
+          refs.push({ ref: obra.ref, numero })
+        }
+      }
+
+      for (const [indice, ref] of refs.slice(0, HISTORY_PAGE_SIZE + 1).entries()) {
+        await visionado(pedir, ref.numero, 100 + indice, 1440, ref.ref)
       }
 
       const primera = (await (await pedir('/api/watch/history')).json()) as {

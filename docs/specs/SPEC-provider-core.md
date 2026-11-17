@@ -205,6 +205,43 @@ export default provider
 
 También se acepta `export const providers: readonly Provider[]` para agrupar varios en un archivo.
 
+### Enmienda aprobada (T257a): las familias de contenido
+
+> Aprobada el 2026-11-16 con la propuesta `docs/specs/proposals/SPEC-nn-anime.familias.md`. Lo que
+> sigue es contrato en `core` desde T257a; el uso en las rutas y en la interfaz es de las fases 2–3.
+
+Un título tiene dos ejes y no uno: **familia** (`anime` · `animation` · `live`) y **formato**
+(`series` · `movie`). `ProviderCapabilities` gana una declaración por familia que convive con
+`media`:
+
+```ts
+// packages/core/src/schema.ts — providerCapabilitiesSchema
+families: z
+  .array(mediaFamilySchema)            // 'anime' | 'animation' | 'live'
+  .min(1)
+  .refine((familias) => new Set(familias).size === familias.length)
+  .readonly()
+  .optional(),
+media: providerMediaSchema.optional(), // legado: 'anime' | 'movies' | 'both'
+```
+
+- **`families` gana sobre `media` cuando está.** `familiesOf` resuelve la precedencia; las dos
+  pueden convivir en el mismo manifiesto y `assertConforms` no lo impide: es una declaración, no un
+  método.
+- **El mapeo del legado se conserva:** `media` ausente o `anime` → `['anime']`; `movies` →
+  `['animation', 'live']` (el «todo lo que no es anime» de hoy); `both` → las tres.
+- **Un array vacío o con repetidos se rechaza** nombrando `families`: no describe un conjunto que
+  nadie pueda filtrar.
+- **`apiVersion` sigue en `'1'`.** Los campos son opcionales; una app vieja rechaza el manifiesto
+  **al cargar** si ve `families`, que es el gate que ya usan `seasons` y `episodePages`. Subir a
+  `'2'` sigue reservado al contrato de manga.
+- **`mediaPerTitle`** ya significa «digo qué es cada título»; se extiende a `family` y `format`.
+  `SearchResult` gana los dos campos opcionales y conserva `mediaType`, que se sigue leyendo y deja
+  de escribirse en lo nuevo.
+
+Lo que **no** entra en esta fase: `docs/providers.md` con el ejemplo nuevo, el fixture declarando
+las tres familias y clasificando cada título, y la conformidad del ecosistema. Es la fase 4.
+
 Validación de headers: `validateProvider` rechaza nombres que no cumplan `^[A-Za-z0-9-]+$` y
 valores que contengan caracteres de control (`\r`, `\n`, `\0`). Un plugin que los declare se
 rechaza **nombrando el header ofensor**. La validación vive en el schema, no en el consumidor, para
@@ -278,6 +315,11 @@ plugin pueda correr, y eso es código del paquete, no de su suite.
 - [ ] El test de conformidad es reutilizable: correrlo contra un plugin indica qué método
       incumple el contrato.
 - [ ] Ningún header de `StreamSource.headers` aparece en una respuesta al cliente web.
+- [x] `capabilities.families` existe en `core` y es aditiva: un manifiesto viejo sigue conformando,
+      `['anime', 'live']` se acepta y `[]` o `['anime', 'anime']` se rechaza nombrando el campo.
+      **Medido en T257a**: mutar `familiesOf` (ignorar `families`) hace fallar 2 pruebas.
+- [ ] Una fuente que declara `families` no recibe las peticiones de las familias que no sirve, y una
+      mixta sí las recibe todas (fase 2, con el contador del fixture).
 
 ## Boundaries
 

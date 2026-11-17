@@ -19,7 +19,7 @@ import {
   settingsResponseSchema,
 } from '@rona/core/api'
 import { groupByWork } from '@rona/core/identity'
-import { DEFAULT_MEDIA, type MediaFilter, mediaOf, puedeServir } from '@rona/core/media'
+import { DEFAULT_MEDIA, type MediaHalf, mediaOf, puedeServir } from '@rona/core/media'
 import type { SearchResult } from '@rona/core/models'
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../../api/client'
@@ -56,6 +56,18 @@ export interface SearchState {
 
 export function initialState(active: readonly string[]): SearchState {
   return { results: [], anilist: [], pending: [...active], errors: [], done: false }
+}
+
+/**
+ * Si la consulta no pide nada.
+ *
+ * Es la guarda que evita abrir un stream contra los proveedores al entrar en
+ * `/search`: sin término no hay pregunta, y preguntar el catálogo entero a cada
+ * fuente es tráfico que el usuario no ha pedido. La misma regla vive en la ruta
+ * como defensa para cualquier otro cliente.
+ */
+export function consultaVacia(query: string): boolean {
+  return query.trim() === ''
 }
 
 function sin(lista: readonly string[], valor: string): readonly string[] {
@@ -169,15 +181,12 @@ function porPreferencia(priority: readonly string[]): (a: SearchResult, b: Searc
  * identidad la resuelve `groupByWork` en `core` —título, alternativa y
  * referencia, para que «Danmachi» y «Dungeon ni Deai wo Motomeru no wa
  * Machigatteiru Darou ka» sean la misma obra— y aquí sólo queda lo que es
- * presentación: qué nombre da la tarjeta y en qué orden se pintan sus fuentes.
+ * presentación: qué fuente da el nombre y abre la tarjeta.
  *
- * **No se fusionan las referencias**: quien elige la fuente es el usuario, con
- * un enlace por proveedor, porque abrir la tarjeta lleva a una ficha concreta y
- * no a una media.
- *
- * `priority` es el orden de preferencia guardado en los ajustes y decide **cuál**
- * de las fuentes da el nombre y el enlace de la tarjeta. Sin él —vacío, o con un
- * id que ya no existe— todo queda como estaba.
+ * **No se fusionan las referencias**: la tarjeta lleva a la ficha de **una**
+ * fuente concreta y no a una media. Cuál de ellas lo decide `priority`, el orden
+ * de preferencia guardado en los ajustes; sin él —vacío, o con un id que ya no
+ * existe— gana la regla de siempre, el nombre más largo.
  */
 export function groupResults(
   results: readonly SearchResult[],
@@ -195,16 +204,6 @@ export function groupResults(
       results: ordenados,
     }
   })
-}
-
-/**
- * Los demás proveedores que ofrecen la misma obra, sin el de la tarjeta.
- *
- * Es el «selector de proveedor»: cada uno es un enlace a la ficha de esa fuente,
- * así que la obra sale una vez y las fuentes siguen siendo elegibles.
- */
-export function alternativas(grupo: ResultGroup, providerId: string): readonly SearchResult[] {
-  return grupo.results.filter((result) => result.ref.providerId !== providerId)
 }
 
 /** Los ids de los proveedores activos: los que la búsqueda va a consultar. */
@@ -225,7 +224,7 @@ export function activeProviderIds(summaries: readonly ProviderSummary[]): readon
 export function proveedoresSeleccionados(
   summaries: readonly ProviderSummary[],
   filter: readonly string[],
-  media: MediaFilter,
+  media: MediaHalf,
 ): readonly string[] {
   const medias = new Map(summaries.map((uno) => [uno.id, mediaOf(uno.capabilities)]))
 
@@ -569,7 +568,7 @@ export function useSearchStream(
   query: string,
   filter: readonly string[],
   /** La mitad que se está mirando. Filtrar aquí no basta: ver `searchRequestPath`. */
-  media: MediaFilter = 'anime',
+  media: MediaHalf = 'anime',
   /** Inyectable en los tests; en producción, el distribuidor de siempre. */
   hub: SearchHub = HUB,
 ): SearchStreamResult {
@@ -589,6 +588,11 @@ export function useSearchStream(
   const [state, setState] = useState<SearchState>(() => initialState([]))
 
   useEffect(() => {
+    if (consultaVacia(query)) {
+      setState({ ...initialState([]), done: true })
+      return
+    }
+
     // Los esqueletos salen de los proveedores **seleccionados**, no de todos: si
     // el filtro deja uno fuera, no puede quedar un esqueleto esperándolo.
     const filtrados = clave === '' ? [] : clave.split(',')
@@ -597,7 +601,7 @@ export function useSearchStream(
     setState(hub.read(path))
 
     return unsubscribe
-  }, [hub, path, clave])
+  }, [hub, path, clave, query])
 
   const labels = useMemo(
     () => new Map(summaries.map((summary) => [summary.id, summary.name])),

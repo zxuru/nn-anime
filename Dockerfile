@@ -23,6 +23,7 @@ WORKDIR /app
 # reutiliza aunque cambie el código.
 COPY package.json bun.lock tsconfig.json tsconfig.base.json ./
 COPY packages ./packages
+COPY patches ./patches
 COPY scripts ./scripts
 # `vite.config.ts` lee el aviso de seguridad del repositorio y lo emite como
 # recurso de `dist`; sin él, `/SECURITY.md` no llega a la imagen.
@@ -38,6 +39,7 @@ WORKDIR /app
 
 COPY package.json bun.lock ./
 COPY packages ./packages
+COPY patches ./patches
 RUN bun install --frozen-lockfile --production
 
 # --- 3. Runtime mínimo -------------------------------------------------------

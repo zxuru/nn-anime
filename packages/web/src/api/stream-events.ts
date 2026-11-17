@@ -12,7 +12,7 @@
  */
 
 import { type SearchEventPayload, searchEventSchema } from '@rona/core/api'
-import type { MediaFilter } from '@rona/core/media'
+import type { MediaHalf } from '@rona/core/media'
 
 /**
  * Ruta de la búsqueda. El filtro de proveedor se repite, como en el server.
@@ -26,7 +26,7 @@ import type { MediaFilter } from '@rona/core/media'
 export function searchRequestPath(
   query: string,
   providers: readonly string[] = [],
-  media: MediaFilter | undefined = undefined,
+  media: MediaHalf | undefined = undefined,
 ): string {
   const partes: string[] = []
   const limpio = query.trim()

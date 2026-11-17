@@ -21,7 +21,7 @@ colors:
 typography:
   display:
     fontFamily: "Nunito, \"Segoe UI Variable\", \"Segoe UI\", system-ui, sans-serif"
-    fontSize: "clamp(3rem, 9vw, 7.5rem)"
+    fontSize: "clamp(2.75rem, 7vw, 5.5rem)"
     fontWeight: 800
     lineHeight: 1.05
     letterSpacing: "-0.03em"
@@ -205,9 +205,11 @@ aplicación sin letra en el peor momento. Cualquier familia nueva que no viaje e
 ese contrato.
 
 ### Hierarchy
-- **Display** (800, `clamp(3rem, 9vw, 7.5rem)`, 1.05, −0.03em): el titular de la marquesina, y sólo
+- **Display** (800, `clamp(2.75rem, 7vw, 5.5rem)`, 1.05, −0.03em): el titular de la marquesina, y sólo
   ahí. Se acota a tres renglones; a cuerpo de cartel, un nombre con subtítulo empujaba los mandos
-  fuera de la pantalla. El nombre completo sigue en la ficha.
+  fuera de la pantalla. El nombre completo sigue en la ficha. A 7,5 rem la columna de texto
+  desbordaba el alto declarado de la marquesina y la primera fila de la home quedaba por debajo del
+  pliegue: el alto que el token declara es el que se pinta.
 - **Headline** (600, `clamp(1.25rem, 1.9vw, 1.75rem)`, 1.05, −0.03em): el titular de un tramo, en la
   nota al margen o en su cabecera.
 - **Title** (700, `clamp(1.05rem, 2.4cqi + 0.5rem, 1.6rem)`, 1.05, −0.01em): el título de una pieza.
@@ -237,7 +239,7 @@ que sólo es un renglón —el vacío, explicado— descansa la mitad
 partidos entre la canaleta y el cuerpo. El aire tiene **un solo dueño** por contenedor: el margen del
 tramo en la vitrina, el `gap` de la caja en Perfil e Historial.
 
-La **marquesina** va a sangre, mide `min(62dvh, 44rem)`, se reparte en `1fr / 0.58fr` (columna de
+La **marquesina** va a sangre, mide `min(58dvh, 40rem)`, se reparte en `1fr / 0.58fr` (columna de
 texto y cartel) y su titular es el cuerpo de cartel del sistema. La **cinta** de lo más visto corre
 pegada a su borde inferior, a velocidad constante —60 px/s—, con la vuelta calculada sobre el ancho
 real del carro.
@@ -318,8 +320,10 @@ objeto puesto encima y no como una caja más.
 - **Disabled:** texto y borde en ceniza, sin relleno.
 
 ### Chips
-- **Sello de origen** (búsqueda): fondo tenue, texto de rótulo, relleno `0.2rem 0.4rem`, sin radio.
-  Dice de qué proveedor viene un resultado; no es un filtro y no se pulsa.
+- **Sello:** fondo tenue, texto de rótulo, relleno `0.2rem 0.4rem`, sin radio. Acompaña un dato de
+  estado —el modo de un episodio, lo que ya está en tus fuentes—; no es un filtro y no se pulsa.
+  La tarjeta de la búsqueda no lleva sello de origen: lo que se busca es una obra, y la fuente se
+  elige en su ficha.
 
 ### Cards / Containers
 - **Pieza:** cartel 2:3, radio 10 px, borde 1 px de regla, fondo superficie, arte a sangre recortado
@@ -349,9 +353,10 @@ objeto puesto encima y no como una caja más.
 - **Móvil:** la cabecera envuelve y el conmutador baja a su propio renglón antes que apretar la marca.
 
 ### Pieza con asomo (componente de firma)
-La pieza es la unidad del sistema y su interacción es la firma: en reposo, arte y pie; con puntero o
-foco, un **asomo** opaco de superficie elevada —tono, no velo— que entra con cruce de opacidad y
-desenfoque de 200 ms y presenta sinopsis a tres renglones, el motivo y las acciones. El asomo se saca
+La pieza es la unidad del sistema y su interacción es la firma: en reposo, arte y pie —con el motivo
+de la recomendación en el pie, en prosa y a un paso del rótulo—; con puntero o foco, un **asomo**
+opaco de superficie elevada —tono, no velo— que entra con cruce de opacidad y desenfoque de 200 ms y
+presenta la sinopsis a tres renglones y las acciones. El asomo se saca
 del orden de tabulación cuando está oculto (`visibility` con retardo) para no dejar dos paradas de
 teclado muertas por pieza. En una pantalla ancha, el botón redondo «i» de `2.75rem` sólo aparece al
 pasar por encima; en táctil se ve siempre.

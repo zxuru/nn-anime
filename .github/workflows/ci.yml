@@ -224,8 +224,12 @@ jobs:
       - name: Versión
         run: bun run version:check
 
+      # `bun audit` clasifica por versión y no puede reconocer el parche local que
+      # elimina el patrón vulnerable. La regresión se mide en `bun test`; se omite
+      # sólo este GHSA mientras se use picomatch 4.0.7 parcheado. Retirar al subir
+      # a una versión corregida publicada por upstream.
       - name: Auditoría de dependencias
-        run: bun audit
+        run: bun audit --ignore GHSA-fc5q-39xc-vjpf
 
       - name: Tipos
         run: bun run typecheck
@@ -775,3 +779,35 @@ jobs:
       # El empaquetado sí lo exige (ver el trabajo `empaquetado`).
       - name: Compilar el anfitrión
         run: bun run desktop:build --sin-servidor
+
+  # La otra mitad de la auditoría de dependencias (T235). `calidad` corre `bun audit`, que mira
+  # `bun.lock`; el `Cargo.lock` versionado del anfitrión **no lo miraba nadie**: Dependabot
+  # proponía actualizaciones y ni un aviso abierto ni una licencia nueva tenían quién los
+  # leyera. La app descarga binarios y carga plugins, así que una vulnerabilidad transitiva en
+  # Tauri no se anuncia sola.
+  #
+  # **Sin `needs` y sin `if`.** A diferencia de `desktop`, no se salta cuando el PR no toca
+  # Rust: un aviso no lo abre el PR, lo abre el calendario —el `Cargo.lock` que ya está en
+  # `main` puede recibir uno nuevo cualquier semana— y un trabajo saltado cuenta como
+  # «Success» para branch protection. Cuesta menos de un minuto: no compila nada, resuelve el
+  # grafo y lo compara con la base de avisos y con la política del fichero de al lado.
+  #
+  # `cargo-deny` y no `cargo-audit`, porque en un solo paso cubre avisos, licencias y fuentes
+  # con una sola política que se revisa en `desktop/src-tauri/deny.toml`. Las excepciones
+  # —avisos que no se pueden arreglar— viven ahí con su motivo, no en un `continue-on-error`.
+  #
+  # La acción trae el binario dentro de su imagen (cargo-deny 0.21.0 en la v2.1.2), así que lo
+  # que corre aquí es exactamente lo que se midió a mano; subir la acción sube las dos cosas.
+  auditoria-rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # `arguments` va explícito y no vacío: la acción compone `cargo-deny $*` y un argumento
+      # vacío la hace salir con error de uso en vez de auditar.
+      - name: Auditar avisos, licencias y fuentes del Cargo.lock
+        uses: EmbarkStudios/cargo-deny-action@70f81531115945ba6eb6b941ec9d39d063438eb9 # v2.1.2
+        with:
+          manifest-path: desktop/src-tauri/Cargo.toml
+          arguments: --config desktop/src-tauri/deny.toml

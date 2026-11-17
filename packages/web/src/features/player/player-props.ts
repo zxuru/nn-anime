@@ -9,6 +9,7 @@
  */
 
 import type { SkipInterval } from '@rona/core/schema'
+import type { ReactNode } from 'react'
 import type { SafeTrack } from './usePlayer'
 import type { PlayMode } from './watch-route'
 
@@ -132,4 +133,21 @@ export interface PlayerProps {
   readonly renovarFuente?: (() => Promise<string | undefined>) | undefined
   /** El ancla de la guía: el reproductor es una parada del recorrido. */
   readonly dataTour?: string | undefined
+  /**
+   * La tarjeta del episodio siguiente, cuando el actual terminó.
+   *
+   * Va aquí y no en la pantalla porque tiene que vivir **dentro del marco**: es
+   * el único sitio donde se ve sobre la imagen, sigue a la vista en pantalla
+   * completa y no depende del alto de la ventana. La pantalla decide cuándo
+   * mostrarla; el reproductor sólo le da el sitio.
+   */
+  readonly nextCard?: ReactNode | undefined
+  /**
+   * La lámina que se ve antes del primer fotograma cuando no hay póster.
+   *
+   * La pantalla decide qué dibuja; el reproductor la pinta dentro del marco y la
+   * retira en cuanto empieza la reproducción o hay una imagen. Sin póster, es lo
+   * único que impide que el estado inicial sea un rectángulo vacío.
+   */
+  readonly plate?: ReactNode | undefined
 }

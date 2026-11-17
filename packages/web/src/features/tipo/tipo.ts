@@ -17,7 +17,7 @@ import type { ProviderSummary } from '@rona/core/api'
 import {
   DEFAULT_MEDIA,
   esDeMedia,
-  type MediaFilter,
+  type MediaHalf,
   mediaOf,
   type ProviderMedia,
   puedeServir,
@@ -33,10 +33,10 @@ import { useProviders } from '../search/useSearchStream'
  * sería una tercera mitad que nadie ha pedido. Quien busque una película cambia de
  * pestaña, y el cambio queda en la dirección.
  */
-export const TIPO_POR_DEFECTO: MediaFilter = 'anime'
+export const TIPO_POR_DEFECTO: MediaHalf = 'anime'
 
 /** El tipo que pide una ruta. Cualquier otra cosa —o nada— es el de por defecto. */
-export function tipoFromPath(path: string): MediaFilter {
+export function tipoFromPath(path: string): MediaHalf {
   const valor = new URLSearchParams(path.split('?')[1] ?? '').get('tipo')
 
   return valor === 'movies' ? 'movies' : TIPO_POR_DEFECTO
@@ -54,7 +54,7 @@ export function tipoFromPath(path: string): MediaFilter {
  * escribe como `%20`. Dos convenciones para la misma búsqueda dan dos claves de
  * caché distintas, que es lo que `searchPath` ya evita.
  */
-export function pathConTipo(path: string, tipo: MediaFilter): string {
+export function pathConTipo(path: string, tipo: MediaHalf): string {
   const [camino = '', consulta = ''] = path.split('?')
   const partes = consulta.split('&').filter((parte) => parte !== '' && !parte.startsWith('tipo='))
   if (tipo !== TIPO_POR_DEFECTO) partes.push(`tipo=${tipo}`)
@@ -135,7 +135,7 @@ export function fuenteDeVisionado(item: { readonly animeRef: ProviderRef }): Fue
 
 /** Si un título entra en el tipo que se está mirando. */
 export function esDelTipo(
-  tipo: MediaFilter,
+  tipo: MediaHalf,
   medias: ReadonlyMap<string, ProviderMedia>,
   fuente: FuenteDeTitulo,
 ): boolean {
@@ -155,7 +155,7 @@ export function esDelTipo(
  */
 export function enElTipo<T>(
   items: readonly T[],
-  tipo: MediaFilter,
+  tipo: MediaHalf,
   medias: ReadonlyMap<string, ProviderMedia>,
   fuente: (item: T) => FuenteDeTitulo,
 ): readonly T[] {
@@ -177,7 +177,7 @@ export function enElTipo<T>(
  */
 export function sinFuenteQueSirva(
   medias: ReadonlyMap<string, ProviderMedia>,
-  tipo: MediaFilter,
+  tipo: MediaHalf,
 ): boolean {
   if (medias.size === 0) return false
 

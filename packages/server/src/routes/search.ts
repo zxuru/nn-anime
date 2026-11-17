@@ -20,7 +20,7 @@ import {
   ok,
   type ProviderError,
   type ProviderMedia,
-  pasaElFiltro,
+  pasaElFiltroDeMedia,
   puedeServir,
   type Result,
   type SearchResult,
@@ -202,9 +202,17 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
      * pinta, y por eso vive en `core` y no aquí.
      */
     const soloCatalogo = hasGenreToken(parsed.data.q)
-    const selected = soloCatalogo
-      ? []
-      : selectedProviders(options.providers, parsed.data.provider, parsed.data.media)
+    /*
+      Sin término no hay pregunta. Preguntar el catálogo entero a cada fuente es
+      tráfico que el usuario no pidió y convierte la pantalla de invitación en un
+      listado arbitrario; el cierre sale con cero y no se llama a `searchAll`.
+      La interfaz hace la misma guarda antes de abrir el stream.
+    */
+    const hayConsulta = parsed.data.q.trim() !== ''
+    const selected =
+      soloCatalogo || !hayConsulta
+        ? []
+        : selectedProviders(options.providers, parsed.data.provider, parsed.data.media)
     const timeoutMs = options.timeoutMs
     const container = options.container
 
@@ -270,7 +278,7 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
         return {
           ...event,
           results: event.results.filter((resultado) =>
-            pasaElFiltro(
+            pasaElFiltroDeMedia(
               media,
               medias.get(resultado.ref.providerId) ?? DEFAULT_MEDIA,
               resultado.kind,

@@ -56,7 +56,7 @@ describe('a dónde lleva una pieza', () => {
 
     expect(
       metaDeDescubrir({ anilistId: 1, title: 'x', cover: '/y', adult: true, year: 2015 }),
-    ).toBe('Año 2015 · +18')
+    ).toBe('2015 · +18')
   })
 
   test('con referencia local, a su ficha', () => {
@@ -85,8 +85,8 @@ describe('a dónde lleva una pieza', () => {
     expect(vista.portada).toBe('/api/anilist/image/cover/20920')
     expect(vista.to).toBe('/anime/fixture/danmachi')
     // Una serie se anuncia con su año y ya: «TV» no distingue nada.
-    expect(vista.meta).toBe('Año 2015')
-    expect(metaDeDescubrir({ ...item, format: 'OVA' })).toBe('Año 2015 · OVA')
+    expect(vista.meta).toBe('2015')
+    expect(metaDeDescubrir({ ...item, format: 'OVA' })).toBe('2015 · OVA')
   })
 
   test('una película se anuncia por su formato y un capítulo por su número', () => {
@@ -172,8 +172,15 @@ describe('la fila de la parrilla', () => {
   test('sin nada que anunciar se explica', () => {
     const html = render(<ParrillaRow dias={[]} />)
 
-    expect(html).toContain('No hay capítulos anunciados')
+    expect(html).toContain('AniList no anuncia capítulos')
     expect(html).not.toContain('parrilla__dia')
+  })
+
+  test('cuando AniList no contesta lo dice, en vez de culpabilizar a la parrilla', () => {
+    const html = render(<ParrillaRow dias={[]} caido />)
+
+    expect(html).toContain('AniList no ha contestado')
+    expect(html).not.toContain('no anuncia capítulos')
   })
 
   test('la meta de una emisión lleva el episodio y la hora, y sin episodio la hora', () => {

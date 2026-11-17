@@ -102,6 +102,7 @@
    */
   display: inline-flex;
   align-items: center;
+  gap: var(--space-2);
   min-block-size: var(--control-size);
   font-family: var(--font-display);
   font-size: var(--text-lg);
@@ -114,6 +115,13 @@
      cabecera con dos renglones y empuja todo lo de debajo. En una ventana
      estrecha se encoge el tipo, no se parte el nombre. */
   white-space: nowrap;
+}
+
+.shell__brand img {
+  display: block;
+  inline-size: var(--control-size-compact);
+  block-size: var(--control-size-compact);
+  flex: none;
 }
 
 .shell__nav {
@@ -214,6 +222,38 @@
   max-width: var(--content-max);
   margin: 0 auto;
   padding: var(--space-7) var(--space-6);
+}
+
+/*
+ * El `main` recibe el foco al cambiar de pantalla para que el tabulador siga
+ * desde el contenido. No es un control: el anillo se dibuja alrededor de la
+ * pantalla entera y no señala nada que se pueda activar, así que no se pinta.
+ */
+.shell__main:focus {
+  outline: none;
+}
+
+/*
+ * El pie de la aplicación.
+ *
+ * Va fuera del `main` y después de él: es una nota de la aplicación entera, no
+ * del contenido de la pantalla. El `flex: 1` del `main` lo empuja al fondo
+ * cuando la pantalla es corta, y el filete de arriba lo separa del último
+ * renglón sin tapar nada. En el móvil la barra de navegación es fija y se
+ * comería el texto: allí reserva su alto, como ya hace el contenido.
+ */
+.shell__footer {
+  inline-size: 100%;
+  border-block-start: var(--border-width) solid var(--color-rule);
+}
+
+.shell__footer-nota {
+  max-inline-size: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-6);
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
 }
 
 /*
@@ -379,6 +419,20 @@
   overflow-wrap: anywhere;
 }
 
+/*
+ * Los dos mandos del primer arranque: abrir Ajustes y saltar los tutoriales.
+ *
+ * Van en su propia caja y no uno detrás de otro a secas: al ser un bloque de
+ * botones, el aire entre ellos no depende del renglón ni del tamaño del texto.
+ */
+.primer-arranque__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-block-start: var(--space-2);
+}
+
 .shell__main h1 {
   font-family: var(--font-display);
   /* Medido contra el ancho y no fijo: a 320 px «DESCARGAS» no cabía en la columna
@@ -487,17 +541,14 @@
   padding: var(--space-1) var(--space-3) 0;
 }
 
-.card__extra {
-  color: var(--color-text-dim);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
-  padding: var(--space-1) var(--space-3) 0;
-}
-
-.card > .card__meta:last-child,
-.card > .card__extra:last-child {
+/*
+ * El pie de la tarjeta termina en aire.
+ *
+ * Antes lo ponía el sello de origen, que ya no está: sin esta regla, un título
+ * sin metadatos quedaba pegado al borde de abajo.
+ */
+.card > .card__title:last-child,
+.card > .card__meta:last-child {
   padding-bottom: var(--space-3);
 }
 

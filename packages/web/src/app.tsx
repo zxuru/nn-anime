@@ -7,7 +7,7 @@
  */
 
 import { DEFAULT_LOCALE, type Locale } from '@rona/core/i18n'
-import type { ReactNode } from 'react'
+import { type ReactNode, useEffect, useRef } from 'react'
 import { BarraInferior } from './components/BarraInferior'
 import { IconLabel } from './components/IconLabel'
 import { DetailPage } from './features/detail/DetailPage'
@@ -59,6 +59,17 @@ function Shell(props: {
    */
   readonly ficha?: boolean
   /**
+   * Las pantallas que no llevan el pie.
+   *
+   * Son las dos de reproducción, y por la misma razón por la que van sin tope:
+   * se miden contra la ventana. El pie va después de la caja de la pantalla y
+   * ocupa su alto —65 px de nota, filete y relleno—, así que pintarlo aquí
+   * metía la sala entera en un desplazamiento de esa altura aunque el video
+   * cupiera. En las demás pantallas el contenido es una columna que ya se
+   * desplaza sola y el pie es la última línea, no un presupuesto.
+   */
+  readonly sinPie?: boolean
+  /**
    * Si la cabecera lleva el conmutador de tipo.
    *
    * No lo lleva siempre: la mitad que se mira sólo significa algo donde hay algo
@@ -82,6 +93,33 @@ function Shell(props: {
   const path = usePath()
   const route = useRoute()
   const tipo = tipoFromPath(path)
+  const contenido = useRef<HTMLElement>(null)
+  /*
+    La pantalla, no la consulta.
+
+    Escribir en el buscador reemplaza `?q=` en cada pausa; si el foco se moviera
+    con cada reemplazo, la casilla se vaciaría de foco a los 400 ms de teclear.
+    Lo que cambia de pantalla es el camino, y sólo entonces el foco viaja al
+    `main`: quien navega con el teclado sigue desde el contenido en vez de volver
+    a recorrer la cabecera, y el lector de pantalla anuncia la pantalla nueva.
+  */
+  const camino = path.split('?')[0] ?? path
+  const caminoAnterior = useRef(camino)
+
+  useEffect(() => {
+    if (caminoAnterior.current === camino) return
+
+    caminoAnterior.current = camino
+    /*
+      La pantalla que ya se ha llevado el foco lo conserva. La búsqueda enfoca su
+      campo al abrirse, y este efecto —que corre después, de dentro hacia
+      fuera— le devolvía el foco al `main` y dejaba la casilla sin escribir. Un
+      foco explícito de la pantalla dice más que el de cortesía del armazón.
+    */
+    if (contenido.current?.contains(document.activeElement) === true) return
+
+    contenido.current?.focus({ preventScroll: true })
+  }, [camino])
 
   return (
     <div className="shell">
@@ -95,6 +133,7 @@ function Shell(props: {
           {t(LOCALE, 'nav.skip')}
         </a>
         <Link to="/" className="shell__brand">
+          <img src="/brand/logo.png" alt="" aria-hidden="true" />
           {t(LOCALE, 'app.name')}
         </Link>
         <nav className="shell__nav" aria-label={t(LOCALE, 'nav.primary')}>
@@ -116,7 +155,7 @@ function Shell(props: {
         {props.tipo === true ? <ConmutadorTipo /> : null}
         <BotonGuia />
       </header>
-      <main className={caja.join(' ')} id="contenido" tabIndex={-1}>
+      <main className={caja.join(' ')} id="contenido" ref={contenido} tabIndex={-1}>
         {props.children}
       </main>
       {/*
@@ -126,6 +165,18 @@ function Shell(props: {
         corte en los dos sitios.
       */}
       <BarraInferior />
+      {/*
+        El pie es de la aplicación y no de una pantalla: la promesa de que todo
+        se queda en el equipo vale igual en la vitrina que en Ajustes, y una
+        pantalla nueva lo hereda sin repetirlo. Las de reproducción son la
+        excepción declarada en `sinPie`: se miden contra la ventana y el pie les
+        roba el alto que el video necesita.
+      */}
+      {props.sinPie === true ? null : (
+        <footer className="shell__footer">
+          <p className="shell__footer-nota">{t(LOCALE, 'app.footer')}</p>
+        </footer>
+      )}
     </div>
   )
 }
@@ -206,6 +257,9 @@ export function App(): ReactNode {
       // lados un margen que no gasta nada. En la biblioteca era además el motivo
       // de que los mandos del reproductor cayeran por debajo del pliegue.
       sinTope={route.name === 'watch' || route.name === 'library-player'}
+      // Las mismas dos pantallas van sin pie: se miden contra la ventana y el
+      // pie, que va después de la caja, les metía un desplazamiento de su alto.
+      sinPie={route.name === 'watch' || route.name === 'library-player'}
       ficha={route.name === 'detail'}
       tipo={route.name === 'home' || route.name === 'search'}
     >

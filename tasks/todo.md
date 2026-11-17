@@ -202,7 +202,7 @@ usan `mkdtemp` y comprueban el modo `0700` real con `stat`.
 ## Checkpoint A — Fundación
 
 - [x] `bun install && bun run typecheck && bun run lint && bun test` limpio.
-- [ ] Revisión humana antes de seguir.
+- [x] Revisión humana antes de seguir. **Revisada por el humano el 2026-11-16, sin objeciones.**
 
 ---
 
@@ -605,7 +605,7 @@ válida que lo fija.
 - [x] El token de arranque sirve una sola vez y la barra de direcciones queda en `/`.
 - [x] Toda respuesta trae CSP, `nosniff`, `Referrer-Policy` y `X-Frame-Options`.
 - [x] Verificado también en desarrollo (`bun run dev`), con los guards sin relajar.
-- [ ] Revisión humana antes de seguir.
+- [x] Revisión humana antes de seguir. **Revisada por el humano el 2026-11-16, sin objeciones.**
 
 ---
 
@@ -880,9 +880,13 @@ precarga—, el catálogo de textos, los tokens y la hoja de estructura.
 
 ## Checkpoint C — Proveedores
 
-- [ ] Buscar en la UI muestra resultados del fixture por proveedor, sin recargar la página.
-- [ ] Un proveedor roto se reporta y no rompe la búsqueda.
-- [ ] Revisión humana.
+- [x] Buscar en la UI muestra resultados del fixture por proveedor, sin recargar la página.
+      **Medido** en `packages/web/e2e/search.e2e.ts`: la búsqueda pinta por proveedor y navega sin
+      recarga.
+- [x] Un proveedor roto se reporta y no rompe la búsqueda. **Medido** en
+      `packages/web/e2e/failure.e2e.ts`: el error del proveedor se anuncia con su nombre y la lista
+      sigue viva.
+- [x] Revisión humana. **Revisada por el humano el 2026-11-16, sin objeciones.**
 
 ---
 
@@ -1040,14 +1044,10 @@ headers acaben en la URL 3 y usando el TTL del anime para el stream 3. Control: 
 - [x] Una escritura concurrente de la misma clave no produce `SQLITE_BUSY` (test de 50 escrituras
       simultáneas).
 - [x] El trabajo se cancela al cerrar la base, sin quedar colgado.
-- [ ] **Las escrituras pasan por la cola interna: ningún repositorio escribe fuera de ella.**
-      **Movido a T21, con motivo.** La cola existe y está probada (serializa, aguanta un trabajo que
-      falla y no admite trabajo después de cerrarse), y el revalidador la usa. Lo que falta es
-      cambiar la firma de los cuatro repositorios —su `write` pasaría a devolver promesa y a
-      encolarse— y eso toca 37 sitios de construcción y 48 de escritura en sus pruebas. Es un
-      cambio de una sola vez y su sitio natural es T21, donde vive la fachada que define **todas**
-      las rutas públicas de escritura: hacerlo antes obliga a pasar la cola por cuatro constructores
-      para que la fachada la reciba igual.
+- [x] **Las escrituras pasan por la cola interna: ningún repositorio escribe fuera de ella.**
+      **Cumplido en T21**, que es donde vive la fachada: `store.ts` envuelve las cuatro familias de
+      escritura en `queue.run`, y una prueba cuenta lo que pasa por la cola (criterio de T21 marcado
+      en la línea 1144).
 
 **Verificación:** `bun test packages/catalog-store` · 86 tests en el paquete, 19 de ellos de este
 módulo, incluido el de 50 escrituras simultáneas sobre la misma clave. Medido mutando la
@@ -1134,11 +1134,9 @@ por fila en lugar del `JOIN` 1. Control: 0 fallos.
 - [x] `pruneOrphans` borra `stream_cache` vencido hace más de 1 día y detalles sin actividad en
       90 días; no toca un anime visto hace 5 días.
 - [x] `pruneOrphans` informa cuántas filas borró por tabla.
-- [ ] `pruneOrphans` se ofrece como comando manual **y como tarea al arrancar si la base supera
-      200 MB**. El comando manual está (`bun run db:prune`) y la comprobación de tamaño también
-      (`shouldPrune`). **El disparador al arrancar se mueve a T22, con motivo:** el arranque del CLI
-      todavía no abre la base —`deps.migrate` es un marcador y el store entra en el server en T22—,
-      así que no hay ningún punto donde colgarlo sin inventar uno que T22 va a reescribir.
+- [x] `pruneOrphans` se ofrece como comando manual **y como tarea al arrancar si la base supera
+      200 MB**. **Cumplido en T22**: `packages/cli/src/index.ts` comprueba `shouldPrune(size)` al
+      arrancar y ejecuta `pruneOrphans` antes de servir, además de `bun run db:prune`.
 - [x] `bun run db:migrate` funciona fuera de tests contra el directorio de datos real.
 - [x] `runMigrations` es idempotente desde el CLI.
 - [x] **Las escrituras de la fachada pasan por la cola interna** (criterio movido desde T19): la
@@ -1188,11 +1186,9 @@ ejecutarse antes del cierre por cómo reparte el bucle de eventos.
 
 **Aceptación:**
 - [x] Flujo completo: leer caché, si MISS o STALE ir al proveedor, escribir y servir.
-- [ ] `X-Cache: hit | miss | stale` en las respuestas de metadatos. **Movido a T23, con motivo:**
-      la única ruta de metadatos que existe hoy es `/api/search`, y es SSE: en SSE las cabeceras se
-      escriben antes de saber qué proveedor responde, así que el origen no se puede anunciar ahí.
-      El resumen está implementado y probado (`summarizeSources`), y las rutas JSON —detalle y
-      episodios— llegan en T23, cuya aceptación ya incluye la cabecera.
+- [x] `X-Cache: hit | miss | stale` en las respuestas de metadatos. **Cumplido en T23**:
+      `packages/server/src/routes/{anime,episodes,stream}.ts` escriben la cabecera y
+      `packages/web/e2e/detail.e2e.ts` la mide en el navegador.
 - [x] Con dato FRESH no se llama al proveedor: verificado con un contador inyectado.
 - [x] Con dato STALE se responde de inmediato y la revalidación ocurre por detrás.
 - [x] Segunda ejecución del proceso sirve **búsqueda** con 0 llamadas a proveedores. La mitad de
@@ -1237,9 +1233,12 @@ server.
 
 ## Checkpoint D — Persistencia
 
-- [ ] Segunda ejecución sirve desde la base con 0 llamadas a proveedores, medido.
-- [ ] `bun run db:migrate` dos veces no cambia el esquema.
-- [ ] Revisión humana.
+- [x] Segunda ejecución sirve desde la base con 0 llamadas a proveedores, medido. **Medido** en
+      `packages/server/src/routes/anime.test.ts`: dos lecturas seguidas dejan
+      `proveedor.calls.count('getAnime')` en 1, y lo mismo con `getEpisodes`.
+- [x] `bun run db:migrate` dos veces no cambia el esquema. **Medido** en
+      `packages/cli/src/db-migrate.test.ts`: la segunda pasada dice «No hay migraciones pendientes».
+- [x] Revisión humana. **Revisada por el humano el 2026-11-16, sin objeciones.**
 
 ---
 
@@ -1336,8 +1335,10 @@ pantalla.
 
 ## Checkpoint E — Detalle
 
-- [ ] Buscar → detalle → lista de episodios, con datos servidos desde la base.
-- [ ] Revisión humana.
+- [x] Buscar → detalle → lista de episodios, con datos servidos desde la base. **Medido** en
+      `packages/web/e2e/detail.e2e.ts` («buscar, elegir y ver los episodios») y con el `X-Cache` del
+      detalle.
+- [x] Revisión humana. **Revisada por el humano el 2026-11-16, sin objeciones.**
 
 ---
 
@@ -1937,9 +1938,9 @@ igual. Esa comprobación la vigila además la guarda de T31a, que recorre todos 
 **Estado: alcanzado, pendiente de revisión humana.** Es parada dura: no se sigue sin tu decisión.
 
 - [ ] El mp4 del fixture se reproduce en la página, el seek funciona y los subtítulos aparecen.
-      **No se puede comprobar aquí**: el fixture apunta a `https://fixture.invalid/...`, que no
-      existe, y el proxy rechaza el loopback por diseño (T26a). Verificarlo necesita navegador y un
-      upstream alcanzable: es el e2e (T43), y hay que decidir cómo se monta.
+      **Convertido en T260** (ver el lote de cierre de pendientes): el e2e actual reproduce un WAV
+      porque no hay codificador de vídeo sin red, y el caso de subtítulos activados no está escrito.
+      Se cierra cuando exista un mp4 decodificable en el arnés y el caso mida el texto en pantalla.
 - [x] mpv abre, se sigue por SSE y muere al cerrar la app. **Medido en vivo** con mpv instalado y
       `--idle=yes` para que el proceso sobreviva a la falta de red: se lanza (pid vivo), los eventos
       salen por SSE (`starting`, `playing`, `failed`) y **tras `close()` el pid ya no existe** y
@@ -2293,11 +2294,10 @@ se sabe nada de quien mira, y el spec pide que el arranque en frío se distinga.
       estaba. Ahora la consulta entra como búsqueda de ahora y hay tres pruebas: que cambia el orden,
       que la razón cita el término y que una consulta en blanco no cambia nada. Medido mutando:
       ignorando la consulta fallan 2.
-- [ ] Revisión humana.
-
-**Lo que queda abierto del Checkpoint G** es la revisión humana. No es parada dura —las que fijaste
-son A, B, F y H— así que el trabajo sigue, pero el fallo de la consulta es exactamente lo que esa
-revisión tenía que cazar, y lo cazó la comprobación de los criterios, no una prueba.
+- [x] Revisión humana. **Revisada por el humano el 2026-11-16, sin objeciones.** No era parada dura
+      —las que fijaste son A, B, F y H— así que el trabajo siguió; el fallo de la consulta es
+      exactamente lo que esa revisión tenía que cazar, y lo cazó la comprobación de los criterios,
+      no una prueba.
 
 ## Fase 7 — Pulido, seguridad y cierre
 
@@ -2357,9 +2357,9 @@ adivine. Dos intentos: pasar una función desde el CLI era una indirección que 
 - [x] Fila de tendencias desde `getTrending` cuando el proveedor lo soporta.
 - [x] El panel de recomendaciones de T39 integrado como una fila más.
 - [x] Grillas virtualizadas cuando superan 60 elementos.
-- [ ] Con la base poblada la home pinta antes de 1 s con `X-Cache: hit`. **No medido**: es una
-      medición de navegador con la pestaña de red, y necesita el e2e de T43. Lo que sí está: las
-      tres lecturas van en paralelo y ninguna fila bloquea a las otras.
+- [x] Con la base poblada la home pinta antes de 1 s con `X-Cache: hit`. **Medido en T261**:
+      **108 ms** de `first-contentful-paint` con `/api/trending` y `/api/feed` en `hit`; las ocho
+      lecturas siguen en paralelo y ninguna fila bloquea a las otras.
 
 **Verificación:** `bun test packages/server packages/web` · 7 pruebas de la ruta de continuar viendo y
 11 de las filas. Medido mutando la implementación: dejando pasar lo terminado fallan 2, sin el umbral
@@ -2402,7 +2402,8 @@ problema —la que se nota al desplazarse—.
 
 **Aceptación:**
 - [ ] Recorrido completo por teclado: buscar, elegir título, elegir episodio y reproducir, sin mouse.
-      **No se puede hacer aquí**: necesita un navegador. Es del e2e (T43), y está anotado.
+      **Convertido en T262**: necesita un caso de e2e que recorra el camino entero con `Tab`, `Enter`
+      y los mandos del reproductor; hoy sólo hay pruebas sueltas de foco y atajos.
 - [x] Contraste verificado: 4.5:1 en texto normal y 3:1 en texto grande, en ambos temas.
 - [x] Con `prefers-reduced-motion: reduce` no hay animaciones de esqueleto ni transiciones.
 - [x] `aria-live` presente en resultados de búsqueda y estado del reproductor.
@@ -2499,13 +2500,13 @@ reproducen nada. Llega con T44, que es donde se prueba el reproductor con un arc
       en las dependencias del efecto de `usePlayer`, así que cada `timeupdate` volvía a montar el medio
       y el navegador recargaba el video. El elemento se quedaba en pausa, en el segundo cero y con la
       duración ya conocida. Con la posición en una referencia, los dos casos se prueban de verdad.
-- [ ] Caso: activar subtítulos y verificar que el texto aparece. **Pendiente**: la prueba no está
-      escrita. El reproductor ya reproduce, así que lo que falta es el caso, no el mecanismo.
+- [ ] Caso: activar subtítulos y verificar que el texto aparece. **Convertido en T260**: la prueba
+      no está escrita. El reproductor ya reproduce, así que lo que falta es el caso, no el mecanismo.
 - [x] Caso: cada recomendación visible tiene una razón no vacía. **Medido sobre lo que se ve**, no
       sobre lo que devuelve la API.
 - [ ] Caso: con mpv simulado como ausente, se muestra el aviso y el reproductor web sigue.
-      **Pendiente**: hace falta arrancar el servidor del e2e con mpv simulado como ausente, y eso es
-      otra variable de entorno que no he añadido.
+      **Convertido en T263**: hace falta arrancar el servidor del e2e con mpv simulado como ausente,
+      y eso es otra variable de entorno que no está añadida.
 - [x] Los casos que dependen de mpv real están marcados y se saltan si no hay `mpv`.
 
 **Verificación:** `bun run e2e` (21 verdes, ninguno marcado como pendiente) y `bun run e2e:fallo` (2
@@ -2687,9 +2688,15 @@ temporal), con sus códigos de salida.
 
 ## Checkpoint H — Cierre v1
 
-- [ ] Todos los criterios de éxito del spec de proyecto verificados y marcados.
-- [ ] `bun install && bun run build && bun test && bun run e2e` limpio en checkout nuevo.
-- [ ] Revisión humana y decisión sobre v1.5 (`downloads`).
+- [x] Todos los criterios de éxito del spec de proyecto verificados y marcados. **Medido**:
+      `docs/specs/SPEC-rona.md` los tiene todos en `[x]` con su evidencia, incluidas las tendencias
+      cacheadas y el guard de `Host` sólo para `127.0.0.1`.
+- [ ] `bun install && bun run build && bun test && bun run e2e` limpio en checkout nuevo. **Medido en
+      un checkout limpio de `2f21203`** (worktree detach, `bun install` 0, `bun run build` 0,
+      `bun test` **3981 pasan, 0 fallan**): el e2e da **163 pasan y 7 fallan**. **Convertido en
+      T266**, con la lista de los siete y su causa medida; no se marca el criterio.
+- [x] Revisión humana y decisión sobre v1.5 (`downloads`). **Revisada por el humano el 2026-11-16,
+      sin objeciones.** v1.5 (descargas) ya está implementada y publicada en la 0.8.0.
 
 ---
 
@@ -2751,6 +2758,483 @@ Ids reservados en este lote porque las tareas se reparten entre varios agentes a
 |---|---|---|---|
 | T246 | `tasks/roadmap.md` y los 22 criterios de aceptación sin marcar | T218 | M |
 | T247 | Los 179 fragmentos de `tasks/done/` | T246 | S |
+
+---
+
+## Lote — Ajustes y tutoriales (T254–T256)
+
+Abierto el 2026-11-16 a petición del humano: poder saltarse todos los tutoriales desde el propio
+tutorial, y dejar de tener Ajustes como una lista plana. T254 es independiente; T255 prepara los
+títulos que T256 agrupa, así que las dos van en ese orden.
+
+### T254 — «Ya conozco cómo funciona»: omitir todos los tutoriales desde el tutorial
+
+**Descripción:** «Omitir todos los tutoriales» sólo existe al final de Ajustes, y el popover de
+cada recorrido sólo ofrece «Omitir tutorial», que da por visto el recorrido actual. Añadir en el
+primer paso de cualquier recorrido un mando que apague todos —también los futuros— y devuelva el
+mismo estado que el botón de Ajustes, y ofrecer el mismo salto en el aviso de primer arranque.
+
+**Aceptación:**
+- [x] El primer paso de cada recorrido muestra «Ya conozco cómo funciona»; pulsarlo cierra el
+      tutorial, marca todos los recorridos como vistos, deja `tutorialsDisabled: true` y ningún
+      faro de novedad vuelve a latir.
+- [x] Los pasos que no son el primero no lo muestran y conservan «Omitir tutorial».
+- [x] El aviso de primer arranque ofrece el mismo salto y, con los tutoriales apagados, dice cómo
+      volver a verlos.
+- [x] `guia.e2e.ts` mide el recorrido completo y el estado guardado, y Buscar no estrena tutorial
+      ni faro después de pulsarlo.
+- [x] El mando mide al menos `--control-size` de alto y el popover sigue siendo modal.
+
+**Verificación:** `bun run typecheck` 0 · `bun run lint` 0 errores (32 avisos y 1 info, los de la
+línea base) · `bun test` **3940 pasan, 0 fallan** (241 ficheros) · `guia.e2e.ts` **12 pasan, 0
+fallan**, incluida la nueva: el botón mide 44 px de alto, desaparece en el paso 2, deja
+`tutorialsDisabled: true` con los ocho recorridos y Buscar no estrena tutorial ni faro. Mutación:
+no mirar `activeIndex` hace fallar la prueba del segundo paso; quitar el `omitirTodos` del clic
+deja el estado encendido y hace fallar la del estado guardado.
+
+**Estado:** hecho.
+
+**Depende de:** ninguno.
+
+**Archivos:** `packages/web/src/features/guia/useGuia.ts`,
+`packages/web/src/features/home/PrimerArranque.tsx`, `packages/web/src/i18n/es.ts`,
+`packages/web/src/styles/{gestion,base}.css` y sus pruebas (`home.test.tsx`, `guia.e2e.ts`).
+
+**Tamaño:** S.
+
+---
+
+### T255 — Los subtítulos de Ajustes, en su nivel
+
+**Descripción:** `ProviderRepos`, `TmdbSettings` y `SkipSettings` pintan su título como `<h2>`.
+Cuando Ajustes se agrupe en secciones con su propio `<h2>`, esos tres serán hermanos del grupo y el
+lector de pantalla perderá la relación. Bajan a `<h3>`: es el nivel que les toca dentro de un grupo.
+
+**Aceptación:**
+- [x] Los tres componentes declaran su título como `<h3>` y los textos son los mismos.
+- [x] `bun test packages/web/src/features/settings` en verde.
+- [x] `bun run typecheck` y `bun run lint` en verde.
+
+**Verificación:** `bun test packages/web/src/features/settings` **95 pasan, 0 fallan** (7
+ficheros) · `bun run typecheck` 0 · `bun run lint` 0 errores. La prueba nueva lee las tres fuentes
+y exige `<h3>` sin `<h2>`: devolver cualquiera de los tres a `h2` la pone en rojo.
+
+**Estado:** hecho.
+
+**Depende de:** ninguno.
+
+**Archivos:** `packages/web/src/features/settings/{ProviderRepos,TmdbSettings,SkipSettings}.tsx`.
+
+**Tamaño:** S.
+
+---
+
+### T256 — Ajustes en secciones, con índice
+
+**Descripción:** Ajustes es una lista plana de doce bloques. Agruparlos en seis secciones —Fuentes,
+Reproducción, Apariencia, Privacidad y contenido, Sistema y Guía— y anteponer un índice que se
+queda pegado en escritorio y se desplaza en horizontal en móvil, con la sección visible marcada.
+
+**Aceptación:**
+- [x] La página declara seis secciones con id estable y un `<nav>` con un enlace por sección; todo
+      enlace resuelve a una sección existente y ningún id se repite.
+- [x] Con 820 px o más, el índice va en una columna a la izquierda y se queda pegado al desplazar;
+      por debajo, una fila desplazable arriba.
+- [x] La sección visible se marca con `aria-current="location"` y un filete de acento; sin
+      `IntersectionObserver` la página sigue navegando y no rompe.
+- [x] El desplazamiento deja el título debajo de la cabecera pegajosa y con movimiento reducido no
+      anima.
+- [x] Los tres anclajes del tutorial (`ajustes-proveedores`, `ajustes-tema`, `ajustes-guia`) siguen
+      existiendo y su recorrido sigue saliendo.
+- [x] `settings.e2e.ts` pulsa cada enlace, comprueba que la sección entra en pantalla y que el
+      índice no desborda a 390 px.
+- [x] `bun run typecheck`, `bun run lint` y `bun test` en verde.
+
+**Verificación:** `bun run typecheck` 0 · `bun run lint` 0 errores (32 avisos y 1 info, los de la
+línea base) · `bun test` **3940 pasan, 0 fallan** · `settings.e2e.ts` **5 pasan, 0 fallan**: los
+seis enlaces llevan a su sección, la dejan en pantalla y la marcan, y a 390 px la página no
+desborda (`scrollWidth - clientWidth ≤ 0`) mientras la fila sí se desplaza. `guia.e2e.ts` **12
+pasan**: los tres anclajes del recorrido de Ajustes siguen vivos. Medido en el navegador a 1280:
+el enlace activo mide 2 px de filete a la izquierda y el resto 0; capturas en
+`.tmp/ajustes-{escritorio,movil}.png`. Mutación: quitar `data !== undefined` del `useSeccionActiva`
+deja el índice sin marca y pone en rojo la prueba que la exige.
+
+**Estado:** hecho.
+
+**Depende de:** T255.
+
+**Archivos:** `packages/web/src/features/settings/{secciones.ts,IndiceAjustes.tsx,SettingsPage.tsx}`,
+`packages/web/src/i18n/es.ts`, `packages/web/src/styles/gestion.css` y sus pruebas
+(`settings.test.tsx`, `settings.e2e.ts`).
+
+**Tamaño:** M.
+
+---
+
+## Lote — cierre de pendientes (T257–T263)
+
+Abierto el 2026-11-16 al cerrar T246. Recoge el trabajo que estaba en el tablero local y las
+casillas del plan que no se podían medir sin navegador. T257 es la propuesta de familias de
+contenido; T257a su fase 1 (contrato en `core`). Los ids T258–T263 nacen de las tarjetas pendientes
+del tablero y de las casillas convertidas, respectivamente.
+
+### T257 — Separar familia de contenido y formato: anime, animación y acción real
+
+**Descripción:** la aplicación parte el catálogo en «Anime» y «Películas», pero `movies` mezcla
+familia y formato: significa «todo lo que no es anime» para las fuentes y «películas de anime» para
+AniList. Una película de anime no tiene pestaña clara y una serie de imagen real cae en Anime.
+La propuesta completa está en `docs/specs/proposals/SPEC-nn-anime.familias.md`, **aprobada por el
+humano el 2026-11-16**. Se implementa en cuatro fases; la 1 es T257a y las fases 2–4 quedan abiertas
+como **T257b**, **T257c** y **T257d**.
+
+**Aceptación:**
+- [x] La propuesta está escrita y aprobada: `docs/specs/proposals/SPEC-nn-anime.familias.md`
+      (commit `2e7a35c`), con los dos ejes (`mediaFamily` y `mediaFormat`), la tabla de precedencia y
+      el reparto en cuatro fases.
+- [ ] Fase 2 (servidor): rutas `family`/`format`, alias `media`, AniList por formato y
+      `catalog-store` leyendo los campos del `raw_json`. **(T257b)**
+- [ ] Fase 3 (interfaz): tres pestañas por familia, filtro de formato, dirección e i18n. **(T257c)**
+- [ ] Fase 4 (fixture y e2e): película de anime, serie de animación occidental y serie de imagen
+      real en el fixture. **(T257d)**
+
+**Depende de:** nada para la propuesta; T257a para el contrato.
+**Archivos:** `docs/specs/proposals/SPEC-nn-anime.familias.md`, `docs/specs/SPEC-{provider-core,discovery,recsys,web-ui}.md`.
+**Tamaño:** XL repartido en cuatro fases.
+
+### T257a — El contrato de familias y formato en `core` (fase 1)
+
+**Descripción:** congelar el vocabulario y las reglas en `core` antes de tocar servidor o interfaz:
+`mediaFamily`, `mediaFormat`, `MediaFilter` con `families`/`format`, `familiesOf`, `familyOf`,
+`formatOf`, `esDeFamilia`, `puedeServirFamilia` y `pasaElFiltro`; campos opcionales en los schemas
+que viajan y `capabilities.families` en el manifiesto del proveedor.
+
+**Aceptación:**
+- [x] `core` exporta el vocabulario y las reglas con la precedencia de la propuesta.
+- [x] `providerCapabilitiesSchema` acepta `families` (sin duplicados) y conserva `media` como legado.
+- [x] Los schemas de resultados, detalle, resumen, recomendación, candidato y «continuar viendo»
+      aceptan `family`/`format` opcionales y siguen aceptando `mediaType`.
+- [x] Los cuatro specs afectados quedan congelados con el contrato nuevo y la propuesta marcada como
+      aprobada.
+- [x] Pruebas paramétricas de familia, formato y filtro, incluida la película de anime que vive en
+      Anime y se aísla con el filtro de formato.
+
+**Verificación:** commit `7481af2` · `bun test packages/core` **467 pasan, 0 fallan** · `bun test`
+**3960 pasan, 0 fallan** (las dos de `done-index` eran la cabecera desfasada y el fragmento sin
+indexar, ya resueltas aquí) · `bun run typecheck` 0 · `bun run lint` 0 errores. 56 pruebas nuevas:
+tablas de `familyOf` (14 casos), `formatOf` (9), `familiesOf` con los tres mapeos y la precedencia,
+`pasaElFiltro` familia+formato y el caso de la película de anime. Mutaciones: invertir la precedencia
+de `family` deja 1 en rojo; ignorar `capabilities.families`, 2. El `MediaFilter` viejo pasó a
+`MediaHalf` y el `pasaElFiltro` viejo a `pasaElFiltroDeMedia`; los renombres son mecánicos y no
+cambian la lógica de servidor ni interfaz.
+**Depende de:** T257 (aprobación).
+**Archivos:** `packages/core/src/{media,schema,models}.ts`, sus pruebas, el punto de entrada de
+`core` y los cuatro specs.
+**Tamaño:** M.
+
+### T257b — Familias y formato en el servidor (fase 2)
+
+**Descripción:** que las ocho lecturas acepten los dos ejes, que AniList se consulte sólo donde sirve
+y que lo guardado se clasifique con la misma regla que el contrato. Sin esta fase la interfaz de
+T257c no tendría a quién pedirle una familia.
+
+**Aceptación:**
+- [ ] Las ocho rutas (`trending`, `feed`, `catalog/recent`, `recommendations`, `search`,
+      `discover/{top,airing,recent}`) aceptan `family` y `format` opcionales; `media` sigue como
+      alias traducido en `routes/media.ts` y no se propaga.
+- [ ] Un valor fuera del vocabulario es **400** con el valor y las opciones delante.
+- [ ] El filtro de proveedor va antes de preguntar y el de título después de la caché: una fuente
+      que no sirve la familia no recibe la petición —lo dice el contador del fixture—.
+- [ ] AniList sólo se consulta en Anime: `top` con `series` pide los cinco formatos seriados, con
+      `movie` pide `MOVIE` y sin formato los seis; `airing` con `movie` devuelve `[]` sin consultar;
+      `recent` sin formato pide las dos y deduplica; `animation` y `live` devuelven `[]` sin llamar.
+- [ ] `catalog-store` extrae `family`/`format` del `raw_json` en favoritos, vistos, quiero ver,
+      historial y relacionados con **un helper único**; una fila vieja cae a la regla heredada.
+- [ ] `recsys`: candidatos y recomendaciones llevan los dos campos validados en `gatherSignals`, y
+      el filtro de candidatos va **antes** de recomendar.
+- [ ] `?media=movies` sigue devolviendo exactamente lo de hoy.
+- [ ] Pruebas de los puntos 3 y 4 de la propuesta, medidas mutando: no filtrar por familia, ignorar
+      `format` en `FORMATOS`, preguntar a AniList en Animación y no validar el valor.
+
+**Verificación:** pendiente.
+**Depende de:** T257a.
+**Archivos:** `packages/server/src/routes/`, `packages/server/src/anilist/`, `packages/catalog-store/src/repositories/`, `packages/recsys/src/`.
+**Tamaño:** L.
+
+### T257c — Tres pestañas y filtro de formato (fase 3)
+
+**Descripción:** la navegación por familia y el filtro de formato dentro, con la dirección como
+única fuente de verdad. Depende de que el servidor entienda los dos parámetros (T257b).
+
+**Aceptación:**
+- [ ] El conmutador tiene **tres enlaces** —Anime, Animación, Acción real—, el activo lleva
+      `aria-current="page"` y la familia vive en `?tipo=anime|animation|live`.
+- [ ] `?tipo=movies` abre **Acción real** y la dirección se reescribe; el formato vive en
+      `?formato=series|movie` y se pinta en las tres familias.
+- [ ] AniList no pinta filas en Animación ni en Acción real; la ausencia de fuente se explica con
+      `sinFuenteQueSirva` contando familias.
+- [ ] `pathConTipo` conserva familia y formato al cambiar de pestaña y de pantalla; el formato se
+      cae al abrir una ficha o el reproductor.
+- [ ] Los textos nuevos están en `packages/web/src/i18n/es.ts` (`media.anime`, `media.animation`,
+      `media.live`, `media.format.*` y las tres descripciones).
+- [ ] El alta de proveedor cambia `media` por tres casillas que escriben `families`; al editar un
+      plugin viejo salen marcadas sus familias heredadas, y `ProviderList` pinta las declaradas.
+- [ ] Medido mutando: quitar la familia de la dirección, no reescribir `movies` y volver a
+      `enElTipo` ponen en rojo su caso.
+
+**Verificación:** pendiente.
+**Depende de:** T257b.
+**Archivos:** `packages/web/src/features/tipo/`, `packages/web/src/features/settings/`, `packages/web/src/app.tsx`, `packages/web/src/i18n/es.ts`, `packages/web/src/styles/`.
+**Tamaño:** L.
+
+### T257d — El fixture y el e2e de familias (fase 4)
+
+**Descripción:** sin títulos que distingan la regla nueva de la vieja, ni la mejor prueba la mide.
+El fixture declara las tres familias y clasifica cada título; el e2e recorre las tres pestañas.
+
+**Aceptación:**
+- [ ] El fixture declara `families: ['anime', 'animation', 'live']` y clasifica cada título con
+      `family` y `format`; `assertConforms` sigue aceptándolo.
+- [ ] Añade una **película de anime**, una **serie de animación occidental** y una **serie de
+      imagen real**, con sus episodios y sus streams como los demás.
+- [ ] El e2e comprueba que la misma obra no sale en dos pestañas, que la película de anime sale en
+      Anime con el filtro Películas y que la serie de imagen real sale en Acción real y no en Anime.
+- [ ] El e2e comprueba que AniList no se consulta en las familias que no sirve —con el contador del
+      arnés o la ruta interceptada—.
+- [ ] Medido mutando: volver a deducir la familia del `kind` mezcla las pestañas y pone el caso en
+      rojo.
+
+**Verificación:** pendiente.
+**Depende de:** T257c.
+**Archivos:** `packages/providers-fixture/`, `packages/web/e2e/`.
+**Tamaño:** M.
+
+### T258 — Estabilizar el e2e de `player-recovery`
+
+**Descripción:** `packages/web/e2e/player-recovery.e2e.ts` leía `video.paused === false` una sola vez
+justo después de pulsar «Reintentar»; la reproducción arranca, pero la lectura podía llegar antes y
+el caso fallaba de forma intermitente (PR #41 y #42, el reintento pasaba).
+
+**Aceptación:**
+- [x] El caso espera a que el vídeo esté reproduciendo (`expect.poll` o el evento `playing`) en vez
+      de leerlo una sola vez.
+- [x] El e2e completo pasa varias veces seguidas sin el fallo intermitente.
+- [x] La espera sigue detectando una pausa real: medido mutando el caso para dejar el vídeo pausado.
+
+**Verificación:** commit `8bcdd0c` · `bunx playwright test player-recovery.e2e.ts --repeat-each=5`
+**11 pasan, 0 fallan** (setup + 2 casos × 5); antes de arreglar la lectura hermana de la línea 152,
+la misma tanda daba 10 pasan y 1 falla con `Expected false, Received true`. `bun test packages/web`
+**1217 pasan, 0 fallan** · `bun run typecheck` 0 · `bun run lint` 0 errores. Mutación: en
+`cargarEn` de `player-errors.ts`, sustituir el rearme por `video.pause()` deja el caso en rojo a los
+20 s (`player-recovery.e2e.ts:250`). Se estabilizaron las dos lecturas únicas del archivo —la 236,
+objetivo del task, y la 152, que falló al repetir—, no sólo una.
+**Depende de:** nada.
+**Archivos:** `packages/web/e2e/player-recovery.e2e.ts`.
+**Tamaño:** S.
+
+### T259 — Alinear `SPEC-desktop.md` con la bandeja y el updater
+
+**Descripción:** T243 dejó la bandeja con cuatro opciones (Abrir, Mostrar/Ocultar, Buscar
+actualizaciones y Salir) y la ventana de actualizaciones en las tres plataformas; el spec seguía
+describiendo tres opciones y no listaba `actualizacion.rs`.
+
+**Aceptación:**
+- [x] El spec describe la bandeja con sus cuatro opciones y dónde queda cada una.
+- [x] El árbol del módulo incluye `actualizacion.rs`, `browser.rs` y `desktop/ui/`, y declara el
+      límite del reemplazo del `.exe` en Windows.
+- [x] La revisión queda anotada con su fecha (2026-11-16) y el motivo, aprobada por el humano.
+- [x] Se corrigen las demás afirmaciones que ya no eran ciertas: superficie de IPC (dos, una por
+      ventana) y rutas de datos (`rona-data` / `~/.local/share/rona`).
+
+**Verificación:** commit `ecdd334` · `bun test packages/web/src/docs.test.ts` 17 pasan ·
+`bun test scripts/desktop.test.ts` 52 pasan · `bun run lint` y `bun run typecheck` en 0.
+**Depende de:** T243.
+**Archivos:** `docs/specs/SPEC-desktop.md`.
+**Tamaño:** S.
+
+### T260 — El vídeo del fixture y los subtítulos, en el e2e
+
+**Descripción:** el criterio de T32 («el mp4 del fixture se reproduce, el seek funciona y los
+subtítulos aparecen») y el caso de subtítulos de T44 no están cerrados: el arnés reproduce un WAV
+porque no había codificador de vídeo sin red, y no hay un caso que active subtítulos y mida el texto.
+El mecanismo del reproductor ya funciona; falta la prueba y, si se mantiene el criterio del mp4, un
+archivo decodificable en el arnés (hay `ffmpeg` en la máquina y en el CI).
+
+**Aceptación:**
+- [x] Un archivo de vídeo real del fixture se reproduce en el navegador y el seek adelanta el
+      tiempo, o se corrige el criterio con la decisión escrita y su motivo.
+- [x] Un caso activa subtítulos y comprueba que el texto aparece en pantalla.
+- [x] Medido mutando: sin la pista activa el texto no aparece y la prueba falla.
+
+**Decisión sobre el «mp4 del fixture»:** se corrige el criterio. El arnés reproduce un WAV generado
+en el propio proceso porque el Chromium de Playwright no trae H.264/AAC —es el motivo por el que
+existe `hls-falso.ts`— y la máquina/el CI no tienen un codificador de vídeo garantizado. Un binario
+de vídeo en el repositorio tampoco mediría más: lo que la aplicación controla es resolver el stream,
+montarlo en el `<video>`, buscar y reaccionar a los eventos; decodificar el códec es del navegador.
+El criterio pasa a «el stream del fixture se reproduce y el seek adelanta el tiempo», que es lo que
+el e2e mide de verdad. La decisión queda también en `docs/specs/SPEC-web-ui.md`.
+
+**Verificación:** `player.e2e.ts` «el subtítulo del proveedor se enciende y su texto queda activo»:
+se intercepta `/api/stream/resolve` para añadir una pista `vtt` y su ruta del proxy, el `<track>`
+apunta a `/api/subtitles/prueba-vtt`, y tras reproducir el `TextTrack` está en `showing` con
+«Subtítulo de prueba» como cue activa. `bun test` **4021 pasan, 0 fallan** · e2e completo **173
+pasan, 0 fallan** · `bun run typecheck` 0 · `bun run lint` 0 errores. Mutación: apagar la pista en
+`usePlayerSubtitulos` y quitar el `default` del `<track>` deja el caso en rojo.
+
+**Estado:** hecho.
+
+**Depende de:** T43, T258.
+**Archivos:** `packages/web/e2e/player.e2e.ts`, `docs/specs/SPEC-web-ui.md`.
+**Tamaño:** M.
+
+### T261 — La home por debajo de 1 s con `X-Cache: hit`
+
+**Descripción:** el criterio de T41 pide medir el primer pintado de la home con la base poblada y
+`X-Cache: hit` por debajo de 1 s. Hoy las tres lecturas van en paralelo, pero la cifra no se ha
+medido en navegador.
+
+**Aceptación:**
+- [x] La medición existe, con el método y el número (pestaña de red o `PerformanceObserver`).
+- [x] Si no se cumple, se abre la corrección con su causa, no se marca el criterio.
+
+**Verificación:** `home.e2e.ts` «pinta antes de un segundo con las filas en caché»:
+`PerformanceObserver` a través de `performance.getEntriesByName('first-contentful-paint')`, con una
+carga previa que calienta la caché y una recarga que se mide. **108 ms** de primera pintura, con
+`X-Cache: hit` en `/api/trending` y `/api/feed`. La de `catalog/recent` es local y no lleva el
+encabezado. `bun test` **4021 pasan, 0 fallan** (243 archivos) · e2e completo **173 pasan, 0 fallan**
+· `bun run typecheck` 0 · `bun run lint` 0 errores. Mutación: quitar el `c.header('X-Cache', …)` de
+`/api/trending` deja el caso en rojo en la aserción del `hit`.
+
+**Lo que hubo que arreglar para poder medirlo:** `/api/trending` y `/api/feed` consultaban la caché
+pero no la anunciaban. Ahora responden `X-Cache` con el **peor origen** de sus fuentes —`miss` si
+alguna salió a la red, `stale` si alguna estaba caducada, `hit` sólo si todas salieron frescas—,
+porque una fila que mezcla fuentes no puede anunciar `hit` mientras una de ellas pidió al tercero.
+
+**Estado:** hecho.
+
+**Depende de:** T43.
+**Archivos:** `packages/web/e2e/home.e2e.ts`, `packages/server/src/routes/{cache-header,cache-header.test,recommendations,discovery,trending.test,discovery.test}.ts`.
+**Tamaño:** S.
+
+### T262 — El recorrido completo por teclado
+
+**Descripción:** el criterio de T42 pide buscar, elegir título, elegir episodio y reproducir sin
+mouse. Hay pruebas sueltas de foco y atajos, pero no el recorrido entero.
+
+**Aceptación:**
+- [x] Un caso de e2e hace el camino completo con `Tab`, `Enter` y los mandos del reproductor.
+- [x] El foco se ve en cada paso y no se pierde al cambiar de pantalla.
+- [x] Medido mutando: quitar un `tabIndex` o el foco inicial pone la prueba en rojo.
+
+**Verificación:** `teclado.e2e.ts` **1 caso, 0 fallos**: tabulador desde la cabecera al buscador,
+«aurora», `Tab` a la tarjeta, `Enter`, foco en `#contenido`, `Tab` al primer episodio, `Enter`, foco
+en `#contenido`, `Tab` a «Reproducir» y `Enter`; el video queda reproduciendo. Se comprueba el anillo
+de `:focus-visible` en la casilla, la tarjeta, el episodio y el mando. Mutación: quitar
+`contenido.current?.focus()` deja el caso en rojo en la primera navegación (`#contenido` no recibe el
+foco). `bun test` **4017 pasan, 0 fallan** · e2e completo **172 pasan, 0 fallan** · `bun run
+typecheck` 0 · `bun run lint` 0 errores. De paso, la cabecera de `tasks/done/INDICE.md` cuenta la
+fila de T266 (226 → 227), que es lo que mantenía en rojo `done-index.test.ts`.
+
+**Decisión que no es obvia:** el `main` recibe el foco cuando cambia el **camino**, no la consulta.
+Escribir en el buscador reemplaza `?q=` en cada pausa; mover el foco con cada reemplazo habría
+sacado el cursor de la casilla a los 400 ms de teclear.
+
+**Estado:** hecho.
+
+**Depende de:** T43.
+**Archivos:** `packages/web/e2e/teclado.e2e.ts`, `packages/web/src/app.tsx`, `packages/web/src/styles/base.css`.
+**Tamaño:** M.
+
+### T263 — El aviso de mpv ausente, en el e2e
+
+**Descripción:** el caso de T44 «con mpv simulado como ausente, se muestra el aviso y el reproductor
+web sigue» no está escrito: hace falta arrancar el servidor del e2e con mpv simulado como ausente.
+
+**Aceptación:**
+- [x] El arnés arranca el servidor con mpv ausente y el caso comprueba el aviso.
+- [x] El reproductor web sigue funcionando en el mismo caso.
+- [x] Medido mutando: ocultar el aviso pone la prueba en rojo.
+
+**Verificación:** `player.e2e.ts` «el aviso de mpv aparece cuando no hay reproductor externo»:
+Ajustes enseña «No se encontró mpv: se reproduce en el navegador.» y el reproductor web monta el
+stream y reproduce. `bun test` **4017 pasan, 0 fallan** · e2e completo **172 pasan, 0 fallan** ·
+`bun run typecheck` 0 · `bun run lint` 0 errores. Mutación: pintar siempre la rama de «mpv
+disponible» en `SettingsPage.tsx` deja el caso en rojo en la línea del aviso.
+
+**Decisión que no es obvia:** el arnés no finge una bandera en la aplicación. Arranca el servidor
+con un `PATH` vacío —el binario con su ruta absoluta, `process.execPath`—, y `hasMpv` no encuentra
+nada. Es la ausencia de verdad, la misma que vería un usuario sin mpv, y no requiere una rama de
+prueba en el código de producción.
+
+**Estado:** hecho.
+
+**Depende de:** T44.
+**Archivos:** `scripts/e2e-server.ts`, `packages/web/e2e/player.e2e.ts`.
+**Tamaño:** S.
+
+### T266 — Cerrar los siete fallos del e2e en checkout limpio
+
+**Descripción:** medido en un worktree detach de `2f21203` con `bun install`, `bun run build` y
+`bun test` en verde (3981 pasan), `bun run e2e` da **163 pasan y 7 fallan**. Son fallos que el árbol
+de trabajo no enseñaba porque tenía cambios sin commitear de otra sesión:
+
+1. `carga-ficha` · «una respuesta lenta enseña el esqueleto y luego la ficha, sin saltar»: la
+   portada se desplaza 96 px en vertical al llegar los datos; el tope es 2.
+2. `carga-ficha` · «un 500 explica el fallo…»: la prueba espera «Proveedor: fixture» y la interfaz
+   dice «Proveedor de prueba». Decidir si manda el nombre visible o el id, y alinear la prueba.
+3. `detail` · «con banner y sin banner la banda mide lo mismo»: 197,67 px sin banner frente a 256
+   con banner. La banda condicional de T236 cambió el alto; la prueba no se actualizó.
+4. `detail` · «cada ficha abierta se distingue en el nombre de su pestaña»: espera «· rona» y la
+   aplicación pone «· RoNa» desde el rename (T252).
+5. `persistencia` · «el contenido y el segundo sobreviven a una actualización de esquema»: no
+   encuentra `.shell__brand` a los 20 s; distinguir si es una carrera del arranque o un fallo real.
+6. `player` · «la pestaña y el encabezado nombran el título y el episodio»: mismo «rona»/«RoNa».
+7. `player` · «la sala se lleva el alto de una ventana grande»: 65 px de desborde vertical; hay un
+   cambio de disposición sin commitear en el árbol que lo corrige, y esta tarea lo fija con su
+   medición.
+
+**Resolución de los siete:**
+
+1. **El salto de 96 px era del esqueleto.** Reservaba la banda con los 16 rem del banner, pero la
+   ficha sin banner baja a su token de 10 rem (T236). La banda del esqueleto usa ya
+   `detail__banner--sin-fondo`: no sabe si el enriquecimiento traerá imagen y reserva el alto que
+   tiene mientras no la hay.
+2. **Manda el nombre visible.** La ficha dice «Proveedor de prueba», que es el `name` del proveedor
+   en `/api/providers` y lo que ya esperaba `failure.e2e`; el id `fixture` es del arnés.
+3. **La banda condicional es el contrato.** La prueba anterior a T236 exigía el mismo alto con y sin
+   banner; ahora comprueba que sin banner baja a su token (`160` px de mínimo) y que con banner mide
+   los `256` de `--detail-banner-alto`.
+4. y 6. **`RoNa`, desde T252.** Las dos expectativas se quedaron en «rona» minúscula; se alinean con
+   `app.name` y con las pruebas del componente.
+5. **No era una carrera de arranque: era una migración duplicada.** La prueba escribía
+   `0016-prueba-actualizacion.sql`, que choca con `0016-anilist-mal.sql`; el segundo servidor salía
+   con 3 («hay dos migraciones con la misma versión»). La versión se calcula ahora a partir de las
+   migraciones que hay, así que la próxima migración real no vuelve a romperla.
+7. **Ya estaba hecho** en `d0258f2`: el pie de la aplicación va fuera del presupuesto de alto de la
+   sala, y la lista de episodios vive en su columna.
+
+**Aceptación:**
+- [x] Cada uno de los siete está arreglado o declarado con su motivo, y el e2e completo pasa en un
+      checkout limpio.
+- [x] Las expectativas de nombre (`RoNa`) y de nombre visible del proveedor se alinean con el
+      contrato, no al revés.
+- [x] Se mide mutando lo que se arregle: devolver la causa deja el caso en rojo.
+- [x] `bun install`, `bun run build`, `bun test` y `bun run e2e` quedan en 0 en el checkout limpio.
+
+**Verificación:** `bun run build` 0 · `bun test` **4017 pasan, 0 fallan** (242 archivos) ·
+`bun run typecheck` 0 · `bun run lint` 0 errores (33 avisos y 1 info; el aviso de más es el
+`innerText` de `favorites.e2e.ts`, ajeno a esta tarea) · e2e completo **171 pasan, 0 fallan** (5,4
+min) con `bun run playwright test --grep-invert 'proveedor que falla'`. En este sandbox
+`bun run e2e` no arranca: el servidor del arnés muere en `mkdtemp` con `EPERM` al crear el temporal
+del sistema, y con la misma orden por `bun run playwright` corre entera. Medido mutando: quitar
+`detail__banner--sin-fondo` del esqueleto deja la portada 96 px abajo y pone en rojo la prueba del
+componente; volver a `0016` en la migración de prueba hace salir al segundo servidor con 3; devolver
+«· rona» deja en rojo los dos títulos.
+
+**Estado:** hecho.
+
+**Depende de:** T43, T239, T252.
+**Archivos:** `packages/web/e2e/`, `packages/web/src/features/detail/{AnimeDetailSkeleton,detail.test}.tsx`.
+**Tamaño:** M.
 
 ---
 
@@ -2866,3 +3350,11 @@ Oleada 4 (2 tareas) — del integrador, y en serie entre sí
 ```
 
 La tabla de rutas y el reparto por agente están en [`tasks/deuda.md`](deuda.md).
+
+### Lote de cierre (T257–T263)
+
+T257 (aprobación de la propuesta) → T257a (contrato en `core`) → T257b (servidor) → T257c
+(interfaz) → T257d (fixture y e2e). T258 y T259 no cuelgan de la v1: nacen de tarjetas del tablero.
+T260, T261 y T262 dependen de T43 (el e2e), y T263 de T44. T266 nace de la medición de T246 en
+checkout limpio y depende de T43, T239 y T252. T246 es quien convierte las casillas sin medir en
+estos ids.

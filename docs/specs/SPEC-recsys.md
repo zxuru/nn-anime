@@ -137,6 +137,33 @@ Determinismo: con el mismo `Signals`, los mismos `candidates`, el mismo `seed` y
 `now`, la salida es idéntica y en el mismo orden. Ningún desempate depende del orden de
 iteración de un `Map` sin criterio explícito.
 
+## Enmienda aprobada (T257a): familia y formato en el candidato
+
+> Aprobada el 2026-11-16 con `docs/specs/proposals/SPEC-nn-anime.familias.md`. **Contrato en `core`
+> desde T257a; el filtro en la ruta y en `gatherSignals` es la fase 2.**
+
+`Candidate` y `Recommendation` ganan los dos ejes de clasificación, opcionales y aditivos, como ya
+tienen `kind`:
+
+```ts
+// packages/core/src/schema.ts — candidateSchema
+// packages/core/src/api.ts — recommendationSchema
+family: mediaFamilySchema.optional(),  // 'anime' | 'animation' | 'live'
+format: mediaFormatSchema.optional(),  // 'series' | 'movie'
+```
+
+- **El filtro de candidatos va antes de recomendar**, no después: puntuar lo que luego se descarta
+  gasta el trabajo y deja los recuentos mintiendo.
+- `gatherSignals` valida los dos valores contra el vocabulario, como ya hace con `kind`; un valor
+  inventado se descarta en la frontera y no entra al motor.
+- Un candidato sin familia cae por la regla de compatibilidad de `core` (`familyOf`), que es la que
+  conserva el comportamiento de las fuentes que no clasifican.
+- **El motor no cambia su algoritmo**: recibe candidatos ya clasificados y sigue siendo una función
+  pura. Lo que cambia es quién elige la lista.
+
+Pendiente en la fase 2: extraer y validar los campos en `packages/server/src/recommend/signals.ts` y
+en `/api/recommendations`.
+
 ## Estructura del módulo
 
 ```
@@ -164,6 +191,11 @@ packages/recsys/
 - [ ] 500 registros de historial y 5000 candidatos: `recommend` tarda menos de 50 ms.
 - [ ] Ningún test del paquete hace red ni abre la base: se verifica con un test que corre en
       un entorno sin `fetch` y sin `bun:sqlite` disponible.
+- [x] `candidateSchema` y `recommendationSchema` aceptan `family` y `format` opcionales y siguen
+      aceptando un candidato viejo sin ellos. **Medido en T257a** (pruebas paramétricas de los
+      schemas; mutar la precedencia de `familyOf` rompe la prueba de la película de anime).
+- [ ] Un candidato con `family: 'animation'` no entra en la pestaña Anime y uno sin familia cae por
+      la regla heredada (fase 2).
 
 ## Boundaries
 

@@ -45,7 +45,7 @@ export function SkipSettings(): ReactNode {
 
   return (
     <section>
-      <h2>{t(DEFAULT_LOCALE, 'settings.skip.title')}</h2>
+      <h3>{t(DEFAULT_LOCALE, 'settings.skip.title')}</h3>
       <p className="field__hint">{t(DEFAULT_LOCALE, 'settings.skip.body')}</p>
 
       <label className="field field--check" htmlFor="skip-auto">

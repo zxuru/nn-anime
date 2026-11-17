@@ -88,9 +88,89 @@ test.describe('el reproductor', () => {
     await entrar(page)
     await page.goto('/settings')
 
-    // En esta máquina mpv está instalado, así que se comprueba la sección, no el
-    // aviso: el caso de «sin mpv» necesita el servidor arrancado sin él.
+    // El arnés arranca el servidor con un `PATH` sin mpv —ver
+    // `scripts/e2e-server.ts`—, así que este es el caso de verdad y no una
+    // sección cualquiera.
     await expect(page.getByRole('heading', { name: 'Reproductor externo' })).toBeVisible()
+    await expect(page.getByText('No se encontró mpv: se reproduce en el navegador.')).toBeVisible()
+
+    // Y el reproductor web sigue: sin mpv no queda una pantalla con el aviso.
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    const video = page.locator('video')
+
+    await expect(video).toHaveAttribute('src', /\/stream\//, { timeout: 15_000 })
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+
+    await expect
+      .poll(async () => await video.evaluate((elemento: HTMLVideoElement) => elemento.paused), {
+        timeout: 10_000,
+      })
+      .toBe(false)
+  })
+
+  /**
+   * El subtítulo del proveedor se enciende y su texto queda activo.
+   *
+   * La pista viaja desde `/api/stream/resolve` hasta el `<track>` del video; lo
+   * que se mide aquí es el camino de la aplicación: que la fuente declare una
+   * pista, que el reproductor la monte como ruta del proxy y que el elemento la
+   * tenga en `showing` con la frase del `.vtt` como cue activa.
+   *
+   * La pintura del texto sobre la imagen la hace el navegador y no es DOM: por
+   * eso lo que se comprueba es el estado del `TextTrack`, que es la última pieza
+   * que la aplicación controla.
+   */
+  test('el subtítulo del proveedor se enciende y su texto queda activo', async ({ page }) => {
+    await entrar(page)
+
+    const VTT = 'WEBVTT\n\n00:00:00.000 --> 00:00:20.000\nSubtítulo de prueba\n'
+    const pista = '/api/subtitles/prueba-vtt'
+
+    await page.route('**/api/stream/resolve', async (ruta) => {
+      const respuesta = await ruta.fetch()
+      const cuerpo = (await respuesta.json()) as { sources: readonly Record<string, unknown>[] }
+      const sources = cuerpo.sources.map((fuente, indice) =>
+        indice === 0
+          ? {
+              ...fuente,
+              subtitles: [{ url: pista, lang: 'es', label: 'Español', format: 'vtt' }],
+            }
+          : fuente,
+      )
+
+      await ruta.fulfill({ response: respuesta, json: { sources } })
+    })
+
+    await page.route(`**${pista}`, async (ruta) => {
+      await ruta.fulfill({ body: VTT, contentType: 'text/vtt' })
+    })
+
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    const video = page.locator('video')
+
+    await expect(video).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('track')).toHaveAttribute('src', pista)
+
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await page.waitForTimeout(500)
+
+    await expect
+      .poll(
+        async () =>
+          await video.evaluate((elemento: HTMLVideoElement) => {
+            const texto = elemento.textTracks[0]
+            const cue = texto?.activeCues?.[0]
+
+            return {
+              modo: texto?.mode ?? 'sin-pista',
+              frase: cue instanceof VTTCue ? cue.text : '',
+            }
+          }),
+        { timeout: 10_000 },
+      )
+      .toEqual({ modo: 'showing', frase: 'Subtítulo de prueba' })
   })
 
   /**
@@ -354,7 +434,7 @@ test.describe('el reproductor', () => {
     await entrar(page)
     await page.goto('/watch/fixture/aurora-nocturna%233')
 
-    await expect(page).toHaveTitle('Aurora Nocturna · Episodio 3 · rona', { timeout: 15_000 })
+    await expect(page).toHaveTitle('Aurora Nocturna · Episodio 3 · RoNa', { timeout: 15_000 })
     await expect(page.getByRole('heading', { level: 1, name: 'Aurora Nocturna' })).toBeVisible()
     // El episodio, en una sola línea: el número, el lugar que ocupa de cuántos.
     await expect(page.locator('.watch__episode')).toHaveText('Episodio 3 de 12')
@@ -654,6 +734,27 @@ test.describe('el reproductor', () => {
     await expect(menu).toBeVisible()
     await expect(abrir).toHaveAttribute('aria-expanded', 'true')
 
+    // El conmutador de audio cabe entero dentro del menú. En fila necesitaba
+    // 235 px en una caja de 198 y «DOBLADO» se cortaba; se apila y se mide que
+    // no quede ni un píxel de desbordamiento horizontal.
+    const medidas = await menu.evaluate((nodo) => ({
+      scrollWidth: nodo.scrollWidth,
+      clientWidth: nodo.clientWidth,
+      scrollHeight: nodo.scrollHeight,
+      clientHeight: nodo.clientHeight,
+    }))
+    expect(medidas.scrollWidth).toBe(medidas.clientWidth)
+    // Con una sola opción de subtítulos no hay bloque que elegir: sin él, el
+    // menú cabe entero y la reproducción automática no queda bajo el pliegue.
+    expect(medidas.scrollHeight).toBeLessThanOrEqual(medidas.clientHeight + 1)
+
+    const cajaMenu = await menu.boundingBox()
+    const cajaAudio = await menu.locator('.audio-switch').boundingBox()
+    expect(cajaAudio).not.toBeNull()
+    expect((cajaAudio?.x ?? 0) + (cajaAudio?.width ?? 0)).toBeLessThanOrEqual(
+      (cajaMenu?.x ?? 0) + (cajaMenu?.width ?? 0),
+    )
+
     await page.keyboard.press('Escape')
     await expect(menu).toBeHidden()
     await expect(menu).toHaveAttribute('aria-hidden', 'true')
@@ -854,6 +955,35 @@ test.describe('el reproductor', () => {
   })
 
   /**
+   * `Enter` y `Espacio` son del mando que tiene el foco.
+   *
+   * El reproductor escucha en la ventana; sin el guardián, las dos teclas se
+   * convertían en `toggle` y ni «Ajustes» ni «Reproducir ahora» ni la lista se
+   * podían activar con el teclado. Se mide en un botón y en un enlace.
+   */
+  test('Enter activa el mando enfocado y no el reproductor', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const ajustes = page.getByRole('button', { name: 'Ajustes' })
+    await ajustes.focus()
+    await page.keyboard.press('Enter')
+
+    await expect(page.locator('.player__menu')).toBeVisible()
+    await expect(ajustes).toHaveAttribute('aria-expanded', 'true')
+
+    await page.keyboard.press('Escape')
+
+    const siguiente = page.getByRole('link', { name: 'Episodio siguiente' })
+    await siguiente.focus()
+    await page.keyboard.press('Enter')
+
+    await expect(page).toHaveURL(/aurora-nocturna%234/)
+  })
+
+  /**
    * El visionado queda registrado con su **duración**, una sola vez por episodio
    * y con el segundo donde se dejó.
    *
@@ -954,6 +1084,38 @@ test.describe('el reproductor', () => {
       )
       .toBeGreaterThan((item?.positionS ?? 0) - 1)
   })
+
+  /**
+   * La presencia se manda pocas veces y no se borra sola.
+   *
+   * El efecto de desmontaje del registro del visionado llevaba en las
+   * dependencias una función que cambiaba de identidad en cada render: React
+   * ejecutaba la limpieza en cada `timeupdate`, y con ella un
+   * `DELETE /api/presence` y un `PATCH` del visionado. Lo que se mide es lo que
+   * se veía en la pestaña de red: al reproducir tres segundos no puede salir ni
+   * un borrado, y como mucho dos envíos —el de empezar y el de la duración, si
+   * aún no se conocía—.
+   */
+  test('la presencia no se borra sola mientras se reproduce', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const metodos: string[] = []
+    page.on('request', (solicitud) => {
+      if (new URL(solicitud.url()).pathname === '/api/presence') {
+        metodos.push(solicitud.method())
+      }
+    })
+
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await page.waitForTimeout(3000)
+
+    expect(metodos.filter((metodo) => metodo === 'DELETE')).toHaveLength(0)
+    expect(metodos.filter((metodo) => metodo === 'PUT').length).toBeLessThanOrEqual(2)
+  })
 })
 
 /**
@@ -985,6 +1147,84 @@ test.describe('la lista, el progreso y el siguiente', () => {
     await expect(page).toHaveURL(/aurora-nocturna%235/)
     await expect(lista.locator('[aria-current="page"]')).toContainText('5')
     await expect(page.locator('.watch__episode')).toHaveText('Episodio 5 de 12')
+  })
+
+  /**
+   * La columna dice qué episodio se dejó a medias.
+   *
+   * La lectura de `/watched` es del título y no de la página de episodios: se
+   * reproduce un poco el 6, se recarga y su renglón tiene que llevar la marca.
+   * Sin la lectura, la lista seguiría sin decir nada aunque el dato esté en la
+   * base.
+   */
+  test('la lista marca el episodio que se dejó a medias', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/anime/fixture/aurora-nocturna')
+
+    const lista = page.locator('.episodes li')
+    await expect(lista).toHaveCount(12, { timeout: 15_000 })
+    await lista.nth(5).getByRole('link').click()
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 15_000 })
+
+    // Seis segundos antes de reproducir: dos segundos de reproducción en el
+    // arnés avanzan menos de uno y no llegan al 2 % que «continuar viendo»
+    // exige; el aserto es de la marca, no de la velocidad del WAV.
+    await page.getByRole('slider', { name: 'Posición del video' }).fill('6')
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await page.waitForTimeout(1500)
+    await page.getByRole('button', { name: 'Pausar' }).click()
+
+    // El visionado se apunta al pausar, y la escritura es asíncrona: sin esperar
+    // a que la fila esté en la base, la recarga puede adelantarse y no hay marca
+    // que leer. Es el mismo criterio que la prueba de «continuar viendo».
+    interface Reciente {
+      episodeRef: { value: string }
+    }
+
+    const recientes = async (): Promise<{ items: Reciente[] }> =>
+      (await (await page.request.get('/api/watch/recent')).json()) as { items: Reciente[] }
+
+    await expect
+      .poll(
+        async () =>
+          (await recientes()).items.some(
+            (reciente) => reciente.episodeRef.value === 'aurora-nocturna#6',
+          ),
+        { timeout: 10_000 },
+      )
+      .toBe(true)
+
+    await page.reload()
+
+    await expect(page.locator('.watch__list li')).toHaveCount(12, { timeout: 15_000 })
+
+    const fila = page.locator('.watch__list li').nth(5)
+    await expect(fila.locator('.watch__list-mark')).toContainText(/%|Visto/, { timeout: 10_000 })
+  })
+
+  /**
+   * La reanudación se cuenta y se puede rechazar.
+   *
+   * El video arrancaba en el segundo guardado sin decirlo. El texto vive en la
+   * línea del episodio y «Empezar de cero» devuelve el video al principio y
+   * retira el aviso.
+   */
+  test('la reanudación se dice y se puede rechazar', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%239?anime=aurora-nocturna&at=30')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 15_000 })
+
+    const resumen = page.locator('.watch__resume')
+    await expect(resumen).toContainText('Continúa en 0:30')
+
+    await page.getByRole('button', { name: 'Empezar de cero' }).click()
+
+    await expect(resumen).toHaveCount(0)
+    expect(
+      await page.locator('video').evaluate((elemento: HTMLVideoElement) => elemento.currentTime),
+    ).toBeLessThan(1)
   })
 
   /**
@@ -1098,9 +1338,24 @@ test.describe('la lista, el progreso y el siguiente', () => {
     await expect(tarjeta).toBeVisible({ timeout: 15_000 })
     await expect(tarjeta).toContainText('Siguiente episodio en')
 
+    // La tarjeta vive dentro del marco: la decisión del final no puede nacer
+    // fuera de la ventana. Se mide la caja entera, no sólo que exista.
+    const caja = await tarjeta.boundingBox()
+    const altoDeLaVentana = page.viewportSize()?.height ?? 0
+    expect(caja).not.toBeNull()
+    expect(caja?.y ?? -1).toBeGreaterThanOrEqual(0)
+    expect((caja?.y ?? 0) + (caja?.height ?? 0)).toBeLessThanOrEqual(altoDeLaVentana)
+
+    // Y el final se anuncia una vez, no una vez por segundo.
+    await expect(tarjeta.getByRole('status')).toContainText('El episodio terminó')
+
     await tarjeta.getByRole('button', { name: 'Cancelar' }).click()
 
-    await expect(tarjeta).toHaveCount(0)
+    // Cancelar para la cuenta, no borra la salida: la tarjeta sigue sin el
+    // botón de cancelar y conserva «Reproducir ahora».
+    await expect(tarjeta).toBeVisible()
+    await expect(tarjeta.getByRole('button', { name: 'Cancelar' })).toHaveCount(0)
+    await expect(tarjeta.getByRole('link', { name: 'Reproducir ahora' })).toBeVisible()
     await expect(page).toHaveURL(/aurora-nocturna%233/)
   })
 
@@ -1139,7 +1394,15 @@ test.describe('la lista, el progreso y el siguiente', () => {
       )
       .toBe(true)
 
-    await expect(page.locator('.watch__next')).toHaveCount(0)
+    // Apagada, no hay cuenta atrás ni navegación sola; la tarjeta sigue
+    // ofreciendo el siguiente, que es lo que la hace útil. El final del
+    // capítulo no puede quedarse sin salida por una preferencia.
+    const tarjeta = page.locator('.watch__next')
+    await expect(tarjeta).toBeVisible()
+    await expect(tarjeta).toContainText('Episodio terminado')
+    await expect(tarjeta.getByRole('button', { name: 'Cancelar' })).toHaveCount(0)
+    await expect(tarjeta.getByRole('link', { name: 'Reproducir ahora' })).toBeVisible()
+    await expect(page).toHaveURL(/aurora-nocturna%233/)
   })
 })
 
@@ -1167,6 +1430,41 @@ test.describe('la disposición', () => {
     // la ventana: antes había que desplazarse para ver el video.
     expect(caja?.y ?? 0).toBeGreaterThanOrEqual(0)
     expect((caja?.y ?? 0) + (caja?.height ?? 0)).toBeLessThanOrEqual(768)
+
+    // Y la página no se desplaza: el pie no se pinta en las pantallas de
+    // reproducción. Con él quedaba un desplazamiento de su altura —65 px— con
+    // todo a la vista, que es el que se notaba como un hueco de más.
+    const desborde = await page.evaluate(
+      () => document.documentElement.scrollHeight - document.documentElement.clientHeight,
+    )
+
+    expect(desborde).toBeLessThanOrEqual(0)
+  })
+
+  /**
+   * La lista llena su columna.
+   *
+   * Tenía un tope fijo de 30 rem: en 1366×768 la columna mide 616 px y la lista
+   * se quedaba en 480, con más de cien de hueco debajo y una barra propia aun
+   * cuando el sitio libre estaba ahí. Ahora el tope vive en la columna —el hueco
+   * visible— y la lista, que es el hijo que se desplaza, se queda con lo que
+   * sobra tras su título. El renglón final de la lista tiene que caer donde cae
+   * la columna.
+   */
+  test('la lista llena su columna y no deja hueco debajo', async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 })
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    await expect(page.locator('.watch__list li')).toHaveCount(12, { timeout: 15_000 })
+
+    const lista = await page.locator('.watch__list').boundingBox()
+    const lateral = await page.locator('.watch__aside').boundingBox()
+
+    expect((lista?.y ?? 0) + (lista?.height ?? 0)).toBeGreaterThanOrEqual(
+      (lateral?.y ?? 0) + (lateral?.height ?? 0) - 1,
+    )
   })
 
   test('la lista va al lado del reproductor en escritorio', async ({ page }) => {
@@ -1207,6 +1505,142 @@ test.describe('la disposición', () => {
     expect(lateral?.y ?? 0).toBeGreaterThanOrEqual(
       (principal?.y ?? 0) + (principal?.height ?? 0) - 1,
     )
+  })
+
+  /**
+   * Sin póster, el primer fotograma es una lámina.
+   *
+   * Antes era `--color-surface-raised`: blanco puro en el tema claro y un plano
+   * oscuro en el oscuro. La lámina ocupa el marco y se retira al primer play. Se
+   * mide el fondo calculado del video, que es lo que hacía el hueco.
+   */
+  test('sin póster, el marco enseña la lámina del título y no un hueco', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' })
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%238?anime=aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 15_000 })
+
+    const lamina = page.locator('.player__plate')
+    await expect(lamina).toBeVisible()
+
+    const fondo = await page
+      .locator('video')
+      .evaluate((elemento) => getComputedStyle(elemento).backgroundColor)
+    expect(fondo).toBe('rgb(20, 20, 27)')
+
+    const marco = await page.locator('.player__frame').boundingBox()
+    const caja = await lamina.boundingBox()
+    expect(Math.abs((marco?.width ?? 0) - (caja?.width ?? 0))).toBeLessThanOrEqual(1)
+    expect(Math.abs((marco?.height ?? 0) - (caja?.height ?? 0))).toBeLessThanOrEqual(1)
+
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await expect(lamina).toHaveCount(0, { timeout: 10_000 })
+  })
+
+  /**
+   * La fila de mandos cabe en una línea a 1024.
+   *
+   * La forma la decide el ancho de la columna y no el de la ventana: a 1024 la
+   * columna mide ~612 y la fila necesitaba ~622, así que «Pantalla completa»
+   * caía sola a una segunda línea. Y la tarjeta del siguiente se apoya por
+   * encima de la banda: si la banda crece, la tapa.
+   */
+  test('a 1024 los mandos caben en una fila y la tarjeta no tapa la barra', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 800 })
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 15_000 })
+
+    const fila = await page.locator('.player__buttons').boundingBox()
+    expect(fila?.height ?? 999).toBeLessThanOrEqual(48)
+
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await page.locator('video').evaluate((elemento: HTMLVideoElement) => {
+      elemento.currentTime = elemento.duration - 0.3
+    })
+
+    const tarjeta = page.locator('.watch__next')
+    await expect(tarjeta).toBeVisible({ timeout: 15_000 })
+
+    const caja = await tarjeta.boundingBox()
+    const barra = await page.locator('.player__seek').boundingBox()
+
+    expect((caja?.y ?? 0) + (caja?.height ?? 0)).toBeLessThanOrEqual(barra?.y ?? 0)
+  })
+
+  test('en el teléfono claro, el reloj y el carril se leen sobre el papel', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.emulateMedia({ colorScheme: 'light' })
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 15_000 })
+
+    // En táctil los mandos dejan la banda del video y el fondo es el de la
+    // página. Se mide el par **compuesto**, que es el que se ve: el reloj es un
+    // color opaco y el carril lleva alfa sobre el papel.
+    const medidas = await page.evaluate(() => {
+      type RGB = readonly [number, number, number]
+      const canales = (valor: string): RGB => {
+        const hex = /^#([0-9a-f]{6})$/i.exec(valor.trim())
+        if (hex?.[1] !== undefined) {
+          const digitos = hex[1]
+          const [r, g, b] = [0, 2, 4].map((i) => Number.parseInt(digitos.slice(i, i + 2), 16))
+
+          return [r ?? 0, g ?? 0, b ?? 0]
+        }
+
+        const numeros = (valor.match(/[\d.]+/g) ?? []).map(Number)
+
+        return [numeros[0] ?? 0, numeros[1] ?? 0, numeros[2] ?? 0]
+      }
+      const alfa = (valor: string): number => {
+        if (!valor.startsWith('rgba')) return 1
+
+        return (valor.match(/[\d.]+/g) ?? []).map(Number)[3] ?? 1
+      }
+      const mezcla = (capa: string, fondo: RGB): RGB => {
+        const [r = 0, g = 0, b = 0] = canales(capa)
+        const a = alfa(capa)
+
+        return [r * a + fondo[0] * (1 - a), g * a + fondo[1] * (1 - a), b * a + fondo[2] * (1 - a)]
+      }
+      const luminancia = ([r, g, b]: RGB): number => {
+        const canal = (valor: number): number => {
+          const c = valor / 255
+
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+        }
+
+        return 0.2126 * canal(r) + 0.7152 * canal(g) + 0.0722 * canal(b)
+      }
+      const ratio = (a: RGB, b: RGB): number => {
+        const [alto, bajo] = [luminancia(a), luminancia(b)].sort((x, y) => y - x)
+
+        return ((alto ?? 0) + 0.05) / ((bajo ?? 0) + 0.05)
+      }
+
+      const raiz = getComputedStyle(document.documentElement)
+      const fondo = canales(raiz.getPropertyValue('--color-bg'))
+      const reloj = getComputedStyle(document.querySelector('.player__time') ?? document.body).color
+      const carril = getComputedStyle(
+        document.querySelector('.player__track') ?? document.body,
+      ).backgroundColor
+
+      return {
+        tema: document.documentElement.dataset.theme,
+        reloj: ratio(canales(reloj), fondo),
+        carril: ratio(mezcla(carril, fondo), fondo),
+      }
+    })
+
+    expect(medidas.tema).toBe('light')
+    expect(medidas.reloj).toBeGreaterThanOrEqual(4.5)
+    expect(medidas.carril).toBeGreaterThanOrEqual(3)
   })
 
   /**
@@ -1347,6 +1781,32 @@ test.describe('la ventana estrecha', () => {
   })
 
   /**
+   * A 320 px los dibujos de los mandos no se encogen.
+   *
+   * El reloj en una sola línea empujaba la fila; con el relleno del botón
+   * general (16 px) los iconos se quedaban en 4 px para caber. Se mide el ancho
+   * del dibujo y que la página siga sin desbordar.
+   */
+  test('en 320 px los dibujos de los mandos no se encogen', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 720 })
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 15_000 })
+
+    const ancho = await page
+      .locator('button[aria-label="Reproducir"] svg')
+      .evaluate((nodo) => nodo.getBoundingClientRect().width)
+    expect(ancho).toBeGreaterThanOrEqual(20)
+
+    const desborde = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+    expect(desborde).toBeLessThanOrEqual(0)
+  })
+
+  /**
    * Lo que no cabe, no se pinta: los saltos de diez segundos se van y el volumen
    * se muda al menú.
    *
@@ -1416,9 +1876,10 @@ test.describe('la ventana estrecha', () => {
       const estilo = getComputedStyle(elemento)
       // Los renglones se cuentan, no se deducen del alto: la marca mide 44 px por
       // el objetivo táctil —`--control-size`— y el alto ya no dice cuántas líneas
-      // hay. Un `Range` sobre el contenido devuelve una caja por renglón.
+      // hay. Se mide el nodo de texto: la imagen decorativa tiene su propia caja,
+      // pero no añade otro renglón al nombre de la aplicación.
       const rango = document.createRange()
-      rango.selectNodeContents(elemento)
+      rango.selectNodeContents(elemento.lastChild ?? elemento)
 
       return {
         renglones: rango.getClientRects().length,
@@ -1680,6 +2141,30 @@ test.describe('el modo extendido', () => {
     await page.getByRole('button', { name: 'Salir del modo extendido' }).click()
     await expect(seccion).toHaveAttribute('data-extendido', 'false')
     expect(await page.evaluate(() => document.fullscreenElement === null)).toBe(true)
+  })
+
+  /**
+   * La licencia de hls.js no se queda en la pantalla extendida.
+   *
+   * Ese modo es para ver el contenido, y la nota vive fuera del marco: le
+   * quitaba alto a la imagen. Se conserva en la pantalla normal, que es donde se
+   * lee. El episodio 7 del arnés es el único que se declara HLS, así que es el
+   * que monta la atribución.
+   */
+  test('la atribución de hls.js no se queda en la pantalla extendida', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%237')
+
+    const aviso = page.locator('.player__attribution')
+    await expect(aviso).toBeVisible({ timeout: 10_000 })
+
+    await page.keyboard.press('t')
+    await expect(page.locator('.player')).toHaveAttribute('data-extendido', 'true')
+    await expect(aviso).toBeHidden()
+
+    await page.keyboard.press('t')
+    await expect(page.locator('.player')).toHaveAttribute('data-extendido', 'false')
+    await expect(aviso).toBeVisible()
   })
 
   test('se enciende y se apaga con T, y Escape también lo quita', async ({ page }) => {

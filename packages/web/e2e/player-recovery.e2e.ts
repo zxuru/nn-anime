@@ -149,7 +149,14 @@ test.describe('recuperación de un fragmento caducado', () => {
       .poll(async () => await tiempoDe(video), { timeout: 20_000 })
       .toBeGreaterThanOrEqual(capturado - 1)
 
-    expect(await video.evaluate((elemento: HTMLVideoElement) => elemento.paused)).toBe(false)
+    // `paused` se pregunta hasta que cambie: la lectura única llegaba antes de
+    // que el elemento saliera de pausa y el caso fallaba de forma intermitente
+    // (PR #41 y #42), también en este camino.
+    await expect
+      .poll(async () => await video.evaluate((elemento: HTMLVideoElement) => elemento.paused), {
+        timeout: 20_000,
+      })
+      .toBe(false)
 
     // Y no se avisó al usuario: el fallo se resolvió por dentro. El aviso del
     // audio sin imagen se descarta aparte, ver `avisoDeReproduccion`.
@@ -233,7 +240,14 @@ test.describe('recuperación de un fragmento caducado', () => {
       .poll(async () => await tiempoDe(video), { timeout: 20_000 })
       .toBeGreaterThanOrEqual(capturado - 1)
 
-    expect(await video.evaluate((elemento: HTMLVideoElement) => elemento.paused)).toBe(false)
+    // `paused` se pregunta hasta que cambie: el `play()` del botón resuelve en
+    // una microtarea y una lectura inmediata puede adelantarse a la salida de
+    // pausa —el fallo intermitente de los PR #41 y #42—.
+    await expect
+      .poll(async () => await video.evaluate((elemento: HTMLVideoElement) => elemento.paused), {
+        timeout: 20_000,
+      })
+      .toBe(false)
 
     // Y el aviso se retira: ya no hay nada que contar.
     await expect(aviso).toHaveCount(0)

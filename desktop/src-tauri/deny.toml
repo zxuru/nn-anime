@@ -1,0 +1,77 @@
+# La política del `Cargo.lock` del anfitrión (T235). La aplica el trabajo
+# `auditoria-rust` de `.github/workflows/ci.yml`, con `cargo-deny-action`, que
+# trae cargo-deny 0.21.0 fijado dentro de su imagen: lo que se mide aquí se mide
+# igual en el CI.
+#
+# Este fichero es también **el archivo de excepciones**. Lo que hoy no se puede
+# arreglar vive en `ignore` con su motivo escrito, en vez de apagar la
+# comprobación, poner la acción con `continue-on-error` o dejar el trabajo en
+# rojo para siempre —que es la otra forma de apagarlo, porque un rojo eterno se
+# ignora igual que un verde vacío—. Un aviso sin motivo escrito se arregla.
+
+[advisories]
+version = 2
+# Un aviso de nivel error —una vulnerabilidad, o un paquete sin mantenimiento—
+# pone el trabajo en rojo: es el criterio del task. Hasta T235, `bun audit` sólo
+# miraba `bun.lock` y el lado Rust no lo leía nadie.
+#
+# Una versión **retirada** del registro es error y no advertencia: el lockfile la
+# conserva para siempre aunque `cargo` se niegue a elegirla de nuevo, y una
+# retirada casi siempre esconde un fallo. Por eso el lock está en 1.14.1 y no en
+# la 1.14.0 que traía.
+yanked = "deny"
+# Las excepciones. Cuatro avisos abiertos hoy, los cuatro «sin actualización
+# segura» porque los crates son de Tauri o de gtk-rs, no nuestros: subirlos es
+# subir el árbol de Tauri, y eso lo propone Dependabot, no este repositorio.
+ignore = [
+  # gtk-rs 0.18 (`glib-macros`) sigue usando `proc-macro-error`. Sólo entra en
+  # Linux, por la bandeja del sistema (`tray-icon`), y el remedio es que gtk-rs
+  # migre a `manyhow`. Se retira cuando suba el árbol de Tauri.
+  { id = "RUSTSEC-2024-0370", reason = "proc-macro-error 1.0.4 entra por glib-macros 0.18 (bandeja de Linux, vía tray-icon); su sustituto vive en gtk-rs, no en este repositorio. Sin actualización segura: se retira al subir el árbol de Tauri." },
+  # El trío de zbus 5: `zvariant`, `zvariant_derive` y `zbus_names` se fundieron
+  # dentro de `zbus` 6. `tauri-plugin-single-instance` 2.5 pide zbus 5, así que
+  # la versión que lo arregla no está en nuestro grafo.
+  { id = "RUSTSEC-2026-0370", reason = "zvariant 5.15.1 lo fija tauri-plugin-single-instance 2.5 (zbus 5). La versión mantenida es zbus 6, que sube con el árbol de Tauri." },
+  { id = "RUSTSEC-2026-0371", reason = "zbus_names 4.3.5 lo fija tauri-plugin-single-instance 2.5 (zbus 5). Se fusionó en zbus 6; sube con el árbol de Tauri." },
+  { id = "RUSTSEC-2026-0372", reason = "zvariant_derive 5.15.1 lo fija tauri-plugin-single-instance 2.5 (zbus 5). Se fusionó en zbus 6; sube con el árbol de Tauri." },
+]
+
+[bans]
+# Tauri arrastra duplicados por diseño —`windows-sys` 0.45/0.52/0.61, `syn`
+# 1/2/3, `hashbrown` 0.12/0.17—: ponerlo en rojo sería un trabajo rojo que nadie
+# puede arreglar. Se queda en aviso para que el log lo enseñe.
+multiple-versions = "warn"
+# Un `"*"` en el `Cargo.toml` deja la versión al azar del registro: se prohíbe.
+wildcards = "deny"
+
+[licenses]
+version = 2
+# Lista blanca, y explícita: una licencia nueva que no esté aquí pone el trabajo
+# en rojo y obliga a decidirla, que es justo lo que se quiere cuando la app
+# descarga binarios. Las de copyleft fuerte no están: `r-efi` se queda en su
+# rama MIT/Apache y no necesita su LGPL-2.1.
+allow = [
+  "0BSD",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-3-Clause",
+  "CC0-1.0",
+  "CDLA-Permissive-2.0",
+  "ISC",
+  "MIT",
+  "MIT-0",
+  "MPL-2.0",
+  "Unicode-3.0",
+  # `foldhash 0.2`, por `dom_query` (el saneador de HTML de Tauri).
+  "Zlib",
+]
+# `rona-desktop` no declara licencia porque no se publica (`publish = false`): es
+# un binario de ventana, no una biblioteca que alguien vaya a enlazar.
+private = { ignore = true }
+
+[sources]
+# Todo lo que entra tiene que venir de crates.io. Un `git = "…"` en una
+# dependencia sería código sin revisar que se compila en la máquina de quien
+# descargue la app.
+unknown-registry = "deny"
+unknown-git = "deny"

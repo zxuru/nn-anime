@@ -2,11 +2,26 @@
 <html lang="es">
   <head>
     <meta charset="utf-8" />
+    <meta
+      name="description"
+      content="RoNa: anime, películas y series desde tus fuentes, en tu equipo. Sin cuentas ni telemetría."
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" href="/brand/logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/brand/touch-180.png" />
+    <!-- El color de la barra del navegador. El arranque temprano lo cambia al
+         tema resuelto; este valor es el oscuro, que es el de partida. -->
+    <meta name="theme-color" content="#08080a" />
     <!-- `viewport-fit=cover` no es cosmética: sin él, `env(safe-area-inset-*)`
          vale cero en un teléfono con recorte y el relleno que la hoja ya calcula
          para la hoja inferior y la cabecera no protege nada. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>RoNa</title>
+    <!-- El tema antes del primer pintado. Script clásico y bloqueante a
+         propósito: la CSP no permite el código en línea, y un módulo se
+         diferiría hasta después del primer fotograma, que es justo el destello
+         que se quiere quitar. -->
+    <script src="/theme-boot.js"></script>
   </head>
   <body>
     <div id="root"></div>

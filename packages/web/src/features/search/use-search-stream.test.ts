@@ -4,7 +4,7 @@ import type { SearchResult } from '@rona/core/models'
 import { ApiError } from '../../api/client'
 import {
   activeProviderIds,
-  alternativas,
+  consultaVacia,
   createPrefetcher,
   createSearchHub,
   fetchProviderPriority,
@@ -39,6 +39,14 @@ function fuente(id: string, media: 'anime' | 'movies' | 'both'): ProviderSummary
 }
 
 describe('estado', () => {
+  test('la consulta vacía no abre búsqueda', () => {
+    // Sin término no hay pregunta: el gancho no se suscribe y la pantalla no
+    // dispara un catálogo entero contra las fuentes. Mutar la guarda la deja en
+    // rojo.
+    expect(consultaVacia('')).toBe(true)
+    expect(consultaVacia('   ')).toBe(true)
+    expect(consultaVacia('naruto')).toBe(false)
+  })
   test('al empezar, todos los proveedores están pendientes', () => {
     const estado = initialState(['uno', 'dos'])
 
@@ -206,19 +214,6 @@ describe('agrupación de duplicados', () => {
     expect(
       groupResults([resultado('uno', 'a', 'Éxito'), resultado('dos', 'b', 'e\u0301xito')]),
     ).toHaveLength(1)
-  })
-
-  test('las alternativas de una obra son los demás proveedores, no ella misma', () => {
-    const [grupo] = groupResults([
-      resultado('uno', 'a', 'Aurora'),
-      resultado('dos', 'b', 'Aurora'),
-      resultado('tres', 'c', 'Aurora'),
-    ])
-    // Sin el grupo no hay nada que comprobar; el `if` evita un `as` que
-    // silenciaría el tipo.
-    if (grupo === undefined) throw new Error('la agrupación no devolvió ningún grupo')
-
-    expect(alternativas(grupo, 'dos').map((item) => item.ref.providerId)).toEqual(['uno', 'tres'])
   })
 })
 

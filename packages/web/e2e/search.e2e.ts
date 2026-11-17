@@ -11,6 +11,32 @@ import { entrar, esperarApp } from './fixtures'
  */
 
 test.describe('la búsqueda', () => {
+  /**
+   * El campo se lleva el foco al entrar.
+   *
+   * Se mide en las dos maneras de llegar: una carga completa de `/search`, donde
+   * el efecto de montaje basta, y el enlace de la cabecera, que es una navegación
+   * sin recarga y donde el armazón mueve el foco al `main` al cambiar de camino.
+   * Sin la guarda del armazón, el segundo caso deja el foco en el contenido y hay
+   * que tabular hasta el campo para escribir.
+   */
+  test('al entrar en Buscar el campo se lleva el foco', async ({ page }) => {
+    await entrar(page)
+    await esperarApp(page)
+
+    const casilla = page.getByLabel('Buscar por título')
+
+    await page.goto('/search')
+    await expect(casilla).toBeFocused()
+
+    await page.goto('/')
+    await esperarApp(page)
+    await page.getByRole('link', { name: 'Buscar' }).first().click()
+
+    await expect(page).toHaveURL(/\/search/)
+    await expect(casilla).toBeFocused()
+  })
+
   test('buscar muestra resultados del fixture', async ({ page }) => {
     await entrar(page)
     await esperarApp(page)
@@ -38,6 +64,62 @@ test.describe('la búsqueda', () => {
     await page.getByLabel('Buscar por título').fill('aurora')
 
     await expect(page).toHaveURL(/q=aurora/, { timeout: 10_000 })
+  })
+
+  /**
+   * Abrir Buscar no es buscar.
+   *
+   * Antes, entrar en `/search` sin término suscribía el stream y preguntaba el
+   * catálogo entero a todas las fuentes. La pantalla de invitación se convertía
+   * en un listado arbitrario y el usuario pagaba tráfico que no había pedido.
+   */
+  test('abrir Buscar sin término no consulta a las fuentes', async ({ page }) => {
+    await entrar(page)
+
+    let peticiones = 0
+    page.on('request', (peticion) => {
+      if (new URL(peticion.url()).pathname === '/api/search') peticiones += 1
+    })
+
+    await page.goto('/search')
+
+    await expect(page.getByText('Escribe un título para empezar')).toBeVisible()
+    await page.waitForTimeout(600)
+    expect(peticiones).toBe(0)
+  })
+
+  /**
+   * La espera tiene la forma de la tarjeta y vive en la misma lista.
+   *
+   * Se retrasan a la vez la lista de proveedores y el stream: la pantalla enseña
+   * los cuatro huecos iniciales y, cuando llega la tarjeta, el alto de la rejilla
+   * no salta. Antes había una segunda lista encima y el contenido subía 224 px.
+   */
+  test('la espera de Buscar usa la tarjeta y no mueve la página', async ({ page }) => {
+    await page.route('**/api/providers*', async (ruta) => {
+      await page.waitForTimeout(1200)
+      await ruta.continue()
+    })
+    await page.route('**/api/search*', async (ruta) => {
+      await page.waitForTimeout(1200)
+      await ruta.continue()
+    })
+
+    await page.goto('/search?q=aurora')
+
+    const esqueletos = page.locator('.card--esqueleto')
+    await expect(esqueletos).toHaveCount(4)
+    await expect(page.locator('ul.grid')).toHaveCount(1)
+
+    const antes = await page.locator('ul.grid').boundingBox()
+
+    const tarjeta = page.locator('.card:not(.card--esqueleto)').first()
+    await expect(tarjeta).toBeVisible({ timeout: 10_000 })
+    await expect(esqueletos).toHaveCount(0)
+    await expect(page.locator('ul.grid')).toHaveCount(1)
+
+    const despues = await page.locator('ul.grid').boundingBox()
+    expect(Math.abs((despues?.height ?? 0) - (antes?.height ?? 0))).toBeLessThan(8)
   })
 
   /**

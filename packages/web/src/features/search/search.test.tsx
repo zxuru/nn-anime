@@ -12,6 +12,7 @@ import { ResultGrid } from './ResultGrid'
 import {
   announce,
   createScheduler,
+  estadoVisible,
   providersFromPath,
   queryFromPath,
   resuelta,
@@ -83,7 +84,7 @@ describe('anuncio para lectores de pantalla', () => {
     expect(announce(initialState([]), [])).toContain('No hay ningún proveedor activo')
   })
 
-  test('al cerrar anuncia el recuento y cuántos proveedores respondieron', () => {
+  test('al cerrar anuncia el recuento y en cuántas fuentes', () => {
     const estado = {
       ...initialState([]),
       results: [resultado('uno', 'a', 'A'), resultado('dos', 'b', 'B'), resultado('dos', 'c', 'C')],
@@ -93,7 +94,7 @@ describe('anuncio para lectores de pantalla', () => {
     const texto = announce(estado, ['uno', 'dos'])
 
     expect(texto).toContain('3 resultados')
-    expect(texto).toContain('2 proveedores')
+    expect(texto).toContain('2 fuentes')
   })
 
   test('un fallo de transporte se anuncia como fallo', () => {
@@ -115,7 +116,35 @@ describe('anuncio para lectores de pantalla', () => {
 
     // Contar respuestas en lugar de obras diría «2 resultados» con una sola
     // tarjeta en pantalla.
-    expect(announce(estado, ['uno', 'dos'])).toContain('1 resultado de 2 proveedores')
+    expect(announce(estado, ['uno', 'dos'])).toContain('1 resultado en 2 fuentes')
+  })
+})
+
+describe('la línea de estado visible', () => {
+  test('mientras espera, dice cuánto ha llegado y qué fuente falta', () => {
+    const estado = {
+      ...initialState(['dos']),
+      results: [resultado('uno', 'a', 'Aurora')],
+    }
+
+    const texto = estadoVisible(estado, ['uno', 'dos'])
+
+    expect(texto).toContain('1 resultado')
+    expect(texto).toContain('esperando a 1 fuente')
+  })
+
+  test('al cerrar, dice el recuento en fuentes y no «proveedores»', () => {
+    const estado = {
+      ...initialState([]),
+      results: [resultado('uno', 'a', 'Aurora')],
+      done: true,
+    }
+
+    expect(estadoVisible(estado, ['uno'])).toBe('1 resultado en 1 fuente.')
+  })
+
+  test('sin fuentes activas no culpa a la consulta', () => {
+    expect(estadoVisible(initialState([]), [])).toContain('No hay ningún proveedor activo')
   })
 })
 
@@ -185,19 +214,11 @@ describe('tarjeta', () => {
     expect(html).toContain('Título')
   })
 
-  test('lleva la etiqueta del proveedor de origen', () => {
+  test('no lleva sello de origen: la obra es el resultado, no el proveedor', () => {
     const html = render(<ResultCard result={resultado('mio', 't1', 'Uno')} />)
 
-    expect(html).toContain('Origen: mio')
-  })
-
-  test('el nombre del proveedor gana sobre su id cuando se conoce', () => {
-    const html = render(
-      <ResultCard result={resultado('mio', 't1', 'Uno')} providerLabel="Mi fuente" />,
-    )
-
-    expect(html).toContain('Origen: Mi fuente')
-    expect(html).not.toContain('Origen: mio')
+    expect(html).not.toContain('Origen:')
+    expect(html).not.toContain('class="badge"')
   })
 
   test('pide la portada al proxy, nunca al sitio del proveedor', () => {
@@ -306,7 +327,7 @@ describe('rejilla y estado vacío', () => {
     expect(html).toContain('href="/anime/otro/t2?q=uno"')
   })
 
-  test('dos proveedores con la misma obra pintan una tarjeta, con la otra fuente enlazada', () => {
+  test('dos proveedores con la misma obra pintan una sola tarjeta', () => {
     const html = render(
       <ResultGrid
         query="kimetsu"
@@ -314,12 +335,6 @@ describe('rejilla y estado vacío', () => {
           resultado('jkanime', 'kimetsu', 'Kimetsu no Yaiba'),
           resultado('animeav1', 'kimetsu-no-yaiba', 'Kimetsu no Yaiba'),
         ]}
-        providerLabels={
-          new Map([
-            ['jkanime', 'JKANIME'],
-            ['animeav1', 'ANIMEAV1'],
-          ])
-        }
         done
       />,
     )
@@ -328,29 +343,29 @@ describe('rejilla y estado vacío', () => {
     // se reportó. La mutación que quite la agrupación de `ResultGrid` deja esto
     // en rojo con dos.
     expect(html.match(/<li class="grid__item"/g)).toHaveLength(1)
-    // Las dos direcciones —la de la tarjeta y la de «También en»— dejan el
-    // rastro de la búsqueda: abrir la ficha desde cualquiera de las dos es lo
-    // mismo para el motor.
-    expect(html).toContain('href="/anime/jkanime/kimetsu?q=kimetsu"')
-    expect(html).toContain('href="/anime/animeav1/kimetsu-no-yaiba?q=kimetsu"')
-    expect(html).toContain('También en')
-    expect(html).toContain('>ANIMEAV1</a>')
+    // La tarjeta deja el rastro de la búsqueda en su dirección.
+    expect(html).toContain('?q=kimetsu')
+    // Y no lista la otra fuente: la tarjeta no es un índice de proveedores.
+    expect(html).not.toContain('También en')
+    expect(html).not.toContain('class="card__extra"')
   })
 
-  test('sin duplicados no aparece el «también en»', () => {
+  test('ninguna tarjeta lleva sello ni fuentes alternativas', () => {
     const html = render(<ResultGrid query="uno" results={[resultado('mio', 't1', 'Uno')]} done />)
 
     expect(html).not.toContain('También en')
     expect(html).not.toContain('card__extra')
+    expect(html).not.toContain('Origen:')
+    expect(html).not.toContain('class="badge"')
   })
 
   /**
-   * La prioridad de los ajustes elige **cuál** de las fuentes da la tarjeta; la
-   * otra sigue en «También en». Mutar `ResultGrid` para no pasar la prioridad a
-   * `groupResults` deja esta prueba en rojo: la tarjeta se quedaría con `jkanime`,
-   * que es el primero que respondió.
+   * La prioridad de los ajustes elige **cuál** de las fuentes da la tarjeta.
+   * Mutar `ResultGrid` para no pasar la prioridad a `groupResults` deja esta
+   * prueba en rojo: la tarjeta se quedaría con `jkanime`, que es el primero que
+   * respondió.
    */
-  test('la tarjeta lleva al proveedor preferido, y el otro sigue en «También en»', () => {
+  test('la tarjeta lleva al proveedor preferido', () => {
     const html = render(
       <ResultGrid
         query="kimetsu"
@@ -369,8 +384,8 @@ describe('rejilla y estado vacío', () => {
     const enlace = html.slice(carta, html.indexOf('</a>', carta))
 
     expect(enlace).toContain('href="/anime/animeav1/kimetsu-no-yaiba?q=kimetsu"')
-    expect(html).toContain('También en')
-    expect(html).toContain('>jkanime</a>')
+    // La otra fuente ya no se pinta en la rejilla: se elige en la ficha.
+    expect(html).not.toContain('href="/anime/jkanime/kimetsu?q=kimetsu"')
   })
 
   test('sin resultados dice qué consulta no encontró nada', () => {
@@ -430,6 +445,33 @@ describe('rejilla y estado vacío', () => {
     expect(html).toContain('aria-label="Cosas"')
     expect(html).toContain('uno')
   })
+
+  test('las celdas pendientes van detrás de las tarjetas y en la misma lista', () => {
+    const html = render(
+      <ResultGrid
+        query="uno"
+        results={[resultado('mio', 't1', 'Uno')]}
+        done={false}
+        pending={['otro']}
+        busy
+      />,
+    )
+
+    expect(html.match(/<ul/g)).toHaveLength(1)
+    expect(html.indexOf('class="card"')).toBeLessThan(html.indexOf('card--esqueleto'))
+    expect(html).toContain('aria-busy="true"')
+  })
+
+  test('el esqueleto tiene la forma de la tarjeta, no un bloque suelto', () => {
+    const html = render(
+      <ResultGrid query="uno" results={[]} done={false} pending={['otro']} busy />,
+    )
+
+    expect(html).toContain('class="card card--esqueleto"')
+    expect(html).toContain('card__cover--esqueleto')
+    expect(html).toContain('card__linea--titulo')
+    expect(html).toContain('card__linea--meta')
+  })
 })
 
 describe('página', () => {
@@ -451,9 +493,9 @@ describe('página', () => {
   test('el primer render no depende de ninguna petición', () => {
     const html = pagina('/search')
 
-    // Sin proveedores cargados todavía, la región viva dice que está buscando y
-    // el cuerpo invita a escribir: nada de esto necesita red.
-    expect(html).toContain('Buscando')
+    // Sin consulta no hay búsqueda que anunciar: la pantalla sólo invita a
+    // escribir. Antes decía «Buscando…» y «Escribe un título» a la vez.
+    expect(html).not.toContain('Buscando')
     expect(html).toContain('Escribe un título')
     expect(html).toContain('aria-live="polite"')
   })
@@ -481,7 +523,8 @@ describe('página', () => {
   test('sin saber qué proveedores hay, la búsqueda ya enseña esqueletos', () => {
     const html = pagina('/search?q=naruto')
 
-    expect(html.match(/class="skeleton"/g)?.length).toBe(4)
+    expect(html.match(/card--esqueleto/g)?.length).toBe(4)
+    expect(html.match(/<ul class="grid"/g)?.length).toBe(1)
   })
 })
 
@@ -614,7 +657,7 @@ describe('las tarjetas del catálogo', () => {
     expect(html).toContain('/api/anilist/image/cover/101922')
     expect(html).toContain('Kimetsu no Yaiba')
     // La misma marca de año que la tarjeta de un proveedor.
-    expect(html).toContain('Año 2019')
+    expect(html).toContain('2019')
   })
 
   test('no lleva sello: el enlace ya dice lo que hay', () => {

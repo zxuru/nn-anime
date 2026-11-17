@@ -22,7 +22,7 @@ import type { Candidate, SearchResult } from '@rona/core'
 import {
   errorResponseSchema,
   mediaOf,
-  pasaElFiltro,
+  pasaElFiltroDeMedia,
   puedeServir,
   recommendationsResponseSchema,
   trendingResponseSchema,
@@ -35,6 +35,7 @@ import { adultosDeLaFila, TOPE_DE_VERIFICACION } from '../adultos'
 import type { AniListCatalog } from '../anilist/catalog'
 import type { ServerContainer } from '../container'
 import { gatherSignals, refKey } from '../recommend/signals'
+import { cacheHeader } from './cache-header'
 import { enMedia, mediaFrom, mediaPorProveedor } from './media'
 import { adultContentOf } from './settings'
 
@@ -98,6 +99,32 @@ export function sinRepetir(resultados: readonly SearchResult[]): readonly Search
 }
 
 /**
+ * Una candidata por obra, y la que más señales trae.
+ *
+ * El motor recibe una candidata por título cacheado y una por cada puesto de
+ * tendencias. Dos fuentes que publican la misma obra con referencias propias dan
+ * **dos** candidatas —por referencia no se reconocen—, y las dos entraban al
+ * ranking: la fila enseñaba el mismo cartel dos veces y gastaba dos de sus puestos
+ * en una sola obra. Se vio en la home con «Sousou no Frieren» y su segunda
+ * temporada, cada una por duplicado.
+ *
+ * La identidad es el **nombre**, con la temporada dentro (`sameWork`: «Sousou no
+ * Frieren» y «Sousou no Frieren 2nd Season» son dos obras). El año no se exige:
+ * casi ninguna fuente lo devuelve, y con la regla estricta la misma obra se
+ * quedaría duplicada en cuanto una de las dos no lo trae.
+ *
+ * Cuando hay varias copias gana la que más etiquetas tiene: es la que el motor
+ * puede puntuar por afinidad, y quedarse con la copia vacía la dejaría fuera del
+ * ranking aunque el catálogo sí la conozca. El orden de llegada desempata, así que
+ * la lista no cambia entre dos lecturas iguales.
+ */
+export function sinRepetirCandidatos(candidatos: readonly Candidate[]): readonly Candidate[] {
+  const porCompletitud = [...candidatos].sort((uno, otro) => otro.tags.length - uno.tags.length)
+
+  return uniqueByWork(porCompletitud, () => true)
+}
+
+/**
  * Tendencias del proveedor, como fila propia.
  *
  * Va aparte del motor porque es otra cosa: las recomendaciones son para el
@@ -127,22 +154,30 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
       timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     }
 
-    const resultados = await Promise.all(
+    const lecturas = await Promise.all(
       conTendencias.map(async (provider) => {
         const lectura = await options.container.getTrending(provider, callOptions)
 
         // Un proveedor que no responde a tendencias no puede tumbar la lista.
-        if (!lectura.ok) return []
+        if (!lectura.ok) return { items: [], source: undefined }
 
         // El filtro va **después de la caché**: lo que se guarda es la lista de la
         // fuente, y cada pestaña se queda con su mitad al leerla.
-        return lectura.value.value.filter((resultado) =>
-          pasaElFiltro(pedido.media, mediaOf(provider.capabilities), resultado.kind),
-        )
+        return {
+          items: lectura.value.value.filter((resultado) =>
+            pasaElFiltroDeMedia(pedido.media, mediaOf(provider.capabilities), resultado.kind),
+          ),
+          source: lectura.value.source,
+        }
       }),
     )
 
-    const candidatos = sinRepetir(resultados.flat())
+    // La fila mezcla fuentes: el encabezado es el del peor origen, no el de la
+    // primera que contestó.
+    const cache = cacheHeader(
+      lecturas.flatMap((lectura) => (lectura.source === undefined ? [] : [lectura.source])),
+    )
+    const candidatos = sinRepetir(lecturas.flatMap((lectura) => lectura.items))
     const conAdultos = await adultContentOf(options.container.store)
 
     // La fila no tiene tope propio, así que la ventana la pone el tope de verificación:
@@ -164,6 +199,8 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
       ...(resultado.year === undefined ? {} : { year: resultado.year }),
       ...(resultado.kind === undefined ? {} : { kind: resultado.kind }),
     }))
+
+    if (cache !== undefined) c.header('X-Cache', cache)
 
     return c.json(trendingResponseSchema.parse({ items }))
   })
@@ -227,7 +264,7 @@ export function registerRecommendationsRoute(
         conTendencias.map(async (provider) => {
           const media = mediaOf(provider.capabilities)
           const suyos = (lista: readonly SearchResult[]): readonly SearchResult[] =>
-            lista.filter((resultado) => pasaElFiltro(pedido.media, media, resultado.kind))
+            lista.filter((resultado) => pasaElFiltroDeMedia(pedido.media, media, resultado.kind))
 
           const cacheado = await options.container.store.readTrending(provider.id)
           if (cacheado !== null) return suyos(cacheado.value)
@@ -292,7 +329,10 @@ export function registerRecommendationsRoute(
       }
     }
 
-    const salida = recommend(conConsulta, candidatos, { limit: limite, now: ahora })
+    const salida = recommend(conConsulta, sinRepetirCandidatos(candidatos), {
+      limit: limite,
+      now: ahora,
+    })
 
     return c.json(
       recommendationsResponseSchema.parse({

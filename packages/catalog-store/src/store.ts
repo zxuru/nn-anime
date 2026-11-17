@@ -238,10 +238,14 @@ export interface CatalogStore {
   /**
    * El historial, por páginas: todo lo que se reprodujo, lo terminado incluido.
    *
+   * Un episodio, un renglón: se queda su reproducción más reciente. Volver a
+   * abrir el mismo episodio no llena la rejilla de tarjetas repetidas, y los demás
+   * episodios de la obra siguen contando.
+   *
    * Va aparte de `listRecentlyWatched` y no es un parámetro suyo: aquélla alimenta
    * «continuar viendo» **y** es señal de afinidad del motor, así que su semántica
    * —qué descarta y cuánto lee— no se toca para servir una pantalla. Aquí no se
-   * agrupa por episodio ni se descarta lo acabado: el historial cuenta lo que pasó.
+   * descarta lo acabado: el historial cuenta lo que pasó.
    *
    * `offset` en lugar de un cursor porque el orden es por fecha de inicio y la
    * pantalla ya tiene delante lo que está mirando: una lista que se desplaza sola

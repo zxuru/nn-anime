@@ -434,6 +434,7 @@ sistema que cuenta la sección de instalación.
 | Documento | Qué cuenta |
 |---|---|
 | [docs/providers.md](docs/providers.md) | Cómo escribir un plugin, con un ejemplo comentado |
+| [docs/marca.md](docs/marca.md) | La marca: la R-raposa, sus dos tamaños y cómo se regenera |
 | [docs/docker.md](docs/docker.md) | Docker, NAS y LAN: variables, volúmenes, plugins, Caddy y actualización |
 | [docs/watch-party.md](docs/watch-party.md) | La sala de visionado: cómo se enciende, límites, seguridad y lo que falta |
 | [docs/release.md](docs/release.md) | Cómo se publica: secretos de firma, ajustes del repositorio y qué queda por probar |

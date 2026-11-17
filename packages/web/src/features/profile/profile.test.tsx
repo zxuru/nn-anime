@@ -124,4 +124,47 @@ describe('el primer render de las pantallas', () => {
     expect(html).toContain(t(DEFAULT_LOCALE, 'history.loading'))
     expect(html).toContain('aria-busy="true"')
   })
+
+  /**
+   * La espera tiene la forma de la página, no la de un renglón.
+   *
+   * Antes el esqueleto eran una barra y «Cargando tu perfil…» sobre una página que
+   * luego traía cuatro secciones con tarjetas: al llegar los datos, la página
+   * crecía de golpe. Ahora las cuatro cabeceras se pintan de verdad —sus titulares
+   * se saben sin preguntar— y cada una lleva su rejilla de seis huecos con la
+   * proporción de la pieza.
+   */
+  test('el esqueleto del Perfil tiene la forma del Perfil', () => {
+    const html = render(<ProfilePage />)
+
+    expect(html.match(/class="pagina__seccion"/g)?.length).toBe(4)
+    for (const seccion of ['Favoritos', 'Ya vistos', 'Quiero ver', 'Historial']) {
+      expect(html, seccion).toContain(seccion)
+    }
+
+    // Cuatro secciones × cuatro carteles: una fila de resumen, no un muro.
+    expect(html.match(/class="esq" aria-hidden="true"/g)?.length).toBe(16)
+
+    // La frase de espera, dentro del texto que sólo lee un lector de pantalla.
+    expect(html).toContain('class="solo-lectores" role="status"')
+    expect(html).not.toContain('class="empty"')
+  })
+
+  /**
+   * El Historial enseña lo que ya sabe: el titular, la vuelta al Perfil, la
+   * cabecera del tramo y la paginación. Lo único que se adelanta es el contenido.
+   */
+  test('el esqueleto del Historial tiene la forma del Historial', () => {
+    const html = render(<HistoryPage path="/history" />)
+
+    expect(html).toContain('class="historial"')
+    expect(html).toContain('Volver al perfil')
+    expect(html).toContain('Página 1')
+    expect(html.match(/class="esq" aria-hidden="true"/g)?.length).toBe(6)
+    expect(html).toContain('class="solo-lectores" role="status"')
+
+    // La paginación reserva su alto con los mandos apagados.
+    expect(html).toContain('Anterior')
+    expect(html).toContain('disabled')
+  })
 })

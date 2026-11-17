@@ -31,11 +31,11 @@ import { ArrowRight, Bookmark, CircleCheck, History, type LucideIcon, Star } fro
 import type { ReactNode } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
+import { EsqueletoMosaico } from '../../components/EsqueletoMosaico'
 import { EstadoVacio } from '../../components/EstadoVacio'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
 import { SeccionPagina } from '../../components/SeccionPagina'
-import { Skeleton } from '../../components/Skeleton'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { ANCLAS } from '../guia/guia'
@@ -151,12 +151,45 @@ function VerTodo(): ReactNode {
   )
 }
 
+/**
+ * Las secciones del Perfil, con el mismo orden y los mismos titulares que la
+ * página cargada: el esqueleto no inventa una forma, adelanta la que va a llegar.
+ */
+const SECCIONES_DEL_ESQUELETO = [
+  { titulo: 'profile.favorites', meta: 'profile.favorites.meta', icono: Star },
+  { titulo: 'profile.watched', meta: 'profile.watched.meta', icono: CircleCheck },
+  { titulo: 'profile.planToWatch', meta: 'profile.planToWatch.meta', icono: Bookmark },
+  { titulo: 'profile.history', meta: 'profile.history.meta', icono: History },
+] as const
+
+/**
+ * La espera, con la forma de la página.
+ *
+ * Antes eran una barra y la frase «Cargando tu perfil…»: la página pasaba de un
+ * renglón a cuatro secciones con tarjetas de golpe. Ahora cada sección enseña su
+ * cabecera de verdad —el titular y su explicación se saben sin pedir nada— y su
+ * rejilla de esqueletos con la proporción de la pieza. La frase queda para el
+ * lector de pantalla: quien ve la pantalla ya ve que está cargando.
+ */
 function Esqueleto(): ReactNode {
   return (
-    <section aria-busy="true">
-      <p className="empty">{t(DEFAULT_LOCALE, 'profile.loading')}</p>
-      <Skeleton h="var(--skeleton-height)" />
-    </section>
+    <article className="pagina perfil" aria-busy="true">
+      <p className="solo-lectores" role="status">
+        {t(DEFAULT_LOCALE, 'profile.loading')}
+      </p>
+      <h1>{t(DEFAULT_LOCALE, 'profile.title')}</h1>
+
+      {SECCIONES_DEL_ESQUELETO.map((seccion) => (
+        <SeccionPagina
+          key={seccion.titulo}
+          titulo={t(DEFAULT_LOCALE, seccion.titulo)}
+          meta={t(DEFAULT_LOCALE, seccion.meta)}
+          icono={seccion.icono}
+        >
+          <EsqueletoMosaico className="mosaico--carrusel" celdas={4} />
+        </SeccionPagina>
+      ))}
+    </article>
   )
 }
 
@@ -224,8 +257,8 @@ export function ProfilePage(): ReactNode {
         ) : (
           <Mosaico className="mosaico--carrusel">
             {historial.items.map((item, indice) => (
-              // La clave es la fila del visionado y no la referencia: el mismo
-              // episodio puede salir dos veces, porque el historial no agrupa.
+              // El servidor ya deja un renglón por episodio —el de su reproducción
+              // más reciente—, así que la clave es la fila del visionado.
               <PiezaDeHistorial key={item.id} item={item} indice={indice} />
             ))}
           </Mosaico>

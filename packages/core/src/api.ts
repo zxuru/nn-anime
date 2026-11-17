@@ -30,6 +30,8 @@ import {
   animeSummarySchema,
   episodeSchema,
   httpUrlSchema,
+  mediaFamilySchema,
+  mediaFormatSchema,
   modeSchema,
   providerCapabilitiesSchema,
   providerMediaSchema,
@@ -390,6 +392,9 @@ export const recommendationSchema = z.strictObject({
   coverUrl: httpUrlSchema.optional(),
   year: z.number().int().optional(),
   kind: titleKindSchema.optional(),
+  /** Familia y formato del candidato: el motor filtra por ellos antes de puntuar. */
+  family: mediaFamilySchema.optional(),
+  format: mediaFormatSchema.optional(),
   score: z.number(),
   /**
    * Los géneros del título.
@@ -422,6 +427,15 @@ export const continueWatchingItemSchema = z.strictObject({
   animeRef: providerRefSchema,
   title: z.string().min(1),
   coverUrl: httpUrlSchema.optional(),
+  /**
+   * Familia y formato, para repartir lo empezado por pestaña y filtro.
+   *
+   * Sin ellos, lo visto a medias de una fuente mixta cae siempre del lado del
+   * anime: la fila no lleva ni `kind` con el que deducirlo. Opcionales porque una
+   * fila vieja no los tiene. Añadidos en T257a.
+   */
+  family: mediaFamilySchema.optional(),
+  format: mediaFormatSchema.optional(),
   episodeRef: providerRefSchema,
   episodeNumber: z.number().int().nonnegative(),
   /** La temporada, si la fuente la declara. Es lo que distingue T1E1 de T2E1. */
@@ -450,10 +464,11 @@ export const watchHistoryItemSchema = continueWatchingItemSchema.extend({
   /**
    * La fila de visionado, que es lo que identifica un renglón del historial.
    *
-   * Hace falta y por eso está, aunque «continuar viendo» no lo lleve: esa fila se
-   * agrupa por episodio, así que cada episodio sale una vez. El historial **no
-   * agrupa** —el mismo episodio reproducido dos veces son dos renglones— y sin un
-   * identificador propio la lista no tiene con qué distinguir dos filas idénticas.
+   * Hace falta y por eso está, aunque «continuar viendo» no lo lleve: esa fila es
+   * una tarjeta por episodio y el historial también, pero dos episodios distintos
+   * de la misma obra comparten título y portada, y sin un identificador propio la
+   * lista no tendría con qué distinguir sus tarjetas. Es el de la reproducción que
+   * se quedó, la más reciente.
    */
   id: z.number().int().positive(),
   finished: z.boolean(),
@@ -747,7 +762,16 @@ export const airingItemSchema = z.strictObject({
   ref: providerRefSchema.optional(),
 })
 
-export const airingResponseSchema = z.strictObject({ items: z.array(airingItemSchema) })
+export const airingResponseSchema = z.strictObject({
+  items: z.array(airingItemSchema),
+  /**
+   * La fuente no contestó y la lista vacía no significa «no hay nada».
+   *
+   * Es lo que separa «no hay estrenos esta semana» de «AniList no respondió»; sin
+   * esta señal, la fila vacía culpaba a la parrilla de un fallo de la lectura.
+   */
+  unavailable: z.boolean().optional(),
+})
 
 /**
  * Lo que AniList sabe de una obra, ya saneado.

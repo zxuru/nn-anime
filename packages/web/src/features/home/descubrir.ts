@@ -76,8 +76,7 @@ export function desdeResumen(item: AnimeSummary): PiezaVista {
 /** La meta de una obra de AniList: el año, el formato si no es una serie, y la marca. */
 export function metaDeDescubrir(item: DiscoverItem): string | undefined {
   const partes: string[] = []
-  if (item.year !== undefined)
-    partes.push(t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year }))
+  if (item.year !== undefined) partes.push(t(DEFAULT_LOCALE, 'home.year', { year: item.year }))
   if (item.format !== undefined && item.format !== 'TV') partes.push(item.format)
   // La marca va en la línea de datos y no en un adorno: es texto, así que la lee
   // cualquiera —también un lector de pantalla— y no depende de un color.
@@ -152,9 +151,7 @@ export function diaDe(fecha: Date): string {
  * pieza lleva el año y no una fecha inventada.
  */
 export function anioDe(item: { readonly year?: number | undefined }): string | undefined {
-  return item.year === undefined
-    ? undefined
-    : t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year })
+  return item.year === undefined ? undefined : String(item.year)
 }
 
 /**

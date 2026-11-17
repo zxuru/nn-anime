@@ -16,7 +16,7 @@ export const es = {
   'reason.same-studio': 'Es de {studio}, un estudio que ya te ha gustado.',
   'reason.covisit': 'Lo suele ver quien ve {seen}.',
   'reason.rediscovery': 'Lo dejaste a medias y ha pasado tiempo: puede que ahora encaje.',
-  'reason.trending': 'Está de moda entre quienes usan este catálogo.',
+  'reason.trending': 'Es de lo más visto de la fuente.',
   'reason.fallback': 'Encaja con lo que has visto hasta ahora.',
 } as const
 
