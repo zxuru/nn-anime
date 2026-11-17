@@ -3012,12 +3012,27 @@ medido en navegador.
 mouse. Hay pruebas sueltas de foco y atajos, pero no el recorrido entero.
 
 **Aceptación:**
-- [ ] Un caso de e2e hace el camino completo con `Tab`, `Enter` y los mandos del reproductor.
-- [ ] El foco se ve en cada paso y no se pierde al cambiar de pantalla.
-- [ ] Medido mutando: quitar un `tabIndex` o el foco inicial pone la prueba en rojo.
+- [x] Un caso de e2e hace el camino completo con `Tab`, `Enter` y los mandos del reproductor.
+- [x] El foco se ve en cada paso y no se pierde al cambiar de pantalla.
+- [x] Medido mutando: quitar un `tabIndex` o el foco inicial pone la prueba en rojo.
+
+**Verificación:** `teclado.e2e.ts` **1 caso, 0 fallos**: tabulador desde la cabecera al buscador,
+«aurora», `Tab` a la tarjeta, `Enter`, foco en `#contenido`, `Tab` al primer episodio, `Enter`, foco
+en `#contenido`, `Tab` a «Reproducir» y `Enter`; el video queda reproduciendo. Se comprueba el anillo
+de `:focus-visible` en la casilla, la tarjeta, el episodio y el mando. Mutación: quitar
+`contenido.current?.focus()` deja el caso en rojo en la primera navegación (`#contenido` no recibe el
+foco). `bun test` **4017 pasan, 0 fallan** · e2e completo **172 pasan, 0 fallan** · `bun run
+typecheck` 0 · `bun run lint` 0 errores. De paso, la cabecera de `tasks/done/INDICE.md` cuenta la
+fila de T266 (226 → 227), que es lo que mantenía en rojo `done-index.test.ts`.
+
+**Decisión que no es obvia:** el `main` recibe el foco cuando cambia el **camino**, no la consulta.
+Escribir en el buscador reemplaza `?q=` en cada pausa; mover el foco con cada reemplazo habría
+sacado el cursor de la casilla a los 400 ms de teclear.
+
+**Estado:** hecho.
 
 **Depende de:** T43.
-**Archivos:** `packages/web/e2e/`.
+**Archivos:** `packages/web/e2e/teclado.e2e.ts`, `packages/web/src/app.tsx`, `packages/web/src/styles/base.css`.
 **Tamaño:** M.
 
 ### T263 — El aviso de mpv ausente, en el e2e

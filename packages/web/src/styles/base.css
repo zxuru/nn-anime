@@ -217,6 +217,15 @@
 }
 
 /*
+ * El `main` recibe el foco al cambiar de pantalla para que el tabulador siga
+ * desde el contenido. No es un control: el anillo se dibuja alrededor de la
+ * pantalla entera y no señala nada que se pueda activar, así que no se pinta.
+ */
+.shell__main:focus {
+  outline: none;
+}
+
+/*
  * El pie de la aplicación.
  *
  * Va fuera del `main` y después de él: es una nota de la aplicación entera, no
