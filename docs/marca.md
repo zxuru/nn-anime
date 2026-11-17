@@ -91,6 +91,9 @@ Un solo acento, como en la interfaz: el coral no rellena nada que no sea la
 | `icon-256.png` | La ventana de Tauri |
 | `icon.png`, `icon-512.png` | El README, Linux y la ficha de Discord |
 | `icon-16/48/64/128.png` | Los sistemas que piden un tamaño concreto |
+| `packaging/icons/logo-aprobado.png` | El logo aprobado por el usuario |
+| `packages/web/public/brand/logo.png` | El logo aprobado, usado directamente en la cabecera y como icono web |
+| `packages/web/public/brand/favicon-32.png`, `touch-180.png` | Los tamaños de navegador y pantalla de inicio |
 
 En Discord, la clave de la imagen es `rona` y se sube `icon-1024.png`. En Linux,
 `packaging/linux/rona.desktop` apunta a `Icon=rona`.
@@ -111,9 +114,9 @@ la cabecera de la aplicación ni en el icono.
 
 ## Reglas
 
-- **El maestro se edita en el SVG, no en los PNG.** `bun run icon` vuelve a
-  escribir los ocho PNG, el `.ico` y el `.icns`; si el dibujo cambia, cambia el
-  SVG.
+- **El maestro vectorial de los paquetes de escritorio se edita en el SVG.**
+  `bun run icon` vuelve a escribir sus ocho PNG, el `.ico` y el `.icns`. La web
+  muestra `logo-aprobado.png` directamente para conservar la imagen aprobada tal cual.
 - **El rasterizador falla con lo que no entiende.** Si el SVG estrena una
   etiqueta, un comando de `path` o un gradiente que no esté definido, el generador
   se para con su nombre en vez de dibujar otra cosa. Es la prueba que lo defiende:
