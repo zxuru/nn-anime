@@ -2884,18 +2884,18 @@ del tablero y de las casillas convertidas, respectivamente.
 familia y formato: significa «todo lo que no es anime» para las fuentes y «películas de anime» para
 AniList. Una película de anime no tiene pestaña clara y una serie de imagen real cae en Anime.
 La propuesta completa está en `docs/specs/proposals/SPEC-nn-anime.familias.md`, **aprobada por el
-humano el 2026-11-16**. Se implementa en cuatro fases; la 1 es T257a y las fases 2–4 quedan
-pendientes de abrir como tasks propios.
+humano el 2026-11-16**. Se implementa en cuatro fases; la 1 es T257a y las fases 2–4 quedan abiertas
+como **T257b**, **T257c** y **T257d**.
 
 **Aceptación:**
 - [x] La propuesta está escrita y aprobada: `docs/specs/proposals/SPEC-nn-anime.familias.md`
       (commit `2e7a35c`), con los dos ejes (`mediaFamily` y `mediaFormat`), la tabla de precedencia y
       el reparto en cuatro fases.
 - [ ] Fase 2 (servidor): rutas `family`/`format`, alias `media`, AniList por formato y
-      `catalog-store` leyendo los campos del `raw_json`.
-- [ ] Fase 3 (interfaz): tres pestañas por familia, filtro de formato, dirección e i18n.
+      `catalog-store` leyendo los campos del `raw_json`. **(T257b)**
+- [ ] Fase 3 (interfaz): tres pestañas por familia, filtro de formato, dirección e i18n. **(T257c)**
 - [ ] Fase 4 (fixture y e2e): película de anime, serie de animación occidental y serie de imagen
-      real en el fixture.
+      real en el fixture. **(T257d)**
 
 **Depende de:** nada para la propuesta; T257a para el contrato.
 **Archivos:** `docs/specs/proposals/SPEC-nn-anime.familias.md`, `docs/specs/SPEC-{provider-core,discovery,recsys,web-ui}.md`.
@@ -2929,6 +2929,83 @@ cambian la lógica de servidor ni interfaz.
 **Depende de:** T257 (aprobación).
 **Archivos:** `packages/core/src/{media,schema,models}.ts`, sus pruebas, el punto de entrada de
 `core` y los cuatro specs.
+**Tamaño:** M.
+
+### T257b — Familias y formato en el servidor (fase 2)
+
+**Descripción:** que las ocho lecturas acepten los dos ejes, que AniList se consulte sólo donde sirve
+y que lo guardado se clasifique con la misma regla que el contrato. Sin esta fase la interfaz de
+T257c no tendría a quién pedirle una familia.
+
+**Aceptación:**
+- [ ] Las ocho rutas (`trending`, `feed`, `catalog/recent`, `recommendations`, `search`,
+      `discover/{top,airing,recent}`) aceptan `family` y `format` opcionales; `media` sigue como
+      alias traducido en `routes/media.ts` y no se propaga.
+- [ ] Un valor fuera del vocabulario es **400** con el valor y las opciones delante.
+- [ ] El filtro de proveedor va antes de preguntar y el de título después de la caché: una fuente
+      que no sirve la familia no recibe la petición —lo dice el contador del fixture—.
+- [ ] AniList sólo se consulta en Anime: `top` con `series` pide los cinco formatos seriados, con
+      `movie` pide `MOVIE` y sin formato los seis; `airing` con `movie` devuelve `[]` sin consultar;
+      `recent` sin formato pide las dos y deduplica; `animation` y `live` devuelven `[]` sin llamar.
+- [ ] `catalog-store` extrae `family`/`format` del `raw_json` en favoritos, vistos, quiero ver,
+      historial y relacionados con **un helper único**; una fila vieja cae a la regla heredada.
+- [ ] `recsys`: candidatos y recomendaciones llevan los dos campos validados en `gatherSignals`, y
+      el filtro de candidatos va **antes** de recomendar.
+- [ ] `?media=movies` sigue devolviendo exactamente lo de hoy.
+- [ ] Pruebas de los puntos 3 y 4 de la propuesta, medidas mutando: no filtrar por familia, ignorar
+      `format` en `FORMATOS`, preguntar a AniList en Animación y no validar el valor.
+
+**Verificación:** pendiente.
+**Depende de:** T257a.
+**Archivos:** `packages/server/src/routes/`, `packages/server/src/anilist/`, `packages/catalog-store/src/repositories/`, `packages/recsys/src/`.
+**Tamaño:** L.
+
+### T257c — Tres pestañas y filtro de formato (fase 3)
+
+**Descripción:** la navegación por familia y el filtro de formato dentro, con la dirección como
+única fuente de verdad. Depende de que el servidor entienda los dos parámetros (T257b).
+
+**Aceptación:**
+- [ ] El conmutador tiene **tres enlaces** —Anime, Animación, Acción real—, el activo lleva
+      `aria-current="page"` y la familia vive en `?tipo=anime|animation|live`.
+- [ ] `?tipo=movies` abre **Acción real** y la dirección se reescribe; el formato vive en
+      `?formato=series|movie` y se pinta en las tres familias.
+- [ ] AniList no pinta filas en Animación ni en Acción real; la ausencia de fuente se explica con
+      `sinFuenteQueSirva` contando familias.
+- [ ] `pathConTipo` conserva familia y formato al cambiar de pestaña y de pantalla; el formato se
+      cae al abrir una ficha o el reproductor.
+- [ ] Los textos nuevos están en `packages/web/src/i18n/es.ts` (`media.anime`, `media.animation`,
+      `media.live`, `media.format.*` y las tres descripciones).
+- [ ] El alta de proveedor cambia `media` por tres casillas que escriben `families`; al editar un
+      plugin viejo salen marcadas sus familias heredadas, y `ProviderList` pinta las declaradas.
+- [ ] Medido mutando: quitar la familia de la dirección, no reescribir `movies` y volver a
+      `enElTipo` ponen en rojo su caso.
+
+**Verificación:** pendiente.
+**Depende de:** T257b.
+**Archivos:** `packages/web/src/features/tipo/`, `packages/web/src/features/settings/`, `packages/web/src/app.tsx`, `packages/web/src/i18n/es.ts`, `packages/web/src/styles/`.
+**Tamaño:** L.
+
+### T257d — El fixture y el e2e de familias (fase 4)
+
+**Descripción:** sin títulos que distingan la regla nueva de la vieja, ni la mejor prueba la mide.
+El fixture declara las tres familias y clasifica cada título; el e2e recorre las tres pestañas.
+
+**Aceptación:**
+- [ ] El fixture declara `families: ['anime', 'animation', 'live']` y clasifica cada título con
+      `family` y `format`; `assertConforms` sigue aceptándolo.
+- [ ] Añade una **película de anime**, una **serie de animación occidental** y una **serie de
+      imagen real**, con sus episodios y sus streams como los demás.
+- [ ] El e2e comprueba que la misma obra no sale en dos pestañas, que la película de anime sale en
+      Anime con el filtro Películas y que la serie de imagen real sale en Acción real y no en Anime.
+- [ ] El e2e comprueba que AniList no se consulta en las familias que no sirve —con el contador del
+      arnés o la ruta interceptada—.
+- [ ] Medido mutando: volver a deducir la familia del `kind` mezcla las pestañas y pone el caso en
+      rojo.
+
+**Verificación:** pendiente.
+**Depende de:** T257c.
+**Archivos:** `packages/providers-fixture/`, `packages/web/e2e/`.
 **Tamaño:** M.
 
 ### T258 — Estabilizar el e2e de `player-recovery`
@@ -3276,7 +3353,8 @@ La tabla de rutas y el reparto por agente están en [`tasks/deuda.md`](deuda.md)
 
 ### Lote de cierre (T257–T263)
 
-T257 (aprobación de la propuesta) → T257a (contrato en `core`); las fases 2–4 se abren como tasks
-propios. T258 y T259 no cuelgan de la v1: nacen de tarjetas del tablero. T260, T261 y T262 dependen
-de T43 (el e2e), y T263 de T44. T266 nace de la medición de T246 en checkout limpio y depende de
-T43, T239 y T252. T246 es quien convierte las casillas sin medir en estos ids.
+T257 (aprobación de la propuesta) → T257a (contrato en `core`) → T257b (servidor) → T257c
+(interfaz) → T257d (fixture y e2e). T258 y T259 no cuelgan de la v1: nacen de tarjetas del tablero.
+T260, T261 y T262 dependen de T43 (el e2e), y T263 de T44. T266 nace de la medición de T246 en
+checkout limpio y depende de T43, T239 y T252. T246 es quien convierte las casillas sin medir en
+estos ids.
