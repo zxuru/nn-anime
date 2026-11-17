@@ -98,6 +98,8 @@ describe('GET /api/trending', () => {
 
       expect(respuesta.status).toBe(200)
       expect(salida.items.length).toBeGreaterThan(0)
+      // La primera lectura va a la fuente; el encabezado lo dice.
+      expect(respuesta.headers.get('x-cache')).toBe('miss')
     })
   })
 
@@ -106,10 +108,12 @@ describe('GET /api/trending', () => {
       await pedir('/api/trending')
       const primera = proveedor.calls.count('getTrending')
 
-      await pedir('/api/trending')
+      const segunda = await pedir('/api/trending')
 
       expect(primera).toBe(1)
       expect(proveedor.calls.count('getTrending')).toBe(1)
+      // Y la fila entera salió de la caché: es lo que mide la home.
+      expect(segunda.headers.get('x-cache')).toBe('hit')
     })
   })
 

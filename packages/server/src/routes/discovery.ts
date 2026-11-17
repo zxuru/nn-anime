@@ -44,6 +44,7 @@ import type { Hono } from 'hono'
 import { adultosDeLaFila, MARGEN_DE_VERIFICACION } from '../adultos'
 import type { AniListCatalog } from '../anilist/catalog'
 import type { ServerContainer } from '../container'
+import { cacheHeader } from './cache-header'
 import { enMedia, mediaFrom, mediaPorProveedor } from './media'
 import { clampLimit } from './recommendations'
 import { adultContentOf } from './settings'
@@ -137,31 +138,42 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
       timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     }
 
-    const resultados = await Promise.all(
+    const lecturas = await Promise.all(
       fuentes.map(async (provider) => {
         const lectura = await options.container.getFeed(provider, callOptions)
 
         // Un feed que no responde no puede tumbar la fila: lo local sigue ahí.
-        if (!lectura.ok) return []
+        if (!lectura.ok) return { items: [], source: undefined }
 
         // El filtro va después de la caché, como en tendencias: se guarda lo que
         // publica la fuente y cada pestaña se queda con su mitad al leerlo.
-        return lectura.value.value.filter((entrada) =>
-          pasaElFiltroDeMedia(pedido.media, mediaOf(provider.capabilities), entrada.kind),
-        )
+        return {
+          items: lectura.value.value.filter((entrada) =>
+            pasaElFiltroDeMedia(pedido.media, mediaOf(provider.capabilities), entrada.kind),
+          ),
+          source: lectura.value.source,
+        }
       }),
+    )
+
+    // Igual que en tendencias: una fuente que salió a la red convierte la fila
+    // entera en `miss`, aunque las demás vinieran de la caché.
+    const cache = cacheHeader(
+      lecturas.flatMap((lectura) => (lectura.source === undefined ? [] : [lectura.source])),
     )
 
     const candidatas = sinRepetirPorObra(
       orderFeed(
-        resultados.flat().map((entrada) => ({
-          ref: entrada.ref,
-          title: entrada.title,
-          ...(entrada.coverUrl === undefined ? {} : { coverUrl: entrada.coverUrl }),
-          ...(entrada.year === undefined ? {} : { year: entrada.year }),
-          ...(entrada.kind === undefined ? {} : { kind: entrada.kind }),
-          ...(entrada.publishedAt === undefined ? {} : { publishedAt: entrada.publishedAt }),
-        })),
+        lecturas
+          .flatMap((lectura) => lectura.items)
+          .map((entrada) => ({
+            ref: entrada.ref,
+            title: entrada.title,
+            ...(entrada.coverUrl === undefined ? {} : { coverUrl: entrada.coverUrl }),
+            ...(entrada.year === undefined ? {} : { year: entrada.year }),
+            ...(entrada.kind === undefined ? {} : { kind: entrada.kind }),
+            ...(entrada.publishedAt === undefined ? {} : { publishedAt: entrada.publishedAt }),
+          })),
       ),
     )
 
@@ -185,6 +197,8 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
     // El descarte va **antes** del tope: recortar primero dejaría la fila con una pieza
     // menos de las que hay, que es lo mismo que el motor de recomendaciones ya evita.
     const visibles = conAdultos ? conMarca : conMarca.filter((pieza) => pieza.adult === undefined)
+
+    if (cache !== undefined) c.header('X-Cache', cache)
 
     return c.json(feedResponseSchema.parse({ items: visibles.slice(0, limite) }))
   })
