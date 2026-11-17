@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **231 fragmentos indexados**; 192 se identifican
+quedan identificadas aquí. **232 fragmentos indexados**; 193 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
@@ -251,3 +251,4 @@ sólo en este índice y su contenido vive en la historia.
 | T263 | T263 — el aviso de mpv ausente, en el e2e | test(e2e): el aviso de mpv ausente (T263). | `player.e2e.ts` **1 caso, 0 fallos**: Ajustes dice «No se encontró mpv: se reproduce en el navegador.» y el reproductor web reproduce. `bun test` **4017 pasan, 0 fallan** · e2e completo **172 pasan, 0 fallan** · typecheck 0 · lint 0 errores. El arnés arranca el servidor con `PATH` vacío y el binario por ruta absoluta; no hay bandera de prueba en producción. Mutación: pintar siempre «mpv disponible» deja el caso en rojo. | `tasks/todo.md` |
 | T262 | T262 — el recorrido completo por teclado, en el e2e | feat(web): el recorrido completo por teclado (T262). | `teclado.e2e.ts` **1 caso, 0 fallos** · `bun test` **4017 pasan, 0 fallan** · e2e completo **172 pasan, 0 fallan** · typecheck 0 · lint 0 errores. El `main` recibe el foco al cambiar el camino (no la consulta, para no robar la casilla del buscador). Mutación: quitar `contenido.current?.focus()` pone en rojo la primera navegación. | `tasks/todo.md` |
 | T266 | T266 — cerrar los siete fallos del e2e en checkout limpio | fix(web): el esqueleto de la ficha y las expectativas del e2e (T266). | `bun run build` 0 · `bun test` **4017 pasan, 0 fallan** · typecheck 0 · lint 0 errores (33 avisos y 1 info; el aviso de más, ajeno) · e2e completo **171 pasan, 0 fallan**. El salto de 96 px era la banda del esqueleto, que reservaba los 16 rem del banner que aún no hay; las expectativas de `RoNa` y del nombre visible del proveedor se alinean con el contrato; la migración de prueba calcula su versión y ya no choca con `0016-anilist-mal.sql`. Mutaciones: quitar `--sin-fondo` del esqueleto deja la portada 96 px abajo; volver a `0016` sale con 3; devolver «· rona» pone en rojo los títulos. | `tasks/todo.md` |
+| T267 | T267 — el final del episodio, el contraste móvil y el menú | fix(web): el final del episodio, el contraste móvil y el menú (T267). | `bun test packages/web` 1232 pasan, 0 fallan · `playwright test player.e2e.ts` 62 pasan, 0 fallan · typecheck 0 · lint 0 (33 avisos previos). Mutaciones: el conmutador en fila da 253 de ancho sobre 236; el reloj en crema da 1,03:1; la tarjeta en `inset-block-end: -20rem` cae en 927 de 720. | este índice |
