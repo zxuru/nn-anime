@@ -62,13 +62,13 @@ diff --git a/lib/parse.js b/lib/parse.js
    return { risky: false };
  };
  
-@@ -565,6 +612,10 @@ const parse = (input, options) => {
+@@ -565,5 +612,9 @@ const parse = (input, options) => {
        return;
      }
- 
 +    if (analysis.collapse === true && (token.type === 'plus' || token.type === 'star')) {
 +      token.close = token.type === 'plus' ? ')' : ')?';
 +    }
 +
      let output = token.close + (opts.capture ? ')' : '');
      let rest;
+ 
