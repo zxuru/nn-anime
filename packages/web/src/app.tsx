@@ -7,7 +7,7 @@
  */
 
 import { DEFAULT_LOCALE, type Locale } from '@rona/core/i18n'
-import type { ReactNode } from 'react'
+import { type ReactNode, useEffect, useRef } from 'react'
 import { BarraInferior } from './components/BarraInferior'
 import { IconLabel } from './components/IconLabel'
 import { DetailPage } from './features/detail/DetailPage'
@@ -93,6 +93,25 @@ function Shell(props: {
   const path = usePath()
   const route = useRoute()
   const tipo = tipoFromPath(path)
+  const contenido = useRef<HTMLElement>(null)
+  /*
+    La pantalla, no la consulta.
+
+    Escribir en el buscador reemplaza `?q=` en cada pausa; si el foco se moviera
+    con cada reemplazo, la casilla se vaciaría de foco a los 400 ms de teclear.
+    Lo que cambia de pantalla es el camino, y sólo entonces el foco viaja al
+    `main`: quien navega con el teclado sigue desde el contenido en vez de volver
+    a recorrer la cabecera, y el lector de pantalla anuncia la pantalla nueva.
+  */
+  const camino = path.split('?')[0] ?? path
+  const caminoAnterior = useRef(camino)
+
+  useEffect(() => {
+    if (caminoAnterior.current === camino) return
+
+    caminoAnterior.current = camino
+    contenido.current?.focus({ preventScroll: true })
+  }, [camino])
 
   return (
     <div className="shell">
@@ -127,7 +146,7 @@ function Shell(props: {
         {props.tipo === true ? <ConmutadorTipo /> : null}
         <BotonGuia />
       </header>
-      <main className={caja.join(' ')} id="contenido" tabIndex={-1}>
+      <main className={caja.join(' ')} id="contenido" ref={contenido} tabIndex={-1}>
         {props.children}
       </main>
       {/*
