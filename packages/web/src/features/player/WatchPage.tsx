@@ -29,6 +29,7 @@ import type { ReactNode } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
+import { episodeLabel } from '../../lib/document-title'
 import { buildPath, Link } from '../../router'
 import { DownloadButton } from '../downloads/DownloadButton'
 import { ANCLAS } from '../guia/guia'
@@ -113,6 +114,7 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     anotarProgreso,
     alTerminar,
     cuenta,
+    finDeEpisodio,
     cancelarCuenta,
     rutaSiguiente,
     esPelicula,
@@ -303,6 +305,60 @@ export function WatchPage(props: WatchPageProps): ReactNode {
     </aside>
   )
 
+  /**
+   * La tarjeta del episodio siguiente.
+   *
+   * Se monta **dentro del marco**, y por eso viaja al reproductor como nodo y no
+   * como bloque de la columna: antes iba detrás de la fila de mandos y a
+   * 1366×768 el «Reproducir ahora» quedaba por debajo del borde de la ventana.
+   * La cuenta atrás decide sola en ocho segundos, así que esconder el mando no
+   * era un detalle de composición: era dejar que la página cambiara sin que se
+   * viera la salida.
+   *
+   * Con la reproducción automática apagada —o después de cancelar— la tarjeta
+   * sigue: el capítulo terminó y su salida natural sigue siendo el siguiente.
+   * Sólo desaparece el «Cancelar», que ya no tiene nada que parar.
+   *
+   * El nombre del episodio va en su propio renglón y con el mismo criterio que
+   * la lista: número y título, sin repetir el número cuando el proveedor vuelve
+   * a llamar al capítulo «Episodio 4».
+   */
+  const siguiente = vecinos?.next
+  const nombreSiguiente =
+    siguiente === undefined ? undefined : episodeLabel(siguiente.number, siguiente.title)
+
+  const tarjetaSiguiente =
+    finDeEpisodio && rutaSiguiente !== undefined && siguiente !== undefined ? (
+      <div className="watch__next">
+        <div className="watch__next-info">
+          <p className="watch__next-text">
+            {cuenta === undefined
+              ? t(DEFAULT_LOCALE, 'player.next.ended')
+              : t(DEFAULT_LOCALE, 'player.next.in', { seconds: cuenta })}
+          </p>
+          {nombreSiguiente === undefined ? null : (
+            <p className="watch__next-name">{nombreSiguiente}</p>
+          )}
+        </div>
+        <Link className="button button--primary" to={rutaSiguiente}>
+          {t(DEFAULT_LOCALE, 'player.next.now')}
+        </Link>
+        {cuenta === undefined ? null : (
+          <button type="button" className="button" onClick={cancelarCuenta}>
+            {t(DEFAULT_LOCALE, 'player.next.cancel')}
+          </button>
+        )}
+        {/* Un solo anuncio al aparecer. La cuenta atrás cambia cada segundo y no
+            puede ser la región viva: un lector de pantalla no dejaría oír nada
+            más. Lo que se anuncia es el hecho y la salida, no el reloj. */}
+        <p className="solo-lectores" role="status">
+          {t(DEFAULT_LOCALE, 'player.next.ready', {
+            episode: nombreSiguiente ?? t(DEFAULT_LOCALE, 'player.next.unknown'),
+          })}
+        </p>
+      </div>
+    ) : undefined
+
   if (estado === 'loading') {
     return (
       <section className="watch">
@@ -413,23 +469,10 @@ export function WatchPage(props: WatchPageProps): ReactNode {
             // Los intervalos, para marcarlos en la barra de progreso. Sin datos
             // la lista está vacía y la barra queda como estaba.
             intervals={intervalosSaltables}
+            nextCard={tarjetaSiguiente}
           />
 
           {filaDeMandos(true)}
-
-          {cuenta === undefined || rutaSiguiente === undefined ? null : (
-            <div className="watch__next">
-              <p className="watch__next-text">
-                {t(DEFAULT_LOCALE, 'player.next.in', { seconds: cuenta })}
-              </p>
-              <Link className="button button--primary" to={rutaSiguiente}>
-                {t(DEFAULT_LOCALE, 'player.next.now')}
-              </Link>
-              <button type="button" className="button" onClick={cancelarCuenta}>
-                {t(DEFAULT_LOCALE, 'player.next.cancel')}
-              </button>
-            </div>
-          )}
 
           {panelDeSala}
         </div>

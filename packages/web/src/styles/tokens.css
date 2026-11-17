@@ -558,6 +558,17 @@
   --seek-track: rgb(242 233 216 / 45%);
   --seek-buffer: rgb(242 233 216 / 68%);
   /**
+   * Las mismas capas, pero cuando los mandos van **en la página**.
+   *
+   * En un teléfono la banda de mandos deja de superponerse al video y el fondo
+   * que hay detrás es el de la página, no el degradado negro. Con el par de
+   * arriba, el tema claro dejaba el reloj y el carril a 1,03:1 —crema sobre
+   * papel—. Estos se miden contra `--color-bg` en `a11y.test.ts`; el oscuro
+   * conserva el crema, el claro pasa a tinta.
+   */
+  --seek-track-page: rgb(242 233 216 / 45%);
+  --seek-buffer-page: rgb(242 233 216 / 68%);
+  /**
    * El menú de ajustes del reproductor.
    *
    * 240 px: lo que mide el mando que lo abre más un dedo. Se ancla **encima** del
@@ -989,6 +1000,10 @@
   --color-control-border: rgb(20 18 15 / 55%);
   --color-skeleton: #ded7c9;
   --color-skeleton-shine: #ece6da;
+  /* Los mandos en la página, con tinta en vez de crema: sobre papel, el carril
+     del reproductor quedaba invisible. */
+  --seek-track-page: rgb(20 18 15 / 55%);
+  --seek-buffer-page: rgb(20 18 15 / 75%);
   --shadow-1: 0 1px 2px rgb(12 12 16 / 12%);
   --shadow-2: 0 8px 24px rgb(12 12 16 / 18%);
   /* En claro la sombra dura va en negro: el acento sobre crema no se distingue. */

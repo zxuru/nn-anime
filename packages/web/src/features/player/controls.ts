@@ -60,12 +60,13 @@ export const CLICK_DELAY_MS = 250
 /**
  * Lo que se espera antes de pasar solo al episodio siguiente.
  *
- * La cuenta atrás existe para poder pararla: cinco segundos es lo que se tarda
- * en decidir que sí, y lo bastante corto para que encadenar capítulos no se
- * sienta como una espera. Vive aquí y no en una pantalla porque las dos
- * —la reproducción y la biblioteca— encadenan igual.
+ * La cuenta atrás existe para poder pararla: ocho segundos es lo que se tarda en
+ * leer qué viene y decidir, y lo bastante corto para que encadenar capítulos no
+ * se sienta como una espera. Vivía en cinco y la tarjeta que la ofrece nacía
+ * fuera de la ventana; el margen extra es el que deja verla. Vive aquí y no en
+ * una pantalla porque las dos —la reproducción y la biblioteca— encadenan igual.
  */
-export const SEGUNDOS_DEL_SIGUIENTE = 5
+export const SEGUNDOS_DEL_SIGUIENTE = 8
 
 export interface KeyLike {
   readonly key: string
