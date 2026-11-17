@@ -1,10 +1,21 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { DEV_BOOT_PATH } from '@rona/core/dev'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
+import { entradaAutomatica, esNavegacion, sesionVigente } from './src/dev-session.ts'
 
 /** Puerto del server local. Debe coincidir con `DEFAULT_PORT` del CLI. */
 const API_ORIGIN = process.env.RONA_API_ORIGIN ?? 'http://127.0.0.1:7717'
+
+/**
+ * ¿Estamos dentro de `bun run dev`?
+ *
+ * La variable la pone `scripts/dev.ts` a los dos hijos. Sin ella —un Vite
+ * suelto, el build del e2e— no se monta ni la entrada automática ni su ruta en
+ * el proxy, para no convertir un servidor cualquiera en una puerta sin sesión.
+ */
+const ENTRADA_AUTOMATICA = process.env.RONA_DEV_ORIGIN !== undefined
 
 /**
  * ¿Se construye el paquete del e2e?
@@ -53,6 +64,38 @@ function securityDoc(): Plugin {
 }
 
 /**
+ * Entrada automática de `bun run dev`.
+ *
+ * Si la navegación no trae una sesión viva, se manda a `/__dev/boot`: el server
+ * —que sólo registra esa ruta en desarrollo— devuelve el `?boot=` de siempre,
+ * canjea la cookie y vuelve a la página pedida. Así abrir `127.0.0.1:5173` en
+ * otro navegador funciona sin copiar el token a mano.
+ *
+ * La comprobación se hace contra `/api/health` y no contra la mera presencia de
+ * la cookie: tras reiniciar el servidor la cookie vieja sigue en el navegador y
+ * `esNavegacion` la dejaría pasar hasta la pantalla de sesión caducada.
+ */
+function devSession(): Plugin {
+  return {
+    name: 'rona:dev-session',
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        if (!esNavegacion(request)) return next()
+
+        void sesionVigente(request.headers.cookie, `${API_ORIGIN}/api/health`).then((vigente) => {
+          if (vigente) return next()
+
+          response.statusCode = 302
+          response.setHeader('location', entradaAutomatica(request.url ?? '/'))
+          response.setHeader('cache-control', 'no-store')
+          response.end()
+        })
+      })
+    },
+  }
+}
+
+/**
  * El server local es estricto con `Host` y con `Origin`, y hace bien: esas
  * comprobaciones son las que bloquean el DNS rebinding y el CSRF.
  *
@@ -79,7 +122,7 @@ function strictProxy() {
 }
 
 export default defineConfig({
-  plugins: [react(), securityDoc()],
+  plugins: [react(), securityDoc(), ...(ENTRADA_AUTOMATICA ? [devSession()] : [])],
   ...(HLS_FALSO
     ? {
         resolve: {
@@ -104,6 +147,7 @@ export default defineConfig({
       // El orden importa: Vite recorre las claves en orden de inserción y `/`
       // es prefijo de todo. Si fuera primero, se tragaría `/api` y `/stream` y
       // la interfaz recibiría HTML donde espera JSON.
+      ...(ENTRADA_AUTOMATICA ? { [DEV_BOOT_PATH]: strictProxy() } : {}),
       '/api': strictProxy(),
       '/stream': strictProxy(),
       // Sin `boot` en la URL, Vite sirve la interfaz; con él, la petición va al

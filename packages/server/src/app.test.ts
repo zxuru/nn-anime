@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations } from '@rona/catalog-store'
+import { DEV_BOOT_PATH } from '@rona/core'
 import type { Hono } from 'hono'
 import { type AppOptions, createApp } from './app'
 import { createContainer } from './container'
@@ -121,6 +122,41 @@ describe('host-guard', () => {
     const response = await app().request(`${BASE}/?boot=${BOOT_TOKEN}`)
 
     expect(response.status).toBe(302)
+  })
+})
+
+describe('entrada automática del modo desarrollo', () => {
+  test('con el modo desarrollo redirige al canje con el token', async () => {
+    const response = await app({ bootTokenReusable: true }).request(`${BASE}${DEV_BOOT_PATH}`)
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toBe(`/?boot=${BOOT_TOKEN}`)
+    expect(response.headers.get('cache-control')).toContain('no-store')
+  })
+
+  test('el enlace que se quería abrir viaja codificado al canje', async () => {
+    const response = await app({ bootTokenReusable: true }).request(
+      `${BASE}${DEV_BOOT_PATH}?next=%2Fperfil%3Ftab%3Dhistorial`,
+    )
+
+    expect(response.headers.get('location')).toBe(
+      `/?boot=${BOOT_TOKEN}&next=%2Fperfil%3Ftab%3Dhistorial`,
+    )
+  })
+
+  test('sin el modo desarrollo la ruta no existe', async () => {
+    const response = await app().request(`${BASE}${DEV_BOOT_PATH}`)
+
+    expect(response.status).toBe(404)
+    expect(response.headers.get('location')).toBeNull()
+  })
+
+  test('el guard de Host la cubre igual que al resto', async () => {
+    const response = await app({ bootTokenReusable: true }).request(
+      `http://evil.example${DEV_BOOT_PATH}`,
+    )
+
+    expect(response.status).toBe(403)
   })
 })
 

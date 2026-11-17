@@ -9,6 +9,7 @@
     "./anilist-search": "./src/anilist-search.ts",
     "./api": "./src/api.ts",
     "./config": "./src/config.ts",
+    "./dev": "./src/dev.ts",
     "./errors": "./src/errors.ts",
     "./i18n": "./src/i18n.ts",
     "./identity": "./src/identity.ts",

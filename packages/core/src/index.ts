@@ -193,6 +193,7 @@ export {
   type LoadConfigOptions,
   loadConfig,
 } from './config'
+export { DEV_BOOT_NEXT_PARAM, DEV_BOOT_PATH } from './dev'
 export { episodeSeasonOf, episodeSeasons, seasonOf } from './episodes'
 export {
   AppError,

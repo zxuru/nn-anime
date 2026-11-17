@@ -17,7 +17,14 @@
 
 import { mkdir, statfs } from 'node:fs/promises'
 import { join } from 'node:path'
-import { AppError, type ConfigPaths, healthResponseSchema, type Logger } from '@rona/core'
+import {
+  AppError,
+  type ConfigPaths,
+  DEV_BOOT_NEXT_PARAM,
+  DEV_BOOT_PATH,
+  healthResponseSchema,
+  type Logger,
+} from '@rona/core'
 import type { FetchLike, RemuxFn, Resolver } from '@rona/media-proxy'
 import type { LoadReport } from '@rona/provider-sdk'
 import { Hono } from 'hono'
@@ -25,7 +32,7 @@ import { z } from 'zod'
 import { type AniListCatalog, createAniListCatalog } from './anilist/catalog'
 import { anilistOfflineFromEnv, createAniListClient } from './anilist/client'
 import { registerLogin } from './auth'
-import { bootstrapHandler } from './bootstrap'
+import { BOOT_PARAM, bootstrapHandler } from './bootstrap'
 import type { ServerContainer } from './container'
 import { createDownloadQueue } from './downloads/queue'
 import { hostGuard } from './middleware/host-guard'
@@ -357,6 +364,27 @@ export function createApp(options: AppOptions): Hono {
         ...(options.bootTokenReusable === true ? { reusable: true } : {}),
       }),
     )
+
+    // Entrada automática del modo desarrollo: Vite manda aquí a quien navega sin
+    // sesión vigente y el server responde con el `?boot=` de siempre. La ruta no
+    // existe fuera de desarrollo, y el guard de `Host` de arriba la cubre igual
+    // que a todo lo demás.
+    if (options.bootTokenReusable === true) {
+      app.get(DEV_BOOT_PATH, (c) => {
+        c.header('cache-control', 'no-store')
+
+        // El enlace que Vite quería abrir viaja al canje para no perderlo. El
+        // valor se codifica aquí —no puede romper la cabecera— y el canje lo
+        // vuelve a validar con `safeRedirect` antes de usarlo.
+        const next = c.req.query(DEV_BOOT_NEXT_PARAM)
+        const destino =
+          next === undefined || next === ''
+            ? ''
+            : `&${DEV_BOOT_NEXT_PARAM}=${encodeURIComponent(next)}`
+
+        return c.redirect(`/?${BOOT_PARAM}=${encodeURIComponent(options.bootToken)}${destino}`, 302)
+      })
+    }
   }
 
   // La pestaña del invitado habla con su **propio** servidor, que es quien sale

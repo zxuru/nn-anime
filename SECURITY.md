@@ -11,6 +11,7 @@ prueba que lo sostiene.
 | Amenaza | Mitigación | Dónde |
 |---|---|---|
 | Un sitio cualquiera abre la aplicación | Sesión en cookie `HttpOnly; SameSite=Strict` y token de arranque de un solo uso | `docs/specs/SPEC-rona.md`, mitigación 1 |
+| En desarrollo, un sitio local consigue una sesión sin el token | Sólo con `RONA_DEV_ORIGIN`: `/__dev/boot` devuelve el `?boot=` a quien navegue sin sesión. La ruta no existe fuera de desarrollo y el servidor sigue atado a loopback | `docs/specs/SPEC-rona.md`, mitigación 2 |
 | Otro sitio del navegador llama a la API local | Guard de `Origin` en métodos mutantes | mitigación 2 |
 | Un plugin hace peticiones a la red local | Lista blanca de destinos: sólo `http`/`https`, sin loopback, sin redes privadas, sin metadata de nube, sin IPv4 embebida en IPv6 y sólo unicast global; revalidada en cada salto de redirección | T26a, S1 |
 | Un DNS hostil cambia la respuesta entre la comprobación del destino y la conexión | El nombre se resuelve **una vez**, se juzgan todas sus direcciones y la conexión va a una ya validada, con el nombre en el SNI y el certificado validado contra él. Vale para las cuatro rutas que salen a la red: la capacidad de red de los plugins, el proxy de bytes, la descarga de repositorios y la consulta de metadatos a AniList | T110 |

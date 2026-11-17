@@ -200,8 +200,11 @@ de un solo uso y la abre en el navegador. Sin ese token no se entra: es lo que i
 página del navegador hable con tu aplicación local.
 
 En `bun run dev` esa dirección es **reutilizable mientras el proceso viva**: el mismo enlace abre la
-aplicación en otro navegador o en otro perfil, y cada uno recibe su propia cookie. Fuera de
-desarrollo el token sigue siendo de un solo uso y caduca a los cinco minutos.
+aplicación en otro navegador o en otro perfil, y cada uno recibe su propia cookie. Además,
+`127.0.0.1:5173` entra sola: si el navegador no tiene una sesión vigente, Vite lo lleva a una entrada
+que emite una cookie nueva, incluso al abrir un enlace profundo. Es una comodidad **sólo de
+desarrollo**: fuera de `bun run dev` ni la entrada ni el token reutilizable existen, y el arranque
+normal sigue siendo de un solo uso y caduca a los cinco minutos.
 
 Si vas a contribuir, `bun run hooks:instalar` una vez por clon: instala el gancho que frena el commit
 directo en `main`, y hay una prueba que comprueba que está puesto.
