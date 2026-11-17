@@ -7,6 +7,59 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.9.0](https://github.com/zxuru/nn-anime/compare/v0.8.0...v0.9.0) (2026-11-17)
+
+
+### Features
+
+* **core:** familias de contenido y formato en el contrato (T257a) ([8a46074](https://github.com/zxuru/nn-anime/commit/8a460740d0cdc2ce01511ddced47015840739b13))
+* **desktop:** auto-reemplazo en toda copia y consulta unica (T250) ([29f85da](https://github.com/zxuru/nn-anime/commit/29f85da47252f83261e38d49c4c0d1b23cbabfc4))
+* **desktop:** el límite del updater, visible fuera de Windows (T243) ([72f8e73](https://github.com/zxuru/nn-anime/commit/72f8e734a601fd8f5d3b9e8bcdf3d6a94fcc9e39))
+* **icono:** el SVG de la marca es el maestro y los binarios salen de él ([1f823fb](https://github.com/zxuru/nn-anime/commit/1f823fbd31a71127531e14bd7243fe3197e5eff4))
+* **icono:** la R-raposa, con detalle por tamaño ([551201a](https://github.com/zxuru/nn-anime/commit/551201af1b439fd6623d38b706a202c6a0f74d3c))
+* **package:** publicar solo artefactos portables (T251) ([8196cfc](https://github.com/zxuru/nn-anime/commit/8196cfc2180c5648aefa856b22c1dbf8fd04abfd))
+* **repo:** cada paquete con su umbral de cobertura (T225) ([16a352b](https://github.com/zxuru/nn-anime/commit/16a352b27dd72e51fc9e96e21b62b481ff4f8526))
+* **repo:** el comando que poda los worktrees restos (T223) ([d4f58f2](https://github.com/zxuru/nn-anime/commit/d4f58f2b73ffa8abf2f59e0384f048aebd1f9d46))
+* **server:** la home anuncia su caché y su primera pintura (T261) ([d70c1e9](https://github.com/zxuru/nn-anime/commit/d70c1e96ce681772d243c8878a2cec71ccc3ec4a))
+* **server:** presencia de Discord con modo discreto (T253) ([fd8c4f1](https://github.com/zxuru/nn-anime/commit/fd8c4f1a251194c1ff927b52e1cb03d4de96e227))
+* **web:** Ajustes en secciones, con índice (T256) ([49e1baa](https://github.com/zxuru/nn-anime/commit/49e1baaad90db93b3e8339553d04949c668e5089))
+* **web:** aplicar la marca y añadir favicon (T277) ([3385262](https://github.com/zxuru/nn-anime/commit/3385262354f2d697555fb9f6966acce955916f3d))
+* **web:** el motivo a la vista, el hero y el mosaico (T268) ([15b498a](https://github.com/zxuru/nn-anime/commit/15b498a3a8b833c6a77af8149f2f22c4b0401bdb))
+* **web:** el recorrido completo por teclado (T262) ([dff9d0e](https://github.com/zxuru/nn-anime/commit/dff9d0eddd2aa57b1e95a5a0fe4acd295f4e3ea2))
+* **web:** el tema antes del primer pintado, description y pie (T239) ([dcc8ddd](https://github.com/zxuru/nn-anime/commit/dcc8dddcd9c7d290ffcc9c7a5ca858545b6473d4))
+* **web:** la búsqueda enfoca su campo y la tarjeta pierde el sello (T272) ([d27ac54](https://github.com/zxuru/nn-anime/commit/d27ac54d672485dd0965dc6dc94131cb9399824e))
+* **web:** las esperas con la forma de lo que llega (T271) ([624d3db](https://github.com/zxuru/nn-anime/commit/624d3db389fc452dbfe05b97b7a46a95074d7f17))
+* **web:** probar la obra en otra fuente cuando la ficha falla (T231) ([934f66b](https://github.com/zxuru/nn-anime/commit/934f66ba8465912651b1b34c8b2fe1b81b075e66))
+* **web:** servir Space Mono desde el repo (T238) ([a13a0c4](https://github.com/zxuru/nn-anime/commit/a13a0c4a4e57d9282af5825e9ba59dcd74bbf760))
+* **web:** ya conozco cómo funciona, omitir todos los tutoriales (T254) ([1927253](https://github.com/zxuru/nn-anime/commit/19272533ae2a1843fe3249a6ab3babb9a61b209d))
+
+
+### Bug Fixes
+
+* **catalog-store:** cerrar el bloqueo de migraciones (T277) ([dadb5b6](https://github.com/zxuru/nn-anime/commit/dadb5b6814b6c4ce68ccfab999d5fa00f86161d1))
+* **catalog-store:** una tarjeta por episodio en el historial (T264) ([a2a4132](https://github.com/zxuru/nn-anime/commit/a2a4132c05d93efd21e5b55a8b66c636d00cd6bc))
+* **deps:** ajustar el contexto del parche picomatch (T277) ([74572bd](https://github.com/zxuru/nn-anime/commit/74572bd86b7fbe79bc5ff190c74a9e3a84bb598e))
+* **deps:** corregir el formato del parche de picomatch (T277) ([ac3b60e](https://github.com/zxuru/nn-anime/commit/ac3b60e975306d84e5c5ca19377979af7e52b665))
+* **deps:** mitigar ReDoS en picomatch (T277; 19 pruebas bloqueadas por sandbox) ([33509d3](https://github.com/zxuru/nn-anime/commit/33509d3d7747e51764bd1eb0a7cf7649831d48c4))
+* **desktop:** el servidor no sobrevive a la muerte del anfitrión (T232) ([21894d4](https://github.com/zxuru/nn-anime/commit/21894d4111b65a5a2be6ba67a45bd3261360a94d))
+* **desktop:** excluir la constante legacy en Linux (T277) ([0feb9b1](https://github.com/zxuru/nn-anime/commit/0feb9b1bd2ad9f0c2793e44d003e97fd6c59fe73))
+* **docker:** incluir parche de picomatch al instalar (T277) ([dc7dd83](https://github.com/zxuru/nn-anime/commit/dc7dd832070e2661df741ffced01dd64cfe38824))
+* **icon:** nombrar el SVG maestro para accesibilidad (T277) ([e2f2d5d](https://github.com/zxuru/nn-anime/commit/e2f2d5dc961aa78843db4cb88baed7dab996b4df))
+* **repo:** el gancho crea su temporal aunque .tmp/ no exista (T248) ([0bb4eed](https://github.com/zxuru/nn-anime/commit/0bb4eed13606ed509da376ad1a40e2f1477c20eb))
+* **server:** una obra, una recomendación (T273) ([c4a37d5](https://github.com/zxuru/nn-anime/commit/c4a37d5a35c837229963b486c996141aed089143))
+* **web:** el esqueleto de la ficha y las expectativas del e2e (T266) ([9612372](https://github.com/zxuru/nn-anime/commit/961237243f88e90b0ef15d901c0f044ca8af04cc))
+* **web:** el final del episodio, el contraste móvil y el menú (T267) ([5a38e40](https://github.com/zxuru/nn-anime/commit/5a38e40a84632900931e5ebb202be90fcab4901e))
+* **web:** la copia de la home, sin jerga ni promesas (T270) ([455feb0](https://github.com/zxuru/nn-anime/commit/455feb06dc0b58b5a6c70b6b2a5a7b57212b48cd))
+* **web:** la deuda visual medida del shell (T236) ([d933bc4](https://github.com/zxuru/nn-anime/commit/d933bc4b283f6499df4a1cd0730e68ba4c3f7804))
+* **web:** la espera de buscar, una lista y sin consulta vacia (T274) ([3e34569](https://github.com/zxuru/nn-anime/commit/3e34569e9b107dd54db5a5b988689e5472b471b5))
+* **web:** la home dice la verdad, busca y no repite (T275) ([dfa28ac](https://github.com/zxuru/nn-anime/commit/dfa28ac82d4efdd1fafc55235d486daa61f15367))
+* **web:** la licencia de hls.js sale del modo extendido (T265) ([8aeb589](https://github.com/zxuru/nn-anime/commit/8aeb58980bc59dd30742e3c55a41472f8b751451))
+* **web:** la parrilla y las novedades distinguen la fuente caida (T275b) ([49a8a0a](https://github.com/zxuru/nn-anime/commit/49a8a0ad2abea7043aaeb0f17cb237e977bc1b8a))
+* **web:** la presencia de Discord no se borra sola (T271) ([926e6ae](https://github.com/zxuru/nn-anime/commit/926e6aeaef48d57f2cbebddf170d45e3e9e3c48b))
+* **web:** la sala cabe sin desplazamiento y la lista llena su columna (T266) ([037ddb1](https://github.com/zxuru/nn-anime/commit/037ddb1d277d831604a33f4adeb945dd8f14ae18))
+* **web:** quitar el buscador de la home (T276) ([038b22c](https://github.com/zxuru/nn-anime/commit/038b22c9528e3ac69d58475407d13bf766e36b1d))
+* **web:** teclado, lámina, mandos y lista del reproductor (T269) ([79bcf88](https://github.com/zxuru/nn-anime/commit/79bcf88a94cb51e7f4861c67cc4b714f41cba928))
+
 ## [0.8.0](https://github.com/zxuru/nn-anime/compare/v0.7.0...v0.8.0) (2026-11-10)
 
 
