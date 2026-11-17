@@ -1,6 +1,9 @@
 {
   "lockfileVersion": 2,
   "configVersion": 1,
+  "patchedDependencies": {
+    "picomatch@4.0.7": "patches/picomatch@4.0.7.patch",
+  },
   "workspaces": {
     "": {
       "name": "rona",
