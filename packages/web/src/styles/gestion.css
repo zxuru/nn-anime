@@ -2565,3 +2565,24 @@ details[open] > .library__settings-summary .library__settings-flecha {
     margin-inline-start: 0;
   }
 }
+
+/*
+ * La cabecera a 1100 y menos: el conmutador baja antes que dejar solo el botón
+ * de la guía.
+ *
+ * Con el ancho justo, el último hijo —el «?»— era el que caía al segundo
+ * renglón, contra el orden que declara el diseño: primero se aprieta la marca,
+ * y el conmutador es el que tiene un renglón propio. El botón de la guía sube a
+ * los 44 px del sistema en el mismo cambio.
+ */
+@media (max-width: 1100px) {
+  .shell__header .conmutador {
+    order: 9;
+    flex-basis: 100%;
+  }
+}
+
+.shell__guia {
+  inline-size: var(--control-size);
+  block-size: var(--control-size);
+}

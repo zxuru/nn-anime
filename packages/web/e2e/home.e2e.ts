@@ -811,4 +811,38 @@ test.describe('el conmutador de tipo', () => {
       (cabecera?.y ?? 0) + (cabecera?.height ?? 0),
     )
   })
+
+  /**
+   * A 1024 el que baja es el conmutador, no el «?».
+   *
+   * Con la cabecera al límite, el último hijo era el botón de la guía y se
+   * quedaba solo en un renglón. El diseño dice que primero se aprieta la marca y
+   * que el conmutador es el que tiene renglón propio; el botón de la guía, además,
+   * sube a los 44 px del sistema.
+   */
+  test('a 1024 el conmutador baja a su renglón y la guía no queda sola', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 800 })
+    await entrar(page)
+
+    const cabecera = await page.locator('.shell__header').boundingBox()
+    const carril = await page.locator('.shell__header .conmutador').boundingBox()
+    const guia = await page.locator('.shell__guia').boundingBox()
+
+    expect(carril?.y ?? 0).toBeGreaterThan(cabecera?.y ?? -1)
+    expect(guia?.y ?? 0).toBeLessThan(carril?.y ?? -1)
+    expect(guia?.width ?? 0).toBeGreaterThanOrEqual(44)
+    expect(guia?.height ?? 0).toBeGreaterThanOrEqual(44)
+  })
+})
+
+test.describe('el buscador de la home', () => {
+  test('lleva el término a la pantalla de Buscar', async ({ page }) => {
+    await entrar(page)
+
+    await page.getByLabel('Buscar por título').fill('aurora')
+    await page.getByRole('button', { name: 'Buscar' }).click()
+
+    await expect(page).toHaveURL(/\/search\?q=aurora/)
+    await expect(page.getByText('Aurora Nocturna')).toBeVisible({ timeout: 10_000 })
+  })
 })

@@ -305,7 +305,7 @@ export const messages: Messages = {
   'home.refreshing': 'Actualizando…',
   'home.refreshedNow': 'Actualizado ahora mismo',
   'home.refreshed': 'Actualizado hace {minutes} min',
-  'home.ticker': 'Lo más visto ahora',
+  'home.ticker': 'Tendencias de la fuente',
   'home.featured.play': 'Reproducir el episodio {number}',
   // La versión corta del mando, la que cabe junto al dibujo en un teléfono. Dice
   // la acción y no el objeto: «Ep. 1» dejaba el mando sin verbo justo en la acción
@@ -358,9 +358,13 @@ export const messages: Messages = {
   'home.feed.meta.anilist': 'Episodios recién emitidos',
   'home.feed.empty': 'Ningún proveedor activo publica novedades.',
   'home.feed.empty.anilist': 'AniList no anuncia episodios recién emitidos ahora mismo.',
+  'home.feed.meta.offline': 'Lo último que se sabe; AniList no ha contestado',
+  'home.feed.empty.offline': 'AniList no ha contestado; las novedades volverán solas.',
   'home.parrilla': 'Parrilla',
   'home.parrilla.meta': 'Lo que se emite estos días, según AniList',
+  'home.parrilla.meta.offline': 'Lo que se emite estos días; AniList no ha contestado',
   'home.parrilla.empty': 'AniList no anuncia capítulos en los próximos días.',
+  'home.parrilla.empty.offline': 'AniList no ha contestado; la parrilla volverá sola.',
   'home.parrilla.empty.movies':
     'La parrilla es de series. Los estrenos de películas se anuncian con el año y se ven en Novedades.',
   'home.parrilla.hoy': 'Hoy',
