@@ -271,7 +271,6 @@ export const messages: Messages = {
   'search.results': 'Resultados',
   'search.empty': 'Nada coincide con «{query}». Prueba con menos palabras.',
   'search.emptyNoQuery': 'Escribe un título para empezar. Los resultados salen de cada proveedor.',
-  'search.provider': 'Origen: {provider}',
   'search.year': '{year}',
   'search.loading': 'Buscando…',
   'search.resultsCount': '{count} resultados de {providers} proveedores.',
@@ -279,8 +278,6 @@ export const messages: Messages = {
   'search.noProviders': 'No hay ningún proveedor activo para esta búsqueda.',
   'search.providerFailed': '{provider}: {message}',
   'search.failed': 'No se pudo buscar: {message}',
-  'search.alsoIn': 'También en',
-  'search.alsoInItem': '{title} en {provider}',
   // La mitad que las fuentes no pueden contestar: lo que AniList tiene de ese
   // estudio o de ese género. El sello dice cuál de esas obras ya está en una fuente.
   'search.anilist': 'En AniList',

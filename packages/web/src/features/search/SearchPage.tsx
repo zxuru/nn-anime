@@ -21,7 +21,7 @@
 
 import { hasGenreToken } from '@rona/core/anilist-search'
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
-import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { resumenDeFallo } from '../../components/ErrorNotice'
 import { Grid, GridItem } from '../../components/Grid'
 import { Skeleton } from '../../components/Skeleton'
@@ -208,6 +208,7 @@ export function SearchPage(props: SearchPageProps): ReactNode {
 
   const [term, setTerm] = useState(() => queryFromPath(path))
   const [aplicado, setAplicado] = useState(term)
+  const campo = useRef<HTMLInputElement>(null)
 
   const proveedores = useMemo(() => (filtro === '' ? [] : filtro.split(',')), [filtro])
   const { state, active, labels, providersLoaded } = useSearchStream(aplicado, proveedores, tipo)
@@ -251,6 +252,18 @@ export function SearchPage(props: SearchPageProps): ReactNode {
   // rejilla de esqueletos se pinta igual, para no dejar la pantalla en una frase.
   const esperandoProveedores = !providersLoaded && aplicado !== '' && !soloCatalogo
 
+  /*
+    El campo se lleva el foco al entrar: buscar es la acción de la pantalla y
+    sin esto había que tabular desde la cabecera para empezar a escribir. Va en
+    un efecto y no en el atributo `autoFocus` para poder decir `preventScroll`:
+    quien llega con una consulta desde otra pantalla no tiene que ver la página
+    saltar. El armazón respeta este foco al cambiar de camino (`Shell`); si no,
+    el suyo al `main` llegaría después y lo borraría.
+  */
+  useEffect(() => {
+    campo.current?.focus({ preventScroll: true })
+  }, [])
+
   // El retardo: `aplicado` sólo cambia cuando el usuario deja de teclear.
   useEffect(() => {
     const cancelar = PROGRAMAR(() => setAplicado(term), SEARCH_DEBOUNCE_MS)
@@ -276,6 +289,7 @@ export function SearchPage(props: SearchPageProps): ReactNode {
         </label>
         <input
           id="search-term"
+          ref={campo}
           className="search__input"
           type="search"
           value={term}
@@ -352,7 +366,6 @@ export function SearchPage(props: SearchPageProps): ReactNode {
             done={resuelta(visibles)}
             hayAniList={visibles.anilist.length > 0}
             providerPriority={prioridad}
-            providerLabels={labels}
             onPreview={(result) => prefetch.hover(result.ref.providerId, result.ref.value)}
             onPreviewEnd={() => prefetch.leave()}
           />

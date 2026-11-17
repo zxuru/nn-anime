@@ -11,6 +11,32 @@ import { entrar, esperarApp } from './fixtures'
  */
 
 test.describe('la búsqueda', () => {
+  /**
+   * El campo se lleva el foco al entrar.
+   *
+   * Se mide en las dos maneras de llegar: una carga completa de `/search`, donde
+   * el efecto de montaje basta, y el enlace de la cabecera, que es una navegación
+   * sin recarga y donde el armazón mueve el foco al `main` al cambiar de camino.
+   * Sin la guarda del armazón, el segundo caso deja el foco en el contenido y hay
+   * que tabular hasta el campo para escribir.
+   */
+  test('al entrar en Buscar el campo se lleva el foco', async ({ page }) => {
+    await entrar(page)
+    await esperarApp(page)
+
+    const casilla = page.getByLabel('Buscar por título')
+
+    await page.goto('/search')
+    await expect(casilla).toBeFocused()
+
+    await page.goto('/')
+    await esperarApp(page)
+    await page.getByRole('link', { name: 'Buscar' }).first().click()
+
+    await expect(page).toHaveURL(/\/search/)
+    await expect(casilla).toBeFocused()
+  })
+
   test('buscar muestra resultados del fixture', async ({ page }) => {
     await entrar(page)
     await esperarApp(page)

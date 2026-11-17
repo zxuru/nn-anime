@@ -956,7 +956,7 @@
   --mando-punto-lado: 3px;
   --mando-cuerpo-alto: 1.15rem;
   --mando-cuerpo-largo: 0.65rem;
-  /** El relleno de un sello de origen, en Buscar. */
+  /** El relleno de un sello, en la vitrina y en la búsqueda cruzada. */
   --sello-relleno: 0.2rem 0.4rem;
   /** El asa del panel inferior, que se arrastra hacia abajo para cerrarlo. */
   --panel-asa-ancho: 2.5rem;

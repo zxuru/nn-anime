@@ -533,17 +533,14 @@
   padding: var(--space-1) var(--space-3) 0;
 }
 
-.card__extra {
-  color: var(--color-text-dim);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
-  padding: var(--space-1) var(--space-3) 0;
-}
-
-.card > .card__meta:last-child,
-.card > .card__extra:last-child {
+/*
+ * El pie de la tarjeta termina en aire.
+ *
+ * Antes lo ponía el sello de origen, que ya no está: sin esta regla, un título
+ * sin metadatos quedaba pegado al borde de abajo.
+ */
+.card > .card__title:last-child,
+.card > .card__meta:last-child {
   padding-bottom: var(--space-3);
 }
 
