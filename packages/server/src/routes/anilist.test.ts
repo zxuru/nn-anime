@@ -62,6 +62,7 @@ interface Contexto {
 async function conApp<T>(
   fixture: Parameters<typeof fakeAniList>[0],
   body: (contexto: Contexto) => Promise<T>,
+  extra: { readonly anilistOffline?: boolean } = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'rona-anilist-rutas-'))
   const db = openDb(join(dir, 'rona.db'))
@@ -86,6 +87,7 @@ async function conApp<T>(
       anilistFetchImpl: fake.impl,
       anilistResolver: async () => ['140.82.121.3'],
       anilistClock: () => 1_700_000_000_000,
+      ...(extra.anilistOffline === undefined ? {} : { anilistOffline: extra.anilistOffline }),
     })
 
     // La ficha local se cachea abriéndola, que es como la conoce la aplicación.
@@ -219,6 +221,28 @@ describe('el descubrimiento', () => {
         expect(cuerpo.items[0]?.airingAt).toBe(new Date(1_760_000_000 * 1000).toISOString())
         expect(cuerpo.items[0]?.ref).toEqual({ providerId: 'fixture', value: REF })
       },
+    )
+  })
+
+  test('apagado, la parrilla y las novedades dicen que no hubo respuesta', async () => {
+    await conApp(
+      {},
+      async ({ pedir }) => {
+        const parrilla = (await (
+          await pedir('/api/discover/airing?media=anime')
+        ).json()) as AiringResponse
+        const novedades = (await (
+          await pedir('/api/discover/recent?media=anime')
+        ).json()) as AiringResponse
+
+        // Un 200 con la lista vacía no basta: la fila necesita saber que el vacío
+        // es de la lectura y no del calendario.
+        expect(parrilla.items).toEqual([])
+        expect(parrilla.unavailable).toBe(true)
+        expect(novedades.items).toEqual([])
+        expect(novedades.unavailable).toBe(true)
+      },
+      { anilistOffline: true },
     )
   })
 })
