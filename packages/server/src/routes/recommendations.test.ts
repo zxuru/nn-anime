@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations } from '@rona/catalog-store'
 import {
+  type Candidate,
   recommendationsResponseSchema,
   type SearchResult,
   trendingResponseSchema,
@@ -12,7 +13,7 @@ import { createRegistry, type Provider } from '@rona/provider-sdk'
 import { createFixtureProvider } from '@rona/providers-fixture'
 import { fakeAniList } from '../__fixtures__/anilist'
 import { createApp, createContainer } from '../index'
-import { clampLimit, MAX_LIMIT } from './recommendations'
+import { clampLimit, MAX_LIMIT, sinRepetirCandidatos } from './recommendations'
 
 const PORT = 7717
 const SESSION_COOKIE = 'nn_session'
@@ -120,6 +121,58 @@ async function conApp<T>(
     await rm(dir, { recursive: true, force: true })
   }
 }
+
+/**
+ * Una candidata por obra.
+ *
+ * El motor trabajaba con una candidata por referencia: dos fuentes publican la
+ * misma serie con referencias propias, y la fila de la home la enseñaba dos veces.
+ * La regla es el nombre —con la temporada dentro—, y cuando hay dos copias gana la
+ * que trae etiquetas, que es la que el motor puede puntuar.
+ */
+describe('los candidatos, sin repetir obra', () => {
+  const candidato = (
+    providerId: string,
+    title: string,
+    tags: readonly string[] = [],
+  ): Candidate => ({
+    ref: { providerId, value: title.toLowerCase().replaceAll(' ', '-') },
+    title,
+    tags: [...tags],
+    studios: [],
+  })
+
+  test('la misma obra en dos fuentes deja una', () => {
+    const unicos = sinRepetirCandidatos([
+      candidato('uno', 'Sousou no Frieren'),
+      candidato('dos', 'Sousou no Frieren'),
+    ])
+
+    expect(unicos).toHaveLength(1)
+  })
+
+  test('la temporada siguiente es otra obra', () => {
+    const unicos = sinRepetirCandidatos([
+      candidato('uno', 'Sousou no Frieren'),
+      candidato('uno', 'Sousou no Frieren 2nd Season'),
+    ])
+
+    expect(unicos.map((candidata) => candidata.title)).toEqual([
+      'Sousou no Frieren',
+      'Sousou no Frieren 2nd Season',
+    ])
+  })
+
+  test('entre dos copias gana la que trae etiquetas', () => {
+    const unicos = sinRepetirCandidatos([
+      candidato('uno', 'One Piece'),
+      candidato('dos', 'One Piece', ['Acción', 'Aventura']),
+    ])
+
+    expect(unicos).toHaveLength(1)
+    expect(unicos[0]?.ref.providerId).toBe('dos')
+  })
+})
 
 describe('GET /api/trending', () => {
   /** El top de cada fuente, tal cual lo publica. */
@@ -232,6 +285,57 @@ describe('GET /api/trending', () => {
 })
 
 describe('GET /api/recommendations', () => {
+  /**
+   * La misma obra en dos fuentes, una sola vez.
+   *
+   * Es lo que faltaba y se veía en la home: las tendencias ya se unían por obra,
+   * pero las candidatas que recibe el motor no, así que dos fuentes con la misma
+   * serie daban dos tarjetas con el mismo título —«Sousou no Frieren» y su segunda
+   * temporada, cada una por duplicado— y el ranking gastaba dos puestos en una obra.
+   */
+  test('dos fuentes con la misma obra dejan una recomendación', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const salida = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations')).json(),
+        )
+        const titulos = salida.items.map((item) => item.title)
+
+        expect(titulos.filter((titulo) => titulo === 'Sousou no Frieren')).toHaveLength(1)
+        // Y ninguna otra obra repetida: la fila enseña una tarjeta por obra.
+        expect(new Set(titulos).size).toBe(titulos.length)
+      },
+      {
+        proveedores: [
+          proveedorConTop('uno', [resultado('uno', 'sousou', 'Sousou no Frieren')]),
+          proveedorConTop('dos', [resultado('dos', 'sousou-tv', 'Sousou no Frieren')]),
+        ],
+      },
+    )
+  })
+
+  test('la segunda temporada de la misma serie no se confunde con la primera', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const salida = recommendationsResponseSchema.parse(
+          await (await pedir('/api/recommendations')).json(),
+        )
+        const titulos = salida.items.map((item) => item.title)
+
+        expect(titulos).toContain('Sousou no Frieren')
+        expect(titulos).toContain('Sousou no Frieren 2nd Season')
+      },
+      {
+        proveedores: [
+          proveedorConTop('uno', [
+            resultado('uno', 'sousou', 'Sousou no Frieren'),
+            resultado('uno', 'sousou-2', 'Sousou no Frieren 2nd Season'),
+          ]),
+        ],
+      },
+    )
+  })
+
   test('sin nada cacheado devuelve una lista vacía y lo dice', async () => {
     await conApp(async ({ pedir }) => {
       const respuesta = await pedir('/api/recommendations')
