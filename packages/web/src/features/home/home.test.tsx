@@ -1,16 +1,19 @@
 import { describe, expect, test } from 'bun:test'
 import type { ContinueWatchingItem, RecommendationResponse } from '@rona/core/api'
+import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { AnimeSummary } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { ApiError } from '../../api/client'
 import { describirFallo } from '../../api/fallo'
+import { t } from '../../i18n'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { ContinueRow } from './ContinueRow'
 import { desdeResumen, type PiezaVista } from './descubrir'
 import { FavoritesRow } from './FavoritesRow'
 import { FeaturedHero } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
+import { GenreRow } from './GenreRow'
 import {
   featuredOf,
   HomePage,
@@ -290,10 +293,13 @@ describe('la home', () => {
     expect(html).toContain('solo-lectores')
     expect(html).toContain('aria-busy="true"')
 
-    // Siete filas × seis celdas. El número va escrito aquí y no se lee de
+    // Seis filas × seis celdas. El número va escrito aquí y no se lee de
     // `ESQUELETOS_POR_FILA`: si el componente cambia de idea, la prueba lo dice.
-    expect(html.match(/class="esq" aria-hidden="true"/g)?.length).toBe(42)
+    // La séptima fila es la banda de géneros, que ya no es un muro de carteles: su
+    // espera tiene la forma de la palabra, y se comprueba aparte.
+    expect(html.match(/class="esq" aria-hidden="true"/g)?.length).toBe(36)
     expect(html).not.toContain('esq--')
+    expect(html).toContain('Cargando los géneros.')
 
     // Y lo que no se puede decir mientras se carga: los mensajes de vacío.
     for (const vacio of [
@@ -345,6 +351,23 @@ describe('la home', () => {
     for (const despues of ['Top', 'Novedades', 'Tus favoritos']) {
       expect(seguir, despues).toBeLessThan(html.indexOf(despues))
     }
+  })
+
+  /**
+   * La banda de géneros carga con la forma de una banda.
+   *
+   * Su esqueleto era el de un tramo de carteles —seis piezas 2:3— y lo que llega es
+   * una fila de palabras grandes: el tramo cambiaba de alto al cargar y movía todo
+   * lo de abajo. La espera tiene ahora el alto de la palabra.
+   */
+  test('los géneros cargan con la forma de la banda', () => {
+    const html = render(<GenreRow genres={[]} cargando />)
+
+    expect(html).toContain('class="generos"')
+    expect(html).toContain(t(DEFAULT_LOCALE, 'home.genres.loading'))
+    // Cuatro barras de palabra, no seis celdas de cartel.
+    expect(html.match(/class="skeleton"/g)?.length).toBe(4)
+    expect(html).not.toContain('class="esq"')
   })
 
   /**

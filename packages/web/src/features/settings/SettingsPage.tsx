@@ -24,6 +24,7 @@ import { ExternalLink, TriangleAlert } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
+import { Skeleton } from '../../components/Skeleton'
 import { t } from '../../i18n'
 import { ANCLAS } from '../guia/guia'
 import { SeccionGuia } from '../guia/SeccionGuia'
@@ -35,7 +36,7 @@ import { ProviderRepos } from './ProviderRepos'
 import { RegisterProvider } from './RegisterProvider'
 import { SecurityNoticeDialog } from './SecurityNotice'
 import { SkipSettings } from './SkipSettings'
-import { SECCIONES } from './secciones'
+import { SECCIONES, SECCIONES_AJUSTES } from './secciones'
 import { ThemeToggle } from './ThemeToggle'
 import { TmdbSettings } from './TmdbSettings'
 import { useProviderRepos } from './useProviderRepos'
@@ -85,10 +86,52 @@ export function SettingsPage(): ReactNode {
   )
 
   if (state === 'loading') {
+    /*
+     * La espera con la forma de la página.
+     *
+     * Antes eran el titular y «Cargando los ajustes…» sobre una página que luego
+     * enseña el aviso de seguridad, un índice pegajoso y seis secciones de campos:
+     * el contenido entraba de golpe y el índice aparecía de la nada. El aviso y los
+     * titulares de sección se saben sin preguntar, así que se pintan de verdad; lo
+     * que se adelanta con esqueletos es el hueco de los campos.
+     */
     return (
       <section className="pagina settings" aria-busy="true">
+        <p className="solo-lectores" role="status">
+          {t(DEFAULT_LOCALE, 'settings.loading')}
+        </p>
         <h1>{t(DEFAULT_LOCALE, 'settings.title')}</h1>
-        <p className="empty">{t(DEFAULT_LOCALE, 'settings.loading')}</p>
+
+        <aside className="settings__warning">
+          <h2 className="settings__warning-title">
+            {t(DEFAULT_LOCALE, 'settings.security.title')}
+          </h2>
+          <p>{t(DEFAULT_LOCALE, 'settings.security.body')}</p>
+          <p>
+            <Skeleton h="var(--renglon)" w="38%" />
+          </p>
+        </aside>
+
+        <div className="settings__cuerpo">
+          <div className="settings__indice" aria-hidden="true">
+            <p className="settings__indice-titulo">{t(DEFAULT_LOCALE, 'settings.index.title')}</p>
+            <Skeleton h="var(--text-xs)" w="55%" />
+            {SECCIONES_AJUSTES.map((seccion) => (
+              <Skeleton key={seccion.id} h="var(--control-size)" w="100%" />
+            ))}
+          </div>
+
+          <div className="settings__secciones" aria-hidden="true">
+            {SECCIONES_AJUSTES.map((seccion) => (
+              <section className="settings__seccion" key={seccion.id}>
+                <h2>{t(DEFAULT_LOCALE, seccion.titulo)}</h2>
+                <Skeleton h="var(--text-xs)" w="22%" />
+                <Skeleton h="var(--header-height)" />
+                <Skeleton h="var(--header-height)" w="86%" />
+              </section>
+            ))}
+          </div>
+        </div>
       </section>
     )
   }
