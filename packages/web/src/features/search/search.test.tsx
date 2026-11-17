@@ -12,6 +12,7 @@ import { ResultGrid } from './ResultGrid'
 import {
   announce,
   createScheduler,
+  estadoVisible,
   providersFromPath,
   queryFromPath,
   resuelta,
@@ -83,7 +84,7 @@ describe('anuncio para lectores de pantalla', () => {
     expect(announce(initialState([]), [])).toContain('No hay ningún proveedor activo')
   })
 
-  test('al cerrar anuncia el recuento y cuántos proveedores respondieron', () => {
+  test('al cerrar anuncia el recuento y en cuántas fuentes', () => {
     const estado = {
       ...initialState([]),
       results: [resultado('uno', 'a', 'A'), resultado('dos', 'b', 'B'), resultado('dos', 'c', 'C')],
@@ -93,7 +94,7 @@ describe('anuncio para lectores de pantalla', () => {
     const texto = announce(estado, ['uno', 'dos'])
 
     expect(texto).toContain('3 resultados')
-    expect(texto).toContain('2 proveedores')
+    expect(texto).toContain('2 fuentes')
   })
 
   test('un fallo de transporte se anuncia como fallo', () => {
@@ -115,7 +116,35 @@ describe('anuncio para lectores de pantalla', () => {
 
     // Contar respuestas en lugar de obras diría «2 resultados» con una sola
     // tarjeta en pantalla.
-    expect(announce(estado, ['uno', 'dos'])).toContain('1 resultado de 2 proveedores')
+    expect(announce(estado, ['uno', 'dos'])).toContain('1 resultado en 2 fuentes')
+  })
+})
+
+describe('la línea de estado visible', () => {
+  test('mientras espera, dice cuánto ha llegado y qué fuente falta', () => {
+    const estado = {
+      ...initialState(['dos']),
+      results: [resultado('uno', 'a', 'Aurora')],
+    }
+
+    const texto = estadoVisible(estado, ['uno', 'dos'])
+
+    expect(texto).toContain('1 resultado')
+    expect(texto).toContain('esperando a 1 fuente')
+  })
+
+  test('al cerrar, dice el recuento en fuentes y no «proveedores»', () => {
+    const estado = {
+      ...initialState([]),
+      results: [resultado('uno', 'a', 'Aurora')],
+      done: true,
+    }
+
+    expect(estadoVisible(estado, ['uno'])).toBe('1 resultado en 1 fuente.')
+  })
+
+  test('sin fuentes activas no culpa a la consulta', () => {
+    expect(estadoVisible(initialState([]), [])).toContain('No hay ningún proveedor activo')
   })
 })
 
@@ -416,6 +445,33 @@ describe('rejilla y estado vacío', () => {
     expect(html).toContain('aria-label="Cosas"')
     expect(html).toContain('uno')
   })
+
+  test('las celdas pendientes van detrás de las tarjetas y en la misma lista', () => {
+    const html = render(
+      <ResultGrid
+        query="uno"
+        results={[resultado('mio', 't1', 'Uno')]}
+        done={false}
+        pending={['otro']}
+        busy
+      />,
+    )
+
+    expect(html.match(/<ul/g)).toHaveLength(1)
+    expect(html.indexOf('class="card"')).toBeLessThan(html.indexOf('card--esqueleto'))
+    expect(html).toContain('aria-busy="true"')
+  })
+
+  test('el esqueleto tiene la forma de la tarjeta, no un bloque suelto', () => {
+    const html = render(
+      <ResultGrid query="uno" results={[]} done={false} pending={['otro']} busy />,
+    )
+
+    expect(html).toContain('class="card card--esqueleto"')
+    expect(html).toContain('card__cover--esqueleto')
+    expect(html).toContain('card__linea--titulo')
+    expect(html).toContain('card__linea--meta')
+  })
 })
 
 describe('página', () => {
@@ -437,9 +493,9 @@ describe('página', () => {
   test('el primer render no depende de ninguna petición', () => {
     const html = pagina('/search')
 
-    // Sin proveedores cargados todavía, la región viva dice que está buscando y
-    // el cuerpo invita a escribir: nada de esto necesita red.
-    expect(html).toContain('Buscando')
+    // Sin consulta no hay búsqueda que anunciar: la pantalla sólo invita a
+    // escribir. Antes decía «Buscando…» y «Escribe un título» a la vez.
+    expect(html).not.toContain('Buscando')
     expect(html).toContain('Escribe un título')
     expect(html).toContain('aria-live="polite"')
   })
@@ -467,7 +523,8 @@ describe('página', () => {
   test('sin saber qué proveedores hay, la búsqueda ya enseña esqueletos', () => {
     const html = pagina('/search?q=naruto')
 
-    expect(html.match(/class="skeleton"/g)?.length).toBe(4)
+    expect(html.match(/card--esqueleto/g)?.length).toBe(4)
+    expect(html.match(/<ul class="grid"/g)?.length).toBe(1)
   })
 })
 

@@ -58,6 +58,18 @@ export function initialState(active: readonly string[]): SearchState {
   return { results: [], anilist: [], pending: [...active], errors: [], done: false }
 }
 
+/**
+ * Si la consulta no pide nada.
+ *
+ * Es la guarda que evita abrir un stream contra los proveedores al entrar en
+ * `/search`: sin término no hay pregunta, y preguntar el catálogo entero a cada
+ * fuente es tráfico que el usuario no ha pedido. La misma regla vive en la ruta
+ * como defensa para cualquier otro cliente.
+ */
+export function consultaVacia(query: string): boolean {
+  return query.trim() === ''
+}
+
 function sin(lista: readonly string[], valor: string): readonly string[] {
   return lista.filter((item) => item !== valor)
 }
@@ -576,6 +588,11 @@ export function useSearchStream(
   const [state, setState] = useState<SearchState>(() => initialState([]))
 
   useEffect(() => {
+    if (consultaVacia(query)) {
+      setState({ ...initialState([]), done: true })
+      return
+    }
+
     // Los esqueletos salen de los proveedores **seleccionados**, no de todos: si
     // el filtro deja uno fuera, no puede quedar un esqueleto esperándolo.
     const filtrados = clave === '' ? [] : clave.split(',')
@@ -584,7 +601,7 @@ export function useSearchStream(
     setState(hub.read(path))
 
     return unsubscribe
-  }, [hub, path, clave])
+  }, [hub, path, clave, query])
 
   const labels = useMemo(
     () => new Map(summaries.map((summary) => [summary.id, summary.name])),

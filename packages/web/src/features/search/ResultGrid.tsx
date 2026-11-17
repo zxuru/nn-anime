@@ -27,6 +27,7 @@ import type { SearchResult } from '@rona/core/models'
 import type { ReactNode } from 'react'
 import { Grid, GridItem } from '../../components/Grid'
 import { t } from '../../i18n'
+import { EsqueletoResultado } from './EsqueletoResultado'
 import { ResultCard } from './ResultCard'
 import { groupResults } from './useSearchStream'
 
@@ -57,6 +58,15 @@ export interface ResultGridProps {
    */
   readonly hayAniList?: boolean
   /**
+   * Los proveedores que siguen pendientes, o las claves de la espera inicial.
+   *
+   * Van **detrás** de las tarjetas y en la misma lista: la espera no puede
+   * pintarse encima de los resultados ni como una segunda lista «Resultados».
+   */
+  readonly pending?: readonly string[] | undefined
+  /** Si la lista todavía puede crecer. Se traduce a `aria-busy`. */
+  readonly busy?: boolean | undefined
+  /**
    * El orden de preferencia de proveedores, de los ajustes. Decide a qué ficha
    * lleva la tarjeta cuando la misma obra está en varios.
    */
@@ -66,9 +76,12 @@ export interface ResultGridProps {
 }
 
 export function ResultGrid(props: ResultGridProps): ReactNode {
-  if (props.results.length === 0) {
-    // Mientras busca no se pinta nada de esto: el renglón de estado y los
-    // esqueletos —uno por proveedor pendiente— ya dicen que se está buscando.
+  const pendientes = props.pending ?? []
+  const grupos = groupResults(props.results, props.providerPriority ?? [])
+
+  if (props.results.length === 0 && pendientes.length === 0) {
+    // Mientras busca no se pinta nada de esto: el renglón de estado ya dice que
+    // se está buscando y la lista no puede concluir nada antes de tiempo.
     if (!props.done) return null
 
     // Con la lista de AniList debajo no se dice que no haya nada: lo que no hay es
@@ -85,8 +98,8 @@ export function ResultGrid(props: ResultGridProps): ReactNode {
   }
 
   return (
-    <Grid label={t(DEFAULT_LOCALE, 'search.results')}>
-      {groupResults(props.results, props.providerPriority ?? []).map((grupo) => {
+    <Grid label={t(DEFAULT_LOCALE, 'search.results')} busy={props.busy}>
+      {grupos.map((grupo) => {
         // El grupo nunca está vacío: sale de un resultado que existe.
         const primero = grupo.results[0]
         if (primero === undefined) return null
@@ -104,6 +117,11 @@ export function ResultGrid(props: ResultGridProps): ReactNode {
           </GridItem>
         )
       })}
+      {pendientes.map((clave) => (
+        <GridItem key={`pendiente-${clave}`}>
+          <EsqueletoResultado />
+        </GridItem>
+      ))}
     </Grid>
   )
 }

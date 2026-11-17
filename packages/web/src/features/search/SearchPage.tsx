@@ -23,8 +23,6 @@ import { hasGenreToken } from '@rona/core/anilist-search'
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { resumenDeFallo } from '../../components/ErrorNotice'
-import { Grid, GridItem } from '../../components/Grid'
-import { Skeleton } from '../../components/Skeleton'
 import { t } from '../../i18n'
 import { useNavigate, usePath } from '../../router'
 import { ANCLAS } from '../guia/guia'
@@ -150,14 +148,18 @@ export function announce(
     return t(DEFAULT_LOCALE, 'search.failed', { message: resumenDeFallo(state.failed) })
   }
 
+  // Sin fuentes activas no se puede concluir nada de la consulta: el silencio
+  // dejaría creer que sigue buscando y «0 resultados» culparía al título.
+  if (active.length === 0 && !soloCatalogo && state.results.length === 0) {
+    return providersLoaded
+      ? t(DEFAULT_LOCALE, 'search.noProviders')
+      : t(DEFAULT_LOCALE, 'search.loading')
+  }
+
   if (!state.done) {
     // Sin saber todavía qué proveedores hay, decir «no hay ninguno» sería
     // afirmar algo que aún no se sabe.
-    if (!providersLoaded) return t(DEFAULT_LOCALE, 'search.loading')
-
-    return active.length === 0 && !soloCatalogo
-      ? t(DEFAULT_LOCALE, 'search.noProviders')
-      : t(DEFAULT_LOCALE, 'search.loading')
+    return t(DEFAULT_LOCALE, 'search.loading')
   }
 
   if (soloCatalogo) {
@@ -169,16 +171,86 @@ export function announce(
 
   const obras = groupResults(state.results).length
   const clave = obras === 1 ? 'search.resultsCountOne' : 'search.resultsCount'
-  const proveedores = t(DEFAULT_LOCALE, clave, {
-    count: obras,
-    providers: new Set(state.results.map((result) => result.ref.providerId)).size,
-  })
+  const fuentes = new Set(state.results.map((result) => result.ref.providerId)).size
+  const recuento = t(DEFAULT_LOCALE, clave, { count: obras, sources: fuentes })
 
-  if (state.anilist.length === 0) return proveedores
+  if (state.anilist.length === 0) return recuento
 
-  return `${proveedores} ${t(DEFAULT_LOCALE, 'search.anilist.announce', {
+  return `${recuento} ${t(DEFAULT_LOCALE, 'search.anilist.announce', {
     count: state.anilist.length,
   })}`
+}
+
+/** «1 fuente» o «3 fuentes», con la concordancia que toca. */
+export function cuentaDeFuentes(cantidad: number): string {
+  return cantidad === 1
+    ? t(DEFAULT_LOCALE, 'search.status.sourceOne')
+    : t(DEFAULT_LOCALE, 'search.status.sources', { count: cantidad })
+}
+
+/** «1 resultado» o «3 resultados». */
+export function cuentaDeResultados(cantidad: number): string {
+  return cantidad === 1
+    ? t(DEFAULT_LOCALE, 'search.status.resultOne')
+    : t(DEFAULT_LOCALE, 'search.status.results', { count: cantidad })
+}
+
+/**
+ * La línea visible del estado.
+ *
+ * No es el anuncio del lector de pantalla: aquél sólo habla al cerrar, y ésta
+ * tiene que decir, mientras tanto, cuánto ha llegado y qué fuente falta. Antes
+ * decía «Buscando…» con tarjetas ya en pantalla, que es la contradicción que se
+ * reportó: el usuario no sabía si la búsqueda había terminado o seguía creciendo.
+ */
+export function estadoVisible(
+  state: SearchState,
+  active: readonly string[],
+  providersLoaded = true,
+  soloCatalogo = false,
+): string {
+  if (state.failed !== undefined) {
+    return t(DEFAULT_LOCALE, 'search.failed', { message: resumenDeFallo(state.failed) })
+  }
+
+  if (!providersLoaded) return t(DEFAULT_LOCALE, 'search.loading')
+
+  if (soloCatalogo) {
+    if (!state.done) return t(DEFAULT_LOCALE, 'search.loading')
+
+    const clave =
+      state.anilist.length === 1 ? 'search.catalogue.countOne' : 'search.catalogue.count'
+
+    return t(DEFAULT_LOCALE, clave, { count: state.anilist.length })
+  }
+
+  if (active.length === 0 && state.results.length === 0) {
+    return t(DEFAULT_LOCALE, 'search.noProviders')
+  }
+
+  const obras = groupResults(state.results).length
+
+  if (!state.done) {
+    const pendientes = state.pending.length
+    if (pendientes === 0) return t(DEFAULT_LOCALE, 'search.loading')
+    if (obras === 0) {
+      return t(DEFAULT_LOCALE, 'search.status.searching', {
+        sources: cuentaDeFuentes(pendientes),
+      })
+    }
+
+    return t(DEFAULT_LOCALE, 'search.status.partial', {
+      results: cuentaDeResultados(obras),
+      sources: cuentaDeFuentes(pendientes),
+    })
+  }
+
+  const fuentes = new Set(state.results.map((result) => result.ref.providerId)).size
+
+  return t(DEFAULT_LOCALE, 'search.status.done', {
+    results: cuentaDeResultados(obras),
+    sources: cuentaDeFuentes(fuentes),
+  })
 }
 
 /**
@@ -250,7 +322,14 @@ export function SearchPage(props: SearchPageProps): ReactNode {
   const soloCatalogo = hasGenreToken(aplicado)
   // Sin la lista de proveedores todavía, no hay pendientes por proveedor: la
   // rejilla de esqueletos se pinta igual, para no dejar la pantalla en una frase.
-  const esperandoProveedores = !providersLoaded && aplicado !== '' && !soloCatalogo
+  // Sólo cuando no hay nada que enseñar y la búsqueda sigue abierta: con tarjetas
+  // o con el cierre ya no hay hueco que tapar.
+  const esperandoProveedores =
+    !providersLoaded &&
+    aplicado !== '' &&
+    !soloCatalogo &&
+    !resuelta(visibles) &&
+    visibles.results.length === 0
 
   /*
     El campo se lleva el foco al entrar: buscar es la acción de la pantalla y
@@ -299,8 +378,13 @@ export function SearchPage(props: SearchPageProps): ReactNode {
         />
       </div>
 
-      <p className="search__status" aria-live="polite" data-tour={ANCLAS.buscadorEstado}>
-        {announce(visibles, active, providersLoaded, soloCatalogo)}
+      <p className="search__status" data-tour={ANCLAS.buscadorEstado}>
+        {aplicado.trim() === ''
+          ? ''
+          : estadoVisible(visibles, active, providersLoaded, soloCatalogo)}
+      </p>
+      <p className="solo-lectores" role="status" aria-live="polite">
+        {aplicado.trim() === '' ? '' : announce(visibles, active, providersLoaded, soloCatalogo)}
       </p>
 
       {/*
@@ -340,31 +424,15 @@ export function SearchPage(props: SearchPageProps): ReactNode {
         />
       ) : (
         <>
-          {state.pending.length > 0 || esperandoProveedores ? (
-            <Grid label={t(DEFAULT_LOCALE, 'search.results')}>
-              {state.pending.length > 0
-                ? state.pending.map((providerId) => (
-                    <GridItem key={providerId}>
-                      {/* Un esqueleto por proveedor pendiente: lo que falta se ve,
-                          en lugar de aparecer de golpe cuando responda el último. */}
-                      <Skeleton h="var(--skeleton-height)" />
-                    </GridItem>
-                  ))
-                : ESPERA_KEYS.slice(0, ESQUELETOS_SIN_PROVEEDORES).map((clave) => (
-                    <GridItem key={clave}>
-                      {/* Todavía no se sabe a quién se le pregunta: la rejilla
-                          existe para que la espera se vea. */}
-                      <Skeleton h="var(--skeleton-height)" />
-                    </GridItem>
-                  ))}
-            </Grid>
-          ) : null}
-
           <ResultGrid
             results={visibles.results}
             query={aplicado}
-            done={resuelta(visibles)}
+            done={aplicado.trim() === '' || resuelta(visibles)}
             hayAniList={visibles.anilist.length > 0}
+            pending={
+              state.pending.length > 0 ? state.pending : esperandoProveedores ? ESPERA_KEYS : []
+            }
+            busy={aplicado.trim() !== '' && !resuelta(visibles)}
             providerPriority={prioridad}
             onPreview={(result) => prefetch.hover(result.ref.providerId, result.ref.value)}
             onPreviewEnd={() => prefetch.leave()}
