@@ -19,6 +19,7 @@ import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { Confirmacion } from '../../components/Confirmacion'
 import { Cover } from '../../components/Cover'
+import { Skeleton } from '../../components/Skeleton'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { ANCLAS } from '../guia/guia'
@@ -39,6 +40,16 @@ import { DownloadFolder } from './DownloadFolder'
 import { useDownloads } from './useDownloads'
 
 const LOCALE = DEFAULT_LOCALE
+
+/**
+ * Las claves de los huecos del esqueleto.
+ *
+ * Nombres fijos y no el índice del bucle: el índice como `key` es lo que rechaza
+ * Biome, y aquí no hay estado que conservar por celda. Las cuatro series y las tres
+ * cifras son las que caben en la primera pantalla de una estantería.
+ */
+const SERIES_DEL_ESQUELETO = ['una', 'dos', 'tres', 'cuatro'] as const
+const CIFRAS_DEL_ESQUELETO = ['titulos', 'episodios', 'espacio'] as const
 
 /** El nombre de la descarga en los textos que necesitan más que el estado. */
 function estado(item: Descarga): string {
@@ -375,10 +386,29 @@ export function LibraryPage(): ReactNode {
           }
 
   return (
-    <section className="pagina library">
+    <section className="pagina library" aria-busy={loading}>
+      {loading ? (
+        <p className="solo-lectores" role="status">
+          {t(LOCALE, 'downloads.loading')}
+        </p>
+      ) : null}
+
       <header className="library__head" data-tour={ANCLAS.bibliotecaResumen}>
         <h1>{t(LOCALE, 'library.title')}</h1>
-        {series.length === 0 ? (
+        {loading ? (
+          /*
+           * Las tres cifras de la cabecera, con su hueco. Antes, mientras se leía
+           * la biblioteca, la cabecera decía «todavía no hay descargas»: una
+           * afirmación sobre el contenido que aún no se había leído.
+           */
+          <ul className="library__stats" aria-hidden="true">
+            {CIFRAS_DEL_ESQUELETO.map((cifra) => (
+              <li className="library__stat" key={cifra}>
+                <Skeleton h="var(--text-md)" w="var(--space-7)" />
+              </li>
+            ))}
+          </ul>
+        ) : series.length === 0 ? (
           <p className="library__lede">{t(LOCALE, 'library.summaryEmpty')}</p>
         ) : (
           /*
@@ -470,11 +500,44 @@ export function LibraryPage(): ReactNode {
         <div className="library__zone-head">
           <h2 id="library-collection-title">{t(LOCALE, 'library.collection')}</h2>
           <span className="library__count">
-            {t(LOCALE, 'library.titles', { count: series.length })}
+            {loading ? (
+              <Skeleton h="var(--text-xs)" w="var(--space-7)" />
+            ) : (
+              t(LOCALE, 'library.titles', { count: series.length })
+            )}
           </span>
         </div>
 
-        {loading ? <p className="library__loading">{t(LOCALE, 'downloads.loading')}</p> : null}
+        {loading ? (
+          /*
+           * La estantería, con la forma de una estantería: series en la rejilla de
+           * la izquierda y el panel de la serie elegida a la derecha. Antes era un
+           * renglón de texto y la colección entraba de golpe.
+           */
+          <div className="library__collection" aria-hidden="true">
+            <ul className="library__shelf">
+              {SERIES_DEL_ESQUELETO.map((serie) => (
+                <li className="library__serie" key={serie}>
+                  <span className="library__cover-box">
+                    <Skeleton h="auto" className="library__cover-hueco" />
+                  </span>
+                  <Skeleton h="var(--text-md)" w="72%" />
+                  <Skeleton h="var(--text-xs)" w="44%" />
+                </li>
+              ))}
+            </ul>
+
+            <div className="library__detail">
+              <div className="library__detail-head">
+                <Skeleton h="var(--text-xl)" w="70%" />
+                <Skeleton h="var(--text-sm)" w="45%" />
+              </div>
+              {CIFRAS_DEL_ESQUELETO.map((fila) => (
+                <Skeleton key={fila} h="var(--episode-row-height)" />
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {!loading && series.length === 0 ? (
           activas.length > 0 ? (

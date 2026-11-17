@@ -698,11 +698,21 @@
   color: var(--color-danger);
 }
 
-.library__loading,
 .library__pending {
   margin: 0;
   color: var(--color-text-dim);
   font-size: var(--text-sm);
+}
+
+/*
+ * La portada de una serie en el esqueleto de la estantería.
+ *
+ * No es `.library__cover` —una imagen—: es un hueco con su misma proporción, para
+ * que la rejilla de espera mida lo que la rejilla de portadas. El borde la pone
+ * `.library__cover-box`, que es la caja que ya usa la tarjeta de verdad.
+ */
+.library__cover-hueco {
+  aspect-ratio: var(--cover-ratio);
 }
 
 /*

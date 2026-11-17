@@ -317,6 +317,7 @@ export const messages: Messages = {
   'home.genres': 'Explorar por género',
   'home.genres.meta': 'Del catálogo que tienes',
   'home.genres.empty': 'Todavía no hay géneros: aparecen cuando abres alguna ficha.',
+  'home.genres.loading': 'Cargando los géneros.',
   'home.recommended': 'Recomendado para ti',
   'home.recommended.meta': 'Elegido por lo que buscas y ves',
   // Los tres renglones de la nota de un tramo: el titular, la etiqueta y la cuenta.

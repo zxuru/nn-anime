@@ -13,11 +13,20 @@
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
 import { SectionHeader } from '../../components/SectionHeader'
+import { Skeleton } from '../../components/Skeleton'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { searchPath } from '../search/SearchPage'
-import { SeccionCargando } from './SeccionCargando'
 import { cuentaDeTitulos } from './tramo'
+
+/**
+ * Los anchos del esqueleto de la banda, en tanto por ciento del ancho disponible.
+ *
+ * Cuatro palabras de largo distinto: la banda real también las tiene, y cuatro
+ * barras iguales se leerían como una tabla. No son medidas: la altura, que es lo
+ * que decide si el tramo salta, sale del token de la palabra.
+ */
+const ANCHOS_DEL_ESQUELETO = ['26%', '19%', '22%', '16%'] as const
 
 export interface GenreCount {
   /** El nombre del género, como lo publica el catálogo. */
@@ -39,11 +48,36 @@ export function topGenres(tags: readonly (readonly string[])[], limit: number): 
 
 export function GenreRow(props: GenreRowProps): ReactNode {
   if (props.cargando === true) {
+    /*
+     * Una banda de palabras, no un muro de carteles.
+     *
+     * El esqueleto era el de un tramo de carteles —seis piezas 2:3— y lo que llega
+     * es una banda de palabras grandes, con otro alto: el tramo cambiaba de forma al
+     * cargar y todo lo de abajo se movía. Aquí el hueco tiene el alto de la palabra
+     * y la misma banda, así que cuando llegan los géneros sólo cambia el texto.
+     */
     return (
-      <SeccionCargando
-        title={t(DEFAULT_LOCALE, 'home.genres')}
-        meta={t(DEFAULT_LOCALE, 'home.genres.meta')}
-      />
+      <section className="seccion" aria-busy="true">
+        <SectionHeader
+          title={t(DEFAULT_LOCALE, 'home.genres')}
+          meta={t(DEFAULT_LOCALE, 'home.genres.meta')}
+        />
+
+        <div className="seccion__cuerpo">
+          <p className="solo-lectores" role="status">
+            {t(DEFAULT_LOCALE, 'home.genres.loading')}
+          </p>
+          <div className="generos">
+            {ANCHOS_DEL_ESQUELETO.map((ancho) => (
+              <Skeleton
+                key={ancho}
+                h="calc(var(--genero-nombre) * var(--genero-linea))"
+                w={ancho}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
     )
   }
 
