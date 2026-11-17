@@ -2372,3 +2372,22 @@
   margin: var(--space-2) var(--space-3) var(--space-3);
   inline-size: 42%;
 }
+
+/*
+ * El buscador de la home.
+ *
+ * Va debajo del destacado, con el ancho de lectura y el mismo campo del sistema
+ * que la pantalla de Buscar. En una línea: el campo crece y el mando no.
+ */
+.home__buscador {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-inline-size: var(--measure);
+  margin-block: var(--space-5) var(--space-2);
+}
+
+.home__buscador-campo {
+  flex: 1;
+  min-inline-size: 0;
+}

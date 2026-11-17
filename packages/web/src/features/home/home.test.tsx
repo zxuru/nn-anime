@@ -21,8 +21,10 @@ import {
   minutosDesde,
   piezasDelTop,
   piezasDeNovedades,
+  sinRepetirSiQueda,
   textoDeRefresco,
 } from './HomePage'
+import { HomeSearch } from './HomeSearch'
 import { esPrimerArranque, PrimerArranque } from './PrimerArranque'
 import { RecommendedRow } from './RecommendedRow'
 import { continuePath, progressPercent, resumeLabel } from './rows'
@@ -260,6 +262,37 @@ describe('las filas, cuando una lectura falla', () => {
     expect(filas.feed).toEqual([])
   })
 
+  test('una parrilla caída sin datos se marca como caída; con datos, no', () => {
+    const caida = combineRows({
+      continueWatching: ok({ items: [] }),
+      favorites: ok({ favorites: [] }),
+      trending: ok({ items: [] }),
+      feed: ok({ items: [] }),
+      recent: ok({ items: [] }),
+      descubrir: ok({ items: [] }),
+      parrilla: mal,
+      emisiones: mal,
+    })
+
+    expect(caida.parrilla).toEqual([])
+    expect(caida.parrillaCaida).toBe(true)
+    expect(caida.emisionesCaida).toBe(true)
+
+    const viva = combineRows({
+      continueWatching: ok({ items: [] }),
+      favorites: ok({ favorites: [] }),
+      trending: ok({ items: [] }),
+      feed: ok({ items: [] }),
+      recent: ok({ items: [] }),
+      descubrir: ok({ items: [] }),
+      parrilla: ok({ items: [] }),
+      emisiones: ok({ items: [] }),
+    })
+
+    expect(viva.parrillaCaida).toBe(false)
+    expect(viva.emisionesCaida).toBe(false)
+  })
+
   test('sin sesión lo dice, en vez de mandar a mirar el servidor', () => {
     // La cookie es de cada navegador: abrir la misma dirección en otro no hereda
     // la sesión, y las cinco lecturas fallan con 401 a la vez.
@@ -284,6 +317,38 @@ describe('las filas, cuando una lectura falla', () => {
 })
 
 describe('la home', () => {
+  test('un título que ya se ve arriba no se repite en otra fila', () => {
+    const vistos = new Set(['aurora nocturna'])
+    const fila: PiezaVista[] = [
+      { clave: 'a', title: 'Aurora Nocturna', to: '/anime/a' },
+      { clave: 'b', title: 'Mar de Cristal', to: '/anime/b' },
+    ]
+
+    expect(sinRepetirSiQueda(fila, vistos).map((item) => item.title)).toEqual(['Mar de Cristal'])
+  })
+
+  test('si toda la fila estaba arriba se conserva: una fila vacía es peor', () => {
+    const vistos = new Set(['aurora nocturna'])
+    const fila: PiezaVista[] = [{ clave: 'a', title: 'Aurora Nocturna', to: '/anime/a' }]
+
+    expect(sinRepetirSiQueda(fila, vistos)).toEqual(fila)
+  })
+
+  test('el buscador de la home es un formulario que lleva a /search', () => {
+    const html = render(<HomeSearch />)
+
+    expect(html).toContain('action="/search"')
+    expect(html).toContain('name="q"')
+    expect(html).toContain('placeholder="Escribe un título…"')
+  })
+
+  test('las novedades caídas dicen que AniList no contestó', () => {
+    const html = render(<FeedRow items={[]} caido />)
+
+    expect(html).toContain('AniList no ha contestado')
+    expect(html).not.toContain('Ningún proveedor activo publica novedades')
+  })
+
   test('arranca cargando: cada fila enseña esqueletos y no su vacío', () => {
     const html = render(<HomePage />)
 

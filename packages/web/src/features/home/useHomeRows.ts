@@ -70,8 +70,12 @@ export interface HomeRows {
   readonly descubrir: DiscoverResponse['items']
   /** Los capítulos que se emiten estos días. Es la parrilla. */
   readonly parrilla: AiringResponse['items']
+  /** Si la lectura de la parrilla falló y no hay nada que enseñar. */
+  readonly parrillaCaida?: boolean
   /** Los capítulos que se acaban de emitir. Son las novedades cuando llegan. */
   readonly emisiones: AiringResponse['items']
+  /** Si la lectura de emisiones falló y no hay nada que enseñar. */
+  readonly emisionesCaida?: boolean
 }
 
 const VACIO: HomeRows = {
@@ -88,6 +92,8 @@ const VACIO: HomeRows = {
   descubrir: [],
   parrilla: [],
   emisiones: [],
+  parrillaCaida: false,
+  emisionesCaida: false,
 }
 
 /** Lo que devolvió cada lectura, tal cual sale de `Promise.allSettled`. */
@@ -235,6 +241,11 @@ export function mergeRows(
     descubrir,
     parrilla,
     emisiones,
+    // El fallo sólo se declara cuando la fila se queda sin nada que enseñar: una
+    // relectura fallida no convierte en «AniList no contestó» una fila que sigue
+    // mostrando lo de la lectura anterior.
+    parrillaCaida: resultados.parrilla.status === 'rejected' && parrilla.length === 0,
+    emisionesCaida: resultados.emisiones.status === 'rejected' && emisiones.length === 0,
   }
 }
 

@@ -30,6 +30,8 @@ export interface FeedRowProps {
   readonly meta?: string | undefined
   /** Lo que se dice cuando no hay nada. Cambia con la procedencia. */
   readonly vacio?: string | undefined
+  /** Si la lectura de AniList falló y se quedó sin la lista que la respalda. */
+  readonly caido?: boolean | undefined
   /** Si la lectura de esta fila sigue en vuelo. */
   readonly cargando?: boolean | undefined
 }
@@ -44,18 +46,27 @@ export function FeedRow(props: FeedRowProps): ReactNode {
     )
   }
 
+  const sinNada = props.items.length === 0
+  const caida = props.caido === true && sinNada
+  const meta = caida
+    ? t(DEFAULT_LOCALE, 'home.feed.meta.offline')
+    : (props.meta ?? t(DEFAULT_LOCALE, 'home.feed.meta'))
+  const vacio = caida
+    ? t(DEFAULT_LOCALE, 'home.feed.empty.offline')
+    : (props.vacio ?? t(DEFAULT_LOCALE, 'home.feed.empty'))
+
   return (
     <section className="seccion">
       <SectionHeader
         title={t(DEFAULT_LOCALE, 'home.feed')}
-        meta={props.meta ?? t(DEFAULT_LOCALE, 'home.feed.meta')}
+        meta={meta}
         {...(props.items.length === 0 ? {} : { cuenta: cuentaDeTitulos(props.items.length) })}
       />
 
       <div className="seccion__cuerpo">
         <Mosaico>
-          {props.items.length === 0 ? (
-            <TramoVacio texto={props.vacio ?? t(DEFAULT_LOCALE, 'home.feed.empty')} />
+          {sinNada ? (
+            <TramoVacio texto={vacio} />
           ) : (
             props.items.map((item, indice) => (
               <Pieza
