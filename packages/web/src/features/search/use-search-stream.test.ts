@@ -4,6 +4,7 @@ import type { SearchResult } from '@rona/core/models'
 import { ApiError } from '../../api/client'
 import {
   activeProviderIds,
+  consultaVacia,
   createPrefetcher,
   createSearchHub,
   fetchProviderPriority,
@@ -38,6 +39,14 @@ function fuente(id: string, media: 'anime' | 'movies' | 'both'): ProviderSummary
 }
 
 describe('estado', () => {
+  test('la consulta vacía no abre búsqueda', () => {
+    // Sin término no hay pregunta: el gancho no se suscribe y la pantalla no
+    // dispara un catálogo entero contra las fuentes. Mutar la guarda la deja en
+    // rojo.
+    expect(consultaVacia('')).toBe(true)
+    expect(consultaVacia('   ')).toBe(true)
+    expect(consultaVacia('naruto')).toBe(false)
+  })
   test('al empezar, todos los proveedores están pendientes', () => {
     const estado = initialState(['uno', 'dos'])
 

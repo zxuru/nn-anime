@@ -340,7 +340,7 @@ describe('GET /api/search como SSE', () => {
 
   test('el tipo se filtra también sobre los resultados, no sólo sobre las fuentes', async () => {
     const eventos = await readSse(
-      await app(SOLO_FIXTURE).request(`${BASE}/api/search?q=&media=movies`, { headers: GOOD }),
+      await app(SOLO_FIXTURE).request(`${BASE}/api/search?q=de&media=movies`, { headers: GOOD }),
     )
     const resultados = eventos.find((evento) => evento.event === 'results')
     const data = JSON.parse(resultados?.data ?? '{}') as {
@@ -438,13 +438,25 @@ describe('GET /api/search como SSE', () => {
     expect(eventos).toEqual([{ event: 'done', data: '{"type":"done","providers":0}' }])
   })
 
-  test('sin `q` busca igual: el catálogo entero del proveedor', async () => {
-    const response = await app(SOLO_FIXTURE).request(`${BASE}/api/search`, { headers: GOOD })
+  test('sin `q` no consulta a las fuentes y cierra en cero', async () => {
+    let llamadas = 0
+    const espia = providerFrom({
+      id: 'espia',
+      search: async () => {
+        llamadas += 1
+        return []
+      },
+    })
+    const response = await app({
+      active: [{ provider: espia, file: '/plugins/espia.ts' }],
+      rejected: [],
+    }).request(`${BASE}/api/search`, { headers: GOOD })
     const eventos = await readSse(response)
-    const resultados = eventos.find((evento) => evento.event === 'results')
 
-    const data = JSON.parse(resultados?.data ?? '{}') as { results: readonly unknown[] }
-    expect(data.results.length).toBeGreaterThanOrEqual(12)
+    // Abrir `/search` no es una búsqueda: no hay tráfico contra terceros y el
+    // cierre dice cero. Mutar la guarda de `hayConsulta` deja `llamadas` en 1.
+    expect(llamadas).toBe(0)
+    expect(eventos).toEqual([{ event: 'done', data: '{"type":"done","providers":0}' }])
   })
 
   test('una consulta inválida se rechaza con 400 y una forma que la interfaz entiende', async () => {
