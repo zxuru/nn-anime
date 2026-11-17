@@ -54,7 +54,6 @@ import { FavoritesRow } from './FavoritesRow'
 import { FeaturedHero, type FeaturedItem } from './FeaturedHero'
 import { FeedRow } from './FeedRow'
 import { GenreRow, generosConCuenta } from './GenreRow'
-import { HomeSearch } from './HomeSearch'
 import { ParrillaRow } from './ParrillaRow'
 import { esPrimerArranque, PrimerArranque } from './PrimerArranque'
 import { RecommendedRow } from './RecommendedRow'
@@ -408,13 +407,6 @@ export function HomePage(props: HomePageProps): ReactNode {
           tendencias={filas.trending}
         />
       )}
-
-      {/*
-        El verbo del producto, en la primera pantalla. La cabecera ya tiene
-        «Buscar», pero era una palabra de 11 px; aquí hay un campo que se puede
-        usar sin adivinar que existe la pantalla de búsqueda.
-      */}
-      <HomeSearch />
 
       {/* Sin nada que retomar, la fila se explica aquí: debajo del destacado y no
           en el primer renglón de la página. */}
