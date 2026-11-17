@@ -1167,6 +1167,41 @@ test.describe('la disposición', () => {
     // la ventana: antes había que desplazarse para ver el video.
     expect(caja?.y ?? 0).toBeGreaterThanOrEqual(0)
     expect((caja?.y ?? 0) + (caja?.height ?? 0)).toBeLessThanOrEqual(768)
+
+    // Y la página no se desplaza: el pie no se pinta en las pantallas de
+    // reproducción. Con él quedaba un desplazamiento de su altura —65 px— con
+    // todo a la vista, que es el que se notaba como un hueco de más.
+    const desborde = await page.evaluate(
+      () => document.documentElement.scrollHeight - document.documentElement.clientHeight,
+    )
+
+    expect(desborde).toBeLessThanOrEqual(0)
+  })
+
+  /**
+   * La lista llena su columna.
+   *
+   * Tenía un tope fijo de 30 rem: en 1366×768 la columna mide 616 px y la lista
+   * se quedaba en 480, con más de cien de hueco debajo y una barra propia aun
+   * cuando el sitio libre estaba ahí. Ahora el tope vive en la columna —el hueco
+   * visible— y la lista, que es el hijo que se desplaza, se queda con lo que
+   * sobra tras su título. El renglón final de la lista tiene que caer donde cae
+   * la columna.
+   */
+  test('la lista llena su columna y no deja hueco debajo', async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 })
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
+
+    await expect(page.locator('.watch__list li')).toHaveCount(12, { timeout: 15_000 })
+
+    const lista = await page.locator('.watch__list').boundingBox()
+    const lateral = await page.locator('.watch__aside').boundingBox()
+
+    expect((lista?.y ?? 0) + (lista?.height ?? 0)).toBeGreaterThanOrEqual(
+      (lateral?.y ?? 0) + (lateral?.height ?? 0) - 1,
+    )
   })
 
   test('la lista va al lado del reproductor en escritorio', async ({ page }) => {

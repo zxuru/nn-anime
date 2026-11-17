@@ -59,6 +59,17 @@ function Shell(props: {
    */
   readonly ficha?: boolean
   /**
+   * Las pantallas que no llevan el pie.
+   *
+   * Son las dos de reproducción, y por la misma razón por la que van sin tope:
+   * se miden contra la ventana. El pie va después de la caja de la pantalla y
+   * ocupa su alto —65 px de nota, filete y relleno—, así que pintarlo aquí
+   * metía la sala entera en un desplazamiento de esa altura aunque el video
+   * cupiera. En las demás pantallas el contenido es una columna que ya se
+   * desplaza sola y el pie es la última línea, no un presupuesto.
+   */
+  readonly sinPie?: boolean
+  /**
    * Si la cabecera lleva el conmutador de tipo.
    *
    * No lo lleva siempre: la mitad que se mira sólo significa algo donde hay algo
@@ -129,11 +140,15 @@ function Shell(props: {
       {/*
         El pie es de la aplicación y no de una pantalla: la promesa de que todo
         se queda en el equipo vale igual en la vitrina que en Ajustes, y una
-        pantalla nueva lo hereda sin repetirlo.
+        pantalla nueva lo hereda sin repetirlo. Las de reproducción son la
+        excepción declarada en `sinPie`: se miden contra la ventana y el pie les
+        roba el alto que el video necesita.
       */}
-      <footer className="shell__footer">
-        <p className="shell__footer-nota">{t(LOCALE, 'app.footer')}</p>
-      </footer>
+      {props.sinPie === true ? null : (
+        <footer className="shell__footer">
+          <p className="shell__footer-nota">{t(LOCALE, 'app.footer')}</p>
+        </footer>
+      )}
     </div>
   )
 }
@@ -214,6 +229,9 @@ export function App(): ReactNode {
       // lados un margen que no gasta nada. En la biblioteca era además el motivo
       // de que los mandos del reproductor cayeran por debajo del pliegue.
       sinTope={route.name === 'watch' || route.name === 'library-player'}
+      // Las mismas dos pantallas van sin pie: se miden contra la ventana y el
+      // pie, que va después de la caja, les metía un desplazamiento de su alto.
+      sinPie={route.name === 'watch' || route.name === 'library-player'}
       ficha={route.name === 'detail'}
       tipo={route.name === 'home' || route.name === 'search'}
     >

@@ -34,13 +34,25 @@ describe('App: pantallas', () => {
    * así que una ruta nueva lo hereda; y su texto sale del catálogo, como todo lo
    * que se lee. La prueba lo mira en dos rutas distintas para que no dependa de
    * la pantalla que se pinte.
+   *
+   * Las dos de reproducción son la excepción —ver el caso de abajo—: se miden
+   * contra la ventana y el pie, que va después de la caja, las empujaba a un
+   * desplazamiento de su altura.
    */
-  test('todas las pantallas llevan el pie de la aplicación', () => {
+  test('las pantallas llevan el pie de la aplicación', () => {
     for (const path of ['/', '/settings']) {
       const html = render(path)
 
       expect(html).toContain('<footer class="shell__footer">')
       expect(html).toContain('Sin cuentas ni telemetría')
+    }
+  })
+
+  test('las pantallas de reproducción no llevan el pie', () => {
+    for (const path of ['/watch/fuente/titulo-1', '/library/1']) {
+      const html = render(path)
+
+      expect(html).not.toContain('<footer class="shell__footer">')
     }
   })
 

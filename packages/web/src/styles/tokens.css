@@ -447,11 +447,16 @@
    *
    * La columna se desplaza por dentro: una serie de mil capítulos no puede
    * empujar hacia abajo lo que hay debajo, y el video tiene que seguir a la vista
-   * mientras se busca el episodio. El tope es el del escenario —la lista nunca es
-   * más alta que el video que tiene al lado— con el suelo de siempre, que es el
-   * que vale cuando la lista cae debajo, en una ventana estrecha.
+   * mientras se busca el episodio.
+   *
+   * El tope es el hueco visible y no una medida fija. Al lado del reproductor la
+   * columna mide justo eso, así que el tope no recorta nada y la lista llena lo
+   * que hay; antes tenía un suelo de 30 rem que en una ventana de 768 dejaba más
+   * de cien píxeles muertos debajo de la lista y, aun así, una barra propia.
+   * Debajo del reproductor —la ventana estrecha— es el único tope que queda: sin
+   * él, mil episodios estirarían la página entera.
    */
-  --watch-list-height: max(30rem, var(--watch-stage-height));
+  --watch-list-height: var(--watch-room-height);
   /** El lado mínimo de un mando: 44 px, el objetivo táctil que pide el spec. */
   --control-size: 2.75rem;
   /**
