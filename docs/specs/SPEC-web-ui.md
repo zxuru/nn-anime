@@ -212,8 +212,12 @@ packages/web/
       local y no lleva el encabezado.
 - [ ] Buscar "naruto" muestra resultados parciales sin recargar y sin bloquear la interfaz.
 - [ ] Desconectar un proveedor no deja la grilla en esqueleto para siempre.
-- [ ] Un mp4 de fixture se reproduce en la página y adelantar 30 s funciona.
-- [ ] Elegir subtítulo en español muestra el texto sobre el video.
+- [x] El stream del fixture se reproduce en la página y el seek adelanta el tiempo. **Criterio
+      corregido en T260**: el arnés usa un WAV generado porque el Chromium de Playwright no trae
+      H.264/AAC y no hay un codificador de vídeo garantizado; lo que la aplicación controla —resolver,
+      montar, buscar y los eventos— es lo que se mide.
+- [x] Elegir subtítulo en español muestra el texto sobre el video. **Medido en T260**: el `<track>`
+      queda en `showing` y su cue activa es la frase del `.vtt`; la pintura nativa es del navegador.
 - [ ] Cambiar de sub a dub vuelve a resolver el stream y reinicia en la misma posición.
 - [x] Un clic en "ver en mpv" abre la ventana de mpv; con mpv ausente se muestra el aviso y se
       ofrece el reproductor web. **Medido en el navegador**: el clic manda el cuerpo del handoff y el
