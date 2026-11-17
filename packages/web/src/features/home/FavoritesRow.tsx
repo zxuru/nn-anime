@@ -61,7 +61,7 @@ export function FavoritesRow(props: FavoritesRowProps): ReactNode {
                 meta={
                   item.year === undefined
                     ? undefined
-                    : t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year })
+                    : t(DEFAULT_LOCALE, 'home.year', { year: item.year })
                 }
                 apagada
               />

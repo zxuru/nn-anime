@@ -286,7 +286,7 @@ describe('la home', () => {
 
     // La frase no desaparece: se va al texto que sólo lee un lector de pantalla,
     // porque el esqueleto es decoración y no dice qué está pasando.
-    expect(html).toContain('Cargando tu inicio')
+    expect(html).toContain('Cargando Inicio')
     expect(html).toContain('solo-lectores')
     expect(html).toContain('aria-busy="true"')
 

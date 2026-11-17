@@ -614,7 +614,7 @@ describe('las tarjetas del catálogo', () => {
     expect(html).toContain('/api/anilist/image/cover/101922')
     expect(html).toContain('Kimetsu no Yaiba')
     // La misma marca de año que la tarjeta de un proveedor.
-    expect(html).toContain('Año 2019')
+    expect(html).toContain('2019')
   })
 
   test('no lleva sello: el enlace ya dice lo que hay', () => {

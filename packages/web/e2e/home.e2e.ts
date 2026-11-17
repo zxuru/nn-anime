@@ -295,7 +295,52 @@ test.describe('la home', () => {
     await entrar(page)
 
     await expect(page.getByText('Nada a medias')).toBeVisible()
-    await expect(page.getByText('Todavía no has marcado ninguno')).toBeVisible()
+    await expect(page.getByText('Todavía no has guardado ningún título')).toBeVisible()
+  })
+
+  /**
+   * El mando del hero dice lo que hace, también en un teléfono.
+   *
+   * La versión corta era «Ep. 1»: la acción principal de la primera pantalla se
+   * quedaba sin verbo y sólo la salvaba el triángulo. Se mide el texto **visible**
+   * (`innerText`, que respeta lo que recorta la hoja), no el del documento: las dos
+   * versiones del mando viven en el marcado y la larga es la accesible.
+   */
+  test('en un teléfono el mando del hero nombra la acción', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await entrar(page)
+    await esperarApp(page)
+
+    const mando = page.locator('.marquesina .acciones a.button--primary')
+    await expect(mando).toBeVisible()
+
+    const visible = await mando.evaluate((nodo) => nodo.innerText.trim())
+
+    expect(visible).toContain('Reproducir')
+    expect(visible).not.toContain('Ep.')
+  })
+
+  /**
+   * El año de una pieza va sin rótulo.
+   *
+   * «Año 2024» en la pieza y «2024» en el hero era el mismo dato en dos registros,
+   * en la misma pantalla. La línea corta de la vitrina lo lleva desnudo; la ficha
+   * sigue diciendo «Año 2024», que ahí sí es una etiqueta.
+   */
+  test('el año de una pieza no lleva el rótulo «Año»', async ({ page }) => {
+    await entrar(page)
+    await esperarApp(page)
+
+    const novedades = page.locator('.seccion', {
+      has: page.getByRole('heading', { name: 'Novedades' }),
+    })
+
+    const meta = await novedades.locator('.pz__meta').first().innerText()
+
+    expect(meta).toMatch(/\d{4}/)
+    // En minúsculas: la hoja pinta la línea en versalitas y `innerText` devuelve
+    // lo que se ve, no lo que guarda el marcado.
+    expect(meta.toLowerCase()).not.toContain('año')
   })
 
   test('la fuente llena la home sin que nadie haya buscado nada', async ({ page }) => {
