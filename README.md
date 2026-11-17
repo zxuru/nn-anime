@@ -199,6 +199,10 @@ está `bun run dev`, que sirve el código fuente y no necesita el `build`.
 de un solo uso y la abre en el navegador. Sin ese token no se entra: es lo que impide que cualquier
 página del navegador hable con tu aplicación local.
 
+En `bun run dev` esa dirección es **reutilizable mientras el proceso viva**: el mismo enlace abre la
+aplicación en otro navegador o en otro perfil, y cada uno recibe su propia cookie. Fuera de
+desarrollo el token sigue siendo de un solo uso y caduca a los cinco minutos.
+
 Si vas a contribuir, `bun run hooks:instalar` una vez por clon: instala el gancho que frena el commit
 directo en `main`, y hay una prueba que comprueba que está puesto.
 

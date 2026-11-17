@@ -322,8 +322,10 @@ Mitigaciones obligatorias. Todas son verificables por un test.
 2. **Sesión por cookie `HttpOnly`.** El CLI abre el navegador con un token de arranque de un solo
    uso. El server lo canjea por una cookie `HttpOnly; SameSite=Strict; Path=/`, redirige a `/`
    con URL limpia y quema el token de arranque, que además caduca a los cinco minutos: la URL
-   queda en el scrollback de la terminal y no debe seguir valiendo horas después. El token de
-   sesión nunca vuelve a tocar
+   queda en el scrollback de la terminal y no debe seguir valiendo horas después. En desarrollo
+   (`RONA_DEV_ORIGIN`) la excepción es explícita: el token se puede canjear mientras viva el
+   proceso para abrir la misma dirección en varios navegadores, y la API sigue atada a loopback. El
+   token de sesión nunca vuelve a tocar
    JavaScript, así que un XSS en la propia interfaz no puede exfiltrarlo. Sin cookie válida, 401.
 3. **Comparación en tiempo constante.** La cookie se compara con `crypto.timingSafeEqual` sobre
    buffers de igual longitud. Nada de `===`.
@@ -389,7 +391,8 @@ tarea que lo cierra. T47 hace el barrido final y comprueba que ninguno se quedó
       datos. Ninguna ruta de `/api/*` ni `/stream/*` escapa a los guards. **Verificado** con el test
       de tabla de rutas y con `curl` contra el servidor en los dos modos.
 - [x] El token de arranque sirve una sola vez: un segundo uso devuelve 401. **Verificado** en vivo,
-      y además caduca a los cinco minutos.
+      y además caduca a los cinco minutos. En desarrollo (`RONA_DEV_ORIGIN`) se reutiliza a
+      propósito mientras viva el proceso.
 - [x] Ninguna respuesta contiene `Set-Cookie` de origen upstream ni cabeceras de upstream.
       **Verificado** en `tests/seguridad.test.ts` (M6 y M7): un `Set-Cookie` del upstream no aparece,
       y las cabeceras de la respuesta están dentro de la lista blanca. La lista exacta se prueba en

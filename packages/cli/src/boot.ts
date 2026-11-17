@@ -129,6 +129,14 @@ export interface ListenOptions {
   /** Ruta local a la que ir tras canjear el token. */
   readonly redirectTo?: string | undefined
   /**
+   * El token de arranque se puede canjear más de una vez.
+   *
+   * Lo pone el modo desarrollo, donde la SPA va en otro origen y la misma
+   * dirección se abre en varios navegadores. Cada navegador recibe su cookie;
+   * sin esto, el segundo recibiría un 401 por un token ya gastado.
+   */
+  readonly bootTokenReusable?: boolean | undefined
+  /**
    * Si el puerto pedido está ocupado, ¿se puede usar otro?
    *
    * En desarrollo no: el proxy de Vite apunta a un puerto fijo, así que mudarse
@@ -441,6 +449,10 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     version: deps.version,
     webRoot: deps.webRoot,
     redirectTo: redirectTarget(options.query, options.providers),
+    // `publicOrigin` sólo lo pone el modo desarrollo, que es donde la misma
+    // dirección tiene que servir para más de un navegador. Un despliegue detrás
+    // de un proxy usa `RONA_PUBLIC_ORIGIN`, que no llega por aquí.
+    bootTokenReusable: deps.publicOrigin !== undefined,
     allowPortFallback: deps.allowPortFallback,
     plugins: { active: plugins.active, rejected: plugins.rejected },
     // Las rutas las tiene `boot`, que es quien llamó a `loadConfig`.

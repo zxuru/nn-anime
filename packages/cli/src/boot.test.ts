@@ -199,6 +199,26 @@ describe('arranque correcto', () => {
     })
   })
 
+  test('en desarrollo el token de arranque se puede canjear varias veces', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+
+      await boot(options(), depsFor(target, home, { publicOrigin: 'http://127.0.0.1:5173' }))
+
+      expect(target.seenOptions[0]?.bootTokenReusable).toBe(true)
+    })
+  })
+
+  test('en un arranque normal el canje sigue siendo de un solo uso', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+
+      await boot(options(), depsFor(target, home))
+
+      expect(target.seenOptions[0]?.bootTokenReusable).toBe(false)
+    })
+  })
+
   test('el resultado lleva el puerto, que es lo único registrable', async () => {
     await withTempHome(async (home) => {
       const target = harness({ port: 41234 })

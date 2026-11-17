@@ -47,6 +47,11 @@ const children = [
 ]
 
 process.stdout.write(`dev: Vite en ${WEB_ORIGIN} (puerto ${VITE_PORT}, estricto)\n`)
+// La dirección de arranque lleva un token que aquí no se quema al primer uso:
+// el mismo enlace abre cada navegador y cada uno recibe su propia cookie.
+process.stdout.write(
+  'dev: la dirección del arranque se puede abrir en cualquier navegador mientras el proceso viva\n',
+)
 
 function shutdown(): void {
   for (const child of children) child.process.kill('SIGTERM')

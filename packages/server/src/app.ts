@@ -117,6 +117,14 @@ export interface AppOptions {
   /** Token de un solo uso que el CLI pone en la URL de arranque. */
   readonly bootToken: string
   /**
+   * El canje del token vale más de una vez.
+   *
+   * Sólo el modo desarrollo lo enciende: allí la dirección se reabre en varios
+   * navegadores y cada uno necesita su propia cookie. Un arranque normal lo
+   * deja apagado y el token muere al primer canje.
+   */
+  readonly bootTokenReusable?: boolean
+  /**
    * Watch party. Apagado por defecto: sin `RONA_PARTY=1` las rutas de sala
    * no existen y una petición a ellas es un 404, no un 401.
    */
@@ -346,6 +354,7 @@ export function createApp(options: AppOptions): Hono {
         session,
         ...(options.redirectTo === undefined ? {} : { redirectTo: options.redirectTo }),
         ...(options.bootstrapClock === undefined ? {} : { now: options.bootstrapClock }),
+        ...(options.bootTokenReusable === true ? { reusable: true } : {}),
       }),
     )
   }
