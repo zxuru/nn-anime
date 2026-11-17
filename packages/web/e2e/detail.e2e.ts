@@ -367,24 +367,28 @@ test.describe('la banda a sangre', () => {
     expect(alineacion.titular).toBeGreaterThan(0)
   })
 
-  test('con banner y sin banner la banda mide lo mismo', async ({ page }) => {
+  test('sin banner la banda baja al alto de su contenido', async ({ page }) => {
     await enriquecer(page, true)
     await entrar(page)
     await page.goto('/anime/fixture/aurora-nocturna')
 
     const conFondo = await altoDeLaBanda(page)
 
-    // La misma ficha, con el enriquecimiento pero sin banner: la banda es la
-    // cabecera y no el adorno, así que la pantalla no cambia de forma.
+    // La misma ficha, con el enriquecimiento pero sin banner. Desde T236 la
+    // banda no mantiene los 16 rem de la imagen que no hay: baja a su token
+    // propio (`--detail-banner-alto-sin-fondo`, 10 rem), porque la franja
+    // entera sería un hueco negro.
     await page.unroute('**/api/anime/*/*/enrichment')
     await enriquecer(page, false)
     await page.reload()
 
     const sinFondo = await altoDeLaBanda(page)
 
-    expect(sinFondo).toBe(conFondo)
-    // Y el alto es el del token (`--detail-banner-alto`, 16rem), no un hueco.
+    // Y lo que se aplica es la variante, no que el contenido salga más bajo.
+    await expect(bandaCargada(page)).toHaveClass(/detail__banner--sin-fondo/)
     expect(conFondo).toBeGreaterThanOrEqual(256)
+    expect(sinFondo).toBeGreaterThanOrEqual(160)
+    expect(sinFondo).toBeLessThan(conFondo)
   })
 })
 
@@ -495,14 +499,14 @@ test.describe('de la búsqueda al detalle', () => {
     await entrar(page)
 
     await page.goto('/anime/fixture/aurora-nocturna')
-    await expect(page).toHaveTitle('Aurora Nocturna · rona', { timeout: 15_000 })
+    await expect(page).toHaveTitle('Aurora Nocturna · RoNa', { timeout: 15_000 })
 
     const otra = await context.newPage()
     await otra.goto('/anime/fixture/mar-de-cristal')
-    await expect(otra).toHaveTitle('Mar de Cristal · rona', { timeout: 15_000 })
+    await expect(otra).toHaveTitle('Mar de Cristal · RoNa', { timeout: 15_000 })
 
     // La primera sigue con el suyo: la segunda no lo pisó.
-    await expect(page).toHaveTitle('Aurora Nocturna · rona')
+    await expect(page).toHaveTitle('Aurora Nocturna · RoNa')
 
     await otra.close()
   })

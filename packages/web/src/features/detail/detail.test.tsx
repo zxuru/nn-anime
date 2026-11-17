@@ -1229,6 +1229,10 @@ describe('pantalla de detalle', () => {
 
     expect(html).toContain('Cargando la ficha')
     expect(html).toContain('aria-busy="true"')
+    // La banda reserva el alto sin banner: el esqueleto no sabe si el
+    // enriquecimiento traerá imagen, y los 16 rem de una que puede no llegar
+    // dejaban la portada 96 px más abajo que en la ficha cargada.
+    expect(html).toContain('class="detail__banner detail__banner--sin-fondo"')
   })
 
   test('ningún dato de proveedor se inserta como HTML', async () => {
