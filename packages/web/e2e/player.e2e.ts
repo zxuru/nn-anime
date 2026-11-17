@@ -354,7 +354,7 @@ test.describe('el reproductor', () => {
     await entrar(page)
     await page.goto('/watch/fixture/aurora-nocturna%233')
 
-    await expect(page).toHaveTitle('Aurora Nocturna · Episodio 3 · rona', { timeout: 15_000 })
+    await expect(page).toHaveTitle('Aurora Nocturna · Episodio 3 · RoNa', { timeout: 15_000 })
     await expect(page.getByRole('heading', { level: 1, name: 'Aurora Nocturna' })).toBeVisible()
     // El episodio, en una sola línea: el número, el lugar que ocupa de cuántos.
     await expect(page.locator('.watch__episode')).toHaveText('Episodio 3 de 12')

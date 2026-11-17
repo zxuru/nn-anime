@@ -3055,16 +3055,48 @@ de trabajo no enseñaba porque tenía cambios sin commitear de otra sesión:
    cambio de disposición sin commitear en el árbol que lo corrige, y esta tarea lo fija con su
    medición.
 
+**Resolución de los siete:**
+
+1. **El salto de 96 px era del esqueleto.** Reservaba la banda con los 16 rem del banner, pero la
+   ficha sin banner baja a su token de 10 rem (T236). La banda del esqueleto usa ya
+   `detail__banner--sin-fondo`: no sabe si el enriquecimiento traerá imagen y reserva el alto que
+   tiene mientras no la hay.
+2. **Manda el nombre visible.** La ficha dice «Proveedor de prueba», que es el `name` del proveedor
+   en `/api/providers` y lo que ya esperaba `failure.e2e`; el id `fixture` es del arnés.
+3. **La banda condicional es el contrato.** La prueba anterior a T236 exigía el mismo alto con y sin
+   banner; ahora comprueba que sin banner baja a su token (`160` px de mínimo) y que con banner mide
+   los `256` de `--detail-banner-alto`.
+4. y 6. **`RoNa`, desde T252.** Las dos expectativas se quedaron en «rona» minúscula; se alinean con
+   `app.name` y con las pruebas del componente.
+5. **No era una carrera de arranque: era una migración duplicada.** La prueba escribía
+   `0016-prueba-actualizacion.sql`, que choca con `0016-anilist-mal.sql`; el segundo servidor salía
+   con 3 («hay dos migraciones con la misma versión»). La versión se calcula ahora a partir de las
+   migraciones que hay, así que la próxima migración real no vuelve a romperla.
+7. **Ya estaba hecho** en `d0258f2`: el pie de la aplicación va fuera del presupuesto de alto de la
+   sala, y la lista de episodios vive en su columna.
+
 **Aceptación:**
-- [ ] Cada uno de los siete está arreglado o declarado con su motivo, y el e2e completo pasa en un
+- [x] Cada uno de los siete está arreglado o declarado con su motivo, y el e2e completo pasa en un
       checkout limpio.
-- [ ] Las expectativas de nombre (`RoNa`) y de nombre visible del proveedor se alinean con el
+- [x] Las expectativas de nombre (`RoNa`) y de nombre visible del proveedor se alinean con el
       contrato, no al revés.
-- [ ] Se mide mutando lo que se arregle: devolver la causa deja el caso en rojo.
-- [ ] `bun install`, `bun run build`, `bun test` y `bun run e2e` quedan en 0 en el checkout limpio.
+- [x] Se mide mutando lo que se arregle: devolver la causa deja el caso en rojo.
+- [x] `bun install`, `bun run build`, `bun test` y `bun run e2e` quedan en 0 en el checkout limpio.
+
+**Verificación:** `bun run build` 0 · `bun test` **4017 pasan, 0 fallan** (242 archivos) ·
+`bun run typecheck` 0 · `bun run lint` 0 errores (33 avisos y 1 info; el aviso de más es el
+`innerText` de `favorites.e2e.ts`, ajeno a esta tarea) · e2e completo **171 pasan, 0 fallan** (5,4
+min) con `bun run playwright test --grep-invert 'proveedor que falla'`. En este sandbox
+`bun run e2e` no arranca: el servidor del arnés muere en `mkdtemp` con `EPERM` al crear el temporal
+del sistema, y con la misma orden por `bun run playwright` corre entera. Medido mutando: quitar
+`detail__banner--sin-fondo` del esqueleto deja la portada 96 px abajo y pone en rojo la prueba del
+componente; volver a `0016` en la migración de prueba hace salir al segundo servidor con 3; devolver
+«· rona» deja en rojo los dos títulos.
+
+**Estado:** hecho.
 
 **Depende de:** T43, T239, T252.
-**Archivos:** `packages/web/e2e/`, y el CSS del pie/lista si el desborde de 65 px lo exige.
+**Archivos:** `packages/web/e2e/`, `packages/web/src/features/detail/{AnimeDetailSkeleton,detail.test}.tsx`.
 **Tamaño:** M.
 
 ---

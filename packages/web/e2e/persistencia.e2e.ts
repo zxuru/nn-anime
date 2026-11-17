@@ -9,7 +9,7 @@
  *
  * Que el mecanismo sea real es el punto: el directorio de migraciones se inyecta
  * con `RONA_MIGRATIONS_DIR` —la variable que ya usa el binario compilado—,
- * el segundo servidor aplica la migración 16 de prueba y el `dataDir` es el
+ * el segundo servidor aplica una migración de prueba más y el `dataDir` es el
  * mismo. No hay ninguna tabla ni fila creada a mano: lo que se mira lo escribió
  * el reproductor por la API.
  *
@@ -280,8 +280,14 @@ test.describe('persistencia entre versiones', () => {
       await v1.detener()
       v1 = undefined
 
+      // El número no se escribe a mano: con «0016» chocó con la migración real
+      // `0016-anilist-mal.sql` cuando el esquema creció, y el segundo servidor
+      // se negó a arrancar con «hay dos migraciones con la misma versión». La
+      // prueba pregunta cuál es la siguiente y la usa.
+      const versionNueva = await siguienteVersion(MIGRACIONES)
+
       await writeFile(
-        join(migracionesV2, '0016-prueba-actualizacion.sql'),
+        join(migracionesV2, `${versionNueva}-prueba-actualizacion.sql`),
         'ALTER TABLE setting ADD COLUMN origen_actualizacion TEXT;\n',
       )
 
@@ -309,7 +315,7 @@ test.describe('persistencia entre versiones', () => {
         { cwd: RAIZ, encoding: 'utf8' },
       )
       expect(version.status).toBe(0)
-      expect(version.stdout.trim()).toBe('16')
+      expect(version.stdout.trim()).toBe(String(Number(versionNueva)))
 
       await entrarEn(page, v2.bootUrl)
 
@@ -353,6 +359,18 @@ test.describe('persistencia entre versiones', () => {
     }
   })
 })
+
+/** La versión que sigue a la última migración del directorio, con cuatro cifras. */
+async function siguienteVersion(dir: string): Promise<string> {
+  const versiones = (await readdir(dir))
+    .map((archivo) => /^(\d{4})-/.exec(archivo)?.[1])
+    .filter((version): version is string => version !== undefined)
+    .map(Number)
+
+  if (versiones.length === 0) throw new Error(`no hay migraciones en ${dir}`)
+
+  return String(Math.max(...versiones) + 1).padStart(4, '0')
+}
 
 /** Lee un directorio que puede no existir, sin romper el test por eso. */
 async function readdirDe(dir: string): Promise<readonly string[]> {

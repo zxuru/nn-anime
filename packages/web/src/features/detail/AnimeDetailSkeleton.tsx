@@ -87,7 +87,10 @@ export function AnimeDetailSkeleton(props: AnimeDetailSkeletonProps): ReactNode 
         {t(DEFAULT_LOCALE, CARGA.status)}
       </p>
 
-      <header className="detail__banner">
+      {/* Mientras no se sabe si habrá banner, la banda usa el alto sin fondo.
+          Reservar los 16 rem de la imagen que puede que no llegue dejaba la
+          portada 96 px más abajo que en la ficha cargada. */}
+      <header className="detail__banner detail__banner--sin-fondo">
         <div className="detail__banner-caja">
           {optimistic === undefined ? (
             <Skeleton h="var(--text-2xl)" w="62%" className="detalle-esqueleto__titulo" />
