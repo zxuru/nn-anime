@@ -1,11 +1,12 @@
 /**
  * Las otras fuentes que tienen esta misma obra.
  *
- * Es el «También en» que la búsqueda ya usa desde T66, en la ficha: la obra **no
+ * Es el «También en» de la ficha, el sitio donde se elige la fuente: la obra **no
  * se fusiona** —cada fuente tiene su referencia y sus episodios— y el enlace lleva
- * a la ficha de la otra, que es donde se elige. Sin otras fuentes la sección no se
- * pinta: un título que sólo está en un sitio no tiene nada que elegir, y un hueco
- * vacío lo único que dice es que algo falta.
+ * a la ficha de la otra. La rejilla de la búsqueda no repite esta lista: una
+ * tarjeta por obra, y las fuentes se eligen aquí. Sin otras fuentes la sección no
+ * se pinta: un título que sólo está en un sitio no tiene nada que elegir, y un
+ * hueco vacío lo único que dice es que algo falta.
  *
  * El servidor ya excluye la fuente que se está viendo; el filtro se repite aquí
  * porque es esta pantalla la que sabe cuál es, y una lista con la fuente de delante

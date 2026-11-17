@@ -320,8 +320,10 @@ objeto puesto encima y no como una caja más.
 - **Disabled:** texto y borde en ceniza, sin relleno.
 
 ### Chips
-- **Sello de origen** (búsqueda): fondo tenue, texto de rótulo, relleno `0.2rem 0.4rem`, sin radio.
-  Dice de qué proveedor viene un resultado; no es un filtro y no se pulsa.
+- **Sello:** fondo tenue, texto de rótulo, relleno `0.2rem 0.4rem`, sin radio. Acompaña un dato de
+  estado —el modo de un episodio, lo que ya está en tus fuentes—; no es un filtro y no se pulsa.
+  La tarjeta de la búsqueda no lleva sello de origen: lo que se busca es una obra, y la fuente se
+  elige en su ficha.
 
 ### Cards / Containers
 - **Pieza:** cartel 2:3, radio 10 px, borde 1 px de regla, fondo superficie, arte a sangre recortado

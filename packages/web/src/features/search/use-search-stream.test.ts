@@ -4,7 +4,6 @@ import type { SearchResult } from '@rona/core/models'
 import { ApiError } from '../../api/client'
 import {
   activeProviderIds,
-  alternativas,
   createPrefetcher,
   createSearchHub,
   fetchProviderPriority,
@@ -206,19 +205,6 @@ describe('agrupación de duplicados', () => {
     expect(
       groupResults([resultado('uno', 'a', 'Éxito'), resultado('dos', 'b', 'e\u0301xito')]),
     ).toHaveLength(1)
-  })
-
-  test('las alternativas de una obra son los demás proveedores, no ella misma', () => {
-    const [grupo] = groupResults([
-      resultado('uno', 'a', 'Aurora'),
-      resultado('dos', 'b', 'Aurora'),
-      resultado('tres', 'c', 'Aurora'),
-    ])
-    // Sin el grupo no hay nada que comprobar; el `if` evita un `as` que
-    // silenciaría el tipo.
-    if (grupo === undefined) throw new Error('la agrupación no devolvió ningún grupo')
-
-    expect(alternativas(grupo, 'dos').map((item) => item.ref.providerId)).toEqual(['uno', 'tres'])
   })
 })
 

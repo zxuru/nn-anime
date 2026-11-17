@@ -185,19 +185,11 @@ describe('tarjeta', () => {
     expect(html).toContain('Título')
   })
 
-  test('lleva la etiqueta del proveedor de origen', () => {
+  test('no lleva sello de origen: la obra es el resultado, no el proveedor', () => {
     const html = render(<ResultCard result={resultado('mio', 't1', 'Uno')} />)
 
-    expect(html).toContain('Origen: mio')
-  })
-
-  test('el nombre del proveedor gana sobre su id cuando se conoce', () => {
-    const html = render(
-      <ResultCard result={resultado('mio', 't1', 'Uno')} providerLabel="Mi fuente" />,
-    )
-
-    expect(html).toContain('Origen: Mi fuente')
-    expect(html).not.toContain('Origen: mio')
+    expect(html).not.toContain('Origen:')
+    expect(html).not.toContain('class="badge"')
   })
 
   test('pide la portada al proxy, nunca al sitio del proveedor', () => {
@@ -306,7 +298,7 @@ describe('rejilla y estado vacío', () => {
     expect(html).toContain('href="/anime/otro/t2?q=uno"')
   })
 
-  test('dos proveedores con la misma obra pintan una tarjeta, con la otra fuente enlazada', () => {
+  test('dos proveedores con la misma obra pintan una sola tarjeta', () => {
     const html = render(
       <ResultGrid
         query="kimetsu"
@@ -314,12 +306,6 @@ describe('rejilla y estado vacío', () => {
           resultado('jkanime', 'kimetsu', 'Kimetsu no Yaiba'),
           resultado('animeav1', 'kimetsu-no-yaiba', 'Kimetsu no Yaiba'),
         ]}
-        providerLabels={
-          new Map([
-            ['jkanime', 'JKANIME'],
-            ['animeav1', 'ANIMEAV1'],
-          ])
-        }
         done
       />,
     )
@@ -328,29 +314,29 @@ describe('rejilla y estado vacío', () => {
     // se reportó. La mutación que quite la agrupación de `ResultGrid` deja esto
     // en rojo con dos.
     expect(html.match(/<li class="grid__item"/g)).toHaveLength(1)
-    // Las dos direcciones —la de la tarjeta y la de «También en»— dejan el
-    // rastro de la búsqueda: abrir la ficha desde cualquiera de las dos es lo
-    // mismo para el motor.
-    expect(html).toContain('href="/anime/jkanime/kimetsu?q=kimetsu"')
-    expect(html).toContain('href="/anime/animeav1/kimetsu-no-yaiba?q=kimetsu"')
-    expect(html).toContain('También en')
-    expect(html).toContain('>ANIMEAV1</a>')
+    // La tarjeta deja el rastro de la búsqueda en su dirección.
+    expect(html).toContain('?q=kimetsu')
+    // Y no lista la otra fuente: la tarjeta no es un índice de proveedores.
+    expect(html).not.toContain('También en')
+    expect(html).not.toContain('class="card__extra"')
   })
 
-  test('sin duplicados no aparece el «también en»', () => {
+  test('ninguna tarjeta lleva sello ni fuentes alternativas', () => {
     const html = render(<ResultGrid query="uno" results={[resultado('mio', 't1', 'Uno')]} done />)
 
     expect(html).not.toContain('También en')
     expect(html).not.toContain('card__extra')
+    expect(html).not.toContain('Origen:')
+    expect(html).not.toContain('class="badge"')
   })
 
   /**
-   * La prioridad de los ajustes elige **cuál** de las fuentes da la tarjeta; la
-   * otra sigue en «También en». Mutar `ResultGrid` para no pasar la prioridad a
-   * `groupResults` deja esta prueba en rojo: la tarjeta se quedaría con `jkanime`,
-   * que es el primero que respondió.
+   * La prioridad de los ajustes elige **cuál** de las fuentes da la tarjeta.
+   * Mutar `ResultGrid` para no pasar la prioridad a `groupResults` deja esta
+   * prueba en rojo: la tarjeta se quedaría con `jkanime`, que es el primero que
+   * respondió.
    */
-  test('la tarjeta lleva al proveedor preferido, y el otro sigue en «También en»', () => {
+  test('la tarjeta lleva al proveedor preferido', () => {
     const html = render(
       <ResultGrid
         query="kimetsu"
@@ -369,8 +355,8 @@ describe('rejilla y estado vacío', () => {
     const enlace = html.slice(carta, html.indexOf('</a>', carta))
 
     expect(enlace).toContain('href="/anime/animeav1/kimetsu-no-yaiba?q=kimetsu"')
-    expect(html).toContain('También en')
-    expect(html).toContain('>jkanime</a>')
+    // La otra fuente ya no se pinta en la rejilla: se elige en la ficha.
+    expect(html).not.toContain('href="/anime/jkanime/kimetsu?q=kimetsu"')
   })
 
   test('sin resultados dice qué consulta no encontró nada', () => {

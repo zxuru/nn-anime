@@ -169,15 +169,12 @@ function porPreferencia(priority: readonly string[]): (a: SearchResult, b: Searc
  * identidad la resuelve `groupByWork` en `core` —título, alternativa y
  * referencia, para que «Danmachi» y «Dungeon ni Deai wo Motomeru no wa
  * Machigatteiru Darou ka» sean la misma obra— y aquí sólo queda lo que es
- * presentación: qué nombre da la tarjeta y en qué orden se pintan sus fuentes.
+ * presentación: qué fuente da el nombre y abre la tarjeta.
  *
- * **No se fusionan las referencias**: quien elige la fuente es el usuario, con
- * un enlace por proveedor, porque abrir la tarjeta lleva a una ficha concreta y
- * no a una media.
- *
- * `priority` es el orden de preferencia guardado en los ajustes y decide **cuál**
- * de las fuentes da el nombre y el enlace de la tarjeta. Sin él —vacío, o con un
- * id que ya no existe— todo queda como estaba.
+ * **No se fusionan las referencias**: la tarjeta lleva a la ficha de **una**
+ * fuente concreta y no a una media. Cuál de ellas lo decide `priority`, el orden
+ * de preferencia guardado en los ajustes; sin él —vacío, o con un id que ya no
+ * existe— gana la regla de siempre, el nombre más largo.
  */
 export function groupResults(
   results: readonly SearchResult[],
@@ -195,16 +192,6 @@ export function groupResults(
       results: ordenados,
     }
   })
-}
-
-/**
- * Los demás proveedores que ofrecen la misma obra, sin el de la tarjeta.
- *
- * Es el «selector de proveedor»: cada uno es un enlace a la ficha de esa fuente,
- * así que la obra sale una vez y las fuentes siguen siendo elegibles.
- */
-export function alternativas(grupo: ResultGroup, providerId: string): readonly SearchResult[] {
-  return grupo.results.filter((result) => result.ref.providerId !== providerId)
 }
 
 /** Los ids de los proveedores activos: los que la búsqueda va a consultar. */

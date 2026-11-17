@@ -129,7 +129,7 @@ export interface PiezaProps {
   readonly resto?: string | undefined
   readonly progreso?: number | undefined
   readonly progresoEtiqueta?: string | undefined
-  /** El sello de origen y de otras fuentes, en Buscar. */
+  /** El sello de lo que ya está en tus fuentes, en la búsqueda cruzada. */
   readonly sello?: readonly string[] | undefined
   /** La sinopsis, en el asomo y en la hoja. El motivo va en el pie y en la hoja. */
   readonly sinopsis?: string | undefined
