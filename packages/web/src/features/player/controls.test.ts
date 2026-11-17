@@ -101,6 +101,24 @@ describe('qué tecla hace qué', () => {
     expect(keyAction({ key: ' ', isContentEditable: true })).toBeUndefined()
   })
 
+  /**
+   * Un mando enfocado activa lo suyo.
+   *
+   * `keyAction` escucha en la ventana, así que sin este guardián `Enter` y
+   * `Espacio` se convertían en `toggle` y el botón o el enlace no se activaban
+   * nunca. El resto de atajos no activan nada por sí solos: `k` sigue llegando
+   * al reproductor aunque el foco esté en un mando.
+   */
+  test('Enter y Espacio dentro de un mando son del mando', () => {
+    for (const key of ['Enter', ' ']) {
+      expect(keyAction({ key, tagName: 'BUTTON', interactive: true }), key).toBeUndefined()
+      expect(keyAction({ key, tagName: 'A', interactive: true }), key).toBeUndefined()
+    }
+
+    expect(keyAction({ key: 'k', tagName: 'BUTTON', interactive: true })).toBe('toggle')
+    expect(keyAction({ key: 'Enter', tagName: 'BUTTON', interactive: false })).toBe('toggle')
+  })
+
   test('reconoce los campos por su etiqueta, sin mirar el tipo', () => {
     expect(isTypingTarget({ key: '', tagName: 'input' })).toBe(true)
     expect(isTypingTarget({ key: '', tagName: 'DIV' })).toBe(false)

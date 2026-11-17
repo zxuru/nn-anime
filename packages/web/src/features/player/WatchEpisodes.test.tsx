@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import type { WatchedEpisodePayload } from '@rona/core/api'
 import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { EpisodeRow, type EpisodeRowProps } from './WatchEpisodes'
@@ -126,4 +127,46 @@ test('el renglón que no se está viendo no se marca', () => {
   const html = renglon({ current: false, animeTitle: TITULO })
 
   expect(html).not.toContain('aria-current')
+})
+
+/**
+ * La marca de lo visto, en texto.
+ *
+ * La columna es donde se encadena y no decía qué capítulos estaban vistos. La
+ * marca no puede ser sólo color: va escrita y viaja en el nombre accesible.
+ */
+describe('la marca de lo visto', () => {
+  function visto(overrides: Partial<WatchedEpisodePayload> = {}): WatchedEpisodePayload {
+    return {
+      number: 1,
+      mode: 'sub',
+      positionS: 1440,
+      durationS: 1440,
+      ratio: 1,
+      finished: true,
+      watchedAt: '2026-10-12T10:00:00.000Z',
+      ...overrides,
+    }
+  }
+
+  test('el terminado dice «Visto», en el renglón y en el nombre accesible', () => {
+    const html = renglon({ watched: visto() })
+
+    expect(html).toContain('<span class="watch__list-mark">Visto</span>')
+    expect(html).toContain('aria-label="Episodio 1, Visto"')
+  })
+
+  test('el que está a medias dice el porcentaje', () => {
+    const html = renglon({ watched: visto({ ratio: 0.4, finished: false }) })
+
+    expect(html).toContain('<span class="watch__list-mark">40 %</span>')
+    expect(html).toContain('aria-label="Episodio 1, 40 %"')
+  })
+
+  test('sin datos no se inventa una marca', () => {
+    const html = renglon()
+
+    expect(html).not.toContain('watch__list-mark')
+    expect(html).toContain('aria-label="Episodio 1"')
+  })
 })
