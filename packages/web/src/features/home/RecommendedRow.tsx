@@ -4,8 +4,8 @@
  * Va segundo, justo detrás de lo que se retoma, porque es la única fila que
  * **no** está en el catálogo por lo que ha publicado la fuente ni por lo que el
  * usuario guardó: está porque el motor cree que va con él. Y se enseña entera: el
- * motivo viaja en la pieza —en el asomo y en la hoja—, así que la razón de cada
- * recomendación se lee sin abrir nada.
+ * motivo viaja en la pieza —en el pie y en la hoja—, así que la razón de cada
+ * recomendación se lee sin abrir nada ni pasar el puntero por encima.
  *
  * La **puntuación** no se enseña: era el número con el que el motor ordena, no algo
  * con lo que el usuario decida qué ver, y tres decimales sin escala («0.300», y
@@ -19,7 +19,8 @@
  * Todas las piezas pesan lo mismo —un cartel de una columna—: en un tramo de tres
  * títulos nadie es más importante que nadie, y hacer uno grande sería inventarse una
  * jerarquía que el motor no ha dado. El mismo tamaño para todos es, además, lo que
- * deja la rejilla sin huecos.
+ * hace que un tramo no pese más que otro: el ancho lo da la pista del mosaico y no
+ * cuántas piezas trajo la fuente.
  */
 
 import type { RecommendationResponse } from '@rona/core/api'
