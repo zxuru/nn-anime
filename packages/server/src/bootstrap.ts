@@ -51,6 +51,15 @@ export interface BootstrapOptions {
   readonly ttlMs?: number
   /** Reloj inyectable, para poder testear la caducidad. */
   readonly now?: () => number
+  /**
+   * El token vale todas las veces que se presente mientras viva el proceso.
+   *
+   * Sólo lo pide el modo desarrollo (`bun run dev`): la SPA va en otro puerto y
+   * la dirección se abre en varios navegadores para probar. Fuera de ahí el
+   * token sigue siendo de un solo uso y caduca, porque la URL queda en el
+   * scrollback y en el historial de quien la abrió.
+   */
+  readonly reusable?: boolean
 }
 
 export function bootstrapHandler(options: BootstrapOptions): MiddlewareHandler {
@@ -62,7 +71,12 @@ export function bootstrapHandler(options: BootstrapOptions): MiddlewareHandler {
     const presented = c.req.query(BOOT_PARAM)
     if (presented === undefined) return next()
 
-    if (redeemed || now() > expiresAt || !safeEqual(presented, options.bootToken)) {
+    // En desarrollo no hay quema ni caducidad: la misma dirección abre cada
+    // navegador mientras el proceso siga vivo. La comparación del token sigue
+    // siendo obligatoria, que es lo que impide que cualquier origen local se
+    // haga con una sesión.
+    const vigente = options.reusable === true || (!redeemed && now() <= expiresAt)
+    if (!vigente || !safeEqual(presented, options.bootToken)) {
       return c.text('', 401)
     }
 
@@ -77,7 +91,7 @@ export function bootstrapHandler(options: BootstrapOptions): MiddlewareHandler {
 
     // El token se quema sólo cuando la cookie ya está puesta. Al revés, un
     // fallo al emitirla dejaría el token gastado y al usuario sin sesión.
-    redeemed = true
+    if (options.reusable !== true) redeemed = true
 
     return c.redirect(safeRedirect(options.redirectTo), 302)
   }

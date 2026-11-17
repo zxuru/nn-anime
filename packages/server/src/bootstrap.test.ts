@@ -176,6 +176,47 @@ describe('canje del token de arranque', () => {
   })
 })
 
+describe('canje reutilizable del modo desarrollo', () => {
+  test('cada navegador canjea el mismo token y recibe su cookie', async () => {
+    const bootToken = createBootToken()
+    const target = app(makeSession(), bootToken, { bootTokenReusable: true })
+
+    const first = await target.request(`${BASE}/?boot=${bootToken}`)
+    const second = await target.request(`${BASE}/?boot=${bootToken}`)
+
+    expect(first.status).toBe(302)
+    expect(second.status).toBe(302)
+    expect(second.headers.get('set-cookie') ?? '').toContain(SESSION_COOKIE)
+  })
+
+  test('sigue exigiendo el token correcto', async () => {
+    const target = app(makeSession(), createBootToken(), { bootTokenReusable: true })
+
+    const response = await target.request(`${BASE}/?boot=otro`)
+
+    expect(response.status).toBe(401)
+    expect(response.headers.get('set-cookie')).toBeNull()
+  })
+
+  test('no caduca mientras viva el proceso', async () => {
+    const bootToken = createBootToken()
+    let clock = 1_000_000
+    const target = createApp({
+      port: PORT,
+      session: makeSession(),
+      bootToken,
+      version: '0.1.0',
+      bootTokenReusable: true,
+      bootstrapClock: () => clock,
+    })
+
+    clock += 24 * 60 * 60 * 1000
+    const response = await target.request(`${BASE}/?boot=${bootToken}`)
+
+    expect(response.status).toBe(302)
+  })
+})
+
 describe('caducidad del token de arranque', () => {
   test('dentro del plazo se puede canjear', async () => {
     const bootToken = createBootToken()
