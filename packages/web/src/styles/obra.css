@@ -1760,7 +1760,13 @@ body.player-extendido {
  * puede leer un token. La lista se desplaza **dentro**: el video se queda donde
  * está mientras se busca el episodio. Y se lleva el alto que le deje la columna
  * del video: al lado, esa columna es la de la pantalla, y la lista enseña tantos
- * episodios como quepan; debajo, manda el tope de siempre.
+ * episodios como quepan.
+ *
+ * El tope de alto va aquí y no en la lista: al lado del reproductor la columna
+ * mide el hueco visible y el `stretch` de la fila ya la deja en su sitio, así
+ * que no recorta nada; debajo del reproductor es lo que impide que mil
+ * episodios estiren la página. `min-block-size: 0` deja que la lista —el hijo
+ * que se desplaza— encoja por debajo de su contenido.
  */
 .watch__aside {
   display: flex;
@@ -1768,7 +1774,9 @@ body.player-extendido {
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
+  min-block-size: 0;
   max-width: var(--watch-episodes-max);
+  max-height: var(--watch-list-height);
 }
 
 .watch__aside-title {
@@ -1787,6 +1795,10 @@ body.player-extendido {
  * dentro en lugar de recortar el último renglón. `min-block-size: 0` no sobra:
  * sin él, un flex item no baja de su tamaño de contenido y el desplazamiento
  * interno no llega a existir.
+ *
+ * Sin `max-height` propio: el tope vive en la columna, que es la que sabe si la
+ * lista va al lado del video —alto del hueco visible— o debajo. Ponerlo aquí
+ * dejaba la lista corta y con barra aunque la columna tuviera sitio de sobra.
  */
 .watch__list {
   display: flex;
@@ -1794,7 +1806,6 @@ body.player-extendido {
   flex-direction: column;
   gap: var(--space-1);
   min-block-size: 0;
-  max-height: var(--watch-list-height);
   margin: 0;
   padding: 0;
   overflow-y: auto;
