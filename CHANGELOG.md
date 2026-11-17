@@ -7,6 +7,20 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.10.0](https://github.com/zxuru/nn-anime/compare/v0.9.0...v0.10.0) (2026-11-17)
+
+
+### Features
+
+* **dev:** el token de arranque sirve para varios navegadores (T281) ([50bb3e8](https://github.com/zxuru/nn-anime/commit/50bb3e8385a6488c647e15954a98371de69c5d96))
+* **dev:** la entrada del modo desarrollo no pide token (T282) ([6db66c9](https://github.com/zxuru/nn-anime/commit/6db66c9dd45892e0df73ea799eb67c0807369aaa))
+
+
+### Bug Fixes
+
+* **release:** respetar parche picomatch (T283; auditoría local bloqueada por DNS) ([6c9e389](https://github.com/zxuru/nn-anime/commit/6c9e389e815a487f65c8495447540ee45343886f))
+* **web:** corregir rutas y anuncios de páginas (T280) ([61e49e3](https://github.com/zxuru/nn-anime/commit/61e49e36d00e90f3c4ea35521c9ac7b121559caf))
+
 ## [0.9.0](https://github.com/zxuru/nn-anime/compare/v0.8.0...v0.9.0) (2026-11-17)
 
 
