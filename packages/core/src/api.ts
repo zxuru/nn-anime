@@ -762,7 +762,16 @@ export const airingItemSchema = z.strictObject({
   ref: providerRefSchema.optional(),
 })
 
-export const airingResponseSchema = z.strictObject({ items: z.array(airingItemSchema) })
+export const airingResponseSchema = z.strictObject({
+  items: z.array(airingItemSchema),
+  /**
+   * La fuente no contestó y la lista vacía no significa «no hay nada».
+   *
+   * Es lo que separa «no hay estrenos esta semana» de «AniList no respondió»; sin
+   * esta señal, la fila vacía culpaba a la parrilla de un fallo de la lectura.
+   */
+  unavailable: z.boolean().optional(),
+})
 
 /**
  * Lo que AniList sabe de una obra, ya saneado.

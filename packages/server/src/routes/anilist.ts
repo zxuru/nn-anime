@@ -259,7 +259,9 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
       airingDays(c.req.query('days')),
       c.req.raw.signal,
     )
-    if (!resultado.ok) return c.json(airingResponseSchema.parse({ items: [] }))
+    if (!resultado.ok) {
+      return c.json(airingResponseSchema.parse({ items: [], unavailable: true }))
+    }
 
     const visibles = sinAdultos(resultado.value, conAdultos, (cita) => cita.media.adult)
     const refs = await options.catalog.localRefs(visibles.map((cita) => cita.media))
@@ -278,7 +280,9 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
 
     const conAdultos = await adultContentOf(options.container.store)
     const resultado = await options.catalog.recent(media, conAdultos, c.req.raw.signal)
-    if (!resultado.ok) return c.json(airingResponseSchema.parse({ items: [] }))
+    if (!resultado.ok) {
+      return c.json(airingResponseSchema.parse({ items: [], unavailable: true }))
+    }
 
     const visibles = sinAdultos(resultado.value, conAdultos, (cita) => cita.media.adult)
     const refs = await options.catalog.localRefs(visibles.map((cita) => cita.media))

@@ -243,9 +243,19 @@ export function mergeRows(
     emisiones,
     // El fallo sólo se declara cuando la fila se queda sin nada que enseñar: una
     // relectura fallida no convierte en «AniList no contestó» una fila que sigue
-    // mostrando lo de la lectura anterior.
-    parrillaCaida: resultados.parrilla.status === 'rejected' && parrilla.length === 0,
-    emisionesCaida: resultados.emisiones.status === 'rejected' && emisiones.length === 0,
+    // mostrando lo de la lectura anterior. La ruta devuelve `unavailable` cuando
+    // AniList está apagado o no responde: un 200 con la lista vacía no distingue
+    // por sí solo «no hay estrenos» de «no hubo respuesta».
+    parrillaCaida:
+      parrilla.length === 0 &&
+      (resultados.parrilla.status === 'rejected' ||
+        (resultados.parrilla.status === 'fulfilled' &&
+          resultados.parrilla.value.unavailable === true)),
+    emisionesCaida:
+      emisiones.length === 0 &&
+      (resultados.emisiones.status === 'rejected' ||
+        (resultados.emisiones.status === 'fulfilled' &&
+          resultados.emisiones.value.unavailable === true)),
   }
 }
 

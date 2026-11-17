@@ -291,6 +291,20 @@ describe('las filas, cuando una lectura falla', () => {
 
     expect(viva.parrillaCaida).toBe(false)
     expect(viva.emisionesCaida).toBe(false)
+
+    const apagada = combineRows({
+      continueWatching: ok({ items: [] }),
+      favorites: ok({ favorites: [] }),
+      trending: ok({ items: [] }),
+      feed: ok({ items: [] }),
+      recent: ok({ items: [] }),
+      descubrir: ok({ items: [] }),
+      parrilla: ok({ items: [], unavailable: true }),
+      emisiones: ok({ items: [], unavailable: true }),
+    })
+
+    expect(apagada.parrillaCaida).toBe(true)
+    expect(apagada.emisionesCaida).toBe(true)
   })
 
   test('sin sesión lo dice, en vez de mandar a mirar el servidor', () => {
