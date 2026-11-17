@@ -5,6 +5,7 @@
  * `boot`. Sin él, deja pasar: `/` es también la ruta de la interfaz.
  */
 
+import { DEV_BOOT_NEXT_PARAM } from '@rona/core'
 import type { MiddlewareHandler } from 'hono'
 import { setCookie } from 'hono/cookie'
 import { type Session, safeEqual } from './session'
@@ -93,6 +94,14 @@ export function bootstrapHandler(options: BootstrapOptions): MiddlewareHandler {
     // fallo al emitirla dejaría el token gastado y al usuario sin sesión.
     if (options.reusable !== true) redeemed = true
 
-    return c.redirect(safeRedirect(options.redirectTo), 302)
+    // La entrada automática del modo desarrollo puede traer el enlace que el
+    // navegador pedía; se valida con la misma función que el destino fijo, así
+    // que un `next` absoluto sigue cayendo en la raíz.
+    const pedido = options.reusable === true ? c.req.query(DEV_BOOT_NEXT_PARAM) : undefined
+
+    return c.redirect(
+      pedido === undefined ? safeRedirect(options.redirectTo) : safeRedirect(pedido),
+      302,
+    )
   }
 }

@@ -59,7 +59,8 @@ Comportamiento de arranque, en orden estricto:
 4. Cargar plugins de proveedor de `providers/`. Un plugin roto se reporta y se omite.
 5. Generar un token de arranque de 32 bytes con CSPRNG. En un arranque normal es de un solo uso.
    Con `RONA_DEV_ORIGIN` —el modo desarrollo— se puede canjear mientras viva el proceso, para
-   abrir la misma dirección en más de un navegador.
+   abrir la misma dirección en más de un navegador. El server registra además `/__dev/boot`, que
+   devuelve ese mismo `?boot=` a quien navegue sin sesión; sólo existe en desarrollo.
 6. `Bun.serve` en `127.0.0.1:<puerto>`, con las cabeceras de seguridad del spec de proyecto en
    todas las respuestas.
 7. Si `--no-open` no está, abrir el navegador en `/?boot=<token>` con `xdg-open`, `open` o `start`

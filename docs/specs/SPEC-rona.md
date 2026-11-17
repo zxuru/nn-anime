@@ -324,7 +324,9 @@ Mitigaciones obligatorias. Todas son verificables por un test.
    con URL limpia y quema el token de arranque, que además caduca a los cinco minutos: la URL
    queda en el scrollback de la terminal y no debe seguir valiendo horas después. En desarrollo
    (`RONA_DEV_ORIGIN`) la excepción es explícita: el token se puede canjear mientras viva el
-   proceso para abrir la misma dirección en varios navegadores, y la API sigue atada a loopback. El
+   proceso para abrir la misma dirección en varios navegadores, y el server expone `/__dev/boot`
+   para que Vite mande allí a quien navegue sin sesión. La ruta no se registra fuera de desarrollo
+   y la API sigue atada a loopback. El
    token de sesión nunca vuelve a tocar
    JavaScript, así que un XSS en la propia interfaz no puede exfiltrarlo. Sin cookie válida, 401.
 3. **Comparación en tiempo constante.** La cookie se compara con `crypto.timingSafeEqual` sobre

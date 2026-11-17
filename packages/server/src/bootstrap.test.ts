@@ -343,6 +343,34 @@ describe('destino tras el canje', () => {
     expect(response.headers.get('location')).toBe('/search?q=naruto')
   })
 
+  test('en el modo reutilizable, el enlace pedido manda sobre el destino fijo', async () => {
+    const bootToken = createBootToken()
+    const response = await app(makeSession(), bootToken, {
+      bootTokenReusable: true,
+      redirectTo: '/ajustes',
+    }).request(`${BASE}/?boot=${bootToken}&next=%2Fperfil%3Ftab%3Dhistorial`)
+
+    expect(response.headers.get('location')).toBe('/perfil?tab=historial')
+  })
+
+  test('fuera del modo reutilizable, `next` no se mira', async () => {
+    const bootToken = createBootToken()
+    const response = await app(makeSession(), bootToken, {
+      redirectTo: '/ajustes',
+    }).request(`${BASE}/?boot=${bootToken}&next=%2Fperfil`)
+
+    expect(response.headers.get('location')).toBe('/ajustes')
+  })
+
+  test('en el modo reutilizable, un `next` absoluto cae en la raíz', async () => {
+    const bootToken = createBootToken()
+    const response = await app(makeSession(), bootToken, { bootTokenReusable: true }).request(
+      `${BASE}/?boot=${bootToken}&next=%2F%2Fevil.example`,
+    )
+
+    expect(response.headers.get('location')).toBe('/')
+  })
+
   test('rechaza un destino absoluto', async () => {
     const bootToken = createBootToken()
     const response = await app(makeSession(), bootToken, {
