@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { encodeIcns, encodeIco, encodePng, render } from './icon'
+import { encodeIcns, encodeIco, encodePng, leerSvg, render } from './icon'
 
 /**
  * Lo que estas pruebas defienden.
@@ -61,6 +61,12 @@ describe('el detalle del icono se adapta al tamaño', () => {
 
     expect(alfa(0, 0), 'la esquina se recorta').toBe(0)
     expect(alfa(lado / 2, lado / 2), 'el centro pinta').toBe(255)
+  })
+
+  test('el lector del SVG falla con lo que no sabe dibujar', () => {
+    // El contrato es no dibujar otra cosa en silencio: si el maestro estrena una
+    // etiqueta, el generador se para con su nombre.
+    expect(() => leerSvg('<svg><text>RoNa</text></svg>')).toThrow(/no soportado/)
   })
 })
 
