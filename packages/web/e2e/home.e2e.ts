@@ -834,15 +834,3 @@ test.describe('el conmutador de tipo', () => {
     expect(guia?.height ?? 0).toBeGreaterThanOrEqual(44)
   })
 })
-
-test.describe('el buscador de la home', () => {
-  test('lleva el término a la pantalla de Buscar', async ({ page }) => {
-    await entrar(page)
-
-    await page.getByLabel('Buscar por título').fill('aurora')
-    await page.getByRole('button', { name: 'Buscar' }).click()
-
-    await expect(page).toHaveURL(/\/search\?q=aurora/)
-    await expect(page.getByText('Aurora Nocturna')).toBeVisible({ timeout: 10_000 })
-  })
-})

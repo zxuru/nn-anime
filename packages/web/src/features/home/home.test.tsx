@@ -24,7 +24,6 @@ import {
   sinRepetirSiQueda,
   textoDeRefresco,
 } from './HomePage'
-import { HomeSearch } from './HomeSearch'
 import { esPrimerArranque, PrimerArranque } from './PrimerArranque'
 import { RecommendedRow } from './RecommendedRow'
 import { continuePath, progressPercent, resumeLabel } from './rows'
@@ -348,12 +347,11 @@ describe('la home', () => {
     expect(sinRepetirSiQueda(fila, vistos)).toEqual(fila)
   })
 
-  test('el buscador de la home es un formulario que lleva a /search', () => {
-    const html = render(<HomeSearch />)
+  test('la home no pone un buscador propio: se busca en su pantalla', () => {
+    const html = render(<HomePage />)
 
-    expect(html).toContain('action="/search"')
-    expect(html).toContain('name="q"')
-    expect(html).toContain('placeholder="Escribe un título…"')
+    expect(html).not.toContain('home__buscador')
+    expect(html).not.toContain('placeholder="Escribe un título…"')
   })
 
   test('las novedades caídas dicen que AniList no contestó', () => {
