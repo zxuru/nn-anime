@@ -359,6 +359,92 @@ test.describe('la home', () => {
     expect(new Set(cajas.map((caja) => caja.ancho)).size).toBe(1)
   })
 
+  /**
+   * Todas las filas miden lo mismo.
+   *
+   * El mosaico se componía al número de piezas, así que una fila de cuatro las
+   * engordaba a 264×396 y una de siete las dejaba en 171×256 en la misma pantalla:
+   * el tamaño del cartel dependía de cuántos títulos devolvió la fuente. Se miden
+   * dos tramos distintos y tiene que dar el mismo ancho.
+   */
+  test('las piezas miden lo mismo en todas las filas', async ({ page }) => {
+    // A 1440, que es donde el mosaico ancho declara seis pistas: con el recuento
+    // por fila, la de cuatro daba 264 px y la de siete 171 en la misma pantalla.
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await entrar(page)
+    await esperarApp(page)
+
+    const ancho = async (nombre: string): Promise<number[]> => {
+      const tramo = page.locator('.seccion', {
+        has: page.getByRole('heading', { name: nombre, exact: false }),
+      })
+
+      return tramo
+        .locator('.mosaico .pz:not(.pz--mando)')
+        .evaluateAll((piezas) =>
+          piezas.map((pieza) => Math.round(pieza.getBoundingClientRect().width)),
+        )
+    }
+
+    const recomendado = await ancho('Recomendado para ti')
+    const novedades = await ancho('Novedades')
+
+    expect(recomendado.length).toBeGreaterThan(0)
+    expect(novedades.length).toBeGreaterThan(0)
+
+    const todos = [...recomendado, ...novedades]
+
+    expect(new Set(todos).size, `anchos distintos: ${todos.join(', ')}`).toBe(1)
+  })
+
+  /**
+   * Con algo que retomar, «continuar viendo» va antes de la marquesina.
+   *
+   * La fila existía en el documento y no en la primera pantalla: empezaba en 910 px
+   * sobre una ventana de 900, debajo del destacado. Quien vuelve a seguir un
+   * episodio no debería bajar a buscarlo. Se sirve un visionado a medias por la ruta
+   * —el arnés arranca sin historial— y se mide dónde cae cada bloque.
+   */
+  test('con algo que retomar, «continuar viendo» va antes de la marquesina', async ({ page }) => {
+    await page.route('**/api/watch/recent', async (ruta) => {
+      await ruta.fulfill({
+        json: {
+          items: [
+            {
+              animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+              title: 'Aurora Nocturna',
+              episodeRef: { providerId: 'fixture', value: 'aurora-nocturna#3' },
+              episodeNumber: 3,
+              mode: 'sub',
+              positionS: 600,
+              durationS: 1_440,
+              ratio: 0.4167,
+              watchedAt: new Date().toISOString(),
+            },
+          ],
+        },
+      })
+    })
+
+    await entrar(page)
+    await esperarApp(page)
+
+    const seguir = page.locator('.seccion', {
+      has: page.getByRole('heading', { name: 'Continuar viendo' }),
+    })
+
+    await expect(seguir.locator('.pz__titulo')).toHaveText('Aurora Nocturna')
+
+    const [cajaSeguir, cajaHero] = await Promise.all([
+      seguir.boundingBox(),
+      page.locator('.marquesina').boundingBox(),
+    ])
+
+    expect(cajaSeguir?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(cajaHero?.y ?? 0)
+    // Y dentro de la primera pantalla, que es lo que se vino a arreglar.
+    expect(cajaSeguir?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(page.viewportSize()?.height ?? 0)
+  })
+
   test('el tema se aplica al documento', async ({ page }) => {
     await entrar(page)
 

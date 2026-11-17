@@ -38,15 +38,15 @@ function resumen(titulo: string): AnimeSummary {
 }
 
 /**
- * El mosaico se compone para el número de piezas.
+ * El mosaico no compone sus pistas al número de piezas.
  *
- * La hoja usa `--mosaico-piezas` para abrir tantas pistas como piezas hay: con
- * seis pistas fijas, una fila de cuatro títulos dejaba el tercio derecho vacío.
- * El valor lo declara el contenedor, y `Children.toArray` no cuenta los `null` de
- * una condición —una fila de cuatro con un quinto hijo condicional no es de cinco—.
+ * La hoja declaraba `--mosaico-piezas` con el número de hijos y abría tantas
+ * pistas como dijera: el mismo cartel medía 264×396 en una fila de cuatro y
+ * 171×256 en una de siete, en la misma pantalla. El tamaño es del punto de corte y
+ * no del catálogo, así que el contenedor ya no declara nada.
  */
 describe('el mosaico', () => {
-  test('declara cuántas piezas lleva para que la fila se componga', () => {
+  test('no declara cuántas piezas lleva', () => {
     const html = render(
       <Mosaico>
         <span />
@@ -57,7 +57,9 @@ describe('el mosaico', () => {
       </Mosaico>,
     )
 
-    expect(html).toContain('--mosaico-piezas:4')
+    expect(html).toContain('class="mosaico"')
+    expect(html).not.toContain('--mosaico-piezas')
+    expect(html).not.toContain('style=')
   })
 })
 
@@ -125,6 +127,33 @@ describe('la pieza de la vitrina', () => {
    * de otro control no es un control, y el enlace es lo que hace que la cuadrícula
    * se pueda recorrer con el teclado.
    */
+  /**
+   * El motivo se lee sin pasar el puntero.
+   *
+   * Es la razon de que la pieza este en la fila del motor y el producto la promete
+   * legible sin abrir nada. Vivia solo en el asomo y en la hoja, que en un telefono
+   * es lo mismo: en reposo, una recomendacion era un cartel con su año.
+   */
+  test('el motivo va en el pie y no se repite en el asomo', () => {
+    const motivo = 'Comparte acción con lo que sueles ver.'
+    const html = render(
+      <Pieza
+        providerId="f"
+        ref="x"
+        title="X"
+        to="/anime/f/x"
+        sinopsis="Una flota navega un océano transparente."
+        motivo={motivo}
+      />,
+    )
+
+    const pie = html.slice(html.indexOf('pz__pie'), html.indexOf('pz__abrir'))
+
+    expect(pie).toContain('pz__motivo')
+    expect(pie).toContain(motivo)
+    expect(html.match(new RegExp(motivo, 'g')) ?? []).toHaveLength(1)
+  })
+
   test('es un enlace a la ficha y sus mandos quedan fuera del enlace', () => {
     const html = render(
       <Pieza

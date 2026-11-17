@@ -655,27 +655,27 @@
    * ocuparía la pantalla entera: ahí la pieza vuelve a ser una banda ancha —lo que
    * ya era— y se ven cuatro títulos por pantalla en vez de uno.
    */
-  --pieza-banda: clamp(6rem, 30vw, 9rem);
+  --pieza-banda: clamp(7rem, 33vw, 9.5rem);
   /** Las columnas de la rejilla de 12 que ocupa la nota al margen. */
   --vitrina-canaleta: 2;
-  /**
-   * Cuántas piezas lleva la fila del mosaico.
-   *
-   * El valor por defecto es la rejilla completa; el contenedor lo cambia en línea
-   * al número de hijos reales, y la hoja compone tantas pistas como diga. Un
-   * mosaico sin la propiedad —uno pintado a mano— sigue siendo el de seis.
-   */
-  --mosaico-piezas: 6;
   /** El aire entre el encabezado y la nota al margen pegajosa. */
   --vitrina-nota-aire: 1.25rem;
 
-  /** La marquesina: a sangre, 62 dvh, con el titular en cuerpo de cartel. */
-  --marquesina-alto: min(62dvh, 44rem);
+  /**
+   * La marquesina: a sangre, 58 dvh, con el titular en cuerpo de cartel.
+   *
+   * El alto declarado **es el que se pinta**: el titular bajó de 7,5 a 5,5 rem y
+   * el relleno de abajo se ajustó para que la columna de texto quepa dentro. Con
+   * el titular a 7,5 rem la marquesina medía 772 px sobre 900 —el doble de lo que
+   * decía el token— y empujaba la primera fila de la home por debajo del pliegue:
+   * «Continuar viendo» empezaba en 910 px con 900 de ventana.
+   */
+  --marquesina-alto: min(58dvh, 40rem);
   --marquesina-cols: minmax(0, 1fr) minmax(0, 0.58fr);
   --marquesina-aire: clamp(1rem, 3vw, 3rem);
-  --marquesina-relleno: clamp(1.5rem, 4vw, 4rem) var(--vitrina-margen) clamp(5rem, 10vw, 7rem);
+  --marquesina-relleno: clamp(1.5rem, 4vw, 4rem) var(--vitrina-margen) clamp(4.5rem, 8vw, 6rem);
   --marquesina-texto-hueco: clamp(0.6rem, 1.4vw, 1rem);
-  --marquesina-titulo: clamp(3rem, 9vw, 7.5rem);
+  --marquesina-titulo: clamp(2.75rem, 7vw, 5.5rem);
   /**
    * Los renglones que puede ocupar el titular.
    *
@@ -730,6 +730,14 @@
   --pieza-posicion: clamp(3rem, 14cqi, 6rem);
   --pieza-episodio: clamp(1rem, 3cqi + 0.4rem, 1.35rem);
   --pieza-sinopsis: var(--text-md);
+  /**
+   * El motivo de una recomendación, en la pieza y en el asomo.
+   *
+   * Un paso por encima del rótulo de datos (`--text-xs`): el motivo es una frase
+   * que se lee, no un dato que se consulta, y era la línea menos legible de la
+   * pieza. Va en caja baja, así que necesita cuerpo para sostener el renglón.
+   */
+  --pieza-motivo: var(--text-sm);
   --nota-titulo: clamp(1.25rem, 1.9vw, 1.75rem);
   --genero-nombre: clamp(1.5rem, 5.5vw, 3.25rem);
   /** El recuento del género, en voladizo sobre la esquina de la palabra. */
@@ -824,12 +832,6 @@
     rgb(8 8 10 / 62%) 34%,
     rgb(8 8 10 / 0%) 78%
   );
-  --velo-campo: linear-gradient(
-    200deg,
-    rgb(8 8 10 / 55%) 0%,
-    rgb(8 8 10 / 12%) 55%,
-    rgb(8 8 10 / 62%) 100%
-  );
 
   /**
    * El velo del puesto, que es lo que hace legible la cifra del top.
@@ -881,7 +883,16 @@
   --marquesina-tinta-dato: 88%;
   --marquesina-tinta-prosa: 82%;
   --marquesina-tinta-marca: 80%;
-  --marquesina-tinta-motivo: 74%;
+  /**
+   * El motivo, en el registro de la prosa.
+   *
+   * Estaba al 74 %, que es lo que da la jerarquía de un rótulo; pero el motivo no
+   * es un rótulo, es la frase que explica la recomendación. Sobre el arte del
+   * destacado medía 3,9:1 de media y 3,28:1 en la esquina coral a 390 px —por
+   * debajo del 4,5:1 que pide el spec—: el 74 % era el número que la dejaba corta.
+   * El velo de la marquesina también se reforzó (ver `--velo-campo`).
+   */
+  --marquesina-tinta-motivo: 88%;
   --marquesina-tinta-hueso: 22%;
 
   /**

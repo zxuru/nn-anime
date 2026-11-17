@@ -997,30 +997,37 @@ describe('la deuda visual del shell', () => {
     return css.slice(desde, css.indexOf('}', desde))
   }
 
-  test('el mosaico se compone para el número de piezas y no se estira', async () => {
+  test('el mosaico declara las mismas pistas en cada punto de corte', async () => {
     const css = await estructura()
     const mosaico = await reglaDe('.mosaico')
 
-    expect(mosaico, 'falta la composición por número de piezas').toMatch(
-      /repeat\(\s*min\(var\(--mosaico-piezas, 6\), 6\)/,
+    // Seis pistas fijas en la rejilla ancha, repartiendo el ancho a partes
+    // iguales. Antes abría tantas pistas como piezas llevaba el tramo —una fila de
+    // cuatro engordaba sus carteles a 264×396 y una de siete los dejaba en
+    // 171×256, en la misma pantalla—: el tamaño del cartel no puede depender de
+    // cuántos títulos devolvió la fuente.
+    expect(mosaico, 'falta la rejilla de seis pistas').toContain(
+      'grid-template-columns: repeat(6, minmax(0, 1fr))',
     )
-    // El tope de la pista: una fila de cuatro no llega a la columna de cuatro y
-    // una pieza sola no se convierte en un cartel de pantalla entera.
-    expect(mosaico).toContain('--mosaico-pieza-max')
-    expect(mosaico).toContain('justify-content: center')
-    // Y el seis fijo que dejaba el tercio derecho vacío no vuelve por su cuenta.
-    expect(css).not.toContain('repeat(6,')
+    // Y la fila se alinea al principio: un tramo corto acaba donde acaba.
+    expect(mosaico).toContain('justify-content: start')
+
+    // Nadie vuelve a leer el recuento de piezas.
+    expect(css).not.toContain('var(--mosaico-piezas)')
+    expect(css).not.toContain('--mosaico-pieza-max')
 
     // El vacío de un tramo no es una pieza: no se le compone la pista de una.
     expect(css).toContain('.mosaico:has(> .tramo-vacio)')
 
-    // Cada punto de corte recompone con su tope: 4, 3, 2 y 5 —el teléfono
-    // tumbado—, además del 6 de la rejilla ancha.
-    const topes = [...css.matchAll(/repeat\(\s*min\(var\(--mosaico-piezas, 6\), (\d)\)/g)].map(
+    // Cada punto de corte declara sus pistas: 4, 3, 2 y 5 —el teléfono tumbado—,
+    // además del 6 de la rejilla ancha. El de una columna es `minmax(0, 1fr)` a
+    // secas, porque una pista no necesita `repeat`.
+    const pistas = [...css.matchAll(/\.mosaico\s*\{[^}]*?repeat\((\d), minmax\(0, 1fr\)\)/g)].map(
       (coincidencia) => coincidencia[1] ?? '',
     )
 
-    expect(topes.sort()).toEqual(['2', '3', '4', '5', '6'])
+    expect(pistas.sort()).toEqual(['2', '3', '4', '5', '6'])
+    expect(css).toContain('.mosaico {\n    grid-template-columns: minmax(0, 1fr);')
   })
 
   test('la banda de la ficha baja cuando no hay banner', async () => {

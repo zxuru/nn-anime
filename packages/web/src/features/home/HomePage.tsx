@@ -323,6 +323,21 @@ export function HomePage(props: HomePageProps): ReactNode {
       {primerArranque ? <PrimerArranque /> : null}
 
       {/*
+        «Continuar viendo», cuando hay algo que retomar, **antes de la marquesina**.
+
+        Es la única fila que pide una acción concreta —retomar lo que se dejó a
+        medias— y lo demás es descubrir. Con el destacado delante empezaba en 910 px
+        sobre una ventana de 900: existía, pero no en la primera pantalla. Quien
+        entra a seguir un episodio no debería bajar a buscarlo entre las
+        recomendaciones.
+
+        Sin nada que retomar no sube: su vacío ocuparía el primer renglón de la
+        página, que es justo lo que no debe hacer una instalación nueva. Se queda
+        después del destacado, donde el hueco no cuesta.
+      */}
+      {continuar.length === 0 ? null : <ContinueRow items={continuar} cargando={cargandoFilas} />}
+
+      {/*
         La marquesina lleva dentro la marca de refresco y la cinta: las tres cosas
         son la misma pieza del diseño —el campo a sangre con el cartel, la línea
         pegada al borde inferior y la fecha de la última relectura en la esquina—.
@@ -351,13 +366,9 @@ export function HomePage(props: HomePageProps): ReactNode {
         />
       )}
 
-      {/*
-        «Continuar viendo» va la primera, antes del motor y antes que el top. Es la
-        única fila que pide una acción concreta —retomar lo que se dejó a medias— y
-        lo demás es descubrir: quien entra a seguir un episodio no debería bajarlo
-        a buscar entre las recomendaciones.
-      */}
-      <ContinueRow items={continuar} cargando={cargandoFilas} />
+      {/* Sin nada que retomar, la fila se explica aquí: debajo del destacado y no
+          en el primer renglón de la página. */}
+      {continuar.length === 0 ? <ContinueRow items={continuar} cargando={cargandoFilas} /> : null}
 
       {/*
         El motor va segundo y con su tramo entero: el motivo viaja en cada pieza,
