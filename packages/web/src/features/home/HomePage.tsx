@@ -163,7 +163,7 @@ export function piezasDeNovedades(
   return filas.feed.map((item) => {
     const partes: string[] = []
     if (item.year !== undefined) {
-      partes.push(t(DEFAULT_LOCALE, 'detail.related.year', { year: item.year }))
+      partes.push(t(DEFAULT_LOCALE, 'home.year', { year: item.year }))
     }
 
     // El servidor marca la novedad del feed cuando la verificó, y **sólo** cuando la

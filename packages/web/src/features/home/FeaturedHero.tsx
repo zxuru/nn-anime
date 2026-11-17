@@ -151,8 +151,6 @@ export function FeaturedHero(props: FeaturedHeroProps): ReactNode {
       )}
 
       <div className="marquesina__texto" aria-busy={loading}>
-        <p className="etiqueta">{t(DEFAULT_LOCALE, 'home.featured.tag')}</p>
-
         {/*
           El titular se acota a tres renglones. Un nombre largo —«… 3rd Season Part
           2», con el subtítulo pegado— a cuerpo de cartel ocupaba media pantalla y
