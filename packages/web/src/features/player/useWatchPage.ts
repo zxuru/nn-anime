@@ -176,6 +176,8 @@ export interface WatchPageHandle {
   readonly alTerminar: () => void
   /** La cuenta atrás del episodio siguiente, si está corriendo. */
   readonly cuenta: number | undefined
+  /** El episodio llegó al final: la tarjeta del siguiente sigue en pantalla. */
+  readonly finDeEpisodio: boolean
   readonly cancelarCuenta: () => void
   /** A dónde va el episodio siguiente, si lo hay. */
   readonly rutaSiguiente: string | undefined
@@ -464,6 +466,22 @@ export function useWatchPage(options: WatchPageOptions): WatchPageHandle {
    * a alguien el mando. Y se puede apagar del todo desde los ajustes.
    */
   const [cuenta, setCuenta] = useState<number | undefined>(undefined)
+  const [finDeEpisodio, setFinDeEpisodio] = useState(false)
+
+  /*
+    El final es de este episodio, no de la pantalla.
+    Sin esto, cambiar de capítulo con la tarjeta abierta dejaría el aviso del
+    anterior encima del nuevo. Se reinicia también al cambiar de modo: el otro
+    stream empieza otra vez y el final deja de ser el de ahora.
+  */
+  const episodioQueSuena = `${claveProgreso}:${fuente.modo}`
+
+  useEffect(() => {
+    if (episodioQueSuena === '') return
+
+    setFinDeEpisodio(false)
+    setCuenta(undefined)
+  }, [episodioQueSuena])
 
   const opcionesDePaso: WatchPathOptions = { mode: fuente.modo, anime: animeValue }
   const siguiente = vecinos?.next
@@ -479,7 +497,10 @@ export function useWatchPage(options: WatchPageOptions): WatchPageHandle {
   const alTerminar = useCallback(() => {
     // El episodio está visto: lo apuntado a medias ya no sirve para reanudar.
     olvidarProgreso(almacenLocal(), claveProgreso)
+    setFinDeEpisodio(true)
 
+    // Con la reproducción automática apagada, la tarjeta sigue ahí sin cuenta
+    // atrás: el final del capítulo no puede depender de una preferencia.
     if (siguiente === undefined || !autoplay) return
 
     setCuenta(SEGUNDOS_DEL_SIGUIENTE)
@@ -641,6 +662,8 @@ export function useWatchPage(options: WatchPageOptions): WatchPageHandle {
     anotarProgreso,
     alTerminar,
     cuenta,
+    finDeEpisodio,
+    // Cancelar para la cuenta, no el final: la tarjeta sigue con sus salidas.
     cancelarCuenta: () => setCuenta(undefined),
     rutaSiguiente,
     esPelicula,

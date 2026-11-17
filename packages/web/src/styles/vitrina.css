@@ -512,7 +512,46 @@
   }
 
   .player__time {
+    color: var(--color-text-dim);
     font-size: var(--text-sm);
+  }
+
+  /*
+   * El carril, sobre el papel y no sobre el degradado.
+   *
+   * A este ancho los mandos dejan de superponerse al video y el fondo que hay
+   * detrás es el de la página. El crema del carril —pensado para el degradado
+   * negro— quedaba a 1,03:1 en el tema claro; estos pares están medidos en
+   * `a11y.test.ts` contra `--color-bg` en los dos temas.
+   */
+  .player__seek .player__track {
+    background: var(--seek-track-page);
+  }
+
+  .player__seek .player__buffer {
+    background: var(--seek-buffer-page);
+  }
+
+  /*
+   * La tarjeta del siguiente, en el teléfono.
+   *
+   * El marco es sólo el video y la banda de mandos vive debajo, así que no hay
+   * que despejarle sitio: se apoya en el borde inferior y ocupa el ancho. El
+   * texto va en su renglón y los dos botones se reparten el siguiente.
+   */
+  .watch__next {
+    inset-inline: var(--space-2);
+    inset-block-end: var(--space-2);
+    gap: var(--space-2);
+    padding: var(--space-2);
+  }
+
+  .watch__next-info {
+    flex-basis: 100%;
+  }
+
+  .watch__next .button {
+    flex: 1 1 auto;
   }
 
   .player__menu {
