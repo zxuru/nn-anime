@@ -158,8 +158,16 @@ function fill(template: string, values: Readonly<Record<string, string>>): strin
 
 function urlFor(template: string, values: Readonly<Record<string, string>> = {}): string {
   const path = fill(template, values)
+  const url = new URL(path.startsWith('/') ? path : '/' + path, BASE_URL)
 
-  return new URL(path.startsWith('/') ? path : '/' + path, BASE_URL).toString()
+  // El schema ya rechaza \`//host\`, pero la comprobación se repite aquí: una
+  // ruta generada a mano o un cambio futuro del schema no pueden convertir la
+  // plantilla en un cliente hacia otro sitio.
+  if (url.origin !== new URL(BASE_URL).origin) {
+    throw new Error('la ruta del endpoint sale de la dirección base')
+  }
+
+  return url.toString()
 }
 
 /** Una URL absoluta tal cual; una relativa, contra la dirección base. */
@@ -172,16 +180,21 @@ function absolute(value: string): string {
 }
 
 async function getJson(url: string, options: CallOptions): Promise<Json> {
-  const response = await fetch(url, {
-    signal: options.signal,
-    headers: { accept: 'application/json' },
-  })
+  // La capacidad de red la pone el motor: lista blanca, DNS fijado, topes y
+  // timeouts. El \`fetch\` global se saltaba todo eso.
+  if (options.fetch === undefined) {
+    throw new Error('este proveedor necesita la capacidad de red del motor')
+  }
+
+  const response = await options.fetch(url, { headers: { accept: 'application/json' } })
 
   // El throw vale: el SDK lo convierte en un Result fallido y la interfaz
   // muestra este mensaje con el nombre del proveedor delante.
-  if (!response.ok) throw new Error('el sitio respondió ' + response.status)
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error('el sitio respondió ' + response.status)
+  }
 
-  return response.json()
+  return JSON.parse(response.body)
 }
 
 /** Un resultado por cada fila que traiga referencia y título. */
