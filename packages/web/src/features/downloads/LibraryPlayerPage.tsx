@@ -22,17 +22,32 @@ import { type DownloadItem, downloadItemSchema, downloadsResponseSchema } from '
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { ChevronLeft, ChevronRight, CircleCheck, Info, Play } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet, apiPostJson } from '../../api/client'
 import { describirFallo } from '../../api/fallo'
 import { t } from '../../i18n'
 import { Link, useNavigate } from '../../router'
 import { SEGUNDOS_DEL_SIGUIENTE } from '../player/controls'
 import { Player } from '../player/Player'
-import { almacenLocal, guardarAutoplay, leerAutoplay } from '../player/storage'
+import {
+  almacenLocal,
+  guardarAutoplay,
+  guardarProgreso,
+  leerAutoplay,
+  olvidarProgreso,
+} from '../player/storage'
 import type { SafeTrack } from '../player/usePlayer'
+import { UPDATE_INTERVAL_MS, useWatchEvents } from '../player/useWatchEvents'
 import { coverPath } from '../search/ResultCard'
 import { agruparBiblioteca, type Descarga, vecinosDe } from './biblioteca'
+import {
+  claveDeLaDescarga,
+  etiquetaDeAudio,
+  etiquetaDeSubtitulos,
+  mandosDelReproductor,
+  opcionesDeVisionado,
+  posicionDeLaDescarga,
+} from './visionado'
 
 const LOCALE = DEFAULT_LOCALE
 
@@ -82,6 +97,104 @@ export function AvisoDeConversion(props: {
           : t(LOCALE, 'library.player.convert')}
       </button>
     </div>
+  )
+}
+
+/**
+ * El reproductor de la descarga, con su visionado.
+ *
+ * Se monta una vez por episodio —la `key` la pone quien lo usa— porque el
+ * registro del servidor abre una fila por reproducción y esa fila tiene que morir
+ * con el capítulo. Si el reproductor sobreviviera al cambio de id, el avance del
+ * siguiente se apuntaría sobre la fila del anterior.
+ *
+ * Tres cosas que el `<Player>` no puede saber y que se resuelven aquí: de dónde
+ * reanudar —el almacén del navegador, no el proveedor—, con qué modo se baja el
+ * episodio, y a quién avisar de que se está viendo. La posición se guarda con el
+ * mismo ritmo que en la pantalla del proveedor: cada cinco segundos, al pausar y
+ * al desmontar. Sin lo último, cerrar la pestaña perdería los segundos que hacen
+ * que reanudar sirva de algo.
+ */
+function ReproductorDescargado(props: {
+  readonly item: Descarga
+  readonly autoplay: boolean
+  readonly onAutoplay: (valor: boolean) => void
+  readonly onEnded: () => void
+}): ReactNode {
+  const { item } = props
+  const [inicio] = useState(() => posicionDeLaDescarga(item))
+  const visionado = useWatchEvents(opcionesDeVisionado(item, inicio))
+  const almacen = almacenLocal()
+  const clave = claveDeLaDescarga(item)
+  const vivo = useRef({ positionS: 0, durationS: 0, guardado: 0 })
+
+  const guardar = useCallback(
+    (forzar: boolean) => {
+      const { positionS, durationS } = vivo.current
+      // Sin duración no hay proporción vista: guardar ese cero marcaría el
+      // episodio como empezado y no dejaría reanudar donde de verdad iba.
+      if (durationS <= 0) return
+
+      const ahora = Date.now()
+      if (!forzar && ahora - vivo.current.guardado < UPDATE_INTERVAL_MS) return
+
+      vivo.current = { ...vivo.current, guardado: ahora }
+      guardarProgreso(almacen, clave, { positionS, durationS })
+    },
+    [almacen, clave],
+  )
+
+  const guardarAvance = useCallback(
+    (positionS: number, durationS: number) => {
+      vivo.current = { ...vivo.current, positionS, durationS }
+      guardar(false)
+    },
+    [guardar],
+  )
+
+  const terminar = useCallback(() => {
+    // El capítulo está visto: lo apuntado a medias ya no sirve para reanudar.
+    olvidarProgreso(almacen, clave)
+    props.onEnded()
+  }, [almacen, clave, props.onEnded])
+
+  // Al desmontar —cambiar de episodio o salir de la pantalla—, la posición
+  // final. El aviso periódico puede ser de hace cinco segundos, y ésos son justo
+  // los que se pierden si no se guarda aquí.
+  useEffect(() => {
+    const referencia = vivo
+
+    return () => {
+      const { positionS, durationS } = referencia.current
+      if (durationS > 0) guardarProgreso(almacen, clave, { positionS, durationS })
+    }
+  }, [almacen, clave])
+
+  const mandos = mandosDelReproductor({
+    eventos: visionado,
+    guardar: () => guardar(true),
+    guardarAvance,
+    terminar,
+  })
+
+  return (
+    <Player
+      key={`${item.id}-${item.kind}`}
+      url={`/api/downloads/${item.id}/file`}
+      kind={item.kind === 'segments' ? 'hls' : 'file'}
+      title={`${item.title} · ${item.episodeLabel}`}
+      poster={coverPath(item.providerId, item.animeRef.value)}
+      // Las pistas que se bajaron con el episodio: sin ellas, verlo sin
+      // conexión sería verlo sin subtítulos aunque estén en disco.
+      tracks={pistasDeLaDescarga(item)}
+      autoplay={props.autoplay}
+      onAutoplay={props.onAutoplay}
+      startAtS={inicio}
+      onPlay={mandos.onPlay}
+      onPause={mandos.onPause}
+      onProgress={mandos.onProgress}
+      onEnded={mandos.onEnded}
+    />
   )
 }
 
@@ -202,6 +315,7 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
   const anterior = posicion.anterior
   const siguiente = posicion.siguiente
   const rutaSiguiente = siguiente === undefined ? undefined : `/library/${siguiente.id}`
+  const subtitulos = item === undefined ? undefined : etiquetaDeSubtitulos(item)
 
   const cambiarAutoplay = useCallback((valor: boolean) => {
     setAutoplay(valor)
@@ -242,7 +356,10 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
         <div className="library-player__titles">
           <h1>{item?.title ?? t(LOCALE, 'library.playerTitle')}</h1>
           {item === undefined ? null : (
-            <p className="library-player__episode">{item.episodeLabel}</p>
+            <p className="library-player__episode">
+              {item.episodeLabel} · {etiquetaDeAudio(item.mode)}
+              {subtitulos === undefined ? null : ` · ${subtitulos}`}
+            </p>
           )}
         </div>
         <span className="library-player__badge" title={t(LOCALE, 'library.downloaded')}>
@@ -271,20 +388,9 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
       {estado === 'ready' && item !== undefined ? (
         <div className="watch__layout">
           <div className="watch__main">
-            {/*
-              La `key` lleva el modo: al convertir, la misma dirección pasa de
-              servir un manifiesto a servir un MP4, y el `<video>` tiene que
-              montarse otra vez para leerlo con el otro reproductor.
-            */}
-            <Player
-              key={`${item.id}-${item.kind}`}
-              url={`/api/downloads/${item.id}/file`}
-              kind={item.kind === 'segments' ? 'hls' : 'file'}
-              title={`${item.title} · ${item.episodeLabel}`}
-              poster={coverPath(item.providerId, item.animeRef.value)}
-              // Las pistas que se bajaron con el episodio: sin ellas, verlo sin
-              // conexión sería verlo sin subtítulos aunque estén en disco.
-              tracks={pistasDeLaDescarga(item)}
+            <ReproductorDescargado
+              key={item.id}
+              item={item}
               autoplay={autoplay}
               onAutoplay={cambiarAutoplay}
               onEnded={alTerminar}
@@ -406,6 +512,7 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
                       />
                     ) : null}
                     <span className="watch__list-title">{episodio.episodeLabel}</span>
+                    <span className="watch__list-mark">{etiquetaDeAudio(episodio.mode)}</span>
                   </Link>
                 </li>
               ))}

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { fileURLToPath } from 'node:url'
 import type { DownloadItem } from '@rona/core/api'
 import { renderToString } from 'react-dom/server'
 import { AvisoDeConversion, pistasDeLaDescarga } from './LibraryPlayerPage'
@@ -81,5 +82,26 @@ describe('las pistas de la descarga', () => {
 
   test('una descarga sin pistas no inventa ninguna', () => {
     expect(pistasDeLaDescarga(descarga())).toEqual([])
+  })
+})
+
+describe('el visionado del episodio descargado', () => {
+  /**
+   * La página entera no se puede montar sin un DOM —pide la descarga en un
+   * efecto—, así que lo que se comprueba aquí es la conexión: que el
+   * reproductor de la biblioteca abra el registro del visionado con el modo del
+   * episodio y pase los avisos al `<Player>`. Sin esta llamada, lo descargado no
+   * aparece en «continuar viendo» ni en el historial, que es justo el fallo que
+   * esta oleada cierra. Las piezas puras se miden en `visionado.test.ts`.
+   */
+  test('la pantalla registra el visionado y le pasa sus avisos al reproductor', async () => {
+    const fuente = await Bun.file(
+      fileURLToPath(new URL('./LibraryPlayerPage.tsx', import.meta.url)),
+    ).text()
+
+    expect(fuente).toContain('useWatchEvents(opcionesDeVisionado(')
+    expect(fuente).toContain('onPlay={mandos.onPlay}')
+    expect(fuente).toContain('onProgress={mandos.onProgress}')
+    expect(fuente).toContain('startAtS={inicio}')
   })
 })
