@@ -13,6 +13,7 @@
  */
 
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { TasteResponse } from '@rona/core/taste'
 import { Sparkles, X } from 'lucide-react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
@@ -41,6 +42,25 @@ function marcarAbierta(): void {
   }
 }
 
+/**
+ * Si toca llevar sola a la encuesta.
+ *
+ * Es una función pura porque tiene cuatro condiciones y todas importan: la
+ * política del servidor (`autoOpen`), el estado del perfil, no estar ya dentro
+ * de la encuesta y no haberla abierto en esta sesión. Con la comprobación
+ * metida en el efecto, apagar la abertura desde el servidor no se podía medir.
+ */
+export function shouldAutoOpen(
+  data: TasteResponse,
+  path: string,
+  openedThisSession: boolean,
+): boolean {
+  if (!data.autoOpen || openedThisSession) return false
+  if (path.split('?')[0] === '/gustos') return false
+
+  return data.profile.survey.status === 'not_started'
+}
+
 export function TasteInvite(): ReactNode {
   const { state, data, save } = useTaste()
   const navigate = useNavigate()
@@ -56,13 +76,13 @@ export function TasteInvite(): ReactNode {
     que un doble efecto de React —StrictMode— empuje dos veces la misma ruta.
   */
   useEffect(() => {
-    if (state !== 'ready' || data === undefined || enLaEncuesta || autoAbierta.current) return
-    if (data.profile.survey.status !== 'not_started' || yaSeAbrio()) return
+    if (state !== 'ready' || data === undefined || autoAbierta.current) return
+    if (!shouldAutoOpen(data, path, yaSeAbrio())) return
 
     autoAbierta.current = true
     marcarAbierta()
     navigate.push('/gustos')
-  }, [state, data, enLaEncuesta, navigate])
+  }, [state, data, navigate, path])
 
   if (state !== 'ready' || data === undefined || enLaEncuesta || oculto) return null
 

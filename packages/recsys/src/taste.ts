@@ -21,6 +21,7 @@
  */
 
 import { type Candidate, normalizeGenreName } from '@rona/core'
+import type { TasteAudio, TasteCatalog } from '@rona/core/taste'
 import {
   type AffinityVector,
   candidateFeatures,
@@ -47,11 +48,35 @@ export const TASTE_MIN_DECLARED_SHARE = 0.15
 /** Lo que un título marcado aporta frente a un género suelto. */
 export const TASTE_LIKED_WEIGHT = 1
 
+/**
+ * A partir de cuántos episodios una serie cuenta como «larga».
+ *
+ * Veinticuatro es el corte clásico de una temporada de dos cours y deja trece
+ * como el otro lado: una serie de doce o trece capítulos es una temporada corta.
+ * Sin dato de episodios el motor no adivina: da la mitad.
+ */
+export const LONG_SERIES_MIN_EPISODES = 24
+
+/** Hasta cuántos episodios una serie cuenta como «temporada corta». */
+export const SHORT_SERIES_MAX_EPISODES = 13
+
 /** Los tres formatos que ofrece la encuesta. */
 export type TasteFormat = 'long-series' | 'short-series' | 'movies'
 
 /** Los tres tonos que ofrece la encuesta. */
 export type TasteTone = 'dark' | 'light' | 'emotional'
+
+/** Los idiomas que puede declarar la encuesta. */
+export type TasteAudioPreference = TasteAudio
+
+/** Los catálogos que puede declarar la encuesta. */
+export type TasteCatalogPreference = TasteCatalog
+
+/** Lo que una fuente dice saber ofrecer en cada idioma. */
+export interface ProviderAudio {
+  readonly sub: boolean
+  readonly dub: boolean
+}
 
 /** Un gusto declarado, ya resuelto contra el catálogo. */
 export interface TasteSignals {
@@ -61,6 +86,15 @@ export interface TasteSignals {
   readonly liked: readonly Candidate[]
   readonly format?: TasteFormat | undefined
   readonly tone?: TasteTone | undefined
+  readonly audio?: TasteAudioPreference | undefined
+  readonly catalog?: TasteCatalogPreference | undefined
+  /**
+   * Qué idiomas ofrece cada fuente.
+   *
+   * El candidato no publica si tiene doblaje: eso lo declara el plugin y vale
+   * para todas sus obras. Se pasa resuelto para que el motor siga siendo puro.
+   */
+  readonly audioByProvider?: ReadonlyMap<string, ProviderAudio> | undefined
   /** Cuántos visionados hay: es lo que decide cuánto manda lo observado. */
   readonly behaviorEvents: number
 }
@@ -187,19 +221,65 @@ export function declaredVector(
   return normalize(pesos)
 }
 
-/** Cuánto encaja el formato del candidato con el que eligió el usuario. */
+/**
+ * Cuánto encaja el formato del candidato con el que eligió el usuario.
+ *
+ * Si la ficha guardó el número de episodios, «larga» y «corta» se distinguen de
+ * verdad. Si no, la respuesta es la mitad y no una suposición: un catálogo que
+ * no publica el dato no puede decidir por él.
+ */
 export function formatMatch(candidate: Candidate, taste: TasteSignals): number | undefined {
   if (taste.format === undefined) return undefined
 
-  const esPelicula = candidate.format === 'movie' || candidate.kind === 'movie'
-  const esSerie = candidate.format === 'series' || (!esPelicula && candidate.format === undefined)
+  const esPelicula =
+    candidate.format === 'movie' ||
+    candidate.kind === 'movie' ||
+    (candidate.kind !== 'tv' && candidate.episodeCount === 1)
 
   if (taste.format === 'movies') return esPelicula ? 1 : 0
-  // Larga y corta comparten la señal de serie: el candidato no publica cuántos
-  // episodios tiene, y fingir que se distingue sería medir el título por su nombre.
-  if (taste.format === 'long-series' || taste.format === 'short-series') return esSerie ? 1 : 0
+  if (esPelicula) return 0
+
+  const episodios = candidate.episodeCount
+  if (episodios === undefined) return 0.5
+
+  if (taste.format === 'long-series') return episodios >= LONG_SERIES_MIN_EPISODES ? 1 : 0
+  if (taste.format === 'short-series') return episodios <= SHORT_SERIES_MAX_EPISODES ? 1 : 0
 
   return undefined
+}
+
+/**
+ * Cuánto encaja el estado de emisión con el catálogo que eligió el usuario.
+ *
+ * «Emisión actual» es lo que sigue saliendo; «clásicos» es lo que ya terminó.
+ * Un título que la ficha no fechó no se penaliza entero: se queda a medias.
+ */
+export function catalogMatch(candidate: Candidate, taste: TasteSignals): number | undefined {
+  if (taste.catalog === undefined) return undefined
+  if (taste.catalog === 'either') return 1
+
+  if (candidate.status === undefined || candidate.status === 'unknown') return 0.5
+  if (candidate.status === 'upcoming') return 0.5
+
+  if (taste.catalog === 'airing') return candidate.status === 'airing' ? 1 : 0
+
+  return candidate.status === 'finished' ? 1 : 0
+}
+
+/**
+ * Cuánto encaja el idioma declarado con lo que ofrece la fuente.
+ *
+ * No hay dato por título —el plugin declara `sub` y `dub` para todo su
+ * catálogo—, así que la señal es de la fuente. Una referencia de una fuente que
+ * ya no está no se castiga: no consta.
+ */
+export function audioMatch(candidate: Candidate, taste: TasteSignals): number | undefined {
+  if (taste.audio === undefined || taste.audio === 'either') return undefined
+
+  const fuente = taste.audioByProvider?.get(candidate.ref.providerId)
+  if (fuente === undefined) return 0.5
+
+  return taste.audio === 'dub' ? (fuente.dub ? 1 : 0) : fuente.sub ? 1 : 0
 }
 
 /** Cuánto encaja el tono del candidato con el que eligió el usuario. */
@@ -213,11 +293,13 @@ export function toneMatch(candidate: Candidate, taste: TasteSignals): number | u
 }
 
 /**
- * La parte del gusto declarado que no va dentro del vector: formato y tono.
+ * La parte del gusto declarado que no va dentro del vector: formato, tono,
+ * catálogo e idioma.
  *
  * Los géneros y los títulos ya suman por afinidad declarada; sumarlos otra vez
  * aquí contaría dos veces la misma señal. Esta puntuación sólo mide lo que el
- * vector no puede: que el usuario prefiera películas o que busque un tono.
+ * vector no puede: que el usuario prefiera películas, un tono, la emisión actual
+ * o el doblaje.
  */
 export function tastePreferenceScore(candidate: Candidate, taste: TasteSignals): number {
   const partes: number[] = []
@@ -227,6 +309,12 @@ export function tastePreferenceScore(candidate: Candidate, taste: TasteSignals):
 
   const tono = toneMatch(candidate, taste)
   if (tono !== undefined) partes.push(tono)
+
+  const catalogo = catalogMatch(candidate, taste)
+  if (catalogo !== undefined) partes.push(catalogo)
+
+  const idioma = audioMatch(candidate, taste)
+  if (idioma !== undefined) partes.push(idioma)
 
   if (partes.length === 0) return 0
 
@@ -242,7 +330,9 @@ export function hasTasteSignals(taste: TasteSignals | undefined): boolean {
     taste.liked.length > 0 ||
     taste.excludedGenres.length > 0 ||
     taste.format !== undefined ||
-    taste.tone !== undefined
+    taste.tone !== undefined ||
+    taste.audio !== undefined ||
+    taste.catalog !== undefined
   )
 }
 

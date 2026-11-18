@@ -19,10 +19,11 @@
 
 import type { CatalogStore } from '@rona/catalog-store'
 import type { Candidate, ProviderRef, TitleKind } from '@rona/core'
-import { normalizeQuery, titleKindSchema } from '@rona/core'
+import { airingStatusSchema, normalizeQuery, titleKindSchema } from '@rona/core'
 import type {
   AffinityEvent,
   CoVisit,
+  ProviderAudio,
   SearchSignalRecord,
   TasteSignals,
   WatchState,
@@ -227,6 +228,8 @@ export interface GatherOptions {
    * mano— porque el motor es puro y no sabe de ajustes.
    */
   readonly includeAdult?: boolean | undefined
+  /** El idioma que declara cada fuente, para la preferencia de la encuesta. */
+  readonly audioByProvider?: ReadonlyMap<string, ProviderAudio> | undefined
 }
 
 /**
@@ -276,6 +279,7 @@ export async function gatherSignals(
     // películas: sin él, la mitad de su catálogo caería en la pestaña equivocada y no
     // habría forma de saberlo.
     const kind = kindOf(fila.kind)
+    const status = fila.status === undefined ? undefined : airingStatusSchema.safeParse(fila.status)
 
     corpus.set(refKey(fila.ref), {
       ref: fila.ref,
@@ -285,6 +289,8 @@ export async function gatherSignals(
       ...(fila.year === undefined ? {} : { year: fila.year }),
       ...(fila.coverUrl === undefined ? {} : { coverUrl: fila.coverUrl }),
       ...(kind === undefined ? {} : { kind }),
+      ...(fila.episodeCount === undefined ? {} : { episodeCount: fila.episodeCount }),
+      ...(status?.success === true ? { status: status.data } : {}),
     })
   }
 
@@ -338,6 +344,6 @@ export async function gatherSignals(
     candidates,
     // El número de visionados es lo que decide cuánto manda el comportamiento.
     // Se cuenta aquí, una vez, y no en el motor, que no ve el historial entero.
-    taste: tasteSignalsFrom(perfil, candidates, eventos.length),
+    taste: tasteSignalsFrom(perfil, candidates, eventos.length, options.audioByProvider),
   }
 }

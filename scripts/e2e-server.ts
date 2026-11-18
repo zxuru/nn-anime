@@ -344,6 +344,11 @@ const servidor = Bun.spawn(
       // reproductor.
       RONA_PARTY: '1',
       RONA_E2E_MEDIA: `http://127.0.0.1:${puertoMedios}/tono.wav`,
+      // La encuesta no abre sola ni insiste en el arnés: si lo hiciera, la
+      // primera home de cada prueba terminaría en `/gustos` y el resto de la
+      // suite mediría otra pantalla. La prueba de la encuesta la abre a mano.
+      RONA_TASTE_AUTO_OPEN: '0',
+      RONA_TASTE_SKIP_LIMIT: '0',
       // La interfaz que se sirve es la del e2e —con el hls falso—, no la que
       // `packages/web/dist` guarda para la aplicación de verdad. El CLI le da
       // prioridad a esta variable sobre su ruta por defecto.

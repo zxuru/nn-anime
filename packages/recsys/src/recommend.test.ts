@@ -14,15 +14,20 @@ function candidato(
     readonly studios?: readonly string[]
     readonly popularity?: number
     readonly format?: Candidate['format']
+    readonly episodeCount?: number
+    readonly status?: Candidate['status']
+    readonly providerId?: string
   } = {},
 ): Candidate {
   return {
-    ref: { providerId: 'fixture', value: titulo },
+    ref: { providerId: opciones.providerId ?? 'fixture', value: titulo },
     title: titulo,
     tags: [...tags],
     studios: [...(opciones.studios ?? [])],
     ...(opciones.popularity === undefined ? {} : { popularity: opciones.popularity }),
     ...(opciones.format === undefined ? {} : { format: opciones.format }),
+    ...(opciones.episodeCount === undefined ? {} : { episodeCount: opciones.episodeCount }),
+    ...(opciones.status === undefined ? {} : { status: opciones.status }),
   }
 }
 
@@ -439,6 +444,85 @@ describe('lo que declaró la encuesta', () => {
     expect(salida.items[0]?.candidate.title).toBe('Película')
     expect(salida.items).toHaveLength(2)
     expect(salida.items[0]?.components.taste).toBeGreaterThan(0)
+  })
+
+  test('con episodios, una serie larga gana a una temporada corta', () => {
+    const series = [
+      candidato('Corta', ['accion'], { format: 'series', episodeCount: 12, popularity: 0.5 }),
+      candidato('Larga', ['accion'], { format: 'series', episodeCount: 24, popularity: 0.5 }),
+    ]
+
+    const salida = recommend(
+      sinHistorial({
+        taste: {
+          genres: [],
+          excludedGenres: [],
+          liked: [],
+          format: 'long-series',
+          behaviorEvents: 0,
+        },
+      }),
+      series,
+      { now: AHORA, limit: 2 },
+    )
+
+    expect(salida.items[0]?.candidate.title).toBe('Larga')
+  })
+
+  test('el catálogo declarado ordena la emisión actual por delante del fondo', () => {
+    const catalogo = [
+      candidato('Terminado', ['accion'], { status: 'finished', popularity: 0.5 }),
+      candidato('En emisión', ['accion'], { status: 'airing', popularity: 0.5 }),
+    ]
+
+    const salida = recommend(
+      sinHistorial({
+        taste: {
+          genres: [],
+          excludedGenres: [],
+          liked: [],
+          catalog: 'airing',
+          behaviorEvents: 0,
+        },
+      }),
+      catalogo,
+      { now: AHORA, limit: 2 },
+    )
+
+    expect(salida.items[0]?.candidate.title).toBe('En emisión')
+    expect(salida.items[0]?.reasons.some((razon) => razon.kind === 'taste-catalog')).toBe(true)
+  })
+
+  test('el idioma declarado sube a la fuente que tiene doblaje', () => {
+    const fuentes = new Map([
+      ['con-dub', { sub: true, dub: true }],
+      ['solo-sub', { sub: true, dub: false }],
+    ])
+    const candidatos = [
+      candidato('Solo subtitulado', ['accion'], {
+        providerId: 'solo-sub',
+        popularity: 0.5,
+      }),
+      candidato('Con doblaje', ['accion'], { providerId: 'con-dub', popularity: 0.5 }),
+    ]
+
+    const salida = recommend(
+      sinHistorial({
+        taste: {
+          genres: [],
+          excludedGenres: [],
+          liked: [],
+          audio: 'dub',
+          audioByProvider: fuentes,
+          behaviorEvents: 0,
+        },
+      }),
+      candidatos,
+      { now: AHORA, limit: 2 },
+    )
+
+    expect(salida.items[0]?.candidate.title).toBe('Con doblaje')
+    expect(salida.items[0]?.reasons.some((razon) => razon.kind === 'taste-audio')).toBe(true)
   })
 })
 

@@ -194,6 +194,13 @@ export interface AppOptions {
    * política sin tocar el entorno del proceso.
    */
   readonly tasteSkipLimit?: number
+  /**
+   * Si la home lleva sola a la encuesta la primera vez.
+   *
+   * Sin esto manda `RONA_TASTE_AUTO_OPEN`. El e2e lo apaga para que las pruebas
+   * que ya existían no aterricen en `/gustos`.
+   */
+  readonly tasteAutoOpen?: boolean
   /** `fetch` del motor de descargas; en pruebas, sin red. */
   readonly downloadFetchImpl?: FetchLike
   /** Cuántas descargas a la vez. Dos por defecto. */
@@ -614,6 +621,7 @@ export function createApp(options: AppOptions): Hono {
       container,
       providers: hub.providers,
       ...(options.tasteSkipLimit === undefined ? {} : { skipLimit: options.tasteSkipLimit }),
+      ...(options.tasteAutoOpen === undefined ? {} : { autoOpen: options.tasteAutoOpen }),
     })
     const proxyOptions = {
       ...(options.streamFetchImpl === undefined ? {} : { fetchImpl: options.streamFetchImpl }),

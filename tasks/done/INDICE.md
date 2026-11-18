@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **249 fragmentos indexados**; 206 se identifican
+quedan identificadas aquí. **250 fragmentos indexados**; 206 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
@@ -269,3 +269,4 @@ sólo en este índice y su contenido vive en la historia.
 | T283 | T283 — alinear la auditoría de la release con el parche de picomatch | fix(release): respetar parche picomatch (T283; auditoría local bloqueada por DNS). | El workflow usa la misma excepción acotada al GHSA que CI; YAML parsea. `bun audit --ignore GHSA-fc5q-39xc-vjpf` no pudo consultar npm por `DNSResolveFailed`; queda pendiente la verificación de GitHub Actions. | este índice |
 | T343 | T343 — los mandos que desaparecen en pantalla completa | fix(web): los mandos siguen en pantalla completa (T343). | `bun test` **4289 pasan, 0 fallan** · typecheck 0 · lint 0 (7 avisos previos) · e2e nuevo `en pantalla completa siguen los mandos y el botón de salir` **pasa**; con el marcado anterior **falla** en «el escenario es el elemento a pantalla completa». `player.e2e.ts`: 68 pasan y 2 fallan igual que en `main` («vuelve a la ficha…», «en 320 px…»). | este índice |
 | T345 | T345 — la encuesta de gustos y el arranque en frío | feat(recsys): la encuesta de gustos alimenta el motor (T345). | `bun test packages/catalog-store/src/repositories/taste.test.ts packages/recsys/src/taste.test.ts packages/recsys/src/recommend.test.ts` **50 pasan, 0 fallan** · `bun test packages/server/src/routes/taste.test.ts` **10 pasan, 0 fallan** · `bun test packages/web` **1413 pasan, 0 fallan** · typecheck 0 · lint 0 (7 avisos previos) · mutación: quitar `passesTaste` deja pasar un género excluido y la prueba falla. | este índice |
+| T346 | T346 — el formato real, el catálogo y el idioma en el motor | feat(recsys): el formato real y el idioma ordenan la encuesta (T346). | `bun test packages/core/src/taste.test.ts packages/recsys/src/taste.test.ts packages/recsys/src/recommend.test.ts packages/server/src/routes/taste.test.ts` **72 pasan, 0 fallan** · `bun test` **4372 pasan, 0 fallan** · typecheck 0 · lint 0 (7 avisos previos) · e2e `gustos.e2e.ts` **2 pasan**, `home.e2e.ts` y `perfil.e2e.ts` **30 pasan** · mutaciones: quitar `episodeCount` empata larga y corta; no pasar `audioByProvider` deja el doblaje sin efecto. | este índice |

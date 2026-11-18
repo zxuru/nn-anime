@@ -30,6 +30,7 @@ async function conApp<T>(
     readonly pedir: (ruta: string, init?: RequestInit) => Promise<Response>
     readonly db: ReturnType<typeof openDb>
   }) => Promise<T>,
+  opciones: { readonly autoOpen?: boolean } = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'rona-gustos-'))
   const db = openDb(join(dir, 'rona.db'))
@@ -51,6 +52,7 @@ async function conApp<T>(
       container,
       anilistOffline: true,
       tasteSkipLimit: 2,
+      ...(opciones.autoOpen === undefined ? {} : { tasteAutoOpen: opciones.autoOpen }),
     })
 
     return await body({
@@ -96,6 +98,33 @@ describe('el perfil de gustos', () => {
       expect(cuerpo.profile.survey.status).toBe('not_started')
       expect(cuerpo.profile.genres).toEqual([])
       expect(cuerpo.skipLimit).toBe(2)
+      expect(cuerpo.autoOpen).toBe(true)
+    })
+  })
+
+  test('la abertura automática se puede apagar sin apagar el aviso', async () => {
+    await conApp(
+      async ({ pedir }) => {
+        const cuerpo = tasteResponseSchema.parse(await (await pedir('/api/taste')).json())
+
+        expect(cuerpo.autoOpen).toBe(false)
+      },
+      { autoOpen: false },
+    )
+  })
+
+  test('borrar el perfil deja la encuesta sin empezar', async () => {
+    await conApp(async ({ pedir }) => {
+      await encuesta(pedir, { status: 'completed', genres: ['Acción'], tone: 'dark' })
+
+      const respuesta = await pedir('/api/taste', { method: 'DELETE', headers: GOOD })
+      expect(respuesta.status).toBe(200)
+
+      const cuerpo = tasteResponseSchema.parse(await respuesta.json())
+      expect(cuerpo.profile.survey.status).toBe('not_started')
+      expect(cuerpo.profile.survey.skips).toBe(0)
+      expect(cuerpo.profile.genres).toEqual([])
+      expect(cuerpo.profile.tone).toBeNull()
     })
   })
 

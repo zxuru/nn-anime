@@ -20,7 +20,8 @@ import {
   type TasteRow,
   titleKindSchema,
 } from '@rona/core'
-import type { TasteSignals } from '@rona/recsys'
+import type { Provider } from '@rona/provider-sdk'
+import type { ProviderAudio, TasteSignals } from '@rona/recsys'
 
 /** Cuántos títulos enseña la encuesta. El requisito pide entre diez y doce. */
 export const TASTE_TITLE_LIMIT = 12
@@ -56,6 +57,7 @@ export function tasteSignalsFrom(
   profile: TasteProfile | undefined,
   candidates: readonly Candidate[],
   behaviorEvents: number,
+  audioByProvider?: ReadonlyMap<string, ProviderAudio> | undefined,
 ): TasteSignals | undefined {
   if (profile === undefined) return undefined
 
@@ -79,8 +81,27 @@ export function tasteSignalsFrom(
     liked,
     ...(profile.format === null ? {} : { format: profile.format.value }),
     ...(profile.tone === null ? {} : { tone: profile.tone.value }),
+    ...(profile.audio === null ? {} : { audio: profile.audio.value }),
+    ...(profile.catalog === null ? {} : { catalog: profile.catalog.value }),
+    ...(audioByProvider === undefined ? {} : { audioByProvider }),
     behaviorEvents,
   }
+}
+
+/**
+ * El idioma que declara cada fuente, para el ranking.
+ *
+ * Es una capacidad del plugin y no del título: un proveedor que dice tener
+ * doblaje lo tiene para todo su catálogo. El motor no conoce plugins, así que
+ * esta tabla se resuelve aquí y viaja ya hecha.
+ */
+export function providerAudio(providers: readonly Provider[]): ReadonlyMap<string, ProviderAudio> {
+  return new Map(
+    providers.map((provider) => [
+      provider.id,
+      { sub: provider.capabilities.sub, dub: provider.capabilities.dub },
+    ]),
+  )
 }
 
 /**

@@ -21,6 +21,8 @@ export const es = {
   'reason.taste-title': 'Se parece a «{title}», que marcaste como favorito.',
   'reason.taste-format': 'Encaja con el formato que prefieres.',
   'reason.taste-tone': 'Tiene el tono que elegiste en tu encuesta.',
+  'reason.taste-catalog': 'Está en el catálogo que preferiste.',
+  'reason.taste-audio': 'Está disponible en el idioma que preferiste.',
   'reason.fallback': 'Encaja con lo que has visto hasta ahora.',
 } as const
 
