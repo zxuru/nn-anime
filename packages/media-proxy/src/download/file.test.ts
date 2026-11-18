@@ -36,6 +36,14 @@ async function conDirectorio<T>(body: (dir: string) => Promise<T>): Promise<T> {
 
 const SENAL = new AbortController().signal
 
+/** El sidecar que hace que un `.part` se pueda reanudar. */
+async function conValidador(
+  filePath: string,
+  validador: { etag?: string; lastModified?: string; total?: number },
+): Promise<void> {
+  await writeFile(`${filePath}.part.json`, JSON.stringify(validador))
+}
+
 describe('la descarga directa de un archivo', () => {
   test('baja los bytes, informa del progreso y renombra al terminar', async () => {
     await conDirectorio(async (dir) => {
@@ -74,10 +82,14 @@ describe('la descarga directa de un archivo', () => {
     await conDirectorio(async (dir) => {
       const filePath = join(dir, 'episodio.mp4')
       await writeFile(`${filePath}.part`, 'abc')
+      await conValidador(filePath, { etag: '"v1"', total: 6 })
       let rango: string | undefined
+      const siRango: (string | null)[] = []
 
       const fetchImpl: FetchLike = async (_url, init) => {
-        rango = new Headers(init.headers).get('range') ?? undefined
+        const cabeceras = new Headers(init.headers)
+        rango = cabeceras.get('range') ?? undefined
+        siRango.push(cabeceras.get('if-range'))
         return respuesta(['def'], {
           status: 206,
           headers: { 'content-range': 'bytes 3-5/6' },
@@ -92,6 +104,7 @@ describe('la descarga directa de un archivo', () => {
       })
 
       expect(rango).toBe('bytes=3-')
+      expect(siRango[0]).toBe('"v1"')
       expect(await readFile(filePath, 'utf8')).toBe('abcdef')
       expect(resultado.bytes).toBe(6)
     })
@@ -114,16 +127,18 @@ describe('la descarga directa de un archivo', () => {
     })
   })
 
-  test('un 416 con algo descargado da el temporal por completo', async () => {
+  test('un 416 con validador y talla correctos da el temporal por completo', async () => {
     await conDirectorio(async (dir) => {
       const filePath = join(dir, 'episodio.mp4')
       await writeFile(`${filePath}.part`, 'abc')
+      await conValidador(filePath, { total: 3 })
 
       const resultado = await downloadFile({
         url: 'https://fixture.invalid/episodio.mp4',
         filePath,
         signal: SENAL,
-        fetchImpl: async () => new Response(null, { status: 416 }),
+        fetchImpl: async () =>
+          new Response(null, { status: 416, headers: { 'content-range': 'bytes */3' } }),
       })
 
       expect(await readFile(filePath, 'utf8')).toBe('abc')
@@ -131,10 +146,57 @@ describe('la descarga directa de un archivo', () => {
     })
   })
 
+  test('un .part sin validador se tira y se empieza de cero', async () => {
+    await conDirectorio(async (dir) => {
+      const filePath = join(dir, 'episodio.mp4')
+      await writeFile(`${filePath}.part`, 'viejo')
+      let rango: string | null = null
+
+      const resultado = await downloadFile({
+        url: 'https://fixture.invalid/episodio.mp4',
+        filePath,
+        signal: SENAL,
+        fetchImpl: async (_url, init) => {
+          rango = new Headers(init.headers).get('range')
+          return respuesta(['abcdef'], { headers: { 'content-length': '6' } })
+        },
+      })
+
+      expect(rango).toBeNull()
+      expect(await readFile(filePath, 'utf8')).toBe('abcdef')
+      expect(resultado.bytes).toBe(6)
+    })
+  })
+
+  test('un 206 que no empieza donde se pidió se corta y no deja mezcla', async () => {
+    await conDirectorio(async (dir) => {
+      const filePath = join(dir, 'episodio.mp4')
+      await writeFile(`${filePath}.part`, 'abc')
+      await conValidador(filePath, { total: 6 })
+
+      await expect(
+        downloadFile({
+          url: 'https://fixture.invalid/episodio.mp4',
+          filePath,
+          signal: SENAL,
+          fetchImpl: async () =>
+            respuesta(['def'], {
+              status: 206,
+              headers: { 'content-range': 'bytes 2-5/6' },
+            }),
+        }),
+      ).rejects.toThrow('no empieza donde se pidió')
+
+      await expect(stat(`${filePath}.part`)).rejects.toThrow()
+      await expect(stat(`${filePath}.part.json`)).rejects.toThrow()
+    })
+  })
+
   test('un error del servidor no borra lo que ya había', async () => {
     await conDirectorio(async (dir) => {
       const filePath = join(dir, 'episodio.mp4')
       await writeFile(`${filePath}.part`, 'abc')
+      await conValidador(filePath, { etag: '"v1"', total: 6 })
 
       await expect(
         downloadFile({
