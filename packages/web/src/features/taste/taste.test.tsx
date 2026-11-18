@@ -18,6 +18,7 @@ import {
   toggleTitle,
   toSurveyRequest,
 } from './model'
+import { shouldAutoOpen } from './TasteInvite'
 import { returnsToProfile } from './TastePage'
 import { genresFor, TasteSurvey } from './TasteSurvey'
 
@@ -222,5 +223,46 @@ describe('la vuelta desde el perfil', () => {
     expect(returnsToProfile('/gustos?volver=perfil')).toBe(true)
     expect(returnsToProfile('/gustos')).toBe(false)
     expect(returnsToProfile('/gustos?volver=inicio')).toBe(false)
+  })
+})
+
+describe('la abertura automática', () => {
+  function respuesta(extra: Partial<TasteProfile> = {}, autoOpen = true) {
+    return {
+      profile: perfil(extra),
+      skipLimit: 3,
+      autoOpen,
+    }
+  }
+
+  test('abre una vez si la encuesta no ha empezado y el servidor lo permite', () => {
+    const sinEmpezar = respuesta({
+      survey: { status: 'not_started', skips: 0, updatedAt: STAMP },
+    })
+
+    expect(shouldAutoOpen(sinEmpezar, '/', false)).toBe(true)
+  })
+
+  test('no abre si el servidor la apagó, si ya se abrió o si ya está dentro', () => {
+    const sinEmpezar = {
+      profile: perfil({
+        survey: { status: 'not_started' as const, skips: 0, updatedAt: STAMP },
+      }),
+      skipLimit: 3,
+      autoOpen: true,
+    }
+
+    expect(shouldAutoOpen({ ...sinEmpezar, autoOpen: false }, '/', false)).toBe(false)
+    expect(shouldAutoOpen(sinEmpezar, '/', true)).toBe(false)
+    expect(shouldAutoOpen(sinEmpezar, '/gustos', false)).toBe(false)
+  })
+
+  test('no abre una encuesta ya contestada u omitida', () => {
+    expect(shouldAutoOpen(respuesta(), '/', false)).toBe(false)
+
+    const omitida = respuesta({
+      survey: { status: 'skipped', skips: 1, updatedAt: STAMP },
+    })
+    expect(shouldAutoOpen(omitida, '/', false)).toBe(false)
   })
 })

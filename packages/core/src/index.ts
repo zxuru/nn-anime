@@ -450,6 +450,7 @@ export {
   type TasteTonePreference,
   tasteAudioPreferenceSchema,
   tasteAudioSchema,
+  tasteAutoOpenFromEnv,
   tasteCatalogPreferenceSchema,
   tasteCatalogSchema,
   tasteExcludedGenreSchema,

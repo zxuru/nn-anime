@@ -38,6 +38,8 @@ import { mmr } from './mmr'
 import { buildReasons, mainReason, type Reason, type ReasonCandidate } from './reasons'
 import { type SearchSignalRecord, searchReason, searchScore } from './search-signal'
 import {
+  audioMatch,
+  catalogMatch,
   declaredGenreOf,
   declaredShare,
   declaredVector,
@@ -456,6 +458,24 @@ function razonesDe(candidate: Candidate, contexto: ContextoRazones): readonly Re
       candidatas.push({
         kind: 'taste-tone',
         key: 'reason.taste-tone',
+        evidence: { weight: contexto.cuotaDeclarada * SIGNAL_WEIGHTS.taste },
+        values: {},
+      })
+    }
+
+    if (catalogMatch(candidate, contexto.signals.taste) === 1) {
+      candidatas.push({
+        kind: 'taste-catalog',
+        key: 'reason.taste-catalog',
+        evidence: { weight: contexto.cuotaDeclarada * SIGNAL_WEIGHTS.taste },
+        values: {},
+      })
+    }
+
+    if (audioMatch(candidate, contexto.signals.taste) === 1) {
+      candidatas.push({
+        kind: 'taste-audio',
+        key: 'reason.taste-audio',
         evidence: { weight: contexto.cuotaDeclarada * SIGNAL_WEIGHTS.taste },
         values: {},
       })

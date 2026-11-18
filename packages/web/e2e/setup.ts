@@ -41,5 +41,21 @@ setup('canjear el token de arranque y guardar la sesión', async ({ page }) => {
     },
   )
 
+  /*
+    La encuesta queda omitida para el resto de la suite.
+
+    El arnés apaga la abertura automática y pone el límite de omisiones en cero,
+    así que esta omisión deja el aviso del inicio en silencio. La prueba de la
+    encuesta la reabre a mano y limpia al terminar; las demás no tienen por qué
+    ver un banner que no están midiendo.
+  */
+  await page.evaluate(async () => {
+    await fetch('/api/taste', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'skipped' }),
+    })
+  })
+
   await page.context().storageState({ path: RUTA_ESTADO })
 })

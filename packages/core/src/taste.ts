@@ -174,6 +174,14 @@ export const tasteResponseSchema = z.strictObject({
   profile: tasteProfileSchema,
   /** Cuántas omisiones seguidas se aguantan antes de dejar de insistir. */
   skipLimit: z.number().int().nonnegative(),
+  /**
+   * Si la primera apertura de la home debe llevar sola a la encuesta.
+   *
+   * El arnés de pruebas lo apaga para que ninguna prueba existente acabe en
+   * `/gustos` sin pedirlo. En el uso normal vale `true`: es el equivalente local
+   * a ofrecerla «justo después del registro», que aquí no existe.
+   */
+  autoOpen: z.boolean().default(true),
 })
 export type TasteResponse = z.infer<typeof tasteResponseSchema>
 
@@ -220,10 +228,31 @@ export const TASTE_SKIP_LIMIT_DEFAULT = 3
 export function tasteSkipLimitFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): number {
-  const crudo = Number(env.RONA_TASTE_SKIP_LIMIT ?? '')
+  const texto = (env.RONA_TASTE_SKIP_LIMIT ?? '').trim()
+  // `Number('')` es cero, y una variable sin poner no puede significar «no
+  // insistas nunca»: el vacío es la ausencia de configuración, no un valor.
+  if (texto === '') return TASTE_SKIP_LIMIT_DEFAULT
+
+  const crudo = Number(texto)
   if (!Number.isInteger(crudo) || crudo < 0) return TASTE_SKIP_LIMIT_DEFAULT
 
   return Math.min(crudo, 20)
+}
+
+/**
+ * Si la encuesta se abre sola en la primera home.
+ *
+ * Se puede apagar con `RONA_TASTE_AUTO_OPEN=0`; el e2e lo hace para que las
+ * pruebas que ya existían no terminen en la encuesta. El banner sigue
+ * funcionando aunque la abertura automática esté apagada: son dos cosas
+ * distintas y apagar una no debe esconder la otra.
+ */
+export function tasteAutoOpenFromEnv(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  const crudo = (env.RONA_TASTE_AUTO_OPEN ?? '').trim().toLowerCase()
+
+  return crudo !== '0' && crudo !== 'false' && crudo !== 'no'
 }
 
 /**

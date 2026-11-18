@@ -35,6 +35,7 @@ import { adultosDeLaFila, TOPE_DE_VERIFICACION } from '../adultos'
 import type { AniListCatalog } from '../anilist/catalog'
 import type { ServerContainer } from '../container'
 import { gatherSignals, refKey } from '../recommend/signals'
+import { providerAudio } from '../recommend/taste'
 import { cacheHeader } from './cache-header'
 import { enMedia, mediaFrom, mediaPorProveedor } from './media'
 import { adultContentOf } from './settings'
@@ -227,7 +228,10 @@ export function registerRecommendationsRoute(
     // piezas de las que hay, porque el motor ya habría llenado su tope con títulos que
     // no se van a enseñar.
     const conAdultos = await adultContentOf(options.container.store)
-    const señales = await gatherSignals(options.container.store, { includeAdult: conAdultos })
+    const señales = await gatherSignals(options.container.store, {
+      includeAdult: conAdultos,
+      audioByProvider: providerAudio(options.providers),
+    })
     const conConsulta =
       consulta === ''
         ? señales

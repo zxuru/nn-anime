@@ -2,14 +2,18 @@ import { describe, expect, test } from 'bun:test'
 import type { Candidate } from '@rona/core'
 import { buildIdfIndex } from './affinity'
 import {
+  audioMatch,
+  catalogMatch,
   declaredGenreOf,
   declaredScore,
   declaredShare,
   declaredVector,
   formatMatch,
   hasTasteSignals,
+  LONG_SERIES_MIN_EPISODES,
   likedTitleOf,
   passesTaste,
+  SHORT_SERIES_MAX_EPISODES,
   TASTE_MIN_DECLARED_SHARE,
   type TasteSignals,
   tastePreferenceScore,
@@ -123,15 +127,39 @@ describe('el vector declarado', () => {
 })
 
 describe('el formato y el tono', () => {
-  test('película se prefiere con película; las series con las dos series', () => {
+  test('película se prefiere con película y una serie no lo es', () => {
     const pelicula = candidato('Película', [], { format: 'movie' })
-    const serie = candidato('Serie', [], { format: 'series' })
+    const serie = candidato('Serie', [], { format: 'series', episodeCount: 24 })
 
     expect(formatMatch(pelicula, gusto({ format: 'movies' }))).toBe(1)
     expect(formatMatch(serie, gusto({ format: 'movies' }))).toBe(0)
-    expect(formatMatch(serie, gusto({ format: 'long-series' }))).toBe(1)
-    expect(formatMatch(serie, gusto({ format: 'short-series' }))).toBe(1)
     expect(formatMatch(pelicula, gusto({ format: 'short-series' }))).toBe(0)
+  })
+
+  test('con episodios, larga y corta se distinguen de verdad', () => {
+    const larga = candidato('Larga', [], {
+      format: 'series',
+      episodeCount: LONG_SERIES_MIN_EPISODES,
+    })
+    const corta = candidato('Corta', [], {
+      format: 'series',
+      episodeCount: SHORT_SERIES_MAX_EPISODES,
+    })
+    const media = candidato('Media', [], { format: 'series', episodeCount: 18 })
+
+    expect(formatMatch(larga, gusto({ format: 'long-series' }))).toBe(1)
+    expect(formatMatch(larga, gusto({ format: 'short-series' }))).toBe(0)
+    expect(formatMatch(corta, gusto({ format: 'short-series' }))).toBe(1)
+    expect(formatMatch(corta, gusto({ format: 'long-series' }))).toBe(0)
+    expect(formatMatch(media, gusto({ format: 'long-series' }))).toBe(0)
+    expect(formatMatch(media, gusto({ format: 'short-series' }))).toBe(0)
+  })
+
+  test('sin número de episodios, la respuesta es la mitad y no una suposición', () => {
+    const sinDato = candidato('Sin dato', [], { format: 'series' })
+
+    expect(formatMatch(sinDato, gusto({ format: 'long-series' }))).toBe(0.5)
+    expect(formatMatch(sinDato, gusto({ format: 'short-series' }))).toBe(0.5)
   })
 
   test('sin formato elegido no hay opinión', () => {
@@ -152,12 +180,46 @@ describe('el formato y el tono', () => {
 
   test('la preferencia combina formato y tono y no depende del género', () => {
     const peliculaOscura = candidato('Una', ['Terror'], { format: 'movie' })
-    const serieOscura = candidato('Otra', ['Terror'], { format: 'series' })
+    const serieOscura = candidato('Otra', ['Terror'], {
+      format: 'series',
+      episodeCount: 24,
+    })
     const preferencia = gusto({ genres: [], format: 'movies', tone: 'dark' })
 
     expect(tastePreferenceScore(peliculaOscura, preferencia)).toBe(1)
     expect(tastePreferenceScore(serieOscura, preferencia)).toBe(0.5)
     expect(tastePreferenceScore(CORPUS[0] as Candidate, gusto())).toBe(0)
+  })
+
+  test('el catálogo prefiere lo que sigue emitiéndose o lo que ya cerró', () => {
+    const enEmision = candidato('En emisión', [], { status: 'airing' })
+    const terminado = candidato('Terminado', [], { status: 'finished' })
+    const sinDato = candidato('Sin dato', [])
+
+    expect(catalogMatch(enEmision, gusto({ catalog: 'airing' }))).toBe(1)
+    expect(catalogMatch(terminado, gusto({ catalog: 'airing' }))).toBe(0)
+    expect(catalogMatch(terminado, gusto({ catalog: 'classic' }))).toBe(1)
+    expect(catalogMatch(enEmision, gusto({ catalog: 'classic' }))).toBe(0)
+    expect(catalogMatch(sinDato, gusto({ catalog: 'classic' }))).toBe(0.5)
+    expect(catalogMatch(sinDato, gusto({ catalog: 'either' }))).toBe(1)
+    expect(catalogMatch(terminado, gusto())).toBeUndefined()
+  })
+
+  test('el idioma mira lo que declara la fuente, no el título', () => {
+    const fuentes = new Map([
+      ['con-dub', { sub: true, dub: true }],
+      ['solo-sub', { sub: true, dub: false }],
+    ])
+    const conDoblaje = candidato('Uno', [], { ref: { providerId: 'con-dub', value: 'uno' } })
+    const sinDoblaje = candidato('Dos', [], { ref: { providerId: 'solo-sub', value: 'dos' } })
+    const ajeno = candidato('Tres', [], { ref: { providerId: 'otro', value: 'tres' } })
+    const dub = gusto({ genres: [], audio: 'dub', audioByProvider: fuentes })
+
+    expect(audioMatch(conDoblaje, dub)).toBe(1)
+    expect(audioMatch(sinDoblaje, dub)).toBe(0)
+    // Una fuente que no está en la tabla no consta: no se castiga.
+    expect(audioMatch(ajeno, dub)).toBe(0.5)
+    expect(audioMatch(conDoblaje, gusto({ genres: [], audio: 'either' }))).toBeUndefined()
   })
 })
 
@@ -167,6 +229,8 @@ describe('las señales declaradas', () => {
     expect(hasTasteSignals(gusto({ genres: [] }))).toBe(false)
     expect(hasTasteSignals(gusto({ genres: [], format: 'movies' }))).toBe(true)
     expect(hasTasteSignals(gusto({ genres: [], excludedGenres: ['Terror'] }))).toBe(true)
+    expect(hasTasteSignals(gusto({ genres: [], audio: 'dub' }))).toBe(true)
+    expect(hasTasteSignals(gusto({ genres: [], catalog: 'classic' }))).toBe(true)
   })
 
   test('el género se explica con el nombre del catálogo', () => {

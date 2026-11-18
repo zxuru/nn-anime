@@ -506,6 +506,16 @@ export const candidateSchema = z.strictObject({
    */
   family: mediaFamilySchema.optional(),
   format: mediaFormatSchema.optional(),
+  /**
+   * Cuántos episodios tiene y en qué estado está, cuando la ficha lo sabe.
+   *
+   * El formato dice «serie o película»; estos dos dicen si es una serie larga o
+   * una temporada corta y si pertenece a la emisión actual o al catálogo
+   * cerrado. Son opcionales: un candidato de una fuente que sólo da el título
+   * sigue valiendo, y el motor lo trata como «no consta» en vez de inventarlo.
+   */
+  episodeCount: z.number().int().nonnegative().optional(),
+  status: airingStatusSchema.optional(),
   studios: z.array(z.string().min(1)),
   /** Popularidad normalizada dentro del proveedor, de 0 a 1. */
   popularity: z.number().min(0).max(1).optional(),

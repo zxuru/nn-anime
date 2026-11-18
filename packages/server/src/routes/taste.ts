@@ -17,6 +17,7 @@ import {
   LOCAL_TASTE_USER,
   normalizeGenreName,
   type TasteProfile,
+  tasteAutoOpenFromEnv,
   tasteResponseSchema,
   tasteRowsResponseSchema,
   tasteSkipLimitFromEnv,
@@ -27,7 +28,7 @@ import type { Provider } from '@rona/provider-sdk'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
 import { gatherSignals } from '../recommend/signals'
-import { popularTitles, tasteRowsFrom } from '../recommend/taste'
+import { popularTitles, providerAudio, tasteRowsFrom } from '../recommend/taste'
 import { enMedia, mediaFrom, mediaPorProveedor } from './media'
 import { adultContentOf } from './settings'
 
@@ -36,6 +37,8 @@ export interface TasteRouteOptions {
   readonly providers: readonly Provider[]
   /** Límite de omisiones; en pruebas se fija sin tocar el entorno. */
   readonly skipLimit?: number | undefined
+  /** Abertura automática; el arnés la apaga sin tocar el entorno. */
+  readonly autoOpen?: boolean | undefined
 }
 
 /** Un nombre de género, una sola vez, sin depender de tildes ni mayúsculas. */
@@ -153,9 +156,10 @@ export function profileFromSurvey(
 
 export function registerTasteRoutes(app: Hono, options: TasteRouteOptions): void {
   const limite = options.skipLimit ?? tasteSkipLimitFromEnv()
+  const autoOpen = options.autoOpen ?? tasteAutoOpenFromEnv()
 
   const respuesta = async (profile: TasteProfile) =>
-    tasteResponseSchema.parse({ profile, skipLimit: limite })
+    tasteResponseSchema.parse({ profile, skipLimit: limite, autoOpen })
 
   app.get('/api/taste', async (c) => {
     const store = options.container.store
@@ -194,6 +198,23 @@ export function registerTasteRoutes(app: Hono, options: TasteRouteOptions): void
   })
 
   /**
+   * Borra el perfil y deja la encuesta sin empezar.
+   *
+   * Es la salida limpia para quien quiera volver a contestar desde cero y la
+   * limpieza que usa el e2e entre pruebas. No toca el historial: las señales de
+   * comportamiento se derivan de él y siguen ahí.
+   */
+  app.delete('/api/taste', async (c) => {
+    const store = options.container.store
+    const profile = emptyTasteProfile()
+
+    await store.writeTasteProfile(profile)
+    c.header('cache-control', 'no-store')
+
+    return c.json(await respuesta(profile))
+  })
+
+  /**
    * Los títulos del paso 2.
    *
    * Es una lectura aparte y no parte de `GET /api/taste` porque la encuesta
@@ -221,7 +242,10 @@ export function registerTasteRoutes(app: Hono, options: TasteRouteOptions): void
     const store = options.container.store
     const conAdultos = await adultContentOf(store)
     const [senales, profile] = await Promise.all([
-      gatherSignals(store, { includeAdult: conAdultos }),
+      gatherSignals(store, {
+        includeAdult: conAdultos,
+        audioByProvider: providerAudio(options.providers),
+      }),
       store.readTasteProfile(),
     ])
 
