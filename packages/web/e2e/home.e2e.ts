@@ -935,6 +935,50 @@ test.describe('el conmutador de tipo', () => {
   })
 
   /**
+   * Una obra vive en una sola familia.
+   *
+   * La película de anime de la fuente mixta sale en Anime y, con el filtro
+   * Películas, es la única; la serie de animación occidental no sale en Anime y la
+   * de imagen real no sale en Animación. Es lo que el `kind` no sabía decir: una
+   * fuente que sirve las tres familias declara la de cada título.
+   */
+  test('cada obra sale sólo en su familia', async ({ page }) => {
+    await entrar(page)
+    const tarjeta = (ref: string) => page.locator(`a[href*="${ref}"]`)
+
+    const abrir = async (termino: string, familia: string): Promise<void> => {
+      await page.goto(`/search?q=${encodeURIComponent(termino)}&tipo=${familia}`)
+      await expect(page.getByLabel('Buscar por título')).toBeVisible()
+    }
+
+    // La película de anime, en Anime y con el filtro Películas.
+    await abrir('La Última Función', 'anime')
+    await page.locator('.formato').getByRole('link', { name: 'Películas', exact: true }).click()
+    await expect(tarjeta('la-ultima-funcion').first()).toBeVisible({ timeout: 15_000 })
+
+    // En Acción real la misma búsqueda no la encuentra.
+    await abrir('La Última Función', 'live')
+    await expect(page.locator('.search__status')).toHaveText(/0 resultados en/, { timeout: 15_000 })
+    await expect(tarjeta('la-ultima-funcion')).toHaveCount(0)
+
+    // La serie de animación occidental, sólo en Animación.
+    await abrir('Taller de Monstruos', 'animation')
+    await expect(tarjeta('taller-de-monstruos').first()).toBeVisible({ timeout: 15_000 })
+
+    await abrir('Taller de Monstruos', 'anime')
+    await expect(page.locator('.search__status')).toHaveText(/0 resultados en/, { timeout: 15_000 })
+    await expect(tarjeta('taller-de-monstruos')).toHaveCount(0)
+
+    // Y la de imagen real, sólo en Acción real.
+    await abrir('Turno de Noche', 'live')
+    await expect(tarjeta('turno-de-noche').first()).toBeVisible({ timeout: 15_000 })
+
+    await abrir('Turno de Noche', 'animation')
+    await expect(page.locator('.search__status')).toHaveText(/0 resultados en/, { timeout: 15_000 })
+    await expect(tarjeta('turno-de-noche')).toHaveCount(0)
+  })
+
+  /**
    * A 1024 el que baja es el conmutador, no el «?».
    *
    * Con la cabecera al límite, el último hijo era el botón de la guía y se

@@ -37,6 +37,34 @@ describe('catálogo', () => {
     expect(CATALOGO.length).toBeGreaterThanOrEqual(12)
   })
 
+  /**
+   * Cada título declara su familia y su formato, y ninguno contradice al `kind`.
+   *
+   * Es lo que una fuente que sirve las tres familias tiene que decir: sin esto,
+   * una película de anime de una fuente mixta cae en Acción real por su `kind` y
+   * una serie de imagen real cae en Anime. El fixture cubre los tres casos que
+   * distinguen la regla nueva de la vieja.
+   */
+  test('cada título declara familia y formato, y las tres familias están', () => {
+    for (const titulo of CATALOGO) {
+      expect(['anime', 'animation', 'live'], titulo.ref).toContain(titulo.family)
+      expect(['series', 'movie'], titulo.ref).toContain(titulo.format)
+      // Una película es `movie` y todo lo demás una serie: el formato no puede
+      // contradecir al tipo que publica la fuente.
+      expect(titulo.format === 'movie', titulo.ref).toBe(titulo.kind === 'movie')
+    }
+
+    expect([...new Set(CATALOGO.map((titulo) => titulo.family))].sort()).toEqual([
+      'animation',
+      'anime',
+      'live',
+    ])
+    // Y el caso que la regla vieja no podía expresar: una película de anime.
+    expect(CATALOGO.some((titulo) => titulo.family === 'anime' && titulo.format === 'movie')).toBe(
+      true,
+    )
+  })
+
   test('cada título trae lo que la interfaz necesita mostrar', () => {
     for (const titulo of CATALOGO) {
       expect(titulo.title.length, titulo.ref).toBeGreaterThan(0)

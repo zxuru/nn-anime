@@ -87,7 +87,7 @@ Un proveedor es un objeto con:
 | `id` | Identificador corto, en minúsculas y con guiones. Es el que aparece en las rutas |
 | `name` | Nombre visible |
 | `apiVersion` | Versión del contrato. Hoy `1` |
-| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending`, `feed`, `episodePages`, `download` —y, con `media`, qué sirve: `anime`, `movies` o `both` |
+| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending`, `feed`, `episodePages`, `download` —y, con `families` (o el legado `media`), qué familias sirve |
 | `search(query, options)` | Busca títulos |
 | `getAnime(ref, options)` | Detalle de un título |
 | `getEpisodes(ref, options)` | Lista de episodios |
@@ -106,13 +106,32 @@ la aplicación resuelve el mismo stream que la reproducción —un archivo direc
 la carpeta de descargas, así que el botón se ofrece en todas las fuentes. El campo queda para que un
 manifiesto que ya lo declare siga cargando; un plugin nuevo no lo necesita.
 
-`capabilities.media` dice **qué sirve** el plugin, que es otra cosa que lo que sabe hacer: la interfaz
-divide la home y la búsqueda con un conmutador entre anime y películas, y cada título cae en una mitad
-según lo que declare su fuente. Vale `'anime'`, `'movies'` —películas, series y doramas: lo que no es
-anime va por el mismo camino— o `'both'`. **No declararlo es `'anime'`**: es lo que eran todos los
-plugins antes de que el campo existiera, así que no hay nada que cambiar para seguir funcionando. Un
-plugin de las dos cosas declara `'both'` y reparte por el `kind` de cada título (`'movie'` para las
-películas, lo demás del lado del anime), que es un dato que sus resultados ya pueden traer.
+`capabilities.families` dice **qué sirve** el plugin, que es otra cosa que lo que sabe hacer: la
+interfaz divide la home y la búsqueda en tres pestañas —Anime, Animación y Acción real—, y cada
+título cae en una según su familia. Vale un array no vacío de `'anime'`, `'animation'` (animación que
+no es anime) y `'live'` (imagen real), sin repetidos. **No declararlo es `['anime']`**: es lo que eran
+todos los plugins antes de que el campo existiera, así que no hay nada que cambiar para seguir
+funcionando.
+
+`media` (`'anime'`, `'movies'` o `'both'`) sigue leyéndose como alias: `'anime'` es `['anime']`,
+`'movies'` es `['animation', 'live']` —«todo lo que no es anime»— y `'both'` es no filtrar. Si un
+manifiesto trae las dos cosas, **gana `families`**. Un plugin que sirve varias familias y no clasifica
+sus títulos se reparte por el `kind` como siempre: `'movie'` del lado de imagen real, lo demás del
+lado de anime. Para decir la verdad sin depender de esa regla, cada resultado y cada detalle pueden
+llevar `family` y `format` (`'series'` o `'movie'`); es lo que hace el fixture:
+
+```ts
+return {
+  ref: { providerId: 'mio', value: 'x' },
+  title: 'Una película de anime',
+  kind: 'movie',
+  family: 'anime',
+  format: 'movie',
+}
+```
+
+Con eso, una película de anime vive en Anime y se aísla con el filtro Películas, y una serie de
+imagen real vive en Acción real aunque su `kind` sea `'tv'`.
 
 Todos los métodos devuelven `Promise<Result<T, ProviderError>>` o lanzan: el SDK convierte lo que se
 lance en un `Result` fallido, así que **no hace falta envolver nada a mano**.
@@ -304,7 +323,7 @@ Cuatro cosas que conviene saber antes de escribirlos:
 
 ## Subtítulos de SubDivX para películas y series
 
-Un proveedor de películas —con `capabilities.media: 'movies'`— puede acompañar
+Un proveedor de imagen real —con `capabilities.families: ['live']`— puede acompañar
 cada fuente con subtítulos de SubDivX. No hay API: el plugin busca en
 `https://www.subdivx.com` y devuelve el enlace de descarga como una pista más de
 `resolveStream`. Lo que el plugin no tiene que resolver —y por eso esta receta

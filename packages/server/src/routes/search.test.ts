@@ -103,9 +103,9 @@ describe('GET /api/providers', () => {
       dub: true,
       trending: true,
       feed: true,
-      // El fixture declara que sirve las dos cosas, y las capacidades viajan
-      // enteras: es lo que la interfaz lee para saber en qué pestaña enseñarlo.
-      media: 'both',
+      // El fixture declara las tres familias, y las capacidades viajan enteras:
+      // es lo que la interfaz lee para saber en qué pestaña enseñarlo.
+      families: ['anime', 'animation', 'live'],
     })
     expect(body.providers[0]?.status).toBe('active')
   })
@@ -389,10 +389,15 @@ describe('GET /api/search como SSE', () => {
       results: readonly { title: string; kind?: string }[]
     }
 
-    // El fixture es `both` y su catálogo trae series de anime: sin filtrar los
-    // resultados llegarían a la pestaña de películas y la interfaz las escondería
-    // después, con el gasto hecho.
-    expect(data.results.map((resultado) => resultado.title)).toEqual(['El Jardín de Hierro'])
+    // El fixture sirve las tres familias y su catálogo trae series de anime: sin
+    // filtrar los resultados llegarían a la pestaña de acción real y la interfaz
+    // las escondería después, con el gasto hecho. Entran la película de imagen
+    // real, la serie de animación occidental y la de acción real.
+    expect(data.results.map((resultado) => resultado.title)).toEqual([
+      'El Jardín de Hierro',
+      'Taller de Monstruos',
+      'Turno de Noche',
+    ])
   })
 
   test('una serie declarada por una fuente mixta entra en películas', async () => {
