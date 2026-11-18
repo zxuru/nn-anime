@@ -1,5 +1,5 @@
 {
-  "version": 17,
+  "version": 18,
   "archivos": {
     "0001-initial.sql": "sha256:3dda38578cbbe5644c33b121382a41dc586afac1bb02fd0f57e79ec602241c99",
     "0002-search-cache.sql": "sha256:4854bcf26f6d52e7a0f43277d0cf48c0df1c7ce20db5434cfcd5b8f15f0e65df",
@@ -17,6 +17,7 @@
     "0014-descargas.sql": "sha256:bdcabf44bb0a50bdbd83941032fe691c224a57d41f26f0b33e0f74929d020fe6",
     "0015-descarga-en-segmentos.sql": "sha256:d3a0343371ba8a579bf1294fabb466feef788d44abc591f28b772f727315ac9a",
     "0016-anilist-mal.sql": "sha256:9d9a34f49d7d71161abeda9adcb50335302a0ba0b99157a68de6ad5313bb13c8",
-    "0017-aniskip-cache.sql": "sha256:d497a5219f41e1834f7879093fa6709e9f34a16b5e71085cfc5d5f60541f4581"
+    "0017-aniskip-cache.sql": "sha256:d497a5219f41e1834f7879093fa6709e9f34a16b5e71085cfc5d5f60541f4581",
+    "0018-indices-calientes.sql": "sha256:7ab5eeaca91e6fed95cc53b166dd1c3213a3729b588e4c73e35b921051806edb"
   }
 }

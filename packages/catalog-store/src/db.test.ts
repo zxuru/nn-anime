@@ -83,6 +83,13 @@ async function withDb<T>(body: (db: Database, path: string) => Promise<T> | T): 
   }
 }
 
+function indexNames(db: Database, table: string): readonly string[] {
+  return db
+    .query<{ name: string }, []>(`PRAGMA index_list('${table}')`)
+    .all()
+    .map((fila) => fila.name)
+}
+
 function tableNames(db: Database): readonly string[] {
   const rows = db
     .query(
@@ -450,6 +457,16 @@ describe('migración que falla', () => {
       sql: 'CREATE TABLE a_medias (a INTEGER); ESTO NO ES SQL;',
     },
   ]
+
+  test('los índices de las consultas calientes existen', async () => {
+    await withDb((db) => {
+      runMigrations(db)
+
+      expect(indexNames(db, 'watch_event')).toContain('watch_event_por_episodio')
+      expect(indexNames(db, 'anime')).toContain('anime_por_fetch')
+      expect(indexNames(db, 'genre')).toContain('genre_por_nombre')
+    })
+  })
 
   test('el esquema queda como estaba: ni tabla nueva ni versión nueva', async () => {
     await withDb((db) => {
