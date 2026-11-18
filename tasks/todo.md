@@ -897,7 +897,7 @@ precarga—, el catálogo de textos, los tokens y la hoja de estructura.
 **Descripción:** Base SQLite con WAL y runner de migraciones versionadas.
 
 **Corregido al auditar:** esta tarea decía «crea las once tablas del Data Model». El Data Model de
-`docs/specs/SPEC-nn-anime.md` lista **nueve**: `anime`, `genre`, `episode`, `watch_event`, `favorite`,
+`docs/specs/SPEC-rona.md` lista **nueve**: `anime`, `genre`, `episode`, `watch_event`, `favorite`,
 `search_history`, `stream_cache`, `setting` y `schema_version`. Manda el spec. Un test que cuente
 las tablas creadas contra esa lista evita que vuelva a desviarse.
 
@@ -1528,7 +1528,7 @@ el tipo de lo que se pidió y lo impone) y su prueba.
 
 ### T26c — Pruebas de integración del ciclo completo
 
-**Descripción:** Tarea **nueva**, añadida al auditar la trazabilidad. `docs/specs/SPEC-nn-anime.md` declara un
+**Descripción:** Tarea **nueva**, añadida al auditar la trazabilidad. `docs/specs/SPEC-rona.md` declara un
 nivel de pruebas de integración en `tests/` que «cubre el ciclo buscar → detalle → episodios →
 resolver stream → cachear», y **ninguna tarea lo creaba**. Cada tarea prueba su paquete; el ciclo
 completo no lo probaba nadie, que es justo donde aparecen los fallos de integración.
@@ -2651,7 +2651,7 @@ abrir un task de corrección por cada uno que falle.
 - [x] **Auditoría de trazabilidad spec↔plan hecha primero**, con su tabla de huecos en
       `docs/v1-report.md`. Cuatro huecos: `revalidate_error` sin documentar, la tabla `genre` que nadie
       escribe, las tendencias que no se cachean y el `localhost` del guard de `Host`.
-- [x] Los ocho criterios de `docs/specs/SPEC-nn-anime.md` verificados y marcados en el propio spec. Siete con su
+- [x] Los ocho criterios de `docs/specs/SPEC-rona.md` verificados y marcados en el propio spec. Siete con su
       evidencia; el de «home y detalle sin llamadas de red» queda marcado **con el matiz medido** de
       las tendencias.
 - [x] Los criterios de cada spec de módulo revisados; los no verificados se listan con motivo. **Los
@@ -2668,7 +2668,7 @@ temporal), con sus códigos de salida.
 
 **Depende de:** T46.
 
-**Archivos:** `docs/specs/SPEC-nn-anime.md`, `docs/specs/SPEC-<module-id>.md`, `docs/v1-report.md`.
+**Archivos:** `docs/specs/SPEC-rona.md`, `docs/specs/SPEC-<module-id>.md`, `docs/v1-report.md`.
 
 **Cuatro decisiones que conviene recordar:**
 

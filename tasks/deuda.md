@@ -218,7 +218,7 @@ agentes vivos.
 además **imprime los archivos que la medición no ve** —que es justo lo que faltaba cuando el
 objetivo era aspiracional—. Pero `grep coverage .github/workflows/` no da **ninguna** coincidencia:
 el gate sólo corre si alguien se acuerda. `docs/roadmap.md` lo exige en cada fase y
-`SPEC-nn-anime.md` afirma que «se hace cumplir».
+`docs/specs/SPEC-rona.md` afirma que «se hace cumplir».
 
 **Aceptación:**
 - El CI ejecuta el gate y **falla el job** cuando un paquete medido baja del objetivo.
