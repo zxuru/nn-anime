@@ -19,7 +19,6 @@ import {
   PARTY_MAX_MESSAGE_BYTES,
   PARTY_PROTOCOL_VERSION,
   type PartyEvent,
-  type PartyJoinResponse,
   type PartyRemoteSnapshot,
   type PartyReport,
   partyEventSchema,
@@ -69,11 +68,26 @@ const MAX_SSE_BUFFER_BYTES = 64 * 1024
 const DEFAULT_RETRY_MS = 1_000
 const MAX_JSON_BYTES = 32 * 1024
 
+/**
+ * El contrato pide `hostNowMs`; un anfitrión de una versión anterior puede no
+ * mandarlo. Sin sello no hay forma de medir la caducidad en el reloj propio, y
+ * comparar su `expiresAt` con el nuestro sería volver al error que esto
+ * arregla: ese enlace se queda sin plazo local y lo cierra el anfitrión, que
+ * es quien sabe cuándo acaba la sala (401/404 en el SSE o un `closed`).
+ */
+const joinReplySchema = partyJoinResponseSchema.or(
+  partyJoinResponseSchema.omit({ hostNowMs: true }),
+)
+
 interface RemoteLink {
   readonly baseUrl: string
   readonly roomId: string
   readonly token: string
-  readonly expiresAt: number
+  /**
+   * Cuándo caduca el enlace **en el reloj de este proceso**, no en el del
+   * anfitrión. `Infinity` cuando el anfitrión no selló su reloj.
+   */
+  readonly deadline: number
   readonly name: string
 }
 
@@ -150,15 +164,23 @@ export class RemoteParty {
     if (response.status === 429) return { ok: false, reason: 'rate-limited' }
     if (!response.ok) return { ok: false, reason: 'unavailable' }
 
-    const entrada = await leerJson<PartyJoinResponse>(response, partyJoinResponseSchema)
+    const entrada = await leerJson(response, joinReplySchema)
     if (entrada === undefined) return { ok: false, reason: 'unavailable' }
+
+    // `expiresAt` viene en el reloj monotónico del anfitrión. Lo que se puede
+    // transportar es la vida que le queda, y esa sí se suma a nuestro reloj.
+    const sello = 'hostNowMs' in entrada ? entrada.hostNowMs : undefined
+    const deadline =
+      sello === undefined
+        ? Number.POSITIVE_INFINITY
+        : this.#now() + Math.max(0, entrada.expiresAt - sello)
 
     this.#detener()
     this.#link = {
       baseUrl,
       roomId: entrada.roomId,
       token: entrada.token,
-      expiresAt: entrada.expiresAt,
+      deadline,
       name: input.name,
     }
     this.#snapshot = {
@@ -344,7 +366,7 @@ export class RemoteParty {
 
         if (this.#link === undefined) return
 
-        if (this.#now() >= this.#link.expiresAt) {
+        if (this.#now() >= this.#link.deadline) {
           this.#cerrar('expired')
 
           return

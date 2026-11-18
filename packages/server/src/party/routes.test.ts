@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { PartyEvent } from '@rona/core'
+import { type PartyEvent, partyJoinResponseSchema } from '@rona/core'
 import { createApp } from '../index'
 
 const PORT = 7717
@@ -51,7 +51,7 @@ async function unirse(
   target: ReturnType<typeof app>,
   code: string,
   name = 'Invitada',
-): Promise<{ token: string; roomId: string }> {
+): Promise<{ token: string; roomId: string; hostNowMs: number }> {
   const respuesta = await target.request(`${BASE}/api/party/join`, {
     method: 'POST',
     headers: { ...JSON_HEADERS, origin: GUEST_ORIGIN },
@@ -60,7 +60,11 @@ async function unirse(
 
   expect(respuesta.status).toBe(200)
 
-  return (await respuesta.json()) as { token: string; roomId: string }
+  // Se valida con el contrato del cable: si el join deja de mandar el sello de
+  // su reloj, esto falla aquí y no al reconectar el SSE.
+  const cuerpo = partyJoinResponseSchema.parse(await respuesta.json())
+
+  return { token: cuerpo.token, roomId: cuerpo.roomId, hostNowMs: cuerpo.hostNowMs }
 }
 
 describe('la sala apagada', () => {
@@ -185,6 +189,11 @@ describe('invitado', () => {
 
     expect(invitada.token.length).toBeGreaterThan(30)
     expect(invitada.roomId).toBe(sala.roomId)
+
+    // El sello es el reloj monotónico del anfitrión, no el de pared: es lo que
+    // el invitado necesita para medir la vida restante con el suyo.
+    expect(invitada.hostNowMs).toBeGreaterThanOrEqual(0)
+    expect(invitada.hostNowMs).toBeLessThan(Date.now())
 
     const respuesta = await target.request(`${BASE}/api/party/join`, {
       method: 'POST',
