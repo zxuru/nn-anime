@@ -4,11 +4,12 @@ import { encodeIcns, encodeIco, encodePng, leerSvg, render } from './icon'
 /**
  * Lo que estas pruebas defienden.
  *
- * El icono tiene dos decisiones que **no fallan cuando se rompen**: si la marca
- * micro deja de ser micro, la bandeja del sistema enseña una mancha y nadie ve
- * un error; y si el `.ico` vuelve a escribir sus números en big-endian, Bun
- * genera un ejecutable de 2,66 GB que Windows rechaza. Por eso se mide el
- * dibujo y se leen los bytes del contenedor, no la intención del código.
+ * El icono tiene dos decisiones que **no fallan cuando se rompen**: si una talla
+ * pequeña deja de dibujar la raposa —volver a la «R» desnuda, por ejemplo—, el
+ * lanzador y la cabecera enseñan dos marcas distintas y nadie ve un error; y si
+ * el `.ico` vuelve a escribir sus números en big-endian, Bun genera un
+ * ejecutable de 2,66 GB que Windows rechaza. Por eso se mide el dibujo y se leen
+ * los bytes del contenedor, no la intención del código.
  */
 
 interface Conteo {
@@ -47,11 +48,25 @@ describe('el detalle del icono se adapta al tamaño', () => {
     expect(crema, 'la silueta es de crema').toBeGreaterThan(1000)
   })
 
-  test('la marca micro no lleva coral: es la «R» desnuda', () => {
-    const { coral, crema } = contar(render(32))
+  /**
+   * No hay una segunda marca por debajo de 48 px.
+   *
+   * El generador dibujaba ahí la «R» desnuda y el icono del lanzador dejaba de
+   * parecerse al de la cabecera. La micro no llevaba nada de coral; que las dos
+   * tallas pequeñas lo lleven es lo que dice que la raposa entera se rasteriza.
+   */
+  test('a 16 y 32 px sigue habiendo coral y crema de la raposa', () => {
+    for (const lado of [16, 32]) {
+      const { coral, crema } = contar(render(lado))
 
-    expect(coral, 'a 32 px no caben la órbita ni el play coral').toBe(0)
-    expect(crema, 'la «R» sigue ahí').toBeGreaterThan(100)
+      // A 16 px la silueta son una docena de píxeles crema y el coral queda en
+      // el play: lo que se mide es que las dos tintas siguen ahí, no cuántas.
+      expect(coral, `a ${lado} px faltan la órbita y el play`).toBeGreaterThan(0)
+      expect(crema, `a ${lado} px no queda la silueta`).toBeGreaterThan(0)
+    }
+
+    // A 32 px la silueta ya ocupa su sitio: una cuarentena de píxeles crema.
+    expect(contar(render(32)).crema).toBeGreaterThan(50)
   })
 
   test('las esquinas de la lámina son transparentes y el centro es opaco', () => {

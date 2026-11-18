@@ -4,10 +4,10 @@
  *
  * **El maestro es `packaging/icons/icon.svg`**, el dibujo vectorial de la marca.
  * Este archivo lo rasteriza a los ocho PNG, al `.ico` de Windows y al `.icns` de
- * macOS, y añade una variante propia para los tamaños de bandeja. Guardar sólo
- * los binarios dejaría el repositorio con tres formatos que nadie puede revisar
- * ni rehacer; guardar sólo el SVG dejaría al empaquetado sin icono, porque ni
- * Windows ni macOS leen SVG para el ejecutable.
+ * macOS, y escribe también el favicon y el icono táctil de la web, para que no
+ * haya dos originales. Guardar sólo los binarios dejaría el repositorio con tres
+ * formatos que nadie puede revisar ni rehacer; guardar sólo el SVG dejaría al
+ * empaquetado sin icono, porque ni Windows ni macOS leen SVG para el ejecutable.
  *
  * La marca se llama **la R-raposa**: una «R» cuyo cuenco es la cabeza de una
  * raposa, con el triángulo de reproducción en el contador y una órbita coral que
@@ -18,10 +18,12 @@
  * luz. Si el SVG estrena una etiqueta o un comando que este archivo no conoce,
  * **falla con su nombre** en vez de dibujar otra cosa en silencio.
  *
- * **El detalle se adapta al tamaño.** Por debajo de 48 px la silueta completa se
- * convierte en una mancha y el coral del play pierde contraste: ahí se dibuja la
- * «R» desnuda, con el palo y la pierna a dos píxeles. La bandeja del sistema usa
- * `icon-32.png`, así que ese corte importa de verdad.
+ * **Una sola marca, en todas las tallas.** La raposa del maestro se rasteriza
+ * igual a 16 px que a 1024: el lanzador, la barra de tareas, la bandeja del
+ * sistema y la pestaña del navegador enseñan el mismo dibujo. Antes había una
+ * variante micro —la «R» desnuda— por debajo de 48 px, y el icono del ejecutable
+ * no se parecía al de la cabecera; se retiró. Si una talla no se lee, se
+ * simplifica la raposa —orejas, ojos y play—, no se cambia de marca.
  *
  * No hay dependencias de imagen: el PNG se codifica aquí. Bun trae `deflate`, y
  * el resto —CRC-32, el envoltorio zlib, el contenedor ICO y el ICNS— son formatos
@@ -38,6 +40,14 @@ import { ROOT } from './workspaces'
 
 const ICONS = join(ROOT, 'packaging', 'icons')
 const SVG = join(ICONS, 'icon.svg')
+/**
+ * La marca de la web.
+ *
+ * El favicon y el icono táctil se escriben aquí y no a mano: si fueran dos PNG
+ * mantenidos aparte, podrían separarse del maestro y la pestaña del navegador
+ * enseñaría una marca que el ejecutable no lleva.
+ */
+const WEB = join(ROOT, 'packages', 'web', 'public', 'brand')
 
 type Rgb = readonly [number, number, number]
 type Point = readonly [number, number]
@@ -763,131 +773,15 @@ function rasterizarSvg(size: number): Uint8Array {
   return reducir(buffer, lado, size, factor)
 }
 
-// --- La marca micro ---------------------------------------------------------
-
 /**
- * La marca reducida: la «R» desnuda, sin raposa, sin órbita y sin destello.
+ * Los píxeles RGBA de un lado.
  *
- * A 16 px la silueta completa es una mancha de crema con un punto: se midió. Lo
- * que sobrevive es la letra, con el palo y la pierna a dos píxeles y el contador
- * abierto. Es la misma marca, contada con menos piezas.
+ * Todas las tallas salen del maestro. El corte que dibujaba la «R» desnuda por
+ * debajo de 48 px se retiró: dos marcas en el mismo producto era el problema,
+ * no la solución.
  */
-const MICRO = {
-  background: [0x0a, 0x07, 0x0d] as Rgb,
-  cream: [0xfa, 0xe8, 0xda] as Rgb,
-  plateRadius: 0.185,
-  stem: { x0: 0.245, x1: 0.375, y0: 0.205, y1: 0.795, r: 0.02 },
-  bowl: { cx: 0.485, cy: 0.375, rx: 0.225, ry: 0.18 },
-  hole: { cx: 0.485, cy: 0.375, rx: 0.1, ry: 0.09 },
-  leg: [
-    [0.455, 0.455],
-    [0.575, 0.455],
-    [0.775, 0.795],
-    [0.635, 0.795],
-  ] as readonly Point[],
-} as const
-
-function dentroDeRectangulo(
-  x: number,
-  y: number,
-  x0: number,
-  y0: number,
-  x1: number,
-  y1: number,
-  radio: number,
-): boolean {
-  const qx = Math.max(x0 + radio, Math.min(x1 - radio, x))
-  const qy = Math.max(y0 + radio, Math.min(y1 - radio, y))
-  const dx = x - qx
-  const dy = y - qy
-
-  return dx * dx + dy * dy <= radio * radio
-}
-
-function dentroDeElipse(
-  x: number,
-  y: number,
-  cx: number,
-  cy: number,
-  rx: number,
-  ry: number,
-): boolean {
-  const dx = (x - cx) / rx
-  const dy = (y - cy) / ry
-
-  return dx * dx + dy * dy <= 1
-}
-
-/** Interiores de un polígono convexo, sea cual sea el sentido de sus vértices. */
-function dentroDePoligonoConvexo(x: number, y: number, puntos: readonly Point[]): boolean {
-  const signo = area(puntos) >= 0 ? 1 : -1
-
-  for (let i = 0; i < puntos.length; i++) {
-    const a = puntos[i]
-    const b = puntos[(i + 1) % puntos.length]
-    if (a === undefined || b === undefined) continue
-    const cruz = (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0])
-    if (cruz * signo < 0) return false
-  }
-
-  return true
-}
-
-function dentroDeLaMicro(x: number, y: number): boolean {
-  const { stem, bowl, hole, leg } = MICRO
-
-  if (dentroDeRectangulo(x, y, stem.x0, stem.y0, stem.x1, stem.y1, stem.r)) return true
-  if (
-    dentroDeElipse(x, y, bowl.cx, bowl.cy, bowl.rx, bowl.ry) &&
-    !dentroDeElipse(x, y, hole.cx, hole.cy, hole.rx, hole.ry)
-  ) {
-    return true
-  }
-
-  return dentroDePoligonoConvexo(x, y, leg)
-}
-
-function rasterizarMicro(size: number): Uint8Array {
-  const rgba = new Uint8Array(size * size * 4)
-  const muestras = 4
-  const total = muestras * muestras
-
-  for (let py = 0; py < size; py++) {
-    for (let px = 0; px < size; px++) {
-      let r = 0
-      let g = 0
-      let b = 0
-      let dentro = 0
-
-      for (let sy = 0; sy < muestras; sy++) {
-        for (let sx = 0; sx < muestras; sx++) {
-          const x = (px + (sx + 0.5) / muestras) / size
-          const y = (py + (sy + 0.5) / muestras) / size
-
-          if (!dentroDeRectangulo(x, y, 0, 0, 1, 1, MICRO.plateRadius)) continue
-
-          dentro++
-          const tinta = dentroDeLaMicro(x, y) ? MICRO.cream : MICRO.background
-          r += tinta[0]
-          g += tinta[1]
-          b += tinta[2]
-        }
-      }
-
-      const base = (py * size + px) * 4
-      rgba[base] = dentro === 0 ? 0 : Math.round(r / dentro)
-      rgba[base + 1] = dentro === 0 ? 0 : Math.round(g / dentro)
-      rgba[base + 2] = dentro === 0 ? 0 : Math.round(b / dentro)
-      rgba[base + 3] = Math.round((dentro / total) * 255)
-    }
-  }
-
-  return rgba
-}
-
-/** Los píxeles RGBA de un lado: el SVG por encima de 32 px, la «R» desnuda por debajo. */
 export function render(size: number): Uint8Array {
-  return size <= 32 ? rasterizarMicro(size) : rasterizarSvg(size)
+  return rasterizarSvg(size)
 }
 
 // --- Los contenedores -------------------------------------------------------
@@ -1130,8 +1024,12 @@ export function encodeIcns(images: readonly IconImage[]): Uint8Array {
 /** Los tamaños que se generan, de menor a mayor. */
 export const SIZES: readonly number[] = [16, 32, 48, 64, 128, 256, 512, 1024]
 
+/** El icono táctil de la web, que no está en `SIZES` porque no es de la app. */
+const TACTIL = 180
+
 async function main(): Promise<void> {
   await mkdir(ICONS, { recursive: true })
+  await mkdir(WEB, { recursive: true })
 
   const images: IconImage[] = SIZES.map((size) => {
     const rgba = render(size)
@@ -1152,8 +1050,20 @@ async function main(): Promise<void> {
 
   await Bun.write(join(ICONS, 'icon.icns'), encodeIcns(images))
 
+  /*
+   * La web bebe del mismo maestro. El favicon es el PNG de 32 de la lista —el
+   * mismo que usa la bandeja— y el táctil se rasteriza aparte porque 180 no es
+   * una talla de la aplicación. El SVG también se copia: así la cabecera y el
+   * ejecutable no pueden quedarse con dos dibujos distintos.
+   */
+  const favicon = images.find((image) => image.size === 32)
+  if (favicon !== undefined) await Bun.write(join(WEB, 'favicon-32.png'), favicon.png)
+  await Bun.write(join(WEB, 'touch-180.png'), encodePng(render(TACTIL), TACTIL))
+  await Bun.write(join(WEB, 'logo.svg'), readFileSync(SVG))
+
   process.stdout.write(`iconos escritos en ${ICONS}\n`)
   process.stdout.write(`  tamaños: ${SIZES.join(', ')}\n`)
+  process.stdout.write(`marca de la web escrita en ${WEB}\n`)
 }
 
 if (import.meta.main) {

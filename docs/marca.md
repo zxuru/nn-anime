@@ -43,22 +43,22 @@ convexos (el play). Un desenfoque de 12 unidades sobre 1254 es un manchón a
 cualquier tamaño de icono, no una luz; el maestro lo guarda para quien lo use a
 gran formato.
 
-## Los dos tamaños
+## Un solo dibujo en todas las tallas
 
-| Nivel | Tamaños | Qué se dibuja |
-|---|---|---|
-| **Completa** | 48, 64, 128, 256, 512, 1024 | El SVG tal cual, con su margen, sus orejas, el play y la órbita |
-| **Micro** | 16, 32 | La «R» desnuda, sin raposa, sin órbita y sin destello |
+| Tamaños | Qué se dibuja |
+|---|---|
+| 16, 32, 48, 64, 128, 256, 512, 1024 | El maestro tal cual, con su margen, sus orejas, el play y la órbita |
 
-El corte está en 48 y **está medido**: a 32 px la silueta completa es una mancha
-de crema con un punto, y el play coral pierde contraste sobre el crema. La
-bandeja del sistema usa `icon-32.png`, así que ese tamaño importa de verdad. La
-micro no es una miniatura: es la misma marca contada con una sola pieza, con el
-palo y la pierna a dos píxeles.
+Hubo un segundo nivel de detalle para 16 y 32 px —la «R» desnuda— y se retiró:
+el icono del lanzador y el de la cabecera no se parecían, que es un problema
+mayor que una silueta apretada. La bandeja del sistema usa `icon-32.png` y a ese
+tamaño la raposa entera se sigue leyendo: la crema de la cabeza, el play coral y
+la órbita. Si alguna talla dejara de leerse, se simplifica la raposa —orejas,
+ojos y play— en el maestro, no se sustituye por otra marca.
 
-La micro vive en `scripts/icon.ts` porque el SVG no la tiene: un vector con ese
-nivel de detalle no se simplifica solo, y el archivo maestro debe seguir siendo
-el dibujo completo.
+La misma regla vale para la web: el favicon de 32 px y el icono táctil de 180 px
+los escribe `bun run icon` desde el maestro, y el `logo.svg` de la web es su
+copia byte a byte. No hay PNG mantenidos a mano que puedan separarse.
 
 ## Paleta
 
@@ -92,8 +92,8 @@ Un solo acento, como en la interfaz: el coral no rellena nada que no sea la
 | `icon.png`, `icon-512.png` | El README, Linux y la ficha de Discord |
 | `icon-16/48/64/128.png` | Los sistemas que piden un tamaño concreto |
 | `packaging/icons/logo-aprobado.png` | El logo aprobado por el usuario |
-| `packages/web/public/brand/logo.png` | El logo aprobado, usado directamente en la cabecera y como icono web |
-| `packages/web/public/brand/favicon-32.png`, `touch-180.png` | Los tamaños de navegador y pantalla de inicio |
+| `packages/web/public/brand/logo.svg` | La cabecera; copia byte a byte del maestro |
+| `packages/web/public/brand/favicon-32.png`, `touch-180.png` | El navegador y la pantalla de inicio, rasterizados del maestro |
 
 En Discord, la clave de la imagen es `rona` y se sube `icon-1024.png`. En Linux,
 `packaging/linux/rona.desktop` apunta a `Icon=rona`.
@@ -106,17 +106,17 @@ interletrado** —`RONA`—, que es la marca de la cabecera
 (`packages/web/src/styles/base.css`, `.shell__brand`). Las parejas permitidas:
 
 - **Símbolo + `RONA`**, en horizontal, para cabeceras y material de presentación.
-- **Símbolo solo**, para la ventana y la bandeja.
-- **La «R» micro**, cuando el símbolo baja de 48 px.
+- **Símbolo solo**, para la ventana, la bandeja y el icono de la aplicación.
 
 Una versión `RoNa` en capitales mixtas puede usarse en prosa editorial, nunca en
 la cabecera de la aplicación ni en el icono.
 
 ## Reglas
 
-- **El maestro vectorial de los paquetes de escritorio se edita en el SVG.**
-  `bun run icon` vuelve a escribir sus ocho PNG, el `.ico` y el `.icns`. La web
-  muestra `logo-aprobado.png` directamente para conservar la imagen aprobada tal cual.
+- **El maestro vectorial se edita en el SVG.**
+  `bun run icon` vuelve a escribir sus ocho PNG, el `.ico` y el `.icns`, y desde
+  el mismo dibujo genera el favicon, el icono táctil y la copia `logo.svg` de la
+  web. Es idempotente: dos ejecuciones seguidas dejan el árbol igual.
 - **El rasterizador falla con lo que no entiende.** Si el SVG estrena una
   etiqueta, un comando de `path` o un gradiente que no esté definido, el generador
   se para con su nombre en vez de dibujar otra cosa. Es la prueba que lo defiende:
