@@ -75,11 +75,17 @@ describe('la petición', () => {
   test('sin fetch inyectado, la conexión no pasa por el fetch global', async () => {
     const original = globalThis.fetch
     let llamado = false
-    globalThis.fetch = (async () => {
-      llamado = true
+    // El doble no necesita `preconnect`: se declara para que el tipo de `fetch`
+    // de Bun quede completo y el test no tenga que silenciar nada con un `as`.
+    const falso: typeof fetch = Object.assign(
+      async () => {
+        llamado = true
 
-      return new Response('{}')
-    }) as typeof fetch
+        return new Response('{}')
+      },
+      { preconnect: () => undefined },
+    )
+    globalThis.fetch = falso
 
     try {
       const client = createAniSkipClient({

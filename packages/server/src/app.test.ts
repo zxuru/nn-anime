@@ -350,6 +350,7 @@ describe('GET /api/health', () => {
       version: '2.3.4',
       port: PORT,
       mpv: true,
+      party: false,
       providers: [],
     })
   })

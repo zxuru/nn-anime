@@ -438,6 +438,7 @@ export function createApp(options: AppOptions): Hono {
         // orden fue justo el fallo: el contenedor decía que había mpv y la salud
         // decía que no.
         mpv: options.container?.mpv.available ?? options.mpvAvailable ?? false,
+        party: options.party?.enabled === true,
         providers: summarizePlugins(plugins),
       }),
     ),

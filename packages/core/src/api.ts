@@ -71,6 +71,8 @@ export const healthResponseSchema = z.strictObject({
   version: z.string().min(1),
   port: z.number().int(),
   mpv: z.boolean(),
+  /** Si el watch party está montado en este proceso (`RONA_PARTY=1`). */
+  party: z.boolean(),
   providers: z.array(providerSummarySchema),
 })
 
