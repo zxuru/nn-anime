@@ -49,6 +49,7 @@ const TABLAS_POSTERIORES = [
   'download_subtitle',
   'aniskip_cache',
   'known_cover',
+  'known_title',
 ]
 
 /** Las versiones que hay hoy, para no fijar números que crecen con cada migración. */
@@ -709,6 +710,140 @@ describe('la vuelta de AniList a MAL', () => {
         'found',
         'fetched_at',
         'ttl_s',
+      ])
+    })
+  })
+})
+
+/**
+ * La tabla que evita que los relacionados recorran las tres cachés.
+ *
+ * Se mide en el esquema lo que es de la migración —columnas, clave y respaldo—
+ * y no en el repositorio: el respaldo corre una sola vez, al actualizar, y una
+ * prueba del repositorio no lo ejecutaría nunca.
+ */
+describe('los títulos conocidos', () => {
+  test('tiene las columnas del resumen y la referencia como clave', async () => {
+    await withDb((db) => {
+      runMigrations(db)
+
+      expect(columnNames(db, 'known_title')).toEqual([
+        'provider_id',
+        'provider_ref',
+        'title',
+        'title_alt',
+        'cover_url',
+        'year',
+        'kind',
+        'updated_at',
+      ])
+
+      const insertar = db.query(
+        `INSERT INTO known_title
+           (provider_id, provider_ref, title, title_alt, cover_url, year, kind, updated_at)
+         VALUES ('p', 'r', 'T', NULL, NULL, 2020, 'tv', 1)`,
+      )
+      insertar.run()
+
+      // La segunda fila de la misma referencia es un error, no otra verdad: el
+      // `ON CONFLICT` del repositorio depende de que la clave exista.
+      expect(() => insertar.run()).toThrow()
+    })
+  })
+
+  test('el respaldo copia las tres cachés y gana la más reciente', async () => {
+    await withDb((db) => {
+      // Hasta la 0021, que es la versión desde la que se actualiza: las cachés
+      // existen y `known_title` todavía no.
+      runMigrations(
+        db,
+        listMigrations().filter((migration) => migration.version <= 21),
+      )
+
+      db.query(
+        `INSERT INTO search_cache (provider_id, query, results_json, fetched_at, ttl_s)
+         VALUES ('fixture', 'aurora', ?, 1000, 900)`,
+      ).run(
+        JSON.stringify([
+          {
+            ref: { providerId: 'fixture', value: 'aurora' },
+            title: 'Aurora Vieja',
+            titleAlt: 'Aurora Nocturna',
+            coverUrl: 'https://fixture.invalid/vieja.webp',
+            year: 2001,
+            kind: 'tv',
+          },
+        ]),
+      )
+      db.query(
+        `INSERT INTO trending_cache (provider_id, results_json, fetched_at, ttl_s)
+         VALUES ('fixture', ?, 2000, 900)`,
+      ).run(
+        JSON.stringify([
+          { ref: { providerId: 'fixture', value: 'aurora' }, title: 'Aurora Nueva', year: 2002 },
+        ]),
+      )
+      db.query(
+        `INSERT INTO feed_cache (provider_id, results_json, fetched_at, ttl_s)
+         VALUES ('fixture', ?, 1500, 1800)`,
+      ).run(
+        JSON.stringify([
+          { ref: { providerId: 'fixture', value: 'brisa' }, title: 'Brisa de Mayo', kind: 'movie' },
+        ]),
+      )
+
+      const informe = runMigrations(db)
+
+      expect(informe.applied).toContain(22)
+      expect(
+        db
+          .query(
+            `SELECT provider_ref, title, title_alt, cover_url, year, kind, updated_at
+               FROM known_title ORDER BY provider_ref`,
+          )
+          .all(),
+      ).toEqual([
+        {
+          provider_ref: 'aurora',
+          title: 'Aurora Nueva',
+          title_alt: null,
+          cover_url: null,
+          year: 2002,
+          kind: null,
+          updated_at: 2000,
+        },
+        {
+          provider_ref: 'brisa',
+          title: 'Brisa de Mayo',
+          title_alt: null,
+          cover_url: null,
+          year: null,
+          kind: 'movie',
+          updated_at: 1500,
+        },
+      ])
+    })
+  })
+
+  test('una fila corrupta en la caché no tumba el respaldo', async () => {
+    await withDb((db) => {
+      runMigrations(
+        db,
+        listMigrations().filter((migration) => migration.version <= 21),
+      )
+
+      db.query(
+        `INSERT INTO search_cache (provider_id, query, results_json, fetched_at, ttl_s)
+         VALUES ('fixture', 'rota', 'no es json', 0, 900)`,
+      ).run()
+      db.query(
+        `INSERT INTO trending_cache (provider_id, results_json, fetched_at, ttl_s)
+         VALUES ('fixture', ?, 1, 900)`,
+      ).run(JSON.stringify([{ ref: { providerId: 'fixture', value: 'sana' }, title: 'Sana' }]))
+
+      expect(() => runMigrations(db)).not.toThrow()
+      expect(db.query('SELECT provider_ref FROM known_title').all()).toEqual([
+        { provider_ref: 'sana' },
       ])
     })
   })

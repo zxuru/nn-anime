@@ -11,7 +11,8 @@
  * Esto **no** descubre portadas: lee la URL de la lista que el proveedor ya
  * devolvió, que es la misma condición que exige el spec. Los listados cacheados
  * —búsquedas, tendencias y novedades— comparten forma, y la migración `0021`
- * mantiene `known_cover` al día con disparadores sobre las tres cachés.
+ * crea `known_cover`; el `write` de cada caché la mantiene al día en su misma
+ * transacción (`recordKnownTitles`).
  *
  * La consulta es una búsqueda por clave primaria, no un recorrido: la versión
  * anterior leía los listados del proveedor y cruzaba el array con `json_each`,
