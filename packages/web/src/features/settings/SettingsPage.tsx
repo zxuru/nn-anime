@@ -6,7 +6,7 @@
  * esta página, un plugin roto es un misterio y una ruta de datos es un dato que
  * nadie encuentra.
  *
- * La página está partida en ocho secciones y un índice las recorre. Antes era una
+ * La página está partida en nueve secciones y un índice las recorre. Antes era una
  * lista plana: para llegar al tema había que pasar por proveedores, repositorios,
  * alta, TMDB, rutas, mpv y saltos. Las secciones y sus nombres viven en
  * `secciones.ts`; el índice y los `id` salen de la misma lista, así que un enlace
@@ -30,6 +30,7 @@ import { ANCLAS } from '../guia/guia'
 import { SeccionGuia } from '../guia/SeccionGuia'
 import { guardarExtendido, leerExtendido } from '../player/extendido'
 import { almacenLocal } from '../player/storage'
+import { AvisosSettings } from './AvisosSettings'
 import { DownloadsSettings } from './DownloadsSettings'
 import { IndiceAjustes, useSeccionActiva } from './IndiceAjustes'
 import { ProfileSettings } from './ProfileSettings'
@@ -70,7 +71,7 @@ export function SettingsPage(): ReactNode {
    * El ancla de la dirección.
    *
    * El primer arranque enlaza a `/settings#fuentes` para no dejar al usuario
-   * buscando la sección entre siete. La navegación de la aplicación empuja la
+   * buscando la sección entre nueve. La navegación de la aplicación empuja la
    * dirección sin recargar, así que el navegador no salta solo: se hace aquí,
    * cuando los datos ya pintaron las secciones —antes no existen—. Se aplica una
    * sola vez: los ajustes se vuelven a leer al cambiar el tema o la lista de
@@ -117,7 +118,7 @@ export function SettingsPage(): ReactNode {
      * La espera con la forma de la página.
      *
      * Antes eran el titular y «Cargando los ajustes…» sobre una página que luego
-     * enseña el aviso de seguridad, un índice pegajoso y seis secciones de campos:
+     * enseña el aviso de seguridad, un índice pegajoso y las secciones de campos:
      * el contenido entraba de golpe y el índice aparecía de la nada. El aviso y los
      * titulares de sección se saben sin preguntar, así que se pintan de verdad; lo
      * que se adelanta con esqueletos es el hueco de los campos.
@@ -324,6 +325,26 @@ export function SettingsPage(): ReactNode {
               </fieldset>
               <p>{t(DEFAULT_LOCALE, 'settings.extended.body')}</p>
             </section>
+          </section>
+
+          {/*
+            Avisos: la insignia de «Quiero ver» en Novedades.
+
+            Es una preferencia del navegador, como los saltos: el servidor marca
+            la entrada con lo que sabe —lista y fecha— y aquí se decide si se
+            enseña. No se oculta en modo restringido porque no escribe en el
+            servidor ni añade plugins.
+          */}
+          <section
+            className="settings__seccion"
+            id={SECCIONES.avisos.id}
+            aria-labelledby={`${SECCIONES.avisos.id}-titulo`}
+          >
+            <h2 id={`${SECCIONES.avisos.id}-titulo`}>
+              {t(DEFAULT_LOCALE, SECCIONES.avisos.titulo)}
+            </h2>
+
+            <AvisosSettings />
           </section>
 
           {/*

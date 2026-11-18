@@ -13,11 +13,17 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations, TTL_SECONDS } from '@rona/catalog-store'
-import { type FeedEntry, feedResponseSchema, recentResponseSchema } from '@rona/core'
+import {
+  type FeedEntry,
+  feedItemSchema,
+  feedResponseSchema,
+  recentResponseSchema,
+} from '@rona/core'
 import { createFixtureProvider } from '@rona/providers-fixture'
 import { fakeAniList, type RawMediaFixture } from '../__fixtures__/anilist'
 import { MAX_FEED_ENTRIES } from '../container'
 import { createApp, createContainer } from '../index'
+import { DIAS_DE_NOVEDAD, esNovedadReciente } from './discovery'
 
 const PORT = 7717
 const SESSION_COOKIE = 'nn_session'
@@ -29,6 +35,21 @@ const GOOD = { cookie: `${SESSION_COOKIE}=${SESSION_VALUE}`, origin: BASE }
 function entrada(value: string, title: string): FeedEntry {
   return { ref: { providerId: 'fixture', value }, title }
 }
+
+/**
+ * Siembra una obra del proveedor `fixture` para poder marcarla en «Quiero ver».
+ *
+ * `setPlanToWatch` exige que la obra exista: la tabla de pendientes apunta al
+ * anime por su id, y la prueba tiene que crearlo antes de marcar la referencia.
+ */
+function sembrarAnime(db: ReturnType<typeof openDb>, ref: string, title: string): void {
+  db.query(
+    `INSERT INTO anime (provider_id, provider_ref, title, fetched_at, ttl_s)
+     VALUES ('fixture', ?, ?, ?, 60)`,
+  ).run(ref, title, Date.now())
+}
+
+const UN_DIA_MS = 24 * 60 * 60 * 1000
 
 interface Contexto {
   readonly pedir: (ruta: string, init?: RequestInit) => Promise<Response>
@@ -843,5 +864,139 @@ describe('el filtro de adultos en el feed', () => {
       },
       { proveedor: conDosEntradas(), anilist: BUSQUEDA },
     )
+  })
+})
+
+/**
+ * La marca de «Quiero ver» en las novedades.
+ *
+ * El servidor cruza la lista de pendientes con la fecha de publicación **al
+ * servir**: no basta con estar en la lista ni con ser reciente. La marca no
+ * entra en la caché, así que marcar una obra después de la primera carga
+ * enciende la insignia sin volver a pedirle el feed a la fuente.
+ */
+describe('la marca de «Quiero ver» en el feed', () => {
+  function feedCon(entradas: readonly FeedEntry[]): ReturnType<typeof createFixtureProvider> {
+    const base = createFixtureProvider()
+
+    return {
+      ...base,
+      capabilities: { ...base.capabilities, feed: true },
+      getFeed: async (): Promise<readonly FeedEntry[]> => entradas,
+    }
+  }
+
+  test('sólo marca lo que está en la lista y es de los últimos catorce días', async () => {
+    const reciente = new Date(Date.now() - UN_DIA_MS).toISOString()
+    const vieja = new Date(Date.now() - (DIAS_DE_NOVEDAD + 1) * UN_DIA_MS).toISOString()
+
+    await conApp(
+      async ({ pedir, db, container }) => {
+        for (const [ref, title] of [
+          ['en-lista-nueva', 'En lista, nueva'],
+          ['en-lista-vieja', 'En lista, vieja'],
+          ['en-lista-sin-fecha', 'En lista, sin fecha'],
+        ] as const) {
+          sembrarAnime(db, ref, title)
+          await container.store.setPlanToWatch({ providerId: 'fixture', value: ref }, true)
+        }
+
+        const salida = feedResponseSchema.parse(await (await pedir('/api/feed?limit=20')).json())
+        const porTitulo = (titulo: string) => salida.items.find((item) => item.title === titulo)
+
+        // La única que cumple las dos condiciones.
+        expect(porTitulo('En lista, nueva')?.inPlanToWatch).toBe(true)
+        // Controles: en la lista pero vieja; reciente pero fuera de la lista; en la
+        // lista pero sin fecha. Ninguna puede llevar la marca.
+        expect(porTitulo('En lista, vieja')?.inPlanToWatch).toBeUndefined()
+        expect(porTitulo('Fuera de la lista')?.inPlanToWatch).toBeUndefined()
+        expect(porTitulo('En lista, sin fecha')?.inPlanToWatch).toBeUndefined()
+      },
+      {
+        proveedor: feedCon([
+          { ...entrada('en-lista-nueva', 'En lista, nueva'), publishedAt: reciente },
+          { ...entrada('en-lista-vieja', 'En lista, vieja'), publishedAt: vieja },
+          { ...entrada('fuera-de-lista', 'Fuera de la lista'), publishedAt: reciente },
+          entrada('en-lista-sin-fecha', 'En lista, sin fecha'),
+        ]),
+      },
+    )
+  })
+
+  test('la marca se calcula al servir: no queda congelada en la caché', async () => {
+    let llamadas = 0
+    const reciente = new Date(Date.now() - UN_DIA_MS).toISOString()
+    const base = createFixtureProvider()
+    const proveedor = {
+      ...base,
+      capabilities: { ...base.capabilities, feed: true },
+      getFeed: async (): Promise<readonly FeedEntry[]> => {
+        llamadas += 1
+
+        return [{ ...entrada('se-marca-despues', 'Se marca después'), publishedAt: reciente }]
+      },
+    }
+
+    await conApp(
+      async ({ pedir, db, container }) => {
+        sembrarAnime(db, 'se-marca-despues', 'Se marca después')
+
+        const primera = await pedir('/api/feed')
+        const antes = feedResponseSchema.parse(await primera.json())
+        expect(primera.headers.get('x-cache')).toBe('miss')
+        expect(antes.items[0]?.inPlanToWatch).toBeUndefined()
+
+        await container.store.setPlanToWatch(
+          { providerId: 'fixture', value: 'se-marca-despues' },
+          true,
+        )
+
+        const segunda = await pedir('/api/feed')
+        const despues = feedResponseSchema.parse(await segunda.json())
+
+        expect(segunda.headers.get('x-cache')).toBe('hit')
+        expect(despues.items[0]?.inPlanToWatch).toBe(true)
+        // La marca se puso sin volver a la fuente: la caché del feed sigue siendo
+        // la misma y sólo cambió la lectura que se hace al servir.
+        expect(llamadas).toBe(1)
+      },
+      { proveedor },
+    )
+  })
+})
+
+/**
+ * El contrato de la marca.
+ *
+ * Como `adult`, es opcional y sólo verdadera: la fuente no conoce la lista del
+ * usuario, y la ausencia significa «no consta», no que la obra no esté dentro.
+ */
+describe('feedItemSchema: la marca de «Quiero ver»', () => {
+  const item = { ref: { providerId: 'fuente-ejemplo', value: 'titulo-1' }, title: 'Un título' }
+
+  test('sin marca vale, y con `true` también', () => {
+    expect(feedItemSchema.safeParse(item).success).toBe(true)
+    expect(feedItemSchema.safeParse({ ...item, inPlanToWatch: true }).success).toBe(true)
+  })
+
+  test('`inPlanToWatch: false` se rechaza: la ausencia ya significa «no consta»', () => {
+    expect(feedItemSchema.safeParse({ ...item, inPlanToWatch: false }).success).toBe(false)
+  })
+})
+
+describe('la ventana de novedad', () => {
+  test('una fecha ausente, inválida o del futuro no marca', () => {
+    const ahora = Date.parse('2026-11-18T12:00:00.000Z')
+
+    expect(esNovedadReciente(undefined, ahora)).toBe(false)
+    expect(esNovedadReciente('el martes', ahora)).toBe(false)
+    expect(esNovedadReciente(new Date(ahora + UN_DIA_MS).toISOString(), ahora)).toBe(false)
+  })
+
+  test('una fecha de hace trece días marca y una de hace quince no', () => {
+    const ahora = Date.parse('2026-11-18T12:00:00.000Z')
+
+    expect(esNovedadReciente(new Date(ahora - 13 * UN_DIA_MS).toISOString(), ahora)).toBe(true)
+    expect(esNovedadReciente(new Date(ahora - 15 * UN_DIA_MS).toISOString(), ahora)).toBe(false)
   })
 })

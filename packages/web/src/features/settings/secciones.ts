@@ -2,7 +2,7 @@
  * Las secciones de Ajustes.
  *
  * La página era una lista plana de doce bloques y el índice existía sólo en la
- * cabeza de quien la había escrito. Aquí vive la lista corta —ocho secciones— y
+ * cabeza de quien la había escrito. Aquí vive la lista corta —nueve secciones— y
  * el nombre de cada una; el índice y las secciones se pintan de esta misma
  * fuente, así que un enlace no puede apuntar a un `id` que la página no declara.
  *
@@ -18,16 +18,17 @@ export interface SeccionAjustes {
 }
 
 /**
- * Las ocho secciones, en el orden en que se leen.
+ * Las nueve secciones, en el orden en que se leen.
  *
  * El orden va de lo que hace funcionar la aplicación a lo que sólo la explica:
- * primero las fuentes, luego cómo se ve un episodio, dónde se guarda lo que se
- * descarga, la copia del perfil, la apariencia, lo que se comparte fuera, las
- * rutas del disco y, al final, los tutoriales.
+ * primero las fuentes, luego cómo se ve un episodio y qué avisos se quieren,
+ * dónde se guarda lo que se descarga, la copia del perfil, la apariencia, lo que
+ * se comparte fuera, las rutas del disco y, al final, los tutoriales.
  */
 export const SECCIONES = {
   fuentes: { id: 'fuentes', titulo: 'settings.section.fuentes' },
   reproduccion: { id: 'reproduccion', titulo: 'settings.section.reproduccion' },
+  avisos: { id: 'avisos', titulo: 'settings.section.avisos' },
   descargas: { id: 'descargas', titulo: 'settings.section.descargas' },
   perfil: { id: 'perfil', titulo: 'settings.section.perfil' },
   apariencia: { id: 'apariencia', titulo: 'settings.section.apariencia' },

@@ -3,11 +3,11 @@
  *
  * Todo en `localStorage`: por dónde iba el episodio, si se quiere que el
  * siguiente empiece solo, si se saltan la intro y el ending, la velocidad, la
- * calidad preferida y si se consulta AniSkip. Son preferencias de quien mira, no
- * del visionado —el visionado lo guarda el servidor— así que no viajan a ninguna
- * parte y no tienen que estar en la base. La calidad es la única que viaja en
- * una petición, y lo hace como parte del contrato del stream, no como ajuste de
- * la instalación.
+ * calidad preferida, si se consulta AniSkip y si se avisa de lo nuevo de «Quiero
+ * ver». Son preferencias de quien mira, no del visionado —el visionado lo guarda
+ * el servidor— así que no viajan a ninguna parte y no tienen que estar en la base.
+ * La calidad es la única que viaja en una petición, y lo hace como parte del
+ * contrato del stream, no como ajuste de la instalación.
  *
  * Todo el acceso pasa por aquí porque `localStorage` **lanza**: en el renderizado
  * de servidor no existe y en un navegador con el almacenamiento bloqueado por
@@ -411,5 +411,35 @@ export function guardarConsultarAniskip(almacen: Almacen | undefined, valor: boo
     almacen.setItem(CLAVE_ANISKIP, valor ? 'si' : 'no')
   } catch {
     // Igual que arriba: sin sitio, la preferencia vale para esta visita.
+  }
+}
+
+/** La clave de los avisos de «Quiero ver» en Novedades. */
+export const CLAVE_AVISOS_QUIERO_VER = `${PREFIJO}avisosQuieroVer`
+
+/**
+ * ¿Se marca en Novedades lo que está en «Quiero ver»? Por defecto, **sí**.
+ *
+ * La marca la pone el servidor —la lista y la fecha las conoce él— y aquí sólo se
+ * decide si se enseña. Nace encendida, que es el comportamiento esperado al
+ * estrenar el aviso; apagarla no toca ni la fila ni la lista, sólo la insignia.
+ */
+export function leerAvisosQuieroVer(almacen: Almacen | undefined): boolean {
+  if (almacen === undefined) return true
+
+  try {
+    return almacen.getItem(CLAVE_AVISOS_QUIERO_VER) !== 'no'
+  } catch {
+    return true
+  }
+}
+
+export function guardarAvisosQuieroVer(almacen: Almacen | undefined, valor: boolean): void {
+  if (almacen === undefined) return
+
+  try {
+    almacen.setItem(CLAVE_AVISOS_QUIERO_VER, valor ? 'si' : 'no')
+  } catch {
+    // Sin sitio para apuntarlo, la preferencia vale para esta visita.
   }
 }

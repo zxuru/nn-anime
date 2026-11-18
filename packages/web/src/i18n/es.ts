@@ -380,6 +380,9 @@ export const messages: Messages = {
   'home.feed.empty.anilist': 'AniList no anuncia episodios recién emitidos ahora mismo.',
   'home.feed.meta.offline': 'Lo último que se sabe; AniList no ha contestado',
   'home.feed.empty.offline': 'AniList no ha contestado; las novedades volverán solas.',
+  // La insignia de una entrada que el servidor cruzó con «Quiero ver». Es texto y
+  // va en la línea de datos, así que no depende de un color.
+  'home.feed.newInWatchlist': 'Nuevo en tu lista',
   'home.parrilla': 'Parrilla',
   'home.parrilla.meta': 'Lo que se emite estos días, según AniList',
   'home.parrilla.meta.offline': 'Lo que se emite estos días; AniList no ha contestado',
@@ -402,6 +405,7 @@ export const messages: Messages = {
   'settings.index.title': 'Secciones',
   'settings.section.fuentes': 'Fuentes',
   'settings.section.reproduccion': 'Reproducción',
+  'settings.section.avisos': 'Avisos',
   'settings.section.descargas': 'Descargas',
   'settings.section.apariencia': 'Apariencia',
   'settings.section.privacidad': 'Privacidad y contenido',
@@ -551,6 +555,15 @@ export const messages: Messages = {
   'settings.mpv': 'Reproductor externo',
   'settings.mpv.yes': 'mpv disponible, versión {version}.',
   'settings.mpv.no': 'No se encontró mpv: se reproduce en el navegador.',
+  /*
+   * Los avisos de «Quiero ver». La marca la calcula el servidor al servir la
+   * fila; aquí sólo se decide si la insignia se pinta. Es una preferencia del
+   * navegador y apagarla no cambia la fila ni la lista.
+   */
+  'settings.avisos.title': 'Novedades de «Quiero ver»',
+  'settings.avisos.quieroVer': 'Marcar los episodios nuevos de tu lista',
+  'settings.avisos.hint':
+    'La insignia «Nuevo en tu lista» aparece en Novedades cuando la obra está en «Quiero ver» y se publicó en los últimos 14 días. Se guarda en este navegador; apagarla no quita la fila ni cambia la lista.',
   // Los saltos de intro y ending: una preferencia de quien mira, guardada en el
   // navegador como la reproducción automática. El automático nace apagado.
   'settings.skip.title': 'Saltos de intro y ending',
