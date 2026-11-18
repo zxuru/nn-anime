@@ -2,18 +2,27 @@ import { describe, expect, test } from 'bun:test'
 import {
   type Almacen,
   almacenLocal,
+  CLAVE_ANISKIP,
   CLAVE_AUTOPLAY,
+  CLAVE_CALIDAD,
   CLAVE_MARGEN_SALTO,
   CLAVE_SALTO_AUTO,
+  CLAVE_VELOCIDAD,
   claveDeProgreso,
   guardarAutoplay,
+  guardarCalidad,
+  guardarConsultarAniskip,
   guardarMargenSalto,
   guardarProgreso,
   guardarSaltoAuto,
+  guardarVelocidad,
   leerAutoplay,
+  leerCalidad,
+  leerConsultarAniskip,
   leerMargenSalto,
   leerProgreso,
   leerSaltoAuto,
+  leerVelocidad,
   olvidarProgreso,
   RETROCESO_REANUDAR_S,
   reanudarEn,
@@ -296,5 +305,82 @@ describe('el margen de los saltos', () => {
 
     guardarMargenSalto(almacen, Number.NaN)
     expect(almacen.datos.has(CLAVE_MARGEN_SALTO)).toBe(false)
+  })
+})
+
+describe('la velocidad del reproductor', () => {
+  test('por defecto, la normal', () => {
+    expect(leerVelocidad(almacenFalso())).toBe(1)
+    expect(leerVelocidad(undefined)).toBe(1)
+    expect(leerVelocidad(almacenRoto)).toBe(1)
+  })
+
+  test('se guarda y se lee la misma, incluidas las fracciones', () => {
+    const almacen = almacenFalso()
+
+    for (const velocidad of [0.75, 1, 1.25, 1.5, 2] as const) {
+      guardarVelocidad(almacen, velocidad)
+      expect(leerVelocidad(almacen), String(velocidad)).toBe(velocidad)
+    }
+  })
+
+  test('un valor que no se ofreció no se interpreta', () => {
+    expect(leerVelocidad(almacenFalso({ [CLAVE_VELOCIDAD]: '3' }))).toBe(1)
+    expect(leerVelocidad(almacenFalso({ [CLAVE_VELOCIDAD]: 'rápido' }))).toBe(1)
+
+    const almacen = almacenFalso()
+    guardarVelocidad(almacen, 3)
+    expect(almacen.datos.has(CLAVE_VELOCIDAD)).toBe(false)
+  })
+
+  test('la clave lleva el prefijo de la aplicación', () => {
+    expect(CLAVE_VELOCIDAD.startsWith('rona:')).toBe(true)
+    expect(CLAVE_CALIDAD.startsWith('rona:')).toBe(true)
+    expect(CLAVE_ANISKIP.startsWith('rona:')).toBe(true)
+  })
+})
+
+describe('la calidad preferida', () => {
+  test('sin elegir, se deja a la fuente', () => {
+    expect(leerCalidad(almacenFalso())).toBeUndefined()
+    expect(leerCalidad(undefined)).toBeUndefined()
+    expect(leerCalidad(almacenRoto)).toBeUndefined()
+  })
+
+  test('se guarda una de las ofrecidas y se puede volver a automático', () => {
+    const almacen = almacenFalso()
+
+    guardarCalidad(almacen, '1080p')
+    expect(leerCalidad(almacen)).toBe('1080p')
+
+    guardarCalidad(almacen, undefined)
+    expect(leerCalidad(almacen)).toBeUndefined()
+  })
+
+  test('un texto que no es una calidad no se interpreta', () => {
+    expect(leerCalidad(almacenFalso({ [CLAVE_CALIDAD]: '4k' }))).toBeUndefined()
+    expect(leerCalidad(almacenFalso({ [CLAVE_CALIDAD]: '' }))).toBeUndefined()
+  })
+})
+
+describe('la consulta a AniSkip', () => {
+  test('por defecto, sí: es el comportamiento que ya había', () => {
+    expect(leerConsultarAniskip(almacenFalso())).toBe(true)
+    expect(leerConsultarAniskip(undefined)).toBe(true)
+    expect(leerConsultarAniskip(almacenRoto)).toBe(true)
+  })
+
+  test('se apaga y se vuelve a encender', () => {
+    const almacen = almacenFalso()
+
+    guardarConsultarAniskip(almacen, false)
+    expect(leerConsultarAniskip(almacen)).toBe(false)
+
+    guardarConsultarAniskip(almacen, true)
+    expect(leerConsultarAniskip(almacen)).toBe(true)
+  })
+
+  test('un valor que no se escribió se lee como encendido', () => {
+    expect(leerConsultarAniskip(almacenFalso({ [CLAVE_ANISKIP]: 'quizá' }))).toBe(true)
   })
 })

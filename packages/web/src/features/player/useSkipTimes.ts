@@ -20,6 +20,10 @@
  * —red, forma de la respuesta, ruta que aún no existe— se traga y deja la
  * pantalla como estaba: sin datos no hay botón, y no hay nada que contarle a
  * quien está mirando.
+ *
+ * **AniSkip es un tercero y se puede apagar.** El ajuste vive en
+ * `SkipSettings`; con él apagado no se pide ni el enriquecimiento —sólo servía
+ * para llegar al identificador de AniList— ni `/api/skip-times`.
  */
 
 import { enrichmentResponseSchema, skipTimesResponseSchema } from '@rona/core/api'
@@ -91,6 +95,37 @@ export async function intervalosDelEpisodio(
   }
 }
 
+/**
+ * Los intervalos del episodio, si el ajuste deja consultarlos.
+ *
+ * Es la puerta única de la petición a `/api/skip-times`: con AniSkip apagado no
+ * se llama a `intervalosDelEpisodio` y no sale ninguna petición. Vive aquí y no
+ * dentro del gancho para poder medir el caso apagado con un `fetch` de mentira,
+ * que es donde se demuestra que no hay red.
+ */
+export interface SaltosDelEpisodioOptions {
+  readonly consultarAniskip: boolean
+  readonly anilistId: number
+  readonly episodio: number
+  readonly duracionS: number
+  readonly signal?: AbortSignal
+  readonly deps?: RequestDeps
+}
+
+export async function saltosDelEpisodio(
+  options: SaltosDelEpisodioOptions,
+): Promise<readonly SkipInterval[]> {
+  if (!options.consultarAniskip) return []
+
+  return intervalosDelEpisodio(
+    options.anilistId,
+    options.episodio,
+    options.duracionS,
+    options.signal,
+    options.deps,
+  )
+}
+
 export interface UseSkipTimesOptions {
   readonly providerId: string
   /** La referencia del **título**, que es con la que se pide el enriquecimiento. */
@@ -103,6 +138,14 @@ export interface UseSkipTimesOptions {
   readonly fichaLista: boolean
   /** La duración del episodio, en segundos; cero mientras no se sepa. */
   readonly durationS: number
+  /**
+   * ¿Se puede consultar AniSkip?
+   *
+   * Con esto apagado no se pide ni el enriquecimiento ni los intervalos: el
+   * segundo es una consulta a un tercero y el primero sólo servía para llegar a
+   * él. Sin datos no hay botón, y la reproducción sigue igual.
+   */
+  readonly consultarAniskip: boolean
 }
 
 /**
@@ -116,7 +159,8 @@ export interface UseSkipTimesOptions {
  * del mismo tipo.
  */
 export function useSkipTimes(options: UseSkipTimesOptions): readonly SkipInterval[] {
-  const { providerId, animeRef, episodeRef, episodio, fichaLista, durationS } = options
+  const { providerId, animeRef, episodeRef, episodio, fichaLista, durationS, consultarAniskip } =
+    options
   const [anilistId, setAnilistId] = useState<number | undefined>(undefined)
   const [intervalos, setIntervalos] = useState<readonly SkipInterval[]>([])
 
@@ -161,8 +205,9 @@ export function useSkipTimes(options: UseSkipTimesOptions): readonly SkipInterva
 
   // El enriquecimiento, una sola vez y sólo cuando la ficha ya respondió. La
   // respuesta puede ser `null` y eso también es definitivo: no se reintenta.
+  // Con AniSkip apagado no se pide: su único destino aquí eran los intervalos.
   useEffect(() => {
-    if (!fichaLista) return
+    if (!consultarAniskip || !fichaLista) return
 
     const clave = `${providerId}\u0000${animeRef}`
     if (enriquecimiento.current?.clave === clave) return
@@ -174,7 +219,7 @@ export function useSkipTimes(options: UseSkipTimesOptions): readonly SkipInterva
     void anilistIdDelTitulo(providerId, animeRef, controlador.signal).then((id) => {
       if (!controlador.signal.aborted) setAnilistId(id)
     })
-  }, [fichaLista, providerId, animeRef])
+  }, [consultarAniskip, fichaLista, providerId, animeRef])
 
   // Los intervalos, cuando se conocen el identificador y la duración. La clave
   // lleva la duración porque es lo que se manda al servidor: dos duraciones son
@@ -182,7 +227,9 @@ export function useSkipTimes(options: UseSkipTimesOptions): readonly SkipInterva
   const duracion = Number.isFinite(durationS) && durationS > 0 ? Math.round(durationS) : 0
 
   useEffect(() => {
-    if (anilistId === undefined || episodio === undefined || duracion <= 0) return
+    if (!consultarAniskip || anilistId === undefined || episodio === undefined || duracion <= 0) {
+      return
+    }
 
     const clave = `${anilistId}\u0000${episodio}\u0000${duracion}`
     if (saltos.current?.clave === clave) return
@@ -191,10 +238,16 @@ export function useSkipTimes(options: UseSkipTimesOptions): readonly SkipInterva
     const controlador = new AbortController()
     saltos.current = { clave, controlador }
 
-    void intervalosDelEpisodio(anilistId, episodio, duracion, controlador.signal).then((lista) => {
+    void saltosDelEpisodio({
+      consultarAniskip,
+      anilistId,
+      episodio,
+      duracionS: duracion,
+      signal: controlador.signal,
+    }).then((lista) => {
       if (!controlador.signal.aborted) setIntervalos(lista)
     })
-  }, [anilistId, episodio, duracion])
+  }, [consultarAniskip, anilistId, episodio, duracion])
 
   return intervalos
 }

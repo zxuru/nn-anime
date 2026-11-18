@@ -20,6 +20,10 @@
  * desaparece sin más deja al usuario sin saber si la función existe. El vacío va en
  * un renglón y no en una pieza fantasma: con la forma de un cartel pesaba lo mismo
  * que un título y una home sin datos se leía como una pantalla rota.
+ *
+ * **La excepción es el primer arranque.** Sin ningún proveedor no hay vacíos que
+ * explicar, sólo un camino que recorrer: la pantalla entera es la bienvenida de
+ * tres pasos y las filas no se pintan hasta que hay algo que enseñar.
  */
 
 import type { AiringItem, FeedItem, RecommendationResponse } from '@rona/core/api'
@@ -302,6 +306,24 @@ export function HomePage(props: HomePageProps): ReactNode {
   const refresco = textoDeRefresco(filas, new Date())
 
   /*
+    El primer arranque es una bienvenida y nada más.
+
+    Antes el aviso se pintaba **encima** de todas las filas, y una instalación
+    limpia enseñaba seis tramos vacíos debajo: la pantalla se leía como una
+    aplicación rota. El flujo de seguridad de dos pasos no se toca —lo cuenta el
+    propio aviso— y el enlace lleva a la sección de fuentes, no a la página
+    entera. Va después de los ganchos porque ninguno es condicional.
+  */
+  if (primerArranque) {
+    return (
+      <section className="home home--primer-arranque">
+        <h1>{t(DEFAULT_LOCALE, 'home.title')}</h1>
+        <PrimerArranque />
+      </section>
+    )
+  }
+
+  /*
     Las dos listas que no llevan el tipo en la petición se filtran aquí: son lo que
     el usuario hizo, y no una fila que mezcle fuentes. Lo que se retoma **no** trae
     `kind` en el contrato, así que un título de una fuente mixta sólo aparece en la
@@ -356,13 +378,6 @@ export function HomePage(props: HomePageProps): ReactNode {
           {t(DEFAULT_LOCALE, 'home.loading')}
         </p>
       ) : null}
-
-      {/*
-        El aviso del primer arranque va antes de la marquesina: la de reserva mide
-        62 dvh, y un aviso debajo de ella quedaría fuera de la primera pantalla,
-        que es justo donde tiene que leerse.
-      */}
-      {primerArranque ? <PrimerArranque /> : null}
 
       {/*
         «Continuar viendo», cuando hay algo que retomar, **antes de la marquesina**.

@@ -47,6 +47,7 @@ import {
   guardarAutoplay,
   guardarProgreso,
   leerAutoplay,
+  leerConsultarAniskip,
   leerMargenSalto,
   leerProgreso,
   leerSaltoAuto,
@@ -282,6 +283,10 @@ export function useWatchPage(options: WatchPageOptions): WatchPageHandle {
    */
   const [saltoAuto] = useState(() => leerSaltoAuto(almacenLocal()))
   const [margen] = useState(() => leerMargenSalto(almacenLocal()))
+  // El permiso para preguntar a AniSkip. Se lee al abrir la pantalla, como el
+  // resto de preferencias del navegador: cambiarlo en Ajustes se aplica en la
+  // siguiente reproducción, que es cuando se pide.
+  const [consultarAniskip] = useState(() => leerConsultarAniskip(almacenLocal()))
 
   /**
    * La duración del episodio, en segundos; cero mientras no se sepa.
@@ -313,6 +318,7 @@ export function useWatchPage(options: WatchPageOptions): WatchPageHandle {
     episodio,
     fichaLista: titulo.fichaLista,
     durationS: duracion,
+    consultarAniskip,
   })
 
   /**

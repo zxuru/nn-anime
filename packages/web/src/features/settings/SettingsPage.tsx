@@ -6,7 +6,7 @@
  * esta página, un plugin roto es un misterio y una ruta de datos es un dato que
  * nadie encuentra.
  *
- * La página está partida en seis secciones y un índice las recorre. Antes era una
+ * La página está partida en siete secciones y un índice las recorre. Antes era una
  * lista plana: para llegar al tema había que pasar por proveedores, repositorios,
  * alta, TMDB, rutas, mpv y saltos. Las secciones y sus nombres viven en
  * `secciones.ts`; el índice y los `id` salen de la misma lista, así que un enlace
@@ -21,7 +21,7 @@
 
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { ExternalLink, TriangleAlert } from 'lucide-react'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { Skeleton } from '../../components/Skeleton'
@@ -30,9 +30,11 @@ import { ANCLAS } from '../guia/guia'
 import { SeccionGuia } from '../guia/SeccionGuia'
 import { guardarExtendido, leerExtendido } from '../player/extendido'
 import { almacenLocal } from '../player/storage'
+import { DownloadsSettings } from './DownloadsSettings'
 import { IndiceAjustes, useSeccionActiva } from './IndiceAjustes'
 import { ProviderList } from './ProviderList'
 import { ProviderRepos } from './ProviderRepos'
+import { QualitySettings } from './QualitySettings'
 import { RegisterProvider } from './RegisterProvider'
 import { SecurityNoticeDialog } from './SecurityNotice'
 import { SkipSettings } from './SkipSettings'
@@ -62,6 +64,30 @@ export function SettingsPage(): ReactNode {
   // La sección que se está leyendo. Sin observador se queda sin marcar; el índice
   // sigue navegando igual. Sólo hay secciones que observar cuando los datos están.
   const activa = useSeccionActiva(data !== undefined)
+
+  /**
+   * El ancla de la dirección.
+   *
+   * El primer arranque enlaza a `/settings#fuentes` para no dejar al usuario
+   * buscando la sección entre siete. La navegación de la aplicación empuja la
+   * dirección sin recargar, así que el navegador no salta solo: se hace aquí,
+   * cuando los datos ya pintaron las secciones —antes no existen—. Se aplica una
+   * sola vez: los ajustes se vuelven a leer al cambiar el tema o la lista de
+   * proveedores, y volver a saltar a la sección en cada cambio sería pelear con
+   * quien está leyendo. Los enlaces del índice, que son `#seccion` sobre esta
+   * misma página, los sigue resolviendo el navegador.
+   */
+  const anclaAplicada = useRef(false)
+
+  useEffect(() => {
+    if (data === undefined || anclaAplicada.current) return
+
+    const ancla = window.location.hash.replace(/^#/, '')
+    if (ancla === '') return
+
+    anclaAplicada.current = true
+    document.getElementById(ancla)?.scrollIntoView({ block: 'start' })
+  }, [data])
 
   /**
    * El modo extendido, que es preferencia del navegador y no del servidor.
@@ -213,13 +239,18 @@ export function SettingsPage(): ReactNode {
                 archivo es ejecutar código, y la API tampoco registra esas rutas. */}
             {data.locked ? null : <ProviderRepos {...repos} />}
 
-            {/* El alta va después de la lista: primero se ve qué hay, y el
-                formulario está justo debajo de lo que va a cambiar. */}
+            {/*
+              El alta manual va después de la lista y del repositorio, y
+              **plegada**: son quince campos y el camino recomendado es añadir un
+              repositorio, no rellenarlos. El `<details>` no esconde la función
+              —el resumen dice lo que hay dentro—, sólo deja de darle el mismo
+              peso que al camino que funciona en dos pasos.
+            */}
             {data.locked ? null : (
-              <section>
-                <h3>{t(DEFAULT_LOCALE, 'settings.register.title')}</h3>
+              <details className="settings__advanced">
+                <summary>{t(DEFAULT_LOCALE, 'settings.register.manual')}</summary>
                 <RegisterProvider register={register} />
-              </section>
+              </details>
             )}
 
             {/* La clave de TMDB es la única salida de red que el usuario configura a
@@ -230,8 +261,9 @@ export function SettingsPage(): ReactNode {
 
           {/*
             Reproducción: cómo se ve un episodio. El reproductor externo, los saltos
-            de intro y ending y el modo extendido. No son preferencias del motor que
-            se guarden en el servidor: las dos últimas viven en el navegador.
+            de intro y ending, la calidad preferida y el modo extendido. No son
+            preferencias del motor que se guarden en el servidor: los saltos, la
+            calidad y el modo extendido viven en el navegador.
           */}
           <section
             className="settings__seccion"
@@ -252,6 +284,10 @@ export function SettingsPage(): ReactNode {
             </section>
 
             <SkipSettings />
+
+            {/* La calidad preferida. Es del navegador, como la velocidad: viaja
+                en cada resolución y no en los ajustes del servidor. */}
+            <QualitySettings />
 
             {/*
               El modo extendido del reproductor.
@@ -287,6 +323,25 @@ export function SettingsPage(): ReactNode {
               </fieldset>
               <p>{t(DEFAULT_LOCALE, 'settings.extended.body')}</p>
             </section>
+          </section>
+
+          {/*
+            Descargas: dónde se guarda lo que se baja y cuánto queda.
+
+            La carpeta se edita en la Biblioteca, con la cola y el espacio
+            delante; aquí sólo se dice dónde está y se enlaza. Duplicar el
+            formulario sería tener dos sitios que guardan la misma ruta.
+          */}
+          <section
+            className="settings__seccion"
+            id={SECCIONES.descargas.id}
+            aria-labelledby={`${SECCIONES.descargas.id}-titulo`}
+          >
+            <h2 id={`${SECCIONES.descargas.id}-titulo`}>
+              {t(DEFAULT_LOCALE, SECCIONES.descargas.titulo)}
+            </h2>
+
+            <DownloadsSettings />
           </section>
 
           {/* Apariencia: sólo el tema, pero es lo primero que se busca cuando algo

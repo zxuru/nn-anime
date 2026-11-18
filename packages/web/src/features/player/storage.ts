@@ -1,10 +1,13 @@
 /**
  * Lo que la pantalla recuerda entre visitas.
  *
- * Dos cosas y las dos en `localStorage`: por dónde iba el episodio y si se quiere
- * que el siguiente empiece solo. Son preferencias de quien mira, no del
- * visionado —el visionado lo guarda el servidor— así que no viajan a ninguna
- * parte y no tienen que estar en la base.
+ * Todo en `localStorage`: por dónde iba el episodio, si se quiere que el
+ * siguiente empiece solo, si se saltan la intro y el ending, la velocidad, la
+ * calidad preferida y si se consulta AniSkip. Son preferencias de quien mira, no
+ * del visionado —el visionado lo guarda el servidor— así que no viajan a ninguna
+ * parte y no tienen que estar en la base. La calidad es la única que viaja en
+ * una petición, y lo hace como parte del contrato del stream, no como ajuste de
+ * la instalación.
  *
  * Todo el acceso pasa por aquí porque `localStorage` **lanza**: en el renderizado
  * de servidor no existe y en un navegador con el almacenamiento bloqueado por
@@ -17,6 +20,7 @@
  * anterior— y no en el camino de en medio.
  */
 
+import { type Calidad, esCalidad } from './quality'
 import { MARGEN_MAXIMO_S, MARGEN_MINIMO_S, margenValido } from './skip'
 
 /** El prefijo de todo lo que escribe esta aplicación. */
@@ -292,5 +296,120 @@ export function guardarMargenSalto(almacen: Almacen | undefined, margenS: number
     almacen.setItem(CLAVE_MARGEN_SALTO, String(margenValido(margenS)))
   } catch {
     // Sin sitio para apuntarlo, el margen vale para esta visita.
+  }
+}
+
+/**
+ * Las velocidades que ofrece el reproductor.
+ *
+ * Son las de cualquier reproductor: media, normal y los dos pasos de cada lado.
+ * La lista es la misma que la del menú, así que no hay dos formas de decir qué
+ * velocidades existen.
+ */
+export const VELOCIDADES = [0.75, 1, 1.25, 1.5, 2] as const
+
+export type Velocidad = (typeof VELOCIDADES)[number]
+
+/** La clave de la velocidad del reproductor. */
+export const CLAVE_VELOCIDAD = `${PREFIJO}velocidad`
+
+/** ¿Este número es una de las velocidades ofrecidas? */
+export function esVelocidad(valor: number): valor is Velocidad {
+  return VELOCIDADES.some((velocidad) => velocidad === valor)
+}
+
+/**
+ * La velocidad guardada. Por defecto, la normal.
+ *
+ * Se lee con validación: un valor de una versión anterior o escrito a mano que
+ * no esté en la lista no se interpreta, que es lo mismo que no haberlo elegido.
+ */
+export function leerVelocidad(almacen: Almacen | undefined): Velocidad {
+  if (almacen === undefined) return 1
+
+  try {
+    const crudo = almacen.getItem(CLAVE_VELOCIDAD)
+    if (crudo === null) return 1
+
+    const valor = Number(crudo)
+
+    return esVelocidad(valor) ? valor : 1
+  } catch {
+    return 1
+  }
+}
+
+export function guardarVelocidad(almacen: Almacen | undefined, velocidad: number): void {
+  if (almacen === undefined) return
+  if (!esVelocidad(velocidad)) return
+
+  try {
+    almacen.setItem(CLAVE_VELOCIDAD, String(velocidad))
+  } catch {
+    // Sin sitio para apuntarlo, la velocidad vale para esta visita.
+  }
+}
+
+/** La clave de la calidad preferida del reproductor. */
+export const CLAVE_CALIDAD = `${PREFIJO}calidad`
+
+/**
+ * La calidad preferida, o nada si se deja a la fuente.
+ *
+ * No está en el servidor porque es una preferencia de quien mira y del
+ * navegador donde mira: viaja en cada petición de stream, no en los ajustes de
+ * la instalación.
+ */
+export function leerCalidad(almacen: Almacen | undefined): Calidad | undefined {
+  if (almacen === undefined) return undefined
+
+  try {
+    const crudo = almacen.getItem(CLAVE_CALIDAD)
+
+    return esCalidad(crudo) ? crudo : undefined
+  } catch {
+    return undefined
+  }
+}
+
+export function guardarCalidad(almacen: Almacen | undefined, calidad: Calidad | undefined): void {
+  if (almacen === undefined) return
+
+  try {
+    if (calidad === undefined) almacen.removeItem(CLAVE_CALIDAD)
+    else almacen.setItem(CLAVE_CALIDAD, calidad)
+  } catch {
+    // Sin sitio para apuntarlo, la preferencia vale para esta visita.
+  }
+}
+
+/** La clave del permiso para consultar AniSkip. */
+export const CLAVE_ANISKIP = `${PREFIJO}aniskip`
+
+/**
+ * ¿Se consulta AniSkip al reproducir un episodio? Por defecto, **sí**.
+ *
+ * Es el comportamiento que tenía la aplicación: sin este ajuste, cada episodio
+ * preguntaba a `api.aniskip.com` por sus intervalos. El valor de fábrica se
+ * conserva para no cambiar lo que ya funcionaba; lo que se puede elegir es
+ * apagarlo, y con él se deja de pedir `/api/skip-times` en absoluto.
+ */
+export function leerConsultarAniskip(almacen: Almacen | undefined): boolean {
+  if (almacen === undefined) return true
+
+  try {
+    return almacen.getItem(CLAVE_ANISKIP) !== 'no'
+  } catch {
+    return true
+  }
+}
+
+export function guardarConsultarAniskip(almacen: Almacen | undefined, valor: boolean): void {
+  if (almacen === undefined) return
+
+  try {
+    almacen.setItem(CLAVE_ANISKIP, valor ? 'si' : 'no')
+  } catch {
+    // Igual que arriba: sin sitio, la preferencia vale para esta visita.
   }
 }

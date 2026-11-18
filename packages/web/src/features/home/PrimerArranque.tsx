@@ -6,6 +6,11 @@
  * lee como una aplicación rota; con él, dice qué falta, cuál es el repositorio
  * recomendado y dónde se añade.
  *
+ * La bienvenida es **la pantalla entera** cuando no hay proveedores: tres pasos
+ * y un enlace directo a la sección de fuentes de Ajustes (`#fuentes`). Las filas
+ * vacías no se pintan hasta que hay algo que enseñar; seis vacíos a la vez no
+ * explican nada y hacen que la aplicación parezca rota.
+ *
  * **No instala nada.** El repositorio no se descarga ni se activa solo: el flujo
  * de dos pasos de Ajustes —descargar y mirar, marcar y guardar— es el que decide
  * qué código se ejecuta. El aviso lo dice con las mismas palabras del resto de la
@@ -27,6 +32,7 @@ import { type ReactNode, useSyncExternalStore } from 'react'
 import { t } from '../../i18n'
 import { Link } from '../../router'
 import { estadoActual, omitirTodosLosTutoriales, suscribir } from '../guia/estado'
+import { SECCIONES } from '../settings/secciones'
 
 export interface EstadoDeFuentes {
   /** La lectura de proveedores terminó. */
@@ -54,22 +60,29 @@ export function PrimerArranque(): ReactNode {
 
       <p>{t(DEFAULT_LOCALE, 'home.firstRun.body')}</p>
 
-      <p>
-        {t(DEFAULT_LOCALE, 'home.firstRun.repo')}{' '}
-        <a
-          className="primer-arranque__url"
-          href={RECOMMENDED_PROVIDER_REPO}
-          target="_blank"
-          rel="noreferrer noopener"
-        >
-          {RECOMMENDED_PROVIDER_REPO}
-        </a>
-      </p>
-
-      <p className="field__hint">{t(DEFAULT_LOCALE, 'home.firstRun.warning')}</p>
+      {/*
+        Los tres pasos, en orden y numerados porque son una secuencia: añadir el
+        repositorio, revisar lo que trae y elegir qué se activa. Antes eran tres
+        párrafos sueltos y el alta manual —el camino largo— parecía el único.
+      */}
+      <ol className="primer-arranque__pasos">
+        <li>
+          {t(DEFAULT_LOCALE, 'home.firstRun.repo')}{' '}
+          <a
+            className="primer-arranque__url"
+            href={RECOMMENDED_PROVIDER_REPO}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            {RECOMMENDED_PROVIDER_REPO}
+          </a>
+        </li>
+        <li>{t(DEFAULT_LOCALE, 'home.firstRun.warning')}</li>
+        <li>{t(DEFAULT_LOCALE, 'home.firstRun.step3')}</li>
+      </ol>
 
       <div className="primer-arranque__acciones">
-        <Link to="/settings" className="button button--primary">
+        <Link to={`/settings#${SECCIONES.fuentes.id}`} className="button button--primary">
           {t(DEFAULT_LOCALE, 'home.firstRun.action')}
         </Link>
 

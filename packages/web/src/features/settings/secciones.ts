@@ -2,9 +2,9 @@
  * Las secciones de Ajustes.
  *
  * La página era una lista plana de doce bloques y el índice existía sólo en la
- * cabeza de quien la había escrito. Aquí vive la lista corta —seis secciones— y el
- * nombre de cada una; el índice y las secciones se pintan de esta misma fuente,
- * así que un enlace no puede apuntar a un `id` que la página no declara.
+ * cabeza de quien la había escrito. Aquí vive la lista corta —siete secciones— y
+ * el nombre de cada una; el índice y las secciones se pintan de esta misma
+ * fuente, así que un enlace no puede apuntar a un `id` que la página no declara.
  *
  * Los `id` son parte de la dirección: `#sistema` se puede guardar en un marcador o
  * enlazar desde otra pantalla. Por eso son cortos y no cambian con el texto del
@@ -18,15 +18,17 @@ export interface SeccionAjustes {
 }
 
 /**
- * Las seis secciones, en el orden en que se leen.
+ * Las siete secciones, en el orden en que se leen.
  *
  * El orden va de lo que hace funcionar la aplicación a lo que sólo la explica:
- * primero las fuentes, luego cómo se ve un episodio, la apariencia, lo que se
- * comparte fuera, las rutas del disco y, al final, los tutoriales.
+ * primero las fuentes, luego cómo se ve un episodio, dónde se guarda lo que se
+ * descarga, la apariencia, lo que se comparte fuera, las rutas del disco y, al
+ * final, los tutoriales.
  */
 export const SECCIONES = {
   fuentes: { id: 'fuentes', titulo: 'settings.section.fuentes' },
   reproduccion: { id: 'reproduccion', titulo: 'settings.section.reproduccion' },
+  descargas: { id: 'descargas', titulo: 'settings.section.descargas' },
   apariencia: { id: 'apariencia', titulo: 'settings.section.apariencia' },
   privacidad: { id: 'privacidad', titulo: 'settings.section.privacidad' },
   sistema: { id: 'sistema', titulo: 'settings.section.sistema' },

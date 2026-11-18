@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test'
+import { readFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 import type { ContinueWatchingItem, RecommendationResponse } from '@rona/core/api'
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { AnimeSummary } from '@rona/core/models'
@@ -37,6 +39,8 @@ import {
   type RowResults,
   rutasDeTipo,
 } from './useHomeRows'
+
+const ROOT = fileURLToPath(new URL('.', import.meta.url))
 
 function render(node: ReactNode): string {
   return renderToString(
@@ -517,12 +521,47 @@ describe('el primer arranque', () => {
     expect(esPrimerArranque({ loaded: true, failed: false, total: 1 })).toBe(false)
   })
 
-  test('el aviso nombra el repositorio recomendado y lleva a Ajustes', () => {
+  test('el aviso nombra el repositorio recomendado y lleva a la sección de fuentes', () => {
     const html = render(<PrimerArranque />)
 
     expect(html).toContain('https://github.com/zxuru/nn-anime-plugins')
-    expect(html).toContain('href="/settings"')
+    // El ancla real de la sección, no la página entera: el primer arranque no
+    // debe dejar al usuario buscando «Fuentes» entre siete secciones.
+    expect(html).toContain('href="/settings#fuentes"')
     expect(html).toContain('sin sandbox')
+  })
+
+  test('la bienvenida son tres pasos numerados', () => {
+    const html = render(<PrimerArranque />)
+
+    // Una lista ordenada y tres elementos: el camino se lee como una secuencia.
+    expect(html).toContain('<ol class="primer-arranque__pasos">')
+    expect(html.match(/<li>/g)?.length).toBe(3)
+    expect(html).toContain('Marca los proveedores que quieras activar')
+  })
+
+  /**
+   * El primer arranque no pinta las filas.
+   *
+   * El `renderToString` de la home no ejecuta los efectos, así que ahí la lista
+   * de proveedores siempre está «cargando» y el aviso no aparece: la decisión se
+   * mide en la función pura y en el marcado del aviso. Lo que el render no
+   * puede enseñar —que las filas no se pinten cuando la decisión es «sí»— se
+   * sujeta en la fuente: la vuelta temprana está antes de la primera fila.
+   */
+  test('con la decisión tomada, la home vuelve sólo con la bienvenida', async () => {
+    const fuente = await readFile(`${ROOT}HomePage.tsx`, 'utf8')
+    const vuelta = fuente.indexOf('if (primerArranque)')
+    const primeraFila = fuente.indexOf('<ContinueRow')
+
+    expect(vuelta).toBeGreaterThan(-1)
+    expect(primeraFila).toBeGreaterThan(-1)
+    expect(vuelta).toBeLessThan(primeraFila)
+    // Lo que hay dentro de la vuelta: el titular y el aviso, y nada más.
+    const bloque = fuente.slice(vuelta, fuente.indexOf('/*', vuelta + 1))
+    expect(bloque).toContain('<PrimerArranque />')
+    expect(bloque).not.toContain('<ContinueRow')
+    expect(bloque).not.toContain('TopRow')
   })
 
   /**

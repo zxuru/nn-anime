@@ -268,10 +268,12 @@ export const messages: Messages = {
   'home.firstRun.title': 'Todavía no hay ningún proveedor',
   'home.firstRun.body':
     'RoNa no incluye scrapers. Añade un repositorio de proveedores en Ajustes: se descarga, se miran sus archivos y eliges cuáles se activan.',
-  'home.firstRun.repo': 'Repositorio recomendado:',
+  'home.firstRun.repo': 'Añade el repositorio recomendado:',
   'home.firstRun.warning':
     'Añadirlo no ejecuta nada. Activar un proveedor sí, y sin sandbox: revisa lo que marcas.',
-  'home.firstRun.action': 'Abrir Ajustes',
+  'home.firstRun.step3':
+    'Marca los proveedores que quieras activar y guarda. A partir de ahí la vitrina, la búsqueda y las fichas se llenan con lo que publiquen.',
+  'home.firstRun.action': 'Abrir Ajustes en Fuentes',
   'home.firstRun.tutorialsOff':
     'Tutoriales desactivados. Puedes volver a verlos cuando quieras desde Ajustes.',
 
@@ -397,6 +399,7 @@ export const messages: Messages = {
   'settings.index.title': 'Secciones',
   'settings.section.fuentes': 'Fuentes',
   'settings.section.reproduccion': 'Reproducción',
+  'settings.section.descargas': 'Descargas',
   'settings.section.apariencia': 'Apariencia',
   'settings.section.privacidad': 'Privacidad y contenido',
   'settings.section.sistema': 'Sistema',
@@ -426,7 +429,7 @@ export const messages: Messages = {
   'settings.cap.trending': 'tendencias',
   'settings.cap.feed': 'novedades',
   'settings.cap.none': 'sin capacidades',
-  'settings.register.title': 'Registrar un proveedor',
+  'settings.register.manual': 'Avanzado: registrar un proveedor a mano',
   'settings.register.body':
     'Rellena la dirección del sitio y sus rutas. RoNa escribe el plugin, lo carga y lo deja activo al guardar, sin reiniciar.',
   'settings.register.identity': 'Quién es',
@@ -498,6 +501,21 @@ export const messages: Messages = {
   'settings.paths.data': 'Datos',
   'settings.paths.config': 'Configuración',
   'settings.paths.cache': 'Caché',
+  /*
+   * La sección «Descargas» de Ajustes.
+   *
+   * La carpeta se cambia en la Biblioteca, con la cola delante. Aquí se dice
+   * dónde está y cuánto queda, y se enlaza: un segundo formulario para la misma
+   * ruta sería dos sitios que se pueden desincronizar.
+   */
+  'settings.downloads.title': 'Carpeta y espacio',
+  'settings.downloads.body':
+    'Lo descargado se guarda en esta carpeta. Se cambia en la Biblioteca, junto a la cola y al espacio libre.',
+  'settings.downloads.folder': 'Carpeta',
+  'settings.downloads.space': 'Espacio',
+  'settings.downloads.loading': 'Leyendo el espacio de la carpeta…',
+  'settings.downloads.error': 'No se pudo leer el espacio de las descargas.',
+  'settings.downloads.action': 'Abrir la Biblioteca',
   'settings.mpv': 'Reproductor externo',
   'settings.mpv.yes': 'mpv disponible, versión {version}.',
   'settings.mpv.no': 'No se encontró mpv: se reproduce en el navegador.',
@@ -507,10 +525,31 @@ export const messages: Messages = {
   'settings.skip.body':
     'Cuando el episodio tiene los datos, en el reproductor aparece un botón para saltar la intro, el ending o el resumen. Apagado por defecto: el salto automático decide por ti, y además sólo ocurre una vez por intervalo y episodio.',
   'settings.skip.auto': 'Saltar automáticamente la intro y el ending',
+  /*
+   * AniSkip es el único tercero al que se pregunta por los saltos. El texto
+   * declara la llamada y el valor de fábrica —encendido, como antes— y dice lo
+   * que pasa al apagarlo, que es lo que hace que el ajuste sirva.
+   */
+  'settings.skip.aniskip': 'Consultar AniSkip para los intervalos',
+  'settings.skip.aniskipHint':
+    'AniSkip es un servicio de terceros (api.aniskip.com): al reproducir un episodio se le pregunta por su intro y su ending. Viene encendido porque es lo que hacía la aplicación; apágalo y no se hará ninguna petición: sin datos no habrá botón de saltar.',
   'settings.skip.margin': 'Margen antes del final',
   'settings.skip.marginOption': '{seconds} s',
   'settings.skip.marginHint':
     'Cuántos segundos antes del final se deja el salto. Con 0 se salta justo al terminar el intervalo.',
+  /*
+   * La calidad preferida. Se pide en la resolución del stream y el catálogo la
+   * respeta si la fuente la publica; si no, se queda la primera. No es una
+   * preferencia del servidor: vive en este navegador.
+   */
+  'settings.quality.title': 'Calidad preferida',
+  'settings.quality.body':
+    'Se pide al resolver el episodio. Si la fuente no ofrece esa calidad, se usa la primera que publique.',
+  'settings.quality.label': 'Calidad',
+  'settings.quality.auto': 'La que dé la fuente',
+  'settings.quality.option': '{quality}',
+  'settings.quality.hint':
+    'Se guarda en este navegador y se aplica a la siguiente reproducción. No cambia la descarga ni el reproductor externo.',
   'settings.theme': 'Tema',
   'settings.theme.system': 'El del sistema',
   'settings.theme.dark': 'Oscuro',
@@ -628,6 +667,18 @@ export const messages: Messages = {
   'player.unmute': 'Activar sonido',
   'player.fullscreen': 'Pantalla completa',
   'player.fullscreen.exit': 'Salir de pantalla completa',
+  /*
+   * La velocidad y el picture-in-picture.
+   *
+   * La velocidad es una lista cerrada con `aria-pressed`; el número lo compone
+   * `etiquetaVelocidad` con coma decimal y la `×` la pone el catálogo. El
+   * picture-in-picture sólo existe si el navegador lo ofrece, y su nombre dice
+   * el estado actual para que el mando se lea como un interruptor.
+   */
+  'player.speed': 'Velocidad',
+  'player.speed.option': '{rate}×',
+  'player.pip': 'Ventana flotante',
+  'player.pip.exit': 'Salir de la ventana flotante',
   // El modo extendido: llena la ventana de la aplicación sin pedir la pantalla
   // completa del sistema. El nombre lo dice tal cual porque «maximizar» ya
   // significa otra cosa en la ventana de escritorio.

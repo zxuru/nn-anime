@@ -183,6 +183,17 @@ export function clampVolume(volume: number): number {
   return Math.min(Math.max(volume, 0), 1)
 }
 
+/**
+ * La velocidad como se lee en el menú: `0,75`, `1`, `1,25`.
+ *
+ * `String(0.75)` produce un punto, que en español separa millares y no
+ * decimales. La `×` la pone el catálogo, no esta función: así el signo se puede
+ * cambiar sin tocar el número.
+ */
+export function etiquetaVelocidad(rate: number): string {
+  return String(rate).replace('.', ',')
+}
+
 /** El volumen, entre 0 y 1. */
 export function volumeBy(current: number, delta: number): number {
   return clampVolume(current + delta)

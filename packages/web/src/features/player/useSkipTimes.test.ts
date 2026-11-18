@@ -6,6 +6,7 @@ import {
   intervalosDelEpisodio,
   rutaDeEnriquecimiento,
   rutaDeSaltos,
+  saltosDelEpisodio,
 } from './useSkipTimes'
 
 /**
@@ -136,5 +137,47 @@ describe('los intervalos del episodio', () => {
     expect(await intervalosDelEpisodio(555, 3, 60, undefined, redRota)).toEqual([])
     expect(await intervalosDelEpisodio(555, 3, 60, undefined, errorDelServidor.deps)).toEqual([])
     expect(await intervalosDelEpisodio(555, 3, 60, undefined, formaRara.deps)).toEqual([])
+  })
+})
+
+/**
+ * El ajuste que gobierna la llamada a AniSkip.
+ *
+ * No se mide el gancho completo —necesita navegador—, sino su puerta: la
+ * función que decide si se pide. Con el ajuste apagado la lista de rutas del
+ * `fetch` de mentira tiene que quedarse vacía, que es la prueba de que el
+ * episodio no sale a la red.
+ */
+describe('la consulta a AniSkip apagada', () => {
+  const INTERVALOS: readonly SkipInterval[] = [{ type: 'op', start: 5, end: 20 }]
+
+  test('no se pide nada y no hay intervalos', async () => {
+    const { deps, rutas } = fetchFalso(() => ({ status: 200, cuerpo: INTERVALOS }))
+
+    const lista = await saltosDelEpisodio({
+      consultarAniskip: false,
+      anilistId: 555,
+      episodio: 3,
+      duracionS: 1440,
+      deps,
+    })
+
+    expect(lista).toEqual([])
+    expect(rutas).toEqual([])
+  })
+
+  test('encendida se pide la ruta de los saltos', async () => {
+    const { deps, rutas } = fetchFalso(() => ({ status: 200, cuerpo: INTERVALOS }))
+
+    const lista = await saltosDelEpisodio({
+      consultarAniskip: true,
+      anilistId: 555,
+      episodio: 3,
+      duracionS: 1440,
+      deps,
+    })
+
+    expect(lista).toEqual(INTERVALOS)
+    expect(rutas).toEqual(['/api/skip-times/555/3?length=1440'])
   })
 })

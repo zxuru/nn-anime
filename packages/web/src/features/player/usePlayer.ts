@@ -100,6 +100,13 @@ export interface PlayerHandle {
   readonly seekTo: (seconds: number) => void
   /** Volumen entre 0 y 1, que es lo que el elemento entiende. */
   readonly setVolume: (volume: number) => void
+  /**
+   * La velocidad de reproducción, la que entiende `HTMLMediaElement`.
+   *
+   * Se aplica al elemento en el acto y se vuelve a poner al montar cada fuente:
+   * cambiar de episodio no debe devolver la velocidad a 1 sin que nadie lo pida.
+   */
+  readonly setRate: (rate: number) => void
   readonly toggle: () => void
   /**
    * Las pistas de subtítulos que trae el manifiesto, si trae alguna.
@@ -397,6 +404,15 @@ export interface UsePlayerOptions {
   /** Segundo en el que empezar. Sirve para reanudar y para cambiar de modo. */
   readonly startAtS?: number | undefined
   /**
+   * La velocidad de reproducción con la que arranca el medio.
+   *
+   * Es una preferencia del navegador y no del servidor, así que llega ya leída
+   * de quien monta el reproductor. Vive en una referencia como la posición de
+   * reanudación: con ella en las dependencias del efecto, cada cambio de
+   * velocidad volvería a montar el medio.
+   */
+  readonly rate?: number | undefined
+  /**
    * Pide una fuente nueva para el mismo episodio y devuelve su URL.
    *
    * Es la renovación transparente: cuando el upstream contesta 403/410 —la
@@ -507,6 +523,15 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
   const renovar = useRef(source.renovarFuente)
   renovar.current = source.renovarFuente
 
+  /**
+   * La velocidad, en una referencia por el mismo motivo que los avisos: la
+   * preferencia llega en cada render y el medio sólo se monta cuando cambia la
+   * fuente. Al montar se aplica la última, y el gesto del menú la aplica en el
+   * acto con `setRate`.
+   */
+  const velocidad = useRef(source.rate ?? 1)
+  velocidad.current = source.rate ?? 1
+
   const videoRef = useCallback((nuevo: HTMLVideoElement | null) => {
     elemento.current = nuevo
   }, [])
@@ -594,6 +619,11 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     } else {
       video.src = source.url
     }
+
+    // La velocidad preferida se aplica a cada fuente: el elemento puede
+    // conservarla entre `src`, pero hls.js y un cambio de modo vuelven a montar
+    // el medio y no prometen nada. Sin esto, cambiar de episodio devolvía a 1.
+    video.playbackRate = velocidad.current
 
     // La reanudación se decide **una vez por fuente**, cuando el efecto arranca:
     // si se leyera en cada `durationchange`, un cambio de duración a mitad de
@@ -811,6 +841,14 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     setState((previo) => ({ ...previo, volume: video.volume, muted: video.muted }))
   }, [])
 
+  const setRate = useCallback((rate: number) => {
+    const video = elemento.current
+    if (video === null) return
+    if (!Number.isFinite(rate) || rate <= 0) return
+
+    video.playbackRate = rate
+  }, [])
+
   const seekTo = useCallback((seconds: number) => {
     const video = elemento.current
     if (video === null) return
@@ -849,5 +887,16 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
     void medio.reintentar()
   }, [])
 
-  return { state, videoRef, act, seekTo, setVolume, toggle, hlsTracks, pickHlsTrack, retry }
+  return {
+    state,
+    videoRef,
+    act,
+    seekTo,
+    setVolume,
+    setRate,
+    toggle,
+    hlsTracks,
+    pickHlsTrack,
+    retry,
+  }
 }
