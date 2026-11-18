@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **257 fragmentos indexados**; 206 se identifican
+quedan identificadas aquí. **258 fragmentos indexados**; 206 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
@@ -277,3 +277,4 @@ sólo en este índice y su contenido vive en la historia.
 | T368 | T368 — la búsqueda por género ignora las tildes | fix(search): el género se pliega con o sin tilde (T368). | `bun test` de los paquetes tocados en verde · typecheck 0 · lint 0 · mutación: quitar el plegado NFD de `normalizeTerm` deja cinco pruebas en rojo. | este índice |
 | T369 | T369 — el perfil, a la derecha de la cabecera | feat(web): el Perfil cierra la cabecera (T369). | `bun test packages/web/src/app.test.tsx packages/web/src/nav.test.ts packages/web/src/styles.test.ts` 79 pasan · typecheck 0 · lint 0 · mutación: quitar `separado: true` deja el Perfil en el grupo de destinos y pone en rojo dos pruebas. | este índice |
 | T370 | T370 — el icono de la app coincide con el de la cabecera | feat(icon): una sola marca en todas las tallas (T370). | `bun test scripts/icon.test.ts packages/web/src/brand.test.ts packages/web/src/docs.test.ts` en verde · typecheck 0 · lint 0 · `bun run icon` idempotente · mutación: devolver una talla pequeña sin dibujo deja en rojo el coral y el centro opaco. | este índice |
+| T371 | T371 — la encuesta: portadas del proxy, sin duplicados y con entrada | fix(taste): la encuesta pide las portadas al proxy y no repite títulos (T371). | `bun test packages/web packages/server` **2405 pasan, 0 fallan** · typecheck 0 · lint sin errores nuevos (6 avisos previos de `obra.css` y `vitrina.css`) · mutaciones: volver al `<img src={coverUrl}>` deja en rojo la prueba del paso 2; quitar la deduplicación por nombre deja en rojo dos pruebas de `popularTitles`. | este índice |
