@@ -61,7 +61,7 @@ pub const AUTOMATICA: bool = cfg!(windows);
 /// El repositorio del que salen las releases. El endpoint del updater está en
 /// `tauri.conf.json` y apunta al mismo sitio; aquí sólo se construye el enlace
 /// que se enseña cuando una actualización falla.
-const REPOSITORIO: &str = "zxuru/rona";
+const REPOSITORIO: &str = "zxuru/nn-anime";
 
 /// Lo que la página necesita saber y no puede deducir sola.
 struct Contexto {
