@@ -263,12 +263,23 @@ export const messages: Messages = {
   // no es anime» —películas, series y doramas—, que es la partición que hacen las
   // fuentes: la etiqueta dice «Películas» porque es lo que el usuario busca.
   'media.anime': 'Anime',
-  'media.movies': 'Películas',
-  'media.both': 'Anime y películas',
-  'media.switch': 'Tipo de contenido',
-  'media.empty.movies': 'Ningún proveedor instalado sirve películas todavía.',
+  'media.animation': 'Animación',
+  'media.live': 'Acción real',
+  'media.switch': 'Familia de contenido',
+  // Las descripciones de cada pestaña: el rótulo dice la familia y esto qué
+  // incluye, que es lo que distingue «Animación» de «Anime».
+  'media.anime.desc': 'Series y películas de anime',
+  'media.animation.desc': 'Series animadas que no son anime',
+  'media.live.desc': 'Series y películas con personas',
   'media.empty.anime': 'Ningún proveedor instalado sirve anime todavía.',
+  'media.empty.animation': 'Ningún proveedor instalado sirve animación todavía.',
+  'media.empty.live': 'Ningún proveedor instalado sirve acción real todavía.',
   'media.empty.hint': 'Añade uno en Ajustes o cambia de pestaña.',
+  // El filtro de formato de la home y la búsqueda.
+  'media.format.switch': 'Formato',
+  'media.format.all': 'Todo',
+  'media.format.series': 'Series',
+  'media.format.movie': 'Películas',
 
   /*
    * El primer arranque.
@@ -397,8 +408,9 @@ export const messages: Messages = {
   'home.parrilla.meta.offline': 'Lo que se emite estos días; AniList no ha contestado',
   'home.parrilla.empty': 'AniList no anuncia capítulos en los próximos días.',
   'home.parrilla.empty.offline': 'AniList no ha contestado; la parrilla volverá sola.',
-  'home.parrilla.empty.movies':
-    'La parrilla es de series. Los estrenos de películas se anuncian con el año y se ven en Novedades.',
+  // AniList sólo sirve anime: en las otras dos familias no hay parrilla que pedir.
+  'home.parrilla.empty.animation': 'La parrilla la publica AniList, que sólo cataloga anime.',
+  'home.parrilla.empty.live': 'La parrilla la publica AniList, que sólo cataloga anime.',
   'home.parrilla.hoy': 'Hoy',
   'home.parrilla.manana': 'Mañana',
   'home.more': 'y {count} más',

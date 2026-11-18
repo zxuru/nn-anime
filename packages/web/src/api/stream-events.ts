@@ -13,7 +13,7 @@
 
 import { genreTerm } from '@rona/core/anilist-search'
 import { type SearchEventPayload, searchEventSchema } from '@rona/core/api'
-import type { MediaHalf } from '@rona/core/media'
+import type { MediaFamily, MediaFormat } from '@rona/core/models'
 
 /**
  * Ruta de la búsqueda. El filtro de proveedor se repite, como en el server.
@@ -27,7 +27,8 @@ import type { MediaHalf } from '@rona/core/media'
 export function searchRequestPath(
   query: string,
   providers: readonly string[] = [],
-  media: MediaHalf | undefined = undefined,
+  familia: MediaFamily | undefined = undefined,
+  formato: MediaFormat | undefined = undefined,
 ): string {
   const partes: string[] = []
   /*
@@ -41,7 +42,9 @@ export function searchRequestPath(
   const limpio = (genero === undefined ? query : `#${genero}`).trim()
   if (limpio !== '') partes.push(`q=${encodeURIComponent(limpio)}`)
   for (const provider of providers) partes.push(`provider=${encodeURIComponent(provider)}`)
-  if (media !== undefined) partes.push(`media=${media}`)
+  // Sin familia no se filtra; con ella, la petición lleva el vocabulario nuevo.
+  if (familia !== undefined) partes.push(`family=${familia}`)
+  if (formato !== undefined) partes.push(`format=${formato}`)
 
   // `%20` y no `+`: es lo que escribe la dirección de arranque del CLI, y dos
   // convenciones para la misma consulta darían dos claves de caché distintas.

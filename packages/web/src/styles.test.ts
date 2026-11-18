@@ -758,17 +758,19 @@ describe('la cabecera y el conmutador de tipo', () => {
   test('la píldora del conmutador se desliza una columna entera', async () => {
     const carril = await reglaDe('.conmutador')
     const pastilla = await reglaDe('.conmutador::before')
-    const segunda = await reglaDe('.conmutador[data-tipo="movies"]::before')
+    const segunda = await reglaDe('.conmutador[data-tipo="animation"]::before')
+    const tercera = await reglaDe('.conmutador[data-tipo="live"]::before')
 
-    // Dos mitades iguales: al ancho del rótulo, «Anime» y «Películas» no medirían
-    // lo mismo y el deslizamiento no tendría a dónde llegar.
-    expect(carril).toContain('grid-template-columns: 1fr 1fr')
+    // Tres familias iguales: al ancho del rótulo, «Anime», «Animación» y «Acción
+    // real» no medirían lo mismo y el deslizamiento no tendría a dónde llegar.
+    expect(carril).toContain('grid-template-columns: repeat(3, 1fr)')
 
-    // Media columna menos el relleno: el 100 % de la píldora es, justo, donde
-    // empieza la segunda mitad.
-    expect(pastilla).toContain('width: calc(50% - var(--conmutador-relleno))')
+    // Una columna, descontados los dos rellenos del carril: el 100 % de la píldora
+    // es, justo, donde empieza la siguiente familia.
+    expect(pastilla).toContain('width: calc((100% - 2 * var(--conmutador-relleno)) / 3)')
     expect(pastilla).toContain('inset-inline-start: var(--conmutador-relleno)')
     expect(segunda).toContain('transform: translateX(100%)')
+    expect(tercera).toContain('transform: translateX(200%)')
 
     // La duración sale de un token, y ése lo apaga el movimiento reducido solo.
     expect(pastilla).toContain('transition: transform var(--transition-normal) var(--ease-piece)')

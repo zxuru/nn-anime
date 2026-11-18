@@ -26,13 +26,17 @@ import { resumenDeFallo } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import { useNavigate, usePath } from '../../router'
 import { ANCLAS } from '../guia/guia'
+import { FiltroFormato } from '../tipo/FiltroFormato'
 import {
-  enElTipo,
+  AVISO_SIN_FUENTE,
+  enElFormato,
+  enLaFamilia,
+  familiaFromPath,
+  formatoFromPath,
   fuenteDeResumen,
-  pathConTipo,
+  pathConVista,
   sinFuenteQueSirva,
-  tipoFromPath,
-  useMedias,
+  useFamilias,
 } from '../tipo/tipo'
 import { AniListResults } from './AniListResults'
 import { ResultGrid } from './ResultGrid'
@@ -347,7 +351,8 @@ export function SearchPage(props: SearchPageProps): ReactNode {
   const path = usePath()
   const navigate = useNavigate()
   const filtro = providersFromPath(path).join(',')
-  const tipo = tipoFromPath(path)
+  const familia = familiaFromPath(path)
+  const formato = formatoFromPath(path)
 
   const [term, setTerm] = useState(() => queryFromPath(path))
   const [aplicado, setAplicado] = useState(term)
@@ -357,7 +362,8 @@ export function SearchPage(props: SearchPageProps): ReactNode {
   const { state, active, labels, providersLoaded, providersFailed } = useSearchStream(
     aplicado,
     proveedores,
-    tipo,
+    familia,
+    formato,
   )
   // La preferencia decide cuál de las fuentes da la tarjeta. Llega después que
   // los resultados —es otra petición— y la rejilla se vuelve a ordenar sola.
@@ -372,20 +378,25 @@ export function SearchPage(props: SearchPageProps): ReactNode {
     () => props.prefetcher ?? createDefaultPrefetcher(aplicado),
     [props.prefetcher, aplicado],
   )
-  const medias = useMedias()
+  const familias = useFamilias()
 
   /*
-    Lo que llega de una fuente que sirve las dos cosas viene mezclado: el servidor
-    filtra por proveedor, no por título. El reparto se hace aquí sobre el estado
-    entero, para que el recuento que se anuncia y las tarjetas que se pintan cuenten
-    lo mismo.
+    Lo que llega de una fuente que sirve varias familias viene mezclado: el
+    servidor filtra por proveedor, no por título. El reparto se hace aquí sobre el
+    estado entero, para que el recuento que se anuncia y las tarjetas que se
+    pintan cuenten lo mismo: primero la familia, después el formato.
   */
   const visibles: SearchState = useMemo(
     () => ({
       ...state,
-      results: enElTipo(state.results, tipo, medias, fuenteDeResumen),
+      results: enElFormato(
+        enLaFamilia(state.results, familia, familias, fuenteDeResumen),
+        formato,
+        familias,
+        fuenteDeResumen,
+      ),
     }),
-    [state, tipo, medias],
+    [state, familia, formato, familias],
   )
 
   /*
@@ -425,17 +436,19 @@ export function SearchPage(props: SearchPageProps): ReactNode {
     return cancelar
   }, [term])
 
-  // La consulta se refleja en la dirección, sin apilar historial ni perder el filtro
-  // ni el tipo.
+  // La consulta se refleja en la dirección, sin apilar historial ni perder el
+  // filtro de proveedores, la familia ni el formato.
   useEffect(() => {
     if (queryFromPath(path) === aplicado && providersFromPath(path).join(',') === filtro) return
 
-    navigate.replace(pathConTipo(searchPath(aplicado, proveedores), tipo))
-  }, [aplicado, filtro, path, navigate, proveedores, tipo])
+    navigate.replace(pathConVista(searchPath(aplicado, proveedores), familia, formato))
+  }, [aplicado, filtro, path, navigate, proveedores, familia, formato])
 
   return (
     <section>
       <h1>{t(DEFAULT_LOCALE, 'search.title')}</h1>
+
+      <FiltroFormato />
 
       <div className="search__field" data-tour={ANCLAS.buscadorCampo}>
         <label className="search__label" htmlFor="search-term">
@@ -473,10 +486,9 @@ export function SearchPage(props: SearchPageProps): ReactNode {
         otra salida, y con el mapa de fuentes vacío no se avisa —no se sabe todavía—:
         de eso se encarga `sinFuenteQueSirva`.
       */}
-      {sinFuenteQueSirva(medias, tipo) ? (
+      {sinFuenteQueSirva(familias, familia) ? (
         <p className="aviso-tipo" role="status">
-          {t(DEFAULT_LOCALE, tipo === 'movies' ? 'media.empty.movies' : 'media.empty.anime')}{' '}
-          {t(DEFAULT_LOCALE, 'media.empty.hint')}
+          {t(DEFAULT_LOCALE, AVISO_SIN_FUENTE[familia])} {t(DEFAULT_LOCALE, 'media.empty.hint')}
         </p>
       ) : null}
 
@@ -496,12 +508,15 @@ export function SearchPage(props: SearchPageProps): ReactNode {
         página es la de siempre y la lista del catálogo va debajo, aparte.
       */}
       {soloCatalogo ? (
-        <AniListResults
-          items={visibles.anilist}
-          query={aplicado}
-          presentacion="rejilla"
-          done={resuelta(visibles)}
-        />
+        // AniList sólo sirve anime: en las otras familias no hay fila que pintar.
+        familia === 'anime' ? (
+          <AniListResults
+            items={visibles.anilist}
+            query={aplicado}
+            presentacion="rejilla"
+            done={resuelta(visibles)}
+          />
+        ) : null
       ) : (
         <>
           <ResultGrid
@@ -525,7 +540,9 @@ export function SearchPage(props: SearchPageProps): ReactNode {
             fuentes. Es lo que responde cuando lo local se queda corto, que es justo el
             caso de una búsqueda por género o por estudio.
           */}
-          <AniListResults items={visibles.anilist} query={aplicado} presentacion="seccion" />
+          {familia === 'anime' ? (
+            <AniListResults items={visibles.anilist} query={aplicado} presentacion="seccion" />
+          ) : null}
         </>
       )}
     </section>

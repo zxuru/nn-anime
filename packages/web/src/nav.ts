@@ -15,10 +15,10 @@
  * entero al paquete.
  */
 
-import type { MediaHalf } from '@rona/core/media'
+import type { MediaFamily, MediaFormat } from '@rona/core/models'
 import { Home, Library, type LucideIcon, Search, Settings, User } from 'lucide-react'
 import { ANCLAS } from './features/guia/guia'
-import { pathConTipo } from './features/tipo/tipo'
+import { pathConVista } from './features/tipo/tipo'
 import type { RouteName } from './router'
 
 export interface NavItem {
@@ -29,8 +29,8 @@ export interface NavItem {
   readonly label: string
   /** Las rutas que marcan este destino como el actual. */
   readonly routes: readonly RouteName[]
-  /** Si el destino arrastra `?tipo=` —la home y la búsqueda—. */
-  readonly conservaTipo?: boolean
+  /** Si el destino arrastra la vista —familia y formato—: la home y la búsqueda. */
+  readonly conservaVista?: boolean
   /** El ancla de la guía, cuando el recorrido la señala. */
   readonly tour?: string
   /**
@@ -44,13 +44,13 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { to: '/', icon: Home, label: 'nav.home', routes: ['home'], conservaTipo: true },
+  { to: '/', icon: Home, label: 'nav.home', routes: ['home'], conservaVista: true },
   {
     to: '/search',
     icon: Search,
     label: 'nav.search',
     routes: ['search'],
-    conservaTipo: true,
+    conservaVista: true,
     tour: ANCLAS.buscar,
   },
   {
@@ -78,9 +78,19 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
 ]
 
-/** La dirección de un destino, con la mitad que se está mirando cuando la lleva. */
-export function destinoDeNav(item: NavItem, tipo: MediaHalf): string {
-  return item.conservaTipo === true ? pathConTipo(item.to, tipo) : item.to
+/**
+ * La dirección de un destino, con la vista que se está mirando cuando la lleva.
+ *
+ * Sólo la home y la búsqueda la conservan: son las pantallas que listan. Una
+ * ficha o el reproductor no tienen formato que partir, así que su destino no lo
+ * arrastra.
+ */
+export function destinoDeNav(
+  item: NavItem,
+  familia: MediaFamily,
+  formato: MediaFormat | undefined,
+): string {
+  return item.conservaVista === true ? pathConVista(item.to, familia, formato) : item.to
 }
 
 /** Si la pantalla en la que se está es la de este destino. */

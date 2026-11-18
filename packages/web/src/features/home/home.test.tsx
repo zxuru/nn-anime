@@ -38,7 +38,7 @@ import {
   mergeRows,
   REFRESCO_MS,
   type RowResults,
-  rutasDeTipo,
+  rutasDeVista,
 } from './useHomeRows'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
@@ -729,22 +729,23 @@ describe('el tipo de la home', () => {
     expect(renderEn('/?tipo=movies')).not.toContain('Ningún proveedor instalado sirve')
   })
 
-  test('las tres filas que mezclan fuentes piden su mitad al servidor', () => {
-    expect(rutasDeTipo('anime')).toEqual({
-      trending: '/api/trending?media=anime',
-      feed: '/api/feed?media=anime',
-      recent: '/api/catalog/recent?media=anime',
-      descubrir: '/api/discover/top?media=anime',
-      parrilla: '/api/discover/airing?media=anime',
-      emisiones: '/api/discover/recent?media=anime',
+  test('las filas que mezclan fuentes piden la familia y el formato al servidor', () => {
+    expect(rutasDeVista('anime', undefined)).toEqual({
+      trending: '/api/trending?family=anime',
+      feed: '/api/feed?family=anime',
+      recent: '/api/catalog/recent?family=anime',
+      descubrir: '/api/discover/top?family=anime',
+      parrilla: '/api/discover/airing?family=anime',
+      emisiones: '/api/discover/recent?family=anime',
     })
-    expect(rutasDeTipo('movies')).toEqual({
-      trending: '/api/trending?media=movies',
-      feed: '/api/feed?media=movies',
-      recent: '/api/catalog/recent?media=movies',
-      descubrir: '/api/discover/top?media=movies',
-      parrilla: '/api/discover/airing?media=movies',
-      emisiones: '/api/discover/recent?media=movies',
+    // El formato viaja junto a la familia: sin él, «Todo»; con él, sólo lo pedido.
+    expect(rutasDeVista('live', 'movie')).toEqual({
+      trending: '/api/trending?family=live&format=movie',
+      feed: '/api/feed?family=live&format=movie',
+      recent: '/api/catalog/recent?family=live&format=movie',
+      descubrir: '/api/discover/top?family=live&format=movie',
+      parrilla: '/api/discover/airing?family=live&format=movie',
+      emisiones: '/api/discover/recent?family=live&format=movie',
     })
   })
 })

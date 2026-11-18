@@ -7,7 +7,7 @@
  */
 
 import { DEFAULT_LOCALE, type Locale } from '@rona/core/i18n'
-import type { MediaHalf } from '@rona/core/media'
+import type { MediaFamily, MediaFormat } from '@rona/core/models'
 import { type ReactNode, useEffect, useRef } from 'react'
 import { BarraInferior } from './components/BarraInferior'
 import { IconLabel } from './components/IconLabel'
@@ -26,7 +26,12 @@ import { SettingsPage } from './features/settings/SettingsPage'
 import { useAppTheme } from './features/settings/useSettings'
 import { TastePage } from './features/taste/TastePage'
 import { ConmutadorTipo } from './features/tipo/ConmutadorTipo'
-import { tipoFromPath } from './features/tipo/tipo'
+import {
+  familiaFromPath,
+  formatoFromPath,
+  pathConFamilia,
+  tieneTipoViejo,
+} from './features/tipo/tipo'
 import { t } from './i18n'
 import { routeTitleParts, useDocumentTitle } from './lib/document-title'
 import { destinoDeNav, esNavActual, NAV_ITEMS, type NavItem } from './nav'
@@ -35,6 +40,7 @@ import {
   type RouteMatch,
   type RouteName,
   tocaVolverArriba,
+  useNavigate,
   usePath,
   useRoute,
 } from './router'
@@ -51,13 +57,14 @@ const LOCALE: Locale = DEFAULT_LOCALE
 function DestinoNav(props: {
   readonly item: NavItem
   readonly route: RouteName
-  readonly tipo: MediaHalf
+  readonly familia: MediaFamily
+  readonly formato: MediaFormat | undefined
 }): ReactNode {
   const actual = esNavActual(props.item, props.route)
 
   return (
     <Link
-      to={destinoDeNav(props.item, props.tipo)}
+      to={destinoDeNav(props.item, props.familia, props.formato)}
       ariaCurrent={actual ? 'page' : undefined}
       {...(props.item.tour === undefined ? {} : { dataTour: props.item.tour })}
     >
@@ -126,8 +133,24 @@ function Shell(props: {
   */
   const path = usePath()
   const route = useRoute()
-  const tipo = tipoFromPath(path)
+  const familia = familiaFromPath(path)
+  const formato = formatoFromPath(path)
+  const navigate = useNavigate()
   const contenido = useRef<HTMLElement>(null)
+
+  /*
+    La dirección vieja se reescribe al entrar.
+
+    `?tipo=movies` significaba «todo lo que no es anime», y su sucesor natural es
+    la acción real: no hay una familia que signifique «lo que no es anime» porque
+    ésa era justamente la confusión. Se hace con `replace` para no dejar en el
+    historial una entrada que el botón de atrás volvería a convertir.
+  */
+  useEffect(() => {
+    if (!tieneTipoViejo(path)) return
+
+    navigate.replace(pathConFamilia(path, 'live'))
+  }, [navigate, path])
   /*
     El Perfil va aparte y al final, detrás de los mandos. La lista sigue siendo
     `NAV_ITEMS`: aquí se parte en dos grupos y la barra inferior recibe la
@@ -192,7 +215,13 @@ function Shell(props: {
         </Link>
         <nav className="shell__nav" aria-label={t(LOCALE, 'nav.primary')}>
           {destinos.map((item) => (
-            <DestinoNav key={item.to} item={item} route={route.name} tipo={tipo} />
+            <DestinoNav
+              key={item.to}
+              item={item}
+              route={route.name}
+              familia={familia}
+              formato={formato}
+            />
           ))}
         </nav>
         {props.tipo === true ? <ConmutadorTipo /> : null}
@@ -207,7 +236,13 @@ function Shell(props: {
           */
           <nav className="shell__nav shell__nav--separado" aria-label={t(LOCALE, 'nav.profile')}>
             {separados.map((item) => (
-              <DestinoNav key={item.to} item={item} route={route.name} tipo={tipo} />
+              <DestinoNav
+                key={item.to}
+                item={item}
+                route={route.name}
+                familia={familia}
+                formato={formato}
+              />
             ))}
           </nav>
         )}

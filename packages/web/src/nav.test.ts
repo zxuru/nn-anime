@@ -23,7 +23,7 @@ describe('los destinos de la navegación', () => {
     }
   })
 
-  test('la home y la búsqueda arrastran la mitad que se mira; los demás no', () => {
+  test('la home y la búsqueda arrastran la vista que se mira; los demás no', () => {
     const inicio = NAV_ITEMS.find((item) => item.to === '/')
     const buscar = NAV_ITEMS.find((item) => item.to === '/search')
     const perfil = NAV_ITEMS.find((item) => item.to === '/profile')
@@ -32,9 +32,9 @@ describe('los destinos de la navegación', () => {
       throw new Error('faltan destinos en NAV_ITEMS')
     }
 
-    expect(destinoDeNav(inicio, 'movies')).toBe('/?tipo=movies')
-    expect(destinoDeNav(buscar, 'movies')).toBe('/search?tipo=movies')
-    expect(destinoDeNav(perfil, 'movies')).toBe('/profile')
+    expect(destinoDeNav(inicio, 'live', 'movie')).toBe('/?tipo=live&formato=movie')
+    expect(destinoDeNav(buscar, 'animation', undefined)).toBe('/search?tipo=animation')
+    expect(destinoDeNav(perfil, 'live', 'movie')).toBe('/profile')
   })
 
   /**
