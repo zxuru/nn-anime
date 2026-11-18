@@ -142,6 +142,19 @@ describe('findCoverUrl', () => {
     })
   })
 
+  test('una portada con un esquema que no se admite no sale', async () => {
+    await withDb((db) => {
+      createSearchRepository(db).write('fixture', 'aurora', [resultado('Aurora Nocturna')])
+      db.query(
+        `UPDATE search_cache
+            SET results_json = '[{"ref":{"providerId":"fixture","value":"aurora-nocturna"},"title":"Aurora","coverUrl":"javascript:alert(1)"}]'
+          WHERE query = 'aurora'`,
+      ).run()
+
+      expect(findCoverUrl(db, REF)).toBeUndefined()
+    })
+  })
+
   test('una fila ilegible no impide leer la siguiente', async () => {
     await withDb((db) => {
       createSearchRepository(db).write('fixture', 'aurora', [resultado('Otra')])
