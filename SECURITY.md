@@ -6,6 +6,17 @@ qué se mitiga, qué no, y por qué.
 Las referencias `S*` remiten a `docs/seguridad-mejoras.md`, que trae el hallazgo, el parche y la
 prueba que lo sostiene.
 
+## Cómo reportar una vulnerabilidad
+
+**No abras un issue público.** Usa los **avisos privados de seguridad de GitHub**:
+<https://github.com/zxuru/nn-anime/security/advisories/new>. Incluye la versión, el sistema, los
+pasos para reproducirlo y qué esperabas que pasara; si el fallo está en un plugin y no en este
+repositorio, dilo, porque el contrato y el cargador viven aquí pero el plugin no.
+
+La revisión es privada hasta que haya un arreglo publicado. Este documento y el aviso dirán qué
+queda mitigado y qué se declara como riesgo residual, con el mismo listón que el resto del
+repositorio: lo que no se mide no se da por hecho.
+
 ## Modelo de amenaza
 
 | Amenaza | Mitigación | Dónde |

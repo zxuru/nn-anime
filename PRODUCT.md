@@ -84,13 +84,13 @@ Lo que un vecino no puede copiar sin mentir:
 
 ## Capabilities and Constraints
 
-**Lo que hace hoy (0.4.0):** búsqueda agregada entre proveedores, ficha con temporadas y episodios,
+**Lo que hace hoy (0.9.0):** búsqueda agregada entre proveedores, ficha con temporadas y episodios,
 reproductor HLS (`hls.js`) con subtítulos y `mpv` opcional, «continuar viendo», favoritos, perfil con
 historial y ya vistos, motor de recomendación con motivo, top (AniList o el de la fuente), parrilla
 de estrenos, novedades, conmutador de tipo anime / películas —series y doramas van por el mismo
 camino—, descargas con cola, pausa, reanudación y gestión de espacio, ajustes con repositorios de
-proveedores y aviso de seguridad, ventana de escritorio, Docker y las releases de las tres
-plataformas.
+proveedores y aviso de seguridad, watch party en LAN (experimental, apagado por defecto), ventana de
+escritorio, Docker y las releases de Windows, macOS y Linux.
 
 **Restricciones que no se negocian** (si una tarea las contradice, se replantea la tarea):
 
@@ -120,13 +120,16 @@ primero (copia directa para `file`, remux con `ffmpeg` para HLS, segmentos local
 `ffmpeg`), para que lo descargado se pueda abrir fuera de RoNa.
 
 **Sin decidir, y por eso no se implementa sin preguntar:** el lector de manga (fase 2A; el tipo
-`manga` ya está en el modelo, y la propuesta es CBZ para lo descargado), el watch party (fase 3; la
-recomendación es WebRTC con señalización manual, por respetar «sin servidor central») y el formato
-de esa señalización. Ninguna de las dos fases está abierta.
+`manga` ya está en el modelo, el spec está escrito y **pendiente de aprobación humana**, y la
+propuesta es CBZ para lo descargado) y el transporte remoto del watch party (fase 3; la
+recomendación es WebRTC con señalización manual, por respetar «sin servidor central»). El **modo LAN
+del watch party sí está hecho**: se publicó en la 0.8.0, está **apagado por defecto** (`RONA_PARTY=1`
+lo enciende) y no abre ninguna ruta sin esa variable. Lo que sigue sin decidirse es el P2P y el
+formato de su señalización.
 
 ## Brand Commitments
 
-- **Nombre:** RoNa, `zxuru/rona`, paquetes `@rona/*`, binario `rona`.
+- **Nombre:** RoNa, `zxuru/nn-anime`, paquetes `@rona/*`, binario `rona`.
 - **Voz:** español directo, sin superlativos ni lenguaje de marketing. Los documentos dicen lo que
   falla, lo que no se midió y lo que se retiró, con el motivo. Un cambio que se descarta se explica
   en vez de borrarse en silencio.

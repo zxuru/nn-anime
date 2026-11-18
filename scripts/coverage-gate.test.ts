@@ -39,7 +39,7 @@ afterAll(() => {
  * Un LCOV de mentira, con la cobertura que se le pida.
  *
  * Se mide en 10 000 líneas para que el porcentaje sea el que se pide sin ruido
- * de redondeo: `web` al 65,21 % son 6 521 líneas de 10 000.
+ * de redondeo: `web` al 66,68 % son 6 668 líneas de 10 000.
  */
 function lcov(medidas: Readonly<Record<string, number>>): string {
   const registros: string[] = []
@@ -194,10 +194,10 @@ describe('la puerta', () => {
     // 0,99 no lo llega ni `web`: la puerta cae.
     expect(puerta(['--lcov', ruta, '0.99']).code).toBe(1)
 
-    // Y uno por debajo de cada umbral no afloja nada: `web` sigue pidiendo 60 %.
+    // Y uno por debajo de cada umbral no afloja nada: `web` sigue pidiendo 65 %.
     const flojo = puerta(['--lcov', ruta, '0.5'])
     expect(flojo.code).toBe(0)
-    expect(fila(flojo.out, 'web')).toContain(`exige >= ${porcentaje(0.6)} %`)
+    expect(fila(flojo.out, 'web')).toContain(`exige >= ${porcentaje(0.65)} %`)
   })
 
   test('una orden que no se entiende sale con 2, no con 1', () => {
@@ -227,6 +227,17 @@ describe('la puerta', () => {
 
     expect(resultado.code).toBe(1)
     expect(resultado.out).toContain('sin código que medir')
+  })
+
+  test('la lista de lo no medido no cuenta el arnés del e2e ni las declaraciones', () => {
+    // El arnés lo ejecuta Playwright y las declaraciones no tienen líneas que
+    // cubrir. Contarlos como «archivos que ningún test carga» hacía que la
+    // lista sonara a deuda cuando era el instrumento de medida.
+    const resultado = puerta(['--lcov', medicion(MEDICION)])
+
+    expect(resultado.code).toBe(0)
+    expect(resultado.out).not.toContain('packages/web/e2e/')
+    expect(resultado.out).not.toContain('.d.ts')
   })
 })
 

@@ -5,6 +5,11 @@ reproductor, perfil, historial, descargas y ajustes), con la app renderizada a
 1440×900 y 390×844. No es un rediseño: es una revisión con las utilidades
 actuales intactas y un pase de transiciones sobre lo que ya existía.
 
+> **Actualizado el 2026-11-18:** cerrados el 6 (T238), el 8, 9 y 20 (T230/T239) y el 10–14 y 16
+> (T236/T237); el 15, 17 y 18 ya se cerraron en el pase original, y el 19 es una decisión escrita (la
+> navegación es instantánea). Sólo queda abierto el **5**, la tarjeta vieja de Buscar y los
+> relacionados, que es deuda declarada en `docs/rediseno-vitrina.md`.
+
 ## Cómo se miró
 
 - Código: `app.tsx`, `router.tsx`, `features/*`, `components/*`, las dos hojas de
@@ -43,11 +48,11 @@ solución; **P3** pulido. «Hecho» significa que se corrigió en este pase.
 | 2 | P1 | El botón secundario de la marquesina desaparecía en tema claro: borde y letra salían del tema (casi negro) sobre el campo granate. | `shell.css:3626` (sólo `[data-tinta="oscura"]`), captura clara actual | **Hecho**: el contorno toma `--marquesina-tinta` en los dos temas. |
 | 3 | P1 | La hoja de la pieza era un `div` con `role="dialog" aria-modal="true"`: sin fondo inerte ni trampa de foco, con un botón de fondo focusable fuera del diálogo, el velo por debajo de la cabecera (`z-index: 8` frente a `10`) y el `body` sin bloquear. | `PanelPieza.tsx:95-107`, `shell.css:4391` | **Hecho**: `<dialog>` nativo con `showModal`, foco al cierre, `overflow: hidden` y retorno del foco al disparador. |
 | 4 | P1 | El asomo oculto seguía en el orden de tabulación: dos mandos invisibles por pieza. | `shell.css:4172-4197` | **Hecho**: `visibility: hidden` en reposo, `visible` con puntero o foco. |
-| 5 | P1 | Buscar, los relacionados y el panel siguen con la tarjeta vieja —borde 2 px, radio 0, sombra coral desplazada— mientras la home usa la pieza de 1 px y radio 10. | `shell.css:343` frente a `3927`; captura de Buscar | Abierto. Es la deuda declarada en `docs/rediseno-vitrina.md:99`. |
+| 5 | P1 | Buscar y los relacionados siguen con la tarjeta vieja —borde 2 px, radio 0, sombra coral desplazada— mientras la home usa la pieza de 1 px y radio 10. | `shell.css:343` frente a `3927`; captura de Buscar | Abierto. Es la deuda declarada en `docs/rediseno-vitrina.md:99`; el panel del motor ya se retiró en T240. |
 | 6 | P2 | `--font-mono: "Space Mono"` no se sirve: no hay `@font-face` ni archivo, y la CSP es `default-src 'self'`. Todo el registro de datos cae a la mono del sistema y cambia de voz por máquina. | `tokens.css:158`; `styles/fonts/` sólo tiene Nunito | **Hecho** en T238: los cuatro `.woff2` (400/700 × latin/latin-ext) y `OFL-space-mono.txt` viven en `styles/fonts/`, con `@font-face` locales y el `unicode-range` de Google. Medido en el navegador: «0123456789» a 16 px mide 97,92 px con Space Mono y 80 px con la mono del sistema. |
 | 7 | P2 | Tres reglas de Descargas usaban tokens inexistentes (`--color-muted`, `--font-size-sm`): el navegador descartaba la declaración y el texto quedaba con el color y el cuerpo heredados. | `shell.css:4797-4825` | **Hecho**: `--color-text-dim` y `--text-sm`; una prueba nueva falla si vuelve un `var()` sin definir. |
-| 8 | P2 | El tema se aplica en un efecto después de `GET /api/settings`; `index.html` no trae `data-theme` ni `color-scheme`. Quien guardó claro sobre un sistema oscuro ve un destello negro, y los controles nativos no siguen al tema. | `useSettings.ts:66`, `index.html:1-14` | Parcial: `color-scheme` en los dos temas. El destello necesita el tema en el HTML de arranque. |
-| 9 | P2 | `useAppTheme` y `SettingsPage` montan `useSettings` por separado: dos lecturas de `/api/settings` que el dedupe no comparte porque no están en vuelo a la vez. | `useSettings.ts:66,77`; `SettingsPage.tsx` | Abierto. Un proveedor de ajustes en la raíz lo cierra. |
+| 8 | P2 | El tema se aplica en un efecto después de `GET /api/settings`; `index.html` no trae `data-theme` ni `color-scheme`. Quien guardó claro sobre un sistema oscuro ve un destello negro, y los controles nativos no siguen al tema. | `useSettings.ts:66`, `index.html:1-14` | **Hecho** en T239: el tema va en `theme-boot.js` antes del primer pintado, `color-scheme` sigue a la preferencia y el HTML lleva `description`, `theme-color` y el pie. Medido con screencast: 26 fotogramas `#f2ede3` con sistema oscuro y tema claro, ninguno negro. |
+| 9 | P2 | `useAppTheme` y `SettingsPage` montan `useSettings` por separado: dos lecturas de `/api/settings` que el dedupe no comparte porque no están en vuelo a la vez. | `useSettings.ts:66,77`; `SettingsPage.tsx` | **Hecho** en T230: un proveedor de ajustes en la raíz y una sola lectura; una prueba cuenta las peticiones y falla si vuelven a ser dos. |
 | 10 | P2 | La cabecera móvil mete marca, cinco destinos y conmutador: a 390 px los destinos comparten una fila de 11-13 px y el mando baja a otra; a 320 px el renglón de destinos ya no cabe. | `shell.css:3115-3135`, captura 390 | **Hecho** en T236: los destinos ya estaban plegados a la barra inferior; lo que no cabía a 320 era «Biblioteca» (67 px en una celda de 64). Las pistas miden ahora 61/61/61/75/61 y la etiqueta cabe; la cabecera sigue en 58 px y `scrollWidth` = 320. |
 | 11 | P2 | El mosaico fijo de seis columnas deja huecos cuando la fila trae cuatro títulos: en la home se ve el tercio derecho vacío en «Recomendado para ti» y en el top. | `shell.css:3885-3893`, captura 1440 | **Hecho** en T236: el mosaico declara `--mosaico-piezas` y compone hasta el tope del punto de corte. A 1440, una fila de cuatro pasó de 6 pistas de 170,8 px (373 px vacíos a la derecha) a 4 de 264,1 px (hueco 0), y su alto de 256 a 396 px. Excepción: con más de seis piezas la fila incompleta se queda con las pistas del tope (7 → 6+1). |
 | 12 | P2 | La banda de la ficha, sin banner de AniList, mide 16 rem y queda vacía: el título flota sobre un hueco negro. | `shell.css:713-724` | **Hecho** en T236: sin banner la banda lleva `detail__banner--sin-fondo` y baja a un suelo de 10 rem; medido en la ficha, 198 px frente a los 256 de la franja. |
@@ -57,8 +62,8 @@ solución; **P3** pulido. «Hecho» significa que se corrigió en este pase.
 | 16 | P3 | CSS muerto y comentarios de la lengua vieja: `.buscador*`, `.home__refresco`, `.section__meta`, `.poster__cover`, `.row__list > li` (su escalón nunca se aplica), y la cabecera de `shell.css` habla de radios cero. | `shell.css:10-12,556,4333`; el resto por grep | **Hecho** en T237: el bloque muerto —y sus tokens `--buscador-*`— ya no está y una prueba falla si vuelve; la cabecera de `shell.css` describe las cuatro hojas actuales (base, obra, vitrina y gestión). |
 | 17 | P3 | El esqueleto latía a 200 ms (parecía un parpadeo) y el de la home (`.esq`) no latía. | `shell.css:467,3796` | **Hecho**: `--skeleton-pulse: 900ms` para los dos, apagado con movimiento reducido. |
 | 18 | P3 | El campo de una pieza saltaba de saturación al pasar el puntero: el `filter` cambiaba sin transición. | `shell.css:4698` | **Hecho**: `filter` transiciona con `--transition-normal`. |
-| 19 | P3 | No hay transición de ruta, ni foco que se mueva al cambiar de pantalla; el título de la pestaña sí cambia. | `app.tsx:187` | Abierto y deliberado: la navegación es instantánea y el foco no debe saltar sin que se pida. |
-| 20 | P3 | Sin `description` ni `theme-color` en el HTML; sin pie de aplicación. | `index.html` | Abierto. |
+| 19 | P3 | No hay transición de ruta, ni foco que se mueva al cambiar de pantalla; el título de la pestaña sí cambia. | `app.tsx:187` | Cerrado como decisión: la navegación es instantánea y el foco no debe saltar sin que se pida. |
+| 20 | P3 | Sin `description` ni `theme-color` en el HTML; sin pie de aplicación. | `index.html` | **Hecho** en T239: `description`, `theme-color` y pie, con el tema antes del primer pintado. |
 
 ## El pase de movimiento
 
@@ -166,14 +171,16 @@ transición, así que el cierre no es un corte.
 
 ## Lo que sigue, en orden
 
-1. **Una sola lengua de tarjeta.** Portar Buscar, la ficha y el panel a la
-   composición de la vitrina, o declarar la tarjeta vieja como excepción
-   consciente. Es lo que más separa la home del resto.
+1. **Una sola lengua de tarjeta.** Portar Buscar y la ficha a la composición de
+   la vitrina, o declarar la tarjeta vieja como excepción consciente. Es lo
+   que más separa la home del resto. **Sigue abierto** (hallazgo 5); el panel
+   del motor ya no existe (T240).
 2. **La tipografía de datos.** Traer Space Mono al repo o quitarla del token;
    hoy la interfaz cambia de voz según la máquina. **Cerrado en T238** (hallazgo 6):
    la familia llega del repositorio y el dato mide igual en cualquier máquina.
 3. **El primer fotograma del tema.** Aplicar el tema antes del primer pintado
-   (HTML de arranque o script mínimo) y compartir una sola lectura de ajustes.
+   (HTML de arranque o script mínimo) y compartir una sola lectura de ajustes. **Cerrado en T230 y
+   T239** (hallazgos 8, 9 y 20): el tema va antes del primer pintado y los ajustes se leen una vez.
 4. **La cabecera estrecha.** Decidir entre plegar los destinos o dejar el
    conmutador en su renglón con un ancho mínimo medido. **Cerrado en T236**
    (hallazgo 10): los destinos viven en la barra inferior y la etiqueta más larga

@@ -42,7 +42,7 @@ telemetría.**
   **Reintentar**; si la obra no está, lo dice con esas palabras. La primera vez que se abre una obra
   —sin caché— llega también con su banda, sus relaciones y los datos de AniList, sin recargar.
 - **Recomendaciones explicables**: el motor sólo mira señales locales —lo que buscaste, lo que
-  abriste, lo que puntuaste— y cada sugerencia lleva su motivo. Las **novedades** existen para que la
+  abriste y lo que viste— y cada sugerencia lleva su motivo. Las **novedades** existen para que la
   primera pantalla no dependa de que hayas buscado antes; cuando no hay nada que recomendar, el
   destacado sale de lo que la aplicación ya conoce en vez de quedarse con un titular.
 - **Descargas y biblioteca**: lo que descargas se queda en el equipo y se ve sin pedirle nada al
@@ -51,7 +51,7 @@ telemetría.**
   encadena los episodios descargados; desde la ficha se apunta la serie entera a la cola. Mientras
   exista, la copia local manda en el reproductor. Si una descarga quedó en segmentos, se dice ahí
   mismo y se pasa a MP4 sin volver a bajar nada, con `ffmpeg` si está y `mux.js` dentro de la
-  aplicación si no. La carpeta se elige en **Ajustes**.
+  aplicación si no. La carpeta se elige en **Biblioteca**.
 - **La guía de primeros pasos** sale sola la primera vez que se entra en cada pantalla: un recorrido
   que señala cada parte y avisos que marcan lo que acaba de llegar. El «?» de la cabecera repite el
   de la pantalla en la que estés, **Ajustes** los lista todos y devuelve los avisos descartados. En
@@ -65,9 +65,10 @@ telemetría.**
 
 ## Instalación (para usuarios)
 
-**No hace falta instalar nada más**: ni Node, ni Bun, ni Python. Cada descarga trae dentro el
-programa entero —la interfaz, el servidor y la base de datos—, y todo está en
-[la página de Releases](https://github.com/zxuru/rona/releases).
+**No hay que instalar Node, Bun ni Python**: cada descarga trae dentro el programa entero —la
+interfaz, el servidor y la base de datos—, y todo está en
+[la página de Releases](https://github.com/zxuru/nn-anime/releases). El **motor web** que dibuja la
+ventana sí lo pone el sistema; la tabla de requisitos está justo debajo.
 
 | Sistema | Archivo |
 |---|---|
@@ -76,14 +77,27 @@ programa entero —la interfaz, el servidor y la base de datos—, y todo está 
 | macOS, Intel | `rona-X.Y.Z-macos-x64.zip` |
 | Linux x64 | `rona-X.Y.Z-linux-x64.AppImage` |
 
-Todas las entregas son portables: se descargan, se ejecutan y ya está. Ninguna instala nada, deja
-accesos ni escribe un desinstalador.
+### Lo que sí tiene que traer el sistema
+
+Los portables no llevan dentro el motor web de la ventana:
+
+| Sistema | Requisito | Si falta |
+|---|---|---|
+| Windows 10/11 x64 | **WebView2 Evergreen**. Windows 11 lo trae; en Windows 10 puede faltar si se quitó Edge o la imagen es antigua. | La ventana no abre. Se instala con el [WebView2 Runtime de Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/) (Evergreen, x64). No hace falta Bun. |
+| Linux x64 | **WebKitGTK 4.1** (`libwebkit2gtk-4.1`) y **GTK 3**, que el AppImage **no** empaqueta. | El AppImage no arranca. En Debian/Ubuntu: `sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0`; en Fedora: `sudo dnf install webkit2gtk4.1 gtk3`; en Arch: `sudo pacman -S webkit2gtk-4.1 gtk3`. |
+| macOS | **WKWebView**, que viene con el sistema. | — |
+
+Todas las entregas son portables: se descargan, se ejecutan y ya está. La aplicación **no instala
+nada por su cuenta**, no deja accesos ni escribe un desinstalador; los requisitos de la tabla son
+del sistema, no un instalador que traiga la release.
 
 ### Windows: un solo archivo
 
-Descarga `rona-X.Y.Z-windows-x64.exe`, ponlo donde quieras y ejecútalo. **No instala nada** y no
-deja accesos: el mismo archivo lleva dentro la interfaz, el servidor y la base. Al abrirlo aparece su
-ventana, con la aplicación dentro y sin ninguna consola de por medio.
+Descarga `rona-X.Y.Z-windows-x64.exe`, ponlo donde quieras y ejecútalo. **No instala nada por su
+cuenta** y no deja accesos: el mismo archivo lleva dentro la interfaz, el servidor y la base. Al
+abrirlo aparece su ventana, con la aplicación dentro y sin ninguna consola de por medio. Necesita
+WebView2 Evergreen; si el sistema no lo trae, la ventana no abre hasta instalarlo desde el enlace de
+la tabla de requisitos.
 
 Por defecto los datos —la base, los ajustes, los plugins y el perfil del webview— van a
 `%LOCALAPPDATA%\rona-data`, **fuera** de la carpeta del `.exe`, así que sobreviven a moverlo,
@@ -150,8 +164,9 @@ ventana y la bandeja funcionan como en Windows: **la X la oculta** y «Salir» l
 ### Linux
 
 Descarga el **AppImage**, dale permiso de ejecución y lánzalo:
-`chmod +x rona-X.Y.Z-linux-x64.AppImage && ./rona-X.Y.Z-linux-x64.AppImage`. No instala nada
-ni toca el sistema.
+`chmod +x rona-X.Y.Z-linux-x64.AppImage && ./rona-X.Y.Z-linux-x64.AppImage`. La aplicación no
+instala nada ni toca el sistema, pero el AppImage **no lleva dentro WebKitGTK 4.1 ni GTK 3**: si la
+distribución no los trae, instálalos con el comando de la tabla de requisitos de arriba.
 
 Sin argumentos abre **la ventana**, sin ninguna terminal de por medio, y la bandeja funciona como en
 Windows. Con argumentos ejecuta la consola; el `AppImage` hace las dos cosas.
@@ -304,7 +319,8 @@ completa, los límites y lo que falta (WebRTC P2P, coincidencia de contenido) es
 fuente con Bun** para desarrollar, y `bun run package` es lo que los convierte en un programa
 portable: un ejecutable por plataforma que lleva dentro el runtime, la interfaz y las migraciones.
 Para desarrollar hace falta Bun en la máquina —y por eso está declarado en `engines`—; para **usar**
-la aplicación descargada, no hace falta nada.
+la aplicación descargada no hace falta Bun, sólo el motor web del sistema (WebView2 en Windows,
+WebKitGTK y GTK en Linux).
 
 ## Dónde vive cada cosa
 
@@ -416,25 +432,30 @@ dice una versión y unos artefactos que dicen otra—.
    la versión subida en los diez `package.json`. Se titula «chore(main): release X.Y.Z».
 2. **Fusiona ese PR.** Al fusionarlo, `release-please` crea el tag `vX.Y.Z` y deja la release **en
    borrador**, con el changelog como cuerpo.
-3. **El resto lo hace el workflow.** El tag dispara `.github/workflows/release.yml`, que pasa el
-   listón (tipos, estilo, auditoría y pruebas), compila **el `.exe` único de Windows**, los dos `.zip`
-   de macOS y el AppImage de Linux, calcula el `SHA256SUMS.txt`, sube todo al borrador y **lo
-   publica**. Es el único workflow que publica.
+3. **El resto lo hace el workflow.** `.github/workflows/release-please.yml` lanza
+   `release.yml` con `workflow_dispatch` sobre el tag recién creado: un tag creado con el
+   `GITHUB_TOKEN` **no dispara workflows**. `release.yml` pasa el listón (tipos, estilo, auditoría y
+   pruebas), compila **el `.exe` único de Windows**, los dos `.zip` de macOS y el AppImage de Linux,
+   calcula el `SHA256SUMS.txt`, sube todo al borrador y **lo publica**. Es el único workflow que
+   publica.
 
-No hay que tocar nada a mano, **salvo la primera vez**: no hay ningún tag del que partir, así que
-`v0.1.0` se crea a mano (`git tag -a v0.1.0 -m "RoNa 0.1.0" && git push origin v0.1.0`) y desde
-ahí `release-please` lleva el resto. Para probar la cadena de empaquetado sin publicar está
-**Actions → Release → Run workflow** con «publish» sin marcar: compila todo y deja los artefactos en
-el resumen del workflow, sin gastar un número de versión. Si hay que subir la versión a mano —un
-`hotfix` sin commits que lo justifiquen—: `bun run version:set 0.2.1`, commit, y el tag `v0.2.1` a
+**No hay que crear el tag a mano.** `release-please` parte del último tag del repositorio y abre el
+PR con la versión siguiente; al fusionarlo crea el tag y se lanza `release.yml`. Un tag empujado a
+mano también dispara `release.yml` por el evento `push`, pero se salta el PR de release de
+`release-please`: el cuerpo sale del `CHANGELOG.md` que ya esté en el árbol, así que no es el camino.
+Para probar la cadena de empaquetado sin publicar está **Actions → Release → Run workflow** con
+«publish» sin marcar: compila todo y deja los artefactos en el resumen del workflow, sin gastar un
+número de versión. Si hay que subir la versión a mano —un `hotfix` sin commits que lo justifiquen—:
+`bun run version:set 0.9.1`, commit, y deja que `release-please` abra el PR; no empujes el tag a
 mano.
 
-**Compila GitHub, no tu máquina.** Cada push compila el ejecutable y sus artefactos portables en las
-tres plataformas y los deja descargables en «Artifacts», para que no haga falta un Mac ni ninguna
-herramienta de empaquetado a mano. El detalle —secretos de firma, el ajuste que necesita
-`release-please` y qué queda por probar— está en [la guía de publicación](docs/release.md). Sin
-ningún secreto, las releases salen **sin firmar** y se ejecutan igual, con las advertencias del
-sistema que cuenta la sección de instalación.
+**Compila GitHub, no tu máquina.** Cada **PR de código** compila el ejecutable y, cuando toca el
+empaquetado, el `.exe` único y el AppImage; macOS y el resto de artefactos portables salen en
+`release.yml`. Todo queda descargable en «Artifacts», para que no haga falta un Mac ni ninguna
+herramienta de empaquetado a mano. El detalle —secretos de firma, el ajuste que necesita `release-please` y qué
+queda por probar— está en [la guía de publicación](docs/release.md). Sin ningún secreto, las
+releases salen **sin firmar** y se ejecutan igual, con las advertencias del sistema que cuenta la
+sección de instalación.
 
 ## Documentación
 

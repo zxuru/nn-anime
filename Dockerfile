@@ -49,7 +49,7 @@ WORKDIR /app
 
 LABEL org.opencontainers.image.title="RoNa" \
       org.opencontainers.image.description="Interfaz y servidor de RoNa para LAN/NAS" \
-      org.opencontainers.image.source="https://github.com/zxuru/rona" \
+      org.opencontainers.image.source="https://github.com/zxuru/nn-anime" \
       org.opencontainers.image.licenses="MIT"
 
 # El contenedor es un servidor: escucha en todas las interfaces, no abre

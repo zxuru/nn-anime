@@ -4,11 +4,12 @@
 > repositorio aquí. La adaptación al estado **medido** —qué de la fase 0 ya está hecho y qué falla
 > de verdad— está en `docs/diagnostico-peliculas-series.md` y `tasks/roadmap.md`.
 >
-> **Estado (medido el 2026-11-14, no de memoria):** la release publicada es la **0.8.0**. Las
-> fases **0 y 1 están cerradas** (T174–T180 y T181–T187). La fase 3 (watch party) está
-> **implementada en su modo LAN** y sale en la 0.8.0; le quedan el modo P2P, la coincidencia de
-> contenido y el chat. El siguiente bloque declarado es la **fase 2A (manga)**, que **empieza por
-> un spec que aún no existe** (`docs/specs/SPEC-manga.md`, tarea T234).
+> **Estado (medido el 2026-11-18, no de memoria):** la última release publicada es la **0.9.0**
+> (2026-11-17); `origin/main` va por la **0.10.0**, que sólo sube la versión. Las fases **0 y 1
+> están cerradas** (T174–T180 y T181–T187). La fase 3 (watch party) está **implementada en su modo
+> LAN**, publicada desde la 0.8.0 y **apagada por defecto**; le quedan el modo P2P, la coincidencia
+> de contenido y el chat. El siguiente bloque declarado es la **fase 2A (manga)**, cuyo spec
+> (`docs/specs/SPEC-manga.md`) **ya está escrito y sigue pendiente de aprobación humana** (T234).
 >
 > Cada tarea tiene ID, prioridad, dependencias y criterios de aceptación comprobables. Los nombres
 > de paquetes y archivos marcados como «probable» son hipótesis a verificar leyendo el código, no
@@ -31,16 +32,16 @@
 
 ## 1. Estado actual
 
-**Medido el 2026-11-14 contra este árbol**, no copiado de la v1:
+**Medido el 2026-11-18 contra este árbol**, no copiado de la v1:
 
 | Qué | Estado | Cómo se midió |
 |---|---|---|
-| Release publicada | **0.8.0** (2026-11-10) | `version` de `package.json` y el encabezado `## [0.8.0]` de `CHANGELOG.md` |
-| Suite de pruebas | **3645 pasan, 0 fallan**, en 213 ficheros | `bun test` en este árbol |
-| Fase 0 (0.1–0.6) | **Cerrada** | 7 fragmentos de cierre en `tasks/done/`: T174–T180 |
-| Fase 1 (1.1–1.7) | **Cerrada** | 12 fragmentos de cierre en `tasks/done/`: T181, T182, T183, T183b–T183f, T184–T187 |
-| Fase 3 (watch party) | **Modo LAN implementado**, publicado en la 0.8.0 | 17 rutas `/api/party/*` en `packages/server/src/party/`; apagada sin `RONA_PARTY=1` |
-| Fase 2A (manga) | **Sin abrir**: su primera tarea es un spec que **no existe** | `docs/specs/SPEC-manga.md` no está en el árbol; es la tarea T234 |
+| Release publicada | **0.9.0** (2026-11-17); `origin/main` en 0.10.0, sólo la subida de versión | `version` de `package.json` y el encabezado `## [0.9.0]` de `CHANGELOG.md` |
+| Suite de pruebas | **4092 pasan, 0 fallan**, en 247 ficheros | `bun test`, medido en la auditoría del 2026-11-18 |
+| Fase 0 (0.1–0.6) | **Cerrada** | 7 filas de cierre en `tasks/done/INDICE.md`: T174–T180 |
+| Fase 1 (1.1–1.7) | **Cerrada** | 12 filas de cierre en `tasks/done/INDICE.md`: T181, T182, T183, T183b–T183f, T184–T187 |
+| Fase 3 (watch party) | **Modo LAN implementado**, publicado desde la 0.8.0 y apagado por defecto | 17 rutas `/api/party/*` en `packages/server/src/party/`; sin `RONA_PARTY=1` no se registran |
+| Fase 2A (manga) | **Sin abrir en código**; su spec está escrito y pendiente de aprobación humana | `docs/specs/SPEC-manga.md` existe (T234) y declara «pendiente de aprobación» |
 
 Lo que hay hoy:
 
@@ -58,8 +59,10 @@ Lo que hay hoy:
   su propio servidor, con relevo del invitado. Está **apagada por defecto**: sin
   `RONA_PARTY=1` no se registra ninguna ruta `/api/party/*`. Ver
   [`docs/watch-party.md`](watch-party.md) y la sección 4.
-- **Manga no está.** No hay spec, ni contrato de plugin, ni lector. `mediaType: 'manga'` está
-  reservado en el modelo, pero no hay nada detrás.
+- **Manga no está en el producto, pero su spec ya está escrito.** `docs/specs/SPEC-manga.md` existe
+  (T234, 2026-11-15) y está **pendiente de aprobación humana**; no hay contrato de plugin, ni
+  lector, ni tablas de capítulos. `mediaType: 'manga'` está reservado en el modelo, pero no hay nada
+  detrás hasta que el spec se apruebe.
 - Distribución portable: `.exe` único en Windows, `.zip` del `.app` en macOS y AppImage en Linux;
   ventana de escritorio con Tauri (`desktop/`).
 - Arquitectura: monorepo Bun + TypeScript, React, Hono, `bun:sqlite`. Paquetes: `core`,
@@ -94,9 +97,9 @@ posterior. Esfuerzo: S (días) · M (1-2 semanas) · L (varias semanas) · XL (u
 |------|------|-----------|----------|------------|--------|----------------------------------|
 | 0 | Estabilizar películas y series + modelo de medios | P0 | M | n/a | **Cerrada** (T174–T180) | Total |
 | 1 | Descargas para ver sin conexión | P1 | L | 0 | **Cerrada** (T181–T187) | Total (todo en el equipo del usuario) |
-| 2A | Manga: lectura | P1 | XL | 0 | **Sin abrir**: su spec no existe (T234) | Total |
+| 2A | Manga: lectura | P1 | XL | 0 | **Sin abrir en código**: spec escrito (T234), pendiente de aprobación humana | Total |
 | 2B | Manga: descarga | P2 | M | 1, 2A | Sin abrir; depende de la 2A | Total |
-| 3 | Watch party | P2 | XL | 0 (idealmente 1) | **Modo LAN en la 0.8.0**; faltan 3.4, 3.6 y 3.7 | Baja: choca con «sin servidor central» |
+| 3 | Watch party | P2 | XL | 0 (idealmente 1) | **Modo LAN desde la 0.8.0**, apagado por defecto; faltan 3.4, 3.6 y 3.7 | Baja: choca con «sin servidor central» |
 
 **Por qué este orden:**
 
@@ -113,18 +116,18 @@ posterior. Esfuerzo: S (días) · M (1-2 semanas) · L (varias semanas) · XL (u
   generalizado y en el motor de descargas ya construido, que es justo lo que la 2A reutiliza.
 
 ```
-Fase 0 ── Fase 1 ──┬── Fase 2A ── Fase 2B    ← siguiente bloque; falta el spec de la 2A
+Fase 0 ── Fase 1 ──┬── Fase 2A ── Fase 2B    ← siguiente bloque; spec escrito, falta la aprobación
 (cerrada) (cerrada)│
-                   └── Fase 3                ← modo LAN publicado en la 0.8.0
+                   └── Fase 3                ← modo LAN publicado desde la 0.8.0
 ```
 
 ## 4. Fases y tareas
 
 ### Fase 0: Estabilizar películas/series y generalizar el modelo (P0, M) — **cerrada**
 
-**Estado:** **cerrada**. Sus siete tareas son T174–T180 y cada una dejó su fragmento de cierre en
-`tasks/done/`. El detalle por tarea y el orden final están en `tasks/roadmap.md`; el diagnóstico que
-reordenó la fase, en `docs/diagnostico-peliculas-series.md`.
+**Estado:** **cerrada**. Sus siete tareas son T174–T180 y cada una dejó su fila de cierre en
+`tasks/done/INDICE.md`. El detalle por tarea y el orden final están en `tasks/roadmap.md`; el
+diagnóstico que reordenó la fase, en `docs/diagnostico-peliculas-series.md`.
 
 **Objetivo:** que películas, series y doramas funcionen tan bien como el anime, y que el modelo de
 datos admita un cuarto tipo (manga) sin cambios estructurales.
@@ -141,8 +144,8 @@ datos admita un cuarto tipo (manga) sin cambios estructurales.
 ### Fase 1: Descargas para visualización local (P1, L) — **cerrada**
 
 **Estado:** **cerrada**. Sus tareas son T181–T187 (la 1.3 se repartió en T183, T183b–T183f) y cada
-una dejó su fragmento de cierre en `tasks/done/`. El motor de descargas que construyeron es el que
-reutiliza la fase 2B.
+una dejó su fila de cierre en `tasks/done/INDICE.md`. El motor de descargas que construyeron es el
+que reutiliza la fase 2B.
 
 **Objetivo:** descargar películas y episodios al equipo del usuario y verlos sin conexión.
 
@@ -156,23 +159,23 @@ reutiliza la fase 2B.
 | 1.6 | Escritorio (Tauri): selector nativo de carpeta y notificación al terminar | P2 | Probado en Windows; documentado el comportamiento en macOS y Linux |
 | 1.7 | Gestión del espacio: borrar descargas, ver tamaño por título, límite opcional | P2 | Borrado limpia archivos y registros; pruebas |
 
-### Fase 2A: Sección de manga, lectura (P1, XL) — **siguiente bloque; sin abrir**
+### Fase 2A: Sección de manga, lectura (P1, XL) — **siguiente bloque; spec escrito, pendiente de aprobación**
 
-**Estado:** **sin abrir**, y es el **siguiente bloque declarado** del roadmap. Su primera tarea
-(2.1) es el spec `docs/specs/SPEC-manga.md`, y **ese fichero no existe todavía**: es la tarea
-**T234** de `tasks/deuda.md`. La regla de
+**Estado:** **sin abrir en código**, y es el **siguiente bloque declarado** del roadmap. Su primera
+tarea (2.1) es el spec `docs/specs/SPEC-manga.md`, que **ya existe** (T234, escrito el 2026-11-15) y
+está **pendiente de aprobación humana**. La regla de
 [`docs/specs/proposals/README.md`](specs/proposals/README.md) es que no se escribe código de un
-módulo hasta que su spec lo apruebe el humano, así que **lo primero que hay que hacer es escribir
-ese spec y que lo apruebe el humano**; hasta entonces, las tareas 2.2–2.7 no se pueden codificar.
-Lo que ya está hecho y esta fase reutiliza: la decisión **D5** (formato offline: CBZ) está
-cerrada, el modelo ya reserva `mediaType: 'manga'` (`packages/core/src/schema.ts`) y el motor de
-descargas de la fase 1 está listo para la 2.8.
+módulo hasta que su spec lo apruebe el humano, así que **lo que falta es la aprobación**, no el
+documento; hasta entonces, las tareas 2.2–2.7 no se pueden codificar. Lo que ya está hecho y esta
+fase reutiliza: la decisión **D5** (formato offline: CBZ) está cerrada, el modelo ya reserva
+`mediaType: 'manga'` (`packages/core/src/schema.ts`) y el motor de descargas de la fase 1 está listo
+para la 2.8.
 
 **Objetivo:** buscar, abrir y leer manga con progreso guardado.
 
 | ID | Tarea | Prioridad | Criterios de aceptación |
 |----|-------|-----------|-------------------------|
-| 2.1 | Spec `docs/specs/SPEC-manga.md` (modelo, contrato, lector, descargas) — **el fichero no existe todavía: es la tarea T234** | P1 | Spec revisada antes de codificar |
+| 2.1 | Spec `docs/specs/SPEC-manga.md` (modelo, contrato, lector, descargas) — **escrito el 2026-11-15; pendiente de aprobación humana** | P1 | Spec revisada antes de codificar |
 | 2.2 | Contrato de plugin: `capabilities.media` incluye `manga`; operaciones de buscar, ficha, lista de capítulos y páginas de un capítulo (URLs de imagen servidas por tickets del proxy). Versionar el contrato | P1 | Prueba de conformidad y plugin fixture de manga con imágenes locales inventadas |
 | 2.3 | Metadatos de manga con AniList (soporta el tipo MANGA), reutilizando el cliente existente y sus límites | P1 | Ficha enriquecida; modo offline para pruebas |
 | 2.4 | Datos: capítulos y volúmenes, progreso de lectura (capítulo + página), y reutilización de la biblioteca (favorito / quiero leer / leído) | P1 | Migración y repositorios en `catalog-store` con pruebas |
@@ -196,7 +199,7 @@ publicada en la 0.8.0**. El contrato y el modelo de amenaza están en
 [`SECURITY.md`](../SECURITY.md). La función está **apagada por defecto**: sin `RONA_PARTY=1` no
 se registra ninguna ruta `/api/party/*` y una petición a ellas es un 404.
 
-**Lo que ya hay** (medido en el árbol el 2026-11-14):
+**Lo que ya hay** (medido en el árbol):
 
 - **3.2 — protocolo y tipos en `core`** (`packages/core/src/party.ts`): mensajes con zod estricto,
   `seq` monótono, estado del anfitrión como autoridad y corrección de deriva con reloj simulado

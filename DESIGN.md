@@ -43,7 +43,7 @@ typography:
     fontWeight: 400
     lineHeight: 1.45
   label:
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+    fontFamily: "\"Space Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
     fontSize: "0.6875rem"
     fontWeight: 700
     lineHeight: 1.45
@@ -138,9 +138,10 @@ sistema es **quieto**: el puntero enciende el borde, aviva el campo y destapa el
 cambia de tamaño ni de sitio, porque una vitrina que se mueve bajo el ratón no se puede leer.
 
 Los dos registros tipográficos son deliberados. La **Nunito** —redonda, de trazo humano, 200 a 1000
-en un solo archivo servido por la propia aplicación— lleva todo lo que se lee. La **monoespaciada**
-lleva los rótulos y las cifras: es el registro del dato, no el de la casa. Sin la familia instalada
-cae a la del sistema, y así se ve en la práctica.
+en un solo archivo servido por la propia aplicación— lleva todo lo que se lee. La **Space Mono**
+lleva los rótulos y las cifras: es el registro del dato, no el de la casa. Viaja en el repositorio
+—cuatro `.woff2` con su licencia OFL— y se sirve desde la propia aplicación, así que el dato mide
+igual en dos máquinas; las familias del sistema quedan de reserva para lo que Space Mono no cubre.
 
 **Características clave:**
 - Fondo `#08080a`; la tinta clara es crema `#f5f0e6`, nunca blanco puro.
@@ -195,7 +196,7 @@ sistema dice «aquí». Bordes de arte, divisiones y metadatos no llevan acento 
 
 **Fuente de titulares:** Nunito (con `Segoe UI Variable`, `Segoe UI`, `system-ui`)
 **Fuente de texto:** Nunito (misma familia, otro peso)
-**Fuente de rótulos:** monoespaciada del sistema (`ui-monospace`, `Consolas`)
+**Fuente de rótulos:** Space Mono (con `ui-monospace`, `Consolas` de reserva)
 
 **Carácter:** una sola familia humanista para todo lo que se lee, con la jerarquía puesta en el
 **peso** —800 en el titular de la marquesina, 700 en la pieza, 300 en el campo de búsqueda— y no en el
@@ -336,8 +337,9 @@ objeto puesto encima y no como una caja más.
 
 ### Inputs / Fields
 - **Buscador:** no es una caja. Fondo transparente, sin borde salvo el inferior de 2 px en tinta, alto
-  `clamp(3.25rem, 8vw, 4.5rem)` y el cuerpo del titular en 300. En la vitrina el campo *es* un
-  titular: buscar es la primera acción del producto y se le da el sitio de un titular.
+  `clamp(3.25rem, 8vw, 4.5rem)` y el cuerpo del titular en 300. En la pantalla **Buscar** el campo
+  *es* un titular: buscar es la primera acción del producto y se le da el sitio de un titular. En la
+  home **no hay buscador**: T276 lo retiró a propósito y no se revierte; se busca en Buscar.
 - **Focus:** el anillo del sistema, no un cambio de borde.
 - **Vacío / error:** el aviso va debajo, como estado del tramo, nunca dentro del campo.
 
