@@ -405,9 +405,14 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
   if (migration.note !== undefined) io.out(migration.note)
 
   const container = deps.openContainer(config)
+  // El servidor se cierra **antes** que el contenedor: al revés, la base
+  // desaparece debajo de las peticiones que todavía están entrando. El cierre
+  // del servidor se registra primero porque `lifecycle` ejecuta en ese orden.
+  let running: RunningServer | undefined
+  deps.lifecycle.onShutdown(async () => {
+    await running?.stop()
+  })
   if (container !== undefined) {
-    // El cierre de la base va con el del servidor: cerrarla antes deja en el aire
-    // las escrituras que el server tuviera a medias.
     deps.lifecycle.onShutdown(() => container.close())
   }
 
@@ -485,6 +490,8 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     return { code: 1, url: undefined, port: undefined }
   }
 
+  running = outcome.server
+
   if (outcome.fellBackFrom !== undefined) {
     io.out(t(locale, 'cli.port.busy', { port: outcome.fellBackFrom, chosen: outcome.server.port }))
   }
@@ -516,10 +523,6 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
   // escucha. No se traduce y no se registra en el log.
   io.out(formatBootLine({ port: outcome.server.port, url }))
   reportPlugins(io, locale, plugins, config.providersDir)
-
-  // Se registra antes de abrir el navegador: si abrir falla, el servidor ya
-  // tiene que cerrarse igual.
-  deps.lifecycle.onShutdown(() => outcome.server.stop())
 
   if (options.open) {
     const target = server.token === undefined ? url : loginUrl
