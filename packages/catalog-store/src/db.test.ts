@@ -48,6 +48,7 @@ const TABLAS_POSTERIORES = [
   'download',
   'download_subtitle',
   'aniskip_cache',
+  'known_cover',
 ]
 
 /** Las versiones que hay hoy, para no fijar números que crecen con cada migración. */
