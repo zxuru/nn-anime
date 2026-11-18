@@ -82,17 +82,16 @@ describe('las familias de cada proveedor cargado', () => {
   test('las declaradas, y anime para quien no declara nada', () => {
     const mixta = createFixtureProvider({ id: 'mixta', media: 'both' })
     const pelis = createFixtureProvider({ id: 'pelis', media: 'movies' })
-    const sinDeclarar = createFixtureProvider({ id: 'clasica' })
-    const sinMedia = {
-      ...sinDeclarar,
-      capabilities: { ...sinDeclarar.capabilities, media: undefined },
-    }
+    // Un plugin viejo: declara `media` y nada más.
+    const clasica = createFixtureProvider({ id: 'clasica', media: 'anime' })
+    const nuevas = createFixtureProvider({ id: 'nuevas' })
 
-    const familias = familiasPorProveedor([mixta, pelis, sinMedia])
+    const familias = familiasPorProveedor([mixta, pelis, clasica, nuevas])
 
     expect(familias.get('mixta')).toEqual(['anime', 'animation', 'live'])
     expect(familias.get('pelis')).toEqual(['animation', 'live'])
     expect(familias.get('clasica')).toEqual(['anime'])
+    expect(familias.get('nuevas')).toEqual(['anime', 'animation', 'live'])
   })
 })
 

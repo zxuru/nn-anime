@@ -19,6 +19,7 @@ import {
   type AnimeDetail,
   type Episode,
   type FeedEntry,
+  type MediaFamily,
   type ProviderError,
   ProviderError as ProviderErrorClass,
   type ProviderMedia,
@@ -56,6 +57,8 @@ export interface FixtureOptions {
    * fuente de un solo tipo no aparezca en la otra mitad.
    */
   readonly media?: ProviderMedia
+  /** Las familias que sirve. Por defecto, las tres. */
+  readonly families?: readonly MediaFamily[]
   /** Latencia artificial de todas las llamadas, en milisegundos. */
   readonly latencyMs?: number
   /** Fallo por método. Lo que no esté aquí se comporta bien. */
@@ -196,10 +199,23 @@ export function createFixtureProvider(options: FixtureOptions = {}): FixtureProv
       dub: true,
       trending: true,
       feed: true,
-      // Las dos cosas: el catálogo inventado trae series y una película, así que
-      // es el único proveedor del repositorio que puede medir las dos pestañas del
-      // conmutador —y el reparto por `kind` dentro de una fuente mixta— sin red.
-      media: options.media ?? 'both',
+      /*
+        Las tres familias: el catálogo inventado trae anime, animación occidental
+        y acción real, así que es el único proveedor del repositorio que puede
+        medir las tres pestañas sin red. La clasificación de cada título la lleva
+        el catálogo (`family` y `format`), porque una fuente que sirve las tres no
+        puede repartirlas por el `kind`.
+
+        Una prueba que pide `media` está midiendo el alias heredado y entonces
+        declara sólo eso: si se pusieran las dos capacidades, `families` ganaría y
+        el caso viejo no se podría reproducir.
+      */
+      ...(options.families !== undefined
+        ? { families: options.families }
+        : options.media === undefined
+          ? { families: ['anime', 'animation', 'live'] }
+          : {}),
+      ...(options.media === undefined ? {} : { media: options.media }),
       ...(options.download === true ? { download: true } : {}),
     },
     calls,
