@@ -21,9 +21,6 @@
 import type { Candidate, SearchResult } from '@rona/core'
 import {
   errorResponseSchema,
-  mediaOf,
-  pasaElFiltroDeMedia,
-  puedeServir,
   recommendationsResponseSchema,
   trendingResponseSchema,
   uniqueByWork,
@@ -37,7 +34,13 @@ import type { ServerContainer } from '../container'
 import { gatherSignals, refKey } from '../recommend/signals'
 import { providerAudio } from '../recommend/taste'
 import { cacheHeader } from './cache-header'
-import { enMedia, mediaFrom, mediaPorProveedor } from './media'
+import {
+  enFiltro,
+  familiasPorProveedor,
+  filtroFrom,
+  pasaElFiltroDeProveedor,
+  puedeServirElFiltro,
+} from './media'
 import { adultContentOf } from './settings'
 
 /** Tope de la lista: más de veinte recomendaciones no las mira nadie. */
@@ -134,7 +137,11 @@ export function sinRepetirCandidatos(candidatos: readonly Candidate[]): readonly
  */
 export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOptions): void {
   app.get('/api/trending', async (c) => {
-    const pedido = mediaFrom(c.req.query('media'))
+    const pedido = filtroFrom({
+      family: c.req.query('family'),
+      format: c.req.query('format'),
+      media: c.req.query('media'),
+    })
     if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
 
     const conTendencias = options.providers.filter(
@@ -144,7 +151,7 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
         // La fuente mixta entra en las dos mitades: se le pregunta y se reparte lo
         // que devuelva. Descartarla aquí dejaría la pestaña de películas sin
         // preguntarle a la única fuente que puede tenerlas.
-        puedeServir(pedido.media, mediaOf(provider.capabilities)),
+        puedeServirElFiltro(pedido.filtro, provider),
     )
 
     // Primero la caché, y con su TTL: la segunda carga de la home no puede volver
@@ -166,7 +173,7 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
         // fuente, y cada pestaña se queda con su mitad al leerla.
         return {
           items: lectura.value.value.filter((resultado) =>
-            pasaElFiltroDeMedia(pedido.media, mediaOf(provider.capabilities), resultado.kind),
+            pasaElFiltroDeProveedor(pedido.filtro, resultado, provider),
           ),
           source: lectura.value.source,
         }
@@ -199,6 +206,8 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
       ...(resultado.coverUrl === undefined ? {} : { coverUrl: resultado.coverUrl }),
       ...(resultado.year === undefined ? {} : { year: resultado.year }),
       ...(resultado.kind === undefined ? {} : { kind: resultado.kind }),
+      ...(resultado.family === undefined ? {} : { family: resultado.family }),
+      ...(resultado.format === undefined ? {} : { format: resultado.format }),
     }))
 
     if (cache !== undefined) c.header('X-Cache', cache)
@@ -221,7 +230,11 @@ export function registerRecommendationsRoute(
     // Checkpoint G, no una prueba: la prueba comprobaba que la consulta viajaba,
     // no que sirviera de algo.
     const consulta = c.req.query('q')?.trim() ?? ''
-    const pedido = mediaFrom(c.req.query('media'))
+    const pedido = filtroFrom({
+      family: c.req.query('family'),
+      format: c.req.query('format'),
+      media: c.req.query('media'),
+    })
     if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
 
     // El filtro va **antes** de recomendar: recortar después deja la fila con menos
@@ -239,21 +252,21 @@ export function registerRecommendationsRoute(
             ...señales,
             searches: [{ query: consulta, at: new Date(ahora), hits: 1 }, ...señales.searches],
           }
-    // Las medias de las fuentes cargadas: lo que ya está en la base se reparte por
-    // la fuente que lo trajo, y una referencia de un plugin que ya no está cuenta
-    // como anime.
-    const medias = mediaPorProveedor(options.providers)
+    // Las familias de las fuentes cargadas: lo que ya está en la base se reparte
+    // por la fuente que lo trajo, y una referencia de un plugin que ya no está
+    // cuenta como anime.
+    const familias = familiasPorProveedor(options.providers)
     // El filtro va **antes de recomendar**: recortar después deja la pestaña con
     // menos piezas de las que hay, porque el motor ya habría llenado su tope con
     // títulos de la otra mitad.
-    const candidatos: Candidate[] = [...enMedia(señales.candidates, pedido.media, medias)]
+    const candidatos: Candidate[] = [...enFiltro(señales.candidates, pedido.filtro, familias)]
 
     // Tendencias: lo único que se pide al proveedor, y sólo si dice saber hacerlo.
     const conTendencias = options.providers.filter(
       (provider) =>
         provider.capabilities.trending &&
         provider.getTrending !== undefined &&
-        puedeServir(pedido.media, mediaOf(provider.capabilities)),
+        puedeServirElFiltro(pedido.filtro, provider),
     )
     if (conTendencias.length > 0) {
       const callOptions: CallOptions = {
@@ -266,9 +279,8 @@ export function registerRecommendationsRoute(
       // auditoría de T47 midiendo las llamadas.
       const resultados = await Promise.all(
         conTendencias.map(async (provider) => {
-          const media = mediaOf(provider.capabilities)
           const suyos = (lista: readonly SearchResult[]): readonly SearchResult[] =>
-            lista.filter((resultado) => pasaElFiltroDeMedia(pedido.media, media, resultado.kind))
+            lista.filter((resultado) => pasaElFiltroDeProveedor(pedido.filtro, resultado, provider))
 
           try {
             // El mismo camino que `/api/trending`: respeta `stale`, revalida por
@@ -343,9 +355,11 @@ export function registerRecommendationsRoute(
             ? {}
             : { coverUrl: entrada.candidate.coverUrl }),
           ...(entrada.candidate.year === undefined ? {} : { year: entrada.candidate.year }),
-          // El tipo del título sale de aquí y no se deduce: es lo que reparte la
-          // pestaña de anime de la de películas cuando la fuente sirve las dos.
+          // La clasificación sale de aquí y no se deduce: es lo que reparte la
+          // pestaña cuando la fuente sirve varias familias.
           ...(entrada.candidate.kind === undefined ? {} : { kind: entrada.candidate.kind }),
+          ...(entrada.candidate.family === undefined ? {} : { family: entrada.candidate.family }),
+          ...(entrada.candidate.format === undefined ? {} : { format: entrada.candidate.format }),
           score: entrada.score,
           tags: [...entrada.candidate.tags],
           reason: { kind: entrada.reason.kind, text: entrada.reason.text },

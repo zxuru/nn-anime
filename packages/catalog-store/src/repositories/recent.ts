@@ -34,8 +34,8 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import type { AnimeSummary, TitleKind } from '@rona/core'
-import { titleKindSchema } from '@rona/core'
+import type { AnimeSummary } from '@rona/core'
+import { clasificacionDeColumnas } from './clasificacion'
 
 interface RecentRow {
   readonly provider_id: string
@@ -44,6 +44,8 @@ interface RecentRow {
   readonly cover_url: string | null
   readonly year: number | null
   readonly kind: string | null
+  readonly family: string | null
+  readonly format: string | null
 }
 
 export interface RecentRepository {
@@ -69,7 +71,9 @@ export const ULTIMOS = `
            a.title              AS title,
            a.cover_url          AS cover_url,
            a.year               AS year,
-           json_extract(a.raw_json, '$.kind') AS kind,
+           json_extract(a.raw_json, '$.kind')   AS kind,
+           json_extract(a.raw_json, '$.family') AS family,
+           json_extract(a.raw_json, '$.format') AS format,
            a.fetched_at         AS fetched_at
       FROM anime a
 
@@ -81,6 +85,11 @@ export const ULTIMOS = `
            cover_url,
            year,
            kind,
+           -- known_title es el resumen de las cachés y no guarda el detalle:
+           -- estos dos se omiten y la fila cae a la regla heredada, que es lo
+           -- mismo que hace una ficha abierta antes del contrato nuevo.
+           NULL AS family,
+           NULL AS format,
            updated_at AS fetched_at
       FROM known_title
   )
@@ -90,6 +99,8 @@ export const ULTIMOS = `
          cover_url,
          year,
          kind,
+         family,
+         format,
          MAX(fetched_at) AS fetched_at
     FROM conocidos
    WHERE provider_id IS NOT NULL
@@ -98,25 +109,6 @@ export const ULTIMOS = `
    GROUP BY provider_id, provider_ref
    ORDER BY fetched_at DESC
    LIMIT ?`
-
-/**
- * `kind` se valida contra el schema: un valor que no es uno de los cinco del
- * contrato se descarta en vez de viajar a la interfaz como si lo fuera.
- *
- * En `known_title` el tipo ya es texto —`recordKnownTitles` lo recibe del
- * contrato—, pero la validación sigue aquí por la misma razón que en `anime`:
- * la base guarda lo que le den y la lectura no se cree nada.
- *
- * Aquí hubo un `replace(/^"|"$/g, '')` que quitaba unas comillas del JSON. Se quitó
- * al medirlo: `json_extract` devuelve los escalares **sin** comillas —las pone sólo
- * para objetos y arrays—, así que ninguna mutación podía distinguirlo y era una
- * línea que no hacía nada.
- */
-function kindOf(valor: string | null): TitleKind | undefined {
-  const parsed = titleKindSchema.safeParse(valor)
-
-  return parsed.success ? parsed.data : undefined
-}
 
 export function createRecentRepository(db: Database): RecentRepository {
   const select = db.query<RecentRow, [number]>(ULTIMOS)
@@ -130,7 +122,11 @@ export function createRecentRepository(db: Database): RecentRepository {
         title: fila.title,
         ...(fila.cover_url === null ? {} : { coverUrl: fila.cover_url }),
         ...(fila.year === null ? {} : { year: fila.year }),
-        ...(kindOf(fila.kind) === undefined ? {} : { kind: kindOf(fila.kind) }),
+        ...clasificacionDeColumnas({
+          kind: fila.kind,
+          family: fila.family,
+          format: fila.format,
+        }),
       }))
     },
   }

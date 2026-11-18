@@ -381,13 +381,14 @@ con su commit. El estado a día de hoy:
 | Fase | Qué | Estado |
 |---|---|---|
 | 1 | Contrato en `core`: vocabulario, `familiesOf`, `familyOf`, `formatOf`, `pasaElFiltro`, `capabilities.families`, campos opcionales y specs | **hecha** (T257a) |
-| 2 | Servidor: rutas `family`/`format`, alias `media`, AniList por formato, `catalog-store` leyendo `raw_json`, `recsys` con los campos | pendiente |
+| 2 | Servidor: rutas `family`/`format`, alias `media`, AniList por formato, `catalog-store` leyendo `raw_json`, `recsys` con los campos | **hecha** (T257b) |
 | 3 | Interfaz: tres pestañas, filtro de formato, dirección, i18n, alta de proveedor | pendiente |
 | 4 | Fixture y e2e: película de anime, serie de animación occidental y serie de imagen real | pendiente |
 
 La fase 1 es **aditiva y opcional**: ningún consumidor publicado deja de compilar ni de conformar.
-`mediaType` se conserva; `media` se conserva; `apiVersion` sigue en `'1'`. Las fases 2–4 están
-descritas arriba y no se implementaron en T257a.
+`mediaType` se conserva; `media` se conserva; `apiVersion` sigue en `'1'`. La fase 2 añade los dos
+parámetros a las ocho lecturas con el alias viejo traducido en `routes/media.ts`, hace que AniList
+sólo conteste a Anime y por formato, y saca la clasificación de `raw_json` con un helper único.
 
 ## Criterios de aceptación
 

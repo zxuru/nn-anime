@@ -27,7 +27,6 @@ import type {
   AniListRelation,
   DiscoverItem,
   Enrichment,
-  MediaHalf,
   ProviderRef,
 } from '@rona/core'
 import {
@@ -57,7 +56,7 @@ import { isAniListImageUrl, type RelatedEntry } from '../anilist/entries'
 import type { ServerContainer } from '../container'
 import { findProvider } from './anime'
 import { esNovedadReciente } from './discovery'
-import { mediaFrom } from './media'
+import { filtroFrom } from './media'
 import { adultContentOf } from './settings'
 
 /** La ventana por defecto de la parrilla, en días. */
@@ -249,28 +248,26 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
     errorResponseSchema.parse({ error: `no hay ningún proveedor llamado ${providerId}` })
 
   /**
-   * La mitad pedida, con el mismo saneado que el resto de rutas.
+   * El filtro pedido, o el 400 con el motivo.
    *
-   * Sin `media`, la de por defecto —anime, la misma con la que abre la
-   * aplicación—. Con `both`, nada: el descubrimiento vive partido en dos y no
-   * tiene una mitad «todo»; un 400 lo dice en vez de elegir una por su cuenta.
+   * Sin parámetros no se filtra: AniList contesta con su catálogo, que es anime.
+   * Con una familia que no es anime, el catálogo devuelve la lista vacía sin
+   * preguntar; el 400 se reserva para un valor que no existe en el vocabulario.
    */
-  const mitad = (raw: string | undefined): MediaHalf | undefined => {
-    const pedido = mediaFrom(raw)
-    if (!pedido.ok) return undefined
-    if (pedido.media === undefined) return 'anime'
-
-    return pedido.media === 'both' ? undefined : pedido.media
-  }
+  const pedirFiltro = (query: (nombre: string) => string | undefined) =>
+    filtroFrom({ family: query('family'), format: query('format'), media: query('media') })
 
   app.get('/api/discover/top', async (c) => {
-    const media = mitad(c.req.query('media'))
-    if (media === undefined) {
-      return c.json(errorResponseSchema.parse({ error: 'media tiene que ser anime o movies' }), 400)
-    }
+    const pedido = pedirFiltro((nombre) => c.req.query(nombre))
+    if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
 
     const conAdultos = await adultContentOf(options.container.store)
-    const resultado = await options.catalog.top(media, conAdultos, c.req.raw.signal)
+    const resultado = await options.catalog.top(
+      pedido.filtro.families,
+      pedido.filtro.format,
+      conAdultos,
+      c.req.raw.signal,
+    )
     if (!resultado.ok) return c.json(discoverResponseSchema.parse({ items: [] }))
 
     const visibles = sinAdultos(resultado.value, conAdultos, (entrada) => entrada.adult)
@@ -281,14 +278,13 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
   })
 
   app.get('/api/discover/airing', async (c) => {
-    const media = mitad(c.req.query('media'))
-    if (media === undefined) {
-      return c.json(errorResponseSchema.parse({ error: 'media tiene que ser anime o movies' }), 400)
-    }
+    const pedido = pedirFiltro((nombre) => c.req.query(nombre))
+    if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
 
     const conAdultos = await adultContentOf(options.container.store)
     const resultado = await options.catalog.airing(
-      media,
+      pedido.filtro.families,
+      pedido.filtro.format,
       airingDays(c.req.query('days')),
       c.req.raw.signal,
     )
@@ -306,13 +302,16 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
   })
 
   app.get('/api/discover/recent', async (c) => {
-    const media = mitad(c.req.query('media'))
-    if (media === undefined) {
-      return c.json(errorResponseSchema.parse({ error: 'media tiene que ser anime o movies' }), 400)
-    }
+    const pedido = pedirFiltro((nombre) => c.req.query(nombre))
+    if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
 
     const conAdultos = await adultContentOf(options.container.store)
-    const resultado = await options.catalog.recent(media, conAdultos, c.req.raw.signal)
+    const resultado = await options.catalog.recent(
+      pedido.filtro.families,
+      pedido.filtro.format,
+      conAdultos,
+      c.req.raw.signal,
+    )
     if (!resultado.ok) {
       return c.json(airingResponseSchema.parse({ items: [], unavailable: true }))
     }

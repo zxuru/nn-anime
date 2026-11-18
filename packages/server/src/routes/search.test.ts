@@ -338,6 +338,48 @@ describe('GET /api/search como SSE', () => {
     expect([...ids].sort()).toEqual(['mixta', 'pelis'])
   })
 
+  /**
+   * La familia filtra igual que el tipo, y con el mismo orden: antes de preguntar.
+   *
+   * Una fuente que sólo sirve anime no recibe la petición de acción real; una
+   * mixta sí, porque sus títulos se reparten después. Se mide con el id del
+   * evento, que es quien dice a quién se le preguntó.
+   */
+  test('`?family=` deja fuera a la fuente que no sirve esa familia', async () => {
+    const report: PluginReport = {
+      active: [
+        { provider: createFixtureProvider({ id: 'anime', media: 'anime' }), file: '/p/a.ts' },
+        { provider: createFixtureProvider({ id: 'pelis', media: 'movies' }), file: '/p/p.ts' },
+        { provider: createFixtureProvider({ id: 'mixta', media: 'both' }), file: '/p/m.ts' },
+      ],
+      rejected: [],
+    }
+    const eventos = await readSse(
+      await app(report).request(`${BASE}/api/search?q=aurora&family=live`, { headers: GOOD }),
+    )
+    const ids = eventos
+      .filter((evento) => evento.event === 'results')
+      .map((evento) => (JSON.parse(evento.data) as { providerId: string }).providerId)
+
+    expect([...ids].sort()).toEqual(['mixta', 'pelis'])
+  })
+
+  test('el formato se filtra sobre los resultados, no sólo sobre la familia', async () => {
+    // El fixture es `both` y sirve una serie y una película: el formato deja la
+    // película sola aunque las dos familias entren.
+    const eventos = await readSse(
+      await app(SOLO_FIXTURE).request(`${BASE}/api/search?q=hierro&family=live&format=movie`, {
+        headers: GOOD,
+      }),
+    )
+    const resultados = eventos.find((evento) => evento.event === 'results')
+    const data = JSON.parse(resultados?.data ?? '{}') as {
+      results: readonly { title: string }[]
+    }
+
+    expect(data.results.map((resultado) => resultado.title)).toEqual(['El Jardín de Hierro'])
+  })
+
   test('el tipo se filtra también sobre los resultados, no sólo sobre las fuentes', async () => {
     const eventos = await readSse(
       await app(SOLO_FIXTURE).request(`${BASE}/api/search?q=de&media=movies`, { headers: GOOD }),
@@ -371,6 +413,9 @@ describe('GET /api/search como SSE', () => {
           title: 'Una serie de acción real',
           kind: 'tv',
           mediaType: 'series',
+          // La familia declarada por título gana a lo que sirve la fuente: una
+          // serie de una fuente mixta ya no cae en Anime por su `kind: 'tv'`.
+          family: 'live',
         },
       ],
     })

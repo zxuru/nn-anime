@@ -147,21 +147,58 @@ describe('el descubrimiento', () => {
     })
   })
 
-  test('sin `media` se responde la mitad con la que abre la aplicación', async () => {
+  test('sin filtro se piden las series y las películas de anime', async () => {
     await conApp({ top: [KIMETSU] }, async ({ pedir, fake }) => {
       const respuesta = await pedir('/api/discover/top')
 
       expect(respuesta.status).toBe(200)
-      expect(fake.calls[0]?.variables.formatos).toEqual(['TV', 'TV_SHORT', 'SPECIAL', 'OVA', 'ONA'])
+      expect(fake.calls[0]?.variables.formatos).toEqual([
+        'TV',
+        'TV_SHORT',
+        'SPECIAL',
+        'OVA',
+        'ONA',
+        'MOVIE',
+      ])
     })
   })
 
-  test('con `both` se dice que no: el descubrimiento está partido en dos', async () => {
-    await conApp({}, async ({ pedir, fake }) => {
-      const respuesta = await pedir('/api/discover/top?media=both')
+  /**
+   * AniList no tiene otra cosa que anime.
+   *
+   * Con una familia que no lo incluye, la respuesta es vacía y el tercero no
+   * recibe la consulta: pedirle acción real es gastar su cuota en una lista que
+   * no puede contestar.
+   */
+  test('otra familia devuelve vacío sin preguntar a AniList', async () => {
+    await conApp({ top: [KIMETSU] }, async ({ pedir, fake }) => {
+      const respuesta = await pedir('/api/discover/top?family=live')
+
+      expect(respuesta.status).toBe(200)
+      expect(((await respuesta.json()) as DiscoverResponse).items).toEqual([])
+      expect(fake.calls).toHaveLength(0)
+    })
+  })
+
+  test('`airing` con una película no consulta: una película no tiene parrilla', async () => {
+    await conApp(
+      { airing: [{ media: KIMETSU, episode: 1, airingAt: 1_760_000_000 }] },
+      async ({ pedir, fake }) => {
+        const respuesta = await pedir('/api/discover/airing?family=anime&format=movie')
+
+        expect(respuesta.status).toBe(200)
+        expect(((await respuesta.json()) as AiringResponse).items).toEqual([])
+        expect(fake.calls).toHaveLength(0)
+      },
+    )
+  })
+
+  test('un formato inventado es 400 con las opciones', async () => {
+    await conApp({}, async ({ pedir }) => {
+      const respuesta = await pedir('/api/discover/top?format=miniserie')
 
       expect(respuesta.status).toBe(400)
-      expect(fake.calls).toHaveLength(0)
+      expect(((await respuesta.json()) as { error: string }).error).toContain('miniserie')
     })
   })
 

@@ -702,6 +702,27 @@ interface FilaCandidata {
   readonly cover_url: string | null
   readonly year: number | null
   readonly kind: string | null
+  /** Las dos columnas de T257b, que la consulta de antes no tiene. */
+  readonly family?: string | null
+  readonly format?: string | null
+}
+
+/**
+ * Las columnas de siempre, sin las dos que añadió el reparto por familia.
+ *
+ * La consulta de referencia es literal de la versión anterior y no las tiene; lo
+ * que se mide es que añadirlas no movió ni una fila ni el orden.
+ */
+function sinClasificar(filas: readonly FilaCandidata[]): readonly FilaCandidata[] {
+  return filas.map((fila) => ({
+    provider_id: fila.provider_id,
+    ref: fila.ref,
+    title: fila.title,
+    title_alt: fila.title_alt,
+    cover_url: fila.cover_url,
+    year: fila.year,
+    kind: fila.kind,
+  }))
 }
 
 /** Base temporal con las migraciones al día, para las pruebas del resumen. */
@@ -878,7 +899,7 @@ describe('known_title', () => {
       for (const [patrones, total] of casos) {
         const json = JSON.stringify(patrones)
         const esperado = porClave(anterior.all(json, 1000))
-        const obtenido = porClave(nueva.all(json, 1000))
+        const obtenido = porClave(sinClasificar(nueva.all(json, 1000)))
 
         expect(esperado, json).toHaveLength(total)
         expect(obtenido, json).toEqual(esperado)

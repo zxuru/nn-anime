@@ -13,15 +13,11 @@
  */
 
 import {
-  DEFAULT_MEDIA,
   errorResponseSchema,
   hasGenreToken,
-  mediaOf,
+  type MediaFilter,
   ok,
   type ProviderError,
-  type ProviderMedia,
-  pasaElFiltroDeMedia,
-  puedeServir,
   type Result,
   type SearchResult,
   searchEventSchema,
@@ -39,6 +35,7 @@ import {
   searchAll,
 } from '../search/aggregate'
 import { discoverItem } from './anilist'
+import { filtroFrom, pasaElFiltroDeProveedor, puedeServirElFiltro } from './media'
 import { adultContentOf } from './settings'
 
 /**
@@ -88,11 +85,11 @@ export async function anilistCrossEvent(
   container: ServerContainer,
   catalog: AniListCatalog,
   term: string,
-  media: ProviderMedia | undefined,
+  filtro: MediaFilter,
   signal: AbortSignal,
 ): Promise<SearchEvent | undefined> {
   const conAdultos = await adultContentOf(container.store)
-  const resultado = await catalog.cross(term, media, conAdultos, signal)
+  const resultado = await catalog.cross(term, filtro.families, filtro.format, conAdultos, signal)
 
   if (!resultado.ok) return undefined
 
@@ -160,17 +157,18 @@ export interface SearchRouteOptions {
 /**
  * Los proveedores que entran en la búsqueda, según la consulta.
  *
- * El tipo filtra **antes de preguntar**: una búsqueda de películas no puede gastar
- * el ancho de banda de una fuente de anime, que es el mismo motivo por el que el
- * filtro de proveedores existe. Una fuente que sirve las dos cosas sí entra: sus
- * resultados se reparten después, por el `kind` de cada uno.
+ * La familia y el formato filtran **antes de preguntar**: una búsqueda de acción
+ * real no puede gastar el ancho de banda de una fuente de anime, que es el mismo
+ * motivo por el que el filtro de proveedores existe. Una fuente que sirve varias
+ * familias sí entra: sus resultados se reparten después, por la familia de cada
+ * título.
  */
 export function selectedProviders(
   providers: readonly Provider[],
   wanted: readonly string[],
-  media: ProviderMedia | undefined = undefined,
+  filtro: MediaFilter = {},
 ): readonly Provider[] {
-  const porTipo = providers.filter((provider) => puedeServir(media, mediaOf(provider.capabilities)))
+  const porTipo = providers.filter((provider) => puedeServirElFiltro(filtro, provider))
 
   if (wanted.length === 0) return porTipo
 
@@ -192,6 +190,19 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
       )
     }
 
+    /*
+      El filtro de los dos ejes, con el alias `media` traducido una sola vez. El
+      formato viaja **en la petición** y no se filtra al llegar: hacerlo al
+      contestar dejaría el gasto hecho contra los proveedores y los recuentos
+      mintiendo.
+    */
+    const pedido = filtroFrom({
+      family: c.req.query('family'),
+      format: c.req.query('format'),
+      media: c.req.query('media'),
+    })
+    if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
+
     /**
      * Con un género en la casilla, a las fuentes no se les pregunta.
      *
@@ -212,7 +223,7 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
     const selected =
       soloCatalogo || !hayConsulta
         ? []
-        : selectedProviders(options.providers, parsed.data.provider, parsed.data.media)
+        : selectedProviders(options.providers, parsed.data.provider, pedido.filtro)
     const timeoutMs = options.timeoutMs
     const container = options.container
 
@@ -254,42 +265,38 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
             container,
             options.catalog,
             parsed.data.q,
-            parsed.data.media,
+            pedido.filtro,
             AbortSignal.any([disconnected, AbortSignal.timeout(ANILIST_CROSS_TIMEOUT_MS)]),
           ).catch(() => undefined)
 
     return streamSSE(c, async (stream) => {
-      const medias = new Map(
-        selected.map((provider) => [provider.id, mediaOf(provider.capabilities)]),
-      )
+      const porId = new Map(selected.map((provider) => [provider.id, provider]))
 
       /**
-       * El tipo se filtra también sobre los resultados.
+       * La familia y el formato se filtran también sobre los resultados.
        *
-       * Filtrar sólo los proveedores no basta para una fuente `both`: sus títulos
-       * de anime llegarían a la pestaña de películas y la interfaz los escondería
-       * después, con el gasto hecho y los recuentos mintiendo. `mediaType` manda
-       * sobre el `kind`, así que una serie declarada por una fuente mixta entra.
+       * Filtrar sólo los proveedores no basta para una fuente mixta: sus títulos
+       * de otra familia llegarían a la pestaña que no toca y la interfaz los
+       * escondería después, con el gasto hecho y los recuentos mintiendo. Lo
+       * declarado por título manda sobre lo que sirve la fuente, y eso lo resuelve
+       * `pasaElFiltroDeProveedor`.
        */
-      const conMedia = (event: SearchEvent): SearchEvent => {
-        const media = parsed.data.media
-        if (media === undefined || media === 'both' || event.type !== 'results') return event
+      const conFiltro = (event: SearchEvent): SearchEvent => {
+        if (event.type !== 'results') return event
 
         return {
           ...event,
-          results: event.results.filter((resultado) =>
-            pasaElFiltroDeMedia(
-              media,
-              medias.get(resultado.ref.providerId) ?? DEFAULT_MEDIA,
-              resultado.kind,
-              resultado.mediaType,
-            ),
-          ),
+          results: event.results.filter((resultado) => {
+            const provider = porId.get(resultado.ref.providerId)
+            if (provider === undefined) return false
+
+            return pasaElFiltroDeProveedor(pedido.filtro, resultado, provider)
+          }),
         }
       }
 
       const escribir = async (event: SearchEvent): Promise<void> => {
-        const payload = searchEventSchema.parse(conMedia(event))
+        const payload = searchEventSchema.parse(conFiltro(event))
         await stream.writeSSE({ event: payload.type, data: JSON.stringify(payload) })
       }
 
@@ -311,14 +318,25 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
        * pantalla no pinta tarjetas de proveedor en esa búsqueda.
        */
       if (!soloCatalogo && container !== undefined && parsed.data.q.trim() !== '') {
-        const permitidos = new Set(selected.map((provider) => provider.id))
+        /*
+          La misma pasada que la respuesta de las fuentes: lo que la base ya
+          conoce trae su familia y su formato del detalle guardado y se filtra
+          igual. Antes sólo se miraba el proveedor, así que una película de anime
+          guardada aparecía en la pestaña de acción real.
+        */
         const locales = unirSinRepetir(
           [
             await container.store.searchByGenre(parsed.data.q, CATALOG_LIMIT),
             await container.store.searchByStudio(parsed.data.q, CATALOG_LIMIT),
           ],
           CATALOG_LIMIT,
-        ).filter((resultado) => permitidos.has(resultado.ref.providerId))
+        ).filter((resultado) => {
+          const provider = porId.get(resultado.ref.providerId)
+
+          return (
+            provider !== undefined && pasaElFiltroDeProveedor(pedido.filtro, resultado, provider)
+          )
+        })
 
         if (locales.length > 0 && !disconnected.aborted) {
           await escribir({
