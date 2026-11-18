@@ -28,11 +28,14 @@ describe('la dirección de la petición', () => {
     expect(recommendationsPath('   ', 10)).not.toContain('q=')
   })
 
-  test('el tipo va en la petición: el motor filtra sus candidatos antes de puntuar', () => {
-    expect(recommendationsPath(undefined, 10, 'movies')).toBe(
-      '/api/recommendations?limit=10&media=movies',
+  test('la familia y el formato van en la petición: el motor filtra antes de puntuar', () => {
+    expect(recommendationsPath(undefined, 10, 'live', 'movie')).toBe(
+      '/api/recommendations?limit=10&family=live&format=movie',
     )
-    // Sin tipo —el defecto del servidor— no se manda parámetro: así la respuesta es
+    expect(recommendationsPath(undefined, 10, 'anime', undefined)).toBe(
+      '/api/recommendations?limit=10&family=anime',
+    )
+    // Sin vista —el defecto del servidor— no se mandan parámetros: la respuesta es
     // la de siempre para quien no conoce el filtro.
     expect(recommendationsPath(undefined, 10)).toBe('/api/recommendations?limit=10')
   })

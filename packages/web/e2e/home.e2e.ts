@@ -822,28 +822,81 @@ test.describe('el conmutador de tipo', () => {
     })
   }
 
-  test('la mitad vive en la dirección y cambia lo que se enseña', async ({ page }) => {
+  test('la familia vive en la dirección y cambia lo que se enseña', async ({ page }) => {
     await entrar(page)
 
     // El mando, dentro de la cabecera: es donde vive desde que dejó la franja que
     // tenía encima de la marquesina.
     await expect(page.locator('.shell__header .conmutador')).toHaveCount(1)
 
+    // La película del fixture es de imagen real: no está en Anime.
     await expect(elTop(page).locator(PELICULA)).toHaveCount(0)
 
-    await page.locator('.conmutador').getByRole('link', { name: 'Películas' }).click()
+    await page.locator('.conmutador').getByRole('link', { name: 'Acción real' }).click()
 
     // La elección queda en la dirección: se puede recargar, compartir, y el botón
     // «atrás» del navegador la deshace.
-    await expect(page).toHaveURL(/tipo=movies/)
+    await expect(page).toHaveURL(/tipo=live/)
     await expect(
-      page.locator('.conmutador').getByRole('link', { name: 'Películas' }),
+      page.locator('.conmutador').getByRole('link', { name: 'Acción real' }),
     ).toHaveAttribute('aria-current', 'page')
 
     await expect(elTop(page).locator(PELICULA)).toHaveCount(1)
-    // Y el top de esa mitad es sólo la película: las series de la misma fuente se
-    // quedaron en la otra pestaña.
+    // Y el top de esa familia es sólo la película de imagen real: las series de
+    // anime de la misma fuente se quedaron en la pestaña de Anime.
     await expect(elTop(page).locator('.pz:not(.pz--mando)')).toHaveCount(1)
+  })
+
+  test('la dirección vieja `movies` se reescribe como acción real', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/?tipo=movies')
+
+    await expect(page).toHaveURL(/tipo=live/)
+    await expect(
+      page.locator('.conmutador').getByRole('link', { name: 'Acción real' }),
+    ).toHaveAttribute('aria-current', 'page')
+  })
+
+  /**
+   * El filtro de formato.
+   *
+   * Se pinta siempre en las tres familias —es una consulta válida aunque no haya
+   * películas— y vive en la dirección: la familia lo conserva al cambiar de
+   * pestaña y «Todo» lo quita.
+   */
+  test('el formato se filtra en la dirección y se queda al cambiar de familia', async ({
+    page,
+  }) => {
+    await entrar(page)
+    await expect(page.locator('.formato')).toBeVisible()
+
+    await page.locator('.conmutador').getByRole('link', { name: 'Acción real' }).click()
+    await page.locator('.formato').getByRole('link', { name: 'Películas', exact: true }).click()
+
+    await expect(page).toHaveURL(/tipo=live/)
+    await expect(page).toHaveURL(/formato=movie/)
+    await expect(
+      page.locator('.formato').getByRole('link', { name: 'Películas', exact: true }),
+    ).toHaveAttribute('aria-current', 'page')
+    // El top sólo enseña películas de la familia: la serie de la misma fuente se
+    // queda fuera.
+    await expect(elTop(page).locator(PELICULA)).toHaveCount(1)
+    await expect(elTop(page).locator('.pz:not(.pz--mando)')).toHaveCount(1)
+
+    // El formato se conserva al cambiar de familia: es la misma consulta. Anime es
+    // la familia de por defecto, así que `tipo=` desaparece de la dirección.
+    await page.locator('.conmutador').getByRole('link', { name: 'Anime' }).click()
+    await expect(page).not.toHaveURL(/tipo=/)
+    await expect(page).toHaveURL(/formato=movie/)
+    await expect(page.locator('.conmutador').getByRole('link', { name: 'Anime' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    await expect(page.locator('.formato')).toBeVisible()
+
+    await page.locator('.formato').getByRole('link', { name: 'Todo', exact: true }).click()
+
+    await expect(page).not.toHaveURL(/formato=/)
   })
 
   /**

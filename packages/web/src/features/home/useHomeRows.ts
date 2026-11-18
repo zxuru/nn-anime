@@ -42,7 +42,7 @@ import {
   recentResponseSchema,
   trendingResponseSchema,
 } from '@rona/core/api'
-import type { MediaHalf } from '@rona/core/media'
+import type { MediaFamily, MediaFormat } from '@rona/core/models'
 import { useEffect, useRef, useState } from 'react'
 import { ApiError, apiGet } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'
@@ -270,14 +270,23 @@ export function combineRows(resultados: RowResults, ahora: Date = new Date()): H
   return mergeRows(VACIO, resultados, ahora)
 }
 
+/** El trozo de la dirección del formato, o nada cuando se piden los dos. */
+function ejeDeFormato(formato: MediaFormat | undefined): string {
+  return formato === undefined ? '' : `&format=${formato}`
+}
+
 /**
- * Las tres rutas que llevan el tipo, aparte del hook.
+ * Las rutas que llevan la vista, aparte del hook.
  *
- * Es una función —y no tres literales dentro de la lectura— para poder comprobarlo
+ * Es una función —y no literales dentro de la lectura— para poder comprobarlas
  * sin un DOM: un `useEffect` no corre en `renderToString`, así que la única forma
- * de medir que el tipo viaja es leer las direcciones que se piden.
+ * de medir que la familia y el formato viajan es leer las direcciones que se
+ * piden.
  */
-export function rutasDeTipo(tipo: MediaHalf): {
+export function rutasDeVista(
+  familia: MediaFamily,
+  formato: MediaFormat | undefined,
+): {
   readonly trending: string
   readonly feed: string
   readonly recent: string
@@ -285,13 +294,15 @@ export function rutasDeTipo(tipo: MediaHalf): {
   readonly parrilla: string
   readonly emisiones: string
 } {
+  const eje = ejeDeFormato(formato)
+
   return {
-    trending: `/api/trending?media=${tipo}`,
-    feed: `/api/feed?media=${tipo}`,
-    recent: `/api/catalog/recent?media=${tipo}`,
-    descubrir: `/api/discover/top?media=${tipo}`,
-    parrilla: `/api/discover/airing?media=${tipo}`,
-    emisiones: `/api/discover/recent?media=${tipo}`,
+    trending: `/api/trending?family=${familia}${eje}`,
+    feed: `/api/feed?family=${familia}${eje}`,
+    recent: `/api/catalog/recent?family=${familia}${eje}`,
+    descubrir: `/api/discover/top?family=${familia}${eje}`,
+    parrilla: `/api/discover/airing?family=${familia}${eje}`,
+    emisiones: `/api/discover/recent?family=${familia}${eje}`,
   }
 }
 
@@ -307,9 +318,13 @@ export function rutasDeTipo(tipo: MediaHalf): {
  * vuelven a lo de la fuente —el top al ranking del proveedor y las novedades a su
  * feed—, que es la razón de que las dos lecturas sigan aquí.
  */
-async function leerLasFilas(signal: AbortSignal, tipo: MediaHalf): Promise<RowResults> {
+async function leerLasFilas(
+  signal: AbortSignal,
+  familia: MediaFamily,
+  formato: MediaFormat | undefined,
+): Promise<RowResults> {
   const opciones = { signal }
-  const rutas = rutasDeTipo(tipo)
+  const rutas = rutasDeVista(familia, formato)
   const [continueWatching, favorites, trending, feed, recent, descubrir, parrilla, emisiones] =
     await Promise.allSettled([
       apiGet('/api/watch/recent', continueWatchingResponseSchema, opciones),
@@ -325,12 +340,12 @@ async function leerLasFilas(signal: AbortSignal, tipo: MediaHalf): Promise<RowRe
   return { continueWatching, favorites, trending, feed, recent, descubrir, parrilla, emisiones }
 }
 
-export function useHomeRows(tipo: MediaHalf): HomeRows {
+export function useHomeRows(familia: MediaFamily, formato: MediaFormat | undefined): HomeRows {
   const [filas, setFilas] = useState<HomeRows>(VACIO)
   // El reloj de los intentos vive en un `ref`: no se pinta, y meterlo en el
   // estado volvería a montar el efecto en cada relectura.
   const ultimoIntento = useRef<number | undefined>(undefined)
-  const tipoAnterior = useRef(tipo)
+  const vistaAnterior = useRef(`${familia}:${formato ?? 'all'}`)
 
   useEffect(() => {
     let vivo = true
@@ -344,8 +359,8 @@ export function useHomeRows(tipo: MediaHalf): HomeRows {
      * pantalla. Fusionar aquí enseñaría películas en la pestaña de anime hasta que
      * llegara la respuesta, y para siempre si la lectura fallaba.
      */
-    if (tipoAnterior.current !== tipo) {
-      tipoAnterior.current = tipo
+    if (vistaAnterior.current !== `${familia}:${formato ?? 'all'}`) {
+      vistaAnterior.current = `${familia}:${formato ?? 'all'}`
       ultimoIntento.current = undefined
       setFilas(VACIO)
     }
@@ -358,7 +373,7 @@ export function useHomeRows(tipo: MediaHalf): HomeRows {
       ultimoIntento.current = Date.now()
       setFilas((previas) => ({ ...previas, refrescando: !previas.loading }))
 
-      const resultados = await leerLasFilas(controller.signal, tipo)
+      const resultados = await leerLasFilas(controller.signal, familia, formato)
       enVuelo = false
       if (!vivo) return
 
@@ -379,7 +394,7 @@ export function useHomeRows(tipo: MediaHalf): HomeRows {
       clearInterval(temporizador)
       document.removeEventListener('visibilitychange', siToca)
     }
-  }, [tipo])
+  }, [familia, formato])
 
   return filas
 }

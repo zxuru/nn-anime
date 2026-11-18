@@ -150,8 +150,9 @@ actual, panel abierto, preferencia de tema). Sin librería de estado global en v
 
 ### Enmienda aprobada (T257a): tres pestañas por familia y un filtro de formato
 
-> Aprobada el 2026-11-16 con `docs/specs/proposals/SPEC-nn-anime.familias.md`. **El contrato de
-> `core` está integrado en T257a; esta sección es la fase 3 y la interfaz todavía no la implementa.**
+> Aprobada el 2026-11-16 con `docs/specs/proposals/SPEC-nn-anime.familias.md`. **Contrato en `core`
+> desde T257a e interfaz servida desde T257c** (la fase 3): tres enlaces, filtro de formato, la
+> dirección reescrita y el alta de proveedor por familias.
 
 La partición deja de ser «Anime contra Películas» —que mezclaba una familia con un formato— y pasa a
 dos ejes, los mismos que fija `core`:
@@ -178,8 +179,9 @@ dos ejes, los mismos que fija `core`:
   `families`; al editar un plugin viejo salen marcadas sus familias heredadas, y `ProviderList`
   pinta las declaradas.
 
-Pendiente en la fase 3: todo lo de esta sección. En T257a no se toca ningún componente, ni la
-dirección, ni el i18n. La fase 4 añade al fixture la película de anime, la serie de animación
+La fase 3 está cerrada en T257c. No hay pantalla de edición de un plugin —el alta es la única que
+escribe el manifiesto—, así que las familias heredadas de un plugin viejo se leen con `familiesOf` y
+se pintan en `ProviderList`. La fase 4 añade al fixture la película de anime, la serie de animación
 occidental y la serie de imagen real, y el e2e que comprueba que un título no sale en dos pestañas.
 
 ## Estructura del módulo

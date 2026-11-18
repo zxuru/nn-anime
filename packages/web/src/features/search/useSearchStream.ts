@@ -19,8 +19,8 @@ import {
   settingsResponseSchema,
 } from '@rona/core/api'
 import { groupByWork } from '@rona/core/identity'
-import { DEFAULT_MEDIA, type MediaHalf, mediaOf, puedeServir } from '@rona/core/media'
-import type { SearchResult } from '@rona/core/models'
+import { familiesOf, puedeServirFamilia } from '@rona/core/media'
+import type { MediaFamily, MediaFormat, SearchResult } from '@rona/core/models'
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError, apiGet, type RequestDeps } from '../../api/client'
 import { createDedupe } from '../../api/dedupe'
@@ -224,13 +224,13 @@ export function activeProviderIds(summaries: readonly ProviderSummary[]): readon
 export function proveedoresSeleccionados(
   summaries: readonly ProviderSummary[],
   filter: readonly string[],
-  media: MediaHalf,
+  familia: MediaFamily,
 ): readonly string[] {
-  const medias = new Map(summaries.map((uno) => [uno.id, mediaOf(uno.capabilities)]))
+  const familias = new Map(summaries.map((uno) => [uno.id, familiesOf(uno.capabilities)]))
 
   return activeProviderIds(summaries)
     .filter((id) => filter.length === 0 || filter.includes(id))
-    .filter((id) => puedeServir(media, medias.get(id) ?? DEFAULT_MEDIA))
+    .filter((id) => puedeServirFamilia([familia], familias.get(id) ?? ['anime']))
 }
 
 export interface SearchHub {
@@ -601,23 +601,28 @@ export function createDefaultPrefetcher(consulta?: string): Prefetcher {
 export function useSearchStream(
   query: string,
   filter: readonly string[],
-  /** La mitad que se está mirando. Filtrar aquí no basta: ver `searchRequestPath`. */
-  media: MediaHalf = 'anime',
+  /** La familia que se está mirando. Filtrar aquí no basta: ver `searchRequestPath`. */
+  familia: MediaFamily = 'anime',
+  /** El formato pedido, si lo hay. */
+  formato: MediaFormat | undefined = undefined,
   /** Inyectable en los tests; en producción, el distribuidor de siempre. */
   hub: SearchHub = HUB,
 ): SearchStreamResult {
   const { summaries, loaded, failed } = useProviders()
   /*
     La selección es la intersección de los proveedores activos, el filtro de la
-    dirección y el tipo. En la petición viaja el filtro de la **dirección**, no la
-    selección: la lista de proveedores tarda en llegar, y pedir con la selección
+    dirección y la familia. En la petición viaja el filtro de la **dirección**, no
+    la selección: la lista de proveedores tarda en llegar, y pedir con la selección
     haría dos búsquedas, la primera contra todas las fuentes.
   */
   const selected = useMemo(
-    () => proveedoresSeleccionados(summaries, filter, media),
-    [summaries, filter, media],
+    () => proveedoresSeleccionados(summaries, filter, familia),
+    [summaries, filter, familia],
   )
-  const path = useMemo(() => searchRequestPath(query, filter, media), [query, filter, media])
+  const path = useMemo(
+    () => searchRequestPath(query, filter, familia, formato),
+    [query, filter, familia, formato],
+  )
   const clave = selected.join(',')
   const [state, setState] = useState<SearchState>(() => initialState([]))
 

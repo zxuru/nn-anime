@@ -19,7 +19,7 @@
 
 import type { RecommendationsResponse } from '@rona/core/api'
 import { recommendationsResponseSchema } from '@rona/core/api'
-import type { MediaHalf } from '@rona/core/media'
+import type { MediaFamily, MediaFormat } from '@rona/core/models'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet } from '../../api/client'
 import { describirFallo, type Fallo } from '../../api/fallo'
@@ -64,8 +64,10 @@ export interface UseRecommendationsOptions {
   /** Se refresca cuando cambia: es la consulta que se está escribiendo. */
   readonly query?: string | undefined
   readonly limit?: number
-  /** La mitad que se mira: el motor filtra sus candidatos antes de puntuar. */
-  readonly media?: MediaHalf | undefined
+  /** La familia que se mira: el motor filtra sus candidatos antes de puntuar. */
+  readonly family?: MediaFamily | undefined
+  /** El formato pedido, si lo hay. */
+  readonly format?: MediaFormat | undefined
   /** Retardo inyectable: una prueba no espera 400 ms. */
   readonly debounceMs?: number
 }
@@ -73,11 +75,13 @@ export interface UseRecommendationsOptions {
 export function recommendationsPath(
   query: string | undefined,
   limit: number,
-  media: MediaHalf | undefined = undefined,
+  family: MediaFamily | undefined = undefined,
+  format: MediaFormat | undefined = undefined,
 ): string {
   const parametros = new URLSearchParams({ limit: String(limit) })
   if (query !== undefined && query.trim() !== '') parametros.set('q', query.trim())
-  if (media !== undefined) parametros.set('media', media)
+  if (family !== undefined) parametros.set('family', family)
+  if (format !== undefined) parametros.set('format', format)
 
   return `/api/recommendations?${parametros.toString()}`
 }
@@ -111,7 +115,12 @@ export function recommendationsVisible(
 export function useRecommendations(options: UseRecommendationsOptions = {}): Recommendations {
   const planificador = useRef<ReturnType<typeof createScheduler> | undefined>(undefined)
   const retardo = retardoDeConsulta(options.query, options.debounceMs)
-  const ruta = recommendationsPath(options.query, options.limit ?? 10, options.media)
+  const ruta = recommendationsPath(
+    options.query,
+    options.limit ?? 10,
+    options.family,
+    options.format,
+  )
   const [guardado, setGuardado] = useState<RecommendationsStore>(() => ({
     ruta,
     state: 'loading',

@@ -14,7 +14,7 @@
 
 import type { ProviderSummary } from '@rona/core/api'
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
-import type { ProviderMedia } from '@rona/core/media'
+import type { MediaFamily } from '@rona/core/models'
 import { type ReactNode, useState } from 'react'
 import { describirFallo } from '../../api/fallo'
 import { resumenDeFallo } from '../../components/ErrorNotice'
@@ -23,9 +23,10 @@ import {
   type CapabilityKey,
   EMPTY_FORM,
   type EndpointKey,
+  FAMILY_OPTIONS,
   type FieldKey,
-  MEDIA_OPTIONS,
   type ProviderForm,
+  toggleFamilia,
   toProviderDraft,
 } from './draft'
 
@@ -69,6 +70,15 @@ const CAPABILITY_FIELDS = [
   { key: 'sub', label: 'settings.register.cap.sub' },
   { key: 'dub', label: 'settings.register.cap.dub' },
 ] as const
+
+/** La clave de i18n de cada familia, escrita una por una: el catálogo se lee. */
+const CLAVE_DE_FAMILIA: Readonly<
+  Record<MediaFamily, 'media.anime' | 'media.animation' | 'media.live'>
+> = {
+  anime: 'media.anime',
+  animation: 'media.animation',
+  live: 'media.live',
+}
 
 /**
  * Lo que se enseña cuando el intento no salió.
@@ -144,8 +154,8 @@ export function RegisterProvider(props: RegisterProviderProps): ReactNode {
     setForm((actual) => ({ ...actual, capabilities: { ...actual.capabilities, [key]: value } }))
   }
 
-  function setMedia(media: ProviderMedia): void {
-    setForm((actual) => ({ ...actual, media }))
+  function setFamilia(familia: MediaFamily): void {
+    setForm((actual) => ({ ...actual, families: toggleFamilia(actual.families, familia) }))
   }
 
   function onSubmit(event: { preventDefault: () => void }): void {
@@ -230,33 +240,30 @@ export function RegisterProvider(props: RegisterProviderProps): ReactNode {
           ))}
 
           {/*
-            Qué sirve es una elección cerrada y no una casilla: una fuente sirve
-            anime, películas o las dos cosas, y con dos casillas se podrían marcar
-            las dos o ninguna, que no significan nada.
+            Qué sirve, con tres casillas y no con un desplegable: una fuente puede
+            servir anime y acción real sin servir animación occidental, y un
+            desplegable de tres respuestas cerradas no lo sabe decir. La última
+            casilla no se puede desmarcar: un manifiesto sin familias no carga.
           */}
-          <label className="field" htmlFor="provider-media">
-            <span className="field__label">{t(DEFAULT_LOCALE, 'settings.register.media')}</span>
-            <select
-              className="field__input"
-              id="provider-media"
-              value={form.media}
-              onChange={(event) => setMedia(event.target.value as ProviderMedia)}
-            >
-              {MEDIA_OPTIONS.map((media) => (
-                <option key={media} value={media}>
-                  {t(
-                    DEFAULT_LOCALE,
-                    media === 'movies'
-                      ? 'media.movies'
-                      : media === 'both'
-                        ? 'media.both'
-                        : 'media.anime',
-                  )}
-                </option>
-              ))}
-            </select>
+          <fieldset className="field settings__families" id="provider-families">
+            <legend className="field__label">{t(DEFAULT_LOCALE, 'settings.register.media')}</legend>
+            {FAMILY_OPTIONS.map((familia) => (
+              <label
+                className="field field--check"
+                key={familia}
+                htmlFor={`provider-family-${familia}`}
+              >
+                <input
+                  id={`provider-family-${familia}`}
+                  type="checkbox"
+                  checked={form.families.includes(familia)}
+                  onChange={() => setFamilia(familia)}
+                />
+                <span>{t(DEFAULT_LOCALE, CLAVE_DE_FAMILIA[familia])}</span>
+              </label>
+            ))}
             <span className="field__hint">{t(DEFAULT_LOCALE, 'settings.register.mediaHint')}</span>
-          </label>
+          </fieldset>
         </div>
       </fieldset>
 

@@ -383,26 +383,26 @@ describe('proveedores activos', () => {
     ]
 
     // Es lo que decide cuántos esqueletos salen y a quién se le pregunta: la mixta
-    // entra en las dos mitades porque sus resultados se reparten después.
+    // entra en las familias que sirve porque sus resultados se reparten después.
     expect(proveedoresSeleccionados(fuentes, [], 'anime')).toEqual(['anime', 'mixta'])
-    expect(proveedoresSeleccionados(fuentes, [], 'movies')).toEqual(['pelis', 'mixta'])
+    expect(proveedoresSeleccionados(fuentes, [], 'live')).toEqual(['pelis', 'mixta'])
   })
 
-  test('sin declarar el tipo, la fuente cuenta como anime', () => {
+  test('sin declarar la familia, la fuente cuenta como anime', () => {
     expect(proveedoresSeleccionados([resumen('uno', 'active')], [], 'anime')).toEqual(['uno'])
-    expect(proveedoresSeleccionados([resumen('uno', 'active')], [], 'movies')).toEqual([])
+    expect(proveedoresSeleccionados([resumen('uno', 'active')], [], 'live')).toEqual([])
   })
 
-  test('el filtro de la dirección se cruza con el tipo', () => {
+  test('el filtro de la dirección se cruza con la familia', () => {
     const fuentes = [fuente('anime', 'anime'), fuente('pelis', 'movies'), fuente('mixta', 'both')]
 
-    expect(proveedoresSeleccionados(fuentes, ['pelis', 'mixta'], 'movies')).toEqual([
+    expect(proveedoresSeleccionados(fuentes, ['pelis', 'mixta'], 'live')).toEqual([
       'pelis',
       'mixta',
     ])
-    // El filtro pide una fuente de anime con la pestaña de películas: no hay
+    // El filtro pide una fuente de anime con la pestaña de acción real: no hay
     // intersección, y por eso la búsqueda no se le pregunta a nadie.
-    expect(proveedoresSeleccionados(fuentes, ['anime'], 'movies')).toEqual([])
+    expect(proveedoresSeleccionados(fuentes, ['anime'], 'live')).toEqual([])
   })
 })
 

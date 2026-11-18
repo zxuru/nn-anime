@@ -7,7 +7,7 @@
  * dos peticiones.
  */
 
-import type { MediaHalf } from '@rona/core/media'
+import type { MediaFamily, MediaFormat } from '@rona/core/models'
 import type {
   TasteResponse,
   TasteRowsResponse,
@@ -121,9 +121,16 @@ export function useTasteTitles(): TasteTitles {
   return { items, loading }
 }
 
-/** La ruta de las filas del inicio, con la mitad que se está mirando. */
-export function tasteRowsPath(media: MediaHalf | undefined): string {
-  return media === undefined ? '/api/taste/rows' : `/api/taste/rows?media=${media}`
+/** La ruta de las filas del inicio, con la vista que se está mirando. */
+export function tasteRowsPath(
+  familia: MediaFamily | undefined,
+  formato: MediaFormat | undefined = undefined,
+): string {
+  const partes: string[] = []
+  if (familia !== undefined) partes.push(`family=${familia}`)
+  if (formato !== undefined) partes.push(`format=${formato}`)
+
+  return partes.length === 0 ? '/api/taste/rows' : `/api/taste/rows?${partes.join('&')}`
 }
 
 export interface TasteRows {
@@ -138,7 +145,10 @@ export interface TasteRows {
  * ordena una lista, esto agrupa por un género declarado. Si falla, no se pinta
  * ninguna fila y la home conserva las suyas.
  */
-export function useTasteRows(media: MediaHalf | undefined): TasteRows {
+export function useTasteRows(
+  familia: MediaFamily | undefined,
+  formato: MediaFormat | undefined = undefined,
+): TasteRows {
   const [rows, setRows] = useState<TasteRowsResponse['rows']>([])
   const [loading, setLoading] = useState(true)
 
@@ -146,7 +156,7 @@ export function useTasteRows(media: MediaHalf | undefined): TasteRows {
     const controller = new AbortController()
 
     setLoading(true)
-    void apiGet(tasteRowsPath(media), tasteRowsResponseSchema, {
+    void apiGet(tasteRowsPath(familia, formato), tasteRowsResponseSchema, {
       signal: controller.signal,
     }).then(
       (cuerpo) => {
@@ -164,7 +174,7 @@ export function useTasteRows(media: MediaHalf | undefined): TasteRows {
     )
 
     return () => controller.abort()
-  }, [media])
+  }, [familia, formato])
 
   return { rows, loading }
 }

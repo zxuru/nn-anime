@@ -142,8 +142,9 @@ describe('lista de proveedores', () => {
       />,
     )
 
-    expect(html).toContain('Películas')
-    expect(html).toContain('Anime y películas')
+    // El legado se traduce a familias: `movies` era «todo lo que no es anime».
+    expect(html).toContain('Animación · Acción real')
+    expect(html).toContain('Anime · Animación · Acción real')
     expect(html).toContain('Anime')
   })
 
@@ -375,16 +376,17 @@ describe('el alta de un proveedor', () => {
     expect(html).not.toContain('open=""')
   })
 
-  test('qué sirve se elige de una lista cerrada, y arranca en anime', () => {
+  test('qué sirve se elige con tres casillas, y arranca en anime', () => {
     const html = render(<RegisterProvider register={sinGuardar} />)
 
     expect(html).toContain('Qué sirve')
-    expect(html).toContain('id="provider-media"')
-    // Las tres opciones del contrato, con la de por defecto marcada: dos casillas
-    // podrían marcarse juntas o ninguna, y eso no significa nada.
-    expect(html).toContain('<option value="anime" selected')
-    expect(html).toContain('<option value="movies"')
-    expect(html).toContain('<option value="both"')
+    // Una fuente puede servir anime y acción real sin servir animación: un
+    // desplegable de tres respuestas cerradas no lo sabe decir.
+    expect(html).toContain('id="provider-family-anime"')
+    expect(html).toContain('id="provider-family-animation"')
+    expect(html).toContain('id="provider-family-live"')
+    expect(html).toMatch(/id="provider-family-anime"[^>]*checked/)
+    expect(html).not.toMatch(/id="provider-family-animation"[^>]*checked/)
   })
 })
 

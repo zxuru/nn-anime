@@ -262,11 +262,11 @@ describe('App: cabecera', () => {
    * arrastra lo pierde. La marca no lo lleva —volver a la casa en anime es el punto
    * de referencia—, y por eso se mide el `<nav>` y no la cabecera entera.
    */
-  test('los destinos conservan la mitad que se está mirando', () => {
-    const nav = navegacion('/?tipo=movies')
+  test('los destinos conservan la vista que se está mirando', () => {
+    const nav = navegacion('/?tipo=live&formato=movie')
 
-    expect(nav).toContain('href="/?tipo=movies"')
-    expect(nav).toContain('href="/search?tipo=movies"')
+    expect(nav).toContain('href="/?tipo=live&amp;formato=movie"')
+    expect(nav).toContain('href="/search?tipo=live&amp;formato=movie"')
   })
 
   test('en anime, que es el defecto, los destinos van sin el parámetro', () => {
@@ -277,8 +277,8 @@ describe('App: cabecera', () => {
     expect(nav).not.toContain('tipo=')
   })
 
-  test('desde la búsqueda en películas, Inicio vuelve a la vitrina en películas', () => {
-    expect(navegacion('/search?tipo=movies')).toContain('href="/?tipo=movies"')
+  test('desde la búsqueda en acción real, Inicio vuelve a la vitrina en acción real', () => {
+    expect(navegacion('/search?tipo=live')).toContain('href="/?tipo=live"')
   })
 })
 
@@ -311,7 +311,7 @@ describe('App: el conmutador de tipo en la cabecera', () => {
   test('sale en la vitrina y en la búsqueda', () => {
     for (const ruta of ['/', '/search']) {
       expect(cabecera(ruta), `el conmutador falta en la cabecera de ${ruta}`).toContain(
-        'aria-label="Tipo de contenido"',
+        'aria-label="Familia de contenido"',
       )
     }
   })
@@ -319,7 +319,7 @@ describe('App: el conmutador de tipo en la cabecera', () => {
   test('no sale donde no hay dos mitades que elegir', () => {
     for (const ruta of ['/anime/fuente/titulo-1', '/watch/fuente/titulo-1', '/settings']) {
       expect(cabecera(ruta), `el conmutador no pinta nada en ${ruta}`).not.toContain(
-        'Tipo de contenido',
+        'Familia de contenido',
       )
     }
   })

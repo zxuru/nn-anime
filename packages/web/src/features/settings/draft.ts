@@ -12,7 +12,7 @@
  */
 
 import type { ProviderDraft } from '@rona/core/api'
-import type { ProviderMedia } from '@rona/core/media'
+import type { MediaFamily } from '@rona/core/models'
 
 /** Los campos de la respuesta que el formulario deja ajustar. */
 export type FieldKey =
@@ -32,8 +32,28 @@ export type EndpointKey = 'search' | 'anime' | 'episodes' | 'stream' | 'trending
 /** Lo que se puede marcar. `search` no: un proveedor sin búsqueda no se ofrece. */
 export type CapabilityKey = 'sub' | 'dub'
 
-/** Las tres respuestas posibles a «qué sirve». */
-export const MEDIA_OPTIONS: readonly ProviderMedia[] = ['anime', 'movies', 'both']
+/** Las tres familias de contenido, en el orden en que se ofrecen. */
+export const FAMILY_OPTIONS: readonly MediaFamily[] = ['anime', 'animation', 'live']
+
+/**
+ * Marca o desmarca una familia, sin dejar nunca el conjunto vacío.
+ *
+ * Un manifiesto sin familias no se puede cargar y el formulario lo diría tarde:
+ * quitar la última casilla deja marcada la de anime, que es el defecto del
+ * contrato. Es una función pura para poder medirla sin un DOM.
+ */
+export function toggleFamilia(
+  familias: readonly MediaFamily[],
+  familia: MediaFamily,
+): readonly MediaFamily[] {
+  if (familias.includes(familia)) {
+    return familias.length === 1 ? familias : familias.filter((una) => una !== familia)
+  }
+
+  // Se mantiene el orden del contrato: dos manifiestos con las mismas familias
+  // escritas en otro orden serían dos textos para la misma declaración.
+  return FAMILY_OPTIONS.filter((una) => una === familia || familias.includes(una))
+}
 
 export interface ProviderForm {
   readonly id: string
@@ -41,13 +61,14 @@ export interface ProviderForm {
   readonly baseUrl: string
   readonly capabilities: Readonly<Record<CapabilityKey, boolean>>
   /**
-   * Qué sirve, para las dos pestañas de la interfaz.
+   * Qué familias sirve, como conjunto.
    *
    * Se pregunta aquí y no se deduce: el autor del plugin lo sabe y el usuario no,
-   * y una fuente de películas que se declarara de anime dejaría la pestaña de
-   * películas vacía sin que nada explicara por qué.
+   * y una fuente de acción real que se declarara de anime dejaría su pestaña vacía
+   * sin que nada explicara por qué. Tres casillas y no un desplegable: una fuente
+   * puede servir anime y acción real sin servir animación occidental.
    */
-  readonly media: ProviderMedia
+  readonly families: readonly MediaFamily[]
   readonly endpoints: Readonly<Record<EndpointKey, string>>
   readonly fields: Readonly<Record<FieldKey, string>>
 }
@@ -57,7 +78,7 @@ export const EMPTY_FORM: ProviderForm = {
   name: '',
   baseUrl: '',
   capabilities: { sub: true, dub: false },
-  media: 'anime',
+  families: ['anime'],
   endpoints: {
     search: '/search?q={query}',
     anime: '/anime/{ref}',
@@ -125,7 +146,9 @@ export function toProviderDraft(form: ProviderForm): ProviderDraftRequest {
       // El asistente no ofrece un feed: un RSS necesita parseo XML y esto genera
       // rutas JSON. La capacidad existe para plugins escritos a mano.
       feed: false,
-      media: form.media,
+      // La declaración nueva gana sobre `media`; el asistente escribe la nueva y
+      // no la heredada, para que un plugin recién creado no dependa del legado.
+      families: [...form.families],
     },
     endpoints: {
       search: form.endpoints.search.trim(),

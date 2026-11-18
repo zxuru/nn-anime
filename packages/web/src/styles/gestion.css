@@ -1803,6 +1803,26 @@ details[open] > .library__settings-summary .library__settings-flecha {
   }
 }
 
+/*
+ * Las tres casillas de familia del alta de proveedor.
+ *
+ * Van en una fila, con su leyenda encima, y sin el marco que el navegador le
+ * pone a un `fieldset`: el grupo se lee como un bloque más del formulario.
+ */
+.settings__families {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.settings__families .field__label {
+  flex-basis: 100%;
+}
+
 /* La barra del móvil, apagada donde no se usa. */
 .barra {
   display: none;
