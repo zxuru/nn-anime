@@ -72,6 +72,28 @@ describe('la petición', () => {
     expect(resultado.ok ? '' : resultado.error.message).toContain('loopback')
   })
 
+  test('sin fetch inyectado, la conexión no pasa por el fetch global', async () => {
+    const original = globalThis.fetch
+    let llamado = false
+    globalThis.fetch = (async () => {
+      llamado = true
+
+      return new Response('{}')
+    }) as typeof fetch
+
+    try {
+      const client = createAniSkipClient({
+        resolver: async () => ['203.0.113.10'],
+        timeoutMs: 20,
+      })
+
+      await client.fetch({ malId: 1, episode: 1, length: 1440 })
+      expect(llamado).toBe(false)
+    } finally {
+      globalThis.fetch = original
+    }
+  })
+
   test('va al host y a la ruta de AniSkip, con todos los tipos y la duración', async () => {
     const { client, peticiones } = cliente(() => Response.json(RESPUESTA))
 
