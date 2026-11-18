@@ -84,6 +84,42 @@ describe('anuncio para lectores de pantalla', () => {
     expect(announce(initialState([]), [])).toContain('No hay ningún proveedor activo')
   })
 
+  /**
+   * Una lista que no se pudo leer no es una lista vacía.
+   *
+   * La pantalla decía «no hay ningún proveedor activo» cuando lo que había
+   * pasado es que `/api/providers` no contestó: mandaba a revisar los plugins
+   * cuando el fallo estaba en la lectura.
+   */
+  test('una lista ilegible se anuncia como ilegible, no como vacía', () => {
+    const texto = announce(initialState([]), [], true, false, { providersFailed: true })
+
+    expect(texto).toContain('No se pudo leer la lista de proveedores')
+    expect(texto).not.toContain('No hay ningún proveedor activo')
+  })
+
+  /**
+   * Los avisos por proveedor también se oyen.
+   *
+   * Se pintaban en la pantalla y no entraban en la región viva: quien no ve el
+   * recuento de errores no sabía que una fuente había fallado. El recuento sigue
+   * delante porque las dos cosas son ciertas a la vez.
+   */
+  test('los avisos por proveedor se suman al anuncio', () => {
+    const estado = reduce(initialState(['uno']), {
+      type: 'error',
+      providerId: 'uno',
+      kind: 'provider',
+      message: 'sin respuesta',
+    })
+    const texto = announce(estado, ['uno'], true, false, {
+      labels: new Map([['uno', 'Fuente Uno']]),
+    })
+
+    expect(texto).toContain('Buscando')
+    expect(texto).toContain('Fuente Uno: sin respuesta')
+  })
+
   test('al cerrar anuncia el recuento y en cuántas fuentes', () => {
     const estado = {
       ...initialState([]),
@@ -155,6 +191,15 @@ describe('la línea de estado visible', () => {
 
   test('sin fuentes activas no culpa a la consulta', () => {
     expect(estadoVisible(initialState([]), [])).toContain('No hay ningún proveedor activo')
+  })
+
+  test('una lista que no se pudo leer se distingue de una vacía', () => {
+    expect(estadoVisible(initialState([]), [], true, false, true)).toContain(
+      'No se pudo leer la lista de proveedores',
+    )
+    expect(estadoVisible(initialState([]), [], true, false, false)).toContain(
+      'No hay ningún proveedor activo',
+    )
   })
 })
 

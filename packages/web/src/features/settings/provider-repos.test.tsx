@@ -184,6 +184,19 @@ describe('lo que enseña la sección', () => {
     expect(html).not.toContain('value="https://github.com/zxuru/nn-anime-plugins"')
   })
 
+  /**
+   * El aviso del campo se anuncia al llegar a él.
+   *
+   * Estaba al lado, sin `aria-describedby`: la etiqueta se oía y el formato —lo
+   * que hay que escribir— no. El `id` citado tiene que existir.
+   */
+  test('el aviso de la dirección va asociado con `aria-describedby`', () => {
+    const html = pintar()
+
+    expect(html).toContain('aria-describedby="repo-url-hint"')
+    expect(html).toContain('id="repo-url-hint"')
+  })
+
   test('el aviso de que activar ejecuta código está en la sección, no sólo arriba', () => {
     expect(pintar()).toContain('ejecuta el código del repositorio sin sandbox')
   })

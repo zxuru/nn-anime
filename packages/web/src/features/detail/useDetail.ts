@@ -794,29 +794,79 @@ const QUIERO_VER: MarkEndpoint<{ readonly items: readonly AnimeSummary[] }> = {
  * y el botón mentía hasta que se pulsaba dos veces. La lista se pide **sin señal**
  * a propósito: el cliente deduplica las lecturas por ruta, y con una señal propia
  * cada botón montado pediría la suya.
+ *
+ * **Y el estado va atado a la referencia.** Antes el «ya pulsé» era un booleano
+ * del componente: al cambiar de ficha seguía en pie, la lista del título nuevo se
+ * ignoraba y el botón enseñaba el favorito del anterior. Con la marca y el «ya
+ * pulsé» guardados por referencia, un cambio de título es una marca nueva.
  */
+
+/** La marca guardada, con la referencia a la que pertenece. */
+export interface MarcaGuardada {
+  readonly clave: string
+  readonly value: boolean
+  readonly busy: boolean
+}
+
+/** La clave de una referencia: proveedor y valor, sin que uno tape al otro. */
+export function claveDeMarca(ref: ProviderRef): string {
+  return `${ref.providerId}\u0000${ref.value}`
+}
+
+/**
+ * Lo que se enseña de esta referencia.
+ *
+ * Si lo guardado es de otra, el botón vuelve a «no está» hasta que su lista
+ * llegue. Es la transición A→B, y es una función pura para medirla sin un DOM.
+ */
+export function marcaVisible(
+  guardada: MarcaGuardada,
+  clave: string,
+): Pick<MarcaGuardada, 'value' | 'busy'> {
+  return guardada.clave === clave
+    ? { value: guardada.value, busy: guardada.busy }
+    : { value: false, busy: false }
+}
+
 function useMark<Cuerpo>(endpoint: MarkEndpoint<Cuerpo>, ref: ProviderRef): MarkState {
   const { ruta, schema, lista } = endpoint
-  const [value, setValue] = useState(false)
-  const [busy, setBusy] = useState(false)
-  /**
-   * Si la persona ya pulsó.
-   *
-   * Una lista que llegue después no puede pisar lo que se acaba de decidir, y la
-   * que se leyó antes del alta es vieja por definición.
-   */
-  const tocado = useRef(false)
   const providerId = ref.providerId
   const referencia = ref.value
+  const clave = claveDeMarca(ref)
+  const [guardada, setGuardada] = useState<MarcaGuardada>({ clave, value: false, busy: false })
+  /**
+   * Si la persona ya pulsó en esta referencia.
+   *
+   * Una lista que llegue después no puede pisar lo que se acaba de decidir, y la
+   * que se leyó antes del alta es vieja por definición. Se reinicia al cambiar de
+   * referencia: la decisión de A no puede silenciar la lista de B.
+   */
+  const tocado = useRef(false)
+  const { value, busy } = marcaVisible(guardada, clave)
 
   useEffect(() => {
     let vivo = true
+
+    /*
+      Al cambiar de referencia, el «ya pulsé» de la anterior se va con ella: la
+      lista del título nuevo tiene que poder decir su estado. Y la marca guardada
+      de la anterior tampoco vale: la vista la ignora por la clave, y esto la deja
+      a la altura de lo que se enseña.
+    */
+    tocado.current = false
+    setGuardada((actual) =>
+      actual.clave === clave ? actual : { clave, value: false, busy: false },
+    )
 
     void apiGet(ruta, schema).then(
       (cuerpo) => {
         if (!vivo || tocado.current) return
 
-        setValue(enLaLista(lista(cuerpo), { providerId, value: referencia }))
+        setGuardada({
+          clave,
+          value: enLaLista(lista(cuerpo), { providerId, value: referencia }),
+          busy: false,
+        })
       },
       // Sin la lista no se afirma nada: el botón se queda en «no está» y quien lo
       // pulse sigue pudiendo marcar el título. Una marca que no se pudo leer no es
@@ -827,25 +877,24 @@ function useMark<Cuerpo>(endpoint: MarkEndpoint<Cuerpo>, ref: ProviderRef): Mark
     return () => {
       vivo = false
     }
-  }, [ruta, schema, lista, providerId, referencia])
+  }, [ruta, schema, lista, providerId, referencia, clave])
 
   const toggle = useCallback(() => {
     tocado.current = true
     const siguiente = !value
-    setValue(siguiente)
-    setBusy(true)
+    setGuardada({ clave, value: siguiente, busy: true })
 
     void apiPost(ruta, {
       ref: { providerId, value: referencia },
       value: siguiente,
     }).then(
-      () => setBusy(false),
-      () => {
-        setValue(!siguiente)
-        setBusy(false)
-      },
+      () => setGuardada((actual) => (actual.clave === clave ? { ...actual, busy: false } : actual)),
+      () =>
+        setGuardada((actual) =>
+          actual.clave === clave ? { ...actual, busy: false, value: !siguiente } : actual,
+        ),
     )
-  }, [ruta, providerId, referencia, value])
+  }, [ruta, providerId, referencia, clave, value])
 
   return { value, busy, toggle }
 }

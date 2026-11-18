@@ -16,6 +16,12 @@
  *
  * Si algo de eso falla, el destacado se pinta con lo que haya: el título y la
  * portada bastan para que la home no se quede sin su primera fila.
+ *
+ * **Lo que se enseña va atado a la referencia de la que salió.** El estado vivía
+ * suelto y el héroe cambiaba de título con la sinopsis, el episodio y el banner
+ * del anterior: el botón de reproducir enlazaba al capítulo de otra obra. Guardar
+ * la clave junto a los datos hace que el cambio de referencia sea, por
+ * construcción, un vacío del que se pinta el esqueleto.
  */
 
 import {
@@ -42,16 +48,55 @@ const VACIO: Featured = {
   banner: undefined,
 }
 
+const SIN_DESTACADO: Featured = {
+  loading: false,
+  detail: undefined,
+  firstEpisode: undefined,
+  banner: undefined,
+}
+
+/** Lo que se sabe del destacado, con la referencia a la que pertenece. */
+export interface FeaturedStore {
+  readonly clave: string | undefined
+  readonly datos: Featured
+}
+
+/**
+ * La clave de la referencia del destacado.
+ *
+ * Separa proveedor y valor con un carácter que no puede aparecer en un id ni en
+ * una referencia, para que dos parejas distintas no compartan clave.
+ */
+export function claveDeFeatured(
+  ref: { readonly providerId: string; readonly value: string } | undefined,
+): string | undefined {
+  return ref === undefined ? undefined : `${ref.providerId}\u0000${ref.value}`
+}
+
+/**
+ * Lo que se puede enseñar de esta referencia.
+ *
+ * Si lo guardado es de otra, no se hereda nada: la nueva empieza en el esqueleto
+ * y espera su respuesta. Es la transición A→B, y es una función pura para poder
+ * medirla sin un DOM.
+ */
+export function featuredVisible(guardado: FeaturedStore, clave: string | undefined): Featured {
+  if (guardado.clave === clave) return guardado.datos
+
+  return clave === undefined ? SIN_DESTACADO : VACIO
+}
+
 export function useFeatured(
   ref: { readonly providerId: string; readonly value: string } | undefined,
 ): Featured {
-  const [estado, setEstado] = useState<Featured>(VACIO)
+  const [guardado, setGuardado] = useState<FeaturedStore>({ clave: undefined, datos: VACIO })
   const providerId = ref?.providerId
   const value = ref?.value
+  const clave = claveDeFeatured(ref)
 
   useEffect(() => {
     if (providerId === undefined || value === undefined) {
-      setEstado({ loading: false, detail: undefined, firstEpisode: undefined, banner: undefined })
+      setGuardado({ clave, datos: SIN_DESTACADO })
 
       return
     }
@@ -67,13 +112,18 @@ export function useFeatured(
     ]).then(([detalle, episodios]) => {
       if (!vivo) return
 
-      // Actualización sobre lo que ya hay: el banner puede haber llegado antes y
-      // este `setEstado` no tiene por qué llevárselo por delante.
-      setEstado((previo) => ({
-        ...previo,
-        loading: false,
-        detail: detalle.status === 'fulfilled' ? detalle.value : undefined,
-        firstEpisode: episodios.status === 'fulfilled' ? episodios.value.episodes[0] : undefined,
+      // La base es lo de esta referencia, y sólo si ya estaba; si lo guardado es
+      // de A, se empieza por el vacío y no se hereda ni su sinopsis ni su banner.
+      // El banner puede haber llegado antes que esta respuesta —el orden normal
+      // es el contrario— y, si es de la misma clave, se conserva.
+      setGuardado((previo) => ({
+        clave,
+        datos: {
+          ...(previo.clave === clave ? previo.datos : VACIO),
+          loading: false,
+          detail: detalle.status === 'fulfilled' ? detalle.value : undefined,
+          firstEpisode: episodios.status === 'fulfilled' ? episodios.value.episodes[0] : undefined,
+        },
       }))
 
       /*
@@ -89,7 +139,16 @@ export function useFeatured(
 
       void apiGet(`${ruta}/enrichment`, enrichmentResponseSchema, opciones).then(
         (enriquecido) => {
-          if (vivo) setEstado((previo) => ({ ...previo, banner: enriquecido.enrichment?.banner }))
+          if (!vivo) return
+
+          setGuardado((previo) =>
+            previo.clave === clave
+              ? {
+                  clave,
+                  datos: { ...previo.datos, banner: enriquecido.enrichment?.banner },
+                }
+              : previo,
+          )
         },
         () => {
           // Sin banner: la marquesina se queda con el campo de siempre.
@@ -101,7 +160,7 @@ export function useFeatured(
       vivo = false
       controller.abort()
     }
-  }, [providerId, value])
+  }, [providerId, value, clave])
 
-  return estado
+  return featuredVisible(guardado, clave)
 }

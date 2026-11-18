@@ -11,6 +11,10 @@
  *    llegar **después** de la de «mecha» y pintar resultados viejos encima de los
  *    nuevos. Es el fallo clásico de un buscador con retardo, y se arregla
  *    abortando, no ordenando por tiempo de llegada.
+ * 3. **Lo que se enseña va atado a su ruta.** Cambiar de `?tipo=` o de consulta
+ *    dejaba en pantalla las recomendaciones de la anterior hasta que llegaba la
+ *    nueva respuesta —o para siempre, si fallaba—. Guardar la ruta con los datos
+ *    hace que el cambio enseñe el estado de carga de la ruta nueva.
  */
 
 import type { RecommendationsResponse } from '@rona/core/api'
@@ -78,15 +82,42 @@ export function recommendationsPath(
   return `/api/recommendations?${parametros.toString()}`
 }
 
+/** Lo que se sabe de una ruta de recomendaciones, con la ruta a la que pertenece. */
+export interface RecommendationsStore {
+  readonly ruta: string
+  readonly state: PanelState
+  readonly data: RecommendationsResponse | undefined
+  readonly error: Fallo | undefined
+}
+
+/**
+ * Lo que se puede enseñar de esta ruta.
+ *
+ * Si lo guardado es de otra —otro `?tipo=`, otra consulta—, no se hereda: la
+ * ruta nueva empieza en «cargando» con la lista vacía. Es la transición A→B, y
+ * es una función pura para poder medirla sin un DOM.
+ */
+export function recommendationsVisible(
+  guardado: RecommendationsStore,
+  ruta: string,
+): Pick<RecommendationsStore, 'state' | 'data' | 'error'> {
+  if (guardado.ruta === ruta) {
+    return { state: guardado.state, data: guardado.data, error: guardado.error }
+  }
+
+  return { state: 'loading', data: undefined, error: undefined }
+}
+
 export function useRecommendations(options: UseRecommendationsOptions = {}): Recommendations {
-  const [data, setData] = useState<RecommendationsResponse | undefined>(undefined)
-  const [state, setState] = useState<PanelState>('loading')
-  const [error, setError] = useState<Fallo | undefined>(undefined)
-  // El planificador se crea una vez y se reutiliza: si se creara en cada
-  // efecto, no habría nada que cancelar entre una clave y la siguiente.
   const planificador = useRef<ReturnType<typeof createScheduler> | undefined>(undefined)
   const retardo = retardoDeConsulta(options.query, options.debounceMs)
   const ruta = recommendationsPath(options.query, options.limit ?? 10, options.media)
+  const [guardado, setGuardado] = useState<RecommendationsStore>(() => ({
+    ruta,
+    state: 'loading',
+    data: undefined,
+    error: undefined,
+  }))
 
   /**
    * Volver a pedir lo mismo.
@@ -97,8 +128,7 @@ export function useRecommendations(options: UseRecommendationsOptions = {}): Rec
    * que no lee.
    */
   const reload = useCallback(() => {
-    setState('loading')
-    setError(undefined)
+    setGuardado({ ruta, state: 'loading', data: undefined, error: undefined })
     planificador.current?.schedule(ruta)
   }, [ruta])
 
@@ -110,13 +140,16 @@ export function useRecommendations(options: UseRecommendationsOptions = {}): Rec
           const salida = await apiGet(clave, recommendationsResponseSchema, { signal })
           if (signal.aborted) return
 
-          setData(salida)
-          setState('ready')
+          setGuardado({ ruta: clave, state: 'ready', data: salida, error: undefined })
         } catch (cause) {
           if (signal.aborted) return
 
-          setError(describirFallo(cause))
-          setState('error')
+          setGuardado({
+            ruta: clave,
+            state: 'error',
+            data: undefined,
+            error: describirFallo(cause),
+          })
         }
       },
     })
@@ -130,9 +163,7 @@ export function useRecommendations(options: UseRecommendationsOptions = {}): Rec
   }, [ruta, retardo])
 
   return {
-    state,
-    data,
-    error,
+    ...recommendationsVisible(guardado, ruta),
     reload,
   }
 }

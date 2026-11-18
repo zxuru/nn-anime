@@ -185,9 +185,12 @@ export function ProviderRepos(props: ProviderReposData): ReactNode {
             id="repo-url"
             type="text"
             value={valor}
+            aria-describedby="repo-url-hint"
             onChange={(event) => setEditado(event.target.value)}
           />
-          <span className="field__hint">{t(DEFAULT_LOCALE, 'settings.repos.urlHint')}</span>
+          <span className="field__hint" id="repo-url-hint">
+            {t(DEFAULT_LOCALE, 'settings.repos.urlHint')}
+          </span>
           {sinRepos ? (
             /*
              * La dirección recomendada deja de ser un texto que hay que copiar a

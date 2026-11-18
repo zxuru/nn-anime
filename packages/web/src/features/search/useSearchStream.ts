@@ -22,7 +22,7 @@ import { groupByWork } from '@rona/core/identity'
 import { DEFAULT_MEDIA, type MediaHalf, mediaOf, puedeServir } from '@rona/core/media'
 import type { SearchResult } from '@rona/core/models'
 import { useEffect, useMemo, useState } from 'react'
-import { ApiError } from '../../api/client'
+import { ApiError, apiGet, type RequestDeps } from '../../api/client'
 import { createDedupe } from '../../api/dedupe'
 import { describirFallo, type Fallo } from '../../api/fallo'
 import { readEventStream, searchRequestPath } from '../../api/stream-events'
@@ -373,22 +373,58 @@ export interface SearchStreamResult {
   readonly active: readonly string[]
   readonly labels: ReadonlyMap<string, string>
   readonly providersLoaded: boolean
+  /**
+   * La lista de proveedores no se pudo leer.
+   *
+   * Es lo que separa «no hay ninguno activo» de «no se sabe», que es la frase
+   * que la pantalla decía antes ante una lectura fallida.
+   */
+  readonly providersFailed: boolean
 }
 
 const PROVIDERS = createDedupe<readonly ProviderSummary[]>()
 
-export async function fetchProviders(signal: AbortSignal): Promise<readonly ProviderSummary[]> {
-  const response = await fetch('/api/providers', {
-    credentials: 'same-origin',
-    headers: { accept: 'application/json' },
-    signal,
-  })
+/**
+ * El plazo de la lista de proveedores y del orden guardado.
+ *
+ * Van por `apiGet` para no repetir el `fetch` crudo: el cliente valida el
+ * esquema, compone el error y pone un tiempo límite. El límite por defecto de
+ * `apiGet` no se arma cuando la llamada trae señal —la de la pantalla manda—, así
+ * que aquí se compone con el plazo propio: una lectura que no contesta no puede
+ * dejar la búsqueda esperando para siempre.
+ */
+export const LISTAS_TIMEOUT_MS = 4000
 
-  if (!response.ok) {
-    throw new ApiError(response.status, `GET /api/providers respondió ${response.status}`)
-  }
+function conPlazo(signal: AbortSignal, timeoutMs: number): AbortSignal {
+  return AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
+}
 
-  return providersResponseSchema.parse(await response.json()).providers
+export interface ListaOptions {
+  /** Inyectable en las pruebas: no crea un plazo real de cuatro segundos. */
+  readonly timeoutMs?: number
+  /** El `fetch` inyectable, como en el resto del cliente. */
+  readonly deps?: RequestDeps
+}
+
+/**
+ * Los proveedores cargados.
+ *
+ * Antes se leía con un `fetch` crudo sin plazo: una respuesta colgada dejaba la
+ * lista vacía y la pantalla concluía «no hay ningún proveedor activo». Ahora el
+ * fallo se propaga, y quien lo lee distingue «no hay» de «no se pudo leer».
+ */
+export async function fetchProviders(
+  signal: AbortSignal,
+  options: ListaOptions = {},
+): Promise<readonly ProviderSummary[]> {
+  const cuerpo = await apiGet(
+    '/api/providers',
+    providersResponseSchema,
+    { signal: conPlazo(signal, options.timeoutMs ?? LISTAS_TIMEOUT_MS) },
+    options.deps,
+  )
+
+  return cuerpo.providers
 }
 
 /**
@@ -412,18 +448,16 @@ export type Fetcher = (url: string, init: RequestInit) => Promise<Response>
 export async function fetchProviderPriority(
   signal: AbortSignal,
   fetcher: Fetcher = fetch,
+  options: { readonly timeoutMs?: number } = {},
 ): Promise<readonly string[]> {
-  const response = await fetcher('/api/settings', {
-    credentials: 'same-origin',
-    headers: { accept: 'application/json' },
-    signal,
-  })
+  const ajustes = await apiGet(
+    '/api/settings',
+    settingsResponseSchema,
+    { signal: conPlazo(signal, options.timeoutMs ?? LISTAS_TIMEOUT_MS) },
+    { fetch: fetcher },
+  )
 
-  if (!response.ok) {
-    throw new ApiError(response.status, `GET /api/settings respondió ${response.status}`)
-  }
-
-  return settingsResponseSchema.parse(await response.json()).providerPriority
+  return ajustes.providerPriority
 }
 
 const PRIORITY = createDedupe<readonly string[]>()
@@ -572,7 +606,7 @@ export function useSearchStream(
   /** Inyectable en los tests; en producción, el distribuidor de siempre. */
   hub: SearchHub = HUB,
 ): SearchStreamResult {
-  const { summaries, loaded } = useProviders()
+  const { summaries, loaded, failed } = useProviders()
   /*
     La selección es la intersección de los proveedores activos, el filtro de la
     dirección y el tipo. En la petición viaja el filtro de la **dirección**, no la
@@ -608,5 +642,5 @@ export function useSearchStream(
     [summaries],
   )
 
-  return { state, active: selected, labels, providersLoaded: loaded }
+  return { state, active: selected, labels, providersLoaded: loaded, providersFailed: failed }
 }

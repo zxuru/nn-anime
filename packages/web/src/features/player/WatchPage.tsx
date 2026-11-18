@@ -37,6 +37,7 @@ import { DownloadButton } from '../downloads/DownloadButton'
 import { ANCLAS } from '../guia/guia'
 import { PartyBar } from '../party/PartyBar'
 import { PartyPanel } from '../party/PartyPanel'
+import { muestraBotonSala, usePartyAvailable } from '../party/usePartyAvailable'
 import { AudioModeSwitch } from './AudioModeSwitch'
 import { formatTime } from './controls'
 import { Player } from './Player'
@@ -79,6 +80,12 @@ function EpisodeArrow(props: { readonly towards: 'previous' | 'next' }): ReactNo
 
 export function WatchPage(props: WatchPageProps): ReactNode {
   const pagina = useWatchPage({ providerId: props.providerId, ref: props.ref })
+  /*
+    La sala se comprueba aparte de la página: es un extra del servidor y no un
+    dato del episodio. Sin `RONA_PARTY=1` el mando no se pinta, que es lo único
+    que impide ofrecer un panel que sólo puede responder «esa sala no existe».
+  */
+  const sala = usePartyAvailable()
   const {
     estado,
     error,
@@ -197,18 +204,21 @@ export function WatchPage(props: WatchPageProps): ReactNode {
       {/* «Ver juntos» y la descarga van anclados al encabezado, en una fila:
           la sala se mide contra la ventana y un bloque más debajo empujaba la
           página. El botón abre el panel de la sala; la descarga es la misma de
-          siempre. */}
+          siempre. El botón de la sala sólo existe si el servidor la tiene
+          montada: sin `party` en el health, un panel aquí sólo puede fallar. */}
       <div className="watch__actions">
-        <button
-          type="button"
-          ref={botonSala}
-          className="button watch__party"
-          aria-haspopup="dialog"
-          aria-expanded={panelSala}
-          onClick={() => setPanelSala(true)}
-        >
-          {t(DEFAULT_LOCALE, 'party.open')}
-        </button>
+        {muestraBotonSala(sala) ? (
+          <button
+            type="button"
+            ref={botonSala}
+            className="button watch__party"
+            aria-haspopup="dialog"
+            aria-expanded={panelSala}
+            onClick={() => setPanelSala(true)}
+          >
+            {t(DEFAULT_LOCALE, 'party.open')}
+          </button>
+        ) : null}
         <div className="watch__download">
           <DownloadButton
             providerId={props.providerId}

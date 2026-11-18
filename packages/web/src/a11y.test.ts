@@ -747,3 +747,19 @@ describe('nombres accesibles', () => {
     expect(reproductor).toContain('aria-live="polite"')
   })
 })
+
+/**
+ * El cierre del aviso de seguridad.
+ *
+ * Medía unos 26 px: se ve, pero un dedo lo falla. El objetivo táctil del sistema
+ * es `--control-size` y es lo que se comprueba, no un número suelto.
+ */
+describe('el objetivo táctil del cierre del aviso', () => {
+  test('mide al menos el control del sistema', async () => {
+    const css = await estructura()
+    const bloque = /\.notice__close\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+
+    expect(bloque).toContain('min-inline-size: var(--control-size)')
+    expect(bloque).toContain('min-block-size: var(--control-size)')
+  })
+})

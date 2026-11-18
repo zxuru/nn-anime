@@ -10,6 +10,11 @@
  *
  * El estado de fallo es del componente y no del CSS porque el navegador no avisa
  * de otra forma: `:not([src])` no distingue «sin portada» de «portada que falló».
+ *
+ * El fallo se guarda **con la ruta que lo provocó**. Un booleano suelto dejaba el
+ * hueco para siempre: la misma pieza pasaba a otro título, su portada sí llegaba
+ * y no se pedía porque la anterior había fallado. Comparar la ruta convierte un
+ * cambio de portada en un intento nuevo.
  */
 
 import type { ReactNode } from 'react'
@@ -59,11 +64,27 @@ export function coverSrc(props: CoverProps): string | undefined {
   return coverPath(props.providerId, props.ref)
 }
 
-export function Cover(props: CoverProps): ReactNode {
-  const [fallo, setFallo] = useState(false)
-  const ruta = coverSrc(props)
+/** El último fallo visto, atado a la ruta que lo provocó. */
+export interface FalloDePortada {
+  readonly ruta: string | undefined
+  readonly fallo: boolean
+}
 
-  if (fallo || ruta === undefined) {
+/**
+ * Si la portada de esta ruta es la que falló.
+ *
+ * Compara la ruta y no sólo el booleano: un fallo de A no puede dejar en blanco
+ * la portada de B. Es lo único que la prueba A→B necesita medir.
+ */
+export function portadaFallida(guardado: FalloDePortada, ruta: string | undefined): boolean {
+  return guardado.fallo && guardado.ruta === ruta
+}
+
+export function Cover(props: CoverProps): ReactNode {
+  const ruta = coverSrc(props)
+  const [guardado, setGuardado] = useState<FalloDePortada>({ ruta, fallo: false })
+
+  if (portadaFallida(guardado, ruta) || ruta === undefined) {
     return (
       <span className={props.className ?? 'card__cover'} aria-hidden="true">
         {props.children}
@@ -82,7 +103,7 @@ export function Cover(props: CoverProps): ReactNode {
       // texto que hay que leer, y con una imagen grande en el mismo hilo el
       // primer fotograma llega tarde.
       decoding="async"
-      onError={() => setFallo(true)}
+      onError={() => setGuardado({ ruta, fallo: true })}
     />
   )
 }

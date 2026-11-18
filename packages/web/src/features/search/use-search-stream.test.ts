@@ -8,6 +8,7 @@ import {
   createPrefetcher,
   createSearchHub,
   fetchProviderPriority,
+  fetchProviders,
   groupResults,
   initialState,
   normalizeTitle,
@@ -301,6 +302,68 @@ describe('la lectura de la preferencia', () => {
         async () => new Response('no', { status: 500 }),
       ),
     ).rejects.toBeInstanceOf(ApiError)
+  })
+
+  test('unos ajustes colgados se cortan por plazo', async () => {
+    const colgada = async (_url: string, init: RequestInit): Promise<Response> =>
+      new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+      })
+
+    await expect(
+      fetchProviderPriority(new AbortController().signal, colgada, { timeoutMs: 20 }),
+    ).rejects.toBeDefined()
+  })
+})
+
+/**
+ * La lista de proveedores.
+ *
+ * Se leía con un `fetch` crudo y sin plazo. Una respuesta colgada dejaba la
+ * lista vacía y la búsqueda concluía «no hay ningún proveedor activo»; una que
+ * fallaba, lo mismo. Ahora el fallo se propaga: quien lee la lista puede decir
+ * «no se pudo leer» en vez de afirmar que no hay ninguno.
+ */
+describe('la lista de proveedores', () => {
+  test('una lectura correcta devuelve lo que valida el schema', async () => {
+    const deps = {
+      fetch: async () => Response.json({ providers: [resumen('uno', 'active')] }),
+    }
+    const lista = await fetchProviders(new AbortController().signal, { deps })
+
+    expect(lista.map((uno) => uno.id)).toEqual(['uno'])
+  })
+
+  test('una lectura fallida se rechaza, no se convierte en lista vacía', async () => {
+    const deps = { fetch: async () => new Response('no', { status: 503 }) }
+
+    await expect(fetchProviders(new AbortController().signal, { deps })).rejects.toBeInstanceOf(
+      ApiError,
+    )
+  })
+
+  test('una respuesta que no cumple el schema también es un fallo', async () => {
+    const deps = { fetch: async () => Response.json({ providers: 'ninguno' }) }
+
+    await expect(fetchProviders(new AbortController().signal, { deps })).rejects.toBeDefined()
+  })
+
+  test('una lectura colgada se corta por plazo', async () => {
+    let pedida = false
+    const deps = {
+      fetch: (_url: string, init: RequestInit): Promise<Response> => {
+        pedida = true
+
+        return new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+        })
+      },
+    }
+
+    await expect(
+      fetchProviders(new AbortController().signal, { deps, timeoutMs: 20 }),
+    ).rejects.toBeDefined()
+    expect(pedida).toBe(true)
   })
 })
 

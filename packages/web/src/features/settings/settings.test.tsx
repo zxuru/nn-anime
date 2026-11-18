@@ -226,6 +226,23 @@ describe('el alta de un proveedor', () => {
     expect(html).toContain('required')
   })
 
+  /**
+   * El aviso de un campo se anuncia al llegar a él.
+   *
+   * Estaba al lado, sin `aria-describedby`: quien usa un lector de pantalla oía
+   * la etiqueta y no el formato, que es justo lo que hay que saber antes de
+   * escribir. El `id` que cita cada `aria-describedby` tiene que existir.
+   */
+  test('el aviso del campo va asociado con `aria-describedby`', () => {
+    const html = render(<RegisterProvider register={sinGuardar} />)
+
+    expect(html).toContain('aria-describedby="provider-id-hint"')
+    expect(html).toContain('id="provider-id-hint"')
+    // Y el aviso del grupo de rutas describe al grupo entero.
+    expect(html).toContain('aria-describedby="provider-endpoints-hint"')
+    expect(html).toContain('id="provider-endpoints-hint"')
+  })
+
   test('el botón dice qué hace y el resultado se anuncia', () => {
     const html = render(<RegisterProvider register={sinGuardar} />)
 

@@ -808,3 +808,15 @@
   text-transform: none;
   letter-spacing: normal;
 }
+
+/*
+ * La pantalla del fallo de render.
+ *
+ * La red envuelve la aplicación entera, así que este aviso no vive dentro de la
+ * caja del `main` —la que pone el relleno—: se coloca solo y se queda con el
+ * ancho de medida y el borde de los avisos. `12vh` lo baja del borde superior,
+ * que en una pantalla en blanco es lo que se lee como «esto no cargó».
+ */
+.fallo-render {
+  margin: 12vh auto;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { buildPath, createMemoryHistory, matchRoute } from './router'
+import { buildPath, createMemoryHistory, matchRoute, tocaVolverArriba } from './router'
 
 describe('matchRoute', () => {
   test('reconoce la raíz', () => {
@@ -256,5 +256,31 @@ describe('createMemoryHistory: estado y vuelta atrás', () => {
     history.back()
 
     expect(avisos).toBe(1)
+  })
+})
+
+/**
+ * Volver al principio al navegar.
+ *
+ * Sin esto, abrir una ficha desde el final del mosaico la dejaba a media página:
+ * el `preventScroll` del foco al `main` evitaba el salto accidental, pero nadie
+ * devolvía la página al principio. El límite son las anclas de Ajustes: su
+ * enlace es `#seccion` sobre el mismo camino y el scroll no se toca.
+ */
+describe('volver arriba al cambiar de camino', () => {
+  test('un camino nuevo empieza arriba', () => {
+    expect(tocaVolverArriba('/', '/anime/fixture/x', '')).toBe(true)
+    expect(tocaVolverArriba('/search?q=a', '/search?q=b', '')).toBe(true)
+  })
+
+  test('quedarse en el mismo camino no mueve la página', () => {
+    expect(tocaVolverArriba('/settings', '/settings', '')).toBe(false)
+  })
+
+  test('las anclas de Ajustes siguen llevando a su sección', () => {
+    // `/settings#seguridad` es otro camino para el historial (la consulta cambia)
+    // o el mismo: en los dos casos, con hash no se sube.
+    expect(tocaVolverArriba('/settings', '/settings#seguridad', '#seguridad')).toBe(false)
+    expect(tocaVolverArriba('/home', '/settings#seguridad', '#seguridad')).toBe(false)
   })
 })

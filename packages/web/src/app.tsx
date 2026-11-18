@@ -28,7 +28,7 @@ import { tipoFromPath } from './features/tipo/tipo'
 import { t } from './i18n'
 import { routeTitleParts, useDocumentTitle } from './lib/document-title'
 import { destinoDeNav, esNavActual, NAV_ITEMS } from './nav'
-import { Link, type RouteMatch, usePath, useRoute } from './router'
+import { Link, type RouteMatch, tocaVolverArriba, usePath, useRoute } from './router'
 
 const LOCALE: Locale = DEFAULT_LOCALE
 
@@ -109,7 +109,20 @@ function Shell(props: {
   useEffect(() => {
     if (caminoAnterior.current === camino) return
 
+    const caminoViejo = caminoAnterior.current
     caminoAnterior.current = camino
+    /*
+      La pantalla nueva empieza arriba. El foco viaja al `main` con
+      `preventScroll` —para no arrastrar el desplazamiento al cambiar de consulta
+      en el buscador—, pero nadie devolvía la página al principio: una ficha
+      abierta desde el final del mosaico aparecía a media altura. Las anclas de
+      Ajustes no se rompen: su enlace es `#seccion` sobre el mismo camino y la
+      regla deja el scroll en paz cuando hay hash.
+    */
+    if (tocaVolverArriba(caminoViejo, camino, window.location.hash)) {
+      window.scrollTo(0, 0)
+    }
+
     /*
       La pantalla que ya se ha llevado el foco lo conserva. La búsqueda enfoca su
       campo al abrirse, y este efecto —que corre después, de dentro hacia
@@ -197,7 +210,16 @@ function screenFor(route: RouteMatch, path: string): ReactNode {
     case 'search':
       return <SearchPage />
     case 'detail':
-      return <DetailPage providerId={route.params.providerId ?? ''} ref={route.params.ref ?? ''} />
+      return (
+        // La clave remonta la ficha al cambiar de título. Sin ella, React reutiliza
+        // el componente y el estado de la anterior —la marca del usuario, el modo
+        // de audio elegido— se cuela en la nueva mientras llega su respuesta.
+        <DetailPage
+          key={`${route.params.providerId ?? ''}:${route.params.ref ?? ''}`}
+          providerId={route.params.providerId ?? ''}
+          ref={route.params.ref ?? ''}
+        />
+      )
     case 'watch':
       return (
         // La clave remonta la pantalla al cambiar de episodio. Sin ella, React

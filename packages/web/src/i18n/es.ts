@@ -234,6 +234,17 @@ export const messages: Messages = {
     'No se pudo completar la operación. Reintenta; si vuelve a pasar, los detalles técnicos ayudan a mirarlo.',
   'error.summary.desconocido': 'algo falló',
 
+  /*
+   * El fallo de render: un componente lanzó y la red de `main.tsx` recogió el
+   * árbol. No es un fallo de una petición —eso es `error.*`—, así que no se
+   * explica de quién es la culpa: se dice qué pasó y cómo volver.
+   */
+  'renderError.title': 'La pantalla se detuvo',
+  'renderError.body':
+    'Un componente falló al pintarse y la aplicación se paró para no enseñar algo a medias. Tus datos están a salvo: recarga para volver a empezar.',
+  'renderError.reload': 'Recargar',
+  'renderError.details': 'Detalles técnicos',
+
   'home.title': 'Inicio',
 
   // El tipo de contenido: la mitad de la aplicación que se está mirando. El
@@ -283,7 +294,12 @@ export const messages: Messages = {
   'search.status.partial': '{results} · esperando a {sources}…',
   'search.status.done': '{results} en {sources}.',
   'search.noProviders': 'No hay ningún proveedor activo para esta búsqueda.',
+  // Una lista que no se pudo leer no es una lista vacía: decirlo así evita
+  // mandar a instalar un plugin cuando lo que falló fue la lectura.
+  'search.providersUnreadable': 'No se pudo leer la lista de proveedores.',
   'search.providerFailed': '{provider}: {message}',
+  // El anuncio de la región viva: los avisos ya visibles, dichos también en voz.
+  'search.providerWarnings': 'Avisos de los proveedores: {errors}',
   'search.failed': 'No se pudo buscar: {message}',
   // La mitad que las fuentes no pueden contestar: lo que AniList tiene de ese
   // estudio o de ese género. El sello dice cuál de esas obras ya está en una fuente.
