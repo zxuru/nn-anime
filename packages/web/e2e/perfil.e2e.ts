@@ -147,11 +147,13 @@ test.describe('el Historial, desde el Perfil', () => {
 
     await expect(page).toHaveURL(/\/history$/)
     // La fila del historial, con su episodio: es lo que hace falta para saber qué se
-    // dejó a medias. El visionado que se registró arriba es el episodio 1.
+    // dejó a medias. El visionado que se registró arriba es el episodio 1; puede
+    // haber más de un capítulo del mismo título —otras pruebas del arnés también
+    // registran—, así que se busca ése y no «la única fila».
     await expect(
-      page.locator('.historial .pz__titulo', { hasText: 'Aurora Nocturna' }),
+      page.locator('.historial .pz__titulo', { hasText: 'Aurora Nocturna' }).first(),
     ).toBeVisible()
-    await expect(page.locator('.historial .pz__ep')).toContainText('1')
+    await expect(page.locator('.historial .pz__ep', { hasText: 'Ep. 1' })).toBeVisible()
   })
 
   test('la vuelta al Perfil está en el Historial', async ({ page }) => {

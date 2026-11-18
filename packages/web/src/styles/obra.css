@@ -2194,6 +2194,10 @@ body.player-extendido {
 .watch__back {
   position: relative;
   display: inline-block;
+  /* El encabezado es una columna flexible y un enlace suelto se estira a todo
+     el ancho: el centro de la caja caía bajo «Ver juntos» y un clic en el hueco
+     de al lado volvía a la ficha. Que ocupe sólo su texto. */
+  align-self: flex-start;
   /* Un respiro antes del título: pegado a la línea de base de una display de 48
      px, el enlace se lee como parte del nombre del título y no como un mando. */
   margin-bottom: var(--space-2);
