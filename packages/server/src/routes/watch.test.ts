@@ -140,6 +140,76 @@ describe('POST /api/watch', () => {
   })
 })
 
+describe('DELETE /api/watch/episode', () => {
+  /** La baja del episodio `numero` de la obra del fixture. */
+  function baja(pedir: Contexto['pedir'], numero = 1) {
+    const episodeRef = { providerId: 'fixture', value: `${REF}#${numero}` }
+    const provider = encodeURIComponent(episodeRef.providerId)
+    const episode = encodeURIComponent(episodeRef.value)
+
+    return pedir(`/api/watch/episode?provider=${provider}&episode=${episode}`, {
+      method: 'DELETE',
+      headers: GOOD,
+    })
+  }
+
+  /**
+   * Todas las filas del episodio, en cualquier modo.
+   *
+   * Dos modos del mismo episodio son dos visionados —es lo que mide la prueba de
+   * PATCH— así que la baja tiene que llevarse los dos; el episodio de al lado se
+   * queda, que es la mitad que separa «quitar esto» de «vaciar el historial».
+   */
+  test('quita el episodio entero, en todos sus modos, y no toca los demás', async () => {
+    await conApp(async ({ pedir, db }) => {
+      await alta(pedir)
+      await alta(pedir, { ...ALTA, mode: 'dub' })
+      await alta(pedir, { ...ALTA, episodeRef: { providerId: 'fixture', value: `${REF}#2` } })
+
+      const respuesta = await baja(pedir)
+
+      expect(respuesta.status).toBe(204)
+      const filas = db
+        .query<{ ref: string }, []>(
+          `SELECT episode.provider_ref AS ref
+             FROM watch_event JOIN episode ON episode.id = watch_event.episode_id`,
+        )
+        .all()
+
+      expect(filas.map((fila) => fila.ref)).toEqual([`${REF}#2`])
+    })
+  })
+
+  test('un episodio que no está en el historial es 404', async () => {
+    await conApp(async ({ pedir }) => {
+      expect((await baja(pedir)).status).toBe(404)
+    })
+  })
+
+  test('sin la referencia del episodio es 400 con el motivo', async () => {
+    await conApp(async ({ pedir }) => {
+      const respuesta = await pedir('/api/watch/episode?provider=fixture', {
+        method: 'DELETE',
+        headers: GOOD,
+      })
+
+      expect(respuesta.status).toBe(400)
+      expect(((await respuesta.json()) as { error: string }).error).toContain('consulta inválida')
+    })
+  })
+
+  test('exige sesión', async () => {
+    await conApp(async ({ pedir }) => {
+      const respuesta = await pedir(`/api/watch/episode?provider=fixture&episode=${REF}%231`, {
+        method: 'DELETE',
+        headers: { origin: BASE },
+      })
+
+      expect(respuesta.status).toBe(401)
+    })
+  })
+})
+
 describe('PATCH /api/watch/:id', () => {
   test('mueve la posición y aparece en «continuar viendo»', async () => {
     await conApp(async ({ pedir, recientes }) => {

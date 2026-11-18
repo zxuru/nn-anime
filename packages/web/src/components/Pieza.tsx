@@ -146,6 +146,14 @@ export interface PiezaProps {
   readonly reproducir?: string | undefined
   /** Una pieza de favoritos, apagada: no compite con lo que no se ha empezado. */
   readonly apagada?: boolean | undefined
+  /**
+   * Un mando propio de la fila, fuera del enlace.
+   *
+   * Lo pinta quien conoce la acción —quitar del historial— y viaja aquí para que
+   * quede dentro de la pieza sin anidarlo en el `<a>`, que es lo que la regla de
+   * controles prohíbe.
+   */
+  readonly accion?: ReactNode | undefined
 }
 
 export function Pieza(props: PiezaProps): ReactNode {
@@ -268,6 +276,8 @@ export function Pieza(props: PiezaProps): ReactNode {
           </span>
         )}
       </Link>
+
+      {props.accion}
 
       {hayHoja ? (
         <button

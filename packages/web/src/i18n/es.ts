@@ -179,6 +179,15 @@ export const messages: Messages = {
   'history.next': 'Siguiente',
   'history.finished': 'Terminado',
   'history.watched': '{percent} % visto',
+  // El mando de quitar una tarjeta. El nombre accesible dice qué se quita y de
+  // dónde: sin el título, veinte botones iguales en la rejilla no se distinguen.
+  'history.remove': 'Quitar del historial',
+  'history.remove.aria': 'Quitar del historial: {title}, {episode}',
+  'history.remove.title': '¿Quitar del historial?',
+  'history.remove.body':
+    'Se quitará «{title}» ({episode}) del historial. La obra y sus otros episodios se quedan.',
+  'history.remove.confirm': 'Quitar',
+  'history.remove.error': 'No se pudo quitar del historial.',
 
   // Lo que va en el título de la pestaña mientras no hay dato que poner.
   'title.loading': 'Cargando…',

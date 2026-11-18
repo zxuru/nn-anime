@@ -1014,6 +1014,22 @@ describe('la deuda visual del shell', () => {
     return css.slice(desde, css.indexOf('}', desde))
   }
 
+  /**
+   * Quitar del historial no puede depender del puntero.
+   *
+   * El mando de la hoja se enciende con `:hover` porque es un extra; éste es una
+   * acción que tiene que estar a la vista y alcanzarse con el tabulador. Si alguien
+   * le copiara la regla del asomo, la tarjeta del teléfono se quedaría sin mando.
+   */
+  test('el mando de quitar se ve sin pasar el puntero', async () => {
+    const css = await estructura()
+    const regla = await reglaDe('.pz__quitar')
+
+    expect(regla, 'falta la regla del mando').toContain('position: absolute')
+    expect(regla).not.toContain('opacity: 0')
+    expect(css).not.toMatch(/\.pz:hover[^{]*\.pz__quitar/)
+  })
+
   test('el mosaico declara las mismas pistas en cada punto de corte', async () => {
     const css = await estructura()
     const mosaico = await reglaDe('.mosaico')

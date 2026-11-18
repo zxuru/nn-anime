@@ -131,6 +131,26 @@ describe('la fila de continuar viendo', () => {
     expect(html).toContain('Nada a medias')
     expect(html).not.toContain('<progress')
   })
+
+  /**
+   * El mando de quitar, fuera del enlace y con su nombre.
+   *
+   * Un botón dentro del `<a>` de la tarjeta no es un botón: el navegador lo
+   * anida mal y el teclado no lo alcanza como lo que es. El nombre accesible dice
+   * qué se quita —título y episodio—, porque en la rejilla hay veinte iguales.
+   */
+  test('la tarjeta lleva el mando de quitar fuera del enlace', () => {
+    const html = render(<ContinueRow items={[item()]} onQuitar={() => undefined} />)
+    const enlace = /<a [^>]*class="pz__enlace"[^>]*>([\s\S]*?)<\/a>/.exec(html)?.[1] ?? ''
+    const mando = /<button[^>]*class="pz__quitar"[^>]*>([\s\S]*?)<\/button>/.exec(html)
+
+    expect(mando, 'falta el mando de quitar').not.toBeNull()
+    expect(enlace, 'falta el enlace de la tarjeta').not.toBe('')
+    expect(enlace).not.toContain('pz__quitar')
+    expect(mando?.[0]).toContain('aria-label="Quitar del historial: Aurora Nocturna, Ep. 3"')
+    // Sin `onQuitar` no hay mando: la fila no ofrece lo que no puede hacer.
+    expect(render(<ContinueRow items={[item()]} />)).not.toContain('pz__quitar')
+  })
 })
 
 describe('la fila de favoritos', () => {

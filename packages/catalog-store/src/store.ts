@@ -238,6 +238,15 @@ export interface CatalogStore {
 
   recordWatch(event: WatchEventInput): Promise<number>
   updateWatchPosition(eventId: number, positionS: number, durationS: number): Promise<void>
+  /**
+   * Quita un episodio del historial: **todas** sus reproducciones, en cualquier
+   * modo. Devuelve cuántas filas se borraron; cero es «no estaba», no un error.
+   *
+   * Va por referencia de episodio y no por el `id` de una fila: la tarjeta que se
+   * pinta es la de la reproducción que ganó, pero el episodio tiene una fila por
+   * reproducción y borrar sólo la última lo haría reaparecer.
+   */
+  deleteEpisodeWatches(episodeRef: ProviderRef): Promise<number>
   listRecentlyWatched(limit: number): Promise<readonly WatchRecord[]>
   /**
    * El historial, por páginas: todo lo que se reprodujo, lo terminado incluido.
@@ -543,6 +552,9 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async updateWatchPosition(eventId, positionS, durationS) {
       await queue.run(() => of().watch.updateWatchPosition(eventId, positionS, durationS))
+    },
+    async deleteEpisodeWatches(episodeRef) {
+      return queue.run(() => of().watch.deleteEpisodeWatches(episodeRef))
     },
     async listRecentlyWatched(limit) {
       return of().watch.listRecentlyWatched(limit)

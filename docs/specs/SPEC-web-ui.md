@@ -66,6 +66,11 @@ GET  /api/catalog/recent?limit=      lo último que la aplicación ya conoce
 GET  /api/history?limit=             vistos recientemente
 POST /api/watch                      registrar inicio de reproducción
 PATCH /api/watch/:id                 actualizar posición
+DELETE /api/watch/episode?provider=&episode=
+                                     quitar un episodio del historial: borra **todas** sus
+                                     reproducciones, en cualquier modo y repetición, y no toca
+                                     otros episodios. 204 al borrar; 404 si ese episodio no
+                                     estaba; 400 si falta o sobra la referencia
 GET  /api/favorites   POST /api/favorites
 GET  /api/settings    PATCH /api/settings
 GET  /api/cover/:providerId/:ref     portada, servida por el proxy

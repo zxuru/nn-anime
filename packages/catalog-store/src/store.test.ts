@@ -262,6 +262,41 @@ describe('lecturas y escrituras', () => {
     })
   })
 
+  /**
+   * Quitar un episodio del historial.
+   *
+   * La fila que se pinta es una, pero el episodio tiene **una por reproducción y
+   * por modo**: si el borrado se quedara en la última, una fila vieja del mismo
+   * episodio lo haría reaparecer en la lectura siguiente. Se mide que se van
+   * todas, que las de otros episodios se quedan y que la segunda baja dice cero
+   * en vez de fallar.
+   */
+  test('quitar un episodio borra todas sus reproducciones y sólo las suyas', async () => {
+    await withStore(async ({ store }) => {
+      await store.writeAnimeWithEpisodes(AURORA, detalle(AURORA), episodios(AURORA))
+      await store.writeAnimeWithEpisodes(MAR, detalle(MAR), episodios(MAR))
+      await store.recordWatch(visionado(AURORA, 1))
+      await store.recordWatch({ ...visionado(AURORA, 1), mode: 'dub' })
+      await store.recordWatch({ ...visionado(AURORA, 1), startedAt: new Date(2_000_000) })
+      await store.recordWatch(visionado(AURORA, 2))
+      await store.recordWatch(visionado(MAR, 1))
+
+      expect(
+        await store.deleteEpisodeWatches({ providerId: 'fixture', value: 'aurora-nocturna#1' }),
+      ).toBe(3)
+
+      const quedan = (await store.listWatchHistory(10, 0))
+        .map((fila) => `${fila.anime.ref.value}#${fila.episodeNumber}`)
+        .sort()
+
+      expect(quedan).toEqual(['aurora-nocturna#2', 'mar-de-cristal#1'])
+      // La segunda baja no rompe: el episodio ya no estaba.
+      expect(
+        await store.deleteEpisodeWatches({ providerId: 'fixture', value: 'aurora-nocturna#1' }),
+      ).toBe(0)
+    })
+  })
+
   test('los ajustes se guardan con JSON y se validan al leer', async () => {
     await withStore(async ({ store }) => {
       await store.setSetting('tema', 'claro')

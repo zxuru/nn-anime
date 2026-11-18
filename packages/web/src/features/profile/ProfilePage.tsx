@@ -43,6 +43,11 @@ import { EsqueletoMosaico } from '../../components/EsqueletoMosaico'
 import { EstadoVacio } from '../../components/EstadoVacio'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
+import {
+  claveDeEpisodio,
+  QuitarDelHistorial,
+  useQuitadosDelHistorial,
+} from '../../components/QuitarDelHistorial'
 import { SeccionPagina } from '../../components/SeccionPagina'
 import { t } from '../../i18n'
 import { Link } from '../../router'
@@ -119,9 +124,12 @@ function SeccionResumen(props: {
 export function PiezaDeHistorial(props: {
   readonly item: WatchHistoryItem
   readonly indice: number
+  /** Cuando el servidor ya quitó el episodio: quien lista filtra la tarjeta. */
+  readonly onQuitado?: (() => void) | undefined
 }): ReactNode {
   const { item } = props
   const restante = remainingLabel(item)
+  const episodio = t(DEFAULT_LOCALE, 'home.episode', { number: item.episodeNumber })
 
   return (
     <Pieza
@@ -130,7 +138,19 @@ export function PiezaDeHistorial(props: {
       title={item.title}
       to={continuePath(item)}
       recurso={recursoDe(props.indice)}
-      episodio={t(DEFAULT_LOCALE, 'home.episode', { number: item.episodeNumber })}
+      episodio={episodio}
+      {...(props.onQuitado === undefined
+        ? {}
+        : {
+            accion: (
+              <QuitarDelHistorial
+                title={item.title}
+                episode={episodio}
+                episodeRef={item.episodeRef}
+                onQuitado={props.onQuitado}
+              />
+            ),
+          })}
       resto={
         item.finished
           ? t(DEFAULT_LOCALE, 'history.finished')
@@ -203,6 +223,14 @@ function Esqueleto(): ReactNode {
 
 export function ProfilePage(): ReactNode {
   const { state, data, error, reload } = useProfile()
+  /*
+    Las tarjetas que se acaban de quitar. El Perfil se leyó al entrar y no se
+    vuelve a leer al borrar, así que sin este filtro la tarjeta seguiría pintada
+    hasta salir de la pantalla. El gancho va antes de los retornos tempranos:
+    llamarlo sólo con datos rompería el orden de los ganchos al pasar de
+    «cargando» a «listo».
+  */
+  const { quitados, quitar } = useQuitadosDelHistorial()
 
   if (state === 'loading') return <Esqueleto />
 
@@ -212,7 +240,10 @@ export function ProfilePage(): ReactNode {
 
   if (data === undefined) return null
 
-  const historial = data.history
+  const historial = {
+    ...data.history,
+    items: data.history.items.filter((item) => !quitados.has(claveDeEpisodio(item.episodeRef))),
+  }
 
   return (
     <article className="pagina perfil">
@@ -287,9 +318,14 @@ export function ProfilePage(): ReactNode {
         ) : (
           <Mosaico className="mosaico--carrusel">
             {historial.items.map((item, indice) => (
-              // El servidor ya deja un renglón por episodio —el de su reproducción
-              // más reciente—, así que la clave es la fila del visionado.
-              <PiezaDeHistorial key={item.id} item={item} indice={indice} />
+              // El servidor ya deja un renglón por episodio -el de su reproducción
+              // más reciente-, así que la clave es la fila del visionado.
+              <PiezaDeHistorial
+                key={item.id}
+                item={item}
+                indice={indice}
+                onQuitado={() => quitar(item.episodeRef)}
+              />
             ))}
           </Mosaico>
         )}

@@ -1,5 +1,6 @@
 /**
- * Rutas de visionado: `POST /api/watch` y `PATCH /api/watch/:id`.
+ * Rutas de visionado: `POST /api/watch`, `PATCH /api/watch/:id` y la baja de un
+ * episodio con `DELETE /api/watch/episode`.
  *
  * Son dos y no una porque son dos momentos distintos: abrir la fila cuando la
  * reproducción **empieza de verdad**, y moverla mientras avanza. Sin el primer
@@ -16,6 +17,7 @@ import {
   errorResponseSchema,
   type WatchHistoryItem,
   type WatchRecord,
+  watchEpisodeQuerySchema,
   watchedRatio,
   watchHistoryResponseSchema,
   watchStartRequestSchema,
@@ -227,6 +229,44 @@ export function registerWatchRoutes(app: Hono, options: WatchRouteOptions): void
         hasMore,
       }),
     )
+  })
+
+  /**
+   * Quita un episodio del historial.
+   *
+   * La clave es la **referencia del episodio** —proveedor y valor, en la
+   * consulta— y no el `id` de la tarjeta: `watch_event` guarda una fila por
+   * reproducción y por modo, y borrar sólo la que se pintó deja las demás para
+   * que el episodio vuelva en la lectura siguiente. Cero filas es un 404 —ese
+   * episodio no está en el historial—; una referencia que falta es un 400 con el
+   * motivo delante.
+   */
+  app.delete('/api/watch/episode', async (c) => {
+    const parsed = watchEpisodeQuerySchema.safeParse({
+      provider: c.req.query('provider'),
+      episode: c.req.query('episode'),
+    })
+
+    if (!parsed.success) {
+      return c.json(
+        errorResponseSchema.parse({ error: `consulta inválida: ${parsed.error.message}` }),
+        400,
+      )
+    }
+
+    const borrados = await options.container.store.deleteEpisodeWatches({
+      providerId: parsed.data.provider,
+      value: parsed.data.episode,
+    })
+
+    if (borrados === 0) {
+      return c.json(
+        errorResponseSchema.parse({ error: 'ese episodio no está en el historial' }),
+        404,
+      )
+    }
+
+    return c.body(null, 204)
   })
 
   app.post('/api/watch', async (c) => {

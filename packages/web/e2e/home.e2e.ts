@@ -490,6 +490,75 @@ test.describe('la home', () => {
     expect(cajaSeguir?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(page.viewportSize()?.height ?? 0)
   })
 
+  /**
+   * Quitar una tarjeta del historial desde la home.
+   *
+   * El gesto entero es de navegador: el mando abre la confirmación, la baja va al
+   * servidor y la tarjeta desaparece sin recargar. Se siembra por la puerta de la
+   * aplicación —abrir la ficha y `POST /api/watch` + `PATCH`, como el reproductor—
+   * porque el alta exige que el episodio esté en la base. Se usa una obra que no
+   * tocan las demás pruebas del arnés.
+   */
+  test('una tarjeta de «continuar viendo» se puede quitar del historial', async ({ page }) => {
+    const REF = 'kaiju-de-barrio'
+    const EPISODIO = { providerId: 'fixture', value: `${REF}#2` }
+
+    await entrar(page)
+    await page.goto(`/anime/fixture/${REF}`)
+    await expect(page.locator('.detail__etiquetas').first()).toBeVisible({ timeout: 15_000 })
+
+    await page.evaluate(
+      async ({ animeRef, episodeRef }) => {
+        const alta = await fetch('/api/watch', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ animeRef, episodeRef, mode: 'sub' }),
+        })
+        const { id } = (await alta.json()) as { id: number }
+
+        // Sin un avance por encima del 2 % no entra en «continuar viendo».
+        await fetch(`/api/watch/${id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ positionS: 600, durationS: 1440 }),
+        })
+      },
+      {
+        animeRef: { providerId: 'fixture', value: REF },
+        episodeRef: EPISODIO,
+      },
+    )
+
+    await page.goto('/')
+    await esperarApp(page)
+
+    const fila = page.locator('.seccion', {
+      has: page.getByRole('heading', { name: 'Continuar viendo' }),
+    })
+    const tarjeta = fila.locator('.pz', { hasText: 'Kaiju de Barrio' })
+
+    await expect(tarjeta).toHaveCount(1, { timeout: 15_000 })
+    // Fuera del enlace: el mando es un botón y no un botón dentro del `<a>`.
+    await expect(tarjeta.locator('.pz__enlace .pz__quitar')).toHaveCount(0)
+
+    await tarjeta
+      .getByRole('button', { name: 'Quitar del historial: Kaiju de Barrio, Ep. 2' })
+      .click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Quitar', exact: true }).click()
+
+    await expect(tarjeta).toHaveCount(0)
+    // Y no vuelve tras la relectura: el servidor ya no la tiene.
+    await page.reload()
+    await esperarApp(page)
+    await expect(fila.locator('.pz', { hasText: 'Kaiju de Barrio' })).toHaveCount(0)
+
+    const reciente = (await (await page.request.get('/api/watch/recent')).json()) as {
+      items: { episodeRef: { value: string } }[]
+    }
+
+    expect(reciente.items.some((item) => item.episodeRef.value === EPISODIO.value)).toBe(false)
+  })
+
   test('el tema se aplica al documento', async ({ page }) => {
     await entrar(page)
 

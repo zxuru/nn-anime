@@ -216,6 +216,25 @@ export function createWatchRepository(db: Database) {
     },
 
     /**
+     * Borra **todas** las reproducciones de un episodio. Devuelve cuántas eran.
+     *
+     * Se borra por episodio y no por fila porque `watch_event` guarda una fila
+     * por reproducción y por modo: quitar sólo la más reciente dejaría las viejas
+     * del mismo episodio y la tarjeta volvería en la lectura siguiente, que es
+     * justo lo que el gesto venía a evitar. No toca otros episodios ni el resto
+     * del perfil: los favoritos y las marcas de visto de la obra se quedan.
+     *
+     * Cero filas es una respuesta —«ese episodio no está en el historial»— y no
+     * un error: quien pulsa dos veces, o desde dos pantallas, no ha roto nada.
+     */
+    deleteEpisodeWatches(episodeRef: ProviderRef): number {
+      const episodeId = episodeLookup(episodeRef)
+      if (episodeId === undefined) return 0
+
+      return db.query('DELETE FROM watch_event WHERE episode_id = ?').run(episodeId).changes
+    },
+
+    /**
      * El historial, por páginas: **un episodio, un renglón**.
      *
      * La pantalla es una rejilla de tarjetas, y repetir la misma obra porque se
