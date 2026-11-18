@@ -149,6 +149,20 @@ describe('servido de la interfaz', () => {
     })
   })
 
+  test('un archivo de `public/` sin hash no se cachea un año', async () => {
+    await withAssets(async (root) => {
+      await writeFile(join(root, 'theme-boot.js'), 'console.log(1)')
+      await mkdir(join(root, 'brand'), { recursive: true })
+      await writeFile(join(root, 'brand', 'logo.svg'), '<svg></svg>')
+
+      const boot = await appWithAssets(root).request(`${BASE}/theme-boot.js`)
+      const logo = await appWithAssets(root).request(`${BASE}/brand/logo.svg`)
+
+      expect(boot.headers.get('cache-control')).toBe('no-cache')
+      expect(logo.headers.get('cache-control')).toBe('no-cache')
+    })
+  })
+
   test('cachea los recursos, que llevan hash en el nombre', async () => {
     await withAssets(async (root) => {
       const response = await appWithAssets(root).request(`${BASE}/assets/app.js`)
