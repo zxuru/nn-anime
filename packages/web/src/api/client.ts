@@ -291,3 +291,12 @@ export function apiPatch(
 ): Promise<void> {
   return send(path, { ...options, method: 'PATCH', body }, deps)
 }
+
+/** Un `DELETE` sin cuerpo de respuesta: la baja de una fila del historial. */
+export function apiDelete(
+  path: string,
+  options: Omit<RequestOptions, 'method' | 'body'> = {},
+  deps?: RequestDeps,
+): Promise<void> {
+  return send(path, { ...options, method: 'DELETE' }, deps)
+}

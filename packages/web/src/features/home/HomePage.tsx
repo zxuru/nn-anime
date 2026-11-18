@@ -31,6 +31,7 @@ import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { AnimeSummary } from '@rona/core/models'
 import { type ReactNode, useState } from 'react'
 import { ErrorNotice } from '../../components/ErrorNotice'
+import { claveDeEpisodio, useQuitadosDelHistorial } from '../../components/QuitarDelHistorial'
 import { t } from '../../i18n'
 import { usePath } from '../../router'
 import { ANCLAS } from '../guia/guia'
@@ -281,6 +282,13 @@ export function HomePage(props: HomePageProps): ReactNode {
     fila ni la entrada, sólo deja de pintar la marca que el servidor ya calculó.
   */
   const [avisosQuieroVer] = useState(() => leerAvisosQuieroVer(almacenLocal()))
+  /*
+    Lo que se acaba de quitar del historial. La home se relee cada dos minutos,
+    así que sin este filtro la tarjeta seguiría en pantalla después de borrarla;
+    con él desaparece al confirmar y la relectura ya no la trae. El gancho va
+    antes de los retornos tempranos, porque tiene que llamarse siempre.
+  */
+  const { quitados, quitar } = useQuitadosDelHistorial()
   const cargandoFilas = filas.loading
   // La lista vacía sólo es «no hay proveedores» si la lectura terminó bien: el
   // aviso del primer arranque no puede apoyarse en una lectura que falló.
@@ -364,7 +372,9 @@ export function HomePage(props: HomePageProps): ReactNode {
     y añadirlo a esa ruta es otro cambio.
   */
   const favoritos = enElTipo(filas.favorites, tipo, medias, fuenteDeResumen)
-  const continuar = enElTipo(filas.continueWatching, tipo, medias, fuenteDeVisionado)
+  const continuar = enElTipo(filas.continueWatching, tipo, medias, fuenteDeVisionado).filter(
+    (item) => !quitados.has(claveDeEpisodio(item.episodeRef)),
+  )
 
   /*
     Un título, una vez en la pantalla. El destacado y las recomendaciones son lo
@@ -432,7 +442,9 @@ export function HomePage(props: HomePageProps): ReactNode {
         página, que es justo lo que no debe hacer una instalación nueva. Se queda
         después del destacado, donde el hueco no cuesta.
       */}
-      {continuar.length === 0 ? null : <ContinueRow items={continuar} cargando={cargandoFilas} />}
+      {continuar.length === 0 ? null : (
+        <ContinueRow items={continuar} cargando={cargandoFilas} onQuitar={quitar} />
+      )}
 
       {/*
         La marquesina lleva dentro la marca de refresco y la cinta: las tres cosas
@@ -465,7 +477,9 @@ export function HomePage(props: HomePageProps): ReactNode {
 
       {/* Sin nada que retomar, la fila se explica aquí: debajo del destacado y no
           en el primer renglón de la página. */}
-      {continuar.length === 0 ? <ContinueRow items={continuar} cargando={cargandoFilas} /> : null}
+      {continuar.length === 0 ? (
+        <ContinueRow items={continuar} cargando={cargandoFilas} onQuitar={quitar} />
+      ) : null}
 
       {/*
         El motor va segundo y con su tramo entero: el motivo viaja en cada pieza,

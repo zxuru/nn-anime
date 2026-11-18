@@ -13,6 +13,7 @@
 
 import { z } from 'zod'
 import { ANILIST_RELATIONS } from './anilist'
+import type { ProviderRef } from './models'
 import {
   githubRepoFromUrl,
   MAX_ENABLED_REPO_FILES,
@@ -412,6 +413,35 @@ export const watchUpdateRequestSchema = z.strictObject({
   positionS: z.number().nonnegative(),
   durationS: z.number().nonnegative(),
 })
+
+/**
+ * La baja de un episodio del historial: `DELETE /api/watch/episode`.
+ *
+ * Se identifica con la **referencia del episodio** —proveedor y valor— y no con
+ * el número reconstruido: con numeración por temporada, `animeRef#number` señala
+ * otro episodio y el borrado se llevaría el equivocado. El `id` de una fila
+ * tampoco sirve: `watch_event` guarda una por reproducción y por modo, y borrar
+ * sólo la última deja las demás para que la tarjeta vuelva en la lectura
+ * siguiente.
+ */
+export const watchEpisodeQuerySchema = z.strictObject({
+  provider: z.string().min(1),
+  episode: z.string().min(1),
+})
+
+/**
+ * La dirección de la baja, compuesta una sola vez.
+ *
+ * La consulta se escribe a mano y no con `URLSearchParams`: ése codifica los
+ * espacios como `+` y el resto de la aplicación los escribe como `%20`, así que la
+ * misma referencia acabaría con dos claves distintas en la caché del cliente.
+ */
+export function watchEpisodePath(episodeRef: ProviderRef): string {
+  const provider = encodeURIComponent(episodeRef.providerId)
+  const episode = encodeURIComponent(episodeRef.value)
+
+  return `/api/watch/episode?provider=${provider}&episode=${episode}`
+}
 
 /**
  * Una recomendación, tal y como la ve el cliente.
@@ -1267,6 +1297,7 @@ export type RecommendationsResponse = z.infer<typeof recommendationsResponseSche
 export type WatchStartRequest = z.infer<typeof watchStartRequestSchema>
 export type WatchStartResponse = z.infer<typeof watchStartResponseSchema>
 export type WatchUpdateRequest = z.infer<typeof watchUpdateRequestSchema>
+export type WatchEpisodeQuery = z.infer<typeof watchEpisodeQuerySchema>
 export type StreamResolveResponse = z.infer<typeof streamResolveResponseSchema>
 export type StreamSourceResponse = z.infer<typeof streamSourceResponseSchema>
 export type FavoriteRequest = z.infer<typeof favoriteRequestSchema>

@@ -22,6 +22,7 @@ import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { EsqueletoMosaico } from '../../components/EsqueletoMosaico'
 import { Mosaico } from '../../components/Mosaico'
+import { claveDeEpisodio, useQuitadosDelHistorial } from '../../components/QuitarDelHistorial'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
 import { Link, useNavigate, usePath } from '../../router'
@@ -54,6 +55,11 @@ export function HistoryPage(props: HistoryPageProps): ReactNode {
   const path = props.path ?? ruta
   const page = pageOfPath(path)
   const { state, data, error, reload } = useHistoryPage(page)
+  /*
+    Las tarjetas quitadas en esta visita. Va antes de los retornos tempranos: el
+    gancho tiene que llamarse siempre, y este orden es el mismo en cada render.
+  */
+  const { quitados, quitar } = useQuitadosDelHistorial()
   const navigate = useNavigate()
 
   if (state === 'loading') {
@@ -105,7 +111,8 @@ export function HistoryPage(props: HistoryPageProps): ReactNode {
 
   if (data === undefined) return null
 
-  const vacio = data.items.length === 0
+  const items = data.items.filter((item) => !quitados.has(claveDeEpisodio(item.episodeRef)))
+  const vacio = items.length === 0
   // Una página sin filas **y** sin nada detrás es que no hay historial; si hay algo
   // detrás, es que se pidió una página más allá del final y eso se dice distinto.
   const sinNada = vacio && page === 1
@@ -122,7 +129,7 @@ export function HistoryPage(props: HistoryPageProps): ReactNode {
         <SectionHeader
           title={t(DEFAULT_LOCALE, 'history.section')}
           meta={t(DEFAULT_LOCALE, 'history.meta')}
-          {...(vacio ? {} : { cuenta: cuentaDeTitulos(data.items.length) })}
+          {...(vacio ? {} : { cuenta: cuentaDeTitulos(items.length) })}
         />
 
         <div className="seccion__cuerpo">
@@ -132,10 +139,15 @@ export function HistoryPage(props: HistoryPageProps): ReactNode {
             </p>
           ) : (
             <Mosaico>
-              {data.items.map((item, indice) => (
+              {items.map((item, indice) => (
                 // Un renglón por episodio: el servidor ya se ha quedado con la
                 // reproducción más reciente de cada uno.
-                <PiezaDeHistorial key={item.id} item={item} indice={indice} />
+                <PiezaDeHistorial
+                  key={item.id}
+                  item={item}
+                  indice={indice}
+                  onQuitado={() => quitar(item.episodeRef)}
+                />
               ))}
             </Mosaico>
           )}

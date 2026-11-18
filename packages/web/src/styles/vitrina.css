@@ -1713,6 +1713,58 @@
   pointer-events: auto;
 }
 
+/*
+ * Quitar del historial.
+ *
+ * Va en la esquina contraria a la hoja para que los dos mandos no se pisen, y a
+ * diferencia de ella **no espera al puntero**: quitar una tarjeta es una acción
+ * que tiene que estar a la vista y alcanzarse con el tabulador, no un extra que
+ * aparece al pasar por encima. Vive fuera del enlace de la pieza, porque dentro
+ * de un `<a>` no habría botón.
+ */
+.pz__quitar {
+  position: absolute;
+  z-index: 5;
+  inset-block-start: var(--space-2);
+  inset-inline-start: var(--space-2);
+  inline-size: var(--pieza-mando);
+  block-size: var(--pieza-mando);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: var(--border-width) solid var(--pieza-mando-borde);
+  border-radius: var(--radius-full);
+  background: var(--pieza-mando-fondo);
+  color: var(--color-on-overlay);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.pz__quitar:hover,
+.pz__quitar:focus-visible {
+  border-color: var(--color-accent);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+/* El fallo de la baja, sobre la pieza: la tarjeta se queda y se dice por qué. */
+.pz__quitar-fallo {
+  position: absolute;
+  z-index: 6;
+  inset-inline: var(--space-1);
+  inset-block-end: var(--space-1);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-size: var(--text-xs);
+}
+
 /* Asomo: aparece dentro de la pieza cuando hay puntero o foco. Es un panel
    opaco —tono, no velo— con su borde: el texto no depende del arte de debajo. */
 .pz__asomo {

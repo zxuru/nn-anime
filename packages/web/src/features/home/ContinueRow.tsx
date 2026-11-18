@@ -16,10 +16,12 @@
 
 import type { ContinueWatchingItem } from '@rona/core/api'
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import type { ProviderRef } from '@rona/core/models'
 import { History } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Mosaico } from '../../components/Mosaico'
 import { Pieza, recursoDe } from '../../components/Pieza'
+import { QuitarDelHistorial } from '../../components/QuitarDelHistorial'
 import { SectionHeader } from '../../components/SectionHeader'
 import { TramoVacio } from '../../components/TramoVacio'
 import { t } from '../../i18n'
@@ -32,6 +34,11 @@ export interface ContinueRowProps {
   readonly items: readonly ContinueWatchingItem[]
   /** Si la lectura de esta fila sigue en vuelo. */
   readonly cargando?: boolean | undefined
+  /**
+   * Se llama cuando el servidor ya quitó un episodio. Quien filtra la lista es
+   * la home: la fila sólo pinta lo que le dan.
+   */
+  readonly onQuitar?: ((episodeRef: ProviderRef) => void) | undefined
 }
 
 export function ContinueRow(props: ContinueRowProps): ReactNode {
@@ -61,10 +68,24 @@ export function ContinueRow(props: ContinueRowProps): ReactNode {
           ) : (
             props.items.map((item, indice) => {
               const restante = remainingLabel(item)
+              const onQuitar = props.onQuitar
+              const episodio = t(DEFAULT_LOCALE, 'home.episode', { number: item.episodeNumber })
 
               return (
                 <Pieza
                   key={`${item.animeRef.providerId}:${item.episodeRef.value}`}
+                  {...(onQuitar === undefined
+                    ? {}
+                    : {
+                        accion: (
+                          <QuitarDelHistorial
+                            title={item.title}
+                            episode={episodio}
+                            episodeRef={item.episodeRef}
+                            onQuitado={() => onQuitar(item.episodeRef)}
+                          />
+                        ),
+                      })}
                   providerId={item.animeRef.providerId}
                   ref={item.animeRef.value}
                   title={item.title}
