@@ -22,12 +22,14 @@ import {
   type ConfigPaths,
   DEV_BOOT_NEXT_PARAM,
   DEV_BOOT_PATH,
+  errorResponseSchema,
   healthResponseSchema,
   type Logger,
 } from '@rona/core'
 import type { FetchLike, RemuxFn, Resolver } from '@rona/media-proxy'
 import type { LoadReport } from '@rona/provider-sdk'
 import { Hono } from 'hono'
+import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
 import { type AniListCatalog, createAniListCatalog } from './anilist/catalog'
 import { anilistOfflineFromEnv, createAniListClient } from './anilist/client'
@@ -268,6 +270,26 @@ function resolvePort(source: PortSource): number {
 
 export function createApp(options: AppOptions): Hono {
   const app = new Hono()
+
+  /**
+   * Un fallo no controlado no sale en texto plano.
+   *
+   * Hono devuelve un 500 sin forma y sin pasar por el logger; el cliente espera
+   * `{ error }` en todas las respuestas de la API. Aquí se conserva el estado de
+   * una `HTTPException`, se registra el fallo y se contesta con el schema.
+   */
+  app.onError((error, c) => {
+    const mensaje = error instanceof Error ? error.message : String(error)
+    options.logger?.error('error no controlado', {
+      method: c.req.method,
+      path: c.req.path,
+      message: mensaje,
+    })
+
+    const status = error instanceof HTTPException ? error.status : 500
+
+    return c.json(errorResponseSchema.parse({ error: mensaje }), status)
+  })
   const getPort = (): number => resolvePort(options.port)
 
   // En modo token la sesión sale del token fijo, no de una cookie efímera: que

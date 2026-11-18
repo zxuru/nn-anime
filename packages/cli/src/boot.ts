@@ -17,6 +17,7 @@ import {
   ensureDirs,
   formatBootLine,
   type Locale,
+  type Logger,
   loadConfig,
   RECOMMENDED_PROVIDER_REPO,
   type Result,
@@ -252,6 +253,8 @@ export interface BootDeps {
   readonly io: CliIO
   readonly version: string
   readonly locale: Locale
+  /** El logger del proceso; si falta, el servidor no registra sus 500. */
+  readonly logger?: Logger | undefined
   readonly lifecycle: Lifecycle
   readonly env: ConfigEnvironment
   /**
@@ -469,6 +472,7 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     ...(network === undefined ? {} : { network }),
     ...(deps.mpvVersion === undefined ? {} : { mpvVersion: deps.mpvVersion }),
     ...(deps.allowLoopback === undefined ? {} : { allowLoopback: deps.allowLoopback }),
+    ...(deps.logger === undefined ? {} : { logger: deps.logger }),
     ...(container === undefined ? {} : { container }),
   })
 
