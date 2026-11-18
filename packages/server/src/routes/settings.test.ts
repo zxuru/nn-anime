@@ -53,7 +53,13 @@ async function conApp<T>(
       bootToken: 'token',
       version: '0.1.0',
       plugins: {
-        active: [{ provider: proveedor, file: '/plugins/fixture.ts' }],
+        active: [
+          {
+            provider: proveedor,
+            file: '/plugins/fixture.ts',
+            lastError: { message: 'aviso en C:\\Users\\ana\\plugins\\fixture.ts' },
+          },
+        ],
         rejected: [
           { file: '/plugins/roto.ts', reason: { message: 'no exporta un proveedor válido' } },
         ],
@@ -171,6 +177,18 @@ describe('GET /api/settings', () => {
 
       expect(rechazado?.reason).toContain('no exporta')
       expect(rechazado?.capabilities.search).toBe(false)
+      // El último error viaja también a Ajustes, que es de donde lee la lista.
+      expect(rechazado?.lastError).toContain('no exporta')
+    })
+  })
+
+  test('el último error del proveedor activo no lleva rutas absolutas', async () => {
+    await conApp(async ({ pedir }) => {
+      const salida = settingsResponseSchema.parse(await (await pedir('/api/settings')).json())
+      const activo = salida.providers.find((provider) => provider.status === 'active')
+
+      expect(activo?.lastError).toBeDefined()
+      expect(activo?.lastError).not.toContain('C:\\')
     })
   })
 

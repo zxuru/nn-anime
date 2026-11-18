@@ -18,10 +18,12 @@
  * «ACTIVO» y «PREFERIDO» se distinguen por la forma además de por el texto.
  */
 
-import type { SettingsResponse } from '@rona/core/api'
+import type { ProviderProbeResponse, SettingsResponse } from '@rona/core/api'
+import { providerProbeResponseSchema } from '@rona/core/api'
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { mediaOf } from '@rona/core/media'
 import {
+  Activity,
   Bell,
   Captions,
   ChevronDown,
@@ -34,8 +36,117 @@ import {
   TrendingUp,
   Tv,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
+import { apiPostJson, type RequestDeps } from '../../api/client'
+import { describirFallo } from '../../api/fallo'
+import { resumenDeFallo } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
+
+/**
+ * Prueba un proveedor contra su ruta del servidor.
+ *
+ * La ruta no guarda nada: el resultado se queda en el estado de esta fila y
+ * desaparece al recargar. Las dependencias se pueden inyectar para medir la
+ * llamada sin red, igual que en el resto del cliente HTTP.
+ */
+export function probeProvider(id: string, deps?: RequestDeps): Promise<ProviderProbeResponse> {
+  return apiPostJson(
+    `/api/providers/${encodeURIComponent(id)}/probe`,
+    {},
+    providerProbeResponseSchema,
+    {},
+    deps,
+  )
+}
+
+/** Lo que se sabe de una prueba mientras se hace o después. */
+export type ProbeState =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'running' }
+  | { readonly kind: 'done'; readonly result: ProviderProbeResponse }
+  | { readonly kind: 'unreachable'; readonly message: string }
+
+/** El texto de una prueba, o vacío mientras no hay nada que contar. */
+export function probeStatusText(state: ProbeState): string {
+  if (state.kind === 'idle') return ''
+  if (state.kind === 'running') return t(DEFAULT_LOCALE, 'settings.provider.probeRunning')
+  if (state.kind === 'unreachable') {
+    return t(DEFAULT_LOCALE, 'settings.provider.probeUnreachable', { message: state.message })
+  }
+
+  if (state.result.ok) {
+    return t(DEFAULT_LOCALE, 'settings.provider.probeOk', { ms: state.result.latencyMs })
+  }
+
+  return t(DEFAULT_LOCALE, 'settings.provider.probeFailed', { message: state.result.error ?? '' })
+}
+
+/**
+ * El resultado de una prueba, en la región viva de la fila.
+ *
+ * Es `role="status"` porque la prueba termina sin que el foco se mueva: sin
+ * anunciarlo, quien usa un lector de pantalla pulsa «Probar» y no oye nada.
+ */
+export function ProbeStatus(props: { readonly state: ProbeState }): ReactNode {
+  const falla =
+    props.state.kind === 'unreachable' || (props.state.kind === 'done' && !props.state.result.ok)
+
+  return (
+    <span className={falla ? 'search__error' : 'field__hint'} role="status" aria-live="polite">
+      {probeStatusText(props.state)}
+    </span>
+  )
+}
+
+/** El mensaje de un fallo al hablar con la ruta: primero lo que dijo el servidor. */
+function messageOf(cause: unknown): string {
+  const fallo = describirFallo(cause)
+
+  return fallo.detalle ?? resumenDeFallo(fallo)
+}
+
+/**
+ * El botón de probar de una fila.
+ *
+ * El estado es local a la fila a propósito: probar una fuente no deshabilita las
+ * demás ni la lista entera. Es un diagnóstico, no una operación de la pantalla.
+ */
+function ProbeButton(props: {
+  readonly provider: Provider
+  readonly probe: (id: string) => Promise<ProviderProbeResponse>
+}): ReactNode {
+  const [state, setState] = useState<ProbeState>({ kind: 'idle' })
+  const ejecutando = state.kind === 'running'
+  const etiqueta = t(DEFAULT_LOCALE, 'settings.provider.probeLabel', {
+    provider: props.provider.name,
+  })
+
+  function probar(): void {
+    setState({ kind: 'running' })
+
+    void props.probe(props.provider.id).then(
+      (result) => setState({ kind: 'done', result }),
+      (cause: unknown) => setState({ kind: 'unreachable', message: messageOf(cause) }),
+    )
+  }
+
+  return (
+    <span className="settings__caps">
+      <button
+        type="button"
+        className="settings__link settings__link--icono"
+        disabled={ejecutando}
+        aria-label={etiqueta}
+        title={etiqueta}
+        onClick={probar}
+      >
+        <Activity size={14} strokeWidth={2} aria-hidden="true" focusable="false" />
+        {t(DEFAULT_LOCALE, 'settings.provider.probe')}
+      </button>
+      <ProbeStatus state={state} />
+    </span>
+  )
+}
 
 export interface ProviderListProps {
   readonly providers: SettingsResponse['providers']
@@ -43,6 +154,13 @@ export interface ProviderListProps {
   readonly priority?: readonly string[]
   /** Recibe la lista de activos entera, ya reordenada. */
   readonly onReorder?: (order: readonly string[]) => void
+  /**
+   * Ejecuta la prueba de un proveedor.
+   *
+   * Por defecto llama a `POST /api/providers/:id/probe`; las pruebas de la
+   * pantalla inyectan un doble para medir lo que se pinta sin abrir la red.
+   */
+  readonly onProbe?: (id: string) => Promise<ProviderProbeResponse>
 }
 
 type Provider = SettingsResponse['providers'][number]
@@ -195,6 +313,7 @@ export function ProviderList(props: ProviderListProps): ReactNode {
   const orden = providersByPriority(props.providers, props.priority ?? [])
   const activos = orden.filter((provider) => provider.status === 'active').map((p) => p.id)
   const reordenable = props.onReorder !== undefined
+  const probe = props.onProbe ?? probeProvider
 
   return (
     <>
@@ -216,8 +335,17 @@ export function ProviderList(props: ProviderListProps): ReactNode {
               {/* También en un rechazado: «sin capacidades» es justo lo que
                   explica por qué no sirve, y esconderlo dejaba el motivo solo. */}
               <Capabilities capabilities={provider.capabilities} />
-              {provider.reason === undefined ? null : (
-                <span className="search__error">{provider.reason}</span>
+              {provider.status === 'active' && provider.capabilities.search ? (
+                <ProbeButton provider={provider} probe={probe} />
+              ) : null}
+              {provider.lastError === undefined && provider.reason === undefined ? null : (
+                <span className="search__error">
+                  {provider.lastError === undefined
+                    ? provider.reason
+                    : t(DEFAULT_LOCALE, 'settings.provider.lastError', {
+                        message: provider.lastError,
+                      })}
+                </span>
               )}
               {puesto === -1 || !reordenable ? null : (
                 <span className="settings__order">

@@ -8,7 +8,14 @@ import { t } from '../../i18n'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { DownloadsSummary } from './DownloadsSettings'
 import { IndiceAjustes, primeraVisible } from './IndiceAjustes'
-import { moved, ProviderList, providersByPriority } from './ProviderList'
+import {
+  moved,
+  ProbeStatus,
+  ProviderList,
+  probeProvider,
+  probeStatusText,
+  providersByPriority,
+} from './ProviderList'
 import { QualitySettings } from './QualitySettings'
 import { RegisterProvider } from './RegisterProvider'
 import { SettingsPage } from './SettingsPage'
@@ -142,6 +149,115 @@ describe('lista de proveedores', () => {
 
   test('sin proveedores lo dice', () => {
     expect(render(<ProviderList providers={[]} />)).toContain('No hay ningún proveedor instalado')
+  })
+
+  test('un activo que busca ofrece probarlo y su resultado tiene región viva', () => {
+    const html = render(
+      <ProviderList
+        providers={[{ id: 'mio', name: 'Mi fuente', capabilities: CAPACIDADES, status: 'active' }]}
+        onProbe={async () => ({ ok: true, latencyMs: 12 })}
+      />,
+    )
+
+    expect(html).toContain('Probar')
+    expect(html).toContain('aria-label="Probar Mi fuente"')
+    expect(html).toContain('role="status"')
+    expect(html).toContain('aria-live="polite"')
+  })
+
+  test('un rechazado no ofrece probarlo: no hay con qué', () => {
+    const html = render(
+      <ProviderList
+        providers={[
+          {
+            id: 'roto.ts',
+            name: 'roto.ts',
+            capabilities: { search: false, sub: false, dub: false, trending: false, feed: false },
+            status: 'rejected',
+            reason: 'no exporta un proveedor válido',
+          },
+        ]}
+      />,
+    )
+
+    expect(html).not.toContain('Probar')
+  })
+
+  test('el último error de carga se enseña bajo el estado', () => {
+    const html = render(
+      <ProviderList
+        providers={[
+          {
+            id: 'mio',
+            name: 'Mi fuente',
+            capabilities: CAPACIDADES,
+            status: 'active',
+            lastError: 'no se pudo importar …: falta la carátula',
+          },
+        ]}
+      />,
+    )
+
+    expect(html).toContain('Último error:')
+    expect(html).toContain('falta la carátula')
+  })
+})
+
+describe('el resultado de probar un proveedor', () => {
+  test('una respuesta enseña la latencia', () => {
+    const html = render(
+      <ProbeStatus state={{ kind: 'done', result: { ok: true, latencyMs: 123 } }} />,
+    )
+
+    expect(html).toContain('role="status"')
+    expect(html).toContain('123 ms')
+  })
+
+  test('un fallo del proveedor enseña el motivo con la marca de error', () => {
+    const html = render(
+      <ProbeStatus
+        state={{
+          kind: 'done',
+          result: { ok: false, latencyMs: 40, error: 'el sitio respondió 500' },
+        }}
+      />,
+    )
+
+    expect(html).toContain('el sitio respondió 500')
+    expect(html).toContain('search__error')
+  })
+
+  test('un fallo al hablar con la ruta también se cuenta', () => {
+    expect(probeStatusText({ kind: 'unreachable', message: 'sin conexión' })).toContain(
+      'sin conexión',
+    )
+  })
+
+  test('`probeProvider` llama a la ruta del proveedor y valida la respuesta', async () => {
+    const llamadas: { readonly input: string; readonly init: RequestInit }[] = []
+    const resultado = await probeProvider('mi fuente', {
+      fetch: async (input, init) => {
+        llamadas.push({ input, init })
+        return new Response(JSON.stringify({ ok: true, latencyMs: 7 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      },
+    })
+
+    expect(resultado).toEqual({ ok: true, latencyMs: 7 })
+    expect(llamadas).toHaveLength(1)
+    expect(llamadas[0]?.input).toBe('/api/providers/mi%20fuente/probe')
+    expect(llamadas[0]?.init.method).toBe('POST')
+  })
+
+  test('una respuesta con la forma cambiada no se acepta', async () => {
+    await expect(
+      probeProvider('mio', {
+        fetch: async () =>
+          new Response(JSON.stringify({ ok: true, latencyMs: '7' }), { status: 200 }),
+      }),
+    ).rejects.toThrow()
   })
 })
 

@@ -422,6 +422,13 @@ export const messages: Messages = {
   'settings.provider.active': 'activo',
   'settings.provider.rejected': 'rechazado',
   'settings.provider.preferred': 'preferido',
+  'settings.provider.lastError': 'Último error: {message}',
+  'settings.provider.probe': 'Probar',
+  'settings.provider.probeLabel': 'Probar {provider}',
+  'settings.provider.probeRunning': 'Probando…',
+  'settings.provider.probeOk': 'Responde en {ms} ms.',
+  'settings.provider.probeFailed': 'No responde: {message}',
+  'settings.provider.probeUnreachable': 'No se pudo probar: {message}',
   'settings.priority.body':
     'Cuando la misma obra está en varios, la tarjeta de la búsqueda lleva al primero de la lista. El orden se guarda solo.',
   'settings.priority.up': 'Subir {provider}',
