@@ -37,9 +37,12 @@ export {
 export {
   createFfmpegRemux,
   type DownloadEngineInput,
+  type DownloadedSubtitle,
   type DownloadOutcome,
   type DownloadPaths,
   type DownloadStream,
+  type DownloadSubtitleFailure,
+  type DownloadSubtitleTrack,
   type DownloadTaskInput,
   downloadPaths,
   downloadTask,

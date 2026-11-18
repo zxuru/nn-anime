@@ -10,7 +10,13 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import { StoreError, type StreamMode, streamModeSchema } from '@rona/core'
+import {
+  StoreError,
+  type StreamMode,
+  type SubtitleFormat,
+  streamModeSchema,
+  subtitleFormatSchema,
+} from '@rona/core'
 import { z } from 'zod'
 
 export const downloadStatusSchema = z.enum([
@@ -77,6 +83,35 @@ export interface DownloadPatch {
   readonly error?: string | null
 }
 
+/**
+ * Una pista de subtítulos que quedó guardada junto al vídeo.
+ *
+ * `path` es la ruta del archivo, relativa a la raíz de descargas. No se guarda
+ * nunca la dirección del upstream: con el vídeo ya en disco, esa URL puede
+ * caducar y no hace falta para servir la pista.
+ */
+export interface DownloadSubtitleRecord {
+  readonly downloadId: number
+  /** Posición en la lista del proveedor: es la que viaja en la URL servida. */
+  readonly indice: number
+  readonly lang: string
+  readonly label: string
+  readonly format: SubtitleFormat
+  /** Ruta relativa a la raíz de descargas. */
+  readonly path: string
+  readonly isDefault: boolean
+}
+
+/** La pista que la cola acaba de bajar, antes de asignarle su descarga. */
+export interface NewDownloadSubtitle {
+  readonly indice: number
+  readonly lang: string
+  readonly label: string
+  readonly format: SubtitleFormat
+  readonly path: string
+  readonly isDefault?: boolean | undefined
+}
+
 interface DownloadRow {
   readonly id: number
   readonly provider_id: string
@@ -127,6 +162,38 @@ function toRecord(row: DownloadRow): DownloadRecord {
   }
 }
 
+interface DownloadSubtitleRow {
+  readonly download_id: number
+  readonly indice: number
+  readonly lang: string
+  readonly label: string
+  readonly format: string
+  readonly path: string
+  readonly is_default: number
+}
+
+function toSubtitle(row: DownloadSubtitleRow): DownloadSubtitleRecord {
+  const format = subtitleFormatSchema.safeParse(row.format)
+
+  if (!format.success) {
+    throw new StoreError({
+      message: `el subtítulo ${row.indice} de la descarga ${row.download_id} tiene un formato que no existe: ${row.format}`,
+      scope: 'catalog-store',
+      op: 'readDownloadSubtitle',
+    })
+  }
+
+  return {
+    downloadId: row.download_id,
+    indice: row.indice,
+    lang: row.lang,
+    label: row.label,
+    format: format.data,
+    path: row.path,
+    isDefault: row.is_default !== 0,
+  }
+}
+
 export function createDownloadRepository(db: Database, now: () => number = Date.now) {
   const porId = db.query<DownloadRow, [number]>('SELECT * FROM download WHERE id = ?')
   const porEpisodio = db.query<DownloadRow, [string, string]>(
@@ -134,6 +201,12 @@ export function createDownloadRepository(db: Database, now: () => number = Date.
   )
   const listado = db.query<DownloadRow, [number]>(
     'SELECT * FROM download ORDER BY created_at DESC, id DESC LIMIT ?',
+  )
+  const subtitulosPorDescarga = db.query<DownloadSubtitleRow, [number]>(
+    'SELECT * FROM download_subtitle WHERE download_id = ? ORDER BY indice',
+  )
+  const subtituloPorIndice = db.query<DownloadSubtitleRow, [number, number]>(
+    'SELECT * FROM download_subtitle WHERE download_id = ? AND indice = ?',
   )
 
   const get = (id: number): DownloadRecord | undefined => {
@@ -241,6 +314,53 @@ export function createDownloadRepository(db: Database, now: () => number = Date.
       db.query('DELETE FROM download WHERE id = ?').run(id)
 
       return row
+    },
+
+    /** Las pistas de una descarga, en el orden en que las declaró la fuente. */
+    listSubtitles(downloadId: number): readonly DownloadSubtitleRecord[] {
+      return subtitulosPorDescarga.all(downloadId).map(toSubtitle)
+    },
+
+    getSubtitle(downloadId: number, indice: number): DownloadSubtitleRecord | undefined {
+      const row = subtituloPorIndice.get(downloadId, indice)
+
+      return row === null ? undefined : toSubtitle(row)
+    },
+
+    /**
+     * Deja las pistas de una descarga exactamente como vienen.
+     *
+     * Es un reemplazo y no un alta: un reintento puede traer menos pistas que el
+     * anterior —una que ya no está, o que falló—, y sumarlas dejaría filas
+     * apuntando a archivos que se acaban de borrar. Sin pistas, borra todas.
+     */
+    replaceSubtitles(
+      downloadId: number,
+      subtitles: readonly NewDownloadSubtitle[],
+    ): readonly DownloadSubtitleRecord[] {
+      const insertar = db.query(
+        `INSERT INTO download_subtitle (download_id, indice, lang, label, format, path, is_default)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      const aplicar = db.transaction(() => {
+        db.query('DELETE FROM download_subtitle WHERE download_id = ?').run(downloadId)
+
+        for (const pista of subtitles) {
+          insertar.run(
+            downloadId,
+            pista.indice,
+            pista.lang,
+            pista.label,
+            pista.format,
+            pista.path,
+            pista.isDefault === true ? 1 : 0,
+          )
+        }
+      })
+
+      aplicar()
+
+      return subtitulosPorDescarga.all(downloadId).map(toSubtitle)
     },
 
     /**

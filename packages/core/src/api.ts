@@ -510,11 +510,37 @@ export const downloadStatusSchema = z.enum([
 export const downloadKindSchema = z.enum(['file', 'hls', 'segments'])
 
 /**
+ * Una pista de subtítulos ya guardada junto a una descarga.
+ *
+ * La `url` es la ruta interna que la sirve —`/api/downloads/:id/subtitles/:indice`—,
+ * nunca la del upstream: esa caducó o no existe cuando el episodio se ve sin
+ * conexión. El índice es el que devolvió la fuente y permite pedir la pista sin
+ * conocer el nombre del archivo.
+ */
+export const downloadSubtitleItemSchema = z.strictObject({
+  indice: z.number().int().nonnegative(),
+  lang: z.string().min(1),
+  label: z.string().min(1),
+  format: subtitleFormatSchema,
+  url: z
+    .string()
+    .regex(
+      /^\/api\/downloads\/[1-9]\d*\/subtitles\/\d+$/,
+      'la pista tiene que ser una ruta interna de la descarga',
+    ),
+  default: z.boolean(),
+})
+
+export type DownloadSubtitleItem = z.infer<typeof downloadSubtitleItemSchema>
+
+/**
  * Una descarga tal y como la ve la interfaz.
  *
  * No lleva la ruta absoluta: la interfaz pide el archivo por su id y el servidor
  * decide qué disco toca. `bytes` y `totalBytes` son progreso, no una promesa de
- * tamaño final.
+ * tamaño final. `subtitles` sólo aparece cuando hay pistas guardadas: su ausencia
+ * es «no hay ninguna», que es lo que tienen las descargas anteriores a esta
+ * versión y las fuentes que no declaran subtítulos.
  */
 export const downloadItemSchema = z.strictObject({
   id: z.number().int().positive(),
@@ -530,6 +556,7 @@ export const downloadItemSchema = z.strictObject({
   bytes: z.number().int().nonnegative(),
   totalBytes: z.number().int().nonnegative().optional(),
   error: z.string().optional(),
+  subtitles: z.array(downloadSubtitleItemSchema).optional(),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),
 })

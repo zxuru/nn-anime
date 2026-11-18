@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb } from '../db'
 import { runMigrations } from '../migrations/runner'
-import { createDownloadRepository, type NewDownload } from './download'
+import { createDownloadRepository, type NewDownload, type NewDownloadSubtitle } from './download'
 
 const ALTA: NewDownload = {
   providerId: 'fixture',
@@ -15,6 +15,25 @@ const ALTA: NewDownload = {
   episodeLabel: 'Episodio 1',
   kind: 'hls',
 }
+
+const PISTA_VTT: NewDownloadSubtitle = {
+  indice: 0,
+  lang: 'es',
+  label: 'Español',
+  format: 'vtt',
+  path: 'fixture/aurora-nocturna/Episodio-1/00-es.vtt',
+  isDefault: true,
+}
+
+const PISTA_SRT: NewDownloadSubtitle = {
+  indice: 1,
+  lang: 'es',
+  label: 'Español (conversión)',
+  format: 'srt',
+  path: 'fixture/aurora-nocturna/Episodio-1/01-es.srt',
+}
+
+const PISTAS: readonly NewDownloadSubtitle[] = [PISTA_VTT, PISTA_SRT]
 
 async function conBase<T>(body: (db: Database) => T): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'rona-descargas-'))
@@ -112,6 +131,60 @@ describe('la cola de descargas', () => {
       expect(repo.remove(fila.id)?.id).toBe(fila.id)
       expect(repo.get(fila.id)).toBeUndefined()
       expect(repo.list()).toEqual([])
+    })
+  })
+
+  test('las pistas se guardan en orden, se leen por índice y se reemplazan enteras', async () => {
+    await conBase((db) => {
+      const repo = createDownloadRepository(db)
+      const fila = repo.create(ALTA)
+
+      const guardadas = repo.replaceSubtitles(fila.id, PISTAS)
+      expect(guardadas.map((pista) => pista.indice)).toEqual([0, 1])
+      expect(guardadas[0]).toMatchObject({
+        downloadId: fila.id,
+        lang: 'es',
+        label: 'Español',
+        format: 'vtt',
+        path: 'fixture/aurora-nocturna/Episodio-1/00-es.vtt',
+        isDefault: true,
+      })
+      // La que no dice nada no es la predeterminada.
+      expect(guardadas[1]?.isDefault).toBe(false)
+
+      expect(repo.listSubtitles(fila.id)).toHaveLength(2)
+      expect(repo.getSubtitle(fila.id, 1)?.label).toBe('Español (conversión)')
+      expect(repo.getSubtitle(fila.id, 7)).toBeUndefined()
+
+      // Un reintento que sólo trae una pista no puede dejar la segunda viva.
+      const soloUna = repo.replaceSubtitles(fila.id, [PISTA_VTT])
+      expect(soloUna.map((pista) => pista.indice)).toEqual([0])
+      expect(repo.getSubtitle(fila.id, 1)).toBeUndefined()
+
+      // Y sin pistas se queda sin ninguna fila.
+      expect(repo.replaceSubtitles(fila.id, [])).toEqual([])
+      expect(repo.listSubtitles(fila.id)).toEqual([])
+    })
+  })
+
+  test('borrar la descarga se lleva sus pistas por la cascada', async () => {
+    await conBase((db) => {
+      const repo = createDownloadRepository(db)
+      const fila = repo.create(ALTA)
+      repo.replaceSubtitles(fila.id, PISTAS)
+
+      repo.remove(fila.id)
+
+      expect(repo.listSubtitles(fila.id)).toEqual([])
+      // La comprobación es sobre la tabla, no sobre el método: la cascada la
+      // ejecuta SQLite, no este repositorio.
+      const filas = db
+        .query<{ total: number }, [number]>(
+          'SELECT COUNT(*) AS total FROM download_subtitle WHERE download_id = ?',
+        )
+        .get(fila.id)
+
+      expect(filas?.total).toBe(0)
     })
   })
 

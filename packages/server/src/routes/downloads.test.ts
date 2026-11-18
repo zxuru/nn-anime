@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type CatalogStore, openDb, runMigrations } from '@rona/catalog-store'
 import { type Episode, ok } from '@rona/core'
-import type { RemuxFn } from '@rona/media-proxy'
+import type { FetchLike, RemuxFn } from '@rona/media-proxy'
 import { createFixtureProvider } from '@rona/providers-fixture'
 import type { ServerContainer } from '../container'
 import { createApp, createContainer } from '../index'
@@ -38,7 +38,11 @@ async function conApp<T>(
     store: CatalogStore,
     dir: string,
   ) => Promise<T>,
-  opciones: { readonly download?: boolean; readonly remux?: RemuxFn } = {},
+  opciones: {
+    readonly download?: boolean
+    readonly remux?: RemuxFn
+    readonly downloadFetch?: FetchLike
+  } = {},
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'rona-rutas-descargas-'))
   const db = openDb(join(dir, 'rona.db'))
@@ -60,7 +64,7 @@ async function conApp<T>(
       container,
       downloadsDir: join(dir, 'downloads'),
       downloadConcurrency: 1,
-      downloadFetchImpl: async () => new Response('MP4'),
+      downloadFetchImpl: opciones.downloadFetch ?? (async () => new Response('MP4')),
       ...(opciones.remux === undefined ? {} : { downloadRemux: opciones.remux }),
       streamFetchImpl: async () => new Response('MP4'),
       streamResolver: async () => ['93.184.216.34'],
@@ -125,6 +129,125 @@ describe('las rutas de descargas', () => {
       expect(archivo.status).toBe(206)
       expect(archivo.headers.get('content-range')).toBe('bytes 0-1/3')
       expect(await archivo.text()).toBe('MP')
+    })
+  })
+
+  test('las pistas viajan en la ficha y se sirven por su ruta interna', async () => {
+    const CON_PISTAS: FetchLike = async (url) => {
+      if (url.endsWith('.es.vtt')) return new Response('WEBVTT\n\n00:00.000 --> 00:01.000\nHola\n')
+      if (url.endsWith('.es.srt')) {
+        return new Response('1\n00:00:00,000 --> 00:00:01,000\nHola\n')
+      }
+
+      return new Response('MP4')
+    }
+
+    await conApp(
+      async (pedir, store) => {
+        const alta = await pedir('/api/downloads', {
+          method: 'POST',
+          headers: JSON_HEADERS,
+          body: JSON.stringify(ALTA),
+        })
+        const { id } = (await alta.json()) as { id: number }
+
+        await esperar(async () => {
+          const lista = await pedir('/api/downloads')
+          const cuerpo = (await lista.json()) as { items: { id: number; status: string }[] }
+          return cuerpo.items.find((item) => item.id === id)?.status === 'complete'
+        })
+
+        interface Pista {
+          readonly indice: number
+          readonly lang: string
+          readonly label: string
+          readonly format: string
+          readonly url: string
+          readonly default: boolean
+        }
+        interface Ficha {
+          readonly subtitles?: readonly Pista[]
+        }
+
+        const detalle = await pedir(`/api/downloads/${id}`)
+        const ficha = (await detalle.json()) as Ficha
+        expect(ficha.subtitles).toHaveLength(2)
+        expect(ficha.subtitles?.[0]).toEqual({
+          indice: 0,
+          lang: 'es',
+          label: 'Español',
+          format: 'vtt',
+          url: `/api/downloads/${id}/subtitles/0`,
+          default: true,
+        })
+        // La dirección del upstream no sale del servidor.
+        expect(JSON.stringify(ficha)).not.toContain('fixture.invalid')
+
+        // La lista cuenta lo mismo que la ficha: la biblioteca no pide una por una.
+        const lista = await pedir('/api/downloads')
+        const cuerpo = (await lista.json()) as { items: (Ficha & { id: number })[] }
+        expect(cuerpo.items.find((item) => item.id === id)?.subtitles).toHaveLength(2)
+
+        const vtt = await pedir(`/api/downloads/${id}/subtitles/0`)
+        expect(vtt.status).toBe(200)
+        expect(vtt.headers.get('content-type')).toContain('text/vtt')
+        expect(vtt.headers.get('cache-control')).toBe('no-store')
+        expect(vtt.headers.get('x-content-type-options')).toBe('nosniff')
+        expect(await vtt.text()).toBe('WEBVTT\n\n00:00.000 --> 00:01.000\nHola\n')
+
+        const srt = await pedir(`/api/downloads/${id}/subtitles/1`)
+        expect(srt.status).toBe(200)
+        expect(srt.headers.get('content-type')).toContain('application/x-subrip')
+        expect(await srt.text()).toContain('00:00:00,000 --> 00:00:01,000')
+
+        expect((await pedir(`/api/downloads/${id}/subtitles/9`)).status).toBe(404)
+        expect((await pedir(`/api/downloads/${id}/subtitles/0`, { headers: {} })).status).toBe(401)
+        expect((await pedir('/api/downloads/999/subtitles/0')).status).toBe(404)
+        expect((await pedir(`/api/downloads/${id}/subtitles/no-es-un-indice`)).status).toBe(400)
+
+        // Borrar se lleva las filas: la pista deja de existir.
+        expect(
+          (await pedir(`/api/downloads/${id}`, { method: 'DELETE', headers: GOOD })).status,
+        ).toBe(204)
+        expect(await store.listDownloadSubtitles(id)).toEqual([])
+        expect((await pedir(`/api/downloads/${id}/subtitles/0`)).status).toBe(404)
+      },
+      { downloadFetch: CON_PISTAS },
+    )
+  })
+
+  test('una pista con la ruta fuera de la raíz o sin archivo no se sirve', async () => {
+    await conApp(async (pedir, store, dir) => {
+      await writeFile(join(dir, 'fuera.vtt'), 'WEBVTT\n')
+
+      const fila = await store.createDownload({
+        providerId: 'fixture',
+        providerRef: 'aurora-nocturna',
+        episodeRef: 'aurora-nocturna#8',
+        title: 'Aurora Nocturna',
+        episodeLabel: 'Episodio 8',
+        kind: 'file',
+      })
+      await store.updateDownload(fila.id, { status: 'complete', path: 'aurora.mp4', bytes: 3 })
+      await store.replaceDownloadSubtitles(fila.id, [
+        {
+          indice: 0,
+          lang: 'es',
+          label: 'Fuera de la raíz',
+          format: 'vtt',
+          path: '../fuera.vtt',
+        },
+        {
+          indice: 1,
+          lang: 'es',
+          label: 'Sin archivo',
+          format: 'vtt',
+          path: 'fixture/aurora-nocturna/no-esta.vtt',
+        },
+      ])
+
+      expect((await pedir(`/api/downloads/${fila.id}/subtitles/0`)).status).toBe(404)
+      expect((await pedir(`/api/downloads/${fila.id}/subtitles/1`)).status).toBe(404)
     })
   })
 

@@ -76,9 +76,11 @@ export {
   type DownloadRecord,
   type DownloadStatus,
   type DownloadStore,
+  type DownloadSubtitleRecord,
   downloadKindSchema,
   downloadStatusSchema,
   type NewDownload,
+  type NewDownloadSubtitle,
 } from './repositories/download'
 export {
   createEpisodePageRepository,

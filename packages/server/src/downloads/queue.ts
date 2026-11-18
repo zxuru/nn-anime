@@ -15,9 +15,16 @@
  *    «paused»; el `catch` no lo pisa con «failed».
  */
 
-import { rm } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
-import type { DownloadPatch, DownloadRecord, DownloadStatus } from '@rona/catalog-store'
+import { rm, rmdir } from 'node:fs/promises'
+import { dirname, isAbsolute, resolve } from 'node:path'
+import type {
+  DownloadPatch,
+  DownloadRecord,
+  DownloadStatus,
+  DownloadSubtitleRecord,
+  NewDownloadSubtitle,
+} from '@rona/catalog-store'
+import type { SubtitleFormat } from '@rona/core'
 import {
   createFfmpegRemux,
   createMuxRemux,
@@ -35,12 +42,27 @@ export interface DownloadStorePort {
   update(id: number, patch: DownloadPatch): Promise<DownloadRecord | undefined>
   remove(id: number): Promise<DownloadRecord | undefined>
   requeueInterrupted(): Promise<number>
+  listSubtitles(id: number): Promise<readonly DownloadSubtitleRecord[]>
+  replaceSubtitles(
+    id: number,
+    subtitles: readonly NewDownloadSubtitle[],
+  ): Promise<readonly DownloadSubtitleRecord[]>
 }
 
 export interface DownloadQueueStream {
   readonly url: string
   readonly kind: 'file' | 'hls'
   readonly headers?: Readonly<Record<string, string>> | undefined
+  readonly subtitles?: readonly DownloadQueueSubtitle[] | undefined
+}
+
+/** Una pista que el resolutor declara; el motor la baja y la guarda. */
+export interface DownloadQueueSubtitle {
+  readonly lang: string
+  readonly label: string
+  readonly url: string
+  readonly format: SubtitleFormat
+  readonly default?: boolean | undefined
 }
 
 export type ResolveDownload = (
@@ -162,6 +184,33 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
         },
       })
 
+      /*
+       * Las pistas se guardan **antes** de cerrar la fila.
+       *
+       * Si el almacén fallara aquí, la fila no puede decir «complete» con el
+       * vídeo en disco y los subtítulos sin registrar: se prefiere que el
+       * reintento vuelva a pasar por este punto. Un stream sin pistas escribe la
+       * lista vacía, que borra las de un intento anterior.
+       */
+      await options.store.replaceSubtitles(
+        id,
+        resultado.subtitles.map((pista) => ({
+          indice: pista.indice,
+          lang: pista.lang,
+          label: pista.label,
+          format: pista.format,
+          path: pista.relPath,
+          isDefault: pista.isDefault,
+        })),
+      )
+
+      // Una pista omitida se cuenta en el mismo campo que un fallo, pero sin
+      // cambiar el estado: el episodio se puede ver sin conexión y lo único que
+      // falta es ese subtítulo. La biblioteca ya pinta el campo.
+      const avisos = resultado.subtitleErrors.map(
+        (pista) => `no se pudo bajar el subtítulo «${pista.label}»: ${pista.message}`,
+      )
+
       await options.store.update(id, {
         status: 'complete',
         path: resultado.relPath,
@@ -172,7 +221,7 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
         // ahora en disco. Un MP4 remezclado y una descarga directa son `file`;
         // sólo la carpeta con playlist local es `segments`.
         kind: resultado.kind === 'segments' ? 'segments' : 'file',
-        error: null,
+        error: avisos.length === 0 ? null : avisos.join('; '),
       })
     } catch (cause) {
       // Pausar o cancelar aborta: eso no es un fallo que haya que pintar.
@@ -250,9 +299,14 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
 
       controladores.get(id)?.abort()
 
+      // Las pistas se leen antes de borrar la fila: la cascada de SQLite se
+      // las lleva, y con ellas la única lista de archivos que hay que borrar.
+      const pistas = await options.store.listSubtitles(id)
+      const carpetas = new Set<string>()
+
       if (fila.path !== undefined) {
         const absoluta = resolve(raiz, fila.path)
-        if (insideRoot(raiz, absoluta)) {
+        if (insideRoot(raiz, absoluta) && !isAbsolute(fila.path)) {
           if (fila.kind === 'segments') {
             await rm(dirname(absoluta), { recursive: true, force: true })
           } else {
@@ -262,6 +316,24 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
           }
         }
       }
+
+      for (const pista of pistas) {
+        const absoluta = resolve(raiz, pista.path)
+        if (isAbsolute(pista.path) || !insideRoot(raiz, absoluta)) continue
+
+        await rm(absoluta, { force: true })
+        await rm(`${absoluta}.part`, { force: true })
+        await rm(`${absoluta}.part.json`, { force: true })
+        carpetas.add(dirname(absoluta))
+      }
+
+      /*
+       * La carpeta de las pistas se intenta quitar con `rmdir`, que sólo borra
+       * directorios vacíos: si todavía tiene algo —los segmentos de un HLS se
+       * van por su propio camino— falla y se ignora. Borrar el directorio entero
+       * aquí sería borrar lo que no es de esta descarga.
+       */
+      for (const carpeta of carpetas) await rmdir(carpeta).catch(() => undefined)
 
       return await options.store.remove(id)
     },

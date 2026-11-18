@@ -68,6 +68,107 @@ describe('las rutas de una descarga', () => {
   })
 })
 
+describe('los subtítulos de una tarea', () => {
+  test('se guardan junto al vídeo y una pista rota no tumba la descarga', async () => {
+    await conRaiz(async (root) => {
+      const salida = await downloadTask({
+        root,
+        task: TAREA,
+        signal: new AbortController().signal,
+        resolve: async () => ({
+          url: 'https://fixture.invalid/v.mp4',
+          kind: 'file',
+          subtitles: [
+            {
+              lang: 'es',
+              label: 'Español',
+              url: 'https://fixture.invalid/ok.vtt',
+              format: 'vtt',
+              default: true,
+            },
+            {
+              lang: 'es',
+              label: 'Subtítulos rotos',
+              url: 'https://fixture.invalid/roto.srt',
+              format: 'srt',
+            },
+          ],
+        }),
+        fetchImpl: servidor({
+          'https://fixture.invalid/v.mp4': 'MP4',
+          'https://fixture.invalid/ok.vtt': 'WEBVTT\n',
+        }),
+      })
+
+      expect(salida.kind).toBe('file')
+      expect(await readFile(salida.path, 'utf8')).toBe('MP4')
+
+      const [pista] = salida.subtitles
+      if (pista === undefined) throw new Error('la pista buena no se guardó')
+
+      expect(pista).toMatchObject({
+        indice: 0,
+        lang: 'es',
+        label: 'Español',
+        format: 'vtt',
+        isDefault: true,
+      })
+      expect(pista.relPath).not.toContain('..')
+      expect(await readFile(resolve(root, pista.relPath), 'utf8')).toBe('WEBVTT\n')
+
+      // La pista que respondió 404 se omite con su motivo; el vídeo sigue entero.
+      expect(salida.subtitleErrors.map((fallo) => fallo.indice)).toEqual([1])
+      expect(salida.subtitleErrors[0]?.message).toContain('404')
+      await expect(stat(resolve(root, pista.relPath.replace('.vtt', '.srt')))).rejects.toThrow()
+      await expect(
+        stat(resolve(root, `${pista.relPath.replace('.vtt', '.srt')}.part`)),
+      ).rejects.toThrow()
+    })
+  })
+
+  test('una pista que apunta a loopback se omite y el vídeo se guarda igual', async () => {
+    await conRaiz(async (root) => {
+      const salida = await downloadTask({
+        root,
+        task: TAREA,
+        signal: new AbortController().signal,
+        resolve: async () => ({
+          url: 'https://fixture.invalid/v.mp4',
+          kind: 'file',
+          subtitles: [
+            {
+              lang: 'es',
+              label: 'De la red local',
+              url: 'http://127.0.0.1:8080/pista.vtt',
+              format: 'vtt',
+            },
+          ],
+        }),
+        fetchImpl: servidor({ 'https://fixture.invalid/v.mp4': 'MP4' }),
+      })
+
+      expect(salida.subtitles).toEqual([])
+      expect(salida.subtitleErrors[0]?.message).toContain('destino no permitido')
+      expect(await readFile(salida.path, 'utf8')).toBe('MP4')
+    })
+  })
+
+  test('un stream sin pistas devuelve listas vacías', async () => {
+    await conRaiz(async (root) => {
+      const salida = await downloadTask({
+        root,
+        task: TAREA,
+        signal: new AbortController().signal,
+        resolve: async () => ({ url: 'https://fixture.invalid/v.mp4', kind: 'file' }),
+        fetchImpl: servidor({ 'https://fixture.invalid/v.mp4': 'MP4' }),
+      })
+
+      expect(salida.subtitles).toEqual([])
+      expect(salida.subtitleErrors).toEqual([])
+    })
+  })
+})
+
 describe('la descarga de una tarea', () => {
   test('un `file` se guarda como MP4 dentro de la raíz', async () => {
     await conRaiz(async (root) => {
