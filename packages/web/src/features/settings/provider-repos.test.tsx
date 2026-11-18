@@ -12,14 +12,17 @@ import { describe, expect, test } from 'bun:test'
 import type { ProviderRepoCandidate, ProviderRepoView } from '@rona/core/api'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
+import type { RequestDeps } from '../../api/client'
 import {
   candidateLabel,
   changed,
+  messageOf,
   ProviderRepos,
   repoState,
   selectionOf,
   toggled,
 } from './ProviderRepos'
+import { createProviderReposStore, type ProviderReposStore } from './useProviderRepos'
 
 function render(node: ReactNode): string {
   return renderToString(node)
@@ -285,5 +288,246 @@ describe('lo que enseña la sección', () => {
 
     expect(html).toContain('No se pudo leer la lista')
     expect(html).toContain('la tabla no responde')
+  })
+})
+
+const URL_REPO = 'https://github.com/zxuru/nn-anime-plugins'
+
+interface Peticion {
+  readonly metodo: string
+  readonly ruta: string
+  readonly cuerpo: unknown
+}
+
+interface ServidorDeRepos {
+  readonly deps: RequestDeps
+  readonly peticiones: readonly Peticion[]
+  /** Las peticiones de un método, en orden. */
+  readonly de: (metodo: 'GET' | 'POST' | 'PATCH' | 'DELETE') => readonly Peticion[]
+}
+
+/**
+ * Un servidor de mentira que apunta lo que le piden.
+ *
+ * `responder` decide qué contesta cada ruta; ningún caso toca la red. Así se
+ * mide la secuencia —mutación y después relectura— sin navegador ni DOM.
+ */
+function servidor(
+  responder: (peticion: Peticion) => Response | Promise<Response>,
+): ServidorDeRepos {
+  const peticiones: Peticion[] = []
+
+  const deps: RequestDeps = {
+    fetch: async (input, init) => {
+      const cuerpo: unknown = typeof init.body === 'string' ? JSON.parse(init.body) : undefined
+      const peticion = { metodo: init.method ?? 'GET', ruta: input, cuerpo }
+
+      peticiones.push(peticion)
+
+      return await responder(peticion)
+    },
+  }
+
+  return {
+    deps,
+    peticiones,
+    de: (metodo) => peticiones.filter((peticion) => peticion.metodo === metodo),
+  }
+}
+
+/** Una lista de repositorios como la sirve `GET /api/provider-repos`. */
+function lista(...repos: ProviderRepoView[]): Response {
+  return Response.json({ repos })
+}
+
+/**
+ * Las mutaciones, con su recarga.
+ *
+ * Lo que se mide no es que la petición salga: es que lo que queda en pantalla
+ * sea lo que el servidor contestó después del cambio. Por eso el servidor de
+ * mentira devuelve una lista distinta en la segunda lectura: si el gancho no
+ * relee, la diferencia se ve. Y lo que se conserva cuando falla también es una
+ * decisión, no un accidente.
+ */
+describe('las mutaciones de repositorios', () => {
+  test('instalar hace POST y relee: la lista que queda es la del servidor', async () => {
+    const antes = repo({ enabled: [] })
+    const despues = repo({ enabled: ['jkanime.ts'], files: 7 })
+    let lecturas = 0
+    const cambios: number[] = []
+    const servidorDePrueba = servidor((peticion) => {
+      if (peticion.metodo === 'GET') {
+        lecturas += 1
+
+        return lecturas === 1 ? lista(antes) : lista(despues)
+      }
+
+      return Response.json({ repo: despues })
+    })
+    const store = createProviderReposStore(() => cambios.push(1), servidorDePrueba.deps)
+
+    await store.load()
+    await store.install(URL_REPO)
+
+    expect(servidorDePrueba.peticiones.map((peticion) => peticion.metodo)).toEqual([
+      'GET',
+      'POST',
+      'GET',
+    ])
+    expect(servidorDePrueba.de('POST')[0]?.cuerpo).toEqual({ url: URL_REPO })
+    expect(store.snapshot().state).toBe('ready')
+    expect(store.snapshot().repos).toEqual([despues])
+    // Activar o quitar carga proveedores: la lista de arriba tiene que enterarse.
+    expect(cambios).toHaveLength(1)
+  })
+
+  test('guardar la selección hace PATCH con lo marcado y relee', async () => {
+    const antes = repo({ enabled: [] })
+    const despues = repo({ enabled: ['jkanime.ts'] })
+    let lecturas = 0
+    const servidorDePrueba = servidor((peticion) => {
+      if (peticion.metodo === 'GET') {
+        lecturas += 1
+
+        return lecturas === 1 ? lista(antes) : lista(despues)
+      }
+
+      return Response.json({ repo: despues })
+    })
+    const store = createProviderReposStore(() => {}, servidorDePrueba.deps)
+
+    await store.load()
+    await store.select(URL_REPO, ['jkanime.ts'])
+
+    expect(servidorDePrueba.de('PATCH')[0]?.cuerpo).toEqual({
+      url: URL_REPO,
+      enabled: ['jkanime.ts'],
+    })
+    expect(store.snapshot().repos).toEqual([despues])
+  })
+
+  test('quitar hace DELETE con la dirección codificada y relee sin ella', async () => {
+    let lecturas = 0
+    const servidorDePrueba = servidor((peticion) => {
+      if (peticion.metodo === 'GET') {
+        lecturas += 1
+
+        return lecturas === 1 ? lista(repo()) : lista()
+      }
+
+      return new Response(null, { status: 204 })
+    })
+    const store = createProviderReposStore(() => {}, servidorDePrueba.deps)
+
+    await store.load()
+    await store.remove(URL_REPO)
+
+    expect(servidorDePrueba.de('DELETE')[0]?.ruta).toBe(
+      '/api/provider-repos?url=https%3A%2F%2Fgithub.com%2Fzxuru%2Fnn-anime-plugins',
+    )
+    expect(store.snapshot().state).toBe('ready')
+    expect(store.snapshot().repos).toEqual([])
+  })
+
+  test('un fallo de red en cualquier mutación llega al aviso y conserva la lista', async () => {
+    const intentos: ReadonlyArray<readonly [string, (store: ProviderReposStore) => Promise<void>]> =
+      [
+        ['instalar', (store) => store.install(URL_REPO)],
+        ['guardar la selección', (store) => store.select(URL_REPO, ['jkanime.ts'])],
+        ['quitar', (store) => store.remove(URL_REPO)],
+      ]
+
+    for (const [nombre, ejecutar] of intentos) {
+      const anterior = repo()
+      const servidorDePrueba = servidor((peticion) => {
+        if (peticion.metodo === 'GET') return lista(anterior)
+
+        throw new TypeError('Unable to connect. Is the computer able to access the url?')
+      })
+      const cambios: number[] = []
+      const store = createProviderReposStore(() => cambios.push(1), servidorDePrueba.deps)
+
+      await store.load()
+      const antes = store.snapshot()
+
+      const causa: unknown = await ejecutar(store).then(
+        () => undefined,
+        (error: unknown) => error,
+      )
+
+      expect(causa, nombre).toBeInstanceOf(TypeError)
+      // Es el mismo texto que pinta `ProviderRepos` en su aviso.
+      expect(messageOf(causa), nombre).toContain('sin conexión con el servidor')
+      // La misma referencia: no se publicó nada, ni una lista vacía ni a medias.
+      expect(store.snapshot(), nombre).toBe(antes)
+      expect(store.snapshot().repos, nombre).toEqual([anterior])
+      // Sin recarga y sin avisar de un cambio que el servidor no hizo.
+      expect(servidorDePrueba.de('GET'), nombre).toHaveLength(1)
+      expect(cambios, nombre).toHaveLength(0)
+    }
+  })
+
+  test('una relectura que no cumple el schema no se traga', async () => {
+    const anterior = repo()
+    let lecturas = 0
+    const servidorDePrueba = servidor((peticion) => {
+      if (peticion.metodo === 'GET') {
+        lecturas += 1
+
+        return lecturas === 1 ? lista(anterior) : Response.json({ repos: 'ninguno' })
+      }
+
+      return Response.json({ repo: anterior })
+    })
+    const store = createProviderReposStore(() => {}, servidorDePrueba.deps)
+
+    await store.load()
+    await store.install(URL_REPO)
+
+    const despues = store.snapshot()
+    // Un cuerpo con la forma equivocada es un fallo, no una lista vacía.
+    expect(despues.state).toBe('error')
+    expect(despues.error?.clase).toBe('forma')
+    // Y no se lleva por delante lo último que el servidor dijo bien.
+    expect(despues.repos).toEqual([anterior])
+    expect(servidorDePrueba.de('GET')).toHaveLength(2)
+  })
+
+  test('no adelanta la lista antes de que el servidor conteste', async () => {
+    const anterior = repo({ enabled: [] })
+    const despues = repo({ enabled: ['jkanime.ts'] })
+    let lecturas = 0
+    let liberar: (() => void) | undefined
+    const bloqueo = new Promise<void>((resolver) => {
+      liberar = () => resolver()
+    })
+    const servidorDePrueba = servidor(async (peticion) => {
+      if (peticion.metodo === 'GET') {
+        lecturas += 1
+
+        return lecturas === 1 ? lista(anterior) : lista(despues)
+      }
+
+      await bloqueo
+
+      return Response.json({ repo: despues })
+    })
+    const store = createProviderReposStore(() => {}, servidorDePrueba.deps)
+
+    await store.load()
+    const antesDePedir = store.snapshot()
+    const enCurso = store.install(URL_REPO)
+
+    // El POST está en vuelo y nadie contestó todavía: no hay nada nuevo que
+    // enseñar. Publicar aquí una lista optimista deja esta prueba en rojo.
+    expect(store.snapshot()).toBe(antesDePedir)
+    expect(servidorDePrueba.de('GET')).toHaveLength(1)
+    expect(servidorDePrueba.de('POST')).toHaveLength(1)
+
+    liberar?.()
+    await enCurso
+
+    expect(store.snapshot().repos).toEqual([despues])
+    expect(servidorDePrueba.de('GET')).toHaveLength(2)
   })
 })

@@ -77,8 +77,13 @@ export function changed(enabled: readonly string[], seleccion: readonly string[]
   return seleccion.length !== enabled.length || seleccion.some((path) => !enabled.includes(path))
 }
 
-/** El mensaje de un fallo: primero lo que dijo el servidor. */
-function messageOf(cause: unknown): string {
+/**
+ * El mensaje de un fallo: primero lo que dijo el servidor.
+ *
+ * Se exporta porque es el aviso que se pinta cuando una mutación falla, y la
+ * prueba de las mutaciones tiene que medir ese texto y no sólo la excepción.
+ */
+export function messageOf(cause: unknown): string {
   const fallo = describirFallo(cause)
 
   return fallo.detalle ?? resumenDeFallo(fallo)
