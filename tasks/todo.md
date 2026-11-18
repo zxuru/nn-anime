@@ -3372,3 +3372,40 @@ T257 (aprobación de la propuesta) → T257a (contrato en `core`) → T257b (ser
 T260, T261 y T262 dependen de T43 (el e2e), y T263 de T44. T266 nace de la medición de T246 en
 checkout limpio y depende de T43, T239 y T252. T246 es quien convierte las casillas sin medir en
 estos ids.
+
+### Lote de retirada de familias (T372)
+
+Nace de la crítica de la home del 2026-11-18 (26/40) y de una decisión del dueño del producto: **sólo
+anime y películas de anime**. Quita un eje entero en vez de arreglarle los nombres, que es lo que la
+crítica pedía: «Anime» y «Animación» se solapan, la distinción vive en un `title` que no existe en
+táctil, y «Acción real» contradice el «imagen real» que usa todo el resto del repositorio.
+
+La aprobación es T372; el trabajo son cuatro fases en serie, cada una por debajo de los cinco
+archivos de implementación que fija el Definition of Done.
+
+### T372 - Sólo anime: aprobar la retirada de las familias de contenido
+
+**Descripción:** `docs/specs/proposals/SPEC-web-ui.T372.md` propone retirar `MediaFamily` como eje del
+producto y dejar el **formato** (`series` / `movie`) como única partición. Es **versión mayor del
+contrato de plugin**: se van `capabilities.families`, el conmutador de la cabecera, `?tipo=`, las tres
+casillas del alta de proveedor y **TMDB entero** —su ruta existe sólo para imagen real, según
+`packages/server/src/routes/tmdb.ts:11`—.
+
+Medido en la crítica que lo origina:
+
+- La cabecera tiene **10 interactivos** a 1707 px y rompe a 1200 (110 px, el Perfil solo en una segunda
+  fila) y a 700 (162 px, tres filas).
+- «Anime / Animación / Acción real» se distinguen sólo por un `title`.
+- La fila de formato mide 40 px de alto en los ocho anchos medidos, por debajo de los 44 que promete
+  `PRODUCT.md`.
+
+**Fases:** T372 (esta aprobación) → T372a (core) → T372b (servidor) y T372c (interfaz) → T372d
+(fixture, e2e y documentación).
+
+**Criterios de aceptación:** los siete de la propuesta. Los que se miden con navegador: siete
+interactivos en la cabecera, ningún desbordamiento entre 320 y 1920, y el filtro de formato con 44 px y
+estado visible al hacer scroll.
+
+**Migración:** un manifiesto con `families` o `media: 'movies' | 'both'` **carga**, avisa y filtra sólo
+por formato. Romper el arranque de un plugin instalado está prohibido por las restricciones del
+producto, y es la razón de que esto sea un lote y no un commit suelto.
