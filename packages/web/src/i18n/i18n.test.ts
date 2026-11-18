@@ -63,7 +63,9 @@ describe('claves huérfanas', () => {
 
   test('ninguna clave del catálogo está sin usar', async () => {
     const source = await productionSource()
-    const unused = Object.keys(es).filter((key) => !source.includes(key))
+    // La cita exacta, no el prefijo: `library.summaryEmpty` hacía pasar por usada
+    // a `library.summary`, que nadie llamaba.
+    const unused = Object.keys(es).filter((key) => !source.includes(`'${key}'`))
 
     expect(unused).toEqual([])
   })
