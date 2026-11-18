@@ -89,6 +89,15 @@ function doomedAnime(db: Database, cutoff: number): readonly number[] {
  */
 export const PRUNED_TABLES: readonly string[] = [
   'stream_cache',
+  'search_cache',
+  'trending_cache',
+  'feed_cache',
+  'episode_page',
+  'anilist_media',
+  'anilist_list_cache',
+  'aniskip_cache',
+  'revalidate_error',
+  'search_history',
   'watch_event',
   'favorite',
   'watched_title',
@@ -96,6 +105,17 @@ export const PRUNED_TABLES: readonly string[] = [
   'episode',
   'genre',
   'anime',
+]
+
+/** Cachés con `fetched_at` y `ttl_s`: se borran cuando vencen. */
+const TTL_TABLES: readonly string[] = [
+  'search_cache',
+  'trending_cache',
+  'feed_cache',
+  'episode_page',
+  'anilist_media',
+  'anilist_list_cache',
+  'aniskip_cache',
 ]
 
 export function pruneOrphans(db: Database, now: Date = new Date()): PruneReport {
@@ -109,6 +129,23 @@ export function pruneOrphans(db: Database, now: Date = new Date()): PruneReport 
     borradas.stream_cache = db
       .query('DELETE FROM stream_cache WHERE fetched_at + ttl_s * 1000 + ? <= ?')
       .run(STREAM_GRACE_DAYS * DAY_MS, ahora).changes
+
+    // Las demás cachés TTL. No tenían poda: la base crecía con cada consulta y
+    // el comando manual tampoco las tocaba.
+    for (const tabla of TTL_TABLES) {
+      borradas[tabla] = db
+        .query(`DELETE FROM ${tabla} WHERE fetched_at + ttl_s * 1000 <= ?`)
+        .run(ahora).changes
+    }
+
+    // El registro de errores y el historial de búsquedas no tienen TTL: se
+    // acotan por edad, con el mismo plazo que los detalles.
+    borradas.revalidate_error = db
+      .query('DELETE FROM revalidate_error WHERE at <= ?')
+      .run(limiteDetalle).changes
+    borradas.search_history = db
+      .query('DELETE FROM search_history WHERE created_at <= ?')
+      .run(limiteDetalle).changes
 
     const ids = doomedAnime(db, limiteDetalle)
     if (ids.length === 0) return
@@ -140,6 +177,16 @@ export function pruneOrphans(db: Database, now: Date = new Date()): PruneReport 
   })
 
   apply()
+
+  // Borrar filas libera páginas para reutilizarlas, pero no devuelve el archivo
+  // al disco: sin `VACUUM`, una base que llegó a 200 MB sigue midiendo 200 MB y
+  // el arranque vuelve a ofrecer la limpieza cada vez. Es best-effort: si no
+  // hay espacio para reconstruir la base, las filas ya están borradas.
+  try {
+    db.exec('VACUUM')
+  } catch {
+    // La limpieza de filas ya se hizo; el disco se recuperará en la próxima.
+  }
 
   return { deleted: borradas }
 }
