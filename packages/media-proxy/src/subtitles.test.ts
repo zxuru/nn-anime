@@ -139,7 +139,12 @@ describe('tope de tamaño', () => {
  * datos, sin directorio central. El lector sólo mira cabeceras locales, así que
  * lo que venga detrás de la última entrada frena el recorrido sin romper nada.
  */
-function entradaZip(nombre: string, datos: Uint8Array, method: 0 | 8): Uint8Array {
+function entradaZip(
+  nombre: string,
+  datos: Uint8Array,
+  method: 0 | 8,
+  declarada = datos.byteLength,
+): Uint8Array {
   const nombreBytes = new TextEncoder().encode(nombre)
   const cuerpo = method === 0 ? datos : new Uint8Array(deflateRawSync(datos))
   const cabecera = new DataView(new ArrayBuffer(30))
@@ -147,7 +152,7 @@ function entradaZip(nombre: string, datos: Uint8Array, method: 0 | 8): Uint8Arra
   cabecera.setUint32(0, 0x04034b50, true)
   cabecera.setUint16(8, method, true)
   cabecera.setUint32(18, cuerpo.byteLength, true)
-  cabecera.setUint32(22, datos.byteLength, true)
+  cabecera.setUint32(22, declarada, true)
   cabecera.setUint16(26, nombreBytes.byteLength, true)
 
   const zip = new Uint8Array(30 + nombreBytes.byteLength + cuerpo.byteLength)
@@ -219,6 +224,15 @@ describe('subtítulos dentro de un zip', () => {
     // que sale, no lo que entra.
     const grande = new Uint8Array(MAX_SUBTITLE_BYTES + 1)
     const zip = zipDe(entradaZip('peli.srt', grande, 8))
+
+    expect(() => extractFirstSubtitle(zip)).toThrow(String(MAX_SUBTITLE_BYTES))
+  })
+
+  test('un zip que declara poco y contiene mucho se corta al inflar', () => {
+    const grande = new Uint8Array(MAX_SUBTITLE_BYTES + 1)
+    // La cabecera miente: declara una talla pequeña y el `deflate` real ocupa
+    // más. El tope de salida de zlib es lo que impide materializarlo entero.
+    const zip = zipDe(entradaZip('peli.srt', grande, 8, 1))
 
     expect(() => extractFirstSubtitle(zip)).toThrow(String(MAX_SUBTITLE_BYTES))
   })

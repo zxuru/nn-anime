@@ -284,6 +284,10 @@ export function extractFirstSubtitle(bytes: Uint8Array): ExtractedSubtitle {
       throw subtitleZipBroken('usa zip64, que no se admite')
     }
 
+    // La talla declarada se mira antes de inflar: es el caso barato del
+    // zip-bomb, y no hace falta reservar nada para rechazarlo.
+    if (uncompSize > MAX_SUBTITLE_BYTES) throw subtitleTooLarge(uncompSize)
+
     const inicioNombre = offset + 30
     exige(bytes, inicioNombre, nameLen + extraLen)
     const nombre = decodificaNombre(
@@ -346,6 +350,16 @@ function decodificaNombre(bytes: Uint8Array, utf8: boolean): string {
  * miente: una talla declarada de cero con diez megas dentro es el zip-bomb de
  * manual, y el tope es lo que impide que acabe en memoria.
  */
+/** Si el error de zlib es el tope de salida, no un zip roto. */
+function esDemasiadoGrande(cause: unknown): boolean {
+  return (
+    typeof cause === 'object' &&
+    cause !== null &&
+    'code' in cause &&
+    cause.code === 'ERR_BUFFER_TOO_LARGE'
+  )
+}
+
 function inflaEntrada(datos: Uint8Array, method: number): Uint8Array {
   if (method === ZIP_METHOD_STORED) {
     if (datos.byteLength > MAX_SUBTITLE_BYTES) throw subtitleTooLarge(datos.byteLength)
@@ -357,12 +371,15 @@ function inflaEntrada(datos: Uint8Array, method: number): Uint8Array {
 
   let inflados: Uint8Array
   try {
-    inflados = new Uint8Array(inflateRawSync(datos))
+    // `maxOutputLength` corta **mientras** infla. Sin él, un zip que declara
+    // poco y contiene mucho se materializa entero antes de que la comprobación
+    // de tamaño pueda verlo.
+    inflados = new Uint8Array(inflateRawSync(datos, { maxOutputLength: MAX_SUBTITLE_BYTES }))
   } catch (cause) {
+    if (esDemasiadoGrande(cause)) throw subtitleTooLarge(MAX_SUBTITLE_BYTES + 1)
+
     throw subtitleZipBroken('no se pudo descomprimir una entrada', cause)
   }
-
-  if (inflados.byteLength > MAX_SUBTITLE_BYTES) throw subtitleTooLarge(inflados.byteLength)
 
   return inflados
 }
