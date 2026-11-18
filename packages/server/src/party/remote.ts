@@ -57,6 +57,15 @@ export interface RemotePartyOptions {
 }
 
 const DEFAULT_TIMEOUT_MS = 5_000
+
+/**
+ * Tope del buffer del SSE.
+ *
+ * Un bloque puede traer varias líneas y el de un mensaje suelto no basta, pero
+ * un anfitrión que no manda el doble salto no puede hacer crecer `resto` sin
+ * límite. Al superarlo se cierra el enlace como si el anfitrión se hubiera ido.
+ */
+const MAX_SSE_BUFFER_BYTES = 64 * 1024
 const DEFAULT_RETRY_MS = 1_000
 const MAX_JSON_BYTES = 32 * 1024
 
@@ -307,6 +316,14 @@ export class RemoteParty {
             for (;;) {
               const { done, value } = await reader.read()
               if (done) break
+
+              // Un anfitrión que manda un bloque sin el doble salto hace crecer
+              // `resto` sin que `#procesar` llegue a mirarlo. El tope corta la
+              // conexión en vez de esperar al siguiente `\n\n`.
+              if (resto.length + value.byteLength > MAX_SSE_BUFFER_BYTES) {
+                this.#cerrar('host-left')
+                break
+              }
 
               resto += decoder.decode(value, { stream: true })
 
