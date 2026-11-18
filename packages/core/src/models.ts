@@ -188,6 +188,32 @@ export function normalizeQuery(query: string): string {
   return query.trim().toLowerCase().normalize('NFC')
 }
 
+/**
+ * Un término reducido a lo comparable: sin diacríticos latinos, en minúsculas.
+ *
+ * Es la normalización de una **categoría** —un género, un estudio—, no la de un
+ * título: «Acción» y «accion» son la misma categoría y tienen que dar el mismo
+ * género canónico, la misma clave de caché y la misma lista. Los títulos no
+ * pasan por aquí: «Café» de una obra no se convierte en «Cafe».
+ *
+ * Se pliega en NFD y se quitan las marcas **sólo detrás de una letra latina**:
+ * el dakuten cambia la letra japonesa, y quitarlo convertiría «が» en «か», que
+ * es otra palabra. Después NFC, minúsculas, recorte y espacios colapsados.
+ *
+ * Vive en `core` porque la usan los dos lados que deciden una búsqueda por
+ * categoría —el servidor, que la consulta y la cachea, y la interfaz, que la
+ * manda— y la clave tiene que ser la misma en los dos.
+ */
+export function normalizeTerm(term: string): string {
+  return term
+    .normalize('NFD')
+    .replace(/([a-z])\p{M}+/giu, '$1')
+    .normalize('NFC')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+}
+
 /** Quita los headers de un stream. Las claves ausentes no se incluyen. */
 export function toPublicStreamSource(source: StreamSource): PublicStreamSource {
   return {

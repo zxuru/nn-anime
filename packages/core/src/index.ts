@@ -26,7 +26,7 @@ export {
   relationOf,
   sameAniListWork,
 } from './anilist'
-export { hasGenreToken } from './anilist-search'
+export { genreTerm, hasGenreToken } from './anilist-search'
 export {
   type AiringItem,
   type AiringResponse,
@@ -284,6 +284,7 @@ export {
   type MigrationReport,
   type Mode,
   normalizeQuery,
+  normalizeTerm,
   type ProviderCapabilities,
   type ProviderRef,
   type PruneReport,

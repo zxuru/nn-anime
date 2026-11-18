@@ -11,6 +11,7 @@
  * pintar tres pantallas más adelante con un campo en `undefined`.
  */
 
+import { genreTerm } from '@rona/core/anilist-search'
 import { type SearchEventPayload, searchEventSchema } from '@rona/core/api'
 import type { MediaHalf } from '@rona/core/media'
 
@@ -29,7 +30,15 @@ export function searchRequestPath(
   media: MediaHalf | undefined = undefined,
 ): string {
   const partes: string[] = []
-  const limpio = query.trim()
+  /*
+    El género viaja plegado y con la almohadilla delante. La casilla y la
+    dirección conservan lo que escribió el usuario —«#Acción»—, pero la petición
+    es la misma para «#accion», «#ACCIÓN» y «# acción»: sin esto, el hub de la
+    búsqueda abriría una conexión por cada forma de escribir la misma categoría.
+    Un título no se toca: «Café» se busca tal cual.
+  */
+  const genero = genreTerm(query)
+  const limpio = (genero === undefined ? query : `#${genero}`).trim()
   if (limpio !== '') partes.push(`q=${encodeURIComponent(limpio)}`)
   for (const provider of providers) partes.push(`provider=${encodeURIComponent(provider)}`)
   if (media !== undefined) partes.push(`media=${media}`)

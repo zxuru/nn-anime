@@ -15,7 +15,7 @@
 import {
   DEFAULT_MEDIA,
   errorResponseSchema,
-  hasGenreToken,
+  genreTerm,
   mediaOf,
   ok,
   type ProviderError,
@@ -201,7 +201,15 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
      * cierre lo dice con cero. La regla es la misma que usa la pantalla para decidir qué
      * pinta, y por eso vive en `core` y no aquí.
      */
-    const soloCatalogo = hasGenreToken(parsed.data.q)
+    const genero = genreTerm(parsed.data.q)
+    const soloCatalogo = genero !== undefined
+    /*
+      A la base y a AniList va el término **plegado y sin la almohadilla**, no lo
+      que se escribió: «#Acción», «#accion» y «#Acción» son la misma categoría y
+      tienen que dar la misma lista y la misma entrada de caché. Lo que se pinta
+      en la casilla sigue siendo lo del usuario; esto es lo que se manda.
+    */
+    const termino = genero ?? parsed.data.q
     /*
       Sin término no hay pregunta. Preguntar el catálogo entero a cada fuente es
       tráfico que el usuario no pidió y convierte la pantalla de invitación en un
@@ -253,7 +261,7 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
         : anilistCrossEvent(
             container,
             options.catalog,
-            parsed.data.q,
+            termino,
             parsed.data.media,
             AbortSignal.any([disconnected, AbortSignal.timeout(ANILIST_CROSS_TIMEOUT_MS)]),
           ).catch(() => undefined)
@@ -314,8 +322,8 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
         const permitidos = new Set(selected.map((provider) => provider.id))
         const locales = unirSinRepetir(
           [
-            await container.store.searchByGenre(parsed.data.q, CATALOG_LIMIT),
-            await container.store.searchByStudio(parsed.data.q, CATALOG_LIMIT),
+            await container.store.searchByGenre(termino, CATALOG_LIMIT),
+            await container.store.searchByStudio(termino, CATALOG_LIMIT),
           ],
           CATALOG_LIMIT,
         ).filter((resultado) => permitidos.has(resultado.ref.providerId))

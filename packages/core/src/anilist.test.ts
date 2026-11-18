@@ -228,6 +228,11 @@ describe('el género de AniList al que se refiere un término', () => {
   test('el nombre con el que lo publican los catálogos en español', () => {
     expect(anilistGenre('Acción')).toBe('Action')
     expect(anilistGenre('accion')).toBe('Action')
+    // Las cuatro formas de la casilla resuelven al mismo género canónico.
+    expect(anilistGenre('#acción')).toBe('Action')
+    expect(anilistGenre('#accion')).toBe('Action')
+    expect(anilistGenre('#ACCIÓN')).toBe('Action')
+    expect(anilistGenre('# acción')).toBe('Action')
     expect(anilistGenre('Ciencia ficción')).toBe('Sci-Fi')
     expect(anilistGenre('Recuentos de la vida')).toBe('Slice of Life')
     expect(anilistGenre('Terror')).toBe('Horror')
