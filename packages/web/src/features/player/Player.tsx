@@ -28,10 +28,10 @@
 
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { AudioModeSwitch } from './AudioModeSwitch'
-import { needsHls, volumeFromPercent, volumePercent } from './controls'
+import { etiquetaVelocidad, needsHls, volumeFromPercent, volumePercent } from './controls'
 import { IconoAjustes, IconoReproducir, IconoSilencio, IconoVolumen } from './icons'
 import { PlayerButtons } from './PlayerButtons'
 import { PlayerErrorNotice } from './PlayerErrorNotice'
@@ -40,7 +40,15 @@ import { PlayerSeekBar } from './PlayerSeekBar'
 import { PlayerShortcuts } from './PlayerShortcuts'
 import { PlayerSkipButton } from './PlayerSkip'
 import type { PlayerProps } from './player-props'
+import {
+  almacenLocal,
+  guardarVelocidad,
+  leerVelocidad,
+  VELOCIDADES,
+  type Velocidad,
+} from './storage'
 import { useCompatPaint } from './useCompatPaint'
+import { usePictureInPicture } from './usePictureInPicture'
 import { usePlayer } from './usePlayer'
 import { usePlayerAjustes } from './usePlayerAjustes'
 import { usePlayerBarra } from './usePlayerBarra'
@@ -64,20 +72,31 @@ export function Player(props: PlayerProps): ReactNode {
   const marco = useRef<HTMLDivElement | null>(null)
   const objetivoPantalla = useCallback(() => marco.current, [])
 
+  /**
+   * La velocidad, en estado y en el almacén del navegador.
+   *
+   * El estado es lo que pinta qué opción está marcada; el almacén es lo que
+   * hace que siga elegida al volver. El elemento lo toca `usePlayer`, que
+   * vuelve a aplicarla al montar cada fuente.
+   */
+  const [velocidad, setVelocidad] = useState<Velocidad>(() => leerVelocidad(almacenLocal()))
+
   // Los avisos de reproducción, pausa y avance salen de los eventos del propio
   // elemento, no del render: llamarlos al pintar los dispararía en cada vuelta.
-  const { state, videoRef, act, seekTo, setVolume, hlsTracks, pickHlsTrack, retry } = usePlayer({
-    url: props.url,
-    kind: props.kind,
-    ...(props.onPlay === undefined ? {} : { onPlay: props.onPlay }),
-    ...(props.onPause === undefined ? {} : { onPause: props.onPause }),
-    ...(props.onProgress === undefined ? {} : { onProgress: props.onProgress }),
-    ...(props.onDuration === undefined ? {} : { onDuration: props.onDuration }),
-    ...(props.onEnded === undefined ? {} : { onEnded: props.onEnded }),
-    ...(props.startAtS === undefined ? {} : { startAtS: props.startAtS }),
-    ...(props.renovarFuente === undefined ? {} : { renovarFuente: props.renovarFuente }),
-    fullscreenTarget: objetivoPantalla,
-  })
+  const { state, videoRef, act, seekTo, setVolume, setRate, hlsTracks, pickHlsTrack, retry } =
+    usePlayer({
+      url: props.url,
+      kind: props.kind,
+      ...(props.onPlay === undefined ? {} : { onPlay: props.onPlay }),
+      ...(props.onPause === undefined ? {} : { onPause: props.onPause }),
+      ...(props.onProgress === undefined ? {} : { onProgress: props.onProgress }),
+      ...(props.onDuration === undefined ? {} : { onDuration: props.onDuration }),
+      ...(props.onEnded === undefined ? {} : { onEnded: props.onEnded }),
+      ...(props.startAtS === undefined ? {} : { startAtS: props.startAtS }),
+      ...(props.renovarFuente === undefined ? {} : { renovarFuente: props.renovarFuente }),
+      rate: velocidad,
+      fullscreenTarget: objetivoPantalla,
+    })
   const pistas = props.tracks ?? []
   const intervalos = props.intervals ?? []
 
@@ -121,6 +140,26 @@ export function Player(props: PlayerProps): ReactNode {
     ninguna: t(DEFAULT_LOCALE, 'player.tracks.none'),
     sinNombre: t(DEFAULT_LOCALE, 'player.tracks.sinNombre'),
   })
+
+  /**
+   * El gesto de la velocidad: estado, almacén y elemento, en ese orden.
+   *
+   * Las tres cosas son la misma decisión. Guardar sólo la que se pinta dejaría
+   * el video a 1× hasta la próxima visita; tocar sólo el elemento la perdería al
+   * cambiar de episodio.
+   */
+  const cambiarVelocidad = useCallback(
+    (valor: Velocidad) => {
+      setVelocidad(valor)
+      guardarVelocidad(almacenLocal(), valor)
+      setRate(valor)
+    },
+    [setRate],
+  )
+
+  // El picture-in-picture sólo se ofrece donde el navegador lo tiene. El hook
+  // escucha el elemento para saber si el video está dentro o fuera.
+  const pip = usePictureInPicture(elemento)
 
   /**
    * Los intervalos que ya se saltaron en esta visita.
@@ -263,6 +302,45 @@ export function Player(props: PlayerProps): ReactNode {
             <AudioModeSwitch mode={props.mode} onMode={props.onMode} />
           </div>
         )}
+
+        {/*
+          La velocidad. Es una lista cerrada y con `aria-pressed`, como las
+          pistas: se elige una y las demás quedan apagadas. El texto lleva la
+          coma decimal de la casa —`1,25×`— y no el punto que devuelve `String`.
+        */}
+        <div className="player__menu-block">
+          <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.speed')}</p>
+          <ul className="player__menu-list">
+            {VELOCIDADES.map((opcion) => (
+              <li key={opcion}>
+                <button
+                  type="button"
+                  className="button player__menu-choice"
+                  aria-pressed={velocidad === opcion}
+                  onClick={() => cambiarVelocidad(opcion)}
+                >
+                  {t(DEFAULT_LOCALE, 'player.speed.option', {
+                    rate: etiquetaVelocidad(opcion),
+                  })}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* La ventana flotante, sólo si el navegador la ofrece. El estado sale
+            de los eventos del video y no de haber pulsado el botón: el
+            navegador puede rechazar la petición y el mando no puede mentir. */}
+        {pip.disponible ? (
+          <button
+            type="button"
+            className="button player__menu-action"
+            aria-pressed={pip.activo}
+            onClick={() => void pip.alternar()}
+          >
+            {t(DEFAULT_LOCALE, pip.activo ? 'player.pip.exit' : 'player.pip')}
+          </button>
+        ) : null}
 
         {props.onMpv === undefined ? null : (
           <button type="button" className="button player__menu-action" onClick={props.onMpv}>

@@ -383,6 +383,21 @@
  * reserva mide 62 dvh, así que un aviso debajo quedaría fuera de la primera
  * pantalla. El borde de acento lo separa del resto sin añadir un color nuevo.
  */
+/*
+ * La home del primer arranque: un titular y la bienvenida, nada más.
+ *
+ * El titular va alineado con la tarjeta y no a sangre como los tramos: aquí no
+ * hay una marquesina que lo acompañe, y pegado al borde se leía como el de otra
+ * pantalla.
+ */
+.home--primer-arranque {
+  padding-block-start: var(--space-5);
+}
+
+.home--primer-arranque > h1 {
+  margin-inline: var(--vitrina-margen);
+}
+
 .primer-arranque {
   display: flex;
   flex-direction: column;
@@ -401,6 +416,30 @@
 
 .primer-arranque p {
   margin: 0;
+}
+
+/*
+ * Los tres pasos del primer arranque.
+ *
+ * Van numerados porque son una secuencia y no tres consejos: añadir el
+ * repositorio, revisarlo y elegir qué se activa. La sangría de la lista deja
+ * los números fuera del texto y el aire entre pasos es el mismo de la casa.
+ */
+.primer-arranque__pasos {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+
+.primer-arranque__pasos li {
+  padding-inline-start: var(--space-1);
+}
+
+.primer-arranque__pasos li::marker {
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-weight: 700;
 }
 
 .primer-arranque__titulo {

@@ -29,6 +29,8 @@ import { describirFallo, type Fallo, falloSinFuente } from '../../api/fallo'
 import { t } from '../../i18n'
 import { usePath } from '../../router'
 import { coverPath } from '../search/ResultCard'
+import { elegirFuente } from './quality'
+import { almacenLocal, leerCalidad } from './storage'
 import type { SubtitleCandidate } from './subtitle-tracks'
 import type { WatchEstado } from './watch-neighbours'
 import { modeFromPath, type PlayMode } from './watch-route'
@@ -93,6 +95,13 @@ export function useWatchFuente(options: WatchFuenteOptions): WatchFuenteHandle {
   const [modo, setModo] = useState<PlayMode>(() => modeFromPath(path) ?? 'sub')
   const [estado, setEstado] = useState<WatchEstado>('loading')
   const [error, setError] = useState<Fallo | undefined>(undefined)
+  /**
+   * La calidad preferida, leída una vez al abrir la pantalla.
+   *
+   * Es una preferencia del navegador, como la velocidad: se aplica a la
+   * siguiente resolución y no necesita volver a pedir el stream en caliente.
+   */
+  const [calidad] = useState(() => leerCalidad(almacenLocal()))
 
   /**
    * Resolver el stream del episodio y el modo actuales.
@@ -145,15 +154,22 @@ export function useWatchFuente(options: WatchFuenteOptions): WatchFuenteHandle {
 
         const salida = await apiPostJson(
           '/api/stream/resolve',
-          { episodeRef: { providerId: options.providerId, value: options.ref }, mode: modo },
+          {
+            episodeRef: { providerId: options.providerId, value: options.ref },
+            mode: modo,
+            // El campo está en el contrato y el catálogo lo usa al elegir la
+            // fila que cachea. Si la fuente no ofrece esa calidad, la respuesta
+            // trae las demás y `elegirFuente` se queda con la primera.
+            ...(calidad === undefined ? {} : { preferredQuality: calidad }),
+          },
           streamResolveResponseSchema,
           { signal: controlador.signal },
         )
 
         if (controlador.signal.aborted) return
 
-        const primera = salida.sources[0]
-        if (primera === undefined) {
+        const elegida = elegirFuente(salida.sources, calidad)
+        if (elegida === undefined) {
           // Un proveedor que contesta sin fuentes no es un fallo de red: es que
           // ese sitio no tiene el episodio, y se cuenta como tal.
           setError(falloSinFuente(t(DEFAULT_LOCALE, 'player.noSource')))
@@ -163,11 +179,11 @@ export function useWatchFuente(options: WatchFuenteOptions): WatchFuenteHandle {
         }
 
         setFuente({
-          url: primera.url,
-          kind: primera.kind,
-          ...(primera.subtitles === undefined
+          url: elegida.url,
+          kind: elegida.kind,
+          ...(elegida.subtitles === undefined
             ? {}
-            : { subtitles: primera.subtitles as readonly SubtitleCandidate[] }),
+            : { subtitles: elegida.subtitles as readonly SubtitleCandidate[] }),
         })
         setEstado('ready')
       } catch (cause) {
@@ -181,7 +197,7 @@ export function useWatchFuente(options: WatchFuenteOptions): WatchFuenteHandle {
     void ejecutar()
 
     return controlador
-  }, [options.providerId, options.ref, modo])
+  }, [options.providerId, options.ref, modo, calidad])
 
   useEffect(() => {
     const controlador = resolver()
@@ -203,17 +219,18 @@ export function useWatchFuente(options: WatchFuenteOptions): WatchFuenteHandle {
           episodeRef: { providerId: options.providerId, value: options.ref },
           mode: modo,
           refresh: true,
+          ...(calidad === undefined ? {} : { preferredQuality: calidad }),
         },
         streamResolveResponseSchema,
       )
 
-      return salida.sources[0]?.url
+      return elegirFuente(salida.sources, calidad)?.url
     } catch {
       // Un fallo al renovar no se cuenta aquí: el reproductor está en medio de
       // una recuperación y su manejador decide si se agota o se reintenta.
       return undefined
     }
-  }, [options.providerId, options.ref, modo])
+  }, [options.providerId, options.ref, modo, calidad])
 
   return {
     fuente,

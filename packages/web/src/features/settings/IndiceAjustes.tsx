@@ -1,7 +1,7 @@
 /**
  * El índice de Ajustes.
  *
- * Seis enlaces que llevan a las seis secciones de la página. En escritorio es una
+ * Un enlace por sección de la página. En escritorio es una
  * columna a la izquierda que se queda pegada al desplazar; en una ventana
  * estrecha, una fila que se desplaza en horizontal. No es una segunda navegación
  * de la aplicación —no cambia de pantalla—, es el mapa de la que ya está abierta.

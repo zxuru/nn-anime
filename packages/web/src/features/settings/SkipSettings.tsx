@@ -10,6 +10,11 @@
  * El salto automático nace **apagado**: encadenar episodios se espera de una
  * serie, pero saltarse un trozo del capítulo sin que nadie lo pida es decidir por
  * quien está mirando.
+ *
+ * La consulta a AniSkip nace **encendida**, que es el comportamiento que ya
+ * tenía la aplicación. Es la única llamada a un tercero de esta pantalla, así
+ * que se puede apagar aquí: con ella apagada, `useSkipTimes` no pide nada y los
+ * saltos dejan de ofrecerse.
  */
 
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
@@ -18,8 +23,10 @@ import { t } from '../../i18n'
 import { MARGEN_MAXIMO_S } from '../player/skip'
 import {
   almacenLocal,
+  guardarConsultarAniskip,
   guardarMargenSalto,
   guardarSaltoAuto,
+  leerConsultarAniskip,
   leerMargenSalto,
   leerSaltoAuto,
 } from '../player/storage'
@@ -30,10 +37,16 @@ const MARGENES = Array.from({ length: MARGEN_MAXIMO_S + 1 }, (_, indice) => indi
 export function SkipSettings(): ReactNode {
   const [auto, setAuto] = useState(() => leerSaltoAuto(almacenLocal()))
   const [margen, setMargen] = useState(() => leerMargenSalto(almacenLocal()))
+  const [aniskip, setAniskip] = useState(() => leerConsultarAniskip(almacenLocal()))
 
   const cambiarAuto = useCallback((valor: boolean) => {
     setAuto(valor)
     guardarSaltoAuto(almacenLocal(), valor)
+  }, [])
+
+  const cambiarAniskip = useCallback((valor: boolean) => {
+    setAniskip(valor)
+    guardarConsultarAniskip(almacenLocal(), valor)
   }, [])
 
   const cambiarMargen = useCallback((valor: number) => {
@@ -47,6 +60,22 @@ export function SkipSettings(): ReactNode {
     <section>
       <h3>{t(DEFAULT_LOCALE, 'settings.skip.title')}</h3>
       <p className="field__hint">{t(DEFAULT_LOCALE, 'settings.skip.body')}</p>
+
+      {/*
+        AniSkip es un tercero. El ajuste nace encendido —es el comportamiento
+        que ya había— y el texto lo dice junto con lo que pasa al apagarlo: no
+        se hace ninguna petición y los botones de salto dejan de aparecer.
+      */}
+      <label className="field field--check" htmlFor="skip-aniskip">
+        <input
+          id="skip-aniskip"
+          type="checkbox"
+          checked={aniskip}
+          onChange={(evento) => cambiarAniskip(evento.target.checked)}
+        />
+        <span>{t(DEFAULT_LOCALE, 'settings.skip.aniskip')}</span>
+      </label>
+      <p className="field__hint">{t(DEFAULT_LOCALE, 'settings.skip.aniskipHint')}</p>
 
       <label className="field field--check" htmlFor="skip-auto">
         <input

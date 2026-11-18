@@ -348,6 +348,51 @@ describe('los saltos', () => {
   })
 })
 
+describe('la velocidad y la ventana flotante', () => {
+  /**
+   * La velocidad se elige del menú y se recuerda.
+   *
+   * La lista es cerrada y cada opción declara si es la puesta. El texto lleva
+   * coma decimal: `0,75×` y no `0.75×`.
+   */
+  test('el menú ofrece las cinco velocidades y marca la normal', () => {
+    const html = render(<Player url="/stream/abc" kind="file" />)
+
+    expect(html).toContain('Velocidad')
+    for (const velocidad of ['0,75×', '1×', '1,25×', '1,5×', '2×']) {
+      expect(html, velocidad).toContain(`>${velocidad}</button>`)
+    }
+
+    // Sin almacén en el servidor, la preferencia es la normal.
+    expect(html).toMatch(/aria-pressed="true"[^>]*>1×</)
+  })
+
+  test('la velocidad se guarda en el almacén del navegador', async () => {
+    const fuente = await readFile(`${ROOT}Player.tsx`, 'utf8')
+
+    expect(fuente).toContain('leerVelocidad(almacenLocal())')
+    expect(fuente).toContain('guardarVelocidad(almacenLocal(), valor)')
+    expect(fuente).toContain('setRate(valor)')
+  })
+
+  /**
+   * El picture-in-picture no se ofrece donde no existe.
+   *
+   * En el render de servidor no hay `document`, así que el mando no aparece. El
+   * soporte se pregunta con `pictureInPictureEnabled` y el estado sale de los
+   * eventos del video, no de haber pulsado el botón.
+   */
+  test('sin soporte no hay mando, y el soporte se pregunta al navegador', async () => {
+    expect(render(<Player url="/stream/abc" kind="file" />)).not.toContain('Ventana flotante')
+
+    const fuente = await readFile(`${ROOT}usePictureInPicture.ts`, 'utf8')
+
+    expect(fuente).toContain('document.pictureInPictureEnabled === true')
+    expect(fuente).toContain('requestPictureInPicture')
+    expect(fuente).toContain('enterpictureinpicture')
+  })
+})
+
 describe('pistas y reanudación', () => {
   test('pinta una pista por subtítulo, con su idioma y su etiqueta', () => {
     const html = render(

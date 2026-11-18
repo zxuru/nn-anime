@@ -6,8 +6,10 @@ import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { t } from '../../i18n'
 import { createMemoryHistory, HistoryProvider } from '../../router'
+import { DownloadsSummary } from './DownloadsSettings'
 import { IndiceAjustes, primeraVisible } from './IndiceAjustes'
 import { moved, ProviderList, providersByPriority } from './ProviderList'
+import { QualitySettings } from './QualitySettings'
 import { RegisterProvider } from './RegisterProvider'
 import { SettingsPage } from './SettingsPage'
 import { SECCIONES_AJUSTES } from './secciones'
@@ -336,6 +338,51 @@ describe('los títulos de los bloques', () => {
   })
 })
 
+describe('las descargas en Ajustes', () => {
+  /**
+   * La sección dice dónde está la carpeta y cuánto queda, y lleva a la
+   * Biblioteca, que es donde se cambia. No hay un segundo formulario: el mismo
+   * dato en dos sitios es el defecto que esta separación evita.
+   */
+  test('enseña la carpeta, el espacio y el enlace a la Biblioteca', () => {
+    const html = render(
+      <DownloadsSummary
+        space={{
+          path: '/srv/descargas',
+          freeBytes: 10 * 1024 ** 3,
+          totalBytes: 20 * 1024 ** 3,
+          downloadsBytes: 2 * 1024 ** 3,
+        }}
+      />,
+    )
+
+    expect(html).toContain('/srv/descargas')
+    expect(html).toContain('Libre: 10,0 GiB de 20,0 GiB.')
+    expect(html).toContain('Las descargas ocupan 2,0 GiB.')
+    expect(html).toContain('href="/library"')
+    expect(html).toContain('Abrir la Biblioteca')
+  })
+
+  test('sin lectura todavía lo dice, y el fallo también', () => {
+    expect(render(<DownloadsSummary space={undefined} />)).toContain('Leyendo el espacio')
+    expect(render(<DownloadsSummary space={undefined} failed />)).toContain(
+      'No se pudo leer el espacio',
+    )
+  })
+})
+
+describe('la calidad preferida', () => {
+  test('se elige de una lista cerrada y arranca en automático', () => {
+    const html = render(<QualitySettings />)
+
+    expect(html).toContain('Calidad preferida')
+    expect(html).toContain('La que dé la fuente')
+    for (const calidad of ['1080p', '720p', '480p', '360p']) {
+      expect(html, calidad).toContain(`value="${calidad}"`)
+    }
+  })
+})
+
 describe('la página', () => {
   test('arranca cargando y no depende de la red en el primer render', () => {
     const html = render(<SettingsPage />)
@@ -415,6 +462,28 @@ describe('la página', () => {
 
     expect(catalogo).toContain('sin sandbox')
     expect(catalogo).toContain('con tus permisos')
+  })
+
+  /**
+   * El orden de los caminos para llenar Fuentes.
+   *
+   * La lista y el repositorio son el camino recomendado; el alta manual son
+   * quince campos y vive plegada en un `<details>`. Si alguien vuelve a ponerla
+   * abierta y por delante, esta prueba lo dice sin abrir un navegador.
+   */
+  test('el alta manual va plegada, después de la lista y del repositorio', async () => {
+    const fuente = await readFile(`${ROOT}SettingsPage.tsx`, 'utf8')
+    const lista = fuente.indexOf('<ProviderList')
+    const repos = fuente.indexOf('<ProviderRepos')
+    const manual = fuente.indexOf('<RegisterProvider')
+    const detalles = fuente.indexOf('<details className="settings__advanced">')
+
+    expect(lista).toBeGreaterThan(-1)
+    expect(repos).toBeGreaterThan(lista)
+    expect(manual).toBeGreaterThan(repos)
+    expect(detalles).toBeGreaterThan(repos)
+    expect(detalles).toBeLessThan(manual)
+    expect(fuente).toContain('settings.register.manual')
   })
 
   /**
