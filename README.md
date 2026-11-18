@@ -36,6 +36,10 @@ telemetría.**
   clave en **Ajustes** completa su sinopsis, sus géneros y su año. Se guarda en la base local, no se
   devuelve nunca al navegador y sólo se usa contra `api.themoviedb.org`. Sin clave, la ficha se queda
   con lo que publique la fuente. La portada siempre es la del plugin.
+- **AniSkip, opcional, para los saltos de intro y ending.** Se consulta `api.aniskip.com` con el
+  identificador de AniList del episodio y sólo si el ajuste de **Ajustes → Reproducción** está
+  encendido, que es el valor de fábrica. Apagado no sale ninguna petición —ni la de AniSkip ni la del
+  enriquecimiento que servía para llegar a su identificador— y el botón de saltar no aparece.
 - **La ficha** reserva su misma forma mientras carga y pinta desde el primer fotograma lo que la
   tarjeta ya sabía —título, portada, metadatos—, así que no hay salto de altura ni un «cargando» que
   se lo coma. Si el proveedor falla, la tarjeta de error dice qué pasó, de quién es la culpa y ofrece
