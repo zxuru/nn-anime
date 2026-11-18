@@ -114,6 +114,174 @@ describe('la puerta de cobertura en el CI', () => {
 })
 
 /**
+ * Los workflows, leídos enteros.
+ *
+ * `ci.yml` se miraba desde la tarea de la puerta de cobertura; `release.yml` y
+ * `release-please.yml` no se parseaban en ningún sitio, así que un YAML roto o una
+ * comprobación borrada se descubría el día de la release. Aquí se leen los tres con
+ * `Bun.YAML.parse` y se defienden las tres puertas que no pueden desaparecer sin que
+ * alguien lo note: el tag contra `package.json`, la versión de `latest.json` contra los
+ * assets y el commit contra `main` antes de recibir un secreto de firma.
+ */
+
+const WORKFLOWS = join(ROOT, '.github', 'workflows')
+
+interface PasoWorkflow {
+  readonly name?: string
+  readonly id?: string
+  readonly run?: string
+  readonly uses?: string
+}
+
+interface TrabajoWorkflow {
+  readonly steps?: readonly PasoWorkflow[]
+  readonly environment?: unknown
+  readonly if?: string
+}
+
+interface Workflow {
+  readonly on?: Readonly<Record<string, unknown>>
+  readonly env?: Readonly<Record<string, string>>
+  readonly jobs?: Readonly<Record<string, TrabajoWorkflow>>
+}
+
+function workflow(nombre: string): Workflow {
+  const yaml: unknown = Bun.YAML.parse(readFileSync(join(WORKFLOWS, nombre), 'utf8'))
+
+  if (typeof yaml !== 'object' || yaml === null) {
+    throw new Error(`${nombre} no contiene un workflow`)
+  }
+
+  return yaml as Workflow
+}
+
+function trabajosDe(nombre: string): ReadonlyMap<string, TrabajoWorkflow> {
+  return new Map(Object.entries(workflow(nombre).jobs ?? {}))
+}
+
+/** Todo lo que ejecutan los pasos de un trabajo, unido: el orden no importa para estas pruebas. */
+function guionDe(nombre: string, trabajo: string): string {
+  return (trabajosDe(nombre).get(trabajo)?.steps ?? []).map((paso) => paso.run ?? '').join('\n')
+}
+
+describe('los tres workflows', () => {
+  test('se parsean y cada trabajo declara sus pasos', () => {
+    for (const archivo of ['ci.yml', 'release.yml', 'release-please.yml']) {
+      const trabajos = trabajosDe(archivo)
+
+      expect(trabajos.size, archivo).toBeGreaterThan(0)
+
+      for (const [nombre, trabajo] of trabajos) {
+        // Un YAML que no carga deja el workflow en «workflow file issue» y no corre nada: se ve
+        // en GitHub, no en un `bun test`. Parsearlo aquí es lo que lo convierte en un fallo local.
+        expect(Array.isArray(trabajo.steps), `${archivo}:${nombre}`).toBe(true)
+      }
+    }
+  })
+
+  test('la rama manual deriva la versión de package.json y valida el tag', () => {
+    const guion = guionDe('release.yml', 'comprobar')
+
+    // La entrada libre de `workflow_dispatch` ya no elige la versión: sale del `package.json`.
+    expect(guion).toContain('version="$(bun run scripts/version.ts current)"')
+    expect(guion).not.toContain('version="${ENTRADA:-')
+
+    // Y se comprueba el tag entero, no sólo la versión: si `version:check` pierde la uve, el tag
+    // podría no coincidir con el binario.
+    expect(guion).toContain('bun run version:check "v$version"')
+  })
+
+  test('latest.json anuncia la versión y el asset que se publica', () => {
+    const guion = guionDe('release.yml', 'publicar')
+
+    // Sin esto, el manifiesto podía decir otra versión o apuntar a un `.exe` de otro tag: el
+    // updater anuncia una actualización que da 404.
+    expect(guion).toContain('version_manifiesto')
+    expect(guion).toContain('basename_portable')
+    expect(guion).toContain('grep -Fxq "$basename_portable"')
+  })
+
+  test('un tag fuera de main no recibe los secretos de firma', () => {
+    const guion = guionDe('release.yml', 'comprobar')
+
+    // El push de tag no pasa por el CI de la rama. La comprobación de ancestro es la que impide
+    // que un tag creado desde una rama suelta llegue a `portables` con el certificado dentro.
+    expect(guion).toContain('git fetch --no-tags origin main')
+    expect(guion).toContain('git merge-base --is-ancestor "$GITHUB_SHA" origin/main')
+  })
+
+  test('los trabajos que leen secretos de firma pasan por el entorno release', () => {
+    const SECRETO = /(WINDOWS_CERT_|APPLE_|TAURI_SIGNING_)/
+    const conSecretos = [...trabajosDe('release.yml')].filter(([, trabajo]) =>
+      SECRETO.test(JSON.stringify(trabajo)),
+    )
+
+    expect(conSecretos.length).toBeGreaterThan(0)
+
+    for (const [nombre, trabajo] of conSecretos) {
+      // `environment: release` con revisores es la segunda puerta: sin él, cualquier tag recibe
+      // el certificado de Windows, el de Apple y la clave del updater sin que nadie lo apruebe.
+      expect(trabajo.environment, nombre).toBe('release')
+    }
+  })
+
+  test('Bun se instala desde una sola versión por workflow', () => {
+    // Estaba escrito tres veces en `release.yml`: dos trabajos podían compilar el mismo tag con
+    // versiones distintas del gestor, que es justo lo que `bun.lock` no puede garantizar.
+    expect(workflow('release.yml').env?.BUN_VERSION).toBe(workflow('ci.yml').env?.BUN_VERSION)
+    expect(readFileSync(join(WORKFLOWS, 'release.yml'), 'utf8')).not.toMatch(/bun-version:\s*\d/)
+  })
+
+  test('las acciones de terceros van fijadas por SHA', () => {
+    for (const archivo of ['ci.yml', 'release.yml', 'release-please.yml']) {
+      const texto = readFileSync(join(WORKFLOWS, archivo), 'utf8')
+      const usos = [...texto.matchAll(/^\s*(?:- )?uses:\s*(\S+)(?:\s+#.*)?$/gm)].map(
+        (match) => match[1] ?? '',
+      )
+
+      expect(usos.length, archivo).toBeGreaterThan(0)
+
+      for (const uso of usos) {
+        // Una acción local (`./.github/…`) no se puede mover: no lleva SHA. Una de terceros sí,
+        // y una etiqueta movida ejecuta lo que quiera con el token del workflow.
+        if (uso.startsWith('./')) continue
+        expect(uso, `${archivo}: ${uso}`).toMatch(/@[0-9a-f]{40}$/)
+      }
+    }
+  })
+})
+
+/**
+ * El reloj semanal (R8).
+ *
+ * Sin `schedule`, `bun audit` y `cargo-deny` sólo corrían cuando alguien abría un PR: un aviso
+ * sobre el `Cargo.lock` o el `bun.lock` que ya están en `main` podía esperar meses. Lo que se
+ * defiende aquí es que el reloj exista **y** que no arrastre media CI: `cambios` sin base
+ * comparable asumiría que cambió todo.
+ */
+describe('el reloj del CI', () => {
+  test('hay un schedule semanal', () => {
+    const schedule = workflow('ci.yml').on?.schedule
+    const primero = Array.isArray(schedule) ? schedule[0] : undefined
+    const cron =
+      typeof primero === 'object' && primero !== null && 'cron' in primero
+        ? primero.cron
+        : undefined
+
+    expect(typeof cron).toBe('string')
+    expect(cron).toMatch(/^\d+ \d+ \* \* \d+$/)
+  })
+
+  test('la corrida programada no arrastra los trabajos caros', () => {
+    // `calidad` y `auditoria-rust` no dependen de `cambios` y corren solos. El resto cuelga de
+    // `cambios`, que se salta: sin este `if`, cada lunes se construiría Docker, e2e y Tauri.
+    expect(trabajosDe('ci.yml').get('cambios')?.if).toContain('schedule')
+    expect(trabajosDe('ci.yml').get('calidad')?.if).toBeUndefined()
+    expect(trabajosDe('ci.yml').get('auditoria-rust')?.if).toBeUndefined()
+  })
+})
+
+/**
  * La auditoría del `Cargo.lock` (T235).
  *
  * `bun audit` mira `bun.lock` y el árbol de Rust se quedaba sin nadie que

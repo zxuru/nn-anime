@@ -31,10 +31,21 @@ name: CI
 # mover, y quien pueda moverla puede ejecutar lo que quiera en este repositorio con el token del
 # workflow. El comentario dice a qué versión corresponde cada SHA; Dependabot lo reescribe al
 # proponer una actualización.
+#
+# `actionlint` no es una dependencia del repositorio y no se ejecuta aquí: se corre a mano
+# (`actionlint .github/workflows/*.yml`) cuando se toca un workflow. Lo que sí se mide en
+# `bun test` —sin red y sin instalar nada— es que los tres workflows se parseen con
+# `Bun.YAML.parse` y que ninguna acción de terceros pierda su SHA.
 
 on:
   pull_request:
   merge_group:
+  # El reloj semanal. `bun audit` y `cargo-deny` sólo se enteraban de un aviso cuando alguien
+  # abría un PR: una dependencia vulnerable en `main` podía pasar meses sin que nadie la mirara.
+  # Los dos viven en trabajos que **no** dependen de `cambios`, así que corren solos; el resto
+  # cuelga de `cambios`, que se salta fuera de un PR o de la cola de merge.
+  schedule:
+    - cron: '17 4 * * 1'
 
 permissions:
   contents: read
@@ -59,6 +70,10 @@ jobs:
   cambios:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Una corrida programada no mide un PR: sólo quiere el listón y la auditoría de Rust. Al
+    # saltarse este trabajo se saltan los que dependen de él —docker, e2e, el empaquetado y el
+    # árbol de Rust—, y `calidad` y `auditoria-rust` corren porque no lo necesitan.
+    if: github.event_name != 'schedule'
     outputs:
       codigo: ${{ steps.clasificar.outputs.codigo }}
       packaging: ${{ steps.clasificar.outputs.packaging }}
@@ -355,6 +370,11 @@ jobs:
   # Las capas se cachean en la caché de Actions (`type=gha`) con un `scope` propio. El `scope` no es
   # cosmético: `release.yml` construye la misma imagen multi-arquitectura y escribe en otro `scope`,
   # así que sin separarlos las dos builds se pisan el índice y ninguna acierta.
+  #
+  # Pendiente y declarado (R8): la imagen base va por etiqueta (`oven/bun:${BUN_VERSION}`), no por
+  # digest. Fijarla por digest obliga a actualizarla a mano con cada parche de seguridad, y
+  # `dependabot.yml` todavía no tiene un ecosistema `docker` que proponga el digest nuevo; sin esa
+  # pieza, un digest congelado es una imagen que envejece en silencio. Se decide cuando exista.
   docker:
     needs: cambios
     if: needs.cambios.outputs.codigo == 'true'

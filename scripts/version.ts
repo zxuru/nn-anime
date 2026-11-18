@@ -12,6 +12,11 @@
  * se desvió, `set` cambia la raíz y sincroniza, y `current` la imprime para que
  * un workflow la lea sin abrir el JSON a mano.
  *
+ * El anfitrión de ventana (`desktop/src-tauri`) va con ellos: su `Cargo.toml` y
+ * la entrada de `rona-desktop` en `Cargo.lock` también dicen la versión, y el
+ * build compila con `--locked`. Un hotfix manual que sólo suba los `package.json`
+ * deja el tag en rojo en `comprobar`, así que los tres comandos los cubren.
+ *
  * `check` acepta además un tag (`check v1.2.3`) y comprueba que coincida: es lo
  * que impide que el tag `v1.2.4` publique un binario que dice `1.2.3`.
  *
@@ -49,6 +54,262 @@ export interface VersionIO {
 
 /** El `package.json` de la raíz, que es el que manda. */
 const ROOT_MANIFEST = join(ROOT, 'package.json')
+
+/**
+ * El anfitrión de ventana declara la misma versión, y en dos archivos.
+ *
+ * `Cargo.toml` la lleva en `[package]` y `Cargo.lock` la repite en la entrada del paquete; el
+ * `desktop:build` del CI compila con `--locked`, así que un lock atrasado no se corrige solo y
+ * tumba los cuatro artefactos antes de compilar. `release-please` los sube con sus `extra-files`,
+ * pero el hotfix manual de `version:set` se los dejaba atrás y el tag fallaba en `comprobar`.
+ */
+const CARGO_TOML = join(ROOT, 'desktop', 'src-tauri', 'Cargo.toml')
+const CARGO_LOCK = join(ROOT, 'desktop', 'src-tauri', 'Cargo.lock')
+
+/**
+ * La línea `version = "…"` de un TOML, partida en tres trozos.
+ *
+ * El tercero conserva el comentario de cola: `Cargo.lock` lleva
+ * `# x-release-please-version` en esa línea y perderlo dejaría a release-please sin la anotación
+ * que usa para actualizarla.
+ */
+const VERSION_EN_LINEA = /^(\s*version\s*=\s*")([^"]*)(".*)$/
+
+/** Separa el texto en líneas sin cambiar su salto, para que reescribirlo no toque el resto. */
+function lineasDe(texto: string): { lineas: string[]; eol: string } {
+  const eol = texto.includes('\r\n') ? '\r\n' : '\n'
+
+  return { lineas: texto.split(eol), eol }
+}
+
+/**
+ * El nombre del paquete de `[package]`.
+ *
+ * Es la clave con la que la entrada aparece en `Cargo.lock`, así que se lee del manifiesto y no se
+ * escribe aquí: renombrar el anfitrión es un cambio de una línea, no de dos archivos de versión.
+ */
+export function cargoPackageName(toml: string): string | undefined {
+  const { lineas } = lineasDe(toml)
+  let enPaquete = false
+
+  for (const linea of lineas) {
+    const recortada = linea.trim()
+
+    if (recortada.startsWith('[')) {
+      enPaquete = recortada === '[package]'
+      continue
+    }
+
+    if (!enPaquete) continue
+
+    const nombre = /^\s*name\s*=\s*"([^"]+)"\s*(?:#.*)?$/.exec(linea)
+    if (nombre?.[1] !== undefined) return nombre[1]
+  }
+
+  return undefined
+}
+
+/** La versión de `[package]` en `Cargo.toml`, o `undefined` si no la declara. */
+export function cargoTomlVersion(toml: string): string | undefined {
+  const { lineas } = lineasDe(toml)
+  let enPaquete = false
+
+  for (const linea of lineas) {
+    const recortada = linea.trim()
+
+    if (recortada.startsWith('[')) {
+      enPaquete = recortada === '[package]'
+      continue
+    }
+
+    if (!enPaquete) continue
+
+    const version = VERSION_EN_LINEA.exec(linea)
+    if (version?.[2] !== undefined) return version[2]
+  }
+
+  return undefined
+}
+
+/**
+ * El `Cargo.toml` con la versión de `[package]` cambiada, **y nada más**.
+ *
+ * La sustitución es sobre una línea, no sobre el texto entero: `[dependencies]` lleva su propio
+ * `version = "1"` en cada dependencia, y una expresión regular global las habría convertido en la
+ * versión de la aplicación.
+ */
+export function withCargoTomlVersion(toml: string, version: string): string {
+  const { lineas, eol } = lineasDe(toml)
+  let enPaquete = false
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i] ?? ''
+    const recortada = linea.trim()
+
+    if (recortada.startsWith('[')) {
+      enPaquete = recortada === '[package]'
+      continue
+    }
+
+    if (!enPaquete) continue
+
+    const actual = VERSION_EN_LINEA.exec(linea)
+    if (actual?.[2] === undefined) continue
+    if (actual[2] === version) return toml
+
+    lineas[i] = `${actual[1] ?? ''}${version}${actual[3] ?? ''}`
+
+    return lineas.join(eol)
+  }
+
+  throw new Error('Cargo.toml: no hay una línea version en [package]')
+}
+
+/**
+ * La línea de `[[package]]` con ese nombre, o `undefined`.
+ *
+ * `Cargo.lock` repite `name` y `version` por cada paquete del grafo: buscar la versión sin mirar
+ * de qué bloque es devolvería la de una dependencia cualquiera.
+ */
+function inicioDePaquete(lock: string, paquete: string): number | undefined {
+  const { lineas } = lineasDe(lock)
+  let inicio = -1
+
+  for (let i = 0; i < lineas.length; i++) {
+    const recortada = (lineas[i] ?? '').trim()
+
+    if (recortada === '[[package]]') {
+      inicio = i
+      continue
+    }
+
+    if (inicio === -1) continue
+
+    const nombre = /^\s*name\s*=\s*"([^"]+)"\s*$/.exec(lineas[i] ?? '')
+    if (nombre?.[1] === paquete) return inicio
+  }
+
+  return undefined
+}
+
+/** La versión de ese paquete en `Cargo.lock`, o `undefined` si no hay entrada. */
+export function cargoLockVersion(lock: string, paquete: string): string | undefined {
+  const inicio = inicioDePaquete(lock, paquete)
+  if (inicio === undefined) return undefined
+
+  const { lineas } = lineasDe(lock)
+
+  for (let i = inicio; i < lineas.length; i++) {
+    const linea = lineas[i] ?? ''
+    if (i > inicio && linea.trim() === '[[package]]') break
+
+    const version = VERSION_EN_LINEA.exec(linea)
+    if (version?.[2] !== undefined) return version[2]
+  }
+
+  return undefined
+}
+
+/** El `Cargo.lock` con la versión de ese paquete cambiada, conservando su anotación. */
+export function withCargoLockVersion(lock: string, paquete: string, version: string): string {
+  const inicio = inicioDePaquete(lock, paquete)
+  if (inicio === undefined) {
+    throw new Error(`Cargo.lock: no hay una entrada para ${paquete}`)
+  }
+
+  const { lineas, eol } = lineasDe(lock)
+
+  for (let i = inicio; i < lineas.length; i++) {
+    const linea = lineas[i] ?? ''
+    if (i > inicio && linea.trim() === '[[package]]') break
+
+    const actual = VERSION_EN_LINEA.exec(linea)
+    if (actual?.[2] === undefined) continue
+    if (actual[2] === version) return lock
+
+    lineas[i] = `${actual[1] ?? ''}${version}${actual[3] ?? ''}`
+
+    return lineas.join(eol)
+  }
+
+  throw new Error(`Cargo.lock: la entrada de ${paquete} no declara version`)
+}
+
+/**
+ * Lo que el anfitrión dice de menos o de más respecto a la raíz.
+ *
+ * Es una función pura para poder medirla con un TOML y un lock de mentira: el caso que importa es
+ * el que no coincide, y para reproducirlo no hace falta tocar los archivos del repositorio.
+ */
+export function cargoProblems(root: string, toml: string, lock: string): readonly string[] {
+  const problemas: string[] = []
+  const nombre = cargoPackageName(toml)
+  const enToml = cargoTomlVersion(toml)
+
+  if (enToml !== root) {
+    problemas.push(
+      `desktop/src-tauri/Cargo.toml dice ${enToml ?? '(sin versión)'} y la raíz ${root}`,
+    )
+  }
+
+  if (nombre === undefined) {
+    problemas.push('desktop/src-tauri/Cargo.toml no declara name en [package]')
+
+    return problemas
+  }
+
+  const enLock = cargoLockVersion(lock, nombre)
+  if (enLock !== root) {
+    problemas.push(
+      `desktop/src-tauri/Cargo.lock dice ${enLock ?? '(sin versión)'} y la raíz ${root}`,
+    )
+  }
+
+  return problemas
+}
+
+export interface CargoPaths {
+  readonly toml: string
+  readonly lock: string
+}
+
+const CARGO_PATHS: CargoPaths = { toml: CARGO_TOML, lock: CARGO_LOCK }
+
+/**
+ * Aplica la versión al anfitrión y devuelve los cambios, con el archivo y el antes/después.
+ *
+ * Las rutas se pueden pasar para medirlo sobre un par de archivos temporales: escribir en los del
+ * repositorio durante una prueba cambiaría justo lo que se está probando.
+ */
+export async function writeCargo(
+  version: string,
+  rutas: CargoPaths = CARGO_PATHS,
+): Promise<readonly string[]> {
+  const toml = await Bun.file(rutas.toml).text()
+  const nombre = cargoPackageName(toml)
+
+  if (nombre === undefined) {
+    throw new Error(`${rutas.toml}: no declara name en [package]`)
+  }
+
+  const cambios: string[] = []
+  const enToml = cargoTomlVersion(toml)
+
+  if (enToml !== version) {
+    await Bun.write(rutas.toml, withCargoTomlVersion(toml, version))
+    cambios.push(`desktop/src-tauri/Cargo.toml: ${enToml ?? '(sin versión)'} → ${version}`)
+  }
+
+  const lock = await Bun.file(rutas.lock).text()
+  const enLock = cargoLockVersion(lock, nombre)
+
+  if (enLock !== version) {
+    await Bun.write(rutas.lock, withCargoLockVersion(lock, nombre, version))
+    cambios.push(`desktop/src-tauri/Cargo.lock: ${enLock ?? '(sin versión)'} → ${version}`)
+  }
+
+  return cambios
+}
 
 function parseManifest(path: string, raw: string, fallbackName: string): Manifest {
   const parsed: unknown = JSON.parse(raw)
@@ -176,6 +437,15 @@ export async function main(argv: readonly string[], io: VersionIO): Promise<numb
         fallo = true
       }
 
+      for (const problema of cargoProblems(
+        root.version,
+        await Bun.file(CARGO_TOML).text(),
+        await Bun.file(CARGO_LOCK).text(),
+      )) {
+        io.err(problema)
+        fallo = true
+      }
+
       if (argumento !== undefined) {
         const problema = tagProblem(root.version, argumento)
         if (problema !== undefined) {
@@ -189,7 +459,9 @@ export async function main(argv: readonly string[], io: VersionIO): Promise<numb
         return 1
       }
 
-      io.out(`version ${root.version}: la raíz y los ${packages.length} paquetes coinciden`)
+      io.out(
+        `version ${root.version}: la raíz, los ${packages.length} paquetes y el anfitrión coinciden`,
+      )
 
       return 0
     }
@@ -201,6 +473,8 @@ export async function main(argv: readonly string[], io: VersionIO): Promise<numb
         const cambio = await writeVersion(manifest, root.version)
         if (cambio !== undefined) cambios.push(cambio)
       }
+
+      cambios.push(...(await writeCargo(root.version)))
 
       io.out(
         cambios.length === 0
@@ -220,6 +494,8 @@ export async function main(argv: readonly string[], io: VersionIO): Promise<numb
         const aplicado = await writeVersion(manifest, version)
         if (aplicado !== undefined) cambios.push(aplicado)
       }
+
+      cambios.push(...(await writeCargo(version)))
 
       io.out(`version ${version}:\n${cambios.join('\n')}`)
 

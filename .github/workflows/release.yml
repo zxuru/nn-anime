@@ -8,10 +8,15 @@ name: Release
 #
 # `workflow_dispatch` existe para poder recorrer el camino entero sin publicar nada: por defecto
 # sólo sube los artefactos al resumen del propio workflow. Es la forma de probar la cadena de
-# empaquetado sin gastar un número de versión.
+# empaquetado sin gastar un número de versión. **No elige la versión**: la deriva de `package.json`
+# y valida `version:check "v$version"`, igual que el camino del tag. Antes aceptaba una entrada
+# libre y los artefactos se compilaban con una versión distinta de la que anunciaba el tag.
 #
 # Aquí no se publica código sin el listón pasado: este workflow corre los tipos, el estilo, la
 # auditoría y las pruebas antes de compilar, porque un push de tag no dispara el CI de la rama.
+#
+# Y no se publica desde cualquier sitio: `comprobar` exige que el commit sea ancestro de `main`, y
+# los trabajos que reciben secretos de firma pasan por el entorno protegido `release`.
 
 on:
   push:
@@ -31,6 +36,12 @@ on:
 permissions:
   contents: read
 
+# La versión de Bun, en un solo sitio. Estaba escrita en los tres trabajos que la instalan, y una
+# release podía compilar el mismo tag con dos versiones distintas sin que nada lo dijera. Si se
+# sube, que se suba también `engines.bun` de `package.json`, como en `ci.yml`.
+env:
+  BUN_VERSION: '1.4.3'
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -48,10 +59,26 @@ jobs:
       publicar: ${{ steps.version.outputs.publicar }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # `merge-base --is-ancestor` necesita la historia, no sólo el commit del tag: con el
+          # `fetch-depth: 1` por defecto el tag y `origin/main` no comparten ningún ancestro.
+          fetch-depth: 0
+
+      # Un tag se puede crear desde cualquier rama y el push de tag no pasa por el CI de la PR.
+      # Antes de instalar nada y antes de que un solo trabajo reciba un secreto de firma, el commit
+      # tiene que estar en la historia revisada de `main`.
+      - name: Comprobar que el commit viene de main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_SHA no es ancestro de origin/main: un tag fuera de main no publica."
+            exit 1
+          fi
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.3
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Caché de Bun
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -78,13 +105,21 @@ jobs:
 
           if [ "$REF_TYPE" = "tag" ]; then
             tag="$REF_NAME"
-            # Falla si el tag no empieza por `v` o no coincide con los diez `package.json`.
+            # Falla si el tag no empieza por `v` o no coincide con los diez `package.json` ni con
+            # el Cargo del anfitrión.
             bun run version:check "$tag"
             version="${tag#v}"
             publicar=true
           else
-            version="${ENTRADA:-$(bun run scripts/version.ts current)}"
-            bun run version:check
+            # La versión sale de `package.json`, no de la entrada: así el binario, el tag y
+            # `latest.json` no pueden separarse. La entrada sólo confirma qué se quería construir.
+            version="$(bun run scripts/version.ts current)"
+            if [ -n "${ENTRADA:-}" ] && [ "$ENTRADA" != "$version" ]; then
+              echo "::error::La entrada dice $ENTRADA y package.json dice $version; un hotfix usa version:set, no este campo."
+              exit 1
+            fi
+            # El tag entero y no sólo la versión: `version:check` compara las dos cosas.
+            bun run version:check "v$version"
             tag="v$version"
             publicar="${PUBLICAR:-false}"
           fi
@@ -117,6 +152,12 @@ jobs:
   # Multi-arquitectura porque el NAS y el servidor pueden ser arm64, y la imagen de Bun existe
   # para las dos. Con `publish` sin marcar se construye igual, sin subir nada: es la forma de
   # probar la cadena sin gastar un tag.
+  #
+  # Pendiente (R6), declarado y no inventado: la imagen arm64 se **construye** pero no se
+  # **arranca**. El smoke de contenedor sólo existe en `ci.yml` y para amd64; probar la otra
+  # arquitectura exige QEMU en este runner y no se ha medido todavía. Y `latest` se asigna en
+  # cualquier tag, también en una prerelease: corregirlo exige decidir si el alias debe quedarse
+  # en la última estable, y esa decisión no se toma a ciegas desde aquí.
   docker:
     needs: comprobar
     runs-on: ubuntu-latest
@@ -175,6 +216,10 @@ jobs:
   # publicar—.
   portables:
     needs: comprobar
+    # El entorno protegido (`Settings → Environments → release`) es la segunda puerta: además de
+    # que el commit esté en `main`, los secretos de firma exigen revisión. Sin él, cualquier tag
+    # recibía el certificado de Windows, el de Apple y la clave del updater.
+    environment: release
     strategy:
       fail-fast: false
       matrix:
@@ -203,7 +248,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.3
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Caché de Bun
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -328,6 +373,12 @@ jobs:
           Write-Output 'anfitrión de Windows firmado'
 
       # --- macOS: firma y notarización condicionales ----------------------
+      #
+      # Pendiente (R4), y se declara en vez de suponerlo: `scripts/package/macos.ts` firma el
+      # bundle y verifica con `--deep --strict`, pero los dos Mach-O que copia a `Contents/MacOS`
+      # no se firman uno a uno. El camino con certificado Apple nunca se ha ejecutado en este
+      # repositorio, así que no está medido que la verificación cubra esos dos ejecutables. Hasta
+      # que se pruebe con un certificado real, esta release no presume de firma anidada.
       - name: Preparar el certificado de macOS
         if: runner.os == 'macOS' && env.FIRMAR_MACOS == 'true'
         env:
@@ -456,6 +507,8 @@ jobs:
     if: needs.comprobar.outputs.publicar == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Escribe la release y lee la clave del updater: el mismo entorno protegido que `portables`.
+    environment: release
     permissions:
       # Lo mínimo para escribir la release. Nada más: ni paquetes, ni issues, ni acciones.
       contents: write
@@ -474,7 +527,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.3
+          bun-version: ${{ env.BUN_VERSION }}
 
       # Sólo los portables. El trabajo `docker` deja en el run un artefacto
       # `.dockerbuild` de buildx que no es parte de la release; bajarlo con
@@ -611,6 +664,28 @@ jobs:
               .platforms["windows-x86_64-portable"].signature
             ' "$RUNNER_TEMP/latest.json" >/dev/null ||
               { echo "latest.json no anuncia windows-x86_64 y windows-x86_64-portable con url y firma" >&2; fallos=1; }
+
+            # El manifiesto dice la versión que se acaba de publicar. Si no, el updater anuncia
+            # una actualización a un número que no existe en este tag.
+            version_manifiesto="$(jq -r '.version // ""' "$RUNNER_TEMP/latest.json")"
+            if [ "$version_manifiesto" != "$VERSION" ]; then
+              echo "latest.json dice $version_manifiesto y se publica la $VERSION" >&2
+              fallos=1
+            fi
+
+            # Y su URL tiene que apuntar a un archivo de **esta** release: un nombre de otra
+            # versión da 404 y el updater no encuentra nada que descargar.
+            url_portable="$(jq -r '.platforms["windows-x86_64-portable"].url // ""' "$RUNNER_TEMP/latest.json")"
+            basename_portable="${url_portable##*/}"
+            esperado_portable="rona-$VERSION-windows-x64.exe"
+            if [ "$basename_portable" != "$esperado_portable" ]; then
+              echo "latest.json apunta a $basename_portable y el .exe de la $VERSION es $esperado_portable" >&2
+              fallos=1
+            fi
+            if ! grep -Fxq "$basename_portable" <<< "$nombres"; then
+              echo "latest.json apunta a $basename_portable, que no está entre los assets de $TAG" >&2
+              fallos=1
+            fi
           fi
 
           if [ "$fallos" -ne 0 ]; then

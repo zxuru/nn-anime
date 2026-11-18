@@ -3,11 +3,18 @@ import { readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
+  cargoLockVersion,
+  cargoPackageName,
+  cargoProblems,
+  cargoTomlVersion,
   divergences,
   type Manifest,
   readManifests,
   tagProblem,
+  withCargoLockVersion,
+  withCargoTomlVersion,
   withVersion,
+  writeCargo,
   writeVersion,
 } from './version'
 import { ROOT } from './workspaces'
@@ -135,6 +142,101 @@ describe('la reescritura de un manifiesto', () => {
   })
 })
 
+/**
+ * El anfitrión de ventana.
+ *
+ * `Cargo.toml` y `Cargo.lock` llevan la misma versión que la raíz, y el build compila con
+ * `--locked`. La prueba del caso que importa es la divergencia: si `version:check` dejara de mirar
+ * el Cargo, el hotfix manual del README volvería a dejar el tag en rojo y nada lo avisaría aquí.
+ */
+describe('la versión del anfitrión en Cargo', () => {
+  const TOML = `[package]
+name = "rona-desktop"
+version = "1.2.3"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+`
+
+  const LOCK = `version = 4
+
+[[package]]
+name = "otra"
+version = "9.9.9"
+
+[[package]]
+name = "rona-desktop"
+version = "1.2.3" # x-release-please-version
+dependencies = [
+ "otra",
+]
+`
+
+  test('lee el nombre y la versión de [package], no los de una dependencia', () => {
+    expect(cargoPackageName(TOML)).toBe('rona-desktop')
+    expect(cargoTomlVersion(TOML)).toBe('1.2.3')
+    expect(cargoPackageName('[dependencies]\nname = "otra"\n')).toBeUndefined()
+  })
+
+  test('cambia la versión del manifiesto y no la de las dependencias', () => {
+    const nuevo = withCargoTomlVersion(TOML, '2.0.0')
+
+    expect(nuevo).toContain('version = "2.0.0"')
+    expect(nuevo).toContain('serde = { version = "1"')
+    // Volver a la vieja devuelve el archivo original: la sustitución no reformatea nada más.
+    expect(withCargoTomlVersion(nuevo, '1.2.3')).toBe(TOML)
+  })
+
+  test('cambia sólo la entrada del anfitrión en el lock y conserva la anotación', () => {
+    const nuevo = withCargoLockVersion(LOCK, 'rona-desktop', '2.0.0')
+
+    expect(cargoLockVersion(nuevo, 'rona-desktop')).toBe('2.0.0')
+    expect(nuevo).toContain('version = "2.0.0" # x-release-please-version')
+    // La otra entrada sigue donde estaba: buscar la versión sin mirar el bloque tocaba la primera.
+    expect(cargoLockVersion(nuevo, 'otra')).toBe('9.9.9')
+    expect(withCargoLockVersion(nuevo, 'rona-desktop', '1.2.3')).toBe(LOCK)
+  })
+
+  test('un lock sin la entrada del anfitrión se rechaza en vez de escribir otra cosa', () => {
+    expect(() => withCargoLockVersion(LOCK, 'no-existe', '2.0.0')).toThrow(/no hay una entrada/)
+  })
+
+  test('una divergencia nombra el archivo y las dos versiones', () => {
+    expect(cargoProblems('1.2.3', TOML, LOCK)).toEqual([])
+
+    const problemas = cargoProblems('2.0.0', TOML, LOCK)
+
+    expect(problemas).toHaveLength(2)
+    expect(problemas[0]).toContain('Cargo.toml')
+    expect(problemas[0]).toContain('1.2.3')
+    expect(problemas[0]).toContain('2.0.0')
+    expect(problemas[1]).toContain('Cargo.lock')
+  })
+
+  test('escribe la versión en los dos archivos y el segundo pase no toca nada', async () => {
+    const dir = await tempDir('cargo-')
+
+    try {
+      const toml = join(dir, 'Cargo.toml')
+      const lock = join(dir, 'Cargo.lock')
+
+      await writeFile(toml, TOML)
+      await writeFile(lock, LOCK)
+
+      const cambios = await writeCargo('2.0.0', { toml, lock })
+
+      expect(cambios).toHaveLength(2)
+      expect(await Bun.file(toml).text()).toContain('version = "2.0.0"')
+      expect(cargoLockVersion(await Bun.file(lock).text(), 'rona-desktop')).toBe('2.0.0')
+      // Idempotente: `sync` se puede correr dos veces sin reescribir lo que ya está.
+      expect(await writeCargo('2.0.0', { toml, lock })).toEqual([])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('el repositorio', () => {
   test('la raíz y los nueve paquetes dicen la misma versión', async () => {
     const [root, ...paquetes] = await readManifests()
@@ -149,5 +251,17 @@ describe('el repositorio', () => {
 
     expect(root?.version).toMatch(/^\d+\.\d+\.\d+/)
     expect(root?.version).not.toContain('^')
+  })
+
+  test('el Cargo del anfitrión dice la misma versión que la raíz', async () => {
+    const [root] = await readManifests()
+
+    expect(
+      cargoProblems(
+        root?.version ?? '',
+        await Bun.file(join(ROOT, 'desktop', 'src-tauri', 'Cargo.toml')).text(),
+        await Bun.file(join(ROOT, 'desktop', 'src-tauri', 'Cargo.lock')).text(),
+      ),
+    ).toEqual([])
   })
 })

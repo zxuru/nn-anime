@@ -197,22 +197,28 @@ describe('el ciclo de un agente', () => {
     expect(correr(['rev-parse', 'main'], repo)).toBe(antes)
   })
 
-  test('un alta fallida no deja la rama ni el reclamo, y el reintento entra', () => {
-    const repo = repoDePrueba('reintento')
-    const ruta = rutaWorktree(repo, 'T95')
+  test(
+    'un alta fallida no deja la rama ni el reclamo, y el reintento entra',
+    () => {
+      const repo = repoDePrueba('reintento')
+      const ruta = rutaWorktree(repo, 'T95')
 
-    // Un directorio que ya existe hace fallar `worktree add` después de crear la rama.
-    mkdirSync(ruta, { recursive: true })
-    writeFileSync(`${ruta}/estorbo.txt`, 'algo\n')
+      // Un directorio que ya existe hace fallar `worktree add` después de crear la rama.
+      mkdirSync(ruta, { recursive: true })
+      writeFileSync(`${ruta}/estorbo.txt`, 'algo\n')
 
-    expect(() => abrir('T95', repo)).toThrow(/no se pudo crear el worktree/)
-    expect(existeRef(repo, nombreClaim('T95'))).toBe(false)
-    expect(correr(['branch', '--list', nombreRama('T95')], repo)).toBe('')
+      expect(() => abrir('T95', repo)).toThrow(/no se pudo crear el worktree/)
+      expect(existeRef(repo, nombreClaim('T95'))).toBe(false)
+      expect(correr(['branch', '--list', nombreRama('T95')], repo)).toBe('')
 
-    rmSync(ruta, { recursive: true, force: true })
+      rmSync(ruta, { recursive: true, force: true })
 
-    expect(existsSync(abrir('T95', repo))).toBe(true)
-  })
+      expect(existsSync(abrir('T95', repo))).toBe(true)
+    },
+    // Ocho procesos de git más el alta que falla: el mismo reloj de la máquina que el resto del
+    // ciclo, y no el plazo por defecto de 5 s que ya tumbó `coverage:gate` bajo carga.
+    PLAZO_MS,
+  )
 
   test('abandonar exige confirmación y con ella deja el reclamo libre', () => {
     const repo = repoDePrueba('abandono')
