@@ -60,6 +60,20 @@ describe('ruta de la petición', () => {
   test('sin tipo —el defecto del servidor— la ruta no lo lleva', () => {
     expect(searchRequestPath('aurora')).toBe('/api/search?q=aurora')
   })
+
+  /**
+   * El género viaja plegado; un título no.
+   *
+   * «#Acción», «#accion» y «# acción» son la misma categoría y tienen que abrir la
+   * misma conexión del hub, o cada forma de escribirla pediría lo mismo por
+   * separado. «Café» es un título: se manda como se escribe, con su tilde.
+   */
+  test('el género se pliega en la petición y el título se queda como está', () => {
+    expect(searchRequestPath('#Acción')).toBe('/api/search?q=%23accion')
+    expect(searchRequestPath('# acción')).toBe('/api/search?q=%23accion')
+    expect(searchRequestPath('#ACCIÓN')).toBe('/api/search?q=%23accion')
+    expect(searchRequestPath('Café')).toBe('/api/search?q=Caf%C3%A9')
+  })
 })
 
 describe('analizador de eventos', () => {

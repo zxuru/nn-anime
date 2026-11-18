@@ -921,6 +921,8 @@ describe('la búsqueda cruzada con AniList', () => {
     body: (contexto: {
       readonly servidor: ReturnType<typeof createApp>
       readonly fake: ReturnType<typeof fakeAniList>
+      /** La base, para medir lo que la ruta cachea y con qué clave. */
+      readonly db: ReturnType<typeof openDb>
     }) => Promise<T>,
   ): Promise<T> {
     const dir = await mkdtemp(join(tmpdir(), 'rona-cruzada-'))
@@ -950,7 +952,7 @@ describe('la búsqueda cruzada con AniList', () => {
       // sin ella no hay nada con lo que cruzar la lista de AniList.
       await servidor.request(`${BASE}/api/anime/fixture/${REF_LOCAL}`, { headers: GOOD })
 
-      return await body({ servidor, fake })
+      return await body({ servidor, fake, db })
     } finally {
       await container.close().catch(() => {})
       await rm(dir, { recursive: true, force: true })
@@ -1062,6 +1064,44 @@ describe('la búsqueda cruzada con AniList', () => {
 
       expect(fixtureProvider.calls.count('search')).toBeGreaterThan(antes)
       expect(eventos.some((evento) => evento.event === 'results')).toBe(true)
+    })
+  })
+
+  /**
+   * La tilde no crea una segunda categoría.
+   *
+   * La misma búsqueda escrita con tilde, sin ella o con el `#` separado tiene
+   * que devolver la misma lista y dejar **una sola** entrada en la caché de
+   * AniList. Con dos claves, la segunda consulta podía servir un estado distinto
+   * —o volver a preguntar— para lo que el usuario lee como lo mismo.
+   */
+  test('el género con y sin tilde comparte lista y clave de caché', async () => {
+    await conCruzada({ cross: { genre: [KIMETSU] } }, async ({ servidor, fake, db }) => {
+      const primera = await readSse(
+        await servidor.request(`${BASE}/api/search?q=%23Acci%C3%B3n&media=anime`, {
+          headers: GOOD,
+        }),
+      )
+      const segunda = await readSse(
+        await servidor.request(`${BASE}/api/search?q=%23%20accion&media=anime`, {
+          headers: GOOD,
+        }),
+      )
+
+      expect(cruzadaDe(segunda).map((item) => item.anilistId)).toEqual(
+        cruzadaDe(primera).map((item) => item.anilistId),
+      )
+      // Y lo que viaja a AniList es el término plegado, con su género canónico.
+      const llamada = fake.calls.find((una) => una.query.includes('porEstudio: Page('))
+      expect(llamada?.variables.genero).toBe('Action')
+      expect(llamada?.variables.q).toBe('accion')
+
+      const filas = db
+        .query<{ query_key: string }, []>('SELECT query_key FROM anilist_list_cache')
+        .all()
+
+      expect(filas).toHaveLength(1)
+      expect(filas[0]?.query_key.endsWith(':accion')).toBe(true)
     })
   })
 

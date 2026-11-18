@@ -31,12 +31,14 @@ import {
   anilistEntrySchema,
   anilistGenre,
   err,
+  genreTerm,
   kindOfFormat,
   type LocalWork,
   type Logger,
   type MediaHalf,
   namesOf,
   normalizeQuery,
+  normalizeTerm,
   ok,
   type ProviderMedia,
   type ProviderRef,
@@ -436,17 +438,18 @@ function seGuarda(media: AniListEntry | null, adultAllowed: boolean): boolean {
  * familia de nombres que se le parecen—; si no hay ninguno exacto, se miran todos los
  * que la búsqueda devolvió, que es lo que AniList enseña al buscar ese nombre.
  *
- * La comparación es la de la búsqueda —recorte, minúsculas, NFC—: un nombre de estudio
- * no lleva marcador de temporada ni sinopsis, así que la identidad de los títulos sería
- * aquí una regla de más.
+ * La comparación es la de las categorías —sin diacríticos, minúsculas, espacios
+ * colapsados—: un nombre de estudio no lleva marcador de temporada ni sinopsis, así que
+ * la identidad de los títulos sería aquí una regla de más, pero «Acción» y «accion» no
+ * pueden mirar estudios distintos.
  */
 export function estudiosDe(
   pagina: z.infer<typeof studioPageSchema>,
   termino: string,
 ): readonly z.infer<typeof studioSchema>[] {
   const estudios = studiosOf(pagina)
-  const buscado = normalizeQuery(termino)
-  const exactos = estudios.filter((estudio) => normalizeQuery(estudio.name) === buscado)
+  const buscado = normalizeTerm(termino)
+  const exactos = estudios.filter((estudio) => normalizeTerm(estudio.name) === buscado)
 
   return exactos.length > 0 ? exactos : estudios
 }
@@ -572,8 +575,17 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
     adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListEntry[], AppError>> {
-    const genero = anilistGenre(term)
-    const clave = `cross:${ejeDeAdultos(adultAllowed)}:${media ?? 'both'}:${normalizeQuery(term)}`
+    /*
+      El término viaja plegado y sin la almohadilla del género: «#Acción»,
+      «#accion» y «acción» son la misma categoría, tienen que compartir la clave
+      de caché y no pueden encender dos entradas para lo mismo. A AniList se le
+      pide además **sin tildes** en la parte del estudio, que es el otro eje de la
+      misma consulta: «Acción» no es el nombre de ningún estudio y lo es sin
+      tilde tampoco, pero «acción» y «accion» tienen que preguntar lo mismo.
+    */
+    const buscado = normalizeTerm(genreTerm(term) ?? term)
+    const genero = anilistGenre(buscado)
+    const clave = `cross:${ejeDeAdultos(adultAllowed)}:${media ?? 'both'}:${buscado}`
     const formatos = formatosDe(media)
 
     return cachedList(
@@ -590,7 +602,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
           key: clave,
           query: crossQuery(adultAllowed, genero),
           variables: {
-            q: term,
+            q: buscado,
             estudios: ESTUDIOS_A_MIRAR,
             porEstudio: OBRAS_POR_ESTUDIO,
             ...(genero === undefined ? {} : { genero }),
@@ -610,7 +622,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
           return err(outcome.error)
         }
 
-        return ok(crossEntries(outcome.value, { termino: term, formatos, adultAllowed }))
+        return ok(crossEntries(outcome.value, { termino: buscado, formatos, adultAllowed }))
       },
     )
   }

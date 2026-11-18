@@ -19,6 +19,7 @@ import {
   animeDetailSchema,
   type CacheHit,
   type Episode,
+  normalizeTerm,
   type ProviderRef,
   type SearchResult,
   StoreError,
@@ -94,23 +95,6 @@ interface TituloRow {
 }
 
 /**
- * Clave de comparación de un nombre: el de un género o el de un estudio.
- *
- * SQLite compara texto byte a byte y su `lower()` sólo entiende ASCII, así que
- * allí «accion» no encuentra «Acción» ni «ufotable» encuentra «Ufotable». Se
- * pliega aquí: minúsculas, sin diacríticos y en NFC, para que la consulta no
- * dependa de que quien escribe ponga la tilde ni la mayúscula.
- */
-function claveDeNombre(texto: string): string {
-  return texto
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .normalize('NFC')
-}
-
-/**
  * Si el término encaja con el nombre.
  *
  * Encaja por **principio de palabra** y no por cualquier trozo: «acción» y
@@ -118,7 +102,7 @@ function claveDeNombre(texto: string): string {
  * título arrastraría el catálogo entero por llevar una «a» dentro.
  */
 function encajaElNombre(nombre: string, buscado: string): boolean {
-  const clave = claveDeNombre(nombre)
+  const clave = normalizeTerm(nombre)
   if (clave.startsWith(buscado)) return true
 
   return clave.split(/[^\p{L}\p{N}]+/u).some((palabra) => palabra.startsWith(buscado))
@@ -275,7 +259,7 @@ export function createAnimeRepository(db: Database, ttlS: number = TTL_SECONDS.a
      * Comparar allí obligaría a escribir «Acción» con tilde exacta.
      */
     searchByGenre(term: string, limit: number): readonly SearchResult[] {
-      const buscado = claveDeNombre(term)
+      const buscado = normalizeTerm(term)
       if (buscado === '' || limit <= 0) return []
 
       const nombres = db
@@ -311,7 +295,7 @@ export function createAnimeRepository(db: Database, ttlS: number = TTL_SECONDS.a
      * `genre`, escrita en la misma transacción que el título.
      */
     searchByStudio(term: string, limit: number): readonly SearchResult[] {
-      const buscado = claveDeNombre(term)
+      const buscado = normalizeTerm(term)
       if (buscado === '' || limit <= 0) return []
 
       const pares = db

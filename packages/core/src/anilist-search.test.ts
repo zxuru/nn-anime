@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { hasGenreToken } from './anilist-search'
+import { genreTerm, hasGenreToken } from './anilist-search'
 
 describe('el texto pide un género cuando algún término empieza por `#`', () => {
   test('con un género delante, en medio o con espacios alrededor', () => {
@@ -38,5 +38,37 @@ describe('el texto pide un género cuando algún término empieza por `#`', () =
   test('un título sin `#` lo contestan las fuentes', () => {
     expect(hasGenreToken('shingeki no kyojin')).toBe(false)
     expect(hasGenreToken('Fate/stay night')).toBe(false)
+  })
+})
+
+/**
+ * El término que viaja, que no es lo que se pinta.
+ *
+ * La casilla enseña lo que escribió el usuario, pero la petición, la consulta y
+ * la clave de caché tienen que ser las mismas para las cuatro formas de decir la
+ * misma categoría: con tilde, sin ella, en mayúsculas y con el `#` separado.
+ */
+describe('el término de género sale plegado', () => {
+  test('las cuatro formas dan el mismo término', () => {
+    for (const escrito of ['#acción', '#accion', '#ACCIÓN', '# acción', '  #Acción  ']) {
+      expect(genreTerm(escrito), escrito).toBe('accion')
+    }
+  })
+
+  test('el `#` en medio de la consulta también se pliega', () => {
+    expect(genreTerm('naruto #Acción')).toBe('accion')
+    expect(genreTerm('naruto # acción')).toBe('accion')
+  })
+
+  test('sin género no hay término, y un `#` suelto tampoco', () => {
+    expect(genreTerm('Kimetsu no Yaiba')).toBeUndefined()
+    expect(genreTerm('C# tutorial')).toBeUndefined()
+    expect(genreTerm('#')).toBeUndefined()
+    expect(genreTerm('')).toBeUndefined()
+  })
+
+  test('el plegado no toca las letras que no son latinas', () => {
+    // El dakuten cambia la letra japonesa: quitarlo convertiría «が» en «か».
+    expect(genreTerm('#が')).toBe('が')
   })
 })
