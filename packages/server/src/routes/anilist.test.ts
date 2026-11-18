@@ -224,6 +224,22 @@ describe('el descubrimiento', () => {
     )
   })
 
+  test('las novedades marcan lo que está en «Quiero ver» y es reciente', async () => {
+    const ahoraS = Math.floor(Date.now() / 1000)
+    const reciente = { media: AURORA, episode: 8, airingAt: ahoraS - 3600 }
+    const vieja = { media: KIMETSU, episode: 1, airingAt: ahoraS - 30 * 24 * 3600 }
+
+    await conApp({ recent: [reciente, vieja] }, async ({ pedir, store }) => {
+      await store.setPlanToWatch({ providerId: 'fixture', value: REF }, true)
+
+      const cuerpo = (await (
+        await pedir('/api/discover/recent?media=anime')
+      ).json()) as AiringResponse
+
+      expect(cuerpo.items.map((item) => item.inPlanToWatch)).toEqual([true, undefined])
+    })
+  })
+
   test('apagado, la parrilla y las novedades dicen que no hubo respuesta', async () => {
     await conApp(
       {},

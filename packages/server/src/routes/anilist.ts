@@ -56,6 +56,7 @@ import { matchKey } from '../anilist/catalog'
 import { isAniListImageUrl, type RelatedEntry } from '../anilist/entries'
 import type { ServerContainer } from '../container'
 import { findProvider } from './anime'
+import { esNovedadReciente } from './discovery'
 import { mediaFrom } from './media'
 import { adultContentOf } from './settings'
 
@@ -211,6 +212,38 @@ export function relatedItems(
     }))
 }
 
+/**
+ * Marca las emisiones recientes de títulos que están en «Quiero ver».
+ *
+ * La fila de novedades de la home la llena AniList cuando contesta, así que la
+ * marca del feed no basta: aquí se cruza lo que se va a servir con las marcas
+ * locales. El cruce es por la referencia del proveedor que el catálogo ya resolvió
+ * para cada pieza; una emisión sin ficha local no puede estar en la lista.
+ *
+ * La ventana es la misma que la del feed (`DIAS_DE_NOVEDAD`), y una fecha ausente
+ * o futura no marca: no se inventa una novedad.
+ */
+async function marcarQuieroVer(
+  items: readonly AiringItem[],
+  container: ServerContainer,
+): Promise<readonly AiringItem[]> {
+  if (items.length === 0) return items
+
+  const pendientes = await container.store.listPlanToWatch()
+  if (pendientes.length === 0) return items
+
+  const claves = new Set(pendientes.map((marca) => refKey(marca.ref)))
+  const ahora = Date.now()
+
+  return items.map((item) => {
+    if (item.ref === undefined) return item
+    if (!claves.has(refKey(item.ref))) return item
+    if (!esNovedadReciente(item.airingAt, ahora)) return item
+
+    return { ...item, inPlanToWatch: true }
+  })
+}
+
 export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions): void {
   const desconocido = (providerId: string) =>
     errorResponseSchema.parse({ error: `no hay ningún proveedor llamado ${providerId}` })
@@ -286,8 +319,11 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
 
     const visibles = sinAdultos(resultado.value, conAdultos, (cita) => cita.media.adult)
     const refs = await options.catalog.localRefs(visibles.map((cita) => cita.media))
-    const items = visibles.map((cita) =>
-      airingItem(cita.media, cita.airingAt, cita.episode, refs.get(cita.media.id), cita.year),
+    const items = await marcarQuieroVer(
+      visibles.map((cita) =>
+        airingItem(cita.media, cita.airingAt, cita.episode, refs.get(cita.media.id), cita.year),
+      ),
+      options.container,
     )
 
     return c.json(airingResponseSchema.parse({ items }))

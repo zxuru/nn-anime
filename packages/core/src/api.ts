@@ -891,6 +891,13 @@ export const airingItemSchema = z.strictObject({
   adult: z.boolean(),
   kind: titleKindSchema.optional(),
   ref: providerRefSchema.optional(),
+  /**
+   * La obra está en «Quiero ver» y el capítulo es reciente.
+   *
+   * Sólo verdadero, como `adult`: la ausencia es «no consta» y no hay que
+   * distinguirla de «no está en la lista» para pintar la fila.
+   */
+  inPlanToWatch: z.literal(true).optional(),
 })
 
 export const airingResponseSchema = z.strictObject({
