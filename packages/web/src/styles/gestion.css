@@ -2198,6 +2198,20 @@ details[open] > .library__settings-summary .library__settings-flecha {
   gap: var(--space-2);
 }
 
+/*
+ * En una pantalla estrecha, «Ver juntos» y la descarga van en columna.
+ *
+ * En fila no caben —el selector de audio de la descarga solo ya mide 240 px— y
+ * el grupo se salía 26 px de la página. Apilados siguen anclados a la derecha y
+ * el titular conserva su sitio.
+ */
+@media (max-width: 560px) {
+  .watch__actions {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+}
+
 /* El ancla ya la pone la fila: dos posiciones absolutas se pisarían. */
 .watch__actions .watch__download {
   position: static;
