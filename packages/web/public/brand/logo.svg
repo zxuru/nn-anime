@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" width="1254" height="1254">
+  <title>RoNa</title>
+  <defs>
+    <linearGradient id="ring" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#f4552a"/>
+      <stop offset="1" stop-color="#ff8a4a"/>
+    </linearGradient>
+    <linearGradient id="cream" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdeee0"/>
+      <stop offset="1" stop-color="#f6d9c6"/>
+    </linearGradient>
+    <linearGradient id="play" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff6a3d"/>
+      <stop offset="1" stop-color="#ee4b25"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-30%" width="140%" height="160%">
+      <feGaussianBlur stdDeviation="12" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="starGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Silueta única: R + cabeza + orejas + mechón (una sola pieza) -->
+    <path id="body" d="
+      M392,942 Q365,942 365,915 L365,525
+      L303,531 Q285,534 296,520 L316,497
+      C300,470 288,420 291,375 C294,320 308,280 326,260
+      Q336,250 348,258
+      C410,288 480,330 540,372
+      C600,368 640,365 664,362
+      C700,325 760,285 794,268
+      Q808,262 818,270
+      C842,305 850,380 853,440
+      C880,478 897,540 894,595
+      C888,665 830,720 748,742
+      L955,930 Q972,942 950,942
+      L765,942 Q735,942 718,922
+      L628,822 Q622,815 612,815
+      L545,815 Q530,815 530,830
+      L530,915 Q530,942 505,942 Z"/>
+  </defs>
+
+  <!-- Fondo -->
+  <rect x="90" y="90" width="1074" height="1074" rx="250" fill="#0a070d"/>
+  <rect x="92" y="92" width="1070" height="1070" rx="248" fill="none" stroke="#2a1f36" stroke-width="3" opacity=".7"/>
+  <circle cx="620" cy="605" r="452" fill="#170f1e"/>
+
+  <!-- Contorno oscuro -->
+  <use href="#body" fill="#0a070d" stroke="#0a070d" stroke-width="42" stroke-linejoin="round"/>
+
+  <!-- Silueta crema (el trazo del mismo color redondea esquinas) -->
+  <use href="#body" fill="url(#cream)" stroke="url(#cream)" stroke-width="12" stroke-linejoin="round"/>
+
+  <!-- Interior oreja izquierda -->
+  <path d="M372,298 Q385,296 395,302 C435,322 475,352 500,380 C450,395 400,425 365,468 C345,430 338,380 342,335 C345,315 358,300 372,298Z" fill="#ff6a3d" stroke="#ff6a3d" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M398,440 C396,415 410,395 435,386 C455,380 478,380 492,382 C450,398 420,415 398,440Z" fill="#a8321c" stroke="#a8321c" stroke-width="6" stroke-linejoin="round"/>
+
+  <!-- Interior oreja derecha -->
+  <path d="M718,378 C745,340 780,318 800,310 Q812,306 818,316 C832,345 838,385 840,428 C800,395 760,382 718,378Z" fill="#ff6a3d" stroke="#ff6a3d" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M745,380 C765,370 785,372 800,385 L808,412 C785,394 765,385 745,380Z" fill="#a8321c" stroke="#a8321c" stroke-width="6" stroke-linejoin="round"/>
+
+  <!-- Botón de play -->
+  <polygon points="540,497 727,600 540,718" fill="#0a070d" stroke="#0a070d" stroke-width="40" stroke-linejoin="round"/>
+  <polygon points="568,533 688,600 568,672" fill="url(#play)" stroke="url(#play)" stroke-width="30" stroke-linejoin="round"/>
+
+  <!-- Anillo orbital: sale por la izquierda y se pierde a la derecha -->
+  <path filter="url(#glow)" fill="url(#ring)" d="
+    M352,680
+    C260,720 185,790 165,845
+    C155,890 220,915 330,895
+    C560,855 900,760 1030,640
+    C1100,575 1130,500 1105,455
+    C1085,430 1030,422 985,428
+    C1040,432 1075,465 1062,515
+    C1040,590 900,665 700,732
+    C560,772 420,812 300,828
+    C250,832 228,815 235,790
+    C245,750 300,705 352,680Z"/>
+
+  <!-- Estrella -->
+  <path filter="url(#starGlow)" fill="#fdeee0" stroke="#fdeee0" stroke-width="4" stroke-linejoin="round" d="M980,228 C985,285 1000,308 1058,315 C1000,322 985,345 980,402 C975,345 960,322 902,315 C960,308 975,285 980,228Z"/>
+</svg>
