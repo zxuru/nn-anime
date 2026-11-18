@@ -470,7 +470,7 @@ describe('el anfitrión de ventana', () => {
     expect(conf).not.toContain('"installerIcon"')
 
     // El updater sigue: lo que ya no hay es un instalador que ejecutar.
-    expect(conf).toContain('https://github.com/zxuru/rona/releases/latest/download/latest.json')
+    expect(conf).toContain('https://github.com/zxuru/nn-anime/releases/latest/download/latest.json')
     expect(conf).toContain('"pubkey"')
   })
 
