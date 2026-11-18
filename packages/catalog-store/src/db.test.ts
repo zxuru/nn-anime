@@ -458,13 +458,33 @@ describe('migración que falla', () => {
     },
   ]
 
-  test('los índices de las consultas calientes existen', async () => {
+  test('los índices de las consultas calientes existen y se usan', async () => {
     await withDb((db) => {
       runMigrations(db)
 
       expect(indexNames(db, 'watch_event')).toContain('watch_event_por_episodio')
       expect(indexNames(db, 'anime')).toContain('anime_por_fetch')
       expect(indexNames(db, 'genre')).toContain('genre_por_nombre')
+
+      const plan = (sql: string): string =>
+        db
+          .query<{ detail: string }, []>(`EXPLAIN QUERY PLAN ${sql}`)
+          .all()
+          .map((fila) => fila.detail)
+          .join(' ')
+
+      expect(
+        plan(
+          `SELECT * FROM watch_event w
+            WHERE w.episode_id = 1
+            ORDER BY w.started_at DESC, w.id DESC
+            LIMIT 1`,
+        ),
+      ).toContain('watch_event_por_episodio')
+      expect(plan('SELECT * FROM anime ORDER BY fetched_at DESC LIMIT 10')).toContain(
+        'anime_por_fetch',
+      )
+      expect(plan("SELECT * FROM genre WHERE name IN ('Acción')")).toContain('genre_por_nombre')
     })
   })
 
