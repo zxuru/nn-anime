@@ -145,6 +145,40 @@ describe('los planes de `tasks/`', () => {
   })
 })
 
+describe('la guía de release', () => {
+  test('los comandos que cita existen', async () => {
+    const manifiesto = JSON.parse(await leer('package.json')) as {
+      scripts: Record<string, string>
+    }
+    const texto = await leer('docs/release.md')
+
+    for (const comando of comandos(texto)) {
+      // `bun run scripts/version.ts …` es un archivo, no un script de
+      // `package.json`; se comprueba aparte para no perder el nombre del archivo.
+      if (comando === 'scripts') continue
+
+      expect(Object.keys(manifiesto.scripts), comando).toContain(comando)
+    }
+
+    for (const coincidencia of texto.matchAll(/bun run (scripts\/[^\s`]+)/g)) {
+      const ruta = coincidencia[1] ?? ''
+      expect(existsSync(`${RAIZ}${ruta}`), ruta).toBe(true)
+    }
+  })
+
+  test('los documentos que enlaza existen', async () => {
+    const texto = await leer('docs/release.md')
+
+    for (const coincidencia of texto.matchAll(/\]\(([^)]+\.md)\)/g)) {
+      const ruta = coincidencia[1] ?? ''
+      const desdeDocs = ruta.startsWith('../') ? ruta.slice(3) : `docs/${ruta}`
+      const existe = await Bun.file(`${RAIZ}${desdeDocs}`).exists()
+
+      expect(existe, ruta).toBe(true)
+    }
+  })
+})
+
 describe('la guía de Docker', () => {
   test('los comandos que cita existen', async () => {
     const manifiesto = JSON.parse(await leer('package.json')) as {
