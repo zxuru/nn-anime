@@ -75,6 +75,7 @@ async function textoDe(
   const respuesta = await fetchImpl(url, {
     headers: { ...input.headers },
     signal: input.signal,
+    redirect: 'manual',
   })
 
   if (!respuesta.ok) throw new Error(`la playlist respondió ${respuesta.status}`)

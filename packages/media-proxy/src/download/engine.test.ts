@@ -86,6 +86,45 @@ describe('la descarga de una tarea', () => {
     })
   })
 
+  test('un destino de loopback se corta antes de pedir nada', async () => {
+    await conRaiz(async (root) => {
+      await expect(
+        downloadTask({
+          root,
+          task: TAREA,
+          signal: new AbortController().signal,
+          resolve: async () => ({ url: 'http://127.0.0.1:8080/v.mp4', kind: 'file' }),
+        }),
+      ).rejects.toThrow(/destino no permitido/)
+    })
+  })
+
+  test('una redirección no se sigue y la descarga falla', async () => {
+    await conRaiz(async (root) => {
+      let visto: RequestInit | undefined
+      const fetchImpl: FetchLike = async (_url, init) => {
+        visto = init
+
+        return new Response(null, {
+          status: 302,
+          headers: { location: 'http://127.0.0.1:8080/v.mp4' },
+        })
+      }
+
+      await expect(
+        downloadTask({
+          root,
+          task: TAREA,
+          signal: new AbortController().signal,
+          resolve: async () => ({ url: 'https://fixture.invalid/v.mp4', kind: 'file' }),
+          fetchImpl,
+        }),
+      ).rejects.toThrow(/302/)
+
+      expect(visto?.redirect).toBe('manual')
+    })
+  })
+
   test('un HLS con remux deja el MP4 y borra los segmentos', async () => {
     await conRaiz(async (root) => {
       const salida = await downloadTask({
