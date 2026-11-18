@@ -13,61 +13,66 @@
  * —búsquedas, tendencias y novedades— comparten forma, así que una sola consulta
  * con `UNION ALL` sirve para los tres.
  *
- * La forma con la que se leen es la **del feed**, que es la más ancha: una
- * `FeedEntry` es un `SearchResult` con `publishedAt` opcional, y los schemas son
- * estrictos, así que leer una novedad con el de búsqueda la descartaría por traer
- * la fecha. Al revés encaja siempre. La fila de novedades es la que más depende
+ * La lectura se hace con `json_each` **dentro de SQLite**: se recorren los
+ * listados del proveedor y se cruza la referencia pedida sin materializar ni
+ * parsear cada `results_json` en JS. La fila de novedades es la que más depende
  * de esto: es la única de la home que sale entera de un listado, sin detalle
  * cacheado detrás, y sin esta vía se pintaba de huecos.
  *
- * Las filas ilegibles se saltan en lugar de lanzar: una caché de búsqueda rota no
- * puede tumbar la portada de otra consulta, que es lo que haría leerla con
- * `readSearch`.
+ * Las filas ilegibles se saltan en lugar de lanzar (`json_valid`), y la URL que
+ * sale se valida otra vez con `httpUrlSchema`: la caché guarda lo que devolvió el
+ * proveedor, no una dirección que se pueda servir sin mirar.
  */
 
 import type { Database } from 'bun:sqlite'
-import { feedEntrySchema, type ProviderRef } from '@rona/core'
+import { httpUrlSchema, type ProviderRef } from '@rona/core'
 
-/** Los listados cacheados de un proveedor: búsquedas, tendencias y novedades. */
+/**
+ * Los listados cacheados de un proveedor, filtrados **en SQL**.
+ *
+ * Antes se leían todas las filas del proveedor y se parseaba cada `results_json`
+ * con Zod en JS: una página de 24 tarjetas podía recorrer cientos de miles de
+ * entradas. Aquí `json_each` recorre el array dentro de SQLite y sólo cruza la
+ * portada de la referencia pedida.
+ */
 const LISTADOS = `
-  SELECT results_json FROM search_cache WHERE provider_id = ?
+  SELECT json_extract(je.value, '$.coverUrl') AS cover_url
+    FROM search_cache sc, json_each(sc.results_json) je
+   WHERE sc.provider_id = ?
+     AND json_valid(sc.results_json)
+     AND json_extract(je.value, '$.ref.value') = ?
+     AND json_extract(je.value, '$.coverUrl') IS NOT NULL
   UNION ALL
-  SELECT results_json FROM trending_cache WHERE provider_id = ?
+  SELECT json_extract(je.value, '$.coverUrl') AS cover_url
+    FROM trending_cache tc, json_each(tc.results_json) je
+   WHERE tc.provider_id = ?
+     AND json_valid(tc.results_json)
+     AND json_extract(je.value, '$.ref.value') = ?
+     AND json_extract(je.value, '$.coverUrl') IS NOT NULL
   UNION ALL
-  SELECT results_json FROM feed_cache WHERE provider_id = ?
+  SELECT json_extract(je.value, '$.coverUrl') AS cover_url
+    FROM feed_cache fc, json_each(fc.results_json) je
+   WHERE fc.provider_id = ?
+     AND json_valid(fc.results_json)
+     AND json_extract(je.value, '$.ref.value') = ?
+     AND json_extract(je.value, '$.coverUrl') IS NOT NULL
+  LIMIT 1
 `
 
-interface FilaListado {
-  readonly results_json: string
-}
-
-/** La portada de una referencia dentro de un listado, o nada si no está. */
-function portadaEn(resultsJson: string, ref: string): string | undefined {
-  try {
-    const parsed = feedEntrySchema.array().safeParse(JSON.parse(resultsJson))
-    if (!parsed.success) return undefined
-
-    for (const item of parsed.data) {
-      if (item.ref.value !== ref) continue
-      if (item.coverUrl !== undefined) return item.coverUrl
-    }
-
-    return undefined
-  } catch {
-    // JSON roto: esta fila no sirve, la siguiente quizá sí.
-    return undefined
-  }
+interface FilaPortada {
+  readonly cover_url: string | null
 }
 
 export function findCoverUrl(db: Database, ref: ProviderRef): string | undefined {
-  const filas = db
-    .query<FilaListado, [string, string, string]>(LISTADOS)
-    .all(ref.providerId, ref.providerId, ref.providerId)
+  const fila = db
+    .query<FilaPortada, [string, string, string, string, string, string]>(LISTADOS)
+    .get(ref.providerId, ref.value, ref.providerId, ref.value, ref.providerId, ref.value)
 
-  for (const fila of filas) {
-    const portada = portadaEn(fila.results_json, ref.value)
-    if (portada !== undefined) return portada
-  }
+  if (fila?.cover_url == null) return undefined
 
-  return undefined
+  // La caché guarda lo que devolvió el proveedor; antes de servir la dirección
+  // se vuelve a validar el esquema. Un JSON manipulado no convierte la ruta de
+  // portadas en un proxy hacia `javascript:` o `file:`.
+  const parsed = httpUrlSchema.safeParse(fila.cover_url)
+  return parsed.success ? parsed.data : undefined
 }
