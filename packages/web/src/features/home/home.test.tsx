@@ -10,6 +10,7 @@ import { ApiError } from '../../api/client'
 import { describirFallo } from '../../api/fallo'
 import { t } from '../../i18n'
 import { createMemoryHistory, HistoryProvider } from '../../router'
+import { type Almacen, guardarAvisosQuieroVer, leerAvisosQuieroVer } from '../player/storage'
 import { ContinueRow } from './ContinueRow'
 import { desdeResumen, type PiezaVista } from './descubrir'
 import { FavoritesRow } from './FavoritesRow'
@@ -194,6 +195,62 @@ describe('la fila de novedades', () => {
     // El orden lo decide el servidor: la fila pinta lo que le dan, tal cual.
     expect(html.indexOf('Mar de Cristal')).toBeLessThan(html.indexOf('Aurora Nocturna'))
     expect(html).toContain('href="/anime/fixture/Aurora%20Nocturna"')
+  })
+
+  /**
+   * La insignia de «Quiero ver».
+   *
+   * El servidor pone `inPlanToWatch` en la entrada; la preferencia del navegador
+   * decide si se pinta. Apagarla no quita la fila ni la obra: sólo la marca, que es
+   * texto y no color, así que se lee sin abrir la ficha.
+   */
+  test('la insignia de «Quiero ver» se pinta sólo en la tarjeta marcada', () => {
+    const feed = [
+      {
+        ...resumen('En tu lista'),
+        inPlanToWatch: true as const,
+        publishedAt: '2026-10-01T12:00:00.000Z',
+      },
+      { ...resumen('Fuera de la lista'), publishedAt: '2026-10-01T12:00:00.000Z' },
+    ]
+
+    const conAviso = piezasDeNovedades({ emisiones: [], feed })
+    const html = render(<FeedRow items={conAviso} />)
+
+    expect(html).toContain('Nuevo en tu lista')
+    // Una sola: la entrada sin marca no la hereda.
+    expect((html.match(/Nuevo en tu lista/g) ?? []).length).toBe(1)
+    expect(html).toContain('En tu lista')
+    expect(html).toContain('Fuera de la lista')
+
+    const sinAviso = piezasDeNovedades({ emisiones: [], feed }, false)
+    const apagado = render(<FeedRow items={sinAviso} />)
+
+    expect(apagado).not.toContain('Nuevo en tu lista')
+    // La fila sigue: se apaga la insignia, no la novedad.
+    expect(apagado).toContain('En tu lista')
+    expect(apagado).toContain('Fuera de la lista')
+  })
+
+  test('la preferencia nace encendida y se guarda en el almacén', () => {
+    const guardado = new Map<string, string>()
+    const almacen: Almacen = {
+      getItem: (clave) => guardado.get(clave) ?? null,
+      setItem: (clave, valor) => {
+        guardado.set(clave, valor)
+      },
+      removeItem: (clave) => {
+        guardado.delete(clave)
+      },
+    }
+
+    expect(leerAvisosQuieroVer(almacen)).toBe(true)
+
+    guardarAvisosQuieroVer(almacen, false)
+    expect(leerAvisosQuieroVer(almacen)).toBe(false)
+
+    guardarAvisosQuieroVer(almacen, true)
+    expect(leerAvisosQuieroVer(almacen)).toBe(true)
   })
 })
 

@@ -29,11 +29,12 @@
 import type { AiringItem, FeedItem, RecommendationResponse } from '@rona/core/api'
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { AnimeSummary } from '@rona/core/models'
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { t } from '../../i18n'
 import { usePath } from '../../router'
 import { ANCLAS } from '../guia/guia'
+import { almacenLocal, leerAvisosQuieroVer } from '../player/storage'
 import { useRecommendations } from '../recommendations/useRecommendations'
 import {
   enElTipo,
@@ -176,9 +177,14 @@ export function piezasDelTop(
  *
  * Con AniList se enseña qué capítulo y a qué hora; con el feed, lo de siempre. Las
  * dos formas son `PiezaVista` y la fila no sabe cuál está pintando.
+ *
+ * `avisosQuieroVer` es la preferencia del navegador: apagada, la entrada sigue en
+ * la fila y deja de llevar la insignia. Se recibe como argumento —como el resto de
+ * lo que decide esta función— para poder medir las dos ramas sin un navegador.
  */
 export function piezasDeNovedades(
   filas: Pick<HomeRows, 'emisiones' | 'feed'>,
+  avisosQuieroVer = true,
 ): readonly PiezaVista[] {
   if (filas.emisiones.length > 0) {
     return filas.emisiones.map((item) => ({
@@ -189,6 +195,14 @@ export function piezasDeNovedades(
 
   return filas.feed.map((item) => {
     const partes: string[] = []
+
+    // La insignia va primero en la línea de datos y es texto, como la marca de
+    // adultos: se lee sin abrir la ficha y no depende de un color. El servidor
+    // sólo la pone cuando la obra está en «Quiero ver» y su fecha es reciente.
+    if (avisosQuieroVer && item.inPlanToWatch === true) {
+      partes.push(t(DEFAULT_LOCALE, 'home.feed.newInWatchlist'))
+    }
+
     if (item.year !== undefined) {
       partes.push(t(DEFAULT_LOCALE, 'home.year', { year: item.year }))
     }
@@ -251,6 +265,12 @@ export function HomePage(props: HomePageProps): ReactNode {
   const fuentes = useFuentes()
   const medias = fuentes.medias
   const filas = useHomeRows(tipo)
+  /*
+    La insignia de «Quiero ver» es una preferencia del navegador, como las de los
+    saltos: se lee una vez al montar y no viaja al servidor. Apagarla no quita la
+    fila ni la entrada, sólo deja de pintar la marca que el servidor ya calculó.
+  */
+  const [avisosQuieroVer] = useState(() => leerAvisosQuieroVer(almacenLocal()))
   const cargandoFilas = filas.loading
   // La lista vacía sólo es «no hay proveedores» si la lectura terminó bien: el
   // aviso del primer arranque no puede apoyarse en una lectura que falló.
@@ -288,7 +308,7 @@ export function HomePage(props: HomePageProps): ReactNode {
   const motorPendiente = recomendaciones.state === 'loading' && recomendaciones.data === undefined
   const destacado = motorPendiente ? undefined : featuredOf(items, filas.feed, filas.recent)
   const top = piezasDelTop(filas)
-  const novedades = piezasDeNovedades(filas)
+  const novedades = piezasDeNovedades(filas, avisosQuieroVer)
 
   /*
     Un título, una vez en la pantalla. El destacado y las recomendaciones son lo

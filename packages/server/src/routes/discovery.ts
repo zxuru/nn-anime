@@ -51,6 +51,34 @@ import { adultContentOf } from './settings'
 
 const DEFAULT_TIMEOUT_MS = 8000
 
+/**
+ * Los días en los que una novedad cuenta como nueva.
+ *
+ * Catorce: lo que tarda en dejar de ser noticia una emisión semanal sin convertir
+ * la fila en un archivo. La marca se calcula **al servir** y no se guarda en la
+ * caché: la misma entrada deja de ser nueva sin que la fuente cambie ni haya que
+ * volver a pedirle el feed.
+ */
+export const DIAS_DE_NOVEDAD = 14
+
+const MS_POR_DIA = 86_400_000
+
+/**
+ * ¿La fecha cae dentro de la ventana que termina en `ahora`?
+ *
+ * Una fecha ausente o que no se entiende no es nueva: no se le inventa. Una fecha
+ * del futuro tampoco: un reloj desajustado en la fuente no puede dejar una
+ * entrada marcada para siempre.
+ */
+export function esNovedadReciente(publishedAt: string | undefined, ahora: number): boolean {
+  if (publishedAt === undefined) return false
+
+  const fecha = Date.parse(publishedAt)
+  if (!Number.isFinite(fecha)) return false
+
+  return fecha <= ahora && ahora - fecha <= DIAS_DE_NOVEDAD * MS_POR_DIA
+}
+
 export interface DiscoveryRouteOptions {
   readonly providers: readonly Provider[]
   readonly container: ServerContainer
@@ -179,6 +207,13 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
 
     const conAdultos = await adultContentOf(options.container.store)
 
+    // «Quiero ver» se lee una vez por petición y no por entrada: la lista es del
+    // usuario, la marca se calcula al servir y la caché del feed no se toca.
+    const enQuieroVer = new Set(
+      (await options.container.store.listPlanToWatch()).map((titulo) => refKey(titulo.ref)),
+    )
+    const ahora = Date.now()
+
     // La verificación va sobre la ventana que se va a enseñar y no sobre el feed entero:
     // la caché guarda hasta doscientas entradas y la fila enseña diez. La primera carga
     // paga esas consultas una vez; después contestan la marca y el emparejamiento.
@@ -192,6 +227,11 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
     const conMarca = ventana.map((pieza) => ({
       ...pieza,
       ...(adultos.has(refKey(pieza.ref)) ? { adult: true as const } : {}),
+      // Las dos condiciones se cumplen o no hay marca: estar en la lista no basta
+      // si la entrada es vieja, y ser reciente no basta si la obra no se sigue.
+      ...(enQuieroVer.has(refKey(pieza.ref)) && esNovedadReciente(pieza.publishedAt, ahora)
+        ? { inPlanToWatch: true as const }
+        : {}),
     }))
 
     // El descarte va **antes** del tope: recortar primero dejaría la fila con una pieza

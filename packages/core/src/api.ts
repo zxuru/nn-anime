@@ -816,6 +816,15 @@ export const feedItemSchema = animeSummarySchema.extend({
    * miró, y eso sería mentir en la marca.
    */
   adult: z.literal(true).optional(),
+  /**
+   * Si la novedad es de una obra de «Quiero ver» y salió hace poco.
+   *
+   * Opcional y sólo verdadero, por el mismo motivo que `adult`: la fuente no
+   * conoce la lista del usuario, así que la marca la pone el servidor al servir
+   * la fila. La ausencia significa «no consta», no que la obra no esté en la
+   * lista; un `false` diría que se comprobó y no es el caso.
+   */
+  inPlanToWatch: z.literal(true).optional(),
 })
 
 /** La fila de novedades: lo que publica la fuente, sin que nadie busque. */
