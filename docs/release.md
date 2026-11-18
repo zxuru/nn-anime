@@ -12,7 +12,7 @@ Aquí está el detalle.
 main ──► release-please ──► PR de release ──► merge ──► tag vX.Y.Z + release EN BORRADOR
                                                               │
                                                               ▼
-                                  release.yml (el tag lo dispara)
+                                  release.yml (lo lanza release-please con workflow_dispatch)
                                   ├── comprobar: listón + tag == package.json
                                   ├── portables: servidor → anfitrión → .exe único + .sig + latest.json
                                   │              (windows), .zip del .app (macos×2) o AppImage (linux)
@@ -28,12 +28,12 @@ sin actualizar.
 
 | Workflow | Cuándo | Qué hace |
 |---|---|---|
-| `ci.yml` | Cada push y cada PR | Tipos, estilo, pruebas, e2e, y el empaquetado en matriz con el ejecutable arrancado y el `.exe` único de Windows |
+| `ci.yml` | Cada PR y cada entrada de la merge queue; **no** en `push` | Tipos, estilo, pruebas, e2e, y el empaquetado en matriz con el ejecutable arrancado y el `.exe` único de Windows |
 | `release-please.yml` | Push a `main` | Mantiene el PR de release: `CHANGELOG.md` y la versión de los diez `package.json` |
-| `release.yml` | Push de un tag `v*.*.*`, o a mano | Compila el archivo único y los artefactos portables, y publica la release. **Es el único publicador** |
+| `release.yml` | `workflow_dispatch` desde `release-please.yml` sobre el tag recién creado (y `push` de un tag `v*.*.*` empujado con credenciales de una persona); a mano para probar sin publicar | Compila el archivo único y los artefactos portables, y publica la release. **Es el único publicador** |
 
 `desktop.yml` ya no existe. Nació para construir y publicar el `.exe` único por su cuenta y competía
-con `release.yml` por el mismo tag; ahora `ci.yml` lo construye en cada push y `release.yml` es el
+con `release.yml` por el mismo tag; ahora `ci.yml` lo construye en cada PR y `release.yml` es el
 único que crea o modifica una release.
 
 ### Un ajuste que hay que hacer una vez
@@ -49,10 +49,10 @@ ajuste del repositorio que hace falta; el resto es cosa de los secretos, que son
 `release-please-config.json` tiene `draft: true` y `force-tag-creation: true`, y las dos hacen falta:
 
 - **`draft`**: la release se crea en borrador, así nadie ve una release a la que todavía le faltan
-  los artefactos. El workflow la publica cuando ya están los de las tres plataformas.
+  los artefactos. El workflow la publica cuando ya están los de Windows, macOS y Linux.
 - **`force-tag-creation`**: GitHub no crea el tag de una release en borrador hasta que se publica. Sin
-  esto, el tag no existiría, `release.yml` no se dispararía nunca y la release se quedaría en borrador
-  para siempre.
+  esto, el tag no existiría, el `workflow_dispatch` de `release-please.yml` no tendría `--ref` al que
+  apuntar y la release se quedaría en borrador para siempre.
 
 ### El cuerpo del PR de release
 
@@ -190,23 +190,30 @@ que no aparezca por primera vez al ejecutar el archivo descargado.
 
 ## Compila GitHub, no tú
 
-**No hace falta un Mac ni ninguna herramienta de empaquetado a mano.** Cada push compila el
-ejecutable y su artefacto portable en las plataformas que toca, y los deja descargables en la página
-del workflow, en «Artifacts» (7 días):
+**No hace falta un Mac ni ninguna herramienta de empaquetado a mano.** Cada **PR que toca código**
+compila el ejecutable y, cuando toca el empaquetado, el AppImage; `release.yml` añade macOS y el
+`.exe` único. Los artefactos quedan descargables en la página del workflow, en «Artifacts» (7 días):
 
-| Artefacto | Qué lleva |
-|---|---|
-| `rona-ubuntu-latest` | El ejecutable de Linux y, si cambió el empaquetado, el AppImage |
-| `rona-windows-latest` | El **archivo único** `rona-<v>-windows-x64.exe` |
-| `rona-macos-*` | El `.zip` del `.app` (sólo en `release.yml`; el CI no lo compila) |
+| Artefacto | Quién lo sube | Qué lleva |
+|---|---|---|
+| `rona-ubuntu-latest` | `ci.yml` | El ejecutable de Linux y, si cambió el empaquetado, el AppImage |
+| `rona-windows-latest` | `ci.yml`, sólo cuando cambia el empaquetado o el árbol de Rust | El **archivo único** `rona-<v>-windows-x64.exe` |
+| `portables-windows-x64` | `release.yml` | El `.exe` único y, con la clave del updater, su `.sig` y `latest.json` |
+| `portables-darwin-arm64` y `portables-darwin-x64` | `release.yml` | Un `.zip` del `.app` por arquitectura |
+| `portables-linux-x64` | `release.yml` | El AppImage |
+
+No hay un artefacto `rona-macos-*`: macOS **no** se compila en el CI por defecto —sus minutos se
+cuentan por diez y su `.zip` se mide donde se firma—. Para devolverlo a la matriz de `desktop` en un
+PR está la variable `CI_MACOS_EN_PR=true`; los dos `.zip` de la release salen siempre de
+`release.yml`.
 
 Sólo `appimagetool` no viene en la imagen de GitHub: lo prepara `.github/actions/herramientas`,
 fijado **por versión y por SHA256**. Windows y macOS no necesitan nada: la copia del `.exe` y la
 firma las hace `bun tauri signer`, y `ditto`, `codesign` y `xcrun` vienen con macOS.
 
-Por eso el artefacto se arma también en cada push y no sólo en la release: un error en el `AppRun` o
-en la compilación del anfitrión aparece en el push que lo introdujo, que es cuando se arregla en un
-minuto, y no el día de la release.
+Por eso el artefacto se arma también en cada PR que toca el empaquetado y no sólo en la release: un
+error en el `AppRun` o en la compilación del anfitrión aparece en el PR que lo introdujo, que es
+cuando se arregla en un minuto, y no el día de la release.
 
 Si quieres construir en tu máquina de todos modos:
 
@@ -236,20 +243,18 @@ arranca, contesta 404 en `/` y parece que la aplicación está rota.
 ninguna release. Es la forma de recorrer el camino entero sin gastar un número de versión — y de
 tener los dos `.zip` de macOS sin un Mac.
 
-## La primera release
+## El tag no se crea a mano
 
-El mecanismo de `release-please` necesita un tag del que partir, y hoy no hay ninguno. La primera
-versión se corta a mano, **después** de que `main` tenga el trabajo y el CI esté verde:
+`release-please` necesita un tag del que partir, y el repositorio ya tiene historial: la 0.9.0 está
+en `CHANGELOG.md` y `origin/main` va por la 0.10.0, sólo con la subida de versión. No hay que crear
+ningún tag: `release-please` abre su PR, y al fusionarlo crea el tag y lanza `release.yml` con
+`workflow_dispatch`. Crear el tag a mano se saltaría el PR de release; el camino manual existía
+cuando no había ningún tag del que partir.
 
-```bash
-git tag -a v0.1.0 -m "RoNa 0.1.0"
-git push origin v0.1.0
-```
-
-El tag dispara `release.yml` y publica la release con el cuerpo de `CHANGELOG.md`. A partir de ahí
-`release-please` mantiene el PR de versión con cada push a `main`; fusionarlo crea el tag y el borrador,
-y `release.yml` lo publica. Si `release-please` abre un PR antes de que se empuje `v0.1.0`, se cierra:
-el siguiente run recalcula desde el tag.
+El tag que se empuja con credenciales de una persona **sí** dispara `release.yml` por el evento
+`push`, pero es una salida de emergencia, no el camino normal: no hay PR de release ni changelog
+generado por `release-please`. El workflow crea el borrador si no existe y usa la sección del
+`CHANGELOG.md` que ya esté en el árbol.
 
 ## Cuando la release se queda en borrador
 
@@ -312,7 +317,7 @@ crear otro release para el mismo tag y falla. Se arregla **re-enlazándolo**, qu
 por id aunque el tag no aparezca:
 
 ```bash
-gh api -X PATCH repos/zxuru/rona/releases/<id> \
+gh api -X PATCH repos/zxuru/nn-anime/releases/<id> \
   -f tag_name=vX.Y.Z -f target_commitish=<sha>
 ```
 
@@ -326,19 +331,19 @@ Con el arreglo en `main` y el listón verde:
 
 ```bash
 # 1. Si el borrador se desvinculó al mover el tag, se vuelve a enlazar por id.
-gh api "repos/zxuru/rona/releases?per_page=100" \
+gh api "repos/zxuru/nn-anime/releases?per_page=100" \
   --jq '.[] | select(.draft) | [.id, .tag_name] | @tsv'
-gh api -X PATCH repos/zxuru/rona/releases/<id> \
+gh api -X PATCH repos/zxuru/nn-anime/releases/<id> \
   -f tag_name=vX.Y.Z -f target_commitish=<sha>
 
 # 2. Y se relanza la release: lo que falló, o el run entero.
 gh run rerun <id> --failed
 ```
 
-Mover el tag **también dispara `release.yml`** —un tag creado con `GITHUB_TOKEN` no dispara nada—,
-pero cuesta el paso 1 otra vez y una release en vuelo; si hay un run que sólo falló en un trabajo,
-`gh run rerun --failed` es lo barato. Con una release ya publicada no se toca ni el tag ni el
-borrador: se lanza una versión nueva.
+Mover el tag **también dispara `release.yml`** si lo empuja una persona —un tag creado con
+`GITHUB_TOKEN` no dispara nada—, pero cuesta el paso 1 otra vez y una release en vuelo; si hay un
+run que sólo falló en un trabajo, `gh run rerun --failed` es lo barato. Con una release ya publicada
+no se toca ni el tag ni el borrador: se lanza una versión nueva.
 
 Lo que queda por comprobar es lo mismo de siempre: que la release no siga en borrador, que estén
 todos los assets y que `latest.json` anuncie `windows-x86_64` y `windows-x86_64-portable` con url y
@@ -413,7 +418,8 @@ sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf
 
 El listón del árbol de Rust es **suyo** y no lo mira `bun test` —vive fuera de `packages/` a
 propósito—: `bun run desktop:check` (formato, `clippy` con `-D warnings` y sus pruebas), y lo ejecuta
-el trabajo `desktop` del CI en las tres plataformas.
+el trabajo `desktop` del CI en su matriz: Linux y Windows por defecto, macOS sólo con
+`CI_MACOS_EN_PR=true`.
 
 `desktop/src-tauri/Cargo.lock` **está versionado**. Si alguna vez falta, se genera en una máquina con
 red y se commitea; sin él la resolución de dependencias no es reproducible. La versión del paquete
@@ -491,7 +497,8 @@ en big-endian— y por eso daba por bueno un archivo que no lo estaba.
 Medido en la máquina donde se preparó esto:
 
 - El ejecutable compilado arranca, sirve la interfaz y sus recursos con hash, canjea el token de
-  arranque y **aplica las siete migraciones** (`schema_version = 7`).
+  arranque y **aplica todas las migraciones del árbol** (`packages/catalog-store/src/migrations/`,
+  desde `0001-initial` hasta la última; `schema_version` queda en esa última).
 - Las seis comprobaciones de `smoke.ts` en verde sobre el ejecutable empaquetado.
 - `actionlint` con `shellcheck` sobre los tres workflows, sin avisos.
 - **El subsistema PE de los binarios de Windows**, leído de su cabecera con
@@ -502,13 +509,16 @@ Medido en la máquina donde se preparó esto:
 
 Verificado **por el CI**, que es donde se comprueba lo que no se puede comprobar aquí:
 
-- El listón entero en Linux, macOS y Windows, y **las pruebas en los tres sistemas**.
+- El listón entero (tipos, estilo, auditoría, pruebas y cobertura) en **Linux**, y las pruebas
+  también en **Windows**. macOS **no** entra en el CI por defecto: sus rutas son las de Linux, su
+  árbol de Rust sólo se puede devolver con `CI_MACOS_EN_PR=true` y sus dos `.zip` se miden en
+  `release.yml`, que es donde se firman.
 - **Windows**: el archivo único, su etiqueta de integridad y su ACL. El `.exe` es una copia del
   anfitrión, así que la firma de código y el subsistema PE se miden sobre el archivo que se descarga.
 - **Linux**: el AppImage, construido con `appimagetool`.
-- **macOS**: el `.app` comprimido en `.zip`, con `ditto`.
+- **macOS**: el `.app` comprimido en `.zip`, con `ditto`, en `release.yml`.
 
-Lo que sigue sin estar comprobado, y lo dirá el siguiente push o una release con secretos:
+Lo que sigue sin estar comprobado, y lo dirá el siguiente PR o una release con secretos:
 
 - **La firma de código y la notarización**: sin certificados, los pasos se saltan. Que `signtool`,
   `codesign` y `notarytool` reciban lo que esperan no se ha podido ejecutar.

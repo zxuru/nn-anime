@@ -1,8 +1,22 @@
 # Deuda técnica y de proceso (análisis del 2026-11-14)
 
-> **Estado:** **abierto** — es el lote de deuda que salió del análisis del 2026-11-14, y se está
-> cerrando tarea a tarea: cada una tiene su fragmento de cierre en [`tasks/done/`](done/) y su
-> reparto, su oleada y su orden, más abajo.
+> **Estado:** **cerrado** el 2026-11-18. Las **30 tareas (T218–T247)** de este lote están cerradas:
+> cada una dejó su medición en [`tasks/done/INDICE.md`](done/INDICE.md) y su trabajo se integró en
+> `main` entre el 2026-11-14 y el 2026-11-18. Este archivo queda como historia; las condiciones de
+> abajo ya no son casillas pendientes y no se vuelven a medir.
+>
+> **Resumen por bloque:**
+>
+> | Bloque | Tareas | Qué quedó |
+> |---|---|---|
+> | Documentos y planes | T218, T219, T220, T221, T222, T234, T246, T247 | El roadmap dice el estado medido; el mapa registra descargas y watch party; la ficha y la sala quedan como contratos y la tira de episodios pasa a `proposals/`; el informe de la v1 queda congelado; cada plan de `tasks/` declara su estado; el spec de manga está escrito y pendiente de aprobación; el roadmap y las 22 casillas de T246 están cerrados; `tasks/done/` queda indexado y podado. |
+> | Higiene y CI | T223, T224, T225, T235 | El comando que poda los worktrees; la puerta de cobertura en el CI; un umbral por paquete; `cargo deny` con sus excepciones. |
+> | Interfaz y estilos | T226, T227, T228, T229, T230, T231, T236, T237, T238, T239, T240, T241 | `shell.css` partido; la pantalla de reproducción sin su estado dentro; la rejilla muerta borrada; una sola lista de AniList; una sola lectura de ajustes; «Probar con {proveedor}»; la deuda visual y el CSS muerto; Space Mono servida; el tema antes del primer pintado; el panel muerto retirado; AniSkip integrado en el reproductor. |
+> | Escritorio, release y decisiones | T232, T242, T243, T244, T245 | El servidor no sobrevive al anfitrión; la rama `rediseno/escritorio` descartada; el updater limitado a Windows y declarado; la publicación sigue bloqueada sin la clave del updater; la firma condicional documentada. |
+> | Comentarios | T233 | Los dos comentarios que mandaban a código ya existente, corregidos. |
+>
+> Las condiciones de aceptación de abajo se conservan **como se escribieron**, para que se vea qué se
+> pidió; ya no son casillas y su cierre no se mide aquí sino en el índice.
 
 Origen: análisis del estado actual del repositorio, hecho con cuatro subagentes (backend, frontend,
 escritorio/CI, estado del proyecto) más mediciones propias ejecutadas en la raíz:
@@ -18,9 +32,10 @@ escritorio/CI, estado del proyecto) más mediciones propias ejecutadas en la ra�
 | Tests saltados (`.skip`/`.only`/`todo`) | 0 | grep |
 | e2e | **no medido**: faltan los navegadores de Playwright en la máquina; los instala el CI | — |
 
-**Este archivo es el plan, no el tablero.** La fuente de verdad de una tarea abierta sigue siendo
-`tasks/todo.md` y el fragmento de cierre va a [`tasks/done/`](done/README.md). Aquí van el detalle,
-la partición y el orden.
+**Este archivo fue el plan, no el tablero.** Mientras el lote estuvo abierto, la fuente de verdad de
+una tarea abierta era `tasks/todo.md` y el fragmento de cierre iba a
+[`tasks/done/`](done/README.md). Aquí quedaron el detalle, la partición y el orden; el cierre de cada
+tarea, con su medición, está en `tasks/done/INDICE.md`.
 
 Rige el **Definition of Done** de [`tasks/plan.md`](plan.md) sin cambios: `bun run typecheck`,
 `bun run lint` y `bun test` en verde, criterios marcados **con la medición que los sostiene**, sin
@@ -46,7 +61,7 @@ Los agentes son los de la tabla de oleadas, más abajo. Cada agente abre su work
 
 ---
 
-## Oleada 1 — sin choques: se pueden abrir todos a la vez
+## Oleada 1 — sin choques: se pueden abrir todos a la vez — cerrada
 
 Once agentes, once rutas distintas.
 
@@ -77,13 +92,13 @@ fase 1 (T181–T187) están cerradas y la 0.8.0 está publicada. El documento se
 la fase siguiente y manda a construir manga sobre un estado que ya no existe.
 
 **Aceptación:**
-- [ ] El estado del roadmap coincide con el de `tasks/roadmap.md` (fases 0 y 1 cerradas, fase 3
+- El estado del roadmap coincide con el de `tasks/roadmap.md` (fases 0 y 1 cerradas, fase 3
       implementada) y con `CHANGELOG.md`.
-- [ ] La sección «Fase 3: Watch party» deja de decir «sin abrir»: dice qué hay implementado
+- La sección «Fase 3: Watch party» deja de decir «sin abrir»: dice qué hay implementado
       (sala LAN con relevo del invitado, `NN_ANIME_PARTY=1`) y qué queda (WebRTC P2P, coincidencia
       de contenido, chat), con el enlace a `docs/specs/SPEC-watch-party.md`.
-- [ ] La «Fase 2A: Manga» declara que empieza por el spec que aún no existe (T234).
-- [ ] Las cifras que se citen están medidas hoy, no copiadas de la v1.
+- La «Fase 2A: Manga» declara que empieza por el spec que aún no existe (T234).
+- Las cifras que se citen están medidas hoy, no copiadas de la v1.
 
 **Archivos:** `docs/roadmap.md`. **Tamaño:** S. **Depende de:** nada.
 
@@ -100,13 +115,13 @@ apruebe la enmienda» — pero la spec se escribió y aprobó (D2, `proposals/SP
 y el código lleva en la release desde la 0.5.
 
 **Aceptación:**
-- [ ] `downloads` sale de «Enmiendas pendientes de aprobación» y entra en el grafo de capacidades
+- `downloads` sale de «Enmiendas pendientes de aprobación» y entra en el grafo de capacidades
       con su build order y sus dependencias, como `SPEC-descargas.T181.md` las fijó.
-- [ ] `watch-party` aparece como capacidad con su módulo y su nota de experimental.
-- [ ] `metadata-enrichment` se decide: o sale de pendientes (la ruta TMDB ya existe y es
+- `watch-party` aparece como capacidad con su módulo y su nota de experimental.
+- `metadata-enrichment` se decide: o sale de pendientes (la ruta TMDB ya existe y es
       aditiva), o se anota que el código llegó antes que la aprobación y se pide la aprobación
       retrospectiva. **La decisión se escribe, no se deja tácita.**
-- [ ] El documento sigue siendo cierto: se comprueba contra el árbol, no contra la memoria.
+- El documento sigue siendo cierto: se comprueba contra el árbol, no contra la memoria.
 
 **Archivos:** `docs/specs/CAPABILITY-MAP.md`. **Tamaño:** S. **Depende de:** nada.
 
@@ -122,10 +137,10 @@ tarea 3.1». Un lector que aplique la regla al revés —«lo que está en `docs
 canónico»— los toma por aprobados.
 
 **Aceptación:**
-- [ ] Cada uno de los tres está en un lado o en el otro, con una razón escrita: o seintegra al
+- Cada uno de los tres está en un lado o en el otro, con una razón escrita: o seintegra al
       `SPEC-*` canónico (con la aprobación anotada) o se mueve a `proposals/` con el sufijo de task.
-- [ ] `docs/specs/proposals/README.md` se actualiza si el caso nuevo no estaba previsto.
-- [ ] Ningún fichero queda duplicado en los dos sitios.
+- `docs/specs/proposals/README.md` se actualiza si el caso nuevo no estaba previsto.
+- Ningún fichero queda duplicado en los dos sitios.
 
 **Archivos:** `docs/specs/SPEC-anime-detail.md`, `SPEC-episode-rail.md`, `SPEC-watch-party.md`,
 `docs/specs/proposals/`. **Tamaño:** S. **Depende de:** nada.
@@ -141,12 +156,12 @@ casos de «comprobaciones que no medían lo que decían». Congelarlo con las ci
 convierte en un documento que se cita mal.
 
 **Aceptación:**
-- [ ] Se decide —y se dice en el propio documento— si `v1-report.md` queda como **histórico
+- Se decide —y se dice en el propio documento— si `v1-report.md` queda como **histórico
       congelado** (con un aviso arriba: «cifras de la v1; el estado vigente está en «X») o si se
       actualiza a las cifras de hoy.
-- [ ] Si se actualiza, las cifras se **miden** (no se copian): número de pruebas, de ficheros, de
+- Si se actualiza, las cifras se **miden** (no se copian): número de pruebas, de ficheros, de
       casos de e2e, cobertura por paquete y estado de las tareas.
-- [ ] La sección de los seis casos de método **se conserva**: es historia del proyecto y no caduca.
+- La sección de los seis casos de método **se conserva**: es historia del proyecto y no caduca.
 
 **Archivos:** `docs/v1-report.md`. **Tamaño:** S. **Depende de:** nada.
 
@@ -161,13 +176,13 @@ aunque T181–T187 están cerradas y las descargas están en la release. Junto a
 caducados.
 
 **Aceptación:**
-- [ ] Cada plan de `tasks/` que no sea `todo.md`, `plan.md`, `roadmap.md`, `discovery.md` o `done/`
+- Cada plan de `tasks/` que no sea `todo.md`, `plan.md`, `roadmap.md`, `discovery.md` o `done/`
       lleva **una línea de estado al principio**: «cerrado», «abierto», o «caducado, con la tarea
       que lo sustituye».
-- [ ] Los que estén cerrados se archivan o se borran sin perder **la decisión que los dejó
+- Los que estén cerrados se archivan o se borran sin perder **la decisión que los dejó
       cerrados**: un enlace a `tasks/done/T<id>.md` basta.
-- [ ] Los ocho `discovery-*.md` quedan indexados en una tabla o se fusionan en `discovery.md`.
-- [ ] `tasks/todo.md` y `tasks/plan.md` **no se tocan**: son del integrador (AGENTS.md).
+- Los ocho `discovery-*.md` quedan indexados en una tabla o se fusionan en `discovery.md`.
+- `tasks/todo.md` y `tasks/plan.md` **no se tocan**: son del integrador (AGENTS.md).
 
 **Archivos:** `tasks/descargas.md`, `tasks/anilist.md`, `tasks/desktop.md`,
 `tasks/proveedores-github.md`, `tasks/mejoras-scraper.md`, `tasks/discovery-*.md`.
@@ -183,15 +198,15 @@ confunden el estado real: `scripts/agente.ts estado` no los ve, y quien los mira
 agentes vivos.
 
 **Aceptación:**
-- [ ] `scripts/agente.ts` gana un comando `limpiar` que **borra los worktrees que no están
+- `scripts/agente.ts` gana un comando `limpiar` que **borra los worktrees que no están
       registrados en `git worktree list`** ywhose rama ya está integrada, y dice qué va a borrar
       antes de borrarlo.
-- [ ] `limpiar` **no borra** un worktree con cambios sin commitear ni una rama sin integrar: para
+- `limpiar` **no borra** un worktree con cambios sin commitear ni una rama sin integrar: para
       esos dice qué hay y no toca nada.
-- [ ] Prueba: con un worktree registrado y vivo, y otro directorio suelto, `limpiar` borra el
+- Prueba: con un worktree registrado y vivo, y otro directorio suelto, `limpiar` borra el
       segundo y deja el primero.
-- [ ] **Mutación**: que `limpiar` borre también el registrado hace fallar la prueba.
-- [ ] Tras correrlo, `.worktrees/` queda con lo que Git tiene registrado.
+- **Mutación**: que `limpiar` borre también el registrado hace fallar la prueba.
+- Tras correrlo, `.worktrees/` queda con lo que Git tiene registrado.
 
 **Archivos:** `scripts/agente.ts`, `scripts/agente.test.ts`. **Tamaño:** M. **Depende de:** nada.
 
@@ -206,11 +221,11 @@ el gate sólo corre si alguien se acuerda. `docs/roadmap.md` lo exige en cada fa
 `SPEC-nn-anime.md` afirma que «se hace cumplir».
 
 **Aceptación:**
-- [ ] El CI ejecuta el gate y **falla el job** cuando un paquete medido baja del objetivo.
-- [ ] La salida del gate (la de los archivos que la medición no ve) queda en el log del job.
-- [ ] El job no duplica el `bun test` que ya corre: reutiliza el resultado o añade el coste
+- El CI ejecuta el gate y **falla el job** cuando un paquete medido baja del objetivo.
+- La salida del gate (la de los archivos que la medición no ve) queda en el log del job.
+- El job no duplica el `bun test` que ya corre: reutiliza el resultado o añade el coste
       justificándolo en el propio workflow.
-- [ ] Prueba o comprobación que falle si alguien quita el gate del CI.
+- Prueba o comprobación que falle si alguien quita el gate del CI.
 
 **Archivos:** `.github/workflows/ci.yml`. **Tamaño:** S. **Depende de:** nada.
 
@@ -224,12 +239,12 @@ de nueve. Los dos paquetes más grandes, `server` (107 ficheros) y `web` (227), 
 (93,20 %) y `cli` (91,50 %) tampoco lo tienen.
 
 **Aceptación:**
-- [ ] Los umbrales se fijan **por debajo de la cobertura medida hoy** y con margen escrito: el
+- Los umbrales se fijan **por debajo de la cobertura medida hoy** y con margen escrito: el
       objetivo de cada paquete nuevo va en el código, junto a su número.
-- [ ] `web` necesita un objetivo propio y razonado: el 80 % de líneas de un paquete con 65 % medido
+- `web` necesita un objetivo propio y razonado: el 80 % de líneas de un paquete con 65 % medido
       no es un umbral, es una meta lejana; se pone el número que se sostiene y se sube por pasos.
-- [ ] `coverage:gate` imprime el umbral de cada paquete medido, para que el log diga qué se exige.
-- [ ] **Mutación**: subir el umbral de un paquete por encima de su cobertura hace fallar el gate.
+- `coverage:gate` imprime el umbral de cada paquete medido, para que el log diga qué se exige.
+- **Mutación**: subir el umbral de un paquete por encima de su cobertura hace fallar el gate.
 
 **Archivos:** `scripts/coverage-gate.ts`. **Tamaño:** M. **Depende de:** nada.
 
@@ -244,16 +259,16 @@ orden de cascada en vez de por capa. `tokens.css` (958 líneas, 270 custom prope
 planteado; el problema es la hoja de reglas.
 
 **Aceptación:**
-- [ ] `shell.css` se parte en **ficheros por responsabilidad** (por ejemplo: base, disposición,
+- `shell.css` se parte en **ficheros por responsabilidad** (por ejemplo: base, disposición,
       navegación, vitrina, ficha, reproductor, ajustes, responsive) con una entrada que los
       importa en un orden declarado.
-- [ ] Los tokens de color, espacio, radio y tipografía **siguen saliendo de `tokens.css`**: ningún
+- Los tokens de color, espacio, radio y tipografía **siguen saliendo de `tokens.css`**: ningún
       literal nuevo en las hojas partidas (la regla de `shell.css` se traslada al sitio nuevo).
-- [ ] El resultado visual **no cambia**: la captura de `docs/captura.png` y la de tema claro se
+- El resultado visual **no cambia**: la captura de `docs/captura.png` y la de tema claro se
       regeneran y se comparan con la anterior. Diferencias sólo si la tarea las declara.
-- [ ] `packages/web/src/styles/styles.test.ts` sigue en verde: falla si una clase usada en el
+- `packages/web/src/styles/styles.test.ts` sigue en verde: falla si una clase usada en el
       marcado no está definida, y si un `var()` apunta a un token inexistente.
-- [ ] Cada fichero nuevo cabe en el **tope de 5 archivos de implementación** del task: si salen
+- Cada fichero nuevo cabe en el **tope de 5 archivos de implementación** del task: si salen
       más de 5, esta tarea se divide (y el plan se actualiza).
 
 **Archivos:** `packages/web/src/styles/`. **Tamaño:** L. **Depende de:** nada.
@@ -273,14 +288,14 @@ tiene 11 `useState`, 11 `useEffect` y 7 `useRef`. Partirlos no es cosmetía: son
 cualquier arreglo en el reproductor toque un sitio que nadie encuentra.
 
 **Aceptación:**
-- [ ] Cada componente se parte en unidades con nombre, cada una con su tipado y su prueba; el
+- Cada componente se parte en unidades con nombre, cada una con su tipado y su prueba; el
       behaviour no cambia.
-- [ ] Los hooks con estado se agrupan en hooks de dominio (`useWatchPage`, `usePlayer`), como ya
+- Los hooks con estado se agrupan en hooks de dominio (`useWatchPage`, `usePlayer`), como ya
       se hace en `useDetail.ts` y `useParty.ts`.
-- [ ] Ninguna parte nueva supera las ~400 líneas, o la tarea se divide y el plan se actualiza.
-- [ ] Las pruebas del reproductor siguen en verde **sin reescribirlas**: si una prueba cambia para
+- Ninguna parte nueva supera las ~400 líneas, o la tarea se divide y el plan se actualiza.
+- Las pruebas del reproductor siguen en verde **sin reescribirlas**: si una prueba cambia para
       poder pasar, es que se rompió el comportamiento.
-- [ ] **Mutación**: un comportamiento del reproductor (el modo extendido, el `Escape` del menú, la
+- **Mutación**: un comportamiento del reproductor (el modo extendido, el `Escape` del menú, la
       recuperación de `fragLoadError`) deja de funcionar cuando se rompe el hook extraído.
 
 **Archivos:** `packages/web/src/features/player/`. **Tamaño:** L. **Depende de:** nada.
@@ -294,10 +309,10 @@ producción**: sólo su prueba. Es infraestructura de virtualización escrita y 
 O se conecta donde hace falta, o sobra.
 
 **Aceptación:**
-- [ ] Se decide con un dato: si la vitrina o el historial llegan a un número de filas que hace
+- Se decide con un dato: si la vitrina o el historial llegan a un número de filas que hace
       falta virtualizar, se conecta y se mide el antes y el después; si no, **se borra** el
       componente y su prueba.
-- [ ] Si se borra, el `bun test` sigue en verde y no queda ninguna referencia en el árbol.
+- Si se borra, el `bun test` sigue en verde y no queda ninguna referencia en el árbol.
 
 **Archivos:** `packages/web/src/components/VirtualGrid.tsx` y su prueba.
 **Tamaño:** S. **Depende de:** nada.
@@ -311,8 +326,8 @@ distintas de `SearchPage.tsx` (`:322` y `:363`). Mantener los dos es mantener do
 ajuste.
 
 **Aceptación:**
-- [ ] Queda **uno**, con las diferencias que existían declaradas como props y no como copia.
-- [ ] La captura de la búsqueda antes y después es la misma.
+- Queda **uno**, con las diferencias que existían declaradas como props y no como copia.
+- La captura de la búsqueda antes y después es la misma.
 
 **Archivos:** `packages/web/src/features/search/`. **Tamaño:** S. **Depende de:** nada.
 
@@ -326,11 +341,11 @@ ajuste.
 punto 3 de «Lo que sigue, en orden».
 
 **Aceptación:**
-- [ ] Hay **una sola fuente** de los ajustes en la raíz de la aplicación, y las dos pantallas la
+- Hay **una sola fuente** de los ajustes en la raíz de la aplicación, y las dos pantallas la
       consumen de ahí.
-- [ ] Con la pantalla de Ajustes abierta, el servidor recibe **una** petición a `/api/settings`
+- Con la pantalla de Ajustes abierta, el servidor recibe **una** petición a `/api/settings`
       (prueba que cuenta las peticiones).
-- [ ] **Mutación**: volver a montar `useSettings` en la página hace fallar esa prueba.
+- **Mutación**: volver a montar `useSettings` en la página hace fallar esa prueba.
 
 **Archivos:** `packages/web/src/features/settings/`, `packages/web/src/lib/`,
 `packages/web/src/app.tsx`. **Tamaño:** M. **Depende de:** nada.
@@ -346,12 +361,12 @@ de la obra son parte del bundle de la ficha, que es justo lo que aquí no llegó
 TODO real** del frontend.
 
 **Aceptación:**
-- [ ] El hook expone **las fuentes conocidas de una ficha fallida** (o una lectura aparte que las
+- El hook expone **las fuentes conocidas de una ficha fallida** (o una lectura aparte que las
       traiga), que es lo que el comentario pide como condición previa.
-- [ ] El botón aparece cuando la obra está en otra fuente, y **no** aparece cuando no está en
+- El botón aparece cuando la obra está en otra fuente, y **no** aparece cuando no está en
       ninguna.
-- [ ] Lleva a la ficha correcta en la fuente correcta.
-- [ ] **Mutación**: quitar el caso que lo habilita hace fallar la prueba.
+- Lleva a la ficha correcta en la fuente correcta.
+- **Mutación**: quitar el caso que lo habilita hace fallar la prueba.
 
 **Archivos:** `packages/web/src/features/detail/`. ** tamaño:** S. **Depende de:** nada.
 
@@ -365,13 +380,13 @@ nada** y en Windows **el Job Object no está escrito** (pendiente declarado en `
 El síntoma es un `nn-anime` huérfano que ocupa el puerto y la cookie de sesión.
 
 **Aceptación:**
-- [ ] Windows: el proceso servidor está en un **Job Object** con `KILL_ON_JOB_CLOSE`, y el
+- Windows: el proceso servidor está en un **Job Object** con `KILL_ON_JOB_CLOSE`, y el
       anfitrión cierra el job al morir.
-- [ ] macOS: hay un mecanismo equivalente, o el motivo por el que no lo hay está escrito en el
+- macOS: hay un mecanismo equivalente, o el motivo por el que no lo hay está escrito en el
       código y en `SECURITY.md`.
-- [ ] Una prueba o comprobación que demuestre que el servidor **no** sobrevive a la muerte del
+- Una prueba o comprobación que demuestre que el servidor **no** sobrevive a la muerte del
       anfitrión (en Windows y en Linux; en macOS, la excepción documentada).
-- [ ] `SECURITY.md` se actualiza con lo que ahora está cerrado.
+- `SECURITY.md` se actualiza con lo que ahora está cerrado.
 
 **Archivos:** `desktop/src-tauri/src/`. **Tamaño:** M. **Depende de:** nada.
 
@@ -385,8 +400,8 @@ proxy de bytes llega en T26» — el proxy de bytes existe desde hace meses (`by
 existe y funciona—. No son bugs; son comentarios que mandan a buscar algo que ya está.
 
 **Aceptación:**
-- [ ] Los dos comentarios dicen lo que el módulo hace **hoy**.
-- [ ] Se revisan los otros comentarios del mismo estilo en los dos paquetes y se corrigen los que
+- Los dos comentarios dicen lo que el módulo hace **hoy**.
+- Se revisan los otros comentarios del mismo estilo en los dos paquetes y se corrigen los que
       quedaron atrás.
 
 **Archivos:** `packages/media-proxy/src/index.ts`, `packages/cli/src/index.ts`.
@@ -403,20 +418,20 @@ el modelo ya reserva `mediaType: 'manga'` en `packages/core/src/schema.ts` y
 `packages/core/src/models.ts`. Es la tarea que desbloquea la fase.
 
 **Aceptación:**
-- [ ] `docs/specs/SPEC-manga.md` existe y cubre: modelo (capítulo, volumen, página), contrato de
+- `docs/specs/SPEC-manga.md` existe y cubre: modelo (capítulo, volumen, página), contrato de
       plugin (`capabilities.media` con `manga`), lector (paginado y vertical), descargas (D5: CBZ),
       proxy de imágenes y datos (progreso de lectura).
-- [ ] Se apoya en el análisis de `docs/estudio-busqueda-ani-cli-mx.md` y en lo que ya aprendieron
+- Se apoya en el análisis de `docs/estudio-busqueda-ani-cli-mx.md` y en lo que ya aprendieron
       la 2.1–2.7 de `docs/roadmap.md`.
-- [ ] El spec **no se escribe código** hasta que lo apruebe el humano (la regla de
+- El spec **no se escribe código** hasta que lo apruebe el humano (la regla de
       `docs/specs/proposals/README.md`).
-- [ ] La revisión humana queda anotada con su fecha.
+- La revisión humana queda anotada con su fecha.
 
 **Archivos:** `docs/specs/SPEC-manga.md`. **Tamaño:** L. **Depende de:** nada.
 
 ---
 
-## Oleada 2 — dependen de la 1 porque tocan una ruta ya tomada
+## Oleada 2 — dependen de la 1 porque tocan una ruta ya tomada — cerrada
 
 Un solo agente cada una, y **en serie** con la de su ruta.
 
@@ -572,7 +587,7 @@ y las claves `reco.*`; `PRODUCT.md` y `RecommendedRow` dejan de prometer la punt
 
 ---
 
-## Oleada 3 — decisiones del humano (el agente no las puede tomar)
+## Oleada 3 — decisiones del humano (el agente no las puede tomar) — cerrada
 
 `docs/roadmap.md:169`: «las abiertas no las decide el agente: pregunta».
 
@@ -593,11 +608,11 @@ falla con «ya está reclamado» aunque el worktree que lo reclamaba ya no exist
 commits por detrás de `main`.
 
 **Aceptación:**
-- [ ] Se decide **integrar o abandonar**, y se escribe el motivo.
-- [ ] Si se integra: el trabajo se reparte por paquete (toca `core`, `catalog-store`, `server` y
+- Se decide **integrar o abandonar**, y se escribe el motivo.
+- Si se integra: el trabajo se reparte por paquete (toca `core`, `catalog-store`, `server` y
       `web`) o se acepta el merge de la rama tal cual, en cuyo caso se dice.
-- [ ] El claim se libera y la rama desaparece si se abandona.
-- [ ] Si se integra, los commits citados se anotan en `tasks/done/T60.md` con su verificación.
+- El claim se libera y la rama desaparece si se abandona.
+- Si se integra, los commits citados se anotan en `tasks/done/T60.md` con su verificación.
 
 **Archivos:** — (operaciones de Git). **Tamaño:** M. **Depende de:** decisión humana.
 
@@ -612,10 +627,10 @@ fijo, banda por sección, filo de identidad reservado y escala de titulares más
 alternativa al diseño actual, no un parche.
 
 **Aceptación:**
-- [ ] Se decide: integrar, recuperar la idea (y aplicarla con medición propia), o abandonar.
-- [ ] Si se recupera la idea, se aplica **sobre el árbol actual** y se mide el antes y el después;
+- Se decide: integrar, recuperar la idea (y aplicarla con medición propia), o abandonar.
+- Si se recupera la idea, se aplica **sobre el árbol actual** y se mide el antes y el después;
       no se rebasea a ciegas una rama de hace un mes.
-- [ ] La rama y el worktree se limpian al cerrar.
+- La rama y el worktree se limpian al cerrar.
 
 **Archivos:** — (operaciones de Git) o `packages/web/src/styles/` si se recupera la idea.
 **Tamaño:** M. **Depende de:** decisión humana; si toca `shell.css`, de T226.
@@ -699,7 +714,7 @@ decisión de dinero, no de código».
 
 ---
 
-## Oleada 4 — del integrador (toca `tasks/todo.md` o `tasks/plan.md`)
+## Oleada 4 — del integrador (toca `tasks/todo.md` o `tasks/plan.md`) — cerrada
 
 | # | Tarea | Rutas |
 |---|---|---|
@@ -785,9 +800,10 @@ Once dueño, once rutas. Cada ruta aparece **una sola vez** en esta tabla.
 4. **Oleada 4**, al final, cuando el resto de los commits ya están integrados: `tasks/todo.md` se
    pega una sola vez, no en paralelo con once mergeos.
 
-## Cómo se cierra
+## Cómo se cerró
 
-Cada tarea, al abrirse, se reclama con `bun run scripts/agente.ts abrir T<id>` y al terminar deja
-su fragmento en [`tasks/done/`](done/README.md) con el formato de allí y el commit que lo sostiene.
-**El integrador** pega el bloque en `tasks/todo.md` y borra el fragmento. El tablero local
-(`tareas/Tablero.md`) mueve la tarjeta a *En desarrollo* al empezar y a *Completado* al terminar.
+Así se hizo con las 30: cada tarea, al abrirse, se reclamó con
+`bun run scripts/agente.ts abrir T<id>` y al terminar dejó su fragmento en
+[`tasks/done/`](done/README.md) con el formato de allí y el commit que lo sostiene.
+**El integrador** pegó el bloque en `tasks/todo.md` y borró el fragmento. El tablero local
+(`tareas/Tablero.md`) movió la tarjeta a *En desarrollo* al empezar y a *Completado* al terminar.

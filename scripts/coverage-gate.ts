@@ -14,13 +14,16 @@
  * cobertura pueda bajar a la mitad tampoco.
  *
  * `web` es el caso aparte: el 80 % del spec es una meta lejana, no un umbral —hoy
- * mide 65 %—. El número que se pone es el que se sostiene hoy, y los pasos por
+ * mide 66,68 %—. El número que se pone es el que se sostiene hoy, y los pasos por
  * los que sube están escritos en `UMBRALES`, junto al resto del razonamiento.
  *
  * Además imprime **los archivos que la medición no ve**. `bun test --coverage`
  * sólo mide los archivos que algún test carga, así que un porcentaje alto puede
  * convivir con puntos de entrada sin ninguna prueba. Un número sin su alcance es
  * una afirmación más firme que la realidad, y este proyecto ya ha pagado varias.
+ * La lista no cuenta lo que no es código de producción: pruebas, `__fixtures__`,
+ * el arnés de `packages/web/e2e/` —lo ejecuta Playwright, no `bun test`— ni los
+ * `.d.ts`, que declaran tipos y no tienen líneas que cubrir.
  *
  * Uso:
  * - `bun run coverage:gate`: cada paquete con su umbral.
@@ -95,20 +98,20 @@ export const UMBRALES: Readonly<Record<string, Umbral>> = {
   // prueba tumbe la puerta.
   server: { minimo: 0.85, medido: 0.8823 },
 
-  // `web`: medido 65,21 %. **El 80 % del spec es una meta lejana, no un umbral**:
+  // `web`: medido 66,68 %. **El 80 % del spec es una meta lejana, no un umbral**:
   // la interfaz tiene más de cien ficheros de código y las pruebas cubren las
-  // rutas y los datos, no cada componente. El número que se sostiene hoy es 60 %,
-  // con cinco puntos de margen, porque es el paquete que más cambia: una
+  // rutas y los datos, no cada componente. El número que se sostiene hoy es 65 %,
+  // con un punto y medio de margen, porque es el paquete que más cambia: una
   // pantalla nueva sin pruebas baja el porcentaje más que en ninguna otra parte.
   //
-  // El plan son pasos, no un salto: 60 → 62 → 65 → 68 → 70 → 75 → 80. Cada paso
+  // El plan son pasos, no un salto: 65 → 68 → 70 → 75 → 80. Cada paso
   // se sube cuando la medición lo supere **con un punto de margen**, y nunca
   // antes: subir el número por lo que debería ser midiendo otra vez es la forma
   // de que la puerta deje de decir nada.
   web: {
-    minimo: 0.6,
-    medido: 0.6521,
-    plan: [0.6, 0.62, 0.65, 0.68, 0.7, 0.75, 0.8],
+    minimo: 0.65,
+    medido: 0.6668,
+    plan: [0.65, 0.68, 0.7, 0.75, 0.8],
   },
 }
 
@@ -157,7 +160,7 @@ export function parseLcov(text: string): ReadonlyMap<string, FileCoverage> {
   return files
 }
 
-/** Todos los archivos de código del repositorio, sin tests ni dependencias. */
+/** Todos los archivos de código del repositorio, sin tests, arnés ni declaraciones. */
 function sourceFiles(): readonly string[] {
   const found: string[] = []
 
@@ -169,14 +172,26 @@ function sourceFiles(): readonly string[] {
           // `__fixtures__` son datos de prueba, no código: los carga un test a
           // propósito y contarlos como no medidos infla la lista hasta hacerla
           // inútil, que es lo contrario de para lo que existe.
+          //
+          // `e2e` es el arnés de Playwright: lo ejecuta `bun run e2e`, no
+          // `bun test --coverage`, y contarlo como código sin prueba fue el
+          // error que dejó 21 de 35 «archivos que ningún test carga» siendo
+          // specs del navegador.
           if (
             entry.name !== 'node_modules' &&
             entry.name !== 'dist' &&
-            entry.name !== '__fixtures__'
+            entry.name !== '__fixtures__' &&
+            !(entry.name === 'e2e' && relative === 'packages/web')
           ) {
             walk(path)
           }
-        } else if (/\.tsx?$/.test(entry.name) && !entry.name.includes('.test.')) {
+        } else if (
+          /\.tsx?$/.test(entry.name) &&
+          !entry.name.includes('.test.') &&
+          // Un `.d.ts` declara tipos, no código ejecutable: no hay línea que
+          // cubrir y, sin esto, la lista lo señalaba como una prueba que falta.
+          !entry.name.endsWith('.d.ts')
+        ) {
           found.push(path)
         }
       }
