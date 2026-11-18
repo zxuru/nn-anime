@@ -98,6 +98,7 @@ export const PRUNED_TABLES: readonly string[] = [
   'aniskip_cache',
   'revalidate_error',
   'search_history',
+  'known_cover',
   'watch_event',
   'favorite',
   'watched_title',
@@ -145,6 +146,16 @@ export function pruneOrphans(db: Database, now: Date = new Date()): PruneReport 
       .run(limiteDetalle).changes
     borradas.search_history = db
       .query('DELETE FROM search_history WHERE created_at <= ?')
+      .run(limiteDetalle).changes
+
+    // Las portadas conocidas no son la caché del listado: sobreviven a su TTL
+    // porque una tarjeta puede pedirlas mucho después. Pero tampoco son para
+    // siempre: una referencia que no ha vuelto a aparecer en ningún listado en
+    // 90 días no la va a pedir nadie, y la fila del detalle —si existe— se
+    // consulta antes que esta tabla. Sin este tope, `known_cover` crecía con
+    // cada búsqueda y no se vaciaba nunca.
+    borradas.known_cover = db
+      .query('DELETE FROM known_cover WHERE updated_at <= ?')
       .run(limiteDetalle).changes
 
     const ids = doomedAnime(db, limiteDetalle)

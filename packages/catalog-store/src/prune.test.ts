@@ -258,6 +258,25 @@ describe('limpieza de huérfanos', () => {
     })
   })
 
+  test('las portadas conocidas caducan con el mismo plazo que el detalle', async () => {
+    await withStore((store) => {
+      const insertar = store.db.query(
+        `INSERT INTO known_cover (provider_id, provider_ref, url, updated_at)
+         VALUES ('fixture', ?, 'https://fixture.invalid/p.webp', ?)`,
+      )
+      insertar.run('antigua', AHORA - (PRUNE_AFTER_DAYS + 1) * DAY)
+      insertar.run('reciente', AHORA - DAY)
+
+      const informe = pruneOrphans(store.db, new Date(AHORA))
+
+      expect(informe.deleted.known_cover).toBe(1)
+      expect(cuenta(store.db, 'known_cover')).toBe(1)
+      expect(store.db.query('SELECT provider_ref FROM known_cover').get()).toEqual({
+        provider_ref: 'reciente',
+      })
+    })
+  })
+
   test('no borra un stream vencido hace unas horas: el margen es de un día', async () => {
     await withStore((store) => {
       // El título está fresco, pero su stream venció hace dos horas: dentro del
