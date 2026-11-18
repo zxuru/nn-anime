@@ -35,13 +35,12 @@ import {
   Heart,
   Languages,
   Moon,
-  Sparkles,
   Sun,
   Tv,
 } from 'lucide-react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { Cover } from '../../components/Cover'
 import { t } from '../../i18n'
-import { safeUrl } from '../../lib/safe-url'
 import {
   answersFromProfile,
   canGoBack,
@@ -253,8 +252,6 @@ function TarjetaTitulo(props: {
     ref: props.item.ref.value,
     title: props.item.title,
   }
-  // La portada la escribe un plugin: sólo se carga si su esquema está admitido.
-  const portada = safeUrl(props.item.coverUrl)
 
   return (
     <button
@@ -269,13 +266,13 @@ function TarjetaTitulo(props: {
       onClick={props.onToggle}
     >
       <span className="gusto-titulo__portada">
-        {portada === null ? (
-          <span className="gusto-titulo__vacia" aria-hidden="true">
-            <Sparkles size={24} strokeWidth={1.6} />
-          </span>
-        ) : (
-          <img src={portada} alt="" loading="lazy" />
-        )}
+        {/*
+          La portada se pide al proxy y no al proveedor: la CSP sólo admite
+          `img-src 'self'`, así que la dirección de AniList se quedaba en un
+          icono de imagen rota en todas las tarjetas. Si el proxy no la tiene,
+          `Cover` deja el campo de arte en lugar de un hueco con un error.
+        */}
+        <Cover providerId={titulo.providerId} ref={titulo.ref} className="gusto-titulo__imagen" />
         <span className="gusto-titulo__marca" aria-hidden="true">
           {props.elegido ? <Check size={18} strokeWidth={3} /> : null}
         </span>
@@ -380,136 +377,145 @@ export function TasteSurvey(props: TasteSurveyProps): ReactNode {
       </div>
 
       <article className="gustos__panel" aria-labelledby="gustos-paso">
-        <h2 id="gustos-paso" className="gustos__paso-titulo" ref={cabecera} tabIndex={-1}>
-          {t(DEFAULT_LOCALE, actual.title)}
-        </h2>
-        <p className="gustos__pista">{t(DEFAULT_LOCALE, actual.hint)}</p>
+        {/*
+          La clave es el paso: al cambiar, React sustituye el nodo y la entrada
+          vuelve a correr. Sin ella la animación sólo se vería al montar y el
+          cambio de pregunta seguiría siendo un salto seco.
+        */}
+        <div key={step} className="gustos__paso-cuerpo">
+          <h2 id="gustos-paso" className="gustos__paso-titulo" ref={cabecera} tabIndex={-1}>
+            {t(DEFAULT_LOCALE, actual.title)}
+          </h2>
+          <p className="gustos__pista">{t(DEFAULT_LOCALE, actual.hint)}</p>
 
-        {actual.id === 'genres' ? (
-          <div className="gustos__generos">
-            {genresFor(props.profile).map((genre) => (
-              <TarjetaGenero
-                key={genre}
-                name={genre}
-                liked={answers.genres.includes(genre)}
-                excluded={answers.excludedGenres.includes(genre)}
-                onToggle={() => alternarGenero(genre)}
-                onExclude={() => excluirGenero(genre)}
-              />
-            ))}
-          </div>
-        ) : null}
-
-        {actual.id === 'titles' ? (
-          props.titlesLoading === true ? (
-            <p className="gustos__vacio" role="status">
-              {t(DEFAULT_LOCALE, 'taste.titles.loading')}
-            </p>
-          ) : props.titles === undefined || props.titles.length === 0 ? (
-            <p className="gustos__vacio">{t(DEFAULT_LOCALE, 'taste.titles.empty')}</p>
-          ) : (
-            <div className="gustos__titulos">
-              {props.titles.map((item) => (
-                <TarjetaTitulo
-                  key={`${item.ref.providerId}#${item.ref.value}`}
-                  item={item}
-                  elegido={isTitleSelected(answers.titles, {
-                    providerId: item.ref.providerId,
-                    ref: item.ref.value,
-                    title: item.title,
-                  })}
-                  onToggle={() =>
-                    cambiar({
-                      titles: toggleTitle(answers.titles, {
-                        providerId: item.ref.providerId,
-                        ref: item.ref.value,
-                        title: item.title,
-                      }),
-                    })
-                  }
+          {actual.id === 'genres' ? (
+            <div className="gustos__generos">
+              {genresFor(props.profile).map((genre) => (
+                <TarjetaGenero
+                  key={genre}
+                  name={genre}
+                  liked={answers.genres.includes(genre)}
+                  excluded={answers.excludedGenres.includes(genre)}
+                  onToggle={() => alternarGenero(genre)}
+                  onExclude={() => excluirGenero(genre)}
                 />
               ))}
             </div>
-          )
-        ) : null}
+          ) : null}
 
-        {actual.id === 'format' ? (
-          <div className="gustos__tarjetas">
-            {FORMATS.map((opcion) => (
-              <TarjetaUnica
-                key={opcion.value}
-                value={opcion.value}
-                actual={answers.format}
-                label={opcion.label}
-                hint={opcion.hint}
-                icon={opcion.icon}
-                onSelect={(value) => cambiar({ format: toggleSingle(answers.format, value) })}
-              />
-            ))}
-          </div>
-        ) : null}
-
-        {actual.id === 'tone' ? (
-          <div className="gustos__tarjetas">
-            {TONES.map((opcion) => (
-              <TarjetaUnica
-                key={opcion.value}
-                value={opcion.value}
-                actual={answers.tone}
-                label={opcion.label}
-                hint={opcion.hint}
-                icon={opcion.icon}
-                onSelect={(value) => cambiar({ tone: toggleSingle(answers.tone, value) })}
-              />
-            ))}
-          </div>
-        ) : null}
-
-        {actual.id === 'extras' ? (
-          <div className="gustos__extras">
-            <fieldset className="gustos__grupo">
-              <legend className="gustos__leyenda">
-                <Languages size={18} strokeWidth={2} aria-hidden="true" />
-                {t(DEFAULT_LOCALE, 'taste.extras.audio')}
-              </legend>
-              <div className="gustos__chips">
-                {AUDIO.map((opcion) => (
-                  <TarjetaUnica
-                    key={opcion.value}
-                    value={opcion.value}
-                    actual={answers.audio}
-                    label={opcion.label}
-                    onSelect={(value) => cambiar({ audio: toggleSingle(answers.audio, value) })}
+          {actual.id === 'titles' ? (
+            props.titlesLoading === true ? (
+              <p className="gustos__vacio" role="status">
+                {t(DEFAULT_LOCALE, 'taste.titles.loading')}
+              </p>
+            ) : props.titles === undefined || props.titles.length === 0 ? (
+              <p className="gustos__vacio">{t(DEFAULT_LOCALE, 'taste.titles.empty')}</p>
+            ) : (
+              <div className="gustos__titulos">
+                {props.titles.map((item) => (
+                  <TarjetaTitulo
+                    key={`${item.ref.providerId}#${item.ref.value}`}
+                    item={item}
+                    elegido={isTitleSelected(answers.titles, {
+                      providerId: item.ref.providerId,
+                      ref: item.ref.value,
+                      title: item.title,
+                    })}
+                    onToggle={() =>
+                      cambiar({
+                        titles: toggleTitle(answers.titles, {
+                          providerId: item.ref.providerId,
+                          ref: item.ref.value,
+                          title: item.title,
+                        }),
+                      })
+                    }
                   />
                 ))}
               </div>
-            </fieldset>
+            )
+          ) : null}
 
-            <fieldset className="gustos__grupo">
-              <legend className="gustos__leyenda">
-                <CalendarDays size={18} strokeWidth={2} aria-hidden="true" />
-                {t(DEFAULT_LOCALE, 'taste.extras.catalog')}
-              </legend>
-              <div className="gustos__chips">
-                {CATALOG.map((opcion) => (
-                  <TarjetaUnica
-                    key={opcion.value}
-                    value={opcion.value}
-                    actual={answers.catalog}
-                    label={opcion.label}
-                    onSelect={(value) => cambiar({ catalog: toggleSingle(answers.catalog, value) })}
-                  />
-                ))}
-              </div>
-            </fieldset>
-          </div>
-        ) : null}
+          {actual.id === 'format' ? (
+            <div className="gustos__tarjetas">
+              {FORMATS.map((opcion) => (
+                <TarjetaUnica
+                  key={opcion.value}
+                  value={opcion.value}
+                  actual={answers.format}
+                  label={opcion.label}
+                  hint={opcion.hint}
+                  icon={opcion.icon}
+                  onSelect={(value) => cambiar({ format: toggleSingle(answers.format, value) })}
+                />
+              ))}
+            </div>
+          ) : null}
 
-        {fallo ? (
-          <p className="gustos__fallo" role="alert">
-            {t(DEFAULT_LOCALE, 'taste.error')}
-          </p>
-        ) : null}
+          {actual.id === 'tone' ? (
+            <div className="gustos__tarjetas">
+              {TONES.map((opcion) => (
+                <TarjetaUnica
+                  key={opcion.value}
+                  value={opcion.value}
+                  actual={answers.tone}
+                  label={opcion.label}
+                  hint={opcion.hint}
+                  icon={opcion.icon}
+                  onSelect={(value) => cambiar({ tone: toggleSingle(answers.tone, value) })}
+                />
+              ))}
+            </div>
+          ) : null}
+
+          {actual.id === 'extras' ? (
+            <div className="gustos__extras">
+              <fieldset className="gustos__grupo">
+                <legend className="gustos__leyenda">
+                  <Languages size={18} strokeWidth={2} aria-hidden="true" />
+                  {t(DEFAULT_LOCALE, 'taste.extras.audio')}
+                </legend>
+                <div className="gustos__chips">
+                  {AUDIO.map((opcion) => (
+                    <TarjetaUnica
+                      key={opcion.value}
+                      value={opcion.value}
+                      actual={answers.audio}
+                      label={opcion.label}
+                      onSelect={(value) => cambiar({ audio: toggleSingle(answers.audio, value) })}
+                    />
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset className="gustos__grupo">
+                <legend className="gustos__leyenda">
+                  <CalendarDays size={18} strokeWidth={2} aria-hidden="true" />
+                  {t(DEFAULT_LOCALE, 'taste.extras.catalog')}
+                </legend>
+                <div className="gustos__chips">
+                  {CATALOG.map((opcion) => (
+                    <TarjetaUnica
+                      key={opcion.value}
+                      value={opcion.value}
+                      actual={answers.catalog}
+                      label={opcion.label}
+                      onSelect={(value) =>
+                        cambiar({ catalog: toggleSingle(answers.catalog, value) })
+                      }
+                    />
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+          ) : null}
+
+          {fallo ? (
+            <p className="gustos__fallo" role="alert">
+              {t(DEFAULT_LOCALE, 'taste.error')}
+            </p>
+          ) : null}
+        </div>
 
         <footer className="gustos__mandos">
           <div className="gustos__mandos-lado">

@@ -185,7 +185,10 @@ describe('la pantalla de la encuesta', () => {
 
     expect(html).toContain('Aurora Nocturna')
     expect(html).toContain('Cocina de Medianoche')
-    expect(html).toContain('https://fixture.invalid/aurora.jpg')
+    // La portada sale del proxy: la CSP sólo admite `img-src 'self'`, así que
+    // incrustar la dirección del proveedor dejaba un icono de imagen rota.
+    expect(html).toContain('src="/api/cover/fixture/aurora-nocturna"')
+    expect(html).not.toContain('https://fixture.invalid/aurora.jpg')
     expect(html).toContain(
       t(DEFAULT_LOCALE, 'taste.titles.selectedOne', { title: 'Aurora Nocturna' }),
     )

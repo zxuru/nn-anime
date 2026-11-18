@@ -925,6 +925,33 @@ describe('movimiento y superficies', () => {
     expect(reducido).toContain('.player__tooltip')
   })
 
+  /**
+   * El paso de la encuesta entra con la animación de la casa, y se apaga.
+   *
+   * La animación cuelga del envoltorio que lleva `key={step}`: si el nodo no se
+   * sustituye, el navegador no vuelve a correr la entrada y el cambio de pregunta
+   * sigue siendo un salto seco. Y el bloque de movimiento reducido tiene que
+   * nombrarla, como al resto.
+   */
+  test('el paso de la encuesta entra y se apaga', async () => {
+    const css = await estructura()
+    const cuerpo = /\.gustos__paso-cuerpo\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+    const encuesta = await read(`${ROOT}features/taste/TasteSurvey.tsx`)
+
+    expect(cuerpo).toContain('var(--entrada-duracion)')
+    expect(cuerpo).toContain('var(--entrada-curva)')
+    expect(encuesta).toContain('key={step}')
+    expect(encuesta).toContain('className="gustos__paso-cuerpo"')
+
+    const reducido = css.slice(
+      css.indexOf(
+        '@media (prefers-reduced-motion: reduce)',
+        css.indexOf('.gustos__progreso-relleno'),
+      ),
+    )
+    expect(reducido.slice(0, reducido.indexOf('\n}'))).toContain('.gustos__paso-cuerpo')
+  })
+
   test('la hoja es un diálogo nativo, no un div con aria-modal', async () => {
     const panel = (await read(`${ROOT}components/PanelPieza.tsx`)).replace(/\/\*[\s\S]*?\*\//g, '')
 

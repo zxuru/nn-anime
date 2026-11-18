@@ -79,6 +79,25 @@
   box-shadow: var(--shadow-hard-sm);
 }
 
+/*
+ * La entrada de cada paso.
+ *
+ * Un fundido corto con un dedo de desplazamiento: el cambio de pregunta se
+ * anuncia con movimiento, no con un salto seco, y la altura del panel no se
+ * anima —eso movería los mandos bajo el puntero—. La clave de React es el paso,
+ * así que el nodo se sustituye y la animación vuelve a correr.
+ */
+.gustos__paso-cuerpo {
+  animation: gustos-entrada var(--entrada-duracion) var(--entrada-curva) backwards;
+}
+
+@keyframes gustos-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-2));
+  }
+}
+
 .gustos__paso-titulo {
   margin: 0;
   font-family: var(--font-display);
@@ -198,22 +217,49 @@
   background: var(--color-surface-raised);
 }
 
-.gusto-titulo__portada img {
+/*
+ * La portada, pedida al proxy y no al proveedor.
+ *
+ * El campo de arte va aquí y no en el envoltorio: `Cover` pinta el mismo
+ * elemento como `<img>` cuando la portada llega y como `<span>` cuando no, así
+ * que el degradado del hueco y el encuadre de la imagen comparten regla.
+ */
+.gusto-titulo__imagen {
+  display: block;
   inline-size: 100%;
   block-size: 100%;
   object-fit: cover;
+  background: var(--campo, var(--cover-a));
+}
+
+/* El reparto de los seis campos por posición, como en la vitrina y la biblioteca. */
+.gustos__titulos > .gusto-titulo:nth-child(6n + 1) {
+  --campo: var(--cover-a);
+}
+
+.gustos__titulos > .gusto-titulo:nth-child(6n + 2) {
+  --campo: var(--cover-b);
+}
+
+.gustos__titulos > .gusto-titulo:nth-child(6n + 3) {
+  --campo: var(--cover-c);
+}
+
+.gustos__titulos > .gusto-titulo:nth-child(6n + 4) {
+  --campo: var(--cover-d);
+}
+
+.gustos__titulos > .gusto-titulo:nth-child(6n + 5) {
+  --campo: var(--cover-e);
+}
+
+.gustos__titulos > .gusto-titulo:nth-child(6n + 6) {
+  --campo: var(--cover-f);
 }
 
 .gusto-titulo[aria-pressed="true"] .gusto-titulo__portada {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 var(--survey-thickness) var(--color-accent);
-}
-
-.gusto-titulo__vacia {
-  display: grid;
-  place-items: center;
-  block-size: 100%;
-  color: var(--color-text-dim);
 }
 
 .gusto-titulo__marca {
@@ -460,5 +506,9 @@
 @media (prefers-reduced-motion: reduce) {
   .gustos__progreso-relleno {
     transition: none;
+  }
+
+  .gustos__paso-cuerpo {
+    animation: none;
   }
 }
