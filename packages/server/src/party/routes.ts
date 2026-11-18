@@ -161,6 +161,9 @@ export function registerPartyRoutes(app: Hono, options: PartyRoutesOptions): Par
       roomId: entrada.roomId,
       token: entrada.token,
       expiresAt: entrada.expiresAt,
+      // `expiresAt` y esto salen del mismo reloj monotónico. Mandarlo aparte
+      // es lo que permite al invitado medir la vida restante con el suyo.
+      hostNowMs: store.now(),
       state: entrada.state,
       roster: entrada.roster,
     })

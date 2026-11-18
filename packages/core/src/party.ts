@@ -206,6 +206,14 @@ export const partyJoinResponseSchema = z.strictObject({
   roomId: z.string().min(1).max(64),
   token: z.string().min(32).max(128),
   expiresAt: z.number().int().positive(),
+  /**
+   * Reloj monotónico del anfitrión al contestar, en milisegundos.
+   *
+   * `expiresAt` está en ese mismo reloj, que no es el del invitado: restar uno
+   * del otro compara dominios distintos y cierra enlaces vivos. El invitado
+   * guarda `expiresAt - hostNowMs` como vida restante y la suma a su reloj.
+   */
+  hostNowMs: z.number().int().nonnegative(),
   state: partyStateSchema.nullable(),
   roster: partyRosterSchema,
 })
@@ -235,7 +243,12 @@ export type PartyRoster = z.infer<typeof partyRosterSchema>
 export type PartyEvent = z.infer<typeof partyEventSchema>
 export type PartyReport = z.infer<typeof partyReportSchema>
 export type PartyCreateRoomResponse = z.infer<typeof partyCreateRoomResponseSchema>
-export type PartyJoinResponse = z.infer<typeof partyJoinResponseSchema>
+/**
+ * El cuerpo del join sin `hostNowMs`: es lo que devuelve `PartyStore`, que no
+ * conoce el instante de la respuesta. El sello del reloj lo pone quien
+ * contesta, así que viaja en el contrato y no en la estructura del almacén.
+ */
+export type PartyJoinResponse = Omit<z.infer<typeof partyJoinResponseSchema>, 'hostNowMs'>
 export type PartyRemoteJoinRequest = z.infer<typeof partyRemoteJoinRequestSchema>
 export type PartyRemoteSnapshot = z.infer<typeof partyRemoteSnapshotSchema>
 export type PartyRoomSummary = z.infer<typeof partyRoomSummarySchema>

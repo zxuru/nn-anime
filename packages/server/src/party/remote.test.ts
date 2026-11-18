@@ -14,11 +14,24 @@ function esperar(ms = 10): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/** Espera a que se cumpla una condición, con tope: no ata la prueba a un `setTimeout` largo. */
+async function esperarA(condicion: () => boolean, limiteMs = 2_000): Promise<void> {
+  const hasta = Date.now() + limiteMs
+  while (!condicion() && Date.now() < hasta) await esperar(5)
+}
+
 /**
  * Un anfitrión de mentira: las cuatro respuestas que el invitado puede recibir,
  * y un flujo SSE que la prueba controla.
+ *
+ * `hostNowMs` y `expiresAt` están en el reloj monotónico del anfitrión, que no
+ * tiene por qué parecerse al del invitado. Por defecto, un proceso que lleva un
+ * segundo vivo con la sala nueve más por delante.
  */
-function anfitrion(joinStatus = 200) {
+function anfitrion(options: { status?: number; hostNowMs?: number; expiresAt?: number } = {}) {
+  const joinStatus = options.status ?? 200
+  const hostNowMs = options.hostNowMs ?? 1_000
+  const expiresAt = options.expiresAt ?? 10_000
   const llamadas: Llamada[] = []
   let sse: ReadableStreamDefaultController<Uint8Array> | undefined
 
@@ -32,7 +45,8 @@ function anfitrion(joinStatus = 200) {
       return Response.json({
         roomId: ROOM_ID,
         token: TOKEN,
-        expiresAt: 10_000,
+        expiresAt,
+        hostNowMs,
         state: null,
         roster: [],
       })
@@ -66,6 +80,10 @@ function anfitrion(joinStatus = 200) {
     },
     enviarCrudo(texto: string) {
       sse?.enqueue(new TextEncoder().encode(texto))
+    },
+    /** Corta el SSE como lo haría el anfitrión al caerse la conexión. */
+    cortar() {
+      sse?.close()
     },
   }
 }
@@ -114,11 +132,71 @@ describe('RemoteParty.join', () => {
     ] as const
 
     for (const [status, reason] of casos) {
-      const relay = new RemoteParty({ fetchImpl: anfitrion(status).fetchImpl })
+      const relay = new RemoteParty({ fetchImpl: anfitrion({ status }).fetchImpl })
       const resultado = await relay.join({ baseUrl: '127.0.0.1:7717', code: 'x', name: 'Ana' })
 
       expect(resultado).toEqual({ ok: false, reason })
     }
+  })
+})
+
+describe('RemoteParty y la caducidad', () => {
+  test('mide la vida restante con su propio reloj: un corte de SSE no cierra una sala viva', async () => {
+    // El anfitrión lleva 5 s de proceso y su sala vive 60 s más; el invitado
+    // mide con `Date.now()`, tres órdenes de magnitud por encima. Comparar
+    // `expiresAt` con `#now()` cerraría un enlace perfectamente vivo.
+    const host = anfitrion({ hostNowMs: 5_000, expiresAt: 65_000 })
+    const relay = new RemoteParty({
+      fetchImpl: host.fetchImpl,
+      now: () => Date.now(),
+      retryMs: 5,
+    })
+    const cerrados: string[] = []
+    const intentos = (): number =>
+      host.llamadas.filter((llamada) => llamada.url.endsWith('/events')).length
+
+    await relay.join({ baseUrl: '127.0.0.1:7717', code: 'ABCDEFGHJKMNPQRS', name: 'Ana' })
+    relay.subscribe((evento) => {
+      if (evento.type === 'closed') cerrados.push(evento.reason)
+    })
+    await esperar()
+
+    host.cortar()
+    await esperarA(() => intentos() >= 2)
+
+    expect(cerrados).toEqual([])
+    expect(relay.hasLink()).toBe(true)
+    expect(intentos()).toBeGreaterThanOrEqual(2)
+
+    await relay.leave()
+  })
+
+  test('un enlace que nace caducado se cierra con `expired` y no reintenta', async () => {
+    // `expiresAt` anterior a `hostNowMs`: al anfitrión le consta que la sala ya
+    // no existe. El invitado lo traduce a un plazo de cero, no a una resta
+    // entre relojes distintos.
+    const host = anfitrion({ hostNowMs: 70_000, expiresAt: 10_000 })
+    const relay = new RemoteParty({
+      fetchImpl: host.fetchImpl,
+      now: () => Date.now(),
+      retryMs: 5,
+    })
+    const cerrados: string[] = []
+    const intentos = (): number =>
+      host.llamadas.filter((llamada) => llamada.url.endsWith('/events')).length
+
+    await relay.join({ baseUrl: '127.0.0.1:7717', code: 'ABCDEFGHJKMNPQRS', name: 'Ana' })
+    relay.subscribe((evento) => {
+      if (evento.type === 'closed') cerrados.push(evento.reason)
+    })
+    await esperar()
+
+    host.cortar()
+    await esperarA(() => cerrados.length > 0)
+
+    expect(cerrados).toEqual(['expired'])
+    expect(relay.hasLink()).toBe(false)
+    expect(intentos()).toBe(1)
   })
 })
 
