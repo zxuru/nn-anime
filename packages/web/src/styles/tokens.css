@@ -590,6 +590,27 @@
   --header-height: 3.5rem;
   --measure-wide: 60rem;
   --measure: 60ch;
+  /*
+   * La encuesta de gustos: una pantalla de tarjetas, no de formulario.
+   *
+   * Los anchos y las alturas van aquí porque `taste.css` sigue la misma regla
+   * que el resto: nada de medidas literales en una hoja de pantalla. La marca
+   * del check y el aro del foco comparten grosor para que no parezcan dos
+   * sistemas distintos.
+   */
+  --survey-max: var(--measure-wide);
+  --survey-progress-height: var(--space-2);
+  --survey-thickness: 3px;
+  --survey-card-min: 13rem;
+  --survey-tile-min: 9.375rem;
+  --survey-card-height: 8.25rem;
+  --survey-genero-height: var(--space-8);
+  --survey-no-width: var(--control-size);
+  --survey-marca: calc(var(--space-5) + var(--space-1));
+  --survey-marca-sm: var(--space-5);
+  --survey-marca-xs: 1.25rem;
+  --survey-icon: var(--control-size-compact);
+  --survey-aviso-text: 18rem;
   /**
    * El ancho del popover de la guía.
    *

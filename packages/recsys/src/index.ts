@@ -93,3 +93,23 @@ export {
   searchWeight,
   terms,
 } from './search-signal'
+export {
+  declaredGenreOf,
+  declaredScore,
+  declaredShare,
+  declaredVector,
+  formatMatch,
+  hasTasteSignals,
+  likedTitleOf,
+  passesTaste,
+  TASTE_LIKED_WEIGHT,
+  TASTE_MIN_DECLARED_SHARE,
+  TASTE_REPLACEMENT_EVENTS,
+  type TasteFormat,
+  type TasteSignals,
+  type TasteTone,
+  TONE_GENRES,
+  tastePreferenceScore,
+  toneMatch,
+  toneOf,
+} from './taste'

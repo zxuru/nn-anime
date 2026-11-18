@@ -27,7 +27,15 @@
 import type { WatchHistoryItem } from '@rona/core/api'
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { AnimeSummary } from '@rona/core/models'
-import { ArrowRight, Bookmark, CircleCheck, History, type LucideIcon, Star } from 'lucide-react'
+import {
+  ArrowRight,
+  Bookmark,
+  CircleCheck,
+  History,
+  type LucideIcon,
+  Sparkles,
+  Star,
+} from 'lucide-react'
 import type { ReactNode } from 'react'
 import { FALLO_SIN_CAUSA } from '../../api/fallo'
 import { ErrorNotice } from '../../components/ErrorNotice'
@@ -209,6 +217,28 @@ export function ProfilePage(): ReactNode {
   return (
     <article className="pagina perfil">
       <h1>{t(DEFAULT_LOCALE, 'profile.title')}</h1>
+
+      {/*
+        La puerta de vuelta a la encuesta. Va la primera porque es lo único del
+        Perfil que cambia lo que el motor recomienda: las listas de abajo son lo
+        que ya pasó, y esto es lo que el usuario quiere que pase.
+      */}
+      <SeccionPagina
+        titulo={t(DEFAULT_LOCALE, 'taste.profile.title')}
+        icono={Sparkles}
+        meta={t(DEFAULT_LOCALE, 'taste.profile.meta')}
+        accion={
+          <Link className="pagina__ver" to="/gustos?volver=perfil">
+            <span className="pagina__ver-largo">{t(DEFAULT_LOCALE, 'taste.profile.open')}</span>
+            <span className="pagina__ver-corto">
+              {t(DEFAULT_LOCALE, 'taste.profile.openShort')}
+            </span>
+            <ArrowRight size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+          </Link>
+        }
+      >
+        <p className="aviso-vacio">{t(DEFAULT_LOCALE, 'taste.profile.body')}</p>
+      </SeccionPagina>
 
       <SeccionResumen
         titulo={t(DEFAULT_LOCALE, 'profile.favorites')}
