@@ -10,7 +10,11 @@ const DIA = 86_400_000
 function candidato(
   titulo: string,
   tags: readonly string[],
-  opciones: { readonly studios?: readonly string[]; readonly popularity?: number } = {},
+  opciones: {
+    readonly studios?: readonly string[]
+    readonly popularity?: number
+    readonly format?: Candidate['format']
+  } = {},
 ): Candidate {
   return {
     ref: { providerId: 'fixture', value: titulo },
@@ -18,6 +22,7 @@ function candidato(
     tags: [...tags],
     studios: [...(opciones.studios ?? [])],
     ...(opciones.popularity === undefined ? {} : { popularity: opciones.popularity }),
+    ...(opciones.format === undefined ? {} : { format: opciones.format }),
   }
 }
 
@@ -74,6 +79,7 @@ describe('la fachada', () => {
       'popularity',
       'recency',
       'search',
+      'taste',
     ])
   })
 
@@ -252,6 +258,7 @@ describe('pesos de las señales', () => {
       search: 0.8,
       rediscovery: 0.2,
       popularity: 0.3,
+      taste: 0.6,
     })
   })
 
@@ -295,6 +302,143 @@ describe('pesos de las señales', () => {
 
     expect(romance?.components.covisit).toBe(1)
     expect(romance?.reasons.some((razon) => razon.kind === 'covisit')).toBe(true)
+  })
+})
+
+/**
+ * La encuesta como punto de partida.
+ *
+ * Lo que se mide aquí es la promesa del arranque en frío: sin historial, la
+ * lista sale de lo declarado; con historial, lo observado va ocupando el sitio.
+ * Y los géneros excluidos no aparecen nunca.
+ */
+describe('lo que declaró la encuesta', () => {
+  const sinHistorial = (extra: Partial<RecommendSignals> = {}): RecommendSignals => ({
+    events: [],
+    coVisits: [],
+    searches: [],
+    watchState: [],
+    ...extra,
+  })
+
+  test('sin historial, la encuesta evita el arranque en frío', () => {
+    const salida = recommend(
+      sinHistorial({
+        taste: {
+          genres: [{ name: 'accion', weight: 1 }],
+          excludedGenres: [],
+          liked: [],
+          behaviorEvents: 0,
+        },
+      }),
+      CORPUS,
+      { now: AHORA, limit: 5 },
+    )
+
+    expect(salida.coldStart).toBe(false)
+    expect(salida.items[0]?.candidate.title).toContain('Mecha')
+    expect(salida.items[0]?.reasons.some((razon) => razon.kind === 'taste-genre')).toBe(true)
+  })
+
+  test('un título marcado explica la recomendación por parecido', () => {
+    const salida = recommend(
+      sinHistorial({
+        taste: {
+          genres: [],
+          excludedGenres: [],
+          liked: [candidato('Mi favorito', ['accion', 'mecha'])],
+          behaviorEvents: 0,
+        },
+      }),
+      CORPUS,
+      { now: AHORA, limit: 5 },
+    )
+
+    expect(salida.items[0]?.candidate.title).toBe('Mecha uno')
+    expect(salida.items[0]?.reason.kind).toBe('taste-title')
+    expect(salida.items[0]?.reason.text).toContain('Mi favorito')
+  })
+
+  test('un género excluido no se recomienda aunque encaje por todo lo demás', () => {
+    const salida = recommend(
+      sinHistorial({
+        taste: {
+          genres: [{ name: 'accion', weight: 1 }],
+          excludedGenres: ['mecha'],
+          liked: [],
+          behaviorEvents: 0,
+        },
+      }),
+      CORPUS,
+      { now: AHORA, limit: 5 },
+    )
+
+    expect(salida.items.some((entrada) => entrada.candidate.title === 'Mecha uno')).toBe(false)
+    expect(salida.items.some((entrada) => entrada.candidate.title === 'Mecha dos')).toBe(false)
+    expect(salida.items.some((entrada) => entrada.candidate.title === 'Mecha tres')).toBe(true)
+  })
+
+  test('el comportamiento va reemplazando a lo declarado', () => {
+    const encuesta = {
+      genres: [{ name: 'accion', weight: 1 }],
+      excludedGenres: [],
+      liked: [],
+      behaviorEvents: 0,
+    }
+
+    const conEncuesta = recommend(sinHistorial({ taste: encuesta }), CORPUS, {
+      now: AHORA,
+      limit: 5,
+    })
+    expect(conEncuesta.items[0]?.candidate.title).toContain('Mecha')
+
+    const eventos = Array.from({ length: 20 }, (_valor, indice) => ({
+      tags: ['romance'],
+      studios: [],
+      at: new Date(AHORA.getTime() - (indice + 1) * DIA),
+      completion: 1,
+    }))
+    const conComportamiento = recommend(
+      {
+        events: eventos,
+        coVisits: [],
+        searches: [],
+        watchState: [],
+        taste: { ...encuesta, behaviorEvents: eventos.length },
+      },
+      CORPUS,
+      { now: AHORA, limit: 5 },
+    )
+
+    expect(conComportamiento.items[0]?.candidate.title).toBe('Romance')
+    // La cuota mínima sigue dando voz a la encuesta: su razón no desaparece.
+    const mecha = conComportamiento.items.find((entrada) => entrada.candidate.title === 'Mecha uno')
+    expect(mecha?.components.taste).toBeGreaterThan(0)
+  })
+
+  test('el formato preferido ordena sin sacar del catálogo', () => {
+    const conPeliculas = [
+      candidato('Serie', ['accion'], { format: 'series', popularity: 0.5 }),
+      candidato('Película', ['accion'], { format: 'movie', popularity: 0.5 }),
+    ]
+
+    const salida = recommend(
+      sinHistorial({
+        taste: {
+          genres: [],
+          excludedGenres: [],
+          liked: [],
+          format: 'movies',
+          behaviorEvents: 0,
+        },
+      }),
+      conPeliculas,
+      { now: AHORA, limit: 2 },
+    )
+
+    expect(salida.items[0]?.candidate.title).toBe('Película')
+    expect(salida.items).toHaveLength(2)
+    expect(salida.items[0]?.components.taste).toBeGreaterThan(0)
   })
 })
 

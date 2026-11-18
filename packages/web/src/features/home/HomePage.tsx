@@ -36,6 +36,9 @@ import { usePath } from '../../router'
 import { ANCLAS } from '../guia/guia'
 import { almacenLocal, leerAvisosQuieroVer } from '../player/storage'
 import { useRecommendations } from '../recommendations/useRecommendations'
+import { TasteInvite } from '../taste/TasteInvite'
+import { TasteRows } from '../taste/TasteRow'
+import { useTasteRows } from '../taste/useTaste'
 import {
   enElTipo,
   fuenteDeResumen,
@@ -290,6 +293,9 @@ export function HomePage(props: HomePageProps): ReactNode {
     media: tipo,
     ...(props.query === undefined ? {} : { query: props.query }),
   })
+  // Las filas del gusto declarado. Se leen aparte del motor porque no ordenan la
+  // misma lista: agrupan el catálogo por un género que el usuario eligió.
+  const filasGusto = useTasteRows(tipo)
 
   const items = recomendaciones.data?.items ?? []
   // El destacado tiene tres reservas, en este orden: el motor, lo que publica la
@@ -383,6 +389,13 @@ export function HomePage(props: HomePageProps): ReactNode {
       {filas.error === undefined ? null : <ErrorNotice fallo={filas.error} />}
 
       {/*
+        La invitación a la encuesta. Va la primera porque es lo único de la
+        pantalla que pregunta algo al usuario; no bloquea nada y se puede
+        rechazar con «Ahora no». La encuesta en sí vive en su propia pantalla.
+      */}
+      <TasteInvite />
+
+      {/*
         Una instalación sin ninguna fuente de esta mitad no puede llenar la
         pantalla, y una pantalla vacía se lee como una aplicación rota. El aviso
         dice qué falta y dónde se arregla; el conmutador sigue a la vista, que es la
@@ -467,6 +480,13 @@ export function HomePage(props: HomePageProps): ReactNode {
         fallo={recomendaciones.error}
         onRetry={recomendaciones.reload}
       />
+
+      {/*
+        Las filas del perfil van justo detrás del motor: son la misma promesa
+        —«esto es para ti»— dicha con el género que el usuario eligió. Sin
+        encuesta no existen y no dejan hueco.
+      */}
+      <TasteRows rows={filasGusto.rows} loading={filasGusto.loading} />
 
       {/* El top es un ranking —el de AniList cuando está, el de la fuente
           cuando no— **en su orden y con su puesto**: el motor ya tiene su sitio,

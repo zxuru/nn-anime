@@ -1,0 +1,464 @@
+/* ---------------------------------------------------------------------------
+ * La encuesta de gustos y su aviso.
+ *
+ * Una pantalla corta, opcional y de tarjetas: no es un formulario. Las tarjetas
+ * son botones o casillas de verdad, así que el foco se ve y el estado no depende
+ * del color. El ancho se limita para que en escritorio no se lea como una tabla
+ * de tres metros; en móvil las rejillas caen a una o dos columnas.
+ * ------------------------------------------------------------------------- */
+
+.gustos {
+  max-inline-size: var(--survey-max);
+  margin-inline: auto;
+}
+
+.gustos__cabecera {
+  margin-block-end: var(--space-5);
+}
+
+.gustos__marca {
+  margin: 0 0 var(--space-2);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.gustos__titulo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
+}
+
+.gustos__entrada {
+  max-inline-size: var(--measure);
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-dim);
+  line-height: var(--leading-normal);
+}
+
+.gustos__progreso-caja {
+  display: grid;
+  gap: var(--space-2);
+  margin-block-end: var(--space-4);
+}
+
+.gustos__paso {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.gustos__progreso {
+  overflow: hidden;
+  block-size: var(--survey-progress-height);
+  border: var(--border-width) solid var(--color-control-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+}
+
+.gustos__progreso-relleno {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: inline-size 180ms var(--ease-piece);
+}
+
+.gustos__panel {
+  padding: var(--space-5);
+  border: var(--border-width-strong) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.gustos__paso-titulo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+}
+
+.gustos__paso-titulo:focus-visible {
+  outline: var(--border-width-strong) solid var(--color-accent);
+  outline-offset: var(--space-1);
+}
+
+.gustos__pista {
+  max-inline-size: var(--measure);
+  margin: var(--space-2) 0 var(--space-5);
+  color: var(--color-text-dim);
+  line-height: var(--leading-normal);
+}
+
+.gustos__generos,
+.gustos__titulos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--survey-tile-min), 1fr));
+  gap: var(--space-3);
+}
+
+.gusto-genero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  overflow: hidden;
+  border: var(--border-width) solid var(--color-control-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+}
+
+.gusto-genero[data-estado="liked"] {
+  border-color: var(--color-accent);
+  box-shadow: inset var(--survey-thickness) 0 0 var(--color-accent);
+}
+
+.gusto-genero[data-estado="excluded"] {
+  border-color: var(--color-danger);
+  box-shadow: inset var(--survey-thickness) 0 0 var(--color-danger);
+}
+
+.gusto-genero__cuerpo,
+.gusto-genero__no {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.gusto-genero__cuerpo {
+  display: grid;
+  gap: var(--space-1);
+  min-block-size: var(--survey-genero-height);
+  padding: var(--space-3);
+  text-align: start;
+}
+
+.gusto-genero__nombre {
+  font-weight: 700;
+}
+
+.gusto-genero__estado {
+  color: var(--color-text-dim);
+  font-size: var(--text-xs);
+}
+
+.gusto-genero[data-estado="liked"] .gusto-genero__estado {
+  color: var(--color-accent);
+}
+
+.gusto-genero[data-estado="excluded"] .gusto-genero__estado {
+  color: var(--color-danger);
+}
+
+.gusto-genero__no {
+  display: grid;
+  place-items: center;
+  inline-size: var(--survey-no-width);
+  border-inline-start: var(--border-width) solid var(--color-rule);
+  color: var(--color-text-dim);
+}
+
+.gusto-genero__no[aria-pressed="true"] {
+  background: var(--color-danger);
+  color: var(--color-bg);
+}
+
+.gusto-genero__cuerpo:focus-visible,
+.gusto-genero__no:focus-visible,
+.gusto-card:focus-visible,
+.gusto-titulo:focus-visible {
+  outline: var(--border-width-strong) solid var(--color-accent);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.gusto-titulo {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: start;
+}
+
+.gusto-titulo__portada {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 2 / 3;
+  border: var(--border-width) solid var(--color-control-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+}
+
+.gusto-titulo__portada img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+.gusto-titulo[aria-pressed="true"] .gusto-titulo__portada {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 var(--survey-thickness) var(--color-accent);
+}
+
+.gusto-titulo__vacia {
+  display: grid;
+  place-items: center;
+  block-size: 100%;
+  color: var(--color-text-dim);
+}
+
+.gusto-titulo__marca {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  inset-inline-end: var(--space-2);
+  display: grid;
+  place-items: center;
+  inline-size: var(--survey-marca);
+  block-size: var(--survey-marca);
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.gusto-titulo__marca:empty {
+  display: none;
+}
+
+.gusto-titulo__nombre {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: var(--leading-dense);
+}
+
+.gustos__tarjetas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--survey-card-min), 1fr));
+  gap: var(--space-3);
+}
+
+.gusto-card {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-block-size: var(--survey-card-height);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-control-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: inherit;
+  cursor: pointer;
+  text-align: start;
+}
+
+.gusto-card[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  box-shadow: inset var(--space-1) 0 0 var(--color-accent);
+}
+
+.gusto-card__marca {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  inset-inline-end: var(--space-2);
+  display: grid;
+  place-items: center;
+  inline-size: var(--survey-marca-sm);
+  block-size: var(--survey-marca-sm);
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.gusto-card__marca:empty {
+  display: none;
+}
+
+.gusto-card__icono {
+  color: var(--color-accent);
+}
+
+.gusto-card__titulo {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
+.gusto-card__pista {
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.gustos__extras {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.gustos__grupo {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.gustos__leyenda {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-end: var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
+.gustos__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.gustos__chips .gusto-card {
+  min-block-size: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.gustos__chips .gusto-card__marca {
+  position: static;
+  inline-size: var(--survey-marca-xs);
+  block-size: var(--survey-marca-xs);
+}
+
+.gustos__vacio {
+  margin: 0;
+  padding: var(--space-5);
+  border: var(--border-width) dashed var(--color-control-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-dim);
+  text-align: center;
+}
+
+.gustos__fallo {
+  margin: var(--space-4) 0 0;
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
+.gustos__mandos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block-start: var(--space-6);
+  padding-block-start: var(--space-4);
+  border-block-start: var(--border-width) solid var(--color-rule);
+}
+
+.gustos__mandos-lado {
+  flex: 1 1 auto;
+}
+
+.gustos__mandos-lado--final {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.gusto__omitir {
+  color: var(--color-text-dim);
+}
+
+.gustos-aviso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block-end: var(--space-5);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-control-border);
+  border-inline-start: var(--space-1) solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.gustos-aviso__icono {
+  display: grid;
+  place-items: center;
+  inline-size: var(--survey-icon);
+  block-size: var(--survey-icon);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  color: var(--color-accent);
+}
+
+.gustos-aviso__texto {
+  flex: 1 1 var(--survey-aviso-text);
+}
+
+.gustos-aviso__titulo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
+.gustos-aviso__cuerpo {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+}
+
+.gustos-aviso__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+
+.gustos-aviso__luego {
+  gap: var(--space-1);
+}
+
+.gustos-aviso__luego-texto {
+  display: inline;
+}
+
+@media (max-width: 700px) {
+  .gustos__panel {
+    padding: var(--space-4);
+  }
+
+  .gustos__mandos {
+    align-items: stretch;
+  }
+
+  .gustos__mandos-lado,
+  .gustos__mandos-lado--final {
+    justify-content: stretch;
+  }
+
+  .gustos__mandos-lado .button,
+  .gustos__mandos-lado--final .button,
+  .gusto__omitir {
+    inline-size: 100%;
+  }
+
+  .gustos-aviso__acciones {
+    inline-size: 100%;
+    margin-inline-start: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gustos__progreso-relleno {
+    transition: none;
+  }
+}

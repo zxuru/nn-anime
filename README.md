@@ -48,7 +48,12 @@ telemetría.**
 - **Recomendaciones explicables**: el motor sólo mira señales locales —lo que buscaste, lo que
   abriste y lo que viste— y cada sugerencia lleva su motivo. Las **novedades** existen para que la
   primera pantalla no dependa de que hayas buscado antes; cuando no hay nada que recomendar, el
-  destacado sale de lo que la aplicación ya conoce en vez de quedarse con un titular.
+  destacado sale de lo que la aplicación ya conoce en vez de quedarse con un titular. Una
+  **encuesta de gustos opcional** —cinco pasos, treinta segundos, tarjetas y portadas— da al motor
+  un punto de partida en frío: géneros, títulos que ya gustaron, formato y tono. Vive en
+  `/gustos`, se ofrece una vez y se puede reabrir desde el Perfil con «Ajustar mis gustos». Lo
+  declarado y lo que de verdad ves se mezclan: cuanta más historia hay, menos manda la encuesta.
+  Sin encuesta, el motor sigue funcionando con populares y tendencias.
 - **Descargas y biblioteca**: lo que descargas se queda en el equipo y se ve sin pedirle nada al
   proveedor ni a la red —la cola delante, colapsable y con su avance, el total estimado y el tiempo
   que queda—. Se agrupa por título cuando está completo, dice el espacio que ocupa y su reproductor

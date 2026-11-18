@@ -69,6 +69,7 @@ import { registerSettingsRoute } from './routes/settings'
 import { registerSkipTimesRoute } from './routes/skip-times'
 import { registerStreamRoutes } from './routes/stream'
 import { registerSubtitlesRoute } from './routes/subtitles'
+import { registerTasteRoutes } from './routes/taste'
 import { registerTmdbRoute } from './routes/tmdb'
 import { registerWatchRoutes } from './routes/watch'
 import { registerWatchedTitlesRoutes } from './routes/watched-titles'
@@ -186,6 +187,13 @@ export interface AppOptions {
    * no sabe dónde escribir no debe ofrecer un botón que va a fallar.
    */
   readonly downloadsDir?: string
+  /**
+   * Cuántas omisiones seguidas de la encuesta se aguantan.
+   *
+   * Sin esto manda `RONA_TASTE_SKIP_LIMIT`. Existe para que las pruebas fijen la
+   * política sin tocar el entorno del proceso.
+   */
+  readonly tasteSkipLimit?: number
   /** `fetch` del motor de descargas; en pruebas, sin red. */
   readonly downloadFetchImpl?: FetchLike
   /** Cuántas descargas a la vez. Dos por defecto. */
@@ -600,6 +608,13 @@ export function createApp(options: AppOptions): Hono {
     // El Perfil y el Historial van con las rutas del usuario: son sus listas y su
     // visionado, leídos de la base. No piden nada a un proveedor.
     registerProfileRoutes(app, { container })
+    // La encuesta de gustos: perfil, títulos del paso 2 y filas del inicio. Va
+    // con las rutas del usuario y no toca ningún proveedor.
+    registerTasteRoutes(app, {
+      container,
+      providers: hub.providers,
+      ...(options.tasteSkipLimit === undefined ? {} : { skipLimit: options.tasteSkipLimit }),
+    })
     const proxyOptions = {
       ...(options.streamFetchImpl === undefined ? {} : { fetchImpl: options.streamFetchImpl }),
       ...(options.streamResolver === undefined ? {} : { resolver: options.streamResolver }),

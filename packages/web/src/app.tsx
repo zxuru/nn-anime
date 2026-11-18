@@ -23,6 +23,7 @@ import { ProfilePage } from './features/profile/ProfilePage'
 import { SearchPage } from './features/search/SearchPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { useAppTheme } from './features/settings/useSettings'
+import { TastePage } from './features/taste/TastePage'
 import { ConmutadorTipo } from './features/tipo/ConmutadorTipo'
 import { tipoFromPath } from './features/tipo/tipo'
 import { t } from './i18n'
@@ -236,6 +237,8 @@ function screenFor(route: RouteMatch, path: string): ReactNode {
       return <SettingsPage />
     case 'profile':
       return <ProfilePage />
+    case 'taste':
+      return <TastePage />
     case 'history':
       return <HistoryPage />
     case 'library':

@@ -50,6 +50,7 @@ const TABLAS_POSTERIORES = [
   'aniskip_cache',
   'known_cover',
   'known_title',
+  'taste_profile',
 ]
 
 /** Las versiones que hay hoy, para no fijar números que crecen con cada migración. */

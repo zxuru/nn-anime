@@ -24,6 +24,7 @@ export type RouteName =
   | 'watch'
   | 'settings'
   | 'profile'
+  | 'taste'
   | 'history'
   | 'library'
   | 'library-player'
@@ -55,6 +56,9 @@ const PATTERNS: readonly RoutePattern[] = [
   // de lectura; el emparejamiento es por número de segmentos y nombre exacto, así
   // que el orden entre patrones de distinta longitud no decide nada.
   { name: 'profile', segments: ['profile'] },
+  // La encuesta es una pantalla propia y no un modal: se puede recargar, volver
+  // atrás y abrir en otra pestaña, y su dirección se comparte como cualquier otra.
+  { name: 'taste', segments: ['gustos'] },
   { name: 'history', segments: ['history'] },
   { name: 'library', segments: ['library'] },
   { name: 'library-player', segments: ['library', ':id'] },

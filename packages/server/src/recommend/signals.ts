@@ -20,8 +20,15 @@
 import type { CatalogStore } from '@rona/catalog-store'
 import type { Candidate, ProviderRef, TitleKind } from '@rona/core'
 import { normalizeQuery, titleKindSchema } from '@rona/core'
-import type { AffinityEvent, CoVisit, SearchSignalRecord, WatchState } from '@rona/recsys'
+import type {
+  AffinityEvent,
+  CoVisit,
+  SearchSignalRecord,
+  TasteSignals,
+  WatchState,
+} from '@rona/recsys'
 import { coVisits as paresDeVisita } from '@rona/recsys'
+import { tasteSignalsFrom } from './taste'
 
 /** Cuántos títulos se miran para construir el corpus. */
 export const CORPUS_LIMIT = 500
@@ -39,6 +46,8 @@ export interface Signals {
   readonly watchState: readonly WatchState[]
   readonly lastSeen?: string | undefined
   readonly candidates: readonly Candidate[]
+  /** Lo declarado en la encuesta, ya resuelto contra el corpus. */
+  readonly taste?: TasteSignals | undefined
 }
 
 export function refKey(ref: ProviderRef): string {
@@ -236,13 +245,14 @@ export async function gatherSignals(
   store: CatalogStore,
   options: GatherOptions = {},
 ): Promise<Signals> {
-  const [candidatos, watch, historial, favoritos, recientes, marcadas] = await Promise.all([
+  const [candidatos, watch, historial, favoritos, recientes, marcadas, perfil] = await Promise.all([
     store.listCandidates(options.corpusLimit ?? CORPUS_LIMIT),
     store.listRecentlyWatched(options.historyLimit ?? HISTORY_LIMIT),
     store.listRecentSearches(50),
     store.listFavorites(),
     store.listRecentSummaries(RECENT_LIMIT),
     store.listWatchedTitles(),
+    store.readTasteProfile(),
   ])
 
   const corpus = new Map<string, Candidate>()
@@ -317,6 +327,7 @@ export async function gatherSignals(
 
   const eventos = eventsFromWatch(watch, corpus)
   const ultimo = watch[0]
+  const candidates = [...corpus.values()]
 
   return {
     events: eventos,
@@ -324,6 +335,9 @@ export async function gatherSignals(
     searches: searchesFrom(historial),
     watchState: watchStateWithMarks(watch, marcadas),
     ...(ultimo === undefined ? {} : { lastSeen: refKey(ultimo.anime.ref) }),
-    candidates: [...corpus.values()],
+    candidates,
+    // El número de visionados es lo que decide cuánto manda el comportamiento.
+    // Se cuenta aquí, una vez, y no en el motor, que no ve el historial entero.
+    taste: tasteSignalsFrom(perfil, candidates, eventos.length),
   }
 }

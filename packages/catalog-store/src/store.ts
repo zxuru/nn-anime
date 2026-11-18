@@ -34,6 +34,7 @@ import type {
   StreamMode,
   StreamRequest,
   StreamSource,
+  TasteProfile,
   WatchEventInput,
   WatchedEpisode,
   WatchRecord,
@@ -65,6 +66,7 @@ import { createSearchHistoryRepository } from './repositories/search-history'
 import { createSettingsRepository } from './repositories/settings'
 import { createSkipTimesRepository, type SkipTimesRepository } from './repositories/skip-times'
 import { createStreamRepository } from './repositories/stream'
+import { createTasteRepository, type TasteStore } from './repositories/taste'
 import { createTrendingRepository } from './repositories/trending'
 import { createWatchRepository } from './repositories/watch'
 import { createWatchedEpisodesRepository } from './repositories/watched-episodes'
@@ -344,6 +346,16 @@ export interface CatalogStore {
   recordSearch(query: string, providerId: string, hits: number): Promise<void>
   listRecentSearches(limit: number): Promise<readonly SearchRecord[]>
 
+  /**
+   * El perfil de gustos de la encuesta.
+   *
+   * Sin fila devuelve `undefined` y no un perfil vacío: «no lo he contestado» y
+   * «lo contesté sin marcar nada» son estados distintos, y el motor decide con
+   * esa diferencia si enseña el arranque en frío o una lista personalizada.
+   */
+  readTasteProfile(userId?: string): Promise<TasteProfile | undefined>
+  writeTasteProfile(profile: TasteProfile): Promise<void>
+
   getSetting<T>(key: string, schema: z.ZodType<T>, fallback: T): Promise<T>
   setSetting(key: string, value: unknown): Promise<void>
   runMigrations(): Promise<MigrationReport>
@@ -376,6 +388,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     readonly favorites: ReturnType<typeof createFavoritesRepository>
     readonly history: ReturnType<typeof createSearchHistoryRepository>
     readonly settings: ReturnType<typeof createSettingsRepository>
+    readonly taste: TasteStore
     readonly trending: ReturnType<typeof createTrendingRepository>
     readonly feed: ReturnType<typeof createFeedRepository>
     readonly recent: ReturnType<typeof createRecentRepository>
@@ -401,6 +414,7 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
       favorites: createFavoritesRepository(db),
       history: createSearchHistoryRepository(db),
       settings: createSettingsRepository(db),
+      taste: createTasteRepository(db),
       trending: createTrendingRepository(db),
       feed: createFeedRepository(db),
       recent: createRecentRepository(db),
@@ -598,6 +612,13 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async listRecentSearches(limit) {
       return of().history.listRecentSearches(limit)
+    },
+
+    async readTasteProfile(userId) {
+      return of().taste.read(userId)
+    },
+    async writeTasteProfile(profile) {
+      await queue.run(() => of().taste.write(profile))
     },
 
     async getSetting(key, schema, fallback) {

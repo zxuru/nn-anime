@@ -17,6 +17,10 @@ export const es = {
   'reason.covisit': 'Lo suele ver quien ve {seen}.',
   'reason.rediscovery': 'Lo dejaste a medias y ha pasado tiempo: puede que ahora encaje.',
   'reason.trending': 'Es de lo más visto de la fuente.',
+  'reason.taste-genre': 'Porque te gusta {genre}, que elegiste en tus gustos.',
+  'reason.taste-title': 'Se parece a «{title}», que marcaste como favorito.',
+  'reason.taste-format': 'Encaja con el formato que prefieres.',
+  'reason.taste-tone': 'Tiene el tono que elegiste en tu encuesta.',
   'reason.fallback': 'Encaja con lo que has visto hasta ahora.',
 } as const
 

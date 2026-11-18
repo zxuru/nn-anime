@@ -37,6 +37,18 @@ import { filterCandidates, type WatchState } from './filters'
 import { mmr } from './mmr'
 import { buildReasons, mainReason, type Reason, type ReasonCandidate } from './reasons'
 import { type SearchSignalRecord, searchReason, searchScore } from './search-signal'
+import {
+  declaredGenreOf,
+  declaredShare,
+  declaredVector,
+  formatMatch,
+  hasTasteSignals,
+  likedTitleOf,
+  passesTaste,
+  type TasteSignals,
+  tastePreferenceScore,
+  toneMatch,
+} from './taste'
 
 /** Pesos de cada señal en la puntuación final. */
 export interface SignalWeights {
@@ -45,6 +57,8 @@ export interface SignalWeights {
   readonly search: number
   readonly rediscovery: number
   readonly popularity: number
+  /** El formato y el tono que el usuario eligió en la encuesta. */
+  readonly taste: number
 }
 
 export const SIGNAL_WEIGHTS: SignalWeights = {
@@ -53,6 +67,10 @@ export const SIGNAL_WEIGHTS: SignalWeights = {
   search: 0.8,
   rediscovery: 0.2,
   popularity: 0.3,
+  // Pesa más que la popularidad y menos que la afinidad: el formato y el tono
+  // desempatan una lista, no la mandan. Los géneros y los títulos marcados ya
+  // entran por afinidad declarada, que es la señal fuerte.
+  taste: 0.6,
 }
 
 export interface RecommendSignals {
@@ -62,6 +80,14 @@ export interface RecommendSignals {
   readonly watchState: readonly WatchState[]
   /** La última cosa que se vio, para la señal de co-visita. */
   readonly lastSeen?: string | undefined
+  /**
+   * Lo que el usuario declaró en la encuesta.
+   *
+   * Sin esto el motor funciona como siempre: comportamiento y, si no hay nada,
+   * popularidad. Con esto, lo declarado arranca la lista y se va mezclando con lo
+   * observado según `behaviorEvents`.
+   */
+  readonly taste?: TasteSignals | undefined
 }
 
 /**
@@ -92,6 +118,8 @@ export interface Components {
   readonly diversity: number
   readonly search: number
   readonly popularity: number
+  /** Lo que aportó lo declarado en la encuesta, después de mezclarlo. */
+  readonly taste: number
 }
 
 export interface Recommendation {
@@ -157,11 +185,19 @@ export function recommend(
   const limite = options.limit ?? 20
   const pesos = { ...SIGNAL_WEIGHTS, ...(options.weights ?? {}) }
   const semilla = options.seed ?? 0
-  const coldStart = signals.events.length === 0 && signals.searches.length === 0
+  const declareTaste = hasTasteSignals(signals.taste)
+  // La encuesta también rompe el arranque en frío: una lista ordenada por lo que
+  // el usuario declaró no es una lista de populares, y decirlo en la razón sería
+  // mentir sobre por qué se enseña.
+  const coldStart = signals.events.length === 0 && signals.searches.length === 0 && !declareTaste
 
-  // Filtro: fuera lo ya visto, salvo el reencuentro.
+  // Filtro: fuera lo ya visto, salvo el reencuentro, y fuera lo que el usuario
+  // excluyó a mano. La exclusión va antes de puntuar para que no ocupe puestos
+  // que luego habría que recortar.
   const estados = new Map(signals.watchState.map((estado) => [`${estado.ref}`, estado]))
-  const filtrados = filterCandidates(candidates, estados, { now: ahora })
+  const filtrados = filterCandidates(candidates, estados, { now: ahora }).filter(({ candidate }) =>
+    passesTaste(candidate, signals.taste),
+  )
 
   // Las frecuencias se cuentan **una vez** para todo el ranking: contarlas por
   // candidato convierte el cálculo en cuadrático y con 5 000 candidatos pasa de
@@ -174,24 +210,48 @@ export function recommend(
       ? EMPTY_VECTOR
       : buildAffinity(signals.events, ahora, { idfIndex: indiceIdf })
 
+  // La cuota de lo declarado y su vector se calculan **una vez** para todos los
+  // candidatos: construir el vector por candidato convierte el ranking en
+  // cuadrático, que es el mismo error que ya se corrigió con el índice de IDF.
+  const cuotaDeclarada = declareTaste
+    ? declaredShare(signals.taste?.behaviorEvents ?? signals.events.length)
+    : 0
+  const vectorDeclarado = declaredVector(signals.taste, candidates, indiceIdf)
+
   const indiceCoVisita = indexBySeen(signals.coVisits)
 
   const puntuados: Recommendation[] = filtrados.map(({ candidate, rediscovery }) => {
-    const afinidadPuntos =
+    const comportamientoPuntos =
       afinidad.norm === 0
         ? 0
         : cosine(afinidad, candidateVector(candidate, candidates, { idfIndex: indiceIdf }))
+    const declaradoPuntos =
+      vectorDeclarado.norm === 0
+        ? 0
+        : cosine(vectorDeclarado, candidateVector(candidate, candidates, { idfIndex: indiceIdf }))
+    // Con vector declarado, la afinidad se mezcla según la cuota: al principio
+    // manda la encuesta y luego lo observado. Sin vector declarado no se toca la
+    // afinidad del comportamiento: la cuota no puede apagar una señal que existe.
+    const afinidadPuntos =
+      vectorDeclarado.norm === 0
+        ? comportamientoPuntos
+        : (1 - cuotaDeclarada) * comportamientoPuntos + cuotaDeclarada * declaradoPuntos
+    const preferenciaPuntos =
+      signals.taste === undefined
+        ? 0
+        : tastePreferenceScore(candidate, signals.taste) * cuotaDeclarada
     const coVisitaPuntos = coVisitScore(indiceCoVisita, signals.lastSeen, clave(candidate))
     const busquedaPuntos = searchScore(candidate, signals.searches, { now: ahora })
     const popularidadPuntos = popularidad(candidate)
 
     const components: Components = {
-      affinity: afinidadPuntos,
+      affinity: comportamientoPuntos,
       covisit: coVisitaPuntos,
       recency: rediscovery,
       diversity: 0,
       search: busquedaPuntos,
       popularity: popularidadPuntos,
+      taste: cuotaDeclarada * (declaradoPuntos + preferenciaPuntos),
     }
 
     const score =
@@ -199,13 +259,16 @@ export function recommend(
       pesos.covisit * coVisitaPuntos +
       pesos.search * busquedaPuntos +
       pesos.rediscovery * rediscovery +
-      pesos.popularity * popularidadPuntos
+      pesos.popularity * popularidadPuntos +
+      pesos.taste * preferenciaPuntos
 
     const razones = razonesDe(candidate, {
       signals,
       ahora,
       afinidad,
       afinidadPuntos,
+      declaradoPuntos,
+      cuotaDeclarada,
       coVisitaPuntos,
       busquedaPuntos,
       popularidadPuntos,
@@ -275,6 +338,8 @@ interface ContextoRazones {
   readonly ahora: Date | number
   readonly afinidad: AffinityVector
   readonly afinidadPuntos: number
+  readonly declaradoPuntos: number
+  readonly cuotaDeclarada: number
   readonly coVisitaPuntos: number
   readonly busquedaPuntos: number
   readonly popularidadPuntos: number
@@ -338,6 +403,63 @@ function razonesDe(candidate: Candidate, contexto: ContextoRazones): readonly Re
       evidence: { weight: contexto.afinidadPuntos * SIGNAL_WEIGHTS.affinity * 0.5, value: estudio },
       values: { studio: estudio },
     })
+  }
+
+  /*
+    Lo declarado se explica con las palabras del usuario, no con las del motor:
+    «porque te gusta la acción» se entiende; «comparte un tag del vector» no.
+    Estas razones llevan la cuota en el peso, así que cuando el comportamiento
+    ocupa el sitio de la encuesta la frase de la encuesta deja de ser la primera.
+  */
+  if (contexto.signals.taste !== undefined && contexto.cuotaDeclarada > 0) {
+    const genero = declaredGenreOf(contexto.signals.taste, candidate)
+    if (genero !== undefined && contexto.declaradoPuntos > 0) {
+      candidatas.push({
+        kind: 'taste-genre',
+        key: 'reason.taste-genre',
+        evidence: {
+          weight:
+            contexto.cuotaDeclarada *
+            Math.max(contexto.declaradoPuntos, 0.1) *
+            SIGNAL_WEIGHTS.affinity,
+          value: genero,
+        },
+        values: { genre: genero },
+      })
+    }
+
+    const parecido = likedTitleOf(contexto.signals.taste, candidate)
+    if (parecido !== undefined) {
+      candidatas.push({
+        kind: 'taste-title',
+        key: 'reason.taste-title',
+        evidence: {
+          // Un título marcado es la señal más fuerte de la encuesta: se presenta
+          // por delante del género aunque el vector los sume juntos.
+          weight: contexto.cuotaDeclarada * SIGNAL_WEIGHTS.affinity,
+          value: parecido.title,
+        },
+        values: { title: parecido.title },
+      })
+    }
+
+    if (formatMatch(candidate, contexto.signals.taste) === 1) {
+      candidatas.push({
+        kind: 'taste-format',
+        key: 'reason.taste-format',
+        evidence: { weight: contexto.cuotaDeclarada * SIGNAL_WEIGHTS.taste },
+        values: {},
+      })
+    }
+
+    if (toneMatch(candidate, contexto.signals.taste) === 1) {
+      candidatas.push({
+        kind: 'taste-tone',
+        key: 'reason.taste-tone',
+        evidence: { weight: contexto.cuotaDeclarada * SIGNAL_WEIGHTS.taste },
+        values: {},
+      })
+    }
   }
 
   // La popularidad ordena el arranque en frío, pero no explica una recomendación

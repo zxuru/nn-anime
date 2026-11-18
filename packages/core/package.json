@@ -17,6 +17,7 @@
     "./media": "./src/media.ts",
     "./models": "./src/models.ts",
     "./party": "./src/party.ts",
+    "./taste": "./src/taste.ts",
     "./repos": "./src/repos.ts",
     "./result": "./src/result.ts",
     "./schema": "./src/schema.ts",

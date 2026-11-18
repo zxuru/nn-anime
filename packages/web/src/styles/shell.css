@@ -12,6 +12,7 @@
  *   obra.css     la ficha de la obra, sus episodios y el reproductor.
  *   vitrina.css  la home (vitrina v2), buscar, la hoja de la pieza y la adaptación
  *                a la pantalla estrecha.
+ *   taste.css    la encuesta de gustos y el aviso del inicio.
  *   gestion.css  el perfil, su historial, el movimiento reducido y las pantallas de
  *                gestión (descargas, biblioteca, guía, ajustes y sala de visionado).
  *
@@ -25,4 +26,5 @@
 @import "./base.css";
 @import "./obra.css";
 @import "./vitrina.css";
+@import "./taste.css";
 @import "./gestion.css";

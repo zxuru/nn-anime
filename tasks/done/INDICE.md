@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **248 fragmentos indexados**; 206 se identifican
+quedan identificadas aquí. **249 fragmentos indexados**; 206 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
@@ -268,3 +268,4 @@ sólo en este índice y su contenido vive en la historia.
 | T282 | T282 — la entrada automática del modo desarrollo | feat(dev): la entrada del modo desarrollo no pide token (T282). | `bun test packages/web packages/server packages/core packages/cli scripts` **3047 pasan, 0 fallan** · `bun run typecheck` 0 · `bun run build` 0 (también con `--configLoader native`). Prueba real con server dev en 9072 y Vite en 5174: `/` sin cookie termina en **200** tras `/__dev/boot` → `/?boot=…`, `/perfil?tab=historial` conserva la ruta y una cookie vieja se reemplaza sola; sin `RONA_DEV_ORIGIN`, `/` responde **200 sin redirección**. Mutaciones: `esNavegacion` a `false`, no propagar `next` y registrar la ruta sin el modo desarrollo ponen en rojo su prueba. | este índice |
 | T283 | T283 — alinear la auditoría de la release con el parche de picomatch | fix(release): respetar parche picomatch (T283; auditoría local bloqueada por DNS). | El workflow usa la misma excepción acotada al GHSA que CI; YAML parsea. `bun audit --ignore GHSA-fc5q-39xc-vjpf` no pudo consultar npm por `DNSResolveFailed`; queda pendiente la verificación de GitHub Actions. | este índice |
 | T343 | T343 — los mandos que desaparecen en pantalla completa | fix(web): los mandos siguen en pantalla completa (T343). | `bun test` **4289 pasan, 0 fallan** · typecheck 0 · lint 0 (7 avisos previos) · e2e nuevo `en pantalla completa siguen los mandos y el botón de salir` **pasa**; con el marcado anterior **falla** en «el escenario es el elemento a pantalla completa». `player.e2e.ts`: 68 pasan y 2 fallan igual que en `main` («vuelve a la ficha…», «en 320 px…»). | este índice |
+| T345 | T345 — la encuesta de gustos y el arranque en frío | feat(recsys): la encuesta de gustos alimenta el motor (T345). | `bun test packages/catalog-store/src/repositories/taste.test.ts packages/recsys/src/taste.test.ts packages/recsys/src/recommend.test.ts` **50 pasan, 0 fallan** · `bun test packages/server/src/routes/taste.test.ts` **10 pasan, 0 fallan** · `bun test packages/web` **1413 pasan, 0 fallan** · typecheck 0 · lint 0 (7 avisos previos) · mutación: quitar `passesTaste` deja pasar un género excluido y la prueba falla. | este índice |
