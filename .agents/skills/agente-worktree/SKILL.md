@@ -101,3 +101,12 @@ integración no puedan.
   la raíz (`git checkout -b tarea/T60 main`), verificar ahí (`bun run typecheck`, `bun run lint`,
   `bun test`), commitear con la lista de rutas e integrar a `main` con `--no-ff`. El reclamo y la
   rama siguen siendo los de `agente.ts`; lo que no se usa es el worktree.
+
+### El temporal del sistema no se puede escribir
+
+`mkdtemp` sobre `%TEMP%` falla con `EPERM`, y no sólo en las pruebas: Playwright guarda ahí su caché
+de transformación y el runner ni llega a recoger las pruebas. El e2e ya lo resuelve: `bun run e2e`
+pasa por `scripts/e2e.ts`, que fija `PLAYWRIGHT_TRANSFORM_CACHE_DIR` en `.tmp/` **antes** de
+arrancar Playwright, y `scripts/e2e-server.ts` crea la base y el plugin en `.tmp/` también. Cualquier
+script nuevo que llame a `tmpdir()` debe usar `.tmp/` del repositorio o recibir el temporal por
+variable de entorno; si no, funciona en la máquina de quien lo escribe y falla en el sandbox.

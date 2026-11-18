@@ -15,13 +15,19 @@
  */
 
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 // Los datos van a un temporal, pero **el plugin vive dentro del repositorio**:
 // desde `/tmp` no se resuelve `@rona/providers-fixture`, y un plugin que no
 // se puede importar no prueba nada. Sigue sin tocarse el `$XDG_*` del usuario.
-const dir = await mkdtemp(join(tmpdir(), 'rona-e2e-'))
+//
+// El temporal vive en `.tmp/`, al lado del navegador y no en el del sistema: en
+// un sandbox de escritura `mkdtemp` sobre `%TEMP%` falla con `EPERM` y el
+// servidor del e2e no llega a arrancar. Dentro del repositorio está ignorado, así
+// que tampoco ensucia el árbol.
+const raizTemporal = join(import.meta.dir, '..', '.tmp')
+await mkdir(raizTemporal, { recursive: true })
+const dir = await mkdtemp(join(raizTemporal, 'e2e-datos-'))
 /**
  * El `PATH` del servidor del e2e, sin mpv.
  *
