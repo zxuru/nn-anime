@@ -6,7 +6,7 @@
  * esta página, un plugin roto es un misterio y una ruta de datos es un dato que
  * nadie encuentra.
  *
- * La página está partida en siete secciones y un índice las recorre. Antes era una
+ * La página está partida en ocho secciones y un índice las recorre. Antes era una
  * lista plana: para llegar al tema había que pasar por proveedores, repositorios,
  * alta, TMDB, rutas, mpv y saltos. Las secciones y sus nombres viven en
  * `secciones.ts`; el índice y los `id` salen de la misma lista, así que un enlace
@@ -32,6 +32,7 @@ import { guardarExtendido, leerExtendido } from '../player/extendido'
 import { almacenLocal } from '../player/storage'
 import { DownloadsSettings } from './DownloadsSettings'
 import { IndiceAjustes, useSeccionActiva } from './IndiceAjustes'
+import { ProfileSettings } from './ProfileSettings'
 import { ProviderList } from './ProviderList'
 import { ProviderRepos } from './ProviderRepos'
 import { QualitySettings } from './QualitySettings'
@@ -342,6 +343,23 @@ export function SettingsPage(): ReactNode {
             </h2>
 
             <DownloadsSettings />
+          </section>
+
+          {/*
+            Perfil: la copia portátil de las marcas. Va después de las descargas
+            porque no configura nada de esta instalación: exporta lo que el usuario
+            ya construyó aquí para poder llevárselo a otra.
+          */}
+          <section
+            className="settings__seccion"
+            id={SECCIONES.perfil.id}
+            aria-labelledby={`${SECCIONES.perfil.id}-titulo`}
+          >
+            <h2 id={`${SECCIONES.perfil.id}-titulo`}>
+              {t(DEFAULT_LOCALE, SECCIONES.perfil.titulo)}
+            </h2>
+
+            <ProfileSettings />
           </section>
 
           {/* Apariencia: sólo el tema, pero es lo primero que se busca cuando algo

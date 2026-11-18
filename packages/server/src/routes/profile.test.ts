@@ -3,10 +3,19 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations } from '@rona/catalog-store'
-import { profileResponseSchema } from '@rona/core'
+import {
+  PROFILE_EXPORT_VERSION,
+  profileExportSchema,
+  profileImportResponseSchema,
+  profileResponseSchema,
+} from '@rona/core'
 import { createFixtureProvider } from '@rona/providers-fixture'
 import { createApp, createContainer } from '../index'
-import { PROFILE_HISTORY_PREVIEW } from './profile'
+import {
+  PROFILE_EXPORT_FILENAME,
+  PROFILE_HISTORY_PREVIEW,
+  PROFILE_IMPORT_MAX_BYTES,
+} from './profile'
 
 const PORT = 7720
 const SESSION_COOKIE = 'nn_session'
@@ -65,11 +74,12 @@ function marcar(
   pedir: (ruta: string, init?: RequestInit) => Promise<Response>,
   ruta: string,
   value: boolean,
+  ref: { readonly providerId: string; readonly value: string } = AURORA,
 ) {
   return pedir(ruta, {
     method: 'POST',
     headers: JSON_HEADERS,
-    body: JSON.stringify({ ref: AURORA, value }),
+    body: JSON.stringify({ ref, value }),
   })
 }
 
@@ -119,6 +129,37 @@ function perfil(pedir: (ruta: string, init?: RequestInit) => Promise<Response>) 
     cuerpo: profileResponseSchema.parse(await respuesta.json()),
   }))
 }
+
+function exportar(pedir: (ruta: string, init?: RequestInit) => Promise<Response>) {
+  return pedir('/api/profile/export')
+}
+
+function importar(pedir: (ruta: string, init?: RequestInit) => Promise<Response>, cuerpo: unknown) {
+  return pedir('/api/profile/import', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(cuerpo),
+  })
+}
+
+/**
+ * Un perfil con las tres listas, un duplicado dentro del archivo y una
+ * referencia que esta instalación no conoce.
+ *
+ * El duplicado es a propósito: contar dos veces la misma marca es la forma más
+ * fácil de que el resumen mienta. La referencia ausente es el caso normal de
+ * restaurar un perfil en una instalación nueva, donde nadie abrió esa ficha.
+ */
+const PERFIL_EXPORTADO = {
+  version: 1,
+  favorites: [
+    { providerId: 'fixture', ref: REF, title: 'Aurora Nocturna' },
+    { providerId: 'fixture', ref: REF, title: 'Aurora Nocturna' },
+    { providerId: 'fixture', ref: 'no-existe', title: 'Sin ficha' },
+  ],
+  watched: [{ providerId: 'fixture', ref: REF, title: 'Aurora Nocturna' }],
+  planToWatch: [{ providerId: 'fixture', ref: REF, title: 'Aurora Nocturna' }],
+} as const
 
 /**
  * El Perfil, por HTTP.
@@ -230,6 +271,214 @@ describe('GET /api/profile', () => {
   test('exige sesión', async () => {
     await conApp(async ({ pedir }) => {
       expect((await pedir('/api/profile', { headers: {} })).status).toBe(401)
+    })
+  })
+})
+
+/**
+ * El archivo portátil.
+ *
+ * Es la copia que el usuario guarda fuera de la aplicación, así que lo que se
+ * mide es qué **no** lleva además de qué lleva: ni la clave de TMDB, ni las rutas
+ * del disco, ni campos que el importador de mañana no sabría interpretar.
+ */
+describe('GET /api/profile/export', () => {
+  test('un perfil vacío sale en la versión 1, con las tres listas y como descarga', async () => {
+    await conApp(async ({ pedir }) => {
+      const respuesta = await exportar(pedir)
+
+      expect(respuesta.status).toBe(200)
+      expect(respuesta.headers.get('cache-control')).toBe('no-store')
+      expect(respuesta.headers.get('content-disposition')).toBe(
+        `attachment; filename="${PROFILE_EXPORT_FILENAME}"`,
+      )
+
+      const perfil = profileExportSchema.parse(await respuesta.json())
+
+      expect(perfil).toEqual({
+        version: PROFILE_EXPORT_VERSION,
+        favorites: [],
+        watched: [],
+        planToWatch: [],
+      })
+    })
+  })
+
+  test('cada marca lleva proveedor, referencia y título, y nada más', async () => {
+    await conApp(async ({ pedir }) => {
+      await abrirFicha(pedir)
+      await marcar(pedir, '/api/favorites', true)
+      await marcar(pedir, '/api/watched-titles', true)
+      await marcar(pedir, '/api/plan-to-watch', true)
+
+      const perfil = profileExportSchema.parse(await (await exportar(pedir)).json())
+      const entrada = { providerId: 'fixture', ref: REF, title: 'Aurora Nocturna' }
+
+      expect(perfil.favorites).toEqual([entrada])
+      expect(perfil.watched).toEqual([entrada])
+      expect(perfil.planToWatch).toEqual([entrada])
+      // El schema es estricto: si el export añadiera portada, año o fecha, el
+      // `parse` de arriba habría lanzado. Se afirma igualmente para que se lea
+      // el motivo.
+      expect(Object.keys(perfil.favorites[0] ?? {}).sort()).toEqual(['providerId', 'ref', 'title'])
+    })
+  })
+
+  test('no lleva la clave de TMDB ni las rutas del disco', async () => {
+    await conApp(async ({ pedir }) => {
+      const clave = '0123456789abcdef0123456789abcdef'
+      const guardado = await pedir('/api/settings', {
+        method: 'PATCH',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ tmdbApiKey: clave }),
+      })
+      expect(guardado.status).toBe(204)
+
+      const respuesta = await exportar(pedir)
+      const texto = await respuesta.text()
+      const perfil = profileExportSchema.parse(JSON.parse(texto))
+
+      expect(texto).not.toContain(clave)
+      expect(texto).not.toContain('tmdb')
+      expect(texto).not.toContain('paths')
+      expect(Object.keys(perfil).sort()).toEqual(['favorites', 'planToWatch', 'version', 'watched'])
+    })
+  })
+})
+
+/**
+ * La importación.
+ *
+ * Fusiona, no reemplaza: lo que ya estaba sigue, lo que no está en la base local
+ * se cuenta y no se inventa, y repetir el archivo no duplica ni infla el resumen.
+ */
+describe('POST /api/profile/import', () => {
+  test('fusiona las tres listas, deduplica el archivo y cuenta los que no están', async () => {
+    await conApp(async ({ pedir }) => {
+      await abrirFicha(pedir)
+
+      const respuesta = await importar(pedir, PERFIL_EXPORTADO)
+      expect(respuesta.status).toBe(200)
+      expect(profileImportResponseSchema.parse(await respuesta.json())).toEqual({
+        favorites: 1,
+        watched: 1,
+        planToWatch: 1,
+        skipped: 1,
+      })
+
+      const { cuerpo } = await perfil(pedir)
+      expect(cuerpo.favorites.map((item) => item.ref.value)).toEqual([REF])
+      expect(cuerpo.watched.map((item) => item.ref.value)).toEqual([REF])
+      expect(cuerpo.planToWatch.map((item) => item.ref.value)).toEqual([REF])
+    })
+  })
+
+  test('importar dos veces el mismo archivo no duplica y la segunda no añade nada', async () => {
+    await conApp(async ({ pedir }) => {
+      await abrirFicha(pedir)
+      await importar(pedir, PERFIL_EXPORTADO)
+
+      const segunda = await importar(pedir, PERFIL_EXPORTADO)
+      expect(profileImportResponseSchema.parse(await segunda.json())).toEqual({
+        favorites: 0,
+        watched: 0,
+        planToWatch: 0,
+        skipped: 1,
+      })
+
+      const { cuerpo } = await perfil(pedir)
+      expect(cuerpo.favorites).toHaveLength(1)
+      expect(cuerpo.watched).toHaveLength(1)
+      expect(cuerpo.planToWatch).toHaveLength(1)
+    })
+  })
+
+  test('no borra lo que ya estaba marcado', async () => {
+    await conApp(async ({ pedir }) => {
+      // Las dos fichas tienen que existir en la base: el perfil de mar está
+      // marcado de antes y el de aurora es el que trae el archivo.
+      await abrirFicha(pedir)
+      await pedir('/api/anime/fixture/mar-de-cristal', { headers: GOOD })
+      const mar = { providerId: 'fixture', value: 'mar-de-cristal' }
+      await marcar(pedir, '/api/favorites', true, mar)
+
+      await importar(pedir, PERFIL_EXPORTADO)
+
+      const { cuerpo } = await perfil(pedir)
+      expect(cuerpo.favorites.map((item) => item.title).sort()).toEqual([
+        'Aurora Nocturna',
+        'Mar de Cristal',
+      ])
+    })
+  })
+
+  test('una referencia que no está se omite y no se escribe en la caché', async () => {
+    await conApp(async ({ pedir, db }) => {
+      await abrirFicha(pedir)
+      await importar(pedir, PERFIL_EXPORTADO)
+
+      const ausente = db
+        .query<{ total: number }, [string]>(
+          'SELECT COUNT(*) AS total FROM anime WHERE provider_ref = ?',
+        )
+        .get('no-existe')
+      expect(ausente?.total).toBe(0)
+
+      // La única ficha que hay es la que abrió la prueba: importar no pidió ni
+      // guardó nada de un proveedor.
+      const todas = db.query<{ total: number }, []>('SELECT COUNT(*) AS total FROM anime').get()
+      expect(todas?.total).toBe(1)
+    })
+  })
+
+  test('un cuerpo que no cumple el schema es 400', async () => {
+    await conApp(async ({ pedir }) => {
+      for (const cuerpo of [
+        { ...PERFIL_EXPORTADO, version: 2 },
+        { version: 1, favorites: [], watched: [] },
+        { ...PERFIL_EXPORTADO, tmdbApiKey: '0123456789abcdef0123456789abcdef' },
+      ]) {
+        expect((await importar(pedir, cuerpo)).status).toBe(400)
+      }
+
+      const noJson = await pedir('/api/profile/import', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: '{',
+      })
+      expect(noJson.status).toBe(400)
+    })
+  })
+
+  test('un archivo que pasa del tope es 413 y no llega al schema', async () => {
+    await conApp(async ({ pedir }) => {
+      const grande = JSON.stringify({
+        ...PERFIL_EXPORTADO,
+        relleno: 'x'.repeat(PROFILE_IMPORT_MAX_BYTES),
+      })
+
+      const respuesta = await pedir('/api/profile/import', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: grande,
+      })
+
+      expect(respuesta.status).toBe(413)
+    })
+  })
+
+  test('las dos rutas exigen sesión', async () => {
+    await conApp(async ({ pedir }) => {
+      expect((await pedir('/api/profile/export', { headers: {} })).status).toBe(401)
+      expect(
+        (
+          await pedir('/api/profile/import', {
+            method: 'POST',
+            headers: { origin: BASE, 'content-type': 'application/json' },
+            body: JSON.stringify(PERFIL_EXPORTADO),
+          })
+        ).status,
+      ).toBe(401)
     })
   })
 })

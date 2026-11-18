@@ -526,6 +526,28 @@ export const messages: Messages = {
   'settings.downloads.loading': 'Leyendo el espacio de la carpeta…',
   'settings.downloads.error': 'No se pudo leer el espacio de las descargas.',
   'settings.downloads.action': 'Abrir la Biblioteca',
+  /*
+   * La copia portátil del perfil.
+   *
+   * El texto promete lo que el archivo **no** lleva tanto como lo que lleva: es
+   * la pregunta que se hace cualquiera antes de guardarlo fuera de la aplicación.
+   * La importación dice «fusiona» porque no borra lo que ya estaba.
+   */
+  'settings.section.perfil': 'Perfil',
+  'settings.profile.title': 'Copia del perfil',
+  'settings.profile.body':
+    'Exporta tus favoritos, vistos y «quiero ver» a un archivo, o tráelos desde otra instalación. La copia no lleva la clave de TMDB, la sesión ni las rutas del disco.',
+  'settings.profile.export': 'Exportar el perfil',
+  'settings.profile.exportHint':
+    'El archivo incluye las tres listas y su versión. No lleva la clave de TMDB, la sesión, las rutas del disco ni el historial de búsquedas.',
+  'settings.profile.import': 'Importar un perfil',
+  'settings.profile.importHint':
+    'Elige el JSON que exportaste de RoNa. Las marcas se fusionan: lo que ya estaba sigue y no se duplica. Las fichas que no estén en esta instalación se cuentan como omitidas.',
+  'settings.profile.importing': 'Leyendo el perfil…',
+  'settings.profile.importDone':
+    'Favoritos añadidos: {favorites}. Vistos añadidos: {watched}. Pendientes añadidos: {planToWatch}. Sin ficha local: {skipped}.',
+  'settings.profile.importInvalid': 'el archivo no es JSON válido',
+  'settings.profile.importFailed': 'No se pudo importar: {message}',
   'settings.mpv': 'Reproductor externo',
   'settings.mpv.yes': 'mpv disponible, versión {version}.',
   'settings.mpv.no': 'No se encontró mpv: se reproduce en el navegador.',
