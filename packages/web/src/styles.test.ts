@@ -791,6 +791,23 @@ describe('la cabecera y el conmutador de tipo', () => {
     expect(activa).toContain('color: var(--color-accent-contrast)')
     expect(activa).not.toContain('background')
   })
+
+  /**
+   * El Perfil cierra la cabecera, empujado por un solo `auto`.
+   *
+   * Si el conmutador o la guía recuperaran el suyo, el hueco se repartiría entre
+   * dos o tres márgenes y el Perfil dejaría de estar pegado al borde. Por debajo
+   * de `--bp-nav` el grupo se apaga con el resto de la navegación —la regla de
+   * `.shell__nav` lo cubre— y la barra inferior es la que lleva el Perfil.
+   */
+  test('el Perfil cierra la cabecera, empujado por un solo margen', async () => {
+    const css = await estructura()
+
+    expect(await reglaDe('.shell__nav--separado')).toContain('margin-inline-start: auto')
+    expect(await reglaDe('.shell__header .conmutador')).toContain('margin-inline-start: 0')
+    expect(await reglaDe('.shell__guia')).toContain('margin-inline-start: 0')
+    expect(css).not.toContain('.shell__header .conmutador ~ .shell__guia')
+  })
 })
 
 /**

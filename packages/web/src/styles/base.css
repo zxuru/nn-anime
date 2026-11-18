@@ -129,6 +129,20 @@
   gap: var(--space-5);
 }
 
+/*
+ * El grupo de la derecha: los mandos y el Perfil.
+ *
+ * El Perfil no es un destino del día a día, así que vive pegado al borde
+ * derecho, separado del resto y detrás del conmutador y la guía. Lo empuja este
+ * `auto` —y no tres márgenes repartiendo el hueco—, de modo que el grupo se
+ * coloca como una sola pieza y la cabecera sigue leyéndose de fuera hacia
+ * dentro. Por debajo de `--bp-nav` este grupo se apaga con el resto: la barra
+ * inferior ya lleva el Perfil y no se duplica.
+ */
+.shell__nav--separado {
+  margin-inline-start: auto;
+}
+
 .shell__nav a {
   display: inline-flex;
   align-items: center;
@@ -350,18 +364,15 @@
 /*
  * Y su sitio: la cabecera, al final.
  *
- * Va detrás de la navegación y empujado al borde con `margin-inline-start: auto`,
- * así que su posición no depende de cuántos destinos tenga la navegación y la
- * cabecera se lee de fuera hacia dentro: la marca, los destinos y el mando. En una
- * ventana estrecha la cabecera envuelve y el mando baja a su propio renglón antes
- * que apretar la marca o los enlaces.
- *
- * Va después de las reglas del mando y no antes: un selector más específico
- * delante de uno menos específico es la trampa que avisa el linter —lo de abajo
- * no se aplicaría por orden, sino por peso—.
+ * Va detrás de la navegación y forma grupo con la guía y el Perfil. El que
+ * empuja al borde es el grupo de la derecha —el `auto` vive en
+ * `.shell__nav--separado`—, así que el mando no necesita margen propio y su
+ * posición no depende de cuántos destinos tenga la navegación. En una ventana
+ * estrecha la cabecera envuelve y el mando baja a su propio renglón antes que
+ * apretar la marca o los enlaces.
  */
 .shell__header .conmutador {
-  margin-inline-start: auto;
+  margin-inline-start: 0;
 }
 
 /* El aviso de que ninguna fuente sirve esta mitad: la pantalla vacía, explicada. */

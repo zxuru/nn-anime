@@ -33,6 +33,14 @@ export interface NavItem {
   readonly conservaTipo?: boolean
   /** El ancla de la guía, cuando el recorrido la señala. */
   readonly tour?: string
+  /**
+   * Si el destino se pinta aparte, al final de la cabecera.
+   *
+   * El Perfil es una pantalla de cuenta y no un destino del día a día: va en el
+   * extremo derecho, detrás de los mandos. La lista sigue siendo esta y la barra
+   * inferior la recibe entera; lo que cambia es dónde lo coloca la cabecera.
+   */
+  readonly separado?: boolean
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
@@ -45,7 +53,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     conservaTipo: true,
     tour: ANCLAS.buscar,
   },
-  { to: '/profile', icon: User, label: 'nav.profile', routes: ['profile'] },
+  {
+    to: '/profile',
+    icon: User,
+    label: 'nav.profile',
+    routes: ['profile'],
+    separado: true,
+  },
   {
     to: '/library',
     icon: Library,
