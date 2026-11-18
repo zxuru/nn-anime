@@ -11,7 +11,7 @@
 
 import { describe, expect, test } from 'bun:test'
 import { filterCandidate, indexWatchState, type WatchState } from '@rona/recsys'
-import { refKey, watchStateFrom, watchStateWithMarks } from './signals'
+import { coVisitsFromWatch, refKey, watchStateFrom, watchStateWithMarks } from './signals'
 
 const DIA = 24 * 60 * 60 * 1000
 const AHORA = new Date('2026-10-10T12:00:00.000Z')
@@ -85,5 +85,52 @@ describe('la marca de visto en las señales', () => {
     const filas = [fila('una', 0.5, 1), fila('dos', 1, 2)]
 
     expect(watchStateWithMarks(filas, [])).toEqual(watchStateFrom(filas))
+  })
+})
+
+describe('la co-visita de las señales', () => {
+  /** Una fila del historial a una hora concreta, sin pasar por `fila`. */
+  function visita(valor: string, horas: number) {
+    return {
+      anime: { ref: { providerId: 'fixture', value: valor } },
+      positionS: 1440,
+      durationS: 1440,
+      startedAt: new Date(AHORA.getTime() - horas * 3_600_000),
+      finished: true,
+    }
+  }
+
+  test('dos títulos vistos en dos noches distintas se emparejan en los dos sentidos', () => {
+    const pares = coVisitsFromWatch([
+      visita('a', 30),
+      visita('b', 29),
+      visita('a', 6),
+      visita('b', 5),
+    ])
+
+    expect(pares.map((par) => `${par.seen}->${par.candidate}`).sort()).toEqual([
+      'fixture#a->fixture#b',
+      'fixture#b->fixture#a',
+    ])
+  })
+
+  test('dos episodios de una serie y dos de otra en una sola noche no bastan', () => {
+    // Sin colapsar los episodios, el par (A, B) se contaría cuatro veces y
+    // pasaría el soporte mínimo con una sola noche. Una coincidencia no es una
+    // costumbre: el par tiene que haberse visto en dos sesiones distintas.
+    const pares = coVisitsFromWatch([
+      visita('a', 4),
+      visita('a', 3),
+      visita('b', 2),
+      visita('b', 1),
+    ])
+
+    expect(pares).toEqual([])
+  })
+
+  test('los episodios de la misma serie no se emparejan consigo mismos', () => {
+    const pares = coVisitsFromWatch([visita('serie', 3), visita('serie', 2), visita('serie', 1)])
+
+    expect(pares).toEqual([])
   })
 })
