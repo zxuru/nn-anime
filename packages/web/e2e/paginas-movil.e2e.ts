@@ -29,6 +29,7 @@ function descarga(id: number, episodio: string, bytes = 1024 * 1024) {
     episodeRef: { providerId: 'fixture', value: `aurora-nocturna#${id}` },
     title: 'Aurora Nocturna',
     episodeLabel: episodio,
+    mode: 'sub',
     kind: 'file',
     status: 'complete',
     bytes,
