@@ -68,6 +68,9 @@ export const messages: Messages = {
   'library.resumeEpisode': 'Reanudar {episode}',
   'library.removeEpisode': 'Borrar {episode}',
   'library.playEpisode': 'Ver {episode}',
+  // El audio y las pistas se leen en la fila del episodio descargado, antes de
+  // abrirlo: lo que se bajó no se puede cambiar sin volver a bajarlo entero.
+  'library.episode.subtitles': 'Con subtítulos ({count})',
   'library.empty.title': 'Tu biblioteca está vacía.',
   'library.empty.body':
     'Descarga un episodio desde el reproductor y aparecerá aquí, listo para ver sin conexión.',
