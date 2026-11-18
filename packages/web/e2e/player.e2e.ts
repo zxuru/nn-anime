@@ -744,9 +744,6 @@ test.describe('el reproductor', () => {
       clientHeight: nodo.clientHeight,
     }))
     expect(medidas.scrollWidth).toBe(medidas.clientWidth)
-    // Con una sola opción de subtítulos no hay bloque que elegir: sin él, el
-    // menú cabe entero y la reproducción automática no queda bajo el pliegue.
-    expect(medidas.scrollHeight).toBeLessThanOrEqual(medidas.clientHeight + 1)
 
     const cajaMenu = await menu.boundingBox()
     const cajaAudio = await menu.locator('.audio-switch').boundingBox()
@@ -754,6 +751,20 @@ test.describe('el reproductor', () => {
     expect((cajaAudio?.x ?? 0) + (cajaAudio?.width ?? 0)).toBeLessThanOrEqual(
       (cajaMenu?.x ?? 0) + (cajaMenu?.width ?? 0),
     )
+
+    // El menú puede desplazarse —creció con la velocidad y el PiP—, pero lo que
+    // se toca al abrirlo tiene que verse **sin desplazar**: el audio y la casilla
+    // de «el siguiente empieza solo». Antes se medía el alto total y eso ya no
+    // es cierto con más ajustes; lo que importa es que no queden bajo el pliegue.
+    const cajaAutoplay = await menu.locator('.player__menu-switch').boundingBox()
+    expect(cajaAutoplay).not.toBeNull()
+
+    for (const caja of [cajaAudio, cajaAutoplay]) {
+      expect(caja?.y ?? 0).toBeGreaterThanOrEqual((cajaMenu?.y ?? 0) - 1)
+      expect((caja?.y ?? 0) + (caja?.height ?? 0)).toBeLessThanOrEqual(
+        (cajaMenu?.y ?? 0) + (cajaMenu?.height ?? 0) + 1,
+      )
+    }
 
     await page.keyboard.press('Escape')
     await expect(menu).toBeHidden()

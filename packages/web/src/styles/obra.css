@@ -1646,6 +1646,19 @@ body.player-extendido {
   text-align: left;
 }
 
+/* La velocidad, en fila y con salto. Apilada ocupaba cinco renglones y empujaba
+   la reproducción automática bajo el pliegue; en fila son dos y se elige igual. */
+.player__menu-list--velocidad {
+  flex-flow: row wrap;
+}
+
+.player__menu-list--velocidad .player__menu-choice {
+  justify-content: center;
+  inline-size: auto;
+  min-inline-size: calc(var(--control-size) * 1.25);
+  padding-inline: var(--space-2);
+}
+
 /* El grupo del volumen dentro del menú: el botón del silencio y su barra. */
 .player__menu-volume {
   display: flex;

@@ -16,8 +16,9 @@
  * `usePlayerGestos`; el menú, la ayuda y la pantalla completa en
  * `usePlayerAjustes`; el modo extendido en `usePlayerExtendido`; los mandos y el
  * ancho de la ventana en `usePlayerMandos`; el arrastre de la barra en
- * `usePlayerBarra`; los subtítulos en `usePlayerSubtitulos`; y el teclado en
- * `usePlayerTeclado`, con sus decisiones puras en `player-teclas` y `controls`.
+ * `usePlayerBarra`; los subtítulos en `usePlayerSubtitulos`; los controles del
+ * sistema en `useMediaSession`; y el teclado en `usePlayerTeclado`, con sus
+ * decisiones puras en `player-teclas` y `controls`.
  * Lo que se salta —el intervalo, el destino y el margen— lo decide la pantalla;
  * aquí sólo se ejecuta y se recuerda qué intervalos ya se saltaron, que es
  * memoria de la visita y no estado que se pinte. El marcado se reparte entre
@@ -48,6 +49,7 @@ import {
   type Velocidad,
 } from './storage'
 import { useCompatPaint } from './useCompatPaint'
+import { useMediaSession } from './useMediaSession'
 import { usePictureInPicture } from './usePictureInPicture'
 import { usePlayer } from './usePlayer'
 import { usePlayerAjustes } from './usePlayerAjustes'
@@ -160,6 +162,26 @@ export function Player(props: PlayerProps): ReactNode {
   // El picture-in-picture sólo se ofrece donde el navegador lo tiene. El hook
   // escucha el elemento para saber si el video está dentro o fuera.
   const pip = usePictureInPicture(elemento)
+
+  /**
+   * Los mandos del sistema —la pantalla de bloqueo, los auriculares—.
+   *
+   * Son los mismos gestos que los botones de la barra: alternar, mover diez
+   * segundos y saltar a una posición. El gancho no guarda estado; lee el del
+   * reproductor y lo publica, y sin `navigator.mediaSession` no hace nada.
+   */
+  useMediaSession({
+    title: props.title,
+    poster: props.poster,
+    positionS: state.positionS,
+    durationS: state.durationS,
+    playing: state.playing,
+    play: () => act('toggle'),
+    pause: () => act('toggle'),
+    seekbackward: () => act('back'),
+    seekforward: () => act('forward'),
+    seekto: seekTo,
+  })
 
   /**
    * Los intervalos que ya se saltaron en esta visita.
@@ -304,13 +326,38 @@ export function Player(props: PlayerProps): ReactNode {
         )}
 
         {/*
+          La reproducción automática va **antes** que los ajustes de uso
+          ocasional: con el menú creciendo, esta casilla tiene que seguir a la
+          vista al abrirlo sin desplazarse. La prueba del menú mide justo eso.
+        */}
+        {props.onAutoplay === undefined ? null : (
+          <label className="player__menu-switch">
+            {/* La casilla nativa sigue siendo la que guarda el estado y
+                la que se anuncia; el dibujo de interruptor lo pone el
+                tirador de al lado, que va `aria-hidden` para que el
+                nombre del mando siga siendo sólo el texto. */}
+            <span className="player__switch-box">
+              <input
+                type="checkbox"
+                className="player__switch"
+                checked={props.autoplay ?? true}
+                onChange={(evento) => props.onAutoplay?.(evento.target.checked)}
+              />
+              <span className="player__switch-knob" aria-hidden="true" />
+            </span>
+            {t(DEFAULT_LOCALE, 'player.autoplay')}
+          </label>
+        )}
+
+        {/*
           La velocidad. Es una lista cerrada y con `aria-pressed`, como las
           pistas: se elige una y las demás quedan apagadas. El texto lleva la
           coma decimal de la casa —`1,25×`— y no el punto que devuelve `String`.
+          En fila y con salto: cinco botones apilados no caben en el menú.
         */}
         <div className="player__menu-block">
           <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.speed')}</p>
-          <ul className="player__menu-list">
+          <ul className="player__menu-list player__menu-list--velocidad">
             {VELOCIDADES.map((opcion) => (
               <li key={opcion}>
                 <button
@@ -415,25 +462,6 @@ export function Player(props: PlayerProps): ReactNode {
               ))}
             </ul>
           </div>
-        )}
-
-        {props.onAutoplay === undefined ? null : (
-          <label className="player__menu-switch">
-            {/* La casilla nativa sigue siendo la que guarda el estado y
-                la que se anuncia; el dibujo de interruptor lo pone el
-                tirador de al lado, que va `aria-hidden` para que el
-                nombre del mando siga siendo sólo el texto. */}
-            <span className="player__switch-box">
-              <input
-                type="checkbox"
-                className="player__switch"
-                checked={props.autoplay ?? true}
-                onChange={(evento) => props.onAutoplay?.(evento.target.checked)}
-              />
-              <span className="player__switch-knob" aria-hidden="true" />
-            </span>
-            {t(DEFAULT_LOCALE, 'player.autoplay')}
-          </label>
         )}
 
         <button
