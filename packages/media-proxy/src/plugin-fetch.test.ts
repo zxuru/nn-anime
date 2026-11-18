@@ -17,6 +17,7 @@ import {
   type ConnectTarget,
   connectorCon,
   createPluginFetch,
+  MAX_HEADER_BYTES,
   type PluginTransport,
   type SocketLike,
 } from './plugin-fetch'
@@ -320,6 +321,30 @@ describe('el cuerpo tiene tope', () => {
   test('lo que se declara por encima del tope se corta al llegar', async () => {
     const falso = montar({
       respuestas: [crudo(Buffer.alloc(4096, 0x61), { headers: [['content-length', '4096']] })],
+      maxBytes: 1024,
+    })
+
+    await expect(falso.fetch('https://sitio.example/a')).rejects.toThrow(/se corta/)
+  })
+
+  test('unas cabeceras sin terminar no crecen sin tope', async () => {
+    const falso = montar({
+      respuestas: [
+        Buffer.from(`HTTP/1.1 200 OK\r\nx: ${'a'.repeat(MAX_HEADER_BYTES + 1)}`, 'latin1'),
+      ],
+    })
+
+    await expect(falso.fetch('https://sitio.example/a')).rejects.toThrow(/cabeceras/)
+  })
+
+  test('un trozo declarado por encima del tope se corta antes de esperarlo', async () => {
+    const falso = montar({
+      respuestas: [
+        Buffer.from(
+          `HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\n\r\n${(2048).toString(16)}\r\n`,
+          'latin1',
+        ),
+      ],
       maxBytes: 1024,
     })
 

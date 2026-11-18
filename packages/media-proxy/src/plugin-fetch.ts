@@ -63,6 +63,14 @@ import {
 /** Tope por defecto del cuerpo, contado ya descomprimido. */
 export const MAX_BODY_BYTES = 8 * 1024 * 1024
 
+/**
+ * Tope de las cabeceras antes de saber dónde empieza el cuerpo.
+ *
+ * Sin él, un servidor que manda una cabecera sin terminar hace crecer el
+ * `buffer` de lectura sin que el tope del cuerpo llegue a mirarse.
+ */
+export const MAX_HEADER_BYTES = 64 * 1024
+
 /** Plazo por defecto de una llamada, saltos incluidos. */
 export const DEFAULT_TIMEOUT_MS = 10_000
 
@@ -427,11 +435,13 @@ async function readResponse(
     }
 
     const guardar = (trozo: Buffer): void => {
-      tamanoCuerpo += trozo.byteLength
-      if (tamanoCuerpo > options.maxBytes) {
+      // Se comprueba antes de acumular: el trozo ya está en memoria, pero no se
+      // suma a la lista que se queda hasta el final.
+      if (tamanoCuerpo + trozo.byteLength > options.maxBytes) {
         throw new Error(`la respuesta pasa de ${options.maxBytes} bytes y se corta`)
       }
 
+      tamanoCuerpo += trozo.byteLength
       cuerpo.push(trozo)
     }
 
@@ -458,6 +468,13 @@ async function readResponse(
 
           if (tamano === 0) {
             acabar()
+            return
+          }
+
+          // El trozo se declara antes de llegar: si ya no cabe, se corta sin
+          // esperar a tenerlo en memoria.
+          if (tamano > options.maxBytes - tamanoCuerpo) {
+            fallar(new Error(`la respuesta pasa de ${options.maxBytes} bytes y se corta`))
             return
           }
 
@@ -520,6 +537,11 @@ async function readResponse(
               return
             }
 
+            if (numero > options.maxBytes) {
+              fallar(new Error(`la respuesta pasa de ${options.maxBytes} bytes y se corta`))
+              return
+            }
+
             restante = numero
           }
         }
@@ -531,6 +553,11 @@ async function readResponse(
     }
 
     transporte.onData((trozo) => {
+      if (cabeceras === undefined && buffer.byteLength + trozo.byteLength > MAX_HEADER_BYTES) {
+        fallar(new Error(`las cabeceras pasan de ${MAX_HEADER_BYTES} bytes y se cortan`))
+        return
+      }
+
       buffer = Buffer.concat([buffer, trozo])
       intentar()
     })

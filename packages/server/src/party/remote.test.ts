@@ -64,6 +64,9 @@ function anfitrion(joinStatus = 200) {
     enviar(evento: PartyEvent) {
       sse?.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(evento)}\n\n`))
     },
+    enviarCrudo(texto: string) {
+      sse?.enqueue(new TextEncoder().encode(texto))
+    },
   }
 }
 
@@ -147,6 +150,20 @@ describe('RemoteParty en marcha', () => {
 
     expect(recibidos).toEqual(['welcome', 'state'])
     expect(relay.snapshot()?.state?.positionS).toBe(10)
+  })
+
+  test('un SSE sin doble salto se corta al pasar del tope', async () => {
+    const host = anfitrion()
+    const relay = new RemoteParty({ fetchImpl: host.fetchImpl, now: () => 1_000, retryMs: 1_000 })
+    const tipos: string[] = []
+
+    await relay.join({ baseUrl: '127.0.0.1:7717', code: 'ABCDEFGHJKMNPQRS', name: 'Ana' })
+    relay.subscribe((evento) => tipos.push(evento.type))
+
+    host.enviarCrudo('x'.repeat(64 * 1024 + 1))
+    await esperar(20)
+
+    expect(tipos).toContain('closed')
   })
 
   test('reportar y medir el reloj usan el token contra el anfitrión', async () => {
