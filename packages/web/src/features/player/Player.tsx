@@ -64,15 +64,24 @@ export type { PlayerProps, PlayerSkip } from './player-props'
 
 export function Player(props: PlayerProps): ReactNode {
   /**
-   * El marco del reproductor.
+   * El escenario del reproductor.
    *
-   * Es la caja que mide el video y la que contiene sus capas —el botón grande,
-   * la espera y el botón de saltar—, así que es la que se pone a pantalla
-   * completa: pedirla sobre el `<video>` dejaría el botón de saltar fuera de la
-   * pantalla, y es justo donde hace más falta.
+   * Es la caja que se pone a pantalla completa: contiene el marco —el video con
+   * sus capas y el botón de saltar— **y** la banda de mandos. El navegador no
+   * pinta nada que quede fuera del elemento que la ocupa, así que pedirla sobre
+   * el marco dejaba fuera la barra, los botones y el propio mando de salir.
+   */
+  const escenario = useRef<HTMLDivElement | null>(null)
+  const objetivoPantalla = useCallback(() => escenario.current, [])
+
+  /**
+   * El marco: la caja que mide el video.
+   *
+   * Su ancho decide qué mandos existen —el volumen se muda al menú cuando la
+   * fila no cabe—, así que se observa aparte del escenario. Aquí viven también
+   * las capas que se ven sobre la imagen.
    */
   const marco = useRef<HTMLDivElement | null>(null)
-  const objetivoPantalla = useCallback(() => marco.current, [])
 
   /**
    * La velocidad, en estado y en el almacén del navegador.
@@ -126,7 +135,7 @@ export function Player(props: PlayerProps): ReactNode {
     cajaAjustes,
     dialogoAtajos,
     completa,
-  } = usePlayerAjustes(marco)
+  } = usePlayerAjustes(escenario)
   const extendido = usePlayerExtendido()
   const mandos = usePlayerMandos(state.playing, marco)
   const barra = usePlayerBarra({
@@ -486,6 +495,7 @@ export function Player(props: PlayerProps): ReactNode {
           imagen** y no en la caja entera. */}
       <div
         className="player__stage"
+        ref={escenario}
         onPointerMove={mandos.despertar}
         onPointerDown={mandos.despertar}
       >
@@ -517,14 +527,16 @@ export function Player(props: PlayerProps): ReactNode {
             </div>
           ) : null}
 
-          {/* El botón de saltar, dentro del marco: es la caja que se pone a
-              pantalla completa, así que aquí también se ve ahí. Sin intervalo no
-              se pinta nada y la pantalla queda como estaba. */}
+          {/* El botón de saltar, dentro del marco: el marco viaja entero dentro
+              del escenario que se pone a pantalla completa, así que aquí también
+              se ve ahí. Sin intervalo no se pinta nada y la pantalla queda como
+              estaba. */}
           <PlayerSkipButton skip={props.skip} onSaltar={saltar} />
 
           {/* La tarjeta del siguiente también dentro del marco: al terminar el
-              capítulo, la decisión está donde se mira y no en el pie de la
-              página, que a 1366×768 ya no se ve. */}
+              capítulo, la decisión está donde se mira, sigue dentro de la
+              pantalla completa y no se queda en el pie de la página, que a
+              1366×768 ya no se ve. */}
           {props.nextCard}
         </PlayerFrame>
 

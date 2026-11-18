@@ -324,6 +324,58 @@ test.describe('el reproductor', () => {
   })
 
   /**
+   * Los mandos, dentro de la pantalla completa.
+   *
+   * El navegador pinta **sólo** el elemento que se pone a pantalla completa: todo
+   * lo que quede fuera de él desaparece. Si el elemento es el marco del video, la
+   * barra y su fila de botones se van con ella, y no queda forma de pausar,
+   * saltar ni —lo peor— volver. Se mide lo que se ve y se pulsa, no que el
+   * atributo esté puesto.
+   */
+  test('en pantalla completa siguen los mandos y el botón de salir', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    await expect(page.locator('video')).toHaveAttribute('src', /\/stream\//, { timeout: 10_000 })
+
+    await page.getByRole('button', { name: 'Pantalla completa' }).click()
+    await expect
+      .poll(async () => await page.evaluate(() => document.fullscreenElement !== null))
+      .toBe(true)
+
+    // La caja que se lleva la pantalla es el escenario, que contiene el marco
+    // **y** los mandos. El dibujo y el reparto son los del modo extendido: el
+    // video se queda el alto que sobra y los mandos se apoyan en el borde.
+    expect(
+      await page.evaluate(() => document.fullscreenElement?.classList.contains('player__stage')),
+      'el escenario es el elemento a pantalla completa',
+    ).toBe(true)
+    expect(
+      await page.evaluate(
+        () => document.fullscreenElement?.querySelector('.player__controls') !== null,
+      ),
+      'los mandos van dentro del elemento a pantalla completa',
+    ).toBe(true)
+
+    // Lo que se ve y se puede usar: la barra, los saltos, el volumen, los
+    // ajustes y la salida. El mando de salir es el que impide quedarse encerrado
+    // sin `Esc` —o en un teléfono, donde `Esc` no existe—.
+    await expect(page.locator('.player__seek .player__range')).toBeVisible()
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Retroceder 10 segundos' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Adelantar 10 segundos' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Silenciar' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Ajustes' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Salir de pantalla completa' })).toBeVisible()
+
+    // Y el mando de salir hace su trabajo desde dentro.
+    await page.getByRole('button', { name: 'Salir de pantalla completa' }).click()
+    await expect
+      .poll(async () => await page.evaluate(() => document.fullscreenElement !== null))
+      .toBe(false)
+  })
+
+  /**
    * Los mandos se esconden solos mientras reproduce.
    *
    * Tres segundos sin tocar nada y la banda desaparece: encima del video es

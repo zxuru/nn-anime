@@ -737,21 +737,29 @@
 }
 
 /*
- * El marco, a pantalla completa.
+ * El escenario, a pantalla completa.
  *
- * La pantalla completa se pide sobre el marco y no sobre el `<video>`: el botón
- * de saltar vive dentro del marco, y una pantalla completa sobre el elemento de
- * video lo dejaría fuera de la imagen —justo donde hace más falta—. Aquí se
- * estira el marco a la pantalla y el video se ajusta sin deformarse; el fondo
- * del tema rellena las franjas que dejen las proporciones.
+ * La pantalla completa se pide sobre el escenario y no sobre el marco del video:
+ * el navegador pinta **sólo** el elemento que la ocupa, así que la banda de
+ * mandos —que es su hermana— desaparecía con la barra, el volumen, los ajustes y
+ * el botón de salir. En el escenario caben el video, sus capas, el botón de
+ * saltar, la tarjeta del siguiente y los mandos.
+ *
+ * El reparto es el del modo extendido: el marco se lleva el alto que sobra y los
+ * mandos se apoyan en el borde inferior. El fondo del tema rellena las franjas
+ * que dejen las proporciones.
  */
-.player__frame:fullscreen {
+.player__stage:fullscreen {
   display: flex;
-  align-items: center;
-  justify-content: center;
   inline-size: 100%;
   block-size: 100%;
+  flex-direction: column;
   background: var(--color-bg);
+}
+
+.player__stage:fullscreen .player__frame {
+  flex: 1 1 auto;
+  min-block-size: 0;
 }
 
 /*
@@ -865,14 +873,16 @@
 }
 
 /*
- * El video dentro del marco a pantalla completa.
+ * El video dentro del escenario a pantalla completa.
  *
- * Es la otra mitad del bloque de arriba: el marco ocupa la pantalla y el video se
- * estira a su caja sin deformarse. Va **después** de la regla base del video para
- * que el orden del archivo no deje una especificidad descendente que el lint
- * marca —y que en la práctica impediría que este ajuste ganara—.
+ * Es la otra mitad del bloque de arriba: el escenario ocupa la pantalla y el
+ * video se estira a su caja sin deformarse. Va **después** de la regla base del
+ * video para que el orden del archivo no deje una especificidad descendente que
+ * el lint marca —y que en la práctica impediría que este ajuste ganara—. El
+ * lienzo del modo compatible no necesita regla propia: ya es absoluto y cubre la
+ * caja del marco.
  */
-.player__frame:fullscreen .player__video {
+.player__stage:fullscreen .player__video {
   inline-size: 100%;
   block-size: 100%;
   aspect-ratio: auto;

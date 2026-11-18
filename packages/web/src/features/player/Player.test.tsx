@@ -309,7 +309,7 @@ describe('los saltos', () => {
     expect(html).toContain('player__skip')
     expect(html).toContain('Saltar intro')
     expect(html).toContain('aria-keyshortcuts="S"')
-    // Dentro del marco, que es lo que se pone a pantalla completa.
+    // Dentro del marco, que viaja entero dentro del escenario a pantalla completa.
     expect(html.indexOf('player__frame')).toBeLessThan(html.indexOf('player__skip'))
 
     expect(render(<Player url="/stream/abc" kind="file" />)).not.toContain('player__skip')
@@ -334,17 +334,21 @@ describe('los saltos', () => {
   })
 
   /**
-   * La pantalla completa se pide sobre el marco.
+   * La pantalla completa se pide sobre el escenario.
    *
-   * Lo mide el e2e —el botón se ve y salta dentro de la pantalla completa—, y
-   * aquí se sujeta el contrato: `usePlayer` acepta el objetivo y `Player` le pasa
-   * el marco, no el video.
+   * El navegador no pinta nada que quede fuera del elemento a pantalla completa,
+   * y los mandos son hermanos del marco: pedirla sobre el video o sobre el marco
+   * los deja fuera, con la barra, los saltos y el botón de salir. Lo mide el e2e
+   * —los mandos visibles y pulsables dentro de la pantalla completa—, y aquí se
+   * sujeta el contrato: `usePlayer` acepta el objetivo y `Player` le pasa el
+   * escenario.
    */
-  test('la pantalla completa se pide sobre el marco, no sobre el `<video>`', async () => {
+  test('la pantalla completa se pide sobre el escenario, no sobre el `<video>`', async () => {
     const fuente = await readFile(`${ROOT}Player.tsx`, 'utf8')
 
     expect(fuente).toContain('fullscreenTarget: objetivoPantalla')
-    expect(fuente).toContain('const objetivoPantalla = useCallback(() => marco.current, [])')
+    expect(fuente).toContain('const objetivoPantalla = useCallback(() => escenario.current, [])')
+    expect(fuente).toContain('ref={escenario}')
   })
 })
 

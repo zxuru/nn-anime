@@ -84,9 +84,9 @@ function useAnchoHasta(ancho: number): boolean {
  *
  * La ventana no sirve: la lista de episodios se lleva 320–352 px, así que dos
  * ventanas del mismo ancho pueden dejar columnas muy distintas. Se observa el
- * marco que ya existe —el mismo que se pone a pantalla completa— y se cae a la
- * ventana sólo hasta la primera medida, que es antes de que el video tenga
- * imagen.
+ * marco que ya existe —el mismo que mide la imagen y viaja dentro del escenario
+ * a pantalla completa— y se cae a la ventana sólo hasta la primera medida, que
+ * es antes de que el video tenga imagen.
  */
 function useAnchoDelMarco(marco: RefObject<HTMLElement | null> | undefined): number {
   const [ancho, setAncho] = useState(0)

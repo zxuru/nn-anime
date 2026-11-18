@@ -3,7 +3,7 @@
  *
  * Va en una pieza propia y no en la fila de mandos por dos razones: los mandos se
  * esconden solos mientras reproduce —y el botón es justo lo que se busca
- * entonces— y el marco es lo que se pone a pantalla completa, así que el botón
+ * entonces— y vive dentro del escenario que se pone a pantalla completa, así que
  * también se ve ahí.
  *
  * No decide nada: la pantalla sabe qué intervalo está activo y a dónde lleva, y
