@@ -122,7 +122,11 @@ export class PartyStore {
   readonly #random: (size: number) => Uint8Array
 
   constructor(options: PartyStoreOptions = {}) {
-    this.#now = options.now ?? (() => performance.now())
+    // Enteros y no `performance.now()` a secas: el reloj del coordinador es
+    // monotónico y sus marcas viajan en el contrato (`expiresAt`, `atMs`, `t1`,
+    // `t2`), que exige enteros. Con decimales, el cliente rechazaba la sala
+    // recién creada y el invitado no llegaba a sincronizar.
+    this.#now = options.now ?? (() => Math.floor(performance.now()))
     this.#ttlMs = options.ttlMs ?? PARTY_DEFAULT_TTL_MS
     this.#maxRooms = options.maxRooms ?? PARTY_MAX_ROOMS
     this.#random = options.random ?? ((size) => new Uint8Array(randomBytes(size)))

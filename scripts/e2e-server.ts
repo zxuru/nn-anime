@@ -336,6 +336,13 @@ const servidor = Bun.spawn(
       // duración, y el arnés no puede depender de un tercero. Las pruebas de los
       // saltos interceptan la respuesta en el navegador; esto cierra la otra mitad.
       RONA_ANISKIP_OFFLINE: '1',
+      // La sala de visionado, encendida: sin esto `/api/health` dice
+      // `party: false` y la pantalla de reproducción no pinta «Ver juntos», que
+      // es justo el mando que la prueba de dos clientes necesita. No cambia el
+      // resto del arnés: las rutas viven en memoria y ninguna prueba existente
+      // las usa; la única diferencia es un botón más en el encabezado del
+      // reproductor.
+      RONA_PARTY: '1',
       RONA_E2E_MEDIA: `http://127.0.0.1:${puertoMedios}/tono.wav`,
       // La interfaz que se sirve es la del e2e —con el hls falso—, no la que
       // `packages/web/dist` guarda para la aplicación de verdad. El CLI le da
