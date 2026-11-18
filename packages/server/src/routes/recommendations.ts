@@ -266,19 +266,14 @@ export function registerRecommendationsRoute(
           const suyos = (lista: readonly SearchResult[]): readonly SearchResult[] =>
             lista.filter((resultado) => pasaElFiltroDeMedia(pedido.media, media, resultado.kind))
 
-          const cacheado = await options.container.store.readTrending(provider.id)
-          if (cacheado !== null) return suyos(cacheado.value)
-
           try {
-            const tendencias = provider.getTrending
-            if (tendencias === undefined) return []
+            // El mismo camino que `/api/trending`: respeta `stale`, revalida por
+            // detrás y comparte el «en vuelo» con la otra fila. Leer la caché a
+            // mano servía tendencias vencidas y duplicaba llamadas.
+            const resultado = await options.container.getTrending(provider, callOptions)
+            if (!resultado.ok) return []
 
-            const lista = await tendencias.call(provider, callOptions)
-            // A la caché va la lista entera: el reparto por mitades es de quien
-            // lee, y guardar sólo una mitad dejaría la otra sin datos.
-            await options.container.store.writeTrending(provider.id, lista)
-
-            return suyos(lista)
+            return suyos(resultado.value.value)
           } catch {
             // Un proveedor que no responde a tendencias no puede tumbar la lista:
             // lo local sigue estando.

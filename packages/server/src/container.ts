@@ -119,7 +119,20 @@ export interface EpisodesPageOutcome extends CacheOutcome<StoredEpisodePage> {
 
 /** Clave de caché de una búsqueda: el proveedor y la consulta normalizada. */
 export function searchKey(providerId: string, query: string): string {
-  return `${providerId}#${normalizeQuery(query)}`
+  // El prefijo no es cosmético: el revalidador deduplica por clave sola, y sin
+  // él una búsqueda y un anime con la misma cadena compartían entrada.
+  return `search#${providerId}#${normalizeQuery(query)}`
+}
+
+/**
+ * La señal del revalidador, sumada a la de la petición.
+ *
+ * Un refresco de fondo no debe morir porque la pestaña que lo originó se fue;
+ * pero sí debe morir cuando se cierra el servidor. `AbortSignal.any` conserva
+ * las dos condiciones.
+ */
+function conSenal(options: CallOptions, signal: AbortSignal): CallOptions {
+  return { ...options, signal: AbortSignal.any([options.signal, signal]) }
 }
 
 export interface ServerContainer {
@@ -343,7 +356,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     ref: ProviderRef,
     callOptions: CallOptions,
   ): Promise<Result<CacheOutcome<AnimeDetail>, ProviderError>> => {
-    const clave = `${provider.id}#${ref.value}`
+    const clave = `anime#${provider.id}#${ref.value}`
 
     try {
       const outcome = await readThrough<AnimeDetail>({
@@ -351,8 +364,8 @@ export function createContainer(options: ContainerOptions): ServerContainer {
         resource: 'anime',
         revalidator,
         read: () => store.readAnime(ref),
-        fetch: async () => {
-          const resultado = await fetchAnime(provider, ref, callOptions)
+        fetch: async (signal) => {
+          const resultado = await fetchAnime(provider, ref, conSenal(callOptions, signal))
           if (!resultado.ok) throw resultado.error
 
           return resultado.value
@@ -397,7 +410,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     ref: ProviderRef,
     callOptions: CallOptions,
   ): Promise<Result<CacheOutcome<readonly Episode[]>, ProviderError>> => {
-    const clave = `${provider.id}#${ref.value}`
+    const clave = `episodes#${provider.id}#${ref.value}`
 
     const titulo = await ensureAnime(provider, ref, callOptions)
     if (!titulo.ok) return titulo
@@ -408,8 +421,8 @@ export function createContainer(options: ContainerOptions): ServerContainer {
         resource: 'episodes',
         revalidator,
         read: () => store.readEpisodes(ref),
-        fetch: async () => {
-          const resultado = await fetchEpisodes(provider, ref, callOptions)
+        fetch: async (signal) => {
+          const resultado = await fetchEpisodes(provider, ref, conSenal(callOptions, signal))
           if (!resultado.ok) throw resultado.error
 
           return resultado.value
@@ -621,8 +634,8 @@ export function createContainer(options: ContainerOptions): ServerContainer {
         resource: 'feed',
         revalidator,
         read: () => store.readFeed(provider.id),
-        fetch: async () => {
-          const resultado = await fetchFeed(provider, callOptions)
+        fetch: async (signal) => {
+          const resultado = await fetchFeed(provider, conSenal(callOptions, signal))
           if (!resultado.ok) throw resultado.error
 
           // El recorte va antes de escribir: lo que no se cachea no se sirve.
@@ -654,8 +667,8 @@ export function createContainer(options: ContainerOptions): ServerContainer {
         resource: 'trending',
         revalidator,
         read: () => store.readTrending(provider.id),
-        fetch: async () => {
-          const resultado = await fetchTrending(provider, callOptions)
+        fetch: async (signal) => {
+          const resultado = await fetchTrending(provider, conSenal(callOptions, signal))
           if (!resultado.ok) throw resultado.error
 
           return resultado.value
@@ -701,8 +714,8 @@ export function createContainer(options: ContainerOptions): ServerContainer {
           resource,
           revalidator,
           read: () => store.readSearch(provider.id, query),
-          fetch: async () => {
-            const resultado = await searchProvider(provider, query, callOptions)
+          fetch: async (signal) => {
+            const resultado = await searchProvider(provider, query, conSenal(callOptions, signal))
             if (!resultado.ok) throw resultado.error
 
             return resultado.value

@@ -33,6 +33,8 @@ function opciones(
     revalidator?: ReturnType<typeof createRevalidator>
     onError?: (key: string, message: string) => void
     onSuccess?: (key: string) => void
+    onFetch?: (signal: AbortSignal) => void
+    espera?: boolean
   } = {},
 ) {
   const revalidator = options.revalidator ?? createRevalidator({ concurrency: 1 })
@@ -55,9 +57,21 @@ function opciones(
       resource: 'search' as const,
       revalidator,
       read: leer,
-      fetch: async (): Promise<number> => {
+      fetch: async (signal: AbortSignal): Promise<number> => {
+        options.onFetch?.(signal)
         state.peticiones += 1
         if (options.falla === true) throw new Error('el proveedor no responde')
+
+        if (options.espera === true) {
+          await new Promise<never>((_, rechazar) => {
+            if (signal.aborted) {
+              rechazar(signal.reason)
+              return
+            }
+
+            signal.addEventListener('abort', () => rechazar(signal.reason), { once: true })
+          })
+        }
 
         return options.value ?? 42
       },
@@ -73,6 +87,28 @@ function opciones(
 }
 
 describe('lectura con caché', () => {
+  test('el refresco de fondo recibe la señal del revalidador', async () => {
+    const state = estado()
+    const senales: AbortSignal[] = []
+    const { options, revalidator } = opciones(state, {
+      now: () => 1_000,
+      onFetch: (signal) => senales.push(signal),
+      espera: true,
+    })
+
+    state.stored = 1
+    state.fetchedAt = 0
+    state.ttlS = 1
+
+    const salida = await readThrough(options)
+    expect(salida.source).toBe('stale')
+
+    while (senales.length === 0) await Bun.sleep(1)
+
+    await revalidator.close()
+    expect(senales[0]?.aborted).toBe(true)
+  })
+
   test('sin fila: MISS, pide al proveedor y escribe', async () => {
     const state = estado()
     const { options, revalidator } = opciones(state)
