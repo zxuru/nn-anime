@@ -24,6 +24,9 @@ Todo task cierra este listón antes de darse por terminado:
 - [ ] `bun run typecheck` sin errores en todos los paquetes.
 - [ ] `bun run lint` sin errores ni advertencias nuevas.
 - [ ] `bun test` verde en los paquetes tocados, con los tests nuevos incluidos.
+- [ ] `bun run coverage:gate` cumple los umbrales (o `--lcov` sobre una medición fresca).
+- [ ] `bun run e2e` verde cuando el task toca la interfaz.
+- [ ] `bun run scripts/migraciones.ts` verde cuando el task toca el esquema.
 - [ ] Criterios de aceptación del task marcados y verificados a mano.
 - [ ] Sin `any` implícito, sin `@ts-ignore`, sin `as` para silenciar, sin tests saltados.
 - [ ] Ninguna dependencia nueva fuera de la tabla de Tech Stack del spec.
