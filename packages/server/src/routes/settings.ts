@@ -31,6 +31,7 @@ import type { Hono } from 'hono'
 import { z } from 'zod'
 import type { ServerContainer } from '../container'
 import type { PluginReport } from './providers'
+import { briefError } from './providers'
 
 /** Clave del tema en la tabla de ajustes. */
 export const THEME_KEY = 'theme'
@@ -158,23 +159,33 @@ export function registerSettingsRoute(app: Hono, options: SettingsRouteOptions):
     const discordPresence = await discordPresenceOf(options.container.store)
     const tmdbConfigured = (await tmdbKeyOf(options.container.store)) !== undefined
 
-    const activos = options.plugins.active.map((entrada) => ({
-      id: entrada.provider.id,
-      name: entrada.provider.name,
-      capabilities: entrada.provider.capabilities,
-      status: 'active' as const,
-    }))
+    const activos = options.plugins.active.map((entrada) => {
+      const lastError = entrada.lastError === undefined ? '' : briefError(entrada.lastError.message)
 
-    const rechazados = options.plugins.rejected.map((entrada) => ({
-      id: entrada.file,
-      name: entrada.file,
-      // Un rechazado no tiene capacidades: no llegó a cargarse. Se declaran todas
-      // en falso en vez de inventarse las que diría su manifiesto, que no se leyó.
-      capabilities: { search: false, sub: false, dub: false, trending: false },
-      status: 'rejected' as const,
-      // El rechazo trae un objeto con el mensaje; se enseña el texto, no el objeto.
-      reason: entrada.reason.message,
-    }))
+      return {
+        id: entrada.provider.id,
+        name: entrada.provider.name,
+        capabilities: entrada.provider.capabilities,
+        status: 'active' as const,
+        ...(lastError === '' ? {} : { lastError }),
+      }
+    })
+
+    const rechazados = options.plugins.rejected.map((entrada) => {
+      const lastError = briefError(entrada.reason.message)
+
+      return {
+        id: entrada.file,
+        name: entrada.file,
+        // Un rechazado no tiene capacidades: no llegó a cargarse. Se declaran todas
+        // en falso en vez de inventarse las que diría su manifiesto, que no se leyó.
+        capabilities: { search: false, sub: false, dub: false, trending: false },
+        status: 'rejected' as const,
+        // El rechazo trae un objeto con el mensaje; se enseña el texto, no el objeto.
+        reason: entrada.reason.message,
+        ...(lastError === '' ? {} : { lastError }),
+      }
+    })
 
     // Esta respuesta lleva las rutas del disco del usuario: no se cachea. En
     // loopback no hay caché compartida, pero el navegador guarda en disco una

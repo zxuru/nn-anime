@@ -61,7 +61,33 @@ export const providerSummarySchema = z.strictObject({
   status: providerStatusSchema,
   /** Motivo del rechazo, sólo cuando no cargó. */
   reason: z.string().min(1).optional(),
+  /**
+   * El último error de carga, corto y sin rutas absolutas.
+   *
+   * `reason` conserva el mensaje entero —lo necesita quien depura un plugin—,
+   * pero la fila de Ajustes enseña una versión breve: la ruta del disco de quien
+   * escribe el plugin no le dice nada a quien sólo quiere saber por qué no
+   * aparece en la búsqueda.
+   */
+  lastError: z.string().min(1).optional(),
 })
+
+/**
+ * El resultado de probar un proveedor desde Ajustes.
+ *
+ * `error` sólo existe cuando `ok` es falso: un resultado coherente no puede
+ * decir que fue bien y traer un fallo a la vez. Se comprueba en el schema porque
+ * la interfaz decide qué pinta mirando esos dos campos.
+ */
+export const providerProbeResponseSchema = z
+  .strictObject({
+    ok: z.boolean(),
+    latencyMs: z.number().int().nonnegative(),
+    error: z.string().min(1).optional(),
+  })
+  .refine((resultado) => resultado.ok === (resultado.error === undefined), {
+    message: 'ok y error no pueden contradecirse',
+  })
 
 /** Un rechazo, en una línea que la interfaz pueda mostrar. */
 export const errorResponseSchema = z.strictObject({
@@ -973,16 +999,7 @@ export const settingsResponseSchema = z.strictObject({
     available: z.boolean(),
     version: z.string().optional(),
   }),
-  providers: z.array(
-    z.strictObject({
-      id: z.string().min(1),
-      name: z.string().min(1),
-      capabilities: providerCapabilitiesSchema,
-      status: z.enum(['active', 'rejected']),
-      /** Por qué se rechazó, si se rechazó. */
-      reason: z.string().optional(),
-    }),
-  ),
+  providers: z.array(providerSummarySchema),
   /**
    * La fuente de metadatos de no-anime, si está configurada.
    *
@@ -1196,6 +1213,7 @@ export type WatchedEpisodePayload = z.infer<typeof watchedEpisodeSchema>
 export type WatchedResponse = z.infer<typeof watchedResponseSchema>
 export type ProviderStatus = z.infer<typeof providerStatusSchema>
 export type ProviderSummary = z.infer<typeof providerSummarySchema>
+export type ProviderProbeResponse = z.infer<typeof providerProbeResponseSchema>
 export type HealthResponse = z.infer<typeof healthResponseSchema>
 export type ProvidersResponse = z.infer<typeof providersResponseSchema>
 export type ProviderDraft = z.infer<typeof providerDraftSchema>
