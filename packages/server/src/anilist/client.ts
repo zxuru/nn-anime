@@ -10,11 +10,14 @@
  *    **dentro** de `fetchAllowed`, en cada salto, para que una redirección no la
  *    esquive: la comprobación de destinos de siempre deja pasar cualquier host
  *    público, y el host de aquí lo elige este archivo, no el usuario.
- * 2. **Presupuesto de peticiones.** Las peticiones salen en fila india y con un
- *    intervalo mínimo entre ellas. AniList limita a 30 por minuto —hoy degradado—
- *    y su propio aviso habla de un limitador de ráfagas: una cada dos segundos
- *    cabe en los dos. Un 429 se obedece leyendo `Retry-After`, y no se reintenta
- *    más de una vez: insistir es lo que convierte una espera en un bloqueo.
+ * 2. **Presupuesto de peticiones.** AniList limita a 90 por minuto —hoy degradado
+ *    a 30—, así que el ritmo sostenido es una cada dos segundos: entra en el peor
+ *    de los dos casos y su propio limitador admite ráfagas. La primera carga no
+ *    puede esperar y por eso hay una **ráfaga de tres** —las tres filas de la
+ *    home—: salen sin esperar y cada crédito se repone a una cada dos segundos,
+ *    con lo que no hay más de tres salidas sin turno y un cuarto espera el suyo.
+ *    Un 429 se obedece leyendo `Retry-After`, y no se reintenta más de una vez:
+ *    insistir es lo que convierte una espera en un bloqueo.
  * 3. **Tiempo límite y validación.** Cada consulta tiene plazo, y la respuesta se
  *    valida con un schema **de quien llama**: un campo de menos es un error, no un
  *    dato a medias.
@@ -38,14 +41,30 @@ export const ANILIST_HOSTS: readonly string[] = [ANILIST_API_HOST, ...ANILIST_IM
 export const ANILIST_ENDPOINT = `https://${ANILIST_API_HOST}`
 
 /**
- * Cuánto se espera entre dos peticiones.
+ * Cuánto tarda en reponerse un crédito de la ráfaga.
  *
  * El límite publicado es 90 al minuto, hoy degradado a 30, así que una cada dos
- * segundos entra en el peor de los dos casos con el margen que necesita el
- * limitador de ráfagas. Es un presupuesto, no una optimización: la caché hace que
- * en régimen normal no haya ni una petición por carga de la home.
+ * segundos es el ritmo sostenido que entra en el peor de los dos casos con el
+ * margen que necesita su limitador de ráfagas. Es un presupuesto, no una
+ * optimización: la caché hace que en régimen normal no haya ni una petición por
+ * carga de la home.
  */
 export const ANILIST_MIN_INTERVAL_MS = 2000
+/**
+ * Las peticiones que pueden salir a la vez al empezar.
+ *
+ * Tres es lo que pide la home de golpe —top, parrilla y novedades— y el mayor
+ * número que no cambia el presupuesto: la ráfaga se gasta **una vez** y cada
+ * crédito tarda dos segundos en volver, así que el ritmo sostenido sigue siendo
+ * 30 al minuto. El primer minuto puede llevar 33 —las tres de la ráfaga y las
+ * treinta del ritmo—, que es la ráfaga que admite el limitador de AniList y
+ * queda muy por debajo de sus 90 publicados; a partir del segundo minuto la
+ * cuenta es la del modo degradado. Sin la ráfaga esas tres filas se turnan y la
+ * primera carga pasa de cuatro segundos; con cuatro o más, deja de ser una
+ * primera carga y se convierte en un paralelismo que el ritmo sostenido no
+ * justifica.
+ */
+export const ANILIST_BURST = 3
 /** Lo que se espera a AniList antes de dar la consulta por perdida. */
 export const ANILIST_TIMEOUT_MS = 10_000
 /** Tope del cuerpo de una respuesta. La consulta más grande no llega a tanto. */
@@ -122,6 +141,11 @@ export interface AniListClientOptions {
   /** La espera inyectable, por el mismo motivo. */
   readonly sleep?: ((ms: number, signal?: AbortSignal) => Promise<void>) | undefined
   readonly minIntervalMs?: number | undefined
+  /**
+   * Las peticiones que pueden salir a la vez al empezar. `1` deja el turno de
+   * siempre; ver `ANILIST_BURST`.
+   */
+  readonly burst?: number | undefined
   readonly timeoutMs?: number | undefined
 }
 
@@ -215,11 +239,20 @@ export function createAniListClient(options: AniListClientOptions = {}): AniList
   const dormir = options.sleep ?? realSleep
   const intervalo = options.minIntervalMs ?? ANILIST_MIN_INTERVAL_MS
   const plazo = options.timeoutMs ?? ANILIST_TIMEOUT_MS
+  // Una ráfaga de una petición es el turno de siempre y nunca se apaga del todo:
+  // con cero créditos, la primera consulta esperaría un intervalo que no toca.
+  const capacidad = Math.max(1, Math.floor(options.burst ?? ANILIST_BURST))
 
-  let ultima = Number.NEGATIVE_INFINITY
   let salidas = 0
-  // La fila india: una petición no empieza hasta que la anterior terminó. Es lo
-  // que convierte el intervalo en un presupuesto y no en una carrera.
+  // El cupo de la ráfaga: se empieza con todos los créditos y cada petición gasta
+  // uno; el tiempo repone uno cada intervalo. Con capacidad 3, tres consultas
+  // simultáneas salen a la vez y la cuarta espera dos segundos como mucho.
+  let creditos = capacidad
+  let ultimaRecarga = ahora()
+
+  // Las reservas van en fila: cada una decide su espera con la anterior ya
+  // contada. Lo que **no** va aquí dentro es la petición HTTP, y eso es lo que
+  // deja volar la ráfaga sin que dos consultas se pisen el turno.
   let cola: Promise<unknown> = Promise.resolve()
 
   const enTurno = <T>(tarea: () => Promise<T>): Promise<T> => {
@@ -234,11 +267,29 @@ export function createAniListClient(options: AniListClientOptions = {}): AniList
     return resultado
   }
 
-  const espaciar = async (signal: AbortSignal): Promise<void> => {
-    const espera = ultima + intervalo - ahora()
-    if (espera > 0) await dormir(espera, signal)
+  /**
+   * La espera hasta que toque salir, con el crédito ya descontado.
+   *
+   * Es la única parte serial: sin crédito se espera lo que falta para el
+   * siguiente —con el mismo reloj que el presupuesto— y el cupo queda a cero. Al
+   * despertar, el turno sigue siendo suyo porque nadie más ha podido reservar.
+   */
+  const reservar = async (signal: AbortSignal): Promise<void> => {
+    const momento = ahora()
+    const transcurrido = momento - ultimaRecarga
+    if (transcurrido > 0) {
+      creditos = Math.min(capacidad, creditos + transcurrido / intervalo)
+      ultimaRecarga = momento
+    }
 
-    ultima = ahora()
+    if (creditos < 1) {
+      await dormir((1 - creditos) * intervalo, signal)
+      creditos = 0
+      ultimaRecarga = ahora()
+    } else {
+      creditos -= 1
+    }
+
     salidas += 1
   }
 
@@ -255,7 +306,9 @@ export function createAniListClient(options: AniListClientOptions = {}): AniList
     const plazoId = setTimeout(() => control.abort(new Error('plazo agotado')), plazo)
 
     try {
-      await espaciar(signal)
+      // El turno sólo cubre la espera; el HTTP va fuera para que la ráfaga vuele
+      // a la vez.
+      await enTurno(() => reservar(signal))
 
       const response = await fetchAllowed({
         url: ANILIST_ENDPOINT,
@@ -375,7 +428,9 @@ export function createAniListClient(options: AniListClientOptions = {}): AniList
         })
       }
 
-      return enTurno(() => enviar(request, undefined))
+      // El turno lo toma `enviar` al reservar: envolverlo aquí otra vez sería
+      // esperarse a sí mismo.
+      return enviar(request, undefined)
     },
 
     calls(): number {
