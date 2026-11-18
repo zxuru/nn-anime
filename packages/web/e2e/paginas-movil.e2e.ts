@@ -127,9 +127,11 @@ test.describe('el perfil en el móvil', () => {
       await expect(page.getByRole('heading', { level: 2, name: seccion })).toBeVisible()
     }
 
-    // Cuatro secciones, cada una con tarjetas o con su tarjeta de vacío: la
-    // pasada del e2e comparte base y no se puede exigir que estén vacías.
-    await expect(page.locator('.perfil .pagina__seccion')).toHaveCount(4)
+    // Las cuatro listas, cada una con tarjetas o con su tarjeta de vacío: la
+    // pasada del e2e comparte base y no se puede exigir que estén vacías. El
+    // Perfil lleva además la puerta a la encuesta de gustos, así que no se fija
+    // el total de secciones: las cuatro de siempre tienen que estar.
+    expect(await page.locator('.perfil .pagina__seccion').count()).toBeGreaterThanOrEqual(4)
     await expect(
       page.locator('.perfil .pagina__seccion .pz, .perfil .estado-vacio').first(),
     ).toBeVisible()
