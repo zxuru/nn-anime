@@ -1193,6 +1193,8 @@ export const messages: Messages = {
   'party.panel.roster': 'En la sala',
   'party.panel.leave': 'Salir de la sala',
   'party.panel.closeRoom': 'Cerrar la sala',
+  'party.roster.host': 'Anfitrión',
+  'party.roster.you': 'tú',
   'party.roster.ready': 'listo',
   'party.roster.buffering': 'almacenando',
   'party.roster.waiting': 'conectando',

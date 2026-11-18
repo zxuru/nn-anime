@@ -2326,7 +2326,8 @@ details[open] > .library__settings-summary .library__settings-flecha {
   margin: 0;
 }
 
-.party-bar__drift {
+.party-bar__drift,
+.party-bar__connection {
   color: var(--color-text-dim);
   font-family: var(--font-mono);
   font-size: var(--text-xs);

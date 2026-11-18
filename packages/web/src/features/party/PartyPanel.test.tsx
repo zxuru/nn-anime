@@ -41,6 +41,14 @@ function render(party: PartyHandle, canHost = true, initialTab?: 'crear' | 'unir
   )
 }
 
+/** Una sala válida para las pruebas: el código se pinta en grupos de cuatro. */
+const sala = {
+  roomId: 'sala-1',
+  code: 'ABCDEFGHIJKLMNOP',
+  expiresAt: 1000,
+  urls: ['http://192.168.1.5:7717', 'http://192.168.1.5:7717/'],
+}
+
 describe('el panel en reposo', () => {
   test('es un diálogo con las dos puertas: crear y unirse', () => {
     const html = render(mano())
@@ -103,13 +111,6 @@ describe('el panel con un fallo', () => {
 })
 
 describe('el panel con la sala abierta', () => {
-  const sala = {
-    roomId: 'sala-1',
-    code: 'ABCDEFGHIJKLMNOP',
-    expiresAt: 1000,
-    urls: ['http://192.168.1.5:7717', 'http://192.168.1.5:7717/'],
-  }
-
   test('enseña el código en grupos de cuatro y el roster con su estado', () => {
     const html = render(
       mano({
@@ -150,5 +151,35 @@ describe('el panel con la sala abierta', () => {
     )
 
     expect(html).toContain('No se pudieron leer las direcciones')
+  })
+})
+
+describe('el anfitrión en el roster', () => {
+  const invitado = { id: 'ana', name: 'Ana', ready: true, buffering: false }
+
+  test('su propia sesión lo pinta el primero, con la marca de tú', () => {
+    const html = render(
+      mano({ phase: 'host', room: sala, connection: 'connected', roster: [invitado] }),
+    )
+
+    expect(html).toContain('Anfitrión')
+    expect(html).toContain('tú')
+    // La fila fija encabeza la lista: quien manda no es un invitado más.
+    expect(html.indexOf('Anfitrión')).toBeLessThan(html.indexOf('Ana'))
+  })
+
+  test('la sesión del invitado no se inventa una fila que el servidor no manda', () => {
+    const html = render(
+      mano({
+        phase: 'guest',
+        room: { ...sala, urls: [] },
+        connection: 'connected',
+        roster: [invitado],
+      }),
+    )
+
+    expect(html).toContain('Ana')
+    expect(html).not.toContain('Anfitrión')
+    expect(html).not.toContain('data-host')
   })
 })

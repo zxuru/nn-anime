@@ -163,6 +163,20 @@ export function PartyPanel(props: PartyPanelProps): ReactNode {
           <div className="party-panel__roster">
             <p className="party-panel__label">{t(LOCALE, 'party.panel.roster')}</p>
             <ul className="party-panel__roster-list">
+              {/* El roster del coordinador sólo da de alta a los invitados: el
+                  anfitrión no viaja en el protocolo y no se le puede pedir el
+                  nombre al servidor sin cambiarlo. En su propia pantalla se
+                  pinta fijo y primero, para que la lista se lea como la sala
+                  entera; en la del invitado no se inventa una fila que nadie
+                  ha mandado. */}
+              {esAnfitrion ? (
+                <li className="party-panel__roster-item" data-host="true">
+                  <span className="party-panel__roster-name">{t(LOCALE, 'party.roster.host')}</span>
+                  <span className="party-panel__badge" data-state="host">
+                    {t(LOCALE, 'party.roster.you')}
+                  </span>
+                </li>
+              ) : null}
               {party.roster.map((participante) => (
                 <li className="party-panel__roster-item" key={participante.id}>
                   <span className="party-panel__roster-name">{participante.name}</span>
