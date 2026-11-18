@@ -1179,6 +1179,59 @@ test.describe('el reproductor', () => {
     expect(metodos.filter((metodo) => metodo === 'DELETE')).toHaveLength(0)
     expect(metodos.filter((metodo) => metodo === 'PUT').length).toBeLessThanOrEqual(2)
   })
+
+  /**
+   * Pausar y saltar se mandan en el acto.
+   *
+   * Lo que se mide es la pestaña de red del reproductor: la pausa y la búsqueda
+   * son interacciones, y la foto a Discord no puede esperar al turno periódico
+   * —quince segundos— ni al de agrupado —cinco, con el intervalo fijo de antes—,
+   * que es lo que dejaba el perfil contando el episodio que ya se había pausado
+   * o dejado atrás. La espera es corta a propósito: no se mide «algún día», se
+   * mide que no espera.
+   */
+  test('la pausa y el salto se mandan a la presencia en el acto', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    const cuerpos: string[] = []
+    page.on('request', (solicitud) => {
+      if (new URL(solicitud.url()).pathname === '/api/presence' && solicitud.method() === 'PUT') {
+        cuerpos.push(solicitud.postData() ?? '')
+      }
+    })
+
+    await page.getByRole('button', { name: 'Silenciar' }).click()
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await page.waitForTimeout(2000)
+
+    const antesDePausar = cuerpos.length
+    await page.getByRole('button', { name: 'Pausar' }).click()
+
+    // Un segundo, no los cinco del intervalo de antes ni los quince del turno.
+    await page.waitForTimeout(1_000)
+    expect(cuerpos.slice(antesDePausar).some((cuerpo) => cuerpo.includes('"paused":true'))).toBe(
+      true,
+    )
+
+    await page.getByRole('button', { name: 'Reproducir' }).click()
+    await page.waitForTimeout(1_000)
+
+    const antesDeSaltar = cuerpos.length
+    await page.evaluate(() => {
+      const video = document.querySelector('video')
+      if (video !== null) video.currentTime = 45
+    })
+
+    await page.waitForTimeout(1_000)
+    const alSaltar = cuerpos.slice(antesDeSaltar)
+
+    // La búsqueda viaja con la posición de destino y no con la del último aviso
+    // del elemento: si viajara esa, Discord seguiría en el minuto viejo.
+    expect(alSaltar.some((cuerpo) => /"positionS":4[5-9]/.test(cuerpo))).toBe(true)
+  })
 })
 
 /**
