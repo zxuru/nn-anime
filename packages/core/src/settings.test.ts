@@ -139,6 +139,15 @@ describe('readSettings', () => {
     })
   })
 
+  test('el mensaje del tipo cambiado está en español', async () => {
+    await withFile('{"port": "8080"}', async (path) => {
+      const result = await readSettings(path)
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error.message).toContain('Entrada inválida')
+    })
+  })
+
   test('rechaza JSON inválido con un error de configuración, no con una excepción', async () => {
     await withFile('{esto no es json', async (path) => {
       const result = await readSettings(path)

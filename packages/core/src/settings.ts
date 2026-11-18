@@ -12,6 +12,7 @@
 
 import { stat } from 'node:fs/promises'
 import { z } from 'zod'
+import './zod-locale'
 import { AppError } from './errors'
 import { err, ok, type Result } from './result'
 
