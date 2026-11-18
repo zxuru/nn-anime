@@ -100,6 +100,8 @@ interface Banco {
   readonly requestImpl: RequestLike
   /** Lo que se le pidió a Node, en orden. */
   readonly pedidos: PinnedRequestOptions[]
+  /** Los cuerpos con los que se envió cada petición, en orden. */
+  readonly cuerpos: (string | undefined)[]
   /** Las direcciones que devolvió el `lookup`, en orden. */
   readonly direcciones: Direccion[][]
   /** El emisor de la última respuesta, para cortarla desde la prueba. */
@@ -123,6 +125,7 @@ interface Banco {
  */
 function banco(): Banco {
   const pedidos: PinnedRequestOptions[] = []
+  const cuerpos: (string | undefined)[] = []
   const direcciones: Direccion[][] = []
   let alFallar: ((causa: Error) => void) | undefined
   let alResponder: ((respuesta: UpstreamResponse) => void) | undefined
@@ -146,7 +149,8 @@ function banco(): Banco {
       destroy: () => {
         destruidas += 1
       },
-      end: () => {
+      end: (body) => {
+        cuerpos.push(body)
         opciones.lookup(opciones.host, { family: 0 }, (err, address) => {
           if (err !== null) {
             // Lo mismo que Node: un `lookup` que falla sale por el `error` de la
@@ -179,6 +183,7 @@ function banco(): Banco {
   return {
     requestImpl,
     pedidos,
+    cuerpos,
     direcciones,
     ultimoEmisor: () => emisor,
     destruidas: () => destruidas,
@@ -448,16 +453,29 @@ describe('lo que no hace', () => {
     expect(doble.pedidos).toEqual([])
   })
 
-  test('un cuerpo de petición no se pierde en silencio: se rechaza', async () => {
+  test('un cuerpo de texto llega a la conexión, como el JSON de AniList', async () => {
+    const doble = banco()
+    const promesa = createPinnedFetch({
+      resolver: async () => ['93.184.216.34'],
+      requestImpl: doble.requestImpl,
+    })('http://sitio.example/graphql', { method: 'POST', body: '{"query":"x"}' })
+
+    doble.responderCon(200, {}, ['{}'])
+    await promesa
+
+    expect(doble.cuerpos).toEqual(['{"query":"x"}'])
+  })
+
+  test('un cuerpo que no es texto se rechaza en vez de perderse', async () => {
     const doble = banco()
     const causa = await rechazoDe(
       createPinnedFetch({
         resolver: async () => ['93.184.216.34'],
         requestImpl: doble.requestImpl,
-      })('http://sitio.example/v.mp4', { method: 'POST', body: 'algo' }),
+      })('http://sitio.example/v.mp4', { method: 'POST', body: new Uint8Array([1]) }),
     )
 
-    expect(causa.message).toContain('cuerpo')
+    expect(causa.message).toContain('texto')
     expect(doble.pedidos).toEqual([])
   })
 

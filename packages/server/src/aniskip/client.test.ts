@@ -61,6 +61,17 @@ function cliente(respuesta: () => Response, timeoutMs?: number) {
 }
 
 describe('la petición', () => {
+  test('sin fetch inyectado, un DNS privado se corta antes de pedir', async () => {
+    const client = createAniSkipClient({
+      resolver: async () => ['127.0.0.1'],
+    })
+
+    const resultado = await client.fetch({ malId: 1, episode: 1, length: 1440 })
+
+    expect(resultado.ok).toBe(false)
+    expect(resultado.ok ? '' : resultado.error.message).toContain('loopback')
+  })
+
   test('va al host y a la ruta de AniSkip, con todos los tipos y la duración', async () => {
     const { client, peticiones } = cliente(() => Response.json(RESPUESTA))
 

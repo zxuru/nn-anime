@@ -3,9 +3,10 @@
  *
  * Sirve una pista por el proxy, como todo lo demás: el cliente nunca ve la
  * dirección del upstream. Aquí sí se lee el cuerpo entero, y es a propósito: hay
- * que convertirlo, y una conversión necesita el texto completo. Por eso el tope
- * de 5 MB se comprueba **antes** de leer nada: es lo único que impide que una
- * pista enorme se convierta en memoria.
+ * que convertirlo, y una conversión necesita el texto completo. El tope de 5 MB
+ * se comprueba con `content-length` cuando lo hay y, sobre todo, **mientras se
+ * lee**: un cuerpo sin talla declarada no puede materializarse antes de saber
+ * que pasa del tope.
  *
  * El `Content-Type` se fuerza siempre a `text/vtt` cuando la pista es `srt` o
  * `vtt`. Un `ass` se devuelve tal cual —mpv lo entiende y el navegador no— y
@@ -14,6 +15,7 @@
 
 import { AppError, errorResponseSchema } from '@rona/core'
 import {
+  createPinnedFetch,
   decodeSubtitle,
   extractFirstSubtitle,
   type FetchLike,
@@ -225,7 +227,11 @@ async function fetchTrack(
     const upstream = await fetchAllowed({
       url: contents.url,
       headers: { ...contents.headers, 'accept-encoding': 'identity' },
-      fetchImpl: options.fetchImpl ?? ((input: string, init: RequestInit) => fetch(input, init)),
+      fetchImpl:
+        options.fetchImpl ??
+        createPinnedFetch({
+          ...(options.resolver === undefined ? {} : { resolver: options.resolver }),
+        }),
       ...(options.resolver === undefined ? {} : { resolver: options.resolver }),
     })
 

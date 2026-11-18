@@ -33,7 +33,7 @@
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
 import { AppError, type GithubRepoLocation, MAX_REPO_PATH_LENGTH } from '@rona/core'
-import { type FetchLike, fetchAllowed, type Resolver } from '@rona/media-proxy'
+import { createPinnedFetch, type FetchLike, fetchAllowed, type Resolver } from '@rona/media-proxy'
 import { z } from 'zod'
 
 /** El host de la API. Es el que dice la rama por defecto y el árbol. */
@@ -493,7 +493,13 @@ export async function downloadGithubRepo(
 ): Promise<DownloadOutcome> {
   const limits: GithubLimits = { ...DEFAULT_LIMITS, ...options.limits }
   const context: FetchContext = {
-    fetchImpl: options.fetchImpl ?? ((input, init) => fetch(input, init)),
+    // Sin `fetch` inyectado, la conexión va a la dirección que se validó. El
+    // global volvía a resolver y dejaba abierta la ventana del DNS rebinding.
+    fetchImpl:
+      options.fetchImpl ??
+      createPinnedFetch({
+        ...(options.resolver === undefined ? {} : { resolver: options.resolver }),
+      }),
     resolver: options.resolver,
     signal: options.signal,
   }

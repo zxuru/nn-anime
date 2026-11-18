@@ -26,7 +26,7 @@
  */
 
 import { AppError } from '@rona/core'
-import { type FetchLike, fetchAllowed, type Resolver } from '@rona/media-proxy'
+import { createPinnedFetch, type FetchLike, fetchAllowed, type Resolver } from '@rona/media-proxy'
 import { aniskipResponseSchema } from './normalize'
 
 /** El único host de AniSkip. */
@@ -174,7 +174,11 @@ export interface AniSkipClient {
 }
 
 export function createAniSkipClient(options: AniSkipClientOptions = {}): AniSkipClient {
-  const fetchImpl = options.fetchImpl ?? fetch
+  const fetchImpl =
+    options.fetchImpl ??
+    createPinnedFetch({
+      ...(options.resolver === undefined ? {} : { resolver: options.resolver }),
+    })
   const plazo = options.timeoutMs ?? ANISKIP_TIMEOUT_MS
 
   let salidas = 0

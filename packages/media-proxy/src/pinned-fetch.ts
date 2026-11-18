@@ -23,8 +23,9 @@
  * - **No sigue redirecciones.** Devuelve el 3xx tal cual, como un `fetch` con
  *   `redirect: 'manual'`. El bucle de saltos, con su revalidación en cada uno,
  *   es el de `fetchAllowed`, que es quien llama a esto.
- * - **No acepta cuerpo de petición.** El proxy pide bytes con `GET`; un cuerpo
- *   que no se sabe enviar se rechaza en vez de perderse en silencio.
+ * - **Sólo acepta cuerpo de texto.** El proxy pide bytes con `GET` y AniList
+ *   manda un JSON con `POST`; un `FormData` o un flujo se rechazan en vez de
+ *   perderse en silencio.
  */
 
 import { request as httpRequest, type IncomingMessage, type RequestOptions } from 'node:http'
@@ -59,7 +60,7 @@ export interface UpstreamResponse {
 /** Lo que este módulo necesita de la petición: fallar, enviarse y cortarse. */
 export interface UpstreamRequest {
   onError(escucha: (causa: Error) => void): void
-  end(): void
+  end(body?: string): void
   destroy(): void
 }
 
@@ -150,8 +151,8 @@ const requestReal: RequestLike = (options, onResponse) => {
     onError: (escucha) => {
       peticion.once('error', escucha)
     },
-    end: () => {
-      peticion.end()
+    end: (body) => {
+      peticion.end(body)
     },
     destroy: () => {
       peticion.destroy()
@@ -335,10 +336,11 @@ export function createPinnedFetch(options: PinnedFetchOptions = {}): PinnedFetch
     const destino = checkDestination(input, { allowLoopback: options.allowLoopback })
     if (!destino.ok) throw destinationError(destino.rule, input)
 
-    if (init.body !== undefined && init.body !== null) {
+    const body = init.body
+    if (body !== undefined && body !== null && typeof body !== 'string') {
       throw new AppError({
         code: 'upstream',
-        message: 'el proxy no sabe enviar un cuerpo de petición',
+        message: 'el proxy sólo sabe enviar un cuerpo de texto',
         scope: 'media-proxy',
         op: 'proxyBytes',
       })
@@ -405,7 +407,7 @@ export function createPinnedFetch(options: PinnedFetchOptions = {}): PinnedFetch
       }
 
       senal?.addEventListener('abort', alAbortar, { once: true })
-      peticion.end()
+      peticion.end(body ?? undefined)
     })
   }
 }
