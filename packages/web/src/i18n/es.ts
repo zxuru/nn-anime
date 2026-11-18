@@ -32,7 +32,6 @@ export const messages: Messages = {
    * episodio; aquí sólo vive lo que es de la pantalla nueva.
    */
   'library.title': 'Biblioteca',
-  'library.summary': '{titles} títulos · {episodes} episodios · {size}',
   'library.summaryEmpty': 'Lo que descargues se queda aquí, listo para ver sin conexión.',
   // Las tres cifras de la cabecera. El número va aparte y la etiqueta se esconde
   // en el móvil: el dibujo y la cifra bastan cuando no cabe la palabra.
