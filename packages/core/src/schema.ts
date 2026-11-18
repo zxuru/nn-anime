@@ -11,6 +11,7 @@
  */
 
 import { z } from 'zod'
+import './zod-locale'
 
 const HEADER_NAME = /^[A-Za-z0-9-]+$/
 const CONTROL_CHARACTERS = /[\r\n\0]/
