@@ -21,6 +21,7 @@ import type { CatalogStore } from '@rona/catalog-store'
 import type { Candidate, ProviderRef, TitleKind } from '@rona/core'
 import { normalizeQuery, titleKindSchema } from '@rona/core'
 import type { AffinityEvent, CoVisit, SearchSignalRecord, WatchState } from '@rona/recsys'
+import { coVisits as paresDeVisita } from '@rona/recsys'
 
 /** Cuántos títulos se miran para construir el corpus. */
 export const CORPUS_LIMIT = 500
@@ -98,6 +99,42 @@ export function eventsFromWatch(
   }
 
   return eventos
+}
+
+/**
+ * El historial convertido en pares de co-visita.
+ *
+ * `listRecentlyWatched` trae **una fila por episodio**, y una serie de doce
+ * capítulos seguidos no son doce títulos: es uno. Sin colapsar los episodios
+ * consecutivos de la misma obra, el par (serie, serie) se descarta —la función
+ * no empareja una referencia consigo misma— pero la serie pesa doce veces en las
+ * sesiones y el par con la siguiente queda enterrado bajo ese ruido.
+ *
+ * Se colapsa por tramos consecutivos en el tiempo, no por título: ver A, B y A
+ * otra vez en la misma tarde sí son dos visitas de A, y ese ida y vuelta es
+ * justo la señal que se busca.
+ */
+export function coVisitsFromWatch(
+  watch: readonly {
+    readonly anime: { readonly ref: ProviderRef }
+    readonly startedAt: Date
+  }[],
+): readonly CoVisit[] {
+  const ordenados = [...watch].sort(
+    (una, otra) => una.startedAt.getTime() - otra.startedAt.getTime(),
+  )
+  const visitas: { ref: string; at: Date }[] = []
+  let anterior: string | undefined
+
+  for (const registro of ordenados) {
+    const clave = refKey(registro.anime.ref)
+    if (clave === anterior) continue
+
+    anterior = clave
+    visitas.push({ ref: clave, at: registro.startedAt })
+  }
+
+  return paresDeVisita(visitas)
 }
 
 /** Los estados de visionado, para el filtro de exclusión. */
@@ -283,7 +320,7 @@ export async function gatherSignals(
 
   return {
     events: eventos,
-    coVisits: [],
+    coVisits: coVisitsFromWatch(watch),
     searches: searchesFrom(historial),
     watchState: watchStateWithMarks(watch, marcadas),
     ...(ultimo === undefined ? {} : { lastSeen: refKey(ultimo.anime.ref) }),
