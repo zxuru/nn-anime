@@ -114,7 +114,11 @@ export function BotonDeSerie(props: BotonDeSerieProps): ReactNode {
   return (
     <div className="detail__download">
       {props.mode !== undefined && props.onMode !== undefined && (props.modes?.length ?? 0) > 1 ? (
-        <AudioModeSwitch mode={props.mode} onMode={props.onMode} />
+        <AudioModeSwitch
+          mode={props.mode}
+          onMode={props.onMode}
+          label={t(LOCALE, 'detail.download.audio')}
+        />
       ) : null}
       <button
         type="button"

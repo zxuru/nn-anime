@@ -454,8 +454,11 @@ test.describe('de la búsqueda al detalle', () => {
     await page.goto('/anime/fixture/aurora-nocturna')
     await expect(page.locator('.episodes li')).toHaveCount(12, { timeout: 15_000 })
 
-    await page.getByRole('button', { name: 'Doblado' }).click()
-    await expect(page.getByRole('button', { name: 'Doblado' })).toHaveAttribute(
+    // El selector de la ficha, no el de la descarga de la serie: los dos tienen
+    // las mismas dos palabras y el de la descarga se llama igual a propósito.
+    const modos = page.locator('.modes')
+    await modos.getByRole('button', { name: 'Doblado' }).click()
+    await expect(modos.getByRole('button', { name: 'Doblado' })).toHaveAttribute(
       'aria-pressed',
       'true',
     )
@@ -464,10 +467,9 @@ test.describe('de la búsqueda al detalle', () => {
 
     await expect(page).toHaveURL(/\/watch\/fixture\/aurora-nocturna%231\?mode=dub/)
     await expect(page.locator('video')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByRole('button', { name: 'Doblado' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
+    await expect(
+      page.locator('.watch__nav').getByRole('button', { name: 'Doblado' }),
+    ).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('el detalle anuncia de dónde salió con `X-Cache`', async ({ page }) => {
