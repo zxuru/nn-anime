@@ -160,6 +160,57 @@ function archivoRespuesta(cause: unknown): Response {
   return Response.json(errorResponseSchema.parse({ error: mensaje }), { status: 502 })
 }
 
+/** La pista pasó del tope mientras se leía, no antes. */
+class SubtituloDemasiadoGrande extends Error {
+  readonly bytes: number
+
+  constructor(bytes: number) {
+    super('subtítulo demasiado grande')
+    this.bytes = bytes
+  }
+}
+
+/**
+ * Lee el cuerpo por trozos y corta al pasar del tope.
+ *
+ * `arrayBuffer()` materializa el cuerpo entero antes de que la comprobación de
+ * tamaño pueda verlo; con un `content-length` ausente o mentiroso, el tope no
+ * limitaba nada. Aquí el corte ocurre antes de reservar el siguiente trozo.
+ */
+async function leerConTope(response: Response, max: number): Promise<Uint8Array> {
+  if (response.body === null) return new Uint8Array()
+
+  const reader = response.body.getReader()
+  const partes: Uint8Array[] = []
+  let total = 0
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      total += value.byteLength
+      if (total > max) {
+        await reader.cancel().catch(() => {})
+        throw new SubtituloDemasiadoGrande(total)
+      }
+
+      partes.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  const bytes = new Uint8Array(total)
+  let offset = 0
+  for (const parte of partes) {
+    bytes.set(parte, offset)
+    offset += parte.byteLength
+  }
+
+  return bytes
+}
+
 /** Pide la pista al upstream y devuelve sus bytes, o la respuesta de error. */
 async function fetchTrack(
   options: SubtitlesRouteOptions,
@@ -198,8 +249,15 @@ async function fetchTrack(
       }
     }
 
-    return { ok: true, bytes: new Uint8Array(await upstream.arrayBuffer()) }
+    return { ok: true, bytes: await leerConTope(upstream, MAX_SUBTITLE_BYTES) }
   } catch (cause) {
+    if (cause instanceof SubtituloDemasiadoGrande) {
+      return {
+        ok: false,
+        response: Response.json({ error: subtitleTooLarge(cause.bytes).message }, { status: 413 }),
+      }
+    }
+
     return {
       ok: false,
       response: Response.json(
