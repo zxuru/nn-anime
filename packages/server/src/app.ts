@@ -490,17 +490,23 @@ export function createApp(options: AppOptions): Hono {
         root: downloadsRoot,
         resolve: async (providerId, episodeRef, signal, mode) => {
           const provider = findProvider(hub.providers, providerId)
-          if (provider === undefined) return undefined
+          if (provider === undefined) {
+            throw new Error(`no hay ningún proveedor con el id ${providerId}`)
+          }
 
           const resultado = await container.resolveStream(
             provider,
             { episodeRef: { providerId, value: episodeRef }, mode },
             { signal, timeoutMs: 15_000 },
           )
-          if (!resultado.ok) return undefined
+          // El motivo del proveedor viaja a la fila: «el proveedor no dio ningún
+          // stream» no distingue un 404 de un timeout ni de una fuente caída.
+          if (!resultado.ok) throw new Error(resultado.error.message)
 
           const primera = resultado.value.value[0]
-          if (primera === undefined) return undefined
+          if (primera === undefined) {
+            throw new Error('el proveedor no dio ninguna fuente para este episodio')
+          }
 
           return {
             url: primera.url,

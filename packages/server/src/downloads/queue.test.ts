@@ -135,6 +135,26 @@ describe('la cola de descargas', () => {
     })
   })
 
+  test('un fallo del resolutor queda con su mensaje en la fila', async () => {
+    await conRaiz(async (root) => {
+      const store = memoria([fila(1)])
+      const cola = createDownloadQueue({
+        store,
+        root,
+        concurrency: 1,
+        fetchImpl: FETCH,
+        resolve: async () => {
+          throw new Error('el sitio respondió 500')
+        },
+      })
+
+      await cola.start()
+      await esperar(async () => (await store.get(1))?.status === 'failed')
+
+      expect((await store.get(1))?.error).toContain('500')
+    })
+  })
+
   test('la cola pasa el modo de la fila al resolutor', async () => {
     await conRaiz(async (root) => {
       const store = memoria([{ ...fila(1), mode: 'dub' }])
