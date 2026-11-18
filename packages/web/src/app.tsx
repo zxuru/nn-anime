@@ -133,7 +133,7 @@ function Shell(props: {
           {t(LOCALE, 'nav.skip')}
         </a>
         <Link to="/" className="shell__brand">
-          <img src="/brand/logo.png" alt="" aria-hidden="true" />
+          <img src="/brand/logo.svg" alt="" aria-hidden="true" />
           {t(LOCALE, 'app.name')}
         </Link>
         <nav className="shell__nav" aria-label={t(LOCALE, 'nav.primary')}>
