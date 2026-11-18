@@ -10,6 +10,11 @@
  * La descarga no es un permiso de la fuente —la hace la aplicación resolviendo
  * el mismo stream de la reproducción—, así que el botón no consulta
  * `capabilities.download` ni nace deshabilitado por lo que declare el plugin.
+ *
+ * **El audio se elige antes de apuntar nada.** Es el mismo conmutador que el
+ * episodio y el reproductor: si la fuente declara sub y dub, se pregunta; con una
+ * sola capacidad se manda la que hay. La elección vale para todos los capítulos,
+ * que es lo que significa «descargar la serie».
  */
 
 import type { DownloadSeriesResponse } from '@rona/core/api'
@@ -21,6 +26,9 @@ import { useState } from 'react'
 import { apiPostJson } from '../../api/client'
 import { t } from '../../i18n'
 import { Link } from '../../router'
+import { modoDeAudio, useModosDelProveedor } from '../downloads/DownloadButton'
+import { AudioModeSwitch } from '../player/AudioModeSwitch'
+import type { PlayMode } from '../player/watch-route'
 
 const LOCALE = DEFAULT_LOCALE
 
@@ -38,7 +46,25 @@ export interface BotonDeSerieProps {
   readonly respuesta?: DownloadSeriesResponse | undefined
   readonly mensaje?: string | undefined
   readonly movie?: boolean
+  /** Las capacidades de audio de la fuente. Con una sola no se pregunta. */
+  readonly modes?: readonly PlayMode[] | undefined
+  readonly mode?: PlayMode | undefined
+  readonly onMode?: ((mode: PlayMode) => void) | undefined
   readonly onDescargar: () => void
+}
+
+/**
+ * El cuerpo del alta de la serie.
+ *
+ * Manda el modo elegido, igual que el alta de un episodio: el servidor lo
+ * guarda por capítulo y el motor resuelve con él. Sin `mode`, el contrato pone
+ * `sub`, que es lo que hacía antes de que se pudiera elegir.
+ */
+export function peticionDeSerie(
+  props: SeriesDownloadButtonProps,
+  mode: PlayMode,
+): { readonly providerId: string; readonly animeRef: ProviderRef; readonly mode: PlayMode } {
+  return { providerId: props.providerId, animeRef: props.animeRef, mode }
 }
 
 /**
@@ -87,6 +113,9 @@ export function BotonDeSerie(props: BotonDeSerieProps): ReactNode {
 
   return (
     <div className="detail__download">
+      {props.mode !== undefined && props.onMode !== undefined && (props.modes?.length ?? 0) > 1 ? (
+        <AudioModeSwitch mode={props.mode} onMode={props.onMode} />
+      ) : null}
       <button
         type="button"
         className="button"
@@ -115,6 +144,9 @@ export function SeriesDownloadButton(props: SeriesDownloadButtonProps): ReactNod
   const [estado, setEstado] = useState<Estado>('listo')
   const [respuesta, setRespuesta] = useState<DownloadSeriesResponse | undefined>()
   const [mensaje, setMensaje] = useState<string | undefined>()
+  const [preferido, setPreferido] = useState<PlayMode | undefined>()
+  const modos = useModosDelProveedor(props.providerId)
+  const modo = modoDeAudio(modos, preferido)
 
   const descargar = async (): Promise<void> => {
     setEstado('enviando')
@@ -122,7 +154,7 @@ export function SeriesDownloadButton(props: SeriesDownloadButtonProps): ReactNod
     try {
       const salida = await apiPostJson(
         '/api/downloads/series',
-        { providerId: props.providerId, animeRef: props.animeRef },
+        peticionDeSerie(props, modo),
         downloadSeriesResponseSchema,
       )
       setRespuesta(salida)
@@ -145,6 +177,9 @@ export function SeriesDownloadButton(props: SeriesDownloadButtonProps): ReactNod
       {...(respuesta === undefined ? {} : { respuesta })}
       {...(mensaje === undefined ? {} : { mensaje })}
       {...(props.movie === true ? { movie: true } : {})}
+      modes={modos}
+      mode={modo}
+      onMode={setPreferido}
       onDescargar={() => void descargar()}
     />
   )

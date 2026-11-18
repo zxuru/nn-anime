@@ -2,7 +2,12 @@ import { describe, expect, test } from 'bun:test'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'
-import { BotonDeSerie, SeriesDownloadButton, textoDeSerie } from './SeriesDownloadButton'
+import {
+  BotonDeSerie,
+  peticionDeSerie,
+  SeriesDownloadButton,
+  textoDeSerie,
+} from './SeriesDownloadButton'
 
 const REF = { providerId: 'fixture', value: 'aurora-nocturna' }
 
@@ -111,5 +116,39 @@ describe('el botón de descargar la serie', () => {
   test('el estado de la petición, en texto, sin redondearlo a «hecho»', () => {
     expect(textoDeSerie('listo', undefined, undefined)).toBeUndefined()
     expect(textoDeSerie('enviando', undefined, undefined)).toBe('Apuntando los capítulos…')
+  })
+})
+
+describe('el audio de la descarga de la serie', () => {
+  test('el modo elegido viaja en el cuerpo del alta', () => {
+    expect(peticionDeSerie({ providerId: 'fixture', animeRef: REF }, 'dub')).toEqual({
+      providerId: 'fixture',
+      animeRef: REF,
+      mode: 'dub',
+    })
+  })
+
+  test('con las dos capacidades se pregunta, y con una sola no', () => {
+    const conDos = render(
+      <BotonDeSerie
+        estado="listo"
+        modes={['sub', 'dub']}
+        mode="sub"
+        onMode={() => {}}
+        onDescargar={() => {}}
+      />,
+    )
+    const conUna = render(
+      <BotonDeSerie
+        estado="listo"
+        modes={['sub']}
+        mode="sub"
+        onMode={() => {}}
+        onDescargar={() => {}}
+      />,
+    )
+
+    expect(conDos).toContain('audio-switch')
+    expect(conUna).not.toContain('audio-switch')
   })
 })
