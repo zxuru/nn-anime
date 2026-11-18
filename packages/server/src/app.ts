@@ -501,7 +501,7 @@ export function createApp(options: AppOptions): Hono {
           )
           // El motivo del proveedor viaja a la fila: «el proveedor no dio ningún
           // stream» no distingue un 404 de un timeout ni de una fuente caída.
-          if (!resultado.ok) throw new Error(resultado.error.message)
+          if (!resultado.ok) throw new Error(`${resultado.error.kind}: ${resultado.error.message}`)
 
           const primera = resultado.value.value[0]
           if (primera === undefined) {
