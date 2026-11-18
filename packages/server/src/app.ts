@@ -523,6 +523,10 @@ export function createApp(options: AppOptions): Hono {
         },
       })
 
+      // La cola se apaga antes que la base: aborta lo que esté en vuelo y deja
+      // las filas en un estado que el próximo arranque puede retomar.
+      container.onClose(() => queue.close())
+
       // La carpeta guardada se aplica antes de arrancar. Si no hay ninguna, se
       // queda la del arranque; el escritorio la cambia con `PATCH /dir`.
       void (async () => {

@@ -140,6 +140,14 @@ export interface ServerContainer {
   readonly mpv: MpvPlayer
   /** La presencia de Discord: el único proceso que habla con su IPC. */
   readonly presence: PresenceService
+  /**
+   * Registra un cierre más, en orden inverso al alta.
+   *
+   * La cola de descargas y otras piezas que se crean después del contenedor
+   * necesitan apagarse antes que la base. El contenedor es el único que sabe
+   * cuándo se cierra todo, así que también es el único que puede ordenarlo.
+   */
+  onClose(closer: () => Promise<void>): void
   /** Resuelve el stream de un episodio, con la caché de URL corta. */
   resolveStream(
     provider: Provider,
@@ -254,6 +262,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
   const queue = options.queue ?? createWriteQueue()
   const revalidator = options.revalidator ?? createRevalidator({ concurrency: 2 })
   const presence = options.presence ?? createPresenceService()
+  const closers: (() => Promise<void>)[] = []
   const resource: RevalidateResource = 'search'
 
   // El store comparte la cola y el revalidador: con uno distinto en cada sitio,
@@ -717,8 +726,21 @@ export function createContainer(options: ContainerOptions): ServerContainer {
       }
     },
 
+    onClose(closer) {
+      closers.push(closer)
+    },
+
     async close() {
+      for (const closer of [...closers].reverse()) {
+        try {
+          await closer()
+        } catch {
+          // Un cierre que falla no impide los siguientes: la base se cierra igual.
+        }
+      }
+
       await presence.close()
+      await mpv.close()
       await store.close()
     },
   }
