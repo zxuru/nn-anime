@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { renderToString } from 'react-dom/server'
-import { Cover } from './Cover'
+import { Cover, type FalloDePortada, portadaFallida } from './Cover'
 
 describe('la portada', () => {
   test('pide la imagen al proxy, nunca al proveedor', () => {
@@ -44,5 +44,25 @@ describe('la portada', () => {
 
   test('la decodificación no se queda en el hilo de la pintura', () => {
     expect(renderToString(<Cover providerId="fixture" ref="x" />)).toContain('decoding="async"')
+  })
+
+  /**
+   * Falla A → llega B → se pinta B.
+   *
+   * Era el fallo del hueco eterno: el estado de error no sabía de qué portada
+   * era, así que una que no llegó dejaba a la siguiente sin pedir. La decisión
+   * vive en `portadaFallida` para poder medir la transición sin un DOM.
+   */
+  test('una portada que falló no deja sin intentar la de la ruta siguiente', () => {
+    const falloDeA: FalloDePortada = { ruta: '/api/cover/fixture/a', fallo: true }
+
+    // A falló: su hueco es el correcto.
+    expect(portadaFallida(falloDeA, '/api/cover/fixture/a')).toBe(true)
+
+    // Llega B: el fallo de A no se hereda y B se pide.
+    expect(portadaFallida(falloDeA, '/api/cover/fixture/b')).toBe(false)
+    expect(renderToString(<Cover src="/api/cover/fixture/b" />)).toContain(
+      'src="/api/cover/fixture/b"',
+    )
   })
 })

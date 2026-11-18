@@ -40,6 +40,7 @@ import {
   createDefaultPrefetcher,
   groupResults,
   type Prefetcher,
+  type ProviderIssue,
   type SearchState,
   useProviderPriority,
   useSearchStream,
@@ -118,29 +119,30 @@ export function searchPath(term: string, providers: readonly string[] = []): str
 }
 
 /**
- * Anuncio para la región `aria-live`.
+ * Las opciones del anuncio.
  *
- * Sólo habla cuando el flujo cierra: anunciar cada proveedor según llega
- * convertiría la búsqueda en una locución interminable. Y si no hay ninguno
- * activo lo dice, porque el silencio no distingue «todavía no» de «no hay nada».
- *
- * El recuento es de **obras**, no de respuestas: con cuatro tarjetas en pantalla,
- * decir «trece resultados» porque dos proveedores devolvieron lo mismo es
- * contar lo que no se ve.
- *
- * Las piezas de AniList se cuentan **aparte y también**: una búsqueda por género o
- * por estudio suele no tener nada de los proveedores y sí veinte piezas de AniList
- * en pantalla, y callarlas dejaría al lector de pantalla con un «0 resultados» que
- * no es lo que hay.
- *
- * Con un género en la casilla no hay dos listas: la del catálogo **es** el resultado, y el
- * anuncio lo dice así en vez de contar unos proveedores a los que no se ha preguntado.
+ * `providersFailed` cambia la conclusión cuando la lista de proveedores no se pudo
+ * leer; `labels` pone nombre a los avisos por proveedor.
  */
-export function announce(
+export interface AnnounceOptions {
+  /**
+   * La lista de proveedores no se pudo leer.
+   *
+   * Sin esto, una lectura fallida se contaba como «no hay ninguno activo», que es
+   * afirmar algo que no se sabe.
+   */
+  readonly providersFailed?: boolean
+  /** Los nombres de los proveedores, para los avisos. Sin él, el id. */
+  readonly labels?: ReadonlyMap<string, string>
+}
+
+/** El anuncio sin los avisos por proveedor: lo que cambia con el estado de la búsqueda. */
+function anuncioBase(
   state: SearchState,
   active: readonly string[],
-  providersLoaded = true,
-  soloCatalogo = false,
+  providersLoaded: boolean,
+  soloCatalogo: boolean,
+  providersFailed: boolean,
 ): string {
   if (state.failed !== undefined) {
     // El resumen y no el mensaje crudo: esto lo lee un lector de pantalla, y
@@ -151,9 +153,9 @@ export function announce(
   // Sin fuentes activas no se puede concluir nada de la consulta: el silencio
   // dejaría creer que sigue buscando y «0 resultados» culparía al título.
   if (active.length === 0 && !soloCatalogo && state.results.length === 0) {
-    return providersLoaded
-      ? t(DEFAULT_LOCALE, 'search.noProviders')
-      : t(DEFAULT_LOCALE, 'search.loading')
+    if (!providersLoaded) return t(DEFAULT_LOCALE, 'search.loading')
+
+    return t(DEFAULT_LOCALE, providersFailed ? 'search.providersUnreadable' : 'search.noProviders')
   }
 
   if (!state.done) {
@@ -184,6 +186,71 @@ export function announce(
   })}`
 }
 
+/**
+ * Los avisos de los proveedores, en una línea.
+ *
+ * Se arman con el mismo texto que los párrafos visibles (`search.providerFailed`),
+ * para que la región viva diga exactamente lo que está en pantalla.
+ */
+export function avisosDeProveedores(
+  errors: readonly ProviderIssue[],
+  labels?: ReadonlyMap<string, string>,
+): string {
+  if (errors.length === 0) return ''
+
+  const partes = errors.map((issue) =>
+    t(DEFAULT_LOCALE, 'search.providerFailed', {
+      provider: labels?.get(issue.providerId) ?? issue.providerId,
+      message: issue.message,
+    }),
+  )
+
+  return t(DEFAULT_LOCALE, 'search.providerWarnings', { errors: partes.join(' ') })
+}
+
+/**
+ * Anuncio para la región `aria-live`.
+ *
+ * Sólo habla cuando el flujo cierra: anunciar cada proveedor según llega
+ * convertiría la búsqueda en una locución interminable. Y si no hay ninguno
+ * activo lo dice, porque el silencio no distingue «todavía no» de «no hay nada».
+ *
+ * El recuento es de **obras**, no de respuestas: con cuatro tarjetas en pantalla,
+ * decir «trece resultados» porque dos proveedores devolvieron lo mismo es
+ * contar lo que no se ve.
+ *
+ * Las piezas de AniList se cuentan **aparte y también**: una búsqueda por género o
+ * por estudio suele no tener nada de los proveedores y sí veinte piezas de AniList
+ * en pantalla, y callarlas dejaría al lector de pantalla con un «0 resultados» que
+ * no es lo que hay.
+ *
+ * Con un género en la casilla no hay dos listas: la del catálogo **es** el resultado, y el
+ * anuncio lo dice así en vez de contar unos proveedores a los que no se ha preguntado.
+ *
+ * **Los avisos por proveedor se suman al final.** Antes se pintaban en la pantalla y
+ * no se anunciaban: quien no ve el recuento de errores no sabía que una fuente había
+ * fallado. Van detrás del recuento y no en su lugar, porque las dos cosas son ciertas
+ * a la vez: hay resultados y hay una fuente que no contestó.
+ */
+export function announce(
+  state: SearchState,
+  active: readonly string[],
+  providersLoaded = true,
+  soloCatalogo = false,
+  options: AnnounceOptions = {},
+): string {
+  const base = anuncioBase(
+    state,
+    active,
+    providersLoaded,
+    soloCatalogo,
+    options.providersFailed === true,
+  )
+  const avisos = avisosDeProveedores(state.errors, options.labels)
+
+  return avisos === '' ? base : `${base} ${avisos}`
+}
+
 /** «1 fuente» o «3 fuentes», con la concordancia que toca. */
 export function cuentaDeFuentes(cantidad: number): string {
   return cantidad === 1
@@ -211,6 +278,7 @@ export function estadoVisible(
   active: readonly string[],
   providersLoaded = true,
   soloCatalogo = false,
+  providersFailed = false,
 ): string {
   if (state.failed !== undefined) {
     return t(DEFAULT_LOCALE, 'search.failed', { message: resumenDeFallo(state.failed) })
@@ -228,7 +296,7 @@ export function estadoVisible(
   }
 
   if (active.length === 0 && state.results.length === 0) {
-    return t(DEFAULT_LOCALE, 'search.noProviders')
+    return t(DEFAULT_LOCALE, providersFailed ? 'search.providersUnreadable' : 'search.noProviders')
   }
 
   const obras = groupResults(state.results).length
@@ -286,7 +354,11 @@ export function SearchPage(props: SearchPageProps): ReactNode {
   const campo = useRef<HTMLInputElement>(null)
 
   const proveedores = useMemo(() => (filtro === '' ? [] : filtro.split(',')), [filtro])
-  const { state, active, labels, providersLoaded } = useSearchStream(aplicado, proveedores, tipo)
+  const { state, active, labels, providersLoaded, providersFailed } = useSearchStream(
+    aplicado,
+    proveedores,
+    tipo,
+  )
   // La preferencia decide cuál de las fuentes da la tarjeta. Llega después que
   // los resultados —es otra petición— y la rejilla se vuelve a ordenar sola.
   const prioridad = useProviderPriority()
@@ -384,10 +456,15 @@ export function SearchPage(props: SearchPageProps): ReactNode {
       <p className="search__status" data-tour={ANCLAS.buscadorEstado}>
         {aplicado.trim() === ''
           ? ''
-          : estadoVisible(visibles, active, providersLoaded, soloCatalogo)}
+          : estadoVisible(visibles, active, providersLoaded, soloCatalogo, providersFailed)}
       </p>
       <p className="solo-lectores" role="status" aria-live="polite">
-        {aplicado.trim() === '' ? '' : announce(visibles, active, providersLoaded, soloCatalogo)}
+        {aplicado.trim() === ''
+          ? ''
+          : announce(visibles, active, providersLoaded, soloCatalogo, {
+              providersFailed,
+              labels,
+            })}
       </p>
 
       {/*

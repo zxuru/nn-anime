@@ -95,6 +95,11 @@ interface TextFieldProps {
 }
 
 function TextField(props: TextFieldProps): ReactNode {
+  // El aviso del campo se asocia con `aria-describedby`: un lector de pantalla
+  // anuncia el formato esperado al llegar al campo, y no como texto suelto que
+  // hay que ir a buscar después de tabular.
+  const hintId = `${props.id}-hint`
+
   return (
     <div className="field">
       <label className="field__label" htmlFor={props.id}>
@@ -106,9 +111,14 @@ function TextField(props: TextFieldProps): ReactNode {
         type="text"
         value={props.value}
         required={props.required ?? false}
+        aria-describedby={props.hint === undefined ? undefined : hintId}
         onChange={(event) => props.onValue(event.target.value)}
       />
-      {props.hint === undefined ? null : <span className="field__hint">{props.hint}</span>}
+      {props.hint === undefined ? null : (
+        <span className="field__hint" id={hintId}>
+          {props.hint}
+        </span>
+      )}
     </div>
   )
 }
@@ -180,9 +190,11 @@ export function RegisterProvider(props: RegisterProviderProps): ReactNode {
         </div>
       </fieldset>
 
-      <fieldset className="settings__group">
+      <fieldset className="settings__group" aria-describedby="provider-endpoints-hint">
         <legend className="field__label">{t(DEFAULT_LOCALE, 'settings.register.endpoints')}</legend>
-        <p className="field__hint">{t(DEFAULT_LOCALE, 'settings.register.endpointsHint')}</p>
+        <p className="field__hint" id="provider-endpoints-hint">
+          {t(DEFAULT_LOCALE, 'settings.register.endpointsHint')}
+        </p>
         <div className="settings__grid">
           {ENDPOINT_FIELDS.map((entry) => (
             <TextField

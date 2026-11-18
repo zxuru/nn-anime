@@ -1,7 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { DEBOUNCE_MS, recommendationsPath, retardoDeConsulta } from './useRecommendations'
+import {
+  DEBOUNCE_MS,
+  type RecommendationsStore,
+  recommendationsPath,
+  recommendationsVisible,
+  retardoDeConsulta,
+} from './useRecommendations'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
 
@@ -80,5 +86,51 @@ describe('el gancho', () => {
     expect(fuente).toContain('createScheduler')
     expect(fuente).toContain('plan.schedule(')
     expect(fuente).toContain('plan.cancel()')
+  })
+})
+
+/**
+ * Las recomendaciones de la ruta anterior no se heredan.
+ *
+ * Cambiar `?tipo=` —o la consulta— dejaba en pantalla las piezas de la ruta
+ * anterior hasta que llegaba la nueva respuesta, y si la nueva fallaba se
+ * quedaban para siempre. La transición se mide en la función pura porque el hook
+ * necesita un navegador.
+ */
+describe('las recomendaciones al cambiar de ruta', () => {
+  const A = '/api/recommendations?limit=10&q=mecha'
+  const B = '/api/recommendations?limit=10&media=movies'
+  const deA: RecommendationsStore = {
+    ruta: A,
+    state: 'ready',
+    data: { items: [], coldStart: false },
+    error: undefined,
+  }
+
+  test('A conserva lo suyo; B empieza cargando y sin lista', () => {
+    expect(recommendationsVisible(deA, A)).toEqual({
+      state: 'ready',
+      data: deA.data,
+      error: undefined,
+    })
+
+    expect(recommendationsVisible(deA, B)).toEqual({
+      state: 'loading',
+      data: undefined,
+      error: undefined,
+    })
+  })
+
+  test('un fallo de A no se cuenta como fallo de B', () => {
+    const conFallo: RecommendationsStore = {
+      ...deA,
+      state: 'error',
+      data: undefined,
+      error: { clase: 'servidor', estado: 500, detalle: undefined, tecnico: 'falló' },
+    }
+
+    expect(recommendationsVisible(conFallo, A).error).toBe(conFallo.error)
+    expect(recommendationsVisible(conFallo, B).error).toBeUndefined()
+    expect(recommendationsVisible(conFallo, B).state).toBe('loading')
   })
 })

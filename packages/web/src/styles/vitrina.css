@@ -317,6 +317,13 @@
 }
 
 .notice__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* El objetivo táctil del sistema: el cierre medía 26 px y quedaba por debajo
+     de los 44 que pide `--control-size`. */
+  min-inline-size: var(--control-size);
+  min-block-size: var(--control-size);
   background: none;
   border: var(--border-width) solid var(--color-border);
   color: var(--color-text);

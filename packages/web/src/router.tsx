@@ -123,6 +123,21 @@ export function buildPath(name: RouteName, params: Readonly<Record<string, strin
   return `/${built.join('/')}`
 }
 
+/**
+ * Si un cambio de camino tiene que devolver la página al principio.
+ *
+ * Sólo cuando el camino cambia de verdad y la dirección no trae un ancla. Las
+ * dos condiciones son el arreglo y su límite: la pantalla nueva empieza arriba
+ * —antes, abrir una ficha desde el final del mosaico la dejaba a media página— y
+ * los enlaces del índice de Ajustes, que son `#seccion` sobre el mismo camino,
+ * siguen llevando a su sección.
+ *
+ * Es una función pura para poder medir la regla sin un DOM.
+ */
+export function tocaVolverArriba(anterior: string, camino: string, hash: string): boolean {
+  return anterior !== camino && hash === ''
+}
+
 export interface History {
   /** Ruta actual, con la consulta incluida. */
   readonly path: string

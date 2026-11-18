@@ -33,9 +33,12 @@ import { SourcePicker } from './SourcePicker'
 import { type FilaDeSaga, filasDeSaga } from './saga'
 import {
   chosenMode,
+  claveDeMarca,
   enLaLista,
   formatDuration,
   isFavorite,
+  type MarcaGuardada,
+  marcaVisible,
   modesFor,
   relatedPath,
   sourcesPath,
@@ -499,6 +502,48 @@ describe('si el título ya está en favoritos', () => {
 
   test('sin lista no hay nada guardado', () => {
     expect(isFavorite([], { providerId: 'fixture', value: 'aurora-nocturna' })).toBe(false)
+  })
+})
+
+/**
+ * El favorito de la ficha anterior no se hereda.
+ *
+ * `tocado` era un booleano del componente: después de pulsar en A seguía en pie
+ * al abrir B, la lista de B se ignoraba y el botón enseñaba la marca de A. La
+ * transición se mide aquí, en la función pura que decide qué se enseña, porque
+ * el hook necesita un navegador y ése es del e2e.
+ */
+describe('el favorito al cambiar de ficha', () => {
+  const A = { providerId: 'fixture', value: 'aurora-nocturna' }
+  const B = { providerId: 'fixture', value: 'otro-titulo' }
+
+  test('A marcado no marca B, y B marcado no marca A', () => {
+    const deA: MarcaGuardada = { clave: claveDeMarca(A), value: true, busy: false }
+
+    expect(marcaVisible(deA, claveDeMarca(A))).toEqual({ value: true, busy: false })
+    expect(marcaVisible(deA, claveDeMarca(B))).toEqual({ value: false, busy: false })
+
+    const deB: MarcaGuardada = { clave: claveDeMarca(B), value: false, busy: true }
+
+    expect(marcaVisible(deB, claveDeMarca(A))).toEqual({ value: false, busy: false })
+    expect(marcaVisible(deB, claveDeMarca(B))).toEqual({ value: false, busy: true })
+  })
+
+  test('dos proveedores con el mismo valor son dos referencias', () => {
+    expect(claveDeMarca({ providerId: 'uno', value: 'x' })).not.toBe(
+      claveDeMarca({ providerId: 'dos', value: 'x' }),
+    )
+  })
+
+  /**
+   * Lo que no se puede montar sin un DOM: que el efecto reinicie la decisión
+   * antes de leer la lista. Se mide sobre la fuente, como otras reglas del
+   * repositorio; el caso de navegador es del e2e.
+   */
+  test('el «ya pulsé» se reinicia al cambiar de referencia', async () => {
+    const fuente = await readFile(`${ROOT}useDetail.ts`, 'utf8')
+
+    expect(fuente).toContain('tocado.current = false')
   })
 })
 

@@ -28,6 +28,7 @@ import { esPrimerArranque, PrimerArranque } from './PrimerArranque'
 import { RecommendedRow } from './RecommendedRow'
 import { continuePath, progressPercent, resumeLabel } from './rows'
 import { TopRow } from './TopRow'
+import { claveDeFeatured, type Featured, type FeaturedStore, featuredVisible } from './useFeatured'
 import {
   combineRows,
   debeReleer,
@@ -842,5 +843,61 @@ describe('lo que eligen las filas nuevas', () => {
     })
 
     expect(delFeed.map((pieza) => pieza.title)).toEqual(['Del feed'])
+  })
+})
+
+/**
+ * El destacado de la ficha anterior no se hereda.
+ *
+ * El héroe compone el enlace del botón con el proveedor del título que pinta y la
+ * referencia del primer episodio que tenía guardada. Sin atar los datos a su
+ * referencia, cambiar de destacado enseñaba el episodio de otro: el botón
+ * enlazaba a un capítulo que no era de esa obra. Se mide en la función pura
+ * porque el hook necesita un navegador.
+ */
+describe('el destacado al cambiar de referencia', () => {
+  const A = { providerId: 'fixture', value: 'aurora-nocturna' }
+  const B = { providerId: 'fixture', value: 'otro-titulo' }
+  const detalleA: Featured['detail'] = {
+    ref: A,
+    title: 'Aurora Nocturna',
+    genres: [],
+    studios: [],
+  }
+  const episodioA: Featured['firstEpisode'] = {
+    ref: { providerId: 'fixture', value: 'aurora-nocturna#1' },
+    animeRef: A,
+    number: 1,
+    mode: 'sub',
+  }
+  const deA: FeaturedStore = {
+    clave: claveDeFeatured(A),
+    datos: {
+      loading: false,
+      detail: detalleA,
+      firstEpisode: episodioA,
+      banner: '/api/anilist/image/banner/1',
+    },
+  }
+
+  test('A conserva lo suyo; B empieza en el esqueleto y sin episodio', () => {
+    expect(featuredVisible(deA, claveDeFeatured(A))).toBe(deA.datos)
+
+    const deB = featuredVisible(deA, claveDeFeatured(B))
+
+    expect(deB.loading).toBe(true)
+    expect(deB.detail).toBeUndefined()
+    // Lo que enlazaba al episodio de otro título.
+    expect(deB.firstEpisode).toBeUndefined()
+    expect(deB.banner).toBeUndefined()
+  })
+
+  test('sin destacado no se queda cargando para siempre', () => {
+    expect(featuredVisible(deA, undefined)).toEqual({
+      loading: false,
+      detail: undefined,
+      firstEpisode: undefined,
+      banner: undefined,
+    })
   })
 })
