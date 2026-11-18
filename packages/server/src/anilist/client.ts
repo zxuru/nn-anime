@@ -25,7 +25,7 @@
  */
 
 import { AppError } from '@rona/core'
-import { type FetchLike, fetchAllowed, type Resolver } from '@rona/media-proxy'
+import { createPinnedFetch, type FetchLike, fetchAllowed, type Resolver } from '@rona/media-proxy'
 import { z } from 'zod'
 
 /** El único host de la API. */
@@ -206,7 +206,11 @@ export function retryAfterMs(header: string | null): number | undefined {
 }
 
 export function createAniListClient(options: AniListClientOptions = {}): AniListClient {
-  const fetchImpl = options.fetchImpl ?? fetch
+  const fetchImpl =
+    options.fetchImpl ??
+    createPinnedFetch({
+      ...(options.resolver === undefined ? {} : { resolver: options.resolver }),
+    })
   const ahora = options.now ?? Date.now
   const dormir = options.sleep ?? realSleep
   const intervalo = options.minIntervalMs ?? ANILIST_MIN_INTERVAL_MS
