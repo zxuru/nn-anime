@@ -87,6 +87,12 @@ export function PartyBar(props: PartyBarProps): ReactNode {
           </span>
         ) : (
           <>
+            {/* El estado del enlace y el de la sincronización son cosas
+                distintas: sin esta frase, un invitado que aún conecta ve la
+                píldora de deriva y ninguna pista de por qué no hay nada que
+                sincronizar. Va fuera de `aria-live` porque cambia con cada
+                reintento y no hace falta anunciarlo dos veces. */}
+            <span className="party-bar__connection">{connectionLabel(party)}</span>
             {/* Sólo la píldora vive en la región educada: cambia de tramo muy de
                 vez en cuando, no con cada fotograma. El desfase en segundos va al
                 lado y fuera de `aria-live`, porque un número que cambia dos veces
