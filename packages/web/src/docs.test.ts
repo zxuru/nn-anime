@@ -133,6 +133,35 @@ describe('los planes de `tasks/`', () => {
     }
   })
 
+  test('los specs que citan existen', async () => {
+    const citados = new Map<string, readonly string[]>()
+
+    for (const plan of readdirSync(`${RAIZ}tasks`).filter((archivo) => archivo.endsWith('.md'))) {
+      const texto = await leer(`tasks/${plan}`)
+
+      for (const coincidencia of texto.matchAll(/docs\/specs\/[A-Za-z0-9./_-]+\.md/g)) {
+        const ruta = coincidencia[0]
+        const desde = Math.max(0, coincidencia.index - 120)
+        const contexto = texto.slice(desde, coincidencia.index + ruta.length + 40)
+
+        // Una propuesta que se borra al integrarse se cita para decir que ya no
+        // está: exigir el archivo sería pedir que el borrado no ocurriera. El
+        // aviso puede caer en la línea anterior o en la siguiente.
+        if (contexto.includes('se borra') || contexto.includes('(borrado)')) continue
+
+        citados.set(ruta, [...(citados.get(ruta) ?? []), plan])
+      }
+    }
+
+    // Sanidad de la propia prueba: si la expresión deja de encontrar nada, el
+    // bucle pasaría sin comprobar nada.
+    expect(citados.size).toBeGreaterThan(10)
+
+    for (const [ruta, planes] of [...citados].sort(([una], [otra]) => una.localeCompare(otra))) {
+      expect(existsSync(`${RAIZ}${ruta}`), `${ruta} (citado en ${planes.join(', ')})`).toBe(true)
+    }
+  })
+
   test('los planes de descubrimiento están indexados', async () => {
     const indice = await leer('tasks/discovery.md')
     const sueltos = planes().filter((plan) => plan.startsWith('discovery-'))
