@@ -118,7 +118,7 @@ export function pedirDescarga(
  * en la lista vacía y el botón manda `sub`: no saber qué declara la fuente no
  * puede dejar sin descargar algo que antes se descargaba.
  */
-function useModosDelProveedor(providerId: string): readonly PlayMode[] {
+export function useModosDelProveedor(providerId: string): readonly PlayMode[] {
   const [modos, setModos] = useState<readonly PlayMode[]>([])
 
   useEffect(() => {
