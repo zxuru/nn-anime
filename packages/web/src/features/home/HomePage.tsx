@@ -113,8 +113,15 @@ export function featuredOf(
  * El feed del proveedor enseñaba el año del título; aquí lo que importa es qué
  * capítulo y cuándo, porque eso es lo que acaba de pasar.
  */
-export function metaDeNovedad(item: AiringItem): string {
+export function metaDeNovedad(item: AiringItem, avisosQuieroVer = true): string {
   const partes: string[] = []
+
+  // La insignia de «Quiero ver» va primero, como en el feed: es lo que hace que
+  // la fila hable de una marca del usuario y no sólo de la fecha.
+  if (avisosQuieroVer && item.inPlanToWatch === true) {
+    partes.push(t(DEFAULT_LOCALE, 'home.feed.newInWatchlist'))
+  }
+
   const episodio = episodioDe(item)
   if (episodio !== undefined) partes.push(episodio)
 
@@ -189,7 +196,7 @@ export function piezasDeNovedades(
   if (filas.emisiones.length > 0) {
     return filas.emisiones.map((item) => ({
       ...desdeEmision(item),
-      meta: metaDeNovedad(item),
+      meta: metaDeNovedad(item, avisosQuieroVer),
     }))
   }
 

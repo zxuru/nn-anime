@@ -915,6 +915,28 @@ describe('lo que eligen las filas nuevas', () => {
     expect(sinMarca[0]?.meta).toBeUndefined()
   })
 
+  test('«Quiero ver» marca también las novedades que sirve AniList', () => {
+    const emisiones = [
+      {
+        anilistId: 101922,
+        title: 'Kimetsu no Yaiba',
+        cover: '/api/anilist/image/cover/101922',
+        adult: false,
+        episode: 5,
+        airingAt: new Date(2026, 9, 15, 20, 30).toISOString(),
+        inPlanToWatch: true as const,
+      },
+    ]
+
+    const conAviso = piezasDeNovedades({ emisiones, feed: [] })
+    expect(conAviso[0]?.meta).toContain('Nuevo en tu lista')
+    expect(conAviso[0]?.meta).toContain('Ep. 5')
+
+    const apagado = piezasDeNovedades({ emisiones, feed: [] }, false)
+    expect(apagado[0]?.meta).not.toContain('Nuevo en tu lista')
+    expect(apagado[0]?.meta).toContain('Ep. 5')
+  })
+
   test('las novedades son los episodios recién emitidos, o el feed', () => {
     const emisiones = piezasDeNovedades({
       emisiones: [
