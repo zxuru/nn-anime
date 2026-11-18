@@ -120,9 +120,12 @@ test('el anfitrión crea la sala, el invitado entra y la pausa se sincroniza', a
     // El alta llega al anfitrión por su flujo de eventos, no por una recarga:
     // si el SSE del anfitrión no entregara el roster, esto se queda esperando.
     // El anfitrión no aparece en la lista: el store sólo da de alta invitados.
-    await expect(anfitrion.locator('.party-panel__roster-name')).toContainText(INVITADA, {
-      timeout: 15_000,
-    })
+    // Del anfitrión se comprueba la invitada por nombre: el roster del anfitrión
+    // lleva su propia fila fija («Anfitrión») y la lista no es un único texto.
+    await expect(anfitrion.locator('.party-panel__roster-name', { hasText: INVITADA })).toHaveCount(
+      1,
+      { timeout: 15_000 },
+    )
 
     // --- La barra dice quién manda ----------------------------------------
     await cerrarPanelDeSala(anfitrion)
