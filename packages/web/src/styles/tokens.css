@@ -551,6 +551,22 @@
    */
   --player-gradient: linear-gradient(to top, rgb(0 0 0 / 85%), rgb(0 0 0 / 0%));
   /**
+   * El alto de la banda de mandos superpuesta.
+   *
+   * Es la suma de lo que ocupa por dentro: el aire de arriba, el carril que
+   * recibe el gesto, el hueco y la fila de botones. Lo usan las capas que se
+   * apoyan sobre el video —el botón de saltar y la tarjeta del siguiente— para
+   * despejar la banda entera; con un alto a ojo, el botón se apoyaba encima de
+   * la barra de progreso.
+   */
+  --player-band-height: calc(
+    var(--space-6) +
+    var(--seek-hit) +
+    var(--space-2) +
+    var(--control-size) +
+    var(--space-3)
+  );
+  /**
    * Las tres capas de la barra de progreso.
    *
    * Medidas contra el negro del degradado —que es lo que hay detrás en los dos
