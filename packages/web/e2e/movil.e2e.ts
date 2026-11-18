@@ -21,8 +21,11 @@ test.describe('la navegación del móvil', () => {
     const barra = page.locator('.barra')
     await expect(barra).toBeVisible()
 
-    // La cabecera de texto no se pinta: su hoja la esconde por debajo de 640.
-    await expect(page.locator('.shell__nav')).toBeHidden()
+    // La cabecera de texto no se pinta: su hoja la esconde por debajo de 640. Son
+    // dos grupos —los destinos y el Perfil, que va aparte— y los dos se apagan.
+    const cabecera = page.locator('.shell__nav[aria-label="Navegación principal"]')
+    await expect(cabecera).toBeHidden()
+    await expect(page.locator('.shell__nav--separado')).toBeHidden()
 
     for (const nombre of ['Inicio', 'Buscar', 'Perfil', 'Biblioteca', 'Ajustes']) {
       await expect(barra.getByRole('link', { name: nombre })).toBeVisible()
@@ -82,7 +85,7 @@ test.describe('la navegación del móvil', () => {
     expect(medidas.recorte).toBeGreaterThanOrEqual(0)
   })
 
-  test('el conmutador de tipo conserva sus dos mitades en la cabecera', async ({ page }) => {
+  test('el conmutador de familia conserva sus tres pestañas en la cabecera', async ({ page }) => {
     await entrar(page)
     await esperarApp(page)
 
@@ -91,9 +94,10 @@ test.describe('la navegación del móvil', () => {
     const conmutador = page.locator('.conmutador')
     await expect(conmutador).toBeVisible()
     await expect(conmutador.getByRole('link', { name: 'Anime' })).toBeVisible()
-    await expect(conmutador.getByRole('link', { name: 'Películas' })).toBeVisible()
+    await expect(conmutador.getByRole('link', { name: 'Animación' })).toBeVisible()
+    await expect(conmutador.getByRole('link', { name: 'Acción real' })).toBeVisible()
 
-    await conmutador.getByRole('link', { name: 'Películas' }).click()
-    await expect(page).toHaveURL(/tipo=movies/)
+    await conmutador.getByRole('link', { name: 'Acción real' }).click()
+    await expect(page).toHaveURL(/tipo=live/)
   })
 })
