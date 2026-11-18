@@ -1,6 +1,6 @@
 import { setTimeout as pausa } from 'node:timers/promises'
 import { expect, test } from '@playwright/test'
-import { entrar, esperarApp } from './fixtures'
+import { entrar } from './fixtures'
 
 /**
  * La espera no mueve la página.
