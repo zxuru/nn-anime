@@ -40,12 +40,31 @@ export const UPDATE_INTERVAL_MS = 5_000
  *
  * Discord admite cinco actualizaciones cada veinte segundos; quince segundos
  * deja margen y no gasta la cuota. El reloj de la actividad lo lleva Discord, así
- * que entre foto y foto la barra sigue avanzando sola.
+ * que entre foto y foto la barra sigue avanzando sola: la foto periódica sólo
+ * corrige lo que se desvía —una pausa larga del búfer, la velocidad—, no dibuja
+ * el reloj. Lo que sí se manda en el acto es una interacción: pausar, reanudar y
+ * saltar a otro punto del episodio.
  */
 export const PRESENCE_INTERVAL_MS = 15_000
 
 /** Diferencia mínima para considerar que la posición cambió de verdad. */
 export const MIN_DELTA_S = 1
+
+/**
+ * Un salto de esta magnitud no lo hizo el reloj: lo hizo alguien.
+ *
+ * El elemento avisa de la posición cuatro veces por segundo, así que entre dos
+ * avisos la posición avanza una fracción de segundo. Un salto de dos segundos o
+ * más es la barra, las teclas de diez segundos o el botón de saltar —una
+ * interacción que Discord tiene que ver ya, no en la siguiente foto—; el reloj
+ * de la actividad lleva al día lo que sólo avanza.
+ */
+export const SEEK_JUMP_S = 2
+
+/** ¿Entre estos dos avisos hubo una búsqueda y no el paso del reloj? */
+export function isSeek(previousS: number, nextS: number): boolean {
+  return Math.abs(nextS - previousS) >= SEEK_JUMP_S
+}
 
 /**
  * La duración que viaja en el cuerpo, ya normalizada.
@@ -64,7 +83,9 @@ export function duracionConocida(durationS: number): number {
  *
  * Se manda si pasó el intervalo, si la duración acaba de conocerse —es cuando
  * puede aparecer la barra de progreso— o si se pide. Discord admite cinco
- * actualizaciones cada veinte segundos; quince deja margen.
+ * actualizaciones cada veinte segundos; quince deja margen, y quien agrupa de
+ * verdad los envíos es el servidor: aquí se decide **qué** merece contarse, y
+ * una pausa o una búsqueda siempre lo merecen.
  */
 export function shouldSendPresence(input: {
   readonly now: number
@@ -230,6 +251,12 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
     const ahora = Date.now()
     const duracion = duracionConocida(vivo.current.durationS)
 
+    /*
+     * El turno de quince segundos es para las fotos que sólo avanzan. Lo que se
+     * pide con `forzar` —empezar, pausar, una búsqueda, la duración recién
+     * conocida— sale ya: es lo que el usuario está viendo en su perfil. Quien
+     * respeta la cuota de Discord es el servidor, que agrupa lo que llega junto.
+     */
     if (
       !shouldSendPresence({
         now: ahora,
@@ -294,12 +321,16 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
 
   const registrar = useCallback(
     (positionS: number, durationS: number, force: boolean, keepalive = false): void => {
+      // Un salto entre dos avisos no es el reloj: es la barra o un mando. Discord
+      // tiene que verlo ya, no quince segundos después, o el perfil sigue
+      // diciendo que se está viendo el minuto que ya se dejó atrás.
+      const salto = isSeek(vivo.current.positionS, positionS)
       vivo.current = { positionS, durationS }
 
       // La presencia no depende de que el alta del visionado haya llegado: si el
       // `POST /api/watch` falló, el historial se pierde pero Discord puede seguir
       // diciendo qué se está viendo.
-      mandarPresencia(pausado.current)
+      mandarPresencia(pausado.current, force || salto)
 
       const id = abierto.current
       if (id === undefined) return
@@ -434,6 +465,14 @@ export function useWatchEvents(options: WatchEventsOptions): WatchEvents {
   // dependencias: la limpieza de este efecto es **el desmontaje**, no una vuelta
   // más del render, y por eso lee el guardado de una referencia.
   useEffect(() => {
+    /*
+     * El pestillo se abre al montar y no sólo al crearse el gancho: en modo
+     * estricto React monta, desmonta y vuelve a montar, y la limpieza de abajo
+     * dejaba `cerrado` en `true` para siempre. Desde ahí, la presencia de Discord
+     * no se publicaba ni una vez en toda la sesión.
+     */
+    cerrado.current = false
+
     return () => {
       cerrado.current = true
       reproduciendo.current = false

@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import {
   duracionConocida,
+  isSeek,
   MIN_DELTA_S,
   PRESENCE_INTERVAL_MS,
   presenceBody,
+  SEEK_JUMP_S,
   shouldSendPresence,
   shouldSendUpdate,
   UPDATE_INTERVAL_MS,
@@ -159,5 +161,33 @@ describe('cuándo se manda la foto a Discord', () => {
         lastDurationS: duracionConocida(Number.POSITIVE_INFINITY),
       }),
     ).toBe(false)
+  })
+})
+
+describe('qué es una búsqueda y no el paso del reloj', () => {
+  /**
+   * La prueba que mide el fallo: el `seeked` llegaba a `registrar` como un aviso
+   * más, y la foto a Discord salía en el turno periódico —hasta quince
+   * segundos— o no salía. El perfil se quedaba en el minuto que ya se había
+   * dejado atrás.
+   */
+  test('el elemento avisa cuatro veces por segundo: cuarto y medio no es salto', () => {
+    expect(isSeek(12, 12.25)).toBe(false)
+    expect(isSeek(12.25, 12.5)).toBe(false)
+    // Una pestaña en segundo plano puede espaciar los avisos casi un segundo.
+    expect(isSeek(12, 12.9)).toBe(false)
+  })
+
+  test('adelante, atrás y los diez segundos de los mandos lo son', () => {
+    expect(isSeek(12, 45)).toBe(true)
+    expect(isSeek(45, 12)).toBe(true)
+    expect(isSeek(72, 82)).toBe(true)
+    expect(isSeek(82, 72)).toBe(true)
+    expect(SEEK_JUMP_S).toBe(2)
+  })
+
+  test('el salto justo del umbral cuenta', () => {
+    expect(isSeek(10, 10 + SEEK_JUMP_S)).toBe(true)
+    expect(isSeek(10, 10 + SEEK_JUMP_S - 0.1)).toBe(false)
   })
 })
