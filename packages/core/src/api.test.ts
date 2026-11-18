@@ -6,6 +6,8 @@ import {
   feedItemSchema,
   planToWatchRequestSchema,
   planToWatchResponseSchema,
+  profileExportSchema,
+  profileImportResponseSchema,
   profileResponseSchema,
   providerDraftSchema,
   providerFieldMapSchema,
@@ -542,6 +544,76 @@ describe('watchHistoryResponseSchema', () => {
     ).toBe(false)
     expect(
       watchHistoryResponseSchema.safeParse({ items: [], page: 1.5, hasMore: false }).success,
+    ).toBe(false)
+  })
+})
+
+describe('profileExportSchema', () => {
+  const entrada = { providerId: 'fuente-ejemplo', ref: 'titulo-1', title: 'Un título' }
+  const perfil = {
+    version: 1,
+    favorites: [entrada],
+    watched: [entrada],
+    planToWatch: [entrada],
+  }
+
+  test('acepta un archivo de la versión 1 con las tres listas', () => {
+    expect(profileExportSchema.safeParse(perfil).success).toBe(true)
+  })
+
+  test('rechaza una versión que no es la 1: el importador no adivina el formato', () => {
+    expect(profileExportSchema.safeParse({ ...perfil, version: 2 }).success).toBe(false)
+    expect(profileExportSchema.safeParse({ ...perfil, version: '1' }).success).toBe(false)
+  })
+
+  test('exige las tres listas, aunque estén vacías', () => {
+    expect(profileExportSchema.safeParse({ version: 1, favorites: [], watched: [] }).success).toBe(
+      false,
+    )
+  })
+
+  test('una entrada exige proveedor, referencia y título', () => {
+    expect(
+      profileExportSchema.safeParse({
+        ...perfil,
+        favorites: [{ providerId: 'fuente-ejemplo', ref: 'titulo-1' }],
+      }).success,
+    ).toBe(false)
+  })
+
+  test('no admite secretos ni campos que no se exportan', () => {
+    expect(
+      profileExportSchema.safeParse({ ...perfil, tmdbApiKey: '0123456789abcdef' }).success,
+    ).toBe(false)
+    expect(
+      profileExportSchema.safeParse({
+        ...perfil,
+        favorites: [{ ...entrada, coverUrl: 'https://ejemplo.test/portada.jpg' }],
+      }).success,
+    ).toBe(false)
+  })
+})
+
+describe('profileImportResponseSchema', () => {
+  test('cuenta las tres listas y los omitidos', () => {
+    expect(
+      profileImportResponseSchema.safeParse({
+        favorites: 3,
+        watched: 1,
+        planToWatch: 0,
+        skipped: 2,
+      }).success,
+    ).toBe(true)
+  })
+
+  test('un recuento negativo no describe una importación', () => {
+    expect(
+      profileImportResponseSchema.safeParse({
+        favorites: -1,
+        watched: 0,
+        planToWatch: 0,
+        skipped: 0,
+      }).success,
     ).toBe(false)
   })
 })

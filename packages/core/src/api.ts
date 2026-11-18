@@ -693,6 +693,64 @@ export const profileResponseSchema = z.strictObject({
   history: watchHistoryResponseSchema,
 })
 
+/**
+ * La versión del archivo portátil del perfil.
+ *
+ * Va escrita dentro del JSON para que quien lo importe mañana sepa qué formato
+ * tiene delante antes de interpretarlo. No se negocia: un cambio incompatible
+ * sube el número y el importador viejo rechaza el archivo en vez de leerlo mal.
+ */
+export const PROFILE_EXPORT_VERSION = 1
+
+/**
+ * Una marca del perfil, tal como viaja en el archivo.
+ *
+ * `ref` es la referencia opaca que da el proveedor; `title` está para que el
+ * archivo se pueda leer a ojo y para poder decir qué se omitió. No lleva portada,
+ * año ni fecha: el importador no los usa y cada campo de más es un dato que se
+ * queda viejo.
+ */
+export const profileExportEntrySchema = z.strictObject({
+  providerId: z.string().min(1),
+  ref: z.string().min(1),
+  title: z.string().min(1),
+})
+
+/**
+ * El perfil exportable: favoritos, vistos y «quiero ver», con su versión.
+ *
+ * **Sin secretos.** No lleva la clave de TMDB, la cookie de sesión, las rutas del
+ * disco ni el historial de búsquedas: el archivo se guarda o se comparte fuera de
+ * la aplicación, y lo único que contiene es lo que el usuario marcó. El historial
+ * de visionado tampoco viaja: esto es lo que se puede volver a marcar, no un
+ * registro de lo que se vio.
+ *
+ * Las tres listas son independientes, como en la base: importar un favorito no
+ * marca la obra como vista ni la pone en «quiero ver».
+ */
+export const profileExportSchema = z.strictObject({
+  version: z.literal(PROFILE_EXPORT_VERSION),
+  favorites: z.array(profileExportEntrySchema),
+  watched: z.array(profileExportEntrySchema),
+  planToWatch: z.array(profileExportEntrySchema),
+})
+
+/**
+ * El resultado de importar un perfil.
+ *
+ * Los tres primeros cuentan **marcas nuevas**: las que no estaban y quedaron
+ * puestas. `skipped` cuenta las referencias que la base local no conoce; no se
+ * inventan ni se piden a un proveedor, porque importar no puede llenar la caché.
+ * Importar dos veces el mismo archivo devuelve ceros en los tres primeros y el
+ * mismo `skipped`.
+ */
+export const profileImportResponseSchema = z.strictObject({
+  favorites: z.number().int().nonnegative(),
+  watched: z.number().int().nonnegative(),
+  planToWatch: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+})
+
 /** Una fila de tendencias. */
 export const trendingResponseSchema = z.strictObject({
   items: z.array(animeSummarySchema),
@@ -1204,6 +1262,9 @@ export type PlanToWatchResponse = z.infer<typeof planToWatchResponseSchema>
 export type WatchHistoryItem = z.infer<typeof watchHistoryItemSchema>
 export type WatchHistoryResponse = z.infer<typeof watchHistoryResponseSchema>
 export type ProfileResponse = z.infer<typeof profileResponseSchema>
+export type ProfileExportEntry = z.infer<typeof profileExportEntrySchema>
+export type ProfileExport = z.infer<typeof profileExportSchema>
+export type ProfileImportResponse = z.infer<typeof profileImportResponseSchema>
 export type EpisodesResponse = z.infer<typeof episodesResponseSchema>
 export type EpisodeSeason = z.infer<typeof episodeSeasonSchema>
 export type EpisodeResponse = z.infer<typeof episodeResponseSchema>
