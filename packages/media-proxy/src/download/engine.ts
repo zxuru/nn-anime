@@ -19,6 +19,7 @@ import { createHash } from 'node:crypto'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import type { FetchLike } from '../byte-proxy'
 import { checkDestination } from '../destination-guard'
+import { createPinnedFetch } from '../pinned-fetch'
 import { createFfmpegRemux, locateFfmpeg } from './ffmpeg'
 import { downloadFile } from './file'
 import { downloadHls, type RemuxFn } from './hls-download'
@@ -121,12 +122,20 @@ export function insideRoot(root: string, path: string): boolean {
  * Se comprueba **cada** URL, también las de los segmentos: un manifiesto puede
  * apuntar a loopback aunque la playlist venga de un host permitido.
  */
-export function guardedFetch(fetchImpl: FetchLike = (url, init) => fetch(url, init)): FetchLike {
+export function guardedFetch(fetchImpl?: FetchLike): FetchLike {
+  // Sin un `fetch` inyectado —el camino de producción—, la conexión va a la
+  // dirección que se validó: `createPinnedFetch` resuelve el nombre una vez,
+  // juzga todas sus respuestas y fija el `lookup`. El `fetch` global volvía a
+  // resolver después de la comprobación y dejaba abierta la ventana del DNS
+  // rebinding. Con un `fetch` inyectado —las pruebas— se conserva la
+  // comprobación literal y no se toca la red.
+  const base = fetchImpl ?? createPinnedFetch()
+
   return async (url, init) => {
     const destino = checkDestination(url)
     if (!destino.ok) throw new Error(`destino no permitido: ${destino.rule}`)
 
-    return await fetchImpl(url, init)
+    return await base(url, init)
   }
 }
 

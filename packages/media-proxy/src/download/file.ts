@@ -79,7 +79,13 @@ export async function downloadFile(input: FileDownloadInput): Promise<FileDownlo
   if (yaHabia > 0) headers.Range = `bytes=${yaHabia}-`
 
   const fetchImpl: FetchLike = input.fetchImpl ?? ((url, init) => fetch(url, init))
-  const respuesta = await fetchImpl(input.url, { headers, signal: input.signal })
+  const respuesta = await fetchImpl(input.url, {
+    headers,
+    signal: input.signal,
+    // Una redirección es la forma más fácil de saltarse la lista blanca que sólo
+    // mira la primera URL. Aquí no se sigue: el motor la trata como un fallo.
+    redirect: 'manual',
+  })
 
   if (respuesta.status === 416 && yaHabia > 0) {
     // El servidor dice que no hay nada después de lo que ya tenemos: el temporal
