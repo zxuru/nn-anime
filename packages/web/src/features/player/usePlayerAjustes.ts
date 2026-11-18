@@ -36,7 +36,9 @@ export interface AjustesDelReproductor {
   readonly completa: boolean
 }
 
-export function usePlayerAjustes(marco?: RefObject<HTMLDivElement | null>): AjustesDelReproductor {
+export function usePlayerAjustes(
+  escenario?: RefObject<HTMLDivElement | null>,
+): AjustesDelReproductor {
   const [menu, setMenu] = useState(false)
   const [atajos, setAtajos] = useState(false)
   const botonAjustes = useRef<HTMLButtonElement | null>(null)
@@ -98,21 +100,22 @@ export function usePlayerAjustes(marco?: RefObject<HTMLDivElement | null>): Ajus
   const [completa, setCompleta] = useState(false)
 
   useEffect(() => {
-    // Se compara con el marco y no con «hay algo a pantalla completa»: el
-    // reproductor la pide sobre su marco, y el día que otro elemento de la página
-    // la pida, el mando no puede decir que el video está a pantalla completa.
-    // Sin marco —otros montajes— vale la pregunta general.
+    // Se compara con el escenario y no con «hay algo a pantalla completa»: el
+    // reproductor la pide sobre su escenario —el marco y los mandos—, y el día
+    // que otro elemento de la página la pida, el mando no puede decir que el
+    // video está a pantalla completa. Sin escenario —otros montajes— vale la
+    // pregunta general.
     const alCambiar = (): void =>
       setCompleta(
-        marco === undefined
+        escenario === undefined
           ? document.fullscreenElement !== null
-          : document.fullscreenElement === marco.current,
+          : document.fullscreenElement === escenario.current,
       )
 
     document.addEventListener('fullscreenchange', alCambiar)
 
     return () => document.removeEventListener('fullscreenchange', alCambiar)
-  }, [marco])
+  }, [escenario])
 
   return {
     menu,

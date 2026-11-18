@@ -431,10 +431,10 @@ export interface UsePlayerOptions {
   /**
    * El elemento sobre el que se pide la pantalla completa.
    *
-   * **No es el `<video>`**: el botón de saltar y los carteles que van encima del
-   * video son hermanos suyos dentro del marco, y una pantalla completa sobre el
-   * elemento de video los dejaría fuera de la pantalla. Se pide sobre el marco,
-   * que es la caja que contiene la imagen y sus capas. Por defecto, el video.
+   * **No es el `<video>`**: los carteles que van encima de la imagen son
+   * hermanos suyos, y una pantalla completa sobre el elemento de video los
+   * dejaría fuera de la pantalla. Se pide sobre el escenario, que contiene la
+   * imagen, sus capas y la banda de mandos. Por defecto, el video.
    */
   readonly fullscreenTarget?: (() => HTMLElement | null) | undefined
 }
@@ -494,9 +494,9 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
   /**
    * El elemento que ocupa la pantalla completa, en una referencia.
    *
-   * Quien monta el reproductor lo sabe —el marco contiene el video y el botón de
-   * saltar—, y esta función no: se lee en el momento del gesto para no volver a
-   * montar el medio cada vez que el componente se vuelve a pintar.
+   * Quien monta el reproductor lo sabe —el escenario contiene el video, sus
+   * capas y los mandos—, y esta función no: se lee en el momento del gesto para
+   * no volver a montar el medio cada vez que el componente se vuelve a pintar.
    */
   const objetivoPantalla = useRef(source.fullscreenTarget)
   objetivoPantalla.current = source.fullscreenTarget
@@ -806,9 +806,9 @@ export function usePlayer(source: UsePlayerOptions): PlayerHandle {
 
         return
       case 'fullscreen': {
-        // La pantalla completa se pide sobre el marco y no sobre el `<video>`:
-        // el botón de saltar y los carteles de encima son hermanos del video, y
-        // una pantalla completa sobre el elemento los dejaría fuera.
+        // La pantalla completa se pide sobre el escenario y no sobre el `<video>`:
+        // los carteles de encima y la banda de mandos son hermanos suyos, y una
+        // pantalla completa sobre el elemento los dejaría fuera.
         const objetivo = objetivoPantalla.current?.() ?? video
 
         // El mismo gesto entra y sale: sin la vuelta, el doble clic dentro de la
