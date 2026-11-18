@@ -7,6 +7,7 @@
  */
 
 import { DEFAULT_LOCALE, type Locale } from '@rona/core/i18n'
+import type { MediaHalf } from '@rona/core/media'
 import { type ReactNode, useEffect, useRef } from 'react'
 import { BarraInferior } from './components/BarraInferior'
 import { IconLabel } from './components/IconLabel'
@@ -28,10 +29,42 @@ import { ConmutadorTipo } from './features/tipo/ConmutadorTipo'
 import { tipoFromPath } from './features/tipo/tipo'
 import { t } from './i18n'
 import { routeTitleParts, useDocumentTitle } from './lib/document-title'
-import { destinoDeNav, esNavActual, NAV_ITEMS } from './nav'
-import { Link, type RouteMatch, tocaVolverArriba, usePath, useRoute } from './router'
+import { destinoDeNav, esNavActual, NAV_ITEMS, type NavItem } from './nav'
+import {
+  Link,
+  type RouteMatch,
+  type RouteName,
+  tocaVolverArriba,
+  usePath,
+  useRoute,
+} from './router'
 
 const LOCALE: Locale = DEFAULT_LOCALE
+
+/**
+ * Un destino de la navegación, con su dibujo y su nombre.
+ *
+ * La cabecera lo pinta dos veces —el grupo de destinos y el Perfil, que va
+ * aparte—, y las dos formas tienen que ser la misma: un solo sitio decide el
+ * enlace, el `aria-current` y el ancla de la guía.
+ */
+function DestinoNav(props: {
+  readonly item: NavItem
+  readonly route: RouteName
+  readonly tipo: MediaHalf
+}): ReactNode {
+  const actual = esNavActual(props.item, props.route)
+
+  return (
+    <Link
+      to={destinoDeNav(props.item, props.tipo)}
+      ariaCurrent={actual ? 'page' : undefined}
+      {...(props.item.tour === undefined ? {} : { dataTour: props.item.tour })}
+    >
+      <IconLabel icon={props.item.icon} label={t(LOCALE, props.item.label)} />
+    </Link>
+  )
+}
 
 /** La caja de la pantalla, con lo que cada una pide de ella. */
 function Shell(props: {
@@ -96,6 +129,13 @@ function Shell(props: {
   const tipo = tipoFromPath(path)
   const contenido = useRef<HTMLElement>(null)
   /*
+    El Perfil va aparte y al final, detrás de los mandos. La lista sigue siendo
+    `NAV_ITEMS`: aquí se parte en dos grupos y la barra inferior recibe la
+    completa, así que añadir un destino no obliga a tocar la cabecera.
+  */
+  const destinos = NAV_ITEMS.filter((item) => item.separado !== true)
+  const separados = NAV_ITEMS.filter((item) => item.separado === true)
+  /*
     La pantalla, no la consulta.
 
     Escribir en el buscador reemplaza `?q=` en cada pausa; si el foco se moviera
@@ -151,23 +191,26 @@ function Shell(props: {
           {t(LOCALE, 'app.name')}
         </Link>
         <nav className="shell__nav" aria-label={t(LOCALE, 'nav.primary')}>
-          {NAV_ITEMS.map((item) => {
-            const actual = esNavActual(item, route.name)
-
-            return (
-              <Link
-                key={item.to}
-                to={destinoDeNav(item, tipo)}
-                ariaCurrent={actual ? 'page' : undefined}
-                {...(item.tour === undefined ? {} : { dataTour: item.tour })}
-              >
-                <IconLabel icon={item.icon} label={t(LOCALE, item.label)} />
-              </Link>
-            )
-          })}
+          {destinos.map((item) => (
+            <DestinoNav key={item.to} item={item} route={route.name} tipo={tipo} />
+          ))}
         </nav>
         {props.tipo === true ? <ConmutadorTipo /> : null}
         <BotonGuia />
+        {separados.length === 0 ? null : (
+          /*
+            El grupo de la derecha lo empuja este `auto`, no un hueco fijo: así la
+            cabecera se lee de fuera hacia dentro —marca, destinos, mandos y
+            cuenta— y el Perfil queda pegado al borde. La etiqueta del grupo es el
+            nombre del destino: dos navegaciones con el mismo nombre serían dos
+            respuestas distintas a la misma pregunta.
+          */
+          <nav className="shell__nav shell__nav--separado" aria-label={t(LOCALE, 'nav.profile')}>
+            {separados.map((item) => (
+              <DestinoNav key={item.to} item={item} route={route.name} tipo={tipo} />
+            ))}
+          </nav>
+        )}
       </header>
       <main className={caja.join(' ')} id="contenido" ref={contenido} tabIndex={-1}>
         {props.children}

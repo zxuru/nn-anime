@@ -37,6 +37,21 @@ describe('los destinos de la navegación', () => {
     expect(destinoDeNav(perfil, 'movies')).toBe('/profile')
   })
 
+  /**
+   * El Perfil se pinta aparte en la cabecera, no fuera de la lista.
+   *
+   * La lista es la misma para la cabecera y la barra inferior; lo que cambia es
+   * dónde lo coloca la cabecera. Si alguien lo sacara de `NAV_ITEMS` para
+   * moverlo, la barra del móvil se quedaría sin él y esta prueba lo diría.
+   */
+  test('sólo el Perfil se pinta al final de la cabecera', () => {
+    expect(NAV_ITEMS.filter((item) => item.separado === true).map((item) => item.to)).toEqual([
+      '/profile',
+    ])
+    // La barra inferior recibe la lista entera, en el mismo orden.
+    expect(NAV_ITEMS.map((item) => item.to)).toContain('/profile')
+  })
+
   test('la biblioteca se enciende también en su dirección vieja', () => {
     const biblioteca = NAV_ITEMS.find((item) => item.to === '/library')
 

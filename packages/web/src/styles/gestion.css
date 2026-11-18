@@ -1008,7 +1008,12 @@
   justify-content: center;
   inline-size: var(--control-size-compact);
   block-size: var(--control-size-compact);
-  margin-inline-start: auto;
+  /*
+   * Sin margen propio: el grupo de la derecha —`.shell__nav--separado`, que
+   * lleva el Perfil— es el que empuja con su `auto`. Con dos, el hueco se
+   * repartiría y el mando quedaría en el centro.
+   */
+  margin-inline-start: 0;
   padding: 0;
   border: var(--border-width-strong) solid var(--color-border);
   border-radius: var(--radius-full);
@@ -1022,14 +1027,6 @@
     color var(--transition-fast),
     border-color var(--transition-fast),
     background var(--transition-fast);
-}
-
-/*
- * Con conmutador, el que empuja al borde es él; el botón va detrás. Dos
- * `margin: auto` se repartirían el hueco y dejarían el mando en el centro.
- */
-.shell__header .conmutador ~ .shell__guia {
-  margin-inline-start: 0;
 }
 
 .shell__guia:hover {

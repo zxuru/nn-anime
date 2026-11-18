@@ -155,6 +155,55 @@ describe('App: cabecera', () => {
    * arriba, una pantalla podría quedarse sin salida. Se comprueba que los cinco
    * están, que el actual se enciende y que cada uno tiene su dibujo.
    */
+  /**
+   * El Perfil, al final de la cabecera.
+   *
+   * Es una pantalla de cuenta y no un destino del día a día: va detrás de los
+   * mandos, pegado al borde derecho. El orden se mide en el marcado porque el
+   * tabulador lo sigue, y `display: none` de la barra inferior no cambia el del
+   * documento: si el Perfil volviera al centro, esta prueba lo diría.
+   */
+  test('el Perfil va al final de la cabecera, detrás de los mandos', () => {
+    const html = render('/')
+    const cabecera = /<header class="shell__header"[^>]*>([\s\S]*?)<\/header>/.exec(html)?.[1] ?? ''
+    expect(cabecera, 'falta la cabecera en el marcado').not.toBe('')
+
+    const marca = cabecera.indexOf('class="shell__brand"')
+    const destinos = cabecera.indexOf('<nav class="shell__nav"')
+    const conmutador = cabecera.indexOf('class="conmutador"')
+    const guia = cabecera.indexOf('class="shell__guia"')
+    const perfil = cabecera.indexOf('shell__nav--separado')
+
+    for (const [nombre, posicion] of Object.entries({
+      marca,
+      destinos,
+      conmutador,
+      guia,
+      perfil,
+    })) {
+      expect(posicion, `falta ${nombre} en la cabecera`).toBeGreaterThan(-1)
+    }
+
+    expect(marca).toBeLessThan(destinos)
+    expect(destinos).toBeLessThan(conmutador)
+    expect(conmutador).toBeLessThan(guia)
+    expect(guia).toBeLessThan(perfil)
+  })
+
+  test('el Perfil conserva su aria-current, fuera del grupo de destinos', () => {
+    const trozo =
+      /<nav class="shell__nav shell__nav--separado"[^>]*>([\s\S]*?)<\/nav>/.exec(
+        render('/profile'),
+      )?.[1] ?? ''
+
+    expect(trozo, 'falta el grupo del Perfil').not.toBe('')
+    expect(trozo).toContain('href="/profile"')
+    expect(trozo).toContain('aria-current="page"')
+    expect(trozo).toContain('>Perfil<')
+    // El grupo de la izquierda ya no lo repite: una lista, una definición.
+    expect(navegacion('/profile')).not.toContain('href="/profile"')
+  })
+
   test('la barra inferior repite los cinco destinos, con dibujo', () => {
     const html = render('/')
     const barra = /<nav class="barra"[^>]*>([\s\S]*?)<\/nav>/.exec(html)?.[1] ?? ''
