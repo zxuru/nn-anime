@@ -46,6 +46,7 @@ const TABLAS_POSTERIORES = [
   'watched_title',
   'plan_to_watch',
   'download',
+  'download_subtitle',
   'aniskip_cache',
 ]
 

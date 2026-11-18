@@ -508,6 +508,9 @@ export function createApp(options: AppOptions): Hono {
           update: (id, patch) => container.store.updateDownload(id, patch),
           remove: (id) => container.store.removeDownload(id),
           requeueInterrupted: () => container.store.requeueInterruptedDownloads(),
+          listSubtitles: (id) => container.store.listDownloadSubtitles(id),
+          replaceSubtitles: (id, subtitles) =>
+            container.store.replaceDownloadSubtitles(id, subtitles),
         },
         root: downloadsRoot,
         resolve: async (providerId, episodeRef, signal, mode) => {
@@ -538,6 +541,10 @@ export function createApp(options: AppOptions): Hono {
             url: primera.url,
             kind: primera.kind,
             ...(primera.headers === undefined ? {} : { headers: primera.headers }),
+            // Las pistas viajan con la fuente que eligió el motor. Su URL sigue
+            // siendo la del upstream: el motor la comprueba y la baja él, y la
+            // interfaz no la ve nunca.
+            ...(primera.subtitles === undefined ? {} : { subtitles: primera.subtitles }),
           }
         },
         ...(options.downloadFetchImpl === undefined

@@ -13,13 +13,14 @@
 
 import { mkdir, stat, statfs } from 'node:fs/promises'
 import { dirname, isAbsolute, resolve } from 'node:path'
-import type { CatalogStore, DownloadRecord } from '@rona/catalog-store'
+import type { CatalogStore, DownloadRecord, DownloadSubtitleRecord } from '@rona/catalog-store'
 import {
   downloadItemSchema,
   downloadSeriesRequestSchema,
   downloadSeriesResponseSchema,
   downloadStartRequestSchema,
   downloadStartResponseSchema,
+  downloadSubtitleItemSchema,
   downloadsDirRequestSchema,
   downloadsDirsSchema,
   downloadsSpaceSchema,
@@ -142,7 +143,24 @@ export function etiquetaDeEpisodio(episode: Episode): string {
     : `Temporada ${episode.season} · Episodio ${episode.number}`
 }
 
-function item(row: DownloadRecord) {
+/** El `content-type` de una pista guardada, por su formato declarado. */
+const SUBTITLE_TYPES: Readonly<Record<DownloadSubtitleRecord['format'], string>> = {
+  vtt: 'text/vtt; charset=utf-8',
+  srt: 'application/x-subrip; charset=utf-8',
+  ass: 'text/ass; charset=utf-8',
+}
+
+/**
+ * La ruta interna de una pista.
+ *
+ * Se escribe aquí y no en quien la consume para que el mapeo de la ficha y la
+ * ruta que la atiende no puedan separarse.
+ */
+export function downloadSubtitlePath(downloadId: number, indice: number): string {
+  return `/api/downloads/${downloadId}/subtitles/${indice}`
+}
+
+function item(row: DownloadRecord, subtitles: readonly DownloadSubtitleRecord[] = []) {
   return {
     id: row.id,
     providerId: row.providerId,
@@ -156,9 +174,28 @@ function item(row: DownloadRecord) {
     bytes: row.bytes,
     ...(row.totalBytes === undefined ? {} : { totalBytes: row.totalBytes }),
     ...(row.error === undefined ? {} : { error: row.error }),
+    ...(subtitles.length === 0
+      ? {}
+      : {
+          subtitles: subtitles.map((pista) =>
+            downloadSubtitleItemSchema.parse({
+              indice: pista.indice,
+              lang: pista.lang,
+              label: pista.label,
+              format: pista.format,
+              url: downloadSubtitlePath(row.id, pista.indice),
+              default: pista.isDefault,
+            }),
+          ),
+        }),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }
+}
+
+/** La ficha de una descarga con las pistas que tiene guardadas. */
+async function itemConPistas(store: CatalogStore, row: DownloadRecord) {
+  return item(row, await store.listDownloadSubtitles(row.id))
 }
 
 function errorJson(c: Context, status: 400 | 403 | 404 | 409 | 416 | 500 | 502, message: string) {
@@ -312,8 +349,9 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
 
   app.get('/api/downloads', async (c) => {
     const filas = await store.listDownloads(200)
+    const items = await Promise.all(filas.map(async (fila) => await itemConPistas(store, fila)))
 
-    return c.json({ items: filas.map(item) })
+    return c.json({ items })
   })
 
   app.get('/api/downloads/space', async (c) => {
@@ -371,7 +409,45 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
     const fila = await store.getDownload(id)
     if (fila === undefined) return errorJson(c, 404, 'esa descarga no existe')
 
-    return c.json(downloadItemSchema.parse(item(fila)))
+    return c.json(downloadItemSchema.parse(await itemConPistas(store, fila)))
+  })
+
+  /**
+   * Una pista de subtítulos de una descarga.
+   *
+   * El archivo sale de la fila y no de la petición: el cliente manda el índice,
+   * y la ruta se comprueba contra la raíz de descargas. Se sirve con el tipo que
+   * declara su formato y sin caché: el archivo puede desaparecer cuando se borra
+   * la descarga.
+   */
+  app.get('/api/downloads/:id/subtitles/:indice', async (c) => {
+    const id = Number(c.req.param('id'))
+    const indice = Number(c.req.param('indice'))
+    if (!Number.isInteger(id) || id <= 0) return errorJson(c, 400, 'ese identificador no es válido')
+    if (!Number.isInteger(indice) || indice < 0) return errorJson(c, 400, 'ese índice no es válido')
+
+    const fila = await store.getDownload(id)
+    if (fila === undefined) return errorJson(c, 404, 'esa descarga no existe')
+
+    const pista = await store.getDownloadSubtitle(id, indice)
+    if (pista === undefined) return errorJson(c, 404, 'esa pista no existe')
+
+    const raiz = options.queue.root()
+    const absoluta = resolve(raiz, pista.path)
+    if (isAbsolute(pista.path) || !insideRoot(raiz, absoluta)) {
+      return errorJson(c, 404, 'esa pista no existe')
+    }
+
+    const archivo = Bun.file(absoluta)
+    const info = await archivo.stat().catch(() => undefined)
+    if (info === undefined || !info.isFile()) return errorJson(c, 404, 'esa pista no está')
+
+    c.header('content-type', SUBTITLE_TYPES[pista.format])
+    c.header('cache-control', 'no-store')
+    c.header('x-content-type-options', 'nosniff')
+    c.header('content-length', String(info.size))
+
+    return c.body(archivo.stream())
   })
 
   app.patch('/api/downloads/dir', async (c) => {
@@ -589,7 +665,7 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
       })
       if (actualizada === undefined) return errorJson(c, 404, 'esa descarga no existe')
 
-      return c.json(downloadItemSchema.parse(item(actualizada)))
+      return c.json(downloadItemSchema.parse(await itemConPistas(store, actualizada)))
     } catch (cause) {
       const mensaje = cause instanceof Error ? cause.message : String(cause)
 

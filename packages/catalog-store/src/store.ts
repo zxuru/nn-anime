@@ -49,7 +49,9 @@ import {
   createDownloadRepository,
   type DownloadPatch,
   type DownloadRecord,
+  type DownloadSubtitleRecord,
   type NewDownload,
+  type NewDownloadSubtitle,
 } from './repositories/download'
 import { createEpisodePageRepository, type StoredEpisodePage } from './repositories/episode-page'
 import { createEpisodesRepository } from './repositories/episodes'
@@ -321,6 +323,22 @@ export interface CatalogStore {
   listDownloads(limit?: number): Promise<readonly DownloadRecord[]>
   updateDownload(id: number, patch: DownloadPatch): Promise<DownloadRecord | undefined>
   removeDownload(id: number): Promise<DownloadRecord | undefined>
+  /**
+   * Las pistas de subtítulos de una descarga.
+   *
+   * La cola las escribe al terminar el vídeo y las lee la ruta que las sirve.
+   * `replaceDownloadSubtitles` sustituye el juego entero: un reintento que trae
+   * menos pistas no puede dejar filas apuntando a archivos borrados.
+   */
+  listDownloadSubtitles(downloadId: number): Promise<readonly DownloadSubtitleRecord[]>
+  getDownloadSubtitle(
+    downloadId: number,
+    indice: number,
+  ): Promise<DownloadSubtitleRecord | undefined>
+  replaceDownloadSubtitles(
+    downloadId: number,
+    subtitles: readonly NewDownloadSubtitle[],
+  ): Promise<readonly DownloadSubtitleRecord[]>
   /** Al arrancar: las que quedaron «downloading» vuelven a la cola. */
   requeueInterruptedDownloads(): Promise<number>
   recordSearch(query: string, providerId: string, hits: number): Promise<void>
@@ -562,6 +580,15 @@ export function createCatalogStore(db: Database, options: CatalogStoreOptions = 
     },
     async removeDownload(id) {
       return queue.run(() => of().downloads.remove(id))
+    },
+    async listDownloadSubtitles(downloadId) {
+      return of().downloads.listSubtitles(downloadId)
+    },
+    async getDownloadSubtitle(downloadId, indice) {
+      return of().downloads.getSubtitle(downloadId, indice)
+    },
+    async replaceDownloadSubtitles(downloadId, subtitles) {
+      return queue.run(() => of().downloads.replaceSubtitles(downloadId, subtitles))
     },
     async requeueInterruptedDownloads() {
       return queue.run(() => of().downloads.requeueInterrupted())

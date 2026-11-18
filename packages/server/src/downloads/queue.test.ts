@@ -1,8 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import type { DownloadPatch, DownloadRecord, DownloadStatus } from '@rona/catalog-store'
+import { dirname, join } from 'node:path'
+import type {
+  DownloadPatch,
+  DownloadRecord,
+  DownloadStatus,
+  DownloadSubtitleRecord,
+  NewDownloadSubtitle,
+} from '@rona/catalog-store'
 import type { FetchLike } from '@rona/media-proxy'
 import { createDownloadQueue, type DownloadStorePort } from './queue'
 
@@ -26,13 +32,16 @@ function fila(id: number, status: DownloadStatus = 'queued'): DownloadRecord {
 function memoria(iniciales: readonly DownloadRecord[]): DownloadStorePort & {
   readonly filas: Map<number, DownloadRecord>
   readonly updates: DownloadPatch[]
+  readonly subtitulos: Map<number, readonly DownloadSubtitleRecord[]>
 } {
   const filas = new Map(iniciales.map((item) => [item.id, { ...item }]))
   const updates: DownloadPatch[] = []
+  const subtitulos = new Map<number, readonly DownloadSubtitleRecord[]>()
 
   return {
     filas,
     updates,
+    subtitulos,
     async get(id) {
       return filas.get(id)
     },
@@ -63,6 +72,7 @@ function memoria(iniciales: readonly DownloadRecord[]): DownloadStorePort & {
       const actual = filas.get(id)
       if (actual === undefined) return undefined
       filas.delete(id)
+      subtitulos.delete(id)
       return actual
     },
     async requeueInterrupted() {
@@ -73,6 +83,22 @@ function memoria(iniciales: readonly DownloadRecord[]): DownloadStorePort & {
         cuantas += 1
       }
       return cuantas
+    },
+    async listSubtitles(id) {
+      return subtitulos.get(id) ?? []
+    },
+    async replaceSubtitles(id, pistas: readonly NewDownloadSubtitle[]) {
+      const guardadas = pistas.map((pista) => ({
+        downloadId: id,
+        indice: pista.indice,
+        lang: pista.lang,
+        label: pista.label,
+        format: pista.format,
+        path: pista.path,
+        isDefault: pista.isDefault === true,
+      }))
+      subtitulos.set(id, guardadas)
+      return guardadas
     },
   }
 }
@@ -175,6 +201,85 @@ describe('la cola de descargas', () => {
       await esperar(async () => (await store.get(1))?.status === 'complete')
 
       expect(recibido).toBe('dub')
+    })
+  })
+
+  /**
+   * Las pistas se guardan al terminar el vídeo, y una que falla no lo tumba.
+   *
+   * El motor devuelve las que sí bajó y el motivo de las que no; la cola las
+   * persiste y deja la fila completa. El fallo de una pista se cuenta en el
+   * campo de error sin cambiar el estado: el episodio ya está en disco.
+   */
+  test('guarda las pistas y una que falla no deja la descarga en fallo', async () => {
+    await conRaiz(async (root) => {
+      const store = memoria([fila(1)])
+      const conPistas: FetchLike = async (url) => {
+        if (url.endsWith('v.mp4')) return new Response('MP4')
+        if (url.endsWith('buena.vtt')) return new Response('WEBVTT\n')
+        return new Response('no', { status: 404 })
+      }
+      const cola = createDownloadQueue({
+        store,
+        root,
+        concurrency: 1,
+        fetchImpl: conPistas,
+        resolve: async () => ({
+          url: 'https://fixture.invalid/v.mp4',
+          kind: 'file',
+          subtitles: [
+            {
+              lang: 'es',
+              label: 'Español',
+              url: 'https://fixture.invalid/buena.vtt',
+              format: 'vtt',
+              default: true,
+            },
+            {
+              lang: 'es',
+              label: 'Subtítulos rotos',
+              url: 'https://fixture.invalid/rota.srt',
+              format: 'srt',
+            },
+          ],
+        }),
+      })
+
+      await cola.start()
+      await esperar(async () => (await store.get(1))?.status === 'complete')
+
+      const final = await store.get(1)
+      expect(final?.status).toBe('complete')
+      expect(final?.error).toContain('Subtítulos rotos')
+
+      const pistas = store.subtitulos.get(1) ?? []
+      expect(pistas).toHaveLength(1)
+      const pista = pistas[0]
+      if (pista === undefined) throw new Error('la pista buena no se guardó')
+      expect(pista).toMatchObject({ indice: 0, lang: 'es', format: 'vtt', isDefault: true })
+      expect(pista.path).not.toContain('..')
+      expect(await readFile(join(root, pista.path), 'utf8')).toBe('WEBVTT\n')
+
+      // La pista que falló no dejó un `.part` esperando.
+      await expect(stat(join(root, `${pista.path.replace('.vtt', '.srt')}.part`))).rejects.toThrow()
+    })
+  })
+
+  test('un stream sin pistas no crea ninguna fila de subtítulos', async () => {
+    await conRaiz(async (root) => {
+      const store = memoria([fila(1)])
+      const cola = createDownloadQueue({
+        store,
+        root,
+        concurrency: 1,
+        fetchImpl: FETCH,
+        resolve: async () => ({ url: 'https://fixture.invalid/v.mp4', kind: 'file' }),
+      })
+
+      await cola.start()
+      await esperar(async () => (await store.get(1))?.status === 'complete')
+
+      expect(store.subtitulos.get(1)).toEqual([])
     })
   })
 
@@ -310,27 +415,51 @@ describe('la cola de descargas', () => {
     })
   })
 
-  test('borrar para la descarga y se lleva archivo y fila', async () => {
+  test('borrar para la descarga y se lleva archivo, pistas y fila', async () => {
     await conRaiz(async (root) => {
       const store = memoria([fila(1)])
       const cola = createDownloadQueue({
         store,
         root,
         concurrency: 1,
-        fetchImpl: FETCH,
-        resolve: async () => ({ url: 'https://fixture.invalid/v.mp4', kind: 'file' }),
+        fetchImpl: async (url) =>
+          url.endsWith('v.mp4')
+            ? new Response('MP4')
+            : url.endsWith('.vtt')
+              ? new Response('WEBVTT\n')
+              : new Response('no', { status: 404 }),
+        resolve: async () => ({
+          url: 'https://fixture.invalid/v.mp4',
+          kind: 'file',
+          subtitles: [
+            {
+              lang: 'es',
+              label: 'Español',
+              url: 'https://fixture.invalid/pista.vtt',
+              format: 'vtt',
+            },
+          ],
+        }),
       })
 
       await cola.start()
       await esperar(async () => (await store.get(1))?.status === 'complete')
       const final = await store.get(1)
       const ruta = join(root, final?.path ?? '')
+      const pista = store.subtitulos.get(1)?.[0]
+      if (pista === undefined) throw new Error('la pista no se guardó')
+      const rutaPista = join(root, pista.path)
       await stat(ruta)
+      await stat(rutaPista)
 
       await cola.remove(1)
 
       expect(await store.get(1)).toBeUndefined()
+      expect(store.subtitulos.get(1)).toBeUndefined()
       await expect(stat(ruta)).rejects.toThrow()
+      await expect(stat(rutaPista)).rejects.toThrow()
+      // La carpeta de las pistas no queda vacía en disco.
+      await expect(stat(dirname(rutaPista))).rejects.toThrow()
     })
   })
 

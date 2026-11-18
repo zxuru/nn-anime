@@ -16,10 +16,13 @@
  */
 
 import { createHash } from 'node:crypto'
+import { rm } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
+import type { SubtitleFormat } from '@rona/core'
 import type { FetchLike } from '../byte-proxy'
 import { checkDestination } from '../destination-guard'
 import { createPinnedFetch } from '../pinned-fetch'
+import { MAX_SUBTITLE_BYTES } from '../subtitles'
 import { createFfmpegRemux, locateFfmpeg } from './ffmpeg'
 import { downloadFile } from './file'
 import { downloadHls, type RemuxFn } from './hls-download'
@@ -39,6 +42,40 @@ export interface DownloadStream {
   readonly url: string
   readonly kind: 'file' | 'hls'
   readonly headers?: Readonly<Record<string, string>> | undefined
+  /**
+   * Las pistas que declaró la fuente.
+   *
+   * Su `url` sigue siendo la del upstream: el motor las baja con el mismo
+   * `fetch` guardado que el vídeo y sólo entonces se guarda en disco. Una pista
+   * que no se pueda bajar no tumba la descarga del episodio.
+   */
+  readonly subtitles?: readonly DownloadSubtitleTrack[] | undefined
+}
+
+/** Una pista tal y como la declara el proveedor, antes de bajarla. */
+export interface DownloadSubtitleTrack {
+  readonly lang: string
+  readonly label: string
+  readonly url: string
+  readonly format: SubtitleFormat
+  readonly default?: boolean | undefined
+}
+
+/** Una pista ya bajada, con su ruta relativa a la raíz de descargas. */
+export interface DownloadedSubtitle {
+  readonly indice: number
+  readonly lang: string
+  readonly label: string
+  readonly format: SubtitleFormat
+  readonly relPath: string
+  readonly isDefault: boolean
+}
+
+/** Por qué se omitió una pista. La descarga del vídeo no se da por fallida. */
+export interface DownloadSubtitleFailure {
+  readonly indice: number
+  readonly label: string
+  readonly message: string
 }
 
 export type ResolveDownloadStream = (task: DownloadTaskInput) => Promise<DownloadStream | undefined>
@@ -65,6 +102,10 @@ export interface DownloadOutcome {
   readonly bytes: number
   readonly totalBytes?: number
   readonly segments?: number
+  /** Las pistas que sí se bajaron. */
+  readonly subtitles: readonly DownloadedSubtitle[]
+  /** Las que se omitieron, con su motivo. */
+  readonly subtitleErrors: readonly DownloadSubtitleFailure[]
 }
 
 /**
@@ -153,6 +194,85 @@ export function findFfmpeg(): string | undefined {
 export { createFfmpegRemux }
 
 /**
+ * Baja las pistas de subtítulos que declaró la fuente.
+ *
+ * Va **después** del vídeo y no antes: un HLS remezclado borra su carpeta de
+ * segmentos al terminar, y las pistas tienen que sobrevivir a eso. Cada pista se
+ * escribe con un nombre corto y seguro dentro de la carpeta del episodio.
+ *
+ * Una pista que falla se omite y se devuelve con su motivo; el episodio ya está
+ * entero en disco y no puede quedarse en «failed» por un subtítulo. La excepción
+ * es la pausa: si la señal se abortó, el fallo se propaga para que la fila quede
+ * en pausa y no en completa.
+ */
+async function descargarSubtitulos(input: {
+  readonly stream: DownloadStream
+  readonly dir: string
+  readonly root: string
+  readonly fetchImpl: FetchLike
+  readonly signal: AbortSignal
+}): Promise<{
+  readonly subtitles: readonly DownloadedSubtitle[]
+  readonly errors: readonly DownloadSubtitleFailure[]
+}> {
+  const subtitles: DownloadedSubtitle[] = []
+  const errors: DownloadSubtitleFailure[] = []
+
+  for (const [indice, pista] of (input.stream.subtitles ?? []).entries()) {
+    if (input.signal.aborted) throw new Error('la descarga se detuvo antes de bajar los subtítulos')
+
+    const nombre = `${String(indice).padStart(2, '0')}-${safeSegment(pista.lang, 'xx')}.${pista.format}`
+    const destino = resolve(input.dir, nombre)
+
+    if (!insideRoot(input.root, destino)) {
+      errors.push({
+        indice,
+        label: pista.label,
+        message: 'la ruta de la pista se sale de la carpeta de descargas',
+      })
+      continue
+    }
+
+    try {
+      await downloadFile({
+        url: pista.url,
+        filePath: destino,
+        ...(input.stream.headers === undefined ? {} : { headers: input.stream.headers }),
+        signal: input.signal,
+        fetchImpl: input.fetchImpl,
+        // Un subtítulo no es un vídeo: 5 MB ya es un archivo enorme para una
+        // pista, y el mismo tope que aplica el proxy.
+        maxBytes: MAX_SUBTITLE_BYTES,
+      })
+
+      subtitles.push({
+        indice,
+        lang: pista.lang,
+        label: pista.label,
+        format: pista.format,
+        relPath: relative(input.root, destino),
+        isDefault: pista.default === true,
+      })
+    } catch (cause) {
+      if (input.signal.aborted) throw cause
+
+      // Un `.part` que se queda no sirve de nada: la pista se reintenta entera y
+      // no hay reanudación que valga la pena para cinco megas.
+      await rm(`${destino}.part`, { force: true })
+      await rm(`${destino}.part.json`, { force: true })
+
+      errors.push({
+        indice,
+        label: pista.label,
+        message: cause instanceof Error ? cause.message : String(cause),
+      })
+    }
+  }
+
+  return { subtitles, errors }
+}
+
+/**
  * Baja una tarea y devuelve qué quedó.
  *
  * No escribe en la cola: eso lo hace quien llama, que es el único que sabe si el
@@ -189,12 +309,22 @@ export async function downloadTask(input: DownloadEngineInput): Promise<Download
       ...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
     })
 
+    const pistas = await descargarSubtitulos({
+      stream,
+      dir: rutas.dir,
+      root,
+      fetchImpl: fetchSeguro,
+      signal: input.signal,
+    })
+
     return {
       kind: 'file',
       path: bajado.path,
       relPath: relative(root, bajado.path),
       bytes: bajado.bytes,
       ...(bajado.totalBytes === undefined ? {} : { totalBytes: bajado.totalBytes }),
+      subtitles: pistas.subtitles,
+      subtitleErrors: pistas.errors,
     }
   }
 
@@ -211,6 +341,14 @@ export async function downloadTask(input: DownloadEngineInput): Promise<Download
     ...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
   })
 
+  const pistas = await descargarSubtitulos({
+    stream,
+    dir: rutas.dir,
+    root,
+    fetchImpl: fetchSeguro,
+    signal: input.signal,
+  })
+
   return {
     kind: hls.kind === 'hls' ? 'hls' : 'segments',
     path: hls.path,
@@ -221,5 +359,7 @@ export async function downloadTask(input: DownloadEngineInput): Promise<Download
     // siete.
     totalBytes: hls.bytes,
     segments: hls.segments,
+    subtitles: pistas.subtitles,
+    subtitleErrors: pistas.errors,
   }
 }
