@@ -689,6 +689,62 @@ describe('cierre', () => {
       expect(lifecycle.size).toBe(1)
     })
   })
+
+  test('el servidor se cierra antes que el contenedor', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+      const orden: string[] = []
+      const lifecycle = createLifecycle()
+
+      const listen: Listen = (puerto, opciones) => {
+        const resultado = target.listen(puerto, opciones)
+        if (!resultado.ok) return resultado
+
+        return {
+          ...resultado,
+          server: {
+            ...resultado.server,
+            stop: async () => {
+              orden.push('servidor')
+              await resultado.server.stop()
+            },
+          },
+        }
+      }
+
+      const openContainer: OpenContainer = (config) => {
+        const real = createContainer({ db: openDb(config.dbPath) })
+
+        return {
+          ...real,
+          close: async () => {
+            orden.push('contenedor')
+            await real.close()
+          },
+        }
+      }
+
+      const result = await boot(
+        options(),
+        depsFor(target, home, {
+          lifecycle,
+          listen,
+          migrate: async (config) => {
+            const db = openDb(config.dbPath)
+            runMigrations(db)
+            db.close()
+
+            return { ok: true }
+          },
+          openContainer,
+        }),
+      )
+
+      expect(result.code).toBe(0)
+      await lifecycle.shutdown()
+      expect(orden).toEqual(['servidor', 'contenedor'])
+    })
+  })
 })
 
 describe('configuración', () => {
