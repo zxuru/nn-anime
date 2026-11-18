@@ -4,10 +4,10 @@
 película de anime no tiene un sitio claro, una serie de animación occidental no está catalogada y
 «Películas» promete un formato cuando lo que separa es otra cosa.
 
-**Estado:** **aprobada el 2026-11-16.** La fase 1 —el contrato en `core` y los cuatro specs— se
-integró en T257a (commit `feat(core): familias de contenido y formato en el contrato (T257a)`). Las
-fases 2–4 siguen abiertas, y este archivo se conserva como registro de la aprobación hasta que se
-cierren.
+**Estado:** **aprobada el 2026-11-16 y cerrada.** Las cuatro fases están integradas: fase 1, el
+contrato en `core` y los cuatro specs (T257a); fase 2, el servidor (T257b); fase 3, la interfaz
+(T257c); y fase 4, el fixture y el e2e (T257d). Este archivo se conserva como registro de la
+aprobación.
 
 Toca **`SPEC-provider-core`** (la capacidad y el tipo por título), **`SPEC-discovery`**,
 **`SPEC-recsys`** y **`SPEC-web-ui`** (la navegación). `SPEC-catalog-store` no cambia de forma: los
@@ -382,8 +382,8 @@ con su commit. El estado a día de hoy:
 |---|---|---|
 | 1 | Contrato en `core`: vocabulario, `familiesOf`, `familyOf`, `formatOf`, `pasaElFiltro`, `capabilities.families`, campos opcionales y specs | **hecha** (T257a) |
 | 2 | Servidor: rutas `family`/`format`, alias `media`, AniList por formato, `catalog-store` leyendo `raw_json`, `recsys` con los campos | **hecha** (T257b) |
-| 3 | Interfaz: tres pestañas, filtro de formato, dirección, i18n, alta de proveedor | pendiente |
-| 4 | Fixture y e2e: película de anime, serie de animación occidental y serie de imagen real | pendiente |
+| 3 | Interfaz: tres pestañas, filtro de formato, dirección, i18n, alta de proveedor | **hecha** (T257c) |
+| 4 | Fixture y e2e: película de anime, serie de animación occidental y serie de imagen real | **hecha** (T257d) |
 
 La fase 1 es **aditiva y opcional**: ningún consumidor publicado deja de compilar ni de conformar.
 `mediaType` se conserva; `media` se conserva; `apiVersion` sigue en `'1'`. La fase 2 añade los dos

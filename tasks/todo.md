@@ -2891,12 +2891,13 @@ como **T257b**, **T257c** y **T257d**.
 - [x] La propuesta está escrita y aprobada: `docs/specs/proposals/SPEC-nn-anime.familias.md`
       (commit `2e7a35c`), con los dos ejes (`mediaFamily` y `mediaFormat`), la tabla de precedencia y
       el reparto en cuatro fases.
-- [ ] Fase 2 (servidor): rutas `family`/`format`, alias `media`, AniList por formato y
+- [x] Fase 2 (servidor): rutas `family`/`format`, alias `media`, AniList por formato y
       `catalog-store` leyendo los campos del `raw_json`. **(T257b)**
-- [ ] Fase 3 (interfaz): tres pestañas por familia, filtro de formato, dirección e i18n. **(T257c)**
-- [ ] Fase 4 (fixture y e2e): película de anime, serie de animación occidental y serie de imagen
+- [x] Fase 3 (interfaz): tres pestañas por familia, filtro de formato, dirección e i18n. **(T257c)**
+- [x] Fase 4 (fixture y e2e): película de anime, serie de animación occidental y serie de imagen
       real en el fixture. **(T257d)**
 
+**Estado:** hecho. Las cuatro fases están integradas (`7481af2`, `3eeee9c`, `af3099b`, `de92502`).
 **Depende de:** nada para la propuesta; T257a para el contrato.
 **Archivos:** `docs/specs/proposals/SPEC-nn-anime.familias.md`, `docs/specs/SPEC-{provider-core,discovery,recsys,web-ui}.md`.
 **Tamaño:** XL repartido en cuatro fases.
@@ -2938,24 +2939,28 @@ y que lo guardado se clasifique con la misma regla que el contrato. Sin esta fas
 T257c no tendría a quién pedirle una familia.
 
 **Aceptación:**
-- [ ] Las ocho rutas (`trending`, `feed`, `catalog/recent`, `recommendations`, `search`,
+- [x] Las ocho rutas (`trending`, `feed`, `catalog/recent`, `recommendations`, `search`,
       `discover/{top,airing,recent}`) aceptan `family` y `format` opcionales; `media` sigue como
       alias traducido en `routes/media.ts` y no se propaga.
-- [ ] Un valor fuera del vocabulario es **400** con el valor y las opciones delante.
-- [ ] El filtro de proveedor va antes de preguntar y el de título después de la caché: una fuente
+- [x] Un valor fuera del vocabulario es **400** con el valor y las opciones delante.
+- [x] El filtro de proveedor va antes de preguntar y el de título después de la caché: una fuente
       que no sirve la familia no recibe la petición —lo dice el contador del fixture—.
-- [ ] AniList sólo se consulta en Anime: `top` con `series` pide los cinco formatos seriados, con
+- [x] AniList sólo se consulta en Anime: `top` con `series` pide los cinco formatos seriados, con
       `movie` pide `MOVIE` y sin formato los seis; `airing` con `movie` devuelve `[]` sin consultar;
       `recent` sin formato pide las dos y deduplica; `animation` y `live` devuelven `[]` sin llamar.
-- [ ] `catalog-store` extrae `family`/`format` del `raw_json` en favoritos, vistos, quiero ver,
+- [x] `catalog-store` extrae `family`/`format` del `raw_json` en favoritos, vistos, quiero ver,
       historial y relacionados con **un helper único**; una fila vieja cae a la regla heredada.
-- [ ] `recsys`: candidatos y recomendaciones llevan los dos campos validados en `gatherSignals`, y
+- [x] `recsys`: candidatos y recomendaciones llevan los dos campos validados en `gatherSignals`, y
       el filtro de candidatos va **antes** de recomendar.
-- [ ] `?media=movies` sigue devolviendo exactamente lo de hoy.
-- [ ] Pruebas de los puntos 3 y 4 de la propuesta, medidas mutando: no filtrar por familia, ignorar
+- [x] `?media=movies` sigue devolviendo exactamente lo de hoy.
+- [x] Pruebas de los puntos 3 y 4 de la propuesta, medidas mutando: no filtrar por familia, ignorar
       `format` en `FORMATOS`, preguntar a AniList en Animación y no validar el valor.
 
-**Verificación:** pendiente.
+**Verificación:** `bun test` **en verde en todos los paquetes** · `bun run typecheck` 0 · `bun run lint`
+0 errores · e2e de la home **22 pasan** · mutaciones: traducir `media=movies` sólo a `live` deja en
+rojo la prueba del alias; ignorar `format` en `formatosDe` deja en rojo el top, el filtro del estudio y
+los formatos del género; hacer que `sirveLaFamilia` conteste siempre deja en rojo las dos pruebas de
+«otra familia no consulta».
 **Depende de:** T257a.
 **Archivos:** `packages/server/src/routes/`, `packages/server/src/anilist/`, `packages/catalog-store/src/repositories/`, `packages/recsys/src/`.
 **Tamaño:** L.
@@ -2966,22 +2971,26 @@ T257c no tendría a quién pedirle una familia.
 única fuente de verdad. Depende de que el servidor entienda los dos parámetros (T257b).
 
 **Aceptación:**
-- [ ] El conmutador tiene **tres enlaces** —Anime, Animación, Acción real—, el activo lleva
+- [x] El conmutador tiene **tres enlaces** —Anime, Animación, Acción real—, el activo lleva
       `aria-current="page"` y la familia vive en `?tipo=anime|animation|live`.
-- [ ] `?tipo=movies` abre **Acción real** y la dirección se reescribe; el formato vive en
+- [x] `?tipo=movies` abre **Acción real** y la dirección se reescribe; el formato vive en
       `?formato=series|movie` y se pinta en las tres familias.
-- [ ] AniList no pinta filas en Animación ni en Acción real; la ausencia de fuente se explica con
+- [x] AniList no pinta filas en Animación ni en Acción real; la ausencia de fuente se explica con
       `sinFuenteQueSirva` contando familias.
-- [ ] `pathConTipo` conserva familia y formato al cambiar de pestaña y de pantalla; el formato se
+- [x] `pathConVista` conserva familia y formato al cambiar de pestaña y de pantalla; el formato se
       cae al abrir una ficha o el reproductor.
-- [ ] Los textos nuevos están en `packages/web/src/i18n/es.ts` (`media.anime`, `media.animation`,
+- [x] Los textos nuevos están en `packages/web/src/i18n/es.ts` (`media.anime`, `media.animation`,
       `media.live`, `media.format.*` y las tres descripciones).
-- [ ] El alta de proveedor cambia `media` por tres casillas que escriben `families`; al editar un
-      plugin viejo salen marcadas sus familias heredadas, y `ProviderList` pinta las declaradas.
-- [ ] Medido mutando: quitar la familia de la dirección, no reescribir `movies` y volver a
+- [x] El alta de proveedor cambia `media` por tres casillas que escriben `families`;
+      `ProviderList` pinta las declaradas y las heredadas se leen con `familiesOf`. No hay pantalla
+      de edición de un plugin, así que el caso «al editar» no tiene superficie propia.
+- [x] Medido mutando: quitar la familia de la dirección, no reescribir `movies` y volver a
       `enElTipo` ponen en rojo su caso.
 
-**Verificación:** pendiente.
+**Verificación:** `bun test` **en verde** · `bun run typecheck` 0 · `bun run lint` 0 errores · e2e de
+la home **25 pasan** (familia en la dirección, `?tipo=movies` reescrito y el formato conservado al
+cambiar de pestaña) · mutaciones: devolver `enLaFamilia` sin filtrar deja en rojo la prueba de la
+lista; hacer que `tieneTipoViejo` conteste siempre que no deja el e2e de `?tipo=movies` en rojo.
 **Depende de:** T257b.
 **Archivos:** `packages/web/src/features/tipo/`, `packages/web/src/features/settings/`, `packages/web/src/app.tsx`, `packages/web/src/i18n/es.ts`, `packages/web/src/styles/`.
 **Tamaño:** L.
@@ -2992,18 +3001,23 @@ T257c no tendría a quién pedirle una familia.
 El fixture declara las tres familias y clasifica cada título; el e2e recorre las tres pestañas.
 
 **Aceptación:**
-- [ ] El fixture declara `families: ['anime', 'animation', 'live']` y clasifica cada título con
+- [x] El fixture declara `families: ['anime', 'animation', 'live']` y clasifica cada título con
       `family` y `format`; `assertConforms` sigue aceptándolo.
-- [ ] Añade una **película de anime**, una **serie de animación occidental** y una **serie de
+- [x] Añade una **película de anime**, una **serie de animación occidental** y una **serie de
       imagen real**, con sus episodios y sus streams como los demás.
-- [ ] El e2e comprueba que la misma obra no sale en dos pestañas, que la película de anime sale en
+- [x] El e2e comprueba que la misma obra no sale en dos pestañas, que la película de anime sale en
       Anime con el filtro Películas y que la serie de imagen real sale en Acción real y no en Anime.
-- [ ] El e2e comprueba que AniList no se consulta en las familias que no sirve —con el contador del
-      arnés o la ruta interceptada—.
-- [ ] Medido mutando: volver a deducir la familia del `kind` mezcla las pestañas y pone el caso en
+- [x] AniList no se consulta en las familias que no sirve: se mide en la ruta con el doble de AniList
+      (`discover/top?family=live` devuelve vacío y `fake.calls` queda en cero), que es donde se puede
+      contar; el arnés del e2e arranca con AniList apagado y no puede contar llamadas a un tercero.
+- [x] Medido mutando: volver a deducir la familia del `kind` mezcla las pestañas y pone el caso en
       rojo.
 
-**Verificación:** pendiente.
+**Verificación:** `bun test packages/providers-fixture packages/server packages/web packages/core
+packages/catalog-store` **en verde** · `bun run typecheck` 0 · `bun run lint` 0 errores · e2e de la
+home **26 pasan** · mutación: quitar `family`/`format` de `aResultado` en el fixture pone en rojo
+«cada obra sale sólo en su familia» (la película de anime deja de salir en Anime con el filtro
+Películas).
 **Depende de:** T257c.
 **Archivos:** `packages/providers-fixture/`, `packages/web/e2e/`.
 **Tamaño:** M.
