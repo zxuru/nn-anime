@@ -2,16 +2,16 @@
  * Lo último que la aplicación ya conoce.
  *
  * Une dos tablas que guardan lo mismo desde sitios distintos: `anime` tiene los
- * títulos cuyo detalle se pidió —los que alguien abrió— y `search_cache` los que
- * aparecieron en una búsqueda, aunque nadie los abriera. Para quien lee la
- * página son la misma cosa, y separarlos en dos filas le pediría que entendiera
- * la diferencia entre una tabla y otra.
+ * títulos cuyo detalle se pidió —los que alguien abrió— y `known_title` los que
+ * aparecieron en un listado cacheado —búsqueda, tendencias o novedades—, aunque
+ * nadie los abriera. Para quien lee la página son la misma cosa, y separarlos en
+ * dos filas le pediría que entendiera la diferencia entre una tabla y otra.
  *
  * Vive en su propio módulo y no dentro de `anime.ts` porque **no es una lectura
- * de una tabla**: cruza `anime` y `search_cache`, y meterla en el repositorio del
- * anime obligaría a ese módulo a saber cómo está guardada una búsqueda.
+ * de una tabla**: cruza `anime` y `known_title`, y meterla en el repositorio del
+ * anime obligaría a ese módulo a saber cómo está guardado un listado.
  *
- * Dos decisiones que se ven en el SQL:
+ * Tres decisiones que se ven en el SQL:
  *
  * 1. **Una entrada por referencia, con la marca más nueva.** El mismo título puede
  *    estar en las dos tablas, y la que interesa es la última vez que se supo de
@@ -19,10 +19,18 @@
  * 2. **Una búsqueda caducada cuenta igual.** Esta lectura no dice «lo fresco»,
  *    dice «lo que la aplicación conoce»: esconder lo que ya está en disco sería
  *    lo contrario de lo que la fila existe para hacer.
+ * 3. **La caché no se recorre.** `known_title` resume las tres cachés en una fila
+ *    por referencia desde que se escriben, en su misma transacción
+ *    (`recordKnownTitles`). Antes esta consulta recorría `search_cache` entera con
+ *    `json_each`: dentro de un array JSON no hay índice posible, y el coste
+ *    crecía con el número de búsquedas aunque la fila sólo pinte seis tarjetas.
  *
- * Lo que **no** hace es romperse por una fila mala: `json_valid` deja fuera un
- * `results_json` que no es JSON —`json_each` lanzaría— y las filas sin título ni
- * referencia se descartan, que es lo que un resultado con otra forma produce.
+ * Lo que **no** hace es romperse por una fila mala: `anime` puede tener un
+ * `raw_json` que no sea JSON y `json_extract` devolvería la fila sin `kind`; las
+ * filas sin título ni referencia se descartan, que es lo que un resultado con
+ * otra forma produce. `known_title` no las admite: `recordKnownTitles` no apunta
+ * una entrada sin referencia o sin título, así que el descarte se hizo al
+ * escribir y la lectura sólo repite el filtro por si la tabla cambió de manos.
  */
 
 import type { Database } from 'bun:sqlite'
@@ -43,8 +51,61 @@ export interface RecentRepository {
 }
 
 /**
+ * La lectura, exportada para que la prueba mire el plan de ejecución.
+ *
+ * Se lee `known_title` y no `search_cache`: la tabla es el resumen que dejan las
+ * tres cachés al escribirse, con una fila por referencia y una columna por campo,
+ * así que la consulta no parsea ningún JSON ni su coste crece con las búsquedas.
+ *
+ * El `UNION ALL` —y no `UNION`— es a propósito: la deduplicación la hace el
+ * `GROUP BY`, que además se queda con la marca más nueva y con los datos de esa
+ * fila. Con `UNION`, SQLite compararía filas enteras y dos listados del mismo
+ * título con fechas distintas seguirían siendo dos.
+ */
+export const ULTIMOS = `
+  WITH conocidos AS (
+    SELECT a.provider_id        AS provider_id,
+           a.provider_ref       AS provider_ref,
+           a.title              AS title,
+           a.cover_url          AS cover_url,
+           a.year               AS year,
+           json_extract(a.raw_json, '$.kind') AS kind,
+           a.fetched_at         AS fetched_at
+      FROM anime a
+
+    UNION ALL
+
+    SELECT provider_id,
+           provider_ref,
+           title,
+           cover_url,
+           year,
+           kind,
+           updated_at AS fetched_at
+      FROM known_title
+  )
+  SELECT provider_id,
+         provider_ref,
+         title,
+         cover_url,
+         year,
+         kind,
+         MAX(fetched_at) AS fetched_at
+    FROM conocidos
+   WHERE provider_id IS NOT NULL
+     AND provider_ref IS NOT NULL
+     AND title IS NOT NULL
+   GROUP BY provider_id, provider_ref
+   ORDER BY fetched_at DESC
+   LIMIT ?`
+
+/**
  * `kind` se valida contra el schema: un valor que no es uno de los cinco del
  * contrato se descarta en vez de viajar a la interfaz como si lo fuera.
+ *
+ * En `known_title` el tipo ya es texto —`recordKnownTitles` lo recibe del
+ * contrato—, pero la validación sigue aquí por la misma razón que en `anime`:
+ * la base guarda lo que le den y la lectura no se cree nada.
  *
  * Aquí hubo un `replace(/^"|"$/g, '')` que quitaba unas comillas del JSON. Se quitó
  * al medirlo: `json_extract` devuelve los escalares **sin** comillas —las pone sólo
@@ -58,44 +119,7 @@ function kindOf(valor: string | null): TitleKind | undefined {
 }
 
 export function createRecentRepository(db: Database): RecentRepository {
-  const select = db.query<RecentRow, [number]>(
-    `WITH conocidos AS (
-       SELECT a.provider_id        AS provider_id,
-              a.provider_ref       AS provider_ref,
-              a.title              AS title,
-              a.cover_url          AS cover_url,
-              a.year               AS year,
-              json_extract(a.raw_json, '$.kind') AS kind,
-              a.fetched_at         AS fetched_at
-         FROM anime a
-
-       UNION ALL
-
-       SELECT sc.provider_id,
-              json_extract(je.value, '$.ref.value'),
-              json_extract(je.value, '$.title'),
-              json_extract(je.value, '$.coverUrl'),
-              json_extract(je.value, '$.year'),
-              json_extract(je.value, '$.kind'),
-              sc.fetched_at
-         FROM search_cache sc, json_each(sc.results_json) je
-        WHERE json_valid(sc.results_json)
-     )
-     SELECT provider_id,
-            provider_ref,
-            title,
-            cover_url,
-            year,
-            kind,
-            MAX(fetched_at) AS fetched_at
-       FROM conocidos
-      WHERE provider_id IS NOT NULL
-        AND provider_ref IS NOT NULL
-        AND title IS NOT NULL
-      GROUP BY provider_id, provider_ref
-      ORDER BY fetched_at DESC
-      LIMIT ?`,
-  )
+  const select = db.query<RecentRow, [number]>(ULTIMOS)
 
   return {
     list(limit) {

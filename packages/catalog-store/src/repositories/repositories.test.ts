@@ -11,8 +11,9 @@ import { runMigrations } from '../migrations/runner'
 import { createAnimeRepository } from './anime'
 import { createEpisodesRepository } from './episodes'
 import { createFeedRepository } from './feed'
-import { createRecentRepository } from './recent'
+import { createRecentRepository, ULTIMOS } from './recent'
 import { createSearchRepository } from './search'
+import { createTrendingRepository } from './trending'
 
 const REF: ProviderRef = { providerId: 'fixture', value: 'aurora-nocturna' }
 
@@ -740,6 +741,67 @@ describe('el feed', () => {
   })
 })
 
+/*
+ * «Último añadido» lee `known_title` y no `search_cache`.
+ *
+ * La tabla la escriben las tres cachés al guardarse, así que hay dos cosas que
+ * medir por separado: que la lectura devuelva lo mismo que el barrido anterior
+ * cuando las tres cachés traen los mismos títulos, y que el plan ya no nombre
+ * ninguna caché. Lo primero se mide con el repositorio de verdad; lo segundo,
+ * con `EXPLAIN QUERY PLAN`.
+ */
+
+/**
+ * La consulta de antes de `known_title`, literal.
+ *
+ * Sólo vive aquí: es la referencia contra la que se comprueba que el cambio no
+ * movió el resultado. Recorría `search_cache` entera con `json_each`, que es
+ * justo lo que la tabla nueva evita.
+ */
+const ANTERIOR_RECIENTES = `
+  WITH conocidos AS (
+    SELECT a.provider_id        AS provider_id,
+           a.provider_ref       AS provider_ref,
+           a.title              AS title,
+           a.cover_url          AS cover_url,
+           a.year               AS year,
+           json_extract(a.raw_json, '$.kind') AS kind,
+           a.fetched_at         AS fetched_at
+      FROM anime a
+
+    UNION ALL
+
+    SELECT sc.provider_id,
+           json_extract(je.value, '$.ref.value'),
+           json_extract(je.value, '$.title'),
+           json_extract(je.value, '$.coverUrl'),
+           json_extract(je.value, '$.year'),
+           json_extract(je.value, '$.kind'),
+           sc.fetched_at
+      FROM search_cache sc, json_each(sc.results_json) je
+     WHERE json_valid(sc.results_json)
+  )
+  SELECT provider_id, provider_ref, title, cover_url, year, kind,
+         MAX(fetched_at) AS fetched_at
+    FROM conocidos
+   WHERE provider_id IS NOT NULL
+     AND provider_ref IS NOT NULL
+     AND title IS NOT NULL
+   GROUP BY provider_id, provider_ref
+   ORDER BY fetched_at DESC
+   LIMIT ?`
+
+/** Una fila de la lectura, con la forma que devuelven las dos consultas. */
+interface FilaReciente {
+  readonly provider_id: string
+  readonly provider_ref: string
+  readonly title: string
+  readonly cover_url: string | null
+  readonly year: number | null
+  readonly kind: string | null
+  readonly fetched_at: number
+}
+
 describe('lo último que la aplicación conoce', () => {
   const MAR: ProviderRef = { providerId: 'fixture', value: 'mar-de-cristal' }
 
@@ -849,7 +911,8 @@ describe('lo último que la aplicación conoce', () => {
          VALUES (?, ?, ?, ?, ?)`,
       ).run('fixture', 'rota', '{esto no es json', 9_000, TTL_SECONDS.search)
 
-      // `json_each` sobre eso lanzaría: la fila se salta y lo demás se sirve.
+      // Esta fila ya no lee `search_cache`: una caché corrupta no puede llegar a
+      // la consulta, y lo que sí está en `known_title` se sirve igual.
       expect(
         createRecentRepository(db)
           .list(10)
@@ -869,11 +932,141 @@ describe('lo último que la aplicación conoce', () => {
         9_000,
       )
 
+      // El descarte lo hace la escritura (`recordKnownTitles` no apunta una
+      // entrada sin referencia) y la lectura no la ve: la lista sale entera.
       expect(
         createRecentRepository(db)
           .list(10)
           .map((item) => item.title),
       ).toEqual(['Aurora Nocturna'])
+    })
+  })
+
+  /*
+   * Las tres cachés dejan lo mismo en `known_title`, con la búsqueda como la más
+   * reciente: es el caso en que la lectura nueva tiene exactamente lo que tenía
+   * el barrido de `search_cache`, así que no puede cambiar ni una fila.
+   */
+  test('el resultado es el de antes con las tres cachés sembradas', async () => {
+    await withStore((db) => {
+      createAnimeRepository(db).write(REF, detalle(), 1_000)
+
+      const mar = {
+        ref: MAR,
+        title: 'Mar de Cristal',
+        coverUrl: 'https://fixture.invalid/mar.webp',
+        year: 2023,
+        kind: 'tv' as const,
+      }
+      const bruma = { ref: { providerId: 'fixture', value: 'bruma' }, title: 'Bruma' }
+
+      createSearchRepository(db).write('fixture', 'mar', [mar, bruma], 5_000)
+      createTrendingRepository(db).write('fixture', [mar, bruma], 4_000)
+      createFeedRepository(db).write(
+        'fixture',
+        [
+          { ...mar, publishedAt: '2026-01-01T00:00:00.000Z' },
+          { ...bruma, publishedAt: '2026-01-01T00:00:00.000Z' },
+        ],
+        3_000,
+      )
+
+      const anterior = db.query<FilaReciente, [number]>(ANTERIOR_RECIENTES).all(10)
+      const nueva = db.query<FilaReciente, [number]>(ULTIMOS).all(10)
+
+      // El número esperado no es adorno: dos consultas rotas que devolvieran la
+      // lista vacía pasarían como «equivalentes».
+      expect(anterior).toHaveLength(3)
+      expect(nueva).toEqual(anterior)
+    })
+  })
+
+  test('el orden por fecha es el mismo que el de la consulta anterior', async () => {
+    await withStore((db) => {
+      createAnimeRepository(db).write(REF, detalle(), 1_000)
+      const busquedas = createSearchRepository(db)
+      busquedas.write('fixture', 'bruma', [resultado('Bruma')], 3_000)
+      busquedas.write('fixture', 'mar', [resultado('Mar de Cristal')], 5_000)
+
+      const anterior = db.query<FilaReciente, [number]>(ANTERIOR_RECIENTES).all(10)
+      const nueva = db.query<FilaReciente, [number]>(ULTIMOS).all(10)
+
+      expect(nueva.map((fila) => fila.title)).toEqual([
+        'Mar de Cristal',
+        'Bruma',
+        'Aurora Nocturna',
+      ])
+      expect(nueva).toEqual(anterior)
+    })
+  })
+
+  test('una portada ausente no rompe y no inventa el campo', async () => {
+    await withStore((db) => {
+      createSearchRepository(db).write(
+        'fixture',
+        'dos',
+        [
+          {
+            ref: { providerId: 'fixture', value: 'con-portada' },
+            title: 'Con Portada',
+            coverUrl: 'https://fixture.invalid/con.webp',
+          },
+          { ref: { providerId: 'fixture', value: 'sin-portada' }, title: 'Sin Portada' },
+        ],
+        1_000,
+      )
+
+      const lista = createRecentRepository(db).list(10)
+
+      // Sin `COALESCE` ni guarda de nulos, la fila sin URL dejaría la lista a
+      // medias o con un `coverUrl` inventado.
+      expect(lista.map((item) => item.title).sort()).toEqual(['Con Portada', 'Sin Portada'])
+      expect(lista.find((item) => item.title === 'Con Portada')?.coverUrl).toBe(
+        'https://fixture.invalid/con.webp',
+      )
+      expect(lista.find((item) => item.title === 'Sin Portada')?.coverUrl).toBeUndefined()
+    })
+  })
+
+  /*
+   * La fila también cuenta lo que sólo salió en tendencias o en novedades.
+   *
+   * Antes leía `search_cache` y nada más, así que una tendencia sin búsqueda no
+   * aparecía. `known_title` resume las tres cachés: es la misma definición
+   * —«lo que la aplicación conoce»— un escalón más arriba, y esos títulos ya
+   * están en disco. Se fija aquí para que el ensanche sea una decisión y no un
+   * efecto colateral que alguien descubra después.
+   */
+  test('lo que sólo salió en tendencias o en el feed también cuenta', async () => {
+    await withStore((db) => {
+      createTrendingRepository(db).write('fixture', [resultado('Brisa de Mayo')], 2_000)
+      createFeedRepository(db).write(
+        'fixture',
+        [{ ...resultado('Cauce'), publishedAt: '2026-01-01T00:00:00.000Z' }],
+        1_000,
+      )
+
+      expect(
+        createRecentRepository(db)
+          .list(10)
+          .map((item) => item.title),
+      ).toEqual(['Brisa de Mayo', 'Cauce'])
+    })
+  })
+
+  test('el plan lee known_title y no las cachés', async () => {
+    await withStore((db) => {
+      const plan = db
+        .query<{ detail: string }, [number]>(`EXPLAIN QUERY PLAN ${ULTIMOS}`)
+        .all(10)
+        .map((fila) => fila.detail)
+        .join(' ')
+
+      expect(plan).toContain('known_title')
+      // Si vuelve el barrido, esto se pone rojo.
+      expect(plan).not.toContain('search_cache')
+      expect(plan).not.toContain('trending_cache')
+      expect(plan).not.toContain('feed_cache')
     })
   })
 })
