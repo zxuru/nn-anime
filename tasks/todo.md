@@ -1,6 +1,6 @@
-# Task List: nn-anime v1
+# Task List: RoNa v1
 
-Plan: `tasks/plan.md` · Specs: `docs/specs/CAPABILITY-MAP.md`, `docs/specs/SPEC-nn-anime.md`,
+Plan: `tasks/plan.md` · Specs: `docs/specs/CAPABILITY-MAP.md`, `docs/specs/SPEC-rona.md`,
 `docs/specs/SPEC-<module-id>.md`
 Regla: todo task cierra el Definition of Done de `tasks/plan.md`. Tope de 5 archivos de
 implementación por task; el andamiaje de T1 y T16 lo declara explícitamente.
