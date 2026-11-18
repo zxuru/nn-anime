@@ -799,7 +799,28 @@ interface FilaReciente {
   readonly cover_url: string | null
   readonly year: number | null
   readonly kind: string | null
+  /** Las dos columnas de T257b, que la consulta de antes no tiene. */
+  readonly family?: string | null
+  readonly format?: string | null
   readonly fetched_at: number
+}
+
+/**
+ * Las columnas de siempre, sin las dos que añadió el reparto por familia.
+ *
+ * La consulta de referencia es literal de la versión anterior y no las tiene; lo
+ * que se mide es que añadirlas no movió ni una fila ni el orden.
+ */
+function sinClasificar(filas: readonly FilaReciente[]): readonly FilaReciente[] {
+  return filas.map((fila) => ({
+    provider_id: fila.provider_id,
+    provider_ref: fila.provider_ref,
+    title: fila.title,
+    cover_url: fila.cover_url,
+    year: fila.year,
+    kind: fila.kind,
+    fetched_at: fila.fetched_at,
+  }))
 }
 
 describe('lo último que la aplicación conoce', () => {
@@ -977,7 +998,7 @@ describe('lo último que la aplicación conoce', () => {
       // El número esperado no es adorno: dos consultas rotas que devolvieran la
       // lista vacía pasarían como «equivalentes».
       expect(anterior).toHaveLength(3)
-      expect(nueva).toEqual(anterior)
+      expect(sinClasificar(nueva)).toEqual(anterior)
     })
   })
 
@@ -996,7 +1017,7 @@ describe('lo último que la aplicación conoce', () => {
         'Bruma',
         'Aurora Nocturna',
       ])
-      expect(nueva).toEqual(anterior)
+      expect(sinClasificar(nueva)).toEqual(anterior)
     })
   })
 

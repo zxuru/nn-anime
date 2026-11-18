@@ -39,10 +39,10 @@ import {
   type ProviderRef,
   sagaTitle,
   sameWork,
-  titleKindSchema,
   type WorkItem,
   type WorkNames,
 } from '@rona/core'
+import { clasificacionDeColumnas } from './clasificacion'
 
 /**
  * Con qué se emparejan los candidatos.
@@ -92,20 +92,25 @@ export const CANDIDATOS = `
   ),
   conocidos AS (
     SELECT provider_id, provider_ref AS ref, title, title_alt, cover_url, year,
-           json_extract(raw_json, '$.kind') AS kind
+           json_extract(raw_json, '$.kind')   AS kind,
+           json_extract(raw_json, '$.family') AS family,
+           json_extract(raw_json, '$.format') AS format
       FROM anime
      WHERE EXISTS (
        SELECT 1 FROM patrones WHERE title LIKE p || '%' OR provider_ref LIKE p || '%'
      )
     UNION ALL
-    SELECT provider_id, provider_ref AS ref, title, title_alt, cover_url, year, kind
+    SELECT provider_id, provider_ref AS ref, title, title_alt, cover_url, year,
+           -- known_title no guarda el detalle: se omiten y la fila cae a la
+           -- regla heredada.
+           kind, NULL AS family, NULL AS format
       FROM known_title
      WHERE EXISTS (
        SELECT 1 FROM patrones
         WHERE title LIKE p || '%' OR title_alt LIKE p || '%' OR provider_ref LIKE p || '%'
      )
   )
-  SELECT provider_id, ref, title, title_alt, cover_url, year, kind
+  SELECT provider_id, ref, title, title_alt, cover_url, year, kind, family, format
     FROM conocidos
    WHERE ref IS NOT NULL AND title IS NOT NULL
    ORDER BY year DESC, title
@@ -119,27 +124,14 @@ interface RelatedRow {
   readonly cover_url: string | null
   readonly year: number | null
   readonly kind: string | null
+  readonly family: string | null
+  readonly format: string | null
 }
 
 interface OwnRow {
   readonly title: string
   readonly title_alt: string | null
   readonly year: number | null
-}
-
-/**
- * El tipo del título, validado.
- *
- * Vive en el JSON y podría no estar o no ser uno de los que la interfaz sabe
- * pintar; el schema lo comprueba y si no encaja se omite el campo en vez de
- * inventarlo.
- */
-function kindOf(raw: string | null): AnimeSummary['kind'] {
-  if (raw === null) return undefined
-
-  const kind = titleKindSchema.safeParse(raw)
-
-  return kind.success ? kind.data : undefined
 }
 
 /** La primera palabra de la saga. Es el único prefiltro que SQLite puede hacer. */
@@ -205,14 +197,16 @@ function preferida(candidata: RelatedRow, actual: RelatedRow, providerId: string
 }
 
 function resumen(fila: RelatedRow): AnimeSummary {
-  const kind = kindOf(fila.kind)
-
   return {
     ref: { providerId: fila.provider_id, value: fila.ref },
     title: fila.title,
     ...(fila.cover_url === null ? {} : { coverUrl: fila.cover_url }),
     ...(fila.year === null ? {} : { year: fila.year }),
-    ...(kind === undefined ? {} : { kind }),
+    ...clasificacionDeColumnas({
+      kind: fila.kind,
+      family: fila.family,
+      format: fila.format,
+    }),
   }
 }
 

@@ -56,6 +56,9 @@ export interface CandidateRow {
   readonly coverUrl?: string
   readonly year?: number
   readonly kind?: string
+  /** La familia y el formato declarados por la ficha, si los lleva. */
+  readonly family?: string
+  readonly format?: string
   /** Cuántos episodios tiene, si la ficha lo guardó. */
   readonly episodeCount?: number
   /** Estado de emisión tal y como lo guardó la ficha. */
@@ -71,6 +74,8 @@ interface AnimeListRow {
   readonly cover_url: string | null
   readonly year: number | null
   readonly kind: string | null
+  readonly family: string | null
+  readonly format: string | null
   readonly episode_count: number | null
   readonly estado: string | null
   readonly generos: string | null
@@ -229,6 +234,8 @@ export function createAnimeRepository(db: Database, ttlS: number = TTL_SECONDS.a
           // reconstruir la lista, que perdería el orden.
           `SELECT a.provider_id, a.provider_ref, a.title, a.cover_url, a.year,
                   json_extract(a.raw_json, '$.kind') AS kind,
+                  json_extract(a.raw_json, '$.family') AS family,
+                  json_extract(a.raw_json, '$.format') AS format,
                   json_extract(a.raw_json, '$.episodeCount') AS episode_count,
                   json_extract(a.raw_json, '$.status') AS estado,
                   json_extract(a.raw_json, '$.genres') AS generos,
@@ -246,6 +253,8 @@ export function createAnimeRepository(db: Database, ttlS: number = TTL_SECONDS.a
         ...(fila.year === null ? {} : { year: fila.year }),
         // `kind` tampoco es columna: vive en el JSON como los géneros.
         ...(fila.kind === null ? {} : { kind: fila.kind.replace(/^"|"$/g, '') }),
+        ...(fila.family === null ? {} : { family: fila.family.replace(/^"|"$/g, '') }),
+        ...(fila.format === null ? {} : { format: fila.format.replace(/^"|"$/g, '') }),
         ...(fila.episode_count === null ? {} : { episodeCount: fila.episode_count }),
         ...(fila.estado === null ? {} : { status: fila.estado.replace(/^"|"$/g, '') }),
         tags: listaDeJson(fila.generos),

@@ -14,15 +14,14 @@
 
 import type { Database } from 'bun:sqlite'
 import {
-  type AnimeSummary,
   isFinished,
   modeSchema,
   type ProviderRef,
   StoreError,
-  titleKindSchema,
   type WatchEventInput,
   type WatchRecord,
 } from '@rona/core'
+import { clasificacionDe } from './clasificacion'
 import { animeIdOf, episodeIdOf } from './episodes'
 
 interface WatchRow {
@@ -44,29 +43,6 @@ interface WatchRow {
   readonly raw_json: string | null
 }
 
-/**
- * El tipo de título, que está en `raw_json` y no en una columna.
- *
- * Se valida con el schema en vez de confiar en lo que haya en el JSON: un valor
- * raro en la base no puede convertirse en un `kind` que la interfaz no sepa
- * pintar. Y un `raw_json` ilegible tampoco puede impedir mostrar la fila: el
- * campo es opcional y la alternativa sería perder el historial entero.
- */
-function kindOf(raw: string | null): AnimeSummary['kind'] {
-  if (raw === null) return undefined
-
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed !== 'object' || parsed === null || !('kind' in parsed)) return undefined
-
-    const kind = titleKindSchema.safeParse(parsed.kind)
-
-    return kind.success ? kind.data : undefined
-  } catch {
-    return undefined
-  }
-}
-
 function toRecord(row: WatchRow): WatchRecord {
   const mode = modeSchema.safeParse(row.mode)
   if (!mode.success) {
@@ -77,8 +53,6 @@ function toRecord(row: WatchRow): WatchRecord {
     })
   }
 
-  const kind = kindOf(row.raw_json)
-
   return {
     id: row.id,
     anime: {
@@ -86,7 +60,10 @@ function toRecord(row: WatchRow): WatchRecord {
       title: row.title,
       ...(row.cover_url === null ? {} : { coverUrl: row.cover_url }),
       ...(row.year === null ? {} : { year: row.year }),
-      ...(kind === undefined ? {} : { kind }),
+      // La familia y el formato viajan con la fila: «continuar viendo» los
+      // necesita para repartir lo empezado por pestaña, y sin ellos una obra de
+      // una fuente mixta caía siempre del lado del anime.
+      ...clasificacionDe(row.raw_json),
     },
     providerId: row.provider_id,
     episodeRef: { providerId: row.provider_id, value: row.episode_provider_ref },

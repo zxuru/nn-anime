@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations } from '@rona/catalog-store'
 import {
+  type AnimeDetail,
   type Candidate,
   recommendationsResponseSchema,
   type SearchResult,
@@ -27,6 +28,8 @@ interface Contexto {
   readonly pedir: (ruta: string, init?: RequestInit) => Promise<Response>
   readonly db: ReturnType<typeof openDb>
   readonly proveedor: ReturnType<typeof createFixtureProvider>
+  /** La fachada del almacén, para sembrar una ficha clasificada a mano. */
+  readonly store: ReturnType<typeof createContainer>['store']
 }
 
 /**
@@ -115,6 +118,7 @@ async function conApp<T>(
         await Promise.resolve(servidor.request(`${BASE}${ruta}`, init ?? { headers: GOOD })),
       db,
       proveedor,
+      store: container.store,
     })
   } finally {
     await container.close().catch(() => {})
@@ -644,6 +648,88 @@ describe('GET /api/recommendations?media=', () => {
       },
       { proveedores: [sinTendencias()], cachear: [REF, PELICULA] },
     )
+  })
+})
+
+/**
+ * La familia y el formato se reparten **antes** de recomendar.
+ *
+ * Recortar después deja la pestaña con menos piezas de las que hay: el motor ya
+ * habría llenado su tope con títulos que no se van a enseñar. Se siembran dos
+ * fichas clasificadas —una película de anime y una serie de acción real— y se
+ * pide cada pestaña y cada formato.
+ */
+describe('GET /api/recommendations?family=&format=', () => {
+  /** El fixture sin tendencias: las que trae son candidatas fuera de lo sembrado. */
+  function sinTendencias(): Provider {
+    const base = createFixtureProvider()
+    const { getTrending: _sinUsar, ...resto } = base
+
+    return { ...resto, capabilities: { ...base.capabilities, trending: false } }
+  }
+
+  function detalle(
+    value: string,
+    extra: Pick<AnimeDetail, 'family' | 'format' | 'kind'>,
+  ): AnimeDetail {
+    return {
+      ref: { providerId: 'fixture', value },
+      title: `Título ${value}`,
+      year: 2024,
+      synopsis: 'Una sinopsis.',
+      status: 'finished',
+      episodeCount: 1,
+      genres: ['Acción'],
+      studios: ['Estudio Cobre'],
+      ...extra,
+    }
+  }
+
+  function valores(salida: {
+    readonly items: readonly { readonly ref: { readonly value: string } }[]
+  }) {
+    return salida.items.map((item) => item.ref.value)
+  }
+
+  test('cada familia y formato enseña lo suyo, y la respuesta lo declara', async () => {
+    await conApp(
+      async ({ pedir, store }) => {
+        await store.writeAnimeWithEpisodes(
+          { providerId: 'fixture', value: 'peli-anime' },
+          detalle('peli-anime', { kind: 'movie', family: 'anime', format: 'movie' }),
+          [],
+        )
+        await store.writeAnimeWithEpisodes(
+          { providerId: 'fixture', value: 'serie-live' },
+          detalle('serie-live', { kind: 'tv', family: 'live', format: 'series' }),
+          [],
+        )
+
+        const leer = async (consulta: string) =>
+          recommendationsResponseSchema.parse(
+            await (await pedir(`/api/recommendations?${consulta}`)).json(),
+          )
+
+        const anime = await leer('family=anime&limit=10')
+        expect(valores(anime)).toEqual(['peli-anime'])
+        // La clasificación viaja en la respuesta: la interfaz reparte con ella.
+        expect(anime.items[0]).toMatchObject({ family: 'anime', format: 'movie' })
+
+        expect(valores(await leer('family=live&limit=10'))).toEqual(['serie-live'])
+        expect(valores(await leer('family=anime&format=movie&limit=10'))).toEqual(['peli-anime'])
+        expect(valores(await leer('family=anime&format=series&limit=10'))).toEqual([])
+      },
+      { proveedores: [sinTendencias()] },
+    )
+  })
+
+  test('un valor inventado es 400 con el valor delante', async () => {
+    await conApp(async ({ pedir }) => {
+      const respuesta = await pedir('/api/recommendations?family=documental')
+
+      expect(respuesta.status).toBe(400)
+      expect(((await respuesta.json()) as { error: string }).error).toContain('documental')
+    })
   })
 })
 

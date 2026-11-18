@@ -18,7 +18,8 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import { type AnimeSummary, type ProviderRef, StoreError, titleKindSchema } from '@rona/core'
+import { type AnimeSummary, type ProviderRef, StoreError } from '@rona/core'
+import { clasificacionDe } from './clasificacion'
 import { animeIdOf } from './episodes'
 
 /** Un título pendiente, con la fecha en que se marcó. */
@@ -34,21 +35,6 @@ interface PlanRow {
   readonly year: number | null
   readonly raw_json: string | null
   readonly created_at: number
-}
-
-function kindOf(raw: string | null): AnimeSummary['kind'] {
-  if (raw === null) return undefined
-
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed !== 'object' || parsed === null || !('kind' in parsed)) return undefined
-
-    const kind = titleKindSchema.safeParse(parsed.kind)
-
-    return kind.success ? kind.data : undefined
-  } catch {
-    return undefined
-  }
 }
 
 export function createPlanToWatchRepository(db: Database) {
@@ -93,18 +79,14 @@ export function createPlanToWatchRepository(db: Database) {
         )
         .all()
 
-      return rows.map((row) => {
-        const kind = kindOf(row.raw_json)
-
-        return {
-          ref: { providerId: row.provider_id, value: row.provider_ref },
-          title: row.title,
-          ...(row.cover_url === null ? {} : { coverUrl: row.cover_url }),
-          ...(row.year === null ? {} : { year: row.year }),
-          ...(kind === undefined ? {} : { kind }),
-          createdAt: new Date(row.created_at),
-        }
-      })
+      return rows.map((row) => ({
+        ref: { providerId: row.provider_id, value: row.provider_ref },
+        title: row.title,
+        ...(row.cover_url === null ? {} : { coverUrl: row.cover_url }),
+        ...(row.year === null ? {} : { year: row.year }),
+        ...clasificacionDe(row.raw_json),
+        createdAt: new Date(row.created_at),
+      }))
     },
   }
 }

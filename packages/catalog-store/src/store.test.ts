@@ -297,6 +297,49 @@ describe('lecturas y escrituras', () => {
     })
   })
 
+  /**
+   * La familia y el formato, en las lecturas que arman una tarjeta.
+   *
+   * Los dos viven en `raw_json` y no en columnas: cada lectura los sacaba —o no—
+   * a su manera. Se mide que las cuatro listas del perfil, el historial, lo que
+   * se retoma y lo último conocido los devuelven, y que una ficha vieja sin
+   * ellos sigue leyéndose sin inventar nada.
+   */
+  test('la familia y el formato salen de `raw_json` en todas las tarjetas', async () => {
+    await withStore(async ({ store }) => {
+      const clasificada: AnimeDetail = { ...detalle(AURORA), family: 'live', format: 'movie' }
+      await store.writeAnimeWithEpisodes(AURORA, clasificada, episodios(AURORA))
+      await store.recordWatch(visionado(AURORA))
+      await store.setFavorite(AURORA, true)
+      await store.setPlanToWatch(AURORA, true)
+      await store.setWatchedTitle(AURORA, true)
+
+      const esperado = { family: 'live', format: 'movie' }
+
+      expect((await store.listFavorites())[0]).toMatchObject(esperado)
+      expect((await store.listPlanToWatch())[0]).toMatchObject(esperado)
+      expect((await store.listWatchedTitles())[0]).toMatchObject(esperado)
+      expect((await store.listWatchHistory(10, 0))[0]?.anime).toMatchObject(esperado)
+      expect((await store.listRecentlyWatched(10))[0]?.anime).toMatchObject(esperado)
+      expect(
+        (await store.listRecentSummaries(10)).find((item) => item.ref.value === AURORA.value),
+      ).toMatchObject(esperado)
+    })
+  })
+
+  test('una ficha vieja sin familia ni formato no inventa los campos', async () => {
+    await withStore(async ({ store }) => {
+      await store.writeAnimeWithEpisodes(AURORA, detalle(AURORA), episodios(AURORA))
+      await store.setFavorite(AURORA, true)
+
+      const favorito = (await store.listFavorites())[0]
+
+      expect(favorito).toBeDefined()
+      expect(favorito?.family).toBeUndefined()
+      expect(favorito?.format).toBeUndefined()
+    })
+  })
+
   test('los ajustes se guardan con JSON y se validan al leer', async () => {
     await withStore(async ({ store }) => {
       await store.setSetting('tema', 'claro')

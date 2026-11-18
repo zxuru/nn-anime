@@ -29,7 +29,7 @@ import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
 import { gatherSignals } from '../recommend/signals'
 import { popularTitles, providerAudio, tasteRowsFrom } from '../recommend/taste'
-import { enMedia, mediaFrom, mediaPorProveedor } from './media'
+import { enFiltro, familiasPorProveedor, filtroFrom } from './media'
 import { adultContentOf } from './settings'
 
 export interface TasteRouteOptions {
@@ -236,7 +236,11 @@ export function registerTasteRoutes(app: Hono, options: TasteRouteOptions): void
    * sigue siendo la de siempre.
    */
   app.get('/api/taste/rows', async (c) => {
-    const pedido = mediaFrom(c.req.query('media'))
+    const pedido = filtroFrom({
+      family: c.req.query('family'),
+      format: c.req.query('format'),
+      media: c.req.query('media'),
+    })
     if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
 
     const store = options.container.store
@@ -249,10 +253,10 @@ export function registerTasteRoutes(app: Hono, options: TasteRouteOptions): void
       store.readTasteProfile(),
     ])
 
-    const candidates = enMedia(
+    const candidates = enFiltro(
       senales.candidates,
-      pedido.media,
-      mediaPorProveedor(options.providers),
+      pedido.filtro,
+      familiasPorProveedor(options.providers),
     )
     const rows = tasteRowsFrom(profile, candidates)
 

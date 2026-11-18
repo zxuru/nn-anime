@@ -32,9 +32,6 @@ import type { FeedResponse } from '@rona/core'
 import {
   errorResponseSchema,
   feedResponseSchema,
-  mediaOf,
-  pasaElFiltroDeMedia,
-  puedeServir,
   recentResponseSchema,
   uniqueByWork,
   type WorkItem,
@@ -45,7 +42,13 @@ import { adultosDeLaFila, MARGEN_DE_VERIFICACION } from '../adultos'
 import type { AniListCatalog } from '../anilist/catalog'
 import type { ServerContainer } from '../container'
 import { cacheHeader } from './cache-header'
-import { enMedia, mediaFrom, mediaPorProveedor } from './media'
+import {
+  enFiltro,
+  familiasPorProveedor,
+  filtroFrom,
+  pasaElFiltroDeProveedor,
+  puedeServirElFiltro,
+} from './media'
 import { clampLimit } from './recommendations'
 import { adultContentOf } from './settings'
 
@@ -153,13 +156,17 @@ export function sinRepetirPorObra<T extends WorkItem>(items: readonly T[]): read
 export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): void {
   app.get('/api/feed', async (c) => {
     const limite = clampLimit(c.req.query('limit'))
-    const pedido = mediaFrom(c.req.query('media'))
+    const pedido = filtroFrom({
+      family: c.req.query('family'),
+      format: c.req.query('format'),
+      media: c.req.query('media'),
+    })
     if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
 
     // La fuente mixta se consulta en las dos mitades: sus novedades pueden ser de
-    // cualquiera de las dos, y sólo se sabe al leer el `kind` de cada entrada.
+    // cualquiera de las dos, y sólo se sabe al leer su clasificación.
     const fuentes = conFeed(options.providers).filter((provider) =>
-      puedeServir(pedido.media, mediaOf(provider.capabilities)),
+      puedeServirElFiltro(pedido.filtro, provider),
     )
     const callOptions: CallOptions = {
       signal: c.req.raw.signal,
@@ -177,7 +184,7 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
         // publica la fuente y cada pestaña se queda con su mitad al leerlo.
         return {
           items: lectura.value.value.filter((entrada) =>
-            pasaElFiltroDeMedia(pedido.media, mediaOf(provider.capabilities), entrada.kind),
+            pasaElFiltroDeProveedor(pedido.filtro, entrada, provider),
           ),
           source: lectura.value.source,
         }
@@ -200,6 +207,8 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
             ...(entrada.coverUrl === undefined ? {} : { coverUrl: entrada.coverUrl }),
             ...(entrada.year === undefined ? {} : { year: entrada.year }),
             ...(entrada.kind === undefined ? {} : { kind: entrada.kind }),
+            ...(entrada.family === undefined ? {} : { family: entrada.family }),
+            ...(entrada.format === undefined ? {} : { format: entrada.format }),
             ...(entrada.publishedAt === undefined ? {} : { publishedAt: entrada.publishedAt }),
           })),
       ),
@@ -253,7 +262,11 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
 export function registerRecentRoute(app: Hono, options: DiscoveryRouteOptions): void {
   app.get('/api/catalog/recent', async (c) => {
     const limite = clampLimit(c.req.query('limit'))
-    const pedido = mediaFrom(c.req.query('media'))
+    const pedido = filtroFrom({
+      family: c.req.query('family'),
+      format: c.req.query('format'),
+      media: c.req.query('media'),
+    })
     if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
 
     /**
@@ -273,7 +286,7 @@ export function registerRecentRoute(app: Hono, options: DiscoveryRouteOptions): 
      */
     const margen = Math.max(1, options.providers.length)
     const leidas = await options.container.store.listRecentSummaries(limite * margen)
-    const delTipo = enMedia(leidas, pedido.media, mediaPorProveedor(options.providers))
+    const delTipo = enFiltro(leidas, pedido.filtro, familiasPorProveedor(options.providers))
     const items = sinRepetirPorObra(delTipo).slice(0, limite)
 
     return c.json(recentResponseSchema.parse({ items: [...items] }))

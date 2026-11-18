@@ -150,8 +150,8 @@ y la fila de novedades ya salen del feed.
 ## Enmienda aprobada (T257a): familia y formato en las lecturas
 
 > Aprobada el 2026-11-16 con `docs/specs/proposals/SPEC-nn-anime.familias.md`. **Contrato en `core`
-> desde T257a; las rutas de esta enmienda son la fase 2 y todavía no existen.** Lo que ya está en el
-> código de este cambio son los campos opcionales de las formas que viajan.
+> desde T257a y rutas servidas desde T257b** (la fase 2): las dos aceptan `family`, `format` y el
+> alias `media`, y la clasificación de lo guardado sale de un helper único en `catalog-store`.
 
 Las lecturas de descubrimiento aceptan dos parámetros **opcionales y aditivos**, por los dos ejes de
 clasificación que fija `core`: familia (`anime` · `animation` · `live`) y formato (`series` ·
@@ -173,9 +173,10 @@ GET /api/catalog/recent?family=&format=
   `results_json` (`json_extract`), y una fila vieja se clasifica con la regla de compatibilidad de
   `familyOf`.
 - Las formas del contrato (`feedItemSchema`, `recentResponseSchema` y todo lo que lleva
-  `animeSummarySchema`) ganan `family` y `format` opcionales en `core` (T257a). **Lo pendiente en la
-  fase 2** es extraerlos en las cinco lecturas que arman un `AnimeSummary` —favoritos, vistos, quiero
-  ver, historial y relacionados— con **un helper único**, en vez de repetir el `kindOf` cinco veces.
+  `animeSummarySchema`) ganan `family` y `format` opcionales en `core` (T257a). Las cinco lecturas
+  que arman un `AnimeSummary` —favoritos, vistos, quiero ver, historial y relacionados— los extraen
+  con **un helper único** (`repositories/clasificacion.ts`, T257b), igual que `recent` y los
+  candidatos del motor.
 
 ## Success Criteria
 

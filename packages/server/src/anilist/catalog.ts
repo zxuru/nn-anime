@@ -35,12 +35,12 @@ import {
   kindOfFormat,
   type LocalWork,
   type Logger,
-  type MediaHalf,
+  type MediaFamily,
+  type MediaFormat,
   namesOf,
   normalizeQuery,
   normalizeTerm,
   ok,
-  type ProviderMedia,
   type ProviderRef,
   pickAniListMatch,
   type Result,
@@ -75,11 +75,10 @@ import {
   topQuery,
 } from './queries'
 
-/** Los formatos de cada mitad: la interfaz llama «anime» a lo que no es película. */
-const FORMATOS = {
-  anime: ['TV', 'TV_SHORT', 'SPECIAL', 'OVA', 'ONA'],
-  movies: ['MOVIE'],
-} as const
+/** Los formatos seriados de AniList. Un OVA o un especial son series al navegar. */
+const FORMATOS_SERIE = ['TV', 'TV_SHORT', 'SPECIAL', 'OVA', 'ONA'] as const
+/** La película. Es el único formato que no es una serie. */
+const FORMATO_PELICULA = 'MOVIE'
 
 /** El tope que admite AniList por página. */
 const PER_PAGE = 50
@@ -87,8 +86,6 @@ const PER_PAGE = 50
 export const TOP_LIMIT = 30
 /** La ventana de lo recién emitido. */
 export const RECENT_DAYS = 3
-/** La ventana de la parrilla de películas: un estreno no cae en una semana. */
-export const MOVIE_WINDOW_DAYS = 30
 /** La ventana de los estrenos recientes de películas, hacia atrás. */
 export const MOVIE_RELEASED_DAYS = 365
 /** Las obras que caben en una consulta de búsqueda. */
@@ -105,17 +102,33 @@ const LOCAL_SCAN_LIMIT = 200
 export const CROSS_LIMIT = 24
 
 /**
- * Los formatos que se le piden a AniList para la mitad que se está mirando.
+ * Los formatos que se le piden a AniList para el formato pedido.
  *
- * La búsqueda cruzada puede llegar sin mitad —«no lo he pedido»—, y ahí se piden
- * las dos: la pestaña que no toca descarta después por el `kind` de cada pieza,
- * que es la misma regla que usan las fuentes mixtas.
+ * Sin formato —«Todo»— se piden los seis: la pestaña de anime incluye sus
+ * películas, que es el arreglo de este cambio. Con formato manda él:
+ * `series` pide los cinco seriados y `movie` la película.
  */
-export function formatosDe(media: ProviderMedia | undefined): readonly string[] {
-  if (media === 'movies') return FORMATOS.movies
-  if (media === 'anime') return FORMATOS.anime
+export function formatosDe(format: MediaFormat | undefined): readonly string[] {
+  if (format === 'movie') return [FORMATO_PELICULA]
+  if (format === 'series') return FORMATOS_SERIE
 
-  return [...FORMATOS.anime, ...FORMATOS.movies]
+  return [...FORMATOS_SERIE, FORMATO_PELICULA]
+}
+
+/**
+ * Si AniList sirve esta familia.
+ *
+ * AniList sólo tiene anime: con una familia que no lo incluya —o un conjunto
+ * vacío— no se pregunta. Sin familias se pregunta, porque «no lo he pedido» no
+ * excluye nada.
+ */
+export function sirveLaFamilia(familias: readonly MediaFamily[] | undefined): boolean {
+  return familias === undefined || familias.includes('anime')
+}
+
+/** El eje de las familias en las claves de caché: sin ellas, «todas». */
+function ejeDeFamilias(familias: readonly MediaFamily[] | undefined): string {
+  return familias === undefined ? 'all' : familias.join(',')
 }
 
 /**
@@ -163,14 +176,20 @@ export interface AniListCatalogOptions {
 
 export interface AniListCatalog {
   /**
-   * El ranking de una mitad.
+   * El ranking de anime, con el formato que se pida.
+   *
+   * AniList sólo sirve anime: con familias que no lo incluyan devuelve la lista
+   * vacía **sin preguntar**. Sin familias se pregunta —«no lo he pedido» no
+   * excluye nada— y sin formato se piden series y películas, que es lo que la
+   * pestaña Anime enseña con «Todo».
    *
    * `adultAllowed` decide si la consulta filtra, y **la clave de caché lleva ese
    * eje**: encender el interruptor pide otra cosa, y servir la lista del estado
    * anterior hasta que venza el TTL haría que pareciera roto media hora.
    */
   top(
-    media: MediaHalf,
+    familias: readonly MediaFamily[] | undefined,
+    format: MediaFormat | undefined,
     adultAllowed: boolean,
     signal?: AbortSignal | undefined,
   ): Promise<Result<readonly AniListEntry[], AppError>>
@@ -190,12 +209,21 @@ export interface AniListCatalog {
    */
   cross(
     term: string,
-    media: ProviderMedia | undefined,
+    familias: readonly MediaFamily[] | undefined,
+    format: MediaFormat | undefined,
     adultAllowed: boolean,
     signal?: AbortSignal | undefined,
   ): Promise<Result<readonly AniListEntry[], AppError>>
+  /**
+   * La parrilla de emisión.
+   *
+   * Sólo la contesta AniList y sólo para series de anime: una película no tiene
+   * parrilla y otra familia no está en su catálogo, así que las dos cosas
+   * devuelven la lista vacía **sin consultar**.
+   */
   airing(
-    media: MediaHalf,
+    familias: readonly MediaFamily[] | undefined,
+    format: MediaFormat | undefined,
     days: number,
     signal?: AbortSignal | undefined,
   ): Promise<Result<readonly AniListAiringEntry[], AppError>>
@@ -205,7 +233,8 @@ export interface AniListCatalog {
    * dos estados y el descarte lo hace la ruta. La de películas sí lleva el eje.
    */
   recent(
-    media: MediaHalf,
+    familias: readonly MediaFamily[] | undefined,
+    format: MediaFormat | undefined,
     adultAllowed: boolean,
     signal?: AbortSignal | undefined,
   ): Promise<Result<readonly AniListAiringEntry[], AppError>>
@@ -526,11 +555,14 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
     items.map((item) => item.media)
 
   async function top(
-    media: MediaHalf,
+    familias: readonly MediaFamily[] | undefined,
+    format: MediaFormat | undefined,
     adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListEntry[], AppError>> {
-    const clave = `top:${media}:${ejeDeAdultos(adultAllowed)}`
+    if (!sirveLaFamilia(familias)) return ok([])
+
+    const clave = `top:${ejeDeFamilias(familias)}:${format ?? 'all'}:${ejeDeAdultos(adultAllowed)}`
 
     return cachedList(
       {
@@ -545,7 +577,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
         const outcome = await client.query({
           key: clave,
           query: topQuery(adultAllowed),
-          variables: { perPage: PER_PAGE, formatos: FORMATOS[media] },
+          variables: { perPage: PER_PAGE, formatos: formatosDe(format) },
           schema: mediaPageSchema,
           signal,
         })
@@ -571,22 +603,28 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
    */
   async function cross(
     term: string,
-    media: ProviderMedia | undefined,
+    familias: readonly MediaFamily[] | undefined,
+    format: MediaFormat | undefined,
     adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListEntry[], AppError>> {
+    // AniList no tiene otra cosa: pedirle animación occidental o acción real es
+    // una consulta que no puede contestar, y se ahorra.
+    if (!sirveLaFamilia(familias)) return ok([])
+
     /*
       El término viaja plegado y sin la almohadilla del género: «#Acción»,
       «#accion» y «acción» son la misma categoría, tienen que compartir la clave
       de caché y no pueden encender dos entradas para lo mismo. A AniList se le
       pide además **sin tildes** en la parte del estudio, que es el otro eje de la
-      misma consulta: «Acción» no es el nombre de ningún estudio y lo es sin
-      tilde tampoco, pero «acción» y «accion» tienen que preguntar lo mismo.
+      misma consulta.
     */
     const buscado = normalizeTerm(genreTerm(term) ?? term)
     const genero = anilistGenre(buscado)
-    const clave = `cross:${ejeDeAdultos(adultAllowed)}:${media ?? 'both'}:${buscado}`
-    const formatos = formatosDe(media)
+    const clave = `cross:${ejeDeAdultos(adultAllowed)}:${ejeDeFamilias(familias)}:${
+      format ?? 'all'
+    }:${buscado}`
+    const formatos = formatosDe(format)
 
     return cachedList(
       {
@@ -628,12 +666,17 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
   }
 
   async function airing(
-    media: MediaHalf,
+    familias: readonly MediaFamily[] | undefined,
+    format: MediaFormat | undefined,
     days: number,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListAiringEntry[], AppError>> {
-    const ventana = media === 'movies' ? Math.max(days, MOVIE_WINDOW_DAYS) : days
-    const clave = `airing:${media}:${ventana}`
+    // Una película no tiene parrilla y otra familia no está en el catálogo del
+    // tercero: las dos respuestas son vacías, y no se gasta la consulta.
+    if (!sirveLaFamilia(familias) || format === 'movie') return ok([])
+
+    const ventana = days
+    const clave = `airing:${ejeDeFamilias(familias)}:${format ?? 'all'}:${ventana}`
     const desde = ahora()
     const hasta = desde + ventana * 86_400_000
 
@@ -647,12 +690,6 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
         imagenes: listasDeCapitulos,
       },
       async () => {
-        // La parrilla de películas **no existe**, y se dice aquí: sus estrenos se
-        // anuncian con precisión de año —medido: la API devuelve `{"year": 2026}`
-        // para las que vienen— y colocarlas en un calendario por días sería
-        // inventar la fecha. Los estrenos recientes sí se listan, sin día.
-        if (media === 'movies') return ok([])
-
         const outcome = await client.query({
           key: clave,
           query: AIRING_QUERY,
@@ -678,16 +715,31 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
     )
   }
 
+  /**
+   * Lo recién emitido, o los estrenos de películas, o las dos cosas.
+   *
+   * Con formato manda él: `movie` pide los estrenos —que se anuncian con el día
+   * cuando lo traen y con el año cuando no— y `series` la emisión reciente. Sin
+   * formato se piden las dos y se deduplican por obra: «Todo» en la pestaña Anime
+   * significa series y películas, y una película que además se emitió no puede
+   * salir dos veces.
+   *
+   * El eje de adultos sólo se lleva en la consulta de películas —`airingSchedules`
+   * no acepta `isAdult`—, así que la de series comparte caché entre los dos
+   * estados y el descarte lo hace la ruta que sirve.
+   */
   async function recent(
-    media: MediaHalf,
+    familias: readonly MediaFamily[] | undefined,
+    format: MediaFormat | undefined,
     adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListAiringEntry[], AppError>> {
-    // El eje sólo en la mitad que se puede filtrar: la de anime pide la misma
-    // parrilla en los dos estados, así que comparten caché y el descarte lo hace la
-    // ruta que sirve.
-    const clave =
-      media === 'movies' ? `recent:movies:${ejeDeAdultos(adultAllowed)}` : 'recent:anime'
+    if (!sirveLaFamilia(familias)) return ok([])
+
+    const conPeliculas = format !== 'series'
+    const conSeries = format !== 'movie'
+    const eje = conPeliculas ? `:${ejeDeAdultos(adultAllowed)}` : ''
+    const clave = `recent:${ejeDeFamilias(familias)}:${format ?? 'all'}${eje}`
     const hasta = ahora()
     const desde = hasta - RECENT_DAYS * 86_400_000
 
@@ -701,69 +753,104 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
         imagenes: listasDeCapitulos,
       },
       async () => {
-        if (media === 'movies') {
-          const outcome = await client.query({
-            key: clave,
-            query: moviesReleasedQuery(adultAllowed),
-            variables: {
-              desde: fuzzyDate(hasta - MOVIE_RELEASED_DAYS * 86_400_000),
-              hasta: fuzzyDate(hasta),
-              perPage: PER_PAGE,
-            },
-            schema: mediaPageSchema,
-            signal,
-          })
+        const [series, peliculas] = await Promise.all([
+          conSeries ? leerEmisiones(hasta, desde, clave, signal) : Promise.resolve(ok([])),
+          conPeliculas ? leerEstrenos(hasta, adultAllowed, clave, signal) : Promise.resolve(ok([])),
+        ])
 
-          if (!outcome.ok) return err(outcome.error)
+        if (!series.ok) return series
+        if (!peliculas.ok) return peliculas
+        if (format === 'series') return series
+        if (format === 'movie') return peliculas
 
-          // Películas ya estrenadas, con el día cuando lo traen —la mayoría— y con
-          // el año cuando la API no publica más precisión. Se ordena aquí: con
-          // fechas incompletas el orden de la API no significa lo mismo.
-          const estrenos = outcome.value.Page.media.flatMap((una) => {
-            const entrada = toEntry(una)
-            if (entrada === undefined) return []
+        // Sin formato, la película va delante —su fecha es la del estreno— y la
+        // emisión que además sea la misma obra no se repite.
+        const vistas = new Set<number>()
+        const unidas: AniListAiringEntry[] = []
 
-            const fecha = releaseDate(una.startDate ?? {})
-            const anio = una.startDate?.year
+        for (const entrada of [...peliculas.value, ...series.value]) {
+          if (vistas.has(entrada.media.id)) continue
 
-            return [
-              {
-                media: entrada,
-                ...(fecha === undefined ? {} : { airingAt: fecha }),
-                ...(anio === null || anio === undefined ? {} : { year: anio }),
-              },
-            ]
-          })
-
-          return ok(
-            estrenos
-              .sort((a, b) => Date.parse(b.airingAt ?? '') - Date.parse(a.airingAt ?? ''))
-              .slice(0, TOP_LIMIT),
-          )
+          vistas.add(entrada.media.id)
+          unidas.push(entrada)
         }
 
-        const outcome = await client.query({
-          key: clave,
-          query: AIRED_QUERY,
-          variables: {
-            desde: Math.floor(desde / 1000),
-            hasta: Math.floor(hasta / 1000),
-            perPage: PER_PAGE,
-          },
-          schema: airingPageSchema,
-          signal,
-        })
-
-        if (!outcome.ok) return err(outcome.error)
-
-        return ok(
-          outcome.value.Page.airingSchedules.flatMap((capitulo) => {
-            const entrada = toAiringEntry(capitulo)
-
-            return entrada === undefined ? [] : [entrada]
-          }),
-        )
+        return ok(unidas.slice(0, TOP_LIMIT))
       },
+    )
+  }
+
+  /** La emisión reciente, de la parrilla que AniList publica por horas. */
+  async function leerEmisiones(
+    hasta: number,
+    desde: number,
+    clave: string,
+    signal: AbortSignal | undefined,
+  ): Promise<Result<readonly AniListAiringEntry[], AppError>> {
+    const outcome = await client.query({
+      key: `${clave}:series`,
+      query: AIRED_QUERY,
+      variables: {
+        desde: Math.floor(desde / 1000),
+        hasta: Math.floor(hasta / 1000),
+        perPage: PER_PAGE,
+      },
+      schema: airingPageSchema,
+      signal,
+    })
+
+    if (!outcome.ok) return err(outcome.error)
+
+    return ok(
+      outcome.value.Page.airingSchedules.flatMap((capitulo) => {
+        const entrada = toAiringEntry(capitulo)
+
+        return entrada === undefined ? [] : [entrada]
+      }),
+    )
+  }
+
+  /** Los estrenos de películas, con el día cuando lo traen y el año cuando no. */
+  async function leerEstrenos(
+    hasta: number,
+    adultAllowed: boolean,
+    clave: string,
+    signal: AbortSignal | undefined,
+  ): Promise<Result<readonly AniListAiringEntry[], AppError>> {
+    const outcome = await client.query({
+      key: `${clave}:movie`,
+      query: moviesReleasedQuery(adultAllowed),
+      variables: {
+        desde: fuzzyDate(hasta - MOVIE_RELEASED_DAYS * 86_400_000),
+        hasta: fuzzyDate(hasta),
+        perPage: PER_PAGE,
+      },
+      schema: mediaPageSchema,
+      signal,
+    })
+
+    if (!outcome.ok) return err(outcome.error)
+
+    const estrenos = outcome.value.Page.media.flatMap((una) => {
+      const entrada = toEntry(una)
+      if (entrada === undefined) return []
+
+      const fecha = releaseDate(una.startDate ?? {})
+      const anio = una.startDate?.year
+
+      return [
+        {
+          media: entrada,
+          ...(fecha === undefined ? {} : { airingAt: fecha }),
+          ...(anio === null || anio === undefined ? {} : { year: anio }),
+        },
+      ]
+    })
+
+    return ok(
+      estrenos
+        .sort((a, b) => Date.parse(b.airingAt ?? '') - Date.parse(a.airingAt ?? ''))
+        .slice(0, TOP_LIMIT),
     )
   }
 
