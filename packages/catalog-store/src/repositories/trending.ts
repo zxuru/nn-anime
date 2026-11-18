@@ -13,6 +13,7 @@
 import type { Database } from 'bun:sqlite'
 import { type CacheHit, type SearchResult, StoreError, searchResultSchema } from '@rona/core'
 import { cacheHit, TTL_SECONDS } from '../cache-policy'
+import { recordCovers } from './known-cover'
 
 interface TrendingRow {
   readonly provider_id: string
@@ -60,7 +61,10 @@ export function createTrendingRepository(db: Database): TrendingRepository {
     },
 
     write(providerId, results, now = Date.now()) {
-      replace.run(providerId, JSON.stringify(results), now, ttlS)
+      db.transaction(() => {
+        replace.run(providerId, JSON.stringify(results), now, ttlS)
+        recordCovers(db, providerId, results, now)
+      })()
     },
   }
 }

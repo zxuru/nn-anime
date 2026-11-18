@@ -15,6 +15,7 @@
 import type { Database } from 'bun:sqlite'
 import { type CacheHit, type FeedEntry, feedEntrySchema, StoreError } from '@rona/core'
 import { cacheHit, TTL_SECONDS } from '../cache-policy'
+import { recordCovers } from './known-cover'
 
 interface FeedRow {
   readonly provider_id: string
@@ -62,7 +63,10 @@ export function createFeedRepository(db: Database): FeedRepository {
     },
 
     write(providerId, entries, now = Date.now()) {
-      replace.run(providerId, JSON.stringify(entries), now, ttlS)
+      db.transaction(() => {
+        replace.run(providerId, JSON.stringify(entries), now, ttlS)
+        recordCovers(db, providerId, entries, now)
+      })()
     },
   }
 }

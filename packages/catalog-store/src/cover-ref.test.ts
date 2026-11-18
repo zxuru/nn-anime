@@ -129,39 +129,70 @@ describe('findCoverUrl', () => {
     })
   })
 
-  test('una fila ilegible se salta en lugar de tumbar la consulta', async () => {
+  test('una fila ilegible en la caché no tumba la consulta', async () => {
     await withDb((db) => {
-      createSearchRepository(db).write('fixture', 'rota', [resultado('Otra')])
-      createSearchRepository(db).write('fixture', 'aurora', [resultado('Aurora Nocturna')])
-      db.query("UPDATE search_cache SET results_json = 'no es json' WHERE query = 'aurora'").run()
+      // El respaldo y la escritura saltan las filas que no son JSON válido; la
+      // consulta no las mira, pero la caché puede tenerlas de una versión
+      // anterior y no puede ser un error de la ruta de portadas.
       db.query(
-        "UPDATE search_cache SET results_json = '[{\"title\": 1}]' WHERE query = 'rota'",
+        `INSERT INTO search_cache (provider_id, query, results_json, fetched_at, ttl_s)
+         VALUES ('fixture', 'rota', 'no es json', 0, 3600)`,
       ).run()
+      db.query(
+        `INSERT INTO search_cache (provider_id, query, results_json, fetched_at, ttl_s)
+         VALUES ('fixture', 'forma', '[{"title": 1}]', 0, 3600)`,
+      ).run()
+      createSearchRepository(db).write('fixture', 'aurora', [resultado('Aurora Nocturna')])
 
-      expect(findCoverUrl(db, REF)).toBeUndefined()
+      expect(findCoverUrl(db, REF)).toBe('https://fixture.invalid/portada/aurora-nocturna.webp')
     })
   })
 
   test('una portada con un esquema que no se admite no sale', async () => {
     await withDb((db) => {
-      createSearchRepository(db).write('fixture', 'aurora', [resultado('Aurora Nocturna')])
-      db.query(
-        `UPDATE search_cache
-            SET results_json = '[{"ref":{"providerId":"fixture","value":"aurora-nocturna"},"title":"Aurora","coverUrl":"javascript:alert(1)"}]'
-          WHERE query = 'aurora'`,
-      ).run()
+      createSearchRepository(db).write('fixture', 'aurora', [
+        resultado('Aurora Nocturna', { coverUrl: 'javascript:alert(1)' }),
+      ])
 
       expect(findCoverUrl(db, REF)).toBeUndefined()
     })
   })
 
-  test('una fila ilegible no impide leer la siguiente', async () => {
+  test('la portada más reciente gana y una caché vieja no la borra', async () => {
     await withDb((db) => {
-      createSearchRepository(db).write('fixture', 'aurora', [resultado('Otra')])
-      createTrendingRepository(db).write('fixture', [resultado('Aurora Nocturna')])
-      db.query("UPDATE search_cache SET results_json = 'no es json'").run()
+      createSearchRepository(db).write('fixture', 'aurora', [resultado('Aurora Nocturna')], 2_000)
+      createTrendingRepository(db).write(
+        'fixture',
+        [resultado('Aurora Nocturna', { coverUrl: 'https://fixture.invalid/nueva.webp' })],
+        1_000,
+      )
 
+      // La de tendencias es más vieja: no pisa la de la búsqueda.
       expect(findCoverUrl(db, REF)).toBe('https://fixture.invalid/portada/aurora-nocturna.webp')
+
+      createTrendingRepository(db).write(
+        'fixture',
+        [resultado('Aurora Nocturna', { coverUrl: 'https://fixture.invalid/nueva.webp' })],
+        3_000,
+      )
+
+      expect(findCoverUrl(db, REF)).toBe('https://fixture.invalid/nueva.webp')
+    })
+  })
+
+  test('la consulta es una búsqueda por clave, no un recorrido', async () => {
+    await withDb((db) => {
+      const plan = db
+        .query<{ detail: string }, []>(
+          `EXPLAIN QUERY PLAN
+           SELECT url FROM known_cover WHERE provider_id = 'fixture' AND provider_ref = 'x'`,
+        )
+        .all()
+        .map((fila) => fila.detail)
+        .join(' ')
+
+      expect(plan).toContain('known_cover')
+      expect(plan).toContain('USING')
     })
   })
 })

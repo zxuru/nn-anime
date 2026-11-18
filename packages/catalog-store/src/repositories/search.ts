@@ -21,6 +21,7 @@ import {
 } from '@rona/core'
 import { z } from 'zod'
 import { cacheHit, TTL_SECONDS } from '../cache-policy'
+import { recordCovers } from './known-cover'
 
 const SEARCH_RESULTS = z.array(searchResultSchema)
 
@@ -66,14 +67,22 @@ export function createSearchRepository(db: Database, ttlS: number = TTL_SECONDS.
       results: readonly SearchResult[],
       now: number = Date.now(),
     ): void {
-      db.query(
-        `INSERT INTO search_cache (provider_id, query, results_json, fetched_at, ttl_s)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT (provider_id, query) DO UPDATE SET
-           results_json = excluded.results_json,
-           fetched_at = excluded.fetched_at,
-           ttl_s = excluded.ttl_s`,
-      ).run(providerId, normalizeQuery(query), JSON.stringify(results), now, ttlS)
+      const escribir = db.transaction(() => {
+        db.query(
+          `INSERT INTO search_cache (provider_id, query, results_json, fetched_at, ttl_s)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT (provider_id, query) DO UPDATE SET
+             results_json = excluded.results_json,
+             fetched_at = excluded.fetched_at,
+             ttl_s = excluded.ttl_s`,
+        ).run(providerId, normalizeQuery(query), JSON.stringify(results), now, ttlS)
+
+        // La portada se apunta en la misma transacción: una caché que dice
+        // conocer el título y una tabla de portadas sin él son dos verdades.
+        recordCovers(db, providerId, results, now)
+      })
+
+      escribir()
     },
   }
 }

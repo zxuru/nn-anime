@@ -1,5 +1,5 @@
 {
-  "version": 20,
+  "version": 21,
   "archivos": {
     "0001-initial.sql": "sha256:3dda38578cbbe5644c33b121382a41dc586afac1bb02fd0f57e79ec602241c99",
     "0002-search-cache.sql": "sha256:4854bcf26f6d52e7a0f43277d0cf48c0df1c7ce20db5434cfcd5b8f15f0e65df",
@@ -20,6 +20,7 @@
     "0017-aniskip-cache.sql": "sha256:d497a5219f41e1834f7879093fa6709e9f34a16b5e71085cfc5d5f60541f4581",
     "0018-indices-calientes.sql": "sha256:7ab5eeaca91e6fed95cc53b166dd1c3213a3729b588e4c73e35b921051806edb",
     "0019-descarga-modo.sql": "sha256:07ddfaa58e6fc665777f5c8088e78a9814c7188e29cc65c996547bd1fca3a51f",
-    "0020-descarga-subtitulos.sql": "sha256:a7d0732fbe269212ec14f8fe81f5f9d636976770aaf084d6cd98a953a857079e"
+    "0020-descarga-subtitulos.sql": "sha256:a7d0732fbe269212ec14f8fe81f5f9d636976770aaf084d6cd98a953a857079e",
+    "0021-portadas-conocidas.sql": "sha256:224d3f234deafccbddfbf8d78fc348c8ed77c216091548679b09e802e70c1a65"
   }
 }
