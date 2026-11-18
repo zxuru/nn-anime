@@ -17,6 +17,7 @@ function descarga(cambios: Partial<DownloadItem> = {}): DownloadItem {
     episodeRef: { providerId: 'fixture', value: 'aurora-nocturna#1' },
     title: 'Aurora Nocturna',
     episodeLabel: 'Episodio 1',
+    mode: 'sub',
     kind: 'file',
     status: 'downloading',
     bytes: 0,

@@ -10,7 +10,7 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import { StoreError } from '@rona/core'
+import { StoreError, type StreamMode, streamModeSchema } from '@rona/core'
 import { z } from 'zod'
 
 export const downloadStatusSchema = z.enum([
@@ -34,6 +34,8 @@ export interface DownloadRecord {
   readonly episodeRef: string
   readonly title: string
   readonly episodeLabel: string
+  /** El audio con el que se pidió: `sub` o `dub`. */
+  readonly mode: StreamMode
   readonly kind: DownloadKind
   readonly status: DownloadStatus
   /** Ruta relativa a la raíz de descargas, si ya hay archivo. */
@@ -51,6 +53,8 @@ export interface NewDownload {
   readonly episodeRef: string
   readonly title: string
   readonly episodeLabel: string
+  /** Si no se dice, `sub`: es lo que hacía el motor antes de T307. */
+  readonly mode?: StreamMode | undefined
   readonly kind: DownloadKind
 }
 
@@ -80,6 +84,7 @@ interface DownloadRow {
   readonly episode_ref: string
   readonly title: string
   readonly episode_label: string
+  readonly mode: string
   readonly kind: string
   readonly status: string
   readonly path: string | null
@@ -93,10 +98,11 @@ interface DownloadRow {
 function toRecord(row: DownloadRow): DownloadRecord {
   const kind = downloadKindSchema.safeParse(row.kind)
   const status = downloadStatusSchema.safeParse(row.status)
+  const mode = streamModeSchema.safeParse(row.mode)
 
-  if (!kind.success || !status.success) {
+  if (!kind.success || !status.success || !mode.success) {
     throw new StoreError({
-      message: `la descarga ${row.id} tiene un estado que no existe: ${row.kind}/${row.status}`,
+      message: `la descarga ${row.id} tiene un estado que no existe: ${row.kind}/${row.status}/${row.mode}`,
       scope: 'catalog-store',
       op: 'readDownload',
     })
@@ -109,6 +115,7 @@ function toRecord(row: DownloadRow): DownloadRecord {
     episodeRef: row.episode_ref,
     title: row.title,
     episodeLabel: row.episode_label,
+    mode: mode.data,
     kind: kind.data,
     status: status.data,
     ...(row.path === null ? {} : { path: row.path }),
@@ -155,8 +162,8 @@ export function createDownloadRepository(db: Database, now: () => number = Date.
       const instante = now()
       db.query(
         `INSERT INTO download
-           (provider_id, provider_ref, episode_ref, title, episode_label, kind, status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?)
+           (provider_id, provider_ref, episode_ref, title, episode_label, mode, kind, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)
          ON CONFLICT (provider_id, episode_ref) DO NOTHING`,
       ).run(
         input.providerId,
@@ -164,6 +171,7 @@ export function createDownloadRepository(db: Database, now: () => number = Date.
         input.episodeRef,
         input.title,
         input.episodeLabel,
+        input.mode ?? 'sub',
         input.kind,
         instante,
         instante,

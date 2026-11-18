@@ -80,6 +80,20 @@ async function conApp<T>(
 }
 
 describe('las rutas de descargas', () => {
+  test('el alta guarda el modo de audio pedido', async () => {
+    await conApp(async (pedir, store) => {
+      const alta = await pedir('/api/downloads', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ ...ALTA, mode: 'dub' }),
+      })
+
+      expect(alta.status).toBe(201)
+      const { id } = (await alta.json()) as { id: number }
+      expect((await store.getDownload(id))?.mode).toBe('dub')
+    })
+  })
+
   test('el alta crea la fila, la cola la completa y el archivo se sirve con rangos', async () => {
     await conApp(async (pedir) => {
       const alta = await pedir('/api/downloads', {

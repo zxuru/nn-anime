@@ -38,6 +38,7 @@ import {
   providerRefSchema,
   searchResultSchema,
   skipIntervalSchema,
+  streamModeSchema,
   streamRequestSchema,
   subtitleFormatSchema,
   titleKindSchema,
@@ -522,6 +523,8 @@ export const downloadItemSchema = z.strictObject({
   episodeRef: providerRefSchema,
   title: z.string().min(1),
   episodeLabel: z.string().min(1),
+  /** El audio con el que se bajó, para que la biblioteca lo sepa. */
+  mode: streamModeSchema,
   kind: downloadKindSchema,
   status: downloadStatusSchema,
   bytes: z.number().int().nonnegative(),
@@ -542,6 +545,7 @@ export const downloadStartRequestSchema = z.strictObject({
   providerId: z.string().min(1),
   animeRef: providerRefSchema,
   episodeRef: providerRefSchema,
+  mode: streamModeSchema.default('sub'),
 })
 
 export const downloadStartResponseSchema = z.strictObject({ id: z.number().int().positive() })
@@ -557,6 +561,7 @@ export const downloadStartResponseSchema = z.strictObject({ id: z.number().int()
 export const downloadSeriesRequestSchema = z.strictObject({
   providerId: z.string().min(1),
   animeRef: providerRefSchema,
+  mode: streamModeSchema.default('sub'),
 })
 
 /**

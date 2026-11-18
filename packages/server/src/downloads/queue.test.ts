@@ -14,6 +14,7 @@ function fila(id: number, status: DownloadStatus = 'queued'): DownloadRecord {
     episodeRef: `aurora-nocturna#${id}`,
     title: 'Aurora Nocturna',
     episodeLabel: `Episodio ${id}`,
+    mode: 'sub',
     kind: 'file',
     status,
     bytes: 0,
@@ -131,6 +132,29 @@ describe('la cola de descargas', () => {
       expect(final?.bytes).toBe(3)
       expect(final?.path ?? '').not.toContain('..')
       expect(await readFile(join(root, final?.path ?? ''), 'utf8')).toBe('MP4')
+    })
+  })
+
+  test('la cola pasa el modo de la fila al resolutor', async () => {
+    await conRaiz(async (root) => {
+      const store = memoria([{ ...fila(1), mode: 'dub' }])
+      let recibido: string | undefined
+      const cola = createDownloadQueue({
+        store,
+        root,
+        concurrency: 1,
+        fetchImpl: FETCH,
+        resolve: async (_provider, _ref, _signal, mode) => {
+          recibido = mode
+
+          return { url: 'https://fixture.invalid/v.mp4', kind: 'file' }
+        },
+      })
+
+      await cola.start()
+      await esperar(async () => (await store.get(1))?.status === 'complete')
+
+      expect(recibido).toBe('dub')
     })
   })
 
