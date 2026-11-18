@@ -21,7 +21,7 @@ import {
 } from '@rona/core'
 import { z } from 'zod'
 import { cacheHit, TTL_SECONDS } from '../cache-policy'
-import { recordCovers } from './known-cover'
+import { recordKnownTitles } from './known-titles'
 
 const SEARCH_RESULTS = z.array(searchResultSchema)
 
@@ -77,9 +77,10 @@ export function createSearchRepository(db: Database, ttlS: number = TTL_SECONDS.
              ttl_s = excluded.ttl_s`,
         ).run(providerId, normalizeQuery(query), JSON.stringify(results), now, ttlS)
 
-        // La portada se apunta en la misma transacción: una caché que dice
-        // conocer el título y una tabla de portadas sin él son dos verdades.
-        recordCovers(db, providerId, results, now)
+        // El título y su portada se apuntan en la misma transacción: una caché
+        // que dice conocer el título y las tablas denormalizadas sin él son dos
+        // verdades.
+        recordKnownTitles(db, providerId, results, now)
       })
 
       escribir()

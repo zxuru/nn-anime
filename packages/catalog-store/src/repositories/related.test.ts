@@ -7,8 +7,10 @@ import type { AnimeDetail, ProviderRef, SearchResult } from '@rona/core'
 import { openDb } from '../db'
 import { runMigrations } from '../migrations/runner'
 import { createAnimeRepository } from './anime'
-import { createRelatedRepository, type RelatedStore } from './related'
+import { createFeedRepository } from './feed'
+import { CANDIDATOS, createRelatedRepository, type RelatedStore } from './related'
 import { createSearchRepository } from './search'
+import { createTrendingRepository } from './trending'
 
 function anime(ref: ProviderRef, title: string, year: number): AnimeDetail {
   return {
@@ -629,5 +631,326 @@ describe('listSources', () => {
         expect(store.llamadas()).toBe(antes)
       },
     )
+  })
+})
+
+/*
+ * Lo que leen los relacionados: `known_title`, no las tres cachés.
+ *
+ * La tabla la escribe el mismo `write` de cada caché, así que hay dos cosas que
+ * medir por separado: que el título quede apuntado (si no, la sección se vacía)
+ * y que la consulta de candidatos no vuelva a recorrer `results_json` (si no, el
+ * coste crece con el número de búsquedas). Lo primero se mide con el repositorio
+ * de verdad; lo segundo, con el plan y con el tiempo.
+ */
+
+/**
+ * La consulta de candidatos de antes de `known_title`, literal.
+ *
+ * Sólo vive aquí: es la referencia contra la que se comprueba que el cambio no
+ * movió el resultado. Si algún día se toca la consulta nueva, esta sigue
+ * diciendo lo que devolvía la vieja.
+ */
+const ANTERIOR = `
+  WITH patrones AS (
+    SELECT value AS p FROM json_each(?)
+  ),
+  conocidos AS (
+    SELECT provider_id, provider_ref AS ref, title, title_alt, cover_url, year,
+           json_extract(raw_json, '$.kind') AS kind
+      FROM anime
+     WHERE EXISTS (
+       SELECT 1 FROM patrones WHERE title LIKE p || '%' OR provider_ref LIKE p || '%'
+     )
+    UNION ALL
+    SELECT c.provider_id, json_extract(j.value, '$.ref.value'), json_extract(j.value, '$.title'),
+           json_extract(j.value, '$.titleAlt'), json_extract(j.value, '$.coverUrl'),
+           json_extract(j.value, '$.year'), json_extract(j.value, '$.kind')
+      FROM search_cache c, json_each(c.results_json) AS j
+     WHERE EXISTS (
+       SELECT 1 FROM patrones WHERE json_extract(j.value, '$.title') LIKE p || '%'
+     )
+    UNION ALL
+    SELECT c.provider_id, json_extract(j.value, '$.ref.value'), json_extract(j.value, '$.title'),
+           json_extract(j.value, '$.titleAlt'), json_extract(j.value, '$.coverUrl'),
+           json_extract(j.value, '$.year'), json_extract(j.value, '$.kind')
+      FROM trending_cache c, json_each(c.results_json) AS j
+     WHERE EXISTS (
+       SELECT 1 FROM patrones WHERE json_extract(j.value, '$.title') LIKE p || '%'
+     )
+    UNION ALL
+    SELECT c.provider_id, json_extract(j.value, '$.ref.value'), json_extract(j.value, '$.title'),
+           json_extract(j.value, '$.titleAlt'), json_extract(j.value, '$.coverUrl'),
+           json_extract(j.value, '$.year'), json_extract(j.value, '$.kind')
+      FROM feed_cache c, json_each(c.results_json) AS j
+     WHERE EXISTS (
+       SELECT 1 FROM patrones WHERE json_extract(j.value, '$.title') LIKE p || '%'
+     )
+  )
+  SELECT provider_id, ref, title, title_alt, cover_url, year, kind
+    FROM conocidos
+   WHERE ref IS NOT NULL AND title IS NOT NULL
+   ORDER BY year DESC, title
+   LIMIT ?`
+
+/** Una fila de la consulta de candidatos, con la forma que devuelven las dos. */
+interface FilaCandidata {
+  readonly provider_id: string
+  readonly ref: string
+  readonly title: string
+  readonly title_alt: string | null
+  readonly cover_url: string | null
+  readonly year: number | null
+  readonly kind: string | null
+}
+
+/** Base temporal con las migraciones al día, para las pruebas del resumen. */
+async function withConocidos<T>(body: (db: Database) => T): Promise<T> {
+  const dir = await mkdtemp(join(tmpdir(), 'rona-conocidos-'))
+  const db = openDb(join(dir, 'rona.db'))
+
+  try {
+    runMigrations(db)
+
+    return body(db)
+  } finally {
+    cerrarBase(db)
+    await rm(dir, { recursive: true, force: true })
+  }
+}
+
+/** Filas por referencia y proveedor, para comparar conjuntos sin depender del orden. */
+function porClave<T extends { readonly provider_id: string; readonly ref: string }>(
+  filas: readonly T[],
+): readonly T[] {
+  return [...filas].sort((uno, otro) =>
+    `${uno.provider_id}:${uno.ref}`.localeCompare(`${otro.provider_id}:${otro.ref}`),
+  )
+}
+
+describe('known_title', () => {
+  const YANI_JKANIME: ProviderRef = { providerId: 'jkanime', value: 'yani-neko' }
+
+  test('las tres cachés dejan su título, aunque no traigan portada', async () => {
+    await withConocidos((db) => {
+      createSearchRepository(db).write('fixture', 'aurora', [
+        {
+          ref: { providerId: 'fixture', value: 'aurora' },
+          title: 'Aurora Nocturna',
+          titleAlt: 'Aurora',
+          coverUrl: 'https://fixture.invalid/aurora.webp',
+          year: 2023,
+          kind: 'tv',
+        },
+        { ref: { providerId: 'fixture', value: 'sin-portada' }, title: 'Sin Portada' },
+      ])
+      createTrendingRepository(db).write('otro', [
+        resultado('otro', 'brisa', 'Brisa de Mayo', 2022),
+      ])
+      createFeedRepository(db).write('otro', [
+        { ...resultado('otro', 'cauce', 'Cauce', 2021), publishedAt: '2026-01-01T00:00:00.000Z' },
+      ])
+
+      const filas = db
+        .query(
+          `SELECT provider_id, provider_ref, title, title_alt, cover_url, year, kind
+             FROM known_title ORDER BY provider_id, provider_ref`,
+        )
+        .all()
+
+      expect(filas).toEqual([
+        {
+          provider_id: 'fixture',
+          provider_ref: 'aurora',
+          title: 'Aurora Nocturna',
+          title_alt: 'Aurora',
+          cover_url: 'https://fixture.invalid/aurora.webp',
+          year: 2023,
+          kind: 'tv',
+        },
+        {
+          provider_id: 'fixture',
+          provider_ref: 'sin-portada',
+          title: 'Sin Portada',
+          title_alt: null,
+          cover_url: null,
+          year: null,
+          kind: null,
+        },
+        {
+          provider_id: 'otro',
+          provider_ref: 'brisa',
+          title: 'Brisa de Mayo',
+          title_alt: null,
+          cover_url: null,
+          year: 2022,
+          kind: null,
+        },
+        {
+          provider_id: 'otro',
+          provider_ref: 'cauce',
+          title: 'Cauce',
+          title_alt: null,
+          cover_url: null,
+          year: 2021,
+          kind: null,
+        },
+      ])
+    })
+  })
+
+  test('la más reciente gana y una vieja no borra la portada', async () => {
+    await withConocidos((db) => {
+      const aurora = {
+        ref: { providerId: 'fixture', value: 'aurora' },
+        title: 'Aurora Vieja',
+        coverUrl: 'https://fixture.invalid/vieja.webp',
+      }
+
+      createSearchRepository(db).write('fixture', 'aurora', [aurora], 1_000)
+      // La nueva no trae portada: el título se actualiza y la URL que ya
+      // funcionaba se conserva.
+      createTrendingRepository(db).write(
+        'fixture',
+        [{ ref: aurora.ref, title: 'Aurora Nueva' }],
+        2_000,
+      )
+      // Y una más vieja no pisa nada, ni el título ni la portada.
+      createFeedRepository(db).write(
+        'fixture',
+        [
+          {
+            ref: aurora.ref,
+            title: 'Aurora Antigua',
+            coverUrl: 'https://fixture.invalid/rota.webp',
+          },
+        ],
+        500,
+      )
+
+      expect(db.query('SELECT title, cover_url, updated_at FROM known_title').get()).toEqual({
+        title: 'Aurora Nueva',
+        cover_url: 'https://fixture.invalid/vieja.webp',
+        updated_at: 2_000,
+      })
+    })
+  })
+
+  test('el resultado anterior no cambia para varios patrones', async () => {
+    await withConocidos((db) => {
+      const animeRepo = createAnimeRepository(db)
+      animeRepo.write(KIMETSU, anime(KIMETSU, 'Kimetsu no Yaiba', 2019))
+      animeRepo.write(FRIEREN, anime(FRIEREN, 'Sousou no Frieren', 2023))
+      animeRepo.write(NARUTO, anime(NARUTO, 'Naruto', 2002))
+
+      createSearchRepository(db).write('animeav1', 'kimetsu', [
+        resultado('animeav1', 'yuukaku', 'Kimetsu no Yaiba: Yuukaku-hen', 2021),
+        resultado('animeav1', 'katanakaji', 'Kimetsu no Yaiba: Katanakaji no Sato-hen', 2023),
+      ])
+      createTrendingRepository(db).write('fixture', [
+        resultado('fixture', 'dandadan', 'Dandadan', 2024),
+        resultado('fixture', 'dandadan-2', 'Dandadan 2nd Season', 2025),
+      ])
+      createFeedRepository(db).write('fixture', [
+        {
+          ...resultado('fixture', 'overlord', 'Overlord', 2015),
+          publishedAt: '2026-01-01T00:00:00.000Z',
+        },
+        {
+          ...resultado('fixture', 'overlord-2', 'Overlord II', 2018),
+          publishedAt: '2026-01-02T00:00:00.000Z',
+        },
+      ])
+
+      const anterior = db.query<FilaCandidata, [string, number]>(ANTERIOR)
+      const nueva = db.query<FilaCandidata, [string, number]>(CANDIDATOS)
+
+      // El número esperado no es adorno: sin él, dos consultas rotas que
+      // devolvieran la lista vacía pasarían como «equivalentes».
+      const casos: readonly (readonly [readonly string[], number])[] = [
+        [['kimetsu'], 3],
+        [['dandadan'], 2],
+        [['overlord', 'naruto'], 3],
+        [['frieren', 'dragon', 'dandadan'], 3],
+        [['no-existe'], 0],
+      ]
+
+      for (const [patrones, total] of casos) {
+        const json = JSON.stringify(patrones)
+        const esperado = porClave(anterior.all(json, 1000))
+        const obtenido = porClave(nueva.all(json, 1000))
+
+        expect(esperado, json).toHaveLength(total)
+        expect(obtenido, json).toEqual(esperado)
+      }
+    })
+  })
+
+  test('una entrada que sólo empareja por su referencia también cuenta', async () => {
+    await withStore(
+      [[YANI_JKANIME, 'Yani Neko', 2026]],
+      (store) => {
+        // El título no empieza por la palabra —«Yani»— pero su referencia sí, y
+        // `sameWork` la reconoce por el nombre que la referencia escribe. La
+        // consulta anterior sólo miraba el título de las entradas cacheadas y
+        // esta fuente no aparecía.
+        expect(store.related.listSources(YANI_JKANIME, 10).map((item) => item.ref.value)).toEqual([
+          'yani-neko',
+        ])
+      },
+      [
+        {
+          providerId: 'animeav1',
+          query: 'gata',
+          results: [resultado('animeav1', 'yani-neko', 'La Gata de la Suerte', 2026)],
+        },
+      ],
+    )
+  })
+
+  test('el plan recorre known_title y no las cachés', async () => {
+    await withConocidos((db) => {
+      const plan = db
+        .query<{ detail: string }, [string, number]>(`EXPLAIN QUERY PLAN ${CANDIDATOS}`)
+        .all(JSON.stringify(['kimetsu']), 1000)
+        .map((fila) => fila.detail)
+        .join(' ')
+
+      expect(plan).toContain('known_title')
+      // Las tres cachés ya no se leen: si vuelve el barrido, esto se pone rojo.
+      expect(plan).not.toContain('search_cache')
+      expect(plan).not.toContain('trending_cache')
+      expect(plan).not.toContain('feed_cache')
+    })
+  })
+
+  test('con 10 000 títulos la lectura sigue acotada', async () => {
+    await withConocidos((db) => {
+      const insertar = db.query(
+        `INSERT INTO known_title
+           (provider_id, provider_ref, title, title_alt, cover_url, year, kind, updated_at)
+         VALUES (?, ?, ?, NULL, NULL, ?, 'tv', 0)`,
+      )
+
+      db.transaction(() => {
+        for (let i = 0; i < 10_000; i += 1) {
+          insertar.run('fixture', `ref-${i}`, `Saga ${i % 997} Temporada ${i}`, 2000 + (i % 25))
+        }
+      })()
+
+      const consulta = db.query<FilaCandidata, [string, number]>(CANDIDATOS)
+      // Un calentamiento y una medida. Medido el 2026-11-18: 12 ms con estos
+      // 10 000 títulos; el barrido anterior tardaba 865 ms con 10 000 búsquedas
+      // de 24 resultados (240 000 entradas). El margen de 500 ms es cuarenta
+      // veces lo medido, para que una máquina de CI cargada no la tumbe.
+      consulta.all(JSON.stringify(['Saga 1', 'Saga 2', 'Saga 3']), 1000)
+
+      const comienzo = performance.now()
+      const filas = consulta.all(JSON.stringify(['Saga 1', 'Saga 2', 'Saga 3']), 1000)
+      const transcurrido = performance.now() - comienzo
+
+      expect(filas.length).toBeGreaterThan(0)
+      expect(transcurrido).toBeLessThan(500)
+    })
   })
 })

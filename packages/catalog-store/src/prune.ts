@@ -99,6 +99,7 @@ export const PRUNED_TABLES: readonly string[] = [
   'revalidate_error',
   'search_history',
   'known_cover',
+  'known_title',
   'watch_event',
   'favorite',
   'watched_title',
@@ -156,6 +157,15 @@ export function pruneOrphans(db: Database, now: Date = new Date()): PruneReport 
     // cada búsqueda y no se vaciaba nunca.
     borradas.known_cover = db
       .query('DELETE FROM known_cover WHERE updated_at <= ?')
+      .run(limiteDetalle).changes
+
+    // `known_title` es el resumen que leen los relacionados, y caduca con el
+    // mismo plazo y por el mismo motivo: si no, la tabla que vino a evitar el
+    // barrido acabaría siendo el barrido, porque crece con cada búsqueda y no
+    // se vacía nunca. El detalle abierto —que también alimenta la sección— no
+    // depende de esta tabla.
+    borradas.known_title = db
+      .query('DELETE FROM known_title WHERE updated_at <= ?')
       .run(limiteDetalle).changes
 
     const ids = doomedAnime(db, limiteDetalle)

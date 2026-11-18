@@ -13,7 +13,8 @@
  *
  * Se leen **dos** sitios y no uno. La tabla `anime` sólo tiene las fichas
  * abiertas; los listados cacheados —búsquedas, tendencias y novedades— ya traen
- * la saga entera en cuanto alguien la busca. Sin ellos, abrir «Kimetsu no Yaiba»
+ * la saga entera en cuanto alguien la busca, y `known_title` los resume en una
+ * fila por referencia desde que se escriben. Sin ellos, abrir «Kimetsu no Yaiba»
  * deja la sección vacía aunque sus cinco entregas estén en la caché de la
  * búsqueda que llevó hasta ahí.
  *
@@ -57,7 +58,7 @@ export type RelatedScope = 'saga' | 'franchise'
  *
  * El prefiltro por la primera palabra ya descarta casi todo; el tope es la red
  * de seguridad para una base que crezca mucho —una saga de verdad no tiene mil
- * entregas— y evita que una lectura se lleve la caché entera a memoria.
+ * entregas— y evita que una lectura se lleve la tabla entera a memoria.
  */
 export const RELATED_SCAN_LIMIT = 1000
 
@@ -69,14 +70,23 @@ export const RELATED_SCAN_LIMIT = 1000
  * con los que la obra se reconoce—, porque la misma obra puede estar en la base
  * con el nombre corto en una fuente y el título original en la otra: con una
  * sola palabra, la temporada que la otra fuente publica con el nombre largo
- * queda fuera de la lectura. Los patrones que sobran repiten el primero: es la
- * misma comparación y una sola sentencia preparada, que es lo que el spec mide.
+ * queda fuera de la lectura. Van como un array JSON en un solo parámetro —y no
+ * como un hueco por patrón—, así que una sola sentencia preparada sirve para
+ * cualquier número de nombres, que es lo que el spec mide.
  *
- * Los tres listados comparten forma —una `FeedEntry` es un `SearchResult` con
- * fecha opcional—, y por eso la misma expresión sirve para los tres. `json_each`
- * expande el array guardado en cada fila.
+ * Las dos tablas comparten forma al leerlas —una `FeedEntry` es un `SearchResult`
+ * con fecha opcional—, y `known_title` es el resumen que dejan las tres cachés al
+ * escribirse. Antes esta consulta recorría los tres `results_json` con
+ * `json_each`; con 10 000 búsquedas de 24 resultados eran 240 000 entradas por
+ * lectura. `json_each` sigue aquí, pero sólo sobre el array de patrones, que es
+ * el que cambia de tamaño.
+ *
+ * La referencia y el título alternativo entran en el prefiltro de
+ * `known_title` y no en el de `anime`: `sameWork` los usa como nombres de la
+ * obra, y una fuente guarda el título original en la referencia. Sin ellos, un
+ * hermano que la caché conoce con otro nombre se quedaba fuera.
  */
-const CANDIDATOS = `
+export const CANDIDATOS = `
   WITH patrones AS (
     SELECT value AS p FROM json_each(?)
   ),
@@ -88,28 +98,11 @@ const CANDIDATOS = `
        SELECT 1 FROM patrones WHERE title LIKE p || '%' OR provider_ref LIKE p || '%'
      )
     UNION ALL
-    SELECT c.provider_id, json_extract(j.value, '$.ref.value'), json_extract(j.value, '$.title'),
-           json_extract(j.value, '$.titleAlt'), json_extract(j.value, '$.coverUrl'),
-           json_extract(j.value, '$.year'), json_extract(j.value, '$.kind')
-      FROM search_cache c, json_each(c.results_json) AS j
+    SELECT provider_id, provider_ref AS ref, title, title_alt, cover_url, year, kind
+      FROM known_title
      WHERE EXISTS (
-       SELECT 1 FROM patrones WHERE json_extract(j.value, '$.title') LIKE p || '%'
-     )
-    UNION ALL
-    SELECT c.provider_id, json_extract(j.value, '$.ref.value'), json_extract(j.value, '$.title'),
-           json_extract(j.value, '$.titleAlt'), json_extract(j.value, '$.coverUrl'),
-           json_extract(j.value, '$.year'), json_extract(j.value, '$.kind')
-      FROM trending_cache c, json_each(c.results_json) AS j
-     WHERE EXISTS (
-       SELECT 1 FROM patrones WHERE json_extract(j.value, '$.title') LIKE p || '%'
-     )
-    UNION ALL
-    SELECT c.provider_id, json_extract(j.value, '$.ref.value'), json_extract(j.value, '$.title'),
-           json_extract(j.value, '$.titleAlt'), json_extract(j.value, '$.coverUrl'),
-           json_extract(j.value, '$.year'), json_extract(j.value, '$.kind')
-      FROM feed_cache c, json_each(c.results_json) AS j
-     WHERE EXISTS (
-       SELECT 1 FROM patrones WHERE json_extract(j.value, '$.title') LIKE p || '%'
+       SELECT 1 FROM patrones
+        WHERE title LIKE p || '%' OR title_alt LIKE p || '%' OR provider_ref LIKE p || '%'
      )
   )
   SELECT provider_id, ref, title, title_alt, cover_url, year, kind
@@ -358,9 +351,9 @@ export function createRelatedRepository(db: Database) {
      * cada fuente las nombre distinto—, y el año sigue siendo parte de la
      * comparación: dos obras homónimas de años distintos son dos obras.
      *
-     * Reutiliza la consulta de candidatos de los relacionados: las cuatro tablas
-     * —la ficha, las búsquedas, las tendencias y las novedades— ya están ahí, y una
-     * segunda lectura sería la mitad de las reglas escrita dos veces.
+     * Reutiliza la consulta de candidatos de los relacionados: la ficha y
+     * `known_title` —el resumen de las tres cachés— ya están ahí, y una segunda
+     * lectura sería la mitad de las reglas escrita dos veces.
      */
     listSources(ref: ProviderRef, limit: number): readonly AnimeSummary[] {
       const propia = selectPropia.get(ref.providerId, ref.value)
@@ -398,7 +391,7 @@ export function createRelatedRepository(db: Database) {
      * Es la mitad de la lectura de hermanos y de fuentes, expuesta aparte para
      * quien compara contra los nombres de una obra **que no tiene fila aquí**
      * —una de AniList, que llega de la red—: necesita el mismo prefiltro y las
-     * mismas cuatro tablas, no una segunda consulta escrita al lado. Quien llama
+     * mismas tablas conocidas, no una segunda consulta escrita al lado. Quien llama
      * decide después, con la misma identidad de siempre, cuál es la misma obra.
      *
      * El orden es el de la consulta —año descendente y título—, para que dos
