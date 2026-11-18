@@ -28,6 +28,13 @@ const MODE_KEYS = {
 export interface AudioModeSwitchProps {
   readonly mode: PlayMode
   readonly onMode: (mode: PlayMode) => void
+  /**
+   * El nombre del grupo, cuando hay más de un selector en la misma pantalla.
+   *
+   * La ficha tiene el del episodio y el de la descarga de la serie: dos listas
+   * llamadas «Audio» con las mismas opciones se leen igual y no se distinguen.
+   */
+  readonly label?: string | undefined
 }
 
 export function AudioModeSwitch(props: AudioModeSwitchProps): ReactNode {
@@ -35,7 +42,7 @@ export function AudioModeSwitch(props: AudioModeSwitchProps): ReactNode {
     // Una lista y no un `div` con `role="group"`: el grupo de dos opciones se
     // declara con la lista, que ya tiene su nombre accesible, y no hay que
     // inventarle un rol que después hay que mantener.
-    <ul className="audio-switch" aria-label={t(DEFAULT_LOCALE, 'player.audio')}>
+    <ul className="audio-switch" aria-label={props.label ?? t(DEFAULT_LOCALE, 'player.audio')}>
       {PLAY_MODES.map((candidato) => (
         <li className="audio-switch__item" key={candidato}>
           <button

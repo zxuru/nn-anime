@@ -150,6 +150,9 @@
 
 .downloads__button {
   display: flex;
+  /* El selector de audio y el botón no caben en una fila a 320 px: se apilan
+     antes que desbordar la página. */
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
 }

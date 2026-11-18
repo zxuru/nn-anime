@@ -853,6 +853,7 @@ export const messages: Messages = {
   'detail.download.title': 'Descargas',
   'detail.download.series': 'Descargar la serie',
   'detail.download.movie': 'Descargar la película',
+  'detail.download.audio': 'Audio de la descarga',
   'detail.download.sending': 'Apuntando los capítulos…',
   'detail.download.queued': '{pending} de {episodes} capítulos en cola. Se descargan en orden.',
   'detail.download.done': 'Ya está descargada.',

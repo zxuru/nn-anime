@@ -2115,6 +2115,10 @@ body.player-extendido {
 }
 
 .watch__download .downloads__button {
+  /* En la cabecera de la reproducción el grupo va en columna: el selector de
+     audio y el botón en fila ocupan el ancho del titular y tapaban el enlace de
+     volver. Apilados, el rincón sigue siendo suyo. */
+  flex-direction: column;
   align-items: flex-end;
 }
 
