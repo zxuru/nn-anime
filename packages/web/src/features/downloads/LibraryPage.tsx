@@ -38,6 +38,7 @@ import {
 } from './biblioteca'
 import { DownloadFolder } from './DownloadFolder'
 import { useDownloads } from './useDownloads'
+import { etiquetaDeAudio, etiquetaDeSubtitulos } from './visionado'
 
 const LOCALE = DEFAULT_LOCALE
 
@@ -286,6 +287,28 @@ function TarjetaSerie(props: {
   )
 }
 
+/**
+ * Las marcas de un episodio descargado: su audio y si trae subtítulos.
+ *
+ * Una descarga con el doblado no es la misma que la subtitulada, y sin decirlo
+ * la estantería obliga a abrir el episodio para saber qué se bajó. El número de
+ * pistas dice además si están todas las de la ficha o sólo una. Las dos marcas
+ * son texto y no color: se leen también sin distinguir tonos.
+ *
+ * Exportado para medirlo sin montar la biblioteca entera, que pide la lista en un
+ * efecto y un render a texto no ejecuta efectos.
+ */
+export function MarcasDelEpisodio(props: { readonly item: Descarga }): ReactNode {
+  const subtitulos = etiquetaDeSubtitulos(props.item)
+
+  return (
+    <>
+      <span className="badge">{etiquetaDeAudio(props.item.mode)}</span>
+      {subtitulos === undefined ? null : <span className="badge">{subtitulos}</span>}
+    </>
+  )
+}
+
 function DetalleSerie(props: {
   readonly serie: SerieBiblioteca
   readonly onPedirBorrado: (episodio: Descarga) => void
@@ -316,6 +339,7 @@ function DetalleSerie(props: {
                 <Play size={18} strokeWidth={2} fill="currentColor" />
               </span>
               <span className="library__episode-label">{episodio.episodeLabel}</span>
+              <MarcasDelEpisodio item={episodio} />
               <span className="library__episode-size">{formatearBytes(episodio.bytes)}</span>
             </Link>
             <button
