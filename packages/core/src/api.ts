@@ -95,6 +95,10 @@ const endpointTemplateSchema = z
   .refine((value) => !value.includes('://'), {
     message: 'la ruta tiene que ser relativa a la dirección base',
   })
+  // \`//host\` no lleva \`://\`, pero \`new URL\` lo interpreta como otro host.
+  .refine((value) => !value.startsWith('//'), {
+    message: 'la ruta no puede empezar por //',
+  })
   .refine((value) => !/[\r\n\0]/.test(value), {
     message: 'la ruta no admite caracteres de control',
   })

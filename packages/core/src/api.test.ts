@@ -7,6 +7,8 @@ import {
   planToWatchRequestSchema,
   planToWatchResponseSchema,
   profileResponseSchema,
+  providerDraftSchema,
+  providerFieldMapSchema,
   providerRepoRecordSchema,
   providerRepoSelectionSchema,
   providerReposResponseSchema,
@@ -145,6 +147,35 @@ describe('episodeResponseSchema: el episodio suelto', () => {
 
   test('rechaza un cuerpo sin episodio', () => {
     expect(episodeResponseSchema.safeParse({}).success).toBe(false)
+  })
+})
+
+describe('providerDraftSchema: la ruta de un endpoint', () => {
+  const draft = {
+    id: 'mio',
+    name: 'Mío',
+    baseUrl: 'https://e.example',
+    capabilities: { search: true, sub: true, dub: false, trending: false, feed: false },
+    endpoints: {
+      search: '/buscar?q={query}',
+      anime: '/anime/{ref}',
+      episodes: '/anime/{ref}/episodios',
+      stream: '/ver/{ref}',
+    },
+    fields: providerFieldMapSchema.parse({}),
+  }
+
+  test('acepta una ruta relativa normal', () => {
+    expect(providerDraftSchema.safeParse(draft).success).toBe(true)
+  })
+
+  test('rechaza //host: new URL lo interpretaría como otro sitio', () => {
+    const parsed = providerDraftSchema.safeParse({
+      ...draft,
+      endpoints: { ...draft.endpoints, search: '//evil.example/x?q={query}' },
+    })
+
+    expect(parsed.success).toBe(false)
   })
 })
 

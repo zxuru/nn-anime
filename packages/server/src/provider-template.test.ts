@@ -34,7 +34,28 @@ function draft(overrides: Partial<ProviderDraft> = {}): ProviderDraft {
   })
 }
 
-const CALL: CallOptions = { signal: new AbortController().signal, timeoutMs: 1000 }
+/** La respuesta que el test prepara para la próxima llamada del plugin. */
+let responder: ((url: string) => { readonly status?: number; readonly body: unknown }) | undefined
+
+const CALL: CallOptions = {
+  signal: new AbortController().signal,
+  timeoutMs: 1000,
+  // El plugin generado ya no usa el `fetch` global: recibe esta capacidad,
+  // igual que en producción. Así la prueba mide el camino real.
+  fetch: async (url) => {
+    if (responder === undefined) throw new Error('no hay respuesta preparada')
+
+    const { status = 200, body } = responder(url)
+
+    return {
+      status,
+      url,
+      headers: { 'content-type': 'application/json' },
+      setCookie: [],
+      body: JSON.stringify(body),
+    }
+  },
+}
 
 /** Escribe el módulo, lo importa y devuelve lo que el proveedor devuelva. */
 async function withProvider<T>(
@@ -54,24 +75,14 @@ async function withProvider<T>(
   }
 }
 
-/** `fetch` interceptado, con la URL en la mano de quien decide qué contestar. */
+/** Prepara la respuesta del plugin, con la URL en la mano de quien decide qué contestar. */
 function stubFetch(
   respond: (url: string) => { readonly status?: number; readonly body: unknown },
 ): () => void {
-  const original = globalThis.fetch
-
-  globalThis.fetch = (async (input: string | URL | Request) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-    const { status = 200, body } = respond(url)
-
-    return new Response(JSON.stringify(body), {
-      status,
-      headers: { 'content-type': 'application/json' },
-    })
-  }) as typeof fetch
+  responder = respond
 
   return () => {
-    globalThis.fetch = original
+    responder = undefined
   }
 }
 
@@ -96,6 +107,13 @@ describe('el texto generado', () => {
     // Un plugin vive fuera del proyecto: un import de valor no se podría resolver.
     expect(source).toContain('import type { CallOptions, Provider, SearchResult } from')
     expect(source).not.toMatch(/^import (?!type)/m)
+  })
+
+  test('la red sale por la capacidad del motor, no por el fetch global', () => {
+    const source = renderProviderModule(draft())
+
+    expect(source).toContain('options.fetch')
+    expect(source).not.toContain('await fetch(')
   })
 
   test('un nombre que intenta cerrar el comentario no lo cierra', () => {
