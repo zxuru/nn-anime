@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
+import type { DownloadItem } from '@rona/core/api'
 import { renderToString } from 'react-dom/server'
-import { AvisoDeConversion } from './LibraryPlayerPage'
+import { AvisoDeConversion, pistasDeLaDescarga } from './LibraryPlayerPage'
 
 /**
  * El aviso de la descarga que se quedó en segmentos.
@@ -27,5 +28,58 @@ describe('el aviso de conversión', () => {
     expect(html).toContain('aria-busy="true"')
     // Y ya no invita a pulsarlo otra vez.
     expect(html).not.toContain('Convertir a MP4')
+  })
+})
+
+/** Una descarga completa con lo mínimo que mira la pista. */
+function descarga(cambios: Partial<DownloadItem> = {}): DownloadItem {
+  return {
+    id: 7,
+    providerId: 'fixture',
+    animeRef: { providerId: 'fixture', value: 'aurora-nocturna' },
+    episodeRef: { providerId: 'fixture', value: 'aurora-nocturna#1' },
+    title: 'Aurora Nocturna',
+    episodeLabel: 'Episodio 1',
+    mode: 'sub',
+    kind: 'file',
+    status: 'complete',
+    bytes: 10,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...cambios,
+  }
+}
+
+describe('las pistas de la descarga', () => {
+  test('llegan al reproductor con su ruta interna', () => {
+    const item = descarga({
+      subtitles: [
+        {
+          indice: 0,
+          lang: 'es',
+          label: 'Español',
+          format: 'vtt',
+          url: '/api/downloads/7/subtitles/0',
+          default: true,
+        },
+        {
+          indice: 1,
+          lang: 'en',
+          label: 'Inglés',
+          format: 'srt',
+          url: '/api/downloads/7/subtitles/1',
+          default: false,
+        },
+      ],
+    })
+
+    expect(pistasDeLaDescarga(item)).toEqual([
+      { url: '/api/downloads/7/subtitles/0', lang: 'es', label: 'Español' },
+      { url: '/api/downloads/7/subtitles/1', lang: 'en', label: 'Inglés' },
+    ])
+  })
+
+  test('una descarga sin pistas no inventa ninguna', () => {
+    expect(pistasDeLaDescarga(descarga())).toEqual([])
   })
 })

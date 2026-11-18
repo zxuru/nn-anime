@@ -18,7 +18,7 @@
  * se tratan igual que allí: el servidor decide qué sirve y con qué rangos.
  */
 
-import { downloadItemSchema, downloadsResponseSchema } from '@rona/core/api'
+import { type DownloadItem, downloadItemSchema, downloadsResponseSchema } from '@rona/core/api'
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import { ChevronLeft, ChevronRight, CircleCheck, Info, Play } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -30,12 +30,31 @@ import { Link, useNavigate } from '../../router'
 import { SEGUNDOS_DEL_SIGUIENTE } from '../player/controls'
 import { Player } from '../player/Player'
 import { almacenLocal, guardarAutoplay, leerAutoplay } from '../player/storage'
+import type { SafeTrack } from '../player/usePlayer'
 import { coverPath } from '../search/ResultCard'
 import { agruparBiblioteca, type Descarga, vecinosDe } from './biblioteca'
 
 const LOCALE = DEFAULT_LOCALE
 
 type Estado = 'loading' | 'ready' | 'error'
+
+/**
+ * Las pistas guardadas, con la forma que entiende el reproductor.
+ *
+ * La descarga trae la URL interna de cada pista —`/api/downloads/:id/subtitles/:indice`—,
+ * no la del upstream: la del proveedor caducó o ya no existe, que es justo el
+ * caso de verlo sin conexión. Un episodio sin pistas no inventa ninguna.
+ *
+ * Exportada para medirla sin montar la pantalla: el render a texto no ejecuta
+ * efectos, y lo que hay que comprobar es que la lista llega tal cual.
+ */
+export function pistasDeLaDescarga(item: DownloadItem): readonly SafeTrack[] {
+  return (item.subtitles ?? []).map((pista) => ({
+    url: pista.url,
+    lang: pista.lang,
+    label: pista.label,
+  }))
+}
 
 /**
  * El aviso de «esto quedó en segmentos» y su botón.
@@ -263,6 +282,9 @@ export function LibraryPlayerPage(props: { readonly id: string }): ReactNode {
               kind={item.kind === 'segments' ? 'hls' : 'file'}
               title={`${item.title} · ${item.episodeLabel}`}
               poster={coverPath(item.providerId, item.animeRef.value)}
+              // Las pistas que se bajaron con el episodio: sin ellas, verlo sin
+              // conexión sería verlo sin subtítulos aunque estén en disco.
+              tracks={pistasDeLaDescarga(item)}
               autoplay={autoplay}
               onAutoplay={cambiarAutoplay}
               onEnded={alTerminar}
