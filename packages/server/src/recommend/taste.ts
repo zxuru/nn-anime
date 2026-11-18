@@ -33,6 +33,18 @@ function clave(ref: { readonly providerId: string; readonly value: string }): st
   return `${ref.providerId}#${ref.value}`
 }
 
+/**
+ * La clave con la que dos filas son la misma obra.
+ *
+ * La referencia no basta: el mismo anime puede estar cacheado en dos fuentes
+ * —AniList y el proveedor de turno— y el paso 2 enseñaba dos tarjetas con el
+ * mismo nombre. Se compara el título plegado, que es lo que el usuario ve y con
+ * lo que elige; una temporada distinta lleva otro título y sigue entrando.
+ */
+function titleKey(title: string): string {
+  return title.normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
 /** El resumen que viaja en una tarjeta, a partir de un candidato. */
 export function summaryOf(candidate: Candidate): AnimeSummary {
   return {
@@ -116,15 +128,18 @@ export function popularTitles(
   limit: number = TASTE_TITLE_LIMIT,
 ): Promise<readonly AnimeSummary[]> {
   return store.listCandidates(Math.max(limit * 4, limit)).then((filas) => {
-    const vistos = new Set<string>()
+    const referencias = new Set<string>()
+    const nombres = new Set<string>()
     const salida: AnimeSummary[] = []
 
     for (const fila of filas) {
       if (salida.length >= limit) break
 
       const id = `${fila.ref.providerId}#${fila.ref.value}`
-      if (vistos.has(id)) continue
-      vistos.add(id)
+      const nombre = titleKey(fila.title)
+      if (referencias.has(id) || nombres.has(nombre)) continue
+      referencias.add(id)
+      nombres.add(nombre)
 
       // El `kind` de la base es texto libre; sólo entra si es del vocabulario.
       const kind = fila.kind === undefined ? undefined : titleKindSchema.safeParse(fila.kind)
