@@ -36,6 +36,9 @@ export {
 /** Tope del `stderr` que se devuelve en un fallo, del spec. */
 export const MAX_STDERR_BYTES = 2048
 
+/** Tope de eventos pendientes de un suscriptor lento. */
+export const MAX_EVENT_QUEUE = 100
+
 /** Los argumentos que mpv recibiría. Se reexporta para quien sólo mire la lista. */
 export type PlayOptions = MpvArgsOptions
 
@@ -85,7 +88,7 @@ export interface MpvPlayer {
   readonly running: number
   play(options: PlayOptions): PlayOutcome
   stop(pid: number): boolean
-  events(): AsyncIterable<MpvEvent>
+  events(signal?: AbortSignal): AsyncIterable<MpvEvent>
   close(): Promise<void>
 }
 
@@ -178,16 +181,25 @@ export function createMpvPlayer(options: MpvPlayerOptions): MpvPlayer {
       return true
     },
 
-    async *events() {
+    async *events(signal?: AbortSignal) {
       // Cada suscriptor tiene su cola: el flujo es compartido, las colas no.
       const cola: MpvEvent[] = []
       let despertar: (() => void) | undefined
       let cerrado = false
 
-      suscriptores.add((evento) => {
+      const escucha = (evento: MpvEvent): void => {
+        // Una pestaña que no lee no puede hacer crecer la cola sin límite.
+        if (cola.length >= MAX_EVENT_QUEUE) cola.shift()
         cola.push(evento)
         despertar?.()
-      })
+      }
+      const alAbortar = (): void => {
+        cerrado = true
+        despertar?.()
+      }
+
+      suscriptores.add(escucha)
+      signal?.addEventListener('abort', alAbortar, { once: true })
 
       try {
         while (!cerrado) {
@@ -204,7 +216,10 @@ export function createMpvPlayer(options: MpvPlayerOptions): MpvPlayer {
         }
       } finally {
         cerrado = true
-        suscriptores.clear()
+        // La baja es la de este suscriptor, no un `clear()`: el primero que se
+        // iba dejaba a las demás pestañas sin estado del reproductor.
+        suscriptores.delete(escucha)
+        signal?.removeEventListener('abort', alAbortar)
       }
     },
 

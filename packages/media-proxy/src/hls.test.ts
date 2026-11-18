@@ -7,6 +7,7 @@ import {
   defaultSegPath,
   isPlaylist,
   MAX_PLAYLIST_BYTES,
+  MAX_PLAYLIST_ENTRIES,
   MAX_PLAYLIST_LINES,
   PLAYLIST_TTL_MS,
   playlistTooLarge,
@@ -371,6 +372,18 @@ describe('caché de playlists', () => {
 
     expect(cache.prune()).toBe(1)
     expect(cache.get('nueva')?.text).toBe('b')
+  })
+
+  test('el número de playlists vivas no crece sin tope', () => {
+    const cache = createPlaylistCache({ now: () => 0 })
+
+    for (let indice = 0; indice <= MAX_PLAYLIST_ENTRIES + 10; indice += 1) {
+      cache.set(`t${indice}`, { text: 'texto', uris: [], keys: [] })
+    }
+
+    expect(cache.size()).toBe(MAX_PLAYLIST_ENTRIES)
+    expect(cache.get('t0')).toBeUndefined()
+    expect(cache.get(`t${MAX_PLAYLIST_ENTRIES + 10}`)?.text).toBe('texto')
   })
 
   test('una clave que no está devuelve nada, sin lanzar', () => {

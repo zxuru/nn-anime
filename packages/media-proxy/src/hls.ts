@@ -282,6 +282,15 @@ export interface PlaylistCache {
  * diez segundos son la frescura del texto de una lista en vivo, no la vida del
  * índice de una reproducción.
  */
+/**
+ * Tope de playlists vivas.
+ *
+ * El de tickets (500) acota cuántas pueden existir a la vez, pero un ticket que
+ * caduca no borra su playlist: sin este tope, el `Map` crecía con cada episodio
+ * y calidad reproducidos hasta que el proceso se reiniciaba.
+ */
+export const MAX_PLAYLIST_ENTRIES = 500
+
 export function createPlaylistCache(
   options: { readonly ttlMs?: number; readonly now?: () => number } = {},
 ): PlaylistCache {
@@ -309,6 +318,23 @@ export function createPlaylistCache(
     },
     set(ticket, entrada) {
       entradas.set(ticket, { ...entrada, at: now() })
+
+      if (entradas.size <= MAX_PLAYLIST_ENTRIES) return
+
+      // Primero las vencidas; si aún sobran, las más antiguas. El `Map`
+      // conserva el orden de inserción, que es lo que hace que la poda sea
+      // predecible.
+      const at = now()
+      for (const [clave, valor] of entradas) {
+        if (vencida(valor, at)) entradas.delete(clave)
+      }
+
+      while (entradas.size > MAX_PLAYLIST_ENTRIES) {
+        const primera = entradas.keys().next().value
+        if (primera === undefined) break
+
+        entradas.delete(primera)
+      }
     },
     size: () => entradas.size,
     prune() {

@@ -115,7 +115,7 @@ export function registerPlayRoutes(app: Hono, options: PlayRouteOptions): void {
 
   app.get('/api/play/mpv/events', (c) => {
     return streamSSE(c, async (stream) => {
-      for await (const evento of options.container.mpv.events()) {
+      for await (const evento of options.container.mpv.events(c.req.raw.signal)) {
         if (c.req.raw.signal.aborted) break
 
         await stream.writeSSE({ event: evento.type, data: JSON.stringify(evento) })

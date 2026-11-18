@@ -158,6 +158,22 @@ describe('lanzar y seguir', () => {
     await player.close()
   })
 
+  test('cerrar un suscriptor no deja sin eventos al otro', async () => {
+    const falso = procesoFalso(13)
+    const player = createMpvPlayer({ spawn: () => falso.process, playingDelayMs: 1 })
+
+    // El primero lee un solo evento y se va; el segundo tiene que seguir viendo
+    // el flujo. Antes, el `finally` del primero hacía `clear()` sobre todos.
+    const uno = recoger(player.events(), 1)
+    const dos = recoger(player.events(), 2)
+    player.play({ url: 'x' })
+
+    expect(await uno).toHaveLength(1)
+    expect(await dos).toHaveLength(2)
+
+    await player.close()
+  })
+
   test('dos suscriptores reciben lo mismo', async () => {
     const falso = procesoFalso(12)
     const player = createMpvPlayer({ spawn: () => falso.process, playingDelayMs: 1 })
