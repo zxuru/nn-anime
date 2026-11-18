@@ -52,6 +52,18 @@ function entrar(party: PartyStore, code: string, name = 'Ana'): string {
 }
 
 describe('createRoom', () => {
+  test('el reloj de fábrica produce enteros: es lo que acepta el contrato', () => {
+    // `performance.now()` devuelve milisegundos con decimales. El `expiresAt`
+    // viaja al cliente y el schema exige entero: con la parte fraccionaria, la
+    // sala recién creada se rechazaba como «forma que no se entiende».
+    const party = new PartyStore({ random: azar() })
+
+    const creada = party.createRoom()
+    if (!creada.ok) throw new Error('no se pudo crear la sala')
+
+    expect(Number.isInteger(creada.expiresAt)).toBe(true)
+  })
+
   test('genera un identificador, un código legible y una caducidad', () => {
     const clock = reloj()
     const party = store(clock)
