@@ -216,6 +216,48 @@ describe('limpieza de huérfanos', () => {
     })
   })
 
+  test('poda las demás cachés TTL y devuelve el disco con VACUUM', async () => {
+    await withStore((store) => {
+      const insertar = store.db.query(
+        `INSERT INTO search_cache (provider_id, query, results_json, fetched_at, ttl_s)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      const relleno = JSON.stringify([{ title: 'x'.repeat(1024) }])
+
+      for (let indice = 0; indice < 400; indice += 1) {
+        insertar.run('fixture', `consulta-${indice}`, relleno, AHORA - 2 * DAY, 600)
+      }
+
+      store.db
+        .query(
+          `INSERT INTO aniskip_cache (cache_key, intervals_json, found, fetched_at, ttl_s)
+           VALUES ('k', '[]', 0, ?, 600)`,
+        )
+        .run(AHORA - 2 * DAY)
+      store.db
+        .query(
+          `INSERT INTO search_history (query, provider_id, hits, created_at)
+           VALUES ('vieja', 'fixture', 1, ?)`,
+        )
+        .run(AHORA - (PRUNE_AFTER_DAYS + 1) * DAY)
+
+      const paginas = (): number => {
+        const fila = store.db.query<{ page_count: number }, []>('PRAGMA page_count').get()
+
+        return fila?.page_count ?? 0
+      }
+
+      const antes = paginas()
+      const informe = pruneOrphans(store.db, new Date(AHORA))
+
+      expect(informe.deleted.search_cache).toBe(400)
+      expect(informe.deleted.aniskip_cache).toBe(1)
+      expect(informe.deleted.search_history).toBe(1)
+      expect(cuenta(store.db, 'search_cache')).toBe(0)
+      expect(paginas()).toBeLessThan(antes)
+    })
+  })
+
   test('no borra un stream vencido hace unas horas: el margen es de un día', async () => {
     await withStore((store) => {
       // El título está fresco, pero su stream venció hace dos horas: dentro del
