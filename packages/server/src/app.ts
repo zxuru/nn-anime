@@ -488,13 +488,13 @@ export function createApp(options: AppOptions): Hono {
           requeueInterrupted: () => container.store.requeueInterruptedDownloads(),
         },
         root: downloadsRoot,
-        resolve: async (providerId, episodeRef, signal) => {
+        resolve: async (providerId, episodeRef, signal, mode) => {
           const provider = findProvider(hub.providers, providerId)
           if (provider === undefined) return undefined
 
           const resultado = await container.resolveStream(
             provider,
-            { episodeRef: { providerId, value: episodeRef }, mode: 'sub' },
+            { episodeRef: { providerId, value: episodeRef }, mode },
             { signal, timeoutMs: 15_000 },
           )
           if (!resultado.ok) return undefined

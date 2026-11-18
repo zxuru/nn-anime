@@ -150,6 +150,7 @@ function item(row: DownloadRecord) {
     episodeRef: { providerId: row.providerId, value: row.episodeRef },
     title: row.title,
     episodeLabel: row.episodeLabel,
+    mode: row.mode,
     kind: row.kind,
     status: row.status,
     bytes: row.bytes,
@@ -229,6 +230,7 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
       episodeRef: parsed.data.episodeRef.value,
       title: titulo,
       episodeLabel: parsed.data.episodeRef.value,
+      mode: parsed.data.mode,
       kind: 'file',
     })
 
@@ -285,6 +287,7 @@ export function registerDownloadsRoute(app: Hono, options: DownloadsRouteOptions
         episodeRef: episodio.ref.value,
         title: titulo,
         episodeLabel: etiquetaDeEpisodio(episodio),
+        mode: parsed.data.mode,
         kind: 'file',
       })
 

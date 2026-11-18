@@ -47,6 +47,7 @@ export type ResolveDownload = (
   providerId: string,
   episodeRef: string,
   signal: AbortSignal,
+  mode: 'sub' | 'dub',
 ) => Promise<DownloadQueueStream | undefined>
 
 export interface DownloadQueueOptions {
@@ -129,7 +130,7 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
     await options.store.update(id, { status: 'downloading', error: null })
 
     try {
-      const stream = await options.resolve(fila.providerId, fila.episodeRef, signal)
+      const stream = await options.resolve(fila.providerId, fila.episodeRef, signal, fila.mode)
       if (stream === undefined) throw new Error('el proveedor no dio ningún stream')
 
       let ultimoAviso = 0
