@@ -35,7 +35,12 @@ export interface ReadThroughOptions<T> {
   readonly key: string
   readonly resource: RevalidateResource
   readonly read: () => Promise<CacheHit<T> | null>
-  readonly fetch: () => Promise<T>
+  /**
+   * La lectura al proveedor. Recibe la señal del revalidador cuando el refresco
+   * es de fondo; en un `miss` se le pasa una que no aborta, porque quien espera
+   * es la petición y su señal ya viaja dentro del `CallOptions` de la lectura.
+   */
+  readonly fetch: (signal: AbortSignal) => Promise<T>
   readonly write: (value: T) => Promise<void>
   readonly revalidator: Revalidator
   /** Se llama cuando el refresco de fondo falla. Lo normal: anotar el error. */
@@ -48,11 +53,13 @@ function describe(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
 }
 
+const NUNCA_ABORTA = new AbortController().signal
+
 export async function readThrough<T>(options: ReadThroughOptions<T>): Promise<CacheOutcome<T>> {
   const cached = await options.read()
 
   if (cached === null) {
-    const value = await options.fetch()
+    const value = await options.fetch(NUNCA_ABORTA)
     await options.write(value)
 
     return { value, source: 'miss' }
@@ -63,9 +70,12 @@ export async function readThrough<T>(options: ReadThroughOptions<T>): Promise<Ca
   // Fuera del TTL: se sirve lo que hay y se refresca por detrás. El `catch` no
   // es decorativo: una tarea de fondo que rechaza sin nadie escuchando sale por
   // consola como rechazo no gestionado y parece un fallo de la aplicación.
-  options.revalidator.schedule(options.key, async () => {
+  options.revalidator.schedule(options.key, async (signal) => {
     try {
-      const value = await options.fetch()
+      // La señal del revalidador es la que permite cerrar el servidor sin
+      // esperar a un proveedor colgado. No es la del cliente: el refresco de
+      // fondo sigue vivo aunque la pestaña se haya ido.
+      const value = await options.fetch(signal)
       await options.write(value)
       options.onSuccess?.(options.key)
     } catch (cause) {
