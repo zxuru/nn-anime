@@ -549,12 +549,17 @@
   }
 
   /*
-   * La tarjeta del siguiente, en el teléfono.
+   * La tarjeta del siguiente y el botón de saltar, en el teléfono.
    *
    * El marco es sólo el video y la banda de mandos vive debajo, así que no hay
-   * que despejarle sitio: se apoya en el borde inferior y ocupa el ancho. El
-   * texto va en su renglón y los dos botones se reparten el siguiente.
+   * que despejarle sitio: se apoyan en el borde inferior, sin el alto de la
+   * banda que sí necesitan cuando los mandos se superponen. El texto va en su
+   * renglón y los dos botones se reparten el siguiente.
    */
+  .player__skip {
+    inset-block-end: var(--space-2);
+  }
+
   .watch__next {
     inset-inline: var(--space-2);
     inset-block-end: var(--space-2);

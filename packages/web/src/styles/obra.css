@@ -1294,7 +1294,8 @@ body.player-extendido {
  * esconden solos mientras reproduce —y el botón es justo lo que se busca
  * entonces— y el marco es lo que se pone a pantalla completa, así que aquí se ve
  * en las dos. Se apoya en el borde inferior derecho, por encima de la banda para
- * no quedar debajo de los mandos.
+ * no quedar debajo de los mandos: el alto sale del token que suma lo que ocupa
+ * la banda, no de un número a ojo que lo dejaba sobre la barra de progreso.
  *
  * La entrada es un movimiento corto y con los tokens de la casa: `--transition-*`
  * se apaga solo con `prefers-reduced-motion`, así que el botón aparece de golpe
@@ -1302,7 +1303,7 @@ body.player-extendido {
  */
 .player__skip {
   position: absolute;
-  inset-block-end: calc(var(--control-size) + var(--space-4));
+  inset-block-end: calc(var(--player-band-height) + var(--space-2));
   inset-inline-end: var(--space-4);
   z-index: 3;
   display: inline-flex;
@@ -1463,6 +1464,7 @@ body.player-extendido {
    compartido con el volumen: con menos especificidad delante, el carril del
    volumen se quedaría sin fondo. */
 .player__seek .player__range {
+  display: block;
   position: relative;
   z-index: 1;
   width: 100%;
@@ -2052,13 +2054,14 @@ body.player-extendido {
  * pantalla completa.
  *
  * Se apoya por encima de la banda de mandos —el mismo alto que el botón de
- * saltar— para no taparlos. La sombra dura de acento es la del sistema para lo
- * que se puede pulsar; el fondo elevado la separa del fotograma.
+ * saltar, los dos desde el token de la banda— para no taparlos. La sombra dura
+ * de acento es la del sistema para lo que se puede pulsar; el fondo elevado la
+ * separa del fotograma.
  */
 .watch__next {
   position: absolute;
   inset-inline: var(--space-4);
-  inset-block-end: calc(var(--control-size) * 2 + var(--space-2));
+  inset-block-end: calc(var(--player-band-height) + var(--space-2));
   z-index: 3;
   display: flex;
   flex-wrap: wrap;

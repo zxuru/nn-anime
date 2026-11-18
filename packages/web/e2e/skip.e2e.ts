@@ -139,6 +139,16 @@ test.describe('los saltos', () => {
     // El mando declara el atajo que lo dispara.
     await expect(boton).toHaveAttribute('aria-keyshortcuts', 'S')
 
+    // El botón se apoya por encima de la banda entera. Su caja no puede
+    // solaparse con el carril: con el alto calculado a ojo caía justo encima de
+    // la barra de progreso, que es lo que se está midiendo aquí.
+    const cajaBoton = await boton.boundingBox()
+    const cajaCarril = await page.locator('.player__seek').boundingBox()
+
+    expect(cajaBoton, 'el botón no tiene caja').not.toBeNull()
+    expect(cajaCarril, 'el carril no tiene caja').not.toBeNull()
+    expect((cajaBoton?.y ?? 0) + (cajaBoton?.height ?? 0)).toBeLessThan(cajaCarril?.y ?? 0)
+
     // Los dos intervalos están marcados en la barra de progreso.
     await expect(page.locator('.player__skip-marker')).toHaveCount(2)
 
