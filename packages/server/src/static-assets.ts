@@ -107,15 +107,22 @@ export function staticAssets(options: StaticAssetsOptions): MiddlewareHandler {
     if (confined === undefined) return c.text('', 404)
 
     if (confined !== base && (await regularFile(confined))) {
-      // Los recursos llevan hash en el nombre y no cambian nunca. El HTML y el
-      // markdown sí: el aviso de seguridad se sirve por su nombre, sin hash, y
-      // cachearlo un año dejaría a la vista la versión vieja del documento.
-      const immutable = !confined.endsWith('.html') && !confined.endsWith('.md')
+      // Sólo los recursos de `/assets/` llevan hash en el nombre y no cambian
+      // nunca. `theme-boot.js` y la marca viven en `public/` sin hash: cachearlos
+      // un año dejaba al navegador con la versión vieja tras actualizar. El HTML
+      // y el markdown siguen sin caché; lo demás, `no-cache` para revalidar.
+      const hashed = requested.startsWith('/assets/')
+      const sinCache = confined.endsWith('.html') || confined.endsWith('.md')
+      const cacheControl = sinCache
+        ? 'no-store'
+        : hashed
+          ? 'public, max-age=31536000, immutable'
+          : 'no-cache'
 
       return new Response(Bun.file(confined), {
         headers: {
           'content-type': contentTypeFor(confined),
-          'cache-control': immutable ? 'public, max-age=31536000, immutable' : 'no-store',
+          'cache-control': cacheControl,
         },
       })
     }
