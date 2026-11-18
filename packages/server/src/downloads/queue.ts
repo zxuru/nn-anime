@@ -257,6 +257,7 @@ export function createDownloadQueue(options: DownloadQueueOptions): DownloadQueu
           } else {
             await rm(absoluta, { force: true })
             await rm(`${absoluta}.part`, { force: true })
+            await rm(`${absoluta}.part.json`, { force: true })
           }
         }
       }
