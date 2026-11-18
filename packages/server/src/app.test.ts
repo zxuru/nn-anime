@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { openDb, runMigrations } from '@rona/catalog-store'
 import { DEV_BOOT_PATH } from '@rona/core'
 import type { Hono } from 'hono'
+import { HTTPException } from 'hono/http-exception'
 import { type AppOptions, createApp } from './app'
 import { createContainer } from './container'
 import { SESSION_COOKIE, type Session } from './session'
@@ -34,6 +35,32 @@ function app(overrides: Partial<AppOptions> = {}): Hono {
 
 const GOOD_COOKIE = { cookie: `${SESSION_COOKIE}=${SESSION_VALUE}` }
 const GOOD_ORIGIN = { origin: BASE, cookie: `${SESSION_COOKIE}=${SESSION_VALUE}` }
+
+describe('un fallo no controlado', () => {
+  test('sale como JSON con el schema, no como texto plano', async () => {
+    const servidor = app()
+    servidor.get('/api/boom', () => {
+      throw new Error('boom')
+    })
+
+    const response = await servidor.request(`${BASE}/api/boom`, { headers: GOOD_COOKIE })
+
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({ error: 'boom' })
+  })
+
+  test('conserva el estado de una HTTPException', async () => {
+    const servidor = app()
+    servidor.get('/api/teapot', () => {
+      throw new HTTPException(418, { message: 'teapot' })
+    })
+
+    const response = await servidor.request(`${BASE}/api/teapot`, { headers: GOOD_COOKIE })
+
+    expect(response.status).toBe(418)
+    expect(await response.json()).toEqual({ error: 'teapot' })
+  })
+})
 
 describe('host-guard', () => {
   test('acepta 127.0.0.1 con el puerto correcto', async () => {

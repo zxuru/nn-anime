@@ -95,6 +95,7 @@ export function createStarter(deps: StartDeps): (options: CliOptions) => Promise
       io: deps.io,
       version: deps.version,
       locale,
+      logger,
       lifecycle,
       env: deps.env,
       server,
