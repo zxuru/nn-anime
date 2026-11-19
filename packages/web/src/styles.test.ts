@@ -968,6 +968,78 @@ describe('movimiento y superficies', () => {
 })
 
 /**
+ * Los mandos que se encienden sobre el fotograma.
+ *
+ * El puntero y el estado pintan fondo y tinta en la misma regla: escritos por
+ * separado, `.button:hover:not(:disabled)` devuelve el fondo a la superficie
+ * mientras la tinta se queda la del acento, y el dibujo acaba casi negro sobre
+ * casi negro. No rompe ninguna prueba de componente —el marcado es el mismo— y
+ * sólo se ve con el ratón encima; por eso se mide aquí, en el selector que decide
+ * quién gana la cascada.
+ */
+describe('el reproductor sobre el fotograma', () => {
+  test('el puntero de los mandos de arriba gana al botón general', async () => {
+    const css = await estructura()
+
+    for (const mando of ['player__pip', 'player__cast', 'player__airplay']) {
+      // Con `.player__acciones .button` delante pesa más que
+      // `.button:hover:not(:disabled)`. Sin eso el fondo se quedaba en la
+      // superficie y la tinta en la del acento: 1,4:1, medido.
+      expect(css, `el hover de ${mando} perdió la caja y el botón`).toContain(
+        `.player__acciones .button.${mando}:hover`,
+      )
+      expect(css, `el hover de ${mando} volvió a la regla floja`).not.toMatch(
+        new RegExp(`(^|\\n)\\.${mando}:hover`),
+      )
+    }
+  })
+
+  test('el mando de seguir solo lleva su par de contraste', async () => {
+    const css = await estructura()
+    const selector = '.player__controls .button.player__autoplay[aria-pressed="true"]'
+    const desde = css.indexOf(selector)
+
+    expect(desde, 'falta la regla del mando encendido').toBeGreaterThan(-1)
+
+    const regla = css.slice(desde, css.indexOf('}', desde))
+
+    // La fila pinta de overlay todo mando que no sea el primario; encendido, este
+    // lleva el acento y la tinta que lo contrasta, y la fila entera delante para
+    // ganar a esa regla.
+    expect(regla).toContain('background: var(--color-accent)')
+    expect(regla).toContain('color: var(--color-accent-contrast)')
+    // Sin casilla propia: el interruptor se fue con la regla del carril y el
+    // tirador, que nadie dibuja ya.
+    expect(css).not.toContain('.player__switch')
+  })
+
+  /**
+   * La fila de mandos va siempre en una línea.
+   *
+   * `nowrap` no es un gusto: la banda de mandos mide lo que un renglón
+   * —`--player-band-height`— y es lo que despeja el botón de saltar y la tarjeta
+   * del siguiente. Con la fila partida en dos, la banda crece, el botón de saltar
+   * se apoya encima de la barra de progreso y la prueba del salto lo mide en rojo:
+   * pasó al añadir el mando de la reproducción automática. El hueco es el compacto
+   * de 6 px para que la fila siga cabiendo en una columna de 711 —una ventana de
+   * 1280—, y en el teléfono lo que cede es el total del reloj, no la fila.
+   */
+  test('la fila de mandos va en una línea y la banda mide un renglón', async () => {
+    const css = await estructura()
+    const fila = /\.player__buttons\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+
+    expect(fila, 'falta la fila de mandos').not.toBe('')
+    expect(fila).toContain('flex-wrap: nowrap')
+    expect(fila).toContain('gap: var(--gap-compact)')
+
+    const banda = /--player-band-height: calc\(([^;]*)\);/.exec(await read(TOKENS))?.[1] ?? ''
+
+    expect(banda).toContain('var(--control-size)')
+    expect(banda).not.toContain('2 *')
+  })
+})
+
+/**
  * La deuda visual que la revisión midió.
  *
  * Los cinco fallos de `docs/revision-frontend.md` (10 a 14) se ven en el

@@ -68,6 +68,23 @@ describe('la fila de mandos', () => {
     expect(html).not.toContain('Adelantar 10 segundos')
   })
 
+  /**
+   * En un teléfono el reloj dice la posición, no el total.
+   *
+   * Con el mando de la reproducción automática en la fila, a 320 px el conjunto no
+   * cabía y la página desbordaba 16 px. El total sigue en el valor que anuncia la
+   * barra de progreso; el reloj de la fila se queda con lo que la barra está
+   * enseñando.
+   */
+  test('en un teléfono el reloj lleva sólo la posición', () => {
+    const movil = render({ compacto: true })
+
+    expect(movil).toContain('>0:31<')
+    expect(movil).not.toContain('24:00')
+    // En escritorio, las dos cifras.
+    expect(render()).toMatch(/0:31[\s\S]*24:00/)
+  })
+
   test('en una ventana estrecha el volumen se muda al menú', () => {
     const html = render({ estrecho: true })
 

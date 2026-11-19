@@ -145,9 +145,16 @@ export function PlayerButtons(props: PlayerButtonsProps): ReactNode {
       <span className="player__spacer" aria-hidden="true" />
 
       {/* El contador, con cifras de ancho fijo: sin `tabular-nums` el reloj baila
-          en cada segundo y arrastra lo que tenga al lado. */}
+          en cada segundo y arrastra lo que tenga al lado.
+
+          En un teléfono va sólo la posición. El total cabe en un reloj de mesa y no
+          en una fila de 320 px que, con el mando de la reproducción automática, ya
+          no daba: la página desbordaba 16 px. Quien necesita el total lo tiene en
+          el valor que anuncia la barra —«5:12 de 24:00»—, y la barra dice dónde se
+          está, que es para lo que está el reloj. */}
       <span className="player__time">
-        {formatTime(props.posicion)} / {formatTime(props.duracionS)}
+        {formatTime(props.posicion)}
+        {props.compacto ? null : ` / ${formatTime(props.duracionS)}`}
       </span>
 
       {props.children}

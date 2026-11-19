@@ -506,11 +506,6 @@
     pointer-events: auto;
   }
 
-  .player__buttons {
-    flex-wrap: nowrap;
-    gap: var(--gap-compact);
-  }
-
   /* 40 px de lado, el mínimo táctil recomendado, para que la fila quepa. */
   .player__control {
     min-width: var(--control-size-compact);

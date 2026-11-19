@@ -41,7 +41,7 @@ import {
   volumeFromPercent,
   volumePercent,
 } from './controls'
-import { IconoAjustes, IconoReproducir, IconoSilencio, IconoVolumen } from './icons'
+import { IconoAjustes, IconoAutoplay, IconoReproducir, IconoSilencio, IconoVolumen } from './icons'
 import { PlayerButtons } from './PlayerButtons'
 import { PlayerErrorNotice } from './PlayerErrorNotice'
 import { PlayerFrame } from './PlayerFrame'
@@ -540,14 +540,49 @@ export function Player(props: PlayerProps): ReactNode {
     ? t(DEFAULT_LOCALE, 'player.unmute')
     : t(DEFAULT_LOCALE, 'player.mute')
 
+  // Sin preferencia guardada, el siguiente empieza solo: es lo que hace la casa
+  // y lo que el mando pinta. `undefined` también significa que la pantalla no
+  // ofrece el ajuste, y entonces no hay mando.
+  const siguienteSolo = props.autoplay ?? true
+  const alternarSiguienteSolo = (): void => props.onAutoplay?.(!siguienteSolo)
+
+  /**
+   * «Que siga solo», en la fila de mandos.
+   *
+   * Estuvo en el menú de ajustes, como una casilla más, y ahí sólo se encontraba
+   * abriendo el menú: el momento en que se toca es el final del capítulo, con la
+   * tarjeta del siguiente delante. Es un interruptor y no una acción, así que se
+   * lee con `aria-pressed` y el nombre no cambia con el estado —«Reproducción
+   * automática» y no «Encender…»—, igual que el modo compatible.
+   *
+   * En el teléfono el reloj de la fila se queda con la posición y el mando cabe:
+   * a 320 px la página desbordaba 16 px con un mando más, y la banda no puede
+   * partirse en dos renglones —de ella cuelga el alto que despeja el botón de
+   * saltar—, así que lo que cede es el total del reloj.
+   */
+  const conmutadorQueSigueSolo =
+    props.onAutoplay === undefined ? null : (
+      <button
+        type="button"
+        className="button player__control player__autoplay"
+        aria-label={t(DEFAULT_LOCALE, 'player.autoplay')}
+        title={t(DEFAULT_LOCALE, 'player.autoplay')}
+        aria-pressed={siguienteSolo}
+        onClick={alternarSiguienteSolo}
+      >
+        <IconoAutoplay />
+      </button>
+    )
+
   /**
    * El menú de ajustes: el volumen cuando no cabe en la fila, el reproductor
-   * externo, el modo compatible, los subtítulos, la reproducción automática y la
-   * ayuda del teclado.
+   * externo, el modo compatible, los subtítulos y la ayuda del teclado.
    *
    * El audio no está aquí: el conmutador de subtitulado y doblado vive fuera del
    * reproductor, en la fila de mandos, y repetirlo en el menú daba dos mandos con
-   * el mismo nombre accesible y dos formas de elegir lo mismo.
+   * el mismo nombre accesible y dos formas de elegir lo mismo. La reproducción
+   * automática también salió —se toca al terminar un capítulo, no al configurar—
+   * y su mando vive en la fila.
    *
    * Se queda en este archivo, y no en un componente propio, porque el menú
    * cerrado sigue en el documento —es lo que permite animar la salida— y su
@@ -582,30 +617,6 @@ export function Player(props: PlayerProps): ReactNode {
         aria-hidden={!menu}
         inert={!menu}
       >
-        {/*
-          La reproducción automática va **antes** que los ajustes de uso
-          ocasional: con el menú creciendo, esta casilla tiene que seguir a la
-          vista al abrirlo sin desplazarse. La prueba del menú mide justo eso.
-        */}
-        {props.onAutoplay === undefined ? null : (
-          <label className="player__menu-switch">
-            {/* La casilla nativa sigue siendo la que guarda el estado y
-                la que se anuncia; el dibujo de interruptor lo pone el
-                tirador de al lado, que va `aria-hidden` para que el
-                nombre del mando siga siendo sólo el texto. */}
-            <span className="player__switch-box">
-              <input
-                type="checkbox"
-                className="player__switch"
-                checked={props.autoplay ?? true}
-                onChange={(evento) => props.onAutoplay?.(evento.target.checked)}
-              />
-              <span className="player__switch-knob" aria-hidden="true" />
-            </span>
-            {t(DEFAULT_LOCALE, 'player.autoplay')}
-          </label>
-        )}
-
         {/*
           La velocidad. Es una lista cerrada y con `aria-pressed`, como las
           pistas: se elige una y las demás quedan apagadas. El texto lleva la
@@ -959,6 +970,7 @@ export function Player(props: PlayerProps): ReactNode {
             onVolumen={setVolumeConCast}
             onAlternarExtendida={extendido.alternar}
           >
+            {conmutadorQueSigueSolo}
             {menuDeAjustes}
           </PlayerButtons>
         </div>

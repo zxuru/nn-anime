@@ -50,8 +50,8 @@ export interface PlayerProps {
    * Si el episodio siguiente empieza solo, y cómo cambiarlo.
    *
    * La preferencia la guarda la pantalla —es suya, porque es ella la que sabe
-   * cuál es el episodio siguiente— y aquí sólo se pinta el interruptor, que vive
-   * con los demás ajustes.
+   * cuál es el episodio siguiente— y aquí sólo se pinta el conmutador, que vive en
+   * la fila de mandos: el momento de tocarlo es el final del capítulo.
    */
   readonly autoplay?: boolean | undefined
   readonly onAutoplay?: ((valor: boolean) => void) | undefined
