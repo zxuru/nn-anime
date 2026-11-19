@@ -76,6 +76,7 @@ jobs:
     if: github.event_name != 'schedule'
     outputs:
       codigo: ${{ steps.clasificar.outputs.codigo }}
+      docker: ${{ steps.clasificar.outputs.docker }}
       packaging: ${{ steps.clasificar.outputs.packaging }}
       desktop: ${{ steps.clasificar.outputs.desktop }}
       empaquetado: ${{ steps.clasificar.outputs.empaquetado }}
@@ -129,6 +130,17 @@ jobs:
             packaging=false
           fi
 
+          # La imagen de contenedor: el `Dockerfile`, el compose de ejemplo y los manifiestos que
+          # `bun install` necesita dentro. Un cambio de código de una ruta no rompe la imagen —el
+          # `COPY packages` la recoge—, así que no se reconstruye por cada PR: se reconstruye
+          # cuando cambia lo que decide su forma o su arranque. El servidor entra porque es lo que
+          # el `ENTRYPOINT` ejecuta.
+          if grep -Eq '^(Dockerfile|docker-compose\.yml|\.dockerignore|package\.json$|bun\.lock$|SECURITY\.md$|tsconfig[^/]*\.json$|patches/|scripts/(build|workspaces)\.ts$|packages/[^/]+/package\.json$|packages/server/|packages/web/(index\.html|vite\.config\.ts)$)' <<< "$archivos"; then
+            docker=true
+          else
+            docker=false
+          fi
+
           # Árbol de Rust. `packages/web/` **no** entra: `tauri.conf.json` sirve un stub y
           # `build.rs` embebe el binario del servidor, no el paquete de Vite.
           if grep -Eq '^(desktop/|packaging/icons/)' <<< "$archivos"; then
@@ -160,6 +172,7 @@ jobs:
 
           {
             echo "codigo=$codigo"
+            echo "docker=$docker"
             echo "packaging=$packaging"
             echo "desktop=$desktop"
             echo "empaquetado=$empaquetado"
@@ -169,7 +182,7 @@ jobs:
           {
             echo '### Qué cambió'
             echo
-            echo "- código: \`$codigo\` · empaquetado: \`$packaging\` · Rust: \`$desktop\`"
+            echo "- código: \`$codigo\` · imagen: \`$docker\` · empaquetado: \`$packaging\` · Rust: \`$desktop\`"
             echo
             echo '<details><summary>Archivos</summary>'
             echo
@@ -362,10 +375,11 @@ jobs:
       - name: Pruebas
         run: bun test
 
-  # La imagen se construye y se arranca en cada PR que toca código. El resto de
-  # trabajos ejecuta el código con Bun, no el Dockerfile: un `COPY` que falta o
-  # un `USER` que no existe se descubrirían el día de la release, que es el peor
-  # día. No se publica nada desde aquí.
+  # La imagen se construye y se arranca cuando el PR toca algo que decide su forma o su arranque
+  # —`Dockerfile`, manifiestos, servidor o el build de la interfaz—, no en todo PR de código. El
+  # resto de trabajos ejecuta el código con Bun, no el Dockerfile: un `COPY` que falta o un `USER`
+  # que no existe se descubrirían el día de la release, que es el peor día. No se publica nada
+  # desde aquí.
   #
   # Las capas se cachean en la caché de Actions (`type=gha`) con un `scope` propio. El `scope` no es
   # cosmético: `release.yml` construye la misma imagen multi-arquitectura y escribe en otro `scope`,
@@ -381,7 +395,7 @@ jobs:
   # arrancar —una dependencia nativa, un `USER` que no existe— se descubría el día de la release.
   docker:
     needs: cambios
-    if: needs.cambios.outputs.codigo == 'true'
+    if: needs.cambios.outputs.docker == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -466,16 +480,28 @@ jobs:
   # El e2e vive aparte: necesita Chromium y un servidor, y tarda lo que tarda. Que falle aquí no
   # debe tapar que los tipos o las pruebas unitarias están rojos, y al revés.
   #
-  # En dos mitades (`--shard`) para que el reloj del trabajo sea la mitad. Los dos proyectos de
-  # `playwright.config.ts` son `setup` y `chromium`, y el `setup` corre entero en cada mitad: es un
-  # archivo, y su estado —el token de arranque ya canjeado— es lo que la otra mitad necesita.
+  # Tres casos en la misma matriz: dos mitades (`--shard`) de la corrida normal y el camino del
+  # proveedor caído, que usa otro puerto y otro archivo. Antes era un trabajo aparte con la
+  # instalación, las dos cachés y Chromium copiados: la misma receta escrita dos veces se
+  # desincroniza en cuanto una cambia. Los dos proyectos de `playwright.config.ts` son `setup` y
+  # `chromium`, y el `setup` corre entero en cada caso: es un archivo, y su estado —el token de
+  # arranque ya canjeado— es lo que los demás necesitan.
   e2e:
     needs: cambios
     if: needs.cambios.outputs.codigo == 'true'
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        include:
+          - nombre: 'mitad 1 de 2'
+            comando: 'bun run e2e --shard=1/2'
+            rastros: e2e-rastros-1
+          - nombre: 'mitad 2 de 2'
+            comando: 'bun run e2e --shard=2/2'
+            rastros: e2e-rastros-2
+          - nombre: 'proveedor caído'
+            comando: 'bun run e2e:fallo'
+            rastros: e2e-rastros-fallo
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -510,10 +536,8 @@ jobs:
       - name: Instalar Chromium
         run: bun run e2e:install
 
-      # `bun run` pasa los argumentos de después del script al comando del script, así que esto
-      # acaba en `playwright test --grep-invert … --shard=N/2` sin necesidad de un script nuevo.
-      - name: Extremo a extremo (mitad ${{ matrix.shard }} de ${{ strategy.job-total }})
-        run: bun run e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+      - name: Extremo a extremo (${{ matrix.nombre }})
+        run: ${{ matrix.comando }}
 
       # Los rastros de Playwright (`trace: 'retain-on-failure'`) son lo único que explica un fallo
       # que no se reproduce en local. Sin esto se borran con el runner.
@@ -521,54 +545,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: e2e-rastros-${{ matrix.shard }}
-          path: test-results
-          if-no-files-found: ignore
-          retention-days: 7
-
-  # El camino del proveedor que falla. Va en su propio trabajo porque es un archivo y un puerto
-  # distintos: dentro de la corrida principal retrasaba a las dos mitades sin compartir nada con
-  # ellas.
-  e2e-fallo:
-    needs: cambios
-    if: needs.cambios.outputs.codigo == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Caché de Bun
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-
-      - name: Caché de Playwright
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-ms-playwright-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-ms-playwright-
-
-      - name: Instalar
-        run: bun install --frozen-lockfile
-
-      - name: Instalar Chromium
-        run: bun run e2e:install
-
-      - name: Extremo a extremo con el proveedor caído
-        run: bun run e2e:fallo
-
-      - name: Dejar los rastros si falla
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: e2e-rastros-fallo
+          name: ${{ matrix.rastros }}
           path: test-results
           if-no-files-found: ignore
           retention-days: 7
