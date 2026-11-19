@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { crearCastSesion } from './cast-session'
+import { crearCastSesion, esSinDispositivos } from './cast-session'
 import type {
   CastContextLike,
   CastController,
@@ -151,6 +151,15 @@ function conEstado(): {
 }
 
 describe('la emisión', () => {
+  test('«no hay dispositivos» se reconoce en las tres formas del SDK', () => {
+    expect(esSinDispositivos({ code: 'NO_DEVICES_AVAILABLE' })).toBe(true)
+    expect(esSinDispositivos({ description: 'No devices available' })).toBe(true)
+    expect(esSinDispositivos(new Error('NO_DEVICES_AVAILABLE'))).toBe(true)
+    expect(esSinDispositivos('no devices available')).toBe(true)
+    expect(esSinDispositivos({ code: 'TIMEOUT' })).toBe(false)
+    expect(esSinDispositivos(undefined)).toBe(false)
+    expect(esSinDispositivos(null)).toBe(false)
+  })
   test('pide sesión, manda HLS con su tipo y metadatos', async () => {
     const d = doble()
     const s = conEstado()

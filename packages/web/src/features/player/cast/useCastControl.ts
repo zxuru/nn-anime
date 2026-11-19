@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { abrirCastSesion, cerrarCastSesion, leerCastInfo } from '../../../api/cast'
 import { adaptarCastSdk } from './cast-adapter'
 import { cargarCastSdk } from './cast-sdk'
-import { type CastSesion, crearCastSesion } from './cast-session'
+import { type CastSesion, crearCastSesion, esSinDispositivos } from './cast-session'
 import {
   CAST_ESTADO_INICIAL,
   type CastEstado,
@@ -43,6 +43,8 @@ export interface CastControlHandle {
   readonly estado: CastEstado
   readonly cargando: boolean
   readonly error: string | undefined
+  /** El SDK dijo que no hay ningún dispositivo al que transmitir. */
+  readonly sinDispositivos: boolean
   readonly sesion: CastSesion | undefined
   iniciar: () => Promise<boolean>
   /** Para la emisión y devuelve la posición en la que se quedó. */
@@ -101,6 +103,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
   const [estado, setEstado] = useState<CastEstado>(CAST_ESTADO_INICIAL)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
+  const [sinDispositivos, setSinDispositivos] = useState(false)
   const [sesion, setSesion] = useState<CastSesion | undefined>(undefined)
 
   const sesionRef = useRef<CastSesion | undefined>(undefined)
@@ -389,6 +392,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
     }
 
     setCargando(false)
+    setSinDispositivos(false)
 
     return posicion
   }, [])
@@ -406,6 +410,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
 
     setCargando(true)
     setError(undefined)
+    setSinDispositivos(false)
 
     let id: string | undefined
 
@@ -431,7 +436,10 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
       return true
     } catch (cause) {
       const mensaje = cause instanceof Error ? cause.message : String(cause)
-      setError(mensaje)
+      const sinNada = esSinDispositivos(cause)
+
+      setSinDispositivos(sinNada)
+      if (!sinNada) setError(mensaje)
 
       // Si la sesión ya se había abierto, no se deja el ticket vivo.
       if (id !== undefined) {
@@ -455,6 +463,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
     estado,
     cargando,
     error,
+    sinDispositivos,
     sesion,
     iniciar,
     detener,

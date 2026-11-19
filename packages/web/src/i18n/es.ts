@@ -718,6 +718,8 @@ export const messages: Messages = {
   'player.cast.connected': 'Se está viendo en {device}',
   'player.cast.device': 'la TV',
   'player.cast.error': 'No se pudo transmitir: {message}',
+  'player.cast.noDevices': 'No hay ningún dispositivo disponible para transmitir.',
+  'player.cast.speed': 'La velocidad no se cambia desde aquí mientras se ve en la TV.',
   'player.airplay': 'Transmitir por AirPlay',
   'player.airplay.connecting': 'Conectando con AirPlay…',
   'player.airplay.connected': 'Se está viendo por AirPlay',

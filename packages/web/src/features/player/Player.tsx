@@ -614,24 +614,31 @@ export function Player(props: PlayerProps): ReactNode {
         */}
         <div className="player__menu-block">
           <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.speed')}</p>
-          <ul className="player__menu-list player__menu-list--velocidad">
-            {VELOCIDADES.map((opcion) => (
-              <li key={opcion}>
-                <button
-                  type="button"
-                  className="button player__menu-choice"
-                  aria-pressed={velocidad === opcion}
-                  disabled={enCast}
-                  onClick={() => cambiarVelocidad(opcion)}
-                >
-                  {t(DEFAULT_LOCALE, 'player.speed.option', {
-                    rate: etiquetaVelocidad(opcion),
-                  })}
-                </button>
-              </li>
-            ))}
-          </ul>
+          {enCast ? (
+            <p className="player__note">{t(DEFAULT_LOCALE, 'player.cast.speed')}</p>
+          ) : (
+            <ul className="player__menu-list player__menu-list--velocidad">
+              {VELOCIDADES.map((opcion) => (
+                <li key={opcion}>
+                  <button
+                    type="button"
+                    className="button player__menu-choice"
+                    aria-pressed={velocidad === opcion}
+                    onClick={() => cambiarVelocidad(opcion)}
+                  >
+                    {t(DEFAULT_LOCALE, 'player.speed.option', {
+                      rate: etiquetaVelocidad(opcion),
+                    })}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
+
+        {cast.sinDispositivos ? (
+          <p className="player__note">{t(DEFAULT_LOCALE, 'player.cast.noDevices')}</p>
+        ) : null}
 
         {props.onMpv === undefined ? null : (
           <button type="button" className="button player__menu-action" onClick={props.onMpv}>
@@ -959,7 +966,9 @@ export function Player(props: PlayerProps): ReactNode {
 
       {sinImagen ? <p className="search__error">{t(DEFAULT_LOCALE, 'player.sinImagen')}</p> : null}
 
-      {cast.error === undefined ? null : (
+      {cast.sinDispositivos ? (
+        <p className="search__error">{t(DEFAULT_LOCALE, 'player.cast.noDevices')}</p>
+      ) : cast.error === undefined ? null : (
         <p className="search__error">
           {t(DEFAULT_LOCALE, 'player.cast.error', { message: cast.error })}
         </p>

@@ -63,6 +63,31 @@ function clavar(valor: number, min: number, max: number): number {
   return Math.min(Math.max(valor, min), max)
 }
 
+/**
+ * ¿El rechazo es «no hay ningún dispositivo»?
+ *
+ * El SDK de Google rechaza con `NO_DEVICES_AVAILABLE`, pero no siempre como un
+ * `Error`: a veces es un objeto con `code`, `description` o `message`, y otras
+ * una cadena. Sin esta traducción, la interfaz enseñaba el texto en inglés o
+ * `[object Object]` en el único caso en el que el usuario necesita saber que no
+ * hay nada que elegir.
+ */
+export function esSinDispositivos(cause: unknown): boolean {
+  const patron = /NO_DEVICES_AVAILABLE|no devices? available/i
+
+  if (typeof cause === 'string') return patron.test(cause)
+
+  if (typeof cause === 'object' && cause !== null) {
+    const datos = cause as { code?: unknown; description?: unknown; message?: unknown }
+
+    return [datos.code, datos.description, datos.message].some(
+      (valor) => typeof valor === 'string' && patron.test(valor),
+    )
+  }
+
+  return false
+}
+
 export function crearCastSesion(
   sdk: CastSdk,
   onEstado: (estado: CastEstado) => void,
