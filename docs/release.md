@@ -203,8 +203,8 @@ compila el ejecutable y, cuando toca el empaquetado, el AppImage; `release.yml` 
 | `portables-linux-x64` | `release.yml` | El AppImage |
 
 No hay un artefacto `rona-macos-*`: macOS **no** se compila en el CI por defecto —sus minutos se
-cuentan por diez y su `.zip` se mide donde se firma—. Para devolverlo a la matriz de `desktop` en un
-PR está la variable `CI_MACOS_EN_PR=true`; los dos `.zip` de la release salen siempre de
+cuentan por diez y su `.zip` se mide donde se firma—. Para devolverlo a la matriz de `empaquetado` en
+un PR está la variable `CI_MACOS_EN_PR=true`; los dos `.zip` de la release salen siempre de
 `release.yml`.
 
 Sólo `appimagetool` no viene en la imagen de GitHub: lo prepara `.github/actions/herramientas`,
@@ -230,8 +230,9 @@ anfitrión, así que el servidor va primero. Si se compila al revés, `package:u
 anfitrión es más viejo que el servidor». Además, `desktop:build` pasa `RONA_EXIGIR_SERVIDOR=1` en
 Windows: `build.rs` **se para** si no encuentra el servidor, en vez de compilar un anfitrión vacío que
 arrancaría y enseñaría el aviso de fallo. Es preferible un error ahí que un `.exe` que arranca sin
-interfaz. El único sitio que compila sin servidor es el trabajo `desktop` del CI, con
-`desktop:build --sin-servidor`: mide el árbol de Rust y no entrega nada.
+interfaz. El CI compila el anfitrión **con** servidor en el trabajo `empaquetado`, y el listón de
+Rust (`desktop:check`) corre en ese mismo trabajo: un cambio en `desktop/` ya no compila Tauri dos
+veces.
 
 `bun run package` **se niega a compilar** si falta el build de la interfaz: un ejecutable sin interfaz
 arranca, contesta 404 en `/` y parece que la aplicación está rota.
@@ -418,7 +419,7 @@ sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf
 
 El listón del árbol de Rust es **suyo** y no lo mira `bun test` —vive fuera de `packages/` a
 propósito—: `bun run desktop:check` (formato, `clippy` con `-D warnings` y sus pruebas), y lo ejecuta
-el trabajo `desktop` del CI en su matriz: Linux y Windows por defecto, macOS sólo con
+el trabajo `empaquetado` del CI cuando cambia `desktop/`: Linux y Windows por defecto, macOS sólo con
 `CI_MACOS_EN_PR=true`.
 
 `desktop/src-tauri/Cargo.lock` **está versionado**. Si alguna vez falta, se genera en una máquina con

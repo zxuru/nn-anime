@@ -80,7 +80,6 @@ jobs:
       packaging: ${{ steps.clasificar.outputs.packaging }}
       desktop: ${{ steps.clasificar.outputs.desktop }}
       empaquetado: ${{ steps.clasificar.outputs.empaquetado }}
-      desktop_os: ${{ steps.clasificar.outputs.desktop_os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -92,7 +91,7 @@ jobs:
         env:
           # En un PR, la punta de la rama base; en la cola de merge, la base temporal de la cola.
           BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-          # Devuelve macOS a la matriz de `desktop` sin tocar el YAML.
+          # Devuelve macOS a la matriz de empaquetado sin tocar el YAML.
           CI_MACOS_EN_PR: ${{ vars.CI_MACOS_EN_PR }}
         run: |
           set -euo pipefail
@@ -149,25 +148,24 @@ jobs:
             desktop=false
           fi
 
-          # La lista de sistemas de cada matriz se decide aquí. Un `if` de job no puede
+          # La lista de sistemas de la matriz de empaquetado se decide aquí. Un `if` de job no puede
           # usar `matrix` (sólo github, inputs, needs y vars), y un workflow que lo intenta
           # no llega a cargarse: GitHub lo rechaza con «workflow file issue». El `if` del
           # job mira sólo `needs`; la matriz se construye con `fromJSON` de estas listas.
+          #
+          # macOS sigue fuera por defecto —sus minutos se cuentan por diez—, pero
+          # `CI_MACOS_EN_PR=true` lo devuelve cuando además ha cambiado el árbol de Rust. Antes
+          # era un segundo trabajo (`desktop`) que compilaba Tauri otra vez; ahora la compilación
+          # y el listón de Rust viven en este mismo trabajo, que ya tenía que compilarlo para el
+          # artefacto.
           if [ "$packaging" = true ]; then
-            empaquetado='["ubuntu-latest","windows-latest"]'
-          else
-            empaquetado='["ubuntu-latest"]'
-          fi
-
-          # No vacía: si el job se salta por su `if`, GitHub no tiene que expandir `[]`.
-          if [ "$desktop" = true ]; then
-            if [ "${CI_MACOS_EN_PR:-false}" = true ]; then
-              desktop_os='["ubuntu-latest","windows-latest","macos-latest"]'
+            if [ "$desktop" = true ] && [ "${CI_MACOS_EN_PR:-false}" = true ]; then
+              empaquetado='["ubuntu-latest","windows-latest","macos-latest"]'
             else
-              desktop_os='["ubuntu-latest","windows-latest"]'
+              empaquetado='["ubuntu-latest","windows-latest"]'
             fi
           else
-            desktop_os='["ubuntu-latest"]'
+            empaquetado='["ubuntu-latest"]'
           fi
 
           {
@@ -176,7 +174,6 @@ jobs:
             echo "packaging=$packaging"
             echo "desktop=$desktop"
             echo "empaquetado=$empaquetado"
-            echo "desktop_os=$desktop_os"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -561,6 +558,9 @@ jobs:
   #    `AppRun` roto el día que se rompe.
   #  - **Windows, sólo cuando se toca el empaquetado o el árbol de Rust**: la cadena completa con su
   #    archivo único, su comprobación de subsistema y su ACL.
+  #  - **Cuando cambia el árbol de Rust (`desktop/`)**: además, `desktop:check` —`cargo fmt`,
+  #    `clippy -D warnings` y `cargo test`— en el mismo trabajo que ya compila el anfitrión para el
+  #    artefacto. Antes era un trabajo `desktop` aparte que lo compilaba por segunda vez.
   #
   # **Por qué Windows sigue en la PR.** Lo que mide no se puede medir en Linux: el campo `Subsystem`
   # de la cabecera PE (que es lo que decide si el ejecutable abre consola), la etiqueta de
@@ -570,8 +570,9 @@ jobs:
   # ruta del servidor. La release (`release.yml`) lo vuelve a medir en el tag, así que el día que se
   # publica tampoco se confía.
   #
-  # macOS no está: sus dos `.zip` (`codesign`, notarización) salen en `release.yml`, que es donde se
-  # firman. Añadirlo aquí costaba 10× minutos de runner para medir lo mismo.
+  # macOS no está por defecto: sus minutos se cuentan por diez. `CI_MACOS_EN_PR=true` lo devuelve a
+  # la matriz cuando además cambia el árbol de Rust, y entonces este trabajo arma también su `.zip`.
+  # Las dos compilaciones de Tauri que antes se pisaban —`empaquetado` y `desktop`— son ahora una.
   empaquetado:
     needs: cambios
     strategy:
@@ -643,6 +644,14 @@ jobs:
           workspaces: desktop/src-tauri -> target
           # La vuelta de Windows y la de Linux no comparten artefactos.
           key: ${{ matrix.os }}
+
+      # El listón del árbol de Rust, aquí y no en un trabajo aparte: este trabajo ya compila Tauri
+      # para el artefacto, y un segundo trabajo con `cargo test`/`clippy`/`fmt` lo compilaba otra
+      # vez en el mismo PR. `desktop:check` compila antes la ventana de actualizaciones
+      # (`desktop:ui`), que importa `@tauri-apps/api` y los plugins; los `node_modules` ya están.
+      - name: Listón del anfitrión
+        if: env.COMPLETO == 'true' && needs.cambios.outputs.desktop == 'true'
+        run: bun run desktop:check
 
       # 1) El servidor, y **sin** artefacto: lo arranca de verdad —interfaz,
       #    recursos, token de arranque y base migrada— y lo deja donde `build.rs`
@@ -738,82 +747,13 @@ jobs:
 
 
 
-  # El árbol de Rust del anfitrión de ventana (`desktop/`).
-  #
-  # Existe porque **nadie más lo mira**: vive fuera de `packages/` a propósito, así
-  # que `tsc`, `bun test` y biome no ven una sola línea suya. Sin este trabajo, el
-  # módulo que da la ventana sería el único del repositorio sin nadie que lo mida.
-  #
-  # Se compila además de pasar las pruebas: el fallo que importa aquí es de enlace
-  # y de configuración —`tauri.conf.json`, las dependencias del webview de Linux—,
-  # y ése no lo ve `cargo test`.
-  #
-  # Se filtra por rutas porque sus dos entradas son `desktop/` y los iconos: ni el
-  # servidor ni el paquete de Vite entran en esta compilación (`build.rs` embebe el
-  # binario del servidor y `tauri.conf.json` sirve un stub).
-  desktop:
-    needs: cambios
-    strategy:
-      fail-fast: false
-      matrix:
-        # macOS fuera por defecto: sus minutos se cuentan por diez y el árbol de Rust es el
-        # mismo. `CI_MACOS_EN_PR=true` lo devuelve desde `cambios`, que es quien puede leer
-        # `vars` y construir la matriz.
-        os: ${{ fromJSON(needs.cambios.outputs.desktop_os) }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
-    if: needs.cambios.outputs.desktop == 'true'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      # `desktop:check` compila antes la ventana de actualizaciones (`desktop:ui`),
-      # que importa `@tauri-apps/api` y los plugins: sin `node_modules`, `bun build`
-      # no resuelve los imports y el paso falla antes de llegar a Rust.
-      - name: Instalar
-        run: bun install --frozen-lockfile
-
-      # El `rustup` que ya traen las imágenes de los tres runners, actualizado en
-      # vez de una acción de terceros: `tauri-plugin-single-instance` sólo pide Rust >= 1.90, y
-      # las imágenes vienen por delante.
-      - name: Rust al día
-        run: rustup update stable --no-self-update
-
-      # El webview de Linux no viene en la imagen. Es la única dependencia del
-      # sistema que el anfitrión necesita y sólo la necesita ahí: Windows usa
-      # WebView2, que ya está, y macOS usa WKWebView, que es del sistema.
-      - name: Dependencias del webview (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf
-
-      - name: Caché de Rust
-        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          workspaces: desktop/src-tauri -> target
-
-      # `desktop:check` es `cargo fmt --check`, `cargo clippy -D warnings` y
-      # `cargo test`. El script y no los tres comandos sueltos: el listón vive en
-      # un solo sitio, y es el mismo que corre quien lo compila a mano.
-      - name: Listón del anfitrión
-        run: bun run desktop:check
-
-      # Sin servidor: este trabajo mide el árbol de Rust, no arma un entregable.
-      # El empaquetado sí lo exige (ver el trabajo `empaquetado`).
-      - name: Compilar el anfitrión
-        run: bun run desktop:build --sin-servidor
-
   # La otra mitad de la auditoría de dependencias (T235). `calidad` corre `bun audit`, que mira
   # `bun.lock`; el `Cargo.lock` versionado del anfitrión **no lo miraba nadie**: Dependabot
   # proponía actualizaciones y ni un aviso abierto ni una licencia nueva tenían quién los
   # leyera. La app descarga binarios y carga plugins, así que una vulnerabilidad transitiva en
   # Tauri no se anuncia sola.
   #
-  # **Sin `needs` y sin `if`.** A diferencia de `desktop`, no se salta cuando el PR no toca
+  # **Sin `needs` y sin `if`.** A diferencia del empaquetado, no se salta cuando el PR no toca
   # Rust: un aviso no lo abre el PR, lo abre el calendario —el `Cargo.lock` que ya está en
   # `main` puede recibir uno nuevo cualquier semana— y un trabajo saltado cuenta como
   # «Success» para branch protection. Cuesta menos de un minuto: no compila nada, resuelve el
