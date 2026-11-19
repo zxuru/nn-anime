@@ -250,9 +250,8 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
   /**
    * El filtro pedido, o el 400 con el motivo.
    *
-   * Sin parámetros no se filtra: AniList contesta con su catálogo, que es anime.
-   * Con una familia que no es anime, el catálogo devuelve la lista vacía sin
-   * preguntar; el 400 se reserva para un valor que no existe en el vocabulario.
+   * Sin parámetros no se filtra. `family` y `media` se aceptan y se ignoran: T372
+   * retiró el eje y un enlace guardado no puede dar 400.
    */
   const pedirFiltro = (query: (nombre: string) => string | undefined) =>
     filtroFrom({ family: query('family'), format: query('format'), media: query('media') })
@@ -262,12 +261,7 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
     if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
 
     const conAdultos = await adultContentOf(options.container.store)
-    const resultado = await options.catalog.top(
-      pedido.filtro.families,
-      pedido.filtro.format,
-      conAdultos,
-      c.req.raw.signal,
-    )
+    const resultado = await options.catalog.top(pedido.filtro.format, conAdultos, c.req.raw.signal)
     if (!resultado.ok) return c.json(discoverResponseSchema.parse({ items: [] }))
 
     const visibles = sinAdultos(resultado.value, conAdultos, (entrada) => entrada.adult)
@@ -283,7 +277,6 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
 
     const conAdultos = await adultContentOf(options.container.store)
     const resultado = await options.catalog.airing(
-      pedido.filtro.families,
       pedido.filtro.format,
       airingDays(c.req.query('days')),
       c.req.raw.signal,
@@ -307,7 +300,6 @@ export function registerAniListRoutes(app: Hono, options: AniListRoutesOptions):
 
     const conAdultos = await adultContentOf(options.container.store)
     const resultado = await options.catalog.recent(
-      pedido.filtro.families,
       pedido.filtro.format,
       conAdultos,
       c.req.raw.signal,

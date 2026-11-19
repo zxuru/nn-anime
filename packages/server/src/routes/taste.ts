@@ -29,7 +29,7 @@ import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
 import { gatherSignals } from '../recommend/signals'
 import { popularTitles, providerAudio, tasteRowsFrom } from '../recommend/taste'
-import { enFiltro, familiasPorProveedor, filtroFrom } from './media'
+import { enFiltro, filtroFrom } from './media'
 import { adultContentOf } from './settings'
 
 export interface TasteRouteOptions {
@@ -253,11 +253,7 @@ export function registerTasteRoutes(app: Hono, options: TasteRouteOptions): void
       store.readTasteProfile(),
     ])
 
-    const candidates = enFiltro(
-      senales.candidates,
-      pedido.filtro,
-      familiasPorProveedor(options.providers),
-    )
+    const candidates = enFiltro(senales.candidates, pedido.filtro)
     const rows = tasteRowsFrom(profile, candidates)
 
     c.header('cache-control', 'no-store')

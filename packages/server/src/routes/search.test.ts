@@ -103,9 +103,6 @@ describe('GET /api/providers', () => {
       dub: true,
       trending: true,
       feed: true,
-      // El fixture declara las tres familias, y las capacidades viajan enteras:
-      // es lo que la interfaz lee para saber en qué pestaña enseñarlo.
-      families: ['anime', 'animation', 'live'],
     })
     expect(body.providers[0]?.status).toBe('active')
   })
@@ -309,66 +306,36 @@ describe('GET /api/search como SSE', () => {
   })
 
   /**
-   * El tipo filtra **antes de preguntar**.
+   * `family` y `media` se aceptan y no filtran.
    *
-   * Una búsqueda de películas no puede gastar el ancho de banda de una fuente de
-   * anime: son sitios de terceros, y filtrar los resultados al llegar dejaría el
-   * gasto hecho. Se mide con el id del evento, que es quien dice a quién se le
-   * preguntó.
+   * T372 retiró el eje de familias. Una dirección guardada con esos parámetros
+   * tiene que preguntar a las mismas fuentes y devolver la misma lista, no un 400
+   * ni una fuente de menos.
    */
-  test('`?media=` deja fuera a las fuentes que no pueden tener esa mitad', async () => {
+  test('los parámetros retirados no dejan fuera a ningún proveedor', async () => {
     const report: PluginReport = {
       active: [
-        { provider: createFixtureProvider({ id: 'anime', media: 'anime' }), file: '/p/a.ts' },
-        { provider: createFixtureProvider({ id: 'pelis', media: 'movies' }), file: '/p/p.ts' },
-        { provider: createFixtureProvider({ id: 'mixta', media: 'both' }), file: '/p/m.ts' },
-      ],
-      rejected: [],
-    }
-    const response = await app(report).request(`${BASE}/api/search?q=aurora&media=movies`, {
-      headers: GOOD,
-    })
-    const eventos = await readSse(response)
-    const ids = eventos
-      .filter((evento) => evento.event === 'results')
-      .map((evento) => (JSON.parse(evento.data) as { providerId: string }).providerId)
-
-    // La mixta entra: sus resultados pueden ser de las dos mitades y el reparto por
-    // `kind` lo hace la interfaz, que es quien tiene las tarjetas.
-    expect([...ids].sort()).toEqual(['mixta', 'pelis'])
-  })
-
-  /**
-   * La familia filtra igual que el tipo, y con el mismo orden: antes de preguntar.
-   *
-   * Una fuente que sólo sirve anime no recibe la petición de acción real; una
-   * mixta sí, porque sus títulos se reparten después. Se mide con el id del
-   * evento, que es quien dice a quién se le preguntó.
-   */
-  test('`?family=` deja fuera a la fuente que no sirve esa familia', async () => {
-    const report: PluginReport = {
-      active: [
-        { provider: createFixtureProvider({ id: 'anime', media: 'anime' }), file: '/p/a.ts' },
-        { provider: createFixtureProvider({ id: 'pelis', media: 'movies' }), file: '/p/p.ts' },
-        { provider: createFixtureProvider({ id: 'mixta', media: 'both' }), file: '/p/m.ts' },
+        { provider: createFixtureProvider({ id: 'uno' }), file: '/p/a.ts' },
+        { provider: createFixtureProvider({ id: 'dos' }), file: '/p/p.ts' },
+        { provider: createFixtureProvider({ id: 'tres' }), file: '/p/m.ts' },
       ],
       rejected: [],
     }
     const eventos = await readSse(
-      await app(report).request(`${BASE}/api/search?q=aurora&family=live`, { headers: GOOD }),
+      await app(report).request(`${BASE}/api/search?q=aurora&media=movies&family=live`, {
+        headers: GOOD,
+      }),
     )
     const ids = eventos
       .filter((evento) => evento.event === 'results')
       .map((evento) => (JSON.parse(evento.data) as { providerId: string }).providerId)
 
-    expect([...ids].sort()).toEqual(['mixta', 'pelis'])
+    expect([...ids].sort()).toEqual(['dos', 'tres', 'uno'])
   })
 
-  test('el formato se filtra sobre los resultados, no sólo sobre la familia', async () => {
-    // El fixture es `both` y sirve una serie y una película: el formato deja la
-    // película sola aunque las dos familias entren.
+  test('el formato se filtra sobre los resultados', async () => {
     const eventos = await readSse(
-      await app(SOLO_FIXTURE).request(`${BASE}/api/search?q=hierro&family=live&format=movie`, {
+      await app(SOLO_FIXTURE).request(`${BASE}/api/search?q=hierro&format=movie`, {
         headers: GOOD,
       }),
     )
@@ -380,57 +347,47 @@ describe('GET /api/search como SSE', () => {
     expect(data.results.map((resultado) => resultado.title)).toEqual(['El Jardín de Hierro'])
   })
 
-  test('el tipo se filtra también sobre los resultados, no sólo sobre las fuentes', async () => {
+  test('el formato que no se pide no recorta nada', async () => {
     const eventos = await readSse(
-      await app(SOLO_FIXTURE).request(`${BASE}/api/search?q=de&media=movies`, { headers: GOOD }),
+      await app(SOLO_FIXTURE).request(`${BASE}/api/search?q=de`, { headers: GOOD }),
     )
     const resultados = eventos.find((evento) => evento.event === 'results')
     const data = JSON.parse(resultados?.data ?? '{}') as {
-      results: readonly { title: string; kind?: string }[]
+      results: readonly { title: string; format?: string }[]
     }
 
-    // El fixture sirve las tres familias y su catálogo trae series de anime: sin
-    // filtrar los resultados llegarían a la pestaña de acción real y la interfaz
-    // las escondería después, con el gasto hecho. Entran la película de imagen
-    // real, la serie de animación occidental y la de acción real.
-    expect(data.results.map((resultado) => resultado.title)).toEqual([
-      'El Jardín de Hierro',
-      'Taller de Monstruos',
-      'Turno de Noche',
-    ])
+    expect(data.results.length).toBeGreaterThan(1)
+    expect(data.results.some((resultado) => resultado.format === 'movie')).toBe(true)
+    expect(data.results.some((resultado) => resultado.format === 'series')).toBe(true)
   })
 
-  test('una serie declarada por una fuente mixta entra en películas', async () => {
-    const mixta = providerFrom({
-      id: 'mixta',
+  test('una serie se queda fuera cuando se piden películas', async () => {
+    const prueba = providerFrom({
+      id: 'uno',
       capabilities: {
         search: true,
         sub: true,
         dub: false,
         trending: false,
         feed: false,
-        media: 'both',
         mediaPerTitle: true,
       },
       search: async () => [
         {
-          ref: { providerId: 'mixta', value: 'una-serie' },
-          title: 'Una serie de acción real',
+          ref: { providerId: 'uno', value: 'una-serie' },
+          title: 'Una serie',
           kind: 'tv',
           mediaType: 'series',
-          // La familia declarada por título gana a lo que sirve la fuente: una
-          // serie de una fuente mixta ya no cae en Anime por su `kind: 'tv'`.
-          family: 'live',
         },
       ],
     })
-    const report: PluginReport = { active: [{ provider: mixta, file: '/p/m.ts' }], rejected: [] }
+    const report: PluginReport = { active: [{ provider: prueba, file: '/p/m.ts' }], rejected: [] }
 
     const enPeliculas = await readSse(
-      await app(report).request(`${BASE}/api/search?q=serie&media=movies`, { headers: GOOD }),
+      await app(report).request(`${BASE}/api/search?q=serie&format=movie`, { headers: GOOD }),
     )
-    const enAnime = await readSse(
-      await app(report).request(`${BASE}/api/search?q=serie&media=anime`, { headers: GOOD }),
+    const enSeries = await readSse(
+      await app(report).request(`${BASE}/api/search?q=serie&format=series`, { headers: GOOD }),
     )
 
     const titulosEn = (eventos: readonly { event: string; data: string }[]): string[] =>
@@ -442,17 +399,15 @@ describe('GET /api/search como SSE', () => {
         )
         .map((resultado) => resultado.title)
 
-    expect(titulosEn(enPeliculas)).toEqual(['Una serie de acción real'])
-    // La misma fuente no entra en la otra mitad para ese título: el `kind: 'tv'`
-    // ya no lo arrastra al anime.
-    expect(titulosEn(enAnime)).toEqual([])
+    expect(titulosEn(enPeliculas)).toEqual([])
+    expect(titulosEn(enSeries)).toEqual(['Una serie'])
   })
 
-  test('sin `media` se pregunta a todas, que es lo de siempre', async () => {
+  test('sin filtro se pregunta a todas, que es lo de siempre', async () => {
     const report: PluginReport = {
       active: [
-        { provider: createFixtureProvider({ id: 'anime', media: 'anime' }), file: '/p/a.ts' },
-        { provider: createFixtureProvider({ id: 'pelis', media: 'movies' }), file: '/p/p.ts' },
+        { provider: createFixtureProvider({ id: 'uno' }), file: '/p/a.ts' },
+        { provider: createFixtureProvider({ id: 'dos' }), file: '/p/p.ts' },
       ],
       rejected: [],
     }
@@ -463,17 +418,17 @@ describe('GET /api/search como SSE', () => {
       .filter((evento) => evento.event === 'results')
       .map((evento) => (JSON.parse(evento.data) as { providerId: string }).providerId)
 
-    expect([...ids].sort()).toEqual(['anime', 'pelis'])
+    expect([...ids].sort()).toEqual(['dos', 'uno'])
   })
 
-  test('un tipo fuera del vocabulario se rechaza con 400', async () => {
+  test('un formato fuera del vocabulario se rechaza con 400', async () => {
     const response = await app(SOLO_FIXTURE).request(
-      `${BASE}/api/search?q=aurora&media=anime-y-peliculas`,
+      `${BASE}/api/search?q=aurora&format=miniserie`,
       { headers: GOOD },
     )
 
     expect(response.status).toBe(400)
-    expect((await response.json()).error).toContain('media')
+    expect((await response.json()).error).toContain('miniserie')
   })
 
   test('sin proveedores cierra con el recuento en cero', async () => {

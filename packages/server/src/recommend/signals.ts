@@ -18,14 +18,8 @@
  */
 
 import type { CatalogStore } from '@rona/catalog-store'
-import type { Candidate, MediaFamily, MediaFormat, ProviderRef, TitleKind } from '@rona/core'
-import {
-  airingStatusSchema,
-  mediaFamilySchema,
-  mediaFormatSchema,
-  normalizeQuery,
-  titleKindSchema,
-} from '@rona/core'
+import type { Candidate, MediaFormat, ProviderRef, TitleKind } from '@rona/core'
+import { airingStatusSchema, mediaFormatSchema, normalizeQuery, titleKindSchema } from '@rona/core'
 import type {
   AffinityEvent,
   CoVisit,
@@ -76,21 +70,18 @@ function kindOf(raw: string | undefined): TitleKind | undefined {
 }
 
 /**
- * La familia y el formato de un candidato, validados igual que el tipo.
+ * El formato de un candidato, validado igual que el tipo.
  *
- * La clasificación viaja al motor para poder repartir el catálogo antes de
- * recomendar, y un valor inventado no puede entrar en la respuesta: el schema
- * estricto la rechazaría con un 502 en vez de ignorarla.
+ * La clasificación viaja al motor para respetar el filtro antes de recomendar, y
+ * un valor inventado no puede entrar en la respuesta: el schema estricto la
+ * rechazaría con un 502 en vez de ignorarla.
  */
-function clasificacionDe(fila: {
-  readonly family?: string | undefined
-  readonly format?: string | undefined
-}): { readonly family?: MediaFamily; readonly format?: MediaFormat } {
-  const family = mediaFamilySchema.safeParse(fila.family)
+function clasificacionDe(fila: { readonly format?: string | undefined }): {
+  readonly format?: MediaFormat
+} {
   const format = mediaFormatSchema.safeParse(fila.format)
 
   return {
-    ...(family.success ? { family: family.data } : {}),
     ...(format.success ? { format: format.data } : {}),
   }
 }
@@ -337,7 +328,6 @@ export async function gatherSignals(
         // La clasificación del resumen viaja con el candidato: el catálogo local
         // también se reparte por familia antes de recomendar.
         ...(favorito.kind === undefined ? {} : { kind: favorito.kind }),
-        ...(favorito.family === undefined ? {} : { family: favorito.family }),
         ...(favorito.format === undefined ? {} : { format: favorito.format }),
       })
     }
@@ -361,7 +351,6 @@ export async function gatherSignals(
       ...(reciente.year === undefined ? {} : { year: reciente.year }),
       ...(reciente.coverUrl === undefined ? {} : { coverUrl: reciente.coverUrl }),
       ...(reciente.kind === undefined ? {} : { kind: reciente.kind }),
-      ...(reciente.family === undefined ? {} : { family: reciente.family }),
       ...(reciente.format === undefined ? {} : { format: reciente.format }),
     })
   }

@@ -587,15 +587,15 @@ describe('la consulta en curso', () => {
 })
 
 /**
- * El motor, cuando se le pide una sola mitad.
+ * El motor, cuando se le pide un solo formato.
  *
  * El proveedor se declara **sin tendencias** a propósito: así los únicos
  * candidatos son los que dejó el detalle cacheado, y lo que se mide es el filtro
- * del motor —que va antes de recomendar— y no el de la fila del top, que tiene su
- * propia prueba. Filtrar después de recomendar dejaría la pestaña con menos piezas
- * de las que hay, porque el motor ya habría llenado su tope con la otra mitad.
+ * del motor —que va antes de recomendar— y no el de la fila del top. Filtrar
+ * después de recomendar dejaría la lista con menos piezas de las que hay, porque
+ * el motor ya habría llenado su tope con las otras.
  */
-describe('GET /api/recommendations?media=', () => {
+describe('GET /api/recommendations?format=', () => {
   const PELICULA = 'el-jardin-de-hierro'
 
   function sinTendencias(): Provider {
@@ -605,46 +605,45 @@ describe('GET /api/recommendations?media=', () => {
     return { ...resto, capabilities: { ...base.capabilities, trending: false } }
   }
 
-  test('con `movies` no devuelve el anime que ya conoce', async () => {
+  test('con `movie` no devuelve la serie que ya conoce', async () => {
     await conApp(
       async ({ pedir }) => {
         const salida = recommendationsResponseSchema.parse(
-          await (await pedir('/api/recommendations?media=movies')).json(),
+          await (await pedir('/api/recommendations?format=movie')).json(),
         )
 
         expect(salida.items.length).toBeGreaterThan(0)
-        expect(salida.items.every((item) => item.kind === 'movie')).toBe(true)
+        expect(salida.items.every((item) => item.format === 'movie')).toBe(true)
       },
       { proveedores: [sinTendencias()], cachear: [REF, PELICULA] },
     )
   })
 
-  test('con `anime` no devuelve la película, aunque sea lo más popular', async () => {
+  test('con `series` no devuelve la película, aunque sea lo más popular', async () => {
     await conApp(
       async ({ pedir }) => {
         const salida = recommendationsResponseSchema.parse(
-          await (await pedir('/api/recommendations?media=anime')).json(),
+          await (await pedir('/api/recommendations?format=series')).json(),
         )
 
         expect(salida.items.length).toBeGreaterThan(0)
-        expect(salida.items.every((item) => item.kind !== 'movie')).toBe(true)
+        expect(salida.items.every((item) => item.format !== 'movie')).toBe(true)
       },
       { proveedores: [sinTendencias()], cachear: [REF, PELICULA] },
     )
   })
 
-  test('sin el parámetro siguen saliendo las dos mitades', async () => {
+  test('sin el parámetro salen los dos formatos', async () => {
     await conApp(
       async ({ pedir }) => {
         const salida = recommendationsResponseSchema.parse(
           await (await pedir('/api/recommendations')).json(),
         )
 
-        // Es lo que mantiene a quien ya leía la ruta: no pedir tipo no puede
-        // significar «sólo anime», que es el defecto del proveedor y no el de la
-        // petición.
-        expect(salida.items.some((item) => item.kind === 'movie')).toBe(true)
-        expect(salida.items.some((item) => item.kind !== 'movie')).toBe(true)
+        // Es lo que mantiene a quien ya leía la ruta: no pedir formato no puede
+        // significar «sólo series».
+        expect(salida.items.some((item) => item.format === 'movie')).toBe(true)
+        expect(salida.items.some((item) => item.format !== 'movie')).toBe(true)
       },
       { proveedores: [sinTendencias()], cachear: [REF, PELICULA] },
     )
@@ -652,14 +651,13 @@ describe('GET /api/recommendations?media=', () => {
 })
 
 /**
- * La familia y el formato se reparten **antes** de recomendar.
+ * El formato se reparte **antes** de recomendar.
  *
- * Recortar después deja la pestaña con menos piezas de las que hay: el motor ya
+ * Recortar después deja la lista con menos piezas de las que hay: el motor ya
  * habría llenado su tope con títulos que no se van a enseñar. Se siembran dos
- * fichas clasificadas —una película de anime y una serie de acción real— y se
- * pide cada pestaña y cada formato.
+ * fichas clasificadas —una película y una serie— y se pide cada formato.
  */
-describe('GET /api/recommendations?family=&format=', () => {
+describe('GET /api/recommendations?format= (reparto)', () => {
   /** El fixture sin tendencias: las que trae son candidatas fuera de lo sembrado. */
   function sinTendencias(): Provider {
     const base = createFixtureProvider()
@@ -668,10 +666,7 @@ describe('GET /api/recommendations?family=&format=', () => {
     return { ...resto, capabilities: { ...base.capabilities, trending: false } }
   }
 
-  function detalle(
-    value: string,
-    extra: Pick<AnimeDetail, 'family' | 'format' | 'kind'>,
-  ): AnimeDetail {
+  function detalle(value: string, extra: Pick<AnimeDetail, 'format' | 'kind'>): AnimeDetail {
     return {
       ref: { providerId: 'fixture', value },
       title: `Título ${value}`,
@@ -691,17 +686,17 @@ describe('GET /api/recommendations?family=&format=', () => {
     return salida.items.map((item) => item.ref.value)
   }
 
-  test('cada familia y formato enseña lo suyo, y la respuesta lo declara', async () => {
+  test('cada formato enseña lo suyo, y la respuesta lo declara', async () => {
     await conApp(
       async ({ pedir, store }) => {
         await store.writeAnimeWithEpisodes(
           { providerId: 'fixture', value: 'peli-anime' },
-          detalle('peli-anime', { kind: 'movie', family: 'anime', format: 'movie' }),
+          detalle('peli-anime', { kind: 'movie', format: 'movie' }),
           [],
         )
         await store.writeAnimeWithEpisodes(
-          { providerId: 'fixture', value: 'serie-live' },
-          detalle('serie-live', { kind: 'tv', family: 'live', format: 'series' }),
+          { providerId: 'fixture', value: 'serie-anime' },
+          detalle('serie-anime', { kind: 'tv', format: 'series' }),
           [],
         )
 
@@ -710,25 +705,24 @@ describe('GET /api/recommendations?family=&format=', () => {
             await (await pedir(`/api/recommendations?${consulta}`)).json(),
           )
 
-        const anime = await leer('family=anime&limit=10')
-        expect(valores(anime)).toEqual(['peli-anime'])
+        const peliculas = await leer('format=movie&limit=10')
+        expect(valores(peliculas)).toEqual(['peli-anime'])
         // La clasificación viaja en la respuesta: la interfaz reparte con ella.
-        expect(anime.items[0]).toMatchObject({ family: 'anime', format: 'movie' })
+        expect(peliculas.items[0]).toMatchObject({ format: 'movie' })
 
-        expect(valores(await leer('family=live&limit=10'))).toEqual(['serie-live'])
-        expect(valores(await leer('family=anime&format=movie&limit=10'))).toEqual(['peli-anime'])
-        expect(valores(await leer('family=anime&format=series&limit=10'))).toEqual([])
+        expect(valores(await leer('format=series&limit=10'))).toEqual(['serie-anime'])
+        expect(valores(await leer('family=anime&limit=10'))).toHaveLength(2)
       },
       { proveedores: [sinTendencias()] },
     )
   })
 
-  test('un valor inventado es 400 con el valor delante', async () => {
+  test('un formato inventado es 400 con el valor delante', async () => {
     await conApp(async ({ pedir }) => {
-      const respuesta = await pedir('/api/recommendations?family=documental')
+      const respuesta = await pedir('/api/recommendations?format=miniserie')
 
       expect(respuesta.status).toBe(400)
-      expect(((await respuesta.json()) as { error: string }).error).toContain('documental')
+      expect(((await respuesta.json()) as { error: string }).error).toContain('miniserie')
     })
   })
 })

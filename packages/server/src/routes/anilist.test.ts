@@ -164,19 +164,18 @@ describe('el descubrimiento', () => {
   })
 
   /**
-   * AniList no tiene otra cosa que anime.
+   * `family` se acepta y se ignora.
    *
-   * Con una familia que no lo incluye, la respuesta es vacía y el tercero no
-   * recibe la consulta: pedirle acción real es gastar su cuota en una lista que
-   * no puede contestar.
+   * T372 retiró el eje: una dirección vieja con `?family=live` tiene que abrir la
+   * misma lista que sin el parámetro, no una vacía ni un 400.
    */
-  test('otra familia devuelve vacío sin preguntar a AniList', async () => {
+  test('una familia retirada no cambia la lista ni deja de preguntar', async () => {
     await conApp({ top: [KIMETSU] }, async ({ pedir, fake }) => {
       const respuesta = await pedir('/api/discover/top?family=live')
 
       expect(respuesta.status).toBe(200)
-      expect(((await respuesta.json()) as DiscoverResponse).items).toEqual([])
-      expect(fake.calls).toHaveLength(0)
+      expect(((await respuesta.json()) as DiscoverResponse).items).toHaveLength(1)
+      expect(fake.calls).toHaveLength(1)
     })
   })
 

@@ -34,13 +34,7 @@ import type { ServerContainer } from '../container'
 import { gatherSignals, refKey } from '../recommend/signals'
 import { providerAudio } from '../recommend/taste'
 import { cacheHeader } from './cache-header'
-import {
-  enFiltro,
-  familiasPorProveedor,
-  filtroFrom,
-  pasaElFiltroDeProveedor,
-  puedeServirElFiltro,
-} from './media'
+import { enFiltro, filtroFrom, pasaElFiltroDeProveedor } from './media'
 import { adultContentOf } from './settings'
 
 /** Tope de la lista: más de veinte recomendaciones no las mira nadie. */
@@ -145,13 +139,7 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
     if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
 
     const conTendencias = options.providers.filter(
-      (provider) =>
-        provider.capabilities.trending &&
-        provider.getTrending !== undefined &&
-        // La fuente mixta entra en las dos mitades: se le pregunta y se reparte lo
-        // que devuelva. Descartarla aquí dejaría la pestaña de películas sin
-        // preguntarle a la única fuente que puede tenerlas.
-        puedeServirElFiltro(pedido.filtro, provider),
+      (provider) => provider.capabilities.trending && provider.getTrending !== undefined,
     )
 
     // Primero la caché, y con su TTL: la segunda carga de la home no puede volver
@@ -173,7 +161,7 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
         // fuente, y cada pestaña se queda con su mitad al leerla.
         return {
           items: lectura.value.value.filter((resultado) =>
-            pasaElFiltroDeProveedor(pedido.filtro, resultado, provider),
+            pasaElFiltroDeProveedor(pedido.filtro, resultado),
           ),
           source: lectura.value.source,
         }
@@ -206,7 +194,6 @@ export function registerTrendingRoute(app: Hono, options: RecommendationsRouteOp
       ...(resultado.coverUrl === undefined ? {} : { coverUrl: resultado.coverUrl }),
       ...(resultado.year === undefined ? {} : { year: resultado.year }),
       ...(resultado.kind === undefined ? {} : { kind: resultado.kind }),
-      ...(resultado.family === undefined ? {} : { family: resultado.family }),
       ...(resultado.format === undefined ? {} : { format: resultado.format }),
     }))
 
@@ -237,7 +224,7 @@ export function registerRecommendationsRoute(
     })
     if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
 
-    // El filtro va **antes** de recomendar: recortar después deja la fila con menos
+    // El filtro va **antes de recomendar**: recortar después deja la fila con menos
     // piezas de las que hay, porque el motor ya habría llenado su tope con títulos que
     // no se van a enseñar.
     const conAdultos = await adultContentOf(options.container.store)
@@ -252,21 +239,11 @@ export function registerRecommendationsRoute(
             ...señales,
             searches: [{ query: consulta, at: new Date(ahora), hits: 1 }, ...señales.searches],
           }
-    // Las familias de las fuentes cargadas: lo que ya está en la base se reparte
-    // por la fuente que lo trajo, y una referencia de un plugin que ya no está
-    // cuenta como anime.
-    const familias = familiasPorProveedor(options.providers)
-    // El filtro va **antes de recomendar**: recortar después deja la pestaña con
-    // menos piezas de las que hay, porque el motor ya habría llenado su tope con
-    // títulos de la otra mitad.
-    const candidatos: Candidate[] = [...enFiltro(señales.candidates, pedido.filtro, familias)]
+    const candidatos: Candidate[] = [...enFiltro(señales.candidates, pedido.filtro)]
 
     // Tendencias: lo único que se pide al proveedor, y sólo si dice saber hacerlo.
     const conTendencias = options.providers.filter(
-      (provider) =>
-        provider.capabilities.trending &&
-        provider.getTrending !== undefined &&
-        puedeServirElFiltro(pedido.filtro, provider),
+      (provider) => provider.capabilities.trending && provider.getTrending !== undefined,
     )
     if (conTendencias.length > 0) {
       const callOptions: CallOptions = {
@@ -280,7 +257,7 @@ export function registerRecommendationsRoute(
       const resultados = await Promise.all(
         conTendencias.map(async (provider) => {
           const suyos = (lista: readonly SearchResult[]): readonly SearchResult[] =>
-            lista.filter((resultado) => pasaElFiltroDeProveedor(pedido.filtro, resultado, provider))
+            lista.filter((resultado) => pasaElFiltroDeProveedor(pedido.filtro, resultado))
 
           try {
             // El mismo camino que `/api/trending`: respeta `stale`, revalida por
@@ -358,7 +335,6 @@ export function registerRecommendationsRoute(
           // La clasificación sale de aquí y no se deduce: es lo que reparte la
           // pestaña cuando la fuente sirve varias familias.
           ...(entrada.candidate.kind === undefined ? {} : { kind: entrada.candidate.kind }),
-          ...(entrada.candidate.family === undefined ? {} : { family: entrada.candidate.family }),
           ...(entrada.candidate.format === undefined ? {} : { format: entrada.candidate.format }),
           score: entrada.score,
           tags: [...entrada.candidate.tags],
