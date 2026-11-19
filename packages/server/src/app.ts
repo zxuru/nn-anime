@@ -334,7 +334,7 @@ export function createApp(options: AppOptions): Hono {
 
   // Primero las cabeceras: se escriben después de `next()`, así que llegan
   // también a las respuestas que cortan los guards.
-  app.use('*', securityHeaders())
+  app.use('*', securityHeaders({ cast: options.cast?.enabled === true }))
 
   // El `Host` se comprueba en **todas** las rutas, incluido `/`: el canje de
   // arranque no es una excepción, y un guard que se salta una ruta deja de ser

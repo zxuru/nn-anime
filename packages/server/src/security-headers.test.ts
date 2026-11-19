@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import type { Hono } from 'hono'
 import { type AppOptions, createApp } from './app'
-import { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } from './middleware/security-headers'
+import {
+  CAST_CONTENT_SECURITY_POLICY,
+  CONTENT_SECURITY_POLICY,
+  PERMISSIONS_POLICY,
+} from './middleware/security-headers'
 import { SESSION_COOKIE, type Session } from './session'
 
 const PORT = 7717
@@ -81,6 +85,30 @@ describe('política de seguridad de contenido', () => {
     for (const permiso of ['camera=()', 'microphone=()', 'geolocation=()']) {
       expect(PERMISSIONS_POLICY).toContain(permiso)
     }
+  })
+
+  test('el cast añade los hosts del SDK y nada más', () => {
+    expect(CAST_CONTENT_SECURITY_POLICY).toContain("script-src 'self' https://www.gstatic.com")
+    expect(CAST_CONTENT_SECURITY_POLICY).toContain(
+      "connect-src 'self' https://www.gstatic.com https://clients3.google.com",
+    )
+    expect(CAST_CONTENT_SECURITY_POLICY).not.toContain("'unsafe-inline'")
+    expect(CAST_CONTENT_SECURITY_POLICY).not.toContain("'unsafe-eval'")
+    expect(CONTENT_SECURITY_POLICY).not.toContain('gstatic')
+  })
+
+  test('con el cast encendido, la respuesta lleva la política del cast', async () => {
+    const response = await app({
+      cast: { enabled: true, host: '0.0.0.0', token: true },
+    }).request(`${BASE}/api/health`, { headers: GOOD_COOKIE })
+
+    expect(response.headers.get('content-security-policy')).toBe(CAST_CONTENT_SECURITY_POLICY)
+  })
+
+  test('sin el cast, la respuesta lleva la política de siempre', async () => {
+    const response = await app().request(`${BASE}/api/health`, { headers: GOOD_COOKIE })
+
+    expect(response.headers.get('content-security-policy')).toBe(CONTENT_SECURITY_POLICY)
   })
 })
 
