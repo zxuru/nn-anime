@@ -111,6 +111,26 @@ export const healthResponseSchema = z.strictObject({
   providers: z.array(providerSummarySchema),
 })
 
+/**
+ * Si la aplicación puede retransmitir a una TV y con qué direcciones.
+ *
+ * `available` y `reason` no pueden contradecirse: un `true` con motivo, o un
+ * `false` sin él, dejan a la interfaz sin saber qué decir. La comprobación vive
+ * en el schema y no en la ruta porque la interfaz también la lee.
+ *
+ * `urls` son direcciones `http://<ipv4>:<puerto>` de la LAN; no llevan ticket ni
+ * credencial. El ticket se emite al abrir la sesión, no al preguntar si se puede.
+ */
+export const castInfoResponseSchema = z
+  .strictObject({
+    available: z.boolean(),
+    urls: z.array(httpUrlSchema),
+    reason: z.enum(['disabled', 'loopback', 'no-token', 'no-address']).optional(),
+  })
+  .refine((value) => value.available === (value.reason === undefined), {
+    message: 'available y reason no pueden contradecirse',
+  })
+
 export const providersResponseSchema = z.strictObject({
   providers: z.array(providerSummarySchema),
 })
@@ -1281,6 +1301,7 @@ export type ProviderStatus = z.infer<typeof providerStatusSchema>
 export type ProviderSummary = z.infer<typeof providerSummarySchema>
 export type ProviderProbeResponse = z.infer<typeof providerProbeResponseSchema>
 export type HealthResponse = z.infer<typeof healthResponseSchema>
+export type CastInfoResponse = z.infer<typeof castInfoResponseSchema>
 export type ProvidersResponse = z.infer<typeof providersResponseSchema>
 export type ProviderDraft = z.infer<typeof providerDraftSchema>
 export type ProviderFieldMap = z.infer<typeof providerFieldMapSchema>

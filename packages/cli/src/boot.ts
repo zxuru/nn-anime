@@ -116,6 +116,10 @@ export interface ListenOptions {
   readonly locked?: boolean | undefined
   /** Watch party. Apagado salvo que el entorno lo encienda. */
   readonly party?: { readonly enabled: boolean } | undefined
+  /** Cast a la TV. La ruta de información existe siempre; dice si se puede. */
+  readonly cast?:
+    | { readonly enabled: boolean; readonly host: string; readonly token: boolean }
+    | undefined
   /** Rutas en uso, para la página de ajustes. */
   readonly paths?: ConfigPaths | undefined
   /** Versión de mpv detectada al arrancar, si la hay. */
@@ -474,6 +478,7 @@ export async function boot(rawOptions: CliOptions, deps: BootDeps): Promise<Boot
     providersDir: config.providersDir,
     locked: server.locked,
     party: { enabled: server.party },
+    cast: { enabled: server.cast, host: server.host, token: server.token !== undefined },
     ...(auth === undefined ? {} : { auth }),
     ...(network === undefined ? {} : { network }),
     ...(deps.mpvVersion === undefined ? {} : { mpvVersion: deps.mpvVersion }),
