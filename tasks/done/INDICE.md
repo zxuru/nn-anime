@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **264 fragmentos indexados**; 209 se identifican
+quedan identificadas aquí. **265 fragmentos indexados**; 210 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
@@ -284,3 +284,4 @@ sólo en este índice y su contenido vive en la historia.
 | T388 | T388 — la imagen arm64 se arranca y un prerelease no mueve `latest` | ci(release): arrancar arm64 y no mover latest en un prerelease (T388). | `bun test` **4390 pasan, 0 fallan** · typecheck 0 · lint 0 errores (6 avisos previos) · mutaciones: quitar el build arm64, quitar QEMU, volver a la lista fija con `latest` y fijar `make_latest=true` dejan 1 en rojo cada una. | este índice |
 | T389 | T389 — la imagen por rutas y el e2e caído como shard | ci: la imagen por rutas y el e2e caido como shard (T389). | `bun test` **4392 pasan, 0 fallan** · typecheck 0 · lint 0 errores (6 avisos previos) · mutaciones: `docker` en todo código, sin clasificar la imagen, sin el caso `e2e:fallo` y con los rastros repetidos dejan 1 en rojo cada una. | este índice |
 | T400 | T400 — Tauri se compila una vez cuando cambia `desktop/` | ci: compilar Tauri una sola vez cuando cambia desktop (T400). | `bun test scripts/ci.test.ts scripts/desktop.test.ts packages/web/src/docs.test.ts` 99 pasan · typecheck 0 · lint 0 errores (6 avisos previos) · suite completa **4462 pasan, 0 fallan** tras integrar T384 · mutaciones: sin `desktop:check`, sin su condición, sin macOS opcional y con macOS sin mirar Rust dejan 1 en rojo cada una. | este índice |
+| T395b | T395b — el siguiente episodio encadenado en la TV | feat(cast): el siguiente episodio reutiliza la sesión de la TV (T395b). | `bun test packages/web` **1443 pasan, 0 fallan** · `bunx playwright test cast.e2e.ts` **3 pasan** (final del episodio, cuenta atrás y navegación incluidos) · typecheck 0 · lint 0 · mutación: cerrar la sesión al cambiar de URL deja el encadenado en rojo (esperadas dos `loadMedia`, medida una). La medida con una TV real sigue siendo la de T379. | este índice |
