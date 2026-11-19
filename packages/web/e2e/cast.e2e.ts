@@ -168,22 +168,22 @@ test('transmitir: sesión, URL de LAN, mandos y parada', async ({ page }) => {
       this.autoplay = false
     }
 
-    function GenericMediaMetadata(this: Record<string, unknown>) {
+    function crearMetadataFalsa(this: Record<string, unknown>) {
       void this
     }
 
-    function RemotePlayer(this: unknown) {
+    function crearRemotePlayer(this: unknown) {
       return remoto
     }
 
-    function RemotePlayerController(this: unknown) {
+    function crearControlador(this: unknown) {
       return controlador
     }
 
     const media = {
       MediaInfo,
       LoadRequest,
-      GenericMediaMetadata,
+      GenericMediaMetadata: crearMetadataFalsa,
       StreamType: { BUFFERED: 'BUFFERED' },
       DEFAULT_MEDIA_RECEIVER_APP_ID: 'CC1AD845',
     }
@@ -192,8 +192,8 @@ test('transmitir: sesión, URL de LAN, mandos y parada', async ({ page }) => {
     ventana.cast = {
       framework: {
         CastContext: { getInstance: () => contexto },
-        RemotePlayer,
-        RemotePlayerController,
+        RemotePlayer: crearRemotePlayer,
+        RemotePlayerController: crearControlador,
       },
     }
     ventana.__castCalls = llamadas
@@ -241,7 +241,10 @@ test('transmitir: sesión, URL de LAN, mandos y parada', async ({ page }) => {
   await page.keyboard.press('ArrowRight')
 
   const llamadas = await page.evaluate(() => {
-    const v = window as unknown as { __castCalls?: LlamadasFalsas; __castRemote?: { currentTime: number } }
+    const v = window as unknown as {
+      __castCalls?: LlamadasFalsas
+      __castRemote?: { currentTime: number }
+    }
 
     return { ...v.__castCalls, posicion: v.__castRemote?.currentTime }
   })

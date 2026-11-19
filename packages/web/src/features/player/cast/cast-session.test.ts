@@ -226,7 +226,8 @@ describe('la emisión', () => {
     expect(emision.estado().terminado).toBe(true)
   })
 
-  test('los mandos hablan con el receptor', async () => {    const d = doble()
+  test('los mandos hablan con el receptor', async () => {
+    const d = doble()
     const emision = crearCastSesion(d.sdk, () => {})
     await emision.iniciar('/stream/abc', 'file', {})
 
