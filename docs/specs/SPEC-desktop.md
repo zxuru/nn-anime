@@ -210,6 +210,18 @@ Así el empaquetado probado de `scripts/package.ts` y `packaging/` sigue siendo 
 el orden es **servidor → firmar servidor → anfitrión (lo embebe) → firmar anfitrión → único**; el
 orden inverso produce un `.exe` sin interfaz y por eso `package:unico` y `package` lo comprueban.
 
+## La ventana flotante dentro de la ventana
+
+**Disponible en Windows.** WebView2 157 expone `document.pictureInPictureEnabled === true` y
+`requestPictureInPicture()` abre una ventana nativa «Imagen en imagen» con `WS_EX_TOPMOST`: se queda
+encima de la ventana de la aplicación y de una ventana a pantalla completa. El mando de la interfaz
+—el de T376— aparece por la misma bandera que en el navegador y no necesita una ventana propia de
+Tauri. Medido el 2026-11-19 en Windows 11 Pro (10.0.26200) con WebView2 157.0.4341.60; el informe y
+la captura están en [`docs/desktop-pip.md`](../desktop-pip.md).
+
+**macOS/WKWebView no se ha medido.** La rama WebKit de T377 se prueba con dobles; la presentación
+real en un Mac y en un iPhone sigue declarada como no medida.
+
 ## Success Criteria
 
 Cada uno con la medición que lo sostiene. Se cierran en `tasks/desktop.md`.
