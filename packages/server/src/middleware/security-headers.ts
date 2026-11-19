@@ -59,6 +59,24 @@ export const CAST_CONTENT_SECURITY_POLICY = [
 ].join('; ')
 
 /**
+ * La política del cast con los orígenes de la LAN que el receptor va a pedir.
+ *
+ * `media-src` no admite rangos de IP, así que se enumeran las direcciones que el
+ * servidor ya conoce para la emisión. `connect-src` no se toca: AirPlay y Google
+ * Cast piden el vídeo como medio, no por `fetch` desde la página. Sin orígenes
+ * —loopback, cast apagado— la política es la de siempre.
+ */
+export function castContentSecurityPolicy(mediaOrigins: readonly string[] = []): string {
+  const origenes = [...new Set(mediaOrigins)].filter((origen) => origen !== '')
+  if (origenes.length === 0) return CAST_CONTENT_SECURITY_POLICY
+
+  return CAST_CONTENT_SECURITY_POLICY.replace(
+    "media-src 'self' blob:",
+    `media-src 'self' blob: ${origenes.join(' ')}`,
+  )
+}
+
+/**
  * Lo que la aplicación no usa, y por tanto un guion inyectado no tiene por qué
  * poder pedir. No hay cámara, ni micrófono, ni geolocalización, ni pagos, ni USB
  * en ninguna parte de `packages/web/src`: medido con una búsqueda sobre el árbol.
@@ -77,15 +95,22 @@ export interface SecurityHeadersOptions {
   readonly contentSecurityPolicy?: string
   /** El cast está encendido: añade los hosts del SDK, y sólo esos. */
   readonly cast?: boolean
+  /**
+   * Orígenes de la LAN que la TV pedirá como medio. Es una función porque el
+   * puerto real puede no conocerse al crear la aplicación (`port: 0`).
+   */
+  readonly mediaOrigins?: (() => readonly string[]) | undefined
 }
 
 export function securityHeaders(options: SecurityHeadersOptions = {}): MiddlewareHandler {
-  const policy =
-    options.contentSecurityPolicy ??
-    (options.cast === true ? CAST_CONTENT_SECURITY_POLICY : CONTENT_SECURITY_POLICY)
-
   return async (c, next) => {
     await next()
+
+    const policy =
+      options.contentSecurityPolicy ??
+      (options.cast === true
+        ? castContentSecurityPolicy(options.mediaOrigins?.() ?? [])
+        : CONTENT_SECURITY_POLICY)
 
     c.header('Content-Security-Policy', policy)
     c.header('X-Content-Type-Options', 'nosniff')
@@ -98,5 +123,13 @@ export function securityHeaders(options: SecurityHeadersOptions = {}): Middlewar
     c.header('Cross-Origin-Opener-Policy', 'same-origin')
     c.header('Cross-Origin-Resource-Policy', 'same-origin')
     c.header('X-Permitted-Cross-Domain-Policies', 'none')
+
+    // La TV y el `<video>` oculto de AirPlay piden el medio desde otro origen
+    // (la IP de la LAN). Con el `same-origin` de arriba, el navegador bloquea la
+    // carga antes de que empiece. Abrir sólo las rutas de `/stream` es lo mínimo:
+    // la credencial sigue siendo el ticket y sin `RONA_CAST=1` no se abre nada.
+    if (options.cast === true && c.req.path.startsWith('/stream/')) {
+      c.header('Cross-Origin-Resource-Policy', 'cross-origin')
+    }
   }
 }

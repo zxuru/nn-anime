@@ -4,6 +4,7 @@ import { type AppOptions, createApp } from './app'
 import {
   CAST_CONTENT_SECURITY_POLICY,
   CONTENT_SECURITY_POLICY,
+  castContentSecurityPolicy,
   PERMISSIONS_POLICY,
 } from './middleware/security-headers'
 import { SESSION_COOKIE, type Session } from './session'
@@ -99,10 +100,48 @@ describe('política de seguridad de contenido', () => {
 
   test('con el cast encendido, la respuesta lleva la política del cast', async () => {
     const response = await app({
-      cast: { enabled: true, host: '0.0.0.0', token: true },
+      cast: { enabled: true, host: '0.0.0.0', token: true, urls: () => [] },
     }).request(`${BASE}/api/health`, { headers: GOOD_COOKIE })
 
     expect(response.headers.get('content-security-policy')).toBe(CAST_CONTENT_SECURITY_POLICY)
+  })
+
+  test('la política del cast abre `media-src` a la LAN y no a `connect-src`', async () => {
+    const response = await app({
+      cast: {
+        enabled: true,
+        host: '0.0.0.0',
+        token: true,
+        urls: () => [`http://192.168.1.10:${PORT}`],
+      },
+    }).request(`${BASE}/api/health`, { headers: GOOD_COOKIE })
+
+    const policy = response.headers.get('content-security-policy') ?? ''
+    expect(policy).toContain(`media-src 'self' blob: http://192.168.1.10:${PORT}`)
+    expect(policy).toContain(
+      "connect-src 'self' https://www.gstatic.com https://clients3.google.com",
+    )
+    expect(policy).not.toContain("connect-src 'self' http://192.168.1.10")
+  })
+
+  test('sin orígenes de LAN la política del cast no cambia', () => {
+    expect(castContentSecurityPolicy([])).toBe(CAST_CONTENT_SECURITY_POLICY)
+    expect(castContentSecurityPolicy([''])).toBe(CAST_CONTENT_SECURITY_POLICY)
+  })
+
+  test('con el cast, `/stream` se puede pedir desde otro origen; sin él, no', async () => {
+    const conCast = await app({
+      cast: { enabled: true, host: '0.0.0.0', token: true, urls: () => [] },
+    }).request(`${BASE}/stream/ticket`, { headers: GOOD_COOKIE })
+    expect(conCast.headers.get('cross-origin-resource-policy')).toBe('cross-origin')
+
+    const sinCast = await app().request(`${BASE}/stream/ticket`, { headers: GOOD_COOKIE })
+    expect(sinCast.headers.get('cross-origin-resource-policy')).toBe('same-origin')
+
+    const api = await app({
+      cast: { enabled: true, host: '0.0.0.0', token: true, urls: () => [] },
+    }).request(`${BASE}/api/health`, { headers: GOOD_COOKIE })
+    expect(api.headers.get('cross-origin-resource-policy')).toBe('same-origin')
   })
 
   test('sin el cast, la respuesta lleva la política de siempre', async () => {

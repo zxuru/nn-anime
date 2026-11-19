@@ -718,6 +718,9 @@ export const messages: Messages = {
   'player.cast.connected': 'Se está viendo en {device}',
   'player.cast.device': 'la TV',
   'player.cast.error': 'No se pudo transmitir: {message}',
+  'player.airplay': 'Transmitir por AirPlay',
+  'player.airplay.connecting': 'Conectando con AirPlay…',
+  'player.airplay.connected': 'Se está viendo por AirPlay',
   // El modo extendido: llena la ventana de la aplicación sin pedir la pantalla
   // completa del sistema. El nombre lo dice tal cual porque «maximizar» ya
   // significa otra cosa en la ventana de escritorio.

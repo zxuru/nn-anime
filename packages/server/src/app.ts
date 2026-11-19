@@ -42,6 +42,7 @@ import { originGuard } from './middleware/origin-guard'
 import { securityHeaders } from './middleware/security-headers'
 import { sessionGuard } from './middleware/session-guard'
 import { tokenGuard } from './middleware/token-guard'
+import { lanUrls } from './party/lan'
 import { type PartyFetch, registerRemotePartyRoutes } from './party/remote'
 import { registerPartyRoutes } from './party/routes'
 import { PROTECTED_PREFIXES } from './paths'
@@ -334,7 +335,15 @@ export function createApp(options: AppOptions): Hono {
 
   // Primero las cabeceras: se escriben después de `next()`, así que llegan
   // también a las respuestas que cortan los guards.
-  app.use('*', securityHeaders({ cast: options.cast?.enabled === true }))
+  app.use(
+    '*',
+    securityHeaders({
+      cast: options.cast?.enabled === true,
+      ...(options.cast?.enabled === true
+        ? { mediaOrigins: () => (options.cast?.urls ?? lanUrls)(getPort()) }
+        : {}),
+    }),
+  )
 
   // El `Host` se comprueba en **todas** las rutas, incluido `/`: el canje de
   // arranque no es una excepción, y un guard que se salta una ruta deja de ser

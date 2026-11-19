@@ -1230,7 +1230,8 @@ body.player-extendido {
 }
 
 .player__pip,
-.player__cast {
+.player__cast,
+.player__airplay {
   border-color: var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
@@ -1245,14 +1246,17 @@ body.player-extendido {
 .player__pip:hover,
 .player__pip:focus-visible,
 .player__cast:hover,
-.player__cast:focus-visible {
+.player__cast:focus-visible,
+.player__airplay:hover,
+.player__airplay:focus-visible {
   opacity: 1;
   border-color: var(--color-border);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
 }
 
-.player__cast:disabled {
+.player__cast:disabled,
+.player__airplay:disabled {
   opacity: 0.55;
   cursor: progress;
 }
