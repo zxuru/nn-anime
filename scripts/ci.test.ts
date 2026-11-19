@@ -138,6 +138,11 @@ interface TrabajoWorkflow {
   readonly steps?: readonly PasoWorkflow[]
   readonly environment?: unknown
   readonly if?: string
+  readonly strategy?: {
+    readonly matrix?: {
+      readonly include?: readonly Readonly<Record<string, string>>[]
+    }
+  }
 }
 
 interface Workflow {
@@ -321,7 +326,53 @@ describe('la imagen arm64 y el alias latest (R6)', () => {
 })
 
 /**
- * El reloj semanal (R8).
+ * El CI no repite trabajo (R7).
+ *
+ * `docker` corría en todo PR de código y `e2e-fallo` repetía a mano la instalación, las dos cachés
+ * y Chromium del trabajo `e2e`. Lo que se defiende aquí es que la imagen tenga su propia condición
+ * de ruta y que el e2e caído sea un caso de la misma matriz, no una segunda copia de la receta.
+ */
+describe('el CI no repite trabajo (R7)', () => {
+  test('docker corre sólo cuando cambia lo que decide la imagen', () => {
+    const docker = trabajosDe('ci.yml').get('docker')
+
+    expect(docker?.if).toContain('needs.cambios.outputs.docker')
+    expect(docker?.if).not.toContain('outputs.codigo')
+
+    // La condición nueva no sirve si nadie la calcula: su clasificador tiene que nombrar el
+    // Dockerfile y el servidor, que es lo que el ENTRYPOINT ejecuta.
+    const guion = guionDe('ci.yml', 'cambios')
+    expect(guion).toContain('docker=true')
+    expect(guion).toContain('docker=false')
+    expect(guion).toContain('Dockerfile')
+    expect(guion).toContain('packages/server/')
+  })
+
+  test('el e2e del proveedor caído es un caso de la misma matriz', () => {
+    const trabajos = trabajosDe('ci.yml')
+    const e2e = trabajos.get('e2e')
+    const casos = e2e?.strategy?.matrix?.include ?? []
+    const comandos = casos.map((caso) => caso.comando)
+
+    // Ya no hay un segundo trabajo con la receta copiada.
+    expect(trabajos.has('e2e-fallo')).toBe(false)
+
+    expect(comandos).toContain('bun run e2e --shard=1/2')
+    expect(comandos).toContain('bun run e2e --shard=2/2')
+    expect(comandos).toContain('bun run e2e:fallo')
+
+    // Los rastros de cada caso no pueden compartir nombre: se pisarían en el run.
+    const rastros = casos.map((caso) => caso.rastros)
+    expect(new Set(rastros).size).toBe(casos.length)
+
+    // Y la receta se escribe una vez: una sola instalación de Chromium y un solo `bun install`.
+    const guion = (e2e?.steps ?? []).map((paso) => paso.run ?? '').join('\n')
+    expect(guion.match(/bun run e2e:install/g)?.length).toBe(1)
+    expect(guion).toContain('matrix.comando')
+  })
+})
+
+/**
  *
  * Sin `schedule`, `bun audit` y `cargo-deny` sólo corrían cuando alguien abría un PR: un aviso
  * sobre el `Cargo.lock` o el `bun.lock` que ya están en `main` podía esperar meses. Lo que se
