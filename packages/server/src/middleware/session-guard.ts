@@ -50,6 +50,15 @@ export interface SessionGuardOptions {
    * el guard se comporta como antes. Falla cerrado a propósito.
    */
   readonly tickets?: TicketStore | undefined
+  /** Tickets de emisión: la TV no tiene cookie y también es cliente de `/stream`. */
+  readonly castTickets?: TicketStore | undefined
+}
+
+/** ¿El ticket está vivo en alguno de los dos almacenes? */
+function ticketVivo(ticket: string, options: SessionGuardOptions): boolean {
+  return (
+    options.tickets?.resolve(ticket).ok === true || options.castTickets?.resolve(ticket).ok === true
+  )
 }
 
 export function sessionGuard(
@@ -59,7 +68,7 @@ export function sessionGuard(
   return async (c, next) => {
     const ticket = ticketFromPath(c.req.path)
 
-    if (ticket !== undefined && options.tickets?.resolve(ticket).ok === true) {
+    if (ticket !== undefined && ticketVivo(ticket, options)) {
       await next()
 
       return

@@ -31,6 +31,15 @@ const PUBLIC_PATHS: ReadonlySet<string> = new Set(['/healthz', LOGIN_PATH])
 export interface TokenGuardOptions {
   /** Sin almacén de tickets no hay excepción para `mpv`: falla cerrado. */
   readonly tickets?: TicketStore | undefined
+  /** Tickets de emisión: la TV no tiene cookie y también pide `/stream`. */
+  readonly castTickets?: TicketStore | undefined
+}
+
+/** ¿El ticket está vivo en alguno de los dos almacenes? */
+function ticketVivo(ticket: string, options: TokenGuardOptions): boolean {
+  return (
+    options.tickets?.resolve(ticket).ok === true || options.castTickets?.resolve(ticket).ok === true
+  )
 }
 
 function isApiPath(path: string): boolean {
@@ -51,7 +60,7 @@ export function tokenGuard(
     }
 
     const ticket = ticketFromPath(path)
-    if (ticket !== undefined && options.tickets?.resolve(ticket).ok === true) {
+    if (ticket !== undefined && ticketVivo(ticket, options)) {
       await next()
 
       return

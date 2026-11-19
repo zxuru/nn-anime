@@ -54,7 +54,16 @@ describe('emisión y resolución', () => {
     store.issue({ url: URL, headers: {} })
 
     expect(store.size()).toBe(2)
-    expect(Object.keys(store).sort()).toEqual(['issue', 'prune', 'resolve', 'size'])
+    expect(Object.keys(store).sort()).toEqual(['issue', 'prune', 'resolve', 'revoke', 'size'])
+  })
+
+  test('revocar borra el ticket; resolverlo ya no existe', () => {
+    const store = createTicketStore()
+    const ticket = store.issue({ url: URL, headers: {} })
+
+    expect(store.revoke(ticket)).toBe(true)
+    expect(store.resolve(ticket)).toEqual({ ok: false, kind: 'unknown' })
+    expect(store.revoke(ticket)).toBe(false)
   })
 })
 

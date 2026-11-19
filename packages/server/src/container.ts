@@ -135,12 +135,125 @@ function conSenal(options: CallOptions, signal: AbortSignal): CallOptions {
   return { ...options, signal: AbortSignal.any([options.signal, signal]) }
 }
 
+/** Vida de una emisión: cuatro horas, como el ticket que la representa. */
+export const CAST_TTL_S = 4 * 60 * 60
+
+/** Una emisión viva: el ticket del video y cuándo deja de valer. */
+export interface CastSession {
+  readonly id: string
+  readonly videoTicket: string
+  readonly expiresAt: number
+}
+
+/** Las emisiones vivas. El tope es una defensa, no una promesa de producto. */
+export interface CastSessionStore {
+  create(videoTicket: string): CastSession
+  get(id: string): CastSession | undefined
+  revoke(id: string): CastSession | undefined
+  /** Borra las vencidas y devuelve cuántas quitó. */
+  prune(): number
+  /** Cuántas quedan vivas. */
+  size(): number
+}
+
+export interface CastSessionStoreOptions {
+  readonly capacity?: number
+  readonly ttlMs?: number
+  readonly now?: () => number
+  readonly randomId?: () => string
+  /** Se llama al desalojar o vencer: el contenedor revoca el ticket. */
+  readonly onEvict?: (session: CastSession) => void
+}
+
+export function createCastSessionStore(options: CastSessionStoreOptions = {}): CastSessionStore {
+  const capacity = options.capacity ?? 16
+  const ttlMs = options.ttlMs ?? CAST_TTL_S * 1000
+  const now = options.now ?? Date.now
+  const randomId = options.randomId ?? (() => crypto.randomUUID())
+  const sessions = new Map<string, CastSession>()
+
+  const quitar = (id: string): CastSession | undefined => {
+    const session = sessions.get(id)
+    if (session === undefined) return undefined
+
+    sessions.delete(id)
+    options.onEvict?.(session)
+
+    return session
+  }
+
+  return {
+    create(videoTicket) {
+      const at = now()
+
+      // El Map conserva el orden de inserción: la primera es la más vieja.
+      while (sessions.size >= capacity) {
+        const vieja = sessions.keys().next()
+        if (vieja.done === true) break
+
+        quitar(vieja.value)
+      }
+
+      const session: CastSession = {
+        id: randomId(),
+        videoTicket,
+        expiresAt: at + ttlMs,
+      }
+      sessions.set(session.id, session)
+
+      return session
+    },
+
+    get(id) {
+      const session = sessions.get(id)
+      if (session === undefined) return undefined
+
+      if (session.expiresAt <= now()) {
+        quitar(id)
+
+        return undefined
+      }
+
+      return session
+    },
+
+    revoke(id) {
+      return quitar(id)
+    },
+
+    prune() {
+      const at = now()
+      let quitadas = 0
+
+      for (const [id, session] of sessions) {
+        if (session.expiresAt > at) continue
+
+        quitar(id)
+        quitadas += 1
+      }
+
+      return quitadas
+    },
+
+    size: () => sessions.size,
+  }
+}
+
 export interface ServerContainer {
   readonly store: CatalogStore
   readonly revalidator: Revalidator
   readonly queue: WriteQueue
   /** Tickets opacos: el cliente nunca ve una URL del upstream. */
   readonly tickets: TicketStore
+  /**
+   * Tickets de una emisión a la TV.
+   *
+   * Van aparte de los 500 del navegador: una emisión dura un episodio y no
+   * puede competir con los tickets hijos de una playlist.
+   */
+  readonly castTickets: TicketStore
+  /** Sesiones de emisión: agrupan el ticket del video y sus subtítulos. */
+  readonly castSessions: CastSessionStore
   /**
    * Playlists HLS ya reescritas, por ticket.
    *
@@ -254,6 +367,10 @@ export interface ContainerOptions {
   readonly revalidator?: Revalidator
   /** Almacén de tickets. Se inyecta para poder fijar la capacidad en un test. */
   readonly tickets?: TicketStore
+  /** Almacén de tickets de emisión; separado del de 500. */
+  readonly castTickets?: TicketStore
+  /** Sesiones de emisión; inyectable para fijar reloj o capacidad. */
+  readonly castSessions?: CastSessionStore
   /** Caché de playlists. Se inyecta para poder fijar su TTL en un test. */
   readonly playlists?: PlaylistCache
   /** Si hay mpv en el `PATH`. Lo decide el arranque, que puede esperar. */
@@ -287,6 +404,17 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     ...(options.now === undefined ? {} : { now: options.now }),
   })
   const tickets = options.tickets ?? createTicketStore()
+  const castTickets = options.castTickets ?? createTicketStore({ capacity: 16, ttlS: CAST_TTL_S })
+  const castSessions =
+    options.castSessions ??
+    createCastSessionStore({
+      capacity: 16,
+      ttlMs: CAST_TTL_S * 1000,
+      ...(options.now === undefined ? {} : { now: options.now }),
+      onEvict: (session) => {
+        castTickets.revoke(session.videoTicket)
+      },
+    })
   // La vida del índice de una playlist es la del ticket que la nombra, no la
   // frescura de su texto: una reproducción entera pide segmentos contra él. Con
   // los diez segundos por defecto, todos los segmentos pasaban a ser 404 a los
@@ -693,6 +821,8 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     revalidator,
     queue,
     tickets,
+    castTickets,
+    castSessions,
     playlists,
     mpv,
     presence,

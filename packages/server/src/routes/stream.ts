@@ -219,24 +219,33 @@ function contentsOf(
 ):
   | { readonly ok: true; readonly url: string; readonly headers: Readonly<Record<string, string>> }
   | { readonly ok: false; readonly response: Response } {
-  const salida = options.container.tickets.resolve(ticket)
-
-  if (!salida.ok) {
-    return {
-      ok: false,
-      response: Response.json(
-        errorResponseSchema.parse({
-          error:
-            salida.kind === 'expired'
-              ? 'el ticket caducó; vuelve a resolver el stream'
-              : 'ese ticket no existe',
-        }),
-        { status: salida.kind === 'expired' ? 410 : 404 },
-      ),
-    }
+  // La emisión se busca primero: es una credencial distinta de la del navegador
+  // y puede sobrevivir a la caducidad de la otra. Si no está en ninguna, se
+  // prefiere el «vencido» de la que sí existió, que es el diagnóstico útil.
+  const deEmision = options.container.castTickets.resolve(ticket)
+  if (deEmision.ok) {
+    return { ok: true, url: deEmision.contents.url, headers: deEmision.contents.headers }
   }
 
-  return { ok: true, url: salida.contents.url, headers: salida.contents.headers }
+  const normal = options.container.tickets.resolve(ticket)
+  if (normal.ok) {
+    return { ok: true, url: normal.contents.url, headers: normal.contents.headers }
+  }
+
+  const kind = deEmision.kind === 'expired' || normal.kind === 'expired' ? 'expired' : 'unknown'
+
+  return {
+    ok: false,
+    response: Response.json(
+      errorResponseSchema.parse({
+        error:
+          kind === 'expired'
+            ? 'el ticket caducó; vuelve a resolver el stream'
+            : 'ese ticket no existe',
+      }),
+      { status: kind === 'expired' ? 410 : 404 },
+    ),
+  }
 }
 
 /**

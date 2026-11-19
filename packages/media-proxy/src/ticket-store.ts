@@ -45,6 +45,8 @@ export interface TicketStore {
   issue(contents: TicketContents, ttlS?: number): string
   /** Resuelve un ticket. Un vencido da `expired`; uno que no existe, `unknown`. */
   resolve(ticket: string): TicketOutcome
+  /** Revoca una entrada viva. `false` si no existe o ya venció. */
+  revoke(ticket: string): boolean
   /** Cuántos tickets vivos hay. No hay forma de listarlos, a propósito. */
   size(): number
   /** Borra los vencidos y devuelve cuántos quitó. */
@@ -140,6 +142,20 @@ export function createTicketStore(options: TicketStoreOptions = {}): TicketStore
       entries.set(ticket, entry)
 
       return { ok: true, contents: entry.contents }
+    },
+
+    revoke(ticket) {
+      const entry = entries.get(ticket)
+      if (entry === undefined) return false
+      if (expired(entry, now())) {
+        entries.delete(ticket)
+
+        return false
+      }
+
+      entries.delete(ticket)
+
+      return true
     },
 
     size: () => entries.size,
