@@ -1158,11 +1158,21 @@ body.player-extendido {
   pointer-events: none;
 }
 
+/*
+ * La fila de mandos, en una sola línea.
+ *
+ * El hueco es el compacto de 6 px y no el de 8: la fila ganó el mando de la
+ * reproducción automática y en una columna de 711 px —una ventana de 1280— se
+ * quedaba a dos píxeles de partirse. Y partirse no es sólo feo: la banda de
+ * mandos mide lo que un renglón —`--player-band-height`— y es lo que despeja el
+ * botón de saltar y la tarjeta del siguiente; con dos renglones, el botón se
+ * apoya encima del carril y la prueba del salto lo mide.
+ */
 .player__buttons {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--gap-compact);
 }
 
 /*
@@ -1200,6 +1210,27 @@ body.player-extendido {
 .player__controls .button.player__control:not(.button--primary):hover {
   border-color: var(--color-border);
   color: var(--color-text);
+}
+
+/*
+ * «Que siga solo», encendido.
+ *
+ * Es el único mando de la fila que se queda encendido —`aria-pressed`— y la
+ * excepción a las dos reglas de arriba: sobre el acento, la tinta de overlay y la
+ * del tema se leen las dos mal. El selector repite `.player__controls` y `.button`
+ * para pesar más que la regla del hover de la fila; sin eso el fondo volvía a la
+ * superficie y el dibujo se quedaba en negro sobre negro.
+ */
+.player__controls .button.player__autoplay[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.player__controls .button.player__autoplay[aria-pressed="true"]:hover:not(:disabled) {
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent-strong);
+  color: var(--color-accent-contrast);
 }
 
 /* El «10» de los saltos, al lado de la flecha: lo que dice cuántos segundos. */
@@ -1243,16 +1274,31 @@ body.player-extendido {
     color var(--transition-fast);
 }
 
-.player__pip:hover,
-.player__pip:focus-visible,
-.player__cast:hover,
-.player__cast:focus-visible,
-.player__airplay:hover,
-.player__airplay:focus-visible {
+/*
+ * El puntero enciende estos tres con el acento.
+ *
+ * El selector lleva `.player__acciones .button` delante porque no basta con
+ * `.player__pip:hover`: `.button:hover:not(:disabled)` pesa más y dejaba el fondo
+ * en la superficie. El par se partía —fondo del botón general, tinta de contraste
+ * del acento— y el dibujo quedaba casi negro sobre casi negro al pasar el ratón.
+ */
+.player__acciones .button.player__pip:hover,
+.player__acciones .button.player__pip:focus-visible,
+.player__acciones .button.player__cast:hover,
+.player__acciones .button.player__cast:focus-visible,
+.player__acciones .button.player__airplay:hover,
+.player__acciones .button.player__airplay:focus-visible {
   opacity: 1;
-  border-color: var(--color-border);
+  border-color: var(--color-accent);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
+}
+
+/* El de la ventana flotante, además, puede estar encendido: el acento se queda
+   y el puntero sólo lo sube de tono. */
+.player__acciones .button.player__pip[aria-pressed="true"]:hover {
+  background: var(--color-accent-strong);
+  border-color: var(--color-accent-strong);
 }
 
 .player__cast:disabled,
@@ -1731,8 +1777,8 @@ body.player-extendido {
   text-align: left;
 }
 
-/* La velocidad, en fila y con salto. Apilada ocupaba cinco renglones y empujaba
-   la reproducción automática bajo el pliegue; en fila son dos y se elige igual. */
+/* La velocidad, en fila y con salto. Apilada ocupaba cinco renglones; en fila
+   son dos y se elige igual. */
 .player__menu-list--velocidad {
   flex-flow: row wrap;
 }
@@ -1750,72 +1796,6 @@ body.player-extendido {
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-}
-
-/*
- * El interruptor del menú.
- *
- * Es un `<input type="checkbox">` de verdad —el que guarda el estado y el que se
- * anuncia— vestido de interruptor: un carril con el borde duro de la interfaz y
- * un tirador cuadrado que se mueve. Los radios son cero, como todo lo demás, y el
- * carril se enciende con el acento. La etiqueta entera es el objetivo, no el
- * cuadradito.
- */
-.player__menu-switch {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: var(--control-size);
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-/* La caja del carril: lo que mide el mando, para poder colocar el tirador encima
-   sin que la caja del texto se corra. No se encoge —`flex: 0 0 auto`—: con el
-   texto largo al lado, el carril se quedaba en 42 px y el tirador se salía del
-   carril al encenderse. */
-.player__switch-box {
-  position: relative;
-  display: inline-flex;
-  flex: 0 0 auto;
-  width: var(--switch-width);
-  height: var(--switch-height);
-}
-
-.player__switch {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  border: var(--border-width-strong) solid var(--color-border);
-  background: var(--color-surface);
-  appearance: none;
-  cursor: pointer;
-  transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.player__switch:checked {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
-}
-
-.player__switch-knob {
-  position: absolute;
-  top: var(--border-width-strong);
-  left: var(--border-width-strong);
-  width: var(--switch-knob);
-  height: var(--switch-knob);
-  background: var(--color-text-dim);
-  transition: transform var(--transition-fast);
-  pointer-events: none;
-}
-
-/* Encendido: el tirador al otro extremo y en el color que contrasta con el
-   carril encendido. Lo dice el estado de la casilla, que es la que manda. */
-.player__switch:checked + .player__switch-knob {
-  background: var(--color-accent-contrast);
-  transform: translateX(var(--switch-travel));
 }
 
 /*

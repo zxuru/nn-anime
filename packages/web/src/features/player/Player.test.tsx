@@ -397,6 +397,32 @@ describe('la velocidad y la ventana flotante', () => {
   })
 
   /**
+   * La reproducción automática, en la fila y no en el menú.
+   *
+   * Se toca al terminar un capítulo, no al configurar la aplicación, y dentro del
+   * menú sólo se encontraba abriéndolo. Es un interruptor y no una acción: lleva
+   * `aria-pressed` y su nombre no cambia con el estado, como el modo compatible.
+   * Sin pantalla que ofrezca el ajuste no se pinta, igual que antes.
+   */
+  test('la reproducción automática vive en la fila, no en el menú', () => {
+    const html = render(<Player url="/stream/abc" kind="file" autoplay onAutoplay={() => {}} />)
+
+    expect(html).toContain('class="button player__control player__autoplay"')
+    expect(html).toContain('aria-label="Reproducción automática"')
+    expect(html).toContain('aria-pressed="true"')
+    // Delante de los ajustes en la fila —no dentro de su menú— y sin casilla en
+    // él: un mando, no dos formas de cambiar lo mismo.
+    expect(html.indexOf('player__autoplay')).toBeLessThan(html.indexOf('player__settings'))
+    expect(html).not.toContain('player__switch')
+
+    expect(
+      render(<Player url="/stream/abc" kind="file" autoplay={false} onAutoplay={() => {}} />),
+    ).toContain('aria-pressed="false"')
+
+    expect(render(<Player url="/stream/abc" kind="file" />)).not.toContain('player__autoplay')
+  })
+
+  /**
    * El picture-in-picture no se ofrece donde no existe.
    *
    * En el render de servidor no hay `document`, así que el mando no aparece. El

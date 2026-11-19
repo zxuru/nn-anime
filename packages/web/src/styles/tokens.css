@@ -518,17 +518,6 @@
   --control-size-compact: 2.5rem;
   --gap-compact: 6px;
   /**
-   * El interruptor de las preferencias.
-   *
-   * Carril, tirador y lo que viaja el tirador: el ancho menos el tirador menos los
-   * dos bordes del carril. Con los tres en tokens, mover el carril no descoloca el
-   * tirador.
-   */
-  --switch-width: 2.75rem;
-  --switch-height: 1.5rem;
-  --switch-knob: 1.25rem;
-  --switch-travel: calc(var(--switch-width) - var(--switch-knob) - 2 * var(--border-width-strong));
-  /**
    * El reproductor.
    *
    * La barra de progreso tiene tres alturas distintas a propósito: el carril

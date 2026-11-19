@@ -15,6 +15,7 @@
 
 import {
   Expand,
+  ListVideo,
   Maximize,
   Minimize,
   Pause,
@@ -165,6 +166,26 @@ export function IconoPantallaCompleta(props: GlifoProps): ReactNode {
 export function IconoSalirPantallaCompleta(props: GlifoProps): ReactNode {
   return (
     <Minimize
+      className={props.className ?? 'player__icon'}
+      size={SIZE}
+      strokeWidth={2}
+      aria-hidden="true"
+      focusable="false"
+    />
+  )
+}
+
+/**
+ * «Que siga solo»: la lista con su triángulo.
+ *
+ * No es el triángulo de reproducir ni la flecha de adelantar diez segundos: al
+ * lado de esos dos, el mando encendido se lee como «reproducir» y no como «el
+ * siguiente empieza solo». La lista dice que lo que se encadena es la cola de
+ * episodios.
+ */
+export function IconoAutoplay(props: GlifoProps): ReactNode {
+  return (
+    <ListVideo
       className={props.className ?? 'player__icon'}
       size={SIZE}
       strokeWidth={2}

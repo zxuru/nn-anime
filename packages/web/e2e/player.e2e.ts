@@ -1,5 +1,57 @@
-import { expect, type Page, test } from '@playwright/test'
+import { expect, type Locator, type Page, test } from '@playwright/test'
 import { entrar } from './fixtures'
+
+/**
+ * Los tres canales de un color hex, para compararlos con el `rgb()` del navegador.
+ */
+function canalesDe(hex: string): readonly [number, number, number] {
+  const digitos = /^#([0-9a-f]{6})$/i.exec(hex.trim())?.[1] ?? '000000'
+
+  return [
+    Number.parseInt(digitos.slice(0, 2), 16),
+    Number.parseInt(digitos.slice(2, 4), 16),
+    Number.parseInt(digitos.slice(4, 6), 16),
+  ]
+}
+
+/**
+ * El par de un mando tal como se ve: fondo, tinta y su contraste de WCAG.
+ *
+ * Sirve para el estado normal y para el del puntero, que es donde se rompen las
+ * reglas que se pisan: un fondo que vuelve a la superficie y una tinta que se
+ * queda la del acento dejan el dibujo negro sobre negro, y las dos reglas, por
+ * separado, parecen correctas.
+ */
+async function contrasteDe(
+  mando: Locator,
+): Promise<{ fondo: string; tinta: string; ratio: number }> {
+  return mando.evaluate((nodo) => {
+    type RGB = readonly [number, number, number]
+    const canales = (valor: string): RGB => {
+      const numeros = (valor.match(/[\d.]+/g) ?? []).map(Number)
+
+      return [numeros[0] ?? 0, numeros[1] ?? 0, numeros[2] ?? 0]
+    }
+    const canal = (valor: number): number => {
+      const c = valor / 255
+
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+    }
+    const luminancia = ([r, g, b]: RGB): number =>
+      0.2126 * canal(r) + 0.7152 * canal(g) + 0.0722 * canal(b)
+
+    const estilo = getComputedStyle(nodo)
+    const fondo = canales(estilo.backgroundColor)
+    const tinta = canales(estilo.color)
+    const [alto, bajo] = [luminancia(fondo), luminancia(tinta)].sort((x, y) => y - x)
+
+    return {
+      fondo: estilo.backgroundColor,
+      tinta: estilo.color,
+      ratio: ((alto ?? 0) + 0.05) / ((bajo ?? 0) + 0.05),
+    }
+  })
+}
 
 /**
  * El reproductor, en un navegador de verdad.
@@ -13,6 +65,40 @@ import { entrar } from './fixtures'
  * La excepción de loopback que el arnés abre es la que permite que el proxy sirva
  * un archivo local; sin ella, lo rechaza como rechaza todo lo demás.
  */
+
+/**
+ * El doble de la API de ventana flotante.
+ *
+ * Chromium sin pantalla puede no ofrecer PiP, así que el soporte y el movimiento
+ * se simulan **antes** de que cargue la aplicación.
+ */
+async function simularVentanaFlotante(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    interface VentanaConPip extends Window {
+      __pipElemento?: HTMLVideoElement
+    }
+
+    const ventana = window as unknown as VentanaConPip
+
+    Object.defineProperty(document, 'pictureInPictureEnabled', {
+      configurable: true,
+      value: true,
+    })
+    Object.defineProperty(document, 'pictureInPictureElement', {
+      configurable: true,
+      get: () => ventana.__pipElemento ?? null,
+    })
+    HTMLVideoElement.prototype.requestPictureInPicture = async function (this: HTMLVideoElement) {
+      ventana.__pipElemento = this
+      this.dispatchEvent(new Event('enterpictureinpicture'))
+    }
+    document.exitPictureInPicture = async () => {
+      const video = ventana.__pipElemento
+      ventana.__pipElemento = undefined
+      video?.dispatchEvent(new Event('leavepictureinpicture'))
+    }
+  })
+}
 
 test.describe('el reproductor', () => {
   /**
@@ -810,9 +896,9 @@ test.describe('el reproductor', () => {
     await expect(menu).toBeVisible()
     await expect(abrir).toHaveAttribute('aria-expanded', 'true')
 
-    // El conmutador de audio cabe entero dentro del menú. En fila necesitaba
-    // 235 px en una caja de 198 y «DOBLADO» se cortaba; se apila y se mide que
-    // no quede ni un píxel de desbordamiento horizontal.
+    // El contenido cabe a lo ancho: nada se sale de la caja del menú y no hay
+    // desplazamiento horizontal. (El conmutador de audio que motivó esta medida
+    // se fue a la fila con T403; lo que se mide es el menú que queda.)
     const medidas = await menu.evaluate((nodo) => ({
       scrollWidth: nodo.scrollWidth,
       clientWidth: nodo.clientWidth,
@@ -822,25 +908,24 @@ test.describe('el reproductor', () => {
     expect(medidas.scrollWidth).toBe(medidas.clientWidth)
 
     const cajaMenu = await menu.boundingBox()
-    const cajaAudio = await menu.locator('.audio-switch').boundingBox()
-    expect(cajaAudio).not.toBeNull()
-    expect((cajaAudio?.x ?? 0) + (cajaAudio?.width ?? 0)).toBeLessThanOrEqual(
+    const cajaVelocidad = await menu.locator('.player__menu-list--velocidad').boundingBox()
+    expect(cajaVelocidad).not.toBeNull()
+    expect((cajaVelocidad?.x ?? 0) + (cajaVelocidad?.width ?? 0)).toBeLessThanOrEqual(
       (cajaMenu?.x ?? 0) + (cajaMenu?.width ?? 0),
     )
 
-    // El menú puede desplazarse —creció con la velocidad y el PiP—, pero lo que
-    // se toca al abrirlo tiene que verse **sin desplazar**: el audio y la casilla
-    // de «el siguiente empieza solo». Antes se medía el alto total y eso ya no
-    // es cierto con más ajustes; lo que importa es que no queden bajo el pliegue.
-    const cajaAutoplay = await menu.locator('.player__menu-switch').boundingBox()
-    expect(cajaAutoplay).not.toBeNull()
+    // El menú puede desplazarse —creció con la velocidad y los ajustes—, pero lo
+    // que se toca al abrirlo tiene que verse **sin desplazar**: la velocidad, que
+    // es lo primero. Antes se medía el alto total y eso ya no es cierto con más
+    // ajustes; lo que importa es que no quede bajo el pliegue.
+    expect((cajaVelocidad?.y ?? 0) + (cajaVelocidad?.height ?? 0)).toBeLessThanOrEqual(
+      (cajaMenu?.y ?? 0) + (cajaMenu?.height ?? 0) + 1,
+    )
 
-    for (const caja of [cajaAudio, cajaAutoplay]) {
-      expect(caja?.y ?? 0).toBeGreaterThanOrEqual((cajaMenu?.y ?? 0) - 1)
-      expect((caja?.y ?? 0) + (caja?.height ?? 0)).toBeLessThanOrEqual(
-        (cajaMenu?.y ?? 0) + (cajaMenu?.height ?? 0) + 1,
-      )
-    }
+    // Y la reproducción automática ya no vive aquí: se toca en la fila de mandos
+    // y su mando sigue a la vista con el menú abierto.
+    await expect(menu.getByRole('button', { name: 'Reproducción automática' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Reproducción automática' })).toBeVisible()
 
     await page.keyboard.press('Escape')
     await expect(menu).toBeHidden()
@@ -863,14 +948,21 @@ test.describe('el reproductor', () => {
    * que las dos copias escriban en el mismo sitio: al pulsar la del menú, la de
    * la fila queda marcada y se pide **otro stream** al servidor.
    */
-  test('cambiar el audio pide el otro stream, desde el menú o desde la fila', async ({ page }) => {
+  /**
+   * El audio se cambia desde la fila y pide el otro stream.
+   *
+   * El selector del menú se retiró (T403: era el mismo ajuste con dos nombres y
+   * dos estados), así que la comprobación de que los dos caminos dicen lo mismo
+   * no tiene segundo camino: queda el de la fila, que es el que manda el modo a
+   * la resolución.
+   */
+  test('cambiar el audio pide el otro stream', async ({ page }) => {
     await entrar(page)
     await page.goto('/watch/fixture/aurora-nocturna%233')
 
     await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
 
     const fila = page.locator('.watch__nav')
-    const menu = page.locator('.player__menu')
 
     await expect(fila.getByRole('button', { name: 'Subtitulado' })).toHaveAttribute(
       'aria-pressed',
@@ -883,18 +975,16 @@ test.describe('el reproductor', () => {
         (solicitud.postData() ?? '').includes('"mode":"dub"'),
     )
 
-    await page.getByRole('button', { name: 'Ajustes' }).click()
-    await menu.getByRole('button', { name: 'Doblado' }).click()
+    await fila.getByRole('button', { name: 'Doblado' }).click()
     await peticion
 
-    await expect(menu.getByRole('button', { name: 'Doblado' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
     await expect(fila.getByRole('button', { name: 'Doblado' })).toHaveAttribute(
       'aria-pressed',
       'true',
     )
+    await expect(
+      page.locator('.player__menu').getByRole('button', { name: 'Doblado' }),
+    ).toHaveCount(0)
   })
 
   /**
@@ -1539,23 +1629,23 @@ test.describe('la lista, el progreso y el siguiente', () => {
   /**
    * Y se puede apagar del todo.
    *
-   * El interruptor vive en los ajustes del reproductor y lo que guarda es una
-   * preferencia del navegador: apagado, el episodio termina y no pasa nada.
+   * El mando vive en la fila del reproductor —fuera del menú, que es donde se
+   * toca— y lo que guarda es una preferencia del navegador: apagado, el episodio
+   * termina y no pasa nada.
    */
-  test('la reproducción automática se apaga desde los ajustes', async ({ page }) => {
+  test('la reproducción automática se apaga desde la fila', async ({ page }) => {
     await entrar(page)
     await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna')
 
     await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
 
-    await page.getByRole('button', { name: 'Ajustes' }).click()
-    const casilla = page.getByRole('checkbox', { name: 'Reproducción automática' })
-    await expect(casilla).toBeChecked()
-    await casilla.uncheck()
+    const mando = page.getByRole('button', { name: 'Reproducción automática' })
+    await expect(mando).toHaveAttribute('aria-pressed', 'true')
+    await mando.click()
+    await expect(mando).toHaveAttribute('aria-pressed', 'false')
 
     expect(await page.evaluate(() => localStorage.getItem('rona:autoplay'))).toBe('no')
 
-    await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Silenciar' }).click()
     await page.getByRole('button', { name: 'Reproducir' }).click()
     await page.locator('video').evaluate((elemento: HTMLVideoElement) => {
@@ -1981,6 +2071,17 @@ test.describe('la ventana estrecha', () => {
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     )
     expect(desborde).toBeLessThanOrEqual(0)
+
+    // El mando de seguir solo cabe en la fila: el desborde que provocaba un mando
+    // más se pagó con el total del reloj, que en un teléfono se queda en la
+    // posición, no estrechando los objetivos ni quitando mandos.
+    await expect(page.locator('.player__buttons .player__autoplay')).toHaveCount(1)
+    await expect(page.locator('.player__time')).not.toContainText('/')
+
+    // Y la fila sigue en un renglón: la banda mide lo que un renglón y es lo que
+    // despeja el botón de saltar.
+    const fila = await page.locator('.player__buttons').boundingBox()
+    expect(fila?.height ?? 0).toBeLessThan(48)
   })
 
   /**
@@ -2122,42 +2223,50 @@ test.describe('la ventana estrecha', () => {
   })
 
   /**
-   * El interruptor, de interruptor.
+   * El mando de «que siga solo», encendido.
    *
-   * La casilla nativa sigue siendo la que guarda el estado —y la que se anuncia—,
-   * pero mide como un mando y su tirador se mueve: es lo que se ve. Se mide el
-   * tirador y no la casilla porque el dibujo es lo que hay que comprobar.
+   * Vive en la fila y no en el menú, mide como el resto de mandos y su estado se
+   * ve: encendido pinta el acento y el dibujo en la tinta que contrasta con él.
+   * El par se mide compuesto —fondo y tinta ya calculados—, que es lo que se ve;
+   * una regla de fondo y otra de tinta que no se hablan dejan el dibujo negro
+   * sobre negro.
    */
-  test('el interruptor de reproducción automática se mueve', async ({ page }) => {
+  test('el mando de seguir solo se pinta encendido en la fila', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 768 })
     await entrar(page)
     await page.goto('/watch/fixture/aurora-nocturna%233?anime=aurora-nocturna&n=3')
 
     await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
-    await page.getByRole('button', { name: 'Ajustes' }).click()
 
-    const casilla = page.getByRole('checkbox', { name: 'Reproducción automática' })
-    const tirador = page.locator('.player__switch-knob')
+    const mando = page.locator('.player__autoplay')
+    await expect(mando).toBeVisible()
+    await expect(mando).toHaveAttribute('aria-pressed', 'true')
 
-    await expect(casilla).toBeChecked()
+    // En la fila, no en el menú: se alcanza sin abrir nada.
+    await expect(page.locator('.player__buttons .player__autoplay')).toHaveCount(1)
+    await expect(page.locator('.player__menu .player__autoplay')).toHaveCount(0)
 
-    const encendido = await tirador.boundingBox()
-    await casilla.uncheck()
-    await expect(casilla).not.toBeChecked()
-
-    // El tirador viaja de un extremo al otro. Se pregunta hasta que llega: el
-    // movimiento es una transición, y medirlo justo al soltar la casilla lo pilla
-    // a medio camino.
-    await expect
-      .poll(async () => Math.abs(((await tirador.boundingBox())?.x ?? 0) - (encendido?.x ?? 0)), {
-        timeout: 5000,
-      })
-      .toBeGreaterThanOrEqual(16)
-
-    // Y la casilla mide como un mando, no como el cuadradito nativo.
-    const caja = await casilla.boundingBox()
+    const caja = await mando.boundingBox()
     expect(caja?.width ?? 0).toBeCloseTo(44, 0)
-    expect(caja?.height ?? 0).toBeCloseTo(24, 0)
+    expect(caja?.height ?? 0).toBeCloseTo(44, 0)
+
+    const acento = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--color-accent'),
+    )
+    const fondoAcento = `rgb(${canalesDe(acento).join(', ')})`
+
+    // El fondo es el acento del tema, ya asentado: el cambio de estado se anima y
+    // leerlo en el primer fotograma mide la transición, no el color.
+    await expect.poll(async () => (await contrasteDe(mando)).fondo).toBe(fondoAcento)
+
+    // Y el dibujo se lee sobre él.
+    expect((await contrasteDe(mando)).ratio).toBeGreaterThanOrEqual(4.5)
+
+    // Apagado deja de pintarlo: el fondo vuelve al que le toque —la superficie,
+    // o el realce si el puntero se quedó encima—, nunca el acento.
+    await mando.click()
+    await expect(mando).toHaveAttribute('aria-pressed', 'false')
+    await expect.poll(async () => (await contrasteDe(mando)).fondo).not.toBe(fondoAcento)
   })
 })
 
@@ -2528,31 +2637,7 @@ test.describe('el modo extendido', () => {
    * los eventos del video y que el nombre diga la verdad.
    */
   test('la ventana flotante se ofrece, entra y sale', async ({ page }) => {
-    await page.addInitScript(() => {
-      interface VentanaConPip extends Window {
-        __pipElemento?: HTMLVideoElement
-      }
-
-      const ventana = window as unknown as VentanaConPip
-
-      Object.defineProperty(document, 'pictureInPictureEnabled', {
-        configurable: true,
-        value: true,
-      })
-      Object.defineProperty(document, 'pictureInPictureElement', {
-        configurable: true,
-        get: () => ventana.__pipElemento ?? null,
-      })
-      HTMLVideoElement.prototype.requestPictureInPicture = async function (this: HTMLVideoElement) {
-        ventana.__pipElemento = this
-        this.dispatchEvent(new Event('enterpictureinpicture'))
-      }
-      document.exitPictureInPicture = async () => {
-        const video = ventana.__pipElemento
-        ventana.__pipElemento = undefined
-        video?.dispatchEvent(new Event('leavepictureinpicture'))
-      }
-    })
+    await simularVentanaFlotante(page)
 
     await entrar(page)
     await page.goto('/watch/fixture/aurora-nocturna')
@@ -2569,6 +2654,39 @@ test.describe('el modo extendido', () => {
     await boton.click()
     await expect(boton).toHaveAttribute('aria-pressed', 'false')
     await expect(boton).toHaveAttribute('aria-label', 'Ventana flotante')
+  })
+
+  /**
+   * El mando se enciende con el puntero, no se apaga.
+   *
+   * Tenía el fondo y la tinta en dos reglas que no se hablaban: el fondo volvía a
+   * la superficie del botón general y la tinta se quedaba la del acento. Al pasar
+   * el ratón, el dibujo quedaba casi negro sobre casi negro —1,4:1 medido— y el
+   * mando se perdía justo cuando se iba a pulsar. Se mide el par ya pintado.
+   */
+  test('el puntero enciende la ventana flotante con el acento', async ({ page }) => {
+    // En el tema oscuro, que es donde se rompía: la superficie y la tinta del
+    // acento son las dos casi negras, y el par descompuesto no se lee.
+    await page.emulateMedia({ colorScheme: 'dark' })
+
+    await simularVentanaFlotante(page)
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    const boton = page.locator('.player__pip')
+    await expect(boton).toBeVisible({ timeout: 10_000 })
+
+    const acento = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--color-accent'),
+    )
+
+    await boton.hover()
+
+    await expect
+      .poll(async () => (await contrasteDe(boton)).fondo)
+      .toBe(`rgb(${canalesDe(acento).join(', ')})`)
+    expect((await contrasteDe(boton)).ratio).toBeGreaterThanOrEqual(4.5)
   })
 
   /**
