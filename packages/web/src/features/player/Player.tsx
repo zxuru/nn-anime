@@ -32,7 +32,6 @@ import { Airplay, Cast, PictureInPicture2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
-import { AudioModeSwitch } from './AudioModeSwitch'
 import { useCastControl } from './cast/useCastControl'
 import { useRemotePlayback } from './cast/useRemotePlayback'
 import {
@@ -515,9 +514,13 @@ export function Player(props: PlayerProps): ReactNode {
     : t(DEFAULT_LOCALE, 'player.mute')
 
   /**
-   * El menú de ajustes: el volumen cuando no cabe en la fila, el audio, el
-   * reproductor externo, el modo compatible, los subtítulos, la reproducción
-   * automática y la ayuda del teclado.
+   * El menú de ajustes: el volumen cuando no cabe en la fila, el reproductor
+   * externo, el modo compatible, los subtítulos, la reproducción automática y la
+   * ayuda del teclado.
+   *
+   * El audio no está aquí: el conmutador de subtitulado y doblado vive fuera del
+   * reproductor, en la fila de mandos, y repetirlo en el menú daba dos mandos con
+   * el mismo nombre accesible y dos formas de elegir lo mismo.
    *
    * Se queda en este archivo, y no en un componente propio, porque el menú
    * cerrado sigue en el documento —es lo que permite animar la salida— y su
@@ -552,13 +555,6 @@ export function Player(props: PlayerProps): ReactNode {
         aria-hidden={!menu}
         inert={!menu}
       >
-        {props.mode === undefined || props.onMode === undefined ? null : (
-          <div className="player__menu-block">
-            <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.audio')}</p>
-            <AudioModeSwitch mode={props.mode} onMode={props.onMode} />
-          </div>
-        )}
-
         {/*
           La reproducción automática va **antes** que los ajustes de uso
           ocasional: con el menú creciendo, esta casilla tiene que seguir a la

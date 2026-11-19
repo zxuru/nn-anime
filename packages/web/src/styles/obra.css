@@ -2308,9 +2308,9 @@ body.player-extendido {
  *
  * Dos botones pegados dentro de un marco, como un interruptor de dos
  * posiciones: el activo lleva el color de acción y el otro queda apagado, así
- * que el estado se lee de un vistazo sin abrir ningún menú. Es el mismo control
- * que aparece dentro del menú de ajustes, y por eso vive en una clase propia y
- * no en la de los modos de la ficha.
+ * que el estado se lee de un vistazo sin abrir nada. Vive fuera del menú de
+ * ajustes del reproductor —en la fila de mandos de debajo— porque es lo que se
+ * cambia a menudo, y por eso la clase es propia y no la de los modos de la ficha.
  */
 .audio-switch {
   display: inline-flex;
@@ -2353,37 +2353,6 @@ body.player-extendido {
 .audio-switch__option[aria-pressed="true"] {
   background: var(--color-accent);
   color: var(--color-accent-contrast);
-}
-
-/*
- * Dentro del menú, el conmutador se apila.
- *
- * El menú deja 198 px útiles y el par «SUBTITULADO | DOBLADO» necesita 235: en
- * fila, el segundo se cortaba («DOBLAD») y el popover ganaba un eje horizontal
- * escondido. En columna los dos caben enteros y el conmutador se lee como el
- * resto de los bloques del menú, que ya son filas. La copia de debajo del video
- * sigue en fila, que es donde hay ancho para ella.
- *
- * Se apilan los botones y **no** se ensancha el menú: a 320 px el popover se
- * ancla al engranaje y un ancho mayor lo sacaría por el borde izquierdo.
- */
-.player__menu .audio-switch {
-  flex-direction: column;
-  align-items: stretch;
-  inline-size: 100%;
-}
-
-.player__menu .audio-switch__item {
-  display: block;
-}
-
-.player__menu .audio-switch__option {
-  inline-size: 100%;
-}
-
-.player__menu .audio-switch__item + .audio-switch__item .audio-switch__option {
-  border-top: var(--border-width-strong) solid var(--color-border);
-  border-left: 0;
 }
 
 /*

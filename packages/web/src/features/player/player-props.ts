@@ -11,7 +11,6 @@
 import type { SkipInterval } from '@rona/core/schema'
 import type { ReactNode } from 'react'
 import type { SafeTrack } from './usePlayer'
-import type { PlayMode } from './watch-route'
 
 /**
  * El salto que se ofrece ahora mismo.
@@ -45,18 +44,6 @@ export interface PlayerProps {
    * pedirle una imagen a un sitio que no dijo tenerla.
    */
   readonly poster?: string | undefined
-  /**
-   * El modo de audio con el que se está viendo, si quien monta el reproductor lo
-   * sabe.
-   *
-   * Va aquí y no dentro del reproductor porque el estado es de la pantalla: el
-   * mismo valor decide qué stream se pide al servidor («doblado», «subtitulado»)
-   * y la fila de mandos de debajo del video lo pinta. El menú de ajustes lo
-   * repite porque es donde se busca cuando no se ve, y las dos copias escriben en
-   * el mismo sitio.
-   */
-  readonly mode?: PlayMode | undefined
-  readonly onMode?: ((mode: PlayMode) => void) | undefined
   /** Abrir el episodio en el reproductor externo. Sin esto no se ofrece. */
   readonly onMpv?: (() => void) | undefined
   /**

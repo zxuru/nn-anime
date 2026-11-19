@@ -381,6 +381,22 @@ describe('la velocidad y la ventana flotante', () => {
   })
 
   /**
+   * El audio no se repite en el menú.
+   *
+   * El conmutador de subtitulado y doblado vive fuera del reproductor, en la fila
+   * de mandos de la pantalla, y es el único: una segunda copia en el menú eran dos
+   * listas con el mismo nombre accesible y dos formas de cambiar lo mismo, que el
+   * ojo lee como un ajuste distinto y puede desincronizarse del de fuera.
+   */
+  test('el menú de ajustes no repite el conmutador de audio', () => {
+    const html = render(<Player url="/stream/abc" kind="file" />)
+
+    expect(html).toContain('player__menu')
+    expect(html).not.toContain('audio-switch')
+    expect(html).not.toContain('Subtitulado')
+  })
+
+  /**
    * El picture-in-picture no se ofrece donde no existe.
    *
    * En el render de servidor no hay `document`, así que el mando no aparece. El
