@@ -69,14 +69,20 @@ En `ServerContainer`, separado del de 500:
 
 ```ts
 const castTickets = options.castTickets ?? createTicketStore({ capacity: 16, ttlS: 4 * 60 * 60 })
+const castSubtitleTickets =
+  options.castSubtitleTickets ?? createTicketStore({ capacity: 256, ttlS: 4 * 60 * 60 })
 ```
 
 - **16 emisiones vivas** por instancia. Una casa no tiene más televisores; el tope es una defensa, no
   una promesa de producto.
 - **4 h de vida.** Cubre un episodio, una pausa larga y el arranque de la TV. No se renueva solo: si
   se acaba, se vuelve a emitir desde la interfaz.
+- Los subtítulos van a un almacén **aparte** (256 entradas) para que 30 pistas no desalojen el
+  video de la emisión; el tope por sesión es de 16 pistas.
+- `castSessions` es un `Map` de 16 entradas: `id → { videoTicket, subtitleTickets, createdAt }`. El
+  `id` es opaco y no es ninguna de las credenciales; `DELETE` revoca todo lo que cuelga de él.
 - Capacidad y TTL se inyectan en los tests; el reloj también, como hoy.
-- El almacén no se registra, no se enumera y su `size()` sólo se usa en tests.
+- Los almacenes no se registran, no se enumeran y su `size()` sólo se usa en tests.
 
 ### Resolución en `/stream`
 
@@ -88,26 +94,31 @@ existe bajo `/stream/:ticket` y sus hijos:
 - `GET /stream/:ticket` con ticket de emisión: bytes o playlist, con `Range`, sin cookie.
 - `GET /stream/:ticket/seg/:index` y `/key/:index`: resuelven contra la playlist cacheada, igual que
   hoy; el ticket hijo es del almacén normal.
-- `GET /api/*` con ticket de emisión: **401**, como cualquier ticket; el guard sólo exceptúa
-  `/stream/`.
+- `GET /stream/:ticket/sub/:index` con ticket de subtítulo de emisión: VTT convertido, sin cookie,
+  con `text/vtt` y los headers del proveedor.
+- `GET /api/*` con cualquier ticket de emisión: **401**, como cualquier ticket; el guard sólo
+  exceptúa `/stream/`.
 - Un ticket revocado: 404. Uno vencido: 410. La diferencia se mantiene.
 
 ### Emisión y revocación
 
-`POST /api/cast/session` (T381) resuelve el stream **en el servidor** y emite contra el almacén de
+`POST /api/cast/session` (T381) resuelve el stream **en el servidor** y emite contra los almacenes de
 emisión:
 
 ```
 POST /api/cast/session
 { providerId, episodeRef, mode }
-→ 200 { id, kind, urls, expiresAt, title, poster? }
+→ 200 { id, kind, urls, expiresAt, title, poster?, subtitles: [] }
 ```
 
-- `id` es el ticket (o un alias opaco que lo contiene; no se duplica la credencial).
+- `id` es un identificador opaco de sesión (16 bytes), no el ticket; la sesión guarda el ticket del
+  video y los de sus subtítulos. `DELETE` revoca todos.
 - `urls` es `http://<ipv4>:<puerto>/stream/<ticket>` por cada IPv4 útil. Todas apuntan al mismo
   ticket; el emisor elige la que pruebe.
-- `DELETE /api/cast/session/:id` revoca el ticket; 204 si estaba vivo, 404 si ya no. No hay
-  `DELETE` de un ticket ajeno: el `id` es el ticket y sólo lo conoce quien lo pidió.
+- `subtitles` es `[{ id, url, lang, label }]`, con una URL absoluta por pista y un ticket de
+  subtítulo; como mucho 16 pistas por sesión. T381 lo devuelve vacío; T388 lo llena.
+- `DELETE /api/cast/session/:id` revoca el video y los subtítulos; 204 si estaba vivo, 404 si ya no.
+  No hay `DELETE` de una sesión ajena: el `id` sólo lo conoce quien lo pidió.
 - Sin `RONA_CAST=1`, sin LAN o sin token: 409 con el motivo, y no se emite nada.
 - La respuesta no incluye la URL del upstream ni las cabeceras del proveedor.
 
@@ -117,7 +128,8 @@ La regla actual de `SPEC-media-proxy` es explícita: **no** se añade CORS abier
 propuesta la mantiene y la acota:
 
 - Sólo si el receptor real lo exige (T379), `GET /stream/:ticket` con ticket **de emisión** añade
-  `Access-Control-Allow-Origin: *` y **no** añade `Access-Control-Allow-Credentials`.
+  `Access-Control-Allow-Origin: *` y **no** añade `Access-Control-Allow-Credentials`. Vale igual
+  para `/stream/:ticket/sub/:index`.
 - No se añade a `/api/*`, ni a un ticket de navegador, ni a un `OPTIONS` genérico.
 - El `Vary: Origin` no hace falta con `*`; si se decide reflejar el origen, se limita a los orígenes
   de la LAN y se prueba que un origen ajeno no lo recibe.
@@ -139,6 +151,7 @@ Si T379 mide que no hace falta CORS, **no se añade nada** y esta sección se re
 | Un ticket de 4 h se filtra y alguien ve el episodio | 192 bits, 16 vivos, revocable, sólo una fuente y sólo `/stream`; no se registra |
 | El ticket de emisión abre la API | El guard sólo exceptúa `/stream/`; `/api/*` sigue pidiendo cookie y un ticket inventado da 401 |
 | El ticket de emisión desaloja al del navegador | Almacén separado y pequeño; los hijos siguen en el de 500 |
+| Un subtítulo de emisión abre algo más que su pista | Ticket propio, 16 por sesión, 192 bits, revocable con la sesión y sólo `text/vtt` bajo `/stream` |
 | La TV sigue después de parar | `revoke` + siguiente petición 404; la conexión abierta se corta al cerrar el proceso o al vencer |
 | CORS abre la API a un origen ajeno | Sólo `*` en `/stream/:ticket` de emisión, sin credenciales, y sólo si T379 lo exige |
 | Un log guarda la URL de la TV | El ticket se redacta; el almacén no escribe; la respuesta no se registra |
@@ -151,10 +164,13 @@ Si T379 mide que no hace falta CORS, **no se añade nada** y esta sección se re
 - `/stream/:ticket` con ticket de emisión y sin cookie: 200/206; con `Range`, 206 y los bytes.
 - `/api/health` con ticket de emisión: 401.
 - `POST` sin `RONA_CAST=1`: 409; sin LAN: 409; sin token: 409.
-- `DELETE` y después `GET`: 404.
+- `DELETE` y después `GET`: 404; también el subtítulo.
+- Subtítulo: `GET /stream/:ticket/sub/:index` sin cookie da `text/vtt` y los bytes; con cookie de
+  sesión también; `/api/*` con ese ticket da 401; 16 pistas por sesión y la 17.ª no se ofrece.
 - Playlist HLS: el padre es de emisión, los hijos de 600 s; a los 601 s el hijo viejo da 410 y una
   recarga del padre emite hijos nuevos.
-- CORS: si se enciende, la petición del receptor recibe `*`; `/api/*` no; un ticket de navegador no.
+- CORS: si se enciende, la petición del receptor recibe `*` en video y subtítulo; `/api/*` no; un
+  ticket de navegador no.
 
 ## Lo que no cambia
 
@@ -166,12 +182,15 @@ Si T379 mide que no hace falta CORS, **no se añade nada** y esta sección se re
 
 ## Criterios de éxito
 
-1. Una emisión de 4 h se sirve con un ticket que no compite con los 500 del navegador.
-2. Al revocar, la siguiente petición da 404 y no se sirve ni un byte más.
+1. Una emisión de 4 h se sirve con un ticket que no compite con los 500 del navegador; sus
+   subtítulos no desalojan el video.
+2. Al revocar, la siguiente petición da 404 —video y subtítulos— y no se sirve ni un byte más.
 3. El ticket de emisión no abre `/api/*` y no lleva cookie.
 4. Los hijos de una playlist siguen viviendo 600 s y se renuevan al recargar el padre.
-5. Sin CORS medido no se añade CORS; si se añade, es `*` sin credenciales y sólo en el ticket de
-   emisión.
-6. `bun test packages/media-proxy` y `packages/server` en verde; mutaciones: resolver sólo contra el
+5. Los subtítulos se sirven como VTT con ticket propio, sin cookie, y sólo por `/stream`; 16 por
+   sesión.
+6. Sin CORS medido no se añade CORS; si se añade, es `*` sin credenciales y sólo en los tickets de
+   emisión (video y subtítulo).
+7. `bun test packages/media-proxy` y `packages/server` en verde; mutaciones: resolver sólo contra el
    almacén normal deja el episodio sin segmentos a los diez minutos; no revocar deja el segundo `GET`
    en 200.
