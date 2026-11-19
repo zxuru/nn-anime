@@ -52,6 +52,7 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
   let estado: CastEstado = CAST_ESTADO_INICIAL
   let session: CastSessionLike | null = null
   let escuchando = false
+  let estabaReproduciendo = false
 
   const actualizar = (cambio: Partial<CastEstado>): void => {
     estado = { ...estado, ...cambio }
@@ -61,14 +62,19 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
   const sincronizar = (): void => {
     const remoto = sdk.remote
     const playerState = remoto.playerState ?? ''
+    const playing = playerState === 'PLAYING' || (playerState === '' && remoto.isPaused === false)
+    const terminado = playerState === 'IDLE' && estabaReproduciendo
+
+    estabaReproduciendo = playing
 
     actualizar({
       positionS: remoto.currentTime ?? estado.positionS,
       durationS: remoto.duration ?? estado.durationS,
       volume: remoto.volumeLevel ?? estado.volume,
       muted: remoto.isMuted ?? estado.muted,
-      playing: playerState === 'PLAYING' || (playerState === '' && remoto.isPaused === false),
+      playing,
       cargando: playerState === 'BUFFERING',
+      terminado,
     })
   }
 
@@ -138,6 +144,7 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
           dispositivo: session.getCastDevice()?.friendlyName,
           cargando: true,
           activeTrackId: subtitles[0]?.trackId,
+          terminado: false,
           error: undefined,
         })
         sincronizar()
@@ -159,6 +166,7 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
         conectado: true,
         dispositivo: actual.getCastDevice()?.friendlyName,
         cargando: false,
+        terminado: false,
         error: undefined,
       })
       sincronizar()
@@ -217,6 +225,7 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
     detener() {
       session?.endSession(true)
       session = null
+      estabaReproduciendo = false
       dejarDeEscuchar()
       actualizar(CAST_ESTADO_INICIAL)
     },

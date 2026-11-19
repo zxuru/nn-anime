@@ -211,8 +211,22 @@ describe('la emisión', () => {
     expect(emision.estado().activeTrackId).toBe(4)
   })
 
-  test('los mandos hablan con el receptor', async () => {
+  test('cuando el receptor termina, el estado lo dice una vez', async () => {
     const d = doble()
+    const emision = crearCastSesion(d.sdk, () => {})
+    await emision.iniciar('/stream/abc', 'file', {})
+
+    d.remote.playerState = 'PLAYING'
+    d.remote.isPaused = false
+    d.emitir('playerStateChanged')
+    expect(emision.estado().terminado).toBe(false)
+
+    d.remote.playerState = 'IDLE'
+    d.emitir('playerStateChanged')
+    expect(emision.estado().terminado).toBe(true)
+  })
+
+  test('los mandos hablan con el receptor', async () => {    const d = doble()
     const emision = crearCastSesion(d.sdk, () => {})
     await emision.iniciar('/stream/abc', 'file', {})
 
