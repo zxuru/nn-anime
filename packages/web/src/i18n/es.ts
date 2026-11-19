@@ -710,6 +710,14 @@ export const messages: Messages = {
   'player.speed.option': '{rate}×',
   'player.pip': 'Ventana flotante',
   'player.pip.exit': 'Salir de la ventana flotante',
+  // El cast a la TV. El mando y el aviso que dice dónde se está viendo; el
+  // dispositivo lo pone el receptor y, si no lo dice, se lee «la TV».
+  'player.cast': 'Transmitir a un dispositivo',
+  'player.cast.stop': 'Dejar de transmitir',
+  'player.cast.connecting': 'Conectando con la TV…',
+  'player.cast.connected': 'Se está viendo en {device}',
+  'player.cast.device': 'la TV',
+  'player.cast.error': 'No se pudo transmitir: {message}',
   // El modo extendido: llena la ventana de la aplicación sin pedir la pantalla
   // completa del sistema. El nombre lo dice tal cual porque «maximizar» ya
   // significa otra cosa en la ventana de escritorio.

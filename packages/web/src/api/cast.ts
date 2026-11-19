@@ -13,7 +13,7 @@ import {
   type CastSessionResponse,
   castInfoResponseSchema,
   castSessionResponseSchema,
-} from '@rona/core'
+} from '@rona/core/api'
 import { apiDelete, apiGet, apiPostJson, type RequestDeps } from './client'
 
 export function leerCastInfo(deps?: RequestDeps): Promise<CastInfoResponse> {

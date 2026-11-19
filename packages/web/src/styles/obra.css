@@ -1209,23 +1209,28 @@ body.player-extendido {
 }
 
 /*
- * La ventana flotante, dentro del marco.
+ * La ventana flotante y el cast, dentro del marco.
  *
- * Es un mando de una vez, no de cada minuto: se apoya arriba a la derecha y
- * lleva el mismo borde y la misma sombra dura que el resto, sobre una superficie
- * opaca para que se lea sobre cualquier fotograma. No compite con el botón de
+ * Son mandos de una vez, no de cada minuto: se apoyan arriba a la derecha y
+ * llevan el mismo borde y la misma sombra dura que el resto, sobre una superficie
+ * opaca para que se lean sobre cualquier fotograma. No compiten con el botón de
  * saltar, que vive abajo a la derecha, ni con la tarjeta del siguiente, que
  * ocupa el centro cuando el episodio termina.
  *
- * Se queda visible aunque los mandos se escondan: es la salida a «seguir viendo
- * mientras hago otra cosa», y esconderla con la banda la devolvía al menú que
- * esta tarea acaba de quitar.
+ * Se quedan visibles aunque los mandos se escondan: son la salida a «seguir
+ * viendo en otra parte», y esconderlas con la banda las devolvía al menú.
  */
-.player__pip {
+.player__acciones {
   position: absolute;
   inset-block-start: var(--space-3);
   inset-inline-end: var(--space-3);
   z-index: 3;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.player__pip,
+.player__cast {
   border-color: var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
@@ -1238,11 +1243,52 @@ body.player-extendido {
 }
 
 .player__pip:hover,
-.player__pip:focus-visible {
+.player__pip:focus-visible,
+.player__cast:hover,
+.player__cast:focus-visible {
   opacity: 1;
   border-color: var(--color-border);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
+}
+
+.player__cast:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+/*
+ * El aviso de que se está viendo en la TV.
+ *
+ * Va abajo a la izquierda, enfrente del botón de saltar, y lleva el botón de
+ * parar dentro: es el único sitio donde se puede cerrar la emisión sin volver a
+ * los ajustes. En una ventana estrecha la banda de mandos vive debajo del video,
+ * así que el aviso se queda sobre la imagen.
+ */
+.player__cast-notice {
+  position: absolute;
+  inset-block-end: calc(var(--player-band-height) + var(--space-2));
+  inset-inline-start: var(--space-4);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-inline-size: min(26rem, calc(100% - 2 * var(--space-4)));
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width-strong) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-hard);
+}
+
+.player__cast-notice p {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.player__cast-notice .player__menu-action {
+  inline-size: auto;
+  white-space: nowrap;
 }
 
 /* El hueco entre lo que se toca a menudo y el reloj. */

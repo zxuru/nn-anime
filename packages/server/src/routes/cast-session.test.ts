@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, runMigrations } from '@rona/catalog-store'
-import { castSessionResponseSchema } from '@rona/core'
+import { castSessionResponseSchema, streamResolveResponseSchema } from '@rona/core'
 import { createFixtureProvider } from '@rona/providers-fixture'
 import { type AppOptions, createApp } from '../app'
 import type { ServerContainer } from '../container'
@@ -125,8 +125,42 @@ describe('POST /api/cast/session', () => {
     })
   })
 
-  test('sin RONA_CAST, sin LAN o sin token no emite nada', async () => {
-    const casos = [
+  test('acepta el ticket que ya usa el reproductor, no una URL', async () => {
+    await conApp(async ({ pedir }) => {
+      const resolucion = await pedir('/api/stream/resolve', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ episodeRef: PETICION.episodeRef, mode: PETICION.mode }),
+      })
+      const texto = await resolucion.text()
+      expect(resolucion.status, texto).toBe(200)
+      const fuente = streamResolveResponseSchema.parse(JSON.parse(texto)).sources[0]
+
+      expect(fuente).toBeDefined()
+
+      const alta = await pedir('/api/cast/session', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          url: fuente?.url,
+          kind: fuente?.kind,
+          title: 'Aurora nocturna',
+        }),
+      })
+
+      expect(alta.status).toBe(200)
+      expect(castSessionResponseSchema.parse(await alta.json()).urls[0]).toContain('/stream/')
+
+      const arbitraria = await pedir('/api/cast/session', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ url: 'https://evil.example/x', kind: 'file' }),
+      })
+      expect(arbitraria.status).toBe(400)
+    })
+  })
+
+  test('sin RONA_CAST, sin LAN o sin token no emite nada', async () => {    const casos = [
       { enabled: false, host: '0.0.0.0', token: true },
       { enabled: true, host: '127.0.0.1', token: true },
       { enabled: true, host: '0.0.0.0', token: false },

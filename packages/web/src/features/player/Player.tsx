@@ -28,12 +28,19 @@
  */
 
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
-import { PictureInPicture2 } from 'lucide-react'
+import { Cast, PictureInPicture2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { AudioModeSwitch } from './AudioModeSwitch'
-import { etiquetaVelocidad, needsHls, volumeFromPercent, volumePercent } from './controls'
+import { useCastControl } from './cast/useCastControl'
+import {
+  etiquetaVelocidad,
+  needsHls,
+  type PlayerAction,
+  volumeFromPercent,
+  volumePercent,
+} from './controls'
 import { IconoAjustes, IconoReproducir, IconoSilencio, IconoVolumen } from './icons'
 import { PlayerButtons } from './PlayerButtons'
 import { PlayerErrorNotice } from './PlayerErrorNotice'
@@ -112,12 +119,110 @@ export function Player(props: PlayerProps): ReactNode {
   const pistas = props.tracks ?? []
   const intervalos = props.intervals ?? []
 
-  // El elemento, sus gestos y el aviso a quien monta el reproductor —la sala—.
+  /**
+   * La emisión, cuando la hay.
+   *
+   * El reproductor local sigue montado —es quien tiene el `<video>` y el
+   * historial—, pero mientras hay cast los valores que se pintan y los mandos
+   * salen del receptor. El ticket que se manda es el que el reproductor ya está
+   * usando, no una URL nueva.
+   */
+  const cast = useCastControl({
+    url: props.url,
+    kind: props.kind === 'hls' ? 'hls' : 'file',
+    ...(props.title === undefined ? {} : { title: props.title }),
+    ...(props.poster === undefined ? {} : { poster: props.poster }),
+    positionS: state.positionS,
+  })
+  const enCast = cast.conectado && cast.sesion !== undefined
+  const reproduciendo = enCast ? cast.estado.playing : state.playing
+  const posicionActual = enCast ? cast.estado.positionS : state.positionS
+  const duracionActual = enCast ? cast.estado.durationS : state.durationS
+  const volumenActual = enCast ? cast.estado.volume : state.volume
+  const silenciadoActual = enCast ? cast.estado.muted : state.muted
+
+  const seekToConCast = useCallback(
+    (destino: number) => {
+      if (enCast && cast.sesion !== undefined) cast.sesion.seekTo(destino)
+      else seekTo(destino)
+    },
+    [cast.sesion, enCast, seekTo],
+  )
+
+  const setVolumeConCast = useCallback(
+    (valor: number) => {
+      if (enCast && cast.sesion !== undefined) cast.sesion.setVolume(valor)
+      else setVolume(valor)
+    },
+    [cast.sesion, enCast, setVolume],
+  )
+
+  /**
+   * Los gestos y las teclas del reproductor, con el mismo destino que los
+   * mandos. Cuando hay cast, el video local no se toca: se manda al receptor.
+   */
+  const actConCast = useCallback(
+    (accion: PlayerAction) => {
+      if (!enCast || cast.sesion === undefined) {
+        act(accion)
+
+        return
+      }
+
+      switch (accion) {
+        case 'toggle':
+          cast.sesion.toggle()
+          break
+        case 'forward':
+          cast.sesion.seekTo(cast.estado.positionS + 10)
+          break
+        case 'back':
+          cast.sesion.seekTo(Math.max(0, cast.estado.positionS - 10))
+          break
+        case 'volume-up':
+          cast.sesion.setVolume(cast.estado.volume + 0.1)
+          break
+        case 'volume-down':
+          cast.sesion.setVolume(cast.estado.volume - 0.1)
+          break
+        case 'mute':
+          cast.sesion.setMuted(!cast.estado.muted)
+          break
+        case 'fullscreen':
+          act('fullscreen')
+          break
+      }
+    },
+    [act, cast.estado.muted, cast.estado.positionS, cast.estado.volume, cast.sesion, enCast],
+  )
+
+  /**
+   * Empezar y parar la emisión desde el marco.
+   *
+   * Al empezar se pausa el video local: la TV es la única salida. Al parar se
+   * recupera la posición del receptor y se reanuda si estaba reproduciendo.
+   */
+  /**
+   * El elemento, sus gestos y el aviso a quien monta el reproductor —la sala—.
+   */
   const { elemento, refVideo, alClic, alDobleClic } = usePlayerGestos({
     videoRef,
     onVideoElement: props.onVideoElement,
-    act,
+    act: actConCast,
   })
+
+  const empezarCast = useCallback(async () => {
+    const ok = await cast.iniciar()
+
+    if (ok) elemento?.pause()
+  }, [cast, elemento])
+
+  const pararCast = useCallback(async () => {
+    const estaba = cast.estado.playing
+    const posicion = await cast.detener()
+    seekTo(posicion)
+    if (estaba) act('toggle')
+  }, [act, cast, seekTo])
   // El modo compatible necesita el elemento en estado: el pintado arranca cuando
   // el `<canvas>` ya está montado, y eso pasa por un render.
   const { pintando, alternar, canvasRef } = useCompatPaint({
@@ -138,11 +243,11 @@ export function Player(props: PlayerProps): ReactNode {
     completa,
   } = usePlayerAjustes(escenario)
   const extendido = usePlayerExtendido()
-  const mandos = usePlayerMandos(state.playing, marco)
+  const mandos = usePlayerMandos(reproduciendo, marco)
   const barra = usePlayerBarra({
-    positionS: state.positionS,
-    durationS: state.durationS,
-    seekTo,
+    positionS: posicionActual,
+    durationS: duracionActual,
+    seekTo: seekToConCast,
   })
   const subtitulos = usePlayerSubtitulos({
     declaradas: pistas,
@@ -162,11 +267,13 @@ export function Player(props: PlayerProps): ReactNode {
    */
   const cambiarVelocidad = useCallback(
     (valor: Velocidad) => {
+      if (enCast) return
+
       setVelocidad(valor)
       guardarVelocidad(almacenLocal(), valor)
       setRate(valor)
     },
-    [setRate],
+    [enCast, setRate],
   )
 
   // El picture-in-picture sólo se ofrece donde el navegador lo tiene. El hook
@@ -183,14 +290,14 @@ export function Player(props: PlayerProps): ReactNode {
   useMediaSession({
     title: props.title,
     poster: props.poster,
-    positionS: state.positionS,
-    durationS: state.durationS,
-    playing: state.playing,
-    play: () => act('toggle'),
-    pause: () => act('toggle'),
-    seekbackward: () => act('back'),
-    seekforward: () => act('forward'),
-    seekto: seekTo,
+    positionS: posicionActual,
+    durationS: duracionActual,
+    playing: reproduciendo,
+    play: () => actConCast('toggle'),
+    pause: () => actConCast('toggle'),
+    seekbackward: () => actConCast('back'),
+    seekforward: () => actConCast('forward'),
+    seekto: seekToConCast,
   })
 
   /**
@@ -216,9 +323,9 @@ export function Player(props: PlayerProps): ReactNode {
     if (salto === undefined) return
 
     saltados.current.add(salto.key)
-    seekTo(salto.destinoS)
+    seekToConCast(salto.destinoS)
     props.onSkip?.(salto.destinoS, salto.key)
-  }, [props.skip, props.onSkip, seekTo])
+  }, [props.skip, props.onSkip, seekToConCast])
 
   /**
    * El salto automático, una sola vez por intervalo y episodio.
@@ -235,7 +342,7 @@ export function Player(props: PlayerProps): ReactNode {
   }, [props.autoSkip, props.skip, saltar])
 
   usePlayerTeclado({
-    act,
+    act: actConCast,
     saltar,
     alternarExtendido: extendido.alternar,
     extendido: extendido.extendido,
@@ -263,17 +370,19 @@ export function Player(props: PlayerProps): ReactNode {
    * es donde está mirando quien la sufre; el texto suelto de antes quedaba
    * debajo de los controles y no se veía.
    */
-  const espera = state.loading
-    ? t(DEFAULT_LOCALE, 'player.loading')
-    : state.buffering
-      ? t(DEFAULT_LOCALE, 'player.buffering')
-      : undefined
+  const espera = enCast
+    ? undefined
+    : state.loading
+      ? t(DEFAULT_LOCALE, 'player.loading')
+      : state.buffering
+        ? t(DEFAULT_LOCALE, 'player.buffering')
+        : undefined
 
   // El botón grande de reproducir: en pausa y con el medio ya cargado. Durante la
   // carga manda el cartel de la espera, que dice qué se está esperando. Al
   // terminar, la tarjeta del siguiente ocupa ese sitio: un play sobre un video
   // que ya acabó no lleva a ninguna parte y tapaba la decisión.
-  const enPausa = !state.playing && espera === undefined && props.nextCard === undefined
+  const enPausa = !reproduciendo && espera === undefined && props.nextCard === undefined && !enCast
 
   /**
    * La lámina, sólo mientras no hay nada que ver.
@@ -282,11 +391,11 @@ export function Player(props: PlayerProps): ReactNode {
    * modo compatible está pintando— porque su sitio es el hueco, no la imagen.
    */
   const placa =
-    props.plate !== undefined && !state.playing && state.positionS === 0 && !pintando
+    props.plate !== undefined && !reproduciendo && posicionActual === 0 && !pintando && !enCast
       ? props.plate
       : null
 
-  const rotuloSilencio = state.muted
+  const rotuloSilencio = silenciadoActual
     ? t(DEFAULT_LOCALE, 'player.unmute')
     : t(DEFAULT_LOCALE, 'player.mute')
 
@@ -374,6 +483,7 @@ export function Player(props: PlayerProps): ReactNode {
                   type="button"
                   className="button player__menu-choice"
                   aria-pressed={velocidad === opcion}
+                  disabled={enCast}
                   onClick={() => cambiarVelocidad(opcion)}
                 >
                   {t(DEFAULT_LOCALE, 'player.speed.option', {
@@ -407,9 +517,9 @@ export function Player(props: PlayerProps): ReactNode {
                 aria-label={rotuloSilencio}
                 title={rotuloSilencio}
                 aria-keyshortcuts="M"
-                onClick={() => act('mute')}
+                onClick={() => actConCast('mute')}
               >
-                {state.muted ? <IconoSilencio /> : <IconoVolumen />}
+                {silenciadoActual ? <IconoSilencio /> : <IconoVolumen />}
               </button>
               <input
                 className="player__range player__slider"
@@ -417,9 +527,11 @@ export function Player(props: PlayerProps): ReactNode {
                 min={0}
                 max={100}
                 step={1}
-                value={volumePercent(state.volume)}
+                value={volumePercent(volumenActual)}
                 aria-label={t(DEFAULT_LOCALE, 'player.volume')}
-                onChange={(evento) => setVolume(volumeFromPercent(Number(evento.target.value)))}
+                onChange={(evento) =>
+                  setVolumeConCast(volumeFromPercent(Number(evento.target.value)))
+                }
               />
             </div>
           </div>
@@ -526,23 +638,79 @@ export function Player(props: PlayerProps): ReactNode {
               la hacía invisible. El estado sale de los eventos del video y no
               de haber pulsado el botón: el navegador puede rechazar la petición
               y el mando no puede mentir. */}
-          {pip.disponible ? (
-            <button
-              type="button"
-              className="button player__control player__pip"
-              aria-label={t(DEFAULT_LOCALE, pip.activo ? 'player.pip.exit' : 'player.pip')}
-              title={t(DEFAULT_LOCALE, pip.activo ? 'player.pip.exit' : 'player.pip')}
-              aria-pressed={pip.activo}
-              onClick={() => void pip.alternar()}
-            >
-              <PictureInPicture2
-                className="player__icon"
-                size={20}
-                strokeWidth={2}
-                aria-hidden="true"
-                focusable="false"
-              />
-            </button>
+          <div className="player__acciones">
+            {pip.disponible ? (
+              <button
+                type="button"
+                className="button player__control player__pip"
+                aria-label={t(DEFAULT_LOCALE, pip.activo ? 'player.pip.exit' : 'player.pip')}
+                title={t(DEFAULT_LOCALE, pip.activo ? 'player.pip.exit' : 'player.pip')}
+                aria-pressed={pip.activo}
+                onClick={() => void pip.alternar()}
+              >
+                <PictureInPicture2
+                  className="player__icon"
+                  size={20}
+                  strokeWidth={2}
+                  aria-hidden="true"
+                  focusable="false"
+                />
+              </button>
+            ) : null}
+
+            {cast.disponible || enCast ? (
+              <button
+                type="button"
+                className="button player__control player__cast"
+                aria-label={t(
+                  DEFAULT_LOCALE,
+                  cast.cargando
+                    ? 'player.cast.connecting'
+                    : cast.conectado
+                      ? 'player.cast.stop'
+                      : 'player.cast',
+                )}
+                title={t(
+                  DEFAULT_LOCALE,
+                  cast.cargando
+                    ? 'player.cast.connecting'
+                    : cast.conectado
+                      ? 'player.cast.stop'
+                      : 'player.cast',
+                )}
+                aria-pressed={cast.conectado}
+                disabled={cast.cargando}
+                onClick={() => {
+                  if (cast.conectado) void pararCast()
+                  else void empezarCast()
+                }}
+              >
+                <Cast
+                  className="player__icon"
+                  size={20}
+                  strokeWidth={2}
+                  aria-hidden="true"
+                  focusable="false"
+                />
+              </button>
+            ) : null}
+          </div>
+
+          {enCast ? (
+            <div className="player__cast-notice" role="status" aria-live="polite">
+              <p>
+                {t(DEFAULT_LOCALE, 'player.cast.connected', {
+                  device: cast.estado.dispositivo ?? t(DEFAULT_LOCALE, 'player.cast.device'),
+                })}
+              </p>
+              <button
+                type="button"
+                className="button player__menu-action"
+                onClick={() => void pararCast()}
+              >
+                {t(DEFAULT_LOCALE, 'player.cast.stop')}
+              </button>
+            </div>
           ) : null}
 
           {/* La tarjeta del siguiente también dentro del marco: al terminar el
@@ -560,11 +728,11 @@ export function Player(props: PlayerProps): ReactNode {
             `data-oculto` los esconde sin sacarlos del documento —`display: none`
             devolvería el foco al `body` en mitad de una reproducción— y sin recibir
             el puntero; en móvil no se esconden, porque no tapan nada. */}
-        <div className="player__controls" data-oculto={state.playing && !mandos.visibles}>
+        <div className="player__controls" data-oculto={reproduciendo && !mandos.visibles}>
           <PlayerSeekBar
             posicion={barra.posicion}
             duracion={barra.duracion}
-            bufferedS={state.bufferedS}
+            bufferedS={enCast ? 0 : state.bufferedS}
             sobreBarra={barra.sobreBarra}
             intervalos={intervalos}
             onArrastrar={barra.arrastrar}
@@ -574,17 +742,17 @@ export function Player(props: PlayerProps): ReactNode {
           />
 
           <PlayerButtons
-            playing={state.playing}
-            muted={state.muted}
-            volume={state.volume}
+            playing={reproduciendo}
+            muted={silenciadoActual}
+            volume={volumenActual}
             posicion={barra.posicion}
-            duracionS={state.durationS}
+            duracionS={duracionActual}
             estrecho={mandos.estrecho}
             compacto={mandos.compacto}
             completa={completa}
             extendida={extendido.extendido}
-            act={act}
-            onVolumen={setVolume}
+            act={actConCast}
+            onVolumen={setVolumeConCast}
             onAlternarExtendida={extendido.alternar}
           >
             {menuDeAjustes}
@@ -593,6 +761,12 @@ export function Player(props: PlayerProps): ReactNode {
       </div>
 
       {sinImagen ? <p className="search__error">{t(DEFAULT_LOCALE, 'player.sinImagen')}</p> : null}
+
+      {cast.error === undefined ? null : (
+        <p className="search__error">
+          {t(DEFAULT_LOCALE, 'player.cast.error', { message: cast.error })}
+        </p>
+      )}
 
       {pintando ? <p className="player__note">{t(DEFAULT_LOCALE, 'player.compat.on')}</p> : null}
 
@@ -607,7 +781,11 @@ export function Player(props: PlayerProps): ReactNode {
           Una región `aria-live` que cambia cuatro veces por segundo no deja oír
           nada más. */}
       <p className="solo-lectores" aria-live="polite">
-        {state.status}
+        {enCast
+          ? t(DEFAULT_LOCALE, 'player.cast.connected', {
+              device: cast.estado.dispositivo ?? t(DEFAULT_LOCALE, 'player.cast.device'),
+            })
+          : state.status}
       </p>
 
       {/* El aviso cuenta las dos clases de pista: para quien lee, «subtítulos

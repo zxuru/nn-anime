@@ -145,35 +145,70 @@ export function registerCastSessionRoutes(
       )
     }
 
-    const provider = findProvider(options.providers, parsed.data.episodeRef.providerId)
-    if (provider === undefined) {
-      return c.json(
-        errorResponseSchema.parse({
-          error: `no hay ningún proveedor llamado ${parsed.data.episodeRef.providerId}`,
-        }),
-        404,
-      )
-    }
+    const datos = parsed.data
+    let origen: { readonly url: string; readonly headers: Readonly<Record<string, string>>; readonly kind: 'hls' | 'file' }
 
-    const callOptions: CallOptions = {
-      signal: c.req.raw.signal,
-      timeoutMs: options.timeoutMs ?? DEFAULT_CAST_TIMEOUT_MS,
-    }
-    const resultado = await options.container.resolveStream(provider, parsed.data, callOptions)
+    if ('url' in datos) {
+      // El reproductor manda el ticket que ya está usando: el servidor no
+      // acepta una URL arbitraria, sólo una ruta del proxy.
+      const ticket = datos.url.slice('/stream/'.length)
+      const deEmision = options.container.castTickets.resolve(ticket)
+      const contenido = deEmision.ok ? deEmision : options.container.tickets.resolve(ticket)
 
-    if (!resultado.ok) {
-      return c.json(
-        errorResponseSchema.parse({ error: resultado.error.message }),
-        resultado.error.context.estado === 404 ? 404 : 502,
-      )
-    }
+      if (!contenido.ok) {
+        return c.json(
+          errorResponseSchema.parse({
+            error:
+              contenido.kind === 'expired'
+                ? 'el ticket de la reproducción caducó; vuelve a abrir el episodio'
+                : 'el ticket de la reproducción no existe',
+          }),
+          contenido.kind === 'expired' ? 410 : 404,
+        )
+      }
 
-    const source = resultado.value.value[0]
-    if (source === undefined) {
-      return c.json(
-        errorResponseSchema.parse({ error: 'el proveedor no dio ninguna fuente para la emisión' }),
-        502,
-      )
+      origen = {
+        url: contenido.contents.url,
+        headers: contenido.contents.headers,
+        kind: datos.kind,
+      }
+    } else {
+      const provider = findProvider(options.providers, datos.episodeRef.providerId)
+      if (provider === undefined) {
+        return c.json(
+          errorResponseSchema.parse({
+            error: `no hay ningún proveedor llamado ${datos.episodeRef.providerId}`,
+          }),
+          404,
+        )
+      }
+
+      const callOptions: CallOptions = {
+        signal: c.req.raw.signal,
+        timeoutMs: options.timeoutMs ?? DEFAULT_CAST_TIMEOUT_MS,
+      }
+      const resultado = await options.container.resolveStream(provider, datos, callOptions)
+
+      if (!resultado.ok) {
+        return c.json(
+          errorResponseSchema.parse({ error: resultado.error.message }),
+          resultado.error.context.estado === 404 ? 404 : 502,
+        )
+      }
+
+      const fuente = resultado.value.value[0]
+      if (fuente === undefined) {
+        return c.json(
+          errorResponseSchema.parse({ error: 'el proveedor no dio ninguna fuente para la emisión' }),
+          502,
+        )
+      }
+
+      origen = {
+        url: fuente.url,
+        headers: fuente.headers ?? {},
+        kind: fuente.kind,
+      }
     }
 
     const bases = (options.urls ?? lanUrls)(getPort()).filter(utilParaLaTv)
@@ -187,8 +222,8 @@ export function registerCastSessionRoutes(
     }
 
     const videoTicket = options.container.castTickets.issue({
-      url: source.url,
-      headers: source.headers ?? {},
+      url: origen.url,
+      headers: origen.headers,
     })
     const session = options.container.castSessions.create(videoTicket)
 
@@ -197,7 +232,7 @@ export function registerCastSessionRoutes(
     return c.json(
       castSessionResponseSchema.parse({
         id: session.id,
-        kind: source.kind,
+        kind: origen.kind,
         urls: bases.map((base) => `${base}/stream/${videoTicket}`),
         expiresAt: session.expiresAt,
         ...(parsed.data.title === undefined ? {} : { title: parsed.data.title }),
