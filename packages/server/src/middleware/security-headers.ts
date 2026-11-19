@@ -36,6 +36,29 @@ export const CONTENT_SECURITY_POLICY = [
 ].join('; ')
 
 /**
+ * La política del cast: los hosts exactos que el SDK necesita.
+ *
+ * No es una lista abierta: `script-src` sigue admitiendo sólo el origen propio y
+ * `gstatic`; `connect-src` añade los dos hosts de Google que el SDK consulta. El
+ * resto de la política es la misma. T379 puede quitarlos o añadir `frame-src`
+ * si el dispositivo real lo exige; hasta entonces no se abre nada más.
+ */
+export const CAST_CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "img-src 'self'",
+  "media-src 'self' blob:",
+  "script-src 'self' https://www.gstatic.com",
+  "connect-src 'self' https://www.gstatic.com https://clients3.google.com",
+  "frame-ancestors 'none'",
+  "frame-src 'none'",
+  "worker-src 'none'",
+  "manifest-src 'self'",
+  "form-action 'self'",
+  "base-uri 'none'",
+  "object-src 'none'",
+].join('; ')
+
+/**
  * Lo que la aplicación no usa, y por tanto un guion inyectado no tiene por qué
  * poder pedir. No hay cámara, ni micrófono, ni geolocalización, ni pagos, ni USB
  * en ninguna parte de `packages/web/src`: medido con una búsqueda sobre el árbol.
@@ -52,10 +75,14 @@ export const PERMISSIONS_POLICY = [
 export interface SecurityHeadersOptions {
   /** Permite relajar la política en desarrollo. Por defecto, la del spec. */
   readonly contentSecurityPolicy?: string
+  /** El cast está encendido: añade los hosts del SDK, y sólo esos. */
+  readonly cast?: boolean
 }
 
 export function securityHeaders(options: SecurityHeadersOptions = {}): MiddlewareHandler {
-  const policy = options.contentSecurityPolicy ?? CONTENT_SECURITY_POLICY
+  const policy =
+    options.contentSecurityPolicy ??
+    (options.cast === true ? CAST_CONTENT_SECURITY_POLICY : CONTENT_SECURITY_POLICY)
 
   return async (c, next) => {
     await next()
