@@ -317,6 +317,12 @@ function reportPlugins(io: CliIO, locale: Locale, report: LoadReport, providersD
       : t(locale, 'cli.providers.active', { list: ids.join(', ') }),
   )
 
+  for (const active of report.active) {
+    for (const warning of active.warnings ?? []) {
+      io.err(t(locale, 'cli.providers.warning', { message: `${active.provider.id}: ${warning}` }))
+    }
+  }
+
   for (const rejected of report.rejected) {
     io.err(t(locale, 'cli.providers.rejected', { message: rejected.reason.message }))
   }

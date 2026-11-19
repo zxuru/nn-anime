@@ -60,9 +60,8 @@ function toRecord(row: WatchRow): WatchRecord {
       title: row.title,
       ...(row.cover_url === null ? {} : { coverUrl: row.cover_url }),
       ...(row.year === null ? {} : { year: row.year }),
-      // La familia y el formato viajan con la fila: «continuar viendo» los
-      // necesita para repartir lo empezado por pestaña, y sin ellos una obra de
-      // una fuente mixta caía siempre del lado del anime.
+      // El formato viaja con la fila: «continuar viendo» lo necesita para
+      // respetar el filtro de formato de la pantalla.
       ...clasificacionDe(row.raw_json),
     },
     providerId: row.provider_id,

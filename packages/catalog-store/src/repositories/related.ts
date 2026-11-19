@@ -93,7 +93,6 @@ export const CANDIDATOS = `
   conocidos AS (
     SELECT provider_id, provider_ref AS ref, title, title_alt, cover_url, year,
            json_extract(raw_json, '$.kind')   AS kind,
-           json_extract(raw_json, '$.family') AS family,
            json_extract(raw_json, '$.format') AS format
       FROM anime
      WHERE EXISTS (
@@ -101,16 +100,16 @@ export const CANDIDATOS = `
      )
     UNION ALL
     SELECT provider_id, provider_ref AS ref, title, title_alt, cover_url, year,
-           -- known_title no guarda el detalle: se omiten y la fila cae a la
-           -- regla heredada.
-           kind, NULL AS family, NULL AS format
+           -- known_title no guarda el detalle: se omite y la fila cae a la
+           -- regla por kind.
+           kind, NULL AS format
       FROM known_title
      WHERE EXISTS (
        SELECT 1 FROM patrones
         WHERE title LIKE p || '%' OR title_alt LIKE p || '%' OR provider_ref LIKE p || '%'
      )
   )
-  SELECT provider_id, ref, title, title_alt, cover_url, year, kind, family, format
+  SELECT provider_id, ref, title, title_alt, cover_url, year, kind, format
     FROM conocidos
    WHERE ref IS NOT NULL AND title IS NOT NULL
    ORDER BY year DESC, title
@@ -124,7 +123,6 @@ interface RelatedRow {
   readonly cover_url: string | null
   readonly year: number | null
   readonly kind: string | null
-  readonly family: string | null
   readonly format: string | null
 }
 
@@ -204,7 +202,6 @@ function resumen(fila: RelatedRow): AnimeSummary {
     ...(fila.year === null ? {} : { year: fila.year }),
     ...clasificacionDeColumnas({
       kind: fila.kind,
-      family: fila.family,
       format: fila.format,
     }),
   }

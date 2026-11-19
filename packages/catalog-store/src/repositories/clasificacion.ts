@@ -1,45 +1,33 @@
 /**
- * La clasificación de un título guardado: familia, formato y tipo de la fuente.
+ * La clasificación de un título guardado: formato y tipo de la fuente.
  *
- * Los tres viven en `raw_json` —el detalle entero que dejó el proveedor— y no en
+ * Los dos viven en `raw_json` —el detalle entero que dejó el proveedor— y no en
  * columnas, así que cinco lecturas del almacén los sacaban cada una a su manera
  * —o no los sacaban—. Con la copia, el día que la regla cambie una lectura se
- * quedaría atrás y la misma obra caería en una pestaña u otra según por dónde se
+ * quedaría atrás y la misma obra caería en una lista u otra según por dónde se
  * llegara.
+ *
+ * T372 retiró la familia de contenido: una fila vieja puede traerla y se ignora.
  *
  * Se valida antes de devolverlo: la base guarda lo que le den, y un valor
  * inventado no puede viajar a la interfaz como si fuera del vocabulario. Lo que
  * no encaja se omite, que es como una fila vieja cae a la regla heredada.
  */
 
-import {
-  type MediaFamily,
-  type MediaFormat,
-  mediaFamilySchema,
-  mediaFormatSchema,
-  type TitleKind,
-  titleKindSchema,
-} from '@rona/core'
+import { type MediaFormat, mediaFormatSchema, type TitleKind, titleKindSchema } from '@rona/core'
 
-/** Los tres campos que reparten un título en las pestañas y en el filtro. */
+/** Los dos campos que reparten un título en el filtro. */
 export interface Clasificacion {
   readonly kind?: TitleKind | undefined
-  readonly family?: MediaFamily | undefined
   readonly format?: MediaFormat | undefined
 }
 
-function deValores(valores: {
-  readonly kind?: unknown
-  readonly family?: unknown
-  readonly format?: unknown
-}): Clasificacion {
+function deValores(valores: { readonly kind?: unknown; readonly format?: unknown }): Clasificacion {
   const kind = titleKindSchema.safeParse(valores.kind)
-  const family = mediaFamilySchema.safeParse(valores.family)
   const format = mediaFormatSchema.safeParse(valores.format)
 
   return {
     ...(kind.success ? { kind: kind.data } : {}),
-    ...(family.success ? { family: family.data } : {}),
     ...(format.success ? { format: format.data } : {}),
   }
 }
@@ -59,7 +47,6 @@ export function clasificacionDe(raw: string | null): Clasificacion {
 
     return deValores({
       kind: Reflect.get(parsed, 'kind'),
-      family: Reflect.get(parsed, 'family'),
       format: Reflect.get(parsed, 'format'),
     })
   } catch {
@@ -76,7 +63,6 @@ export function clasificacionDe(raw: string | null): Clasificacion {
  */
 export function clasificacionDeColumnas(valores: {
   readonly kind?: unknown
-  readonly family?: unknown
   readonly format?: unknown
 }): Clasificacion {
   return deValores(valores)

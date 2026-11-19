@@ -105,13 +105,11 @@ export interface Provider {
   readonly name: string
   readonly apiVersion: typeof PROVIDER_API_VERSION
   /**
-   * Lo que el plugin sabe hacer y, con `media`, **qué sirve**: `anime`, `movies`
-   * —películas, series y doramas— o `both`.
+   * Lo que el plugin sabe hacer.
    *
-   * `media` es opcional: ausente significa `anime`, que es lo que eran todos los
-   * plugins antes de que el campo existiera, y por eso declararlo no es un
-   * requisito. Un plugin que sirva otra cosa lo declara, y con eso la interfaz
-   * sabe en qué pestaña enseñarlo. Añadido en T113.
+   * `media` y `families` son campos **retirados** por T372: se aceptan para no
+   * romper un manifiesto ya instalado, pero no filtran nada. El reparto del
+   * producto es sólo por formato (`series` / `movie`), que se deduce del título.
    */
   readonly capabilities: ProviderCapabilities
 

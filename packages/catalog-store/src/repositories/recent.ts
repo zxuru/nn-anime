@@ -44,7 +44,6 @@ interface RecentRow {
   readonly cover_url: string | null
   readonly year: number | null
   readonly kind: string | null
-  readonly family: string | null
   readonly format: string | null
 }
 
@@ -72,7 +71,6 @@ export const ULTIMOS = `
            a.cover_url          AS cover_url,
            a.year               AS year,
            json_extract(a.raw_json, '$.kind')   AS kind,
-           json_extract(a.raw_json, '$.family') AS family,
            json_extract(a.raw_json, '$.format') AS format,
            a.fetched_at         AS fetched_at
       FROM anime a
@@ -86,9 +84,8 @@ export const ULTIMOS = `
            year,
            kind,
            -- known_title es el resumen de las cachés y no guarda el detalle:
-           -- estos dos se omiten y la fila cae a la regla heredada, que es lo
+           -- el formato se omite y la fila cae a la regla por kind, que es lo
            -- mismo que hace una ficha abierta antes del contrato nuevo.
-           NULL AS family,
            NULL AS format,
            updated_at AS fetched_at
       FROM known_title
@@ -99,7 +96,6 @@ export const ULTIMOS = `
          cover_url,
          year,
          kind,
-         family,
          format,
          MAX(fetched_at) AS fetched_at
     FROM conocidos
@@ -124,7 +120,6 @@ export function createRecentRepository(db: Database): RecentRepository {
         ...(fila.year === null ? {} : { year: fila.year }),
         ...clasificacionDeColumnas({
           kind: fila.kind,
-          family: fila.family,
           format: fila.format,
         }),
       }))

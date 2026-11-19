@@ -31,7 +31,6 @@ import {
   animeSummarySchema,
   episodeSchema,
   httpUrlSchema,
-  mediaFamilySchema,
   mediaFormatSchema,
   modeSchema,
   providerCapabilitiesSchema,
@@ -71,6 +70,14 @@ export const providerSummarySchema = z.strictObject({
    * aparece en la búsqueda.
    */
   lastError: z.string().min(1).optional(),
+  /**
+   * Un aviso de compatibilidad de un plugin que **sí** cargó.
+   *
+   * T372 retiró `families` y `media`: los manifiestos que aún los declaran
+   * cargan, se ignoran y se dicen. Va aparte de `lastError` porque un aviso no
+   * es un fallo y la fila no debe pintarse en rojo.
+   */
+  warning: z.string().min(1).optional(),
 })
 
 /**
@@ -455,8 +462,7 @@ export const recommendationSchema = z.strictObject({
   coverUrl: httpUrlSchema.optional(),
   year: z.number().int().optional(),
   kind: titleKindSchema.optional(),
-  /** Familia y formato del candidato: el motor filtra por ellos antes de puntuar. */
-  family: mediaFamilySchema.optional(),
+  /** Cómo está contada la obra: el motor filtra por formato antes de puntuar. */
   format: mediaFormatSchema.optional(),
   score: z.number(),
   /**
@@ -491,13 +497,11 @@ export const continueWatchingItemSchema = z.strictObject({
   title: z.string().min(1),
   coverUrl: httpUrlSchema.optional(),
   /**
-   * Familia y formato, para repartir lo empezado por pestaña y filtro.
+   * Formato, para filtrar lo empezado por el filtro de la pantalla.
    *
-   * Sin ellos, lo visto a medias de una fuente mixta cae siempre del lado del
-   * anime: la fila no lleva ni `kind` con el que deducirlo. Opcionales porque una
-   * fila vieja no los tiene. Añadidos en T257a.
+   * Opcional porque una fila vieja no lo tiene. Añadido con las familias en
+   * T257a; T372 retiró la familia y dejó el formato.
    */
-  family: mediaFamilySchema.optional(),
   format: mediaFormatSchema.optional(),
   episodeRef: providerRefSchema,
   episodeNumber: z.number().int().nonnegative(),
@@ -978,27 +982,6 @@ export const enrichmentResponseSchema = z.strictObject({
   enrichment: enrichmentSchema.nullable(),
 })
 
-/**
- * Los metadatos de una película o serie que no vienen de AniList.
- *
- * Es una forma propia y no un `enrichment` recortado: TMDB no publica nota de
- * AniList, ni su ficha, ni el siguiente capítulo, y fingir esos campos vacíos haría
- * que la interfaz tuviera que distinguir «no hay» de «no aplica». La portada no
- * viaja aquí: la de TMDB exigiría otro proxy de imágenes y la ficha ya tiene la del
- * plugin.
- */
-export const tmdbMetadataSchema = z.strictObject({
-  source: z.literal('tmdb'),
-  synopsis: z.string().min(1).optional(),
-  genres: z.array(z.string().min(1)),
-  year: z.number().int().optional(),
-})
-
-/** Lo que TMDB sabe de una ficha. `null` es «no hay con qué», no un error. */
-export const tmdbMetadataResponseSchema = z.strictObject({
-  metadata: tmdbMetadataSchema.nullable(),
-})
-
 /** Las referencias que la vitrina quiere emparejar de una vez. */
 export const enrichmentBatchRequestSchema = z.strictObject({
   refs: z.array(providerRefSchema).min(1).max(24),
@@ -1104,18 +1087,6 @@ export const settingsResponseSchema = z.strictObject({
     version: z.string().optional(),
   }),
   providers: z.array(providerSummarySchema),
-  /**
-   * La fuente de metadatos de no-anime, si está configurada.
-   *
-   * **La clave no viaja nunca en esta respuesta**: la interfaz sólo necesita saber
-   * si hay una para enseñar «configurada» y no volver a pedirla. Devolverla sería
-   * poner un secreto del usuario en una respuesta que el navegador guarda.
-   */
-  tmdb: z
-    .strictObject({
-      configured: z.boolean(),
-    })
-    .default({ configured: false }),
 })
 
 /**
@@ -1132,26 +1103,13 @@ export const settingsPatchSchema = z
     providerPriority: providerPrioritySchema.optional(),
     adultContent: z.boolean().optional(),
     discordPresence: discordPresenceSchema.optional(),
-    /**
-     * La clave de TMDB, o `null` para quitarla.
-     *
-     * Se valida la forma de una clave v3 —32 hexadecimales— para no guardar una
-     * cadena que después falle en cada petición sin decir por qué. `null` la
-     * borra; ausente deja la que hubiera.
-     */
-    tmdbApiKey: z
-      .string()
-      .regex(/^[a-f0-9]{32}$/i, 'la clave de TMDB son 32 caracteres hexadecimales')
-      .nullable()
-      .optional(),
   })
   .refine(
     (parche) =>
       parche.theme !== undefined ||
       parche.providerPriority !== undefined ||
       parche.adultContent !== undefined ||
-      parche.discordPresence !== undefined ||
-      parche.tmdbApiKey !== undefined,
+      parche.discordPresence !== undefined,
     'el parche no cambia ningún ajuste',
   )
 
@@ -1339,7 +1297,6 @@ export type DiscoverResponse = z.infer<typeof discoverResponseSchema>
 export type AiringItem = z.infer<typeof airingItemSchema>
 export type AiringResponse = z.infer<typeof airingResponseSchema>
 export type Enrichment = z.infer<typeof enrichmentSchema>
-export type TmdbMetadata = z.infer<typeof tmdbMetadataSchema>
 export type EnrichmentResponse = z.infer<typeof enrichmentResponseSchema>
 export type EnrichmentBatchRequest = z.infer<typeof enrichmentBatchRequestSchema>
 export type EnrichmentBatchItem = z.infer<typeof enrichmentBatchItemSchema>

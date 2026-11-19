@@ -59,6 +59,7 @@ export {
   PLUGIN_EXTENSIONS,
   pluginNames,
   type RejectedPlugin,
+  retiredCapabilityWarnings,
 } from './loader'
 export { pluginFetchFor, setPluginFetchFactory } from './network'
 export {

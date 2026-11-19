@@ -88,6 +88,19 @@ describe('carga de plugins', () => {
     })
   })
 
+  test('un manifiesto con campos retirados carga y avisa', async () => {
+    await withPlugins(['retirado.ts'], async (directory) => {
+      const report = await loadProviders({ directory })
+
+      expect(ids(report)).toEqual(['retirado'])
+      expect(report.rejected).toEqual([])
+      expect(report.active[0]?.warnings).toEqual([
+        'el manifiesto declara `families`, un campo retirado; se ignora',
+        'el manifiesto declara `media`, un campo retirado; se ignora',
+      ])
+    })
+  })
+
   test('un archivo con `providers` aporta varios', async () => {
     await withPlugins(['varios.ts'], async (directory) => {
       const report = await loadProviders({ directory })
