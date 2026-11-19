@@ -50,7 +50,7 @@ import { acotarAProveedoresActivos } from './provider-scope'
 import { enabledProviderFiles } from './repo-store'
 import { registerAniListRoutes } from './routes/anilist'
 import { findProvider, registerAnimeRoutes } from './routes/anime'
-import { registerCastRoutes } from './routes/cast'
+import { registerCastRoutes, registerCastSessionRoutes } from './routes/cast'
 import { registerCoverRoute } from './routes/cover'
 import { registerDetailRoutes } from './routes/detail'
 import { registerFeedRoute, registerRecentRoute } from './routes/discovery'
@@ -379,6 +379,7 @@ export function createApp(options: AppOptions): Hono {
       '*',
       tokenGuard(session, {
         ...(options.container === undefined ? {} : { tickets: options.container.tickets }),
+        ...(options.container === undefined ? {} : { castTickets: options.container.castTickets }),
       }),
     )
     registerLogin(app, { session, secureCookie: options.auth.secureCookie })
@@ -392,7 +393,10 @@ export function createApp(options: AppOptions): Hono {
       ...(options.network === undefined ? {} : { extraOrigins: options.network.extraOrigins }),
       ...(options.network === undefined ? {} : { sameOrigin: options.network.sameOrigin }),
     }),
-    sessionGuard(session, { tickets: options.container?.tickets }),
+    sessionGuard(session, {
+      ...(options.container === undefined ? {} : { tickets: options.container.tickets }),
+      ...(options.container === undefined ? {} : { castTickets: options.container.castTickets }),
+    }),
   ]
   for (const prefix of PROTECTED_PREFIXES) {
     app.use(`${prefix}*`, ...guards)
@@ -673,6 +677,13 @@ export function createApp(options: AppOptions): Hono {
     })
     registerStreamRoutes(app, { ...routeOptions, ...proxyOptions })
     registerSubtitlesRoute(app, { container, ...proxyOptions })
+    if (options.cast !== undefined) {
+      registerCastSessionRoutes(app, getPort, {
+        ...options.cast,
+        providers: hub.providers,
+        container,
+      })
+    }
     // Los saltos son otra salida a un tercero, con su propio `fetch` y su propio
     // resolutor: una prueba que inyecta el de AniList no está sirviendo éste.
     registerSkipTimesRoute(app, {

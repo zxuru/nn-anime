@@ -131,6 +131,43 @@ export const castInfoResponseSchema = z
     message: 'available y reason no pueden contradecirse',
   })
 
+/** Un subtítulo que la TV puede pedir sin cookie. */
+export const castSubtitleSchema = z.strictObject({
+  id: z.string().min(1),
+  url: httpUrlSchema,
+  lang: z.string().min(1),
+  label: z.string().min(1),
+})
+
+/**
+ * El alta de una emisión.
+ *
+ * El cliente no manda una URL: manda la misma referencia de episodio que
+ * resolvería un stream. `title` y `poster` son para los metadatos del receptor,
+ * no para el servidor; `startAtS` es la posición desde la que empieza la TV.
+ */
+export const castSessionRequestSchema = streamRequestSchema.extend({
+  title: z.string().min(1).max(300).optional(),
+  poster: z.string().min(1).max(2000).optional(),
+  startAtS: z.number().nonnegative().optional(),
+})
+
+/**
+ * La emisión ya emitida.
+ *
+ * `urls` son absolutas y llevan el ticket; `id` es una sesión opaca para poder
+ * revocar el video y sus subtítulos de una vez. `expiresAt` es época en ms.
+ */
+export const castSessionResponseSchema = z.strictObject({
+  id: z.string().min(1),
+  kind: z.enum(['hls', 'file']),
+  urls: z.array(httpUrlSchema).min(1),
+  expiresAt: z.number().int().positive(),
+  title: z.string().min(1).optional(),
+  poster: z.string().min(1).optional(),
+  subtitles: z.array(castSubtitleSchema),
+})
+
 export const providersResponseSchema = z.strictObject({
   providers: z.array(providerSummarySchema),
 })
@@ -1302,6 +1339,9 @@ export type ProviderSummary = z.infer<typeof providerSummarySchema>
 export type ProviderProbeResponse = z.infer<typeof providerProbeResponseSchema>
 export type HealthResponse = z.infer<typeof healthResponseSchema>
 export type CastInfoResponse = z.infer<typeof castInfoResponseSchema>
+export type CastSubtitle = z.infer<typeof castSubtitleSchema>
+export type CastSessionRequest = z.infer<typeof castSessionRequestSchema>
+export type CastSessionResponse = z.infer<typeof castSessionResponseSchema>
 export type ProvidersResponse = z.infer<typeof providersResponseSchema>
 export type ProviderDraft = z.infer<typeof providerDraftSchema>
 export type ProviderFieldMap = z.infer<typeof providerFieldMapSchema>

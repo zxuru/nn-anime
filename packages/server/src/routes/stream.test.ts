@@ -406,6 +406,7 @@ describe('refresco forzado del stream', () => {
     const vencido: TicketStore = {
       issue: () => 'ticket-vencido',
       resolve: () => ({ ok: false, kind: 'expired' }),
+      revoke: () => false,
       size: () => 0,
       prune: () => 0,
     }
