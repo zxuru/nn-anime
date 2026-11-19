@@ -76,6 +76,26 @@ export interface CastContextLike {
   requestSession(): Promise<unknown>
   getCurrentSession(): CastSessionLike | null
   setOptions(options: { receiverApplicationId: string; autoJoinPolicy: string }): void
+  /**
+   * El estado de la sesión del receptor (`SESSION_STARTED`, `SESSION_ENDED`…).
+   *
+   * Es opcional porque los dobles de los tests no lo necesitan para todo; el
+   * SDK real lo tiene y es la única forma de enterarse de que la TV cerró la
+   * sesión por su cuenta.
+   */
+  addEventListener?(
+    type: 'sessionstatechanged',
+    listener: (event: CastSessionStateEvent) => void,
+  ): void
+  removeEventListener?(
+    type: 'sessionstatechanged',
+    listener: (event: CastSessionStateEvent) => void,
+  ): void
+}
+
+/** Lo que trae el evento `sessionstatechanged` del SDK. */
+export interface CastSessionStateEvent {
+  readonly sessionState?: string | undefined
 }
 
 /**

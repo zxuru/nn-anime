@@ -28,6 +28,7 @@ interface Doble {
     muteOrUnmute: number
   }
   readonly emitir: (evento: string) => void
+  readonly emitirSesion: (evento: { sessionState?: string }) => void
 }
 
 function doble(device = 'Salón'): Doble {
@@ -46,6 +47,7 @@ function doble(device = 'Salón'): Doble {
     playerState: 'PAUSED',
   }
   const oyentes = new Map<string, Set<() => void>>()
+  const oyentesSesion = new Set<(evento: { sessionState?: string }) => void>()
 
   const controller: CastController = {
     playOrPause: () => {
@@ -93,6 +95,12 @@ function doble(device = 'Salón'): Doble {
     setOptions: (value) => {
       opciones.push(value)
     },
+    addEventListener: (tipo, oyente) => {
+      if (tipo === 'sessionstatechanged') oyentesSesion.add(oyente)
+    },
+    removeEventListener: (tipo, oyente) => {
+      if (tipo === 'sessionstatechanged') oyentesSesion.delete(oyente)
+    },
   }
 
   const sdk: CastSdk = {
@@ -126,6 +134,9 @@ function doble(device = 'Salón'): Doble {
     llamadas,
     emitir: (evento) => {
       for (const oyente of oyentes.get(evento) ?? []) oyente()
+    },
+    emitirSesion: (evento) => {
+      for (const oyente of [...oyentesSesion]) oyente(evento)
     },
   }
 }
@@ -268,6 +279,55 @@ describe('la emisión', () => {
     d.remote.currentTime = 77
     d.emitir('currentTimeChanged')
     expect(emision.estado().positionS).toBe(0)
+  })
+
+  test('si el receptor termina la sesión, lo dice y conserva la posición', async () => {
+    const d = doble()
+    let desconectados = 0
+    const emision = crearCastSesion(
+      d.sdk,
+      () => {},
+      () => {
+        desconectados += 1
+      },
+    )
+    await emision.iniciar('/stream/abc', 'file', {})
+
+    d.remote.playerState = 'PLAYING'
+    d.remote.isPaused = false
+    d.remote.currentTime = 77
+    d.emitir('playerStateChanged')
+
+    d.emitirSesion({ sessionState: 'SESSION_ENDED' })
+
+    expect(emision.estado().conectado).toBe(false)
+    expect(emision.estado().playing).toBe(false)
+    expect(emision.estado().positionS).toBe(77)
+    expect(desconectados).toBe(1)
+    // Una sesión que ya terminó no se vuelve a cerrar con `endSession`.
+    expect(d.sesion.end).toEqual([])
+
+    d.emitirSesion({ sessionState: 'SESSION_ENDED' })
+    expect(desconectados).toBe(1)
+  })
+
+  test('detener deja de escuchar la sesión', async () => {
+    const d = doble()
+    let desconectados = 0
+    const emision = crearCastSesion(
+      d.sdk,
+      () => {},
+      () => {
+        desconectados += 1
+      },
+    )
+    await emision.iniciar('/stream/abc', 'file', {})
+
+    emision.detener()
+    d.emitirSesion({ sessionState: 'SESSION_ENDED' })
+
+    expect(desconectados).toBe(0)
+    expect(d.sesion.end).toEqual([true])
   })
 
   test('adoptar una sesión existente no vuelve a pedirla', () => {

@@ -13,6 +13,7 @@ import {
   type CastMetadata,
   type CastSdk,
   type CastSessionLike,
+  type CastSessionStateEvent,
   type CastTrack,
 } from './cast-types'
 
@@ -62,10 +63,15 @@ function clavar(valor: number, min: number, max: number): number {
   return Math.min(Math.max(valor, min), max)
 }
 
-export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => void): CastSesion {
+export function crearCastSesion(
+  sdk: CastSdk,
+  onEstado: (estado: CastEstado) => void,
+  onDesconectar?: () => void,
+): CastSesion {
   let estado: CastEstado = CAST_ESTADO_INICIAL
   let session: CastSessionLike | null = null
   let escuchando = false
+  let escuchandoSesion = false
   let estabaReproduciendo = false
 
   const actualizar = (cambio: Partial<CastEstado>): void => {
@@ -127,6 +133,44 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
   }
 
   /**
+   * El receptor puede cerrar la sesión sin que el emisor toque nada: la TV se
+   * apaga, alguien cambia de destino desde el móvil o se cae la red. Sin este
+   * evento, la interfaz sigue diciendo «conectado» y los mandos escriben a una
+   * sesión que ya no existe.
+   *
+   * La posición no se pierde: es lo único que el reproductor local necesita para
+   * reanudar donde estaba la TV. El ticket del servidor lo revoca quien llama;
+   * aquí no se cierra una sesión que ya está cerrada.
+   */
+  const alCambiarSesion = (evento: CastSessionStateEvent): void => {
+    if (evento.sessionState !== 'SESSION_ENDED') return
+
+    const posicion = estado.positionS
+    const duracion = estado.durationS
+
+    session = null
+    estabaReproduciendo = false
+    dejarDeEscuchar()
+    dejarDeEscucharSesion()
+    actualizar({ ...CAST_ESTADO_INICIAL, positionS: posicion, durationS: duracion })
+    onDesconectar?.()
+  }
+
+  const empezarAEscucharSesion = (): void => {
+    if (escuchandoSesion) return
+
+    sdk.context.addEventListener?.('sessionstatechanged', alCambiarSesion)
+    escuchandoSesion = true
+  }
+
+  const dejarDeEscucharSesion = (): void => {
+    if (!escuchandoSesion) return
+
+    sdk.context.removeEventListener?.('sessionstatechanged', alCambiarSesion)
+    escuchandoSesion = false
+  }
+
+  /**
    * La carga de un medio por la sesión ya abierta.
    *
    * `iniciar` pide sesión y llama aquí; `cargar` entra directamente. Lo que hace
@@ -143,6 +187,7 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
   ): Promise<void> => {
     if (session === null) throw new Error('no hay ninguna emisión abierta')
 
+    empezarAEscucharSesion()
     estabaReproduciendo = false
     const media = sdk.createMedia(url, kind)
     media.tracks = subtitles.map((pista) => sdk.createTrack?.(pista) ?? pista)
@@ -213,6 +258,7 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
 
     adoptar(actual) {
       session = actual
+      empezarAEscucharSesion()
       empezarAEscuchar()
       actualizar({
         conectado: true,
@@ -279,11 +325,13 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
       session = null
       estabaReproduciendo = false
       dejarDeEscuchar()
+      dejarDeEscucharSesion()
       actualizar(CAST_ESTADO_INICIAL)
     },
 
     cerrar() {
       dejarDeEscuchar()
+      dejarDeEscucharSesion()
     },
 
     estado() {

@@ -113,6 +113,17 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
   const posterRef = useRef(options.poster)
   const positionRef = useRef(options.positionS)
   const tracksRef = useRef(options.tracks)
+  /**
+   * La URL del ticket que el receptor tiene cargado ahora.
+   *
+   * Cambiar de audio —sub a doblado— resuelve un ticket nuevo para el mismo
+   * episodio y la sesión del receptor no se entera sola. Se compara con esta
+   * marca, no con `urlRef`, porque `urlRef` ya está en la URL nueva cuando corre
+   * el efecto.
+   */
+  const urlAplicadaRef = useRef(options.url)
+  /** Descarta respuestas de cambios de audio que ya no son el último. */
+  const generacionRef = useRef(0)
 
   urlRef.current = options.url
   kindRef.current = options.kind
@@ -186,6 +197,26 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
   )
 
   /**
+   * El receptor cerró la sesión por su cuenta.
+   *
+   * La TV ya no está reproduciendo: el aviso no puede seguir diciendo que sí.
+   * Se borra la marca, se revoca el ticket que quede en el servidor y se deja el
+   * estado inicial con la **posición** del receptor para que el vídeo local
+   * reanude ahí. La generación se sube para que un cambio de audio en vuelo no
+   * resucite la sesión.
+   */
+  const alDesconectar = useCallback((): void => {
+    generacionRef.current += 1
+    sesionRef.current = undefined
+    setSesion(undefined)
+    borrarMarca()
+
+    const id = idRef.current
+    idRef.current = undefined
+    if (id !== undefined) void cerrarCastSesion(id).catch(() => {})
+  }, [])
+
+  /**
    * Reconectar una emisión que ya existía.
    *
    * Sólo se carga el guion si hay una marca de una emisión anterior. Si la
@@ -222,10 +253,11 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
         }
 
         if (marca.url === urlRef.current) {
-          const adoptada = crearCastSesion(sdkCast, setEstado)
+          const adoptada = crearCastSesion(sdkCast, setEstado, alDesconectar)
           adoptada.adoptar(actual)
           sesionRef.current = adoptada
           idRef.current = marca.id
+          urlAplicadaRef.current = urlRef.current
           setSesion(adoptada)
 
           return
@@ -244,7 +276,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
             return
           }
 
-          const encadenada = crearCastSesion(sdkCast, setEstado)
+          const encadenada = crearCastSesion(sdkCast, setEstado, alDesconectar)
           encadenada.adoptar(actual)
           await encadenada.cargar(
             alta.urls[0] ?? '',
@@ -256,6 +288,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
 
           sesionRef.current = encadenada
           idRef.current = alta.id
+          urlAplicadaRef.current = urlRef.current
           setSesion(encadenada)
           guardarMarca(alta.id, urlRef.current)
 
@@ -279,7 +312,67 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
     return () => {
       vigente = false
     }
-  }, [metadatos, pedirSesion])
+  }, [alDesconectar, metadatos, pedirSesion])
+
+  /**
+   * Cambiar de audio con la TV puesta.
+   *
+   * «Doblado» resuelve otro stream y el reproductor recibe un ticket nuevo; la
+   * sesión del receptor seguiría con el `contentId` viejo. Se pide otro ticket de
+   * emisión, se manda por la **misma** sesión de Cast (sin volver a
+   * `requestSession`, que abriría el selector de dispositivos otra vez) y se
+   * revoca el anterior cuando el nuevo ya está cargado. La posición es la del
+   * receptor, no la del `<video>` local, que está en pausa.
+   */
+  useEffect(() => {
+    if (sesionRef.current === undefined) return
+    if (urlAplicadaRef.current === options.url) return
+
+    const generacion = ++generacionRef.current
+    let creada: string | undefined
+
+    void (async () => {
+      try {
+        const { alta, pistas } = await pedirSesion()
+        creada = alta.id
+
+        if (generacion !== generacionRef.current) {
+          await cerrarCastSesion(alta.id).catch(() => {})
+
+          return
+        }
+
+        const sesion = sesionRef.current
+        if (sesion === undefined) {
+          await cerrarCastSesion(alta.id).catch(() => {})
+
+          return
+        }
+
+        await sesion.cargar(
+          alta.urls[0] ?? '',
+          alta.kind,
+          metadatos(),
+          estadoRef.current.positionS,
+          pistas,
+        )
+
+        const anterior = idRef.current
+        idRef.current = alta.id
+        urlAplicadaRef.current = urlRef.current
+        guardarMarca(alta.id, urlRef.current)
+
+        if (anterior !== undefined) await cerrarCastSesion(anterior).catch(() => {})
+      } catch (cause) {
+        // La emisión anterior sigue sonando; su ticket no se toca. Sólo se
+        // revoca el ticket nuevo, que no llegó a cargarse.
+        if (creada !== undefined) await cerrarCastSesion(creada).catch(() => {})
+
+        urlAplicadaRef.current = urlRef.current
+        setError(cause instanceof Error ? cause.message : String(cause))
+      }
+    })()
+  }, [metadatos, options.url, pedirSesion])
 
   const detener = useCallback(async (): Promise<number> => {
     const posicion = estadoRef.current.positionS
@@ -326,13 +419,14 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
       id = alta.id
       idRef.current = id
 
-      const nueva = crearCastSesion(sdk, setEstado)
+      const nueva = crearCastSesion(sdk, setEstado, alDesconectar)
       sesionRef.current = nueva
       setSesion(nueva)
 
       await nueva.iniciar(alta.urls[0] ?? '', alta.kind, metadatos(), positionRef.current, pistas)
 
       if (id !== undefined) guardarMarca(id, urlRef.current)
+      urlAplicadaRef.current = urlRef.current
 
       return true
     } catch (cause) {
@@ -353,7 +447,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
     } finally {
       setCargando(false)
     }
-  }, [disponible, cargando, metadatos, pedirSesion])
+  }, [alDesconectar, disponible, cargando, metadatos, pedirSesion])
 
   return {
     disponible,
