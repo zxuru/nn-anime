@@ -23,15 +23,16 @@ adelante usan **T394–T399**.
 
 ## Estado de la implementación (2026-11-19)
 
-- **Hecho y medido:** T376 (PiP en el marco), T377 (WebKit), T380 (`/api/cast/info`), T381 (tickets,
-  sesión y guards), T382 (cargador y CSP), T383 (sesión de Cast), T384a/T384b (mandos y aviso),
-  T385 (e2e con receptor falso), T386 (documentación y `SECURITY.md`), T394 (subtítulos), T395
-  (progreso, saltos y final), T395b (el siguiente episodio reutiliza la sesión) y T396 (reconexión).
+- **Hecho y medido:** T376 (PiP en el marco), T377 (WebKit), T378 (PiP de la app de escritorio en
+  WebView2; macOS declarado no medido), T380 (`/api/cast/info`), T381 (tickets, sesión y guards),
+  T382 (cargador y CSP), T383 (sesión de Cast), T384a/T384b (mandos y aviso), T385 (e2e con receptor
+  falso), T386 (documentación y `SECURITY.md`), T394 (subtítulos), T395 (progreso, saltos y final),
+  T395b (el siguiente episodio reutiliza la sesión) y T396 (reconexión).
 - **Hecho con dobles, sin hardware:** T387 (AirPlay; la puerta `remote`/WebKit, el `<video>` oculto,
   la URL absoluta, la pausa local y la revocación se miden en el e2e; un Apple TV real no).
-- **Pendiente de hardware o de decisión:** T378 (medir WebView2), T379 (spike con TV real), T397
-  (móvil con TLS) y T398 (el spike de DLNA; su propuesta ya está escrita). AirPlay con hardware y los
-  subtítulos que Safari pinte en el receptor siguen dentro de T379/T387 y no se declaran medidos.
+- **Pendiente de hardware o de decisión:** T379 (spike con TV real), T397 (móvil con TLS) y T398 (el
+  spike de DLNA; su propuesta ya está escrita). AirPlay con hardware y los subtítulos que Safari
+  pinte en el receptor siguen dentro de T379/T387 y no se declaran medidos.
 - **Propuesta cerrada:** T399 (emitir descargas locales) deja
   `docs/specs/proposals/SPEC-media-proxy.T399.md`; la implementación no se abre sin aprobación.
 - Lo que no se ha medido con una TV real se dice en `docs/cast.md` y en `SECURITY.md`; la función
