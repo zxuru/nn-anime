@@ -542,10 +542,11 @@ release.
 
 ## La imagen de contenedor
 
-`release.yml` publica también `ghcr.io/zxuru/rona` con la versión de la release y `latest`, para
-`linux/amd64` y `linux/arm64`. Es el mismo workflow y el mismo tag: no hay un segundo publicador que
-compita por la release. El trabajo `docker` no crea ni edita una release de GitHub; sólo empuja a
-GHCR, y el trabajo `publicar` depende de él para que una release no anuncie una imagen que no existe.
+`release.yml` publica también `ghcr.io/zxuru/rona` con la versión de la release y, si no es un
+prerelease, `latest`, para `linux/amd64` y `linux/arm64`. Es el mismo workflow y el mismo tag: no hay
+un segundo publicador que compita por la release. El trabajo `docker` no crea ni edita una release de
+GitHub; sólo empuja a GHCR, y el trabajo `publicar` depende de él para que una release no anuncie una
+imagen que no existe.
 
 - **Permisos:** el trabajo pide `packages: write`. El `GITHUB_TOKEN` del repositorio basta; no hay un
   secreto nuevo que configurar.

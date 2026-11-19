@@ -131,6 +131,7 @@ interface PasoWorkflow {
   readonly id?: string
   readonly run?: string
   readonly uses?: string
+  readonly with?: Readonly<Record<string, unknown>>
 }
 
 interface TrabajoWorkflow {
@@ -248,6 +249,74 @@ describe('los tres workflows', () => {
         expect(uso, `${archivo}: ${uso}`).toMatch(/@[0-9a-f]{40}$/)
       }
     }
+  })
+})
+
+/**
+ * La imagen arm64 y el alias `latest` (R6).
+ *
+ * Las dos cosas se declaraban pendientes en el propio workflow: arm64 se construía sin arrancarla
+ * —una dependencia nativa rota o un `USER` inexistente sólo se ve al ejecutarla— y `latest` se movía
+ * con cualquier tag, también con una `-rc.1`. Lo que se defiende aquí es que el CI arranque las dos
+ * arquitecturas y que la etiqueta móvil dependa de si la versión es un prerelease.
+ */
+describe('la imagen arm64 y el alias latest (R6)', () => {
+  const pasosDocker = (workflowName: string, trabajo: string) =>
+    trabajosDe(workflowName).get(trabajo)?.steps ?? []
+
+  test('el CI construye y carga una imagen por arquitectura', () => {
+    const builds = pasosDocker('ci.yml', 'docker').filter((paso) =>
+      (paso.uses ?? '').startsWith('docker/build-push-action@'),
+    )
+    const plataformas = builds.map((paso) => paso.with?.platforms)
+
+    // Sin una imagen cargada no hay nada que arrancar: `load` es la mitad del criterio.
+    expect(plataformas).toContain('linux/amd64')
+    expect(plataformas).toContain('linux/arm64')
+    for (const build of builds) expect(build.with?.load).toBe(true)
+  })
+
+  test('QEMU está antes de los builds y el smoke arranca las dos', () => {
+    const pasos = pasosDocker('ci.yml', 'docker')
+    const usos = pasos.map((paso) => paso.uses ?? '')
+    const qemu = usos.findIndex((uso) => uso.startsWith('docker/setup-qemu-action@'))
+    const primerBuild = usos.findIndex((uso) => uso.startsWith('docker/build-push-action@'))
+
+    // Sin QEMU, `docker run --platform linux/arm64` no puede ejecutar el binario.
+    expect(qemu).toBeGreaterThanOrEqual(0)
+    expect(qemu).toBeLessThan(primerBuild)
+
+    const guion = pasos.map((paso) => paso.run ?? '').join('\n')
+    expect(guion).toContain('--platform "$plataforma"')
+    expect(guion).toContain('linux/arm64')
+    expect(guion).toContain('rona:ci-arm64')
+  })
+
+  test('comprobar marca el prerelease y calcula las etiquetas de la imagen', () => {
+    const guion = guionDe('release.yml', 'comprobar')
+
+    expect(guion).toContain('prerelease=true')
+    expect(guion).toContain('prerelease=false')
+    expect(guion).toContain('docker_tags')
+    expect(guion).toContain('ghcr.io/zxuru/rona:latest')
+  })
+
+  test('la imagen usa las etiquetas calculadas, no una lista fija con latest', () => {
+    const build = pasosDocker('release.yml', 'docker').find((paso) =>
+      (paso.uses ?? '').startsWith('docker/build-push-action@'),
+    )
+
+    expect(build?.with?.tags).toContain('needs.comprobar.outputs.docker_tags')
+  })
+
+  test('la release marca el prerelease y make_latest depende de ella', () => {
+    const guion = guionDe('release.yml', 'publicar')
+
+    expect(guion).toContain('PRERELEASE')
+    expect(guion).toContain('make_latest=false')
+    expect(guion).toContain('make_latest=true')
+    // El valor fijo es justo lo que movía «latest» con una prerelease.
+    expect(guion).not.toContain('-F make_latest=true')
   })
 })
 

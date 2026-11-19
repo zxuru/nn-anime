@@ -195,6 +195,8 @@ el token ni la URL de arranque.
 
 ## Publicación de la imagen
 
-Cada release publica `ghcr.io/zxuru/rona:<versión>` y `ghcr.io/zxuru/rona:latest`, para
-`linux/amd64` y `linux/arm64`, desde `.github/workflows/release.yml`. Los PRs construyen la imagen
-sin publicarla. El detalle del proceso está en [release.md](release.md).
+Cada release estable publica `ghcr.io/zxuru/rona:<versión>` y `ghcr.io/zxuru/rona:latest`, para
+`linux/amd64` y `linux/arm64`, desde `.github/workflows/release.yml`. Un prerelease (`1.2.3-rc.1`)
+publica sólo la etiqueta de su versión: `latest` se queda en la última estable. Los PRs construyen y
+**arrancan** las dos arquitecturas bajo QEMU sin publicarlas. El detalle del proceso está en
+[release.md](release.md).
