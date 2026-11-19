@@ -115,7 +115,7 @@ guarda `pip.disponible` deja el mando sin soporte; no escuchar `enterpictureinpi
 **Depende de:** T375.
 
 **Archivos:** `packages/web/src/features/player/usePictureInPicture.ts`, `Player.tsx`,
-`PlayerFrame.tsx`, `packages/web/src/styles/player.css`, `packages/web/src/i18n/es.ts` y sus tests.
+`packages/web/src/styles/obra.css`, `packages/web/src/i18n/es.ts` y sus tests.
 
 **Tamaño:** M.
 
@@ -384,7 +384,7 @@ deja la prueba del orden en rojo; no hacer `DELETE` al parar deja el ticket vivo
 
 **Depende de:** T383.
 
-**Archivos:** `CastControl.tsx`, `Player.tsx`, `PlayerFrame.tsx`, `styles/player.css`,
+**Archivos:** `CastControl.tsx`, `Player.tsx`, `PlayerFrame.tsx`, `styles/obra.css`,
 `i18n/es.ts` y tests.
 
 **Tamaño:** M.
@@ -482,7 +482,8 @@ real queda condicionada a hardware.
 
 **Depende de:** T379, T381, T383, T394.
 
-**Archivos:** `useRemotePlayback.ts`, `Player.tsx`, `cast-types.ts`, `security-headers.ts` y tests.
+**Archivos:** `useRemotePlayback.ts`, `Player.tsx`, `cast-types.ts`,
+`packages/server/src/middleware/security-headers.ts` y tests.
 
 **Tamaño:** L.
 

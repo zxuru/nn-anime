@@ -1208,6 +1208,43 @@ body.player-extendido {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * La ventana flotante, dentro del marco.
+ *
+ * Es un mando de una vez, no de cada minuto: se apoya arriba a la derecha y
+ * lleva el mismo borde y la misma sombra dura que el resto, sobre una superficie
+ * opaca para que se lea sobre cualquier fotograma. No compite con el botón de
+ * saltar, que vive abajo a la derecha, ni con la tarjeta del siguiente, que
+ * ocupa el centro cuando el episodio termina.
+ *
+ * Se queda visible aunque los mandos se escondan: es la salida a «seguir viendo
+ * mientras hago otra cosa», y esconderla con la banda la devolvía al menú que
+ * esta tarea acaba de quitar.
+ */
+.player__pip {
+  position: absolute;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  z-index: 3;
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-hard);
+  opacity: 0.88;
+  transition:
+    opacity var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.player__pip:hover,
+.player__pip:focus-visible {
+  opacity: 1;
+  border-color: var(--color-border);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
 /* El hueco entre lo que se toca a menudo y el reloj. */
 .player__spacer {
   flex: 1 1 auto;

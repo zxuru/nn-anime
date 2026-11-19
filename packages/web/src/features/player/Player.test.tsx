@@ -395,6 +395,37 @@ describe('la velocidad y la ventana flotante', () => {
     expect(fuente).toContain('requestPictureInPicture')
     expect(fuente).toContain('enterpictureinpicture')
   })
+
+  /**
+   * El mando de la ventana flotante, donde se busca.
+   *
+   * El render de servidor no tiene `document`, así que se le da un doble mínimo
+   * para medir el marcado: el botón vive dentro del marco y **no** en el menú de
+   * ajustes. Es lo que separa «existe» de «se encuentra».
+   */
+  test('con soporte, el mando vive en el marco y no en el menú', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'document')
+    Object.defineProperty(globalThis, 'document', {
+      configurable: true,
+      value: { pictureInPictureEnabled: true, pictureInPictureElement: null },
+    })
+
+    try {
+      const html = render(<Player url="/stream/abc" kind="file" />)
+
+      expect(html).toContain('class="button player__control player__pip"')
+      expect(html).toContain('aria-label="Ventana flotante"')
+      expect(html).toContain('aria-pressed="false"')
+      expect(html.indexOf('player__pip')).toBeLessThan(html.indexOf('player__settings'))
+      expect(html).not.toContain('player__menu-action" aria-pressed="false">Ventana flotante')
+    } finally {
+      if (descriptor === undefined) {
+        Reflect.deleteProperty(globalThis, 'document')
+      } else {
+        Object.defineProperty(globalThis, 'document', descriptor)
+      }
+    }
+  })
 })
 
 describe('pistas y reanudación', () => {
