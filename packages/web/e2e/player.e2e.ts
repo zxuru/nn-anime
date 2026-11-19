@@ -549,6 +549,30 @@ test.describe('el reproductor', () => {
   })
 
   /**
+   * Los mandos del encabezado no caen sobre el vídeo.
+   *
+   * El botón de descarga apilaba su selector de audio encima —112 px de alto—
+   * sobre un encabezado de 80: el bloque se derramaba sobre el vídeo porque el
+   * ancla no reserva su hueco. Se mide lo que se ve: el borde inferior de los
+   * mandos no pasa del inicio del reproductor.
+   */
+  test('los mandos del encabezado se quedan en el encabezado', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    await expect(page.locator('video')).toBeVisible({ timeout: 10_000 })
+
+    const acciones = await page.locator('.watch__actions').boundingBox()
+    const reproductor = await page.locator('.player').boundingBox()
+
+    expect(acciones).not.toBeNull()
+    expect(reproductor).not.toBeNull()
+    expect((acciones?.y ?? 0) + (acciones?.height ?? 0)).toBeLessThanOrEqual(
+      (reproductor?.y ?? 0) + 1,
+    )
+  })
+
+  /**
    * El botón grande y la barra de progreso por capas.
    *
    * Lo que se mide aquí no lo puede medir una prueba de marcado: el overlay sólo
@@ -871,6 +895,43 @@ test.describe('el reproductor', () => {
       'aria-pressed',
       'true',
     )
+  })
+
+  /**
+   * La descarga baja exactamente lo que suena.
+   *
+   * El encabezado tenía un segundo selector de audio, con su propio estado, al
+   * lado del de la fila: al cambiar uno, el otro se quedaba con el valor viejo y
+   * «Descargar» bajaba el modo contrario. Se comprueba que fuera del menú sólo
+   * queda un selector y que su elección es la que viaja en el alta.
+   */
+  test('el audio de la fila es el único y manda en la descarga', async ({ page }) => {
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna%233')
+
+    await expect(page.locator('.player__seek .player__range')).toBeEnabled({ timeout: 10_000 })
+
+    // El menú de ajustes vive montado y oculto; el único selector a la vista es
+    // el de la fila. El del encabezado era un tercero y ya no existe.
+    await expect(page.locator('.audio-switch:visible')).toHaveCount(1)
+
+    const fila = page.locator('.watch__nav')
+    await fila.getByRole('button', { name: 'Doblado' }).click()
+    await expect(fila.getByRole('button', { name: 'Doblado' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    // La descarga no sale a la red: lo que se mide es el cuerpo del alta.
+    await page.route('**/api/downloads', (ruta) => ruta.fulfill({ status: 201, json: { id: 1 } }))
+    const alta = page.waitForRequest(
+      (solicitud) =>
+        new URL(solicitud.url()).pathname === '/api/downloads' && solicitud.method() === 'POST',
+    )
+
+    await page.getByRole('button', { name: 'Descargar' }).click()
+
+    expect(JSON.parse((await alta).postData() ?? '{}')).toMatchObject({ mode: 'dub' })
   })
 
   /**
