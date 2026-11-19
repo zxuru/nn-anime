@@ -211,6 +211,15 @@ test('transmitir: sesión, URL de LAN, mandos y parada', async ({ page }) => {
   await expect(aviso).toContainText('Se está viendo en TV de prueba')
   await expect(aviso).toBeVisible()
 
+  // Con la TV puesta, la velocidad no se cambia: se explica, no se dejan cinco
+  // botones deshabilitados sin decir por qué.
+  const ajustes = page.locator('.player__settings').getByRole('button', { name: 'Ajustes' })
+  await ajustes.click()
+  await expect(page.locator('.player__menu')).toContainText(
+    'La velocidad no se cambia desde aquí mientras se ve en la TV.',
+  )
+  await ajustes.click()
+
   // La petición lleva el ticket del reproductor, no una URL absoluta.
   expect(peticion?.url).toMatch(/^\/stream\//)
   expect(['file', 'hls']).toContain(String(peticion?.kind))
@@ -748,4 +757,92 @@ test('audio y desconexión: un solo requestSession, loadMedia nuevo y vuelta loc
     .toBe(false)
 
   expect(borrados).toBeGreaterThanOrEqual(1)
+})
+
+/**
+ * Sin dispositivos: el SDK no devuelve un `Error` bonito, y la interfaz no puede
+ * enseñar `[object Object]` justo cuando no hay nada que elegir (T402).
+ */
+test('sin dispositivos: lo dice en español y en Ajustes', async ({ page }) => {
+  await page.route('**/api/cast/info', async (ruta) => {
+    await ruta.fulfill({ json: { available: true, urls: ['http://127.0.0.1:7801'] } })
+  })
+
+  await page.route('**/api/cast/session', async (ruta) => {
+    if (ruta.request().method() !== 'POST') {
+      await ruta.continue()
+
+      return
+    }
+
+    await ruta.fulfill({
+      json: {
+        id: 'sin-dispositivos',
+        kind: 'file',
+        urls: ['http://127.0.0.1:7801/stream/cast-ticket'],
+        expiresAt: Date.now() + 3_600_000,
+        title: 'Aurora nocturna',
+        subtitles: [],
+      },
+    })
+  })
+
+  await page.addInitScript(() => {
+    const ventana = window as unknown as { chrome?: unknown; cast?: unknown }
+
+    const contexto = {
+      requestSession: () => Promise.reject({ code: 'NO_DEVICES_AVAILABLE' }),
+      getCurrentSession: () => null,
+      setOptions: () => {},
+    }
+
+    function MediaInfo(this: Record<string, unknown>, contentId: string, contentType: string) {
+      this.contentId = contentId
+      this.contentType = contentType
+      this.streamType = 'BUFFERED'
+      this.tracks = []
+      this.activeTrackIds = []
+    }
+
+    function LoadRequest(this: Record<string, unknown>, media: unknown) {
+      this.media = media
+    }
+
+    function vacio(this: Record<string, unknown>) {
+      void this
+    }
+
+    ventana.chrome = {
+      cast: {
+        media: {
+          MediaInfo,
+          LoadRequest,
+          GenericMediaMetadata: vacio,
+          StreamType: { BUFFERED: 'BUFFERED' },
+          DEFAULT_MEDIA_RECEIVER_APP_ID: 'CC1AD845',
+        },
+      },
+    }
+    ventana.cast = {
+      framework: {
+        CastContext: { getInstance: () => contexto },
+        RemotePlayer: vacio,
+        RemotePlayerController: vacio,
+      },
+    }
+  })
+
+  await entrar(page)
+  await page.goto('/watch/fixture/aurora-nocturna?n=1')
+  await page.locator('.player__cast').click()
+
+  await expect(page.locator('.search__error')).toContainText(
+    'No hay ningún dispositivo disponible para transmitir.',
+  )
+
+  const ajustes = page.locator('.player__settings').getByRole('button', { name: 'Ajustes' })
+  await ajustes.click()
+  await expect(page.locator('.player__menu')).toContainText(
+    'No hay ningún dispositivo disponible para transmitir.',
+  )
 })
