@@ -12,7 +12,15 @@ import { abrirCastSesion, cerrarCastSesion, leerCastInfo } from '../../../api/ca
 import { adaptarCastSdk } from './cast-adapter'
 import { cargarCastSdk } from './cast-sdk'
 import { type CastSesion, crearCastSesion } from './cast-session'
-import { CAST_ESTADO_INICIAL, type CastEstado, type CastKind, type CastTrack } from './cast-types'
+import {
+  CAST_ESTADO_INICIAL,
+  type CastEstado,
+  type CastKind,
+  type CastMetadata,
+  type CastSdk,
+  type CastSessionLike,
+  type CastTrack,
+} from './cast-types'
 
 export interface UseCastControlOptions {
   /** El ticket del proxy que el reproductor tiene cargado. */
@@ -132,11 +140,62 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
   }, [])
 
   /**
+   * La petición de sesión que comparten empezar y encadenar.
+   *
+   * El cuerpo es el mismo: el ticket que el reproductor ya tiene, el tipo, los
+   * metadatos y la posición. Tenerlo en un sitio es lo que impide que el
+   * encadenado mande el episodio nuevo con la posición o las pistas del viejo.
+   */
+  const pedirSesion = useCallback(async () => {
+    const alta = await abrirCastSesion({
+      url: urlRef.current,
+      kind: kindRef.current,
+      ...(titleRef.current === undefined ? {} : { title: titleRef.current }),
+      ...(posterRef.current === undefined ? {} : { poster: posterRef.current }),
+      startAtS: positionRef.current,
+      ...(tracksRef.current === undefined || tracksRef.current.length === 0
+        ? {}
+        : {
+            subtitles: tracksRef.current.map((pista) => ({
+              url: pista.url,
+              lang: pista.lang,
+              label: pista.label,
+            })),
+          }),
+    })
+
+    const pistas: CastTrack[] = alta.subtitles.map((subtitulo, indice) => ({
+      trackId: indice + 1,
+      trackContentId: subtitulo.url,
+      trackContentType: 'text/vtt',
+      subtype: 'SUBTITLES',
+      name: subtitulo.label,
+      language: subtitulo.lang,
+    }))
+
+    return { alta, pistas }
+  }, [])
+
+  const metadatos = useCallback(
+    (): CastMetadata => ({
+      ...(titleRef.current === undefined ? {} : { title: titleRef.current }),
+      ...(subtitleRef.current === undefined ? {} : { subtitle: subtitleRef.current }),
+      ...(posterRef.current === undefined ? {} : { poster: posterRef.current }),
+    }),
+    [],
+  )
+
+  /**
    * Reconectar una emisión que ya existía.
    *
-   * Sólo se carga el guion si hay una marca de una emisión anterior **para esta
-   * misma URL**: abrir otro episodio no adopta la TV del anterior, la cierra. La
-   * marca se escribe al empezar y se borra al parar; recargar no la borra.
+   * Sólo se carga el guion si hay una marca de una emisión anterior. Si la
+   * marca es de **este mismo episodio**, se adopta el receptor y se sigue
+   * mandando desde donde quedó. Si es de otro episodio —el encadenado
+   * automático, o cambiar de capítulo con la TV puesta—, se reaprovecha la
+   * sesión del receptor: se pide un ticket nuevo al servidor y se manda con
+   * `loadMedia`, sin volver a pedir sesión ni hacer que el usuario elija la TV.
+   * Abrir otro episodio no apaga la TV; la deja sin contenido sólo si la sesión
+   * del receptor ya no existe.
    */
   useEffect(() => {
     const marca = leerMarca()
@@ -145,31 +204,73 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
     let vigente = true
 
     void (async () => {
-      if (marca.url !== urlRef.current) {
-        await cerrarCastSesion(marca.id).catch(() => {})
-        borrarMarca()
-
-        return
-      }
+      let actual: CastSessionLike | null = null
+      let sdkCast: CastSdk | undefined
 
       try {
         await cargarCastSdk()
 
-        const sdk = adaptarCastSdk()
-        const actual = sdk?.context.getCurrentSession()
+        sdkCast = adaptarCastSdk()
+        actual = sdkCast?.context.getCurrentSession() ?? null
         if (!vigente) return
 
-        if (sdk === undefined || actual === null || actual === undefined) {
+        if (sdkCast === undefined || actual === null) {
+          await cerrarCastSesion(marca.id).catch(() => {})
           borrarMarca()
 
           return
         }
 
-        const nueva = crearCastSesion(sdk, setEstado)
-        nueva.adoptar(actual)
-        sesionRef.current = nueva
-        idRef.current = marca.id
-        setSesion(nueva)
+        if (marca.url === urlRef.current) {
+          const adoptada = crearCastSesion(sdkCast, setEstado)
+          adoptada.adoptar(actual)
+          sesionRef.current = adoptada
+          idRef.current = marca.id
+          setSesion(adoptada)
+
+          return
+        }
+
+        let alta: Awaited<ReturnType<typeof pedirSesion>>['alta'] | undefined
+
+        try {
+          const pedido = await pedirSesion()
+          alta = pedido.alta
+
+          if (!vigente) {
+            await cerrarCastSesion(alta.id).catch(() => {})
+            borrarMarca()
+
+            return
+          }
+
+          const encadenada = crearCastSesion(sdkCast, setEstado)
+          encadenada.adoptar(actual)
+          await encadenada.cargar(
+            alta.urls[0] ?? '',
+            alta.kind,
+            metadatos(),
+            positionRef.current,
+            pedido.pistas,
+          )
+
+          sesionRef.current = encadenada
+          idRef.current = alta.id
+          setSesion(encadenada)
+          guardarMarca(alta.id, urlRef.current)
+
+          // El ticket del episodio anterior se revoca cuando el nuevo ya está
+          // cargado: si se revocara antes, la TV se quedaría sin imagen entre
+          // las dos cargas.
+          await cerrarCastSesion(marca.id).catch(() => {})
+        } catch (cause) {
+          if (alta !== undefined) await cerrarCastSesion(alta.id).catch(() => {})
+
+          actual?.endSession(true)
+          await cerrarCastSesion(marca.id).catch(() => {})
+          borrarMarca()
+          setError(cause instanceof Error ? cause.message : String(cause))
+        }
       } catch {
         borrarMarca()
       }
@@ -178,7 +279,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
     return () => {
       vigente = false
     }
-  }, [])
+  }, [metadatos, pedirSesion])
 
   const detener = useCallback(async (): Promise<number> => {
     const posicion = estadoRef.current.positionS
@@ -221,22 +322,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
       const sdk = adaptarCastSdk()
       if (sdk === undefined) throw new Error('el SDK de Cast no está disponible')
 
-      const alta = await abrirCastSesion({
-        url: urlRef.current,
-        kind: kindRef.current,
-        ...(titleRef.current === undefined ? {} : { title: titleRef.current }),
-        ...(posterRef.current === undefined ? {} : { poster: posterRef.current }),
-        startAtS: positionRef.current,
-        ...(tracksRef.current === undefined || tracksRef.current.length === 0
-          ? {}
-          : {
-              subtitles: tracksRef.current.map((pista) => ({
-                url: pista.url,
-                lang: pista.lang,
-                label: pista.label,
-              })),
-            }),
-      })
+      const { alta, pistas } = await pedirSesion()
       id = alta.id
       idRef.current = id
 
@@ -244,26 +330,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
       sesionRef.current = nueva
       setSesion(nueva)
 
-      const pistas: CastTrack[] = alta.subtitles.map((subtitulo, indice) => ({
-        trackId: indice + 1,
-        trackContentId: subtitulo.url,
-        trackContentType: 'text/vtt',
-        subtype: 'SUBTITLES',
-        name: subtitulo.label,
-        language: subtitulo.lang,
-      }))
-
-      await nueva.iniciar(
-        alta.urls[0] ?? '',
-        alta.kind,
-        {
-          ...(titleRef.current === undefined ? {} : { title: titleRef.current }),
-          ...(subtitleRef.current === undefined ? {} : { subtitle: subtitleRef.current }),
-          ...(posterRef.current === undefined ? {} : { poster: posterRef.current }),
-        },
-        positionRef.current,
-        pistas,
-      )
+      await nueva.iniciar(alta.urls[0] ?? '', alta.kind, metadatos(), positionRef.current, pistas)
 
       if (id !== undefined) guardarMarca(id, urlRef.current)
 
@@ -286,7 +353,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
     } finally {
       setCargando(false)
     }
-  }, [disponible, cargando])
+  }, [disponible, cargando, metadatos, pedirSesion])
 
   return {
     disponible,

@@ -271,3 +271,226 @@ test('transmitir: sesión, URL de LAN, mandos y parada', async ({ page }) => {
   }, carga?.media.contentId ?? '')
   expect(revocadaRespuesta).toBe(401)
 })
+
+/**
+ * El encadenado automático (T395b).
+ *
+ * Al terminar un episodio, la pantalla navega al siguiente y el reproductor se
+ * monta de nuevo. La sesión del receptor no se pierde: se pide un ticket nuevo
+ * al servidor y se manda con `loadMedia` sobre la misma sesión, sin volver a
+ * `requestSession`. Los contadores viven en `localStorage` porque la navegación
+ * recarga la página y el guion falso vuelve a empezar.
+ */
+test('encadenar: el siguiente episodio reutiliza la sesión de la TV', async ({ page }) => {
+  let altas = 0
+  let borrados = 0
+
+  await page.route('**/api/cast/info', async (ruta) => {
+    await ruta.fulfill({ json: { available: true, urls: ['http://127.0.0.1:7801'] } })
+  })
+
+  await page.route('**/api/cast/session', async (ruta) => {
+    if (ruta.request().method() !== 'POST') {
+      await ruta.continue()
+
+      return
+    }
+
+    altas += 1
+    const cuerpo: unknown = ruta.request().postDataJSON()
+    const kind =
+      typeof cuerpo === 'object' && cuerpo !== null && 'kind' in cuerpo && cuerpo.kind === 'hls'
+        ? 'hls'
+        : 'file'
+
+    await ruta.fulfill({
+      json: {
+        id: `emision-${altas}`,
+        kind,
+        urls: [`http://127.0.0.1:7801/stream/cast-ticket-${altas}`],
+        expiresAt: Date.now() + 3_600_000,
+        title: 'Aurora nocturna',
+        subtitles: [],
+      },
+    })
+  })
+
+  await page.route('**/api/cast/session/**', async (ruta) => {
+    borrados += 1
+    await ruta.fulfill({ status: 204 })
+  })
+
+  await page.addInitScript(() => {
+    const CLAVE_PETICIONES = 'cast:requestSession'
+    const CLAVE_CARGAS = 'cast:loads'
+
+    const ventana = window as unknown as {
+      chrome?: unknown
+      cast?: unknown
+      __castRemote?: { isPaused: boolean; playerState: string }
+      __castEmitir?: (evento: string) => void
+    }
+
+    const leerNumero = (clave: string): number => Number(localStorage.getItem(clave) ?? '0')
+    const leerCargas = (): string[] => {
+      const crudo = localStorage.getItem(CLAVE_CARGAS)
+
+      return crudo === null ? [] : (JSON.parse(crudo) as string[])
+    }
+
+    const remoto = {
+      isPaused: true,
+      currentTime: 0,
+      duration: 60,
+      volumeLevel: 0.5,
+      isMuted: false,
+      playerState: 'PAUSED',
+    }
+    const oyentes = new Map<string, Set<() => void>>()
+
+    const sesion = {
+      loadMedia: (peticion: { currentTime?: number; media: { contentId: string } }) => {
+        localStorage.setItem(
+          CLAVE_CARGAS,
+          JSON.stringify([...leerCargas(), peticion.media.contentId]),
+        )
+        remoto.playerState = 'PLAYING'
+        remoto.isPaused = false
+        remoto.currentTime = peticion.currentTime ?? 0
+
+        return Promise.resolve({})
+      },
+      endSession: () => {},
+      getCastDevice: () => ({ friendlyName: 'TV de prueba' }),
+    }
+
+    const controlador = {
+      playOrPause: () => {},
+      seek: () => {},
+      setVolumeLevel: () => {},
+      muteOrUnmute: () => {},
+      addEventListener: (evento: string, oyente: () => void) => {
+        const lista = oyentes.get(evento) ?? new Set()
+        lista.add(oyente)
+        oyentes.set(evento, lista)
+      },
+      removeEventListener: (evento: string, oyente: () => void) => {
+        oyentes.get(evento)?.delete(oyente)
+      },
+    }
+
+    const contexto = {
+      requestSession: () => {
+        localStorage.setItem(CLAVE_PETICIONES, String(leerNumero(CLAVE_PETICIONES) + 1))
+
+        return Promise.resolve({})
+      },
+      getCurrentSession: () => sesion,
+      setOptions: () => {},
+    }
+
+    function MediaInfo(this: Record<string, unknown>, contentId: string, contentType: string) {
+      this.contentId = contentId
+      this.contentType = contentType
+      this.streamType = 'BUFFERED'
+      this.tracks = []
+      this.activeTrackIds = []
+    }
+
+    function LoadRequest(this: Record<string, unknown>, media: unknown) {
+      this.media = media
+      this.currentTime = 0
+      this.autoplay = false
+    }
+
+    function crearMetadataFalsa(this: Record<string, unknown>) {
+      void this
+    }
+
+    function crearRemotePlayer(this: unknown) {
+      return remoto
+    }
+
+    function crearControlador(this: unknown) {
+      return controlador
+    }
+
+    ventana.chrome = {
+      cast: {
+        media: {
+          MediaInfo,
+          LoadRequest,
+          GenericMediaMetadata: crearMetadataFalsa,
+          StreamType: { BUFFERED: 'BUFFERED' },
+          DEFAULT_MEDIA_RECEIVER_APP_ID: 'CC1AD845',
+        },
+      },
+    }
+    ventana.cast = {
+      framework: {
+        CastContext: { getInstance: () => contexto },
+        RemotePlayer: crearRemotePlayer,
+        RemotePlayerController: crearControlador,
+      },
+    }
+    ventana.__castRemote = remoto
+    ventana.__castEmitir = (evento: string) => {
+      for (const oyente of oyentes.get(evento) ?? []) oyente()
+    }
+  })
+
+  await entrar(page)
+  await page.goto('/watch/fixture/aurora-nocturna?n=1')
+
+  await page.locator('.player__cast').click()
+  const aviso = page.locator('.player__cast-notice')
+  await expect(aviso).toContainText('Se está viendo en TV de prueba')
+
+  // El receptor dice que terminó: la pantalla cuenta ocho segundos y navega.
+  await page.evaluate(() => {
+    const v = window as unknown as {
+      __castRemote?: { playerState: string; isPaused: boolean }
+      __castEmitir?: (evento: string) => void
+    }
+
+    if (v.__castRemote === undefined) return
+
+    v.__castRemote.playerState = 'PLAYING'
+    v.__castRemote.isPaused = false
+    v.__castEmitir?.('playerStateChanged')
+    v.__castRemote.playerState = 'IDLE'
+    v.__castEmitir?.('playerStateChanged')
+  })
+
+  await expect.poll(() => page.url(), { timeout: 30_000 }).toContain('n=2')
+
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const crudo = localStorage.getItem('cast:loads')
+
+          return crudo === null ? 0 : (JSON.parse(crudo) as string[]).length
+        }),
+      { timeout: 20_000 },
+    )
+    .toBe(2)
+
+  const resultado = await page.evaluate(() => {
+    const cargas = JSON.parse(localStorage.getItem('cast:loads') ?? '[]') as string[]
+
+    return {
+      peticiones: Number(localStorage.getItem('cast:requestSession') ?? '0'),
+      cargas,
+    }
+  })
+
+  expect(resultado.peticiones).toBe(1)
+  expect(resultado.cargas[0]).toContain('/stream/cast-ticket-1')
+  expect(resultado.cargas[1]).toContain('/stream/cast-ticket-2')
+  expect(borrados).toBe(1)
+
+  // El aviso sigue y la posición del mando es la del episodio nuevo.
+  await expect(page.locator('.player__cast-notice')).toContainText('Se está viendo en TV de prueba')
+  expect(altas).toBe(2)
+})

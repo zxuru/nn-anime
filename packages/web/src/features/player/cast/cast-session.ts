@@ -27,6 +27,20 @@ export interface CastSesion {
   ): Promise<void>
   /** Adopta una sesión que ya existía (recarga, reconexión). */
   adoptar(session: CastSessionLike): void
+  /**
+   * Manda otro medio por la sesión que ya está abierta.
+   *
+   * Es el encadenado de episodios: la TV no vuelve a pedir permiso, sólo cambia
+   * lo que reproduce. Con la sesión cerrada no inventa una: `iniciar` es el
+   * camino que la pide.
+   */
+  cargar(
+    url: string,
+    kind: CastKind,
+    meta: CastMetadata,
+    startAtS?: number,
+    subtitles?: readonly CastTrack[],
+  ): Promise<void>
   /** Activa una pista de subtítulos por su id de receptor. */
   selectSubtitle(trackId: number): void
   play(): void
@@ -112,6 +126,51 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
     escuchando = false
   }
 
+  /**
+   * La carga de un medio por la sesión ya abierta.
+   *
+   * `iniciar` pide sesión y llama aquí; `cargar` entra directamente. Lo que hace
+   * falta que sea uno solo es el contrato del `loadMedia`: si el encadenado
+   * copiara esta parte, el día que cambie el tipo del medio o las pistas habría
+   * dos conversaciones distintas con el receptor.
+   */
+  const cargarMedio = async (
+    url: string,
+    kind: CastKind,
+    meta: CastMetadata,
+    startAtS?: number,
+    subtitles: readonly CastTrack[] = [],
+  ): Promise<void> => {
+    if (session === null) throw new Error('no hay ninguna emisión abierta')
+
+    estabaReproduciendo = false
+    const media = sdk.createMedia(url, kind)
+    media.tracks = subtitles.map((pista) => sdk.createTrack?.(pista) ?? pista)
+    media.activeTrackIds = subtitles[0] === undefined ? [] : [subtitles[0].trackId]
+
+    const metadata = sdk.createMetadata?.(meta)
+    if (metadata !== undefined) media.metadata = metadata
+
+    const request = sdk.createLoadRequest(media)
+    request.currentTime = startAtS ?? 0
+    request.autoplay = true
+
+    await Promise.resolve(session.loadMedia(request))
+
+    empezarAEscuchar()
+    actualizar({
+      conectado: true,
+      dispositivo: session.getCastDevice()?.friendlyName,
+      cargando: true,
+      positionS: startAtS ?? 0,
+      durationS: 0,
+      activeTrackId: subtitles[0]?.trackId,
+      terminado: false,
+      error: undefined,
+    })
+    sincronizar()
+  }
+
   return {
     async iniciar(url, kind, meta, startAtS, subtitles = []) {
       try {
@@ -126,29 +185,21 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
 
         session = actual
 
-        const media = sdk.createMedia(url, kind)
-        media.tracks = subtitles.map((pista) => sdk.createTrack?.(pista) ?? pista)
-        media.activeTrackIds = subtitles[0] === undefined ? [] : [subtitles[0].trackId]
-
-        const metadata = sdk.createMetadata?.(meta)
-        if (metadata !== undefined) media.metadata = metadata
-
-        const request = sdk.createLoadRequest(media)
-        request.currentTime = startAtS ?? 0
-        request.autoplay = true
-
-        await Promise.resolve(session.loadMedia(request))
-
-        empezarAEscuchar()
+        await cargarMedio(url, kind, meta, startAtS, subtitles)
+      } catch (cause) {
         actualizar({
-          conectado: true,
-          dispositivo: session.getCastDevice()?.friendlyName,
-          cargando: true,
-          activeTrackId: subtitles[0]?.trackId,
-          terminado: false,
-          error: undefined,
+          conectado: false,
+          cargando: false,
+          error: cause instanceof Error ? cause.message : String(cause),
         })
-        sincronizar()
+
+        throw cause
+      }
+    },
+
+    async cargar(url, kind, meta, startAtS, subtitles = []) {
+      try {
+        await cargarMedio(url, kind, meta, startAtS, subtitles)
       } catch (cause) {
         actualizar({
           conectado: false,

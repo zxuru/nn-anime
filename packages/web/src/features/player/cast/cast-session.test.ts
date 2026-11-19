@@ -284,6 +284,46 @@ describe('la emisión', () => {
     expect(emision.estado().dispositivo).toBe('TV del salón')
   })
 
+  test('cargar otro episodio reutiliza la sesión y no la vuelve a pedir', async () => {
+    const d = doble()
+    let peticiones = 0
+    d.sdk.context.requestSession = () => {
+      peticiones += 1
+
+      return Promise.resolve({})
+    }
+
+    const emision = crearCastSesion(d.sdk, () => {})
+    await emision.iniciar('http://192.168.1.10:7717/stream/uno', 'file', { title: 'Episodio 1' })
+
+    const actual = d.sdk.context.getCurrentSession()
+    expect(actual).not.toBeNull()
+    if (actual === null) return
+
+    await emision.cargar('http://192.168.1.10:7717/stream/dos', 'hls', { title: 'Episodio 2' }, 0)
+
+    expect(peticiones).toBe(1)
+    expect(d.load).toHaveLength(2)
+    expect(d.load[1]?.media.contentId).toBe('http://192.168.1.10:7717/stream/dos')
+    expect(d.load[1]?.media.contentType).toBe('application/vnd.apple.mpegurl')
+    expect(emision.estado().conectado).toBe(true)
+    expect(emision.estado().positionS).toBe(0)
+  })
+
+  test('cargar sin sesión no inventa una: lo dice y no queda conectado', async () => {
+    const d = doble()
+    d.sdk.context.getCurrentSession = () => null
+    const emision = crearCastSesion(d.sdk, () => {})
+
+    await expect(emision.cargar('http://192.168.1.10:7717/stream/uno', 'file', {})).rejects.toThrow(
+      'no hay ninguna emisión abierta',
+    )
+
+    expect(d.load).toHaveLength(0)
+    expect(emision.estado().conectado).toBe(false)
+    expect(emision.estado().error).toContain('ninguna emisión abierta')
+  })
+
   test('si no hay sesión, lo dice y no deja «conectado»', async () => {
     const d = doble()
     d.sdk.context.getCurrentSession = () => null
