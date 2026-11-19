@@ -2570,4 +2570,59 @@ test.describe('el modo extendido', () => {
     await expect(boton).toHaveAttribute('aria-pressed', 'false')
     await expect(boton).toHaveAttribute('aria-label', 'Ventana flotante')
   })
+
+  /**
+   * La otra puerta: WebKit.
+   *
+   * Safari no tiene `document.pictureInPictureEnabled` y cambia el modo con
+   * `webkitSetPresentationMode`. El doble mide la rama que no se puede medir en
+   * Chromium; la reproducción real en Safari queda pendiente de un Mac o un
+   * iPhone.
+   */
+  test('la ventana flotante también se ofrece por WebKit', async ({ page }) => {
+    await page.addInitScript(() => {
+      interface VentanaConWebKit extends Window {
+        __modoWebKit?: 'picture-in-picture' | 'inline'
+      }
+
+      const ventana = window as unknown as VentanaConWebKit
+      const prototipo = HTMLVideoElement.prototype as unknown as {
+        webkitSupportsPresentationMode?: (modo: 'picture-in-picture' | 'inline') => boolean
+        webkitSetPresentationMode?: (modo: 'picture-in-picture' | 'inline') => void
+        webkitPresentationMode?: 'picture-in-picture' | 'inline'
+      }
+
+      Object.defineProperty(document, 'pictureInPictureEnabled', {
+        configurable: true,
+        value: false,
+      })
+      Object.defineProperty(prototipo, 'webkitPresentationMode', {
+        configurable: true,
+        get: () => ventana.__modoWebKit ?? 'inline',
+      })
+      prototipo.webkitSupportsPresentationMode = (modo) => modo === 'picture-in-picture'
+      prototipo.webkitSetPresentationMode = function (
+        this: HTMLVideoElement,
+        modo: 'picture-in-picture' | 'inline',
+      ) {
+        ventana.__modoWebKit = modo
+        this.dispatchEvent(new Event('webkitpresentationmodechanged'))
+      }
+    })
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    const boton = page.locator('.player__pip')
+    await expect(boton).toBeVisible({ timeout: 10_000 })
+    await expect(boton).toHaveAttribute('aria-pressed', 'false')
+
+    await boton.click()
+    await expect(boton).toHaveAttribute('aria-pressed', 'true')
+    await expect(boton).toHaveAttribute('aria-label', 'Salir de la ventana flotante')
+
+    await boton.click()
+    await expect(boton).toHaveAttribute('aria-pressed', 'false')
+    await expect(boton).toHaveAttribute('aria-label', 'Ventana flotante')
+  })
 })

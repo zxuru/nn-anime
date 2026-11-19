@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { createMemoryHistory, HistoryProvider } from '../../router'
 import { Player } from './Player'
+import { presentacionWebKit, soporteDeVentanaFlotante } from './usePictureInPicture'
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
 
@@ -425,6 +426,34 @@ describe('la velocidad y la ventana flotante', () => {
         Object.defineProperty(globalThis, 'document', descriptor)
       }
     }
+  })
+
+  /**
+   * WebKit es la otra puerta.
+   *
+   * Safari no expone `document.pictureInPictureEnabled`; ofrece
+   * `webkitSupportsPresentationMode` y cambia con `webkitSetPresentationMode`.
+   * La decisión se prueba con un doble y la rama se mide por el fuente: sin un
+   * Mac o un iPhone, la reproducción real no se puede declarar medida.
+   */
+  test('la ventana flotante también se pregunta a WebKit', async () => {
+    const webkit = {
+      webkitSupportsPresentationMode: (mode: 'picture-in-picture' | 'inline'): boolean =>
+        mode === 'picture-in-picture',
+      webkitPresentationMode: 'inline' as const,
+    }
+
+    expect(soporteDeVentanaFlotante(webkit)).toBe(true)
+    expect(soporteDeVentanaFlotante({ webkitSupportsPresentationMode: () => false })).toBe(false)
+    expect(soporteDeVentanaFlotante(null)).toBe(false)
+    expect(presentacionWebKit(webkit)).toBe(false)
+    expect(presentacionWebKit({ ...webkit, webkitPresentationMode: 'picture-in-picture' })).toBe(
+      true,
+    )
+
+    const fuente = await readFile(`${ROOT}usePictureInPicture.ts`, 'utf8')
+    expect(fuente).toContain('webkitSetPresentationMode')
+    expect(fuente).toContain('webkitpresentationmodechanged')
   })
 })
 
