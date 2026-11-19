@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **262 fragmentos indexados**; 207 se identifican
+quedan identificadas aquí. **263 fragmentos indexados**; 208 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
@@ -282,3 +282,4 @@ sólo en este índice y su contenido vive en la historia.
 | T372 | T372 — sólo anime: retirar el eje de familias | docs(specs): aprobar la retirada del eje de familias (T372) · +4 | `bun test` **4419 pasan, 0 fallan** · typecheck 0 · lint 0 (6 avisos previos) · build 0 · e2e completo **203 pasan, 0 fallan** · coverage:gate por encima del umbral · mutaciones: `filtroFrom` sin leer `format` deja 5 pruebas en rojo; el loader sin avisos 1; `.formato` sin `sticky` 1. | este índice |
 | T374 | T374 — un solo selector de audio y el encabezado sin desbordar | fix(web): un selector de audio y el encabezado del reproductor (T374). | `bun run typecheck` 0 · `bun test` de web 443 pasan, 0 fallan · e2e nuevos 2 pasan; mutados contra la implementación anterior fallan los dos (`.watch__actions` acababa en 216 px con el vídeo en 208, y había 2 `.audio-switch` a la vista). | este índice |
 | T388 | T388 — la imagen arm64 se arranca y un prerelease no mueve `latest` | ci(release): arrancar arm64 y no mover latest en un prerelease (T388). | `bun test` **4390 pasan, 0 fallan** · typecheck 0 · lint 0 errores (6 avisos previos) · mutaciones: quitar el build arm64, quitar QEMU, volver a la lista fija con `latest` y fijar `make_latest=true` dejan 1 en rojo cada una. | este índice |
+| T389 | T389 — la imagen por rutas y el e2e caído como shard | ci: la imagen por rutas y el e2e caido como shard (T389). | `bun test` **4392 pasan, 0 fallan** · typecheck 0 · lint 0 errores (6 avisos previos) · mutaciones: `docker` en todo código, sin clasificar la imagen, sin el caso `e2e:fallo` y con los rastros repetidos dejan 1 en rojo cada una. | este índice |
