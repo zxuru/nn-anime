@@ -27,8 +27,11 @@ adelante usan **T394–T399**.
   sesión y guards), T382 (cargador y CSP), T383 (sesión de Cast), T384a/T384b (mandos y aviso),
   T385 (e2e con receptor falso), T386 (documentación y `SECURITY.md`), T394 (subtítulos), T395
   (progreso, saltos y final), T395b (el siguiente episodio reutiliza la sesión) y T396 (reconexión).
-- **Pendiente de hardware o de decisión:** T378 (medir WebView2), T379 (spike con TV real), T387
-  (AirPlay), T397 (móvil con TLS), T398 (DLNA) y T399 (descargas locales).
+- **Hecho con dobles, sin hardware:** T387 (AirPlay; la puerta `remote`/WebKit, el `<video>` oculto,
+  la URL absoluta, la pausa local y la revocación se miden en el e2e; un Apple TV real no).
+- **Pendiente de hardware o de decisión:** T378 (medir WebView2), T379 (spike con TV real), T397
+  (móvil con TLS), T398 (DLNA) y T399 (descargas locales). AirPlay con hardware y los subtítulos que
+  Safari pinte en el receptor siguen dentro de T379/T387 y no se declaran medidos.
 - Lo que no se ha medido con una TV real se dice en `docs/cast.md` y en `SECURITY.md`; la función
   no se anuncia como completa hasta T379.
 
