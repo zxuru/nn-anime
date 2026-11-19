@@ -110,16 +110,12 @@ una cosa y el árbol hacía otra.
 - **Lo que propone la enmienda** es una fuente de metadatos con API pública —AniDB— para alimentar
   `recsys`, y **nada de eso está escrito**: no hay su spec, ni su código, ni su cliente. La
   verificación de sus términos sigue pendiente, y `SPEC-provider-core.md` la sigue marcando así.
-- **Lo que sí existe** es otra cosa: un enriquecimiento **opcional con TMDB**
-  (`GET /api/anime/:providerId/:ref/metadata`), que exige que el usuario ponga **su propia clave**
-  en Ajustes y que, sin ella, devuelve `metadata: null`. Es aditivo y no toca el contrato de
-  `recsys`, pero **no es** la capacidad de la enmienda: no es una fuente de metadatos del
-  proyecto, es una llamada que el usuario pide con su clave.
+- **Y TMDB ya no existe.** Estuvo como enriquecimiento **opcional** con la clave del usuario
+  (`GET /api/anime/:providerId/:ref/metadata`) mientras la aplicación prometía imagen real. T372
+  retiró ese alcance: no hay ruta, ni clave, ni sección en Ajustes, ni entrada en `SECURITY.md`.
+  La aplicación sirve anime y películas de anime, y AniList cubre ese catálogo.
 - Por eso la fila sigue en «pendientes» y no se pide la aprobación retrospectiva: **no hay código de
-  `metadata-enrichment` que aprobar**. Lo que hay que decidir, cuando corresponda, es si el
-  enriquecimiento con TMDB se declara capacidad propia del mapa —con su riesgo residual: una clave
-  que viaja a un tercero desde la máquina del usuario— o se deja como lo que es hoy, una función
-  opcional de la ficha.
+  `metadata-enrichment` que aprobar**.
 
 ### `downloads` salió de aquí el 2026-11-15
 

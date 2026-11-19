@@ -33,9 +33,6 @@ describe('conformidad', () => {
       dub: true,
       trending: true,
       feed: true,
-      // El catálogo trae anime, animación occidental y acción real: las tres
-      // familias, declaradas con el vocabulario nuevo y sin el alias `media`.
-      families: ['anime', 'animation', 'live'],
     })
   })
 

@@ -20,11 +20,9 @@ telemetría.**
   viendo, favoritos y los géneros del catálogo. Todas las piezas son **carteles del mismo tamaño**,
   así que una fila pone seis títulos a la vista y no deja huecos. El motivo de cada recomendación
   viaja con su pieza: se lee en el asomo, al pasar el puntero, y en la hoja que abre el botón «i».
-- **Anime a un lado y películas, series y doramas al otro**, con un conmutador que queda en la
-  dirección (`?tipo=movies`), así que se puede recargar y compartir. Cada plugin declara en su
-  manifiesto qué sirve (`capabilities.media`, ausente es anime): **Ajustes** lo enseña junto a cada
-  fuente, y uno que sirva las dos cosas declara `both` y su catálogo se reparte por tipo. Si no hay
-  ninguna fuente de esa mitad, la pantalla lo dice en vez de quedarse en blanco.
+- **Sólo anime, y el formato como eje**: series, películas o todo, con el filtro en la dirección
+  (`?formato=movie`), así que se puede recargar y compartir. La aplicación no sirve imagen real ni
+  animación occidental; una dirección vieja con `?tipo=` se limpia al entrar y abre la misma pantalla.
 - **La parrilla y los episodios recién emitidos salen de la API pública de AniList**, la única fuente
   consultada con fecha de emisión por episodio —un feed da la fecha de **publicación del título**, que
   no es lo mismo—. Se consulta `graphql.anilist.co` directamente, con lista blanca de hosts, un
@@ -32,10 +30,6 @@ telemetría.**
   respetan no pidiendo nada que no esté en pantalla. La ficha se enriquece con su sinopsis, sus
   géneros, su nota y su portada cuando la obra está emparejada, y `RONA_ANILIST_OFFLINE=1` apaga
   esa salida (lo usa el arnés de pruebas, que no puede depender de un tercero).
-- **TMDB, opcional, para las películas y las series de acción real**, que no están en AniList: una
-  clave en **Ajustes** completa su sinopsis, sus géneros y su año. Se guarda en la base local, no se
-  devuelve nunca al navegador y sólo se usa contra `api.themoviedb.org`. Sin clave, la ficha se queda
-  con lo que publique la fuente. La portada siempre es la del plugin.
 - **AniSkip, opcional, para los saltos de intro y ending.** Se consulta `api.aniskip.com` con el
   identificador de AniList del episodio y sólo si el ajuste de **Ajustes → Reproducción** está
   encendido, que es el valor de fábrica. Apagado no sale ninguna petición —ni la de AniSkip ni la del

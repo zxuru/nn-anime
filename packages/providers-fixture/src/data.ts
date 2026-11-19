@@ -31,14 +31,11 @@ const tituloSchema = z.strictObject({
   year: z.number().int(),
   kind: z.enum(['tv', 'movie', 'ova', 'ona', 'special']),
   /**
-   * La familia de contenido y el formato, declarados por la fuente.
+   * El formato, declarado por la fuente.
    *
-   * Es lo que una fuente que sirve las tres familias **tiene** que decir: sin
-   * esto, la regla de compatibilidad reparte sus películas por el `kind` y una
-   * película de anime acabaría en Acción real. El fixture los declara en todos
-   * sus títulos a propósito: es el ejemplo que `docs/providers.md` enseña.
+   * T372 retiró la familia de contenido: el catálogo entero es de anime y la
+   * única partición que queda es serie o película.
    */
-  family: z.enum(['anime', 'animation', 'live']),
   format: z.enum(['series', 'movie']),
   status: z.enum(['airing', 'finished', 'upcoming', 'unknown']),
   episodeCount: z.number().int().nonnegative(),
@@ -112,7 +109,6 @@ function aResultado(titulo: TituloFixture): SearchResult {
     coverUrl: portada(titulo),
     year: titulo.year,
     kind: titulo.kind,
-    family: titulo.family,
     format: titulo.format,
   }
 }

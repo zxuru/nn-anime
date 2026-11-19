@@ -802,18 +802,16 @@ test.describe('la marquesina', () => {
 })
 
 /**
- * El conmutador entre anime y películas.
+ * El filtro de formato.
  *
- * El fixture declara `media: 'both'` y su catálogo trae series y **una** película
- * —`el-jardin-de-hierro`—, así que es el único sitio donde se puede medir en un
- * navegador que una fuente mixta se reparta por el `kind`: en la pestaña de anime la
- * película no sale del top, y en la de películas el top se queda con ella y con
- * nadie más.
+ * Es el único eje que queda desde T372. La aplicación sirve anime y películas de
+ * anime, así que el filtro separa series de películas y no familias. El fixture
+ * trae las dos cosas: `el-jardin-de-hierro` es película y `aurora-nocturna` serie.
  *
- * Se busca la película por su **enlace** —`/anime/fixture/el-jardin-de-hierro`— y no
- * por su título: el título lleva tilde y el enlace no depende de cómo se escriba.
+ * Se busca por **enlace** —`/anime/fixture/…`— y no por título: el título lleva
+ * tilde y el enlace no depende de cómo se escriba.
  */
-test.describe('el conmutador de tipo', () => {
+test.describe('el filtro de formato', () => {
   const PELICULA = '.pz__enlace[href*="el-jardin-de-hierro"]'
 
   function elTop(page: Page) {
@@ -822,180 +820,104 @@ test.describe('el conmutador de tipo', () => {
     })
   }
 
-  test('la familia vive en la dirección y cambia lo que se enseña', async ({ page }) => {
+  test('el formato vive en la dirección y cambia lo que se enseña', async ({ page }) => {
     await entrar(page)
 
-    // El mando, dentro de la cabecera: es donde vive desde que dejó la franja que
-    // tenía encima de la marquesina.
-    await expect(page.locator('.shell__header .conmutador')).toHaveCount(1)
-
-    // La película del fixture es de imagen real: no está en Anime.
-    await expect(elTop(page).locator(PELICULA)).toHaveCount(0)
-
-    await page.locator('.conmutador').getByRole('link', { name: 'Acción real' }).click()
+    await expect(page.locator('.formato')).toBeVisible()
+    await page.locator('.formato').getByRole('link', { name: 'Películas', exact: true }).click()
 
     // La elección queda en la dirección: se puede recargar, compartir, y el botón
     // «atrás» del navegador la deshace.
-    await expect(page).toHaveURL(/tipo=live/)
-    await expect(
-      page.locator('.conmutador').getByRole('link', { name: 'Acción real' }),
-    ).toHaveAttribute('aria-current', 'page')
-
-    await expect(elTop(page).locator(PELICULA)).toHaveCount(1)
-    // Y el top de esa familia es sólo la película de imagen real: las series de
-    // anime de la misma fuente se quedaron en la pestaña de Anime.
-    await expect(elTop(page).locator('.pz:not(.pz--mando)')).toHaveCount(1)
-  })
-
-  test('la dirección vieja `movies` se reescribe como acción real', async ({ page }) => {
-    await entrar(page)
-    await page.goto('/?tipo=movies')
-
-    await expect(page).toHaveURL(/tipo=live/)
-    await expect(
-      page.locator('.conmutador').getByRole('link', { name: 'Acción real' }),
-    ).toHaveAttribute('aria-current', 'page')
-  })
-
-  /**
-   * El filtro de formato.
-   *
-   * Se pinta siempre en las tres familias —es una consulta válida aunque no haya
-   * películas— y vive en la dirección: la familia lo conserva al cambiar de
-   * pestaña y «Todo» lo quita.
-   */
-  test('el formato se filtra en la dirección y se queda al cambiar de familia', async ({
-    page,
-  }) => {
-    await entrar(page)
-    await expect(page.locator('.formato')).toBeVisible()
-
-    await page.locator('.conmutador').getByRole('link', { name: 'Acción real' }).click()
-    await page.locator('.formato').getByRole('link', { name: 'Películas', exact: true }).click()
-
-    await expect(page).toHaveURL(/tipo=live/)
     await expect(page).toHaveURL(/formato=movie/)
     await expect(
       page.locator('.formato').getByRole('link', { name: 'Películas', exact: true }),
     ).toHaveAttribute('aria-current', 'page')
-    // El top sólo enseña películas de la familia: la serie de la misma fuente se
-    // queda fuera.
+
     await expect(elTop(page).locator(PELICULA)).toHaveCount(1)
-    await expect(elTop(page).locator('.pz:not(.pz--mando)')).toHaveCount(1)
-
-    // El formato se conserva al cambiar de familia: es la misma consulta. Anime es
-    // la familia de por defecto, así que `tipo=` desaparece de la dirección.
-    await page.locator('.conmutador').getByRole('link', { name: 'Anime' }).click()
-    await expect(page).not.toHaveURL(/tipo=/)
-    await expect(page).toHaveURL(/formato=movie/)
-    await expect(page.locator('.conmutador').getByRole('link', { name: 'Anime' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    )
-    await expect(page.locator('.formato')).toBeVisible()
-
-    await page.locator('.formato').getByRole('link', { name: 'Todo', exact: true }).click()
-
-    await expect(page).not.toHaveURL(/formato=/)
+    // Y el top de películas no trae las series de la misma fuente.
+    await expect(elTop(page).locator('.pz__enlace[href*="aurora-nocturna"]')).toHaveCount(0)
   })
 
-  /**
-   * El mando en una ventana estrecha: la cabecera envuelve y el carril cabe dentro.
-   *
-   * El mando mide lo que el resto de mandos de la interfaz —44 px— y su carril 54:
-   * no cabe en la misma línea que la marca y el menú, así que la cabecera envuelve
-   * y el conmutador baja a su propio renglón. Se mide que no haya desplazamiento
-   * horizontal, que el mando siga siendo pulsable y que **no asome** por arriba:
-   * la cabecera está pegada al borde de la ventana, así que un carril que la
-   * desborde se recorta contra ese borde y la píldora pierde su línea de arriba.
-   */
-  test('en 360 px la cabecera envuelve y el carril no se sale de ella', async ({ page }) => {
+  test('la dirección vieja con `tipo` se limpia y abre la misma pantalla', async ({ page }) => {
+    await entrar(page)
+    const antes = await page.locator('.marquesina__titulo').innerText()
+
+    for (const tipo of ['movies', 'live', 'animation', 'anime']) {
+      await page.goto(`/?tipo=${tipo}`)
+      await expect(page).not.toHaveURL(/tipo=/)
+      await expect(page.locator('.marquesina__titulo')).toBeVisible()
+    }
+
+    // Sin filtro, el formato es «Todo» y la pantalla no cambia.
+    await expect(
+      page.locator('.formato').getByRole('link', { name: 'Todo', exact: true }),
+    ).toHaveAttribute('aria-current', 'page')
+    expect(await page.locator('.marquesina__titulo').innerText()).not.toBe('')
+    expect(antes).not.toBe('')
+  })
+
+  test('cada opción mide 44 px y el filtro se queda a la vista al desplazar', async ({ page }) => {
+    await entrar(page)
+
+    const opcion = page.locator('.formato').getByRole('link', { name: 'Series', exact: true })
+    const caja = await opcion.boundingBox()
+    expect(caja?.height ?? 0).toBeGreaterThanOrEqual(44)
+
+    const antes = await page.locator('.formato').boundingBox()
+    await page.mouse.wheel(0, 1200)
+    const despues = await page.locator('.formato').boundingBox()
+
+    // Pegado bajo la cabecera: la posición vertical no se va con el contenido.
+    expect(despues?.y ?? -1).toBeGreaterThanOrEqual(0)
+    expect(Math.abs((despues?.y ?? 0) - (antes?.y ?? 0))).toBeLessThanOrEqual(1)
+  })
+
+  test('en 360 px no hay desplazamiento horizontal', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 640 })
     await entrar(page)
 
     const desborde = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     )
-
     expect(desborde).toBeLessThanOrEqual(0)
-
-    const cabecera = await page.locator('.shell__header').boundingBox()
-    const carril = await page.locator('.shell__header .conmutador').boundingBox()
-    const opcion = await page
-      .locator('.conmutador')
-      .getByRole('link', { name: 'Anime' })
-      .boundingBox()
-
-    expect(opcion?.height ?? 0).toBeGreaterThanOrEqual(44)
-    expect(carril?.y ?? -1).toBeGreaterThanOrEqual(0)
-    expect(carril?.y ?? 0).toBeGreaterThan(cabecera?.y ?? -1)
-    expect((carril?.y ?? 0) + (carril?.height ?? 0)).toBeLessThanOrEqual(
-      (cabecera?.y ?? 0) + (cabecera?.height ?? 0),
-    )
+    await expect(page.locator('.formato')).toBeVisible()
   })
 
   /**
-   * Una obra vive en una sola familia.
+   * Una obra de anime, una sola vez y en su formato.
    *
-   * La película de anime de la fuente mixta sale en Anime y, con el filtro
-   * Películas, es la única; la serie de animación occidental no sale en Anime y la
-   * de imagen real no sale en Animación. Es lo que el `kind` no sabía decir: una
-   * fuente que sirve las tres familias declara la de cada título.
+   * La película de anime sale con el filtro Películas; la serie no sale en esa
+   * misma consulta. Es lo que antes no sabía decir el `kind` de una fuente mixta.
    */
-  test('cada obra sale sólo en su familia', async ({ page }) => {
+  test('cada obra sale sólo en su formato', async ({ page }) => {
     await entrar(page)
     const tarjeta = (ref: string) => page.locator(`a[href*="${ref}"]`)
 
-    const abrir = async (termino: string, familia: string): Promise<void> => {
-      await page.goto(`/search?q=${encodeURIComponent(termino)}&tipo=${familia}`)
-      await expect(page.getByLabel('Buscar por título')).toBeVisible()
-    }
-
-    // La película de anime, en Anime y con el filtro Películas.
-    await abrir('La Última Función', 'anime')
+    await page.goto(`/search?q=${encodeURIComponent('La Última Función')}`)
     await page.locator('.formato').getByRole('link', { name: 'Películas', exact: true }).click()
     await expect(tarjeta('la-ultima-funcion').first()).toBeVisible({ timeout: 15_000 })
 
-    // En Acción real la misma búsqueda no la encuentra.
-    await abrir('La Última Función', 'live')
-    await expect(page.locator('.search__status')).toHaveText(/0 resultados en/, { timeout: 15_000 })
+    await page.locator('.formato').getByRole('link', { name: 'Series', exact: true }).click()
     await expect(tarjeta('la-ultima-funcion')).toHaveCount(0)
 
-    // La serie de animación occidental, sólo en Animación.
-    await abrir('Taller de Monstruos', 'animation')
-    await expect(tarjeta('taller-de-monstruos').first()).toBeVisible({ timeout: 15_000 })
+    await page.goto(`/search?q=${encodeURIComponent('Aurora Nocturna')}`)
+    await page.locator('.formato').getByRole('link', { name: 'Series', exact: true }).click()
+    await expect(tarjeta('aurora-nocturna').first()).toBeVisible({ timeout: 15_000 })
 
-    await abrir('Taller de Monstruos', 'anime')
-    await expect(page.locator('.search__status')).toHaveText(/0 resultados en/, { timeout: 15_000 })
-    await expect(tarjeta('taller-de-monstruos')).toHaveCount(0)
-
-    // Y la de imagen real, sólo en Acción real.
-    await abrir('Turno de Noche', 'live')
-    await expect(tarjeta('turno-de-noche').first()).toBeVisible({ timeout: 15_000 })
-
-    await abrir('Turno de Noche', 'animation')
-    await expect(page.locator('.search__status')).toHaveText(/0 resultados en/, { timeout: 15_000 })
-    await expect(tarjeta('turno-de-noche')).toHaveCount(0)
+    await page.locator('.formato').getByRole('link', { name: 'Películas', exact: true }).click()
+    await expect(tarjeta('aurora-nocturna')).toHaveCount(0)
   })
 
-  /**
-   * A 1024 el que baja es el conmutador, no el «?».
-   *
-   * Con la cabecera al límite, el último hijo era el botón de la guía y se
-   * quedaba solo en un renglón. El diseño dice que primero se aprieta la marca y
-   * que el conmutador es el que tiene renglón propio; el botón de la guía, además,
-   * sube a los 44 px del sistema.
-   */
-  test('a 1024 el conmutador baja a su renglón y la guía no queda sola', async ({ page }) => {
+  test('a 1024 la cabecera no desborda y la guía sigue midiendo 44 px', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 800 })
     await entrar(page)
 
-    const cabecera = await page.locator('.shell__header').boundingBox()
-    const carril = await page.locator('.shell__header .conmutador').boundingBox()
-    const guia = await page.locator('.shell__guia').boundingBox()
+    const desborde = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+    expect(desborde).toBeLessThanOrEqual(0)
 
-    expect(carril?.y ?? 0).toBeGreaterThan(cabecera?.y ?? -1)
-    expect(guia?.y ?? 0).toBeLessThan(carril?.y ?? -1)
+    const guia = await page.locator('.shell__guia').boundingBox()
     expect(guia?.width ?? 0).toBeGreaterThanOrEqual(44)
     expect(guia?.height ?? 0).toBeGreaterThanOrEqual(44)
   })

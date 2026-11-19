@@ -85,19 +85,17 @@ test.describe('la navegación del móvil', () => {
     expect(medidas.recorte).toBeGreaterThanOrEqual(0)
   })
 
-  test('el conmutador de familia conserva sus tres pestañas en la cabecera', async ({ page }) => {
+  test('el filtro de formato conserva sus tres opciones en el móvil', async ({ page }) => {
     await entrar(page)
     await esperarApp(page)
 
-    // El conmutador se queda arriba aunque los destinos se hayan ido abajo: es
-    // el mando de la pantalla, no un destino.
-    const conmutador = page.locator('.conmutador')
-    await expect(conmutador).toBeVisible()
-    await expect(conmutador.getByRole('link', { name: 'Anime' })).toBeVisible()
-    await expect(conmutador.getByRole('link', { name: 'Animación' })).toBeVisible()
-    await expect(conmutador.getByRole('link', { name: 'Acción real' })).toBeVisible()
+    const formato = page.locator('.formato')
+    await expect(formato).toBeVisible()
+    await expect(formato.getByRole('link', { name: 'Todo', exact: true })).toBeVisible()
+    await expect(formato.getByRole('link', { name: 'Series', exact: true })).toBeVisible()
+    await expect(formato.getByRole('link', { name: 'Películas', exact: true })).toBeVisible()
 
-    await conmutador.getByRole('link', { name: 'Acción real' }).click()
-    await expect(page).toHaveURL(/tipo=live/)
+    await formato.getByRole('link', { name: 'Películas', exact: true }).click()
+    await expect(page).toHaveURL(/formato=movie/)
   })
 })
