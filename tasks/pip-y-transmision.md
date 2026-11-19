@@ -1,7 +1,7 @@
 # Plan de tareas: PiP y cast completo a la TV
 
 > **Estado:** **abierto** — T375 abre el plan y las dos propuestas de contrato. La implementación
-> (T376–T393) queda en *Pendiente* hasta que la decisión **D6** se apruebe y el spike **T379** se
+> (T376-T399) queda en *Pendiente* hasta que la decisión **D6** se apruebe y el spike **T379** se
 > mida con hardware real. El PiP web ya existe; lo que falta es que se vea, que diga la verdad y que
 > se pueda usar en los navegadores que lo tienen. El cast se planifica **completo**, no como un MVP.
 >
@@ -15,9 +15,11 @@ paquetes tocados, criterios marcados con la medición que los sostiene, sin `any
 `@ts-ignore` ni `as` para silenciar, sin tests saltados, tope de cinco archivos de implementación por
 task y commit atómico que cita el task.
 
-Los ids **T376–T393 son propuestos**: se confirman al abrir cada task y no se reservan por
+Los ids **T376–T399 son propuestos**: se confirman al abrir cada task y no se reservan por
 adelantado, como pide `tasks/roadmap.md`. Si otro trabajo toma uno, se renumera la tarjeta sin
 renumerar las dependencias por nombre: la dependencia se lee por el asunto, no por el número.
+**T388 ya está tomado** por la tarea de release (arm64 y `latest`), así que los tasks de subtítulos en
+adelante usan **T394–T399**.
 
 ## Lo que ya existe
 
@@ -49,14 +51,14 @@ La meta no es «que salga la imagen», sino que la TV se comporte como una salid
 | MP4 del proxy | Sí | Sí | T379, T387 |
 | Play, pausa, buscar, volumen | Sí | Sí (medir volumen) | T383, T384a, T387 |
 | Velocidad de reproducción | Medir en T379 | Medir en T387 | T384a |
-| Subtítulos VTT | Sí, pistas del receptor | Sí si Safari los pinta | T388 |
-| Progreso e historial | Sí, desde la posición de la TV | Sí | T389 |
-| Saltar intro/ending | Sí | Sí | T389 |
-| Siguiente episodio automático | Sí | Sí | T389 |
-| Reconectar tras recargar | Sí, `getCurrentSession` | Sí, `remote` | T390 |
+| Subtítulos VTT | Sí, pistas del receptor | Sí si Safari los pinta | T394 |
+| Progreso e historial | Sí, desde la posición de la TV | Sí | T395 |
+| Saltar intro/ending | Sí | Sí | T395 |
+| Siguiente episodio automático | Sí | Sí | T395 |
+| Reconectar tras recargar | Sí, `getCurrentSession` | Sí, `remote` | T396 |
 | Metadatos y póster | Sí | No (AirPlay no los muestra) | T383 |
-| Emisor desde el móvil | Sólo con TLS de confianza | Safari iOS a medir | T391 |
-| Descargas locales | Propuesta aparte | Propuesta aparte | T393 |
+| Emisor desde el móvil | Sólo con TLS de confianza | Safari iOS a medir | T397 |
+| Descargas locales | Propuesta aparte | Propuesta aparte | T399 |
 
 **Lo que no se puede prometer sin hardware:** si el Chromecast acepta el `http://192.168.x.x` sin
 TLS, si exige CORS/CORP, si reproduce el HLS del proxy o si el códec del proveedor no está en la TV.
@@ -67,7 +69,7 @@ finge.
 
 - **D6 — transporte de la retransmisión.** Abierta hasta que T379 mida. La recomendación de T375 es
   **Google Cast SDK para Chromecast** (Chrome de escritorio, HLS y MP4) y **Remote Playback/AirPlay**
-  para Safari; **DLNA fuera de la v1** y sólo como propuesta T392. Las opciones y sus costes están en
+  para Safari; **DLNA fuera de la v1** y sólo como propuesta T398. Las opciones y sus costes están en
   `docs/specs/proposals/SPEC-web-ui.T375.md`; el contrato de tickets, subtítulos y CORS está en
   `docs/specs/proposals/SPEC-media-proxy.T375.md`.
 - **`RONA_CAST=1` es un permiso explícito, como `RONA_PARTY=1`.** Sin esa variable no se anuncia la
@@ -233,7 +235,7 @@ token, LAN sin token, apagado · mutación: devolver `available: true` en loopba
 **Descripción:** una emisión dura un episodio y a veces más; el ticket de 600 s y 500 entradas del
 proxy no sirve. Un almacén aparte, pequeño y revocable, emite la URL que se le manda a la TV; al
 parar, se revoca. La sesión incluye los subtítulos disponibles, aunque el ticket de cada subtítulo se
-complete en T388.
+complete en T394.
 
 **Aceptación:**
 - [ ] `POST /api/cast/session` resuelve el stream **en el servidor** —nunca acepta una URL del
@@ -414,7 +416,7 @@ al parar la URL deja de servir.
 **Verificación:** `bun run e2e` con los casos nuevos; sin dispositivo real, T379 sigue siendo la
 medida física.
 
-**Depende de:** T384a, T384b, T388, T389, T390.
+**Depende de:** T384a, T384b, T394, T395, T396.
 
 **Archivos:** `packages/web/e2e/cast.e2e.ts`, `packages/web/e2e/cast-fake.ts`,
 `scripts/e2e-server.ts`, el fixture si hace falta, y `playwright.config.ts` sólo si el caso necesita
@@ -469,7 +471,7 @@ sesión y la interfaz se conecta a ese elemento. Si `remote` no existe, se prueb
       permite la LAN **sólo** con `RONA_CAST=1` y no abre `connect-src`.
 - [ ] El video oculto se pausa/reanuda y la posición se refleja en el reproductor; al conectar, el
       video local se pausa; al desconectar, se reanuda en la posición remota.
-- [ ] Los subtítulos se ofrecen con URLs absolutas de T388 si Safari los pinta; si no, se ocultan y
+- [ ] Los subtítulos se ofrecen con URLs absolutas de T394 si Safari los pinta; si no, se ocultan y
       se dice.
 - [ ] Sin Apple TV o AirPlay 2 no se declara medido; se mide con un doble de `remote`.
 - [ ] Mutación: usar la ruta relativa deja al receptor sin alcance; no detectar `remote` deja el
@@ -478,13 +480,13 @@ sesión y la interfaz se conecta a ese elemento. Si `remote` no existe, se prueb
 **Verificación:** pruebas con un doble de `remote` y de `webkitShowPlaybackTargetPicker`; la medida
 real queda condicionada a hardware.
 
-**Depende de:** T379, T381, T383, T388.
+**Depende de:** T379, T381, T383, T394.
 
 **Archivos:** `useRemotePlayback.ts`, `Player.tsx`, `cast-types.ts`, `security-headers.ts` y tests.
 
 **Tamaño:** L.
 
-### T388 — Subtítulos en la TV
+### T394 — Subtítulos en la TV
 
 **Descripción:** los subtítulos del proveedor son texto y la TV puede pintarlos si se los damos como
 VTT con una URL que pueda pedir sin cookie. Un ticket de subtítulo por pista, la misma conversión que
@@ -514,7 +516,7 @@ y tests.
 
 **Tamaño:** L.
 
-### T389 — Progreso, saltos y siguiente episodio en la TV
+### T395 — Progreso, saltos y siguiente episodio en la TV
 
 **Descripción:** la TV no avisa al servidor de lo que ve; lo tiene que hacer el emisor. La posición
 del receptor alimenta el historial, el salto de intro/ending y el siguiente episodio, con las mismas
@@ -543,7 +545,7 @@ repite el salto; no usar el estado del cast deja Discord en pausa.
 
 **Tamaño:** L.
 
-### T390 — Reconexión y recuperación de la emisión
+### T396 — Reconexión y recuperación de la emisión
 
 **Descripción:** recargar la pestaña, perder la red o volver al día siguiente no debe dejar una TV
 reproduciendo sin control ni un reproductor local que no sabe dónde estaba. Al abrir, si había una
@@ -572,7 +574,7 @@ fantasma.
 
 ## Tareas opcionales, después de T386
 
-### T391 — Cast desde el móvil con TLS
+### T397 — Cast desde el móvil con TLS
 
 **Descripción:** Chrome de Android exige contexto seguro para `chrome.cast`; `http://192.168...` no
 lo es. Medir si el SDK aparece igualmente; si no, documentar la vía de un proxy TLS con certificado
@@ -592,7 +594,7 @@ de confianza (Caddy, `RONA_PUBLIC_ORIGIN`) y comprobar que el servidor sigue fun
 
 **Tamaño:** S/M.
 
-### T392 — DLNA: propuesta y spike, no implementación
+### T398 — DLNA: propuesta y spike, no implementación
 
 **Descripción:** para televisiones sin Cast ni AirPlay, DLNA sería la única vía. Es otra pila: SSDP
 para descubrir, SOAP/AVTransport para mandar y, en muchos casos, sólo MP4 (sin HLS). Antes de abrir
@@ -609,7 +611,7 @@ una implementación, una propuesta con el coste y un spike con una TV real.
 
 **Tamaño:** S (propuesta).
 
-### T393 — Emitir descargas locales
+### T399 — Emitir descargas locales
 
 **Descripción:** un episodio descargado no debería necesitar el proveedor para verse en la TV. Hoy
 `/api/downloads/:id/file` exige cookie y el proxy no acepta loopback; haría falta un ticket de
@@ -634,11 +636,11 @@ T375 ─┬─ T376 ── T377
       ├─ T378
       └─ T379 ── T380 ─┬─ T381 ── T383 ─┬─ T384a ─┐
                        └─ T382 ─────────┘         ├─ T385 ── T386
-                              T388 ───────────────┤
-                              T389 ───────────────┤
-                              T390 ───────────────┘
-      T387 ── depende de T379, T381, T383 y T388
-      T391 / T392 / T393 ── después de T386
+                              T394 ───────────────┤
+                              T395 ───────────────┤
+                              T396 ───────────────┘
+      T387 ── depende de T379, T381, T383 y T394
+      T397 / T398 / T399 ── después de T386
 ```
 
 1. **T376 y T377** no dependen de la TV y se pueden cerrar en paralelo con T379. Son la respuesta
@@ -650,24 +652,24 @@ T375 ─┬─ T376 ── T377
 4. **T382** puede ir en paralelo con T380/T381; el cargador y la CSP no necesitan la sesión.
 5. **T383** es el modelo del cast; **T384a** lo enchufa al reproductor y **T384b** lo enchufa a la
    pantalla. Si el tope de cinco archivos aprieta, cada uno se corta por dentro.
-6. **T388, T389 y T390** son la diferencia entre «sale la imagen» y «cast completo». Van después de
+6. **T394, T395 y T396** son la diferencia entre «sale la imagen» y «cast completo». Van después de
    T383/T384a y antes de T385, que es la medida integral.
-7. **T387** (AirPlay) comparte el modelo de T383 y los subtítulos de T388; si no hay hardware Apple,
+7. **T387** (AirPlay) comparte el modelo de T383 y los subtítulos de T394; si no hay hardware Apple,
    se mide con dobles y se declara.
-8. **T391, T392 y T393** no bloquean la fase. Sin hardware o sin aprobación, se cierran como
+8. **T397, T398 y T399** no bloquean la fase. Sin hardware o sin aprobación, se cierran como
    propuesta o se declaran.
 
 ## Lo que no se hace en esta fase
 
-- **DLNA implementado.** Sólo propuesta y spike (T392); la pila SSDP/SOAP no entra sin su propia
+- **DLNA implementado.** Sólo propuesta y spike (T398); la pila SSDP/SOAP no entra sin su propia
   decisión.
 - **Watch party como transporte.** Ya existe y sincroniza estado; no manda el vídeo. No se reescribe
   para esto.
 - **Chromecast de la app de escritorio.** WebView2 no trae el ecosistema de Cast del navegador; si
   T378 no lo mide, se dice y se ofrece abrir en el navegador.
-- **Emisor móvil sin TLS.** El móvil por `http://192.168...` no es contexto seguro; T391 mide y
+- **Emisor móvil sin TLS.** El móvil por `http://192.168...` no es contexto seguro; T397 mide y
   documenta la vía TLS, pero no se promete.
-- **Descargas en la TV.** T393 es una propuesta; la v1 emite lo que resuelve el proveedor.
+- **Descargas en la TV.** T399 es una propuesta; la v1 emite lo que resuelve el proveedor.
 - **DRM y lives.** No hay DRM en el catálogo y el HLS es VOD; si aparece un directo, se abre otra
   tarea.
 
