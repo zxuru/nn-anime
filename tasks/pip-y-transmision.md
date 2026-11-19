@@ -21,6 +21,18 @@ renumerar las dependencias por nombre: la dependencia se lee por el asunto, no p
 **T388 ya está tomado** por la tarea de release (arm64 y `latest`), así que los tasks de subtítulos en
 adelante usan **T394–T399**.
 
+## Estado de la implementación (2026-11-19)
+
+- **Hecho y medido:** T376 (PiP en el marco), T377 (WebKit), T380 (`/api/cast/info`), T381 (tickets,
+  sesión y guards), T382 (cargador y CSP), T383 (sesión de Cast), T384a/T384b (mandos y aviso),
+  T385 (e2e con receptor falso), T386 (documentación y `SECURITY.md`), T394 (subtítulos), T395
+  (progreso, saltos y final) y T396 (reconexión).
+- **Pendiente de hardware o de decisión:** T378 (medir WebView2), T379 (spike con TV real), T387
+  (AirPlay), T395b (encadenar el siguiente episodio), T397 (móvil con TLS), T398 (DLNA) y T399
+  (descargas locales).
+- Lo que no se ha medido con una TV real se dice en `docs/cast.md` y en `SECURITY.md`; la función
+  no se anuncia como completa hasta T379.
+
 ## Lo que ya existe
 
 - **PiP web.** `usePictureInPicture.ts` pregunta `document.pictureInPictureEnabled`, escucha
