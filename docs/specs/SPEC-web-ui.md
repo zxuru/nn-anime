@@ -184,6 +184,22 @@ escribe el manifiesto—, así que las familias heredadas de un plugin viejo se 
 se pintan en `ProviderList`. La fase 4 añade al fixture la película de anime, la serie de animación
 occidental y la serie de imagen real, y el e2e que comprueba que un título no sale en dos pestañas.
 
+## Enmienda aprobada (T372): sólo anime, y el formato como único eje
+
+> Aprobada por el dueño del producto el 2026-11-19, con `docs/specs/proposals/SPEC-web-ui.T372.md`.
+> La enmienda T257a queda como historia: el eje de familias se retira entero.
+
+- **La aplicación sirve anime y películas de anime.** `MediaFamily`, `?tipo=`, el conmutador de la
+  cabecera, `FAMILIAS`, `familiaFromPath` y `pathConFamilia` desaparecen.
+- **Queda una sola partición: el formato** (`series` / `movie`). `FiltroFormato` es el único eje,
+  lleva rótulo visible («Formato»), mide 44 px por opción y se queda pegado bajo la cabecera.
+- **`?tipo=…` no rompe**: al entrar, el parámetro se descarta con `replace` y la pantalla es la
+  misma. `?formato=` se conserva.
+- **Un manifiesto con `families` o `media` carga**, deja un aviso de compatibilidad y se filtra sólo
+  por formato. El alta de proveedor ya no pregunta por familias.
+- **TMDB se retira entero**: ruta, clave, sección de Ajustes, tipos y entrada en `SECURITY.md`.
+- **AniList ya no se condiciona a la familia**: sus filas son siempre de anime.
+
 ## Estructura del módulo
 
 ```
