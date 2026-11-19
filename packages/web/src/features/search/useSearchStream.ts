@@ -19,8 +19,7 @@ import {
   settingsResponseSchema,
 } from '@rona/core/api'
 import { groupByWork } from '@rona/core/identity'
-import { familiesOf, puedeServirFamilia } from '@rona/core/media'
-import type { MediaFamily, MediaFormat, SearchResult } from '@rona/core/models'
+import type { MediaFormat, SearchResult } from '@rona/core/models'
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError, apiGet, type RequestDeps } from '../../api/client'
 import { createDedupe } from '../../api/dedupe'
@@ -212,25 +211,19 @@ export function activeProviderIds(summaries: readonly ProviderSummary[]): readon
 }
 
 /**
- * A qué proveedores se le pregunta, con el filtro de la dirección y el tipo.
+ * A qué proveedores se le pregunta, con el filtro de la dirección.
  *
- * Es la intersección de tres cosas: los activos, el filtro que pone el CLI con
- * `--provider` y el tipo. Se calcula aquí además de en el servidor porque es lo que
- * decide **cuántos esqueletos** salen: uno por proveedor del que se espera
- * respuesta, y esperar a uno que no se ha consultado deja la rejilla con un hueco
- * que no se llena. Una fuente que sirve las dos cosas entra en las dos mitades: sus
- * resultados se reparten después, por el `kind` de cada uno.
+ * Es la intersección de dos cosas: los activos y el filtro que pone el CLI con
+ * `--provider`. Se calcula aquí además de en el servidor porque es lo que decide
+ * **cuántos esqueletos** salen: uno por proveedor del que se espera respuesta, y
+ * esperar a uno que no se ha consultado deja la rejilla con un hueco que no se
+ * llena.
  */
 export function proveedoresSeleccionados(
   summaries: readonly ProviderSummary[],
   filter: readonly string[],
-  familia: MediaFamily,
 ): readonly string[] {
-  const familias = new Map(summaries.map((uno) => [uno.id, familiesOf(uno.capabilities)]))
-
-  return activeProviderIds(summaries)
-    .filter((id) => filter.length === 0 || filter.includes(id))
-    .filter((id) => puedeServirFamilia([familia], familias.get(id) ?? ['anime']))
+  return activeProviderIds(summaries).filter((id) => filter.length === 0 || filter.includes(id))
 }
 
 export interface SearchHub {
@@ -601,8 +594,6 @@ export function createDefaultPrefetcher(consulta?: string): Prefetcher {
 export function useSearchStream(
   query: string,
   filter: readonly string[],
-  /** La familia que se está mirando. Filtrar aquí no basta: ver `searchRequestPath`. */
-  familia: MediaFamily = 'anime',
   /** El formato pedido, si lo hay. */
   formato: MediaFormat | undefined = undefined,
   /** Inyectable en los tests; en producción, el distribuidor de siempre. */
@@ -610,19 +601,13 @@ export function useSearchStream(
 ): SearchStreamResult {
   const { summaries, loaded, failed } = useProviders()
   /*
-    La selección es la intersección de los proveedores activos, el filtro de la
-    dirección y la familia. En la petición viaja el filtro de la **dirección**, no
-    la selección: la lista de proveedores tarda en llegar, y pedir con la selección
+    La selección es la intersección de los proveedores activos y el filtro de la
+    dirección. En la petición viaja el filtro de la **dirección**, no la
+    selección: la lista de proveedores tarda en llegar, y pedir con la selección
     haría dos búsquedas, la primera contra todas las fuentes.
   */
-  const selected = useMemo(
-    () => proveedoresSeleccionados(summaries, filter, familia),
-    [summaries, filter, familia],
-  )
-  const path = useMemo(
-    () => searchRequestPath(query, filter, familia, formato),
-    [query, filter, familia, formato],
-  )
+  const selected = useMemo(() => proveedoresSeleccionados(summaries, filter), [summaries, filter])
+  const path = useMemo(() => searchRequestPath(query, filter, formato), [query, filter, formato])
   const clave = selected.join(',')
   const [state, setState] = useState<SearchState>(() => initialState([]))
 

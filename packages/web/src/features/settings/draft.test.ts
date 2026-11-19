@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { providerDraftSchema } from '@rona/core/api'
-import { EMPTY_FORM, type ProviderForm, toggleFamilia, toProviderDraft } from './draft'
+import { EMPTY_FORM, type ProviderForm, toProviderDraft } from './draft'
 
 function form(overrides: Partial<ProviderForm> = {}): ProviderForm {
   return { ...EMPTY_FORM, ...overrides }
@@ -38,27 +38,13 @@ describe('el formulario, convertido en petición', () => {
     expect(draft.endpoints.trending).toBeUndefined()
   })
 
-  test('qué sirve es un conjunto de familias y viaja entero', () => {
-    // Sin esto, un plugin de acción real nacería declarando anime —el defecto— y
-    // su contenido no aparecería en la pestaña que le toca.
-    expect(toProviderDraft(form({})).capabilities.families).toEqual(['anime'])
-    expect(
-      toProviderDraft(form({ families: ['animation', 'live'] })).capabilities.families,
-    ).toEqual(['animation', 'live'])
-  })
+  test('el asistente no declara campos retirados', () => {
+    // T372 retiró `families` y `media`: un plugin nuevo no los necesita y el
+    // formulario no debe volver a escribirlos.
+    const draft = toProviderDraft(form({}))
 
-  /**
-   * Las tres casillas, sin dejar el conjunto vacío.
-   *
-   * Un manifiesto sin familias no carga: quitar la última deja la de anime, que es
-   * el defecto del contrato, en vez de mandar una declaración imposible.
-   */
-  test('marcar y desmarcar familias respeta el vocabulario y no vacía el conjunto', () => {
-    expect(toggleFamilia(['anime'], 'live')).toEqual(['anime', 'live'])
-    expect(toggleFamilia(['anime', 'live'], 'live')).toEqual(['anime'])
-    expect(toggleFamilia(['anime'], 'anime')).toEqual(['anime'])
-    // El orden es el del contrato, no el de los clics.
-    expect(toggleFamilia(['live'], 'anime')).toEqual(['anime', 'live'])
+    expect('families' in draft.capabilities).toBe(false)
+    expect('media' in draft.capabilities).toBe(false)
   })
 
   test('lo que se teclea se recorta antes de salir', () => {
@@ -87,7 +73,6 @@ describe('el formulario, convertido en petición', () => {
         name: 'Mío',
         baseUrl: 'https://e.example',
         capabilities: { sub: true, dub: true },
-        families: ['anime', 'live'],
       }),
     )
 

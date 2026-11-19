@@ -46,7 +46,6 @@ import type {
   AniListRelatedItem,
   Enrichment,
   EpisodesResponse,
-  TmdbMetadata,
   WatchedEpisodePayload,
 } from '@rona/core/api'
 import {
@@ -294,13 +293,6 @@ export interface DetailData {
    */
   readonly enrichment: Enrichment | null | undefined
   /**
-   * Lo que TMDB sabe de una película o serie, si hay clave configurada.
-   *
-   * `null` y `undefined` se pintan igual —la ficha sin nada nuevo—, y la ficha
-   * nunca depende de esta lectura: un tercero sin clave o caído no la tumba.
-   */
-  readonly metadata: TmdbMetadata | null | undefined
-  /**
    * Lo que AniList relaciona con esta obra: secuelas, precuelas, películas.
    *
    * Llega con los adornos, **después** del núcleo y sin bloquearlo; también se
@@ -393,7 +385,6 @@ const VISTA_VACIA: VistaDetalle = {
   watched: [],
   capabilities: undefined,
   enrichment: undefined,
-  metadata: undefined,
   anilistRelated: [],
   providerNames: new Map(),
   state: 'loading',
@@ -420,7 +411,6 @@ function vistaDeBundle(bundle: DetailBundle): VistaDetalle {
     watched: bundle.watched,
     capabilities: bundle.capabilities,
     enrichment: bundle.enrichment,
-    metadata: bundle.metadata,
     anilistRelated: bundle.anilistRelated ?? [],
     providerNames: bundle.providerNames,
     state: 'ready',
@@ -713,7 +703,6 @@ export function useDetail(providerId: string, ref: string, consulta?: string): D
     watched: vista.watched,
     capabilities: vista.capabilities,
     enrichment: vista.enrichment,
-    metadata: vista.metadata,
     anilistRelated: vista.anilistRelated,
     providerNames: vista.providerNames,
     state: vista.state,

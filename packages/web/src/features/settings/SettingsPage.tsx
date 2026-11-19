@@ -42,7 +42,6 @@ import { SecurityNoticeDialog } from './SecurityNotice'
 import { SkipSettings } from './SkipSettings'
 import { SECCIONES, SECCIONES_AJUSTES } from './secciones'
 import { ThemeToggle } from './ThemeToggle'
-import { TmdbSettings } from './TmdbSettings'
 import { useProviderRepos } from './useProviderRepos'
 import { useSecurityNotice } from './useSecurityNotice'
 import { useSettings } from './useSettings'
@@ -56,7 +55,6 @@ export function SettingsPage(): ReactNode {
     setProviderPriority,
     setAdultContent,
     setDiscordPresence,
-    setTmdbKey,
     register,
     refresh,
   } = useSettings()
@@ -254,11 +252,6 @@ export function SettingsPage(): ReactNode {
                 <RegisterProvider register={register} />
               </details>
             )}
-
-            {/* La clave de TMDB es la única salida de red que el usuario configura a
-                mano; va después de los proveedores porque es el respaldo de lo que
-                ellos no publican. */}
-            <TmdbSettings configured={data.tmdb.configured} onSave={setTmdbKey} />
           </section>
 
           {/*

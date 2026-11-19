@@ -5,11 +5,11 @@
  * destacado, **el top de la fuente**, continuar viendo, favoritos, novedades,
  * último añadido y géneros.
  *
- * La pantalla se parte en tres familias —anime, animación y acción real— con el
- * conmutador de la cabecera, y el formato se filtra debajo (`?tipo=` y
- * `?formato=`). Las filas que salen de las fuentes se piden **ya filtradas** al
- * servidor, que es el único que sabe de qué es cada título; las dos que son listas
- * del usuario se filtran aquí, con las familias de los proveedores ya cargados.
+ * La pantalla se filtra por **formato** (`?formato=`): series, películas o todo.
+ * T372 retiró la familia de contenido, así que ya no hay pestañas que cambien la
+ * pantalla. Las filas que salen de las fuentes se piden **ya filtradas** al
+ * servidor, que es el único que sabe qué es cada título; las dos que son listas
+ * del usuario se filtran aquí.
  *
  * La **parrilla semanal** y la fila de **episodios nuevos** llegaron con AniList
  * (T121): las dos necesitan una fecha de emisión por episodio, y el feed de un
@@ -37,21 +37,12 @@ import { usePath } from '../../router'
 import { ANCLAS } from '../guia/guia'
 import { almacenLocal, leerAvisosQuieroVer } from '../player/storage'
 import { useRecommendations } from '../recommendations/useRecommendations'
+import { useProviders } from '../search/useSearchStream'
 import { TasteInvite } from '../taste/TasteInvite'
 import { TasteRows } from '../taste/TasteRow'
 import { useTasteRows } from '../taste/useTaste'
 import { FiltroFormato } from '../tipo/FiltroFormato'
-import {
-  AVISO_SIN_FUENTE,
-  enElFormato,
-  enLaFamilia,
-  familiaFromPath,
-  formatoFromPath,
-  fuenteDeResumen,
-  fuenteDeVisionado,
-  sinFuenteQueSirva,
-  useFuentes,
-} from '../tipo/tipo'
+import { enElFormato, formatoFromPath, fuenteDeResumen, fuenteDeVisionado } from '../tipo/tipo'
 import { ContinueRow } from './ContinueRow'
 import {
   agruparPorDia,
@@ -276,11 +267,9 @@ export function textoDeRefresco(
 
 export function HomePage(props: HomePageProps): ReactNode {
   const path = usePath()
-  const familia = familiaFromPath(path)
   const formato = formatoFromPath(path)
-  const fuentes = useFuentes()
-  const familias = fuentes.familias
-  const filas = useHomeRows(familia, formato)
+  const fuentes = useProviders()
+  const filas = useHomeRows(formato)
   /*
     La insignia de «Quiero ver» es una preferencia del navegador, como las de los
     saltos: se lee una vez al montar y no viaja al servidor. Apagarla no quita la
@@ -303,13 +292,12 @@ export function HomePage(props: HomePageProps): ReactNode {
     total: fuentes.summaries.length,
   })
   const recomendaciones = useRecommendations({
-    family: familia,
     format: formato,
     ...(props.query === undefined ? {} : { query: props.query }),
   })
   // Las filas del gusto declarado. Se leen aparte del motor porque no ordenan la
   // misma lista: agrupan el catálogo por un género que el usuario eligió.
-  const filasGusto = useTasteRows(familia, formato)
+  const filasGusto = useTasteRows(formato)
 
   const items = recomendaciones.data?.items ?? []
   // El destacado tiene tres reservas, en este orden: el motor, lo que publica la
@@ -373,22 +361,13 @@ export function HomePage(props: HomePageProps): ReactNode {
   /*
     Las dos listas que no llevan la vista en la petición se filtran aquí: son lo
     que el usuario hizo, y no una fila que mezcle fuentes. Desde T257b lo que se
-    retoma y los favoritos traen su familia y su formato, así que el reparto es el
-    mismo que el del servidor y una obra de una fuente mixta ya no cae siempre del
-    lado del anime.
+    retoma y los favoritos traen su formato, así que el reparto es el mismo que el
+    del servidor.
   */
-  const favoritos = enElFormato(
-    enLaFamilia(filas.favorites, familia, familias, fuenteDeResumen),
-    formato,
-    familias,
-    fuenteDeResumen,
-  )
+  const favoritos = enElFormato(filas.favorites, formato, fuenteDeResumen)
   const continuar = enElFormato(
-    enLaFamilia(filas.continueWatching, familia, familias, fuenteDeVisionado).filter(
-      (item) => !quitados.has(claveDeEpisodio(item.episodeRef)),
-    ),
+    filas.continueWatching.filter((item) => !quitados.has(claveDeEpisodio(item.episodeRef))),
     formato,
-    familias,
     fuenteDeVisionado,
   )
 
@@ -408,9 +387,8 @@ export function HomePage(props: HomePageProps): ReactNode {
   return (
     <section className="home">
       {/*
-        El formato, debajo del conmutador de familia que vive en la cabecera: es
-        una consulta válida en las tres familias y se pinta siempre, para que no
-        aparezca y desaparezca al cambiar de pestaña.
+        El formato: el único eje que queda. Se pinta siempre para que no aparezca
+        y desaparezca según lo que haya.
       */}
       <FiltroFormato />
 
@@ -427,18 +405,6 @@ export function HomePage(props: HomePageProps): ReactNode {
         rechazar con «Ahora no». La encuesta en sí vive en su propia pantalla.
       */}
       <TasteInvite />
-
-      {/*
-        Una instalación sin ninguna fuente de esta mitad no puede llenar la
-        pantalla, y una pantalla vacía se lee como una aplicación rota. El aviso
-        dice qué falta y dónde se arregla; el conmutador sigue a la vista, que es la
-        otra salida.
-      */}
-      {sinFuenteQueSirva(familias, familia) ? (
-        <p className="aviso-tipo" role="status">
-          {t(DEFAULT_LOCALE, AVISO_SIN_FUENTE[familia])} {t(DEFAULT_LOCALE, 'media.empty.hint')}
-        </p>
-      ) : null}
 
       {/*
         La frase que explica la espera, una sola vez y para quien no ve los
@@ -538,16 +504,7 @@ export function HomePage(props: HomePageProps): ReactNode {
       {/* La parrilla va pegada al top: lo que se emite esta semana es la mitad
           que le faltaba al descubrimiento, y la otra mitad son las novedades,
           que van justo detrás. */}
-      <ParrillaRow
-        dias={dias}
-        cargando={cargandoFilas}
-        caido={filas.parrillaCaida === true}
-        {...(familia === 'animation'
-          ? { vacio: t(DEFAULT_LOCALE, 'home.parrilla.empty.animation') }
-          : familia === 'live'
-            ? { vacio: t(DEFAULT_LOCALE, 'home.parrilla.empty.live') }
-            : {})}
-      />
+      <ParrillaRow dias={dias} cargando={cargandoFilas} caido={filas.parrillaCaida === true} />
 
       <FeedRow
         items={novedadesVisibles}

@@ -32,9 +32,9 @@ describe('los destinos de la navegación', () => {
       throw new Error('faltan destinos en NAV_ITEMS')
     }
 
-    expect(destinoDeNav(inicio, 'live', 'movie')).toBe('/?tipo=live&formato=movie')
-    expect(destinoDeNav(buscar, 'animation', undefined)).toBe('/search?tipo=animation')
-    expect(destinoDeNav(perfil, 'live', 'movie')).toBe('/profile')
+    expect(destinoDeNav(inicio, 'movie')).toBe('/?formato=movie')
+    expect(destinoDeNav(buscar, undefined)).toBe('/search')
+    expect(destinoDeNav(perfil, 'movie')).toBe('/profile')
   })
 
   /**

@@ -21,8 +21,6 @@
 import type { ProviderProbeResponse, SettingsResponse } from '@rona/core/api'
 import { providerProbeResponseSchema } from '@rona/core/api'
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
-import { familiesOf } from '@rona/core/media'
-import type { MediaFamily } from '@rona/core/models'
 import {
   Activity,
   Bell,
@@ -35,7 +33,6 @@ import {
   Search,
   Star,
   TrendingUp,
-  Tv,
 } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { apiPostJson, type RequestDeps } from '../../api/client'
@@ -166,30 +163,6 @@ export interface ProviderListProps {
 
 type Provider = SettingsResponse['providers'][number]
 
-/** La clave de i18n de cada familia, escrita una por una: el catálogo se lee. */
-const CLAVE_DE_FAMILIA: Readonly<
-  Record<MediaFamily, 'media.anime' | 'media.animation' | 'media.live'>
-> = {
-  anime: 'media.anime',
-  animation: 'media.animation',
-  live: 'media.live',
-}
-
-/**
- * Lo que sirve un proveedor, por familias.
- *
- * Es el dato que el usuario tiene que poder ver sin abrir el plugin: con dos
- * fuentes instaladas —una de anime y una de acción real—, esta lista es el único
- * sitio donde se ve cuál es cuál antes de cambiar de pestaña. Las familias
- * declaradas ganan sobre `media`, y el que no declara nada sirve anime, que es el
- * defecto del contrato.
- */
-export function mediaLabel(provider: Provider): string {
-  return familiesOf(provider.capabilities)
-    .map((familia) => t(DEFAULT_LOCALE, CLAVE_DE_FAMILIA[familia]))
-    .join(' · ')
-}
-
 /**
  * Las cinco capacidades, cada una con su dibujo y su clave de texto.
  *
@@ -255,12 +228,6 @@ function Badges(props: { readonly provider: Provider; readonly preferido: boolea
 
   return (
     <>
-      {activo ? (
-        <span className="badge">
-          <Tv size={12} strokeWidth={2} aria-hidden="true" focusable="false" />
-          {mediaLabel(props.provider)}
-        </span>
-      ) : null}
       <span className="badge">
         <IconoEstado size={12} strokeWidth={2} aria-hidden="true" focusable="false" />
         {activo
@@ -346,6 +313,11 @@ export function ProviderList(props: ProviderListProps): ReactNode {
               {provider.status === 'active' && provider.capabilities.search ? (
                 <ProbeButton provider={provider} probe={probe} />
               ) : null}
+              {provider.warning === undefined ? null : (
+                <span className="field__hint" role="status">
+                  {t(DEFAULT_LOCALE, 'settings.provider.warning', { message: provider.warning })}
+                </span>
+              )}
               {provider.lastError === undefined && provider.reason === undefined ? null : (
                 <span className="search__error">
                   {provider.lastError === undefined

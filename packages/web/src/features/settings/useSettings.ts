@@ -13,7 +13,6 @@ import {
   type Ajustes,
   cargarAjustes,
   estadoAjustes,
-  fijarClaveTmdb,
   fijarContenidoAdultos,
   fijarPresenciaDiscord,
   fijarPrioridadProveedores,
@@ -41,13 +40,6 @@ export interface Settings extends Ajustes {
   readonly setDiscordPresence: (mode: SettingsResponse['discordPresence']) => void
   /** Guarda el orden de preferencia de proveedores, del primero al último. */
   readonly setProviderPriority: (order: readonly string[]) => void
-  /**
-   * Guarda o borra la clave de TMDB. Devuelve una promesa y no es optimista: la
-   * clave no se puede pintar, así que lo único que cambia es «configurada», y
-   * enseñarlo antes de que el servidor conteste sería afirmar que se guardó
-   * cuando puede que no. `null` la borra.
-   */
-  readonly setTmdbKey: (key: string | null) => Promise<void>
   /** Registra un proveedor y refresca la lista. Lanza si no se pudo. */
   readonly register: (draft: unknown) => Promise<ProviderSummary>
   /** Vuelve a leer los ajustes. */
@@ -114,7 +106,6 @@ export function useSettings(): Settings {
     setProviderPriority: fijarPrioridadProveedores,
     setAdultContent: fijarContenidoAdultos,
     setDiscordPresence: fijarPresenciaDiscord,
-    setTmdbKey: fijarClaveTmdb,
     register: registrarProveedor,
     refresh: recargarAjustes,
   }

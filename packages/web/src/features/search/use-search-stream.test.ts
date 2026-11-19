@@ -30,15 +30,6 @@ function resumen(id: string, status: 'active' | 'rejected'): ProviderSummary {
   }
 }
 
-function fuente(id: string, media: 'anime' | 'movies' | 'both'): ProviderSummary {
-  return {
-    id,
-    name: id,
-    capabilities: { search: true, sub: true, dub: false, trending: false, feed: false, media },
-    status: 'active',
-  }
-}
-
 describe('estado', () => {
   test('la consulta vacía no abre búsqueda', () => {
     // Sin término no hay pregunta: el gancho no se suscribe y la pantalla no
@@ -374,35 +365,16 @@ describe('proveedores activos', () => {
     ])
   })
 
-  test('el tipo deja fuera a quien no puede tenerlo, y deja entrar a la fuente mixta', () => {
+  test('el filtro de la dirección elige entre los activos', () => {
     const fuentes = [
-      fuente('anime', 'anime'),
-      fuente('pelis', 'movies'),
-      fuente('mixta', 'both'),
+      resumen('uno', 'active'),
+      resumen('dos', 'active'),
       resumen('roto', 'rejected'),
     ]
 
-    // Es lo que decide cuántos esqueletos salen y a quién se le pregunta: la mixta
-    // entra en las familias que sirve porque sus resultados se reparten después.
-    expect(proveedoresSeleccionados(fuentes, [], 'anime')).toEqual(['anime', 'mixta'])
-    expect(proveedoresSeleccionados(fuentes, [], 'live')).toEqual(['pelis', 'mixta'])
-  })
-
-  test('sin declarar la familia, la fuente cuenta como anime', () => {
-    expect(proveedoresSeleccionados([resumen('uno', 'active')], [], 'anime')).toEqual(['uno'])
-    expect(proveedoresSeleccionados([resumen('uno', 'active')], [], 'live')).toEqual([])
-  })
-
-  test('el filtro de la dirección se cruza con la familia', () => {
-    const fuentes = [fuente('anime', 'anime'), fuente('pelis', 'movies'), fuente('mixta', 'both')]
-
-    expect(proveedoresSeleccionados(fuentes, ['pelis', 'mixta'], 'live')).toEqual([
-      'pelis',
-      'mixta',
-    ])
-    // El filtro pide una fuente de anime con la pestaña de acción real: no hay
-    // intersección, y por eso la búsqueda no se le pregunta a nadie.
-    expect(proveedoresSeleccionados(fuentes, ['anime'], 'live')).toEqual([])
+    expect(proveedoresSeleccionados(fuentes, [])).toEqual(['uno', 'dos'])
+    expect(proveedoresSeleccionados(fuentes, ['dos'])).toEqual(['dos'])
+    expect(proveedoresSeleccionados(fuentes, ['roto'])).toEqual([])
   })
 })
 

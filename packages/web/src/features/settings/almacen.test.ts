@@ -19,7 +19,6 @@ import { apiGet, type RequestDeps } from '../../api/client'
 import {
   cargarAjustes,
   estadoAjustes,
-  fijarClaveTmdb,
   fijarContenidoAdultos,
   fijarPrioridadProveedores,
   fijarTema,
@@ -37,7 +36,6 @@ const AJUSTES = {
   paths: { data: '/datos', config: '/configuracion', cache: '/cache' },
   mpv: { available: false },
   providers: [{ id: 'uno', name: 'Uno', capabilities: CAPACIDADES, status: 'active' }],
-  tmdb: { configured: false },
 }
 
 /** El proveedor que devuelve un alta: el mismo id, recargado, para probar el reemplazo. */
@@ -242,31 +240,6 @@ describe('las escrituras, con el comportamiento de antes', () => {
 
     await esperar(() => servidorDePrueba.primera('PATCH') !== undefined)
     expect(servidorDePrueba.primera('PATCH')?.cuerpo).toEqual({ providerPriority: ['dos', 'uno'] })
-  })
-
-  test('la clave de TMDB no se enseña hasta que el servidor contesta', async () => {
-    const servidorDePrueba = servidor()
-    await cargarAjustes(servidorDePrueba.deps)
-    const clave = 'a'.repeat(32)
-
-    await fijarClaveTmdb(clave)
-
-    expect(estadoAjustes().data?.tmdb.configured).toBe(true)
-    expect(servidorDePrueba.primera('PATCH')?.cuerpo).toEqual({ tmdbApiKey: clave })
-
-    // `null` la borra, y también se refleja.
-    await fijarClaveTmdb(null)
-
-    expect(estadoAjustes().data?.tmdb.configured).toBe(false)
-  })
-
-  test('una clave que no se guarda revierte y lanza', async () => {
-    const servidorDePrueba = servidor({ fallaEscritura: true })
-    await cargarAjustes(servidorDePrueba.deps)
-
-    await expect(fijarClaveTmdb('b'.repeat(32))).rejects.toThrow()
-
-    expect(estadoAjustes().data?.tmdb.configured).toBe(false)
   })
 
   test('registrar un proveedor lo deja en la lista, sin releerla', async () => {

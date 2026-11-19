@@ -170,14 +170,12 @@ describe('App: cabecera', () => {
 
     const marca = cabecera.indexOf('class="shell__brand"')
     const destinos = cabecera.indexOf('<nav class="shell__nav"')
-    const conmutador = cabecera.indexOf('class="conmutador"')
     const guia = cabecera.indexOf('class="shell__guia"')
     const perfil = cabecera.indexOf('shell__nav--separado')
 
     for (const [nombre, posicion] of Object.entries({
       marca,
       destinos,
-      conmutador,
       guia,
       perfil,
     })) {
@@ -185,8 +183,7 @@ describe('App: cabecera', () => {
     }
 
     expect(marca).toBeLessThan(destinos)
-    expect(destinos).toBeLessThan(conmutador)
-    expect(conmutador).toBeLessThan(guia)
+    expect(destinos).toBeLessThan(guia)
     expect(guia).toBeLessThan(perfil)
   })
 
@@ -255,73 +252,30 @@ describe('App: cabecera', () => {
   }
 
   /**
-   * La mitad que se mira viaja en los destinos de la navegación.
+   * El formato que se mira viaja en los destinos de la navegación.
    *
-   * Es lo que hace que el conmutador **recuerde su estado** al pasar de la vitrina a
-   * la búsqueda y vuelta: el tipo vive en la dirección, y el destino que no lo
-   * arrastra lo pierde. La marca no lo lleva —volver a la casa en anime es el punto
-   * de referencia—, y por eso se mide el `<nav>` y no la cabecera entera.
+   * Es lo que hace que el filtro **recuerde su estado** al pasar de la vitrina a
+   * la búsqueda y vuelta: el formato vive en la dirección, y el destino que no lo
+   * arrastra lo pierde. La marca no lo lleva —volver a la casa en «Todo» es el
+   * punto de referencia—, y por eso se mide el `<nav>` y no la cabecera entera.
    */
-  test('los destinos conservan la vista que se está mirando', () => {
-    const nav = navegacion('/?tipo=live&formato=movie')
+  test('los destinos conservan el formato que se está mirando', () => {
+    const nav = navegacion('/?formato=movie')
 
-    expect(nav).toContain('href="/?tipo=live&amp;formato=movie"')
-    expect(nav).toContain('href="/search?tipo=live&amp;formato=movie"')
+    expect(nav).toContain('href="/?formato=movie"')
+    expect(nav).toContain('href="/search?formato=movie"')
   })
 
-  test('en anime, que es el defecto, los destinos van sin el parámetro', () => {
+  test('en «Todo», que es el defecto, los destinos van sin el parámetro', () => {
     const nav = navegacion('/')
 
     expect(nav).toContain('href="/"')
     expect(nav).toContain('href="/search"')
-    expect(nav).not.toContain('tipo=')
+    expect(nav).not.toContain('formato=')
   })
 
-  test('desde la búsqueda en acción real, Inicio vuelve a la vitrina en acción real', () => {
-    expect(navegacion('/search?tipo=live')).toContain('href="/?tipo=live"')
-  })
-})
-
-/**
- * El conmutador de tipo, dentro de la cabecera y sólo donde significa algo.
- *
- * Cambió de sitio: vivía en una franja propia encima de la marquesina y ahora va
- * en la cabecera, al final. Lo que se mide es la decisión de dónde sale —la mitad
- * que se mira parte en dos la vitrina y la búsqueda, y en una ficha, en el
- * reproductor o en los ajustes no hay nada que partir— y que sale **dentro** de la
- * cabecera, que es el cambio. Que cada mitad sea un enlace con su `aria-current` se
- * mide en la prueba del conmutador.
- */
-describe('App: el conmutador de tipo en la cabecera', () => {
-  /**
-   * El marcado de la cabecera, que es donde se decide si el mando está.
-   *
-   * Falla si no encuentra la cabecera: una cabecera vacía daría por bueno el
-   * «no sale» de las pantallas donde no toca sin haber mirado nada.
-   */
-  function cabecera(path: string): string {
-    // Los atributos de la cabecera cambian —hoy lleva el ancla de la guía— y
-    // esta prueba mira su contenido, no su lista de atributos.
-    const trozo = /<header class="shell__header"[^>]*>([\s\S]*?)<\/header>/.exec(render(path))
-    if (trozo === null) throw new Error(`la cabecera no está en el marcado de ${path}`)
-
-    return trozo[1] ?? ''
-  }
-
-  test('sale en la vitrina y en la búsqueda', () => {
-    for (const ruta of ['/', '/search']) {
-      expect(cabecera(ruta), `el conmutador falta en la cabecera de ${ruta}`).toContain(
-        'aria-label="Familia de contenido"',
-      )
-    }
-  })
-
-  test('no sale donde no hay dos mitades que elegir', () => {
-    for (const ruta of ['/anime/fuente/titulo-1', '/watch/fuente/titulo-1', '/settings']) {
-      expect(cabecera(ruta), `el conmutador no pinta nada en ${ruta}`).not.toContain(
-        'Familia de contenido',
-      )
-    }
+  test('desde la búsqueda en películas, Inicio vuelve a la vitrina en películas', () => {
+    expect(navegacion('/search?formato=movie')).toContain('href="/?formato=movie"')
   })
 })
 

@@ -7,7 +7,7 @@
  */
 
 import { DEFAULT_LOCALE, type Locale } from '@rona/core/i18n'
-import type { MediaFamily, MediaFormat } from '@rona/core/models'
+import type { MediaFormat } from '@rona/core/models'
 import { type ReactNode, useEffect, useRef } from 'react'
 import { BarraInferior } from './components/BarraInferior'
 import { IconLabel } from './components/IconLabel'
@@ -25,13 +25,7 @@ import { SearchPage } from './features/search/SearchPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { useAppTheme } from './features/settings/useSettings'
 import { TastePage } from './features/taste/TastePage'
-import { ConmutadorTipo } from './features/tipo/ConmutadorTipo'
-import {
-  familiaFromPath,
-  formatoFromPath,
-  pathConFamilia,
-  tieneTipoViejo,
-} from './features/tipo/tipo'
+import { formatoFromPath, sinTipo, tieneTipoRetirado } from './features/tipo/tipo'
 import { t } from './i18n'
 import { routeTitleParts, useDocumentTitle } from './lib/document-title'
 import { destinoDeNav, esNavActual, NAV_ITEMS, type NavItem } from './nav'
@@ -57,14 +51,13 @@ const LOCALE: Locale = DEFAULT_LOCALE
 function DestinoNav(props: {
   readonly item: NavItem
   readonly route: RouteName
-  readonly familia: MediaFamily
   readonly formato: MediaFormat | undefined
 }): ReactNode {
   const actual = esNavActual(props.item, props.route)
 
   return (
     <Link
-      to={destinoDeNav(props.item, props.familia, props.formato)}
+      to={destinoDeNav(props.item, props.formato)}
       ariaCurrent={actual ? 'page' : undefined}
       {...(props.item.tour === undefined ? {} : { dataTour: props.item.tour })}
     >
@@ -110,14 +103,6 @@ function Shell(props: {
    * desplaza sola y el pie es la última línea, no un presupuesto.
    */
   readonly sinPie?: boolean
-  /**
-   * Si la cabecera lleva el conmutador de tipo.
-   *
-   * No lo lleva siempre: la mitad que se mira sólo significa algo donde hay algo
-   * que partir en dos —la vitrina y la búsqueda—. En una ficha o en el
-   * reproductor el mando no cambiaría nada de lo que se está viendo.
-   */
-  readonly tipo?: boolean
 }): ReactNode {
   const caja = ['shell__main']
   if (props.ancha === true) caja.push('shell__main--ancha')
@@ -125,15 +110,13 @@ function Shell(props: {
   if (props.ficha === true) caja.push('shell__main--ficha')
 
   /*
-    Los destinos de la navegación conservan la mitad que se está mirando: al pasar
-    de la vitrina a la búsqueda y vuelta, `?tipo=movies` viaja en el enlace y el
-    conmutador no vuelve solo a anime. La marca no lo hace —volver a la casa en
-    anime es el punto de referencia— y Ajustes tampoco, porque ahí no hay dos
-    mitades que partir.
+    Los destinos de la navegación conservan el formato que se está mirando: al
+    pasar de la vitrina a la búsqueda y vuelta, `?formato=movie` viaja en el
+    enlace. La marca no lo hace —volver a la casa en «Todo» es el punto de
+    referencia— y Ajustes tampoco, porque ahí no hay lista que partir.
   */
   const path = usePath()
   const route = useRoute()
-  const familia = familiaFromPath(path)
   const formato = formatoFromPath(path)
   const navigate = useNavigate()
   const contenido = useRef<HTMLElement>(null)
@@ -141,15 +124,16 @@ function Shell(props: {
   /*
     La dirección vieja se reescribe al entrar.
 
-    `?tipo=movies` significaba «todo lo que no es anime», y su sucesor natural es
-    la acción real: no hay una familia que signifique «lo que no es anime» porque
-    ésa era justamente la confusión. Se hace con `replace` para no dejar en el
-    historial una entrada que el botón de atrás volvería a convertir.
+    `?tipo=` era la familia de contenido, retirada en T372. Se descarta el
+    parámetro y se conservan el resto de la consulta y el formato: una dirección
+    guardada o compartida abre la misma pantalla en vez de una vista distinta.
+    Se hace con `replace` para no dejar en el historial una entrada que el botón
+    de atrás volvería a limpiar.
   */
   useEffect(() => {
-    if (!tieneTipoViejo(path)) return
+    if (!tieneTipoRetirado(path)) return
 
-    navigate.replace(pathConFamilia(path, 'live'))
+    navigate.replace(sinTipo(path))
   }, [navigate, path])
   /*
     El Perfil va aparte y al final, detrás de los mandos. La lista sigue siendo
@@ -215,16 +199,9 @@ function Shell(props: {
         </Link>
         <nav className="shell__nav" aria-label={t(LOCALE, 'nav.primary')}>
           {destinos.map((item) => (
-            <DestinoNav
-              key={item.to}
-              item={item}
-              route={route.name}
-              familia={familia}
-              formato={formato}
-            />
+            <DestinoNav key={item.to} item={item} route={route.name} formato={formato} />
           ))}
         </nav>
-        {props.tipo === true ? <ConmutadorTipo /> : null}
         <BotonGuia />
         {separados.length === 0 ? null : (
           /*
@@ -236,13 +213,7 @@ function Shell(props: {
           */
           <nav className="shell__nav shell__nav--separado" aria-label={t(LOCALE, 'nav.profile')}>
             {separados.map((item) => (
-              <DestinoNav
-                key={item.to}
-                item={item}
-                route={route.name}
-                familia={familia}
-                formato={formato}
-              />
+              <DestinoNav key={item.to} item={item} route={route.name} formato={formato} />
             ))}
           </nav>
         )}
@@ -364,7 +335,6 @@ export function App(): ReactNode {
       // pie, que va después de la caja, les metía un desplazamiento de su alto.
       sinPie={route.name === 'watch' || route.name === 'library-player'}
       ficha={route.name === 'detail'}
-      tipo={route.name === 'home' || route.name === 'search'}
     >
       {screenFor(route, path)}
     </Shell>

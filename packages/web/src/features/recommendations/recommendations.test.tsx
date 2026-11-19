@@ -28,12 +28,9 @@ describe('la dirección de la petición', () => {
     expect(recommendationsPath('   ', 10)).not.toContain('q=')
   })
 
-  test('la familia y el formato van en la petición: el motor filtra antes de puntuar', () => {
-    expect(recommendationsPath(undefined, 10, 'live', 'movie')).toBe(
-      '/api/recommendations?limit=10&family=live&format=movie',
-    )
-    expect(recommendationsPath(undefined, 10, 'anime', undefined)).toBe(
-      '/api/recommendations?limit=10&family=anime',
+  test('el formato va en la petición: el motor filtra antes de puntuar', () => {
+    expect(recommendationsPath(undefined, 10, 'movie')).toBe(
+      '/api/recommendations?limit=10&format=movie',
     )
     // Sin vista —el defecto del servidor— no se mandan parámetros: la respuesta es
     // la de siempre para quien no conoce el filtro.

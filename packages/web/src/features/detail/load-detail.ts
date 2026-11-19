@@ -32,12 +32,7 @@
  * ficha andando para siempre.
  */
 
-import type {
-  AniListRelatedItem,
-  Enrichment,
-  TmdbMetadata,
-  WatchedEpisodePayload,
-} from '@rona/core/api'
+import type { AniListRelatedItem, Enrichment, WatchedEpisodePayload } from '@rona/core/api'
 import {
   anilistRelatedResponseSchema,
   animeResponseSchema,
@@ -45,7 +40,6 @@ import {
   providersResponseSchema,
   relatedResponseSchema,
   sourcesResponseSchema,
-  tmdbMetadataResponseSchema,
   watchedResponseSchema,
 } from '@rona/core/api'
 import type { AnimeDetail, AnimeSummary, ProviderCapabilities } from '@rona/core/models'
@@ -72,7 +66,6 @@ export interface DetailCore {
 export interface DetailAdornos {
   /** `null` es «no hay nada nuevo»; el fallo del tercero también cae aquí. */
   readonly enrichment: Enrichment | null
-  readonly metadata: TmdbMetadata | null
   readonly anilistRelated: readonly AniListRelatedItem[]
 }
 
@@ -87,7 +80,6 @@ export interface DetailAdornos {
  */
 export interface DetailBundle extends DetailCore {
   readonly enrichment?: Enrichment | null
-  readonly metadata?: TmdbMetadata | null
   readonly anilistRelated?: readonly AniListRelatedItem[]
 }
 
@@ -265,15 +257,11 @@ export async function loadDetailAdornos(
   const deps = options.deps
   const opts = opcionesDeAdornos(options)
 
-  const [enriquecido, metadatos, relacionadas] = await Promise.all([
+  const [enriquecido, relacionadas] = await Promise.all([
     // El enriquecimiento **no puede tumbar la ficha**: su fallo se queda en «no
     // hay nada nuevo».
     apiGet(`${base}/enrichment`, enrichmentResponseSchema, opts, deps).catch(() => ({
       enrichment: null,
-    })),
-    // Los metadatos de TMDB tampoco: sin clave la ruta ya devuelve `null`.
-    apiGet(`${base}/metadata`, tmdbMetadataResponseSchema, opts, deps).catch(() => ({
-      metadata: null,
     })),
     // Sin relaciones, sin emparejamiento o con AniList caído, lista vacía: la
     // sección no se pinta y la ficha sigue entera.
@@ -284,7 +272,6 @@ export async function loadDetailAdornos(
 
   return {
     enrichment: enriquecido.enrichment,
-    metadata: metadatos.metadata,
     anilistRelated: relacionadas,
   }
 }

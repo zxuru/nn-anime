@@ -81,15 +81,14 @@ interface ServidorFrio {
  * Las rutas que necesitan la fila local del anime.
  *
  * Es la lista que el servidor exige de verdad: `related`, `sources`,
- * `enrichment`, `metadata` y `anilist-related` leen `readAnime` antes de
- * contestar (ver `routes/detail.ts`, `routes/tmdb.ts` y `routes/anilist.ts`).
+ * `enrichment` y `anilist-related` leen `readAnime` antes de contestar (ver
+ * `routes/detail.ts` y `routes/anilist.ts`).
  */
 function necesitaLaFila(ruta: string): boolean {
   return (
     ruta === `${BASE}/related` ||
     ruta === `${BASE}/sources` ||
     ruta.endsWith('/enrichment') ||
-    ruta.endsWith('/metadata') ||
     ruta.endsWith('/anilist-related')
   )
 }
@@ -152,7 +151,6 @@ function servidorFrio(): ServidorFrio {
       if (ruta === `${BASE}/enrichment`) {
         return Response.json({ enrichment: escrita ? ENRIQUECIDO : null })
       }
-      if (ruta === `${BASE}/metadata`) return Response.json({ metadata: null })
       if (ruta === `${BASE}/anilist-related`) {
         return Response.json({ items: escrita ? [RELACIONADA] : [] })
       }
@@ -207,7 +205,6 @@ describe('la ficha fría', () => {
       `${BASE}/related`,
       `${BASE}/sources`,
       `${BASE}/enrichment`,
-      `${BASE}/metadata`,
       `${BASE}/anilist-related`,
     ]) {
       expect(peticiones).toContain(ruta)

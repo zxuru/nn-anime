@@ -50,18 +50,14 @@ describe('ruta de la petición', () => {
     expect(searchRequestPath('a&b=c')).toBe('/api/search?q=a%26b%3Dc')
   })
 
-  test('la familia y el formato viajan en la petición, no sólo en el filtro de la interfaz', () => {
-    // Una búsqueda de acción real no puede preguntarle a las fuentes de anime: el
-    // gasto es de sitios de terceros y filtrar al llegar lo dejaría hecho.
-    expect(searchRequestPath('aurora', [], 'live')).toBe('/api/search?q=aurora&family=live')
-    expect(searchRequestPath('aurora', [], 'anime', 'movie')).toBe(
-      '/api/search?q=aurora&family=anime&format=movie',
-    )
-    expect(searchRequestPath('', ['uno'], 'anime')).toBe('/api/search?provider=uno&family=anime')
+  test('el formato viaja en la petición, no sólo en el filtro de la interfaz', () => {
+    expect(searchRequestPath('aurora', [], 'movie')).toBe('/api/search?q=aurora&format=movie')
+    expect(searchRequestPath('', ['uno'], 'series')).toBe('/api/search?provider=uno&format=series')
   })
 
-  test('sin tipo —el defecto del servidor— la ruta no lo lleva', () => {
+  test('sin formato —«Todo»— la ruta no lo lleva', () => {
     expect(searchRequestPath('aurora')).toBe('/api/search?q=aurora')
+    expect(searchRequestPath('aurora', ['uno'])).toBe('/api/search?q=aurora&provider=uno')
   })
 
   /**

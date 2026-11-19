@@ -114,38 +114,26 @@ describe('lista de proveedores', () => {
     expect(html).not.toContain('Anime')
   })
 
-  /**
-   * El sello del tipo.
-   *
-   * Es lo único que distingue, de un vistazo, una fuente de anime de una de
-   * películas: sin él hay que abrir el plugin para saber en qué pestaña aparece cada
-   * una, que es justo lo que el conmutador necesita saber.
-   */
-  test('un activo dice qué sirve, y el que no lo declara es de anime', () => {
+  test('un activo con campos retirados enseña el aviso sin parecer roto', () => {
     const html = render(
       <ProviderList
         providers={[
           {
-            id: 'pelis',
-            name: 'Fuente de películas',
-            capabilities: { ...CAPACIDADES, media: 'movies' },
+            id: 'viejo',
+            name: 'Fuente vieja',
+            capabilities: CAPACIDADES,
             status: 'active',
+            warning: 'el manifiesto declara `families`, un campo retirado; se ignora',
           },
-          {
-            id: 'mixta',
-            name: 'Fuente mixta',
-            capabilities: { ...CAPACIDADES, media: 'both' },
-            status: 'active',
-          },
-          { id: 'clasica', name: 'Fuente clásica', capabilities: CAPACIDADES, status: 'active' },
         ]}
       />,
     )
 
-    // El legado se traduce a familias: `movies` era «todo lo que no es anime».
-    expect(html).toContain('Animación · Acción real')
-    expect(html).toContain('Anime · Animación · Acción real')
-    expect(html).toContain('Anime')
+    expect(html).toContain('Aviso de compatibilidad')
+    expect(html).toContain('campo retirado')
+    // Un aviso no es un rechazo: la fila sigue activa.
+    expect(html).toContain('activo')
+    expect(html).not.toContain('rechazado')
   })
 
   test('sin proveedores lo dice', () => {
@@ -376,17 +364,11 @@ describe('el alta de un proveedor', () => {
     expect(html).not.toContain('open=""')
   })
 
-  test('qué sirve se elige con tres casillas, y arranca en anime', () => {
+  test('el alta no pregunta por familias retiradas', () => {
     const html = render(<RegisterProvider register={sinGuardar} />)
 
-    expect(html).toContain('Qué sirve')
-    // Una fuente puede servir anime y acción real sin servir animación: un
-    // desplegable de tres respuestas cerradas no lo sabe decir.
-    expect(html).toContain('id="provider-family-anime"')
-    expect(html).toContain('id="provider-family-animation"')
-    expect(html).toContain('id="provider-family-live"')
-    expect(html).toMatch(/id="provider-family-anime"[^>]*checked/)
-    expect(html).not.toMatch(/id="provider-family-animation"[^>]*checked/)
+    expect(html).not.toContain('id="provider-family-')
+    expect(html).not.toContain('Qué sirve')
   })
 })
 
@@ -447,7 +429,7 @@ describe('la sección que se está viendo', () => {
  */
 describe('los títulos de los bloques', () => {
   test('los que viven dentro de un grupo usan h3, no h2', async () => {
-    for (const archivo of ['ProviderRepos.tsx', 'TmdbSettings.tsx', 'SkipSettings.tsx']) {
+    for (const archivo of ['ProviderRepos.tsx', 'DownloadsSettings.tsx', 'SkipSettings.tsx']) {
       const fuente = await readFile(`${ROOT}${archivo}`, 'utf8')
 
       expect(fuente, `${archivo} conserva un h2`).not.toContain('<h2>')

@@ -236,27 +236,6 @@ export function fijarPrioridadProveedores(order: readonly string[]): void {
 }
 
 /**
- * La clave de TMDB, sin optimismo.
- *
- * La clave no se puede pintar —no se devuelve—, así que lo único que cambia es
- * «configurada», y enseñarlo antes de que el servidor conteste sería afirmar que
- * se guardó cuando puede que no. Lanza el fallo para que el formulario lo cuente.
- */
-export async function fijarClaveTmdb(key: string | null): Promise<void> {
-  const previo = cache.data?.tmdb.configured ?? false
-  const configurada = key !== null
-
-  actualizar((actual) => ({ ...actual, tmdb: { configured: configurada } }))
-
-  try {
-    await apiPatch('/api/settings', { tmdbApiKey: key }, {}, deps)
-  } catch (cause) {
-    actualizar((actual) => ({ ...actual, tmdb: { configured: previo } }))
-    throw cause
-  }
-}
-
-/**
  * Registra un proveedor y añade lo que el servidor devolvió.
  *
  * Aquí no hay escritura optimista, y es a propósito: esto no pinta una lista,

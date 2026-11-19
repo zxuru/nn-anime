@@ -13,21 +13,18 @@
 
 import { genreTerm } from '@rona/core/anilist-search'
 import { type SearchEventPayload, searchEventSchema } from '@rona/core/api'
-import type { MediaFamily, MediaFormat } from '@rona/core/models'
+import type { MediaFormat } from '@rona/core/models'
 
 /**
  * Ruta de la búsqueda. El filtro de proveedor se repite, como en el server.
  *
- * El tipo viaja **en la petición**, y eso no es un detalle de la interfaz: una
- * búsqueda de películas no puede preguntarle a las fuentes de anime. Filtrar los
- * resultados al llegar dejaría el gasto hecho —son sitios de terceros— y además el
- * catálogo cacheado se filtra por los proveedores seleccionados, así que la mitad
- * de la base que no toca tampoco aparecería.
+ * El formato viaja **en la petición**: el servidor filtra lo que devuelve cada
+ * fuente antes de emitirlo. T372 retiró la familia, así que `family=` ya no se
+ * escribe; el servidor lo acepta y lo ignora si llega en una dirección vieja.
  */
 export function searchRequestPath(
   query: string,
   providers: readonly string[] = [],
-  familia: MediaFamily | undefined = undefined,
   formato: MediaFormat | undefined = undefined,
 ): string {
   const partes: string[] = []
@@ -42,8 +39,6 @@ export function searchRequestPath(
   const limpio = (genero === undefined ? query : `#${genero}`).trim()
   if (limpio !== '') partes.push(`q=${encodeURIComponent(limpio)}`)
   for (const provider of providers) partes.push(`provider=${encodeURIComponent(provider)}`)
-  // Sin familia no se filtra; con ella, la petición lleva el vocabulario nuevo.
-  if (familia !== undefined) partes.push(`family=${familia}`)
   if (formato !== undefined) partes.push(`format=${formato}`)
 
   // `%20` y no `+`: es lo que escribe la dirección de arranque del CLI, y dos

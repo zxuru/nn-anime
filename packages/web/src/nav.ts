@@ -15,7 +15,7 @@
  * entero al paquete.
  */
 
-import type { MediaFamily, MediaFormat } from '@rona/core/models'
+import type { MediaFormat } from '@rona/core/models'
 import { Home, Library, type LucideIcon, Search, Settings, User } from 'lucide-react'
 import { ANCLAS } from './features/guia/guia'
 import { pathConVista } from './features/tipo/tipo'
@@ -29,7 +29,7 @@ export interface NavItem {
   readonly label: string
   /** Las rutas que marcan este destino como el actual. */
   readonly routes: readonly RouteName[]
-  /** Si el destino arrastra la vista —familia y formato—: la home y la búsqueda. */
+  /** Si el destino arrastra la vista —el formato—: la home y la búsqueda. */
   readonly conservaVista?: boolean
   /** El ancla de la guía, cuando el recorrido la señala. */
   readonly tour?: string
@@ -85,12 +85,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
  * ficha o el reproductor no tienen formato que partir, así que su destino no lo
  * arrastra.
  */
-export function destinoDeNav(
-  item: NavItem,
-  familia: MediaFamily,
-  formato: MediaFormat | undefined,
-): string {
-  return item.conservaVista === true ? pathConVista(item.to, familia, formato) : item.to
+export function destinoDeNav(item: NavItem, formato: MediaFormat | undefined): string {
+  return item.conservaVista === true ? pathConVista(item.to, formato) : item.to
 }
 
 /** Si la pantalla en la que se está es la de este destino. */
