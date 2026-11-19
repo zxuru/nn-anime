@@ -28,12 +28,13 @@
  */
 
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
-import { Cast, PictureInPicture2 } from 'lucide-react'
+import { Airplay, Cast, PictureInPicture2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { AudioModeSwitch } from './AudioModeSwitch'
 import { useCastControl } from './cast/useCastControl'
+import { useRemotePlayback } from './cast/useRemotePlayback'
 import {
   etiquetaVelocidad,
   needsHls,
@@ -135,27 +136,56 @@ export function Player(props: PlayerProps): ReactNode {
     positionS: state.positionS,
     tracks: pistas,
   })
-  const enCast = cast.conectado && cast.sesion !== undefined
-  const reproduciendo = enCast ? cast.estado.playing : state.playing
-  const posicionActual = enCast ? cast.estado.positionS : state.positionS
-  const duracionActual = enCast ? cast.estado.durationS : state.durationS
-  const volumenActual = enCast ? cast.estado.volume : state.volume
-  const silenciadoActual = enCast ? cast.estado.muted : state.muted
+
+  /**
+   * AirPlay: el mismo contrato que el cast, por la puerta de Safari.
+   *
+   * No pide `chrome.cast`: crea un `<video>` oculto con la URL absoluta de la
+   * sesión y le pide al sistema que lo saque. El mando sólo existe si el
+   * navegador tiene `remote` o la puerta de WebKit **y** el servidor puede
+   * emitir; con una de las dos en falta, no hay nada que ofrecer.
+   */
+  const airplay = useRemotePlayback({
+    url: props.url,
+    kind: props.kind === 'hls' ? 'hls' : 'file',
+    ...(props.title === undefined ? {} : { title: props.title }),
+    ...(props.poster === undefined ? {} : { poster: props.poster }),
+    positionS: state.positionS,
+    tracks: pistas,
+  })
+
+  // Una sola salida manda: si hay emisión por Cast, el mando de AirPlay no se
+  // pinta, y al revés. Dos avisos a la vez serían dos verdades sobre la misma
+  // pantalla.
+  const emisor =
+    cast.conectado && cast.sesion !== undefined
+      ? cast
+      : airplay.conectado && airplay.sesion !== undefined
+        ? airplay
+        : undefined
+  const enCast = emisor !== undefined
+  const estadoEmisor = emisor?.estado
+  const sesionEmisora = emisor?.sesion
+  const reproduciendo = estadoEmisor?.playing ?? state.playing
+  const posicionActual = estadoEmisor?.positionS ?? state.positionS
+  const duracionActual = estadoEmisor?.durationS ?? state.durationS
+  const volumenActual = estadoEmisor?.volume ?? state.volume
+  const silenciadoActual = estadoEmisor?.muted ?? state.muted
 
   const seekToConCast = useCallback(
     (destino: number) => {
-      if (enCast && cast.sesion !== undefined) cast.sesion.seekTo(destino)
+      if (sesionEmisora !== undefined) sesionEmisora.seekTo(destino)
       else seekTo(destino)
     },
-    [cast.sesion, enCast, seekTo],
+    [seekTo, sesionEmisora],
   )
 
   const setVolumeConCast = useCallback(
     (valor: number) => {
-      if (enCast && cast.sesion !== undefined) cast.sesion.setVolume(valor)
+      if (sesionEmisora !== undefined) sesionEmisora.setVolume(valor)
       else setVolume(valor)
     },
-    [cast.sesion, enCast, setVolume],
+    [setVolume, sesionEmisora],
   )
 
   /**
@@ -164,7 +194,7 @@ export function Player(props: PlayerProps): ReactNode {
    */
   const actConCast = useCallback(
     (accion: PlayerAction) => {
-      if (!enCast || cast.sesion === undefined) {
+      if (sesionEmisora === undefined || estadoEmisor === undefined) {
         act(accion)
 
         return
@@ -172,29 +202,29 @@ export function Player(props: PlayerProps): ReactNode {
 
       switch (accion) {
         case 'toggle':
-          cast.sesion.toggle()
+          sesionEmisora.toggle()
           break
         case 'forward':
-          cast.sesion.seekTo(cast.estado.positionS + 10)
+          sesionEmisora.seekTo(estadoEmisor.positionS + 10)
           break
         case 'back':
-          cast.sesion.seekTo(Math.max(0, cast.estado.positionS - 10))
+          sesionEmisora.seekTo(Math.max(0, estadoEmisor.positionS - 10))
           break
         case 'volume-up':
-          cast.sesion.setVolume(cast.estado.volume + 0.1)
+          sesionEmisora.setVolume(estadoEmisor.volume + 0.1)
           break
         case 'volume-down':
-          cast.sesion.setVolume(cast.estado.volume - 0.1)
+          sesionEmisora.setVolume(estadoEmisor.volume - 0.1)
           break
         case 'mute':
-          cast.sesion.setMuted(!cast.estado.muted)
+          sesionEmisora.setMuted(!estadoEmisor.muted)
           break
         case 'fullscreen':
           act('fullscreen')
           break
       }
     },
-    [act, cast.estado.muted, cast.estado.positionS, cast.estado.volume, cast.sesion, enCast],
+    [act, estadoEmisor, sesionEmisora],
   )
 
   /**
@@ -211,43 +241,32 @@ export function Player(props: PlayerProps): ReactNode {
   const terminadoCast = useRef(false)
 
   useEffect(() => {
-    if (!enCast) {
+    if (estadoEmisor === undefined) {
       estabaCast.current = false
       terminadoCast.current = false
 
       return
     }
 
-    if (cast.estado.durationS > 0 && cast.estado.durationS !== ultimaDuracion.current) {
-      ultimaDuracion.current = cast.estado.durationS
-      props.onDuration?.(cast.estado.durationS)
+    if (estadoEmisor.durationS > 0 && estadoEmisor.durationS !== ultimaDuracion.current) {
+      ultimaDuracion.current = estadoEmisor.durationS
+      props.onDuration?.(estadoEmisor.durationS)
     }
 
-    if (Math.abs(cast.estado.positionS - ultimoProgreso.current) >= 15) {
-      ultimoProgreso.current = cast.estado.positionS
-      props.onProgress?.(cast.estado.positionS, cast.estado.durationS)
+    if (Math.abs(estadoEmisor.positionS - ultimoProgreso.current) >= 15) {
+      ultimoProgreso.current = estadoEmisor.positionS
+      props.onProgress?.(estadoEmisor.positionS, estadoEmisor.durationS)
     }
 
-    if (cast.estado.playing && !estabaCast.current) props.onPlay?.()
-    if (!cast.estado.playing && estabaCast.current) props.onPause?.()
-    estabaCast.current = cast.estado.playing
+    if (estadoEmisor.playing && !estabaCast.current) props.onPlay?.()
+    if (!estadoEmisor.playing && estabaCast.current) props.onPause?.()
+    estabaCast.current = estadoEmisor.playing
 
-    if (cast.estado.terminado && !terminadoCast.current) {
+    if (estadoEmisor.terminado && !terminadoCast.current) {
       terminadoCast.current = true
       props.onEnded?.()
     }
-  }, [
-    cast.estado.durationS,
-    cast.estado.playing,
-    cast.estado.positionS,
-    cast.estado.terminado,
-    enCast,
-    props.onDuration,
-    props.onEnded,
-    props.onPause,
-    props.onPlay,
-    props.onProgress,
-  ])
+  }, [estadoEmisor, props.onDuration, props.onEnded, props.onPause, props.onPlay, props.onProgress])
 
   /**
    * Empezar y parar la emisión desde el marco.
@@ -265,18 +284,60 @@ export function Player(props: PlayerProps): ReactNode {
   })
 
   const empezarCast = useCallback(async () => {
+    if (airplay.conectado) await airplay.detener()
+
     const ok = await cast.iniciar()
 
     if (ok) elemento?.pause()
-  }, [cast, elemento])
+  }, [airplay, cast, elemento])
+
+  const parandoEmision = useRef(false)
 
   const pararCast = useCallback(async () => {
-    const estaba = cast.estado.playing
-    props.onProgress?.(cast.estado.positionS, cast.estado.durationS)
-    const posicion = await cast.detener()
+    if (emisor === undefined || estadoEmisor === undefined) return
+
+    const estaba = estadoEmisor.playing
+    parandoEmision.current = emisor === airplay
+    props.onProgress?.(estadoEmisor.positionS, estadoEmisor.durationS)
+    const posicion = await emisor.detener()
     seekTo(posicion)
     if (estaba) act('toggle')
-  }, [act, cast, props.onProgress, seekTo])
+  }, [act, airplay, emisor, estadoEmisor, props.onProgress, seekTo])
+
+  const empezarAirPlay = useCallback(async () => {
+    if (cast.conectado) await cast.detener()
+
+    const ok = await airplay.activar()
+
+    if (ok) elemento?.pause()
+  }, [airplay, cast, elemento])
+
+  // Si el receptor se desconecta solo —el usuario cambia de destino o lo apaga—
+  // el reproductor local vuelve donde estaba la TV. Parar a mano ya hace ese
+  // regreso, así que la marca `parandoEmision` evita repetirlo.
+  const estabaAirPlay = useRef(false)
+
+  useEffect(() => {
+    if (airplay.estado.conectado) {
+      estabaAirPlay.current = true
+
+      return
+    }
+
+    if (!estabaAirPlay.current) return
+
+    estabaAirPlay.current = false
+
+    if (parandoEmision.current) {
+      parandoEmision.current = false
+
+      return
+    }
+
+    seekTo(airplay.estado.positionS)
+    if (!state.playing) act('toggle')
+  }, [act, airplay.estado.conectado, airplay.estado.positionS, seekTo, state.playing])
+
   // El modo compatible necesita el elemento en estado: el pintado arranca cuando
   // el `<canvas>` ya está montado, y eso pasa por un render.
   const { pintando, alternar, canvasRef } = useCompatPaint({
@@ -616,8 +677,8 @@ export function Player(props: PlayerProps): ReactNode {
                     <button
                       type="button"
                       className="button player__menu-choice"
-                      aria-pressed={cast.estado.activeTrackId === indice + 1}
-                      onClick={() => cast.sesion?.selectSubtitle(indice + 1)}
+                      aria-pressed={estadoEmisor?.activeTrackId === indice + 1}
+                      onClick={() => sesionEmisora?.selectSubtitle(indice + 1)}
                     >
                       {pista.label === '' ? pista.lang : pista.label}
                     </button>
@@ -732,7 +793,7 @@ export function Player(props: PlayerProps): ReactNode {
               </button>
             ) : null}
 
-            {cast.disponible || enCast ? (
+            {cast.conectado || (cast.disponible && !airplay.conectado) ? (
               <button
                 type="button"
                 className="button player__control player__cast"
@@ -768,14 +829,53 @@ export function Player(props: PlayerProps): ReactNode {
                 />
               </button>
             ) : null}
+
+            {airplay.conectado || (airplay.disponible && !cast.conectado) ? (
+              <button
+                type="button"
+                className="button player__control player__airplay"
+                aria-label={t(
+                  DEFAULT_LOCALE,
+                  airplay.cargando
+                    ? 'player.airplay.connecting'
+                    : airplay.conectado
+                      ? 'player.cast.stop'
+                      : 'player.airplay',
+                )}
+                title={t(
+                  DEFAULT_LOCALE,
+                  airplay.cargando
+                    ? 'player.airplay.connecting'
+                    : airplay.conectado
+                      ? 'player.cast.stop'
+                      : 'player.airplay',
+                )}
+                aria-pressed={airplay.conectado}
+                disabled={airplay.cargando}
+                onClick={() => {
+                  if (airplay.conectado) void pararCast()
+                  else void empezarAirPlay()
+                }}
+              >
+                <Airplay
+                  className="player__icon"
+                  size={20}
+                  strokeWidth={2}
+                  aria-hidden="true"
+                  focusable="false"
+                />
+              </button>
+            ) : null}
           </div>
 
           {enCast ? (
             <div className="player__cast-notice" role="status" aria-live="polite">
               <p>
-                {t(DEFAULT_LOCALE, 'player.cast.connected', {
-                  device: cast.estado.dispositivo ?? t(DEFAULT_LOCALE, 'player.cast.device'),
-                })}
+                {airplay.conectado
+                  ? t(DEFAULT_LOCALE, 'player.airplay.connected')
+                  : t(DEFAULT_LOCALE, 'player.cast.connected', {
+                      device: estadoEmisor?.dispositivo ?? t(DEFAULT_LOCALE, 'player.cast.device'),
+                    })}
               </p>
               <button
                 type="button"
@@ -842,6 +942,12 @@ export function Player(props: PlayerProps): ReactNode {
         </p>
       )}
 
+      {airplay.error === undefined ? null : (
+        <p className="search__error">
+          {t(DEFAULT_LOCALE, 'player.cast.error', { message: airplay.error })}
+        </p>
+      )}
+
       {pintando ? <p className="player__note">{t(DEFAULT_LOCALE, 'player.compat.on')}</p> : null}
 
       {state.error === undefined ? null : (
@@ -856,9 +962,11 @@ export function Player(props: PlayerProps): ReactNode {
           nada más. */}
       <p className="solo-lectores" aria-live="polite">
         {enCast
-          ? t(DEFAULT_LOCALE, 'player.cast.connected', {
-              device: cast.estado.dispositivo ?? t(DEFAULT_LOCALE, 'player.cast.device'),
-            })
+          ? airplay.conectado
+            ? t(DEFAULT_LOCALE, 'player.airplay.connected')
+            : t(DEFAULT_LOCALE, 'player.cast.connected', {
+                device: estadoEmisor?.dispositivo ?? t(DEFAULT_LOCALE, 'player.cast.device'),
+              })
           : state.status}
       </p>
 

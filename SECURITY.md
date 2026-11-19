@@ -43,7 +43,8 @@ repositorio: lo que no se mide no se da por hecho.
 | Una petición sin cookie lee el video | Sólo bajo `/stream/:ticket`, y con un ticket vivo: es la credencial que `mpv` sí puede presentar, porque no tiene cookie. 192 bits de CSPRNG, 600 s y tope de 500; no abre `/api/*` ni otra ruta | T73 |
 | Una TV de la LAN lee el video sin la cookie de la aplicación | Ticket de emisión aparte: 192 bits, 4 h, 16 por instancia, revocable al parar y sólo bajo `/stream/*`; nunca `/api/*`, nunca en un log. La emisión exige `RONA_CAST=1`, host no loopback y `RONA_TOKEN` | T381 |
 | El guion de Google ejecuta código en la interfaz | Sólo con `RONA_CAST=1` y a petición; la CSP añade `https://www.gstatic.com` y `https://clients3.google.com`, sin `unsafe-inline` ni `unsafe-eval`; si el guion falla, el reproductor sigue | T382 |
-| La emisión real no se ha medido y puede exigir CORS | **Riesgo residual:** `Cross-Origin-Resource-Policy: same-origin` y la ausencia de CORS pueden bloquear a un receptor web. T379 lo mide; si hace falta, se acota al ticket de emisión y se declara aquí | T379 |
+| La emisión real no se ha medido y puede exigir CORS | **Riesgo residual:** el cast abre `Cross-Origin-Resource-Policy: cross-origin` en `/stream/*`, que es lo que necesitan el receptor web y el `<video>` oculto de AirPlay, y la CSP añade a `media-src` las IPv4 de la LAN. CORS sigue sin probarse contra un receptor real; T379 lo mide | T379, T387 |
+| El `<video>` oculto de AirPlay saca el medio del origen de la aplicación | Sólo con `RONA_CAST=1`; la URL es el ticket de emisión de 192 bits y no la cookie. La CSP abre `media-src` a las direcciones de la LAN, no `connect-src`; sin el permiso, ni el elemento ni la política cambian | T387 |
 | Un cliente remoto entra sin credencial en modo servidor | `RONA_TOKEN` fijo, cookie `HttpOnly; SameSite=Strict` —y `Secure` con origen https—, comparación en tiempo constante. Fuera de loopback sin token el arranque se niega | T168 |
 | El token de servidor acaba en una URL, un `Referer` o un log | No viaja en la URL: se pide una vez en `/login` y se guarda en la cookie. El arranque no lo imprime ni lo registra | T168 |
 | La salud pública cuenta algo | `/healthz` devuelve sólo `{"status":"ok"}`: ni versión, ni rutas, ni proveedores | T168 |
@@ -238,13 +239,14 @@ de Google y la CSP es la de siempre. La guía y la matriz de lo que funciona est
   registra. La emisión exige host no loopback y `RONA_TOKEN`; sin los dos, `POST /api/cast/session`
   responde 409.
 - **Qué no hace:** no comparte la sesión, ni el historial, ni las descargas; no abre la API a la TV;
-  no carga el SDK sin `RONA_CAST=1`; no añade CORS ni relaja `frame-src` por su cuenta.
+  no carga el SDK sin `RONA_CAST=1`; no añade CORS; no relaja `frame-src`. Lo único que abre fuera
+  del origen es `media-src` con las IPv4 de la LAN y `Cross-Origin-Resource-Policy: cross-origin` en
+  `/stream/*`, las dos cosas sólo con `RONA_CAST=1`.
 - **Riesgo residual declarado:** la emisión **no se ha medido con una TV real** (T379). Un receptor
-  web puede exigir CORS o rechazar `Cross-Origin-Resource-Policy: same-origin`; hasta que T379 lo
-  mida, la función no se anuncia como completa. En LAN sin TLS el vídeo y el ticket viajan sin
-  cifrar. El emisor debe abrirse en loopback para que el SDK exista; desde la IP de la LAN puede no
-  ofrecerse. AirPlay (T387) y el encadenado automático del siguiente episodio (T395b) son tareas
-  posteriores.
+  web puede exigir CORS; hasta que T379 lo mida, la función no se anuncia como completa. En LAN sin
+  TLS el vídeo y el ticket viajan sin cifrar. El emisor debe abrirse en loopback para que el SDK
+  exista; desde la IP de la LAN puede no ofrecerse. AirPlay está implementado y medido con dobles,
+  no con un Apple TV.
 
 ## Qué no hace esta aplicación
 

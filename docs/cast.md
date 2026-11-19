@@ -3,9 +3,10 @@
 RoNa puede mandar el episodio que se está viendo a un **Chromecast** o a una **TV con Google TV**.
 La TV pide el vídeo a la instancia de RoNa por la red local; la pestaña sigue siendo el mando.
 
-**Estado:** base implementada (tickets, sesión, mandos, subtítulos, progreso, saltos, encadenado y
-parada). **Sin medir todavía con una TV real**: el spike T379 es la puerta. AirPlay (T387), móvil
-(T397) y descargas (T399) están en el plan y **no** se anuncian como si ya estuvieran.
+**Estado:** base implementada (tickets, sesión, mandos, subtítulos, progreso, saltos, encadenado,
+AirPlay y parada). **Sin medir todavía con una TV real**: el spike T379 es la puerta; AirPlay se ha
+medido con dobles de `remote` y de la puerta WebKit, no con un Apple TV. Móvil (T397) y descargas
+(T399) están en el plan y **no** se anuncian como si ya estuvieran.
 
 ## Requisitos
 
@@ -42,10 +43,16 @@ dispositivo se está viendo y permite **dejar de transmitir**.
 - Al terminar un episodio, la pantalla pasa al siguiente y **la TV sigue mandando**: se pide un
   ticket nuevo, se revoca el anterior y se carga el medio en la sesión que ya estaba abierta, sin
   volver a pedir sesión. Si la sesión del receptor ya no existe, no se inventa otra.
+- **AirPlay**, desde Safari: un `<video>` oculto recibe la URL absoluta de la sesión y se manda al
+  receptor con `remote.prompt()` o con el selector de WebKit. El vídeo visible se pausa y, al
+  desconectar, vuelve a la posición de la TV. La CSP abre `media-src` a las direcciones de la LAN y
+  `/stream` responde `Cross-Origin-Resource-Policy: cross-origin` **sólo** con `RONA_CAST=1`.
 
 ## Lo que falta
 
-- **AirPlay**: Safari no es el emisor todavía. T387.
+- **AirPlay con hardware**: el camino está implementado y medido con dobles; un Apple TV real no se
+  ha probado. Qué pinta Safari con los subtítulos y si el receptor acepta el MP4/HLS del proxy son
+  medidas de T379/T387 que no se declaran hechas.
 - **Móvil**: Chrome de Android exige contexto seguro; la vía TLS está en T397.
 - **Descargas**: un archivo descargado no tiene ticket de emisión. T399.
 - **La app de escritorio**: WebView2 no trae el ecosistema de Cast del navegador. Se abre en el
