@@ -78,6 +78,7 @@ Entorno (para el modo servidor):
   'cli.providers.none':
     'Sin proveedores. Añade el repositorio recomendado en Ajustes ({repo}) o copia un plugin a {dir}.',
   'cli.providers.rejected': 'Proveedor rechazado: {message}',
+  'cli.providers.warning': 'Aviso de compatibilidad: {message}',
   'cli.providers.directory': 'No se pudieron leer los plugins: {message}',
 
   'cli.migrate.applied': 'Migraciones aplicadas: {versions}. Versión del esquema: {version}.',

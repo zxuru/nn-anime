@@ -708,44 +708,22 @@ describe('la marquesina', () => {
  * cabecera, y su sitio lo mide la prueba de la aplicación.
  */
 describe('el tipo de la home', () => {
-  function renderEn(path: string): string {
-    return renderToString(
-      <HistoryProvider history={createMemoryHistory(path)}>
-        <HomePage />
-      </HistoryProvider>,
-    )
-  }
-
-  /**
-   * Sin los proveedores leídos no se avisa de nada.
-   *
-   * En este render no hay efectos, así que la lista de proveedores está vacía: es
-   * exactamente el estado de los primeros milisegundos de la aplicación —y el que
-   * queda si esa lectura falla—. Decir ahí «ningún proveedor sirve películas» sería
-   * afirmar algo que no se sabe, en el arranque de todas las pantallas.
-   */
-  test('con los proveedores sin leer no dice que no haya fuente', () => {
-    expect(renderEn('/')).not.toContain('Ningún proveedor instalado sirve')
-    expect(renderEn('/?tipo=movies')).not.toContain('Ningún proveedor instalado sirve')
-  })
-
-  test('las filas que mezclan fuentes piden la familia y el formato al servidor', () => {
-    expect(rutasDeVista('anime', undefined)).toEqual({
-      trending: '/api/trending?family=anime',
-      feed: '/api/feed?family=anime',
-      recent: '/api/catalog/recent?family=anime',
-      descubrir: '/api/discover/top?family=anime',
-      parrilla: '/api/discover/airing?family=anime',
-      emisiones: '/api/discover/recent?family=anime',
+  test('las filas que mezclan fuentes piden el formato al servidor', () => {
+    expect(rutasDeVista(undefined)).toEqual({
+      trending: '/api/trending',
+      feed: '/api/feed',
+      recent: '/api/catalog/recent',
+      descubrir: '/api/discover/top',
+      parrilla: '/api/discover/airing',
+      emisiones: '/api/discover/recent',
     })
-    // El formato viaja junto a la familia: sin él, «Todo»; con él, sólo lo pedido.
-    expect(rutasDeVista('live', 'movie')).toEqual({
-      trending: '/api/trending?family=live&format=movie',
-      feed: '/api/feed?family=live&format=movie',
-      recent: '/api/catalog/recent?family=live&format=movie',
-      descubrir: '/api/discover/top?family=live&format=movie',
-      parrilla: '/api/discover/airing?family=live&format=movie',
-      emisiones: '/api/discover/recent?family=live&format=movie',
+    expect(rutasDeVista('movie')).toEqual({
+      trending: '/api/trending?format=movie',
+      feed: '/api/feed?format=movie',
+      recent: '/api/catalog/recent?format=movie',
+      descubrir: '/api/discover/top?format=movie',
+      parrilla: '/api/discover/airing?format=movie',
+      emisiones: '/api/discover/recent?format=movie',
     })
   })
 })

@@ -197,6 +197,15 @@ packages/recsys/
 - [ ] Un candidato con `family: 'animation'` no entra en la pestaña Anime y uno sin familia cae por
       la regla heredada (fase 2).
 
+## Enmienda aprobada (T372): el motor reparte por formato
+
+> Aprobada el 2026-11-19 con `docs/specs/proposals/SPEC-web-ui.T372.md`.
+
+- `Candidate` y `Recommendation` conservan `format`; `family` se acepta como dato viejo y se ignora.
+- El reparto de candidatos por familia desaparece. El filtro de formato sigue **antes de recomendar**,
+  para no llenar el tope con títulos que no se van a enseñar.
+- `gatherSignals` y las filas del gusto dejan de leer `family` de las fichas guardadas.
+
 ## Boundaries
 
 **Always**

@@ -44,6 +44,8 @@ export interface PluginReport {
      * de `/api/providers` ni la pantalla de Ajustes.
      */
     readonly lastError?: { readonly message: string } | undefined
+    /** Campos retirados que el manifiesto todavía declara. */
+    readonly warnings?: readonly string[] | undefined
   }[]
   readonly rejected: readonly {
     readonly file: string
@@ -102,6 +104,7 @@ export function briefError(message: string): string {
 export function summarizePlugins(report: PluginReport): readonly ProviderSummary[] {
   const activos: ProviderSummary[] = report.active.map((entry) => {
     const lastError = entry.lastError === undefined ? '' : briefError(entry.lastError.message)
+    const warning = briefError((entry.warnings ?? []).join(' · '))
 
     return {
       id: entry.provider.id,
@@ -109,6 +112,7 @@ export function summarizePlugins(report: PluginReport): readonly ProviderSummary
       capabilities: entry.provider.capabilities,
       status: 'active',
       ...(lastError === '' ? {} : { lastError }),
+      ...(warning === '' ? {} : { warning }),
     }
   })
 

@@ -324,21 +324,12 @@ describe('GET /api/profile/export', () => {
     })
   })
 
-  test('no lleva la clave de TMDB ni las rutas del disco', async () => {
+  test('no lleva secretos ni las rutas del disco', async () => {
     await conApp(async ({ pedir }) => {
-      const clave = '0123456789abcdef0123456789abcdef'
-      const guardado = await pedir('/api/settings', {
-        method: 'PATCH',
-        headers: JSON_HEADERS,
-        body: JSON.stringify({ tmdbApiKey: clave }),
-      })
-      expect(guardado.status).toBe(204)
-
       const respuesta = await exportar(pedir)
       const texto = await respuesta.text()
       const perfil = profileExportSchema.parse(JSON.parse(texto))
 
-      expect(texto).not.toContain(clave)
       expect(texto).not.toContain('tmdb')
       expect(texto).not.toContain('paths')
       expect(Object.keys(perfil).sort()).toEqual(['favorites', 'planToWatch', 'version', 'watched'])

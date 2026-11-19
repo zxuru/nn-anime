@@ -178,6 +178,16 @@ GET /api/catalog/recent?family=&format=
   con **un helper único** (`repositories/clasificacion.ts`, T257b), igual que `recent` y los
   candidatos del motor.
 
+## Enmienda aprobada (T372): `family` se acepta y se ignora
+
+> Aprobada el 2026-11-19 con `docs/specs/proposals/SPEC-web-ui.T372.md`.
+
+- `GET /api/feed` y `GET /api/catalog/recent` aceptan `?family=` y `?media=` **sin dar 400** y sin
+  filtrar por ellos: un enlace guardado abre la misma lista. El filtro que queda es `format`.
+- A una fuente con `feed` se le pregunta siempre; ya no se descarta por familia.
+- La caché y `raw_json` conservan el campo `family` de las filas viejas, y `clasificacion.ts` lo
+  ignora. No hay migración de datos.
+
 ## Success Criteria
 
 - [ ] Instalación nueva con un proveedor que declara `feed`: la home pinta **Novedades** sin una

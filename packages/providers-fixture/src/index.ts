@@ -19,10 +19,8 @@ import {
   type AnimeDetail,
   type Episode,
   type FeedEntry,
-  type MediaFamily,
   type ProviderError,
   ProviderError as ProviderErrorClass,
-  type ProviderMedia,
   type ProviderRef,
   type SearchResult,
   type StreamMode,
@@ -50,15 +48,14 @@ export interface FixtureOptions {
   readonly id?: string
   readonly name?: string
   /**
-   * Qué sirve, para las pruebas del conmutador.
+   * **Retirado en T372: se acepta y se ignora.**
    *
-   * Por defecto `both`, que es lo que la instancia compartida declara: el catálogo
-   * inventado trae series y una película. Con `anime` o `movies` se mide que una
-   * fuente de un solo tipo no aparezca en la otra mitad.
+   * Se conserva en la firma para que una prueba escrita antes de la retirada del
+   * eje siga compilando; el fixture ya no separa por familia y sus títulos son
+   * todos de anime.
    */
-  readonly media?: ProviderMedia
-  /** Las familias que sirve. Por defecto, las tres. */
-  readonly families?: readonly MediaFamily[]
+  readonly media?: 'anime' | 'movies' | 'both'
+  readonly families?: readonly string[]
   /** Latencia artificial de todas las llamadas, en milisegundos. */
   readonly latencyMs?: number
   /** Fallo por método. Lo que no esté aquí se comporta bien. */
@@ -199,23 +196,6 @@ export function createFixtureProvider(options: FixtureOptions = {}): FixtureProv
       dub: true,
       trending: true,
       feed: true,
-      /*
-        Las tres familias: el catálogo inventado trae anime, animación occidental
-        y acción real, así que es el único proveedor del repositorio que puede
-        medir las tres pestañas sin red. La clasificación de cada título la lleva
-        el catálogo (`family` y `format`), porque una fuente que sirve las tres no
-        puede repartirlas por el `kind`.
-
-        Una prueba que pide `media` está midiendo el alias heredado y entonces
-        declara sólo eso: si se pusieran las dos capacidades, `families` ganaría y
-        el caso viejo no se podría reproducir.
-      */
-      ...(options.families !== undefined
-        ? { families: options.families }
-        : options.media === undefined
-          ? { families: ['anime', 'animation', 'live'] }
-          : {}),
-      ...(options.media === undefined ? {} : { media: options.media }),
       ...(options.download === true ? { download: true } : {}),
     },
     calls,

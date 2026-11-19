@@ -1012,11 +1012,10 @@ test.describe('de la ficha a sus títulos', () => {
       timeout: 15_000,
     })
 
-    await page.locator('.conmutador').getByRole('link', { name: 'Acción real' }).click()
+    await page.locator('.formato').getByRole('link', { name: 'Películas', exact: true }).click()
 
-    // La consulta es la misma y la familia, otra: la película de imagen real
-    // entra y la serie de anime no.
-    await expect(page).toHaveURL(/tipo=live/)
+    // La consulta es la misma y el formato, otro: la película entra y la serie no.
+    await expect(page).toHaveURL(/formato=movie/)
     await expect(page.getByLabel('Buscar por título')).toHaveValue('Estudio Cobre')
     await expect(page.locator('.grid .card', { hasText: 'El Jardín de Hierro' })).toBeVisible({
       timeout: 15_000,

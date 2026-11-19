@@ -118,9 +118,7 @@ export function historyItems(filas: readonly WatchRecord[]): readonly WatchHisto
     animeRef: fila.anime.ref,
     title: fila.anime.title,
     ...(fila.anime.coverUrl === undefined ? {} : { coverUrl: fila.anime.coverUrl }),
-    // La familia y el formato, para repartir el historial por pestaña: sin ellos
-    // una obra de una fuente mixta caía siempre del lado del anime.
-    ...(fila.anime.family === undefined ? {} : { family: fila.anime.family }),
+    // El formato, para respetar el filtro de la pantalla.
     ...(fila.anime.format === undefined ? {} : { format: fila.anime.format }),
     // La referencia real del episodio, leída de su fila y no reconstruida: con
     // numeración por temporada, `animeRef#number` apunta a un episodio que el
@@ -176,7 +174,6 @@ export function registerWatchRoutes(app: Hono, options: WatchRouteOptions): void
         animeRef: fila.anime.ref,
         title: fila.anime.title,
         ...(fila.anime.coverUrl === undefined ? {} : { coverUrl: fila.anime.coverUrl }),
-        ...(fila.anime.family === undefined ? {} : { family: fila.anime.family }),
         ...(fila.anime.format === undefined ? {} : { format: fila.anime.format }),
         episodeRef: fila.episodeRef,
         episodeNumber: fila.episodeNumber,

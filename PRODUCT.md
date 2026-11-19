@@ -71,8 +71,8 @@ Lo que un vecino no puede copiar sin mentir:
   código se ejecuta.
 - **Qué hay instalado, si hay algo.** `mpv` se detecta al arrancar y es opcional. La parrilla y los
   episodios recién emitidos salen de la API pública de AniList, la única fuente con fecha por
-  episodio; las películas y series se completan con una clave opcional de TMDB que se guarda en la
-  base local y nunca se devuelve al navegador.
+  episodio. La aplicación sirve anime y películas de anime; el formato —serie o película— es el único
+  eje de la vitrina.
 - **Dónde viven los datos.** Rutas XDG en Linux y macOS; en Windows, `%LOCALAPPDATA%\rona-data`
   para la ventana —fuera de la carpeta del `.exe`, que la actualización reemplaza— y
   `%LOCALAPPDATA%`/`%APPDATA%` para el CLI. `portable.txt` lleva todo junto en Windows si se elige.
@@ -109,13 +109,15 @@ escritorio, Docker y las releases de Windows, macOS y Linux.
   límite «Ask first». El movimiento es CSS, con los tokens de la casa; GSAP no es dependencia.
 - **AniList se respeta:** lista blanca de hosts, una petición cada dos segundos, caché con TTL y
   `RONA_ANILIST_OFFLINE=1` para las pruebas.
-- **Compatibilidad del contrato de plugin:** `capabilities.media` ausente significa anime.
+- **Compatibilidad del contrato de plugin:** `capabilities.media` y `capabilities.families` están
+  retirados desde T372; se aceptan, se ignoran y el loader avisa. Un plugin nuevo no los declara.
 - **Idioma:** hoy la interfaz es sólo español y todo texto nuevo pasa por
   `packages/web/src/i18n/es.ts`; el inglés está planificado, no construido. Los identificadores y
   los comentarios de código van en inglés y en español respectivamente; los documentos y la interfaz,
   en español.
 
-**Decisiones tomadas:** D1, clave opcional de TMDB con el plugin como respaldo. D2, descarga en MP4
+**Decisiones tomadas:** D1, la aplicación sirve sólo anime y películas de anime: TMDB se retira y no
+hay clave de metadatos externa. D2, descarga en MP4
 primero (copia directa para `file`, remux con `ffmpeg` para HLS, segmentos locales si no hay
 `ffmpeg`), para que lo descargado se pueda abrir fuera de RoNa.
 

@@ -21,7 +21,7 @@
 
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { ReactNode } from 'react'
-import { familiaFromPath, formatoFromPath } from '../features/tipo/tipo'
+import { formatoFromPath } from '../features/tipo/tipo'
 import { t } from '../i18n'
 import { destinoDeNav, esNavActual, NAV_ITEMS } from '../nav'
 import { Link, usePath, useRoute } from '../router'
@@ -29,7 +29,6 @@ import { Link, usePath, useRoute } from '../router'
 export function BarraInferior(): ReactNode {
   const ruta = useRoute()
   const path = usePath()
-  const familia = familiaFromPath(path)
   const formato = formatoFromPath(path)
 
   return (
@@ -42,7 +41,7 @@ export function BarraInferior(): ReactNode {
         return (
           <Link
             key={item.to}
-            to={destinoDeNav(item, familia, formato)}
+            to={destinoDeNav(item, formato)}
             className="barra__item"
             ariaCurrent={actual ? 'page' : undefined}
             {...(item.tour === undefined ? {} : { dataTour: item.tour })}

@@ -16,7 +16,6 @@ import type {
   candidateSchema,
   episodeSchema,
   feedEntrySchema,
-  mediaFamilySchema,
   mediaFormatSchema,
   mediaTypeSchema,
   modeSchema,
@@ -46,8 +45,6 @@ export type StreamMode = z.infer<typeof streamModeSchema>
 export type TitleKind = z.infer<typeof titleKindSchema>
 /** Qué es un título: anime, película, serie de acción real o manga. */
 export type MediaType = z.infer<typeof mediaTypeSchema>
-/** De qué está hecha una obra: anime, animación que no es anime o imagen real. */
-export type MediaFamily = z.infer<typeof mediaFamilySchema>
 /** Cómo está contada: una serie o una película. */
 export type MediaFormat = z.infer<typeof mediaFormatSchema>
 export type AiringStatus = z.infer<typeof airingStatusSchema>

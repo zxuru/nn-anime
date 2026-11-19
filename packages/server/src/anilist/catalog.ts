@@ -35,7 +35,6 @@ import {
   kindOfFormat,
   type LocalWork,
   type Logger,
-  type MediaFamily,
   type MediaFormat,
   namesOf,
   normalizeQuery,
@@ -116,19 +115,13 @@ export function formatosDe(format: MediaFormat | undefined): readonly string[] {
 }
 
 /**
- * Si AniList sirve esta familia.
+ * El eje del formato en las claves de caché: sin él, «todos».
  *
- * AniList sólo tiene anime: con una familia que no lo incluya —o un conjunto
- * vacío— no se pregunta. Sin familias se pregunta, porque «no lo he pedido» no
- * excluye nada.
+ * T372 retiró la familia: AniList siempre fue sólo de anime, así que ya no hay
+ * una segunda dimensión que separar en la clave.
  */
-export function sirveLaFamilia(familias: readonly MediaFamily[] | undefined): boolean {
-  return familias === undefined || familias.includes('anime')
-}
-
-/** El eje de las familias en las claves de caché: sin ellas, «todas». */
-function ejeDeFamilias(familias: readonly MediaFamily[] | undefined): string {
-  return familias === undefined ? 'all' : familias.join(',')
+function ejeDeFormato(format: MediaFormat | undefined): string {
+  return format ?? 'all'
 }
 
 /**
@@ -178,17 +171,14 @@ export interface AniListCatalog {
   /**
    * El ranking de anime, con el formato que se pida.
    *
-   * AniList sólo sirve anime: con familias que no lo incluyan devuelve la lista
-   * vacía **sin preguntar**. Sin familias se pregunta —«no lo he pedido» no
-   * excluye nada— y sin formato se piden series y películas, que es lo que la
-   * pestaña Anime enseña con «Todo».
+   * AniList sólo sirve anime, así que la lista siempre es suya. Sin formato se
+   * piden series y películas, que es lo que la pantalla enseña con «Todo».
    *
    * `adultAllowed` decide si la consulta filtra, y **la clave de caché lleva ese
    * eje**: encender el interruptor pide otra cosa, y servir la lista del estado
    * anterior hasta que venza el TTL haría que pareciera roto media hora.
    */
   top(
-    familias: readonly MediaFamily[] | undefined,
     format: MediaFormat | undefined,
     adultAllowed: boolean,
     signal?: AbortSignal | undefined,
@@ -209,7 +199,6 @@ export interface AniListCatalog {
    */
   cross(
     term: string,
-    familias: readonly MediaFamily[] | undefined,
     format: MediaFormat | undefined,
     adultAllowed: boolean,
     signal?: AbortSignal | undefined,
@@ -218,11 +207,9 @@ export interface AniListCatalog {
    * La parrilla de emisión.
    *
    * Sólo la contesta AniList y sólo para series de anime: una película no tiene
-   * parrilla y otra familia no está en su catálogo, así que las dos cosas
-   * devuelven la lista vacía **sin consultar**.
+   * parrilla, así que devuelve la lista vacía **sin consultar**.
    */
   airing(
-    familias: readonly MediaFamily[] | undefined,
     format: MediaFormat | undefined,
     days: number,
     signal?: AbortSignal | undefined,
@@ -233,7 +220,6 @@ export interface AniListCatalog {
    * dos estados y el descarte lo hace la ruta. La de películas sí lleva el eje.
    */
   recent(
-    familias: readonly MediaFamily[] | undefined,
     format: MediaFormat | undefined,
     adultAllowed: boolean,
     signal?: AbortSignal | undefined,
@@ -555,14 +541,11 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
     items.map((item) => item.media)
 
   async function top(
-    familias: readonly MediaFamily[] | undefined,
     format: MediaFormat | undefined,
     adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListEntry[], AppError>> {
-    if (!sirveLaFamilia(familias)) return ok([])
-
-    const clave = `top:${ejeDeFamilias(familias)}:${format ?? 'all'}:${ejeDeAdultos(adultAllowed)}`
+    const clave = `top:${ejeDeFormato(format)}:${ejeDeAdultos(adultAllowed)}`
 
     return cachedList(
       {
@@ -603,15 +586,10 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
    */
   async function cross(
     term: string,
-    familias: readonly MediaFamily[] | undefined,
     format: MediaFormat | undefined,
     adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListEntry[], AppError>> {
-    // AniList no tiene otra cosa: pedirle animación occidental o acción real es
-    // una consulta que no puede contestar, y se ahorra.
-    if (!sirveLaFamilia(familias)) return ok([])
-
     /*
       El término viaja plegado y sin la almohadilla del género: «#Acción»,
       «#accion» y «acción» son la misma categoría, tienen que compartir la clave
@@ -621,9 +599,7 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
     */
     const buscado = normalizeTerm(genreTerm(term) ?? term)
     const genero = anilistGenre(buscado)
-    const clave = `cross:${ejeDeAdultos(adultAllowed)}:${ejeDeFamilias(familias)}:${
-      format ?? 'all'
-    }:${buscado}`
+    const clave = `cross:${ejeDeAdultos(adultAllowed)}:${ejeDeFormato(format)}:${buscado}`
     const formatos = formatosDe(format)
 
     return cachedList(
@@ -666,17 +642,16 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
   }
 
   async function airing(
-    familias: readonly MediaFamily[] | undefined,
     format: MediaFormat | undefined,
     days: number,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListAiringEntry[], AppError>> {
-    // Una película no tiene parrilla y otra familia no está en el catálogo del
-    // tercero: las dos respuestas son vacías, y no se gasta la consulta.
-    if (!sirveLaFamilia(familias) || format === 'movie') return ok([])
+    // Una película no tiene parrilla: la respuesta es vacía y no se gasta la
+    // consulta.
+    if (format === 'movie') return ok([])
 
     const ventana = days
-    const clave = `airing:${ejeDeFamilias(familias)}:${format ?? 'all'}:${ventana}`
+    const clave = `airing:${ejeDeFormato(format)}:${ventana}`
     const desde = ahora()
     const hasta = desde + ventana * 86_400_000
 
@@ -729,17 +704,14 @@ export function createAniListCatalog(options: AniListCatalogOptions): AniListCat
    * estados y el descarte lo hace la ruta que sirve.
    */
   async function recent(
-    familias: readonly MediaFamily[] | undefined,
     format: MediaFormat | undefined,
     adultAllowed: boolean,
     signal?: AbortSignal,
   ): Promise<Result<readonly AniListAiringEntry[], AppError>> {
-    if (!sirveLaFamilia(familias)) return ok([])
-
     const conPeliculas = format !== 'series'
     const conSeries = format !== 'movie'
     const eje = conPeliculas ? `:${ejeDeAdultos(adultAllowed)}` : ''
-    const clave = `recent:${ejeDeFamilias(familias)}:${format ?? 'all'}${eje}`
+    const clave = `recent:${ejeDeFormato(format)}${eje}`
     const hasta = ahora()
     const desde = hasta - RECENT_DAYS * 86_400_000
 

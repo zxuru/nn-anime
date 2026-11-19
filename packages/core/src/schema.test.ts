@@ -10,7 +10,6 @@ import {
   candidateSchema,
   episodeSchema,
   feedEntrySchema,
-  mediaFamilySchema,
   mediaFormatSchema,
   providerCapabilitiesSchema,
   providerRefSchema,
@@ -676,8 +675,8 @@ describe('mediaType y temporada en el contrato', () => {
   })
 })
 
-/** Una forma de cada schema que lleva `family` y `format`, con lo mínimo válido. */
-const FORMAS_CON_FAMILIA: readonly {
+/** Una forma de cada schema que lleva `format`, con lo mínimo válido. */
+const FORMAS_CON_FORMATO: readonly {
   readonly nombre: string
   readonly schema: SafeParser
   readonly base: Readonly<Record<string, unknown>>
@@ -723,59 +722,54 @@ const FORMAS_CON_FAMILIA: readonly {
   },
 ]
 
-describe('familia y formato en las formas que viajan', () => {
-  test('los vocabularios aceptan lo suyo y rechazan lo inventado', () => {
-    for (const familia of ['anime', 'animation', 'live']) {
-      expect(mediaFamilySchema.safeParse(familia).success, familia).toBe(true)
-    }
-    expect(mediaFamilySchema.safeParse('documental').success).toBe(false)
-
+describe('el formato en las formas que viajan', () => {
+  test('el vocabulario acepta lo suyo y rechaza lo inventado', () => {
     for (const formato of ['series', 'movie']) {
       expect(mediaFormatSchema.safeParse(formato).success, formato).toBe(true)
     }
     expect(mediaFormatSchema.safeParse('miniserie').success).toBe(false)
   })
 
-  for (const forma of FORMAS_CON_FAMILIA) {
-    test(`${forma.nombre} acepta family y format declarados`, () => {
-      const result = forma.schema.safeParse({
-        ...forma.base,
-        family: 'anime',
-        format: 'movie',
-      })
+  for (const forma of FORMAS_CON_FORMATO) {
+    test(`${forma.nombre} acepta el formato declarado`, () => {
+      const result = forma.schema.safeParse({ ...forma.base, format: 'movie' })
 
       expect(result.success).toBe(true)
     })
 
-    test(`${forma.nombre} sigue aceptando la forma vieja, sin los dos campos`, () => {
-      // La compatibilidad que no se puede romper: una fila o un plugin escritos
-      // antes de T257a no llevan los campos y tienen que seguir valiendo.
+    test(`${forma.nombre} sigue aceptando la forma vieja, sin formato`, () => {
       expect(forma.schema.safeParse(forma.base).success).toBe(true)
     })
 
-    test(`${forma.nombre} rechaza una familia fuera del vocabulario nombrando el campo`, () => {
-      const result = forma.schema.safeParse({ ...forma.base, family: 'documental' })
+    test(`${forma.nombre} rechaza un formato fuera del vocabulario nombrando el campo`, () => {
+      const result = forma.schema.safeParse({ ...forma.base, format: 'miniserie' })
 
       expect(result.success).toBe(false)
-      if (!result.success) expect(result.error.message).toContain('family')
+      if (!result.success) expect(result.error.message).toContain('format')
     })
   }
 })
 
-describe('capabilities.families: qué familias declara un proveedor', () => {
-  const BASE = { search: true, sub: true, dub: false, trending: false }
-
-  test('un manifiesto sin familias sigue conformando', () => {
-    const result = providerCapabilitiesSchema.safeParse(BASE)
+describe('la familia retirada no rompe lo que ya está guardado', () => {
+  test('un resultado viejo con `family` sigue validando y no la expone como eje', () => {
+    // La caché guarda el detalle entero y una fila de antes de T372 lleva family.
+    // Se acepta para poder leerla, pero ningún filtro la consulta.
+    const result = searchResultSchema.safeParse({
+      ref: REF,
+      title: 'T',
+      family: 'live',
+      format: 'movie',
+    })
 
     expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.families).toBeUndefined()
-      expect(result.data.media).toBeUndefined()
-    }
+    if (result.success) expect(result.data.format).toBe('movie')
   })
+})
 
-  test('se acepta y convive con `media`, que queda como legado', () => {
+describe('capabilities: los campos retirados se aceptan y no se leen', () => {
+  const BASE = { search: true, sub: true, dub: false, trending: false }
+
+  test('un manifiesto con `families` y `media` heredados sigue conformando', () => {
     const result = providerCapabilitiesSchema.safeParse({
       ...BASE,
       families: ['anime', 'live'],
@@ -783,33 +777,15 @@ describe('capabilities.families: qué familias declara un proveedor', () => {
     })
 
     expect(result.success).toBe(true)
+  })
+
+  test('un manifiesto nuevo no los necesita', () => {
+    const result = providerCapabilitiesSchema.safeParse(BASE)
+
+    expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.families).toEqual(['anime', 'live'])
-      expect(result.data.media).toBe('both')
-    }
-  })
-
-  test('un array vacío o con repetidos se rechaza nombrando el campo', () => {
-    for (const families of [[], ['anime', 'anime']]) {
-      const result = providerCapabilitiesSchema.safeParse({ ...BASE, families })
-
-      expect(result.success, JSON.stringify(families)).toBe(false)
-      if (!result.success) {
-        expect(result.error.issues.map((issue) => issue.path.join('.')).join(' | ')).toContain(
-          'families',
-        )
-      }
-    }
-  })
-
-  test('una familia fuera del vocabulario se rechaza', () => {
-    const result = providerCapabilitiesSchema.safeParse({ ...BASE, families: ['documental'] })
-
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.error.issues.map((issue) => issue.path.join('.')).join(' | ')).toContain(
-        'families',
-      )
+      expect(result.data.families).toBeUndefined()
+      expect(result.data.media).toBeUndefined()
     }
   })
 })

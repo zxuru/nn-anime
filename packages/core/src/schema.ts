@@ -94,33 +94,16 @@ function hasCredentials(value: string): boolean {
 }
 
 /**
- * Qué sirve un proveedor: anime, películas —y series— o las dos cosas.
+ * El vocabulario heredado de `capabilities.media`.
  *
- * **Se declara, no se deduce.** Una fuente que mezcla un catálogo de anime con
- * películas no se distingue por sus resultados: deducirlo dejaría la pestaña
- * equivocada llena y la otra vacía sin que nadie pueda corregirlo. `movies` es «lo
- * que no es anime» —películas, series y doramas—, que es la partición que hacen
- * las fuentes de este tipo: PelisPlusHD sirve las tres y todas caen al mismo lado.
- *
- * **Opcional y sin valor por defecto**, al revés que `feed` y por el mismo motivo
- * que `episodePages`: un valor por defecto volvería el campo obligatorio en el
- * tipo inferido, y el compilador dejaría de aceptar el `Provider` de todo plugin
- * publicado —y de cada literal de las pruebas del repositorio— por un dato que
- * sólo lee el conmutador de la interfaz. Ausente significa «anime», que es lo que
- * son los plugins que ya existen, y quien lo necesita lo lee con `mediaOf`.
+ * **Se acepta y no se lee.** Era el eje anterior a las familias y T372 retiró los
+ * dos: la aplicación sirve anime y películas de anime, y el formato (`series` /
+ * `movie`) es la única partición. Se conserva en el schema porque un manifiesto
+ * ya instalado que lo declare tiene que cargar —romper el arranque de un plugin
+ * está prohibido por las restricciones del producto—, y el loader avisa de que
+ * se ignora. Un plugin nuevo no lo necesita.
  */
 export const providerMediaSchema = z.enum(['anime', 'movies', 'both'])
-
-/**
- * La familia de una obra: de qué está hecha.
- *
- * Es el eje que reparte las pestañas —Anime, Animación y Acción real— y no dice
- * nada del formato: una película de anime es `family: 'anime'` con
- * `format: 'movie'`. `animation` es la animación que **no** es anime —series y
- * películas occidentales— y `live` la imagen real. `manga` no entra en ninguno de
- * los dos ejes: es un soporte y conserva su `mediaType`.
- */
-export const mediaFamilySchema = z.enum(['anime', 'animation', 'live'])
 
 /** Cómo está contada una obra: una serie o una película. */
 export const mediaFormatSchema = z.enum(['series', 'movie'])
@@ -157,28 +140,14 @@ export const providerCapabilitiesSchema = z.strictObject({
    */
   episodePages: z.boolean().optional(),
   /**
-   * Qué sirve, como conjunto de familias.
+   * El eje de familias retirado en T372.
    *
-   * Aditiva sobre `media`, que no sabe decir «anime y acción real pero no
-   * animación occidental»: es un caso real y una sola palabra no lo describe. Si
-   * está, **gana** sobre `media` (lo resuelve `familiesOf`), y las dos pueden
-   * convivir en el mismo manifiesto. Opcional y sin defecto por el mismo motivo
-   * que `episodePages`: el schema es estricto y lo leen los plugins ya instalados.
-   * Un array vacío o con repetidos se rechaza: no describe un conjunto que nadie
-   * pueda filtrar. Añadida en T257a; no sube `apiVersion`, porque una app vieja la
-   * rechaza al cargar —el gate que ya usan `seasons` y `episodePages`—.
+   * **Se acepta y no se lee**, como `media`: un manifiesto que todavía declare
+   * `families` tiene que cargar. El loader emite un aviso de compatibilidad y el
+   * filtro del producto ya no lo consulta. Un plugin nuevo no debe declararlo.
    */
-  families: z
-    .array(mediaFamilySchema)
-    .min(1, { message: 'un proveedor sirve al menos una familia' })
-    .refine((familias) => new Set(familias).size === familias.length, {
-      message: 'las familias no se repiten',
-    })
-    // Inmutable como el resto de las capacidades: el tipo que cruza el contrato
-    // es `DeepReadonly` y un array mutable no se le puede asignar.
-    .readonly()
-    .optional(),
-  /** Qué sirve. Ausente es `anime`; la regla vive en `mediaOf`. */
+  families: z.array(z.unknown()).readonly().optional(),
+  /** Qué sirve. **Retirado en T372**: se acepta y no se lee. */
   media: providerMediaSchema.optional(),
   /**
    * El proveedor numera por temporada y devuelve `season` en cada episodio.
@@ -266,14 +235,15 @@ export const searchResultSchema = z.strictObject({
   year: z.number().int().optional(),
   kind: titleKindSchema.optional(),
   /**
-   * De qué está hecha la obra, cuando la fuente lo sabe.
+   * El eje de familias retirado en T372.
    *
-   * Opcional y aditiva: ausente se deduce con `familyOf` a partir de `mediaType`,
-   * del `kind` y de las familias que sirve el proveedor, que es lo que hacían las
-   * fuentes de antes. Declarada, manda: es lo que separa una película de anime de
-   * una de imagen real en una fuente mixta. Añadida en T257a.
+   * **Se acepta y no se lee**, y no es un descuido: la caché guarda el detalle
+   * entero en `raw_json`, y una fila escrita antes de T372 lleva `family`. El
+   * schema es estricto, así que quitarlo del todo invalidaría esas filas y la
+   * lectura las trataría como ausentes. El tipo es `unknown` a propósito: ningún
+   * consumidor puede volver a clasificar por él sin que el compilador lo impida.
    */
-  family: mediaFamilySchema.optional(),
+  family: z.unknown().optional(),
   /** Cómo está contada, cuando la fuente lo sabe. Ausente se deduce con `formatOf`. */
   format: mediaFormatSchema.optional(),
   /**
@@ -281,8 +251,7 @@ export const searchResultSchema = z.strictObject({
    *
    * Opcional y sin defecto. **Se conserva por compatibilidad**: hay manifiestos y
    * filas guardadas que lo usan, así que se sigue leyendo siempre y se deja de
-   * escribir en lo nuevo. Para clasificar, la regla es `familyOf`/`formatOf`;
-   * `mediaTypeOf` es la lectura vieja y se retira con la interfaz de dos pestañas.
+   * escribir en lo nuevo. Para clasificar, la regla es `formatOf`.
    */
   mediaType: mediaTypeSchema.optional(),
 })
@@ -423,14 +392,14 @@ export const animeSummarySchema = z.strictObject({
   year: z.number().int().optional(),
   kind: titleKindSchema.optional(),
   /**
-   * Familia y formato del título guardado.
+   * El formato del título guardado.
    *
-   * Los lleva porque una lista —favoritos, continuar viendo, lo último añadido— se
-   * reparte por familia y formato sin abrir la ficha, y una fuente mixta no se
-   * distingue por `kind`: su `tv` puede ser anime o acción real. Opcionales: las
-   * filas escritas antes de T257a se clasifican con la regla de compatibilidad.
+   * Lo lleva porque una lista —favoritos, continuar viendo, lo último añadido— se
+   * reparte por formato sin abrir la ficha. Opcional: las filas escritas antes se
+   * clasifican por su `kind` con `formatOf`. La familia que acompañaba a este
+   * campo se retiró en T372; `family` se acepta como dato viejo y se ignora.
    */
-  family: mediaFamilySchema.optional(),
+  family: z.unknown().optional(),
   format: mediaFormatSchema.optional(),
 })
 
@@ -498,13 +467,13 @@ export const candidateSchema = z.strictObject({
    */
   kind: titleKindSchema.optional(),
   /**
-   * Familia y formato del candidato.
+   * El formato del candidato.
    *
-   * El motor filtra por familia y formato antes de puntuar, y un candidato de una
-   * fuente mixta no se puede repartir por `kind`. Opcionales, como `kind`: sin
-   * ellos cae la regla de compatibilidad. Añadidos en T257a.
+   * El motor filtra por formato antes de puntuar, y un candidato sin él cae a la
+   * regla por `kind`. La familia que lo acompañaba se retiró en T372; se acepta
+   * como dato viejo y se ignora.
    */
-  family: mediaFamilySchema.optional(),
+  family: z.unknown().optional(),
   format: mediaFormatSchema.optional(),
   /**
    * Cuántos episodios tiene y en qué estado está, cuando la ficha lo sabe.

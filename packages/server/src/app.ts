@@ -70,11 +70,9 @@ import { registerSkipTimesRoute } from './routes/skip-times'
 import { registerStreamRoutes } from './routes/stream'
 import { registerSubtitlesRoute } from './routes/subtitles'
 import { registerTasteRoutes } from './routes/taste'
-import { registerTmdbRoute } from './routes/tmdb'
 import { registerWatchRoutes } from './routes/watch'
 import { registerWatchedTitlesRoutes } from './routes/watched-titles'
 import { createTokenSession, type Session } from './session'
-import type { TmdbFetch } from './tmdb/client'
 
 /** Puerto conocido en el momento de montar la aplicación, o función que lo lee. */
 export type PortSource = number | (() => number)
@@ -233,14 +231,6 @@ export interface AppOptions {
   readonly anilistFetchImpl?: FetchLike
   readonly anilistResolver?: Resolver
   readonly anilistClock?: () => number
-  /**
-   * El cliente de TMDB.
-   *
-   * Sólo `fetch` y reloj: la dirección se compone con una base constante y no hay
-   * ninguna URL del usuario que resolver, así que no hay resolutor que inyectar.
-   */
-  readonly tmdbFetchImpl?: TmdbFetch
-  readonly tmdbClock?: () => number
   /**
    * El cliente de AniSkip.
    *
@@ -504,12 +494,6 @@ export function createApp(options: AppOptions): Hono {
     }
 
     registerAnimeRoutes(app, routeOptions)
-    registerTmdbRoute(app, {
-      providers: hub.providers,
-      container,
-      ...(options.tmdbFetchImpl === undefined ? {} : { fetchImpl: options.tmdbFetchImpl }),
-      ...(options.tmdbClock === undefined ? {} : { now: options.tmdbClock }),
-    })
 
     const downloadsRoot =
       options.downloadsDir ??

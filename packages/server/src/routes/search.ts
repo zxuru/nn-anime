@@ -35,7 +35,7 @@ import {
   searchAll,
 } from '../search/aggregate'
 import { discoverItem } from './anilist'
-import { filtroFrom, pasaElFiltroDeProveedor, puedeServirElFiltro } from './media'
+import { filtroFrom, pasaElFiltroDeProveedor } from './media'
 import { adultContentOf } from './settings'
 
 /**
@@ -89,7 +89,7 @@ export async function anilistCrossEvent(
   signal: AbortSignal,
 ): Promise<SearchEvent | undefined> {
   const conAdultos = await adultContentOf(container.store)
-  const resultado = await catalog.cross(term, filtro.families, filtro.format, conAdultos, signal)
+  const resultado = await catalog.cross(term, filtro.format, conAdultos, signal)
 
   if (!resultado.ok) return undefined
 
@@ -157,22 +157,17 @@ export interface SearchRouteOptions {
 /**
  * Los proveedores que entran en la búsqueda, según la consulta.
  *
- * La familia y el formato filtran **antes de preguntar**: una búsqueda de acción
- * real no puede gastar el ancho de banda de una fuente de anime, que es el mismo
- * motivo por el que el filtro de proveedores existe. Una fuente que sirve varias
- * familias sí entra: sus resultados se reparten después, por la familia de cada
- * título.
+ * El formato se filtra **después** de preguntar: el proveedor no sabe cuál es el
+ * formato de cada título hasta que responde, y descartar fuentes por un eje que
+ * ya no existe dejaría la lista vacía sin haber preguntado.
  */
 export function selectedProviders(
   providers: readonly Provider[],
   wanted: readonly string[],
-  filtro: MediaFilter = {},
 ): readonly Provider[] {
-  const porTipo = providers.filter((provider) => puedeServirElFiltro(filtro, provider))
+  if (wanted.length === 0) return providers
 
-  if (wanted.length === 0) return porTipo
-
-  return porTipo.filter((provider) => wanted.includes(provider.id))
+  return providers.filter((provider) => wanted.includes(provider.id))
 }
 
 export function registerSearchRoute(app: Hono, options: SearchRouteOptions): void {
@@ -229,9 +224,7 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
     */
     const hayConsulta = parsed.data.q.trim() !== ''
     const selected =
-      soloCatalogo || !hayConsulta
-        ? []
-        : selectedProviders(options.providers, parsed.data.provider, pedido.filtro)
+      soloCatalogo || !hayConsulta ? [] : selectedProviders(options.providers, parsed.data.provider)
     const timeoutMs = options.timeoutMs
     const container = options.container
 
@@ -298,7 +291,7 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
             const provider = porId.get(resultado.ref.providerId)
             if (provider === undefined) return false
 
-            return pasaElFiltroDeProveedor(pedido.filtro, resultado, provider)
+            return pasaElFiltroDeProveedor(pedido.filtro, resultado)
           }),
         }
       }
@@ -341,9 +334,7 @@ export function registerSearchRoute(app: Hono, options: SearchRouteOptions): voi
         ).filter((resultado) => {
           const provider = porId.get(resultado.ref.providerId)
 
-          return (
-            provider !== undefined && pasaElFiltroDeProveedor(pedido.filtro, resultado, provider)
-          )
+          return provider !== undefined && pasaElFiltroDeProveedor(pedido.filtro, resultado)
         })
 
         if (locales.length > 0 && !disconnected.aborted) {

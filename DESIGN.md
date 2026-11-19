@@ -159,9 +159,9 @@ en claro. El tema claro no aclara el arte: redefine lo que define el oscuro y de
 porque debajo de una pieza hay un degradado oscuro y no el fondo de la aplicación.
 
 ### Primary
-- **Coral** (`#ff5c35`): el único acento del tema oscuro. Rellena la mitad activa del conmutador, el
-  borde del foco, la barra de progreso del reproductor y el mando primario. Su escasez es el punto:
-  si hay dos corales compitiendo en la misma pantalla, uno sobra.
+- **Coral** (`#ff5c35`): el único acento del tema oscuro. Rellena la opción activa del filtro de
+  formato, el borde del foco, la barra de progreso del reproductor y el mando primario. Su escasez es
+  el punto: si hay dos corales compitiendo en la misma pantalla, uno sobra.
 - **Coral profundo** (`#e8451f`): el coral cuando el puntero está encima de un mando primario. Nunca
   en reposo.
 - **Coral ascua** (`#c02f10`) y **ascua profunda** (`#a32512`): el mismo papel en tema claro. El coral
@@ -292,8 +292,8 @@ es movimiento, no profundidad, y se apaga con `prefers-reduced-motion`.
 Dos radios y una píldora: `10px` (`--radius-md`), que es el radio de **todo** lo que tiene marco
 redondeado —la pieza, los avisos, el recuadro de estado y las esquinas de arriba de la hoja—; `3px`
 (`--radius-sm`), que hoy sólo usa el enlace de salto; y `999px` (`--radius-full`), para el carril del
-conmutador y el mando redondo de la pieza. `--radius-lg` (`14px`) está declarado y no lo usa nada: o
-entra cuando una superficie lo pida, o se retira.
+filtro de formato y el mando redondo de la pieza. `--radius-lg` (`14px`) está declarado y no lo usa
+nada: o entra cuando una superficie lo pida, o se retira.
 
 El arte se recorta contra el marco: la inicial a `132cqi`, la cifra del
 año a `48cqi` y el círculo se salen de la pieza y el `overflow: clip` los corta. El corte es parte del
@@ -345,14 +345,15 @@ objeto puesto encima y no como una caja más.
 
 ### Navigation
 - **Cabecera:** pegajosa, alto `3.5rem`, fondo de la sala y filete inferior de 2 px en crema. La marca
-  a la izquierda en 800 mayúsculas; los destinos en monoespaciada de rótulo; el conmutador de tipo
-  empujado al borde con `margin-inline-start: auto`.
+  a la izquierda en 800 mayúsculas; los destinos en monoespaciada de rótulo; el Perfil empujado al
+  borde con `margin-inline-start: auto`.
 - **Estado:** los destinos van en ceniza; el actual, en crema con filete coral de 2 px, marcado por
   `aria-current`. El color no es la única señal.
-- **Conmutador de tipo:** carril de píldora con borde al 45 %, dos columnas iguales y una píldora coral
-  que **se desliza** con `transform` en 200 ms. Las mitades miden lo mismo para que el deslizamiento
-  tenga dónde llegar.
-- **Móvil:** la cabecera envuelve y el conmutador baja a su propio renglón antes que apretar la marca.
+- **Filtro de formato:** es el único eje de la vitrina y la búsqueda. Rótulo «Formato» visible, carril
+  de píldora con borde al 45 % y opción activa en coral; cada opción mide 44 px. Se queda pegado bajo
+  la cabecera (`top: var(--header-height)`) para que el estado no desaparezca al recorrer una lista.
+- **Móvil:** el rótulo del filtro se deja a quien escucha y las tres opciones siguen visibles; el
+  filtro deja de ser pegajoso para no tapar contenido en una pantalla corta.
 
 ### Pieza con asomo (componente de firma)
 La pieza es la unidad del sistema y su interacción es la firma: en reposo, arte y pie —con el motivo

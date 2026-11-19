@@ -144,12 +144,12 @@ async function conCatalogo(
 describe('el top', () => {
   test('la segunda lectura no vuelve a salir a la red', async () => {
     await conCatalogo({ top: [KIMETSU, DANMACHI] }, async ({ catalog, fake }) => {
-      const primera = await catalog.top(['anime'], undefined, false)
+      const primera = await catalog.top(undefined, false)
       expect(primera.ok).toBe(true)
       expect(primera.ok ? primera.value.map((una) => una.id) : []).toEqual([101922, 20920])
       expect(fake.calls).toHaveLength(1)
 
-      const segunda = await catalog.top(['anime'], undefined, false)
+      const segunda = await catalog.top(undefined, false)
       expect(segunda.ok ? segunda.value.length : 0).toBe(2)
       expect(fake.calls).toHaveLength(1)
     })
@@ -159,7 +159,7 @@ describe('el top', () => {
     const fixture: Parameters<typeof fakeAniList>[0] = { top: [KIMETSU] }
 
     await conCatalogo(fixture, async ({ catalog, reloj, db }) => {
-      const primera = await catalog.top(['anime'], undefined, false)
+      const primera = await catalog.top(undefined, false)
       expect(primera.ok).toBe(true)
 
       // El fixture pasa a contestar 500: la lectura vencida no puede vaciar la
@@ -168,7 +168,7 @@ describe('el top', () => {
       db.query('UPDATE anilist_list_cache SET fetched_at = 0').run()
       reloj.avanzar(TTL_SECONDS.anilistTop * 1000 + 1)
 
-      const segunda = await catalog.top(['anime'], undefined, false)
+      const segunda = await catalog.top(undefined, false)
       expect(segunda.ok).toBe(true)
       expect(segunda.ok ? segunda.value.map((una) => una.id) : []).toEqual([101922])
     })
@@ -177,8 +177,8 @@ describe('el top', () => {
   test('el formato elige los de la consulta y tiene su propia caché', async () => {
     await conCatalogo({ top: [KIMETSU] }, async ({ catalog, fake }) => {
       // Sin formato, «Todo» en la pestaña Anime: series y películas.
-      await catalog.top(['anime'], undefined, false)
-      await catalog.top(['anime'], 'movie', false)
+      await catalog.top(undefined, false)
+      await catalog.top('movie', false)
 
       expect(fake.calls).toHaveLength(2)
       expect(fake.calls[0]?.variables.formatos).toEqual([
@@ -193,12 +193,11 @@ describe('el top', () => {
     })
   })
 
-  test('otra familia no se pregunta: AniList sólo tiene anime', async () => {
+  test('el formato pedido se traduce a los formatos de AniList', async () => {
     await conCatalogo({ top: [KIMETSU] }, async ({ catalog, fake }) => {
-      const resultado = await catalog.top(['live'], undefined, false)
+      await catalog.top('series', false)
 
-      expect(resultado.ok ? resultado.value : []).toEqual([])
-      expect(fake.calls).toHaveLength(0)
+      expect(fake.calls[0]?.variables.formatos).toEqual(['TV', 'TV_SHORT', 'SPECIAL', 'OVA', 'ONA'])
     })
   })
 })
@@ -222,7 +221,7 @@ describe('la búsqueda cruzada', () => {
     await conCatalogo(
       { cross: { studios: [ESTUDIO_COBRE], genre: [DANMACHI] } },
       async ({ catalog, fake }) => {
-        const porEstudio = await catalog.cross('ufotable', ['anime'], undefined, false)
+        const porEstudio = await catalog.cross('ufotable', undefined, false)
 
         expect(porEstudio.ok ? porEstudio.value.map((una) => una.id) : []).toEqual([101922, 555])
         // Sin género en la consulta: `genre:` sólo acepta un nombre de la lista cerrada
@@ -240,7 +239,7 @@ describe('la búsqueda cruzada', () => {
     // error de la consulta entera —con él caía también el género que viajaba al lado— y
     // el doble de las pruebas lo aceptaba, así que nada lo dijo.
     await conCatalogo({ cross: { studios: [ESTUDIO_COBRE] } }, async ({ catalog, fake }) => {
-      const resultado = await catalog.cross('ufotable', ['anime'], undefined, false)
+      const resultado = await catalog.cross('ufotable', undefined, false)
       const consulta = fake.calls[0]?.query ?? ''
 
       expect(resultado.ok).toBe(true)
@@ -264,7 +263,7 @@ describe('la búsqueda cruzada', () => {
         },
       },
       async ({ catalog }) => {
-        const resultado = await catalog.cross('estudio cobre', ['anime'], undefined, false)
+        const resultado = await catalog.cross('estudio cobre', undefined, false)
 
         expect(resultado.ok ? resultado.value.map((una) => una.id) : []).toEqual([101922])
       },
@@ -282,7 +281,7 @@ describe('la búsqueda cruzada', () => {
         },
       },
       async ({ catalog }) => {
-        const resultado = await catalog.cross('toei', ['anime'], undefined, false)
+        const resultado = await catalog.cross('toei', undefined, false)
 
         expect(resultado.ok ? resultado.value.map((una) => una.id) : []).toEqual([101922, 20920])
       },
@@ -291,7 +290,7 @@ describe('la búsqueda cruzada', () => {
 
   test('un género en español viaja con el nombre que exige AniList', async () => {
     await conCatalogo({ cross: { genre: [DANMACHI] } }, async ({ catalog, fake }) => {
-      const resultado = await catalog.cross('Acción', ['anime'], undefined, false)
+      const resultado = await catalog.cross('Acción', undefined, false)
 
       expect(resultado.ok ? resultado.value.map((una) => una.id) : []).toEqual([20920])
       expect(fake.calls[0]?.variables.genero).toBe('Action')
@@ -310,7 +309,7 @@ describe('la búsqueda cruzada', () => {
         },
       },
       async ({ catalog, fake }) => {
-        const resultado = await catalog.cross('Action', ['anime'], undefined, false)
+        const resultado = await catalog.cross('Action', undefined, false)
 
         expect(resultado.ok ? resultado.value.map((una) => una.id) : []).toEqual([101922, 20920])
         expect(fake.calls).toHaveLength(1)
@@ -324,8 +323,8 @@ describe('la búsqueda cruzada', () => {
     await conCatalogo(
       { cross: { studios: [{ name: 'Estudio Cobre', media: [KIMETSU, PELICULA] }] } },
       async ({ catalog }) => {
-        const series = await catalog.cross('estudio cobre', ['anime'], 'series', false)
-        const peliculas = await catalog.cross('estudio cobre', ['anime'], 'movie', false)
+        const series = await catalog.cross('estudio cobre', 'series', false)
+        const peliculas = await catalog.cross('estudio cobre', 'movie', false)
 
         expect(series.ok ? series.value.map((una) => una.id) : []).toEqual([101922])
         expect(peliculas.ok ? peliculas.value.map((una) => una.id) : []).toEqual([999])
@@ -340,8 +339,8 @@ describe('la búsqueda cruzada', () => {
     await conCatalogo(
       { cross: { studios: [{ name: 'Estudio Cobre', media: [KIMETSU, MARCADA] }] } },
       async ({ catalog }) => {
-        const segura = await catalog.cross('estudio cobre', ['anime'], undefined, false)
-        const entera = await catalog.cross('estudio cobre', ['anime'], undefined, true)
+        const segura = await catalog.cross('estudio cobre', undefined, false)
+        const entera = await catalog.cross('estudio cobre', undefined, true)
 
         expect(segura.ok ? segura.value.map((una) => una.id) : []).toEqual([101922])
         expect(entera.ok ? entera.value.map((una) => una.id) : []).toEqual([101922, 777])
@@ -351,8 +350,8 @@ describe('la búsqueda cruzada', () => {
 
   test('la segunda lectura del mismo término no vuelve a salir a la red', async () => {
     await conCatalogo({ cross: { studios: [ESTUDIO_COBRE] } }, async ({ catalog, fake }) => {
-      await catalog.cross('ufotable', ['anime'], undefined, false)
-      await catalog.cross('  UFOTABLE ', ['anime'], undefined, false)
+      await catalog.cross('ufotable', undefined, false)
+      await catalog.cross('  UFOTABLE ', undefined, false)
 
       // El término se normaliza en la clave: dos grafías del mismo estudio son una
       // consulta, y el presupuesto de AniList no se gasta dos veces en lo mismo.
@@ -362,8 +361,8 @@ describe('la búsqueda cruzada', () => {
 
   test('con el interruptor apagado la consulta del género filtra; con él encendido no', async () => {
     await conCatalogo({ cross: { genre: [KIMETSU] } }, async ({ catalog, fake }) => {
-      await catalog.cross('Acción', ['anime'], undefined, false)
-      await catalog.cross('Acción', ['anime'], undefined, true)
+      await catalog.cross('Acción', undefined, false)
+      await catalog.cross('Acción', undefined, true)
 
       expect(fake.calls[0]?.query).toContain('isAdult: false')
       // El eje viaja en la clave de caché: encender el interruptor pide otra cosa y
@@ -382,7 +381,7 @@ describe('la búsqueda cruzada', () => {
     await conCatalogo(fixture, async ({ catalog, avisos }) => {
       fixture.status = { 'porEstudio: Page(': 500 }
 
-      const resultado = await catalog.cross('Estudio Cobre', ['anime'], undefined, false)
+      const resultado = await catalog.cross('Estudio Cobre', undefined, false)
 
       expect(resultado.ok).toBe(false)
       expect(avisos).toHaveLength(1)
@@ -392,7 +391,7 @@ describe('la búsqueda cruzada', () => {
 
   test('la mitad decide los formatos que se piden al género', async () => {
     await conCatalogo({ cross: { genre: [KIMETSU] } }, async ({ catalog, fake }) => {
-      await catalog.cross('Acción', ['anime'], 'movie', false)
+      await catalog.cross('Acción', 'movie', false)
 
       expect(fake.calls[0]?.variables.formatos).toEqual(['MOVIE'])
     })
@@ -404,7 +403,7 @@ describe('la parrilla', () => {
     await conCatalogo(
       { airing: [{ media: KIMETSU, episode: 5, airingAt: 1_760_000_000 }] },
       async ({ catalog }) => {
-        const resultado = await catalog.airing(['anime'], undefined, 7)
+        const resultado = await catalog.airing(undefined, 7)
 
         expect(resultado.ok).toBe(true)
         expect(resultado.ok ? resultado.value : []).toHaveLength(1)
@@ -418,7 +417,7 @@ describe('la parrilla', () => {
 
   test('la parrilla de películas no existe y no sale a preguntarla', async () => {
     await conCatalogo({}, async ({ catalog, fake }) => {
-      const resultado = await catalog.airing(['anime'], 'movie', 7)
+      const resultado = await catalog.airing('movie', 7)
 
       // Un estreno se anuncia con precisión de año —lo dice la API— y colocarlo en
       // un calendario por días sería inventar la fecha. Se dice vacío, sin salir.
@@ -430,7 +429,7 @@ describe('la parrilla', () => {
 
   test('los estrenos recientes de películas se listan con día o con año', async () => {
     await conCatalogo({}, async ({ catalog, fake }) => {
-      const resultado = await catalog.recent(['anime'], 'movie', false)
+      const resultado = await catalog.recent('movie', false)
 
       expect(resultado.ok).toBe(true)
       expect(fake.calls).toHaveLength(1)
@@ -443,14 +442,14 @@ describe('la parrilla', () => {
 describe('una caché que no se entiende', () => {
   test('no tumba la fila: se pide otra vez y la escritura la reemplaza', async () => {
     await conCatalogo({ top: [KIMETSU] }, async ({ catalog, db, fake }) => {
-      const primera = await catalog.top(['anime'], undefined, false)
+      const primera = await catalog.top(undefined, false)
       expect(primera.ok).toBe(true)
 
       // Una fila con otra forma —lo que dejaría una versión anterior del código—
       // no puede convertirse en un error para quien está mirando la home.
       db.query('UPDATE anilist_list_cache SET payload_json = \'{"no": true}\'').run()
 
-      const segunda = await catalog.top(['anime'], undefined, false)
+      const segunda = await catalog.top(undefined, false)
       expect(segunda.ok).toBe(true)
       expect(segunda.ok ? segunda.value.map((una) => una.id) : []).toEqual([101922])
       expect(fake.calls.length).toBeGreaterThan(1)
@@ -464,7 +463,7 @@ describe('una caché que no se entiende', () => {
    */
   test('una entrada sin la marca de adultos se vuelve a pedir', async () => {
     await conCatalogo({ top: [KIMETSU] }, async ({ catalog, db, fake }) => {
-      const primera = await catalog.top(['anime'], undefined, false)
+      const primera = await catalog.top(undefined, false)
       expect(primera.ok).toBe(true)
       const antes = fake.calls.length
 
@@ -472,7 +471,7 @@ describe('una caché que no se entiende', () => {
         "UPDATE anilist_list_cache SET payload_json = json_remove(payload_json, '$[0].adult')",
       ).run()
 
-      const segunda = await catalog.top(['anime'], undefined, false)
+      const segunda = await catalog.top(undefined, false)
 
       expect(segunda.ok ? segunda.value.length : 0).toBe(1)
       expect(fake.calls.length).toBeGreaterThan(antes)
@@ -576,19 +575,19 @@ describe('el contenido para adultos en la caché', () => {
    */
   test('el top se cachea por eje: lo pedido apagado no se sirve encendido', async () => {
     await conCatalogo({ top: [KIMETSU, MARCADA] }, async ({ catalog, fake }) => {
-      await catalog.top(['anime'], undefined, false)
-      await catalog.top(['anime'], undefined, false)
+      await catalog.top(undefined, false)
+      await catalog.top(undefined, false)
       expect(fake.calls).toHaveLength(1)
 
-      await catalog.top(['anime'], undefined, true)
+      await catalog.top(undefined, true)
       expect(fake.calls).toHaveLength(2)
     })
   })
 
   test('la consulta excluye apagado y omite el argumento encendido', async () => {
     await conCatalogo({ top: [KIMETSU] }, async ({ catalog, fake }) => {
-      await catalog.top(['anime'], undefined, false)
-      await catalog.top(['anime'], undefined, true)
+      await catalog.top(undefined, false)
+      await catalog.top(undefined, true)
 
       // El campo `isAdult` va en la selección **siempre** —se guarda con cada obra—;
       // lo que cambia es el argumento que filtra.

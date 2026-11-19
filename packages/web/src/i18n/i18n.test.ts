@@ -39,6 +39,18 @@ describe('catálogo de la interfaz', () => {
   test('una clave desconocida se devuelve a sí misma, sin lanzar', () => {
     expect(t('es', 'no.existe')).toBe('no.existe')
   })
+
+  test('no queda el vocabulario del eje de familias retirado', () => {
+    // T372 retiró la familia de contenido. Una cadena vieja en el catálogo volvería
+    // a prometer imagen real o animación occidental, que la aplicación no sirve.
+    const prohibidas = [/acción real/i, /animación occidental/i, /familia de contenido/i]
+
+    for (const [key, value] of Object.entries(es)) {
+      for (const prohibida of prohibidas) {
+        expect(value, `la clave ${key} conserva «${prohibida}»`).not.toMatch(prohibida)
+      }
+    }
+  })
 })
 
 describe('claves huérfanas', () => {

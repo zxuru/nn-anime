@@ -87,7 +87,7 @@ Un proveedor es un objeto con:
 | `id` | Identificador corto, en minúsculas y con guiones. Es el que aparece en las rutas |
 | `name` | Nombre visible |
 | `apiVersion` | Versión del contrato. Hoy `1` |
-| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending`, `feed`, `episodePages`, `download` —y, con `families` (o el legado `media`), qué familias sirve |
+| `capabilities` | Qué sabe hacer: `search`, `sub`, `dub`, `trending`, `feed`, `episodePages`, `download` |
 | `search(query, options)` | Busca títulos |
 | `getAnime(ref, options)` | Detalle de un título |
 | `getEpisodes(ref, options)` | Lista de episodios |
@@ -106,32 +106,26 @@ la aplicación resuelve el mismo stream que la reproducción —un archivo direc
 la carpeta de descargas, así que el botón se ofrece en todas las fuentes. El campo queda para que un
 manifiesto que ya lo declare siga cargando; un plugin nuevo no lo necesita.
 
-`capabilities.families` dice **qué sirve** el plugin, que es otra cosa que lo que sabe hacer: la
-interfaz divide la home y la búsqueda en tres pestañas —Anime, Animación y Acción real—, y cada
-título cae en una según su familia. Vale un array no vacío de `'anime'`, `'animation'` (animación que
-no es anime) y `'live'` (imagen real), sin repetidos. **No declararlo es `['anime']`**: es lo que eran
-todos los plugins antes de que el campo existiera, así que no hay nada que cambiar para seguir
-funcionando.
+`capabilities.families` y `capabilities.media` **están retirados** desde T372. La aplicación sirve
+anime y películas de anime, así que la familia de contenido (`anime` · `animation` · `live`) dejó de
+ser un eje y no hay pestañas que declarar. Un manifiesto que todavía los traiga **carga** —romper el
+arranque de un plugin instalado está prohibido—, el loader deja un aviso de compatibilidad y los
+campos se ignoran. Un plugin nuevo no debe declararlos.
 
-`media` (`'anime'`, `'movies'` o `'both'`) sigue leyéndose como alias: `'anime'` es `['anime']`,
-`'movies'` es `['animation', 'live']` —«todo lo que no es anime»— y `'both'` es no filtrar. Si un
-manifiesto trae las dos cosas, **gana `families`**. Un plugin que sirve varias familias y no clasifica
-sus títulos se reparte por el `kind` como siempre: `'movie'` del lado de imagen real, lo demás del
-lado de anime. Para decir la verdad sin depender de esa regla, cada resultado y cada detalle pueden
-llevar `family` y `format` (`'series'` o `'movie'`); es lo que hace el fixture:
+La única partición que queda es el **formato**: `series` o `movie`. Se deduce del `kind` y del
+`mediaType`, y una fuente puede declararlo por título si su `kind` no basta:
 
 ```ts
 return {
   ref: { providerId: 'mio', value: 'x' },
   title: 'Una película de anime',
   kind: 'movie',
-  family: 'anime',
   format: 'movie',
 }
 ```
 
-Con eso, una película de anime vive en Anime y se aísla con el filtro Películas, y una serie de
-imagen real vive en Acción real aunque su `kind` sea `'tv'`.
+Con eso, una película de anime se aísla con el filtro Películas, y una serie con el filtro Series.
+`family` se sigue aceptando en una fila vieja y se ignora.
 
 Todos los métodos devuelven `Promise<Result<T, ProviderError>>` o lanzan: el SDK convierte lo que se
 lance en un `Result` fallido, así que **no hace falta envolver nada a mano**.
@@ -323,7 +317,7 @@ Cuatro cosas que conviene saber antes de escribirlos:
 
 ## Subtítulos de SubDivX para películas y series
 
-Un proveedor de imagen real —con `capabilities.families: ['live']`— puede acompañar
+Un plugin que resuelve películas y series de anime puede acompañar
 cada fuente con subtítulos de SubDivX. No hay API: el plugin busca en
 `https://www.subdivx.com` y devuelve el enlace de descarga como una pista más de
 `resolveStream`. Lo que el plugin no tiene que resolver —y por eso esta receta

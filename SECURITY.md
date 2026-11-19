@@ -55,7 +55,6 @@ repositorio: lo que no se mide no se da por hecho.
 | Un log guarda una credencial o una URL de video | Claves sensibles redactadas, `ticket` incluido | T25 |
 | Una dirección de repositorio lleva al servidor a la red local o a un host ajeno | Lista blanca de **hosts de GitHub** comprobada en **cada salto**, dentro del `fetch` que usa la revalidación de destinos: un host permitido que redirige fuera de GitHub se corta antes de pedir nada | T100 |
 | La consulta de metadatos a AniList lleva al servidor a otro sitio, o la usa para saturar a un tercero | Lista blanca de **hosts de AniList** —`graphql.anilist.co` para la API y su CDN para las imágenes— comprobada en cada salto, y **presupuesto**: una petición cada dos segundos, en fila india, con `Retry-After` obedecido en un 429 y una sola repetición. La imagen se pide **por referencia**, nunca por una dirección que venga del cliente | T121 |
-| La clave de TMDB del usuario sale del equipo, o una ruta de metadatos se convierte en un proxy | La URL se compone con una base constante (`api.themoviedb.org`); no hay ninguna dirección que venga del cliente ni del plugin. La clave viaja sólo en esa consulta, **no se registra**, **no se devuelve** en `GET /api/settings` y **no se guarda en la caché**. Sin clave no hay petición. La imagen de TMDB no se pide: la ficha usa la portada del plugin | T177 |
 | La consulta a AniSkip sale sin que el usuario lo sepa, o lleva datos de más | Es un tercero (**`api.aniskip.com`**) y se puede **apagar** en Ajustes → Reproducción. Apagado no se pide nada, ni siquiera el enriquecimiento de AniList que servía para llegar al identificador. La petición lleva el identificador de AniList, la temporada y el episodio: nada de la biblioteca, del historial ni de la cuenta. La respuesta se cachea con TTL y no se registra | T325 |
 | Una ruta del árbol de GitHub escribe fuera del repositorio (`..`, absoluta, unidad de Windows) | Cada ruta se valida segmento a segmento y se confina contra el directorio de destino; el árbol truncado, las rutas hostiles y los archivos que no caben se rechazan o se saltan, y nada se escribe fuera | T100 |
 | Un repositorio enorme llena el disco o la memoria | 400 archivos, 512 KiB por archivo y 8 MiB en total; la descarga va a un directorio temporal y se mueve al final, así que un fallo a mitad no reemplaza lo que había | T100 |
@@ -140,13 +139,7 @@ repositorio: lo que no se mide no se da por hecho.
     activar o descargar plugins y para lanzar `mpv`; los plugins que ya estaban en el directorio se
     siguen ejecutando con los mismos permisos. La lista se decide en el servidor, no desde la
     interfaz.
-16. **La clave de TMDB es un secreto del usuario y vive en la base local en claro.** Quien pueda leer
-    `rona.db` —el propio usuario, un plugin sin sandbox o un programa con sus permisos— la lee.
-    No se cifra porque el servidor tendría que guardar la llave de cifrado en el mismo sitio, que es
-    seguridad de teatro. Se mitiga lo que sí se puede: no se devuelve por HTTP, no se registra y sólo
-    se usa contra `api.themoviedb.org`. Quien no quiera ese riesgo no pone clave: la ficha se queda
-    con lo que publique el plugin.
-17. **Cuatro avisos de Rust en la ventana propia, que no dependen de este repositorio.** El anfitrión
+16. **Cuatro avisos de Rust en la ventana propia, que no dependen de este repositorio.** El anfitrión
     de `desktop/` arrastra `glib 0.18.5` —RUSTSEC-2024-0429, `Iterator`/`DoubleEndedIterator`
     insondables sobre `Variant`—, `proc-macro-error 1.0.4` y, por el plugin de instancia única,
     `zbus_names 4.3.5` y `zvariant 5.15.1` (los tres, «sin mantener»). Ninguno se arregla desde acá:
@@ -158,7 +151,7 @@ repositorio: lo que no se mide no se da por hecho.
     que el PR que lo traiga aparece solo. Riesgo real hoy: bajo —los tres «sin mantener» no describen
     una vulnerabilidad explotable, y el de `glib` vive en iteradores de `Variant` que este código no
     usa—, pero está declarado y no escondido.
-18. **La ventana de actualizaciones es la única superficie de IPC del anfitrión.** La interfaz
+17. **La ventana de actualizaciones es la única superficie de IPC del anfitrión.** La interfaz
     principal sigue con cero permisos: es una webview remota (`http://127.0.0.1`) y no puede invocar
     nada. La ventana de actualizaciones es una página empaquetada, con su propia capability y sólo
     `core:default`, `updater:default` y las operaciones de ventana que usa; no tiene shell, ni
@@ -169,7 +162,7 @@ repositorio: lo que no se mide no se da por hecho.
     arrancarlo), pero **verifica esa misma firma antes de tocar nada** y, si falla, restaura el
     original. `latest.json` no va firmado: quien pueda escribir en la release podría anunciar una
     versión distinta, pero no fabricar un binario aceptado. El updater está activo sólo en Windows.
-19. **En macOS no hay seguro de muerte brusca del servidor, y en Windows depende de que el anfitrión
+18. **En macOS no hay seguro de muerte brusca del servidor, y en Windows depende de que el anfitrión
     no viva ya dentro de un job ajeno.** Lo primero no es un descuido: macOS no tiene
     `PR_SET_PDEATHSIG`, y las dos alternativas se quedan fuera de este módulo —`kqueue`/`EVFILT_PROC`
     hay que observarlo desde el proceso que sobrevive, o sea desde el CLI, y cerrar al ver el fin de
@@ -181,7 +174,7 @@ repositorio: lo que no se mide no se da por hecho.
     heredó al nacer, que puede o no matarlo al cerrarse; el anfitrión lo escribe en su registro y
     sigue. El caso normal —el acceso del escritorio— y el de un job ajeno anidable, que es lo que hay
     en Windows 8 y siguientes, están cerrados y medidos.
-20. **La presencia de Discord es una decisión del usuario, y Discord la ve.** Con el ajuste encendido,
+19. **La presencia de Discord es una decisión del usuario, y Discord la ve.** Con el ajuste encendido,
     lo que se publica —el título en modo completo, el tiempo en los dos— queda visible para quien
     pueda ver tu perfil y forma parte de la actividad que Discord guarda. El modo discreto y el filtro
     de adultos reducen lo que se cuenta, pero no lo hacen privado: el ajuste es el único control. El

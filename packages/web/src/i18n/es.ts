@@ -258,25 +258,9 @@ export const messages: Messages = {
 
   'home.title': 'Inicio',
 
-  // El tipo de contenido: la mitad de la aplicación que se está mirando. El
-  // vocabulario del contrato es `anime` / `movies` / `both`, y `movies` es «lo que
-  // no es anime» —películas, series y doramas—, que es la partición que hacen las
-  // fuentes: la etiqueta dice «Películas» porque es lo que el usuario busca.
-  'media.anime': 'Anime',
-  'media.animation': 'Animación',
-  'media.live': 'Acción real',
-  'media.switch': 'Familia de contenido',
-  // Las descripciones de cada pestaña: el rótulo dice la familia y esto qué
-  // incluye, que es lo que distingue «Animación» de «Anime».
-  'media.anime.desc': 'Series y películas de anime',
-  'media.animation.desc': 'Series animadas que no son anime',
-  'media.live.desc': 'Series y películas con personas',
-  'media.empty.anime': 'Ningún proveedor instalado sirve anime todavía.',
-  'media.empty.animation': 'Ningún proveedor instalado sirve animación todavía.',
-  'media.empty.live': 'Ningún proveedor instalado sirve acción real todavía.',
-  'media.empty.hint': 'Añade uno en Ajustes o cambia de pestaña.',
-  // El filtro de formato de la home y la búsqueda.
-  'media.format.switch': 'Formato',
+  // El filtro de formato: el único eje que queda desde T372. El rótulo visible
+  // dice qué filtra la píldora que tiene al lado.
+  'media.format.label': 'Formato',
   'media.format.all': 'Todo',
   'media.format.series': 'Series',
   'media.format.movie': 'Películas',
@@ -408,9 +392,6 @@ export const messages: Messages = {
   'home.parrilla.meta.offline': 'Lo que se emite estos días; AniList no ha contestado',
   'home.parrilla.empty': 'AniList no anuncia capítulos en los próximos días.',
   'home.parrilla.empty.offline': 'AniList no ha contestado; la parrilla volverá sola.',
-  // AniList sólo sirve anime: en las otras dos familias no hay parrilla que pedir.
-  'home.parrilla.empty.animation': 'La parrilla la publica AniList, que sólo cataloga anime.',
-  'home.parrilla.empty.live': 'La parrilla la publica AniList, que sólo cataloga anime.',
   'home.parrilla.hoy': 'Hoy',
   'home.parrilla.manana': 'Mañana',
   'home.more': 'y {count} más',
@@ -448,6 +429,7 @@ export const messages: Messages = {
   'settings.provider.rejected': 'rechazado',
   'settings.provider.preferred': 'preferido',
   'settings.provider.lastError': 'Último error: {message}',
+  'settings.provider.warning': 'Aviso de compatibilidad: {message}',
   'settings.provider.probe': 'Probar',
   'settings.provider.probeLabel': 'Probar {provider}',
   'settings.provider.probeRunning': 'Probando…',
@@ -483,8 +465,6 @@ export const messages: Messages = {
   'settings.register.capabilities': 'Qué sabe hacer',
   'settings.register.cap.sub': 'Subtitulado',
   'settings.register.cap.dub': 'Doblado',
-  'settings.register.media': 'Qué sirve',
-  'settings.register.mediaHint': 'en qué pestaña aparece: anime, películas o las dos',
   'settings.register.advanced': 'Dónde está cada dato (avanzado)',
   'settings.register.advancedHint':
     'Rutas con puntos dentro del JSON de la respuesta. Se dejan como están si el sitio usa los nombres habituales.',
@@ -661,21 +641,6 @@ export const messages: Messages = {
     'El reproductor ocupa toda la ventana, sin pedir la pantalla completa ni cambiar el tamaño de la ventana de la aplicación. Se enciende con el mando del reproductor o con la tecla T.',
   'settings.extended.off': 'Ventana normal',
   'settings.extended.on': 'Abrir extendido',
-  // TMDB: la única fuente de metadatos de no-anime y la única clave que el
-  // usuario escribe. La clave no vuelve del servidor; la pantalla sólo dice si hay.
-  'settings.tmdb': 'Metadatos de películas y series',
-  'settings.tmdb.body':
-    'AniList sólo cubre anime y manga. Con una clave de TMDB, las fichas de películas y series completan sinopsis, géneros y año cuando el plugin no los trae. Sin clave se usa sólo lo que publique el plugin.',
-  'settings.tmdb.configured': 'Hay una clave guardada. No se vuelve a mostrar.',
-  'settings.tmdb.notConfigured': 'No hay ninguna clave guardada.',
-  'settings.tmdb.key': 'Clave de la API de TMDB',
-  'settings.tmdb.placeholder': '32 caracteres hexadecimales',
-  'settings.tmdb.hint':
-    'Se guarda en la base local y no se devuelve al navegador. Se usa sólo para consultar api.themoviedb.org.',
-  'settings.tmdb.save': 'Guardar clave',
-  'settings.tmdb.clear': 'Quitar clave',
-  'settings.tmdb.saved': 'Guardado.',
-  'settings.tmdb.error': 'No se pudo guardar: {message}',
   'reco.empty': 'Todavía no hay nada que recomendar. Busca algo y vuelve.',
   'player.label': 'Reproductor de video',
   'player.tracks': 'Subtítulos disponibles: {count}.',
@@ -859,7 +824,7 @@ export const messages: Messages = {
   'detail.enrichment.site': 'Ver la ficha en AniList',
   'detail.genres': 'Géneros',
   // Atribución del dato cuando la sinopsis, los géneros o el año vienen de TMDB.
-  'detail.tmdb': 'Sinopsis, géneros y año: TMDB.',
+
   'detail.studios': 'Estudios',
   // A dónde lleva pulsar una etiqueta de la ficha: el nombre solo no lo dice, y
   // sin decirlo el enlace pide un clic a ciegas.
@@ -1040,9 +1005,9 @@ export const messages: Messages = {
   'guia.inicio.cabecera.titulo': 'Aquí te mueves',
   'guia.inicio.cabecera.cuerpo':
     'Inicio, Buscar, Perfil, Biblioteca y Ajustes. Cada destino tiene su propio tutorial.',
-  'guia.inicio.tipo.titulo': 'Anime o películas',
+  'guia.inicio.tipo.titulo': 'Series o películas',
   'guia.inicio.tipo.cuerpo':
-    'El conmutador cambia de mitad: la vitrina, la búsqueda y el motor lo respetan.',
+    'El filtro de formato cambia la lista: la vitrina, la búsqueda y el motor lo respetan.',
   'guia.inicio.destacado.titulo': 'La vitrina',
   'guia.inicio.destacado.cuerpo': 'El motor elige el destacado con lo que buscas y ves.',
   'guia.inicio.continuar.titulo': 'Retoma donde lo dejaste',
@@ -1057,7 +1022,7 @@ export const messages: Messages = {
     'Una consulta, todos tus proveedores y AniList. Los resultados llegan según contestan.',
   'guia.buscar.campo.titulo': 'El campo',
   'guia.buscar.campo.cuerpo':
-    'Escribe un título. El tipo de la cabecera decide en qué mitad se busca.',
+    'Escribe un título. El filtro de formato de arriba decide si buscas series, películas o todo.',
   'guia.buscar.estado.titulo': 'Qué llegó',
   'guia.buscar.estado.cuerpo':
     'Esta línea dice cuántos resultados hay y de cuántos proveedores, sin contar dos veces el mismo título.',

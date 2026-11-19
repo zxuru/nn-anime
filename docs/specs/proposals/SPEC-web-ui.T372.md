@@ -4,8 +4,9 @@
 decisión del dueño del producto: la aplicación sirve **anime y películas de anime**; no sirve imagen
 real ni animación occidental.
 
-**Estado:** **propuesta, pendiente de aprobación humana.** Abierta el 2026-11-18. El spec de familias
-(`docs/specs/SPEC-web-ui.md`, enmienda T257a) queda congelado hasta que esto se apruebe o se rechace.
+**Estado:** **aprobada por el dueño del producto el 2026-11-19** y ejecutada en T372a–T372d.
+El spec de familias (`docs/specs/SPEC-web-ui.md`, enmienda T257a) se conserva como historia y queda
+sustituido por la enmienda T372 del mismo documento.
 
 Toca **`SPEC-provider-core`** (el enum y `capabilities.families`), **`SPEC-discovery`**
 (`?family=`), **`SPEC-recsys`** (el reparto por familia) y **`SPEC-web-ui`** (conmutador, `?tipo=`,

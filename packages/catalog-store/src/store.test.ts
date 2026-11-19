@@ -298,23 +298,23 @@ describe('lecturas y escrituras', () => {
   })
 
   /**
-   * La familia y el formato, en las lecturas que arman una tarjeta.
+   * El formato, en las lecturas que arman una tarjeta.
    *
-   * Los dos viven en `raw_json` y no en columnas: cada lectura los sacaba —o no—
-   * a su manera. Se mide que las cuatro listas del perfil, el historial, lo que
-   * se retoma y lo último conocido los devuelven, y que una ficha vieja sin
-   * ellos sigue leyéndose sin inventar nada.
+   * Vive en `raw_json` y no en una columna: cada lectura lo sacaba —o no— a su
+   * manera. Se mide que las cuatro listas del perfil, el historial y lo último
+   * conocido lo devuelven, y que una ficha vieja sin él sigue leyéndose sin
+   * inventar nada.
    */
-  test('la familia y el formato salen de `raw_json` en todas las tarjetas', async () => {
+  test('el formato sale de `raw_json` en todas las tarjetas', async () => {
     await withStore(async ({ store }) => {
-      const clasificada: AnimeDetail = { ...detalle(AURORA), family: 'live', format: 'movie' }
+      const clasificada: AnimeDetail = { ...detalle(AURORA), format: 'movie' }
       await store.writeAnimeWithEpisodes(AURORA, clasificada, episodios(AURORA))
       await store.recordWatch(visionado(AURORA))
       await store.setFavorite(AURORA, true)
       await store.setPlanToWatch(AURORA, true)
       await store.setWatchedTitle(AURORA, true)
 
-      const esperado = { family: 'live', format: 'movie' }
+      const esperado = { format: 'movie' }
 
       expect((await store.listFavorites())[0]).toMatchObject(esperado)
       expect((await store.listPlanToWatch())[0]).toMatchObject(esperado)
@@ -327,7 +327,7 @@ describe('lecturas y escrituras', () => {
     })
   })
 
-  test('una ficha vieja sin familia ni formato no inventa los campos', async () => {
+  test('una ficha vieja sin formato no inventa el campo', async () => {
     await withStore(async ({ store }) => {
       await store.writeAnimeWithEpisodes(AURORA, detalle(AURORA), episodios(AURORA))
       await store.setFavorite(AURORA, true)
@@ -335,7 +335,6 @@ describe('lecturas y escrituras', () => {
       const favorito = (await store.listFavorites())[0]
 
       expect(favorito).toBeDefined()
-      expect(favorito?.family).toBeUndefined()
       expect(favorito?.format).toBeUndefined()
     })
   })

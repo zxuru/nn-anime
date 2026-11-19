@@ -53,7 +53,6 @@ export function summaryOf(candidate: Candidate): AnimeSummary {
     ...(candidate.coverUrl === undefined ? {} : { coverUrl: candidate.coverUrl }),
     ...(candidate.year === undefined ? {} : { year: candidate.year }),
     ...(candidate.kind === undefined ? {} : { kind: candidate.kind }),
-    ...(candidate.family === undefined ? {} : { family: candidate.family }),
     ...(candidate.format === undefined ? {} : { format: candidate.format }),
   }
 }

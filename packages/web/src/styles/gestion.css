@@ -1803,26 +1803,6 @@ details[open] > .library__settings-summary .library__settings-flecha {
   }
 }
 
-/*
- * Las tres casillas de familia del alta de proveedor.
- *
- * Van en una fila, con su leyenda encima, y sin el marco que el navegador le
- * pone a un `fieldset`: el grupo se lee como un bloque más del formulario.
- */
-.settings__families {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.settings__families .field__label {
-  flex-basis: 100%;
-}
-
 /* La barra del móvil, apagada donde no se usa. */
 .barra {
   display: none;
@@ -2590,20 +2570,10 @@ details[open] > .library__settings-summary .library__settings-flecha {
 }
 
 /*
- * La cabecera a 1100 y menos: el conmutador baja antes que dejar solo el botón
- * de la guía.
- *
- * Con el ancho justo, el último hijo —el «?»— era el que caía al segundo
- * renglón, contra el orden que declara el diseño: primero se aprieta la marca,
- * y el conmutador es el que tiene un renglón propio. El botón de la guía sube a
- * los 44 px del sistema en el mismo cambio.
+ * La cabecera ya no necesita bajar nada a un segundo renglón entre 1100 y 700:
+ * el conmutador de familia que la llenaba se retiró en T372 y quedan siete
+ * interactivos. Las reglas de esa bajada se fueron con él.
  */
-@media (max-width: 1100px) {
-  .shell__header .conmutador {
-    order: 9;
-    flex-basis: 100%;
-  }
-}
 
 .shell__guia {
   inline-size: var(--control-size);

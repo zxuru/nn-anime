@@ -42,13 +42,7 @@ import { adultosDeLaFila, MARGEN_DE_VERIFICACION } from '../adultos'
 import type { AniListCatalog } from '../anilist/catalog'
 import type { ServerContainer } from '../container'
 import { cacheHeader } from './cache-header'
-import {
-  enFiltro,
-  familiasPorProveedor,
-  filtroFrom,
-  pasaElFiltroDeProveedor,
-  puedeServirElFiltro,
-} from './media'
+import { enFiltro, filtroFrom, pasaElFiltroDeProveedor } from './media'
 import { clampLimit } from './recommendations'
 import { adultContentOf } from './settings'
 
@@ -163,11 +157,9 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
     })
     if (!pedido.ok) return c.json(errorResponseSchema.parse({ error: pedido.error }), 400)
 
-    // La fuente mixta se consulta en las dos mitades: sus novedades pueden ser de
-    // cualquiera de las dos, y sólo se sabe al leer su clasificación.
-    const fuentes = conFeed(options.providers).filter((provider) =>
-      puedeServirElFiltro(pedido.filtro, provider),
-    )
+    // A las fuentes con feed se les pregunta siempre: el formato de cada entrada
+    // se conoce al leerla, no por lo que sirva el proveedor.
+    const fuentes = conFeed(options.providers)
     const callOptions: CallOptions = {
       signal: c.req.raw.signal,
       timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
@@ -184,7 +176,7 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
         // publica la fuente y cada pestaña se queda con su mitad al leerlo.
         return {
           items: lectura.value.value.filter((entrada) =>
-            pasaElFiltroDeProveedor(pedido.filtro, entrada, provider),
+            pasaElFiltroDeProveedor(pedido.filtro, entrada),
           ),
           source: lectura.value.source,
         }
@@ -207,7 +199,6 @@ export function registerFeedRoute(app: Hono, options: DiscoveryRouteOptions): vo
             ...(entrada.coverUrl === undefined ? {} : { coverUrl: entrada.coverUrl }),
             ...(entrada.year === undefined ? {} : { year: entrada.year }),
             ...(entrada.kind === undefined ? {} : { kind: entrada.kind }),
-            ...(entrada.family === undefined ? {} : { family: entrada.family }),
             ...(entrada.format === undefined ? {} : { format: entrada.format }),
             ...(entrada.publishedAt === undefined ? {} : { publishedAt: entrada.publishedAt }),
           })),
@@ -286,7 +277,7 @@ export function registerRecentRoute(app: Hono, options: DiscoveryRouteOptions): 
      */
     const margen = Math.max(1, options.providers.length)
     const leidas = await options.container.store.listRecentSummaries(limite * margen)
-    const delTipo = enFiltro(leidas, pedido.filtro, familiasPorProveedor(options.providers))
+    const delTipo = enFiltro(leidas, pedido.filtro)
     const items = sinRepetirPorObra(delTipo).slice(0, limite)
 
     return c.json(recentResponseSchema.parse({ items: [...items] }))

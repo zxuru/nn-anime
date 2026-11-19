@@ -19,7 +19,7 @@
  */
 
 import { anilistGenre } from '@rona/core/anilist'
-import type { Enrichment, TmdbMetadata } from '@rona/core/api'
+import type { Enrichment } from '@rona/core/api'
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
 import type { AnimeDetail } from '@rona/core/models'
 import { Fragment, type ReactNode, useState } from 'react'
@@ -251,36 +251,12 @@ export function seccionesDe(enriquecido: Enrichment | null | undefined): ReactNo
  * lateral con un hueco. Y sin nada que leer —ni sinopsis ni datos— no hay bloque:
  * un hueco vacío entre la cabecera y los episodios no dice nada tampoco.
  */
-/**
- * La ficha con lo que TMDB complete.
- *
- * Manda el plugin: TMDB sólo rellena lo que la fuente no publicó. La portada y el
- * `kind` no se tocan, porque el proveedor es quien los conoce.
- */
-export function conMetadatos(
-  detail: AnimeDetail,
-  metadata: TmdbMetadata | null | undefined,
-): AnimeDetail {
-  if (metadata == null) return detail
-
-  return {
-    ...detail,
-    ...(detail.synopsis === undefined && metadata.synopsis !== undefined
-      ? { synopsis: metadata.synopsis }
-      : {}),
-    ...(detail.genres.length === 0 ? { genres: metadata.genres } : {}),
-    ...(detail.year === undefined && metadata.year !== undefined ? { year: metadata.year } : {}),
-  }
-}
-
 export function Lectura(props: {
   readonly detail: AnimeDetail
   readonly enrichment: Enrichment | null | undefined
-  /** Metadatos de TMDB, para atribuirlos cuando aportaron algo. */
-  readonly metadata?: TmdbMetadata | null | undefined
 }): ReactNode {
   const { enrichment } = props
-  const detail = conMetadatos(props.detail, props.metadata)
+  const detail = props.detail
   const texto = sinopsis(detail, enrichment)
   const listaGeneros = generos(detail, enrichment)
   const listaEstudios = estudios(detail, enrichment)
@@ -324,10 +300,6 @@ export function Lectura(props: {
           )}
         </div>
       ) : null}
-
-      {props.metadata == null ? null : (
-        <p className="detail__source">{t(DEFAULT_LOCALE, 'detail.tmdb')}</p>
-      )}
     </div>
   )
 }
@@ -453,7 +425,6 @@ export function DetailPage(props: DetailPageProps): ReactNode {
     watched,
     capabilities,
     enrichment,
-    metadata,
     anilistRelated,
     providerNames,
     state,
@@ -559,15 +530,6 @@ export function DetailPage(props: DetailPageProps): ReactNode {
    * declare sigue con la lista de siempre —deducir «película» de tener un solo
    * episodio llamaría película a un OVA de uno—.
    */
-  /**
-   * La ficha con lo que TMDB complete.
-   *
-   * Manda el plugin: TMDB sólo rellena lo que la fuente no publicó. Se compone
-   * aquí y no en el hook para que la portada y el `kind` sigan viniendo del
-   * proveedor, que es quien los conoce.
-   */
-  const completa = conMetadatos(detail, metadata)
-
   const esPelicula = detail.kind === 'movie'
 
   return (
@@ -575,7 +537,7 @@ export function DetailPage(props: DetailPageProps): ReactNode {
       {/* La cabecera de la ficha, con el banner de AniList de fondo. Cruza la
           pantalla entera y abre la ficha: la banda va a sangre y su contenido
           —el titular— se alinea con las columnas de abajo. */}
-      <BandaBanner detail={completa} fondo={fondoDe(enrichment)} />
+      <BandaBanner detail={detail} fondo={fondoDe(enrichment)} />
 
       {/*
         Dos columnas: lo que se **hace** con la obra a la izquierda —portada,
@@ -669,7 +631,7 @@ export function DetailPage(props: DetailPageProps): ReactNode {
         <div className="detail__body">
           {/* La sinopsis y los datos, en las dos pistas de la lectura; debajo, los
             episodios a lo ancho de las dos, que es donde la lista se lee mejor. */}
-          <Lectura detail={completa} enrichment={enrichment} metadata={metadata} />
+          <Lectura detail={detail} enrichment={enrichment} />
 
           <section data-tour={ANCLAS.fichaEpisodios}>
             {/* Una película se titula por lo que es. Dejarle «Episodios» encima del

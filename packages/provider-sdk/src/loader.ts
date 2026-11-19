@@ -33,6 +33,13 @@ export interface LoadedProvider {
   readonly provider: Provider
   /** Archivo del que salió, para poder decir cuál es. */
   readonly file: string
+  /**
+   * Campos retirados que el manifiesto todavía declara.
+   *
+   * Un plugin instalado no puede dejar de cargar porque el producto cambió de
+   * eje. Se acepta, se ignora y se dice: el aviso viaja al CLI y a Ajustes.
+   */
+  readonly warnings?: readonly string[]
 }
 
 export interface RejectedPlugin {
@@ -206,6 +213,30 @@ function isFailure(value: readonly unknown[] | ProviderError): value is Provider
 }
 
 /**
+ * Los avisos de compatibilidad de un manifiesto.
+ *
+ * T372 retiró el eje de familias: `families` y `media` ya no filtran nada. Un
+ * manifiesto antiguo tiene que **cargar** —romper el arranque de un plugin
+ * instalado está prohibido por las restricciones del producto—, así que en vez
+ * de rechazarlo se acepta, se ignora y se avisa.
+ */
+export function retiredCapabilityWarnings(
+  capabilities: Provider['capabilities'],
+): readonly string[] {
+  const avisos: string[] = []
+
+  if (capabilities.families !== undefined) {
+    avisos.push('el manifiesto declara `families`, un campo retirado; se ignora')
+  }
+
+  if (capabilities.media !== undefined) {
+    avisos.push('el manifiesto declara `media`, un campo retirado; se ignora')
+  }
+
+  return avisos
+}
+
+/**
  * Escanea el directorio y devuelve qué entró y qué no.
  *
  * No lanza por un plugin: los fallos van en el informe. Sí puede devolver
@@ -299,7 +330,11 @@ export async function loadProviders(options: LoadOptions): Promise<LoadReport> {
         continue
       }
 
-      active.push({ provider: added.value, file: target.file })
+      active.push({
+        provider: added.value,
+        file: target.file,
+        warnings: retiredCapabilityWarnings(added.value.capabilities),
+      })
     }
   }
 

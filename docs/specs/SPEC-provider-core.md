@@ -242,6 +242,21 @@ media: providerMediaSchema.optional(), // legado: 'anime' | 'movies' | 'both'
 Lo que **no** entra en esta fase: `docs/providers.md` con el ejemplo nuevo, el fixture declarando
 las tres familias y clasificando cada título, y la conformidad del ecosistema. Es la fase 4.
 
+## Enmienda aprobada (T372): se retira el eje de familias
+
+> Aprobada el 2026-11-19 con `docs/specs/proposals/SPEC-web-ui.T372.md`. **Es un cambio de forma de
+> `ProviderCapabilities`, pero no sube `apiVersion`**: la migración es tolerante y no rompe el
+> arranque.
+
+- `providerCapabilitiesSchema` **deja de declarar** `families` y `media` como ejes. Se aceptan como
+  campos heredados —`families: unknown[]` y `media: ProviderMedia`— para que un manifiesto ya
+  instalado cargue; el loader emite un aviso de compatibilidad y ningún filtro los lee.
+- `mediaFamilySchema` y el tipo `MediaFamily` se retiran. `SearchResult.family` se acepta como dato
+  viejo (`unknown`) para poder leer `raw_json` guardados, y no se escribe en lo nuevo.
+- `pasaElFiltro` conserva `format` y pierde `families`. `formatOf` sigue siendo la regla única.
+- Un plugin nuevo no necesita declarar ni `families` ni `media`; el asistente de Ajustes ya no los
+  escribe.
+
 Validación de headers: `validateProvider` rechaza nombres que no cumplan `^[A-Za-z0-9-]+$` y
 valores que contengan caracteres de control (`\r`, `\n`, `\0`). Un plugin que los declare se
 rechaza **nombrando el header ofensor**. La validación vive en el schema, no en el consumidor, para
