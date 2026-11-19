@@ -50,6 +50,7 @@ import { acotarAProveedoresActivos } from './provider-scope'
 import { enabledProviderFiles } from './repo-store'
 import { registerAniListRoutes } from './routes/anilist'
 import { findProvider, registerAnimeRoutes } from './routes/anime'
+import { registerCastRoutes } from './routes/cast'
 import { registerCoverRoute } from './routes/cover'
 import { registerDetailRoutes } from './routes/detail'
 import { registerFeedRoute, registerRecentRoute } from './routes/discovery'
@@ -105,6 +106,20 @@ export interface PartyOptions {
   readonly fetchImpl?: PartyFetch
 }
 
+/**
+ * Configuración del cast a la TV.
+ *
+ * `enabled` es `RONA_CAST=1`; `host` y `token` son los del arranque, y `urls` se
+ * inyecta en los tests. Sin `host`/`token` la ruta no se registra: no hay una
+ * respuesta que fingir.
+ */
+export interface CastOptions {
+  readonly enabled: boolean
+  readonly host: string
+  readonly token: boolean
+  readonly urls?: ((port: number) => string[]) | undefined
+}
+
 export interface AppOptions {
   readonly port: PortSource
   /**
@@ -137,6 +152,11 @@ export interface AppOptions {
    * no existen y una petición a ellas es un 404, no un 401.
    */
   readonly party?: PartyOptions
+  /**
+   * Cast a la TV. La ruta de información existe siempre y dice `available:
+   * false` si no hay LAN o no se encendió; así la interfaz no adivina.
+   */
+  readonly cast?: CastOptions
   /** Ruta local a la que ir tras canjear el token. Por defecto, `/`. */
   readonly redirectTo?: string
   readonly version: string
@@ -470,6 +490,13 @@ export function createApp(options: AppOptions): Hono {
       }),
     ),
   )
+
+  // El cast sólo dice si se puede; el ticket se emite al abrir la sesión. La
+  // ruta va después de los guards de `/api/*`, así que un ticket de emisión no
+  // la abre.
+  if (options.cast !== undefined) {
+    registerCastRoutes(app, getPort, options.cast)
+  }
 
   registerProvidersRoute(app, { plugins })
   // En modo restringido el alta de un plugin declarativo no existe: escribir un

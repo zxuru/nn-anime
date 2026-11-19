@@ -105,6 +105,13 @@ describe('interruptores', () => {
     expect(value({ RONA_PARTY: 'true' }).party).toBe(true)
     expect(value({ RONA_PARTY: '0' }).party).toBe(false)
   })
+
+  test('RONA_CAST está apagado por defecto y acepta 1 y true', () => {
+    expect(value({}).cast).toBe(false)
+    expect(value({ RONA_CAST: '1' }).cast).toBe(true)
+    expect(value({ RONA_CAST: 'true' }).cast).toBe(true)
+    expect(value({ RONA_CAST: '0' }).cast).toBe(false)
+  })
 })
 
 describe('token', () => {

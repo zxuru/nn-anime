@@ -35,6 +35,8 @@ export interface ServerEnvironment {
   readonly locked: boolean
   /** Watch party. Apagado salvo que `RONA_PARTY` lo encienda. */
   readonly party: boolean
+  /** Cast a la TV. Apagado salvo que `RONA_CAST` lo encienda. */
+  readonly cast: boolean
 }
 
 /**
@@ -76,6 +78,7 @@ export const DEFAULT_SERVER_ENV: ServerEnvironment = {
   secureCookie: false,
   locked: false,
   party: false,
+  cast: false,
 }
 
 function usable(value: string | undefined): string | undefined {
@@ -248,5 +251,6 @@ export function serverEnvironment(
     secureCookie: publicOrigin?.startsWith('https://') ?? false,
     locked: flag(env.RONA_LOCKED),
     party: flag(env.RONA_PARTY),
+    cast: flag(env.RONA_CAST),
   })
 }

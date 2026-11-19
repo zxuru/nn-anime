@@ -320,6 +320,25 @@ describe('arranque correcto', () => {
     })
   })
 
+  test('RONA_CAST llega al servidor con su host y su token', async () => {
+    await withTempHome(async (home) => {
+      const target = harness({})
+
+      await boot(
+        options(),
+        depsFor(target, home, {
+          server: { ...DEFAULT_SERVER_ENV, cast: true },
+        }),
+      )
+
+      expect(target.seenOptions[0]?.cast).toEqual({
+        enabled: true,
+        host: '127.0.0.1',
+        token: false,
+      })
+    })
+  })
+
   test('sin origen público en un host no loopback avisa de la cookie sin Secure', async () => {
     await withTempHome(async (home) => {
       const target = harness({ port: 8080 })
