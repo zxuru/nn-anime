@@ -304,9 +304,10 @@ RONA_HOST=0.0.0.0 RONA_CAST=1 bun run start
 
 Abre `http://127.0.0.1:PUERTO`, entra en el episodio y pulsa el icono de transmitir, arriba a la
 derecha del reproductor. El ticket de la TV dura cuatro horas, se revoca al parar y no lleva la
-cookie de la aplicación. **La medida con una TV real está pendiente** (T379): subtítulos, AirPlay,
-progreso y reconexión están en el plan y todavía no se anuncian. Los requisitos, lo que funciona y lo
-que falta están en [docs/cast.md](docs/cast.md).
+cookie de la aplicación. Los subtítulos, el progreso, los saltos y la reconexión ya están
+implementados; **la medida con una TV real sigue pendiente** (T379) y AirPlay es T387. Hasta entonces
+la función no se anuncia como completa. Los requisitos, lo que funciona y lo que falta están en
+[docs/cast.md](docs/cast.md).
 
 ## Comandos
 
