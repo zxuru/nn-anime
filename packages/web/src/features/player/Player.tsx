@@ -282,30 +282,32 @@ export function Player(props: PlayerProps): ReactNode {
     act: actConCast,
   })
 
+  const parandoEmision = useRef(false)
+
   const empezarCast = useCallback(async () => {
     if (airplay.conectado) await airplay.detener()
 
+    parandoEmision.current = false
     const ok = await cast.iniciar()
 
     if (ok) elemento?.pause()
   }, [airplay, cast, elemento])
 
-  const parandoEmision = useRef(false)
-
   const pararCast = useCallback(async () => {
     if (emisor === undefined || estadoEmisor === undefined) return
 
     const estaba = estadoEmisor.playing
-    parandoEmision.current = emisor === airplay
+    parandoEmision.current = true
     props.onProgress?.(estadoEmisor.positionS, estadoEmisor.durationS)
     const posicion = await emisor.detener()
     seekTo(posicion)
     if (estaba) act('toggle')
-  }, [act, airplay, emisor, estadoEmisor, props.onProgress, seekTo])
+  }, [act, emisor, estadoEmisor, props.onProgress, seekTo])
 
   const empezarAirPlay = useCallback(async () => {
     if (cast.conectado) await cast.detener()
 
+    parandoEmision.current = false
     const ok = await airplay.activar()
 
     if (ok) elemento?.pause()
@@ -336,6 +338,31 @@ export function Player(props: PlayerProps): ReactNode {
     seekTo(airplay.estado.positionS)
     if (!state.playing) act('toggle')
   }, [act, airplay.estado.conectado, airplay.estado.positionS, seekTo, state.playing])
+
+  // Lo mismo para Cast: el SDK avisa de `SESSION_ENDED` y el estado deja de
+  // estar conectado. La posición la conserva el estado de la sesión.
+  const estabaCastConectado = useRef(false)
+
+  useEffect(() => {
+    if (cast.estado.conectado) {
+      estabaCastConectado.current = true
+
+      return
+    }
+
+    if (!estabaCastConectado.current) return
+
+    estabaCastConectado.current = false
+
+    if (parandoEmision.current) {
+      parandoEmision.current = false
+
+      return
+    }
+
+    seekTo(cast.estado.positionS)
+    if (!state.playing) act('toggle')
+  }, [act, cast.estado.conectado, cast.estado.positionS, seekTo, state.playing])
 
   // El modo compatible necesita el elemento en estado: el pintado arranca cuando
   // el `<canvas>` ya está montado, y eso pasa por un render.

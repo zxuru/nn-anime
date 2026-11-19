@@ -494,3 +494,258 @@ test('encadenar: el siguiente episodio reutiliza la sesión de la TV', async ({ 
   await expect(page.locator('.player__cast-notice')).toContainText('Se está viendo en TV de prueba')
   expect(altas).toBe(2)
 })
+
+/**
+ * Cambiar de audio con la TV puesta y una sesión que termina sola (T401).
+ *
+ * «Doblado» resuelve otro stream; el receptor tiene que recibir el ticket nuevo
+ * por la sesión que ya está abierta, sin abrir otra vez el selector. Después, el
+ * receptor dice `SESSION_ENDED` y el aviso desaparece: el vídeo local vuelve a
+ * reproducir en la posición de la TV.
+ */
+test('audio y desconexión: un solo requestSession, loadMedia nuevo y vuelta local', async ({
+  page,
+}) => {
+  let altas = 0
+  let borrados = 0
+
+  await page.route('**/api/cast/info', async (ruta) => {
+    await ruta.fulfill({ json: { available: true, urls: ['http://127.0.0.1:7801'] } })
+  })
+
+  await page.route('**/api/cast/session', async (ruta) => {
+    if (ruta.request().method() !== 'POST') {
+      await ruta.continue()
+
+      return
+    }
+
+    altas += 1
+    const cuerpo: unknown = ruta.request().postDataJSON()
+    const kind =
+      typeof cuerpo === 'object' && cuerpo !== null && 'kind' in cuerpo && cuerpo.kind === 'hls'
+        ? 'hls'
+        : 'file'
+
+    await ruta.fulfill({
+      json: {
+        id: `emision-${altas}`,
+        kind,
+        urls: [`http://127.0.0.1:7801/stream/cast-ticket-${altas}`],
+        expiresAt: Date.now() + 3_600_000,
+        title: 'Aurora nocturna',
+        subtitles: [],
+      },
+    })
+  })
+
+  await page.route('**/api/cast/session/**', async (ruta) => {
+    borrados += 1
+    await ruta.fulfill({ status: 204 })
+  })
+
+  await page.addInitScript(() => {
+    const ventana = window as unknown as {
+      chrome?: unknown
+      cast?: unknown
+      __castCargas?: string[]
+      __castPeticiones?: number
+      __castRemote?: { isPaused: boolean; currentTime: number; playerState: string }
+      __castEmitir?: (evento: string) => void
+      __castEmitirSesion?: (evento: { sessionState?: string }) => void
+    }
+
+    const cargas: string[] = []
+    let peticiones = 0
+    const remoto = {
+      isPaused: true,
+      currentTime: 0,
+      duration: 60,
+      volumeLevel: 0.5,
+      isMuted: false,
+      playerState: 'PAUSED',
+    }
+    const oyentes = new Map<string, Set<() => void>>()
+    const oyentesSesion = new Set<(evento: { sessionState?: string }) => void>()
+
+    const sesion = {
+      loadMedia: (peticion: { currentTime?: number; media: { contentId: string } }) => {
+        cargas.push(peticion.media.contentId)
+        remoto.playerState = 'PLAYING'
+        remoto.isPaused = false
+        remoto.currentTime = peticion.currentTime ?? 0
+
+        return Promise.resolve({})
+      },
+      endSession: () => {},
+      getCastDevice: () => ({ friendlyName: 'TV de prueba' }),
+    }
+
+    const controlador = {
+      playOrPause: () => {
+        remoto.isPaused = !remoto.isPaused
+        remoto.playerState = remoto.isPaused ? 'PAUSED' : 'PLAYING'
+      },
+      seek: () => {},
+      setVolumeLevel: () => {},
+      muteOrUnmute: () => {},
+      addEventListener: (evento: string, oyente: () => void) => {
+        const lista = oyentes.get(evento) ?? new Set()
+        lista.add(oyente)
+        oyentes.set(evento, lista)
+      },
+      removeEventListener: (evento: string, oyente: () => void) => {
+        oyentes.get(evento)?.delete(oyente)
+      },
+    }
+
+    const contexto = {
+      requestSession: () => {
+        peticiones += 1
+        ventana.__castPeticiones = peticiones
+
+        return Promise.resolve({})
+      },
+      getCurrentSession: () => sesion,
+      setOptions: () => {},
+      addEventListener: (tipo: string, oyente: (evento: { sessionState?: string }) => void) => {
+        if (tipo === 'sessionstatechanged') oyentesSesion.add(oyente)
+      },
+      removeEventListener: (tipo: string, oyente: (evento: { sessionState?: string }) => void) => {
+        if (tipo === 'sessionstatechanged') oyentesSesion.delete(oyente)
+      },
+    }
+
+    function MediaInfo(this: Record<string, unknown>, contentId: string, contentType: string) {
+      this.contentId = contentId
+      this.contentType = contentType
+      this.streamType = 'BUFFERED'
+      this.tracks = []
+      this.activeTrackIds = []
+    }
+
+    function LoadRequest(this: Record<string, unknown>, media: unknown) {
+      this.media = media
+      this.currentTime = 0
+      this.autoplay = false
+    }
+
+    function crearMetadataFalsa(this: Record<string, unknown>) {
+      void this
+    }
+
+    function crearRemotePlayer(this: unknown) {
+      return remoto
+    }
+
+    function crearControlador(this: unknown) {
+      return controlador
+    }
+
+    ventana.chrome = {
+      cast: {
+        media: {
+          MediaInfo,
+          LoadRequest,
+          GenericMediaMetadata: crearMetadataFalsa,
+          StreamType: { BUFFERED: 'BUFFERED' },
+          DEFAULT_MEDIA_RECEIVER_APP_ID: 'CC1AD845',
+        },
+      },
+    }
+    ventana.cast = {
+      framework: {
+        CastContext: { getInstance: () => contexto },
+        RemotePlayer: crearRemotePlayer,
+        RemotePlayerController: crearControlador,
+      },
+    }
+    ventana.__castCargas = cargas
+    ventana.__castPeticiones = peticiones
+    ventana.__castRemote = remoto
+    ventana.__castEmitir = (evento: string) => {
+      for (const oyente of oyentes.get(evento) ?? []) oyente()
+    }
+    ventana.__castEmitirSesion = (evento: { sessionState?: string }) => {
+      for (const oyente of [...oyentesSesion]) oyente(evento)
+    }
+  })
+
+  await entrar(page)
+  await page.goto('/watch/fixture/aurora-nocturna?n=1')
+
+  await page.locator('.player__cast').click()
+  await expect(page.locator('.player__cast-notice')).toContainText('Se está viendo en TV de prueba')
+
+  await page.locator('.audio-switch').getByRole('button', { name: 'Doblado' }).click()
+
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const v = window as unknown as { __castCargas?: string[] }
+
+          return v.__castCargas?.length ?? 0
+        }),
+      { timeout: 20_000 },
+    )
+    .toBe(2)
+
+  const cambio = await page.evaluate(() => {
+    const v = window as unknown as { __castCargas?: string[]; __castPeticiones?: number }
+
+    return { cargas: v.__castCargas, peticiones: v.__castPeticiones }
+  })
+
+  expect(cambio.peticiones).toBe(1)
+  expect(cambio.cargas?.[0]).toContain('/stream/cast-ticket-1')
+  expect(cambio.cargas?.[1]).toContain('/stream/cast-ticket-2')
+  expect(altas).toBe(2)
+  await expect(page.locator('.player__cast-notice')).toBeVisible()
+
+  // La TV va por el segundo 42 y cierra la sesión por su cuenta.
+  await page.evaluate(() => {
+    const v = window as unknown as {
+      __castRemote?: { currentTime: number; playerState: string; isPaused: boolean }
+      __castEmitir?: (evento: string) => void
+    }
+
+    if (v.__castRemote === undefined) return
+
+    v.__castRemote.playerState = 'PLAYING'
+    v.__castRemote.isPaused = false
+    v.__castRemote.currentTime = 42
+    v.__castEmitir?.('currentTimeChanged')
+  })
+
+  await page.evaluate(() => {
+    const v = window as unknown as { __castEmitirSesion?: (e: { sessionState: string }) => void }
+    v.__castEmitirSesion?.({ sessionState: 'SESSION_ENDED' })
+  })
+
+  await expect(page.locator('.player__cast-notice')).toBeHidden()
+
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const video = document.querySelector('.player__video')
+
+          return video instanceof HTMLVideoElement ? video.currentTime : 0
+        }),
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(39)
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const video = document.querySelector('.player__video')
+
+        return video instanceof HTMLVideoElement ? video.paused : true
+      }),
+    )
+    .toBe(false)
+
+  expect(borrados).toBeGreaterThanOrEqual(1)
+})
