@@ -54,6 +54,9 @@ dispositivo se está viendo y permite **dejar de transmitir**.
   ha probado. Qué pinta Safari con los subtítulos y si el receptor acepta el MP4/HLS del proxy son
   medidas de T379/T387 que no se declaran hechas.
 - **Móvil**: Chrome de Android exige contexto seguro; la vía TLS está en T397.
+- **DLNA**: las televisiones sin Cast ni AirPlay no tienen mando. La propuesta —SSDP, SOAP y MP4,
+  con el spike pendiente de una TV real— está en
+  [docs/specs/proposals/SPEC-dlna.T398.md](specs/proposals/SPEC-dlna.T398.md).
 - **Descargas**: un archivo descargado no tiene ticket de emisión; la propuesta de contrato está en
   [docs/specs/proposals/SPEC-media-proxy.T399.md](specs/proposals/SPEC-media-proxy.T399.md) y no se
   implementa hasta que se apruebe.
