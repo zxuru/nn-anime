@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **266 fragmentos indexados**; 211 se identifican
+quedan identificadas aquí. **267 fragmentos indexados**; 212 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
@@ -286,3 +286,4 @@ sólo en este índice y su contenido vive en la historia.
 | T400 | T400 — Tauri se compila una vez cuando cambia `desktop/` | ci: compilar Tauri una sola vez cuando cambia desktop (T400). | `bun test scripts/ci.test.ts scripts/desktop.test.ts packages/web/src/docs.test.ts` 99 pasan · typecheck 0 · lint 0 errores (6 avisos previos) · suite completa **4462 pasan, 0 fallan** tras integrar T384 · mutaciones: sin `desktop:check`, sin su condición, sin macOS opcional y con macOS sin mirar Rust dejan 1 en rojo cada una. | este índice |
 | T395b | T395b — el siguiente episodio encadenado en la TV | feat(cast): el siguiente episodio reutiliza la sesión de la TV (T395b). | `bun test packages/web` **1443 pasan, 0 fallan** · `bunx playwright test cast.e2e.ts` **3 pasan** (final del episodio, cuenta atrás y navegación incluidos) · typecheck 0 · lint 0 · mutación: cerrar la sesión al cambiar de URL deja el encadenado en rojo (esperadas dos `loadMedia`, medida una). La medida con una TV real sigue siendo la de T379. | este índice |
 | T387 | T387 — AirPlay completo: HLS, MP4 y control | feat(cast): AirPlay por la puerta de Safari (T387). | `bun test packages/web packages/server` **2436 pasan, 0 fallan** · typecheck 0 · lint 0 · `bunx playwright test airplay.e2e.ts cast.e2e.ts` **4 pasan** · mutaciones: no detectar `remote` deja la prueba de la puerta en rojo; mandar la ruta relativa deja el e2e en rojo. **Medido con dobles, no con un Apple TV real**; los subtítulos que Safari pinte quedan sin medir. | este índice |
+| T399 | T399 — emitir descargas locales | docs(specs): la propuesta de emitir descargas locales (T399). | `bun run lint` 0 · `bun test packages/web/src/docs.test.ts` 20 pasan, 0 fallan. Cambio de contrato: la propuesta fija las pruebas y mutaciones de la implementación; no hay código que mutar. **No implementado**: requiere aprobación. | este índice |

@@ -6,7 +6,7 @@ La TV pide el vídeo a la instancia de RoNa por la red local; la pestaña sigue 
 **Estado:** base implementada (tickets, sesión, mandos, subtítulos, progreso, saltos, encadenado,
 AirPlay y parada). **Sin medir todavía con una TV real**: el spike T379 es la puerta; AirPlay se ha
 medido con dobles de `remote` y de la puerta WebKit, no con un Apple TV. Móvil (T397) y descargas
-(T399) están en el plan y **no** se anuncian como si ya estuvieran.
+(T399) no se anuncian como si ya estuvieran; de descargas hay propuesta de contrato.
 
 ## Requisitos
 

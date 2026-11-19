@@ -30,8 +30,10 @@ adelante usan **T394–T399**.
 - **Hecho con dobles, sin hardware:** T387 (AirPlay; la puerta `remote`/WebKit, el `<video>` oculto,
   la URL absoluta, la pausa local y la revocación se miden en el e2e; un Apple TV real no).
 - **Pendiente de hardware o de decisión:** T378 (medir WebView2), T379 (spike con TV real), T397
-  (móvil con TLS), T398 (DLNA) y T399 (descargas locales). AirPlay con hardware y los subtítulos que
-  Safari pinte en el receptor siguen dentro de T379/T387 y no se declaran medidos.
+  (móvil con TLS) y T398 (DLNA). AirPlay con hardware y los subtítulos que Safari pinte en el
+  receptor siguen dentro de T379/T387 y no se declaran medidos.
+- **Propuesta cerrada:** T399 (emitir descargas locales) deja
+  `docs/specs/proposals/SPEC-media-proxy.T399.md`; la implementación no se abre sin aprobación.
 - Lo que no se ha medido con una TV real se dice en `docs/cast.md` y en `SECURITY.md`; la función
   no se anuncia como completa hasta T379.
 
