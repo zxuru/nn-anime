@@ -80,8 +80,10 @@ const castTickets = options.castTickets ?? createTicketStore({ capacity: 16, ttl
 
 ### Resolución en `/stream`
 
-`contentsOf` prueba **primero** el almacén de emisión y después el de navegador. El ticket de
-emisión sólo existe bajo `/stream/:ticket` y sus hijos:
+`contentsOf` prueba **primero** el almacén de emisión y después el de navegador. Los guards de sesión
+y de token (`session-guard.ts`, `token-guard.ts`) tienen que resolver contra los **dos** almacenes; si
+no, la petición de la TV se corta con 401 antes de llegar a `contentsOf`. El ticket de emisión sólo
+existe bajo `/stream/:ticket` y sus hijos:
 
 - `GET /stream/:ticket` con ticket de emisión: bytes o playlist, con `Range`, sin cookie.
 - `GET /stream/:ticket/seg/:index` y `/key/:index`: resuelven contra la playlist cacheada, igual que
@@ -121,6 +123,12 @@ propuesta la mantiene y la acota:
   de la LAN y se prueba que un origen ajeno no lo recibe.
 - Se declara en `SECURITY.md` y se mide con la petición del receptor, no con `curl` desde la misma
   máquina.
+
+**`Cross-Origin-Resource-Policy`.** Hoy todas las respuestas llevan
+`Cross-Origin-Resource-Policy: same-origin` (`security-headers.ts`). Si el receptor es una página web,
+puede bloquear el medio aunque CORS esté bien. T379 lo mide. Si hace falta, se cambia a
+`cross-origin` **sólo** en `/stream/:ticket` con ticket de emisión y se declara en `SECURITY.md`; no
+se toca en `/api/*` ni en los tickets del navegador.
 
 Si T379 mide que no hace falta CORS, **no se añade nada** y esta sección se retira de la propuesta.
 

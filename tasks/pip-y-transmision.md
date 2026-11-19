@@ -14,6 +14,10 @@ paquetes tocados, criterios marcados con la medición que los sostiene, sin `any
 `@ts-ignore` ni `as` para silenciar, sin tests saltados, tope de cinco archivos de implementación por
 task y commit atómico que cita el task.
 
+Los ids **T376–T387 son propuestos**: se confirman al abrir cada task y no se reservan por
+adelantado, como pide `tasks/roadmap.md`. Si otro trabajo toma uno, se renumera la tarjeta sin
+renumerar las dependencias por nombre: la dependencia se lee por el asunto, no por el número.
+
 ## Lo que ya existe
 
 - **PiP web.** `usePictureInPicture.ts` pregunta `document.pictureInPictureEnabled`, escucha
@@ -203,6 +207,8 @@ parar, se revoca.
       los tickets del navegador; los tickets hijos de una playlist siguen a 600 s.
 - [ ] La URL de la emisión no lleva cookie, no abre `/api/*`, no se registra en ningún log y no
       contiene la URL del upstream.
+- [ ] Los guards de sesión y de token reconocen el ticket de emisión (los dos almacenes); sin eso la
+      TV recibe 401 antes de llegar al proxy, y el test lo mide sin cookie.
 - [ ] Sin `RONA_CAST=1` o sin LAN, `POST` responde 409 con el motivo y no emite nada.
 - [ ] La respuesta no incluye cabeceras del upstream ni la dirección del proveedor.
 
@@ -216,8 +222,8 @@ cookie; revocación a mitad; TTL con reloj falso; capacidad · mutación: resolv
 `packages/server/src/routes/cast.ts`, `packages/server/src/routes/stream.ts`,
 `packages/core/src/api.ts` y tests.
 
-**Tamaño:** L. Si no cabe en cinco archivos, se corta en T381a (almacén y revocación) y T381b
-(rutas).
+**Tamaño:** L. Si no cabe en cinco archivos, se corta en T381a (almacén, guards y revocación) y
+T381b (rutas y contrato).
 
 ### T382 — Cargar el SDK de Cast sólo con permiso
 
@@ -413,6 +419,8 @@ T375 ─┬─ T376 ── T377
   para esto.
 - **Chromecast de la app de escritorio.** WebView2 no trae el ecosistema de Cast del navegador; si
   T378 no lo mide, se dice y se ofrece abrir en el navegador.
+- **Emisión desde el móvil.** La interfaz se abre por `http://192.168...`, que no es contexto seguro
+  y donde el SDK no está disponible; el mando no aparece y se dice. Exigiría TLS y es otra tarea.
 - **Subtítulos en la TV.** Los `<track>` del proxy viven en el origen local y la TV no los pide. La
   v1 emite imagen y sonido; los subtítulos se declaran fuera.
 - **Emisión de descargas locales.** El archivo descargado no tiene ticket de emisión todavía; si se
