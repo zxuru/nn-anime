@@ -435,8 +435,9 @@ pinta, AirPlay sin hardware, móvil sin TLS, DLNA fuera, descargas fuera) y las 
 **Aceptación:**
 - [ ] `README.md` tiene la sección «Transmitir a la TV» con el comando exacto
       (`RONA_HOST=0.0.0.0 RONA_TOKEN=… RONA_CAST=1 bun run start`), la advertencia de LAN de confianza
-      y los enlaces a `docs/guia.md` y `docs/spike-cast.md`.
-- [ ] La guía tiene la matriz de capacidades de este plan, con lo medido y lo no medido.
+      y los enlaces a `docs/cast.md` y `docs/spike-cast.md`.
+- [ ] La guía de `docs/cast.md` tiene la matriz de capacidades de este plan, con lo medido y lo no
+      medido.
 - [ ] `SECURITY.md` declara: ticket de emisión y de subtítulo (192 bits, 4 h, 16, revocables, sólo
       `/stream`), guion de Google cargado sólo con permiso, CSP exacta, CORS/CORP acotados si T379 lo
       exige, y el límite de la LAN.
@@ -452,7 +453,7 @@ comando del README existe.
 
 **Depende de:** T385.
 
-**Archivos:** `README.md`, `docs/guia.md`, `SECURITY.md`, `docs/specs/SPEC-web-ui.md`,
+**Archivos:** `README.md`, `docs/cast.md`, `SECURITY.md`, `docs/specs/SPEC-web-ui.md`,
 `docs/specs/SPEC-media-proxy.md`.
 
 **Tamaño:** M.
