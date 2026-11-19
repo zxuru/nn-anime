@@ -10,6 +10,11 @@
  * (`enterpictureinpicture` y `leavepictureinpicture`). El navegador puede
  * rechazar la petición —sin gesto, sin permiso, con el reproductor ya ocupado—
  * y entonces no hay nada que anunciar; el botón sigue diciendo la verdad.
+ *
+ * El estado inicial se lee del documento, no se supone `false`: al volver de una
+ * pantalla en la que el video ya estaba en la ventana flotante, el mando nace
+ * encendido. Es la diferencia entre un interruptor y un botón que miente hasta
+ * el primer clic.
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -23,13 +28,31 @@ export interface PictureInPictureHandle {
   readonly alternar: () => Promise<void>
 }
 
+/** ¿El navegador ofrece la ventana flotante? */
+function soporteEstandar(): boolean {
+  return typeof document !== 'undefined' && document.pictureInPictureEnabled === true
+}
+
+/** El video que el documento tiene en la ventana flotante, si hay alguno. */
+function enVentanaFlotante(video: HTMLVideoElement): boolean {
+  return typeof document !== 'undefined' && document.pictureInPictureElement === video
+}
+
 export function usePictureInPicture(video: HTMLVideoElement | null): PictureInPictureHandle {
   const [activo, setActivo] = useState(false)
-
-  const disponible = typeof document !== 'undefined' && document.pictureInPictureEnabled === true
+  const disponible = soporteEstandar()
 
   useEffect(() => {
-    if (video === null) return
+    if (video === null) {
+      setActivo(false)
+
+      return
+    }
+
+    // El elemento puede llegar después del primer render, cuando el `<video>`
+    // ya está montado y el navegador pudo haberlo metido en la ventana flotante
+    // antes de que este efecto se suscribiera.
+    setActivo(enVentanaFlotante(video))
 
     const alEntrar = (): void => setActivo(true)
     const alSalir = (): void => setActivo(false)
@@ -47,10 +70,13 @@ export function usePictureInPicture(video: HTMLVideoElement | null): PictureInPi
     if (!disponible || video === null) return
 
     try {
-      if (document.pictureInPictureElement === null) {
-        await video.requestPictureInPicture()
-      } else {
+      // Se compara con **este** video, no con que el documento esté libre: si
+      // otro elemento ocupa la ventana, pedir la de este la reemplaza, que es
+      // lo que espera quien pulsa el mando del video que está viendo.
+      if (enVentanaFlotante(video)) {
         await document.exitPictureInPicture()
+      } else {
+        await video.requestPictureInPicture()
       }
     } catch {
       // El navegador dijo que no. No se cambia el estado a mano: si de verdad

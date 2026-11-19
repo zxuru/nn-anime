@@ -2518,4 +2518,56 @@ test.describe('el modo extendido', () => {
       .toBe(true)
     await expect(seccion).toHaveAttribute('data-extendido', 'true')
   })
+
+  /**
+   * La ventana flotante, con un doble de la API.
+   *
+   * Chromium sin pantalla puede no ofrecer PiP, así que el soporte y el
+   * movimiento se simulan **antes** de que cargue la aplicación. Lo que se mide
+   * es lo que escribimos: que el mando esté en el marco, que el estado salga de
+   * los eventos del video y que el nombre diga la verdad.
+   */
+  test('la ventana flotante se ofrece, entra y sale', async ({ page }) => {
+    await page.addInitScript(() => {
+      interface VentanaConPip extends Window {
+        __pipElemento?: HTMLVideoElement
+      }
+
+      const ventana = window as unknown as VentanaConPip
+
+      Object.defineProperty(document, 'pictureInPictureEnabled', {
+        configurable: true,
+        value: true,
+      })
+      Object.defineProperty(document, 'pictureInPictureElement', {
+        configurable: true,
+        get: () => ventana.__pipElemento ?? null,
+      })
+      HTMLVideoElement.prototype.requestPictureInPicture = async function (this: HTMLVideoElement) {
+        ventana.__pipElemento = this
+        this.dispatchEvent(new Event('enterpictureinpicture'))
+      }
+      document.exitPictureInPicture = async () => {
+        const video = ventana.__pipElemento
+        ventana.__pipElemento = undefined
+        video?.dispatchEvent(new Event('leavepictureinpicture'))
+      }
+    })
+
+    await entrar(page)
+    await page.goto('/watch/fixture/aurora-nocturna')
+
+    const boton = page.locator('.player__pip')
+    await expect(boton).toBeVisible({ timeout: 10_000 })
+    await expect(boton).toHaveAttribute('aria-pressed', 'false')
+    await expect(boton).toHaveAttribute('aria-label', 'Ventana flotante')
+
+    await boton.click()
+    await expect(boton).toHaveAttribute('aria-pressed', 'true')
+    await expect(boton).toHaveAttribute('aria-label', 'Salir de la ventana flotante')
+
+    await boton.click()
+    await expect(boton).toHaveAttribute('aria-pressed', 'false')
+    await expect(boton).toHaveAttribute('aria-label', 'Ventana flotante')
+  })
 })

@@ -28,6 +28,7 @@
  */
 
 import { DEFAULT_LOCALE } from '@rona/core/i18n'
+import { PictureInPicture2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
@@ -384,20 +385,6 @@ export function Player(props: PlayerProps): ReactNode {
           </ul>
         </div>
 
-        {/* La ventana flotante, sólo si el navegador la ofrece. El estado sale
-            de los eventos del video y no de haber pulsado el botón: el
-            navegador puede rechazar la petición y el mando no puede mentir. */}
-        {pip.disponible ? (
-          <button
-            type="button"
-            className="button player__menu-action"
-            aria-pressed={pip.activo}
-            onClick={() => void pip.alternar()}
-          >
-            {t(DEFAULT_LOCALE, pip.activo ? 'player.pip.exit' : 'player.pip')}
-          </button>
-        ) : null}
-
         {props.onMpv === undefined ? null : (
           <button type="button" className="button player__menu-action" onClick={props.onMpv}>
             {t(DEFAULT_LOCALE, 'player.mpv')}
@@ -532,6 +519,31 @@ export function Player(props: PlayerProps): ReactNode {
               se ve ahí. Sin intervalo no se pinta nada y la pantalla queda como
               estaba. */}
           <PlayerSkipButton skip={props.skip} onSaltar={saltar} />
+
+          {/* La ventana flotante, sólo si el navegador la ofrece. Vive en el
+              marco y no en el menú: es lo que se busca cuando se quiere seguir
+              viendo mientras se hace otra cosa, y esconderla detrás de Ajustes
+              la hacía invisible. El estado sale de los eventos del video y no
+              de haber pulsado el botón: el navegador puede rechazar la petición
+              y el mando no puede mentir. */}
+          {pip.disponible ? (
+            <button
+              type="button"
+              className="button player__control player__pip"
+              aria-label={t(DEFAULT_LOCALE, pip.activo ? 'player.pip.exit' : 'player.pip')}
+              title={t(DEFAULT_LOCALE, pip.activo ? 'player.pip.exit' : 'player.pip')}
+              aria-pressed={pip.activo}
+              onClick={() => void pip.alternar()}
+            >
+              <PictureInPicture2
+                className="player__icon"
+                size={20}
+                strokeWidth={2}
+                aria-hidden="true"
+                focusable="false"
+              />
+            </button>
+          ) : null}
 
           {/* La tarjeta del siguiente también dentro del marco: al terminar el
               capítulo, la decisión está donde se mira, sigue dentro de la
