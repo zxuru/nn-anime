@@ -387,10 +387,9 @@ soportado.
 ```
 T375 ─┬─ T376 ── T377
       ├─ T378
-      └─ T379 ── T380 ── T381 ── T383 ── T384 ── T385 ── T386
-                     │           │
-                     └─ T382 ────┘
-      T387 ── depende de T379 y T381
+      └─ T379 ── T380 ─┬─ T381 ──┐
+                       └─ T382 ──┴─ T383 ── T384 ── T385 ── T386
+      T387 (T379 + T381, opcional)
 ```
 
 1. **T376 y T377** no dependen de la TV y se pueden cerrar en paralelo con T379. Son la respuesta
