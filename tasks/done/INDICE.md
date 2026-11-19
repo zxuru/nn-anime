@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **270 fragmentos indexados**; 215 se identifican
+quedan identificadas aquí. **271 fragmentos indexados**; 230 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
