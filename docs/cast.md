@@ -54,7 +54,9 @@ dispositivo se está viendo y permite **dejar de transmitir**.
   ha probado. Qué pinta Safari con los subtítulos y si el receptor acepta el MP4/HLS del proxy son
   medidas de T379/T387 que no se declaran hechas.
 - **Móvil**: Chrome de Android exige contexto seguro; la vía TLS está en T397.
-- **Descargas**: un archivo descargado no tiene ticket de emisión. T399.
+- **Descargas**: un archivo descargado no tiene ticket de emisión; la propuesta de contrato está en
+  [docs/specs/proposals/SPEC-media-proxy.T399.md](specs/proposals/SPEC-media-proxy.T399.md) y no se
+  implementa hasta que se apruebe.
 - **La app de escritorio**: WebView2 no trae el ecosistema de Cast del navegador. Se abre en el
   navegador; T378 lo mide.
 
