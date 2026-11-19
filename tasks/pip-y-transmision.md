@@ -648,6 +648,39 @@ emisión para un archivo local y una ruta que lo sirva sin pasar por la lista bl
 
 **Tamaño:** S (propuesta).
 
+### T401 — El cast cambia de audio y se recupera de la desconexión
+
+**Descripción:** dos cosas que el cast promete y hoy no hace. Cambiar sub/dub con la TV conectada
+resuelve un stream nuevo en el reproductor, pero la sesión de Cast sigue con el `contentId` viejo: la
+TV no se entera. Y si el receptor cierra la sesión solo —la TV se apaga, el usuario cambia de
+destino, se cae la red—, el aviso y los mandos se quedan en «conectado» para siempre. Las dos se
+resuelven en la misma conversación con el receptor: reutilizar la sesión que ya está abierta y
+escuchar su estado.
+
+**Aceptación:**
+- [ ] Cambiar sub/dub con la TV conectada pide un ticket nuevo al servidor y manda el medio con
+      `loadMedia` por la **sesión de Cast ya abierta**, conservando la posición del receptor; no se
+      vuelve a `requestSession` y la marca de reconexión apunta al ticket nuevo.
+- [ ] Si el receptor termina la sesión (`SESSION_ENDED`), el aviso desaparece, la marca se borra, el
+      estado deja de estar «conectado» y el vídeo local se reanuda en la última posición de la TV.
+- [ ] Si la petición del cambio de audio falla, la emisión anterior sigue sonando y se dice el
+      motivo; el ticket nuevo no queda vivo.
+- [ ] `detener` y `cerrar` dejan de escuchar el contexto; una sesión terminada no llama a
+      `endSession` dos veces.
+- [ ] Mutación: no escuchar `SESSION_ENDED` deja el aviso fantasma; no reutilizar la sesión deja dos
+      `requestSession`; no conservar la posición deja la reanudación en cero.
+
+**Verificación:** `bun test packages/web/src/features/player/cast` · e2e de `cast.e2e.ts` con el SDK
+falso: cambiar a «Doblado» produce un segundo `loadMedia` y un solo `requestSession`; emitir
+`SESSION_ENDED` esconde el aviso y el vídeo local vuelve a reproducir en la posición de la TV.
+
+**Depende de:** T383, T384a, T384b, T395b.
+
+**Archivos:** `cast-types.ts`, `cast-adapter.ts`, `cast-session.ts`, `useCastControl.ts`,
+`Player.tsx` y sus tests.
+
+**Tamaño:** M.
+
 ## Orden, dependencias y cortes
 
 ```
