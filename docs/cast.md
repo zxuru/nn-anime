@@ -3,10 +3,9 @@
 RoNa puede mandar el episodio que se está viendo a un **Chromecast** o a una **TV con Google TV**.
 La TV pide el vídeo a la instancia de RoNa por la red local; la pestaña sigue siendo el mando.
 
-**Estado:** base implementada (tickets, sesión, mandos y parada). **Sin medir todavía con una TV
-real**: el spike T379 es la puerta. AirPlay (T387), subtítulos en la TV (T394), progreso y saltos
-(T395), reconexión (T396), móvil (T397) y descargas (T399) están en el plan y **no** se anuncian como
-si ya estuvieran.
+**Estado:** base implementada (tickets, sesión, mandos, subtítulos, progreso, saltos, encadenado y
+parada). **Sin medir todavía con una TV real**: el spike T379 es la puerta. AirPlay (T387), móvil
+(T397) y descargas (T399) están en el plan y **no** se anuncian como si ya estuvieran.
 
 ## Requisitos
 
@@ -38,11 +37,14 @@ dispositivo se está viendo y permite **dejar de transmitir**.
 - El ticket de emisión dura **4 horas**, hay como mucho **16** por instancia y se revoca al parar.
 - La URL de la TV no lleva cookie y sólo abre `/stream/*`; nunca `/api/*`.
 - Sin `RONA_CAST=1` no se pide nada a `gstatic` y la CSP es la de siempre.
+- La posición del receptor alimenta el historial, el salto de intro/ending y el siguiente episodio,
+  con las mismas reglas que la reproducción local.
+- Al terminar un episodio, la pantalla pasa al siguiente y **la TV sigue mandando**: se pide un
+  ticket nuevo, se revoca el anterior y se carga el medio en la sesión que ya estaba abierta, sin
+  volver a pedir sesión. Si la sesión del receptor ya no existe, no se inventa otra.
 
 ## Lo que falta
 
-- **Progreso, saltos y siguiente episodio**: el historial y AniSkip siguen la reproducción local; con
-  cast, la TV no avisa. T395.
 - **AirPlay**: Safari no es el emisor todavía. T387.
 - **Móvil**: Chrome de Android exige contexto seguro; la vía TLS está en T397.
 - **Descargas**: un archivo descargado no tiene ticket de emisión. T399.
