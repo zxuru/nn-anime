@@ -380,6 +380,9 @@ export function createApp(options: AppOptions): Hono {
       tokenGuard(session, {
         ...(options.container === undefined ? {} : { tickets: options.container.tickets }),
         ...(options.container === undefined ? {} : { castTickets: options.container.castTickets }),
+        ...(options.container === undefined
+          ? {}
+          : { castSubtitleTickets: options.container.castSubtitleTickets }),
       }),
     )
     registerLogin(app, { session, secureCookie: options.auth.secureCookie })
@@ -396,6 +399,9 @@ export function createApp(options: AppOptions): Hono {
     sessionGuard(session, {
       ...(options.container === undefined ? {} : { tickets: options.container.tickets }),
       ...(options.container === undefined ? {} : { castTickets: options.container.castTickets }),
+      ...(options.container === undefined
+        ? {}
+        : { castSubtitleTickets: options.container.castSubtitleTickets }),
     }),
   ]
   for (const prefix of PROTECTED_PREFIXES) {
@@ -682,6 +688,8 @@ export function createApp(options: AppOptions): Hono {
         ...options.cast,
         providers: hub.providers,
         container,
+        ...(proxyOptions.fetchImpl === undefined ? {} : { fetchImpl: proxyOptions.fetchImpl }),
+        ...(proxyOptions.resolver === undefined ? {} : { resolver: proxyOptions.resolver }),
       })
     }
     // Los saltos son otra salida a un tercero, con su propio `fetch` y su propio

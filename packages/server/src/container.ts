@@ -142,12 +142,13 @@ export const CAST_TTL_S = 4 * 60 * 60
 export interface CastSession {
   readonly id: string
   readonly videoTicket: string
+  readonly subtitleTickets: readonly string[]
   readonly expiresAt: number
 }
 
 /** Las emisiones vivas. El tope es una defensa, no una promesa de producto. */
 export interface CastSessionStore {
-  create(videoTicket: string): CastSession
+  create(videoTicket: string, subtitleTickets?: readonly string[]): CastSession
   get(id: string): CastSession | undefined
   revoke(id: string): CastSession | undefined
   /** Borra las vencidas y devuelve cuántas quitó. */
@@ -183,7 +184,7 @@ export function createCastSessionStore(options: CastSessionStoreOptions = {}): C
   }
 
   return {
-    create(videoTicket) {
+    create(videoTicket, subtitleTickets = []) {
       const at = now()
 
       // El Map conserva el orden de inserción: la primera es la más vieja.
@@ -197,6 +198,7 @@ export function createCastSessionStore(options: CastSessionStoreOptions = {}): C
       const session: CastSession = {
         id: randomId(),
         videoTicket,
+        subtitleTickets,
         expiresAt: at + ttlMs,
       }
       sessions.set(session.id, session)
@@ -252,6 +254,8 @@ export interface ServerContainer {
    * puede competir con los tickets hijos de una playlist.
    */
   readonly castTickets: TicketStore
+  /** Tickets de los subtítulos de una emisión. */
+  readonly castSubtitleTickets: TicketStore
   /** Sesiones de emisión: agrupan el ticket del video y sus subtítulos. */
   readonly castSessions: CastSessionStore
   /**
@@ -369,6 +373,8 @@ export interface ContainerOptions {
   readonly tickets?: TicketStore
   /** Almacén de tickets de emisión; separado del de 500. */
   readonly castTickets?: TicketStore
+  /** Almacén de tickets de subtítulos de emisión. */
+  readonly castSubtitleTickets?: TicketStore
   /** Sesiones de emisión; inyectable para fijar reloj o capacidad. */
   readonly castSessions?: CastSessionStore
   /** Caché de playlists. Se inyecta para poder fijar su TTL en un test. */
@@ -405,6 +411,8 @@ export function createContainer(options: ContainerOptions): ServerContainer {
   })
   const tickets = options.tickets ?? createTicketStore()
   const castTickets = options.castTickets ?? createTicketStore({ capacity: 16, ttlS: CAST_TTL_S })
+  const castSubtitleTickets =
+    options.castSubtitleTickets ?? createTicketStore({ capacity: 256, ttlS: CAST_TTL_S })
   const castSessions =
     options.castSessions ??
     createCastSessionStore({
@@ -413,6 +421,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
       ...(options.now === undefined ? {} : { now: options.now }),
       onEvict: (session) => {
         castTickets.revoke(session.videoTicket)
+        for (const ticket of session.subtitleTickets) castSubtitleTickets.revoke(ticket)
       },
     })
   // La vida del índice de una playlist es la del ticket que la nombra, no la
@@ -822,6 +831,7 @@ export function createContainer(options: ContainerOptions): ServerContainer {
     queue,
     tickets,
     castTickets,
+    castSubtitleTickets,
     castSessions,
     playlists,
     mpv,

@@ -33,16 +33,16 @@ dispositivo se está viendo y permite **dejar de transmitir**.
 - Los mandos del reproductor —play, pausa, ±10 s, buscar, volumen, silencio y las teclas— hablan con
   la TV. El vídeo local se pausa para no descargar dos veces.
 - Al parar, revoca la sesión y reanuda el vídeo local en la posición de la TV.
+- Los subtítulos del proveedor viajan como pistas VTT con un ticket propio; el primero queda activo y
+  se puede cambiar desde los ajustes del reproductor. Si el receptor no los pinta, se dice.
 - El ticket de emisión dura **4 horas**, hay como mucho **16** por instancia y se revoca al parar.
 - La URL de la TV no lleva cookie y sólo abre `/stream/*`; nunca `/api/*`.
 - Sin `RONA_CAST=1` no se pide nada a `gstatic` y la CSP es la de siempre.
 
 ## Lo que falta
 
-- **Subtítulos en la TV**: el vídeo viaja, los `<track>` todavía no. T394.
 - **Progreso, saltos y siguiente episodio**: el historial y AniSkip siguen la reproducción local; con
   cast, la TV no avisa. T395.
-- **Reconexión**: recargar la pestaña pierde el mando de la emisión. T396.
 - **AirPlay**: Safari no es el emisor todavía. T387.
 - **Móvil**: Chrome de Android exige contexto seguro; la vía TLS está en T397.
 - **Descargas**: un archivo descargado no tiene ticket de emisión. T399.

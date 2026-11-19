@@ -15,6 +15,7 @@ import type {
   CastMetadata,
   CastRemotePlayer,
   CastSdk,
+  CastTrack,
 } from './cast-types'
 
 interface MediaInfoReal {
@@ -36,6 +37,12 @@ interface MediaNamespace {
   MediaInfo: new (contentId: string, contentType: string) => MediaInfoReal
   LoadRequest: new (media: MediaInfoReal) => LoadRequestReal
   GenericMediaMetadata: new () => { title?: string; subtitle?: string; images?: unknown[] }
+  Track: new (trackId: number, trackType: string) => {
+    trackContentId?: string
+    trackContentType?: string
+    name?: string
+    language?: string
+  }
   StreamType?: { BUFFERED?: string }
   DEFAULT_MEDIA_RECEIVER_APP_ID?: string
 }
@@ -115,6 +122,15 @@ export function adaptarCastSdk(): CastSdk | undefined {
       if (meta.poster !== undefined) metadata.images = [{ url: meta.poster }]
 
       return metadata
+    },
+    createTrack(track) {
+      const real = new media.Track(track.trackId, 'SUBTITLES')
+      real.trackContentId = track.trackContentId
+      real.trackContentType = track.trackContentType
+      real.name = track.name
+      real.language = track.language
+
+      return real as unknown as CastTrack
     },
   }
 }

@@ -13,13 +13,22 @@ import {
   type CastMetadata,
   type CastSdk,
   type CastSessionLike,
+  type CastTrack,
 } from './cast-types'
 
 export interface CastSesion {
   /** Pide sesión si hace falta y manda el medio. */
-  iniciar(url: string, kind: CastKind, meta: CastMetadata, startAtS?: number): Promise<void>
+  iniciar(
+    url: string,
+    kind: CastKind,
+    meta: CastMetadata,
+    startAtS?: number,
+    subtitles?: readonly CastTrack[],
+  ): Promise<void>
   /** Adopta una sesión que ya existía (recarga, reconexión). */
   adoptar(session: CastSessionLike): void
+  /** Activa una pista de subtítulos por su id de receptor. */
+  selectSubtitle(trackId: number): void
   play(): void
   pause(): void
   toggle(): void
@@ -98,7 +107,7 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
   }
 
   return {
-    async iniciar(url, kind, meta, startAtS) {      try {
+    async iniciar(url, kind, meta, startAtS, subtitles = []) {      try {
         sdk.context.setOptions({
           receiverApplicationId: sdk.receiverId,
           autoJoinPolicy: 'origin_scoped',
@@ -111,6 +120,9 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
         session = actual
 
         const media = sdk.createMedia(url, kind)
+        media.tracks = subtitles.map((pista) => sdk.createTrack?.(pista) ?? pista)
+        media.activeTrackIds = subtitles[0] === undefined ? [] : [subtitles[0].trackId]
+
         const metadata = sdk.createMetadata?.(meta)
         if (metadata !== undefined) media.metadata = metadata
 
@@ -125,6 +137,7 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
           conectado: true,
           dispositivo: session.getCastDevice()?.friendlyName,
           cargando: true,
+          activeTrackId: subtitles[0]?.trackId,
           error: undefined,
         })
         sincronizar()
@@ -149,6 +162,11 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
         error: undefined,
       })
       sincronizar()
+    },
+
+    selectSubtitle(trackId) {
+      session?.getMedia?.()?.setActiveTrackIds?.([trackId])
+      actualizar({ activeTrackId: trackId })
     },
 
     play() {

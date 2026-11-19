@@ -12,7 +12,7 @@ import { abrirCastSesion, cerrarCastSesion, leerCastInfo } from '../../../api/ca
 import { adaptarCastSdk } from './cast-adapter'
 import { cargarCastSdk } from './cast-sdk'
 import { type CastSesion, crearCastSesion } from './cast-session'
-import { CAST_ESTADO_INICIAL, type CastEstado, type CastKind } from './cast-types'
+import { CAST_ESTADO_INICIAL, type CastEstado, type CastKind, type CastTrack } from './cast-types'
 
 export interface UseCastControlOptions {
   /** El ticket del proxy que el reproductor tiene cargado. */
@@ -23,6 +23,8 @@ export interface UseCastControlOptions {
   readonly poster?: string | undefined
   /** La posición desde la que empieza la TV. */
   readonly positionS: number
+  /** Pistas de subtítulos que el reproductor local tiene cargadas. */
+  readonly tracks?: readonly { readonly url: string; readonly lang: string; readonly label: string }[] | undefined
 }
 
 export interface CastControlHandle {
@@ -100,6 +102,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
   const subtitleRef = useRef(options.subtitle)
   const posterRef = useRef(options.poster)
   const positionRef = useRef(options.positionS)
+  const tracksRef = useRef(options.tracks)
 
   urlRef.current = options.url
   kindRef.current = options.kind
@@ -107,6 +110,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
   subtitleRef.current = options.subtitle
   posterRef.current = options.poster
   positionRef.current = options.positionS
+  tracksRef.current = options.tracks
   estadoRef.current = estado
 
   useEffect(() => {
@@ -221,6 +225,15 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
         ...(titleRef.current === undefined ? {} : { title: titleRef.current }),
         ...(posterRef.current === undefined ? {} : { poster: posterRef.current }),
         startAtS: positionRef.current,
+        ...(tracksRef.current === undefined || tracksRef.current.length === 0
+          ? {}
+          : {
+              subtitles: tracksRef.current.map((pista) => ({
+                url: pista.url,
+                lang: pista.lang,
+                label: pista.label,
+              })),
+            }),
       })
       id = alta.id
       idRef.current = id
@@ -228,6 +241,15 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
       const nueva = crearCastSesion(sdk, setEstado)
       sesionRef.current = nueva
       setSesion(nueva)
+
+      const pistas: CastTrack[] = alta.subtitles.map((subtitulo, indice) => ({
+        trackId: indice + 1,
+        trackContentId: subtitulo.url,
+        trackContentType: 'text/vtt',
+        subtype: 'SUBTITLES',
+        name: subtitulo.label,
+        language: subtitulo.lang,
+      }))
 
       await nueva.iniciar(
         alta.urls[0] ?? '',
@@ -238,6 +260,7 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
           ...(posterRef.current === undefined ? {} : { poster: posterRef.current }),
         },
         positionRef.current,
+        pistas,
       )
 
       if (id !== undefined) guardarMarca(id, urlRef.current)

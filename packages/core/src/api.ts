@@ -159,6 +159,16 @@ export const castSessionRequestSchema = z.union([
     title: z.string().min(1).max(300).optional(),
     poster: z.string().min(1).max(2000).optional(),
     startAtS: z.number().nonnegative().optional(),
+    /** Pistas que el reproductor local tiene, por su ticket de subtítulo. */
+    subtitles: z
+      .array(
+        z.strictObject({
+          url: z.string().regex(/^\/api\/subtitles\/[^/?#]+$/),
+          lang: z.string().min(1),
+          label: z.string().min(1),
+        }),
+      )
+      .optional(),
   }),
 ])
 
