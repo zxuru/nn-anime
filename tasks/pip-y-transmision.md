@@ -683,6 +683,34 @@ falso: cambiar a «Doblado» produce un segundo `loadMedia` y un solo `requestSe
 
 **Tamaño:** M.
 
+### T402 — El cast dice por qué no puede y no deja mandos muertos
+
+**Descripción:** cuando el SDK no encuentra dispositivos, `requestSession` rechaza con
+`NO_DEVICES_AVAILABLE` y hoy la interfaz enseña el texto crudo del SDK —o `[object Object]`—; cuando
+hay emisión, los cinco botones de velocidad quedan deshabilitados sin decir por qué. Las dos cosas
+son la misma: un mando que no puede y no lo explica.
+
+**Aceptación:**
+- [ ] Un rechazo con `NO_DEVICES_AVAILABLE` (en `code`, `description` o `message`) se traduce a un
+      texto en español; no se enseña el texto crudo ni `[object Object]`.
+- [ ] El motivo se ve en el aviso del reproductor y en el menú de ajustes, que es donde vive el
+      mando; no se abre un selector vacío por nuestra parte.
+- [ ] Con emisión conectada, el bloque de velocidad explica por qué no se cambia en vez de mostrar
+      cinco botones deshabilitados.
+- [ ] Los demás errores conservan su mensaje y las claves nuevas viven en `i18n/es.ts`.
+- [ ] Mutación: quitar el traductor deja el texto crudo en rojo; volver a la lista deshabilitada deja
+      en rojo la nota de velocidad.
+
+**Verificación:** `bun test packages/web/src/features/player/cast` · e2e de `cast.e2e.ts` con un SDK
+falso que rechaza `NO_DEVICES_AVAILABLE` y con una emisión conectada que abre Ajustes.
+
+**Depende de:** T384b.
+
+**Archivos:** `cast-session.ts`, `useCastControl.ts`, `Player.tsx`, `i18n/es.ts`, `cast.e2e.ts` y
+tests.
+
+**Tamaño:** S.
+
 ## Orden, dependencias y cortes
 
 ```
