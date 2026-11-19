@@ -224,6 +224,20 @@ describe('la emisión', () => {
     expect(emision.estado().positionS).toBe(0)
   })
 
+  test('adoptar una sesión existente no vuelve a pedirla', () => {
+    const d = doble('TV del salón')
+    const emision = crearCastSesion(d.sdk, () => {})
+    const actual = d.sdk.context.getCurrentSession()
+
+    expect(actual).not.toBeNull()
+    if (actual === null) return
+
+    emision.adoptar(actual)
+
+    expect(emision.estado().conectado).toBe(true)
+    expect(emision.estado().dispositivo).toBe('TV del salón')
+  })
+
   test('si no hay sesión, lo dice y no deja «conectado»', async () => {
     const d = doble()
     d.sdk.context.getCurrentSession = () => null
