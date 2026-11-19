@@ -37,6 +37,53 @@ export interface CastControlHandle {
   detener: () => Promise<number>
 }
 
+/** La emisión recordada para reconectar al recargar la misma pantalla. */
+const MARCA = 'rona:cast'
+
+interface MarcaCast {
+  readonly id: string
+  readonly url: string
+}
+
+function leerMarca(): MarcaCast | undefined {
+  if (typeof localStorage === 'undefined') return undefined
+
+  try {
+    const crudo = localStorage.getItem(MARCA)
+    if (crudo === null) return undefined
+
+    const valor: unknown = JSON.parse(crudo)
+    if (typeof valor !== 'object' || valor === null) return undefined
+
+    const datos = valor as Record<string, unknown>
+    if (typeof datos.id !== 'string' || typeof datos.url !== 'string') return undefined
+
+    return { id: datos.id, url: datos.url }
+  } catch {
+    return undefined
+  }
+}
+
+function guardarMarca(id: string, url: string): void {
+  if (typeof localStorage === 'undefined') return
+
+  try {
+    localStorage.setItem(MARCA, JSON.stringify({ id, url } satisfies MarcaCast))
+  } catch {
+    // Un almacén lleno o prohibido no impide emitir; sólo pierde la reconexión.
+  }
+}
+
+function borrarMarca(): void {
+  if (typeof localStorage === 'undefined') return
+
+  try {
+    localStorage.removeItem(MARCA)
+  } catch {
+    // Igual que guardar: la emisión no depende de esto.
+  }
+}
+
 export function useCastControl(options: UseCastControlOptions): CastControlHandle {
   const [disponible, setDisponible] = useState(false)
   const [estado, setEstado] = useState<CastEstado>(CAST_ESTADO_INICIAL)
@@ -78,12 +125,62 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
     }
   }, [])
 
+  /**
+   * Reconectar una emisión que ya existía.
+   *
+   * Sólo se carga el guion si hay una marca de una emisión anterior **para esta
+   * misma URL**: abrir otro episodio no adopta la TV del anterior, la cierra. La
+   * marca se escribe al empezar y se borra al parar; recargar no la borra.
+   */
+  useEffect(() => {
+    const marca = leerMarca()
+    if (marca === undefined) return
+
+    let vigente = true
+
+    void (async () => {
+      if (marca.url !== urlRef.current) {
+        await cerrarCastSesion(marca.id).catch(() => {})
+        borrarMarca()
+
+        return
+      }
+
+      try {
+        await cargarCastSdk()
+
+        const sdk = adaptarCastSdk()
+        const actual = sdk?.context.getCurrentSession()
+        if (!vigente) return
+
+        if (sdk === undefined || actual === null || actual === undefined) {
+          borrarMarca()
+
+          return
+        }
+
+        const nueva = crearCastSesion(sdk, setEstado)
+        nueva.adoptar(actual)
+        sesionRef.current = nueva
+        idRef.current = marca.id
+        setSesion(nueva)
+      } catch {
+        borrarMarca()
+      }
+    })()
+
+    return () => {
+      vigente = false
+    }
+  }, [])
+
   const detener = useCallback(async (): Promise<number> => {
     const posicion = estadoRef.current.positionS
 
     sesionRef.current?.detener()
     sesionRef.current = undefined
     setSesion(undefined)
+    borrarMarca()
 
     const id = idRef.current
     idRef.current = undefined
@@ -98,11 +195,11 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
 
   useEffect(() => {
     return () => {
-      // Al desmontar no se deja una TV reproduciendo sin control: se cierra la
-      // sesión y se revoca el ticket. T390 podrá reconectar si se quiere.
-      void detener()
+      // Al desmontar no se apaga la TV: la marca permite reconectar al volver a
+      // la misma pantalla. Parar es una acción explícita del mando.
+      sesionRef.current?.cerrar()
     }
-  }, [detener])
+  }, [])
 
   const iniciar = useCallback(async (): Promise<boolean> => {
     if (!disponible || cargando) return false
@@ -142,6 +239,8 @@ export function useCastControl(options: UseCastControlOptions): CastControlHandl
         },
         positionRef.current,
       )
+
+      if (id !== undefined) guardarMarca(id, urlRef.current)
 
       return true
     } catch (cause) {

@@ -18,6 +18,8 @@ import {
 export interface CastSesion {
   /** Pide sesión si hace falta y manda el medio. */
   iniciar(url: string, kind: CastKind, meta: CastMetadata, startAtS?: number): Promise<void>
+  /** Adopta una sesión que ya existía (recarga, reconexión). */
+  adoptar(session: CastSessionLike): void
   play(): void
   pause(): void
   toggle(): void
@@ -96,8 +98,7 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
   }
 
   return {
-    async iniciar(url, kind, meta, startAtS) {
-      try {
+    async iniciar(url, kind, meta, startAtS) {      try {
         sdk.context.setOptions({
           receiverApplicationId: sdk.receiverId,
           autoJoinPolicy: 'origin_scoped',
@@ -136,6 +137,18 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
 
         throw cause
       }
+    },
+
+    adoptar(actual) {
+      session = actual
+      empezarAEscuchar()
+      actualizar({
+        conectado: true,
+        dispositivo: actual.getCastDevice()?.friendlyName,
+        cargando: false,
+        error: undefined,
+      })
+      sincronizar()
     },
 
     play() {
