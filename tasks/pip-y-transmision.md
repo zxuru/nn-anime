@@ -29,7 +29,9 @@ adelante usan **T394–T399**.
   falso), T386 (documentación y `SECURITY.md`), T394 (subtítulos), T395 (progreso, saltos y final),
   T395b (el siguiente episodio reutiliza la sesión) y T396 (reconexión).
 - **Corrección medida después del cierre:** T401 (cambiar sub/dub con la TV puesta reutiliza la
-  sesión, y `SESSION_ENDED` esconde el aviso y reanuda el vídeo local en la posición de la TV).
+  sesión, y `SESSION_ENDED` esconde el aviso y reanuda el vídeo local en la posición de la TV) y
+  T402 (`NO_DEVICES_AVAILABLE` se dice en español, en el aviso y en Ajustes, y la velocidad explica
+  por qué no se cambia con emisión).
 - **Hecho con dobles, sin hardware:** T387 (AirPlay; la puerta `remote`/WebKit, el `<video>` oculto,
   la URL absoluta, la pausa local y la revocación se miden en el e2e; un Apple TV real no).
 - **Pendiente de hardware o de decisión:** T379 (spike con TV real), T397 (móvil con TLS) y T398 (el
