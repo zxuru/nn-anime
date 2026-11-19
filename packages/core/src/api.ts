@@ -146,11 +146,21 @@ export const castSubtitleSchema = z.strictObject({
  * resolvería un stream. `title` y `poster` son para los metadatos del receptor,
  * no para el servidor; `startAtS` es la posición desde la que empieza la TV.
  */
-export const castSessionRequestSchema = streamRequestSchema.extend({
-  title: z.string().min(1).max(300).optional(),
-  poster: z.string().min(1).max(2000).optional(),
-  startAtS: z.number().nonnegative().optional(),
-})
+export const castSessionRequestSchema = z.union([
+  streamRequestSchema.extend({
+    title: z.string().min(1).max(300).optional(),
+    poster: z.string().min(1).max(2000).optional(),
+    startAtS: z.number().nonnegative().optional(),
+  }),
+  z.strictObject({
+    /** El ticket que el reproductor ya está usando, no una URL arbitraria. */
+    url: z.string().regex(/^\/stream\/[^/?#]+$/),
+    kind: z.enum(['hls', 'file']),
+    title: z.string().min(1).max(300).optional(),
+    poster: z.string().min(1).max(2000).optional(),
+    startAtS: z.number().nonnegative().optional(),
+  }),
+])
 
 /**
  * La emisión ya emitida.

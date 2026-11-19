@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { CastInfoResponse, CastSessionResponse } from '@rona/core'
+import type { CastInfoResponse, CastSessionResponse } from '@rona/core/api'
 import { abrirCastSesion, cerrarCastSesion, leerCastInfo } from './cast'
 import type { RequestDeps } from './client'
 
