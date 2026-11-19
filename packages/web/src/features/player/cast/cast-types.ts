@@ -107,6 +107,7 @@ export interface CastEstado {
   readonly volume: number
   readonly muted: boolean
   readonly activeTrackId: number | undefined
+  readonly terminado: boolean
   readonly error: string | undefined
 }
 
@@ -120,5 +121,6 @@ export const CAST_ESTADO_INICIAL: CastEstado = {
   volume: 1,
   muted: false,
   activeTrackId: undefined,
+  terminado: false,
   error: undefined,
 }

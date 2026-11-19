@@ -198,6 +198,58 @@ export function Player(props: PlayerProps): ReactNode {
   )
 
   /**
+   * El progreso del receptor, para el historial y la presencia.
+   *
+   * La TV no habla con el servidor: lo hace el emisor. Se reporta cada quince
+   * segundos de posición y al cambiar la duración; el salto de intro y el
+   * siguiente episodio siguen usando los callbacks de la pantalla, que ya saben
+   * qué hacer con la posición.
+   */
+  const ultimoProgreso = useRef(0)
+  const ultimaDuracion = useRef(0)
+  const estabaCast = useRef(false)
+  const terminadoCast = useRef(false)
+
+  useEffect(() => {
+    if (!enCast) {
+      estabaCast.current = false
+      terminadoCast.current = false
+
+      return
+    }
+
+    if (cast.estado.durationS > 0 && cast.estado.durationS !== ultimaDuracion.current) {
+      ultimaDuracion.current = cast.estado.durationS
+      props.onDuration?.(cast.estado.durationS)
+    }
+
+    if (Math.abs(cast.estado.positionS - ultimoProgreso.current) >= 15) {
+      ultimoProgreso.current = cast.estado.positionS
+      props.onProgress?.(cast.estado.positionS, cast.estado.durationS)
+    }
+
+    if (cast.estado.playing && !estabaCast.current) props.onPlay?.()
+    if (!cast.estado.playing && estabaCast.current) props.onPause?.()
+    estabaCast.current = cast.estado.playing
+
+    if (cast.estado.terminado && !terminadoCast.current) {
+      terminadoCast.current = true
+      props.onEnded?.()
+    }
+  }, [
+    cast.estado.durationS,
+    cast.estado.playing,
+    cast.estado.positionS,
+    cast.estado.terminado,
+    enCast,
+    props.onDuration,
+    props.onEnded,
+    props.onPause,
+    props.onPlay,
+    props.onProgress,
+  ])
+
+  /**
    * Empezar y parar la emisión desde el marco.
    *
    * Al empezar se pausa el video local: la TV es la única salida. Al parar se
@@ -220,10 +272,11 @@ export function Player(props: PlayerProps): ReactNode {
 
   const pararCast = useCallback(async () => {
     const estaba = cast.estado.playing
+    props.onProgress?.(cast.estado.positionS, cast.estado.durationS)
     const posicion = await cast.detener()
     seekTo(posicion)
     if (estaba) act('toggle')
-  }, [act, cast, seekTo])
+  }, [act, cast, props.onProgress, seekTo])
   // El modo compatible necesita el elemento en estado: el pintado arranca cuando
   // el `<canvas>` ya está montado, y eso pasa por un render.
   const { pintando, alternar, canvasRef } = useCompatPaint({
