@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **268 fragmentos indexados**; 213 se identifican
+quedan identificadas aquí. **269 fragmentos indexados**; 214 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
@@ -288,3 +288,4 @@ sólo en este índice y su contenido vive en la historia.
 | T387 | T387 — AirPlay completo: HLS, MP4 y control | feat(cast): AirPlay por la puerta de Safari (T387). | `bun test packages/web packages/server` **2436 pasan, 0 fallan** · typecheck 0 · lint 0 · `bunx playwright test airplay.e2e.ts cast.e2e.ts` **4 pasan** · mutaciones: no detectar `remote` deja la prueba de la puerta en rojo; mandar la ruta relativa deja el e2e en rojo. **Medido con dobles, no con un Apple TV real**; los subtítulos que Safari pinte quedan sin medir. | este índice |
 | T399 | T399 — emitir descargas locales | docs(specs): la propuesta de emitir descargas locales (T399). | `bun run lint` 0 · `bun test packages/web/src/docs.test.ts` 20 pasan, 0 fallan. Cambio de contrato: la propuesta fija las pruebas y mutaciones de la implementación; no hay código que mutar. **No implementado**: requiere aprobación. | este índice |
 | T378 | T378 — la ventana flotante en la app de escritorio: medir WebView2 | docs(desktop): medir la ventana flotante en WebView2 (T378). | Medición real: Windows 11 Pro 10.0.26200, WebView2 157.0.4341.60, `pictureInPictureEnabled` true, `requestPictureInPicture()` dentro, ventana «Imagen en imagen» con `WS_EX_TOPMOST`; captura en `docs/desktop-pip-pip.png` · lint 0 · docs test 20 pasan. **macOS/WKWebView no medido** (sin Mac). | este índice |
+| T401 | T401 — el cast cambia de audio y se recupera de la desconexión | fix(cast): cambiar de audio y recuperar la sesión (T401). | `bun test packages/web/src/features/player/cast` **27 pasan** · `bun test packages/web` **1454 pasan** · `bunx playwright test cast.e2e.ts airplay.e2e.ts` **5 pasan** · typecheck 0 · lint 0 · mutaciones: sin escuchar `SESSION_ENDED`, sin reutilizar la sesión al cambiar de audio y sin conservar la posición, sus pruebas en rojo. Medido con SDK falso; la TV real es T379. | este índice |

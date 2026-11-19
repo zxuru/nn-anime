@@ -28,6 +28,8 @@ adelante usan **T394–T399**.
   T382 (cargador y CSP), T383 (sesión de Cast), T384a/T384b (mandos y aviso), T385 (e2e con receptor
   falso), T386 (documentación y `SECURITY.md`), T394 (subtítulos), T395 (progreso, saltos y final),
   T395b (el siguiente episodio reutiliza la sesión) y T396 (reconexión).
+- **Corrección medida después del cierre:** T401 (cambiar sub/dub con la TV puesta reutiliza la
+  sesión, y `SESSION_ENDED` esconde el aviso y reanuda el vídeo local en la posición de la TV).
 - **Hecho con dobles, sin hardware:** T387 (AirPlay; la puerta `remote`/WebKit, el `<video>` oculto,
   la URL absoluta, la pausa local y la revocación se miden en el e2e; un Apple TV real no).
 - **Pendiente de hardware o de decisión:** T379 (spike con TV real), T397 (móvil con TLS) y T398 (el
