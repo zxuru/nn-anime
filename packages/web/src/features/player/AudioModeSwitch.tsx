@@ -3,7 +3,8 @@
  *
  * Subtitulado o doblado: es una elección que se cambia a menudo —hay títulos con
  * el doblado incompleto— y por eso vive **fuera** del menú de ajustes, en la fila
- * de mandos bajo el reproductor, además de dentro del menú.
+ * de mandos bajo el reproductor. Tener una segunda copia dentro del menú eran dos
+ * mandos con el mismo nombre accesible y dos formas de cambiar lo mismo.
  *
  * Son dos botones con `aria-pressed` y no un `<select>`: el estado se ve sin
  * abrir nada, que es lo que hace falta cuando el episodio arranca en el modo

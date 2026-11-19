@@ -499,11 +499,9 @@ export function WatchPage(props: WatchPageProps): ReactNode {
             poster={portada}
             plate={<PlayerPlate poster={portada} title={tituloAnime} episode={etiquetaEpisodio} />}
             tracks={pistas}
-            // El modo de audio y el reproductor externo son de la pantalla, no
-            // del elemento de video: el menú de ajustes del reproductor los
-            // recibe para no tener una segunda copia del estado.
-            mode={modo}
-            onMode={cambiarModo}
+            // El reproductor externo es de la pantalla, no del elemento de
+            // video: el menú de ajustes del reproductor lo recibe para no tener
+            // una segunda copia del estado.
             onMpv={mpv.abrir}
             autoplay={autoplay}
             onAutoplay={cambiarAutoplay}
