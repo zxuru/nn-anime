@@ -24,7 +24,9 @@ export interface UseCastControlOptions {
   /** La posición desde la que empieza la TV. */
   readonly positionS: number
   /** Pistas de subtítulos que el reproductor local tiene cargadas. */
-  readonly tracks?: readonly { readonly url: string; readonly lang: string; readonly label: string }[] | undefined
+  readonly tracks?:
+    | readonly { readonly url: string; readonly lang: string; readonly label: string }[]
+    | undefined
 }
 
 export interface CastControlHandle {

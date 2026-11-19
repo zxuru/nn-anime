@@ -113,7 +113,8 @@ export function crearCastSesion(sdk: CastSdk, onEstado: (estado: CastEstado) => 
   }
 
   return {
-    async iniciar(url, kind, meta, startAtS, subtitles = []) {      try {
+    async iniciar(url, kind, meta, startAtS, subtitles = []) {
+      try {
         sdk.context.setOptions({
           receiverApplicationId: sdk.receiverId,
           autoJoinPolicy: 'origin_scoped',

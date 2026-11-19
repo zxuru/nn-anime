@@ -169,7 +169,8 @@ describe('POST /api/cast/session', () => {
     })
   })
 
-  test('sin RONA_CAST, sin LAN o sin token no emite nada', async () => {    const casos = [
+  test('sin RONA_CAST, sin LAN o sin token no emite nada', async () => {
+    const casos = [
       { enabled: false, host: '0.0.0.0', token: true },
       { enabled: true, host: '127.0.0.1', token: true },
       { enabled: true, host: '0.0.0.0', token: false },

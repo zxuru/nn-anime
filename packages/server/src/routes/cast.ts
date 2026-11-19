@@ -237,7 +237,9 @@ export function registerCastSessionRoutes(
       const fuente = resultado.value.value[0]
       if (fuente === undefined) {
         return c.json(
-          errorResponseSchema.parse({ error: 'el proveedor no dio ninguna fuente para la emisión' }),
+          errorResponseSchema.parse({
+            error: 'el proveedor no dio ninguna fuente para la emisión',
+          }),
           502,
         )
       }

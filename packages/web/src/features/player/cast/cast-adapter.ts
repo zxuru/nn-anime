@@ -37,7 +37,10 @@ interface MediaNamespace {
   MediaInfo: new (contentId: string, contentType: string) => MediaInfoReal
   LoadRequest: new (media: MediaInfoReal) => LoadRequestReal
   GenericMediaMetadata: new () => { title?: string; subtitle?: string; images?: unknown[] }
-  Track: new (trackId: number, trackType: string) => {
+  Track: new (
+    trackId: number,
+    trackType: string,
+  ) => {
     trackContentId?: string
     trackContentType?: string
     name?: string

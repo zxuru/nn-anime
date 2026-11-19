@@ -68,9 +68,7 @@ export interface CastSessionLike {
   loadMedia(request: CastLoadRequest): Promise<unknown> | unknown
   endSession(stopCasting: boolean): void
   getCastDevice(): { friendlyName?: string } | undefined
-  getMedia?():
-    | { setActiveTrackIds?: ((ids: readonly number[]) => void) | undefined }
-    | undefined
+  getMedia?(): { setActiveTrackIds?: ((ids: readonly number[]) => void) | undefined } | undefined
 }
 
 /** El `CastContext` del SDK. */
