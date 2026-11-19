@@ -1,9 +1,6 @@
 {
   "lockfileVersion": 2,
   "configVersion": 1,
-  "patchedDependencies": {
-    "picomatch@4.0.7": "patches/picomatch@4.0.7.patch",
-  },
   "workspaces": {
     "": {
       "name": "rona",
@@ -14,7 +11,6 @@
       "devDependencies": {
         "@biomejs/biome": "^2.6.7",
         "@playwright/test": "^1.65.0",
-        "picomatch": "4.0.7",
         "@rona/catalog-store": "workspace:*",
         "@rona/core": "workspace:*",
         "@rona/media-proxy": "workspace:*",
@@ -23,12 +19,13 @@
         "@rona/server": "workspace:*",
         "@tauri-apps/cli": "^2",
         "@types/bun": "^1.4.4",
+        "picomatch": "4.0.7",
         "typescript": "^7.0.2",
       },
     },
     "packages/catalog-store": {
       "name": "@rona/catalog-store",
-      "version": "0.8.0",
+      "version": "0.10.0",
       "dependencies": {
         "@rona/core": "workspace:*",
         "zod": "^4",
@@ -36,7 +33,7 @@
     },
     "packages/cli": {
       "name": "@rona/cli",
-      "version": "0.8.0",
+      "version": "0.10.0",
       "bin": {
         "rona": "./bin/rona",
       },
@@ -50,14 +47,14 @@
     },
     "packages/core": {
       "name": "@rona/core",
-      "version": "0.8.0",
+      "version": "0.10.0",
       "dependencies": {
         "zod": "^4",
       },
     },
     "packages/media-proxy": {
       "name": "@rona/media-proxy",
-      "version": "0.8.0",
+      "version": "0.10.0",
       "dependencies": {
         "@rona/core": "workspace:*",
         "mux.js": "^6.3.0",
@@ -65,7 +62,7 @@
     },
     "packages/provider-sdk": {
       "name": "@rona/provider-sdk",
-      "version": "0.8.0",
+      "version": "0.10.0",
       "dependencies": {
         "@rona/core": "workspace:*",
         "zod": "^4",
@@ -73,7 +70,7 @@
     },
     "packages/providers-fixture": {
       "name": "@rona/providers-fixture",
-      "version": "0.8.0",
+      "version": "0.10.0",
       "dependencies": {
         "@rona/core": "workspace:*",
         "@rona/provider-sdk": "workspace:*",
@@ -82,14 +79,14 @@
     },
     "packages/recsys": {
       "name": "@rona/recsys",
-      "version": "0.8.0",
+      "version": "0.10.0",
       "dependencies": {
         "@rona/core": "workspace:*",
       },
     },
     "packages/server": {
       "name": "@rona/server",
-      "version": "0.8.0",
+      "version": "0.10.0",
       "dependencies": {
         "@rona/catalog-store": "workspace:*",
         "@rona/core": "workspace:*",
@@ -105,7 +102,7 @@
     },
     "packages/web": {
       "name": "@rona/web",
-      "version": "0.8.0",
+      "version": "0.10.0",
       "dependencies": {
         "@rona/core": "workspace:*",
         "driver.js": "^1.14.0",
@@ -123,6 +120,9 @@
         "vite": "^8",
       },
     },
+  },
+  "patchedDependencies": {
+    "picomatch@4.0.7": "patches/picomatch@4.0.7.patch",
   },
   "packages": {
     "@babel/runtime": ["@babel/runtime@7.29.10", "", {}, "sha512-NpugTzbKgGrNe45Ui32cN8vCFFMxVtP/9rtfwv0nP5FRDAjvYBxJcLVpYA9mr1jxP6cnIT7x9LUzuDTbWYYNRA=="],
