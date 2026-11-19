@@ -1,8 +1,9 @@
 # Propuesta — retransmitir a la TV (D6) y el PiP a la vista
 
 **Sobre** `main` en `d54cbed` (después de T373; T372 aún en curso). **Origen:** petición del dueño
-del producto, 2026-11-19: «quiero poder utilizar el sistema PiP» y «retransmitir a otros dispositivos
-tipo transmitir a otros dispositivos».
+del producto, 2026-11-19: «quiero poder utilizar el sistema PiP», «retransmitir a otros dispositivos
+tipo transmitir a otros dispositivos» y, al concretar el alcance, «quiero el cast completo en lo
+posible».
 
 **Estado:** **propuesta, pendiente de aprobación humana.** Abierta el 2026-11-19 por T375. La
 decisión **D6** no se cierra hasta que el spike **T379** mida un Chromecast real. Mientras tanto no
@@ -23,7 +24,7 @@ Toca **`SPEC-web-ui`** (mando de PiP, mando de emisión, CSP) y, en la parte de 
    flotante y no conoce la variante WebKit. Quien pide «poder usar el PiP» no lo encuentra.
 3. **La alternativa barata no cubre el caso real.** Chrome de escritorio no implementa Remote
    Playback para `MediaSource` y el HLS del reproductor usa `hls.js`; el camino sin SDK sirve para
-   AirPlay con fuentes `file`, no para el catálogo entero.
+   AirPlay en Safari (HLS nativo y MP4), pero no para Chrome de escritorio ni para el HLS con MSE.
 4. **El modo LAN ya existe.** `RONA_HOST=0.0.0.0` + `RONA_TOKEN` es la puerta que usa watch party y
    la que puede usar la TV. Lo que falta es una credencial que la TV pueda presentar sin cookie y una
    dirección que no sea `127.0.0.1`.
@@ -34,17 +35,17 @@ Toca **`SPEC-web-ui`** (mando de PiP, mando de emisión, CSP) y, en la parte de 
 |---|---|---|---|---|
 | Qué alcanza | Chromecast y Android TV con Cast | AirPlay (Safari) y Cast en Chrome Android | Televisiones con DLNA | Otra instancia de RoNa o un navegador |
 | Chrome de escritorio | **Sí** | **No** (Chrome lo limita; el HLS con MSE no se puede mandar) | Sí, por el servidor | Sí |
-| HLS | Sí (lo reproduce el receptor) | No con `MediaSource` | Muchos televisores no | Sí, cada uno con su fuente |
+| HLS | Sí (lo reproduce el receptor) | No con `MediaSource`; en Safari, HLS nativo sí | Muchos televisores no | Sí, cada uno con su fuente |
 | Guion de terceros | **Sí** (`gstatic`) | No | No | No |
 | Contexto seguro | El emisor; loopback vale | El emisor; loopback vale | No | No |
 | CORS | A medir en T379 | A medir | No | No |
 | Coste | Medio | Bajo | Alto (SSDP, SOAP, AVTransport) | Ya existe el transporte de la sala |
 | Riesgo nuevo | CSP + confianza en Google | Ninguno | Red local + XML | Ninguno |
 
-**Recomendación:** **Cast SDK para Chromecast**, detrás de `RONA_CAST=1`; **Remote Playback sólo para
-AirPlay con `file`** (T387) y **DLNA fuera de la v1**. La razón es la única que ordena el resto: el
-HLS del catálogo no se puede emitir sin SDK, y el usuario que pide «transmitir» tiene una TV, no otra
-pestaña de RoNa.
+**Recomendación:** **Cast SDK para Chromecast**, detrás de `RONA_CAST=1`; **Remote
+Playback/AirPlay completo para Safari** (HLS y MP4) y **DLNA sólo como propuesta T392**. La razón es
+la única que ordena el resto: el HLS del catálogo no se puede emitir sin SDK, y el usuario que pide
+«transmitir» tiene una TV, no otra pestaña de RoNa.
 
 **Lo que no puede afirmarse todavía:** si el Chromecast acepta un `http://192.168.x.x` sin TLS, si
 exige `Access-Control-Allow-Origin`, si el receptor pide `frame-src` o si el HLS del proxy se
@@ -54,7 +55,9 @@ reproduce tal cual. Eso es T379 y no se escribe código de producción antes.
 
 La interfaz gana un mando de PiP **en el marco** y un mando de **transmitir** que sólo aparece cuando
 `GET /api/cast/info` dice que hay una dirección alcanzable y `RONA_CAST=1`. Al transmitir, el
-servidor emite una URL de LAN con ticket revocable; la TV la pide sin cookie; al parar, se revoca.
+servidor emite una URL de LAN con ticket revocable; la TV la pide sin cookie; al parar, se revoca. La
+TV se comporta como una salida más del reproductor: los mismos mandos, los subtítulos, el progreso,
+los saltos, el siguiente episodio y la reconexión.
 
 ## Contrato de la interfaz
 
@@ -69,24 +72,74 @@ servidor emite una URL de LAN con ticket revocable; la TV la pide sin cookie; al
   `webkitSupportsPresentationMode('picture-in-picture')`. Sin ninguna de las dos, no hay mando.
 - El PiP no cambia la CSP, ni el contrato HTTP, ni el modelo de datos.
 
-### Transmitir (T380–T385)
+### Transmitir (T380–T390)
 
 - `GET /api/cast/info` (sólo con sesión normal):
   `{ available: boolean, urls: string[], reason?: 'disabled' | 'loopback' | 'no-token' }`.
   `urls` son `http://<ipv4>:<puerto>`; `available` exige `RONA_CAST=1`, host no loopback y
   `RONA_TOKEN`. Un ticket de emisión **no** abre esta ruta.
 - `POST /api/cast/session` con `{ providerId, episodeRef, mode }`:
-  `{ id, kind, urls, expiresAt, title, poster? }`. El servidor resuelve el stream; el cliente nunca
-  manda una URL. `urls` son la misma emisión por cada IPv4 útil.
-- `DELETE /api/cast/session/:id`: revoca. Un ticket revocado o vencido da 404/410; no hay rama
-  «vieja servible».
-- La interfaz no ofrece el mando si `available` es `false`, si el SDK no cargó o si el dispositivo no
-  tiene sesión. Un botón que sólo puede fallar es peor que no tenerlo.
+  `{ id, kind, urls, expiresAt, title, poster?, subtitles: [] }`. El servidor resuelve el stream; el
+  cliente nunca manda una URL. `urls` son la misma emisión por cada IPv4 útil.
+- `DELETE /api/cast/session/:id`: revoca el video y los subtítulos. Un ticket revocado o vencido da
+  404/410; no hay rama «vieja servible».
+- La interfaz no ofrece el mando si `available` es `false`, si el SDK no cargó o si el SDK dice que
+  no hay dispositivos. Un botón que sólo puede fallar es peor que no tenerlo.
 - Al conectar, el video local se pausa y se anuncia «Se está viendo en {dispositivo}» con
   `aria-live="polite"`. Al parar, se revoca, se reanuda en la posición del receptor y el foco vuelve
   al mando.
 - Sin `RONA_CAST=1`: no se anuncia, no se pide `gstatic`, la CSP no cambia y las rutas de emisión no
   emiten nada (409 con motivo).
+
+#### Mandos (T384a)
+
+- Con una emisión conectada, el reproductor usa **un solo conductor**: el `<video>` local o el
+  receptor. Los mismos botones, la misma barra, las mismas teclas y el mismo reloj.
+- `play/pausa`, `±10 s`, buscar, silencio, volumen, velocidad, salto de intro y `Espacio`, `K`,
+  flechas, `M`, `S`, `T` llaman al receptor cuando hay cast.
+- El video local se pausa y se oculta tras una capa «Se está viendo en {dispositivo}»; no hay dos
+  reproducciones ni dos descargas.
+- Si el SDK no soporta velocidad o volumen, el mando se oculta o se explica; no se pulsa en el vacío.
+- Cambiar de audio (sub/dub) mientras se emite pide otra sesión con el modo nuevo, conserva la
+  posición y recarga el receptor; no se queda con el audio viejo.
+- `onPlay`, `onPause`, `onProgress`, `onDuration` y `onEnded` salen del estado del cast, para que el
+  historial y la presencia sigan funcionando.
+
+#### Subtítulos (T388)
+
+- La sesión devuelve `subtitles: [{ id, url, lang, label }]` con URLs absolutas de LAN y tickets
+  revocables; cada subtítulo es un ticket de emisión.
+- `loadMedia` lleva `tracks` (`SUBTITLES`, `text/vtt`, idioma, nombre) y `activeTrackIds` con la
+  pista elegida; el usuario puede cambiarla.
+- La pista por defecto es la misma que la local; sin pistas, no se manda ninguna.
+- Si el receptor no pinta VTT, se oculta el selector de la TV y se dice; no se promete.
+
+#### Progreso, saltos y siguiente (T389)
+
+- La posición del receptor alimenta el historial cada 15 s y al pausar, buscar y parar.
+- El salto automático de intro/ending y el botón de saltar usan la posición del cast, una vez por
+  intervalo y episodio.
+- Al terminar, la reproducción automática emite el siguiente episodio; si está apagada, se muestra
+  la tarjeta del siguiente sin cortar la sesión.
+- La presencia de Discord sigue el estado del cast por los mismos callbacks.
+
+#### Reconexión (T390)
+
+- Al iniciar una emisión se guarda una marca local; al abrir `/watch` con la marca y `RONA_CAST=1` se
+  carga el SDK y se adopta la sesión con `getCurrentSession`. Sin marca no se carga el guion.
+- Si la sesión sigue viva, se reconstruyen aviso y mandos sin pedir un ticket nuevo; si terminó, se
+  limpia la marca y se reanuda local.
+- Un fallo de red no deja el aviso en «conectado» para siempre.
+
+#### AirPlay (T387)
+
+- Safari reproduce HLS nativo y MP4; la emisión usa un `<video>` oculto con la URL absoluta y
+  `video.remote`; si no existe, `webkitShowPlaybackTargetPicker` y los eventos
+  `webkitcurrentplaybacktargetiswireless`.
+- El video local se pausa; los mandos y la posición se reflejan en el reproductor; al desconectar se
+  reanuda en la posición remota.
+- Los subtítulos se ofrecen con URLs absolutas si Safari los pinta; si no, se ocultan y se dice.
+- Sin Apple TV o AirPlay 2 no se declara medido; se mide con dobles.
 
 ### CSP
 
@@ -131,19 +184,23 @@ El detalle y los casos de prueba están en [`SPEC-media-proxy.T375.md`](SPEC-med
 | Un origen ajeno usa el cast | `GET/POST/DELETE /api/cast/*` pasan por los guards de sesión, `Host` y `Origin` como el resto |
 | La URL de la emisión acaba en un log | El ticket se redacta como hoy; la respuesta no se registra; el `Referer` es `no-referrer` |
 | El receptor pide la URL del upstream | La URL sólo contiene el ticket; los headers del proveedor se quedan en el proceso |
+| Un subtítulo de la TV abre algo más que su pista | Ticket propio por pista, 192 bits, revocable con la sesión, sólo `/stream` y `text/vtt`; nunca `/api` |
+| La reconexión carga Google sin un gesto | Sólo si hay una marca local de emisión anterior y `RONA_CAST=1`; sin marca no se pide el guion; la CSP sigue acotada |
 
 ## Lo que no entra
 
-- **Subtítulos en la TV.** Los `<track>` apuntan al proxy local; la TV no los pide. La v1 emite
-  imagen y sonido y lo dice en la interfaz.
-- **Descargas locales.** Su ruta no tiene ticket de emisión; se abre otra tarea si se quiere.
-- **Emitir desde el móvil.** La interfaz se abre por `http://192.168...`, que no es contexto seguro;
-  el SDK no está y el mando no aparece. Se dice; exigiría TLS.
+- **DLNA implementado.** Sólo propuesta y spike (T392); la pila SSDP/SOAP no entra sin su propia
+  decisión.
+- **Descargas locales en la TV.** Su ruta no tiene ticket de emisión; T393 es una propuesta y la v1
+  emite lo que resuelve el proveedor.
+- **Emisor móvil sin TLS.** Chrome de Android exige contexto seguro; T391 mide y documenta la vía TLS
+  con un certificado de confianza, pero no se promete si el Chromecast no confía en él.
 - **La app de escritorio.** WebView2 no trae el ecosistema de Cast del navegador; T378 lo mide y, si
   no, se ofrece abrir en el navegador. No se promete.
-- **DLNA.** Se puede proponer después con su propio spike; no se mezcla con esta fase.
 - **Cuentas, perfiles o historial en la TV.** La TV es un reproductor tonto: no tiene sesión, no
   escribe historial y no conoce la biblioteca.
+- **DRM y directos.** No hay DRM en el catálogo y el HLS es VOD; si aparece un directo, se abre otra
+  tarea.
 
 ## Criterios de éxito
 
@@ -152,10 +209,17 @@ El detalle y los casos de prueba están en [`SPEC-media-proxy.T375.md`](SPEC-med
 2. Con `RONA_CAST=1` y LAN, `GET /api/cast/info` dice `available: true` y al menos una URL; en
    loopback o sin token dice `false` con el motivo.
 3. Un Chromecast real reproduce un MP4 y un HLS servidos por el proxy; el informe de T379 dice si
-   hizo falta CORS o HTTPS y con qué cabeceras.
+   hizo falta CORS/CORP o HTTPS y con qué cabeceras.
 4. La TV pide la URL **sin cookie**; al parar, la misma URL da 404/410 y el test lo mide con un
    receptor falso.
-5. El PiP aparece una sola vez, en el marco, con el nombre y el estado correctos; sin soporte no
+5. Los mandos del reproductor controlan la TV (play, pausa, buscar, volumen, velocidad, saltos); el
+   video local queda pausado y se reanuda al desconectar.
+6. Los subtítulos viajan como pistas VTT con URL absoluta y ticket propio; el receptor los pide sin
+   cookie y el usuario puede cambiarlos.
+7. El progreso llega al historial, el salto de intro y el siguiente episodio se disparan desde la
+   posición de la TV, y recargar reconecta la sesión.
+8. AirPlay reproduce HLS y MP4 en Safari, o se declara no medido por falta de hardware.
+9. El PiP aparece una sola vez, en el marco, con el nombre y el estado correctos; sin soporte no
    aparece; la rama WebKit se mide con dobles y la real se declara si no hay hardware.
-6. `typecheck`, `lint`, `bun test`, `bun run e2e` y `coverage:gate` en verde; `SECURITY.md` con las
-   filas nuevas; ninguna afirmación sin medición.
+10. `typecheck`, `lint`, `bun test`, `bun run e2e` y `coverage:gate` en verde; `SECURITY.md` con las
+    filas nuevas; ninguna afirmación sin medición.
