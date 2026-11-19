@@ -2107,32 +2107,29 @@ body.player-extendido {
  * ver el episodio. Aquí es un encabezado más: una línea, con puntos suspensivos
  * si el nombre no cabe, y el episodio debajo.
  */
+/*
+ * El encabezado, en dos columnas: el nombre y sus mandos.
+ *
+ * Los mandos van en el flujo y no anclados: un bloque absoluto no reserva su
+ * hueco, así que el selector de la descarga crecía hacia abajo y caía sobre el
+ * vídeo. La columna del texto cede y el titular se corta con puntos suspensivos
+ * antes de tocar los mandos, que es lo que mantiene el encabezado en una línea.
+ */
 .watch__head {
-  position: relative;
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+}
+
+.watch__head-text {
+  display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-1);
-}
-
-/*
- * El botón de descarga vive anclado al encabezado.
- *
- * La sala se mide contra el alto de la ventana; un bloque más debajo del
- * encabezado empujaba la página y rompía el «cabe en una ventana». Anclado no
- * ocupa altura, y el encabezado ya tiene el aire a la derecha.
- */
-.watch__download {
-  position: absolute;
-  top: 0;
-  right: 0;
-}
-
-.watch__download .downloads__button {
-  /* En la cabecera de la reproducción el grupo va en columna: el selector de
-     audio y el botón en fila ocupan el ancho del titular y tapaban el enlace de
-     volver. Apilados, el rincón sigue siendo suyo. */
-  flex-direction: column;
-  align-items: flex-end;
+  /* Sin esto el ancho mínimo del titular —una palabra larga— empuja los mandos
+     y el encabezado desborda en vez de recortar. */
+  min-inline-size: 0;
 }
 
 /* El titular de la aplicación es `h1`, así que el nombre del título tiene que

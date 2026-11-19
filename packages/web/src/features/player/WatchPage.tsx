@@ -179,32 +179,39 @@ export function WatchPage(props: WatchPageProps): ReactNode {
    */
   const encabezado = (
     <header className="watch__head">
-      <Link
-        className="watch__back"
-        to={buildPath('detail', { providerId: props.providerId, ref: animeRef.value })}
-        state={estadoFicha}
-      >
-        {t(DEFAULT_LOCALE, 'player.backToDetail')}
-      </Link>
-      <h1>{tituloAnime ?? t(DEFAULT_LOCALE, 'title.loading')}</h1>
-      {lineaEpisodio === undefined ? null : (
-        <p className="watch__episode">
-          {lineaEpisodio}
-          {mostrarReanudar ? (
-            <span className="watch__resume">
-              {' · '}
-              {t(DEFAULT_LOCALE, 'player.resume', { time: formatTime(reanudaEn ?? 0) })}{' '}
-              <button type="button" className="watch__restart" onClick={empezarDeCero}>
-                {t(DEFAULT_LOCALE, 'player.resume.restart')}
-              </button>
-            </span>
-          ) : null}
-        </p>
-      )}
-      {/* «Ver juntos» y la descarga van anclados al encabezado, en una fila:
-          la sala se mide contra la ventana y un bloque más debajo empujaba la
-          página. El botón abre el panel de la sala; la descarga es la misma de
-          siempre. El botón de la sala sólo existe si el servidor la tiene
+      {/* El nombre y su episodio en una columna que cede: el titular se corta
+          con puntos suspensivos antes de llegar a los mandos. Antes los mandos
+          iban anclados en absoluto sobre un encabezado que no reservaba su
+          hueco, y el titular largo se metía debajo. */}
+      <div className="watch__head-text">
+        <Link
+          className="watch__back"
+          to={buildPath('detail', { providerId: props.providerId, ref: animeRef.value })}
+          state={estadoFicha}
+        >
+          {t(DEFAULT_LOCALE, 'player.backToDetail')}
+        </Link>
+        <h1>{tituloAnime ?? t(DEFAULT_LOCALE, 'title.loading')}</h1>
+        {lineaEpisodio === undefined ? null : (
+          <p className="watch__episode">
+            {lineaEpisodio}
+            {mostrarReanudar ? (
+              <span className="watch__resume">
+                {' · '}
+                {t(DEFAULT_LOCALE, 'player.resume', { time: formatTime(reanudaEn ?? 0) })}{' '}
+                <button type="button" className="watch__restart" onClick={empezarDeCero}>
+                  {t(DEFAULT_LOCALE, 'player.resume.restart')}
+                </button>
+              </span>
+            ) : null}
+          </p>
+        )}
+      </div>
+      {/* «Ver juntos» y la descarga, en la misma fila del encabezado: la sala se
+          mide contra la ventana y un bloque más debajo empujaba la página. El
+          botón abre el panel de la sala; la descarga es la misma de siempre y
+          hereda el modo que se está viendo, para no descargar el contrario de lo
+          que suena. El botón de la sala sólo existe si el servidor la tiene
           montada: sin `party` en el health, un panel aquí sólo puede fallar. */}
       <div className="watch__actions">
         {muestraBotonSala(sala) ? (
@@ -219,13 +226,12 @@ export function WatchPage(props: WatchPageProps): ReactNode {
             {t(DEFAULT_LOCALE, 'party.open')}
           </button>
         ) : null}
-        <div className="watch__download">
-          <DownloadButton
-            providerId={props.providerId}
-            animeRef={animeRef}
-            episodeRef={episodeRef}
-          />
-        </div>
+        <DownloadButton
+          providerId={props.providerId}
+          animeRef={animeRef}
+          episodeRef={episodeRef}
+          mode={modo}
+        />
       </div>
     </header>
   )

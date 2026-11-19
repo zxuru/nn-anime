@@ -8,9 +8,12 @@
  *
  * **El audio se elige antes de descargar.** Una descarga no se puede cambiar de
  * modo después sin volver a bajarla entera, así que cuando la fuente declara las
- * dos capacidades el botón enseña el mismo conmutador que el reproductor. Si sólo
- * declara una —o si no se pudo leer el catálogo de proveedores— no se pregunta:
- * se manda la que hay, y el servidor resuelve con ella.
+ * dos capacidades el botón puede ofrecer el conmutador. En el reproductor no lo
+ * ofrece: la pantalla ya tiene el suyo bajo el vídeo y dos selectores con el
+ * mismo dato se contradicen en cuanto se toca uno. Ahí el botón hereda el modo
+ * con `mode` y descarga exactamente lo que se está viendo. Si la fuente sólo
+ * declara una capacidad —o si no se pudo leer el catálogo de proveedores— no se
+ * pregunta: se manda la que hay, y el servidor resuelve con ella.
  *
  * Lo que falle se cuenta en el `title` del botón —el tooltip del navegador— y no
  * en un párrafo al lado: el botón vive anclado al encabezado del reproductor y un
@@ -34,6 +37,22 @@ export interface DownloadButtonProps {
   readonly providerId: string
   readonly animeRef: ProviderRef
   readonly episodeRef: ProviderRef
+  /**
+   * El modo que manda la pantalla, cuando ya tiene uno.
+   *
+   * El reproductor resuelve un solo modo para todo lo que se ve —el del stream—
+   * y la descarga no puede tener su propia copia: bajaría el contrario de lo que
+   * suena. Con `mode` y sin `onMode`, el botón no pinta conmutador; el dueño del
+   * dato lo pone fuera.
+   */
+  readonly mode?: PlayMode | undefined
+  /**
+   * Si el botón ofrece el conmutador, a quién avisa de la elección.
+   *
+   * Sin esto no hay selector: es lo que distingue un botón que pregunta de uno
+   * que sólo descarga lo que le dicen.
+   */
+  readonly onMode?: ((mode: PlayMode) => void) | undefined
 }
 
 type Estado = 'listo' | 'guardando' | 'hecho' | 'error'
@@ -160,11 +179,11 @@ export interface BotonDeDescargaProps {
  * en el tooltip. Sólo se cierra mientras guarda —para no pedir dos veces— y una
  * vez en cola, porque la descarga ya está apuntada.
  *
- * El conmutador es el del reproductor —`AudioModeSwitch`— y no una copia: son los
- * mismos dos botones con `aria-pressed`, y tener dos formas de decir «sub/dub»
- * obligaría a mantener el mismo texto y el mismo comportamiento en dos sitios.
- * Sólo se pinta cuando la fuente declara las dos capacidades: con una sola, el
- * botón no pregunta lo que no se puede elegir.
+ * El conmutador es el mismo `AudioModeSwitch` y no una copia: son los mismos dos
+ * botones con `aria-pressed`, y tener dos formas de decir «sub/dub» obligaría a
+ * mantener el mismo texto y el mismo comportamiento en dos sitios. Sólo se pinta
+ * cuando hay a quién avisar de la elección (`onMode`) y la fuente declara las
+ * dos capacidades: con una sola, el botón no pregunta lo que no se puede elegir.
  */
 export function BotonDeDescarga(props: BotonDeDescargaProps): ReactNode {
   const { mode, onMode, modes } = props
@@ -203,7 +222,14 @@ export function DownloadButton(props: DownloadButtonProps): ReactNode {
   const [mensaje, setMensaje] = useState<string | undefined>()
   const [preferido, setPreferido] = useState<PlayMode | undefined>()
   const modos = useModosDelProveedor(props.providerId)
-  const modo = modoDeAudio(modos, preferido)
+  /*
+    El modo de la pantalla manda sobre la elección local. Si la pantalla lo fija
+    pero no ofrece el conmutador —el caso del reproductor—, el botón no pinta uno
+    segundo: sería otro mando para el mismo dato, y el que no se ve en el momento
+    de pulsar «Descargar» es el que se queda con el valor viejo.
+  */
+  const modo = modoDeAudio(modos, props.mode ?? preferido)
+  const onMode = props.onMode ?? (props.mode === undefined ? setPreferido : undefined)
 
   const descargar = async (): Promise<void> => {
     setEstado('guardando')
@@ -228,7 +254,7 @@ export function DownloadButton(props: DownloadButtonProps): ReactNode {
       {...(mensaje === undefined ? {} : { mensaje })}
       modes={modos}
       mode={modo}
-      onMode={setPreferido}
+      onMode={onMode}
       onDescargar={() => void descargar()}
     />
   )
