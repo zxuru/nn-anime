@@ -194,8 +194,24 @@ test.describe('la home', () => {
    * caja se entere. El lienzo da las dos medidas que hacen falta —lo que sube la
    * fuente sobre su línea base y lo que sube el dibujo de estos dígitos—, y de ahí
    * sale dónde empieza la tinta de verdad.
+   *
+   * La fila se da de comer aquí y no se lee de la base: la home quita del top lo
+   * que ya sale en el destacado y en las recomendaciones, y el motor depende de lo
+   * que hayan dejado otras pruebas en la base compartida. Con los cinco puestos del
+   * fixture, esa resta podía dejar uno —o ninguno mientras el top seguía en
+   * esqueleto—, y la prueba medía otra cosa. Los títulos inventados no colisionan
+   * con el catálogo, así que la fila llega entera.
    */
   test('el puesto del top cabe entero en la pieza', async ({ page }) => {
+    const items = Array.from({ length: 12 }, (_, indice) => ({
+      ref: { providerId: 'fixture', value: `puesto-${indice + 1}` },
+      title: `Puesto ${indice + 1}`,
+    }))
+
+    await page.route('**/api/trending**', async (ruta) => {
+      await ruta.fulfill({ json: { items } })
+    })
+
     await entrar(page)
     await esperarApp(page)
 
@@ -208,8 +224,18 @@ test.describe('la home', () => {
     const top = page.locator('.seccion', {
       has: page.getByRole('heading', { name: 'Top', exact: true }),
     })
+    const tarjetas = top.locator('.pz:not(.pz--mando)')
 
-    const medidas = await top.locator('.pz:not(.pz--mando)').evaluateAll((piezas) =>
+    // El tramo se mide cuando está pintado, no cuando el shell aparece: antes de
+    // que lleguen las filas, el top es un esqueleto sin cifras.
+    await expect(tarjetas).toHaveCount(10)
+
+    // «10» ya está a la vista; «11» y «12» salen al desplegar, y son la cifra que
+    // la prueba documenta. El mando del top no es un puesto.
+    await top.getByRole('button', { name: 'Mostrar más' }).click()
+    await expect(tarjetas).toHaveCount(items.length)
+
+    const medidas = await tarjetas.evaluateAll((piezas) =>
       piezas.map((pieza) => {
         const cifra = pieza.querySelector('.pz__posicion')
         if (cifra === null) return null
@@ -247,7 +273,7 @@ test.describe('la home', () => {
 
     const numeradas = medidas.filter((medida) => medida !== null)
 
-    expect(numeradas.length).toBeGreaterThan(2)
+    expect(numeradas.length).toBe(items.length)
 
     for (const medida of numeradas) {
       expect(medida.texto, 'una pieza del top sin su cifra').not.toBe('')
