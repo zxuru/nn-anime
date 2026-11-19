@@ -105,10 +105,17 @@ describe('POST /api/cast/session', () => {
       expect(emision.title).toBe('Aurora nocturna')
       expect(emision.urls).toHaveLength(1)
       expect(emision.urls[0]).toStartWith(`http://192.168.1.10:${PORT}/stream/`)
+      expect(emision.subtitles.length).toBeGreaterThan(0)
+      expect(emision.subtitles[0]?.url).toContain('/sub/0')
 
       const ruta = new URL(emision.urls[0] ?? '').pathname
       const ticket = ruta.split('/')[2] ?? ''
       expect(container.castTickets.resolve(ticket).ok).toBe(true)
+
+      const subtitulo = new URL(emision.subtitles[0]?.url ?? '').pathname
+      const vtt = await pedirSinSesion(subtitulo)
+      expect(vtt.status).toBe(200)
+      expect(vtt.headers.get('content-type')).toContain('text/vtt')
 
       // La TV no lleva cookie: el ticket es la credencial.
       const bytes = await pedirSinSesion(ruta)
@@ -122,6 +129,8 @@ describe('POST /api/cast/session', () => {
       // Sin cookie ya no pasa el guard; con cookie la ruta dice que no existe.
       expect((await pedirSinSesion(ruta)).status).toBe(401)
       expect((await pedir(ruta)).status).toBe(404)
+      expect((await pedirSinSesion(subtitulo)).status).toBe(401)
+      expect((await pedir(subtitulo)).status).toBe(404)
     })
   })
 

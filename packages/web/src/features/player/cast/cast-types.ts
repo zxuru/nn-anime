@@ -68,6 +68,9 @@ export interface CastSessionLike {
   loadMedia(request: CastLoadRequest): Promise<unknown> | unknown
   endSession(stopCasting: boolean): void
   getCastDevice(): { friendlyName?: string } | undefined
+  getMedia?():
+    | { setActiveTrackIds?: ((ids: readonly number[]) => void) | undefined }
+    | undefined
 }
 
 /** El `CastContext` del SDK. */
@@ -89,6 +92,8 @@ export interface CastSdk {
   createMedia(url: string, kind: CastKind): CastMedia
   createLoadRequest(media: CastMedia): CastLoadRequest
   createMetadata?(meta: CastMetadata): unknown
+  /** Convierte una pista al objeto real del SDK; sin él, se manda tal cual. */
+  createTrack?(track: CastTrack): CastTrack
 }
 
 /** Lo que la interfaz pinta del receptor. */
@@ -101,6 +106,7 @@ export interface CastEstado {
   readonly durationS: number
   readonly volume: number
   readonly muted: boolean
+  readonly activeTrackId: number | undefined
   readonly error: string | undefined
 }
 
@@ -113,5 +119,6 @@ export const CAST_ESTADO_INICIAL: CastEstado = {
   durationS: 0,
   volume: 1,
   muted: false,
+  activeTrackId: undefined,
   error: undefined,
 }

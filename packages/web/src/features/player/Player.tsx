@@ -133,6 +133,7 @@ export function Player(props: PlayerProps): ReactNode {
     ...(props.title === undefined ? {} : { title: props.title }),
     ...(props.poster === undefined ? {} : { poster: props.poster }),
     positionS: state.positionS,
+    tracks: pistas,
   })
   const enCast = cast.conectado && cast.sesion !== undefined
   const reproduciendo = enCast ? cast.estado.playing : state.playing
@@ -552,7 +553,27 @@ export function Player(props: PlayerProps): ReactNode {
           {t(DEFAULT_LOCALE, 'player.compat')}
         </button>
 
-        {subtitulos.opciones.length <= 1 ? null : (
+        {enCast ? (
+          pistas.length === 0 ? null : (
+            <div className="player__menu-block">
+              <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.tracks.pick')}</p>
+              <ul className="player__menu-list">
+                {pistas.map((pista, indice) => (
+                  <li key={pista.url}>
+                    <button
+                      type="button"
+                      className="button player__menu-choice"
+                      aria-pressed={cast.estado.activeTrackId === indice + 1}
+                      onClick={() => cast.sesion?.selectSubtitle(indice + 1)}
+                    >
+                      {pista.label === '' ? pista.lang : pista.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        ) : subtitulos.opciones.length <= 1 ? null : (
           <div className="player__menu-block">
             <p className="player__menu-title">{t(DEFAULT_LOCALE, 'player.tracks.pick')}</p>
             <ul className="player__menu-list">

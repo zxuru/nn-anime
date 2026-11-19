@@ -19,6 +19,7 @@ interface Doble {
   readonly opciones: { receiverApplicationId: string; autoJoinPolicy: string }[]
   readonly sesion: {
     end: boolean[]
+    tracks: number[][]
   }
   readonly llamadas: {
     playOrPause: number
@@ -34,6 +35,7 @@ function doble(device = 'Salón'): Doble {
   const load: CastLoadRequest[] = []
   const opciones: { receiverApplicationId: string; autoJoinPolicy: string }[] = []
   const end: boolean[] = []
+  const tracks: number[][] = []
   const llamadas = { playOrPause: 0, seek: 0, setVolumeLevel: 0, muteOrUnmute: 0 }
   const remote: CastRemotePlayer = {
     isPaused: true,
@@ -78,6 +80,11 @@ function doble(device = 'Salón'): Doble {
       end.push(stopCasting)
     },
     getCastDevice: () => ({ friendlyName: device }),
+    getMedia: () => ({
+      setActiveTrackIds: (ids) => {
+        tracks.push([...ids])
+      },
+    }),
   }
 
   const context: CastContextLike = {
@@ -115,7 +122,7 @@ function doble(device = 'Salón'): Doble {
     media,
     load,
     opciones,
-    sesion: { end },
+    sesion: { end, tracks },
     llamadas,
     emitir: (evento) => {
       for (const oyente of oyentes.get(evento) ?? []) oyente()
@@ -178,6 +185,30 @@ describe('la emisión', () => {
     expect(emision.estado().positionS).toBe(42)
     expect(emision.estado().durationS).toBe(120)
     expect(s.estados.at(-1)?.playing).toBe(true)
+  })
+
+  test('manda las pistas de subtítulos y activa la primera', async () => {
+    const d = doble()
+    const emision = crearCastSesion(d.sdk, () => {})
+
+    await emision.iniciar('/stream/abc', 'hls', {}, 0, [
+      {
+        trackId: 1,
+        trackContentId: 'http://192.168.1.10:7717/stream/sub/0',
+        trackContentType: 'text/vtt',
+        subtype: 'SUBTITLES',
+        name: 'Español',
+        language: 'es',
+      },
+    ])
+
+    expect(d.media[0]?.tracks).toHaveLength(1)
+    expect(d.media[0]?.tracks[0]?.name).toBe('Español')
+    expect(d.media[0]?.activeTrackIds).toEqual([1])
+
+    emision.selectSubtitle(4)
+    expect(d.sesion.tracks).toEqual([[4]])
+    expect(emision.estado().activeTrackId).toBe(4)
   })
 
   test('los mandos hablan con el receptor', async () => {

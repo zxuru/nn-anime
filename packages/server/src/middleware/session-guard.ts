@@ -52,12 +52,16 @@ export interface SessionGuardOptions {
   readonly tickets?: TicketStore | undefined
   /** Tickets de emisión: la TV no tiene cookie y también es cliente de `/stream`. */
   readonly castTickets?: TicketStore | undefined
+  /** Tickets de subtítulos de la emisión. */
+  readonly castSubtitleTickets?: TicketStore | undefined
 }
 
-/** ¿El ticket está vivo en alguno de los dos almacenes? */
+/** ¿El ticket está vivo en alguno de los tres almacenes? */
 function ticketVivo(ticket: string, options: SessionGuardOptions): boolean {
   return (
-    options.tickets?.resolve(ticket).ok === true || options.castTickets?.resolve(ticket).ok === true
+    options.tickets?.resolve(ticket).ok === true ||
+    options.castTickets?.resolve(ticket).ok === true ||
+    options.castSubtitleTickets?.resolve(ticket).ok === true
   )
 }
 

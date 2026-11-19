@@ -15,7 +15,18 @@ import {
   castSessionRequestSchema,
   castSessionResponseSchema,
   errorResponseSchema,
-} from '@rona/core'
+} from '@rona/core/api'
+import {
+  createPinnedFetch,
+  decodeSubtitle,
+  type FetchLike,
+  fetchAllowed,
+  MAX_SUBTITLE_BYTES,
+  type Resolver,
+  srtToVtt,
+  subtitleKind,
+  subtitleTooLarge,
+} from '@rona/media-proxy'
 import type { CallOptions, Provider } from '@rona/provider-sdk'
 import type { Hono } from 'hono'
 import type { ServerContainer } from '../container'
@@ -37,6 +48,8 @@ export interface CastSessionRouteOptions extends CastRouteOptions {
   readonly providers: readonly Provider[]
   readonly container: ServerContainer
   readonly timeoutMs?: number | undefined
+  readonly fetchImpl?: FetchLike | undefined
+  readonly resolver?: Resolver | undefined
 }
 
 /** El mismo plazo que resolver un stream: la emisión no inventa otro. */
@@ -146,7 +159,17 @@ export function registerCastSessionRoutes(
     }
 
     const datos = parsed.data
-    let origen: { readonly url: string; readonly headers: Readonly<Record<string, string>>; readonly kind: 'hls' | 'file' }
+    let origen: {
+      readonly url: string
+      readonly headers: Readonly<Record<string, string>>
+      readonly kind: 'hls' | 'file'
+    }
+    const pistasFuente: {
+      readonly url: string
+      readonly headers: Readonly<Record<string, string>>
+      readonly lang: string
+      readonly label: string
+    }[] = []
 
     if ('url' in datos) {
       // El reproductor manda el ticket que ya está usando: el servidor no
@@ -171,6 +194,21 @@ export function registerCastSessionRoutes(
         url: contenido.contents.url,
         headers: contenido.contents.headers,
         kind: datos.kind,
+      }
+
+      for (const pista of datos.subtitles ?? []) {
+        const ticketPista = pista.url.slice('/api/subtitles/'.length)
+        const deCast = options.container.castSubtitleTickets.resolve(ticketPista)
+        const deNormal = options.container.tickets.resolve(ticketPista)
+        const sub = deCast.ok ? deCast : deNormal
+        if (!sub.ok) continue
+
+        pistasFuente.push({
+          url: sub.contents.url,
+          headers: sub.contents.headers,
+          lang: pista.lang,
+          label: pista.label,
+        })
       }
     } else {
       const provider = findProvider(options.providers, datos.episodeRef.providerId)
@@ -209,6 +247,15 @@ export function registerCastSessionRoutes(
         headers: fuente.headers ?? {},
         kind: fuente.kind,
       }
+
+      for (const pista of fuente.subtitles ?? []) {
+        pistasFuente.push({
+          url: pista.url,
+          headers: fuente.headers ?? {},
+          lang: pista.lang,
+          label: pista.label,
+        })
+      }
     }
 
     const bases = (options.urls ?? lanUrls)(getPort()).filter(utilParaLaTv)
@@ -225,7 +272,18 @@ export function registerCastSessionRoutes(
       url: origen.url,
       headers: origen.headers,
     })
-    const session = options.container.castSessions.create(videoTicket)
+    const subtitulos = pistasFuente.map((pista) => ({
+      ticket: options.container.castSubtitleTickets.issue({
+        url: pista.url,
+        headers: pista.headers,
+      }),
+      lang: pista.lang,
+      label: pista.label,
+    }))
+    const session = options.container.castSessions.create(
+      videoTicket,
+      subtitulos.map((subtitulo) => subtitulo.ticket),
+    )
 
     c.header('cache-control', 'no-store')
 
@@ -237,7 +295,12 @@ export function registerCastSessionRoutes(
         expiresAt: session.expiresAt,
         ...(parsed.data.title === undefined ? {} : { title: parsed.data.title }),
         ...(parsed.data.poster === undefined ? {} : { poster: parsed.data.poster }),
-        subtitles: [],
+        subtitles: subtitulos.map((subtitulo, indice) => ({
+          id: String(indice),
+          url: `${bases[0] ?? ''}/stream/${subtitulo.ticket}/sub/0`,
+          lang: subtitulo.lang,
+          label: subtitulo.label,
+        })),
       }),
     )
   })
@@ -249,7 +312,86 @@ export function registerCastSessionRoutes(
     }
 
     options.container.castTickets.revoke(session.videoTicket)
+    for (const ticket of session.subtitleTickets) {
+      options.container.castSubtitleTickets.revoke(ticket)
+    }
 
     return c.body(null, 204)
+  })
+
+  app.get('/stream/:ticket/sub/:index', async (c) => {
+    const ticket = c.req.param('ticket') ?? ''
+    const indice = Number(c.req.param('index'))
+
+    if (!Number.isInteger(indice) || indice !== 0) {
+      return c.json(errorResponseSchema.parse({ error: 'esa pista de subtítulo no existe' }), 404)
+    }
+
+    const salida = options.container.castSubtitleTickets.resolve(ticket)
+    if (!salida.ok) {
+      return c.json(
+        errorResponseSchema.parse({
+          error:
+            salida.kind === 'expired'
+              ? 'el subtítulo caducó; vuelve a emitir'
+              : 'ese subtítulo no existe',
+        }),
+        salida.kind === 'expired' ? 410 : 404,
+      )
+    }
+
+    const tipo = subtitleKind(salida.contents.url)
+    if (tipo === 'ass') {
+      return c.json(
+        errorResponseSchema.parse({
+          error: 'la TV no admite subtítulos ASS; usa una pista SRT o VTT',
+        }),
+        415,
+      )
+    }
+
+    try {
+      const upstream = await fetchAllowed({
+        url: salida.contents.url,
+        headers: { ...salida.contents.headers, 'accept-encoding': 'identity' },
+        fetchImpl:
+          options.fetchImpl ??
+          createPinnedFetch({
+            ...(options.resolver === undefined ? {} : { resolver: options.resolver }),
+          }),
+        ...(options.resolver === undefined ? {} : { resolver: options.resolver }),
+      })
+
+      if (!upstream.ok) {
+        return new Response(upstream.body, {
+          status: upstream.status,
+          headers: { 'x-content-type-options': 'nosniff' },
+        })
+      }
+
+      const bytes = new Uint8Array(await upstream.arrayBuffer())
+      if (bytes.byteLength > MAX_SUBTITLE_BYTES) {
+        return c.json(
+          errorResponseSchema.parse({ error: subtitleTooLarge(bytes.byteLength).message }),
+          413,
+        )
+      }
+
+      const { text } = decodeSubtitle(bytes)
+      const cuerpo = tipo === 'srt' ? srtToVtt(text) : text
+
+      c.header('content-type', 'text/vtt; charset=utf-8')
+      c.header('x-content-type-options', 'nosniff')
+      c.header('cache-control', 'no-store')
+
+      return c.body(cuerpo)
+    } catch (cause) {
+      return c.json(
+        errorResponseSchema.parse({
+          error: cause instanceof Error ? cause.message : String(cause),
+        }),
+        502,
+      )
+    }
   })
 }
