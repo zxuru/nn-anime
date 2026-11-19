@@ -116,7 +116,7 @@ POST /api/cast/session
 - `urls` es `http://<ipv4>:<puerto>/stream/<ticket>` por cada IPv4 útil. Todas apuntan al mismo
   ticket; el emisor elige la que pruebe.
 - `subtitles` es `[{ id, url, lang, label }]`, con una URL absoluta por pista y un ticket de
-  subtítulo; como mucho 16 pistas por sesión. T381 lo devuelve vacío; T388 lo llena.
+  subtítulo; como mucho 16 pistas por sesión. T381 lo devuelve vacío; T394 lo llena.
 - `DELETE /api/cast/session/:id` revoca el video y los subtítulos; 204 si estaba vivo, 404 si ya no.
   No hay `DELETE` de una sesión ajena: el `id` sólo lo conoce quien lo pidió.
 - Sin `RONA_CAST=1`, sin LAN o sin token: 409 con el motivo, y no se emite nada.

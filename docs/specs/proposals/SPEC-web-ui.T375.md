@@ -43,7 +43,7 @@ Toca **`SPEC-web-ui`** (mando de PiP, mando de emisión, CSP) y, en la parte de 
 | Riesgo nuevo | CSP + confianza en Google | Ninguno | Red local + XML | Ninguno |
 
 **Recomendación:** **Cast SDK para Chromecast**, detrás de `RONA_CAST=1`; **Remote
-Playback/AirPlay completo para Safari** (HLS y MP4) y **DLNA sólo como propuesta T392**. La razón es
+Playback/AirPlay completo para Safari** (HLS y MP4) y **DLNA sólo como propuesta T398**. La razón es
 la única que ordena el resto: el HLS del catálogo no se puede emitir sin SDK, y el usuario que pide
 «transmitir» tiene una TV, no otra pestaña de RoNa.
 
@@ -72,7 +72,7 @@ los saltos, el siguiente episodio y la reconexión.
   `webkitSupportsPresentationMode('picture-in-picture')`. Sin ninguna de las dos, no hay mando.
 - El PiP no cambia la CSP, ni el contrato HTTP, ni el modelo de datos.
 
-### Transmitir (T380–T390)
+### Transmitir (T380–T399)
 
 - `GET /api/cast/info` (sólo con sesión normal):
   `{ available: boolean, urls: string[], reason?: 'disabled' | 'loopback' | 'no-token' }`.
@@ -105,7 +105,7 @@ los saltos, el siguiente episodio y la reconexión.
 - `onPlay`, `onPause`, `onProgress`, `onDuration` y `onEnded` salen del estado del cast, para que el
   historial y la presencia sigan funcionando.
 
-#### Subtítulos (T388)
+#### Subtítulos (T394)
 
 - La sesión devuelve `subtitles: [{ id, url, lang, label }]` con URLs absolutas de LAN y tickets
   revocables; cada subtítulo es un ticket de emisión.
@@ -114,7 +114,7 @@ los saltos, el siguiente episodio y la reconexión.
 - La pista por defecto es la misma que la local; sin pistas, no se manda ninguna.
 - Si el receptor no pinta VTT, se oculta el selector de la TV y se dice; no se promete.
 
-#### Progreso, saltos y siguiente (T389)
+#### Progreso, saltos y siguiente (T395)
 
 - La posición del receptor alimenta el historial cada 15 s y al pausar, buscar y parar.
 - El salto automático de intro/ending y el botón de saltar usan la posición del cast, una vez por
@@ -123,7 +123,7 @@ los saltos, el siguiente episodio y la reconexión.
   la tarjeta del siguiente sin cortar la sesión.
 - La presencia de Discord sigue el estado del cast por los mismos callbacks.
 
-#### Reconexión (T390)
+#### Reconexión (T396)
 
 - Al iniciar una emisión se guarda una marca local; al abrir `/watch` con la marca y `RONA_CAST=1` se
   carga el SDK y se adopta la sesión con `getCurrentSession`. Sin marca no se carga el guion.
@@ -189,11 +189,11 @@ El detalle y los casos de prueba están en [`SPEC-media-proxy.T375.md`](SPEC-med
 
 ## Lo que no entra
 
-- **DLNA implementado.** Sólo propuesta y spike (T392); la pila SSDP/SOAP no entra sin su propia
+- **DLNA implementado.** Sólo propuesta y spike (T398); la pila SSDP/SOAP no entra sin su propia
   decisión.
-- **Descargas locales en la TV.** Su ruta no tiene ticket de emisión; T393 es una propuesta y la v1
+- **Descargas locales en la TV.** Su ruta no tiene ticket de emisión; T399 es una propuesta y la v1
   emite lo que resuelve el proveedor.
-- **Emisor móvil sin TLS.** Chrome de Android exige contexto seguro; T391 mide y documenta la vía TLS
+- **Emisor móvil sin TLS.** Chrome de Android exige contexto seguro; T397 mide y documenta la vía TLS
   con un certificado de confianza, pero no se promete si el Chromecast no confía en él.
 - **La app de escritorio.** WebView2 no trae el ecosistema de Cast del navegador; T378 lo mide y, si
   no, se ofrece abrir en el navegador. No se promete.
