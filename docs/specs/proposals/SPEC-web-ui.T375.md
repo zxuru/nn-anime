@@ -113,6 +113,10 @@ que el receptor exige CORS:
   cookie;
 - se declara en `SECURITY.md` como superficie nueva y se mide con una petición real del receptor.
 
+Además, todas las respuestas llevan hoy `Cross-Origin-Resource-Policy: same-origin`; si el receptor
+es una página web, puede bloquear el medio aunque CORS esté bien. T379 lo mide y, si hace falta, se
+cambia a `cross-origin` **sólo** en el ticket de emisión.
+
 El detalle y los casos de prueba están en [`SPEC-media-proxy.T375.md`](SPEC-media-proxy.T375.md).
 
 ## Modelo de amenaza
@@ -133,6 +137,8 @@ El detalle y los casos de prueba están en [`SPEC-media-proxy.T375.md`](SPEC-med
 - **Subtítulos en la TV.** Los `<track>` apuntan al proxy local; la TV no los pide. La v1 emite
   imagen y sonido y lo dice en la interfaz.
 - **Descargas locales.** Su ruta no tiene ticket de emisión; se abre otra tarea si se quiere.
+- **Emitir desde el móvil.** La interfaz se abre por `http://192.168...`, que no es contexto seguro;
+  el SDK no está y el mando no aparece. Se dice; exigiría TLS.
 - **La app de escritorio.** WebView2 no trae el ecosistema de Cast del navegador; T378 lo mide y, si
   no, se ofrece abrir en el navegador. No se promete.
 - **DLNA.** Se puede proponer después con su propio spike; no se mezcla con esta fase.
