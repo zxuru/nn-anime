@@ -375,58 +375,88 @@ jobs:
   # digest. Fijarla por digest obliga a actualizarla a mano con cada parche de seguridad, y
   # `dependabot.yml` todavía no tiene un ecosistema `docker` que proponga el digest nuevo; sin esa
   # pieza, un digest congelado es una imagen que envejece en silencio. Se decide cuando exista.
+  #
+  # R6: las dos arquitecturas se **arrancan**, no sólo se construyen. La de arm64 corre bajo
+  # QEMU en el mismo runner; sin esto, un `Dockerfile` que compila para arm64 pero falla al
+  # arrancar —una dependencia nativa, un `USER` que no existe— se descubría el día de la release.
   docker:
     needs: cambios
     if: needs.cambios.outputs.codigo == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Preparar QEMU para arm64
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
 
       - name: Preparar Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       # `load: true` y no `push`: la imagen tiene que existir en el `docker` local para poder
       # arrancarla. `ignore-error` en `cache-to` porque en un PR desde un fork la caché es de sólo
-      # lectura y un fallo al escribirla no debe tumbar la comprobación.
-      - name: Construir la imagen
+      # lectura y un fallo al escribirla no debe tumbar la comprobación. Son dos builds y no uno
+      # multi-arquitectura porque `load` no admite más de una plataforma; la caché es la misma.
+      - name: Construir la imagen amd64
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v6
         with:
           context: .
           file: ./Dockerfile
+          platforms: linux/amd64
           load: true
           tags: rona:ci
           cache-from: type=gha,scope=rona-ci
           cache-to: type=gha,mode=max,scope=rona-ci,ignore-error=true
 
-      # Arrancarla y pedirle las tres cosas que importan: salud sin credencial,
-      # 401 sin token y la interfaz con la cookie del login.
-      - name: Arrancar y comprobar salud, 401 y login
+      - name: Construir la imagen arm64
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/arm64
+          load: true
+          tags: rona:ci-arm64
+          cache-from: type=gha,scope=rona-ci
+          cache-to: type=gha,mode=max,scope=rona-ci,ignore-error=true
+
+      # Arrancarlas y pedirles las tres cosas que importan: salud sin credencial,
+      # 401 sin token y la interfaz con la cookie del login. El mismo guion para las dos
+      # arquitecturas; si una falla, el nombre del contenedor dice cuál.
+      - name: Arrancar y comprobar salud, 401 y login (amd64 y arm64)
         run: |
           set -euo pipefail
           TOKEN="token-de-prueba-$(date +%s)"
-          docker run -d --name rona-ci -p 127.0.0.1:18080:8080 \
-            -e RONA_TOKEN="$TOKEN" rona:ci
           # Si algo falla, el registro del contenedor es lo que dice por qué;
           # borrarlo sin leerlo deja un «curl: (7)» y ninguna causa.
-          trap 'docker logs rona-ci 2>&1 || true; docker inspect --format "{{.State.Status}} exit={{.State.ExitCode}}" rona-ci 2>&1 || true; docker rm -f rona-ci >/dev/null 2>&1 || true' EXIT
+          trap 'for n in rona-ci rona-ci-arm64; do docker logs "$n" 2>&1 || true; docker inspect --format "{{.State.Status}} exit={{.State.ExitCode}}" "$n" 2>&1 || true; docker rm -f "$n" >/dev/null 2>&1 || true; done' EXIT
 
-          for _ in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:18080/healthz >/dev/null 2>&1; then break; fi
-            sleep 1
+          for caso in "rona:ci linux/amd64 18080 rona-ci" "rona:ci-arm64 linux/arm64 18081 rona-ci-arm64"; do
+            read -r imagen plataforma puerto nombre <<< "$caso"
+            echo "== $imagen ($plataforma)"
+            docker run -d --name "$nombre" --platform "$plataforma" -p "127.0.0.1:$puerto:8080" \
+              -e RONA_TOKEN="$TOKEN" "$imagen"
+
+            # arm64 bajo QEMU tarda más en arrancar: sesenta segundos de margen, uno por vuelta.
+            for _ in $(seq 1 60); do
+              if curl -fsS "http://127.0.0.1:$puerto/healthz" >/dev/null 2>&1; then break; fi
+              sleep 1
+            done
+
+            curl -fsS "http://127.0.0.1:$puerto/healthz" | grep -q '"status":"ok"'
+            test "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$puerto/")" = "401"
+            test "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$puerto/api/health")" = "401"
+            curl -fsS "http://127.0.0.1:$puerto/login" | grep -q 'name="token"'
+
+            curl -s -D /tmp/cabeceras -o /dev/null -X POST -d "token=$TOKEN" \
+              "http://127.0.0.1:$puerto/login"
+            grep -qi 'set-cookie: nn_session=' /tmp/cabeceras
+            curl -fsS -b "nn_session=$TOKEN" "http://127.0.0.1:$puerto/" | grep -q 'id="root"'
+
+            docker logs "$nombre"
+            docker rm -f "$nombre" >/dev/null
           done
-
-          curl -fsS http://127.0.0.1:18080/healthz | grep -q '"status":"ok"'
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/)" = "401"
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/api/health)" = "401"
-          curl -fsS http://127.0.0.1:18080/login | grep -q 'name="token"'
-
-          curl -s -D /tmp/cabeceras -o /dev/null -X POST -d "token=$TOKEN" \
-            http://127.0.0.1:18080/login
-          grep -qi 'set-cookie: nn_session=' /tmp/cabeceras
-          curl -fsS -b "nn_session=$TOKEN" http://127.0.0.1:18080/ | grep -q 'id="root"'
-
-          docker logs rona-ci
 
       - name: Validar el compose de ejemplo
         env:

@@ -57,6 +57,8 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       publicar: ${{ steps.version.outputs.publicar }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      docker_tags: ${{ steps.version.outputs.docker_tags }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -124,12 +126,32 @@ jobs:
             publicar="${PUBLICAR:-false}"
           fi
 
+          # Un prerelease (`1.2.3-rc.1`) no mueve `latest`: ni el alias de la imagen ni la
+          # release «latest» de GitHub pueden apuntar a un binario de prueba mientras la
+          # última estable siga siendo la que la gente instala. La versión exacta sí se
+          # publica en los dos sitios, para poder probarla.
+          case "$version" in
+            *-*) prerelease=true ;;
+            *) prerelease=false ;;
+          esac
+
+          docker_tags="ghcr.io/zxuru/rona:$version"
+          if [ "$prerelease" = false ]; then
+            # El salto va escapado y no dentro de las comillas: una línea a columna cero cerraría
+            # el bloque `run: |` del YAML y el workflow no cargaría.
+            docker_tags="$docker_tags"$'\n'"ghcr.io/zxuru/rona:latest"
+          fi
+
           {
             echo "version=$version"
             echo "tag=$tag"
             echo "publicar=$publicar"
+            echo "prerelease=$prerelease"
+            echo "docker_tags<<FIN_TAGS"
+            echo "$docker_tags"
+            echo "FIN_TAGS"
           } >> "$GITHUB_OUTPUT"
-          echo "Se va a construir la $version ($tag); publicar: $publicar"
+          echo "Se va a construir la $version ($tag); publicar: $publicar; prerelease: $prerelease"
 
       - name: Auditar las dependencias
         # Bun audita por versión y no detecta el parche local que mitiga este ReDoS.
@@ -153,11 +175,9 @@ jobs:
   # para las dos. Con `publish` sin marcar se construye igual, sin subir nada: es la forma de
   # probar la cadena sin gastar un tag.
   #
-  # Pendiente (R6), declarado y no inventado: la imagen arm64 se **construye** pero no se
-  # **arranca**. El smoke de contenedor sólo existe en `ci.yml` y para amd64; probar la otra
-  # arquitectura exige QEMU en este runner y no se ha medido todavía. Y `latest` se asigna en
-  # cualquier tag, también en una prerelease: corregirlo exige decidir si el alias debe quedarse
-  # en la última estable, y esa decisión no se toma a ciegas desde aquí.
+  # R6, cerrado: la imagen arm64 se arranca en `ci.yml` bajo QEMU y aquí `latest` sólo se
+  # etiqueta cuando la versión no es un prerelease. Antes se construía arm64 sin ejecutarla y
+  # cualquier tag movía el alias, también una `-rc.1`.
   docker:
     needs: comprobar
     runs-on: ubuntu-latest
@@ -191,9 +211,8 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ needs.comprobar.outputs.publicar == 'true' }}
-          tags: |
-            ghcr.io/zxuru/rona:${{ needs.comprobar.outputs.version }}
-            ghcr.io/zxuru/rona:latest
+          # La lista la compone `comprobar`: `latest` no entra si la versión es un prerelease.
+          tags: ${{ needs.comprobar.outputs.docker_tags }}
           labels: |
             org.opencontainers.image.version=${{ needs.comprobar.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -561,6 +580,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.comprobar.outputs.tag }}
           VERSION: ${{ needs.comprobar.outputs.version }}
+          PRERELEASE: ${{ needs.comprobar.outputs.prerelease }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -694,9 +714,15 @@ jobs:
           fi
 
           # Sólo cuando los assets están comprobados se quita el borrador: una release
-          # publicada a medias no se puede arreglar sin borrarla.
+          # publicada a medias no se puede arreglar sin borrarla. Un prerelease se marca como
+          # tal y no mueve «latest»; la estable sí.
+          if [ "$PRERELEASE" = 'true' ]; then
+            make_latest=false
+          else
+            make_latest=true
+          fi
           gh api --method PATCH "repos/$REPO/releases/$borrador" \
-            -F draft=false -F make_latest=true >/dev/null
+            -F draft=false -F prerelease="$PRERELEASE" -F make_latest="$make_latest" >/dev/null
 
           sigue_borrador="$(gh api "repos/$REPO/releases/$borrador" --jq '.draft')"
           if [ "$sigue_borrador" != "false" ]; then
