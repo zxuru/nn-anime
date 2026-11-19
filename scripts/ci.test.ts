@@ -129,6 +129,7 @@ const WORKFLOWS = join(ROOT, '.github', 'workflows')
 interface PasoWorkflow {
   readonly name?: string
   readonly id?: string
+  readonly if?: string
   readonly run?: string
   readonly uses?: string
   readonly with?: Readonly<Record<string, unknown>>
@@ -369,6 +370,46 @@ describe('el CI no repite trabajo (R7)', () => {
     const guion = (e2e?.steps ?? []).map((paso) => paso.run ?? '').join('\n')
     expect(guion.match(/bun run e2e:install/g)?.length).toBe(1)
     expect(guion).toContain('matrix.comando')
+  })
+})
+
+/**
+ * El árbol de Rust se compila una vez (R7 residual).
+ *
+ * `desktop/` marcaba `packaging`, así que `empaquetado` y `desktop` compilaban Tauri en la misma
+ * PR. Ahora el listón de Rust vive en `empaquetado`, que ya tenía que compilar el anfitrión para el
+ * artefacto, y el trabajo `desktop` desaparece. Lo que se defiende aquí es que no vuelva el segundo
+ * trabajo, que el listón siga existiendo y que macOS siga siendo opcional.
+ */
+describe('el árbol de Rust se compila una vez', () => {
+  test('no queda un segundo trabajo que compile Tauri', () => {
+    const trabajos = trabajosDe('ci.yml')
+
+    expect(trabajos.has('desktop')).toBe(false)
+    // Y nadie sigue leyendo su matriz, que ya no existe.
+    expect(guionDe('ci.yml', 'cambios')).not.toContain('desktop_os')
+  })
+
+  test('el listón de Rust vive en el trabajo que ya compila el anfitrión', () => {
+    const pasos = trabajosDe('ci.yml').get('empaquetado')?.steps ?? []
+    const liston = pasos.find((paso) => paso.name === 'Listón del anfitrión')
+
+    expect(liston?.run).toBe('bun run desktop:check')
+    // Sólo cuando cambió `desktop/`: en un PR que no toca Rust no se paga clippy ni `cargo test`.
+    expect(liston?.if).toContain('needs.cambios.outputs.desktop')
+
+    // Y el anfitrión se sigue compilando para el artefacto: el listón no lo sustituye.
+    const anfitrion = pasos.find((paso) => paso.name === 'Compilar el anfitrión')
+    expect(anfitrion?.run).toContain('desktop:build')
+  })
+
+  test('macOS sigue siendo opcional y no se paga sin pedirlo', () => {
+    const guion = guionDe('ci.yml', 'cambios')
+
+    expect(guion).toContain('CI_MACOS_EN_PR')
+    expect(guion).toContain('macos-latest')
+    // La lista de macOS sólo aparece en la rama que exige la variable y el cambio de Rust.
+    expect(guion).toContain('"$desktop" = true')
   })
 })
 

@@ -517,16 +517,19 @@ describe('el anfitrión de ventana', () => {
   test('el CI compila y mide el árbol de Rust', async () => {
     // Esta es la guarda que más importa del archivo. El anfitrión vive fuera de
     // `packages/`, así que `tsc`, `bun test` y biome no ven una línea suya: si
-    // desaparece este trabajo, el módulo se queda sin nadie que lo mida y nada
+    // desaparece el listón de Rust, el módulo se queda sin nadie que lo mida y nada
     // más lo delata. Quitarlo pone esta prueba en rojo.
+    //
+    // Y se mide **una sola vez**: el listón vive en `empaquetado`, que ya compila el
+    // anfitrión para el artefacto. Un segundo trabajo `desktop` lo compilaba otra vez
+    // en el mismo PR; si reaparece, esta prueba lo dice.
     const ci = await leer(join(ROOT, '.github', 'workflows', 'ci.yml'))
 
-    expect(ci).toContain('\n  desktop:')
+    expect(ci).not.toContain('\n  desktop:')
     expect(ci).toContain('bun run desktop:check')
     expect(ci).toContain('bun run desktop:build')
-    // El trabajo `desktop` mide el árbol de Rust, no empaqueta: compila sin
-    // servidor. El `empaquetado` sí lo exige.
-    expect(ci).toContain('bun run desktop:build --sin-servidor')
+    // El listón sólo se paga cuando cambió el árbol de Rust.
+    expect(ci).toContain("needs.cambios.outputs.desktop == 'true'")
   })
 
   test('el servidor va en un Job Object y el sidecar lo mete ahí (T232)', async () => {
