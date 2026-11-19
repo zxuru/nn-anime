@@ -243,8 +243,8 @@ de Google y la CSP es la de siempre. La guía y la matriz de lo que funciona est
   web puede exigir CORS o rechazar `Cross-Origin-Resource-Policy: same-origin`; hasta que T379 lo
   mida, la función no se anuncia como completa. En LAN sin TLS el vídeo y el ticket viajan sin
   cifrar. El emisor debe abrirse en loopback para que el SDK exista; desde la IP de la LAN puede no
-  ofrecerse. Los subtítulos, el progreso, la reconexión y AirPlay son tareas posteriores
-  (T394–T396, T387).
+  ofrecerse. AirPlay (T387) y el encadenado automático del siguiente episodio (T395b) son tareas
+  posteriores.
 
 ## Qué no hace esta aplicación
 
