@@ -15,7 +15,7 @@ git show <commit>^:tasks/done/T56.md
 ```
 
 Las tareas del plan vigente siguen cerrándose en `tasks/todo.md`; las de planes anteriores se
-quedan identificadas aquí. **271 fragmentos indexados**; 230 se identifican
+quedan identificadas aquí. **272 fragmentos indexados**; 231 se identifican
 sólo en este índice y su contenido vive en la historia.
 
 | Id | Título | Commit | Verificación | Dónde vive |
@@ -291,3 +291,4 @@ sólo en este índice y su contenido vive en la historia.
 | T401 | T401 — el cast cambia de audio y se recupera de la desconexión | fix(cast): cambiar de audio y recuperar la sesión (T401). | `bun test packages/web/src/features/player/cast` **27 pasan** · `bun test packages/web` **1454 pasan** · `bunx playwright test cast.e2e.ts airplay.e2e.ts` **5 pasan** · typecheck 0 · lint 0 · mutaciones: sin escuchar `SESSION_ENDED`, sin reutilizar la sesión al cambiar de audio y sin conservar la posición, sus pruebas en rojo. Medido con SDK falso; la TV real es T379. | este índice |
 | T402 | T402 — el cast dice por qué no puede y no deja mandos muertos | fix(cast): decir cuando no hay dispositivos y explicar la velocidad (T402). | `bun test packages/web/src/features/player/cast` **28 pasan** · `bun test packages/web` **1456 pasan** · `bunx playwright test cast.e2e.ts airplay.e2e.ts` **6 pasan** · typecheck 0 · lint 0 · mutaciones: quitar el traductor deja el aviso con el texto crudo; volver a la lista deshabilitada deja sin la nota de velocidad. | este índice |
 | T404 | T404 — el e2e de la cifra del top, sin depender de la base | test(web): el e2e de la cifra del top no depende de la base (T404). | `bunx playwright test home.e2e.ts --trace=off --repeat-each=3` **76 pasan, 0 fallan** · typecheck 0 · biome check 0 · `bun test packages/web/src/features/home` **141 pasan, 0 fallan** · mutación: subir la cifra 200 px deja el caso en rojo («se sale por arriba», −191,59 px). La prueba sirve su propio top por `**/api/trending**` y espera a las piezas. | este índice |
+| T406 | T406 — el e2e honra `--shard` y el CI no corre la suite dos veces | fix(ci): el e2e honra --shard y la matriz suma la suite (T406). | `bun run e2e --list --shard=1/2` **106** y `--shard=2/2` **106**; sin shard **211** · las dos mitades ejecutadas **106 + 106 pasan, 0 fallan**, con 105 nombres de `[chromium]` únicos en cada una y el `setup` una vez por trabajo · `bun test scripts` **224 pasan** · typecheck 0 · lint 0 errores (6 avisos previos) · mutación: sin reenviar los argumentos, 2 de 3 pruebas en rojo. | este índice |
