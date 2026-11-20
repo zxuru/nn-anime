@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, setDefaultTimeout, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,6 +9,9 @@ import { type AppOptions, createApp } from '../app'
 import type { ServerContainer } from '../container'
 import { createContainer } from '../container'
 import { SESSION_COOKIE, type Session } from '../session'
+import { TIEMPO_DE_PRUEBA_MS } from './tiempo-de-prueba'
+
+setDefaultTimeout(TIEMPO_DE_PRUEBA_MS)
 
 const PORT = 7717
 const BASE = `http://127.0.0.1:${PORT}`

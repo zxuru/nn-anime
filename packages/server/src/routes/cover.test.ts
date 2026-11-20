@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, setDefaultTimeout, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -8,6 +8,9 @@ import { MAX_COVER_BYTES, RASTER_TYPES } from '@rona/media-proxy'
 import { createFixtureProvider } from '@rona/providers-fixture'
 import { createApp, createContainer } from '../index'
 import { COVER_MAX_AGE_S, coverEtag } from './cover'
+import { TIEMPO_DE_PRUEBA_MS } from './tiempo-de-prueba'
+
+setDefaultTimeout(TIEMPO_DE_PRUEBA_MS)
 
 const PORT = 7717
 const SESSION_COOKIE = 'nn_session'

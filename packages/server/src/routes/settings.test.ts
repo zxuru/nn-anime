@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, setDefaultTimeout, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,6 +9,9 @@ import { detalle, porRef } from '@rona/providers-fixture/data'
 import { createApp, createContainer } from '../index'
 import type { PresenceSnapshot } from '../presence/activity'
 import type { PresenceService } from '../presence/service'
+import { TIEMPO_DE_PRUEBA_MS } from './tiempo-de-prueba'
+
+setDefaultTimeout(TIEMPO_DE_PRUEBA_MS)
 
 const PORT = 7717
 const SESSION_COOKIE = 'nn_session'
