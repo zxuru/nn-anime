@@ -9,7 +9,7 @@
  * varias en una prueba corta): el contrato no lo fija y la ruta no lo supone.
  */
 
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, setDefaultTimeout, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -22,6 +22,9 @@ import {
 } from '@rona/core'
 import type { Provider } from '@rona/provider-sdk'
 import { createApp, createContainer } from '../index'
+import { TIEMPO_DE_PRUEBA_MS } from './tiempo-de-prueba'
+
+setDefaultTimeout(TIEMPO_DE_PRUEBA_MS)
 
 const PORT = 7718
 const SESSION_COOKIE = 'nn_session'

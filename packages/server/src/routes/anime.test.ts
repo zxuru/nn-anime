@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, setDefaultTimeout, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -7,6 +7,9 @@ import { animeResponseSchema, episodesResponseSchema } from '@rona/core'
 import { createFixtureProvider } from '@rona/providers-fixture'
 import { createApp, createContainer } from '../index'
 import { findProvider, statusFor } from './anime'
+import { TIEMPO_DE_PRUEBA_MS } from './tiempo-de-prueba'
+
+setDefaultTimeout(TIEMPO_DE_PRUEBA_MS)
 
 const PORT = 7717
 const SESSION_COOKIE = 'nn_session'

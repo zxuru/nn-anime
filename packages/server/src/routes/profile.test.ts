@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, setDefaultTimeout, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -16,6 +16,9 @@ import {
   PROFILE_HISTORY_PREVIEW,
   PROFILE_IMPORT_MAX_BYTES,
 } from './profile'
+import { TIEMPO_DE_PRUEBA_MS } from './tiempo-de-prueba'
+
+setDefaultTimeout(TIEMPO_DE_PRUEBA_MS)
 
 const PORT = 7720
 const SESSION_COOKIE = 'nn_session'
