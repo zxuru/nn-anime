@@ -7,6 +7,13 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.11.1](https://github.com/zxuru/nn-anime/compare/v0.11.0...v0.11.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* **ci:** el e2e honra --shard y la matriz suma la suite (T406) ([3279eb9](https://github.com/zxuru/nn-anime/commit/3279eb98b94d98797eb233d92ebb3b4d119681ba))
+
 ## [0.11.0](https://github.com/zxuru/nn-anime/compare/v0.10.0...v0.11.0) (2026-11-20)
 
 
