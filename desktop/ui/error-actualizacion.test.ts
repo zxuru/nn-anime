@@ -15,7 +15,7 @@ const SIN_VERSION =
 const SIN_ENDPOINTS = 'Updater does not have any endpoints set.'
 const SIN_HTTPS = 'The configured updater endpoint must use a secure protocol like `https`.'
 const DNS =
-  'error sending request for url (https://github.com/zxuru/nn-anime/releases/latest/download/latest.json): error trying to connect: dns error: failed to lookup address information: Name or service not known'
+  'error sending request for url (https://github.com/zxuru/rona/releases/latest/download/latest.json): error trying to connect: dns error: failed to lookup address information: Name or service not known'
 const TIEMPO = 'error sending request for url (https://github.com/…): operation timed out'
 const CORTE = 'error sending request for url (https://github.com/…): connection reset by peer'
 

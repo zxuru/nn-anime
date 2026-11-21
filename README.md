@@ -70,7 +70,7 @@ telemetría.**
 
 **No hay que instalar Node, Bun ni Python**: cada descarga trae dentro el programa entero —la
 interfaz, el servidor y la base de datos—, y todo está en
-[la página de Releases](https://github.com/zxuru/nn-anime/releases). El **motor web** que dibuja la
+[la página de Releases](https://github.com/zxuru/rona/releases). El **motor web** que dibuja la
 ventana sí lo pone el sistema; la tabla de requisitos está justo debajo.
 
 | Sistema | Archivo |

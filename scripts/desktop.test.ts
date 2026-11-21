@@ -470,7 +470,7 @@ describe('el anfitrión de ventana', () => {
     expect(conf).not.toContain('"installerIcon"')
 
     // El updater sigue: lo que ya no hay es un instalador que ejecutar.
-    expect(conf).toContain('https://github.com/zxuru/nn-anime/releases/latest/download/latest.json')
+    expect(conf).toContain('https://github.com/zxuru/rona/releases/latest/download/latest.json')
     expect(conf).toContain('"pubkey"')
   })
 
@@ -500,6 +500,29 @@ describe('el anfitrión de ventana', () => {
     // Y el enlace a la release no se queda fuera en ninguno de los dos casos: es
     // la única salida de una copia que no puede actualizarse sola.
     expect(ui).toContain('mostrarEnlaceUltima()')
+  })
+
+  test('el repositorio de la release se dice igual en el updater, la ventana y la imagen (T408)', async () => {
+    // Un renombrado a medias deja el updater apuntando a un sitio y los enlaces a
+    // otro. Pasó con la 0.10.0: se publicó con `zxuru/rona` antes de que ese
+    // repositorio existiera y esa copia se quedó sin actualizaciones. El endpoint
+    // es la fuente aquí; lo demás tiene que decir lo mismo.
+    const conf = await leer(join(CRATE, 'tauri.conf.json'))
+    const endpoint = /"endpoints":\s*\[\s*"([^"]+)"/.exec(conf)?.[1] ?? ''
+    const repositorio =
+      /^https:\/\/github\.com\/([^/]+\/[^/]+)\/releases\/latest\/download\/latest\.json$/.exec(
+        endpoint,
+      )?.[1]
+
+    expect(repositorio, `endpoint inesperado: ${endpoint}`).toBeDefined()
+
+    const rust = await leer(join(CRATE, 'src', 'actualizacion.rs'))
+    const html = await leer(join(ROOT, 'desktop', 'ui', 'actualizacion.html'))
+    const docker = await leer(join(ROOT, 'Dockerfile'))
+
+    expect(rust).toContain(`const REPOSITORIO: &str = "${repositorio}";`)
+    expect(html).toContain(`https://github.com/${repositorio}/releases`)
+    expect(docker).toContain(`org.opencontainers.image.source="https://github.com/${repositorio}"`)
   })
 
   test('fuera de Windows la ventana cuenta el límite y no consulta el updater (T243)', async () => {
