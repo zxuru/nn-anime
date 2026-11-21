@@ -485,6 +485,23 @@ describe('el anfitrión de ventana', () => {
     expect(ui).not.toContain('INTERVALO_MS')
   })
 
+  test('una comprobación fallida deja el enlace a la release y no se calla si el manifiesto no existe (T407)', async () => {
+    const ui = await leer(join(ROOT, 'desktop', 'ui', 'actualizacion.ts'))
+    const explicador = await leer(join(ROOT, 'desktop', 'ui', 'error-actualizacion.ts'))
+
+    // La 0.10.0 se quedó sin updater porque su endpoint daba 404 y el fallo sólo
+    // iba al registro. Ahora el mensaje del plugin se traduce y se decide si es de
+    // red —se calla al arrancar— o del manifiesto —se enseña—.
+    expect(explicador).toContain('Could not fetch a valid release JSON from the remote')
+    expect(ui).toContain("from './error-actualizacion'")
+    expect(ui).toContain('explicarFallo(mensaje)')
+    expect(ui).toMatch(/if \(manual \|\| fallo\.deConfiguracion\) await mostrarVentana\(\)/)
+
+    // Y el enlace a la release no se queda fuera en ninguno de los dos casos: es
+    // la única salida de una copia que no puede actualizarse sola.
+    expect(ui).toContain('mostrarEnlaceUltima()')
+  })
+
   test('fuera de Windows la ventana cuenta el límite y no consulta el updater (T243)', async () => {
     // Que el módulo **compile** en macOS y Linux lo mide el trabajo `desktop` del
     // CI, que ejecuta `desktop:check` en las tres plataformas; aquí se fija la
