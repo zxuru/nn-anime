@@ -13,9 +13,13 @@
 //   decirlo: no se llama a `check()` y se enlaza a la release para descargar la
 //   versión nueva a mano. Lo decide `contexto.automatica`, que viene de Rust.
 //
-// Los errores no rompen nada: se cuentan en la página (cuando la comprobación la
-// pidió el usuario) y se escriben en el registro del anfitrión con el comando
-// `registrar_actualizacion`.
+// Los errores no rompen nada: se cuentan en la página y se escriben en el
+// registro del anfitrión con el comando `registrar_actualizacion`. Un fallo de
+// red se queda ahí —sin conexión, la aplicación ya lo cuenta—; uno del manifiesto
+// se enseña también al arrancar, porque no se arregla reintentando y el silencio
+// deja a esa copia sin updater y sin que nadie se entere. En los dos casos queda
+// el enlace a la release: es la única salida de una copia que no puede
+// actualizarse sola.
 
 import { Channel, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
@@ -23,6 +27,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { check, type Update } from '@tauri-apps/plugin-updater'
 
 import { entradaPortable } from './camino-actualizacion'
+import { explicarFallo } from './error-actualizacion'
 
 interface Contexto {
   readonly version: string
@@ -100,7 +105,23 @@ function limpiarAcciones(): void {
 function mostrarEnlace(versionNueva: string): void {
   if (contexto === undefined) return
 
+  release.textContent = 'Descargar desde la release'
   release.href = `${contexto.releases}/tag/v${versionNueva}`
+  release.hidden = false
+}
+
+/**
+ * Deja el enlace a la última release cuando el updater no puede hacer su trabajo.
+ *
+ * Sin esto, un fallo de la comprobación deja la ventana con «Reintentar» y nada
+ * más, y quien tiene un endpoint muerto —la 0.10.0 lo tenía— se queda reintentando
+ * un 404 para siempre. La release es lo único que puede sacarle de ahí.
+ */
+function mostrarEnlaceUltima(): void {
+  if (contexto === undefined) return
+
+  release.textContent = 'Descargar la última versión'
+  release.href = `${contexto.releases}/latest`
   release.hidden = false
 }
 
@@ -191,18 +212,24 @@ async function comprobar(manual: boolean): Promise<void> {
     instalar.focus()
   } catch (error) {
     const mensaje = mensajeDe(error)
+    const fallo = explicarFallo(mensaje)
     registrar(`error al comprobar si hay actualizaciones: ${mensaje}`)
 
     // Sin red, sin release publicada o con un latest.json que no cuadra: se cuenta
-    // y la aplicación sigue como estaba. Sólo se enseña si el usuario lo pidió.
-    texto('No se pudo comprobar si hay actualizaciones.', true)
+    // y la aplicación sigue como estaba. El enlace a la release no falta nunca:
+    // es la única salida si esta copia no puede actualizarse sola.
+    texto(fallo.titulo, true)
+    detalle.textContent = fallo.detalle ?? mensaje
+    detalle.hidden = false
+    mostrarEnlaceUltima()
+    reintentar.hidden = false
+    luego.hidden = false
 
-    if (manual) {
-      detalle.textContent = mensaje
-      detalle.hidden = false
-      reintentar.hidden = false
-      await mostrarVentana()
-    }
+    // Un fallo de red al arrancar no abre nada: puede no haber conexión, y la
+    // aplicación ya lo cuenta en su interfaz. Uno del manifiesto sí se enseña:
+    // no hay nada que reintentar y, sin ventana, esa copia se queda sin
+    // actualizaciones sin que nadie lo sepa.
+    if (manual || fallo.deConfiguracion) await mostrarVentana()
   } finally {
     enCurso = false
   }

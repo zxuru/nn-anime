@@ -465,6 +465,10 @@ y se actualizan la URL y el hash en `.github/actions/herramientas/action.yml`, l
     enseña el enlace.
   - **Sin instaladores no hay reserva.** Si la release no trae `windows-x86_64-portable`, no hay nada
     que descargar: la ventana lo dice y deja el enlace a la release.
+  - **Un manifiesto que no existe no se calla.** Si la comprobación falla por el manifiesto —el
+    endpoint apunta a un repositorio que ya no existe, la release no lo publica, la firma no cuadra—
+    la ventana se enseña también al arrancar, con el motivo y el enlace a la release: reintentar no
+    lo arregla. Un fallo de red sólo va al registro, porque sin conexión la aplicación ya lo cuenta.
   - **macOS y Linux no tienen actualización automática, y la ventana lo dice.** `latest.json` sólo
     anuncia `windows-*`, así que allí no se consulta el updater (`check()` no se llama): la ventana
     de actualizaciones existe, se abre desde «Buscar actualizaciones» y cuenta el límite con el
