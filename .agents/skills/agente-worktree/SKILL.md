@@ -67,7 +67,7 @@ tubería de señales. Windows trae uno nativo que sí arranca, y basta apuntarle
 
 ```bash
 git config core.sshCommand 'C:/Windows/System32/OpenSSH/ssh.exe'
-git push --dry-run git@github.com:zxuru/nn-anime.git main:main   # comprueba, no publica nada
+git push --dry-run git@github.com:zxuru/rona.git main:main   # comprueba, no publica nada
 ```
 
 Con eso los `push` —incluidos los que tocan `.github/workflows/`, que por HTTPS exigen el alcance

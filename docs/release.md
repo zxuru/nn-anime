@@ -318,7 +318,7 @@ crear otro release para el mismo tag y falla. Se arregla **re-enlazándolo**, qu
 por id aunque el tag no aparezca:
 
 ```bash
-gh api -X PATCH repos/zxuru/nn-anime/releases/<id> \
+gh api -X PATCH repos/zxuru/rona/releases/<id> \
   -f tag_name=vX.Y.Z -f target_commitish=<sha>
 ```
 
@@ -332,9 +332,9 @@ Con el arreglo en `main` y el listón verde:
 
 ```bash
 # 1. Si el borrador se desvinculó al mover el tag, se vuelve a enlazar por id.
-gh api "repos/zxuru/nn-anime/releases?per_page=100" \
+gh api "repos/zxuru/rona/releases?per_page=100" \
   --jq '.[] | select(.draft) | [.id, .tag_name] | @tsv'
-gh api -X PATCH repos/zxuru/nn-anime/releases/<id> \
+gh api -X PATCH repos/zxuru/rona/releases/<id> \
   -f tag_name=vX.Y.Z -f target_commitish=<sha>
 
 # 2. Y se relanza la release: lo que falló, o el run entero.

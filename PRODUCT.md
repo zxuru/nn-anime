@@ -131,7 +131,7 @@ formato de su señalización.
 
 ## Brand Commitments
 
-- **Nombre:** RoNa, `zxuru/nn-anime`, paquetes `@rona/*`, binario `rona`.
+- **Nombre:** RoNa, `zxuru/rona`, paquetes `@rona/*`, binario `rona`.
 - **Voz:** español directo, sin superlativos ni lenguaje de marketing. Los documentos dicen lo que
   falla, lo que no se midió y lo que se retiró, con el motivo. Un cambio que se descarta se explica
   en vez de borrarse en silencio.

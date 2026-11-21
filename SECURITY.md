@@ -9,7 +9,7 @@ prueba que lo sostiene.
 ## Cómo reportar una vulnerabilidad
 
 **No abras un issue público.** Usa los **avisos privados de seguridad de GitHub**:
-<https://github.com/zxuru/nn-anime/security/advisories/new>. Incluye la versión, el sistema, los
+<https://github.com/zxuru/rona/security/advisories/new>. Incluye la versión, el sistema, los
 pasos para reproducirlo y qué esperabas que pasara; si el fallo está en un plugin y no en este
 repositorio, dilo, porque el contrato y el cargador viven aquí pero el plugin no.
 
