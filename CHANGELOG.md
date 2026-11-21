@@ -7,6 +7,13 @@ está publicando —desde `## [X.Y.Z]` hasta el encabezado siguiente— y la peg
 se escriba aquí es lo que se lee en la página de descargas. La versión la sube `release-please` en los
 diez `package.json`; este archivo lo mantiene él cuando el PR de release se fusiona.
 
+## [0.11.2](https://github.com/zxuru/rona/compare/v0.11.1...v0.11.2) (2026-11-21)
+
+
+### Bug Fixes
+
+* **desktop:** un fallo del manifiesto deja a la vista el enlace a la release (T407) ([d55ea5b](https://github.com/zxuru/rona/commit/d55ea5b407ad301b812dbd1760c6a236c700f7df))
+
 ## [0.11.1](https://github.com/zxuru/nn-anime/compare/v0.11.0...v0.11.1) (2026-11-20)
 
 
